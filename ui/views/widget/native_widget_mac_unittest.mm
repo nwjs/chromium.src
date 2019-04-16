@@ -6,6 +6,7 @@
 
 #import <Cocoa/Cocoa.h>
 
+#include "base/bind.h"
 #import "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
 #import "base/mac/scoped_nsautorelease_pool.h"
@@ -1698,7 +1699,7 @@ TEST_F(NativeWidgetMacTest, NativeProperties) {
                    canBecomeMainWindow]);
 
   // Disabling activation should prevent key and main status.
-  regular_widget->widget_delegate()->set_can_activate(false);
+  regular_widget->widget_delegate()->SetCanActivate(false);
   EXPECT_FALSE([regular_widget->GetNativeWindow().GetNativeNSWindow()
                     canBecomeKeyWindow]);
   EXPECT_FALSE([regular_widget->GetNativeWindow().GetNativeNSWindow()
@@ -1773,8 +1774,8 @@ class CustomTitleWidgetDelegate : public WidgetDelegate {
   // WidgetDelegate:
   base::string16 GetWindowTitle() const override { return title_; }
   bool ShouldShowWindowTitle() const override { return should_show_title_; }
-  Widget* GetWidget() override { return widget_; };
-  const Widget* GetWidget() const override { return widget_; };
+  Widget* GetWidget() override { return widget_; }
+  const Widget* GetWidget() const override { return widget_; }
 
  private:
   Widget* widget_;

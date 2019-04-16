@@ -69,7 +69,10 @@ WebViewPlugin* WebViewPlugin::Create(content::RenderView* render_view,
   WebViewPlugin* plugin = new WebViewPlugin(render_view, delegate, preferences);
   // Loading may synchronously access |delegate| which could be
   // uninitialized just yet, so load in another task.
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner =
+      plugin->web_view_helper_.main_frame()->GetTaskRunner(
+          blink::TaskType::kInternalDefault);
+  task_runner->PostTask(
       FROM_HERE,
       base::BindOnce(&WebViewPlugin::LoadHTML,
                      plugin->weak_factory_.GetWeakPtr(), html_data, url));
@@ -272,6 +275,11 @@ WebViewPlugin::WebViewHelper::WebViewHelper(WebViewPlugin* plugin,
       mojo::MakeRequest(&document_interface_broker).PassMessagePipe(), nullptr);
   // The created WebFrameWidget is owned by the |web_frame|.
   WebFrameWidget::CreateForMainFrame(this, web_frame);
+
+  // The WebFrame created here was already attached to the Page as its
+  // main frame, and the WebFrameWidget has been initialized, so we can call
+  // WebViewImpl's DidAttachLocalMainFrame().
+  web_view_->DidAttachLocalMainFrame(this);
 }
 
 WebViewPlugin::WebViewHelper::~WebViewHelper() {

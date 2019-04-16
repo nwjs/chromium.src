@@ -42,11 +42,13 @@ class CONTENT_EXPORT TtsControllerImpl : public TtsController {
   bool IsSpeaking() override;
   void SpeakOrEnqueue(TtsUtterance* utterance) override;
   void Stop() override;
+  void Stop(const GURL& source_url) override;
   void Pause() override;
   void Resume() override;
   void OnTtsEvent(int utterance_id,
                   TtsEventType event_type,
                   int char_index,
+                  int length,
                   const std::string& error_message) override;
   void GetVoices(BrowserContext* browser_context,
                  std::vector<VoiceData>* out_voices) override;

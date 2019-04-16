@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.init;
 
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -18,10 +17,8 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.support.annotation.CallSuper;
 import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
 import android.view.Display;
 import android.view.Menu;
-import android.view.Surface;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.ViewTreeObserver.OnPreDrawListener;
@@ -36,6 +33,7 @@ import org.chromium.base.library_loader.LoaderErrors;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeApplication;
+import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.WarmupManager;
@@ -55,8 +53,8 @@ import java.lang.reflect.Field;
 /**
  * An activity that talks with application and activity level delegates for async initialization.
  */
-public abstract class AsyncInitializationActivity extends AppCompatActivity implements
-        ChromeActivityNativeDelegate, BrowserParts {
+public abstract class AsyncInitializationActivity
+        extends ChromeBaseAppCompatActivity implements ChromeActivityNativeDelegate, BrowserParts {
     private static final String TAG = "AsyncInitActivity";
     protected final Handler mHandler;
 
@@ -75,7 +73,7 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
     private ActivityWindowAndroid mWindowAndroid;
     private ModalDialogManager mModalDialogManager;
     private Bundle mSavedInstanceState;
-    private int mCurrentOrientation = Surface.ROTATION_0;
+    private int mCurrentOrientation;
     private boolean mDestroyed;
     private long mLastUserInteractionTime;
     private boolean mIsTablet;
@@ -114,29 +112,21 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
         mLifecycleDispatcher.dispatchOnDestroy();
     }
 
-    @CallSuper
     @Override
-    @TargetApi(Build.VERSION_CODES.N)
-    protected void attachBaseContext(Context newBase) {
-        super.attachBaseContext(newBase);
+    @CallSuper
+    protected boolean applyOverrides(Context baseContext, Configuration overrideConfig) {
+        super.applyOverrides(baseContext, overrideConfig);
 
         // We override the smallestScreenWidthDp here for two reasons:
         // 1. To prevent multi-window from hiding the tabstrip when on a tablet.
         // 2. To ensure mIsTablet only needs to be set once. Since the override lasts for the life
         //    of the activity, it will never change via onConfigurationUpdated().
         // See crbug.com/588838, crbug.com/662338, crbug.com/780593.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            DisplayAndroid display = DisplayAndroid.getNonMultiDisplay(newBase);
-            int targetSmallestScreenWidthDp =
-                    DisplayUtil.pxToDp(display, DisplayUtil.getSmallestWidth(display));
-            Configuration config = new Configuration();
-            // Pre-Android O, fontScale gets initialized to 1 in the constructor. Set it to 0 so
-            // that applyOverrideConfiguration() does not interpret it as an overridden value.
-            // https://crbug.com/834191
-            config.fontScale = 0;
-            config.smallestScreenWidthDp = targetSmallestScreenWidthDp;
-            applyOverrideConfiguration(config);
-        }
+        DisplayAndroid display = DisplayAndroid.getNonMultiDisplay(baseContext);
+        int targetSmallestScreenWidthDp =
+                DisplayUtil.pxToDp(display, DisplayUtil.getSmallestWidth(display));
+        overrideConfig.smallestScreenWidthDp = targetSmallestScreenWidthDp;
+        return true;
     }
 
     @CallSuper
@@ -534,13 +524,8 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
     }
 
     @Override
-    public boolean isActivityDestroyed() {
-        return mDestroyed;
-    }
-
-    @Override
-    public boolean isActivityFinishing() {
-        return isFinishing();
+    public boolean isActivityFinishingOrDestroyed() {
+        return mDestroyed || isFinishing();
     }
 
     @Override
@@ -622,6 +607,7 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
                 && mWindowAndroid.onActivityResult(requestCode, resultCode, intent)) {
             return true;
         }
+        mLifecycleDispatcher.dispatchOnActivityResultWithNative(requestCode, resultCode, intent);
         super.onActivityResult(requestCode, resultCode, intent);
         return false;
     }
@@ -697,9 +683,8 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
     /**
      * Called when the orientation of the device changes.  The orientation is checked/detected on
      * root view layouts.
-     * @param orientation One of {@link Surface#ROTATION_0} (no rotation),
-     *                    {@link Surface#ROTATION_90}, {@link Surface#ROTATION_180}, or
-     *                    {@link Surface#ROTATION_270}.
+     * @param orientation One of {@link Configuration#ORIENTATION_PORTRAIT} or
+     *                    {@link Configuration#ORIENTATION_LANDSCAPE}.
      */
     protected void onOrientationChange(int orientation) {
     }
@@ -712,7 +697,7 @@ public abstract class AsyncInitializationActivity extends AppCompatActivity impl
         if (display == null) return;
 
         int oldOrientation = mCurrentOrientation;
-        mCurrentOrientation = display.getRotation();
+        mCurrentOrientation = getResources().getConfiguration().orientation;
 
         if (oldOrientation != mCurrentOrientation) onOrientationChange(mCurrentOrientation);
     }

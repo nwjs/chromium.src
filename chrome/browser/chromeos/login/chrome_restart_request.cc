@@ -10,6 +10,7 @@
 #include "ash/public/cpp/app_list/app_list_switches.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "base/base_switches.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/weak_ptr.h"
 #include "base/process/launch.h"
@@ -88,7 +89,6 @@ void DeriveCommandLine(const GURL& start_url,
     ::switches::kDisableAcceleratedVideoDecode,
     ::switches::kDisableAcceleratedVideoEncode,
     ::switches::kDisableBlinkFeatures,
-    ::switches::kDisableCastStreamingHWEncoding,
     ::switches::kDisableGpu,
     ::switches::kDisableGpuMemoryBufferVideoFrames,
     ::switches::kDisableGpuShaderDiskCache,
@@ -202,7 +202,6 @@ void DeriveCommandLine(const GURL& start_url,
     chromeos::switches::kEnableArc,
     chromeos::switches::kEnterpriseDisableArc,
     chromeos::switches::kEnterpriseEnableForcedReEnrollment,
-    chromeos::switches::kHasChromeOSDiamondKey,
     chromeos::switches::kHasChromeOSKeyboard,
     chromeos::switches::kLoginProfile,
     chromeos::switches::kNaturalScrollDefault,

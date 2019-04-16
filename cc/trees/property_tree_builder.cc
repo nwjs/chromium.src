@@ -758,11 +758,11 @@ static inline const FilterOperations& BackdropFilters(LayerImpl* layer) {
   return layer->test_properties()->backdrop_filters;
 }
 
-static inline const gfx::RectF& BackdropFilterBounds(Layer* layer) {
+static inline const gfx::RRectF& BackdropFilterBounds(Layer* layer) {
   return layer->backdrop_filter_bounds();
 }
 
-static inline const gfx::RectF& BackdropFilterBounds(LayerImpl* layer) {
+static inline const gfx::RRectF& BackdropFilterBounds(LayerImpl* layer) {
   return layer->test_properties()->backdrop_filter_bounds;
 }
 
@@ -820,7 +820,12 @@ bool ShouldCreateRenderSurface(const MutatorHost& mutator_host,
   }
 
   // If the layer uses a CSS filter.
-  if (!Filters(layer).IsEmpty() || !BackdropFilters(layer).IsEmpty()) {
+  if (!Filters(layer).IsEmpty()) {
+    return true;
+  }
+
+  // If the layer uses a CSS backdrop-filter.
+  if (!BackdropFilters(layer).IsEmpty()) {
     return true;
   }
 

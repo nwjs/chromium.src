@@ -35,7 +35,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_state_observer.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/media/media_controls.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
@@ -59,7 +59,6 @@ class AudioTrackList;
 class AutoplayPolicy;
 class ContentType;
 class CueTimeline;
-class ElementVisibilityObserver;
 class EnumerationHistogram;
 class Event;
 class EventQueue;
@@ -68,6 +67,8 @@ class HTMLMediaElementControlsList;
 class HTMLMediaSource;
 class HTMLSourceElement;
 class HTMLTrackElement;
+class IntersectionObserver;
+class IntersectionObserverEntry;
 class KURL;
 class MediaError;
 class MediaStreamDescriptor;
@@ -87,7 +88,7 @@ class CORE_EXPORT HTMLMediaElement
     : public HTMLElement,
       public Supplementable<HTMLMediaElement>,
       public ActiveScriptWrappable<HTMLMediaElement>,
-      public PausableObject,
+      public ContextLifecycleStateObserver,
       private WebMediaPlayerClient {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(HTMLMediaElement);
@@ -96,6 +97,8 @@ class CORE_EXPORT HTMLMediaElement
  public:
   // Returns attributes that should be checked against Trusted Types
   const AttrNameToTrustedType& GetCheckedAttributeTypes() const override;
+
+  bool IsMediaElement() const override { return true; }
 
   static MIMETypeRegistry::SupportsType GetSupportsType(const ContentType&);
 
@@ -113,7 +116,6 @@ class CORE_EXPORT HTMLMediaElement
 
   void Trace(Visitor*) override;
 
-  void ClearWeakMembers(Visitor*);
   WebMediaPlayer* GetWebMediaPlayer() const { return web_media_player_.get(); }
 
   // Returns true if the loaded media has a video track.
@@ -136,7 +138,6 @@ class CORE_EXPORT HTMLMediaElement
   void ScheduleTextTrackResourceLoad();
 
   bool HasRemoteRoutes() const;
-  bool IsPlayingRemotely() const { return playing_remotely_; }
 
   // error state
   MediaError* error() const;
@@ -197,9 +198,6 @@ class CORE_EXPORT HTMLMediaElement
   ScriptPromise playForBindings(ScriptState*);
   base::Optional<DOMExceptionCode> Play();
   void pause();
-  void RequestRemotePlayback();
-  void RequestRemotePlaybackControl();
-  void RequestRemotePlaybackStop();
   void FlingingStarted();
   void FlingingStopped();
 
@@ -262,10 +260,10 @@ class CORE_EXPORT HTMLMediaElement
   void DisableAutomaticTextTrackSelection();
 
   // EventTarget function.
-  // Both Node (via HTMLElement) and PausableObject define this method, which
-  // causes an ambiguity error at compile time. This class's constructor
-  // ensures that both implementations return document, so return the result
-  // of one of them here.
+  // Both Node (via HTMLElement) and ContextLifecycleStateObserver define this
+  // method, which causes an ambiguity error at compile time. This class's
+  // constructor ensures that both implementations return document, so return
+  // the result of one of them here.
   using HTMLElement::GetExecutionContext;
 
   bool IsFullscreen() const;
@@ -333,6 +331,8 @@ class CORE_EXPORT HTMLMediaElement
   // becomes visible again.
   bool PausedWhenVisible() const;
 
+  void SetCcLayerForTesting(cc::Layer* layer) { SetCcLayer(layer); }
+
  protected:
   HTMLMediaElement(const QualifiedName&, Document&);
   ~HTMLMediaElement() override;
@@ -369,6 +369,7 @@ class CORE_EXPORT HTMLMediaElement
   friend class ContextMenuControllerTest;
   friend class MediaElementFillingViewportTest;
   friend class VideoWakeLockTest;
+  friend class PictureInPictureControllerTest;
 
   void ResetMediaPlayerAndMediaSource();
 
@@ -380,15 +381,14 @@ class CORE_EXPORT HTMLMediaElement
   bool LayoutObjectIsNeeded(const ComputedStyle&) const override;
   LayoutObject* CreateLayoutObject(const ComputedStyle&) override;
   void DidNotifySubtreeInsertionsToDocument() override;
-  void DidRecalcStyle(StyleRecalcChange) final;
+  void DidRecalcStyle(const StyleRecalcChange) final;
 
   bool CanStartSelection() const override { return false; }
 
   bool IsInteractiveContent() const final;
 
-  // PausableObject functions.
-  void ContextPaused(PauseState) override;
-  void ContextUnpaused() override;
+  // ContextLifecycleStateObserver functions.
+  void ContextLifecycleStateChanged(mojom::FrameLifecycleState) override;
   void ContextDestroyed(ExecutionContext*) override;
 
   virtual void UpdateDisplayState() {}
@@ -421,11 +421,6 @@ class CORE_EXPORT HTMLMediaElement
   void RemoveTextTrack(WebInbandTextTrack*) final;
   void MediaSourceOpened(WebMediaSource*) final;
   void RequestSeek(double) final;
-  void RemoteRouteAvailabilityChanged(WebRemotePlaybackAvailability) final;
-  void ConnectedToRemoteDevice() final;
-  void DisconnectedFromRemoteDevice() final;
-  void CancelledRemotePlaybackRequest() final;
-  void RemotePlaybackStarted() final;
   void RemotePlaybackCompatibilityChanged(const WebURL&,
                                           bool is_compatible) final;
   void OnBecamePersistentVideo(bool) override {}
@@ -444,6 +439,7 @@ class CORE_EXPORT HTMLMediaElement
   bool IsInAutoPIP() const override { return false; }
   void RequestPlay() final;
   void RequestPause() final;
+  void RequestMuted(bool muted) final;
 
   void LoadTimerFired(TimerBase*);
   void ProgressEventTimerFired(TimerBase*);
@@ -513,7 +509,7 @@ class CORE_EXPORT HTMLMediaElement
   // Generally the presence of the loop attribute should be considered to mean
   // playback has not "ended", as "ended" and "looping" are mutually exclusive.
   // See
-  // https://html.spec.whatwg.org/multipage/embedded-content.html#ended-playback
+  // https://html.spec.whatwg.org/C/#ended-playback
   enum class LoopCondition { kIncluded, kIgnored };
   bool EndedPlayback(LoopCondition = LoopCondition::kIncluded) const;
 
@@ -559,7 +555,8 @@ class CORE_EXPORT HTMLMediaElement
 
   EnumerationHistogram& ShowControlsHistogram() const;
 
-  void OnVisibilityChangedForLazyLoad(bool);
+  void OnIntersectionChangedForLazyLoad(
+      const HeapVector<Member<IntersectionObserverEntry>>& entries);
 
   void OnRemovedFromDocumentTimerFired(TimerBase*);
 
@@ -670,7 +667,6 @@ class CORE_EXPORT HTMLMediaElement
 
   bool tracks_are_ready_ : 1;
   bool processing_preference_change_ : 1;
-  bool playing_remotely_ : 1;
 
   // The following is always false unless viewport intersection monitoring is
   // turned on via ActivateViewportIntersectionMonitoring().
@@ -692,11 +688,9 @@ class CORE_EXPORT HTMLMediaElement
   HeapVector<Member<ScriptPromiseResolver>> play_promise_reject_list_;
   DOMExceptionCode play_promise_error_code_;
 
-  // This is a weak reference, since audio_source_node_ holds a reference to us.
-  // TODO(Oilpan): Consider making this a strongly traced pointer with oilpan
-  // where strong cycles are not a problem.
-  GC_PLUGIN_IGNORE("http://crbug.com/404577")
-  WeakMember<AudioSourceProviderClient> audio_source_node_;
+  // HTMLMediaElement and its MediaElementAudioSourceNode in case it is provided
+  // die together.
+  Member<AudioSourceProviderClient> audio_source_node_;
 
   // AudioClientImpl wraps an AudioSourceProviderClient.
   // When the audio format is known, Chromium calls setFormat().
@@ -767,7 +761,7 @@ class CORE_EXPORT HTMLMediaElement
   Member<MediaControls> media_controls_;
   Member<HTMLMediaElementControlsList> controls_list_;
 
-  Member<ElementVisibilityObserver> lazy_load_visibility_observer_;
+  Member<IntersectionObserver> lazy_load_intersection_observer_;
 };
 
 inline bool IsHTMLMediaElement(const HTMLElement& element) {

@@ -14,7 +14,7 @@ namespace credential_provider {
 
 class FakeScopedLsaPolicyFactory;
 
-class ScopedLsaPolicy {
+class [[clang::lto_visibility_public]] ScopedLsaPolicy {
  public:
   static std::unique_ptr<ScopedLsaPolicy> Create(ACCESS_MASK mask);
 
@@ -31,6 +31,9 @@ class ScopedLsaPolicy {
 
   // Adds the given right to the given user.
   virtual HRESULT AddAccountRights(PSID sid, const wchar_t* right);
+
+  // Removes the given right from the given user.
+  virtual HRESULT RemoveAccountRights(PSID sid, const wchar_t* right);
 
   // Removes the user account from the system.
   virtual HRESULT RemoveAccount(PSID sid);

@@ -223,10 +223,38 @@ interface AuthenticatorAttestationResponse : AuthenticatorResponse
     attribute @@toStringTag
     getter attestationObject
     method constructor
+    method getTransports
 interface AuthenticatorResponse
     attribute @@toStringTag
     getter clientDataJSON
     method constructor
+interface BackgroundFetchManager
+    attribute @@toStringTag
+    method constructor
+    method fetch
+    method get
+    method getIds
+interface BackgroundFetchRecord
+    attribute @@toStringTag
+    getter request
+    getter responseReady
+    method constructor
+interface BackgroundFetchRegistration : EventTarget
+    attribute @@toStringTag
+    getter downloadTotal
+    getter downloaded
+    getter failureReason
+    getter id
+    getter onprogress
+    getter recordsAvailable
+    getter result
+    getter uploadTotal
+    getter uploaded
+    method abort
+    method constructor
+    method match
+    method matchAll
+    setter onprogress
 interface BarProp
     attribute @@toStringTag
     getter visible
@@ -1138,6 +1166,18 @@ interface DeviceMotionEvent : Event
     getter interval
     getter rotationRate
     method constructor
+interface DeviceMotionEventAcceleration
+    attribute @@toStringTag
+    getter x
+    getter y
+    getter z
+    method constructor
+interface DeviceMotionEventRotationRate
+    attribute @@toStringTag
+    getter alpha
+    getter beta
+    getter gamma
+    method constructor
 interface DeviceOrientationEvent : Event
     attribute @@toStringTag
     getter absolute
@@ -1173,6 +1213,7 @@ interface Document : Node
     getter documentURI
     getter domain
     getter embeds
+    getter featurePolicy
     getter fgColor
     getter firstElementChild
     getter fonts
@@ -2467,6 +2508,7 @@ interface HTMLIFrameElement : HTMLElement
     getter contentDocument
     getter contentWindow
     getter csp
+    getter featurePolicy
     getter frameBorder
     getter height
     getter longDesc
@@ -3603,9 +3645,11 @@ interface InputEvent : UIEvent
     method getTargetRanges
 interface IntersectionObserver
     attribute @@toStringTag
+    getter delay
     getter root
     getter rootMargin
     getter thresholds
+    getter trackVisibility
     method constructor
     method disconnect
     method observe
@@ -3617,6 +3661,7 @@ interface IntersectionObserverEntry
     getter intersectionRatio
     getter intersectionRect
     getter isIntersecting
+    getter isVisible
     getter rootBounds
     getter target
     getter time
@@ -4448,7 +4493,6 @@ interface PaymentAddress
     getter city
     getter country
     getter dependentLocality
-    getter languageCode
     getter organization
     getter phone
     getter postalCode
@@ -4483,6 +4527,7 @@ interface PaymentRequest : EventTarget
     method abort
     method canMakePayment
     method constructor
+    method hasEnrolledInstrument
     method show
     setter onshippingaddresschange
     setter onshippingoptionchange
@@ -4851,16 +4896,37 @@ interface RTCDataChannelEvent : Event
     attribute @@toStringTag
     getter channel
     method constructor
+interface RTCError : DOMException
+    attribute @@toStringTag
+    getter errorDetail
+    getter httpRequestStatusCode
+    getter receivedAlert
+    getter sctpCauseCode
+    getter sdpLineNumber
+    getter sentAlert
+    method constructor
+interface RTCErrorEvent : Event
+    attribute @@toStringTag
+    getter error
+    method constructor
 interface RTCIceCandidate
     attribute @@toStringTag
+    getter address
     getter candidate
+    getter component
+    getter foundation
+    getter port
+    getter priority
+    getter protocol
+    getter relatedAddress
+    getter relatedPort
     getter sdpMLineIndex
     getter sdpMid
+    getter tcpType
+    getter type
+    getter usernameFragment
     method constructor
     method toJSON
-    setter candidate
-    setter sdpMLineIndex
-    setter sdpMid
 interface RTCPeerConnection : EventTarget
     static method generateCertificate
     attribute @@toStringTag
@@ -6317,11 +6383,13 @@ interface ServiceWorkerContainer : EventTarget
     method getRegistration
     method getRegistrations
     method register
+    method startMessages
     setter oncontrollerchange
     setter onmessage
 interface ServiceWorkerRegistration : EventTarget
     attribute @@toStringTag
     getter active
+    getter backgroundFetch
     getter installing
     getter navigationPreload
     getter onupdatefound
@@ -6566,6 +6634,7 @@ interface TextEncoder
     getter encoding
     method constructor
     method encode
+    method encodeInto
 interface TextEncoderStream
     attribute @@toStringTag
     getter encoding

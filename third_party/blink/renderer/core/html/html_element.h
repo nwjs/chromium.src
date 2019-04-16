@@ -109,7 +109,7 @@ class CORE_EXPORT HTMLElement : public Element {
   virtual bool IsHTMLUnknownElement() const { return false; }
   virtual bool IsPluginElement() const { return false; }
 
-  // https://html.spec.whatwg.org/multipage/forms.html#category-label
+  // https://html.spec.whatwg.org/C/#category-label
   virtual bool IsLabelable() const;
   // |labels| IDL attribute implementation for IsLabelable()==true elements.
   LabelsNodeList* labels();
@@ -179,6 +179,7 @@ class CORE_EXPORT HTMLElement : public Element {
   InsertionNotificationRequest InsertedInto(ContainerNode&) override;
   void RemovedFrom(ContainerNode& insertion_point) override;
   void DidMoveToNewDocument(Document& old_document) override;
+  void FinishParsingChildren() override;
 
  private:
   String DebugNodeName() const final;

@@ -115,13 +115,13 @@ void SigninErrorController::OnEndBatchOfRefreshTokenStateChanges() {
 }
 
 void SigninErrorController::OnErrorStateOfRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info,
+    const CoreAccountInfo& account_info,
     const GoogleServiceAuthError& error) {
   Update();
 }
 
 void SigninErrorController::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   // Ignore updates to the primary account if not in PRIMARY_ACCOUNT mode.
   if (account_mode_ != AccountMode::PRIMARY_ACCOUNT)
     return;
@@ -130,7 +130,7 @@ void SigninErrorController::OnPrimaryAccountSet(
 }
 
 void SigninErrorController::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   // Ignore updates to the primary account if not in PRIMARY_ACCOUNT mode.
   if (account_mode_ != AccountMode::PRIMARY_ACCOUNT)
     return;

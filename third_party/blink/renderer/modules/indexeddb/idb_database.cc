@@ -105,7 +105,7 @@ IDBDatabase::IDBDatabase(ExecutionContext* context,
                          v8::Isolate* isolate)
     : ContextLifecycleObserver(context),
       backend_(std::move(backend)),
-      event_queue_(EventQueue::Create(context, TaskType::kInternalIndexedDB)),
+      event_queue_(EventQueue::Create(context, TaskType::kDatabaseAccess)),
       database_callbacks_(callbacks),
       isolate_(isolate) {
   database_callbacks_->Connect(this);
@@ -193,14 +193,15 @@ void IDBDatabase::OnChanges(
   }
 
   for (const auto& map_entry : observation_index_map) {
-    auto it = observers_.find(map_entry.first);
-    if (it != observers_.end()) {
-      IDBObserver* observer = it->value;
+    auto observer_lookup_result = observers_.find(map_entry.first);
+    if (observer_lookup_result != observers_.end()) {
+      IDBObserver* observer = observer_lookup_result->value;
 
       IDBTransaction* transaction = nullptr;
-      auto it = transactions.find(map_entry.first);
-      if (it != transactions.end()) {
-        const std::pair<int64_t, Vector<int64_t>>& obs_txn = it->second;
+      auto transactions_lookup_result = transactions.find(map_entry.first);
+      if (transactions_lookup_result != transactions.end()) {
+        const std::pair<int64_t, Vector<int64_t>>& obs_txn =
+            transactions_lookup_result->second;
         HashSet<String> stores;
         for (int64_t store_id : obs_txn.second) {
           stores.insert(metadata_.object_stores.at(store_id)->name);
@@ -479,7 +480,7 @@ void IDBDatabase::OnVersionChange(int64_t old_version, int64_t new_version) {
     return;
   }
 
-  base::Optional<unsigned long long> new_version_nullable;
+  base::Optional<uint64_t> new_version_nullable;
   if (new_version != IDBDatabaseMetadata::kNoVersion) {
     new_version_nullable = new_version;
   }

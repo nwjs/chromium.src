@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "ash/shell.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/run_loop.h"
@@ -230,7 +231,7 @@ ScreenshotTester::PNGFile ScreenshotTester::LoadGoldenScreenshot(
   base::GetFileSize(image_path, &golden_screenshot_size);
 
   if (golden_screenshot_size == -1) {
-    CHECK(false) << "Can't get golden screenshot size";
+    LOG(FATAL) << "Can't get golden screenshot size";
   }
   scoped_refptr<base::RefCountedBytes> png_data = new base::RefCountedBytes;
   png_data->data().resize(golden_screenshot_size);

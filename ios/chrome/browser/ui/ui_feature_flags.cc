@@ -17,6 +17,9 @@ const base::Feature kBrowserContainerKeepsContentView{
 const base::Feature kOmniboxPopupShortcutIconsInZeroState{
     "OmniboxPopupShortcutIconsInZeroState", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// TODO(crbug.com/945811): Using |-drawViewHierarchyInRect:afterScreenUpdates:|
+// has adverse flickering when taking a snapshot of the NTP while in the app
+// switcher.
 const base::Feature kSnapshotDrawView{"SnapshotDrawView",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 

@@ -64,9 +64,12 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
     kGpu,
     kSoftware,
   };
+  // TODO(cblume, crbug.com/900973): |enable_shared_images| is a temporary
+  // solution that unblocks us until SharedImages are threadsafe in WebView.
   DisplayResourceProvider(Mode mode,
                           ContextProvider* compositor_context_provider,
-                          SharedBitmapManager* shared_bitmap_manager);
+                          SharedBitmapManager* shared_bitmap_manager,
+                          bool enable_shared_images = true);
   ~DisplayResourceProvider() override;
 
   bool IsSoftware() const { return mode_ == kSoftware; }
@@ -109,6 +112,7 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
   GLenum GetResourceTextureTarget(ResourceId id);
   // Return the format of the underlying buffer that can be used for scanout.
   gfx::BufferFormat GetBufferFormat(ResourceId id);
+  const gfx::ColorSpace& GetColorSpace(ResourceId id);
   // Indicates if this resource may be used for a hardware overlay plane.
   bool IsOverlayCandidate(ResourceId id);
 
@@ -171,7 +175,8 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
   class VIZ_SERVICE_EXPORT ScopedReadLockSkImage {
    public:
     ScopedReadLockSkImage(DisplayResourceProvider* resource_provider,
-                          ResourceId resource_id);
+                          ResourceId resource_id,
+                          SkAlphaType alpha_type = kPremul_SkAlphaType);
     ~ScopedReadLockSkImage();
 
     const SkImage* sk_image() const { return sk_image_.get(); }
@@ -201,7 +206,8 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
 
     // Lock a resource and create a SkImage from it by using
     // Client::CreateImage.
-    sk_sp<SkImage> LockResourceAndCreateSkImage(ResourceId resource_id);
+    sk_sp<SkImage> LockResourceAndCreateSkImage(ResourceId resource_id,
+                                                SkAlphaType alpha_type);
 
     // Unlock all locked resources with a |sync_token|.
     // See UnlockForExternalUse for the detail. All resources must be unlocked
@@ -503,6 +509,8 @@ class VIZ_SERVICE_EXPORT DisplayResourceProvider
   // Set of ResourceIds that would like to be notified about promotion hints.
   ResourceIdSet wants_promotion_hints_set_;
 #endif
+
+  bool enable_shared_images_;
 
   DISALLOW_COPY_AND_ASSIGN(DisplayResourceProvider);
 };

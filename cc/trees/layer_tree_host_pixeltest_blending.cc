@@ -262,11 +262,11 @@ class LayerTreeHostBlendingPixelTest
   SkColor misc_opaque_color_ = 0xffc86464;
 };
 
-INSTANTIATE_TEST_CASE_P(B,
-                        LayerTreeHostBlendingPixelTest,
-                        ::testing::Combine(::testing::Values(SOFTWARE,
-                                                             ZERO_COPY),
-                                           ::testing::ValuesIn(kBlendModes)));
+INSTANTIATE_TEST_SUITE_P(B,
+                         LayerTreeHostBlendingPixelTest,
+                         ::testing::Combine(::testing::Values(SOFTWARE,
+                                                              ZERO_COPY),
+                                            ::testing::ValuesIn(kBlendModes)));
 
 TEST_P(LayerTreeHostBlendingPixelTest, BlendingWithRoot) {
   const int kRootWidth = 2;
@@ -311,7 +311,7 @@ TEST_P(LayerTreeHostBlendingPixelTest, BlendingWithBackdropFilter) {
   background->AddChild(green_lane);
   FilterOperations filters;
   filters.Append(FilterOperation::CreateGrayscaleFilter(.75));
-  gfx::RectF backdrop_filter_bounds;
+  gfx::RRectF backdrop_filter_bounds;
   green_lane->SetBackdropFilters(filters);
   green_lane->SetBackdropFilterBounds(backdrop_filter_bounds);
   green_lane->SetBlendMode(current_blend_mode());

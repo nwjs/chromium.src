@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/test/dwrite_font_fake_sender_win.h"
+#include "base/bind.h"
 
 #include <dwrite.h>
 #include <shlobj.h>
@@ -128,7 +129,7 @@ void FakeFontCollection::MapCharacters(
 }
 
 void FakeFontCollection::GetUniqueNameLookupTable(
-    GetUniqueNameLookupTableCallback callback){};
+    GetUniqueNameLookupTableCallback callback) {}
 
 FakeFontCollection::~FakeFontCollection() = default;
 

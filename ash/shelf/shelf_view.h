@@ -18,12 +18,14 @@
 #include "ash/shelf/overflow_bubble_view.h"
 #include "ash/shelf/shelf_button_pressed_metric_tracker.h"
 #include "ash/shelf/shelf_tooltip_manager.h"
+#include "ash/shell_observer.h"
 #include "ash/system/model/virtual_keyboard_model.h"
 #include "ash/wm/tablet_mode/tablet_mode_observer.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/bounds_animator_observer.h"
 #include "ui/views/animation/ink_drop_state.h"
 #include "ui/views/context_menu_controller.h"
@@ -52,6 +54,7 @@ class OverflowButton;
 class ScopedRootWindowForNewWindows;
 class Shelf;
 class ShelfAppButton;
+class ShelfButton;
 class ShelfModel;
 struct ShelfItem;
 class ShelfMenuModelAdapter;
@@ -111,6 +114,7 @@ enum ShelfAlignmentUmaEnumValue {
 
 class ASH_EXPORT ShelfView : public views::View,
                              public ShelfModelObserver,
+                             public ShellObserver,
                              public InkDropButtonListener,
                              public views::ContextMenuController,
                              public views::FocusTraversable,
@@ -126,8 +130,6 @@ class ASH_EXPORT ShelfView : public views::View,
   ShelfModel* model() const { return model_; }
 
   void Init();
-
-  void OnShelfAlignmentChanged();
 
   // Returns the ideal bounds of the specified item, or an empty rect if id
   // isn't know. If the item is in an overflow shelf, the overflow icon location
@@ -262,6 +264,21 @@ class ASH_EXPORT ShelfView : public views::View,
   // this shelf view.
   const std::vector<aura::Window*> GetOpenWindowsForShelfView(
       views::View* view);
+
+  // The three methods below return the first or last focusable child of the
+  // set including both the main shelf and the overflow shelf it it's showing.
+  // - The first focusable child is either the app list button, or the back
+  //   button in tablet mode.
+  // - The last focusable child can be either 1) the last app icon on the main
+  //   shelf if there aren't enough apps to overflow, 2) the overflow button
+  //   if it's visible but the overflow bubble isn't showing, or 3) the last
+  //   app icon in the overflow bubble if it's showing.
+  views::View* FindFirstOrLastFocusableChild(bool last);
+  views::View* FindFirstFocusableChild();
+  views::View* FindLastFocusableChild();
+
+  void OnShelfButtonAboutToRequestFocusFromTabTraversal(ShelfButton* button,
+                                                        bool reverse);
 
   // Return the view model for test purposes.
   const views::ViewModel* view_model_for_test() const {
@@ -409,6 +426,9 @@ class ASH_EXPORT ShelfView : public views::View,
                               const gfx::Point& location,
                               bool context_menu) const;
 
+  void AnnounceShelfAlignment();
+  void AnnounceShelfAutohideBehavior();
+
   // Overridden from ui::EventHandler:
   void OnGestureEvent(ui::GestureEvent* event) override;
   bool OnMouseWheel(const ui::MouseWheelEvent& event) override;
@@ -422,6 +442,10 @@ class ASH_EXPORT ShelfView : public views::View,
                                 ShelfItemDelegate* old_delegate,
                                 ShelfItemDelegate* delegate) override;
   void ShelfItemStatusChanged(const ShelfID& id) override;
+
+  // Overridden from ShellObserver:
+  void OnShelfAlignmentChanged(aura::Window* root_window) override;
+  void OnShelfAutoHideBehaviorChanged(aura::Window* root_window) override;
 
   // Handles the result when querying ShelfItemDelegates for context menu items.
   // Shows a default shelf context menu with optional extra custom |menu_items|.
@@ -442,9 +466,9 @@ class ASH_EXPORT ShelfView : public views::View,
       base::Optional<std::vector<mojom::MenuItemPtr>> menu_items);
 
   // Overridden from views::ContextMenuController:
-  void ShowContextMenuForView(views::View* source,
-                              const gfx::Point& point,
-                              ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(views::View* source,
+                                  const gfx::Point& point,
+                                  ui::MenuSourceType source_type) override;
 
   // Show either a context or normal click menu of given |menu_model|.
   // If |context_menu| is set, the displayed menu is a context menu and not
@@ -500,9 +524,12 @@ class ASH_EXPORT ShelfView : public views::View,
   // item in |model_|.
   std::unique_ptr<views::ViewModel> view_model_;
 
-  // Index of the first visible launcher item. This is not always zero because
-  // the overflow view (also a kind of shelf view) only shows a subset of items.
-  int first_visible_index_ = 0;
+  // Index of the first visible launcher item. This is either:
+  // * 0 (back button) for the main shelf when tablet mode is on
+  // * 1 (app list button) for the main shelf when tablet mode is off
+  // * > 1 when this shelf view is the overflow shelf view and only shows a
+  //   subset of items.
+  mutable int first_visible_index_ = 0;
 
   // Last index of a launcher button that is visible
   // (does not go into overflow).
@@ -621,6 +648,10 @@ class ASH_EXPORT ShelfView : public views::View,
   // A view to draw a background behind the app list and back buttons.
   // Owned by the view hierarchy.
   views::View* back_and_app_list_background_ = nullptr;
+
+  // A view used to make accessibility announcements (changes in the shelf's
+  // alignment or auto-hide state).
+  views::View* announcement_view_ = nullptr;  // Owned by ShelfView
 
   // For dragging: -1 if scrolling back, 1 if scrolling forward, 0 if neither.
   int drag_scroll_dir_ = 0;

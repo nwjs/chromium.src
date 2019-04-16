@@ -4,21 +4,22 @@
 
 #include "chrome/browser/chromeos/login/screens/mock_supervision_transition_screen.h"
 
-using ::testing::_;
-using ::testing::AtLeast;
-
 namespace chromeos {
 
 MockSupervisionTransitionScreen::MockSupervisionTransitionScreen(
     BaseScreenDelegate* base_screen_delegate,
-    SupervisionTransitionScreenView* view)
-    : SupervisionTransitionScreen(base_screen_delegate, view) {}
+    SupervisionTransitionScreenView* view,
+    const base::RepeatingClosure& exit_callback)
+    : SupervisionTransitionScreen(base_screen_delegate, view, exit_callback) {}
 
 MockSupervisionTransitionScreen::~MockSupervisionTransitionScreen() = default;
 
-MockSupervisionTransitionScreenView::MockSupervisionTransitionScreenView() {
-  EXPECT_CALL(*this, MockBind(_)).Times(AtLeast(1));
+void MockSupervisionTransitionScreen::ExitScreen() {
+  exit_callback()->Run();
 }
+
+MockSupervisionTransitionScreenView::MockSupervisionTransitionScreenView() =
+    default;
 
 MockSupervisionTransitionScreenView::~MockSupervisionTransitionScreenView() {
   if (screen_)

@@ -28,6 +28,7 @@
 
 #include "third_party/blink/renderer/modules/webaudio/audio_buffer.h"
 
+#include <memory>
 #include "third_party/blink/renderer/modules/webaudio/audio_buffer_options.h"
 #include "third_party/blink/renderer/modules/webaudio/base_audio_context.h"
 #include "third_party/blink/renderer/platform/audio/audio_bus.h"
@@ -343,6 +344,26 @@ void AudioBuffer::Zero() {
       float* data = array.View()->Data();
       memset(data, 0, length() * sizeof(*data));
     }
+  }
+}
+
+std::unique_ptr<SharedAudioBuffer> AudioBuffer::CreateSharedAudioBuffer() {
+  return std::make_unique<SharedAudioBuffer>(this);
+}
+
+SharedAudioBuffer::SharedAudioBuffer(AudioBuffer* buffer)
+    : sample_rate_(buffer->sampleRate()), length_(buffer->length()) {
+  channels_.resize(buffer->numberOfChannels());
+  for (unsigned int i = 0; i < buffer->numberOfChannels(); ++i) {
+    buffer->getChannelData(i).View()->buffer()->ShareNonSharedForInternalUse(
+        channels_[i]);
+  }
+}
+
+void SharedAudioBuffer::Zero() {
+  for (unsigned i = 0; i < channels_.size(); ++i) {
+    float* data = static_cast<float*>(channels_[i].Data());
+    memset(data, 0, length() * sizeof(*data));
   }
 }
 

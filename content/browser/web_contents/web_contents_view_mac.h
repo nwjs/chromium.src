@@ -83,8 +83,7 @@ class WebContentsViewMac : public WebContentsView,
   void RenderViewHostChanged(RenderViewHost* old_host,
                              RenderViewHost* new_host) override;
   void SetOverscrollControllerEnabled(bool enabled) override;
-  bool IsEventTracking() const override;
-  void CloseTabAfterEventTracking() override;
+  bool CloseTabAfterEventTrackingIfNeeded() override;
 
   // RenderViewHostDelegateView:
   void StartDragging(const DropData& drop_data,
@@ -148,6 +147,13 @@ class WebContentsViewMac : public WebContentsView,
                        uint32_t* out_result) override;
   bool PerformDragOperation(mojom::DraggingInfoPtr dragging_info,
                             bool* out_result) override;
+  bool DragPromisedFileTo(const base::FilePath& file_path,
+                          const DropData& drop_data,
+                          const GURL& download_url,
+                          base::FilePath* out_file_path) override;
+  void EndDrag(uint32_t drag_opeation,
+               const gfx::PointF& local_point,
+               const gfx::PointF& screen_point) override;
 
   // mojom::WebContentsNSViewClient, synchronous methods:
   void DraggingEntered(mojom::DraggingInfoPtr dragging_info,
@@ -156,6 +162,10 @@ class WebContentsViewMac : public WebContentsView,
                        DraggingUpdatedCallback callback) override;
   void PerformDragOperation(mojom::DraggingInfoPtr dragging_info,
                             PerformDragOperationCallback callback) override;
+  void DragPromisedFileTo(const base::FilePath& file_path,
+                          const DropData& drop_data,
+                          const GURL& download_url,
+                          DragPromisedFileToCallback callback) override;
 
   // Return the list of child RenderWidgetHostViewMacs. This will remove any
   // destroyed instances before returning.
@@ -166,6 +176,9 @@ class WebContentsViewMac : public WebContentsView,
 
   // Destination for drag-drop.
   base::scoped_nsobject<WebDragDest> drag_dest_;
+
+  // Tracks the RenderWidgetHost where the current drag started.
+  base::WeakPtr<content::RenderWidgetHostImpl> drag_source_start_rwh_;
 
   // Our optional delegate.
   std::unique_ptr<WebContentsViewDelegate> delegate_;
@@ -194,6 +207,9 @@ class WebContentsViewMac : public WebContentsView,
   mojom::WebContentsNSViewBridgeAssociatedPtr ns_view_bridge_remote_;
   mojo::AssociatedBinding<mojom::WebContentsNSViewClient>
       ns_view_client_binding_;
+
+  // Used by CloseTabAfterEventTrackingIfNeeded.
+  base::WeakPtrFactory<WebContentsViewMac> deferred_close_weak_ptr_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(WebContentsViewMac);
 };

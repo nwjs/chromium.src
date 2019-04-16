@@ -82,6 +82,8 @@ class TestNetworkContext : public mojom::NetworkContext {
                    const GURL& url,
                    const base::Optional<std::string>& user_agent,
                    base::Value body) override {}
+  void QueueSignedExchangeReport(
+      mojom::SignedExchangeReportPtr report) override {}
   void CloseAllConnections(CloseAllConnectionsCallback callback) override {}
   void CloseIdleConnections(CloseIdleConnectionsCallback callback) override {}
   void SetNetworkConditions(const base::UnguessableToken& throttling_profile_id,
@@ -135,7 +137,8 @@ class TestNetworkContext : public mojom::NetworkContext {
                        int32_t process_id,
                        int32_t render_frame_id,
                        const url::Origin& origin,
-                       mojom::AuthenticationHandlerPtr auth_handler) override {}
+                       mojom::AuthenticationHandlerPtr auth_handler,
+                       mojom::TrustedHeaderClientPtr header_client) override {}
   void LookUpProxyForURL(
       const GURL& url,
       ::network::mojom::ProxyLookupClientPtr proxy_lookup_client) override {}

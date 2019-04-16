@@ -22,6 +22,7 @@
 #include "chrome/browser/android/download/download_manager_service.h"
 #include "chrome/browser/android/download/download_utils.h"
 #include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/download/download_offline_content_provider.h"
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/offline_pages/android/offline_page_bridge.h"
@@ -282,9 +283,10 @@ void DownloadController::AcquireFileAccessPermission(
 void DownloadController::CreateAndroidDownload(
     const content::ResourceRequestInfo::WebContentsGetter& wc_getter,
     const DownloadInfo& info) {
-  base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::Bind(&DownloadController::StartAndroidDownload,
-                                      base::Unretained(this), wc_getter, info));
+  base::PostTaskWithTraits(
+      FROM_HERE, {BrowserThread::UI},
+      base::BindOnce(&DownloadController::StartAndroidDownload,
+                     base::Unretained(this), wc_getter, info));
 }
 
 void DownloadController::AboutToResumeDownload(DownloadItem* download_item) {
@@ -385,10 +387,17 @@ void DownloadController::OnDownloadStarted(
   if (download::AutoResumptionHandler::Get())
     download::AutoResumptionHandler::Get()->OnDownloadStarted(download_item);
 
+  DownloadUtils::GetDownloadOfflineContentProvider(
+      content::DownloadItemUtils::GetBrowserContext(download_item))
+      ->OnDownloadStarted(download_item);
+
   OnDownloadUpdated(download_item);
 }
 
 void DownloadController::OnDownloadUpdated(DownloadItem* item) {
+  if (item->IsTemporary() || item->IsTransient())
+    return;
+
   if (item->IsDangerous() && (item->GetState() != DownloadItem::CANCELLED)) {
     // Dont't show notification for a dangerous download, as user can resume
     // the download after browser crash through notification.

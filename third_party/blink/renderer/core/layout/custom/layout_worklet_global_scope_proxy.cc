@@ -36,14 +36,17 @@ LayoutWorkletGlobalScopeProxy::LayoutWorkletGlobalScopeProxy(
   reporting_proxy_ =
       std::make_unique<MainThreadWorkletReportingProxy>(document);
 
+  String global_scope_name("LayoutWorklet #");
+  global_scope_name.append(String::Number(global_scope_number));
+
   WorkerClients* worker_clients = WorkerClients::Create();
   ProvideContentSettingsClientToWorker(
       worker_clients, frame->Client()->CreateWorkerContentSettingsClient());
 
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       document->Url(), mojom::ScriptType::kModule,
-      OffMainThreadWorkerScriptFetchOption::kEnabled, document->UserAgent(),
-      frame->Client()->CreateWorkerFetchContext(),
+      OffMainThreadWorkerScriptFetchOption::kEnabled, global_scope_name,
+      document->UserAgent(), frame->Client()->CreateWorkerFetchContext(),
       document->GetContentSecurityPolicy()->Headers(),
       document->GetReferrerPolicy(), document->GetSecurityOrigin(),
       document->IsSecureContext(), document->GetHttpsState(), worker_clients,
@@ -52,13 +55,13 @@ LayoutWorkletGlobalScopeProxy::LayoutWorkletGlobalScopeProxy(
       kV8CacheOptionsDefault, module_responses_map);
   global_scope_ = LayoutWorkletGlobalScope::Create(
       frame, std::move(creation_params), *reporting_proxy_,
-      pending_layout_registry, global_scope_number);
+      pending_layout_registry);
 }
 
 void LayoutWorkletGlobalScopeProxy::FetchAndInvokeScript(
     const KURL& module_url_record,
     network::mojom::FetchCredentialsMode credentials_mode,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     scoped_refptr<base::SingleThreadTaskRunner> outside_settings_task_runner,
     WorkletPendingTasks* pending_tasks) {
   DCHECK(IsMainThread());

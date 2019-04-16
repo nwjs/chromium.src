@@ -20,28 +20,26 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chromeos/account_mapper_util.h"
+#include "chrome/browser/chromeos/account_manager/account_manager_util.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/arc/auth/arc_auth_service.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_reconcilor_factory.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/gaia_cookie_manager_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/web_data_service_factory.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/account_manager/account_manager.h"
 #include "chromeos/account_manager/account_manager_factory.h"
-#include "chromeos/constants/chromeos_switches.h"
 #include "components/account_id/account_id.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_reconcilor.h"
-#include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/gaia_cookie_manager_service.h"
 #include "components/signin/core/browser/webdata/token_web_data.h"
 #include "components/webdata/common/web_data_service_consumer.h"
+#include "services/identity/public/cpp/accounts_in_cookie_jar_info.h"
+#include "services/identity/public/cpp/identity_manager.h"
 
 namespace chromeos {
 
@@ -88,10 +86,10 @@ class AccountMigrationBaseStep : public AccountMigrationRunner::Step {
  public:
   AccountMigrationBaseStep(const std::string& id,
                            AccountManager* account_manager,
-                           AccountTrackerService* account_tracker_service)
+                           identity::IdentityManager* identity_manager)
       : AccountMigrationRunner::Step(id),
         account_manager_(account_manager),
-        account_tracker_service_(account_tracker_service),
+        identity_manager_(identity_manager),
         weak_factory_(this) {}
   ~AccountMigrationBaseStep() override = default;
 
@@ -116,20 +114,16 @@ class AccountMigrationBaseStep : public AccountMigrationRunner::Step {
       return;
     }
 
-    // |AccountTrackerService::SeedAccountInfo| must be called before
-    // |AccountManager::UpsertToken|. |AccountManager| observers will need to
-    // translate |AccountManager::AccountKey| to other formats using
-    // |AccountTrackerService| and hence |AccountTrackerService| should be
-    // updated first.
-    account_tracker_service_->SeedAccountInfo(gaia_id, email);
-    account_manager_->UpsertToken(
+    account_manager_->UpsertAccount(
         AccountManager::AccountKey{
             gaia_id, account_manager::AccountType::ACCOUNT_TYPE_GAIA},
-        AccountManager::kInvalidToken);
+        email, AccountManager::kInvalidToken);
     VLOG(1) << "Successfully migrated: " << email;
   }
 
   AccountManager* account_manager() { return account_manager_; }
+
+  identity::IdentityManager* identity_manager() { return identity_manager_; }
 
  private:
   // Implementations should use this to start their migration flow, instead of
@@ -145,8 +139,12 @@ class AccountMigrationBaseStep : public AccountMigrationRunner::Step {
         &AccountMigrationBaseStep::OnGetAccounts, weak_factory_.GetWeakPtr()));
   }
 
-  void OnGetAccounts(std::vector<AccountManager::AccountKey> accounts) {
-    account_manager_accounts_ = std::move(accounts);
+  void OnGetAccounts(const std::vector<AccountManager::Account>& accounts) {
+    account_manager_accounts_.clear();
+    account_manager_accounts_.reserve(accounts.size());
+    for (const AccountManager::Account& account : accounts) {
+      account_manager_accounts_.emplace_back(account.key);
+    }
     StartMigration();
   }
 
@@ -154,7 +152,7 @@ class AccountMigrationBaseStep : public AccountMigrationRunner::Step {
   AccountManager* const account_manager_;
 
   // Non-owning pointer.
-  AccountTrackerService* const account_tracker_service_;
+  identity::IdentityManager* const identity_manager_;
 
   // A temporary cache of accounts in |AccountManager|, guaranteed to be
   // up-to-date when |StartMigration| is called.
@@ -171,12 +169,11 @@ class DeviceAccountMigration : public AccountMigrationBaseStep,
  public:
   DeviceAccountMigration(AccountManager::AccountKey device_account,
                          AccountManager* account_manager,
-                         AccountTrackerService* account_tracker_service,
+                         identity::IdentityManager* identity_manager,
                          scoped_refptr<TokenWebData> token_web_data)
       : AccountMigrationBaseStep(kDeviceAccountMigration,
                                  account_manager,
-                                 account_tracker_service),
-        account_mapper_util_(account_tracker_service),
+                                 identity_manager),
         token_web_data_(token_web_data),
         device_account_(device_account) {}
   ~DeviceAccountMigration() override = default;
@@ -229,13 +226,14 @@ class DeviceAccountMigration : public AccountMigrationBaseStep,
 
     bool is_success = false;
     for (auto it = token_map.begin(); it != token_map.end(); ++it) {
-      std::string account_id = RemoveAccountIdPrefix(it->first);
-      if (device_account_ !=
-          account_mapper_util_.OAuthAccountIdToAccountKey(account_id)) {
+      const std::string account_id = RemoveAccountIdPrefix(it->first);
+      if (identity_manager()->GetPrimaryAccountId() != account_id) {
         continue;
       }
 
-      account_manager()->UpsertToken(device_account_, it->second /* token */);
+      account_manager()->UpsertAccount(
+          device_account_, identity_manager()->GetPrimaryAccountInfo().email,
+          it->second /* token */);
       is_success = true;
       break;
     }
@@ -248,10 +246,6 @@ class DeviceAccountMigration : public AccountMigrationBaseStep,
       FinishWithFailure();
     }
   }
-
-  // For translating between OAuth account ids and
-  // |AccountManager::AccountKey|.
-  AccountMapperUtil account_mapper_util_;
 
   // Current storage of LSTs.
   scoped_refptr<TokenWebData> token_web_data_;
@@ -268,39 +262,34 @@ class DeviceAccountMigration : public AccountMigrationBaseStep,
 // to |AccountManager|. The objective is to migrate the account names only. We
 // cannot migrate any credentials (cookies).
 class ContentAreaAccountsMigration : public AccountMigrationBaseStep,
-                                     GaiaCookieManagerService::Observer {
+                                     identity::IdentityManager::Observer {
  public:
-  ContentAreaAccountsMigration(
-      AccountManager* account_manager,
-      AccountTrackerService* const account_tracker_service,
-      GaiaCookieManagerService* gaia_cookie_manager_service)
+  ContentAreaAccountsMigration(AccountManager* account_manager,
+                               identity::IdentityManager* identity_manager)
       : AccountMigrationBaseStep(kContentAreaAccountsMigration,
                                  account_manager,
-                                 account_tracker_service),
-        gaia_cookie_manager_service_(gaia_cookie_manager_service) {}
+                                 identity_manager),
+        identity_manager_(identity_manager) {}
   ~ContentAreaAccountsMigration() override {
-    gaia_cookie_manager_service_->RemoveObserver(this);
+    identity_manager_->RemoveObserver(this);
   }
 
  private:
   void StartMigration() override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-    std::vector<gaia::ListedAccount> signed_in_content_area_accounts;
-    std::vector<gaia::ListedAccount> signed_out_content_area_accounts;
-    gaia_cookie_manager_service_->AddObserver(this);
-    if (gaia_cookie_manager_service_->ListAccounts(
-            &signed_in_content_area_accounts,
-            &signed_out_content_area_accounts)) {
-      OnGaiaAccountsInCookieUpdated(
-          signed_in_content_area_accounts, signed_out_content_area_accounts,
+    identity_manager_->AddObserver(this);
+    identity::AccountsInCookieJarInfo accounts_in_cookie_jar_info =
+        identity_manager_->GetAccountsInCookieJar();
+    if (accounts_in_cookie_jar_info.accounts_are_fresh) {
+      OnAccountsInCookieUpdated(
+          accounts_in_cookie_jar_info,
           GoogleServiceAuthError(GoogleServiceAuthError::NONE));
     }
   }
 
-  void OnGaiaAccountsInCookieUpdated(
-      const std::vector<gaia::ListedAccount>& signed_in_content_area_accounts,
-      const std::vector<gaia::ListedAccount>& signed_out_content_area_accounts,
+  void OnAccountsInCookieUpdated(
+      const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     // We should not have reached here without |OnGetAccounts| having been
@@ -308,10 +297,10 @@ class ContentAreaAccountsMigration : public AccountMigrationBaseStep,
     // Furthermore, Account Manager must have been populated with the Device
     // Account before this |Step| is run.
     DCHECK(!IsAccountManagerEmpty());
-    gaia_cookie_manager_service_->RemoveObserver(this);
+    identity_manager_->RemoveObserver(this);
 
-    MigrateAccounts(signed_in_content_area_accounts,
-                    signed_out_content_area_accounts);
+    MigrateAccounts(accounts_in_cookie_jar_info.signed_in_accounts,
+                    accounts_in_cookie_jar_info.signed_out_accounts);
 
     FinishWithSuccess();
   }
@@ -329,8 +318,8 @@ class ContentAreaAccountsMigration : public AccountMigrationBaseStep,
     }
   }
 
-  // A non-owning pointer to |GaiaCookieManagerService|.
-  GaiaCookieManagerService* const gaia_cookie_manager_service_;
+  // A non-owning pointer to |IdentityManager|.
+  identity::IdentityManager* const identity_manager_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 
@@ -347,11 +336,11 @@ class ArcAccountsMigration : public AccountMigrationBaseStep,
                              public arc::ArcSessionManager::Observer {
  public:
   ArcAccountsMigration(AccountManager* account_manager,
-                       AccountTrackerService* account_tracker_service,
+                       identity::IdentityManager* identity_manager,
                        arc::ArcAuthService* arc_auth_service)
       : AccountMigrationBaseStep(kArcAccountsMigration,
                                  account_manager,
-                                 account_tracker_service),
+                                 identity_manager),
         arc_auth_service_(arc_auth_service),
         weak_factory_(this) {}
   ~ArcAccountsMigration() override { Reset(); }
@@ -475,7 +464,7 @@ AccountManagerMigrator::~AccountManagerMigrator() = default;
 void AccountManagerMigrator::Start() {
   DVLOG(1) << "AccountManagerMigrator::Start";
 
-  if (!chromeos::switches::IsAccountManagerEnabled())
+  if (!chromeos::IsAccountManagerAvailable(profile_))
     return;
 
   ran_migration_steps_ = false;
@@ -501,6 +490,8 @@ bool AccountManagerMigrator::ShouldRunMigrations() const {
     return false;
   }
 
+  // Do not unnecessarily run migrations if they have been successfully run
+  // before.
   if (profile_->GetPrefs()->GetInteger(
           prefs::kAccountManagerNumTimesMigrationRanSuccessfully) >=
       kMaxMigrationRuns) {
@@ -508,42 +499,39 @@ bool AccountManagerMigrator::ShouldRunMigrations() const {
     return false;
   }
 
-  return true;
-}
-
-void AccountManagerMigrator::AddMigrationSteps() {
-  const AccountManager::AccountKey device_account = GetDeviceAccount(profile_);
-  if (device_account.account_type ==
+  // Do not run migrations if the Device Account is invalid.
+  if (GetDeviceAccount(profile_).account_type ==
       account_manager::AccountType::ACCOUNT_TYPE_UNSPECIFIED) {
     // Unfortunately this is a valid case for tests. See
     // https://crbug.com/915628. Early exit here because if the Device Account
     // itself is invalid, we should not attempt any migration.
-    return;
+    return false;
   }
 
+  return true;
+}
+
+void AccountManagerMigrator::AddMigrationSteps() {
   chromeos::AccountManagerFactory* factory =
       g_browser_process->platform_part()->GetAccountManagerFactory();
   chromeos::AccountManager* account_manager =
       factory->GetAccountManager(profile_->GetPath().value());
-
-  AccountTrackerService* account_tracker_service =
-      AccountTrackerServiceFactory::GetForProfile(profile_);
+  identity::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile_);
 
   migration_runner_.AddStep(std::make_unique<DeviceAccountMigration>(
-      device_account, account_manager, account_tracker_service,
+      GetDeviceAccount(profile_), account_manager, identity_manager,
       WebDataServiceFactory::GetTokenWebDataForProfile(
           profile_, ServiceAccessType::EXPLICIT_ACCESS) /* token_web_data */));
   migration_runner_.AddStep(std::make_unique<ContentAreaAccountsMigration>(
-      account_manager, account_tracker_service,
-      GaiaCookieManagerServiceFactory::GetForProfile(
-          profile_) /* gaia_cookie_manager_service */));
+      account_manager, identity_manager));
 
   if (arc::IsArcProvisioned(profile_)) {
     // Add a migration step for ARC only if ARC has been provisioned. If ARC has
     // not been provisioned yet, there cannot be any accounts that need to be
     // migrated.
     migration_runner_.AddStep(std::make_unique<ArcAccountsMigration>(
-        account_manager, account_tracker_service,
+        account_manager, identity_manager,
         arc::ArcAuthService::GetForBrowserContext(
             profile_) /* arc_auth_service */));
   } else {
@@ -591,8 +579,9 @@ void AccountManagerMigrator::RunCleanupTasks() {
   // Secondary Accounts but if we do not enable reconciliation, users will not
   // be able to add any account to Chrome content area which is a much worse
   // experience than losing Chrome content area Secondary Accounts.
-  AccountReconcilorFactory::GetForProfile(profile_)->Initialize(
-      true /* start_reconcile_if_tokens_available */);
+  AccountReconcilor* account_reconcilor =
+      AccountReconcilorFactory::GetForProfile(profile_);
+  account_reconcilor->EnableReconcile();
 }
 
 // static
@@ -614,13 +603,11 @@ AccountManagerMigratorFactory::AccountManagerMigratorFactory()
           BrowserContextDependencyManager::GetInstance()) {
   // Stores the LSTs, that need to be copied over to |AccountManager|.
   DependsOn(WebDataServiceFactory::GetInstance());
-  // For translating between account identifiers.
-  DependsOn(AccountTrackerServiceFactory::GetInstance());
   // Account reconciliation is paused for the duration of migration and needs to
   // be re-enabled once migration is done.
   DependsOn(AccountReconcilorFactory::GetInstance());
   // For getting Chrome content area accounts.
-  DependsOn(GaiaCookieManagerServiceFactory::GetInstance());
+  DependsOn(IdentityManagerFactory::GetInstance());
 }
 
 AccountManagerMigratorFactory::~AccountManagerMigratorFactory() = default;

@@ -12,6 +12,7 @@
 
 #include "ash/ash_export.h"
 #include "ash/shell_observer.h"
+#include "ash/wm/overview/overview_observer.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/window_state.h"
 #include "base/macros.h"
@@ -40,6 +41,7 @@ class ASH_EXPORT TabletModeWindowManager
     : public aura::WindowObserver,
       public display::DisplayObserver,
       public ShellObserver,
+      public OverviewObserver,
       public SplitViewController::Observer {
  public:
   // This should only be deleted by the creator (ash::Shell).
@@ -58,10 +60,12 @@ class ASH_EXPORT TabletModeWindowManager
   void WindowStateDestroyed(aura::Window* window);
 
   // ShellObserver:
+  void OnSplitViewModeEnded() override;
+
+  // OverviewObserver:
   void OnOverviewModeStarting() override;
   void OnOverviewModeEnding(OverviewSession* overview_session) override;
   void OnOverviewModeEnded() override;
-  void OnSplitViewModeEnded() override;
 
   // aura::WindowObserver:
   void OnWindowDestroying(aura::Window* window) override;
@@ -109,13 +113,13 @@ class ASH_EXPORT TabletModeWindowManager
   // will be updated as they may be stale.
   void SetDeferBoundsUpdates(aura::Window* window, bool defer_bounds_updates);
 
-  // If the given window should be handled by us, this function will maximize it
-  // and add it to the list of known windows (remembering the initial show
-  // state).
+  // If the given window should be handled by us, this function will add it to
+  // the list of known windows (remembering the initial show state).
   // Note: If the given window cannot be handled by us the function will return
   // immediately.
-  void MaximizeAndTrackWindow(aura::Window* window,
-                              bool defer_bounds_updates = false);
+  void TrackWindow(aura::Window* window,
+                   bool snap = false,
+                   bool animate_bounds_on_attach = true);
 
   // Remove a window from our tracking list. If the window is going to be
   // destroyed, do not restore its old previous window state object as it will

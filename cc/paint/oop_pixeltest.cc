@@ -5,6 +5,7 @@
 #include <tuple>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -178,12 +179,10 @@ class OopPixelTest : public testing::Test,
     raster_implementation->WaitSyncTokenCHROMIUM(
         sii->GenUnverifiedSyncToken().GetConstData());
 
-    RasterColorSpace color_space(options.color_space, ++color_space_id_);
-
     if (options.preclear) {
       raster_implementation->BeginRasterCHROMIUM(
           options.preclear_color, options.msaa_sample_count,
-          options.use_lcd_text, color_space, mailbox.name);
+          options.use_lcd_text, options.color_space, mailbox.name);
       raster_implementation->EndRasterCHROMIUM();
     }
 
@@ -191,16 +190,19 @@ class OopPixelTest : public testing::Test,
 
     raster_implementation->BeginRasterCHROMIUM(
         options.background_color, options.msaa_sample_count,
-        options.use_lcd_text, color_space, mailbox.name);
+        options.use_lcd_text, options.color_space, mailbox.name);
+    size_t max_op_size_limit =
+        gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
     raster_implementation->RasterCHROMIUM(
         display_item_list.get(), &image_provider, options.content_size,
         options.full_raster_rect, options.playback_rect, options.post_translate,
-        options.post_scale, options.requires_clear);
+        options.post_scale, options.requires_clear, &max_op_size_limit);
     for (const auto& list : options.additional_lists) {
       raster_implementation->RasterCHROMIUM(
           list.get(), &image_provider, options.content_size,
           options.full_raster_rect, options.playback_rect,
-          options.post_translate, options.post_scale, options.requires_clear);
+          options.post_translate, options.post_scale, options.requires_clear,
+          &max_op_size_limit);
     }
     raster_implementation->EndRasterCHROMIUM();
     raster_implementation->OrderingBarrierCHROMIUM();
@@ -1412,9 +1414,8 @@ sk_sp<SkTextBlob> BuildTextBlob(
   }
 
   SkTextBlobBuilder builder;
-  SkRect bounds = SkRect::MakeWH(100, 100);
   const int glyphCount = 10;
-  const auto& runBuffer = builder.allocRunPosH(font, glyphCount, 0, &bounds);
+  const auto& runBuffer = builder.allocRunPosH(font, glyphCount, 0);
   for (int i = 0; i < glyphCount; i++) {
     runBuffer.glyphs[i] = static_cast<SkGlyphID>(i);
     runBuffer.pos[i] = SkIntToScalar(i);
@@ -1492,7 +1493,7 @@ class OopRecordFilterPixelTest : public OopPixelTest,
                                  public ::testing::WithParamInterface<bool> {
  public:
   bool UseLcdText() const { return GetParam(); }
-  void RunTest() {
+  void RunTest(const SkMatrix& mat) {
     ScopedEnableLCDText enable_lcd;
 
     RasterOptions options;
@@ -1514,7 +1515,7 @@ class OopRecordFilterPixelTest : public OopPixelTest,
 
     auto display_item_list = base::MakeRefCounted<DisplayItemList>();
     display_item_list->StartPaint();
-    display_item_list->push<ScaleOp>(2.f, 2.f);
+    display_item_list->push<SetMatrixOp>(mat);
     PaintFlags shader_flags;
     shader_flags.setImageFilter(paint_record_filter);
     display_item_list->push<DrawRectOp>(SkRect::MakeWH(50, 50), shader_flags);
@@ -1528,7 +1529,14 @@ class OopRecordFilterPixelTest : public OopPixelTest,
 };
 
 TEST_P(OopRecordFilterPixelTest, FilterWithTextScaled) {
-  RunTest();
+  SkMatrix mat = SkMatrix::MakeScale(2.f, 2.f);
+  RunTest(mat);
+}
+
+TEST_P(OopRecordFilterPixelTest, FilterWithTextAndComplexCTM) {
+  SkMatrix mat = SkMatrix::MakeScale(2.f, 2.f);
+  mat.preSkew(2.f, 2.f);
+  RunTest(mat);
 }
 
 void ClearFontCache(CompletionEvent* event) {
@@ -1650,11 +1658,11 @@ TEST_P(OopPathPixelTest, Basic) {
   RunTest();
 }
 
-INSTANTIATE_TEST_CASE_P(P, OopImagePixelTest, ::testing::Bool());
-INSTANTIATE_TEST_CASE_P(P, OopClearPixelTest, ::testing::Bool());
-INSTANTIATE_TEST_CASE_P(P, OopRecordShaderPixelTest, ::testing::Bool());
-INSTANTIATE_TEST_CASE_P(P, OopRecordFilterPixelTest, ::testing::Bool());
-INSTANTIATE_TEST_CASE_P(P, OopPathPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(P, OopImagePixelTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(P, OopClearPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(P, OopRecordShaderPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(P, OopRecordFilterPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(P, OopPathPixelTest, ::testing::Bool());
 
 }  // namespace
 }  // namespace cc

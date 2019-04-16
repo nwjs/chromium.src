@@ -22,6 +22,7 @@
 #include "net/third_party/quic/core/quic_simple_buffer_allocator.h"
 #include "net/third_party/quic/core/quic_time.h"
 #include "net/third_party/quic/core/quic_types.h"
+#include "net/third_party/quic/core/quic_utils.h"
 #include "net/third_party/quic/core/quic_versions.h"
 #include "net/third_party/quic/core/quic_write_blocked_list.h"
 #include "net/third_party/quic/platform/api/quic_clock.h"
@@ -93,6 +94,9 @@ class MockQuicSession : public QuicSession {
 
   const QuicCryptoStream* GetCryptoStream() const override { return nullptr; }
   QuicCryptoStream* GetMutableCryptoStream() override { return nullptr; }
+  bool ShouldKeepConnectionAlive() const override {
+    return GetNumOpenDynamicStreams() > 0;
+  }
 
   // Called by QuicStream when they want to close stream.
   void SendRstStream(QuicStreamId id,
@@ -137,9 +141,7 @@ class DummyPacketWriter : public QuicPacketWriter {
     return WriteResult(WRITE_STATUS_ERROR, 0);
   }
 
-  bool IsWriteBlockedDataBuffered() const override { return false; }
-
-  bool IsWriteBlocked() const override { return false; };
+  bool IsWriteBlocked() const override { return false; }
 
   void SetWritable() override {}
 
@@ -225,9 +227,10 @@ class QuartcStreamTest : public QuicTest, public QuicConnectionHelperInterface {
     alarm_factory_ = QuicMakeUnique<test::MockAlarmFactory>();
 
     connection_ = QuicMakeUnique<QuicConnection>(
-        test::TestConnectionId(0), QuicSocketAddress(ip, 0),
-        this /*QuicConnectionHelperInterface*/, alarm_factory_.get(),
-        new DummyPacketWriter(), owns_writer, perspective,
+        QuicUtils::CreateZeroConnectionId(
+            CurrentSupportedVersions()[0].transport_version),
+        QuicSocketAddress(ip, 0), this /*QuicConnectionHelperInterface*/,
+        alarm_factory_.get(), new DummyPacketWriter(), owns_writer, perspective,
         ParsedVersionOfIndex(CurrentSupportedVersions(), 0));
     clock_.AdvanceTime(QuicTime::Delta::FromSeconds(1));
     session_ = QuicMakeUnique<MockQuicSession>(connection_.get(), QuicConfig(),
@@ -561,8 +564,10 @@ TEST_F(QuartcStreamTest, MaxRetransmissionsWithAckedFrame) {
 
   // Ack bytes [0, 7).  These bytes should be pruned from the data tracked by
   // the stream.
-  stream_->OnStreamFrameAcked(0, 7, false,
-                              QuicTime::Delta::FromMilliseconds(1));
+  QuicByteCount newly_acked_length = 0;
+  stream_->OnStreamFrameAcked(0, 7, false, QuicTime::Delta::FromMilliseconds(1),
+                              &newly_acked_length);
+  EXPECT_EQ(7u, newly_acked_length);
   stream_->OnCanWrite();
 
   EXPECT_EQ("Foo barFoo bar", write_buffer_);

@@ -56,16 +56,25 @@
       }
 
       iron-icon[icon='cr:sync'] {
-       --iron-icon-fill-color: var(--google-green-700);
+        --iron-icon-fill-color: var(--google-green-refresh-700);
+      }
+
+      :host-context([dark]) iron-icon[icon='cr:sync'] {
+        --iron-icon-fill-color: var(--google-green-refresh-300);
       }
 
       #sync-status[actionable] iron-icon[icon='settings:sync-problem'] {
-       --iron-icon-fill-color: var(--settings-error-color);
+        --iron-icon-fill-color: var(--settings-error-color);
       }
 
       #sync-status[actionable].auth-error
           iron-icon[icon='settings:sync-disabled'] {
-       --iron-icon-fill-color: var(--google-blue-500);
+        --iron-icon-fill-color: var(--google-blue-500);
+      }
+
+      :host-context([dark]) #sync-status[actionable].auth-error
+          iron-icon[icon='settings:sync-disabled'] {
+        --iron-icon-fill-color: var(--google-blue-refresh-300);
       }
 
       #sync-status:not([actionable]) .subpage-arrow {
@@ -235,16 +244,15 @@
         <template is="dom-if" if="[[unifiedConsentEnabled_]]">
           <cr-link-row id="sync-setup"
               label="$i18n{syncAndNonPersonalizedServices}"
-              icon-class="subpage-arrow" on-click="onSyncTap_">
-          </cr-link-row>
+              on-click="onSyncTap_"></cr-link-row>
         </template>
 
 <if expr="not chromeos">
         <template is="dom-if" if="[[diceEnabled_]]">
           <cr-link-row id="manage-google-account"
-              label="$i18n{manageGoogleAccount}" icon-class="icon-external"
+              label="$i18n{manageGoogleAccount}"
               hidden="[[!shouldShowGoogleAccount_]]"
-              on-click="openGoogleAccount_"></cr-link-row>
+              on-click="openGoogleAccount_" external></cr-link-row>
 
           <div class="settings-box" id="edit-profile" on-click="onProfileTap_"
               actionable>
@@ -288,8 +296,8 @@
         </template>
 
         <cr-link-row id="manage-other-people-subpage-trigger"
-            label="$i18n{manageOtherPeople}" icon-class="subpage-arrow"
-            on-click="onManageOtherPeople_"></cr-link-row>
+            label="$i18n{manageOtherPeople}" on-click="onManageOtherPeople_">
+        </cr-link-row>
 </if>
 
 <if expr="not chromeos">
@@ -328,8 +336,9 @@
       </template>
 
       <template is="dom-if" if="[[unifiedConsentEnabled_]]">
-        <template is="dom-if" route-path="/syncSetup/advanced" no-search>
+        <template is="dom-if" route-path="/syncSetup/advanced">
           <settings-subpage page-title="$i18n{syncAdvancedPageTitle}"
+              associated-control="[[$$('#sync-setup')]]"
               learn-more-url="$i18n{syncAndGoogleServicesLearnMoreURL}">
             <settings-sync-controls sync-status="[[syncStatus]]">
             </settings-sync-controls>

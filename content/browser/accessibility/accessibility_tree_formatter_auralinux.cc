@@ -17,6 +17,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "content/browser/accessibility/accessibility_tree_formatter_blink.h"
 #include "content/browser/accessibility/accessibility_tree_formatter_utils_auralinux.h"
 #include "content/browser/accessibility/browser_accessibility_auralinux.h"
 #include "ui/accessibility/platform/ax_platform_node_auralinux.h"
@@ -36,6 +37,7 @@ class AccessibilityTreeFormatterAuraLinux
   const std::string GetAllowEmptyString() override;
   const std::string GetAllowString() override;
   const std::string GetDenyString() override;
+  const std::string GetDenyNodeString() override;
   void AddProperties(const BrowserAccessibility& node,
                      base::DictionaryValue* dict) override;
 
@@ -64,11 +66,18 @@ AccessibilityTreeFormatter::Create() {
   return std::make_unique<AccessibilityTreeFormatterAuraLinux>();
 }
 
-AccessibilityTreeFormatterAuraLinux::AccessibilityTreeFormatterAuraLinux() {
+// static
+std::vector<AccessibilityTreeFormatter::FormatterFactory>
+AccessibilityTreeFormatter::GetTestPasses() {
+  return {
+      &AccessibilityTreeFormatterBlink::CreateBlink,
+      &AccessibilityTreeFormatter::Create,
+  };
 }
 
-AccessibilityTreeFormatterAuraLinux::~AccessibilityTreeFormatterAuraLinux() {
-}
+AccessibilityTreeFormatterAuraLinux::AccessibilityTreeFormatterAuraLinux() {}
+
+AccessibilityTreeFormatterAuraLinux::~AccessibilityTreeFormatterAuraLinux() {}
 
 std::unique_ptr<base::DictionaryValue>
 AccessibilityTreeFormatterAuraLinux::BuildAccessibilityTreeForPattern(
@@ -320,6 +329,14 @@ base::string16 AccessibilityTreeFormatterAuraLinux::ProcessTreeForOutput(
     }
   }
 
+  const base::ListValue* table_info;
+  node.GetList("table", &table_info);
+  for (auto it = table_info->begin(); it != table_info->end(); ++it) {
+    std::string table_property;
+    if (it->GetAsString(&table_property))
+      WriteAttribute(true, table_property, &line);
+  }
+
   return line;
 }
 
@@ -338,6 +355,10 @@ const std::string AccessibilityTreeFormatterAuraLinux::GetAllowString() {
 
 const std::string AccessibilityTreeFormatterAuraLinux::GetDenyString() {
   return "@AURALINUX-DENY:";
+}
+
+const std::string AccessibilityTreeFormatterAuraLinux::GetDenyNodeString() {
+  return "@AURALINUX-DENY-NODE:";
 }
 
 }  // namespace content

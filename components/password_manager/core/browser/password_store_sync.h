@@ -12,13 +12,14 @@
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "components/password_manager/core/browser/password_store_change.h"
+#include "components/sync/model/sync_metadata_store.h"
 
 namespace autofill {
 struct PasswordForm;
 }
 
 namespace syncer {
-class SyncMetadataStore;
+class MetadataBatch;
 }
 
 namespace password_manager {
@@ -35,12 +36,30 @@ enum class DatabaseCleanupResult {
   kEncryptionUnavailable,
 };
 
+// Result values for retrieving form from the store.
+enum class FormRetrievalResult {
+  // Success.
+  kSuccess,
+  // Database error.
+  kDbError,
+  // A service-level failure (e.g., on a platform using a keyring, the keyring
+  // is temporarily unavailable).
+  kEncrytionServiceFailure,
+};
+
 // PasswordStore interface for PasswordSyncableService. It provides access to
 // synchronous methods of PasswordStore which shouldn't be accessible to other
 // classes. These methods are to be called on the PasswordStore background
 // thread only.
 class PasswordStoreSync {
  public:
+  class MetadataStore : public syncer::SyncMetadataStore {
+   public:
+    // Read all the stored metadata for passwords and fill |metadata_batch|
+    // with it.
+    virtual std::unique_ptr<syncer::MetadataBatch> GetAllSyncMetadata() = 0;
+  };
+
   PasswordStoreSync();
 
   // TODO(http://crbug.com/925307) Move the following 2 APIs to PasswordStore
@@ -59,8 +78,8 @@ class PasswordStoreSync {
 
   // Overwrites |key_to_form_map| with a map from the DB primary key to the
   // corresponding form for all stored credentials. Returns true on success.
-  virtual bool ReadAllLogins(PrimaryKeyToFormMap* key_to_form_map)
-      WARN_UNUSED_RESULT = 0;
+  virtual FormRetrievalResult ReadAllLogins(
+      PrimaryKeyToFormMap* key_to_form_map) WARN_UNUSED_RESULT = 0;
 
   // Deletes logins that cannot be decrypted.
   virtual DatabaseCleanupResult DeleteUndecryptableLogins() = 0;
@@ -95,7 +114,7 @@ class PasswordStoreSync {
 
   // Returns a SyncMetadataStore that sync machinery would use to persist the
   // sync metadata.
-  virtual syncer::SyncMetadataStore* GetMetadataStore() = 0;
+  virtual MetadataStore* GetMetadataStore() = 0;
 
  protected:
   virtual ~PasswordStoreSync();

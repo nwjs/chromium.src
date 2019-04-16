@@ -7,6 +7,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/process/process_metrics.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
 #include "chrome/common/chrome_features.h"
@@ -137,11 +138,11 @@ OomInterventionConfig::OomInterventionConfig()
     is_swap_monitor_enabled_ = false;
     status = OomInterventionBrowserMonitorStatus::kEnabledWithNoSwap;
   }
-  // If no threshold is specified, set blink_workload_threshold to 10 by
-  // default, meaning that 10% of the RAM size is set to blink memory usage
-  // threshold to trigger intervention.
+  // If no threshold is specified, set blink_workload_threshold to 10% of the
+  // RAM size.
   if (!GetRendererMemoryThresholds(&renderer_detection_args_)) {
-    renderer_detection_args_->blink_workload_threshold = 10;
+    renderer_detection_args_->blink_workload_threshold =
+        base::SysInfo::AmountOfPhysicalMemory() * 0.1;
   }
 }
 

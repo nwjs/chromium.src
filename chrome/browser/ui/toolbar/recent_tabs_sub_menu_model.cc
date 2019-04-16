@@ -25,8 +25,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
-#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
-#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
+#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/grit/generated_resources.h"
@@ -43,6 +42,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/paint_vector_icon.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/resources/grit/ui_resources.h"
 
 namespace {
@@ -123,7 +123,19 @@ int CommandIdToWindowVectorIndex(int command_id) {
 }
 
 gfx::Image CreateFavicon(const gfx::VectorIcon& icon) {
-  return gfx::Image(gfx::CreateVectorIcon(icon, 16, gfx::kChromeIconGrey));
+  ui::NativeTheme* native_theme = ui::NativeTheme::GetInstanceForNativeUi();
+  return gfx::Image(
+      gfx::CreateVectorIcon(icon, 16,
+                            native_theme->GetSystemColor(
+                                ui::NativeTheme::kColorId_DefaultIconColor)));
+}
+
+// TODO(https://crbug.com/935593): Use a centralized method when it's available.
+gfx::Image GetDefaultFavicon() {
+  ui::NativeTheme* native_theme = ui::NativeTheme::GetInstanceForNativeUi();
+  return ui::ResourceBundle::GetSharedInstance().GetNativeImageNamed(
+      native_theme->SystemDarkModeEnabled() ? IDR_DEFAULT_FAVICON_DARK
+                                            : IDR_DEFAULT_FAVICON);
 }
 
 }  // namespace
@@ -168,10 +180,7 @@ RecentTabsSubMenuModel::RecentTabsSubMenuModel(
       browser_(browser),
       session_sync_service_(
           SessionSyncServiceFactory::GetInstance()->GetForProfile(
-              browser->profile())),
-      default_favicon_(
-          ui::ResourceBundle::GetSharedInstance().GetNativeImageNamed(
-              IDR_DEFAULT_FAVICON)) {
+              browser->profile())) {
   // Invoke asynchronous call to load tabs from local last session, which does
   // nothing if the tabs have already been loaded or they shouldn't be loaded.
   // TabRestoreServiceChanged() will be called after the tabs are loaded.
@@ -312,11 +321,7 @@ void RecentTabsSubMenuModel::ExecuteCommand(int command_id, int event_flags) {
     }
   }
 
-#if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
-  auto* reopen_tab_iph =
-      ReopenTabInProductHelpFactory::GetForProfile(browser_->profile());
-  reopen_tab_iph->TabReopened();
-#endif
+  browser_->window()->OnTabRestored(command_id);
 
   UMA_HISTOGRAM_MEDIUM_TIMES("WrenchMenu.TimeToAction.OpenRecentTab",
                              menu_opened_timer_.Elapsed());
@@ -394,7 +399,7 @@ void RecentTabsSubMenuModel::BuildLocalEntries() {
   sessions::TabRestoreService* service =
       TabRestoreServiceFactory::GetForProfile(browser_->profile());
 
-  if (!service || service->entries().size() == 0) {
+  if (!service || service->entries().empty()) {
     // This is to show a disabled restore tab entry with the accelerator to
     // teach users about this command.
     InsertItemWithStringIdAt(++last_local_model_index_,
@@ -585,7 +590,7 @@ void RecentTabsSubMenuModel::AddTabFavicon(int command_id, const GURL& url) {
 
   // Otherwise, start to fetch the favicon from local history asynchronously.
   // Set default icon first.
-  SetIcon(index_in_menu, default_favicon_);
+  SetIcon(index_in_menu, GetDefaultFavicon());
   // Start request to fetch actual icon if possible.
   favicon::FaviconService* favicon_service =
       FaviconServiceFactory::GetForProfile(browser_->profile(),
@@ -610,9 +615,9 @@ void RecentTabsSubMenuModel::OnFaviconDataAvailable(
   int index_in_menu = GetIndexOfCommandId(command_id);
   DCHECK_GT(index_in_menu, -1);
   SetIcon(index_in_menu, image_result.image);
-  ui::MenuModelDelegate* menu_model_delegate = GetMenuModelDelegate();
-  if (menu_model_delegate)
-    menu_model_delegate->OnIconChanged(index_in_menu);
+  ui::MenuModelDelegate* delegate = menu_model_delegate();
+  if (delegate)
+    delegate->OnIconChanged(index_in_menu);
 }
 
 int RecentTabsSubMenuModel::CommandIdToTabVectorIndex(
@@ -667,9 +672,9 @@ void RecentTabsSubMenuModel::TabRestoreServiceChanged(
 
   BuildLocalEntries();
 
-  ui::MenuModelDelegate* menu_model_delegate = GetMenuModelDelegate();
-  if (menu_model_delegate)
-    menu_model_delegate->OnMenuStructureChanged();
+  ui::MenuModelDelegate* delegate = menu_model_delegate();
+  if (delegate)
+    delegate->OnMenuStructureChanged();
 }
 
 void RecentTabsSubMenuModel::TabRestoreServiceDestroyed(
@@ -682,7 +687,7 @@ void RecentTabsSubMenuModel::OnForeignSessionUpdated() {
 
   BuildTabsFromOtherDevices();
 
-  ui::MenuModelDelegate* menu_model_delegate = GetMenuModelDelegate();
-  if (menu_model_delegate)
-    menu_model_delegate->OnMenuStructureChanged();
+  ui::MenuModelDelegate* delegate = menu_model_delegate();
+  if (delegate)
+    delegate->OnMenuStructureChanged();
 }

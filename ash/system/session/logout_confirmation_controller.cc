@@ -13,6 +13,7 @@
 #include "ash/shell.h"
 #include "ash/shell_observer.h"
 #include "ash/system/session/logout_confirmation_dialog.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/location.h"
 #include "base/metrics/user_metrics.h"
@@ -28,7 +29,8 @@ const int kLogoutConfirmationDelayInSeconds = 20;
 
 // Shell window containers monitored for when the last window closes.
 const int kLastWindowClosedContainerIds[] = {
-    kShellWindowId_DefaultContainer, kShellWindowId_AlwaysOnTopContainer};
+    kShellWindowId_DefaultContainer, kShellWindowId_AlwaysOnTopContainer,
+    kShellWindowId_PipContainer};
 
 void SignOut(LogoutConfirmationController::Source source) {
   if (Shell::Get()->session_controller()->IsDemoSession() &&

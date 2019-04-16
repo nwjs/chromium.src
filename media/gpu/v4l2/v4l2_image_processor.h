@@ -18,6 +18,7 @@
 #include "base/files/scoped_file.h"
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/sequence_checker.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_checker.h"
@@ -75,15 +76,6 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
       ErrorCB error_cb);
 
  private:
-  // Record for input buffers.
-  struct InputRecord {
-    InputRecord();
-    InputRecord(const V4L2ImageProcessor::InputRecord&);
-    ~InputRecord();
-    scoped_refptr<VideoFrame> frame;
-    bool at_device;
-  };
-
   // Record for output buffers.
   struct OutputRecord {
     OutputRecord();
@@ -106,9 +98,9 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
     ~JobRecord();
     scoped_refptr<VideoFrame> input_frame;
     int output_buffer_index;
-    scoped_refptr<VideoFrame> output_frame;
     std::vector<base::ScopedFD> output_dmabuf_fds;
     FrameReadyCB ready_cb;
+    LegacyFrameReadyCB legacy_ready_cb;
   };
 
   V4L2ImageProcessor(scoped_refptr<V4L2Device> device,
@@ -125,10 +117,10 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
                      ErrorCB error_cb);
 
   bool Initialize();
-  void EnqueueInput();
+  void EnqueueInput(const JobRecord* job_record);
   void EnqueueOutput(const JobRecord* job_record);
   void Dequeue();
-  bool EnqueueInputRecord();
+  bool EnqueueInputRecord(const JobRecord* job_record);
   bool EnqueueOutputRecord(const JobRecord* job_record);
   bool CreateInputBuffers();
   bool CreateOutputBuffers();
@@ -141,13 +133,18 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
   bool ProcessInternal(scoped_refptr<VideoFrame> frame,
                        int output_buffer_index,
                        std::vector<base::ScopedFD> output_dmabuf_fds,
-                       FrameReadyCB cb) override;
+                       LegacyFrameReadyCB cb) override;
   bool ProcessInternal(scoped_refptr<VideoFrame> input_frame,
                        scoped_refptr<VideoFrame> output_frame,
                        FrameReadyCB cb) override;
 
   void ProcessTask(std::unique_ptr<JobRecord> job_record);
+  void ProcessJobsTask();
   void ServiceDeviceTask();
+
+  // Allocate/Destroy the input/output V4L2 buffers.
+  void AllocateBuffersTask(bool* result, base::WaitableEvent* done);
+  void DestroyBuffersTask();
 
   // Attempt to start/stop device_poll_thread_.
   void StartDevicePoll();
@@ -185,20 +182,12 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
 
   // All the below members are to be accessed from device_thread_ only
   // (if it's running).
-  base::queue<std::unique_ptr<JobRecord>> input_queue_;
+  base::queue<std::unique_ptr<JobRecord>> input_job_queue_;
   base::queue<std::unique_ptr<JobRecord>> running_jobs_;
 
-  // Input queue state.
-  bool input_streamon_;
-  // Number of input buffers enqueued to the device.
-  int input_buffer_queued_count_;
-  // Input buffers ready to use; LIFO since we don't care about ordering.
-  std::vector<int> free_input_buffers_;
-  // Mapping of int index to an input buffer record.
-  std::vector<InputRecord> input_buffer_map_;
+  scoped_refptr<V4L2Queue> input_queue_;
+  scoped_refptr<V4L2Queue> output_queue_;
 
-  // Output queue state.
-  bool output_streamon_;
   // Number of output buffers enqueued to the device.
   int output_buffer_queued_count_;
   // Mapping of int index to an output buffer record.
@@ -209,8 +198,10 @@ class MEDIA_GPU_EXPORT V4L2ImageProcessor : public ImageProcessor {
   // Error callback to the client.
   ErrorCB error_cb_;
 
-  // Checker for the thread that creates this V4L2ImageProcessor.
-  THREAD_CHECKER(client_thread_checker_);
+  // Checker for the sequence that creates this V4L2ImageProcessor.
+  SEQUENCE_CHECKER(client_sequence_checker_);
+  // Checker for the device thread owned by this V4L2ImageProcessor.
+  THREAD_CHECKER(device_thread_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(V4L2ImageProcessor);
 };

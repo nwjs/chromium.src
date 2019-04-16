@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -85,6 +86,8 @@ using CompositingReasons = uint64_t;
   V(LayerForDecoration)
 
 class PLATFORM_EXPORT CompositingReason {
+  DISALLOW_NEW();
+
  private:
   // This contains ordinal values for compositing reasons and will be used to
   // generate the compositing reason bits.
@@ -146,6 +149,19 @@ class PLATFORM_EXPORT CompositingReason {
 
     kComboSquashableReasons =
         kOverlap | kAssumedOverlap | kOverflowScrollingParent,
+
+    kDirectReasonsForTransformProperty =
+        k3DTransform | kWillChangeCompositingHint |
+        kPerspectiveWith3DDescendants | kPreserve3DWith3DDescendants |
+        // Currently, we create transform/effect/filter nodes for an element
+        // whenever any property is being animated so that the existence of the
+        // effect node implies the existence of all nodes.
+        // TODO(flackr): Check for nodes for each KeyframeModel target property
+        // instead of creating all nodes and only create a transform/effect/
+        // filter node if needed, https://crbug.com/900241
+        kComboActiveAnimation,
+    kDirectReasonsForEffectProperty = kComboActiveAnimation,
+    kDirectReasonsForFilterProperty = kComboActiveAnimation,
   };
 };
 

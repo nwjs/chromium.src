@@ -38,11 +38,6 @@ void ArcPictureInPictureWindowControllerImpl::OnWindowDestroyed() {
   // Should be a no-op on ARC. This is managed on the Android side.
 }
 
-void ArcPictureInPictureWindowControllerImpl::SetPictureInPictureCustomControls(
-    const std::vector<blink::PictureInPictureControlInfo>& info) {
-  // Should be a no-op on ARC. This is managed on the Android side.
-}
-
 void ArcPictureInPictureWindowControllerImpl::EmbedSurface(
     const viz::SurfaceId& surface_id,
     const gfx::Size& natural_size) {
@@ -64,6 +59,11 @@ bool ArcPictureInPictureWindowControllerImpl::IsPlayerActive() {
   return false;
 }
 
+bool ArcPictureInPictureWindowControllerImpl::IsPlayerMuted() {
+  // Should be a no-op on ARC. This is managed on the Android side.
+  return false;
+}
+
 content::WebContents*
 ArcPictureInPictureWindowControllerImpl::GetInitiatorWebContents() {
   // Should be a no-op on ARC. This is managed on the Android side.
@@ -76,14 +76,18 @@ void ArcPictureInPictureWindowControllerImpl::UpdatePlaybackState(
   // Should be a no-op on ARC. This is managed on the Android side.
 }
 
+void ArcPictureInPictureWindowControllerImpl::UpdateMutedState() {
+  // Should be a no-op on ARC. This is managed on the Android side.
+}
+
 bool ArcPictureInPictureWindowControllerImpl::TogglePlayPause() {
   // Should be a no-op on ARC. This is managed on the Android side.
   return false;
 }
 
-void ArcPictureInPictureWindowControllerImpl::CustomControlPressed(
-    const std::string& control_id) {
+bool ArcPictureInPictureWindowControllerImpl::ToggleMute() {
   // Should be a no-op on ARC. This is managed on the Android side.
+  return false;
 }
 
 void ArcPictureInPictureWindowControllerImpl::SetAlwaysHidePlayPauseButton(
@@ -91,7 +95,20 @@ void ArcPictureInPictureWindowControllerImpl::SetAlwaysHidePlayPauseButton(
   // Should be a no-op on ARC. This is managed on the Android side.
 }
 
+void ArcPictureInPictureWindowControllerImpl::SetAlwaysHideMuteButton(
+    bool is_visible) {
+  // Should be a no-op on ARC. This is managed on the Android side.
+}
+
 void ArcPictureInPictureWindowControllerImpl::SkipAd() {
+  // Should be a no-op on ARC. This is managed on the Android side.
+}
+
+void ArcPictureInPictureWindowControllerImpl::NextTrack() {
+  // Should be a no-op on ARC. This is managed on the Android side.
+}
+
+void ArcPictureInPictureWindowControllerImpl::PreviousTrack() {
   // Should be a no-op on ARC. This is managed on the Android side.
 }
 

@@ -306,8 +306,9 @@ TEST_F(GinPortTest, TestJSDisconnect) {
   EXPECT_TRUE(port->is_closed_for_testing());
 }
 
-// Tests setting and getting the 'sender' property.
-TEST_F(GinPortTest, TestSenderProperty) {
+// Tests that a call of disconnect() from the listener of the onDisconnect event
+// is rejected. Regression test for crbug.com/932347.
+TEST_F(GinPortTest, JSDisconnectFromOnDisconnect) {
   v8::HandleScope handle_scope(isolate());
   v8::Local<v8::Context> context = MainContext();
 
@@ -316,14 +317,78 @@ TEST_F(GinPortTest, TestSenderProperty) {
 
   v8::Local<v8::Object> port_obj = port.ToV8().As<v8::Object>();
 
-  EXPECT_EQ("undefined",
-            GetStringPropertyFromObject(port_obj, context, "sender"));
+  const char kTestFunction[] =
+      R"((function(port) {
+           port.onDisconnect.addListener(() => {
+             port.disconnect();
+           });
+      }))";
+  v8::Local<v8::Function> test_function =
+      FunctionFromString(context, kTestFunction);
+  v8::Local<v8::Value> args[] = {port_obj};
+  RunFunctionOnGlobal(test_function, context, base::size(args), args);
 
-  port->SetSender(context,
-                  gin::DataObjectBuilder(isolate()).Set("prop", 42).Build());
+  port->DispatchOnDisconnect(context);
+  EXPECT_TRUE(port->is_closed_for_testing());
+}
 
-  EXPECT_EQ(R"({"prop":42})",
-            GetStringPropertyFromObject(port_obj, context, "sender"));
+// Tests that a call of postMessage() from the listener of the onDisconnect
+// event is rejected. Regression test for crbug.com/932347.
+TEST_F(GinPortTest, JSPostMessageFromOnDisconnect) {
+  v8::HandleScope handle_scope(isolate());
+  v8::Local<v8::Context> context = MainContext();
+
+  PortId port_id(base::UnguessableToken::Create(), 0, true);
+  gin::Handle<GinPort> port = CreatePort(context, port_id);
+
+  v8::Local<v8::Object> port_obj = port.ToV8().As<v8::Object>();
+
+  const char kTestFunction[] =
+      R"((function(port) {
+           port.onDisconnect.addListener(() => {
+             try {
+               port.postMessage({data: [42]});
+             } catch (e) {
+               this.lastError = e.message;
+             }
+           });
+      }))";
+  v8::Local<v8::Function> test_function =
+      FunctionFromString(context, kTestFunction);
+  v8::Local<v8::Value> args[] = {port_obj};
+  RunFunctionOnGlobal(test_function, context, base::size(args), args);
+
+  port->DispatchOnDisconnect(context);
+  EXPECT_EQ(
+      "\"Attempting to use a disconnected port object\"",
+      GetStringPropertyFromObject(context->Global(), context, "lastError"));
+  EXPECT_TRUE(port->is_closed_for_testing());
+}
+
+// Tests setting and getting the 'sender' property.
+TEST_F(GinPortTest, TestSenderProperty) {
+  v8::HandleScope handle_scope(isolate());
+  v8::Local<v8::Context> context = MainContext();
+
+  PortId port_id(base::UnguessableToken::Create(), 0, true);
+
+  {
+    gin::Handle<GinPort> port = CreatePort(context, port_id);
+    v8::Local<v8::Object> port_obj = port.ToV8().As<v8::Object>();
+    EXPECT_EQ("undefined",
+              GetStringPropertyFromObject(port_obj, context, "sender"));
+  }
+
+  {
+    // SetSender() can only be called before the `sender` property is accessed,
+    // so we need to create a new port here.
+    gin::Handle<GinPort> port = CreatePort(context, port_id);
+    port->SetSender(context,
+                    gin::DataObjectBuilder(isolate()).Set("prop", 42).Build());
+    v8::Local<v8::Object> port_obj = port.ToV8().As<v8::Object>();
+    EXPECT_EQ(R"({"prop":42})",
+              GetStringPropertyFromObject(port_obj, context, "sender"));
+  }
 }
 
 TEST_F(GinPortTest, TryUsingPortAfterInvalidation) {
@@ -366,6 +431,24 @@ TEST_F(GinPortTest, TryUsingPortAfterInvalidation) {
                               function_args,
                               "Uncaught Error: Extension context invalidated.");
   }
+}
+
+TEST_F(GinPortTest, AlteringPortName) {
+  v8::HandleScope handle_scope(isolate());
+  v8::Local<v8::Context> context = MainContext();
+
+  PortId port_id(base::UnguessableToken::Create(), 0, true);
+  gin::Handle<GinPort> port = CreatePort(context, port_id);
+
+  v8::Local<v8::Object> port_obj = port.ToV8().As<v8::Object>();
+
+  v8::Local<v8::Function> change_port_name = FunctionFromString(
+      context, "(function(port) { port.name = 'foo'; return port.name; })");
+
+  v8::Local<v8::Value> args[] = {port_obj};
+  v8::Local<v8::Value> result =
+      RunFunction(change_port_name, context, base::size(args), args);
+  EXPECT_EQ(R"("foo")", V8ToString(result, context));
 }
 
 }  // namespace extensions

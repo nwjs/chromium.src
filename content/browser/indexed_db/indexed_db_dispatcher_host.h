@@ -15,6 +15,7 @@
 
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/sequence_checker.h"
 #include "content/browser/blob_storage/chrome_blob_storage_context.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_thread.h"
@@ -32,11 +33,11 @@ class Origin;
 }
 
 namespace content {
+class CursorImpl;
 class IndexedDBContextImpl;
 
-// Handles all IndexedDB related messages from a particular renderer process.
-// Constructed on UI thread, expects all other calls (including destruction) on
-// IO thread.
+// Constructed on UI thread.  All remaining calls (including destruction) should
+// happen on the IDB sequenced task runner.
 class CONTENT_EXPORT IndexedDBDispatcherHost
     : public blink::mojom::IDBFactory,
       public RenderProcessHostObserver {
@@ -53,17 +54,18 @@ class CONTENT_EXPORT IndexedDBDispatcherHost
   void AddDatabaseBinding(std::unique_ptr<blink::mojom::IDBDatabase> database,
                           blink::mojom::IDBDatabaseAssociatedRequest request);
 
-  void AddCursorBinding(std::unique_ptr<blink::mojom::IDBCursor> cursor,
+  void AddCursorBinding(std::unique_ptr<CursorImpl> cursor,
                         blink::mojom::IDBCursorAssociatedRequest request);
+  void RemoveCursorBinding(mojo::BindingId binding_id);
 
   // A shortcut for accessing our context.
   IndexedDBContextImpl* context() const { return indexed_db_context_.get(); }
-  storage::BlobStorageContext* blob_storage_context() const {
-    return blob_storage_context_->context();
+  scoped_refptr<ChromeBlobStorageContext> blob_storage_context() const {
+    return blob_storage_context_;
   }
   int ipc_process_id() const { return ipc_process_id_; }
 
-  // Must be called on the IO thread.
+  // Must be called on the IDB sequence.
   base::WeakPtr<IndexedDBDispatcherHost> AsWeakPtr() {
     return weak_factory_.GetWeakPtr();
   }
@@ -124,7 +126,9 @@ class CONTENT_EXPORT IndexedDBDispatcherHost
 
   mojo::StrongAssociatedBindingSet<blink::mojom::IDBCursor> cursor_bindings_;
 
-  IDBSequenceHelper* idb_helper_;
+  std::unique_ptr<IDBSequenceHelper> idb_helper_;
+
+  SEQUENCE_CHECKER(sequence_checker_);
 
   base::WeakPtrFactory<IndexedDBDispatcherHost> weak_factory_;
 

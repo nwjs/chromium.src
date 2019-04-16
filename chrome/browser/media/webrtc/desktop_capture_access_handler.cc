@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -228,7 +229,7 @@ void DesktopCaptureAccessHandler::ProcessScreenCaptureAccessRequest(
     if (is_approved) {
       content::DesktopMediaID screen_id;
 #if defined(OS_CHROMEOS)
-      screen_id = content::DesktopMediaID::RegisterAuraWindow(
+      screen_id = content::DesktopMediaID::RegisterNativeWindow(
           content::DesktopMediaID::TYPE_SCREEN,
           ash::Shell::Get()->GetPrimaryRootWindow());
 #else   // defined(OS_CHROMEOS)

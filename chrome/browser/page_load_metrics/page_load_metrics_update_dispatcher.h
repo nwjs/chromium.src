@@ -108,12 +108,17 @@ class PageLoadMetricsUpdateDispatcher {
         const mojom::PageLoadTiming& timing) = 0;
     virtual void OnMainFrameMetadataChanged() = 0;
     virtual void OnSubframeMetadataChanged() = 0;
+    virtual void OnSubFrameRenderDataChanged(
+        content::RenderFrameHost* rfh,
+        const mojom::PageRenderData& render_data) = 0;
     virtual void UpdateFeaturesUsage(
         content::RenderFrameHost* rfh,
         const mojom::PageLoadFeatures& new_features) = 0;
     virtual void UpdateResourceDataUse(
         int frame_tree_node_id,
         const std::vector<mojom::ResourceDataUpdatePtr>& resources) = 0;
+    virtual void UpdateFrameCpuTiming(content::RenderFrameHost* rfh,
+                                      const mojom::CpuTiming& timing) = 0;
   };
 
   // The |client| instance must outlive this object.
@@ -128,7 +133,8 @@ class PageLoadMetricsUpdateDispatcher {
                      mojom::PageLoadMetadataPtr new_metadata,
                      mojom::PageLoadFeaturesPtr new_features,
                      const std::vector<mojom::ResourceDataUpdatePtr>& resources,
-                     mojom::PageRenderDataPtr render_data);
+                     mojom::PageRenderDataPtr render_data,
+                     mojom::CpuTimingPtr new_cpu_timing);
 
   // This method is only intended to be called for PageLoadFeatures being
   // recorded directly from the browser process. Features coming from the
@@ -161,11 +167,15 @@ class PageLoadMetricsUpdateDispatcher {
   void UpdateMainFrameTiming(mojom::PageLoadTimingPtr new_timing);
   void UpdateSubFrameTiming(content::RenderFrameHost* render_frame_host,
                             mojom::PageLoadTimingPtr new_timing);
+  void UpdateFrameCpuTiming(content::RenderFrameHost* render_frame_host,
+                            mojom::CpuTimingPtr new_timing);
 
   void UpdateMainFrameMetadata(mojom::PageLoadMetadataPtr new_metadata);
   void UpdateSubFrameMetadata(mojom::PageLoadMetadataPtr subframe_metadata);
 
   void UpdateMainFrameRenderData(mojom::PageRenderDataPtr render_data);
+  void UpdateSubFrameRenderData(content::RenderFrameHost* render_frame_host,
+                                mojom::PageRenderDataPtr render_data);
 
   void MaybeDispatchTimingUpdates(bool did_merge_new_timing_value);
   void DispatchTimingUpdates();

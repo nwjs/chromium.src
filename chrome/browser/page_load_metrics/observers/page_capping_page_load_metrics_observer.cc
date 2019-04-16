@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/optional.h"
@@ -155,13 +156,14 @@ void PageCappingPageLoadMetricsObserver::MaybeCreate() {
 
 void PageCappingPageLoadMetricsObserver::MediaStartedPlaying(
     const content::WebContentsObserver::MediaPlayerInfo& video_type,
-    bool is_in_main_frame) {
+    content::RenderFrameHost* render_frame_host) {
   media_page_load_ = true;
   page_cap_ = GetPageLoadCappingBytesThreshold(true /* media_page_load */);
 }
 
 void PageCappingPageLoadMetricsObserver::OnDidFinishSubFrameNavigation(
-    content::NavigationHandle* navigation_handle) {
+    content::NavigationHandle* navigation_handle,
+    const page_load_metrics::PageLoadExtraInfo& extra_info) {
   // If the page is not paused, there is no need to pause new frames.
   if (page_capping_state_ != PageCappingState::kPagePaused)
     return;

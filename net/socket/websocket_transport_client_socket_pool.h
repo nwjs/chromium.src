@@ -21,6 +21,7 @@
 #include "net/log/net_log_with_source.h"
 #include "net/socket/client_socket_pool.h"
 #include "net/socket/client_socket_pool_base.h"
+#include "net/socket/ssl_client_socket.h"
 #include "net/socket/transport_client_socket_pool.h"
 
 namespace base {
@@ -32,6 +33,9 @@ namespace net {
 class ClientSocketFactory;
 class HostResolver;
 class NetLog;
+class NetworkQualityEstimator;
+class ProxyDelegate;
+class SSLConfigService;
 class WebSocketEndpointLockManager;
 class WebSocketTransportConnectJob;
 
@@ -41,8 +45,19 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
   WebSocketTransportClientSocketPool(
       int max_sockets,
       int max_sockets_per_group,
-      HostResolver* host_resolver,
+      base::TimeDelta unused_idle_socket_timeout,
       ClientSocketFactory* client_socket_factory,
+      HostResolver* host_resolver,
+      ProxyDelegate* proxy_delegate,
+      CertVerifier* cert_verifier,
+      ChannelIDService* channel_id_service,
+      TransportSecurityState* transport_security_state,
+      CTVerifier* cert_transparency_verifier,
+      CTPolicyEnforcer* ct_policy_enforcer,
+      SSLClientSessionCache* ssl_client_session_cache,
+      SSLClientSessionCache* ssl_client_session_cache_privacy_mode,
+      SSLConfigService* ssl_config_service,
+      NetworkQualityEstimator* network_quality_estimator,
       WebSocketEndpointLockManager* websocket_endpoint_lock_manager,
       NetLog* net_log);
 
@@ -65,6 +80,7 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
                     RespectLimits respect_limits,
                     ClientSocketHandle* handle,
                     CompletionOnceCallback callback,
+                    const ProxyAuthCallback& proxy_auth_callback,
                     const NetLogWithSource& net_log) override;
   void RequestSockets(const std::string& group_name,
                       const void* params,
@@ -82,13 +98,12 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
   void CloseIdleSockets() override;
   void CloseIdleSocketsInGroup(const std::string& group_name) override;
   int IdleSocketCount() const override;
-  int IdleSocketCountInGroup(const std::string& group_name) const override;
+  size_t IdleSocketCountInGroup(const std::string& group_name) const override;
   LoadState GetLoadState(const std::string& group_name,
                          const ClientSocketHandle* handle) const override;
   std::unique_ptr<base::DictionaryValue> GetInfoAsValue(
       const std::string& name,
-      const std::string& type,
-      bool include_nested_pools) const override;
+      const std::string& type) const override;
 
   // HigherLayeredPool implementation.
   bool IsStalled() const override;
@@ -104,6 +119,10 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
 
     // ConnectJob::Delegate implementation
     void OnConnectJobComplete(int result, ConnectJob* job) override;
+    void OnNeedsProxyAuth(const HttpResponseInfo& response,
+                          HttpAuthController* auth_controller,
+                          base::OnceClosure restart_with_auth_callback,
+                          ConnectJob* job) override;
 
     // Calls Connect() on |connect_job|, and takes ownership. Returns Connect's
     // return value.
@@ -134,6 +153,7 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
                    RequestPriority priority,
                    ClientSocketHandle* handle,
                    CompletionOnceCallback callback,
+                   const ProxyAuthCallback& proxy_auth_callback,
                    const NetLogWithSource& net_log);
     StalledRequest(StalledRequest&& other);
     ~StalledRequest();
@@ -142,6 +162,7 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
     const RequestPriority priority;
     ClientSocketHandle* const handle;
     CompletionOnceCallback callback;
+    ProxyAuthCallback proxy_auth_callback;
     const NetLogWithSource net_log;
   };
 
@@ -186,6 +207,10 @@ class NET_EXPORT_PRIVATE WebSocketTransportClientSocketPool
   NetLog* const pool_net_log_;
   ClientSocketFactory* const client_socket_factory_;
   HostResolver* const host_resolver_;
+  ProxyDelegate* const proxy_delegate_;
+  const SSLClientSocketContext ssl_client_socket_context_;
+  const SSLClientSocketContext ssl_client_socket_context_privacy_mode_;
+  NetworkQualityEstimator* const network_quality_estimator_;
   WebSocketEndpointLockManager* websocket_endpoint_lock_manager_;
   const int max_sockets_;
   int handed_out_socket_count_;

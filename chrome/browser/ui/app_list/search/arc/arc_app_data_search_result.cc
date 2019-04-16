@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "ash/public/cpp/app_list/app_list_config.h"
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chromeos/arc/icon_decode_request.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
@@ -122,6 +123,18 @@ void ArcAppDataSearchResult::ApplyIcon(const gfx::ImageSkia& icon) {
     return;
   }
   SetIcon(icon);
+}
+
+SearchResultType ArcAppDataSearchResult::GetSearchResultType() const {
+  switch (data_->type) {
+    case arc::mojom::AppDataResultType::PERSON:
+      return APP_DATA_RESULT_PERSON;
+    case arc::mojom::AppDataResultType::NOTE_DOCUMENT:
+      return APP_DATA_RESULT_NOTE_DOCUMENT;
+    default:
+      NOTREACHED();
+      return SEARCH_RESULT_TYPE_BOUNDARY;
+  }
 }
 
 }  // namespace app_list

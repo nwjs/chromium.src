@@ -22,7 +22,6 @@ namespace cc {
 enum class TransferCacheEntryType : uint32_t {
   kRawMemory,
   kImage,
-  kColorSpace,
   kShader,
   // Add new entries above this line, make sure to update kLast.
   kLast = kShader,
@@ -105,6 +104,6 @@ template <TransferCacheEntryType EntryType>
 using ServiceTransferCacheEntryBase =
     TransferCacheEntryBase<ServiceTransferCacheEntry, EntryType>;
 
-};  // namespace cc
+}  // namespace cc
 
 #endif  // CC_PAINT_TRANSFER_CACHE_ENTRY_H_

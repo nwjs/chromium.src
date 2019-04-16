@@ -56,33 +56,20 @@ FetchContext& FetchContext::NullInstance() {
 
 FetchContext::FetchContext()
     : platform_probe_sink_(MakeGarbageCollected<PlatformProbeSink>()) {
-  platform_probe_sink_->addPlatformTraceEvents(
+  platform_probe_sink_->AddPlatformTraceEvents(
       MakeGarbageCollected<PlatformTraceEventsAgent>());
-}
-
-void FetchContext::Bind(ResourceFetcher* fetcher) {
-  DCHECK(fetcher);
-  DCHECK(!fetcher_);
-  DCHECK_EQ(&fetcher->Context(), this);
-  fetcher_ = fetcher;
 }
 
 void FetchContext::Trace(blink::Visitor* visitor) {
   visitor->Trace(platform_probe_sink_);
-  visitor->Trace(fetcher_);
-}
-
-const ResourceFetcherProperties& FetchContext::GetResourceFetcherProperties()
-    const {
-  return fetcher_->GetProperties();
+  visitor->Trace(resource_fetcher_properties_);
 }
 
 void FetchContext::DispatchDidChangeResourcePriority(unsigned long,
                                                      ResourceLoadPriority,
                                                      int) {}
 
-void FetchContext::AddAdditionalRequestHeaders(ResourceRequest&,
-                                               FetchResourceType) {}
+void FetchContext::AddAdditionalRequestHeaders(ResourceRequest&) {}
 
 mojom::FetchCacheMode FetchContext::ResourceRequestCachePolicy(
     const ResourceRequest&,
@@ -92,11 +79,13 @@ mojom::FetchCacheMode FetchContext::ResourceRequestCachePolicy(
 }
 
 void FetchContext::PrepareRequest(ResourceRequest&,
+                                  const FetchInitiatorInfo&,
                                   WebScopedVirtualTimePauser&,
-                                  RedirectType) {}
+                                  RedirectType,
+                                  ResourceType) {}
 
 void FetchContext::DispatchWillSendRequest(unsigned long,
-                                           ResourceRequest&,
+                                           const ResourceRequest&,
                                            const ResourceResponse&,
                                            ResourceType,
                                            const FetchInitiatorInfo&) {}
@@ -120,7 +109,8 @@ void FetchContext::DispatchDidFinishLoading(unsigned long,
                                             TimeTicks,
                                             int64_t,
                                             int64_t,
-                                            bool) {}
+                                            bool,
+                                            ResourceResponseType) {}
 
 void FetchContext::DispatchDidFail(const KURL&,
                                    unsigned long,
@@ -129,8 +119,6 @@ void FetchContext::DispatchDidFail(const KURL&,
                                    bool) {}
 
 bool FetchContext::ShouldLoadNewResource(ResourceType type) const {
-  if (type == ResourceType::kMainResource)
-    return !GetResourceFetcherProperties().ShouldBlockLoadingMainResource();
   return !GetResourceFetcherProperties().ShouldBlockLoadingSubResource();
 }
 
@@ -138,8 +126,6 @@ void FetchContext::RecordLoadingActivity(
     const ResourceRequest&,
     ResourceType,
     const AtomicString& fetch_initiator_name) {}
-
-void FetchContext::DidLoadResource(Resource*) {}
 
 void FetchContext::DidObserveLoadingBehavior(WebLoadingBehaviorFlag) {}
 
@@ -150,10 +136,5 @@ void FetchContext::PopulateResourceRequest(
     const ClientHintsPreferences&,
     const FetchParameters::ResourceWidth&,
     ResourceRequest&) {}
-
-scoped_refptr<base::SingleThreadTaskRunner>
-FetchContext::GetLoadingTaskRunner() {
-  return fetcher_->GetTaskRunner();
-}
 
 }  // namespace blink

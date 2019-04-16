@@ -30,6 +30,7 @@ class GetBootAttributeRequest;
 class GetKeyDataRequest;
 class GetSupportedKeyPoliciesRequest;
 class GetTpmStatusRequest;
+class LockToSingleUserMountUntilRebootRequest;
 class MigrateKeyRequest;
 class MigrateToDircryptoRequest;
 class MountGuestRequest;
@@ -38,6 +39,7 @@ class RemoveFirmwareManagementParametersRequest;
 class RemoveKeyRequest;
 class SetBootAttributeRequest;
 class SetFirmwareManagementParametersRequest;
+class UnmountRequest;
 class UpdateKeyRequest;
 
 }  // namespace cryptohome
@@ -146,8 +148,11 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) CryptohomeClient : public DBusClient {
   // Calls IsMounted method and returns true when the call succeeds.
   virtual void IsMounted(DBusMethodCallback<bool> callback) = 0;
 
-  // Calls Unmount method and returns true when the call succeeds.
-  virtual void Unmount(DBusMethodCallback<bool> callback) = 0;
+  // Calls UnmountEx method. |callback| is called after the method call
+  // succeeds.
+  virtual void UnmountEx(
+      const cryptohome::UnmountRequest& request,
+      DBusMethodCallback<cryptohome::BaseReply> callback) = 0;
 
   // Calls MigrateKeyEx method. |callback| is called after the method call
   // succeeds.
@@ -497,6 +502,13 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) CryptohomeClient : public DBusClient {
                        const cryptohome::AuthorizationRequest& auth,
                        const cryptohome::MountRequest& request,
                        DBusMethodCallback<cryptohome::BaseReply> callback) = 0;
+
+  // Asynchronously calls DisableLoginUntilReboot method, locking the device
+  // into a state where only the user data for provided account_id from
+  // |request| can be accessed. After reboot all other user data are accessible.
+  virtual void LockToSingleUserMountUntilReboot(
+      const cryptohome::LockToSingleUserMountUntilRebootRequest& request,
+      DBusMethodCallback<cryptohome::BaseReply> callback) = 0;
 
   // Asynchronously calls AddKeyEx method. |callback| is called after method
   // call, and with reply protobuf.

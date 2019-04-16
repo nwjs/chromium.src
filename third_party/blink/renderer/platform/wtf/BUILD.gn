@@ -35,7 +35,6 @@ config("wtf_config") {
 
 jumbo_component("wtf") {
   sources = [
-    "address_sanitizer.h",
     "allocator.cc",
     "allocator.h",
     "allocator/partition_allocator.cc",
@@ -101,7 +100,6 @@ jumbo_component("wtf") {
     "list_hash_set.h",
     "locker.h",
     "math_extras.h",
-    "noncopyable.h",
     "not_found.h",
     "pod_arena.h",
     "pod_free_list_arena.h",
@@ -111,6 +109,7 @@ jumbo_component("wtf") {
     "ref_counted.h",
     "ref_vector.h",
     "retain_ptr.h",
+    "sanitizers.h",
     "saturated_arithmetic.h",
     "saturated_arithmetic_arm.h",
     "scoped_logger.cc",
@@ -138,6 +137,8 @@ jumbo_component("wtf") {
     "text/cstring.cc",
     "text/cstring.h",
     "text/integer_to_string_conversion.h",
+    "text/line_ending.cc",
+    "text/line_ending.h",
     "text/number_parsing_options.h",
     "text/parsing_utilities.h",
     "text/string_buffer.h",
@@ -326,6 +327,7 @@ jumbo_source_set("wtf_unittests_sources") {
     "text/atomic_string_test.cc",
     "text/cstring_test.cc",
     "text/integer_to_string_conversion_test.cc",
+    "text/line_ending_test.cc",
     "text/string_buffer_test.cc",
     "text/string_builder_test.cc",
     "text/string_impl_test.cc",

@@ -84,7 +84,7 @@ TaskType is a required parameter of all GetTaskRunner() methods and FrameSchedul
 returns an appropriate task runner based on the TaskType.
 
 All tasks mentioned in the spec should have task source explicitly defined
-(e.g. see [generic task sources definition](https://html.spec.whatwg.org/multipage/webappapis.html#generic-task-sources)
+(e.g. see [generic task sources definition](https://html.spec.whatwg.org/C/#generic-task-sources)
 in the spec). There are still some places where the task source is not mentioned
 explicitly — reach out to domenic@ and garykac@ for advice.
 
@@ -151,13 +151,15 @@ as we are focused on making freezing better instead.
 ## Off-main thread scheduling
 
 If your task doesn’t have to run on the main thread, use
-BackgroundScheduler::PostOnBackgroundThread, which uses a thread pool
+worker_pool::PostTask, which uses a thread pool
 behind the scenes.
 
 Do not create your own dedicated thread if you need ordering for your tasks,
-use BackgroundScheduler::CreateBackgroundTaskRunnerWithTraits instead —
+use worker_pool::CreateTaskRunnerWithTraits instead —
 this creates a sequence (virtual thread which can run tasks in order on
 any of the threads in the thread pool).
+(Note: this doesn't exist yet because we haven't encountered a use case in Blink
+which needs it. If you need one, please task to scheduler-dev@ and we'll add it).
 
 See [threading and tasks](../../../../../docs/threading_and_tasks.md) for
 more details.

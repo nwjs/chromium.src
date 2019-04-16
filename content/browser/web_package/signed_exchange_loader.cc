@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
@@ -16,6 +17,8 @@
 #include "content/browser/web_package/signed_exchange_devtools_proxy.h"
 #include "content/browser/web_package/signed_exchange_handler.h"
 #include "content/browser/web_package/signed_exchange_prefetch_metric_recorder.h"
+#include "content/browser/web_package/signed_exchange_reporter.h"
+#include "content/browser/web_package/signed_exchange_request_matcher.h"
 #include "content/browser/web_package/signed_exchange_utils.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/origin_util.h"
@@ -33,9 +36,9 @@ namespace content {
 
 namespace {
 
-constexpr char kLoadResultHistogram[] = "SignedExchange.LoadResult";
+constexpr char kLoadResultHistogram[] = "SignedExchange.LoadResult2";
 constexpr char kPrefetchLoadResultHistogram[] =
-    "SignedExchange.Prefetch.LoadResult";
+    "SignedExchange.Prefetch.LoadResult2";
 constexpr char kContentTypeOptionsHeaderName[] = "x-content-type-options";
 constexpr char kNoSniffHeaderValue[] = "nosniff";
 
@@ -65,7 +68,9 @@ bool HasNoSniffHeader(const network::ResourceResponseHead& response) {
   return base::LowerCaseEqualsASCII(content_type_options, kNoSniffHeaderValue);
 }
 
-constexpr static int kDefaultBufferSize = 64 * 1024;
+// The buffer size of DataPipe which is used to send the body to the renderer.
+// Use the same size as regular resource loading.
+constexpr static int kDefaultBufferSize = 512 * 1024;
 
 SignedExchangeHandlerFactory* g_signed_exchange_factory_for_testing_ = nullptr;
 
@@ -113,10 +118,12 @@ SignedExchangeLoader::SignedExchangeLoader(
     uint32_t url_loader_options,
     bool should_redirect_on_failure,
     std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy,
+    std::unique_ptr<SignedExchangeReporter> reporter,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     URLLoaderThrottlesGetter url_loader_throttles_getter,
     base::RepeatingCallback<int(void)> frame_tree_node_id_getter,
-    scoped_refptr<SignedExchangePrefetchMetricRecorder> metric_recorder)
+    scoped_refptr<SignedExchangePrefetchMetricRecorder> metric_recorder,
+    const std::string& accept_langs)
     : outer_request_(outer_request),
       outer_response_timing_info_(
           std::make_unique<ResponseTimingInfo>(outer_response)),
@@ -126,10 +133,12 @@ SignedExchangeLoader::SignedExchangeLoader(
       url_loader_options_(url_loader_options),
       should_redirect_on_failure_(should_redirect_on_failure),
       devtools_proxy_(std::move(devtools_proxy)),
+      reporter_(std::move(reporter)),
       url_loader_factory_(std::move(url_loader_factory)),
       url_loader_throttles_getter_(std::move(url_loader_throttles_getter)),
       frame_tree_node_id_getter_(frame_tree_node_id_getter),
       metric_recorder_(std::move(metric_recorder)),
+      accept_langs_(accept_langs),
       weak_factory_(this) {
   DCHECK(signed_exchange_utils::IsSignedExchangeHandlingEnabled());
   DCHECK(outer_request_.url.is_valid());
@@ -221,11 +230,19 @@ void SignedExchangeLoader::OnStartLoadingResponseBody(
       base::BindOnce(&SignedExchangeLoader::OnHTTPExchangeFound,
                      weak_factory_.GetWeakPtr()),
       std::move(cert_fetcher_factory), outer_request_.load_flags,
-      std::move(devtools_proxy_), frame_tree_node_id_getter_);
+      std::make_unique<SignedExchangeRequestMatcher>(outer_request_.headers,
+                                                     accept_langs_),
+      std::move(devtools_proxy_), reporter_.get(), frame_tree_node_id_getter_);
 }
 
 void SignedExchangeLoader::OnComplete(
-    const network::URLLoaderCompletionStatus& status) {}
+    const network::URLLoaderCompletionStatus& status) {
+  DCHECK(!outer_response_length_info_);
+  outer_response_length_info_ = OuterResponseLengthInfo();
+  outer_response_length_info_->encoded_data_length = status.encoded_data_length;
+  outer_response_length_info_->decoded_body_length = status.decoded_body_length;
+  NotifyClientOnCompleteIfReady();
+}
 
 void SignedExchangeLoader::FollowRedirect(
     const std::vector<std::string>& removed_headers,
@@ -268,15 +285,10 @@ void SignedExchangeLoader::OnHTTPExchangeFound(
     const GURL& request_url,
     const network::ResourceResponseHead& resource_response,
     std::unique_ptr<net::SourceStream> payload_stream) {
-  UMA_HISTOGRAM_ENUMERATION(kLoadResultHistogram, result);
-  // |metric_recorder_| could be null in some tests.
-  if ((outer_request_.load_flags & net::LOAD_PREFETCH) && metric_recorder_) {
-    UMA_HISTOGRAM_ENUMERATION(kPrefetchLoadResultHistogram, result);
-    metric_recorder_->OnSignedExchangePrefetchFinished(
-        outer_request_.url, outer_response_.response_time);
-  }
-
   if (error) {
+    DCHECK_NE(result, SignedExchangeLoadResult::kSuccess);
+    ReportLoadResult(result);
+
     if (error != net::ERR_INVALID_SIGNED_EXCHANGE ||
         !should_redirect_on_failure_ || !request_url.is_valid()) {
       // Let the request fail.
@@ -295,6 +307,7 @@ void SignedExchangeLoader::OnHTTPExchangeFound(
     forwarding_client_.reset();
     return;
   }
+  DCHECK_EQ(result, SignedExchangeLoadResult::kSuccess);
   inner_request_url_ = request_url;
 
   DCHECK(outer_response_timing_info_);
@@ -347,10 +360,29 @@ void SignedExchangeLoader::OnHTTPExchangeFound(
 }
 
 void SignedExchangeLoader::FinishReadingBody(int result) {
-  // TODO(https://crbug.com/803774): Fill the data length information too.
+  DCHECK(!decoded_body_read_result_);
+  decoded_body_read_result_ = result;
+  NotifyClientOnCompleteIfReady();
+}
+
+void SignedExchangeLoader::NotifyClientOnCompleteIfReady() {
+  // If |outer_response_length_info_| or |decoded_body_read_result_| is
+  // unavailable, do nothing and rely on the subsequent call to notify client.
+  if (!outer_response_length_info_ || !decoded_body_read_result_)
+    return;
+
+  ReportLoadResult(*decoded_body_read_result_ == net::OK
+                       ? SignedExchangeLoadResult::kSuccess
+                       : SignedExchangeLoadResult::kMerkleIntegrityError);
+
   network::URLLoaderCompletionStatus status;
-  status.error_code = result;
+  status.error_code = *decoded_body_read_result_;
   status.completion_time = base::TimeTicks::Now();
+  status.encoded_data_length = outer_response_length_info_->encoded_data_length;
+  status.encoded_body_length =
+      outer_response_length_info_->decoded_body_length -
+      signed_exchange_handler_->GetExchangeHeaderLength();
+  status.decoded_body_length = body_data_pipe_adapter_->TransferredBytes();
 
   if (ssl_info_) {
     DCHECK((url_loader_options_ &
@@ -362,6 +394,19 @@ void SignedExchangeLoader::FinishReadingBody(int result) {
 
   // This will eventually delete |this|.
   client_->OnComplete(status);
+}
+
+void SignedExchangeLoader::ReportLoadResult(SignedExchangeLoadResult result) {
+  UMA_HISTOGRAM_ENUMERATION(kLoadResultHistogram, result);
+  // |metric_recorder_| could be null in some tests.
+  if ((outer_request_.load_flags & net::LOAD_PREFETCH) && metric_recorder_) {
+    UMA_HISTOGRAM_ENUMERATION(kPrefetchLoadResultHistogram, result);
+    metric_recorder_->OnSignedExchangePrefetchFinished(
+        outer_request_.url, outer_response_.response_time);
+  }
+
+  if (reporter_)
+    reporter_->ReportResultAndFinish(result);
 }
 
 void SignedExchangeLoader::SetSignedExchangeHandlerFactoryForTest(

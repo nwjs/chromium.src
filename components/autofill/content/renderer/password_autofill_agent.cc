@@ -1015,10 +1015,6 @@ bool PasswordAutofillAgent::ShowSuggestions(const WebInputElement& element,
        element != password_info->password_field))
     return true;
 
-  UMA_HISTOGRAM_BOOLEAN(
-      "PasswordManager.AutocompletePopupSuppressedByGeneration",
-      generation_popup_showing);
-
   if (generation_popup_showing)
     return false;
 
@@ -1351,9 +1347,8 @@ void PasswordAutofillAgent::OnDestruct() {
   base::ThreadTaskRunnerHandle::Get()->DeleteSoon(FROM_HERE, this);
 }
 
-void PasswordAutofillAgent::DidStartProvisionalLoad(
-    blink::WebDocumentLoader* document_loader,
-    bool is_content_initiated) {
+void PasswordAutofillAgent::ReadyToCommitNavigation(
+    blink::WebDocumentLoader* document_loader) {
   std::unique_ptr<RendererSavePasswordProgressLogger> logger;
   if (logging_state_active_) {
     logger.reset(new RendererSavePasswordProgressLogger(

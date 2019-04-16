@@ -33,14 +33,12 @@
 #include "base/optional.h"
 #include "cc/layers/picture_layer.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
-#include "third_party/blink/public/platform/modules/remoteplayback/web_remote_playback_availability.h"
-#include "third_party/blink/public/platform/modules/remoteplayback/web_remote_playback_client.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_connection_type.h"
 #include "third_party/blink/public/platform/web_graphics_context_3d_provider.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_iterator_result_value.h"
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
@@ -82,6 +80,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/performance_monitor.h"
+#include "third_party/blink/renderer/core/frame/remote_dom_window.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/geometry/dom_point.h"
@@ -100,6 +99,7 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
+#include "third_party/blink/renderer/core/html/media/remote_playback_controller.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -128,6 +128,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/script/modulator.h"
 #include "third_party/blink/renderer/core/scroll/programmatic_scroll_animator.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
@@ -174,7 +175,6 @@
 #include "third_party/blink/renderer/platform/wtf/dtoa.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding_registry.h"
-#include "third_party/blink/renderer/platform/wtf/time.h"
 #include "v8/include/v8.h"
 
 namespace blink {
@@ -273,8 +273,8 @@ void Internals::ResetToConsistentState(Page* page) {
   // not cause additional lifecycle updates.
   for (Frame* frame = page->MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    if (frame->IsLocalFrame())
-      ToLocalFrame(frame)->GetEventHandler().Clear();
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+      local_frame->GetEventHandler().Clear();
   }
 
   LocalFrame* frame = page->DeprecatedLocalMainFrame();
@@ -488,9 +488,9 @@ int Internals::getResourcePriority(const String& url, Document* document) {
 }
 
 bool Internals::doesWindowHaveUrlFragment(DOMWindow* window) {
-  if (window->IsRemoteDOMWindow())
+  if (IsA<RemoteDOMWindow>(window))
     return false;
-  return ToLocalFrame(window->GetFrame())
+  return To<LocalFrame>(window->GetFrame())
       ->GetDocument()
       ->Url()
       .HasFragmentIdentifier();
@@ -532,7 +532,7 @@ Node* Internals::parentTreeScope(Node* node) {
   return parent_tree_scope ? &parent_tree_scope->RootNode() : nullptr;
 }
 
-unsigned short Internals::compareTreeScopePosition(
+uint16_t Internals::compareTreeScopePosition(
     const Node* node1,
     const Node* node2,
     ExceptionState& exception_state) const {
@@ -540,14 +540,14 @@ unsigned short Internals::compareTreeScopePosition(
   const TreeScope* tree_scope1 =
       IsA<Document>(node1)
           ? static_cast<const TreeScope*>(To<Document>(node1))
-          : node1->IsShadowRoot()
-                ? static_cast<const TreeScope*>(ToShadowRoot(node1))
+          : IsA<ShadowRoot>(node1)
+                ? static_cast<const TreeScope*>(To<ShadowRoot>(node1))
                 : nullptr;
   const TreeScope* tree_scope2 =
       IsA<Document>(node2)
           ? static_cast<const TreeScope*>(To<Document>(node2))
-          : node2->IsShadowRoot()
-                ? static_cast<const TreeScope*>(ToShadowRoot(node2))
+          : IsA<ShadowRoot>(node2)
+                ? static_cast<const TreeScope*>(To<ShadowRoot>(node2))
                 : nullptr;
   if (!tree_scope1 || !tree_scope2) {
     exception_state.ThrowDOMException(
@@ -619,37 +619,37 @@ void Internals::advanceImageAnimation(Element* image,
 bool Internals::hasShadowInsertionPoint(const Node* root,
                                         ExceptionState& exception_state) const {
   DCHECK(root);
-  if (!root->IsShadowRoot()) {
+  if (!IsA<ShadowRoot>(root)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The node argument is not a shadow root.");
     return false;
   }
-  return ToShadowRoot(root)->V0().ContainsShadowElements();
+  return To<ShadowRoot>(root)->V0().ContainsShadowElements();
 }
 
 bool Internals::hasContentElement(const Node* root,
                                   ExceptionState& exception_state) const {
   DCHECK(root);
-  if (!root->IsShadowRoot()) {
+  if (!IsA<ShadowRoot>(root)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The node argument is not a shadow root.");
     return false;
   }
-  return ToShadowRoot(root)->V0().ContainsContentElements();
+  return To<ShadowRoot>(root)->V0().ContainsContentElements();
 }
 
 uint32_t Internals::countElementShadow(const Node* root,
                                        ExceptionState& exception_state) const {
   DCHECK(root);
-  if (!root->IsShadowRoot()) {
+  if (!IsA<ShadowRoot>(root)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The node argument is not a shadow root.");
     return 0;
   }
-  return ToShadowRoot(root)->ChildShadowRootCount();
+  return To<ShadowRoot>(root)->ChildShadowRootCount();
 }
 
 Node* Internals::nextSiblingInFlatTree(Node* node,
@@ -766,14 +766,15 @@ ShadowRoot* Internals::shadowRoot(Element* host) {
 String Internals::shadowRootType(const Node* root,
                                  ExceptionState& exception_state) const {
   DCHECK(root);
-  if (!root->IsShadowRoot()) {
+  auto* shadow_root = DynamicTo<ShadowRoot>(root);
+  if (!shadow_root) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
         "The node provided is not a shadow root.");
     return String();
   }
 
-  switch (ToShadowRoot(root)->GetType()) {
+  switch (shadow_root->GetType()) {
     case ShadowRootType::kUserAgent:
       return String("UserAgentShadowRoot");
     case ShadowRootType::V0:
@@ -870,7 +871,7 @@ DOMWindow* Internals::pagePopupWindow() const {
     return nullptr;
   if (Page* page = document_->GetPage()) {
     LocalDOMWindow* popup =
-        ToLocalDOMWindow(page->GetChromeClient().PagePopupWindowForTesting());
+        To<LocalDOMWindow>(page->GetChromeClient().PagePopupWindowForTesting());
     if (popup) {
       // We need to make the popup same origin so web tests can access it.
       popup->document()->UpdateSecurityOrigin(
@@ -1221,8 +1222,8 @@ void Internals::setTextMatchMarkersActive(Node* node,
                                           unsigned end_offset,
                                           bool active) {
   DCHECK(node);
-  node->GetDocument().Markers().SetTextMatchMarkersActive(node, start_offset,
-                                                          end_offset, active);
+  node->GetDocument().Markers().SetTextMatchMarkersActive(
+      ToText(*node), start_offset, end_offset, active);
 }
 
 void Internals::setMarkedTextMatchesAreHighlighted(Document* document,
@@ -1365,7 +1366,7 @@ void Internals::setAutofilledValue(Element* element,
   }
 
   if (auto* select = ToHTMLSelectElementOrNull(*element))
-    select->setValue(value, kDispatchInputAndChangeEvent);
+    select->setValue(value, true /* send_events */);
 
   ToHTMLFormControlElement(element)->SetAutofillState(
       blink::WebAutofillState::kAutofilled);
@@ -1675,9 +1676,10 @@ unsigned Internals::mediaKeySessionCount() {
       InstanceCounters::kMediaKeySessionCounter);
 }
 
-unsigned Internals::pausableObjectCount(Document* document) {
+unsigned Internals::contextLifecycleStateObserverObjectCount(
+    Document* document) {
   DCHECK(document);
-  return document->PausableObjectCount();
+  return document->ContextLifecycleStateObserverCount();
 }
 
 static unsigned EventHandlerCount(
@@ -2164,9 +2166,10 @@ unsigned Internals::numberOfScrollableAreas(Document* document) {
 
   for (Frame* child = frame->Tree().FirstChild(); child;
        child = child->Tree().NextSibling()) {
-    if (child->IsLocalFrame() && ToLocalFrame(child)->View() &&
-        ToLocalFrame(child)->View()->ScrollableAreas())
-      count += ToLocalFrame(child)->View()->ScrollableAreas()->size();
+    auto* child_local_frame = DynamicTo<LocalFrame>(child);
+    if (child_local_frame && child_local_frame->View() &&
+        child_local_frame->View()->ScrollableAreas())
+      count += child_local_frame->View()->ScrollableAreas()->size();
   }
 
   return count;
@@ -2498,20 +2501,18 @@ void Internals::mediaPlayerRemoteRouteAvailabilityChanged(
     HTMLMediaElement* media_element,
     bool available) {
   DCHECK(media_element);
-  DCHECK(media_element->remote_playback_client_);
-  media_element->remote_playback_client_->AvailabilityChanged(
-      available ? WebRemotePlaybackAvailability::kDeviceAvailable
-                : WebRemotePlaybackAvailability::kDeviceNotAvailable);
+
+  RemotePlaybackController::From(*media_element)
+      ->AvailabilityChangedForTesting(available);
 }
 
 void Internals::mediaPlayerPlayingRemotelyChanged(
     HTMLMediaElement* media_element,
     bool remote) {
   DCHECK(media_element);
-  if (remote)
-    media_element->ConnectedToRemoteDevice();
-  else
-    media_element->DisconnectedFromRemoteDevice();
+
+  RemotePlaybackController::From(*media_element)
+      ->StateChangedForTesting(remote);
 }
 
 void Internals::setPersistent(HTMLVideoElement* video_element,
@@ -2663,8 +2664,8 @@ void Internals::updateLayoutIgnorePendingStylesheetsAndRunPostLayoutTasks(
         "The node provided is neither a document nor an IFrame.");
     return;
   }
-  document->UpdateStyleAndLayoutIgnorePendingStylesheets(
-      Document::kRunPostLayoutTasksSynchronously);
+  document->UpdateStyleAndLayoutIgnorePendingStylesheets();
+  document->View()->FlushAnyPendingPostLayoutTasks();
 }
 
 void Internals::forceFullRepaint(Document* document,
@@ -2905,13 +2906,14 @@ StaticSelection* Internals::getSelectionInFlatTree(
     DOMWindow* window,
     ExceptionState& exception_state) {
   Frame* const frame = window->GetFrame();
-  if (!frame || !frame->IsLocalFrame()) {
+  auto* local_frame = DynamicTo<LocalFrame>(frame);
+  if (!local_frame) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
                                       "Must supply local window");
     return nullptr;
   }
   return StaticSelection::FromSelectionInFlatTree(ConvertToSelectionInFlatTree(
-      ToLocalFrame(frame)->Selection().GetSelectionInDOMTree()));
+      local_frame->Selection().GetSelectionInDOMTree()));
 }
 
 Node* Internals::visibleSelectionAnchorNode() {
@@ -3223,7 +3225,7 @@ Element* Internals::interestedElement() {
     return nullptr;
 
   if (!RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
-    return ToLocalFrame(
+    return To<LocalFrame>(
                GetFrame()->GetPage()->GetFocusController().FocusedOrMainFrame())
         ->GetDocument()
         ->ActiveElement();
@@ -3233,73 +3235,6 @@ Element* Internals::interestedElement() {
       ->GetPage()
       ->GetSpatialNavigationController()
       .GetInterestedElement();
-}
-
-void Internals::setNetworkConnectionInfoOverride(
-    bool on_line,
-    const String& type,
-    const String& effective_type,
-    unsigned long http_rtt_msec,
-    double downlink_max_mbps,
-    ExceptionState& exception_state) {
-  WebConnectionType webtype;
-  if (type == "cellular2g") {
-    webtype = kWebConnectionTypeCellular2G;
-  } else if (type == "cellular3g") {
-    webtype = kWebConnectionTypeCellular3G;
-  } else if (type == "cellular4g") {
-    webtype = kWebConnectionTypeCellular4G;
-  } else if (type == "bluetooth") {
-    webtype = kWebConnectionTypeBluetooth;
-  } else if (type == "ethernet") {
-    webtype = kWebConnectionTypeEthernet;
-  } else if (type == "wifi") {
-    webtype = kWebConnectionTypeWifi;
-  } else if (type == "wimax") {
-    webtype = kWebConnectionTypeWimax;
-  } else if (type == "other") {
-    webtype = kWebConnectionTypeOther;
-  } else if (type == "none") {
-    webtype = kWebConnectionTypeNone;
-  } else if (type == "unknown") {
-    webtype = kWebConnectionTypeUnknown;
-  } else {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotFoundError,
-        ExceptionMessages::FailedToEnumerate("connection type", type));
-    return;
-  }
-  WebEffectiveConnectionType web_effective_type =
-      WebEffectiveConnectionType::kTypeUnknown;
-  if (effective_type == "offline") {
-    web_effective_type = WebEffectiveConnectionType::kTypeOffline;
-  } else if (effective_type == "slow-2g") {
-    web_effective_type = WebEffectiveConnectionType::kTypeSlow2G;
-  } else if (effective_type == "2g") {
-    web_effective_type = WebEffectiveConnectionType::kType2G;
-  } else if (effective_type == "3g") {
-    web_effective_type = WebEffectiveConnectionType::kType3G;
-  } else if (effective_type == "4g") {
-    web_effective_type = WebEffectiveConnectionType::kType4G;
-  } else if (effective_type != "unknown") {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotFoundError,
-        ExceptionMessages::FailedToEnumerate("effective connection type",
-                                             effective_type));
-    return;
-  }
-  GetNetworkStateNotifier().SetNetworkConnectionInfoOverride(
-      on_line, webtype, web_effective_type, http_rtt_msec, downlink_max_mbps);
-  GetFrame()->Client()->SetEffectiveConnectionTypeForTesting(
-      web_effective_type);
-}
-
-void Internals::setSaveDataEnabled(bool enabled) {
-  GetNetworkStateNotifier().SetSaveDataEnabledOverride(enabled);
-}
-
-void Internals::clearNetworkConnectionInfoOverride() {
-  GetNetworkStateNotifier().ClearOverride();
 }
 
 unsigned Internals::countHitRegions(CanvasRenderingContext* context) {
@@ -3468,7 +3403,8 @@ double Internals::monotonicTimeToZeroBasedDocumentTime(
     ExceptionState& exception_state) {
   return document_->Loader()
       ->GetTiming()
-      .MonotonicTimeToZeroBasedDocumentTime(TimeTicksFromSeconds(platform_time))
+      .MonotonicTimeToZeroBasedDocumentTime(
+          base::TimeTicks() + TimeDelta::FromSecondsD(platform_time))
       .InSecondsF();
 }
 
@@ -3508,11 +3444,12 @@ String Internals::evaluateInInspectorOverlay(const String& script) {
 }
 
 void Internals::setIsLowEndDevice(bool is_low_end_device) {
-  MemoryCoordinator::SetIsLowEndDeviceForTesting(is_low_end_device);
+  MemoryPressureListenerRegistry::SetIsLowEndDeviceForTesting(
+      is_low_end_device);
 }
 
 bool Internals::isLowEndDevice() const {
-  return MemoryCoordinator::IsLowEndDevice();
+  return MemoryPressureListenerRegistry::IsLowEndDevice();
 }
 
 Vector<String> Internals::supportedTextEncodingLabels() const {
@@ -3547,9 +3484,49 @@ void Internals::DisableIntersectionObserverThrottleDelay() const {
   IntersectionObserver::SetThrottleDelayEnabledForTesting(false);
 }
 
+bool Internals::isSiteIsolated(HTMLIFrameElement* iframe) const {
+  return iframe->ContentFrame() && iframe->ContentFrame()->IsRemoteFrame();
+}
+
+bool Internals::isTrackingOcclusionForIFrame(HTMLIFrameElement* iframe) const {
+  if (!iframe->ContentFrame() || !iframe->ContentFrame()->IsRemoteFrame())
+    return false;
+  RemoteFrame* remote_frame = To<RemoteFrame>(iframe->ContentFrame());
+  return remote_frame->View()->NeedsOcclusionTracking();
+}
+
 void Internals::addEmbedderCustomElementName(const AtomicString& name,
                                              ExceptionState& exception_state) {
   CustomElement::AddEmbedderCustomElementNameForTesting(name, exception_state);
+}
+
+String Internals::resolveModuleSpecifier(const String& specifier,
+                                         const String& base_url_string,
+                                         Document* document,
+                                         ExceptionState& exception_state) {
+  Modulator* modulator =
+      Modulator::From(ToScriptStateForMainWorld(document->GetFrame()));
+
+  if (!modulator) {
+    V8ThrowException::ThrowTypeError(
+        v8::Isolate::GetCurrent(),
+        "Failed to resolve module specifier " + specifier + ": No modulator");
+    return NullURL();
+  }
+
+  const KURL base_url = document->CompleteURL(base_url_string);
+  String failure_reason = "Failed";
+  const KURL result =
+      modulator->ResolveModuleSpecifier(specifier, base_url, &failure_reason);
+
+  if (!result.IsValid()) {
+    V8ThrowException::ThrowTypeError(v8::Isolate::GetCurrent(),
+                                     "Failed to resolve module specifier " +
+                                         specifier + ": " + failure_reason);
+    return NullURL();
+  }
+
+  return result.GetString();
 }
 
 }  // namespace blink

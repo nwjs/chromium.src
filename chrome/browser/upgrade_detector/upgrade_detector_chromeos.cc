@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
@@ -155,7 +156,8 @@ void UpgradeDetectorChromeos::OnRelaunchNotificationPeriodPrefChanged() {
 void UpgradeDetectorChromeos::UpdateStatusChanged(
     const UpdateEngineClient::Status& status) {
   if (status.status == UpdateEngineClient::UPDATE_STATUS_UPDATED_NEED_REBOOT) {
-    set_upgrade_detected_time(clock()->Now());
+    if (upgrade_detected_time().is_null())
+      set_upgrade_detected_time(clock()->Now());
 
     if (status.is_rollback) {
       // Powerwash will be required, determine what kind of notification to show

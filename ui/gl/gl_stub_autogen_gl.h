@@ -267,6 +267,7 @@ void glCoverStrokePathInstancedNVFn(GLsizei numPaths,
                                     GLenum transformType,
                                     const GLfloat* transformValues) override {}
 void glCoverStrokePathNVFn(GLuint name, GLenum coverMode) override {}
+void glCreateMemoryObjectsEXTFn(GLsizei n, GLuint* memoryObjects) override {}
 GLuint glCreateProgramFn() override;
 GLuint glCreateShaderFn(GLenum type) override;
 GLuint glCreateShaderProgramvFn(GLenum type,
@@ -299,6 +300,7 @@ void glDeleteQueriesFn(GLsizei n, const GLuint* ids) override {}
 void glDeleteRenderbuffersEXTFn(GLsizei n,
                                 const GLuint* renderbuffers) override {}
 void glDeleteSamplersFn(GLsizei n, const GLuint* samplers) override {}
+void glDeleteSemaphoresEXTFn(GLsizei n, const GLuint* semaphores) override {}
 void glDeleteShaderFn(GLuint shader) override {}
 void glDeleteSyncFn(GLsync sync) override {}
 void glDeleteTexturesFn(GLsizei n, const GLuint* textures) override {}
@@ -400,6 +402,7 @@ GLuint glGenProgramPipelinesFn(GLsizei n, GLuint* pipelines) override;
 void glGenQueriesFn(GLsizei n, GLuint* ids) override {}
 void glGenRenderbuffersEXTFn(GLsizei n, GLuint* renderbuffers) override {}
 void glGenSamplersFn(GLsizei n, GLuint* samplers) override {}
+void glGenSemaphoresEXTFn(GLsizei n, GLuint* semaphores) override {}
 void glGenTexturesFn(GLsizei n, GLuint* textures) override {}
 void glGenTransformFeedbacksFn(GLsizei n, GLuint* ids) override {}
 void glGenVertexArraysOESFn(GLsizei n, GLuint* arrays) override {}
@@ -541,6 +544,12 @@ void glGetInternalformativRobustANGLEFn(GLenum target,
                                         GLsizei bufSize,
                                         GLsizei* length,
                                         GLint* params) override {}
+void glGetInternalformatSampleivNVFn(GLenum target,
+                                     GLenum internalformat,
+                                     GLsizei samples,
+                                     GLenum pname,
+                                     GLsizei bufSize,
+                                     GLint* params) override {}
 void glGetMultisamplefvFn(GLenum pname, GLuint index, GLfloat* val) override {}
 void glGetMultisamplefvRobustANGLEFn(GLenum pname,
                                      GLuint index,
@@ -840,6 +849,13 @@ void glGetVertexAttribPointervRobustANGLEFn(GLuint index,
                                             GLsizei* length,
                                             void** pointer) override {}
 void glHintFn(GLenum target, GLenum mode) override {}
+void glImportMemoryFdEXTFn(GLuint memory,
+                           GLuint64 size,
+                           GLenum handleType,
+                           GLint fd) override {}
+void glImportSemaphoreFdEXTFn(GLuint semaphore,
+                              GLenum handleType,
+                              GLint fd) override {}
 void glInsertEventMarkerEXTFn(GLsizei length, const char* marker) override {}
 void glInvalidateFramebufferFn(GLenum target,
                                GLsizei numAttachments,
@@ -1123,6 +1139,12 @@ void glRenderbufferStorageMultisampleFn(GLenum target,
                                         GLenum internalformat,
                                         GLsizei width,
                                         GLsizei height) override {}
+void glRenderbufferStorageMultisampleAdvancedAMDFn(GLenum target,
+                                                   GLsizei samples,
+                                                   GLsizei storageSamples,
+                                                   GLenum internalformat,
+                                                   GLsizei width,
+                                                   GLsizei height) override {}
 void glRenderbufferStorageMultisampleEXTFn(GLenum target,
                                            GLsizei samples,
                                            GLenum internalformat,
@@ -1171,6 +1193,12 @@ void glShaderSourceFn(GLuint shader,
                       GLsizei count,
                       const char* const* str,
                       const GLint* length) override {}
+void glSignalSemaphoreEXTFn(GLuint semaphore,
+                            GLuint numBufferBarriers,
+                            const GLuint* buffers,
+                            GLuint numTextureBarriers,
+                            const GLuint* textures,
+                            const GLenum* dstLayouts) override {}
 void glStencilFillPathInstancedNVFn(GLsizei numPaths,
                                     GLenum pathNameType,
                                     const void* paths,
@@ -1324,6 +1352,13 @@ void glTexStorage3DFn(GLenum target,
                       GLsizei width,
                       GLsizei height,
                       GLsizei depth) override {}
+void glTexStorageMem2DEXTFn(GLenum target,
+                            GLsizei levels,
+                            GLenum internalFormat,
+                            GLsizei width,
+                            GLsizei height,
+                            GLuint memory,
+                            GLuint64 offset) override {}
 void glTexSubImage2DFn(GLenum target,
                        GLint level,
                        GLint xoffset,
@@ -1502,6 +1537,12 @@ void glVertexAttribPointerFn(GLuint indx,
                              const void* ptr) override {}
 void glVertexBindingDivisorFn(GLuint bindingindex, GLuint divisor) override {}
 void glViewportFn(GLint x, GLint y, GLsizei width, GLsizei height) override {}
+void glWaitSemaphoreEXTFn(GLuint semaphore,
+                          GLuint numBufferBarriers,
+                          const GLuint* buffers,
+                          GLuint numTextureBarriers,
+                          const GLuint* textures,
+                          const GLenum* srcLayouts) override {}
 void glWaitSyncFn(GLsync sync, GLbitfield flags, GLuint64 timeout) override {}
 void glWindowRectanglesEXTFn(GLenum mode,
                              GLsizei n,

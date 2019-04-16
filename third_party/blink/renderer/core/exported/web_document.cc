@@ -138,6 +138,10 @@ WebURL WebDocument::SiteForCookies() const {
   return ConstUnwrap<Document>()->SiteForCookies();
 }
 
+WebSecurityOrigin WebDocument::TopFrameOrigin() const {
+  return ConstUnwrap<Document>()->TopFrameOrigin();
+}
+
 WebElement WebDocument::DocumentElement() const {
   return WebElement(ConstUnwrap<Document>()->documentElement());
 }
@@ -277,7 +281,7 @@ WebDistillabilityFeatures WebDocument::DistillabilityFeatures() {
 
 WebDocument::WebDocument(Document* elem) : WebNode(elem) {}
 
-DEFINE_WEB_NODE_TYPE_CASTS(WebDocument, ConstUnwrap<Node>()->IsDocumentNode());
+DEFINE_WEB_NODE_TYPE_CASTS(WebDocument, ConstUnwrap<Node>()->IsDocumentNode())
 
 WebDocument& WebDocument::operator=(Document* elem) {
   private_ = elem;

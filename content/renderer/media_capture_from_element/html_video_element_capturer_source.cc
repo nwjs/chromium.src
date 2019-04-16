@@ -4,6 +4,7 @@
 
 #include "content/renderer/media_capture_from_element/html_video_element_capturer_source.h"
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/single_thread_task_runner.h"
@@ -12,10 +13,10 @@
 #include "cc/paint/skia_paint_canvas.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
-#include "content/renderer/media/webrtc/webrtc_uma_histograms.h"
 #include "media/base/limits.h"
 #include "media/blink/webmediaplayer_impl.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/public/platform/web_media_player.h"
 #include "third_party/blink/public/platform/web_rect.h"
 #include "third_party/blink/public/platform/web_size.h"

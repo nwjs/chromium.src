@@ -4,16 +4,20 @@
 
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
 
+#include <vector>
 #include "third_party/blink/public/platform/web_url_loader_client.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_network.h"
+#include "third_party/blink/renderer/platform/loader/static_data_navigation_body_loader.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
 
 SimRequestBase::SimRequestBase(String url,
+                               String redirect_url,
                                String mime_type,
                                bool start_immediately)
     : url_(url),
+      redirect_url_(redirect_url),
       mime_type_(mime_type),
       start_immediately_(start_immediately),
       started_(false),
@@ -24,10 +28,12 @@ SimRequestBase::SimRequestBase(String url,
 
 SimRequestBase::~SimRequestBase() {
   DCHECK(!client_);
+  DCHECK(!navigation_body_loader_);
 }
 
 void SimRequestBase::DidReceiveResponse(WebURLLoaderClient* client,
                                         const WebURLResponse& response) {
+  DCHECK(!navigation_body_loader_);
   client_ = client;
   response_ = response;
   started_ = false;
@@ -39,8 +45,18 @@ void SimRequestBase::DidFail(const WebURLError& error) {
   error_ = error;
 }
 
+void SimRequestBase::UsedForNavigation(
+    StaticDataNavigationBodyLoader* navigation_body_loader) {
+  DCHECK(start_immediately_);
+  DCHECK(!client_);
+  DCHECK(!started_);
+  navigation_body_loader_ = navigation_body_loader;
+  started_ = true;
+}
+
 void SimRequestBase::StartInternal() {
   DCHECK(!started_);
+  DCHECK(redirect_url_.IsEmpty());  // client_ is nullptr on redirects
   started_ = true;
   client_->DidReceiveResponse(response_);
 }
@@ -51,7 +67,10 @@ void SimRequestBase::Write(const String& data) {
   DCHECK(started_);
   DCHECK(!error_);
   total_encoded_data_length_ += data.length();
-  client_->DidReceiveData(data.Utf8().data(), data.length());
+  if (navigation_body_loader_)
+    navigation_body_loader_->Write(data.Utf8().data(), data.length());
+  else
+    client_->DidReceiveData(data.Utf8().data(), data.length());
 }
 
 void SimRequestBase::Write(const Vector<char>& data) {
@@ -60,7 +79,10 @@ void SimRequestBase::Write(const Vector<char>& data) {
   DCHECK(started_);
   DCHECK(!error_);
   total_encoded_data_length_ += data.size();
-  client_->DidReceiveData(data.data(), data.size());
+  if (navigation_body_loader_)
+    navigation_body_loader_->Write(data.data(), data.size());
+  else
+    client_->DidReceiveData(data.data(), data.size());
 }
 
 void SimRequestBase::Finish() {
@@ -68,14 +90,19 @@ void SimRequestBase::Finish() {
     ServePending();
   DCHECK(started_);
   if (error_) {
+    DCHECK(!navigation_body_loader_);
     client_->DidFail(*error_, total_encoded_data_length_,
                      total_encoded_data_length_, total_encoded_data_length_);
   } else {
-    // TODO(esprehn): Is claiming a request time of 0 okay for tests?
-    client_->DidFinishLoading(
-        TimeTicks(), total_encoded_data_length_, total_encoded_data_length_,
-        total_encoded_data_length_, false,
-        std::vector<network::cors::PreflightTimingInfo>());
+    if (navigation_body_loader_) {
+      navigation_body_loader_->Finish();
+    } else {
+      // TODO(esprehn): Is claiming a request time of 0 okay for tests?
+      client_->DidFinishLoading(
+          TimeTicks(), total_encoded_data_length_, total_encoded_data_length_,
+          total_encoded_data_length_, false,
+          std::vector<network::cors::PreflightTimingInfo>());
+    }
   }
   Reset();
 }
@@ -103,6 +130,7 @@ void SimRequestBase::Complete(const Vector<char>& data) {
 void SimRequestBase::Reset() {
   started_ = false;
   client_ = nullptr;
+  navigation_body_loader_ = nullptr;
   SimNetwork::Current().RemoveRequest(*this);
 }
 
@@ -111,12 +139,20 @@ void SimRequestBase::ServePending() {
 }
 
 SimRequest::SimRequest(String url, String mime_type)
-    : SimRequestBase(url, mime_type, true /* start_immediately */) {}
+    : SimRequestBase(url, "", mime_type, true /* start_immediately */) {}
 
 SimRequest::~SimRequest() = default;
 
 SimSubresourceRequest::SimSubresourceRequest(String url, String mime_type)
-    : SimRequestBase(url, mime_type, false /* start_immediately */) {}
+    : SimRequestBase(url, "", mime_type, false /* start_immediately */) {}
+
+SimSubresourceRequest::SimSubresourceRequest(String url,
+                                             String redirect_url,
+                                             String mime_type)
+    : SimRequestBase(url,
+                     redirect_url,
+                     mime_type,
+                     false /* start_immediately */) {}
 
 SimSubresourceRequest::~SimSubresourceRequest() = default;
 

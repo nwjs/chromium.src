@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -443,7 +444,7 @@ MockTransportClientSocketFactory::CreateTransportClientSocket(
 
 std::unique_ptr<SSLClientSocket>
 MockTransportClientSocketFactory::CreateSSLClientSocket(
-    std::unique_ptr<ClientSocketHandle> transport_socket,
+    std::unique_ptr<StreamSocket> stream_socket,
     const HostPortPair& host_and_port,
     const SSLConfig& ssl_config,
     const SSLClientSocketContext& context) {
@@ -453,7 +454,7 @@ MockTransportClientSocketFactory::CreateSSLClientSocket(
 
 std::unique_ptr<ProxyClientSocket>
 MockTransportClientSocketFactory::CreateProxyClientSocket(
-    std::unique_ptr<ClientSocketHandle> transport_socket,
+    std::unique_ptr<StreamSocket> stream_socket,
     const std::string& user_agent,
     const HostPortPair& endpoint,
     const ProxyServer& proxy_server,
@@ -466,10 +467,6 @@ MockTransportClientSocketFactory::CreateProxyClientSocket(
     const NetworkTrafficAnnotationTag& traffic_annotation) {
   NOTIMPLEMENTED();
   return nullptr;
-}
-
-void MockTransportClientSocketFactory::ClearSSLSessionCache() {
-  NOTIMPLEMENTED();
 }
 
 void MockTransportClientSocketFactory::set_client_socket_types(

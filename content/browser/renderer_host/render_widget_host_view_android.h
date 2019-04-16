@@ -119,9 +119,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       base::OnceCallback<void(const SkBitmap&)> callback) override;
   void EnsureSurfaceSynchronizedForWebTest() override;
   uint32_t GetCaptureSequenceNumber() const override;
-  bool DoBrowserControlsShrinkRendererSize() const override;
-  float GetTopControlsHeight() const override;
-  float GetBottomControlsHeight() const override;
   int GetMouseWheelMinimumGranularity() const override;
   void UpdateCursor(const WebCursor& cursor) override;
   void SetIsLoading(bool is_loading) override;
@@ -177,8 +174,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   bool TransformPointToCoordSpaceForView(
       const gfx::PointF& point,
       RenderWidgetHostViewBase* target_view,
-      gfx::PointF* transformed_point,
-      viz::EventSource source = viz::EventSource::ANY) override;
+      gfx::PointF* transformed_point) override;
   TouchSelectionControllerClientManager*
   GetTouchSelectionControllerClientManager() override;
   const viz::LocalSurfaceIdAllocation& GetLocalSurfaceIdAllocation()
@@ -190,6 +186,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void DidNavigate() override;
   viz::ScopedSurfaceIdAllocator DidUpdateVisualProperties(
       const cc::RenderFrameMetadata& metadata) override;
+  void GetScreenInfo(ScreenInfo* screen_info) const override;
 
   // ui::EventHandlerAndroid implementation.
   bool OnTouchEvent(const ui::MotionEventAndroid& m) override;
@@ -337,6 +334,10 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   void WasEvicted();
 
+  ui::DelegatedFrameHostAndroid* delegated_frame_host_for_testing() {
+    return delegated_frame_host_.get();
+  }
+
  protected:
   // RenderWidgetHostViewBase:
   void UpdateBackgroundColor() override;
@@ -405,7 +406,6 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
                         float mouse_down_y);
 
   WebContentsAccessibilityAndroid* GetWebContentsAccessibilityAndroid() const;
-  RenderViewHostDelegateView* GetRenderViewHostDelegateView() const;
 
   void OnFocusInternal();
   void LostFocusInternal();
@@ -508,6 +508,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
   bool is_first_navigation_ = true;
+  // If true, then the next allocated surface should be embedded.
+  bool navigation_while_hidden_ = false;
 
   base::flat_map<uint32_t, gfx::PresentationFeedback> presentation_feedbacks_;
 

@@ -7,9 +7,10 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
-#include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
+#include "base/test/scoped_task_environment.h"
 #include "chrome/services/app_service/app_service_impl.h"
 #include "chrome/services/app_service/public/mojom/types.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -36,7 +37,7 @@ class FakePublisher : public apps::mojom::Publisher {
     }
   }
 
-  std::string load_icon_app_id_;
+  std::string load_icon_s_key;
 
  private:
   void Connect(apps::mojom::SubscriberPtr subscriber,
@@ -45,12 +46,12 @@ class FakePublisher : public apps::mojom::Publisher {
     subscribers_.AddPtr(std::move(subscriber));
   }
 
-  void LoadIcon(const std::string& app_id,
-                apps::mojom::IconKeyPtr icon_key,
+  void LoadIcon(apps::mojom::IconKeyPtr icon_key,
                 apps::mojom::IconCompression icon_compression,
                 int32_t size_hint_in_dip,
+                bool allow_placeholder_icon,
                 LoadIconCallback callback) override {
-    load_icon_app_id_ = app_id;
+    load_icon_s_key = icon_key->s_key;
     std::move(callback).Run(apps::mojom::IconValue::New());
   }
 
@@ -117,10 +118,7 @@ class FakeSubscriber : public apps::mojom::Subscriber {
 
 class AppServiceImplTest : public testing::Test {
  private:
-  // https://www.chromium.org/developers/design-documents/mojo/mojo-migration-guide#TOC-Mocking-in-tests
-  // says, "You will not actually use the loop_ variable, but one need to exist
-  // and this declaration causes a global message loop to be created".
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment scoped_task_environment_;
 };
 
 TEST_F(AppServiceImplTest, PubSub) {
@@ -195,20 +193,22 @@ TEST_F(AppServiceImplTest, PubSub) {
                            : apps::mojom::AppType::kUnknown;
 
     bool callback_ran = false;
-    pub0.load_icon_app_id_ = "-";
-    pub1.load_icon_app_id_ = "-";
-    pub2.load_icon_app_id_ = "-";
+    pub0.load_icon_s_key = "-";
+    pub1.load_icon_s_key = "-";
+    pub2.load_icon_s_key = "-";
+    auto icon_key = apps::mojom::IconKey::New(app_type, 0, "o", 0);
+    constexpr bool allow_placeholder_icon = false;
     impl.LoadIcon(
-        app_type, "o", apps::mojom::IconKey::New(),
-        apps::mojom::IconCompression::kUncompressed, size_hint_in_dip,
+        std::move(icon_key), apps::mojom::IconCompression::kUncompressed,
+        size_hint_in_dip, allow_placeholder_icon,
         base::BindOnce(
             [](bool* ran, apps::mojom::IconValuePtr iv) { *ran = true; },
             &callback_ran));
     base::RunLoop().RunUntilIdle();
     EXPECT_TRUE(callback_ran);
-    EXPECT_EQ("-", pub0.load_icon_app_id_);
-    EXPECT_EQ(i == 0 ? "o" : "-", pub1.load_icon_app_id_);
-    EXPECT_EQ("-", pub2.load_icon_app_id_);
+    EXPECT_EQ("-", pub0.load_icon_s_key);
+    EXPECT_EQ(i == 0 ? "o" : "-", pub1.load_icon_s_key);
+    EXPECT_EQ("-", pub2.load_icon_s_key);
   }
 }
 

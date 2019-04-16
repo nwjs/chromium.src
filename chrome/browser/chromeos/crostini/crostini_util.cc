@@ -4,15 +4,21 @@
 
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 
+#include <utility>
+
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/task/post_task.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/chromeos/crostini/crostini_app_launch_observer.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
+#include "chrome/browser/chromeos/crostini/crostini_mime_types_service.h"
+#include "chrome/browser/chromeos/crostini/crostini_mime_types_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
@@ -24,13 +30,15 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_item_controller.h"
-#include "chrome/browser/ui/ash/window_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/grit/chrome_unscaled_resources.h"
+#include "chrome/grit/generated_resources.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_service.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/l10n/time_format.h"
 
 namespace {
 
@@ -88,21 +96,6 @@ void OnContainerApplicationLaunched(const std::string& app_id,
                                     crostini::CrostiniResult result) {
   if (result != crostini::CrostiniResult::SUCCESS)
     OnLaunchFailed(app_id);
-}
-
-Browser* CreateTerminal(const AppLaunchParams& launch_params,
-                        const GURL& vsh_in_crosh_url) {
-  return crostini::CrostiniManager::CreateContainerTerminal(launch_params,
-                                                            vsh_in_crosh_url);
-}
-
-void ShowTerminal(const AppLaunchParams& launch_params,
-                  const GURL& vsh_in_crosh_url,
-                  Browser* browser) {
-  crostini::CrostiniManager::ShowContainerTerminal(launch_params,
-                                                   vsh_in_crosh_url, browser);
-  browser->window()->GetNativeWindow()->SetProperty(
-      kOverrideWindowIconResourceIdKey, IDR_LOGO_CROSTINI_TERMINAL);
 }
 
 void LaunchContainerApplication(
@@ -223,6 +216,11 @@ bool IsCrostiniAllowedForProfileImpl(Profile* profile) {
 
 namespace crostini {
 
+std::string ContainerIdToString(const ContainerId& container_id) {
+  return base::StrCat(
+      {"(", container_id.first, ", ", container_id.second, ")"});
+}
+
 bool IsCrostiniAllowedForProfile(Profile* profile) {
   const user_manager::User* user =
       chromeos::ProfileHelper::Get()->GetUserByProfile(profile);
@@ -247,6 +245,13 @@ bool IsCrostiniUIAllowedForProfile(Profile* profile, bool check_policy) {
     return IsCrostiniAllowedForProfile(profile);
   }
   return IsCrostiniAllowedForProfileImpl(profile);
+}
+
+bool IsCrostiniExportImportUIAllowedForProfile(Profile* profile) {
+  return IsCrostiniUIAllowedForProfile(profile, true) &&
+         base::FeatureList::IsEnabled(chromeos::features::kCrostiniBackup) &&
+         profile->GetPrefs()->GetBoolean(
+             crostini::prefs::kUserCrostiniExportImportUIAllowedByPolicy);
 }
 
 bool IsCrostiniEnabled(Profile* profile) {
@@ -323,9 +328,11 @@ void LaunchCrostiniApp(Profile* profile,
     // Create the terminal here so it's created in the right display. If the
     // browser creation is delayed into the callback the root window for new
     // windows setting can be changed due to the launcher or shelf dismissal.
-    Browser* browser = CreateTerminal(launch_params, vsh_in_crosh_url);
+    Browser* browser = crostini::CrostiniManager::CreateContainerTerminal(
+        launch_params, vsh_in_crosh_url);
     launch_closure =
-        base::BindOnce(&ShowTerminal, launch_params, vsh_in_crosh_url, browser);
+        base::BindOnce(&crostini::CrostiniManager::ShowContainerTerminal,
+                       launch_params, vsh_in_crosh_url, browser);
   } else {
     RecordAppLaunchHistogram(CrostiniAppLaunchAppType::kRegisteredApp);
     launch_closure = base::BindOnce(
@@ -405,6 +412,61 @@ bool IsUnaffiliatedCrostiniAllowedByPolicy() {
   }
   // If device policy is not set, allow Crostini.
   return true;
+}
+
+void AddNewLxdContainerToPrefs(Profile* profile,
+                               std::string vm_name,
+                               std::string container_name) {
+  auto* pref_service = profile->GetPrefs();
+
+  base::Value new_container(base::Value::Type::DICTIONARY);
+  new_container.SetKey(prefs::kVmKey, base::Value(vm_name));
+  new_container.SetKey(prefs::kContainerKey, base::Value(container_name));
+
+  ListPrefUpdate updater(pref_service, crostini::prefs::kCrostiniContainers);
+  updater->GetList().emplace_back(std::move(new_container));
+}
+
+void RemoveLxdContainerFromPrefs(Profile* profile,
+                                 std::string vm_name,
+                                 std::string container_name) {
+  auto* pref_service = profile->GetPrefs();
+  ListPrefUpdate updater(pref_service, crostini::prefs::kCrostiniContainers);
+
+  for (auto it = updater->GetList().begin(); it != updater->GetList().end();
+       it++) {
+    auto* vm_name_test = it->FindKey(prefs::kVmKey);
+    auto* container_name_test = it->FindKey(prefs::kContainerKey);
+    if (vm_name_test->GetString() == vm_name &&
+        container_name_test->GetString() == container_name) {
+      updater->GetList().erase(it);
+      break;
+    }
+  }
+  CrostiniRegistryServiceFactory::GetForProfile(profile)->ClearApplicationList(
+      vm_name, container_name);
+  CrostiniMimeTypesServiceFactory::GetForProfile(profile)->ClearMimeTypes(
+      vm_name, container_name);
+}
+
+base::string16 GetTimeRemainingMessage(base::Time start, int percent) {
+  // Only estimate once we've spent at least 3 seconds OR gotten 10% of the way
+  // through.
+  constexpr base::TimeDelta kMinTimeForEstimate =
+      base::TimeDelta::FromSeconds(3);
+  constexpr base::TimeDelta kTimeDeltaZero = base::TimeDelta::FromSeconds(0);
+  constexpr int kMinPercentForEstimate = 10;
+  base::TimeDelta elapsed = base::Time::Now() - start;
+  if ((elapsed >= kMinTimeForEstimate && percent > 0) ||
+      (percent >= kMinPercentForEstimate && elapsed > kTimeDeltaZero)) {
+    base::TimeDelta total_time_expected = (elapsed * 100) / percent;
+    base::TimeDelta time_remaining = total_time_expected - elapsed;
+    return ui::TimeFormat::Simple(ui::TimeFormat::FORMAT_REMAINING,
+                                  ui::TimeFormat::LENGTH_SHORT, time_remaining);
+  } else {
+    return l10n_util::GetStringUTF16(
+        IDS_CROSTINI_NOTIFICATION_OPERATION_STARTING);
+  }
 }
 
 }  // namespace crostini

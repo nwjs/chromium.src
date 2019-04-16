@@ -64,7 +64,6 @@ class LayoutTreeBuilder {
   LayoutTreeBuilder(NodeType& node, LayoutObject* layout_object_parent)
       : node_(node), layout_object_parent_(layout_object_parent) {
     DCHECK(!node.GetLayoutObject());
-    DCHECK(node.NeedsAttach());
     DCHECK(node.GetDocument().InStyleRecalc());
     DCHECK(node.InActiveDocument());
   }
@@ -75,7 +74,7 @@ class LayoutTreeBuilder {
     // Avoid an O(N^2) walk over the children when reattaching all children of a
     // node.
     if (layout_object_parent_->GetNode() &&
-        layout_object_parent_->GetNode()->NeedsAttach())
+        layout_object_parent_->GetNode()->NeedsReattachLayoutTree())
       return nullptr;
 
     LayoutObject* next =
@@ -162,9 +161,9 @@ class CORE_EXPORT ReattachLegacyLayoutObjectList final {
  private:
   Member<Document> document_;
 
-  // A list of block formatting context or layout object associated to
-  // document element.
-  Vector<const LayoutObject*> blocks_;
+  // A list of elements establishing a block formatting context which need to
+  // be re-attached to use legacy fallback.
+  HeapVector<Member<Element>> reattach_elements_;
 
   enum class State {
     kInvalid,

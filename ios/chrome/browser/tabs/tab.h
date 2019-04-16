@@ -16,7 +16,6 @@
 
 @class AutofillController;
 @class CastController;
-@class ExternalAppLauncher;
 class GURL;
 @class OpenInController;
 @class OverscrollActionsController;
@@ -27,13 +26,7 @@ class GURL;
 @protocol TabDialogDelegate;
 @class Tab;
 
-namespace ios {
-class ChromeBrowserState;
-}
-
 namespace web {
-class NavigationItem;
-class NavigationManager;
 class WebState;
 }
 
@@ -71,12 +64,6 @@ extern NSString* const kProxyPassthroughHeaderValue;
 // loaded.
 @interface Tab : NSObject
 
-// Browser state associated with this Tab.
-@property(nonatomic, readonly) ios::ChromeBrowserState* browserState;
-
-// ID associated with this tab.
-@property(nonatomic, readonly) NSString* tabId;
-
 // The Webstate associated with this Tab.
 @property(nonatomic, readonly) web::WebState* webState;
 
@@ -105,21 +92,8 @@ extern NSString* const kProxyPassthroughHeaderValue;
 // Dismisses all modals owned by the tab.
 - (void)dismissModals;
 
-// Returns the NavigationManager for this tab's WebState. Requires WebState to
-// be populated. Can return null.
-- (web::NavigationManager*)navigationManager;
-
 // Called before capturing a snapshot for Tab.
 - (void)willUpdateSnapshot;
-
-// Evaluates U2F result.
-- (void)evaluateU2FResultFromURL:(const GURL&)url;
-
-// Generates a GURL compliant with the x-callback-url specs for FIDO Universal
-// 2nd Factory (U2F) requests. Returns empty GURL if origin is not secure.
-// See http://x-callback-url.com/specifications/ for specifications.
-- (GURL)XCallbackFromRequestURL:(const GURL&)requestURL
-                      originURL:(const GURL&)originURL;
 
 // Sends a notification to indicate that |url| is going to start loading.
 - (void)notifyTabOfUrlMayStartLoading:(const GURL&)url;

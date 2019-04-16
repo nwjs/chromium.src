@@ -9,7 +9,8 @@
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/frame_owner.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace blink {
 
@@ -52,6 +53,7 @@ class CORE_EXPORT RemoteFrameOwner final
   }
   void RenderFallbackContent(Frame*) override;
   void IntrinsicSizingInfoChanged() override;
+  void SetNeedsOcclusionTracking(bool) override;
 
   AtomicString BrowsingContextContainerName() const override {
     return browsing_context_container_name_;
@@ -114,16 +116,16 @@ class CORE_EXPORT RemoteFrameOwner final
   bool allow_fullscreen_;
   bool allow_payment_request_;
   bool is_display_none_;
+  bool needs_occlusion_tracking_;
   WebString required_csp_;
   ParsedFeaturePolicy container_policy_;
   const FrameOwnerElementType frame_owner_element_type_;
 };
 
-DEFINE_TYPE_CASTS(RemoteFrameOwner,
-                  FrameOwner,
-                  owner,
-                  owner->IsRemote(),
-                  owner.IsRemote());
+template <>
+struct DowncastTraits<RemoteFrameOwner> {
+  static bool AllowFrom(const FrameOwner& owner) { return owner.IsRemote(); }
+};
 
 }  // namespace blink
 

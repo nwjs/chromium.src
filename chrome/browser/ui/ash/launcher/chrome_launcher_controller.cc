@@ -15,6 +15,8 @@
 #include "ash/public/cpp/shelf_prefs.h"
 #include "ash/public/cpp/window_animation_types.h"
 #include "ash/public/interfaces/constants.mojom.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/strings/pattern.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -62,6 +64,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/system_web_app_manager.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "chrome/grit/chromium_strings.h"
@@ -101,6 +104,18 @@ void SelectItemWithSource(ash::ShelfItemDelegate* delegate,
 bool ItemTypeIsPinned(const ash::ShelfItem& item) {
   return item.type == ash::TYPE_PINNED_APP ||
          item.type == ash::TYPE_BROWSER_SHORTCUT;
+}
+
+// Returns the app_id of the crostini app that can handle the given web content.
+// Returns the empty string if crostini does not recognise the contents. This is
+// used to prevent crbug.com/855662.
+// TODO(crbug.com/846546): Remove this function when the crostini terminal is
+// less hacky
+std::string GetCrostiniAppIdFromContents(content::WebContents* web_contents) {
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
+  base::Optional<std::string> app_id_opt =
+      crostini::CrostiniAppIdFromAppName(browser->app_name());
+  return app_id_opt.value_or("");
 }
 
 }  // namespace
@@ -196,6 +211,11 @@ ChromeLauncherController::ChromeLauncherController(Profile* profile,
     ash::mojom::ShelfObserverAssociatedPtrInfo ptr_info;
     observer_binding_.Bind(mojo::MakeRequest(&ptr_info));
     shelf_controller_->AddObserver(std::move(ptr_info));
+  }
+
+  if (!web_app::SystemWebAppManager::IsEnabled()) {
+    settings_window_observer_ = std::make_unique<SettingsWindowObserver>();
+    discover_window_observer_ = std::make_unique<DiscoverWindowObserver>();
   }
 
   if (!profile) {
@@ -423,13 +443,13 @@ void ChromeLauncherController::ActivateApp(const std::string& app_id,
     return;
   }
 
-  // Create a temporary delegate to see if there are running app instances.
   std::unique_ptr<AppShortcutLauncherItemController> item_delegate =
       AppShortcutLauncherItemController::Create(shelf_id);
-  if (!item_delegate->GetRunningApplications().empty())
+  if (!item_delegate->GetRunningApplications().empty()) {
     SelectItemWithSource(item_delegate.get(), source, display_id);
-  else
+  } else {
     LaunchApp(shelf_id, source, event_flags, display_id);
+  }
 }
 
 void ChromeLauncherController::SetLauncherItemImage(
@@ -486,6 +506,8 @@ void ChromeLauncherController::UpdateAppState(content::WebContents* contents,
 ash::ShelfID ChromeLauncherController::GetShelfIDForWebContents(
     content::WebContents* contents) {
   std::string app_id = launcher_controller_helper_->GetAppID(contents);
+  if (app_id.empty() && crostini::IsCrostiniEnabled(profile()))
+    app_id = GetCrostiniAppIdFromContents(contents);
   if (app_id.empty() && ContentCanBeHandledByGmailApp(contents))
     app_id = kGmailAppId;
 
@@ -591,10 +613,7 @@ ChromeLauncherController::GetV1ApplicationsFromAppId(
   // This should only be called for apps.
   DCHECK(item->type == ash::TYPE_APP || item->type == ash::TYPE_PINNED_APP);
 
-  ash::ShelfItemDelegate* delegate = model_->GetShelfItemDelegate(item->id);
-  AppShortcutLauncherItemController* item_controller =
-      static_cast<AppShortcutLauncherItemController*>(delegate);
-  return item_controller->GetRunningApplications();
+  return AppShortcutLauncherItemController::GetRunningApplications(app_id);
 }
 
 void ChromeLauncherController::ActivateShellApp(const std::string& app_id,
@@ -1168,10 +1187,10 @@ void ChromeLauncherController::AttachProfile(Profile* profile_to_attach) {
     app_updaters_.push_back(std::move(crostini_app_updater));
   }
 
-  app_list::AppListSyncableService* app_service =
+  app_list::AppListSyncableService* app_list_syncable_service =
       app_list::AppListSyncableServiceFactory::GetForProfile(profile());
-  if (app_service)
-    app_service->AddObserverAndStart(this);
+  if (app_list_syncable_service)
+    app_list_syncable_service->AddObserverAndStart(this);
 
   PrefServiceSyncableFromProfile(profile())->AddObserver(this);
 }
@@ -1184,10 +1203,10 @@ void ChromeLauncherController::ReleaseProfile() {
 
   pref_change_registrar_.RemoveAll();
 
-  app_list::AppListSyncableService* app_service =
+  app_list::AppListSyncableService* app_list_syncable_service =
       app_list::AppListSyncableServiceFactory::GetForProfile(profile());
-  if (app_service)
-    app_service->RemoveObserver(this);
+  if (app_list_syncable_service)
+    app_list_syncable_service->RemoveObserver(this);
 
   PrefServiceSyncableFromProfile(profile())->RemoveObserver(this);
 }

@@ -148,7 +148,7 @@ FileTapHandler.prototype.handleTouchEvents = function(event, index, callback) {
       this.isLongTap_ = false;
       this.isTwoFingerTap_ = false;
       this.hasLongPressProcessed_ = false;
-      this.longTapDetectorTimerId_ = setTimeout(function() {
+      this.longTapDetectorTimerId_ = setTimeout(() => {
         this.longTapDetectorTimerId_ = -1;
         if (!this.tapStarted_) {
           return;
@@ -157,7 +157,7 @@ FileTapHandler.prototype.handleTouchEvents = function(event, index, callback) {
         if (callback(event, index, FileTapHandler.TapEvent.LONG_PRESS)) {
           this.hasLongPressProcessed_ = true;
         }
-      }.bind(this), FileTapHandler.LONG_PRESS_THRESHOLD_MILLISECONDS);
+      }, FileTapHandler.LONG_PRESS_THRESHOLD_MILLISECONDS);
       break;
 
     case 'touchmove':
@@ -169,17 +169,17 @@ FileTapHandler.prototype.handleTouchEvents = function(event, index, callback) {
         break;
       }
 
-      var clientX = touch.clientX;
-      var clientY = touch.clientY;
+      const clientX = touch.clientX;
+      const clientY = touch.clientY;
 
-      var moveX = this.lastTouchX_ - clientX;
-      var moveY = this.lastTouchY_ - clientY;
+      const moveX = this.lastTouchX_ - clientX;
+      const moveY = this.lastTouchY_ - clientY;
       this.totalMoveX_ += Math.abs(moveX);
       this.totalMoveY_ += Math.abs(moveY);
       this.lastTouchX_ = clientX;
       this.lastTouchY_ = clientY;
 
-      var couldBeTap =
+      const couldBeTap =
           this.totalMoveY_ <= FileTapHandler.MAX_TRACKING_FOR_TAP_ ||
           this.totalMoveX_ <= FileTapHandler.MAX_TRACKING_FOR_TAP_;
 
@@ -244,7 +244,7 @@ FileTapHandler.prototype.findActiveTouch_ = function(touches) {
   assert(this.activeTouchId_ !== undefined, 'Expecting an active touch');
   // A TouchList isn't actually an array, so we shouldn't use
   // Array.prototype.filter/some, etc.
-  for (var i = 0; i < touches.length; i++) {
+  for (let i = 0; i < touches.length; i++) {
     if (touches[i].identifier == this.activeTouchId_) {
       return touches[i];
     }

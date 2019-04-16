@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/html/custom/custom_element_reaction_factory.h"
 
+#include "third_party/blink/renderer/bindings/core/v8/file_or_usv_string.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_definition.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_reaction.h"
@@ -22,7 +23,7 @@ class CustomElementUpgradeReaction final : public CustomElementReaction {
   void Invoke(Element& element) override {
     // Don't call Upgrade() if it's already upgraded. Multiple upgrade reactions
     // could be enqueued because the state changes in step 10 of upgrades.
-    // https://html.spec.whatwg.org/multipage/scripting.html#upgrades
+    // https://html.spec.whatwg.org/C/#upgrades
     if (element.GetCustomElementState() == CustomElementState::kUndefined) {
       // Don't upgrade elements inside an invisible-static tree, unless it was
       // triggered by CustomElementRegistry::upgrade.
@@ -204,6 +205,35 @@ class CustomElementDisabledStateChangedCallbackReaction final
 
 // ----------------------------------------------------------------
 
+class CustomElementRestoreValueCallbackReaction final
+    : public CustomElementReaction {
+ public:
+  CustomElementRestoreValueCallbackReaction(CustomElementDefinition& definition,
+                                            const FileOrUSVString& value,
+                                            const String& mode)
+      : CustomElementReaction(definition), value_(value), mode_(mode) {
+    DCHECK(definition.HasRestoreValueCallback());
+    DCHECK(mode == "restore" || mode == "autocomplete");
+  }
+
+  void Trace(Visitor* visitor) override {
+    visitor->Trace(value_);
+    CustomElementReaction::Trace(visitor);
+  }
+
+ private:
+  void Invoke(Element& element) override {
+    definition_->RunRestoreValueCallback(element, value_, mode_);
+  }
+
+  FileOrUSVString value_;
+  String mode_;
+
+  DISALLOW_COPY_AND_ASSIGN(CustomElementRestoreValueCallbackReaction);
+};
+
+// ----------------------------------------------------------------
+
 CustomElementReaction& CustomElementReactionFactory::CreateUpgrade(
     CustomElementDefinition& definition,
     bool upgrade_invisible_elements) {
@@ -259,6 +289,14 @@ CustomElementReaction& CustomElementReactionFactory::CreateDisabledStateChanged(
   return *MakeGarbageCollected<
       CustomElementDisabledStateChangedCallbackReaction>(definition,
                                                          is_disabled);
+}
+
+CustomElementReaction& CustomElementReactionFactory::CreateRestoreValue(
+    CustomElementDefinition& definition,
+    const FileOrUSVString& value,
+    const String& mode) {
+  return *MakeGarbageCollected<CustomElementRestoreValueCallbackReaction>(
+      definition, value, mode);
 }
 
 }  // namespace blink

@@ -5,6 +5,7 @@
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -417,7 +418,7 @@ void ProceedThroughInterstitial(content::WebContents* tab) {
             tab);
     helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
         ->CommandReceived(
-            base::IntToString(security_interstitials::CMD_PROCEED));
+            base::NumberToString(security_interstitials::CMD_PROCEED));
     nav_observer.Wait();
   } else {
     content::InterstitialPage* interstitial_page = tab->GetInterstitialPage();
@@ -551,9 +552,9 @@ class SecurityStateTabHelperTest : public CertVerifierBrowserTest,
   DISALLOW_COPY_AND_ASSIGN(SecurityStateTabHelperTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SecurityStateTabHelperTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SecurityStateTabHelperTest,
+                         ::testing::Values(false, true));
 
 // Same as SecurityStateTabHelperTest, but with Incognito enabled.
 class SecurityStateTabHelperIncognitoTest : public SecurityStateTabHelperTest {
@@ -570,9 +571,9 @@ class SecurityStateTabHelperIncognitoTest : public SecurityStateTabHelperTest {
   DISALLOW_COPY_AND_ASSIGN(SecurityStateTabHelperIncognitoTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SecurityStateTabHelperIncognitoTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SecurityStateTabHelperIncognitoTest,
+                         ::testing::Values(false, true));
 
 class DidChangeVisibleSecurityStateTest
     : public InProcessBrowserTest,
@@ -604,9 +605,9 @@ class DidChangeVisibleSecurityStateTest
   DISALLOW_COPY_AND_ASSIGN(DidChangeVisibleSecurityStateTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        DidChangeVisibleSecurityStateTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         DidChangeVisibleSecurityStateTest,
+                         ::testing::Values(false, true));
 
 IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTest, HttpPage) {
   ui_test_utils::NavigateToURL(
@@ -1241,7 +1242,7 @@ class PKPModelClientTest : public SecurityStateTabHelperTest {
       transport_security_state_source_;
 };
 
-INSTANTIATE_TEST_CASE_P(, PKPModelClientTest, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, PKPModelClientTest, ::testing::Values(false, true));
 
 IN_PROC_BROWSER_TEST_P(PKPModelClientTest, PKPBypass) {
   content::WebContents* web_contents =
@@ -1342,9 +1343,9 @@ class SecurityStateLoadingTest : public SecurityStateTabHelperTest {
   DISALLOW_COPY_AND_ASSIGN(SecurityStateLoadingTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SecurityStateLoadingTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SecurityStateLoadingTest,
+                         ::testing::Values(false, true));
 
 // Tests that navigation state changes cause the security state to be
 // updated.
@@ -1751,6 +1752,10 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTest,
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::DANGEROUS, security_info.security_level);
   EXPECT_EQ(blink::kWebSecurityStyleInsecure, observer.latest_security_style());
+  const content::SecurityStyleExplanations& http_explanation =
+      observer.latest_explanations();
+  EXPECT_EQ(l10n_util::GetStringUTF8(IDS_HTTP_NONSECURE_SUMMARY),
+            http_explanation.summary);
 }
 
 // Visit a valid HTTPS page, then a broken HTTPS page, and then go back,
@@ -2026,6 +2031,10 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperTest,
   // Verify that the security state degrades as expected.
   helper->GetSecurityInfo(&security_info);
   EXPECT_EQ(security_state::DANGEROUS, security_info.security_level);
+  const content::SecurityStyleExplanations& http_explanation =
+      observer.latest_explanations();
+  EXPECT_EQ(l10n_util::GetStringUTF8(IDS_HTTP_NONSECURE_SUMMARY),
+            http_explanation.summary);
 
   // Verify security state stays degraded after same-page navigation.
   ui_test_utils::NavigateToURL(

@@ -4,6 +4,7 @@
 
 #include "gpu/ipc/in_process_gpu_thread_holder.h"
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -82,6 +83,7 @@ void InProcessGpuThreadHolder::DeleteOnGpuThread() {
   task_executor_.reset();
   scheduler_.reset();
   sync_point_manager_.reset();
+  shared_image_manager_.reset();
 }
 
 }  // namespace gpu

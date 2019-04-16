@@ -5,6 +5,7 @@
 #include "components/services/heap_profiling/public/cpp/client.h"
 
 #include "base/allocator/allocator_interception_mac.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/platform_file.h"
 #include "base/metrics/field_trial_params.h"
@@ -125,6 +126,10 @@ void Client::StartProfiling(mojom::ProfilingParamsPtr params) {
 
 void Client::FlushMemlogPipe(uint32_t barrier_id) {
   SamplingProfilerWrapper::FlushPipe(barrier_id);
+}
+
+void Client::RetrieveHeapProfile(RetrieveHeapProfileCallback callback) {
+  std::move(callback).Run(sampling_profiler_->RetrieveHeapProfile());
 }
 
 void Client::StartProfilingInternal(mojom::ProfilingParamsPtr params) {

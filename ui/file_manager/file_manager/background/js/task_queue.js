@@ -52,14 +52,14 @@ importer.TaskQueue.UpdateType = {
 importer.TaskQueue.prototype.queueTask = function(task) {
   // The Tasks that are pushed onto the queue aren't required to be inherently
   // asynchronous.  This code force task execution to occur asynchronously.
-  Promise.resolve().then(function() {
+  Promise.resolve().then(() => {
     task.addObserver(this.onTaskUpdate_.bind(this, task));
     this.tasks_.push(task);
     // If more than one task is queued, then the queue is already running.
     if (this.tasks_.length === 1) {
       this.runPending_();
     }
-  }.bind(this));
+  });
 };
 
 /**
@@ -98,12 +98,12 @@ importer.TaskQueue.prototype.setIdleCallback = function(callback) {
  */
 importer.TaskQueue.prototype.onTaskUpdate_ = function(task, updateType) {
   // Send a task update to clients.
-  this.updateCallbacks_.forEach(function(callback) {
+  this.updateCallbacks_.forEach(callback => {
     callback.call(null, updateType, task);
   });
 
   // If the task update is a terminal one, move on to the next task.
-  var UpdateType = importer.TaskQueue.UpdateType;
+  const UpdateType = importer.TaskQueue.UpdateType;
   if (updateType === UpdateType.COMPLETE ||
       updateType === UpdateType.CANCELED) {
     // Assumption: the currently running task is at the head of the queue.
@@ -139,7 +139,7 @@ importer.TaskQueue.prototype.runPending_ = function() {
     }
   }
 
-  var nextTask = this.tasks_[0];
+  const nextTask = this.tasks_[0];
   nextTask.run();
 };
 
@@ -213,10 +213,10 @@ importer.TaskQueue.BaseTask.prototype.addObserver = function(observer) {
 };
 
 /** @override */
-importer.TaskQueue.BaseTask.prototype.run = function() {};
+importer.TaskQueue.BaseTask.prototype.run = () => {};
 
 /**
- * @param {string} updateType
+ * @param {importer.TaskQueue.UpdateType} updateType
  * @param {Object=} opt_data
  * @protected
  */
@@ -228,7 +228,7 @@ importer.TaskQueue.BaseTask.prototype.notify = function(updateType, opt_data) {
   }
 
   this.observers_.forEach(
-      function(callback) {
+      callback => {
         callback.call(null, updateType, opt_data);
-      }.bind(this));
+      });
 };

@@ -79,8 +79,7 @@ NGConstraintSpace CreateConstraintSpaceForFloat(
     DCHECK_EQ(style.GetWritingMode(), parent_space.GetWritingMode());
 
     LayoutUnit fragmentation_offset =
-        parent_space.FragmentainerSpaceAtBfcStart() -
-        origin_block_offset.value();
+        parent_space.FragmentainerSpaceAtBfcStart() - *origin_block_offset;
     builder.SetFragmentainerBlockSize(parent_space.FragmentainerBlockSize());
     builder.SetFragmentainerSpaceAtBfcStart(fragmentation_offset);
     builder.SetFragmentationType(parent_space.BlockFragmentationType());
@@ -101,10 +100,10 @@ std::unique_ptr<NGExclusionShapeData> CreateExclusionShapeData(
     const NGLogicalSize& float_percentage_size,
     const NGLogicalSize& float_replaced_percentage_size,
     const NGBoxStrut& margins,
-    const LayoutBox* layout_box,
     const NGUnpositionedFloat& unpositioned_float,
     const NGConstraintSpace& parent_space,
     const ComputedStyle& parent_style) {
+  const LayoutBox* layout_box = unpositioned_float.node.GetLayoutBox();
   DCHECK(layout_box->GetShapeOutsideInfo());
   TextDirection direction = parent_space.Direction();
 
@@ -114,7 +113,7 @@ std::unique_ptr<NGExclusionShapeData> CreateExclusionShapeData(
                          margins.block_end);
   NGBoxStrut shape_insets;
 
-  const ComputedStyle& style = layout_box->StyleRef();
+  const ComputedStyle& style = unpositioned_float.node.Style();
   switch (style.ShapeOutside()->CssBox()) {
     case CSSBoxType::kMissing:
     case CSSBoxType::kMargin:
@@ -128,7 +127,7 @@ std::unique_ptr<NGExclusionShapeData> CreateExclusionShapeData(
           float_available_size, float_percentage_size,
           float_replaced_percentage_size, unpositioned_float, parent_space,
           parent_style);
-      NGBoxStrut strut = ComputeBorders(space, style);
+      NGBoxStrut strut = ComputeBorders(space, unpositioned_float.node);
       if (style.ShapeOutside()->CssBox() == CSSBoxType::kContent)
         strut += ComputePadding(space, style);
       shape_insets =
@@ -151,7 +150,6 @@ scoped_refptr<NGExclusion> CreateExclusion(
     const NGFragment& fragment,
     const NGBfcOffset& float_margin_bfc_offset,
     const NGBoxStrut& margins,
-    const LayoutBox* layout_box,
     const NGUnpositionedFloat& unpositioned_float,
     const NGConstraintSpace& parent_space,
     const ComputedStyle& parent_style,
@@ -164,11 +162,11 @@ scoped_refptr<NGExclusion> CreateExclusion(
           (fragment.BlockSize() + margins.BlockSum()).ClampNegativeToZero());
 
   std::unique_ptr<NGExclusionShapeData> shape_data =
-      layout_box->GetShapeOutsideInfo()
+      unpositioned_float.node.GetLayoutBox()->GetShapeOutsideInfo()
           ? CreateExclusionShapeData(
                 float_available_size, float_percentage_size,
-                float_replaced_percentage_size, margins, layout_box,
-                unpositioned_float, parent_space, parent_style)
+                float_replaced_percentage_size, margins, unpositioned_float,
+                parent_space, parent_style)
           : nullptr;
 
   return NGExclusion::Create(NGBfcRect(start_offset, end_offset), type,
@@ -240,7 +238,7 @@ NGPositionedFloat PositionFloat(
   bool is_fragmentable =
       is_same_writing_mode && parent_space.HasBlockFragmentation();
 
-  scoped_refptr<NGLayoutResult> layout_result;
+  scoped_refptr<const NGLayoutResult> layout_result;
   NGBoxStrut fragment_margins;
 
   // We may be able to re-use the fragment from when we calculated the
@@ -296,8 +294,7 @@ NGPositionedFloat PositionFloat(
   scoped_refptr<NGExclusion> exclusion = CreateExclusion(
       float_available_size, float_percentage_size,
       float_replaced_percentage_size, float_fragment, float_margin_bfc_offset,
-      fragment_margins, unpositioned_float->node.GetLayoutBox(),
-      *unpositioned_float, parent_space, parent_style,
+      fragment_margins, *unpositioned_float, parent_space, parent_style,
       unpositioned_float->IsLineRight(parent_space.Direction())
           ? EFloat::kRight
           : EFloat::kLeft);

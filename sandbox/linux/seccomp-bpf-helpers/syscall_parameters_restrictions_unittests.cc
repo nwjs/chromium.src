@@ -177,7 +177,7 @@ BPF_TEST_C(ParameterRestrictions,
   base::Thread getparam_thread("sched_getparam_thread");
   BPF_ASSERT(getparam_thread.Start());
   getparam_thread.task_runner()->PostTask(
-      FROM_HERE, base::Bind(&SchedGetParamThread, &thread_run));
+      FROM_HERE, base::BindOnce(&SchedGetParamThread, &thread_run));
   BPF_ASSERT(thread_run.TimedWait(base::TimeDelta::FromMilliseconds(5000)));
   getparam_thread.Stop();
 }
@@ -449,7 +449,7 @@ BPF_TEST_C(ParameterRestrictions,
 }
 
 BPF_TEST_C(ParameterRestrictions,
-           ptrace_setregs_blocked,
+           DISABLED_ptrace_setregs_blocked,
            RestrictPtracePolicy) {
   auto tracer = [](pid_t pid) {
 #if defined(__arm__)

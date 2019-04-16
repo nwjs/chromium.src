@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -110,12 +111,12 @@ class SpotlightTopSitesBridge : public history::TopSitesObserver {
                           history::TopSites* top_sites)
       : owner_(owner), top_sites_(top_sites) {
     top_sites->AddObserver(this);
-  };
+  }
 
   ~SpotlightTopSitesBridge() override {
     top_sites_->RemoveObserver(this);
     top_sites_ = nullptr;
-  };
+  }
 
   void TopSitesLoaded(history::TopSites* top_sites) override {}
 

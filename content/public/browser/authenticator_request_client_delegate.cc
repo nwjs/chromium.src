@@ -16,8 +16,10 @@ AuthenticatorRequestClientDelegate::AuthenticatorRequestClientDelegate() =
 AuthenticatorRequestClientDelegate::~AuthenticatorRequestClientDelegate() =
     default;
 
-void AuthenticatorRequestClientDelegate::DidFailWithInterestingReason(
-    InterestingFailureReason reason) {}
+bool AuthenticatorRequestClientDelegate::DoesBlockRequestOnFailure(
+    InterestingFailureReason reason) {
+  return false;
+}
 
 void AuthenticatorRequestClientDelegate::RegisterActionCallbacks(
     base::OnceClosure cancel_callback,
@@ -50,6 +52,12 @@ AuthenticatorRequestClientDelegate::GetTouchIdAuthenticatorConfig() const {
 void AuthenticatorRequestClientDelegate::UpdateLastTransportUsed(
     device::FidoTransportProtocol transport) {}
 
+void AuthenticatorRequestClientDelegate::DisableUI() {}
+
+bool AuthenticatorRequestClientDelegate::IsWebAuthnUIEnabled() {
+  return false;
+}
+
 void AuthenticatorRequestClientDelegate::OnTransportAvailabilityEnumerated(
     device::FidoRequestHandlerBase::TransportAvailabilityInfo data) {}
 
@@ -74,5 +82,11 @@ void AuthenticatorRequestClientDelegate::FidoAuthenticatorIdChanged(
 void AuthenticatorRequestClientDelegate::FidoAuthenticatorPairingModeChanged(
     base::StringPiece authenticator_id,
     bool is_in_pairing_mode) {}
+
+void AuthenticatorRequestClientDelegate::CollectPIN(
+    base::Optional<int> attempts,
+    base::OnceCallback<void(std::string)> provide_pin_cb) {}
+
+void AuthenticatorRequestClientDelegate::FinishCollectPIN() {}
 
 }  // namespace content

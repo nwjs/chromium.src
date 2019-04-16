@@ -4,20 +4,24 @@
 
 #include "content/browser/webauth/authenticator_impl.h"
 
+#include <list>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/json/json_parser.h"
 #include "base/json/json_writer.h"
 #include "base/run_loop.h"
+#include "base/system/sys_info.h"
 #include "base/test/gtest_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "components/cbor/reader.h"
 #include "components/cbor/values.h"
@@ -41,6 +45,7 @@
 #include "device/fido/test_callback_receiver.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "services/device/public/mojom/constants.mojom.h"
+#include "services/service_manager/public/cpp/connector.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -414,12 +419,20 @@ class AuthenticatorImplTest : public content::RenderViewHostTestHarness {
     scoped_feature_list_->InitAndDisableFeature(feature);
   }
 
+  void SetUpMockBluetooth() {
+    mock_adapter_ = base::MakeRefCounted<
+        ::testing::NiceMock<device::MockBluetoothAdapter>>();
+    device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter_);
+  }
+
  protected:
   std::unique_ptr<AuthenticatorImpl> authenticator_impl_;
   service_manager::mojom::ConnectorRequest request_;
   std::unique_ptr<service_manager::Connector> connector_;
   std::unique_ptr<device::FakeHidManager> fake_hid_manager_;
   base::Optional<base::test::ScopedFeatureList> scoped_feature_list_;
+  scoped_refptr<::testing::NiceMock<device::MockBluetoothAdapter>>
+      mock_adapter_;
 };
 
 // Verify behavior for various combinations of origins and RP IDs.
@@ -594,10 +607,11 @@ TEST_F(AuthenticatorImplTest, MakeCredentialPlatformAuthenticator) {
 // also in the second, and with the same value.
 void CheckJSONIsSubsetOfJSON(base::StringPiece subset_str,
                              base::StringPiece test_str) {
-  std::unique_ptr<base::Value> subset(base::JSONReader::Read(subset_str));
+  std::unique_ptr<base::Value> subset(
+      base::JSONReader::ReadDeprecated(subset_str));
   ASSERT_TRUE(subset);
   ASSERT_TRUE(subset->is_dict());
-  std::unique_ptr<base::Value> test(base::JSONReader::Read(test_str));
+  std::unique_ptr<base::Value> test(base::JSONReader::ReadDeprecated(test_str));
   ASSERT_TRUE(test);
   ASSERT_TRUE(test->is_dict());
 
@@ -809,6 +823,59 @@ TEST_F(AuthenticatorImplTest, CryptoTokenU2fOnly) {
   }
 }
 
+// Test that Cryptotoken requests should only be dispatched to USB
+// authenticators.
+TEST_F(AuthenticatorImplTest, CryptotokenUsbOnly) {
+  TestServiceManagerContext smc;
+  SimulateNavigation(GURL(kTestOrigin1));
+  auto task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>(
+      base::Time::Now(), base::TimeTicks::Now());
+  url::AddStandardScheme("chrome-extension", url::SCHEME_WITH_HOST);
+  auto authenticator = ConstructAuthenticatorWithTimer(task_runner);
+  authenticator_impl_->set_transports_for_testing(
+      device::GetAllTransportProtocols());
+  SetUpMockBluetooth();
+
+  for (const bool is_cryptotoken_request : {false, true}) {
+    // caBLE and platform discoveries cannot be instantiated through
+    // ScopedVirtualFidoDevice, so we don't test them here.
+    for (const device::FidoTransportProtocol transport :
+         {device::FidoTransportProtocol::kUsbHumanInterfaceDevice,
+          device::FidoTransportProtocol::kBluetoothLowEnergy,
+          device::FidoTransportProtocol::kNearFieldCommunication}) {
+      SCOPED_TRACE(::testing::Message()
+                   << "is_cryptotoken_request=" << is_cryptotoken_request
+                   << ", transport=" << device::ToString(transport));
+
+      OverrideLastCommittedOrigin(
+          main_rfh(),
+          url::Origin::Create(GURL(is_cryptotoken_request ? kCryptotokenOrigin
+                                                          : kTestOrigin1)));
+
+      device::test::ScopedVirtualFidoDevice device;
+      device.SetSupportedProtocol(device::ProtocolVersion::kU2f);
+      device.SetTransport(transport);
+      device.mutable_state()->transport = transport;
+
+      PublicKeyCredentialCreationOptionsPtr options =
+          GetTestPublicKeyCredentialCreationOptions();
+      TestMakeCredentialCallback callback_receiver;
+      authenticator->MakeCredential(std::move(options),
+                                    callback_receiver.callback());
+      base::RunLoop().RunUntilIdle();
+      task_runner->FastForwardBy(base::TimeDelta::FromMinutes(1));
+      callback_receiver.WaitForCallback();
+      EXPECT_EQ(
+          !is_cryptotoken_request ||
+                  transport ==
+                      device::FidoTransportProtocol::kUsbHumanInterfaceDevice
+              ? AuthenticatorStatus::SUCCESS
+              : AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          callback_receiver.status());
+    }
+  }
+}
+
 // Requests originating from cryptotoken should only target U2F devices.
 TEST_F(AuthenticatorImplTest, AttestationPermitted) {
   TestServiceManagerContext smc;
@@ -976,15 +1043,20 @@ TEST_F(AuthenticatorImplTest, OversizedCredentialId) {
   }
 }
 
+#if defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_CHROMEOS)
 TEST_F(AuthenticatorImplTest, TestCableDiscoveryByDefault) {
   auto authenticator = ConnectToAuthenticator();
 
   // caBLE should be enabled by default if BLE is supported.
+  bool should_be_enabled =
+      device::BluetoothAdapterFactory::Get().IsLowEnergySupported();
+
   EXPECT_EQ(
-      device::BluetoothAdapterFactory::Get().IsLowEnergySupported(),
+      should_be_enabled,
       SupportsTransportProtocol(
           device::FidoTransportProtocol::kCloudAssistedBluetoothLowEnergy));
 }
+#endif  // defined(OS_MACOSX) || defined(OS_WIN) || defined(OS_CHROMEOS)
 
 TEST_F(AuthenticatorImplTest, TestCableDiscoveryDisabledWithFlag) {
   DisableFeature(features::kWebAuthCable);
@@ -1028,15 +1100,6 @@ TEST_F(AuthenticatorImplTest, TestGetAssertionU2fDeviceBackwardsCompatibility) {
 }
 
 TEST_F(AuthenticatorImplTest, GetAssertionWithEmptyAllowCredentials) {
-  auto mock_adapter =
-      base::MakeRefCounted<::testing::NiceMock<device::MockBluetoothAdapter>>();
-  EXPECT_CALL(*mock_adapter, IsPresent())
-      .WillRepeatedly(::testing::Return(true));
-  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
-  auto bluetooth_adapter_factory_overrides =
-      device::BluetoothAdapterFactory::Get().InitGlobalValuesForTesting();
-  bluetooth_adapter_factory_overrides->SetLESupported(true);
-
   SimulateNavigation(GURL(kTestOrigin1));
   PublicKeyCredentialRequestOptionsPtr options =
       GetTestPublicKeyCredentialRequestOptions();
@@ -1529,78 +1592,114 @@ TEST_F(AuthenticatorContentBrowserClientTest, AttestationBehaviour) {
   const std::vector<TestCase> kTests = {
       {
           AttestationConveyancePreference::NONE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::SUCCESS, AttestationType::NONE, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::NONE,
+          "",
       },
       {
           AttestationConveyancePreference::NONE,
-          IndividualAttestation::REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::SUCCESS, AttestationType::NONE, "",
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::NONE,
+          "",
       },
       {
           AttestationConveyancePreference::INDIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::INDIRECT,
-          IndividualAttestation::REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::INDIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kStandardCommonName,
       },
       {
           AttestationConveyancePreference::INDIRECT,
-          IndividualAttestation::REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kStandardCommonName,
       },
       {
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kStandardCommonName,
       },
       {
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kStandardCommonName,
       },
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kStandardCommonName,
       },
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F,
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
           kIndividualCommonName,
       },
   };
@@ -1623,32 +1722,42 @@ TEST_F(AuthenticatorContentBrowserClientTest,
   const std::vector<TestCase> kTests = {
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
           AuthenticatorStatus::SUCCESS,
           // If individual attestation was not requested then the attestation
           // certificate will be removed, even if consent is given, because the
           // consent isn't to be tracked.
-          AttestationType::NONE, "",
+          AttestationType::NONE,
+          "",
       },
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
           AuthenticatorStatus::SUCCESS,
           // If individual attestation was not requested then the attestation
           // certificate will be removed, even if consent is given, because the
           // consent isn't to be tracked.
-          AttestationType::NONE, "",
+          AttestationType::NONE,
+          "",
       },
 
       {
           AttestationConveyancePreference::ENTERPRISE,
-          IndividualAttestation::REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::U2F, kCommonName,
+          IndividualAttestation::REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::U2F,
+          kCommonName,
       },
   };
 
@@ -1679,24 +1788,31 @@ TEST_F(AuthenticatorContentBrowserClientTest,
           // attestation is requested, the self-attestation will be removed but,
           // because the transport is kInternal, the AAGUID will be preserved.
           AttestationConveyancePreference::NONE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
           AuthenticatorStatus::SUCCESS,
-          AttestationType::NONE_WITH_NONZERO_AAGUID, "",
+          AttestationType::NONE_WITH_NONZERO_AAGUID,
+          "",
       },
       {
           // If attestation is requested, but denied, we'll still fail the
           // request.
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           // If attestation is requested and granted, the self attestation
           // will be returned.
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
           AuthenticatorStatus::SUCCESS,
-          AttestationType::SELF_WITH_NONZERO_AAGUID, "",
+          AttestationType::SELF_WITH_NONZERO_AAGUID,
+          "",
       },
   };
 
@@ -1713,22 +1829,31 @@ TEST_F(AuthenticatorContentBrowserClientTest, Ctap2SelfAttestation) {
           // If no attestation is requested, we'll return the self attestation
           // rather than erasing it.
           AttestationConveyancePreference::NONE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::SUCCESS, AttestationType::SELF, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::SELF,
+          "",
       },
       {
           // If attestation is requested, but denied, we'll still fail the
           // request.
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::NOT_ALLOWED_ERROR, AttestationType::ANY, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::NOT_ALLOWED_ERROR,
+          AttestationType::ANY,
+          "",
       },
       {
           // If attestation is requested and granted, the self attestation will
           // be returned.
           AttestationConveyancePreference::DIRECT,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::GRANTED,
-          AuthenticatorStatus::SUCCESS, AttestationType::SELF, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::GRANTED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::SELF,
+          "",
       },
   };
 
@@ -1748,8 +1873,11 @@ TEST_F(AuthenticatorContentBrowserClientTest,
           // self-attestation should still be replaced with a "none"
           // attestation.
           AttestationConveyancePreference::NONE,
-          IndividualAttestation::NOT_REQUESTED, AttestationConsent::DENIED,
-          AuthenticatorStatus::SUCCESS, AttestationType::NONE, "",
+          IndividualAttestation::NOT_REQUESTED,
+          AttestationConsent::DENIED,
+          AuthenticatorStatus::SUCCESS,
+          AttestationType::NONE,
+          "",
       },
   };
 
@@ -1990,9 +2118,10 @@ class MockAuthenticatorRequestDelegateObserver
         failure_reasons_callback_(std::move(failure_reasons_callback)) {}
   ~MockAuthenticatorRequestDelegateObserver() override = default;
 
-  void DidFailWithInterestingReason(InterestingFailureReason reason) override {
-    ASSERT_TRUE(failure_reasons_callback_);
+  bool DoesBlockRequestOnFailure(InterestingFailureReason reason) override {
+    CHECK(failure_reasons_callback_);
     std::move(failure_reasons_callback_).Run(reason);
+    return false;
   }
 
   MOCK_METHOD1(
@@ -2085,11 +2214,10 @@ class AuthenticatorImplRequestDelegateTest : public AuthenticatorImplTest {
 TEST_F(AuthenticatorImplRequestDelegateTest,
        TestRequestDelegateObservesFidoRequestHandler) {
   EnableFeature(features::kWebAuthBle);
-  auto mock_adapter =
-      base::MakeRefCounted<::testing::NiceMock<device::MockBluetoothAdapter>>();
-  EXPECT_CALL(*mock_adapter, IsPresent())
+  SetUpMockBluetooth();
+
+  EXPECT_CALL(*mock_adapter_, IsPresent())
       .WillRepeatedly(::testing::Return(true));
-  device::BluetoothAdapterFactory::SetAdapterForTesting(mock_adapter);
   auto bluetooth_adapter_factory_overrides =
       device::BluetoothAdapterFactory::Get().InitGlobalValuesForTesting();
   bluetooth_adapter_factory_overrides->SetLESupported(true);
@@ -2314,6 +2442,258 @@ TEST_F(AuthenticatorImplTest, ExtensionHMACSecret) {
 
     EXPECT_EQ(include_extension, has_hmac_secret);
   }
+}
+
+// PINList is a list of expected |attempts| values and the PIN to answer with.
+using PINList = std::list<std::pair<base::Optional<int>, std::string>>;
+
+class PINTestAuthenticatorRequestDelegate
+    : public AuthenticatorRequestClientDelegate {
+ public:
+  explicit PINTestAuthenticatorRequestDelegate(
+      const PINList& pins,
+      base::Optional<InterestingFailureReason>* failure_reason)
+      : expected_(pins), failure_reason_(failure_reason) {}
+  ~PINTestAuthenticatorRequestDelegate() override { DCHECK(expected_.empty()); }
+
+  void CollectPIN(
+      base::Optional<int> attempts,
+      base::OnceCallback<void(std::string)> provide_pin_cb) override {
+    DCHECK(!expected_.empty());
+    DCHECK(attempts == expected_.front().first)
+        << "got: " << attempts.value_or(-1)
+        << " expected: " << expected_.front().first.value_or(-1);
+    std::string pin = std::move(expected_.front().second);
+    expected_.pop_front();
+
+    base::SequencedTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(provide_pin_cb), std::move(pin)));
+  }
+
+  bool DoesBlockRequestOnFailure(InterestingFailureReason reason) override {
+    *failure_reason_ = reason;
+    return AuthenticatorRequestClientDelegate::DoesBlockRequestOnFailure(
+        reason);
+  }
+
+ private:
+  PINList expected_;
+  base::Optional<InterestingFailureReason>* const failure_reason_;
+  DISALLOW_COPY_AND_ASSIGN(PINTestAuthenticatorRequestDelegate);
+};
+
+class PINTestAuthenticatorContentBrowserClient : public ContentBrowserClient {
+ public:
+  std::unique_ptr<AuthenticatorRequestClientDelegate>
+  GetWebAuthenticationRequestDelegate(
+      RenderFrameHost* render_frame_host) override {
+    return std::make_unique<PINTestAuthenticatorRequestDelegate>(
+        expected, &failure_reason);
+  }
+
+  PINList expected;
+  base::Optional<InterestingFailureReason> failure_reason;
+};
+
+class PINAuthenticatorContentBrowserClientTest : public AuthenticatorImplTest {
+ public:
+  PINAuthenticatorContentBrowserClientTest() = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(device::kWebAuthPINSupport);
+
+    AuthenticatorImplTest::SetUp();
+    old_client_ = SetBrowserClientForTesting(&test_client_);
+    virtual_device_.EnablePINSupport();
+    NavigateAndCommit(GURL(kTestOrigin1));
+  }
+
+  void TearDown() override {
+    SetBrowserClientForTesting(old_client_);
+    AuthenticatorImplTest::TearDown();
+  }
+
+ protected:
+  static PublicKeyCredentialCreationOptionsPtr make_credential_options() {
+    PublicKeyCredentialCreationOptionsPtr options =
+        GetTestPublicKeyCredentialCreationOptions();
+    options->authenticator_selection->user_verification =
+        blink::mojom::UserVerificationRequirement::REQUIRED;
+    return options;
+  }
+
+  static PublicKeyCredentialRequestOptionsPtr get_credential_options() {
+    PublicKeyCredentialRequestOptionsPtr options =
+        GetTestPublicKeyCredentialRequestOptions();
+    options->user_verification =
+        blink::mojom::UserVerificationRequirement::REQUIRED;
+    return options;
+  }
+
+  static bool HasUV(const TestMakeCredentialCallback& callback) {
+    DCHECK_EQ(AuthenticatorStatus::SUCCESS, callback.status());
+    base::Optional<Value> attestation_value =
+        Reader::Read(callback.value()->attestation_object);
+    DCHECK(attestation_value);
+    DCHECK(attestation_value->is_map());
+    const auto& attestation = attestation_value->GetMap();
+
+    const auto auth_data_it = attestation.find(Value("authData"));
+    DCHECK(auth_data_it != attestation.end() &&
+           auth_data_it->second.is_bytestring());
+    base::Optional<device::AuthenticatorData> auth_data =
+        device::AuthenticatorData::DecodeAuthenticatorData(
+            auth_data_it->second.GetBytestring());
+    return auth_data->obtained_user_verification();
+  }
+
+  static bool HasUV(const TestGetAssertionCallback& callback) {
+    DCHECK_EQ(AuthenticatorStatus::SUCCESS, callback.status());
+    base::Optional<device::AuthenticatorData> auth_data =
+        device::AuthenticatorData::DecodeAuthenticatorData(
+            callback.value()->authenticator_data);
+    return auth_data->obtained_user_verification();
+  }
+
+  PINTestAuthenticatorContentBrowserClient test_client_;
+  device::test::ScopedVirtualFidoDevice virtual_device_;
+
+ private:
+  ContentBrowserClient* old_client_ = nullptr;
+  base::test::ScopedFeatureList scoped_feature_list_;
+
+  DISALLOW_COPY_AND_ASSIGN(PINAuthenticatorContentBrowserClientTest);
+};
+
+static constexpr char kTestPIN[] = "1234";
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, MakeCredentialSet) {
+  TestServiceManagerContext smc;
+  test_client_.expected = {{base::nullopt, kTestPIN}};
+
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestMakeCredentialCallback callback_receiver;
+  authenticator->MakeCredential(make_credential_options(),
+                                callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::SUCCESS, callback_receiver.status());
+  EXPECT_EQ(kTestPIN, virtual_device_.mutable_state()->pin);
+  EXPECT_TRUE(HasUV(callback_receiver));
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, MakeCredentialUse) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 8;
+
+  test_client_.expected = {{8, "wrong"}, {7, kTestPIN}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestMakeCredentialCallback callback_receiver;
+  authenticator->MakeCredential(make_credential_options(),
+                                callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::SUCCESS, callback_receiver.status());
+  EXPECT_EQ(8, virtual_device_.mutable_state()->retries);
+  EXPECT_TRUE(HasUV(callback_receiver));
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, MakeCredentialSoftLock) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 8;
+
+  test_client_.expected = {{8, "wrong"}, {7, "wrong"}, {6, "wrong"}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestMakeCredentialCallback callback_receiver;
+  authenticator->MakeCredential(make_credential_options(),
+                                callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::NOT_ALLOWED_ERROR, callback_receiver.status());
+  EXPECT_EQ(5, virtual_device_.mutable_state()->retries);
+  EXPECT_TRUE(virtual_device_.mutable_state()->soft_locked);
+  ASSERT_TRUE(test_client_.failure_reason.has_value());
+  EXPECT_EQ(InterestingFailureReason::kSoftPINBlock,
+            *test_client_.failure_reason);
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, MakeCredentialHardLock) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 1;
+
+  test_client_.expected = {{1, "wrong"}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestMakeCredentialCallback callback_receiver;
+  authenticator->MakeCredential(make_credential_options(),
+                                callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::NOT_ALLOWED_ERROR, callback_receiver.status());
+  EXPECT_EQ(0, virtual_device_.mutable_state()->retries);
+  ASSERT_TRUE(test_client_.failure_reason.has_value());
+  EXPECT_EQ(InterestingFailureReason::kHardPINBlock,
+            *test_client_.failure_reason);
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, GetAssertion) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 8;
+
+  PublicKeyCredentialRequestOptionsPtr options = get_credential_options();
+  ASSERT_TRUE(virtual_device_.mutable_state()->InjectRegistration(
+      options->allow_credentials[0]->id, kTestRelyingPartyId));
+
+  test_client_.expected = {{8, "wrong"}, {7, kTestPIN}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestGetAssertionCallback callback_receiver;
+  authenticator->GetAssertion(std::move(options), callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::SUCCESS, callback_receiver.status());
+  EXPECT_EQ(8, virtual_device_.mutable_state()->retries);
+  EXPECT_TRUE(HasUV(callback_receiver));
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, GetAssertionSoftLock) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 8;
+
+  PublicKeyCredentialRequestOptionsPtr options = get_credential_options();
+  ASSERT_TRUE(virtual_device_.mutable_state()->InjectRegistration(
+      options->allow_credentials[0]->id, kTestRelyingPartyId));
+
+  test_client_.expected = {{8, "wrong"}, {7, "wrong"}, {6, "wrong"}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestGetAssertionCallback callback_receiver;
+  authenticator->GetAssertion(std::move(options), callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::NOT_ALLOWED_ERROR, callback_receiver.status());
+  EXPECT_EQ(5, virtual_device_.mutable_state()->retries);
+  EXPECT_TRUE(virtual_device_.mutable_state()->soft_locked);
+  ASSERT_TRUE(test_client_.failure_reason.has_value());
+  EXPECT_EQ(InterestingFailureReason::kSoftPINBlock,
+            *test_client_.failure_reason);
+}
+
+TEST_F(PINAuthenticatorContentBrowserClientTest, GetAssertionHardLock) {
+  TestServiceManagerContext smc;
+  virtual_device_.mutable_state()->pin = kTestPIN;
+  virtual_device_.mutable_state()->retries = 1;
+
+  PublicKeyCredentialRequestOptionsPtr options = get_credential_options();
+  ASSERT_TRUE(virtual_device_.mutable_state()->InjectRegistration(
+      options->allow_credentials[0]->id, kTestRelyingPartyId));
+
+  test_client_.expected = {{1, "wrong"}};
+  AuthenticatorPtr authenticator = ConnectToAuthenticator();
+  TestGetAssertionCallback callback_receiver;
+  authenticator->GetAssertion(std::move(options), callback_receiver.callback());
+  callback_receiver.WaitForCallback();
+  EXPECT_EQ(AuthenticatorStatus::NOT_ALLOWED_ERROR, callback_receiver.status());
+  EXPECT_EQ(0, virtual_device_.mutable_state()->retries);
+  ASSERT_TRUE(test_client_.failure_reason.has_value());
+  EXPECT_EQ(InterestingFailureReason::kHardPINBlock,
+            *test_client_.failure_reason);
 }
 
 }  // namespace content

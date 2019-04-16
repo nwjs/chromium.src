@@ -613,13 +613,14 @@ void D3D11VideoDecoder::CreatePictureBuffers() {
   texture_desc.SampleDesc.Count = 1;
   texture_desc.Usage = D3D11_USAGE_DEFAULT;
   texture_desc.BindFlags = D3D11_BIND_DECODER | D3D11_BIND_SHADER_RESOURCE;
-  texture_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
   if (base::FeatureList::IsEnabled(
           features::kDirectCompositionUseNV12DecodeSwapChain)) {
     // Decode swap chains do not support shared resources.
     // TODO(sunnyps): Find a workaround for when the decoder moves to its own
     // thread and D3D device.  See https://crbug.com/911847
     texture_desc.MiscFlags = 0;
+  } else {
+    texture_desc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
   }
   if (config_.is_encrypted())
     texture_desc.MiscFlags |= D3D11_RESOURCE_MISC_HW_PROTECTED;
@@ -766,10 +767,14 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
     return {};
   }
 
-  if (gpu_workarounds.disable_dxgi_zero_copy_video) {
-    UMA_HISTOGRAM_ENUMERATION(uma_name,
-                              NotSupportedReason::kZeroCopyVideoRequired);
-    return {};
+  // This workaround accounts for almost half of all startup results, and it's
+  // unclear that it's relevant here.
+  if (!base::FeatureList::IsEnabled(kD3D11VideoDecoderIgnoreWorkarounds)) {
+    if (gpu_workarounds.disable_dxgi_zero_copy_video) {
+      UMA_HISTOGRAM_ENUMERATION(uma_name,
+                                NotSupportedReason::kZeroCopyVideoRequired);
+      return {};
+    }
   }
 
   // Remember that this might query the angle device, so this won't work if

@@ -4,9 +4,9 @@
 <script src="file:///gen/layout_test_data/mojo/public/js/mojo_bindings.js"></script>
 <script src="file:///gen/device/vr/public/mojom/vr_service.mojom.js"></script>
 <script src="../external/wpt/resources/chromium/webxr-test.js"></script>
+<script src="../external/wpt/webxr/resources/webxr_test_constants.js"></script>
 <script src="../xr/resources/xr-internal-device-mocking.js"></script>
 <script src="../xr/resources/xr-test-utils.js"></script>
-<script src="../xr/resources/test-constants.js"></script>
 <canvas id="webgl-canvas"></canvas>
 
 <script>
@@ -16,13 +16,16 @@ let testName =
 let fakeDeviceInitParams = { supportsImmersive:true };
 
 let requestSessionOptions = [
-  { outputContext: getOutputContext() },
+  { mode: 'inline' },
   { mode: 'immersive-vr' },
 ];
 
 let testFunction = function(session, t, fakeDeviceController) {
   // Session must have a baseLayer or else frame requests will be ignored.
-  session.baseLayer = new XRWebGLLayer(session, gl);
+  session.updateRenderState({
+    baseLayer: new XRWebGLLayer(session, gl),
+    outputContext: getOutputContext()
+  });
 
   fakeDeviceController.setStageTransform(null);
   fakeDeviceController.setXRPresentationFrameData(ORIGIN_POSE, [{
@@ -44,7 +47,7 @@ let testFunction = function(session, t, fakeDeviceController) {
         t.step( () => {
           let pose = xrFrame.getViewerPose(referenceSpace);
 
-          let poseMatrix = pose.poseModelMatrix;
+          let poseMatrix = pose.transform.matrix;
           assert_approx_equals(poseMatrix[12], 0.0, FLOAT_EPSILON);
           assert_greater_than(poseMatrix[13], 1.0);
           assert_approx_equals(poseMatrix[14], 0.0, FLOAT_EPSILON);
@@ -62,7 +65,7 @@ let testFunction = function(session, t, fakeDeviceController) {
           let pose = xrFrame.getViewerPose(referenceSpace);
           assert_not_equals(pose, null);
 
-          let poseMatrix = pose.poseModelMatrix;
+          let poseMatrix = pose.transform.matrix;
           assert_matrices_approx_equal(poseMatrix, VALID_STAGE_TRANSFORM);
         });
 

@@ -8,6 +8,7 @@
 #include <xkbcommon/xkbcommon-names.h>
 
 #include <algorithm>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/location.h"
@@ -823,26 +824,30 @@ void XkbKeyboardLayoutEngine::SetKeymap(xkb_keymap* keymap) {
                {ui::EF_COMMAND_DOWN, XKB_MOD_NAME_LOGO},
                {ui::EF_ALTGR_DOWN, "Mod5"},
                {ui::EF_MOD3_DOWN, "Mod3"},
-               {ui::EF_CAPS_LOCK_ON, XKB_MOD_NAME_CAPS}};
+               {ui::EF_CAPS_LOCK_ON, XKB_MOD_NAME_CAPS},
+               {ui::EF_NUM_LOCK_ON, XKB_MOD_NAME_NUM}};
   xkb_flag_map_.clear();
   xkb_flag_map_.reserve(base::size(flags));
+  xkb_mod_mask_t num_lock_mask = 0;
   for (size_t i = 0; i < base::size(flags); ++i) {
     xkb_mod_index_t index = xkb_keymap_mod_get_index(keymap, flags[i].xkb_name);
     if (index == XKB_MOD_INVALID) {
       DVLOG(3) << "XKB keyboard layout does not contain " << flags[i].xkb_name;
     } else {
       xkb_mod_mask_t flag = static_cast<xkb_mod_mask_t>(1) << index;
-      XkbFlagMapEntry e = {flags[i].ui_flag, flag};
+      XkbFlagMapEntry e = {flags[i].ui_flag, flag, index};
       xkb_flag_map_.push_back(e);
+      if (flags[i].ui_flag == EF_NUM_LOCK_ON)
+        num_lock_mask = flag;
     }
   }
-
+  layout_index_ = 0;
+#if defined(OS_CHROMEOS)
   // Update num lock mask.
-  num_lock_mod_mask_ = 0;
-  xkb_mod_index_t num_mod_index =
-      xkb_keymap_mod_get_index(keymap, XKB_MOD_NAME_NUM);
-  if (num_mod_index != XKB_MOD_INVALID)
-    num_lock_mod_mask_ = static_cast<xkb_mod_mask_t>(1) << num_mod_index;
+  num_lock_mod_mask_ = num_lock_mask;
+#endif
+  shift_mod_mask_ = EventFlagsToXkbFlags(ui::EF_SHIFT_DOWN);
+  altgr_mod_mask_ = EventFlagsToXkbFlags(ui::EF_ALTGR_DOWN);
 }
 
 xkb_mod_mask_t XkbKeyboardLayoutEngine::EventFlagsToXkbFlags(
@@ -852,9 +857,29 @@ xkb_mod_mask_t XkbKeyboardLayoutEngine::EventFlagsToXkbFlags(
     if (ui_flags & entry.ui_flag)
       xkb_flags |= entry.xkb_flag;
   }
-  // NumLock is always on.
+#if defined(OS_CHROMEOS)
+  // In ChromeOS NumLock is always on.
   xkb_flags |= num_lock_mod_mask_;
+#endif
   return xkb_flags;
+}
+
+int XkbKeyboardLayoutEngine::UpdateModifiers(uint32_t depressed,
+                                             uint32_t latched,
+                                             uint32_t locked,
+                                             uint32_t group) {
+  auto* state = xkb_state_.get();
+  xkb_state_update_mask(state, depressed, latched, locked, 0, 0, group);
+  auto component = static_cast<xkb_state_component>(XKB_STATE_MODS_DEPRESSED |
+                                                    XKB_STATE_MODS_LATCHED |
+                                                    XKB_STATE_MODS_LOCKED);
+  int ui_flags = 0;
+  for (const auto& entry : xkb_flag_map_) {
+    if (xkb_state_mod_index_is_active(state, entry.xkb_index, component))
+      ui_flags |= entry.ui_flag;
+  }
+  layout_index_ = group;
+  return ui_flags;
 }
 
 bool XkbKeyboardLayoutEngine::XkbLookup(xkb_keycode_t xkb_keycode,
@@ -865,11 +890,14 @@ bool XkbKeyboardLayoutEngine::XkbLookup(xkb_keycode_t xkb_keycode,
     LOG(ERROR) << "No current XKB state";
     return false;
   }
-  xkb_state_update_mask(xkb_state_.get(), xkb_flags, 0, 0, 0, 0, 0);
-  *xkb_keysym = xkb_state_key_get_one_sym(xkb_state_.get(), xkb_keycode);
+
+  auto* state = xkb_state_.get();
+  xkb_state_update_mask(state, xkb_flags, 0, 0, 0, 0, layout_index_);
+  *xkb_keysym = xkb_state_key_get_one_sym(state, xkb_keycode);
+
   if (*xkb_keysym == XKB_KEY_NoSymbol)
     return false;
-  *character = xkb_state_key_get_utf32(xkb_state_.get(), xkb_keycode);
+  *character = xkb_state_key_get_utf32(state, xkb_keycode);
   return true;
 }
 
@@ -914,7 +942,7 @@ KeyboardCode XkbKeyboardLayoutEngine::DifficultKeyboardCode(
       if (multi->subtable[i].test_shift) {
         if (shift_character == kNonCharacter) {
           shift_character = XkbSubCharacter(xkb_keycode, xkb_flags, character,
-                                            ui::EF_SHIFT_DOWN);
+                                            shift_mod_mask_);
         }
         if (shift_character != multi->subtable[i].shift_character)
           continue;
@@ -922,7 +950,7 @@ KeyboardCode XkbKeyboardLayoutEngine::DifficultKeyboardCode(
       if (multi->subtable[i].test_altgr) {
         if (altgr_character == kNonCharacter) {
           altgr_character = XkbSubCharacter(xkb_keycode, xkb_flags, character,
-                                            ui::EF_ALTGR_DOWN);
+                                            altgr_mod_mask_);
         }
         if (altgr_character != multi->subtable[i].altgr_character)
           continue;
@@ -948,8 +976,7 @@ base::char16 XkbKeyboardLayoutEngine::XkbSubCharacter(
     xkb_keycode_t xkb_keycode,
     xkb_mod_mask_t base_flags,
     base::char16 base_character,
-    int ui_flags) const {
-  xkb_mod_mask_t flags = EventFlagsToXkbFlags(ui_flags);
+    xkb_mod_mask_t flags) const {
   if (flags == base_flags)
     return base_character;
   xkb_keysym_t keysym;

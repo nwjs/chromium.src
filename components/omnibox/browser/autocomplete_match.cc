@@ -21,9 +21,9 @@
 #include "base/trace_event/memory_usage_estimator.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/document_provider.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_pedal.h"
 #include "components/omnibox/browser/suggestion_answer.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -149,6 +149,9 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
           match.search_terms_args
               ? new TemplateURLRef::SearchTermsArgs(*match.search_terms_args)
               : nullptr),
+      post_content(match.post_content
+                       ? new TemplateURLRef::PostContent(*match.post_content)
+                       : nullptr),
       additional_info(match.additional_info),
       duplicate_matches(match.duplicate_matches) {}
 
@@ -194,6 +197,9 @@ AutocompleteMatch& AutocompleteMatch::operator=(
       match.search_terms_args
           ? new TemplateURLRef::SearchTermsArgs(*match.search_terms_args)
           : nullptr);
+  post_content.reset(match.post_content
+                         ? new TemplateURLRef::PostContent(*match.post_content)
+                         : nullptr);
   additional_info = match.additional_info;
   duplicate_matches = match.duplicate_matches;
   return *this;
@@ -251,6 +257,12 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
           return omnibox::kDriveSheetsIcon;
         case DocumentType::DRIVE_SLIDES:
           return omnibox::kDriveSlidesIcon;
+        case DocumentType::DRIVE_IMAGE:
+          return omnibox::kDriveImageIcon;
+        case DocumentType::DRIVE_PDF:
+          return omnibox::kDrivePdfIcon;
+        case DocumentType::DRIVE_VIDEO:
+          return omnibox::kDriveVideoIcon;
         case DocumentType::DRIVE_OTHER:
           return omnibox::kDriveLogoIcon;
         default:
@@ -365,7 +377,7 @@ std::string AutocompleteMatch::ClassificationsToString(
       serialized_classifications += ',';
     serialized_classifications +=
         base::NumberToString(classifications[i].offset) + ',' +
-        base::IntToString(classifications[i].style);
+        base::NumberToString(classifications[i].style);
   }
   return serialized_classifications;
 }
@@ -648,28 +660,40 @@ GURL AutocompleteMatch::ImageUrl() const {
   return answer ? answer->image_url() : GURL(image_url);
 }
 
-void AutocompleteMatch::ApplyPedal() {
+AutocompleteMatch AutocompleteMatch::DerivePedalSuggestion(
+    OmniboxPedal* pedal) const {
+  AutocompleteMatch copy(*this);
+  copy.pedal = pedal;
+  copy.relevance--;
+
   // TODO(orinj): It may make more sense to start from a clean slate and
   // apply only the bits of state relevant to the Pedal, rather than
   // eliminating parts of an existing match that are no longer useful.
+  // But while Pedal suggestions are derived from triggering suggestions by
+  // copy, it is necessary to be careful that we don't inherit fields that
+  // might cause issues.
+  copy.allowed_to_be_default_match = false;
 
-  type = Type::PEDAL;
-  destination_url = pedal->GetNavigationUrl();
+  copy.type = Type::PEDAL;
+  copy.destination_url = copy.pedal->GetNavigationUrl();
 
   // Normally this is computed by the match using a TemplateURLService
   // but Pedal URLs are not typical and unknown, and we don't want them to
   // be deduped, e.g. after stripping a query parameter that may do something
   // meaningful like indicate the viewable scope of a settings page.  So here
   // we keep the URL exactly as the Pedal specifies it.
-  stripped_destination_url = destination_url;
+  copy.stripped_destination_url = copy.destination_url;
 
   // Note: Always use empty classifications for empty text and non-empty
   // classifications for non-empty text.
-  const auto& labels = pedal->GetLabelStrings();
-  contents = labels.suggestion_contents;
-  contents_class = {ACMatchClassification(0, ACMatchClassification::NONE)};
-  description = labels.hint;
-  description_class = {ACMatchClassification(0, ACMatchClassification::NONE)};
+  const auto& labels = copy.pedal->GetLabelStrings();
+  copy.contents = labels.suggestion_contents;
+  copy.contents_class = {ACMatchClassification(0, ACMatchClassification::NONE)};
+  copy.description = labels.hint;
+  copy.description_class = {
+      ACMatchClassification(0, ACMatchClassification::NONE)};
+
+  return copy;
 }
 
 void AutocompleteMatch::RecordAdditionalInfo(const std::string& property,
@@ -681,7 +705,7 @@ void AutocompleteMatch::RecordAdditionalInfo(const std::string& property,
 
 void AutocompleteMatch::RecordAdditionalInfo(const std::string& property,
                                              int value) {
-  RecordAdditionalInfo(property, base::IntToString(value));
+  RecordAdditionalInfo(property, base::NumberToString(value));
 }
 
 void AutocompleteMatch::RecordAdditionalInfo(const std::string& property,
@@ -739,11 +763,16 @@ void AutocompleteMatch::InlineTailPrefix(const base::string16& common_prefix) {
     // Insert an ellipsis before uncommon part.
     const auto ellipsis = base::ASCIIToUTF16(kEllipsis);
     contents = ellipsis + contents;
-    // Shift existing styles.
-    for (ACMatchClassification& classification : contents_class) {
-      if (classification.offset > 0)
-        classification.offset += ellipsis.size();
+    // If the first class is not already NONE, prepend a NONE class for the new
+    // ellipsis.
+    if (contents_class[0].offset == 0 &&
+        contents_class[0].style != ACMatchClassification::NONE) {
+      contents_class.insert(contents_class.begin(),
+                            {0, ACMatchClassification::NONE});
     }
+    // Shift existing styles.
+    for (size_t i = 1; i < contents_class.size(); ++i)
+      contents_class[i].offset += ellipsis.size();
   }
 }
 
@@ -783,10 +812,7 @@ bool AutocompleteMatch::ShouldShowTabMatch() const {
 }
 
 bool AutocompleteMatch::ShouldShowButton() const {
-  // TODO(orinj): If side button Pedal presentation mode is not kept,
-  // the simpler logic (with no pedal checks) can be restored, and if it is
-  // kept then some minor refactoring (or at least renaming) is in order.
-  return ShouldShowTabMatch() || (pedal && pedal->ShouldPresentButton());
+  return ShouldShowTabMatch();
 }
 
 #if DCHECK_IS_ON()

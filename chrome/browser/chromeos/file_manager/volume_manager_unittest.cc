@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
@@ -37,6 +38,7 @@
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_service_manager_context.h"
 #include "extensions/browser/extension_registry.h"
+#include "services/device/public/mojom/mtp_storage_info.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using chromeos::disks::Disk;
@@ -242,11 +244,16 @@ class VolumeManagerTest : public testing::Test {
   };
 
   void SetUp() override {
-    power_manager_client_ =
-        std::make_unique<chromeos::FakePowerManagerClient>();
+    chromeos::PowerManagerClient::Initialize();
     disk_mount_manager_ = std::make_unique<FakeDiskMountManager>();
     main_profile_ = std::make_unique<ProfileEnvironment>(
-        power_manager_client_.get(), disk_mount_manager_.get());
+        chromeos::PowerManagerClient::Get(), disk_mount_manager_.get());
+  }
+
+  void TearDown() override {
+    main_profile_.reset();
+    disk_mount_manager_.reset();
+    chromeos::PowerManagerClient::Shutdown();
   }
 
   Profile* profile() const { return main_profile_->profile(); }
@@ -256,7 +263,6 @@ class VolumeManagerTest : public testing::Test {
 
   content::TestBrowserThreadBundle thread_bundle_;
   content::TestServiceManagerContext context_;
-  std::unique_ptr<chromeos::FakePowerManagerClient> power_manager_client_;
   std::unique_ptr<FakeDiskMountManager> disk_mount_manager_;
   std::unique_ptr<ProfileEnvironment> main_profile_;
 };
@@ -622,9 +628,9 @@ TEST_F(VolumeManagerTest, OnMountEvent_Remounting) {
 
   // Emulate system suspend and then resume.
   {
-    power_manager_client_->SendSuspendImminent(
+    chromeos::FakePowerManagerClient::Get()->SendSuspendImminent(
         power_manager::SuspendImminent_Reason_OTHER);
-    power_manager_client_->SendSuspendDone();
+    chromeos::FakePowerManagerClient::Get()->SendSuspendDone();
 
     // After resume, the device is unmounted and then mounted.
     volume_manager()->OnMountEvent(DiskMountManager::UNMOUNTING,
@@ -781,7 +787,7 @@ TEST_F(VolumeManagerTest, OnExternalStorageDisabledChanged) {
 }
 
 TEST_F(VolumeManagerTest, ExternalStorageDisabledPolicyMultiProfile) {
-  ProfileEnvironment secondary(power_manager_client_.get(),
+  ProfileEnvironment secondary(chromeos::PowerManagerClient::Get(),
                                disk_mount_manager_.get());
   volume_manager()->Initialize();
   secondary.volume_manager()->Initialize();
@@ -1007,7 +1013,7 @@ TEST_F(VolumeManagerTest, OnRenameEvent_StartFailed) {
   volume_manager()->RemoveObserver(&observer);
 }
 
-TEST_F(VolumeManagerTest, OnRenameEvent_Completed) {
+TEST_F(VolumeManagerTest, DISABLED_OnRenameEvent_Completed) {
   LoggingObserver observer;
   volume_manager()->AddObserver(&observer);
 

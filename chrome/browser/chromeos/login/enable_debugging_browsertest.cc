@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/location.h"
@@ -14,6 +15,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/login/login_manager_test.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
+#include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
 #include "chrome/browser/chromeos/login/ui/webui_login_view.h"
@@ -154,9 +156,7 @@ class TestDebugDaemonClient : public FakeDebugDaemonClient {
 class EnableDebuggingTest : public LoginManagerTest {
  public:
   EnableDebuggingTest()
-      : LoginManagerTest(false, true /* should_initialize_webui */),
-        debug_daemon_client_(NULL),
-        power_manager_client_(NULL) {}
+      : LoginManagerTest(false, true /* should_initialize_webui */) {}
   ~EnableDebuggingTest() override {}
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -171,9 +171,6 @@ class EnableDebuggingTest : public LoginManagerTest {
   void SetUpInProcessBrowserTestFixture() override {
     std::unique_ptr<DBusThreadManagerSetter> dbus_setter =
         chromeos::DBusThreadManager::GetSetterForTesting();
-    power_manager_client_ = new FakePowerManagerClient;
-    dbus_setter->SetPowerManagerClient(
-        std::unique_ptr<PowerManagerClient>(power_manager_client_));
     debug_daemon_client_ = new TestDebugDaemonClient;
     dbus_setter->SetDebugDaemonClient(
         std::unique_ptr<DebugDaemonClient>(debug_daemon_client_));
@@ -257,8 +254,10 @@ class EnableDebuggingTest : public LoginManagerTest {
         "!document.querySelector('#debugging.wait-view')");
   }
 
-  TestDebugDaemonClient* debug_daemon_client_;
-  FakePowerManagerClient* power_manager_client_;
+  TestDebugDaemonClient* debug_daemon_client_ = nullptr;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(EnableDebuggingTest);
 };
 
 // Show remove protection screen, click on [Cancel] button.
@@ -284,7 +283,7 @@ IN_PROC_BROWSER_TEST_F(EnableDebuggingTest, ShowAndRemoveProtection) {
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(debug_daemon_client_->num_remove_protection(), 1);
   EXPECT_EQ(debug_daemon_client_->num_enable_debugging_features(), 0);
-  EXPECT_EQ(power_manager_client_->num_request_restart_calls(), 1);
+  EXPECT_EQ(FakePowerManagerClient::Get()->num_request_restart_calls(), 1);
 }
 
 // Show setup screen. Click on [Enable] button. Wait until done screen is shown.

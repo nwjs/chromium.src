@@ -48,7 +48,6 @@ class CC_PAINT_EXPORT SkiaPaintCanvas final : public PaintCanvas {
 
   void reset_image_provider() { image_provider_ = nullptr; }
 
-  SkMetaData& getMetaData() override;
   SkImageInfo imageInfo() const override;
 
   void flush() override;
@@ -111,6 +110,11 @@ class CC_PAINT_EXPORT SkiaPaintCanvas final : public PaintCanvas {
                     SkScalar x,
                     SkScalar y,
                     const PaintFlags& flags) override;
+  void drawTextBlob(sk_sp<SkTextBlob> blob,
+                    SkScalar x,
+                    SkScalar y,
+                    const PaintFlags& flags,
+                    const NodeHolder& holder) override;
 
   void drawPicture(sk_sp<const PaintRecord> record) override;
 

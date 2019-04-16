@@ -5,6 +5,7 @@
 #include "cc/trees/single_thread_proxy.h"
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/trace_event/trace_event.h"
 #include "cc/base/devtools_instrumentation.h"
@@ -49,6 +50,7 @@ SingleThreadProxy::SingleThreadProxy(LayerTreeHost* layer_tree_host,
 #endif
       inside_draw_(false),
       defer_main_frame_update_(false),
+      defer_commits_(false),
       animate_requested_(false),
       commit_requested_(false),
       inside_synchronous_composite_(false),
@@ -229,8 +231,8 @@ void SingleThreadProxy::CommitComplete() {
       << "Activation is expected to have synchronously occurred by now.";
 
   DebugScopedSetMainThread main(task_runner_provider_);
-  layer_tree_host_->CommitComplete();
   layer_tree_host_->DidBeginMainFrame();
+  layer_tree_host_->CommitComplete();
 
   next_frame_is_newly_committed_frame_ = true;
 }
@@ -265,7 +267,7 @@ bool SingleThreadProxy::RequestedAnimatePending() {
 
 void SingleThreadProxy::SetDeferMainFrameUpdate(bool defer_main_frame_update) {
   DCHECK(task_runner_provider_->IsMainThread());
-  // Deferring commits only makes sense if there's a scheduler.
+  // Deferring main frame updates only makes sense if there's a scheduler.
   if (!scheduler_on_impl_thread_)
     return;
   if (defer_main_frame_update_ == defer_main_frame_update)
@@ -279,7 +281,31 @@ void SingleThreadProxy::SetDeferMainFrameUpdate(bool defer_main_frame_update) {
                            this);
 
   defer_main_frame_update_ = defer_main_frame_update;
-  scheduler_on_impl_thread_->SetDeferMainFrameUpdate(defer_main_frame_update);
+
+  // The scheduler needs to know that it should not issue BeginMainFrame.
+  scheduler_on_impl_thread_->SetDeferBeginMainFrame(defer_main_frame_update_);
+}
+
+void SingleThreadProxy::StartDeferringCommits(base::TimeDelta timeout) {
+  DCHECK(task_runner_provider_->IsMainThread());
+
+  // Do nothing if already deferring. The timeout remains as it was from when
+  // we most recently began deferring.
+  if (defer_commits_)
+    return;
+
+  TRACE_EVENT_ASYNC_BEGIN0("cc", "SingleThreadProxy::SetDeferCommits", this);
+
+  defer_commits_ = true;
+  commits_restart_time_ = base::TimeTicks::Now() + timeout;
+}
+
+void SingleThreadProxy::StopDeferringCommits() {
+  if (!defer_commits_)
+    return;
+  defer_commits_ = false;
+  commits_restart_time_ = base::TimeTicks();
+  TRACE_EVENT_ASYNC_END0("cc", "SingleThreadProxy::SetDeferCommits", this);
 }
 
 bool SingleThreadProxy::CommitRequested() const {
@@ -501,7 +527,19 @@ void SingleThreadProxy::DidPresentCompositorFrameOnImplThread(
 
 void SingleThreadProxy::DidGenerateLocalSurfaceIdAllocationOnImplThread(
     const viz::LocalSurfaceIdAllocation& allocation) {
+  DebugScopedSetMainThread main(task_runner_provider_);
   layer_tree_host_->DidGenerateLocalSurfaceIdAllocation(allocation);
+}
+
+void SingleThreadProxy::NotifyAnimationWorkletStateChange(
+    AnimationWorkletMutationState state,
+    ElementListType element_list_type) {
+  layer_tree_host_->NotifyAnimationWorkletStateChange(state, element_list_type);
+}
+
+uint32_t SingleThreadProxy::GenerateChildSurfaceSequenceNumberSync() {
+  DebugScopedSetImplThread impl(task_runner_provider_);
+  return host_impl_->GenerateChildSurfaceSequenceNumberSync();
 }
 
 void SingleThreadProxy::RequestBeginMainFrameNotExpected(bool new_state) {
@@ -749,10 +787,10 @@ void SingleThreadProxy::BeginMainFrame(
   animate_requested_ = false;
 
   if (defer_main_frame_update_) {
-    TRACE_EVENT_INSTANT0("cc", "EarlyOut_DeferCommit",
+    TRACE_EVENT_INSTANT0("cc", "EarlyOut_DeferBeginMainFrame",
                          TRACE_EVENT_SCOPE_THREAD);
     BeginMainFrameAbortedOnImplThread(
-        CommitEarlyOutReason::ABORTED_DEFERRED_COMMIT);
+        CommitEarlyOutReason::ABORTED_DEFERRED_MAIN_FRAME_UPDATE);
     return;
   }
 
@@ -773,9 +811,15 @@ void SingleThreadProxy::BeginMainFrame(
   // New commits requested inside UpdateLayers should be respected.
   commit_requested_ = false;
 
+  // Check now if we should stop deferring commits
+  if (defer_commits_ && base::TimeTicks::Now() > commits_restart_time_) {
+    StopDeferringCommits();
+  }
+
   // At this point the main frame may have deferred commits to avoid committing
   // right now.
-  if (defer_main_frame_update_ || begin_frame_args.animate_only) {
+  if (defer_main_frame_update_ || defer_commits_ ||
+      begin_frame_args.animate_only) {
     TRACE_EVENT_INSTANT0("cc", "EarlyOut_DeferCommit_InsideBeginMainFrame",
                          TRACE_EVENT_SCOPE_THREAD);
     BeginMainFrameAbortedOnImplThread(
@@ -808,8 +852,7 @@ void SingleThreadProxy::DoBeginMainFrame(
   layer_tree_host_->WillBeginMainFrame();
   layer_tree_host_->BeginMainFrame(begin_frame_args);
   layer_tree_host_->AnimateLayers(begin_frame_args.frame_time);
-  layer_tree_host_->RequestMainFrameUpdate(
-      false /* record_main_frame_metrics */);
+  layer_tree_host_->RequestMainFrameUpdate();
 }
 
 void SingleThreadProxy::DoPainting() {

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
@@ -570,6 +571,12 @@ bool Layer::ShouldDraw() const {
   return type_ != LAYER_NOT_DRAWN && GetCombinedOpacity() > 0.0f;
 }
 
+void Layer::SetRoundedCornerRadius(
+    const std::array<uint32_t, 4>& corner_radii) {
+  cc_layer_->SetRoundedCorner(corner_radii);
+  ScheduleDraw();
+}
+
 // static
 void Layer::ConvertPointToLayer(const Layer* source,
                                 const Layer* target,
@@ -635,6 +642,8 @@ void Layer::SwitchToLayer(scoped_refptr<cc::Layer> new_layer) {
   new_layer->SetTransform(cc_layer_->transform());
   new_layer->SetPosition(cc_layer_->position());
   new_layer->SetBackgroundColor(cc_layer_->background_color());
+  new_layer->SetSafeOpaqueBackgroundColor(
+      cc_layer_->SafeOpaqueBackgroundColor());
   new_layer->SetCacheRenderSurface(cc_layer_->cache_render_surface());
   new_layer->SetTrilinearFiltering(cc_layer_->trilinear_filtering());
 
@@ -813,6 +822,7 @@ void Layer::SetShowSurface(const viz::SurfaceId& surface_id,
 
   surface_layer_->SetSurfaceId(surface_id, deadline_policy);
   surface_layer_->SetBackgroundColor(default_background_color);
+  surface_layer_->SetSafeOpaqueBackgroundColor(default_background_color);
   surface_layer_->SetStretchContentToFillBounds(stretch_content_to_fill_bounds);
 
   frame_size_in_dip_ = frame_size_in_dip;
@@ -849,6 +859,7 @@ void Layer::SetShowReflectedSurface(const viz::SurfaceId& surface_id,
   surface_layer_->SetSurfaceId(surface_id,
                                cc::DeadlinePolicy::UseInfiniteDeadline());
   surface_layer_->SetBackgroundColor(SK_ColorBLACK);
+  surface_layer_->SetSafeOpaqueBackgroundColor(SK_ColorBLACK);
   // TODO(kylechar): Include UV transform and don't stretch to fill bounds.
   surface_layer_->SetStretchContentToFillBounds(true);
 
@@ -960,6 +971,9 @@ void Layer::ScheduleDraw() {
 }
 
 void Layer::SendDamagedRects() {
+  if (layer_mask_)
+    layer_mask_->SendDamagedRects();
+
   if (damaged_region_.IsEmpty())
     return;
   if (!delegate_ && transfer_resource_.mailbox_holder.mailbox.IsZero())
@@ -969,8 +983,6 @@ void Layer::SendDamagedRects() {
 
   for (gfx::Rect damaged_rect : damaged_region_)
     cc_layer_->SetNeedsDisplayRect(damaged_rect);
-  if (layer_mask_)
-    layer_mask_->SendDamagedRects();
 
   if (content_layer_)
     paint_region_.Union(damaged_region_);
@@ -1236,6 +1248,7 @@ void Layer::SetGrayscaleFromAnimation(float grayscale,
 void Layer::SetColorFromAnimation(SkColor color, PropertyChangeReason reason) {
   DCHECK_EQ(type_, LAYER_SOLID_COLOR);
   cc_layer_->SetBackgroundColor(color);
+  cc_layer_->SetSafeOpaqueBackgroundColor(color);
   SetFillsBoundsOpaquely(SkColorGetA(color) == 0xFF);
 }
 
@@ -1319,6 +1332,7 @@ void Layer::CreateCcLayer() {
   }
   cc_layer_->SetTransformOrigin(gfx::Point3F());
   cc_layer_->SetContentsOpaque(true);
+  cc_layer_->SetSafeOpaqueBackgroundColor(SK_ColorWHITE);
   cc_layer_->SetIsDrawable(type_ != LAYER_NOT_DRAWN);
   cc_layer_->SetLayerClient(weak_ptr_factory_.GetWeakPtr());
   cc_layer_->SetElementId(cc::ElementId(cc_layer_->id()));

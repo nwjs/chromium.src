@@ -7,8 +7,8 @@
 
 #include "third_party/blink/public/platform/web_media_player_client.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/time.h"
 
@@ -46,18 +46,10 @@ enum AutoplayBlockedReason {
   kAutoplayBlockedReasonMax = 3
 };
 
-enum class CrossOriginAutoplayResult {
-  kAutoplayAllowed = 0,
-  kAutoplayBlocked = 1,
-  kPlayedWithGesture = 2,
-  kUserPaused = 3,
-  // Keep at the end.
-  kNumberOfResults = 4,
-};
-
 class Document;
-class ElementVisibilityObserver;
 class HTMLMediaElement;
+class IntersectionObserver;
+class IntersectionObserverEntry;
 
 class CORE_EXPORT AutoplayUmaHelper : public NativeEventListener,
                                       public ContextLifecycleObserver {
@@ -73,7 +65,6 @@ class CORE_EXPORT AutoplayUmaHelper : public NativeEventListener,
 
   void OnAutoplayInitiated(AutoplaySource);
 
-  void RecordCrossOriginAutoplayResult(CrossOriginAutoplayResult);
   void RecordAutoplayUnmuteStatus(AutoplayUnmuteActionStatus);
 
   void VideoWillBeDrawnToCanvas();
@@ -106,13 +97,12 @@ class CORE_EXPORT AutoplayUmaHelper : public NativeEventListener,
   void MaybeStartRecordingMutedVideoOffscreenDuration();
   void MaybeStopRecordingMutedVideoOffscreenDuration();
 
-  void MaybeRecordUserPausedAutoplayingCrossOriginVideo();
-
-  void OnVisibilityChangedForMutedVideoOffscreenDuration(bool is_visibile);
-  void OnVisibilityChangedForMutedVideoPlayMethodBecomeVisible(bool is_visible);
+  void OnIntersectionChangedForMutedVideoOffscreenDuration(
+      const HeapVector<Member<IntersectionObserverEntry>>& entries);
+  void OnIntersectionChangedForMutedVideoPlayMethodBecomeVisible(
+      const HeapVector<Member<IntersectionObserverEntry>>& entries);
 
   bool ShouldListenToContextDestroyed() const;
-  bool ShouldRecordUserPausedAutoplayingCrossOriginVideo() const;
 
   // The autoplay sources.
   std::set<AutoplaySource> sources_;
@@ -123,8 +113,7 @@ class CORE_EXPORT AutoplayUmaHelper : public NativeEventListener,
   // The observer is used to observe whether a muted video autoplaying by play()
   // method become visible at some point.
   // The UMA is pending for recording as long as this observer is non-null.
-  Member<ElementVisibilityObserver>
-      muted_video_play_method_visibility_observer_;
+  Member<IntersectionObserver> muted_video_play_method_intersection_observer_;
 
   // -----------------------------------------------------------------------
   // Variables used for recording the duration of autoplay muted video playing
@@ -141,13 +130,11 @@ class CORE_EXPORT AutoplayUmaHelper : public NativeEventListener,
   // Whether an autoplaying muted video is visible.
   bool is_visible_;
 
-  std::set<CrossOriginAutoplayResult> recorded_cross_origin_autoplay_results_;
-
   // The observer is used to observer an autoplaying muted video changing it's
   // visibility, which is used for offscreen duration UMA.  The UMA is pending
   // for recording as long as this observer is non-null.
-  Member<ElementVisibilityObserver>
-      muted_video_offscreen_duration_visibility_observer_;
+  Member<IntersectionObserver>
+      muted_video_offscreen_duration_intersection_observer_;
 
   TimeTicks load_start_time_;
 };

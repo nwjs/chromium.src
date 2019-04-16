@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_util.h"
@@ -40,19 +41,19 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
     const base::Value& value) {
   const base::DictionaryValue* dict = nullptr;
   if (!value.GetAsDictionary(&dict)) {
-    DLOG(WARNING) << "Parse error: top-level dictionary not found";
+    DVLOG(1) << "Parse error: top-level dictionary not found";
     return base::nullopt;
   }
 
   const base::DictionaryValue* update = nullptr;
   if (!dict->GetDictionary("update", &update)) {
-    DLOG(WARNING) << "Parse error: no update";
+    DVLOG(1) << "Parse error: no update";
     return base::nullopt;
   }
 
   const base::DictionaryValue* query_suggestions = nullptr;
   if (!update->GetDictionary("query_suggestions", &query_suggestions)) {
-    DLOG(WARNING) << "Parse error: no query_suggestions";
+    DVLOG(1) << "Parse error: no query_suggestions";
     return base::nullopt;
   }
 
@@ -60,7 +61,7 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
   std::string suggestions_html = std::string();
   if (!query_suggestions->GetString("query_suggestions_with_html",
                                     &suggestions_html)) {
-    DLOG(WARNING) << "Parse error: no query_suggestions_with_html";
+    DVLOG(1) << "Parse error: no query_suggestions_with_html";
     return base::nullopt;
   }
 
@@ -69,7 +70,7 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
 
   std::string end_of_body_script = std::string();
   if (!query_suggestions->GetString("script", &end_of_body_script)) {
-    DLOG(WARNING) << "Parse error: no script";
+    DVLOG(1) << "Parse error: no script";
     return base::nullopt;
   }
 
@@ -78,7 +79,7 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
   int impression_cap_expire_time_ms;
   if (!query_suggestions->GetInteger("impression_cap_expire_time_ms",
                                      &impression_cap_expire_time_ms)) {
-    DLOG(WARNING) << "Parse error: no impression_cap_expire_time_ms";
+    DVLOG(1) << "Parse error: no impression_cap_expire_time_ms";
     return base::nullopt;
   }
 
@@ -87,7 +88,7 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
   int request_freeze_time_ms;
   if (!query_suggestions->GetInteger("request_freeze_time_ms",
                                      &request_freeze_time_ms)) {
-    DLOG(WARNING) << "Parse error: no request_freeze_time_ms";
+    DVLOG(1) << "Parse error: no request_freeze_time_ms";
     return base::nullopt;
   }
 
@@ -95,7 +96,7 @@ base::Optional<SearchSuggestData> JsonToSearchSuggestionData(
 
   int max_impressions;
   if (!query_suggestions->GetInteger("max_impressions", &max_impressions)) {
-    DLOG(WARNING) << "Parse error: no max_impressions";
+    DVLOG(1) << "Parse error: no max_impressions";
     return base::nullopt;
   }
 
@@ -121,8 +122,6 @@ class SearchSuggestLoaderImpl::AuthenticatedURLLoader {
   void Start();
 
  private:
-  net::HttpRequestHeaders GetRequestHeaders() const;
-
   void OnURLLoaderComplete(std::unique_ptr<std::string> response_body);
 
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
@@ -141,14 +140,6 @@ SearchSuggestLoaderImpl::AuthenticatedURLLoader::AuthenticatedURLLoader(
     : url_loader_factory_(url_loader_factory),
       api_url_(std::move(api_url)),
       callback_(std::move(callback)) {}
-
-net::HttpRequestHeaders
-SearchSuggestLoaderImpl::AuthenticatedURLLoader::GetRequestHeaders() const {
-  net::HttpRequestHeaders headers;
-  variations::AppendVariationHeadersUnknownSignedIn(
-      api_url_, variations::InIncognito::kNo, &headers);
-  return headers;
-}
 
 void SearchSuggestLoaderImpl::AuthenticatedURLLoader::Start() {
   net::NetworkTrafficAnnotationTag traffic_annotation =
@@ -181,7 +172,8 @@ void SearchSuggestLoaderImpl::AuthenticatedURLLoader::Start() {
 
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = api_url_;
-  resource_request->headers = GetRequestHeaders();
+  variations::AppendVariationsHeaderUnknownSignedIn(
+      api_url_, variations::InIncognito::kNo, resource_request.get());
   resource_request->request_initiator =
       url::Origin::Create(GURL(chrome::kChromeUINewTabURL));
 
@@ -252,7 +244,7 @@ void SearchSuggestLoaderImpl::LoadDone(
   if (!response_body) {
     // This represents network errors (i.e. the server did not provide a
     // response).
-    DLOG(WARNING) << "Request failed with error: " << simple_loader->NetError();
+    DVLOG(1) << "Request failed with error: " << simple_loader->NetError();
     Respond(Status::TRANSIENT_ERROR, base::nullopt);
     return;
   }
@@ -281,7 +273,7 @@ void SearchSuggestLoaderImpl::JsonParsed(std::unique_ptr<base::Value> value) {
 }
 
 void SearchSuggestLoaderImpl::JsonParseFailed(const std::string& message) {
-  DLOG(WARNING) << "Parsing JSON failed: " << message;
+  DVLOG(1) << "Parsing JSON failed: " << message;
   Respond(Status::FATAL_ERROR, base::nullopt);
 }
 

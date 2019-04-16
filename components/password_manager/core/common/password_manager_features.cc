@@ -6,6 +6,8 @@
 
 namespace password_manager {
 
+// NOTE: It is strongly recommended to use UpperCamelCase style for feature
+//       names, e.g. "MyGreatFeature".
 namespace features {
 
 // Enable affiliation based matching, so that credentials stored for an Android
@@ -13,6 +15,11 @@ namespace features {
 // corresponding Web applications.
 const base::Feature kAffiliationBasedMatching = {
     "AffiliationBasedMatching", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enables the editing of passwords in chrome://settings/passwords, i.e. the
+// Desktop passwords settings page.
+const base::Feature kEditPasswordsInDesktopSettings = {
+    "EditPasswordsInDesktopSettings", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Recovers lost passwords on Mac by deleting the ones that cannot be decrypted
 // with the present encryption key from the Keychain.
@@ -28,15 +35,6 @@ const base::Feature kHtmlBasedUsernameDetector = {
 const base::Feature kPasswordGenerationRequirementsDomainOverrides = {
     "PasswordGenerationRequirementsDomainOverrides",
     base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Disallow autofilling of the sync credential.
-const base::Feature kProtectSyncCredential = {
-    "protect-sync-credential", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Disallow autofilling of the sync credential only for transactional reauth
-// pages.
-const base::Feature kProtectSyncCredentialOnReauth = {
-    "ProtectSyncCredentialOnReauth", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls the ability to import passwords from Chrome's settings page.
 const base::Feature kPasswordImport = {"PasswordImport",
@@ -79,6 +77,11 @@ const base::Feature kNewPasswordFormParsingForSaving = {
 // the old parser, details in https://goo.gl/QodPH1
 const base::Feature kOnlyNewParser = {"only-new-password-form-parsing",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether to offer manual password generation in the accessory sheet
+// on Android.
+const base::Feature kManualPasswordGenerationAndroid{
+    "ManualPasswordGenerationAndroid", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Performs a one-off migration (with retries) from a native backend into
 // logindb. Passwords are served from the new location.

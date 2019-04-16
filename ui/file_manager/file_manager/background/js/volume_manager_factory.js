@@ -2,18 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var volumeManagerFactory = (function() {
+var volumeManagerFactory = (() => {
   /**
    * The singleton instance of VolumeManager. Initialized by the first
    * invocation of getInstance().
    * @type {VolumeManager}
    */
-  var instance = null;
+  let instance = null;
 
   /**
    * @type {Promise}
    */
-  var instancePromise = null;
+  let instancePromise = null;
 
   /**
    * Returns the VolumeManager instance asynchronously. If it has not been
@@ -27,8 +27,8 @@ var volumeManagerFactory = (function() {
   function getInstance(opt_callback) {
     if (!instancePromise) {
       instance = new VolumeManagerImpl();
-      instancePromise = new Promise(function(fulfill) {
-        instance.initialize_(function() {
+      instancePromise = new Promise(fulfill => {
+        instance.initialize_(() => {
           return fulfill(instance);
         });
       });
@@ -62,4 +62,4 @@ var volumeManagerFactory = (function() {
     getInstanceForDebug: getInstanceForDebug,
     revokeInstanceForTesting: revokeInstanceForTesting
   };
-}());
+})();

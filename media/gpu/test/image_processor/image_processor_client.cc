@@ -4,22 +4,22 @@
 
 #include "media/gpu/test/image_processor/image_processor_client.h"
 
+#include <functional>
 #include <utility>
 
+#include "base/bind.h"
 #include "third_party/libyuv/include/libyuv/planar_functions.h"
 
 #include "base/bind_helpers.h"
-#include "base/files/file_util.h"
-#include "base/files/memory_mapped_file.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "build/build_config.h"
 #include "media/base/bind_to_current_loop.h"
-#include "media/base/test_data_util.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_frame_layout.h"
 #include "media/gpu/image_processor_factory.h"
+#include "media/gpu/test/image.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -28,22 +28,6 @@ namespace test {
 
 namespace {
 // TODO(crbug.com/917951): Move these functions to video_frame_helpers.h
-
-// Find the file path for |file_name|.
-base::FilePath GetFilePath(const base::FilePath::CharType* const file_name) {
-  // 1. Try to find |file_name| in the current directory.
-  base::FilePath file_path =
-      base::FilePath(base::FilePath::kCurrentDirectory).Append(file_name);
-  if (base::PathExists(file_path)) {
-    return file_path;
-  }
-
-  // 2. Try media::GetTestDataFilePath(|file_name|), that is,
-  // media/test/data/file_name. This is mainly for Try bot.
-  file_path = media::GetTestDataPath().Append(file_name);
-  LOG_ASSERT(base::PathExists(file_path)) << " Cannot find " << file_name;
-  return file_path;
-}
 
 // Copy |src_frame| into a new VideoFrame with |dst_layout|. The created
 // VideoFrame's content is the same as |src_frame|. Returns nullptr on failure.
@@ -78,61 +62,6 @@ scoped_refptr<VideoFrame> CloneVideoFrameWithLayout(
   return dst_frame;
 }
 
-// Create VideoFrame from |info| loading |info.file_name|. Return nullptr on
-// failure.
-scoped_refptr<VideoFrame> ReadVideoFrame(const VideoImageInfo& info) {
-  auto path = GetFilePath(info.file_name);
-  // First read file.
-  auto mapped_file = std::make_unique<base::MemoryMappedFile>();
-  if (!mapped_file->Initialize(path)) {
-    LOG(ERROR) << "Failed to read file: " << path;
-    return nullptr;
-  }
-
-  const auto format = info.pixel_format;
-  const auto visible_size = info.visible_size;
-  // Check the file length and md5sum.
-  LOG_ASSERT(mapped_file->length() ==
-             VideoFrame::AllocationSize(format, visible_size));
-  base::MD5Digest digest;
-  base::MD5Sum(mapped_file->data(), mapped_file->length(), &digest);
-  LOG_ASSERT(base::MD5DigestToBase16(digest) == info.md5sum);
-
-  // Create planes for layout. We cannot use WrapExternalData() because it calls
-  // GetDefaultLayout() and it supports only a few pixel formats.
-  const size_t num_planes = VideoFrame::NumPlanes(format);
-  std::vector<VideoFrameLayout::Plane> planes(num_planes);
-  const auto strides = VideoFrame::ComputeStrides(format, visible_size);
-  size_t offset = 0;
-  for (size_t i = 0; i < num_planes; ++i) {
-    planes[i].stride = strides[i];
-    planes[i].offset = offset;
-    offset += VideoFrame::PlaneSize(format, i, visible_size).GetArea();
-  }
-
-  auto layout = VideoFrameLayout::CreateWithPlanes(
-      format, visible_size, std::move(planes), {mapped_file->length()});
-  if (!layout) {
-    LOG(ERROR) << "Failed to create VideoFrameLayout";
-    return nullptr;
-  }
-
-  auto frame = VideoFrame::WrapExternalDataWithLayout(
-      *layout, gfx::Rect(visible_size), visible_size, mapped_file->data(),
-      mapped_file->length(), base::TimeDelta());
-  if (!frame) {
-    LOG(ERROR) << "Failed to create VideoFrame";
-    return nullptr;
-  }
-
-  // Automatically unmap the memory mapped file when the video frame is
-  // destroyed.
-  frame->AddDestructionObserver(base::BindOnce(
-      base::DoNothing::Once<std::unique_ptr<base::MemoryMappedFile>>(),
-      std::move(mapped_file)));
-  return frame;
-}
-
 }  // namespace
 
 // static
@@ -140,9 +69,9 @@ std::unique_ptr<ImageProcessorClient> ImageProcessorClient::Create(
     const ImageProcessor::PortConfig& input_config,
     const ImageProcessor::PortConfig& output_config,
     size_t num_buffers,
-    bool store_processed_video_frames) {
+    std::vector<std::unique_ptr<VideoFrameProcessor>> frame_processors) {
   auto ip_client =
-      base::WrapUnique(new ImageProcessorClient(store_processed_video_frames));
+      base::WrapUnique(new ImageProcessorClient(std::move(frame_processors)));
   if (!ip_client->CreateImageProcessor(input_config, output_config,
                                        num_buffers)) {
     LOG(ERROR) << "Failed to create ImageProcessor";
@@ -151,9 +80,10 @@ std::unique_ptr<ImageProcessorClient> ImageProcessorClient::Create(
   return ip_client;
 }
 
-ImageProcessorClient::ImageProcessorClient(bool store_processed_video_frames)
-    : image_processor_client_thread_("ImageProcessorClientThread"),
-      store_processed_video_frames_(store_processed_video_frames),
+ImageProcessorClient::ImageProcessorClient(
+    std::vector<std::unique_ptr<VideoFrameProcessor>> frame_processors)
+    : frame_processors_(std::move(frame_processors)),
+      image_processor_client_thread_("ImageProcessorClientThread"),
       output_cv_(&output_lock_),
       num_processed_frames_(0),
       image_processor_error_count_(0) {
@@ -177,14 +107,13 @@ bool ImageProcessorClient::CreateImageProcessor(
   DCHECK_CALLED_ON_VALID_THREAD(test_main_thread_checker_);
   base::WaitableEvent done(base::WaitableEvent::ResetPolicy::AUTOMATIC,
                            base::WaitableEvent::InitialState::NOT_SIGNALED);
-  // base::Unretained(this) and base::ConstRef() are safe here because |this|,
+  // base::Unretained(this) and std::cref() are safe here because |this|,
   // |input_config| and |output_config| must outlive because this task is
   // blocking.
   image_processor_client_thread_.task_runner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&ImageProcessorClient::CreateImageProcessorTask,
-                     base::Unretained(this), base::ConstRef(input_config),
-                     base::ConstRef(output_config), num_buffers, &done));
+      FROM_HERE, base::BindOnce(&ImageProcessorClient::CreateImageProcessorTask,
+                                base::Unretained(this), std::cref(input_config),
+                                std::cref(output_config), num_buffers, &done));
   done.Wait();
   if (!image_processor_) {
     LOG(ERROR) << "Failed to create ImageProcessor";
@@ -210,15 +139,48 @@ void ImageProcessorClient::CreateImageProcessorTask(
 }
 
 scoped_refptr<VideoFrame> ImageProcessorClient::CreateInputFrame(
-    const VideoImageInfo& input_image_info) const {
+    const Image& input_image) const {
   DCHECK_CALLED_ON_VALID_THREAD(test_main_thread_checker_);
   LOG_ASSERT(image_processor_);
+  LOG_ASSERT(input_image.IsLoaded());
+  LOG_ASSERT(input_image.DataSize() ==
+             VideoFrame::AllocationSize(input_image.PixelFormat(),
+                                        input_image.Size()));
 
-  auto mapped_frame = ReadVideoFrame(input_image_info);
+  const auto format = input_image.PixelFormat();
+  const auto visible_size = input_image.Size();
+
+  // Create planes for layout. We cannot use WrapExternalData() because it
+  // calls GetDefaultLayout() and it supports only a few pixel formats.
+  const size_t num_planes = VideoFrame::NumPlanes(format);
+  std::vector<VideoFrameLayout::Plane> planes(num_planes);
+  const auto strides = VideoFrame::ComputeStrides(format, visible_size);
+  size_t offset = 0;
+  for (size_t i = 0; i < num_planes; ++i) {
+    planes[i].stride = strides[i];
+    planes[i].offset = offset;
+    offset += VideoFrame::PlaneSize(format, i, visible_size).GetArea();
+  }
+
+  auto layout = VideoFrameLayout::CreateWithPlanes(
+      format, visible_size, std::move(planes), {input_image.DataSize()});
+  if (!layout) {
+    LOG(ERROR) << "Failed to create VideoFrameLayout";
+    return nullptr;
+  }
+
+  auto frame = VideoFrame::WrapExternalDataWithLayout(
+      *layout, gfx::Rect(visible_size), visible_size, input_image.Data(),
+      input_image.DataSize(), base::TimeDelta());
+  if (!frame) {
+    LOG(ERROR) << "Failed to create VideoFrame";
+    return nullptr;
+  }
+
   const auto& input_layout = image_processor_->input_layout();
   if (VideoFrame::IsStorageTypeMappable(
           image_processor_->input_storage_type())) {
-    return CloneVideoFrameWithLayout(mapped_frame.get(), input_layout);
+    return CloneVideoFrameWithLayout(frame.get(), input_layout);
   } else {
 #if defined(OS_CHROMEOS)
     LOG_ASSERT(image_processor_->input_storage_type() ==
@@ -231,18 +193,17 @@ scoped_refptr<VideoFrame> ImageProcessorClient::CreateInputFrame(
 }
 
 scoped_refptr<VideoFrame> ImageProcessorClient::CreateOutputFrame(
-    const VideoImageInfo& output_image_info) const {
+    const Image& output_image) const {
   DCHECK_CALLED_ON_VALID_THREAD(test_main_thread_checker_);
+  LOG_ASSERT(output_image.IsMetadataLoaded());
   LOG_ASSERT(image_processor_);
 
   const auto& output_layout = image_processor_->output_layout();
   if (VideoFrame::IsStorageTypeMappable(
           image_processor_->input_storage_type())) {
     return VideoFrame::CreateFrameWithLayout(
-        output_layout, gfx::Rect(output_image_info.visible_size),
-        output_image_info.visible_size, base::TimeDelta(),
-        false /* zero_initialize_memory*/
-    );
+        output_layout, gfx::Rect(output_image.Size()), output_image.Size(),
+        base::TimeDelta(), false /* zero_initialize_memory*/);
   } else {
 #if defined(OS_CHROMEOS)
     LOG_ASSERT(image_processor_->input_storage_type() ==
@@ -254,12 +215,15 @@ scoped_refptr<VideoFrame> ImageProcessorClient::CreateOutputFrame(
   }
 }
 
-void ImageProcessorClient::FrameReady(scoped_refptr<VideoFrame> frame) {
+void ImageProcessorClient::FrameReady(size_t frame_index,
+                                      scoped_refptr<VideoFrame> frame) {
   DCHECK_CALLED_ON_VALID_THREAD(image_processor_client_thread_checker_);
 
   base::AutoLock auto_lock_(output_lock_);
-  if (store_processed_video_frames_)
-    output_video_frames_.push_back(std::move(frame));
+  // VideoFrame should be processed in FIFO order.
+  EXPECT_EQ(frame_index, num_processed_frames_);
+  for (auto& processor : frame_processors_)
+    processor->ProcessVideoFrame(std::move(frame), frame_index);
   num_processed_frames_++;
   output_cv_.Signal();
 }
@@ -273,26 +237,28 @@ bool ImageProcessorClient::WaitUntilNumImageProcessed(
   // locks again at the end.
   base::AutoLock auto_lock_(output_lock_);
   while (time_waiting < max_wait) {
+    if (num_processed_frames_ >= num_processed)
+      return true;
+
     const base::TimeTicks start_time = base::TimeTicks::Now();
     output_cv_.TimedWait(max_wait);
     time_waiting += base::TimeTicks::Now() - start_time;
-
-    if (num_processed_frames_ >= num_processed)
-      return true;
   }
+
   return false;
+}
+
+bool ImageProcessorClient::WaitForFrameProcessors() {
+  bool success = true;
+  for (auto& processor : frame_processors_)
+    success &= processor->WaitUntilDone();
+
+  return success;
 }
 
 size_t ImageProcessorClient::GetNumOfProcessedImages() const {
   base::AutoLock auto_lock_(output_lock_);
   return num_processed_frames_;
-}
-
-std::vector<scoped_refptr<VideoFrame>>
-ImageProcessorClient::GetProcessedImages() const {
-  LOG_ASSERT(store_processed_video_frames_);
-  base::AutoLock auto_lock_(output_lock_);
-  return output_video_frames_;
 }
 
 size_t ImageProcessorClient::GetErrorCount() const {
@@ -306,12 +272,12 @@ void ImageProcessorClient::NotifyError() {
   image_processor_error_count_++;
 }
 
-void ImageProcessorClient::Process(const VideoImageInfo& input_info,
-                                   const VideoImageInfo& output_info) {
+void ImageProcessorClient::Process(const Image& input_image,
+                                   const Image& output_image) {
   DCHECK_CALLED_ON_VALID_THREAD(test_main_thread_checker_);
-  auto input_frame = CreateInputFrame(input_info);
+  auto input_frame = CreateInputFrame(input_image);
   ASSERT_TRUE(input_frame);
-  auto output_frame = CreateOutputFrame(input_info);
+  auto output_frame = CreateOutputFrame(output_image);
   ASSERT_TRUE(output_frame);
   image_processor_client_thread_.task_runner()->PostTask(
       FROM_HERE,
@@ -322,13 +288,14 @@ void ImageProcessorClient::Process(const VideoImageInfo& input_info,
 void ImageProcessorClient::ProcessTask(scoped_refptr<VideoFrame> input_frame,
                                        scoped_refptr<VideoFrame> output_frame) {
   DCHECK_CALLED_ON_VALID_THREAD(image_processor_client_thread_checker_);
-  // base::Unretained(this) and base::ConstRef() for FrameReadyCB is safe here
+  // base::Unretained(this) and std::cref() for FrameReadyCB is safe here
   // because the callback is executed on |image_processor_client_thread_| which
   // is owned by this class.
-  image_processor_->Process(
-      std::move(input_frame), std::move(output_frame),
-      BindToCurrentLoop(base::BindOnce(&ImageProcessorClient::FrameReady,
-                                       base::Unretained(this))));
+  image_processor_->Process(std::move(input_frame), std::move(output_frame),
+                            BindToCurrentLoop(base::BindOnce(
+                                &ImageProcessorClient::FrameReady,
+                                base::Unretained(this), next_frame_index_)));
+  next_frame_index_++;
 }
 
 }  // namespace test

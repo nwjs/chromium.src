@@ -31,6 +31,9 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_SCRIPT_CONTROLLER_H_
 #define THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_SCRIPT_CONTROLLER_H_
 
+#include <memory>
+
+#include "base/macros.h"
 #include "third_party/blink/renderer/bindings/core/v8/sanitize_script_errors.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_source_location_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/window_proxy_manager.h"
@@ -40,7 +43,6 @@
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/loader/fetch/script_fetch_options.h"
-#include "third_party/blink/renderer/platform/wtf/noncopyable.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_position.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "v8/include/v8.h"
@@ -60,8 +62,6 @@ class SecurityOrigin;
 // LocalFrame::GetScriptController().
 class CORE_EXPORT ScriptController final
     : public GarbageCollected<ScriptController> {
-  WTF_MAKE_NONCOPYABLE(ScriptController);
-
  public:
   enum ExecuteScriptPolicy {
     kExecuteScriptWhenScriptsDisabled,
@@ -144,9 +144,8 @@ class CORE_EXPORT ScriptController final
   void ClearForClose();
 
   // Registers a v8 extension to be available on webpages. Will only
-  // affect v8 contexts initialized after this call. Takes ownership of
-  // the v8::Extension object passed.
-  static void RegisterExtensionIfNeeded(v8::Extension*);
+  // affect v8 contexts initialized after this call.
+  static void RegisterExtensionIfNeeded(std::unique_ptr<v8::Extension>);
   static v8::ExtensionConfiguration ExtensionsFor(const ExecutionContext*);
 
  private:
@@ -164,6 +163,8 @@ class CORE_EXPORT ScriptController final
 
   const Member<LocalFrame> frame_;
   const Member<LocalWindowProxyManager> window_proxy_manager_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScriptController);
 };
 
 }  // namespace blink

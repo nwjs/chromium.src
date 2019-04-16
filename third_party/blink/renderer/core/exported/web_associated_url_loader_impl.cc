@@ -45,8 +45,8 @@
 #include "third_party/blink/public/platform/web_url_error.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/web/web_associated_url_loader_client.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader_client.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
@@ -107,12 +107,10 @@ class WebAssociatedURLLoaderImpl::ClientAdapter final
                 scoped_refptr<base::SingleThreadTaskRunner>);
 
   // ThreadableLoaderClient
-  void DidSendData(unsigned long long /*bytesSent*/,
-                   unsigned long long /*totalBytesToBeSent*/) override;
-  void DidReceiveResponse(unsigned long,
-                          const ResourceResponse&,
-                          std::unique_ptr<WebDataConsumerHandle>) override;
-  void DidDownloadData(unsigned long long /*dataLength*/) override;
+  void DidSendData(uint64_t /*bytesSent*/,
+                   uint64_t /*totalBytesToBeSent*/) override;
+  void DidReceiveResponse(unsigned long, const ResourceResponse&) override;
+  void DidDownloadData(uint64_t /*dataLength*/) override;
   void DidReceiveData(const char*, unsigned /*dataLength*/) override;
   void DidReceiveCachedMetadata(const char*, int /*dataLength*/) override;
   void DidFinishLoading(unsigned long /*identifier*/) override;
@@ -190,8 +188,8 @@ bool WebAssociatedURLLoaderImpl::ClientAdapter::WillFollowRedirect(
 }
 
 void WebAssociatedURLLoaderImpl::ClientAdapter::DidSendData(
-    unsigned long long bytes_sent,
-    unsigned long long total_bytes_to_be_sent) {
+    uint64_t bytes_sent,
+    uint64_t total_bytes_to_be_sent) {
   if (!client_)
     return;
 
@@ -200,10 +198,7 @@ void WebAssociatedURLLoaderImpl::ClientAdapter::DidSendData(
 
 void WebAssociatedURLLoaderImpl::ClientAdapter::DidReceiveResponse(
     unsigned long,
-    const ResourceResponse& response,
-    std::unique_ptr<WebDataConsumerHandle> handle) {
-  ALLOW_UNUSED_LOCAL(handle);
-  DCHECK(!handle);
+    const ResourceResponse& response) {
   if (!client_)
     return;
 
@@ -241,7 +236,7 @@ void WebAssociatedURLLoaderImpl::ClientAdapter::DidReceiveResponse(
 }
 
 void WebAssociatedURLLoaderImpl::ClientAdapter::DidDownloadData(
-    unsigned long long data_length) {
+    uint64_t data_length) {
   if (!client_)
     return;
 
@@ -400,8 +395,10 @@ void WebAssociatedURLLoaderImpl::LoadAsynchronously(
       const auto mode = new_request.GetFetchRequestMode();
       DCHECK(mode == network::mojom::FetchRequestMode::kNoCors ||
              mode == network::mojom::FetchRequestMode::kNavigate);
-      scoped_refptr<SecurityOrigin> origin =
-          SecurityOrigin::CreateUniqueOpaque();
+      // Some callers, notablly flash, with |grant_universal_access| want to
+      // have an origin matching with referrer.
+      KURL referrer(request.HttpHeaderField(http_names::kReferer));
+      scoped_refptr<SecurityOrigin> origin = SecurityOrigin::Create(referrer);
       origin->GrantUniversalAccess();
       new_request.ToMutableResourceRequest().SetRequestorOrigin(origin);
     }

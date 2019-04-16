@@ -52,8 +52,7 @@ const char* FlagsModeToString(FlagsMode mode) {
 
 // Test various combinations of QUIC version and flag state.
 struct TestParams {
-  ParsedQuicVersion version =
-      ParsedQuicVersion{PROTOCOL_UNSUPPORTED, QUIC_VERSION_UNSUPPORTED};
+  ParsedQuicVersion version = UnsupportedQuicVersion();
   FlagsMode flags;
 };
 
@@ -170,10 +169,10 @@ class StatelessRejectorTest : public QuicTestWithParam<TestParams> {
   QuicString stk_hex_;
 };
 
-INSTANTIATE_TEST_CASE_P(Flags,
-                        StatelessRejectorTest,
-                        ::testing::ValuesIn(GetTestParams()),
-                        TestParamToString);
+INSTANTIATE_TEST_SUITE_P(Flags,
+                         StatelessRejectorTest,
+                         ::testing::ValuesIn(GetTestParams()),
+                         TestParamToString);
 
 TEST_P(StatelessRejectorTest, InvalidChlo) {
   // clang-format off

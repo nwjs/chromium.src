@@ -44,6 +44,7 @@ class GpuMemoryBufferFactory;
 class GpuWatchdogThread;
 class Scheduler;
 class SyncPointManager;
+class SharedImageManager;
 class VulkanImplementation;
 }  // namespace gpu
 
@@ -85,6 +86,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
       gpu::GpuProcessActivityFlags activity_flags,
       scoped_refptr<gl::GLSurface> default_offscreen_surface,
       gpu::SyncPointManager* sync_point_manager = nullptr,
+      gpu::SharedImageManager* shared_image_manager = nullptr,
       base::WaitableEvent* shutdown_event = nullptr);
   void Bind(mojom::GpuServiceRequest request);
 
@@ -97,97 +99,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   // InitializeWithHost() was called, otherwise GpuFeatureInfo should be set
   // accordingly. This can safely be called from any thread.
   void DisableGpuCompositing();
-
-  bool is_initialized() const { return !!gpu_host_; }
-
-  media::MediaGpuChannelManager* media_gpu_channel_manager() {
-    return media_gpu_channel_manager_.get();
-  }
-
-  gpu::GpuChannelManager* gpu_channel_manager() {
-    return gpu_channel_manager_.get();
-  }
-
-  gpu::ImageFactory* gpu_image_factory();
-  gpu::GpuMemoryBufferFactory* gpu_memory_buffer_factory() {
-    return gpu_memory_buffer_factory_.get();
-  }
-
-  gpu::MailboxManager* mailbox_manager() {
-    return gpu_channel_manager_->mailbox_manager();
-  }
-
-  gpu::SharedImageManager* shared_image_manager() {
-    return gpu_channel_manager_->shared_image_manager();
-  }
-
-  gl::GLShareGroup* share_group() {
-    return gpu_channel_manager_->share_group();
-  }
-
-  gpu::raster::GrShaderCache* gr_shader_cache() {
-    return gpu_channel_manager_->gr_shader_cache();
-  }
-
-  gpu::SyncPointManager* sync_point_manager() { return sync_point_manager_; }
-  gpu::Scheduler* scheduler() { return scheduler_.get(); }
-
-  gpu::GpuWatchdogThread* watchdog_thread() { return watchdog_thread_.get(); }
-
-  const gpu::GpuFeatureInfo& gpu_feature_info() const {
-    return gpu_feature_info_;
-  }
-
-  bool in_host_process() const { return gpu_info_.in_process_gpu; }
-
-  void set_start_time(base::Time start_time) { start_time_ = start_time; }
-
-  const gpu::GPUInfo& gpu_info() const { return gpu_info_; }
-  const gpu::GpuPreferences& gpu_preferences() const {
-    return gpu_preferences_;
-  }
-
-  gpu::SequenceId skia_output_surface_sequence_id() const {
-    return skia_output_surface_sequence_id_;
-  }
-
-#if BUILDFLAG(ENABLE_VULKAN)
-  bool is_using_vulkan() const { return !!vulkan_context_provider_; }
-  VulkanContextProvider* vulkan_context_provider() {
-    return vulkan_context_provider_.get();
-  }
-#else
-  bool is_using_vulkan() const { return false; }
-  VulkanContextProvider* vulkan_context_provider() { return nullptr; }
-#endif
-
-  void set_oopd_enabled() { oopd_enabled_ = true; }
-
- private:
-  void RecordLogMessage(int severity,
-                        size_t message_start,
-                        const std::string& message);
-
-  void UpdateGpuInfoPlatform(base::OnceClosure on_gpu_info_updated);
-
-  // gpu::GpuChannelManagerDelegate:
-  void DidCreateContextSuccessfully() override;
-  void DidCreateOffscreenContext(const GURL& active_url) override;
-  void DidDestroyChannel(int client_id) override;
-  void DidDestroyOffscreenContext(const GURL& active_url) override;
-  void DidLoseContext(bool offscreen,
-                      gpu::error::ContextLostReason reason,
-                      const GURL& active_url) override;
-  void StoreShaderToDisk(int client_id,
-                         const std::string& key,
-                         const std::string& shader) override;
-  void MaybeExitOnContextLost() override;
-  bool IsExiting() const override;
-#if defined(OS_WIN)
-  void SendCreatedChildWindow(gpu::SurfaceHandle parent_window,
-                              gpu::SurfaceHandle child_window) override;
-#endif
-  void SetActiveURL(const GURL& url) override;
 
   // mojom::GpuService:
   void EstablishGpuChannel(int32_t client_id,
@@ -249,6 +160,99 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   void ThrowJavaException() override;
   void Stop(StopCallback callback) override;
 
+  bool is_initialized() const { return !!gpu_host_; }
+
+  media::MediaGpuChannelManager* media_gpu_channel_manager() {
+    return media_gpu_channel_manager_.get();
+  }
+
+  gpu::GpuChannelManager* gpu_channel_manager() {
+    return gpu_channel_manager_.get();
+  }
+
+  gpu::ImageFactory* gpu_image_factory();
+  gpu::GpuMemoryBufferFactory* gpu_memory_buffer_factory() {
+    return gpu_memory_buffer_factory_.get();
+  }
+
+  gpu::MailboxManager* mailbox_manager() {
+    return gpu_channel_manager_->mailbox_manager();
+  }
+
+  gpu::SharedImageManager* shared_image_manager() {
+    return gpu_channel_manager_->shared_image_manager();
+  }
+
+  gl::GLShareGroup* share_group() {
+    return gpu_channel_manager_->share_group();
+  }
+
+  gpu::raster::GrShaderCache* gr_shader_cache() {
+    return gpu_channel_manager_->gr_shader_cache();
+  }
+
+  gpu::SyncPointManager* sync_point_manager() {
+    return gpu_channel_manager_->sync_point_manager();
+  }
+  gpu::Scheduler* scheduler() { return scheduler_.get(); }
+
+  gpu::GpuWatchdogThread* watchdog_thread() { return watchdog_thread_.get(); }
+
+  const gpu::GpuFeatureInfo& gpu_feature_info() const {
+    return gpu_feature_info_;
+  }
+
+  bool in_host_process() const { return gpu_info_.in_process_gpu; }
+
+  void set_start_time(base::Time start_time) { start_time_ = start_time; }
+
+  const gpu::GPUInfo& gpu_info() const { return gpu_info_; }
+  const gpu::GpuPreferences& gpu_preferences() const {
+    return gpu_preferences_;
+  }
+
+  gpu::SequenceId skia_output_surface_sequence_id() const {
+    return skia_output_surface_sequence_id_;
+  }
+
+#if BUILDFLAG(ENABLE_VULKAN)
+  bool is_using_vulkan() const { return !!vulkan_context_provider_; }
+  VulkanContextProvider* vulkan_context_provider() {
+    return vulkan_context_provider_.get();
+  }
+#else
+  bool is_using_vulkan() const { return false; }
+  VulkanContextProvider* vulkan_context_provider() { return nullptr; }
+#endif
+
+  void set_oopd_enabled() { oopd_enabled_ = true; }
+
+ private:
+  void RecordLogMessage(int severity,
+                        size_t message_start,
+                        const std::string& message);
+
+  void UpdateGpuInfoPlatform(base::OnceClosure on_gpu_info_updated);
+
+  // gpu::GpuChannelManagerDelegate:
+  void DidCreateContextSuccessfully() override;
+  void DidCreateOffscreenContext(const GURL& active_url) override;
+  void DidDestroyChannel(int client_id) override;
+  void DidDestroyOffscreenContext(const GURL& active_url) override;
+  void DidLoseContext(bool offscreen,
+                      gpu::error::ContextLostReason reason,
+                      const GURL& active_url) override;
+  void StoreShaderToDisk(int client_id,
+                         const std::string& key,
+                         const std::string& shader) override;
+  void MaybeExitOnContextLost() override;
+  bool IsExiting() const override;
+#if defined(OS_WIN)
+  void SendCreatedChildWindow(gpu::SurfaceHandle parent_window,
+                              gpu::SurfaceHandle child_window) override;
+#endif
+  void SetActiveURL(const GURL& url) override;
+
 #if defined(OS_CHROMEOS)
   void CreateArcVideoDecodeAcceleratorOnMainThread(
       arc::mojom::VideoDecodeAcceleratorRequest vda_request);
@@ -292,10 +296,11 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl : public gpu::GpuChannelManagerDelegate,
   std::unique_ptr<gpu::GpuChannelManager> gpu_channel_manager_;
   std::unique_ptr<media::MediaGpuChannelManager> media_gpu_channel_manager_;
 
-  // On some platforms (e.g. android webview), the SyncPointManager comes from
-  // external sources.
+  // On some platforms (e.g. android webview), the SyncPointManager and
+  // SharedImageManager comes from external sources.
   std::unique_ptr<gpu::SyncPointManager> owned_sync_point_manager_;
-  gpu::SyncPointManager* sync_point_manager_ = nullptr;
+
+  std::unique_ptr<gpu::SharedImageManager> owned_shared_image_manager_;
 
   std::unique_ptr<gpu::Scheduler> scheduler_;
 

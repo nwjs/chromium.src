@@ -4,9 +4,9 @@
 <script src="file:///gen/layout_test_data/mojo/public/js/mojo_bindings.js"></script>
 <script src="file:///gen/device/vr/public/mojom/vr_service.mojom.js"></script>
 <script src="../external/wpt/resources/chromium/webxr-test.js"></script>
+<script src="../external/wpt/webxr/resources/webxr_test_constants.js"></script>
 <script src="../xr/resources/xr-internal-device-mocking.js"></script>
 <script src="../xr/resources/xr-test-utils.js"></script>
-<script src="../xr/resources/test-constants.js"></script>
 <canvas id="webgl-canvas"></canvas>
 
 <script>
@@ -21,7 +21,7 @@ let requestSessionOptions =  [{ mode: 'immersive-vr' }];
 let testFunction =
   (session, t, fakeDeviceController) => new Promise((resolve) => {
     // Session must have a baseLayer or frame requests will be ignored.
-    session.baseLayer = new XRWebGLLayer(session, gl);
+    session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
     // Need to have a valid pose or input events don't process.
     fakeDeviceController.setXRPresentationFrameData(VALID_POSE_MATRIX, [{
@@ -70,10 +70,11 @@ let testFunction =
         t.step( () => {
           // When a grip matrix is present but no pointer offset is specified,
           // the grip and pointer matrices should be the same.
-          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP,
+          assert_not_equals(input_pose.gripTransform, null);
+          assert_matrices_approx_equal(input_pose.gripTransform.matrix, VALID_GRIP,
             FLOAT_EPSILON, "Grip matrix is not equal to input.");
-          assert_matrices_approx_equal(input_pose.targetRay.transformMatrix,
-            input_pose.gripMatrix, FLOAT_EPSILON,
+          assert_matrices_approx_equal(input_pose.targetRay.matrix,
+            input_pose.gripTransform.matrix, FLOAT_EPSILON,
             "Grip matrix is not equal to target ray matrix.");
         });
 
@@ -91,9 +92,10 @@ let testFunction =
           // When a grip matrix and pointer offset are specified,
           // pointer matrix should be grip matrix multiplied with the pointer
           // offset.
-          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP,
+          assert_not_equals(input_pose.gripTransform, null);
+          assert_matrices_approx_equal(input_pose.gripTransform.matrix, VALID_GRIP,
             FLOAT_EPSILON, "Grip matrix is not equal to input valid grip.");
-          assert_matrices_approx_equal(input_pose.targetRay.transformMatrix,
+          assert_matrices_approx_equal(input_pose.targetRay.matrix,
             VALID_GRIP_WITH_POINTER_OFFSET, FLOAT_EPSILON,
             "Grip matrix not multipled properly.");
         });

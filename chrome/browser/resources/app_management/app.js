@@ -10,66 +10,77 @@ Polymer({
   ],
 
   properties: {
-    /**
-     * @private {boolean}
-     */
-    mainViewSelected_: Boolean,
+    /** @private */
+    searchTerm_: {
+      type: String,
+    },
 
     /**
-     * @private {boolean}
+     * @private {Page}
      */
-    notificationsViewSelected_: Boolean,
-
-    /**
-     * @private {boolean}
-     */
-    pwaPermissionViewSelected_: Boolean,
-
-    /**
-     * @private {boolean}
-     */
-    chromeAppPermissionViewSelected_: Boolean,
+    currentPage_: {
+      type: Object,
+    },
   },
 
-  /** @override */
+  /**
+   * @override
+   */
   attached: function() {
-    // TODO(ceciliani) Generalize page selection in a nicer way.
-    this.watch('mainViewSelected_', (state) => {
-      return state.currentPage.pageType == PageType.MAIN;
+    this.watch('searchTerm_', function(state) {
+      return state.search.term;
     });
-
-    this.watch('pwaPermissionViewSelected_', (state) => {
-      // TODO(rekanorman): Remove AppType.kExtension case once PWA's are sent
-      // thorough with the correct app type.
-      return this.appTypeSelected(state, AppType.kWeb) ||
-          this.appTypeSelected(state, AppType.kExtension);
-    });
-
-    this.watch('chromeAppPermissionViewSelected_', (state) => {
-      return this.appTypeSelected(state, AppType.kExtension);
-    });
-
-    this.watch('notificationsViewSelected_', (state) => {
-      return state.currentPage.pageType === PageType.NOTIFICATIONS;
-    });
-
+    this.watch('currentPage_', state => state.currentPage);
     this.updateFromStore();
   },
 
   /**
-   * Returns true if the current page is the detail page of an app of the
-   * given type.
-   * @param {AppManagementPageState} state
-   * @param {AppType} type
-   * @return {boolean}
+   * @param {Event} e
+   * @private
    */
-  appTypeSelected: function(state, type) {
-    if (!state.currentPage.selectedAppId) {
-      return false;
+  onSearchChanged_: function(e) {
+    const searchTerm = /** @type {string} */ (e.detail);
+    if (searchTerm != this.searchTerm_) {
+      this.dispatch(app_management.actions.setSearchTerm(searchTerm));
     }
+  },
 
-    const selectedApp = state.apps[state.currentPage.selectedAppId];
-    return state.currentPage.pageType == PageType.DETAIL &&
-        selectedApp.type == type;
+  /**
+   * @param {Page} currentPage
+   * @param {String} searchTerm
+   * @private
+   */
+  selectedRouteId_: function(currentPage, searchTerm) {
+    if (searchTerm) {
+      return 'search-view';
+    }
+    // This is to prevent console error caused by currentPage being undefined.
+    if (currentPage) {
+      switch (currentPage.pageType) {
+        case (PageType.MAIN):
+          return 'main-view';
+
+        case (PageType.NOTIFICATIONS):
+          return 'notifications-view';
+
+        case (PageType.DETAIL):
+          const state = this.getState();
+          const selectedAppType =
+              state.apps[assert(state.currentPage.selectedAppId)].type;
+          switch (selectedAppType) {
+            case (AppType.kWeb):
+              return 'pwa-permission-view';
+            case (AppType.kExtension):
+              return 'chrome-app-permission-view';
+            case (AppType.kArc):
+              return 'arc-permission-view';
+            default:
+              assertNotReached();
+          }
+
+        default:
+          assertNotReached();
+      }
+    }
   },
 });

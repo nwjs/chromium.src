@@ -131,6 +131,7 @@ PASS oldChildWindow.onmouseup is newChildWindow.onmouseup
 PASS oldChildWindow.onmousewheel is newChildWindow.onmousewheel
 PASS oldChildWindow.onoffline is newChildWindow.onoffline
 PASS oldChildWindow.ononline is newChildWindow.ononline
+PASS oldChildWindow.onoverscroll is newChildWindow.onoverscroll
 PASS oldChildWindow.onpagehide is newChildWindow.onpagehide
 PASS oldChildWindow.onpageshow is newChildWindow.onpageshow
 PASS oldChildWindow.onpause is newChildWindow.onpause
@@ -153,6 +154,7 @@ PASS oldChildWindow.onrejectionhandled is newChildWindow.onrejectionhandled
 PASS oldChildWindow.onreset is newChildWindow.onreset
 PASS oldChildWindow.onresize is newChildWindow.onresize
 PASS oldChildWindow.onscroll is newChildWindow.onscroll
+PASS oldChildWindow.onscrollend is newChildWindow.onscrollend
 PASS oldChildWindow.onsearch is newChildWindow.onsearch
 PASS oldChildWindow.onseeked is newChildWindow.onseeked
 PASS oldChildWindow.onseeking is newChildWindow.onseeking
@@ -190,7 +192,6 @@ PASS oldChildWindow.performance.navigation.type is newChildWindow.performance.na
 PASS oldChildWindow.performance.onelementtimingbufferfull is newChildWindow.performance.onelementtimingbufferfull
 PASS oldChildWindow.performance.oneventtimingbufferfull is newChildWindow.performance.oneventtimingbufferfull
 PASS oldChildWindow.performance.onresourcetimingbufferfull is newChildWindow.performance.onresourcetimingbufferfull
-PASS oldChildWindow.performance.shouldYield is newChildWindow.performance.shouldYield
 PASS oldChildWindow.performance.timing.connectEnd is newChildWindow.performance.timing.connectEnd
 PASS oldChildWindow.performance.timing.connectStart is newChildWindow.performance.timing.connectStart
 PASS oldChildWindow.performance.timing.domComplete is newChildWindow.performance.timing.domComplete

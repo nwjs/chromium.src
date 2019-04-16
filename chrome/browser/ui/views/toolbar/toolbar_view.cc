@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/i18n/number_formatting.h"
 #include "base/metrics/user_metrics.h"
@@ -20,7 +21,6 @@
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_properties.h"
-#include "chrome/browser/ui/bookmarks/bookmark_bubble_sign_in_delegate.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -70,7 +70,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
-#include "ui/views/view_properties.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
@@ -87,6 +87,7 @@
 #include "chrome/browser/ui/views/location_bar/intent_picker_view.h"
 #else
 #include "chrome/browser/signin/signin_global_error_factory.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bubble_sign_in_delegate.h"
 #endif
 
 #if !defined(OS_CHROMEOS)
@@ -225,10 +226,8 @@ void ToolbarView::Init() {
   browser_actions_ =
       new BrowserActionsContainer(browser_, main_container, this);
 
-  if (media_router::MediaRouterEnabled(browser_->profile()) &&
-      media_router::ShouldUseViewsDialog()) {
+  if (media_router::MediaRouterEnabled(browser_->profile()))
     cast_ = media_router::CastToolbarButton::Create(browser_).release();
-  }
 
   bool show_avatar_toolbar_button = true;
 #if defined(OS_CHROMEOS)
@@ -372,7 +371,10 @@ void ToolbarView::ShowBookmarkBubble(
   PageActionIconView* const star_view = location_bar()->star_view();
 
   std::unique_ptr<BubbleSyncPromoDelegate> delegate;
+#if !defined(OS_CHROMEOS)
+  // ChromeOS does not show the signin promo.
   delegate.reset(new BookmarkBubbleSignInDelegate(browser_));
+#endif
   BookmarkBubbleView::ShowBubble(anchor_view, star_view, gfx::Rect(), nullptr,
                                  observer, std::move(delegate),
                                  browser_->profile(), url, already_bookmarked);
@@ -418,11 +420,11 @@ views::MenuButton* ToolbarView::GetOverflowReferenceView() {
 
 base::Optional<int> ToolbarView::GetMaxBrowserActionsWidth() const {
   // The browser actions container is allowed to grow, but only up until the
-  // omnibox reaches its minimum size. So its maximum allowed width is its
+  // omnibox reaches its preferred size. So its maximum allowed width is its
   // current size, plus any that the omnibox could give up.
-  return std::max(
-      0, browser_actions_->width() + (location_bar_->width() -
-                                      location_bar_->GetMinimumSize().width()));
+  return std::max(0, browser_actions_->width() +
+                         (location_bar_->width() -
+                          location_bar_->GetPreferredSize().width()));
 }
 
 std::unique_ptr<ToolbarActionsBar> ToolbarView::CreateToolbarActionsBar(
@@ -590,8 +592,8 @@ void ToolbarView::ChildPreferredSizeChanged(views::View* child) {
 // also so that it selects all content in the location bar.
 bool ToolbarView::SetPaneFocusAndFocusDefault() {
   if (!location_bar_->HasFocus()) {
-    location_bar_->FocusLocation();
     SetPaneFocus(location_bar_);
+    location_bar_->FocusLocation(true);
     return true;
   }
 
@@ -630,12 +632,12 @@ void ToolbarView::InitLayout() {
   const views::FlexSpecification browser_actions_flex_rule =
       views::FlexSpecification::ForCustomRule(
           BrowserActionsContainer::GetFlexRule())
-          .WithOrder(1);
+          .WithOrder(2);
   const views::FlexSpecification location_bar_flex_rule =
       views::FlexSpecification::ForSizeRule(
           views::MinimumFlexSizeRule::kScaleToMinimum,
           views::MaximumFlexSizeRule::kUnbounded)
-          .WithOrder(2);
+          .WithOrder(1);
 
   layout_manager_ = SetLayoutManager(std::make_unique<views::FlexLayout>());
 
@@ -659,10 +661,8 @@ void ToolbarView::InitLayout() {
 void ToolbarView::LayoutCommon() {
   DCHECK(display_mode_ == DisplayMode::NORMAL);
 
-  constexpr gfx::Insets kToolbarInteriorMargin(4, 8, 5, 8);
-  const gfx::Insets interior_margin = ui::MaterialDesignController::touch_ui()
-                                          ? gfx::Insets()
-                                          : kToolbarInteriorMargin;
+  const gfx::Insets interior_margin =
+      GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
   layout_manager_->SetInteriorMargin(interior_margin);
 
   const bool maximized =

@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/synchronization/waitable_event.h"
@@ -18,6 +19,7 @@
 #include "media/capture/video/chromeos/camera_device_context.h"
 #include "media/capture/video/chromeos/camera_device_delegate.h"
 #include "media/capture/video/chromeos/camera_hal_delegate.h"
+#include "media/capture/video/chromeos/reprocess_manager.h"
 #include "ui/display/display.h"
 #include "ui/display/display_observer.h"
 #include "ui/display/screen.h"
@@ -27,7 +29,8 @@ namespace media {
 VideoCaptureDeviceChromeOSHalv3::VideoCaptureDeviceChromeOSHalv3(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner_for_screen_observer,
     const VideoCaptureDeviceDescriptor& device_descriptor,
-    scoped_refptr<CameraHalDelegate> camera_hal_delegate)
+    scoped_refptr<CameraHalDelegate> camera_hal_delegate,
+    ReprocessManager* reprocess_manager)
     : device_descriptor_(device_descriptor),
       camera_hal_delegate_(std::move(camera_hal_delegate)),
       capture_task_runner_(base::ThreadTaskRunnerHandle::Get()),
@@ -43,17 +46,16 @@ VideoCaptureDeviceChromeOSHalv3::VideoCaptureDeviceChromeOSHalv3(
       rotates_with_device_(lens_facing_ !=
                            VideoFacingMode::MEDIA_VIDEO_FACING_NONE),
       rotation_(0),
+      reprocess_manager_(reprocess_manager),
       weak_ptr_factory_(this) {
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->AddObserver(this);
 }
 
 VideoCaptureDeviceChromeOSHalv3::~VideoCaptureDeviceChromeOSHalv3() {
   DCHECK(capture_task_runner_->BelongsToCurrentThread());
   DCHECK(!camera_device_ipc_thread_.IsRunning());
   screen_observer_delegate_->RemoveObserver();
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
 }
 
 // VideoCaptureDevice implementation.
@@ -75,7 +77,7 @@ void VideoCaptureDeviceChromeOSHalv3::AllocateAndStart(
   device_context_ = std::make_unique<CameraDeviceContext>(std::move(client));
   camera_device_delegate_ = std::make_unique<CameraDeviceDelegate>(
       device_descriptor_, camera_hal_delegate_,
-      camera_device_ipc_thread_.task_runner());
+      camera_device_ipc_thread_.task_runner(), reprocess_manager_);
   OpenDevice();
 }
 
@@ -127,8 +129,7 @@ void VideoCaptureDeviceChromeOSHalv3::SuspendImminent(
       base::BindOnce(
           &VideoCaptureDeviceChromeOSHalv3::CloseDevice,
           weak_ptr_factory_.GetWeakPtr(),
-          BindToCurrentLoop(chromeos::DBusThreadManager::Get()
-                                ->GetPowerManagerClient()
+          BindToCurrentLoop(chromeos::PowerManagerClient::Get()
                                 ->GetSuspendReadinessCallback(FROM_HERE))));
 }
 
@@ -150,9 +151,9 @@ void VideoCaptureDeviceChromeOSHalv3::OpenDevice() {
   // sure |device_context_| outlives |camera_device_delegate_|.
   camera_device_ipc_thread_.task_runner()->PostTask(
       FROM_HERE,
-      base::Bind(&CameraDeviceDelegate::AllocateAndStart,
-                 camera_device_delegate_->GetWeakPtr(), capture_params_,
-                 base::Unretained(device_context_.get())));
+      base::BindOnce(&CameraDeviceDelegate::AllocateAndStart,
+                     camera_device_delegate_->GetWeakPtr(), capture_params_,
+                     base::Unretained(device_context_.get())));
   camera_device_ipc_thread_.task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(&CameraDeviceDelegate::SetRotation,
@@ -238,8 +239,8 @@ void VideoCaptureDeviceChromeOSHalv3::SetRotation(int rotation) {
   if (camera_device_ipc_thread_.IsRunning()) {
     camera_device_ipc_thread_.task_runner()->PostTask(
         FROM_HERE,
-        base::Bind(&CameraDeviceDelegate::SetRotation,
-                   camera_device_delegate_->GetWeakPtr(), rotation_));
+        base::BindOnce(&CameraDeviceDelegate::SetRotation,
+                       camera_device_delegate_->GetWeakPtr(), rotation_));
   }
 }
 

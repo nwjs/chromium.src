@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/explore_sites_internals/explore_sites_internals_ui.h"
 
+#include "base/bind.h"
 #include "build/build_config.h"
 #include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/android/explore_sites/explore_sites_service_factory.h"
@@ -20,6 +21,12 @@ ExploreSitesInternalsUI::ExploreSitesInternalsUI(content::WebUI* web_ui)
   content::WebUIDataSource* source = content::WebUIDataSource::Create(
       chrome::kChromeUIExploreSitesInternalsHost);
 
+  source->AddResourcePath("explore_sites_internals.css",
+                          IDR_EXPLORE_SITES_INTERNALS_CSS);
+  source->AddResourcePath("explore_sites_internals.js",
+                          IDR_EXPLORE_SITES_INTERNALS_JS);
+  source->AddResourcePath("explore_sites_internals.mojom-lite.js",
+                          IDR_EXPLORE_SITES_INTERNALS_MOJO_JS);
   source->SetDefaultResource(IDR_EXPLORE_SITES_INTERNALS_HTML);
   source->UseGzip();
 

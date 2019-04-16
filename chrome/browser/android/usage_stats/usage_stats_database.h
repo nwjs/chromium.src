@@ -10,14 +10,24 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/queue.h"
 #include "base/files/file_path.h"
 #include "base/macros.h"
-#include "chrome/browser/android/usage_stats/website_event.pb.h"
-#include "chrome/browser/profiles/profile.h"
+#include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "components/leveldb_proto/public/proto_database.h"
 
+class Profile;
+
 namespace usage_stats {
+
+class WebsiteEvent;
+class Suspension;
+class TokenMapping;
+
+using leveldb_proto::ProtoDatabase;
 
 // Stores website events, suspensions and token to fully-qualified domain name
 // (FQDN) mappings in LevelDB.
@@ -36,31 +46,44 @@ class UsageStatsDatabase {
 
   using StatusCallback = base::OnceCallback<void(Error)>;
 
+  // Digital Wellbeing doesn't show activity older than a week, so 7 days is the
+  // max age for event retention.
+  constexpr static int EXPIRY_THRESHOLD_DAYS = 7;
+
   // Initializes the database with user |profile|.
   explicit UsageStatsDatabase(Profile* profile);
 
   // Initializes the database with a |ProtoDatabase|. Useful for testing.
   explicit UsageStatsDatabase(
-      std::unique_ptr<leveldb_proto::ProtoDatabase<UsageStat>> proto_db);
+      std::unique_ptr<ProtoDatabase<WebsiteEvent>> website_event_db,
+      std::unique_ptr<ProtoDatabase<Suspension>> suspension_db,
+      std::unique_ptr<ProtoDatabase<TokenMapping>> token_mapping_db);
 
   ~UsageStatsDatabase();
 
   void GetAllEvents(EventsCallback callback);
 
-  // |start| and |end| are timestamps representing milliseconds since the
-  // beginning of the Unix Epoch.
-  void QueryEventsInRange(int64_t start, int64_t end, EventsCallback callback);
+  // Get all events in range between |startTime| (inclusive) and |endTime|
+  // (exclusive) at second-level granularity.
+  void QueryEventsInRange(base::Time startTime,
+                          base::Time endTime,
+                          EventsCallback callback);
 
   void AddEvents(std::vector<WebsiteEvent> events, StatusCallback callback);
 
   void DeleteAllEvents(StatusCallback callback);
 
-  // |start| and |end| are timestamps representing milliseconds since the
-  // beginning of the Unix Epoch.
-  void DeleteEventsInRange(int64_t start, int64_t end, StatusCallback callback);
+  // Delete all events in range between |startTime| (inclusive) and
+  // |endTime| (exclusive) at second-level granularity.
+  void DeleteEventsInRange(base::Time startTime,
+                           base::Time endTime,
+                           StatusCallback callback);
 
   void DeleteEventsWithMatchingDomains(base::flat_set<std::string> domains,
                                        StatusCallback callback);
+
+  // Delete events older than EXPIRY_THRESHOLD_DAYS.
+  void ExpireEvents(base::Time now);
 
   void GetAllSuspensions(SuspensionsCallback callback);
 
@@ -76,24 +99,59 @@ class UsageStatsDatabase {
   void SetTokenMappings(TokenMap mappings, StatusCallback callback);
 
  private:
-  void OnUpdateEntries(StatusCallback callback, bool success);
+  void InitializeDBs();
+
+  void OnWebsiteEventInitDone(bool retry,
+                              leveldb_proto::Enums::InitStatus status);
+
+  void OnSuspensionInitDone(bool retry,
+                            leveldb_proto::Enums::InitStatus status);
+
+  void OnTokenMappingInitDone(bool retry,
+                              leveldb_proto::Enums::InitStatus status);
+
+  void OnWebsiteEventExpiryDone(Error error);
+
+  void OnUpdateEntries(StatusCallback callback, bool isSuccess);
 
   void OnLoadEntriesForGetAllEvents(
       EventsCallback callback,
-      bool success,
-      std::unique_ptr<std::vector<UsageStat>> stats);
+      bool isSuccess,
+      std::unique_ptr<std::vector<WebsiteEvent>> stats);
+
+  void OnLoadEntriesForQueryEventsInRange(
+      EventsCallback callback,
+      bool isSuccess,
+      std::unique_ptr<std::map<std::string, WebsiteEvent>> event_map);
+
+  void OnLoadEntriesForDeleteEventsInRange(
+      StatusCallback callback,
+      bool isSuccess,
+      std::unique_ptr<std::map<std::string, WebsiteEvent>> event_map);
 
   void OnLoadEntriesForGetAllSuspensions(
       SuspensionsCallback callback,
-      bool success,
-      std::unique_ptr<std::vector<UsageStat>> stats);
+      bool isSuccess,
+      std::unique_ptr<std::vector<Suspension>> suspensions);
 
   void OnLoadEntriesForGetAllTokenMappings(
       TokenMappingsCallback callback,
-      bool success,
-      std::unique_ptr<std::vector<UsageStat>> stats);
+      bool isSuccess,
+      std::unique_ptr<std::vector<TokenMapping>> mappings);
 
-  std::unique_ptr<leveldb_proto::ProtoDatabase<UsageStat>> proto_db_;
+  std::unique_ptr<ProtoDatabase<WebsiteEvent>> website_event_db_;
+  std::unique_ptr<ProtoDatabase<Suspension>> suspension_db_;
+  std::unique_ptr<ProtoDatabase<TokenMapping>> token_mapping_db_;
+
+  // Track initialization state of proto databases.
+  bool website_event_db_initialized_;
+  bool suspension_db_initialized_;
+  bool token_mapping_db_initialized_;
+
+  // Store callbacks for delayed execution once database is initialized.
+  base::queue<base::OnceClosure> website_event_db_callbacks_;
+  base::queue<base::OnceClosure> suspension_db_callbacks_;
+  base::queue<base::OnceClosure> token_mapping_db_callbacks_;
 
   base::WeakPtrFactory<UsageStatsDatabase> weak_ptr_factory_;
 

@@ -65,7 +65,7 @@ static bool SmallerThanRegionGranularity(const FloatRect& rect,
          rect.Height() * granularity_scale < 0.5;
 }
 
-static const TransformPaintPropertyNode* TransformNodeFor(
+static const TransformPaintPropertyNode& TransformNodeFor(
     LayoutObject& object) {
   return object.FirstFragment().LocalBorderBoxProperties().Transform();
 }
@@ -113,7 +113,9 @@ void JankTracker::AccumulateJank(const LayoutObject& source,
                                    LogicalStart(new_rect, source), source))
     return;
 
-  IntRect viewport = frame_view_->GetScrollableArea()->VisibleContentRect();
+  IntRect viewport =
+      IntRect(IntPoint(),
+              frame_view_->GetScrollableArea()->VisibleContentRect().Size());
   float scale = RegionGranularityScale(viewport);
 
   if (SmallerThanRegionGranularity(old_rect, scale) &&
@@ -126,8 +128,13 @@ void JankTracker::AccumulateJank(const LayoutObject& source,
   if (source.IsFixedPositioned() || source.IsStickyPositioned())
     return;
 
-  const auto* local_xform = TransformNodeFor(painting_layer.GetLayoutObject());
-  const auto* root_xform = TransformNodeFor(*source.View());
+  // SVG elements don't participate in the normal layout algorithms and are
+  // more likely to be used for animations.
+  if (source.IsSVG())
+    return;
+
+  const auto& local_xform = TransformNodeFor(painting_layer.GetLayoutObject());
+  const auto& root_xform = TransformNodeFor(*source.View());
 
   GeometryMapper::SourceToDestinationRect(local_xform, root_xform, old_rect);
   GeometryMapper::SourceToDestinationRect(local_xform, root_xform, new_rect);

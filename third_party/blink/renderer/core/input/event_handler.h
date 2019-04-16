@@ -44,11 +44,11 @@
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
 #include "third_party/blink/renderer/core/page/drag_actions.h"
 #include "third_party/blink/renderer/core/page/event_with_hit_test_results.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/cursor.h"
 #include "third_party/blink/renderer/platform/geometry/layout_point.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_traits.h"
@@ -112,8 +112,6 @@ class CORE_EXPORT EventHandler final
     return mouse_event_manager_->IsMousePositionUnknown();
   }
   void ClearMouseEventManager() const { mouse_event_manager_->Clear(); }
-  void SetCapturingMouseEventsElement(
-      Element*);  // A caller is responsible for resetting capturing node to 0.
 
   WebInputEventResult UpdateDragAndDrop(const WebMouseEvent&, DataTransfer*);
   void CancelDragAndDrop(const WebMouseEvent&, DataTransfer*);
@@ -163,7 +161,7 @@ class CORE_EXPORT EventHandler final
   WebInputEventResult HandleWheelEvent(const WebMouseWheelEvent&);
 
   WebInputEventResult HandleTargetedMouseEvent(
-      Node* target,
+      Element* target,
       const WebMouseEvent&,
       const AtomicString& event_type,
       const Vector<WebMouseEvent>& coalesced_events,
@@ -414,7 +412,6 @@ class CORE_EXPORT EventHandler final
   TaskRunnerTimer<EventHandler> cursor_update_timer_;
 
   Member<Element> capturing_mouse_events_element_;
-  bool event_handler_will_reset_capturing_mouse_events_node_;
 
   // Indicates whether the current widget is capturing mouse input.
   // Only used for local frame root EventHandlers.

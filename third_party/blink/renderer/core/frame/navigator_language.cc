@@ -6,6 +6,7 @@
 
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/platform/language.h"
+#include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
 namespace blink {
 
@@ -37,19 +38,22 @@ AtomicString NavigatorLanguage::language() {
 }
 
 const Vector<String>& NavigatorLanguage::languages() {
-  if (languages_dirty_) {
-    String accept_languages_override;
-    probe::applyAcceptLanguageOverride(context_, &accept_languages_override);
-
-    if (!accept_languages_override.IsNull()) {
-      languages_ = ParseAndSanitize(accept_languages_override);
-    } else {
-      languages_ = ParseAndSanitize(GetAcceptLanguages());
-    }
-
-    languages_dirty_ = false;
-  }
+  EnsureUpdatedLanguage();
   return languages_;
+}
+
+AtomicString NavigatorLanguage::SerializeLanguagesForClientHintHeader() {
+  EnsureUpdatedLanguage();
+
+  StringBuilder builder;
+  for (size_t i = 0; i < languages_.size(); i++) {
+    if (i)
+      builder.Append(", ");
+    builder.Append('"');
+    builder.Append(languages_[i]);
+    builder.Append('"');
+  }
+  return builder.ToAtomicString();
 }
 
 bool NavigatorLanguage::IsLanguagesDirty() const {
@@ -59,6 +63,25 @@ bool NavigatorLanguage::IsLanguagesDirty() const {
 void NavigatorLanguage::SetLanguagesDirty() {
   languages_dirty_ = true;
   languages_.clear();
+}
+
+void NavigatorLanguage::SetLanguagesForTesting(const String& languages) {
+  languages_ = ParseAndSanitize(languages);
+}
+
+void NavigatorLanguage::EnsureUpdatedLanguage() {
+  if (languages_dirty_) {
+    String accept_languages_override;
+    probe::ApplyAcceptLanguageOverride(context_, &accept_languages_override);
+
+    if (!accept_languages_override.IsNull()) {
+      languages_ = ParseAndSanitize(accept_languages_override);
+    } else {
+      languages_ = ParseAndSanitize(GetAcceptLanguages());
+    }
+
+    languages_dirty_ = false;
+  }
 }
 
 void NavigatorLanguage::Trace(blink::Visitor* visitor) {

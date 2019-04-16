@@ -56,10 +56,17 @@ class AccountsMutator {
   // Removes the credentials associated to account_id from the internal storage,
   // and moves them to |target|. The credentials are not revoked on the server,
   // but the IdentityManager::Observer::OnRefreshTokenRemovedForAccount()
-  // notification is sent to the observers.
+  // notification is sent to the observers. Also recreates a new device ID for
+  // this mutator. The device ID of the current mutator is not moved to the
+  // target mutator.
   virtual void MoveAccount(AccountsMutator* target,
                            const std::string& account_id) = 0;
 #endif
+
+  // Updates the refresh token for the supervised user.
+  // TODO(860492): Remove this once supervised user support is removed.
+  virtual void LegacySetRefreshTokenForSupervisedUser(
+      const std::string& refresh_token) = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(AccountsMutator);

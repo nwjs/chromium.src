@@ -65,8 +65,9 @@ bssl::UniquePtr<SSL_CTX> TlsClientHandshaker::CreateSslCtx() {
 
 bool TlsClientHandshaker::CryptoConnect() {
   CrypterPair crypters;
-  CryptoUtils::CreateTlsInitialCrypters(Perspective::IS_CLIENT,
-                                        session()->connection_id(), &crypters);
+  CryptoUtils::CreateTlsInitialCrypters(
+      Perspective::IS_CLIENT, session()->connection()->transport_version(),
+      session()->connection_id(), &crypters);
   session()->connection()->SetEncrypter(ENCRYPTION_NONE,
                                         std::move(crypters.encrypter));
   session()->connection()->SetDecrypter(ENCRYPTION_NONE,
@@ -163,13 +164,6 @@ bool TlsClientHandshaker::WasChannelIDSent() const {
 bool TlsClientHandshaker::WasChannelIDSourceCallbackRun() const {
   // Channel ID is not used with TLS in QUIC.
   return false;
-}
-
-QuicLongHeaderType TlsClientHandshaker::GetLongHeaderType(
-    QuicStreamOffset offset) const {
-  // TODO(fayang): Returns the right header type when actually using TLS
-  // handshaker.
-  return offset == 0 ? INITIAL : HANDSHAKE;
 }
 
 QuicString TlsClientHandshaker::chlo_hash() const {

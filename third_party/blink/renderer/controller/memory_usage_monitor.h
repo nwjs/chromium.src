@@ -8,6 +8,7 @@
 #include "base/observer_list.h"
 #include "third_party/blink/renderer/controller/controller_export.h"
 #include "third_party/blink/renderer/platform/timer.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 namespace blink {
 
@@ -24,6 +25,8 @@ struct MemoryUsage {
 // Periodically checks the memory usage and notifies its observers. Monitoring
 // automatically starts/stops depending on whether an observer exists.
 class CONTROLLER_EXPORT MemoryUsageMonitor {
+  USING_FAST_MALLOC(MemoryUsageMonitor);
+
  public:
   static MemoryUsageMonitor& Instance();
 
@@ -36,12 +39,13 @@ class CONTROLLER_EXPORT MemoryUsageMonitor {
   virtual ~MemoryUsageMonitor() = default;
 
   // Returns the current memory usage.
-  MemoryUsage GetCurrentMemoryUsage();
+  virtual MemoryUsage GetCurrentMemoryUsage();
 
   // Ensures that an observer is only added once.
   void AddObserver(Observer*);
   // Observers must be removed before they are destroyed.
   void RemoveObserver(Observer*);
+  bool HasObserver(Observer*);
 
   bool TimerIsActive() const { return timer_.IsActive(); }
 

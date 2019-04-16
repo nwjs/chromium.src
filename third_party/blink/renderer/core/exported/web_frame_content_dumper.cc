@@ -54,9 +54,9 @@ void FrameContentAsPlainText(size_t max_chars,
   const FrameTree& frame_tree = frame->Tree();
   for (Frame* cur_child = frame_tree.FirstChild(); cur_child;
        cur_child = cur_child->Tree().NextSibling()) {
-    if (!cur_child->IsLocalFrame())
+    auto* cur_local_child = DynamicTo<LocalFrame>(cur_child);
+    if (!cur_local_child)
       continue;
-    LocalFrame* cur_local_child = ToLocalFrame(cur_child);
     // Ignore the text of non-visible frames.
     LayoutView* layout_view = cur_local_child->ContentLayoutObject();
     LayoutObject* owner_layout_object = cur_local_child->OwnerLayoutObject();
@@ -92,7 +92,7 @@ WebString WebFrameContentDumper::DeprecatedDumpFrameTreeAsText(
   if (!frame)
     return WebString();
   StringBuilder text;
-  FrameContentAsPlainText(max_chars, ToWebLocalFrameImpl(frame)->GetFrame(),
+  FrameContentAsPlainText(max_chars, To<WebLocalFrameImpl>(frame)->GetFrame(),
                           text);
   return text.ToString();
 }
@@ -108,7 +108,7 @@ WebString WebFrameContentDumper::DumpWebViewAsText(WebView* web_view,
       WebWidget::LifecycleUpdateReason::kTest);
 
   StringBuilder text;
-  FrameContentAsPlainText(max_chars, ToWebLocalFrameImpl(frame)->GetFrame(),
+  FrameContentAsPlainText(max_chars, To<WebLocalFrameImpl>(frame)->GetFrame(),
                           text);
   return text.ToString();
 }
@@ -116,7 +116,7 @@ WebString WebFrameContentDumper::DumpWebViewAsText(WebView* web_view,
 WebString WebFrameContentDumper::DumpAsMarkup(WebLocalFrame* frame) {
   if (!frame)
     return WebString();
-  return CreateMarkup(ToWebLocalFrameImpl(frame)->GetFrame()->GetDocument());
+  return CreateMarkup(To<WebLocalFrameImpl>(frame)->GetFrame()->GetDocument());
 }
 
 WebString WebFrameContentDumper::DumpLayoutTreeAsText(
@@ -137,7 +137,7 @@ WebString WebFrameContentDumper::DumpLayoutTreeAsText(
   if (to_show & kLayoutAsTextPrinting)
     behavior |= kLayoutAsTextPrintingMode;
 
-  return ExternalRepresentation(ToWebLocalFrameImpl(frame)->GetFrame(),
+  return ExternalRepresentation(To<WebLocalFrameImpl>(frame)->GetFrame(),
                                 behavior);
 }
 }

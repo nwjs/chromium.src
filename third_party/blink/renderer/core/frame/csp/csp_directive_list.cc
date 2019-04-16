@@ -74,6 +74,45 @@ bool ParseBase64Digest(String base64, DigestValue* hash) {
   return true;
 }
 
+// TODO(hiroshige): The following two methods are slightly different.
+// Investigate the correct behavior and merge them.
+ContentSecurityPolicy::DirectiveType
+GetDirectiveTypeForAllowInlineFromInlineType(
+    ContentSecurityPolicy::InlineType inline_type) {
+  switch (inline_type) {
+    case ContentSecurityPolicy::InlineType::kJavaScriptURL:
+    case ContentSecurityPolicy::InlineType::kInlineScriptElement:
+      return ContentSecurityPolicy::DirectiveType::kScriptSrcElem;
+
+    case ContentSecurityPolicy::InlineType::kInlineEventHandler:
+      return ContentSecurityPolicy::DirectiveType::kScriptSrcAttr;
+
+    case ContentSecurityPolicy::InlineType::kInlineStyleAttribute:
+      return ContentSecurityPolicy::DirectiveType::kStyleSrcAttr;
+
+    case ContentSecurityPolicy::InlineType::kInlineStyleElement:
+      return ContentSecurityPolicy::DirectiveType::kStyleSrcElem;
+  }
+}
+
+ContentSecurityPolicy::DirectiveType GetDirectiveTypeForAllowHashFromInlineType(
+    ContentSecurityPolicy::InlineType inline_type) {
+  switch (inline_type) {
+    case ContentSecurityPolicy::InlineType::kInlineScriptElement:
+      return ContentSecurityPolicy::DirectiveType::kScriptSrcElem;
+
+    case ContentSecurityPolicy::InlineType::kJavaScriptURL:
+    case ContentSecurityPolicy::InlineType::kInlineEventHandler:
+      return ContentSecurityPolicy::DirectiveType::kScriptSrcAttr;
+
+    case ContentSecurityPolicy::InlineType::kInlineStyleAttribute:
+      return ContentSecurityPolicy::DirectiveType::kStyleSrcAttr;
+
+    case ContentSecurityPolicy::InlineType::kInlineStyleElement:
+      return ContentSecurityPolicy::DirectiveType::kStyleSrcElem;
+  }
+}
+
 }  // namespace
 
 CSPDirectiveList::CSPDirectiveList(ContentSecurityPolicy* policy,
@@ -129,14 +168,15 @@ void CSPDirectiveList::ReportViolation(
     const ContentSecurityPolicy::DirectiveType effective_type,
     const String& console_message,
     const KURL& blocked_url,
-    ResourceRequest::RedirectStatus redirect_status) const {
+    ResourceRequest::RedirectStatus redirect_status,
+    ContentSecurityPolicy::ViolationType violation_type) const {
   String message =
       IsReportOnly() ? "[Report Only] " + console_message : console_message;
-  policy_->LogToConsole(ConsoleMessage::Create(kSecurityMessageSource,
-                                               kErrorMessageLevel, message));
+  policy_->LogToConsole(ConsoleMessage::Create(
+      kSecurityMessageSource, mojom::ConsoleMessageLevel::kError, message));
   policy_->ReportViolation(directive_text, effective_type, message, blocked_url,
                            report_endpoints_, use_reporting_api_, header_,
-                           header_type_, ContentSecurityPolicy::kURLViolation,
+                           header_type_, violation_type,
                            std::unique_ptr<SourceLocation>(),
                            nullptr,  // localFrame
                            redirect_status);
@@ -150,9 +190,10 @@ void CSPDirectiveList::ReportViolationWithFrame(
     LocalFrame* frame) const {
   String message =
       IsReportOnly() ? "[Report Only] " + console_message : console_message;
-  policy_->LogToConsole(ConsoleMessage::Create(kSecurityMessageSource,
-                                               kErrorMessageLevel, message),
-                        frame);
+  policy_->LogToConsole(
+      ConsoleMessage::Create(kSecurityMessageSource,
+                             mojom::ConsoleMessageLevel::kError, message),
+      frame);
   policy_->ReportViolation(directive_text, effective_type, message, blocked_url,
                            report_endpoints_, use_reporting_api_, header_,
                            header_type_, ContentSecurityPolicy::kURLViolation,
@@ -172,9 +213,9 @@ void CSPDirectiveList::ReportViolationWithLocation(
       IsReportOnly() ? "[Report Only] " + console_message : console_message;
   std::unique_ptr<SourceLocation> source_location =
       SourceLocation::Capture(context_url, context_line.OneBasedInt(), 0);
-  policy_->LogToConsole(ConsoleMessage::Create(kSecurityMessageSource,
-                                               kErrorMessageLevel, message,
-                                               source_location->Clone()));
+  policy_->LogToConsole(ConsoleMessage::Create(
+      kSecurityMessageSource, mojom::ConsoleMessageLevel::kError, message,
+      source_location->Clone()));
   policy_->ReportViolation(directive_text, effective_type, message, blocked_url,
                            report_endpoints_, use_reporting_api_, header_,
                            header_type_,
@@ -199,7 +240,8 @@ void CSPDirectiveList::ReportEvalViolation(
   if (IsReportOnly() ||
       exception_status == ContentSecurityPolicy::kWillNotThrowException) {
     ConsoleMessage* console_message = ConsoleMessage::Create(
-        kSecurityMessageSource, kErrorMessageLevel, report_message);
+        kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
+        report_message);
     policy_->LogToConsole(console_message);
   }
   policy_->ReportViolation(directive_text, effective_type, message, blocked_url,
@@ -269,6 +311,19 @@ void CSPDirectiveList::ReportMixedContent(
   }
 }
 
+bool CSPDirectiveList::AllowTrustedTypeAssignmentFailure(
+    const String& message) const {
+  if (!trusted_types_)
+    return true;
+
+  ReportViolation(ContentSecurityPolicy::GetDirectiveName(
+                      ContentSecurityPolicy::DirectiveType::kTrustedTypes),
+                  ContentSecurityPolicy::DirectiveType::kTrustedTypes, message,
+                  KURL(), RedirectStatus::kFollowedRedirect,
+                  ContentSecurityPolicy::kTrustedTypesViolation);
+  return IsReportOnly();
+}
+
 bool CSPDirectiveList::CheckSource(
     SourceListDirective* directive,
     const KURL& url,
@@ -289,7 +344,7 @@ bool CSPDirectiveList::CheckAncestors(SourceListDirective* directive,
 
   for (Frame* current = frame->Tree().Parent(); current;
        current = current->Tree().Parent()) {
-    if (current->IsLocalFrame() && ToLocalFrame(current)->GetDocument()->GetSecurityOrigin()->hasUniversalAccess())
+    if (current->IsLocalFrame() && DynamicTo<LocalFrame>(current)->GetDocument()->GetSecurityOrigin()->hasUniversalAccess())
       return true;
     // The |current| frame might be a remote frame which has no URL, so use
     // its origin instead.  This should suffice for this check since it
@@ -603,99 +658,70 @@ bool CSPDirectiveList::CheckAncestorsAndReportViolation(
   return DenyIfEnforcingPolicy();
 }
 
-bool CSPDirectiveList::AllowJavaScriptURLs(
+bool CSPDirectiveList::AllowInline(
+    ContentSecurityPolicy::InlineType inline_type,
     Element* element,
-    const String& source,
-    const String& context_url,
-    const WTF::OrdinalNumber& context_line,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
-    return CheckInlineAndReportViolation(
-        directive,
-        "Refused to run the JavaScript URL because it violates the following "
-        "Content Security Policy directive: ",
-        element, source, context_url, context_line, true, "sha256-...",
-        ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-  }
-
-  return !directive || directive->AllowAllInline();
-}
-
-bool CSPDirectiveList::AllowInlineEventHandlers(
-    Element* element,
-    const String& source,
-    const String& context_url,
-    const WTF::OrdinalNumber& context_line,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kScriptSrcAttr);
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
-    return CheckInlineAndReportViolation(
-        directive,
-        "Refused to execute inline event handler because it violates the "
-        "following Content Security Policy directive: ",
-        element, source, context_url, context_line, true, "sha256-...",
-        ContentSecurityPolicy::DirectiveType::kScriptSrcAttr);
-  }
-
-  return !directive || directive->AllowAllInline();
-}
-
-bool CSPDirectiveList::AllowInlineScript(
-    Element* element,
-    const String& context_url,
-    const String& nonce,
-    const WTF::OrdinalNumber& context_line,
-    SecurityViolationReportingPolicy reporting_policy,
-    const String& content) const {
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-  if (IsMatchingNoncePresent(directive, nonce))
-    return true;
-  if (element && IsHTMLScriptElement(element) &&
-      !ToHTMLScriptElement(element)->Loader()->IsParserInserted() &&
-      AllowDynamic(ContentSecurityPolicy::DirectiveType::kScriptSrcElem)) {
-    return true;
-  }
-  if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
-    return CheckInlineAndReportViolation(
-        directive,
-        "Refused to execute inline script because it violates the following "
-        "Content Security Policy directive: ",
-        element, content, context_url, context_line, true,
-        GetSha256String(content),
-        ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-  }
-
-  return !directive || directive->AllowAllInline();
-}
-
-bool CSPDirectiveList::AllowInlineStyle(
-    Element* element,
-    const String& context_url,
-    const String& nonce,
-    const WTF::OrdinalNumber& context_line,
-    SecurityViolationReportingPolicy reporting_policy,
     const String& content,
-    ContentSecurityPolicy::InlineType inline_type) const {
-  ContentSecurityPolicy::DirectiveType effective_type =
-      inline_type == ContentSecurityPolicy::InlineType::kAttribute
-          ? ContentSecurityPolicy::DirectiveType::kStyleSrcAttr
-          : ContentSecurityPolicy::DirectiveType::kStyleSrcElem;
-  SourceListDirective* directive = OperativeDirective(effective_type);
+    const String& nonce,
+    const String& context_url,
+    const WTF::OrdinalNumber& context_line,
+    SecurityViolationReportingPolicy reporting_policy) const {
+  ContentSecurityPolicy::DirectiveType type =
+      GetDirectiveTypeForAllowInlineFromInlineType(inline_type);
 
+  SourceListDirective* directive = OperativeDirective(type);
   if (IsMatchingNoncePresent(directive, nonce))
     return true;
 
+  if (inline_type == ContentSecurityPolicy::InlineType::kInlineScriptElement &&
+      element && IsHTMLScriptElement(element) &&
+      !ToHTMLScriptElement(element)->Loader()->IsParserInserted() &&
+      AllowDynamic(type)) {
+    return true;
+  }
   if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
+    String hash_value;
+    switch (inline_type) {
+      case ContentSecurityPolicy::InlineType::kJavaScriptURL:
+      case ContentSecurityPolicy::InlineType::kInlineEventHandler:
+        hash_value = "sha256-...";
+        break;
+
+      case ContentSecurityPolicy::InlineType::kInlineScriptElement:
+      case ContentSecurityPolicy::InlineType::kInlineStyleAttribute:
+      case ContentSecurityPolicy::InlineType::kInlineStyleElement:
+        hash_value = GetSha256String(content);
+        break;
+    }
+
+    String message;
+    switch (inline_type) {
+      case ContentSecurityPolicy::InlineType::kJavaScriptURL:
+        message = "run the JavaScript URL";
+        break;
+
+      case ContentSecurityPolicy::InlineType::kInlineEventHandler:
+        message = "execute inline event handler";
+        break;
+
+      case ContentSecurityPolicy::InlineType::kInlineScriptElement:
+        message = "execute inline script";
+        break;
+
+      case ContentSecurityPolicy::InlineType::kInlineStyleAttribute:
+      case ContentSecurityPolicy::InlineType::kInlineStyleElement:
+        message = "apply inline style";
+        break;
+    }
+
     return CheckInlineAndReportViolation(
         directive,
-        "Refused to apply inline style because it violates the following "
-        "Content Security Policy directive: ",
-        element, content, context_url, context_line, false,
-        GetSha256String(content), effective_type);
+        "Refused to " + message +
+            " because it violates the following Content Security Policy "
+            "directive: ",
+        element, content, context_url, context_line,
+        ContentSecurityPolicy::IsScriptInlineType(inline_type), hash_value,
+        type);
   }
 
   return !directive || directive->AllowAllInline();
@@ -752,217 +778,62 @@ bool CSPDirectiveList::AllowPluginType(
              : CheckMediaType(plugin_types_.Get(), type, type_attribute);
 }
 
-bool CSPDirectiveList::AllowScriptFromSource(
+bool CSPDirectiveList::AllowFromSource(
+    ContentSecurityPolicy::DirectiveType type,
     const KURL& url,
+    ResourceRequest::RedirectStatus redirect_status,
+    SecurityViolationReportingPolicy reporting_policy,
     const String& nonce,
     const IntegrityMetadataSet& hashes,
-    ParserDisposition parser_disposition,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-  if (IsMatchingNoncePresent(directive, nonce))
-    return true;
-  if (parser_disposition == kNotParserInserted &&
-      AllowDynamic(ContentSecurityPolicy::DirectiveType::kScriptSrcElem))
-    return true;
-  if (AreAllMatchingHashesPresent(directive, hashes))
-    return true;
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   directive, url,
-                   ContentSecurityPolicy::DirectiveType::kScriptSrcElem,
-                   redirect_status)
-             : CheckSource(directive, url, redirect_status);
-}
+    ParserDisposition parser_disposition) const {
+  DCHECK(type == ContentSecurityPolicy::DirectiveType::kBaseURI ||
+         type == ContentSecurityPolicy::DirectiveType::kConnectSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kFontSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kFormAction ||
+         type == ContentSecurityPolicy::DirectiveType::kFrameSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kImgSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kManifestSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kMediaSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kObjectSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kPrefetchSrc ||
+         type == ContentSecurityPolicy::DirectiveType::kScriptSrcElem ||
+         type == ContentSecurityPolicy::DirectiveType::kStyleSrcElem ||
+         type == ContentSecurityPolicy::DirectiveType::kWorkerSrc);
 
-bool CSPDirectiveList::AllowObjectFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  if (url.ProtocolIsAbout())
-    return true;
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kObjectSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kObjectSrc,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kObjectSrc),
-                   url, redirect_status);
-}
+  if (type == ContentSecurityPolicy::DirectiveType::kObjectSrc ||
+      type == ContentSecurityPolicy::DirectiveType::kFrameSrc) {
+    if (url.ProtocolIsAbout())
+      return true;
+  }
 
-bool CSPDirectiveList::AllowPrefetchFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kPrefetchSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kPrefetchSrc,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kPrefetchSrc),
-                   url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowFrameFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  if (url.ProtocolIsAbout())
+  if (type == ContentSecurityPolicy::DirectiveType::kWorkerSrc &&
+      AllowDynamicWorker())
     return true;
 
-  // 'frame-src' overrides 'child-src', which overrides the default
-  // sources. So, we do this nested set of calls to 'operativeDirective()' to
-  // grab 'frame-src' if it exists, 'child-src' if it doesn't, and 'defaut-src'
-  // if neither are available.
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kFrameSrc);
+  if (type == ContentSecurityPolicy::DirectiveType::kScriptSrcElem ||
+      type == ContentSecurityPolicy::DirectiveType::kStyleSrcElem) {
+    if (IsMatchingNoncePresent(OperativeDirective(type), nonce))
+      return true;
+  }
 
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   directive, url,
-                   ContentSecurityPolicy::DirectiveType::kFrameSrc,
-                   redirect_status)
-             : CheckSource(directive, url, redirect_status);
-}
+  if (type == ContentSecurityPolicy::DirectiveType::kScriptSrcElem) {
+    if (parser_disposition == kNotParserInserted && AllowDynamic(type))
+      return true;
+    if (AreAllMatchingHashesPresent(OperativeDirective(type), hashes))
+      return true;
+  }
 
-bool CSPDirectiveList::AllowImageFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kImgSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kImgSrc,
-                   redirect_status)
-             : CheckSource(OperativeDirective(
-                               ContentSecurityPolicy::DirectiveType::kImgSrc),
-                           url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowStyleFromSource(
-    const KURL& url,
-    const String& nonce,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  SourceListDirective* directive =
-      OperativeDirective(ContentSecurityPolicy::DirectiveType::kStyleSrcElem);
-
-  if (IsMatchingNoncePresent(directive, nonce))
-    return true;
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   directive, url,
-                   ContentSecurityPolicy::DirectiveType::kStyleSrcElem,
-                   redirect_status)
-             : CheckSource(directive, url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowFontFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kFontSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kFontSrc,
-                   redirect_status)
-             : CheckSource(OperativeDirective(
-                               ContentSecurityPolicy::DirectiveType::kFontSrc),
-                           url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowMediaFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kMediaSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kMediaSrc,
-                   redirect_status)
-             : CheckSource(OperativeDirective(
-                               ContentSecurityPolicy::DirectiveType::kMediaSrc),
-                           url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowManifestFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kManifestSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kManifestSrc,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kManifestSrc),
-                   url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowConnectToSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kConnectSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kConnectSrc,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kConnectSrc),
-                   url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowFormAction(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kFormAction),
-                   url, ContentSecurityPolicy::DirectiveType::kFormAction,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kFormAction),
-                   url, redirect_status);
-}
-
-bool CSPDirectiveList::AllowBaseURI(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
   bool result =
       reporting_policy == SecurityViolationReportingPolicy::kReport
-          ? CheckSourceAndReportViolation(
-                OperativeDirective(
-                    ContentSecurityPolicy::DirectiveType::kBaseURI),
-                url, ContentSecurityPolicy::DirectiveType::kBaseURI,
-                redirect_status)
-          : CheckSource(OperativeDirective(
-                            ContentSecurityPolicy::DirectiveType::kBaseURI),
-                        url, redirect_status);
+          ? CheckSourceAndReportViolation(OperativeDirective(type), url, type,
+                                          redirect_status)
+          : CheckSource(OperativeDirective(type), url, redirect_status);
 
-  if (result &&
-      !CheckSource(
-          OperativeDirective(ContentSecurityPolicy::DirectiveType::kBaseURI),
-          url, redirect_status)) {
-    policy_->Count(WebFeature::kBaseWouldBeBlockedByDefaultSrc);
+  if (type == ContentSecurityPolicy::DirectiveType::kBaseURI) {
+    if (result &&
+        !CheckSource(OperativeDirective(type), url, redirect_status)) {
+      policy_->Count(WebFeature::kBaseWouldBeBlockedByDefaultSrc);
+    }
   }
 
   return result;
@@ -985,24 +856,6 @@ bool CSPDirectiveList::AllowTrustedTypePolicy(const String& policy_name) const {
   return DenyIfEnforcingPolicy();
 }
 
-bool CSPDirectiveList::AllowWorkerFromSource(
-    const KURL& url,
-    ResourceRequest::RedirectStatus redirect_status,
-    SecurityViolationReportingPolicy reporting_policy) const {
-  if (AllowDynamicWorker())
-    return true;
-
-  return reporting_policy == SecurityViolationReportingPolicy::kReport
-             ? CheckSourceAndReportViolation(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kWorkerSrc),
-                   url, ContentSecurityPolicy::DirectiveType::kWorkerSrc,
-                   redirect_status)
-             : CheckSource(
-                   OperativeDirective(
-                       ContentSecurityPolicy::DirectiveType::kWorkerSrc),
-                   url, redirect_status);
-}
 
 bool CSPDirectiveList::AllowAncestors(
     LocalFrame* frame,
@@ -1021,33 +874,27 @@ bool CSPDirectiveList::AllowAncestors(
 
 bool CSPDirectiveList::AllowHash(
     const CSPHashValue& hash_value,
-    const ContentSecurityPolicy::InlineType type,
-    const ContentSecurityPolicy::DirectiveType directive_type) const {
-  if (type == ContentSecurityPolicy::InlineType::kAttribute) {
-    if (!policy_->ExperimentalFeaturesEnabled())
-      return false;
-    if (!CheckUnsafeHashesAllowed(OperativeDirective(directive_type)))
-      return false;
+    const ContentSecurityPolicy::InlineType inline_type) const {
+  ContentSecurityPolicy::DirectiveType directive_type =
+      GetDirectiveTypeForAllowHashFromInlineType(inline_type);
+  switch (directive_type) {
+    case ContentSecurityPolicy::DirectiveType::kScriptSrcAttr:
+    case ContentSecurityPolicy::DirectiveType::kStyleSrcAttr:
+      if (!policy_->ExperimentalFeaturesEnabled())
+        return false;
+      if (!CheckUnsafeHashesAllowed(OperativeDirective(directive_type)))
+        return false;
+      break;
+
+    case ContentSecurityPolicy::DirectiveType::kScriptSrcElem:
+    case ContentSecurityPolicy::DirectiveType::kStyleSrcElem:
+      break;
+
+    default:
+      NOTREACHED();
+      break;
   }
   return CheckHash(OperativeDirective(directive_type), hash_value);
-}
-
-bool CSPDirectiveList::AllowScriptHash(
-    const CSPHashValue& hash_value,
-    ContentSecurityPolicy::InlineType type) const {
-  return AllowHash(hash_value, type,
-                   type == ContentSecurityPolicy::InlineType::kAttribute
-                       ? ContentSecurityPolicy::DirectiveType::kScriptSrcAttr
-                       : ContentSecurityPolicy::DirectiveType::kScriptSrcElem);
-}
-
-bool CSPDirectiveList::AllowStyleHash(
-    const CSPHashValue& hash_value,
-    ContentSecurityPolicy::InlineType type) const {
-  return AllowHash(hash_value, type,
-                   type == ContentSecurityPolicy::InlineType::kAttribute
-                       ? ContentSecurityPolicy::DirectiveType::kStyleSrcAttr
-                       : ContentSecurityPolicy::DirectiveType::kStyleSrcElem);
 }
 
 bool CSPDirectiveList::AllowDynamic(
@@ -1251,7 +1098,7 @@ void CSPDirectiveList::ParseReportURI(const String& name, const String& value) {
   }
 
   // Remove report-uri in meta policies, per
-  // https://html.spec.whatwg.org/#attr-meta-http-equiv-content-security-policy.
+  // https://html.spec.whatwg.org/C/#attr-meta-http-equiv-content-security-policy.
   if (header_source_ == kContentSecurityPolicyHeaderSourceMeta) {
     policy_->ReportInvalidDirectiveInMeta(name);
     return;
@@ -1378,10 +1225,6 @@ void CSPDirectiveList::TreatAsPublicAddress(const String& name,
 
 void CSPDirectiveList::RequireTrustedTypes(const String& name,
                                            const String& value) {
-  if (IsReportOnly()) {
-    policy_->ReportInvalidInReportOnly(name);
-    return;
-  }
   if (trusted_types_) {
     policy_->ReportDuplicateDirective(name);
     return;

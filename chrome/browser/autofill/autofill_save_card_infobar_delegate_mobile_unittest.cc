@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/macros.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -111,7 +112,7 @@ AutofillSaveCardInfoBarDelegateMobileTest::CreateDelegateWithLegalMessage(
   std::unique_ptr<base::DictionaryValue> legal_message;
   if (!legal_message_string.empty()) {
     std::unique_ptr<base::Value> value(
-        base::JSONReader::Read(legal_message_string));
+        base::JSONReader::ReadDeprecated(legal_message_string));
     EXPECT_TRUE(value);
     base::DictionaryValue* dictionary;
     EXPECT_TRUE(value->GetAsDictionary(&dictionary));
@@ -125,7 +126,7 @@ AutofillSaveCardInfoBarDelegateMobileTest::CreateDelegateWithLegalMessage(
     credit_card_to_save_ = credit_card;
     std::unique_ptr<ConfirmInfoBarDelegate> delegate(
         new AutofillSaveCardInfoBarDelegateMobile(
-            is_uploading, /*should_request_name_from_user=*/false, credit_card,
+            is_uploading, AutofillClient::SaveCreditCardOptions(), credit_card,
             std::move(legal_message),
             /*upload_save_card_callback=*/
             base::BindOnce(&AutofillSaveCardInfoBarDelegateMobileTest::
@@ -139,7 +140,7 @@ AutofillSaveCardInfoBarDelegateMobileTest::CreateDelegateWithLegalMessage(
   credit_card_to_save_ = credit_card;
   std::unique_ptr<ConfirmInfoBarDelegate> delegate(
       new AutofillSaveCardInfoBarDelegateMobile(
-          is_uploading, /*should_request_name_from_user=*/false, credit_card,
+          is_uploading, AutofillClient::SaveCreditCardOptions(), credit_card,
           std::move(legal_message),
           /*upload_save_card_callback=*/{},
           /*local_save_card_callback=*/

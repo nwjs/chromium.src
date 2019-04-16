@@ -66,8 +66,10 @@ bool IsContainerWithSelectableChildren(const ax::mojom::Role role) {
     case ax::mojom::Role::kComboBoxMenuButton:
     case ax::mojom::Role::kGrid:
     case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kMenu:
     case ax::mojom::Role::kMenuBar:
+    case ax::mojom::Role::kMenuListPopup:
     case ax::mojom::Role::kRadioGroup:
     case ax::mojom::Role::kTabList:
     case ax::mojom::Role::kToolbar:
@@ -87,6 +89,7 @@ bool IsControl(const ax::mojom::Role role) {
     case ax::mojom::Role::kComboBoxMenuButton:
     case ax::mojom::Role::kDisclosureTriangle:
     case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kMenu:
     case ax::mojom::Role::kMenuBar:
     case ax::mojom::Role::kMenuButton:
@@ -200,6 +203,7 @@ bool IsList(const ax::mojom::Role role) {
     case ax::mojom::Role::kDocBibliography:
     case ax::mojom::Role::kList:
     case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kListGrid:
       return true;
     default:
       return false;
@@ -264,18 +268,42 @@ bool IsRowContainer(const ax::mojom::Role role) {
 
 bool IsSetLike(const ax::mojom::Role role) {
   switch (role) {
+    case ax::mojom::Role::kDescriptionList:
+    case ax::mojom::Role::kDirectory:
+    case ax::mojom::Role::kDocBibliography:
     case ax::mojom::Role::kFeed:
-    case ax::mojom::Role::kList:
     case ax::mojom::Role::kGroup:
+    case ax::mojom::Role::kList:
+    case ax::mojom::Role::kListBox:
+    case ax::mojom::Role::kListGrid:
     case ax::mojom::Role::kMenu:
     case ax::mojom::Role::kMenuBar:
-    case ax::mojom::Role::kTabList:
-    case ax::mojom::Role::kTree:
-    case ax::mojom::Role::kListBox:
     case ax::mojom::Role::kMenuListPopup:
     case ax::mojom::Role::kRadioGroup:
+    case ax::mojom::Role::kTabList:
+    case ax::mojom::Role::kTree:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool IsStaticList(const ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kList:
     case ax::mojom::Role::kDescriptionList:
       return true;
+    default:
+      return false;
+  }
+}
+
+bool IsTableColumn(ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kColumn:
+      return true;
+    case ax::mojom::Role::kLayoutTableColumn:
+      return kExposeLayoutTableAsDataTable;
     default:
       return false;
   }
@@ -311,6 +339,16 @@ bool IsTableRow(ax::mojom::Role role) {
       return true;
     case ax::mojom::Role::kLayoutTableRow:
       return kExposeLayoutTableAsDataTable;
+    default:
+      return false;
+  }
+}
+
+bool IsTextOrLineBreak(ax::mojom::Role role) {
+  switch (role) {
+    case ax::mojom::Role::kLineBreak:
+    case ax::mojom::Role::kStaticText:
+      return true;
     default:
       return false;
   }
@@ -374,14 +412,37 @@ bool IsUIASelectable(const ax::mojom::Role role) {
   }
 }
 
-bool IsStaticList(const ax::mojom::Role role) {
+bool ShouldHaveReadonlyStateByDefault(const ax::mojom::Role role) {
   switch (role) {
-    case ax::mojom::Role::kList:
+    case ax::mojom::Role::kArticle:
+    case ax::mojom::Role::kDefinition:
     case ax::mojom::Role::kDescriptionList:
+    case ax::mojom::Role::kDescriptionListTerm:
+    case ax::mojom::Role::kDocument:
+    case ax::mojom::Role::kGraphicsDocument:
+    case ax::mojom::Role::kImage:
+    case ax::mojom::Role::kImageMap:
+    case ax::mojom::Role::kList:
+    case ax::mojom::Role::kListItem:
+    case ax::mojom::Role::kProgressIndicator:
+    case ax::mojom::Role::kRootWebArea:
+    case ax::mojom::Role::kTerm:
+    case ax::mojom::Role::kTimer:
+    case ax::mojom::Role::kToolbar:
+    case ax::mojom::Role::kTooltip:
+    case ax::mojom::Role::kWebArea:
       return true;
+
+    case ax::mojom::Role::kGrid:
+      // TODO(aleventhal) this changed between ARIA 1.0 and 1.1,
+      // need to determine whether grids/treegrids should really be readonly
+      // or editable by default
+      break;
+
     default:
-      return false;
+      break;
   }
+  return false;
 }
 
 }  // namespace ui

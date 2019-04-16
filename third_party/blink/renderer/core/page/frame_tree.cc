@@ -51,16 +51,16 @@ FrameTree::~FrameTree() = default;
 const AtomicString& FrameTree::GetName() const {
   // TODO(andypaicu): remove this once we have gathered the data
   if (experimental_set_nulled_name_) {
-    const LocalFrame* frame =
-        this_frame_->IsLocalFrame()
-            ? ToLocalFrame(this_frame_)
-            : (Top().IsLocalFrame() ? ToLocalFrame(&Top()) : nullptr);
+    auto* frame = DynamicTo<LocalFrame>(this_frame_.Get());
+    if (!frame)
+      frame = DynamicTo<LocalFrame>(&Top());
     if (frame) {
-      UseCounter::Count(frame,
+      UseCounter::Count(frame->GetDocument(),
                         WebFeature::kCrossOriginMainFrameNulledNameAccessed);
       if (!name_.IsEmpty()) {
         UseCounter::Count(
-            frame, WebFeature::kCrossOriginMainFrameNulledNonEmptyNameAccessed);
+            frame->GetDocument(),
+            WebFeature::kCrossOriginMainFrameNulledNonEmptyNameAccessed);
       }
     }
   }
@@ -85,8 +85,7 @@ void FrameTree::SetName(const AtomicString& name,
     if (name != name_) {
       // TODO(lukasza): https://crbug.com/660485: Eventually we need to also
       // support replication of name changes that originate in a *remote* frame.
-      DCHECK(this_frame_->IsLocalFrame());
-      ToLocalFrame(this_frame_)->Client()->DidChangeName(name);
+      To<LocalFrame>(this_frame_.Get())->Client()->DidChangeName(name);
     }
   }
 
@@ -180,16 +179,16 @@ unsigned FrameTree::ChildCount() const {
 
 Frame* FrameTree::Find(const AtomicString& name) const {
   // Named frame lookup should always be relative to a local frame.
-  DCHECK(this_frame_->IsLocalFrame());
+  DCHECK(IsA<LocalFrame>(this_frame_.Get()));
 
   if (EqualIgnoringASCIICase(name, "_self") ||
       EqualIgnoringASCIICase(name, "_current") || name.IsEmpty())
     return this_frame_;
 
   if (EqualIgnoringASCIICase(name, "_top")) {
-    for (LocalFrame* f = ToLocalFrame(this_frame_); f; f = ToLocalFrame(f->Tree().Parent())) {
+    for (const LocalFrame* f = DynamicTo<LocalFrame>(this_frame_.Get()); f; f = DynamicTo<LocalFrame>(f->Tree().Parent())) {
       if (f->isNwFakeTop())
-        return f;
+        return const_cast<LocalFrame*>(f);
     }
     return &Top();
   }
@@ -237,7 +236,7 @@ Frame* FrameTree::Find(const AtomicString& name) const {
   }
 
   // Ask the embedder as a fallback.
-  return ToLocalFrame(this_frame_)->Client()->FindFrame(name);
+  return To<LocalFrame>(this_frame_.Get())->Client()->FindFrame(name);
 }
 
 bool FrameTree::IsDescendantOf(const Frame* ancestor) const {
@@ -311,8 +310,8 @@ static void printFrames(const blink::Frame* frame,
     printIndent(indent);
   }
 
-  blink::LocalFrameView* view =
-      frame->IsLocalFrame() ? ToLocalFrame(frame)->View() : nullptr;
+  auto* local_frame = blink::DynamicTo<blink::LocalFrame>(frame);
+  blink::LocalFrameView* view = local_frame ? local_frame->View() : nullptr;
   printf("Frame %p %dx%d\n", frame, view ? view->Width() : 0,
          view ? view->Height() : 0);
   printIndent(indent);
@@ -320,14 +319,12 @@ static void printFrames(const blink::Frame* frame,
   printIndent(indent);
   printf("  frameView=%p\n", view);
   printIndent(indent);
-  printf("  document=%p\n",
-         frame->IsLocalFrame() ? ToLocalFrame(frame)->GetDocument() : nullptr);
+  printf("  document=%p\n", local_frame ? local_frame->GetDocument() : nullptr);
   printIndent(indent);
-  printf(
-      "  uri=%s\n\n",
-      frame->IsLocalFrame()
-          ? ToLocalFrame(frame)->GetDocument()->Url().GetString().Utf8().data()
-          : nullptr);
+  printf("  uri=%s\n\n",
+         local_frame
+             ? local_frame->GetDocument()->Url().GetString().Utf8().data()
+             : nullptr);
 
   for (blink::Frame* child = frame->Tree().FirstChild(); child;
        child = child->Tree().NextSibling())

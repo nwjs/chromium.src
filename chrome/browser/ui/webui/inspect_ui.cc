@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/inspect_ui.h"
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/devtools/devtools_targets_ui.h"
@@ -626,7 +627,7 @@ void InspectUI::SetPortForwardingDefaults() {
   }
 
   // Do nothing if user already took explicit action.
-  if (enabled || config->size() != 0)
+  if (enabled || !config->empty())
     return;
 
   base::DictionaryValue default_config;

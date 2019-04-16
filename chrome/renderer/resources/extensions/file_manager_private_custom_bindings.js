@@ -244,8 +244,9 @@ binding.registerCustomHook(function(bindingsAPI) {
       });
 
   apiFunctions.setHandleRequest(
-      'getCrostiniSharedPaths', function(callback) {
+      'getCrostiniSharedPaths', function(observeFirstForSession, callback) {
         fileManagerPrivateInternal.getCrostiniSharedPaths(
+            observeFirstForSession,
             function(entryDescriptions, firstForSession) {
               callback(entryDescriptions.map(function(description) {
                 return GetExternalFileEntry(description);
@@ -279,7 +280,7 @@ registerArgumentMassager('fileManagerPrivate.onDirectoryChanged',
   dispatch(args);
 });
 
-registerArgumentMassager('fileManagerPrivate.onCrostiniSharedPathsChanged',
+registerArgumentMassager('fileManagerPrivate.onCrostiniChanged',
                          function(args, dispatch) {
   // Convert entries arguments into real Entry objects.
   const entries = args[0].entries;

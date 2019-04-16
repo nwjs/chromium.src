@@ -142,7 +142,7 @@ Resource::Resource(const ResourceRequest& request,
   InstanceCounters::IncrementCounter(InstanceCounters::kResourceCounter);
 
   if (IsMainThread())
-    MemoryCoordinator::Instance().RegisterClient(this);
+    MemoryPressureListenerRegistry::Instance().RegisterClient(this);
 }
 
 Resource::~Resource() {
@@ -156,7 +156,7 @@ void Resource::Trace(blink::Visitor* visitor) {
   visitor->Trace(clients_awaiting_callback_);
   visitor->Trace(finished_clients_);
   visitor->Trace(finish_observers_);
-  MemoryCoordinatorClient::Trace(visitor);
+  MemoryPressureListener::Trace(visitor);
 }
 
 void Resource::SetLoader(ResourceLoader* loader) {
@@ -338,10 +338,10 @@ void Resource::FinishAsError(const ResourceError& error,
   }
 }
 
-void Resource::Finish(TimeTicks load_finish_time,
+void Resource::Finish(TimeTicks load_response_end,
                       base::SingleThreadTaskRunner* task_runner) {
   DCHECK(!is_revalidating_);
-  load_finish_time_ = load_finish_time;
+  load_response_end_ = load_response_end;
   if (!ErrorOccurred())
     status_ = ResourceStatus::kCached;
   loader_ = nullptr;
@@ -484,8 +484,7 @@ void Resource::SetResponse(const ResourceResponse& response) {
                                    GetResourceRequest().RequestorOrigin()));
 }
 
-void Resource::ResponseReceived(const ResourceResponse& response,
-                                std::unique_ptr<WebDataConsumerHandle>) {
+void Resource::ResponseReceived(const ResourceResponse& response) {
   response_timestamp_ = CurrentTime();
   if (is_revalidating_) {
     if (response.HttpStatusCode() == 304) {
@@ -720,7 +719,6 @@ Resource::MatchStatus Resource::CanReuse(const FetchParameters& params) const {
       GetResourceRequest().RequestorOrigin();
   scoped_refptr<const SecurityOrigin> new_origin =
       new_request.RequestorOrigin();
-  DCHECK_EQ(GetDataBufferingPolicy(), kBufferData);
 
   DCHECK(existing_origin);
   DCHECK(new_origin);
@@ -919,6 +917,10 @@ void Resource::OnMemoryDump(WebMemoryDumpLevelOfDetail level_of_detail,
   overhead_dump->AddScalar("size", "bytes", OverheadSize());
   memory_dump->AddSuballocation(
       overhead_dump->Guid(), String(WTF::Partitions::kAllocatedObjectPoolName));
+
+  const String cache_name = dump_name + "/code_cache";
+  if (cache_handler_)
+    cache_handler_->OnMemoryDump(memory_dump, cache_name);
 }
 
 String Resource::GetMemoryDumpName() const {
@@ -1150,8 +1152,6 @@ const char* Resource::ResourceTypeToString(
     ResourceType type,
     const AtomicString& fetch_initiator_name) {
   switch (type) {
-    case ResourceType::kMainResource:
-      return "Main resource";
     case ResourceType::kImage:
       return "Image";
     case ResourceType::kCSSStyleSheet:
@@ -1191,9 +1191,8 @@ blink::mojom::CodeCacheType Resource::ResourceTypeToCodeCacheType(
   DCHECK(
       // Cacheable WebAssembly modules are fetched, so raw resource type.
       resource_type == ResourceType::kRaw ||
-      // Cacheable Javascript is a script or a document resource.
+      // Cacheable Javascript is a script resource.
       resource_type == ResourceType::kScript ||
-      resource_type == ResourceType::kMainResource ||
       // Also accept mock resources for testing.
       resource_type == ResourceType::kMock);
   return ToCodeCacheType(resource_type);
@@ -1205,7 +1204,6 @@ bool Resource::ShouldBlockLoadEvent() const {
 
 bool Resource::IsLoadEventBlockingResourceType() const {
   switch (type_) {
-    case ResourceType::kMainResource:
     case ResourceType::kImage:
     case ResourceType::kCSSStyleSheet:
     case ResourceType::kScript:

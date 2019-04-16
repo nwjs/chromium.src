@@ -8,6 +8,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/test/test_simple_task_runner.h"
@@ -134,6 +135,30 @@ TEST_F(NotificationEventDispatcherImplTest,
 
   EXPECT_EQ(original_listener->on_close_count(), 1);
   EXPECT_EQ(replacement_listener->on_close_count(), 0);
+}
+
+TEST_F(NotificationEventDispatcherImplTest,
+       RegisterNonPersistentListener_SecondListenerGetsOnShow) {
+  auto original_listener = std::make_unique<TestNotificationListener>();
+  dispatcher_->RegisterNonPersistentNotificationListener(
+      kPrimaryUniqueId, original_listener->GetPtr());
+
+  dispatcher_->DispatchNonPersistentShowEvent(kPrimaryUniqueId);
+
+  WaitForMojoTasksToComplete();
+
+  ASSERT_EQ(original_listener->on_show_count(), 1);
+
+  auto replacement_listener = std::make_unique<TestNotificationListener>();
+  dispatcher_->RegisterNonPersistentNotificationListener(
+      kPrimaryUniqueId, replacement_listener->GetPtr());
+
+  dispatcher_->DispatchNonPersistentShowEvent(kPrimaryUniqueId);
+
+  WaitForMojoTasksToComplete();
+
+  ASSERT_EQ(original_listener->on_show_count(), 1);
+  ASSERT_EQ(replacement_listener->on_show_count(), 1);
 }
 
 TEST_F(NotificationEventDispatcherImplTest,

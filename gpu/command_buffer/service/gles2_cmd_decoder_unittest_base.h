@@ -65,6 +65,7 @@ class GLES2DecoderTestBase : public ::testing::TestWithParam<bool>,
   void OnRescheduleAfterFinished() override;
   void OnSwapBuffers(uint64_t swap_id, uint32_t flags) override;
   void ScheduleGrContextCleanup() override {}
+  void HandleReturnData(base::span<const uint8_t> data) override {}
 
   // Template to call glGenXXX functions.
   template <typename T>
@@ -854,6 +855,7 @@ class GLES2DecoderPassthroughTestBase : public testing::Test,
   void OnRescheduleAfterFinished() override;
   void OnSwapBuffers(uint64_t swap_id, uint32_t flags) override;
   void ScheduleGrContextCleanup() override {}
+  void HandleReturnData(base::span<const uint8_t> data) override {}
 
   void SetUp() override;
   void TearDown() override;
@@ -999,6 +1001,7 @@ class GLES2DecoderPassthroughTestBase : public testing::Test,
     return &passthrough_discardable_manager_;
   }
   ContextGroup* group() { return group_.get(); }
+  FeatureInfo* feature_info() { return group_->feature_info(); }
 
   static const size_t kSharedBufferSize = 2048;
   static const uint32_t kSharedMemoryOffset = 132;

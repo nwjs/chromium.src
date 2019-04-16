@@ -16,6 +16,7 @@
 #include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/command_line.h"
+#include "base/containers/adapters.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -70,6 +71,19 @@ static base::AtomicSequenceNumber s_image_decode_sequence_number;
 }
 
 namespace cc {
+namespace {
+
+bool AreEmbedTokensEqual(const viz::LocalSurfaceId& lsi1,
+                         const viz::LocalSurfaceId& lsi2) {
+  return lsi1.embed_token() == lsi2.embed_token();
+}
+
+bool AreParentSequencesEqual(const viz::LocalSurfaceId& lsi1,
+                             const viz::LocalSurfaceId& lsi2) {
+  return lsi1.parent_sequence_number() == lsi2.parent_sequence_number();
+}
+
+}  // namespace
 
 LayerTreeHost::InitParams::InitParams() = default;
 LayerTreeHost::InitParams::~InitParams() = default;
@@ -277,8 +291,8 @@ const LayerTreeDebugState& LayerTreeHost::GetDebugState() const {
   return debug_state_;
 }
 
-void LayerTreeHost::RequestMainFrameUpdate(bool record_main_frame_metrics) {
-  client_->UpdateLayerTreeHost(record_main_frame_metrics);
+void LayerTreeHost::RequestMainFrameUpdate() {
+  client_->UpdateLayerTreeHost();
 }
 
 // This function commits the LayerTreeHost to an impl tree. When modifying
@@ -498,6 +512,11 @@ LayerTreeHost::CreateLayerTreeHostImpl(
   std::unique_ptr<MutatorHost> mutator_host_impl =
       mutator_host_->CreateImplInstance(supports_impl_scrolling);
 
+  if (!settings_.scroll_animation_duration_for_testing.is_zero()) {
+    mutator_host_->SetScrollAnimationDurationForTesting(
+        settings_.scroll_animation_duration_for_testing);
+  }
+
   std::unique_ptr<LayerTreeHostImpl> host_impl = LayerTreeHostImpl::Create(
       settings_, client, task_runner_provider_.get(),
       rendering_stats_instrumentation_.get(), task_graph_runner_,
@@ -539,6 +558,14 @@ ScopedDeferMainFrameUpdate::~ScopedDeferMainFrameUpdate() {
 std::unique_ptr<ScopedDeferMainFrameUpdate>
 LayerTreeHost::DeferMainFrameUpdate() {
   return std::make_unique<ScopedDeferMainFrameUpdate>(this);
+}
+
+void LayerTreeHost::StartDeferringCommits(base::TimeDelta timeout) {
+  proxy_->StartDeferringCommits(timeout);
+}
+
+void LayerTreeHost::StopDeferringCommits() {
+  proxy_->StopDeferringCommits();
 }
 
 DISABLE_CFI_PERF
@@ -644,7 +671,7 @@ void LayerTreeHost::LayoutAndUpdateLayers() {
   DCHECK(IsSingleThreaded());
   // This function is only valid when not using the scheduler.
   DCHECK(!settings_.single_thread_proxy_scheduler);
-  RequestMainFrameUpdate(false /* record_main_frame_metrics */);
+  RequestMainFrameUpdate();
   UpdateLayers();
 }
 
@@ -654,7 +681,8 @@ void LayerTreeHost::Composite(base::TimeTicks frame_begin_time, bool raster) {
   DCHECK(!settings_.single_thread_proxy_scheduler);
   SingleThreadProxy* proxy = static_cast<SingleThreadProxy*>(proxy_.get());
 
-  proxy->CompositeImmediately(frame_begin_time, raster);
+  proxy->CompositeImmediately(frame_begin_time,
+                              raster || next_commit_forces_redraw_);
 }
 
 bool LayerTreeHost::UpdateLayers() {
@@ -667,6 +695,7 @@ bool LayerTreeHost::UpdateLayers() {
   base::ElapsedTimer timer;
 
   bool result = DoUpdateLayers();
+  client_->DidUpdateLayers();
   micro_benchmark_controller_.DidUpdateLayers();
 
   if (const char* client_name = GetClientNameForMetrics()) {
@@ -728,13 +757,28 @@ void LayerTreeHost::RecordGpuRasterizationHistogram(
                           !content_has_slow_paths_);
     UMA_HISTOGRAM_BOOLEAN("Renderer4.GpuRasterizationSlowPathsWithNonAAPaint",
                           content_has_slow_paths_ && content_has_non_aa_paint_);
-    // Record how many pages actually get gpu rasterization when enabled.
-    UMA_HISTOGRAM_BOOLEAN(
-        "Renderer4.GpuRasterizationUsed",
-        (has_gpu_rasterization_trigger_ && !content_has_slow_paths_));
   }
 
   gpu_rasterization_histogram_recorded_ = true;
+}
+
+std::string LayerTreeHost::LayersAsString() const {
+  std::string layers;
+  for (const auto* layer : *this)
+    layers += layer->ToString() + "\n";
+  return layers;
+}
+
+bool LayerTreeHost::CaptureContent(std::vector<NodeHolder>* content) {
+  if (viewport_visible_rect_.IsEmpty())
+    return false;
+
+  gfx::Rect rect = gfx::Rect(viewport_visible_rect_.width(),
+                             viewport_visible_rect_.height());
+  for (auto* layer : *this)
+    layer->CaptureContent(rect, content);
+
+  return true;
 }
 
 bool LayerTreeHost::DoUpdateLayers() {
@@ -761,11 +805,12 @@ bool LayerTreeHost::DoUpdateLayers() {
         outer_viewport_scroll_layer(), overscroll_elasticity_element_id(),
         elastic_overscroll_, page_scale_factor_, device_scale_factor_,
         gfx::Rect(device_viewport_size_), identity_transform, &property_trees_);
-    TRACE_EVENT_INSTANT1("cc", "LayerTreeHost::UpdateLayers_BuiltPropertyTrees",
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
+                         "LayerTreeHost::UpdateLayers_BuiltPropertyTrees",
                          TRACE_EVENT_SCOPE_THREAD, "property_trees",
                          property_trees_.AsTracedValue());
   } else {
-    TRACE_EVENT_INSTANT1("cc",
+    TRACE_EVENT_INSTANT1(TRACE_DISABLED_BY_DEFAULT("cc.debug"),
                          "LayerTreeHost::UpdateLayers_ReceivedPropertyTrees",
                          TRACE_EVENT_SCOPE_THREAD, "property_trees",
                          property_trees_.AsTracedValue());
@@ -805,21 +850,6 @@ bool LayerTreeHost::DoUpdateLayers() {
   LayerList update_layer_list;
   draw_property_utils::FindLayersThatNeedUpdates(this, &property_trees_,
                                                  &update_layer_list);
-
-  // Dump property trees and layers if run with:
-  //   --vmodule=layer_tree_host=3
-  // This only prints output in unit test or for the renderer.
-  if (VLOG_IS_ON(3) && (!GetClientNameForMetrics() ||
-                        GetClientNameForMetrics() == std::string("Renderer"))) {
-    std::ostringstream layers;
-    for (auto* layer : *this)
-      layers << layer->ToString() << "\n";
-    VLOG(3) << "After updating layers on the main thread:\n"
-            << "property trees:\n"
-            << property_trees_.ToString() << "\n"
-            << "cc::Layers:\n"
-            << layers.str();
-  }
 
   bool painted_content_has_slow_paths = false;
   bool painted_content_has_non_aa_paint = false;
@@ -940,6 +970,10 @@ void LayerTreeHost::ApplyScrollAndScale(ScrollAndScaleSet* info) {
   ApplyViewportChanges(*info);
 
   RecordWheelAndTouchScrollingCount(*info);
+}
+
+void LayerTreeHost::RecordStartOfFrameMetrics() {
+  client_->RecordStartOfFrameMetrics();
 }
 
 void LayerTreeHost::RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) {
@@ -1066,10 +1100,6 @@ void LayerTreeHost::SetNonBlinkManagedRootLayer(
   if (IsUsingLayerLists() && root_layer_)
     force_use_property_tree_builder_ = true;
 }
-
-LayerTreeHost::ViewportLayers::ViewportLayers() = default;
-
-LayerTreeHost::ViewportLayers::~ViewportLayers() = default;
 
 void LayerTreeHost::RegisterViewportLayers(const ViewportLayers& layers) {
   DCHECK(!layers.inner_viewport_scroll ||
@@ -1310,6 +1340,10 @@ void LayerTreeHost::SetContentSourceId(uint32_t id) {
   content_source_id_ = id;
 }
 
+void LayerTreeHost::ClearCachesOnNextCommit() {
+  clear_caches_on_next_commit_ = true;
+}
+
 void LayerTreeHost::SetLocalSurfaceIdAllocationFromParent(
     const viz::LocalSurfaceIdAllocation&
         local_surface_id_allocation_from_parent) {
@@ -1323,11 +1357,22 @@ void LayerTreeHost::SetLocalSurfaceIdAllocationFromParent(
   DCHECK_EQ(local_surface_id_from_parent.is_valid(),
             local_surface_id_allocation_from_parent.IsValid());
 
+  // These traces are split into two due to the usage of TRACE_ID_GLOBAL for the
+  // incoming flow (it comes from a different process), and TRACE_ID_LOCAL for
+  // the outgoing flow. The outgoing flow uses local to ensure that it doesn't
+  // flow into the wrong trace in different process.
   TRACE_EVENT_WITH_FLOW2(
       TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
       "LocalSurfaceId.Submission.Flow",
       TRACE_ID_GLOBAL(local_surface_id_from_parent.submission_trace_id()),
-      TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT, "step",
+      TRACE_EVENT_FLAG_FLOW_IN, "step", "SetLocalSurfaceAllocationIdFromParent",
+      "local_surface_id_allocation",
+      local_surface_id_allocation_from_parent.ToString());
+  TRACE_EVENT_WITH_FLOW2(
+      TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
+      "LocalSurfaceId.Submission.Flow",
+      TRACE_ID_LOCAL(local_surface_id_from_parent.submission_trace_id()),
+      TRACE_EVENT_FLAG_FLOW_OUT, "step",
       "SetLocalSurfaceAllocationIdFromParent", "local_surface_id_allocation",
       local_surface_id_allocation_from_parent.ToString());
   // Always update the cached state of the viz::LocalSurfaceId to reflect the
@@ -1342,18 +1387,29 @@ void LayerTreeHost::SetLocalSurfaceIdAllocationFromParent(
   // parent agreed upon these without needing to further advance its sequence
   // number. When this occurs the child is already up-to-date and a commit here
   // is simply redundant.
-  if (current_local_surface_id_from_parent.parent_sequence_number() ==
-          local_surface_id_from_parent.parent_sequence_number() &&
-      current_local_surface_id_from_parent.embed_token() ==
-          local_surface_id_from_parent.embed_token()) {
+  //
+  // If |generated_child_surface_sequence_number_| is set, it means a child
+  // sequence number was generated and needs to be compared against.
+  if (AreEmbedTokensEqual(current_local_surface_id_from_parent,
+                          local_surface_id_from_parent) &&
+      AreParentSequencesEqual(current_local_surface_id_from_parent,
+                              local_surface_id_from_parent) &&
+      (!generated_child_surface_sequence_number_ ||
+       local_surface_id_from_parent.child_sequence_number() <
+           *generated_child_surface_sequence_number_)) {
     return;
   }
+  generated_child_surface_sequence_number_.reset();
+
   UpdateDeferMainFrameUpdateInternal();
   SetNeedsCommit();
 }
 
-void LayerTreeHost::ClearCachesOnNextCommit() {
-  clear_caches_on_next_commit_ = true;
+uint32_t LayerTreeHost::GenerateChildSurfaceSequenceNumberSync() {
+  DCHECK(proxy_);
+  generated_child_surface_sequence_number_ =
+      proxy_->GenerateChildSurfaceSequenceNumberSync();
+  return *generated_child_surface_sequence_number_;
 }
 
 void LayerTreeHost::RequestNewLocalSurfaceId() {
@@ -1802,6 +1858,11 @@ LayerListReverseIterator<Layer> LayerTreeHost::rbegin() {
 
 LayerListReverseIterator<Layer> LayerTreeHost::rend() {
   return LayerListReverseIterator<Layer>(nullptr);
+}
+
+void LayerTreeHost::SetPropertyTreesForTesting(
+    const PropertyTrees* property_trees) {
+  property_trees_ = *property_trees;
 }
 
 void LayerTreeHost::SetNeedsDisplayOnAllLayers() {

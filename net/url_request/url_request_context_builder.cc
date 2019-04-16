@@ -14,6 +14,7 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/string_util.h"
 #include "base/task/post_task.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "net/base/cache_type.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_delegate_impl.h"
@@ -149,15 +150,17 @@ class ContainerURLRequestContext final : public URLRequestContext {
 
   ~ContainerURLRequestContext() override {
 #if BUILDFLAG(ENABLE_REPORTING)
-    // Destroy the NetworkErrorLoggingService so that destroying the
+    // Shut down the NetworkErrorLoggingService so that destroying the
     // ReportingService (which might abort in-flight URLRequests, generating
     // network errors) won't recursively try to queue more network error
     // reports.
-    storage_.set_network_error_logging_service(nullptr);
+    if (network_error_logging_service())
+      network_error_logging_service()->OnShutdown();
 
-    // Destroy the ReportingService before the rest of the URLRequestContext, so
-    // it cancels any pending requests it may have.
-    storage_.set_reporting_service(nullptr);
+    // Shut down the ReportingService before the rest of the URLRequestContext,
+    // so it cancels any pending requests it may have.
+    if (reporting_service())
+      reporting_service()->OnShutdown();
 #endif  // BUILDFLAG(ENABLE_REPORTING)
 
     // Shut down the ProxyResolutionService, as it may have pending URLRequests
@@ -193,32 +196,7 @@ URLRequestContextBuilder::HttpCacheParams::HttpCacheParams()
       max_size(0) {}
 URLRequestContextBuilder::HttpCacheParams::~HttpCacheParams() = default;
 
-URLRequestContextBuilder::URLRequestContextBuilder()
-    : enable_brotli_(false),
-      network_quality_estimator_(nullptr),
-      data_enabled_(false),
-#if !BUILDFLAG(DISABLE_FILE_SUPPORT)
-      file_enabled_(false),
-#endif
-#if !BUILDFLAG(DISABLE_FTP_SUPPORT)
-      ftp_enabled_(false),
-#endif
-      http_cache_enabled_(true),
-      throttling_enabled_(false),
-      cookie_store_set_by_client_(false),
-      net_log_(nullptr),
-      shared_host_resolver_(nullptr),
-      pac_quick_check_enabled_(true),
-      pac_sanitize_url_policy_(ProxyResolutionService::SanitizeUrlPolicy::SAFE),
-      shared_proxy_delegate_(nullptr),
-      shared_http_auth_handler_factory_(nullptr),
-#if BUILDFLAG(ENABLE_REPORTING)
-      shared_cert_verifier_(nullptr),
-      network_error_logging_enabled_(false) {
-#else   // !BUILDFLAG(ENABLE_REPORTING)
-      shared_cert_verifier_(nullptr){
-#endif  // !BUILDFLAG(ENABLE_REPORTING)
-}
+URLRequestContextBuilder::URLRequestContextBuilder() = default;
 
 URLRequestContextBuilder::~URLRequestContextBuilder() = default;
 
@@ -456,8 +434,7 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
     context->set_http_auth_handler_factory(shared_http_auth_handler_factory_);
   } else {
     storage->set_http_auth_handler_factory(
-        HttpAuthHandlerRegistryFactory::CreateDefault(
-            context->host_resolver()));
+        HttpAuthHandlerRegistryFactory::CreateDefault());
   }
 
   if (cookie_store_set_by_client_) {
@@ -534,8 +511,10 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
         std::move(proxy_config_service_), context.get(),
         context->host_resolver(), context->network_delegate(),
         context->net_log());
-    proxy_resolution_service_->set_quick_check_enabled(pac_quick_check_enabled_);
-    proxy_resolution_service_->set_sanitize_url_policy(pac_sanitize_url_policy_);
+    proxy_resolution_service_->set_quick_check_enabled(
+        pac_quick_check_enabled_);
+    proxy_resolution_service_->set_sanitize_url_policy(
+        pac_sanitize_url_policy_);
   }
   ProxyResolutionService* proxy_resolution_service =
       proxy_resolution_service_.get();

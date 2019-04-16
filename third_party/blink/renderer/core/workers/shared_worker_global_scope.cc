@@ -42,12 +42,10 @@
 namespace blink {
 
 SharedWorkerGlobalScope::SharedWorkerGlobalScope(
-    const String& name,
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     SharedWorkerThread* thread,
     base::TimeTicks time_origin)
-    : WorkerGlobalScope(std::move(creation_params), thread, time_origin),
-      name_(name) {}
+    : WorkerGlobalScope(std::move(creation_params), thread, time_origin) {}
 
 SharedWorkerGlobalScope::~SharedWorkerGlobalScope() = default;
 
@@ -55,10 +53,10 @@ const AtomicString& SharedWorkerGlobalScope::InterfaceName() const {
   return event_target_names::kSharedWorkerGlobalScope;
 }
 
-// https://html.spec.whatwg.org/multipage/workers.html#worker-processing-model
+// https://html.spec.whatwg.org/C/#worker-processing-model
 void SharedWorkerGlobalScope::ImportModuleScript(
     const KURL& module_url_record,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     network::mojom::FetchCredentialsMode credentials_mode) {
   // Step 12: "Let destination be "sharedworker" if is shared is true, and
   // "worker" otherwise."
@@ -70,6 +68,10 @@ void SharedWorkerGlobalScope::ImportModuleScript(
   // TODO(nhiroki): Implement module loading for shared workers.
   // (https://crbug.com/824646)
   NOTREACHED();
+}
+
+const String SharedWorkerGlobalScope::name() const {
+  return Name();
 }
 
 void SharedWorkerGlobalScope::Connect(MessagePortChannel channel) {

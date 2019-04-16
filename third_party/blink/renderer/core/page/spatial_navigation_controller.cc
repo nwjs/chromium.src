@@ -57,7 +57,7 @@ void ClearFocusInExitedFrames(LocalFrame* old_frame,
     old_frame->GetDocument()->SetSequentialFocusNavigationStartingPoint(
         nullptr);
     Frame* parent = old_frame->Tree().Parent();
-    old_frame = parent->IsLocalFrame() ? ToLocalFrame(parent) : nullptr;
+    old_frame = DynamicTo<LocalFrame>(parent);
   }
 }
 
@@ -102,10 +102,8 @@ static void ConsiderForBestCandidate(SpatialNavigationDirection direction,
     // If 2 nodes are intersecting, do hit test to find which node in on top.
     LayoutUnit x = intersection_rect.X() + intersection_rect.Width() / 2;
     LayoutUnit y = intersection_rect.Y() + intersection_rect.Height() / 2;
-    if (!candidate.visible_node->GetDocument()
-             .GetPage()
-             ->MainFrame()
-             ->IsLocalFrame())
+    if (!IsA<LocalFrame>(
+            candidate.visible_node->GetDocument().GetPage()->MainFrame()))
       return;
     HitTestLocation location(IntPoint(x.ToInt(), y.ToInt()));
     HitTestResult result =
@@ -185,10 +183,11 @@ Element* SpatialNavigationController::GetInterestedElement() const {
     return interest_element_;
 
   Frame* frame = page_->GetFocusController().FocusedOrMainFrame();
-  if (!frame->IsLocalFrame())
+  auto* local_frame = DynamicTo<LocalFrame>(frame);
+  if (!local_frame)
     return nullptr;
 
-  Document* document = ToLocalFrame(frame)->GetDocument();
+  Document* document = local_frame->GetDocument();
   if (!document)
     return nullptr;
 
@@ -321,31 +320,30 @@ bool SpatialNavigationController::AdvanceWithinContainer(
 
 Node* SpatialNavigationController::StartingNode() {
   if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
-    if (interest_element_ && interest_element_->GetDocument().GetFrame()) {
+    if (interest_element_ && interest_element_->isConnected() &&
+        interest_element_->GetDocument().GetFrame()) {
       // If an iframe is interested, start the search from its document node.
       // This matches the behavior in the focus case below where focusing a
       // frame means the focused document doesn't have a focused element and so
       // we return the document itself.
-      if (interest_element_->IsFrameOwnerElement())
-        return ToHTMLFrameOwnerElement(interest_element_)->contentDocument();
+      if (auto* frame_owner =
+              DynamicTo<HTMLFrameOwnerElement>(interest_element_.Get()))
+        return frame_owner->contentDocument();
 
       return interest_element_;
     }
 
-    Frame* main_frame = page_->MainFrame();
-    if (main_frame && main_frame->IsLocalFrame())
-      return ToLocalFrame(main_frame)->GetDocument();
+    if (auto* main_local_frame = DynamicTo<LocalFrame>(page_->MainFrame()))
+      return main_local_frame->GetDocument();
 
     return nullptr;
   }
 
   // FIXME: Directional focus changes don't yet work with RemoteFrames.
-  Frame* focused_frame = page_->GetFocusController().FocusedOrMainFrame();
-  if (!focused_frame->IsLocalFrame())
+  const auto* current_frame =
+      DynamicTo<LocalFrame>(page_->GetFocusController().FocusedOrMainFrame());
+  if (!current_frame)
     return nullptr;
-
-  const LocalFrame* current_frame = ToLocalFrame(focused_frame);
-  DCHECK(current_frame);
 
   Document* focused_document = current_frame->GetDocument();
   if (!focused_document)

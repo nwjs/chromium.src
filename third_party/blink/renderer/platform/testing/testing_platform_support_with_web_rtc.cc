@@ -4,8 +4,7 @@
 
 #include "third_party/blink/renderer/platform/testing/testing_platform_support_with_web_rtc.h"
 
-#include <memory>
-#include <vector>
+#include <utility>
 
 #include "third_party/blink/public/platform/web_media_stream.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
@@ -29,7 +28,7 @@ class DummyRtpSenderInternal
   static uintptr_t last_id_;
 
  public:
-  DummyRtpSenderInternal(WebMediaStreamTrack track)
+  explicit DummyRtpSenderInternal(WebMediaStreamTrack track)
       : id_(++last_id_), track_(std::move(track)) {}
 
   uintptr_t id() const { return id_; }
@@ -45,18 +44,26 @@ uintptr_t DummyRtpSenderInternal::last_id_ = 0;
 
 class DummyWebRTCRtpSender : public WebRTCRtpSender {
  public:
-  DummyWebRTCRtpSender(WebMediaStreamTrack track)
+  explicit DummyWebRTCRtpSender(WebMediaStreamTrack track)
       : internal_(new DummyRtpSenderInternal(std::move(track))) {}
   DummyWebRTCRtpSender(const DummyWebRTCRtpSender& other)
       : internal_(other.internal_) {}
   ~DummyWebRTCRtpSender() override {}
 
-  scoped_refptr<DummyRtpSenderInternal> internal() const { return internal_; };
+  scoped_refptr<DummyRtpSenderInternal> internal() const { return internal_; }
 
   std::unique_ptr<WebRTCRtpSender> ShallowCopy() const override {
     return nullptr;
   }
   uintptr_t Id() const override { return internal_->id(); }
+  rtc::scoped_refptr<webrtc::DtlsTransportInterface> DtlsTransport() override {
+    return nullptr;
+  }
+  webrtc::DtlsTransportInformation DtlsTransportInformation() override {
+    static webrtc::DtlsTransportInformation dummy(
+        webrtc::DtlsTransportState::kNew);
+    return dummy;
+  }
   WebMediaStreamTrack Track() const override { return internal_->track(); }
   WebVector<WebString> StreamIds() const override {
     return std::vector<WebString>({WebString::FromUTF8("DummyStringId")});
@@ -83,7 +90,7 @@ class DummyWebRTCRtpReceiver : public WebRTCRtpReceiver {
   static uintptr_t last_id_;
 
  public:
-  DummyWebRTCRtpReceiver(WebMediaStreamSource::Type type)
+  explicit DummyWebRTCRtpReceiver(WebMediaStreamSource::Type type)
       : id_(++last_id_), track_() {
     if (type == WebMediaStreamSource::Type::kTypeAudio) {
       WebMediaStreamSource web_source;
@@ -110,6 +117,14 @@ class DummyWebRTCRtpReceiver : public WebRTCRtpReceiver {
     return nullptr;
   }
   uintptr_t Id() const override { return id_; }
+  rtc::scoped_refptr<webrtc::DtlsTransportInterface> DtlsTransport() override {
+    return nullptr;
+  }
+  webrtc::DtlsTransportInformation DtlsTransportInformation() override {
+    static webrtc::DtlsTransportInformation dummy(
+        webrtc::DtlsTransportState::kNew);
+    return dummy;
+  }
   const WebMediaStreamTrack& Track() const override { return track_; }
   WebVector<WebString> StreamIds() const override {
     return WebVector<WebString>();
@@ -352,7 +367,8 @@ MockWebRTCPeerConnectionHandler::RemoveTrack(WebRTCRtpSender* sender) {
   return std::unique_ptr<WebRTCRtpTransceiver>(std::move(copy));
 }
 
-WebRTCDataChannelHandler* MockWebRTCPeerConnectionHandler::CreateDataChannel(
+scoped_refptr<webrtc::DataChannelInterface>
+MockWebRTCPeerConnectionHandler::CreateDataChannel(
     const WebString& label,
     const WebRTCDataChannelInit&) {
   return nullptr;
@@ -360,15 +376,19 @@ WebRTCDataChannelHandler* MockWebRTCPeerConnectionHandler::CreateDataChannel(
 
 void MockWebRTCPeerConnectionHandler::Stop() {}
 
-WebString MockWebRTCPeerConnectionHandler::Id() const {
-  return WebString();
-}
-
 webrtc::PeerConnectionInterface*
 MockWebRTCPeerConnectionHandler::NativePeerConnection() {
   return nullptr;
 }
 
+void MockWebRTCPeerConnectionHandler::
+    RunSynchronousOnceClosureOnSignalingThread(base::OnceClosure closure,
+                                               const char* trace_event_name) {}
+
+void MockWebRTCPeerConnectionHandler::
+    RunSynchronousRepeatingClosureOnSignalingThread(
+        const base::RepeatingClosure& closure,
+        const char* trace_event_name) {}
 std::unique_ptr<WebRTCPeerConnectionHandler>
 TestingPlatformSupportWithWebRTC::CreateRTCPeerConnectionHandler(
     WebRTCPeerConnectionHandlerClient*,

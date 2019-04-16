@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/macros.h"
 
 #include "chrome/browser/sessions/session_tab_helper.h"

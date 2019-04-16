@@ -39,8 +39,8 @@ class FrameResourceFetcherProperties final : public ResourceFetcherProperties {
   bool IsPaused() const override;
   bool IsDetached() const override { return false; }
   bool IsLoadComplete() const override;
-  bool ShouldBlockLoadingMainResource() const override;
   bool ShouldBlockLoadingSubResource() const override;
+  scheduler::FrameStatus GetFrameStatus() const override;
 
  private:
   static const FetchClientSettingsObject& CreateFetchClientSettingsObject(

@@ -71,18 +71,15 @@ enum AXTextEditType {
 
 NSString* const NSAccessibilityAutocorrectionOccurredNotification =
     @"AXAutocorrectionOccurred";
-NSString* const NSAccessibilityLayoutCompleteNotification =
-    @"AXLayoutComplete";
-NSString* const NSAccessibilityLoadCompleteNotification =
-    @"AXLoadComplete";
+NSString* const NSAccessibilityLayoutCompleteNotification = @"AXLayoutComplete";
+NSString* const NSAccessibilityLoadCompleteNotification = @"AXLoadComplete";
 NSString* const NSAccessibilityInvalidStatusChangedNotification =
     @"AXInvalidStatusChanged";
 NSString* const NSAccessibilityLiveRegionCreatedNotification =
     @"AXLiveRegionCreated";
 NSString* const NSAccessibilityLiveRegionChangedNotification =
     @"AXLiveRegionChanged";
-NSString* const NSAccessibilityExpandedChanged =
-    @"AXExpandedChanged";
+NSString* const NSAccessibilityExpandedChanged = @"AXExpandedChanged";
 NSString* const NSAccessibilityMenuItemSelectedNotification =
     @"AXMenuItemSelected";
 
@@ -133,8 +130,7 @@ BrowserAccessibilityManagerMac::BrowserAccessibilityManagerMac(
 BrowserAccessibilityManagerMac::~BrowserAccessibilityManagerMac() {}
 
 // static
-ui::AXTreeUpdate
-    BrowserAccessibilityManagerMac::GetEmptyDocument() {
+ui::AXTreeUpdate BrowserAccessibilityManagerMac::GetEmptyDocument() {
   ui::AXNodeData empty_document;
   empty_document.id = 0;
   empty_document.role = ax::mojom::Role::kRootWebArea;
@@ -342,7 +338,7 @@ void BrowserAccessibilityManagerMac::FireGeneratedEvent(
           [native_node retain]);
       base::PostDelayedTaskWithTraits(
           FROM_HERE, {BrowserThread::UI},
-          base::Bind(
+          base::BindOnce(
               [](base::scoped_nsobject<BrowserAccessibilityCocoa> node) {
                 if (node && [node instanceActive]) {
                   NSAccessibilityPostNotification(
@@ -375,9 +371,11 @@ void BrowserAccessibilityManagerMac::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::MENU_ITEM_SELECTED:
       mac_notification = NSAccessibilityMenuItemSelectedNotification;
       break;
+    case ui::AXEventGenerator::Event::AUTO_COMPLETE_CHANGED:
     case ui::AXEventGenerator::Event::CHILDREN_CHANGED:
     case ui::AXEventGenerator::Event::DESCRIPTION_CHANGED:
     case ui::AXEventGenerator::Event::DOCUMENT_TITLE_CHANGED:
+    case ui::AXEventGenerator::Event::IMAGE_ANNOTATION_CHANGED:
     case ui::AXEventGenerator::Event::LIVE_REGION_NODE_CHANGED:
     case ui::AXEventGenerator::Event::LOAD_START:
     case ui::AXEventGenerator::Event::NAME_CHANGED:
@@ -443,8 +441,8 @@ void BrowserAccessibilityManagerMac::OnAtomicUpdateFinished(
 
 NSDictionary* BrowserAccessibilityManagerMac::
     GetUserInfoForSelectedTextChangedNotification() {
-  NSMutableDictionary* user_info = [[[NSMutableDictionary alloc] init]
-      autorelease];
+  NSMutableDictionary* user_info =
+      [[[NSMutableDictionary alloc] init] autorelease];
   [user_info setObject:@YES forKey:NSAccessibilityTextStateSyncKey];
   [user_info setObject:@(AXTextStateChangeTypeUnknown)
                 forKey:NSAccessibilityTextStateChangeTypeKey];

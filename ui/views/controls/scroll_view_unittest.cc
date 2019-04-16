@@ -10,6 +10,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ui_base_features.h"
@@ -679,6 +680,34 @@ TEST_F(ScrollViewTest, HeaderScrollsWithContent) {
   scroll_view_->ScrollToPosition(test_api.GetBaseScrollBar(VERTICAL), 1);
   EXPECT_EQ("-1,-1", test_api.IntegralViewOffset().ToString());
   EXPECT_EQ("-1,0", header->origin().ToString());
+}
+
+// Test that calling ScrollToPosition() also updates the position of the
+// corresponding ScrollBar.
+TEST_F(ScrollViewTest, ScrollToPositionUpdatesScrollBar) {
+  ScrollViewTestApi test_api(scroll_view_.get());
+  View* contents = InstallContents();
+
+  // Scroll the horizontal scrollbar, after which, the scroll bar thumb position
+  // should be updated (i.e. it should be non-zero).
+  contents->SetBounds(0, 0, 400, 50);
+  scroll_view_->Layout();
+  auto* scroll_bar = test_api.GetBaseScrollBar(HORIZONTAL);
+  ASSERT_TRUE(scroll_bar);
+  EXPECT_TRUE(scroll_bar->visible());
+  EXPECT_EQ(0, scroll_bar->GetPosition());
+  scroll_view_->ScrollToPosition(scroll_bar, 20);
+  EXPECT_GT(scroll_bar->GetPosition(), 0);
+
+  // Scroll the vertical scrollbar.
+  contents->SetBounds(0, 0, 50, 400);
+  scroll_view_->Layout();
+  scroll_bar = test_api.GetBaseScrollBar(VERTICAL);
+  ASSERT_TRUE(scroll_bar);
+  EXPECT_TRUE(scroll_bar->visible());
+  EXPECT_EQ(0, scroll_bar->GetPosition());
+  scroll_view_->ScrollToPosition(scroll_bar, 20);
+  EXPECT_GT(scroll_bar->GetPosition(), 0);
 }
 
 // Verifies ScrollRectToVisible() on the child works.
@@ -1724,12 +1753,12 @@ TEST_F(WidgetScrollViewTest, CompositedScrollEvents) {
   EXPECT_EQ(gfx::ScrollOffset(0, 10), test_api.CurrentOffset());
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        WidgetScrollViewTestRTLAndLayers,
-                        ::testing::Values(UiConfig::kLtr,
-                                          UiConfig::kRtl,
-                                          UiConfig::kLtrWithLayers,
-                                          UiConfig::kRtlWithLayers),
-                        &UiConfigToString);
+INSTANTIATE_TEST_SUITE_P(,
+                         WidgetScrollViewTestRTLAndLayers,
+                         ::testing::Values(UiConfig::kLtr,
+                                           UiConfig::kRtl,
+                                           UiConfig::kLtrWithLayers,
+                                           UiConfig::kRtlWithLayers),
+                         &UiConfigToString);
 
 }  // namespace views

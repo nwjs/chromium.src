@@ -31,7 +31,6 @@
 #include "base/compiler_specific.h"
 #include "base/containers/linked_list.h"
 #include "base/debug/debugger.h"
-#include "base/debug/stack_trace.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -100,10 +99,6 @@
 namespace net {
 
 namespace {
-
-// Default delay between calls to the system resolver for the same hostname.
-// (Can be overridden by field trial.)
-const int64_t kDnsDefaultUnresponsiveDelayMs = 6000;
 
 // Limit the size of hostnames that will be resolved to combat issues in
 // some platform's resolvers.
@@ -221,7 +216,8 @@ bool IsAllIPv4Loopback(const AddressList& addresses) {
 // i.e. if only 127.0.0.1 and ::1 are routable.
 // Also returns false if it cannot determine this.
 bool HaveOnlyLoopbackAddresses() {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::WILL_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::WILL_BLOCK);
 #if defined(OS_WIN)
   // TODO(wtc): implement with the GetAdaptersAddresses function.
   NOTIMPLEMENTED();
@@ -318,22 +314,6 @@ std::unique_ptr<base::Value> NetLogDnsTaskFailedCallback(
   return std::move(dict);
 }
 
-// Creates NetLog parameters containing the information in a RequestInfo object,
-// along with the associated NetLogSource. Use NetLogRequestCallback() if the
-// request information is not specified via RequestInfo.
-std::unique_ptr<base::Value> NetLogRequestInfoCallback(
-    const HostResolver::RequestInfo* info,
-    NetLogCaptureMode /* capture_mode */) {
-  std::unique_ptr<base::DictionaryValue> dict(new base::DictionaryValue());
-
-  dict->SetString("host", info->host_port_pair().ToString());
-  dict->SetInteger("address_family",
-                   static_cast<int>(info->address_family()));
-  dict->SetBoolean("allow_cached_response", info->allow_cached_response());
-  dict->SetBoolean("is_speculative", info->is_speculative());
-  return std::move(dict);
-}
-
 // Creates NetLog parameters containing the information of the request. Use
 // NetLogRequestInfoCallback if the request is specified via RequestInfo.
 std::unique_ptr<base::Value> NetLogRequestCallback(
@@ -393,11 +373,6 @@ std::unique_ptr<base::Value> NetLogIPv6AvailableCallback(
 
 // Logs when a request has just been started. Overloads for whether or not the
 // request information is specified via a RequestInfo object.
-void LogStartRequest(const NetLogWithSource& source_net_log,
-                     const HostResolver::RequestInfo& info) {
-  source_net_log.BeginEvent(NetLogEventType::HOST_RESOLVER_IMPL_REQUEST,
-                            base::Bind(&NetLogRequestInfoCallback, &info));
-}
 void LogStartRequest(const NetLogWithSource& source_net_log,
                      const HostPortPair& host) {
   source_net_log.BeginEvent(NetLogEventType::HOST_RESOLVER_IMPL_REQUEST,
@@ -461,14 +436,6 @@ class PriorityTracker {
   size_t total_count_;
   size_t counts_[NUM_PRIORITIES];
 };
-
-void MakeNotStale(HostCache::EntryStaleness* stale_info) {
-  if (!stale_info)
-    return;
-  stale_info->expired_by = base::TimeDelta::FromSeconds(-1);
-  stale_info->network_changes = 0;
-  stale_info->stale_hits = 0;
-}
 
 // Is |dns_server| within the list of known DNS servers that also support
 // DNS-over-HTTPS?
@@ -538,7 +505,8 @@ class HostResolverImpl::RequestImpl
         request_host_(request_host),
         parameters_(optional_parameters ? optional_parameters.value()
                                         : ResolveHostParameters()),
-        host_resolver_flags_(ParametersToHostResolverFlags(parameters_)),
+        host_resolver_flags_(
+            HostResolver::ParametersToHostResolverFlags(parameters_)),
         priority_(parameters_.initial_priority),
         job_(nullptr),
         resolver_(resolver),
@@ -591,6 +559,14 @@ class HostResolverImpl::RequestImpl
     return results_ ? results_.value().hostnames() : *nullopt_result;
   }
 
+  const base::Optional<HostCache::EntryStaleness>& GetStaleInfo()
+      const override {
+    DCHECK(complete_);
+    return stale_info_;
+  }
+
+  void ChangeRequestPriority(RequestPriority priority) override;
+
   void set_results(HostCache::Entry results) {
     // Should only be called at most once and before request is marked
     // completed.
@@ -601,7 +577,15 @@ class HostResolverImpl::RequestImpl
     results_ = std::move(results);
   }
 
-  void ChangeRequestPriority(RequestPriority priority);
+  void set_stale_info(HostCache::EntryStaleness stale_info) {
+    // Should only be called at most once and before request is marked
+    // completed.
+    DCHECK(!complete_);
+    DCHECK(!stale_info_);
+    DCHECK(!parameters_.is_speculative);
+
+    stale_info_ = std::move(stale_info);
+  }
 
   void AssignJob(Job* job) {
     DCHECK(job);
@@ -679,79 +663,11 @@ class HostResolverImpl::RequestImpl
 
   bool complete_;
   base::Optional<HostCache::Entry> results_;
+  base::Optional<HostCache::EntryStaleness> stale_info_;
 
   base::TimeTicks request_time_;
 
   DISALLOW_COPY_AND_ASSIGN(RequestImpl);
-};
-
-// Wraps a RequestImpl to implement Request objects from the legacy Resolve()
-// API. The wrapped request must not yet have been started.
-//
-// TODO(crbug.com/821021): Delete this class once all usage has been
-// converted to the new CreateRequest() API.
-class HostResolverImpl::LegacyRequestImpl : public HostResolver::Request {
- public:
-  explicit LegacyRequestImpl(std::unique_ptr<RequestImpl> inner_request)
-      : inner_request_(std::move(inner_request)) {
-    DCHECK(!inner_request_->job());
-    DCHECK(!inner_request_->complete());
-  }
-
-  ~LegacyRequestImpl() override {}
-
-  void ChangeRequestPriority(RequestPriority priority) override {
-    inner_request_->ChangeRequestPriority(priority);
-  }
-
-  int Start() {
-    return inner_request_->Start(base::BindOnce(
-        &LegacyRequestImpl::LegacyApiCallback, base::Unretained(this)));
-  }
-
-  // Do not call to assign the callback until we are running an async job (after
-  // Start() returns ERR_IO_PENDING) and before completion.  Until then, the
-  // legacy HostResolverImpl::Resolve() needs to hang onto |callback| to ensure
-  // it stays alive for the duration of the method call, as some callers may be
-  // binding objects, eg the AddressList, with the callback.
-  void AssignCallback(CompletionOnceCallback callback,
-                      AddressList* addresses_result_ptr) {
-    DCHECK(callback);
-    DCHECK(addresses_result_ptr);
-    DCHECK(inner_request_->job());
-    DCHECK(!inner_request_->complete());
-
-    callback_ = std::move(callback);
-    addresses_result_ptr_ = addresses_result_ptr;
-  }
-
-  const RequestImpl& inner_request() const { return *inner_request_; }
-
- private:
-  // Result callback to bridge results handled entirely via ResolveHostRequest
-  // to legacy API styles where AddressList was a separate method out parameter.
-  void LegacyApiCallback(int error) {
-    // Must call AssignCallback() before async results.
-    DCHECK(callback_);
-
-    if (error == OK && !inner_request_->parameters().is_speculative) {
-      // Legacy API does not allow non-address results (eg TXT), so AddressList
-      // is always expected to be present on OK.
-      DCHECK(inner_request_->GetAddressResults());
-      *addresses_result_ptr_ = inner_request_->GetAddressResults().value();
-    }
-    addresses_result_ptr_ = nullptr;
-    std::move(callback_).Run(error);
-  }
-
-  const std::unique_ptr<RequestImpl> inner_request_;
-
-  CompletionOnceCallback callback_;
-  // This is a caller-provided pointer and should not be used once |callback_|
-  // is invoked.
-  AddressList* addresses_result_ptr_;
-
-  DISALLOW_COPY_AND_ASSIGN(LegacyRequestImpl);
 };
 
 //------------------------------------------------------------------------------
@@ -872,7 +788,8 @@ class HostResolverImpl::ProcTask {
     AddressList results;
     int os_error = 0;
     int error = resolver_proc->Resolve(
-        key.hostname, DnsQueryTypeToAddressFamily(key.dns_query_type),
+        key.hostname,
+        HostResolver::DnsQueryTypeToAddressFamily(key.dns_query_type),
         key.host_resolver_flags, &results, &os_error);
 
     network_task_runner->PostTask(
@@ -988,7 +905,8 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
   class Delegate {
    public:
     virtual void OnDnsTaskComplete(base::TimeTicks start_time,
-                                   const HostCache::Entry& results) = 0;
+                                   const HostCache::Entry& results,
+                                   bool secure) = 0;
 
     // Called when the first of two jobs succeeds.  If the first completed
     // transaction fails, this is not called.  Also not called when the DnsTask
@@ -1066,7 +984,7 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
             base::BindOnce(&DnsTask::OnTransactionComplete,
                            base::Unretained(this), tick_clock_->NowTicks(),
                            dns_query_type),
-            net_log_);
+            net_log_, SecureDnsMode::AUTOMATIC);
     trans->SetRequestContext(delegate_->url_request_context());
     trans->SetRequestPriority(delegate_->priority());
     return trans;
@@ -1076,11 +994,12 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
                              DnsQueryType dns_query_type,
                              DnsTransaction* transaction,
                              int net_error,
-                             const DnsResponse* response) {
+                             const DnsResponse* response,
+                             bool secure) {
     DCHECK(transaction);
     if (net_error != OK && !(net_error == ERR_NAME_NOT_RESOLVED && response &&
                              response->IsValid())) {
-      OnFailure(net_error, DnsResponse::DNS_PARSE_OK, base::nullopt);
+      OnFailure(net_error, DnsResponse::DNS_PARSE_OK, base::nullopt, secure);
       return;
     }
 
@@ -1108,11 +1027,13 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     DCHECK_LT(parse_result, DnsResponse::DNS_PARSE_RESULT_MAX);
 
     if (results.error() != OK && results.error() != ERR_NAME_NOT_RESOLVED) {
-      OnFailure(results.error(), parse_result, results.GetOptionalTtl());
+      OnFailure(results.error(), parse_result, results.GetOptionalTtl(),
+                secure);
       return;
     }
 
     // Merge results with saved results from previous transactions.
+    DCHECK_EQ(saved_results_.has_value(), saved_secure_.has_value());
     if (saved_results_) {
       DCHECK(needs_two_transactions());
       DCHECK_GE(1u, num_completed_transactions_);
@@ -1134,6 +1055,10 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
           // Only expect address query types with multiple transactions.
           NOTREACHED();
       }
+      // If the earlier result was retrieved insecurely, the merged result
+      // should be stored accordingly.
+      if (!saved_secure_.value())
+        secure = false;
     }
 
     // If not all transactions are complete, the task cannot yet be completed
@@ -1141,6 +1066,7 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     ++num_completed_transactions_;
     if (needs_two_transactions() && num_completed_transactions_ == 1) {
       saved_results_ = std::move(results);
+      saved_secure_ = secure;
       // No need to repeat the suffix search.
       key_.hostname = transaction->GetHostname();
       delegate_->OnFirstDnsTransactionComplete();
@@ -1156,11 +1082,11 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
       client_->GetAddressSorter()->Sort(
           results.addresses().value(),
           base::BindOnce(&DnsTask::OnSortComplete, AsWeakPtr(),
-                         tick_clock_->NowTicks(), std::move(results)));
+                         tick_clock_->NowTicks(), std::move(results), secure));
       return;
     }
 
-    OnSuccess(results);
+    OnSuccess(results, secure);
   }
 
   DnsResponse::Result ParseAddressDnsResponse(const DnsResponse* response,
@@ -1364,13 +1290,14 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
 
   void OnSortComplete(base::TimeTicks sort_start_time,
                       HostCache::Entry results,
+                      bool secure,
                       bool success,
                       const AddressList& addr_list) {
     results.set_addresses(addr_list);
 
     if (!success) {
       OnFailure(ERR_DNS_SORT_ERROR, DnsResponse::DNS_PARSE_OK,
-                results.GetOptionalTtl());
+                results.GetOptionalTtl(), secure);
       return;
     }
 
@@ -1380,16 +1307,17 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
         results.hostnames().value_or(std::vector<HostPortPair>()).empty()) {
       LOG(WARNING) << "Address list empty after RFC3484 sort";
       OnFailure(ERR_NAME_NOT_RESOLVED, DnsResponse::DNS_PARSE_OK,
-                results.GetOptionalTtl());
+                results.GetOptionalTtl(), secure);
       return;
     }
 
-    OnSuccess(results);
+    OnSuccess(results, secure);
   }
 
   void OnFailure(int net_error,
                  DnsResponse::Result parse_result,
-                 base::Optional<base::TimeDelta> ttl) {
+                 base::Optional<base::TimeDelta> ttl,
+                 bool secure) {
     DCHECK_NE(OK, net_error);
 
     HostCache::Entry results(net_error, HostCache::Entry::SOURCE_UNKNOWN);
@@ -1399,6 +1327,7 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
                                  parse_result, results.CreateNetLogCallback()));
 
     // If we have a TTL from a previously completed transaction, use it.
+    DCHECK_EQ(saved_results_.has_value(), saved_secure_.has_value());
     base::TimeDelta previous_transaction_ttl;
     if (saved_results_ && saved_results_.value().has_ttl() &&
         saved_results_.value().ttl() <
@@ -1412,14 +1341,18 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
     } else if (ttl) {
       results.set_ttl(ttl.value());
     }
+    // If the earlier result was retrieved insecurely, any entry stored in the
+    // cache for this transaction should be stored with an insecure key.
+    if (saved_secure_ && !saved_secure_.value())
+      secure = false;
 
-    delegate_->OnDnsTaskComplete(task_start_time_, results);
+    delegate_->OnDnsTaskComplete(task_start_time_, results, secure);
   }
 
-  void OnSuccess(const HostCache::Entry& results) {
+  void OnSuccess(const HostCache::Entry& results, bool secure) {
     net_log_.EndEvent(NetLogEventType::HOST_RESOLVER_IMPL_DNS_TASK,
                       results.CreateNetLogCallback());
-    delegate_->OnDnsTaskComplete(task_start_time_, results);
+    delegate_->OnDnsTaskComplete(task_start_time_, results, secure);
   }
 
   DnsClient* client_;
@@ -1441,6 +1374,10 @@ class HostResolverImpl::DnsTask : public base::SupportsWeakPtr<DnsTask> {
   // Result from previously completed transactions. Only set if a transaction
   // has completed while others are still in progress.
   base::Optional<HostCache::Entry> saved_results_;
+  // Whether the result from the previously completed transaction was retrieved
+  // securely. Only set if a transaction has completed while others are still
+  // in progress.
+  base::Optional<bool> saved_secure_;
 
   const base::TickClock* tick_clock_;
   base::TimeTicks task_start_time_;
@@ -1640,7 +1577,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
     if (results) {
       // This will destroy the Job.
       CompleteRequests(results.value(), base::TimeDelta(),
-                       true /* allow_cache */);
+                       true /* allow_cache */, true /* secure */);
       return true;
     }
     return false;
@@ -1733,6 +1670,10 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
       case HostResolverSource::MULTICAST_DNS:
         StartMdnsTask();
         break;
+      case HostResolverSource::LOCAL_ONLY:
+        // If no external source allowed, a job should not be created or started
+        NOTREACHED();
+        break;
     }
 
     // Caution: Job::Start must not complete synchronously.
@@ -1787,7 +1728,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
                              ? AddressList::CopyWithPort(addr_list, 0)
                              : AddressList(),
                          HostCache::Entry::SOURCE_UNKNOWN),
-        ttl, true /* allow_cache */);
+        ttl, true /* allow_cache */, false /* secure */);
   }
 
   void StartDnsTask(bool allow_fallback_resolution) {
@@ -1818,7 +1759,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
           base::BindOnce(
               &Job::OnDnsTaskFailure, weak_ptr_factory_.GetWeakPtr(),
               dns_task_->AsWeakPtr(), base::TimeDelta(),
-              HostCache::Entry(ERR_FAILED, HostCache::Entry::SOURCE_UNKNOWN)));
+              HostCache::Entry(ERR_FAILED, HostCache::Entry::SOURCE_UNKNOWN),
+              false /* secure */));
     }
   }
 
@@ -1832,7 +1774,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
   // so we use it as indicator whether Job is still valid.
   void OnDnsTaskFailure(const base::WeakPtr<DnsTask>& dns_task,
                         base::TimeDelta duration,
-                        const HostCache::Entry& failure_results) {
+                        const HostCache::Entry& failure_results,
+                        bool secure) {
     DCHECK_NE(OK, failure_results.error());
 
     UMA_HISTOGRAM_LONG_TIMES_100("Net.DNS.DnsTask.FailureTime", duration);
@@ -1862,19 +1805,20 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
       base::TimeDelta ttl = failure_results.has_ttl()
                                 ? failure_results.ttl()
                                 : base::TimeDelta::FromSeconds(0);
-      CompleteRequests(failure_results, ttl, true /* allow_cache */);
+      CompleteRequests(failure_results, ttl, true /* allow_cache */, secure);
     }
   }
 
   // HostResolverImpl::DnsTask::Delegate implementation:
 
   void OnDnsTaskComplete(base::TimeTicks start_time,
-                         const HostCache::Entry& results) override {
+                         const HostCache::Entry& results,
+                         bool secure) override {
     DCHECK(is_dns_running());
 
     base::TimeDelta duration = tick_clock_->NowTicks() - start_time;
     if (results.error() != OK) {
-      OnDnsTaskFailure(dns_task_->AsWeakPtr(), duration, results);
+      OnDnsTaskFailure(dns_task_->AsWeakPtr(), duration, results, secure);
       return;
     }
 
@@ -1891,7 +1835,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
       return;
     }
 
-    CompleteRequests(results, bounded_ttl, true /* allow_cache */);
+    CompleteRequests(results, bounded_ttl, true /* allow_cache */, secure);
   }
 
   void OnFirstDnsTransactionComplete() override {
@@ -1940,7 +1884,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
       CompleteRequestsWithError(ERR_ICANN_NAME_COLLISION);
     } else {
       // MDNS uses a separate cache, so skip saving result to cache.
-      // TODO(crbug.com/846423): Consider merging caches.
+      // TODO(crbug.com/926300): Consider merging caches.
       CompleteRequestsWithoutCache(results);
     }
   }
@@ -2032,10 +1976,12 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
   // Performs Job's last rites. Completes all Requests. Deletes this.
   //
   // If not |allow_cache|, result will not be stored in the host cache, even if
-  // result would otherwise allow doing so.
+  // result would otherwise allow doing so. Update the key to reflect |secure|,
+  // which indicates whether or not the result was obtained securely.
   void CompleteRequests(const HostCache::Entry& results,
                         base::TimeDelta ttl,
-                        bool allow_cache) {
+                        bool allow_cache,
+                        bool secure) {
     CHECK(resolver_.get());
 
     // This job must be removed from resolver's |jobs_| now to make room for a
@@ -2070,8 +2016,11 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
 
     bool did_complete = (results.error() != ERR_NETWORK_CHANGED) &&
                         (results.error() != ERR_HOST_RESOLVER_QUEUE_TOO_LARGE);
-    if (did_complete && allow_cache)
-      resolver_->CacheResult(key_, results, ttl);
+    if (did_complete && allow_cache) {
+      Key effective_key = key_;
+      effective_key.secure = secure;
+      resolver_->CacheResult(effective_key, results, ttl);
+    }
 
     RecordJobHistograms(results.error());
 
@@ -2103,7 +2052,8 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
   }
 
   void CompleteRequestsWithoutCache(const HostCache::Entry& results) {
-    CompleteRequests(results, base::TimeDelta(), false /* allow_cache */);
+    CompleteRequests(results, base::TimeDelta(), false /* allow_cache */,
+                     false /* secure */);
   }
 
   // Convenience wrapper for CompleteRequests in case of failure.
@@ -2111,7 +2061,7 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
     DCHECK_NE(OK, net_error);
     CompleteRequests(
         HostCache::Entry(net_error, HostCache::Entry::SOURCE_UNKNOWN),
-        base::TimeDelta(), true /* allow_cache */);
+        base::TimeDelta(), true /* allow_cache */, false /* secure */);
   }
 
   RequestPriority priority() const override {
@@ -2171,25 +2121,6 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
 };
 
 //-----------------------------------------------------------------------------
-
-HostResolverImpl::ProcTaskParams::ProcTaskParams(
-    HostResolverProc* resolver_proc,
-    size_t max_retry_attempts)
-    : resolver_proc(resolver_proc),
-      max_retry_attempts(max_retry_attempts),
-      unresponsive_delay(
-          base::TimeDelta::FromMilliseconds(kDnsDefaultUnresponsiveDelayMs)),
-      retry_factor(2) {
-  // Maximum of 4 retry attempts for host resolution.
-  static const size_t kDefaultMaxRetryAttempts = 4u;
-  if (max_retry_attempts == HostResolver::kDefaultRetryAttempts)
-    max_retry_attempts = kDefaultMaxRetryAttempts;
-}
-
-HostResolverImpl::ProcTaskParams::ProcTaskParams(const ProcTaskParams& other) =
-    default;
-
-HostResolverImpl::ProcTaskParams::~ProcTaskParams() = default;
 
 HostResolverImpl::HostResolverImpl(const Options& options, NetLog* net_log)
     : max_queued_jobs_(0),
@@ -2288,92 +2219,6 @@ HostResolverImpl::CreateRequest(
                                        weak_ptr_factory_.GetWeakPtr());
 }
 
-int HostResolverImpl::Resolve(const RequestInfo& info,
-                              RequestPriority priority,
-                              AddressList* addresses,
-                              CompletionOnceCallback callback,
-                              std::unique_ptr<Request>* out_req,
-                              const NetLogWithSource& source_net_log) {
-  DCHECK(addresses);
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(callback);
-  DCHECK(out_req);
-
-  auto request = std::make_unique<RequestImpl>(
-      source_net_log, info.host_port_pair(),
-      RequestInfoToResolveHostParameters(info, priority),
-      weak_ptr_factory_.GetWeakPtr());
-  auto wrapped_request =
-      std::make_unique<LegacyRequestImpl>(std::move(request));
-
-  int rv = wrapped_request->Start();
-
-  if (rv == OK && !info.is_speculative()) {
-    DCHECK(wrapped_request->inner_request().GetAddressResults());
-    *addresses = wrapped_request->inner_request().GetAddressResults().value();
-  } else if (rv == ERR_IO_PENDING) {
-    wrapped_request->AssignCallback(std::move(callback), addresses);
-    *out_req = std::move(wrapped_request);
-  }
-
-  return rv;
-}
-
-int HostResolverImpl::ResolveFromCache(const RequestInfo& info,
-                                       AddressList* addresses,
-                                       const NetLogWithSource& source_net_log) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(addresses);
-
-  // Update the net log and notify registered observers.
-  LogStartRequest(source_net_log, info);
-
-  Key key;
-  HostCache::Entry results = ResolveLocally(
-      info.host_port_pair().host(),
-      AddressFamilyToDnsQueryType(info.address_family()),
-      FlagsToSource(info.host_resolver_flags()), info.host_resolver_flags(),
-      info.allow_cached_response(), false /* allow_stale */,
-      nullptr /* stale_info */, source_net_log, &key);
-
-  if (results.addresses()) {
-    *addresses = AddressList::CopyWithPort(results.addresses().value(),
-                                           info.host_port_pair().port());
-  }
-
-  LogFinishRequest(source_net_log, results.error());
-  return results.error();
-}
-
-int HostResolverImpl::ResolveStaleFromCache(
-    const RequestInfo& info,
-    AddressList* addresses,
-    HostCache::EntryStaleness* stale_info,
-    const NetLogWithSource& source_net_log) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(addresses);
-  DCHECK(stale_info);
-
-  // Update the net log and notify registered observers.
-  LogStartRequest(source_net_log, info);
-
-  Key key;
-  HostCache::Entry results =
-      ResolveLocally(info.host_port_pair().host(),
-                     AddressFamilyToDnsQueryType(info.address_family()),
-                     FlagsToSource(info.host_resolver_flags()),
-                     info.host_resolver_flags(), info.allow_cached_response(),
-                     true /* allow_stale */, stale_info, source_net_log, &key);
-
-  if (results.addresses()) {
-    *addresses = AddressList::CopyWithPort(results.addresses().value(),
-                                           info.host_port_pair().port());
-  }
-
-  LogFinishRequest(source_net_log, results.error());
-  return results.error();
-}
-
 std::unique_ptr<HostResolver::MdnsListener>
 HostResolverImpl::CreateMdnsListener(const HostPortPair& host,
                                      DnsQueryType query_type) {
@@ -2407,11 +2252,16 @@ HostCache* HostResolverImpl::GetHostCache() {
 
 bool HostResolverImpl::HasCached(base::StringPiece hostname,
                                  HostCache::Entry::Source* source_out,
-                                 HostCache::EntryStaleness* stale_out) const {
+                                 HostCache::EntryStaleness* stale_out,
+                                 bool* secure_out) const {
   if (!cache_)
     return false;
 
-  return cache_->HasEntry(hostname, source_out, stale_out);
+  const HostCache::Key* key =
+      cache_->GetMatchingKey(hostname, source_out, stale_out);
+  if (key && secure_out != nullptr)
+    *secure_out = key->secure;
+  return !!key;
 }
 
 std::unique_ptr<base::Value> HostResolverImpl::GetDnsConfigAsValue() const {
@@ -2521,27 +2371,32 @@ int HostResolverImpl::Resolve(RequestImpl* request) {
   DCHECK(!request->job());
   // Request may only be resolved once.
   DCHECK(!request->complete());
-  // MDNS requests do not support skipping cache.
-  // TODO(crbug.com/846423): Either add support for skipping the MDNS cache, or
+  // MDNS requests do not support skipping cache or stale lookups.
+  // TODO(crbug.com/926300): Either add support for skipping the MDNS cache, or
   // merge to use the normal host cache for MDNS requests.
   DCHECK(request->parameters().source != HostResolverSource::MULTICAST_DNS ||
-         request->parameters().allow_cached_response);
+         request->parameters().cache_usage ==
+             ResolveHostParameters::CacheUsage::ALLOWED);
 
   request->set_request_time(tick_clock_->NowTicks());
 
   LogStartRequest(request->source_net_log(), request->request_host());
 
   Key key;
+  base::Optional<HostCache::EntryStaleness> stale_info;
   HostCache::Entry results = ResolveLocally(
       request->request_host().host(), request->parameters().dns_query_type,
       request->parameters().source, request->host_resolver_flags(),
-      request->parameters().allow_cached_response, false /* allow_stale */,
-      nullptr /* stale_info */, request->source_net_log(), &key);
-  if (results.error() == OK && !request->parameters().is_speculative) {
-    request->set_results(
-        results.CopyWithDefaultPort(request->request_host().port()));
-  }
-  if (results.error() != ERR_DNS_CACHE_MISS) {
+      request->parameters().cache_usage, request->source_net_log(), &key,
+      &stale_info);
+  if (results.error() != ERR_DNS_CACHE_MISS ||
+      request->parameters().source == HostResolverSource::LOCAL_ONLY) {
+    if (results.error() == OK && !request->parameters().is_speculative) {
+      request->set_results(
+          results.CopyWithDefaultPort(request->request_host().port()));
+    }
+    if (stale_info && !request->parameters().is_speculative)
+      request->set_stale_info(std::move(stale_info).value());
     LogFinishRequest(request->source_net_log(), results.error());
     RecordTotalTime(request->parameters().is_speculative, true /* from_cache */,
                     base::TimeDelta());
@@ -2560,61 +2415,71 @@ HostCache::Entry HostResolverImpl::ResolveLocally(
     DnsQueryType dns_query_type,
     HostResolverSource source,
     HostResolverFlags flags,
-    bool allow_cache,
-    bool allow_stale,
-    HostCache::EntryStaleness* stale_info,
+    ResolveHostParameters::CacheUsage cache_usage,
     const NetLogWithSource& source_net_log,
-    Key* out_key) {
+    Key* out_key,
+    base::Optional<HostCache::EntryStaleness>* out_stale_info) {
+  DCHECK(out_stale_info);
+  *out_stale_info = base::nullopt;
+
   IPAddress ip_address;
   IPAddress* ip_address_ptr = nullptr;
   if (ip_address.AssignFromIPLiteral(hostname)) {
     ip_address_ptr = &ip_address;
   } else {
-    // Check that the caller supplied a valid hostname to resolve.
-    if (!IsValidDNSDomain(hostname)) {
+    // Check that the caller supplied a valid hostname to resolve. For
+    // MULTICAST_DNS, we are less restrictive.
+    // TODO(ericorth): Control validation based on an explicit flag rather
+    // than implicitly based on |source|.
+    const bool is_valid_hostname = source == HostResolverSource::MULTICAST_DNS
+                                       ? IsValidUnrestrictedDNSDomain(hostname)
+                                       : IsValidDNSDomain(hostname);
+    if (!is_valid_hostname) {
       return HostCache::Entry(ERR_NAME_NOT_RESOLVED,
                               HostCache::Entry::SOURCE_UNKNOWN);
     }
   }
 
   // Build a key that identifies the request in the cache and in the
-  // outstanding jobs map.
+  // outstanding jobs map. If this key is used in the future to store an entry
+  // in the cache, it will be modified first to indicate whether the result was
+  // obtained securely or not.
   *out_key = GetEffectiveKeyForRequest(hostname, dns_query_type, source, flags,
                                        ip_address_ptr, source_net_log);
 
-  DCHECK(allow_stale == !!stale_info);
   // The result of |getaddrinfo| for empty hosts is inconsistent across systems.
   // On Windows it gives the default interface's address, whereas on Linux it
   // gives an error. We will make it fail on all platforms for consistency.
   if (hostname.empty() || hostname.size() > kMaxHostLength) {
-    MakeNotStale(stale_info);
     return HostCache::Entry(ERR_NAME_NOT_RESOLVED,
                             HostCache::Entry::SOURCE_UNKNOWN);
   }
 
   base::Optional<HostCache::Entry> resolved =
       ResolveAsIP(*out_key, ip_address_ptr);
-  if (resolved) {
-    MakeNotStale(stale_info);
+  if (resolved)
     return resolved.value();
-  }
 
   // Special-case localhost names, as per the recommendations in
   // https://tools.ietf.org/html/draft-west-let-localhost-be-localhost.
   resolved = ServeLocalhost(*out_key);
-  if (resolved) {
-    MakeNotStale(stale_info);
+  if (resolved)
     return resolved.value();
-  }
 
-  if (allow_cache) {
-    resolved = ServeFromCache(*out_key, allow_stale, stale_info);
+  if (cache_usage == ResolveHostParameters::CacheUsage::ALLOWED ||
+      cache_usage == ResolveHostParameters::CacheUsage::STALE_ALLOWED) {
+    resolved = ServeFromCache(
+        *out_key,
+        cache_usage == ResolveHostParameters::CacheUsage::STALE_ALLOWED,
+        out_stale_info);
     if (resolved) {
+      DCHECK(out_stale_info->has_value());
       source_net_log.AddEvent(NetLogEventType::HOST_RESOLVER_IMPL_CACHE_HIT,
                               resolved.value().CreateNetLogCallback());
       // |ServeFromCache()| will update |*stale_info| as needed.
       return resolved.value();
     }
+    DCHECK(!out_stale_info->has_value());
   }
 
   // TODO(szym): Do not do this if nsswitch.conf instructs not to.
@@ -2623,7 +2488,6 @@ HostCache::Entry HostResolverImpl::ResolveLocally(
   if (resolved) {
     source_net_log.AddEvent(NetLogEventType::HOST_RESOLVER_IMPL_HOSTS_HIT,
                             resolved.value().CreateNetLogCallback());
-    MakeNotStale(stale_info);
     return resolved.value();
   }
 
@@ -2685,20 +2549,33 @@ base::Optional<HostCache::Entry> HostResolverImpl::ResolveAsIP(
 base::Optional<HostCache::Entry> HostResolverImpl::ServeFromCache(
     const Key& key,
     bool allow_stale,
-    HostCache::EntryStaleness* stale_info) {
-  DCHECK(allow_stale == !!stale_info);
+    base::Optional<HostCache::EntryStaleness>* out_stale_info) {
+  DCHECK(out_stale_info);
+  *out_stale_info = base::nullopt;
+
   if (!cache_.get())
     return base::nullopt;
 
-  const HostCache::Entry* cache_entry;
-  if (allow_stale)
-    cache_entry = cache_->LookupStale(key, tick_clock_->NowTicks(), stale_info);
-  else
-    cache_entry = cache_->Lookup(key, tick_clock_->NowTicks());
-  if (!cache_entry)
+  // Local-only requests search the cache for non-local-only results.
+  Key effective_key = key;
+  if (effective_key.host_resolver_source == HostResolverSource::LOCAL_ONLY)
+    effective_key.host_resolver_source = HostResolverSource::ANY;
+
+  const std::pair<const HostCache::Key, HostCache::Entry>* cache_result;
+  HostCache::EntryStaleness staleness;
+  if (allow_stale) {
+    cache_result = cache_->LookupStale(effective_key, tick_clock_->NowTicks(),
+                                       &staleness, true /* ignore_secure */);
+  } else {
+    cache_result = cache_->Lookup(effective_key, tick_clock_->NowTicks(),
+                                  true /* ignore_secure */);
+    staleness = HostCache::kNotStale;
+  }
+  if (!cache_result)
     return base::nullopt;
 
-  return *cache_entry;
+  *out_stale_info = std::move(staleness);
+  return cache_result->second;
 }
 
 base::Optional<HostCache::Entry> HostResolverImpl::ServeFromHosts(
@@ -2768,7 +2645,7 @@ base::Optional<HostCache::Entry> HostResolverImpl::ServeLocalhost(
     //   to lack of detected IPv6 support. (See SystemHostResolverCall for
     //   rationale).
     if (key.dns_query_type == DnsQueryType::UNSPECIFIED ||
-        DnsQueryTypeToAddressFamily(key.dns_query_type) ==
+        HostResolver::DnsQueryTypeToAddressFamily(key.dns_query_type) ==
             address.GetFamily() ||
         (address.GetFamily() == ADDRESS_FAMILY_IPV6 &&
          key.dns_query_type == DnsQueryType::A &&
@@ -3017,8 +2894,7 @@ void HostResolverImpl::OnConnectionTypeChanged(
   proc_params_.unresponsive_delay =
       GetTimeDeltaForConnectionTypeFromFieldTrialOrDefault(
           "DnsUnresponsiveDelayMsByConnectionType",
-          base::TimeDelta::FromMilliseconds(kDnsDefaultUnresponsiveDelayMs),
-          type);
+          ProcTaskParams::kDnsDefaultUnresponsiveDelay, type);
 }
 
 void HostResolverImpl::OnInitialDNSConfigRead() {
@@ -3189,6 +3065,7 @@ HostResolverImpl::RequestImpl::~RequestImpl() {
 
 void HostResolverImpl::RequestImpl::ChangeRequestPriority(
     RequestPriority priority) {
+  DCHECK(job_);
   job_->ChangeRequestPriority(this, priority);
 }
 

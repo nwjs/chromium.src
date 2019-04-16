@@ -72,7 +72,7 @@ LayoutUnit NGLineTruncator::TruncateLine(
       auto& child = *it;
       if (base::Optional<LayoutUnit> candidate = EllipsisOffset(
               line_width, ellipsis_width, &child == first_child, &child)) {
-        ellipsis_inline_offset = candidate.value();
+        ellipsis_inline_offset = *candidate;
         ellipsized_fragment = child.PhysicalFragment();
         DCHECK(ellipsized_fragment);
         break;
@@ -84,7 +84,7 @@ LayoutUnit NGLineTruncator::TruncateLine(
     for (auto& child : *line_box) {
       if (base::Optional<LayoutUnit> candidate = EllipsisOffset(
               line_width, ellipsis_width, &child == first_child, &child)) {
-        ellipsis_inline_offset = candidate.value();
+        ellipsis_inline_offset = *candidate;
         ellipsized_fragment = child.PhysicalFragment();
         DCHECK(ellipsized_fragment);
         break;
@@ -155,7 +155,6 @@ base::Optional<LayoutUnit> NGLineTruncator::EllipsisOffset(
     return base::nullopt;
 
   // Can't place ellipsis if this child is completely outside of the box.
-  DCHECK_GE(line_width, child->offset.inline_offset + child->inline_size);
   LayoutUnit child_inline_offset =
       IsLtr(line_direction_)
           ? child->offset.inline_offset
@@ -217,6 +216,7 @@ bool NGLineTruncator::TruncateChild(LayoutUnit space_for_child,
       IsLtr(line_direction_) ? space_for_child
                              : shape_result->Width() - space_for_child,
       line_direction_);
+  DCHECK_LE(new_length, fragment.Length());
   if (!new_length || new_length == fragment.Length()) {
     if (!is_first_child)
       return false;

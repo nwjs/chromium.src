@@ -7,7 +7,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/script_module.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/script/script_module_resolver.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
@@ -42,12 +42,12 @@ class CORE_EXPORT ScriptModuleResolverImpl final
  private:
   // Implements ScriptModuleResolver:
 
-  void RegisterModuleScript(ModuleScript*) final;
-  void UnregisterModuleScript(ModuleScript*) final;
-  ModuleScript* GetHostDefined(const ScriptModule&) const final;
+  void RegisterModuleScript(const ModuleScript*) final;
+  void UnregisterModuleScript(const ModuleScript*) final;
+  const ModuleScript* GetHostDefined(const ScriptModule&) const final;
 
   // Implements "Runtime Semantics: HostResolveImportedModule" per HTML spec.
-  // https://html.spec.whatwg.org/multipage/webappapis.html#hostresolveimportedmodule(referencingscriptormodule,-specifier))
+  // https://html.spec.whatwg.org/C/#hostresolveimportedmodule(referencingscriptormodule,-specifier))
   ScriptModule Resolve(const String& specifier,
                        const ScriptModule& referrer,
                        ExceptionState&) final;
@@ -60,7 +60,8 @@ class CORE_EXPORT ScriptModuleResolverImpl final
   // should not use ScriptModule as the map key. We currently rely on Detach()
   // to clear the refs, but we should implement a key type which keeps a
   // weak-ref to v8::Module.
-  HeapHashMap<ScriptModule, Member<ModuleScript>> record_to_module_script_map_;
+  HeapHashMap<ScriptModule, Member<const ModuleScript>>
+      record_to_module_script_map_;
   Member<Modulator> modulator_;
 };
 

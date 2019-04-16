@@ -10,6 +10,7 @@
 #include "base/macros.h"
 #include "device/fido/fido_constants.h"
 #include "device/fido/fido_discovery_factory.h"
+#include "device/fido/fido_transport_protocol.h"
 #include "device/fido/virtual_fido_device.h"
 
 namespace device {
@@ -24,7 +25,18 @@ class ScopedVirtualFidoDevice
   ScopedVirtualFidoDevice();
   ~ScopedVirtualFidoDevice() override;
 
+  // Sets the FidoTransportProtocol of the FidoDiscovery to be instantiated by
+  // this ScopedVirtualFidoDevice. The default is
+  // FidoTransportProtocol::kUsbHumanInterfaceDevice.
+  //
+  // The FidoTransportProtocol of the device instantiated by the FidoDiscovery
+  // must be set separately in mutable_state().
+  void SetTransport(FidoTransportProtocol transport);
+
   void SetSupportedProtocol(ProtocolVersion supported_protocol);
+  // EnablePINSupport causes the virtual devices to support PINs and sets the
+  // protocol version to CTAP2.
+  void EnablePINSupport();
   VirtualFidoDevice::State* mutable_state();
 
  protected:
@@ -34,6 +46,9 @@ class ScopedVirtualFidoDevice
 
  private:
   ProtocolVersion supported_protocol_ = ProtocolVersion::kU2f;
+  FidoTransportProtocol transport_ =
+      FidoTransportProtocol::kUsbHumanInterfaceDevice;
+  bool enable_pin_ = false;
   scoped_refptr<VirtualFidoDevice::State> state_;
   DISALLOW_COPY_AND_ASSIGN(ScopedVirtualFidoDevice);
 };

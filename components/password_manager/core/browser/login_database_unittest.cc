@@ -19,6 +19,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/autofill/core/common/password_form.h"
@@ -276,7 +277,7 @@ TEST_F(LoginDatabaseTest, Logins) {
   EXPECT_TRUE(db().GetAutofillableLogins(&result));
   EXPECT_EQ(0U, result.size());
 
-  EXPECT_TRUE(db().GetAllLogins(&key_to_form_map));
+  EXPECT_EQ(db().GetAllLogins(&key_to_form_map), FormRetrievalResult::kSuccess);
   EXPECT_EQ(0U, key_to_form_map.size());
 
   // Example password form.
@@ -293,7 +294,7 @@ TEST_F(LoginDatabaseTest, Logins) {
   EXPECT_EQ(form, *result[0]);
   result.clear();
 
-  EXPECT_TRUE(db().GetAllLogins(&key_to_form_map));
+  EXPECT_EQ(db().GetAllLogins(&key_to_form_map), FormRetrievalResult::kSuccess);
   EXPECT_EQ(1U, key_to_form_map.size());
   EXPECT_EQ(form, *key_to_form_map[1]);
   key_to_form_map.clear();
@@ -425,6 +426,9 @@ TEST_F(LoginDatabaseTest, RemoveLoginsByPrimaryKey) {
   ASSERT_EQ(1U, result.size());
   EXPECT_EQ(form, *result[0]);
   result.clear();
+
+  // RemoveLoginByPrimaryKey() doesn't decrypt or fill the password value.
+  form.password_value = ASCIIToUTF16("");
 
   EXPECT_TRUE(db().RemoveLoginByPrimaryKey(primary_key, &change_list));
   EXPECT_EQ(RemoveChangeForForm(form), change_list);
@@ -1874,7 +1878,7 @@ TEST_F(LoginDatabaseTest, PasswordReuseMetrics) {
 
 TEST_F(LoginDatabaseTest, NoMetadata) {
   std::unique_ptr<syncer::MetadataBatch> metadata_batch =
-      db().GetAllSyncMetadataForTesting();
+      db().GetAllSyncMetadata();
   ASSERT_THAT(metadata_batch, testing::NotNull());
   EXPECT_EQ(0u, metadata_batch->TakeAllMetadata().size());
   EXPECT_EQ(sync_pb::ModelTypeState().SerializeAsString(),
@@ -1901,7 +1905,7 @@ TEST_F(LoginDatabaseTest, GetAllSyncMetadata) {
       db().UpdateSyncMetadata(syncer::PASSWORDS, kStorageKey2, metadata));
 
   std::unique_ptr<syncer::MetadataBatch> metadata_batch =
-      db().GetAllSyncMetadataForTesting();
+      db().GetAllSyncMetadata();
   ASSERT_THAT(metadata_batch, testing::NotNull());
 
   EXPECT_TRUE(metadata_batch->GetModelTypeState().initial_sync_done());
@@ -1917,7 +1921,7 @@ TEST_F(LoginDatabaseTest, GetAllSyncMetadata) {
   model_type_state.set_initial_sync_done(false);
   EXPECT_TRUE(db().UpdateModelTypeState(syncer::PASSWORDS, model_type_state));
 
-  metadata_batch = db().GetAllSyncMetadataForTesting();
+  metadata_batch = db().GetAllSyncMetadata();
   ASSERT_THAT(metadata_batch, testing::NotNull());
   EXPECT_FALSE(metadata_batch->GetModelTypeState().initial_sync_done());
 }
@@ -1939,7 +1943,7 @@ TEST_F(LoginDatabaseTest, WriteThenDeleteSyncMetadata) {
   EXPECT_TRUE(db().ClearSyncMetadata(syncer::PASSWORDS, kStorageKey));
 
   std::unique_ptr<syncer::MetadataBatch> metadata_batch =
-      db().GetAllSyncMetadataForTesting();
+      db().GetAllSyncMetadata();
   ASSERT_THAT(metadata_batch, testing::NotNull());
 
   // It shouldn't be there any more.
@@ -1949,7 +1953,7 @@ TEST_F(LoginDatabaseTest, WriteThenDeleteSyncMetadata) {
 
   // Now delete the model type state.
   EXPECT_TRUE(db().ClearModelTypeState(syncer::PASSWORDS));
-  metadata_batch = db().GetAllSyncMetadataForTesting();
+  metadata_batch = db().GetAllSyncMetadata();
   ASSERT_THAT(metadata_batch, testing::NotNull());
 
   EXPECT_EQ(sync_pb::ModelTypeState().SerializeAsString(),
@@ -2192,15 +2196,15 @@ TEST_P(LoginDatabaseMigrationTestBroken, Broken) {
   MigrationToVCurrent(base::StringPrintf("login_db_v%d_broken.sql", version()));
 }
 
-INSTANTIATE_TEST_CASE_P(MigrationToVCurrent,
-                        LoginDatabaseMigrationTest,
-                        testing::Range(1, kCurrentVersionNumber + 1));
-INSTANTIATE_TEST_CASE_P(MigrationToVCurrent,
-                        LoginDatabaseMigrationTestV9,
-                        testing::Values(9));
-INSTANTIATE_TEST_CASE_P(MigrationToVCurrent,
-                        LoginDatabaseMigrationTestBroken,
-                        testing::Range(1, 4));
+INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
+                         LoginDatabaseMigrationTest,
+                         testing::Range(1, kCurrentVersionNumber + 1));
+INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
+                         LoginDatabaseMigrationTestV9,
+                         testing::Values(9));
+INSTANTIATE_TEST_SUITE_P(MigrationToVCurrent,
+                         LoginDatabaseMigrationTestBroken,
+                         testing::Range(1, 4));
 
 class LoginDatabaseUndecryptableLoginsTest : public testing::Test {
  protected:

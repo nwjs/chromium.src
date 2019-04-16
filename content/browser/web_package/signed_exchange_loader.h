@@ -5,6 +5,9 @@
 #ifndef CONTENT_BROWSER_WEB_PACKAGE_SIGNED_EXCHANGE_LOADER_H_
 #define CONTENT_BROWSER_WEB_PACKAGE_SIGNED_EXCHANGE_LOADER_H_
 
+#include <memory>
+#include <string>
+
 #include "base/callback.h"
 #include "base/optional.h"
 #include "base/unguessable_token.h"
@@ -32,6 +35,7 @@ class SignedExchangeDevToolsProxy;
 class SignedExchangeHandler;
 class SignedExchangeHandlerFactory;
 class SignedExchangePrefetchMetricRecorder;
+class SignedExchangeReporter;
 class URLLoaderThrottle;
 class SourceStreamToDataPipe;
 
@@ -57,10 +61,12 @@ class CONTENT_EXPORT SignedExchangeLoader final
       uint32_t url_loader_options,
       bool should_redirect_on_failure,
       std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy,
+      std::unique_ptr<SignedExchangeReporter> reporter,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       URLLoaderThrottlesGetter url_loader_throttles_getter,
       base::RepeatingCallback<int(void)> frame_tree_node_id_getter,
-      scoped_refptr<SignedExchangePrefetchMetricRecorder> metric_recorder);
+      scoped_refptr<SignedExchangePrefetchMetricRecorder> metric_recorder,
+      const std::string& accept_langs);
   ~SignedExchangeLoader() override;
 
 
@@ -92,7 +98,7 @@ class CONTENT_EXPORT SignedExchangeLoader final
 
   void ConnectToClient(network::mojom::URLLoaderClientPtr client);
 
-  const base::Optional<GURL>& fallback_url() const { return fallback_url_; };
+  const base::Optional<GURL>& fallback_url() const { return fallback_url_; }
 
   const base::Optional<GURL>& inner_request_url() const {
     return inner_request_url_;
@@ -115,6 +121,8 @@ class CONTENT_EXPORT SignedExchangeLoader final
       std::unique_ptr<net::SourceStream> payload_stream);
 
   void FinishReadingBody(int result);
+  void NotifyClientOnCompleteIfReady();
+  void ReportLoadResult(SignedExchangeLoadResult result);
 
   const network::ResourceRequest outer_request_;
 
@@ -148,6 +156,7 @@ class CONTENT_EXPORT SignedExchangeLoader final
   const uint32_t url_loader_options_;
   const bool should_redirect_on_failure_;
   std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy_;
+  std::unique_ptr<SignedExchangeReporter> reporter_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   URLLoaderThrottlesGetter url_loader_throttles_getter_;
   base::RepeatingCallback<int(void)> frame_tree_node_id_getter_;
@@ -159,6 +168,17 @@ class CONTENT_EXPORT SignedExchangeLoader final
 
   base::Optional<GURL> fallback_url_;
   base::Optional<GURL> inner_request_url_;
+
+  struct OuterResponseLengthInfo {
+    int64_t encoded_data_length;
+    int64_t decoded_body_length;
+  };
+  // Set when URLLoaderClient::OnComplete() is called.
+  base::Optional<OuterResponseLengthInfo> outer_response_length_info_;
+
+  // Set when |body_data_pipe_adapter_| finishes loading the decoded body.
+  base::Optional<int> decoded_body_read_result_;
+  const std::string accept_langs_;
 
   base::WeakPtrFactory<SignedExchangeLoader> weak_factory_;
 

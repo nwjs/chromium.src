@@ -4,6 +4,7 @@
 
 #include "content/common/throttling_url_loader.h"
 
+#include "base/bind.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -768,7 +769,7 @@ void ThrottlingURLLoader::InterceptResponse(
 
   if (original_client_request)
     *original_client_request = client_binding_.Unbind();
-  client_binding_.Bind(std::move(new_client_request));
+  client_binding_.Bind(std::move(new_client_request), start_info_->task_runner);
   client_binding_.set_connection_error_handler(base::BindOnce(
       &ThrottlingURLLoader::OnClientConnectionError, base::Unretained(this)));
 }

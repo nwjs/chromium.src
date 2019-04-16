@@ -44,6 +44,7 @@
 #include "third_party/blink/renderer/core/html/parser/html_parser_scheduler.h"
 #include "third_party/blink/renderer/core/html/parser/html_resource_preloader.h"
 #include "third_party/blink/renderer/core/html/parser/html_tree_builder.h"
+#include "third_party/blink/renderer/core/html/parser/pump_session.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/inspector/inspector_trace_events.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
@@ -81,8 +82,7 @@ static HTMLTokenizer::State TokenizerStateForContextElement(
   if (context_tag.Matches(kTitleTag) || context_tag.Matches(kTextareaTag))
     return HTMLTokenizer::kRCDATAState;
   if (context_tag.Matches(kStyleTag) || context_tag.Matches(kXmpTag) ||
-      context_tag.Matches(kIFrameTag) ||
-      (context_tag.Matches(kNoembedTag) && options.plugins_enabled) ||
+      context_tag.Matches(kIFrameTag) || context_tag.Matches(kNoembedTag) ||
       (context_tag.Matches(kNoscriptTag) && options.script_enabled) ||
       context_tag.Matches(kNoframesTag))
     return report_errors ? HTMLTokenizer::kRAWTEXTState
@@ -140,7 +140,6 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
               ? HTMLParserScheduler::Create(this, loading_task_runner_.get())
               : nullptr),
       xss_auditor_delegate_(&document),
-      preloader_(HTMLResourcePreloader::Create(document)),
       pending_csp_meta_token_(nullptr),
       should_use_threading_(sync_policy == kAllowAsynchronousParsing),
       end_was_delayed_(false),
@@ -156,6 +155,22 @@ HTMLDocumentParser::HTMLDocumentParser(Document& document,
   DCHECK(ShouldUseThreading() || (token_ && tokenizer_));
   // Threading is not allowed in prefetch mode.
   DCHECK(!document.IsPrefetchOnly() || !ShouldUseThreading());
+
+  // Don't create preloader for parsing clipboard content.
+  if (content_policy == kDisallowScriptingAndPluginContent)
+    return;
+
+  // Create preloader only when the document is:
+  // - attached to a frame (likely the prefetched resources will be loaded
+  // soon),
+  // - a HTML import document (blocks rendering and also resources will be
+  // loaded soon), or
+  // - is for no-state prefetch (made specifically for running preloader).
+  if (!document.GetFrame() && !document.IsHTMLImport() &&
+      !document.IsPrefetchOnly())
+    return;
+
+  preloader_ = HTMLResourcePreloader::Create(document);
 }
 
 HTMLDocumentParser::~HTMLDocumentParser() = default;
@@ -333,23 +348,31 @@ void HTMLDocumentParser::EnqueueTokenizedChunk(
         &chunk->tokens.at(chunk->pending_csp_meta_token_index);
   }
 
-  if (pending_csp_meta_token_ || !GetDocument()->documentElement()) {
-    PreloadRequestStream link_rel_preloads;
-    for (auto& request : chunk->preloads) {
-      // Link rel preloads don't need to wait for AppCache but they
-      // should probably wait for CSP.
-      if (!pending_csp_meta_token_ && request->IsLinkRelPreload())
-        link_rel_preloads.push_back(std::move(request));
-      else
-        queued_preloads_.push_back(std::move(request));
+  if (preloader_) {
+    bool appcache_initialized = GetDocument()->documentElement();
+    if (!appcache_initialized) {
+      appcache_queueing_start_time_ = CurrentTimeTicks();
     }
-    preloader_->TakeAndPreload(link_rel_preloads);
-  } else {
-    // We can safely assume that there are no queued preloads request after the
-    // document element is available, as we empty the queue immediately after
-    // the document element is created in documentElementAvailable().
-    DCHECK(queued_preloads_.IsEmpty());
-    preloader_->TakeAndPreload(chunk->preloads);
+    // Delay sending some requests if meta tag based CSP is present or
+    // if AppCache was not yet initialized.
+    if (pending_csp_meta_token_ || !appcache_initialized) {
+      PreloadRequestStream link_rel_preloads;
+      for (auto& request : chunk->preloads) {
+        // Link rel preloads don't need to wait for AppCache but they
+        // should probably wait for CSP.
+        if (!pending_csp_meta_token_ && request->IsLinkRelPreload())
+          link_rel_preloads.push_back(std::move(request));
+        else
+          queued_preloads_.push_back(std::move(request));
+      }
+      preloader_->TakeAndPreload(link_rel_preloads);
+    } else {
+      // We can safely assume that there are no queued preloads request after
+      // the document element is available, as we empty the queue immediately
+      // after the document element is created in documentElementAvailable().
+      DCHECK(queued_preloads_.IsEmpty());
+      preloader_->TakeAndPreload(chunk->preloads);
+    }
   }
 
   speculations_.push_back(std::move(chunk));
@@ -684,10 +707,6 @@ void HTMLDocumentParser::PumpTokenizer() {
   if (IsPaused()) {
     DCHECK_EQ(tokenizer_->GetState(), HTMLTokenizer::kDataState);
 
-    DCHECK(preloader_);
-    // TODO(kouhei): preloader_ should be always available for synchronous
-    // parsing case, adding paranoia if for speculative crash fix for
-    // crbug.com/465478
     if (preloader_) {
       if (!preload_scanner_) {
         preload_scanner_ = CreatePreloadScanner(
@@ -902,7 +921,7 @@ void HTMLDocumentParser::end() {
   tree_builder_->Finished();
 
   // All preloads should be done.
-  preloader_.Clear();
+  preloader_ = nullptr;
 
   DocumentParser::StopParsing();
 }
@@ -1214,8 +1233,39 @@ void HTMLDocumentParser::SetDecoder(
 
 void HTMLDocumentParser::DocumentElementAvailable() {
   TRACE_EVENT0("blink,loader", "HTMLDocumentParser::documentElementAvailable");
-  DCHECK(GetDocument()->documentElement());
-  FetchQueuedPreloads();
+  TimeDelta delta;
+  if (!appcache_queueing_start_time_.is_null()) {
+    delta = CurrentTimeTicks() - appcache_queueing_start_time_;
+  }
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "WebCore.HTMLDocumentParser.PreloadScannerAppCacheDelayTime", delta,
+      base::TimeDelta::FromMicroseconds(1),
+      base::TimeDelta::FromMilliseconds(1000), 50);
+  Document* document = GetDocument();
+  DCHECK(document);
+  LocalFrame* frame = document->GetFrame();
+  if (frame && frame->IsMainFrame()) {
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "WebCore.HTMLDocumentParser.PreloadScannerAppCacheDelayTime.MainFrame",
+        delta, base::TimeDelta::FromMicroseconds(1),
+        base::TimeDelta::FromMilliseconds(1000), 50);
+  }
+  DCHECK(document->documentElement());
+  Element* documentElement = GetDocument()->documentElement();
+  if (documentElement->hasAttribute(u"\u26A1") ||
+      documentElement->hasAttribute("amp") ||
+      documentElement->hasAttribute("i-amphtml-layout")) {
+    // The DocumentLoader fetches a main resource and handles the result.
+    // But it may not be available if JavaScript appends HTML to the page later
+    // in the page's lifetime. This can happen both from in-page JavaScript and
+    // from extensions. See example callstacks linked from crbug.com/931330.
+    if (document->Loader()) {
+      document->Loader()->DidObserveLoadingBehavior(
+          kWebLoadingBehaviorAmpDocumentLoaded);
+    }
+  }
+  if (preloader_)
+    FetchQueuedPreloads();
 }
 
 std::unique_ptr<HTMLPreloadScanner> HTMLDocumentParser::CreatePreloadScanner(
@@ -1227,6 +1277,9 @@ std::unique_ptr<HTMLPreloadScanner> HTMLDocumentParser::CreatePreloadScanner(
 }
 
 void HTMLDocumentParser::ScanAndPreload(HTMLPreloadScanner* scanner) {
+  if (!preloader_)
+    return;
+
   bool seen_csp_meta_tag = false;
   PreloadRequestStream requests = scanner->Scan(
       GetDocument()->ValidBaseElementURL(), nullptr, seen_csp_meta_tag);
@@ -1234,6 +1287,8 @@ void HTMLDocumentParser::ScanAndPreload(HTMLPreloadScanner* scanner) {
 }
 
 void HTMLDocumentParser::FetchQueuedPreloads() {
+  DCHECK(preloader_);
+
   if (pending_csp_meta_token_ || !GetDocument()->documentElement())
     return;
 

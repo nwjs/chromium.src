@@ -33,7 +33,7 @@ namespace {
 
 #define WEBSOCKET_BASIC_STREAM_TEST_DEFINE_CONSTANT(name, value) \
   const char k##name[] = value;                                  \
-  const size_t k##name##Size = base::size(k##name) - 1;
+  const size_t k##name##Size = base::size(k##name) - 1
 
 WEBSOCKET_BASIC_STREAM_TEST_DEFINE_CONSTANT(SampleFrame, "\x81\x06Sample");
 WEBSOCKET_BASIC_STREAM_TEST_DEFINE_CONSTANT(
@@ -123,10 +123,10 @@ class WebSocketBasicStreamSocketTest : public TestWithScopedTaskEnvironment {
 
     auto transport_socket = std::make_unique<ClientSocketHandle>();
     scoped_refptr<MockTransportSocketParams> params;
-    transport_socket->Init("a", params, MEDIUM, SocketTag(),
-                           ClientSocketPool::RespectLimits::ENABLED,
-                           CompletionOnceCallback(), &pool_,
-                           NetLogWithSource());
+    transport_socket->Init(
+        "a", params, MEDIUM, SocketTag(),
+        ClientSocketPool::RespectLimits::ENABLED, CompletionOnceCallback(),
+        ClientSocketPool::ProxyAuthCallback(), &pool_, NetLogWithSource());
     return transport_socket;
   }
 

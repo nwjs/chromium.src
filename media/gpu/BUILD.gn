@@ -345,6 +345,8 @@ source_set("common") {
       "vp8_picture.h",
       "vp8_reference_frame_vector.cc",
       "vp8_reference_frame_vector.h",
+      "vp9_reference_frame_vector.cc",
+      "vp9_reference_frame_vector.h",
     ]
   }
 
@@ -391,6 +393,7 @@ if (is_win || is_android || use_v4l2_codec || use_vaapi) {
       ]
       deps += [
         "test:decode_helpers",
+        "test:frame_file_writer",
         "test:frame_validator",
         "//mojo/core/embedder",
         "//ui/display",
@@ -564,7 +567,7 @@ if (is_chromeos || is_linux) {
       "//media/test/data/peach_pi-41x23.jpg",
     ]
     if (use_vaapi) {
-      deps += [ "//media/gpu/vaapi:jpeg_decode_accelerator_unit_test" ]
+      deps += [ "//media/gpu/vaapi:jpeg_decoder_unit_test" ]
       data += [ "//media/test/data/pixel-1280x720.jpg" ]
     }
     if (use_x11) {
@@ -638,16 +641,35 @@ if (is_chromeos) {
     ]
     deps = [
       ":buildflags",
+      "test:frame_file_writer",
       "test:frame_validator",
       "test:video_player",
-      "//base/test:test_support",
+      "test:video_player_test_environment",
+      "test:video_player_thumbnail_renderer",
       "//media:test_support",
       "//mojo/core/embedder",
       "//testing/gtest",
     ]
-    if (use_vaapi) {
-      deps += [ "//media/gpu/vaapi" ]
-    }
+  }
+}
+
+# TODO(dstaessens@) Make this work on other platforms too.
+if (is_chromeos) {
+  test("video_decode_accelerator_perf_tests") {
+    sources = [
+      "video_decode_accelerator_perf_tests.cc",
+    ]
+    data = [
+      "//media/test/data/",
+    ]
+    deps = [
+      ":buildflags",
+      "test:video_player",
+      "test:video_player_test_environment",
+      "//media:test_support",
+      "//mojo/core/embedder",
+      "//testing/gtest",
+    ]
   }
 }
 
@@ -658,7 +680,9 @@ test("image_processor_test") {
   deps = [
     ":buildflags",
     ":gpu",
+    "test:frame_validator",
     "test:image_processor",
+    "test:render_helpers",
     "//base/test:test_support",
     "//media:test_support",
     "//mojo/core/embedder",

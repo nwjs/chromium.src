@@ -157,7 +157,6 @@ scoped_refptr<base::SingleThreadTaskRunner> WorkerScheduler::GetTaskRunner(
     case TaskType::kInternalDefault:
     case TaskType::kInternalLoading:
     case TaskType::kInternalWebCrypto:
-    case TaskType::kInternalIndexedDB:
     case TaskType::kInternalMedia:
     case TaskType::kInternalMediaRealTime:
     case TaskType::kInternalUserInteraction:
@@ -193,6 +192,8 @@ scoped_refptr<base::SingleThreadTaskRunner> WorkerScheduler::GetTaskRunner(
     case TaskType::kExperimentalWebSchedulingUserInteraction:
     case TaskType::kExperimentalWebSchedulingBestEffort:
     case TaskType::kInternalTranslation:
+    case TaskType::kServiceWorkerClientMessage:
+    case TaskType::kInternalContentCapture:
     case TaskType::kCount:
       NOTREACHED();
       break;

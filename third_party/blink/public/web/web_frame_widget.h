@@ -31,6 +31,7 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_WIDGET_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_FRAME_WIDGET_H_
 
+#include "third_party/blink/public/common/frame/occlusion_state.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_touch_action.h"
@@ -103,7 +104,8 @@ class WebFrameWidget : public WebWidget {
   // and indicates whether the frame may be painted over or obscured in the
   // parent. This is needed for out-of-process iframes to know if they are
   // clipped or obscured by ancestor frames in another process.
-  virtual void SetRemoteViewportIntersection(const WebRect&, bool) {}
+  virtual void SetRemoteViewportIntersection(const WebRect&,
+                                             FrameOcclusionState) {}
 
   // Sets the inert bit on an out-of-process iframe, causing it to ignore
   // input.
@@ -132,6 +134,13 @@ class WebFrameWidget : public WebWidget {
   // This function provides zooming for find in page results when browsing with
   // page autosize.
   virtual void ZoomToFindInPageRect(const WebRect& rect_in_root_frame) = 0;
+
+ private:
+  // This private constructor and the class/friend declaration ensures that
+  // WebFrameWidgetBase is the only concrete subclass that implements
+  // WebFrameWidget, so that it is safe to downcast to WebFrameWidgetBase.
+  friend class WebFrameWidgetBase;
+  WebFrameWidget() = default;
 };
 
 }  // namespace blink

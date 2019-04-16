@@ -39,12 +39,15 @@ void ElementArea::SetFromProto(const ElementAreaProto& proto) {
   for (const auto& rectangle_proto : proto.rectangles()) {
     rectangles_.emplace_back();
     Rectangle& rectangle = rectangles_.back();
+    rectangle.full_width = rectangle_proto.full_width();
+    DVLOG(3) << "Touchable Rectangle"
+             << (rectangle.full_width ? " (full_width)" : "") << ":";
     for (const auto& element_proto : rectangle_proto.elements()) {
       rectangle.positions.emplace_back();
       ElementPosition& position = rectangle.positions.back();
       position.selector = Selector(element_proto);
+      DVLOG(3) << "  " << position.selector;
     }
-    rectangle.full_width = rectangle_proto.full_width();
   }
   ReportUpdate();
 
@@ -81,15 +84,11 @@ void ElementArea::UpdatePositions() {
   }
 }
 
-bool ElementArea::IsEmpty() const {
-  for (const auto& rectangle : rectangles_) {
-    for (const auto& position : rectangle.positions) {
-      if (!position.rect.empty()) {
-        return false;
-      }
-    }
+void ElementArea::GetRectangles(std::vector<RectF>* area) {
+  for (auto& rectangle : rectangles_) {
+    area->emplace_back();
+    rectangle.FillRect(&area->back());
   }
-  return true;
 }
 
 ElementArea::ElementPosition::ElementPosition() = default;
@@ -109,7 +108,7 @@ bool ElementArea::Rectangle::IsPending() const {
   return false;
 }
 
-bool ElementArea::Rectangle::FillRect(RectF* rect) const {
+void ElementArea::Rectangle::FillRect(RectF* rect) const {
   bool has_first_rect = false;
   for (const auto& position : positions) {
     if (position.rect.empty())
@@ -125,14 +124,11 @@ bool ElementArea::Rectangle::FillRect(RectF* rect) const {
     rect->left = std::min(rect->left, position.rect.left);
     rect->right = std::max(rect->right, position.rect.right);
   }
-  if (!has_first_rect)
-    return false;
-
-  if (full_width) {
+  if (has_first_rect && full_width) {
     rect->left = 0.0;
     rect->right = 1.0;
   }
-  return true;
+  return;
 }
 
 void ElementArea::KeepUpdatingElementPositions() {
@@ -181,14 +177,9 @@ void ElementArea::ReportUpdate() {
     }
   }
 
-  std::vector<RectF> areas;
-  for (auto& rectangle : rectangles_) {
-    RectF rect;
-    if (rectangle.FillRect(&rect)) {
-      areas.emplace_back(rect);
-    }
-  }
-  on_update_.Run(areas);
+  std::vector<RectF> area;
+  GetRectangles(&area);
+  on_update_.Run(area);
 }
 
 }  // namespace autofill_assistant

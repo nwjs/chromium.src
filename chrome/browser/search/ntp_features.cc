@@ -17,6 +17,10 @@ const base::Feature kDoodlesOnLocalNtp{"DoodlesOnLocalNtp",
 const base::Feature kPromosOnLocalNtp{"PromosOnLocalNtp",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
+// If enabled, the fakebox will not be shown on the NTP.
+const base::Feature kRemoveNtpFakebox{"RemoveNtpFakebox",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
+
 // If enabled, the user will sometimes see search suggestions on the NTP.
 const base::Feature kSearchSuggestionsOnLocalNtp{
     "SearchSuggestionsOnLocalNtp", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -33,6 +37,10 @@ const base::Feature kFakeboxSearchIconOnNtp{"FakeboxSearchIconOnNtp",
 // implicitly enabled by |kFakeboxSearchIconOnNtp|.
 const base::Feature kUseAlternateFakeboxOnNtp{
     "UseAlternateFakeboxOnNtp", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// If enabled, the shortcuts will not be shown on the NTP.
+const base::Feature kHideShortcutsOnNtp{"HideShortcutsOnNtp",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsUseAlternateFakeboxOnNtpEnabled() {
   return base::FeatureList::IsEnabled(kFakeboxSearchIconOnNtp) ||

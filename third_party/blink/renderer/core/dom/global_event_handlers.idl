@@ -27,7 +27,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// https://html.spec.whatwg.org/#globaleventhandlers
+// https://html.spec.whatwg.org/C/#globaleventhandlers
 
 [
     LegacyTreatAsPartialInterface,
@@ -35,6 +35,7 @@
 ] interface GlobalEventHandlers {
     attribute EventHandler onabort;
     [RuntimeEnabled=InvisibleDOM] attribute EventHandler onactivateinvisible;
+    [RuntimeEnabled=DisplayLocking] attribute EventHandler onbeforeactivate;
     attribute EventHandler onblur;
     attribute EventHandler oncancel;
     attribute EventHandler oncanplay;

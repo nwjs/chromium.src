@@ -14,7 +14,7 @@
 
         <Preference
             android:key="sync_error_card"
-            android:icon="@drawable/sync_error"
+            android:layout="@layout/account_management_account_row"
             android:title="@string/sync_error_card_title"/>
         <org.chromium.chrome.browser.preferences.ChromeSwitchPreference
             android:key="sync_requested"
@@ -35,11 +35,6 @@
             android:key="search_suggestions"
             android:title="@string/autocomplete_searches_and_urls_title"
             android:summary="@string/autocomplete_searches_and_urls_summary"
-            android:persistent="false"/>
-        <org.chromium.chrome.browser.preferences.ChromeSwitchPreference
-            android:key="network_predictions"
-            android:title="@string/preload_pages_title"
-            android:summary="@string/preload_pages_summary"
             android:persistent="false"/>
         <org.chromium.chrome.browser.preferences.ChromeSwitchPreference
             android:key="navigation_error"

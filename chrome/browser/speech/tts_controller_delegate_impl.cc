@@ -32,7 +32,7 @@ bool VoiceIdMatches(const std::string& voice_id,
       (voice.engine_id.empty() && !voice.native))
     return false;
   std::unique_ptr<base::DictionaryValue> json =
-      base::DictionaryValue::From(base::JSONReader::Read(voice_id));
+      base::DictionaryValue::From(base::JSONReader::ReadDeprecated(voice_id));
   std::string default_name;
   std::string default_extension_id;
   json->GetString("name", &default_name);
@@ -123,7 +123,7 @@ int TtsControllerDelegateImpl::GetMatchingVoice(
     }
 
     // Next, prefer required event types.
-    if (utterance->GetRequiredEventTypes().size() > 0) {
+    if (!utterance->GetRequiredEventTypes().empty()) {
       bool has_all_required_event_types = true;
       for (auto iter = utterance->GetRequiredEventTypes().begin();
            iter != utterance->GetRequiredEventTypes().end(); ++iter) {

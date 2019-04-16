@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
@@ -22,7 +23,6 @@
 #include "media/base/channel_layout.h"
 #include "media/base/sample_rates.h"
 #include "media/webrtc/webrtc_switches.h"
-#include "third_party/webrtc/api/media_constraints_interface.h"
 #include "third_party/webrtc/media/base/media_channel.h"
 
 namespace content {
@@ -41,19 +41,59 @@ bool ApmInAudioServiceEnabled() {
   return false;
 #endif
 }
+
+void LogAudioProcesingProperties(const AudioProcessingProperties& properties) {
+  auto aec_to_string =
+      [](AudioProcessingProperties::EchoCancellationType type) {
+        using AEC = AudioProcessingProperties::EchoCancellationType;
+        switch (type) {
+          case AEC::kEchoCancellationDisabled:
+            return "disabled";
+          case AEC::kEchoCancellationAec3:
+            return "aec3";
+          case AEC::kEchoCancellationSystem:
+            return "system";
+        }
+      };
+  auto bool_to_string = [](bool value) { return value ? "true" : "false"; };
+  auto str = base::StringPrintf(
+      "AudioProcessingProperties: "
+      "aec=%s, "
+      "disable_hw_ns=%s, "
+      "goog_audio_mirroring=%s, "
+      "goog_auto_gain_control=%s, "
+      "goog_experimental_echo_cancellation=%s, "
+      "goog_typing_noise_detection=%s, "
+      "goog_noise_suppression=%s, "
+      "goog_experimental_noise_suppression=%s, "
+      "goog_highpass_filter=%s, "
+      "goog_experimental_agc=%s, "
+      "hybrid_agc=%s",
+      aec_to_string(properties.echo_cancellation_type),
+      bool_to_string(properties.disable_hw_noise_suppression),
+      bool_to_string(properties.goog_audio_mirroring),
+      bool_to_string(properties.goog_auto_gain_control),
+      bool_to_string(properties.goog_experimental_echo_cancellation),
+      bool_to_string(properties.goog_typing_noise_detection),
+      bool_to_string(properties.goog_noise_suppression),
+      bool_to_string(properties.goog_experimental_noise_suppression),
+      bool_to_string(properties.goog_highpass_filter),
+      bool_to_string(properties.goog_experimental_auto_gain_control),
+      bool_to_string(base::FeatureList::IsEnabled(features::kWebRtcHybridAgc)));
+
+  WebRtcLogMessage(str);
+}
 }  // namespace
 
 ProcessedLocalAudioSource::ProcessedLocalAudioSource(
     int consumer_render_frame_id,
     const blink::MediaStreamDevice& device,
-    bool hotword_enabled,
     bool disable_local_echo,
     const AudioProcessingProperties& audio_processing_properties,
     const ConstraintsCallback& started_callback,
     PeerConnectionDependencyFactory* factory)
-    : MediaStreamAudioSource(true /* is_local_source */,
-                             hotword_enabled,
-                             disable_local_echo),
+    : blink::MediaStreamAudioSource(true /* is_local_source */,
+                                    disable_local_echo),
       consumer_render_frame_id_(consumer_render_frame_id),
       pc_factory_(factory),
       audio_processing_properties_(audio_processing_properties),
@@ -73,7 +113,7 @@ ProcessedLocalAudioSource::~ProcessedLocalAudioSource() {
 
 // static
 ProcessedLocalAudioSource* ProcessedLocalAudioSource::From(
-    MediaStreamAudioSource* source) {
+    blink::MediaStreamAudioSource* source) {
   if (source &&
       source->GetClassIdentifier() == kProcessedLocalAudioSourceIdentifier)
     return static_cast<ProcessedLocalAudioSource*>(source);
@@ -108,6 +148,8 @@ bool ProcessedLocalAudioSource::EnsureSourceIsStarted() {
       device().session_id, device().input.effects());
   WebRtcLogMessage(str);
   DVLOG(1) << str;
+
+  LogAudioProcesingProperties(audio_processing_properties_);
 
   blink::MediaStreamDevice modified_device(device());
   bool device_is_modified = false;
@@ -231,7 +273,12 @@ bool ProcessedLocalAudioSource::EnsureSourceIsStarted() {
       source_params.processing->settings.automatic_gain_control =
           media::AutomaticGainControlType::kHybridExperimental;
     }
+    WebRtcLogMessage(base::StringPrintf(
+        "Using APM in audio process; settings: %s",
+        source_params.processing->settings.ToString().c_str()));
+
   } else {
+    WebRtcLogMessage("Using APM in renderer process.");
     audio_processor_ = new rtc::RefCountedObject<MediaStreamAudioProcessor>(
         audio_processing_properties_, rtc_audio_device);
     params.set_frames_per_buffer(GetBufferSize(device().input.sample_rate()));

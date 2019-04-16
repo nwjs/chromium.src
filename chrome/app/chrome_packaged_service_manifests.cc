@@ -8,31 +8,29 @@
 #include "build/build_config.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/constants.mojom.h"
-#include "chrome/services/file_util/manifest.h"
-#include "chrome/services/noop/manifest.h"
-#include "components/services/patch/manifest.h"
-#include "components/services/unzip/manifest.h"
+#include "chrome/services/file_util/public/cpp/manifest.h"
+#include "chrome/services/noop/public/cpp/manifest.h"
+#include "components/services/patch/public/cpp/manifest.h"
+#include "components/services/unzip/public/cpp/manifest.h"
 #include "components/spellcheck/common/spellcheck.mojom.h"
 #include "components/startup_metric_utils/common/startup_metric.mojom.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/preferences/local_state_manifest.h"
-#include "services/proxy_resolver/proxy_resolver_manifest.h"
+#include "services/preferences/public/cpp/local_state_manifest.h"
+#include "services/proxy_resolver/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
 
 #if defined(OS_CHROMEOS)
-#include "ash/components/quick_launch/manifest.h"
-#include "ash/components/shortcut_viewer/manifest.h"
-#include "ash/components/tap_visualizer/manifest.h"
-#include "ash/manifest.h"
-#include "chrome/browser/chromeos/ash_pref_connector_manifest.h"
-#include "chrome/services/cups_ipp_parser/manifest.h"
-#include "chromeos/services/ime/manifest.h"
-#include "chromeos/services/secure_channel/manifest.h"
-#include "mash/public/mojom/launchable.mojom.h"  // nogncheck
+#include "ash/components/shortcut_viewer/public/cpp/manifest.h"
+#include "ash/components/tap_visualizer/public/cpp/manifest.h"
+#include "ash/public/cpp/manifest.h"
+#include "chrome/browser/chromeos/prefs/ash_pref_connector_manifest.h"
+#include "chrome/services/cups_ipp_parser/public/cpp/manifest.h"  // nogncheck
+#include "chromeos/services/ime/public/cpp/manifest.h"
+#include "chromeos/services/secure_channel/public/cpp/manifest.h"
 #include "services/ws/public/mojom/input_devices/input_device_controller.mojom.h"
-#include "ui/accessibility/manifest.h"  // nogncheck
+#include "ui/accessibility/ax_host_manifest.h"  // nogncheck
 #endif
 
 #if defined(OS_MACOSX)
@@ -40,29 +38,29 @@
 #endif
 
 #if defined(OS_WIN)
-#include "chrome/services/util_win/manifest.h"
-#include "chrome/services/wifi_util_win/manifest.h"
+#include "chrome/services/util_win/public/cpp/manifest.h"
+#include "chrome/services/wifi_util_win/public/cpp/manifest.h"
 #endif
 
 #if !defined(OS_ANDROID)
-#include "chrome/utility/profile_import_manifest.h"
+#include "chrome/utility/importer/profile_import_manifest.h"
 #include "components/mirroring/service/manifest.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/services/removable_storage_writer/manifest.h"
+#include "chrome/services/removable_storage_writer/public/cpp/manifest.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS) || defined(OS_ANDROID)
-#include "chrome/services/media_gallery_util/manifest.h"
+#include "chrome/services/media_gallery_util/public/cpp/manifest.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
-#include "components/services/pdf_compositor/pdf_compositor_manifest.h"  // nogncheck
+#include "components/services/pdf_compositor/public/cpp/manifest.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-#include "chrome/services/printing/manifest.h"
+#include "chrome/services/printing/public/cpp/manifest.h"
 #endif
 
 #if BUILDFLAG(ENABLE_ISOLATED_XR_SERVICE)
@@ -71,7 +69,7 @@
 
 #if BUILDFLAG(ENABLE_SIMPLE_BROWSER_SERVICE_IN_PROCESS) || \
     BUILDFLAG(ENABLE_SIMPLE_BROWSER_SERVICE_OUT_OF_PROCESS)
-#include "services/content/simple_browser/manifest.h"  // nogncheck
+#include "services/content/simple_browser/public/cpp/manifest.h"  // nogncheck
 #endif
 
 namespace {
@@ -100,9 +98,6 @@ const service_manager::Manifest& GetChromeManifest() {
         .ExposeCapability("input_device_controller",
                           service_manager::Manifest::InterfaceList<
                               ws::mojom::InputDeviceController>())
-        .ExposeCapability(
-            "mash:launchable",
-            service_manager::Manifest::InterfaceList<mash::mojom::Launchable>())
 #endif
         .RequireCapability(chrome::mojom::kRendererServiceName, "browser")
         .Build()
@@ -133,51 +128,50 @@ const std::vector<service_manager::Manifest>&
 GetChromePackagedServiceManifests() {
   static base::NoDestructor<std::vector<service_manager::Manifest>> manifests{{
       GetChromeManifest(),
-      patch_service::GetManifest(),
-      unzip_service::GetManifest(),
-      file_util::GetManifest(),
+      GetFileUtilManifest(),
+      GetNoopManifest(),
+      patch::GetManifest(),
+      unzip::GetManifest(),
       proxy_resolver::GetManifest(),
-      local_state::GetManifest(),
-      noop::GetManifest(),
+      prefs::GetLocalStateManifest(),
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-      removable_storage_writer::GetManifest(),
+      GetRemovableStorageWriterManifest(),
 #endif
 #if BUILDFLAG(ENABLE_EXTENSIONS) || defined(OS_ANDROID)
-      media_gallery_util::GetManifest(),
+      GetMediaGalleryUtilManifest(),
 #endif
 #if BUILDFLAG(ENABLE_PRINTING)
-      pdf_compositor::GetManifest(),
+      printing::GetPdfCompositorManifest(),
 #endif
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
-      chrome_printing::GetManifest(),
+      GetChromePrintingManifest(),
 #endif
 #if BUILDFLAG(ENABLE_ISOLATED_XR_SERVICE)
-      xr_device_service::GetManifest(),
+      GetXrDeviceServiceManifest(),
 #endif
 #if BUILDFLAG(ENABLE_SIMPLE_BROWSER_SERVICE_IN_PROCESS) || \
     BUILDFLAG(ENABLE_SIMPLE_BROWSER_SERVICE_OUT_OF_PROCESS)
       simple_browser::GetManifest(),
 #endif
 #if defined(OS_WIN)
-      util_win::GetManifest(),
-      wifi_util_win::GetManifest(),
+      GetUtilWinManifest(),
+      GetWifiUtilWinManifest(),
 #endif
 #if defined(OS_ANDROID)
       GetAndroidDownloadManagerManifest(),
 #else
       mirroring::GetManifest(),
-      profile_import::GetManifest(),
+      GetProfileImportManifest(),
 #endif
 #if defined(OS_CHROMEOS)
-      quick_launch_app::GetManifest(),
-      shortcut_viewer_app::GetManifest(),
-      tap_visualizer_app::GetManifest(),
+      shortcut_viewer::GetManifest(),
+      tap_visualizer::GetManifest(),
       ash::GetManifest(),
-      ash_pref_connector::GetManifest(),
-      cups_ipp_parser::GetManifest(),
-      ime::GetManifest(),
-      secure_channel::GetManifest(),
-      ax_host_service::GetManifest(),
+      GetAshPrefConnectorManifest(),
+      GetCupsIppParserManifest(),
+      chromeos::ime::GetManifest(),
+      chromeos::secure_channel::GetManifest(),
+      ui::GetAXHostManifest(),
 #endif
   }};
   return *manifests;

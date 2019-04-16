@@ -4,6 +4,7 @@
 
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 
+#include "base/bind.h"
 #include "base/stl_util.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -41,7 +42,8 @@ constexpr bool kNeedsSyncPoints = true;
 constexpr FrameSinkId kArbitraryFrameSinkId(1, 1);
 constexpr FrameSinkId kAnotherArbitraryFrameSinkId(2, 2);
 
-const base::UnguessableToken kArbitraryToken = base::UnguessableToken::Create();
+const base::UnguessableToken kArbitraryToken =
+    base::UnguessableToken::Deserialize(1, 2);
 const base::UnguessableToken kArbitrarySourceId1 =
     base::UnguessableToken::Deserialize(0xdead, 0xbeef);
 const base::UnguessableToken kArbitrarySourceId2 =
@@ -578,12 +580,13 @@ TEST_F(CompositorFrameSinkSupportTest, MonotonicallyIncreasingLocalSurfaceIds) {
   auto support = std::make_unique<CompositorFrameSinkSupport>(
       &mock_client, &manager_, kAnotherArbitraryFrameSinkId, kIsRoot,
       kNeedsSyncPoints);
-  LocalSurfaceId local_surface_id1(6, 1, kArbitraryToken);
-  LocalSurfaceId local_surface_id2(6, 2, kArbitraryToken);
-  LocalSurfaceId local_surface_id3(7, 2, kArbitraryToken);
-  LocalSurfaceId local_surface_id4(5, 3, kArbitraryToken);
-  LocalSurfaceId local_surface_id5(8, 1, kArbitraryToken);
-  LocalSurfaceId local_surface_id6(9, 3, kArbitraryToken);
+  base::UnguessableToken embed_token = base::UnguessableToken::Create();
+  LocalSurfaceId local_surface_id1(6, 1, embed_token);
+  LocalSurfaceId local_surface_id2(6, 2, embed_token);
+  LocalSurfaceId local_surface_id3(7, 2, embed_token);
+  LocalSurfaceId local_surface_id4(5, 3, embed_token);
+  LocalSurfaceId local_surface_id5(8, 1, embed_token);
+  LocalSurfaceId local_surface_id6(9, 3, embed_token);
 
   // LocalSurfaceId1(6, 1)
   auto result = support->MaybeSubmitCompositorFrame(
@@ -1202,6 +1205,28 @@ TEST_F(CompositorFrameSinkSupportTest,
   EXPECT_CALL(frame_sink_manager_client_, OnFirstSurfaceActivation(_));
   EXPECT_CALL(frame_sink_manager_client_, OnFrameTokenChanged(_, frame_token));
   support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
+}
+
+// This test verifies that it is not possible to reuse the same embed token in
+// two different frame sinks.
+TEST_F(CompositorFrameSinkSupportTest,
+       DisallowEmbedTokenReuseAcrossFrameSinks) {
+  auto result = support_->MaybeSubmitCompositorFrame(
+      local_surface_id_, MakeDefaultCompositorFrame(), base::nullopt, 0,
+      mojom::CompositorFrameSink::SubmitCompositorFrameSyncCallback());
+  EXPECT_EQ(SubmitResult::ACCEPTED, result);
+
+  // Create another sink and reuse the same embed token to submit a frame. The
+  // frame should be rejected.
+  MockCompositorFrameSinkClient mock_client;
+  auto support = std::make_unique<CompositorFrameSinkSupport>(
+      &mock_client, &manager_, kAnotherArbitraryFrameSinkId,
+      false /* not root frame sink */, kNeedsSyncPoints);
+  LocalSurfaceId local_surface_id(31232, local_surface_id_.embed_token());
+  result = support->MaybeSubmitCompositorFrame(
+      local_surface_id, MakeDefaultCompositorFrame(), base::nullopt, 0,
+      mojom::CompositorFrameSink::SubmitCompositorFrameSyncCallback());
+  EXPECT_EQ(SubmitResult::SURFACE_INVARIANTS_VIOLATION, result);
 }
 
 }  // namespace viz

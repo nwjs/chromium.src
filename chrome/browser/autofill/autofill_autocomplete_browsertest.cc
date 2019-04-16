@@ -267,7 +267,10 @@ IN_PROC_BROWSER_TEST_P(AutofillAutocompleteTest,
 // retention policy last version ran preference when the flag is enabled.
 IN_PROC_BROWSER_TEST_P(AutofillAutocompleteTest,
                        RetentionPolicy_Init_SavesVersionPref) {
-  // At this point, AutocompleteHistoryManager was already initialized.
+  // Navigate to a file and wait, this will make sure we instantiate
+  // AutocompleteHistoryManager.
+  NavigateToFile(kSimpleFormFileName);
+
   bool retention_policy_enabled = GetParam();
 
   int saved_version = pref_service()->GetInteger(
@@ -410,6 +413,6 @@ IN_PROC_BROWSER_TEST_F(AutofillAutocompleteRetentionDisabledTest,
   ValidateSingleValue(prefix, test_value);
 }
 
-INSTANTIATE_TEST_CASE_P(, AutofillAutocompleteTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, AutofillAutocompleteTest, testing::Bool());
 
 }  // namespace autofill

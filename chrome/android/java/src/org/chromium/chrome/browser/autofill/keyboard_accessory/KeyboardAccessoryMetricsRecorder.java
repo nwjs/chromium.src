@@ -76,8 +76,7 @@ public class KeyboardAccessoryMetricsRecorder {
                     recordFirstImpression();
                     maybeRecordBarBucket(AccessoryBarContents.WITH_AUTOFILL_SUGGESTIONS);
                     maybeRecordBarBucket(AccessoryBarContents.WITH_TABS);
-                    recordUnrecordedList(mModel.get(KeyboardAccessoryProperties.BAR_ITEMS), 0,
-                            mModel.get(KeyboardAccessoryProperties.BAR_ITEMS).size());
+                    recordGeneralActionTypes();
                 } else {
                     mRecordedBarBuckets.clear();
                     mRecordedActionImpressions.clear();
@@ -86,6 +85,7 @@ public class KeyboardAccessoryMetricsRecorder {
             }
             if (propertyKey == KeyboardAccessoryProperties.BOTTOM_OFFSET_PX
                     || propertyKey == KeyboardAccessoryProperties.KEYBOARD_TOGGLE_VISIBLE
+                    || propertyKey == KeyboardAccessoryProperties.SHEET_TITLE
                     || propertyKey == KeyboardAccessoryProperties.SHOW_KEYBOARD_CALLBACK) {
                 return;
             }
@@ -100,17 +100,12 @@ public class KeyboardAccessoryMetricsRecorder {
          * @param count Number of elements starting with |first| that were added or changed.
          */
         private void recordUnrecordedList(ListObservable list, int first, int count) {
-            if (!mModel.get(KeyboardAccessoryProperties.VISIBLE)) return;
-            if (list != mModel.get(BAR_ITEMS)) return;
-            // Remove all changed items, so changes are treated as new recordings.
-            for (int index = first; index < first + count; ++index) {
-                BarItem barItem = mModel.get(BAR_ITEMS).get(index);
-                mRecordedActionImpressions.remove(barItem.getViewType());
-            }
+            assert list
+                    == mModel.get(BAR_ITEMS) : "Tried to record metrics for unknown list " + list;
             // Record any unrecorded type, but not more than once (i.e. one set of suggestion).
             for (int index = first; index < first + count; ++index) {
                 KeyboardAccessoryData.Action action = mModel.get(BAR_ITEMS).get(index).getAction();
-                if (action == null) continue; // Ignore!
+                if (action == null) continue; // Item is no relevant action.
                 maybeRecordBarBucket(action.getActionType() == AccessoryAction.AUTOFILL_SUGGESTION
                                 ? AccessoryBarContents.WITH_AUTOFILL_SUGGESTIONS
                                 : AccessoryBarContents.WITH_ACTIONS);
@@ -278,6 +273,9 @@ public class KeyboardAccessoryMetricsRecorder {
      */
     static void recordSheetTrigger(
             @AccessoryTabType int tabType, @AccessorySheetTrigger int bucket) {
+        // TODO(crbug.com/926372): Add metrics capabilities for credit cards.
+        if (tabType == AccessoryTabType.CREDIT_CARDS) return;
+
         RecordHistogram.recordEnumeratedHistogram(
                 getHistogramForType(UMA_KEYBOARD_ACCESSORY_SHEET_TRIGGERED, tabType), bucket,
                 AccessorySheetTrigger.COUNT);
@@ -301,6 +299,9 @@ public class KeyboardAccessoryMetricsRecorder {
 
     static void recordSuggestionSelected(
             @AccessoryTabType int tabType, @AccessorySuggestionType int bucket) {
+        // TODO(crbug.com/926372): Add metrics capabilities for credit cards.
+        if (tabType == AccessoryTabType.CREDIT_CARDS) return;
+
         RecordHistogram.recordEnumeratedHistogram(
                 getHistogramForType(
                         UMA_KEYBOARD_ACCESSORY_SHEET_SUGGESTION_SELECTED, AccessoryTabType.ALL),
@@ -319,6 +320,9 @@ public class KeyboardAccessoryMetricsRecorder {
      */
     static void recordSheetSuggestions(
             @AccessoryTabType int tabType, ListModel<AccessorySheetDataPiece> suggestionList) {
+        // TODO(crbug.com/926372): Add metrics capabilities for credit cards.
+        if (tabType == AccessoryTabType.CREDIT_CARDS) return;
+
         int interactiveSuggestions = 0;
         for (int i = 0; i < suggestionList.size(); ++i) {
             if (getType(suggestionList.get(i)) == PASSWORD_INFO) {

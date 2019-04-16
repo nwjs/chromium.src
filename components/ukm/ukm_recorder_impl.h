@@ -18,7 +18,7 @@
 #include "base/strings/string_piece.h"
 #include "services/metrics/public/cpp/ukm_decode.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
-#include "services/metrics/public/mojom/ukm_interface.mojom.h"
+#include "services/metrics/public/mojom/ukm_interface.mojom-forward.h"
 
 namespace metrics {
 class UkmBrowserTestBase;
@@ -68,9 +68,11 @@ class UkmRecorderImpl : public UkmRecorder {
       const IsWebstoreExtensionCallback& callback);
 
  protected:
-  // Calculates sampled in/out based on a given |rate|. This is virtual so
-  // it can be overriden by tests.
-  virtual bool IsSampledIn(int sampling_rate);
+  // Generates a random number. This is virtual so it can be overriden by tests.
+  virtual int RandInt(int begin, int end);
+
+  // Calculates sampled in/out based on a given |rate|.
+  bool IsSampledIn(int sampling_rate);
 
   // Cache the list of whitelisted entries from the field trial parameter.
   void StoreWhitelistedEntries();

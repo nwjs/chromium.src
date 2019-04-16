@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
@@ -20,6 +21,7 @@
 using offline_pages::TaskTestBase;
 
 namespace explore_sites {
+using InitializationStatus = ExploreSitesStore::InitializationStatus;
 
 const char kGoogleUrl[] = "https://www.google.com";
 
@@ -76,7 +78,8 @@ VALUES
 }
 
 TEST_F(ExploreSitesBlacklistSiteTest, StoreFailure) {
-  store()->SetInitializationStatusForTest(InitializationStatus::FAILURE);
+  store()->SetInitializationStatusForTesting(InitializationStatus::kFailure,
+                                             false);
   BlacklistSiteTask task(store(), kGoogleUrl);
   RunTask(&task);
 

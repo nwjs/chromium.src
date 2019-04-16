@@ -9,16 +9,15 @@
 #include <winternl.h>
 
 #define _NTDEF_  // Prevent redefition errors, must come after <winternl.h>
-#include <MDMRegistration.h>  // For RegisterDeviceWithManagement()
-#include <ntsecapi.h>         // For LsaLookupAuthenticationPackage()
-#include <sddl.h>             // For ConvertSidToStringSid()
-#include <security.h>         // For NEGOSSP_NAME_A
+#include <ntsecapi.h>  // For LsaLookupAuthenticationPackage()
+#include <sddl.h>      // For ConvertSidToStringSid()
+#include <security.h>  // For NEGOSSP_NAME_A
+#include <shlobj.h>    // For SHGetKnownFolderPath()
 #include <wbemidl.h>
 
 #include <atlbase.h>
 #include <atlcom.h>
 #include <atlcomcli.h>
-#include <atlconv.h>
 
 #include <malloc.h>
 #include <memory.h>
@@ -27,29 +26,28 @@
 #include <iomanip>
 #include <memory>
 
-#include "base/base64.h"
 #include "base/command_line.h"
 #include "base/files/file.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
-#include "base/json/json_writer.h"
 #include "base/macros.h"
 #include "base/no_destructor.h"
 #include "base/path_service.h"
-#include "base/scoped_native_library.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/current_module.h"
 #include "base/win/embedded_i18n/language_selector.h"
-#include "base/win/registry.h"
-#include "base/win/win_util.h"
 #include "chrome/common/chrome_version.h"
 #include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_resources.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
+#include "chrome/credential_provider/gaiacp/reg_utils.h"
 
 namespace credential_provider {
+
+const wchar_t kDefaultProfilePictureFileExtension[] = L".jpg";
+const wchar_t kCredentialLogoPictureFileExtension[] = L".bmp";
 
 namespace {
 
@@ -82,37 +80,8 @@ base::FilePath GetStartupSentinelLocation() {
 
 const base::win::i18n::LanguageSelector& GetLanguageSelector() {
   static base::NoDestructor<base::win::i18n::LanguageSelector> instance(
-      base::string16(), &kLanguageOffsetPairs[0],
-      &kLanguageOffsetPairs[base::size(kLanguageOffsetPairs)]);
-
+      base::string16(), kLanguageOffsetPairs);
   return *instance;
-}
-
-HRESULT RegisterWithGoogleDeviceManagement(const base::string16& mdm_url,
-                                           const base::string16& email,
-                                           const std::string& data) {
-  base::ScopedNativeLibrary library(
-      base::FilePath(FILE_PATH_LITERAL("MDMRegistration.dll")));
-  if (!library.is_valid()) {
-    LOGFN(ERROR) << "base::ScopedNativeLibrary hr=" << putHR(E_NOTIMPL);
-    return E_NOTIMPL;
-  }
-
-  using RegisterDeviceWithManagementFunction =
-      decltype(&::RegisterDeviceWithManagement);
-  RegisterDeviceWithManagementFunction
-      register_device_with_management_function =
-          reinterpret_cast<RegisterDeviceWithManagementFunction>(
-              library.GetFunctionPointer("RegisterDeviceWithManagement"));
-  if (!register_device_with_management_function) {
-    LOGFN(ERROR) << "library.GetFunctionPointer hr=" << putHR(E_NOTIMPL);
-    return E_NOTIMPL;
-  }
-
-  std::string data_encoded;
-  base::Base64Encode(data, &data_encoded);
-  return register_device_with_management_function(
-      email.c_str(), mdm_url.c_str(), base::UTF8ToWide(data_encoded).c_str());
 }
 
 // Opens |path| with options that prevent the file from being read or written
@@ -277,7 +246,7 @@ void ScopedStartupInfo::Shutdown() {
 }
 
 // Waits for a process to terminate while capturing output from |output_handle|
-// to the buffer |output_buffer| of size |buffer_size|. The buffer is expected
+// to the buffer |output_buffer| of length |buffer_size|. The buffer is expected
 // to be relatively small.  The exit code of the process is written to
 // |exit_code|.
 HRESULT WaitForProcess(base::win::ScopedHandle::Handle process_handle,
@@ -365,10 +334,12 @@ HRESULT WaitForProcess(base::win::ScopedHandle::Handle process_handle,
   return S_OK;
 }
 
-HRESULT CreateLogonToken(const wchar_t* username,
+HRESULT CreateLogonToken(const wchar_t* domain,
+                         const wchar_t* username,
                          const wchar_t* password,
                          bool interactive,
                          base::win::ScopedHandle* token) {
+  DCHECK(domain);
   DCHECK(username);
   DCHECK(password);
   DCHECK(token);
@@ -376,7 +347,8 @@ HRESULT CreateLogonToken(const wchar_t* username,
   DWORD logon_type =
       interactive ? LOGON32_LOGON_INTERACTIVE : LOGON32_LOGON_BATCH;
   base::win::ScopedHandle::Handle handle;
-  if (!::LogonUserW(username, L".", password, logon_type,
+
+  if (!::LogonUserW(username, domain, password, logon_type,
                     LOGON32_PROVIDER_DEFAULT, &handle)) {
     HRESULT hr = HRESULT_FROM_WIN32(::GetLastError());
     LOGFN(ERROR) << "LogonUserW hr=" << putHR(hr);
@@ -608,157 +580,6 @@ HRESULT GetCommandLineForEntrypoint(HINSTANCE dll_handle,
   return hr;
 }
 
-// Gets the serial number of the machine based on the recipe found at
-// https://docs.microsoft.com/en-us/windows/desktop/WmiSdk/example-creating-a-wmi-application
-HRESULT GetMachineSerialNumber(base::string16* serial_number) {
-  USES_CONVERSION;
-  DCHECK(serial_number);
-
-  serial_number->clear();
-
-  // Make sure COM is initialized.
-  HRESULT hr = ::CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "CoInitializeEx hr=" << putHR(hr);
-    return hr;
-  }
-
-  hr = ::CoInitializeSecurity(
-      nullptr, -1, nullptr, nullptr, RPC_C_AUTHN_LEVEL_DEFAULT,
-      RPC_C_IMP_LEVEL_IMPERSONATE, nullptr, EOAC_NONE, nullptr);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "CoInitializeSecurity hr=" << putHR(hr);
-    return hr;
-  }
-
-  CComPtr<IWbemLocator> locator;
-  hr = locator.CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "CoCreateInstance(CLSID_WbemLocator) hr=" << putHR(hr);
-    return hr;
-  }
-
-  CComPtr<IWbemServices> services;
-  hr = locator->ConnectServer(CComBSTR(W2COLE(L"ROOT\\CIMV2")), nullptr,
-                              nullptr, nullptr, 0, nullptr, nullptr, &services);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "locator->ConnectServer hr=" << putHR(hr);
-    return hr;
-  }
-
-  CComPtr<IEnumWbemClassObject> enum_wbem;
-  hr = services->ExecQuery(CComBSTR(W2COLE(L"WQL")),
-                           CComBSTR(W2COLE(L"select * from Win32_Bios")),
-                           WBEM_FLAG_FORWARD_ONLY, nullptr, &enum_wbem);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "services->ExecQuery hr=" << putHR(hr);
-    return hr;
-  }
-
-  while (SUCCEEDED(hr) && serial_number->empty()) {
-    CComPtr<IWbemClassObject> class_obj;
-    ULONG count = 1;
-    hr = enum_wbem->Next(WBEM_INFINITE, 1, &class_obj, &count);
-    if (count == 0)
-      break;
-
-    VARIANT var;
-    hr = class_obj->Get(L"SerialNumber", 0, &var, 0, 0);
-    if (SUCCEEDED(hr) && var.vt == VT_BSTR)
-      serial_number->assign(OLE2CW(var.bstrVal));
-
-    VariantClear(&var);
-  }
-
-  LOGFN(INFO) << "GetMachineSerialNumber sn=" << *serial_number
-              << " hr=" << putHR(hr);
-
-  return hr;
-}
-
-HRESULT EnrollToGoogleMdmIfNeeded(const base::DictionaryValue& properties) {
-  USES_CONVERSION;
-  LOGFN(INFO);
-
-  // Enroll to Google MDM if not already enrolled.
-
-  HRESULT hr = E_FAIL;
-  BOOL is_registered = base::win::IsDeviceRegisteredWithManagement();
-  LOGFN(INFO) << "MDM is_registered=" << is_registered;
-
-  if (!is_registered) {
-    base::string16 email = GetDictString(&properties, kKeyEmail);
-    base::string16 token = GetDictString(&properties, kKeyMdmIdToken);
-    base::string16 mdm_url = GetDictString(&properties, kKeyMdmUrl);
-
-    if (email.empty()) {
-      LOGFN(ERROR) << "Email is empty";
-      return E_INVALIDARG;
-    }
-
-    if (token.empty()) {
-      LOGFN(ERROR) << "MDM id token is empty";
-      return E_INVALIDARG;
-    }
-
-    if (mdm_url.empty()) {
-      LOGFN(ERROR) << "No MDM URL specified";
-      return E_INVALIDARG;
-    }
-
-    LOGFN(INFO) << "MDM_URL=" << mdm_url
-                << " token=" << base::string16(token.c_str(), 10);
-
-    // Build the json data needed by the server.
-    base::DictionaryValue registration_data;
-    base::string16 serial_number;
-    hr = GetMachineSerialNumber(&serial_number);
-    if (FAILED(hr)) {
-      LOGFN(ERROR) << "GetMachineSerialNumber hr=" << putHR(hr);
-      return hr;
-    }
-
-    registration_data.SetString("serial_number", serial_number);
-    registration_data.SetString("id_token", token);
-    std::string registration_data_str;
-    if (!base::JSONWriter::Write(registration_data, &registration_data_str)) {
-      LOGFN(ERROR) << "JSONWriter::Write(registration_data)";
-      return E_FAIL;
-    }
-
-    hr = RegisterWithGoogleDeviceManagement(mdm_url, email,
-                                            registration_data_str);
-    LOGFN(INFO) << "RegisterWithGoogleDeviceManagement hr=" << putHR(hr);
-  }
-
-  return hr;
-}
-
-HRESULT GetAuthenticationPackageId(ULONG* id) {
-  DCHECK(id);
-
-  HANDLE lsa;
-  NTSTATUS status = ::LsaConnectUntrusted(&lsa);
-  HRESULT hr = HRESULT_FROM_NT(status);
-  if (FAILED(hr)) {
-    LOGFN(ERROR) << "LsaConnectUntrusted hr=" << putHR(hr);
-    return hr;
-  }
-
-  LSA_STRING name;
-  name.Buffer = const_cast<PCHAR>(NEGOSSP_NAME_A);
-  name.Length = static_cast<USHORT>(strlen(name.Buffer));
-  name.MaximumLength = name.Length + 1;
-
-  status = ::LsaLookupAuthenticationPackage(lsa, &name, id);
-  ::LsaDeregisterLogonProcess(lsa);
-  hr = HRESULT_FROM_NT(status);
-  if (FAILED(hr))
-    LOGFN(ERROR) << "LsaLookupAuthenticationPackage hr=" << putHR(hr);
-
-  return hr;
-}
-
 bool VerifyStartupSentinel() {
   // Always try to write to the startup sentinel file. If writing or opening
   // fails for any reason (file locked, no access etc) consider this a failure.
@@ -817,6 +638,29 @@ base::string16 GetStringResource(int base_message_id) {
   return localized_string;
 }
 
+HRESULT GetUserAccountPicturePath(const base::string16& sid,
+                                  base::FilePath* base_path) {
+  DCHECK(base_path);
+  base_path->clear();
+  LPWSTR path;
+  HRESULT hr = ::SHGetKnownFolderPath(FOLDERID_PublicUserTiles, 0, NULL, &path);
+  if (FAILED(hr)) {
+    LOGFN(ERROR) << "SHGetKnownFolderPath=" << putHR(hr);
+    return hr;
+  }
+  *base_path = base::FilePath(path).Append(sid);
+  ::CoTaskMemFree(path);
+  return S_OK;
+}
+
+base::FilePath GetUserSizedAccountPictureFilePath(
+    const base::FilePath& account_picture_path,
+    int size,
+    const base::string16& picture_extension) {
+  return account_picture_path.Append(base::StringPrintf(
+      L"GoogleAccountPicture_%i%ls", size, picture_extension.c_str()));
+}
+
 base::string16 GetSelectedLanguage() {
   return GetLanguageSelector().matched_candidate();
 }
@@ -853,6 +697,18 @@ base::FilePath::StringType GetInstallParentDirectoryName() {
 #else
   return FILE_PATH_LITERAL("Chromium");
 #endif
+}
+
+base::string16 GetWindowsVersion() {
+  wchar_t release_id[32];
+  ULONG length = base::size(release_id) * sizeof(release_id[0]);
+  HRESULT hr =
+      GetMachineRegString(L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
+                          L"ReleaseId", release_id, &length);
+  if (SUCCEEDED(hr))
+    return release_id;
+
+  return L"Unknown";
 }
 
 FakesForTesting::FakesForTesting() {}

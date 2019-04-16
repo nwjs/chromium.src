@@ -99,9 +99,12 @@ public interface ChromeNotificationBuilder {
 
     ChromeNotificationBuilder setCategory(String category);
 
-    Notification buildWithBigContentView(RemoteViews bigView);
+    ChromeNotification buildWithBigContentView(RemoteViews bigView);
 
-    Notification buildWithBigTextStyle(String bigText);
+    ChromeNotification buildWithBigTextStyle(String bigText);
 
+    @Deprecated
     Notification build();
+
+    ChromeNotification buildChromeNotification();
 }

@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
@@ -179,16 +180,24 @@ static bool IsOutermostSVGElement(const Element* element) {
          ToSVGElement(*element).IsOutermostSVGSVGElement();
 }
 
+static bool IsAtUAShadowBoundary(const Element* element) {
+  if (!element)
+    return false;
+  if (ContainerNode* parent = element->parentNode())
+    return parent->IsShadowRoot() && To<ShadowRoot>(parent)->IsUserAgent();
+  return false;
+}
+
 // CSS requires text-decoration to be reset at each DOM element for
-// inline blocks, inline tables, shadow DOM crossings, floating elements,
+// inline blocks, inline tables, UA shadow DOM crossings, floating elements,
 // and absolute or relatively positioned elements. Outermost <svg> roots are
 // considered to be atomic inline-level.
-static bool DoesNotInheritTextDecoration(const ComputedStyle& style,
+static bool StopPropagateTextDecorations(const ComputedStyle& style,
                                          const Element* element) {
   return style.Display() == EDisplay::kInlineTable ||
          style.Display() == EDisplay::kInlineBlock ||
          style.Display() == EDisplay::kWebkitInlineBox ||
-         IsAtShadowBoundary(element) || style.IsFloating() ||
+         IsAtUAShadowBoundary(element) || style.IsFloating() ||
          style.HasOutOfFlowPosition() || IsOutermostSVGElement(element) ||
          IsHTMLRTElement(element);
 }
@@ -196,7 +205,7 @@ static bool DoesNotInheritTextDecoration(const ComputedStyle& style,
 // Certain elements (<a>, <font>) override text decoration colors.  "The font
 // element is expected to override the color of any text decoration that spans
 // the text of the element to the used value of the element's 'color' property."
-// (https://html.spec.whatwg.org/multipage/rendering.html#phrasing-content-3)
+// (https://html.spec.whatwg.org/C/#phrasing-content-3)
 // The <a> behavior is non-standard.
 static bool OverridesTextDecorationColors(const Element* element) {
   return element &&
@@ -542,8 +551,8 @@ static void AdjustEffectiveTouchAction(ComputedStyle& style,
                                 enforced_by_policy);
 
   // Propagate touch action to child frames.
-  if (element->IsFrameOwnerElement()) {
-    Frame* content_frame = ToHTMLFrameOwnerElement(element)->ContentFrame();
+  if (auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(element)) {
+    Frame* content_frame = frame_owner->ContentFrame();
     if (content_frame) {
       content_frame->SetInheritedEffectiveTouchAction(
           style.GetEffectiveTouchAction());
@@ -618,7 +627,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
       style.OverflowY() != EOverflow::kVisible)
     AdjustOverflow(style);
 
-  if (DoesNotInheritTextDecoration(style, element))
+  if (StopPropagateTextDecorations(style, element))
     style.ClearAppliedTextDecorations();
   else
     style.RestoreParentTextDecorations(parent_style);

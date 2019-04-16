@@ -35,6 +35,10 @@ class AssistantManager;
 class AssistantManagerInternal;
 }  // namespace assistant_client
 
+namespace network {
+class SharedURLLoaderFactoryInfo;
+}  // namespace network
+
 namespace service_manager {
 class Connector;
 }  // namespace service_manager
@@ -86,18 +90,21 @@ class AssistantManagerServiceImpl
       service_manager::Connector* connector,
       device::mojom::BatteryMonitorPtr battery_monitor,
       Service* service,
-      network::NetworkConnectionTracker* network_connection_tracker);
+      network::NetworkConnectionTracker* network_connection_tracker,
+      std::unique_ptr<network::SharedURLLoaderFactoryInfo>
+          url_loader_factory_info);
 
   ~AssistantManagerServiceImpl() override;
 
   // assistant::AssistantManagerService overrides
-  void Start(const std::string& access_token,
+  void Start(const base::Optional<std::string>& access_token,
              bool enable_hotword,
              base::OnceClosure callback) override;
   void Stop() override;
   State GetState() const override;
   void SetAccessToken(const std::string& access_token) override;
   void EnableListening(bool enable) override;
+  void EnableHotword(bool enable) override;
   AssistantSettingsManager* GetAssistantSettingsManager() override;
 
   // mojom::Assistant overrides:
@@ -174,8 +181,7 @@ class AssistantManagerServiceImpl
   }
 
  private:
-  void StartAssistantInternal(const std::string& access_token,
-                              bool enable_hotword);
+  void StartAssistantInternal(const base::Optional<std::string>& access_token);
   void PostInitAssistant(base::OnceClosure post_init_callback);
 
   // Update device id, type and locale

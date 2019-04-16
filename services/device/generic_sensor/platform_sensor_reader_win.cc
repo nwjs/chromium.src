@@ -10,6 +10,7 @@
 
 #include <iomanip>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/stl_util.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -439,8 +440,8 @@ bool PlatformSensorReaderWin::StartSensor(
 
   if (!sensor_active_) {
     task_runner_->PostTask(
-        FROM_HERE, base::Bind(&PlatformSensorReaderWin::ListenSensorEvent,
-                              weak_factory_.GetWeakPtr()));
+        FROM_HERE, base::BindOnce(&PlatformSensorReaderWin::ListenSensorEvent,
+                                  weak_factory_.GetWeakPtr()));
     sensor_active_ = true;
   }
 

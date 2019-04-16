@@ -37,7 +37,6 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_frame.h"
-#include "third_party/blink/public/web/web_frame_serializer_cache_control_policy.h"
 #include "third_party/blink/public/web/web_frame_serializer_client.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -71,7 +70,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
 #include "third_party/blink/renderer/platform/mhtml/mhtml_archive.h"
 #include "third_party/blink/renderer/platform/mhtml/mhtml_parser.h"
-#include "third_party/blink/renderer/platform/serialized_resource.h"
+#include "third_party/blink/renderer/platform/mhtml/serialized_resource.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -111,8 +110,6 @@ class MHTMLFrameSerializerDelegate final : public FrameSerializer::Delegate {
   bool ShouldIgnoreAttribute(const Element&, const Attribute&) override;
   bool RewriteLink(const Element&, String& rewritten_link) override;
   bool ShouldSkipResourceWithURL(const KURL&) override;
-  bool ShouldSkipResource(
-      FrameSerializer::ResourceHasCacheControlNoStoreHeader) override;
   Vector<Attribute> GetCustomAttributes(const Element&) override;
   std::pair<Node*, Element*> GetAuxiliaryDOMTree(const Element&) const override;
   bool ShouldCollectProblemMetric() override;
@@ -280,10 +277,11 @@ bool MHTMLFrameSerializerDelegate::ShouldIgnoreAttribute(
 
 bool MHTMLFrameSerializerDelegate::RewriteLink(const Element& element,
                                                String& rewritten_link) {
-  if (!element.IsFrameOwnerElement())
+  auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(element);
+  if (!frame_owner)
     return false;
 
-  Frame* frame = ToHTMLFrameOwnerElement(&element)->ContentFrame();
+  Frame* frame = frame_owner->ContentFrame();
   if (!frame)
     return false;
 
@@ -296,16 +294,6 @@ bool MHTMLFrameSerializerDelegate::RewriteLink(const Element& element,
 
 bool MHTMLFrameSerializerDelegate::ShouldSkipResourceWithURL(const KURL& url) {
   return web_delegate_.ShouldSkipResource(url);
-}
-
-bool MHTMLFrameSerializerDelegate::ShouldSkipResource(
-    FrameSerializer::ResourceHasCacheControlNoStoreHeader
-        has_cache_control_no_store_header) {
-  return web_delegate_.CacheControlPolicy() ==
-             WebFrameSerializerCacheControlPolicy::
-                 kSkipAnyFrameOrResourceMarkedNoStore &&
-         has_cache_control_no_store_header ==
-             FrameSerializer::kHasCacheControlNoStoreHeader;
 }
 
 Vector<Attribute> MHTMLFrameSerializerDelegate::GetCustomAttributes(
@@ -401,36 +389,6 @@ std::pair<Node*, Element*> MHTMLFrameSerializerDelegate::GetAuxiliaryDOMTree(
   return std::pair<Node*, Element*>(shadow_root, template_element);
 }
 
-bool CacheControlNoStoreHeaderPresent(
-    const WebLocalFrameImpl& web_local_frame) {
-  return web_local_frame.GetDocumentLoader()
-      ->GetResponse()
-      .ToResourceResponse()
-      .CacheControlContainsNoStore();
-}
-
-bool FrameShouldBeSerializedAsMHTML(
-    WebLocalFrame* frame,
-    WebFrameSerializerCacheControlPolicy cache_control_policy) {
-  WebLocalFrameImpl* web_local_frame = ToWebLocalFrameImpl(frame);
-  DCHECK(web_local_frame);
-
-  if (cache_control_policy == WebFrameSerializerCacheControlPolicy::kNone)
-    return true;
-
-  bool need_to_check_no_store =
-      cache_control_policy == WebFrameSerializerCacheControlPolicy::
-                                  kSkipAnyFrameOrResourceMarkedNoStore ||
-      (!frame->Parent() &&
-       cache_control_policy ==
-           WebFrameSerializerCacheControlPolicy::kFailForNoStoreMainFrame);
-
-  if (!need_to_check_no_store)
-    return true;
-
-  return !CacheControlNoStoreHeaderPresent(*web_local_frame);
-}
-
 }  // namespace
 
 WebThreadSafeData WebFrameSerializer::GenerateMHTMLHeader(
@@ -441,11 +399,7 @@ WebThreadSafeData WebFrameSerializer::GenerateMHTMLHeader(
   DCHECK(frame);
   DCHECK(delegate);
 
-  if (!FrameShouldBeSerializedAsMHTML(frame, delegate->CacheControlPolicy()))
-    return WebThreadSafeData();
-
-  WebLocalFrameImpl* web_local_frame = ToWebLocalFrameImpl(frame);
-  DCHECK(web_local_frame);
+  auto* web_local_frame = To<WebLocalFrameImpl>(frame);
 
   Document* document = web_local_frame->GetFrame()->GetDocument();
 
@@ -464,12 +418,8 @@ WebThreadSafeData WebFrameSerializer::GenerateMHTMLParts(
   DCHECK(web_frame);
   DCHECK(web_delegate);
 
-  if (!FrameShouldBeSerializedAsMHTML(web_frame,
-                                      web_delegate->CacheControlPolicy()))
-    return WebThreadSafeData();
-
   // Translate arguments from public to internal blink APIs.
-  LocalFrame* frame = ToWebLocalFrameImpl(web_frame)->GetFrame();
+  LocalFrame* frame = To<WebLocalFrameImpl>(web_frame)->GetFrame();
   MHTMLArchive::EncodingPolicy encoding_policy =
       web_delegate->UseBinaryEncoding()
           ? MHTMLArchive::EncodingPolicy::kUseBinaryEncoding

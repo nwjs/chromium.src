@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/optional.h"
 #include "base/synchronization/waitable_event.h"
@@ -107,8 +108,7 @@ void SyncLoadContext::StartAsyncWithWaitableEvent(
       traffic_annotation, true /* is_sync */,
       download_to_blob /* pass_response_pipe_to_peer */,
       base::WrapUnique(context), context->url_loader_factory_,
-      std::move(throttles), nullptr /* navigation_response_override_params */,
-      nullptr /* continue_for_navigation */);
+      std::move(throttles), nullptr /* navigation_response_override_params */);
 }
 
 SyncLoadContext::SyncLoadContext(
@@ -308,6 +308,7 @@ void SyncLoadContext::OnTimeout() {
 void SyncLoadContext::CompleteRequest() {
   DCHECK(blob_finished_ || (mode_ != Mode::kBlob));
   DCHECK(!body_handle_.is_valid());
+  body_watcher_.Cancel();
   signals_->SignalRedirectOrResponseComplete();
   signals_ = nullptr;
   response_ = nullptr;

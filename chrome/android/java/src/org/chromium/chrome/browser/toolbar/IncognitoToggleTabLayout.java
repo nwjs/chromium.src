@@ -47,7 +47,7 @@ public class IncognitoToggleTabLayout extends TabLayout implements TabCountObser
         super(context, attrs);
 
         mTabIconDarkColor =
-                AppCompatResources.getColorStateList(getContext(), R.color.dark_mode_tint);
+                AppCompatResources.getColorStateList(getContext(), R.color.standard_mode_tint);
         mTabIconSelectedDarkColor =
                 AppCompatResources.getColorStateList(getContext(), R.color.light_active_color);
         mTabIconLightColor =
@@ -101,7 +101,8 @@ public class IncognitoToggleTabLayout extends TabLayout implements TabCountObser
         mTabModelSelector.addObserver(mTabModelSelectorObserver);
         setStateBasedOnModel();
 
-        mTabSwitcherDrawable.updateForTabCount(mTabModelSelector.getModel(false).getCount(), false);
+        assert mTabCountProvider != null;
+        mTabSwitcherDrawable.updateForTabCount(mTabCountProvider.getTabCount(false), false);
     }
 
     public void setTabCountProvider(TabCountProvider tabCountProvider) {

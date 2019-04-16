@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
@@ -816,7 +817,7 @@ TEST_F(DiskCacheBackendTest, MemoryListensToMemoryPressure) {
 
   for (int i = 0; i < 0.9 * (kLimit / kEntrySize); ++i) {
     disk_cache::Entry* entry = nullptr;
-    ASSERT_EQ(net::OK, CreateEntry(base::IntToString(i), &entry));
+    ASSERT_EQ(net::OK, CreateEntry(base::NumberToString(i), &entry));
     EXPECT_EQ(kEntrySize,
               WriteData(entry, 0, 0, buffer.get(), kEntrySize, true));
     entry->Close();
@@ -3413,7 +3414,8 @@ void DiskCacheBackendTest::BackendEviction() {
   for (int i = 0; i < kWriteEntryCount; ++i) {
     AddDelay();
     disk_cache::Entry* entry = NULL;
-    ASSERT_THAT(CreateEntry(key_prefix + base::IntToString(i), &entry), IsOk());
+    ASSERT_THAT(CreateEntry(key_prefix + base::NumberToString(i), &entry),
+                IsOk());
     disk_cache::ScopedEntryPtr entry_closer(entry);
     EXPECT_EQ(kWriteSize,
               WriteData(entry, 1, 0, buffer.get(), kWriteSize, false));
@@ -3463,7 +3465,8 @@ TEST_F(DiskCacheBackendTest, MemoryOnlyUseAfterFree) {
   std::list<disk_cache::ScopedEntryPtr> open_entries;
   std::string key_prefix("prefix");
   for (int i = 0; i < kTooManyEntriesCount; ++i) {
-    ASSERT_THAT(CreateEntry(key_prefix + base::IntToString(i), &entry), IsOk());
+    ASSERT_THAT(CreateEntry(key_prefix + base::NumberToString(i), &entry),
+                IsOk());
     // Not checking the result because it will start to fail once the max size
     // is reached.
     WriteData(entry, 1, 0, buffer.get(), kWriteSize, false);
@@ -3503,7 +3506,8 @@ TEST_F(DiskCacheBackendTest, MemoryCapsWritesToMaxSize) {
   std::list<disk_cache::ScopedEntryPtr> open_entries;
   std::string key_prefix("prefix");
   for (int i = 0; i < kNumEntries; ++i) {
-    ASSERT_THAT(CreateEntry(key_prefix + base::IntToString(i), &entry), IsOk());
+    ASSERT_THAT(CreateEntry(key_prefix + base::NumberToString(i), &entry),
+                IsOk());
     WriteData(entry, 1, 0, buffer.get(), kWriteSize, false);
     open_entries.push_back(disk_cache::ScopedEntryPtr(entry));
   }
@@ -3841,12 +3845,13 @@ TEST_F(DiskCacheBackendTest, FileSharing) {
 #if defined(OS_WIN)
   DWORD sharing = FILE_SHARE_READ | FILE_SHARE_WRITE;
   DWORD access = GENERIC_READ | GENERIC_WRITE;
-  base::win::ScopedHandle file2(CreateFile(
-      name.value().c_str(), access, sharing, NULL, OPEN_EXISTING, 0, NULL));
+  base::win::ScopedHandle file2(CreateFile(base::as_wcstr(name.value()), access,
+                                           sharing, NULL, OPEN_EXISTING, 0,
+                                           NULL));
   EXPECT_FALSE(file2.IsValid());
 
   sharing |= FILE_SHARE_DELETE;
-  file2.Set(CreateFile(name.value().c_str(), access, sharing, NULL,
+  file2.Set(CreateFile(base::as_wcstr(name.value()), access, sharing, NULL,
                        OPEN_EXISTING, 0, NULL));
   EXPECT_TRUE(file2.IsValid());
 #endif
@@ -4651,20 +4656,21 @@ TEST_F(DiskCacheBackendTest, SimpleFdLimit) {
 
   for (int i = 0; i < kLargeNumEntries; ++i) {
     entries[i]->Close();
+    RunUntilIdle();
   }
   alt_entry->Close();
   RunUntilIdle();
 
   // Closes have to pull things in to write out the footer, but they also
-  // free up FDs, so we will only need to kick one more thing out.
+  // free up FDs.
   histogram_tester.ExpectBucketCount(
       "SimpleCache.FileDescriptorLimiterAction",
       disk_cache::FD_LIMIT_CLOSE_FILE,
-      kLargeNumEntries - 64 + 1 + kLargeNumEntries - 1 + 2 + 1);
+      kLargeNumEntries - 64 + 1 + kLargeNumEntries - 1 + 2);
   histogram_tester.ExpectBucketCount(
       "SimpleCache.FileDescriptorLimiterAction",
       disk_cache::FD_LIMIT_REOPEN_FILE,
-      kLargeNumEntries - 64 + 1 + kLargeNumEntries - 1 + 2 + 1);
+      kLargeNumEntries - 64 + 1 + kLargeNumEntries - 1 + 2);
   histogram_tester.ExpectBucketCount("SimpleCache.FileDescriptorLimiterAction",
                                      disk_cache::FD_LIMIT_FAIL_REOPEN_FILE, 0);
 }

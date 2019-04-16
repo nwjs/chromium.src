@@ -25,6 +25,8 @@
 #ifndef COMPONENTS_GWP_ASAN_COMMON_ALLOCATOR_STATE_H_
 #define COMPONENTS_GWP_ASAN_COMMON_ALLOCATOR_STATE_H_
 
+#include <atomic>
+
 #include "base/threading/platform_thread.h"
 
 namespace gwp_asan {
@@ -35,9 +37,12 @@ class GuardedPageAllocator;
 class AllocatorState {
  public:
   // Maximum number of pages this class can allocate.
-  static constexpr size_t kGpaMaxPages = 128;
+  static constexpr size_t kGpaMaxPages = 256;
   // Maximum number of stack trace frames to collect.
   static constexpr size_t kMaxStackFrames = 60;
+  // Number of bytes to allocate for packed stack traces. This can hold
+  // approximately kMaxStackFrames under normal conditions.
+  static constexpr size_t kMaxPackedTraceLength = 200;
 
   enum class ErrorType {
     kUseAfterFree = 0,
@@ -45,6 +50,7 @@ class AllocatorState {
     kBufferOverflow = 2,
     kDoubleFree = 3,
     kUnknown = 4,
+    kFreeInvalidAddress = 5,
   };
 
   enum class GetMetadataReturnType {
@@ -55,14 +61,16 @@ class AllocatorState {
 
   // Structure for storing data about a slot.
   struct SlotMetadata {
+    SlotMetadata();
+
     // Information saved for allocations and deallocations.
     struct AllocationInfo {
       // (De)allocation thread id or base::kInvalidThreadId if no (de)allocation
       // occurred.
-      base::PlatformThreadId tid = base::kInvalidThreadId;
-      // Stack trace contents.
-      uintptr_t trace[kMaxStackFrames];
-      // Stack trace length.
+      uint64_t tid = base::kInvalidThreadId;
+      // Packed stack trace.
+      uint8_t packed_trace[kMaxPackedTraceLength];
+      // Length used to encode the packed stack trace.
       size_t trace_len = 0;
       // Whether a stack trace has been collected for this (de)allocation.
       bool trace_collected = false;
@@ -72,14 +80,15 @@ class AllocatorState {
     size_t alloc_size = 0;
     // The allocation address.
     uintptr_t alloc_ptr = 0;
+    // Used to synchronize whether a deallocation has occurred (e.g. whether a
+    // double free has occurred) between threads.
+    std::atomic<bool> deallocation_occurred{false};
 
     AllocationInfo alloc;
     AllocationInfo dealloc;
   };
 
-  // TODO(vtsyrklevich): Get rid of inline (requires chromium-style plugin
-  // update.)
-  inline constexpr AllocatorState();
+  AllocatorState();
 
   // Returns true if address is in memory managed by this class.
   inline bool PointerIsMine(uintptr_t addr) const {
@@ -131,15 +140,16 @@ class AllocatorState {
   // Pointer to an array of metadata about every allocation, including its size,
   // offset, and pointers to the allocation/deallocation stack traces (if
   // present.)
-  uintptr_t slot_metadata = 0;
+  uintptr_t metadata_addr = 0;
 
-  // Set to true if a double free has occurred.
-  bool double_free_detected = false;
+  // Set to the address of a double freed allocation if a double free occurred.
+  uintptr_t double_free_address = 0;
+  // If an invalid pointer has been free()d, this is the address of that invalid
+  // pointer.
+  uintptr_t free_invalid_address = 0;
 
   DISALLOW_COPY_AND_ASSIGN(AllocatorState);
 };
-
-constexpr AllocatorState::AllocatorState() {}
 
 // Ensure that the allocator state is a plain-old-data. That way we can safely
 // initialize it by copying memory from out-of-process without worrying about

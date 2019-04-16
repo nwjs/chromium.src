@@ -11,7 +11,7 @@
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/optional.h"
-#include "services/media_session/public/cpp/media_metadata.h"
+#include "services/media_session/public/cpp/media_image.h"
 
 namespace gfx {
 class Size;
@@ -45,6 +45,12 @@ namespace media_session {
 //       the short edge length by the long edge.
 class COMPONENT_EXPORT(MEDIA_SESSION_CPP) MediaImageManager {
  public:
+  // Returns the image size score as a double between 0 and 1. The score will
+  // be calculated using the size scoring algorithm described above.
+  static double GetImageSizeScore(int min_size,
+                                  int ideal_size,
+                                  const gfx::Size& size);
+
   // The |min_size| is the min size of the images to select in px. The
   // |ideal_size| is the ideal size of the images to select in px.
   MediaImageManager(int min_size, int ideal_size);
@@ -53,19 +59,14 @@ class COMPONENT_EXPORT(MEDIA_SESSION_CPP) MediaImageManager {
 
   // Select the best image from the |images|. If an image could not be selected
   // then will return null.
-  base::Optional<MediaMetadata::MediaImage> SelectImage(
-      const std::vector<MediaMetadata::MediaImage>& images);
+  base::Optional<MediaImage> SelectImage(const std::vector<MediaImage>& images);
 
  private:
   FRIEND_TEST_ALL_PREFIXES(MediaImageManagerTest,
                            CheckExpectedImageExtensionHashes);
   FRIEND_TEST_ALL_PREFIXES(MediaImageManagerTest, CheckExpectedImageTypeHashes);
 
-  double GetImageScore(const MediaMetadata::MediaImage& image) const;
-
-  double GetImageSizeScore(const gfx::Size& size) const;
-
-  double GetImageDominantSizeScore(const gfx::Size& size) const;
+  double GetImageScore(const MediaImage& image) const;
 
   static base::Optional<double> GetImageExtensionScore(const GURL& url);
 

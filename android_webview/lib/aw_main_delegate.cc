@@ -8,9 +8,9 @@
 
 #include "android_webview/browser/aw_content_browser_client.h"
 #include "android_webview/browser/aw_media_url_interceptor.h"
-#include "android_webview/browser/browser_view_renderer.h"
 #include "android_webview/browser/command_line_helper.h"
-#include "android_webview/browser/deferred_gpu_command_service.h"
+#include "android_webview/browser/gfx/browser_view_renderer.h"
+#include "android_webview/browser/gfx/deferred_gpu_command_service.h"
 #include "android_webview/browser/tracing/aw_trace_event_args_whitelist.h"
 #include "android_webview/common/aw_descriptors.h"
 #include "android_webview/common/aw_paths.h"
@@ -23,6 +23,7 @@
 #include "base/android/apk_assets.h"
 #include "base/android/build_info.h"
 #include "base/android/locale_utils.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/cpu.h"
 #include "base/i18n/icu_util.h"
@@ -39,7 +40,7 @@
 #include "components/services/heap_profiling/public/cpp/sampling_profiler_wrapper.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/viz/common/features.h"
-#include "content/public/browser/android/browser_media_player_manager_register.h"
+#include "content/public/browser/android/media_url_interceptor_register.h"
 #include "content/public/browser/browser_main_runner.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/render_process_host.h"
@@ -49,6 +50,7 @@
 #include "gin/public/isolate_holder.h"
 #include "gin/v8_initializer.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "gpu/ipc/gl_in_process_context.h"
 #include "media/base/media_switches.h"
 #include "media/media_buildflags.h"
@@ -182,8 +184,6 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
   // UseSurfaceLayerForVideo[PIP] feature. https://crbug.com/853832
   CommandLineHelper::AddDisabledFeature(*cl,
                                         media::kUseSurfaceLayerForVideo.name);
-  CommandLineHelper::AddDisabledFeature(
-      *cl, media::kUseSurfaceLayerForVideoPIP.name);
 
   // WebView does not support EME persistent license yet, because it's not
   // clear on how user can remove persistent media licenses from UI.
@@ -199,6 +199,9 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
 
   CommandLineHelper::AddDisabledFeature(*cl, features::kBackgroundFetch.name);
 
+  CommandLineHelper::AddDisabledFeature(*cl,
+                                        features::kAndroidSurfaceControl.name);
+
   android_webview::RegisterPathProvider();
 
   safe_browsing_api_handler_.reset(
@@ -210,6 +213,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
   // as is the case by default in aw_tracing_controller.cc
   base::trace_event::TraceLog::GetInstance()->SetArgumentFilterPredicate(
       base::BindRepeating(&IsTraceEventArgsWhitelisted));
+  base::trace_event::TraceLog::GetInstance()->SetMetadataFilterPredicate(
+      base::BindRepeating(&IsTraceMetadataWhitelisted));
 
   // The TLS slot used by the memlog allocator shim needs to be initialized
   // early to ensure that it gets assigned a low slot number. If it gets
@@ -260,7 +265,7 @@ void AwMainDelegate::PreSandboxStartup() {
     }
   }
 
-  crash_reporter::EnableCrashReporter(process_type);
+  EnableCrashReporter(process_type);
 
   base::android::BuildInfo* android_build_info =
       base::android::BuildInfo::GetInstance();
@@ -275,7 +280,7 @@ void AwMainDelegate::PreSandboxStartup() {
 
   static ::crash_reporter::CrashKeyString<8> sdk_int_key(
       crash_keys::kAndroidSdkInt);
-  sdk_int_key.Set(base::IntToString(android_build_info->sdk_int()));
+  sdk_int_key.Set(base::NumberToString(android_build_info->sdk_int()));
 }
 
 int AwMainDelegate::RunProcess(
@@ -342,11 +347,21 @@ gpu::SyncPointManager* GetSyncPointManager() {
   DCHECK(DeferredGpuCommandService::GetInstance());
   return DeferredGpuCommandService::GetInstance()->sync_point_manager();
 }
+gpu::SharedImageManager* GetSharedImageManager() {
+  DCHECK(DeferredGpuCommandService::GetInstance());
+  const bool enable_shared_image =
+      base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kWebViewEnableSharedImage);
+  return enable_shared_image
+             ? DeferredGpuCommandService::GetInstance()->shared_image_manager()
+             : nullptr;
+}
 }  // namespace
 
 content::ContentGpuClient* AwMainDelegate::CreateContentGpuClient() {
-  content_gpu_client_.reset(
-      new AwContentGpuClient(base::BindRepeating(&GetSyncPointManager)));
+  content_gpu_client_ = std::make_unique<AwContentGpuClient>(
+      base::BindRepeating(&GetSyncPointManager),
+      base::BindRepeating(&GetSharedImageManager));
   return content_gpu_client_.get();
 }
 

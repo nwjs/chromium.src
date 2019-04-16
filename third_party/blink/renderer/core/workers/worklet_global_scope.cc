@@ -63,6 +63,8 @@ WorkletGlobalScope::WorkletGlobalScope(
     WorkerThread* worker_thread)
     : WorkerOrWorkletGlobalScope(
           isolate,
+          creation_params->global_scope_name,
+          creation_params->v8_cache_options,
           creation_params->worker_clients,
           std::move(creation_params->web_worker_fetch_context),
           reporting_proxy),
@@ -190,7 +192,7 @@ LocalFrame* WorkletGlobalScope::GetFrame() const {
 void WorkletGlobalScope::FetchAndInvokeScript(
     const KURL& module_url_record,
     network::mojom::FetchCredentialsMode credentials_mode,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     scoped_refptr<base::SingleThreadTaskRunner> outside_settings_task_runner,
     WorkletPendingTasks* pending_tasks) {
   DCHECK(IsContextThread());

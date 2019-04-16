@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/strings/string_piece.h"
@@ -24,6 +25,7 @@
 #include "components/autofill/core/common/autofill_switches.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/variations/net/variations_http_headers.h"
 #include "components/variations/variations_associated_data.h"
 #include "components/variations/variations_http_header_provider.h"
 #include "services/identity/public/cpp/identity_test_environment.h"
@@ -64,11 +66,13 @@ class PaymentsClientTest : public testing::Test {
     server_id_.clear();
     real_pan_.clear();
     legal_message_.reset();
+    has_variations_header_ = false;
 
     factory()->SetInterceptor(base::BindLambdaForTesting(
         [&](const network::ResourceRequest& request) {
           intercepted_headers_ = request.headers;
           intercepted_body_ = network::GetUploadData(request);
+          has_variations_header_ = variations::HasVariationsHeader(request);
         }));
     test_shared_loader_factory_ =
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
@@ -115,11 +119,14 @@ class PaymentsClientTest : public testing::Test {
     real_pan_ = real_pan;
   }
 
-  void OnDidGetUploadDetails(AutofillClient::PaymentsRpcResult result,
-                             const base::string16& context_token,
-                             std::unique_ptr<base::Value> legal_message) {
+  void OnDidGetUploadDetails(
+      AutofillClient::PaymentsRpcResult result,
+      const base::string16& context_token,
+      std::unique_ptr<base::Value> legal_message,
+      std::vector<std::pair<int, int>> supported_card_bin_ranges) {
     result_ = result;
     legal_message_ = std::move(legal_message);
+    supported_card_bin_ranges_ = supported_card_bin_ranges;
   }
 
   void OnDidUploadCard(AutofillClient::PaymentsRpcResult result,
@@ -207,7 +214,7 @@ class PaymentsClientTest : public testing::Test {
 
   const std::string& GetUploadData() { return intercepted_body_; }
 
-  net::HttpRequestHeaders* GetRequestHeaders() { return &intercepted_headers_; }
+  bool HasVariationsHeader() { return has_variations_header_; }
 
   // Issues access token in response to any access token request. This will
   // start the Payments Request which requires the authentication.
@@ -233,6 +240,7 @@ class PaymentsClientTest : public testing::Test {
   std::string server_id_;
   std::string real_pan_;
   std::unique_ptr<base::Value> legal_message_;
+  std::vector<std::pair<int, int>> supported_card_bin_ranges_;
   std::vector<MigratableCreditCard> migratable_credit_cards_;
   std::unique_ptr<std::unordered_map<std::string, std::string>> save_result_;
   std::string display_text_;
@@ -245,6 +253,7 @@ class PaymentsClientTest : public testing::Test {
   identity::IdentityTestEnvironment identity_test_env_;
 
   net::HttpRequestHeaders intercepted_headers_;
+  bool has_variations_header_;
   std::string intercepted_body_;
   base::WeakPtrFactory<PaymentsClientTest> weak_ptr_factory_;
 
@@ -536,10 +545,8 @@ TEST_F(PaymentsClientTest, GetUploadDetailsVariationsTest) {
   CreateFieldTrialWithId("AutofillTest", "Group", 369);
   StartGettingUploadDetails();
 
-  std::string value;
-  EXPECT_TRUE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_FALSE(value.empty());
+  EXPECT_TRUE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -554,10 +561,8 @@ TEST_F(PaymentsClientTest, GetUploadDetailsVariationsTestExperimentFlagOff) {
   CreateFieldTrialWithId("AutofillTest", "Group", 369);
   StartGettingUploadDetails();
 
-  std::string value;
-  EXPECT_FALSE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_TRUE(value.empty());
+  EXPECT_FALSE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -572,10 +577,8 @@ TEST_F(PaymentsClientTest, UploadCardVariationsTest) {
   StartUploading(/*include_cvc=*/true);
   IssueOAuthToken();
 
-  std::string value;
-  EXPECT_TRUE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_FALSE(value.empty());
+  EXPECT_TRUE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -590,10 +593,8 @@ TEST_F(PaymentsClientTest, UploadCardVariationsTestExperimentFlagOff) {
   CreateFieldTrialWithId("AutofillTest", "Group", 369);
   StartUploading(/*include_cvc=*/true);
 
-  std::string value;
-  EXPECT_FALSE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_TRUE(value.empty());
+  EXPECT_FALSE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -608,10 +609,8 @@ TEST_F(PaymentsClientTest, UnmaskCardVariationsTest) {
   StartUnmasking();
   IssueOAuthToken();
 
-  std::string value;
-  EXPECT_TRUE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_FALSE(value.empty());
+  EXPECT_TRUE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -626,10 +625,8 @@ TEST_F(PaymentsClientTest, UnmaskCardVariationsTestExperimentOff) {
   CreateFieldTrialWithId("AutofillTest", "Group", 369);
   StartUnmasking();
 
-  std::string value;
-  EXPECT_FALSE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_TRUE(value.empty());
+  EXPECT_FALSE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -645,10 +642,8 @@ TEST_F(PaymentsClientTest, MigrateCardsVariationsTest) {
   StartMigrating(/*has_cardholder_name=*/true);
   IssueOAuthToken();
 
-  std::string value;
-  EXPECT_TRUE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_FALSE(value.empty());
+  EXPECT_TRUE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }
@@ -663,10 +658,8 @@ TEST_F(PaymentsClientTest, MigrateCardsVariationsTestExperimentFlagOff) {
   CreateFieldTrialWithId("AutofillTest", "Group", 369);
   StartMigrating(/*has_cardholder_name=*/true);
 
-  std::string value;
-  EXPECT_FALSE(GetRequestHeaders()->GetHeader("X-Client-Data", &value));
   // Note that experiment information is stored in X-Client-Data.
-  EXPECT_TRUE(value.empty());
+  EXPECT_FALSE(HasVariationsHeader());
 
   variations::VariationsHttpHeaderProvider::GetInstance()->ResetForTesting();
 }

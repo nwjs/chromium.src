@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
@@ -93,17 +94,17 @@ class MockQuicClientSessionBase : public quic::QuicSpdyClientSessionBase {
   MOCK_CONST_METHOD0(IsCryptoHandshakeConfirmed, bool());
   // Methods taking non-copyable types like spdy::SpdyHeaderBlock by value
   // cannot be mocked directly.
-  size_t WriteHeaders(
+  size_t WriteHeadersOnHeadersStream(
       quic::QuicStreamId id,
       spdy::SpdyHeaderBlock headers,
       bool fin,
       spdy::SpdyPriority priority,
       quic::QuicReferenceCountedPointer<quic::QuicAckListenerInterface>
           ack_listener) override {
-    return WriteHeadersMock(id, headers, fin, priority,
-                            std::move(ack_listener));
+    return WriteHeadersOnHeadersStreamMock(id, headers, fin, priority,
+                                           std::move(ack_listener));
   }
-  MOCK_METHOD5(WriteHeadersMock,
+  MOCK_METHOD5(WriteHeadersOnHeadersStreamMock,
                size_t(quic::QuicStreamId id,
                       const spdy::SpdyHeaderBlock& headers,
                       bool fin,
@@ -242,13 +243,13 @@ class QuicChromiumClientStreamTest
   }
 
   quic::QuicStreamId GetNthClientInitiatedBidirectionalStreamId(int n) {
-    return quic::test::QuicSpdySessionPeer::
-        GetNthClientInitiatedBidirectionalStreamId(session_, n);
+    return quic::test::GetNthClientInitiatedBidirectionalStreamId(
+        session_.connection()->transport_version(), n);
   }
 
   quic::QuicStreamId GetNthServerInitiatedUnidirectionalStreamId(int n) {
-    return quic::test::QuicSpdySessionPeer::
-        GetNthServerInitiatedUnidirectionalStreamId(session_, n);
+    return quic::test::GetNthServerInitiatedUnidirectionalStreamId(
+        session_.connection()->transport_version(), n);
   }
 
   void ResetStreamCallback(QuicChromiumClientStream* stream, int /*rv*/) {
@@ -277,7 +278,7 @@ class QuicChromiumClientStreamTest
   quic::QuicClientPushPromiseIndex push_promise_index_;
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     Version,
     QuicChromiumClientStreamTest,
     ::testing::ValuesIn(quic::AllSupportedTransportVersions()));
@@ -372,13 +373,36 @@ TEST_P(QuicChromiumClientStreamTest, HandleAfterStreamReset) {
       quic::kInvalidControlFrameId,
       quic::test::GetNthClientInitiatedBidirectionalStreamId(GetParam(), 0),
       quic::QUIC_STREAM_CANCELLED, 0);
-  EXPECT_CALL(
-      session_,
-      SendRstStream(
-          quic::test::GetNthClientInitiatedBidirectionalStreamId(GetParam(), 0),
-          quic::QUIC_RST_ACKNOWLEDGEMENT, 0));
-  stream_->OnStreamReset(rst);
+  if (GetParam() != quic::QUIC_VERSION_99) {
+    EXPECT_CALL(
+        session_,
+        SendRstStream(quic::test::GetNthClientInitiatedBidirectionalStreamId(
+                          GetParam(), 0),
+                      quic::QUIC_RST_ACKNOWLEDGEMENT, 0));
+  } else {
+    // Intercept & check that the call to the QuicConnection's OnStreamReast
+    // has correct stream ID and error code -- for V99/IETF Quic, it should
+    // have the STREAM_CANCELLED error code, not RST_ACK... Capture
+    // OnStreamReset (rather than SendRstStream) because the V99 path bypasses
+    // SendRstStream, calling SendRstStreamInner directly. Mocking
+    // SendRstStreamInner is problematic since the test relies on it to perform
+    // the closing operations and getting the stream in the correct state.
+    EXPECT_CALL(
+        *(static_cast<quic::test::MockQuicConnection*>(session_.connection())),
+        OnStreamReset(stream_->id(), quic::QUIC_STREAM_CANCELLED));
+  }
 
+  stream_->OnStreamReset(rst);
+  if (GetParam() == quic::QUIC_VERSION_99) {
+    // Make a STOP_SENDING frame and pass it to QUIC. For V99/IETF QUIC,
+    // we need both a REST_STREAM and a STOP_SENDING to effect a closed
+    // stream.
+    quic::QuicStopSendingFrame stop_sending_frame(
+        quic::kInvalidControlFrameId,
+        quic::test::GetNthClientInitiatedBidirectionalStreamId(GetParam(), 0),
+        quic::QUIC_STREAM_CANCELLED);
+    session_.OnStopSendingFrame(stop_sending_frame);
+  }
   EXPECT_FALSE(handle_->IsOpen());
   EXPECT_EQ(quic::QUIC_STREAM_CANCELLED, handle_->stream_error());
 }
@@ -549,7 +573,7 @@ TEST_P(QuicChromiumClientStreamTest, OnTrailers) {
 
   spdy::SpdyHeaderBlock trailers;
   trailers["bar"] = "foo";
-  trailers[quic::kFinalOffsetHeaderKey] = base::IntToString(strlen(data));
+  trailers[quic::kFinalOffsetHeaderKey] = base::NumberToString(strlen(data));
 
   auto t = ProcessTrailers(trailers);
 
@@ -606,7 +630,7 @@ TEST_P(QuicChromiumClientStreamTest, MarkTrailersConsumedWhenNotifyDelegate) {
 
   spdy::SpdyHeaderBlock trailers;
   trailers["bar"] = "foo";
-  trailers[quic::kFinalOffsetHeaderKey] = base::IntToString(strlen(data));
+  trailers[quic::kFinalOffsetHeaderKey] = base::NumberToString(strlen(data));
   quic::QuicHeaderList t = ProcessTrailers(trailers);
   EXPECT_FALSE(stream_->IsDoneReading());
 
@@ -661,7 +685,7 @@ TEST_P(QuicChromiumClientStreamTest, ReadAfterTrailersReceivedButNotDelivered) {
   // Deliver trailers. Delegate notification is posted asynchronously.
   spdy::SpdyHeaderBlock trailers;
   trailers["bar"] = "foo";
-  trailers[quic::kFinalOffsetHeaderKey] = base::IntToString(strlen(data));
+  trailers[quic::kFinalOffsetHeaderKey] = base::NumberToString(strlen(data));
 
   quic::QuicHeaderList t = ProcessTrailers(trailers);
 

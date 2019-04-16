@@ -105,11 +105,9 @@ void PopulateScalerParameters(const CopyOutputRequest& request,
 
 GLRendererCopier::GLRendererCopier(
     scoped_refptr<ContextProvider> context_provider,
-    TextureDeleter* texture_deleter,
-    ComputeWindowRectCallback window_rect_callback)
+    TextureDeleter* texture_deleter)
     : context_provider_(std::move(context_provider)),
-      texture_deleter_(texture_deleter),
-      window_rect_callback_(std::move(window_rect_callback)) {}
+      texture_deleter_(texture_deleter) {}
 
 GLRendererCopier::~GLRendererCopier() {
   for (auto& entry : cache_)
@@ -118,46 +116,25 @@ GLRendererCopier::~GLRendererCopier() {
 
 void GLRendererCopier::CopyFromTextureOrFramebuffer(
     std::unique_ptr<CopyOutputRequest> request,
-    const gfx::Rect& output_rect,
+    const copy_output::RenderPassGeometry& geometry,
     GLenum internal_format,
     GLuint framebuffer_texture,
     const gfx::Size& framebuffer_texture_size,
     bool flipped_source,
     const gfx::ColorSpace& color_space) {
-  // Finalize the source subrect, as the entirety of the RenderPass's output
-  // optionally clamped to the requested copy area. Then, compute the result
-  // rect, which is the selection clamped to the maximum possible result bounds.
-  // If there will be zero pixels of output or the scaling ratio was not
-  // reasonable, do not proceed.
-  gfx::Rect copy_rect = output_rect;
-  if (request->has_area())
-    copy_rect.Intersect(request->area());
-  gfx::Rect result_rect = request->is_scaled()
-                              ? copy_output::ComputeResultRect(
-                                    gfx::Rect(copy_rect.size()),
-                                    request->scale_from(), request->scale_to())
-                              : gfx::Rect(copy_rect.size());
-  if (request->has_result_selection())
-    result_rect.Intersect(request->result_selection());
-  if (result_rect.IsEmpty())
-    return;
+  const gfx::Rect& result_rect = geometry.result_selection;
 
   // Fast-Path: If no transformation is necessary and no new textures need to be
   // generated, read-back directly from the currently-bound framebuffer.
   if (request->result_format() == ResultFormat::RGBA_BITMAP &&
       !request->is_scaled()) {
-    const gfx::Vector2d readback_offset =
-        window_rect_callback_.Run(result_rect + copy_rect.OffsetFromOrigin())
-            .OffsetFromOrigin();
-    StartReadbackFromFramebuffer(std::move(request), readback_offset,
+    StartReadbackFromFramebuffer(std::move(request), geometry.readback_offset,
                                  flipped_source, false, result_rect,
                                  color_space);
     return;
   }
 
-  // Transform the copy rect into window coordinates, the coordinate system GL
-  // is using for the currently-bound framebuffer.
-  gfx::Rect sampling_rect = window_rect_callback_.Run(copy_rect);
+  gfx::Rect sampling_rect = geometry.sampling_bounds;
 
   const base::UnguessableToken requester = SourceOf(*request);
   std::unique_ptr<ReusableThings> things =
@@ -235,7 +212,7 @@ void GLRendererCopier::CopyFromTextureOrFramebuffer(
       // requires that the result be accessed via a task in the same task runner
       // sequence as the GLRendererCopier. Since I420_PLANES requests are meant
       // to be VIZ-internal, this is an acceptable limitation to enforce.
-      DCHECK(request->SendsResultsInCurrentSequence());
+      DCHECK(request->SendsResultsInCurrentSequence() || async_gl_task_runner_);
 
       const gfx::Rect aligned_rect = RenderI420Textures(
           *request, flipped_source, color_space, source_texture,
@@ -633,17 +610,41 @@ class GLPixelBufferI420Result : public CopyOutputResult {
  public:
   // |aligned_rect| identifies the region of result pixels in the pixel buffer,
   // while the |result_rect| is the subregion that is exposed to the client.
-  GLPixelBufferI420Result(const gfx::Rect& aligned_rect,
-                          const gfx::Rect& result_rect,
-                          scoped_refptr<ContextProvider> context_provider,
-                          GLuint transfer_buffer)
+  GLPixelBufferI420Result(
+      const gfx::Rect& aligned_rect,
+      const gfx::Rect& result_rect,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+      scoped_refptr<ContextProvider> context_provider,
+      GLuint transfer_buffer)
       : CopyOutputResult(CopyOutputResult::Format::I420_PLANES, result_rect),
         aligned_rect_(aligned_rect),
+        task_runner_(task_runner),
         context_provider_(std::move(context_provider)),
-        transfer_buffer_(transfer_buffer) {}
+        transfer_buffer_(transfer_buffer) {
+    auto* const gl = context_provider_->ContextGL();
+    gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, transfer_buffer_);
+    pixels_ = static_cast<uint8_t*>(gl->MapBufferCHROMIUM(
+        GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, GL_READ_ONLY));
+    gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, 0);
+  }
 
   ~GLPixelBufferI420Result() final {
-    context_provider_->ContextGL()->DeleteBuffers(1, &transfer_buffer_);
+    auto cleanup = base::BindOnce(
+        [](scoped_refptr<ContextProvider> context_provider,
+           GLuint transfer_buffer) {
+          auto* const gl = context_provider->ContextGL();
+          gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM,
+                         transfer_buffer);
+          gl->UnmapBufferCHROMIUM(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM);
+          gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, 0);
+          gl->DeleteBuffers(1, &transfer_buffer);
+        },
+        context_provider_, transfer_buffer_);
+    if (task_runner_) {
+      task_runner_->PostTask(FROM_HERE, std::move(cleanup));
+    } else {
+      std::move(cleanup).Run();
+    }
   }
 
   bool ReadI420Planes(uint8_t* y_out,
@@ -657,10 +658,7 @@ class GLPixelBufferI420Result : public CopyOutputResult {
     DCHECK_GE(u_out_stride, chroma_row_bytes);
     DCHECK_GE(v_out_stride, chroma_row_bytes);
 
-    auto* const gl = context_provider_->ContextGL();
-    gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, transfer_buffer_);
-    const uint8_t* pixels = static_cast<uint8_t*>(gl->MapBufferCHROMIUM(
-        GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, GL_READ_ONLY));
+    uint8_t* pixels = pixels_;
     if (pixels) {
       const auto CopyPlane = [](const uint8_t* src, int src_stride,
                                 int row_bytes, int num_rows, uint8_t* out,
@@ -687,18 +685,16 @@ class GLPixelBufferI420Result : public CopyOutputResult {
       pixels += chroma_stride * (aligned_rect_.height() / 2);
       CopyPlane(pixels + chroma_start_offset, chroma_stride, chroma_row_bytes,
                 chroma_height, v_out, v_out_stride);
-      gl->UnmapBufferCHROMIUM(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM);
     }
-    gl->BindBuffer(GL_PIXEL_PACK_TRANSFER_BUFFER_CHROMIUM, 0);
-
     return !!pixels;
   }
 
  private:
   const gfx::Rect aligned_rect_;
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   const scoped_refptr<ContextProvider> context_provider_;
   const GLuint transfer_buffer_;
-  const gfx::Vector2d i420_offset_;
+  uint8_t* pixels_;
 };
 
 // Like the ReadPixelsWorkflow, except for I420 planes readback. Because there
@@ -715,13 +711,16 @@ class GLPixelBufferI420Result : public CopyOutputResult {
 class ReadI420PlanesWorkflow
     : public base::RefCountedThreadSafe<ReadI420PlanesWorkflow> {
  public:
-  ReadI420PlanesWorkflow(std::unique_ptr<CopyOutputRequest> copy_request,
-                         const gfx::Rect& aligned_rect,
-                         const gfx::Rect& result_rect,
-                         scoped_refptr<ContextProvider> context_provider)
+  ReadI420PlanesWorkflow(
+      std::unique_ptr<CopyOutputRequest> copy_request,
+      const gfx::Rect& aligned_rect,
+      const gfx::Rect& result_rect,
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+      scoped_refptr<ContextProvider> context_provider)
       : copy_request_(std::move(copy_request)),
         aligned_rect_(aligned_rect),
         result_rect_(result_rect),
+        task_runner_(std::move(task_runner)),
         context_provider_(std::move(context_provider)) {
     // Create a buffer for the pixel transfer: A single buffer is used and will
     // contain the Y plane, then the U plane, then the V plane.
@@ -802,7 +801,8 @@ class ReadI420PlanesWorkflow
     // If all three readbacks have completed, send the result.
     if (queries_ == std::array<GLuint, 3>{{0, 0, 0}}) {
       copy_request_->SendResult(std::make_unique<GLPixelBufferI420Result>(
-          aligned_rect_, result_rect_, context_provider_, transfer_buffer_));
+          aligned_rect_, result_rect_, task_runner_, context_provider_,
+          transfer_buffer_));
       transfer_buffer_ = 0;  // Ownership was transferred to the result.
     }
   }
@@ -810,6 +810,7 @@ class ReadI420PlanesWorkflow
   const std::unique_ptr<CopyOutputRequest> copy_request_;
   const gfx::Rect aligned_rect_;
   const gfx::Rect result_rect_;
+  const scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   const scoped_refptr<ContextProvider> context_provider_;
   GLuint transfer_buffer_;
   std::array<int, 3> data_offsets_;
@@ -833,7 +834,8 @@ void GLRendererCopier::StartI420ReadbackFromTextures(
   // CopyOutputRequest is passed to the ReadI420PlanesWorkflow, which will send
   // the CopyOutputResult once all readback operations are complete.
   const auto workflow = base::MakeRefCounted<ReadI420PlanesWorkflow>(
-      std::move(request), aligned_rect, result_rect, context_provider_);
+      std::move(request), aligned_rect, result_rect, async_gl_task_runner_,
+      context_provider_);
   workflow->BindTransferBuffer();
   for (int plane = 0; plane < 3; ++plane) {
     gl->BindFramebuffer(GL_FRAMEBUFFER,

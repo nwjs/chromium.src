@@ -22,6 +22,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_side_navigation_test_utils.h"
+#include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/views/test/test_views_delegate.h"
@@ -125,9 +126,10 @@ void BrowserWithTestWindowTest::TearDown() {
   testing::Test::TearDown();
 
   // A Task is leaked if we don't destroy everything, then run the message loop.
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::RunLoop::QuitCurrentWhenIdleClosureDeprecated());
-  base::RunLoop().Run();
+  base::RunLoop loop;
+  base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+                                                loop.QuitWhenIdleClosure());
+  loop.Run();
 }
 
 gfx::NativeWindow BrowserWithTestWindowTest::GetContext() {
@@ -159,9 +161,8 @@ void BrowserWithTestWindowTest::CommitPendingLoad(
 void BrowserWithTestWindowTest::NavigateAndCommit(
     NavigationController* controller,
     const GURL& url) {
-  controller->LoadURL(
-      url, content::Referrer(), ui::PAGE_TRANSITION_LINK, std::string());
-  CommitPendingLoad(controller);
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      controller->GetWebContents(), url);
 }
 
 void BrowserWithTestWindowTest::NavigateAndCommitActiveTab(const GURL& url) {

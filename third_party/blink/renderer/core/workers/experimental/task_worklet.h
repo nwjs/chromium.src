@@ -10,8 +10,10 @@
 #include "third_party/blink/renderer/platform/supplementable.h"
 
 namespace blink {
+
 class Document;
 class LocalDOMWindow;
+class V8Function;
 
 class TaskWorklet final : public Worklet,
                           public Supplement<LocalDOMWindow>,
@@ -24,12 +26,14 @@ class TaskWorklet final : public Worklet,
   static TaskWorklet* From(LocalDOMWindow&);
 
   Task* postTask(ScriptState*,
-                 const ScriptValue& task,
-                 const Vector<ScriptValue>& arguments);
+                 V8Function* task,
+                 const Vector<ScriptValue>& arguments,
+                 ExceptionState&);
 
   Task* postTask(ScriptState*,
                  const String& function_name,
-                 const Vector<ScriptValue>& arguments);
+                 const Vector<ScriptValue>& arguments,
+                 ExceptionState&);
 
   ThreadPoolThread* GetLeastBusyThread() override;
 

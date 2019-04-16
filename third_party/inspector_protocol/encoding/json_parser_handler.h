@@ -7,20 +7,20 @@
 
 #include <cstdint>
 #include <vector>
+#include "span.h"
 #include "status.h"
 
 namespace inspector_protocol {
 // Handler interface for JSON parser events. See also json_parser.h.
-class JsonParserHandler {
+class JSONParserHandler {
  public:
-  virtual ~JsonParserHandler() = default;
+  virtual ~JSONParserHandler() = default;
   virtual void HandleObjectBegin() = 0;
   virtual void HandleObjectEnd() = 0;
   virtual void HandleArrayBegin() = 0;
   virtual void HandleArrayEnd() = 0;
-  // TODO(johannes): Support utf8 (requires utf16->utf8 conversion
-  // internally, including handling mismatched surrogate pairs).
-  virtual void HandleString16(std::vector<uint16_t> chars) = 0;
+  virtual void HandleString8(span<uint8_t> chars) = 0;
+  virtual void HandleString16(span<uint16_t> chars) = 0;
   virtual void HandleBinary(std::vector<uint8_t> bytes) = 0;
   virtual void HandleDouble(double value) = 0;
   virtual void HandleInt32(int32_t value) = 0;

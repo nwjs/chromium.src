@@ -359,15 +359,38 @@ bool IsCorsSafelistedHeader(const std::string& name, const std::string& value) {
   // Treat 'Intervention' as a CORS-safelisted header, since it is added by
   // Chrome when an intervention is (or may be) applied.
   static const char* const safe_names[] = {
-      "accept", "accept-language", "content-language", "intervention",
-      "content-type", "save-data",
+      "accept",
+      "accept-language",
+      "content-language",
+      "intervention",
+      "content-type",
+      "save-data",
       // The Device Memory header field is a number that indicates the client’s
       // device memory i.e. approximate amount of ram in GiB. The header value
       // must satisfy ABNF  1*DIGIT [ "." 1*DIGIT ]
       // See
       // https://w3c.github.io/device-memory/#sec-device-memory-client-hint-header
       // for more details.
-      "device-memory", "dpr", "width", "viewport-width"};
+      "device-memory",
+      "dpr",
+      "width",
+      "viewport-width",
+
+      // The `Sec-CH-Lang` header field is a proposed replacement for
+      // `Accept-Language`, using the Client Hints infrastructure.
+      //
+      // https://tools.ietf.org/html/draft-west-lang-client-hint
+      "sec-ch-lang",
+
+      // The `Sec-CH-UA-*` header fields are proposed replacements for
+      // `User-Agent`, using the Client Hints infrastructure.
+      //
+      // https://tools.ietf.org/html/draft-west-ua-client-hints
+      "sec-ch-ua",
+      "sec-ch-ua-platform",
+      "sec-ch-ua-arch",
+      "sec-ch-ua-model",
+  };
   const std::string lower_name = base::ToLowerASCII(name);
   if (std::find(std::begin(safe_names), std::end(safe_names), lower_name) ==
       std::end(safe_names))
@@ -375,7 +398,8 @@ bool IsCorsSafelistedHeader(const std::string& name, const std::string& value) {
 
   // Client hints are device specific, and not origin specific. As such all
   // client hint headers are considered as safe.
-  // See third_party/WebKit/public/platform/web_client_hints_types.mojom.
+  // See
+  // third_party/blink/public/mojom/web_client_hints/web_client_hints_types.mojom.
   // Client hint headers can be added by Chrome automatically or via JavaScript.
   if (lower_name == "device-memory" || lower_name == "dpr")
     return IsSimilarToDoubleABNF(value);

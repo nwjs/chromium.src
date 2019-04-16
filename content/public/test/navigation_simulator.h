@@ -17,7 +17,7 @@
 class GURL;
 
 namespace net {
-class HostPortPair;
+class IPEndPoint;
 class HttpResponseHeaders;
 }  // namespace net
 
@@ -127,10 +127,10 @@ class NavigationSimulator {
       const GURL& original_url,
       RenderFrameHost* render_frame_host);
 
-  // Creates a NavigationSimulator for an already-started browser initiated
-  // navigation via LoadURL / Reload / GoToOffset. Can be used to drive the
-  // navigation to completion.
-  static std::unique_ptr<NavigationSimulator> CreateFromPendingBrowserInitiated(
+  // Creates a NavigationSimulator for an already-started navigation via
+  // LoadURL / Reload / GoToOffset / history.GoBack() scripts, etc. Can be used
+  // to drive the navigation to completion.
+  static std::unique_ptr<NavigationSimulator> CreateFromPending(
       WebContents* contents);
 
   virtual ~NavigationSimulator() {}
@@ -202,6 +202,8 @@ class NavigationSimulator {
       scoped_refptr<net::HttpResponseHeaders> response_headers) = 0;
 
   // Simulates the navigation failing with the error code |error_code|.
+  // IMPORTANT NOTE: This is simulating a network connection error and implies
+  // we do not get a response. Error codes like 204 are not properly managed.
   virtual void Fail(int error_code) = 0;
 
   // Simulates the commit of an error page following a navigation failure.
@@ -250,7 +252,7 @@ class NavigationSimulator {
 
   // The following parameters can change at any point until the page fails or
   // commits. They should be specified before calling |Fail| or |Commit|.
-  virtual void SetSocketAddress(const net::HostPortPair& socket_address) = 0;
+  virtual void SetSocketAddress(const net::IPEndPoint& remote_endpoint) = 0;
 
   // Pretend the navigation is against an inner response of a signed exchange.
   virtual void SetIsSignedExchangeInnerResponse(

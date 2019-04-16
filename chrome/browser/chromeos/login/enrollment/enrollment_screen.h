@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include "base/callback_forward.h"
+#include "base/callback.h"
 #include "base/cancelable_callback.h"
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
@@ -33,6 +33,10 @@ namespace chromeos {
 class BaseScreenDelegate;
 class ScreenManager;
 
+namespace test {
+class EnrollmentHelperMixin;
+}
+
 // The screen implementation that links the enterprise enrollment UI into the
 // OOBE wizard.
 class EnrollmentScreen
@@ -41,8 +45,12 @@ class EnrollmentScreen
       public EnrollmentScreenView::Controller,
       public ActiveDirectoryJoinDelegate {
  public:
+  enum class Result { COMPLETED, BACK };
+
+  using ScreenExitCallback = base::RepeatingCallback<void(Result result)>;
   EnrollmentScreen(BaseScreenDelegate* base_screen_delegate,
-                   EnrollmentScreenView* view);
+                   EnrollmentScreenView* view,
+                   const ScreenExitCallback& exit_callback);
   ~EnrollmentScreen() override;
 
   static EnrollmentScreen* Get(ScreenManager* manager);
@@ -88,32 +96,24 @@ class EnrollmentScreen
   // Used for testing.
   EnrollmentScreenView* GetView() { return view_; }
 
+  void set_exit_callback_for_testing(const ScreenExitCallback& callback) {
+    exit_callback_ = callback;
+  }
+
+ protected:
+  // Expose the exit_callback to test screen overrides.
+  ScreenExitCallback* exit_callback() { return &exit_callback_; }
+
  private:
   friend class MultiLicenseEnrollmentScreenUnitTest;
   friend class ZeroTouchEnrollmentScreenUnitTest;
   friend class AutomaticReenrollmentScreenUnitTest;
-  friend class EnterpriseEnrollmentConfigurationTest;
+  friend class test::EnrollmentHelperMixin;
 
   FRIEND_TEST_ALL_PREFIXES(AttestationAuthEnrollmentScreenTest, TestCancel);
   FRIEND_TEST_ALL_PREFIXES(ForcedAttestationAuthEnrollmentScreenTest,
                            TestCancel);
   FRIEND_TEST_ALL_PREFIXES(MultiAuthEnrollmentScreenTest, TestCancel);
-  FRIEND_TEST_ALL_PREFIXES(EnterpriseEnrollmentTest,
-                           TestProperPageGetsLoadedOnEnrollmentSuccess);
-  FRIEND_TEST_ALL_PREFIXES(EnterpriseEnrollmentTest,
-                           TestAttributePromptPageGetsLoaded);
-  FRIEND_TEST_ALL_PREFIXES(EnterpriseEnrollmentTest,
-                           TestAuthCodeGetsProperlyReceivedFromGaia);
-  FRIEND_TEST_ALL_PREFIXES(ActiveDirectoryJoinTest,
-                           TestActiveDirectoryEnrollment_Success);
-  FRIEND_TEST_ALL_PREFIXES(ActiveDirectoryJoinTest,
-                           TestActiveDirectoryEnrollment_DistinguishedName);
-  FRIEND_TEST_ALL_PREFIXES(ActiveDirectoryJoinTest,
-                           TestActiveDirectoryEnrollment_UIErrors);
-  FRIEND_TEST_ALL_PREFIXES(ActiveDirectoryJoinTest,
-                           TestActiveDirectoryEnrollment_ErrorCard);
-  FRIEND_TEST_ALL_PREFIXES(ActiveDirectoryJoinTest,
-                           TestActiveDirectoryEnrollment_Streamline);
   FRIEND_TEST_ALL_PREFIXES(ZeroTouchEnrollmentScreenUnitTest, Retry);
   FRIEND_TEST_ALL_PREFIXES(ZeroTouchEnrollmentScreenUnitTest, TestSuccess);
   FRIEND_TEST_ALL_PREFIXES(ZeroTouchEnrollmentScreenUnitTest,
@@ -187,6 +187,7 @@ class EnrollmentScreen
                                const std::string& machine_domain);
 
   EnrollmentScreenView* view_;
+  ScreenExitCallback exit_callback_;
   policy::EnrollmentConfig config_;
   policy::EnrollmentConfig enrollment_config_;
   Auth current_auth_ = AUTH_OAUTH;

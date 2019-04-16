@@ -19,17 +19,16 @@
 #include "base/timer/elapsed_timer.h"
 #include "components/consent_auditor/consent_auditor.h"
 #include "components/signin/core/browser/account_consistency_method.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/unified_consent/feature.h"
 #include "components/unified_consent/unified_consent_service.h"
 #import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
-#include "ios/chrome/browser/signin/account_tracker_service_factory.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/chrome_identity_service_observer_bridge.h"
+#include "ios/chrome/browser/signin/identity_manager_factory.h"
 #include "ios/chrome/browser/signin/signin_util.h"
 #include "ios/chrome/browser/sync/consent_auditor_factory.h"
 #import "ios/chrome/browser/sync/sync_setup_service.h"
@@ -253,6 +252,13 @@ enum AuthenticationState {
 
 - (void)acceptSignInAndShowAccountsSettings:(BOOL)showAccountsSettings {
   signin_metrics::LogSigninAccessPointCompleted(_accessPoint, _promoAction);
+  if (showAccountsSettings) {
+    base::RecordAction(
+        base::UserMetricsAction("Signin_Signin_WithAdvancedSyncSettings"));
+  } else {
+    base::RecordAction(
+        base::UserMetricsAction("Signin_Signin_WithDefaultSyncSettings"));
+  }
   std::vector<int> consent_text_ids;
   int openSettingsStringId = -1;
   if (_unifiedConsentEnabled) {
@@ -270,8 +276,8 @@ enum AuthenticationState {
                                     ? openSettingsStringId
                                     : [self acceptSigninButtonStringId];
   std::string account_id =
-      ios::AccountTrackerServiceFactory::GetForBrowserState(_browserState)
-          ->PickAccountIdForAccount(
+      IdentityManagerFactory::GetForBrowserState(_browserState)
+          ->LegacyPickAccountIdForAccount(
               base::SysNSStringToUTF8([_selectedIdentity gaiaID]),
               base::SysNSStringToUTF8([_selectedIdentity userEmail]));
 
@@ -293,20 +299,30 @@ enum AuthenticationState {
   _unifiedConsentCoordinator = nil;
 }
 
-- (void)acceptSignInAndCommitSyncChanges {
+// Starts the sync engine only if the user tapped on "YES, I'm in", and closes
+// the sign-in view.
+- (void)signinCompletedWithUnity {
   DCHECK(_didSignIn);
-  if (_unifiedConsentEnabled) {
-    // The consent has to be given as soon as the user is signed in. Even when
-    // they open the settings through the link.
-    unified_consent::UnifiedConsentService* unifiedConsentService =
-        UnifiedConsentServiceFactory::GetForBrowserState(_browserState);
-    // |unifiedConsentService| may be null in unit tests.
-    if (unifiedConsentService)
-      unifiedConsentService->EnableGoogleServices();
+  DCHECK(_unifiedConsentEnabled);
+  // The consent has to be given as soon as the user is signed in. Even when
+  // they open the settings through the link.
+  unified_consent::UnifiedConsentService* unifiedConsentService =
+      UnifiedConsentServiceFactory::GetForBrowserState(_browserState);
+  // |unifiedConsentService| may be null in unit tests.
+  if (unifiedConsentService)
+    unifiedConsentService->SetUrlKeyedAnonymizedDataCollectionEnabled(true);
+  if (!_unifiedConsentCoordinator.settingsLinkWasTapped) {
+    SyncSetupServiceFactory::GetForBrowserState(_browserState)->CommitChanges();
   }
-  SyncSetupServiceFactory::GetForBrowserState(_browserState)->CommitChanges();
   [self acceptSignInAndShowAccountsSettings:_unifiedConsentCoordinator
                                                 .settingsLinkWasTapped];
+}
+
+- (void)acceptSignInAndCommitSyncChanges {
+  DCHECK(_didSignIn);
+  DCHECK(!_unifiedConsentEnabled);
+  SyncSetupServiceFactory::GetForBrowserState(_browserState)->CommitChanges();
+  [self acceptSignInAndShowAccountsSettings:NO];
 }
 
 - (void)setPrimaryButtonStyling:(MDCButton*)button {
@@ -537,7 +553,7 @@ enum AuthenticationState {
     _didSignIn = YES;
     [_delegate didSignIn:self];
     if (_unifiedConsentEnabled) {
-      [self acceptSignInAndCommitSyncChanges];
+      [self signinCompletedWithUnity];
     } else {
       [self changeToState:IDENTITY_SELECTED_STATE];
     }
@@ -982,6 +998,9 @@ enum AuthenticationState {
       return;
     case IDENTITY_PICKER_STATE:
       if (!_didFinishSignIn) {
+        if (_unifiedConsentEnabled) {
+          base::RecordAction(base::UserMetricsAction("Signin_Undo_Signin"));
+        }
         _didFinishSignIn = YES;
         [_delegate didSkipSignIn:self];
       }

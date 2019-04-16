@@ -22,6 +22,9 @@ class ASH_EXPORT ShelfBubble : public views::BubbleDialogDelegateView {
               ShelfAlignment alignment,
               SkColor background_co0lor);
 
+  // views::BubbleDialogDelegateView
+  ax::mojom::Role GetAccessibleWindowRole() const override;
+
   // Returns true if we should close when we get a press down event within our
   // bounds.
   virtual bool ShouldCloseOnPressDown() = 0;
@@ -31,7 +34,7 @@ class ASH_EXPORT ShelfBubble : public views::BubbleDialogDelegateView {
   virtual bool ShouldCloseOnMouseExit() = 0;
 
  protected:
-  void set_border_radius(int radius) { border_radius_ = radius; };
+  void set_border_radius(int radius) { border_radius_ = radius; }
 
   // Performs the actual bubble creation.
   void CreateBubble();

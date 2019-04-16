@@ -6,6 +6,7 @@
 
 #include "android_webview/browser/input_stream.h"
 #include "android_webview/browser/net/input_stream_reader.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
@@ -196,7 +197,7 @@ void AndroidStreamReaderURLLoader::HeadersComplete(
   DCHECK(thread_checker_.CalledOnValidThread());
 
   std::string status("HTTP/1.1 ");
-  status.append(base::IntToString(status_code));
+  status.append(base::NumberToString(status_code));
   status.append(" ");
   status.append(status_text);
   // HttpResponseHeaders expects its input string to be terminated by two NULs.
@@ -219,7 +220,8 @@ void AndroidStreamReaderURLLoader::HeadersComplete(
       std::string content_length_header(
           net::HttpRequestHeaders::kContentLength);
       content_length_header.append(": ");
-      content_length_header.append(base::Int64ToString(expected_content_size_));
+      content_length_header.append(
+          base::NumberToString(expected_content_size_));
       head.headers->AddHeader(content_length_header);
     }
 

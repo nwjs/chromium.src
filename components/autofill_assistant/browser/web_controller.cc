@@ -9,10 +9,12 @@
 #include <ctime>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/i18n/char_iterator.h"
 #include "base/logging.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -32,12 +34,12 @@ namespace autofill_assistant {
 using autofill::ContentAutofillDriver;
 
 namespace {
-// Time between two periodic box model checks.
-static constexpr base::TimeDelta kPeriodicBoxModelCheckInterval =
+// Time between two periodic box model and document ready state checks.
+static constexpr base::TimeDelta kPeriodicCheckInterval =
     base::TimeDelta::FromMilliseconds(200);
 
 // Timeout after roughly 10 seconds (50*200ms).
-constexpr int kPeriodicBoxModelCheckRounds = 50;
+constexpr int kPeriodicCheckRounds = 50;
 
 // Expiration time for the Autofill Assistant cookie.
 constexpr int kCookieExpiresSeconds = 600;
@@ -151,6 +153,13 @@ const char* const kQuerySelectorAll =
       return undefined;
     })";
 
+// Javascript code to query whether the document is ready for interact.
+const char* const kIsDocumentReadyForInteract =
+    R"(function () {
+      return document.readyState == 'interactive'
+          || document.readyState == 'complete';
+    })";
+
 bool ConvertPseudoType(const PseudoType pseudo_type,
                        dom::PseudoType* pseudo_type_output) {
   switch (pseudo_type) {
@@ -218,7 +227,7 @@ void WebController::ElementPositionGetter::Start(
   devtools_client_ = devtools_client;
   object_id_ = element_object_id;
   callback_ = std::move(callback);
-  remaining_rounds_ = kPeriodicBoxModelCheckRounds;
+  remaining_rounds_ = kPeriodicCheckRounds;
 
   // Wait for a roundtrips through the renderer and compositor pipeline,
   // otherwise touch event may be dropped because of missing handler.
@@ -252,7 +261,7 @@ void WebController::ElementPositionGetter::GetAndWaitBoxModelStable() {
 void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
     std::unique_ptr<dom::GetBoxModelResult> result) {
   if (!result || !result->GetModel() || !result->GetModel()->GetContent()) {
-    DLOG(ERROR) << "Failed to get box model.";
+    DVLOG(1) << __func__ << " Failed to get box model.";
     OnError();
     return;
   }
@@ -266,17 +275,15 @@ void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
       round((round((*content_box)[3]) + round((*content_box)[5])) * 0.5);
 
   // Wait for at least three rounds (~600ms =
-  // 3*kPeriodicBoxModelCheckInterval) for visual state update callback since
+  // 3*kPeriodicCheckInterval) for visual state update callback since
   // it might take longer time to return or never return if no updates.
-  DCHECK(kPeriodicBoxModelCheckRounds > 2 &&
-         kPeriodicBoxModelCheckRounds >= remaining_rounds_);
+  DCHECK(kPeriodicCheckRounds > 2 && kPeriodicCheckRounds >= remaining_rounds_);
   if (has_point_ && new_point_x == point_x_ && new_point_y == point_y_ &&
-      (visual_state_updated_ ||
-       remaining_rounds_ + 2 < kPeriodicBoxModelCheckRounds)) {
+      (visual_state_updated_ || remaining_rounds_ + 2 < kPeriodicCheckRounds)) {
     // Note that there is still a chance that the element's position has been
     // changed after the last call of GetBoxModel, however, it might be safe
     // to assume the element's position will not be changed before issuing
-    // click or tap event after stable for kPeriodicBoxModelCheckInterval. In
+    // click or tap event after stable for kPeriodicCheckInterval. In
     // addition, checking again after issuing click or tap event doesn't help
     // since the change may be expected.
     OnResult(new_point_x, new_point_y);
@@ -317,13 +324,13 @@ void WebController::ElementPositionGetter::OnGetBoxModelForStableCheck(
       base::BindOnce(
           &WebController::ElementPositionGetter::GetAndWaitBoxModelStable,
           weak_ptr_factory_.GetWeakPtr()),
-      kPeriodicBoxModelCheckInterval);
+      kPeriodicCheckInterval);
 }
 
 void WebController::ElementPositionGetter::OnScrollIntoView(
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
-    DLOG(ERROR) << "Failed to scroll the element.";
+    DVLOG(1) << __func__ << " Failed to scroll the element.";
     OnError();
     return;
   }
@@ -334,7 +341,7 @@ void WebController::ElementPositionGetter::OnScrollIntoView(
       base::BindOnce(
           &WebController::ElementPositionGetter::GetAndWaitBoxModelStable,
           weak_ptr_factory_.GetWeakPtr()),
-      kPeriodicBoxModelCheckInterval);
+      kPeriodicCheckInterval);
 }
 
 void WebController::ElementPositionGetter::OnResult(int x, int y) {
@@ -370,17 +377,15 @@ WebController::FillFormInputData::FillFormInputData() {}
 
 WebController::FillFormInputData::~FillFormInputData() {}
 
-const GURL& WebController::GetUrl() {
-  return web_contents_->GetLastCommittedURL();
-}
-
 void WebController::LoadURL(const GURL& url) {
+  DVLOG(3) << __func__ << " " << url;
   web_contents_->GetController().LoadURLWithParams(
       content::NavigationController::LoadURLParams(url));
 }
 
 void WebController::ClickOrTapElement(const Selector& selector,
                                       base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector;
 #if defined(OS_ANDROID)
   TapElement(selector, std::move(callback));
 #else
@@ -414,12 +419,31 @@ void WebController::OnFindElementForClickOrTap(
     std::unique_ptr<FindElementResult> result) {
   // Found element must belong to a frame.
   if (!result->container_frame_host || result->object_id.empty()) {
-    DLOG(ERROR) << "Failed to find the element to click or tap.";
+    DVLOG(1) << __func__ << " Failed to find the element to click or tap.";
     OnResult(false, std::move(callback));
     return;
   }
 
-  ClickOrTapElement(std::move(result), is_a_click, std::move(callback));
+  std::string element_object_id = result->object_id;
+  WaitForDocumentToBecomeInteractive(
+      kPeriodicCheckRounds, element_object_id,
+      base::BindOnce(
+          &WebController::OnWaitDocumentToBecomeInteractiveForClickOrTap,
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback), is_a_click,
+          std::move(result)));
+}
+
+void WebController::OnWaitDocumentToBecomeInteractiveForClickOrTap(
+    base::OnceCallback<void(bool)> callback,
+    bool is_a_click,
+    std::unique_ptr<FindElementResult> target_element,
+    bool result) {
+  if (!result) {
+    OnResult(false, std::move(callback));
+    return;
+  }
+
+  ClickOrTapElement(std::move(target_element), is_a_click, std::move(callback));
 }
 
 void WebController::ClickOrTapElement(
@@ -448,7 +472,7 @@ void WebController::OnScrollIntoView(
     bool is_a_click,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
-    DLOG(ERROR) << "Failed to scroll the element.";
+    DVLOG(1) << __func__ << " Failed to scroll the element.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -471,7 +495,7 @@ void WebController::TapOrClickOnCoordinates(
     int x,
     int y) {
   if (!has_coordinates) {
-    DLOG(ERROR) << "Failed to get element position.";
+    DVLOG(1) << __func__ << " Failed to get element position.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -510,7 +534,8 @@ void WebController::OnDispatchPressMouseEvent(
     int y,
     std::unique_ptr<input::DispatchMouseEventResult> result) {
   if (!result) {
-    DLOG(ERROR) << "Failed to dispatch mouse left button pressed event.";
+    DVLOG(1) << __func__
+             << " Failed to dispatch mouse left button pressed event.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -537,7 +562,7 @@ void WebController::OnDispatchTouchEventStart(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<input::DispatchTouchEventResult> result) {
   if (!result) {
-    DLOG(ERROR) << "Failed to dispatch touch start event.";
+    DVLOG(1) << __func__ << " Failed to dispatch touch start event.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -620,7 +645,7 @@ void WebController::OnGetDocumentElement(
   element_result->container_frame_selector_index = 0;
   element_result->object_id = "";
   if (!result || !result->GetResult() || !result->GetResult()->HasObjectId()) {
-    DLOG(ERROR) << "Failed to get document root element.";
+    DVLOG(1) << __func__ << " Failed to get document root element.";
     std::move(callback).Run(std::move(element_result));
     return;
   }
@@ -715,7 +740,7 @@ void WebController::OnDescribeNodeForPseudoElement(
     FindElementCallback callback,
     std::unique_ptr<dom::DescribeNodeResult> result) {
   if (!result || !result->GetNode()) {
-    DLOG(ERROR) << "Failed to describe the node for pseudo element.";
+    DVLOG(1) << __func__ << " Failed to describe the node for pseudo element.";
     std::move(callback).Run(std::move(element_result));
     return;
   }
@@ -761,7 +786,7 @@ void WebController::OnDescribeNode(
     FindElementCallback callback,
     std::unique_ptr<dom::DescribeNodeResult> result) {
   if (!result || !result->GetNode()) {
-    DLOG(ERROR) << "Failed to describe the node.";
+    DVLOG(1) << __func__ << " Failed to describe the node.";
     std::move(callback).Run(std::move(element_result));
     return;
   }
@@ -792,13 +817,13 @@ void WebController::OnDescribeNode(
     element_result->container_frame_host = FindCorrespondingRenderFrameHost(
         frame_name, node->GetContentDocument()->GetDocumentURL());
     if (!element_result->container_frame_host) {
-      DLOG(ERROR) << "Failed to find corresponding owner frame.";
+      DVLOG(1) << __func__ << " Failed to find corresponding owner frame.";
       std::move(callback).Run(std::move(element_result));
       return;
     }
   } else if (node->HasFrameId()) {
     // TODO(crbug.com/806868): Support out-of-process iframe.
-    DLOG(WARNING) << "The element is inside an OOPIF.";
+    DVLOG(3) << "Warning (unsupported): the element is inside an OOPIF.";
     std::move(callback).Run(std::move(element_result));
     return;
   }
@@ -833,7 +858,7 @@ void WebController::OnResolveNode(
     FindElementCallback callback,
     std::unique_ptr<dom::ResolveNodeResult> result) {
   if (!result || !result->GetObject() || !result->GetObject()->HasObjectId()) {
-    DLOG(ERROR) << "Failed to resolve object id from backend id.";
+    DVLOG(1) << __func__ << " Failed to resolve object id from backend id.";
     std::move(callback).Run(std::move(element_result));
     return;
   }
@@ -874,7 +899,7 @@ void WebController::OnFindElementForFocusElement(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<FindElementResult> element_result) {
   if (element_result->object_id.empty()) {
-    DLOG(ERROR) << "Failed to find the element to focus on.";
+    DVLOG(1) << __func__ << " Failed to find the element to focus on.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -898,7 +923,7 @@ void WebController::OnFocusElement(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
-    DLOG(ERROR) << "Failed to focus on element.";
+    DVLOG(1) << __func__ << " Failed to focus on element.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -908,6 +933,7 @@ void WebController::OnFocusElement(
 void WebController::FillAddressForm(const autofill::AutofillProfile* profile,
                                     const Selector& selector,
                                     base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << selector;
   auto data_to_autofill = std::make_unique<FillFormInputData>();
   data_to_autofill->profile =
       std::make_unique<autofill::AutofillProfile>(*profile);
@@ -925,7 +951,7 @@ void WebController::OnFindElementForFillingForm(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<FindElementResult> element_result) {
   if (element_result->object_id.empty()) {
-    DLOG(ERROR) << "Failed to find the element for filling the form.";
+    DVLOG(1) << __func__ << " Failed to find the element for filling the form.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -951,7 +977,7 @@ void WebController::OnGetFormAndFieldDataForFillingForm(
     const autofill::FormData& form_data,
     const autofill::FormFieldData& form_field) {
   if (form_data.fields.empty()) {
-    DLOG(ERROR) << "Failed to get form data to fill form.";
+    DVLOG(1) << __func__ << " Failed to get form data to fill form.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -959,7 +985,7 @@ void WebController::OnGetFormAndFieldDataForFillingForm(
   ContentAutofillDriver* driver =
       ContentAutofillDriver::GetForRenderFrameHost(container_frame_host);
   if (!driver) {
-    DLOG(ERROR) << "Failed to get the autofill driver.";
+    DVLOG(1) << __func__ << " Failed to get the autofill driver.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -980,6 +1006,7 @@ void WebController::FillCardForm(std::unique_ptr<autofill::CreditCard> card,
                                  const base::string16& cvc,
                                  const Selector& selector,
                                  base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector;
   auto data_to_autofill = std::make_unique<FillFormInputData>();
   data_to_autofill->card = std::move(card);
   data_to_autofill->cvc = cvc;
@@ -994,6 +1021,7 @@ void WebController::FillCardForm(std::unique_ptr<autofill::CreditCard> card,
 void WebController::SelectOption(const Selector& selector,
                                  const std::string& selected_option,
                                  base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector << ", option=" << selected_option;
   FindElement(selector,
               /* strict_mode= */ true,
               base::BindOnce(&WebController::OnFindElementForSelectOption,
@@ -1007,7 +1035,7 @@ void WebController::OnFindElementForSelectOption(
     std::unique_ptr<FindElementResult> element_result) {
   const std::string object_id = element_result->object_id;
   if (object_id.empty()) {
-    DLOG(ERROR) << "Failed to find the element to select an option.";
+    DVLOG(1) << __func__ << " Failed to find the element to select an option.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -1032,7 +1060,7 @@ void WebController::OnSelectOption(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
-    DLOG(ERROR) << "Failed to select option.";
+    DVLOG(1) << __func__ << " Failed to select option.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -1044,6 +1072,7 @@ void WebController::OnSelectOption(
 
 void WebController::HighlightElement(const Selector& selector,
                                      base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector;
   FindElement(
       selector,
       /* strict_mode= */ true,
@@ -1056,7 +1085,7 @@ void WebController::OnFindElementForHighlightElement(
     std::unique_ptr<FindElementResult> element_result) {
   const std::string object_id = element_result->object_id;
   if (object_id.empty()) {
-    DLOG(ERROR) << "Failed to find the element to highlight.";
+    DVLOG(1) << __func__ << " Failed to find the element to highlight.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -1079,7 +1108,7 @@ void WebController::OnHighlightElement(
     base::OnceCallback<void(bool)> callback,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
-    DLOG(ERROR) << "Failed to highlight element.";
+    DVLOG(1) << __func__ << " Failed to highlight element.";
     OnResult(false, std::move(callback));
     return;
   }
@@ -1090,6 +1119,7 @@ void WebController::OnHighlightElement(
 
 void WebController::FocusElement(const Selector& selector,
                                  base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector;
   DCHECK(!selector.empty());
   FindElement(
       selector,
@@ -1145,6 +1175,8 @@ void WebController::SetFieldValue(const Selector& selector,
                                   const std::string& value,
                                   bool simulate_key_presses,
                                   base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector << ", value=" << value
+           << ", simulate_key_presses=" << simulate_key_presses;
   if (simulate_key_presses) {
     std::vector<std::string> utf8_chars;
     base::i18n::UTF8CharIterator iter(&value);
@@ -1152,7 +1184,8 @@ void WebController::SetFieldValue(const Selector& selector,
       wchar_t wide_char = iter.get();
       std::string utf8_char;
       if (!base::WideToUTF8(&wide_char, 1, &utf8_char)) {
-        DLOG(ERROR) << "Failed to convert character to UTF-8: " << wide_char;
+        DVLOG(1) << __func__
+                 << " Failed to convert character to UTF-8: " << wide_char;
         OnResult(false, std::move(callback));
         return;
       }
@@ -1290,6 +1323,9 @@ void WebController::SetAttribute(const Selector& selector,
                                  const std::vector<std::string>& attribute,
                                  const std::string& value,
                                  base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector << ", attribute=["
+           << base::JoinString(attribute, ",") << "], value=" << value;
+
   DCHECK(!selector.empty());
   DCHECK_GT(attribute.size(), 0u);
   FindElement(selector,
@@ -1344,6 +1380,8 @@ void WebController::SendKeyboardInput(
     const Selector& selector,
     const std::vector<std::string>& utf8_chars,
     base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " " << selector
+           << ", input=" << base::JoinString(utf8_chars, "");
   DCHECK(!selector.empty());
   FindElement(selector,
               /* strict_mode= */ true,
@@ -1366,6 +1404,7 @@ void WebController::OnFindElementForSendKeyboardInput(
 void WebController::GetOuterHtml(
     const Selector& selector,
     base::OnceCallback<void(bool, const std::string&)> callback) {
+  DVLOG(3) << __func__ << " " << selector;
   FindElement(
       selector,
       /* strict_mode= */ true,
@@ -1449,6 +1488,7 @@ void WebController::OnFindElementForGetOuterHtml(
     std::unique_ptr<FindElementResult> element_result) {
   const std::string object_id = element_result->object_id;
   if (object_id.empty()) {
+    DVLOG(2) << __func__ << " Failed to find element for GetOuterHtml";
     OnResult(false, "", std::move(callback));
     return;
   }
@@ -1467,6 +1507,7 @@ void WebController::OnGetOuterHtml(
     base::OnceCallback<void(bool, const std::string&)> callback,
     std::unique_ptr<runtime::CallFunctionOnResult> result) {
   if (!result || result->HasExceptionDetails()) {
+    DVLOG(2) << __func__ << " Failed to find element for GetOuterHtml";
     OnResult(false, "", std::move(callback));
     return;
   }
@@ -1479,6 +1520,7 @@ void WebController::OnGetOuterHtml(
 
 void WebController::SetCookie(const std::string& domain,
                               base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__ << " domain=" << domain;
   DCHECK(!domain.empty());
   auto expires_seconds =
       std::chrono::seconds(std::time(nullptr)).count() + kCookieExpiresSeconds;
@@ -1500,6 +1542,7 @@ void WebController::OnSetCookie(
 }
 
 void WebController::HasCookie(base::OnceCallback<void(bool)> callback) {
+  DVLOG(3) << __func__;
   devtools_client_->GetNetwork()->GetCookies(
       base::BindOnce(&WebController::OnHasCookie,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
@@ -1525,8 +1568,53 @@ void WebController::OnHasCookie(
 }
 
 void WebController::ClearCookie() {
+  DVLOG(3) << __func__;
   devtools_client_->GetNetwork()->DeleteCookies(kAutofillAssistantCookieName,
                                                 base::DoNothing());
+}
+
+void WebController::WaitForDocumentToBecomeInteractive(
+    int remaining_rounds,
+    std::string object_id,
+    base::OnceCallback<void(bool)> callback) {
+  devtools_client_->GetRuntime()->CallFunctionOn(
+      runtime::CallFunctionOnParams::Builder()
+          .SetObjectId(object_id)
+          .SetFunctionDeclaration(std::string(kIsDocumentReadyForInteract))
+          .SetReturnByValue(true)
+          .Build(),
+      base::BindOnce(&WebController::OnWaitForDocumentToBecomeInteractive,
+                     weak_ptr_factory_.GetWeakPtr(), remaining_rounds,
+                     object_id, std::move(callback)));
+}
+
+void WebController::OnWaitForDocumentToBecomeInteractive(
+    int remaining_rounds,
+    std::string object_id,
+    base::OnceCallback<void(bool)> callback,
+    std::unique_ptr<runtime::CallFunctionOnResult> result) {
+  if (!result || !result->GetResult() || result->HasExceptionDetails() ||
+      remaining_rounds <= 0) {
+    DVLOG(1) << __func__
+             << " Failed to wait for the document to become interactive with "
+                "remaining_rounds: "
+             << remaining_rounds;
+    std::move(callback).Run(false);
+    return;
+  }
+
+  DCHECK(result->GetResult()->GetValue()->is_bool());
+  if (result->GetResult()->GetValue()->GetBool()) {
+    std::move(callback).Run(true);
+    return;
+  }
+
+  base::PostDelayedTaskWithTraits(
+      FROM_HERE, {content::BrowserThread::UI},
+      base::BindOnce(&WebController::WaitForDocumentToBecomeInteractive,
+                     weak_ptr_factory_.GetWeakPtr(), --remaining_rounds,
+                     object_id, std::move(callback)),
+      kPeriodicCheckInterval);
 }
 
 }  // namespace autofill_assistant

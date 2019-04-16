@@ -34,6 +34,8 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/unguessable_token.h"
 #include "third_party/blink/public/platform/web_loading_behavior_flag.h"
+#include "third_party/blink/public/platform/web_navigation_body_loader.h"
+#include "third_party/blink/public/platform/web_scoped_virtual_time_pauser.h"
 #include "third_party/blink/public/web/web_frame_load_type.h"
 #include "third_party/blink/public/web/web_global_object_reuse_policy.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
@@ -41,7 +43,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/weak_identifier_map.h"
-#include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/dactyloscoper.h"
 #include "third_party/blink/renderer/core/frame/frame_types.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
@@ -53,12 +54,12 @@
 #include "third_party/blink/renderer/core/loader/previews_resource_loading_hints.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/platform/loader/fetch/client_hints_preferences.h"
-#include "third_party/blink/renderer/platform/loader/fetch/raw_resource.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
-#include "third_party/blink/renderer/platform/loader/fetch/substitute_data.h"
+#include "third_party/blink/renderer/platform/loader/fetch/source_keyed_cached_metadata_handler.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
+#include "third_party/blink/renderer/platform/weborigin/referrer.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 
 #include <memory>
@@ -66,6 +67,7 @@
 namespace blink {
 
 class ApplicationCacheHost;
+class ContentSecurityPolicy;
 class Document;
 class DocumentParser;
 class FrameLoader;
@@ -83,9 +85,7 @@ struct ViewportDescriptionWrapper;
 // The DocumentLoader fetches a main resource and handles the result.
 class CORE_EXPORT DocumentLoader
     : public GarbageCollectedFinalized<DocumentLoader>,
-      private RawResourceClient {
-  USING_GARBAGE_COLLECTED_MIXIN(DocumentLoader);
-
+      public WebNavigationBodyLoader::Client {
  public:
   DocumentLoader(LocalFrame*,
                  WebNavigationType navigation_type,
@@ -110,7 +110,7 @@ class CORE_EXPORT DocumentLoader
   const AtomicString& MimeType() const;
 
   const KURL& OriginalUrl() const;
-  const AtomicString& OriginalReferrer() const;
+  const Referrer& OriginalReferrer() const;
 
   ResourceFetcher* Fetcher() const { return fetcher_.Get(); }
 
@@ -126,12 +126,11 @@ class CORE_EXPORT DocumentLoader
     return resource_loading_hints_;
   }
 
-  const SubstituteData& GetSubstituteData() const { return substitute_data_; }
-
   const KURL& Url() const;
-  const KURL& UnreachableURL() const;
   const KURL& UrlForHistory() const;
-  const AtomicString& Referrer() const;
+  const AtomicString& HttpMethod() const;
+  const Referrer& GetReferrer() const;
+  const KURL& UnreachableURL() const;
   EncodedFormData* HttpBody() const;
 
   void DidChangePerformanceTiming();
@@ -150,13 +149,12 @@ class CORE_EXPORT DocumentLoader
   bool ReplacesCurrentHistoryItem() const {
     return replaces_current_history_item_;
   }
-  void SetReplacesCurrentHistoryItem(bool replaces_current_history_item) {
-    replaces_current_history_item_ = replaces_current_history_item;
-  }
 
   bool IsCommittedButEmpty() const {
     return state_ >= kCommitted && !data_received_;
   }
+
+  void FillNavigationParamsForErrorPage(WebNavigationParams*);
 
   // Without PlzNavigate, this is only false for a narrow window during
   // navigation start. For PlzNavigate, a navigation sent to the browser will
@@ -184,14 +182,10 @@ class CORE_EXPORT DocumentLoader
   void SetDefersLoading(bool defers);
 
   DocumentLoadTiming& GetTiming() { return document_load_timing_; }
-  const DocumentLoadTiming& GetTiming() const { return document_load_timing_; }
 
   ApplicationCacheHost* GetApplicationCacheHost() const {
     return application_cache_host_.Get();
   }
-
-  void ClearRedirectChain();
-  void AppendRedirect(const KURL&);
 
   ClientHintsPreferences& GetClientHintsPreferences() {
     return client_hints_preferences_;
@@ -207,7 +201,6 @@ class CORE_EXPORT DocumentLoader
   };
   InitialScrollState& GetInitialScrollState() { return initial_scroll_state_; }
 
-  void SetWasBlockedAfterCSP() { was_blocked_after_csp_ = true; }
   bool WasBlockedAfterCSP() { return was_blocked_after_csp_; }
 
   void DispatchLinkHeaderPreloads(ViewportDescriptionWrapper*,
@@ -225,11 +218,7 @@ class CORE_EXPORT DocumentLoader
 
   void LoadFailed(const ResourceError&);
 
-  void SetUserActivated();
-
-  const AtomicString& RequiredCSP();
-
-  void Trace(blink::Visitor*) override;
+  virtual void Trace(blink::Visitor*);
 
   // For automation driver-initiated navigations over the devtools protocol,
   // |devtools_navigation_token_| is used to tag the navigation. This navigation
@@ -265,20 +254,12 @@ class CORE_EXPORT DocumentLoader
 
   void ProvideDocumentToResourceFetcherProperties(Document&);
 
- protected:
-  static bool ShouldClearWindowName(
-      const LocalFrame&,
-      const SecurityOrigin* previous_security_origin,
-      const Document& new_document);
+  int ErrorCode() const { return error_code_; }
 
+ protected:
   bool had_transient_activation() const { return had_transient_activation_; }
 
   Vector<KURL> redirect_chain_;
-
-  // The 'working' request. It may be mutated
-  // several times from the original request to include additional
-  // headers, cookie information, canonicalization and redirects.
-  ResourceRequest request_;
 
  private:
   // installNewDocument() does the work of creating a Document and
@@ -310,8 +291,9 @@ class CORE_EXPORT DocumentLoader
 
   void CommitData(const char* bytes, size_t length);
 
-  bool MaybeCreateArchive();
-
+  ContentSecurityPolicy* CreateCSP(const ResourceResponse&,
+                                   const String& origin_policy_string);
+  void StartLoadingInternal();
   void FinishedLoading(TimeTicks finish_time);
   void CancelLoadAfterCSPDenied(const ResourceResponse&);
 
@@ -324,22 +306,12 @@ class CORE_EXPORT DocumentLoader
                                     WebFrameLoadType,
                                     HistoryNavigationType);
 
-  // RawResourceClient implementation
-  bool RedirectReceived(Resource*,
-                        const ResourceRequest&,
-                        const ResourceResponse&) final;
-  void ResponseReceived(Resource*,
-                        const ResourceResponse&,
-                        std::unique_ptr<WebDataConsumerHandle>) final;
-  void DataReceived(Resource*, const char* data, size_t length) final;
+  void HandleRedirect(const KURL& current_request_url);
+  // Returns true if we should proceed with navigation.
+  bool HandleResponse(const ResourceResponse&);
+  void HandleData(const char* data, size_t length);
 
-  // ResourceClient implementation
-  void NotifyFinished(Resource*) final;
-  String DebugName() const override { return "DocumentLoader"; }
-
-  bool MaybeLoadEmpty();
-
-  bool IsRedirectAfterPost(const ResourceRequest&, const ResourceResponse&);
+  void LoadEmpty();
 
   bool ShouldContinueForResponse() const;
   bool ShouldReportTimingInfoToParent();
@@ -350,6 +322,38 @@ class CORE_EXPORT DocumentLoader
 
   // Sends an intervention report if the page is being served as a preview.
   void ReportPreviewsIntervention() const;
+
+  // WebNavigationBodyLoader::Client
+  void BodyCodeCacheReceived(base::span<const uint8_t>) override;
+  void BodyDataReceived(base::span<const char> data) override;
+  void BodyLoadingFinished(TimeTicks completion_time,
+                           int64_t total_encoded_data_length,
+                           int64_t total_encoded_body_length,
+                           int64_t total_decoded_body_length,
+                           bool should_report_corb_blocking,
+                           const base::Optional<WebURLError>& error) override;
+
+  // Checks if the origin requested persisting the client hints, and notifies
+  // the |WebContentSettingsClient| with the list of client hints and the
+  // persistence duration.
+  void ParseAndPersistClientHints(const ResourceResponse&);
+
+  // These fields are copied from WebNavigationParams, see there for definition.
+  KURL url_;
+  AtomicString http_method_;
+  Referrer referrer_;
+  scoped_refptr<EncodedFormData> http_body_;
+  AtomicString http_content_type_;
+  WebURLRequest::PreviewsState previews_state_;
+  String origin_policy_;
+  scoped_refptr<const SecurityOrigin> requestor_origin_;
+  KURL unreachable_url_;
+  int error_code_;
+  std::unique_ptr<WebNavigationBodyLoader> body_loader_;
+
+  // Params are saved in constructor and are cleared after StartLoading().
+  // TODO(dgozman): remove once StartLoading is merged with constructor.
+  std::unique_ptr<WebNavigationParams> params_;
 
   Member<LocalFrame> frame_;
   // This member is held so that we can update the document later. Do not use
@@ -370,12 +374,10 @@ class CORE_EXPORT DocumentLoader
   // Stores the resource loading hints for this document.
   Member<PreviewsResourceLoadingHints> resource_loading_hints_;
 
-  SubstituteData substitute_data_;
-
   // A reference to actual request's url and referrer used to
   // inititate this load.
   KURL original_url_;
-  AtomicString original_referrer_;
+  Referrer original_referrer_;
 
   ResourceResponse response_;
 
@@ -416,17 +418,26 @@ class CORE_EXPORT DocumentLoader
   scoped_refptr<SharedBuffer> data_buffer_;
   base::UnguessableToken devtools_navigation_token_;
 
+  bool defers_loading_ = false;
+  bool has_substitute_data_ = false;
+
   // Whether this load request comes with a sitcky user activation.
-  bool had_sticky_activation_;
+  bool had_sticky_activation_ = false;
   // Whether this load request had a user activation when created.
-  bool had_transient_activation_;
+  bool had_transient_activation_ = false;
+
+  // See WebNavigationParams for definition.
+  bool was_discarded_ = false;
 
   bool listing_ftp_directory_ = false;
   bool loading_mhtml_archive_ = false;
   bool loading_srcdoc_ = false;
+  bool loading_url_as_empty_document_ = false;
   unsigned long main_resource_identifier_ = 0;
   scoped_refptr<ResourceTimingInfo> navigation_timing_info_;
   bool report_timing_info_to_parent_ = false;
+  WebScopedVirtualTimePauser virtual_time_pauser_;
+  Member<SourceKeyedCachedMetadataHandler> cached_metadata_handler_;
 
   // This UseCounter tracks feature usage associated with the lifetime of the
   // document load. Features recorded prior to commit will be recorded locally.

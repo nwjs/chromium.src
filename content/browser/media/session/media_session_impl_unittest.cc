@@ -126,8 +126,12 @@ class MediaSessionImplTest : public RenderViewHostTestHarness {
     return media_session::test::GetMediaSessionInfoSync(session)->state;
   }
 
-  bool HasMojoObservers(MediaSessionImpl* session) {
-    return !session->mojo_observers_.empty();
+  void ClearObservers(MediaSessionImpl* session) {
+    session->observers_.CloseAll();
+  }
+
+  bool HasObservers(MediaSessionImpl* session) {
+    return !session->observers_.empty();
   }
 
   void FlushForTesting(MediaSessionImpl* session) {
@@ -301,13 +305,17 @@ TEST_F(MediaSessionImplTest, PepperForcesDuckAndRequestsFocus) {
   EXPECT_FALSE(GetForceDuck(GetMediaSession()));
 }
 
-TEST_F(MediaSessionImplTest, RegisterMojoObserver) {
-  EXPECT_FALSE(HasMojoObservers(GetMediaSession()));
+TEST_F(MediaSessionImplTest, RegisterObserver) {
+  // There is no way to get the number of mojo observers so we should just
+  // remove them all and check if the mojo observers interface ptr set is
+  // empty or not.
+  ClearObservers(GetMediaSession());
+  EXPECT_FALSE(HasObservers(GetMediaSession()));
 
   MockMediaSessionMojoObserver observer(*GetMediaSession());
   FlushForTesting(GetMediaSession());
 
-  EXPECT_TRUE(HasMojoObservers(GetMediaSession()));
+  EXPECT_TRUE(HasObservers(GetMediaSession()));
 }
 
 TEST_F(MediaSessionImplTest, SessionInfo_PlaybackState) {
@@ -344,8 +352,7 @@ TEST_F(MediaSessionImplTest, SuspendUI) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, SuspendContent_WithAction) {
@@ -363,8 +370,7 @@ TEST_F(MediaSessionImplTest, SuspendContent_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, SuspendSystem_WithAction) {
@@ -382,8 +388,7 @@ TEST_F(MediaSessionImplTest, SuspendSystem_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, SuspendUI_WithAction) {
@@ -400,8 +405,7 @@ TEST_F(MediaSessionImplTest, SuspendUI_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, ResumeUI) {
@@ -417,8 +421,7 @@ TEST_F(MediaSessionImplTest, ResumeUI) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, ResumeContent_WithAction) {
@@ -436,8 +439,7 @@ TEST_F(MediaSessionImplTest, ResumeContent_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, ResumeSystem_WithAction) {
@@ -455,8 +457,7 @@ TEST_F(MediaSessionImplTest, ResumeSystem_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 TEST_F(MediaSessionImplTest, ResumeUI_WithAction) {
@@ -474,8 +475,7 @@ TEST_F(MediaSessionImplTest, ResumeUI_WithAction) {
 
   media_session::test::MockMediaSessionMojoObserver observer(
       *GetMediaSession());
-  observer.WaitForActions();
-  EXPECT_EQ(default_actions(), observer.actions_set());
+  observer.WaitForExpectedActions(default_actions());
 }
 
 #if !defined(OS_ANDROID)

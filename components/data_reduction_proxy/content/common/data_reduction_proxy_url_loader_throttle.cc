@@ -4,6 +4,7 @@
 
 #include "components/data_reduction_proxy/content/common/data_reduction_proxy_url_loader_throttle.h"
 
+#include "base/bind.h"
 #include "components/data_reduction_proxy/content/common/header_util.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_bypass_protocol.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers.h"
@@ -75,6 +76,7 @@ void DataReductionProxyURLLoaderThrottle::BeforeWillProcessResponse(
   if (params::IsWarmupURL(response_url))
     return;
 
+  before_will_process_response_received_ = true;
   MaybeRetry(proxy_server, response_head.headers.get(), net::OK, defer);
 }
 
@@ -136,8 +138,10 @@ void DataReductionProxyURLLoaderThrottle::WillProcessResponse(
 void DataReductionProxyURLLoaderThrottle::WillOnCompleteWithError(
     const network::URLLoaderCompletionStatus& status,
     bool* defer) {
-  MaybeRetry(status.proxy_server, nullptr,
-             static_cast<net::Error>(status.error_code), defer);
+  if (!before_will_process_response_received_) {
+    MaybeRetry(status.proxy_server, nullptr,
+               static_cast<net::Error>(status.error_code), defer);
+  }
 }
 
 void DataReductionProxyURLLoaderThrottle::MarkProxiesAsBad(

@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/line/inline_text_box.h"
 #include "third_party/blink/renderer/core/layout/logical_values.h"
+#include "third_party/blink/renderer/core/layout/ng/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -74,7 +75,6 @@ namespace blink {
 
 struct SameSizeAsLayoutBlock : public LayoutBox {
   LayoutObjectChildList children;
-  std::unique_ptr<NGConstraintSpace> cached_constraint_space_;
   uint32_t bitfields;
 };
 
@@ -292,7 +292,6 @@ void LayoutBlock::UpdateFromStyle() {
   if (should_clip_overflow != HasOverflowClip()) {
     if (!should_clip_overflow)
       GetScrollableArea()->InvalidateAllStickyConstraints();
-    SetSubtreeShouldCheckForPaintInvalidation();
     // The overflow clip paint property depends on whether overflow clip is
     // present so we need to update paint properties if this changes.
     SetNeedsPaintPropertyUpdate();
@@ -471,7 +470,6 @@ void LayoutBlock::UpdateLayout() {
     ClearLayoutOverflow();
 
   height_available_to_children_changed_ = false;
-  cached_constraint_space_.reset();
   NotifyDisplayLockDidLayout();
 }
 
@@ -568,7 +566,8 @@ void LayoutBlock::ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
 void LayoutBlock::AddVisualOverflowFromBlockChildren() {
   for (LayoutBox* child = FirstChildBox(); child;
        child = child->NextSiblingBox()) {
-    if (child->IsFloatingOrOutOfFlowPositioned() || child->IsColumnSpanAll())
+    if ((!IsLayoutNGContainingBlock(this) && child->IsFloating()) ||
+        child->IsOutOfFlowPositioned() || child->IsColumnSpanAll())
       continue;
 
     // If the child contains inline with outline and continuation, its
@@ -586,7 +585,8 @@ void LayoutBlock::AddVisualOverflowFromBlockChildren() {
 void LayoutBlock::AddLayoutOverflowFromBlockChildren() {
   for (LayoutBox* child = FirstChildBox(); child;
        child = child->NextSiblingBox()) {
-    if (child->IsFloatingOrOutOfFlowPositioned() || child->IsColumnSpanAll())
+    if ((!IsLayoutNGContainingBlock(this) && child->IsFloating()) ||
+        child->IsOutOfFlowPositioned() || child->IsColumnSpanAll())
       continue;
 
     // If the child contains inline with outline and continuation, its
@@ -1033,12 +1033,6 @@ void LayoutBlock::RemovePositionedObject(LayoutBox* o) {
     g_positioned_descendants_map->erase(container);
     container->has_positioned_objects_ = false;
   }
-
-  // Need to clear the anchor of the positioned object in its container box.
-  // The anchors are created in the logical container box, not in the CSS
-  // containing block.
-  if (LayoutObject* parent = o->Parent())
-    parent->MarkContainerNeedsCollectInlines();
 }
 
 bool LayoutBlock::IsAnonymousNGFieldsetContentWrapper() const {
@@ -1114,13 +1108,9 @@ void LayoutBlock::RemovePositionedObjects(
       }
 
       // It is parent blocks job to add positioned child to positioned objects
-      // list of its containing block
+      // list of its containing block.
       // Parent layout needs to be invalidated to ensure this happens.
-      LayoutObject* p = positioned_object->Parent();
-      while (p && !p->IsLayoutBlock())
-        p = p->Parent();
-      if (p)
-        p->SetChildNeedsLayout();
+      positioned_object->MarkParentForOutOfFlowPositionedChange();
 
       dead_objects.push_back(positioned_object);
     }
@@ -1722,9 +1712,10 @@ bool LayoutBlock::HasLineIfEmpty() const {
   if (IsRootEditableElement(*GetNode()))
     return true;
 
-  if (GetNode()->IsShadowRoot() &&
-      IsHTMLInputElement(ToShadowRoot(GetNode())->host()))
-    return true;
+  if (auto* shadow_root = DynamicTo<ShadowRoot>(GetNode())) {
+    if (IsHTMLInputElement(shadow_root->host()))
+      return true;
+  }
 
   return false;
 }
@@ -2122,14 +2113,6 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
   layout_block->SetDocumentForAnonymous(&parent->GetDocument());
   layout_block->SetStyle(std::move(new_style));
   return layout_block;
-}
-
-const NGConstraintSpace* LayoutBlock::CachedConstraintSpace() const {
-  return cached_constraint_space_.get();
-}
-
-void LayoutBlock::SetCachedConstraintSpace(const NGConstraintSpace& space) {
-  cached_constraint_space_.reset(new NGConstraintSpace(space));
 }
 
 bool LayoutBlock::RecalcNormalFlowChildLayoutOverflowIfNeeded(

@@ -29,6 +29,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/driver/sync_driver_switches.h"
+#include "components/sync/protocol/model_type_state.pb.h"
 #include "components/sync/test/fake_server/fake_server.h"
 #include "components/webdata/common/web_data_service_consumer.h"
 #include "content/public/browser/notification_service.h"
@@ -50,6 +51,7 @@ using wallet_helper::GetAccountWebDataService;
 using wallet_helper::GetDefaultCreditCard;
 using wallet_helper::GetPersonalDataManager;
 using wallet_helper::GetProfileWebDataService;
+using wallet_helper::GetWalletDataModelTypeState;
 using wallet_helper::kDefaultBillingAddressID;
 using wallet_helper::kDefaultCardID;
 using wallet_helper::kDefaultCustomerID;
@@ -310,8 +312,7 @@ class SingleClientWalletWithAccountStorageSyncTest
  public:
   SingleClientWalletWithAccountStorageSyncTest() {
     InitWithFeatures(
-        /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                              switches::kSyncUSSAutofillWalletData,
+        /*enabled_features=*/{switches::kSyncUSSAutofillWalletData,
                               autofill::features::
                                   kAutofillEnableAccountWalletStorage},
         /*disabled_features=*/{});
@@ -606,6 +607,35 @@ IN_PROC_BROWSER_TEST_P(SingleClientWalletSyncTestWithDefaultFeatures,
   // No histograms for initial sync, nor for an empty update.
   ExpectNoHistogramsForCardsDiff();
   ExpectNoHistogramsForAddressesDiff();
+}
+
+// Check on top of EmptyUpdatesAreIgnored that the new progress marker is stored
+// for empty updates. This is a regression test for crbug.com/924447.
+IN_PROC_BROWSER_TEST_P(SingleClientWalletSyncTestWithDefaultFeatures,
+                       EmptyUpdatesUpdateProgressMarker) {
+  GetFakeServer()->SetWalletData(
+      {CreateSyncWalletCard(/*name=*/"card-1", /*last_four=*/"0001",
+                            kDefaultBillingAddressID),
+       CreateSyncWalletAddress(/*name=*/"address-1", /*company=*/"Company-1"),
+       CreateDefaultSyncPaymentsCustomerData()});
+  ASSERT_TRUE(SetupSync());
+
+  sync_pb::ModelTypeState state_before = GetWalletDataModelTypeState(0);
+
+  // Do not change anything on the server so that the update forced below is an
+  // empty one.
+
+  // Constructing the checker captures the current progress marker. Make sure to
+  // do that before triggering the fetch.
+  WaitForNextWalletUpdateChecker checker(GetSyncService(0));
+  // Trigger a sync and wait for the new data to arrive.
+  TriggerSyncForModelTypes(0,
+                           syncer::ModelTypeSet(syncer::AUTOFILL_WALLET_DATA));
+  ASSERT_TRUE(checker.Wait());
+
+  sync_pb::ModelTypeState state_after = GetWalletDataModelTypeState(0);
+  EXPECT_NE(state_before.progress_marker().token(),
+            state_after.progress_marker().token());
 }
 
 // If the server sends the same cards and addresses again, they should not
@@ -1061,8 +1091,7 @@ class SingleClientWalletSecondaryAccountSyncTest
  public:
   SingleClientWalletSecondaryAccountSyncTest() {
     InitWithFeatures(
-        /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                              switches::kSyncSupportSecondaryAccount,
+        /*enabled_features=*/{switches::kSyncSupportSecondaryAccount,
                               switches::kSyncUSSAutofillWalletData,
                               autofill::features::
                                   kAutofillEnableAccountWalletStorage},
@@ -1071,9 +1100,8 @@ class SingleClientWalletSecondaryAccountSyncTest
   ~SingleClientWalletSecondaryAccountSyncTest() override {}
 
   void SetUpInProcessBrowserTestFixture() override {
-    fake_gaia_cookie_manager_factory_ =
-        secondary_account_helper::SetUpFakeGaiaCookieManagerService(
-            &test_url_loader_factory_);
+    test_signin_client_factory_ =
+        secondary_account_helper::SetUpSigninClient(&test_url_loader_factory_);
   }
 
   void SetUpOnMainThread() override {
@@ -1086,8 +1114,8 @@ class SingleClientWalletSecondaryAccountSyncTest
   Profile* profile() { return GetProfile(0); }
 
  private:
-  secondary_account_helper::ScopedFakeGaiaCookieManagerServiceFactory
-      fake_gaia_cookie_manager_factory_;
+  secondary_account_helper::ScopedSigninClientFactory
+      test_signin_client_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SingleClientWalletSecondaryAccountSyncTest);
 };
@@ -1104,7 +1132,8 @@ IN_PROC_BROWSER_TEST_P(SingleClientWalletSecondaryAccountSyncTest,
       {CreateDefaultSyncWalletCard(), CreateDefaultSyncPaymentsCustomerData()});
 
   // Set up Sync in transport mode for a non-primary account.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile(), &test_url_loader_factory_, "user@email.com");
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -1165,7 +1194,8 @@ IN_PROC_BROWSER_TEST_P(
   GetFakeServer()->SetWalletData({CreateDefaultSyncWalletCard()});
 
   // Set up Sync in transport mode for a non-primary account.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile(), &test_url_loader_factory_, "user@email.com");
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
@@ -1370,18 +1400,18 @@ IN_PROC_BROWSER_TEST_P(SingleClientWalletWithAccountStorageSyncTest,
   EXPECT_EQ(1U, GetServerCards(profile_data).size());
 }
 
-INSTANTIATE_TEST_CASE_P(USS,
-                        SingleClientWalletSyncTestWithoutAccountStorage,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(USS,
+                         SingleClientWalletSyncTestWithoutAccountStorage,
+                         ::testing::Values(false, true));
 
-INSTANTIATE_TEST_CASE_P(USS,
-                        SingleClientWalletWithAccountStorageSyncTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(USS,
+                         SingleClientWalletWithAccountStorageSyncTest,
+                         ::testing::Values(false, true));
 
-INSTANTIATE_TEST_CASE_P(USS,
-                        SingleClientWalletSyncTestWithDefaultFeatures,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(USS,
+                         SingleClientWalletSyncTestWithDefaultFeatures,
+                         ::testing::Values(false, true));
 
-INSTANTIATE_TEST_CASE_P(USS,
-                        SingleClientWalletSecondaryAccountSyncTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(USS,
+                         SingleClientWalletSecondaryAccountSyncTest,
+                         ::testing::Values(false, true));

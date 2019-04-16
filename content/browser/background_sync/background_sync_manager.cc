@@ -8,8 +8,8 @@
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/location.h"
-#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
@@ -19,7 +19,6 @@
 #include "build/build_config.h"
 #include "content/browser/background_sync/background_sync_metrics.h"
 #include "content/browser/background_sync/background_sync_network_observer.h"
-#include "content/browser/background_sync/background_sync_registration_options.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_storage.h"
@@ -85,7 +84,7 @@ BackgroundSyncController* GetBackgroundSyncControllerOnUIThread(
 
 blink::mojom::PermissionStatus GetBackgroundSyncPermissionOnUIThread(
     scoped_refptr<ServiceWorkerContextWrapper> service_worker_context,
-    const GURL& origin) {
+    const url::Origin& origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   BrowserContext* browser_context =
@@ -98,13 +97,14 @@ blink::mojom::PermissionStatus GetBackgroundSyncPermissionOnUIThread(
   DCHECK(permission_controller);
 
   // The requesting origin always matches the embedding origin.
+  GURL origin_url = origin.GetURL();
   return permission_controller->GetPermissionStatus(
-      PermissionType::BACKGROUND_SYNC, origin, origin);
+      PermissionType::BACKGROUND_SYNC, origin_url, origin_url);
 }
 
 void NotifyBackgroundSyncRegisteredOnUIThread(
     scoped_refptr<ServiceWorkerContextWrapper> sw_context_wrapper,
-    const GURL& origin) {
+    const url::Origin& origin) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   BackgroundSyncController* background_sync_controller =
@@ -202,7 +202,7 @@ BackgroundSyncManager::~BackgroundSyncManager() {
 
 void BackgroundSyncManager::Register(
     int64_t sw_registration_id,
-    const BackgroundSyncRegistrationOptions& options,
+    blink::mojom::SyncRegistrationOptions options,
     StatusAndRegistrationCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -216,7 +216,7 @@ void BackgroundSyncManager::Register(
       CacheStorageSchedulerOp::kBackgroundSync,
       base::BindOnce(&BackgroundSyncManager::RegisterCheckIfHasMainFrame,
                      weak_ptr_factory_.GetWeakPtr(), sw_registration_id,
-                     options,
+                     std::move(options),
                      op_scheduler_.WrapCallbackToRunNext(std::move(callback))));
 }
 
@@ -322,7 +322,7 @@ BackgroundSyncManager::BackgroundSyncManager(
     scoped_refptr<ServiceWorkerContextWrapper> service_worker_context)
     : op_scheduler_(CacheStorageSchedulerClient::kBackgroundSync),
       service_worker_context_(service_worker_context),
-      parameters_(new BackgroundSyncParameters()),
+      parameters_(std::make_unique<BackgroundSyncParameters>()),
       disabled_(false),
       num_firing_registrations_(0),
       clock_(base::DefaultClock::GetInstance()),
@@ -332,13 +332,13 @@ BackgroundSyncManager::BackgroundSyncManager(
   service_worker_context_->AddObserver(this);
 
 #if defined(OS_ANDROID)
-  network_observer_.reset(new BackgroundSyncNetworkObserverAndroid(
+  network_observer_ = std::make_unique<BackgroundSyncNetworkObserverAndroid>(
       base::BindRepeating(&BackgroundSyncManager::OnNetworkChanged,
-                          weak_ptr_factory_.GetWeakPtr())));
+                          weak_ptr_factory_.GetWeakPtr()));
 #else
-  network_observer_.reset(new BackgroundSyncNetworkObserver(
+  network_observer_ = std::make_unique<BackgroundSyncNetworkObserver>(
       base::BindRepeating(&BackgroundSyncManager::OnNetworkChanged,
-                          weak_ptr_factory_.GetWeakPtr())));
+                          weak_ptr_factory_.GetWeakPtr()));
 #endif
 }
 
@@ -407,7 +407,8 @@ void BackgroundSyncManager::InitDidGetDataFromBackend(
     if (registrations_proto.ParseFromString(data.second)) {
       BackgroundSyncRegistrations* registrations =
           &active_registrations_[data.first];
-      registrations->origin = GURL(registrations_proto.origin());
+      registrations->origin =
+          url::Origin::Create(GURL(registrations_proto.origin()));
 
       for (int i = 0, max = registrations_proto.registration_size(); i < max;
            ++i) {
@@ -417,7 +418,8 @@ void BackgroundSyncManager::InitDidGetDataFromBackend(
         BackgroundSyncRegistration* registration =
             &registrations->registration_map[registration_proto.tag()];
 
-        BackgroundSyncRegistrationOptions* options = registration->options();
+        blink::mojom::SyncRegistrationOptions* options =
+            registration->options();
         options->tag = registration_proto.tag();
 
         registration->set_num_attempts(registration_proto.num_attempts());
@@ -434,7 +436,7 @@ void BackgroundSyncManager::InitDidGetDataFromBackend(
 
 void BackgroundSyncManager::RegisterCheckIfHasMainFrame(
     int64_t sw_registration_id,
-    const BackgroundSyncRegistrationOptions& options,
+    blink::mojom::SyncRegistrationOptions options,
     StatusAndRegistrationCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -447,15 +449,15 @@ void BackgroundSyncManager::RegisterCheckIfHasMainFrame(
   }
 
   HasMainFrameProviderHost(
-      sw_registration->scope().GetOrigin(),
+      url::Origin::Create(sw_registration->scope().GetOrigin()),
       base::BindOnce(&BackgroundSyncManager::RegisterDidCheckIfMainFrame,
                      weak_ptr_factory_.GetWeakPtr(), sw_registration_id,
-                     options, std::move(callback)));
+                     std::move(options), std::move(callback)));
 }
 
 void BackgroundSyncManager::RegisterDidCheckIfMainFrame(
     int64_t sw_registration_id,
-    const BackgroundSyncRegistrationOptions& options,
+    blink::mojom::SyncRegistrationOptions options,
     StatusAndRegistrationCallback callback,
     bool has_main_frame_client) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -465,12 +467,12 @@ void BackgroundSyncManager::RegisterDidCheckIfMainFrame(
                               std::move(callback));
     return;
   }
-  RegisterImpl(sw_registration_id, options, std::move(callback));
+  RegisterImpl(sw_registration_id, std::move(options), std::move(callback));
 }
 
 void BackgroundSyncManager::RegisterImpl(
     int64_t sw_registration_id,
-    const BackgroundSyncRegistrationOptions& options,
+    blink::mojom::SyncRegistrationOptions options,
     StatusAndRegistrationCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -498,15 +500,15 @@ void BackgroundSyncManager::RegisterImpl(
       FROM_HERE, {BrowserThread::UI},
       base::BindOnce(&GetBackgroundSyncPermissionOnUIThread,
                      service_worker_context_,
-                     sw_registration->scope().GetOrigin()),
+                     url::Origin::Create(sw_registration->scope().GetOrigin())),
       base::BindOnce(&BackgroundSyncManager::RegisterDidAskForPermission,
                      weak_ptr_factory_.GetWeakPtr(), sw_registration_id,
-                     options, std::move(callback)));
+                     std::move(options), std::move(callback)));
 }
 
 void BackgroundSyncManager::RegisterDidAskForPermission(
     int64_t sw_registration_id,
-    const BackgroundSyncRegistrationOptions& options,
+    blink::mojom::SyncRegistrationOptions options,
     StatusAndRegistrationCallback callback,
     blink::mojom::PermissionStatus permission_status) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -529,9 +531,9 @@ void BackgroundSyncManager::RegisterDidAskForPermission(
 
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::UI},
-      base::BindOnce(&NotifyBackgroundSyncRegisteredOnUIThread,
-                     service_worker_context_,
-                     sw_registration->scope().GetOrigin()));
+      base::BindOnce(
+          &NotifyBackgroundSyncRegisteredOnUIThread, service_worker_context_,
+          url::Origin::Create(sw_registration->scope().GetOrigin())));
 
   BackgroundSyncRegistration* existing_registration =
       LookupActiveRegistration(sw_registration_id, options.tag);
@@ -539,7 +541,7 @@ void BackgroundSyncManager::RegisterDidAskForPermission(
     DCHECK(existing_registration->options()->Equals(options));
 
     BackgroundSyncMetrics::RegistrationCouldFire registration_could_fire =
-        AreOptionConditionsMet(options)
+        AreOptionConditionsMet()
             ? BackgroundSyncMetrics::REGISTRATION_COULD_FIRE
             : BackgroundSyncMetrics::REGISTRATION_COULD_NOT_FIRE;
     BackgroundSyncMetrics::CountRegisterSuccess(
@@ -561,10 +563,12 @@ void BackgroundSyncManager::RegisterDidAskForPermission(
 
   BackgroundSyncRegistration new_registration;
 
-  *new_registration.options() = options;
+  *new_registration.options() = std::move(options);
 
-  AddActiveRegistration(sw_registration_id,
-                        sw_registration->scope().GetOrigin(), new_registration);
+  AddActiveRegistration(
+      sw_registration_id,
+      url::Origin::Create(sw_registration->scope().GetOrigin()),
+      new_registration);
 
   StoreRegistrations(
       sw_registration_id,
@@ -638,7 +642,7 @@ BackgroundSyncRegistration* BackgroundSyncManager::LookupActiveRegistration(
     return nullptr;
 
   BackgroundSyncRegistrations& registrations = it->second;
-  DCHECK(!registrations.origin.is_empty());
+  DCHECK(!registrations.origin.opaque());
 
   auto key_and_registration_iter = registrations.registration_map.find(tag);
   if (key_and_registration_iter == registrations.registration_map.end())
@@ -656,7 +660,7 @@ void BackgroundSyncManager::StoreRegistrations(
   const BackgroundSyncRegistrations& registrations =
       active_registrations_[sw_registration_id];
   BackgroundSyncRegistrationsProto registrations_proto;
-  registrations_proto.set_origin(registrations.origin.spec());
+  registrations_proto.set_origin(registrations.origin.Serialize());
 
   for (const auto& key_and_registration : registrations.registration_map) {
     const BackgroundSyncRegistration& registration =
@@ -703,7 +707,7 @@ void BackgroundSyncManager::RegisterDidStore(
   }
 
   BackgroundSyncMetrics::RegistrationCouldFire registration_could_fire =
-      AreOptionConditionsMet(*new_registration.options())
+      AreOptionConditionsMet()
           ? BackgroundSyncMetrics::REGISTRATION_COULD_FIRE
           : BackgroundSyncMetrics::REGISTRATION_COULD_NOT_FIRE;
   BackgroundSyncMetrics::CountRegisterSuccess(
@@ -750,7 +754,7 @@ void BackgroundSyncManager::RemoveActiveRegistration(int64_t sw_registration_id,
 
 void BackgroundSyncManager::AddActiveRegistration(
     int64_t sw_registration_id,
-    const GURL& origin,
+    const url::Origin& origin,
     const BackgroundSyncRegistration& sync_registration) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -764,14 +768,15 @@ void BackgroundSyncManager::AddActiveRegistration(
 
 void BackgroundSyncManager::StoreDataInBackend(
     int64_t sw_registration_id,
-    const GURL& origin,
+    const url::Origin& origin,
     const std::string& backend_key,
     const std::string& data,
     ServiceWorkerStorage::StatusCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   service_worker_context_->StoreRegistrationUserData(
-      sw_registration_id, origin, {{backend_key, data}}, std::move(callback));
+      sw_registration_id, origin.GetURL(), {{backend_key, data}},
+      std::move(callback));
 }
 
 void BackgroundSyncManager::GetDataFromBackend(
@@ -822,9 +827,9 @@ void BackgroundSyncManager::ScheduleDelayedTask(base::OnceClosure callback,
       FROM_HERE, std::move(callback), delay);
 }
 
-void BackgroundSyncManager::HasMainFrameProviderHost(const GURL& origin,
+void BackgroundSyncManager::HasMainFrameProviderHost(const url::Origin& origin,
                                                      BoolCallback callback) {
-  service_worker_context_->HasMainFrameProviderHost(origin,
+  service_worker_context_->HasMainFrameProviderHost(origin.GetURL(),
                                                     std::move(callback));
 }
 
@@ -860,8 +865,7 @@ void BackgroundSyncManager::GetRegistrationsImpl(
                                 std::move(out_registrations)));
 }
 
-bool BackgroundSyncManager::AreOptionConditionsMet(
-    const BackgroundSyncRegistrationOptions& options) {
+bool BackgroundSyncManager::AreOptionConditionsMet() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   return network_observer_->NetworkSufficient();
 }
@@ -885,7 +889,7 @@ bool BackgroundSyncManager::IsRegistrationReadyToFire(
   if (base::ContainsKey(emulated_offline_sw_, service_worker_id))
     return false;
 
-  return AreOptionConditionsMet(*registration.options());
+  return AreOptionConditionsMet();
 }
 
 void BackgroundSyncManager::RunInBackgroundIfNecessary() {
@@ -939,13 +943,20 @@ void BackgroundSyncManager::RunInBackgroundIfNecessary() {
 void BackgroundSyncManager::FireReadyEvents() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
+  FireReadyEventsThenRunCallback(MakeEmptyCompletion());
+}
+
+void BackgroundSyncManager::FireReadyEventsThenRunCallback(
+    base::OnceClosure callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
   if (disabled_)
     return;
 
   op_scheduler_.ScheduleOperation(
       CacheStorageSchedulerOp::kBackgroundSync,
       base::BindOnce(&BackgroundSyncManager::FireReadyEventsImpl,
-                     weak_ptr_factory_.GetWeakPtr(), MakeEmptyCompletion()));
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 void BackgroundSyncManager::FireReadyEventsImpl(base::OnceClosure callback) {
@@ -1006,7 +1017,8 @@ void BackgroundSyncManager::FireReadyEventsImpl(base::OnceClosure callback) {
     DCHECK(registration);
 
     service_worker_context_->FindReadyRegistrationForId(
-        service_worker_id, active_registrations_[service_worker_id].origin,
+        service_worker_id,
+        active_registrations_[service_worker_id].origin.GetURL(),
         base::BindOnce(
             &BackgroundSyncManager::FireReadyEventsDidFindRegistration,
             weak_ptr_factory_.GetWeakPtr(), service_worker_id,
@@ -1040,8 +1052,7 @@ void BackgroundSyncManager::FireReadyEventsDidFindRegistration(
   DCHECK_EQ(service_worker_id, service_worker_registration->id());
   DCHECK(registration);
 
-  const bool option_conditions_met =
-      AreOptionConditionsMet(*registration->options());
+  const bool option_conditions_met = AreOptionConditionsMet();
   UMA_HISTOGRAM_BOOLEAN("BackgroundSync.OptionConditionsChanged",
                         !option_conditions_met);
 
@@ -1062,7 +1073,7 @@ void BackgroundSyncManager::FireReadyEventsDidFindRegistration(
       registration->num_attempts() == parameters_->max_sync_attempts - 1;
 
   HasMainFrameProviderHost(
-      service_worker_registration->scope().GetOrigin(),
+      url::Origin::Create(service_worker_registration->scope().GetOrigin()),
       base::BindOnce(&BackgroundSyncMetrics::RecordEventStarted));
 
   DispatchSyncEvent(registration->options()->tag,
@@ -1143,7 +1154,7 @@ void BackgroundSyncManager::EventCompleteImpl(
       service_worker_context_->GetLiveRegistration(service_worker_id);
   if (sw_registration) {
     HasMainFrameProviderHost(
-        sw_registration->scope().GetOrigin(),
+        url::Origin::Create(sw_registration->scope().GetOrigin()),
         base::BindOnce(&BackgroundSyncMetrics::RecordEventResult,
                        status_code == blink::ServiceWorkerStatusCode::kOk));
   }

@@ -236,8 +236,8 @@ class EndToEndInterfacePtrTest : public InterfacePtrTest {
     done_closure_ = run_loop.QuitClosure();
     done_runner_ = base::ThreadTaskRunnerHandle::Get();
     runner->PostTask(FROM_HERE,
-                     base::Bind(&EndToEndInterfacePtrTest::RunTestImpl,
-                                base::Unretained(this)));
+                     base::BindOnce(&EndToEndInterfacePtrTest::RunTestImpl,
+                                    base::Unretained(this)));
     run_loop.Run();
   }
 
@@ -977,7 +977,7 @@ TEST_P(InterfacePtrTest, ThreadSafeInterfacePointerWithTaskRunner) {
   thread_safe_ptr = nullptr;
 }
 
-INSTANTIATE_MOJO_BINDINGS_TEST_CASE_P(InterfacePtrTest);
+INSTANTIATE_MOJO_BINDINGS_TEST_SUITE_P(InterfacePtrTest);
 
 }  // namespace
 }  // namespace test

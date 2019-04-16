@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tab;
 
 import android.os.SystemClock;
 import android.support.annotation.IntDef;
+import android.text.format.DateUtils;
 
 import org.chromium.base.UserData;
 import org.chromium.base.metrics.RecordHistogram;
@@ -19,7 +20,6 @@ import org.chromium.net.NetError;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Centralizes UMA data collection for Tab management.
@@ -179,10 +179,10 @@ public class TabUma extends EmptyTabObserver implements UserData {
     private void recordTabStateTransition(int prevState, int newState, long delta) {
         if (prevState == TAB_STATE_ACTIVE && newState == TAB_STATE_INACTIVE) {
             RecordHistogram.recordLongTimesHistogram100(
-                    "Tabs.StateTransfer.Time_Active_Inactive", delta, TimeUnit.MILLISECONDS);
+                    "Tabs.StateTransfer.Time_Active_Inactive", delta);
         } else if (prevState == TAB_STATE_ACTIVE && newState == TAB_STATE_CLOSED) {
             RecordHistogram.recordLongTimesHistogram100(
-                    "Tabs.StateTransfer.Time_Active_Closed", delta, TimeUnit.MILLISECONDS);
+                    "Tabs.StateTransfer.Time_Active_Closed", delta);
         }
 
         if (prevState == TAB_STATE_INITIAL) {
@@ -303,8 +303,7 @@ public class TabUma extends EmptyTabObserver implements UserData {
                     if (previousTimestampMillis > 0) {
                         RecordHistogram.recordMediumTimesHistogram(
                                 "Tab.LostTabAgeWhenSwitchedToForeground",
-                                System.currentTimeMillis() - previousTimestampMillis,
-                                TimeUnit.MILLISECONDS);
+                                System.currentTimeMillis() - previousTimestampMillis);
                     }
                 }
             } else if (mTabCreationState == TabCreationState.FROZEN_FOR_LAZY_LOAD) {
@@ -332,12 +331,12 @@ public class TabUma extends EmptyTabObserver implements UserData {
         if (mLastShownTimestamp == -1 && previousTimestampMillis > 0) {
             if (isOnBrowserStartup) {
                 RecordHistogram.recordCountHistogram("Tabs.ForegroundTabAgeAtStartup",
-                        (int) millisecondsToMinutes(System.currentTimeMillis()
-                                                             - previousTimestampMillis));
+                        (int) ((System.currentTimeMillis() - previousTimestampMillis)
+                                / DateUtils.MINUTE_IN_MILLIS));
             } else if (selectionType == TabSelectionType.FROM_USER) {
                 RecordHistogram.recordCountHistogram("Tab.AgeUponRestoreFromColdStart",
-                        (int) millisecondsToMinutes(System.currentTimeMillis()
-                                                             - previousTimestampMillis));
+                        (int) ((System.currentTimeMillis() - previousTimestampMillis)
+                                / DateUtils.MINUTE_IN_MILLIS));
             }
         }
 
@@ -446,9 +445,5 @@ public class TabUma extends EmptyTabObserver implements UserData {
 
     private static void increaseTabShowCount() {
         sAllTabsShowCount++;
-    }
-
-    private static long millisecondsToMinutes(long msec) {
-        return msec / 1000 / 60;
     }
 }

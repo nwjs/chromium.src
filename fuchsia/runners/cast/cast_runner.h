@@ -6,6 +6,7 @@
 #define FUCHSIA_RUNNERS_CAST_CAST_RUNNER_H_
 
 #include "base/callback.h"
+#include "base/fuchsia/startup_context.h"
 #include "base/macros.h"
 #include "fuchsia/fidl/chromium/cast/cpp/fidl.h"
 #include "fuchsia/fidl/chromium/web/cpp/fidl.h"
@@ -28,13 +29,13 @@ class CastRunner : public WebContentRunner {
                           controller_request) override;
 
  private:
-  chromium::cast::ApplicationConfigManagerPtr app_config_manager_;
-
   void GetConfigCallback(
-      fuchsia::sys::StartupInfo startup_info,
+      std::unique_ptr<base::fuchsia::StartupContext> startup_context,
       fidl::InterfaceRequest<fuchsia::sys::ComponentController>
           controller_request,
       chromium::cast::ApplicationConfigPtr app_config);
+
+  chromium::cast::ApplicationConfigManagerPtr app_config_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(CastRunner);
 };

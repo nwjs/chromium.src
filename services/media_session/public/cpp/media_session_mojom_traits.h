@@ -5,30 +5,31 @@
 #ifndef SERVICES_MEDIA_SESSION_PUBLIC_CPP_MEDIA_SESSION_MOJOM_TRAITS_H_
 #define SERVICES_MEDIA_SESSION_PUBLIC_CPP_MEDIA_SESSION_MOJOM_TRAITS_H_
 
+#include <vector>
+
+#include "base/containers/span.h"
 #include "services/media_session/public/mojom/media_session.mojom.h"
 
 namespace mojo {
 
 template <>
 struct StructTraits<media_session::mojom::MediaImageDataView,
-                    media_session::MediaMetadata::MediaImage> {
-  static const GURL& src(
-      const media_session::MediaMetadata::MediaImage& image) {
+                    media_session::MediaImage> {
+  static const GURL& src(const media_session::MediaImage& image) {
     return image.src;
   }
 
-  static const base::string16& type(
-      const media_session::MediaMetadata::MediaImage& image) {
+  static const base::string16& type(const media_session::MediaImage& image) {
     return image.type;
   }
 
   static const std::vector<gfx::Size>& sizes(
-      const media_session::MediaMetadata::MediaImage& image) {
+      const media_session::MediaImage& image) {
     return image.sizes;
   }
 
   static bool Read(media_session::mojom::MediaImageDataView data,
-                   media_session::MediaMetadata::MediaImage* out);
+                   media_session::MediaImage* out);
 };
 
 template <>
@@ -49,11 +50,6 @@ struct StructTraits<media_session::mojom::MediaMetadataDataView,
     return metadata.album;
   }
 
-  static const std::vector<media_session::MediaMetadata::MediaImage>& artwork(
-      const media_session::MediaMetadata& metadata) {
-    return metadata.artwork;
-  }
-
   static const base::string16& source_title(
       const media_session::MediaMetadata& metadata) {
     return metadata.source_title;
@@ -61,6 +57,20 @@ struct StructTraits<media_session::mojom::MediaMetadataDataView,
 
   static bool Read(media_session::mojom::MediaMetadataDataView data,
                    media_session::MediaMetadata* out);
+};
+
+// TODO(beccahughes): de-dupe this with ArcBitmap.
+template <>
+struct StructTraits<media_session::mojom::MediaImageBitmapDataView, SkBitmap> {
+  static const base::span<const uint8_t> pixel_data(const SkBitmap& r);
+  static int width(const SkBitmap& r) { return r.width(); }
+  static int height(const SkBitmap& r) { return r.height(); }
+
+  static bool Read(media_session::mojom::MediaImageBitmapDataView data,
+                   SkBitmap* out);
+
+  static bool IsNull(const SkBitmap& r) { return r.isNull(); }
+  static void SetToNull(SkBitmap* out);
 };
 
 }  // namespace mojo

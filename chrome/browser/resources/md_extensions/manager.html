@@ -8,7 +8,7 @@
 <link rel="import" href="chrome://resources/cr_elements/shared_vars_css.html">
 <link rel="import" href="chrome://resources/html/assert.html">
 <link rel="import" href="chrome://resources/html/cr.html">
-<link rel="import" href="activity_log.html">
+<link rel="import" href="activity_log/activity_log.html">
 <link rel="import" href="detail_view.html">
 <link rel="import" href="drop_overlay.html">
 <link rel="import" href="error_page.html">
@@ -50,10 +50,6 @@
 
       extensions-item {
         display: inline-block;
-      }
-
-      extensions-toolbar {
-        background-color: var(--md-toolbar-color);
       }
     </style>
     <extensions-drop-overlay drag-enabled="[[inDevMode]]">
@@ -101,7 +97,7 @@
       <cr-lazy-render id="activity-log">
         <template>
           <extensions-activity-log delegate="[[delegate]]" slot="view"
-              extension-id="[[activityLogItemId_]]">
+              extension-info="[[activityLogItem_]]">
           </extensions-activity-log>
         </template>
       </cr-lazy-render>

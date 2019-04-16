@@ -86,6 +86,10 @@ const char kEnableSyncUSSBookmarksName[] = "Enable USS for bookmarks sync";
 const char kEnableSyncUSSBookmarksDescription[] =
     "Enables the new, experimental implementation of bookmark sync";
 
+const char kEnableSyncUSSPasswordsName[] = "Enable USS for passwords sync";
+const char kEnableSyncUSSPasswordsDescription[] =
+    "Enables the new, experimental implementation of password sync";
+
 const char kSyncPseudoUSSFaviconsName[] = "Enable pseudo-USS for favicon sync.";
 const char kSyncPseudoUSSFaviconsDescription[] =
     "Enable new USS-based codepath for sync datatypes FAVICON_IMAGES and "
@@ -96,11 +100,6 @@ const char kSyncPseudoUSSHistoryDeleteDirectivesName[] =
 const char kSyncPseudoUSSHistoryDeleteDirectivesDescription[] =
     "Enable new USS-based codepath for sync datatype "
     "HISTORY_DELETE_DIRECTIVES.";
-
-const char kSyncPseudoUSSPasswordsName[] =
-    "Enable pseudo-USS for PASSWORDS sync.";
-const char kSyncPseudoUSSPasswordsDescription[] =
-    "Enable new USS-based codepath for sync datatype PASSWORDS (pseudo-USS).";
 
 const char kSyncPseudoUSSPreferencesName[] =
     "Enable pseudo-USS for PREFERENCES sync.";
@@ -122,12 +121,6 @@ const char kSyncSandboxName[] = "Use Chrome Sync sandbox";
 const char kSyncSandboxDescription[] =
     "Connects to the testing server for Chrome Sync.";
 
-const char kSyncStandaloneTransportName[] = "Allow Sync standalone transport";
-const char kSyncStandaloneTransportDescription[] =
-    "If enabled, allows Chrome Sync to start in standalone transport mode. In "
-    "this mode, the Sync machinery can start without user opt-in, but only a "
-    "subset of data types are supported.";
-
 const char kSyncSupportSecondaryAccountName[] =
     "Support secondary accounts for Sync standalone transport";
 const char kSyncSupportSecondaryAccountDescription[] =
@@ -148,6 +141,13 @@ const char kAppLauncherRefreshDescription[] =
 const char kAutofillDynamicFormsName[] = "Autofill dynamic forms";
 const char kAutofillDynamicFormsDescription[] =
     "Refills forms that dynamically change after an initial fill";
+
+const char kAutofillNoLocalSaveOnUploadSuccessName[] =
+    "Disable saving local copy of uploaded card when credit card upload "
+    "succeeds";
+const char kAutofillNoLocalSaveOnUploadSuccessDescription[] =
+    "When enabled, no local copy of server card will be saved when credit card "
+    "upload succeeds.";
 
 const char kAutofillPrefilledFieldsName[] = "Autofill prefilled forms";
 const char kAutofillPrefilledFieldsDescription[] =
@@ -294,12 +294,6 @@ const char kInProductHelpDemoModeDescription[] =
     "an individual promotion causes that promotion but no other promotions to "
     "occur.";
 
-const char kITunesUrlsStoreKitHandlingName[] =
-    "Store kit handling for ITunes links";
-const char kITunesUrlsStoreKitHandlingDescription[] =
-    "When enabled, opening itunes product URLs will be handled using the store "
-    "kit.";
-
 const char kMarkHttpAsName[] = "Mark non-secure origins as non-secure";
 const char kMarkHttpAsDescription[] = "Change the UI treatment for HTTP pages";
 
@@ -326,6 +320,11 @@ const char kNonModalDialogsName[] = "Use non-modal JavaScript dialogs";
 const char kNonModalDialogsDescription[] =
     "Presents JavaScript dialogs non-modally so that the user can change tabs "
     "while a dialog is displayed.";
+
+const char kOfflineVersionWithoutNativeContentName[] =
+    "Use offline pages without native content";
+const char kOfflineVersionWithoutNativeContentDescription[] =
+    "Shows offline pages directly in the web view.";
 
 const char kOmniboxPopupShortcutIconsInZeroStateName[] =
     "Show zero-state omnibox shortcuts";
@@ -373,6 +372,11 @@ const char kSearchIconToggleName[] = "Change the icon for the search button";
 const char kSearchIconToggleDescription[] =
     "Different icons for the search button.";
 
+const char kSendUmaOverCellularName[] = "Send UMA data over cellular.";
+const char kSendUmaOverCellularDescription[] =
+    "When enabled, will send UMA data over WiFi if available or cellular if "
+    "not.";
+
 const char kSettingsRefreshName[] = "Enable the UI Refresh for Settings";
 const char kSettingsRefreshDescription[] =
     "Change the UI appearance of the settings to have something in phase with "
@@ -392,12 +396,6 @@ const char kToolbarContainerName[] = "Use Toolbar Containers";
 const char kToolbarContainerDescription[] =
     "When enabled, the toolbars and their fullscreen animations will be "
     "managed by the toolbar container coordinator rather than BVC.";
-
-const char kPresentSadTabInViewControllerName[] =
-    "Present SadTab in UIViewController";
-const char kPresentSadTabInViewControllerDescription[] =
-    "When enabled, SadTab UI will be presented with UIViewController instead "
-    "of using WebState::ShowTransientView";
 
 const char kSnapshotDrawViewName[] = "Use DrawViewHierarchy for Snapshots";
 const char kSnapshotDrawViewDescription[] =
@@ -426,16 +424,33 @@ const char kUseDdljsonApiName[] = "Use new ddljson API for Doodles";
 const char kUseDdljsonApiDescription[] =
     "Enables the new ddljson API to fetch Doodles for the NTP.";
 
+const char kWebClearBrowsingDataName[] = "Web-API for browsing data";
+const char kWebClearBrowsingDataDescription[] =
+    "When enabled the Clear Browsing Data feature is using the web API.";
+
 const char kWebFrameMessagingName[] = "Web Frame Messaging";
 const char kWebFrameMessagingDescription[] =
     "When enabled, API will be injected into webpages to allow sending messages"
     " directly to any frame of a webpage.";
+
+const char kStorePendingItemInContextName[] =
+    "Store pending item in NavigationContext";
+const char kStorePendingItemInContextDescription[] =
+    "When enabled pending item will be stored in NavigationContext after "
+    "context is created. The item is still stored in NavigationManager if the "
+    "navigated was requested, but context does not yet exist or when "
+    "navigation was aborted.";
 
 const char kWebPageTextAccessibilityName[] =
     "Enable text accessibility in web pages";
 const char kWebPageTextAccessibilityDescription[] =
     "When enabled, text in web pages will respect the user's Dynamic Type "
     "setting.";
+
+const char kWebUISchemeHandlingName[] = "WKWebView is handling the WebUI pages";
+const char kWebUISchemeHandlingDescription[] =
+    "When enabled, the page with a WebUI scheme are directly loaded by the "
+    "WKWebView by using setURLSchemeHandler:forURLScheme: API.";
 
 const char kWKHTTPSystemCookieStoreName[] = "Use WKHTTPSystemCookieStore.";
 const char kWKHTTPSystemCookieStoreDescription[] =

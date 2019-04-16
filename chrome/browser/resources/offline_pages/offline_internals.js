@@ -16,15 +16,6 @@ cr.define('offlineInternals', function() {
       offlineInternals.OfflineInternalsBrowserProxyImpl.getInstance();
 
   /**
-   * Helper to fill enabled labels based on boolean value.
-   * @param {boolean} enabled Whether the text should show on or off.
-   * @return {string}
-   */
-  function getTextLabel(enabled) {
-    return enabled ? 'On' : 'Off';
-  }
-
-  /**
    * Fill stored pages table.
    * @param {!Array<OfflinePage>} pages An array object representing
    *     stored offline pages.
@@ -112,6 +103,21 @@ cr.define('offlineInternals', function() {
     browserProxy.getNetworkStatus().then(function(networkStatus) {
       $('current-status').textContent = networkStatus;
     });
+    browserProxy.getLimitlessPrefetchingEnabled().then(function(enabled) {
+      $('limitless-prefetching-checkbox').checked = enabled;
+    });
+    browserProxy.getPrefetchTestingHeaderValue().then(function(value) {
+      switch (value) {
+        case 'ForceEnable':
+          $('testing-header-enable').checked = true;
+          break;
+        case 'ForceDisable':
+          $('testing-header-disable').checked = true;
+          break;
+        default:
+          $('testing-header-default').checked = true;
+      }
+    });
     refreshLog();
   }
 
@@ -186,10 +192,9 @@ cr.define('offlineInternals', function() {
    * @param {!IsLogging} logStatus Status of logging.
    */
   function updateLogStatus(logStatus) {
-    $('model-status').textContent = getTextLabel(logStatus.modelIsLogging);
-    $('request-status').textContent = getTextLabel(logStatus.queueIsLogging);
-    $('prefetch-status').textContent =
-        getTextLabel(logStatus.prefetchIsLogging);
+    $('model-checkbox').checked = logStatus.modelIsLogging;
+    $('request-checkbox').checked = logStatus.queueIsLogging;
+    $('prefetch-checkbox').checked = logStatus.prefetchIsLogging;
   }
 
   /**
@@ -227,36 +232,9 @@ cr.define('offlineInternals', function() {
   }
 
   function initialize() {
-    /**
-     * @param {boolean} enabled Whether to enable Logging. If the
-     * OfflinePageModlel does not exist in this context, the action is ignored.
-     */
-    function togglePageModelLog(enabled) {
-      browserProxy.setRecordPageModel(enabled);
-      $('model-status').textContent = getTextLabel(enabled);
-    }
-
-    /**
-     * @param {boolean} enabled Whether to enable Logging. If the
-     * OfflinePageModlel does not exist in this context, the action is ignored.
-     */
-    function toggleRequestQueueLog(enabled) {
-      browserProxy.setRecordRequestQueue(enabled);
-      $('request-status').textContent = getTextLabel(enabled);
-    }
-
-    /**
-     * @param {boolean} enabled Whether to enable Logging. If the
-     * OfflinePageModlel does not exist in this context, the action is ignored.
-     */
-    function togglePrefetchServiceLog(enabled) {
-      browserProxy.setRecordPrefetchService(enabled);
-      $('prefetch-status').textContent = getTextLabel(enabled);
-    }
-
     const incognito = loadTimeData.getBoolean('isIncognito');
-    ['delete-selected-pages', 'delete-selected-requests', 'log-model-on',
-     'log-model-off', 'log-request-on', 'log-request-off', 'refresh']
+    ['delete-selected-pages', 'delete-selected-requests', 'model-checkbox',
+     'request-checkbox', 'refresh']
         .forEach(el => $(el).disabled = incognito);
 
     $('delete-selected-pages').onclick = function() {
@@ -271,12 +249,15 @@ cr.define('offlineInternals', function() {
     $('dump').onclick = dumpAsJson;
     $('close-dump').onclick = closeDump;
     $('copy-to-clipboard').onclick = copyDump;
-    $('log-model-on').onclick = togglePageModelLog.bind(this, true);
-    $('log-model-off').onclick = togglePageModelLog.bind(this, false);
-    $('log-request-on').onclick = toggleRequestQueueLog.bind(this, true);
-    $('log-request-off').onclick = toggleRequestQueueLog.bind(this, false);
-    $('log-prefetch-on').onclick = togglePrefetchServiceLog.bind(this, true);
-    $('log-prefetch-off').onclick = togglePrefetchServiceLog.bind(this, false);
+    $('model-checkbox').onchange = (evt) => {
+      browserProxy.setRecordPageModel(evt.target.checked);
+    };
+    $('request-checkbox').onchange = (evt) => {
+      browserProxy.setRecordRequestQueue(evt.target.checked);
+    };
+    $('prefetch-checkbox').onchange = (evt) => {
+      browserProxy.setRecordPrefetchService(evt.target.checked);
+    };
     $('refresh-logs').onclick = refreshLog;
     $('add-to-queue').onclick = function() {
       const saveUrls = $('url').value.split(',');
@@ -331,6 +312,16 @@ cr.define('offlineInternals', function() {
     $('toggle-all-requests').onclick = function() {
       toggleAllCheckboxes($('toggle-all-requests'), 'requests');
     };
+    $('limitless-prefetching-checkbox').onchange = (evt) => {
+      browserProxy.setLimitlessPrefetchingEnabled(evt.target.checked);
+    };
+    // Helper for setting prefetch testing header from a radio button.
+    const setPrefetchTestingHeader = function(evt) {
+      browserProxy.setPrefetchTestingHeaderValue(evt.target.value);
+    };
+    $('testing-header-default').onchange = setPrefetchTestingHeader;
+    $('testing-header-enable').onchange = setPrefetchTestingHeader;
+    $('testing-header-disable').onchange = setPrefetchTestingHeader;
     if (!incognito) {
       refreshAll();
     }

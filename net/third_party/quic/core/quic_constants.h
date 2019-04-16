@@ -193,7 +193,7 @@ const QuicByteCount kQuicStreamSendBufferSliceSize = 4 * 1024;
 
 // For When using Random Initial Packet Numbers, they can start
 // anyplace in the range 1...((2^31)-1) or 0x7fffffff
-const QuicPacketNumber kMaxRandomInitialPacketNumber = 0x7fffffff;
+QUIC_EXPORT_PRIVATE QuicPacketNumber MaxRandomInitialPacketNumber();
 
 // Used to represent an invalid or no control frame id.
 const QuicControlFrameId kInvalidControlFrameId = 0;
@@ -214,10 +214,6 @@ const size_t kPacketHeaderTypeSize = 1;
 // Number of bytes reserved for connection ID length.
 const size_t kConnectionIdLengthSize = 1;
 
-// Length of an encoded variable length connection ID, in bytes.
-// TODO(dschinazi) b/120240679 - remove kQuicConnectionIdLength
-const size_t kQuicConnectionIdLength = 8;
-
 // Minimum length of random bytes in IETF stateless reset packet.
 const size_t kMinRandomBytesLengthInStatelessReset = 24;
 
@@ -227,10 +223,7 @@ const size_t kMaxNewTokenTokenLength = 0xffff;
 // Packet number of first sending packet of a connection. Please note, this
 // cannot be used as first received packet because peer can choose its starting
 // packet number.
-const QuicPacketNumber kFirstSendingPacketNumber = 1;
-
-// Used to represent an invalid packet number.
-const QuicPacketNumber kInvalidPacketNumber = 0;
+QUIC_EXPORT_PRIVATE QuicPacketNumber FirstSendingPacketNumber();
 
 // Used by clients to tell if a public reset is sent from a Google frontend.
 QUIC_EXPORT_PRIVATE extern const char* const kEPIDGoogleFrontEnd;

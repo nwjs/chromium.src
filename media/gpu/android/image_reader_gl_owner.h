@@ -35,6 +35,7 @@ class MEDIA_GPU_EXPORT ImageReaderGLOwner : public TextureOwner {
   gl::GLSurface* GetSurface() const override;
   gl::ScopedJavaSurface CreateJavaSurface() const override;
   void UpdateTexImage() override;
+  void EnsureTexImageBound() override;
   void GetTransformMatrix(float mtx[16]) override;
   void ReleaseBackBuffers() override;
   void SetReleaseTimeToNow() override;
@@ -44,41 +45,72 @@ class MEDIA_GPU_EXPORT ImageReaderGLOwner : public TextureOwner {
   std::unique_ptr<base::android::ScopedHardwareBufferFenceSync>
   GetAHardwareBuffer() override;
 
+  const AImageReader* image_reader_for_testing() const { return image_reader_; }
+
  protected:
   void OnTextureDestroyed(gpu::gles2::AbstractTexture*) override;
 
  private:
   friend class TextureOwner;
-
   class ScopedHardwareBufferImpl;
 
-  ImageReaderGLOwner(std::unique_ptr<gpu::gles2::AbstractTexture> texture);
+  // Manages ownership of the latest image retrieved from AImageReader and
+  // ensuring synchronization of its use in GL using fences.
+  class ScopedCurrentImageRef {
+   public:
+    ScopedCurrentImageRef(ImageReaderGLOwner* texture_owner,
+                          AImage* image,
+                          base::ScopedFD ready_fence);
+    ~ScopedCurrentImageRef();
+    AImage* image() const { return image_; }
+    base::ScopedFD GetReadyFence() const;
+    void EnsureBound();
+
+   private:
+    ImageReaderGLOwner* texture_owner_;
+    AImage* image_;
+    base::ScopedFD ready_fence_;
+
+    // Set to true if the current image is bound to |texture_id_|.
+    bool image_bound_ = false;
+
+    DISALLOW_COPY_AND_ASSIGN(ScopedCurrentImageRef);
+  };
+
+  ImageReaderGLOwner(std::unique_ptr<gpu::gles2::AbstractTexture> texture,
+                     Mode secure_mode);
   ~ImageReaderGLOwner() override;
 
-  // Deletes the current image if it has no pending refs. Returns false on
-  // error.
-  bool MaybeDeleteCurrentImage();
-
-  void EnsureTexImageBound();
-  void ReleaseRefOnImage(AImage* image);
+  // Registers and releases a ref on the image. Once the ref-count for an image
+  // goes to 0, it is released back to the AImageReader with an optional release
+  // fence if needed.
+  void RegisterRefOnImage(AImage* image);
+  void ReleaseRefOnImage(AImage* image, base::ScopedFD fence_fd);
 
   // AImageReader instance
   AImageReader* image_reader_;
 
   // Most recently acquired image using image reader. This works like a cached
   // image until next new image is acquired which overwrites this.
-  AImage* current_image_;
-  base::ScopedFD current_image_fence_;
+  base::Optional<ScopedCurrentImageRef> current_image_ref_;
   std::unique_ptr<AImageReader_ImageListener> listener_;
 
-  // Set to true if the current image is bound to |texture_id_|.
-  bool current_image_bound_ = false;
+  // A map consisting of pending refs on an AImage. If an image has any refs, it
+  // is automatically released once the ref-count is 0.
+  struct ImageRef {
+    ImageRef();
+    ~ImageRef();
 
-  // A map consisting of pending external refs on an AImage. If an image has any
-  // external refs, it is automatically released once the ref-count is 0 and the
-  // image is no longer current.
-  using AImageRefMap = base::flat_map<AImage*, size_t>;
-  AImageRefMap external_image_refs_;
+    ImageRef(ImageRef&& other);
+    ImageRef& operator=(ImageRef&& other);
+
+    size_t count = 0u;
+    base::ScopedFD release_fence_fd;
+
+    DISALLOW_COPY_AND_ASSIGN(ImageRef);
+  };
+  using AImageRefMap = base::flat_map<AImage*, ImageRef>;
+  AImageRefMap image_refs_;
 
   // reference to the class instance which is used to dynamically
   // load the functions in android libraries at runtime.

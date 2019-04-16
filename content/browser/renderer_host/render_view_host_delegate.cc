@@ -69,6 +69,10 @@ RenderFrameHost* RenderViewHostDelegate::GetPendingMainFrame() {
   return nullptr;
 }
 
+bool RenderViewHostDelegate::IsPortal() const {
+  return false;
+}
+
 bool RenderViewHostDelegate::GetSkipBlockingParser() {
   return skip_blocking_parser_;
 }

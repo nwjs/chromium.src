@@ -24,6 +24,7 @@
 namespace blink {
 
 class Element;
+class ExceptionState;
 class ResizeObserver;
 class ScriptPromiseResolver;
 class V8XRFrameRequestCallback;
@@ -31,9 +32,11 @@ class XR;
 class XRCanvasInputProvider;
 class XRSpace;
 class XRInputSourceEvent;
-class XRLayer;
 class XRPresentationContext;
+class XRRay;
 class XRReferenceSpaceOptions;
+class XRRenderState;
+class XRRenderStateInit;
 class XRView;
 
 class XRSession final : public EventTargetWithInlineData,
@@ -63,38 +66,27 @@ class XRSession final : public EventTargetWithInlineData,
   XRSession(XR*,
             device::mojom::blink::XRSessionClientRequest client_request,
             SessionMode mode,
-            XRPresentationContext* output_context,
             EnvironmentBlendMode environment_blend_mode);
   ~XRSession() override = default;
 
   XR* xr() const { return xr_; }
   const String& mode() const { return mode_string_; }
   bool environmentIntegration() const { return environment_integration_; }
-  XRPresentationContext* outputContext() const { return output_context_; }
   const String& environmentBlendMode() const { return blend_mode_string_; }
+  XRRenderState* renderState() const { return render_state_; }
 
   bool immersive() const;
 
-  // Near and far depths are used when computing projection matrices for this
-  // Session's views. Changes will propegate to the appropriate matrices on the
-  // next frame after these values are updated.
-  double depthNear() const { return depth_near_; }
-  void setDepthNear(double value);
-  double depthFar() const { return depth_far_; }
-  void setDepthFar(double value);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(blur, kBlur)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(focus, kFocus)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(resetpose, kResetpose)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(end, kEnd)
 
-  XRLayer* baseLayer() const { return base_layer_; }
-  void setBaseLayer(XRLayer* value);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(selectstart, kSelectstart)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(selectend, kSelectend)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(select, kSelect)
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(blur, kBlur);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(focus, kFocus);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(resetpose, kResetpose);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(end, kEnd);
-
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(selectstart, kSelectstart);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(selectend, kSelectend);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(select, kSelect);
-
+  void updateRenderState(XRRenderStateInit*, ExceptionState&);
   ScriptPromise requestReferenceSpace(ScriptState*,
                                       const XRReferenceSpaceOptions*);
 
@@ -107,8 +99,7 @@ class XRSession final : public EventTargetWithInlineData,
   HeapVector<Member<XRInputSource>> getInputSources() const;
 
   ScriptPromise requestHitTest(ScriptState* script_state,
-                               NotShared<DOMFloat32Array> origin,
-                               NotShared<DOMFloat32Array> direction,
+                               XRRay* ray,
                                XRSpace* space);
 
   // Called by JavaScript to manually end the session.
@@ -131,6 +122,8 @@ class XRSession final : public EventTargetWithInlineData,
   // Reports the size of the output context's, if one is available. If not
   // reports (0, 0);
   DoubleSize OutputCanvasSize() const;
+  XRPresentationContext* outputContext() const;
+  void DetachOutputContext(XRPresentationContext* output_context);
 
   void LogGetPose() const;
 
@@ -156,9 +149,24 @@ class XRSession final : public EventTargetWithInlineData,
 
   void OnPoseReset();
 
-  const device::mojom::blink::VRDisplayInfoPtr& GetVRDisplayInfo() {
+  const device::mojom::blink::VRDisplayInfoPtr& GetVRDisplayInfo() const {
     return display_info_;
   }
+
+  // TODO(jacde): Update the mojom to deliver this per-frame.
+  bool EmulatedPosition() const {
+    if (display_info_) {
+      return !display_info_->capabilities->hasPosition;
+    }
+
+    // If we don't have display info then we should be using the identity
+    // reference space, which by definition will be emulating the position.
+    return true;
+  }
+
+  void UpdateDisplayInfo(
+      const device::mojom::blink::VREyeParametersPtr& left_eye,
+      const device::mojom::blink::VREyeParametersPtr& right_eye);
   bool External() const { return is_external_; }
   // Incremented every time display_info_ is changed, so that other objects that
   // depend on it can know when they need to update.
@@ -177,6 +185,7 @@ class XRSession final : public EventTargetWithInlineData,
 
   XRFrame* CreatePresentationFrame();
   void UpdateCanvasDimensions(Element*);
+  void ApplyPendingRenderState();
 
   void UpdateInputSourceState(
       XRInputSource*,
@@ -201,9 +210,9 @@ class XRSession final : public EventTargetWithInlineData,
   const SessionMode mode_;
   const String mode_string_;
   const bool environment_integration_;
-  const Member<XRPresentationContext> output_context_;
   String blend_mode_string_;
-  Member<XRLayer> base_layer_;
+  Member<XRRenderState> render_state_;
+  HeapVector<Member<XRRenderStateInit>> pending_render_state_;
   HeapVector<Member<XRView>> views_;
   InputSourceMap input_sources_;
   Member<ResizeObserver> resize_observer_;
@@ -221,8 +230,6 @@ class XRSession final : public EventTargetWithInlineData,
 
   WTF::Vector<float> non_immersive_projection_matrix_;
 
-  double depth_near_ = 0.1;
-  double depth_far_ = 1000.0;
   bool blurred_;
   bool ended_ = false;
   bool pending_frame_ = false;

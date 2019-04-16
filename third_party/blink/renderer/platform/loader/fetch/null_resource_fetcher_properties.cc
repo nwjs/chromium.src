@@ -17,11 +17,13 @@ NullResourceFetcherProperties::NullResourceFetcherProperties()
     : fetch_client_settings_object_(
           *MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               KURL(),
+              KURL(),
               nullptr /* security_origin */,
               network::mojom::ReferrerPolicy::kDefault,
               String(),
               HttpsState::kNone,
-              AllowedByNosniff::MimeTypeCheck::kStrict)) {}
+              AllowedByNosniff::MimeTypeCheck::kStrict,
+              mojom::IPAddressSpace::kPublic)) {}
 
 void NullResourceFetcherProperties::Trace(Visitor* visitor) {
   visitor->Trace(fetch_client_settings_object_);

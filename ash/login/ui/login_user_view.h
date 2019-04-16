@@ -120,10 +120,10 @@ class ASH_EXPORT LoginUserView : public views::View,
   LoginButton* dropdown_ = nullptr;
   TapButton* tap_button_ = nullptr;
 
-  // Bubble used for displaying the user dropdown menu. Owned by its widget,
-  // which is owned by LoginUserView. This widget is closed in
-  // LoginUserMenuView's d'tor.
-  LoginBaseBubbleView* menu_ = nullptr;
+  // Bubble used for displaying the user dropdown menu. Its parent is the top
+  // level view, either LockContentsView or LockDebugView. This allows the menu
+  // to be clicked outside the bounds of the user view.
+  LoginUserMenuView* menu_ = nullptr;
 
   // Show the domain information for public account user.
   UserDomainInfoView* user_domain_ = nullptr;

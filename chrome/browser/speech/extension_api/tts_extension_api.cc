@@ -28,7 +28,7 @@ namespace constants = tts_extension_api_constants;
 
 namespace events {
 const char kOnEvent[] = "tts.onEvent";
-};  // namespace events
+}  // namespace events
 
 const char* TtsEventTypeToString(content::TtsEventType event_type) {
   switch (event_type) {
@@ -95,6 +95,7 @@ class TtsExtensionEventHandler : public content::UtteranceEventDelegate {
   void OnTtsEvent(content::TtsUtterance* utterance,
                   content::TtsEventType event_type,
                   int char_index,
+                  int length,
                   const std::string& error_message) override;
 
  private:
@@ -111,6 +112,7 @@ TtsExtensionEventHandler::TtsExtensionEventHandler(
 void TtsExtensionEventHandler::OnTtsEvent(content::TtsUtterance* utterance,
                                           content::TtsEventType event_type,
                                           int char_index,
+                                          int length,
                                           const std::string& error_message) {
   if (utterance->GetSrcId() < 0) {
     if (utterance->IsFinished())
@@ -120,7 +122,7 @@ void TtsExtensionEventHandler::OnTtsEvent(content::TtsUtterance* utterance,
 
   const std::set<content::TtsEventType>& desired_event_types =
       utterance->GetDesiredEventTypes();
-  if (desired_event_types.size() > 0 &&
+  if (!desired_event_types.empty() &&
       desired_event_types.find(event_type) == desired_event_types.end()) {
     if (utterance->IsFinished())
       delete this;
@@ -131,6 +133,8 @@ void TtsExtensionEventHandler::OnTtsEvent(content::TtsUtterance* utterance,
   std::unique_ptr<base::DictionaryValue> details(new base::DictionaryValue());
   if (char_index >= 0)
     details->SetInteger(constants::kCharIndexKey, char_index);
+  if (length >= 0)
+    details->SetInteger(constants::kLengthKey, length);
   details->SetString(constants::kEventTypeKey, event_type_string);
   if (event_type == content::TTS_EVENT_ERROR) {
     details->SetString(constants::kErrorMessageKey, error_message);
@@ -289,7 +293,7 @@ bool TtsSpeakFunction::RunAsync() {
 }
 
 ExtensionFunction::ResponseAction TtsStopSpeakingFunction::Run() {
-  content::TtsController::GetInstance()->Stop();
+  content::TtsController::GetInstance()->Stop(source_url());
   return RespondNow(NoArguments());
 }
 

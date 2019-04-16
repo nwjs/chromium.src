@@ -32,7 +32,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_FILESYSTEM_FILE_WRITER_H_
 
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/filesystem/file_writer_base.h"
@@ -91,12 +91,12 @@ class FileWriter final : public EventTargetWithInlineData,
     return ContextLifecycleObserver::GetExecutionContext();
   }
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(writestart, kWritestart);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(progress, kProgress);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(write, kWrite);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(abort, kAbort);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(writeend, kWriteend);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(writestart, kWritestart)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(progress, kProgress)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(write, kWrite)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(abort, kAbort)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(writeend, kWriteend)
 
   void Trace(blink::Visitor*) override;
 

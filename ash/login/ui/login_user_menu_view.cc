@@ -10,6 +10,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/display/display.h"
+#include "ui/display/screen.h"
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
@@ -37,9 +39,6 @@ constexpr int kUserMenuMarginAroundSeparatorDp = 16;
 constexpr int kUserMenuVerticalDistanceBetweenLabelsDp = 16;
 // Margin around remove user button.
 constexpr int kUserMenuMarginAroundRemoveUserButtonDp = 4;
-
-// Horizontal spacing with the anchor view.
-constexpr int kAnchorViewUserMenuHorizontalSpacingDp = 98;
 
 // Vertical spacing between the anchor view and user menu.
 constexpr int kAnchorViewUserMenuVerticalSpacingDp = 4;
@@ -141,16 +140,8 @@ LoginUserMenuView::LoginUserMenuView(
       bubble_opener_(bubble_opener),
       on_remove_user_warning_shown_(on_remove_user_warning_shown),
       on_remove_user_requested_(on_remove_user_requested) {
-  // This view has content the user can interact with if the remove user
-  // button is displayed.
-  set_can_activate(show_remove_user);
-
-  set_anchor_view_insets(gfx::Insets(kAnchorViewUserMenuVerticalSpacingDp,
-                                     kAnchorViewUserMenuHorizontalSpacingDp));
-
   // LoginUserMenuView does not use the parent margins. Further, because the
   // splitter spans the entire view set_margins cannot be used.
-  set_margins(gfx::Insets());
   // The bottom margin is less the margin around the remove user button, which
   // is always visible.
   gfx::Insets margins(
@@ -263,6 +254,13 @@ LoginUserMenuView::LoginUserMenuView(
 
 LoginUserMenuView::~LoginUserMenuView() = default;
 
+void LoginUserMenuView::ResetState() {
+  if (remove_user_confirm_data_) {
+    remove_user_confirm_data_->SetVisible(false);
+    remove_user_label_->SetEnabledColor(kRemoveUserInitialColor);
+  }
+}
+
 LoginButton* LoginUserMenuView::GetBubbleOpener() const {
   return bubble_opener_;
 }
@@ -274,8 +272,7 @@ void LoginUserMenuView::ButtonPressed(views::Button* sender,
   if (!remove_user_confirm_data_->visible()) {
     remove_user_confirm_data_->SetVisible(true);
     remove_user_label_->SetEnabledColor(kRemoveUserConfirmColor);
-    SetSize(GetPreferredSize());
-    SizeToContents();
+
     Layout();
 
     // Fire an accessibility alert to make ChromeVox read the warning message
@@ -290,13 +287,40 @@ void LoginUserMenuView::ButtonPressed(views::Button* sender,
     return;
   }
 
-  // Immediately hide the widget with no animation before running the remove
+  // Immediately hide the bubble with no animation before running the remove
   // user callback. If an animation is triggered while the the views hierarchy
   // for this bubble is being torn down, we can get a crash.
-  GetWidget()->Hide();
+  SetVisible(false);
 
   if (on_remove_user_requested_)
     std::move(on_remove_user_requested_).Run();
+}
+
+gfx::Point LoginUserMenuView::CalculatePosition() {
+  gfx::Point position = LoginBaseBubbleView::CalculatePosition();
+
+  if (GetAnchorView())
+    position.set_y(position.y() + kAnchorViewUserMenuVerticalSpacingDp);
+
+  gfx::Rect screen_bounds =
+      display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
+
+  // In handling the cases where the bubble could go off screen, we assume that
+  // the bubble can go either off the right side or off the bottom side.
+  if (position.x() + width() > screen_bounds.right() && GetAnchorView()) {
+    // If bubble would go off the right side of the screen, go left instead
+    position.set_x(position.x() + GetAnchorView()->width() - width());
+  } else if (position.y() + height() > screen_bounds.bottom() &&
+             GetAnchorView()) {
+    // If bubble would go off the bottom of the screen, go to the right of the
+    // anchor and upward.
+    position.set_x(position.x() + kAnchorViewUserMenuVerticalSpacingDp +
+                   GetAnchorView()->width());
+    position.set_y(position.y() +
+                   (screen_bounds.bottom() - (position.y() + height())));
+  }
+
+  return position;
 }
 
 void LoginUserMenuView::RequestFocus() {
@@ -306,26 +330,11 @@ void LoginUserMenuView::RequestFocus() {
     remove_user_button_->RequestFocus();
 }
 
-void LoginUserMenuView::AddedToWidget() {
-  LoginBaseBubbleView::AddedToWidget();
-  // Set up focus traversable parent so that keyboard focus can continue in
-  // the lock window, otherwise focus will be trapped inside the bubble.
-  if (GetAnchorView()) {
-    GetWidget()->SetFocusTraversableParent(
-        anchor_widget()->GetFocusTraversable());
-    GetWidget()->SetFocusTraversableParentView(GetAnchorView());
-  }
+bool LoginUserMenuView::HasFocus() const {
+  return remove_user_button_ && remove_user_button_->HasFocus();
 }
 
 const char* LoginUserMenuView::GetClassName() const {
   return "LoginUserMenuView";
-}
-
-gfx::Size LoginUserMenuView::CalculatePreferredSize() const {
-  gfx::Size size = LoginBaseBubbleView::CalculatePreferredSize();
-  // We don't use margins() directly which means that we need to account for
-  // the margin width here. Margin height is accounted for by the layout code.
-  size.Enlarge(kUserMenuMarginWidth, 0);
-  return size;
 }
 }  // namespace ash

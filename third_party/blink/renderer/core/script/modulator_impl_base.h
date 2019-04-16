@@ -42,6 +42,9 @@ class ModulatorImplBase : public Modulator {
 
   bool IsScriptingDisabled() const override;
 
+  bool BuiltInModuleInfraEnabled() const override;
+  bool BuiltInModuleEnabled(blink::layered_api::Module) const override;
+  void BuiltInModuleUseCount(blink::layered_api::Module) const override;
   void AddToMap(const KURL& url, ModuleScript* script) override;
 
   ScriptModuleResolver* GetScriptModuleResolver() override {
@@ -76,10 +79,13 @@ class ModulatorImplBase : public Modulator {
                           const KURL&,
                           const ReferrerScriptInfo&,
                           ScriptPromiseResolver*) override;
+  void RegisterImportMap(const ImportMap*) final;
+  bool IsAcquiringImportMaps() const final { return acquiring_import_maps_; }
+  void ClearIsAcquiringImportMaps() final { acquiring_import_maps_ = false; }
   ModuleImportMeta HostGetImportMetaProperties(ScriptModule) const override;
   ScriptValue InstantiateModule(ScriptModule) override;
   Vector<ModuleRequest> ModuleRequestsFromScriptModule(ScriptModule) override;
-  ScriptValue ExecuteModule(const ModuleScript*, CaptureEvalErrorFlag) override;
+  ScriptValue ExecuteModule(ModuleScript*, CaptureEvalErrorFlag) override;
 
   // Populates |reason| and returns true if the dynamic import is disallowed on
   // the associated execution context. In that case, a caller of this function
@@ -88,12 +94,23 @@ class ModulatorImplBase : public Modulator {
   // modification of |reason|.
   virtual bool IsDynamicImportForbidden(String* reason) = 0;
 
+  void ProduceCacheModuleTreeTopLevel(ModuleScript*);
+  void ProduceCacheModuleTree(ModuleScript*,
+                              HeapHashSet<Member<const ModuleScript>>*);
+
   Member<ScriptState> script_state_;
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   TraceWrapperMember<ModuleMap> map_;
   TraceWrapperMember<ModuleTreeLinkerRegistry> tree_linker_registry_;
   Member<ScriptModuleResolver> script_module_resolver_;
   Member<DynamicModuleResolver> dynamic_module_resolver_;
+
+  Member<const ImportMap> import_map_;
+
+  // https://github.com/WICG/import-maps/blob/master/spec.md#when-import-maps-can-be-encountered
+  // Each realm (environment settings object) has a boolean, acquiring import
+  // maps. It is initially true. [spec text]
+  bool acquiring_import_maps_ = true;
 };
 
 }  // namespace blink

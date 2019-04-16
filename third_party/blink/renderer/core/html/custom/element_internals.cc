@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element_registry.h"
 #include "third_party/blink/renderer/core/html/custom/validity_state_flags.h"
+#include "third_party/blink/renderer/core/html/forms/form_controller.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/validity_state.h"
@@ -52,7 +53,7 @@ void ElementInternals::setFormValue(const FileOrUSVString& value,
                                     ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return;
   }
@@ -63,12 +64,13 @@ void ElementInternals::setFormValue(const FileOrUSVString& value,
   }
   value_ = value;
   entry_source_ = MakeGarbageCollected<FormData>(*entry_source);
+  NotifyFormStateChanged();
 }
 
 HTMLFormElement* ElementInternals::form(ExceptionState& exception_state) const {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return nullptr;
   }
@@ -85,7 +87,7 @@ void ElementInternals::setValidity(ValidityStateFlags* flags,
                                    ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return;
   }
@@ -106,7 +108,7 @@ void ElementInternals::setValidity(ValidityStateFlags* flags,
 bool ElementInternals::willValidate(ExceptionState& exception_state) const {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return false;
   }
@@ -116,7 +118,7 @@ bool ElementInternals::willValidate(ExceptionState& exception_state) const {
 ValidityState* ElementInternals::validity(ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return nullptr;
   }
@@ -127,7 +129,7 @@ String ElementInternals::ValidationMessageForBinding(
     ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return String();
   }
@@ -149,7 +151,7 @@ String ElementInternals::ValidationSubMessage() const {
 bool ElementInternals::checkValidity(ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return false;
   }
@@ -159,14 +161,20 @@ bool ElementInternals::checkValidity(ExceptionState& exception_state) {
 bool ElementInternals::reportValidity(ExceptionState& exception_state) {
   if (!IsTargetFormAssociated()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "The target element is not a form-associated custom element.");
     return false;
   }
   return ListedElement::reportValidity();
 }
 
-LabelsNodeList* ElementInternals::labels() {
+LabelsNodeList* ElementInternals::labels(ExceptionState& exception_state) {
+  if (!IsTargetFormAssociated()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotSupportedError,
+        "The target element is not a form-associated custom element.");
+    return nullptr;
+  }
   return Target().labels();
 }
 
@@ -186,6 +194,8 @@ void ElementInternals::DidUpgrade() {
         lists->InvalidateCaches(nullptr);
     }
   }
+  Target().GetDocument().GetFormController().RestoreControlStateOnUpgrade(
+      *this);
 }
 
 bool ElementInternals::IsTargetFormAssociated() const {
@@ -221,14 +231,13 @@ void ElementInternals::AppendToFormData(FormData& form_data) {
     return;
   const AtomicString& name = Target().FastGetAttribute(html_names::kNameAttr);
   if (!entry_source_) {
-    if (name.IsNull())
+    if (name.IsEmpty())
       return;
     if (value_.IsFile())
       form_data.AppendFromElement(name, value_.GetAsFile());
     else if (value_.IsUSVString())
       form_data.AppendFromElement(name, value_.GetAsUSVString());
-    else
-      form_data.AppendFromElement(name, g_empty_string);
+    // Append nothing for null value.
     return;
   }
   for (const auto& entry : entry_source_->Entries()) {
@@ -290,6 +299,43 @@ void ElementInternals::DisabledStateMightBeChanged() {
     return;
   is_disabled_ = new_disabled;
   CustomElement::EnqueueDisabledStateChangedCallback(Target(), new_disabled);
+}
+
+bool ElementInternals::ClassSupportsStateRestore() const {
+  return true;
+}
+
+bool ElementInternals::ShouldSaveAndRestoreFormControlState() const {
+  // We don't save/restore control state in a form with autocomplete=off.
+  return Target().isConnected() && (!Form() || Form()->ShouldAutocomplete());
+}
+
+FormControlState ElementInternals::SaveFormControlState() const {
+  FormControlState state;
+  if (value_.IsUSVString()) {
+    state.Append("USVString");
+    state.Append(value_.GetAsUSVString());
+  } else if (value_.IsFile()) {
+    state.Append("File");
+    File* file = value_.GetAsFile();
+    file->AppendToControlState(state);
+  }
+  // Add nothing if value_.IsNull().
+  return state;
+}
+
+void ElementInternals::RestoreFormControlState(const FormControlState& state) {
+  if (state.ValueSize() < 2)
+    return;
+  if (state[0] == "USVString") {
+    value_ = FileOrUSVString::FromUSVString(state[1]);
+  } else if (state[0] == "File") {
+    wtf_size_t i = 1;
+    if (auto* file = File::CreateFromControlState(state, i))
+      value_ = FileOrUSVString::FromFile(file);
+  }
+  if (!value_.IsNull())
+    CustomElement::EnqueueRestoreValueCallback(Target(), value_, "restore");
 }
 
 }  // namespace blink

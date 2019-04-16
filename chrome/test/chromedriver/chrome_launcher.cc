@@ -35,6 +35,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_result_codes.h"
 #include "chrome/test/chromedriver/chrome/chrome_android_impl.h"
 #include "chrome/test/chromedriver/chrome/chrome_desktop_impl.h"
 #include "chrome/test/chromedriver/chrome/chrome_finder.h"
@@ -73,7 +74,6 @@ namespace {
 // that support the Security DevTools domain on the browser target.
 const char* const kCommonSwitches[] = {
     "disable-popup-blocking", "enable-automation", "ignore-certificate-errors",
-    "metrics-recording-only",
 };
 
 #if 0
@@ -274,15 +274,28 @@ Status WaitForDevToolsAndCheckVersion(
     LOG(WARNING) << "You are using an unsupported command-line switch: "
                     "--disable-build-check. Please don't report bugs that "
                     "cannot be reproduced with this switch removed.";
-  } else if (browser_info->major_version <
-                 kMinimumSupportedChromeMajorVersion ||
-             browser_info->major_version >
-                 (kMinimumSupportedChromeMajorVersion + 3)) {
-    *retry = false;
-    return Status(kSessionNotCreated,
-                  base::StringPrintf("Chrome version must be between %d and %d",
-                                     kMinimumSupportedChromeMajorVersion,
-                                     kMinimumSupportedChromeMajorVersion + 3));
+  } else if (browser_info->major_version != kSupportedChromeMajorVersion) {
+    if (browser_info->major_version == 0) {
+      // TODO(https://crbug.com/932013): Content Shell doesn't report a version
+      // number. Skip version checking with a warning.
+      LOG(WARNING) << "Unable to retrieve Chrome version. "
+                      "Unable to verify browser compatibility.";
+    } else if (browser_info->major_version ==
+               kSupportedChromeMajorVersion + 1) {
+      // TODO(https://crbug.com/chromedriver/2656): Since we don't currently
+      // release ChromeDriver for dev or canary channels, allow using
+      // ChromeDriver version n (e.g., Beta) with Chrome version n+1 (e.g., Dev
+      // or Canary), with a warning.
+      LOG(WARNING) << "This version of ChromeDriver has not been tested with "
+                   << "Chrome version " << browser_info->major_version << ".";
+    } else {
+      *retry = false;
+      return Status(
+          kSessionNotCreated,
+          base::StringPrintf(
+              "This version of ChromeDriver only supports Chrome version %d",
+              kSupportedChromeMajorVersion));
+    }
   }
 
   while (base::TimeTicks::Now() < deadline) {
@@ -498,6 +511,16 @@ Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
     // Check to see if Chrome has crashed.
     chrome_status = base::GetTerminationStatus(process.Handle(), &exit_code);
     if (chrome_status != base::TERMINATION_STATUS_STILL_RUNNING) {
+#if defined(OS_WIN)
+      if (exit_code == chrome::RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED)
+#else
+      if (WEXITSTATUS(exit_code) ==
+          chrome::RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFIED)
+#endif
+        return Status(kInvalidArgument,
+                      "user data directory is already in use, "
+                      "please specify a unique value for --user-data-dir "
+                      "argument, or don't use --user-data-dir");
       std::string termination_reason =
           internal::GetTerminationReason(chrome_status);
       Status failure_status = Status(
@@ -848,7 +871,7 @@ Status ProcessExtension(const std::string& extension,
   if (!base::ReadFileToString(manifest_path, &manifest_data))
     return Status(kUnknownError, "cannot read manifest");
   std::unique_ptr<base::Value> manifest_value =
-      base::JSONReader::Read(manifest_data);
+      base::JSONReader::ReadDeprecated(manifest_data);
   base::DictionaryValue* manifest;
   if (!manifest_value || !manifest_value->GetAsDictionary(&manifest))
     return Status(kUnknownError, "invalid manifest");
@@ -957,8 +980,8 @@ Status WritePrefsFile(
   int code;
   std::string error_msg;
   std::unique_ptr<base::Value> template_value =
-      base::JSONReader::ReadAndReturnError(template_string, 0, &code,
-                                           &error_msg);
+      base::JSONReader::ReadAndReturnErrorDeprecated(template_string, 0, &code,
+                                                     &error_msg);
   base::DictionaryValue* prefs;
   if (!template_value || !template_value->GetAsDictionary(&prefs)) {
     return Status(kUnknownError,

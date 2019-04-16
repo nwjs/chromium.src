@@ -4,12 +4,12 @@
 
 #include "cc/paint/skia_paint_canvas.h"
 
+#include "base/bind.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_recorder.h"
 #include "cc/paint/scoped_raster_flags.h"
 #include "third_party/skia/include/core/SkAnnotation.h"
 #include "third_party/skia/include/core/SkColorSpaceXformCanvas.h"
-#include "third_party/skia/include/core/SkMetaData.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "third_party/skia/include/gpu/GrContext.h"
 #include "third_party/skia/include/utils/SkNWayCanvas.h"
@@ -55,10 +55,6 @@ void SkiaPaintCanvas::WrapCanvasInColorSpaceXformCanvas(
         SkCreateColorSpaceXformCanvas(canvas_, target_color_space);
     canvas_ = color_space_xform_canvas_.get();
   }
-}
-
-SkMetaData& SkiaPaintCanvas::getMetaData() {
-  return canvas_->getMetaData();
 }
 
 SkImageInfo SkiaPaintCanvas::imageInfo() const {
@@ -313,6 +309,14 @@ void SkiaPaintCanvas::drawTextBlob(sk_sp<SkTextBlob> blob,
   SkPaint paint = raster_flags.flags()->ToSkPaint();
   canvas_->drawTextBlob(blob, x, y, paint);
   FlushAfterDrawIfNeeded();
+}
+
+void SkiaPaintCanvas::drawTextBlob(sk_sp<SkTextBlob> blob,
+                                   SkScalar x,
+                                   SkScalar y,
+                                   const PaintFlags& flags,
+                                   const NodeHolder& holder) {
+  drawTextBlob(blob, x, y, flags);
 }
 
 void SkiaPaintCanvas::drawPicture(sk_sp<const PaintRecord> record) {

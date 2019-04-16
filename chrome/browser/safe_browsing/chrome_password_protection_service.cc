@@ -6,10 +6,12 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -23,7 +25,6 @@
 #include "chrome/browser/safe_browsing/safe_browsing_navigation_observer_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/ui_manager.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/user_event_service_factory.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/google/core/common/google_util.h"
 #include "components/password_manager/core/browser/hash_password_manager.h"
@@ -49,8 +49,8 @@
 #include "components/safe_browsing/triggers/trigger_throttler.h"
 #include "components/safe_browsing/web_ui/safe_browsing_ui.h"
 #include "components/signin/core/browser/account_info.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/sync/protocol/user_event_specifics.pb.h"
 #include "components/sync/user_events/user_event_service.h"
 #include "content/public/browser/browser_thread.h"
@@ -68,9 +68,9 @@
 #include "url/url_util.h"
 
 using content::BrowserThread;
+using sync_pb::GaiaPasswordReuse;
 using sync_pb::UserEventSpecifics;
 using GaiaPasswordCaptured = UserEventSpecifics::GaiaPasswordCaptured;
-using GaiaPasswordReuse = UserEventSpecifics::GaiaPasswordReuse;
 using PasswordReuseDialogInteraction =
     GaiaPasswordReuse::PasswordReuseDialogInteraction;
 using PasswordReuseLookup = GaiaPasswordReuse::PasswordReuseLookup;
@@ -429,7 +429,7 @@ void ChromePasswordProtectionService::OnModalWarningShownForSignInPassword(
     update->SetKey(
         Origin::Create(web_contents->GetLastCommittedURL()).Serialize(),
         base::Value(
-            base::Int64ToString(GetLastCommittedNavigationID(web_contents))));
+            base::NumberToString(GetLastCommittedNavigationID(web_contents))));
   }
 
   UpdateSecurityState(SB_THREAT_TYPE_SIGN_IN_PASSWORD_REUSE,
@@ -627,8 +627,8 @@ bool ChromePasswordProtectionService::IsPingingEnabled(
 }
 
 bool ChromePasswordProtectionService::IsHistorySyncEnabled() {
-  browser_sync::ProfileSyncService* sync =
-      ProfileSyncServiceFactory::GetInstance()->GetForProfile(profile_);
+  syncer::SyncService* sync =
+      ProfileSyncServiceFactory::GetForProfile(profile_);
   return sync && sync->IsSyncFeatureActive() && !sync->IsLocalSyncEnabled() &&
          sync->GetActiveDataTypes().Has(syncer::HISTORY_DELETE_DIRECTIVES);
 }

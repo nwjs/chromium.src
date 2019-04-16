@@ -28,6 +28,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/autofill/legacy_strike_database_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
+#include "chrome/browser/autofill/strike_database_factory.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browsing_data/browsing_data_helper.h"
 #include "chrome/browser/browsing_data/chrome_browsing_data_remover_delegate_factory.h"
@@ -59,6 +60,7 @@
 #include "components/autofill/core/browser/legacy_strike_database.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/personal_data_manager_observer.h"
+#include "components/autofill/core/browser/strike_database.h"
 #include "components/autofill/core/browser/test_autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/bookmarks/browser/bookmark_model.h"
@@ -281,7 +283,7 @@ class RemoveCookieTester {
     auto cookie = net::CanonicalCookie::Create(
         kOrigin1, "A=1", base::Time::Now(), net::CookieOptions());
     cookie_manager_->SetCanonicalCookie(
-        *cookie, /*secure_source=*/false, /*modify_http_only=*/false,
+        *cookie, "http", /*modify_http_only=*/false,
         base::BindLambdaForTesting([&](bool result) {
           EXPECT_TRUE(result);
           run_loop.Quit();
@@ -967,10 +969,17 @@ class MockReportingService : public net::ReportingService {
     last_origin_filter_ = base::RepeatingCallback<bool(const GURL&)>();
   }
 
+  void OnShutdown() override {}
+
   const net::ReportingPolicy& GetPolicy() const override {
     static net::ReportingPolicy dummy_policy_;
     NOTREACHED();
     return dummy_policy_;
+  }
+
+  net::ReportingContext* GetContextForTesting() const override {
+    NOTREACHED();
+    return nullptr;
   }
 
   int remove_calls() const { return remove_calls_; }
@@ -1012,6 +1021,30 @@ class LegacyStrikeDatabaseTester {
 
  private:
   autofill::LegacyStrikeDatabase* legacy_strike_database_;
+};
+
+// StrikeDatabaseTester is in the autofill namespace since
+// StrikeDatabase declares it as a friend in the autofill namespace.
+class StrikeDatabaseTester {
+ public:
+  explicit StrikeDatabaseTester(Profile* profile)
+      : strike_database_(
+            autofill::StrikeDatabaseFactory::GetForProfile(profile)) {}
+
+  bool IsEmpty() {
+    int num_keys;
+    base::RunLoop run_loop;
+    strike_database_->LoadKeys(base::BindLambdaForTesting(
+        [&](bool success, std::unique_ptr<std::vector<std::string>> keys) {
+          num_keys = keys.get()->size();
+          run_loop.Quit();
+        }));
+    run_loop.Run();
+    return (num_keys == 0);
+  }
+
+ private:
+  autofill::StrikeDatabase* strike_database_;
 };
 
 }  // namespace autofill
@@ -1059,6 +1092,11 @@ class MockNetworkErrorLoggingService : public net::NetworkErrorLoggingService {
   }
 
   void OnRequest(RequestDetails details) override { NOTREACHED(); }
+
+  void QueueSignedExchangeReport(
+      const SignedExchangeReportDetails& details) override {
+    NOTREACHED();
+  }
 
   void RemoveBrowsingData(const base::RepeatingCallback<bool(const GURL&)>&
                               origin_filter) override {
@@ -1647,6 +1685,30 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   // LegacyStrikeDatabase should be empty when DATA_TYPE_FORM_DATA browsing data
   // gets deleted.
   ASSERT_TRUE(legacy_strike_database_tester.IsEmpty());
+  EXPECT_EQ(ChromeBrowsingDataRemoverDelegate::DATA_TYPE_FORM_DATA,
+            GetRemovalMask());
+  EXPECT_EQ(content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB,
+            GetOriginTypeMask());
+  ASSERT_FALSE(tester.HasProfile());
+}
+
+TEST_F(ChromeBrowsingDataRemoverDelegateTest,
+       StrikeDatabaseEmptyOnAutofillRemoveEverything) {
+  GetProfile()->CreateWebDataService();
+  RemoveAutofillTester tester(GetProfile());
+
+  ASSERT_FALSE(tester.HasProfile());
+  tester.AddProfilesAndCards();
+  ASSERT_TRUE(tester.HasProfile());
+
+  autofill::StrikeDatabaseTester strike_database_tester(GetProfile());
+  BlockUntilBrowsingDataRemoved(
+      base::Time(), base::Time::Max(),
+      ChromeBrowsingDataRemoverDelegate::DATA_TYPE_FORM_DATA, false);
+
+  // StrikeDatabase should be empty when DATA_TYPE_FORM_DATA browsing data
+  // gets deleted.
+  ASSERT_TRUE(strike_database_tester.IsEmpty());
   EXPECT_EQ(ChromeBrowsingDataRemoverDelegate::DATA_TYPE_FORM_DATA,
             GetRemovalMask());
   EXPECT_EQ(content::BrowsingDataRemover::ORIGIN_TYPE_UNPROTECTED_WEB,
@@ -2633,8 +2695,8 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest,
   // Add a bookmark with a visited timestamp before the deletion interval.
   bookmarks::BookmarkNode::MetaInfoMap meta_info = {
       {"last_visited",
-       base::Int64ToString((delete_begin - base::TimeDelta::FromSeconds(1))
-                               .ToInternalValue())}};
+       base::NumberToString((delete_begin - base::TimeDelta::FromSeconds(1))
+                                .ToInternalValue())}};
   bookmark_model->AddURLWithCreationTimeAndMetaInfo(
       bookmark_model->mobile_node(), 0, base::ASCIIToUTF16("my title"),
       GURL("http://foo-2.org/"), delete_begin - base::TimeDelta::FromDays(1),

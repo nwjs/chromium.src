@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/location.h"
@@ -31,6 +32,7 @@
 #include "content/public/common/navigation_policy.h"
 #include "content/public/common/resource_type.h"
 #include "net/base/io_buffer.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/load_flags.h"
 #include "net/cert/symantec_certs.h"
 #include "net/http/http_response_headers.h"
@@ -84,7 +86,7 @@ void PopulateResourceResponse(
   response->head.alpn_negotiated_protocol =
       response_info.alpn_negotiated_protocol;
   response->head.connection_info = response_info.connection_info;
-  response->head.socket_address = response_info.socket_address;
+  response->head.remote_endpoint = response_info.remote_endpoint;
   response->head.proxy_server = request->proxy_server();
   response->head.network_accessed = response_info.network_accessed;
   response->head.async_revalidation_requested =
@@ -123,10 +125,6 @@ void PopulateResourceResponse(
     response->head.cert_status = request->ssl_info().cert_status;
     response->head.ct_policy_compliance =
         request->ssl_info().ct_policy_compliance;
-    response->head.is_legacy_symantec_cert =
-        (!net::IsCertStatusError(response->head.cert_status) ||
-         net::IsCertStatusMinorError(response->head.cert_status)) &&
-        net::IsLegacySymantecCert(request->ssl_info().public_key_hashes);
     net::SSLVersion ssl_version = net::SSLConnectionStatusToVersion(
         request->ssl_info().connection_status);
     response->head.is_legacy_tls_version =
@@ -149,7 +147,7 @@ void PopulateResourceResponse(
 class ResourceLoader::Controller : public ResourceController {
  public:
   explicit Controller(ResourceLoader* resource_loader)
-      : resource_loader_(resource_loader){};
+      : resource_loader_(resource_loader) {}
 
   ~Controller() override {}
 
@@ -275,8 +273,7 @@ ResourceLoader::~ResourceLoader() {
     }
   }
 
-  if (login_delegate_.get())
-    login_delegate_->OnRequestCancelled();
+  login_delegate_.reset();
   ssl_client_auth_handler_.reset();
 
   // Run ResourceHandler destructor before we tear-down the rest of our state
@@ -418,10 +415,10 @@ void ResourceLoader::OnAuthRequired(net::URLRequest* unused,
   // Create a login dialog on the UI thread to get authentication data, or pull
   // from cache and continue on the IO thread.
 
-  DCHECK(!login_delegate_.get())
+  DCHECK(!login_delegate_)
       << "OnAuthRequired called with login_delegate pending";
   login_delegate_ = delegate_->CreateLoginDelegate(this, auth_info);
-  if (!login_delegate_.get())
+  if (!login_delegate_)
     request_->CancelAuth();
 }
 
@@ -659,10 +656,7 @@ void ResourceLoader::CancelRequestInternal(int error, bool from_renderer) {
   // IO_PENDING?
   bool was_pending = request_->is_pending();
 
-  if (login_delegate_.get()) {
-    login_delegate_->OnRequestCancelled();
-    login_delegate_ = nullptr;
-  }
+  login_delegate_.reset();
   ssl_client_auth_handler_.reset();
 
   if (!started_request_) {

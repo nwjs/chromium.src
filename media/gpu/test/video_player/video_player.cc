@@ -31,18 +31,19 @@ VideoPlayer::~VideoPlayer() {
 // static
 std::unique_ptr<VideoPlayer> VideoPlayer::Create(
     const Video* video,
-    FrameRenderer* frame_renderer,
-    const std::vector<VideoFrameProcessor*>& frame_processors,
+    std::unique_ptr<FrameRenderer> frame_renderer,
+    std::vector<std::unique_ptr<VideoFrameProcessor>> frame_processors,
     const VideoDecoderClientConfig& config) {
   auto video_player = base::WrapUnique(new VideoPlayer());
-  video_player->Initialize(video, frame_renderer, frame_processors, config);
+  video_player->Initialize(video, std::move(frame_renderer),
+                           std::move(frame_processors), config);
   return video_player;
 }
 
 void VideoPlayer::Initialize(
     const Video* video,
-    FrameRenderer* frame_renderer,
-    const std::vector<VideoFrameProcessor*>& frame_processors,
+    std::unique_ptr<FrameRenderer> frame_renderer,
+    std::vector<std::unique_ptr<VideoFrameProcessor>> frame_processors,
     const VideoDecoderClientConfig& config) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_EQ(video_player_state_, VideoPlayerState::kUninitialized);
@@ -52,16 +53,19 @@ void VideoPlayer::Initialize(
   EventCallback event_cb =
       base::BindRepeating(&VideoPlayer::NotifyEvent, base::Unretained(this));
 
-  decoder_client_ = VideoDecoderClient::Create(event_cb, frame_renderer,
-                                               frame_processors, config);
+  decoder_client_ = VideoDecoderClient::Create(
+      event_cb, std::move(frame_renderer), std::move(frame_processors), config);
   CHECK(decoder_client_) << "Failed to create decoder client";
 
-  // Create a decoder for the specified video. We'll always use import mode as
-  // this is the only mode supported by the media::VideoDecoder interface, which
-  // the video decoders are being migrated to.
+  // Create a decoder for the specified video.
+  // TODO(dstaessens@) Remove support for allocate mode, and always use import
+  // mode. Support for allocate mode is temporary maintained for older platforms
+  // that don't support import mode.
   VideoDecodeAccelerator::Config decoder_config(video->Profile());
   decoder_config.output_mode =
-      VideoDecodeAccelerator::Config::OutputMode::IMPORT;
+      config.allocation_mode == AllocationMode::kImport
+          ? VideoDecodeAccelerator::Config::OutputMode::IMPORT
+          : VideoDecodeAccelerator::Config::OutputMode::ALLOCATE;
   decoder_client_->CreateDecoder(decoder_config, video->Data());
 
   video_ = video;
@@ -128,6 +132,10 @@ VideoPlayerState VideoPlayer::GetState() const {
   return video_player_state_;
 }
 
+FrameRenderer* VideoPlayer::GetFrameRenderer() const {
+  return decoder_client_->GetFrameRenderer();
+}
+
 bool VideoPlayer::WaitForEvent(VideoPlayerEvent event,
                                size_t times,
                                base::TimeDelta max_wait) {
@@ -138,10 +146,6 @@ bool VideoPlayer::WaitForEvent(VideoPlayerEvent event,
   base::TimeDelta time_waiting;
   base::AutoLock auto_lock(event_lock_);
   while (true) {
-    const base::TimeTicks start_time = base::TimeTicks::Now();
-    event_cv_.TimedWait(max_wait);
-    time_waiting += base::TimeTicks::Now() - start_time;
-
     // TODO(dstaessens@) Investigate whether we really need to keep the full
     // list of events for more complex testcases.
     // Go through list of events since last wait, looking for the event we're
@@ -158,6 +162,10 @@ bool VideoPlayer::WaitForEvent(VideoPlayerEvent event,
     // Check whether we've exceeded the maximum time we're allowed to wait.
     if (time_waiting >= max_wait)
       return false;
+
+    const base::TimeTicks start_time = base::TimeTicks::Now();
+    event_cv_.TimedWait(max_wait);
+    time_waiting += base::TimeTicks::Now() - start_time;
   }
 }
 
@@ -178,6 +186,10 @@ size_t VideoPlayer::GetEventCount(VideoPlayerEvent event) const {
 
   base::AutoLock auto_lock(event_lock_);
   return video_player_event_counts_[static_cast<size_t>(event)];
+}
+
+bool VideoPlayer::WaitForFrameProcessors() {
+  return !decoder_client_ || decoder_client_->WaitForFrameProcessors();
 }
 
 size_t VideoPlayer::GetFlushDoneCount() const {

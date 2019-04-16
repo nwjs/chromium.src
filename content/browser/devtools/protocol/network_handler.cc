@@ -9,6 +9,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/queue.h"
 #include "base/json/json_reader.h"
@@ -50,6 +51,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
+#include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/base/upload_bytes_element_reader.h"
 #include "net/cert/ct_policy_status.h"
@@ -189,7 +192,8 @@ class CookieRetriever : public base::RefCountedThreadSafe<CookieRetriever> {
  protected:
   virtual ~CookieRetriever() {}
 
-  void GotCookies(const net::CookieList& cookie_list) {
+  void GotCookies(const net::CookieList& cookie_list,
+                  const net::CookieStatusList& excluded_cookies) {
     DCHECK_CURRENTLY_ON(BrowserThread::IO);
     for (const net::CanonicalCookie& cookie : cookie_list) {
       std::string key = base::StringPrintf(
@@ -246,8 +250,8 @@ class CookieRetrieverNetworkService
         new CookieRetrieverNetworkService(std::move(callback));
     net::CookieOptions cookie_options;
     cookie_options.set_include_httponly();
-    cookie_options.set_same_site_cookie_mode(
-        net::CookieOptions::SameSiteCookieMode::INCLUDE_STRICT_AND_LAX);
+    cookie_options.set_same_site_cookie_context(
+        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
     cookie_options.set_do_not_update_access_time();
     for (const auto& url : urls) {
       cookie_manager->GetCookieList(
@@ -332,7 +336,8 @@ void DeleteSelectedCookiesOnIO(net::URLRequestContextGetter* context_getter,
                                const std::string& normalized_domain,
                                const std::string& path,
                                base::OnceClosure callback,
-                               const net::CookieList& cookie_list) {
+                               const net::CookieList& cookie_list,
+                               const net::CookieStatusList& excluded_cookies) {
   DCHECK(!base::FeatureList::IsEnabled(network::features::kNetworkService));
 
   net::URLRequestContext* request_context =
@@ -366,11 +371,14 @@ void DeleteCookiesOnIO(net::URLRequestContextGetter* context_getter,
       normalized_domain, path, std::move(callback)));
 }
 
-void CookieSetOnIO(std::unique_ptr<SetCookieCallback> callback, bool success) {
+void CookieSetOnIO(std::unique_ptr<SetCookieCallback> callback,
+                   net::CanonicalCookie::CookieInclusionStatus status) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(&SetCookieCallback::sendSuccess,
-                                          std::move(callback), success));
+  base::PostTaskWithTraits(
+      FROM_HERE, {BrowserThread::UI},
+      base::BindOnce(
+          &SetCookieCallback::sendSuccess, std::move(callback),
+          (status == net::CanonicalCookie::CookieInclusionStatus::INCLUDE)));
 }
 
 void DeleteFilteredCookies(network::mojom::CookieManager* cookie_manager,
@@ -440,16 +448,18 @@ std::unique_ptr<net::CanonicalCookie> MakeCookieFromProtocolValues(
       base::Time(), secure, http_only, css, net::COOKIE_PRIORITY_DEFAULT);
 }
 
-void SetCookieOnIO(net::URLRequestContextGetter* context_getter,
-                   std::unique_ptr<net::CanonicalCookie> cookie,
-                   base::OnceCallback<void(bool)> callback) {
+void SetCookieOnIO(
+    net::URLRequestContextGetter* context_getter,
+    std::unique_ptr<net::CanonicalCookie> cookie,
+    base::OnceCallback<void(net::CanonicalCookie::CookieInclusionStatus)>
+        callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   DCHECK(!base::FeatureList::IsEnabled(network::features::kNetworkService));
   net::URLRequestContext* request_context =
       context_getter->GetURLRequestContext();
 
   request_context->cookie_store()->SetCanonicalCookieAsync(
-      std::move(cookie), true /* secure_source */, true /*modify_http_only*/,
+      std::move(cookie), "https" /* source_scheme */, true /*modify_http_only*/,
       std::move(callback));
 }
 
@@ -469,10 +479,12 @@ void SetCookiesOnIO(net::URLRequestContextGetter* context_getter,
   base::RepeatingClosure barrier_closure =
       base::BarrierClosure(cookies.size(), std::move(callback));
   for (auto& cookie : cookies) {
-    SetCookieOnIO(context_getter, std::move(cookie),
-                  base::BindOnce([](base::RepeatingClosure callback,
-                                    bool) { callback.Run(); },
-                                 barrier_closure));
+    SetCookieOnIO(
+        context_getter, std::move(cookie),
+        base::BindOnce(
+            [](base::RepeatingClosure callback,
+               net::CanonicalCookie::CookieInclusionStatus) { callback.Run(); },
+            barrier_closure));
   }
 }
 
@@ -653,12 +665,14 @@ String GetProtocol(const GURL& url, const network::ResourceResponseInfo& info) {
       protocol = "h2";
     } else if (url.SchemeIsHTTPOrHTTPS()) {
       protocol = "http";
-      if (info.headers->GetHttpVersion() == net::HttpVersion(0, 9))
-        protocol = "http/0.9";
-      else if (info.headers->GetHttpVersion() == net::HttpVersion(1, 0))
-        protocol = "http/1.0";
-      else if (info.headers->GetHttpVersion() == net::HttpVersion(1, 1))
-        protocol = "http/1.1";
+      if (info.headers) {
+        if (info.headers->GetHttpVersion() == net::HttpVersion(0, 9))
+          protocol = "http/0.9";
+        else if (info.headers->GetHttpVersion() == net::HttpVersion(1, 0))
+          protocol = "http/1.0";
+        else if (info.headers->GetHttpVersion() == net::HttpVersion(1, 1))
+          protocol = "http/1.1";
+      }
     } else {
       protocol = url.scheme();
     }
@@ -803,7 +817,7 @@ class BackgroundSyncRestorer {
     }
     scoped_refptr<ServiceWorkerDevToolsAgentHost> service_worker_host =
         static_cast<ServiceWorkerDevToolsAgentHost*>(host.get());
-    scoped_refptr<BackgroundSyncContext> sync_context =
+    scoped_refptr<BackgroundSyncContextImpl> sync_context =
         static_cast<StoragePartitionImpl*>(storage_partition_)
             ->GetBackgroundSyncContext();
     base::PostTaskWithTraits(
@@ -816,7 +830,7 @@ class BackgroundSyncRestorer {
   }
 
   static void SetServiceWorkerOfflineOnIO(
-      scoped_refptr<BackgroundSyncContext> sync_context,
+      scoped_refptr<BackgroundSyncContextImpl> sync_context,
       scoped_refptr<ServiceWorkerContextWrapper> swcontext,
       int64_t version_id,
       bool offline) {
@@ -1237,7 +1251,7 @@ void NetworkHandler::SetCookie(const std::string& name,
   }
 
   storage_partition_->GetCookieManagerForBrowserProcess()->SetCanonicalCookie(
-      *cookie, true /* secure_source */, true /* modify_http_only */,
+      *cookie, "https", true /* modify_http_only */,
       base::BindOnce(&SetCookieCallback::sendSuccess, std::move(callback)));
 }
 
@@ -1284,7 +1298,7 @@ void NetworkHandler::SetCookies(
       storage_partition_->GetCookieManagerForBrowserProcess();
   for (const auto& cookie : net_cookies) {
     cookie_manager->SetCanonicalCookie(
-        *cookie, true, true,
+        *cookie, "https", true,
         base::BindOnce(
             [](base::RepeatingClosure callback, bool) { callback.Run(); },
             barrier_closure));
@@ -1549,8 +1563,9 @@ std::unique_ptr<Network::Response> BuildResponse(
       response->SetHeadersText(raw_info->response_headers_text);
   }
   response->SetProtocol(GetProtocol(url, info));
-  response->SetRemoteIPAddress(info.socket_address.HostForURL());
-  response->SetRemotePort(info.socket_address.port());
+  response->SetRemoteIPAddress(
+      net::HostPortPair::FromIPEndPoint(info.remote_endpoint).HostForURL());
+  response->SetRemotePort(info.remote_endpoint.port());
   if (info.ssl_info.has_value())
     response->SetSecurityDetails(BuildSecurityDetails(*info.ssl_info));
 
@@ -1914,16 +1929,16 @@ void NetworkHandler::ContinueInterceptedRequest(
     const protocol::Binary& raw = raw_response.fromJust();
 
     std::string raw_headers;
-    int header_size = net::HttpUtil::LocateEndOfHeaders(
+    size_t header_size = net::HttpUtil::LocateEndOfHeaders(
         reinterpret_cast<const char*>(raw.data()), raw.size());
-    if (header_size == -1) {
+    if (header_size == std::string::npos) {
       LOG(WARNING) << "Can't find headers in raw response";
       header_size = 0;
     } else {
       raw_headers = net::HttpUtil::AssembleRawHeaders(
           reinterpret_cast<const char*>(raw.data()), header_size);
     }
-    CHECK_LE(static_cast<size_t>(header_size), raw.size());
+    CHECK_LE(header_size, raw.size());
     response_headers =
         base::MakeRefCounted<net::HttpResponseHeaders>(std::move(raw_headers));
     response_body = raw.bytes();

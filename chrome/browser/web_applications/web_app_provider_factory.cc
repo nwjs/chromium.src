@@ -6,6 +6,7 @@
 
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "extensions/browser/extension_system_provider.h"
 #include "extensions/browser/extensions_browser_client.h"
@@ -38,8 +39,8 @@ KeyedService* WebAppProviderFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
   WebAppProvider* provider = new WebAppProvider(profile);
-  provider->CreateSubsystems();
   provider->Init();
+  provider->StartRegistry();
   return provider;
 }
 
@@ -49,8 +50,7 @@ bool WebAppProviderFactory::ServiceIsCreatedWithBrowserContext() const {
 
 content::BrowserContext* WebAppProviderFactory::GetBrowserContextToUse(
     content::BrowserContext* context) const {
-  Profile* profile = Profile::FromBrowserContext(context);
-  return profile ? profile->GetOriginalProfile() : nullptr;
+  return GetBrowserContextForWebApps(context);
 }
 
 }  //  namespace web_app

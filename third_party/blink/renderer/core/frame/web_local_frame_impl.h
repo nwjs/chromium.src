@@ -39,6 +39,7 @@
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/find_in_page.mojom-blink.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink.h"
 #include "third_party/blink/public/mojom/portal/portal.mojom-blink.h"
 #include "third_party/blink/public/platform/web_file_system_type.h"
 #include "third_party/blink/public/web/web_history_commit_type.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
 #include "third_party/blink/renderer/platform/heap/self_keep_alive.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/compiler.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -61,6 +63,7 @@ class FindInPage;
 class HTMLPortalElement;
 class IntSize;
 class LocalFrameClientImpl;
+class ResourceError;
 class ScrollableArea;
 class TextFinder;
 class WebAssociatedURLLoader;
@@ -218,7 +221,6 @@ class CORE_EXPORT WebLocalFrameImpl final
   float GetPrintPageShrink(int page) override;
   void PrintEnd() override;
   void DispatchAfterPrintEvent() override;
-  bool IsPrintScalingDisabledForPlugin(const WebNode&) override;
   bool GetPrintPresetOptionsForPlugin(const WebNode&,
                                       WebPrintPresetOptions*) override;
   bool HasCustomPageSizeStyle(int page_index) override;
@@ -252,6 +254,8 @@ class CORE_EXPORT WebLocalFrameImpl final
                                       mojo::ScopedMessagePipeHandle) override;
   void SetAutofillClient(WebAutofillClient*) override;
   WebAutofillClient* AutofillClient() override;
+  void SetContentCaptureClient(WebContentCaptureClient*) override;
+  WebContentCaptureClient* ContentCaptureClient() const override;
   bool IsLocalRoot() const override;
   bool IsProvisional() const override;
   WebLocalFrameImpl* LocalRoot() override;
@@ -322,6 +326,8 @@ class CORE_EXPORT WebLocalFrameImpl final
       const WebNavigationInfo&,
       std::unique_ptr<WebDocumentLoader::ExtraData>) override;
 
+  void SetLifecycleState(mojom::FrameLifecycleState state) override;
+
   void InitializeCoreFrame(Page&, FrameOwner*, const AtomicString& name);
   LocalFrame* GetFrame() const { return frame_.Get(); }
 
@@ -339,7 +345,8 @@ class CORE_EXPORT WebLocalFrameImpl final
                                             mojo::ScopedMessagePipeHandle,
                                             WebFrame* opener,
                                             const WebString& name,
-                                            WebSandboxFlags);
+                                            WebSandboxFlags,
+                                            const FeaturePolicy::FeatureState&);
   static WebLocalFrameImpl* CreateProvisional(WebLocalFrameClient*,
                                               InterfaceRegistry*,
                                               mojo::ScopedMessagePipeHandle,
@@ -441,6 +448,10 @@ class CORE_EXPORT WebLocalFrameImpl final
   // Returns true if our print context suggests using printing layout.
   bool UsePrintingLayout() const;
 
+  const FeaturePolicy::FeatureState& OpenerFeatureState() const {
+    return opener_feature_state_;
+  }
+
   virtual void Trace(blink::Visitor*);
 
  private:
@@ -483,6 +494,9 @@ class CORE_EXPORT WebLocalFrameImpl final
   Member<WebDevToolsAgentImpl> dev_tools_agent_;
 
   WebAutofillClient* autofill_client_;
+
+  WebContentCaptureClient* content_capture_client_ = nullptr;
+
   WebContentSettingsClient* content_settings_client_ = nullptr;
 
   Member<FindInPage> find_in_page_;
@@ -500,6 +514,10 @@ class CORE_EXPORT WebLocalFrameImpl final
 
   WebSpellCheckPanelHostClient* spell_check_panel_host_client_;
 
+  // Feature policy state inherited from an opener. It is always empty for child
+  // frames.
+  FeaturePolicy::FeatureState opener_feature_state_;
+
   // Oilpan: WebLocalFrameImpl must remain alive until close() is called.
   // Accomplish that by keeping a self-referential Persistent<>. It is
   // cleared upon close().
@@ -512,11 +530,12 @@ class CORE_EXPORT WebLocalFrameImpl final
 #endif
 };
 
-DEFINE_TYPE_CASTS(WebLocalFrameImpl,
-                  WebFrame,
-                  frame,
-                  frame->IsWebLocalFrame(),
-                  frame.IsWebLocalFrame());
+template <>
+struct DowncastTraits<WebLocalFrameImpl> {
+  static bool AllowFrom(const WebFrame& frame) {
+    return frame.IsWebLocalFrame();
+  }
+};
 
 }  // namespace blink
 

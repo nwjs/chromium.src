@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/inline_box_position.h"
 #include "third_party/blink/renderer/core/editing/inline_box_traversal.h"
+#include "third_party/blink/renderer/core/editing/ng_flat_tree_shorthands.h"
 #include "third_party/blink/renderer/core/editing/visible_position.h"
 #include "third_party/blink/renderer/core/editing/visible_units.h"
 #include "third_party/blink/renderer/core/layout/api/line_layout_api_shim.h"
@@ -526,19 +527,15 @@ PositionWithAffinityTemplate<Strategy> TraverseWithBidiCaretAffinity(
                                                       start_position));
   }
 
-  // TODO(xiaochengh): The double pointer pattern below is confusing and
-  // cumbersome, but necessary for now. Make it easier.
-  std::unique_ptr<NGOffsetMapping> mapping_storage;
-  const NGOffsetMapping* mapping =
-      NGInlineNode::GetOffsetMapping(context, &mapping_storage);
+  DCHECK(context->IsLayoutNGMixin());
+  const NGOffsetMapping* mapping = NGInlineNode::GetOffsetMapping(context);
   DCHECK(mapping);
 
   const base::Optional<unsigned> start_offset =
       mapping->GetTextContentOffset(start_position_in_dom);
   DCHECK(start_offset.has_value());
 
-  DCHECK(mapping->GetCaretNavigator());
-  const NGCaretNavigator& caret_navigator = *mapping->GetCaretNavigator();
+  NGCaretNavigator caret_navigator(*context);
   const NGCaretNavigator::Position start_caret_position =
       caret_navigator.CaretPositionFromTextContentOffsetAndAffinity(
           start_offset.value(), start_position_with_affinity.Affinity());
@@ -567,7 +564,8 @@ VisiblePositionTemplate<Strategy> TraverseAlgorithm(
   DCHECK(visible_position.IsValid()) << visible_position;
 
   VisiblePositionTemplate<Strategy> result;
-  if (!RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
+  if (!RuntimeEnabledFeatures::BidiCaretAffinityEnabled() ||
+      !NGInlineFormattingContextOf(visible_position.DeepEquivalent())) {
     const PositionTemplate<Strategy> pos =
         TraverseInternalAlgorithm<Strategy, Traversal>(visible_position);
     // TODO(yosin) Why can't we move left from the last position in a tree?

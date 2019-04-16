@@ -52,7 +52,8 @@ AppServiceAppItem::AppServiceAppItem(
     const app_list::AppListSyncableService::SyncItem* sync_item,
     const apps::AppUpdate& app_update)
     : ChromeAppListItem(profile, app_update.AppId()),
-      app_type_(app_update.AppType()) {
+      app_type_(app_update.AppType()),
+      is_platform_app_(false) {
   OnAppUpdate(app_update, true);
   if (sync_item && sync_item->item_ordinal.IsValid()) {
     UpdateFromSync(sync_item);
@@ -77,14 +78,13 @@ void AppServiceAppItem::OnAppUpdate(const apps::AppUpdate& app_update,
   }
 
   if (in_constructor || app_update.IconKeyChanged()) {
-    apps::AppServiceProxy* proxy = apps::AppServiceProxy::Get(profile());
-    if (proxy) {
-      proxy->LoadIcon(app_update.AppId(),
-                      apps::mojom::IconCompression::kUncompressed,
-                      app_list::AppListConfig::instance().grid_icon_dimension(),
-                      base::BindOnce(&AppServiceAppItem::OnLoadIcon,
-                                     weak_ptr_factory_.GetWeakPtr()));
-    }
+    constexpr bool allow_placeholder_icon = true;
+    CallLoadIcon(allow_placeholder_icon);
+  }
+
+  if (in_constructor || app_update.IsPlatformAppChanged()) {
+    is_platform_app_ =
+        app_update.IsPlatformApp() == apps::mojom::OptionalBool::kTrue;
   }
 }
 
@@ -97,12 +97,8 @@ const char* AppServiceAppItem::GetItemType() const {
 }
 
 void AppServiceAppItem::GetContextMenuModel(GetMenuModelCallback callback) {
-  // TODO(crbug.com/826982): don't hard-code false. The App Service should
-  // probably provide this.
-  const bool is_platform_app = false;
-
   context_menu_ = MakeAppContextMenu(app_type_, this, profile(), id(),
-                                     GetController(), is_platform_app);
+                                     GetController(), is_platform_app_);
   context_menu_->GetMenuModel(std::move(callback));
 }
 
@@ -129,10 +125,26 @@ void AppServiceAppItem::Launch(int event_flags,
   }
 }
 
+void AppServiceAppItem::CallLoadIcon(bool allow_placeholder_icon) {
+  apps::AppServiceProxy* proxy = apps::AppServiceProxy::Get(profile());
+  if (proxy) {
+    proxy->LoadIcon(id(), apps::mojom::IconCompression::kUncompressed,
+                    app_list::AppListConfig::instance().grid_icon_dimension(),
+                    allow_placeholder_icon,
+                    base::BindOnce(&AppServiceAppItem::OnLoadIcon,
+                                   weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
 void AppServiceAppItem::OnLoadIcon(apps::mojom::IconValuePtr icon_value) {
   if (icon_value->icon_compression !=
       apps::mojom::IconCompression::kUncompressed) {
     return;
   }
   SetIcon(icon_value->uncompressed);
+
+  if (icon_value->is_placeholder_icon) {
+    constexpr bool allow_placeholder_icon = false;
+    CallLoadIcon(allow_placeholder_icon);
+  }
 }

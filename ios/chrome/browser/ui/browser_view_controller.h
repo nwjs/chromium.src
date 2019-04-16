@@ -9,9 +9,8 @@
 
 #import "base/ios/block_types.h"
 #import "ios/chrome/browser/ui/page_info/requirements/page_info_presentation.h"
-#import "ios/chrome/browser/ui/settings/sync_utils/sync_presenter.h"
+#import "ios/chrome/browser/ui/settings/sync/utils/sync_presenter.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator_delegate.h"
-#import "ios/chrome/browser/ui/url_loader.h"
 #import "ios/public/provider/chrome/browser/voice/logo_animation_controller.h"
 
 @protocol ApplicationCommands;
@@ -37,8 +36,7 @@ class ChromeBrowserState;
     : UIViewController <LogoAnimationControllerOwnerOwner,
                         PageInfoPresentation,
                         SyncPresenter,
-                        ToolbarCoordinatorDelegate,
-                        UrlLoader>
+                        ToolbarCoordinatorDelegate>
 
 // Initializes a new BVC from its nib. |model| must not be nil. The
 // webUsageSuspended property for this BVC will be based on |model|, and future
@@ -66,8 +64,7 @@ class ChromeBrowserState;
                                   PopupMenuCommands,
                                   FakeboxFocuser,
                                   SnackbarCommands,
-                                  ToolbarCommands,
-                                  UrlLoader>
+                                  ToolbarCommands>
     dispatcher;
 
 // The top-level browser container view.

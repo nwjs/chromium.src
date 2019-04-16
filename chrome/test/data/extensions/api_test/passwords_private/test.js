@@ -7,6 +7,30 @@
 // and failures are detected.
 
 var availableTests = [
+  function changeSavedPassword() {
+    var numCalls = 0;
+    var callback = function(savedPasswordsList) {
+      numCalls++;
+      if (numCalls == 1) {
+        chrome.passwordsPrivate.changeSavedPassword(0, 'new_user');
+      } else if (numCalls == 2) {
+        chrome.test.assertEq('new_user', savedPasswordsList[0].username);
+        chrome.passwordsPrivate.changeSavedPassword(
+            0, 'another_user', 'new_pass');
+      } else if (numCalls == 3) {
+        chrome.test.assertEq('another_user', savedPasswordsList[0].username);
+        chrome.test.assertEq(
+            'new_pass'.length, savedPasswordsList[0].numCharactersInPassword);
+        chrome.test.succeed();
+      } else {
+        chrome.test.fail();
+      }
+    };
+
+    chrome.passwordsPrivate.onSavedPasswordsListChanged.addListener(callback);
+    chrome.passwordsPrivate.getSavedPasswordList(callback);
+  },
+
   function removeAndUndoRemoveSavedPassword() {
     var numCalls = 0;
     var numSavedPasswords;
@@ -75,10 +99,10 @@ var availableTests = [
       var idSet = new Set();
       for (var i = 0; i < list.length; ++i) {
         var entry = list[i];
-        chrome.test.assertTrue(!!entry.loginPair);
-        chrome.test.assertTrue(!!entry.loginPair.urls.origin);
-        chrome.test.assertTrue(!!entry.loginPair.urls.shown);
-        chrome.test.assertTrue(!!entry.loginPair.urls.link);
+        chrome.test.assertTrue(!!entry);
+        chrome.test.assertTrue(!!entry.urls.origin);
+        chrome.test.assertTrue(!!entry.urls.shown);
+        chrome.test.assertTrue(!!entry.urls.link);
         idSet.add(entry.id);
       }
 

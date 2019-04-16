@@ -8,7 +8,6 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_switcher/alternative_browser_driver.h"
 #include "chrome/browser/browser_switcher/browser_switcher_service.h"
@@ -16,16 +15,30 @@
 #include "chrome/browser/browser_switcher/browser_switcher_sitelist.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/navigation_interception/intercept_navigation_throttle.h"
 #include "components/navigation_interception/navigation_params.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/guest_mode.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
+#include "net/base/url_util.h"
 
 namespace browser_switcher {
 
 namespace {
+
+// Open 'chrome://browser-switch/?url=...' in the current tab.
+void OpenBrowserSwitchPage(content::WebContents* web_contents,
+                           const GURL& url,
+                           ui::PageTransition transition_type) {
+  GURL about_url(chrome::kChromeUIBrowserSwitchURL);
+  about_url = net::AppendQueryParameter(about_url, "url", url.spec());
+  content::OpenURLParams params(about_url, content::Referrer(),
+                                WindowOpenDisposition::CURRENT_TAB,
+                                transition_type, false);
+  web_contents->OpenURL(params);
+}
 
 bool MaybeLaunchAlternativeBrowser(
     content::WebContents* web_contents,
@@ -55,25 +68,11 @@ bool MaybeLaunchAlternativeBrowser(
     return true;
   }
 
-  // TODO(nicolaso): Once the chrome://browserswitch page is implemented, open
-  // that instead of immediately launching the browser/closing the tab.
-  bool success;
-  {
-    SCOPED_UMA_HISTOGRAM_TIMER("BrowserSwitcher.LaunchTime");
-    success = service->driver()->TryLaunch(url);
-    UMA_HISTOGRAM_BOOLEAN("BrowserSwitcher.LaunchSuccess", success);
-  }
-  if (success) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(&content::WebContents::ClosePage,
-                                  base::Unretained(web_contents)));
-    return true;
-  }
-
-  // Launching the browser failed, fall back to loading the page normally.
-  //
-  // TODO(nicolaso): Show an error page instead.
-  return false;
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&OpenBrowserSwitchPage, base::Unretained(web_contents),
+                     url, params.transition_type()));
+  return true;
 }
 
 }  // namespace
@@ -94,7 +93,8 @@ BrowserSwitcherNavigationThrottle::MaybeCreateThrottleFor(
     return nullptr;
 
   return std::make_unique<navigation_interception::InterceptNavigationThrottle>(
-      navigation, base::BindRepeating(&MaybeLaunchAlternativeBrowser));
+      navigation, base::BindRepeating(&MaybeLaunchAlternativeBrowser),
+      navigation_interception::SynchronyMode::kSync);
 }
 
 }  // namespace browser_switcher

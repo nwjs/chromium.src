@@ -8,10 +8,10 @@
 
 <dom-module id="app-management-router">
   <template>
-    <iron-location query="{{urlQuery_}}" path="{{path_}}" dwell-time="-1">
+    <iron-location id="iron-location" query="{{urlQuery_}}" path="{{path_}}">
     </iron-location>
     <iron-query-params params-string="{{query_}}"
         params-object="{{queryParams_}}"></iron-query-params>
   </template>
-  <script src="chrome://apps/router.js"></script>
+  <script src="router.js"></script>
 </dom-module>

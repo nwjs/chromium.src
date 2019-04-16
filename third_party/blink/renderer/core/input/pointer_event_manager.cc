@@ -172,9 +172,11 @@ WebInputEventResult PointerEventManager::DispatchPointerEvent(
   }
 
   if (!check_for_listener || target->HasEventListeners(event_type)) {
-    UseCounter::Count(frame_, WebFeature::kPointerEventDispatch);
-    if (event_type == event_type_names::kPointerdown)
-      UseCounter::Count(frame_, WebFeature::kPointerEventDispatchPointerDown);
+    UseCounter::Count(frame_->GetDocument(), WebFeature::kPointerEventDispatch);
+    if (event_type == event_type_names::kPointerdown) {
+      UseCounter::Count(frame_->GetDocument(),
+                        WebFeature::kPointerEventDispatchPointerDown);
+    }
 
     DCHECK(!dispatching_pointer_id_);
     base::AutoReset<PointerId> dispatch_holder(&dispatching_pointer_id_,
@@ -565,7 +567,7 @@ WebInputEventResult PointerEventManager::HandlePointerEvent(
 }
 
 WebInputEventResult PointerEventManager::CreateAndDispatchPointerEvent(
-    Node* target,
+    Element* target,
     const AtomicString& mouse_event_name,
     const WebMouseEvent& mouse_event,
     const Vector<WebMouseEvent>& coalesced_events,
@@ -599,7 +601,7 @@ WebInputEventResult PointerEventManager::CreateAndDispatchPointerEvent(
 // TODO(crbug.com/665924): Because this code path might have boundary events,
 // it is different from SendMousePointerEvent. We should merge them.
 WebInputEventResult PointerEventManager::DirectDispatchMousePointerEvent(
-    Node* target,
+    Element* target,
     const WebMouseEvent& event,
     const AtomicString& mouse_event_type,
     const Vector<WebMouseEvent>& coalesced_events,
@@ -890,19 +892,21 @@ void PointerEventManager::ElementRemoved(Element* target) {
                                           target);
 }
 
-void PointerEventManager::SetPointerCapture(PointerId pointer_id,
+bool PointerEventManager::SetPointerCapture(PointerId pointer_id,
                                             Element* target) {
-  UseCounter::Count(frame_, WebFeature::kPointerEventSetCapture);
+  UseCounter::Count(frame_->GetDocument(), WebFeature::kPointerEventSetCapture);
   if (pointer_event_factory_.IsActiveButtonsState(pointer_id)) {
     if (pointer_id != dispatching_pointer_id_) {
-      UseCounter::Count(frame_,
+      UseCounter::Count(frame_->GetDocument(),
                         WebFeature::kPointerEventSetCaptureOutsideDispatch);
     }
     pending_pointer_capture_target_.Set(pointer_id, target);
+    return true;
   }
+  return false;
 }
 
-void PointerEventManager::ReleasePointerCapture(PointerId pointer_id,
+bool PointerEventManager::ReleasePointerCapture(PointerId pointer_id,
                                                 Element* target) {
   // Only the element that is going to get the next pointer event can release
   // the capture. Note that this might be different from
@@ -911,8 +915,11 @@ void PointerEventManager::ReleasePointerCapture(PointerId pointer_id,
   // but |m_pendingPointerCaptureTarget| indicated the element that gets the
   // very next pointer event. They will be the same if there was no change in
   // capturing of a particular |pointerId|. See crbug.com/614481.
-  if (pending_pointer_capture_target_.at(pointer_id) == target)
+  if (pending_pointer_capture_target_.at(pointer_id) == target) {
     ReleasePointerCapture(pointer_id);
+    return true;
+  }
+  return false;
 }
 
 void PointerEventManager::ReleaseMousePointerCapture() {

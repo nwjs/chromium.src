@@ -9,6 +9,7 @@
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/scoped_observer.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/views/extensions/extension_view_views.h"
 #include "content/public/browser/devtools_agent_host_observer.h"
@@ -59,6 +60,7 @@ class ExtensionPopup : public views::BubbleDialogDelegateView,
   // views::BubbleDialogDelegateView overrides.
   int GetDialogButtons() const override;
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
+  bool ShouldHaveRoundCorners() const override;
 
   // content::NotificationObserver overrides.
   void Observe(int type,

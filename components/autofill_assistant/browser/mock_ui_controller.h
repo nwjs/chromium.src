@@ -24,23 +24,18 @@ class MockUiController : public UiController {
 
   MOCK_METHOD1(OnStatusMessageChanged, void(const std::string& message));
   MOCK_METHOD1(OnStateChanged, void(AutofillAssistantState));
-  MOCK_METHOD1(Shutdown, void(Metrics::DropOutReason));
-  MOCK_METHOD0(Close, void());
-  MOCK_METHOD1(SetChips, void(std::unique_ptr<std::vector<Chip>> chips));
-  MOCK_METHOD0(ClearChips, void());
-  MOCK_METHOD4(
-      GetPaymentInformation,
-      void(payments::mojom::PaymentOptionsPtr payment_options,
-           base::OnceCallback<void(std::unique_ptr<PaymentInformation>)>
-               callback,
-           const std::string& title,
-           const std::vector<std::string>& supported_basic_card_networks));
+  MOCK_METHOD1(WillShutdown, void(Metrics::DropOutReason));
+  MOCK_METHOD1(OnSuggestionsChanged,
+               void(const std::vector<Chip>& suggestions));
+  MOCK_METHOD1(OnActionsChanged, void(const std::vector<Chip>& actions));
+  MOCK_METHOD1(OnPaymentRequestChanged,
+               void(const PaymentRequestOptions* options));
   MOCK_METHOD1(OnDetailsChanged, void(const Details* details));
-  MOCK_METHOD1(ShowProgressBar, void(int progress));
-  MOCK_METHOD0(HideProgressBar, void());
-  MOCK_METHOD1(SetTouchableArea, void(const std::vector<RectF>& areas));
+  MOCK_METHOD1(OnInfoBoxChanged, void(const InfoBox* info_box));
+  MOCK_METHOD1(OnProgressChanged, void(int progress));
+  MOCK_METHOD1(OnProgressVisibilityChanged, void(bool visible));
+  MOCK_METHOD1(OnTouchableAreaChanged, void(const std::vector<RectF>& areas));
   MOCK_CONST_METHOD0(Terminate, bool());
-  MOCK_METHOD0(ExpandBottomSheet, void());
   MOCK_CONST_METHOD0(GetDropOutReason, Metrics::DropOutReason());
 };
 

@@ -4,9 +4,12 @@
 
 #include "net/socket/connect_job.h"
 
+#include <utility>
+
 #include "base/trace_event/trace_event.h"
 #include "net/base/net_errors.h"
 #include "net/base/trace_constants.h"
+#include "net/http/http_auth_controller.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_event_type.h"
 #include "net/socket/client_socket_handle.h"
@@ -15,24 +18,27 @@
 namespace net {
 
 CommonConnectJobParams::CommonConnectJobParams(
-    const std::string& group_name,
     const SocketTag& socket_tag,
-    bool respect_limits,
     ClientSocketFactory* client_socket_factory,
-    SocketPerformanceWatcherFactory* socket_performance_watcher_factory,
     HostResolver* host_resolver,
+    ProxyDelegate* proxy_delegate,
+    const SSLClientSocketContext& ssl_client_socket_context,
+    const SSLClientSocketContext& ssl_client_socket_context_privacy_mode,
+    SocketPerformanceWatcherFactory* socket_performance_watcher_factory,
+    NetworkQualityEstimator* network_quality_estimator,
     NetLog* net_log,
     WebSocketEndpointLockManager* websocket_endpoint_lock_manager)
-    : group_name(group_name),
-      socket_tag(socket_tag),
-      respect_limits(respect_limits),
+    : socket_tag(socket_tag),
       client_socket_factory(client_socket_factory),
-      socket_performance_watcher_factory(socket_performance_watcher_factory),
       host_resolver(host_resolver),
+      proxy_delegate(proxy_delegate),
+      ssl_client_socket_context(ssl_client_socket_context),
+      ssl_client_socket_context_privacy_mode(
+          ssl_client_socket_context_privacy_mode),
+      socket_performance_watcher_factory(socket_performance_watcher_factory),
+      network_quality_estimator(network_quality_estimator),
       net_log(net_log),
-      websocket_endpoint_lock_manager(websocket_endpoint_lock_manager) {
-  DCHECK(!group_name.empty());
-}
+      websocket_endpoint_lock_manager(websocket_endpoint_lock_manager) {}
 
 CommonConnectJobParams::CommonConnectJobParams(
     const CommonConnectJobParams& other) = default;
@@ -46,41 +52,31 @@ ConnectJob::ConnectJob(RequestPriority priority,
                        base::TimeDelta timeout_duration,
                        const CommonConnectJobParams& common_connect_job_params,
                        Delegate* delegate,
-                       const NetLogWithSource& net_log)
+                       const NetLogWithSource* net_log,
+                       NetLogSourceType net_log_source_type,
+                       NetLogEventType net_log_connect_event_type)
     : timeout_duration_(timeout_duration),
       priority_(priority),
       common_connect_job_params_(common_connect_job_params),
       delegate_(delegate),
-      net_log_(net_log) {
+      top_level_job_(net_log == nullptr),
+      net_log_(net_log
+                   ? *net_log
+                   : NetLogWithSource::Make(common_connect_job_params.net_log,
+                                            net_log_source_type)),
+      net_log_connect_event_type_(net_log_connect_event_type) {
   DCHECK(delegate);
-  net_log.BeginEvent(NetLogEventType::SOCKET_POOL_CONNECT_JOB,
-                     NetLog::StringCallback(
-                         "group_name", &common_connect_job_params.group_name));
+  if (top_level_job_)
+    net_log_.BeginEvent(NetLogEventType::CONNECT_JOB);
 }
 
-ConnectJob::ConnectJob(const std::string& group_name,
-                       base::TimeDelta timeout_duration,
-                       RequestPriority priority,
-                       const SocketTag& socket_tag,
-                       bool respect_limits,
-                       Delegate* delegate,
-                       const NetLogWithSource& net_log)
-    : ConnectJob(priority,
-                 timeout_duration,
-                 CommonConnectJobParams(
-                     group_name,
-                     socket_tag,
-                     respect_limits,
-                     nullptr /* client_socket_factory */,
-                     nullptr /* socket_performance_watcher_factory */,
-                     nullptr /* host_resolver */,
-                     nullptr /* net_log */,
-                     nullptr /* websocket_endpoint_lock_manager */),
-                 delegate,
-                 net_log) {}
-
 ConnectJob::~ConnectJob() {
-  net_log().EndEvent(NetLogEventType::SOCKET_POOL_CONNECT_JOB);
+  // Log end of Connect event if ConnectJob was still in-progress when
+  // destroyed.
+  if (delegate_)
+    LogConnectCompletion(ERR_ABORTED);
+  if (top_level_job_)
+    net_log().EndEvent(NetLogEventType::CONNECT_JOB);
 }
 
 std::unique_ptr<StreamSocket> ConnectJob::PassSocket() {
@@ -88,9 +84,6 @@ std::unique_ptr<StreamSocket> ConnectJob::PassSocket() {
 }
 
 void ConnectJob::ChangePriority(RequestPriority priority) {
-  // Priority of a job that ignores limits should not be changed because it
-  // should always be MAXIMUM_PRIORITY.
-  DCHECK(respect_limits());
   priority_ = priority;
   ChangePriorityInternal(priority);
 }
@@ -112,10 +105,8 @@ int ConnectJob::Connect() {
 }
 
 void ConnectJob::SetSocket(std::unique_ptr<StreamSocket> socket) {
-  if (socket) {
-    net_log().AddEvent(NetLogEventType::CONNECT_JOB_SET_SOCKET,
-                       socket->NetLog().source().ToEventParametersCallback());
-  }
+  if (socket)
+    net_log().AddEvent(NetLogEventType::CONNECT_JOB_SET_SOCKET);
   socket_ = std::move(socket);
 }
 
@@ -129,27 +120,35 @@ void ConnectJob::NotifyDelegateOfCompletion(int rv) {
   delegate->OnConnectJobComplete(rv, this);
 }
 
+void ConnectJob::NotifyDelegateOfProxyAuth(
+    const HttpResponseInfo& response,
+    HttpAuthController* auth_controller,
+    base::OnceClosure restart_with_auth_callback) {
+  delegate_->OnNeedsProxyAuth(response, auth_controller,
+                              std::move(restart_with_auth_callback), this);
+}
+
 void ConnectJob::ResetTimer(base::TimeDelta remaining_time) {
   timer_.Stop();
-  timer_.Start(FROM_HERE, remaining_time, this, &ConnectJob::OnTimeout);
+  if (!remaining_time.is_zero())
+    timer_.Start(FROM_HERE, remaining_time, this, &ConnectJob::OnTimeout);
 }
 
 void ConnectJob::LogConnectStart() {
   connect_timing_.connect_start = base::TimeTicks::Now();
-  net_log().BeginEvent(NetLogEventType::SOCKET_POOL_CONNECT_JOB_CONNECT);
+  net_log().BeginEvent(net_log_connect_event_type_);
 }
 
 void ConnectJob::LogConnectCompletion(int net_error) {
   connect_timing_.connect_end = base::TimeTicks::Now();
-  net_log().EndEventWithNetErrorCode(
-      NetLogEventType::SOCKET_POOL_CONNECT_JOB_CONNECT, net_error);
+  net_log().EndEventWithNetErrorCode(net_log_connect_event_type_, net_error);
 }
 
 void ConnectJob::OnTimeout() {
   // Make sure the socket is NULL before calling into |delegate|.
   SetSocket(nullptr);
 
-  net_log_.AddEvent(NetLogEventType::SOCKET_POOL_CONNECT_JOB_TIMED_OUT);
+  net_log_.AddEvent(NetLogEventType::CONNECT_JOB_TIMED_OUT);
 
   NotifyDelegateOfCompletion(ERR_TIMED_OUT);
 }

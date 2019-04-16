@@ -7,6 +7,7 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
@@ -68,7 +69,6 @@ class OfflinePageAutoFetcherServiceTest : public testing::Test {
 
   void TearDown() override {
     thread_bundle_.RunUntilIdle();
-    ASSERT_TRUE(service_->IsTaskQueueEmptyForTesting());
     service_.reset();
   }
   RequestCoordinator* request_coordinator() {

@@ -68,7 +68,6 @@ class FakeScreenCapturer : public webrtc::DesktopCapturer {
     DCHECK(callback_);
     std::unique_ptr<webrtc::DesktopFrame> frame(
         new webrtc::BasicDesktopFrame(webrtc::DesktopSize(10, 10)));
-    memset(frame->data(), 0, frame->stride() * frame->size().height());
     callback_->OnCaptureResult(webrtc::DesktopCapturer::Result::SUCCESS,
                                std::move(frame));
   }
@@ -213,9 +212,9 @@ class NativeDesktopMediaListTest : public ChromeViewsTestBase {
 #endif
 
     // Get the aura window's id.
-    DesktopMediaID aura_id = DesktopMediaID::RegisterAuraWindow(
+    DesktopMediaID aura_id = DesktopMediaID::RegisterNativeWindow(
         DesktopMediaID::TYPE_WINDOW, aura_window);
-    native_aura_id_map_[window.id] = aura_id.aura_id;
+    native_aura_id_map_[window.id] = aura_id.window_id;
 
     window_list_.push_back(window);
   }
@@ -308,7 +307,7 @@ class NativeDesktopMediaListTest : public ChromeViewsTestBase {
       EXPECT_EQ(model_->GetSource(i).id.id, native_id);
 #if defined(USE_AURA)
       if (i >= aura_window_first_index)
-        EXPECT_EQ(model_->GetSource(i).id.aura_id,
+        EXPECT_EQ(model_->GetSource(i).id.window_id,
                   native_aura_id_map_[native_id]);
 #endif
     }
@@ -403,7 +402,7 @@ TEST_F(NativeDesktopMediaListTest, AddAuraWindow) {
   int native_id = window_list_.back().id;
   EXPECT_EQ(model_->GetSource(index).id.type, DesktopMediaID::TYPE_WINDOW);
   EXPECT_EQ(model_->GetSource(index).id.id, native_id);
-  EXPECT_EQ(model_->GetSource(index).id.aura_id,
+  EXPECT_EQ(model_->GetSource(index).id.window_id,
             native_aura_id_map_[native_id]);
 }
 #endif  // defined(ENABLE_AURA_WINDOW_TESTS)

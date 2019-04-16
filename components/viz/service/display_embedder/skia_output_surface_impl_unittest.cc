@@ -9,19 +9,30 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "base/command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "cc/test/fake_output_surface_client.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
+#include "components/viz/common/frame_sinks/copy_output_util.h"
 #include "components/viz/service/gl/gpu_service_impl.h"
 #include "gpu/command_buffer/service/scheduler.h"
+#include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/ipc/gpu_in_process_thread_service.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
+#include "gpu/vulkan/buildflags.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gl/init/gl_factory.h"
+
+#if BUILDFLAG(ENABLE_VULKAN)
+#include "gpu/vulkan/init/vulkan_factory.h"
+#include "gpu/vulkan/vulkan_implementation.h"
+#endif
 
 namespace viz {
 
@@ -49,6 +60,13 @@ class SkiaOutputSurfaceImplTest : public testing::Test {
   void TearDown() override;
   void BlockMainThread();
   void UnblockMainThread();
+  bool is_vulkan_enabled() {
+#if BUILDFLAG(ENABLE_VULKAN)
+    return !!vulkan_implementation_;
+#else
+    return false;
+#endif
+  }
 
   std::unique_ptr<base::Thread> gpu_thread_;
   std::unique_ptr<SkiaOutputSurfaceImpl> output_surface_;
@@ -58,6 +76,10 @@ class SkiaOutputSurfaceImplTest : public testing::Test {
   void SetUpSkiaOutputSurfaceImpl();
   void TearDownGpuServiceOnGpuThread();
   void SetUpGpuServiceOnGpuThread();
+
+#if BUILDFLAG(ENABLE_VULKAN)
+  std::unique_ptr<gpu::VulkanImplementation> vulkan_implementation_;
+#endif
 
   std::unique_ptr<base::Thread> io_thread_;
   scoped_refptr<gpu::CommandBufferTaskExecutor> task_executor_;
@@ -77,12 +99,31 @@ void SkiaOutputSurfaceImplTest::UnblockMainThread() {
 
 void SkiaOutputSurfaceImplTest::SetUpGpuServiceOnGpuThread() {
   ASSERT_TRUE(gpu_thread_->task_runner()->BelongsToCurrentThread());
+  const base::CommandLine* command_line =
+      base::CommandLine::ForCurrentProcess();
+  gpu::GpuPreferences gpu_preferences =
+      gpu::gles2::ParseGpuPreferences(command_line);
+  if (gpu_preferences.enable_vulkan) {
+#if BUILDFLAG(ENABLE_VULKAN)
+    vulkan_implementation_ = gpu::CreateVulkanImplementation();
+    if (!vulkan_implementation_ ||
+        !vulkan_implementation_->InitializeVulkanInstance()) {
+      LOG(FATAL) << "Failed to create and initialize Vulkan implementation.";
+    }
+#else
+    NOTREACHED();
+#endif
+  }
   gpu_service_ = std::make_unique<GpuServiceImpl>(
       gpu::GPUInfo(), nullptr /* watchdog_thread */, io_thread_->task_runner(),
-      gpu::GpuFeatureInfo(), gpu::GpuPreferences(),
+      gpu::GpuFeatureInfo(), gpu_preferences,
       gpu::GPUInfo() /* gpu_info_for_hardware_gpu */,
       gpu::GpuFeatureInfo() /* gpu_feature_info_for_hardware_gpu */,
+#if BUILDFLAG(ENABLE_VULKAN)
+      vulkan_implementation_.get(),
+#else
       nullptr /* vulkan_implementation */,
+#endif
       base::DoNothing() /* exit_callback */);
 
   // Uses a null gpu_host here, because we don't want to receive any message.
@@ -93,7 +134,8 @@ void SkiaOutputSurfaceImplTest::SetUpGpuServiceOnGpuThread() {
   gpu_service_->InitializeWithHost(
       std::move(gpu_host_proxy), gpu::GpuProcessActivityFlags(),
       gl::init::CreateOffscreenGLSurface(gfx::Size()),
-      nullptr /* sync_point_manager */, nullptr /* shutdown_event */);
+      nullptr /* sync_point_manager */, nullptr /* shared_image_manager */,
+      nullptr /* shutdown_event */);
   task_executor_ = base::MakeRefCounted<gpu::GpuInProcessThreadService>(
       gpu_thread_->task_runner(), gpu_service_->scheduler(),
       gpu_service_->sync_point_manager(), gpu_service_->mailbox_manager(),
@@ -189,7 +231,8 @@ void SkiaOutputSurfaceImplTest::CopyRequestCallbackOnGpuThread(
 }
 
 TEST_F(SkiaOutputSurfaceImplTest, SubmitPaint) {
-  output_surface_->Reshape(gfx::Size(100.0, 100.0), 1, gfx::ColorSpace(), true,
+  const gfx::Rect surface_rect(0, 0, 100, 100);
+  output_surface_->Reshape(surface_rect.size(), 1, gfx::ColorSpace(), true,
                            false);
   SkCanvas* root_canvas = output_surface_->BeginPaintCurrentFrame();
   SkPaint paint;
@@ -220,9 +263,24 @@ TEST_F(SkiaOutputSurfaceImplTest, SubmitPaint) {
                      base::Unretained(this), output_color, output_rect,
                      color_space));
   request->set_result_task_runner(gpu_thread_->task_runner());
-  gfx::Rect result_rect = output_rect;
-  output_surface_->CopyOutput(0, output_rect, color_space, result_rect,
-                              std::move(request));
+  copy_output::RenderPassGeometry geometry;
+  geometry.result_bounds = surface_rect;
+  geometry.result_selection = output_rect;
+  geometry.sampling_bounds = surface_rect;
+
+  if (is_vulkan_enabled()) {
+    // No flipping because Skia handles all co-ordinate transformation on the
+    // software readback path currently implemented for Vulkan.
+    geometry.readback_offset = geometry.readback_offset = gfx::Vector2d(0, 0);
+  } else {
+    // GLRendererCopier may need a vertical flip depending on output surface
+    // characteristics.
+    geometry.readback_offset =
+        output_surface_->capabilities().flipped_output_surface
+            ? geometry.readback_offset = gfx::Vector2d(0, 0)
+            : geometry.readback_offset = gfx::Vector2d(0, 90);
+  }
+  output_surface_->CopyOutput(0, geometry, color_space, std::move(request));
   BlockMainThread();
 }
 

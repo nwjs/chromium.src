@@ -176,7 +176,7 @@ void InstallSignature::ToValue(base::DictionaryValue* value) const {
   value->SetString(kSaltKey, salt_base64);
   value->SetString(kSignatureKey, signature_base64);
   value->SetString(kTimestampKey,
-                   base::Int64ToString(timestamp.ToInternalValue()));
+                   base::NumberToString(timestamp.ToInternalValue()));
 }
 
 // static
@@ -443,7 +443,8 @@ void InstallSigner::ParseFetchResponse(
   // could not be verified to be in the webstore.
 
   base::DictionaryValue* dictionary = NULL;
-  std::unique_ptr<base::Value> parsed = base::JSONReader::Read(*response_body);
+  std::unique_ptr<base::Value> parsed =
+      base::JSONReader::ReadDeprecated(*response_body);
   bool json_success = parsed.get() && parsed->GetAsDictionary(&dictionary);
   UMA_HISTOGRAM_BOOLEAN("ExtensionInstallSigner.ParseJsonSuccess",
                         json_success);

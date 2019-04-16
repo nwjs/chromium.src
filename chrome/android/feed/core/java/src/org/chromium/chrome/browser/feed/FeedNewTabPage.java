@@ -24,6 +24,7 @@ import com.google.android.libraries.feed.api.stream.Stream;
 import com.google.android.libraries.feed.host.action.ActionApi;
 import com.google.android.libraries.feed.host.stream.CardConfiguration;
 import com.google.android.libraries.feed.host.stream.SnackbarApi;
+import com.google.android.libraries.feed.host.stream.SnackbarCallbackApi;
 import com.google.android.libraries.feed.host.stream.StreamConfiguration;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -47,9 +48,8 @@ import org.chromium.chrome.browser.snackbar.Snackbar;
 import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.util.ViewUtils;
-import org.chromium.chrome.browser.widget.displaystyle.HorizontalDisplayStyle;
-import org.chromium.chrome.browser.widget.displaystyle.MarginResizer;
 import org.chromium.chrome.browser.widget.displaystyle.UiConfig;
+import org.chromium.chrome.browser.widget.displaystyle.ViewResizer;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.DeviceFormFactor;
 
@@ -72,12 +72,12 @@ public class FeedNewTabPage extends NewTabPage {
     private @Nullable FeedImageLoader mImageLoader;
     private @Nullable StreamLifecycleManager mStreamLifecycleManager;
     private @Nullable SectionHeaderView mSectionHeaderView;
-    private @Nullable MarginResizer mSectionHeaderViewMarginResizer;
     private @Nullable PersonalizedSigninPromoView mSigninPromoView;
-    private @Nullable MarginResizer mSignInPromoViewMarginResizer;
+    private @Nullable ViewResizer mStreamViewResizer;
 
     // Used when Feed is disabled by policy.
     private @Nullable ScrollView mScrollViewForPolicy;
+    private @Nullable ViewResizer mScrollViewResizer;
 
     private static class BasicSnackbarApi implements SnackbarApi {
         private final SnackbarManager mManager;
@@ -91,6 +91,12 @@ public class FeedNewTabPage extends NewTabPage {
             mManager.showSnackbar(Snackbar.make(message,
                     new SnackbarManager.SnackbarController() {}, Snackbar.TYPE_ACTION,
                     Snackbar.UMA_FEED_NTP_STREAM));
+        }
+
+        @Override
+        public void show(String message, String action, SnackbarCallbackApi callback) {
+            // TODO(https://crbug.com/924742): Set action text and correctly invoke callback.
+            show(message);
         }
     }
 
@@ -125,8 +131,7 @@ public class FeedNewTabPage extends NewTabPage {
         public BasicCardConfiguration(Resources resources, UiConfig uiConfig) {
             mResources = resources;
             mUiConfig = uiConfig;
-            mCornerRadius = mResources.getDimensionPixelSize(
-                    R.dimen.content_suggestions_card_modern_corner_radius);
+            mCornerRadius = mResources.getDimensionPixelSize(R.dimen.default_card_corner_radius);
             mCardMargin = mResources.getDimensionPixelSize(
                     R.dimen.content_suggestions_card_modern_margin);
             mCardWideMargin =
@@ -151,16 +156,12 @@ public class FeedNewTabPage extends NewTabPage {
 
         @Override
         public int getCardStartMargin() {
-            return mUiConfig.getCurrentDisplayStyle().horizontal == HorizontalDisplayStyle.WIDE
-                    ? mCardWideMargin
-                    : mCardMargin;
+            return 0;
         }
 
         @Override
         public int getCardEndMargin() {
-            return mUiConfig.getCurrentDisplayStyle().horizontal == HorizontalDisplayStyle.WIDE
-                    ? mCardWideMargin
-                    : mCardMargin;
+            return 0;
         }
     }
 
@@ -211,8 +212,22 @@ public class FeedNewTabPage extends NewTabPage {
 
         @Override
         public boolean wasLastSideSwipeGestureConsumed() {
-            // TODO(jinsukkim): Get the correct info from mStream.
-            return true;
+            return mStream.willHandleHorizontalSwipe();
+        }
+    }
+
+    /**
+     * Provides the additional capabilities needed for the {@link ScrollView}.
+     */
+    private class PolicyScrollView extends ScrollView {
+        public PolicyScrollView(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected void onConfigurationChanged(Configuration newConfig) {
+            super.onConfigurationChanged(newConfig);
+            mUiConfig.updateDisplayStyle();
         }
     }
 
@@ -313,6 +328,8 @@ public class FeedNewTabPage extends NewTabPage {
         if (mScrollViewForPolicy != null) {
             mRootView.removeView(mScrollViewForPolicy);
             mScrollViewForPolicy = null;
+            mScrollViewResizer.detach();
+            mScrollViewResizer = null;
         }
 
         FeedProcessScope feedProcessScope = FeedProcessScopeFactory.getFeedProcessScope();
@@ -345,7 +362,7 @@ public class FeedNewTabPage extends NewTabPage {
                                 new BasicCardConfiguration(
                                         chromeActivity.getResources(), mUiConfig),
                                 new BasicSnackbarApi(mNewTabPageManager.getSnackbarManager()),
-                                loggingBridge, offlineIndicator)
+                                offlineIndicator)
                         .build();
 
         mStream = streamScope.getStream();
@@ -354,12 +371,12 @@ public class FeedNewTabPage extends NewTabPage {
         LayoutInflater inflater = LayoutInflater.from(chromeActivity);
         mSectionHeaderView = (SectionHeaderView) inflater.inflate(
                 R.layout.new_tab_page_snippets_expandable_header, mRootView, false);
-        mSectionHeaderViewMarginResizer = MarginResizer.createAndAttach(
-                mSectionHeaderView, mUiConfig, mDefaultMargin, mWideMargin);
 
         View view = mStream.getView();
-        view.setBackgroundColor(Color.WHITE);
+        view.setBackgroundResource(R.color.modern_primary_color);
         mRootView.addView(view);
+        mStreamViewResizer =
+                ViewResizer.createAndAttach(view, mUiConfig, mDefaultMargin, mWideMargin);
 
         UiUtils.removeViewFromParent(mNewTabPageLayout);
         UiUtils.removeViewFromParent(mSectionHeaderView);
@@ -385,6 +402,8 @@ public class FeedNewTabPage extends NewTabPage {
      */
     void createScrollViewForPolicy() {
         if (mStream != null) {
+            mStreamViewResizer.detach();
+            mStreamViewResizer = null;
             mRootView.removeView(mStream.getView());
             assert mStreamLifecycleManager
                     != null
@@ -394,21 +413,16 @@ public class FeedNewTabPage extends NewTabPage {
             // Do not call mStream.onDestroy(), the mStreamLifecycleManager has done that for us.
             mStream = null;
             mSectionHeaderView = null;
-            mSectionHeaderViewMarginResizer.detach();
-            mSectionHeaderViewMarginResizer = null;
             mSigninPromoView = null;
-            if (mSignInPromoViewMarginResizer != null) {
-                mSignInPromoViewMarginResizer.detach();
-                mSignInPromoViewMarginResizer = null;
-            }
             if (mImageLoader != null) {
                 mImageLoader.destroy();
                 mImageLoader = null;
             }
         }
 
-        mScrollViewForPolicy = new ScrollView(mTab.getActivity());
+        mScrollViewForPolicy = new PolicyScrollView(mTab.getActivity());
         mScrollViewForPolicy.setBackgroundColor(Color.WHITE);
+        mScrollViewForPolicy.setVerticalScrollBarEnabled(false);
 
         // Make scroll view focusable so that it is the next focusable view when the url bar clears
         // focus.
@@ -420,6 +434,8 @@ public class FeedNewTabPage extends NewTabPage {
         UiUtils.removeViewFromParent(mNewTabPageLayout);
         mScrollViewForPolicy.addView(mNewTabPageLayout);
         mRootView.addView(mScrollViewForPolicy);
+        mScrollViewResizer = ViewResizer.createAndAttach(
+                mScrollViewForPolicy, mUiConfig, mDefaultMargin, mWideMargin);
         mScrollViewForPolicy.requestFocus();
     }
 
@@ -435,8 +451,6 @@ public class FeedNewTabPage extends NewTabPage {
             mSigninPromoView = (PersonalizedSigninPromoView) inflater.inflate(
                     R.layout.personalized_signin_promo_view_modern_content_suggestions, mRootView,
                     false);
-            mSignInPromoViewMarginResizer = MarginResizer.createAndAttach(
-                    mSigninPromoView, mUiConfig, mDefaultMargin, mWideMargin);
         }
         return mSigninPromoView;
     }

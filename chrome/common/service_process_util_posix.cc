@@ -139,6 +139,9 @@ ServiceProcessState::StateData::~StateData() {
   // with base::FilePathWatcher::Watch().
   DCHECK(!task_runner || task_runner->BelongsToCurrentThread());
 
+  // Cancel any pending file-descriptor watch before closing the descriptor.
+  watcher.StopWatchingFileDescriptor();
+
   if (sockets[0] != -1) {
     if (IGNORE_EINTR(close(sockets[0]))) {
       DPLOG(ERROR) << "close";
@@ -187,8 +190,9 @@ bool ServiceProcessState::SignalReady(
 
   state_->task_runner = std::move(task_runner);
   state_->task_runner->PostTask(
-      FROM_HERE, base::Bind(&ServiceProcessState::StateData::SignalReady,
-                            base::Unretained(state_), &signal_ready, &success));
+      FROM_HERE,
+      base::BindOnce(&ServiceProcessState::StateData::SignalReady,
+                     base::Unretained(state_), &signal_ready, &success));
   signal_ready.Wait();
   return success;
 }

@@ -33,6 +33,7 @@
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/leak_annotations.h"
+#include "third_party/blink/renderer/platform/wtf/sanitizers.h"
 #include "third_party/blink/renderer/platform/wtf/type_traits.h"
 
 #if DCHECK_IS_ON()
@@ -96,7 +97,7 @@ class StaticSingleton final {
 #if DCHECK_IS_ON()
         ,
         safely_initialized_(WTF::IsBeforeThreadCreated()),
-        thread_(WTF::internal::CurrentThreadSyscall())
+        thread_(WTF::CurrentThread())
 #endif
   {
     static_assert(!WTF::IsGarbageCollectedType<Type>::value,
@@ -122,7 +123,7 @@ class StaticSingleton final {
     // keeps being called on the same thread if cross-thread
     // use is not permitted.
     return allow_cross_thread_use || safely_initialized_ ||
-           thread_ == WTF::internal::CurrentThreadSyscall();
+           thread_ == WTF::CurrentThread();
   }
 #endif
   template <typename T, bool is_small = sizeof(T) <= 32>
@@ -153,7 +154,7 @@ class StaticSingleton final {
   InstanceStorage<WrapperType> instance_;
 #if DCHECK_IS_ON()
   bool safely_initialized_;
-  ThreadIdentifier thread_;
+  base::PlatformThreadId thread_;
 #endif
 
   DISALLOW_COPY_AND_ASSIGN(StaticSingleton);

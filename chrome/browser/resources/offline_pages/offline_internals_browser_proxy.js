@@ -94,6 +94,32 @@ cr.define('offlineInternals', function() {
     setRecordPrefetchService: function(shouldLog) {},
 
     /**
+     * Sets whether limitless prefetching is enabled.
+     * @param {boolean} enabled Whether to enable limitless prefetching.
+     */
+    setLimitlessPrefetchingEnabled: function(enabled) {},
+
+    /**
+     * Gets whether limitless prefetching is enabled.
+     * @return {!Promise<boolean>} Whether limitless prefetching is enabled
+     */
+    getLimitlessPrefetchingEnabled: function() {},
+
+    /**
+     * Sets the value to be sent with the prefetch testing header for
+     * GeneratePageBundle requests.
+     * @param {string} value Value to send with X-Offline-Prefetch-Testing.
+     */
+    setPrefetchTestingHeaderValue: function(value) {},
+
+    /**
+     * Gets the value of the prefetch testing header to be sent with
+     * GeneratePageBundle requests.
+     * @return {!Promise<string>} Header value.
+     */
+    getPrefetchTestingHeaderValue: function() {},
+
+    /**
      * Gets the currently recorded logs.
      * @return {!Promise<!Array<string>>} A promise firing when the
      *     logs are retrieved.
@@ -206,6 +232,26 @@ cr.define('offlineInternals', function() {
     /** @override */
     setRecordPrefetchService: function(shouldLog) {
       chrome.send('setRecordPrefetchService', [shouldLog]);
+    },
+
+    /** @override */
+    setLimitlessPrefetchingEnabled: function(enabled) {
+      chrome.send('setLimitlessPrefetchingEnabled', [enabled]);
+    },
+
+    /** @override */
+    getLimitlessPrefetchingEnabled: function() {
+      return cr.sendWithPromise('getLimitlessPrefetchingEnabled');
+    },
+
+    /** @override */
+    setPrefetchTestingHeaderValue: function(value) {
+      chrome.send('setPrefetchTestingHeader', [value]);
+    },
+
+    /** @override */
+    getPrefetchTestingHeaderValue: function() {
+      return cr.sendWithPromise('getPrefetchTestingHeader');
     },
 
     /** @override */

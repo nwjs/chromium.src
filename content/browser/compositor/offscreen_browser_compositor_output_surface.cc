@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "components/viz/common/resources/resource_format_utils.h"
@@ -109,9 +110,7 @@ void OffscreenBrowserCompositorOutputSurface::DiscardBackbuffer() {
 }
 
 void OffscreenBrowserCompositorOutputSurface::SetDrawRectangle(
-    const gfx::Rect& draw_rectangle) {
-  NOTREACHED();
-}
+    const gfx::Rect& draw_rectangle) {}
 
 void OffscreenBrowserCompositorOutputSurface::Reshape(
     const gfx::Size& size,
@@ -195,14 +194,6 @@ void OffscreenBrowserCompositorOutputSurface::OnSwapBuffersComplete(
   client_->DidReceiveSwapBuffersAck();
   client_->DidReceivePresentationFeedback(gfx::PresentationFeedback());
 }
-
-#if BUILDFLAG(ENABLE_VULKAN)
-gpu::VulkanSurface*
-OffscreenBrowserCompositorOutputSurface::GetVulkanSurface() {
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-#endif
 
 unsigned OffscreenBrowserCompositorOutputSurface::UpdateGpuFence() {
   return 0;

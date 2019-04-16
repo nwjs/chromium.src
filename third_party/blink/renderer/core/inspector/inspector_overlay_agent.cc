@@ -477,13 +477,6 @@ Response InspectorOverlayAgent::setInspectMode(
     return Response::Error(
         String("Unknown mode \"" + mode + "\" was provided."));
   }
-
-  if (mode != protocol::Overlay::InspectModeEnum::None) {
-    Response response = dom_agent_->PushDocumentUponHandlelessOperation();
-    if (!response.isSuccess())
-      return response;
-  }
-
   return SetSearchingForNode(mode, std::move(highlight_config));
 }
 
@@ -1023,7 +1016,7 @@ Page* InspectorOverlayAgent::OverlayPage() {
 }
 
 LocalFrame* InspectorOverlayAgent::OverlayMainFrame() {
-  return ToLocalFrame(OverlayPage()->MainFrame());
+  return To<LocalFrame>(OverlayPage()->MainFrame());
 }
 
 void InspectorOverlayAgent::Reset(const IntSize& viewport_size) {
@@ -1063,10 +1056,10 @@ void InspectorOverlayAgent::EvaluateInOverlay(const String& method,
   std::unique_ptr<protocol::ListValue> command = protocol::ListValue::create();
   command->pushValue(protocol::StringValue::create(method));
   command->pushValue(protocol::StringValue::create(argument));
-  ToLocalFrame(OverlayPage()->MainFrame())
+  To<LocalFrame>(OverlayPage()->MainFrame())
       ->GetScriptController()
       .ExecuteScriptInMainWorld(
-          "dispatch(" + command->serialize() + ")",
+          "dispatch(" + command->toJSONString() + ")",
           ScriptSourceLocationType::kInspector,
           ScriptController::kExecuteScriptWhenScriptsDisabled);
 }
@@ -1078,10 +1071,10 @@ void InspectorOverlayAgent::EvaluateInOverlay(
   std::unique_ptr<protocol::ListValue> command = protocol::ListValue::create();
   command->pushValue(protocol::StringValue::create(method));
   command->pushValue(std::move(argument));
-  ToLocalFrame(OverlayPage()->MainFrame())
+  To<LocalFrame>(OverlayPage()->MainFrame())
       ->GetScriptController()
       .ExecuteScriptInMainWorld(
-          "dispatch(" + command->serialize() + ")",
+          "dispatch(" + command->toJSONString() + ")",
           ScriptSourceLocationType::kInspector,
           ScriptController::kExecuteScriptWhenScriptsDisabled);
 }
@@ -1090,7 +1083,7 @@ String InspectorOverlayAgent::EvaluateInOverlayForTest(const String& script) {
   ScriptForbiddenScope::AllowUserAgentScript allow_script;
   v8::HandleScope handle_scope(ToIsolate(OverlayMainFrame()));
   v8::Local<v8::Value> string =
-      ToLocalFrame(OverlayPage()->MainFrame())
+      To<LocalFrame>(OverlayPage()->MainFrame())
           ->GetScriptController()
           .ExecuteScriptInMainWorldAndReturnValue(
               ScriptSourceCode(script, ScriptSourceLocationType::kInspector),
@@ -1171,10 +1164,8 @@ bool InspectorOverlayAgent::HandleMouseMove(const WebMouseEvent& event) {
   if (!node)
     return true;
 
-  if (node->IsFrameOwnerElement()) {
-    HTMLFrameOwnerElement* frame_owner = ToHTMLFrameOwnerElement(node);
-    if (frame_owner->ContentFrame() &&
-        !frame_owner->ContentFrame()->IsLocalFrame()) {
+  if (auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(node)) {
+    if (!IsA<LocalFrame>(frame_owner->ContentFrame())) {
       // Do not consume event so that remote frame can handle it.
       InnerHideHighlight();
       hovered_node_for_inspect_mode_.Clear();
@@ -1336,7 +1327,8 @@ void InspectorOverlayAgent::NodeHighlightRequested(Node* node) {
     return;
 
   int node_id = dom_agent_->PushNodePathToFrontend(node);
-  GetFrontend()->nodeHighlightRequested(node_id);
+  if (node_id)
+    GetFrontend()->nodeHighlightRequested(node_id);
 }
 
 Response InspectorOverlayAgent::SetSearchingForNode(
@@ -1353,7 +1345,7 @@ Response InspectorOverlayAgent::SetSearchingForNode(
 
   String serialized_config =
       highlight_inspector_object.isJust()
-          ? highlight_inspector_object.fromJust()->serialize()
+          ? highlight_inspector_object.fromJust()->toJSON()
           : String();
   std::unique_ptr<InspectorHighlightConfig> config;
   Response response = HighlightConfigFromInspectorObject(

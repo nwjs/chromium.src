@@ -71,20 +71,29 @@ bool WindowTreeTestHelper::ReorderWindow(aura::Window* window,
       direction);
 }
 
+bool WindowTreeTestHelper::SetTransform(aura::Window* window,
+                                        const gfx::Transform& transform) {
+  return window_tree_->SetWindowTransformImpl(ClientWindowIdForWindow(window),
+                                              transform);
+}
+
 bool WindowTreeTestHelper::SetWindowBounds(
     aura::Window* window,
     const gfx::Rect& bounds,
-    const base::Optional<viz::LocalSurfaceId>& local_surface_id) {
+    const base::Optional<viz::LocalSurfaceIdAllocation>&
+        local_surface_id_allocation) {
   return window_tree_->SetWindowBoundsImpl(ClientWindowIdForWindow(window),
-                                           bounds, local_surface_id);
+                                           bounds, local_surface_id_allocation);
 }
 
-void WindowTreeTestHelper::SetWindowBoundsWithAck(aura::Window* window,
-                                                  const gfx::Rect& bounds,
-                                                  uint32_t change_id) {
-  base::Optional<viz::LocalSurfaceId> local_surface_id;
+void WindowTreeTestHelper::SetWindowBoundsWithAck(
+    aura::Window* window,
+    const gfx::Rect& bounds,
+    const base::Optional<viz::LocalSurfaceIdAllocation>&
+        local_surface_id_allocation,
+    uint32_t change_id) {
   window_tree_->SetWindowBounds(change_id, TransportIdForWindow(window), bounds,
-                                local_surface_id);
+                                local_surface_id_allocation);
 }
 
 void WindowTreeTestHelper::SetClientArea(
@@ -99,6 +108,11 @@ void WindowTreeTestHelper::SetHitTestInsets(aura::Window* window,
                                             const gfx::Insets& mouse,
                                             const gfx::Insets& touch) {
   window_tree_->SetHitTestInsets(TransportIdForWindow(window), mouse, touch);
+}
+
+void WindowTreeTestHelper::SetShape(aura::Window* window,
+                                    const std::vector<gfx::Rect>& shape) {
+  window_tree_->SetShape(TransportIdForWindow(window), shape);
 }
 
 bool WindowTreeTestHelper::SetWindowVisibility(aura::Window* window,

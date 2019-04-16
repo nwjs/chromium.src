@@ -4,9 +4,13 @@
 
 #include "services/identity/public/cpp/accounts_mutator_impl.h"
 
+#include <string>
+
 #include "base/logging.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/account_tracker_service.h"
+#include "components/signin/core/browser/device_id_helper.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager_base.h"
 
@@ -15,13 +19,18 @@ namespace identity {
 AccountsMutatorImpl::AccountsMutatorImpl(
     ProfileOAuth2TokenService* token_service,
     AccountTrackerService* account_tracker_service,
-    SigninManagerBase* signin_manager)
+    SigninManagerBase* signin_manager,
+    PrefService* pref_service)
     : token_service_(token_service),
       account_tracker_service_(account_tracker_service),
       signin_manager_(signin_manager) {
   DCHECK(token_service_);
   DCHECK(account_tracker_service_);
   DCHECK(signin_manager_);
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  pref_service_ = pref_service;
+  DCHECK(pref_service_);
+#endif
 }
 
 AccountsMutatorImpl::~AccountsMutatorImpl() {}
@@ -87,7 +96,20 @@ void AccountsMutatorImpl::MoveAccount(AccountsMutator* target,
   auto* target_impl = static_cast<AccountsMutatorImpl*>(target);
   target_impl->account_tracker_service_->SeedAccountInfo(account_info);
   token_service_->ExtractCredentials(target_impl->token_service_, account_id);
+
+  // Reset the device ID from the source mutator: the exported token is linked
+  // to the device ID of the current mutator on the server. Reset the device ID
+  // of the current mutator to avoid tying it with the new mutator. See
+  // https://crbug.com/813928#c16
+  signin::RecreateSigninScopedDeviceId(pref_service_);
 }
 #endif
+
+void AccountsMutatorImpl::LegacySetRefreshTokenForSupervisedUser(
+    const std::string& refresh_token) {
+  token_service_->UpdateCredentials(
+      "managed_user@localhost", refresh_token,
+      signin_metrics::SourceForRefreshTokenOperation::kSupervisedUser_InitSync);
+}
 
 }  // namespace identity

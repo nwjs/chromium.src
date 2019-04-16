@@ -92,12 +92,19 @@ Network.ResourceWebSocketFrameView = class extends UI.VBox {
 
     /**
      * @param {!UI.ContextMenu} contextMenu
-     * @param {!DataGrid.DataGridNode} node
+     * @param {!DataGrid.DataGridNode} genericNode
      * @this {Network.ResourceWebSocketFrameView}
      */
-    function onRowContextMenu(contextMenu, node) {
-      contextMenu.clipboardSection().appendItem(
-          Common.UIString('Copy message'), InspectorFrontendHost.copyText.bind(InspectorFrontendHost, node.data.data));
+    function onRowContextMenu(contextMenu, genericNode) {
+      const node = /** @type {!Network.ResourceWebSocketFrameNode} */ (genericNode);
+      const binaryView = node.binaryView();
+      if (binaryView) {
+        binaryView.addCopyToContextMenu(contextMenu, ls`Copy message...`);
+      } else {
+        contextMenu.clipboardSection().appendItem(
+            Common.UIString('Copy message'),
+            InspectorFrontendHost.copyText.bind(InspectorFrontendHost, node.data.data));
+      }
       contextMenu.footerSection().appendItem(Common.UIString('Clear all'), this._clearFrames.bind(this));
     }
   }
@@ -166,19 +173,23 @@ Network.ResourceWebSocketFrameView = class extends UI.VBox {
   * @param {!Common.Event} event
    */
   async _onFrameSelected(event) {
-    const selectedNode = /** @type {!Network.ResourceWebSocketFrameNode} */ (event.data);
-    this._currentSelectedNode = selectedNode;
-    const contentProvider = selectedNode.contentProvider();
-    let content = await contentProvider.requestContent();
-    if (await contentProvider.contentEncoded())
-      content = window.atob(content);
-    const jsonView = await SourceFrame.JSONView.createView(content);
-    if (this._currentSelectedNode !== selectedNode)
+    this._currentSelectedNode = /** @type {!Network.ResourceWebSocketFrameNode} */ (event.data);
+    const content = this._currentSelectedNode.dataText();
+
+    const binaryView = this._currentSelectedNode.binaryView();
+    if (binaryView) {
+      this._splitWidget.setSidebarWidget(binaryView);
       return;
-    if (jsonView)
+    }
+
+    const jsonView = await SourceFrame.JSONView.createView(content);
+    if (jsonView) {
       this._splitWidget.setSidebarWidget(jsonView);
-    else
-      this._splitWidget.setSidebarWidget(new SourceFrame.ResourceSourceFrame(contentProvider));
+      return;
+    }
+
+    this._splitWidget.setSidebarWidget(new SourceFrame.ResourceSourceFrame(
+        Common.StaticContentProvider.fromString(this._request.url(), Common.resourceTypes.WebSocket, content)));
   }
 
   /**
@@ -244,8 +255,7 @@ Network.ResourceWebSocketFrameNode = class extends DataGrid.SortableDataGridNode
    * @param {!SDK.NetworkRequest.WebSocketFrame} frame
    */
   constructor(url, frame) {
-    let dataText = frame.text;
-    const length = frame.text.length;
+    let length = frame.text.length;
     const time = new Date(frame.time * 1000);
     const timeText = ('0' + time.getHours()).substr(-2) + ':' + ('0' + time.getMinutes()).substr(-2) + ':' +
         ('0' + time.getSeconds()).substr(-2) + '.' + ('00' + time.getMilliseconds()).substr(-3);
@@ -253,11 +263,22 @@ Network.ResourceWebSocketFrameNode = class extends DataGrid.SortableDataGridNode
     timeNode.createTextChild(timeText);
     timeNode.title = time.toLocaleString();
 
+    let dataText = frame.text;
+    let description = Network.ResourceWebSocketFrameView.opCodeDescription(frame.opCode, frame.mask);
     const isTextFrame = frame.opCode === Network.ResourceWebSocketFrameView.OpCodes.TextFrame;
-    if (!isTextFrame)
-      dataText = Network.ResourceWebSocketFrameView.opCodeDescription(frame.opCode, frame.mask);
 
-    super({data: dataText, length: length, time: timeNode});
+    if (isTextFrame) {
+      description = dataText;
+
+    } else if (frame.opCode === Network.ResourceWebSocketFrameView.OpCodes.BinaryFrame) {
+      length = Number.bytesToString(base64ToSize(frame.text));
+      description = 'Binary Message';
+
+    } else {
+      dataText = description;
+    }
+
+    super({data: description, length: length, time: timeNode});
 
     this._url = url;
     this._frame = frame;
@@ -289,10 +310,29 @@ Network.ResourceWebSocketFrameNode = class extends DataGrid.SortableDataGridNode
   }
 
   /**
-   * @return {!Common.ContentProvider}
+   * @return {string}
    */
-  contentProvider() {
-    return Common.StaticContentProvider.fromString(this._url, Common.resourceTypes.WebSocket, this._dataText);
+  dataText() {
+    return this._dataText;
+  }
+
+  /**
+   * @return {!Network.ResourceWebSocketFrameView.OpCodes}
+   */
+  opCode() {
+    return /** @type {!Network.ResourceWebSocketFrameView.OpCodes} */ (this._frame.opCode);
+  }
+
+  /**
+   * @return {?Network.BinaryResourceView}
+   */
+  binaryView() {
+    if (this._isTextFrame)
+      return null;
+
+    if (!this._binaryView)
+      this._binaryView = new Network.BinaryResourceView(this._dataText, /* url */ '', Common.resourceTypes.WebSocket);
+    return this._binaryView;
   }
 };
 

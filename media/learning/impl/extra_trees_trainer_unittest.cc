@@ -4,6 +4,7 @@
 
 #include "media/learning/impl/extra_trees_trainer.h"
 
+#include "base/bind.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/scoped_task_environment.h"
 #include "media/learning/impl/fisher_iris_dataset.h"
@@ -202,10 +203,10 @@ TEST_P(ExtraTreesTest, RegressionVsBinaryClassification) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(ExtraTreesTest,
-                        ExtraTreesTest,
-                        testing::ValuesIn({LearningTask::Ordering::kUnordered,
-                                           LearningTask::Ordering::kNumeric}));
+INSTANTIATE_TEST_SUITE_P(ExtraTreesTest,
+                         ExtraTreesTest,
+                         testing::ValuesIn({LearningTask::Ordering::kUnordered,
+                                            LearningTask::Ordering::kNumeric}));
 
 }  // namespace learning
 }  // namespace media

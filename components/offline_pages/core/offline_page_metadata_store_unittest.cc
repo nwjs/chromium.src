@@ -34,6 +34,7 @@
 namespace offline_pages {
 
 namespace {
+using InitializationStatus = SqlStoreBase::InitializationStatus;
 
 #define OFFLINE_PAGES_TABLE_V1 "offlinepages_v1"
 
@@ -390,7 +391,7 @@ void InjectItemInM62Store(sql::Database* db, const OfflinePageItem& item) {
   statement.BindString(7, item.url.spec());
   statement.BindString(8, store_utils::ToDatabaseFilePath(item.file_path));
   statement.BindString16(9, item.title);
-  statement.BindString(10, item.original_url.spec());
+  statement.BindString(10, item.original_url_if_different.spec());
   statement.BindString(11, item.request_origin);
   statement.BindInt64(12, item.system_download_id);
   statement.BindInt(13, store_utils::ToDatabaseTime(item.file_missing_time));
@@ -508,7 +509,7 @@ OfflinePageItem MakeOfflinePageItem(sql::Statement* statement) {
   item.last_access_time = last_access_time;
   item.access_count = access_count;
   item.title = title;
-  item.original_url = original_url;
+  item.original_url_if_different = original_url;
   item.request_origin = request_origin;
   item.system_download_id = system_download_id;
   item.file_missing_time = file_missing_time;
@@ -539,7 +540,7 @@ class OfflinePageMetadataStoreTest : public testing::Test {
         task_runner_handle_(task_runner_) {
     EXPECT_TRUE(temp_directory_.CreateUniqueTempDir());
   }
-  ~OfflinePageMetadataStoreTest() override{};
+  ~OfflinePageMetadataStoreTest() override {}
 
  protected:
   void TearDown() override {
@@ -576,7 +577,7 @@ class OfflinePageMetadataStoreTest : public testing::Test {
     OfflinePageItem offline_page(GURL(kTestURL), 1234LL, kTestClientId1,
                                  base::FilePath(kFilePath), kFileSize);
     offline_page.title = base::UTF8ToUTF16("a title");
-    offline_page.original_url = GURL(kOriginalTestURL);
+    offline_page.original_url_if_different = GURL(kOriginalTestURL);
     offline_page.system_download_id = kTestSystemDownloadId;
     offline_page.digest = kTestDigest;
 
@@ -712,7 +713,7 @@ class OfflinePageMetadataStoreTest : public testing::Test {
                           store_utils::ToDatabaseTime(item.last_access_time));
       statement.BindInt(8, item.access_count);
       statement.BindString16(9, item.title);
-      statement.BindString(10, item.original_url.spec());
+      statement.BindString(10, item.original_url_if_different.spec());
       statement.BindString(11, item.request_origin);
       statement.BindInt64(12, item.system_download_id);
       statement.BindInt64(13,
@@ -789,28 +790,28 @@ TEST_F(OfflinePageMetadataStoreTest, GetOfflinePagesFromInvalidStore) {
 
   // Because execute method is self-healing this part of the test expects a
   // positive results now.
-  store->SetStateForTesting(StoreState::NOT_LOADED, false);
+  store->SetInitializationStatusForTesting(
+      InitializationStatus::kNotInitialized, false);
   EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
-  EXPECT_EQ(StoreState::LOADED, store->GetStateForTesting());
+  EXPECT_EQ(InitializationStatus::kSuccess,
+            store->initialization_status_for_testing());
 
-  store->SetStateForTesting(StoreState::FAILED_LOADING, false);
+  store->SetInitializationStatusForTesting(InitializationStatus::kFailure,
+                                           false);
   EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
-  EXPECT_EQ(StoreState::FAILED_LOADING, store->GetStateForTesting());
+  EXPECT_EQ(InitializationStatus::kFailure,
+            store->initialization_status_for_testing());
 
-  store->SetStateForTesting(StoreState::FAILED_RESET, false);
-  EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
-  EXPECT_EQ(StoreState::FAILED_RESET, store->GetStateForTesting());
-
-  store->SetStateForTesting(StoreState::LOADED, true);
-  EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
-
-  store->SetStateForTesting(StoreState::NOT_LOADED, true);
+  store->SetInitializationStatusForTesting(InitializationStatus::kSuccess,
+                                           true);
   EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
 
-  store->SetStateForTesting(StoreState::FAILED_LOADING, false);
+  store->SetInitializationStatusForTesting(
+      InitializationStatus::kNotInitialized, true);
   EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
 
-  store->SetStateForTesting(StoreState::FAILED_RESET, false);
+  store->SetInitializationStatusForTesting(InitializationStatus::kFailure,
+                                           false);
   EXPECT_EQ(0UL, GetOfflinePages(store.get()).size());
 }
 
@@ -896,7 +897,7 @@ TEST_F(OfflinePageMetadataStoreTest, AddRemoveMultipleOfflinePages) {
   OfflinePageItem offline_page_2(GURL("https://other.page.com"), 5678LL,
                                  kTestClientId2, file_path_2, 12345,
                                  OfflineTimeNow(), kTestRequestOrigin);
-  offline_page_2.original_url = GURL("https://example.com/bar");
+  offline_page_2.original_url_if_different = GURL("https://example.com/bar");
   offline_page_2.system_download_id = kTestSystemDownloadId;
   offline_page_2.digest = kTestDigest;
 

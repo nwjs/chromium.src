@@ -21,6 +21,7 @@
 #include <string>
 
 #include "base/atomic_sequence_num.h"
+#include "base/bind.h"
 #include "base/bits.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
@@ -417,6 +418,11 @@ void GLES2Implementation::OnSwapBufferPresented(
     return;
   std::move(found->second).Run(feedback);
   pending_presentation_callbacks_.erase(found);
+}
+
+void GLES2Implementation::OnGpuControlReturnData(
+    base::span<const uint8_t> data) {
+  NOTIMPLEMENTED();
 }
 
 void GLES2Implementation::FreeSharedMemory(void* mem) {
@@ -1806,6 +1812,231 @@ GLuint GLES2Implementation::GetUniformBlockIndex(GLuint program,
   GPU_CLIENT_LOG("returned " << index);
   CheckGLError();
   return index;
+}
+
+bool GLES2Implementation::GetProgramInterfaceivHelper(GLuint program,
+                                                      GLenum program_interface,
+                                                      GLenum pname,
+                                                      GLint* params) {
+  bool success = share_group_->program_info_manager()->GetProgramInterfaceiv(
+      this, program, program_interface, pname, params);
+  GPU_CLIENT_LOG_CODE_BLOCK({
+    if (success) {
+      GPU_CLIENT_LOG("  0: " << *params);
+    }
+  });
+  return success;
+}
+
+GLuint GLES2Implementation::GetProgramResourceIndexHelper(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  typedef cmds::GetProgramResourceIndex::Result Result;
+  SetBucketAsCString(kResultBucketId, name);
+  auto result = GetResultAs<Result>();
+  if (!result) {
+    return GL_INVALID_INDEX;
+  }
+  *result = GL_INVALID_INDEX;
+  helper_->GetProgramResourceIndex(program, program_interface, kResultBucketId,
+                                   GetResultShmId(), result.offset());
+  WaitForCmd();
+  helper_->SetBucketSize(kResultBucketId, 0);
+  return *result;
+}
+
+GLuint GLES2Implementation::GetProgramResourceIndex(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glGetProgramResourceIndex("
+                     << program << ", " << program_interface << ", " << name
+                     << ")");
+  TRACE_EVENT0("gpu", "GLES2::GetProgramResourceIndex");
+  GLuint index = share_group_->program_info_manager()->GetProgramResourceIndex(
+      this, program, program_interface, name);
+  GPU_CLIENT_LOG("returned " << index);
+  CheckGLError();
+  return index;
+}
+
+bool GLES2Implementation::GetProgramResourceNameHelper(GLuint program,
+                                                       GLenum program_interface,
+                                                       GLuint index,
+                                                       GLsizei bufsize,
+                                                       GLsizei* length,
+                                                       char* name) {
+  DCHECK_LE(0, bufsize);
+  // Clear the bucket so if the command fails nothing will be in it.
+  helper_->SetBucketSize(kResultBucketId, 0);
+  bool success = false;
+  {
+    // The Result pointer must be scoped to this block because it can be
+    // invalidated below if getting result name causes the transfer buffer to be
+    // reallocated.
+    typedef cmds::GetProgramResourceName::Result Result;
+    auto result = GetResultAs<Result>();
+    if (!result) {
+      return false;
+    }
+    // Set as failed so if the command fails we'll recover.
+    *result = 0;
+    helper_->GetProgramResourceName(program, program_interface, index,
+                                    kResultBucketId, GetResultShmId(),
+                                    result.offset());
+    WaitForCmd();
+    success = !!*result;
+  }
+  if (success) {
+    GetResultNameHelper(bufsize, length, name);
+  }
+  return success;
+}
+
+void GLES2Implementation::GetProgramResourceName(GLuint program,
+                                                 GLenum program_interface,
+                                                 GLuint index,
+                                                 GLsizei bufsize,
+                                                 GLsizei* length,
+                                                 char* name) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glGetProgramResourceName("
+                     << program << ", " << program_interface << ", " << index
+                     << ", " << bufsize << ", " << static_cast<void*>(length)
+                     << ", " << static_cast<void*>(name) << ")");
+  if (bufsize < 0) {
+    SetGLError(GL_INVALID_VALUE, "glGetProgramResourceName", "bufsize < 0");
+    return;
+  }
+  TRACE_EVENT0("gpu", "GLES2::GetProgramResourceName");
+  bool success = share_group_->program_info_manager()->GetProgramResourceName(
+      this, program, program_interface, index, bufsize, length, name);
+  if (success && name) {
+    GPU_CLIENT_LOG("  name: " << name);
+  }
+  CheckGLError();
+}
+
+bool GLES2Implementation::GetProgramResourceivHelper(GLuint program,
+                                                     GLenum program_interface,
+                                                     GLuint index,
+                                                     GLsizei prop_count,
+                                                     const GLenum* props,
+                                                     GLsizei bufsize,
+                                                     GLsizei* length,
+                                                     GLint* params) {
+  DCHECK_LE(0, prop_count);
+  DCHECK_LE(0, bufsize);
+  base::CheckedNumeric<uint32_t> bytes = prop_count;
+  bytes *= sizeof(GLenum);
+  if (!bytes.IsValid()) {
+    SetGLError(GL_INVALID_VALUE, "glGetProgramResourceiv", "count overflow");
+    return false;
+  }
+  SetBucketContents(kResultBucketId, props, bytes.ValueOrDefault(0));
+  typedef cmds::GetProgramResourceiv::Result Result;
+  auto result = GetResultAs<Result>();
+  if (!result) {
+    return false;
+  }
+  result->SetNumResults(0);
+  helper_->GetProgramResourceiv(program, program_interface, index,
+                                kResultBucketId, GetResultShmId(),
+                                result.offset());
+  WaitForCmd();
+  if (length) {
+    *length = result->GetNumResults();
+  }
+  if (result->GetNumResults() > 0) {
+    if (params) {
+      result->CopyResult(params);
+    }
+    GPU_CLIENT_LOG_CODE_BLOCK({
+      for (int32_t i = 0; i < result->GetNumResults(); ++i) {
+        GPU_CLIENT_LOG("  " << i << ": " << result->GetData()[i]);
+      }
+    });
+    return true;
+  }
+  return false;
+}
+
+void GLES2Implementation::GetProgramResourceiv(GLuint program,
+                                               GLenum program_interface,
+                                               GLuint index,
+                                               GLsizei prop_count,
+                                               const GLenum* props,
+                                               GLsizei bufsize,
+                                               GLsizei* length,
+                                               GLint* params) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glGetProgramResourceiv(" << program
+                     << ", " << program_interface << ", " << index << ", "
+                     << prop_count << ", " << static_cast<const void*>(props)
+                     << ", " << bufsize << ", " << static_cast<void*>(length)
+                     << ", " << static_cast<void*>(params) << ")");
+  if (prop_count < 0) {
+    SetGLError(GL_INVALID_VALUE, "glGetProgramResourceiv", "prop_count < 0");
+    return;
+  }
+  if (bufsize < 0) {
+    SetGLError(GL_INVALID_VALUE, "glGetProgramResourceiv", "bufsize < 0");
+    return;
+  }
+  TRACE_EVENT0("gpu", "GLES2::GetProgramResourceiv");
+  GLsizei param_count = 0;
+  bool success = share_group_->program_info_manager()->GetProgramResourceiv(
+      this, program, program_interface, index, prop_count, props, bufsize,
+      &param_count, params);
+  if (length) {
+    *length = param_count;
+  }
+  if (success && params) {
+    GPU_CLIENT_LOG_CODE_BLOCK({
+      for (GLsizei ii = 0; ii < param_count; ++ii) {
+        GPU_CLIENT_LOG("  " << ii << ": " << params[ii]);
+      }
+    });
+  }
+  CheckGLError();
+}
+
+GLint GLES2Implementation::GetProgramResourceLocationHelper(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  typedef cmds::GetProgramResourceLocation::Result Result;
+  SetBucketAsCString(kResultBucketId, name);
+  auto result = GetResultAs<Result>();
+  if (!result) {
+    return -1;
+  }
+  *result = -1;
+  helper_->GetProgramResourceLocation(program, program_interface,
+                                      kResultBucketId, GetResultShmId(),
+                                      result.offset());
+  WaitForCmd();
+  helper_->SetBucketSize(kResultBucketId, 0);
+  return *result;
+}
+
+GLint GLES2Implementation::GetProgramResourceLocation(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG("[" << GetLogPrefix() << "] glGetProgramResourceLocation("
+                     << program << ", " << program_interface << ", " << name
+                     << ")");
+  TRACE_EVENT0("gpu", "GLES2::GetProgramResourceLocation");
+  GLint location =
+      share_group_->program_info_manager()->GetProgramResourceLocation(
+          this, program, program_interface, name);
+  GPU_CLIENT_LOG("returned " << location);
+  CheckGLError();
+  return location;
 }
 
 void GLES2Implementation::LinkProgram(GLuint program) {
@@ -6135,28 +6366,24 @@ void GLES2Implementation::DrawElementsInstancedANGLE(GLenum mode,
                "count less than 0.");
     return;
   }
-  if (count == 0) {
-    return;
-  }
   if (primcount < 0) {
     SetGLError(GL_INVALID_VALUE, "glDrawElementsInstancedANGLE",
                "primcount < 0");
     return;
   }
-  if (primcount == 0) {
-    return;
-  }
-  if (vertex_array_object_manager_->bound_element_array_buffer() != 0 &&
-      !ValidateOffset("glDrawElementsInstancedANGLE",
-                      reinterpret_cast<GLintptr>(indices))) {
-    return;
-  }
   GLuint offset = 0;
   bool simulated = false;
-  if (!vertex_array_object_manager_->SetupSimulatedIndexAndClientSideBuffers(
-          "glDrawElementsInstancedANGLE", this, helper_, count, type, primcount,
-          indices, &offset, &simulated)) {
-    return;
+  if (count > 0 && primcount > 0) {
+    if (vertex_array_object_manager_->bound_element_array_buffer() != 0 &&
+        !ValidateOffset("glDrawElementsInstancedANGLE",
+                        reinterpret_cast<GLintptr>(indices))) {
+      return;
+    }
+    if (!vertex_array_object_manager_->SetupSimulatedIndexAndClientSideBuffers(
+            "glDrawElementsInstancedANGLE", this, helper_, count, type,
+            primcount, indices, &offset, &simulated)) {
+      return;
+    }
   }
   helper_->DrawElementsInstancedANGLE(mode, count, type, offset, primcount);
   RestoreElementAndArrayBuffers(simulated);
@@ -6205,7 +6432,31 @@ GLuint GLES2Implementation::CreateAndTexStorage2DSharedImageCHROMIUM(
                               "passed an invalid mailbox.";
   GLuint client_id;
   GetIdHandler(SharedIdNamespaces::kTextures)->MakeIds(this, 0, 1, &client_id);
-  helper_->CreateAndTexStorage2DSharedImageINTERNALImmediate(client_id, data);
+  helper_->CreateAndTexStorage2DSharedImageINTERNALImmediate(client_id, data,
+                                                             GL_NONE);
+  if (share_group_->bind_generates_resource())
+    helper_->CommandBufferHelper::OrderingBarrier();
+  CheckGLError();
+  return client_id;
+}
+
+GLuint
+GLES2Implementation::CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+    const GLbyte* data,
+    GLenum internalformat) {
+  GPU_CLIENT_SINGLE_THREAD_CHECK();
+  GPU_CLIENT_LOG(
+      "[" << GetLogPrefix()
+          << "] CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM("
+          << static_cast<const void*>(data) << ", " << internalformat << ")");
+  const Mailbox& mailbox = *reinterpret_cast<const Mailbox*>(data);
+  DCHECK(mailbox.Verify())
+      << "CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM was "
+         "passed an invalid mailbox.";
+  GLuint client_id;
+  GetIdHandler(SharedIdNamespaces::kTextures)->MakeIds(this, 0, 1, &client_id);
+  helper_->CreateAndTexStorage2DSharedImageINTERNALImmediate(client_id, data,
+                                                             internalformat);
   if (share_group_->bind_generates_resource())
     helper_->CommandBufferHelper::OrderingBarrier();
   CheckGLError();

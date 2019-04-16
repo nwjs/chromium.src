@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/app_list/crostini/crostini_app_context_menu.h"
 
 #include "ash/public/cpp/app_menu_constants.h"
+#include "base/bind_helpers.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
@@ -25,8 +26,11 @@ bool CrostiniAppContextMenu::IsUninstallable() const {
   if (!crostini::IsCrostiniEnabled(profile())) {
     return false;
   }
-  if (app_id() == crostini::kCrostiniTerminalId) {
-    return true;  // Crostini can always be uninstalled if enabled.
+  if (app_id() == crostini::kCrostiniTerminalId &&
+      !crostini::CrostiniManager::GetForProfile(profile())
+           ->GetInstallerViewStatus()) {
+    // Crostini should not be uninstalled if the installer is still running.
+    return true;
   }
 
   if (!base::FeatureList::IsEnabled(features::kCrostiniAppUninstallGui)) {

@@ -1230,7 +1230,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadMimeType) {
   CheckDownload(browser(), file, file);
 }
 
-#if defined(OS_WIN) || (defined(OS_LINUX) && !defined(OS_CHROMEOS))
+#if defined(OS_WIN)
 // Download a file and confirm that the file is correctly quarantined.
 //
 // TODO(asanka): We should enable the test on Mac as well, but currently
@@ -1254,9 +1254,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, Quarantine_DependsOnLocalConfig) {
   EXPECT_TRUE(download::IsFileQuarantined(downloaded_file, url, GURL()));
   CheckDownload(browser(), file, file);
 }
-#endif
 
-#if defined(OS_WIN)
 // A couple of Windows specific tests to make sure we respect OS specific
 // restrictions on Mark-Of-The-Web can be applied. While Chrome doesn't directly
 // apply these policies, Chrome still needs to make sure the correct APIs are
@@ -1967,13 +1965,14 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
   // slow download job.
   history::DownloadRow& row(downloads_in_database->at(0));
   EXPECT_EQ(DestinationFile(browser(), file), row.target_path);
-  EXPECT_EQ(DownloadTargetDeterminer::GetCrDownloadPath(
-                DestinationFile(browser(), file)),
-            row.current_path);
+  EXPECT_EQ(FILE_PATH_LITERAL("Unconfirmed"),
+            row.current_path.BaseName().value().substr(0, 11));
+  EXPECT_EQ(FILE_PATH_LITERAL(".crdownload"), row.current_path.Extension());
   ASSERT_EQ(2u, row.url_chain.size());
   EXPECT_EQ(redirect_url.spec(), row.url_chain[0].spec());
   EXPECT_EQ(download_url.spec(), row.url_chain[1].spec());
-  EXPECT_EQ(history::DownloadDangerType::NOT_DANGEROUS, row.danger_type);
+  EXPECT_EQ(history::DownloadDangerType::MAYBE_DANGEROUS_CONTENT,
+            row.danger_type);
   EXPECT_LE(start, row.start_time);
   EXPECT_EQ(content::SlowDownloadHttpResponse::kFirstDownloadSize,
             row.received_bytes);
@@ -2014,7 +2013,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
   ASSERT_EQ(2u, row1.url_chain.size());
   EXPECT_EQ(redirect_url.spec(), row1.url_chain[0].spec());
   EXPECT_EQ(download_url.spec(), row1.url_chain[1].spec());
-  EXPECT_EQ(history::DownloadDangerType::NOT_DANGEROUS, row1.danger_type);
+  EXPECT_EQ(history::DownloadDangerType::MAYBE_DANGEROUS_CONTENT,
+            row1.danger_type);
   EXPECT_LE(start, row1.start_time);
   EXPECT_GE(end, row1.end_time);
   EXPECT_EQ(0, row1.received_bytes);  // There's no ETag. So the intermediate
@@ -3170,8 +3170,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadTest_Renaming) {
 
 // Test that the entire download pipeline handles unicode correctly.
 // Disabled on Windows due to flaky timeouts: crbug.com/446695
-// Disabled on chromeos due to flaky crash: crbug.com/577332
-#if defined(OS_WIN) || defined(OS_CHROMEOS)
+#if defined(OS_WIN)
 #define MAYBE_DownloadTest_CrazyFilenames DISABLED_DownloadTest_CrazyFilenames
 #else
 #define MAYBE_DownloadTest_CrazyFilenames DownloadTest_CrazyFilenames
@@ -3567,6 +3566,67 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, FileExistenceCheckOpeningDownloadsPage) {
       .WaitForEvent();
 }
 
+// Checks that the navigation resulting from a cross origin download navigates
+// the correct iframe.
+IN_PROC_BROWSER_TEST_F(DownloadTest, CrossOriginDownloadNavigatesIframe) {
+  EmbeddedTestServer origin_one;
+  EmbeddedTestServer origin_two;
+  EmbeddedTestServer origin_three;
+
+  origin_one.ServeFilesFromDirectory(GetTestDataDirectory());
+  origin_two.ServeFilesFromDirectory(GetTestDataDirectory());
+  origin_three.ServeFilesFromDirectory(GetTestDataDirectory());
+  ASSERT_TRUE(origin_one.InitializeAndListen());
+  ASSERT_TRUE(origin_two.InitializeAndListen());
+  ASSERT_TRUE(origin_three.InitializeAndListen());
+
+  // We load a page on origin_one which iframes a page from origin_two which
+  // downloads a file that redirects to origin_three.
+  GURL download_url =
+      origin_two.GetURL(std::string("/redirect?") +
+                        origin_three.GetURL("/downloads/message.html").spec());
+  GURL referrer_url = origin_two.GetURL(
+      std::string("/downloads/download-attribute.html?target=") +
+      download_url.spec());
+  GURL main_url =
+      origin_one.GetURL(std::string("/downloads/page-with-frame.html?url=") +
+                        referrer_url.spec());
+
+  origin_two.RegisterRequestHandler(
+      base::BindRepeating(&ServerRedirectRequestHandler));
+
+  origin_one.StartAcceptingConnections();
+  origin_two.StartAcceptingConnections();
+  origin_three.StartAcceptingConnections();
+
+  ui_test_utils::NavigateToURL(browser(), main_url);
+
+  WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(web_contents != NULL);
+  content::RenderFrameHost* render_frame_host = web_contents->GetMainFrame();
+  ASSERT_TRUE(render_frame_host != NULL);
+
+  // Clicking the <a download> in the iframe should navigate the iframe,
+  // not the main frame.
+  base::string16 expected_title(base::UTF8ToUTF16("Loaded as iframe"));
+  base::string16 failed_title(base::UTF8ToUTF16("Loaded as main frame"));
+  content::TitleWatcher title_watcher(web_contents, expected_title);
+  title_watcher.AlsoWaitForTitle(failed_title);
+  render_frame_host->ExecuteJavaScriptForTests(
+      base::ASCIIToUTF16("runTest();"));
+  ASSERT_EQ(expected_title, title_watcher.WaitAndGetTitle());
+
+  // Also verify that there's no download.
+  std::vector<DownloadItem*> downloads;
+  DownloadManagerForBrowser(browser())->GetAllDownloads(&downloads);
+  ASSERT_EQ(0u, downloads.size());
+
+  ASSERT_TRUE(origin_one.ShutdownAndWaitUntilComplete());
+  ASSERT_TRUE(origin_two.ShutdownAndWaitUntilComplete());
+  ASSERT_TRUE(origin_three.ShutdownAndWaitUntilComplete());
+}
+
 #if defined(FULL_SAFE_BROWSING)
 
 namespace {
@@ -3939,7 +3999,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, PerWindowShelf) {
   EXPECT_FALSE(browser()->window()->IsDownloadShelfVisible());
 
   // Go to the first tab.
-  browser()->tab_strip_model()->ActivateTabAt(0, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      0, {TabStripModel::GestureType::kOther});
   EXPECT_EQ(2, browser()->tab_strip_model()->count());
 
   // The download shelf should not be visible.

@@ -323,7 +323,10 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_HighlightedMenuItemBackgroundColor,
     kColorId_HighlightedMenuItemForegroundColor,
     kColorId_FocusedHighlightedMenuItemBackgroundColor,
-    kColorId_MenuItemAlertBackgroundColor,
+    kColorId_MenuItemAlertBackgroundColorMax,  // Animation color at max
+                                               // intensity
+    kColorId_MenuItemAlertBackgroundColorMin,  // Animation color at min
+                                               // intensity
     // Label
     kColorId_LabelEnabledColor,
     kColorId_LabelDisabledColor,
@@ -381,6 +384,8 @@ class NATIVE_THEME_EXPORT NativeTheme {
     kColorId_AlertSeverityLow,
     kColorId_AlertSeverityMedium,
     kColorId_AlertSeverityHigh,
+    // Colors for icons in secondary UI (content settings, help button, etc).
+    kColorId_DefaultIconColor,
     // TODO(benrg): move other hardcoded colors here.
 
     kColorId_NumColors,

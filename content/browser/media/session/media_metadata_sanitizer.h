@@ -5,20 +5,14 @@
 #ifndef CONTENT_BROWSER_MEDIA_SESSION_MEDIA_METADATA_SANITIZER_H_
 #define CONTENT_BROWSER_MEDIA_SESSION_MEDIA_METADATA_SANITIZER_H_
 
-namespace media_session {
-struct MediaMetadata;
-}  // namespace media_session
+#include "third_party/blink/public/platform/modules/mediasession/media_session.mojom.h"
 
 namespace content {
 
 class MediaMetadataSanitizer {
  public:
   // Check the sanity of |metadata|.
-  static bool CheckSanity(const media_session::MediaMetadata& metadata);
-
-  // Sanitizes |metadata| and return the result.
-  static media_session::MediaMetadata Sanitize(
-      const media_session::MediaMetadata& metadata);
+  static bool CheckSanity(const blink::mojom::SpecMediaMetadataPtr& metadata);
 };
 
 }  // namespace content

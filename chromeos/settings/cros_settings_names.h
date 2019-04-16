@@ -164,8 +164,6 @@ extern const char kLoginVideoCaptureAllowedUrls[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kDeviceLoginScreenAppInstallList[];
 
-COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kDeviceWallpaperImage[];
-
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
 extern const char kDeviceLoginScreenLocales[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS)
@@ -209,6 +207,12 @@ extern const char kDeviceUnaffiliatedCrostiniAllowed[];
 
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kPluginVmAllowed[];
 COMPONENT_EXPORT(CHROMEOS_SETTINGS) extern const char kPluginVmLicenseKey[];
+
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kDeviceRebootOnUserSignout[];
+
+COMPONENT_EXPORT(CHROMEOS_SETTINGS)
+extern const char kDeviceWilcoDtcAllowed[];
 
 }  // namespace chromeos
 

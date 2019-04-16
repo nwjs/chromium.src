@@ -4,6 +4,9 @@
 
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 
+#include <memory>
+
+#include "base/auto_reset.h"
 #include "base/bind.h"
 #include "base/macros.h"
 #include "base/trace_event/trace_event.h"
@@ -64,12 +67,13 @@
 #endif
 
 DEFINE_EXPORTED_UI_CLASS_PROPERTY_TYPE(VIEWS_EXPORT,
-                                       views::DesktopNativeWidgetAura*);
+                                       views::DesktopNativeWidgetAura*)
 
 namespace views {
 
 DEFINE_UI_CLASS_PROPERTY_KEY(DesktopNativeWidgetAura*,
-                           kDesktopNativeWidgetAuraKey, NULL);
+                             kDesktopNativeWidgetAuraKey,
+                             NULL)
 
 namespace {
 
@@ -418,6 +422,7 @@ void DesktopNativeWidgetAura::HandleActivationChanged(bool active) {
     // only aura activation changes).
     aura::Window* active_window = activation_client->GetActiveWindow();
     if (active_window) {
+      base::AutoReset<bool> scoped(&is_handling_deactivation_, true);
       activation_client->DeactivateWindow(active_window);
       GetInputMethod()->OnBlur();
     }
@@ -515,7 +520,7 @@ void DesktopNativeWidgetAura::InitNativeWidget(
   wm::SetActivationClient(host_->window(), focus_controller);
   host_->window()->AddPreTargetHandler(focus_controller);
 
-  position_client_.reset(new DesktopScreenPositionClient(host_->window()));
+  position_client_ = desktop_window_tree_host_->CreateScreenPositionClient();
 
   drag_drop_client_ = desktop_window_tree_host_->CreateDragDropClient(
       native_cursor_manager_);
@@ -791,8 +796,8 @@ bool DesktopNativeWidgetAura::IsVisible() const {
   // platform code might show the desktop window tree host early, meaning we
   // aren't fully visible as we haven't shown the content window. Callers may
   // short-circuit a call to show this widget if they think its already visible.
-  return content_window_ && content_window_->IsVisible() &&
-      desktop_window_tree_host_->IsVisible();
+  return content_window_ && content_window_->TargetVisibility() &&
+         desktop_window_tree_host_->IsVisible();
 }
 
 void DesktopNativeWidgetAura::Activate() {
@@ -874,6 +879,9 @@ void DesktopNativeWidgetAura::SetFullscreen(bool fullscreen) {
 bool DesktopNativeWidgetAura::IsFullscreen() const {
   return content_window_ && desktop_window_tree_host_->IsFullscreen();
 }
+
+void DesktopNativeWidgetAura::SetCanAppearInExistingFullscreenSpaces(
+    bool can_appear_in_existing_fullscreen_spaces) {}
 
 void DesktopNativeWidgetAura::SetOpacity(float opacity) {
   if (content_window_)
@@ -1003,6 +1011,10 @@ void DesktopNativeWidgetAura::OnSizeConstraintsChanged() {
     behavior = GetWidget()->widget_delegate()->GetResizeBehavior();
   content_window_->SetProperty(aura::client::kResizeBehaviorKey, behavior);
   desktop_window_tree_host_->SizeConstraintsChanged();
+}
+
+void DesktopNativeWidgetAura::OnCanActivateChanged() {
+  desktop_window_tree_host_->OnCanActivateChanged();
 }
 
 std::string DesktopNativeWidgetAura::GetName() const {
@@ -1138,10 +1150,11 @@ void DesktopNativeWidgetAura::OnWindowActivated(
   DCHECK(content_window_ == gained_active || content_window_ == lost_active);
   if (gained_active == content_window_ && restore_focus_on_activate_) {
     restore_focus_on_activate_ = false;
-    // For OS_LINUX, desktop native widget may not be activated when child
-    // widgets gets aura activation changes. Only when desktop native widget is
-    // active, we can rely on aura activation to restore focused view.
-    if (GetWidget()->IsActive())
+    // For OS_LINUX, desktop native widget may be activated during deactivation
+    // when the active aura::Window is not |content_window_|. In such case,
+    // skip RestoreFocusedView so that we don't activate the widget immediately
+    // after its deactivation.
+    if (!is_handling_deactivation_)
       GetWidget()->GetFocusManager()->RestoreFocusedView();
   } else if (lost_active == content_window_ && GetWidget()->HasFocusManager()) {
     DCHECK(!restore_focus_on_activate_);

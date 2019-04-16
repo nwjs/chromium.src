@@ -1823,8 +1823,8 @@ DeveloperPrivateOpenDevToolsFunction::Run() {
     return RespondNow(NoArguments());
 
   TabStripModel* tab_strip = browser->tab_strip_model();
-  tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(web_contents),
-                           false);  // Not through direct user gesture.
+  tab_strip->ActivateTabAt(tab_strip->GetIndexOfWebContents(
+      web_contents));  // Not through direct user gesture.
   return RespondNow(NoArguments());
 }
 
@@ -2014,7 +2014,8 @@ DeveloperPrivateAddHostPermissionFunction::Run() {
       .GrantRuntimePermissions(
           *extension,
           PermissionSet(APIPermissionSet(), ManifestPermissionSet(),
-                        new_host_permissions, new_host_permissions),
+                        new_host_permissions.Clone(),
+                        new_host_permissions.Clone()),
           base::BindOnce(&DeveloperPrivateAddHostPermissionFunction::
                              OnRuntimePermissionsGranted,
                          base::RetainedRef(this)));
@@ -2054,7 +2055,8 @@ DeveloperPrivateRemoveHostPermissionFunction::Run() {
   std::unique_ptr<const PermissionSet> permissions_to_remove =
       PermissionSet::CreateIntersection(
           PermissionSet(APIPermissionSet(), ManifestPermissionSet(),
-                        host_permissions_to_remove, host_permissions_to_remove),
+                        host_permissions_to_remove.Clone(),
+                        host_permissions_to_remove.Clone()),
           *scripting_modifier.GetRevokablePermissions(),
           URLPatternSet::IntersectionBehavior::kDetailed);
   if (permissions_to_remove->IsEmpty())

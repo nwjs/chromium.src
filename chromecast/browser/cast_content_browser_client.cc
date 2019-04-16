@@ -6,7 +6,6 @@
 
 #include <stddef.h>
 
-#include <string>
 #include <utility>
 
 #include "base/base_switches.h"
@@ -33,6 +32,7 @@
 #include "chromecast/browser/cast_feature_list_creator.h"
 #include "chromecast/browser/cast_http_user_agent_settings.h"
 #include "chromecast/browser/cast_navigation_ui_data.h"
+#include "chromecast/browser/cast_network_contexts.h"
 #include "chromecast/browser/cast_network_delegate.h"
 #include "chromecast/browser/cast_overlay_manifests.h"
 #include "chromecast/browser/cast_quota_permission_context.h"
@@ -76,6 +76,7 @@
 #include "media/mojo/buildflags.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/url_request/url_request_context_getter.h"
+#include "services/network/public/cpp/features.h"
 #include "services/service_manager/embedder/descriptors.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -118,13 +119,21 @@
 
 #if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
 #include "chromecast/browser/cast_extension_message_filter.h"  // nogncheck
+#include "chromecast/browser/cast_extension_url_loader_factory.h"  // nogncheck
 #include "extensions/browser/extension_message_filter.h"  // nogncheck
+#include "extensions/browser/extension_protocols.h"       // nogncheck
 #include "extensions/browser/extension_registry.h"        // nogncheck
 #include "extensions/browser/extension_system.h"          // nogncheck
 #include "extensions/browser/guest_view/extensions_guest_view_message_filter.h"  // nogncheck
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"  // nogncheck
 #include "extensions/browser/info_map.h"                            // nogncheck
 #include "extensions/browser/io_thread_extension_message_filter.h"  // nogncheck
 #include "extensions/browser/process_map.h"                         // nogncheck
+#include "extensions/common/constants.h"                            // nogncheck
+#endif
+
+#if BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
+#include "chromecast/external_mojo/broker_service/broker_service.h"
 #endif
 
 namespace chromecast {
@@ -181,6 +190,14 @@ void CreateMediaDrmStorage(content::RenderFrameHost* render_frame_host,
 }
 #endif  // defined(OS_ANDROID) && !BUILDFLAG(USE_CHROMECAST_CDMS)
 
+#if BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
+void StartExternalMojoBrokerService(
+    service_manager::mojom::ServiceRequest request) {
+  service_manager::Service::RunAsyncUntilTermination(
+      std::make_unique<external_mojo::BrokerService>(std::move(request)));
+}
+#endif  // BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
+
 }  // namespace
 
 CastContentBrowserClient::CastContentBrowserClient(
@@ -188,6 +205,8 @@ CastContentBrowserClient::CastContentBrowserClient(
     : cast_browser_main_parts_(nullptr),
       url_request_context_factory_(new URLRequestContextFactory()),
       cast_feature_list_creator_(cast_feature_list_creator) {
+  cast_network_contexts_ =
+      std::make_unique<CastNetworkContexts>(url_request_context_factory_.get());
   cast_feature_list_creator_->SetExtraEnableFeatures({
     ::media::kInternalMediaSession,
 #if defined(OS_ANDROID)
@@ -211,6 +230,7 @@ CastContentBrowserClient::~CastContentBrowserClient() {
   DCHECK(!media_resource_tracker_)
       << "ResetMediaResourceTracker was not called";
 #endif  // BUILDFLAG(IS_CAST_USING_CMA_BACKEND)
+  cast_network_contexts_.reset();
   content::BrowserThread::DeleteSoon(content::BrowserThread::IO, FROM_HERE,
                                      url_request_context_factory_.release());
 }
@@ -326,6 +346,13 @@ CastContentBrowserClient::CreateAudioManager(
 
 bool CastContentBrowserClient::OverridesAudioManager() {
   // See CreateAudioManager().
+#if defined(OS_ANDROID)
+  // Disable CMA backend on builds older than N.
+  if (base::android::BuildInfo::GetInstance()->sdk_int() <
+      base::android::SDK_VERSION_NOUGAT) {
+    return false;
+  }
+#endif  // defined(OS_ANDROID)
   return true;
 }
 #endif  // BUILDFLAG(IS_CAST_USING_CMA_BACKEND)
@@ -362,6 +389,14 @@ void CastContentBrowserClient::RegisterMetricsProviders(
 
 bool CastContentBrowserClient::EnableRemoteDebuggingImmediately() {
   return true;
+}
+
+std::vector<std::string> CastContentBrowserClient::GetStartupServices() {
+  return {
+#if BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
+    external_mojo::BrokerService::kServiceName
+#endif
+  };
 }
 
 content::BrowserMainParts* CastContentBrowserClient::CreateBrowserMainParts(
@@ -548,11 +583,11 @@ void CastContentBrowserClient::AppendExtraCommandLineSwitches(
 
     if (!command_line->HasSwitch(switches::kCastInitialScreenWidth)) {
       command_line->AppendSwitchASCII(switches::kCastInitialScreenWidth,
-                                      base::IntToString(res.width()));
+                                      base::NumberToString(res.width()));
     }
     if (!command_line->HasSwitch(switches::kCastInitialScreenHeight)) {
       command_line->AppendSwitchASCII(switches::kCastInitialScreenHeight,
-                                      base::IntToString(res.height()));
+                                      base::NumberToString(res.height()));
     }
 
     if (chromecast::IsFeatureEnabled(kSingleBuffer)) {
@@ -615,7 +650,8 @@ void CastContentBrowserClient::GetQuotaSettings(
     content::StoragePartition* partition,
     storage::OptionalQuotaSettingsCallback callback) {
   storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(), std::move(callback));
+      partition->GetPath(), context->IsOffTheRecord(),
+      storage::GetDefaultDiskInfoHelper(), std::move(callback));
 }
 
 void CastContentBrowserClient::AllowCertificateError(
@@ -767,8 +803,16 @@ void CastContentBrowserClient::HandleServiceRequest(
     GetMediaTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(&CreateMediaService, this, std::move(request)));
+    return;
   }
-#endif
+#endif  // BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS)
+
+#if BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
+  if (service_name == external_mojo::BrokerService::kServiceName) {
+    StartExternalMojoBrokerService(std::move(request));
+    return;
+  }
+#endif  // BUILDFLAG(ENABLE_EXTERNAL_MOJO_SERVICES)
 }
 
 base::Optional<service_manager::Manifest>
@@ -903,6 +947,62 @@ CastContentBrowserClient::CreateThrottlesForNavigation(
   }
 #endif
   return throttles;
+}
+
+void CastContentBrowserClient::RegisterNonNetworkNavigationURLLoaderFactories(
+    int frame_tree_node_id,
+    NonNetworkURLLoaderFactoryMap* factories) {
+#if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
+  content::WebContents* web_contents =
+      content::WebContents::FromFrameTreeNodeId(frame_tree_node_id);
+  auto* browser_context = web_contents->GetBrowserContext();
+  auto extension_factory =
+      extensions::CreateExtensionNavigationURLLoaderFactory(
+          browser_context,
+          !!extensions::WebViewGuest::FromWebContents(web_contents));
+  factories->emplace(extensions::kExtensionScheme,
+                     std::make_unique<CastExtensionURLLoaderFactory>(
+                         browser_context, std::move(extension_factory)));
+#endif
+}
+
+void CastContentBrowserClient::RegisterNonNetworkSubresourceURLLoaderFactories(
+    int render_process_id,
+    int render_frame_id,
+    NonNetworkURLLoaderFactoryMap* factories) {
+#if BUILDFLAG(ENABLE_CHROMECAST_EXTENSIONS)
+  content::RenderFrameHost* frame_host =
+      content::RenderFrameHost::FromID(render_process_id, render_frame_id);
+  auto* browser_context = frame_host->GetProcess()->GetBrowserContext();
+  auto extension_factory = extensions::CreateExtensionURLLoaderFactory(
+      render_process_id, render_frame_id);
+  factories->emplace(extensions::kExtensionScheme,
+                     std::make_unique<CastExtensionURLLoaderFactory>(
+                         browser_context, std::move(extension_factory)));
+#endif
+}
+
+void CastContentBrowserClient::OnNetworkServiceCreated(
+    network::mojom::NetworkService* network_service) {
+  if (!base::FeatureList::IsEnabled(network::features::kNetworkService))
+    return;
+
+  // Need to set up global NetworkService state before anything else uses it.
+  cast_network_contexts_->OnNetworkServiceCreated(network_service);
+}
+
+network::mojom::NetworkContextPtr
+CastContentBrowserClient::CreateNetworkContext(
+    content::BrowserContext* context,
+    bool in_memory,
+    const base::FilePath& relative_partition_path) {
+  // StoragePartition will wrap the URLRequestContext it owns with a
+  // NetworkContext pipe if network service is disabled.
+  if (!base::FeatureList::IsEnabled(network::features::kNetworkService))
+    return nullptr;
+
+  return cast_network_contexts_->CreateNetworkContext(context, in_memory,
+                                                      relative_partition_path);
 }
 
 std::string CastContentBrowserClient::GetUserAgent() const {

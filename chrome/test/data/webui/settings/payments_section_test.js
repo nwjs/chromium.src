@@ -32,7 +32,7 @@ cr.define('settings_payments_section', function() {
         upstreamEnabled: true,
         isUsingSecondaryPassphrase: false,
         uploadToGoogleActive: true,
-        userEmailDomainAllowed: true
+        userEmailDomainAllowed: true,
       });
     });
 
@@ -70,16 +70,37 @@ cr.define('settings_payments_section', function() {
       return section;
     }
 
+    /**
+     * Returns an array containing the local and server credit card items.
+     * @return {!Array<!chrome.autofillPrivate.CreditCardEntry>}
+     */
+    function getLocalAndServerListItems() {
+      return document.body.querySelector('settings-payments-section')
+          .$$('#creditCardList')
+          .shadowRoot.querySelectorAll('settings-credit-card-list-entry');
+    }
+
+    /**
+     * Returns the shadow root of the card row from the specified card list.
+     * @param {!HTMLElement} cardList
+     * @return {?HTMLElement}
+     */
+    function getCardRowShadowRoot(cardList) {
+      const row = cardList.$$('settings-credit-card-list-entry');
+      assertTrue(!!row);
+      return row.shadowRoot;
+    }
+
     test('verifyCreditCardCount', function() {
       const section =
           createPaymentsSection([], {credit_card_enabled: {value: true}});
 
       const creditCardList = section.$$('#creditCardList');
       assertTrue(!!creditCardList);
-      assertEquals(0, creditCardList.querySelectorAll('.list-item').length);
+      assertEquals(0, getLocalAndServerListItems().length);
 
-      assertFalse(section.$$('#noCreditCardsLabel').hidden);
-      assertTrue(section.$$('#creditCardsHeading').hidden);
+      assertFalse(creditCardList.$$('#noCreditCardsLabel').hidden);
+      assertTrue(creditCardList.$$('#creditCardsHeading').hidden);
       assertFalse(section.$$('#autofillCreditCardToggle').disabled);
       assertFalse(section.$$('#addCreditCard').disabled);
     });
@@ -106,12 +127,10 @@ cr.define('settings_payments_section', function() {
           creditCards, {credit_card_enabled: {value: true}});
       const creditCardList = section.$$('#creditCardList');
       assertTrue(!!creditCardList);
-      assertEquals(
-          creditCards.length,
-          creditCardList.querySelectorAll('.list-item').length);
+      assertEquals(creditCards.length, getLocalAndServerListItems().length);
 
-      assertTrue(section.$$('#noCreditCardsLabel').hidden);
-      assertFalse(section.$$('#creditCardsHeading').hidden);
+      assertTrue(creditCardList.$$('#noCreditCardsLabel').hidden);
+      assertFalse(creditCardList.$$('#creditCardsHeading').hidden);
       assertFalse(section.$$('#autofillCreditCardToggle').disabled);
       assertFalse(section.$$('#addCreditCard').disabled);
     });
@@ -119,29 +138,25 @@ cr.define('settings_payments_section', function() {
     test('verifyCreditCardFields', function() {
       const creditCard = FakeDataMaker.creditCardEntry();
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      const row = creditCardList.children[0];
-      assertTrue(!!row);
-
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
       assertEquals(
           creditCard.metadata.summaryLabel,
-          row.querySelector('#creditCardLabel').textContent);
+          rowShadowRoot.querySelector('#creditCardLabel').textContent);
       assertEquals(
           creditCard.expirationMonth + '/' + creditCard.expirationYear,
-          row.querySelector('#creditCardExpiration').textContent);
+          rowShadowRoot.querySelector('#creditCardExpiration')
+              .textContent.trim());
     });
 
     test('verifyCreditCardRowButtonIsDropdownWhenLocal', function() {
       const creditCard = FakeDataMaker.creditCardEntry();
       creditCard.metadata.isLocal = true;
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      const row = creditCardList.children[0];
-      assertTrue(!!row);
-      const menuButton = row.querySelector('#creditCardMenu');
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
+      const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
       assertTrue(!!menuButton);
       const outlinkButton =
-          row.querySelector('paper-icon-button-light.icon-external');
+          rowShadowRoot.querySelector('paper-icon-button-light.icon-external');
       assertFalse(!!outlinkButton);
     });
 
@@ -149,13 +164,11 @@ cr.define('settings_payments_section', function() {
       const creditCard = FakeDataMaker.creditCardEntry();
       creditCard.metadata.isLocal = false;
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      const row = creditCardList.children[0];
-      assertTrue(!!row);
-      const menuButton = row.querySelector('#creditCardMenu');
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
+      const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
       assertFalse(!!menuButton);
       const outlinkButton =
-          row.querySelector('paper-icon-button-light.icon-external');
+          rowShadowRoot.querySelector('paper-icon-button-light.icon-external');
       assertTrue(!!outlinkButton);
     });
 
@@ -329,14 +342,12 @@ cr.define('settings_payments_section', function() {
       creditCard.metadata.isCached = undefined;
 
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      assertTrue(!!creditCardList);
-      assertEquals(1, creditCardList.querySelectorAll('.list-item').length);
-      const row = creditCardList.children[0];
+      assertEquals(1, getLocalAndServerListItems().length);
 
       // Local credit cards will show the overflow menu.
-      assertFalse(!!row.querySelector('#remoteCreditCardLink'));
-      const menuButton = row.querySelector('#creditCardMenu');
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
+      assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+      const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
       assertTrue(!!menuButton);
 
       menuButton.click();
@@ -360,14 +371,12 @@ cr.define('settings_payments_section', function() {
       creditCard.metadata.isCached = true;
 
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      assertTrue(!!creditCardList);
-      assertEquals(1, creditCardList.querySelectorAll('.list-item').length);
-      const row = creditCardList.children[0];
+      assertEquals(1, getLocalAndServerListItems().length);
 
       // Cached remote CCs will show overflow menu.
-      assertFalse(!!row.querySelector('#remoteCreditCardLink'));
-      const menuButton = row.querySelector('#creditCardMenu');
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
+      assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+      const menuButton = rowShadowRoot.querySelector('#creditCardMenu');
       assertTrue(!!menuButton);
 
       menuButton.click();
@@ -391,14 +400,12 @@ cr.define('settings_payments_section', function() {
       creditCard.metadata.isCached = false;
 
       const section = createPaymentsSection([creditCard], {});
-      const creditCardList = section.$$('#creditCardList');
-      assertTrue(!!creditCardList);
-      assertEquals(1, creditCardList.querySelectorAll('.list-item').length);
-      const row = creditCardList.children[0];
+      assertEquals(1, getLocalAndServerListItems().length);
 
       // No overflow menu when not cached.
-      assertTrue(!!row.querySelector('#remoteCreditCardLink'));
-      assertFalse(!!row.querySelector('#creditCardMenu'));
+      const rowShadowRoot = getCardRowShadowRoot(section.$$('#creditCardList'));
+      assertTrue(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+      assertFalse(!!rowShadowRoot.querySelector('#creditCardMenu'));
     });
 
     test('verifyMigrationButtonNotShownIfMigrationNotEnabled', function() {

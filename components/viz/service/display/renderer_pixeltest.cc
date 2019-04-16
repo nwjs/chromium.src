@@ -7,6 +7,8 @@
 #include <memory>
 #include <tuple>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/memory/aligned_memory.h"
 #include "build/build_config.h"
 #include "cc/base/math_util.h"
@@ -847,7 +849,7 @@ using RendererTypes =
                      SkiaRenderer,
                      cc::GLRendererWithExpandedViewport,
                      cc::SoftwareRendererWithExpandedViewport>;
-TYPED_TEST_CASE(RendererPixelTest, RendererTypes);
+TYPED_TEST_SUITE(RendererPixelTest, RendererTypes);
 
 template <typename RendererType>
 class SoftwareRendererPixelTest : public cc::RendererPixelTest<RendererType> {};
@@ -855,7 +857,7 @@ class SoftwareRendererPixelTest : public cc::RendererPixelTest<RendererType> {};
 using SoftwareRendererTypes =
     ::testing::Types<SoftwareRenderer,
                      cc::SoftwareRendererWithExpandedViewport>;
-TYPED_TEST_CASE(SoftwareRendererPixelTest, SoftwareRendererTypes);
+TYPED_TEST_SUITE(SoftwareRendererPixelTest, SoftwareRendererTypes);
 
 // TODO(weiliangc): Move these tests to normal RendererPixelTest as they pass
 // with SkiaRenderer. Failed test list recorded in crbug.com/821176.
@@ -867,7 +869,15 @@ using NonSkiaRendererTypes =
                      SoftwareRenderer,
                      cc::GLRendererWithExpandedViewport,
                      cc::SoftwareRendererWithExpandedViewport>;
-TYPED_TEST_CASE(NonSkiaRendererPixelTest, NonSkiaRendererTypes);
+TYPED_TEST_SUITE(NonSkiaRendererPixelTest, NonSkiaRendererTypes);
+
+// Test GLRenderer as well as SkiaRenderer.
+template <typename RendererType>
+class GLCapableRendererPixelTest : public cc::RendererPixelTest<RendererType> {
+};
+
+using GLCapableRendererTypes = ::testing::Types<GLRenderer, SkiaRenderer>;
+TYPED_TEST_SUITE(GLCapableRendererPixelTest, GLCapableRendererTypes);
 
 template <typename RendererType>
 class FuzzyForSoftwareOnlyPixelComparator : public cc::PixelComparator {
@@ -1239,11 +1249,13 @@ class IntersectingQuadGLPixelTest
     constexpr int kMaxResourceSize = 10000;
 
     video_resource_updater_ = std::make_unique<media::VideoResourceUpdater>(
-        this->child_context_provider_.get(), nullptr,
+        this->child_context_provider_.get(),
+        /*raster_context_provider=*/nullptr, nullptr,
         this->child_resource_provider_.get(), kUseStreamVideoDrawQuad,
         kUseGpuMemoryBufferResources, kUseR16Texture, kMaxResourceSize);
     video_resource_updater2_ = std::make_unique<media::VideoResourceUpdater>(
-        this->child_context_provider_.get(), nullptr,
+        this->child_context_provider_.get(),
+        /*raster_context_provider=*/nullptr, nullptr,
         this->child_resource_provider_.get(), kUseStreamVideoDrawQuad,
         kUseGpuMemoryBufferResources, kUseR16Texture, kMaxResourceSize);
   }
@@ -1263,9 +1275,9 @@ using SoftwareRendererTypes =
 using GLRendererTypes =
     ::testing::Types<GLRenderer, cc::GLRendererWithExpandedViewport>;
 
-TYPED_TEST_CASE(IntersectingQuadPixelTest, RendererTypes);
-TYPED_TEST_CASE(IntersectingQuadGLPixelTest, GLRendererTypes);
-TYPED_TEST_CASE(IntersectingQuadSoftwareTest, SoftwareRendererTypes);
+TYPED_TEST_SUITE(IntersectingQuadPixelTest, RendererTypes);
+TYPED_TEST_SUITE(IntersectingQuadGLPixelTest, GLRendererTypes);
+TYPED_TEST_SUITE(IntersectingQuadSoftwareTest, SoftwareRendererTypes);
 
 TYPED_TEST(IntersectingQuadPixelTest, SolidColorQuads) {
   this->SetupQuadStateAndRenderPass();
@@ -1595,8 +1607,14 @@ TEST_F(GLRendererPixelTest, NonPremultipliedTextureWithBackground) {
       cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-class VideoGLRendererPixelTest : public cc::GLRendererPixelTest {
+template <typename RendererType>
+class VideoRendererPixelTest : public cc::RendererPixelTest<RendererType> {
  protected:
+  // Include the protected member variables from the parent class.
+  using cc::PixelTest::child_context_provider_;
+  using cc::PixelTest::child_resource_provider_;
+  using cc::PixelTest::resource_provider_;
+
   void CreateEdgeBleedPass(media::VideoPixelFormat format,
                            const gfx::ColorSpace& color_space,
                            RenderPassList* pass_list) {
@@ -1636,86 +1654,114 @@ class VideoGLRendererPixelTest : public cc::GLRendererPixelTest {
   }
 
   void SetUp() override {
-    GLRendererPixelTest::SetUp();
+    cc::RendererPixelTest<RendererType>::SetUp();
     constexpr bool kUseStreamVideoDrawQuad = false;
     constexpr bool kUseGpuMemoryBufferResources = false;
     constexpr bool kUseR16Texture = false;
     constexpr int kMaxResourceSize = 10000;
     video_resource_updater_ = std::make_unique<media::VideoResourceUpdater>(
-        child_context_provider_.get(), nullptr, child_resource_provider_.get(),
-        kUseStreamVideoDrawQuad, kUseGpuMemoryBufferResources, kUseR16Texture,
-        kMaxResourceSize);
+        child_context_provider_.get(), nullptr, nullptr,
+        child_resource_provider_.get(), kUseStreamVideoDrawQuad,
+        kUseGpuMemoryBufferResources, kUseR16Texture, kMaxResourceSize);
   }
 
   void TearDown() override {
     video_resource_updater_ = nullptr;
-    GLRendererPixelTest::TearDown();
+    cc::RendererPixelTest<RendererType>::TearDown();
   }
 
   std::unique_ptr<media::VideoResourceUpdater> video_resource_updater_;
 };
 
-class VideoGLRendererPixelHiLoTest : public VideoGLRendererPixelTest,
-                                     public testing::WithParamInterface<bool> {
+TYPED_TEST_SUITE(VideoRendererPixelTest, GLCapableRendererTypes);
+
+// TODO(crbug.com/936822): Remove this once it passes with SkiaRenderer.
+using VideoGLRendererPixelTest = VideoRendererPixelTest<GLRenderer>;
+
+template <typename RendererType>
+class VideoRendererPixelHiLoTest : public VideoRendererPixelTest<RendererType>,
+                                   public testing::WithParamInterface<bool> {
  public:
   bool IsHighbit() const { return GetParam(); }
+
+  void SimpleYUVRect() {
+    gfx::Rect rect(this->device_viewport_size_);
+
+    int id = 1;
+    std::unique_ptr<RenderPass> pass = CreateTestRootRenderPass(id, rect);
+    // Set the output color space to match the input primaries and transfer.
+    pass->color_space = gfx::ColorSpace(gfx::ColorSpace::PrimaryID::SMPTE170M,
+                                        gfx::ColorSpace::TransferID::SMPTE170M);
+
+    SharedQuadState* shared_state =
+        CreateTestSharedQuadState(gfx::Transform(), rect, pass.get());
+
+    CreateTestYUVVideoDrawQuad_Striped(
+        shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
+        false, IsHighbit(), gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
+        this->video_resource_updater_.get(), rect, rect,
+        this->resource_provider_.get(), this->child_resource_provider_.get(),
+        this->child_context_provider_.get());
+
+    RenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+
+    EXPECT_TRUE(this->RunPixelTest(
+        &pass_list, base::FilePath(FILE_PATH_LITERAL("yuv_stripes.png")),
+        cc::FuzzyPixelOffByOneComparator(true)));
+  }
+  void ClippedYUVRect() {
+    gfx::Rect viewport(this->device_viewport_size_);
+    gfx::Rect draw_rect(this->device_viewport_size_.width() * 1.5,
+                        this->device_viewport_size_.height() * 1.5);
+
+    int id = 1;
+    std::unique_ptr<RenderPass> pass = CreateTestRootRenderPass(id, viewport);
+    // Set the output color space to match the input primaries and transfer.
+    pass->color_space = gfx::ColorSpace(gfx::ColorSpace::PrimaryID::SMPTE170M,
+                                        gfx::ColorSpace::TransferID::SMPTE170M);
+
+    SharedQuadState* shared_state =
+        CreateTestSharedQuadState(gfx::Transform(), viewport, pass.get());
+
+    CreateTestYUVVideoDrawQuad_Striped(
+        shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
+        false, IsHighbit(), gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
+        this->video_resource_updater_.get(), draw_rect, viewport,
+        this->resource_provider_.get(), this->child_resource_provider_.get(),
+        this->child_context_provider_.get());
+    RenderPassList pass_list;
+    pass_list.push_back(std::move(pass));
+
+    EXPECT_TRUE(this->RunPixelTest(
+        &pass_list,
+        base::FilePath(FILE_PATH_LITERAL("yuv_stripes_clipped.png")),
+        cc::FuzzyPixelOffByOneComparator(true)));
+  }
 };
 
+using VideoGLRendererPixelHiLoTest = VideoRendererPixelHiLoTest<GLRenderer>;
+using VideoSkiaRendererPixelHiLoTest = VideoRendererPixelHiLoTest<SkiaRenderer>;
+
 TEST_P(VideoGLRendererPixelHiLoTest, SimpleYUVRect) {
-  gfx::Rect rect(this->device_viewport_size_);
-
-  int id = 1;
-  std::unique_ptr<RenderPass> pass = CreateTestRootRenderPass(id, rect);
-  // Set the output color space to match the input primaries and transfer.
-  pass->color_space = gfx::ColorSpace(gfx::ColorSpace::PrimaryID::SMPTE170M,
-                                      gfx::ColorSpace::TransferID::SMPTE170M);
-
-  SharedQuadState* shared_state =
-      CreateTestSharedQuadState(gfx::Transform(), rect, pass.get());
-
-  CreateTestYUVVideoDrawQuad_Striped(
-      shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
-      false, IsHighbit(), gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
-
-  RenderPassList pass_list;
-  pass_list.push_back(std::move(pass));
-
-  EXPECT_TRUE(this->RunPixelTest(
-      &pass_list, base::FilePath(FILE_PATH_LITERAL("yuv_stripes.png")),
-      cc::FuzzyPixelOffByOneComparator(true)));
+  SimpleYUVRect();
+}
+// TODO(crbug.com/936822): Enable this test.
+TEST_P(VideoSkiaRendererPixelHiLoTest, DISABLED_SimpleYUVRect) {
+  SimpleYUVRect();
 }
 
 TEST_P(VideoGLRendererPixelHiLoTest, ClippedYUVRect) {
-  gfx::Rect viewport(this->device_viewport_size_);
-  gfx::Rect draw_rect(this->device_viewport_size_.width() * 1.5,
-                      this->device_viewport_size_.height() * 1.5);
-
-  int id = 1;
-  std::unique_ptr<RenderPass> pass = CreateTestRootRenderPass(id, viewport);
-  // Set the output color space to match the input primaries and transfer.
-  pass->color_space = gfx::ColorSpace(gfx::ColorSpace::PrimaryID::SMPTE170M,
-                                      gfx::ColorSpace::TransferID::SMPTE170M);
-
-  SharedQuadState* shared_state =
-      CreateTestSharedQuadState(gfx::Transform(), viewport, pass.get());
-
-  CreateTestYUVVideoDrawQuad_Striped(
-      shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
-      false, IsHighbit(), gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
-      video_resource_updater_.get(), draw_rect, viewport,
-      resource_provider_.get(), child_resource_provider_.get(),
-      child_context_provider_.get());
-  RenderPassList pass_list;
-  pass_list.push_back(std::move(pass));
-
-  EXPECT_TRUE(this->RunPixelTest(
-      &pass_list, base::FilePath(FILE_PATH_LITERAL("yuv_stripes_clipped.png")),
-      cc::FuzzyPixelOffByOneComparator(true)));
+  ClippedYUVRect();
+}
+// TODO(crbug.com/936822): Enable this test.
+TEST_P(VideoSkiaRendererPixelHiLoTest, DISABLED_ClippedYUVRect) {
+  ClippedYUVRect();
 }
 
-TEST_F(VideoGLRendererPixelHiLoTest, OffsetYUVRect) {
+// TODO(crbug.com/936822): Enable this test for SkiaRenderer
+// TYPED_TEST(VideoRendererPixelTest, OffsetYUVRect) {
+TEST_F(VideoGLRendererPixelTest, OffsetYUVRect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1731,8 +1777,9 @@ TEST_F(VideoGLRendererPixelHiLoTest, OffsetYUVRect) {
   CreateTestYUVVideoDrawQuad_Striped(
       shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
       false, false, gfx::RectF(0.125f, 0.25f, 0.75f, 0.5f), pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -1742,7 +1789,7 @@ TEST_F(VideoGLRendererPixelHiLoTest, OffsetYUVRect) {
       cc::FuzzyPixelComparator(true, 100.0f, 1.0f, 1.0f, 1, 0)));
 }
 
-TEST_F(VideoGLRendererPixelTest, SimpleYUVRectBlack) {
+TYPED_TEST(VideoRendererPixelTest, SimpleYUVRectBlack) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1758,8 +1805,9 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVRectBlack) {
   CreateTestYUVVideoDrawQuad_Solid(
       shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateREC601(),
       false, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), 15, 128, 128, pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -1772,9 +1820,10 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVRectBlack) {
 }
 
 // First argument (test case prefix) is intentionally left empty.
-INSTANTIATE_TEST_CASE_P(, VideoGLRendererPixelHiLoTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, VideoGLRendererPixelHiLoTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, VideoSkiaRendererPixelHiLoTest, testing::Bool());
 
-TEST_F(VideoGLRendererPixelTest, SimpleYUVJRect) {
+TYPED_TEST(VideoRendererPixelTest, SimpleYUVJRect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1787,8 +1836,9 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVJRect) {
   CreateTestYUVVideoDrawQuad_Solid(
       shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateJpeg(),
       false, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), 149, 43, 21, pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -1798,7 +1848,7 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVJRect) {
                                  cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TEST_F(VideoGLRendererPixelTest, SimpleNV12JRect) {
+TYPED_TEST(VideoRendererPixelTest, SimpleNV12JRect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1811,8 +1861,9 @@ TEST_F(VideoGLRendererPixelTest, SimpleNV12JRect) {
   CreateTestYUVVideoDrawQuad_NV12(
       shared_state, gfx::ColorSpace::CreateJpeg(),
       gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), 149, 43, 21, pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_);
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_);
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -1824,6 +1875,8 @@ TEST_F(VideoGLRendererPixelTest, SimpleNV12JRect) {
 
 // Test that a YUV video doesn't bleed outside of its tex coords when the
 // tex coord rect is only a partial subrectangle of the coded contents.
+// TODO(crbug.com/936822): Enable this test for SkiaRenderer
+// TYPED_TEST(VideoRendererPixelTest, YUVEdgeBleed) {
 TEST_F(VideoGLRendererPixelTest, YUVEdgeBleed) {
   RenderPassList pass_list;
   CreateEdgeBleedPass(media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateJpeg(),
@@ -1833,6 +1886,8 @@ TEST_F(VideoGLRendererPixelTest, YUVEdgeBleed) {
                                  cc::FuzzyPixelOffByOneComparator(true)));
 }
 
+// TODO(crbug.com/936822): Enable this test for SkiaRenderer
+// TYPED_TEST(VideoRendererPixelTest, YUVAEdgeBleed) {
 TEST_F(VideoGLRendererPixelTest, YUVAEdgeBleed) {
   RenderPassList pass_list;
   CreateEdgeBleedPass(media::PIXEL_FORMAT_I420A,
@@ -1846,7 +1901,7 @@ TEST_F(VideoGLRendererPixelTest, YUVAEdgeBleed) {
                                  cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TEST_F(VideoGLRendererPixelTest, SimpleYUVJRectGrey) {
+TYPED_TEST(VideoRendererPixelTest, SimpleYUVJRectGrey) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1859,8 +1914,9 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVJRectGrey) {
   CreateTestYUVVideoDrawQuad_Solid(
       shared_state, media::PIXEL_FORMAT_I420, gfx::ColorSpace::CreateJpeg(),
       false, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), 15, 128, 128, pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -1870,7 +1926,9 @@ TEST_F(VideoGLRendererPixelTest, SimpleYUVJRectGrey) {
       cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TEST_F(VideoGLRendererPixelHiLoTest, SimpleYUVARect) {
+// TODO(crbug.com/936822): Enable this test for SkiaRenderer
+// TYPED_TEST(VideoRendererPixelTest, SimpleYUVARect) {
+TEST_F(VideoGLRendererPixelTest, SimpleYUVARect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1885,8 +1943,9 @@ TEST_F(VideoGLRendererPixelHiLoTest, SimpleYUVARect) {
   CreateTestYUVVideoDrawQuad_Striped(
       shared_state, media::PIXEL_FORMAT_I420A, gfx::ColorSpace::CreateREC601(),
       false, false, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   auto* color_quad = pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   color_quad->SetNew(shared_state, rect, rect, SK_ColorWHITE, false);
@@ -1899,7 +1958,7 @@ TEST_F(VideoGLRendererPixelHiLoTest, SimpleYUVARect) {
       cc::FuzzyPixelOffByOneComparator(true)));
 }
 
-TEST_F(VideoGLRendererPixelTest, FullyTransparentYUVARect) {
+TYPED_TEST(VideoRendererPixelTest, FullyTransparentYUVARect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1914,8 +1973,9 @@ TEST_F(VideoGLRendererPixelTest, FullyTransparentYUVARect) {
   CreateTestYUVVideoDrawQuad_Striped(
       shared_state, media::PIXEL_FORMAT_I420A, gfx::ColorSpace::CreateREC601(),
       true, false, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), pass.get(),
-      video_resource_updater_.get(), rect, rect, resource_provider_.get(),
-      child_resource_provider_.get(), child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   auto* color_quad = pass->CreateAndAppendDrawQuad<SolidColorDrawQuad>();
   color_quad->SetNew(shared_state, rect, rect, SK_ColorBLACK, false);
@@ -1928,7 +1988,7 @@ TEST_F(VideoGLRendererPixelTest, FullyTransparentYUVARect) {
                                  cc::ExactPixelComparator(true)));
 }
 
-TEST_F(VideoGLRendererPixelTest, TwoColorY16Rect) {
+TYPED_TEST(VideoRendererPixelTest, TwoColorY16Rect) {
   gfx::Rect rect(this->device_viewport_size_);
 
   int id = 1;
@@ -1940,9 +2000,9 @@ TEST_F(VideoGLRendererPixelTest, TwoColorY16Rect) {
   gfx::Rect upper_rect(rect.x(), rect.y(), rect.width(), rect.height() / 2);
   CreateTestY16TextureDrawQuad_TwoColor(
       shared_state, gfx::RectF(0.0f, 0.0f, 1.0f, 1.0f), 68, 123, pass.get(),
-      video_resource_updater_.get(), rect, rect, upper_rect,
-      resource_provider_.get(), child_resource_provider_.get(),
-      child_context_provider_.get());
+      this->video_resource_updater_.get(), rect, rect, upper_rect,
+      this->resource_provider_.get(), this->child_resource_provider_.get(),
+      this->child_context_provider_.get());
 
   RenderPassList pass_list;
   pass_list.push_back(std::move(pass));
@@ -2627,7 +2687,7 @@ class RendererPixelTestWithBackgroundFilter
 
   RenderPassList pass_list_;
   cc::FilterOperations backdrop_filters_;
-  gfx::RectF backdrop_filter_bounds_;
+  gfx::RRectF backdrop_filter_bounds_;
   gfx::Transform filter_pass_to_target_transform_;
   gfx::Rect filter_pass_layer_rect_;
 };
@@ -2636,8 +2696,8 @@ class RendererPixelTestWithBackgroundFilter
 using BackgroundFilterRendererTypes =
     ::testing::Types<GLRenderer, SkiaRenderer>;
 
-TYPED_TEST_CASE(RendererPixelTestWithBackgroundFilter,
-                BackgroundFilterRendererTypes);
+TYPED_TEST_SUITE(RendererPixelTestWithBackgroundFilter,
+                 BackgroundFilterRendererTypes);
 
 TYPED_TEST(RendererPixelTestWithBackgroundFilter, InvertFilter) {
   this->backdrop_filters_.Append(cc::FilterOperation::CreateInvertFilter(1.f));
@@ -2647,8 +2707,8 @@ TYPED_TEST(RendererPixelTestWithBackgroundFilter, InvertFilter) {
   // so the clipping bounds should be 0,0 WxH, not
   // this->filter_pass_layer_rect_.
   this->backdrop_filter_bounds_ =
-      gfx::RectF(0, 0, this->filter_pass_layer_rect_.width(),
-                 this->filter_pass_layer_rect_.height());
+      gfx::RRectF(0, 0, this->filter_pass_layer_rect_.width(),
+                  this->filter_pass_layer_rect_.height(), 0);
   this->SetUpRenderPassList();
   EXPECT_TRUE(this->RunPixelTest(
       &this->pass_list_,
@@ -3055,7 +3115,7 @@ TEST_F(GLRendererPixelTest, AntiAliasingPerspective) {
 }
 
 // Trilinear filtering is only supported in the gl renderer.
-TEST_F(GLRendererPixelTest, TrilinearFiltering) {
+TYPED_TEST(GLCapableRendererPixelTest, TrilinearFiltering) {
   gfx::Rect viewport_rect(this->device_viewport_size_);
 
   int root_pass_id = 1;
@@ -3071,7 +3131,7 @@ TEST_F(GLRendererPixelTest, TrilinearFiltering) {
   std::unique_ptr<RenderPass> child_pass = RenderPass::Create();
   child_pass->SetAll(
       child_pass_id, child_pass_rect, child_pass_rect, transform_to_root,
-      cc::FilterOperations(), cc::FilterOperations(), gfx::RectF(),
+      cc::FilterOperations(), cc::FilterOperations(), gfx::RRectF(),
       gfx::ColorSpace::CreateSRGB(), false, false, false, generate_mipmap);
 
   gfx::Rect red_rect(child_pass_rect);
@@ -4030,7 +4090,7 @@ TEST_F(GLRendererPixelTestWithOverdrawFeedback, TranslucentRectangles) {
 }
 
 using SkiaRendererTypes = ::testing::Types<SkiaRenderer>;
-TYPED_TEST_CASE(SkiaRendererPixelTestWithOverdrawFeedback, SkiaRendererTypes);
+TYPED_TEST_SUITE(SkiaRendererPixelTestWithOverdrawFeedback, SkiaRendererTypes);
 
 class SkiaRendererPixelTestWithOverdrawFeedback
     : public cc::RendererPixelTest<SkiaRenderer> {
@@ -4290,14 +4350,14 @@ bool color_space_premul_values[] = {
     true, false,
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     FromColorSpace,
     ColorTransformPixelTest,
     testing::Combine(testing::ValuesIn(src_color_spaces),
                      testing::ValuesIn(intermediate_color_spaces),
                      testing::ValuesIn(color_space_premul_values)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ToColorSpace,
     ColorTransformPixelTest,
     testing::Combine(testing::ValuesIn(intermediate_color_spaces),

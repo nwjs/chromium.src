@@ -7,12 +7,14 @@
 #include <memory>
 #include <string>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/files/file_path.h"
 #include "base/message_loop/message_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/test_mock_time_task_runner.h"
+#include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "components/gcm_driver/gcm_driver.h"
 #include "components/gcm_driver/instance_id/instance_id.h"
@@ -147,7 +149,7 @@ class MockGCMDriver : public gcm::GCMDriver {
 
 class MockInstanceIDDriver : public InstanceIDDriver {
  public:
-  MockInstanceIDDriver() : InstanceIDDriver(/*gcm_driver=*/nullptr){};
+  MockInstanceIDDriver() : InstanceIDDriver(/*gcm_driver=*/nullptr) {}
   ~MockInstanceIDDriver() override = default;
 
   MOCK_METHOD1(GetInstanceID, InstanceID*(const std::string& app_id));

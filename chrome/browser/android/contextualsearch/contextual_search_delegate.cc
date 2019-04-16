@@ -8,7 +8,9 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -22,13 +24,13 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/translate/translate_service.h"
-#include "chrome/common/pref_names.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/signin/core/browser/account_consistency_method.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/unified_consent/url_keyed_data_collection_consent_helper.h"
 #include "components/variations/net/variations_http_headers.h"
 #include "components/variations/variations_associated_data.h"
@@ -57,6 +59,8 @@ const char kContextualSearchCaption[] = "caption";
 const char kContextualSearchThumbnail[] = "thumbnail";
 const char kContextualSearchAction[] = "action";
 const char kContextualSearchCategory[] = "category";
+const char kContextualSearchSearchUrlFull[] = "search_url_full";
+const char kContextualSearchSearchUrlPreload[] = "search_url_preload";
 
 const char kActionCategoryAddress[] = "ADDRESS";
 const char kActionCategoryEmail[] = "EMAIL";
@@ -73,6 +77,7 @@ const char kDoPreventPreloadValue[] = "1";
 
 // The version of the Contextual Cards API that we want to invoke.
 const int kContextualCardsUrlActions = 3;
+const int kContextualCardsDefinitions = 4;
 
 const int kResponseCodeUninitialized = -1;
 
@@ -163,7 +168,7 @@ void ContextualSearchDelegate::ResolveSearchTermFromContext() {
   // Add Chrome experiment state to the request headers.
   // Reset will delete any previous loader, and we won't get any callback.
   url_loader_ =
-      variations::CreateSimpleURLLoaderWithVariationsHeadersUnknownSignedIn(
+      variations::CreateSimpleURLLoaderWithVariationsHeaderUnknownSignedIn(
           std::move(resource_request),
           variations::InIncognito::kNo,  // Impossible to be incognito at this
                                          // point.
@@ -214,12 +219,14 @@ ContextualSearchDelegate::GetResolvedSearchTermFromJson(
   std::string quick_action_uri = "";
   int64_t logged_event_id = 0;
   QuickActionCategory quick_action_category = QUICK_ACTION_CATEGORY_NONE;
+  std::string search_url_full = "";
+  std::string search_url_preload = "";
 
   DecodeSearchTermFromJsonResponse(
       json_string, &search_term, &display_text, &alternate_term, &mid,
       &prevent_preload, &mention_start, &mention_end, &context_language,
       &thumbnail_url, &caption, &quick_action_uri, &quick_action_category,
-      &logged_event_id);
+      &logged_event_id, &search_url_full, &search_url_preload);
   if (mention_start != 0 || mention_end != 0) {
     // Sanity check that our selection is non-zero and it is less than
     // 100 characters as that would make contextual search bar hide.
@@ -241,7 +248,8 @@ ContextualSearchDelegate::GetResolvedSearchTermFromJson(
       is_invalid, response_code, search_term, display_text, alternate_term, mid,
       prevent_preload == kDoPreventPreloadValue, start_adjust, end_adjust,
       context_language, thumbnail_url, caption, quick_action_uri,
-      quick_action_category, logged_event_id));
+      quick_action_category, logged_event_id, search_url_full,
+      search_url_preload));
 }
 
 std::string ContextualSearchDelegate::BuildRequestUrl(
@@ -257,7 +265,13 @@ std::string ContextualSearchDelegate::BuildRequestUrl(
   TemplateURLRef::SearchTermsArgs search_terms_args =
       TemplateURLRef::SearchTermsArgs(base::string16());
 
+  // Set the Coca-integration version based on our current active feature,
+  // or an override param from our field trial.
   int contextual_cards_version = kContextualCardsUrlActions;
+  if (base::FeatureList::IsEnabled(
+          chrome::android::kContextualSearchDefinitions)) {
+    contextual_cards_version = kContextualCardsDefinitions;
+  }
   if (field_trial_->GetContextualCardsVersion() != 0) {
     contextual_cards_version = field_trial_->GetContextualCardsVersion();
   }
@@ -379,7 +393,7 @@ bool ContextualSearchDelegate::CanSendPageURL(
     return false;
 
   syncer::SyncService* sync_service =
-      ProfileSyncServiceFactory::GetSyncServiceForProfile(profile);
+      ProfileSyncServiceFactory::GetForProfile(profile);
   if (!sync_service)
     return false;
 
@@ -412,7 +426,7 @@ std::string ContextualSearchDelegate::GetTargetLanguage() {
 std::string ContextualSearchDelegate::GetAcceptLanguages() {
   Profile* profile = ProfileManager::GetActiveUserProfile();
   PrefService* pref_service = profile->GetPrefs();
-  return pref_service->GetString(prefs::kAcceptLanguages);
+  return pref_service->GetString(language::prefs::kAcceptLanguages);
 }
 
 // Decodes the given response from the search term resolution request and sets
@@ -431,7 +445,9 @@ void ContextualSearchDelegate::DecodeSearchTermFromJsonResponse(
     std::string* caption,
     std::string* quick_action_uri,
     QuickActionCategory* quick_action_category,
-    int64_t* logged_event_id) {
+    int64_t* logged_event_id,
+    std::string* search_url_full,
+    std::string* search_url_preload) {
   bool contains_xssi_escape =
       base::StartsWith(response, kXssiEscape, base::CompareCase::SENSITIVE);
   const std::string& proper_json =
@@ -502,6 +518,11 @@ void ContextualSearchDelegate::DecodeSearchTermFromJsonResponse(
       *quick_action_category = QUICK_ACTION_CATEGORY_WEBSITE;
     }
   }
+
+  // Contextual Cards V4 may also provide full search URLs to use in the
+  // overlay.
+  dict->GetString(kContextualSearchSearchUrlFull, search_url_full);
+  dict->GetString(kContextualSearchSearchUrlPreload, search_url_preload);
 
   // Any Contextual Cards integration.
   // For testing purposes check if there was a diagnostic from Contextual

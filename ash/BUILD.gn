@@ -4,11 +4,8 @@
 
 import("//build/config/features.gni")
 import("//build/config/ui.gni")
-import("//chromeos/assistant/assistant.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
-import("//services/catalog/public/tools/catalog.gni")
 import("//services/service_manager/public/cpp/service_executable.gni")
-import("//services/service_manager/public/service_manifest.gni")
 import("//testing/test.gni")
 import("//tools/grit/repack.gni")
 import("//ui/base/ui_features.gni")
@@ -73,8 +70,10 @@ component("ash") {
     "wm/mru_window_tracker.h",
     "wm/overview/overview_controller.h",
     "wm/splitview/split_view_controller.h",
+    "wm/tablet_mode/tablet_mode_browser_window_drag_delegate.h",
     "wm/tablet_mode/tablet_mode_controller.h",
     "wm/tablet_mode/tablet_mode_observer.h",
+    "wm/tablet_mode/tablet_mode_window_drag_controller.h",
     "wm/tablet_mode/tablet_mode_window_drag_delegate.h",
     "wm/window_finder.h",
     "wm/window_positioner.h",
@@ -158,8 +157,6 @@ component("ash") {
     "app_list/app_list_controller_observer.h",
     "app_list/app_list_presenter_delegate_impl.cc",
     "app_list/app_list_presenter_delegate_impl.h",
-    "app_list/home_launcher_gesture_handler.cc",
-    "app_list/home_launcher_gesture_handler.h",
     "ash_export.h",
     "ash_service.cc",
     "assistant/assistant_alarm_timer_controller.cc",
@@ -181,55 +178,6 @@ component("ash") {
     "assistant/assistant_ui_controller.h",
     "assistant/assistant_view_delegate_impl.cc",
     "assistant/assistant_view_delegate_impl.h",
-    "assistant/ui/assistant_background_layer.cc",
-    "assistant/ui/assistant_background_layer.h",
-    "assistant/ui/assistant_container_view.cc",
-    "assistant/ui/assistant_container_view.h",
-    "assistant/ui/assistant_container_view_animator.cc",
-    "assistant/ui/assistant_container_view_animator.h",
-    "assistant/ui/assistant_container_view_animator_legacy_impl.cc",
-    "assistant/ui/assistant_container_view_animator_legacy_impl.h",
-    "assistant/ui/assistant_container_view_focus_traversable.cc",
-    "assistant/ui/assistant_container_view_focus_traversable.h",
-    "assistant/ui/assistant_main_view.cc",
-    "assistant/ui/assistant_main_view.h",
-    "assistant/ui/assistant_mini_view.cc",
-    "assistant/ui/assistant_mini_view.h",
-    "assistant/ui/assistant_view_delegate.h",
-    "assistant/ui/assistant_web_view.cc",
-    "assistant/ui/assistant_web_view.h",
-    "assistant/ui/base/assistant_button.cc",
-    "assistant/ui/base/assistant_button.h",
-    "assistant/ui/base/assistant_scroll_view.cc",
-    "assistant/ui/base/assistant_scroll_view.h",
-    "assistant/ui/caption_bar.cc",
-    "assistant/ui/caption_bar.h",
-    "assistant/ui/dialog_plate/action_view.cc",
-    "assistant/ui/dialog_plate/action_view.h",
-    "assistant/ui/dialog_plate/dialog_plate.cc",
-    "assistant/ui/dialog_plate/dialog_plate.h",
-    "assistant/ui/logo_view/base_logo_view.cc",
-    "assistant/ui/logo_view/base_logo_view.h",
-    "assistant/ui/main_stage/assistant_card_element_view.cc",
-    "assistant/ui/main_stage/assistant_card_element_view.h",
-    "assistant/ui/main_stage/assistant_footer_view.cc",
-    "assistant/ui/main_stage/assistant_footer_view.h",
-    "assistant/ui/main_stage/assistant_header_view.cc",
-    "assistant/ui/main_stage/assistant_header_view.h",
-    "assistant/ui/main_stage/assistant_main_stage.cc",
-    "assistant/ui/main_stage/assistant_main_stage.h",
-    "assistant/ui/main_stage/assistant_opt_in_view.cc",
-    "assistant/ui/main_stage/assistant_opt_in_view.h",
-    "assistant/ui/main_stage/assistant_progress_indicator.cc",
-    "assistant/ui/main_stage/assistant_progress_indicator.h",
-    "assistant/ui/main_stage/assistant_query_view.cc",
-    "assistant/ui/main_stage/assistant_query_view.h",
-    "assistant/ui/main_stage/assistant_text_element_view.cc",
-    "assistant/ui/main_stage/assistant_text_element_view.h",
-    "assistant/ui/main_stage/suggestion_container_view.cc",
-    "assistant/ui/main_stage/suggestion_container_view.h",
-    "assistant/ui/main_stage/ui_element_container_view.cc",
-    "assistant/ui/main_stage/ui_element_container_view.h",
     "autoclick/autoclick_controller.cc",
     "autoclick/autoclick_controller.h",
     "autoclick/autoclick_drag_event_rewriter.cc",
@@ -242,8 +190,10 @@ component("ash") {
     "cancel_mode.h",
     "cast_config_controller.cc",
     "cast_config_controller.h",
-    "contained_shell/contained_shell_controller.cc",
-    "contained_shell/contained_shell_controller.h",
+    "custom_tab/arc_custom_tab_controller.cc",
+    "custom_tab/arc_custom_tab_controller.h",
+    "custom_tab/arc_custom_tab_view.cc",
+    "custom_tab/arc_custom_tab_view.h",
     "dbus/ash_dbus_services.cc",
     "dbus/ash_dbus_services.h",
     "dbus/display_service_provider.cc",
@@ -357,6 +307,12 @@ component("ash") {
     "highlighter/highlighter_result_view.h",
     "highlighter/highlighter_view.cc",
     "highlighter/highlighter_view.h",
+    "home_screen/home_launcher_gesture_handler.cc",
+    "home_screen/home_launcher_gesture_handler.h",
+    "home_screen/home_launcher_gesture_handler_observer.h",
+    "home_screen/home_screen_controller.cc",
+    "home_screen/home_screen_controller.h",
+    "home_screen/home_screen_delegate.h",
     "host/ash_window_tree_host.cc",
     "host/ash_window_tree_host.h",
     "host/ash_window_tree_host_init_params.h",
@@ -387,6 +343,8 @@ component("ash") {
     "keyboard/virtual_keyboard_container_layout_manager.h",
     "keyboard/virtual_keyboard_controller.cc",
     "keyboard/virtual_keyboard_controller.h",
+    "kiosk_next/kiosk_next_shell_controller.cc",
+    "kiosk_next/kiosk_next_shell_controller.h",
     "laser/laser_pointer_controller.cc",
     "laser/laser_pointer_controller.h",
     "laser/laser_pointer_view.cc",
@@ -462,6 +420,8 @@ component("ash") {
     "login/ui/non_accessible_view.h",
     "login/ui/note_action_launch_button.cc",
     "login/ui/note_action_launch_button.h",
+    "login/ui/parent_access_view.cc",
+    "login/ui/parent_access_view.h",
     "login/ui/pin_keyboard_animation.cc",
     "login/ui/pin_keyboard_animation.h",
     "login/ui/public_account_warning_dialog.cc",
@@ -494,8 +454,11 @@ component("ash") {
     "metrics/demo_session_metrics_recorder.h",
     "metrics/desktop_task_switch_metric_recorder.cc",
     "metrics/desktop_task_switch_metric_recorder.h",
+    "metrics/histogram_macros.cc",
+    "metrics/histogram_macros.h",
     "metrics/login_metrics_recorder.cc",
     "metrics/login_metrics_recorder.h",
+    "metrics/pip_uma.h",
     "metrics/pointer_metrics_recorder.cc",
     "metrics/pointer_metrics_recorder.h",
     "metrics/task_switch_metrics_recorder.cc",
@@ -761,6 +724,8 @@ component("ash") {
     "system/model/update_model.h",
     "system/model/virtual_keyboard_model.cc",
     "system/model/virtual_keyboard_model.h",
+    "system/network/active_network_icon.cc",
+    "system/network/active_network_icon.h",
     "system/network/auto_connect_notifier.cc",
     "system/network/auto_connect_notifier.h",
     "system/network/network_feature_pod_button.cc",
@@ -849,6 +814,8 @@ component("ash") {
     "system/power/battery_notification.h",
     "system/power/dual_role_notification.cc",
     "system/power/dual_role_notification.h",
+    "system/power/notification_reporter.cc",
+    "system/power/notification_reporter.h",
     "system/power/peripheral_battery_notifier.cc",
     "system/power/peripheral_battery_notifier.h",
     "system/power/power_button_controller.cc",
@@ -1074,6 +1041,20 @@ component("ash") {
     "wm/default_state.h",
     "wm/default_window_resizer.cc",
     "wm/default_window_resizer.h",
+    "wm/desks/close_desk_button.cc",
+    "wm/desks/close_desk_button.h",
+    "wm/desks/desk.cc",
+    "wm/desks/desk.h",
+    "wm/desks/desk_mini_view.cc",
+    "wm/desks/desk_mini_view.h",
+    "wm/desks/desk_mini_view_animations.cc",
+    "wm/desks/desk_mini_view_animations.h",
+    "wm/desks/desks_bar_view.cc",
+    "wm/desks/desks_bar_view.h",
+    "wm/desks/desks_controller.cc",
+    "wm/desks/desks_controller.h",
+    "wm/desks/new_desk_button.cc",
+    "wm/desks/new_desk_button.h",
     "wm/drag_details.cc",
     "wm/drag_details.h",
     "wm/drag_window_controller.cc",
@@ -1089,8 +1070,6 @@ component("ash") {
     "wm/gestures/overview_gesture_handler.h",
     "wm/immersive_context_ash.cc",
     "wm/immersive_context_ash.h",
-    "wm/immersive_gesture_drag_handler.cc",
-    "wm/immersive_gesture_drag_handler.h",
     "wm/lock_action_handler_layout_manager.cc",
     "wm/lock_action_handler_layout_manager.h",
     "wm/lock_layout_manager.cc",
@@ -1123,6 +1102,7 @@ component("ash") {
     "wm/overview/overview_grid.h",
     "wm/overview/overview_item.cc",
     "wm/overview/overview_item.h",
+    "wm/overview/overview_observer.h",
     "wm/overview/overview_session.cc",
     "wm/overview/overview_session.h",
     "wm/overview/overview_utils.cc",
@@ -1188,18 +1168,16 @@ component("ash") {
     "wm/tablet_mode/internal_input_devices_event_blocker.h",
     "wm/tablet_mode/scoped_skip_user_session_blocked_check.cc",
     "wm/tablet_mode/scoped_skip_user_session_blocked_check.h",
-    "wm/tablet_mode/tablet_mode_app_window_drag_controller.cc",
     "wm/tablet_mode/tablet_mode_backdrop_delegate_impl.cc",
     "wm/tablet_mode/tablet_mode_backdrop_delegate_impl.h",
-    "wm/tablet_mode/tablet_mode_browser_window_drag_controller.cc",
-    "wm/tablet_mode/tablet_mode_browser_window_drag_controller.h",
     "wm/tablet_mode/tablet_mode_browser_window_drag_delegate.cc",
-    "wm/tablet_mode/tablet_mode_browser_window_drag_delegate.h",
     "wm/tablet_mode/tablet_mode_controller.cc",
     "wm/tablet_mode/tablet_mode_event_handler.cc",
     "wm/tablet_mode/tablet_mode_event_handler.h",
+    "wm/tablet_mode/tablet_mode_window_drag_controller.cc",
     "wm/tablet_mode/tablet_mode_window_drag_delegate.cc",
-    "wm/tablet_mode/tablet_mode_window_drag_delegate.h",
+    "wm/tablet_mode/tablet_mode_window_drag_metrics.cc",
+    "wm/tablet_mode/tablet_mode_window_drag_metrics.h",
     "wm/tablet_mode/tablet_mode_window_manager.cc",
     "wm/tablet_mode/tablet_mode_window_manager.h",
     "wm/tablet_mode/tablet_mode_window_state.cc",
@@ -1320,11 +1298,11 @@ component("ash") {
     "//ash/app_list/presenter",
     "//ash/app_menu",
     "//ash/assistant/model",
+    "//ash/assistant/ui",
     "//ash/assistant/ui:constants",
     "//ash/assistant/util",
     "//ash/components/cursor",
     "//ash/components/fast_ink",
-    "//ash/components/quick_launch/public/mojom",
     "//ash/components/shortcut_viewer/public/mojom",
     "//ash/components/tap_visualizer/public/mojom",
     "//ash/keyboard/arc",
@@ -1345,6 +1323,7 @@ component("ash") {
     "//chromeos/dbus",
     "//chromeos/dbus:power_manager_proto",
     "//chromeos/dbus/services:services",
+    "//chromeos/dbus/system_clock",
 
     # TODO(stevenjb): Remove this dependency, https://crbug.com/644355.
     "//chromeos/network",
@@ -1438,27 +1417,15 @@ component("ash") {
     "//components/exo",
     "//components/exo/wayland",
   ]
-
-  if (enable_cros_libassistant) {
-    sources += [
-      "assistant/ui/logo_view/logo_view.cc",
-      "assistant/ui/logo_view/logo_view.h",
-      "assistant/ui/logo_view/shape/mic_part_shape.cc",
-      "assistant/ui/logo_view/shape/mic_part_shape.h",
-      "assistant/ui/logo_view/shape/shape.cc",
-      "assistant/ui/logo_view/shape/shape.h",
-    ]
-
-    deps += [ "//chromeos/assistant/internal/logo_view" ]
-  }
 }
 
 static_library("ash_shell_lib") {
   testonly = true
   sources = [
     "../ui/views/test/test_views_delegate_aura.cc",
-    "shell/app_list.cc",
     "shell/bubble.cc",
+    "shell/example_app_list_client.cc",
+    "shell/example_app_list_client.h",
     "shell/example_factory.h",
     "shell/example_session_controller_client.cc",
     "shell/example_session_controller_client.h",
@@ -1514,22 +1481,22 @@ static_library("ash_shell_lib_with_content") {
     "shell/content/client/shell_content_browser_client.h",
     "shell/content/client/shell_main_delegate.cc",
     "shell/content/client/shell_main_delegate.h",
+    "shell/content/embedded_browser.cc",
+    "shell/content/embedded_browser.h",
   ]
 
   deps = [
     ":ash_shell_lib",
-    ":manifest",
     ":test_support",
-    "//ash/components/quick_launch:lib",
-    "//ash/components/quick_launch:manifest",
-    "//ash/components/quick_launch/public/mojom",
     "//ash/components/shortcut_viewer:lib",
-    "//ash/components/shortcut_viewer:manifest",
+    "//ash/components/shortcut_viewer/public/cpp:manifest",
     "//ash/components/shortcut_viewer/public/mojom",
     "//ash/components/tap_visualizer:lib",
-    "//ash/components/tap_visualizer:manifest",
+    "//ash/components/tap_visualizer/public/cpp:manifest",
     "//ash/components/tap_visualizer/public/mojom",
     "//ash/public/cpp",
+    "//ash/public/cpp:manifest",
+    "//ash/public/cpp:manifest_for_tests",
     "//base:i18n",
     "//chrome:packed_resources",
     "//chromeos",
@@ -1547,8 +1514,9 @@ static_library("ash_shell_lib_with_content") {
     "//services/device/public/mojom",
     "//services/ws:lib",
     "//services/ws/ime/test_ime_driver:lib",
-    "//services/ws/ime/test_ime_driver:manifest",
+    "//services/ws/ime/test_ime_driver/public/cpp:manifest",
     "//services/ws/ime/test_ime_driver/public/mojom",
+    "//services/ws/remote_view_host",
     "//skia",
     "//ui/aura",
     "//ui/base",
@@ -1559,6 +1527,7 @@ static_library("ash_shell_lib_with_content") {
     "//ui/message_center",
     "//ui/views:test_support",
     "//ui/views/examples:views_examples_with_content_lib",
+    "//ui/views/mus/remote_view:remote_view_provider",
     "//ui/wm",
   ]
 }
@@ -1592,9 +1561,9 @@ test("ash_unittests") {
     "accessibility/touch_accessibility_enabler_unittest.cc",
     "accessibility/touch_exploration_controller_unittest.cc",
     "accessibility/touch_exploration_manager_unittest.cc",
-    "app_launch_unittest.cc",
+    "app_list/app_list_controller_impl_unittest.cc",
     "app_list/app_list_presenter_delegate_unittest.cc",
-    "app_list/home_launcher_gesture_handler_unittest.cc",
+    "app_list/app_list_unittest.cc",
     "app_list/model/app_list_item_list_unittest.cc",
     "app_list/model/app_list_model_unittest.cc",
     "app_list/presenter/app_list_presenter_impl_unittest.cc",
@@ -1609,8 +1578,6 @@ test("ash_unittests") {
     "assistant/util/deep_link_util_unittest.cc",
     "autoclick/autoclick_drag_event_rewriter_unittest.cc",
     "autoclick/autoclick_unittest.cc",
-    "contained_shell/mock_contained_shell_client.cc",
-    "contained_shell/mock_contained_shell_client.h",
     "cursor_unittest.cc",
     "detachable_base/detachable_base_handler_unittest.cc",
     "detachable_base/detachable_base_notification_controller_unittest.cc",
@@ -1639,6 +1606,7 @@ test("ash_unittests") {
     "display/window_tree_host_manager_unittest.cc",
     "drag_drop/drag_drop_controller_unittest.cc",
     "drag_drop/drag_drop_tracker_unittest.cc",
+    "drag_drop/drag_drop_unittest.cc",
     "drag_drop/drag_image_view_unittest.cc",
     "events/keyboard_driven_event_rewriter_unittest.cc",
     "events/select_to_speak_event_handler_unittest.cc",
@@ -1653,12 +1621,15 @@ test("ash_unittests") {
     "frame/non_client_frame_view_ash_unittest.cc",
     "highlighter/highlighter_controller_unittest.cc",
     "highlighter/highlighter_gesture_util_unittest.cc",
+    "home_screen/home_launcher_gesture_handler_unittest.cc",
     "ime/ime_controller_unittest.cc",
     "ime/ime_focus_handler_unittest.cc",
     "keyboard/arc/arc_input_method_surface_manager_unittest.cc",
     "keyboard/ash_keyboard_controller_unittest.cc",
     "keyboard/virtual_keyboard_controller_unittest.cc",
     "keyboard/virtual_keyboard_unittest.cc",
+    "kiosk_next/mock_kiosk_next_shell_client.cc",
+    "kiosk_next/mock_kiosk_next_shell_client.h",
     "laser/laser_pointer_controller_unittest.cc",
     "laser/laser_segment_utils_unittest.cc",
     "lock_screen_action/lock_screen_action_background_controller_impl_unittest.cc",
@@ -1688,6 +1659,7 @@ test("ash_unittests") {
     "login/ui/login_user_menu_view_unittest.cc",
     "login/ui/login_user_view_unittest.cc",
     "login/ui/note_action_launch_button_unittest.cc",
+    "login/ui/parent_access_view_unittest.cc",
     "magnifier/docked_magnifier_controller_unittest.cc",
     "magnifier/magnification_controller_unittest.cc",
     "magnifier/magnifier_test_utils.cc",
@@ -1698,8 +1670,10 @@ test("ash_unittests") {
     "media/media_notification_view_unittest.cc",
     "metrics/demo_session_metrics_recorder_unittest.cc",
     "metrics/desktop_task_switch_metric_recorder_unittest.cc",
+    "metrics/histogram_macros_unittest.cc",
     "metrics/login_metrics_recorder_unittest.cc",
     "metrics/pointer_metrics_recorder_unittest.cc",
+    "metrics/presentation_time_recorder_unittest.cc",
     "metrics/task_switch_metrics_recorder_unittest.cc",
     "metrics/task_switch_time_tracker_unittest.cc",
     "metrics/user_metrics_recorder_unittest.cc",
@@ -1753,6 +1727,7 @@ test("ash_unittests") {
     "system/message_center/session_state_notification_blocker_unittest.cc",
     "system/message_center/unified_message_center_view_unittest.cc",
     "system/message_center/unified_message_list_view_unittest.cc",
+    "system/network/active_network_icon_unittest.cc",
     "system/network/auto_connect_notifier_unittest.cc",
     "system/network/network_icon_unittest.cc",
     "system/network/sms_observer_unittest.cc",
@@ -1770,6 +1745,7 @@ test("ash_unittests") {
     "system/palette/tools/metalayer_unittest.cc",
     "system/palette/tools/screenshot_unittest.cc",
     "system/power/backlights_forced_off_setter_unittest.cc",
+    "system/power/notification_reporter_unittest.cc",
     "system/power/peripheral_battery_notifier_unittest.cc",
     "system/power/power_button_controller_unittest.cc",
     "system/power/power_button_screenshot_controller_unittest.cc",
@@ -1822,11 +1798,11 @@ test("ash_unittests") {
     "wm/client_controlled_state_unittest.cc",
     "wm/container_finder_unittest.cc",
     "wm/default_window_resizer_unittest.cc",
+    "wm/desks/desks_unittests.cc",
     "wm/drag_window_resizer_unittest.cc",
     "wm/fullscreen_window_finder_unittest.cc",
     "wm/gestures/overview_gesture_handler_unittest.cc",
     "wm/immersive_fullscreen_controller_unittest.cc",
-    "wm/immersive_gesture_drag_handler_unittest.cc",
     "wm/lock_action_handler_layout_manager_unittest.cc",
     "wm/lock_layout_manager_unittest.cc",
     "wm/lock_state_controller_unittest.cc",
@@ -1871,6 +1847,7 @@ test("ash_unittests") {
     "wm/window_preview_view_unittest.cc",
     "wm/window_state_unittest.cc",
     "wm/window_util_unittest.cc",
+    "wm/wm_toplevel_window_event_handler_unittest.cc",
     "wm/workspace/magnetism_matcher_unittest.cc",
     "wm/workspace/multi_window_resize_controller_unittest.cc",
     "wm/workspace/workspace_event_handler_unittest.cc",
@@ -1890,20 +1867,21 @@ test("ash_unittests") {
   deps = [
     ":ash",
     ":ash_service_resources",
-    ":ash_unittests_catalog_source",
     ":test_support",
     "//ash/app_list:test_support",
     "//ash/app_list/presenter",
     "//ash/app_menu",
     "//ash/assistant/model",
+    "//ash/assistant/ui",
     "//ash/assistant/util",
     "//ash/components/fast_ink",
     "//ash/components/fast_ink:unit_tests",
-    "//ash/components/quick_launch/public/mojom:constants",
     "//ash/components/shortcut_viewer:unit_tests",
     "//ash/components/tap_visualizer:unit_tests",
     "//ash/keyboard/arc",
     "//ash/public/cpp",
+    "//ash/public/cpp:manifest",
+    "//ash/public/cpp:manifest_for_tests",
     "//ash/public/cpp:test_support",
     "//ash/public/cpp:unit_tests",
     "//ash/public/cpp/vector_icons",
@@ -1941,7 +1919,6 @@ test("ash_unittests") {
     "//extensions/common:common_constants",
     "//mojo/core/embedder",
     "//net:net",
-    "//services/catalog:lib",
     "//services/media_session/public/cpp/test:test_support",
     "//services/media_session/public/mojom",
     "//services/ws:test_support",
@@ -1997,7 +1974,6 @@ test("ash_unittests") {
     ":ash_service_resources",
     ":ash_service",
     "//ash/resources:ash_test_resources_100_percent",
-    "//ash/components/quick_launch:quick_launch_app",
   ]
 
   data = [
@@ -2195,6 +2171,7 @@ static_library("test_support") {
     # TODO(stevenjb): Investigate whether this is OK. https://crbug.com/644336.
     "//chromeos/audio",
     "//chromeos/dbus:test_support",
+    "//chromeos/dbus/system_clock",
 
     # TODO(stevenjb): Remove this dependency, https://crbug.com/644355.
     "//chromeos/network:test_support",
@@ -2241,30 +2218,6 @@ static_library("test_support") {
   ]
 }
 
-static_library("interactive_ui_test_support") {
-  testonly = true
-  configs += [ "//build/config:precompiled_headers" ]
-  public_deps = [
-    ":test_support",
-    "//ash",
-  ]
-  sources = [
-    "test/ash_interactive_ui_test_base.cc",
-    "test/ash_interactive_ui_test_base.h",
-  ]
-  deps = [
-    ":test_support",
-    "//base",
-    "//mojo/core/embedder",
-    "//skia",
-    "//testing/gtest",
-    "//ui/aura",
-    "//ui/base",
-    "//ui/base:test_support",
-    "//ui/gl:test_support",
-  ]
-}
-
 service_executable("ash_service") {
   output_name = "ash"
 
@@ -2283,12 +2236,6 @@ service_executable("ash_service") {
     ":ash_service_resources",
     ":ash_service_resources_200",
   ]
-}
-
-service_manifest("manifest") {
-  name = "ash"
-  source = "manifest.json"
-  packaged_services = [ "//services/ws:manifest" ]
 }
 
 # TODO: Load locale-specific strings.
@@ -2333,26 +2280,4 @@ repack("ash_service_resources_200") {
     "//ui/resources",
     "//ui/views/resources",
   ]
-}
-
-service_manifest("ash_unittests_manifest") {
-  name = "ash_unittests"
-  source = "ash_unittests_manifest.json"
-}
-
-catalog("ash_unittests_catalog") {
-  testonly = true
-
-  embedded_services = [ ":ash_unittests_manifest" ]
-
-  standalone_services = [
-    ":manifest",
-    "//ash/components/quick_launch:manifest",
-  ]
-}
-
-catalog_cpp_source("ash_unittests_catalog_source") {
-  testonly = true
-  catalog = ":ash_unittests_catalog"
-  generated_function_name = "ash::CreateUnittestsCatalog"
 }

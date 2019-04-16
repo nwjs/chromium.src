@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
 #include "base/run_loop.h"
@@ -255,9 +256,9 @@ const FileTestData file_tests[] = {
     {10, 128 + 64},      // Parts of all three chunks.
 };
 
-INSTANTIATE_TEST_CASE_P(BlobBytesProviderTest,
-                        RequestAsFile,
-                        testing::ValuesIn(file_tests));
+INSTANTIATE_TEST_SUITE_P(BlobBytesProviderTest,
+                         RequestAsFile,
+                         testing::ValuesIn(file_tests));
 
 TEST_F(BlobBytesProviderTest, RequestAsFile_MultipleChunks) {
   auto provider = CreateProvider();

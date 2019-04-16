@@ -6,7 +6,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_HTML_MEDIA_VIDEO_WAKE_LOCK_H_
 
 #include "services/device/public/mojom/wake_lock.mojom-blink.h"
-#include "third_party/blink/public/platform/modules/remoteplayback/web_remote_playback_state.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/html/media/remote_playback_observer.h"
@@ -28,7 +27,7 @@ class HTMLVideoElement;
 class CORE_EXPORT VideoWakeLock final : public NativeEventListener,
                                         public PageVisibilityObserver,
                                         public RemotePlaybackObserver {
-  USING_GARBAGE_COLLECTED_MIXIN(VideoWakeLock)
+  USING_GARBAGE_COLLECTED_MIXIN(VideoWakeLock);
 
  public:
   explicit VideoWakeLock(HTMLVideoElement&);
@@ -39,8 +38,8 @@ class CORE_EXPORT VideoWakeLock final : public NativeEventListener,
   void Invoke(ExecutionContext*, Event*) final;
 
   // RemotePlaybackObserver implementation.
-  void OnRemotePlaybackStateChanged(WebRemotePlaybackState) final;
-  void OnRemotePlaybackAvailabilityChanged(WebRemotePlaybackAvailability) final;
+  void OnRemotePlaybackStateChanged(
+      mojom::blink::PresentationConnectionState) final;
 
   bool active_for_tests() const { return active_; }
 
@@ -74,8 +73,8 @@ class CORE_EXPORT VideoWakeLock final : public NativeEventListener,
 
   bool playing_ = false;
   bool active_ = false;
-  WebRemotePlaybackState remote_playback_state_ =
-      WebRemotePlaybackState::kDisconnected;
+  mojom::blink::PresentationConnectionState remote_playback_state_ =
+      mojom::blink::PresentationConnectionState::CLOSED;
 };
 
 }  // namespace blink

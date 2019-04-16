@@ -14,6 +14,7 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/apps/app_service/built_in_chromeos_apps.h"
+#include "chrome/browser/apps/app_service/crostini_apps.h"
 #include "chrome/browser/apps/app_service/extension_apps.h"
 #endif  // OS_CHROMEOS
 
@@ -24,7 +25,7 @@ namespace apps {
 // Singleton (per Profile) proxy and cache of an App Service's apps.
 //
 // Singleton-ness means that //chrome/browser code (e.g UI code) can find *the*
-// proxy for a given Profile, and therefore share the cache.
+// proxy for a given Profile, and therefore share its caches.
 //
 // See chrome/services/app_service/README.md.
 class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
@@ -36,11 +37,12 @@ class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
   ~AppServiceProxy() override;
 
   apps::mojom::AppServicePtr& AppService();
-  AppRegistryCache& Cache();
+  apps::AppRegistryCache& AppRegistryCache();
 
   void LoadIcon(const std::string& app_id,
                 apps::mojom::IconCompression icon_compression,
                 int32_t size_hint_in_dip,
+                bool allow_placeholder_icon,
                 apps::mojom::Publisher::LoadIconCallback callback);
 
   void Launch(const std::string& app_id,
@@ -56,17 +58,22 @@ class AppServiceProxy : public KeyedService, public apps::mojom::Subscriber {
   void OpenNativeSettings(const std::string& app_id);
 
  private:
+  // KeyedService overrides.
+  void Shutdown() override;
+
   // apps::mojom::Subscriber overrides.
   void OnApps(std::vector<apps::mojom::AppPtr> deltas) override;
   void Clone(apps::mojom::SubscriberRequest request) override;
 
   apps::mojom::AppServicePtr app_service_;
   mojo::BindingSet<apps::mojom::Subscriber> bindings_;
-  AppRegistryCache cache_;
+  apps::AppRegistryCache cache_;
 
 #if defined(OS_CHROMEOS)
   BuiltInChromeOsApps built_in_chrome_os_apps_;
+  CrostiniApps crostini_apps_;
   ExtensionApps extension_apps_;
+  ExtensionApps extension_web_apps_;
 #endif  // OS_CHROMEOS
 
   DISALLOW_COPY_AND_ASSIGN(AppServiceProxy);

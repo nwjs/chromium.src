@@ -21,10 +21,10 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chromeos/dbus/constants/dbus_paths.h"
-#include "chromeos/dbus/cryptohome/install_attributes.pb.h"
 #include "chromeos/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/util/tpm_util.h"
+#include "components/policy/proto/install_attributes.pb.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 
@@ -138,11 +138,7 @@ InstallAttributes::GetEnterpriseOwnedInstallAttributesBlobForTesting(
   attribute->set_name(InstallAttributes::kAttrEnterpriseUser);
   attribute->set_value(user_name);
 
-  // Set default version (note that version is required).
-  install_attrs_proto.set_version(install_attrs_proto.version());
-  std::string result = install_attrs_proto.SerializeAsString();
-  DCHECK(!result.empty());
-  return result;
+  return install_attrs_proto.SerializeAsString();
 }
 
 InstallAttributes::InstallAttributes(CryptohomeClient* cryptohome_client)
@@ -439,8 +435,9 @@ void InstallAttributes::OnTpmGetPasswordCompleted(
   if (!result.has_value() && dbus_retries_remaining) {
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&InstallAttributes::TriggerConsistencyCheck,
-                   weak_ptr_factory_.GetWeakPtr(), dbus_retries_remaining - 1),
+        base::BindOnce(&InstallAttributes::TriggerConsistencyCheck,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       dbus_retries_remaining - 1),
         base::TimeDelta::FromSeconds(kDbusRetryIntervalInSeconds));
     return;
   }

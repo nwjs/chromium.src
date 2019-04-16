@@ -35,7 +35,7 @@
 
 #include "third_party/blink/public/platform/web_media_source.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/fileapi/url_registry.h"
 #include "third_party/blink/renderer/core/html/media/html_media_source.h"
 #include "third_party/blink/renderer/core/html/time_ranges.h"
@@ -82,9 +82,9 @@ class MediaSource final : public EventTargetWithInlineData,
   void removeSourceBuffer(SourceBuffer*, ExceptionState&);
   void setDuration(double, ExceptionState&);
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceopen, kSourceopen);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceended, kSourceended);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceclose, kSourceclose);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceopen, kSourceopen)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceended, kSourceended)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(sourceclose, kSourceclose)
 
   const AtomicString& readyState() const { return ready_state_; }
   void endOfStream(const AtomicString& error, ExceptionState&);

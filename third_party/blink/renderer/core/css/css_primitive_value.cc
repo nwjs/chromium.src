@@ -172,16 +172,16 @@ CSSPrimitiveValue::CSSPrimitiveValue(double num, UnitType type)
 CSSPrimitiveValue::CSSPrimitiveValue(const Length& length, float zoom)
     : CSSValue(kPrimitiveClass) {
   switch (length.GetType()) {
-    case kPercent:
+    case Length::kPercent:
       Init(UnitType::kPercentage);
       DCHECK(std::isfinite(length.Percent()));
       value_.num = length.Percent();
       break;
-    case kFixed:
+    case Length::kFixed:
       Init(UnitType::kPixels);
       value_.num = length.Value() / zoom;
       break;
-    case kCalculated: {
+    case Length::kCalculated: {
       const CalculationValue& calc = length.GetCalculationValue();
       if (calc.Pixels() && calc.Percent()) {
         Init(CSSCalcValue::Create(CSSCalcValue::CreateExpressionNode(
@@ -200,15 +200,15 @@ CSSPrimitiveValue::CSSPrimitiveValue(const Length& length, float zoom)
         value_.num = 0;
       break;
     }
-    case kAuto:
-    case kMinContent:
-    case kMaxContent:
-    case kFillAvailable:
-    case kFitContent:
-    case kExtendToZoom:
-    case kDeviceWidth:
-    case kDeviceHeight:
-    case kMaxSizeNone:
+    case Length::kAuto:
+    case Length::kMinContent:
+    case Length::kMaxContent:
+    case Length::kFillAvailable:
+    case Length::kFitContent:
+    case Length::kExtendToZoom:
+    case Length::kDeviceWidth:
+    case Length::kDeviceHeight:
+    case Length::kMaxSizeNone:
       NOTREACHED();
       break;
   }
@@ -282,21 +282,21 @@ unsigned CSSPrimitiveValue::ComputeLength(
 template <>
 Length CSSPrimitiveValue::ComputeLength(
     const CSSToLengthConversionData& conversion_data) const {
-  return Length(ClampToCSSLengthRange(ComputeLengthDouble(conversion_data)),
-                kFixed);
+  return Length::Fixed(
+      ClampToCSSLengthRange(ComputeLengthDouble(conversion_data)));
 }
 
 template <>
-short CSSPrimitiveValue::ComputeLength(
+int16_t CSSPrimitiveValue::ComputeLength(
     const CSSToLengthConversionData& conversion_data) const {
-  return RoundForImpreciseConversion<short>(
+  return RoundForImpreciseConversion<int16_t>(
       ComputeLengthDouble(conversion_data));
 }
 
 template <>
-unsigned short CSSPrimitiveValue::ComputeLength(
+uint16_t CSSPrimitiveValue::ComputeLength(
     const CSSToLengthConversionData& conversion_data) const {
-  return RoundForImpreciseConversion<unsigned short>(
+  return RoundForImpreciseConversion<uint16_t>(
       ComputeLengthDouble(conversion_data));
 }
 
@@ -406,7 +406,7 @@ Length CSSPrimitiveValue::ConvertToLength(
   if (IsLength())
     return ComputeLength<Length>(conversion_data);
   if (IsPercentage())
-    return Length(GetDoubleValue(), kPercent);
+    return Length::Percent(GetDoubleValue());
   DCHECK(IsCalculated());
   return Length(CssCalcValue()->ToCalcValue(conversion_data));
 }

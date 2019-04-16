@@ -33,9 +33,9 @@ class WebAppPolicyManager {
   WebAppPolicyManager(Profile* profile, PendingAppManager* pending_app_manager);
   ~WebAppPolicyManager();
 
-  static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+  void Start();
 
-  static bool ShouldEnableForProfile(Profile* profile);
+  static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
  private:
   void InitChangeRegistrarAndRefreshPolicyInstalledApps();

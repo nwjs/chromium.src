@@ -42,7 +42,7 @@
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
-#include "third_party/blink/renderer/platform/wtf/noncopyable.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 #include "third_party/blink/renderer/platform/wtf/text/cstring.h"
 #include "third_party/blink/renderer/platform/wtf/time.h"
@@ -57,6 +57,8 @@ namespace blink {
 //
 // This class is thread-bound. Do not copy/pass an instance across threads.
 class PLATFORM_EXPORT ResourceResponse final {
+  USING_FAST_MALLOC(ResourceResponse);
+
  public:
   enum HTTPVersion : uint8_t {
     kHTTPVersionUnknown,
@@ -79,6 +81,8 @@ class PLATFORM_EXPORT ResourceResponse final {
   };
 
   class PLATFORM_EXPORT SignedCertificateTimestamp final {
+    DISALLOW_NEW();
+
    public:
     SignedCertificateTimestamp(String status,
                                String origin,
@@ -195,7 +199,7 @@ class PLATFORM_EXPORT ResourceResponse final {
   void SetTextEncodingName(const AtomicString&);
 
   int HttpStatusCode() const;
-  void SetHTTPStatusCode(int);
+  void SetHttpStatusCode(int);
 
   const AtomicString& HttpStatusText() const;
   void SetHTTPStatusText(const AtomicString&);
@@ -257,11 +261,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   }
   void SetCTPolicyCompliance(CTPolicyCompliance);
 
-  bool IsLegacySymantecCert() const { return is_legacy_symantec_cert_; }
-  void SetIsLegacySymantecCert(bool is_legacy_symantec_cert) {
-    is_legacy_symantec_cert_ = is_legacy_symantec_cert;
-  }
-
   bool IsLegacyTLSVersion() const { return is_legacy_tls_version_; }
   void SetIsLegacyTLSVersion(bool value) { is_legacy_tls_version_ = value; }
 
@@ -317,11 +316,11 @@ class PLATFORM_EXPORT ResourceResponse final {
   void SetType(network::mojom::FetchResponseType value) {
     response_type_ = value;
   }
-  // https://html.spec.whatwg.org/#cors-same-origin
+  // https://html.spec.whatwg.org/C/#cors-same-origin
   bool IsCorsSameOrigin() const {
     return network::cors::IsCorsSameOriginResponseType(response_type_);
   }
-  // https://html.spec.whatwg.org/#cors-cross-origin
+  // https://html.spec.whatwg.org/C/#cors-cross-origin
   bool IsCorsCrossOrigin() const {
     return network::cors::IsCorsCrossOriginResponseType(response_type_);
   }
@@ -363,8 +362,8 @@ class PLATFORM_EXPORT ResourceResponse final {
     remote_ip_address_ = value;
   }
 
-  unsigned short RemotePort() const { return remote_port_; }
-  void SetRemotePort(unsigned short value) { remote_port_ = value; }
+  uint16_t RemotePort() const { return remote_port_; }
+  void SetRemotePort(uint16_t value) { remote_port_ = value; }
 
   const AtomicString& AlpnNegotiatedProtocol() const {
     return alpn_negotiated_protocol_;
@@ -436,7 +435,7 @@ class PLATFORM_EXPORT ResourceResponse final {
   AtomicString remote_ip_address_;
 
   // Remote port number of the socket which fetched this resource.
-  unsigned short remote_port_ = 0;
+  uint16_t remote_port_ = 0;
 
   bool was_cached_ = false;
   bool connection_reused_ = false;
@@ -453,10 +452,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   // The Certificate Transparency policy compliance status of the resource.
   CTPolicyCompliance ct_policy_compliance_ =
       kCTPolicyComplianceDetailsNotAvailable;
-
-  // True if the resource was retrieved with a legacy Symantec certificate which
-  // is slated for distrust in future.
-  bool is_legacy_symantec_cert_ = false;
 
   // True if the response was sent over TLS 1.0 or 1.1, which are deprecated and
   // will be removed in the future.

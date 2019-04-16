@@ -137,6 +137,15 @@ class PasswordStoreX : public password_manager::PasswordStoreDefault {
   // RefcountedKeyedService:
   void ShutdownOnUIThread() override;
 
+ protected:
+  // Implements PasswordStoreSync interface.
+  password_manager::FormRetrievalResult ReadAllLogins(
+      password_manager::PrimaryKeyToFormMap* key_to_form_map) override;
+  password_manager::PasswordStoreChangeList RemoveLoginByPrimaryKeySync(
+      int primary_key) override;
+  password_manager::PasswordStoreSync::MetadataStore* GetMetadataStore()
+      override;
+
  private:
   friend class PasswordStoreXTest;
 

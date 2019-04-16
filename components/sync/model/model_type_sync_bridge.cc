@@ -46,14 +46,13 @@ ConflictResolution ModelTypeSyncBridge::ResolveConflict(
   return ConflictResolution::UseRemote();
 }
 
-ModelTypeSyncBridge::StopSyncResponse ModelTypeSyncBridge::ApplyStopSyncChanges(
+void ModelTypeSyncBridge::ApplyStopSyncChanges(
     std::unique_ptr<MetadataChangeList> delete_metadata_change_list) {
   if (delete_metadata_change_list) {
     // Nothing to do if this fails, so just ignore the error it might return.
     ApplySyncChanges(std::move(delete_metadata_change_list),
                      EntityChangeList());
   }
-  return StopSyncResponse::kModelStillReadyToSync;
 }
 
 size_t ModelTypeSyncBridge::EstimateSyncOverheadMemoryUsage() const {
@@ -64,12 +63,8 @@ ModelTypeChangeProcessor* ModelTypeSyncBridge::change_processor() {
   return change_processor_.get();
 }
 
-base::Optional<ModelError>
-ModelTypeSyncBridge::ApplySyncChangesWithNewEncryptionRequirements(
-    std::unique_ptr<MetadataChangeList> metadata_change_list,
-    EntityChangeList entity_changes) {
-  return ApplySyncChanges(std::move(metadata_change_list),
-                          std::move(entity_changes));
+const ModelTypeChangeProcessor* ModelTypeSyncBridge::change_processor() const {
+  return change_processor_.get();
 }
 
 }  // namespace syncer

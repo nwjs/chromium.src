@@ -34,7 +34,6 @@
 #include "third_party/blink/public/mojom/net/ip_address_space.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader_client.h"
 #include "third_party/blink/renderer/platform/loader/allowed_by_nosniff.h"
@@ -47,6 +46,7 @@
 
 namespace blink {
 
+class ContentSecurityPolicy;
 class ResourceRequest;
 class ResourceResponse;
 class ExecutionContext;
@@ -115,8 +115,7 @@ class CORE_EXPORT WorkerClassicScriptLoader final
 
   // ThreadableLoaderClient
   void DidReceiveResponse(unsigned long /*identifier*/,
-                          const ResourceResponse&,
-                          std::unique_ptr<WebDataConsumerHandle>) override;
+                          const ResourceResponse&) override;
   void DidReceiveData(const char* data, unsigned data_length) override;
   void DidReceiveCachedMetadata(const char*, int /*dataLength*/) override;
   void DidFinishLoading(unsigned long identifier) override;

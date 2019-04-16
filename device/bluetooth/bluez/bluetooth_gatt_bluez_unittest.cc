@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
@@ -169,7 +170,7 @@ class BluetoothGattBlueZTest : public testing::Test {
     properties2->connected.ReplaceValue(true);
 
     return adapter_->GetDevice(bluez::FakeBluetoothDeviceClient::kDualAddress);
-  };
+  }
 
   void BatteryServiceShouldBeComplete(BluetoothDevice* device) {
     ASSERT_TRUE(device);

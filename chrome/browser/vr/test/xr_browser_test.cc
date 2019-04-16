@@ -126,15 +126,15 @@ net::EmbeddedTestServer* XrBrowserTestBase::GetEmbeddedServer() {
   return server_.get();
 }
 
-content::WebContents* XrBrowserTestBase::GetFirstTabWebContents() {
-  return browser()->tab_strip_model()->GetWebContentsAt(0);
+content::WebContents* XrBrowserTestBase::GetCurrentWebContents() {
+  return browser()->tab_strip_model()->GetActiveWebContents();
 }
 
 void XrBrowserTestBase::LoadUrlAndAwaitInitialization(const GURL& url) {
   ui_test_utils::NavigateToURL(browser(), url);
-  EXPECT_TRUE(PollJavaScriptBoolean(
-      "isInitializationComplete()", kPollTimeoutMedium,
-      browser()->tab_strip_model()->GetActiveWebContents()))
+  EXPECT_TRUE(PollJavaScriptBoolean("isInitializationComplete()",
+                                    kPollTimeoutMedium,
+                                    GetCurrentWebContents()))
       << "Timed out waiting for JavaScript test initialization.";
 }
 
@@ -270,7 +270,7 @@ void XrBrowserTestBase::WaitOnJavaScriptStep(
 
     std::string result_string =
         RunJavaScriptAndExtractStringOrFail("resultString", web_contents);
-    if (result_string == "") {
+    if (result_string.empty()) {
       reason +=
           " Did not obtain specific failure reason from JavaScript "
           "testharness.";
@@ -299,7 +299,7 @@ XrBrowserTestBase::TestStatus XrBrowserTestBase::CheckTestStatus(
       RunJavaScriptAndExtractBoolOrFail("testPassed", web_contents);
   if (test_passed) {
     return XrBrowserTestBase::TestStatus::STATUS_PASSED;
-  } else if (!test_passed && result_string == "") {
+  } else if (!test_passed && result_string.empty()) {
     return XrBrowserTestBase::TestStatus::STATUS_RUNNING;
   }
   // !test_passed && result_string != ""
@@ -333,49 +333,49 @@ void XrBrowserTestBase::AssertNoJavaScriptErrors(
 }
 
 void XrBrowserTestBase::RunJavaScriptOrFail(const std::string& js_expression) {
-  RunJavaScriptOrFail(js_expression, GetFirstTabWebContents());
+  RunJavaScriptOrFail(js_expression, GetCurrentWebContents());
 }
 
 bool XrBrowserTestBase::RunJavaScriptAndExtractBoolOrFail(
     const std::string& js_expression) {
   return RunJavaScriptAndExtractBoolOrFail(js_expression,
-                                           GetFirstTabWebContents());
+                                           GetCurrentWebContents());
 }
 
 std::string XrBrowserTestBase::RunJavaScriptAndExtractStringOrFail(
     const std::string& js_expression) {
   return RunJavaScriptAndExtractStringOrFail(js_expression,
-                                             GetFirstTabWebContents());
+                                             GetCurrentWebContents());
 }
 
 bool XrBrowserTestBase::PollJavaScriptBoolean(
     const std::string& bool_expression,
     const base::TimeDelta& timeout) {
   return PollJavaScriptBoolean(bool_expression, timeout,
-                               GetFirstTabWebContents());
+                               GetCurrentWebContents());
 }
 
 void XrBrowserTestBase::PollJavaScriptBooleanOrFail(
     const std::string& bool_expression,
     const base::TimeDelta& timeout) {
   PollJavaScriptBooleanOrFail(bool_expression, timeout,
-                              GetFirstTabWebContents());
+                              GetCurrentWebContents());
 }
 
 void XrBrowserTestBase::WaitOnJavaScriptStep() {
-  WaitOnJavaScriptStep(GetFirstTabWebContents());
+  WaitOnJavaScriptStep(GetCurrentWebContents());
 }
 
 void XrBrowserTestBase::ExecuteStepAndWait(const std::string& step_function) {
-  ExecuteStepAndWait(step_function, GetFirstTabWebContents());
+  ExecuteStepAndWait(step_function, GetCurrentWebContents());
 }
 
 void XrBrowserTestBase::EndTest() {
-  EndTest(GetFirstTabWebContents());
+  EndTest(GetCurrentWebContents());
 }
 
 void XrBrowserTestBase::AssertNoJavaScriptErrors() {
-  AssertNoJavaScriptErrors(GetFirstTabWebContents());
+  AssertNoJavaScriptErrors(GetCurrentWebContents());
 }
 
 }  // namespace vr

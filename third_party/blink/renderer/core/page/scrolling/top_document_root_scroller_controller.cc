@@ -107,10 +107,7 @@ Node* TopDocumentRootScrollerController::FindGlobalRootScroller() {
   Node* root_scroller =
       &TopDocument()->GetRootScrollerController().EffectiveRootScroller();
 
-  while (root_scroller && root_scroller->IsFrameOwnerElement()) {
-    HTMLFrameOwnerElement* frame_owner = ToHTMLFrameOwnerElement(root_scroller);
-    DCHECK(frame_owner);
-
+  while (auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(root_scroller)) {
     Document* iframe_document = frame_owner->contentDocument();
     if (!iframe_document)
       return root_scroller;
@@ -133,10 +130,11 @@ void SetNeedsCompositingUpdateOnAncestors(Node* node) {
 
   Frame* frame = area->Layer()->GetLayoutObject().GetFrame();
   for (; frame; frame = frame->Tree().Parent()) {
-    if (!frame->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(frame);
+    if (!local_frame)
       continue;
 
-    LayoutView* layout_view = ToLocalFrame(frame)->View()->GetLayoutView();
+    LayoutView* layout_view = local_frame->View()->GetLayoutView();
     PaintLayer* frame_root_layer = layout_view->Layer();
     DCHECK(frame_root_layer);
     frame_root_layer->SetNeedsCompositingInputsUpdate();
@@ -201,10 +199,10 @@ void TopDocumentRootScrollerController::UpdateCachedBits(Node* old_global,
 }
 
 Document* TopDocumentRootScrollerController::TopDocument() const {
-  if (!page_ || !page_->MainFrame() || !page_->MainFrame()->IsLocalFrame())
+  if (!page_)
     return nullptr;
-
-  return ToLocalFrame(page_->MainFrame())->GetDocument();
+  auto* main_local_frame = DynamicTo<LocalFrame>(page_->MainFrame());
+  return main_local_frame ? main_local_frame->GetDocument() : nullptr;
 }
 
 void TopDocumentRootScrollerController::DidUpdateCompositing(

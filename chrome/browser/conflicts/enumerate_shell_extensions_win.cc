@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/sequenced_task_runner.h"
@@ -229,7 +230,8 @@ namespace internal {
 
 void EnumerateShellExtensionPaths(
     const base::RepeatingCallback<void(const base::FilePath&)>& callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   ReadApprovedShellExtensions(HKEY_LOCAL_MACHINE, callback);
   ReadApprovedShellExtensions(HKEY_CURRENT_USER, callback);

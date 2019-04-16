@@ -21,6 +21,7 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_backend.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_util.h"
+#include "components/sync/base/data_type_histogram.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/model/entity_data.h"
 #include "components/sync/model/mutable_data_batch.h"
@@ -253,8 +254,7 @@ bool AutofillWalletSyncBridge::SupportsIncrementalUpdates() const {
   return false;
 }
 
-AutofillWalletSyncBridge::StopSyncResponse
-AutofillWalletSyncBridge::ApplyStopSyncChanges(
+void AutofillWalletSyncBridge::ApplyStopSyncChanges(
     std::unique_ptr<syncer::MetadataChangeList> delete_metadata_change_list) {
   // If a metadata change list gets passed in, that means sync is actually
   // disabled, so we want to delete the payments data.
@@ -262,11 +262,25 @@ AutofillWalletSyncBridge::ApplyStopSyncChanges(
     if (initial_sync_done_) {
       active_callback_.Run(false);
     }
+
+    // Report count of entities to delete. This use case should be pretty rare
+    // so it is okay to read it from DB again.
+    // TODO(crbug.com/853688): Remove when wallet data is launched on USS, incl.
+    // the helper function SyncWalletDataRecordClearedEntitiesCount().
+    std::vector<std::unique_ptr<AutofillProfile>> profiles;
+    std::vector<std::unique_ptr<CreditCard>> cards;
+    std::unique_ptr<PaymentsCustomerData> customer_data;
+    if (GetAutofillTable()->GetServerProfiles(&profiles) &&
+        GetAutofillTable()->GetServerCreditCards(&cards) &&
+        GetAutofillTable()->GetPaymentsCustomerData(&customer_data)) {
+      int count = profiles.size() + cards.size() + (customer_data ? 1 : 0);
+      SyncWalletDataRecordClearedEntitiesCount(count);
+    }
+
     SetSyncData(syncer::EntityChangeList());
 
     initial_sync_done_ = false;
   }
-  return StopSyncResponse::kModelStillReadyToSync;
 }
 
 void AutofillWalletSyncBridge::GetAllDataForTesting(DataCallback callback) {
@@ -326,6 +340,13 @@ void AutofillWalletSyncBridge::SetSyncData(
       SetWalletCards(std::move(wallet_cards), should_log_diff);
   wallet_data_changed |=
       SetWalletAddresses(std::move(wallet_addresses), should_log_diff);
+
+  // Commit the transaction to make sure the data and the metadata with the
+  // new progress marker is written down (especially on Android where we
+  // cannot rely on commiting transactions on shutdown). We need to commit
+  // even if the wallet data has not changed because the model type state incl.
+  // the progress marker always changes.
+  web_data_backend_->CommitChanges();
 
   if (web_data_backend_ && wallet_data_changed)
     web_data_backend_->NotifyOfMultipleAutofillChanges();

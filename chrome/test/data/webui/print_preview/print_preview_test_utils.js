@@ -162,10 +162,11 @@ cr.define('print_preview_test_utils', function() {
       certificateStatus: invalid ?
           print_preview.DestinationCertificateStatus.NO :
           print_preview.DestinationCertificateStatus.UNKNOWN,
+      account: 'foo@chromium.org',
     };
     const dest = new print_preview.Destination(
         id, print_preview.DestinationType.GOOGLE,
-        print_preview.DestinationOrigin.COOKIES, name, true /* isRecent */,
+        print_preview.DestinationOrigin.COOKIES, name,
         print_preview.DestinationConnectionStatus.ONLINE, tags);
     return dest;
   }
@@ -247,7 +248,7 @@ cr.define('print_preview_test_utils', function() {
         .forEach((info, index) => {
           const destination = new print_preview.Destination(
               info.id, print_preview.DestinationType.LOCAL, origin, info.name,
-              false, print_preview.DestinationConnectionStatus.ONLINE);
+              print_preview.DestinationConnectionStatus.ONLINE);
           if (nativeLayer) {
             nativeLayer.setLocalDestinationCapabilities(
                 print_preview_test_utils.getCddTemplate(info.id, info.name));
@@ -287,13 +288,18 @@ cr.define('print_preview_test_utils', function() {
   }
 
   /**
-   * @param {!HTMLInputElement} element
+   * @param {!HTMLInputElement} inputElement
    * @param {!string} input The value to set for the input element.
+   * @param {!HTMLElement} parentElement The element that receives the
+   *     input-change event.
+   * @return {!Promise} Promise that resolves when the input-change event has
+   *     fired.
    */
-  function triggerInputEvent(element, input) {
-    element.value = input;
-    element.dispatchEvent(
+  function triggerInputEvent(inputElement, input, parentElement) {
+    inputElement.value = input;
+    inputElement.dispatchEvent(
         new CustomEvent('input', {composed: true, bubbles: true}));
+    return test_util.eventToPromise('input-change', parentElement);
   }
 
   function setupTestListenerElement() {
@@ -325,7 +331,7 @@ cr.define('print_preview_test_utils', function() {
         print_preview.Destination.GooglePromotedId.DOCS,
         print_preview.DestinationType.GOOGLE,
         print_preview.DestinationOrigin.COOKIES,
-        print_preview.Destination.GooglePromotedId.DOCS, true /* isRecent */,
+        print_preview.Destination.GooglePromotedId.DOCS,
         print_preview.DestinationConnectionStatus.ONLINE, {account: account});
   }
 
@@ -335,8 +341,22 @@ cr.define('print_preview_test_utils', function() {
         print_preview.Destination.GooglePromotedId.SAVE_AS_PDF,
         print_preview.DestinationType.LOCAL,
         print_preview.DestinationOrigin.LOCAL,
-        loadTimeData.getString('printToPDF'), false /*isRecent*/,
+        loadTimeData.getString('printToPDF'),
         print_preview.DestinationConnectionStatus.ONLINE);
+  }
+
+  /**
+   * @param {!HTMLElement} section The settings section that contains the
+   *    select to toggle.
+   * @param {string} option The option to select.
+   * @return {!Promise} Promise that resolves when the option has been
+   *     selected and the process-select-change event has fired.
+   */
+  function selectOption(section, option) {
+    const select = section.$$('select');
+    select.value = option;
+    select.dispatchEvent(new CustomEvent('change'));
+    return test_util.eventToPromise('process-select-change', section);
   }
 
   return {
@@ -354,6 +374,7 @@ cr.define('print_preview_test_utils', function() {
         getMediaSizeCapabilityWithCustomNames,
     getPdfPrinter: getPdfPrinter,
     getSaveAsPdfDestination: getSaveAsPdfDestination,
+    selectOption: selectOption,
     setupTestListenerElement: setupTestListenerElement,
     triggerInputEvent: triggerInputEvent,
   };

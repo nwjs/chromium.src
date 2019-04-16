@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
@@ -172,7 +173,6 @@ class NetErrorHelperCoreTest : public testing::Test,
         error_html_update_count_(0),
         reload_count_(0),
         reload_bypassing_cache_count_(0),
-        show_saved_copy_count_(0),
         diagnose_error_count_(0),
         download_count_(0),
         list_visible_by_prefs_(true),
@@ -209,10 +209,6 @@ class NetErrorHelperCoreTest : public testing::Test,
   int reload_bypassing_cache_count() const {
     return reload_bypassing_cache_count_;
   }
-
-  int show_saved_copy_count() const { return show_saved_copy_count_; }
-
-  const GURL& show_saved_copy_url() const { return show_saved_copy_url_; }
 
   int diagnose_error_count() const { return diagnose_error_count_; }
 
@@ -373,7 +369,6 @@ class NetErrorHelperCoreTest : public testing::Test,
       bool can_show_network_diagnostics_dialog,
       std::unique_ptr<error_page::ErrorPageParams> params,
       bool* reload_button_shown,
-      bool* show_saved_copy_button_shown,
       bool* show_cached_copy_button_shown,
       bool* download_button_shown,
       OfflineContentOnNetErrorFeatureState* offline_content_feature_state,
@@ -383,7 +378,6 @@ class NetErrorHelperCoreTest : public testing::Test,
         can_show_network_diagnostics_dialog;
     last_error_page_params_ = std::move(params);
     *reload_button_shown = false;
-    *show_saved_copy_button_shown = false;
     *show_cached_copy_button_shown = false;
     *download_button_shown = false;
     *offline_content_feature_state = offline_content_feature_state_;
@@ -396,7 +390,7 @@ class NetErrorHelperCoreTest : public testing::Test,
     last_error_html_ = html;
   }
 
-  void EnablePageHelperFunctions(net::Error net_error) override {
+  void EnablePageHelperFunctions() override {
     enable_page_helper_functions_count_++;
   }
 
@@ -427,7 +421,7 @@ class NetErrorHelperCoreTest : public testing::Test,
 
     base::JSONReader reader;
     std::unique_ptr<base::Value> parsed_body(
-        reader.Read(navigation_correction_request_body));
+        reader.ReadDeprecated(navigation_correction_request_body));
     ASSERT_TRUE(parsed_body);
     base::DictionaryValue* dict = NULL;
     ASSERT_TRUE(parsed_body->GetAsDictionary(&dict));
@@ -447,11 +441,6 @@ class NetErrorHelperCoreTest : public testing::Test,
     reload_count_++;
     if (bypass_cache)
       reload_bypassing_cache_count_++;
-  }
-
-  void LoadPageFromCache(const GURL& page_url) override {
-    show_saved_copy_count_++;
-    show_saved_copy_url_ = page_url;
   }
 
   void DiagnoseError(const GURL& page_url) override {
@@ -492,7 +481,7 @@ class NetErrorHelperCoreTest : public testing::Test,
 
     base::JSONReader reader;
     std::unique_ptr<base::Value> parsed_body(
-        reader.Read(tracking_request_body));
+        reader.ReadDeprecated(tracking_request_body));
     ASSERT_TRUE(parsed_body);
     base::DictionaryValue* dict = NULL;
     ASSERT_TRUE(parsed_body->GetAsDictionary(&dict));
@@ -534,8 +523,6 @@ class NetErrorHelperCoreTest : public testing::Test,
 
   int reload_count_;
   int reload_bypassing_cache_count_;
-  int show_saved_copy_count_;
-  GURL show_saved_copy_url_;
   int diagnose_error_count_;
   GURL diagnose_error_url_;
   int download_count_;
@@ -2635,14 +2622,6 @@ TEST_F(NetErrorHelperCoreTest, ExplicitReloadDoNotBypassCache) {
   core()->ExecuteButtonPress(NetErrorHelperCore::RELOAD_BUTTON);
   EXPECT_EQ(1, reload_count());
   EXPECT_EQ(0, reload_bypassing_cache_count());
-}
-
-TEST_F(NetErrorHelperCoreTest, ExplicitShowSavedSucceeds) {
-  DoErrorLoad(net::ERR_CONNECTION_RESET);
-  EXPECT_EQ(0, show_saved_copy_count());
-  core()->ExecuteButtonPress(NetErrorHelperCore::SHOW_SAVED_COPY_BUTTON);
-  EXPECT_EQ(1, show_saved_copy_count());
-  EXPECT_EQ(GURL(kFailedUrl), show_saved_copy_url());
 }
 
 TEST_F(NetErrorHelperCoreTest, CanNotShowNetworkDiagnostics) {

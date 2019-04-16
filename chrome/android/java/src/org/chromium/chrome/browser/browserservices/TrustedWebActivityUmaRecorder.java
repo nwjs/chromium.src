@@ -13,7 +13,6 @@ import org.chromium.chrome.browser.tab.Tab;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 
@@ -21,11 +20,11 @@ import javax.inject.Inject;
  * Encapsulates Uma recording actions related to Trusted Web Activities.
  */
 public class TrustedWebActivityUmaRecorder {
-    @Retention(RetentionPolicy.SOURCE)
     @IntDef({DelegatedNotificationSmallIconFallback.NO_FALLBACK,
             DelegatedNotificationSmallIconFallback.FALLBACK_ICON_NOT_PROVIDED,
             DelegatedNotificationSmallIconFallback.FALLBACK_FOR_STATUS_BAR,
             DelegatedNotificationSmallIconFallback.FALLBACK_FOR_STATUS_BAR_AND_CONTENT})
+    @Retention(RetentionPolicy.SOURCE)
     public @interface DelegatedNotificationSmallIconFallback {
         int NO_FALLBACK = 0;
         int FALLBACK_ICON_NOT_PROVIDED = 1;
@@ -71,7 +70,7 @@ public class TrustedWebActivityUmaRecorder {
     }
 
     private void recordDuration(long durationMs, String histogramName) {
-        RecordHistogram.recordTimesHistogram(histogramName, durationMs, TimeUnit.MILLISECONDS);
+        RecordHistogram.recordTimesHistogram(histogramName, durationMs);
     }
 
     /**

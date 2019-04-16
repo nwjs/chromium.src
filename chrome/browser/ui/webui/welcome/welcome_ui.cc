@@ -4,17 +4,16 @@
 
 #include "chrome/browser/ui/webui/welcome/welcome_ui.h"
 
-#include <memory>
-#include <string>
-
 #include "base/metrics/histogram_macros.h"
 #include "build/build_config.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
+#include "chrome/browser/ui/webui/dark_mode_handler.h"
 #include "chrome/browser/ui/webui/localized_string.h"
 #include "chrome/browser/ui/webui/welcome/nux/bookmark_handler.h"
 #include "chrome/browser/ui/webui/welcome/nux/constants.h"
 #include "chrome/browser/ui/webui/welcome/nux/email_handler.h"
 #include "chrome/browser/ui/webui/welcome/nux/google_apps_handler.h"
+#include "chrome/browser/ui/webui/welcome/nux/ntp_background_handler.h"
 #include "chrome/browser/ui/webui/welcome/nux/set_as_default_handler.h"
 #include "chrome/browser/ui/webui/welcome/nux_helper.h"
 #include "chrome/browser/ui/webui/welcome/welcome_handler.h"
@@ -28,7 +27,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_ui_data_source.h"
 #include "net/base/url_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -44,6 +42,30 @@ const bool kIsBranded =
     false;
 #endif
 }  // namespace
+
+bool HandleRequestCallback(
+    base::WeakPtr<WelcomeUI> weak_ptr,
+    const std::string& path,
+    const content::WebUIDataSource::GotDataCallback& callback) {
+  if (!base::StartsWith(path, "preview-background.jpg",
+                        base::CompareCase::SENSITIVE)) {
+    return false;
+  }
+
+  std::string index_param = path.substr(path.find_first_of("?") + 1);
+  int background_index = -1;
+  if (!base::StringToInt(index_param, &background_index) ||
+      background_index < 0) {
+    return false;
+  }
+
+  if (weak_ptr) {
+    weak_ptr->CreateBackgroundFetcher(background_index, callback);
+    return true;
+  }
+
+  return false;
+}
 
 void AddOnboardingStrings(content::WebUIDataSource* html_source) {
   static constexpr LocalizedString kLocalizedStrings[] = {
@@ -72,6 +94,15 @@ void AddOnboardingStrings(content::WebUIDataSource* html_source) {
       {"googleAppsDescription",
        IDS_ONBOARDING_WELCOME_NUX_GOOGLE_APPS_DESCRIPTION},
 
+      // New Tab Page background module strings.
+      {"ntpBackgroundDescription",
+       IDS_ONBOARDING_WELCOME_NTP_BACKGROUND_DESCRIPTION},
+      {"ntpBackgroundDefault",
+       IDS_ONBOARDING_WELCOME_NTP_BACKGROUND_DEFAULT_TITLE},
+      {"ntpBackgroundPreviewUpdated",
+       IDS_ONBOARDING_WELCOME_NTP_BACKGROUND_PREVIEW_UPDATED},
+      {"ntpBackgroundReset", IDS_ONBOARDING_WELCOME_NTP_BACKGROUND_RESET},
+
       // Set as default module strings.
       {"setDefaultHeader", IDS_ONBOARDING_WELCOME_NUX_SET_AS_DEFAULT_HEADER},
       {"setDefaultSubHeader",
@@ -97,7 +128,7 @@ void AddOnboardingStrings(content::WebUIDataSource* html_source) {
 }
 
 WelcomeUI::WelcomeUI(content::WebUI* web_ui, const GURL& url)
-    : content::WebUIController(web_ui) {
+    : content::WebUIController(web_ui), weak_ptr_factory_(this) {
   Profile* profile = Profile::FromWebUI(web_ui);
 
   // This page is not shown to incognito or guest profiles. If one should end up
@@ -113,6 +144,8 @@ WelcomeUI::WelcomeUI(content::WebUI* web_ui, const GURL& url)
 
   content::WebUIDataSource* html_source =
       content::WebUIDataSource::Create(url.host());
+
+  DarkModeHandler::Initialize(web_ui, html_source);
 
   bool is_dice =
       AccountConsistencyModeManager::IsDiceEnabledForProfile(profile);
@@ -157,6 +190,9 @@ WelcomeUI::WelcomeUI(content::WebUI* web_ui, const GURL& url)
     // Add google apps bookmarking onboarding module.
     web_ui->AddMessageHandler(std::make_unique<nux::GoogleAppsHandler>());
 
+    // Add NTP custom background onboarding module.
+    web_ui->AddMessageHandler(std::make_unique<nux::NtpBackgroundHandler>());
+
     // Add set-as-default onboarding module.
     web_ui->AddMessageHandler(std::make_unique<nux::SetAsDefaultHandler>());
 
@@ -171,6 +207,8 @@ WelcomeUI::WelcomeUI(content::WebUI* web_ui, const GURL& url)
                             nux::GetNuxOnboardingModules(profile)
                                 .FindKey("show-email-interstitial")
                                 ->GetBool());
+    html_source->SetRequestFilter(base::BindRepeating(
+        &HandleRequestCallback, weak_ptr_factory_.GetWeakPtr()));
   } else if (kIsBranded && is_dice) {
     // Use special layout if the application is branded and DICE is enabled.
     html_source->AddLocalizedString("headerText", IDS_WELCOME_HEADER);
@@ -220,6 +258,13 @@ WelcomeUI::WelcomeUI(content::WebUI* web_ui, const GURL& url)
 }
 
 WelcomeUI::~WelcomeUI() {}
+
+void WelcomeUI::CreateBackgroundFetcher(
+    size_t background_index,
+    const content::WebUIDataSource::GotDataCallback& callback) {
+  background_fetcher_ =
+      std::make_unique<nux::NtpBackgroundFetcher>(background_index, callback);
+}
 
 void WelcomeUI::StorePageSeen(Profile* profile) {
   // Store that this profile has been shown the Welcome page.

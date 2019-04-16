@@ -44,6 +44,8 @@ class SignedExchangeCertFetcher;
 class SignedExchangeCertFetcherFactory;
 class SignedExchangeCertificateChain;
 class SignedExchangeDevToolsProxy;
+class SignedExchangeReporter;
+class SignedExchangeRequestMatcher;
 
 // SignedExchangeHandler reads "application/signed-exchange" format from a
 // net::SourceStream, parses and verifies the signed exchange, and reports
@@ -91,9 +93,13 @@ class CONTENT_EXPORT SignedExchangeHandler {
       ExchangeHeadersCallback headers_callback,
       std::unique_ptr<SignedExchangeCertFetcherFactory> cert_fetcher_factory,
       int load_flags,
+      std::unique_ptr<SignedExchangeRequestMatcher> request_matcher,
       std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy,
+      SignedExchangeReporter* reporter,
       base::RepeatingCallback<int(void)> frame_tree_node_id_getter);
   ~SignedExchangeHandler();
+
+  int64_t GetExchangeHeaderLength() const { return exchange_header_length_; }
 
  protected:
   SignedExchangeHandler();
@@ -126,6 +132,7 @@ class CONTENT_EXPORT SignedExchangeHandler {
   void OnVerifyCert(int32_t error_code,
                     const net::CertVerifyResult& cv_result,
                     const net::ct::CTVerifyResult& ct_result);
+  std::unique_ptr<net::SourceStream> CreateResponseBodyStream();
 
   const bool is_secure_transport_;
   const bool has_nosniff_;
@@ -138,6 +145,7 @@ class CONTENT_EXPORT SignedExchangeHandler {
   scoped_refptr<net::IOBuffer> header_buf_;
   // Wrapper around |header_buf_| to progressively read fixed-size data.
   scoped_refptr<net::DrainableIOBuffer> header_read_buf_;
+  int64_t exchange_header_length_ = 0;
 
   signed_exchange_prologue::BeforeFallbackUrl prologue_before_fallback_url_;
   signed_exchange_prologue::FallbackUrlAndAfter
@@ -150,7 +158,12 @@ class CONTENT_EXPORT SignedExchangeHandler {
 
   std::unique_ptr<SignedExchangeCertificateChain> unverified_cert_chain_;
 
+  std::unique_ptr<SignedExchangeRequestMatcher> request_matcher_;
+
   std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy_;
+
+  // This is owned by SignedExchangeLoader which is the owner of |this|.
+  SignedExchangeReporter* reporter_;
 
   base::RepeatingCallback<int(void)> frame_tree_node_id_getter_;
 

@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/lazy_instance.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
@@ -94,11 +95,11 @@ class MediaPerceptionAPIManager::MediaPerceptionControllerClient
 
   // media_perception::mojom::MediaPerceptionControllerClient:
   void ConnectToVideoCaptureService(
-      video_capture::mojom::DeviceFactoryRequest request) override {
+      video_capture::mojom::VideoSourceProviderRequest request) override {
     DCHECK(delegate_) << "Delegate not set.";
     delegate_->BindDeviceFactoryProviderToVideoCaptureService(
         &device_factory_provider_);
-    device_factory_provider_->ConnectToDeviceFactory(std::move(request));
+    device_factory_provider_->ConnectToVideoSourceProvider(std::move(request));
   }
 
  private:

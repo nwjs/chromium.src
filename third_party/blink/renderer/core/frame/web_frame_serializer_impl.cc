@@ -305,9 +305,8 @@ void WebFrameSerializerImpl::OpenTagToString(Element* element,
 
   // Find out if we need to do frame-specific link rewriting.
   WebFrame* frame = nullptr;
-  if (element->IsFrameOwnerElement()) {
-    frame =
-        WebFrame::FromFrame(ToHTMLFrameOwnerElement(element)->ContentFrame());
+  if (auto* frame_owner_element = DynamicTo<HTMLFrameOwnerElement>(element)) {
+    frame = WebFrame::FromFrame(frame_owner_element->ContentFrame());
   }
   WebString rewritten_frame_link;
   bool should_rewrite_frame_src =
@@ -447,7 +446,7 @@ WebFrameSerializerImpl::WebFrameSerializerImpl(
       xml_entities_(true) {
   // Must specify available webframe.
   DCHECK(frame);
-  specified_web_local_frame_impl_ = ToWebLocalFrameImpl(frame);
+  specified_web_local_frame_impl_ = To<WebLocalFrameImpl>(frame);
   // Make sure we have non null client and delegate.
   DCHECK(client);
   DCHECK(delegate);

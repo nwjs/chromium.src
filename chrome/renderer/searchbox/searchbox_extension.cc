@@ -194,8 +194,13 @@ v8::Local<v8::Object> GenerateThemeBackgroundInfo(
     const ThemeBackgroundInfo& theme_info) {
   gin::DataObjectBuilder builder(isolate);
 
+  // True if the theme is the system default and no custom theme has been
+  // applied.
+  // Value is always valid.
   builder.Set("usingDefaultTheme", theme_info.using_default_theme);
 
+  // True if dark mode should be applied to the NTP.
+  // Value is always valid.
   builder.Set("usingDarkMode", theme_info.using_dark_mode);
 
   // The theme background color is in RGBA format "rgba(R,G,B,A)" where R, G and
@@ -1082,7 +1087,7 @@ void SearchBoxExtension::Install(blink::WebLocalFrame* frame) {
     return;
 
   v8::Local<v8::Object> chrome =
-      content::GetOrCreateChromeObject(isolate, context->Global());
+      content::GetOrCreateChromeObject(isolate, context);
   v8::Local<v8::Object> embedded_search = v8::Object::New(isolate);
   embedded_search
       ->Set(context, gin::StringToV8(isolate, "searchBox"),

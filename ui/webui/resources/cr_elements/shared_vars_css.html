@@ -34,6 +34,8 @@
     --google-blue-refresh-500-rgb: 66, 133, 244;  /* #4285f4 */
     --google-blue-refresh-500: rgb(var(--google-blue-refresh-500-rgb));
 
+    --google-green-refresh-300-rgb: 129, 201, 149;  /* #81c995 */
+    --google-green-refresh-300: rgb(var(--google-green-refresh-300-rgb));
     --google-green-refresh-700-rgb: 24, 128, 56;  /* #188038 */
     --google-green-refresh-700: rgb(var(--google-green-refresh-700-rgb));
 
@@ -53,18 +55,22 @@
     --cr-secondary-text-color: var(--google-grey-refresh-700);
 
     --cr-card-background-color: white;
+    --cr-card-shadow-color-rgb: var(--google-grey-800-rgb);
+
+    --cr-card-shadow: rgba(var(--cr-card-shadow-color-rgb), .3) 0 1px 2px 0,
+                      rgba(var(--cr-card-shadow-color-rgb), .15) 0 1px 3px 1px;
+
     --cr-card-elevation: {
-      box-shadow: rgba(var(--google-grey-800-rgb), .3) 0 1px 2px 0,
-                  rgba(var(--google-grey-800-rgb), .15) 0 1px 3px 1px;
+      box-shadow: var(--cr-card-shadow);
     }
 
+    --cr-checked-color: var(--google-blue-600);
     --cr-focused-item-color: var(--google-grey-300);
     --cr-form-field-label-color: var(--google-grey-refresh-700);
     --cr-link-color: var(--google-blue-700);
     --cr-menu-background-color: white;
     --cr-menu-background-focus-color: var(--google-grey-200);
     --cr-menu-shadow: 0 2px 6px var(--paper-grey-500);
-    --cr-section-text-color: var(--google-grey-refresh-700);
     --cr-separator-color: rgba(0, 0, 0, .06);
     --cr-title-text-color: rgb(90, 90, 90);
     --cr-toggle-color: var(--google-blue-500);
@@ -75,15 +81,17 @@
     --cr-secondary-text-color: var(--google-grey-refresh-500);
 
     --cr-card-background-color: var(--google-grey-900);
+    --cr-card-shadow-color-rgb: 0, 0, 0;
+
     --cr-card-elevation: {
+      /* This gradient intentionally uses the same from/to colors to add 4%
+       * white on top of an opaque background-color. */
       background-image: linear-gradient(rgba(255, 255, 255, .04),
                                         rgba(255, 255, 255, .04));
-      box-shadow: rgba(0, 0, 0, .3) 0 1px 2px 0,
-                  rgba(0, 0, 0, .15) 0 4px 8px 3px;
+      box-shadow: var(--cr-card-shadow);  /* Uses --cr-card-shadow-color-rgb. */
     }
 
-    /* TODO(dbeam): form-field-label, {section,title}-text, & toggle colors. */
-
+    --cr-checked-color: var(--google-blue-refresh-300);
     --cr-form-field-label-color: var(--dark-secondary-color);
     --cr-link-color: var(--google-blue-refresh-300);
     --cr-menu-background-color: var(--google-grey-900);
@@ -92,6 +100,7 @@
     --cr-menu-shadow: rgba(0, 0, 0, .3) 0 1px 2px 0,
                       rgba(0, 0, 0, .15) 0 3px 6px 2px;
     --cr-separator-color: rgba(255, 255, 255, .1);
+    /* TODO(dbeam): --cr-toggle-color (CrOS only). */
     --cr-title-text-color: var(--cr-primary-text-color);
   }
 
@@ -104,6 +113,7 @@
     }
 
     --cr-button-edge-spacing: 12px;
+    --cr-button-height: 32px;
 
     /* Spacing between policy (controlledBy) indicator and control. */
     --cr-controlled-by-spacing: 24px;
@@ -141,9 +151,9 @@
     }
 
     --cr-primary-text: {
-        color: var(--cr-primary-text-color);
-        line-height: 154%;  /* 20px. */
-     }
+      color: var(--cr-primary-text-color);
+      line-height: 154%;  /* 20px. */
+    }
 
     --cr-secondary-text: {
       color: var(--cr-secondary-text-color);
@@ -171,6 +181,31 @@
       padding: 0 var(--cr-section-padding);
     }
 
+    --cr-section-vertical-margin: 21px;
+
+    --cr-centered-card-max-width: 680px;
+    --cr-centered-card-container: {
+      box-sizing: border-box;
+      display: block;
+      height: inherit;
+      margin: 0 auto;
+      max-width: calc(var(--cr-centered-card-max-width) + 3 * 2px);
+      min-width: 550px;
+      position: relative;
+      width: 96%;
+    }
+
+    --cr-card-external-title: {
+        color: var(--cr-primary-text-color);
+        font-size: 108%;
+        font-weight: 400;
+        letter-spacing: .25px;
+        margin-bottom: 12px;
+        margin-top: var(--cr-section-vertical-margin);
+        padding-bottom: 4px;
+        padding-top: 8px;
+    }
+
     --cr-text-elide: {
       overflow: hidden;
       text-overflow: ellipsis;
@@ -178,15 +213,9 @@
     }
 
     --cr-title-text: {
-        color: var(--cr-title-text-color);
-        font-size: 107.6923%;  /* Go to 14px from 13px. */
-        font-weight: 500;
-    }
-
-    --cr-section-text: {
-        color: var(--cr-section-text-color);
-        font-size: 100%;  /* Likely to be 13px. */
-        font-weight: 500;
+      color: var(--cr-title-text-color);
+      font-size: 107.6923%;  /* Go to 14px from 13px. */
+      font-weight: 500;
     }
 
     --cr-tooltip: {

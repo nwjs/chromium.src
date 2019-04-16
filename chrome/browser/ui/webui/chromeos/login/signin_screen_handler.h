@@ -191,11 +191,11 @@ class SigninScreenHandler
       public ash::mojom::WallpaperObserver {
  public:
   SigninScreenHandler(
+      JSCallsContainer* js_calls_container,
       const scoped_refptr<NetworkStateInformer>& network_state_informer,
       ErrorScreen* error_screen,
       CoreOobeView* core_oobe_view,
-      GaiaScreenHandler* gaia_screen_handler,
-      JSCallsContainer* js_calls_container);
+      GaiaScreenHandler* gaia_screen_handler);
   ~SigninScreenHandler() override;
 
   static std::string GetUserLastInputMethod(const std::string& username);
@@ -225,7 +225,7 @@ class SigninScreenHandler
   // OobeUI::Observer implementation:
   void OnCurrentScreenChanged(OobeScreen current_screen,
                               OobeScreen new_screen) override;
-  void OnScreenInitialized(OobeScreen screen) override{};
+  void OnScreenInitialized(OobeScreen screen) override {}
 
   // ash::mojom::WallpaperObserver implementation:
   void OnWallpaperChanged(uint32_t image_id) override;
@@ -347,8 +347,13 @@ class SigninScreenHandler
   void HandleToggleKioskEnableScreen();
   void HandleToggleResetScreen();
   void HandleToggleKioskAutolaunchScreen();
+
+  // TODO(crbug.com/943720): Change to views account-picker screen in post-OOBE
+  // flow.
+  // WebUI account-picker screen is shown:
+  // * After OOBE enrollment when policy contains device local accounts.
+  // * On multiple sign-in account selection.
   void HandleAccountPickerReady();
-  void HandleWallpaperReady();
   void HandleSignOutUser();
   void HandleOpenInternetDetailDialog();
   void HandleLoginVisible(const std::string& source);

@@ -54,8 +54,7 @@ editing.TextEditHandler = function(node) {
     //
     // The only other editables we expect are all single line (including those
     // from ARC++).
-    var useRichText =
-        node.state[StateType.RICHLY_EDITABLE] || node.htmlTag == 'textarea';
+    var useRichText = node.state[StateType.RICHLY_EDITABLE];
 
     /** @private {!AutomationEditableText} */
     this.editableText_ = useRichText ? new AutomationRichEditableText(node) :
@@ -128,9 +127,12 @@ editing.TextEditHandler.prototype = {
 function AutomationEditableText(node) {
   if (!node.state.editable)
     throw Error('Node must have editable state set to true.');
+  var value = this.getProcessedValue_(node) || '';
+  /** @private {!Array<number>} */
+  this.lineBreaks_ = [];
+  this.updateLineBreaks_(value);
   var start = node.textSelStart;
   var end = node.textSelEnd;
-  var value = this.getProcessedValue_(node) || '';
   cvox.ChromeVoxEditableTextBase.call(
       this, value, Math.min(start, end, value.length),
       Math.min(Math.max(start, end), value.length),
@@ -149,52 +151,77 @@ AutomationEditableText.prototype = {
    * @param {string|undefined} eventFrom
    */
   onUpdate: function(eventFrom) {
+    var oldValue = this.value;
+    var oldStart = this.start;
+    var oldEnd = this.end;
     var newValue = this.getProcessedValue_(this.node_) || '';
+    this.updateLineBreaks_(newValue);
 
     var textChangeEvent = new cvox.TextChangeEvent(
         newValue, Math.min(this.node_.textSelStart || 0, newValue.length),
         Math.min(this.node_.textSelEnd || 0, newValue.length),
         true /* triggered by user */);
     this.changed(textChangeEvent);
-    this.outputBraille_();
+    this.outputBraille_(oldValue, oldStart, oldEnd);
   },
 
   /**
    * Returns true if selection starts on the first line.
    */
   isSelectionOnFirstLine: function() {
-    return true;
+    return this.getLineIndex(this.start) == 0;
   },
 
   /**
    * Returns true if selection ends on the last line.
    */
   isSelectionOnLastLine: function() {
-    return true;
+    return this.getLineIndex(this.end) >= this.lineBreaks_.length - 1;
   },
 
   /** @override */
   getLineIndex: function(charIndex) {
-    return 0;
+    var lineIndex = 0;
+    while (charIndex > this.lineBreaks_[lineIndex])
+      lineIndex++;
+    return lineIndex;
   },
 
   /** @override */
   getLineStart: function(lineIndex) {
-    return 0;
+    if (lineIndex == 0)
+      return 0;
+
+    // The start of this line is defined as the line break of the previous line
+    // + 1 (the hard line break).
+    return this.lineBreaks_[lineIndex - 1] + 1;
   },
 
   /** @override */
   getLineEnd: function(lineIndex) {
-    return this.node_.value.length;
+    return this.lineBreaks_[lineIndex];
   },
 
   /** @private */
-  outputBraille_: function() {
-    var output = new Output();
-    var range;
-    range = Range.fromNode(this.node_);
-    output.withBraille(range, null, Output.EventType.NAVIGATE);
-    output.go();
+  outputBraille_: function(oldValue, oldStart, oldEnd) {
+    var lineIndex = this.getLineIndex(this.start);
+    // Output braille at the end of the selection that changed, if start and end
+    // differ.
+    if (this.start != this.end && this.start == oldStart)
+      lineIndex = this.getLineIndex(this.end);
+    var lineStart = this.getLineStart(lineIndex);
+    var lineText =
+        this.value.substr(lineStart, this.getLineEnd(lineIndex) - lineStart);
+
+    if (lineIndex == 0)
+      lineText += ' ' +
+          Msgs.getMsg(this.multiline ? 'tag_textarea_brl' : 'role_textbox_brl');
+
+    cvox.ChromeVox.braille.write(new cvox.NavBraille({
+      text: lineText,
+      startIndex: this.start - lineStart,
+      endIndex: this.end - lineStart
+    }));
   },
 
   /**
@@ -205,6 +232,24 @@ AutomationEditableText.prototype = {
   getProcessedValue_: function(node) {
     var value = node.value;
     return (value && node.inputType == 'tel') ? value['trimEnd']() : value;
+  },
+
+  /**
+   * @private
+   */
+  updateLineBreaks_: function(value) {
+    if (value == this.value)
+      return;
+
+    this.lineBreaks_ = [];
+    var lines = value.split('\n');
+    for (var i = 0, total = 0; i < lines.length; i++) {
+      total += lines[i].length;
+      this.lineBreaks_[i] = total;
+
+      // Account for the line break itself.
+      total++;
+    }
   }
 };
 
@@ -234,6 +279,47 @@ function AutomationRichEditableText(node) {
       root.anchorObject, root.anchorOffset, root.focusObject, root.focusOffset);
 
   this.updateIntraLineState_(this.line_);
+
+  /**
+   * @private {number|undefined}
+   */
+  this.fontSize_;
+  /**
+   * @private {string|undefined}
+   */
+  this.fontColor_;
+  /**
+   * @private {boolean|undefined}
+   */
+  this.linked_;
+  /**
+   * @private {boolean|undefined}
+   */
+  this.subscript_;
+  /**
+   * @private {boolean|undefined}
+   */
+  this.superscript_;
+  /**
+   * @private {boolean}
+   */
+  this.bold_ = false;
+  /**
+   * @private {boolean}
+   */
+  this.italic_ = false;
+  /**
+   * @private {boolean}
+   */
+  this.underline_ = false;
+  /**
+   * @private {boolean}
+   */
+  this.lineThrough_ = false;
+  /**
+   * @private {string|undefined}
+   */
+  this.fontFamily_;
 }
 
 AutomationRichEditableText.prototype = {
@@ -362,13 +448,7 @@ AutomationRichEditableText.prototype = {
         if (markerEndIndex > -1)
           this.speakTextMarker_(container.markerTypes[markerEndIndex], true);
       }
-
-      // Start of the container.
-      if (cur.containerStartOffset == cur.startOffset)
-        this.speakTextStyle_(container);
-      else if (cur.containerEndOffset == cur.endOffset)
-        this.speakTextStyle_(container, true);
-
+      this.speakTextStyle_(container);
       return;
     }
 
@@ -545,30 +625,69 @@ AutomationRichEditableText.prototype = {
 
   /**
    * @param {!AutomationNode} style
-   * @param {boolean=} opt_end
    * @private
    */
-  speakTextStyle_: function(style, opt_end) {
+  speakTextStyle_: function(style) {
     var msgs = [];
-    if (style.state.linked)
-      msgs.push(opt_end ? 'link_end' : 'link_start');
-    if (style.subscript)
-      msgs.push(opt_end ? 'subscript_end' : 'subscript_start');
-    if (style.superscript)
-      msgs.push(opt_end ? 'superscript_end' : 'superscript_start');
-    if (style.bold)
-      msgs.push(opt_end ? 'bold_end' : 'bold_start');
-    if (style.italic)
-      msgs.push(opt_end ? 'italic_end' : 'italic_start');
-    if (style.underline)
-      msgs.push(opt_end ? 'underline_end' : 'underline_start');
-    if (style.lineThrough)
-      msgs.push(opt_end ? 'line_through_end' : 'line_through_start');
+    var fontSize = style.fontSize;
+    var fontColor = Color.getColorDescription(style.color);
+    var linked = style.state[StateType.LINKED];
+    var subscript = style.state.subscript;
+    var superscript = style.state.superscript;
+    var bold = style.bold;
+    var italic = style.italic;
+    var underline = style.underline;
+    var lineThrough = style.lineThrough;
+    var fontFamily = style.fontFamily;
+
+    // Only report text style attributes if they change.
+    if (fontSize && (fontSize !== this.fontSize_)) {
+      this.fontSize_ = fontSize;
+      msgs.push({msg: 'font_size', opt_subs: [this.fontSize_]});
+    }
+    if (fontColor && (fontColor !== this.fontColor_)) {
+      this.fontColor_ = fontColor;
+      msgs.push({msg: 'font_color', opt_subs: [this.fontColor_]});
+    }
+    if (linked !== this.linked_) {
+      this.linked_ = linked;
+      msgs.push(this.linked_ ? {msg: 'link'} : {msg: 'not_link'});
+    }
+    if (style.subscript !== this.subscript_) {
+      this.subscript_ = subscript;
+      msgs.push(this.subscript_ ? {msg: 'subscript'} : {msg: 'not_subscript'});
+    }
+    if (style.superscript !== this.superscript_) {
+      this.superscript_ = superscript;
+      msgs.push(
+          this.superscript_ ? {msg: 'superscript'} : {msg: 'not_superscript'});
+    }
+    if (bold !== this.bold_) {
+      this.bold_ = bold;
+      msgs.push(this.bold_ ? {msg: 'bold'} : {msg: 'not_bold'});
+    }
+    if (italic !== this.italic_) {
+      this.italic_ = italic;
+      msgs.push(this.italic_ ? {msg: 'italic'} : {msg: 'not_italic'});
+    }
+    if (underline !== this.underline_) {
+      this.underline_ = underline;
+      msgs.push(this.underline_ ? {msg: 'underline'} : {msg: 'not_underline'});
+    }
+    if (lineThrough !== this.lineThrough_) {
+      this.lineThrough_ = lineThrough;
+      msgs.push(
+          this.lineThrough_ ? {msg: 'linethrough'} : {msg: 'not_linethrough'});
+    }
+    if (fontFamily && (fontFamily !== this.fontFamily_)) {
+      this.fontFamily_ = fontFamily;
+      msgs.push({msg: 'font_family', opt_subs: [this.fontFamily_]});
+    }
 
     if (msgs.length) {
-      msgs.forEach(function(msg) {
+      msgs.forEach(function(obj) {
         cvox.ChromeVox.tts.speak(
-            Msgs.getMsg(msg), cvox.QueueMode.QUEUE,
+            Msgs.getMsg(obj.msg, obj.opt_subs), cvox.QueueMode.QUEUE,
             cvox.AbstractTts.PERSONALITY_ANNOTATION);
       });
     }

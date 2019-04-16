@@ -99,12 +99,12 @@ void LazyLoadImageObserver::StartMonitoringNearViewport(Document* root_document,
 
   if (!lazy_load_intersection_observer_) {
     root_document->AddConsoleMessage(ConsoleMessage::Create(
-        kInterventionMessageSource, kInfoMessageLevel,
+        kInterventionMessageSource, mojom::ConsoleMessageLevel::kInfo,
         "Images loaded lazily and replaced with placeholders. Load events are "
         "deferred. See https://crbug.com/846170"));
     lazy_load_intersection_observer_ = IntersectionObserver::Create(
-        {Length(GetLazyImageLoadingViewportDistanceThresholdPx(*root_document),
-                kFixed)},
+        {Length::Fixed(
+            GetLazyImageLoadingViewportDistanceThresholdPx(*root_document))},
         {std::numeric_limits<float>::min()}, root_document,
         WTF::BindRepeating(&LazyLoadImageObserver::LoadIfNearViewport,
                            WrapWeakPersistent(this)));

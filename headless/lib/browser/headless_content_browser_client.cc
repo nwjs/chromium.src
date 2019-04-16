@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "base/base_switches.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/path_service.h"
@@ -175,7 +176,8 @@ void HeadlessContentBrowserClient::GetQuotaSettings(
     content::StoragePartition* partition,
     ::storage::OptionalQuotaSettingsCallback callback) {
   ::storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(), std::move(callback));
+      partition->GetPath(), context->IsOffTheRecord(),
+      ::storage::GetDefaultDiskInfoHelper(), std::move(callback));
 }
 
 content::GeneratedCodeCacheSettings

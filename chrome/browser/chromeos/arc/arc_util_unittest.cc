@@ -12,7 +12,6 @@
 #include "base/test/icu_test_util.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/test/scoped_locale.h"
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
@@ -29,7 +28,6 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/policy/profile_policy_connector_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/supervised_user/supervised_user_constants.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -38,7 +36,6 @@
 #include "chromeos/dbus/fake_oobe_configuration_client.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_prefs.h"
-#include "components/language/core/browser/pref_names.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
@@ -51,7 +48,6 @@
 #include "content/public/common/content_switches.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/icu/source/common/unicode/locid.h"
 
 namespace arc {
 namespace util {
@@ -174,7 +170,6 @@ class ChromeArcUtilTest : public testing::Test {
 
   void SetUp() override {
     command_line_ = std::make_unique<base::test::ScopedCommandLine>();
-    feature_list_.InitAndEnableFeature(chromeos::switches::kAssistantFeature);
 
     ASSERT_TRUE(data_dir_.CreateUniqueTempDir());
     profile_manager_ = std::make_unique<TestingProfileManager>(
@@ -509,75 +504,6 @@ TEST_F(ChromeArcUtilTest, ArcPlayStoreEnabledForProfile_Managed) {
   // Remove managed state.
   profile()->GetTestingPrefService()->RemoveManagedPref(prefs::kArcEnabled);
   EXPECT_FALSE(IsArcPlayStoreEnabledPreferenceManagedForProfile(profile()));
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_SecondaryUser) {
-  ScopedLogIn login2(
-      GetFakeUserManager(),
-      AccountId::FromUserEmailGaiaId("user2@gmail.com", "0123456789"));
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmailGaiaId(
-                        profile()->GetProfileUserName(), kTestGaiaId));
-
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_NONPRIMARY_USER,
-            IsAssistantAllowedForProfile(profile()));
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_SupervisedUser) {
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmailGaiaId(
-                        profile()->GetProfileUserName(), kTestGaiaId));
-  profile()->SetSupervisedUserId("foo");
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_SUPERVISED_USER,
-            IsAssistantAllowedForProfile(profile()));
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_ChildUser) {
-  base::CommandLine::ForCurrentProcess()->InitFromArgv(
-      {"", "--arc-availability=officially-supported",
-       "--enable-voice-interaction"});
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmailGaiaId(
-                        profile()->GetProfileUserName(), kTestGaiaId));
-  profile()->SetSupervisedUserId(supervised_users::kChildAccountSUID);
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_CHILD_USER,
-            IsAssistantAllowedForProfile(profile()));
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_Locale) {
-  profile()->GetTestingPrefService()->SetString(
-      language::prefs::kApplicationLocale, "he");
-  UErrorCode error_code = U_ZERO_ERROR;
-  const icu::Locale& old_locale = icu::Locale::getDefault();
-  icu::Locale::setDefault(icu::Locale("he"), error_code);
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmailGaiaId(
-                        profile()->GetProfileUserName(), kTestGaiaId));
-
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_LOCALE,
-            IsAssistantAllowedForProfile(profile()));
-  icu::Locale::setDefault(old_locale, error_code);
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_DemoMode) {
-  chromeos::DemoSession::SetDemoConfigForTesting(
-      chromeos::DemoSession::DemoModeConfig::kOnline);
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmail(profile()->GetProfileUserName()),
-                    user_manager::USER_TYPE_PUBLIC_ACCOUNT);
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_DEMO_MODE,
-            IsAssistantAllowedForProfile(profile()));
-
-  chromeos::DemoSession::SetDemoConfigForTesting(
-      chromeos::DemoSession::DemoModeConfig::kNone);
-}
-
-TEST_F(ChromeArcUtilTest, IsAssistantAllowedForProfile_PublicSession) {
-  ScopedLogIn login(GetFakeUserManager(),
-                    AccountId::FromUserEmail(profile()->GetProfileUserName()),
-                    user_manager::USER_TYPE_PUBLIC_ACCOUNT);
-  EXPECT_EQ(ash::mojom::AssistantAllowedState::DISALLOWED_BY_PUBLIC_SESSION,
-            IsAssistantAllowedForProfile(profile()));
 }
 
 // Test the AreArcAllOptInPreferencesIgnorableForProfile() function.
@@ -979,7 +905,7 @@ TEST_P(ArcMigrationAskForEcryptfsArcUsersTest,
             IsArcMigrationAllowedByPolicyForProfile(profile()));
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ArcMigrationTest,
     ArcMigrationAskForEcryptfsArcUsersTest,
     ::testing::Values(

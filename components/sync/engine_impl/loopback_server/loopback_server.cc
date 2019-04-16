@@ -70,7 +70,7 @@ class UpdateSieve {
           get_updates_response->add_new_progress_marker();
       new_marker->set_data_type_id(
           GetSpecificsFieldNumberFromModelType(kv.first));
-      new_marker->set_token(base::Int64ToString(kv.second));
+      new_marker->set_token(base::NumberToString(kv.second));
     }
   }
 
@@ -251,6 +251,10 @@ net::HttpStatusCode LoopbackServer::HandleCommand(const string& request,
   DCHECK(parsed) << "Unable to parse the ClientToServerMessage.";
 
   sync_pb::ClientToServerResponse response_proto;
+
+  if (bag_of_chips_.has_value()) {
+    *response_proto.mutable_new_bag_of_chips() = *bag_of_chips_;
+  }
 
   if (message.has_store_birthday() &&
       message.store_birthday() != GetStoreBirthday()) {
@@ -536,7 +540,7 @@ void LoopbackServer::ClearServerData() {
 
 std::string LoopbackServer::GetStoreBirthday() const {
   DCHECK(thread_checker_.CalledOnValidThread());
-  return base::Int64ToString(store_birthday_);
+  return base::NumberToString(store_birthday_);
 }
 
 std::vector<sync_pb::SyncEntity> LoopbackServer::GetSyncEntitiesByModelType(

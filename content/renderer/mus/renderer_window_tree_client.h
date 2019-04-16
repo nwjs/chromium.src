@@ -111,37 +111,36 @@ class RendererWindowTreeClient : public ws::mojom::WindowTreeClient,
   // implementations would require some amount of refactoring out of
   // RenderWidget and related classes (e.g. resize, input, ime etc.).
   void OnClientId(uint32_t client_id) override;
-  void OnEmbed(
-      ws::mojom::WindowDataPtr root,
-      ws::mojom::WindowTreePtr tree,
-      int64_t display_id,
-      ws::Id focused_window_id,
-      bool drawn,
-      const base::Optional<viz::LocalSurfaceId>& local_surface_id) override;
-  void OnEmbedFromToken(
-      const base::UnguessableToken& token,
-      ws::mojom::WindowDataPtr root,
-      int64_t display_id,
-      const base::Optional<viz::LocalSurfaceId>& local_surface_id) override;
+  void OnEmbed(ws::mojom::WindowDataPtr root,
+               ws::mojom::WindowTreePtr tree,
+               int64_t display_id,
+               ws::Id focused_window_id,
+               bool drawn,
+               const base::Optional<viz::LocalSurfaceIdAllocation>&
+                   local_surface_id_allocation) override;
+  void OnEmbedFromToken(const base::UnguessableToken& token,
+                        ws::mojom::WindowDataPtr root,
+                        int64_t display_id,
+                        const base::Optional<viz::LocalSurfaceIdAllocation>&
+                            local_surface_id_allocation) override;
   void OnEmbeddedAppDisconnected(ws::Id window_id) override;
   void OnUnembed(ws::Id window_id) override;
   void OnCaptureChanged(ws::Id new_capture_window_id,
                         ws::Id old_capture_window_id) override;
   void OnFrameSinkIdAllocated(ws::Id window_id,
                               const viz::FrameSinkId& frame_sink_id) override;
-  void OnTopLevelCreated(
-      uint32_t change_id,
-      ws::mojom::WindowDataPtr data,
-      int64_t display_id,
-      bool drawn,
-      const base::Optional<viz::LocalSurfaceId>& local_surface_id) override;
+  void OnTopLevelCreated(uint32_t change_id,
+                         ws::mojom::WindowDataPtr data,
+                         int64_t display_id,
+                         bool drawn,
+                         const viz::LocalSurfaceIdAllocation&
+                             local_surface_id_allocation) override;
   void OnWindowBoundsChanged(
       ws::Id window_id,
-      const gfx::Rect& old_bounds,
       const gfx::Rect& new_bounds,
-      const base::Optional<viz::LocalSurfaceId>& local_frame_id) override;
+      const base::Optional<viz::LocalSurfaceIdAllocation>&
+          local_surface_id_allocation) override;
   void OnWindowTransformChanged(ws::Id window_id,
-                                const gfx::Transform& old_transform,
                                 const gfx::Transform& new_transform) override;
   void OnTransientWindowAdded(ws::Id window_id,
                               ws::Id transient_window_id) override;
@@ -158,7 +157,6 @@ class RendererWindowTreeClient : public ws::mojom::WindowTreeClient,
   void OnWindowDeleted(ws::Id window_id) override;
   void OnWindowVisibilityChanged(ws::Id window_id, bool visible) override;
   void OnWindowOpacityChanged(ws::Id window_id,
-                              float old_opacity,
                               float new_opacity) override;
   void OnWindowDisplayChanged(ws::Id window_id, int64_t display_id) override;
   void OnWindowParentDrawnStateChanged(ws::Id window_id, bool drawn) override;
@@ -207,6 +205,9 @@ class RendererWindowTreeClient : public ws::mojom::WindowTreeClient,
   void OnOcclusionStatesChanged(
       const base::flat_map<ws::Id, ws::mojom::OcclusionState>&
           occlusion_changes) override;
+  void CleanupGestureState(ws::Id window_id) override;
+  void OnWindowResizeLoopStarted(ws::Id window_id) override;
+  void OnWindowResizeLoopEnded(ws::Id window_id) override;
 
   const int routing_id_;
   ws::Id root_window_id_ = 0u;

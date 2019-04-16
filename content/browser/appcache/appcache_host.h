@@ -23,6 +23,7 @@
 #include "content/common/content_export.h"
 #include "content/public/common/child_process_host.h"
 #include "content/public/common/resource_type.h"
+#include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
 #include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 #include "url/gurl.h"
@@ -40,7 +41,6 @@ FORWARD_DECLARE_TEST(AppCacheHostTest, FailedGroupLoad);
 FORWARD_DECLARE_TEST(AppCacheHostTest, SetSwappableCache);
 FORWARD_DECLARE_TEST(AppCacheTest, CleanupUnusedCache);
 class AppCache;
-class AppCacheFrontend;
 class AppCacheGroupTest;
 class AppCacheRequest;
 class AppCacheRequestHandler;
@@ -53,16 +53,11 @@ namespace appcache_update_job_unittest {
 class AppCacheUpdateJobTest;
 }
 
-using GetStatusCallback =
-    base::OnceCallback<void(blink::mojom::AppCacheStatus)>;
-using StartUpdateCallback = base::OnceCallback<void(bool)>;
-using SwapCacheCallback = base::OnceCallback<void(bool)>;
-
-// Server-side representation of an application cache host.
-class CONTENT_EXPORT AppCacheHost
-    : public AppCacheStorage::Delegate,
-      public AppCacheGroup::UpdateObserver,
-      public AppCacheServiceImpl::Observer {
+// The browser-side implementation of the document hosting an application cache.
+class CONTENT_EXPORT AppCacheHost : public blink::mojom::AppCacheHost,
+                                    public AppCacheStorage::Delegate,
+                                    public AppCacheGroup::UpdateObserver,
+                                    public AppCacheServiceImpl::Observer {
  public:
   class CONTENT_EXPORT Observer {
    public:
@@ -77,41 +72,38 @@ class CONTENT_EXPORT AppCacheHost
 
   AppCacheHost(int host_id,
                int process_id,
-               AppCacheFrontend* frontend,
+               int render_frame_id,
+               blink::mojom::AppCacheFrontendPtr frontend,
                AppCacheServiceImpl* service);
   ~AppCacheHost() override;
+
+  void BindRequest(blink::mojom::AppCacheHostRequest request);
 
   // Adds/removes an observer, the AppCacheHost does not take
   // ownership of the observer.
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
-  // Support for cache selection and scriptable method calls. These methods
-  // return false if their preconditions have been broken.
-  // TODO(mek): WARN_UNUSED_RESULT to make sure we're actually checking the
-  // return values.
-  bool SelectCache(const GURL& document_url,
-                   const int64_t cache_document_was_loaded_from,
-                   const GURL& manifest_url);
-  bool SelectCacheForSharedWorker(int64_t appcache_id);
-  bool MarkAsForeignEntry(const GURL& document_url,
-                          int64_t cache_document_was_loaded_from);
-  bool GetStatusWithCallback(GetStatusCallback callback);
-  bool StartUpdateWithCallback(StartUpdateCallback callback);
-  bool SwapCacheWithCallback(SwapCacheCallback callback);
+  void Unregister();
 
-  // Called prior to the main resource load. When the system contains multiple
-  // candidates for a main resource load, the appcache preferred by the host
-  // that created this host is used to break ties.
-  void SetSpawningHostId(int spawning_process_id, int spawning_host_id);
+  // blink::mojom::AppCacheHost
+  void SelectCache(const GURL& document_url,
+                   const int64_t cache_document_was_loaded_from,
+                   const GURL& manifest_url) override;
+  void SelectCacheForSharedWorker(int64_t appcache_id) override;
+  void MarkAsForeignEntry(const GURL& document_url,
+                          int64_t cache_document_was_loaded_from) override;
+  void GetStatus(GetStatusCallback callback) override;
+  void StartUpdate(StartUpdateCallback callback) override;
+  void SwapCache(SwapCacheCallback callback) override;
+  void SetSpawningHostId(int spawning_host_id) override;
+  void GetResourceList(GetResourceListCallback callback) override;
 
   // May return NULL if the spawning host context has been closed, or if a
   // spawning host context was never identified.
   const AppCacheHost* GetSpawningHost() const;
 
-  const GURL& preferred_manifest_url() const {
-    return preferred_manifest_url_;
-  }
+  const GURL& preferred_manifest_url() const { return preferred_manifest_url_; }
   void set_preferred_manifest_url(const GURL& url) {
     preferred_manifest_url_ = url;
   }
@@ -124,7 +116,7 @@ class CONTENT_EXPORT AppCacheHost
       bool should_reset_appcache);
 
   // Support for devtools inspecting appcache resources.
-  void GetResourceList(
+  void GetResourceListSync(
       std::vector<blink::mojom::AppCacheResourceInfo>* resource_infos);
 
   // Breaks any existing association between this host and a cache.
@@ -164,9 +156,7 @@ class CONTENT_EXPORT AppCacheHost
 
   // Used by the update job to keep track of which hosts are associated
   // with which pending master entries.
-  const GURL& pending_master_entry_url() const {
-    return new_master_entry_url_;
-  }
+  const GURL& pending_master_entry_url() const { return new_master_entry_url_; }
 
   int host_id() const { return host_id_; }
 
@@ -182,13 +172,22 @@ class CONTENT_EXPORT AppCacheHost
 
   AppCacheServiceImpl* service() const { return service_; }
   AppCacheStorage* storage() const { return storage_; }
-  AppCacheFrontend* frontend() const { return frontend_; }
+  blink::mojom::AppCacheFrontend* frontend() const { return frontend_; }
 
   // PlzNavigate:
-  // The AppCacheHost instance is created with a dummy AppCacheFrontend
+  // The AppCacheHost instance is created with a null AppCacheFrontend
   // pointer when the navigation starts. We need to switch it to the
   // actual frontend when the navigation commits.
-  void set_frontend(AppCacheFrontend* frontend) { frontend_ = frontend; }
+  void set_frontend(blink::mojom::AppCacheFrontendPtr frontend,
+                    int render_frame_id) {
+    frontend_ptr_ = std::move(frontend);
+    frontend_ = frontend_ptr_.get();
+    render_frame_id_ = render_frame_id;
+  }
+
+  void set_frontend_for_testing(blink::mojom::AppCacheFrontend* frontend) {
+    frontend_ = frontend;
+  }
 
   AppCache* associated_cache() const { return associated_cache_.get(); }
 
@@ -220,12 +219,14 @@ class CONTENT_EXPORT AppCacheHost
   void SetAppCacheSubresourceFactory(
       AppCacheSubresourceURLFactory* subresource_factory);
 
+  void OnContentBlocked(const GURL& manifest_url);
+
  private:
   friend class content::AppCacheStorageImplTest;
   friend class content::AppCacheRequestHandlerTest;
   friend class content::appcache_update_job_unittest::AppCacheUpdateJobTest;
 
-  blink::mojom::AppCacheStatus GetStatus();
+  blink::mojom::AppCacheStatus GetStatusSync();
   void LoadSelectedCache(int64_t cache_id);
   void LoadOrCreateGroup(const GURL& manifest_url);
 
@@ -239,7 +240,10 @@ class CONTENT_EXPORT AppCacheHost
   void OnServiceReinitialized(
       AppCacheStorageReference* old_storage_ref) override;
 
-  void FinishCacheSelection(AppCache* cache, AppCacheGroup* group);
+  void FinishCacheSelection(
+      AppCache* cache,
+      AppCacheGroup* group,
+      mojo::ReportBadMessageCallback bad_message_callback);
   void DoPendingGetStatus();
   void DoPendingStartUpdate();
   void DoPendingSwapCache();
@@ -253,6 +257,8 @@ class CONTENT_EXPORT AppCacheHost
   bool is_for_dedicated_worker() const {
     return parent_host_id_ != blink::mojom::kAppCacheNoHostId;
   }
+
+  void OnAppCacheAccessed(const GURL& manifest_url, bool blocked);
 
   // Returns the parent context's host instance. This is only valid
   // to call when this instance is_for_dedicated_worker.
@@ -269,7 +275,6 @@ class CONTENT_EXPORT AppCacheHost
   // preferred by our creator influences which cache our main resource
   // should be loaded from.
   int spawning_host_id_;
-  int spawning_process_id_;
   GURL preferred_manifest_url_;
 
   // Hosts for dedicated workers are special cased to shunt
@@ -307,11 +312,19 @@ class CONTENT_EXPORT AppCacheHost
   scoped_refptr<AppCache> main_resource_cache_;
   int64_t pending_main_resource_cache_id_;
 
-  // Cache loading is async, if we're loading a specific cache or group
+  // Cache loading is async. If we're loading a specific cache or group
   // for the purposes of cache selection, one or the other of these will
   // indicate which cache or group is being loaded.
   int64_t pending_selected_cache_id_;
   GURL pending_selected_manifest_url_;
+
+  // Cache loading is async. If we determine after loading that the request to
+  // load the cache was actually invalid we can call this callback to report an
+  // earlier mojo message as bad to kill the renderer.
+  // Unlike the pending*callback_ fields further below in this class, it is
+  // fine for this callback to not get called, and as such it is not included
+  // in the cleanup code in the destructor.
+  mojo::ReportBadMessageCallback pending_selected_cache_bad_message_callback_;
 
   // Used to defend against bad IPC messages.
   bool was_select_cache_called_;
@@ -322,8 +335,10 @@ class CONTENT_EXPORT AppCacheHost
   // A new master entry to be added to the cache, may be empty.
   GURL new_master_entry_url_;
 
-  // The frontend proxy to deliver notifications to the child process.
-  AppCacheFrontend* frontend_;
+  // The frontend to deliver notifications to the child process.
+  blink::mojom::AppCacheFrontendPtr frontend_ptr_;
+  blink::mojom::AppCacheFrontend* frontend_;
+  int render_frame_id_;
 
   // Our central service object.
   AppCacheServiceImpl* service_;
@@ -341,6 +356,10 @@ class CONTENT_EXPORT AppCacheHost
   // only be one type of callback pending. Also, we have to wait until we have a
   // cache selection prior to responding to these calls, as cache selection
   // involves async loading of a cache or a group from storage.
+  // If any of these callbacks are non-null at the time this AppCacheHost is
+  // destroyed, we have to make sure that they still get called, as the mojo
+  // pipe the callbacks are associated with will outlive this. So make sure to
+  // update the destructor if adding more callbacks here.
   GetStatusCallback pending_get_status_callback_;
   StartUpdateCallback pending_start_update_callback_;
   SwapCacheCallback pending_swap_cache_callback_;
@@ -377,6 +396,8 @@ class CONTENT_EXPORT AppCacheHost
 
   // In the network service world points to the subresource URLLoaderFactory.
   base::WeakPtr<AppCacheSubresourceURLFactory> subresource_url_factory_;
+
+  mojo::Binding<blink::mojom::AppCacheHost> binding_;
 
   base::WeakPtrFactory<AppCacheHost> weak_factory_;
 

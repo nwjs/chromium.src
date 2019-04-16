@@ -28,12 +28,6 @@ function getEntry(volumeType, path) {
 
 // Run the tests.
 chrome.test.runTests([
-  function testIsCrostiniEnabled() {
-    chrome.fileManagerPrivate.isCrostiniEnabled(
-        chrome.test.callbackPass((enabled) => {
-          chrome.test.assertTrue(enabled);
-        }));
-  },
   function testMountCrostini() {
     chrome.fileManagerPrivate.mountCrostini(
         chrome.test.callbackPass());
@@ -54,7 +48,8 @@ chrome.test.runTests([
   function testGetCrostiniSharedPaths() {
     const urlPrefix = 'filesystem:chrome-extension://' + TEST_EXTENSION_ID +
         '/external/Downloads-user';
-    chrome.fileManagerPrivate.getCrostiniSharedPaths(
+    let observeFirstForSession = false;
+    chrome.fileManagerPrivate.getCrostiniSharedPaths(observeFirstForSession,
         chrome.test.callbackPass((entries, firstForSession) => {
           // 2 entries inserted in setup, and 1 successful entry added above.
           chrome.test.assertEq(3, entries.length);
@@ -67,10 +62,20 @@ chrome.test.runTests([
           chrome.test.assertEq(urlPrefix + '/share_dir', entries[2].toURL());
           chrome.test.assertTrue(entries[2].isDirectory);
           chrome.test.assertEq('/share_dir', entries[2].fullPath);
+          // When observerFirstForSession is false, firstForSession is false.
+          chrome.test.assertFalse(firstForSession);
+        }));
+    // First time observeFirstForSession is set true, firstForSession is true.
+    observeFirstForSession = true;
+    chrome.fileManagerPrivate.getCrostiniSharedPaths(observeFirstForSession,
+        chrome.test.callbackPass((entries, firstForSession) => {
+          chrome.test.assertEq(3, entries.length);
           chrome.test.assertTrue(firstForSession);
         }));
-    chrome.fileManagerPrivate.getCrostiniSharedPaths(
+    // Subsequent times, firstForSession is false.
+    chrome.fileManagerPrivate.getCrostiniSharedPaths(observeFirstForSession,
         chrome.test.callbackPass((entries, firstForSession) => {
+          chrome.test.assertEq(3, entries.length);
           chrome.test.assertFalse(firstForSession);
         }));
   },

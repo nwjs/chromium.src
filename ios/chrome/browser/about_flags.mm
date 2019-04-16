@@ -33,6 +33,7 @@
 #include "components/invalidation/impl/invalidation_switches.h"
 #include "components/ntp_tiles/switches.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/payments/core/features.h"
 #include "components/search_provider_logos/switches.h"
@@ -42,6 +43,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/translate/core/browser/translate_prefs.h"
+#include "components/ukm/ios/features.h"
 #include "components/unified_consent/feature.h"
 #include "ios/chrome/browser/app_launcher/app_launcher_flags.h"
 #include "ios/chrome/browser/browsing_data/browsing_data_features.h"
@@ -49,16 +51,15 @@
 #include "ios/chrome/browser/crash_report/crash_report_flags.h"
 #include "ios/chrome/browser/download/features.h"
 #include "ios/chrome/browser/drag_and_drop/drag_and_drop_flag.h"
-#include "ios/chrome/browser/experimental_flags.h"
 #include "ios/chrome/browser/find_in_page/features.h"
 #include "ios/chrome/browser/ios_chrome_flag_descriptions.h"
-#include "ios/chrome/browser/itunes_urls/itunes_urls_flag.h"
+#include "ios/chrome/browser/reading_list/features.h"
 #include "ios/chrome/browser/search_engines/feature_flags.h"
 #include "ios/chrome/browser/signin/feature_flags.h"
+#include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/ui/dialogs/dialog_features.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_features.h"
 #import "ios/chrome/browser/ui/infobars/infobar_feature.h"
-#include "ios/chrome/browser/ui/sad_tab/features.h"
 #import "ios/chrome/browser/ui/toolbar/public/features.h"
 #import "ios/chrome/browser/ui/toolbar_container/toolbar_container_features.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
@@ -306,16 +307,18 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kNewClearBrowsingDataUIName,
      flag_descriptions::kNewClearBrowsingDataUIDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kNewClearBrowsingDataUI)},
-    {"itunes-urls-store-kit-handling",
-     flag_descriptions::kITunesUrlsStoreKitHandlingName,
-     flag_descriptions::kITunesUrlsStoreKitHandlingDescription,
-     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kITunesUrlsStoreKitHandling)},
     {"unified-consent", flag_descriptions::kUnifiedConsentName,
      flag_descriptions::kUnifiedConsentDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(unified_consent::kUnifiedConsent)},
     {"autofill-dynamic-forms", flag_descriptions::kAutofillDynamicFormsName,
      flag_descriptions::kAutofillDynamicFormsDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(autofill::features::kAutofillDynamicForms)},
+    {"autofill-no-local-save-on-upload-success",
+     flag_descriptions::kAutofillNoLocalSaveOnUploadSuccessName,
+     flag_descriptions::kAutofillNoLocalSaveOnUploadSuccessDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(
+         autofill::features::kAutofillNoLocalSaveOnUploadSuccess)},
     {"autofill-prefilled-fields",
      flag_descriptions::kAutofillPrefilledFieldsName,
      flag_descriptions::kAutofillPrefilledFieldsDescription, flags_ui::kOsIos,
@@ -394,10 +397,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
     {"app-launcher-refresh", flag_descriptions::kAppLauncherRefreshName,
      flag_descriptions::kAppLauncherRefreshDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(kAppLauncherRefresh)},
-    {"sync-standalone-transport",
-     flag_descriptions::kSyncStandaloneTransportName,
-     flag_descriptions::kSyncStandaloneTransportDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(switches::kSyncStandaloneTransport)},
     {"sync-support-secondary-account",
      flag_descriptions::kSyncSupportSecondaryAccountName,
      flag_descriptions::kSyncSupportSecondaryAccountDescription,
@@ -414,10 +413,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
     {"toolbar-container", flag_descriptions::kToolbarContainerName,
      flag_descriptions::kToolbarContainerDescription, flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(toolbar_container::kToolbarContainerEnabled)},
-    {"present-sad-tab-in-view-controller",
-     flag_descriptions::kPresentSadTabInViewControllerName,
-     flag_descriptions::kPresentSadTabInViewControllerDescription,
-     flags_ui::kOsIos, FEATURE_VALUE_TYPE(kPresentSadTabInViewController)},
     {"omnibox-popup-shortcuts",
      flag_descriptions::kOmniboxPopupShortcutIconsInZeroStateName,
      flag_descriptions::kOmniboxPopupShortcutIconsInZeroStateDescription,
@@ -483,10 +478,6 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kSyncPseudoUSSHistoryDeleteDirectivesDescription,
      flags_ui::kOsIos,
      FEATURE_VALUE_TYPE(switches::kSyncPseudoUSSHistoryDeleteDirectives)},
-    {"sync-pseudo-uss-passwords",
-     flag_descriptions::kSyncPseudoUSSPasswordsName,
-     flag_descriptions::kSyncPseudoUSSPasswordsDescription, flags_ui::kOsIos,
-     FEATURE_VALUE_TYPE(switches::kSyncPseudoUSSPasswords)},
     {"sync-pseudo-uss-preferences",
      flag_descriptions::kSyncPseudoUSSPreferencesName,
      flag_descriptions::kSyncPseudoUSSPreferencesDescription, flags_ui::kOsIos,
@@ -567,6 +558,28 @@ const flags_ui::FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kBrowserContainerKeepsContentViewName,
      flag_descriptions::kBrowserContainerKeepsContentViewDescription,
      flags_ui::kOsIos, FEATURE_VALUE_TYPE(kBrowserContainerKeepsContentView)},
+    {"web-clear-browsing-data", flag_descriptions::kWebClearBrowsingDataName,
+     flag_descriptions::kWebClearBrowsingDataDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kWebClearBrowsingData)},
+    {"web-ui-scheme-handling", flag_descriptions::kWebUISchemeHandlingName,
+     flag_descriptions::kWebUISchemeHandlingDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kWebUISchemeHandling)},
+    {"send-uma-cellular", flag_descriptions::kSendUmaOverCellularName,
+     flag_descriptions::kSendUmaOverCellularDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(kUmaCellular)},
+    {"enable-sync-uss-passwords",
+     flag_descriptions::kEnableSyncUSSPasswordsName,
+     flag_descriptions::kEnableSyncUSSPasswordsDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(switches::kSyncUSSPasswords)},
+    {"offline-page-without-native-content",
+     flag_descriptions::kOfflineVersionWithoutNativeContentName,
+     flag_descriptions::kOfflineVersionWithoutNativeContentDescription,
+     flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(reading_list::kOfflineVersionWithoutNativeContent)},
+    {"store-pending-item-in-context",
+     flag_descriptions::kStorePendingItemInContextName,
+     flag_descriptions::kStorePendingItemInContextDescription, flags_ui::kOsIos,
+     FEATURE_VALUE_TYPE(web::features::kStorePendingItemInContext)},
 };
 
 // Add all switches from experimental flags to |command_line|.

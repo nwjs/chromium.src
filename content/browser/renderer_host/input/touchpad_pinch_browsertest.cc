@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -102,7 +103,7 @@ class TouchpadPinchBrowserTest : public ContentBrowserTest,
   DISALLOW_COPY_AND_ASSIGN(TouchpadPinchBrowserTest);
 };
 
-INSTANTIATE_TEST_CASE_P(, TouchpadPinchBrowserTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, TouchpadPinchBrowserTest, testing::Bool());
 
 // Performing a touchpad pinch gesture should change the page scale.
 IN_PROC_BROWSER_TEST_P(TouchpadPinchBrowserTest,

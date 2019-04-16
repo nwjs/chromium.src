@@ -10,18 +10,22 @@
 #include <string>
 #include <vector>
 
+#include "base/callback.h"
 #include "base/files/file.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/chromeos/file_system_provider/provided_file_system_info.h"
 #include "chrome/browser/chromeos/file_system_provider/provider_interface.h"
 #include "chrome/browser/chromeos/file_system_provider/service.h"
 #include "chrome/browser/chromeos/smb_client/smb_errors.h"
 #include "chrome/browser/chromeos/smb_client/smb_share_finder.h"
+#include "chrome/browser/chromeos/smb_client/smb_task_queue.h"
 #include "chrome/browser/chromeos/smb_client/temp_file_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/dbus/smb_provider_client.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "net/base/network_change_notifier.h"
 
 namespace base {
 class FilePath;
@@ -43,11 +47,14 @@ using file_system_provider::Service;
 
 // Creates and manages an smb file system.
 class SmbService : public KeyedService,
+                   public net::NetworkChangeNotifier::NetworkChangeObserver,
                    public base::SupportsWeakPtr<SmbService> {
  public:
   using MountResponse = base::OnceCallback<void(SmbMountResult result)>;
+  using StartReadDirIfSuccessfulCallback =
+      base::OnceCallback<void(bool should_retry_start_read_dir)>;
 
-  explicit SmbService(Profile* profile);
+  SmbService(Profile* profile, std::unique_ptr<base::TickClock> tick_clock);
   ~SmbService() override;
 
   // Gets the singleton instance for the |context|.
@@ -92,6 +99,11 @@ class SmbService : public KeyedService,
                          const std::string& username,
                          const std::string& password);
 
+  // Updates the share path for |mount_id|.
+  void UpdateSharePath(int32_t mount_id,
+                       const std::string& share_path,
+                       StartReadDirIfSuccessfulCallback reply);
+
  private:
   // Calls SmbProviderClient::Mount(). |temp_file_manager_| must be initialized
   // before this is called.
@@ -119,6 +131,13 @@ class SmbService : public KeyedService,
   void OnHostsDiscovered(
       const std::vector<ProvidedFileSystemInfo>& file_systems,
       const std::vector<SmbUrl>& preconfigured_shares);
+
+  // Closure for OnHostDiscovered(). |reply| is passed down to
+  // UpdateSharePath().
+  void OnHostsDiscoveredForUpdateSharePath(
+      int32_t mount_id,
+      const std::string& share_path,
+      StartReadDirIfSuccessfulCallback reply);
 
   // Attempts to remount a share with the information in |file_system_info|.
   void Remount(const ProvidedFileSystemInfo& file_system_info);
@@ -211,12 +230,36 @@ class SmbService : public KeyedService,
   void OnUpdateCredentialsResponse(int32_t mount_id,
                                    smbprovider::ErrorType error);
 
+  // Requests an updated share path via running
+  // ShareFinder::DiscoverHostsInNetwork. |reply| is stored. Once the share path
+  // has been successfully updated, |reply| is run.
+  void RequestUpdatedSharePath(const std::string& share_path,
+                               int32_t mount_id,
+                               StartReadDirIfSuccessfulCallback reply);
+
+  // Handles the response for attempting to update the share path of a mount.
+  // |reply| will run if |error| is ERROR_OK. Logs the error otherwise.
+  void OnUpdateSharePathResponse(int32_t mount_id,
+                                 StartReadDirIfSuccessfulCallback reply,
+                                 smbprovider::ErrorType error);
+
+  // Helper function that determines if HostDiscovery can be run again. Returns
+  // false if HostDiscovery was recently run.
+  bool ShouldRunHostDiscoveryAgain() const;
+
+  // NetworkChangeNotifier::NetworkChangeObserver override. Runs HostDiscovery
+  // when network detects a change.
+  void OnNetworkChanged(
+      net::NetworkChangeNotifier::ConnectionType type) override;
+
   // Records metrics on the number of SMB mounts a user has.
   void RecordMountCount() const;
 
   static bool service_should_run_;
+  base::TimeTicks previous_host_discovery_time_;
   const ProviderId provider_id_;
   Profile* profile_;
+  std::unique_ptr<base::TickClock> tick_clock_;
   std::unique_ptr<TempFileManager> temp_file_manager_;
   std::unique_ptr<SmbShareFinder> share_finder_;
   // |mount_id| -> |reply|. Stored callbacks to run after updating credential.

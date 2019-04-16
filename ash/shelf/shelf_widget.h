@@ -103,6 +103,10 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
 
   void set_default_last_focusable_child(bool default_last_focusable_child);
 
+  // Finds the first or last focusable child of the set (main shelf + overflow)
+  // and focuses it.
+  void FocusFirstOrLastFocusableChild(bool last);
+
   // Overridden from views::WidgetObserver:
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
 
@@ -117,6 +121,9 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
   void OnSessionStateChanged(session_manager::SessionState state) override;
 
   SkColor GetShelfBackgroundColor() const;
+  bool GetHitTestRects(aura::Window* target,
+                       gfx::Rect* hit_test_rect_mouse,
+                       gfx::Rect* hit_test_rect_touch);
 
   // Internal implementation detail. Do not expose outside of tests.
   ShelfView* shelf_view_for_testing() const { return shelf_view_; }
@@ -124,8 +131,8 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
     return &background_animator_;
   }
 
-  void set_activated_from_overflow_bubble(bool val) {
-    activated_from_overflow_bubble_ = val;
+  void set_activated_from_other_widget(bool val) {
+    activated_from_other_widget_ = val;
   }
 
  private:
@@ -163,10 +170,10 @@ class ASH_EXPORT ShelfWidget : public views::Widget,
   // Owned by the views hierarchy.
   LoginShelfView* const login_shelf_view_;
 
-  // Set to true when the widget is activated from the shelf overflow bubble.
-  // Do not focus the default element in this case. This should be set when
-  // cycling focus from the overflow bubble to the main shelf.
-  bool activated_from_overflow_bubble_ = false;
+  // Set to true when the widget is activated from another widget. Do not
+  // focus the default element in this case. This should be set when
+  // cycling focus from another widget to the shelf.
+  bool activated_from_other_widget_ = false;
 
   ScopedSessionObserver scoped_session_observer_;
 

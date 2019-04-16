@@ -5,8 +5,6 @@
 #ifndef PRINTING_PRINT_JOB_CONSTANTS_H_
 #define PRINTING_PRINT_JOB_CONSTANTS_H_
 
-#include "build/build_config.h"
-#include "printing/buildflags/buildflags.h"
 #include "printing/printing_export.h"
 
 namespace printing {
@@ -71,9 +69,11 @@ PRINTING_EXPORT extern const char kSettingPrinterOptions[];
 PRINTING_EXPORT extern const char kSettingRasterizePdf[];
 PRINTING_EXPORT extern const char kSettingScaleFactor[];
 PRINTING_EXPORT extern const char kSettingTicket[];
+PRINTING_EXPORT extern const char kSettingSendUserInfo[];
 PRINTING_EXPORT extern const char kSettingShouldPrintBackgrounds[];
 PRINTING_EXPORT extern const char kSettingShouldPrintSelectionOnly[];
 PRINTING_EXPORT extern const char kSettingShowSystemDialog[];
+PRINTING_EXPORT extern const char kSettingUsername[];
 
 PRINTING_EXPORT extern const int FIRST_PAGE_INDEX;
 PRINTING_EXPORT extern const int COMPLETE_PREVIEW_DOCUMENT_INDEX;

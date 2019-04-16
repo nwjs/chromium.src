@@ -3,8 +3,6 @@
 // (https://github.com/tidoust/reffy-reports)
 // Source: HTML Standard (https://html.spec.whatwg.org/)
 
-// Example interface manually removed here, see https://github.com/tidoust/reffy/issues/129.
-
 [Exposed=Window,
  LegacyUnenumerableNamedProperties]
 interface HTMLAllCollection {
@@ -116,6 +114,8 @@ interface HTMLElement : Element {
   [CEReactions] attribute DOMString autocapitalize;
 
   [CEReactions] attribute [TreatNullAs=EmptyString] DOMString innerText;
+
+  ElementInternals attachInternals();
 };
 
 HTMLElement includes GlobalEventHandlers;
@@ -727,6 +727,8 @@ interface HTMLFormElement : HTMLElement {
   [CEReactions] attribute DOMString name;
   [CEReactions] attribute boolean noValidate;
   [CEReactions] attribute DOMString target;
+  [CEReactions] attribute DOMString rel;
+  [SameObject, PutForwards=value] readonly attribute DOMTokenList relList;
 
   [SameObject] readonly attribute HTMLFormControlsCollection elements;
   readonly attribute unsigned long length;
@@ -1098,8 +1100,8 @@ interface HTMLCanvasElement : HTMLElement {
 
   RenderingContext? getContext(DOMString contextId, optional any options = null);
 
-  USVString toDataURL(optional DOMString type, optional any quality);
-  void toBlob(BlobCallback _callback, optional DOMString type, optional any quality);
+  USVString toDataURL(optional DOMString type = "image/png", optional any quality);
+  void toBlob(BlobCallback _callback, optional DOMString type = "image/png", optional any quality);
   OffscreenCanvas transferControlToOffscreen();
 };
 
@@ -1359,7 +1361,7 @@ typedef (OffscreenCanvasRenderingContext2D or WebGLRenderingContext or WebGL2Ren
 
 dictionary ImageEncodeOptions {
   DOMString type = "image/png";
-  unrestricted double quality = 1.0;
+  unrestricted double quality;
 };
 
 enum OffscreenRenderingContextId { "2d", "webgl", "webgl2" };
@@ -1408,6 +1410,11 @@ callback CustomElementConstructor = any ();
 
 dictionary ElementDefinitionOptions {
   DOMString extends;
+};
+
+[Exposed=Window]
+interface ElementInternals {
+
 };
 
 dictionary FocusOptions {
@@ -1524,6 +1531,7 @@ interface Window : EventTarget {
   void postMessage(any message, optional WindowPostMessageOptions options);
 };
 Window includes GlobalEventHandlers;
+Window includes WindowEventHandlers;
 
 dictionary WindowPostMessageOptions : PostMessageOptions {
   USVString targetOrigin = "/";
@@ -1817,7 +1825,7 @@ interface mixin NavigatorID {
   [Exposed=Window] readonly attribute DOMString vendorSub; // constant ""
 };
 
-partial interface NavigatorID {
+partial interface mixin NavigatorID {
   [Exposed=Window] boolean taintEnabled(); // constant false
   [Exposed=Window] readonly attribute DOMString oscpu;
 };
@@ -2450,8 +2458,7 @@ partial interface Window {
   [Replaceable, SameObject] readonly attribute External external;
 };
 
-[Exposed=Window,
- NoInterfaceObject]
+[Exposed=Window]
 interface External {
   void AddSearchProvider();
   void IsSearchProviderInstalled();

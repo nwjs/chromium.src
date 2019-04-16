@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/observer_list.h"
 #include "components/autofill/core/browser/address_normalizer.h"
+#include "components/payments/content/initialization_task.h"
 #include "components/payments/content/payment_request_spec.h"
 #include "components/payments/content/payment_response_helper.h"
 #include "components/payments/content/service_worker_payment_app_factory.h"
@@ -39,7 +40,8 @@ class ServiceWorkerPaymentInstrument;
 // what the merchant has specified, as input into the "is ready to pay"
 // computation.
 class PaymentRequestState : public PaymentResponseHelper::Delegate,
-                            public PaymentRequestSpec::Observer {
+                            public PaymentRequestSpec::Observer,
+                            public InitializationTask {
  public:
   // Any class call add itself as Observer via AddObserver() and receive
   // notification about the state changing.
@@ -99,7 +101,8 @@ class PaymentRequestState : public PaymentResponseHelper::Delegate,
   // Checks whether support for the specified payment methods exist, either
   // because the user has a registered payment handler or because the browser
   // can do just-in-time registration for a suitable payment handler.
-  void CanMakePayment(StatusCallback callback);
+  // If |legacy_mode| is true, then also checks that an instrument is enrolled.
+  void CanMakePayment(bool legacy_mode, StatusCallback callback);
 
   // Checks whether the user has at least one instrument that satisfies the
   // specified supported payment methods asynchronously.
@@ -218,6 +221,9 @@ class PaymentRequestState : public PaymentResponseHelper::Delegate,
 
   autofill::AddressNormalizer* GetAddressNormalizer();
 
+  // InitializationTask:
+  bool IsInitialized() const override;
+
  private:
   // Fetches the Autofill Profiles for this user from the PersonalDataManager,
   // and stores copies of them, owned by this PaymentRequestState, in
@@ -263,7 +269,7 @@ class PaymentRequestState : public PaymentResponseHelper::Delegate,
 
   // Checks whether support for the specified payment methods exists and call
   // the |callback| to return the result.
-  void CheckCanMakePayment(StatusCallback callback);
+  void CheckCanMakePayment(bool legacy_mode, StatusCallback callback);
 
   // Checks whether the user has at least one instrument that satisfies the
   // specified supported payment methods and call the |callback| to return the
@@ -291,6 +297,10 @@ class PaymentRequestState : public PaymentResponseHelper::Delegate,
   Delegate* delegate_;
   autofill::PersonalDataManager* personal_data_manager_;
   JourneyLogger* journey_logger_;
+
+  // Whether |can_make_payment_callback_| expects the legacy canMakePayment
+  // semantic. Only meaningful when |can_make_payment_callback_| is present.
+  bool can_make_payment_legacy_mode_ = false;
 
   StatusCallback can_make_payment_callback_;
   StatusCallback has_enrolled_instrument_callback_;

@@ -12,7 +12,7 @@
 #include "ipc/ipc_param_traits.h"
 #include "ipc/param_traits_macros.h"
 #include "net/base/auth.h"
-#include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/proxy_server.h"
 #include "net/base/request_priority.h"
 #include "net/cert/cert_verify_result.h"
@@ -63,6 +63,8 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static void Log(const param_type& p, std::string* l);
 };
 
+// TODO(Richard): Remove this traits after usage of FrameHostMsg_OpenURL_Params
+// disappears.
 template <>
 struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ParamTraits<network::DataElement> {
   typedef network::DataElement param_type;
@@ -73,6 +75,8 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ParamTraits<network::DataElement> {
   static void Log(const param_type& p, std::string* l);
 };
 
+// TODO(Richard): Remove this traits after usage of FrameHostMsg_OpenURL_Params
+// disappears.
 template <>
 struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
     ParamTraits<scoped_refptr<network::ResourceRequestBody>> {
@@ -113,7 +117,7 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(network::cors::PreflightTimingInfo)
   IPC_STRUCT_TRAITS_MEMBER(start_time)
-  IPC_STRUCT_TRAITS_MEMBER(finish_time)
+  IPC_STRUCT_TRAITS_MEMBER(response_end)
   IPC_STRUCT_TRAITS_MEMBER(alpn_negotiated_protocol)
   IPC_STRUCT_TRAITS_MEMBER(connection_info)
   IPC_STRUCT_TRAITS_MEMBER(timing_allow_origin)
@@ -142,7 +146,6 @@ IPC_STRUCT_TRAITS_BEGIN(network::ResourceResponseInfo)
   IPC_STRUCT_TRAITS_MEMBER(mime_type)
   IPC_STRUCT_TRAITS_MEMBER(charset)
   IPC_STRUCT_TRAITS_MEMBER(ct_policy_compliance)
-  IPC_STRUCT_TRAITS_MEMBER(is_legacy_symantec_cert)
   IPC_STRUCT_TRAITS_MEMBER(content_length)
   IPC_STRUCT_TRAITS_MEMBER(network_accessed)
   IPC_STRUCT_TRAITS_MEMBER(encoded_data_length)
@@ -156,7 +159,7 @@ IPC_STRUCT_TRAITS_BEGIN(network::ResourceResponseInfo)
   IPC_STRUCT_TRAITS_MEMBER(was_alternate_protocol_available)
   IPC_STRUCT_TRAITS_MEMBER(connection_info)
   IPC_STRUCT_TRAITS_MEMBER(alpn_negotiated_protocol)
-  IPC_STRUCT_TRAITS_MEMBER(socket_address)
+  IPC_STRUCT_TRAITS_MEMBER(remote_endpoint)
   IPC_STRUCT_TRAITS_MEMBER(was_fetched_via_cache)
   IPC_STRUCT_TRAITS_MEMBER(proxy_server)
   IPC_STRUCT_TRAITS_MEMBER(was_fetched_via_service_worker)

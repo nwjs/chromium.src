@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/base_paths.h"
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -95,7 +96,7 @@ std::pair<ModuleInfoKey, ModuleInfoData> CreateExeModuleInfo() {
 
   std::pair<ModuleInfoKey, ModuleInfoData> module_info(
       std::piecewise_construct,
-      std::forward_as_tuple(std::move(exe_path), 0, 0, 0),
+      std::forward_as_tuple(std::move(exe_path), 0, 0),
       std::forward_as_tuple());
 
   module_info.second.inspection_result =

@@ -29,6 +29,8 @@
 #include "components/autofill/core/browser/card_unmask_delegate.h"
 #include "components/autofill/core/browser/field_filler.h"
 #include "components/autofill/core/browser/form_types.h"
+#include "components/autofill/core/browser/metrics/address_form_event_logger.h"
+#include "components/autofill/core/browser/metrics/credit_card_form_event_logger.h"
 #include "components/autofill/core/browser/payments/full_card_request.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/popup_types.h"
@@ -433,9 +435,10 @@ class AutofillManager : public AutofillHandler,
   // |FieldTypeGroup|.
   bool FormHasAddressField(const FormData& form) WARN_UNUSED_RESULT;
 
-  // Returns a list of values from the stored profiles that match |type| and the
-  // value of |field| and returns the labels of the matching profiles. |labels|
-  // is filled with the Profile label.
+  // Returns Suggestions corresponding to both the |autofill_field| type and
+  // stored profiles whose values match the contents of |field|. |form| stores
+  // data about the form with which the user is interacting, e.g. the number and
+  // types of form fields.
   std::vector<Suggestion> GetProfileSuggestions(
       const FormStructure& form,
       const FormFieldData& field,
@@ -498,9 +501,6 @@ class AutofillManager : public AutofillHandler,
                           bool should_notify,
                           const base::string16& cvc);
 
-  AutofillMetrics::CardNumberStatus GetCardNumberStatus(
-      CreditCard& credit_card);
-
   // Whether there should be an attemps to refill the form. Returns true if all
   // the following are satisfied:
   //  There have been no refill on that page yet.
@@ -550,9 +550,8 @@ class AutofillManager : public AutofillHandler,
       form_interactions_ukm_logger_;
 
   // Utilities for logging form events.
-  std::unique_ptr<AutofillMetrics::FormEventLogger> address_form_event_logger_;
-  std::unique_ptr<AutofillMetrics::FormEventLogger>
-      credit_card_form_event_logger_;
+  std::unique_ptr<AddressFormEventLogger> address_form_event_logger_;
+  std::unique_ptr<CreditCardFormEventLogger> credit_card_form_event_logger_;
 
   // Have we logged whether Autofill is enabled for this page load?
   bool has_logged_autofill_enabled_ = false;

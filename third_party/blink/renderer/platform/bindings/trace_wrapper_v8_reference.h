@@ -5,8 +5,12 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_TRACE_WRAPPER_V8_REFERENCE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_BINDINGS_TRACE_WRAPPER_V8_REFERENCE_H_
 
+#include <utility>
+
+#include "base/macros.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable_marking_visitor.h"
 #include "third_party/blink/renderer/platform/heap/unified_heap_marking_visitor.h"
+#include "v8/include/v8.h"
 
 namespace blink {
 
@@ -14,8 +18,6 @@ namespace blink {
  * TraceWrapperV8Reference is used to hold references from Blink to V8 that are
  * known to both garbage collectors. The reference is a regular traced reference
  * for wrapper tracing as well as unified heap garbage collections.
- *
- * TODO(mlippautz): Use a better handle type than v8::Persistent.
  */
 template <typename T>
 class TraceWrapperV8Reference {
@@ -24,7 +26,6 @@ class TraceWrapperV8Reference {
 
   TraceWrapperV8Reference(v8::Isolate* isolate, v8::Local<T> handle) {
     InternalSet(isolate, handle);
-    handle_.SetWeak();
   }
 
   ~TraceWrapperV8Reference() { Clear(); }
@@ -35,17 +36,16 @@ class TraceWrapperV8Reference {
 
   void Set(v8::Isolate* isolate, v8::Local<T> handle) {
     InternalSet(isolate, handle);
-    handle_.SetWeak();
   }
 
   ALWAYS_INLINE v8::Local<T> NewLocal(v8::Isolate* isolate) const {
-    return v8::Local<T>::New(isolate, handle_);
+    return handle_.Get(isolate);
   }
 
   bool IsEmpty() const { return handle_.IsEmpty(); }
   void Clear() { handle_.Reset(); }
-  ALWAYS_INLINE const v8::Global<T>& Get() const { return handle_; }
-  ALWAYS_INLINE v8::Global<T>& Get() { return handle_; }
+  ALWAYS_INLINE const v8::TracedGlobal<T>& Get() const { return handle_; }
+  ALWAYS_INLINE v8::TracedGlobal<T>& Get() { return handle_; }
 
   template <typename S>
   const TraceWrapperV8Reference<S>& Cast() const {
@@ -60,15 +60,36 @@ class TraceWrapperV8Reference {
         const_cast<const TraceWrapperV8Reference<T>&>(*this));
   }
 
- private:
-  inline void InternalSet(v8::Isolate* isolate, v8::Local<T> handle) {
+  // Move support.
+  TraceWrapperV8Reference(TraceWrapperV8Reference&& other)
+      : handle_(std::move(other.handle_)) {
+    WriteBarrier();
+  }
+
+  template <class S>
+  TraceWrapperV8Reference& operator=(TraceWrapperV8Reference<S>&& rhs) {
+    handle_ = std::move(rhs.handle_);
+    WriteBarrier();
+    return *this;
+  }
+
+ protected:
+  ALWAYS_INLINE void InternalSet(v8::Isolate* isolate, v8::Local<T> handle) {
     handle_.Reset(isolate, handle);
     ScriptWrappableMarkingVisitor::WriteBarrier(isolate,
                                                 UnsafeCast<v8::Value>());
-    UnifiedHeapMarkingVisitor::WriteBarrier(isolate, UnsafeCast<v8::Value>());
+    UnifiedHeapMarkingVisitor::WriteBarrier(UnsafeCast<v8::Value>());
   }
 
-  v8::Global<T> handle_;
+  ALWAYS_INLINE void WriteBarrier() const {
+    ScriptWrappableMarkingVisitor::WriteBarrier(v8::Isolate::GetCurrent(),
+                                                UnsafeCast<v8::Value>());
+    UnifiedHeapMarkingVisitor::WriteBarrier(UnsafeCast<v8::Value>());
+  }
+
+  v8::TracedGlobal<T> handle_;
+
+  DISALLOW_COPY_AND_ASSIGN(TraceWrapperV8Reference);
 };
 
 }  // namespace blink

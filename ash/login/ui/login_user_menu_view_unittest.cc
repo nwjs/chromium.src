@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
 #include "ash/login/ui/login_user_menu_view.h"
 #include "ash/login/ui/login_button.h"
 #include "ash/login/ui/login_test_base.h"
@@ -38,9 +40,11 @@ TEST_F(LoginUserMenuViewTest, RemoveUserRequiresTwoActivations) {
                           &remove_warning_called),
       base::BindRepeating([](bool* remove_called) { *remove_called = true; },
                           &remove_called));
+  anchor->AddChildView(bubble);
+
   bubble->Show();
 
-  EXPECT_TRUE(bubble->IsVisible());
+  EXPECT_TRUE(bubble->visible());
 
   // Focus the remove user button (the menu should forward focus to the remove
   // button).
@@ -72,9 +76,10 @@ TEST_F(LoginUserMenuViewTest, LongUserNameAndEmailLaidOutCorrectly) {
       nullptr /*bubble_opener*/, true /*show_remove_user*/, base::DoNothing(),
       base::DoNothing());
 
+  anchor->AddChildView(bubble);
   bubble->Show();
 
-  EXPECT_TRUE(bubble->IsVisible());
+  EXPECT_TRUE(bubble->visible());
 
   LoginUserMenuView::TestApi test_api(bubble);
   views::View* remove_user_button = test_api.remove_user_button();
@@ -122,18 +127,45 @@ TEST_F(LoginUserMenuViewTest, LoginButtonRipple) {
       false /*is_owner*/, container /*anchor*/, bubble_opener,
       true /*show_remove_user*/, base::DoNothing(), base::DoNothing());
 
+  container->AddChildView(bubble);
+
   bubble->Show();
-  EXPECT_TRUE(bubble->IsVisible());
+  EXPECT_TRUE(bubble->visible());
   EXPECT_TRUE(ink_drop_api.HasInkDrop());
   EXPECT_EQ(ink_drop_api.GetInkDrop()->GetTargetInkDropState(),
             views::InkDropState::ACTIVATED);
   EXPECT_TRUE(ink_drop_api.GetInkDrop()->IsHighlightFadingInOrVisible());
 
   bubble->Hide();
-  EXPECT_FALSE(bubble->IsVisible());
+  EXPECT_FALSE(bubble->visible());
   EXPECT_EQ(ink_drop_api.GetInkDrop()->GetTargetInkDropState(),
             views::InkDropState::HIDDEN);
   EXPECT_FALSE(ink_drop_api.GetInkDrop()->IsHighlightFadingInOrVisible());
+}
+
+TEST_F(LoginUserMenuViewTest, ResetStateHidesConfirmData) {
+  auto* container = new views::View;
+  container->SetLayoutManager(
+      std::make_unique<views::BoxLayout>(views::BoxLayout::kVertical));
+  SetWidget(CreateWidgetWithContent(container));
+
+  auto* bubble = new LoginUserMenuView(
+      base::string16(), base::string16(), user_manager::USER_TYPE_REGULAR,
+      false /*is_owner*/, nullptr /*anchor*/, nullptr /*bubble_opener*/,
+      true /*show_remove_user*/, base::DoNothing(), base::DoNothing());
+  container->AddChildView(bubble);
+
+  bubble->Show();
+
+  LoginUserMenuView::TestApi test_api(bubble);
+  EXPECT_FALSE(test_api.remove_user_confirm_data()->visible());
+
+  test_api.remove_user_button()->RequestFocus();
+  GetEventGenerator()->PressKey(ui::KeyboardCode::VKEY_RETURN, 0);
+  EXPECT_TRUE(test_api.remove_user_confirm_data()->visible());
+
+  bubble->ResetState();
+  EXPECT_FALSE(test_api.remove_user_confirm_data()->visible());
 }
 
 }  // namespace ash

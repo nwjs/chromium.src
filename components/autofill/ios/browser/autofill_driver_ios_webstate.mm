@@ -4,7 +4,7 @@
 
 #include "components/autofill/ios/browser/autofill_driver_ios_webstate.h"
 
-#include "ios/web/public/web_state/web_state.h"
+#import "ios/web/public/web_state/web_state.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -42,5 +42,7 @@ AutofillDriverIOSWebState::AutofillDriverIOSWebState(
                         enable_download_manager) {}
 
 AutofillDriverIOSWebState::~AutofillDriverIOSWebState() {}
+
+WEB_STATE_USER_DATA_KEY_IMPL(AutofillDriverIOSWebState)
 
 }  //  namespace autofill

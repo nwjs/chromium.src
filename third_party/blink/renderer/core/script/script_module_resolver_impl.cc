@@ -11,7 +11,7 @@
 namespace blink {
 
 void ScriptModuleResolverImpl::RegisterModuleScript(
-    ModuleScript* module_script) {
+    const ModuleScript* module_script) {
   DCHECK(module_script);
   if (module_script->Record().IsNull())
     return;
@@ -27,7 +27,7 @@ void ScriptModuleResolverImpl::RegisterModuleScript(
 }
 
 void ScriptModuleResolverImpl::UnregisterModuleScript(
-    ModuleScript* module_script) {
+    const ModuleScript* module_script) {
   DCHECK(module_script);
   if (module_script->Record().IsNull())
     return;
@@ -40,7 +40,7 @@ void ScriptModuleResolverImpl::UnregisterModuleScript(
   record_to_module_script_map_.erase(module_script->Record());
 }
 
-ModuleScript* ScriptModuleResolverImpl::GetHostDefined(
+const ModuleScript* ScriptModuleResolverImpl::GetHostDefined(
     const ScriptModule& record) const {
   const auto it = record_to_module_script_map_.find(record);
   CHECK_NE(it, record_to_module_script_map_.end())
@@ -51,7 +51,7 @@ ModuleScript* ScriptModuleResolverImpl::GetHostDefined(
 }
 
 // <specdef
-// href="https://html.spec.whatwg.org/#hostresolveimportedmodule(referencingscriptormodule,-specifier)">
+// href="https://html.spec.whatwg.org/C/#hostresolveimportedmodule(referencingscriptormodule,-specifier)">
 ScriptModule ScriptModuleResolverImpl::Resolve(
     const String& specifier,
     const ScriptModule& referrer,
@@ -61,7 +61,7 @@ ScriptModule ScriptModuleResolverImpl::Resolve(
 
   // <spec step="1">Let referencing script be
   // referencingScriptOrModule.[[HostDefined]].</spec>
-  ModuleScript* referrer_module = GetHostDefined(referrer);
+  const ModuleScript* referrer_module = GetHostDefined(referrer);
 
   // <spec step="2">Let moduleMap be referencing script's settings object's
   // module map.</spec>

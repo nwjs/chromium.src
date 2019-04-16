@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/null_task_runner.h"
@@ -101,7 +102,7 @@ class StubDisplayClient : public DisplayClient {
                               RenderPassList* render_passes) override {}
   void DisplayDidDrawAndSwap() override {}
   void DisplayDidReceiveCALayerParams(
-      const gfx::CALayerParams& ca_layer_params) override{};
+      const gfx::CALayerParams& ca_layer_params) override {}
   void DisplayDidCompleteSwapWithSize(const gfx::Size& pixel_size) override {}
   void DidSwapAfterSnapshotRequestReceived(
       const std::vector<ui::LatencyInfo>& latency_info) override {}
@@ -3387,6 +3388,19 @@ TEST_F(DisplayTest, BeginFrameThrottling) {
       1.f);
   support_->SetNeedsBeginFrame(true);
 
+  // Helper fn to submit a CF.
+  auto submit_frame = [this](RenderPassList* pass_list) {
+    auto pass = RenderPass::Create();
+    pass->output_rect = gfx::Rect(0, 0, 100, 100);
+    pass->damage_rect = gfx::Rect(10, 10, 1, 1);
+    pass->id = 1u;
+    pass_list->push_back(std::move(pass));
+
+    SubmitCompositorFrame(
+        pass_list,
+        id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  };
+
   // BeginFrame should not be throttled when the client has not submitted any
   // compositor frames.
   base::TimeTicks frame_time = base::TimeTicks::Now();
@@ -3396,15 +3410,7 @@ TEST_F(DisplayTest, BeginFrameThrottling) {
   // Submit the first frame for the client. Begin-frame should still not be
   // throttled since it has not been embedded yet.
   RenderPassList pass_list;
-  auto pass = RenderPass::Create();
-  pass->output_rect = gfx::Rect(0, 0, 100, 100);
-  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
-  pass->id = 1u;
-  pass_list.push_back(std::move(pass));
-
-  SubmitCompositorFrame(
-      &pass_list,
-      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  submit_frame(&pass_list);
   frame_time = base::TimeTicks::Now();
   EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
   UpdateBeginFrameTime(support_.get(), frame_time);
@@ -3414,17 +3420,17 @@ TEST_F(DisplayTest, BeginFrameThrottling) {
   EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
   UpdateBeginFrameTime(support_.get(), frame_time);
 
-  // Submit a second frame. This time, begin-frame should be throttled after the
-  // first begin-frame is sent because of presentation-feedbacks, until the next
-  // draw happens.
-  pass = RenderPass::Create();
-  pass->output_rect = gfx::Rect(0, 0, 100, 100);
-  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
-  pass->id = 1u;
-  pass_list.push_back(std::move(pass));
-  SubmitCompositorFrame(
-      &pass_list,
-      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  // Submit a second frame. This frame should not be throttled, even after
+  // presentation-feedbacks, as we allow up to two undrawn frames.
+  submit_frame(&pass_list);
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+
+  // Submit a third frame. This frame should be throttled after
+  // presentation-feedbacks, as we throttle at two undrawn frames.
+  submit_frame(&pass_list);
   frame_time = base::TimeTicks::Now();
   EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
   UpdateBeginFrameTime(support_.get(), frame_time);
@@ -3436,16 +3442,13 @@ TEST_F(DisplayTest, BeginFrameThrottling) {
   EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
   UpdateBeginFrameTime(support_.get(), frame_time);
 
-  // Submit a third frame. Again, begin-frame should be throttled after the
+  // Submit two more frames. Begin-frame should be throttled after the
   // begin-frame for presenatation-feedback.
-  pass = RenderPass::Create();
-  pass->output_rect = gfx::Rect(0, 0, 100, 100);
-  pass->damage_rect = gfx::Rect(10, 10, 1, 1);
-  pass->id = 1u;
-  pass_list.push_back(std::move(pass));
-  SubmitCompositorFrame(
-      &pass_list,
-      id_allocator_.GetCurrentLocalSurfaceIdAllocation().local_surface_id());
+  submit_frame(&pass_list);
+  frame_time = base::TimeTicks::Now();
+  EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
+  UpdateBeginFrameTime(support_.get(), frame_time);
+  submit_frame(&pass_list);
   frame_time = base::TimeTicks::Now();
   EXPECT_TRUE(ShouldSendBeginFrame(support_.get(), frame_time));
   UpdateBeginFrameTime(support_.get(), frame_time);

@@ -213,10 +213,10 @@ DeviceHandler.Notification.RENAME_FAIL = new DeviceHandler.Notification(
  * @return {string} Notification ID.
  */
 DeviceHandler.Notification.prototype.show = function(devicePath, opt_message) {
-  var notificationId = this.makeId_(devicePath);
-  this.queue_.run(function(callback) {
+  const notificationId = this.makeId_(devicePath);
+  this.queue_.run(callback => {
     this.showInternal_(notificationId, opt_message || null, callback);
-  }.bind(this));
+  });
   return notificationId;
 };
 
@@ -226,15 +226,15 @@ DeviceHandler.Notification.prototype.show = function(devicePath, opt_message) {
  * @param {string} devicePath Device path.
  */
 DeviceHandler.Notification.prototype.showOnce = function(devicePath) {
-  var notificationId = this.makeId_(devicePath);
+  const notificationId = this.makeId_(devicePath);
   this.queue_.run(function(callback) {
-    chrome.notifications.getAll(function(idList) {
+    chrome.notifications.getAll(idList => {
       if (idList.indexOf(notificationId) !== -1) {
         callback();
         return;
       }
       this.showInternal_(notificationId, null, callback);
-    }.bind(this));
+    });
   });
 };
 
@@ -248,7 +248,7 @@ DeviceHandler.Notification.prototype.showOnce = function(devicePath) {
  */
 DeviceHandler.Notification.prototype.showInternal_ = function(
     notificationId, message, callback) {
-  var buttons =
+  const buttons =
       this.buttonLabel ? [{title: str(this.buttonLabel)}] : undefined;
   chrome.notifications.create(
       notificationId,
@@ -268,9 +268,9 @@ DeviceHandler.Notification.prototype.showInternal_ = function(
  * @param {string} devicePath Device path.
  */
 DeviceHandler.Notification.prototype.hide = function(devicePath) {
-  this.queue_.run(function(callback) {
+  this.queue_.run(callback => {
     chrome.notifications.clear(this.makeId_(devicePath), callback);
-  }.bind(this));
+  });
 };
 
 /**
@@ -368,7 +368,7 @@ DeviceHandler.prototype.onMountCompleted_ = function(event) {
 };
 
 DeviceHandler.prototype.onMountCompletedInternal_ = function(event) {
-  var volume = event.volumeMetadata;
+  const volume = event.volumeMetadata;
 
   if (event.status === 'success' && event.shouldNotify) {
     if (event.eventType === 'mount') {
@@ -382,7 +382,7 @@ DeviceHandler.prototype.onMountCompletedInternal_ = function(event) {
     return;
   }
 
-  var getFirstStatus = function(event) {
+  const getFirstStatus = event => {
     if (event.status === 'success') {
       return DeviceHandler.MountStatus.SUCCESS;
     } else if (event.volumeMetadata.isParentDevice) {
@@ -437,7 +437,7 @@ DeviceHandler.prototype.onMountCompletedInternal_ = function(event) {
 
   // Show the notification for the current errors.
   // If there is no error, do not show/update the notification.
-  var message;
+  let message;
   switch (this.mountStatus_[volume.devicePath]) {
     case DeviceHandler.MountStatus.MULTIPART_ERROR:
       message = volume.deviceLabel ?
@@ -481,7 +481,7 @@ DeviceHandler.prototype.onMountCompletedInternal_ = function(event) {
 DeviceHandler.prototype.onMount_ = function(event) {
   // If this is remounting, which happens when resuming Chrome OS, the device
   // has already inserted to the computer. So we suppress the notification.
-  var metadata = event.volumeMetadata;
+  const metadata = event.volumeMetadata;
   volumeManagerFactory.getInstance()
       .then(
           /**
@@ -500,11 +500,11 @@ DeviceHandler.prototype.onMount_ = function(event) {
            * @return {!Promise<!DirectoryEntry>} The root directory
            *     of the volume.
            */
-          function(volumeInfo) {
+          volumeInfo => {
             return importer.importEnabled()
                 .then(
                     /** @param {boolean} enabled */
-                    function(enabled) {
+                    enabled => {
                       if (enabled && importer.isEligibleVolume(volumeInfo)) {
                         return volumeInfo.resolveDisplayRoot();
                       }
@@ -516,30 +516,28 @@ DeviceHandler.prototype.onMount_ = function(event) {
            * @param {!DirectoryEntry} root
            * @return {!Promise<!DirectoryEntry>}
            */
-          function(root) {
+          root => {
             return importer.getMediaDirectory(root);
           })
-      .then((/**
-              * @param {!DirectoryEntry} directory
-              * @this {DeviceHandler}
-              */
-             function(directory) {
-               return importer.isPhotosAppImportEnabled().then(
-                   (/**
-                     * @param {boolean} appEnabled
-                     * @this {DeviceHandler}
-                     */
-                    function(appEnabled) {
-                      // We don't want to auto-open two windows when a user
-                      // inserts a removable device.  Only open Files app if
-                      // auto-import is disabled in Photos app.
-                      if (!appEnabled) {
-                        this.openMediaDirectory_(
-                            metadata.volumeId, null, directory.fullPath);
-                      }
-                    }).bind(this));
-             }).bind(this))
-      .catch(function(error) {
+      .then(/**
+   * @param {!DirectoryEntry} directory
+   */
+  directory => {
+    return importer.isPhotosAppImportEnabled().then(
+        /**
+         * @param {boolean} appEnabled
+         */
+        appEnabled => {
+          // We don't want to auto-open two windows when a user
+          // inserts a removable device.  Only open Files app if
+          // auto-import is disabled in Photos app.
+          if (!appEnabled) {
+            this.openMediaDirectory_(
+                metadata.volumeId, null, directory.fullPath);
+          }
+        });
+  })
+      .catch(error => {
         if (metadata.deviceType && metadata.devicePath) {
           if (metadata.isReadOnly && !metadata.isReadOnlyRemovableDevice) {
             DeviceHandler.Notification.DEVICE_NAVIGATION_READONLY_POLICY.show(
@@ -552,7 +550,7 @@ DeviceHandler.prototype.onMount_ = function(event) {
       });
 };
 
-DeviceHandler.prototype.onUnmount_ = function(event) {
+DeviceHandler.prototype.onUnmount_ = event => {
   DeviceHandler.Notification.DEVICE_NAVIGATION.hide(
       /** @type {string} */ (event.devicePath));
 };
@@ -573,14 +571,14 @@ DeviceHandler.prototype.onNotificationClicked_ = function(id) {
  * @private
  */
 DeviceHandler.prototype.onNotificationClickedInternal_ = function(id) {
-  var pos = id.indexOf(':');
-  var type = id.substr(0, pos);
-  var devicePath = id.substr(pos + 1);
+  const pos = id.indexOf(':');
+  const type = id.substr(0, pos);
+  const devicePath = id.substr(pos + 1);
   if (type === 'deviceNavigation' || type === 'deviceFail') {
-    chrome.notifications.clear(id, function() {});
+    chrome.notifications.clear(id, () => {});
     this.openMediaDirectory_(null, devicePath, null);
   } else if (type === 'deviceImport') {
-    chrome.notifications.clear(id, function() {});
+    chrome.notifications.clear(id, () => {});
     this.openMediaDirectory_(null, devicePath, 'DCIM');
   }
 };
@@ -594,7 +592,7 @@ DeviceHandler.prototype.onNotificationClickedInternal_ = function(id) {
  */
 DeviceHandler.prototype.openMediaDirectory_ =
     function(volumeId, devicePath, filePath) {
-  var event = new Event(DeviceHandler.VOLUME_NAVIGATION_REQUESTED);
+  const event = new Event(DeviceHandler.VOLUME_NAVIGATION_REQUESTED);
   event.volumeId = volumeId;
   event.devicePath = devicePath;
   event.filePath = filePath;

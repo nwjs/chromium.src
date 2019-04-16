@@ -139,8 +139,10 @@ const int kContentColorBlue = 0x1A73E8;
 - (void)setSelected:(BOOL)selected {
   [super setSelected:selected];
 
-  if (selected)
+  if (selected) {
     self.checkmarkView.hidden = NO;
+    self.accessibilityTraits |= UIAccessibilityTraitSelected;
+  }
 }
 
 - (void)registerForContentSizeUpdates {
@@ -155,6 +157,10 @@ const int kContentColorBlue = 0x1A73E8;
 
 - (void)prepareForReuse {
   [super prepareForReuse];
+  // Hide the checkmark and clear UIAccessibilityTraitSelected from the
+  // accessibility traits, if applicable.
+  self.checkmarkView.hidden = YES;
+  self.accessibilityTraits &= ~UIAccessibilityTraitSelected;
   self.selected = NO;
   [self setTitle:nil];
 }

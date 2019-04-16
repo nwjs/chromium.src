@@ -4,12 +4,14 @@
 
 #include "chrome/browser/signin/signin_promo.h"
 
+#include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
 namespace signin {
 
-TEST(SigninPromoTest, TestForceSigninURL) {
+#if !defined(OS_CHROMEOS)
+TEST(SigninPromoTest, TestPromoURL) {
   GURL expected_url_1(
       "chrome://chrome-signin/?access_point=0&reason=0&auto_close=1");
   EXPECT_EQ(expected_url_1,
@@ -33,6 +35,7 @@ TEST(SigninPromoTest, TestReauthURL) {
                 signin_metrics::AccessPoint::ACCESS_POINT_START_PAGE,
                 signin_metrics::Reason::REASON_UNLOCK, "example@domain.com"));
 }
+#endif  // !defined(OS_CHROMEOS)
 
 TEST(SigninPromoTest, TestLandingURL) {
   GURL expected_url_1(
@@ -51,6 +54,17 @@ TEST(SigninPromoTest, TestLandingURL) {
       "success.html?access_point=3&source=3");
   EXPECT_EQ(expected_url_3,
             GetLandingURL(signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS));
+}
+
+TEST(SigninPromoTest, SigninURLForDice) {
+  EXPECT_EQ(
+      "https://accounts.google.com/signin/chrome/sync?ssp=1&"
+      "email_hint=email%40gmail.com&continue=https%3A%2F%2Fcontinue_url%2F",
+      GetChromeSyncURLForDice("email@gmail.com", "https://continue_url/"));
+  EXPECT_EQ(
+      "https://accounts.google.com/AddSession?"
+      "Email=email%40gmail.com&continue=https%3A%2F%2Fcontinue_url%2F",
+      GetAddAccountURLForDice("email@gmail.com", "https://continue_url/"));
 }
 
 }  // namespace signin

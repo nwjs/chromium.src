@@ -13,7 +13,9 @@
 <link rel="import" href="chrome://resources/html/action_link.html">
 <link rel="import" href="chrome://resources/html/action_link_css.html">
 <link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/cr/ui/focus_row.html">
 <link rel="import" href="chrome://resources/html/cr/ui/focus_row_behavior.html">
+<link rel="import" href="chrome://resources/html/cr/ui/focus_without_ink.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button-light.html">
@@ -24,9 +26,18 @@
   <template>
     <style include="action-link cr-hidden-style cr-icons paper-button-style">
       :host {
+        --controlled-by-active-color: #333;
+        --controlled-by-active-link-color: var(--google-blue-600);
+        --controlled-by-inactive-color: #5a5a5a;
         display: flex;
         flex-direction: column;
         outline: none;
+      }
+
+      :host-context([dark]) {
+        --controlled-by-active-color: inherit;
+        --controlled-by-active-link-color: var(--cr-link-color);
+        --controlled-by-inactive-color: inherit;
       }
 
       paper-button {
@@ -218,21 +229,18 @@
         margin: .7em 0;
       }
 
-      #controlled-by {
-        margin-inline-start: 8px;
-      }
-
       #controlled-by,
       #controlled-by a {
-        color: #5a5a5a;
+        color: var(--controlled-by-inactive-color);
       }
 
       .is-active #controlled-by {
-        color: #333;
+        color: var(--controlled-by-active-color);
+        margin-inline-start: 8px;
       }
 
       .is-active #controlled-by a {
-        color: var(--google-blue-600);
+        color: var(--controlled-by-active-link-color);
       }
 
       #remove-wrapper {
@@ -255,12 +263,13 @@
       }
 
       #incognito {
+        -webkit-mask-image: url(chrome://downloads/images/incognito_marker.svg);
+        background-color: var(--cr-secondary-text-color);
         bottom: 20px;
-        content: -webkit-image-set(
-            url(chrome://downloads/1x/incognito_marker.png) 1x,
-            url(chrome://downloads/2x/incognito_marker.png) 2x);
+        height: 16px;
         position: absolute;
         right: 16px;
+        width: 16px;
       }
 
       :host-context([dir='rtl']) #incognito {

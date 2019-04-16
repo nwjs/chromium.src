@@ -27,8 +27,6 @@ namespace language {
 class UrlLanguageHistogram;
 }  // namespace language
 
-class TemplateURLService;
-
 namespace translate {
 
 struct LanguageDetectionDetails;
@@ -43,20 +41,20 @@ class ContentTranslateDriver : public TranslateDriver,
   class Observer {
    public:
     // Handles when the value of IsPageTranslated is changed.
-    virtual void OnIsPageTranslatedChanged(content::WebContents* source) {};
+    virtual void OnIsPageTranslatedChanged(content::WebContents* source) {}
 
     // Handles when the value of translate_enabled is changed.
-    virtual void OnTranslateEnabledChanged(content::WebContents* source) {};
+    virtual void OnTranslateEnabledChanged(content::WebContents* source) {}
 
     // Called when the page language has been determined.
     virtual void OnLanguageDetermined(
-        const translate::LanguageDetectionDetails& details) {};
+        const translate::LanguageDetectionDetails& details) {}
 
     // Called when the page has been translated.
-    virtual void OnPageTranslated(
-        const std::string& original_lang,
-        const std::string& translated_lang,
-        translate::TranslateErrors::Type error_type) {};
+    virtual void OnPageTranslated(const std::string& original_lang,
+                                  const std::string& translated_lang,
+                                  translate::TranslateErrors::Type error_type) {
+    }
 
    protected:
     virtual ~Observer() {}
@@ -64,7 +62,6 @@ class ContentTranslateDriver : public TranslateDriver,
 
   ContentTranslateDriver(
       content::NavigationController* nav_controller,
-      const TemplateURLService* template_url_service,
       language::UrlLanguageHistogram* url_language_histogram);
   ~ContentTranslateDriver() override;
 
@@ -122,9 +119,6 @@ class ContentTranslateDriver : public TranslateDriver,
  private:
   void OnPageAway(int page_seq_no);
 
-  bool IsDefaultSearchEngineOriginator(
-      const url::Origin& originating_origin) const;
-
   // Creates a URLLoaderFactory that may be used by the translate scripts that
   // get injected into isolated worlds within the page to be translated.  Such
   // scripts (or rather, their isolated worlds) are associated with a
@@ -141,8 +135,6 @@ class ContentTranslateDriver : public TranslateDriver,
 
   // Max number of attempts before checking if a page has been reloaded.
   int max_reload_check_attempts_;
-
-  const TemplateURLService* template_url_service_;
 
   // Records mojo connections with all current alive pages.
   int next_page_seq_no_;

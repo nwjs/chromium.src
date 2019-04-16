@@ -51,6 +51,7 @@ class TestWindowServiceDelegate : public WindowServiceDelegate {
 
   // WindowServiceDelegate:
   std::unique_ptr<aura::Window> NewTopLevel(
+      TopLevelProxyWindow* top_level_proxy_window,
       aura::PropertyConverter* property_converter,
       const base::flat_map<std::string, std::vector<uint8_t>>& properties)
       override;
@@ -58,6 +59,7 @@ class TestWindowServiceDelegate : public WindowServiceDelegate {
   void RunWindowMoveLoop(aura::Window* window,
                          mojom::MoveLoopSource source,
                          const gfx::Point& cursor,
+                         int window_component,
                          DoneCallback callback) override;
   void CancelWindowMoveLoop() override;
   void RunDragLoop(aura::Window* window,

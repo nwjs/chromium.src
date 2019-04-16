@@ -473,7 +473,7 @@ bool XMLDocumentParser::ParseDocumentFragment(
 }
 
 static int g_global_descriptor = 0;
-static ThreadIdentifier g_libxml_loader_thread = 0;
+static base::PlatformThreadId g_libxml_loader_thread = 0;
 
 static int MatchFunc(const char*) {
   // Only match loads initiated due to uses of libxml2 from within
@@ -577,8 +577,8 @@ static bool ShouldAllowExternalLoad(const KURL& url) {
           XMLDocumentParserScope::current_document_->Url().ElidedString() +
           ". Domains, protocols and ports must match.\n";
       XMLDocumentParserScope::current_document_->AddConsoleMessage(
-          ConsoleMessage::Create(kSecurityMessageSource, kErrorMessageLevel,
-                                 message));
+          ConsoleMessage::Create(kSecurityMessageSource,
+                                 mojom::ConsoleMessageLevel::kError, message));
     }
     return false;
   }
@@ -766,7 +766,7 @@ XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment,
       script_start_position_(TextPosition::BelowRangePosition()),
       parsing_fragment_(true) {
   // Step 2 of
-  // https://html.spec.whatwg.org/multipage/xhtml.html#xml-fragment-parsing-algorithm
+  // https://html.spec.whatwg.org/C/#xml-fragment-parsing-algorithm
   // The following code collects prefix-namespace mapping in scope on
   // |parent_element|.
   HeapVector<Member<Element>> elem_stack;
@@ -985,6 +985,8 @@ void XMLDocumentParser::StartElementNs(const AtomicString& local_name,
   }
 
   QualifiedName q_name(prefix, local_name, adjusted_uri);
+  if (!prefix.IsEmpty() && adjusted_uri.IsEmpty())
+    q_name = QualifiedName(g_null_atom, prefix + ":" + local_name, g_null_atom);
   Element* new_element = current_node_->GetDocument().CreateElement(
       q_name,
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser()
@@ -1463,7 +1465,7 @@ static void ExternalSubsetHandler(void* closure,
                                   const xmlChar*,
                                   const xmlChar* external_id,
                                   const xmlChar*) {
-  // https://html.spec.whatwg.org/multipage/xhtml.html#parsing-xhtml-documents:named-character-references
+  // https://html.spec.whatwg.org/C/#parsing-xhtml-documents:named-character-references
   String ext_id = ToString(external_id);
   if (ext_id == "-//W3C//DTD XHTML 1.0 Transitional//EN" ||
       ext_id == "-//W3C//DTD XHTML 1.1//EN" ||

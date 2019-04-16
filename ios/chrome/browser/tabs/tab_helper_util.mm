@@ -24,11 +24,12 @@
 #include "ios/chrome/browser/history/history_service_factory.h"
 #include "ios/chrome/browser/history/history_tab_helper.h"
 #include "ios/chrome/browser/history/top_sites_factory.h"
+#include "ios/chrome/browser/infobars/infobar_badge_tab_helper.h"
 #import "ios/chrome/browser/infobars/infobar_manager_impl.h"
-#include "ios/chrome/browser/itunes_urls/itunes_urls_flag.h"
 #import "ios/chrome/browser/itunes_urls/itunes_urls_handler_tab_helper.h"
 #import "ios/chrome/browser/metrics/ukm_url_recorder.h"
 #import "ios/chrome/browser/passwords/password_tab_helper.h"
+#include "ios/chrome/browser/reading_list/features.h"
 #include "ios/chrome/browser/reading_list/reading_list_model_factory.h"
 #import "ios/chrome/browser/reading_list/reading_list_web_state_observer.h"
 #import "ios/chrome/browser/search_engines/feature_flags.h"
@@ -44,6 +45,8 @@
 #import "ios/chrome/browser/tabs/legacy_tab_helper.h"
 #import "ios/chrome/browser/tabs/tab.h"
 #import "ios/chrome/browser/translate/chrome_ios_translate_client.h"
+#import "ios/chrome/browser/u2f/u2f_tab_helper.h"
+#import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/voice/voice_search_navigations_tab_helper.h"
 #import "ios/chrome/browser/web/blocked_popup_tab_helper.h"
@@ -55,6 +58,7 @@
 #import "ios/chrome/browser/web/network_activity_indicator_tab_helper.h"
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/chrome/browser/web/print_tab_helper.h"
+#import "ios/chrome/browser/web/sad_tab_tab_helper.h"
 #import "ios/chrome/browser/web/tab_id_tab_helper.h"
 #import "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #import "ios/web/public/web_state/web_state.h"
@@ -82,11 +86,10 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
   IOSSecurityStateTabHelper::CreateForWebState(web_state);
   BlockedPopupTabHelper::CreateForWebState(web_state);
   FindTabHelper::CreateForWebState(web_state);
+  U2FTabHelper::CreateForWebState(web_state);
   StoreKitTabHelper::CreateForWebState(web_state);
   JavaScriptConsoleTabHelper::CreateForWebState(tab.webState);
-  if (base::FeatureList::IsEnabled(kITunesUrlsStoreKitHandling)) {
-    ITunesUrlsHandlerTabHelper::CreateForWebState(web_state);
-  }
+  ITunesUrlsHandlerTabHelper::CreateForWebState(web_state);
   HistoryTabHelper::CreateForWebState(web_state);
   LoadTimingTabHelper::CreateForWebState(web_state);
 
@@ -100,9 +103,11 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
 
   ImageFetchTabHelper::CreateForWebState(web_state);
 
-  ReadingListModel* model =
-      ReadingListModelFactory::GetForBrowserState(browser_state);
-  ReadingListWebStateObserver::CreateForWebState(web_state, model);
+  if (!reading_list::IsOfflinePageWithoutNativeContentEnabled()) {
+    ReadingListModel* model =
+        ReadingListModelFactory::GetForBrowserState(browser_state);
+    ReadingListWebStateObserver::CreateForWebState(web_state, model);
+  }
 
   ios::ChromeBrowserState* original_browser_state =
       browser_state->GetOriginalChromeBrowserState();
@@ -144,9 +149,13 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
   // has been refactored to only create the necessary tab helpers, this
   // condition can be removed.
   if (!for_prerender) {
+    SadTabTabHelper::CreateForWebState(web_state);
     SnapshotTabHelper::CreateForWebState(web_state, tab_id);
     PagePlaceholderTabHelper::CreateForWebState(web_state);
     PrintTabHelper::CreateForWebState(web_state);
+    if (IsInfobarUIRebootEnabled()) {
+      InfobarBadgeTabHelper::CreateForWebState(web_state);
+    }
   }
 
   // Allow the embedder to attach tab helpers.

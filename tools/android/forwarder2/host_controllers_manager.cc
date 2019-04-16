@@ -4,6 +4,7 @@
 
 #include "tools/android/forwarder2/host_controllers_manager.h"
 
+#include "base/bind.h"
 #include "base/process/launch.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -37,9 +38,9 @@ void HostControllersManager::HandleRequest(
   InitOnce();
   thread_->task_runner()->PostTask(
       FROM_HERE,
-      base::Bind(&HostControllersManager::HandleRequestOnInternalThread,
-                 base::Unretained(this), adb_path, device_serial, command,
-                 device_port, host_port, base::Passed(&client_socket)));
+      base::BindOnce(&HostControllersManager::HandleRequestOnInternalThread,
+                     base::Unretained(this), adb_path, device_serial, command,
+                     device_port, host_port, std::move(client_socket)));
 }
 
 // static

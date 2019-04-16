@@ -5,30 +5,56 @@
 #include "media/learning/impl/learning_task_controller_impl.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/bind.h"
 #include "media/learning/impl/extra_trees_trainer.h"
-#include "media/learning/impl/random_tree_trainer.h"
+#include "media/learning/impl/lookup_table_trainer.h"
 
 namespace media {
 namespace learning {
 
 LearningTaskControllerImpl::LearningTaskControllerImpl(
     const LearningTask& task,
-    std::unique_ptr<DistributionReporter> reporter)
+    std::unique_ptr<DistributionReporter> reporter,
+    SequenceBoundFeatureProvider feature_provider)
     : task_(task),
       training_data_(std::make_unique<TrainingData>()),
-      reporter_(std::move(reporter)) {
+      reporter_(std::move(reporter)),
+      helper_(std::make_unique<LearningTaskControllerHelper>(
+          task,
+          base::BindRepeating(&LearningTaskControllerImpl::AddFinishedExample,
+                              AsWeakPtr()),
+          std::move(feature_provider))) {
   switch (task_.model) {
     case LearningTask::Model::kExtraTrees:
       trainer_ = std::make_unique<ExtraTreesTrainer>();
+      break;
+    case LearningTask::Model::kLookupTable:
+      trainer_ = std::make_unique<LookupTableTrainer>();
       break;
   }
 }
 
 LearningTaskControllerImpl::~LearningTaskControllerImpl() = default;
 
-void LearningTaskControllerImpl::AddExample(const LabelledExample& example) {
+void LearningTaskControllerImpl::BeginObservation(
+    ObservationId id,
+    const FeatureVector& features) {
+  helper_->BeginObservation(id, features);
+}
+
+void LearningTaskControllerImpl::CompleteObservation(
+    ObservationId id,
+    const ObservationCompletion& completion) {
+  helper_->CompleteObservation(id, completion);
+}
+
+void LearningTaskControllerImpl::CancelObservation(ObservationId id) {
+  helper_->CancelObservation(id);
+}
+
+void LearningTaskControllerImpl::AddFinishedExample(LabelledExample example) {
   if (training_data_->size() >= task_.max_data_set_size) {
     // Replace a random example.  We don't necessarily want to replace the
     // oldest, since we don't necessarily want to enforce an ad-hoc recency
@@ -62,7 +88,6 @@ void LearningTaskControllerImpl::AddExample(const LabelledExample& example) {
 
   num_untrained_examples_ = 0;
 
-  // TODO(liberato): don't do this if one is in-flight.
   TrainedModelCB model_cb =
       base::BindOnce(&LearningTaskControllerImpl::OnModelTrained, AsWeakPtr());
   training_is_in_progress_ = true;

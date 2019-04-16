@@ -34,7 +34,7 @@ bool PropertyExists(v8::Local<v8::Context> context,
   v8::Local<v8::Value> value = V8ValueFromScriptSource(context, property);
   EXPECT_FALSE(value.IsEmpty());
   return !value->IsUndefined();
-};
+}
 
 }  // namespace
 
@@ -1239,8 +1239,9 @@ TEST_P(ResponseValidationNativeExtensionBindingsSystemUnittest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        ResponseValidationNativeExtensionBindingsSystemUnittest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(
+    ,
+    ResponseValidationNativeExtensionBindingsSystemUnittest,
+    testing::Bool());
 
 }  // namespace extensions

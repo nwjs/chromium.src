@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "content/nw/src/nw_content.h"
 
 #include "base/command_line.h"
@@ -185,7 +186,7 @@ bool ChromeExtensionsRendererClient::OverrideCreatePlugin(
     return true;
 
   bool guest_view_api_available = false;
-  extension_dispatcher_->script_context_set().ForEach(
+  extension_dispatcher_->script_context_set_iterator()->ForEach(
       render_frame, base::Bind(&IsGuestViewApiAvailableToScriptContext,
                                &guest_view_api_available));
   return !guest_view_api_available;
@@ -317,12 +318,18 @@ bool ChromeExtensionsRendererClient::MaybeCreateMimeHandlerView(
     const blink::WebElement& plugin_element,
     const GURL& resource_url,
     const std::string& mime_type,
-    const content::WebPluginInfo& plugin_info,
-    int32_t element_instance_id) {
+    const content::WebPluginInfo& plugin_info) {
   CHECK(content::MimeHandlerViewMode::UsesCrossProcessFrame());
   return extensions::MimeHandlerViewFrameContainer::Create(
-      plugin_element, resource_url, mime_type, plugin_info,
-      element_instance_id);
+      plugin_element, resource_url, mime_type, plugin_info);
+}
+
+v8::Local<v8::Object> ChromeExtensionsRendererClient::GetScriptableObject(
+    const blink::WebElement& plugin_element,
+    v8::Isolate* isolate) {
+  CHECK(content::MimeHandlerViewMode::UsesCrossProcessFrame());
+  return extensions::MimeHandlerViewFrameContainer::GetScriptableObject(
+      plugin_element, isolate);
 }
 
 // static

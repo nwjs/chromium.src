@@ -7,6 +7,7 @@
 #include "third_party/blink/public/platform/web_media_stream.h"
 #include "third_party/blink/public/platform/web_media_stream_track.h"
 #include "third_party/blink/public/platform/web_rtc_rtp_source.h"
+#include "third_party/blink/renderer/modules/peerconnection/rtc_dtls_transport.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_peer_connection.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_capabilities.h"
 #include "third_party/blink/renderer/modules/peerconnection/rtc_rtp_sender.h"
@@ -36,9 +37,7 @@ MediaStreamTrack* RTCRtpReceiver::track() const {
 }
 
 RTCDtlsTransport* RTCRtpReceiver::transport() {
-  if (!transceiver_)
-    return nullptr;
-  return pc_->LookupDtlsTransportByMid(transceiver_->mid());
+  return transport_;
 }
 
 RTCDtlsTransport* RTCRtpReceiver::rtcp_transport() {
@@ -90,8 +89,8 @@ ScriptPromise RTCRtpReceiver::getStats(ScriptState* script_state) {
   return promise;
 }
 
-const WebRTCRtpReceiver& RTCRtpReceiver::web_receiver() const {
-  return *receiver_;
+WebRTCRtpReceiver* RTCRtpReceiver::web_receiver() {
+  return receiver_.get();
 }
 
 MediaStreamVector RTCRtpReceiver::streams() const {
@@ -104,6 +103,10 @@ void RTCRtpReceiver::set_streams(MediaStreamVector streams) {
 
 void RTCRtpReceiver::set_transceiver(RTCRtpTransceiver* transceiver) {
   transceiver_ = transceiver;
+}
+
+void RTCRtpReceiver::set_transport(RTCDtlsTransport* transport) {
+  transport_ = transport;
 }
 
 void RTCRtpReceiver::UpdateSourcesIfNeeded() {
@@ -128,6 +131,7 @@ void RTCRtpReceiver::SetContributingSourcesNeedsUpdating() {
 void RTCRtpReceiver::Trace(blink::Visitor* visitor) {
   visitor->Trace(pc_);
   visitor->Trace(track_);
+  visitor->Trace(transport_);
   visitor->Trace(streams_);
   visitor->Trace(transceiver_);
   ScriptWrappable::Trace(visitor);
@@ -155,10 +159,10 @@ RTCRtpCapabilities* RTCRtpReceiver::getCapabilities(const String& kind) {
       codec->setClockRate(rtc_codec.clock_rate.value());
     if (rtc_codec.num_channels)
       codec->setChannels(rtc_codec.num_channels.value());
-    if (rtc_codec.parameters.size()) {
+    if (!rtc_codec.parameters.empty()) {
       std::string sdp_fmtp_line;
       for (const auto& parameter : rtc_codec.parameters) {
-        if (sdp_fmtp_line.size())
+        if (!sdp_fmtp_line.empty())
           sdp_fmtp_line += ";";
         sdp_fmtp_line += parameter.first + "=" + parameter.second;
       }

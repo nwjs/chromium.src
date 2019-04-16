@@ -49,7 +49,7 @@ def read_current_lkgm():
   return lkgm.split('.')[0]
 
 
-def parse_args():
+def parse_args(triggerer):
   # This script will do nothing but inspect and tweak the dimension args to
   # `swarming.py trigger`. So let's pull just those out.
   parser = argparse.ArgumentParser(description=__doc__)
@@ -68,7 +68,17 @@ def parse_args():
       '--primary-expiration', type=int, default=600,
       help='How long to wait (in seconds) for an available bot in the primary '
            'task slice.')
-  args, additional_args = parser.parse_known_args()
+  # BaseTestTriggerer's setup_parser_contract() takes care of adding needed
+  # swarming.py args if they're not already present. But only do this if
+  # '--shard-index' is passed in. (The exact usage of trigger scripts are
+  # currently changing. See crbug.com/926987 for more info.)
+  if '--shard-index' in sys.argv:
+    base_test_triggerer.BaseTestTriggerer.setup_parser_contract(parser)
+    args, additional_args = parser.parse_known_args()
+    additional_args = triggerer.modify_args(
+        additional_args, 0, args.shard_index, args.shards, args.dump_json)
+  else:
+    args, additional_args = parser.parse_known_args()
 
   if additional_args[0] != 'trigger':
     parser.error(
@@ -91,7 +101,8 @@ def parse_args():
 
 
 def main():
-  args, additional_args = parse_args()
+  triggerer = base_test_triggerer.BaseTestTriggerer()
+  args, additional_args = parse_args(triggerer)
 
   current_lkgm = read_current_lkgm()
   if not current_lkgm:
@@ -101,8 +112,17 @@ def main():
   # Insert our modified dimension args in between the 1st and 2nd args of the
   # initial `swarming.py` invocation. This avoids the presence of the special
   # `--` arg from causing swarming.py to ignore them.
+  needs_device_status = True
   for k, v in args.dimensions:
     new_args.extend(['--dimension', k, v])
+    if k == 'device_status':
+      needs_device_status = False
+
+  # Only CrOS device bots with a device_status dimension of "available" should
+  # run tests. So target those explicitly if we aren't already.
+  if needs_device_status:
+    new_args.extend(['--dimension', 'device_status', 'available'])
+
   new_args.extend([
       '--optional-dimension',
       'device_os',
@@ -111,7 +131,7 @@ def main():
   ])
   new_args += additional_args[1:]
 
-  return base_test_triggerer.BaseTestTriggerer().run_swarming(new_args, True)
+  return triggerer.run_swarming(new_args, True)
 
 
 if __name__ == '__main__':

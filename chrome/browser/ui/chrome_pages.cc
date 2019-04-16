@@ -68,7 +68,7 @@ namespace {
 void OpenBookmarkManagerForNode(Browser* browser, int64_t node_id) {
   GURL url = GURL(kChromeUIBookmarksURL)
                  .Resolve(base::StringPrintf(
-                     "/?id=%s", base::Int64ToString(node_id).c_str()));
+                     "/?id=%s", base::NumberToString(node_id).c_str()));
   NavigateParams params(GetSingletonTabNavigateParams(browser, url));
   params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
   ShowSingletonTabOverwritingNTP(browser, std::move(params));
@@ -384,7 +384,7 @@ void ShowSearchEngineSettings(Browser* browser) {
   ShowSettingsSubPage(browser, kSearchEnginesSubPage);
 }
 
-#if !defined(OS_ANDROID)
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 void ShowBrowserSignin(Browser* browser,
                        signin_metrics::AccessPoint access_point) {
   Profile* original_profile = browser->profile()->GetOriginalProfile();
@@ -397,16 +397,6 @@ void ShowBrowserSignin(Browser* browser,
       std::make_unique<ScopedTabbedBrowserDisplayer>(original_profile);
   browser = displayer->browser();
 
-#if defined(OS_CHROMEOS)
-  // ChromeOS always loads the chrome://chrome-signin in a tab.
-  GURL url = signin::GetEmbeddedPromoURLForTab(
-      access_point, signin_metrics::Reason::REASON_SIGNIN_PRIMARY_ACCOUNT,
-      false);
-  NavigateParams params(GetSingletonTabNavigateParams(browser, url));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(browser, std::move(params));
-  DCHECK_GT(browser->tab_strip_model()->count(), 0);
-#else
   profiles::BubbleViewMode bubble_view_mode =
       IdentityManagerFactory::GetForProfile(original_profile)
               ->HasPrimaryAccount()
@@ -414,7 +404,6 @@ void ShowBrowserSignin(Browser* browser,
           : profiles::BUBBLE_VIEW_MODE_GAIA_SIGNIN;
   browser->signin_view_controller()->ShowSignin(bubble_view_mode, browser,
                                                 access_point);
-#endif
 }
 
 void ShowBrowserSigninOrSettings(Browser* browser,

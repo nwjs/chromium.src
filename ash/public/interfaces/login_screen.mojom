@@ -219,7 +219,10 @@ interface LoginScreen {
   SetShowGuestButtonInOobe(bool show);
 
   // Sets whether parent access button can be shown on the login shelf.
-  SetShowParentAccess(bool show);
+  SetShowParentAccessButton(bool show);
+
+  // Sets whether parent access code input dialog is shown on the lock screen.
+  SetShowParentAccessDialog(bool show);
 
   // Transitions focus to the shelf area. If |reverse|, focuses the status area.
   FocusLoginShelf(bool reverse);
@@ -261,6 +264,13 @@ interface LoginScreenClient {
   // TODO(jdufault): Refactor this method to return an auth_success, similar to
   // the other auth methods above.
   AuthenticateUserWithEasyUnlock(signin.mojom.AccountId account_id);
+
+  // Validates parent access code for the user identified by |account_id|.
+  // Passes validation result in the callback.
+  // Note: This should only be used for child user.
+  ValidateParentAccessCode(
+    signin.mojom.AccountId account_id,
+    string access_code) => (bool access_code_valid);
 
   // Request to hard lock the user pod.
   // |account_id|:    The account id of the user in the user pod.
@@ -346,4 +356,7 @@ interface LoginScreenClient {
   // the login screen / OOBE. |reverse| is true when the focus moves in the
   // reversed direction.
   OnFocusLeavingSystemTray(bool reverse);
+
+  // Used by Ash to signal that user activity occurred on the login screen.
+  OnUserActivity();
 };

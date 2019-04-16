@@ -7,33 +7,34 @@
 
 #include "base/optional.h"
 #include "components/signin/core/browser/account_consistency_method.h"
-#include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/fake_gaia_cookie_manager_service.h"
-#include "components/signin/core/browser/fake_profile_oauth2_token_service.h"
-#include "components/signin/core/browser/fake_signin_manager.h"
 #include "services/identity/public/cpp/identity_manager.h"
 #include "services/identity/public/cpp/identity_test_utils.h"
 
+class AccountFetcherService;
+class AccountTrackerService;
+class FakeProfileOAuth2TokenService;
+class GaiaCookieManagerService;
 class IdentityTestEnvironmentChromeBrowserStateAdaptor;
 class IdentityTestEnvironmentProfileAdaptor;
+class PrefService;
+class SigninManager;
+class TestSigninClient;
 
 namespace sync_preferences {
 class TestingPrefServiceSyncable;
 }
 
+namespace network {
+class TestURLLoaderFactory;
+}
+
 namespace identity {
 
-namespace {
-#if defined(OS_CHROMEOS)
-using SigninManagerForTest = FakeSigninManagerBase;
-#else
-using SigninManagerForTest = FakeSigninManager;
-#endif  // OS_CHROMEOS
-}  // namespace
-
-// Internal class that creates and owns dependencies of IdentityManager
-// when those dependencies are not passed in externally.
 class IdentityManagerDependenciesOwner;
+class TestIdentityManagerObserver;
+
+// Necessary to declare this test as a temporary friend.
+class IdentityAccessorImplTest;
 
 // Class that creates an IdentityManager for use in testing contexts and
 // provides facilities for driving that IdentityManager. The IdentityManager
@@ -54,6 +55,8 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   //
   // This constructor takes an optional parameter |test_url_loader_factory| to
   // use for cookie-related network requests.
+  // Note: the provided |test_url_loader_factory| is expected to outlive
+  // IdentityTestEnvironment.
   //
   // This constructor also takes an optional PrefService instance as parameter,
   // which allows tests to move away from referencing IdentityManager's
@@ -67,39 +70,34 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
       network::TestURLLoaderFactory* test_url_loader_factory = nullptr,
       sync_preferences::TestingPrefServiceSyncable* pref_service = nullptr,
       signin::AccountConsistencyMethod account_consistency =
-          signin::AccountConsistencyMethod::kDisabled);
-
-  // Constructor that takes in instances of the dependencies of
-  // IdentityManager and constructs an IdentityManager instance from those
-  // dependencies. For use in contexts where those dependencies are still
-  // being used directly by the creator of this object (i.e., while a test is
-  // being incrementally converted). Prefer the above constructor, and switch to
-  // that constructor once possible (e.g., when an incremental conversion is
-  // completed). NOTE: The passed-in objects must all outlive this object.
-  IdentityTestEnvironment(
-      AccountTrackerService* account_tracker_service,
-      FakeProfileOAuth2TokenService* token_service,
-      SigninManagerForTest* signin_manager,
-      FakeGaiaCookieManagerService* gaia_cookie_manager_service);
+          signin::AccountConsistencyMethod::kDisabled,
+      TestSigninClient* test_signin_client = nullptr);
 
   ~IdentityTestEnvironment() override;
 
   // The IdentityManager instance associated with this instance.
   IdentityManager* identity_manager();
 
+  // Returns the |TestIdentityManagerObserver| watching the IdentityManager.
+  TestIdentityManagerObserver* identity_manager_observer();
+
   // Sets the primary account for the given email address, generating a GAIA ID
   // that corresponds uniquely to that email address. On non-ChromeOS, results
   // in the firing of the IdentityManager and SigninManager callbacks for signin
-  // success. Blocks until the primary account is set. Returns the AccountInfo
-  // of the newly-set account.
-  AccountInfo SetPrimaryAccount(const std::string& email);
+  // success. Blocks until the primary account is set. Returns the
+  // CoreAccountInfo of the newly-set account.
+  CoreAccountInfo SetPrimaryAccount(const std::string& email);
 
   // Sets a refresh token for the primary account (which must already be set).
-  // Blocks until the refresh token is set.
+  // Before updating the refresh token, blocks until refresh tokens are loaded.
+  // After updating the token, blocks until the update is processed by
+  // |identity_manager|.
   void SetRefreshTokenForPrimaryAccount();
 
   // Sets a special invalid refresh token for the primary account (which must
-  // already be set). Blocks until the refresh token is set.
+  // already be set). Before updating the refresh token, blocks until refresh
+  // tokens are loaded. After updating the token, blocks until the update is
+  // processed by |identity_manager|.
   void SetInvalidRefreshTokenForPrimaryAccount();
 
   // Removes any refresh token for the primary account, if present. Blocks until
@@ -128,13 +126,17 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   AccountInfo MakeAccountAvailable(const std::string& email);
 
   // Sets a refresh token for the given account (which must already be
-  // available). Blocks until the refresh token is set. NOTE: See disclaimer at
-  // top of file re: direct usage.
+  // available). Before updating the refresh token, blocks until refresh tokens
+  // are loaded. After updating the token, blocks until the update is processed
+  // by |identity_manager|. NOTE: See disclaimer at top of file re: direct
+  // usage.
   void SetRefreshTokenForAccount(const std::string& account_id);
 
   // Sets a special invalid refresh token for the given account (which must
-  // already be available). Blocks until the refresh token is set. NOTE: See
-  // disclaimer at top of file re: direct usage.
+  // already be available). Before updating the refresh token, blocks until
+  // refresh tokens are loaded. After updating the token, blocks until the
+  // update is processed by |identity_manager|. NOTE: See disclaimer at top of
+  // file re: direct usage.
   void SetInvalidRefreshTokenForAccount(const std::string& account_id);
 
   // Removes any refresh token that is present for the given account. Blocks
@@ -242,13 +244,40 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // Simulates the reloading of the accounts from disk.
   void ReloadAccountsFromDisk();
 
+  // Returns whether there is a access token request pending.
+  bool IsAccessTokenRequestPending();
+
   // Sets whether the list of accounts in Gaia cookie jar is fresh and does not
   // need to be updated.
   void SetFreshnessOfAccountsInGaiaCookie(bool accounts_are_fresh);
 
+  // By default, extended account info removal is disabled in testing
+  // contexts. This call enables it for tests that require
+  // IdentityManager::Observer::OnExtendedAccountInfoRemoved() to fire as
+  // expected. TODO(https://crbug.com/927687): Enable this unconditionally.
+  void EnableRemovalOfExtendedAccountInfo();
+
+  // Simulate account fetching using AccountTrackerService without sending
+  // network requests.
+  void SimulateSuccessfulFetchOfAccountInfo(const std::string& account_id,
+                                            const std::string& email,
+                                            const std::string& gaia,
+                                            const std::string& hosted_domain,
+                                            const std::string& full_name,
+                                            const std::string& given_name,
+                                            const std::string& locale,
+                                            const std::string& picture_url);
+
+  // Simulates a merge session failure with |auth_error| as the error.
+  void SimulateMergeSessionFailure(const GoogleServiceAuthError& auth_error);
+
  private:
   friend class ::IdentityTestEnvironmentChromeBrowserStateAdaptor;
   friend class ::IdentityTestEnvironmentProfileAdaptor;
+
+  // TODO(https://crbug.com/933109): Remove friendship after conversion to
+  // IdentityManager is complete.
+  friend class identity::IdentityAccessorImplTest;
 
   struct AccessTokenRequestState {
     AccessTokenRequestState();
@@ -263,6 +292,22 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
     base::Optional<std::string> account_id;
     base::OnceClosure on_available;
   };
+
+  // Constructor that takes in instances of the dependencies of
+  // IdentityManager and constructs an IdentityManager instance from those
+  // dependencies. For use in contexts where those dependencies are still
+  // being used directly by the creator of this object (i.e., while a test is
+  // being incrementally converted). Prefer the above constructor, and switch to
+  // that constructor once possible (e.g., when an incremental conversion is
+  // completed). NOTE: The passed-in objects must all outlive this object.
+  IdentityTestEnvironment(
+      PrefService* pref_service,
+      AccountTrackerService* account_tracker_service,
+      AccountFetcherService* account_fetcher_service,
+      FakeProfileOAuth2TokenService* token_service,
+      SigninManagerBase* signin_manager,
+      GaiaCookieManagerService* gaia_cookie_manager_service,
+      network::TestURLLoaderFactory* test_url_loader_factory = nullptr);
 
   // Constructor that takes in an IdentityManager instance as well as instances
   // of the dependencies of that IdentityManager. For use only in contexts where
@@ -280,11 +325,14 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // Profile/ChromeBrowserState. If you think you have another use case for it,
   // contact blundell@chromium.org.
   IdentityTestEnvironment(
+      PrefService* pref_service,
       AccountTrackerService* account_tracker_service,
+      AccountFetcherService* account_fetcher_service,
       FakeProfileOAuth2TokenService* token_service,
-      SigninManagerForTest* signin_manager,
-      FakeGaiaCookieManagerService* gaia_cookie_manager_service,
-      IdentityManager* identity_manager);
+      SigninManagerBase* signin_manager,
+      GaiaCookieManagerService* gaia_cookie_manager_service,
+      IdentityManager* identity_manager,
+      network::TestURLLoaderFactory* test_url_loader_factory = nullptr);
 
   // Constructs this object from the supplied
   // dependencies of IdentityManager and potentially IdentityManager itself.
@@ -298,10 +346,13 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // this object will create and own an IdentityManager instance from the
   // supplied dependencies.
   IdentityTestEnvironment(
+      PrefService* pref_service,
       AccountTrackerService* account_tracker_service,
+      AccountFetcherService* account_fetcher_service,
       FakeProfileOAuth2TokenService* token_service,
-      SigninManagerForTest* signin_manager,
-      FakeGaiaCookieManagerService* gaia_cookie_manager_service,
+      SigninManagerBase* signin_manager,
+      GaiaCookieManagerService* gaia_cookie_manager_service,
+      network::TestURLLoaderFactory* test_url_loader_factory,
       std::unique_ptr<IdentityManagerDependenciesOwner> dependencies_owner,
       IdentityManager* identity_manager);
 
@@ -327,16 +378,24 @@ class IdentityTestEnvironment : public IdentityManager::DiagnosticsObserver {
   // pointed to below in the case where those objects are not passed in via
   // the IdentityTestEnvironment constructor.
   std::unique_ptr<IdentityManagerDependenciesOwner> dependencies_owner_;
+  PrefService* pref_service_ = nullptr;
   AccountTrackerService* account_tracker_service_ = nullptr;
+  AccountFetcherService* account_fetcher_service_ = nullptr;
   FakeProfileOAuth2TokenService* token_service_ = nullptr;
-  SigninManagerForTest* signin_manager_ = nullptr;
-  FakeGaiaCookieManagerService* gaia_cookie_manager_service_ = nullptr;
+  SigninManagerBase* signin_manager_ = nullptr;
+  GaiaCookieManagerService* gaia_cookie_manager_service_ = nullptr;
+
+  // Used to set fake responses for cookie-related requests.
+  // This can be null if no TestURLLoaderFactory was passed via the constructor.
+  network::TestURLLoaderFactory* test_url_loader_factory_ = nullptr;
 
   // Depending on which constructor is used, exactly one of these will be
   // non-null. See the documentation on the constructor wherein IdentityManager
   // is passed in for required lifetime invariants in that case.
   std::unique_ptr<IdentityManager> owned_identity_manager_;
   IdentityManager* raw_identity_manager_ = nullptr;
+
+  std::unique_ptr<TestIdentityManagerObserver> test_identity_manager_observer_;
 
   base::OnceClosure on_access_token_requested_callback_;
   std::vector<AccessTokenRequestState> requesters_;

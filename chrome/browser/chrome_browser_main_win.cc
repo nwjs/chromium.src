@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "base/base_switches.h"
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/enterprise_util.h"
@@ -355,8 +356,8 @@ void OnModuleEvent(const ModuleWatcher::ModuleEvent& event) {
             FROM_HERE,
             {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
              base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-            base::Bind(&HandleModuleLoadEventWithoutTimeDateStamp,
-                       event.module_path, event.module_size));
+            base::BindOnce(&HandleModuleLoadEventWithoutTimeDateStamp,
+                           event.module_path, event.module_size));
       }
       return;
     }
@@ -588,7 +589,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   // Record UMA data about whether the fault-tolerant heap is enabled.
   // Use a delayed task to minimize the impact on startup time.
   base::PostDelayedTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
-                                  base::Bind(&DetectFaultTolerantHeap),
+                                  base::BindOnce(&DetectFaultTolerantHeap),
                                   base::TimeDelta::FromMinutes(1));
 
   // Start the swap thrashing monitor if it's enabled.

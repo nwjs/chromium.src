@@ -4,6 +4,7 @@
 
 #include "media/mojo/services/video_decode_perf_history.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
@@ -14,6 +15,7 @@
 #include "media/base/media_switches.h"
 #include "media/base/video_codecs.h"
 #include "media/capabilities/learning_helper.h"
+#include "media/mojo/interfaces/media_types.mojom.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -37,9 +39,11 @@ double VideoDecodePerfHistory::GetMaxSmoothDroppedFramesPercent() {
 }
 
 VideoDecodePerfHistory::VideoDecodePerfHistory(
-    std::unique_ptr<VideoDecodeStatsDB> db)
+    std::unique_ptr<VideoDecodeStatsDB> db,
+    learning::FeatureProviderFactoryCB feature_factory_cb)
     : db_(std::move(db)),
       db_init_status_(UNINITIALIZED),
+      feature_factory_cb_(std::move(feature_factory_cb)),
       weak_ptr_factory_(this) {
   DVLOG(2) << __func__;
   DCHECK(db_);
@@ -47,7 +51,7 @@ VideoDecodePerfHistory::VideoDecodePerfHistory(
   // If the local learning experiment is enabled, then also create
   // |learning_helper_| to send data to it.
   if (base::FeatureList::IsEnabled(kMediaLearningExperiment))
-    learning_helper_ = std::make_unique<LearningHelper>();
+    learning_helper_ = std::make_unique<LearningHelper>(feature_factory_cb_);
 }
 
 VideoDecodePerfHistory::~VideoDecodePerfHistory() {
@@ -353,7 +357,7 @@ void VideoDecodePerfHistory::ClearHistory(base::OnceClosure clear_done_cb) {
   // If we have a learning helper, then replace it.  This will erase any data
   // that it currently has.
   if (learning_helper_)
-    learning_helper_ = std::make_unique<LearningHelper>();
+    learning_helper_ = std::make_unique<LearningHelper>(feature_factory_cb_);
 
   if (db_init_status_ == FAILED) {
     DVLOG(3) << __func__ << " Can't clear history - No DB!";

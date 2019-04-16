@@ -4,6 +4,7 @@
 
 #include "net/socket/connect_job.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -35,21 +36,23 @@ class TestConnectJob : public ConnectJob {
                  base::TimeDelta timeout_duration,
                  ConnectJob::Delegate* delegate,
                  NetLog* net_log)
-      : ConnectJob(
-            DEFAULT_PRIORITY,
-            timeout_duration,
-            CommonConnectJobParams(
-                "group_name",
-                SocketTag(),
-                true /* respect_limits */,
-                nullptr /* client_socket_factory */,
-                nullptr /* socket_performance_watcher_factory */,
-                nullptr /* host_resolver */,
-                nullptr /* net_log */,
-                nullptr /* websocket_endpoint_lock_manager */),
-            delegate,
-            NetLogWithSource::Make(net_log,
-                                   NetLogSourceType::TRANSPORT_CONNECT_JOB)),
+      : ConnectJob(DEFAULT_PRIORITY,
+                   timeout_duration,
+                   CommonConnectJobParams(
+                       SocketTag(),
+                       nullptr /* client_socket_factory */,
+                       nullptr /* host_resolver */,
+                       nullptr /* proxy_delegate */,
+                       SSLClientSocketContext(),
+                       SSLClientSocketContext(),
+                       nullptr /* socket_performance_watcher_factory */,
+                       nullptr /* network_quality_estimator */,
+                       net_log,
+                       nullptr /* websocket_endpoint_lock_manager */),
+                   delegate,
+                   nullptr /* net_log */,
+                   NetLogSourceType::TRANSPORT_CONNECT_JOB,
+                   NetLogEventType::TRANSPORT_CONNECT_JOB_CONNECT),
         job_type_(job_type),
         last_seen_priority_(DEFAULT_PRIORITY) {
     switch (job_type_) {
@@ -68,6 +71,7 @@ class TestConnectJob : public ConnectJob {
 
   // From ConnectJob:
   LoadState GetLoadState() const override { return LOAD_STATE_IDLE; }
+  bool HasEstablishedConnection() const override { return false; }
   int ConnectInternal() override {
     SetSocket(std::unique_ptr<StreamSocket>(new MockTCPClientSocket(
         AddressList(), net_log().net_log(), &socket_data_provider_)));
@@ -175,20 +179,18 @@ TEST_F(ConnectJobTest, TimedOut) {
   log.GetEntries(&entries);
 
   EXPECT_EQ(6u, entries.size());
-  EXPECT_TRUE(LogContainsBeginEvent(entries, 0,
-                                    NetLogEventType::SOCKET_POOL_CONNECT_JOB));
+  EXPECT_TRUE(LogContainsBeginEvent(entries, 0, NetLogEventType::CONNECT_JOB));
   EXPECT_TRUE(LogContainsBeginEvent(
-      entries, 1, NetLogEventType::SOCKET_POOL_CONNECT_JOB_CONNECT));
+      entries, 1, NetLogEventType::TRANSPORT_CONNECT_JOB_CONNECT));
   EXPECT_TRUE(LogContainsEvent(entries, 2,
                                NetLogEventType::CONNECT_JOB_SET_SOCKET,
                                NetLogEventPhase::NONE));
-  EXPECT_TRUE(LogContainsEvent(
-      entries, 3, NetLogEventType::SOCKET_POOL_CONNECT_JOB_TIMED_OUT,
-      NetLogEventPhase::NONE));
+  EXPECT_TRUE(LogContainsEvent(entries, 3,
+                               NetLogEventType::CONNECT_JOB_TIMED_OUT,
+                               NetLogEventPhase::NONE));
   EXPECT_TRUE(LogContainsEndEvent(
-      entries, 4, NetLogEventType::SOCKET_POOL_CONNECT_JOB_CONNECT));
-  EXPECT_TRUE(LogContainsEndEvent(entries, 5,
-                                  NetLogEventType::SOCKET_POOL_CONNECT_JOB));
+      entries, 4, NetLogEventType::TRANSPORT_CONNECT_JOB_CONNECT));
+  EXPECT_TRUE(LogContainsEndEvent(entries, 5, NetLogEventType::CONNECT_JOB));
 }
 
 TEST_F(ConnectJobTest, TimedOutWithRestartedTimer) {

@@ -7,6 +7,7 @@
 #import <Foundation/Foundation.h>
 #include <memory>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/mac/bundle_locations.h"
@@ -257,6 +258,13 @@ void WKBasedNavigationManagerImpl::CommitPendingItem() {
   OnNavigationItemCommitted();
 }
 
+void WKBasedNavigationManagerImpl::CommitPendingItem(
+    std::unique_ptr<NavigationItemImpl> item) {
+  // TODO(crbug.com/899827): Store Pending Item in NavigationContext with
+  // slim-navigation-manager.
+  CommitPendingItem();
+}
+
 int WKBasedNavigationManagerImpl::GetIndexForOffset(int offset) const {
   int current_item_index = pending_item_index_;
   if (pending_item_index_ == -1) {
@@ -364,15 +372,9 @@ int WKBasedNavigationManagerImpl::GetIndexOfItem(
 }
 
 int WKBasedNavigationManagerImpl::GetPendingItemIndex() const {
-  if (GetPendingItem()) {
-    if (pending_item_index_ != -1) {
-      return pending_item_index_;
-    }
-    // TODO(crbug.com/665189): understand why last committed item index is
-    // returned here.
-    return GetLastCommittedItemIndex();
-  }
-  return -1;
+  if (is_restore_session_in_progress_)
+    return -1;
+  return pending_item_index_;
 }
 
 bool WKBasedNavigationManagerImpl::RemoveItemAtIndex(int index) {
@@ -517,6 +519,9 @@ void WKBasedNavigationManagerImpl::UnsafeRestore(
   // (restore_session.html) into the web view. The session history is encoded
   // in the query parameter. When loaded, restore_session.html parses the
   // session history and replays them into the web view using History API.
+  for (size_t index = 0; index < items.size(); ++index) {
+    RewriteItemURLIfNecessary(items[index].get());
+  }
 
   // TODO(crbug.com/771200): Retain these original NavigationItems restored from
   // storage and associate them with new WKBackForwardListItems created after
@@ -687,7 +692,8 @@ void WKBasedNavigationManagerImpl::FinishReload() {
   delegate_->Reload();
 }
 
-void WKBasedNavigationManagerImpl::FinishLoadURLWithParams() {
+void WKBasedNavigationManagerImpl::FinishLoadURLWithParams(
+    NavigationInitiationType initiation_type) {
   if (!web_view_cache_.IsAttachedToWebView()) {
     DCHECK_EQ(pending_item_index_, -1);
     if (pending_item_ && web_view_cache_.GetBackForwardListItemCount() > 0) {
@@ -707,7 +713,7 @@ void WKBasedNavigationManagerImpl::FinishLoadURLWithParams() {
     web_view_cache_.ResetToAttached();
   }
 
-  delegate_->LoadCurrentItem();
+  delegate_->LoadCurrentItem(initiation_type);
 }
 
 bool WKBasedNavigationManagerImpl::IsPlaceholderUrl(const GURL& url) const {

@@ -11,7 +11,6 @@
 #include "net/base/net_errors.h"
 #include "net/base/network_change_notifier.h"
 #include "net/log/net_log_with_source.h"
-#include "net/socket/client_socket_handle.h"
 #include "net/socket/connection_attempts.h"
 #include "net/socket/fuzzed_datagram_client_socket.h"
 #include "net/socket/fuzzed_socket.h"
@@ -145,7 +144,7 @@ FuzzedSocketFactory::CreateTransportClientSocket(
 }
 
 std::unique_ptr<SSLClientSocket> FuzzedSocketFactory::CreateSSLClientSocket(
-    std::unique_ptr<ClientSocketHandle> transport_socket,
+    std::unique_ptr<StreamSocket> stream_socket,
     const HostPortPair& host_and_port,
     const SSLConfig& ssl_config,
     const SSLClientSocketContext& context) {
@@ -153,7 +152,7 @@ std::unique_ptr<SSLClientSocket> FuzzedSocketFactory::CreateSSLClientSocket(
 }
 
 std::unique_ptr<ProxyClientSocket> FuzzedSocketFactory::CreateProxyClientSocket(
-    std::unique_ptr<ClientSocketHandle> transport_socket,
+    std::unique_ptr<StreamSocket> stream_socket,
     const std::string& user_agent,
     const HostPortPair& endpoint,
     const ProxyServer& proxy_server,
@@ -167,7 +166,5 @@ std::unique_ptr<ProxyClientSocket> FuzzedSocketFactory::CreateProxyClientSocket(
   NOTIMPLEMENTED();
   return nullptr;
 }
-
-void FuzzedSocketFactory::ClearSSLSessionCache() {}
 
 }  // namespace net

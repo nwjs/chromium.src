@@ -27,7 +27,8 @@ struct EnumTraits<ash::mojom::AppListState, ash::AppListState> {
         return ash::mojom::AppListState::kStateSearchResults;
       case ash::AppListState::kStateStart:
         return ash::mojom::AppListState::kStateStart;
-      case ash::AppListState::kStateCustomLauncherPageDeprecated:
+      case ash::AppListState::kStateEmbeddedAssistant:
+        return ash::mojom::AppListState::kStateEmbeddedAssistant;
       case ash::AppListState::kInvalidState:
         break;
     }
@@ -46,6 +47,9 @@ struct EnumTraits<ash::mojom::AppListState, ash::AppListState> {
         return true;
       case ash::mojom::AppListState::kStateStart:
         *out = ash::AppListState::kStateStart;
+        return true;
+      case ash::mojom::AppListState::kStateEmbeddedAssistant:
+        *out = ash::AppListState::kStateEmbeddedAssistant;
         return true;
     }
     NOTREACHED();
@@ -109,6 +113,10 @@ struct EnumTraits<ash::mojom::SearchResultType, ash::SearchResultType> {
         return ash::mojom::SearchResultType::kLauncher;
       case ash::SearchResultType::kAnswerCard:
         return ash::mojom::SearchResultType::kAnswerCard;
+      case ash::SearchResultType::kPlayStoreReinstallApp:
+        return ash::mojom::SearchResultType::kPlayStoreReinstallApp;
+      case ash::SearchResultType::kArcAppShortcut:
+        return ash::mojom::SearchResultType::kArcAppShortcut;
       case ash::SearchResultType::kUnknown:
         break;
     }
@@ -145,6 +153,12 @@ struct EnumTraits<ash::mojom::SearchResultType, ash::SearchResultType> {
         return true;
       case ash::mojom::SearchResultType::kAnswerCard:
         *out = ash::SearchResultType::kAnswerCard;
+        return true;
+      case ash::mojom::SearchResultType::kPlayStoreReinstallApp:
+        *out = ash::SearchResultType::kPlayStoreReinstallApp;
+        return true;
+      case ash::mojom::SearchResultType::kArcAppShortcut:
+        *out = ash::SearchResultType::kArcAppShortcut;
         return true;
     }
     NOTREACHED();

@@ -170,18 +170,17 @@ struct SameSizeAsNode : EventTarget {
 
 NodeRenderingData::NodeRenderingData(
     LayoutObject* layout_object,
-    scoped_refptr<ComputedStyle> non_attached_style)
-    : layout_object_(layout_object), non_attached_style_(non_attached_style) {}
+    scoped_refptr<ComputedStyle> computed_style)
+    : layout_object_(layout_object), computed_style_(computed_style) {}
 
 NodeRenderingData::~NodeRenderingData() {
   CHECK(!layout_object_);
 }
 
-void NodeRenderingData::SetNonAttachedStyle(
-    scoped_refptr<ComputedStyle> non_attached_style) {
+void NodeRenderingData::SetComputedStyle(
+    scoped_refptr<ComputedStyle> computed_style) {
   DCHECK_NE(&SharedEmptyData(), this);
-  DCHECK(!non_attached_style || !non_attached_style_);
-  non_attached_style_ = non_attached_style;
+  computed_style_ = computed_style;
 }
 
 NodeRenderingData& NodeRenderingData::SharedEmptyData() {
@@ -903,7 +902,7 @@ void Node::SetLayoutObject(LayoutObject* layout_object) {
 
   // Swap the NodeRenderingData to point to a new NodeRenderingData instead of
   // the static SharedEmptyData instance.
-  DCHECK(!node_layout_data->GetNonAttachedStyle());
+  DCHECK(!node_layout_data->GetComputedStyle());
   node_layout_data = new NodeRenderingData(layout_object, nullptr);
   if (HasRareData())
     data_.rare_data_->SetNodeRenderingData(node_layout_data);
@@ -911,9 +910,8 @@ void Node::SetLayoutObject(LayoutObject* layout_object) {
     data_.node_layout_data_ = node_layout_data;
 }
 
-void Node::SetNonAttachedStyle(
-    scoped_refptr<ComputedStyle> non_attached_style) {
-  // We don't set non-attached style for text nodes.
+void Node::SetComputedStyle(scoped_refptr<ComputedStyle> computed_style) {
+  // We don't set computed style for text nodes.
   DCHECK(IsElementNode());
 
   NodeRenderingData* node_layout_data =
@@ -923,21 +921,22 @@ void Node::SetNonAttachedStyle(
   // Already pointing to a non empty NodeRenderingData so just set the pointer
   // to the new LayoutObject.
   if (!node_layout_data->IsSharedEmptyData()) {
-    node_layout_data->SetNonAttachedStyle(non_attached_style);
+    node_layout_data->SetComputedStyle(computed_style);
     return;
   }
 
-  if (!non_attached_style)
+  if (!computed_style)
     return;
 
-  // Ensure we don't unnecessarily set non-attached style for elements which are
-  // not part of the flat tree and consequently won't be attached.
-  DCHECK(LayoutTreeBuilderTraversal::Parent(*this));
+  // Ensure we only set computed style for elements which are not part of the
+  // flat tree unless it's enforced for getComputedStyle().
+  DCHECK(computed_style->IsEnsuredInDisplayNone() ||
+         LayoutTreeBuilderTraversal::Parent(*this));
 
   // Swap the NodeRenderingData to point to a new NodeRenderingData instead of
   // the static SharedEmptyData instance.
   DCHECK(!node_layout_data->GetLayoutObject());
-  node_layout_data = new NodeRenderingData(nullptr, non_attached_style);
+  node_layout_data = new NodeRenderingData(nullptr, computed_style);
   if (HasRareData())
     data_.rare_data_->SetNodeRenderingData(node_layout_data);
   else
@@ -985,7 +984,8 @@ bool Node::IsClosedShadowHiddenFrom(const Node& other) const {
   const TreeScope* scope = &GetTreeScope();
   for (; scope->ParentTreeScope(); scope = scope->ParentTreeScope()) {
     const ContainerNode& root = scope->RootNode();
-    if (root.IsShadowRoot() && !ToShadowRoot(root).IsOpenOrV0())
+    auto* shadow_root = DynamicTo<ShadowRoot>(root);
+    if (shadow_root && !shadow_root->IsOpenOrV0())
       break;
   }
 
@@ -1069,6 +1069,8 @@ void Node::MarkAncestorsWithChildNeedsStyleInvalidation() {
   bool parent_dirty = ancestor && ancestor->NeedsStyleInvalidation();
   for (; ancestor && !ancestor->ChildNeedsStyleInvalidation();
        ancestor = ancestor->ParentOrShadowHostNode()) {
+    if (!ancestor->isConnected())
+      return;
     ancestor->SetChildNeedsStyleInvalidation();
     if (ancestor->NeedsStyleInvalidation())
       break;
@@ -1092,15 +1094,13 @@ void Node::MarkAncestorsWithChildNeedsDistributionRecalc() {
   GetDocument().ScheduleLayoutTreeUpdateIfNeeded();
 }
 
-inline void Node::SetStyleChange(StyleChangeType change_type) {
-  node_flags_ = (node_flags_ & ~kStyleChangeMask) | change_type;
-}
-
 void Node::MarkAncestorsWithChildNeedsStyleRecalc() {
   ContainerNode* ancestor = ParentOrShadowHostNode();
   bool parent_dirty = ancestor && ancestor->NeedsStyleRecalc();
   for (; ancestor && !ancestor->ChildNeedsStyleRecalc();
        ancestor = ancestor->ParentOrShadowHostNode()) {
+    if (!ancestor->isConnected())
+      return;
     ancestor->SetChildNeedsStyleRecalc();
     if (ancestor->NeedsStyleRecalc())
       break;
@@ -1121,12 +1121,11 @@ void Node::MarkAncestorsWithChildNeedsStyleRecalc() {
     return;
 
   // If we're in a locked subtree, then we should not update the style recalc
-  // roots. These would be updated when we commit the lock.
-  // TODO(vmpstr): There's currently no easy way to determine whether we're in a
-  // locked subtree other than navigating up the ancestor chain. We can probably
-  // do better and only do this walk if there is in fact a lock somewhere in the
-  // document.
-  if (RuntimeEnabledFeatures::DisplayLockingEnabled()) {
+  // roots. These would be updated when we commit the lock. If we have locked
+  // display locks somewhere in the document, we iterate up the ancestor chain
+  // to check if we're in one such subtree.
+  if (RuntimeEnabledFeatures::DisplayLockingEnabled() &&
+      GetDocument().LockedDisplayLockCount() > 0) {
     for (auto* ancestor_copy = ancestor; ancestor_copy;
          ancestor_copy = ancestor_copy->ParentOrShadowHostNode()) {
       if (ancestor_copy->IsElementNode() &&
@@ -1178,6 +1177,7 @@ void Node::MarkAncestorsWithChildNeedsReattachLayoutTree() {
 void Node::SetNeedsReattachLayoutTree() {
   DCHECK(GetDocument().InStyleRecalc());
   DCHECK(!GetDocument().ChildNeedsDistributionRecalc());
+  DCHECK(IsElementNode() || IsTextNode());
   SetFlag(kNeedsReattachLayoutTree);
   MarkAncestorsWithChildNeedsReattachLayoutTree();
 }
@@ -1186,6 +1186,7 @@ void Node::SetNeedsStyleRecalc(StyleChangeType change_type,
                                const StyleChangeReasonForTracing& reason) {
   DCHECK(!GetDocument().GetStyleEngine().InRebuildLayoutTree());
   DCHECK(change_type != kNoStyleChange);
+
   if (!InActiveDocument())
     return;
   if (!IsContainerNode() && !IsTextNode())
@@ -1393,26 +1394,20 @@ Node* Node::CommonAncestor(const Node& other,
 void Node::ReattachLayoutTree(AttachContext& context) {
   context.performing_reattach = true;
 
-  // We only need to detach if the node has already been through
-  // attachLayoutTree().
-  if (GetStyleChangeType() < kNeedsReattachStyleChange)
-    DetachLayoutTree(context);
+  DetachLayoutTree(context);
   AttachLayoutTree(context);
   DCHECK(!NeedsReattachLayoutTree());
-  DCHECK(!GetNonAttachedStyle());
 }
 
 void Node::AttachLayoutTree(AttachContext& context) {
   DCHECK(GetDocument().InStyleRecalc() || IsDocumentNode());
   DCHECK(!GetDocument().Lifecycle().InDetach());
-  DCHECK(NeedsAttach());
 
   LayoutObject* layout_object = GetLayoutObject();
   DCHECK(!layout_object ||
          (layout_object->Style() &&
           (layout_object->Parent() || layout_object->IsLayoutView())));
 
-  ClearNeedsStyleRecalc();
   ClearNeedsReattachLayoutTree();
 
   if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
@@ -1422,11 +1417,9 @@ void Node::AttachLayoutTree(AttachContext& context) {
 void Node::DetachLayoutTree(const AttachContext& context) {
   DCHECK(GetDocument().Lifecycle().StateAllowsDetach());
   DocumentLifecycle::DetachScope will_detach(GetDocument().Lifecycle());
-
   if (GetLayoutObject())
     GetLayoutObject()->DestroyAndCleanupAnonymousWrappers();
   SetLayoutObject(nullptr);
-  SetStyleChange(kNeedsReattachStyleChange);
 }
 
 const ComputedStyle* Node::VirtualEnsureComputedStyle(
@@ -1435,6 +1428,40 @@ const ComputedStyle* Node::VirtualEnsureComputedStyle(
              ? ParentOrShadowHostNode()->EnsureComputedStyle(
                    pseudo_element_specifier)
              : nullptr;
+}
+
+void Node::LazyReattachIfAttached() {
+  if (!InActiveDocument())
+    return;
+  if (!IsContainerNode() && !IsTextNode())
+    return;
+
+  AttachContext context;
+  context.performing_reattach = true;
+  DetachLayoutTree(context);
+
+  if (GetDocument().GetStyleEngine().InRebuildLayoutTree())
+    return;
+
+  SetFlag(kForceReattachLayoutTree);
+  SetNeedsStyleRecalc(
+      kSubtreeStyleChange,
+      StyleChangeReasonForTracing::Create(style_change_reason::kLazyReattach));
+}
+
+void Node::SetForceReattachLayoutTree() {
+  DCHECK(!GetDocument().GetStyleEngine().InRebuildLayoutTree());
+  if (GetForceReattachLayoutTree())
+    return;
+  if (!InActiveDocument())
+    return;
+  if (!IsContainerNode() && !IsTextNode())
+    return;
+  SetFlag(kForceReattachLayoutTree);
+  if (!NeedsStyleRecalc()) {
+    // Make sure we traverse down to this node during style recalc.
+    MarkAncestorsWithChildNeedsStyleRecalc();
+  }
 }
 
 // FIXME: Shouldn't these functions be in the editing code?  Code that asks
@@ -1532,7 +1559,7 @@ Element* Node::OwnerShadowHost() const {
 
 ShadowRoot* Node::ContainingShadowRoot() const {
   Node& root = GetTreeScope().RootNode();
-  return root.IsShadowRoot() ? ToShadowRoot(&root) : nullptr;
+  return DynamicTo<ShadowRoot>(root);
 }
 
 Node* Node::NonBoundaryShadowTreeRootNode() {
@@ -1559,8 +1586,8 @@ Element* Node::ParentOrShadowHostElement() const {
   if (!parent)
     return nullptr;
 
-  if (parent->IsShadowRoot())
-    return &ToShadowRoot(parent)->host();
+  if (auto* shadow_root = DynamicTo<ShadowRoot>(parent))
+    return &shadow_root->host();
 
   if (!parent->IsElementNode())
     return nullptr;
@@ -1845,9 +1872,8 @@ void Node::setTextContent(const String& text) {
   NOTREACHED();
 }
 
-unsigned short Node::compareDocumentPosition(
-    const Node* other_node,
-    ShadowTreesTreatment treatment) const {
+uint16_t Node::compareDocumentPosition(const Node* other_node,
+                                       ShadowTreesTreatment treatment) const {
   if (other_node == this)
     return kDocumentPositionEquivalent;
 
@@ -1862,8 +1888,8 @@ unsigned short Node::compareDocumentPosition(
   // If either of start1 or start2 is null, then we are disconnected, since one
   // of the nodes is an orphaned attribute node.
   if (!start1 || !start2) {
-    unsigned short direction = (this > other_node) ? kDocumentPositionPreceding
-                                                   : kDocumentPositionFollowing;
+    uint16_t direction = (this > other_node) ? kDocumentPositionPreceding
+                                             : kDocumentPositionFollowing;
     return kDocumentPositionDisconnected |
            kDocumentPositionImplementationSpecific | direction;
   }
@@ -1908,8 +1934,8 @@ unsigned short Node::compareDocumentPosition(
   if (start1->isConnected() != start2->isConnected() ||
       (treatment == kTreatShadowTreesAsDisconnected &&
        start1->GetTreeScope() != start2->GetTreeScope())) {
-    unsigned short direction = (this > other_node) ? kDocumentPositionPreceding
-                                                   : kDocumentPositionFollowing;
+    uint16_t direction = (this > other_node) ? kDocumentPositionPreceding
+                                             : kDocumentPositionFollowing;
     return kDocumentPositionDisconnected |
            kDocumentPositionImplementationSpecific | direction;
   }
@@ -1927,8 +1953,8 @@ unsigned short Node::compareDocumentPosition(
 
   // If the two elements don't have a common root, they're not in the same tree.
   if (chain1[index1 - 1] != chain2[index2 - 1]) {
-    unsigned short direction = (this > other_node) ? kDocumentPositionPreceding
-                                                   : kDocumentPositionFollowing;
+    uint16_t direction = (this > other_node) ? kDocumentPositionPreceding
+                                             : kDocumentPositionFollowing;
     return kDocumentPositionDisconnected |
            kDocumentPositionImplementationSpecific | direction;
   }
@@ -2038,11 +2064,11 @@ std::ostream& operator<<(std::ostream& ostream, const Node* node) {
 String Node::ToString() const {
   if (getNodeType() == Node::kProcessingInstructionNode)
     return "?" + nodeName();
-  if (IsShadowRoot()) {
+  if (auto* shadow_root = DynamicTo<ShadowRoot>(this)) {
     // nodeName of ShadowRoot is #document-fragment.  It's confused with
     // DocumentFragment.
     std::stringstream shadow_root_type;
-    shadow_root_type << ToShadowRoot(this)->GetType();
+    shadow_root_type << shadow_root->GetType();
     String shadow_root_type_str(shadow_root_type.str().c_str());
     return "#shadow-root(" + shadow_root_type_str + ")";
   }
@@ -2078,10 +2104,10 @@ String Node::ToFlatTreeStringForThis() const {
 
 void Node::PrintNodePathTo(std::ostream& stream) const {
   HeapVector<Member<const Node>, 16> chain;
-  const Node* node = this;
-  while (node->ParentOrShadowHostNode()) {
-    chain.push_back(node);
-    node = node->ParentOrShadowHostNode();
+  const Node* parent_node = this;
+  while (parent_node->ParentOrShadowHostNode()) {
+    chain.push_back(parent_node);
+    parent_node = parent_node->ParentOrShadowHostNode();
   }
   for (unsigned index = chain.size(); index > 0; --index) {
     const Node* node = chain[index - 1];
@@ -2246,9 +2272,9 @@ static void PrintSubTreeAcrossFrame(const Node* node,
   if (node == marked_node)
     stream << "*";
   stream << indent.Utf8().data() << *node << "\n";
-  if (node->IsFrameOwnerElement()) {
-    PrintSubTreeAcrossFrame(ToHTMLFrameOwnerElement(node)->contentDocument(),
-                            marked_node, indent + "\t", stream);
+  if (auto* frame_owner_element = DynamicTo<HTMLFrameOwnerElement>(node)) {
+    PrintSubTreeAcrossFrame(frame_owner_element->contentDocument(), marked_node,
+                            indent + "\t", stream);
   }
   if (ShadowRoot* shadow_root = node->GetShadowRoot())
     PrintSubTreeAcrossFrame(shadow_root, marked_node, indent + "\t", stream);
@@ -2664,7 +2690,7 @@ void Node::DefaultEventHandler(Event& event) {
              event.IsMouseEvent()) {
     auto& mouse_event = ToMouseEvent(event);
     if (mouse_event.button() ==
-        static_cast<short>(WebPointerProperties::Button::kMiddle)) {
+        static_cast<int16_t>(WebPointerProperties::Button::kMiddle)) {
       if (EnclosingLinkEventParentOrSelf())
         return;
 
@@ -2694,13 +2720,13 @@ void Node::DefaultEventHandler(Event& event) {
   } else if (event_type == event_type_names::kMouseup && event.IsMouseEvent()) {
     auto& mouse_event = ToMouseEvent(event);
     if (mouse_event.button() ==
-        static_cast<short>(WebPointerProperties::Button::kBack)) {
+        static_cast<int16_t>(WebPointerProperties::Button::kBack)) {
       if (LocalFrame* frame = GetDocument().GetFrame()) {
         if (frame->Client()->NavigateBackForward(-1))
           event.SetDefaultHandled();
       }
     } else if (mouse_event.button() ==
-               static_cast<short>(WebPointerProperties::Button::kForward)) {
+               static_cast<int16_t>(WebPointerProperties::Button::kForward)) {
       if (LocalFrame* frame = GetDocument().GetFrame()) {
         if (frame->Client()->NavigateBackForward(1))
           event.SetDefaultHandled();
@@ -3036,6 +3062,18 @@ bool Node::HasMediaControlAncestor() const {
   }
 
   return false;
+}
+
+void Node::FlatTreeParentChanged() {
+  // The node changed the flat tree position by being slotted to a new slot or
+  // slotted for the first time. We need to recalc style since the inheritance
+  // parent may have changed.
+  SetNeedsStyleRecalc(kLocalStyleChange,
+                      StyleChangeReasonForTracing::Create(
+                          style_change_reason::kFlatTreeChange));
+  // We also need to force a layout tree re-attach since the layout tree parent
+  // box may have changed.
+  SetForceReattachLayoutTree();
 }
 
 void Node::Trace(Visitor* visitor) {

@@ -8,6 +8,7 @@
 #include <string>
 
 #include "apps/launcher.h"
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
@@ -236,8 +237,9 @@ WebContents* OpenApplicationTab(const AppLaunchParams& launch_params,
       // Pinning may have moved the tab.
       tab_index = model->GetIndexOfWebContents(existing_tab);
     }
-    if (params.tabstrip_add_types & TabStripModel::ADD_ACTIVE)
-      model->ActivateTabAt(tab_index, true);
+    if (params.tabstrip_add_types & TabStripModel::ADD_ACTIVE) {
+      model->ActivateTabAt(tab_index, {TabStripModel::GestureType::kOther});
+    }
 
     contents = existing_tab;
   } else {

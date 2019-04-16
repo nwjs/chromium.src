@@ -7,6 +7,49 @@
 namespace media_session {
 namespace test {
 
+TestMediaControllerImageObserver::TestMediaControllerImageObserver(
+    mojom::MediaControllerPtr& controller,
+    int minimum_size_px,
+    int desired_size_px) {
+  mojom::MediaControllerImageObserverPtr ptr;
+  binding_.Bind(mojo::MakeRequest(&ptr));
+
+  controller->ObserveImages(mojom::MediaSessionImageType::kArtwork,
+                            minimum_size_px, desired_size_px, std::move(ptr));
+  controller.FlushForTesting();
+}
+
+TestMediaControllerImageObserver::~TestMediaControllerImageObserver() = default;
+
+void TestMediaControllerImageObserver::MediaControllerImageChanged(
+    mojom::MediaSessionImageType type,
+    const SkBitmap& bitmap) {
+  current_ = ImageTypePair(type, bitmap.isNull());
+
+  if (!expected_.has_value() || expected_ != current_)
+    return;
+
+  DCHECK(run_loop_);
+  run_loop_->Quit();
+  expected_.reset();
+}
+
+void TestMediaControllerImageObserver::WaitForExpectedImageOfType(
+    mojom::MediaSessionImageType type,
+    bool expect_null_image) {
+  ImageTypePair pair(type, expect_null_image);
+
+  if (current_ == pair)
+    return;
+
+  expected_ = pair;
+
+  DCHECK(!run_loop_);
+  run_loop_ = std::make_unique<base::RunLoop>();
+  run_loop_->Run();
+  run_loop_.reset();
+}
+
 TestMediaControllerObserver::TestMediaControllerObserver(
     mojom::MediaControllerPtr& media_controller)
     : binding_(this) {
@@ -36,26 +79,24 @@ void TestMediaControllerObserver::MediaSessionMetadataChanged(
     const base::Optional<MediaMetadata>& metadata) {
   session_metadata_ = metadata;
 
-  if (waiting_for_empty_metadata_ &&
-      (!metadata.has_value() || metadata->IsEmpty())) {
+  if (expected_metadata_.has_value() && expected_metadata_ == metadata) {
+    run_loop_->Quit();
+    expected_metadata_.reset();
+  } else if (waiting_for_empty_metadata_ &&
+             (!metadata.has_value() || metadata->IsEmpty())) {
     run_loop_->Quit();
     waiting_for_empty_metadata_ = false;
-  } else if (waiting_for_non_empty_metadata_ && metadata.has_value() &&
-             !metadata->IsEmpty()) {
-    run_loop_->Quit();
-    waiting_for_non_empty_metadata_ = false;
   }
 }
 
 void TestMediaControllerObserver::MediaSessionActionsChanged(
     const std::vector<mojom::MediaSessionAction>& actions) {
-  session_actions_ = actions;
-  session_actions_set_ =
+  session_actions_ =
       std::set<mojom::MediaSessionAction>(actions.begin(), actions.end());
 
-  if (waiting_for_actions_) {
+  if (expected_actions_.has_value() && expected_actions_ == session_actions_) {
     run_loop_->Quit();
-    waiting_for_actions_ = false;
+    expected_actions_.reset();
   }
 }
 
@@ -93,19 +134,25 @@ void TestMediaControllerObserver::WaitForEmptyMetadata() {
   StartWaiting();
 }
 
-void TestMediaControllerObserver::WaitForNonEmptyMetadata() {
-  if (session_metadata_.has_value() && !session_metadata_.value()->IsEmpty())
+void TestMediaControllerObserver::WaitForExpectedMetadata(
+    const MediaMetadata& metadata) {
+  if (session_metadata_.has_value() && session_metadata_ == metadata)
     return;
 
-  waiting_for_non_empty_metadata_ = true;
+  expected_metadata_ = metadata;
   StartWaiting();
 }
 
-void TestMediaControllerObserver::WaitForActions() {
-  if (session_actions_.has_value())
+void TestMediaControllerObserver::WaitForEmptyActions() {
+  WaitForExpectedActions(std::set<mojom::MediaSessionAction>());
+}
+
+void TestMediaControllerObserver::WaitForExpectedActions(
+    const std::set<mojom::MediaSessionAction>& actions) {
+  if (session_actions_.has_value() && session_actions_ == actions)
     return;
 
-  waiting_for_actions_ = true;
+  expected_actions_ = actions;
   StartWaiting();
 }
 
@@ -161,6 +208,14 @@ void TestMediaController::Seek(base::TimeDelta seek_time) {
   } else if (seek_time < base::TimeDelta()) {
     ++seek_backward_count_;
   }
+}
+
+void TestMediaController::SimulateMediaSessionInfoChanged(
+    mojom::MediaSessionInfoPtr session_info) {
+  observers_.ForAllPtrs(
+      [&session_info](mojom::MediaControllerObserver* observer) {
+        observer->MediaSessionInfoChanged(session_info.Clone());
+      });
 }
 
 void TestMediaController::SimulateMediaSessionActionsChanged(

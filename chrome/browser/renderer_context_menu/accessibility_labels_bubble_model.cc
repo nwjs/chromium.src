@@ -4,6 +4,9 @@
 
 #include "chrome/browser/renderer_context_menu/accessibility_labels_bubble_model.h"
 
+#include "base/metrics/histogram_macros.h"
+#include "chrome/browser/accessibility/accessibility_labels_service.h"
+#include "chrome/browser/accessibility/accessibility_labels_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -18,21 +21,36 @@ using content::OpenURLParams;
 using content::Referrer;
 using content::WebContents;
 
+namespace {
+
+// static
+void RecordModalDialogAccepted(bool accepted) {
+  UMA_HISTOGRAM_BOOLEAN("Accessibility.ImageLabels.ModalDialogAccepted",
+                        accepted);
+}
+
+}  // namespace
+
 AccessibilityLabelsBubbleModel::AccessibilityLabelsBubbleModel(
     Profile* profile,
-    WebContents* web_contents)
-    : profile_(profile), web_contents_(web_contents) {}
+    WebContents* web_contents,
+    bool enable_always)
+    : profile_(profile),
+      web_contents_(web_contents),
+      enable_always_(enable_always) {}
 
 AccessibilityLabelsBubbleModel::~AccessibilityLabelsBubbleModel() {}
 
 base::string16 AccessibilityLabelsBubbleModel::GetTitle() const {
   return l10n_util::GetStringUTF16(
-      IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND);
+      IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION);
 }
 
 base::string16 AccessibilityLabelsBubbleModel::GetMessageText() const {
   return l10n_util::GetStringUTF16(
-      IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_TEXT);
+      enable_always_
+          ? IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_TEXT
+          : IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_TEXT_ONCE);
 }
 
 base::string16 AccessibilityLabelsBubbleModel::GetButtonLabel(
@@ -44,13 +62,24 @@ base::string16 AccessibilityLabelsBubbleModel::GetButtonLabel(
 }
 
 void AccessibilityLabelsBubbleModel::Accept() {
-  // TODO(katie): Add logging.
-  SetPref(true);
+  // Note that the user has already seen and accepted this opt-in dialog.
+  PrefService* prefs = profile_->GetPrefs();
+  prefs->SetBoolean(prefs::kAccessibilityImageLabelsOptInAccepted, true);
+  RecordModalDialogAccepted(true);
+
+  if (enable_always_) {
+    SetPref(true);
+    return;
+  }
+  AccessibilityLabelsServiceFactory::GetForProfile(profile_)
+      ->EnableLabelsServiceOnce();
 }
 
 void AccessibilityLabelsBubbleModel::Cancel() {
-  // TODO(katie): Add logging.
-  SetPref(false);
+  if (enable_always_)
+    SetPref(false);
+  // If not enable_always_, canceling does not have any impact.
+  RecordModalDialogAccepted(/* not accepted */ false);
 }
 
 base::string16 AccessibilityLabelsBubbleModel::GetLinkText() const {
@@ -71,7 +100,7 @@ void AccessibilityLabelsBubbleModel::OpenHelpPage() {
 }
 
 void AccessibilityLabelsBubbleModel::SetPref(bool enabled) {
-  PrefService* pref = profile_->GetPrefs();
-  DCHECK(pref);
-  pref->SetBoolean(prefs::kAccessibilityImageLabelsEnabled, enabled);
+  PrefService* prefs = profile_->GetPrefs();
+  DCHECK(prefs);
+  prefs->SetBoolean(prefs::kAccessibilityImageLabelsEnabled, enabled);
 }

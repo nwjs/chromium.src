@@ -9,7 +9,6 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
-#include "third_party/blink/renderer/core/layout/intersection_geometry.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -148,19 +147,15 @@ void MediaCustomControlsFullscreenDetector::OnIntersectionChanged(
   // We only want a single notification, then stop observing.
   viewport_intersection_observer_->disconnect();
 
-  const Member<IntersectionObserverEntry>& last_entry = entries.back();
+  const IntersectionGeometry& geometry = entries.back()->GetGeometry();
 
   // Target and intersection rects must be converted from CSS to device pixels.
   float zoom = VideoElement().GetLayoutObject()->StyleRef().EffectiveZoom();
-  DOMRectReadOnly* target_rect = last_entry->boundingClientRect();
-  FloatSize target_size(target_rect->width(), target_rect->height());
+  LayoutSize target_size = geometry.TargetRect().Size();
   target_size.Scale(zoom);
-  DOMRectReadOnly* intersection_rect = last_entry->intersectionRect();
-  FloatSize intersection_size(intersection_rect->width(),
-                              intersection_rect->height());
+  LayoutSize intersection_size = geometry.IntersectionRect().Size();
   intersection_size.Scale(zoom);
-  DOMRectReadOnly* root_rect = last_entry->rootBounds();
-  FloatSize root_size(root_rect->width(), root_rect->height());
+  LayoutSize root_size = geometry.RootRect().Size();
 
   bool is_dominant = ComputeIsDominantVideoForTests(
       RoundedIntSize(target_size), RoundedIntSize(root_size),

@@ -60,11 +60,11 @@ function testExternalMetadataProviderBasic(callback) {
 
   installMockChrome(mockChrome);
 
-  var provider = new ExternalMetadataProvider();
+  const provider = new ExternalMetadataProvider();
   reportPromise(provider.get([
     new MetadataRequest(entryA, ['modificationTime', 'size']),
     new MetadataRequest(entryB, ['modificationTime', 'size']),
-  ]).then(function(results) {
+  ]).then(results => {
     assertEquals(2, results.length);
     assertEquals(
         new Date(2015, 0, 1).toString(),

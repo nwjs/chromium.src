@@ -4,13 +4,12 @@
 
 #include "ash/shell/content/client/shell_main_delegate.h"
 
-#include "ash/components/quick_launch/public/mojom/constants.mojom.h"
-#include "ash/components/quick_launch/quick_launch_application.h"
 #include "ash/components/shortcut_viewer/public/mojom/shortcut_viewer.mojom.h"
 #include "ash/components/shortcut_viewer/shortcut_viewer_application.h"
 #include "ash/components/tap_visualizer/public/mojom/tap_visualizer.mojom.h"
 #include "ash/components/tap_visualizer/tap_visualizer_app.h"
 #include "ash/shell/content/client/shell_content_browser_client.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -29,13 +28,6 @@ namespace {
 
 void TerminateThisProcess() {
   content::UtilityThread::Get()->ReleaseProcess();
-}
-
-std::unique_ptr<service_manager::Service> CreateQuickLaunch(
-    service_manager::mojom::ServiceRequest request) {
-  logging::SetLogPrefix("quick");
-  return std::make_unique<quick_launch::QuickLaunchApplication>(
-      std::move(request));
 }
 
 std::unique_ptr<service_manager::Service> CreateShortcutViewer(
@@ -66,9 +58,7 @@ class ShellContentUtilityClient : public content::ContentUtilityClient {
       const std::string& service_name,
       service_manager::mojom::ServiceRequest request) override {
     std::unique_ptr<service_manager::Service> service;
-    if (service_name == quick_launch::mojom::kServiceName)
-      service = CreateQuickLaunch(std::move(request));
-    else if (service_name == test_ime_driver::mojom::kServiceName)
+    if (service_name == test_ime_driver::mojom::kServiceName)
       service = CreateTestImeDriver(std::move(request));
     else if (service_name == shortcut_viewer::mojom::kServiceName)
       service = CreateShortcutViewer(std::move(request));

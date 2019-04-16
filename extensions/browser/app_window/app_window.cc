@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -76,7 +77,7 @@
 //#include "extensions/common/extension_messages.h"
 
 #include "content/public/browser/render_frame_host.h"
-#include "content/public/common/renderer_preferences.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/app_window/app_window_contents.h"
@@ -202,7 +203,9 @@ AppWindow::CreateParams::CreateParams()
       show_in_shelf(false),
       skip_load(false),
       show_in_taskbar(true),
-      new_instance(false) {
+      new_instance(false),
+      skip_block_parser(false)
+{
 }
 
 AppWindow::CreateParams::CreateParams(const CreateParams& other) = default;
@@ -306,7 +309,8 @@ void AppWindow::Init(const GURL& url,
                      const CreateParams& params) {
   // Initialize the render interface and web contents
   app_window_contents_.reset(app_window_contents);
-  app_window_contents_->Initialize(browser_context(), creator_frame, url, GetExtension(), params.new_instance);
+  app_window_contents_->Initialize(browser_context(), creator_frame, url,
+                                   GetExtension(), params.new_instance || params.skip_block_parser);
 
   nw::Package* package = nw::package();
   std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
@@ -551,18 +555,6 @@ bool AppWindow::PreHandleGestureEvent(WebContents* source,
   }
 #endif  // defined(OS_MACOSX)
   return false;
-}
-
-// Fix for issue https://github.com/nwjs/nw.js/issues/4992
-// Bounds of dialogs are calcuated based on the bounds of parent window.
-// However on Windows, when window is minized, the bounds returned from system
-// is empty.
-// Implementing `WebContentsDelegate::ActivateContents` in `AppWindow` to
-// activate the native window before showing dialog fixes the issue.
-void AppWindow::ActivateContents(content::WebContents* contents) {
-  // Only activate window for NW.js app to avoid side effects to Chrome Apps.
-  if (GetExtension()->is_nwjs_app())
-    native_app_window_->Activate();
 }
 
 std::unique_ptr<content::BluetoothChooser> AppWindow::RunBluetoothChooser(
@@ -1066,6 +1058,10 @@ void AppWindow::UpdateNativeAlwaysOnTop() {
     native_app_window_->SetAlwaysOnTop(true);
   }
 #endif
+}
+
+void AppWindow::ActivateContents(WebContents* contents) {
+  native_app_window_->Activate();
 }
 
 void AppWindow::CloseContents(WebContents* contents) {

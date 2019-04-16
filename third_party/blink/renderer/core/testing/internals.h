@@ -56,6 +56,7 @@ class Element;
 class ExceptionState;
 class ExecutionContext;
 class GCObservation;
+class HTMLIFrameElement;
 class HTMLInputElement;
 class HTMLMediaElement;
 class HTMLSelectElement;
@@ -142,9 +143,9 @@ class Internals final : public ScriptWrappable {
   bool isValidContentSelect(Element* insertion_point, ExceptionState&);
   Node* treeScopeRootNode(Node*);
   Node* parentTreeScope(Node*);
-  unsigned short compareTreeScopePosition(const Node*,
-                                          const Node*,
-                                          ExceptionState&) const;
+  uint16_t compareTreeScopePosition(const Node*,
+                                    const Node*,
+                                    ExceptionState&) const;
 
   Node* nextSiblingInFlatTree(Node*, ExceptionState&);
   Node* firstChildInFlatTree(Node*, ExceptionState&);
@@ -281,7 +282,7 @@ class Internals final : public ScriptWrappable {
 
   unsigned mediaKeysCount();
   unsigned mediaKeySessionCount();
-  unsigned pausableObjectCount(Document*);
+  unsigned contextLifecycleStateObserverObjectCount(Document*);
   unsigned wheelEventHandlerCount(Document*) const;
   unsigned scrollEventHandlerCount(Document*) const;
   unsigned touchStartOrMoveEventHandlerCount(Document*) const;
@@ -328,6 +329,11 @@ class Internals final : public ScriptWrappable {
   InternalSettings* settings() const;
   InternalRuntimeFlags* runtimeFlags() const;
   unsigned workerThreadCount() const;
+
+  String resolveModuleSpecifier(const String& specifier,
+                                const String& base_url_string,
+                                Document*,
+                                ExceptionState&);
 
   void SetDeviceProximity(Document*,
                           const String& event_type,
@@ -497,16 +503,6 @@ class Internals final : public ScriptWrappable {
 
   Element* interestedElement();
 
-  void setNetworkConnectionInfoOverride(bool,
-                                        const String&,
-                                        const String&,
-                                        unsigned long http_rtt_msec,
-                                        double downlink_max_mbps,
-                                        ExceptionState&);
-  void setSaveDataEnabled(bool);
-
-  void clearNetworkConnectionInfoOverride();
-
   unsigned countHitRegions(CanvasRenderingContext*);
 
   bool isInCanvasFontCache(Document*, const String&);
@@ -599,12 +595,15 @@ class Internals final : public ScriptWrappable {
   unsigned LifecycleUpdateCount() const;
 
   void DisableIntersectionObserverThrottleDelay() const;
+  bool isSiteIsolated(HTMLIFrameElement* iframe) const;
+  bool isTrackingOcclusionForIFrame(HTMLIFrameElement* iframe) const;
 
   void addEmbedderCustomElementName(const AtomicString& name, ExceptionState&);
 
+  LocalFrame* GetFrame() const;
+
  private:
   Document* ContextDocument() const;
-  LocalFrame* GetFrame() const;
   Vector<String> IconURLs(Document*, int icon_types_mask) const;
   DOMRectList* AnnotatedRegions(Document*, bool draggable, ExceptionState&);
   void HitTestRect(HitTestLocation&,

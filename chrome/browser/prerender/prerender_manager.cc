@@ -491,46 +491,12 @@ void PrerenderManager::RecordNoStateFirstContentfulPaint(const GURL& url,
                                                          base::TimeDelta time) {
   base::TimeDelta prefetch_age;
   Origin origin;
-  GetPrefetchInformation(url, &prefetch_age, &origin);
+  GetPrefetchInformation(url, &prefetch_age, nullptr /* final_status*/,
+                         &origin);
   OnPrefetchUsed(url);
 
   histograms_->RecordPrefetchFirstContentfulPaintTime(
       origin, is_no_store, was_hidden, time, prefetch_age);
-
-  for (auto& observer : observers_) {
-    observer->OnFirstContentfulPaint();
-  }
-}
-
-void PrerenderManager::RecordPrerenderFirstContentfulPaint(
-    const GURL& url,
-    content::WebContents* web_contents,
-    bool is_no_store,
-    bool was_hidden,
-    base::TimeTicks first_contentful_paint) {
-  DCHECK(!first_contentful_paint.is_null());
-
-  PrerenderTabHelper* tab_helper =
-      PrerenderTabHelper::FromWebContents(web_contents);
-  DCHECK(tab_helper);
-
-  base::TimeDelta prefetch_age;
-  // The origin at prefetch is superceeded by the tab_helper origin for the
-  // histogram recording, below.
-  GetPrefetchInformation(url, &prefetch_age, nullptr);
-  OnPrefetchUsed(url);
-
-  base::TimeTicks swap_ticks = tab_helper->swap_ticks();
-  bool fcp_recorded = false;
-  if (!swap_ticks.is_null() && !first_contentful_paint.is_null()) {
-    histograms_->RecordPrefetchFirstContentfulPaintTime(
-        tab_helper->origin(), is_no_store, was_hidden,
-        first_contentful_paint - swap_ticks, prefetch_age);
-    fcp_recorded = true;
-  }
-  histograms_->RecordPerceivedFirstContentfulPaintStatus(
-      tab_helper->origin(), fcp_recorded, was_hidden);
-
   for (auto& observer : observers_) {
     observer->OnFirstContentfulPaint();
   }
@@ -817,7 +783,8 @@ std::unique_ptr<PrerenderHandle> PrerenderManager::AddPrerender(
 
   if (IsNoStatePrefetchEnabled()) {
     base::TimeDelta prefetch_age;
-    GetPrefetchInformation(url, &prefetch_age, nullptr);
+    GetPrefetchInformation(url, &prefetch_age, nullptr /* final_status*/,
+                           nullptr /* origin */);
     if (!prefetch_age.is_zero() &&
         prefetch_age <
             base::TimeDelta::FromMinutes(net::HttpCache::kPrefetchReuseMins)) {
@@ -1063,23 +1030,31 @@ void PrerenderManager::DeleteOldWebContents() {
   old_web_contents_list_.clear();
 }
 
-void PrerenderManager::GetPrefetchInformation(const GURL& url,
+bool PrerenderManager::GetPrefetchInformation(const GURL& url,
                                               base::TimeDelta* prefetch_age,
+                                              FinalStatus* final_status,
                                               Origin* origin) {
-  DCHECK(prefetch_age);
   CleanUpOldNavigations(&prefetches_, base::TimeDelta::FromMinutes(30));
 
-  *prefetch_age = base::TimeDelta();
+  if (prefetch_age)
+    *prefetch_age = base::TimeDelta();
+  if (final_status)
+    *final_status = FINAL_STATUS_MAX;
   if (origin)
     *origin = ORIGIN_NONE;
+
   for (auto it = prefetches_.crbegin(); it != prefetches_.crend(); ++it) {
     if (it->url == url) {
-      *prefetch_age = GetCurrentTimeTicks() - it->time;
+      if (prefetch_age)
+        *prefetch_age = GetCurrentTimeTicks() - it->time;
+      if (final_status)
+        *final_status = it->final_status;
       if (origin)
         *origin = it->origin;
-      break;
+      return true;
     }
   }
+  return false;
 }
 
 void PrerenderManager::SetPrefetchFinalStatusForUrl(const GURL& url,

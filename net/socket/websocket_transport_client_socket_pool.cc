@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/location.h"
@@ -28,19 +29,57 @@ namespace net {
 WebSocketTransportClientSocketPool::WebSocketTransportClientSocketPool(
     int max_sockets,
     int max_sockets_per_group,
-    HostResolver* host_resolver,
+    base::TimeDelta unused_idle_socket_timeout,
     ClientSocketFactory* client_socket_factory,
+    HostResolver* host_resolver,
+    ProxyDelegate* proxy_delegate,
+    CertVerifier* cert_verifier,
+    ChannelIDService* channel_id_service,
+    TransportSecurityState* transport_security_state,
+    CTVerifier* cert_transparency_verifier,
+    CTPolicyEnforcer* ct_policy_enforcer,
+    SSLClientSessionCache* ssl_client_session_cache,
+    SSLClientSessionCache* ssl_client_session_cache_privacy_mode,
+    SSLConfigService* ssl_config_service,
+    NetworkQualityEstimator* network_quality_estimator,
     WebSocketEndpointLockManager* websocket_endpoint_lock_manager,
     NetLog* net_log)
-    : TransportClientSocketPool(max_sockets,
-                                max_sockets_per_group,
-                                host_resolver,
-                                client_socket_factory,
-                                nullptr,
-                                net_log),
+    : TransportClientSocketPool(
+          max_sockets,
+          max_sockets_per_group,
+          unused_idle_socket_timeout,
+          client_socket_factory,
+          host_resolver,
+          proxy_delegate,
+          cert_verifier,
+          channel_id_service,
+          transport_security_state,
+          cert_transparency_verifier,
+          ct_policy_enforcer,
+          ssl_client_session_cache,
+          ssl_client_session_cache_privacy_mode,
+          ssl_config_service,
+          nullptr /* socket_performance_watcher_factory */,
+          network_quality_estimator,
+          net_log),
       pool_net_log_(net_log),
       client_socket_factory_(client_socket_factory),
       host_resolver_(host_resolver),
+      proxy_delegate_(proxy_delegate),
+      ssl_client_socket_context_(cert_verifier,
+                                 channel_id_service,
+                                 transport_security_state,
+                                 cert_transparency_verifier,
+                                 ct_policy_enforcer,
+                                 ssl_client_session_cache),
+      ssl_client_socket_context_privacy_mode_(
+          cert_verifier,
+          channel_id_service,
+          transport_security_state,
+          cert_transparency_verifier,
+          ct_policy_enforcer,
+          ssl_client_session_cache_privacy_mode),
+      network_quality_estimator_(network_quality_estimator),
       websocket_endpoint_lock_manager_(websocket_endpoint_lock_manager),
       max_sockets_(max_sockets),
       handed_out_socket_count_(0),
@@ -75,6 +114,7 @@ int WebSocketTransportClientSocketPool::RequestSocket(
     RespectLimits respect_limits,
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,
+    const ProxyAuthCallback& proxy_auth_callback,
     const NetLogWithSource& request_net_log) {
   DCHECK(params);
   CHECK(!callback.is_null());
@@ -91,7 +131,8 @@ int WebSocketTransportClientSocketPool::RequestSocket(
       respect_limits == ClientSocketPool::RespectLimits::ENABLED) {
     request_net_log.AddEvent(NetLogEventType::SOCKET_POOL_STALLED_MAX_SOCKETS);
     stalled_request_queue_.emplace_back(casted_params, priority, handle,
-                                        std::move(callback), request_net_log);
+                                        std::move(callback),
+                                        proxy_auth_callback, request_net_log);
     auto iterator = stalled_request_queue_.end();
     --iterator;
     DCHECK_EQ(handle, iterator->handle);
@@ -109,14 +150,20 @@ int WebSocketTransportClientSocketPool::RequestSocket(
       std::make_unique<ConnectJobDelegate>(this, std::move(callback), handle,
                                            request_net_log);
 
+  // For WebSockets, only the main socket pool uses a
+  // WebSocketTransportClientSocketPool, so there's no need to pass in any
+  // nested socket pools for the proxy case, which use standard proxy socket
+  // pool types on top of a standard TransportClientSocketPool.
   std::unique_ptr<ConnectJob> connect_job =
       casted_params->create_connect_job_callback().Run(
           priority,
-          CommonConnectJobParams(
-              group_name, SocketTag(), respect_limits == RespectLimits::ENABLED,
-              client_socket_factory_,
-              nullptr /* SocketPerformanceWatcherFactory */, host_resolver_,
-              pool_net_log_, websocket_endpoint_lock_manager_),
+          CommonConnectJobParams(SocketTag(), client_socket_factory_,
+                                 host_resolver_, proxy_delegate_,
+                                 ssl_client_socket_context_,
+                                 ssl_client_socket_context_privacy_mode_,
+                                 nullptr /* SocketPerformanceWatcherFactory */,
+                                 network_quality_estimator_, pool_net_log_,
+                                 websocket_endpoint_lock_manager_),
           connect_job_delegate.get());
 
   int result = connect_job_delegate->Connect(std::move(connect_job));
@@ -179,7 +226,6 @@ void WebSocketTransportClientSocketPool::ReleaseSocket(
     const std::string& group_name,
     std::unique_ptr<StreamSocket> socket,
     int id) {
-  websocket_endpoint_lock_manager_->UnlockSocket(socket.get());
   CHECK_GT(handed_out_socket_count_, 0);
   --handed_out_socket_count_;
 
@@ -223,7 +269,7 @@ int WebSocketTransportClientSocketPool::IdleSocketCount() const {
   return 0;
 }
 
-int WebSocketTransportClientSocketPool::IdleSocketCountInGroup(
+size_t WebSocketTransportClientSocketPool::IdleSocketCountInGroup(
     const std::string& group_name) const {
   return 0;
 }
@@ -241,8 +287,7 @@ LoadState WebSocketTransportClientSocketPool::GetLoadState(
 std::unique_ptr<base::DictionaryValue>
 WebSocketTransportClientSocketPool::GetInfoAsValue(
     const std::string& name,
-    const std::string& type,
-    bool include_nested_pools) const {
+    const std::string& type) const {
   std::unique_ptr<base::DictionaryValue> dict(new base::DictionaryValue());
   dict->SetString("name", name);
   dict->SetString("type", type);
@@ -304,9 +349,9 @@ void WebSocketTransportClientSocketPool::OnConnectJobComplete(
 
   // See comment in FlushWithError.
   if (flushing_) {
+    // Just delete the socket.
     std::unique_ptr<StreamSocket> socket =
         connect_job_delegate->connect_job()->PassSocket();
-    websocket_endpoint_lock_manager_->UnlockSocket(socket.get());
     return;
   }
 
@@ -423,7 +468,7 @@ void WebSocketTransportClientSocketPool::ActivateStalledRequest() {
                       // Stalled requests can't have |respect_limits|
                       // DISABLED.
                       RespectLimits::ENABLED, request.handle, copyable_callback,
-                      request.net_log);
+                      request.proxy_auth_callback, request.net_log);
 
     // ActivateStalledRequest() never returns synchronously, so it is never
     // called re-entrantly.
@@ -463,6 +508,15 @@ WebSocketTransportClientSocketPool::ConnectJobDelegate::OnConnectJobComplete(
   owner_->OnConnectJobComplete(result, this);
 }
 
+void WebSocketTransportClientSocketPool::ConnectJobDelegate::OnNeedsProxyAuth(
+    const HttpResponseInfo& response,
+    HttpAuthController* auth_controller,
+    base::OnceClosure restart_with_auth_callback,
+    ConnectJob* job) {
+  // This class isn't used for proxies.
+  NOTREACHED();
+}
+
 int WebSocketTransportClientSocketPool::ConnectJobDelegate::Connect(
     std::unique_ptr<ConnectJob> connect_job) {
   connect_job_ = std::move(connect_job);
@@ -479,11 +533,13 @@ WebSocketTransportClientSocketPool::StalledRequest::StalledRequest(
     RequestPriority priority,
     ClientSocketHandle* handle,
     CompletionOnceCallback callback,
+    const ProxyAuthCallback& proxy_auth_callback,
     const NetLogWithSource& net_log)
     : params(params),
       priority(priority),
       handle(handle),
       callback(std::move(callback)),
+      proxy_auth_callback(proxy_auth_callback),
       net_log(net_log) {}
 
 WebSocketTransportClientSocketPool::StalledRequest::StalledRequest(

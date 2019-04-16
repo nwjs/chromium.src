@@ -29,6 +29,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_LOADER_FETCH_RESOURCE_REQUEST_H_
 
 #include <memory>
+
 #include "base/macros.h"
 #include "base/optional.h"
 #include "base/time/time.h"
@@ -73,7 +74,7 @@ class PLATFORM_EXPORT ResourceRequest final {
   explicit ResourceRequest(const KURL&);
 
   // TODO(toyoshim): Use std::unique_ptr as much as possible, and hopefully
-  // make ResourceRequest WTF_MAKE_NONCOPYABLE. See crbug.com/787704.
+  // make ResourceRequest DISALLOW_COPY_AND_ASSIGN. See crbug.com/787704.
   ResourceRequest(const ResourceRequest&);
   ResourceRequest& operator=(const ResourceRequest&);
 
@@ -346,9 +347,6 @@ class PLATFORM_EXPORT ResourceRequest final {
   bool CacheControlContainsNoStore() const;
   bool HasCacheValidatorFields() const;
 
-  bool WasDiscarded() const { return was_discarded_; }
-  void SetWasDiscarded(bool was_discarded) { was_discarded_ = was_discarded; }
-
   // https://wicg.github.io/cors-rfc1918/#external-request
   bool IsExternalRequest() const { return is_external_request_; }
   void SetExternalRequestStateFromRequestorAddressSpace(mojom::IPAddressSpace);
@@ -402,9 +400,6 @@ class PLATFORM_EXPORT ResourceRequest final {
       const base::Optional<base::UnguessableToken>& devtools_token) {
     devtools_token_ = devtools_token;
   }
-
-  void SetOriginPolicy(const String& policy) { origin_policy_ = policy; }
-  const String& GetOriginPolicy() const { return origin_policy_; }
 
   void SetRequestedWithHeader(const String& value) {
     requested_with_header_ = value;
@@ -485,7 +480,6 @@ class PLATFORM_EXPORT ResourceRequest final {
   String referrer_string_;
   network::mojom::ReferrerPolicy referrer_policy_;
   bool did_set_http_referrer_;
-  bool was_discarded_;
   bool is_external_request_;
   network::mojom::CorsPreflightPolicy cors_preflight_policy_;
   RedirectStatus redirect_status_;
@@ -503,7 +497,6 @@ class PLATFORM_EXPORT ResourceRequest final {
   bool is_automatic_upgrade_ = false;
 
   base::Optional<base::UnguessableToken> devtools_token_;
-  String origin_policy_;
   String requested_with_header_;
   String client_data_header_;
 

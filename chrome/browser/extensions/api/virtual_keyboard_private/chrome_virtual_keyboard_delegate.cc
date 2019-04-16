@@ -11,6 +11,7 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/string16.h"
@@ -71,6 +72,16 @@ keyboard::mojom::ContainerType ConvertKeyboardModeToContainerType(int mode) {
   return keyboard::mojom::ContainerType::kFullWidth;
 }
 
+// Returns the ui::TextInputClient of the active InputMethod or nullptr.
+ui::TextInputClient* GetFocusedTextInputClient() {
+  ui::InputMethod* input_method =
+      ui::IMEBridge::Get()->GetInputContextHandler()->GetInputMethod();
+  if (!input_method)
+    return nullptr;
+
+  return input_method->GetTextInputClient();
+}
+
 const char kKeyDown[] = "keydown";
 const char kKeyUp[] = "keyup";
 
@@ -104,16 +115,12 @@ bool SendKeyEventImpl(const std::string& type,
 
   ui::KeyboardCode code = static_cast<ui::KeyboardCode>(key_code);
 
-  ui::InputMethod* input_method = host->GetInputMethod();
   if (code == ui::VKEY_UNKNOWN) {
     // Handling of special printable characters (e.g. accented characters) for
     // which there is no key code.
     if (event_type == ui::ET_KEY_RELEASED) {
-      if (!input_method)
-        return false;
-
       // This can be null if no text input field is focused.
-      ui::TextInputClient* tic = input_method->GetTextInputClient();
+      ui::TextInputClient* tic = GetFocusedTextInputClient();
 
       SendProcessKeyEvent(ui::ET_KEY_PRESSED, host);
 
@@ -196,12 +203,7 @@ bool ChromeVirtualKeyboardDelegate::HideKeyboard() {
 
 bool ChromeVirtualKeyboardDelegate::InsertText(const base::string16& text) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  ui::InputMethod* input_method =
-      ui::IMEBridge::Get()->GetInputContextHandler()->GetInputMethod();
-  if (!input_method)
-    return false;
-
-  ui::TextInputClient* tic = input_method->GetTextInputClient();
+  ui::TextInputClient* tic = GetFocusedTextInputClient();
   if (!tic || tic->GetTextInputType() == ui::TEXT_INPUT_TYPE_NONE)
     return false;
 
@@ -385,6 +387,10 @@ void ChromeVirtualKeyboardDelegate::OnHasInputDevices(
   features->AppendString(GenerateFeatureFlag(
       "handwritinggesture",
       base::FeatureList::IsEnabled(features::kHandwritingGesture)));
+  features->AppendString(GenerateFeatureFlag(
+      "fstinputlogic", base::GetFieldTrialParamByFeatureAsBool(
+                           chromeos::features::kImeInputLogic, "fst", false)));
+
   results->Set("features", std::move(features));
 
   std::move(on_settings_callback).Run(std::move(results));

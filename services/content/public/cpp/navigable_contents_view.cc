@@ -6,6 +6,7 @@
 
 #include <map>
 
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/no_destructor.h"
 #include "base/synchronization/atomic_flag.h"
@@ -163,7 +164,7 @@ NavigableContentsView::NavigableContentsView(NavigableContents* contents)
     : contents_(contents) {
 #if defined(TOOLKIT_VIEWS) && defined(USE_AURA)
 #if BUILDFLAG(ENABLE_REMOTE_NAVIGABLE_CONTENTS_VIEW)
-  if (!IsClientRunningInServiceProcess()) {
+  if (contents_->ShouldUseWindowService()) {
     RemoteViewManager* manager = GetRemoteViewManager().get();
     if (manager)
       view_ = manager->CreateRemoteViewHost();
@@ -200,7 +201,7 @@ void NavigableContentsView::EmbedUsingToken(
     const base::UnguessableToken& token) {
 #if defined(TOOLKIT_VIEWS)
 #if BUILDFLAG(ENABLE_REMOTE_NAVIGABLE_CONTENTS_VIEW)
-  if (!IsClientRunningInServiceProcess()) {
+  if (contents_->ShouldUseWindowService()) {
     RemoteViewManager* manager = GetRemoteViewManager().get();
     if (manager) {
       manager->EmbedUsingToken(view_.get(), token);

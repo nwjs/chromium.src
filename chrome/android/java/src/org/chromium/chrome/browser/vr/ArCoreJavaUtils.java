@@ -203,8 +203,8 @@ public class ArCoreJavaUtils implements ModuleInstallUi.FailureUiListener {
             public boolean onInfoBarButtonClicked(boolean isPrimary) {
                 try {
                     assert sRequestInstallInstance == null;
-                    ArCoreShim.InstallStatus installStatus =
-                            getArCoreShimInstance().requestInstall(activity, true);
+                    @ArCoreShim.InstallStatus
+                    int installStatus = getArCoreShimInstance().requestInstall(activity, true);
 
                     if (installStatus == ArCoreShim.InstallStatus.INSTALL_REQUESTED) {
                         // Install flow will resume in onArCoreRequestInstallReturned, mark that
@@ -236,7 +236,8 @@ public class ArCoreJavaUtils implements ModuleInstallUi.FailureUiListener {
         };
         // TODO(ijamardo, https://crbug.com/838833): Add icon for AR info bar.
         SimpleConfirmInfoBarBuilder.create(tab, listener, InfoBarIdentifier.AR_CORE_UPGRADE_ANDROID,
-                R.drawable.vr_services, infobarText, buttonText, null, null, true);
+                R.drawable.ic_error_outline_googblue_24dp, infobarText, buttonText, null, null,
+                true);
     }
 
     @CalledByNative

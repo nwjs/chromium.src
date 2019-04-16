@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/i18n/encoding_detection.h"
 #include "base/i18n/icu_string_conversions.h"
 #include "base/logging.h"
@@ -3619,7 +3620,7 @@ bool PDFiumEngine::IsPointInEditableFormTextArea(FPDF_PAGE page,
   if (!annot)
     return false;
 
-  int flags = FPDFAnnot_GetFormFieldFlags(page, annot.get());
+  int flags = FPDFAnnot_GetFormFieldFlags(form(), page, annot.get());
   return CheckIfEditableFormTextArea(flags, form_type);
 }
 

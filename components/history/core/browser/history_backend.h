@@ -185,7 +185,7 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // may be null.
   //
   // This constructor is fast and does no I/O, so can be called at any time.
-  HistoryBackend(Delegate* delegate,
+  HistoryBackend(std::unique_ptr<Delegate> delegate,
                  std::unique_ptr<HistoryBackendClient> backend_client,
                  scoped_refptr<base::SequencedTaskRunner> task_runner);
 
@@ -415,9 +415,13 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   // Deleting ------------------------------------------------------------------
 
-  virtual void DeleteURLs(const std::vector<GURL>& urls);
+  void DeleteURLs(const std::vector<GURL>& urls);
 
-  virtual void DeleteURL(const GURL& url);
+  void DeleteURL(const GURL& url);
+
+  // Deletes all visits to urls until the corresponding timestamp.
+  void DeleteURLsUntil(
+      const std::vector<std::pair<GURL, base::Time>>& urls_and_timestamps);
 
   // Calls ExpireHistoryBackend::ExpireHistoryBetween and commits the change.
   void ExpireHistoryBetween(const std::set<GURL>& restrict_urls,

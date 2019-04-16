@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/css/parser/css_property_parser_helpers.h"
 
+#include "third_party/blink/renderer/core/css/css_axis_value.h"
 #include "third_party/blink/renderer/core/css/css_calculation_value.h"
 #include "third_party/blink/renderer/core/css/css_color_value.h"
 #include "third_party/blink/renderer/core/css/css_crossfade_value.h"
@@ -199,6 +200,17 @@ class CalcParser {
     source_range_ = range_;
     return CSSPrimitiveValue::Create(calc_value_.Release());
   }
+
+  CSSPrimitiveValue* ConsumeRoundedInt() {
+    if (!calc_value_)
+      return nullptr;
+    source_range_ = range_;
+    CSSPrimitiveValue::UnitType unit_type =
+        CSSPrimitiveValue::UnitType::kInteger;
+    double rounded_value = floor(calc_value_->DoubleValue() + 0.5);
+    return CSSPrimitiveValue::Create(rounded_value, unit_type);
+  }
+
   CSSPrimitiveValue* ConsumeNumber() {
     if (!calc_value_)
       return nullptr;
@@ -236,12 +248,18 @@ CSSPrimitiveValue* ConsumeInteger(CSSParserTokenRange& range,
   }
   CalcParser calc_parser(range);
   if (const CSSCalcValue* calculation = calc_parser.Value()) {
-    if (calculation->Category() != kCalcNumber || !calculation->IsInt())
+    if (!RuntimeEnabledFeatures::CSSCalcAsIntEnabled() && !calculation->IsInt())
+      return nullptr;
+    if (calculation->Category() != kCalcNumber)
       return nullptr;
     double value = calculation->DoubleValue();
     if (value < minimum_value)
       return nullptr;
-    return calc_parser.ConsumeNumber();
+    if (!RuntimeEnabledFeatures::CSSCalcAsIntEnabled())
+      return calc_parser.ConsumeNumber();
+    if (calculation->IsInt())
+      return calc_parser.ConsumeNumber();
+    return calc_parser.ConsumeRoundedInt();
   }
   return nullptr;
 }
@@ -1477,6 +1495,27 @@ CSSValue* ConsumeImageOrNone(CSSParserTokenRange& range,
   return ConsumeImage(range, context);
 }
 
+CSSValue* ConsumeAxis(CSSParserTokenRange& range) {
+  CSSValueID axis_id = range.Peek().Id();
+  if (axis_id == CSSValueX || axis_id == CSSValueY || axis_id == CSSValueZ) {
+    ConsumeIdent(range);
+    return CSSAxisValue::Create(axis_id);
+  }
+
+  CSSValue* x_dimension =
+      css_property_parser_helpers::ConsumeNumber(range, kValueRangeAll);
+  CSSValue* y_dimension =
+      css_property_parser_helpers::ConsumeNumber(range, kValueRangeAll);
+  CSSValue* z_dimension =
+      css_property_parser_helpers::ConsumeNumber(range, kValueRangeAll);
+  if (!x_dimension || !y_dimension || !z_dimension)
+    return nullptr;
+  double x = ToCSSPrimitiveValue(x_dimension)->GetDoubleValue();
+  double y = ToCSSPrimitiveValue(y_dimension)->GetDoubleValue();
+  double z = ToCSSPrimitiveValue(z_dimension)->GetDoubleValue();
+  return CSSAxisValue::Create(x, y, z);
+}
+
 static CSSValue* ConsumeCrossFade(CSSParserTokenRange& args,
                                   const CSSParserContext* context) {
   CSSValue* from_image_value = ConsumeImageOrNone(args, context);
@@ -1762,22 +1801,77 @@ void CountKeywordOnlyPropertyUsage(CSSPropertyID property,
           feature = WebFeature::kCSSValueAppearanceCaret;
         else if (value_id == CSSValueCheckbox)
           feature = WebFeature::kCSSValueAppearanceCheckbox;
+        else if (value_id == CSSValueInnerSpinButton)
+          feature = WebFeature::kCSSValueAppearanceInnerSpinButton;
         else if (value_id == CSSValueMenulist)
           feature = WebFeature::kCSSValueAppearanceMenulist;
         else if (value_id == CSSValueMenulistButton)
           feature = WebFeature::kCSSValueAppearanceMenulistButton;
+        else if (value_id == CSSValueMeter)
+          feature = WebFeature::kCSSValueAppearanceMeter;
         else if (value_id == CSSValueListbox)
           feature = WebFeature::kCSSValueAppearanceListbox;
+        else if (value_id == CSSValueProgressBar)
+          feature = WebFeature::kCSSValueAppearanceProgressBar;
+        else if (value_id == CSSValuePushButton)
+          feature = WebFeature::kCSSValueAppearancePushButton;
         else if (value_id == CSSValueRadio)
           feature = WebFeature::kCSSValueAppearanceRadio;
+        else if (value_id == CSSValueSearchfieldCancelButton)
+          feature = WebFeature::kCSSValueAppearanceSearchCancel;
+        else if (value_id == CSSValueSquareButton)
+          feature = WebFeature::kCSSValueAppearanceSquareButton;
         else if (value_id == CSSValueSearchfield)
           feature = WebFeature::kCSSValueAppearanceSearchField;
+        else if (value_id == CSSValueTextarea)
+          feature = WebFeature::kCSSValueAppearanceTextarea;
         else if (value_id == CSSValueTextfield)
           feature = WebFeature::kCSSValueAppearanceTextField;
         else
           feature = WebFeature::kCSSValueAppearanceOthers;
       }
       context.Count(feature);
+
+      if (value_id == CSSValueButtonBevel) {
+        feature = WebFeature::kCSSValueAppearanceButtonBevel;
+      } else if (value_id == CSSValueCaret) {
+        feature = WebFeature::kCSSValueAppearanceCaret;
+      } else if (value_id == CSSValueListitem) {
+        feature = WebFeature::kCSSValueAppearanceListitem;
+      } else if (value_id == CSSValueMediaControlsBackground) {
+        feature = WebFeature::kCSSValueAppearanceMediaControlsBackground;
+      } else if (value_id == CSSValueMediaControlsFullscreenBackground) {
+        feature =
+            WebFeature::kCSSValueAppearanceMediaControlsFullscreenBackground;
+      } else if (value_id == CSSValueMediaCurrentTimeDisplay) {
+        feature = WebFeature::kCSSValueAppearanceMediaCurrentTimeDisplay;
+      } else if (value_id == CSSValueMediaEnterFullscreenButton) {
+        feature = WebFeature::kCSSValueAppearanceMediaEnterFullscreenButton;
+      } else if (value_id == CSSValueMediaExitFullscreenButton) {
+        feature = WebFeature::kCSSValueAppearanceMediaExitFullscreenButton;
+      } else if (value_id == CSSValueMediaMuteButton) {
+        feature = WebFeature::kCSSValueAppearanceMediaMuteButton;
+      } else if (value_id == CSSValueMediaOverlayPlayButton) {
+        feature = WebFeature::kCSSValueAppearanceMediaOverlayPlayButton;
+      } else if (value_id == CSSValueMediaPlayButton) {
+        feature = WebFeature::kCSSValueAppearanceMediaPlayButton;
+      } else if (value_id == CSSValueMediaTimeRemainingDisplay) {
+        feature = WebFeature::kCSSValueAppearanceMediaTimeRemainingDisplay;
+      } else if (value_id == CSSValueMediaToggleClosedCaptionsButton) {
+        feature =
+            WebFeature::kCSSValueAppearanceMediaToggleClosedCaptionsButton;
+      } else if (value_id == CSSValueMediaVolumeSliderContainer) {
+        feature = WebFeature::kCSSValueAppearanceMediaVolumeSliderContainer;
+      } else if (value_id == CSSValueMenulistTextfield) {
+        feature = WebFeature::kCSSValueAppearanceMenulistTextfield;
+      } else if (value_id == CSSValueMenulistText) {
+        feature = WebFeature::kCSSValueAppearanceMenulistText;
+      } else if (value_id == CSSValueProgressBarValue) {
+        feature = WebFeature::kCSSValueAppearanceProgressBarValue;
+      } else {
+        break;
+      }
+      context.CountDeprecation(feature);
       break;
     }
 
@@ -1829,7 +1923,7 @@ const CSSValue* ParseLonghand(CSSPropertyID unresolved_property,
           .WithAliasParsing(isPropertyAlias(unresolved_property))
           .WithCurrentShorthand(current_shorthand);
 
-  const CSSValue* result = ToLonghand(CSSProperty::Get(property_id))
+  const CSSValue* result = To<Longhand>(CSSProperty::Get(property_id))
                                .ParseSingleValue(range, context, local_context);
   return result;
 }

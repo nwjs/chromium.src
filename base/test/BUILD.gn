@@ -20,6 +20,7 @@ static_library("test_config") {
   ]
   deps = [
     "//base",
+    "//base:clang_coverage_buildflags",
   ]
 }
 
@@ -30,10 +31,10 @@ static_library("test_support") {
     "../memory/fake_memory_pressure_monitor.h",
     "../task/sequence_manager/test/fake_task.cc",
     "../task/sequence_manager/test/fake_task.h",
-    "../task/sequence_manager/test/lazy_thread_controller_for_test.cc",
-    "../task/sequence_manager/test/lazy_thread_controller_for_test.h",
     "../task/sequence_manager/test/mock_time_domain.cc",
     "../task/sequence_manager/test/mock_time_domain.h",
+    "../task/sequence_manager/test/mock_time_message_pump.cc",
+    "../task/sequence_manager/test/mock_time_message_pump.h",
     "../task/sequence_manager/test/sequence_manager_for_test.cc",
     "../task/sequence_manager/test/sequence_manager_for_test.h",
     "../task/sequence_manager/test/test_task_queue.cc",
@@ -48,6 +49,7 @@ static_library("test_support") {
     "android/url_utils.h",
     "bind_test_util.cc",
     "bind_test_util.h",
+    "copy_only_int.cc",
     "copy_only_int.h",
     "fuzzed_data_provider.h",
     "gtest_util.cc",
@@ -92,6 +94,7 @@ static_library("test_support") {
     "perf_time_logger.h",
     "power_monitor_test_base.cc",
     "power_monitor_test_base.h",
+    "reached_code_profiler_android.cc",
     "scoped_command_line.cc",
     "scoped_command_line.h",
     "scoped_environment_variable_override.cc",
@@ -375,9 +378,21 @@ if (is_linux) {
       "fontconfig_util_linux.cc",
       "fontconfig_util_linux.h",
     ]
+    data_deps = [
+      ":fonts_conf",
+    ]
     deps = [
       "//base",
       "//third_party/fontconfig",
+    ]
+  }
+
+  copy("fonts_conf") {
+    sources = [
+      "fonts.conf",
+    ]
+    outputs = [
+      "${root_build_dir}/etc/fonts/{{source_file_part}}",
     ]
   }
 
@@ -434,6 +449,7 @@ if (is_android) {
     sources = [
       "android/java/src/org/chromium/base/MainReturnCodeResult.java",
       "android/java/src/org/chromium/base/MultiprocessTestClientLauncher.java",
+      "android/javatests/src/org/chromium/base/test/ReachedCodeProfiler.java",
       "android/javatests/src/org/chromium/base/test/task/TaskSchedulerTestHelpers.java",
       "android/javatests/src/org/chromium/base/test/util/UrlUtils.java",
     ]

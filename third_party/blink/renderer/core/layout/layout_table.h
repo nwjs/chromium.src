@@ -30,6 +30,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
+#include "third_party/blink/renderer/platform/graphics/scroll_types.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
@@ -57,7 +58,7 @@ enum TableHeightChangingValue { kTableHeightNotChanging, kTableHeightChanging };
 // - zero or more LayoutTableCaption
 // - zero or more LayoutTableSection
 // This is aligned with what HTML5 expects:
-// https://html.spec.whatwg.org/multipage/tables.html#the-table-element
+// https://html.spec.whatwg.org/C/#the-table-element
 // with one difference: we allow more than one caption as we follow what
 // CSS expects (https://bugs.webkit.org/show_bug.cgi?id=69773).
 // Those expectations are enforced by LayoutTable::addChild, that wraps unknown
@@ -141,8 +142,8 @@ class CORE_EXPORT LayoutTable final : public LayoutBlock {
   // 'border-spacing' property represent spacing between columns and rows
   // respectively, not necessarily the horizontal and vertical spacing
   // respectively".
-  int HBorderSpacing() const { return h_spacing_; }
-  int VBorderSpacing() const { return v_spacing_; }
+  int16_t HBorderSpacing() const { return h_spacing_; }
+  int16_t VBorderSpacing() const { return v_spacing_; }
 
   bool ShouldCollapseBorders() const {
     return StyleRef().BorderCollapse() == EBorderCollapse::kCollapse;
@@ -591,8 +592,8 @@ class CORE_EXPORT LayoutTable final : public LayoutBlock {
         collapsed_outer_border_before_, collapsed_outer_border_after_);
   }
 
-  short h_spacing_;
-  short v_spacing_;
+  int16_t h_spacing_;
+  int16_t v_spacing_;
 
   // See UpdateCollapsedOuterBorders().
   mutable unsigned collapsed_outer_border_start_;

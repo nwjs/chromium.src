@@ -214,7 +214,7 @@ bool ParsePhoneNumber(const base::string16& value,
       i18n_number->country_code_source() !=
           ::i18n::phonenumbers::PhoneNumber::FROM_DEFAULT_COUNTRY) {
     *country_code =
-        base::UTF8ToUTF16(base::IntToString(i18n_number->country_code()));
+        base::UTF8ToUTF16(base::NumberToString(i18n_number->country_code()));
   }
 
   // The region might be different from what we started with.
@@ -327,6 +327,15 @@ base::string16 GetFormattedPhoneNumberForDisplay(const AutofillProfile& profile,
   }
 
   return base::UTF8ToUTF16(phone);
+}
+
+std::string FormatPhoneNationallyForDisplay(const std::string& phone_number,
+                                            const std::string& country_code) {
+  if (IsValidPhoneNumber(phone_number, country_code)) {
+    return FormatPhoneNumber(phone_number, country_code,
+                             PhoneNumberUtil::PhoneNumberFormat::NATIONAL);
+  }
+  return phone_number;
 }
 
 std::string FormatPhoneForDisplay(const std::string& phone_number,

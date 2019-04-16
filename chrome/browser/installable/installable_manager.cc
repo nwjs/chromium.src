@@ -5,6 +5,7 @@
 #include "chrome/browser/installable/installable_manager.h"
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
@@ -561,10 +562,9 @@ void InstallableManager::CheckServiceWorker() {
   DCHECK(!manifest().IsEmpty());
   DCHECK(manifest().start_url.is_valid());
 
-  // Check to see if there is a single service worker controlling this page
-  // and the manifest's start url.
+  // Check to see if there is a service worker for the manifest's start url.
   service_worker_context_->CheckHasServiceWorker(
-      GetWebContents()->GetLastCommittedURL(), manifest().start_url,
+      manifest().start_url,
       base::Bind(&InstallableManager::OnDidCheckHasServiceWorker,
                  weak_factory_.GetWeakPtr()));
 }

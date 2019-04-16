@@ -8,9 +8,10 @@
 #include "base/files/file_path.h"
 #include "base/sequenced_task_runner.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/leveldb_proto/internal/proto_database_wrapper.h"
+#include "components/leveldb_proto/internal/proto_database_impl.h"
 #include "components/leveldb_proto/internal/shared_proto_database_provider.h"
 #include "components/leveldb_proto/public/proto_database.h"
+#include "components/leveldb_proto/public/shared_proto_database_client_list.h"
 
 namespace leveldb_proto {
 
@@ -28,22 +29,18 @@ class ProtoDatabaseProvider : public KeyedService {
   template <typename T>
   static std::unique_ptr<ProtoDatabase<T>> CreateUniqueDB(
       const scoped_refptr<base::SequencedTaskRunner>& task_runner) {
-    return std::make_unique<UniqueProtoDatabase<T>>(task_runner);
+    return std::make_unique<ProtoDatabaseImpl<T>>(task_runner);
   }
 
-  // |client_namespace| is the unique prefix to be used in the shared database
-  // if the database returned is a SharedDatabaseClient<T>. This name must be
-  // present in |kCurrentSharedProtoDatabaseClients|. |type_prefix| is a unique
-  // prefix within the |client_namespace| to be used in the shared database if
-  // the database returned is a SharedProtoDatabaseClient<T>. |unique_db_dir|:
+  // |db_type|: Each database should have a type specified in ProtoDbType enum.
+  // This type is used to index data in the shared database. |unique_db_dir|:
   // the subdirectory this database should live in within the profile directory.
   // |task_runner|: the SequencedTaskRunner to run all database operations on.
   // This isn't used by SharedProtoDatabaseClients since all calls using
   // the SharedProtoDatabase will run on its TaskRunner.
   template <typename T>
   std::unique_ptr<ProtoDatabase<T>> GetDB(
-      const std::string& client_namespace,
-      const std::string& type_prefix,
+      ProtoDbType db_type,
       const base::FilePath& unique_db_dir,
       const scoped_refptr<base::SequencedTaskRunner>& task_runner);
 
@@ -55,7 +52,7 @@ class ProtoDatabaseProvider : public KeyedService {
 
  private:
   friend class TestProtoDatabaseProvider;
-  friend class ProtoDatabaseWrapperTest;
+  friend class ProtoDatabaseImplTest;
 
   ProtoDatabaseProvider(const base::FilePath& profile_dir);
 
@@ -78,12 +75,11 @@ class ProtoDatabaseProvider : public KeyedService {
 
 template <typename T>
 std::unique_ptr<ProtoDatabase<T>> ProtoDatabaseProvider::GetDB(
-    const std::string& client_namespace,
-    const std::string& type_prefix,
+    ProtoDbType db_type,
     const base::FilePath& unique_db_dir,
     const scoped_refptr<base::SequencedTaskRunner>& task_runner) {
-  return base::WrapUnique(new ProtoDatabaseWrapper<T>(
-      client_namespace, type_prefix, unique_db_dir, task_runner,
+  return base::WrapUnique(new ProtoDatabaseImpl<T>(
+      db_type, unique_db_dir, task_runner,
       base::WrapUnique(new SharedProtoDatabaseProvider(
           creation_sequence_, weak_factory_.GetWeakPtr()))));
 }

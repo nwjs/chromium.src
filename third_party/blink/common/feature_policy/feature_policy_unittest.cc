@@ -28,17 +28,34 @@ mojom::FeaturePolicyFeature kUnavailableFeature =
     static_cast<mojom::FeaturePolicyFeature>(
         static_cast<int>(mojom::FeaturePolicyFeature::kMaxValue) + 4);
 
+mojom::FeaturePolicyFeature kParameterizedDecDoubleFeature =
+    static_cast<mojom::FeaturePolicyFeature>(
+        static_cast<int>(mojom::FeaturePolicyFeature::kMaxValue) + 5);
+
 }  // namespace
 
 class FeaturePolicyTest : public testing::Test {
  protected:
   FeaturePolicyTest()
-      : feature_list_(
-            {{kDefaultOnFeature, FeaturePolicy::FeatureDefault::EnableForAll},
-             {kDefaultSelfFeature,
-              FeaturePolicy::FeatureDefault::EnableForSelf},
-             {kDefaultOffFeature,
-              FeaturePolicy::FeatureDefault::DisableForAll}}) {}
+      : feature_list_({{kDefaultOnFeature,
+                        FeaturePolicy::FeatureDefaultValue(
+                            FeaturePolicy::FeatureDefault::EnableForAll,
+                            mojom::PolicyValueType::kBool)},
+                       {kDefaultSelfFeature,
+                        FeaturePolicy::FeatureDefaultValue(
+                            FeaturePolicy::FeatureDefault::EnableForSelf,
+                            mojom::PolicyValueType::kBool)},
+                       {kDefaultOffFeature,
+                        FeaturePolicy::FeatureDefaultValue(
+                            FeaturePolicy::FeatureDefault::DisableForAll,
+                            mojom::PolicyValueType::kBool)},
+                       // Currently all parameterized features are by default
+                       // enabled for all, test for parameterized features with
+                       // different FeatureDefault if required.
+                       {kParameterizedDecDoubleFeature,
+                        FeaturePolicy::FeatureDefaultValue(
+                            FeaturePolicy::FeatureDefault::EnableForAll,
+                            mojom::PolicyValueType::kDecDouble)}}) {}
 
   ~FeaturePolicyTest() override = default;
 
@@ -68,6 +85,13 @@ class FeaturePolicyTest : public testing::Test {
   url::Origin origin_b_ = url::Origin::Create(GURL("https://example.net/"));
   url::Origin origin_c_ = url::Origin::Create(GURL("https://example.org/"));
 
+  const PolicyValue min_value = PolicyValue(false);
+  const PolicyValue max_value = PolicyValue(true);
+  const PolicyValue double_value =
+      PolicyValue(2.5, mojom::PolicyValueType::kDecDouble);
+  const PolicyValue min_double_value =
+      PolicyValue(2.0, mojom::PolicyValueType::kDecDouble);
+
  private:
   // Contains the list of controlled features, so that we are guaranteed to
   // have at least one of each kind of default behaviour represented.
@@ -85,6 +109,9 @@ TEST_F(FeaturePolicyTest, TestInitialPolicy) {
       CreateFromParentPolicy(nullptr, origin_a_);
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultOnFeature));
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultSelfFeature));
+  EXPECT_TRUE(policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_TRUE(
+      policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_FALSE(policy1->IsFeatureEnabled(kDefaultOffFeature));
 }
 
@@ -105,6 +132,9 @@ TEST_F(FeaturePolicyTest, TestInitialSameOriginChildPolicy) {
       CreateFromParentPolicy(policy1.get(), origin_a_);
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOnFeature));
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultSelfFeature));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultOffFeature));
 }
 
@@ -124,6 +154,9 @@ TEST_F(FeaturePolicyTest, TestInitialCrossOriginChildPolicy) {
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultSelfFeature));
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultOffFeature));
 }
@@ -143,10 +176,10 @@ TEST_F(FeaturePolicyTest, TestCrossOriginChildCannotEnableFeature) {
       CreateFromParentPolicy(nullptr, origin_a_);
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultSelfFeature));
 }
 
@@ -168,10 +201,10 @@ TEST_F(FeaturePolicyTest, TestFrameSelfInheritance) {
   // they are at a different origin.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_a_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -203,10 +236,10 @@ TEST_F(FeaturePolicyTest, TestReflexiveFrameSelfInheritance) {
   // it is embedded by frame 2, for which the feature is not enabled.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -233,10 +266,10 @@ TEST_F(FeaturePolicyTest, TestSelectiveFrameInheritance) {
   // enabled.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -256,8 +289,9 @@ TEST_F(FeaturePolicyTest, TestPolicyCanBlockSelf) {
   // Default-on feature should be disabled in top-level frame.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOnFeature, false, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+         min_value}}});
   EXPECT_FALSE(policy1->IsFeatureEnabled(kDefaultOnFeature));
 }
 
@@ -273,59 +307,78 @@ TEST_F(FeaturePolicyTest, TestParentPolicyBlocksSameOriginChildPolicy) {
   // Feature should be disabled in child frame.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOnFeature, false, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_a_);
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultOnFeature));
 }
 
 TEST_F(FeaturePolicyTest, TestChildPolicyCanBlockSelf) {
-  // +--------------------------------------+
-  // |(1)Origin A                           |
-  // |No Policy                             |
-  // | +----------------------------------+ |
-  // | |(2)Origin B                       | |
-  // | |Feature-Policy: default-on 'none' | |
-  // | +----------------------------------+ |
-  // +--------------------------------------+
+  // +-------------------------------------------------------------+
+  // |(1)Origin A                                                  |
+  // |No Policy                                                    |
+  // | +---------------------------------------------------------+ |
+  // | |(2)Origin B                                              | |
+  // | |Feature-Policy: default-on 'none'; double-feature 'none' | |
+  // | +---------------------------------------------------------+ |
+  // +-------------------------------------------------------------+
   // Default-on feature should be disabled by cross-origin child frame.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultOnFeature, false, false,
-                              std::vector<url::Origin>()}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+         min_double_value, min_double_value}}});
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_FALSE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestChildPolicyCanBlockChildren) {
-  // +--------------------------------------+
-  // |(1)Origin A                           |
-  // |No Policy                             |
-  // | +----------------------------------+ |
-  // | |(2)Origin B                       | |
-  // | |Feature-Policy: default-on 'self' | |
-  // | | +-------------+                  | |
-  // | | |(3)Origin C  |                  | |
-  // | | |No Policy    |                  | |
-  // | | +-------------+                  | |
-  // | +----------------------------------+ |
-  // +--------------------------------------+
+  // +------------------------------------------------------------------+
+  // |(1)Origin A                                                       |
+  // |No Policy                                                         |
+  // | +--------------------------------------------------------------+ |
+  // | |(2)Origin B                                                   | |
+  // | |Feature-Policy: default-on 'self'; double-feature 'self'(2.5) | |
+  // | | +-------------+                                              | |
+  // | | |(3)Origin C  |                                              | |
+  // | | |No Policy    |                                              | |
+  // | | +-------------+                                              | |
+  // | +--------------------------------------------------------------+ |
+  // +------------------------------------------------------------------+
   // Default-on feature should be enabled in frames 1 and 2; disabled in frame
   // 3 by child frame policy.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultOnFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultOnFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+         min_double_value, min_double_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_FALSE(policy3->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_FALSE(
+      policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestParentPolicyBlocksCrossOriginChildPolicy) {
@@ -340,11 +393,19 @@ TEST_F(FeaturePolicyTest, TestParentPolicyBlocksCrossOriginChildPolicy) {
   // Default-on feature should be disabled in cross-origin child frame.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOnFeature, false, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+         min_double_value, min_double_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   EXPECT_FALSE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature));
+  EXPECT_FALSE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestEnableForAllOrigins) {
@@ -363,8 +424,9 @@ TEST_F(FeaturePolicyTest, TestEnableForAllOrigins) {
   // Feature should be enabled in top and second level; disabled in frame 3.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -375,25 +437,28 @@ TEST_F(FeaturePolicyTest, TestEnableForAllOrigins) {
 }
 
 TEST_F(FeaturePolicyTest, TestDefaultOnEnablesForAllAncestors) {
-  // +---------------------------------------+
-  // |(1) Origin A                           |
-  // |Feature-Policy: default-on OriginB     |
-  // | +-----------------------------------+ |
-  // | |(2) Origin B                       | |
-  // | |No Policy                          | |
-  // | | +-------------+   +-------------+ | |
-  // | | |(3)Origin B  |   |(4)Origin C  | | |
-  // | | |No Policy    |   |No Policy    | | |
-  // | | +-------------+   +-------------+ | |
-  // | +-----------------------------------+ |
-  // +---------------------------------------+
+  // +--------------------------------------------------------------------+
+  // |(1) Origin A                                                        |
+  // |Feature-Policy: default-on OriginB; double-feature OriginB(2.5)     |
+  // | +-----------------------------------+                              |
+  // | |(2) Origin B                       |                              |
+  // | |No Policy                          |                              |
+  // | | +-------------+   +-------------+ |                              |
+  // | | |(3)Origin B  |   |(4)Origin C  | |                              |
+  // | | |No Policy    |   |No Policy    | |                              |
+  // | | +-------------+   +-------------+ |                              |
+  // | +-----------------------------------+                              |
+  // +--------------------------------------------------------------------+
   // Feature should be disabled in frame 1; enabled in frames 2, 3 and 4.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOnFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOnFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+         min_double_value, min_double_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -401,9 +466,19 @@ TEST_F(FeaturePolicyTest, TestDefaultOnEnablesForAllAncestors) {
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_FALSE(policy1->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(
+      policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_TRUE(policy3->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(
+      policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
   EXPECT_TRUE(policy4->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(
+      policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestDefaultSelfRespectsSameOriginEmbedding) {
@@ -422,10 +497,10 @@ TEST_F(FeaturePolicyTest, TestDefaultSelfRespectsSameOriginEmbedding) {
   // Feature should be disabled in frames 1 and 4; enabled in frames 2 and 3.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -454,24 +529,25 @@ TEST_F(FeaturePolicyTest, TestDefaultOffMustBeDelegatedToAllCrossOriginFrames) {
   // Feature should be disabled in frames 1, 3 and 4; enabled in frame 2 only.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
-  policy4->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_c_}}}});
+  policy4->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_c_, max_value}}, min_value,
+         min_value}}});
+
   EXPECT_FALSE(policy1->IsFeatureEnabled(kDefaultOffFeature));
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOffFeature));
   EXPECT_FALSE(policy3->IsFeatureEnabled(kDefaultOffFeature));
@@ -494,12 +570,14 @@ TEST_F(FeaturePolicyTest, TestReenableForAllOrigins) {
   // Feature should be enabled in all frames.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_a_);
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultSelfFeature));
@@ -523,14 +601,15 @@ TEST_F(FeaturePolicyTest, TestBlockedFrameCannotReenable) {
   // Feature should be enabled at the top level; disabled in all other frames.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_a_);
   std::unique_ptr<FeaturePolicy> policy4 =
@@ -557,16 +636,18 @@ TEST_F(FeaturePolicyTest, TestEnabledFrameCanDelegate) {
   // Feature should be enabled in all frames.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_, origin_c_}}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value},
+                                            {origin_c_, max_value}},
+         min_value, min_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultSelfFeature));
@@ -575,25 +656,32 @@ TEST_F(FeaturePolicyTest, TestEnabledFrameCanDelegate) {
 }
 
 TEST_F(FeaturePolicyTest, TestEnabledFrameCanDelegateByDefault) {
-  // +-----------------------------------------------+
-  // |(1) Origin A                                   |
-  // |Feature-Policy: default-on 'self' OriginB      |
-  // | +--------------------+ +--------------------+ |
-  // | |(2) Origin B        | | (4) Origin C       | |
-  // | |No Policy           | | No Policy          | |
-  // | | +-------------+    | |                    | |
-  // | | |(3)Origin C  |    | |                    | |
-  // | | |No Policy    |    | |                    | |
-  // | | +-------------+    | |                    | |
-  // | +--------------------+ +--------------------+ |
-  // +-----------------------------------------------+
+  // +----------------------------------------------------------------------+
+  // |(1) Origin A                                                          |
+  // |Feature-Policy: default-on 'self' OriginB; double-feature 'self'(2.5) |
+  // |                OriginB(3)                                            |
+  // | +--------------------+ +--------------------+                        |
+  // | |(2) Origin B        | | (4) Origin C       |                        |
+  // | |No Policy           | | No Policy          |                        |
+  // | | +-------------+    | |                    |                        |
+  // | | |(3)Origin C  |    | |                    |                        |
+  // | | |No Policy    |    | |                    |                        |
+  // | | +-------------+    | |                    |                        |
+  // | +--------------------+ +--------------------+                        |
+  // +----------------------------------------------------------------------+
   // Feature should be enabled in frames 1, 2, and 3, and disabled in frame 4.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOnFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}}}});
+  PolicyValue large_double_value(3.0, mojom::PolicyValueType::kDecDouble);
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOnFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value},
+        {kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, double_value},
+                                            {origin_b_, large_double_value}},
+         min_double_value, min_double_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -601,9 +689,21 @@ TEST_F(FeaturePolicyTest, TestEnabledFrameCanDelegateByDefault) {
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentPolicy(policy1.get(), origin_c_);
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(
+      policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        large_double_value));
   EXPECT_TRUE(policy3->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_TRUE(policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        large_double_value));
   EXPECT_FALSE(policy4->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(
+      policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestNonNestedFeaturesDontDelegateByDefault) {
@@ -623,10 +723,11 @@ TEST_F(FeaturePolicyTest, TestNonNestedFeaturesDontDelegateByDefault) {
   // 4.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -658,19 +759,21 @@ TEST_F(FeaturePolicyTest, TestFeaturesAreIndependent) {
   // should be enabled in frame 1, and disabled in frames 2 and 3.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}},
-                             {kDefaultOnFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value},
+        {kDefaultOnFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
   policy2->SetHeaderPolicy(
-      {{{kDefaultSelfFeature, true, false, std::vector<url::Origin>()},
-        {kDefaultOnFeature, true, false, std::vector<url::Origin>()}}});
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value},
+        {kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_TRUE(policy1->IsFeatureEnabled(kDefaultSelfFeature));
@@ -690,10 +793,11 @@ TEST_F(FeaturePolicyTest, TestFeatureEnabledForOrigin) {
   // and disabled for origin C.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value}}});
   EXPECT_TRUE(
       policy1->IsFeatureEnabledForOrigin(kDefaultOffFeature, origin_a_));
   EXPECT_TRUE(
@@ -723,9 +827,8 @@ TEST_F(FeaturePolicyTest, TestSimpleFramePolicy) {
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy, origin_b_);
   EXPECT_TRUE(
@@ -760,8 +863,8 @@ TEST_F(FeaturePolicyTest, TestAllOriginFramePolicy) {
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy, origin_b_);
   EXPECT_TRUE(
@@ -779,61 +882,78 @@ TEST_F(FeaturePolicyTest, TestAllOriginFramePolicy) {
 }
 
 TEST_F(FeaturePolicyTest, TestFramePolicyCanBeFurtherDelegated) {
-  // +------------------------------------------+
-  // |(1)Origin A                               |
-  // |No Policy                                 |
-  // |                                          |
-  // |<iframe allow="default-self OriginB">     |
-  // | +--------------------------------------+ |
-  // | |(2)Origin B                           | |
-  // | |No Policy                             | |
-  // | |                                      | |
-  // | |<iframe allow="default-self OriginC"> | |
-  // | | +-------------+                      | |
-  // | | |(3)Origin C  |                      | |
-  // | | |No Policy    |                      | |
-  // | | +-------------+                      | |
-  // | |                                      | |
-  // | |<iframe> (No frame policy)            | |
-  // | | +-------------+                      | |
-  // | | |(4)Origin C  |                      | |
-  // | | |No Policy    |                      | |
-  // | | +-------------+                      | |
-  // | +--------------------------------------+ |
-  // +------------------------------------------+
+  // +-----------------------------------------------------------------------+
+  // |(1)Origin A                                                            |
+  // |No Policy                                                              |
+  // |                                                                       |
+  // |<iframe allow="default-self OriginB; double-feature OriginB(2.5)">     |
+  // | +------------------------------------------------------------- -----+ |
+  // | |(2)Origin B                                                        | |
+  // | |No Policy                                                          | |
+  // | |                                                                   | |
+  // | |<iframe allow="default-self OriginC; double-feature OriginC(2.5)"> | |
+  // | | +-------------+                                                   | |
+  // | | |(3)Origin C  |                                                   | |
+  // | | |No Policy    |                                                   | |
+  // | | +-------------+                                                   | |
+  // | |                                                                   | |
+  // | |<iframe> (No frame policy)                                         | |
+  // | | +-------------+                                                   | |
+  // | | |(4)Origin C  |                                                   | |
+  // | | |No Policy    |                                                   | |
+  // | | +-------------+                                                   | |
+  // | +-------------------------------------------------------------------+ |
+  // +-----------------------------------------------------------------------+
   // Default-self feature should be enabled in cross-origin child frames 2 and
   // 3. Feature should be disabled in frame 4 because it was not further
   // delegated through frame policy.
+  // |double-feature| (default-all) should be enabled in any delegated subframe.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature,
+        std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_b_);
   ParsedFeaturePolicy frame_policy2 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_c_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_c_, max_value}}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature,
+        std::map<url::Origin, PolicyValue>{{origin_c_, double_value}},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy2.get(), frame_policy2, origin_c_);
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_a_));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, double_value));
   EXPECT_TRUE(
       policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_c_));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, double_value));
   EXPECT_FALSE(
       policy4->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_a_));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
   EXPECT_FALSE(
       policy4->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, double_value));
   EXPECT_FALSE(
       policy4->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_c_));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestDefaultOnCanBeDisabledByFramePolicy) {
@@ -858,30 +978,64 @@ TEST_F(FeaturePolicyTest, TestDefaultOnCanBeDisabledByFramePolicy) {
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy1 = {
-      {{kDefaultOnFeature, false, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_a_);
   ParsedFeaturePolicy frame_policy2 = {
-      {{kDefaultOnFeature, false, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultOnFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_b_);
   EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
   EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_b_));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, double_value));
   EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_c_));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, double_value));
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_a_, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, min_double_value));
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_b_));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, min_double_value));
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_c_));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_c_, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, min_double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_a_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, min_double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_b_));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, min_double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_c_));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_c_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestDefaultOffMustBeEnabledByChildFrame) {
@@ -905,22 +1059,20 @@ TEST_F(FeaturePolicyTest, TestDefaultOffMustBeEnabledByChildFrame) {
   // child frames because they did not declare their own policy to enable it.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultOffFeature,
-        false,
-        false,
-        {origin_a_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_a_);
   ParsedFeaturePolicy frame_policy2 = {
       {{kDefaultOffFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_b_);
   EXPECT_TRUE(
@@ -965,32 +1117,30 @@ TEST_F(FeaturePolicyTest, TestDefaultOffCanBeEnabledByChildFrame) {
   // they declare their own policy to enable it.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultOffFeature,
-        false,
-        false,
-        {origin_a_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_a_);
-  policy2->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_a_}}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+         min_value}}});
   ParsedFeaturePolicy frame_policy2 = {
       {{kDefaultOffFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_b_);
-  policy3->SetHeaderPolicy({{{kDefaultOffFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy3->SetHeaderPolicy(
+      {{{kDefaultOffFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   EXPECT_TRUE(
       policy1->IsFeatureEnabledForOrigin(kDefaultOffFeature, origin_a_));
   EXPECT_FALSE(
@@ -1012,145 +1162,195 @@ TEST_F(FeaturePolicyTest, TestDefaultOffCanBeEnabledByChildFrame) {
 }
 
 TEST_F(FeaturePolicyTest, TestFramePolicyModifiesHeaderPolicy) {
-  // +---------------------------------------------+
-  // |(1)Origin A                                  |
-  // |Feature-Policy: default-self 'self', OriginB |
-  // |                                             |
-  // |<iframe allow="default-self 'none'">         |
-  // | +-----------------------------------------+ |
-  // | |(2)Origin B                              | |
-  // | |No Policy                                | |
-  // | +-----------------------------------------+ |
-  // |                                             |
-  // |<iframe allow="default-self 'none'">         |
-  // | +-----------------------------------------+ |
-  // | |(3)Origin B                              | |
-  // | |Feature-Policy: default-self 'self'      | |
-  // | +-----------------------------------------+ |
-  // +---------------------------------------------+
+  // +--------------------------------------------------------------------+
+  // |(1)Origin A                                                         |
+  // |Feature-Policy: default-self 'self', OriginB                        |
+  // |                double-feature 'self'(2.5), OriginB(2.5)
+  // |                                                                    |
+  // |<iframe allow="default-self 'none'; double-feature 'none'">         |
+  // | +-----------------------------------------+                        |
+  // | |(2)Origin B                              |                        |
+  // | |No Policy                                |                        |
+  // | +-----------------------------------------+                        |
+  // |                                                                    |
+  // |<iframe allow="default-self 'none'; double-feature 'none'">         |
+  // | +-------------------------------------------+                      |
+  // | |(3)Origin B                                |                      |
+  // | |Feature-Policy: default-self 'self'        |                      |
+  // | |                double-feature 'self'(2.5) |                      |
+  // | +-------------------------------------------+                      |
+  // +--------------------------------------------------------------------+
   // Default-self feature should be disabled in both cross-origin child frames
   // by frame policy, even though the parent frame's header policy would
   // otherwise enable it. This is true regardless of the child frame's header
   // policy.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_a_, origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, max_value},
+                                            {origin_b_, max_value}},
+         min_value, min_value},
+        {kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, double_value},
+                                            {origin_b_, double_value}},
+         min_double_value, min_double_value}}});
   ParsedFeaturePolicy frame_policy1 = {
-      {{kDefaultSelfFeature, false, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_b_);
   ParsedFeaturePolicy frame_policy2 = {
-      {{kDefaultSelfFeature, false, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_b_);
-  policy3->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy3->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+         min_double_value, min_double_value}}});
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
-  EXPECT_FALSE(
-      policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, min_double_value));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, min_double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestCombineFrameAndHeaderPolicies) {
-  // +-----------------------------------------+
-  // |(1)Origin A                              |
-  // |No Policy                                |
-  // |                                         |
-  // |<iframe allow="default-self OriginB">    |
-  // | +-------------------------------------+ |
-  // | |(2)Origin B                          | |
-  // | |Feature-Policy: default-self *       | |
-  // | |                                     | |
-  // | |<iframe allow="default-self 'none'"> | |
-  // | | +-------------+                     | |
-  // | | |(3)Origin C  |                     | |
-  // | | |No Policy    |                     | |
-  // | | +-------------+                     | |
-  // | |                                     | |
-  // | |<iframe> (No frame policy)           | |
-  // | | +-------------+                     | |
-  // | | |(4)Origin C  |                     | |
-  // | | |No Policy    |                     | |
-  // | | +-------------+                     | |
-  // | +-------------------------------------+ |
-  // +-----------------------------------------+
+  // +----------------------------------------------------------------------+
+  // |(1)Origin A                                                           |
+  // |No Policy                                                             |
+  // |                                                                      |
+  // |<iframe allow="default-self OriginB; double-feature OriginB(2.5)">    |
+  // | +------------------------------------------------------------------+ |
+  // | |(2)Origin B                                                       | |
+  // | |Feature-Policy: default-self *                                    | |
+  // | |                double-feature *(2.5)                             | |
+  // | |                                                                  | |
+  // | |<iframe allow="default-self 'none'; double-feature 'none'">       | |
+  // | | +-------------+                                                  | |
+  // | | |(3)Origin C  |                                                  | |
+  // | | |No Policy    |                                                  | |
+  // | | +-------------+                                                  | |
+  // | |                                                                  | |
+  // | |<iframe> (No frame policy)                                        | |
+  // | | +-------------+                                                  | |
+  // | | |(4)Origin C  |                                                  | |
+  // | | |No Policy    |                                                  | |
+  // | | +-------------+                                                  | |
+  // | +------------------------------------------------------------------+ |
+  // +----------------------------------------------------------------------+
   // Default-self feature should be enabled in cross-origin child frames 2 and
   // 4. Feature should be disabled in frame 3 by frame policy.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature,
+        std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy2->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value},
+        {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+         double_value, min_double_value}}});
   ParsedFeaturePolicy frame_policy2 = {
-      {{kDefaultSelfFeature, false, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy2.get(), frame_policy2, origin_c_);
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentPolicy(policy2.get(), origin_c_);
   EXPECT_TRUE(
       policy1->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_a_));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
   EXPECT_TRUE(
       policy2->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_c_));
-  EXPECT_TRUE(
-      policy4->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_c_));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_c_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, min_double_value));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestFeatureDeclinedAtTopLevel) {
-  // +-----------------------------------------+
-  // |(1)Origin A                              |
-  // |Feature-Policy: default-self 'none'      |
-  // |                                         |
-  // |<iframe allow="default-self OriginB">    |
-  // | +-------------------------------------+ |
-  // | |(2)Origin B                          | |
-  // | |No Policy                            | |
-  // | +-------------------------------------+ |
-  // |                                         |
-  // |<iframe allow="default-self *">          |
-  // | +-------------------------------------+ |
-  // | |(3)Origin A                          | |
-  // | |No Policy                            | |
-  // | +-------------------------------------+ |
-  // +-----------------------------------------+
+  // +--------------------------------------------------------------------+
+  // |(1)Origin A                                                         |
+  // |Feature-Policy: default-self 'none'                                 |
+  // |                double-feature 'none'                               |
+  // |                                                                    |
+  // |<iframe allow="default-self OriginB; double-feature OriginB(2.5)">  |
+  // | +-------------------------------------+                            |
+  // | |(2)Origin B                          |                            |
+  // | |No Policy                            |                            |
+  // | +-------------------------------------+                            |
+  // |                                                                    |
+  // |<iframe allow="default-self *; double-feature *(2.5)">              |
+  // | +-------------------------------------+                            |
+  // | |(3)Origin A                          |                            |
+  // | |No Policy                            |                            |
+  // | +-------------------------------------+                            |
+  // +--------------------------------------------------------------------+
   // Default-self feature should be disabled in all frames.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, false, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+         min_value},
+        {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+         min_double_value, min_double_value}}});
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value},
+       {kParameterizedDecDoubleFeature,
+        std::map<url::Origin, PolicyValue>{{origin_b_, double_value}},
+        min_double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_b_);
   ParsedFeaturePolicy frame_policy2 = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        min_value},
+       {kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        double_value, min_double_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_a_);
   EXPECT_FALSE(
       policy1->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_a_));
+  EXPECT_FALSE(policy1->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_a_, double_value));
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_b_));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
   EXPECT_FALSE(
       policy3->IsFeatureEnabledForOrigin(kDefaultSelfFeature, origin_a_));
+  EXPECT_FALSE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_a_, double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestFeatureDelegatedAndAllowed) {
@@ -1180,27 +1380,25 @@ TEST_F(FeaturePolicyTest, TestFeatureDelegatedAndAllowed) {
   // enabled in the remaining frames.
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
-                              false,
-                              false,
-                              {origin_b_}}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature,
+         std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+         min_value}}});
   ParsedFeaturePolicy frame_policy1 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_a_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_a_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy1, origin_b_);
   ParsedFeaturePolicy frame_policy2 = {
       {{kDefaultSelfFeature,
-        false,
-        false,
-        {origin_b_}}}};
+        std::map<url::Origin, PolicyValue>{{origin_b_, max_value}}, min_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy3 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy2, origin_b_);
   ParsedFeaturePolicy frame_policy3 = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy4 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy3, origin_b_);
   EXPECT_FALSE(
@@ -1246,6 +1444,10 @@ TEST_F(FeaturePolicyTest, TestDefaultSandboxedFramePolicy) {
       policy2->IsFeatureEnabledForOrigin(kDefaultOffFeature, origin_a_));
   EXPECT_FALSE(
       policy2->IsFeatureEnabledForOrigin(kDefaultOffFeature, sandboxed_origin));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, sandboxed_origin, double_value));
 }
 
 TEST_F(FeaturePolicyTest, TestSandboxedFramePolicyForAllOrigins) {
@@ -1266,8 +1468,8 @@ TEST_F(FeaturePolicyTest, TestSandboxedFramePolicyForAllOrigins) {
       CreateFromParentPolicy(nullptr, origin_a_);
   url::Origin sandboxed_origin = url::Origin();
   ParsedFeaturePolicy frame_policy = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy2 = CreateFromParentWithFramePolicy(
       policy1.get(), frame_policy, sandboxed_origin);
   EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
@@ -1298,8 +1500,8 @@ TEST_F(FeaturePolicyTest, TestSandboxedFramePolicyForOpaqueSrcOrigin) {
       CreateFromParentPolicy(nullptr, origin_a_);
   url::Origin sandboxed_origin = url::Origin();
   ParsedFeaturePolicy frame_policy = {
-      {{kDefaultSelfFeature, false, true,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy2 = CreateFromParentWithFramePolicy(
       policy1.get(), frame_policy, sandboxed_origin);
   EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
@@ -1327,12 +1529,13 @@ TEST_F(FeaturePolicyTest, TestSandboxedFrameFromHeaderPolicy) {
   // However, it will not pass that on to any other origin
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, true, false,
-                              std::vector<url::Origin>()}}});
+  policy1->SetHeaderPolicy(
+      {{{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+         min_value}}});
   url::Origin sandboxed_origin = url::Origin();
   ParsedFeaturePolicy frame_policy = {
-      {{kDefaultSelfFeature, false, true,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy2 = CreateFromParentWithFramePolicy(
       policy1.get(), frame_policy, sandboxed_origin);
   EXPECT_TRUE(policy2->IsFeatureEnabled(kDefaultSelfFeature));
@@ -1365,8 +1568,8 @@ TEST_F(FeaturePolicyTest, TestSandboxedPolicyIsNotInherited) {
   url::Origin sandboxed_origin_1 = url::Origin();
   url::Origin sandboxed_origin_2 = url::Origin();
   ParsedFeaturePolicy frame_policy = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        min_value}}};
   std::unique_ptr<FeaturePolicy> policy2 = CreateFromParentWithFramePolicy(
       policy1.get(), frame_policy, sandboxed_origin_1);
   std::unique_ptr<FeaturePolicy> policy3 =
@@ -1410,13 +1613,13 @@ TEST_F(FeaturePolicyTest, TestSandboxedPolicyCanBePropagated) {
   url::Origin sandboxed_origin_1 = origin_a_.DeriveNewOpaqueOrigin();
   url::Origin sandboxed_origin_2 = sandboxed_origin_1.DeriveNewOpaqueOrigin();
   ParsedFeaturePolicy frame_policy_1 = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy2 = CreateFromParentWithFramePolicy(
       policy1.get(), frame_policy_1, sandboxed_origin_1);
   ParsedFeaturePolicy frame_policy_2 = {
-      {{kDefaultSelfFeature, true, false,
-        std::vector<url::Origin>()}}};
+      {{kDefaultSelfFeature, std::map<url::Origin, PolicyValue>{}, max_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy3 = CreateFromParentWithFramePolicy(
       policy2.get(), frame_policy_2, sandboxed_origin_2);
   EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kDefaultOnFeature, origin_a_));
@@ -1447,9 +1650,10 @@ TEST_F(FeaturePolicyTest, TestUndefinedFeaturesInFramePolicy) {
   std::unique_ptr<FeaturePolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
   ParsedFeaturePolicy frame_policy = {
-      {{mojom::FeaturePolicyFeature::kNotFound, false, true,
-        std::vector<url::Origin>()},
-       {kUnavailableFeature, false, true, std::vector<url::Origin>()}}};
+      {{mojom::FeaturePolicyFeature::kNotFound,
+        std::map<url::Origin, PolicyValue>{}, min_value, max_value},
+       {kUnavailableFeature, std::map<url::Origin, PolicyValue>{}, min_value,
+        max_value}}};
   std::unique_ptr<FeaturePolicy> policy2 =
       CreateFromParentWithFramePolicy(policy1.get(), frame_policy, origin_b_);
   EXPECT_FALSE(PolicyContainsInheritedValue(
@@ -1460,6 +1664,211 @@ TEST_F(FeaturePolicyTest, TestUndefinedFeaturesInFramePolicy) {
       policy2.get(), mojom::FeaturePolicyFeature::kNotFound));
   EXPECT_FALSE(
       PolicyContainsInheritedValue(policy2.get(), kUnavailableFeature));
+}
+
+TEST_F(FeaturePolicyTest, TestParameterizedFeatureWithDifferentThresholds) {
+  // +-------------------------------------------------------------+
+  // |(1) Origin A                                                 |
+  // |Feature-Policy: double-feature *(2.5) 'self'(3) OriginB(2)   |
+  // +-------------------------------------------------------------+
+  // +---------------------------+
+  // |(2) Origin A               |
+  // |Feature-Policy: 'self'(3)  |
+  // +---------------------------+
+  // Feature should have different threshold on different origin, if no
+  // particular value is specified, use fallback value.
+  std::unique_ptr<FeaturePolicy> policy1 =
+      CreateFromParentPolicy(nullptr, origin_a_);
+  std::unique_ptr<FeaturePolicy> policy2 =
+      CreateFromParentPolicy(nullptr, origin_a_);
+  PolicyValue large_double_value(3.0, mojom::PolicyValueType::kDecDouble);
+  PolicyValue small_double_value(2.2, mojom::PolicyValueType::kDecDouble);
+  policy1->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, large_double_value},
+                                            {origin_b_, small_double_value}},
+         double_value, min_double_value}}});
+  policy2->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, large_double_value}},
+         min_double_value, min_double_value}}});
+  EXPECT_TRUE(policy1->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        large_double_value));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, small_double_value));
+  EXPECT_FALSE(policy1->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, double_value));
+  EXPECT_TRUE(policy1->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, double_value));
+  EXPECT_FALSE(policy1->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_c_, large_double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        large_double_value));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_b_, small_double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_b_, min_double_value));
+  EXPECT_FALSE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, origin_c_, small_double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_c_, min_double_value));
+}
+
+TEST_F(FeaturePolicyTest, TestParameterizedFeatureInheritence) {
+  // +-------------------------------------------------+
+  // |(1) Origin A                                    |
+  // | Feature-Policy: double-feature 'self'(2.5)     |
+  // | +-----------------+  +-----------------+       |
+  // | |(2) Origin A     |  |(4) Origin B     |       |
+  // | |No Policy        |  |No Policy        |       |
+  // | | +-------------+ |  | +-------------+ |       |
+  // | | |(3)Origin A  | |  | |(5)Origin B  | |       |
+  // | | |No Policy    | |  | |No Policy    | |       |
+  // | | +-------------+ |  | +-------------+ |       |
+  // | +-----------------+  +-----------------+       |
+  // +------------------------------------------------+
+  // Feature should be enabled at the top-level, and through the chain of
+  // same-origin frames 2 and 3. It should be disabled in frames 4 and 5, as
+  // they are at a different origin.
+  std::unique_ptr<FeaturePolicy> policy1 =
+      CreateFromParentPolicy(nullptr, origin_a_);
+  policy1->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, double_value}},
+         min_double_value, min_double_value}}});
+  std::unique_ptr<FeaturePolicy> policy2 =
+      CreateFromParentPolicy(policy1.get(), origin_a_);
+  std::unique_ptr<FeaturePolicy> policy3 =
+      CreateFromParentPolicy(policy2.get(), origin_a_);
+  std::unique_ptr<FeaturePolicy> policy4 =
+      CreateFromParentPolicy(policy1.get(), origin_b_);
+  std::unique_ptr<FeaturePolicy> policy5 =
+      CreateFromParentPolicy(policy4.get(), origin_b_);
+  PolicyValue large_double_value(3.0, mojom::PolicyValueType::kDecDouble);
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
+  EXPECT_TRUE(
+      policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
+  EXPECT_FALSE(
+      policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
+  EXPECT_FALSE(
+      policy5->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy5->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
+  EXPECT_TRUE(policy5->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        min_double_value));
+}
+
+TEST_F(FeaturePolicyTest, TestParameterizedFeatureCombineThreshold) {
+  // +--------------------------------------+
+  // |(1) Origin A                          |
+  // |Feature-Policy: double-feature *(2.5) |
+  // | +----------------------------+       |
+  // | |(2) Origin A                |       |
+  // | | Feature-Policy:            |       |
+  // | |   double-feature 'self'(3) |       |
+  // | +----------------------------+       |
+  // | +----------------------------+       |
+  // | |(3)Origin A                 |       |
+  // | | Feature-Policy:            |       |
+  // | |   double-feature 'self'(2) |       |
+  // | +----------------------------+       |
+  // +--------------------------------------+
+  // Feature threshold should get stricter and stricter along inheritance.
+  std::unique_ptr<FeaturePolicy> policy1 =
+      CreateFromParentPolicy(nullptr, origin_a_);
+  policy1->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, double_value}},
+         min_double_value, min_double_value}}});
+  PolicyValue large_double_value(3.0, mojom::PolicyValueType::kDecDouble);
+  std::unique_ptr<FeaturePolicy> policy2 =
+      CreateFromParentPolicy(policy1.get(), origin_a_);
+  policy2->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, large_double_value}},
+         min_double_value, min_double_value}}});
+  PolicyValue small_double_value(2.2, mojom::PolicyValueType::kDecDouble);
+  std::unique_ptr<FeaturePolicy> policy3 =
+      CreateFromParentPolicy(policy1.get(), origin_a_);
+  policy3->SetHeaderPolicy(
+      {{{kParameterizedDecDoubleFeature,
+         std::map<url::Origin, PolicyValue>{{origin_a_, small_double_value}},
+         min_double_value, min_double_value}}});
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_FALSE(policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                         large_double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature,
+                                        small_double_value));
+  EXPECT_FALSE(
+      policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+}
+
+TEST_F(FeaturePolicyTest, TestParameterizedSandboxPolicy) {
+  // +-----------------------------------------------------+
+  // |(1)Origin A                                          |
+  // |No Policy                                            |
+  // |                                                     |
+  // |<iframe sandbox>                                     |
+  // | +-------------+                                     |
+  // | |(2)Sandboxed |                                     |
+  // | |No Policy    |                                     |
+  // | +-------------+                                     |
+  // |<iframe sandbox allow="double-feature 'self'(2.5)">  |
+  // | +-----------------------------------------------+   |
+  // | |(3)Sandboxed                                   |   |
+  // | |                                               |   |
+  // | |<iframe sandbox allow="double-feature *(2.5)"> |   |
+  // | | +-------------+                               |   |
+  // | | |(4)Sandboxed |                               |   |
+  // | | |No Policy    |                               |   |
+  // | | +-------------+                               |   |
+  // | +-----------------------------------------------+   |
+  // +-----------------------------------------------------+
+  // |double-feature| (default-all) should be enabled in child frame with opaque
+  // origin and along inheritance chain.
+  std::unique_ptr<FeaturePolicy> policy1 =
+      CreateFromParentPolicy(nullptr, origin_a_);
+  url::Origin sandboxed_origin = url::Origin();
+  std::unique_ptr<FeaturePolicy> policy2 =
+      CreateFromParentPolicy(policy1.get(), sandboxed_origin);
+
+  ParsedFeaturePolicy frame_policy1 = {
+      {{kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        min_double_value, double_value}}};
+  std::unique_ptr<FeaturePolicy> policy3 = CreateFromParentWithFramePolicy(
+      policy1.get(), frame_policy1, sandboxed_origin);
+  ParsedFeaturePolicy frame_policy2 = {
+      {{kParameterizedDecDoubleFeature, std::map<url::Origin, PolicyValue>{},
+        double_value, double_value}}};
+  std::unique_ptr<FeaturePolicy> policy4 = CreateFromParentWithFramePolicy(
+      policy3.get(), frame_policy2, sandboxed_origin);
+
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, sandboxed_origin, double_value));
+  EXPECT_TRUE(
+      policy2->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy2->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, sandboxed_origin, double_value));
+  EXPECT_TRUE(
+      policy3->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy3->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(
+      kParameterizedDecDoubleFeature, sandboxed_origin, double_value));
+  EXPECT_TRUE(
+      policy4->IsFeatureEnabled(kParameterizedDecDoubleFeature, double_value));
+  EXPECT_TRUE(policy4->IsFeatureEnabledForOrigin(kParameterizedDecDoubleFeature,
+                                                 origin_a_, double_value));
 }
 
 }  // namespace blink

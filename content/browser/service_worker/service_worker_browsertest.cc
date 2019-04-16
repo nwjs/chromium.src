@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
@@ -35,7 +36,6 @@
 #include "content/browser/cache_storage/cache_storage_context_impl.h"
 #include "content/browser/cache_storage/cache_storage_manager.h"
 #include "content/browser/service_worker/embedded_worker_instance.h"
-#include "content/browser/service_worker/embedded_worker_registry.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
@@ -45,10 +45,12 @@
 #include "content/browser/service_worker/service_worker_test_utils.h"
 #include "content/browser/service_worker/service_worker_version.h"
 #include "content/browser/web_contents/web_contents_impl.h"
+#include "content/browser/web_package/signed_exchange_consts.h"
 #include "content/common/service_worker/service_worker_types.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/console_message.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -487,7 +489,7 @@ class ServiceWorkerBrowserTest : public ContentBrowserTest {
 class ConsoleListener : public EmbeddedWorkerInstance::Listener {
  public:
   void OnReportConsoleMessage(int source_identifier,
-                              int message_level,
+                              blink::mojom::ConsoleMessageLevel message_level,
                               const base::string16& message,
                               int line_number,
                               const GURL& source_url) override {
@@ -688,16 +690,13 @@ class ServiceWorkerVersionBrowserTest : public ServiceWorkerBrowserTest {
   void AddControlleeOnIOThread() {
     ASSERT_TRUE(BrowserThread::CurrentlyOn(BrowserThread::IO));
     remote_endpoints_.emplace_back();
-    std::unique_ptr<ServiceWorkerProviderHost> host =
-        CreateProviderHostForWindow(
-            33 /* dummy render process id */, 1 /* dummy provider_id */,
-            true /* is_parent_frame_secure */,
-            wrapper()->context()->AsWeakPtr(), &remote_endpoints_.back());
+    base::WeakPtr<ServiceWorkerProviderHost> host = CreateProviderHostForWindow(
+        33 /* dummy render process id */, true /* is_parent_frame_secure */,
+        wrapper()->context()->AsWeakPtr(), &remote_endpoints_.back());
     const GURL url = embedded_test_server()->GetURL("/service_worker/host");
     host->UpdateUrls(url, url);
     host->SetControllerRegistration(registration_,
                                     false /* notify_controllerchange */);
-    wrapper()->context()->AddProviderHost(std::move(host));
   }
 
   void AddWaitingWorkerOnIOThread(const std::string& worker_url) {
@@ -1215,7 +1214,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
 IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
                        ServiceWorkerScriptHeader) {
   embedded_test_server()->RegisterRequestHandler(
-      base::Bind(&VerifyServiceWorkerHeaderInRequest));
+      base::BindRepeating(&VerifyServiceWorkerHeaderInRequest));
   StartServerAndNavigateToSetup();
   InstallTestHelper("/service_worker/generated_sw.js",
                     blink::ServiceWorkerStatusCode::kOk);
@@ -1644,7 +1643,7 @@ class MockContentBrowserClient : public TestContentBrowserClient {
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest, FetchWithSaveData) {
   embedded_test_server()->RegisterRequestHandler(
-      base::Bind(&VerifySaveDataHeaderInRequest));
+      base::BindRepeating(&VerifySaveDataHeaderInRequest));
   StartServerAndNavigateToSetup();
   MockContentBrowserClient content_browser_client;
   content_browser_client.set_data_saver_enabled(true);
@@ -1659,7 +1658,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest, FetchWithSaveData) {
 IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
                        RequestWorkerScriptWithSaveData) {
   embedded_test_server()->RegisterRequestHandler(
-      base::Bind(&VerifySaveDataHeaderInRequest));
+      base::BindRepeating(&VerifySaveDataHeaderInRequest));
   StartServerAndNavigateToSetup();
   MockContentBrowserClient content_browser_client;
   content_browser_client.set_data_saver_enabled(true);
@@ -1673,7 +1672,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerVersionBrowserTest, FetchWithoutSaveData) {
   embedded_test_server()->RegisterRequestHandler(
-      base::Bind(&VerifySaveDataHeaderNotInRequest));
+      base::BindRepeating(&VerifySaveDataHeaderNotInRequest));
   StartServerAndNavigateToSetup();
   MockContentBrowserClient content_browser_client;
   ContentBrowserClient* old_client =
@@ -1729,7 +1728,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, CrossOriginFetchWithSaveData) {
   net::EmbeddedTestServer cross_origin_server;
   cross_origin_server.ServeFilesFromSourceDirectory("content/test/data");
   cross_origin_server.RegisterRequestHandler(
-      base::Bind(&VerifySaveDataNotInAccessControlRequestHeader));
+      base::BindRepeating(&VerifySaveDataNotInAccessControlRequestHeader));
   ASSERT_TRUE(cross_origin_server.Start());
 
   MockContentBrowserClient content_browser_client;
@@ -1783,7 +1782,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
   observer->Init();
 
   embedded_test_server()->RegisterRequestHandler(
-      base::Bind(&VerifySaveDataHeaderInRequest));
+      base::BindRepeating(&VerifySaveDataHeaderInRequest));
   StartServerAndNavigateToSetup();
 
   blink::mojom::ServiceWorkerRegistrationOptions options(
@@ -1991,30 +1990,30 @@ class ServiceWorkerNavigationPreloadTest : public ServiceWorkerBrowserTest {
   }
 
   void RegisterMonitorRequestHandler() {
-    embedded_test_server()->RegisterRequestMonitor(
-        base::Bind(&self::MonitorRequestHandler, base::Unretained(this)));
+    embedded_test_server()->RegisterRequestMonitor(base::BindRepeating(
+        &self::MonitorRequestHandler, base::Unretained(this)));
   }
 
   void RegisterStaticFile(const std::string& relative_url,
                           const std::string& content,
                           const std::string& content_type) {
     embedded_test_server()->RegisterRequestHandler(
-        base::Bind(&self::StaticRequestHandler, base::Unretained(this),
-                   relative_url, content, content_type));
+        base::BindRepeating(&self::StaticRequestHandler, base::Unretained(this),
+                            relative_url, content, content_type));
   }
 
   void RegisterCustomResponse(const std::string& relative_url,
                               const std::string& response) {
     embedded_test_server()->RegisterRequestHandler(
-        base::Bind(&self::CustomRequestHandler, base::Unretained(this),
-                   relative_url, response));
+        base::BindRepeating(&self::CustomRequestHandler, base::Unretained(this),
+                            relative_url, response));
   }
 
   void RegisterKeepSearchRedirect(const std::string& relative_url,
                                   const std::string& redirect_location) {
-    embedded_test_server()->RegisterRequestHandler(
-        base::Bind(&self::KeepSearchRedirectHandler, base::Unretained(this),
-                   relative_url, redirect_location));
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &self::KeepSearchRedirectHandler, base::Unretained(this), relative_url,
+        redirect_location));
   }
 
   int GetRequestCount(const std::string& relative_url) const {
@@ -2029,7 +2028,8 @@ class ServiceWorkerNavigationPreloadTest : public ServiceWorkerBrowserTest {
     std::string text_content;
     shell()->web_contents()->GetMainFrame()->ExecuteJavaScriptForTests(
         base::ASCIIToUTF16("document.body.textContent;"),
-        base::Bind(&StoreString, &text_content, run_loop.QuitClosure()));
+        base::BindRepeating(&StoreString, &text_content,
+                            run_loop.QuitClosure()));
     run_loop.Run();
     return text_content;
   }
@@ -2523,7 +2523,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerNavigationPreloadTest,
 
   content::ResourceDispatcherHost::Get()->RegisterInterceptor(
       kNavigationPreloadHeaderName, "",
-      base::Bind(&CancellingInterceptorCallback));
+      base::BindRepeating(&CancellingInterceptorCallback));
 
   const char kPageUrl[] = "/service_worker/navigation_preload.html";
   const char kWorkerUrl[] = "/service_worker/navigation_preload.js";
@@ -2554,7 +2554,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerNavigationPreloadTest,
       kWorkerUrl, kEnableNavigationPreloadScript + kPreloadResponseTestScript,
       "text/javascript");
 
-  std::unique_ptr<base::Value> result = base::JSONReader::Read(
+  std::unique_ptr<base::Value> result = base::JSONReader::ReadDeprecated(
       LoadNavigationPreloadTestPage(page_url, worker_url, "RESOLVED"));
 
   // The page request must be sent only once, since the worker responded with
@@ -2569,7 +2569,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerNavigationPreloadTest,
   EXPECT_EQ("OK", GetString(*dict, "statusText"));
   EXPECT_TRUE(CheckHeader(*dict, "content-type", "text/html"));
   EXPECT_TRUE(CheckHeader(*dict, "content-length",
-                          base::IntToString(sizeof(kPage) - 1)));
+                          base::NumberToString(sizeof(kPage) - 1)));
 }
 
 IN_PROC_BROWSER_TEST_F(ServiceWorkerNavigationPreloadTest, NotEnabled) {
@@ -2611,7 +2611,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerNavigationPreloadTest,
       kWorkerUrl, kEnableNavigationPreloadScript + kPreloadResponseTestScript,
       "text/javascript");
 
-  std::unique_ptr<base::Value> result = base::JSONReader::Read(
+  std::unique_ptr<base::Value> result = base::JSONReader::ReadDeprecated(
       LoadNavigationPreloadTestPage(page_url, worker_url, "RESOLVED"));
 
   // The page request must be sent only once, since the worker responded with
@@ -3112,7 +3112,7 @@ class ServiceWorkerVersionBrowserV8FullCodeCacheTest
     // OnCachedMetadataUpdated() is called.
     run_loop.Run();
   }
-  size_t metadata_size() { return metadata_size_; };
+  size_t metadata_size() { return metadata_size_; }
 
  protected:
   // ServiceWorkerVersion::Observer overrides
@@ -3709,11 +3709,13 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerURLLoaderThrottleTest,
                                "document.body.textContent");
   ASSERT_TRUE(result.error.empty());
   std::unique_ptr<base::DictionaryValue> dict = base::DictionaryValue::From(
-      base::JSONReader::Read(result.ExtractString()));
+      base::JSONReader::ReadDeprecated(result.ExtractString()));
   ASSERT_TRUE(dict);
 
   // Default headers are present.
-  EXPECT_TRUE(CheckHeader(*dict, "accept", network::kFrameAcceptHeader));
+  EXPECT_TRUE(CheckHeader(*dict, "accept",
+                          std::string(network::kFrameAcceptHeader) +
+                              std::string(kAcceptHeaderSignedExchangeSuffix)));
   // Injected headers are present.
   EXPECT_TRUE(CheckHeader(*dict, "x-injected", "injected value"));
 

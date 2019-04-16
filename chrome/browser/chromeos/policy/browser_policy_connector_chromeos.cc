@@ -32,6 +32,7 @@
 #include "chrome/browser/chromeos/policy/device_native_printers_handler.h"
 #include "chrome/browser/chromeos/policy/device_network_configuration_updater.h"
 #include "chrome/browser/chromeos/policy/device_policy_cloud_external_data_manager.h"
+#include "chrome/browser/chromeos/policy/device_wallpaper_image_handler.h"
 #include "chrome/browser/chromeos/policy/enrollment_config.h"
 #include "chrome/browser/chromeos/policy/hostname_handler.h"
 #include "chrome/browser/chromeos/policy/minimum_version_policy_handler.h"
@@ -212,7 +213,7 @@ void BrowserPolicyConnectorChromeOS::Init(
           DeviceNetworkConfigurationUpdater::DeviceAssetIDFetcher());
   // NetworkCertLoader may be not initialized in tests.
   if (chromeos::NetworkCertLoader::IsInitialized()) {
-    chromeos::NetworkCertLoader::Get()->AddPolicyCertificateProvider(
+    chromeos::NetworkCertLoader::Get()->SetDevicePolicyCertificateProvider(
         device_network_configuration_updater_.get());
   }
 
@@ -228,6 +229,10 @@ void BrowserPolicyConnectorChromeOS::Init(
 
   device_native_printers_handler_ =
       std::make_unique<DeviceNativePrintersHandler>(GetPolicyService());
+
+  device_wallpaper_image_handler_ =
+      std::make_unique<DeviceWallpaperImageHandler>(local_state,
+                                                    GetPolicyService());
 }
 
 void BrowserPolicyConnectorChromeOS::PreShutdown() {
@@ -242,8 +247,8 @@ void BrowserPolicyConnectorChromeOS::PreShutdown() {
 void BrowserPolicyConnectorChromeOS::Shutdown() {
   // NetworkCertLoader may be not initialized in tests.
   if (chromeos::NetworkCertLoader::IsInitialized()) {
-    chromeos::NetworkCertLoader::Get()->RemovePolicyCertificateProvider(
-        device_network_configuration_updater_.get());
+    chromeos::NetworkCertLoader::Get()->SetDevicePolicyCertificateProvider(
+        nullptr);
   }
   device_network_configuration_updater_.reset();
 
@@ -261,6 +266,9 @@ void BrowserPolicyConnectorChromeOS::Shutdown() {
 
   if (device_native_printers_handler_)
     device_native_printers_handler_->Shutdown();
+
+  if (device_wallpaper_image_handler_)
+    device_wallpaper_image_handler_->Shutdown();
 
   ChromeBrowserPolicyConnector::Shutdown();
 }

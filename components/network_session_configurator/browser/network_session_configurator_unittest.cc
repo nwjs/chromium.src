@@ -121,11 +121,13 @@ TEST_F(NetworkSessionConfiguratorTest, EnableQuicFromFieldTrialGroup) {
   EXPECT_FALSE(params_.quic_estimate_initial_rtt);
   EXPECT_FALSE(params_.quic_migrate_sessions_on_network_change_v2);
   EXPECT_FALSE(params_.quic_migrate_sessions_early_v2);
-  EXPECT_FALSE(params_.quic_race_stale_dns_on_connection);
   EXPECT_FALSE(params_.quic_retry_on_alternate_network_before_handshake);
+  EXPECT_FALSE(params_.quic_migrate_idle_sessions);
   EXPECT_FALSE(params_.quic_go_away_on_path_degrading);
   EXPECT_FALSE(params_.quic_allow_server_migration);
   EXPECT_TRUE(params_.quic_host_whitelist.empty());
+  EXPECT_EQ(net::kDefaultRetransmittableOnWireTimeoutMillisecs,
+            params_.quic_retransmittable_on_wire_timeout_milliseconds);
 
   net::HttpNetworkSession::Params default_params;
   EXPECT_EQ(default_params.quic_supported_versions,
@@ -220,6 +222,18 @@ TEST_F(NetworkSessionConfiguratorTest,
   ParseFieldTrials();
 
   EXPECT_TRUE(params_.quic_goaway_sessions_on_ip_change);
+}
+
+TEST_F(NetworkSessionConfiguratorTest,
+       QuicRetransmittableOnWireTimeoutMillisecondsFieldTrialParams) {
+  std::map<std::string, std::string> field_trial_params;
+  field_trial_params["retransmittable_on_wire_timeout_milliseconds"] = "1000";
+  variations::AssociateVariationParams("QUIC", "Enabled", field_trial_params);
+  base::FieldTrialList::CreateFieldTrial("QUIC", "Enabled");
+
+  ParseFieldTrials();
+
+  EXPECT_EQ(1000, params_.quic_retransmittable_on_wire_timeout_milliseconds);
 }
 
 TEST_F(NetworkSessionConfiguratorTest,
@@ -376,18 +390,6 @@ TEST_F(NetworkSessionConfiguratorTest,
 }
 
 TEST_F(NetworkSessionConfiguratorTest,
-       QuicRaceStaleDNSOnCOnnectionFromFieldTrialParams) {
-  std::map<std::string, std::string> field_trial_params;
-  field_trial_params["race_stale_dns_on_connection"] = "true";
-  variations::AssociateVariationParams("QUIC", "Enabled", field_trial_params);
-  base::FieldTrialList::CreateFieldTrial("QUIC", "Enabled");
-
-  ParseFieldTrials();
-
-  EXPECT_TRUE(params_.quic_race_stale_dns_on_connection);
-}
-
-TEST_F(NetworkSessionConfiguratorTest,
        QuicGoawayOnPathDegradingFromFieldTrialParams) {
   std::map<std::string, std::string> field_trial_params;
   field_trial_params["go_away_on_path_degrading"] = "true";
@@ -397,6 +399,21 @@ TEST_F(NetworkSessionConfiguratorTest,
   ParseFieldTrials();
 
   EXPECT_TRUE(params_.quic_go_away_on_path_degrading);
+}
+
+TEST_F(NetworkSessionConfiguratorTest,
+       QuicIdleSessionMigrationPeriodFromFieldTrialParams) {
+  std::map<std::string, std::string> field_trial_params;
+  field_trial_params["migrate_idle_sessions"] = "true";
+  field_trial_params["idle_session_migration_period_seconds"] = "15";
+  variations::AssociateVariationParams("QUIC", "Enabled", field_trial_params);
+  base::FieldTrialList::CreateFieldTrial("QUIC", "Enabled");
+
+  ParseFieldTrials();
+
+  EXPECT_TRUE(params_.quic_migrate_idle_sessions);
+  EXPECT_EQ(base::TimeDelta::FromSeconds(15),
+            params_.quic_idle_session_migration_period);
 }
 
 TEST_F(NetworkSessionConfiguratorTest,

@@ -12,6 +12,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/guid.h"
@@ -278,6 +279,13 @@ void ServiceWorkerContextWrapper::OnRegistrationCompleted(
     observer.OnRegistrationCompleted(scope);
 }
 
+void ServiceWorkerContextWrapper::OnReportConsoleMessage(
+    int64_t version_id,
+    const ConsoleMessage& message) {
+  for (auto& observer : observer_list_)
+    observer.OnReportConsoleMessage(version_id, message);
+}
+
 void ServiceWorkerContextWrapper::OnNoControllees(int64_t version_id,
                                                   const GURL& scope) {
   for (auto& observer : observer_list_)
@@ -356,6 +364,8 @@ bool ServiceWorkerContextWrapper::StartingExternalRequest(
     int64_t service_worker_version_id,
     const std::string& request_uuid) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  if (!context())
+    return false;
   ServiceWorkerVersion* version =
       context()->GetLiveVersion(service_worker_version_id);
   if (!version)
@@ -367,6 +377,8 @@ bool ServiceWorkerContextWrapper::FinishedExternalRequest(
     int64_t service_worker_version_id,
     const std::string& request_uuid) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  if (!context())
+    return false;
   ServiceWorkerVersion* version =
       context()->GetLiveVersion(service_worker_version_id);
   if (!version)
@@ -429,13 +441,12 @@ void ServiceWorkerContextWrapper::PerformStorageCleanup(
 
 void ServiceWorkerContextWrapper::CheckHasServiceWorker(
     const GURL& url,
-    const GURL& other_url,
     CheckHasServiceWorkerCallback callback) {
   if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&ServiceWorkerContextWrapper::CheckHasServiceWorker,
-                       this, url, other_url, std::move(callback)));
+                       this, url, std::move(callback)));
     return;
   }
   if (!context_core_) {
@@ -446,7 +457,7 @@ void ServiceWorkerContextWrapper::CheckHasServiceWorker(
     return;
   }
   context()->CheckHasServiceWorker(
-      net::SimplifyUrlForRequest(url), net::SimplifyUrlForRequest(other_url),
+      net::SimplifyUrlForRequest(url),
       base::BindOnce(&ServiceWorkerContextWrapper::DidCheckHasServiceWorker,
                      this, std::move(callback)));
 }
@@ -928,6 +939,20 @@ void ServiceWorkerContextWrapper::GetUserDataForAllRegistrationsByKeyPrefix(
       key_prefix, std::move(callback));
 }
 
+void ServiceWorkerContextWrapper::ClearUserDataForAllRegistrationsByKeyPrefix(
+    const std::string& key_prefix,
+    StatusCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  if (!context_core_) {
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback),
+                                  blink::ServiceWorkerStatusCode::kErrorAbort));
+    return;
+  }
+  context_core_->storage()->ClearUserDataForAllRegistrationsByKeyPrefix(
+      key_prefix, std::move(callback));
+}
+
 void ServiceWorkerContextWrapper::StartServiceWorker(const GURL& scope,
                                                      StatusCallback callback) {
   if (!BrowserThread::CurrentlyOn(BrowserThread::IO)) {
@@ -1007,12 +1032,13 @@ void ServiceWorkerContextWrapper::RemoveObserver(
 base::WeakPtr<ServiceWorkerProviderHost>
 ServiceWorkerContextWrapper::PreCreateHostForSharedWorker(
     int process_id,
-    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr*
-        out_provider_info) {
+    blink::mojom::ServiceWorkerProviderInfoForWorkerPtr* out_provider_info) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
+  if (!context_core_)
+    return nullptr;
   return ServiceWorkerProviderHost::PreCreateForSharedWorker(
-      context()->AsWeakPtr(), process_id, out_provider_info);
+      context_core_->AsWeakPtr(), process_id, out_provider_info);
 }
 
 ServiceWorkerContextWrapper::~ServiceWorkerContextWrapper() {

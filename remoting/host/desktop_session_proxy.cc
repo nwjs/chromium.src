@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -214,6 +215,12 @@ bool DesktopSessionProxy::OnMessageReceived(const IPC::Message& message) {
     IPC_MESSAGE_FORWARD(ChromotingDesktopNetworkMsg_FileResult,
                         &ipc_file_operations_factory_,
                         IpcFileOperations::ResultHandler::OnResult)
+    IPC_MESSAGE_FORWARD(ChromotingDesktopNetworkMsg_FileInfoResult,
+                        &ipc_file_operations_factory_,
+                        IpcFileOperations::ResultHandler::OnInfoResult)
+    IPC_MESSAGE_FORWARD(ChromotingDesktopNetworkMsg_FileDataResult,
+                        &ipc_file_operations_factory_,
+                        IpcFileOperations::ResultHandler::OnDataResult)
   IPC_END_MESSAGE_MAP()
 
   CHECK(handled) << "Received unexpected IPC type: " << message.type();
@@ -433,6 +440,18 @@ void DesktopSessionProxy::ExecuteAction(
   SendToDesktop(new ChromotingNetworkDesktopMsg_ExecuteActionRequest(request));
 }
 
+void DesktopSessionProxy::ReadFile(std::uint64_t file_id) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  SendToDesktop(new ChromotingNetworkDesktopMsg_ReadFile(file_id));
+}
+
+void DesktopSessionProxy::ReadChunk(std::uint64_t file_id, std::uint64_t size) {
+  DCHECK(caller_task_runner_->BelongsToCurrentThread());
+
+  SendToDesktop(new ChromotingNetworkDesktopMsg_ReadFileChunk(file_id, size));
+}
+
 void DesktopSessionProxy::WriteFile(uint64_t file_id,
                                     const base::FilePath& filename) {
   DCHECK(caller_task_runner_->BelongsToCurrentThread());
@@ -491,8 +510,8 @@ void DesktopSessionProxy::OnAudioPacket(const std::string& serialized_packet) {
 
   // Pass a captured audio packet to |audio_capturer_|.
   audio_capture_task_runner_->PostTask(
-      FROM_HERE, base::Bind(&IpcAudioCapturer::OnAudioPacket, audio_capturer_,
-                            base::Passed(&packet)));
+      FROM_HERE, base::BindOnce(&IpcAudioCapturer::OnAudioPacket,
+                                audio_capturer_, std::move(packet)));
 }
 
 void DesktopSessionProxy::OnCreateSharedBuffer(

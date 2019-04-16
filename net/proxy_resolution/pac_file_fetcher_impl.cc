@@ -4,6 +4,7 @@
 
 #include "net/proxy_resolution/pac_file_fetcher_impl.h"
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -205,8 +206,8 @@ int PacFileFetcherImpl::Fetch(
 
   base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&PacFileFetcherImpl::OnTimeout, weak_factory_.GetWeakPtr(),
-                 cur_request_id_),
+      base::BindOnce(&PacFileFetcherImpl::OnTimeout, weak_factory_.GetWeakPtr(),
+                     cur_request_id_),
       max_duration_);
 
   // Start the request.

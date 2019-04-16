@@ -45,8 +45,8 @@ class TabController {
   // Returns true if ShouldPaintTab() could return a non-empty clip path.
   virtual bool MaySetClip() = 0;
 
-  // Selects the tab.
-  virtual void SelectTab(Tab* tab) = 0;
+  // Selects the tab. |event| is the event that causes |tab| to be selected.
+  virtual void SelectTab(Tab* tab, const ui::Event& event) = 0;
 
   // Extends the selection from the anchor to |tab|.
   virtual void ExtendSelectionTo(Tab* tab) = 0;
@@ -78,10 +78,6 @@ class TabController {
   // Returns whether |tab| is the first or last one visible.
   virtual bool IsFirstVisibleTab(const Tab* tab) const = 0;
   virtual bool IsLastVisibleTab(const Tab* tab) const = 0;
-
-  // Returns whether the strip is painting in single-tab mode.  This is true in
-  // a subset of the cases where ther is exactly one tab.
-  virtual bool SingleTabMode() const = 0;
 
   // Potentially starts a drag for the specified Tab.
   virtual void MaybeStartDrag(

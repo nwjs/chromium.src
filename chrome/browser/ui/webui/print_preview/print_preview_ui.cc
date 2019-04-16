@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/containers/id_map.h"
 #include "base/feature_list.h"
 #include "base/lazy_instance.h"
@@ -215,6 +216,8 @@ void AddPrintPreviewStrings(content::WebUIDataSource* source) {
     {"optionCollate", IDS_PRINT_PREVIEW_OPTION_COLLATE},
     {"optionColor", IDS_PRINT_PREVIEW_OPTION_COLOR},
     {"optionCustomPages", IDS_PRINT_PREVIEW_OPTION_CUSTOM_PAGES},
+    {"optionCustomScaling", IDS_PRINT_PREVIEW_OPTION_CUSTOM_SCALING},
+    {"optionDefaultScaling", IDS_PRINT_PREVIEW_OPTION_DEFAULT_SCALING},
     {"optionFitToPage", IDS_PRINT_PREVIEW_OPTION_FIT_TO_PAGE},
     {"optionHeaderFooter", IDS_PRINT_PREVIEW_OPTION_HEADER_FOOTER},
     {"optionLandscape", IDS_PRINT_PREVIEW_OPTION_LANDSCAPE},
@@ -310,10 +313,6 @@ void AddPrintPreviewFlags(content::WebUIDataSource* source, Profile* profile) {
 #endif
   source->AddBoolean("isEnterpriseManaged", enterprise_managed);
 
-  bool nup_printing_enabled =
-      base::FeatureList::IsEnabled(features::kNupPrinting);
-  source->AddBoolean("pagesPerSheetEnabled", nup_printing_enabled);
-
   bool cloud_printer_handler_enabled =
       base::FeatureList::IsEnabled(features::kCloudPrinterHandler);
   source->AddBoolean("cloudPrinterHandlerEnabled",
@@ -364,6 +363,10 @@ std::vector<std::string> SetupPrintPreviewPlugin(
     {"pdf/elements/viewer-pdf-toolbar/viewer-pdf-toolbar.js",
      IDR_PDF_VIEWER_PDF_TOOLBAR_JS},
 #if defined(OS_CHROMEOS)
+    {"pdf/elements/viewer-form-warning/viewer-form-warning.html",
+     IDR_PDF_VIEWER_FORM_WARNING_HTML},
+    {"pdf/elements/viewer-form-warning/viewer-form-warning.js",
+     IDR_PDF_VIEWER_FORM_WARNING_JS},
     {"pdf/elements/viewer-pen-options/viewer-pen-options.html",
      IDR_PDF_VIEWER_PEN_OPTIONS_HTML},
     {"pdf/elements/viewer-pen-options/viewer-pen-options.js",
@@ -392,6 +395,7 @@ std::vector<std::string> SetupPrintPreviewPlugin(
     {"pdf/pdf_scripting_api.js", IDR_PDF_PDF_SCRIPTING_API_JS},
     {"pdf/pdf_viewer.js", IDR_PDF_PDF_VIEWER_JS},
     {"pdf/toolbar_manager.js", IDR_PDF_TOOLBAR_MANAGER_JS},
+    {"pdf/viewport_interface.js", IDR_PDF_VIEWPORT_INTERFACE_JS},
     {"pdf/viewport.js", IDR_PDF_VIEWPORT_JS},
     {"pdf/viewport_scroller.js", IDR_PDF_VIEWPORT_SCROLLER_JS},
     {"pdf/zoom_manager.js", IDR_PDF_ZOOM_MANAGER_JS},

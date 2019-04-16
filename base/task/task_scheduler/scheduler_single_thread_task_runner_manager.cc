@@ -90,7 +90,8 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   // SchedulerWorker::Delegate:
   void OnCanScheduleSequence(scoped_refptr<Sequence> sequence) override {
     DCHECK(worker_);
-    ReEnqueueSequence(std::move(sequence));
+    ReEnqueueSequence(
+        SequenceAndTransaction::FromSequence(std::move(sequence)));
     worker_->WakeUp();
   }
 
@@ -104,23 +105,23 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   }
 
   scoped_refptr<Sequence> GetWork(SchedulerWorker* worker) override {
-    auto transaction = priority_queue_.BeginTransaction();
-    return transaction.IsEmpty() ? nullptr : transaction.PopSequence();
+    AutoSchedulerLock auto_lock(lock_);
+    return priority_queue_.IsEmpty() ? nullptr : priority_queue_.PopSequence();
   }
 
-  void DidRunTask() override {}
-
-  void ReEnqueueSequence(scoped_refptr<Sequence> sequence) override {
-    ReEnqueueSequence(
-        SequenceAndTransaction::FromSequence(std::move(sequence)));
+  void DidRunTask(scoped_refptr<Sequence> sequence) override {
+    if (sequence) {
+      ReEnqueueSequence(
+          SequenceAndTransaction::FromSequence(std::move(sequence)));
+    }
   }
 
   void ReEnqueueSequence(SequenceAndTransaction sequence_and_transaction) {
     const SequenceSortKey sequence_sort_key =
         sequence_and_transaction.transaction.GetSortKey();
-    auto transaction = priority_queue_.BeginTransaction();
-    transaction.Push(std::move(sequence_and_transaction.sequence),
-                     sequence_sort_key);
+    AutoSchedulerLock auto_lock(lock_);
+    priority_queue_.Push(std::move(sequence_and_transaction.sequence),
+                         sequence_sort_key);
   }
 
   TimeDelta GetSleepTimeout() override { return TimeDelta::Max(); }
@@ -134,6 +135,7 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   void OnMainExit(SchedulerWorker* /* worker */) override {}
 
   void EnableFlushPriorityQueueSequencesOnDestroyForTesting() {
+    AutoSchedulerLock auto_lock(lock_);
     priority_queue_.EnableFlushSequencesOnDestroyForTesting();
   }
 
@@ -146,7 +148,9 @@ class SchedulerWorkerDelegate : public SchedulerWorker::Delegate {
   // OnMainEntry() and OnCanScheduleSequence() (called when a sequence held up
   // by WillScheduleSequence() in PostTaskNow() can be scheduled).
   SchedulerWorker* worker_ = nullptr;
-  PriorityQueue priority_queue_;
+
+  SchedulerLock lock_;
+  PriorityQueue priority_queue_ GUARDED_BY(lock_);
 
   AtomicThreadRefChecker thread_ref_checker_;
 
@@ -223,7 +227,7 @@ class SchedulerWorkerCOMDelegate : public SchedulerWorkerDelegate {
     MSG msg;
     if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE) != FALSE) {
       Task pump_message_task(FROM_HERE,
-                             Bind(
+                             BindOnce(
                                  [](MSG msg) {
                                    TranslateMessage(&msg);
                                    DispatchMessage(&msg);
@@ -584,8 +588,7 @@ SchedulerSingleThreadTaskRunnerManager::GetSharedSchedulerWorkerForTraits<
 
 void SchedulerSingleThreadTaskRunnerManager::UnregisterSchedulerWorker(
     SchedulerWorker* worker) {
-  // Cleanup uses a SchedulerLock, so call Cleanup() after releasing
-  // |lock_|.
+  // Cleanup uses a SchedulerLock, so call Cleanup() after releasing |lock_|.
   scoped_refptr<SchedulerWorker> worker_to_destroy;
   {
     AutoSchedulerLock auto_lock(lock_);
@@ -594,11 +597,7 @@ void SchedulerSingleThreadTaskRunnerManager::UnregisterSchedulerWorker(
     if (workers_.empty())
       return;
 
-    auto worker_iter =
-        std::find_if(workers_.begin(), workers_.end(),
-                     [worker](const scoped_refptr<SchedulerWorker>& candidate) {
-                       return candidate.get() == worker;
-                     });
+    auto worker_iter = std::find(workers_.begin(), workers_.end(), worker);
     DCHECK(worker_iter != workers_.end());
     worker_to_destroy = std::move(*worker_iter);
     workers_.erase(worker_iter);

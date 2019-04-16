@@ -9,6 +9,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
@@ -441,6 +442,10 @@ void DemoSetupController::ClearDemoRequisition(
     policy::DeviceCloudPolicyManagerChromeOS* policy_manager) {
   if (policy_manager->GetDeviceRequisition() == kDemoRequisition) {
     policy_manager->SetDeviceRequisition(std::string());
+    // If device requisition is |kDemoRequisition|, it means the sub
+    // organization was also set by the demo setup controller, so remove it as
+    // well.
+    policy_manager->SetSubOrganization(std::string());
   }
 }
 
@@ -451,12 +456,26 @@ bool DemoSetupController::IsDemoModeAllowed() {
 }
 
 // static
-// static
 bool DemoSetupController::IsOobeDemoSetupFlowInProgress() {
   const WizardController* const wizard_controller =
       WizardController::default_controller();
   return wizard_controller &&
          wizard_controller->demo_setup_controller() != nullptr;
+}
+
+// static
+std::string DemoSetupController::GetSubOrganizationEmail() {
+  if (!base::FeatureList::IsEnabled(
+          switches::kSupportCountryCustomizationInDemoMode)) {
+    return std::string();
+  }
+  const std::string country =
+      g_browser_process->local_state()->GetString(prefs::kDemoModeCountry);
+  const base::flat_set<std::string> kCountriesWithCustomization(
+      {"dk", "fi", "fr", "nl", "no", "se"});
+  if (kCountriesWithCustomization.contains(country))
+    return "admin-" + country + "@" + DemoSetupController::kDemoModeDomain;
+  return std::string();
 }
 
 DemoSetupController::DemoSetupController() : weak_ptr_factory_(this) {}
@@ -557,6 +576,7 @@ void DemoSetupController::OnDemoResourcesCrOSComponentLoaded() {
           ->GetDeviceCloudPolicyManager();
   DCHECK(policy_manager->GetDeviceRequisition().empty());
   policy_manager->SetDeviceRequisition(kDemoRequisition);
+  policy_manager->SetSubOrganization(GetSubOrganizationEmail());
   policy::EnrollmentConfig config;
   config.mode = policy::EnrollmentConfig::MODE_ATTESTATION;
   config.management_domain = DemoSetupController::kDemoModeDomain;

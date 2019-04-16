@@ -5,7 +5,8 @@
 module page_load_metrics.mojom;
 
 import "mojo/public/mojom/base/time.mojom";
-import "third_party/blink/public/platform/web_feature.mojom";
+import "third_party/blink/public/mojom/web_feature/web_feature.mojom";
+import "url/mojom/origin.mojom";
 
 // TimeDeltas below relative to navigation start.
 struct DocumentTiming {
@@ -224,12 +225,21 @@ struct ResourceDataUpdate {
 
   // Whether this resource was fetched via proxy.
   bool proxy_used;
+
+  // The origin of this resource.
+  url.mojom.Origin origin;
 };
 
 // Metrics about how the page rendered during the browsing session.
 struct PageRenderData {
   // How much visible elements in the frame shifted (bit.ly/lsm-explainer).
   float layout_jank_score;
+};
+
+// Metrics about the time spent in tasks (cpu time) by a frame.
+struct CpuTiming {
+  // Time spent in tasks measured in wall time.
+  mojo_base.mojom.TimeDelta task_time;
 };
 
 // Sent from renderer to browser process when the PageLoadTiming for the
@@ -239,5 +249,6 @@ interface PageLoadMetrics {
                PageLoadMetadata page_load_metadata,
                PageLoadFeatures new_features,
                array<ResourceDataUpdate> resources,
-               PageRenderData render_data);
+               PageRenderData render_data,
+               CpuTiming cpu_load_timing);
 };

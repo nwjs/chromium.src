@@ -17,6 +17,7 @@
 #include "components/browser_sync/profile_sync_service.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/keyed_service/core/service_access_type.h"
+#include "components/sync/device_info/device_info.h"
 #include "components/sync/device_info/device_info_sync_service.h"
 #include "components/sync/device_info/local_device_info_provider.h"
 #include "components/sync/driver/sync_service.h"
@@ -168,7 +169,7 @@ std::string GetSyncCacheGuid() {
       DeviceInfoSyncServiceFactory::GetForBrowserState(browser_state);
   const syncer::LocalDeviceInfoProvider* info_provider =
       service->GetLocalDeviceInfoProvider();
-  return info_provider->GetLocalSyncCacheGUID();
+  return info_provider->GetLocalDeviceInfo()->guid();
 }
 
 void InjectAutofillProfileOnFakeSyncServer(std::string guid,
@@ -181,8 +182,9 @@ void InjectAutofillProfileOnFakeSyncServer(std::string guid,
   autofill_profile->set_guid(guid);
 
   std::unique_ptr<syncer::LoopbackServerEntity> entity =
-      syncer::PersistentUniqueClientEntity::CreateFromEntitySpecifics(
-          guid, entity_specifics, 12345, 12345);
+      syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
+          /*non_unique_name=*/std::string(), /*client_tag=*/guid,
+          entity_specifics, 12345, 12345);
   gSyncFakeServer->InjectEntity(std::move(entity));
 }
 
@@ -271,8 +273,9 @@ void InjectTypedURLOnFakeSyncServer(const std::string& url) {
   typedUrl->add_visit_transitions(sync_pb::SyncEnums::TYPED);
 
   std::unique_ptr<syncer::LoopbackServerEntity> entity =
-      syncer::PersistentUniqueClientEntity::CreateFromEntitySpecifics(
-          url, entitySpecifics, 12345, 12345);
+      syncer::PersistentUniqueClientEntity::CreateFromSpecificsForTesting(
+          /*non_unique_name=*/std::string(), /*client_tag=*/url,
+          entitySpecifics, 12345, 12345);
   gSyncFakeServer->InjectEntity(std::move(entity));
 }
 

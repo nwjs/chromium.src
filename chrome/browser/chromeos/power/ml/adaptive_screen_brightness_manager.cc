@@ -9,6 +9,7 @@
 
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/shell.h"
+#include "base/bind.h"
 #include "base/process/launch.h"
 #include "base/task/post_task.h"
 #include "base/time/clock.h"
@@ -169,7 +170,7 @@ AdaptiveScreenBrightnessManager::CreateInstance() {
   }
 
   chromeos::PowerManagerClient* const power_manager_client =
-      chromeos::DBusThreadManager::Get()->GetPowerManagerClient();
+      chromeos::PowerManagerClient::Get();
   DCHECK(power_manager_client);
   ui::UserActivityDetector* const detector = ui::UserActivityDetector::Get();
   DCHECK(detector);

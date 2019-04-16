@@ -20,8 +20,8 @@ namespace supervised_user_error_page {
 
 namespace {
 
-static const int kAvatarSize1x = 45;
-static const int kAvatarSize2x = 90;
+static const int kAvatarSize1x = 36;
+static const int kAvatarSize2x = 72;
 
 bool ReasonIsAutomatic(FilteringBehaviorReason reason) {
   return reason == ASYNC_CHECKER || reason == BLACKLIST;
@@ -34,7 +34,7 @@ std::string BuildAvatarImageUrl(const std::string& url, int size) {
     // Check if the URL already contains the monogram (-mo) option.
     // In that case, we must use the '-' separator, instead of '/'.
     std::string separator = result.substr(slash - 3, 3) == "/mo" ? "-" : "/";
-    result.insert(slash, separator + "s" + base::IntToString(size) + "-c");
+    result.insert(slash, separator + "s" + base::NumberToString(size) + "-c");
   }
   return result;
 }

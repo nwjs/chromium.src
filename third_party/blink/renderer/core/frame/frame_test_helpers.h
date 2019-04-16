@@ -60,6 +60,7 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/testing/use_mock_scrollbar_settings.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 #define EXPECT_FLOAT_POINT_EQ(expected, actual)    \
@@ -82,15 +83,18 @@
     EXPECT_FLOAT_EQ((expected).Height(), (actual).Height()); \
   } while (false)
 
-namespace blink {
+namespace cc {
+class AnimationHost;
+}
 
+namespace blink {
 class WebFrame;
 class WebLocalFrameImpl;
+struct WebNavigationParams;
 class WebRemoteFrameImpl;
 class WebSettings;
 
 namespace frame_test_helpers {
-
 class TestWebFrameClient;
 class TestWebRemoteFrameClient;
 class TestWebWidgetClient;
@@ -113,6 +117,9 @@ void LoadHistoryItem(WebLocalFrame*,
 // Same as above, but for WebLocalFrame::Reload().
 void ReloadFrame(WebLocalFrame*);
 void ReloadFrameBypassingCache(WebLocalFrame*);
+
+// Fills navigation params if needed. Params should have the proper url set up.
+void FillNavigationParamsResponse(WebNavigationParams*);
 
 // Pumps pending resource requests while waiting for a frame to load. Consider
 // using one of the above helper methods whenever possible.
@@ -170,6 +177,8 @@ WebRemoteFrameImpl* CreateRemoteChild(WebRemoteFrame& parent,
 // A class that constructs and owns a LayerTreeView for blink
 // unit tests.
 class LayerTreeViewFactory {
+  DISALLOW_NEW();
+
  public:
   // Use this to make a LayerTreeView with a stub delegate.
   content::LayerTreeView* Initialize();
@@ -191,8 +200,16 @@ class TestWebWidgetClient : public WebWidgetClient {
 
   // WebWidgetClient:
   void ScheduleAnimation() override { animation_scheduled_ = true; }
+  void SetRootLayer(scoped_refptr<cc::Layer> layer) override;
+  void RegisterViewportLayers(const cc::ViewportLayers& layOAers) override;
+  void RegisterSelection(const cc::LayerSelection& selection) override;
+  void SetBackgroundColor(SkColor color) override;
 
   content::LayerTreeView* layer_tree_view() { return layer_tree_view_; }
+  cc::LayerTreeHost* layer_tree_host() {
+    return layer_tree_view_->layer_tree_host();
+  }
+  cc::AnimationHost* animation_host() { return animation_host_; }
 
   bool AnimationScheduled() { return animation_scheduled_; }
   void ClearAnimationScheduled() { animation_scheduled_ = false; }
@@ -211,6 +228,7 @@ class TestWebWidgetClient : public WebWidgetClient {
 
  private:
   content::LayerTreeView* layer_tree_view_ = nullptr;
+  cc::AnimationHost* animation_host_ = nullptr;
   LayerTreeViewFactory layer_tree_view_factory_;
   bool animation_scheduled_ = false;
   int visually_non_empty_layout_count_ = 0;
@@ -236,6 +254,7 @@ class TestWebViewClient : public WebViewClient {
                       WebNavigationPolicy,
                       bool,
                       WebSandboxFlags,
+                      const FeaturePolicy::FeatureState&,
                       const SessionStorageNamespaceId&) override;
 
  private:
@@ -246,6 +265,8 @@ class TestWebViewClient : public WebViewClient {
 // Convenience class for handling the lifetime of a WebView and its associated
 // mainframe in tests.
 class WebViewHelper {
+  USING_FAST_MALLOC(WebViewHelper);
+
  public:
   WebViewHelper();
   ~WebViewHelper();

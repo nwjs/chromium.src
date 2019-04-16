@@ -176,7 +176,8 @@ class OmniboxView {
 
   // Called when the temporary text has been reverted by the user.  This will
   // reset the user's original selection.
-  virtual void OnRevertTemporaryText() = 0;
+  virtual void OnRevertTemporaryText(const base::string16& display_text,
+                                     const AutocompleteMatch& match) = 0;
 
   // Checkpoints the current edit state before an operation that might trigger
   // a new autocomplete run to open or modify the popup. Call this before
@@ -196,13 +197,6 @@ class OmniboxView {
   // to the rich edit control, the IME window is the relative window. Otherwise,
   // the top-most window is the relative window.
   virtual gfx::NativeView GetRelativeWindowForPopup() const = 0;
-
-  // Returns the width in pixels needed to display the current text. The
-  // returned value includes margins.
-  virtual int GetTextWidth() const = 0;
-
-  // Returns the omnibox's width in pixels.
-  virtual int GetWidth() const = 0;
 
   // Returns true if the user is composing something in an IME.
   virtual bool IsImeComposing() const = 0;

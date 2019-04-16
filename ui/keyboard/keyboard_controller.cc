@@ -104,7 +104,7 @@ bool IsAllowedStateTransition(KeyboardControllerState from,
           {KeyboardControllerState::HIDDEN, KeyboardControllerState::INITIAL},
       };
   return kAllowedStateTransition.count(std::make_pair(from, to)) == 1;
-};
+}
 
 void SetTouchEventLogging(bool enable) {
   // TODO(moshayedi): crbug.com/642863. Revisit when we have mojo interface for
@@ -274,6 +274,10 @@ void KeyboardController::EnableKeyboard(std::unique_ptr<KeyboardUI> ui,
 
   ActivateKeyboardInContainer(
       layout_delegate_->GetContainerForDefaultDisplay());
+
+  // Start preloading the virtual keyboard UI in the background, so that it
+  // shows up faster when needed.
+  LoadKeyboardWindowInBackground();
 }
 
 void KeyboardController::DisableKeyboard() {
@@ -407,9 +411,6 @@ void KeyboardController::Reload() {
   if (!GetKeyboardWindow())
     return;
 
-  // A reload should never try to show virtual keyboard. If keyboard is not
-  // visible before reload, it should stay invisible after reload.
-  show_on_keyboard_window_load_ = false;
   ui_->ReloadKeyboardIfNeeded();
 }
 
@@ -490,17 +491,14 @@ bool KeyboardController::IsKeyboardEnableRequested() const {
     return true;
 
   // Command line overrides extension and touch enabled flags.
-  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kEnableVirtualKeyboard)) {
+  if (IsEnableFlagSet(KeyboardEnableFlag::kCommandLineEnabled))
     return true;
-  }
 
   if (IsEnableFlagSet(KeyboardEnableFlag::kExtensionDisabled))
     return false;
 
   return IsEnableFlagSet(KeyboardEnableFlag::kExtensionEnabled) ||
-         IsEnableFlagSet(KeyboardEnableFlag::kTouchEnabled) ||
-         IsEnableFlagSet(KeyboardEnableFlag::kTemporarilyEnabled);
+         IsEnableFlagSet(KeyboardEnableFlag::kTouchEnabled);
 }
 
 bool KeyboardController::IsKeyboardOverscrollEnabled() const {
@@ -591,10 +589,6 @@ void KeyboardController::HideKeyboard(HideReason reason) {
 
       ui_->HideKeyboardWindow();
       ChangeState(KeyboardControllerState::HIDDEN);
-
-      // Clear the temporary enabled flag when the keyboard is hidden.
-      // Note: This does not actually disable the keyboard.
-      ClearEnableFlag(mojom::KeyboardEnableFlag::kTemporarilyEnabled);
 
       for (KeyboardControllerObserver& observer : observer_list_)
         observer.OnKeyboardHidden(reason == HIDE_REASON_SYSTEM_TEMPORARY);
@@ -763,7 +757,10 @@ void KeyboardController::OnWindowBoundsChanged(
     return;
 
   // |window| could be the root window (for detecting screen rotations) or the
-  // keyboard window (for detecting keyboard bounds changes).
+  // keyboard window (for detecting keyboard bounds changes). For the root
+  // window, |new_bounds| is in screen coordinates. For the keyboard window,
+  // |new_bounds| is also in screen coordinates because VK container has
+  // kUsesScreenCoordinatesKey set.
   if (window == GetRootWindow())
     container_behavior_->SetCanonicalBounds(GetKeyboardWindow(), new_bounds);
   else if (window == GetKeyboardWindow())
@@ -990,6 +987,7 @@ void KeyboardController::ChangeState(KeyboardControllerState state) {
 }
 
 void KeyboardController::ReportLingeringState() {
+  LOG(ERROR) << "KeyboardController lingering in " << StateToStr(state_);
   UMA_HISTOGRAM_ENUMERATION("VirtualKeyboard.LingeringIntermediateState",
                             state_, KeyboardControllerState::COUNT);
 }

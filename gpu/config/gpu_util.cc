@@ -51,9 +51,7 @@ GpuFeatureStatus GetAndroidSurfaceControlFeatureStatus(
   if (!gpu_preferences.enable_android_surface_control)
     return kGpuFeatureStatusDisabled;
 
-  if (!gl::SurfaceControl::IsSupported())
-    return kGpuFeatureStatusDisabled;
-
+  DCHECK(gl::SurfaceControl::IsSupported());
   return kGpuFeatureStatusEnabled;
 #endif
 }
@@ -231,6 +229,10 @@ void AppendWorkaroundsToCommandLine(const GpuFeatureInfo& gpu_feature_info,
   }
   if (gpu_feature_info.IsWorkaroundEnabled(DISABLE_ES3_GL_CONTEXT)) {
     command_line->AppendSwitch(switches::kDisableES3GLContext);
+  }
+  if (gpu_feature_info.IsWorkaroundEnabled(
+          DISABLE_ES3_GL_CONTEXT_FOR_TESTING)) {
+    command_line->AppendSwitch(switches::kDisableES3GLContextForTesting);
   }
 #if defined(OS_WIN)
   if (gpu_feature_info.IsWorkaroundEnabled(DISABLE_DIRECT_COMPOSITION)) {

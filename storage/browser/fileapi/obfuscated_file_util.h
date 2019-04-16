@@ -23,6 +23,7 @@
 #include "storage/browser/blob/shareable_file_reference.h"
 #include "storage/browser/fileapi/file_system_file_util.h"
 #include "storage/browser/fileapi/file_system_url.h"
+#include "storage/browser/fileapi/obfuscated_file_util_delegate.h"
 #include "storage/browser/fileapi/sandbox_directory_database.h"
 #include "storage/browser/fileapi/sandbox_file_system_backend_delegate.h"
 #include "storage/common/fileapi/file_system_types.h"
@@ -102,7 +103,8 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
                      leveldb::Env* env_override,
                      GetTypeStringForURLCallback get_type_string_for_url,
                      const std::set<std::string>& known_type_strings,
-                     SandboxFileSystemBackendDelegate* sandbox_delegate);
+                     SandboxFileSystemBackendDelegate* sandbox_delegate,
+                     bool is_incognito);
   ~ObfuscatedFileUtil() override;
 
   // FileSystemFileUtil overrides.
@@ -187,7 +189,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
   // This method and all methods of its returned class must be called only on
   // the FILE thread.  The caller is responsible for deleting the returned
   // object.
-  AbstractOriginEnumerator* CreateOriginEnumerator();
+  std::unique_ptr<AbstractOriginEnumerator> CreateOriginEnumerator();
 
   // Deletes a directory database from the database list in the ObfuscatedFSFU
   // and destroys the database on the disk.
@@ -211,6 +213,10 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
   // This will rewrite the databases to remove traces of deleted data from disk.
   void RewriteDatabases();
 
+  bool is_incognito() { return is_incognito_; }
+
+  ObfuscatedFileUtilDelegate* delegate() { return delegate_.get(); }
+
  private:
   using FileId = SandboxDirectoryDatabase::FileId;
   using FileInfo = SandboxDirectoryDatabase::FileInfo;
@@ -225,7 +231,8 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
   static ObfuscatedFileUtil* CreateForTesting(
       storage::SpecialStoragePolicy* special_storage_policy,
       const base::FilePath& file_system_directory,
-      leveldb::Env* env_override);
+      leveldb::Env* env_override,
+      bool is_incognito);
 
   base::FilePath GetDirectoryForURL(
       const FileSystemURL& url,
@@ -294,7 +301,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
                                        base::File::Error* error_code);
 
   void InvalidateUsageCache(FileSystemOperationContext* context,
-                            const GURL& origin,
+                            const url::Origin& origin,
                             FileSystemType type);
 
   void MarkUsed();
@@ -325,6 +332,7 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
   scoped_refptr<storage::SpecialStoragePolicy> special_storage_policy_;
   base::FilePath file_system_directory_;
   leveldb::Env* env_override_;
+  bool is_incognito_;
 
   // Used to delete database after a certain period of inactivity.
   int64_t db_flush_delay_seconds_;
@@ -336,6 +344,8 @@ class COMPONENT_EXPORT(STORAGE_BROWSER) ObfuscatedFileUtil
 
   // Not owned.
   SandboxFileSystemBackendDelegate* sandbox_delegate_;
+
+  std::unique_ptr<ObfuscatedFileUtilDelegate> delegate_;
 
   DISALLOW_COPY_AND_ASSIGN(ObfuscatedFileUtil);
 };

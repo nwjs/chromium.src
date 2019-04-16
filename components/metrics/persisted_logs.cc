@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "base/base64.h"
-#include "base/md5.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/sha1.h"
 #include "base/strings/string_number_conversions.h"
@@ -153,6 +152,9 @@ void PersistedLogs::DiscardStagedLog() {
 
 void PersistedLogs::PersistUnsentLogs() const {
   ListPrefUpdate update(local_state_, pref_name_);
+  // TODO(crbug.com/859477): Verify that the preference has been properly
+  // registered.
+  CHECK(update.Get());
   WriteLogsToPrefList(update.Get());
 }
 
@@ -163,7 +165,7 @@ void PersistedLogs::LoadPersistedUnsentLogs() {
 void PersistedLogs::StoreLog(const std::string& log_data) {
   list_.push_back(LogInfo());
   list_.back().Init(metrics_.get(), log_data,
-                    base::Int64ToString(base::Time::Now().ToTimeT()),
+                    base::NumberToString(base::Time::Now().ToTimeT()),
                     signing_key_);
 }
 

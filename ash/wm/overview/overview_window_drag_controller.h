@@ -10,12 +10,13 @@
 #include "ash/ash_export.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "base/macros.h"
-#include "ui/gfx/geometry/point.h"
+#include "ui/gfx/geometry/point_f.h"
 
 namespace ash {
 
 class OverviewItem;
 class OverviewSession;
+class PresentationTimeRecorder;
 
 // The drag controller for an overview window item in overview mode. It updates
 // the position of the corresponding window item using transform while dragging.
@@ -37,11 +38,11 @@ class ASH_EXPORT OverviewWindowDragController {
   explicit OverviewWindowDragController(OverviewSession* overview_session);
   ~OverviewWindowDragController();
 
-  void InitiateDrag(OverviewItem* item, const gfx::Point& location_in_screen);
-  void Drag(const gfx::Point& location_in_screen);
-  void CompleteDrag(const gfx::Point& location_in_screen);
-  void StartSplitViewDragMode(const gfx::Point& location_in_screen);
-  void Fling(const gfx::Point& location_in_screen,
+  void InitiateDrag(OverviewItem* item, const gfx::PointF& location_in_screen);
+  void Drag(const gfx::PointF& location_in_screen);
+  void CompleteDrag(const gfx::PointF& location_in_screen);
+  void StartSplitViewDragMode(const gfx::PointF& location_in_screen);
+  void Fling(const gfx::PointF& location_in_screen,
              float velocity_x,
              float velocity_y);
   void ActivateDraggedWindow();
@@ -60,15 +61,15 @@ class ASH_EXPORT OverviewWindowDragController {
  private:
   // Updates visuals for the user while dragging items around.
   void UpdateDragIndicatorsAndOverviewGrid(
-      const gfx::Point& location_in_screen);
+      const gfx::PointF& location_in_screen);
 
   // Dragged items should not attempt to update the indicators or snap if
   // the drag started in a snap region and has not been dragged pass the
   // threshold.
-  bool ShouldUpdateDragIndicatorsOrSnap(const gfx::Point& event_location);
+  bool ShouldUpdateDragIndicatorsOrSnap(const gfx::PointF& event_location);
 
   SplitViewController::SnapPosition GetSnapPosition(
-      const gfx::Point& location_in_screen) const;
+      const gfx::PointF& location_in_screen) const;
 
   // Returns the expected window grid bounds based on |snap_position|.
   gfx::Rect GetGridBounds(SplitViewController::SnapPosition snap_position);
@@ -84,11 +85,12 @@ class ASH_EXPORT OverviewWindowDragController {
 
   DragBehavior current_drag_behavior_ = DragBehavior::kNoDrag;
 
-  // The location of the previous mouse/touch/gesture event in screen.
-  gfx::Point previous_event_location_;
-
   // The location of the initial mouse/touch/gesture event in screen.
-  gfx::Point initial_event_location_;
+  gfx::PointF initial_event_location_;
+
+  // Stores the bounds of |item_| when a drag is started. Used to calculate the
+  // new bounds on a drag event.
+  gfx::PointF initial_centerpoint_;
 
   // False if the initial drag location was not a snap region, or if it was in
   // a snap region but the drag has since moved out.
@@ -101,6 +103,9 @@ class ASH_EXPORT OverviewWindowDragController {
 
   // Set to true once the bounds of |item_| change.
   bool did_move_ = false;
+
+  // Records the presentation time of window drag operation in overview mode.
+  std::unique_ptr<PresentationTimeRecorder> presentation_time_recorder_;
 
   SplitViewController::SnapPosition snap_position_ = SplitViewController::NONE;
 

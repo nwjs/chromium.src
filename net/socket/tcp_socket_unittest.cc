@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/memory/ref_counted.h"
 #include "base/test/bind_test_util.h"
 #include "base/time/time.h"
@@ -769,6 +770,11 @@ TEST_F(TCPSocketTest, SPWNoAdvance) {
 // works as expected.
 #if defined(OS_ANDROID)
 TEST_F(TCPSocketTest, Tag) {
+  if (!CanGetTaggedBytes()) {
+    DVLOG(0) << "Skipping test - GetTaggedBytes unsupported.";
+    return;
+  }
+
   // Start test server.
   EmbeddedTestServer test_server;
   test_server.AddDefaultHandlers(base::FilePath());
@@ -823,6 +829,11 @@ TEST_F(TCPSocketTest, Tag) {
 }
 
 TEST_F(TCPSocketTest, TagAfterConnect) {
+  if (!CanGetTaggedBytes()) {
+    DVLOG(0) << "Skipping test - GetTaggedBytes unsupported.";
+    return;
+  }
+
   // Start test server.
   EmbeddedTestServer test_server;
   test_server.AddDefaultHandlers(base::FilePath());

@@ -17,7 +17,6 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "net/base/auth.h"
-#include "net/base/host_port_pair.h"
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
 #include "net/base/load_states.h"
@@ -176,7 +175,7 @@ void URLRequestJob::GetLoadTimingInfo(LoadTimingInfo* load_timing_info) const {
   // Only certain request types return more than just request start times.
 }
 
-bool URLRequestJob::GetRemoteEndpoint(IPEndPoint* endpoint) const {
+bool URLRequestJob::GetTransactionRemoteEndpoint(IPEndPoint* endpoint) const {
   return false;
 }
 
@@ -284,8 +283,8 @@ int URLRequestJob::GetResponseCode() const {
   return headers->response_code();
 }
 
-HostPortPair URLRequestJob::GetSocketAddress() const {
-  return HostPortPair();
+IPEndPoint URLRequestJob::GetResponseRemoteEndpoint() const {
+  return IPEndPoint();
 }
 
 void URLRequestJob::OnSuspend() {
@@ -568,7 +567,7 @@ void URLRequestJob::OnDone(const URLRequestStatus& status, bool notify_done) {
     // delegate if we're done because of a synchronous call.
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&URLRequestJob::NotifyDone, weak_factory_.GetWeakPtr()));
+        base::BindOnce(&URLRequestJob::NotifyDone, weak_factory_.GetWeakPtr()));
   }
 }
 

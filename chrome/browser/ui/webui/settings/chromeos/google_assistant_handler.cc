@@ -9,6 +9,7 @@
 #include "ash/public/interfaces/assistant_controller.mojom.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/chromeos/assistant_optin/assistant_optin_ui.h"
@@ -40,6 +41,10 @@ void GoogleAssistantHandler::RegisterMessages() {
       "retrainAssistantVoiceModel",
       base::BindRepeating(&GoogleAssistantHandler::HandleRetrainVoiceModel,
                           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "syncVoiceModelStatus",
+      base::BindRepeating(&GoogleAssistantHandler::HandleSyncVoiceModelStatus,
+                          base::Unretained(this)));
 }
 
 void GoogleAssistantHandler::HandleShowGoogleAssistantSettings(
@@ -58,8 +63,17 @@ void GoogleAssistantHandler::HandleShowGoogleAssistantSettings(
 void GoogleAssistantHandler::HandleRetrainVoiceModel(
     const base::ListValue* args) {
   CHECK_EQ(0U, args->GetSize());
-  chromeos::AssistantOptInDialog::Show(
-      ash::mojom::FlowType::SPEAKER_ID_ENROLLMENT, base::DoNothing());
+  chromeos::AssistantOptInDialog::Show(ash::mojom::FlowType::SPEAKER_ID_RETRAIN,
+                                       base::DoNothing());
+}
+
+void GoogleAssistantHandler::HandleSyncVoiceModelStatus(
+    const base::ListValue* args) {
+  CHECK_EQ(0U, args->GetSize());
+  if (!settings_manager_.is_bound())
+    BindAssistantSettingsManager();
+
+  settings_manager_->SyncSpeakerIdEnrollmentStatus();
 }
 
 void GoogleAssistantHandler::BindAssistantSettingsManager() {

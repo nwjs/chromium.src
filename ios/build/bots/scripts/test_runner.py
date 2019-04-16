@@ -8,6 +8,7 @@ import collections
 import errno
 import glob
 import json
+import logging
 import os
 import plistlib
 import re
@@ -24,8 +25,8 @@ import gtest_utils
 import xctest_utils
 
 
+LOGGER = logging.getLogger(__name__)
 DERIVED_DATA = os.path.expanduser('~/Library/Developer/Xcode/DerivedData')
-
 
 class Error(Exception):
   """Base class for errors."""
@@ -139,7 +140,8 @@ class WprToolsNotFoundError(TestRunnerError):
 class ShardingDisabledError(TestRunnerError):
   """Temporary error indicating that sharding is not yet implemented."""
   def __init__(self):
-    super(ShardingDisabledError, self).__init__('Sharding has not been implemented!')
+    super(ShardingDisabledError, self).__init__(
+      'Sharding has not been implemented!')
 
 
 def get_kif_test_filter(tests, invert=False):
@@ -344,8 +346,10 @@ class TestRunner(object):
       raise XcodeVersionNotFoundError(xcode_build_version)
 
     xcode_info = get_current_xcode_info()
-    print 'Using Xcode version %s build %s at %s' % (
-      xcode_info['version'], xcode_info['build'], xcode_info['path'])
+    LOGGER.info('Using Xcode version %s build %s at %s',
+                 xcode_info['version'],
+                 xcode_info['build'],
+                 xcode_info['path'])
 
     if not os.path.exists(out_dir):
       os.makedirs(out_dir)
@@ -456,6 +460,32 @@ class TestRunner(object):
     """
     raise NotImplementedError
 
+  def set_sigterm_handler(self, handler):
+    """Sets the SIGTERM handler for the test runner.
+
+    This is its own separate function so it can be mocked in tests.
+
+    Args:
+      handler: The handler to be called when a SIGTERM is caught
+
+    Returns:
+      The previous SIGTERM handler for the test runner.
+    """
+    LOGGER.debug('Setting sigterm handler.')
+    return signal.signal(signal.SIGTERM, handler)
+
+  def handle_sigterm(self, proc):
+    """Handles a SIGTERM sent while a test command is executing.
+
+    Will SIGKILL the currently executing test process, then
+    attempt to exit gracefully.
+
+    Args:
+      proc: The currently executing test process.
+    """
+    LOGGER.warning('Sigterm caught during test run. Killing test process.')
+    proc.kill()
+
   def _run(self, cmd, shards=1):
     """Runs the specified command, parsing GTest output.
 
@@ -481,9 +511,9 @@ class TestRunner(object):
       thread_pool = pool.ThreadPool(processes=shards)
       for out, name, ret in thread_pool.imap_unordered(
         self.run_tests, test_shards):
-        print "Simulator %s" % name
+        LOGGER.info('Simulator %s', name)
         for line in out:
-          print line
+          LOGGER.info(line)
           parser.ProcessLine(line)
         returncode = ret if ret else 0
       thread_pool.close()
@@ -497,23 +527,31 @@ class TestRunner(object):
           stdout=subprocess.PIPE,
           stderr=subprocess.STDOUT,
       )
+      old_handler = self.set_sigterm_handler(
+        lambda _signum, _frame: self.handle_sigterm(proc))
+
       while True:
         line = proc.stdout.readline()
         if not line:
           break
         line = line.rstrip()
         parser.ProcessLine(line)
-        print line
+        LOGGER.info(line)
         sys.stdout.flush()
 
+      LOGGER.info('Waiting for test process to terminate.')
       proc.wait()
+      LOGGER.info('Test process terminated.')
+      self.set_sigterm_handler(old_handler)
       sys.stdout.flush()
+      LOGGER.debug('Stdout flushed after test process.')
 
       returncode = proc.returncode
 
     if self.xctest_path and parser.SystemAlertPresent():
       raise SystemAlertPresentError()
 
+    LOGGER.debug('Processing test results.')
     for test in parser.FailedTests(include_flaky=True):
       # Test cases are named as <test group>.<test case>. If the test case
       # is prefixed with "FLAKY_", it should be reported as flaked not failed.
@@ -524,8 +562,7 @@ class TestRunner(object):
 
     result.passed_tests.extend(parser.PassedTests(include_flaky=True))
 
-    print '%s returned %s' % (cmd[0], returncode)
-    print
+    LOGGER.info('%s returned %s\n', cmd[0], returncode)
 
     # iossim can return 5 if it exits noncleanly even if all tests passed.
     # Therefore we cannot rely on process exit code to determine success.
@@ -542,8 +579,7 @@ class TestRunner(object):
         # If the app crashed but not during any particular test case, assume
         # it crashed on startup. Try one more time.
         self.shutdown_and_restart()
-        print 'Crashed on startup, retrying...'
-        print
+        LOGGER.warning('Crashed on startup, retrying...\n')
         result = self._run(cmd)
 
       if result.crashed and not result.crashed_test:
@@ -559,8 +595,8 @@ class TestRunner(object):
           # If the app crashes during a specific test case, then resume at the
           # next test case. This is achieved by filtering out every test case
           # which has already run.
-          print 'Crashed during %s, resuming...' % result.crashed_test
-          print
+          LOGGER.warning('Crashed during %s, resuming...\n',
+                         result.crashed_test)
           result = self._run(self.get_launch_command(
               test_filter=passed + failed.keys() + flaked.keys(), invert=True,
           ))
@@ -569,20 +605,17 @@ class TestRunner(object):
           flaked.update(result.flaked_tests)
       except OSError as e:
         if e.errno == errno.E2BIG:
-          print 'Too many test cases to resume.'
-          print
+          LOGGER.error('Too many test cases to resume.')
         else:
           raise
 
       # Retry failed test cases.
       retry_results = {}
       if self.retries and failed:
-        print '%s tests failed and will be retried.' % len(failed)
-        print
+        LOGGER.warning('%s tests failed and will be retried.\n', len(failed))
         for i in xrange(self.retries):
           for test in failed.keys():
-            print 'Retry #%s for %s.' % (i + 1, test)
-            print
+            LOGGER.info('Retry #%s for %s.\n', i + 1, test)
             retry_result = self._run(self.get_launch_command(
                 test_filter=[test]
             ))
@@ -804,15 +837,22 @@ class SimulatorTestRunner(TestRunner):
 
   def tear_down(self):
     """Performs cleanup actions which must occur after every test launch."""
+    LOGGER.debug('Extracting test data.')
     self.extract_test_data()
+    LOGGER.debug('Retrieving crash reports.')
     self.retrieve_crash_reports()
+    LOGGER.debug('Retrieving derived data.')
     self.retrieve_derived_data()
+    LOGGER.debug('Making desktop screenshots.')
     self.screenshot_desktop()
+    LOGGER.debug('Killing simulators.')
     self.kill_simulators()
+    LOGGER.debug('Wiping simulator.')
     self.wipe_simulator()
     if os.path.exists(self.homedir):
       shutil.rmtree(self.homedir, ignore_errors=True)
       self.homedir = ''
+    LOGGER.debug('End of tear_down.')
 
   def run_tests(self, test_shard=None):
     """Runs passed-in tests. Builds a command and create a simulator to
@@ -876,10 +916,10 @@ class SimulatorTestRunner(TestRunner):
         runtime_id = runtime['identifier']
 
     name = '%s test' % self.platform
-    print 'creating simulator %s' % name
+    LOGGER.info('creating simulator %s', name)
     udid = subprocess.check_output([
       'xcrun', 'simctl', 'create', name, device_type_id, runtime_id]).rstrip()
-    print udid
+    LOGGER.info(udid)
 
     if self.use_trusted_cert:
       if not os.path.exists(self.wpr_tools_path):
@@ -893,7 +933,7 @@ class SimulatorTestRunner(TestRunner):
   def deleteSimulator(self, udid=None):
     """Removes dynamically created simulator devices."""
     if udid:
-      print 'deleting simulator %s' % udid
+      LOGGER.info('deleting simulator %s', udid)
       subprocess.call(['xcrun', 'simctl', 'delete', udid])
 
   def get_launch_command(self, test_filter=None, invert=False, test_shard=None):
@@ -970,7 +1010,7 @@ class SimulatorTestRunner(TestRunner):
         '{}/Library/Developer/CoreSimulator/Devices/*/data/Library'.
         format(os.path.expanduser('~')))
     for trustStore in trustStores:
-      print 'Copying TrustStore to {}'.format(trustStore)
+      LOGGER.info('Copying TrustStore to %s', trustStore)
       if not os.path.exists(trustStore + "/Keychains/"):
         os.makedirs(trustStore + "/Keychains/")
       shutil.copy(cert_path, trustStore + "/Keychains/TrustStore.sqlite3")
@@ -1083,7 +1123,7 @@ class WprProxySimulatorTestRunner(SimulatorTestRunner):
         the output from the test
     '''
 
-    print 'Running test for recipe {}'.format(recipe_path)
+    LOGGER.info('Running test for recipe %s', recipe_path)
     self.wprgo_start(replay_path)
 
     # TODO(crbug.com/881096): Consider reusing get_launch_command
@@ -1119,6 +1159,8 @@ class WprProxySimulatorTestRunner(SimulatorTestRunner):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
+    old_handler = self.set_sigterm_handler(
+      lambda _signum, _frame: self.handle_sigterm(proc))
 
     if self.xctest_path:
       parser = xctest_utils.XCTestLogParser()
@@ -1131,10 +1173,11 @@ class WprProxySimulatorTestRunner(SimulatorTestRunner):
         break
       line = line.rstrip()
       parser.ProcessLine(line)
-      print line
+      LOGGER.info(line)
       sys.stdout.flush()
 
     proc.wait()
+    self.set_sigterm_handler(old_handler)
     sys.stdout.flush()
 
     self.wprgo_stop()
@@ -1156,8 +1199,8 @@ class WprProxySimulatorTestRunner(SimulatorTestRunner):
     # If the matching replay for the recipe doesn't exist, don't run it
     replay_path = '{}/{}'.format(self.replay_path, recipe_name)
     if not os.path.isfile(replay_path):
-      print 'No matching replay file for recipe {}'.format(
-        recipe_path)
+      LOGGER.error('No matching replay file for recipe %s',
+                   recipe_name)
       return False
 
     # if there is no filter, then run tests
@@ -1243,8 +1286,7 @@ class WprProxySimulatorTestRunner(SimulatorTestRunner):
             total_returncode = returncode
           if parser.CompletedWithoutFailure() == False:
             completed_without_failure = False
-          print '%s test returned %s' % (recipe_path, returncode)
-          print
+          LOGGER.info('%s test returned %s\n', recipe_path, returncode)
 
       self.deleteSimulator(udid)
 
@@ -1411,9 +1453,6 @@ class DeviceTestRunner(TestRunner):
       xcode_info = get_current_xcode_info()
       xcode_version = float(xcode_info['version'])
       inject_path = 'usr/lib/libXCTestBundleInject.dylib'
-      # This can be removed once xcode versions < 10 are deprecated.
-      if 10 > xcode_version:
-        inject_path = 'Library/PrivateFrameworks/IDEBundleInjection.framework/'
       self.xctestrun_file = tempfile.mkstemp()[1]
       self.xctestrun_data = {
         'TestTargetName': {
@@ -1471,7 +1510,7 @@ class DeviceTestRunner(TestRunner):
     # in a few hours unexpectedly, which is assumed as an ios beta issue. Should
     # remove this method once the bug is fixed.
     if self.restart:
-      print 'Restarting device, wait for two minutes.'
+      LOGGER.info('Restarting device, wait for two minutes.')
       try:
         subprocess.check_call(
           ['idevicediagnostics', 'restart', '--udid', self.udid])
@@ -1492,7 +1531,7 @@ class DeviceTestRunner(TestRunner):
       ])
     except subprocess.CalledProcessError:
       # TODO(crbug.com/828951): Raise the exception when the bug is fixed.
-      print 'Warning: Failed to retrieve crash reports from the device.'
+      LOGGER.warning('Failed to retrieve crash reports from device.')
 
   def tear_down(self):
     """Performs cleanup actions which must occur after every test launch."""

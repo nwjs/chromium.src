@@ -5,8 +5,10 @@
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_task_environment.h"
 #include "chrome/browser/extensions/content_verifier_test_utils.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -16,7 +18,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
-#include "components/update_client/url_loader_post_interceptor.h"
+#include "components/update_client/net/url_loader_post_interceptor.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/content_verifier.h"
 #include "extensions/browser/extension_registry.h"
@@ -27,7 +29,6 @@
 #include "extensions/browser/updater/manifest_fetch_data.h"
 #include "extensions/common/extension_updater_uma.h"
 #include "extensions/common/extension_urls.h"
-#include "net/url_request/test_url_request_interceptor.h"
 
 namespace extensions {
 
@@ -57,7 +58,7 @@ class UpdateServiceTest : public ExtensionUpdateClientBaseTest,
 
 // This test is parameterized for using JSON or XML serialization. |true| means
 // JSON serialization is used.
-INSTANTIATE_TEST_CASE_P(Parameterized, UpdateServiceTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Parameterized, UpdateServiceTest, testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(UpdateServiceTest, NoUpdate) {
   // Verify that UpdateService runs correctly when there's no update.
@@ -117,7 +118,8 @@ IN_PROC_BROWSER_TEST_P(UpdateServiceTest, NoUpdate) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(kExtensionId, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.10", app.FindKey("version")->GetString());
@@ -189,7 +191,8 @@ IN_PROC_BROWSER_TEST_P(UpdateServiceTest, UpdateCheckError) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(kExtensionId, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.10", app.FindKey("version")->GetString());
@@ -352,7 +355,8 @@ IN_PROC_BROWSER_TEST_P(UpdateServiceTest, SuccessfulUpdate) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(kExtensionId, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.10", app.FindKey("version")->GetString());
@@ -457,7 +461,8 @@ IN_PROC_BROWSER_TEST_P(UpdateServiceTest, PolicyCorrupted) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(kExtensionId, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.0.0.0", app.FindKey("version")->GetString());
@@ -538,6 +543,10 @@ class PolicyUpdateServiceTest : public ExtensionUpdateClientBaseTest,
 
     policy::BrowserPolicyConnector::SetPolicyProviderForTesting(
         &policy_provider_);
+    // ExtensionManagementPolicyUpdater requires a single-threaded context to
+    // call RunLoop::RunUntilIdle internally, and it isn't ready at this setup
+    // moment.
+    base::test::ScopedTaskEnvironment env;
     ExtensionManagementPolicyUpdater management_policy(&policy_provider_);
     management_policy.SetIndividualExtensionAutoInstalled(
         id_, extension_urls::kChromeWebstoreUpdateURL, true /* forced */);
@@ -648,9 +657,9 @@ class PolicyUpdateServiceTest : public ExtensionUpdateClientBaseTest,
 
 // This test is parameterized for using JSON or XML serialization. |true| means
 // JSON serialization is used.
-INSTANTIATE_TEST_CASE_P(Parameterized,
-                        PolicyUpdateServiceTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Parameterized,
+                         PolicyUpdateServiceTest,
+                         testing::Bool());
 
 // Tests that if CheckForExternalUpdates() fails, then we retry reinstalling
 // corrupted policy extensions. For example: if network is unavailable,
@@ -703,7 +712,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUpdateServiceTest, FailedUpdateRetries) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(id_, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.0.0.0", app.FindKey("version")->GetString());
@@ -834,7 +844,8 @@ IN_PROC_BROWSER_TEST_P(PolicyUpdateServiceTest, PolicyCorruptedOnStartup) {
   const std::string update_request =
       std::get<0>(update_interceptor_->GetRequests()[0]);
   if (use_JSON_) {
-    const auto root = base::JSONReader().Read(update_request);
+    const auto root = base::JSONReader::Read(update_request);
+    ASSERT_TRUE(root);
     const auto& app = root->FindKey("request")->FindKey("app")->GetList()[0];
     EXPECT_EQ(id_, app.FindKey("appid")->GetString());
     EXPECT_EQ("0.0.0.0", app.FindKey("version")->GetString());

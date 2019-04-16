@@ -62,7 +62,8 @@ NSString* GetServiceProcessLaunchDSocketKey() {
 
 bool RemoveFromLaunchd() {
   // We're killing a file.
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   base::ScopedCFTypeRef<CFStringRef> name(CopyServiceProcessLaunchDName());
   return Launchd::GetInstance()->DeletePlist(Launchd::User,
                                              Launchd::Agent,
@@ -273,7 +274,8 @@ CFDictionaryRef CreateServiceProcessLaunchdPlist(base::CommandLine* cmd_line,
 // auto launched on the next user login.
 bool ServiceProcessState::AddToAutoRun() {
   // We're creating directories and writing a file.
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   DCHECK(autorun_command_line_.get());
   base::ScopedCFTypeRef<CFStringRef> name(CopyServiceProcessLaunchDName());
   base::ScopedCFTypeRef<CFDictionaryRef> plist(
@@ -342,34 +344,13 @@ void ExecFilePathWatcherCallback::NotifyPathChanged(const base::FilePath& path,
   } else {
     bool in_trash = false;
     NSFileManager* file_manager = [NSFileManager defaultManager];
-    // Apple deprecated FSDetermineIfRefIsEnclosedByFolder() when deploying to
-    // 10.8, but didn't add getRelationship:... until 10.10.  So fall back to
-    // the deprecated function while running on 10.9 (and delete the else block
-    // when Chromium requires OS X 10.10+).
-    if (@available(macOS 10.10, *)) {
-      NSURLRelationship relationship;
-      if ([file_manager getRelationship:&relationship
-                            ofDirectory:NSTrashDirectory
-                               inDomain:0
-                            toItemAtURL:executable_fsref_
-                                  error:nil]) {
-        in_trash = relationship == NSURLRelationshipContains;
-      }
-    } else {
-      DCHECK(base::mac::IsAtMostOS10_9());
-      Boolean fs_in_trash;
-      FSRef ref;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-      if (CFURLGetFSRef(base::mac::NSToCFCast(executable_fsref_.get()), &ref)) {
-        // This is ok because it only happens on 10.9 and won't be needed once
-        // we stop supporting that.
-        OSErr err = FSDetermineIfRefIsEnclosedByFolder(
-            kOnAppropriateDisk, kTrashFolderType, &ref, &fs_in_trash);
-#pragma clang diagnostic pop
-        if (err == noErr && fs_in_trash)
-          in_trash = true;
-      }
+    NSURLRelationship relationship;
+    if ([file_manager getRelationship:&relationship
+                          ofDirectory:NSTrashDirectory
+                             inDomain:0
+                          toItemAtURL:executable_fsref_
+                                error:nil]) {
+      in_trash = relationship == NSURLRelationshipContains;
     }
     if (in_trash) {
       needs_shutdown = true;

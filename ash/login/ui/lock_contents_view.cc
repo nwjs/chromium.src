@@ -22,6 +22,7 @@
 #include "ash/login/ui/login_user_view.h"
 #include "ash/login/ui/non_accessible_view.h"
 #include "ash/login/ui/note_action_launch_button.h"
+#include "ash/login/ui/parent_access_view.h"
 #include "ash/login/ui/scrollable_users_list_view.h"
 #include "ash/login/ui/views_utils.h"
 #include "ash/public/cpp/ash_features.h"
@@ -35,6 +36,7 @@
 #include "ash/system/status_area_widget_delegate.h"
 #include "ash/system/tray/system_tray_notifier.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
@@ -43,10 +45,13 @@
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/user_activity/user_activity_detector.h"
+#include "ui/base/user_activity/user_activity_observer.h"
 #include "ui/display/display.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/manager/managed_display_info.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/vector2d.h"
@@ -129,15 +134,15 @@ class AuthErrorLearnMoreButton : public views::Button,
   DISALLOW_COPY_AND_ASSIGN(AuthErrorLearnMoreButton);
 };
 
-// Returns the first or last focusable child of |root|. If |reverse| is false,
-// this returns the first focusable child. If |reverse| is true, this returns
+// Focuses the first or last focusable child of |root|. If |reverse| is false,
+// this focuses the first focusable child. If |reverse| is true, this focuses
 // the last focusable child.
-views::View* FindFirstOrLastFocusableChild(views::View* root, bool reverse) {
+void FocusFirstOrLastFocusableChild(views::View* root, bool reverse) {
   views::FocusSearch search(root, reverse /*cycle*/,
                             false /*accessibility_mode*/);
   views::FocusTraversable* dummy_focus_traversable;
   views::View* dummy_focus_traversable_view;
-  return search.FindNextFocusableView(
+  views::View* focusable_view = search.FindNextFocusableView(
       root,
       reverse ? views::FocusSearch::SearchDirection::kBackwards
               : views::FocusSearch::SearchDirection::kForwards,
@@ -145,6 +150,8 @@ views::View* FindFirstOrLastFocusableChild(views::View* root, bool reverse) {
       views::FocusSearch::StartingViewPolicy::kSkipStartingView,
       views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
       &dummy_focus_traversable, &dummy_focus_traversable_view);
+  if (focusable_view)
+    focusable_view->RequestFocus();
 }
 
 // Make a section of the text bold.
@@ -274,6 +281,28 @@ struct MediumViewLayout {
 
 }  // namespace
 
+class LockContentsView::AutoLoginUserActivityHandler
+    : public ui::UserActivityObserver {
+ public:
+  AutoLoginUserActivityHandler() {
+    observer_.Add(ui::UserActivityDetector::Get());
+  }
+
+  ~AutoLoginUserActivityHandler() override = default;
+
+  void OnUserActivity(const ui::Event* event) override {
+    if (Shell::Get()->login_screen_controller()) {
+      Shell::Get()->login_screen_controller()->NotifyUserActivity();
+    }
+  }
+
+ private:
+  ScopedObserver<ui::UserActivityDetector, ui::UserActivityObserver> observer_{
+      this};
+
+  DISALLOW_COPY_AND_ASSIGN(AutoLoginUserActivityHandler);
+};
+
 LockContentsView::TestApi::TestApi(LockContentsView* view) : view_(view) {}
 
 LockContentsView::TestApi::~TestApi() = default;
@@ -352,20 +381,15 @@ LockContentsView::LockContentsView(
       screen_type_(screen_type),
       data_dispatcher_(data_dispatcher),
       detachable_base_model_(std::move(detachable_base_model)) {
+  if (screen_type == LockScreen::ScreenType::kLogin)
+    auto_login_user_activity_handler_ =
+        std::make_unique<AutoLoginUserActivityHandler>();
+
   data_dispatcher_->AddObserver(this);
   display_observer_.Add(display::Screen::GetScreen());
   Shell::Get()->login_screen_controller()->AddObserver(this);
   Shell::Get()->system_tray_notifier()->AddSystemTrayFocusObserver(this);
   keyboard::KeyboardController::Get()->AddObserver(this);
-  auth_error_bubble_ = LoginErrorBubble::CreateDefault();
-  supervised_user_deprecation_bubble_ = LoginErrorBubble::CreateDefault();
-  supervised_user_deprecation_bubble_->SetPersistent(true);
-  detachable_base_error_bubble_ = LoginErrorBubble::CreateDefault();
-  detachable_base_error_bubble_->SetPersistent(true);
-  tooltip_bubble_ = new LoginTooltipView(base::UTF8ToUTF16("") /*message*/,
-                                         nullptr /*anchor_view*/);
-  warning_banner_bubble_ = LoginErrorBubble::CreateDefault();
-  warning_banner_bubble_->SetPersistent(true);
 
   // We reuse the focusable state on this view as a signal that focus should
   // switch to the system tray. LockContentsView should otherwise not be
@@ -405,9 +429,27 @@ LockContentsView::LockContentsView(
   expanded_view_->SetVisible(false);
   AddChildView(expanded_view_);
 
+  supervised_user_deprecation_bubble_ = new LoginErrorBubble();
+  supervised_user_deprecation_bubble_->SetPersistent(true);
+  AddChildView(supervised_user_deprecation_bubble_);
+
+  detachable_base_error_bubble_ = new LoginErrorBubble();
+  detachable_base_error_bubble_->SetPersistent(true);
+  AddChildView(detachable_base_error_bubble_);
+
+  tooltip_bubble_ = new LoginTooltipView(base::UTF8ToUTF16("") /*message*/,
+                                         nullptr /*anchor_view*/);
+  AddChildView(tooltip_bubble_);
+
+  warning_banner_bubble_ = new LoginErrorBubble();
+  warning_banner_bubble_->SetPersistent(true);
+  AddChildView(warning_banner_bubble_);
+
+  auth_error_bubble_ = new LoginErrorBubble();
+  AddChildView(auth_error_bubble_);
+
   OnLockScreenNoteStateChanged(initial_note_action_state);
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->AddObserver(this);
   RegisterAccelerators();
 }
 
@@ -425,10 +467,7 @@ LockContentsView::~LockContentsView() {
     Shell::Get()->metrics()->login_metrics_recorder()->RecordNumLoginAttempts(
         unlock_attempt_, false /*success*/);
   }
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(
-      this);
-
-  CleanupBubbles();
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
 }
 
 void LockContentsView::FocusNextUser() {
@@ -800,13 +839,14 @@ void LockContentsView::OnShowEasyUnlockIcon(
   if (!big_user || !big_user->auth_user())
     return;
 
-  if (tooltip_bubble_->IsVisible())
+  if (tooltip_bubble_->visible())
     tooltip_bubble_->Hide();
 
   if (icon->autoshow_tooltip) {
     tooltip_bubble_->SetAnchorView(big_user->auth_user()->password_view());
     tooltip_bubble_->SetText(icon->tooltip);
     tooltip_bubble_->Show();
+    tooltip_bubble_->SetVisible(true);
   }
 }
 
@@ -817,7 +857,7 @@ void LockContentsView::OnShowWarningBanner(const base::string16& message) {
                   "warning banner.";
     return;
   }
-  if (warning_banner_bubble_->IsVisible())
+  if (warning_banner_bubble_->visible())
     warning_banner_bubble_->Hide();
   // Shows warning banner as a persistent error bubble.
   views::Label* label =
@@ -828,14 +868,14 @@ void LockContentsView::OnShowWarningBanner(const base::string16& message) {
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label->SetEnabledColor(SK_ColorWHITE);
 
-  warning_banner_bubble_->SetContent(label);
   warning_banner_bubble_->SetAnchorView(
       CurrentBigUserView()->auth_user()->password_view());
+  warning_banner_bubble_->SetContent(label);
   warning_banner_bubble_->Show();
 }
 
 void LockContentsView::OnHideWarningBanner() {
-  if (warning_banner_bubble_->IsVisible())
+  if (warning_banner_bubble_->visible())
     warning_banner_bubble_->Hide();
 }
 
@@ -982,12 +1022,12 @@ void LockContentsView::OnDetachableBasePairingStatusChanged(
       (pairing_status == DetachableBasePairingStatus::kAuthenticated &&
        detachable_base_model_->PairedBaseMatchesLastUsedByUser(
            *CurrentBigUserView()->GetCurrentUser()->basic_user_info))) {
-    if (detachable_base_error_bubble_->IsVisible())
+    if (detachable_base_error_bubble_->visible())
       detachable_base_error_bubble_->Hide();
     return;
   }
 
-  if (auth_error_bubble_->IsVisible())
+  if (auth_error_bubble_->visible())
     auth_error_bubble_->Hide();
 
   base::string16 error_text =
@@ -1010,6 +1050,19 @@ void LockContentsView::OnDetachableBasePairingStatusChanged(
   // the password without seeing the warning about detachable base change.
   if (GetWidget()->IsActive())
     GetWidget()->GetFocusManager()->ClearFocus();
+}
+
+void LockContentsView::OnSetShowParentAccessDialog(bool show) {
+  if (!primary_big_view_)
+    return;
+
+  if (show) {
+    primary_big_view_->ShowParentAccessView();
+  } else {
+    primary_big_view_->HideParentAccessView();
+  }
+
+  Layout();
 }
 
 void LockContentsView::SetAvatarForUser(const AccountId& account_id,
@@ -1039,7 +1092,7 @@ void LockContentsView::OnFocusLeavingLockScreenApps(bool reverse) {
   if (!reverse || lock_screen_apps_active_)
     FocusNextWidget(reverse);
   else
-    FindFirstOrLastFocusableChild(this, reverse)->RequestFocus();
+    FocusFirstOrLastFocusableChild(this, reverse);
 }
 
 void LockContentsView::OnOobeDialogStateChanged(mojom::OobeDialogState state) {
@@ -1055,7 +1108,7 @@ void LockContentsView::OnFocusLeavingSystemTray(bool reverse) {
   // from the system shelf (or tray) - lock shelf view expect the focus to be
   // taken when it passes it to lock screen view, and can misbehave in case the
   // focus is kept in it.
-  FindFirstOrLastFocusableChild(this, reverse)->RequestFocus();
+  FocusFirstOrLastFocusableChild(this, reverse);
 
   if (lock_screen_apps_active_) {
     Shell::Get()->login_screen_controller()->FocusLockScreenApps(reverse);
@@ -1322,10 +1375,10 @@ void LockContentsView::SwapActiveAuthBetweenPrimaryAndSecondary(
 
 void LockContentsView::OnAuthenticate(bool auth_success) {
   if (auth_success) {
-    if (auth_error_bubble_->IsVisible())
+    if (auth_error_bubble_->visible())
       auth_error_bubble_->Hide();
 
-    if (detachable_base_error_bubble_->IsVisible())
+    if (detachable_base_error_bubble_->visible())
       detachable_base_error_bubble_->Hide();
 
     // Now that the user has been authenticated, update the user's last used
@@ -1524,7 +1577,7 @@ void LockContentsView::OnBigUserChanged() {
     supervised_user_deprecation_bubble_->SetAnchorView(
         CurrentBigUserView()->auth_user()->password_view());
     supervised_user_deprecation_bubble_->Show();
-  } else if (supervised_user_deprecation_bubble_->IsVisible()) {
+  } else if (supervised_user_deprecation_bubble_->visible()) {
     supervised_user_deprecation_bubble_->Hide();
   }
 
@@ -1533,7 +1586,7 @@ void LockContentsView::OnBigUserChanged() {
   OnDetachableBasePairingStatusChanged(
       detachable_base_model_->GetPairingStatus());
 
-  if (!detachable_base_error_bubble_->IsVisible())
+  if (!detachable_base_error_bubble_->visible())
     CurrentBigUserView()->RequestFocus();
 }
 
@@ -1628,9 +1681,6 @@ void LockContentsView::ShowAuthErrorMessage() {
   container->AddChildView(label);
   container->AddChildView(learn_more_button);
 
-  if (auth_error_bubble_->IsVisible())
-    auth_error_bubble_->Hide();
-
   auth_error_bubble_->SetAnchorView(big_view->auth_user()->password_view());
   auth_error_bubble_->SetContent(container);
   auth_error_bubble_->SetPersistent(false);
@@ -1669,6 +1719,10 @@ void LockContentsView::OnEasyUnlockIconTapped() {
     // TODO(jdufault): This should get called as a result of HardlockPod.
     OnTapToUnlockEnabledForUserChanged(user, false /*enabled*/);
   }
+}
+
+void LockContentsView::OnParentAccessValidationFinished(bool access_granted) {
+  OnSetShowParentAccessDialog(false);
 }
 
 keyboard::KeyboardController* LockContentsView::GetKeyboardControllerForView()
@@ -1733,8 +1787,15 @@ LoginBigUserView* LockContentsView::AllocateLoginBigUserView(
   public_account_callbacks.on_public_account_tapped =
       base::BindRepeating(&LockContentsView::OnPublicAccountTapped,
                           base::Unretained(this), is_primary);
+
+  ParentAccessView::Callbacks parent_access_callbacks;
+  parent_access_callbacks.on_finished =
+      base::BindRepeating(&LockContentsView::OnParentAccessValidationFinished,
+                          base::Unretained(this));
+
   return new LoginBigUserView(user, auth_user_callbacks,
-                              public_account_callbacks);
+                              public_account_callbacks,
+                              parent_access_callbacks);
 }
 
 LoginBigUserView* LockContentsView::TryToFindBigUser(const AccountId& user,
@@ -1846,31 +1907,6 @@ void LockContentsView::PerformAction(AcceleratorAction action) {
     default:
       NOTREACHED();
   }
-}
-
-void LockContentsView::CleanupBubbles() {
-  // If any of the error bubbles have been shown once, it is hosted by a
-  // widget under the Ash menu container, so we should Close the widget when we
-  // destroy LockContentsView (otherwise it will live for the entire lifetime of
-  // the Menu container). If a bubble has never been shown, then we can just
-  // delete it, since it is owned directly by LockContentsView.
-  auto cleanup = [](LoginBaseBubbleView* bubble) {
-    if (bubble->GetWidget())
-      bubble->GetWidget()->Close();
-    else
-      delete bubble;
-  };
-
-  cleanup(auth_error_bubble_);
-  auth_error_bubble_ = nullptr;
-  cleanup(detachable_base_error_bubble_);
-  detachable_base_error_bubble_ = nullptr;
-  cleanup(tooltip_bubble_);
-  tooltip_bubble_ = nullptr;
-  cleanup(warning_banner_bubble_);
-  warning_banner_bubble_ = nullptr;
-  cleanup(supervised_user_deprecation_bubble_);
-  supervised_user_deprecation_bubble_ = nullptr;
 }
 
 }  // namespace ash

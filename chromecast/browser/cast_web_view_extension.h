@@ -18,7 +18,6 @@
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
-#include "content/public/common/renderer_preferences.h"
 #include "extensions/browser/extension_host.h"
 #include "extensions/browser/notification_types.h"
 #include "extensions/common/extension.h"
@@ -52,7 +51,6 @@ class CastWebViewExtension : public CastWebView,
   void InitializeWindow(CastWindowManager* window_manager,
                         CastWindowManager::WindowId z_order,
                         VisibilityPriority initial_priority) override;
-  void SetContext(base::Value context) override;
   void GrantScreenAccess() override;
   void RevokeScreenAccess() override;
 

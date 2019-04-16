@@ -14,7 +14,6 @@
 #include "build/build_config.h"
 #include "content/public/common/content_features.h"
 #include "content/renderer/media/stream/media_stream_audio_processor_options.h"
-#include "content/renderer/media/stream/media_stream_audio_source.h"
 #include "content/renderer/media/stream/media_stream_constraints_util.h"
 #include "content/renderer/media/stream/media_stream_constraints_util_sets.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
@@ -23,6 +22,7 @@
 #include "media/base/audio_parameters.h"
 #include "media/base/limits.h"
 #include "third_party/blink/public/common/mediastream/media_stream_controls.h"
+#include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_source.h"
 #include "third_party/blink/public/platform/web_media_constraints.h"
 #include "third_party/blink/public/platform/web_string.h"
 
@@ -73,7 +73,6 @@ struct Score {
     kDisabled = 1,
     kSystem = 2,
     kAec3 = 3,
-    kAec2 = 4
   };
 
   explicit Score(double fitness,
@@ -415,23 +414,21 @@ class EchoCancellationContainer {
         return Score::EcModeScore::kSystem;
       case EchoCancellationType::kEchoCancellationAec3:
         return Score::EcModeScore::kAec3;
-      case EchoCancellationType::kEchoCancellationAec2:
-        return Score::EcModeScore::kAec2;
     }
   }
 
   static base::Optional<EchoCancellationType> ToEchoCancellationType(
       const char* blink_type) {
     std::string blink_type_str = std::string(blink_type);
-    if (blink_type_str == blink::kEchoCancellationTypeBrowser) {
-      return EchoCancellationType::kEchoCancellationAec2;
-    } else if (blink_type_str == blink::kEchoCancellationTypeAec3) {
+    if (blink_type_str == blink::kEchoCancellationTypeBrowser ||
+        blink_type_str == blink::kEchoCancellationTypeAec3) {
       return EchoCancellationType::kEchoCancellationAec3;
-    } else if (blink_type_str == blink::kEchoCancellationTypeSystem) {
-      return EchoCancellationType::kEchoCancellationSystem;
-    } else {
-      return base::nullopt;
     }
+
+    if (blink_type_str == blink::kEchoCancellationTypeSystem)
+      return EchoCancellationType::kEchoCancellationSystem;
+
+    return base::nullopt;
   }
 
   static std::vector<EchoCancellationType> ToEchoCancellationTypes(
@@ -462,10 +459,10 @@ class EchoCancellationContainer {
       types.push_back(EchoCancellationType::kEchoCancellationDisabled);
 
     if (ec_set.Contains(true)) {
-      if (ec_type_set.Contains(blink::kEchoCancellationTypeBrowser))
-        types.push_back(EchoCancellationType::kEchoCancellationAec2);
-      if (ec_type_set.Contains(blink::kEchoCancellationTypeAec3))
+      if (ec_type_set.Contains(blink::kEchoCancellationTypeBrowser) ||
+          ec_type_set.Contains(blink::kEchoCancellationTypeAec3)) {
         types.push_back(EchoCancellationType::kEchoCancellationAec3);
+      }
       if (ec_type_set.Contains(blink::kEchoCancellationTypeSystem))
         types.push_back(EchoCancellationType::kEchoCancellationSystem);
     }
@@ -511,17 +508,6 @@ class EchoCancellationContainer {
             EchoCancellationType::kEchoCancellationSystem) &&
         device_parameters_.effects() & media::AudioParameters::ECHO_CANCELLER) {
       return EchoCancellationType::kEchoCancellationSystem;
-    }
-
-    base::Optional<bool> override_aec3 = GetOverrideAec3();
-    bool use_aec3 = override_aec3.value_or(
-        base::FeatureList::IsEnabled(features::kWebRtcUseEchoCanceller3));
-    if ((use_aec3 && ec_mode_allowed_values_.Contains(
-                         EchoCancellationType::kEchoCancellationAec3)) ||
-        (!use_aec3 && ec_mode_allowed_values_.Contains(
-                          EchoCancellationType::kEchoCancellationAec2))) {
-      return use_aec3 ? EchoCancellationType::kEchoCancellationAec3
-                      : EchoCancellationType::kEchoCancellationAec2;
     }
 
     // If the previous tie breakers were not enough to determine the selected
@@ -587,8 +573,6 @@ class EchoCancellationContainer {
 
     if (ec) {
       return ec_mode_allowed_values_.Contains(
-                 EchoCancellationType::kEchoCancellationAec2) ||
-             ec_mode_allowed_values_.Contains(
                  EchoCancellationType::kEchoCancellationAec3) ||
              ec_mode_allowed_values_.Contains(
                  EchoCancellationType::kEchoCancellationSystem);
@@ -642,8 +626,7 @@ class ProcessingBasedContainer {
       const media::AudioParameters& device_parameters) {
     return ProcessingBasedContainer(
         ProcessingType::kApmProcessed,
-        {EchoCancellationType::kEchoCancellationAec2,
-         EchoCancellationType::kEchoCancellationAec3,
+        {EchoCancellationType::kEchoCancellationAec3,
          EchoCancellationType::kEchoCancellationDisabled},
         BoolSet(), /* goog_audio_mirroring_set */
         BoolSet(), /* goog_auto_gain_control_set */
@@ -955,7 +938,7 @@ class ProcessingBasedContainer {
       ProcessingType processing_type,
       const media::AudioParameters& device_parameters) {
     double fallback_latency =
-        static_cast<double>(kFallbackAudioLatencyMs) / 1000;
+        static_cast<double>(blink::kFallbackAudioLatencyMs) / 1000;
     double device_latency = device_parameters.GetBufferDuration().InSecondsF();
     double allowed_latency = device_parameters.frames_per_buffer() > 0
                                  ? device_latency
@@ -1056,10 +1039,7 @@ class DeviceContainer {
     if (source_info.type() == SourceType::kNone)
       return;
 
-    MediaStreamAudioSource* source = capability.source();
-    boolean_containers_[kHotwordEnabled] =
-        BooleanContainer(BoolSet({source->hotword_enabled()}));
-
+    blink::MediaStreamAudioSource* source = capability.source();
     boolean_containers_[kDisableLocalEcho] =
         BooleanContainer(BoolSet({source->disable_local_echo()}));
 
@@ -1133,12 +1113,6 @@ class DeviceContainer {
                                                    std::string());
     score += sub_score;
 
-    bool hotword_enabled;
-    std::tie(sub_score, hotword_enabled) =
-        boolean_containers_[kHotwordEnabled].SelectSettingsAndScore(
-            constraint_set.hotword_enabled, false);
-    score += sub_score;
-
     bool disable_local_echo;
     std::tie(sub_score, disable_local_echo) =
         boolean_containers_[kDisableLocalEcho].SelectSettingsAndScore(
@@ -1190,7 +1164,7 @@ class DeviceContainer {
     // in case multiple candidates are available.
     return std::make_tuple(
         score,
-        AudioCaptureSettings(device_id, hotword_enabled, disable_local_echo,
+        AudioCaptureSettings(device_id, disable_local_echo,
                              render_to_associated_sink, best_properties));
   }
 
@@ -1209,7 +1183,6 @@ class DeviceContainer {
 
  private:
   enum BooleanContainerId {
-    kHotwordEnabled,
     kDisableLocalEcho,
     kRenderToAssociatedSink,
     kNumBooleanContainerIds
@@ -1224,13 +1197,12 @@ class DeviceContainer {
 
   static constexpr BooleanPropertyContainerInfo
       kBooleanPropertyContainerInfoMap[] = {
-          {kHotwordEnabled, &ConstraintSet::hotword_enabled},
           {kDisableLocalEcho, &ConstraintSet::disable_local_echo},
           {kRenderToAssociatedSink, &ConstraintSet::render_to_associated_sink}};
 
   // Utility function to determine which version of this class should be
   // allocated depending on the |source| provided.
-  static SourceInfo InfoFromSource(MediaStreamAudioSource* source,
+  static SourceInfo InfoFromSource(blink::MediaStreamAudioSource* source,
                                    int effects) {
     SourceType source_type;
     AudioProcessingProperties properties;
@@ -1356,7 +1328,7 @@ AudioDeviceCaptureCapability::AudioDeviceCaptureCapability()
     : parameters_(media::AudioParameters::UnavailableDeviceParams()) {}
 
 AudioDeviceCaptureCapability::AudioDeviceCaptureCapability(
-    MediaStreamAudioSource* source)
+    blink::MediaStreamAudioSource* source)
     : source_(source) {}
 
 AudioDeviceCaptureCapability::AudioDeviceCaptureCapability(
@@ -1426,7 +1398,7 @@ AudioCaptureSettings SelectSettingsAudioCapture(
 }
 
 AudioCaptureSettings CONTENT_EXPORT
-SelectSettingsAudioCapture(MediaStreamAudioSource* source,
+SelectSettingsAudioCapture(blink::MediaStreamAudioSource* source,
                            const blink::WebMediaConstraints& constraints) {
   DCHECK(source);
   if (source->device().type != blink::MEDIA_DEVICE_AUDIO_CAPTURE &&

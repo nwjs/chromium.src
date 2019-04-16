@@ -28,9 +28,8 @@ class CompositedLayerMappingTest : public RenderingTest {
         .RecomputeInterestRect(graphics_layer);
   }
 
-  IntRect ComputeInterestRect(
-      GraphicsLayer* graphics_layer,
-      IntRect previous_interest_rect) {
+  IntRect ComputeInterestRect(GraphicsLayer* graphics_layer,
+                              IntRect previous_interest_rect) {
     return static_cast<CompositedLayerMapping&>(graphics_layer->Client())
         .ComputeInterestRect(graphics_layer, previous_interest_rect);
   }
@@ -2632,17 +2631,10 @@ TEST_F(CompositedLayerMappingTest, SquashingScroll) {
   auto* squashed =
       ToLayoutBoxModelObject(GetLayoutObjectByElementId("squashed"))->Layer();
   EXPECT_EQ(kPaintsIntoGroupedBacking, squashed->GetCompositingState());
-  EXPECT_EQ(
-      LayoutPoint(),
-      squashed->GroupedMapping()->SquashingOffsetFromTransformedAncestor());
 
   GetDocument().View()->LayoutViewport()->ScrollBy(ScrollOffset(0, 25),
                                                    kUserScroll);
   UpdateAllLifecyclePhasesForTest();
-
-  EXPECT_EQ(
-      LayoutPoint(),
-      squashed->GroupedMapping()->SquashingOffsetFromTransformedAncestor());
 }
 
 TEST_F(CompositedLayerMappingTest, SquashingScrollInterestRect) {

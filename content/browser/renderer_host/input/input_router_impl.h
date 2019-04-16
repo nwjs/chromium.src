@@ -156,6 +156,7 @@ class CONTENT_EXPORT InputRouterImpl : public InputRouter,
       const blink::WebGestureEvent& gesture_event,
       const ui::LatencyInfo& latency_info) override;
   bool IsWheelScrollInProgress() override;
+  bool IsAutoscrollInProgress() override;
 
   // TouchpadPinchEventQueueClient
   void SendMouseWheelEventForPinchImmediately(
@@ -223,11 +224,6 @@ class CONTENT_EXPORT InputRouterImpl : public InputRouter,
   InputRouterImplClient* client_;
   InputDispositionHandler* disposition_handler_;
   int frame_tree_node_id_;
-
-  // Whether there are any active flings in the renderer. As the fling
-  // end notification is asynchronous, we use a count rather than a boolean
-  // to avoid races in bookkeeping when starting a new fling.
-  int active_renderer_fling_count_;
 
   // Whether the TouchScrollStarted event has been sent for the current
   // gesture scroll yet.

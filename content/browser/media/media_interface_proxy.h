@@ -47,9 +47,13 @@ class MediaInterfaceProxy : public media::mojom::InterfaceFactory {
   // media::mojom::InterfaceFactory implementation.
   void CreateAudioDecoder(media::mojom::AudioDecoderRequest request) final;
   void CreateVideoDecoder(media::mojom::VideoDecoderRequest request) final;
-  void CreateRenderer(media::mojom::HostedRendererType type,
-                      const std::string& type_specific_id,
-                      media::mojom::RendererRequest request) final;
+  void CreateDefaultRenderer(const std::string& audio_device_id,
+                             media::mojom::RendererRequest request) final;
+#if defined(OS_ANDROID)
+  void CreateFlingingRenderer(const std::string& presentation_id,
+                              media::mojom::RendererRequest request) final;
+  void CreateMediaPlayerRenderer(media::mojom::RendererRequest request) final;
+#endif  // defined(OS_ANDROID)
   void CreateCdm(const std::string& key_system,
                  media::mojom::ContentDecryptionModuleRequest request) final;
   void CreateDecryptor(int cdm_id,
@@ -99,10 +103,6 @@ class MediaInterfaceProxy : public media::mojom::InterfaceFactory {
   void CreateCdmProxyInternal(const base::Token& cdm_guid,
                               media::mojom::CdmProxyRequest request);
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
-
-#if defined(OS_ANDROID)
-  void CreateMediaPlayerRenderer(media::mojom::RendererRequest request);
-#endif
 
   // Safe to hold a raw pointer since |this| is owned by RenderFrameHostImpl.
   RenderFrameHost* const render_frame_host_;

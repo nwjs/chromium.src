@@ -117,7 +117,7 @@ class CORE_EXPORT LayoutTableSection final : public LayoutTableBoxComponent {
 
   void AddCell(LayoutTableCell*, LayoutTableRow*);
 
-  int VBorderSpacingBeforeFirstRow() const;
+  int16_t VBorderSpacingBeforeFirstRow() const;
   int CalcRowLogicalHeight();
   void LayoutRows();
   bool RecalcLayoutOverflow() final;
@@ -265,8 +265,8 @@ class CORE_EXPORT LayoutTableSection final : public LayoutTableBoxComponent {
       TransformState&,
       VisualRectFlags = kDefaultVisualRectFlags) const override;
 
-  bool IsRepeatingHeaderGroup() const { return is_repeating_header_group_; };
-  bool IsRepeatingFooterGroup() const { return is_repeating_footer_group_; };
+  bool IsRepeatingHeaderGroup() const { return is_repeating_header_group_; }
+  bool IsRepeatingFooterGroup() const { return is_repeating_footer_group_; }
 
   void UpdateLayout() override;
 

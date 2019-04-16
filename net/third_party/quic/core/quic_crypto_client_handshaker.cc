@@ -6,8 +6,6 @@
 
 #include <memory>
 
-#include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "net/third_party/quic/core/crypto/crypto_protocol.h"
 #include "net/third_party/quic/core/crypto/crypto_utils.h"
 #include "net/third_party/quic/core/quic_session.h"
@@ -161,11 +159,6 @@ bool QuicCryptoClientHandshaker::WasChannelIDSent() const {
 
 bool QuicCryptoClientHandshaker::WasChannelIDSourceCallbackRun() const {
   return channel_id_source_callback_run_;
-}
-
-QuicLongHeaderType QuicCryptoClientHandshaker::GetLongHeaderType(
-    QuicStreamOffset offset) const {
-  return offset == 0 ? INITIAL : HANDSHAKE;
 }
 
 QuicString QuicCryptoClientHandshaker::chlo_hash() const {
@@ -383,15 +376,15 @@ void QuicCryptoClientHandshaker::DoSendCHLO(
   SendHandshakeMessage(out);
   // Be prepared to decrypt with the new server write key.
   session()->connection()->SetAlternativeDecrypter(
-      ENCRYPTION_INITIAL,
+      ENCRYPTION_ZERO_RTT,
       std::move(crypto_negotiated_params_->initial_crypters.decrypter),
       true /* latch once used */);
   // Send subsequent packets under encryption on the assumption that the
   // server will accept the handshake.
   session()->connection()->SetEncrypter(
-      ENCRYPTION_INITIAL,
+      ENCRYPTION_ZERO_RTT,
       std::move(crypto_negotiated_params_->initial_crypters.encrypter));
-  session()->connection()->SetDefaultEncryptionLevel(ENCRYPTION_INITIAL);
+  session()->connection()->SetDefaultEncryptionLevel(ENCRYPTION_ZERO_RTT);
 
   // TODO(ianswett): Merge ENCRYPTION_REESTABLISHED and
   // ENCRYPTION_FIRST_ESTABLSIHED

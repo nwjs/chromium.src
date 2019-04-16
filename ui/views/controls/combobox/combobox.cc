@@ -4,6 +4,7 @@
 
 #include "ui/views/controls/combobox/combobox.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -195,13 +196,6 @@ class Combobox::ComboboxMenuModel : public ui::MenuModel,
   void ActivatedAt(int index, int event_flags) override { ActivatedAt(index); }
 
   MenuModel* GetSubmenuModelAt(int index) const override { return nullptr; }
-
-  void SetMenuModelDelegate(
-      ui::MenuModelDelegate* menu_model_delegate) override {}
-
-  ui::MenuModelDelegate* GetMenuModelDelegate() const override {
-    return nullptr;
-  }
 
   // Overridden from ComboboxModelObserver:
   void OnComboboxModelChanged(ui::ComboboxModel* model) override {

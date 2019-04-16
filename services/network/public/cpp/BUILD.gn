@@ -85,6 +85,10 @@ jumbo_component("cpp") {
   ]
 
   defines = [ "IS_NETWORK_CPP_IMPL" ]
+
+  if (is_chromecast) {
+    defines += [ "IS_CHROMECAST" ]
+  }
 }
 
 jumbo_component("cpp_base") {
@@ -214,5 +218,18 @@ source_set("tests") {
 
   public_deps = [
     ":buildflags",
+  ]
+}
+
+source_set("manifest") {
+  sources = [
+    "manifest.cc",
+    "manifest.h",
+  ]
+
+  deps = [
+    "//base",
+    "//services/network/public/mojom",
+    "//services/service_manager/public/cpp",
   ]
 }

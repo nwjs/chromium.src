@@ -8,6 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/atomic_sequence_num.h"
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/stl_util.h"
@@ -18,7 +20,7 @@
 #include "content/public/common/service_names.mojom.h"
 #include "content/renderer/service_worker/controller_service_worker_connector.h"
 #include "content/renderer/service_worker/service_worker_subresource_loader.h"
-#include "content/renderer/worker_thread_registry.h"
+#include "content/renderer/worker/worker_thread_registry.h"
 #include "mojo/public/cpp/bindings/strong_associated_binding.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -53,6 +55,12 @@ void CreateSubresourceLoaderFactoryForProviderContext(
 }
 
 }  // namespace
+
+// static
+int ServiceWorkerProviderContext::GetNextId() {
+  static base::AtomicSequenceNumber sequence;
+  return sequence.GetNext();  // We start at zero.
+}
 
 // For service worker clients.
 ServiceWorkerProviderContext::ServiceWorkerProviderContext(
@@ -123,6 +131,12 @@ ServiceWorkerProviderContext::GetSubresourceLoaderFactory() {
   if (!state->subresource_loader_factory) {
     DCHECK(!state->controller_connector);
     DCHECK(state->controller_endpoint);
+
+    blink::mojom::ServiceWorkerContainerHostPtrInfo host_ptr_info =
+        CloneContainerHostPtrInfo();
+    if (!host_ptr_info)
+      return nullptr;
+
     // Create a SubresourceLoaderFactory on a background thread to avoid
     // extra contention on the main thread.
     auto task_runner = base::CreateSequencedTaskRunnerWithTraits(
@@ -130,7 +144,7 @@ ServiceWorkerProviderContext::GetSubresourceLoaderFactory() {
     task_runner->PostTask(
         FROM_HERE,
         base::BindOnce(&CreateSubresourceLoaderFactoryForProviderContext,
-                       CloneContainerHostPtrInfo(),
+                       std::move(host_ptr_info),
                        std::move(state->controller_endpoint), state->client_id,
                        state->fallback_loader_factory->Clone(),
                        mojo::MakeRequest(&state->controller_connector),
@@ -193,6 +207,8 @@ ServiceWorkerProviderContext::CloneContainerHostPtrInfo() {
   DCHECK(blink::ServiceWorkerUtils::IsServicificationEnabled());
   DCHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
   DCHECK(state_for_client_);
+  if (!container_host_)
+    return nullptr;
   blink::mojom::ServiceWorkerContainerHostPtrInfo container_host_ptr_info;
   container_host_->CloneContainerHost(
       mojo::MakeRequest(&container_host_ptr_info));
@@ -206,6 +222,8 @@ void ServiceWorkerProviderContext::OnNetworkProviderDestroyed() {
 void ServiceWorkerProviderContext::PingContainerHost(
     base::OnceClosure callback) {
   DCHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
+  if (!container_host_)
+    return;
   container_host_->Ping(std::move(callback));
 }
 
@@ -224,7 +242,32 @@ void ServiceWorkerProviderContext::DispatchNetworkQuiet() {
     return;
   }
 
+  if (!container_host_)
+    return;
+
   container_host_->HintToUpdateServiceWorker();
+}
+
+void ServiceWorkerProviderContext::NotifyExecutionReady() {
+  DCHECK(main_thread_task_runner_->RunsTasksInCurrentSequence());
+  DCHECK_EQ(provider_type(),
+            blink::mojom::ServiceWorkerProviderType::kForWindow)
+      << "only windows need to send this message; shared workers have "
+         "execution ready set on the browser-side when the response is "
+         "committed";
+  if (!container_host_)
+    return;
+  if (sent_execution_ready_) {
+    // Sometimes a new document can be created for a frame without a proper
+    // navigation, in cases like about:blank and javascript: URLs. In these
+    // cases the provider is not recreated and Blink can tell us that it's
+    // execution ready more than once. The browser-side host doesn't support
+    // changing the URL of the provider in these cases, so just ignore these
+    // notifications.
+    return;
+  }
+  sent_execution_ready_ = true;
+  container_host_->OnExecutionReady();
 }
 
 void ServiceWorkerProviderContext::UnregisterWorkerFetchContext(

@@ -40,6 +40,7 @@ _CONFIG = [
             'base::MakeRefCounted',
             'base::Optional',
             'base::OptionalOrNullptr',
+            'base::PlatformThreadId',
             'base::RefCountedData',
             'base::RunLoop',
             'base::CreateSequencedTaskRunnerWithTraits',
@@ -56,6 +57,7 @@ _CONFIG = [
             'base::TimeTicks',
             'base::ThreadTicks',
             'base::UnguessableToken',
+            'base::UnguessableTokenHash',
             'base::UnsafeSharedMemoryRegion',
             'base::WeakPtr',
             'base::WeakPtrFactory',
@@ -166,6 +168,7 @@ _CONFIG = [
             # Feature list checking.
             'base::Feature.*',
             'base::FEATURE_.+',
+            "base::GetFieldTrial.*",
             'features::.+',
 
             # PartitionAlloc
@@ -177,12 +180,15 @@ _CONFIG = [
             # cc painting types.
             'cc::PaintCanvas',
             'cc::PaintFlags',
+            'cc::NodeHolder',
+            'cc::TextHolder',
 
             # Chromium geometry types.
             'gfx::Point',
             'gfx::Point3F',
             'gfx::Rect',
             'gfx::RectF',
+            'gfx::RRectF',
             'gfx::Size',
             'gfx::SizeF',
             'gfx::Transform',
@@ -197,6 +203,7 @@ _CONFIG = [
 
             # Selection bounds.
             'cc::LayerSelection',
+            'cc::LayerSelectionBound',
             'gfx::SelectionBound',
 
             # cc::Layers.
@@ -212,6 +219,7 @@ _CONFIG = [
             'cc::ScrollbarLayerInterface',
             'cc::ScrollbarOrientation',
             'cc::ScrollbarPart',
+            'cc::ViewportLayers',
 
             # cc::Layer helper enums.
             'cc::HORIZONTAL',
@@ -222,9 +230,23 @@ _CONFIG = [
             'cc::EventListenerClass',
             'cc::EventListenerProperties',
 
+            # Animation
+            'cc::AnimationHost',
+
             # Scrolling
+            'cc::MainThreadScrollingReason',
+            'cc::ScrollSnapAlign',
+            'cc::ScrollSnapType',
             'cc::ScrollOffsetAnimationCurve',
             'cc::ScrollStateData',
+            'cc::SnapAlignment',
+            'cc::SnapAreaData',
+            'cc::SnapAxis',
+            'cc::SnapContainerData',
+            'cc::SnapFlingClient',
+            'cc::SnapFlingController',
+            'cc::SnapSelectionStrategy',
+            'cc::SnapStrictness',
             'gfx::RectToSkRect',
             'gfx::ScrollOffset',
 
@@ -233,7 +255,6 @@ _CONFIG = [
             'url::.+',
 
             # Nested namespaces under the blink namespace
-            'background_scheduler::.+',
             'canvas_heuristic_parameters::.+',
             'compositor_target_property::.+',
             'cors::.+',
@@ -261,11 +282,12 @@ _CONFIG = [
             'style_change_extra_data::.+',
             'style_change_reason::.+',
             'svg_path_parser::.+',
-            'trace_event::.+',
             'touch_action_util::.+',
+            'trace_event::.+',
             'unicode::.+',
             'vector_math::.+',
             'web_core_test_support::.+',
+            'worker_pool::.+',
             'xpath::.+',
             '[a-z_]+_names::.+',
 
@@ -313,8 +335,17 @@ _CONFIG = [
             # STL types such as std::unique_ptr are encouraged.
             'std::.+',
 
+            # UI Keyconverter
+            'ui::DomCode',
+            'ui::DomKey',
+            'ui::KeycodeConverter',
+
             # Blink uses UKM for logging e.g. always-on leak detection (crbug/757374)
             'ukm::.+',
+
+            # Permit using crash keys inside Blink without jumping through
+            # hoops.
+            'crash_reporter::.*CrashKey.*',
         ],
         'disallowed': [
             '.+',
@@ -456,6 +487,14 @@ _CONFIG = [
             'gpu::MailboxHolder',
             'display::Display',
         ],
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/modules/media_capabilities/',
+        ],
+        'allowed': [
+            'media::.+',
+        ]
     },
     {
         'paths': [

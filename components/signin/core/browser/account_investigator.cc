@@ -32,7 +32,7 @@ namespace {
 const char kSignedInHashPrefix[] = "i";
 const char kSignedOutHashPrefix[] = "o";
 
-bool AreSame(const AccountInfo& info, const ListedAccount& account) {
+bool AreSame(const CoreAccountInfo& info, const ListedAccount& account) {
   return info.account_id == account.id;
 }
 
@@ -73,31 +73,19 @@ void AccountInvestigator::Shutdown() {
   timer_.Stop();
 }
 
-void AccountInvestigator::OnAddAccountToCookieCompleted(
-    const std::string& account_id,
-    const GoogleServiceAuthError& error) {
-  // This hook isn't particularly useful for us. Most cookie jar changes fly by
-  // without invoking this method, and some sign ins cause this method can get
-  // called serveral times.
-}
-
 void AccountInvestigator::OnAccountsInCookieUpdated(
     const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
-    const GoogleServiceAuthError& error) {
-  OnGaiaAccountsInCookieUpdated(accounts_in_cookie_jar_info.signed_in_accounts,
-                                accounts_in_cookie_jar_info.signed_out_accounts,
-                                error);
-}
-
-void AccountInvestigator::OnGaiaAccountsInCookieUpdated(
-    const std::vector<ListedAccount>& signed_in_accounts,
-    const std::vector<ListedAccount>& signed_out_accounts,
     const GoogleServiceAuthError& error) {
   if (error != GoogleServiceAuthError::AuthErrorNone()) {
     // If we are pending periodic reporting, leave the flag set, and we will
     // continue next time the ListAccounts call succeeds.
     return;
   }
+
+  const std::vector<ListedAccount>& signed_in_accounts(
+      accounts_in_cookie_jar_info.signed_in_accounts);
+  const std::vector<ListedAccount>& signed_out_accounts(
+      accounts_in_cookie_jar_info.signed_out_accounts);
 
   // Handling this is tricky. We could be here because there was a change. We
   // could be here because we tried to do periodic reporting but there wasn't
@@ -168,7 +156,7 @@ std::string AccountInvestigator::HashAccounts(
 
 // static
 AccountRelation AccountInvestigator::DiscernRelation(
-    const AccountInfo& info,
+    const CoreAccountInfo& info,
     const std::vector<ListedAccount>& signed_in_accounts,
     const std::vector<ListedAccount>& signed_out_accounts) {
   if (signed_in_accounts.empty() && signed_out_accounts.empty()) {

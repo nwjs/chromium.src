@@ -27,7 +27,7 @@ class COMPONENT_EXPORT(LEARNING_COMMON) Value {
  public:
   Value();
   template <typename T>
-  explicit Value(T x) : value_(x) {
+  explicit Value(const T& x) : value_(x) {
     // We want to rule out mostly pointers, since they wouldn't make much sense.
     // Note that the implicit cast would likely fail anyway.
     static_assert(std::is_arithmetic<T>::value || std::is_enum<T>::value,
@@ -38,6 +38,10 @@ class COMPONENT_EXPORT(LEARNING_COMMON) Value {
   explicit Value(const std::string& x);
 
   Value(const Value& other);
+  Value(Value&&) noexcept;
+
+  Value& operator=(const Value&);
+  Value& operator=(Value&&) noexcept;
 
   bool operator==(const Value& rhs) const;
   bool operator!=(const Value& rhs) const;

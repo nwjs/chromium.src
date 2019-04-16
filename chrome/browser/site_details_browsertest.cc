@@ -805,7 +805,8 @@ IN_PROC_BROWSER_TEST_F(SiteDetailsBrowserTest, DISABLED_IsolateExtensions) {
   // Navigate tab1 to an extension3 page with an extension3 iframe. There should
   // be three processes estimated by IsolateExtensions: one for extension3, one
   // for extension1's background page, and one for the web iframe in tab2.
-  browser()->tab_strip_model()->ActivateTabAt(0, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      0, {TabStripModel::GestureType::kOther});
   ui_test_utils::NavigateToURL(browser(),
                                extension3->GetResourceURL("blank_iframe.html"));
   details = new TestMemoryDetails();
@@ -1047,8 +1048,10 @@ IN_PROC_BROWSER_TEST_F(SiteDetailsBrowserTest,
 
 // Verifies that the UMA counter for SiteInstances in a BrowsingInstance is
 // correct when using tabs with web pages.
+//
+// Disabled since it's flaky. https://crbug.com/934900
 IN_PROC_BROWSER_TEST_F(SiteDetailsBrowserTest,
-                       VerifySiteInstanceCountInBrowsingInstance) {
+                       DISABLED_VerifySiteInstanceCountInBrowsingInstance) {
   // Page with 14 nested oopifs across 9 sites (a.com through i.com).
   GURL abcdefghi_url = embedded_test_server()->GetURL(
       "a.com",

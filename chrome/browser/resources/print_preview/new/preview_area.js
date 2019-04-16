@@ -92,6 +92,7 @@ Polymer({
         'settings.selectionOnly.value, settings.scaling.value, ' +
         'settings.rasterize.value, destination)',
     'onMarginsChanged_(settings.margins.value)',
+    'onCustomScalingChanged_(settings.customScaling.value)',
     'onCustomMarginsChanged_(settings.customMargins.value)',
     'onMediaSizeChanged_(settings.mediaSize.value)',
     'onPagesPerSheetChanged_(settings.pagesPerSheet.value)',
@@ -556,11 +557,20 @@ Polymer({
   },
 
   /** @private */
+  onCustomScalingChanged_: function() {
+    // If the scaling value is 100, changing between default and custom scaling
+    // has no effect on the preview ticket. Only regenerate for scaling != 100.
+    if (this.getSettingValue('scaling') !== '100') {
+      this.onSettingsChanged_();
+    }
+  },
+
+  /** @private */
   onCustomMarginsChanged_: function() {
     const newValue =
         /** @type {!print_preview.MarginsSetting} */ (
             this.getSettingValue('customMargins'));
-    if (!!this.lastCustomMargins_ &&
+    if (this.lastCustomMargins_ &&
         this.lastCustomMargins_.marginTop !== undefined &&
         this.getSettingValue('margins') ==
             print_preview.ticket_items.MarginsTypeValue.CUSTOM &&
@@ -578,7 +588,7 @@ Polymer({
     const newValue =
         /** @type {!print_preview_new.MediaSizeValue} */ (
             this.getSettingValue('mediaSize'));
-    if (!!this.lastMediaSize_ &&
+    if (this.lastMediaSize_ &&
         (newValue.height_microns != this.lastMediaSize_.height_microns ||
          newValue.width_microns != this.lastMediaSize_.width_microns)) {
       this.onSettingsChanged_();
@@ -625,7 +635,9 @@ Polymer({
       requestID: this.inFlightRequestId_,
       previewModifiable: this.documentModifiable,
       fitToPageEnabled: this.getSettingValue('fitToPage'),
-      scaleFactor: parseInt(this.getSettingValue('scaling'), 10),
+      scaleFactor: this.getSettingValue('customScaling') ?
+          parseInt(this.getSettingValue('scaling'), 10) :
+          100,
       shouldPrintBackgrounds: this.getSettingValue('cssBackground'),
       shouldPrintSelectionOnly: this.getSettingValue('selectionOnly'),
       // NOTE: Even though the remaining fields don't directly relate to the

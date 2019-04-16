@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/logging.h"
@@ -1887,7 +1888,7 @@ void FakeDriveService::GetChangeListInternal(
         max_results));
     if (start_changestamp > 0) {
       next_url = net::AppendOrReplaceQueryParameter(
-          next_url, "changestamp", base::Int64ToString(start_changestamp));
+          next_url, "changestamp", base::NumberToString(start_changestamp));
     }
     if (!search_query.empty()) {
       next_url = net::AppendOrReplaceQueryParameter(
@@ -1915,7 +1916,7 @@ void FakeDriveService::GetChangeListInternal(
 
 GURL FakeDriveService::GetNewUploadSessionUrl() {
   return GURL("https://upload_session_url/" +
-              base::Int64ToString(next_upload_sequence_number_++));
+              base::NumberToString(next_upload_sequence_number_++));
 }
 
 google_apis::CancelCallback FakeDriveService::AddPermission(

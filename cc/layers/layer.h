@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <array>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -34,8 +35,8 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/rect.h"
-#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/scroll_offset.h"
+#include "ui/gfx/rrect_f.h"
 #include "ui/gfx/transform.h"
 
 namespace base {
@@ -158,6 +159,10 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // background_color(), but if the background_color() is opaque (and this layer
   // claims to not be), then SK_ColorTRANSPARENT is returned.
   SkColor SafeOpaqueBackgroundColor() const;
+  // For testing, return the actual stored value.
+  SkColor ActualSafeOpaqueBackgroundColorForTesting() const {
+    return safe_opaque_background_color_;
+  }
 
   // Set and get the position of this layer, relative to its parent. This is
   // specified in layer space, which excludes device scale and page scale
@@ -234,6 +239,14 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // SetNeedsDisplay() that have not been committed to the compositor thread.
   const gfx::Rect& update_rect() const { return inputs_.update_rect; }
 
+  // Set or get the rounded corner radii which is applied to the layer and its
+  // subtree (as if they are together as a single composited entity) when
+  // blitting into their target. Setting this makes the layer masked to bounds.
+  void SetRoundedCorner(const std::array<uint32_t, 4>& corner_radii);
+  const std::array<uint32_t, 4>& corner_radii() const {
+    return inputs_.corner_radii;
+  }
+
   // Set or get the opacity which should be applied to the contents of the layer
   // and its subtree (together as a single composited entity) when blending them
   // into their target. Note that this does not speak to the contents of this
@@ -284,8 +297,8 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
     return inputs_.backdrop_filters;
   }
 
-  void SetBackdropFilterBounds(const gfx::RectF& backdrop_filter_bounds);
-  const gfx::RectF& backdrop_filter_bounds() const {
+  void SetBackdropFilterBounds(const gfx::RRectF& backdrop_filter_bounds);
+  const gfx::RRectF& backdrop_filter_bounds() const {
     return inputs_.backdrop_filter_bounds;
   }
 
@@ -607,6 +620,11 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // Called on the scroll layer to trigger showing the overlay scrollbars.
   void ShowScrollbars() { needs_show_scrollbars_ = true; }
 
+  // Captures text content within the given |rect| and returns the associated
+  // NodeHolder in content.
+  virtual void CaptureContent(const gfx::Rect& rect,
+                              std::vector<NodeHolder>* content);
+
   // For tracing. Gets a recorded rasterization of this layer's contents that
   // can be displayed inside representations of this layer. May return null, in
   // which case the layer won't be shown with any content in the tracing
@@ -872,6 +890,12 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
   // they are marked as needing to be rebuilt.
   void UpdateScrollOffset(const gfx::ScrollOffset&);
 
+  // Returns true if any of the corner has a non-zero radius set.
+  bool HasRoundedCorner() const {
+    return corner_radii()[0] + corner_radii()[1] + corner_radii()[2] +
+           corner_radii()[3];
+  }
+
   // Encapsulates all data, callbacks or interfaces received from the embedder.
   struct Inputs {
     explicit Inputs(int layer_id);
@@ -920,9 +944,13 @@ class CC_EXPORT Layer : public base::RefCounted<Layer> {
 
     FilterOperations filters;
     FilterOperations backdrop_filters;
-    gfx::RectF backdrop_filter_bounds;
+    gfx::RRectF backdrop_filter_bounds;
     gfx::PointF filters_origin;
     float backdrop_filter_quality;
+
+    // Corner clip radius for the 4 corners of the layer in the following order:
+    //     top left, top right, bottom right, bottom left
+    std::array<uint32_t, 4> corner_radii;
 
     gfx::ScrollOffset scroll_offset;
 

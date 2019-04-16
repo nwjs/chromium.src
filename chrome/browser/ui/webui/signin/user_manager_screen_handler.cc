@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
@@ -106,8 +107,8 @@ std::string GetAvatarImage(const ProfileAttributesEntry* entry) {
   // it will be pixelated when displayed in the User Manager, so we should
   // return the placeholder avatar instead.
   gfx::Image avatar_image = entry->GetAvatarIcon();
-  if (avatar_image.Width() <= profiles::kAvatarIconWidth ||
-      avatar_image.Height() <= profiles::kAvatarIconHeight ) {
+  if (avatar_image.Width() <= profiles::kAvatarIconSize ||
+      avatar_image.Height() <= profiles::kAvatarIconSize) {
     avatar_image = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
         profiles::GetPlaceholderAvatarIconResourceID());
   }

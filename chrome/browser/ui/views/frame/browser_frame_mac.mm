@@ -241,10 +241,7 @@ void BrowserFrameMac::ValidateUserInterfaceItem(
     }
     case IDC_WINDOW_MUTE_SITE: {
       TabStripModel* model = browser->tab_strip_model();
-      bool will_mute =
-          base::FeatureList::IsEnabled(features::kSoundContentSetting)
-              ? model->WillContextMenuMuteSites(model->active_index())
-              : model->WillContextMenuMute(model->active_index());
+      bool will_mute = model->WillContextMenuMuteSites(model->active_index());
       // Menu items may be validated during browser startup, before the
       // TabStripModel has been populated.
       result->new_toggle_state = !model->empty() && !will_mute;
@@ -302,9 +299,7 @@ void BrowserFrameMac::PopulateCreateWindowParams(
   if (browser_view_->IsBrowserTypeNormal() ||
       browser_view_->IsBrowserTypeHostedApp()) {
     params->window_class = views_bridge_mac::mojom::WindowClass::kBrowser;
-
-    if (@available(macOS 10.10, *))
-      params->style_mask |= NSFullSizeContentViewWindowMask;
+    params->style_mask |= NSFullSizeContentViewWindowMask;
 
     // Ensure tabstrip/profile button are visible.
     params->titlebar_appears_transparent = true;

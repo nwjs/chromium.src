@@ -37,8 +37,9 @@ bool AutofillDataModel::UseDateEqualsInSeconds(
   return !((other->use_date() - use_date()).InSeconds());
 }
 
-bool AutofillDataModel::CompareFrecency(const AutofillDataModel* other,
-                                        base::Time comparison_time) const {
+bool AutofillDataModel::HasGreaterFrecencyThan(
+    const AutofillDataModel* other,
+    base::Time comparison_time) const {
   double score = GetFrecencyScore(comparison_time);
   double other_score = other->GetFrecencyScore(comparison_time);
 
@@ -77,6 +78,12 @@ double AutofillDataModel::GetFrecencyScore(base::Time time) const {
 
 bool AutofillDataModel::IsDeletable() const {
   return use_date_ < AutofillClock::Now() - kDisusedDataModelDeletionTimeDelta;
+}
+
+AutofillDataModel::ValidityState AutofillDataModel::GetValidityState(
+    ServerFieldType type,
+    AutofillDataModel::ValidationSource source) const {
+  return AutofillDataModel::UNSUPPORTED;
 }
 
 }  // namespace autofill

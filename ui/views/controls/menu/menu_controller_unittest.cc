@@ -4,14 +4,18 @@
 
 #include "ui/views/controls/menu/menu_controller.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/message_loop/message_loop.h"
 #include "base/single_thread_task_runner.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
+#include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_node_data.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/event_handler.h"
@@ -19,6 +23,8 @@
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_controller_delegate.h"
 #include "ui/views/controls/menu/menu_delegate.h"
 #include "ui/views/controls/menu/menu_host.h"
@@ -350,15 +356,17 @@ class MenuControllerTest : public ViewsTestBase {
   }
 
   gfx::Rect CalculateMenuBounds(const MenuBoundsOptions& options) {
-    menu_controller_->state_.anchor = options.menu_anchor;
-    menu_controller_->state_.initial_bounds = options.anchor_bounds;
-    menu_controller_->state_.monitor_bounds = options.monitor_bounds;
-    menu_item_->SetActualMenuPosition(options.menu_position);
-    menu_item_->GetSubmenu()->GetScrollViewContainer()->SetPreferredSize(
-        options.menu_size);
-    bool resulting_direction;
+    SetUpMenuControllerForCalculateBounds(options);
+    bool is_leading;
     return menu_controller_->CalculateMenuBounds(menu_item_.get(), true,
-                                                 &resulting_direction);
+                                                 &is_leading);
+  }
+
+  gfx::Rect CalculateBubbleMenuBounds(const MenuBoundsOptions& options) {
+    SetUpMenuControllerForCalculateBounds(options);
+    bool is_leading;
+    return menu_controller_->CalculateBubbleMenuBounds(menu_item_.get(), true,
+                                                       &is_leading);
   }
 
 #if defined(USE_AURA)
@@ -418,6 +426,102 @@ class MenuControllerTest : public ViewsTestBase {
     test_views_delegate_->set_release_ref_callback(base::Bind(
         &MenuControllerTest::DestroyMenuController, base::Unretained(this)));
     menu_controller_->ExitMenu();
+  }
+
+  void TestMenuFitsOnScreen(MenuAnchorPosition menu_anchor_position) {
+    SCOPED_TRACE(
+        base::StringPrintf("MenuAnchorPosition: %d\n", menu_anchor_position));
+    MenuBoundsOptions options;
+    options.menu_anchor = menu_anchor_position;
+    const int display_size = 500;
+    options.monitor_bounds = gfx::Rect(0, 0, display_size, display_size);
+
+    // Simulate a bottom shelf with a tall menu.
+    const int button_size = 50;
+    options.anchor_bounds = gfx::Rect(
+        display_size / 2, display_size - button_size, button_size, button_size);
+    gfx::Rect final_bounds = CalculateBubbleMenuBounds(options);
+
+    // Adjust the final bounds to not include the shadow and border.
+    const gfx::Insets border_and_shadow_insets =
+        BubbleBorder::GetBorderAndShadowInsets(
+            MenuConfig::instance().touchable_menu_shadow_elevation);
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu will show on screen.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+
+    // Simulate a left shelf with a tall menu.
+    options.anchor_bounds =
+        gfx::Rect(0, display_size / 2, button_size, button_size);
+    final_bounds = CalculateBubbleMenuBounds(options);
+
+    // Adjust the final bounds to not include the shadow and border.
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu will show on screen.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+
+    // Simulate right shelf with a tall menu.
+    options.anchor_bounds = gfx::Rect(
+        display_size - button_size, display_size / 2, button_size, button_size);
+    final_bounds = CalculateBubbleMenuBounds(options);
+
+    // Adjust the final bounds to not include the shadow and border.
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu will show on screen.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+  }
+
+  void TestMenuFitsOnScreenSmallAnchor(
+      MenuAnchorPosition menu_anchor_position) {
+    SCOPED_TRACE(
+        base::StringPrintf("MenuAnchorPosition: %d\n", menu_anchor_position));
+    MenuBoundsOptions options;
+    options.menu_anchor = menu_anchor_position;
+    const int display_size = 500;
+    options.monitor_bounds = gfx::Rect(0, 0, display_size, display_size);
+
+    // Simulate a click on the top left corner.
+    options.anchor_bounds = gfx::Rect(0, 0, 0, 0);
+    gfx::Rect final_bounds = CalculateBubbleMenuBounds(options);
+
+    // Adjust the final bounds to not include the shadow and border.
+    const gfx::Insets border_and_shadow_insets =
+        BubbleBorder::GetBorderAndShadowInsets(
+            MenuConfig::instance().touchable_menu_shadow_elevation);
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu is within the monitor bounds.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+
+    // Simulate a click on the bottom left corner.
+    options.anchor_bounds = gfx::Rect(0, display_size, 0, 0);
+    final_bounds = CalculateBubbleMenuBounds(options);
+    // Adjust the final bounds to not include the shadow and border.
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu is within the monitor bounds.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+
+    // Simulate a click on the top right corner.
+    options.anchor_bounds = gfx::Rect(display_size, 0, 0, 0);
+    final_bounds = CalculateBubbleMenuBounds(options);
+    // Adjust the final bounds to not include the shadow and border.
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu is within the monitor bounds.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
+
+    // Simulate a click on the bottom right corner.
+    options.anchor_bounds = gfx::Rect(display_size, display_size, 0, 0);
+    final_bounds = CalculateBubbleMenuBounds(options);
+    // Adjust the final bounds to not include the shadow and border.
+    final_bounds.Inset(border_and_shadow_insets);
+
+    // Test that the menu is within the monitor bounds.
+    EXPECT_TRUE(options.monitor_bounds.Contains(final_bounds));
   }
 
  protected:
@@ -501,8 +605,8 @@ class MenuControllerTest : public ViewsTestBase {
     menu_controller_->SetDropMenuItem(target, position);
   }
 
-  void SetIsCombobox(bool is_combobox) {
-    menu_controller_->set_is_combobox(is_combobox);
+  void SetComboboxType(MenuController::ComboboxType combobox_type) {
+    menu_controller_->set_combobox_type(combobox_type);
   }
 
   void SetSelectionOnPointerDown(SubmenuView* source,
@@ -540,6 +644,15 @@ class MenuControllerTest : public ViewsTestBase {
     menu_controller_->state_.item = menu_item()->GetSubmenu()->GetMenuItemAt(0);
     menu_controller_->StartDrag(
         menu_item()->GetSubmenu()->GetMenuItemAt(0)->CreateSubmenu(), location);
+  }
+
+  void SetUpMenuControllerForCalculateBounds(const MenuBoundsOptions& options) {
+    menu_controller_->state_.anchor = options.menu_anchor;
+    menu_controller_->state_.initial_bounds = options.anchor_bounds;
+    menu_controller_->state_.monitor_bounds = options.monitor_bounds;
+    menu_item_->SetActualMenuPosition(options.menu_position);
+    menu_item_->GetSubmenu()->GetScrollViewContainer()->SetPreferredSize(
+        options.menu_size);
   }
 
   GestureTestWidget* owner() { return owner_.get(); }
@@ -601,6 +714,10 @@ class MenuControllerTest : public ViewsTestBase {
 
   bool SelectionWraps() {
     return MenuConfig::instance().arrow_key_selection_wraps;
+  }
+
+  void OpenMenu(MenuItemView* parent) {
+    menu_controller_->OpenMenuImpl(parent, true);
   }
 
  private:
@@ -904,7 +1021,7 @@ TEST_F(MenuControllerTest, PreviousSelectedItem) {
 
 // Tests that opening menu and calling SelectByChar works correctly.
 TEST_F(MenuControllerTest, SelectByChar) {
-  SetIsCombobox(true);
+  SetComboboxType(MenuController::kReadonlyCombobox);
 
   // Handle null character should do nothing.
   SelectByChar(0);
@@ -1679,6 +1796,20 @@ TEST_F(MenuControllerTest, CalculateMenuBoundsMonitorFitTest) {
   EXPECT_EQ(expected, CalculateMenuBounds(options));
 }
 
+// Test that menus show up on screen with non-zero sized anchors.
+TEST_F(MenuControllerTest, TestMenuFitsOnScreen) {
+  TestMenuFitsOnScreen(MENU_ANCHOR_BUBBLE_TOUCHABLE_ABOVE);
+  TestMenuFitsOnScreen(MENU_ANCHOR_BUBBLE_TOUCHABLE_LEFT);
+  TestMenuFitsOnScreen(MENU_ANCHOR_BUBBLE_TOUCHABLE_RIGHT);
+}
+
+// Test that menus show up on screen with zero sized anchors.
+TEST_F(MenuControllerTest, TestMenuFitsOnScreenSmallAnchor) {
+  TestMenuFitsOnScreenSmallAnchor(MENU_ANCHOR_BUBBLE_TOUCHABLE_ABOVE);
+  TestMenuFitsOnScreenSmallAnchor(MENU_ANCHOR_BUBBLE_TOUCHABLE_LEFT);
+  TestMenuFitsOnScreenSmallAnchor(MENU_ANCHOR_BUBBLE_TOUCHABLE_RIGHT);
+}
+
 // Test that a menu that was originally drawn below the anchor does not get
 // squished or move above the anchor when it grows vertically and horizontally
 // beyond the monitor bounds.
@@ -1997,6 +2128,210 @@ TEST_F(MenuControllerTest, NoUseAfterFreeWhenMenuCanceledOnMousePress) {
 
   // Close to remove observers before test TearDown.
   sub_menu->Close();
+}
+
+TEST_F(MenuControllerTest, SetSelectionIndices_MenuItemsOnly) {
+  MenuItemView* const item1 = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  MenuItemView* const item2 = menu_item()->GetSubmenu()->GetMenuItemAt(1);
+  MenuItemView* const item3 = menu_item()->GetSubmenu()->GetMenuItemAt(2);
+  MenuItemView* const item4 = menu_item()->GetSubmenu()->GetMenuItemAt(3);
+  OpenMenu(menu_item());
+
+  ui::AXNodeData data;
+  item1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(3, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item4->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+}
+
+TEST_F(MenuControllerTest,
+       SetSelectionIndices_MenuItemsOnly_SkipHiddenAndDisabled) {
+  MenuItemView* const item1 = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  item1->SetEnabled(false);
+  MenuItemView* const item2 = menu_item()->GetSubmenu()->GetMenuItemAt(1);
+  MenuItemView* const item3 = menu_item()->GetSubmenu()->GetMenuItemAt(2);
+  item3->SetVisible(false);
+  MenuItemView* const item4 = menu_item()->GetSubmenu()->GetMenuItemAt(3);
+  OpenMenu(menu_item());
+
+  ui::AXNodeData data;
+  item2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item4->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+}
+
+TEST_F(MenuControllerTest, SetSelectionIndices_Buttons) {
+  AddButtonMenuItems();
+  MenuItemView* const item1 = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  MenuItemView* const item2 = menu_item()->GetSubmenu()->GetMenuItemAt(1);
+  MenuItemView* const item3 = menu_item()->GetSubmenu()->GetMenuItemAt(2);
+  MenuItemView* const item4 = menu_item()->GetSubmenu()->GetMenuItemAt(3);
+  MenuItemView* const item5 = menu_item()->GetSubmenu()->GetMenuItemAt(4);
+  Button* const button1 = Button::AsButton(item5->child_at(0));
+  Button* const button2 = Button::AsButton(item5->child_at(1));
+  Button* const button3 = Button::AsButton(item5->child_at(2));
+  OpenMenu(menu_item());
+
+  ui::AXNodeData data;
+  item1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(3, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item4->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  button1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  button2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(6, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  button3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(7, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+}
+
+TEST_F(MenuControllerTest, SetSelectionIndices_Buttons_SkipHiddenAndDisabled) {
+  AddButtonMenuItems();
+  MenuItemView* const item1 = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  MenuItemView* const item2 = menu_item()->GetSubmenu()->GetMenuItemAt(1);
+  MenuItemView* const item3 = menu_item()->GetSubmenu()->GetMenuItemAt(2);
+  MenuItemView* const item4 = menu_item()->GetSubmenu()->GetMenuItemAt(3);
+  MenuItemView* const item5 = menu_item()->GetSubmenu()->GetMenuItemAt(4);
+  Button* const button1 = Button::AsButton(item5->child_at(0));
+  button1->SetEnabled(false);
+  Button* const button2 = Button::AsButton(item5->child_at(1));
+  button2->SetVisible(false);
+  Button* const button3 = Button::AsButton(item5->child_at(2));
+  OpenMenu(menu_item());
+
+  ui::AXNodeData data;
+  item1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(3, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item4->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  button3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+}
+
+TEST_F(MenuControllerTest, SetSelectionIndices_NestedButtons) {
+  class DummyButtonListener : public ButtonListener {
+   public:
+    ~DummyButtonListener() override = default;
+    void ButtonPressed(Button* sender, const ui::Event& event) override {}
+  };
+
+  MenuItemView* const item1 = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  MenuItemView* const item2 = menu_item()->GetSubmenu()->GetMenuItemAt(1);
+  MenuItemView* const item3 = menu_item()->GetSubmenu()->GetMenuItemAt(2);
+  MenuItemView* const item4 = menu_item()->GetSubmenu()->GetMenuItemAt(3);
+
+  // This simulates how buttons are nested in views in the main app menu.
+  View* const container_view = new View();
+  container_view->GetViewAccessibility().OverrideRole(ax::mojom::Role::kMenu);
+  item4->AddChildView(container_view);
+
+  // There's usually a label before the traversable elements.
+  container_view->AddChildView(new Label());
+
+  // Add two focusable buttons (buttons in menus are always focusable).
+  Button* const button1 =
+      new LabelButton(new DummyButtonListener(), base::string16());
+  button1->SetFocusBehavior(View::FocusBehavior::ALWAYS);
+  button1->GetViewAccessibility().OverrideRole(ax::mojom::Role::kMenuItem);
+  container_view->AddChildView(button1);
+  Button* const button2 =
+      new LabelButton(new DummyButtonListener(), base::string16());
+  button2->GetViewAccessibility().OverrideRole(ax::mojom::Role::kMenuItem);
+  button2->SetFocusBehavior(View::FocusBehavior::ALWAYS);
+  container_view->AddChildView(button2);
+
+  OpenMenu(menu_item());
+
+  ui::AXNodeData data;
+  item1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(2, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  item3->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(3, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  data = ui::AXNodeData();
+  button1->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+
+  data = ui::AXNodeData();
+  button2->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+  EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+}
+
+// Tests that a menu opened asynchronously, will notify its
+// MenuControllerDelegate when accessibility performs a do default action.
+TEST_F(MenuControllerTest, AccessibilityDoDefaultCallsAccept) {
+  views::test::DisableMenuClosureAnimations();
+
+  MenuController* controller = menu_controller();
+  controller->Run(owner(), nullptr, menu_item(), gfx::Rect(),
+                  MENU_ANCHOR_TOPLEFT, false, false);
+  TestMenuControllerDelegate* delegate = menu_controller_delegate();
+  EXPECT_EQ(0, delegate->on_menu_closed_called());
+
+  MenuItemView* accepted = menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  ui::AXActionData data;
+  data.action = ax::mojom::Action::kDoDefault;
+  accepted->HandleAccessibleAction(data);
+  views::test::WaitForMenuClosureAnimation();
+
+  EXPECT_EQ(1, delegate->on_menu_closed_called());
+  EXPECT_EQ(accepted, delegate->on_menu_closed_menu());
+  EXPECT_EQ(internal::MenuControllerDelegate::NOTIFY_DELEGATE,
+            delegate->on_menu_closed_notify_type());
 }
 
 }  // namespace test

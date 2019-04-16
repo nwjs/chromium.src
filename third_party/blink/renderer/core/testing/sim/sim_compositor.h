@@ -98,6 +98,7 @@ class SimCompositor final : public content::StubLayerTreeViewDelegate {
   void RequestNewLayerTreeFrameSink(
       LayerTreeFrameSinkCallback callback) override;
   void BeginMainFrame(base::TimeTicks frame_time) override;
+  void DidBeginMainFrame() override { web_view_->DidBeginFrame(); }
 
   WebViewImpl* web_view_ = nullptr;
   content::LayerTreeView* layer_tree_view_ = nullptr;
@@ -106,8 +107,6 @@ class SimCompositor final : public content::StubLayerTreeViewDelegate {
 
   base::TimeTicks last_frame_time_;
 
-  // During BeginFrame(), painting is done, and the result is stored here to
-  // be returned from BeginFrame().
   SimCanvas::Commands* paint_commands_;
 
   std::unique_ptr<cc::ScopedDeferMainFrameUpdate>

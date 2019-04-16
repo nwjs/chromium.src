@@ -58,34 +58,27 @@ cr.define('destination_settings_test', function() {
       destinationSettings =
           document.createElement('print-preview-destination-settings');
       destinationSettings.destinationStore = null;
+      destinationSettings.destination = null;
       destinationSettings.recentDestinations = [];
       destinationSettings.state = print_preview_new.State.NOT_READY;
+      destinationSettings.cloudPrintState =
+          print_preview.CloudPrintState.DISABLED;
+      destinationSettings.noDestinationsFound = false;
       // Disabled is true when state is NOT_READY.
       destinationSettings.disabled = true;
       document.body.appendChild(destinationSettings);
     });
 
-    function waitForRender(element) {
-      return new Promise(resolve => {
-        if (Polymer.DomIf) {
-          Polymer.RenderStatus.beforeNextRender(element, resolve);
-        } else {
-          setTimeout(() => {
-            resolve();
-          });
-        }
-      });
-    }
-
     // Tests that the dropdown is enabled or disabled correctly based on
     // the state.
     test(assert(TestNames.ChangeDropdownState), function() {
       const dropdown = destinationSettings.$.destinationSelect;
-      // Initial state: No destination store, dropdown should be disabled.
-      assertTrue(dropdown.disabled);
+      // Initial state: No destination store means that there is no destination
+      // yet, so the dropdown is hidden.
+      assertTrue(dropdown.hidden);
 
-      // Set up the destination store, but no destination yet. Dropdown is
-      // disabled.
+      // Set up the destination store, but no destination yet. Dropdown is still
+      // hidden.
       const destinationStore =
           print_preview_test_utils.createDestinationStore();
       destinationStore.init(
@@ -94,20 +87,26 @@ cr.define('destination_settings_test', function() {
           [] /* recentDestinations */);
       destinationSettings.destinationStore = destinationStore;
       destinationSettings.state = print_preview_new.State.NOT_READY;
-      assertTrue(dropdown.disabled);
+      assertTrue(dropdown.hidden);
 
-      // Simulate loading a destination and setting state to ready. The dropdown
-      // is enabled.
+      // Simulate loading a recent destination.
       destinationSettings.destination = new print_preview.Destination(
           'FooDevice', print_preview.DestinationType.LOCAL, getLocalOrigin(),
-          'FooName', true /* isRecent */,
-          print_preview.DestinationConnectionStatus.ONLINE);
+          'FooName', print_preview.DestinationConnectionStatus.ONLINE);
       destinationSettings.recentDestinations = [
         print_preview.makeRecentDestination(destinationSettings.destination),
       ];
+      destinationSettings.cloudPrintState =
+          print_preview.CloudPrintState.NOT_SIGNED_IN;
       destinationSettings.state = print_preview_new.State.READY;
+
+      // Dropdown is visible but disabled due to NOT_READY state.
+      assertTrue(dropdown.disabled);
+      assertFalse(dropdown.hidden);
+
+      // Enable controls.
       destinationSettings.disabled = false;
-      return waitForRender(dropdown).then(() => {
+      return test_util.waitForRenderOrTimeout0(dropdown).then(() => {
         assertFalse(dropdown.disabled);
 
         // Simulate setting a setting to an invalid value. Dropdown is disabled
@@ -149,16 +148,6 @@ cr.define('destination_settings_test', function() {
           print_preview_test_utils.createDestinationStore();
 
       // Initialize destination settings.
-      const defaultId = recentDestinations.length > 0 ?
-          recentDestinations[0].id :
-          'FooDevice';
-      const defaultName = recentDestinations.length > 0 ?
-          recentDestinations[0].displayName :
-          'FooName';
-      destinationSettings.destination = new print_preview.Destination(
-          defaultId, print_preview.DestinationType.LOCAL, getLocalOrigin(),
-          defaultName, true /* isRecent */,
-          print_preview.DestinationConnectionStatus.ONLINE);
       destinationSettings.destinationStore = destinationStore;
       destinationSettings.invitationStore = new print_preview.InvitationStore();
       destinationSettings.recentDestinations = recentDestinations;
@@ -544,12 +533,12 @@ cr.define('destination_settings_test', function() {
       const cloudPrinterUser1 = new print_preview.Destination(
           'FooCloud', print_preview.DestinationType.GOOGLE,
           print_preview.DestinationOrigin.COOKIES, 'FooCloudName',
-          true /* isRecent */, print_preview.DestinationConnectionStatus.ONLINE,
+          print_preview.DestinationConnectionStatus.ONLINE,
           {account: defaultUser});
       const cloudPrinterUser2 = new print_preview.Destination(
           'BarCloud', print_preview.DestinationType.GOOGLE,
           print_preview.DestinationOrigin.COOKIES, 'BarCloudName',
-          true /* isRecent */, print_preview.DestinationConnectionStatus.ONLINE,
+          print_preview.DestinationConnectionStatus.ONLINE,
           {account: account2});
       cloudPrintInterface.setPrinter(
           print_preview_test_utils.getGoogleDriveDestination(defaultUser));

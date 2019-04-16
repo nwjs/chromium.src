@@ -211,13 +211,16 @@ void FillFrameData(base::trace_event::TracedValue* data,
 }  // namespace
 
 TracingHandler::TracingHandler(FrameTreeNode* frame_tree_node_,
-                               DevToolsIOContext* io_context)
+                               DevToolsIOContext* io_context,
+                               bool use_binary_protocol)
     : DevToolsDomainHandler(Tracing::Metainfo::domainName),
+      use_binary_protocol_(use_binary_protocol),
       io_context_(io_context),
       frame_tree_node_(frame_tree_node_),
       did_initiate_recording_(false),
       return_as_stream_(false),
       gzip_compression_(false),
+      buffer_usage_reporting_interval_(0),
       weak_factory_(this) {
   bool use_video_capture_api = true;
 #ifdef OS_ANDROID
@@ -276,7 +279,12 @@ void TracingHandler::OnTraceDataCollected(
   message.append(valid_trace_fragment.c_str() +
                  trace_data_buffer_state_.offset);
   message += "] } }";
-  frontend_->sendRawNotification(message);
+  if (use_binary_protocol_) {
+    auto parsed = protocol::StringUtil::parseMessage(message, false);
+    frontend_->sendRawNotification(parsed->serializeToBinary());
+  } else {
+    frontend_->sendRawNotification(std::move(message));
+  }
 }
 
 void TracingHandler::OnTraceComplete() {
@@ -390,8 +398,8 @@ void TracingHandler::Start(Maybe<std::string> categories,
   did_initiate_recording_ = true;
   return_as_stream_ = return_as_stream;
   gzip_compression_ = gzip_compression;
-  if (buffer_usage_reporting_interval.isJust())
-    SetupTimer(buffer_usage_reporting_interval.fromJust());
+  buffer_usage_reporting_interval_ =
+      buffer_usage_reporting_interval.fromMaybe(0);
 
   trace_config_ = base::trace_event::TraceConfig();
   if (config.isJust()) {
@@ -533,6 +541,8 @@ void TracingHandler::OnRecordingEnabled(
 
   EmitFrameTree();
   callback->sendSuccess();
+
+  SetupTimer(buffer_usage_reporting_interval_);
 
   bool screenshot_enabled;
   TRACE_EVENT_CATEGORY_GROUP_ENABLED(

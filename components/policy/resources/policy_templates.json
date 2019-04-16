@@ -349,6 +349,7 @@
         'RemoteAccessHostTokenValidationCertificateIssuer',
         'RemoteAccessHostDebugOverridePolicies',
         'RemoteAccessHostAllowUiAccessForRemoteAssistance',
+        'RemoteAccessHostAllowFileTransfer',
       ],
     },
     {
@@ -396,6 +397,7 @@
         'EnableAuthNegotiatePort',
         'AuthServerWhitelist',
         'AuthNegotiateDelegateWhitelist',
+        'AuthNegotiateDelegateByKdcPolicy',
         'GSSAPILibraryName',
         'AuthAndroidNegotiateAccountType',
         'AllowCrossOriginAuthPrompt',
@@ -710,8 +712,12 @@
       'policies': [
         'AlternativeBrowserPath',
         'AlternativeBrowserParameters',
+        'BrowserSwitcherChromePath',
+        'BrowserSwitcherChromeParameters',
+        'BrowserSwitcherDelay',
         'BrowserSwitcherEnabled',
         'BrowserSwitcherExternalSitelistUrl',
+        'BrowserSwitcherKeepLastChromeTab',
         'BrowserSwitcherUrlList',
         'BrowserSwitcherUrlGreylist',
         'BrowserSwitcherUseIeSitelist',
@@ -889,9 +895,11 @@
         'CloudPrintProxyEnabled',
         'PrintingAllowedColorModes',
         'PrintingAllowedDuplexModes',
+        'PrintingAllowedPinModes',
         'PrintingAllowedPageSizes',
         'PrintingColorDefault',
         'PrintingDuplexDefault',
+        'PrintingPinDefault',
         'PrintingSizeDefault',
         'PrintingSendUsernameAndFilenameEnabled',
         'CloudPrintSubmitEnabled',
@@ -950,7 +958,27 @@
         'VirtualMachinesAllowed',
         'CrostiniAllowed',
         'DeviceUnaffiliatedCrostiniAllowed',
+        'CrostiniExportImportUIAllowed',
       ]
+    },
+    {
+      'name': 'GoogleAssistant',
+      'type': 'group',
+      'caption': '''Google Assistant''',
+      'desc': '''Controls settings for Google Assistant.''',
+      'policies': [
+        'VoiceInteractionContextEnabled',
+        'VoiceInteractionHotwordEnabled',
+      ]
+    },
+    {
+      'name': 'WilcoDtc',
+      'type': 'group',
+      'caption': '''Wilco DTC''',
+      'desc': '''Controls wilco diagnostics and telemetry controller settings.''',
+      'policies': [
+        'DeviceWilcoDtcAllowed',
+      ],
     },
     {
       'name': 'HomepageLocation',
@@ -975,6 +1003,8 @@
           If you enable this setting, users cannot change their home page URL in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>, but they can still choose the New Tab Page as their home page.
 
           Leaving this policy not set will allow the user to choose their home page on their own if HomepageIsNewTabPage is not set too.
+
+          The URL must have a standard scheme, e.g. "http://example.com" or "https://example.com".
 
           This policy is available only on Windows instances that are joined to a <ph name="MS_AD_NAME">Microsoft® Active Directory®</ph> domain. or Windows 10 Pro or Enterprise instances that enrolled for device management.''',
       'label': '''Home page URL''',
@@ -1801,6 +1831,23 @@
           If this setting is disabled or not configured, the remote assistance host will run in the user's context and remote users cannot interact with elevated windows on the desktop.''',
     },
     {
+      'name': 'RemoteAccessHostAllowFileTransfer',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:74-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': False,
+      'id': 534,
+      'caption': '''Allow remote access users to transfer files to/from the host''',
+      'tags': [],
+      'desc': '''Controls the ability of a user connected to a remote access host to transfer files between the client and the host. This does not apply to remote assistance connections, which do not support file transfer.
+
+          If this setting is disabled, file transfer will not be allowed. If this setting is enabled or not set, file transfer will be allowed.''',
+    },
+    {
       'name': 'PrintingEnabled',
       'type': 'main',
       'schema': { 'type': 'boolean' },
@@ -1920,6 +1967,47 @@
       'desc': '''Restricts printing duplex mode. Unset policy and empty set are treated as no restriction.''',
     },
     {
+      'name': 'PrintingAllowedPinModes',
+      'type': 'string-enum',
+      'schema': {
+        'type': 'string',
+        'enum': [
+          'any',
+          'secure',
+          'unsecure',
+        ],
+      },
+      'items': [
+        {
+          'name': 'any',
+          'value': 'any',
+          'caption': '''Allow printing both with and without PIN''',
+        },
+        {
+          'name': 'secure',
+          'value': 'secure',
+          'caption': '''Allow printing only with PIN''',
+        },
+        {
+          'name': 'unsecure',
+          'value': 'unsecure',
+          'caption': '''Allow printing only without PIN''',
+        },
+      ],
+      'supported_on': ['chrome_os:74-'],
+      'future': True,
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': 'secure',
+      'id': 525,
+      'caption': '''Restrict PIN printing mode''',
+      'tags': [],
+      'desc': '''Restricts PIN printing mode. Unset policy is treated as no restriction. If the mode is unavailable this policy is ignored.''',
+    },
+    {
       'name': 'PrintingAllowedPageSizes',
       'type': 'dict',
       'schema': {
@@ -2027,6 +2115,41 @@
       'desc': '''Overrides default printing duplex mode. If the mode is unavailable this policy is ignored.''',
     },
     {
+      'name': 'PrintingPinDefault',
+      'type': 'string-enum',
+      'schema': {
+        'type': 'string',
+        'enum': [
+          'secure',
+          'unsecure',
+        ],
+      },
+      'items': [
+        {
+          'name': 'secure',
+          'value': 'secure',
+          'caption': '''Enable PIN printing by default''',
+        },
+        {
+          'name': 'unsecure',
+          'value': 'unsecure',
+          'caption': '''Disable PIN printing by default''',
+        },
+      ],
+      'supported_on': ['chrome_os:74-'],
+      'future': True,
+      'features': {
+        'can_be_recommended': False,
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': 'secure',
+      'id': 526,
+      'caption': '''Default PIN printing mode''',
+      'tags': [],
+      'desc': '''Overrides default PIN printing mode. If the mode is unavailable this policy is ignored.''',
+    },
+    {
       'name': 'PrintingSizeDefault',
       'type': 'dict',
       'schema': {
@@ -2071,7 +2194,9 @@
       'id': 506,
       'caption': '''Send username and filename to native printers''',
       'tags': [],
-      'desc': '''Send username and filename to native printers server with every print job. The default is not to send.''',
+      'desc': '''Send username and filename to native printers server with every print job. The default is not to send.
+
+      Setting this policy to true also disables printers that use protocols other than IPPS, USB, or IPP-over-USB since username and filename shouldn't be sent over the network openly.''',
     },
     {
       'name': 'ForceSafeSearch',
@@ -3187,6 +3312,27 @@
           Separate multiple server names with commas. Wildcards (*) are allowed.
 
           If you leave this policy not set <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> will not delegate user credentials even if a server is detected as Intranet.''',
+    },
+    {
+      'name': 'AuthNegotiateDelegateByKdcPolicy',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.linux:74-','chrome.mac:74-','chrome_os:74-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': True,
+      'id': 528,
+      'caption': '''Use KDC policy to delegate credentials.''',
+      'tags': ['website-sharing'],
+      'desc': '''Controls whether approval by KDC policy is respected to decide whether to delegate <ph name="KERBEROS">Kerberos</ph> tickets.
+
+          If this policy is true, HTTP authentication respects approval by KDC policy, i.e. Chrome only delegates credentials if the KDC sets <ph name="OK_AS_DELEGATE">OK-AS-DELEGATE</ph> on a service ticket. Please see https://tools.ietf.org/html/rfc5896.html for more information. Service should also match 'AuthNegotiateDelegateWhitelist' policy.
+
+          If this policy is not set or set to false, KDC policy is ignored on supported platforms and 'AuthNegotiateDelegateWhitelist' policy only is respected.
+
+          On Windows KDC policy is always respected.''',
     },
     {
       'name': 'GSSAPILibraryName',
@@ -4508,8 +4654,7 @@
           'required': ['devices', 'urls']
         }
       },
-      'supported_on': ['chrome_os:71-', 'android:71-', 'chrome.*:71-'],
-      'future': True,
+      'supported_on': ['chrome_os:74-', 'chrome.*:74-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': True,
@@ -5844,7 +5989,7 @@
 
       Note that it is not recommended to block internal 'chrome://*' URLs since this may lead to unexpected errors.
 
-      Note that this policy does not prevent the page updating dynamically through JavaScript. For example, if you block 'example.com/abc', users might still be able to visit 'example.com' and click on a link to visit 'example.com/abc', as long as the page does not refresh.
+      From M73 you can block 'javascript://*' URLs. However, it affects only JavaScript typed in address bar (or, for example, bookmarklets). Note that in-page JavaScript URLs, as long as dynamically loaded data, are not subject to this policy. For example, if you block 'example.com/abc', page 'example.com' will still be able to load 'example.com/abc' via XMLHTTPRequest.
 
       If this policy is not set no URL will be blacklisted in the browser.''',
       'arc_support': 'Android apps may voluntarily choose to honor this list. You cannot force them to honor it.',
@@ -7545,6 +7690,8 @@
       'tags': [],
       'desc': '''The Safe Browsing service shows a warning page when users navigate to sites that are flagged as potentially malicious. Enabling this setting prevents users from proceeding anyway from the warning page to the malicious site.
 
+      This policy only prevents users from proceeding on Safe Browsing warnings (e.g. malware and phishing) not for SSL certificate related issues like invalid or expired certificates.
+
       If this setting is disabled or not configured then users can choose to proceed to the flagged site after being shown the warning.
 
       See https://developers.google.com/safe-browsing for more info on Safe Browsing.''',
@@ -7714,7 +7861,6 @@
       capture only be available to URLs configured in VideoCaptureAllowedUrls.
 
       This policy affects all types of video inputs and not only the built-in camera.''',
-      'arc_support': 'For Android apps, this policy affects the built-in camera only. When this policy is set to true, the camera is disabled for all Android apps, with no exceptions.',
     },
     {
       'name': 'VideoCaptureAllowedUrls',
@@ -8481,6 +8627,8 @@
 
           If this policy is unset, a default scale factor is used.
 
+          This policy only takes effect if the <ph name="POWER_SMART_DIM_ENABLED_POLICY_NAME">PowerSmartDimEnabled</ph> is disabled. Otherwise, this policy is ignored because the screen dim delay is deteremined by a machine-learning model.
+
           The scale factor must be 100% or more. Values that would make the screen dim delay in presentation mode shorter than the regular screen dim delay are not allowed.''',
     },
     {
@@ -8539,6 +8687,8 @@
           If this policy is set, it specifies the percentage by which the screen dim delay is scaled when user activity is observed while the screen is dimmed or soon after the screen has been turned off. When the dim delay is scaled, the screen off, screen lock and idle delays get adjusted to maintain the same distances from the screen dim delay as originally configured.
 
           If this policy is unset, a default scale factor is used.
+
+          This policy only takes effect if the <ph name="POWER_SMART_DIM_ENABLED_POLICY_NAME">PowerSmartDimEnabled</ph> policy is disabled. Otherwise, this policy is ignored because the screen dim delay is deteremined by a machine-learning model.
 
           The scale factor must be 100% or more.''',
     },
@@ -11195,7 +11345,6 @@
       This policy has no effect on whether users can configure printers on individual devices.  It is intended to be supplementary to the configuration of printers by individual users.
 
       For Active Directory managed devices this policy supports expansion of <ph name="MACHINE_NAME_VARIABLE">${MACHINE_NAME[,pos[,count]]}</ph> to the Active Directory machine name or a substring of it. For example, if the machine name is <ph name="MACHINE_NAME_EXAMPLE">CHROMEBOOK</ph>, then <ph name="MACHINE_NAME_VARIABLE_EXAMPLE">${MACHINE_NAME,6,4}</ph> would be replaced by the 4 characters starting after the 6th position, i.e. <ph name="MACHINE_NAME_PART_EXAMPLE">BOOK</ph>. Note that the position is zero-based.
-      <ph name="MACHINE_NAME_VARIABLE_LOWERCASE">${machine_name}</ph> (lowercase) is deprecated in M71 and will be removed in M72.
       ''',
     },
     {
@@ -11335,7 +11484,7 @@
           'hash': { 'type': 'string' }
         },
       },
-      'supported_on': ['chrome_os:66-'],
+      'supported_on': ['chrome_os:73-'],
       'features': {
         'dynamic_refresh': True,
         'per_profile': False,
@@ -11368,7 +11517,7 @@
       'name': 'DeviceNativePrintersAccessMode',
       'id': 387,
       'device_only': True,
-      'supported_on': ['chrome_os:66-'],
+      'supported_on': ['chrome_os:73-'],
       'type': 'int-enum',
       'schema': {
         'type': 'integer',
@@ -11407,7 +11556,7 @@
     },
     {
       'name': 'DeviceNativePrintersBlacklist',
-      'supported_on': ['chrome_os:66-'],
+      'supported_on': ['chrome_os:73-'],
       'device_only': True,
       'id': 388,
       'type': 'list',
@@ -11430,7 +11579,7 @@
     },
     {
       'name': 'DeviceNativePrintersWhitelist',
-      'supported_on': ['chrome_os:66-'],
+      'supported_on': ['chrome_os:73-'],
       'device_only': True,
       'id': 389,
       'type': 'list',
@@ -11688,7 +11837,6 @@
         'dynamic_refresh': False,
       },
       'example_value': [ "en-US" ],
-      'max_size': 16777216,
       'id': 364,
       'caption': '''Device sign-in screen locale''',
       'tags': [],
@@ -11709,7 +11857,6 @@
         'dynamic_refresh': True,
       },
       'example_value': [ "xkb:us::en", "xkb:ch::ger" ],
-      'max_size': 16777216,
       'id': 365,
       'caption': '''Device sign-in screen keyboard layouts''',
       'tags': [],
@@ -11961,6 +12108,44 @@
       If you set this policy to 'AskUser', users with ecryptfs-encrypted home directories will be offered to migrate.
 
       This policy does not apply to kiosk users. If this policy is left not set, the device will behave as if 'DisallowArc' was chosen.''',
+    },
+    {
+      'name': 'SchedulerConfiguration',
+      'type': 'string-enum',
+      'schema': {
+        'type': 'string',
+        'enum': [
+          'conservative',
+          'performance',
+        ],
+      },
+      'items': [
+        {
+          'name': 'Conservative',
+          'value': 'conservative',
+          'caption': '''Optimize for stability.''',
+        },
+        {
+          'name': 'Performance',
+          'value': 'performance',
+          'caption': '''Optimize for performance.''',
+        },
+      ],
+      'supported_on': ['chrome_os:74-'],
+      'features': {
+        'can_be_recommended': True,
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': 'performance',
+      'id': 522,
+      'caption': '''Select task scheduler configuration''',
+      'tags': [],
+      'desc': '''Instructs <ph name="PRODUCT_OS_NAME">$2<ex>Google Chrome OS</ex></ph> to use the task scheduler configuration identified by the specified name.
+
+      This policy can be set to "conservative" and "performance", which select task scheduler configurations that are tuned for stability vs. maximum performance, respectively.
+
+      If the policy is left unset, the user can make their own choice.''',
     },
     {
       'name': 'NoteTakingAppsLockScreenWhitelist',
@@ -12731,6 +12916,21 @@
       When this policy is changed to false, it applies to starting new Crostini containers but does not shut down containers which are already running.''',
     },
     {
+      'name': 'CrostiniExportImportUIAllowed',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:74-'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': False,
+      'id': 523,
+      'caption': '''User is enabled to export / import Crostini containers via the UI''',
+      'tags': ['system-security'],
+      'desc': '''If the policy is set to false, the export / import UI will not be available to users, however it is still possible to use 'lxc' commands directly in the virtual machine to export and import container images.''',
+    },
+    {
       'name': 'SafeBrowsingWhitelistDomains',
       'type': 'list',
       'schema': {
@@ -12915,7 +13115,7 @@
         'dynamic_refresh': True,
         'per_profile': True,
       },
-      'example_value': ['https://example.com', 'https://www.chromium.org'],
+      'example_value': ['https://www.example.com', '[*.]example.edu'],
       'id': 431,
       'caption': '''Allow media autoplay on a whitelist of URL patterns''',
       'tags': [],
@@ -12923,7 +13123,21 @@
 
       If autoplay is enabled then videos can play automatically (without user consent) with audio content in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>.
 
-      A URL pattern has to be formatted according to https://www.chromium.org/administrators/url-blacklist-filter-format.
+      A valid URL patterns specifications are:
+
+      - [*.]domain.tld (matches domain.tld and all sub-domains)
+
+      - host (matches an exact hostname)
+
+      - scheme://host:port (supported schemes: http,https)
+
+      - scheme://[*.]domain.tld:port (supported schemes: http,https)
+
+      - file://path (The path has to be an absolute path and start with a '/')
+
+      - a.b.c.d (matches an exact IPv4 ip)
+
+      - [a:b:c:d:e:f:g:h] (matches an exact IPv6 ip)
 
       If the AutoplayAllowed policy is set to True then this policy will have no effect.
 
@@ -13063,7 +13277,6 @@
         'per_profile': True
       },
       'example_value': [ 'en-US' ],
-      'max_size': 16777216,
       'id': 444,
       'caption': '''Configure the allowed languages in a user session''',
       'tags': [],
@@ -13085,7 +13298,6 @@
         'per_profile': True
       },
       'example_value': [ 'xkb:us::eng' ],
-      'max_size': 16777216,
       'id': 456,
       'caption': '''Configure the allowed input methods in a user session''',
       'tags': [],
@@ -14158,9 +14370,63 @@
       Environment variables are expanded. On Windows, %ABC% is replaced with the value of the ABC environment variable. On Mac OS X and Linux, ${ABC} is replaced with the value of the ABC environment variable.''',
     },
     {
+      'id': 530,
+      'name': 'BrowserSwitcherChromePath',
+      'type': 'string',
+      'schema': {'type': 'string'},
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': '${chrome}',
+      'supported_on': ['chrome.win:74-'],
+      'caption': '''Path to Chrome for switching from the alternative browser.''',
+      'tags': [],
+      'desc': '''This policy controls the command to use to open URLs in <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> when switching from Internet Explorer.
+
+      If the 'Legacy Browser Support' add-in for Internet Explorer is not installed, this policy has no effect.
+
+      When this policy is left unset, Internet Explorer will auto-detect <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph>'s own executable path when launching <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> from Internet Explorer.
+
+      When this policy is set, it will be used to launch <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> when switching launching <ph name="PRODUCT_NAME">$1<ex>Google Chrome</ex></ph> from Internet Explorer.
+
+      This policy can be set to an executable file path, or ${chrome} to auto-detect Chrome's install location.''',
+    },
+    {
+      'id': 531,
+      'name': 'BrowserSwitcherChromeParameters',
+      'type': 'list',
+      'schema': {
+        'type': 'array',
+        'items': {'type': 'string'},
+      },
+      'example_value': [
+        '--force-dark-mode',
+      ],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'supported_on': ['chrome.win:74-'],
+      'caption': '''Command-line parameters for switching from the alternative browser.''',
+      'tags': [],
+      'desc': '''This policy controls command-line parameters for Chrome from Internet Explorer.
+
+      If the 'Legacy Browser Support' add-in for Internet Explorer is not installed, this policy has no effect.
+
+      When this policy is left unset, Internet Explorer only passes the URL to Chrome as a command-line parameter.
+
+      When this policy is set to a list of strings, the strings are joined with spaces and passed to Chrome as command-line parameters.
+
+      If an element contains ${url}, it gets replaced with the URL of the page to open.
+
+      If no element contains ${url}, the URL is appended at the end of the command line.
+
+      Environment variables are expanded. On Windows, %ABC% is replaced with the value of the ABC environment variable.''',
+    },
+    {
       'id': 496,
       'name': 'BrowserSwitcherUrlList',
-      'future': True,
       'type': 'list',
       'schema': {
         'type': 'array',
@@ -14193,7 +14459,6 @@
     {
       'id': 497,
       'name': 'BrowserSwitcherUrlGreylist',
-      'future': True,
       'type': 'list',
       'schema': {
         'type': 'array',
@@ -14224,7 +14489,6 @@
     {
       'id': 498,
       'name': 'BrowserSwitcherUseIeSitelist',
-      'future': True,
       'type': 'main',
       'schema': { 'type': 'boolean' },
       'example_value': True,
@@ -14246,7 +14510,6 @@
     {
       'id': 511,
       'name': 'BrowserSwitcherExternalSitelistUrl',
-      'future': True,
       'type': 'string',
       'schema': { 'type': 'string' },
       'example_value': 'http://example.com/sitelist.xml',
@@ -14266,9 +14529,27 @@
       For more information on Internet Explorer's <ph name="IEEM_SITELIST_POLICY">SiteList</ph> policy: https://docs.microsoft.com/internet-explorer/ie11-deploy-guide/what-is-enterprise-mode''',
     },
     {
+      'id': 524,
+      'name': 'BrowserSwitcherDelay',
+      'type': 'int',
+      'schema': { 'type': 'integer' },
+      'example_value': 10000,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'supported_on': ['chrome.*:74-'],
+      'caption': '''Delay before launching alternative browser (milliseconds)''',
+      'tags': [],
+      'desc': '''This policy controls how long to wait before launching an alternative browser, in milliseconds.
+
+      When this policy is left unset, or set to 0, navigating to a designated URL immediately opens it in an alternative browser.
+
+      When this policy is set to a number, Chrome shows a message for that many milliseconds, and then opens the alternative browser.''',
+    },
+    {
       'id': 517,
       'name': 'BrowserSwitcherEnabled',
-      'future': True,
       'type': 'main',
       'schema': { 'type': 'boolean' },
       'example_value': True,
@@ -14286,6 +14567,25 @@
       When this policy is set to true, Chrome will attempt to launch some URLs in an alternate browser (such as Internet Explorer). This feature is configured using the policies in the <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP">Legacy Browser support</ph> group.
 
       This feature is a replacement for the <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME">'Legacy Browser Support'</ph> extension. Configuration from the extension will carry over to this feature, but it is strongly advised to use the Chrome policies instead. This ensures better compatibility in the future.''',
+    },
+    {
+      'id': 519,
+      'name': 'BrowserSwitcherKeepLastChromeTab',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'example_value': False,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'supported_on': ['chrome.*:74-'],
+      'caption': '''Keep last tab open in Chrome.''',
+      'tags': [],
+      'desc': '''This policy controls whether to close Chrome completely when the last tab would switch to another browser.
+
+      When this policy is left unset, or is set to true, Chrome will keep at least one tab open, after switching to an alternate browser.
+
+      When this policy is set to false, Chrome will close the tab after switching to an alternate browser, even if it was the last tab. This will cause Chrome to exit completely.''',
     },
     {
       'name': 'DeviceDisplayResolution',
@@ -14363,7 +14663,10 @@
     {
       'name': 'PluginVmLicenseKey',
       'type': 'string',
-      'schema': { 'type': 'string' },
+      'schema': {
+        'sensitiveValue': True,
+        'type': 'string'
+      },
       'supported_on': ['chrome_os:73-'],
       'device_only': True,
       'features': {
@@ -14425,7 +14728,7 @@
               },
               'access_code_ttl': {
                 'type': 'integer',
-                'minimum': 30,
+                'minimum': 60,
                 'maximum': 3600,
                 'description': 'Time that access code is valid for (in seconds).'
               },
@@ -14485,6 +14788,87 @@
       When this policy is unset it is not possible to verify Parent Access Code on child user's device.'''
     },
     {
+      'name': 'CertificateManagementAllowed',
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [ 0, 1, 2 ],
+      },
+      'items': [
+        {
+          'name': 'All',
+          'value': 0,
+          'caption': '''Allow users to manage all certificates''',
+        },
+        {
+          'name': 'UserOnly',
+          'value': 1,
+          'caption': '''Allow users to manage user certificates''',
+        },
+        {
+          'name': 'None',
+          'value': 2,
+          'caption': '''Disallow users from managing certificates''',
+        },
+      ],
+      'supported_on': ['chrome_os:74-'],
+      'tags' : [],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True
+      },
+      'example_value': 1,
+      'id': 518,
+      'caption': '''Allow users to manage installed certificates.''',
+      'desc': '''This policy controls whether user are able to import and remove certificates via Certificate Manager.
+
+      If this policy is set to ''Allow users to manage all certificates'' or left not set, users will be able to manage certificates.
+
+      If this policy is set to ''Allow users to manage user certificates'', users will be able to manage user certificates, but not device-wide certificates.
+
+      If this policy is set to ''Disallow users to manage certificates'', users will not be able to manage certificates, they can only view certificates.''',
+    },
+    {
+      'id': 520,
+      'name': 'DeviceRebootOnUserSignout',
+      'type': 'int-enum',
+      'schema': {
+        'type': 'integer',
+        'enum': [ 1, 2, 3 ],
+      },
+      'items': [
+        {
+          'name': 'Never',
+          'value': 1,
+          'caption': '''Do not reboot on user sign out.''',
+        },
+        {
+          'name': 'ArcSession',
+          'value': 2,
+          'caption': '''Reboot on user sign out if Android has started.''',
+        },
+        {
+          'name': 'Always',
+          'value': 3,
+          'caption': '''Always reboot on user sign out.''',
+        },
+      ],
+      'device_only': True,
+      'example_value': 2,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'supported_on': ['chrome_os:74-'],
+      'caption': '''Force device reboot when user sign out''',
+      'tags': ['system-security'],
+      'desc': '''
+      This policy, when set to ArcSession, forces the device to reboot when a user sign out if Android has started.
+      When set to Always, it forces the device to reboot on every user sign out.
+      If left unset, it has no effect and no reboot is forced on user sign out. The same applies if set to Never.
+      ''',
+    },
+    {
       'name': 'ForceNetworkInProcess',
       'type': 'main',
       'schema': { 'type': 'boolean' },
@@ -14504,6 +14888,86 @@
       This policy is intended to give enterprises a chance to migrate to 3rd party software that does not depend on hooking the networking APIs. Proxy servers are recommended over LSPs and Win32 API patching.
 
       If this policy is not set, networking code may run out of the browser process depending on field trials of the NetworkService experiment.''',
+    },
+    {
+      'name': 'VoiceInteractionContextEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:74-'],
+      'tags' : ['google-sharing'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 527,
+      'caption': '''"Allow Google Assistant to access screen context"''',
+      'desc': '''This policy gives Google Assistant permission to access screen context and send the info to server.
+      If the policy is enabled, Google Assistant will be allowed to access screen context.
+      If the policy is disabled, Google Assistant will not be allowed to access screen context.
+      If not set, users can decide whether to allow Google Assistant to access screen context or not''',
+    },
+    {
+      'name': 'VoiceInteractionHotwordEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:74-'],
+      'tags' : [],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 529,
+      'caption': '''"Allow Google Access Assistant to listen for the voice activation phrase"''',
+      'desc': '''This policy gives Google Assistant permission to listen for the voice activation phrase.
+
+      If the policy is enabled, Google Assistant would listen for the voice activation phrase.
+      If the policy is disabled, Google Assistant would not listen for the voice activation phrase.
+      If not set, users can decide whether to allow Google Assistant to listen to the voice activation phrase.
+      ''',
+    },
+    {
+      'name': 'DeviceWilcoDtcAllowed',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:74-'],
+      'device_only': True,
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': False,
+      },
+      'example_value': False,
+      'id': 532,
+      'caption': '''Allows wilco diagnostics and telemetry controller''',
+      'tags': [],
+      'desc': '''Allows an admin to control if telemetry and diagnostics data should be collected, processed and reported by wilco diagnostics and telemetry controller (DTC).
+
+      If the policy is set to false or left unset, DTC is switched off and is not able to collect, process and report telemetry and diagnostics data from the device.
+      If wilco DTC is available on the given device and the policy is set to true, collecting, processing and reporting of telemetry and diagnostics data is switched on.''',
+    },
+    {
+      'name': 'AllowPopupsDuringPageUnload',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome.*:74-', 'chrome_os:74-', 'android:74-'],
+      'features': {
+        'dynamic_refresh': False,
+        'per_profile': True,
+      },
+      'example_value': False,
+      'id': 533,
+      'caption': '''Allows a page to show popups during its unloading''',
+      'tags': [],
+      'desc': '''This policy allows an admin to specify that a page may show popups during its unloading.
+
+      When the policy is set to enabled, pages are allowed to show popups while they are being unloaded.
+
+      When the policy is set to disabled or not set, pages are not allowed to show popups while they are being unloaded, as per the spec (https://html.spec.whatwg.org/#apis-for-creating-and-navigating-browsing-contexts-by-name).
+
+      This policy will be removed in Chrome 82.
+
+      See https://www.chromestatus.com/feature/5989473649164288 .''',
     },
   ],
 
@@ -14670,5 +15134,5 @@ The recommended way to configure policy on Windows is via GPO, although provisio
   },
   'placeholders': [],
   'deleted_policy_ids': [412],
-  'highest_id_currently_used':  521
+  'highest_id_currently_used':  534
 }

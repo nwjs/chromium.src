@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "ash/drag_drop/drag_image_view.h"
+#include "ash/focus_cycler.h"
 #include "ash/metrics/user_metrics_recorder.h"
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/shelf_item_delegate.h"
@@ -33,10 +34,12 @@
 #include "ash/system/model/system_tray_model.h"
 #include "ash/system/model/virtual_keyboard_model.h"
 #include "ash/system/status_area_widget.h"
+#include "ash/system/status_area_widget_delegate.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/root_window_finder.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/containers/adapters.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -53,6 +56,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/keyboard/keyboard_controller.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/animation/bounds_animator.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/border.h"
@@ -202,7 +206,7 @@ class ShelfFocusSearch : public views::FocusSearch {
       new_index = 0;
 
     if (new_index >= overflow_cutoff)
-      shelf_view_->shelf_widget()->set_activated_from_overflow_bubble(true);
+      shelf_view_->shelf_widget()->set_activated_from_other_widget(true);
     return focusable_views[new_index];
   }
 
@@ -330,8 +334,12 @@ ShelfView::ShelfView(ShelfModel* model, Shelf* shelf, ShelfWidget* shelf_widget)
   DCHECK(shelf_widget_);
   Shell::Get()->tablet_mode_controller()->AddObserver(this);
   Shell::Get()->system_tray_model()->virtual_keyboard()->AddObserver(this);
+  Shell::Get()->AddShellObserver(this);
   bounds_animator_->AddObserver(this);
   set_context_menu_controller(this);
+
+  announcement_view_ = new views::View();
+  AddChildView(announcement_view_);
 }
 
 ShelfView::~ShelfView() {
@@ -339,6 +347,7 @@ ShelfView::~ShelfView() {
   if (Shell::Get()->tablet_mode_controller())
     Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
   Shell::Get()->system_tray_model()->virtual_keyboard()->RemoveObserver(this);
+  Shell::Get()->RemoveShellObserver(this);
   bounds_animator_->RemoveObserver(this);
   model_->RemoveObserver(this);
 }
@@ -377,26 +386,6 @@ void ShelfView::Init() {
   AddChildView(separator_);
 
   // We'll layout when our bounds change.
-}
-
-void ShelfView::OnShelfAlignmentChanged() {
-  LayoutToIdealBounds();
-  for (int i = 0; i < view_model_->view_size(); ++i) {
-    if (i >= first_visible_index_ && i <= last_visible_index_)
-      view_model_->view_at(i)->Layout();
-  }
-  tooltip_.Close();
-  if (overflow_bubble_)
-    overflow_bubble_->Hide();
-  // For crbug.com/587931, because AppListButton layout logic is in OnPaint.
-  AppListButton* app_list_button = GetAppListButton();
-  if (app_list_button)
-    app_list_button->SchedulePaint();
-
-  if (GetFocusManager()) {
-    GetFocusManager()->set_arrow_key_traversal_enabled_for_widget(
-        !shelf_->IsHorizontalAlignment());
-  }
 }
 
 gfx::Rect ShelfView::GetIdealBoundsOfItemIcon(const ShelfID& id) {
@@ -621,8 +610,10 @@ void ShelfView::ButtonPressed(views::Button* sender,
 
   // None of the checks in ShouldEventActivateButton() affects overflow button.
   // So, it is safe to be checked after handling overflow button.
-  if (!ShouldEventActivateButton(sender, event))
+  if (!ShouldEventActivateButton(sender, event)) {
+    ink_drop->SnapToHidden();
     return;
+  }
 
   // Prevent concurrent requests that may show application or context menus.
   // If a second request is sent before the first one can respond, the Chrome
@@ -654,9 +645,9 @@ void ShelfView::ButtonPressed(views::Button* sender,
   scoped_root_window_for_new_windows_ =
       std::make_unique<ScopedRootWindowForNewWindows>(window->GetRootWindow());
 
-  // Slow down activation animations if shift key is pressed.
+  // Slow down activation animations if Control key is pressed.
   std::unique_ptr<ui::ScopedAnimationDurationScaleMode> slowing_animations;
-  if (event.IsShiftDown()) {
+  if (event.IsControlDown()) {
     slowing_animations.reset(new ui::ScopedAnimationDurationScaleMode(
         ui::ScopedAnimationDurationScaleMode::SLOW_DURATION));
   }
@@ -695,7 +686,7 @@ void ShelfView::ButtonPressed(views::Button* sender,
   // Notify the item of its selection; handle the result in AfterItemSelected.
   item_awaiting_response_ = item.id;
   model_->GetShelfItemDelegate(item.id)->ItemSelected(
-      ui::Event::Clone(event), GetDisplayIdForView(this), LAUNCH_FROM_UNKNOWN,
+      ui::Event::Clone(event), GetDisplayIdForView(this), LAUNCH_FROM_SHELF,
       base::BindOnce(&ShelfView::AfterItemSelected, weak_factory_.GetWeakPtr(),
                      item, sender, base::Passed(ui::Event::Clone(event)),
                      ink_drop));
@@ -825,6 +816,47 @@ const std::vector<aura::Window*> ShelfView::GetOpenWindowsForShelfView(
     }
   }
   return open_windows;
+}
+
+views::View* ShelfView::FindFirstFocusableChild() {
+  if (is_overflow_mode())
+    return main_shelf()->FindFirstFocusableChild();
+  return view_model_->view_at(first_visible_index());
+}
+
+views::View* ShelfView::FindLastFocusableChild() {
+  if (IsShowingOverflowBubble())
+    return overflow_shelf()->FindLastFocusableChild();
+  return overflow_button_->visible()
+             ? overflow_button_
+             : view_model_->view_at(last_visible_index());
+}
+
+views::View* ShelfView::FindFirstOrLastFocusableChild(bool last) {
+  return last ? FindLastFocusableChild() : FindFirstFocusableChild();
+}
+
+void ShelfView::OnShelfButtonAboutToRequestFocusFromTabTraversal(
+    ShelfButton* button,
+    bool reverse) {
+  if (is_overflow_mode()) {
+    main_shelf()->OnShelfButtonAboutToRequestFocusFromTabTraversal(button,
+                                                                   reverse);
+    return;
+  }
+
+  // The logic here seems backwards, but is actually correct. For instance if
+  // the ShelfView's internal focus cycling logic attemmpts to focus the first
+  // child (e.g. app list button) after hitting Tab, we intercept that and
+  // instead, advance through to the status area.
+  if ((reverse && button == FindLastFocusableChild()) ||
+      (!reverse && button == FindFirstFocusableChild())) {
+    StatusAreaWidget* status_area_widget =
+        Shelf::ForWindow(GetWidget()->GetNativeWindow())->GetStatusAreaWidget();
+    status_area_widget->status_area_widget_delegate()
+        ->set_default_last_focusable_child(reverse);
+    Shell::Get()->focus_cycler()->FocusWidget(status_area_widget);
+  }
 }
 
 void ShelfView::DestroyDragIconProxy() {
@@ -1203,6 +1235,13 @@ void ShelfView::CalculateIdealBounds(gfx::Rect* overflow_bounds) const {
   last_visible_index_ =
       IndexOfLastItemThatFitsSize(available_size - button_spacing);
   bool show_overflow = last_visible_index_ < model_->item_count() - 1;
+
+  // In the main shelf, the first visible index is either the back button (in
+  // tablet mode) or the launcher button (otherwise).
+  if (!is_overflow_mode()) {
+    first_visible_index_ =
+        IsTabletModeEnabled() ? kBackButtonIndex : kAppListButtonIndex;
+  }
 
   // Create space for the overflow button and place it in the last visible
   // position.
@@ -1758,7 +1797,8 @@ void ShelfView::ToggleOverflowBubble() {
   overflow_view->overflow_mode_ = true;
   overflow_view->Init();
   overflow_view->set_owner_overflow_bubble(overflow_bubble_.get());
-  overflow_view->OnShelfAlignmentChanged();
+  overflow_view->OnShelfAlignmentChanged(
+      GetWidget()->GetNativeWindow()->GetRootWindow());
   overflow_view->main_shelf_ = this;
   UpdateOverflowRange(overflow_view);
 
@@ -1819,6 +1859,41 @@ gfx::Rect ShelfView::GetMenuAnchorRect(const views::View& source,
       break;
   }
   return gfx::Rect(origin, gfx::Size());
+}
+
+void ShelfView::AnnounceShelfAlignment() {
+  base::string16 announcement;
+  switch (shelf_->alignment()) {
+    case SHELF_ALIGNMENT_BOTTOM:
+    case SHELF_ALIGNMENT_BOTTOM_LOCKED:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_ALIGNMENT_BOTTOM);
+      break;
+    case SHELF_ALIGNMENT_LEFT:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_ALIGNMENT_LEFT);
+      break;
+    case SHELF_ALIGNMENT_RIGHT:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_ALIGNMENT_RIGHT);
+      break;
+  }
+  announcement_view_->GetViewAccessibility().OverrideName(announcement);
+  announcement_view_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
+}
+
+void ShelfView::AnnounceShelfAutohideBehavior() {
+  base::string16 announcement;
+  switch (shelf_->auto_hide_behavior()) {
+    case SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_AUTO_HIDE);
+      break;
+    case SHELF_AUTO_HIDE_BEHAVIOR_NEVER:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_ALWAYS_SHOWN);
+      break;
+    case SHELF_AUTO_HIDE_ALWAYS_HIDDEN:
+      announcement = l10n_util::GetStringUTF16(IDS_SHELF_STATE_ALWAYS_HIDDEN);
+      break;
+  }
+  announcement_view_->GetViewAccessibility().OverrideName(announcement);
+  announcement_view_->NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
 }
 
 gfx::Rect ShelfView::GetBoundsForDragInsertInScreen() {
@@ -2079,6 +2154,32 @@ void ShelfView::ShelfItemStatusChanged(const ShelfID& id) {
   button->SchedulePaint();
 }
 
+void ShelfView::OnShelfAlignmentChanged(aura::Window* root_window) {
+  LayoutToIdealBounds();
+  for (int i = 0; i < view_model_->view_size(); ++i) {
+    if (i >= first_visible_index_ && i <= last_visible_index_)
+      view_model_->view_at(i)->Layout();
+  }
+  tooltip_.Close();
+  if (overflow_bubble_)
+    overflow_bubble_->Hide();
+  // For crbug.com/587931, because AppListButton layout logic is in OnPaint.
+  AppListButton* app_list_button = GetAppListButton();
+  if (app_list_button)
+    app_list_button->SchedulePaint();
+
+  if (GetFocusManager()) {
+    GetFocusManager()->set_arrow_key_traversal_enabled_for_widget(
+        !shelf_->IsHorizontalAlignment());
+  }
+
+  AnnounceShelfAlignment();
+}
+
+void ShelfView::OnShelfAutoHideBehaviorChanged(aura::Window* root_window) {
+  AnnounceShelfAutohideBehavior();
+}
+
 void ShelfView::AfterItemSelected(
     const ShelfItem& item,
     views::Button* sender,
@@ -2128,9 +2229,9 @@ void ShelfView::AfterGetContextMenuItems(
            source_type);
 }
 
-void ShelfView::ShowContextMenuForView(views::View* source,
-                                       const gfx::Point& point,
-                                       ui::MenuSourceType source_type) {
+void ShelfView::ShowContextMenuForViewImpl(views::View* source,
+                                           const gfx::Point& point,
+                                           ui::MenuSourceType source_type) {
   // Prevent concurrent requests that may show application or context menus.
   // If a second request is sent before the first one can respond, the Chrome
   // side ShelfItemDelegate may become unresponsive: https://crbug.com/881886

@@ -103,12 +103,12 @@ class CastContentWindow {
 
     // Called while a system UI gesture is in progress.
     virtual void GestureProgress(GestureType gesture_type,
-                                 const gfx::Point& touch_location){};
+                                 const gfx::Point& touch_location) {}
 
     // Called when an in-progress system UI gesture is cancelled (for example
     // when the finger is lifted before the completion of the gesture.)
     virtual void CancelGesture(GestureType gesture_type,
-                               const gfx::Point& touch_location){};
+                               const gfx::Point& touch_location) {}
 
     // Consume and handle a completed UI gesture. Returns whether the gesture
     // was handled or not.
@@ -193,6 +193,15 @@ class CastContentWindow {
   // Cast activity or application calls it to request for a visibility priority
   // change.
   virtual void RequestVisibility(VisibilityPriority visibility_priority) = 0;
+
+  // Provide activity-related metadata. This data should include information
+  // that is common for all activities, such as type.
+  // TODO(seantopping): Define a schema for this data.
+  virtual void SetActivityContext(base::Value activity_context) = 0;
+
+  // Use this to stash custom data for this class. This data will be visible to
+  // the window manager.
+  virtual void SetHostContext(base::Value host_context) = 0;
 
   // Notify the window that its visibility type has changed. This should only
   // ever be called by the window manager.

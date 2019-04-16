@@ -174,16 +174,18 @@ void SyncConfirmationHandler::SetUserImageURL(const std::string& picture_url) {
     picture_url_to_load = profiles::GetPlaceholderAvatarIconUrl();
   }
   base::Value picture_url_value(picture_url_to_load);
-  web_ui()->CallJavascriptFunctionUnsafe("sync.confirmation.setUserImageURL",
-                                         picture_url_value);
 
+  AllowJavascript();
   if (unified_consent::IsUnifiedConsentFeatureEnabled()) {
-    AllowJavascript();
     FireWebUIListener("account-image-changed", picture_url_value);
+  } else {
+    CallJavascriptFunction("sync.confirmation.setUserImageURL",
+                           picture_url_value);
   }
 }
 
-void SyncConfirmationHandler::OnAccountUpdated(const AccountInfo& info) {
+void SyncConfirmationHandler::OnExtendedAccountInfoUpdated(
+    const AccountInfo& info) {
   if (!info.IsValid())
     return;
 

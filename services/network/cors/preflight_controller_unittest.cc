@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "net/base/load_flags.h"
@@ -174,6 +175,36 @@ TEST(PreflightControllerCreatePreflightRequestTest, Tainted) {
   EXPECT_TRUE(
       preflight->headers.GetHeader(net::HttpRequestHeaders::kOrigin, &header));
   EXPECT_EQ(header, "null");
+}
+
+TEST(PreflightControllerCreatePreflightRequestTest, FetchWindowId) {
+  ResourceRequest request;
+  request.fetch_request_mode = mojom::FetchRequestMode::kCors;
+  request.fetch_credentials_mode = mojom::FetchCredentialsMode::kOmit;
+  request.request_initiator = url::Origin();
+  request.headers.SetHeader(net::HttpRequestHeaders::kContentType,
+                            "application/octet-stream");
+  request.fetch_window_id = base::UnguessableToken::Create();
+
+  std::unique_ptr<ResourceRequest> preflight =
+      PreflightController::CreatePreflightRequestForTesting(request);
+
+  EXPECT_EQ(request.fetch_window_id, preflight->fetch_window_id);
+}
+
+TEST(PreflightControllerCreatePreflightRequestTest, RenderFrameId) {
+  ResourceRequest request;
+  request.fetch_request_mode = mojom::FetchRequestMode::kCors;
+  request.fetch_credentials_mode = mojom::FetchCredentialsMode::kOmit;
+  request.request_initiator = url::Origin();
+  request.headers.SetHeader(net::HttpRequestHeaders::kContentType,
+                            "application/octet-stream");
+  request.render_frame_id = 99;
+
+  std::unique_ptr<ResourceRequest> preflight =
+      PreflightController::CreatePreflightRequestForTesting(request);
+
+  EXPECT_EQ(request.render_frame_id, preflight->render_frame_id);
 }
 
 class PreflightControllerTest : public testing::Test {
@@ -349,6 +380,24 @@ TEST_F(PreflightControllerTest, CancelPreflightIsCalled) {
   ASSERT_FALSE(status());
   EXPECT_TRUE(cancel_preflight_called());
   EXPECT_EQ(1u, access_count());
+}
+
+TEST_F(PreflightControllerTest, CheckResponseWithNullHeaders) {
+  GURL url = GURL("https://google.com/finullurl");
+  const ResourceResponseHead response_head;
+  ResourceRequest request;
+  request.url = url;
+  request.request_initiator = url::Origin::Create(request.url);
+  const bool tainted = false;
+  base::Optional<CorsErrorStatus> detected_error_status;
+
+  EXPECT_FALSE(response_head.headers);
+
+  std::unique_ptr<PreflightResult> result =
+      PreflightController::CreatePreflightResultForTesting(
+          url, response_head, request, tainted, &detected_error_status);
+
+  EXPECT_FALSE(result);
 }
 
 }  // namespace

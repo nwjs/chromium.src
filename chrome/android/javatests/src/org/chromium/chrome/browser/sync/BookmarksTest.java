@@ -201,8 +201,9 @@ public class BookmarksTest {
         mSyncTestRule.pollInstrumentationThread(new ClientBookmarksCriteria() {
             @Override
             public boolean isSatisfied(List<Bookmark> bookmarks) {
+                Bookmark modifiedBookmark = bookmarks.get(bookmarks.get(0).isFolder() ? 1 : 0);
                 // The "s" is prepended because the server adds one to the parentId.
-                return bookmarks.get(bookmarkIndex).parentId.equals("s" + folder.id);
+                return modifiedBookmark.parentId.equals("s" + folder.id);
             }
         });
     }

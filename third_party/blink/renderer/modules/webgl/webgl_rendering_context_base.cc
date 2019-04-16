@@ -104,7 +104,6 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
@@ -185,13 +184,15 @@ ScopedRGBEmulationColorMask::~ScopedRGBEmulationColorMask() {
 }
 
 void WebGLRenderingContextBase::InitializeWebGLContextLimits(
-    const DrawingBuffer::WebGLContextLimits& limits) {
+    WebGraphicsContext3DProvider* context_provider) {
   MutexLocker locker(WebGLContextLimitMutex());
   if (!webgl_context_limits_initialized_) {
     // These do not change over the lifetime of the browser.
-    max_active_webgl_contexts_ = limits.max_active_webgl_contexts;
+    auto webgl_preferences =
+        context_provider->GetGpuFeatureInfo().webgl_preferences;
+    max_active_webgl_contexts_ = webgl_preferences.max_active_webgl_contexts;
     max_active_webgl_contexts_on_worker_ =
-        limits.max_active_webgl_contexts_on_worker;
+        webgl_preferences.max_active_webgl_contexts_on_worker;
     webgl_context_limits_initialized_ = true;
   }
 }
@@ -210,7 +211,7 @@ void WebGLRenderingContextBase::ForciblyLoseOldestContext(
     return;
 
   candidate->PrintWarningToConsole(reason);
-  probe::didFireWebGLWarning(candidate->canvas());
+  probe::DidFireWebGLWarning(candidate->canvas());
 
   // This will call deactivateContext once the context has actually been lost.
   candidate->ForceLostContext(WebGLRenderingContextBase::kSyntheticLostContext,
@@ -620,7 +621,7 @@ struct ContextProviderCreationInfo {
 
 static void CreateContextProviderOnMainThread(
     ContextProviderCreationInfo* creation_info,
-    WaitableEvent* waitable_event) {
+    base::WaitableEvent* waitable_event) {
   DCHECK(IsMainThread());
   // Ask for gpu compositing mode when making the context. The context will be
   // lost if the mode changes.
@@ -639,7 +640,7 @@ CreateContextProviderOnWorkerThread(
     Platform::GraphicsInfo* gl_info,
     bool* using_gpu_compositing,
     const KURL& url) {
-  WaitableEvent waitable_event;
+  base::WaitableEvent waitable_event;
   ContextProviderCreationInfo creation_info;
   creation_info.context_attributes = context_attributes;
   creation_info.gl_info = gl_info;
@@ -764,7 +765,7 @@ void WebGLRenderingContextBase::commit() {
 
   if (PaintRenderingResultsToCanvas(kBackBuffer)) {
     if (Host()->GetOrCreateCanvasResourceProvider(kPreferAcceleration)) {
-      Host()->Commit(Host()->ResourceProvider()->ProduceFrame(),
+      Host()->Commit(Host()->ResourceProvider()->ProduceCanvasResource(),
                      SkIRect::MakeWH(width, height));
     }
   }
@@ -1025,6 +1026,7 @@ WebGLRenderingContextBase::WebGLRenderingContextBase(
   max_viewport_dims_[0] = max_viewport_dims_[1] = 0;
   context_provider->ContextGL()->GetIntegerv(GL_MAX_VIEWPORT_DIMS,
                                              max_viewport_dims_);
+  InitializeWebGLContextLimits(context_provider.get());
 
   scoped_refptr<DrawingBuffer> buffer;
   buffer =
@@ -1034,7 +1036,6 @@ WebGLRenderingContextBase::WebGLRenderingContextBase(
     return;
   }
 
-  InitializeWebGLContextLimits(buffer->webgl_context_limits());
   drawing_buffer_ = std::move(buffer);
   GetDrawingBuffer()->Bind(GL_FRAMEBUFFER);
   SetupFlags();
@@ -1387,7 +1388,7 @@ void WebGLRenderingContextBase::PushFrame() {
   int height = GetDrawingBuffer()->Size().Height();
   if (PaintRenderingResultsToCanvas(kBackBuffer)) {
     if (Host()->GetOrCreateCanvasResourceProvider(kPreferAcceleration)) {
-      Host()->PushFrame(Host()->ResourceProvider()->ProduceFrame(),
+      Host()->PushFrame(Host()->ResourceProvider()->ProduceCanvasResource(),
                         SkIRect::MakeWH(width, height));
     }
   }
@@ -1402,7 +1403,7 @@ void WebGLRenderingContextBase::OnErrorMessage(const char* message,
                                                int32_t id) {
   if (synthesized_errors_to_console_)
     PrintGLErrorToConsole(message);
-  probe::didFireWebGLErrorOrWarning(canvas(), message);
+  probe::DidFireWebGLErrorOrWarning(canvas(), message);
 }
 
 WebGLRenderingContextBase::HowToClear
@@ -1561,14 +1562,31 @@ bool WebGLRenderingContextBase::PaintRenderingResultsToCanvas(
   GetDrawingBuffer()->ResolveAndBindForReadAndDraw();
   if (!CopyRenderingResultsFromDrawingBuffer(Host()->ResourceProvider(),
                                              source_buffer)) {
-    // Currently, copyRenderingResultsFromDrawingBuffer is expected to always
+    // Currently, CopyRenderingResultsFromDrawingBuffer is expected to always
     // succeed because cases where canvas()-buffer() is not accelerated are
-    // handle before reaching this point.  If that assumption ever stops holding
-    // true, we may need to implement a fallback right here.
+    // handled before reaching this point.  If that assumption ever stops
+    // holding true, we may need to implement a fallback right here.
     NOTREACHED();
     return false;
   }
   return true;
+}
+
+void WebGLRenderingContextBase::ProvideBackBufferToResourceProvider() const {
+  if (isContextLost())
+    return;
+
+  DCHECK(Host()->ResourceProvider());
+  if (Host()->ResourceProvider()->Size() != GetDrawingBuffer()->Size())
+    Host()->DiscardResourceProvider();
+
+  CanvasResourceProvider* resource_provider =
+      Host()->GetOrCreateCanvasResourceProvider(kPreferAcceleration);
+  if (!resource_provider || !resource_provider->IsAccelerated())
+    return;
+
+  resource_provider->ImportResource(
+      GetDrawingBuffer()->AsCanvasResource(resource_provider->CreateWeakPtr()));
 }
 
 bool WebGLRenderingContextBase::ContextCreatedOnXRCompatibleAdapter() {
@@ -3364,13 +3382,6 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
       SynthesizeGLError(GL_INVALID_ENUM, "getParameter",
                         "invalid parameter name, WEBGL_multiview not enabled");
       return ScriptValue::CreateNull(script_state);
-    case GL_MAX_SHADER_COMPILER_THREADS_KHR:
-      if (ExtensionEnabled(kKHRParallelShaderCompileName))
-        return GetUnsignedIntParameter(script_state, pname);
-      SynthesizeGLError(
-          GL_INVALID_ENUM, "getParameter",
-          "invalid parameter name, KHR_parallel_shader_compile not enabled");
-      return ScriptValue::CreateNull(script_state);
     default:
       if ((ExtensionEnabled(kWebGLDrawBuffersName) || IsWebGL2OrHigher()) &&
           pname >= GL_DRAW_BUFFER0_EXT &&
@@ -3427,7 +3438,15 @@ ScriptValue WebGLRenderingContextBase::getProgramParameter(
       ContextGL()->GetProgramiv(ObjectOrZero(program), pname, &value);
       return WebGLAny(script_state, value);
     case GL_TRANSFORM_FEEDBACK_BUFFER_MODE:
-      if (IsWebGL2OrHigher()) {
+      if (!IsWebGL2OrHigher()) {
+        SynthesizeGLError(GL_INVALID_ENUM, "getProgramParameter",
+                          "invalid parameter name");
+        return ScriptValue::CreateNull(script_state);
+      }
+      ContextGL()->GetProgramiv(ObjectOrZero(program), pname, &value);
+      return WebGLAny(script_state, static_cast<unsigned>(value));
+    case GL_ACTIVE_ATOMIC_COUNTER_BUFFERS:
+      if (context_type_ == Platform::kWebGL2ComputeContextType) {
         ContextGL()->GetProgramiv(ObjectOrZero(program), pname, &value);
         return WebGLAny(script_state, static_cast<unsigned>(value));
       }
@@ -3655,15 +3674,15 @@ ScriptValue WebGLRenderingContextBase::getUniform(
     LChar* name_ptr;
     scoped_refptr<StringImpl> name_impl =
         StringImpl::CreateUninitialized(max_name_length, name_ptr);
-    GLsizei length = 0;
+    GLsizei name_length = 0;
     GLint size = -1;
     GLenum type = 0;
-    ContextGL()->GetActiveUniform(program_id, i, max_name_length, &length,
+    ContextGL()->GetActiveUniform(program_id, i, max_name_length, &name_length,
                                   &size, &type,
                                   reinterpret_cast<GLchar*>(name_ptr));
     if (size < 0)
       return ScriptValue::CreateNull(script_state);
-    String name(name_impl->Substring(0, length));
+    String name(name_impl->Substring(0, name_length));
     StringBuilder name_builder;
     // Strip "[0]" from the name if it's an array.
     if (size > 1 && name.EndsWith("[0]"))
@@ -5231,7 +5250,7 @@ void WebGLRenderingContextBase::TexImageViaGPU(
       WebGLRenderingContextBase* gl = source_canvas_webgl_context;
       if (gl->is_origin_top_left_ && !canvas()->LowLatencyEnabled())
         flip_y = !flip_y;
-      ScopedTexture2DRestorer restorer(gl);
+      ScopedTexture2DRestorer inner_restorer(gl);
       if (!gl->GetDrawingBuffer()->CopyToPlatformTexture(
               ContextGL(), target, target_texture, unpack_premultiply_alpha_,
               !flip_y, IntPoint(xoffset, yoffset), source_sub_rectangle,
@@ -7365,7 +7384,7 @@ void WebGLRenderingContextBase::PrintWarningToConsole(const String& message) {
   if (!canvas())
     return;
   canvas()->GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-      kRenderingMessageSource, kWarningMessageLevel, message));
+      kRenderingMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
 }
 
 bool WebGLRenderingContextBase::ValidateFramebufferFuncParameters(
@@ -7879,7 +7898,7 @@ void WebGLRenderingContextBase::SynthesizeGLError(
     if (!lost_context_errors_.Contains(error))
       lost_context_errors_.push_back(error);
   }
-  probe::didFireWebGLError(canvas(), error_type);
+  probe::DidFireWebGLError(canvas(), error_type);
 }
 
 void WebGLRenderingContextBase::EmitGLWarning(const char* function_name,
@@ -7889,7 +7908,7 @@ void WebGLRenderingContextBase::EmitGLWarning(const char* function_name,
         String("WebGL: ") + String(function_name) + ": " + String(description);
     PrintGLErrorToConsole(message);
   }
-  probe::didFireWebGLWarning(canvas());
+  probe::DidFireWebGLWarning(canvas());
 }
 
 void WebGLRenderingContextBase::ApplyStencilTest() {

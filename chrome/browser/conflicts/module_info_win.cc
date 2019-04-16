@@ -59,12 +59,10 @@ bool ConvertToLongPath(const base::string16& short_path,
 
 ModuleInfoKey::ModuleInfoKey(const base::FilePath& module_path,
                              uint32_t module_size,
-                             uint32_t module_time_date_stamp,
-                             uint32_t module_id)
+                             uint32_t module_time_date_stamp)
     : module_path(module_path),
       module_size(module_size),
-      module_time_date_stamp(module_time_date_stamp),
-      module_id(module_id) {}
+      module_time_date_stamp(module_time_date_stamp) {}
 
 bool ModuleInfoKey::operator<(const ModuleInfoKey& mik) const {
   // The key consists of the triplet of
@@ -79,10 +77,14 @@ bool ModuleInfoKey::operator<(const ModuleInfoKey& mik) const {
 ModuleInspectionResult::ModuleInspectionResult() = default;
 
 ModuleInspectionResult::ModuleInspectionResult(
-    ModuleInspectionResult&& other) noexcept = default;
+    const ModuleInspectionResult& other) = default;
+ModuleInspectionResult::ModuleInspectionResult(ModuleInspectionResult&& other) =
+    default;
 
 ModuleInspectionResult& ModuleInspectionResult::operator=(
-    ModuleInspectionResult&& other) noexcept = default;
+    const ModuleInspectionResult& other) = default;
+ModuleInspectionResult& ModuleInspectionResult::operator=(
+    ModuleInspectionResult&& other) = default;
 
 ModuleInspectionResult::~ModuleInspectionResult() = default;
 
@@ -103,6 +105,14 @@ ModuleInspectionResult InspectModule(const base::FilePath& module_path) {
   internal::NormalizeInspectionResult(&inspection_result);
 
   return inspection_result;
+}
+
+// Returns the time stamp to be used in the inspection results cache.
+// Represents the number of hours between |time| and the Windows epoch
+// (1601-01-01 00:00:00 UTC).
+uint32_t CalculateTimeStamp(base::Time time) {
+  const auto delta = time.ToDeltaSinceWindowsEpoch();
+  return delta < base::TimeDelta() ? 0 : static_cast<uint32_t>(delta.InHours());
 }
 
 std::string GenerateCodeId(const ModuleInfoKey& module_key) {

@@ -24,13 +24,10 @@ import java.lang.annotation.RetentionPolicy;
 /**
  * The properties associated with rendering the suggestion view.
  */
-class SuggestionViewProperties {
+public class SuggestionViewProperties {
     @IntDef({SuggestionIcon.UNDEFINED, SuggestionIcon.BOOKMARK, SuggestionIcon.HISTORY,
             SuggestionIcon.GLOBE, SuggestionIcon.MAGNIFIER, SuggestionIcon.VOICE,
-            SuggestionIcon.CALCULATOR, SuggestionIcon.DICTIONARY, SuggestionIcon.FINANCE,
-            SuggestionIcon.KNOWLEDGE, SuggestionIcon.SUNRISE, SuggestionIcon.TRANSLATION,
-            SuggestionIcon.WEATHER, SuggestionIcon.EVENT, SuggestionIcon.CURRENCY,
-            SuggestionIcon.SPORTS})
+            SuggestionIcon.CALCULATOR})
     @Retention(RetentionPolicy.SOURCE)
     public @interface SuggestionIcon {
         int UNDEFINED = -1;
@@ -40,21 +37,12 @@ class SuggestionViewProperties {
         int MAGNIFIER = 3;
         int VOICE = 4;
         int CALCULATOR = 5;
-        int DICTIONARY = 6;
-        int FINANCE = 7;
-        int KNOWLEDGE = 8;
-        int SUNRISE = 9;
-        int TRANSLATION = 10;
-        int WEATHER = 11;
-        int EVENT = 12;
-        int CURRENCY = 13;
-        int SPORTS = 14;
     }
 
     /**
      * Container for suggestion text that prevents updates when the text/spans has not changed.
      */
-    static class SuggestionTextContainer {
+    public static class SuggestionTextContainer {
         public final Spannable text;
 
         public SuggestionTextContainer(Spannable text) {
@@ -102,7 +90,7 @@ class SuggestionViewProperties {
     }
 
     /** The delegate to handle actions on the suggestion view. */
-    public static final WritableObjectPropertyKey<SuggestionView.SuggestionViewDelegate> DELEGATE =
+    public static final WritableObjectPropertyKey<SuggestionViewDelegate> DELEGATE =
             new WritableObjectPropertyKey<>();
 
     /** Whether the suggestion is for an answer. */
@@ -126,7 +114,7 @@ class SuggestionViewProperties {
      * The first item is the unit of size (e.g. TypedValue.COMPLEX_UNIT_PX), and the second item
      * is the size itself.
      */
-    public static final WritableObjectPropertyKey<Pair<Integer, Float>> TEXT_LINE_1_SIZING =
+    public static final WritableObjectPropertyKey<Pair<Integer, Integer>> TEXT_LINE_1_SIZING =
             new WritableObjectPropertyKey<>();
     /** The maximum number of lines to be shown for the first line of text. */
     public static final WritableIntPropertyKey TEXT_LINE_1_MAX_LINES = new WritableIntPropertyKey();
@@ -146,7 +134,7 @@ class SuggestionViewProperties {
      * The first item is the unit of size (e.g. TypedValue.COMPLEX_UNIT_PX), and the second item
      * is the size itself.
      */
-    public static final WritableObjectPropertyKey<Pair<Integer, Float>> TEXT_LINE_2_SIZING =
+    public static final WritableObjectPropertyKey<Pair<Integer, Integer>> TEXT_LINE_2_SIZING =
             new WritableObjectPropertyKey<>();
     /** The maximum number of lines to be shown for the second line of text. */
     public static final WritableIntPropertyKey TEXT_LINE_2_MAX_LINES = new WritableIntPropertyKey();

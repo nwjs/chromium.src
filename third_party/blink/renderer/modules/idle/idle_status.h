@@ -5,14 +5,15 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_IDLE_IDLE_STATUS_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_IDLE_IDLE_STATUS_H_
 
+#include "base/macros.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/platform/modules/idle/idle_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
-#include "third_party/blink/renderer/core/execution_context/pausable_object.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_state_observer.h"
 #include "third_party/blink/renderer/modules/event_modules.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
+#include "third_party/blink/renderer/modules/idle/idle_state.h"
 #include "third_party/blink/renderer/platform/heap/heap_allocator.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -20,28 +21,28 @@ namespace blink {
 
 class IdleStatus final : public EventTargetWithInlineData,
                          public ActiveScriptWrappable<IdleStatus>,
-                         public PausableObject,
+                         public ContextLifecycleStateObserver,
                          public mojom::blink::IdleMonitor {
   USING_GARBAGE_COLLECTED_MIXIN(IdleStatus);
   DEFINE_WRAPPERTYPEINFO();
   USING_PRE_FINALIZER(IdleStatus, Dispose);
-  WTF_MAKE_NONCOPYABLE(IdleStatus);
-
-  using IdleState = mojom::blink::IdleState;
 
  public:
   // Constructed by the IdleManager when queried by script, but not returned
   // to script until the monitor has been registered by the service and
   // returned an initial state.
-  IdleStatus(ExecutionContext*,
-             uint32_t threshold,
-             mojom::blink::IdleMonitorRequest);
+  static IdleStatus* Create(ExecutionContext* context,
+                            base::TimeDelta threshold,
+                            mojom::blink::IdleMonitorRequest request);
 
+  IdleStatus(ExecutionContext*,
+             base::TimeDelta threshold,
+             mojom::blink::IdleMonitorRequest);
   ~IdleStatus() override;
   void Dispose();
 
   // Called when the service has returned an initial state.
-  void Init(IdleState);
+  void Init(mojom::blink::IdleStatePtr);
 
   // EventTarget implementation.
   const AtomicString& InterfaceName() const override;
@@ -50,18 +51,17 @@ class IdleStatus final : public EventTargetWithInlineData,
   // ActiveScriptWrappable implementation.
   bool HasPendingActivity() const final;
 
-  // PausableObject implementation.
-  void ContextPaused(PauseState) override;
-  void ContextUnpaused() override;
+  // ContextLifecycleStateObserver implementation.
+  void ContextLifecycleStateChanged(mojom::FrameLifecycleState) override;
   void ContextDestroyed(ExecutionContext*) override;
 
   // IdleStatus IDL interface.
-  String state() const;
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(change, kChange);
+  blink::IdleState* state() const;
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(change, kChange)
 
   // mojom::blink::IdleMonitor implementation. Invoked on a state change, and
   // causes an event to be dispatched.
-  void Update(IdleState state) override;
+  void Update(mojom::blink::IdleStatePtr state) override;
 
   void Trace(blink::Visitor*) override;
 
@@ -74,13 +74,15 @@ class IdleStatus final : public EventTargetWithInlineData,
   // destroyed.
   void StopMonitoring();
 
-  IdleState state_;
+  Member<blink::IdleState> state_;
 
-  const uint32_t threshold_;
+  const base::TimeDelta threshold_;
 
   // Holds a pipe which the service uses to notify this object
   // when the idle state has changed.
   mojo::Binding<mojom::blink::IdleMonitor> binding_;
+
+  DISALLOW_COPY_AND_ASSIGN(IdleStatus);
 };
 
 }  // namespace blink

@@ -7,13 +7,34 @@
 #include "base/strings/string_number_conversions.h"
 
 namespace base {
-namespace experimental {
+
+TypeId::TypeId(
+#if DCHECK_IS_ON()
+    const char* function_name,
+#endif
+    internal::TypeUniqueId unique_type_id)
+    :
+#if DCHECK_IS_ON()
+      function_name_(function_name),
+#endif
+      unique_type_id_(unique_type_id) {
+}
+
+TypeId::TypeId()
+    : TypeId(
+#if DCHECK_IS_ON()
+          "",
+#endif
+          internal::UniqueIdFromType<internal::NoType>()) {
+}
 
 std::string TypeId::ToString() const {
 #if DCHECK_IS_ON()
   return function_name_;
+#elif defined(COMPILER_MSVC)
+  return HexEncode(&unique_type_id_, sizeof(unique_type_id_));
 #else
-  return NumberToString(reinterpret_cast<uintptr_t>(type_id_));
+  return NumberToString(reinterpret_cast<uintptr_t>(unique_type_id_));
 #endif
 }
 
@@ -21,5 +42,4 @@ std::ostream& operator<<(std::ostream& out, const TypeId& type_id) {
   return out << type_id.ToString();
 }
 
-}  // namespace experimental
 }  // namespace base

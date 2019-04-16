@@ -11,8 +11,10 @@
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/sequence_checker.h"
 #include "base/time/tick_clock.h"
+#include "base/timer/timer.h"
 #include "base/token.h"
 #include "base/values.h"
 #include "components/cast_channel/cast_message_util.h"
@@ -175,6 +177,7 @@ class CastMessageHandler : public CastSocket::Observer {
   // request.
   virtual void StopSession(int channel_id,
                            const std::string& session_id,
+                           const base::Optional<std::string>& client_id,
                            ResultCallback callback);
 
   // Sends |message| to the device given by |channel_id|. The caller may use

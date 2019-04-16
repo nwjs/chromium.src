@@ -5,6 +5,7 @@
 #include "ui/accessibility/accessibility_switches.h"
 
 #include "base/command_line.h"
+#include "build/build_config.h"
 
 namespace switches {
 
@@ -16,10 +17,6 @@ const char kEnableExperimentalAccessibilityFeatures[] =
 // Shows additional automatic click features that haven't launched yet.
 const char kEnableExperimentalAccessibilityAutoclick[] =
     "enable-experimental-accessibility-autoclick";
-
-// Enables additional image label features that haven't launched yet.
-const char kEnableExperimentalAccessibilityLabels[] =
-    "enable-experimental-accessibility-labels";
 
 // Enables language detection on in-page text content which is then exposed to
 // accessibility technology such as screen readers.
@@ -39,9 +36,24 @@ bool AreExperimentalAccessibilityFeaturesEnabled() {
       ::switches::kEnableExperimentalAccessibilityFeatures);
 }
 
-bool AreExperimentalAccessibilityLanguageDetectionEnabled() {
+bool IsExperimentalAccessibilityLanguageDetectionEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       ::switches::kEnableExperimentalAccessibilityLanguageDetection);
+}
+
+#if defined(OS_WIN)
+// Toggles between IAccessible and UI Automation platform API.
+const char kEnableExperimentalUIAutomation[] =
+    "enable-experimental-ui-automation";
+#endif
+
+bool IsExperimentalAccessibilityPlatformUIAEnabled() {
+#if defined(OS_WIN)
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      ::switches::kEnableExperimentalUIAutomation);
+#else
+  return false;
+#endif
 }
 
 }  // namespace switches

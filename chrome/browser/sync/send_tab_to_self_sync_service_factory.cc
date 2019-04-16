@@ -4,19 +4,23 @@
 
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 
+#include "base/bind.h"
 #include "base/memory/singleton.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/chrome_device_id_helper.h"
+#include "chrome/browser/sync/device_info_sync_service_factory.h"
+#include "chrome/browser/sync/model_type_store_service_factory.h"
 #include "chrome/common/channel_info.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
-#include "components/send_tab_to_self/send_tab_to_self_service.h"
-#include "components/sync/device_info/local_device_info_provider_impl.h"
+#include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
+#include "components/sync/device_info/device_info_sync_service.h"
+#include "components/sync/model/model_type_store_service.h"
 #include "ui/base/device_form_factor.h"
 
 // static
-send_tab_to_self::SendTabToSelfService*
+send_tab_to_self::SendTabToSelfSyncService*
 SendTabToSelfSyncServiceFactory::GetForProfile(Profile* profile) {
-  return static_cast<send_tab_to_self::SendTabToSelfService*>(
+  return static_cast<send_tab_to_self::SendTabToSelfSyncService*>(
       GetInstance()->GetServiceForBrowserContext(profile, true));
 }
 
@@ -29,7 +33,10 @@ SendTabToSelfSyncServiceFactory::GetInstance() {
 SendTabToSelfSyncServiceFactory::SendTabToSelfSyncServiceFactory()
     : BrowserContextKeyedServiceFactory(
           "SendTabToSelfSyncService",
-          BrowserContextDependencyManager::GetInstance()) {}
+          BrowserContextDependencyManager::GetInstance()) {
+  DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
+  DependsOn(ModelTypeStoreServiceFactory::GetInstance());
+}
 
 SendTabToSelfSyncServiceFactory::~SendTabToSelfSyncServiceFactory() {}
 
@@ -37,19 +44,14 @@ KeyedService* SendTabToSelfSyncServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
 
-  syncer::LocalDeviceInfoProviderImpl::SigninScopedDeviceIdCallback
-      signin_scoped_device_id_callback =
-          base::BindRepeating(&GetSigninScopedDeviceIdForProfile, profile);
+  syncer::LocalDeviceInfoProvider* local_device_info_provider =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile)
+          ->GetLocalDeviceInfoProvider();
 
-  std::unique_ptr<syncer::LocalDeviceInfoProviderImpl>
-      local_device_info_provider =
-          std::make_unique<syncer::LocalDeviceInfoProviderImpl>(
-              chrome::GetChannel(), chrome::GetVersionString(),
-              ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET,
-              signin_scoped_device_id_callback);
+  syncer::OnceModelTypeStoreFactory store_factory =
+      ModelTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory();
 
-  // TODO(jeffreycohen): use KeyedService to provide a DeviceInfo ptr.
-
-  return new send_tab_to_self::SendTabToSelfService(chrome::GetChannel(),
-                                                    nullptr);
+  return new send_tab_to_self::SendTabToSelfSyncService(
+      chrome::GetChannel(), local_device_info_provider,
+      std::move(store_factory));
 }

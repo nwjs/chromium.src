@@ -15,7 +15,12 @@ Polymer({
       observer: 'onItemIdChanged_',
     },
 
-    ironListTabIndex: String,
+    ironListTabIndex: Number,
+
+    crIcon_: {
+      type: String,
+      value: 'icon-more-vert',
+    },
 
     /** @private {BookmarkNode} */
     item_: {
@@ -27,6 +32,7 @@ Polymer({
     isSelectedItem_: {
       type: Boolean,
       reflectToAttribute: true,
+      observer: 'onIsSelectedItemChanged_',
     },
 
     /** @private */
@@ -53,9 +59,9 @@ Polymer({
 
   /** @override */
   attached: function() {
-    this.watch('item_', (store) => store.nodes[this.itemId]);
+    this.watch('item_', store => store.nodes[this.itemId]);
     this.watch(
-        'isSelectedItem_', (store) => !!store.selection.items.has(this.itemId));
+        'isSelectedItem_', store => store.selection.items.has(this.itemId));
 
     this.updateFromStore();
   },
@@ -98,14 +104,6 @@ Polymer({
     });
   },
 
-  /**
-   * @param {Event} e
-   * @private
-   */
-  onMenuButtonDblClick_: function(e) {
-    e.stopPropagation();
-  },
-
   /** @private */
   selectThisItem_: function() {
     this.dispatch(bookmarks.actions.selectItem(this.itemId, this.getState(), {
@@ -113,6 +111,12 @@ Polymer({
       range: false,
       toggle: false,
     }));
+  },
+
+  /** @private */
+  onIsSelectedItemChanged_: function() {
+    this.crIcon_ = this.isSelectedItem_ ? 'icon-more-vert-light-mode' :
+        'icon-more-vert';
   },
 
   /** @private */

@@ -8,10 +8,10 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
 
 using testing::_;
@@ -63,7 +63,7 @@ class PaintLayerScrollableAreaTestBase : public RenderingTest {
 class PaintLayerScrollableAreaTest : public PaintLayerScrollableAreaTestBase,
                                      public PaintTestConfigurations {};
 
-INSTANTIATE_PAINT_TEST_CASE_P(PaintLayerScrollableAreaTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(PaintLayerScrollableAreaTest);
 using PaintLayerScrollableAreaTestSPv1 = PaintLayerScrollableAreaTestBase;
 
 TEST_P(PaintLayerScrollableAreaTest,
@@ -909,6 +909,10 @@ TEST_P(PaintLayerScrollableAreaTest,
 }
 
 TEST_P(PaintLayerScrollableAreaTest, ViewScrollWithFixedAttachmentBackground) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   SetBodyInnerHTML(R"HTML(
     <style>
       html, #fixed-background {
@@ -1019,7 +1023,7 @@ TEST_P(PaintLayerScrollableAreaTest, CompositedStickyDescendant) {
   EXPECT_EQ(FloatSize(0, 0), sticky->FirstFragment()
                                  .LocalBorderBoxProperties()
                                  .Transform()
-                                 ->Matrix()
+                                 .Matrix()
                                  .To2DTranslation());
 
   scrollable_area->SetScrollOffset(ScrollOffset(0, 50), kUserScroll);
@@ -1028,7 +1032,7 @@ TEST_P(PaintLayerScrollableAreaTest, CompositedStickyDescendant) {
   EXPECT_EQ(FloatSize(0, 50), sticky->FirstFragment()
                                   .LocalBorderBoxProperties()
                                   .Transform()
-                                  ->Matrix()
+                                  .Matrix()
                                   .To2DTranslation());
 }
 

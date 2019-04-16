@@ -4,13 +4,19 @@
 
 #include "chrome/browser/android/autofill_assistant/client_android.h"
 
+#include <utility>
+#include <vector>
+
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/android/locale_utils.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/no_destructor.h"
 #include "base/task/post_task.h"
+#include "base/time/default_tick_clock.h"
 #include "chrome/browser/android/chrome_feature_list.h"
 #include "chrome/browser/autofill/android/personal_data_manager_android.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -20,6 +26,7 @@
 #include "chrome/common/channel_info.h"
 #include "components/autofill_assistant/browser/access_token_fetcher.h"
 #include "components/autofill_assistant/browser/controller.h"
+#include "components/autofill_assistant/browser/features.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -44,10 +51,6 @@ namespace {
 
 const char* const kDefaultAutofillAssistantServerUrl =
     "https://automate-pa.googleapis.com";
-
-// Time between two attempts to destroy the controller.
-static constexpr base::TimeDelta kDestroyRetryInterval =
-    base::TimeDelta::FromSeconds(2);
 
 // Fills a map from two Java arrays of strings of the same length.
 void FillParametersFromJava(JNIEnv* env,
@@ -78,7 +81,6 @@ JNI_AutofillAssistantClient_FromWebContents(
 
 ClientAndroid::ClientAndroid(content::WebContents* web_contents)
     : web_contents_(web_contents),
-      // TODO: consider creating the java objects when needed.
       java_object_(Java_AutofillAssistantClient_create(
           AttachCurrentThread(),
           reinterpret_cast<intptr_t>(this))),
@@ -105,7 +107,8 @@ void ClientAndroid::ShowOnboarding(
     JNIEnv* env,
     const base::android::JavaParamRef<jobject>& jcaller,
     const JavaParamRef<jobject>& on_accept) {
-  GetUiController()->ShowOnboarding(env, on_accept);
+  ShowUI();
+  ui_controller_android_->ShowOnboarding(env, on_accept);
 }
 
 base::android::ScopedJavaLocalRef<jobject> ClientAndroid::GetJavaObject() {
@@ -124,10 +127,42 @@ void ClientAndroid::Start(JNIEnv* env,
   controller_->Start(initial_url, parameters);
 }
 
+void ClientAndroid::DestroyUI(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller) {
+  DestroyUI();
+}
+
+void ClientAndroid::TransferUITo(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    const base::android::JavaParamRef<jobject>& jother_web_contents) {
+  if (!ui_controller_android_)
+    return;
+
+  auto ui_ptr = std::move(ui_controller_android_);
+  // From this point on, the UIController, in ui_ptr, is either transferred or
+  // deleted.
+
+  if (!jother_web_contents)
+    return;
+
+  auto* other_web_contents =
+      content::WebContents::FromJavaWebContents(jother_web_contents);
+  DCHECK_NE(other_web_contents, web_contents_);
+
+  ClientAndroid* other_client =
+      ClientAndroid::FromWebContents(other_web_contents);
+  if (!other_client || !other_client->NeedsUI())
+    return;
+
+  other_client->SetUI(std::move(ui_ptr));
+}
+
 base::android::ScopedJavaLocalRef<jstring> ClientAndroid::GetPrimaryAccountName(
     JNIEnv* env,
     const JavaParamRef<jobject>& jcaller) {
-  AccountInfo account_info =
+  CoreAccountInfo account_info =
       IdentityManagerFactory::GetForProfile(
           Profile::FromBrowserContext(web_contents_->GetBrowserContext()))
           ->GetPrimaryAccountInfo();
@@ -142,6 +177,24 @@ void ClientAndroid::OnAccessToken(JNIEnv* env,
     std::move(fetch_access_token_callback_)
         .Run(success, base::android::ConvertJavaStringToUTF8(access_token));
   }
+}
+
+void ClientAndroid::ShowUI() {
+  if (!controller_) {
+    CreateController();
+    // TODO(crbug.com/806868): allow delaying controller creation, for
+    // onboarding.
+  }
+  if (!ui_controller_android_) {
+    std::unique_ptr<UiControllerAndroid> ui_ptr =
+        UiControllerAndroid::CreateFromWebContents(web_contents_);
+    if (ui_ptr)
+      SetUI(std::move(ui_ptr));
+  }
+}
+
+void ClientAndroid::DestroyUI() {
+  ui_controller_android_.reset();
 }
 
 std::string ClientAndroid::GetApiKey() {
@@ -178,16 +231,12 @@ std::string ClientAndroid::GetServerUrl() {
   return server_url_;
 }
 
-UiControllerAndroid* ClientAndroid::GetUiController() {
-  if (!controller_) {
-    CreateController();
-  }
+UiController* ClientAndroid::GetUiController() {
+  if (ui_controller_android_)
+    return ui_controller_android_.get();
 
-  if (!ui_controller_android_ && controller_) {
-    ui_controller_android_ = std::make_unique<UiControllerAndroid>(
-        web_contents_, /* client= */ this, controller_.get());
-  }
-  return ui_controller_android_.get();
+  static base::NoDestructor<UiController> noop_controller_;
+  return noop_controller_.get();
 }
 
 std::string ClientAndroid::GetLocale() {
@@ -200,21 +249,23 @@ std::string ClientAndroid::GetCountryCode() {
                                                   java_object_));
 }
 
-void ClientAndroid::Stop() {
+void ClientAndroid::Shutdown(Metrics::DropOutReason reason) {
   if (!controller_)
     return;
 
-  if (!controller_->Terminate()) {
-    // This is a safety net and should be removed once all uses of
-    // base::Unretained in the execution and script tracking has been removed.
-    base::PostDelayedTaskWithTraits(
-        FROM_HERE, {content::BrowserThread::UI},
-        base::BindOnce(&ClientAndroid::Stop, weak_ptr_factory_.GetWeakPtr()),
-        kDestroyRetryInterval);
+  if (!controller_->Terminate(reason)) {
+    // Controller is responsible for calling Shutdown(reason) again once it's
+    // done.
     return;
   }
-  ui_controller_android_.reset();
-  controller_.reset();
+
+  Metrics::RecordDropOut(reason);
+
+  // Delete the controller in a separate task. This avoids tricky ordering
+  // issues when Shutdown is called from the controller.
+  base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
+                           base::BindOnce(&ClientAndroid::DestroyController,
+                                          weak_ptr_factory_.GetWeakPtr()));
 }
 
 void ClientAndroid::FetchAccessToken(
@@ -237,9 +288,24 @@ void ClientAndroid::CreateController() {
   if (controller_) {
     return;
   }
-  controller_ = std::make_unique<Controller>(web_contents_, /* client= */ this);
+  controller_ = std::make_unique<Controller>(
+      web_contents_, /* client= */ this, base::DefaultTickClock::GetInstance());
 }
 
-WEB_CONTENTS_USER_DATA_KEY_IMPL(ClientAndroid);
+void ClientAndroid::DestroyController() {
+  controller_.reset();
+}
+
+bool ClientAndroid::NeedsUI() {
+  return !ui_controller_android_ && controller_ && controller_->NeedsUI();
+}
+
+void ClientAndroid::SetUI(
+    std::unique_ptr<UiControllerAndroid> ui_controller_android) {
+  ui_controller_android_ = std::move(ui_controller_android);
+  ui_controller_android_->Attach(web_contents_, this, controller_.get());
+}
+
+WEB_CONTENTS_USER_DATA_KEY_IMPL(ClientAndroid)
 
 }  // namespace autofill_assistant.

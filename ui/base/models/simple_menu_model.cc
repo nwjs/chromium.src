@@ -21,6 +21,14 @@ const int kSeparatorId = -1;
 ////////////////////////////////////////////////////////////////////////////////
 // SimpleMenuModel::Delegate, public:
 
+bool SimpleMenuModel::Delegate::IsCommandIdChecked(int command_id) const {
+  return false;
+}
+
+bool SimpleMenuModel::Delegate::IsCommandIdEnabled(int command_id) const {
+  return true;
+}
+
 bool SimpleMenuModel::Delegate::IsCommandIdVisible(int command_id) const {
   return true;
 }
@@ -70,7 +78,6 @@ bool SimpleMenuModel::Delegate::GetAcceleratorForCommandId(
 
 SimpleMenuModel::SimpleMenuModel(Delegate* delegate)
     : delegate_(delegate),
-      menu_model_delegate_(nullptr),
       method_factory_(this) {}
 
 SimpleMenuModel::~SimpleMenuModel() {
@@ -452,15 +459,6 @@ void SimpleMenuModel::MenuWillClose() {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(&SimpleMenuModel::OnMenuClosed,
                                 method_factory_.GetWeakPtr()));
-}
-
-void SimpleMenuModel::SetMenuModelDelegate(
-      ui::MenuModelDelegate* menu_model_delegate) {
-  menu_model_delegate_ = menu_model_delegate;
-}
-
-MenuModelDelegate* SimpleMenuModel::GetMenuModelDelegate() const {
-  return menu_model_delegate_;
 }
 
 void SimpleMenuModel::OnMenuClosed() {

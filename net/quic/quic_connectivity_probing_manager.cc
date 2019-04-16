@@ -4,6 +4,7 @@
 
 #include "net/quic/quic_connectivity_probing_manager.h"
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/values.h"
@@ -46,7 +47,7 @@ std::unique_ptr<base::Value> NetLogProbingDestinationCallback(
     const quic::QuicSocketAddress* peer_address,
     NetLogCaptureMode capture_mode) {
   std::unique_ptr<base::DictionaryValue> dict(new base::DictionaryValue());
-  dict->SetString("network", base::Int64ToString(network));
+  dict->SetString("network", base::NumberToString(network));
   dict->SetString("peer address", peer_address->ToString());
   return std::move(dict);
 }
@@ -79,8 +80,8 @@ int QuicConnectivityProbingManager::HandleWriteError(
   // undergoing probing, which will delete the packet writer.
   task_runner_->PostTask(
       FROM_HERE,
-      base::Bind(&QuicConnectivityProbingManager::NotifyDelegateProbeFailed,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&QuicConnectivityProbingManager::NotifyDelegateProbeFailed,
+                     weak_factory_.GetWeakPtr()));
   return error_code;
 }
 

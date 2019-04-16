@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -386,9 +387,9 @@ IN_PROC_BROWSER_TEST_P(PrefetchBrowserTest, WebPackageWithPreload) {
   EXPECT_EQ(1, preload_fetch_count);
 }
 
-INSTANTIATE_TEST_CASE_P(PrefetchBrowserTest,
-                        PrefetchBrowserTest,
-                        testing::Values(PrefetchBrowserTestParam(true),
-                                        PrefetchBrowserTestParam(false)));
+INSTANTIATE_TEST_SUITE_P(PrefetchBrowserTest,
+                         PrefetchBrowserTest,
+                         testing::Values(PrefetchBrowserTestParam(true),
+                                         PrefetchBrowserTestParam(false)));
 
 }  // namespace content

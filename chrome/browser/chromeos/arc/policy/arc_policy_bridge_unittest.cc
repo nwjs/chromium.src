@@ -197,7 +197,7 @@ class ArcPolicyBridgeTestBase {
       const std::string& compliance_report) {
     Mock::VerifyAndClearExpectations(&observer_);
     std::unique_ptr<base::Value> compliance_report_value =
-        base::JSONReader::Read(compliance_report);
+        base::JSONReader::ReadDeprecated(compliance_report);
     if (compliance_report_value && compliance_report_value->is_dict()) {
       EXPECT_CALL(observer_, OnComplianceReportReceived(
                                  ValueEquals(compliance_report_value.get())));
@@ -563,8 +563,8 @@ TEST_P(ArcPolicyBridgeAffiliatedTest, ApkCacheEnabledTest) {
 
 // Boolean parameter means if user is affiliated on the device. Affiliated
 // users belong to the domain that owns the device.
-INSTANTIATE_TEST_CASE_P(ArcPolicyBridgeAffiliatedTestInstance,
-                        ArcPolicyBridgeAffiliatedTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(ArcPolicyBridgeAffiliatedTestInstance,
+                         ArcPolicyBridgeAffiliatedTest,
+                         testing::Bool());
 
 }  // namespace arc

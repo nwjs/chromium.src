@@ -1,3 +1,22 @@
+{% macro generateMethodAnnotation(method) %}
+  /**
+{%-   for param in method.parameters %}
+   * @param { {{param.kind|lite_closure_type_with_nullability}} } {{param.name|sanitize_identifier}}
+{%-   endfor -%}
+{%-   if method.response_parameters != None %}
+{%-     if method.response_parameters|length == 0 %}
+   * @return {Promise}
+{%-     else %}
+   * @return {Promise<{
+{%-       for response_parameter in method.response_parameters %}
+        {{response_parameter.name}}: {{response_parameter.kind|lite_closure_type_with_nullability}},
+{%-       endfor %}
+   *  }>}
+{%-     endif %}
+{%-   endif %}
+   */
+{% endmacro %}
+
 /** @export */
 {{module.namespace}}.{{interface.name}}Request = class {
   /** @param {!MojoHandle} handle */
@@ -11,14 +30,7 @@
 /** @interface */
 {{module.namespace}}.{{interface.name}}Interface = class {
 {%-  for method in interface.methods %}
-  /**
-{%-   for param in method.parameters %}
-   * @param { {{param.kind|lite_closure_param_type}} } {{param.name|sanitize_identifier}}
-{%-   endfor -%}
-{%-   if method.response_parameters != None %}
-   * @return {Promise}
-{%-   endif %}
-   */
+  {{generateMethodAnnotation(method)}}
   {{method.name}}(
 {%-   for param in method.parameters -%}
 {{param.name|sanitize_identifier}}{% if not loop.last %}, {% endif %}
@@ -28,41 +40,35 @@
 };
 {%- endif %}
 
-/** @implements { {{module.namespace}}.{{interface.name}}Interface } */
+/**
+ * @export
+ * @implements { {{module.namespace}}.{{interface.name}}Interface }
+ */
 {{module.namespace}}.{{interface.name}}Proxy = class {
   /** @param {MojoHandle=} opt_handle */
   constructor(opt_handle) {
-    /** @private {!mojo.internal.interfaceSupport.InterfaceProxyBase} */
+    /**
+     * @private {!mojo.internal.interfaceSupport.InterfaceProxyBase<!{{module.namespace}}.{{interface.name}}Request>}
+     */
     this.proxy =
-        new mojo.internal.interfaceSupport.InterfaceProxyBase(opt_handle);
+        new mojo.internal.interfaceSupport.InterfaceProxyBase(
+          {{module.namespace}}.{{interface.name}}Request,
+          opt_handle);
+
+    /**
+     * @public {!mojo.internal.interfaceSupport.InterfaceProxyBaseWrapper<!{{module.namespace}}.{{interface.name}}Request>}
+     */
+    this.$ = new mojo.internal.interfaceSupport.InterfaceProxyBaseWrapper(this.proxy);
 
     /** @public {!mojo.internal.interfaceSupport.ConnectionErrorEventRouter} */
     this.onConnectionError = this.proxy.getConnectionErrorEventRouter();
-  }
-
-  /**
-   * @return {!{{module.namespace}}.{{interface.name}}Request}
-   * @export
-   */
-  createRequest() {
-    let {handle0, handle1} = Mojo.createMessagePipe();
-    this.proxy.bindHandle(handle0);
-    return new {{module.namespace}}.{{interface.name}}Request(handle1);
   }
 
 {%- for method in interface.methods -%}
 {%-   set interface_message_id =
           interface.mojom_name ~ "_" ~ method.mojom_name %}
 
-  /**
-{%-   for param in method.parameters %}
-   * @param { {{param.kind|lite_closure_param_type}} } {{param.name|sanitize_identifier}}
-{%-   endfor -%}
-{%-   if method.response_parameters != None %}
-   * @return {Promise}
-{%-   endif %}
-   * @export
-   */
+  {{generateMethodAnnotation(method)}}
   {{method.name}}(
 {%- for param in method.parameters %}
       {{param.name}}{%- if not loop.last %},{% endif %}
@@ -73,9 +79,9 @@
     this.proxy.sendMessage(
 {%- endif %}
         {{method.ordinal}},
-        {{module.namespace}}.{{interface_message_id}}_Params.$,
+        {{module.namespace}}.{{interface_message_id}}_ParamsSpec.$,
 {%-   if method.response_parameters != None %}
-        {{module.namespace}}.{{interface_message_id}}_ResponseParams.$,
+        {{module.namespace}}.{{interface_message_id}}_ResponseParamsSpec.$,
 {%-   else %}
         null,
 {%-   endif %}
@@ -86,15 +92,6 @@
         ]);
   }
 {%-  endfor %}
-
-
-  /**
-   * @return {!Promise}
-   * @export
-   */
-  flushForTesting() {
-    return this.proxy.flushForTesting();
-  }
 };
 
 /**
@@ -115,9 +112,9 @@
           interface.mojom_name ~ "_" ~ method.mojom_name %}
     this.target_.registerHandler(
         {{method.ordinal}},
-        {{module.namespace}}.{{interface_message_id}}_Params.$,
+        {{module.namespace}}.{{interface_message_id}}_ParamsSpec.$,
 {%-   if method.response_parameters != None %}
-        {{module.namespace}}.{{interface_message_id}}_ResponseParams.$,
+        {{module.namespace}}.{{interface_message_id}}_ResponseParamsSpec.$,
 {%-   else %}
         null,
 {%-   endif %}
@@ -147,7 +144,7 @@
   static getProxy() {
     let proxy = new {{module.namespace}}.{{interface.name}}Proxy;
     Mojo.bindInterface('{{mojom_namespace}}.{{interface.name}}',
-                       proxy.createRequest().handle);
+                       proxy.$.createRequest().handle);
     return proxy;
   }
 
@@ -160,15 +157,16 @@
    */
   createProxy() {
     let proxy = new {{module.namespace}}.{{interface.name}}Proxy;
-    this.target_.bindHandle(proxy.createRequest().handle);
+    this.target_.bindHandle(proxy.$.createRequest().handle);
     return proxy;
   }
 };
 
 {#--- Enums #}
-{% from "lite/enum_definition.tmpl" import enum_def %}
+{% from "lite/enum_definition.tmpl" import enum_def with context %}
 {%- for enum in interface.enums %}
-{{ enum_def("%s.%s.%s"|format(module.namespace, interface.name, enum.name),
+{{ enum_def("%s.%sSpec"|format(module.namespace, interface.name),
+            "%s.%s"|format(module.namespace, interface.name),
             enum) }}
 {%-  endfor %}
 
@@ -194,15 +192,18 @@
 {%  for method in interface.methods %}
 {%-   set interface_message_id =
           interface.mojom_name ~ "_" ~ method.mojom_name %}
-    /** @public {!mojo.internal.interfaceSupport.InterfaceCallbackTarget} */
+    /**
+     * @export {!mojo.internal.interfaceSupport.InterfaceCallbackTarget}
+     */
     this.{{method.name}} =
         new mojo.internal.interfaceSupport.InterfaceCallbackTarget(
             this.router_);
+
     this.target_.registerHandler(
         {{method.ordinal}},
-        {{module.namespace}}.{{interface_message_id}}_Params.$,
+        {{module.namespace}}.{{interface_message_id}}_ParamsSpec.$,
 {%-   if method.response_parameters != None %}
-        {{module.namespace}}.{{interface_message_id}}_ResponseParams.$,
+        {{module.namespace}}.{{interface_message_id}}_ResponseParamsSpec.$,
         this.{{method.name}}.createTargetHandler(true /* expectsResponse */));
 {%-   else %}
         null,
@@ -239,7 +240,7 @@
    */
   createProxy() {
     let proxy = new {{module.namespace}}.{{interface.name}}Proxy;
-    this.target_.bindHandle(proxy.createRequest().handle);
+    this.target_.bindHandle(proxy.$.createRequest().handle);
     return proxy;
   }
 

@@ -14,10 +14,14 @@
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "base/task_runner.h"
 #include "base/unguessable_token.h"
 #include "components/viz/service/viz_service_export.h"
-#include "gpu/command_buffer/client/gles2_interface.h"
 #include "ui/gfx/geometry/size.h"
+
+namespace base {
+class SingleThreadTaskRunner;
+}  // namespace base
 
 namespace gfx {
 class ColorSpace;
@@ -39,6 +43,10 @@ class GLI420Converter;
 class GLScaler;
 class TextureDeleter;
 
+namespace copy_output {
+struct RenderPassGeometry;
+}  // namespace copy_output
+
 // Helper class for GLRenderer that executes CopyOutputRequests using GL, to
 // perform texture copies/transformations and read back bitmaps. Also manages
 // the caching of resources needed to ensure efficient video performance.
@@ -57,14 +65,14 @@ class TextureDeleter;
 // "source" has ended.
 class VIZ_SERVICE_EXPORT GLRendererCopier {
  public:
-  // A callback that calls GLRenderer::MoveFromDrawToWindowSpace().
-  using ComputeWindowRectCallback =
-      base::RepeatingCallback<gfx::Rect(const gfx::Rect&)>;
+  // Define types to avoid pulling in command buffer GL headers, which conflict
+  // the ui/gl/gl_bindings.h
+  using GLuint = unsigned int;
+  using GLenum = unsigned int;
 
   // |texture_deleter| must outlive this instance.
   GLRendererCopier(scoped_refptr<ContextProvider> context_provider,
-                   TextureDeleter* texture_deleter,
-                   ComputeWindowRectCallback window_rect_callback);
+                   TextureDeleter* texture_deleter);
 
   ~GLRendererCopier();
 
@@ -82,18 +90,24 @@ class VIZ_SERVICE_EXPORT GLRendererCopier {
   // and framebuffer bindings, shader programs, and related attributes; and so
   // the caller must not make any assumptions about the state of the GL context
   // after this call.
-  void CopyFromTextureOrFramebuffer(std::unique_ptr<CopyOutputRequest> request,
-                                    const gfx::Rect& output_rect,
-                                    GLenum internal_format,
-                                    GLuint framebuffer_texture,
-                                    const gfx::Size& framebuffer_texture_size,
-                                    bool flipped_source,
-                                    const gfx::ColorSpace& color_space);
+  void CopyFromTextureOrFramebuffer(
+      std::unique_ptr<CopyOutputRequest> request,
+      const copy_output::RenderPassGeometry& geometry,
+      GLenum internal_format,
+      GLuint framebuffer_texture,
+      const gfx::Size& framebuffer_texture_size,
+      bool flipped_source,
+      const gfx::ColorSpace& color_space);
 
   // Checks whether cached resources should be freed because recent copy
   // activity is no longer using them. This should be called after a frame has
   // finished drawing (after all copy requests have been executed).
   void FreeUnusedCachedResources();
+
+  void set_async_gl_task_runner(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
+    async_gl_task_runner_ = task_runner;
+  }
 
  private:
   friend class GLRendererCopierTest;
@@ -108,7 +122,7 @@ class VIZ_SERVICE_EXPORT GLRendererCopier {
     // Texture containing a copy of the source framebuffer, if the source
     // framebuffer cannot be used directly.
     GLuint fb_copy_texture = 0;
-    GLenum fb_copy_texture_internal_format = static_cast<GLenum>(GL_NONE);
+    GLenum fb_copy_texture_internal_format = static_cast<GLenum>(0 /*GL_NONE*/);
     gfx::Size fb_copy_texture_size;
 
     // RGBA requests: Scaling, and texture/framebuffer for readback.
@@ -245,7 +259,6 @@ class VIZ_SERVICE_EXPORT GLRendererCopier {
   // Injected dependencies.
   const scoped_refptr<ContextProvider> context_provider_;
   TextureDeleter* const texture_deleter_;
-  const ComputeWindowRectCallback window_rect_callback_;
 
   // This increments by one for every call to FreeUnusedCachedResources(). It
   // is meant to determine when cached resources should be freed because they
@@ -263,13 +276,19 @@ class VIZ_SERVICE_EXPORT GLRendererCopier {
   // efficiently using GL_RGBA or GL_BGRA_EXT format. This starts out as
   // GL_NONE, which means "unknown," and will be determined at the time the
   // first readback request is made.
-  GLenum optimal_readback_format_ = static_cast<GLenum>(GL_NONE);
+  GLenum optimal_readback_format_ = static_cast<GLenum>(0 /*GL_NONE*/);
 
   // Purge cache entries that have not been used after this many calls to
   // FreeUnusedCachedResources(). The choice of 60 is arbitrary, but on most
   // platforms means that a somewhat-to-fully active compositor will cause
   // things to be auto-purged after approx. 1-2 seconds of not being used.
   static constexpr int kKeepalivePeriod = 60;
+
+  // The task runner that is being used to call into GLRendererCopier. This
+  // allows for CopyOutputResults, owned by external entities, to execute
+  // post-destruction clean-up tasks. If null, assume CopyOutputResults are
+  // always destroyed from the same task runner
+  scoped_refptr<base::SingleThreadTaskRunner> async_gl_task_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(GLRendererCopier);
 };

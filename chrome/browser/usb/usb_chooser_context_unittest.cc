@@ -457,7 +457,7 @@ TEST_F(UsbChooserContextTest,
   ExpectNoPermissions(store, *specific_device_info);
 
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   ExpectCorrectPermissions(store, kValidRequestingOrigins,
                            kInvalidRequestingOrigins, *specific_device_info);
@@ -480,7 +480,7 @@ TEST_F(UsbChooserContextTest,
   ExpectNoPermissions(store, *vendor_related_device_info);
 
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   ExpectCorrectPermissions(store, kValidRequestingOrigins,
                            kInvalidRequestingOrigins,
@@ -505,7 +505,7 @@ TEST_F(UsbChooserContextTest,
   ExpectNoPermissions(store, *unrelated_device_info);
 
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   EXPECT_TRUE(store->HasDevicePermission(kGadgetOrigin, kCoolOrigin,
                                          *unrelated_device_info));
@@ -552,7 +552,7 @@ TEST_F(UsbChooserContextTest,
                                           *unrelated_device_info));
 
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   EXPECT_TRUE(store->HasDevicePermission(
       kProductVendorOrigin, kProductVendorOrigin, *specific_device_info));
@@ -622,11 +622,160 @@ void ExpectChooserObjectInfo(const ChooserContextBase::Object* actual,
 
 }  // namespace
 
+TEST_F(UsbChooserContextTest, GetGrantedObjectsWithOnlyPolicyAllowedDevices) {
+  auto* store = GetChooserContext(profile());
+  profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
+
+  auto objects = store->GetGrantedObjects(kVendorOrigin, kVendorOrigin);
+  ASSERT_EQ(objects.size(), 1u);
+
+  ExpectChooserObjectInfo(objects[0].get(),
+                          /*requesting_origin=*/kVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_POLICY,
+                          /*incognito=*/false,
+                          /*vendor_id=*/6353,
+                          /*product_id=*/kDeviceIdWildcard,
+                          /*name=*/"Devices from Google Inc.");
+}
+
+TEST_F(UsbChooserContextTest,
+       GetGrantedObjectsWithUserAndPolicyAllowedDevices) {
+  profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
+
+  UsbDeviceInfoPtr persistent_device_info =
+      device_manager_.CreateAndAddDevice(1000, 1, "Google", "Gizmo", "123ABC");
+  UsbDeviceInfoPtr ephemeral_device_info =
+      device_manager_.CreateAndAddDevice(1000, 2, "Google", "Gadget", "");
+
+  auto* store = GetChooserContext(profile());
+
+  store->GrantDevicePermission(kVendorOrigin, kVendorOrigin,
+                               *persistent_device_info);
+  store->GrantDevicePermission(kVendorOrigin, kVendorOrigin,
+                               *ephemeral_device_info);
+
+  auto objects = store->GetGrantedObjects(kVendorOrigin, kVendorOrigin);
+  ASSERT_EQ(objects.size(), 3u);
+
+  // The user granted permissions appear before the policy granted permissions.
+  // Within these user granted permissions, the persistent device permissions
+  // appear before ephemeral device permissions. The policy enforced objects
+  // that are returned by GetGrantedObjects() are ordered by the tuple
+  // (vendor_id, product_id) representing the device IDs.  Wildcard IDs are
+  // represented by a value of -1, so they appear first.
+  ExpectChooserObjectInfo(objects[0].get(),
+                          /*requesting_origin=*/kVendorOrigin,
+                          /*embedding_origin=*/kVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_USER,
+                          /*incognito=*/false,
+                          /*vendor_id=*/1000,
+                          /*product_id=*/1,
+                          /*name=*/"Gizmo");
+  ExpectChooserObjectInfo(objects[1].get(),
+                          /*requesting_origin=*/kVendorOrigin,
+                          /*embedding_origin=*/kVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_USER,
+                          /*incognito=*/false,
+                          /*vendor_id=*/1000,
+                          /*product_id=*/2,
+                          /*name=*/"Gadget");
+  ExpectChooserObjectInfo(objects[2].get(),
+                          /*requesting_origin=*/kVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_POLICY,
+                          /*incognito=*/false,
+                          /*vendor_id=*/6353,
+                          /*product_id=*/kDeviceIdWildcard,
+                          /*name=*/"Devices from Google Inc.");
+}
+
+TEST_F(UsbChooserContextTest,
+       GetGrantedObjectsWithUserGrantedDeviceAllowedBySpecificDevicePolicy) {
+  profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
+
+  UsbDeviceInfoPtr persistent_device_info = device_manager_.CreateAndAddDevice(
+      6353, 5678, "Google", "Gizmo", "123ABC");
+
+  auto* store = GetChooserContext(profile());
+
+  store->GrantDevicePermission(kProductVendorOrigin, kProductVendorOrigin,
+                               *persistent_device_info);
+
+  auto objects =
+      store->GetGrantedObjects(kProductVendorOrigin, kProductVendorOrigin);
+  ASSERT_EQ(objects.size(), 1u);
+
+  // User granted permissions for a device that is also granted by a specific
+  // device policy will be replaced by the policy permission. The object should
+  // still retain the name of the device.
+  ExpectChooserObjectInfo(objects[0].get(),
+                          /*requesting_origin=*/kProductVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_POLICY,
+                          /*incognito=*/false,
+                          /*vendor_id=*/6353,
+                          /*product_id=*/5678,
+                          /*name=*/"Gizmo");
+}
+
+TEST_F(UsbChooserContextTest,
+       GetGrantedObjectsWithUserGrantedDeviceAllowedByVendorDevicePolicy) {
+  UsbDeviceInfoPtr persistent_device_info = device_manager_.CreateAndAddDevice(
+      6353, 1000, "Vendor", "Product", "123ABC");
+
+  auto* store = GetChooserContext(profile());
+  profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
+
+  store->GrantDevicePermission(kVendorOrigin, kVendorOrigin,
+                               *persistent_device_info);
+
+  auto objects = store->GetGrantedObjects(kVendorOrigin, kVendorOrigin);
+  ASSERT_EQ(objects.size(), 1u);
+
+  // User granted permissions for a device that is also granted by a vendor
+  // device policy will be replaced by the policy permission.
+  ExpectChooserObjectInfo(objects[0].get(),
+                          /*requesting_origin=*/kVendorOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_POLICY,
+                          /*incognito=*/false,
+                          /*vendor_id=*/6353,
+                          /*product_id=*/kDeviceIdWildcard,
+                          /*name=*/"Devices from Google Inc.");
+}
+
+TEST_F(UsbChooserContextTest,
+       GetGrantedObjectsWithUserGrantedDeviceAllowedByAnyVendorDevicePolicy) {
+  UsbDeviceInfoPtr persistent_device_info = device_manager_.CreateAndAddDevice(
+      1123, 5813, "Some", "Product", "123ABC");
+
+  auto* store = GetChooserContext(profile());
+  profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
+
+  store->GrantDevicePermission(kAnyDeviceOrigin, kAnyDeviceOrigin,
+                               *persistent_device_info);
+
+  auto objects = store->GetGrantedObjects(kAnyDeviceOrigin, kAnyDeviceOrigin);
+  ASSERT_EQ(objects.size(), 1u);
+
+  // User granted permissions for a device that is also granted by a wildcard
+  // vendor policy will be replaced by the policy permission.
+  ExpectChooserObjectInfo(objects[0].get(),
+                          /*requesting_origin=*/kAnyDeviceOrigin,
+                          /*source=*/content_settings::SETTING_SOURCE_POLICY,
+                          /*incognito=*/false,
+                          /*vendor_id=*/kDeviceIdWildcard,
+                          /*product_id=*/kDeviceIdWildcard,
+                          /*name=*/"Devices from any vendor");
+}
+
 TEST_F(UsbChooserContextTest,
        GetAllGrantedObjectsWithOnlyPolicyAllowedDevices) {
   auto* store = GetChooserContext(profile());
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   auto objects = store->GetAllGrantedObjects();
   ASSERT_EQ(objects.size(), 4u);
@@ -640,21 +789,21 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/kDeviceIdWildcard,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device [ffffffff:ffffffff]");
+                          /*name=*/"Devices from any vendor");
   ExpectChooserObjectInfo(objects[1].get(),
                           /*requesting_origin=*/kVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Devices from Google Inc.");
   ExpectChooserObjectInfo(objects[2].get(),
                           /*requesting_origin=*/kProductVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/5678,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Unknown product 0x162E from Google Inc.");
   ExpectChooserObjectInfo(objects[3].get(),
                           /*requesting_origin=*/kGadgetOrigin,
                           /*embedding_origin=*/kCoolOrigin,
@@ -662,13 +811,13 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/6354,
                           /*product_id=*/1357,
-                          /*name=*/"Unknown device [18d2:054d]");
+                          /*name=*/"Unknown product 0x054D from vendor 0x18D2");
 }
 
 TEST_F(UsbChooserContextTest,
        GetAllGrantedObjectsWithUserAndPolicyAllowedDevices) {
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   const GURL kGoogleOrigin("https://www.google.com");
   UsbDeviceInfoPtr persistent_device_info =
@@ -720,21 +869,21 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/kDeviceIdWildcard,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device [ffffffff:ffffffff]");
+                          /*name=*/"Devices from any vendor");
   ExpectChooserObjectInfo(objects[3].get(),
                           /*requesting_origin=*/kVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Devices from Google Inc.");
   ExpectChooserObjectInfo(objects[4].get(),
                           /*requesting_origin=*/kProductVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/5678,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Unknown product 0x162E from Google Inc.");
   ExpectChooserObjectInfo(objects[5].get(),
                           /*requesting_origin=*/kGadgetOrigin,
                           /*embedding_origin=*/kCoolOrigin,
@@ -742,14 +891,14 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/6354,
                           /*product_id=*/1357,
-                          /*name=*/"Unknown device [18d2:054d]");
+                          /*name=*/"Unknown product 0x054D from vendor 0x18D2");
 }
 
 TEST_F(UsbChooserContextTest,
        GetAllGrantedObjectsWithSpecificPolicyAndUserGrantedDevice) {
   auto* store = GetChooserContext(profile());
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   const GURL kProductVendorOrigin("https://product.vendor.com");
   UsbDeviceInfoPtr persistent_device_info = device_manager_.CreateAndAddDevice(
@@ -775,14 +924,14 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/kDeviceIdWildcard,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device [ffffffff:ffffffff]");
+                          /*name=*/"Devices from any vendor");
   ExpectChooserObjectInfo(objects[1].get(),
                           /*requesting_origin=*/kVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Devices from Google Inc.");
   ExpectChooserObjectInfo(objects[2].get(),
                           /*requesting_origin=*/kProductVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
@@ -797,7 +946,7 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/6354,
                           /*product_id=*/1357,
-                          /*name=*/"Unknown device [18d2:054d]");
+                          /*name=*/"Unknown product 0x054D from vendor 0x18D2");
   ASSERT_TRUE(persistent_device_info->product_name);
   EXPECT_EQ(base::UTF8ToUTF16(store->GetObjectName(objects[2]->value)),
             persistent_device_info->product_name.value());
@@ -811,7 +960,7 @@ TEST_F(UsbChooserContextTest,
 
   auto* store = GetChooserContext(profile());
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   EXPECT_CALL(
       mock_permission_observer_,
@@ -833,21 +982,21 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/kDeviceIdWildcard,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device [ffffffff:ffffffff]");
+                          /*name=*/"Devices from any vendor");
   ExpectChooserObjectInfo(objects[1].get(),
                           /*requesting_origin=*/kVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Devices from Google Inc.");
   ExpectChooserObjectInfo(objects[2].get(),
                           /*requesting_origin=*/kProductVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/5678,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Unknown product 0x162E from Google Inc.");
   ExpectChooserObjectInfo(objects[3].get(),
                           /*requesting_origin=*/kGadgetOrigin,
                           /*embedding_origin=*/kCoolOrigin,
@@ -855,7 +1004,7 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/6354,
                           /*product_id=*/1357,
-                          /*name=*/"Unknown device [18d2:054d]");
+                          /*name=*/"Unknown product 0x054D from vendor 0x18D2");
 }
 
 TEST_F(UsbChooserContextTest,
@@ -866,7 +1015,7 @@ TEST_F(UsbChooserContextTest,
 
   auto* store = GetChooserContext(profile());
   profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
-                             *base::JSONReader::Read(kPolicySetting));
+                             *base::JSONReader::ReadDeprecated(kPolicySetting));
 
   EXPECT_CALL(
       mock_permission_observer_,
@@ -888,21 +1037,21 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/kDeviceIdWildcard,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device [ffffffff:ffffffff]");
+                          /*name=*/"Devices from any vendor");
   ExpectChooserObjectInfo(objects[1].get(),
                           /*requesting_origin=*/kVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/kDeviceIdWildcard,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Devices from Google Inc.");
   ExpectChooserObjectInfo(objects[2].get(),
                           /*requesting_origin=*/kProductVendorOrigin,
                           /*source=*/content_settings::SETTING_SOURCE_POLICY,
                           /*incognito=*/false,
                           /*vendor_id=*/6353,
                           /*product_id=*/5678,
-                          /*name=*/"Unknown device from Google Inc.");
+                          /*name=*/"Unknown product 0x162E from Google Inc.");
   ExpectChooserObjectInfo(objects[3].get(),
                           /*requesting_origin=*/kGadgetOrigin,
                           /*embedding_origin=*/kCoolOrigin,
@@ -910,5 +1059,5 @@ TEST_F(UsbChooserContextTest,
                           /*incognito=*/false,
                           /*vendor_id=*/6354,
                           /*product_id=*/1357,
-                          /*name=*/"Unknown device [18d2:054d]");
+                          /*name=*/"Unknown product 0x054D from vendor 0x18D2");
 }

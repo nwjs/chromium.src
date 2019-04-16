@@ -106,9 +106,11 @@ class MODULES_EXPORT WebSocketChannelImpl final
   // argument to omit payload.
   void Close(int code, const String& reason) override;
   void Fail(const String& reason,
-            MessageLevel,
+            mojom::ConsoleMessageLevel,
             std::unique_ptr<SourceLocation>) override;
   void Disconnect() override;
+
+  ExecutionContext* GetExecutionContext();
 
   void Trace(blink::Visitor*) override;
 
@@ -139,12 +141,11 @@ class MODULES_EXPORT WebSocketChannelImpl final
   void FlowControlIfNecessary();
   void InitialFlowControl();
   void FailAsError(const String& reason) {
-    Fail(reason, kErrorMessageLevel, location_at_construction_->Clone());
+    Fail(reason, mojom::ConsoleMessageLevel::kError,
+         location_at_construction_->Clone());
   }
   void AbortAsyncOperations();
-  void HandleDidClose(bool was_clean,
-                      unsigned short code,
-                      const String& reason);
+  void HandleDidClose(bool was_clean, uint16_t code, const String& reason);
 
   // WebSocketHandleClient functions.
   void DidConnect(WebSocketHandle*,
@@ -164,7 +165,7 @@ class MODULES_EXPORT WebSocketChannelImpl final
                       size_t) override;
   void DidClose(WebSocketHandle*,
                 bool was_clean,
-                unsigned short code,
+                uint16_t code,
                 const String& reason) override;
   void DidReceiveFlowControl(WebSocketHandle*, int64_t quota) override;
   void DidStartClosingHandshake(WebSocketHandle*) override;
@@ -211,6 +212,8 @@ class MODULES_EXPORT WebSocketChannelImpl final
   // throttle response when DidConnect is called.
   std::unique_ptr<ConnectInfo> connect_info_;
   bool throttle_passed_;
+
+  scoped_refptr<base::SingleThreadTaskRunner> file_reading_task_runner_;
 
   static const uint64_t kReceivedDataSizeForFlowControlHighWaterMark = 1 << 15;
 };

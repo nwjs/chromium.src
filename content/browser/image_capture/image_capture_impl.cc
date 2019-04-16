@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/task/post_task.h"
 #include "content/browser/browser_main_loop.h"
@@ -80,9 +81,6 @@ ImageCaptureImpl::~ImageCaptureImpl() {}
 // static
 void ImageCaptureImpl::Create(
     media::mojom::ImageCaptureRequest request) {
-  if (!base::FeatureList::IsEnabled(features::kImageCaptureAPI))
-    return;
-
   mojo::MakeStrongBinding(std::make_unique<ImageCaptureImpl>(),
                           std::move(request));
 }

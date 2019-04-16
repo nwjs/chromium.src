@@ -48,7 +48,7 @@
 #include "third_party/blink/renderer/core/settings_macros.h"
 #include "third_party/blink/renderer/platform/fonts/generic_font_family_settings.h"
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
-#include "third_party/blink/renderer/platform/graphics/high_contrast_settings.h"
+#include "third_party/blink/renderer/platform/graphics/dark_mode_settings.h"
 #include "third_party/blink/renderer/platform/graphics/image_animation_policy.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
@@ -81,6 +81,9 @@ class CORE_EXPORT Settings {
     return text_autosizing_window_size_override_;
   }
 
+  void SetForceDarkModeEnabled(bool enabled);
+  bool ForceDarkModeEnabled() const { return force_dark_mode_; }
+
   SETTINGS_GETTERS_AND_SETTERS
 
   // FIXME: This does not belong here.
@@ -100,6 +103,7 @@ class CORE_EXPORT Settings {
   IntSize text_autosizing_window_size_override_;
   bool text_autosizing_enabled_ : 1;
   bool bypass_csp_ = false;
+  bool force_dark_mode_ = false;
 
   SETTINGS_MEMBER_VARIABLES
 

@@ -21,6 +21,7 @@
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/platform/platform_event_dispatcher.h"
+#include "ui/gfx/animation/throb_animation.h"
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/controls/button/menu_button_event_handler.h"
 #include "ui/views/controls/menu/menu_config.h"
@@ -64,6 +65,7 @@ class MenuControllerUITest;
 // forwarded to the MenuController from SubmenuView and MenuHost.
 class VIEWS_EXPORT MenuController
     : public base::SupportsWeakPtr<MenuController>,
+      public gfx::AnimationDelegate,
       public WidgetObserver {
  public:
   // Enumeration of how the menu should exit.
@@ -82,19 +84,24 @@ class VIEWS_EXPORT MenuController
     EXIT_DESTROYED
   };
 
+  // Types of comboboxes.
+  enum ComboboxType {
+    kNotACombobox,
+    kEditableCombobox,
+    kReadonlyCombobox,
+  };
+
   // If a menu is currently active, this returns the controller for it.
   static MenuController* GetActiveInstance();
 
-  // Runs the menu at the specified location. Menu items with commands in
-  // |alerted_commands| will be rendered differently to draw attention to them.
+  // Runs the menu at the specified location.
   void Run(Widget* parent,
            MenuButton* button,
            MenuItemView* root,
            const gfx::Rect& bounds,
            MenuAnchorPosition position,
            bool context_menu,
-           bool is_nested_drag,
-           base::flat_set<int> alerted_commands = base::flat_set<int>());
+           bool is_nested_drag);
 
   bool for_drop() const { return for_drop_; }
 
@@ -141,8 +148,13 @@ class VIEWS_EXPORT MenuController
   // Returns the time from the event which closed the menu - or 0.
   base::TimeTicks closing_event_time() const { return closing_event_time_; }
 
-  void set_is_combobox(bool is_combobox) { is_combobox_ = is_combobox; }
-  bool is_combobox() const { return is_combobox_; }
+  // Set/Get combobox type.
+  void set_combobox_type(ComboboxType combobox_type) {
+    combobox_type_ = combobox_type;
+  }
+  bool IsCombobox() const;
+  bool IsEditableCombobox() const;
+  bool IsReadonlyCombobox() const;
 
   bool IsContextMenu() const;
 
@@ -176,12 +188,12 @@ class VIEWS_EXPORT MenuController
   void OnDragEnteredScrollButton(SubmenuView* source, bool is_up);
   void OnDragExitedScrollButton(SubmenuView* source);
 
-  // Called by the Widget when a drag is about to start on a child view. This
-  // could be initiated by one of our MenuItemViews, or could be through another
-  // child View.
+  // Called by the MenuHost when a drag is about to start on a child view.
+  // This could be initiated by one of our MenuItemViews, or could be through
+  // another child View.
   void OnDragWillStart();
 
-  // Called by the Widget when the drag has completed. |should_close|
+  // Called by the MenuHost when the drag has completed. |should_close|
   // corresponds to whether or not the menu should close.
   void OnDragComplete(bool should_close);
 
@@ -216,6 +228,13 @@ class VIEWS_EXPORT MenuController
   // Returns whether this menu can handle input events right now. This method
   // can return false while running animations.
   bool CanProcessInputEvents() const;
+
+  // Gets the animation used for menu item alerts. The returned pointer lives as
+  // long as the MenuController.
+  const gfx::Animation* GetAlertAnimation() const { return &alert_animation_; }
+
+  // gfx::AnimationDelegate:
+  void AnimationProgressed(const gfx::Animation* animation) override;
 
  private:
   friend class internal::MenuRunnerImpl;
@@ -487,6 +506,14 @@ class VIEWS_EXPORT MenuController
   // Selects the next or previous (depending on |direction|) menu item.
   void IncrementSelection(SelectionIncrementDirectionType direction);
 
+  // Sets up accessible indices for menu items based on up/down arrow selection
+  // logic, to be used by screen readers to give accurate "item X of Y"
+  // information (and to be consistent with accessible keyboard use).
+  //
+  // This only sets one level of menu, so it must be called when submenus are
+  // opened as well.
+  void SetSelectionIndices(MenuItemView* parent);
+
   // Selects the first or last (depending on |direction|) menu item.
   void MoveSelectionToFirstOrLastItem(
       SelectionIncrementDirectionType direction);
@@ -590,6 +617,10 @@ class VIEWS_EXPORT MenuController
   // prefix selection, and some characters (such as Space) will be treated as
   // commands instead of parts of the prefix.
   bool ShouldContinuePrefixSelection() const;
+
+  // Manage alerted MenuItemViews that we are animating.
+  void RegisterAlertedItem(MenuItemView* item);
+  void UnregisterAlertedItem(MenuItemView* item);
 
   // The active instance.
   static MenuController* active_instance_;
@@ -711,7 +742,7 @@ class VIEWS_EXPORT MenuController
 
   // Controls behavior differences between a combobox and other types of menu
   // (like a context menu).
-  bool is_combobox_ = false;
+  ComboboxType combobox_type_ = kNotACombobox;
 
   // Whether the menu |owner_| needs gesture events. When set to true, the menu
   // will preserve the gesture events of the |owner_| and MenuController will
@@ -741,8 +772,11 @@ class VIEWS_EXPORT MenuController
 
   std::unique_ptr<MenuPreTargetHandler> menu_pre_target_handler_;
 
-  // Set of menu commands that should be displayed with an alert.
-  base::flat_set<int> alerted_commands_;
+  // Animation used for alerted MenuItemViews. Started on demand.
+  gfx::ThrobAnimation alert_animation_;
+
+  // Currently showing alerted menu items. Updated when submenus open and close.
+  base::flat_set<MenuItemView*> alerted_items_;
 
   DISALLOW_COPY_AND_ASSIGN(MenuController);
 };

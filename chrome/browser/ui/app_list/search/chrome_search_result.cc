@@ -153,6 +153,11 @@ void ChromeSearchResult::SetBadgeIcon(const gfx::ImageSkia& badge_icon) {
     updater->SetSearchResultMetadata(id(), CloneMetadata());
 }
 
+void ChromeSearchResult::SetNotifyVisibilityChange(
+    bool notify_visibility_change) {
+  metadata_->notify_visibility_change = notify_visibility_change;
+}
+
 void ChromeSearchResult::NotifyItemInstalled() {
   AppListModelUpdater* updater = model_updater();
   if (updater)
@@ -160,6 +165,10 @@ void ChromeSearchResult::NotifyItemInstalled() {
 }
 
 void ChromeSearchResult::InvokeAction(int action_index, int event_flags) {}
+
+void ChromeSearchResult::OnVisibilityChanged(bool visibility) {
+  VLOG(1) << " Visibility change to " << visibility << " and ID is " << id();
+}
 
 void ChromeSearchResult::UpdateFromMatch(
     const app_list::TokenizedString& title,
@@ -213,6 +222,10 @@ std::string ChromeSearchResult::TagsDebugStringForTest(const std::string& text,
     result.insert(insert.first, insert.second);
 
   return result;
+}
+
+int ChromeSearchResult::GetSubType() const {
+  return -1;
 }
 
 app_list::AppContextMenu* ChromeSearchResult::GetAppContextMenu() {

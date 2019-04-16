@@ -49,21 +49,30 @@ static const size_t kMaxTaskWorkletThreads = 4;
 TaskWorklet::TaskWorklet(Document* document) : Worklet(document) {}
 
 Task* TaskWorklet::postTask(ScriptState* script_state,
-                            const ScriptValue& function,
-                            const Vector<ScriptValue>& arguments) {
-  DCHECK(function.IsFunction());
+                            V8Function* function,
+                            const Vector<ScriptValue>& arguments,
+                            ExceptionState& exception_state) {
   // TODO(japhet): Here and below: it's unclear what task type should be used,
   // and whether the API should allow it to be configured. Using kIdleTask as a
   // placeholder for now.
-  return MakeGarbageCollected<Task>(this, script_state, function, arguments,
-                                    TaskType::kIdleTask);
+  Task* task =
+      MakeGarbageCollected<Task>(script_state, this, function, arguments,
+                                 TaskType::kIdleTask, exception_state);
+  if (exception_state.HadException())
+    return nullptr;
+  return task;
 }
 
 Task* TaskWorklet::postTask(ScriptState* script_state,
                             const String& function_name,
-                            const Vector<ScriptValue>& arguments) {
-  return MakeGarbageCollected<Task>(this, script_state, function_name,
-                                    arguments, TaskType::kIdleTask);
+                            const Vector<ScriptValue>& arguments,
+                            ExceptionState& exception_state) {
+  Task* task =
+      MakeGarbageCollected<Task>(script_state, this, function_name, arguments,
+                                 TaskType::kIdleTask, exception_state);
+  if (exception_state.HadException())
+    return nullptr;
+  return task;
 }
 
 ThreadPoolThread* TaskWorklet::GetLeastBusyThread() {

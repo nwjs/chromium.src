@@ -27,6 +27,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_paths.h"
+#include "services/network/test/test_cookie_manager.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace chromeos {
@@ -49,7 +50,7 @@ web_app::PendingAppManager::AppInfo GetAppInfoForUrl(const GURL& url) {
   return info;
 }
 
-class FakeCookieManager : public network::mojom::CookieManager {
+class FakeCookieManager : public network::TestCookieManager {
  public:
   FakeCookieManager() = default;
   ~FakeCookieManager() override {
@@ -60,7 +61,7 @@ class FakeCookieManager : public network::mojom::CookieManager {
   void InvokePendingSetCanonicalCookieCallback(
       const std::string& expected_cookie_name,
       const std::string& expected_cookie_value,
-      bool expected_secure_source,
+      const std::string& expected_source_scheme,
       bool expected_modify_http_only,
       bool success) {
     ASSERT_FALSE(set_canonical_cookie_calls_.empty());
@@ -69,7 +70,7 @@ class FakeCookieManager : public network::mojom::CookieManager {
 
     EXPECT_EQ(expected_cookie_name, std::get<0>(params).Name());
     EXPECT_EQ(expected_cookie_value, std::get<0>(params).Value());
-    EXPECT_EQ(expected_secure_source, std::get<1>(params));
+    EXPECT_EQ(expected_source_scheme, std::get<1>(params));
     EXPECT_EQ(expected_modify_http_only, std::get<2>(params));
 
     std::move(std::get<3>(params)).Run(success);
@@ -91,11 +92,11 @@ class FakeCookieManager : public network::mojom::CookieManager {
 
   // network::mojom::CookieManager
   void SetCanonicalCookie(const net::CanonicalCookie& cookie,
-                          bool secure_source,
+                          const std::string& source_scheme,
                           bool modify_http_only,
                           SetCanonicalCookieCallback callback) override {
     set_canonical_cookie_calls_.emplace_back(
-        cookie, secure_source, modify_http_only, std::move(callback));
+        cookie, source_scheme, modify_http_only, std::move(callback));
   }
 
   void DeleteCookies(network::mojom::CookieDeletionFilterPtr filter,
@@ -103,29 +104,11 @@ class FakeCookieManager : public network::mojom::CookieManager {
     delete_cookies_calls_.emplace_back(std::move(filter), std::move(callback));
   }
 
-  void GetAllCookies(GetAllCookiesCallback callback) override {}
-  void GetCookieList(const GURL& url,
-                     const net::CookieOptions& cookie_options,
-                     GetCookieListCallback callback) override {}
-  void DeleteCanonicalCookie(const net::CanonicalCookie& cookie,
-                             DeleteCanonicalCookieCallback callback) override {}
-  void AddCookieChangeListener(
-      const GURL& url,
-      const std::string& name,
-      network::mojom::CookieChangeListenerPtr listener) override {}
-  void AddGlobalChangeListener(
-      network::mojom::CookieChangeListenerPtr notification_pointer) override {}
-  void CloneInterface(
-      network::mojom::CookieManagerRequest new_interface) override {}
-  void FlushCookieStore(FlushCookieStoreCallback callback) override {}
-  void SetContentSettings(
-      const std::vector<::ContentSettingPatternSource>& settings) override {}
-  void SetForceKeepSessionState() override {}
-  void BlockThirdPartyCookies(bool block) override {}
-
  private:
-  std::vector<
-      std::tuple<net::CanonicalCookie, bool, bool, SetCanonicalCookieCallback>>
+  std::vector<std::tuple<net::CanonicalCookie,
+                         std::string,
+                         bool,
+                         SetCanonicalCookieCallback>>
       set_canonical_cookie_calls_;
   std::vector<
       std::pair<network::mojom::CookieDeletionFilterPtr, DeleteCookiesCallback>>
@@ -142,13 +125,7 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
         : fake_cookie_manager_(fake_cookie_manager) {}
     ~TestPwaDelegate() override = default;
 
-    void SetHasPwa(const GURL& url, bool has_pwa) {
-      // If no PWA should exist, erase any existing entry and return.
-      if (!has_pwa) {
-        url_to_pwa_map_.erase(url);
-        return;
-      }
-
+    void SetHasPwa(const GURL& url) {
       // If a PWA already exists for this URL, there is nothing to do.
       if (base::ContainsKey(url_to_pwa_map_, url))
         return;
@@ -173,6 +150,19 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
     network::mojom::CookieManager* GetCookieManager(const GURL& app_url,
                                                     Profile* profile) override {
       return fake_cookie_manager_;
+    }
+
+    bool RemovePwa(const extensions::ExtensionId& extension_id,
+                   base::string16* error,
+                   Profile* profile) override {
+      for (const auto& url_pwa_pair : url_to_pwa_map_) {
+        if (url_pwa_pair.second->id() == extension_id) {
+          url_to_pwa_map_.erase(url_pwa_pair.first);
+          return true;
+        }
+      }
+
+      return false;
     }
 
    private:
@@ -225,7 +215,8 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
 
     fake_cookie_manager_->InvokePendingSetCanonicalCookieCallback(
         "default_to_persist" /* expected_cookie_name */,
-        "true" /* expected_cookie_value */, true /* expected_secure_source */,
+        "true" /* expected_cookie_value */,
+        "https" /* expected_source_scheme */,
         false /* expected_modify_http_only */, true /* success */);
 
     fake_cookie_manager_->InvokePendingDeleteCookiesCallback(
@@ -275,13 +266,11 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
                      const GURL& install_url,
                      const GURL& migrated_to_app_url,
                      size_t num_expected_app_uninstalls) {
-    const auto& uninstall_requests =
-        test_pending_app_manager_->uninstall_requests();
-    size_t num_uninstall_requests_before_call = uninstall_requests.size();
-
     base::RunLoop run_loop;
     base::HistogramTester histogram_tester;
 
+    bool was_installed =
+        test_pwa_delegate_->GetPwaForUrl(install_url, &profile_) != nullptr;
     setup_controller_->RemoveApp(
         app_url, install_url, migrated_to_app_url,
         base::BindOnce(&AndroidSmsAppSetupControllerImplTest::OnRemoveAppResult,
@@ -289,15 +278,13 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
 
     // If the PWA was already installed at the URL, RemoveApp() should uninstall
     // the it.
-    if (test_pwa_delegate_->GetPwaForUrl(install_url, &profile_)) {
-      EXPECT_EQ(num_uninstall_requests_before_call + 1u,
-                uninstall_requests.size());
-      EXPECT_EQ(install_url, uninstall_requests.back());
+    if (was_installed) {
+      EXPECT_FALSE(test_pwa_delegate()->GetPwaForUrl(install_url, &profile_));
 
       fake_cookie_manager_->InvokePendingSetCanonicalCookieCallback(
           "cros_migrated_to" /* expected_cookie_name */,
           migrated_to_app_url.GetContent() /* expected_cookie_value */,
-          true /* expected_secure_source */,
+          "https" /* expected_source_scheme */,
           false /* expected_modify_http_only */, true /* success */);
 
       fake_cookie_manager_->InvokePendingDeleteCookiesCallback(
@@ -370,14 +357,14 @@ TEST_F(AndroidSmsAppSetupControllerImplTest, SetUpApp_NoPreviousApp) {
 
 TEST_F(AndroidSmsAppSetupControllerImplTest, SetUpApp_AppAlreadyInstalled) {
   // Start with a PWA already installed at the URL.
-  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1), true);
+  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1));
   CallSetUpApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                0u /* num_expected_app_installs */);
 }
 
 TEST_F(AndroidSmsAppSetupControllerImplTest, SetUpApp_OtherPwaInstalled) {
   // Start with a PWA already installed at a different URL.
-  test_pwa_delegate()->SetHasPwa(GURL(kTestUrl2), true);
+  test_pwa_delegate()->SetHasPwa(GURL(kTestUrl2));
   CallSetUpApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                1u /* num_expected_app_installs */);
 }
@@ -392,20 +379,18 @@ TEST_F(AndroidSmsAppSetupControllerImplTest, SetUpAppThenRemove) {
   // Install and remove.
   CallSetUpApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                1u /* num_expected_app_installs */);
-  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1), true);
+  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1));
   CallRemoveApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                 GURL(kTestUrl2) /* migrated_to_app_url */,
                 1u /* num_expected_app_uninstalls */);
-  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1), false);
 
   // Repeat once more.
   CallSetUpApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                1u /* num_expected_app_installs */);
-  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1), true);
+  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1));
   CallRemoveApp(GURL(kTestUrl1), GURL(kTestInstallUrl1),
                 GURL(kTestUrl2) /* migrated_to_app_url */,
                 1u /* num_expected_app_uninstalls */);
-  test_pwa_delegate()->SetHasPwa(GURL(kTestInstallUrl1), false);
 }
 
 TEST_F(AndroidSmsAppSetupControllerImplTest, RemoveApp_NoInstalledApp) {

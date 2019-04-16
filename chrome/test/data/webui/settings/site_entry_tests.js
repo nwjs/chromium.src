@@ -78,15 +78,16 @@ suite('SiteEntry', function() {
   test('displays the correct number of origins', function() {
     testElement.siteGroup = TEST_MULTIPLE_SITE_GROUP;
     Polymer.dom.flush();
-    assertEquals(
-        3, testElement.$.collapseChild.querySelectorAll('.list-item').length);
+    const collapseChild = testElement.$.originList.get();
+    Polymer.dom.flush();
+    assertEquals(3, collapseChild.querySelectorAll('.list-item').length);
   });
 
   test('expands and closes to show more origins', function() {
     testElement.siteGroup = TEST_MULTIPLE_SITE_GROUP;
     assertTrue(testElement.grouped_(testElement.siteGroup));
     assertEquals('false', toggleButton.getAttribute('aria-expanded'));
-    const originList = testElement.root.querySelector('iron-collapse');
+    const originList = testElement.$.originList.get();
     assertTrue(originList.classList.contains('iron-collapse-closed'));
     assertEquals('true', originList.getAttribute('aria-hidden'));
 
@@ -100,7 +101,7 @@ suite('SiteEntry', function() {
     testElement.siteGroup = TEST_SINGLE_SITE_GROUP;
     assertFalse(testElement.grouped_(testElement.siteGroup));
     assertEquals('false', toggleButton.getAttribute('aria-expanded'));
-    const originList = testElement.root.querySelector('iron-collapse');
+    const originList = testElement.$.originList.get();
     assertTrue(originList.classList.contains('iron-collapse-closed'));
     assertEquals('true', originList.getAttribute('aria-hidden'));
 
@@ -118,8 +119,9 @@ suite('SiteEntry', function() {
   test('with multiple origins navigates to Site Details', function() {
     testElement.siteGroup = TEST_MULTIPLE_SITE_GROUP;
     Polymer.dom.flush();
-    const originList =
-        testElement.$.collapseChild.querySelectorAll('.list-item');
+    const collapseChild = testElement.$.originList.get();
+    Polymer.dom.flush();
+    const originList = collapseChild.querySelectorAll('.list-item');
     assertEquals(3, originList.length);
 
     // Test clicking on one of these origins takes the user to Site Details,
@@ -140,89 +142,6 @@ suite('SiteEntry', function() {
     assertTrue(overflowMenuButton.closest('.row-aligned').hidden);
   });
 
-  function resetSettingsViaOverflowMenu(buttonType) {
-    assertTrue(buttonType == 'cancel-button' || buttonType == 'action-button');
-    Polymer.dom.flush();
-    const overflowMenuButton = testElement.$.overflowMenuButton;
-    assertFalse(overflowMenuButton.closest('.row-aligned').hidden);
-    // Open the reset settings dialog and make sure both cancelling the
-    // action and resetting all permissions work.
-    const overflowMenu = testElement.$.menu.get();
-    const menuItems = overflowMenu.querySelectorAll('.dropdown-item');
-
-    // Test clicking on the overflow menu button opens the menu.
-    assertFalse(overflowMenu.open);
-    overflowMenuButton.click();
-    assertTrue(overflowMenu.open);
-
-    // Open the reset settings dialog and tap the |buttonType| button.
-    assertFalse(testElement.$.confirmResetSettings.open);
-    menuItems[0].click();
-    assertTrue(testElement.$.confirmResetSettings.open);
-    const actionButtonList =
-        testElement.$.confirmResetSettings.getElementsByClassName(buttonType);
-    assertEquals(1, actionButtonList.length);
-    actionButtonList[0].click();
-
-    // Check the dialog and overflow menu are now both closed.
-    assertFalse(testElement.$.confirmResetSettings.open);
-    assertFalse(overflowMenu.open);
-  }
-
-  test('cancelling the confirm dialog on resetting settings works', function() {
-    testElement.siteGroup = TEST_MULTIPLE_SITE_GROUP;
-    resetSettingsViaOverflowMenu('cancel-button');
-  });
-
-  test(
-      'with multiple origins can reset settings via overflow menu', function() {
-        let deleteCurrentEntryCalled = false;
-        testElement.addEventListener('delete-current-entry', function() {
-          deleteCurrentEntryCalled = true;
-        });
-
-        // Test when entire siteGroup has no data or cookies.
-        // Clone this object to avoid propagating changes made in this test.
-        testElement.siteGroup =
-            JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-        resetSettingsViaOverflowMenu('action-button');
-        // Ensure a call was made to setOriginPermissions for each origin.
-        assertEquals(
-            TEST_MULTIPLE_SITE_GROUP.origins.length,
-            browserProxy.getCallCount('setOriginPermissions'));
-        assertTrue(deleteCurrentEntryCalled);
-
-        // Test when one origin has data and cookies.
-        // Clone this object to avoid propagating changes made in this test.
-        testElement.siteGroup =
-            JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-        testElement.siteGroup.origins[0].hasPermissionSettings = true;
-        testElement.siteGroup.origins[0].usage = 100;
-        testElement.siteGroup.origins[0].numCookies = 2;
-        deleteCurrentEntryCalled = false;
-        resetSettingsViaOverflowMenu('action-button');
-        assertFalse(deleteCurrentEntryCalled);
-        assertEquals(1, testElement.siteGroup.origins.length);
-        assertFalse(testElement.siteGroup.origins[0].hasPermissionSettings);
-        assertEquals(testElement.siteGroup.origins[0].usage, 100);
-        assertEquals(testElement.siteGroup.origins[0].numCookies, 2);
-
-        // Test when none of origin have data or cookies, but etld+1 has
-        // cookies. In this case, a placeholder origin will be created with the
-        // Etld+1 cookies number. Clone this object to avoid propagating changes
-        // made in this test.
-        testElement.siteGroup =
-            JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-        testElement.siteGroup.numCookies = 5;
-        deleteCurrentEntryCalled = false;
-        resetSettingsViaOverflowMenu('action-button');
-        assertFalse(deleteCurrentEntryCalled);
-        assertEquals(1, testElement.siteGroup.origins.length);
-        assertFalse(testElement.siteGroup.origins[0].hasPermissionSettings);
-        assertEquals(testElement.siteGroup.origins[0].usage, 0);
-        assertEquals(testElement.siteGroup.origins[0].numCookies, 5);
-      });
-
   test(
       'moving from grouped to ungrouped does not get stuck in opened state',
       function() {
@@ -231,14 +150,14 @@ suite('SiteEntry', function() {
             JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
         Polymer.dom.flush();
         toggleButton.click();
-        assertTrue(testElement.$.collapseChild.opened);
+        assertTrue(testElement.$.originList.get().opened);
 
         // Remove all origins except one, then make sure it's not still
         // expanded.
         testElement.siteGroup.origins.splice(1);
         assertEquals(1, testElement.siteGroup.origins.length);
         testElement.onSiteGroupChanged_(testElement.siteGroup);
-        assertFalse(testElement.$.collapseChild.opened);
+        assertFalse(testElement.$.originList.get().opened);
       });
 
   test('cookies show correctly for grouped entries', function() {
@@ -322,77 +241,137 @@ suite('SiteEntry', function() {
     });
   });
 
-  function clearDataViaOverflowMenu(buttonType) {
-    assertTrue(buttonType == 'cancel-button' || buttonType == 'action-button');
+  test('favicon with www.etld+1 chosen for site group', function() {
+    // Clone this object to avoid propagating changes made in this test.
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 74622;
+    testElement.siteGroup = testSiteGroup;
     Polymer.dom.flush();
-    const overflowMenuButton = testElement.$.overflowMenuButton;
-    assertFalse(overflowMenuButton.closest('.row-aligned').hidden);
-
-    // Open the clear data dialog and make sure both cancelling the
-    // action and resetting all permissions work.
-    const overflowMenu = testElement.$.menu.get();
-    const menuItems = overflowMenu.querySelectorAll('.dropdown-item');
-    // Test clicking on the overflow menu button opens the menu.
-    assertFalse(overflowMenu.open);
-    overflowMenuButton.click();
-    assertTrue(overflowMenu.open);
-
-    // Open the clear data dialog and tap the |buttonType| button.
-    assertFalse(testElement.$.confirmClearData.open);
-    menuItems[1].click();
-    assertTrue(testElement.$.confirmClearData.open);
-    const actionButtonList =
-        testElement.$.confirmClearData.getElementsByClassName(buttonType);
-    assertEquals(1, actionButtonList.length);
-    actionButtonList[0].click();
-
-    // Check the dialog and overflow menu are now both closed.
-    assertFalse(testElement.$.confirmClearData.open);
-    assertFalse(overflowMenu.open);
-  }
-
-  test('cancelling the confirm dialog on clear data works', function() {
-    testElement.siteGroup = TEST_MULTIPLE_SITE_GROUP;
-    clearDataViaOverflowMenu('cancel-button');
+    assertEquals(
+        testElement.$.collapseParent.querySelector('site-favicon').url,
+        'https://www.example.com');
   });
 
-  test('with multiple origins can clear data via overflow menu', function() {
-    let deleteCurrentEntryCalled = false;
-    testElement.addEventListener('delete-current-entry', function() {
-      deleteCurrentEntryCalled = true;
-    });
-    // Test when all origins has no permission settings and no data.
+  test('favicon with largest storage chosen for site group', function() {
     // Clone this object to avoid propagating changes made in this test.
-    testElement.siteGroup =
-        JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-    clearDataViaOverflowMenu('action-button');
-    // Ensure a call was made to clearEtldPlus1DataAndCookies.
-    assertEquals(1, browserProxy.getCallCount('clearEtldPlus1DataAndCookies'));
-    assertTrue(deleteCurrentEntryCalled);
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 74622;
+    testSiteGroup.origins[1].origin = 'https://abc.example.com';
+    testElement.siteGroup = testSiteGroup;
+    Polymer.dom.flush();
+    assertEquals(
+        testElement.$.collapseParent.querySelector('site-favicon').url,
+        'https://login.example.com');
+  });
 
-    // Test when there is one origin has permissions settings.
+  test('favicon with largest cookies number chosen for site group', function() {
     // Clone this object to avoid propagating changes made in this test.
-    testElement.siteGroup =
-        JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-    deleteCurrentEntryCalled = false;
-    testElement.siteGroup.origins[0].hasPermissionSettings = true;
-    clearDataViaOverflowMenu('action-button');
-    assertFalse(deleteCurrentEntryCalled);
-    assertEquals(testElement.siteGroup.origins.length, 1);
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 1274;
+    testSiteGroup.origins[0].numCookies = 10;
+    testSiteGroup.origins[1].numCookies = 3;
+    testSiteGroup.origins[2].numCookies = 1;
+    testSiteGroup.origins[1].origin = 'https://abc.example.com';
+    testElement.siteGroup = testSiteGroup;
+    Polymer.dom.flush();
+    assertEquals(
+        testElement.$.collapseParent.querySelector('site-favicon').url,
+        'https://abc.example.com');
+  });
 
-    // Test when one origin has permission settings and data, clear data only
-    // clears the data and cookies.
-    testElement.siteGroup =
-        JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
-    deleteCurrentEntryCalled = false;
-    testElement.siteGroup.origins[0].hasPermissionSettings = true;
-    testElement.siteGroup.origins[0].usage = 100;
-    testElement.siteGroup.origins[0].numCookies = 3;
-    clearDataViaOverflowMenu('action-button');
-    assertFalse(deleteCurrentEntryCalled);
-    assertEquals(testElement.siteGroup.origins.length, 1);
-    assertTrue(testElement.siteGroup.origins[0].hasPermissionSettings);
-    assertEquals(testElement.siteGroup.origins[0].usage, 0);
-    assertEquals(testElement.siteGroup.origins[0].numCookies, 0);
+  test('can be sorted by most visited', function() {
+    // Clone this object to avoid propagating changes made in this test.
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].engagement = 20;
+    testSiteGroup.origins[1].engagement = 30;
+    testSiteGroup.origins[2].engagement = 10;
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 1274;
+    testSiteGroup.origins[0].numCookies = 10;
+    testSiteGroup.origins[1].numCookies = 3;
+    testSiteGroup.origins[2].numCookies = 1;
+    testElement.sortMethod = settings.SortMethod.MOST_VISITED;
+    testElement.siteGroup = testSiteGroup;
+    Polymer.dom.flush();
+    const collapseChild = testElement.$.originList.get();
+    Polymer.dom.flush();
+    const origins = collapseChild.querySelectorAll('.list-item');
+    assertEquals(3, origins.length);
+    assertEquals(
+        'www.example.com',
+        origins[0].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'example.com',
+        origins[1].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'login.example.com',
+        origins[2].querySelector('#originSiteRepresentation').innerText.trim());
+  });
+
+  test('can be sorted by storage', function() {
+    // Clone this object to avoid propagating changes made in this test.
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].engagement = 20;
+    testSiteGroup.origins[1].engagement = 30;
+    testSiteGroup.origins[2].engagement = 10;
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 1274;
+    testSiteGroup.origins[0].numCookies = 10;
+    testSiteGroup.origins[1].numCookies = 3;
+    testSiteGroup.origins[2].numCookies = 1;
+    testElement.sortMethod = settings.SortMethod.STORAGE;
+    testElement.siteGroup = testSiteGroup;
+    Polymer.dom.flush();
+    const collapseChild = testElement.$.originList.get();
+    Polymer.dom.flush();
+    const origins = collapseChild.querySelectorAll('.list-item');
+    assertEquals(3, origins.length);
+    assertEquals(
+        'www.example.com',
+        origins[0].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'login.example.com',
+        origins[1].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'example.com',
+        origins[2].querySelector('#originSiteRepresentation').innerText.trim());
+  });
+
+  test('can be sorted by name', function() {
+    // Clone this object to avoid propagating changes made in this test.
+    const testSiteGroup = JSON.parse(JSON.stringify(TEST_MULTIPLE_SITE_GROUP));
+    testSiteGroup.origins[0].engagement = 20;
+    testSiteGroup.origins[1].engagement = 30;
+    testSiteGroup.origins[2].engagement = 10;
+    testSiteGroup.origins[0].usage = 0;
+    testSiteGroup.origins[1].usage = 1274;
+    testSiteGroup.origins[2].usage = 1274;
+    testSiteGroup.origins[0].numCookies = 10;
+    testSiteGroup.origins[1].numCookies = 3;
+    testSiteGroup.origins[2].numCookies = 1;
+    testElement.sortMethod = settings.SortMethod.NAME;
+    testElement.siteGroup = testSiteGroup;
+    Polymer.dom.flush();
+    const collapseChild = testElement.$.originList.get();
+    Polymer.dom.flush();
+    const origins = collapseChild.querySelectorAll('.list-item');
+    assertEquals(3, origins.length);
+    assertEquals(
+        'example.com',
+        origins[0].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'login.example.com',
+        origins[1].querySelector('#originSiteRepresentation').innerText.trim());
+    assertEquals(
+        'www.example.com',
+        origins[2].querySelector('#originSiteRepresentation').innerText.trim());
   });
 });

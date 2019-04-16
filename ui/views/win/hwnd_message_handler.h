@@ -39,17 +39,18 @@ class Insets;
 }  // namespace gfx
 
 namespace ui  {
+class AXFragmentRootWin;
 class AXSystemCaretWin;
 class InputMethod;
 class TextInputClient;
 class ViewProp;
+class SessionChangeObserver;
 }  // namespace ui
 
 namespace views {
 
 class FullscreenHandler;
 class HWNDMessageHandlerDelegate;
-class WindowsSessionChangeObserver;
 
 // These two messages aren't defined in winuser.h, but they are sent to windows
 // with captions. They appear to paint the window caption and frame.
@@ -709,11 +710,13 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   uint32_t current_window_size_message_ = 0;
 
   // Manages observation of Windows Session Change messages.
-  std::unique_ptr<WindowsSessionChangeObserver>
-      windows_session_change_observer_;
+  std::unique_ptr<ui::SessionChangeObserver> session_change_observer_;
 
   // Some assistive software need to track the location of the caret.
   std::unique_ptr<ui::AXSystemCaretWin> ax_system_caret_;
+
+  // Implements IRawElementProviderFragmentRoot when UIA is enabled
+  std::unique_ptr<ui::AXFragmentRootWin> ax_fragment_root_;
 
   // The location where the user clicked on the caption. We cache this when we
   // receive the WM_NCLBUTTONDOWN message. We use this in the subsequent

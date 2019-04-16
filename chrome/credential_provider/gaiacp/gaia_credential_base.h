@@ -25,7 +25,6 @@ class FilePath;
 namespace credential_provider {
 
 class OSProcessManager;
-class OSUserManager;
 
 enum FIELDID {
   FID_DESCRIPTION,
@@ -75,31 +74,44 @@ class ATL_NO_VTABLE CGaiaCredentialBase
   CGaiaCredentialBase();
   ~CGaiaCredentialBase();
 
-  // Creates a new windows OS user with the given username, fullname, and
-  // password on the local machine.  Returns the SID of the new user.
-  static HRESULT CreateNewUser(OSUserManager* manager,
-                               const wchar_t* username,
-                               const wchar_t* password,
-                               const wchar_t* fullname,
-                               const wchar_t* comment,
-                               bool add_to_users_group,
-                               BSTR* sid);
-
   // Members to access user credentials.
+  const CComPtr<IGaiaCredentialProvider>& provider() const { return provider_; }
   const CComBSTR& get_username() const { return username_; }
   const CComBSTR& get_password() const { return password_; }
   const CComBSTR& get_sid() const { return user_sid_; }
   const CComBSTR& get_current_windows_password() const {
     return current_windows_password_;
   }
-  void set_username(BSTR username) { username_ = username; }
-  void set_user_sid(BSTR sid) { user_sid_ = sid; }
+  const base::DictionaryValue* get_authentication_results() const {
+    return authentication_results_.get();
+  }
   void set_current_windows_password(BSTR password) {
     current_windows_password_ = password;
   }
+
+  // Returns true if the current credentials stored in |username_| and
+  // |password_| are valid and should succeed a local Windows logon. This
+  // function is successful if we are able to create a logon token with the
+  // credentials.
   bool AreCredentialsValid() const;
-  bool AreWindowsCredentialsAvailable() const;
-  HRESULT AreWindowsCredentialsValid(BSTR password) const;
+
+  // Returns true if some kind of credential information is available so that a
+  // sign in can be attempled. Does not guarantee that the sign in will succeed
+  // with the current credentials.
+  bool CanAttemptWindowsLogon() const;
+
+  // Returns S_OK if the specific password credential is valid for |username_|,
+  // S_FALSE if not, and a FAILED hr otherwise.
+  HRESULT IsWindowsPasswordValidForStoredUser(BSTR password) const;
+
+  // Updates the UI so that the password field is displayed and also sets the
+  // state of the credential to wait for a password.
+  void DisplayPasswordField(int password_message);
+
+  // Returns true if GLS is running.
+  bool IsGaiaLogonStubRunning() {
+    return logon_ui_process_ != INVALID_HANDLE_VALUE;
+  }
 
   // IGaiaCredential
   IFACEMETHODIMP Initialize(IGaiaCredentialProvider* provider) override;
@@ -111,11 +123,11 @@ class ATL_NO_VTABLE CGaiaCredentialBase
                              BSTR status_text) override;
 
   // Gets the string value for the given credential UI field.
-  HRESULT GetStringValueImpl(DWORD field_id, wchar_t** value);
+  virtual HRESULT GetStringValueImpl(DWORD field_id, wchar_t** value);
 
-  // Derived classes should implement this function to return an email address
-  // only when reauthenticating the user.
-  virtual HRESULT GetEmailForReauth(wchar_t* email, size_t length);
+  // Can be overridden to change the icon used for anonymous tiles when they are
+  // shown in the selection list on the side and when they are selected.
+  virtual HRESULT GetBitmapValueImpl(DWORD field_id, HBITMAP* phbmp);
 
   // Resets the state of the credential, forgetting any username or password
   // that may have been set previously.  Derived classes may override to
@@ -123,18 +135,33 @@ class ATL_NO_VTABLE CGaiaCredentialBase
   // class method.
   virtual void ResetInternalState();
 
- private:
   // Gets the base portion of the command line to run the Gaia Logon stub.
   // This portion of the command line would only include the executable and
   // any executable specific arguments needed to correctly start the GLS.
   virtual HRESULT GetBaseGlsCommandline(base::CommandLine* command_line);
-  // Gets the full command line to run the Gaia Logon stub (GLS). This
-  // function calls GetBaseGlsCommandline.
-  HRESULT GetGlsCommandline(const wchar_t* email,
-                            base::CommandLine* command_line);
+
+  // Gets the user specific portion of the command line to run the Gaia Logon
+  // stub. This portion of the command line could include additional information
+  // such as the user's email and their gaia id.
+  virtual HRESULT GetUserGlsCommandline(base::CommandLine* command_line);
 
   // Display error message to the user.  Virtual so that tests can override.
   virtual void DisplayErrorInUI(LONG status, LONG substatus, BSTR status_text);
+
+  // Forks a stub process to save account information for a user.
+  virtual HRESULT ForkSaveAccountInfoStub(
+      const std::unique_ptr<base::DictionaryValue>& dict,
+      BSTR* status_text);
+
+  // Forks the logon stub process and waits for it to start.
+  virtual HRESULT ForkGaiaLogonStub(OSProcessManager* process_manager,
+                                    const base::CommandLine& command_line,
+                                    UIProcessInfo* uiprocinfo);
+
+ private:
+  // Gets the full command line to run the Gaia Logon stub (GLS). This
+  // function calls GetBaseGlsCommandline.
+  HRESULT GetGlsCommandline(base::CommandLine* command_line);
 
   // Called from GetSerialization() to handle auto-logon.  If the credential
   // has enough information in internal state to auto-logon, the two arguments
@@ -156,16 +183,6 @@ class ATL_NO_VTABLE CGaiaCredentialBase
   // Gaia account.
   static HRESULT CreateGaiaLogonToken(base::win::ScopedHandle* token,
                                       PSID* sid);
-
-  // Forks the logon stub process and waits for it to start.
-  static HRESULT ForkGaiaLogonStub(OSProcessManager* process_manager,
-                                   const base::CommandLine& command_line,
-                                   UIProcessInfo* uiprocinfo);
-
-  // Forks a stub process to save account information for a user.
-  static HRESULT ForkSaveAccountInfoStub(
-      const std::unique_ptr<base::DictionaryValue>& dict,
-      BSTR* status_text);
 
   // The param is a pointer to a UIProcessInfo struct.  This function must
   // release the memory for this structure using delete operator.
@@ -210,47 +227,71 @@ class ATL_NO_VTABLE CGaiaCredentialBase
       CREDENTIAL_PROVIDER_STATUS_ICON* pcpsiOptionalStatusIcon) override;
   IFACEMETHODIMP GetUserSid(wchar_t** sid) override;
 
+  // Checks whether the submit button for the credential should be enabled
+  // (depending on the state of the credential) and enables / disables it
+  // accordingly. This generally occurs when processing is being done that does
+  // not require direct user input to the credential (user is entering
+  // credentials in  GLS) or a submit of the credential is not valid (user needs
+  // to enter the old Windows password but currently nothing has been entered in
+  // the password field).
+  void UpdateSubmitButtonInteractiveState();
+
+  // Stops the GLS process in case it is still executing. Often called when user
+  // switches credentials in the middle of a sign in through the GLS.
   void TerminateLogonProcess();
 
-  // Checks if the information for the given |username| is valid and creates it
-  // if it does not exist.
-  // Returns S_OK if the user exists and the given |password| is a valid windows
-  // login password for the user or if the user does not exist and it was
-  // created successfully.
-  // Returns S_FALSE if the user exists but the given |password| is not the
-  // right password to signin to the Windows account. Otherwise an error result
-  // depending on the failure. On failure |error_text| will be allocated and
-  // filled with an error message. The caller must take ownership of this
-  // memory. On success (S_OK or S_FALSE) |sid| will be allocated and filled
-  // with the sid of the created or existing user. The caller must take
-  // ownership of this memory.
-  HRESULT ValidateOrCreateUser(BSTR username,
-                               BSTR password,
-                               BSTR fullname,
+  // Checks whether this credential can sign in the user specified by
+  // |domain|, |username|, |sid|. For the default anonymous gaia credential this
+  // function will return S_OK. For implementers that are associated to a
+  // specific user, this function should verify if the |domain|\|username| and
+  // |sid| matches the domain\username and sid stored in the credential. If
+  // these verifications fail then the function should return an error code
+  // which will cause sign in to fail.
+  virtual HRESULT ValidateExistingUser(const base::string16& username,
+                                       const base::string16& domain,
+                                       const base::string16& sid,
+                                       BSTR* error_text);
+
+  // Checks the information given in |result| to determine if a user can be
+  // created or re-used.
+  // Returns S_OK if a valid was found or a new user was created. Also allocates
+  // and fills |domain|, |username|, |sid| with the information for the user.
+  // The caller must take ownership of this memory.
+  // On failure |error_text| will be allocated and filled with an error message.
+  // The caller must take ownership of this memory.
+  HRESULT ValidateOrCreateUser(const base::DictionaryValue* result,
+                               BSTR* domain,
+                               BSTR* username,
                                BSTR* sid,
                                BSTR* error_text);
 
   CComPtr<ICredentialProviderCredentialEvents> events_;
+  CComPtr<IGaiaCredentialProvider> provider_;
 
   // Handle to the logon UI process.
-  HANDLE logon_ui_process_;
-
-  CComPtr<IGaiaCredentialProvider> provider_;
+  HANDLE logon_ui_process_ = INVALID_HANDLE_VALUE;
 
   // Information about the just created or re-auth-ed user.
   CComBSTR username_;
+  CComBSTR domain_;
   CComBSTR password_;
   CComBSTR user_sid_;
+
+  // Indicates that the Windows password does not match the Gaia password and
+  // the user must be enter the former.  For example this is used to properly
+  // handle the password change case.
+  bool needs_windows_password_ = false;
 
   // The password entered into the FID_CURRENT_PASSWORD_FIELD to update the
   // Windows password with the gaia password.
   CComBSTR current_windows_password_;
 
+  // Contains the information about the Gaia account that signed in.  See the
+  // kKeyXXX constants for the data that is stored here.
   std::unique_ptr<base::DictionaryValue> authentication_results_;
-  // Whether success or failure, these members hold information about result.
-  NTSTATUS result_status_;
-  NTSTATUS result_substatus_;
-  base::string16 result_status_text_;
+
+  // Holds information about the success or failure of the sign in.
+  NTSTATUS result_status_ = STATUS_SUCCESS;
 };
 
 }  // namespace credential_provider

@@ -101,14 +101,13 @@ class CORE_EXPORT HTMLScriptElement final : public HTMLElement,
   }
   bool AllowInlineScriptForCSP(const AtomicString& nonce,
                                const WTF::OrdinalNumber&,
-                               const String& script_content,
-                               ContentSecurityPolicy::InlineType) override;
+                               const String& script_content) override;
   void DispatchLoadEvent() override;
   void DispatchErrorEvent() override;
   void SetScriptElementForBinding(
       HTMLScriptElementOrSVGScriptElement&) override;
 
-  Element* CloneWithoutAttributesAndChildren(Document&) const override;
+  Element& CloneWithoutAttributesAndChildren(Document&) const override;
 
   TraceWrapperMember<ScriptLoader> loader_;
 };

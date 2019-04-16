@@ -20,6 +20,7 @@
 #include "components/autofill_assistant/browser/actions/set_attribute_action.h"
 #include "components/autofill_assistant/browser/actions/set_form_field_value_action.h"
 #include "components/autofill_assistant/browser/actions/show_details_action.h"
+#include "components/autofill_assistant/browser/actions/show_info_box_action.h"
 #include "components/autofill_assistant/browser/actions/show_progress_bar_action.h"
 #include "components/autofill_assistant/browser/actions/stop_action.h"
 #include "components/autofill_assistant/browser/actions/tell_action.h"
@@ -66,26 +67,6 @@ std::string ProtocolUtils::CreateGetScriptsRequest(
 }
 
 // static
-bool ProtocolUtils::ParseScripts(
-    const std::string& response,
-    std::vector<std::unique_ptr<Script>>* scripts) {
-  DCHECK(scripts);
-
-  SupportsScriptResponseProto response_proto;
-  if (!response_proto.ParseFromString(response)) {
-    LOG(ERROR) << "Failed to parse getting assistant scripts response.";
-    return false;
-  }
-
-  scripts->clear();
-  for (const auto& script_proto : response_proto.scripts()) {
-    ProtocolUtils::AddScript(script_proto, scripts);
-  }
-
-  return true;
-}
-
-// static
 void ProtocolUtils::AddScript(const SupportedScriptProto& script_proto,
                               std::vector<std::unique_ptr<Script>>* scripts) {
   auto script = std::make_unique<Script>();
@@ -96,7 +77,7 @@ void ProtocolUtils::AddScript(const SupportedScriptProto& script_proto,
   script->handle.autostart = presentation.autostart();
   script->handle.interrupt = presentation.interrupt();
   script->handle.initial_prompt = presentation.initial_prompt();
-  script->handle.highlight = presentation.highlight();
+  script->handle.chip_type = presentation.chip_type();
   script->precondition = ScriptPrecondition::FromProto(
       script_proto.path(), presentation.precondition());
   script->priority = presentation.priority();
@@ -261,10 +242,14 @@ bool ProtocolUtils::ParseActions(const std::string& response,
         actions->emplace_back(std::make_unique<SetAttributeAction>(action));
         break;
       }
+      case ActionProto::ActionInfoCase::kShowInfoBox: {
+        actions->emplace_back(std::make_unique<ShowInfoBoxAction>(action));
+        break;
+      }
       default:
       case ActionProto::ActionInfoCase::ACTION_INFO_NOT_SET: {
-        DLOG(ERROR) << "Unknown or unsupported action with action_case="
-                    << action.action_info_case();
+        DVLOG(1) << "Unknown or unsupported action with action_case="
+                 << action.action_info_case();
         actions->emplace_back(std::make_unique<UnsupportedAction>(action));
         break;
       }

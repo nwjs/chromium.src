@@ -70,9 +70,11 @@ class LayerTreeView : public blink::WebLayerTreeView,
   ~LayerTreeView() override;
 
   // The |ukm_recorder_factory| may be null to disable recording (in tests
-  //  only).
+  // only).
   void Initialize(const cc::LayerTreeSettings& settings,
                   std::unique_ptr<cc::UkmRecorderFactory> ukm_recorder_factory);
+
+  cc::AnimationHost* animation_host() { return animation_host_.get(); }
 
   void SetVisible(bool visible);
   const base::WeakPtr<cc::InputHandler>& GetInputHandler();
@@ -130,12 +132,7 @@ class LayerTreeView : public blink::WebLayerTreeView,
 
   // blink::WebLayerTreeView implementation.
   viz::FrameSinkId GetFrameSinkId() override;
-  void SetRootLayer(scoped_refptr<cc::Layer> layer) override;
   void SetNonBlinkManagedRootLayer(scoped_refptr<cc::Layer> layer);
-  void ClearRootLayer() override;
-  cc::AnimationHost* CompositorAnimationHost() override;
-  gfx::Size GetViewportSize() const override;
-  void SetBackgroundColor(SkColor color) override;
   void SetPageScaleFactorAndLimits(float page_scale_factor,
                                    float minimum,
                                    float maximum) override;
@@ -153,10 +150,8 @@ class LayerTreeView : public blink::WebLayerTreeView,
   void UpdateAllLifecyclePhasesAndCompositeForTesting(bool do_raster) override;
   std::unique_ptr<cc::ScopedDeferMainFrameUpdate> DeferMainFrameUpdate()
       override;
-  void RegisterViewportLayers(const ViewportLayers& viewport_layers) override;
-  void ClearViewportLayers() override;
-  void RegisterSelection(const cc::LayerSelection& selection) override;
-  void ClearSelection() override;
+  void StartDeferringCommits(base::TimeDelta timeout) override;
+  void StopDeferringCommits() override;
   void SetMutatorClient(std::unique_ptr<cc::LayerTreeMutator>) override;
   void SetPaintWorkletLayerPainterClient(
       std::unique_ptr<cc::PaintWorkletLayerPainter>) override;
@@ -187,10 +182,11 @@ class LayerTreeView : public blink::WebLayerTreeView,
   // cc::LayerTreeHostClient implementation.
   void WillBeginMainFrame() override;
   void DidBeginMainFrame() override;
+  void DidUpdateLayers() override;
   void BeginMainFrame(const viz::BeginFrameArgs& args) override;
   void BeginMainFrameNotExpectedSoon() override;
   void BeginMainFrameNotExpectedUntil(base::TimeTicks time) override;
-  void UpdateLayerTreeHost(bool record_main_frame_metrics) override;
+  void UpdateLayerTreeHost() override;
   void ApplyViewportChanges(const cc::ApplyViewportChangesArgs& args) override;
   void RecordWheelAndTouchScrollingCount(bool has_scrolled_by_wheel,
                                          bool has_scrolled_by_touch) override;
@@ -210,6 +206,7 @@ class LayerTreeView : public blink::WebLayerTreeView,
   void DidPresentCompositorFrame(
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override;
+  void RecordStartOfFrameMetrics() override;
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) override;
   void DidGenerateLocalSurfaceIdAllocation(
       const viz::LocalSurfaceIdAllocation& allocation) override {}

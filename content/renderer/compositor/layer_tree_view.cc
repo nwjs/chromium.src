@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/location.h"
@@ -303,29 +304,9 @@ viz::FrameSinkId LayerTreeView::GetFrameSinkId() {
   return frame_sink_id_;
 }
 
-void LayerTreeView::SetRootLayer(scoped_refptr<cc::Layer> layer) {
-  layer_tree_host_->SetRootLayer(std::move(layer));
-}
-
-void LayerTreeView::ClearRootLayer() {
-  layer_tree_host_->SetRootLayer(nullptr);
-}
-
 void LayerTreeView::SetNonBlinkManagedRootLayer(
     scoped_refptr<cc::Layer> layer) {
   layer_tree_host_->SetNonBlinkManagedRootLayer(std::move(layer));
-}
-
-cc::AnimationHost* LayerTreeView::CompositorAnimationHost() {
-  return animation_host_.get();
-}
-
-gfx::Size LayerTreeView::GetViewportSize() const {
-  return layer_tree_host_->device_viewport_size();
-}
-
-void LayerTreeView::SetBackgroundColor(SkColor color) {
-  layer_tree_host_->set_background_color(color);
 }
 
 void LayerTreeView::SetPageScaleFactorAndLimits(float page_scale_factor,
@@ -356,30 +337,6 @@ void LayerTreeView::HeuristicsForGpuRasterizationUpdated(
 
 void LayerTreeView::SetNeedsBeginFrame() {
   layer_tree_host_->SetNeedsAnimate();
-}
-
-void LayerTreeView::RegisterViewportLayers(const ViewportLayers& layers) {
-  cc::LayerTreeHost::ViewportLayers viewport_layers;
-  viewport_layers.overscroll_elasticity_element_id =
-      layers.overscroll_elasticity_element_id;
-  viewport_layers.page_scale = layers.page_scale;
-  viewport_layers.inner_viewport_container = layers.inner_viewport_container;
-  viewport_layers.outer_viewport_container = layers.outer_viewport_container;
-  viewport_layers.inner_viewport_scroll = layers.inner_viewport_scroll;
-  viewport_layers.outer_viewport_scroll = layers.outer_viewport_scroll;
-  layer_tree_host_->RegisterViewportLayers(viewport_layers);
-}
-
-void LayerTreeView::ClearViewportLayers() {
-  layer_tree_host_->RegisterViewportLayers(cc::LayerTreeHost::ViewportLayers());
-}
-
-void LayerTreeView::RegisterSelection(const cc::LayerSelection& selection) {
-  layer_tree_host_->RegisterSelection(selection);
-}
-
-void LayerTreeView::ClearSelection() {
-  layer_tree_host_->RegisterSelection(cc::LayerSelection());
 }
 
 void LayerTreeView::SetMutatorClient(
@@ -491,7 +448,7 @@ void LayerTreeView::SynchronouslyComposite(
     // frame, but the compositor does not support this. In this case, we only
     // run blink's lifecycle updates.
     delegate_->BeginMainFrame(base::TimeTicks::Now());
-    delegate_->UpdateVisualState(false /* record_main_frame_metrics */);
+    delegate_->UpdateVisualState();
     return;
   }
 
@@ -511,6 +468,14 @@ void LayerTreeView::SynchronouslyComposite(
 std::unique_ptr<cc::ScopedDeferMainFrameUpdate>
 LayerTreeView::DeferMainFrameUpdate() {
   return layer_tree_host_->DeferMainFrameUpdate();
+}
+
+void LayerTreeView::StartDeferringCommits(base::TimeDelta timeout) {
+  layer_tree_host_->StartDeferringCommits(timeout);
+}
+
+void LayerTreeView::StopDeferringCommits() {
+  layer_tree_host_->StopDeferringCommits();
 }
 
 int LayerTreeView::LayerTreeId() const {
@@ -578,7 +543,19 @@ void LayerTreeView::WillBeginMainFrame() {
   delegate_->WillBeginCompositorFrame();
 }
 
-void LayerTreeView::DidBeginMainFrame() {}
+void LayerTreeView::DidBeginMainFrame() {
+  delegate_->DidBeginMainFrame();
+}
+
+void LayerTreeView::DidUpdateLayers() {
+  // Dump property trees and layers if run with:
+  //   --vmodule=layer_tree_view=3
+  VLOG(3) << "After updating layers:\n"
+          << "property trees:\n"
+          << layer_tree_host_->property_trees()->ToString() << "\n"
+          << "cc::Layers:\n"
+          << layer_tree_host_->LayersAsString();
+}
 
 void LayerTreeView::BeginMainFrame(const viz::BeginFrameArgs& args) {
   web_main_thread_scheduler_->WillBeginFrame(args);
@@ -593,8 +570,8 @@ void LayerTreeView::BeginMainFrameNotExpectedUntil(base::TimeTicks time) {
   web_main_thread_scheduler_->BeginMainFrameNotExpectedUntil(time);
 }
 
-void LayerTreeView::UpdateLayerTreeHost(bool record_main_frame_metrics) {
-  delegate_->UpdateVisualState(record_main_frame_metrics);
+void LayerTreeView::UpdateLayerTreeHost() {
+  delegate_->UpdateVisualState();
 }
 
 void LayerTreeView::ApplyViewportChanges(
@@ -693,6 +670,10 @@ void LayerTreeView::DidPresentCompositorFrame(
       std::move(callback).Run(feedback.timestamp);
     presentation_callbacks_.erase(front);
   }
+}
+
+void LayerTreeView::RecordStartOfFrameMetrics() {
+  delegate_->RecordStartOfFrameMetrics();
 }
 
 void LayerTreeView::RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) {

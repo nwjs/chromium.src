@@ -14,7 +14,7 @@
 #include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "chromecast/media/cma/backend/audio_fader.h"
-#include "chromecast/media/cma/backend/audio_output_redirector.h"
+#include "chromecast/media/cma/backend/audio_output_redirector_input.h"
 #include "chromecast/media/cma/backend/filter_group.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_timestamp_helper.h"
@@ -237,7 +237,8 @@ void MixerInput::VolumeScaleAccumulate(const float* src,
                                        int frames,
                                        float* dest) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  slew_volume_.ProcessFMAC(!volume_applied_, src, frames, 1, dest);
+  slew_volume_.ProcessFMAC(volume_applied_ /* repeat_transition */, src, frames,
+                           1, dest);
   volume_applied_ = true;
 }
 

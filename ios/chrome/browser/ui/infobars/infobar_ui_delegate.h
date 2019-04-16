@@ -15,17 +15,20 @@ class InfoBarControllerDelegate;
 // Removes the view from the View Hierarchy.
 - (void)removeView;
 
-// Detaches view from its delegate. After this function is called, no user
-// interaction can be handled.
-// TODO(crbug.com/1372916): This nils the View's delegate, once we
-// start using ViewControllers it might not be needed.
+// Removes the view from the View Hierarchy, and deletes the backing Infobar
+// object.
 - (void)detachView;
-
-// The Infobar UIView.
-@property(nonatomic, readonly) UIView* view;
 
 // The InfobarControllerDelegate.
 @property(nonatomic, assign) InfoBarControllerDelegate* delegate;
+
+// YES if the container should modally present the Infobar.
+@property(nonatomic, assign, getter=isPresented) BOOL presented;
+
+@optional
+// The Infobar UIView.
+// TODO(crbug.com/927064): Only used in the Legacy implementation.
+@property(nonatomic, readonly) UIView* view;
 
 @end
 

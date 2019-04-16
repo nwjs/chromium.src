@@ -245,7 +245,7 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
   // Any renderer that will produce frames needs to have begin frames sent to
   // it. So unless it is never visible, start this value at true here to avoid
   // startup raciness and decrease latency.
-  if (!base::FeatureList::IsEnabled(features::kVizDisplayCompositor)) {
+  if (!features::IsVizDisplayCompositorEnabled()) {
     needs_begin_frames_ = needs_begin_frames;
     UpdateNeedsBeginFramesInternal();
   }
@@ -1316,15 +1316,14 @@ bool RenderWidgetHostViewMac::HasFallbackSurface() const {
 bool RenderWidgetHostViewMac::TransformPointToCoordSpaceForView(
     const gfx::PointF& point,
     RenderWidgetHostViewBase* target_view,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) {
+    gfx::PointF* transformed_point) {
   if (target_view == this) {
     *transformed_point = point;
     return true;
   }
 
   return target_view->TransformPointToLocalCoordSpace(
-      point, GetCurrentSurfaceId(), transformed_point, source);
+      point, GetCurrentSurfaceId(), transformed_point);
 }
 
 viz::FrameSinkId RenderWidgetHostViewMac::GetRootFrameSinkId() {

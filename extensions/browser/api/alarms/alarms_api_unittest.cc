@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
@@ -691,7 +692,7 @@ TEST_F(ExtensionAlarmsSchedulingTest, PollFrequencyFromStoredAlarm) {
         "[{\"name\": \"hello\", \"scheduledTime\": 10000, "
         "\"periodInMinutes\": 0.0001}]";
     std::unique_ptr<base::ListValue> value =
-        base::ListValue::From(base::JSONReader::Read(alarm_args));
+        base::ListValue::From(base::JSONReader::ReadDeprecated(alarm_args));
     alarm_manager_->ReadFromStorage(extension()->id(), test_data[i].is_unpacked,
                                     std::move(value));
 

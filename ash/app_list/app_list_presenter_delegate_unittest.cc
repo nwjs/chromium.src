@@ -44,6 +44,7 @@
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace_controller_test_api.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
@@ -211,7 +212,7 @@ class PopulatedAppListTest : public AshTestBase,
 
 // Instantiate the Boolean which is used to toggle mouse and touch events in
 // the parameterized tests.
-INSTANTIATE_TEST_CASE_P(, AppListPresenterDelegateTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, AppListPresenterDelegateTest, testing::Bool());
 
 TEST_F(PopulatedAppListTest, TappingAppsGridClosesVirtualKeyboard) {
   InitializeAppsGrid();
@@ -1278,7 +1279,7 @@ TEST_F(AppListPresenterDelegateHomeLauncherTest, BackgroundOpacity) {
 
   // The opacity should be set on the color, not the layer. Setting opacity on
   // the layer will change the opacity of the blur effect, which is not desired.
-  const U8CPU clamshell_background_opacity = static_cast<U8CPU>(255 * 0.7);
+  const U8CPU clamshell_background_opacity = static_cast<U8CPU>(255 * 0.74);
   EXPECT_EQ(SkColorSetA(app_list::AppListView::kDefaultBackgroundColor,
                         clamshell_background_opacity),
             GetAppListView()->GetAppListBackgroundShieldColorForTest());
@@ -1804,9 +1805,9 @@ class AppListPresenterDelegateVirtualKeyboardTest
 
 // Instantiate the Boolean which is used to toggle mouse and touch events in
 // the parameterized tests.
-INSTANTIATE_TEST_CASE_P(,
-                        AppListPresenterDelegateVirtualKeyboardTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(,
+                         AppListPresenterDelegateVirtualKeyboardTest,
+                         testing::Bool());
 
 // Tests that tapping or clicking the body of the applist with an active virtual
 // keyboard results in the virtual keyboard closing with no side effects.

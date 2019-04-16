@@ -94,10 +94,6 @@ enum class ShowTranslateBubbleResult {
 
 enum class BrowserThemeChangeType { kBrowserTheme, kNativeTheme };
 
-#if !defined(OS_CHROMEOS)
-class BadgeServiceDelegate;
-#endif
-
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserWindow interface
 //  An interface implemented by the "view" of the Browser window.
@@ -227,6 +223,11 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void OnTabDetached(content::WebContents* contents,
                              bool was_active) = 0;
 
+  // Called when the user restores a tab. |command_id| may be IDC_RESTORE_TAB or
+  // the menu command, depending on whether the tab was restored via keyboard or
+  // main menu.
+  virtual void OnTabRestored(int command_id) = 0;
+
   // Called to force the zoom state to for the active tab to be recalculated.
   // |can_show_bubble| is true when a user presses the zoom up or down keyboard
   // shortcuts and will be false in other cases (e.g. switching tabs, "clicking"
@@ -252,7 +253,7 @@ class BrowserWindow : public ui::BaseWindow {
 
   // Tries to focus the location bar.  Clears the window focus (to avoid
   // inconsistent state) if this fails.
-  virtual void SetFocusToLocationBar() = 0;
+  virtual void SetFocusToLocationBar(bool select_all) = 0;
 
   // Informs the view whether or not a load is in progress for the current tab.
   // The view can use this notification to update the reload/stop button.
@@ -330,9 +331,6 @@ class BrowserWindow : public ui::BaseWindow {
       bool disable_stay_in_chrome,
       IntentPickerResponse callback) = 0;
   virtual void SetIntentPickerViewVisibility(bool visible) = 0;
-#else   // !defined(OS_CHROMEOS)
-  // Returns the badge service delegate.
-  virtual BadgeServiceDelegate* GetBadgeServiceDelegate() const = 0;
 #endif  // defined(OS_CHROMEOS)
 
   // Shows the Bookmark bubble. |url| is the URL being bookmarked,
@@ -358,6 +356,8 @@ class BrowserWindow : public ui::BaseWindow {
   virtual ShowTranslateBubbleResult ShowTranslateBubble(
       content::WebContents* contents,
       translate::TranslateStep step,
+      const std::string& source_language,
+      const std::string& target_language,
       translate::TranslateErrors::Type error_type,
       bool is_user_gesture) = 0;
 
@@ -429,6 +429,7 @@ class BrowserWindow : public ui::BaseWindow {
     AVATAR_BUBBLE_MODE_REAUTH,
     AVATAR_BUBBLE_MODE_CONFIRM_SIGNIN,
     AVATAR_BUBBLE_MODE_SHOW_ERROR,
+    AVATAR_BUBBLE_MODE_INCOGNITO,
   };
   virtual void ShowAvatarBubbleFromAvatarButton(
       AvatarBubbleMode mode,

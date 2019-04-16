@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -94,9 +95,17 @@ cc::ScrollState CreateScrollStateForInertialUpdate(
 
 cc::InputHandler::ScrollInputType GestureScrollInputType(
     blink::WebGestureDevice device) {
-  return device == blink::kWebGestureDeviceTouchpad
-             ? cc::InputHandler::WHEEL
-             : cc::InputHandler::TOUCHSCREEN;
+  switch (device) {
+    case blink::kWebGestureDeviceTouchpad:
+      return cc::InputHandler::WHEEL;
+    case blink::kWebGestureDeviceTouchscreen:
+      return cc::InputHandler::TOUCHSCREEN;
+    case blink::kWebGestureDeviceSyntheticAutoscroll:
+      return cc::InputHandler::AUTOSCROLL;
+    default:
+      NOTREACHED();
+      return cc::InputHandler::SCROLL_INPUT_UNKNOWN;
+  }
 }
 
 cc::SnapFlingController::GestureScrollType GestureScrollEventType(
@@ -252,6 +261,14 @@ void InputHandlerProxy::DispatchSingleInputEvent(
     std::unique_ptr<EventWithCallback> event_with_callback,
     const base::TimeTicks now) {
   ui::LatencyInfo monitored_latency_info = event_with_callback->latency_info();
+
+  if (event_with_callback->event().GetType() ==
+      WebInputEvent::kGestureScrollUpdate) {
+    monitored_latency_info.set_scroll_update_delta(
+        static_cast<const WebGestureEvent&>(event_with_callback->event())
+            .data.scroll_update.delta_y);
+  }
+
   std::unique_ptr<cc::SwapPromiseMonitor> latency_info_swap_promise_monitor =
       input_handler_->CreateLatencyInfoSwapPromiseMonitor(
           &monitored_latency_info);

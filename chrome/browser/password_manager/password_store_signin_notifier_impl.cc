@@ -28,19 +28,13 @@ void PasswordStoreSigninNotifierImpl::UnsubscribeFromSigninEvents() {
   IdentityManagerFactory::GetForProfile(profile_)->RemoveObserver(this);
 }
 
-void PasswordStoreSigninNotifierImpl::OnPrimaryAccountSetWithPassword(
-    const AccountInfo& account_info,
-    const std::string& password) {
-  NotifySignin(account_info.email, password);
-}
-
 void PasswordStoreSigninNotifierImpl::OnPrimaryAccountCleared(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   NotifySignedOut(account_info.email, /* primary_account= */ true);
 }
 
 // IdentityManager::Observer implementations.
-void PasswordStoreSigninNotifierImpl::OnAccountRemovedWithInfo(
+void PasswordStoreSigninNotifierImpl::OnExtendedAccountInfoRemoved(
     const AccountInfo& info) {
   // Only reacts to content area (non-primary) Gaia account sign-out event.
   if (info.account_id !=

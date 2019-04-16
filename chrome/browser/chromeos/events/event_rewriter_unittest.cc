@@ -706,13 +706,6 @@ TEST_F(EventRewriterTest, TestRewriteNumPadKeys) {
   TestRewriteNumPadKeys();
 }
 
-TEST_F(EventRewriterTest, TestRewriteNumPadKeysWithDiamondKeyFlag) {
-  // Make sure the num lock works correctly even when Diamond key exists.
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      chromeos::switches::kHasChromeOSDiamondKey, "");
-  TestRewriteNumPadKeys();
-}
-
 // Tests if the rewriter can handle a Command + Num Pad event.
 void EventRewriterTest::TestRewriteNumPadKeysOnAppleKeyboard() {
   // Simulate the default initialization of the Apple Command key remap pref to
@@ -746,17 +739,6 @@ void EventRewriterTest::TestRewriteNumPadKeysOnAppleKeyboard() {
 
 TEST_F(EventRewriterTest, TestRewriteNumPadKeysOnAppleKeyboard) {
   TestRewriteNumPadKeysOnAppleKeyboard();
-}
-
-TEST_F(EventRewriterTest,
-       TestRewriteNumPadKeysOnAppleKeyboardWithDiamondKeyFlag) {
-  // Makes sure the num lock works correctly even when Diamond key exists.
-  const base::CommandLine original_cl(*base::CommandLine::ForCurrentProcess());
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      chromeos::switches::kHasChromeOSDiamondKey, "");
-
-  TestRewriteNumPadKeysOnAppleKeyboard();
-  *base::CommandLine::ForCurrentProcess() = original_cl;
 }
 
 TEST_F(EventRewriterTest, TestRewriteModifiersNoRemap) {
@@ -1056,13 +1038,12 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapToEscape) {
     CheckKeyTestCase(rewriter_, test);
 }
 
-TEST_F(EventRewriterTest, TestRewriteModifiersRemapMany) {
+TEST_F(EventRewriterTest, TestRewriteModifiersRemapEscapeToAlt) {
   // Remap Escape to Alt.
   chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember escape;
   InitModifierKeyPref(&escape, prefs::kLanguageRemapEscapeKeyTo,
                       ui::chromeos::ModifierKey::kAltKey);
-
   rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
 
   KeyTestCase e2a_tests[] = {
@@ -1079,13 +1060,17 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapMany) {
 
   for (const auto& test : e2a_tests)
     CheckKeyTestCase(rewriter_, test);
+}
 
+TEST_F(EventRewriterTest, TestRewriteModifiersRemapAltToControl) {
   // Remap Alt to Control.
+  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember alt;
   InitModifierKeyPref(&alt, prefs::kLanguageRemapAltKeyTo,
                       ui::chromeos::ModifierKey::kControlKey);
+  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
 
-  KeyTestCase a2c_tests[] = {
+  std::vector<KeyTestCase> a2c_tests = {
       // Press left Alt. Confirm the event is now VKEY_CONTROL.
       {ui::ET_KEY_PRESSED,
        {ui::VKEY_MENU, ui::DomCode::ALT_LEFT, ui::EF_ALT_DOWN, ui::DomKey::ALT},
@@ -1109,13 +1094,29 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapMany) {
 
   for (const auto& test : a2c_tests)
     CheckKeyTestCase(rewriter_, test);
+}
+
+TEST_F(EventRewriterTest, TestRewriteModifiersRemapUnderEscapeControlAlt) {
+  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
+
+  // Remap Escape to Alt.
+  IntegerPrefMember escape;
+  InitModifierKeyPref(&escape, prefs::kLanguageRemapEscapeKeyTo,
+                      ui::chromeos::ModifierKey::kAltKey);
+
+  // Remap Alt to Control.
+  IntegerPrefMember alt;
+  InitModifierKeyPref(&alt, prefs::kLanguageRemapAltKeyTo,
+                      ui::chromeos::ModifierKey::kControlKey);
 
   // Remap Control to Search.
   IntegerPrefMember control;
   InitModifierKeyPref(&control, prefs::kLanguageRemapControlKeyTo,
                       ui::chromeos::ModifierKey::kSearchKey);
 
-  KeyTestCase c2s_tests[] = {
+  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
+
+  std::vector<KeyTestCase> c2s_tests = {
       // Press left Control. Confirm the event is now VKEY_LWIN.
       {ui::ET_KEY_PRESSED,
        {ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_CONTROL_DOWN,
@@ -1154,15 +1155,46 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapMany) {
 
   for (const auto& test : c2s_tests)
     CheckKeyTestCase(rewriter_, test);
+}
+
+TEST_F(EventRewriterTest,
+       TestRewriteModifiersRemapUnderEscapeControlAltSearch) {
+  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
+
+  // Remap Escape to Alt.
+  IntegerPrefMember escape;
+  InitModifierKeyPref(&escape, prefs::kLanguageRemapEscapeKeyTo,
+                      ui::chromeos::ModifierKey::kAltKey);
+
+  // Remap Alt to Control.
+  IntegerPrefMember alt;
+  InitModifierKeyPref(&alt, prefs::kLanguageRemapAltKeyTo,
+                      ui::chromeos::ModifierKey::kControlKey);
+
+  // Remap Control to Search.
+  IntegerPrefMember control;
+  InitModifierKeyPref(&control, prefs::kLanguageRemapControlKeyTo,
+                      ui::chromeos::ModifierKey::kSearchKey);
 
   // Remap Search to Backspace.
   IntegerPrefMember search;
   InitModifierKeyPref(&search, prefs::kLanguageRemapSearchKeyTo,
                       ui::chromeos::ModifierKey::kBackspaceKey);
 
-  KeyTestCase s2b_tests[] = {
+  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
+
+  std::vector<KeyTestCase> s2b_tests = {
       // Release Control and Escape, as Search and Alt would transform Backspace
       // to Delete.
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
+        ui::DomKey::CONTROL},
+       {ui::VKEY_LWIN, ui::DomCode::META_LEFT, ui::EF_COMMAND_DOWN,
+        ui::DomKey::META}},
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_ESCAPE, ui::DomCode::ESCAPE, ui::EF_NONE, ui::DomKey::ESCAPE},
+       {ui::VKEY_MENU, ui::DomCode::ALT_LEFT, ui::EF_ALT_DOWN,
+        ui::DomKey::ALT}},
       {ui::ET_KEY_RELEASED,
        {ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
         ui::DomKey::CONTROL},
@@ -1181,13 +1213,18 @@ TEST_F(EventRewriterTest, TestRewriteModifiersRemapMany) {
 
   for (const auto& test : s2b_tests)
     CheckKeyTestCase(rewriter_, test);
+}
 
+TEST_F(EventRewriterTest, TestRewriteModifiersRemapBackspaceToEscape) {
   // Remap Backspace to Escape.
+  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
   IntegerPrefMember backspace;
   InitModifierKeyPref(&backspace, prefs::kLanguageRemapBackspaceKeyTo,
                       ui::chromeos::ModifierKey::kEscapeKey);
 
-  KeyTestCase b2e_tests[] = {
+  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
+
+  std::vector<KeyTestCase> b2e_tests = {
       // Press Backspace. Confirm the event is now VKEY_ESCAPE.
       {ui::ET_KEY_PRESSED,
        {ui::VKEY_BACK, ui::DomCode::BACKSPACE, ui::EF_NONE,
@@ -1276,21 +1313,21 @@ TEST_F(EventRewriterTest, TestRewriteCapsLock) {
   rewriter_->set_ime_keyboard_for_testing(&ime_keyboard);
   EXPECT_FALSE(ime_keyboard.caps_lock_is_enabled_);
 
-  // On Chrome OS, CapsLock is mapped to F16 with Mod3Mask.
+  // On Chrome OS, CapsLock is mapped to CapsLock with Mod3Mask.
   EXPECT_EQ(GetExpectedResultAsString(
                 ui::ET_KEY_PRESSED, ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
                 ui::EF_CAPS_LOCK_ON | ui::EF_MOD3_DOWN, ui::DomKey::CAPS_LOCK),
             GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F16, ui::DomCode::F16,
-                                      ui::EF_MOD3_DOWN, ui::DomKey::F16));
+                                      ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
+                                      ui::EF_MOD3_DOWN, ui::DomKey::CAPS_LOCK));
   EXPECT_FALSE(ime_keyboard.caps_lock_is_enabled_);
 
   EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_CAPITAL,
                                       ui::DomCode::CAPS_LOCK, ui::EF_NONE,
                                       ui::DomKey::CAPS_LOCK),
             GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F16, ui::DomCode::F16,
-                                      ui::EF_MOD3_DOWN, ui::DomKey::F16));
+                                      ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
+                                      ui::EF_MOD3_DOWN, ui::DomKey::CAPS_LOCK));
   EXPECT_TRUE(ime_keyboard.caps_lock_is_enabled_);
 
   // Remap Caps Lock to Control.
@@ -1314,210 +1351,6 @@ TEST_F(EventRewriterTest, TestRewriteCapsLock) {
             GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
                                       ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
                                       ui::EF_NONE, ui::DomKey::CAPS_LOCK));
-
-  // Press F16.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT,
-                                      ui::EF_CONTROL_DOWN, ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F16, ui::DomCode::F16,
-                                      ui::EF_MOD3_DOWN, ui::DomKey::F16));
-
-  // Release F16.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
-                                      ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F16, ui::DomCode::F16,
-                                      ui::EF_MOD3_DOWN, ui::DomKey::F16));
-}
-
-TEST_F(EventRewriterTest, TestRewriteDiamondKey) {
-  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
-
-  chromeos::input_method::FakeImeKeyboard ime_keyboard;
-  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
-  rewriter_->set_ime_keyboard_for_testing(&ime_keyboard);
-
-  KeyTestCase tests[] = {
-      // F15 should work as Ctrl when --has-chromeos-diamond-key is not
-      // specified.
-      {ui::ET_KEY_PRESSED,
-       {ui::VKEY_F15, ui::DomCode::F15, ui::EF_NONE, ui::DomKey::F15},
-       {ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_CONTROL_DOWN,
-        ui::DomKey::CONTROL}},
-
-      {ui::ET_KEY_RELEASED,
-       {ui::VKEY_F15, ui::DomCode::F15, ui::EF_NONE, ui::DomKey::F15},
-       {ui::VKEY_CONTROL, ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
-        ui::DomKey::CONTROL}},
-
-      // However, Mod2Mask should not be rewritten to CtrlMask when
-      // --has-chromeos-diamond-key is not specified.
-      {ui::ET_KEY_PRESSED,
-       {ui::VKEY_A, ui::DomCode::US_A, ui::EF_NONE,
-        ui::DomKey::Constant<'a'>::Character},
-       {ui::VKEY_A, ui::DomCode::US_A, ui::EF_NONE,
-        ui::DomKey::Constant<'a'>::Character}},
-  };
-
-  for (const auto& test : tests)
-    CheckKeyTestCase(rewriter_, test);
-}
-
-TEST_F(EventRewriterTest, TestRewriteDiamondKeyWithFlag) {
-  const base::CommandLine original_cl(*base::CommandLine::ForCurrentProcess());
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      chromeos::switches::kHasChromeOSDiamondKey, "");
-
-  chromeos::Preferences::RegisterProfilePrefs(prefs()->registry());
-
-  chromeos::input_method::FakeImeKeyboard ime_keyboard;
-  rewriter_->KeyboardDeviceAddedForTesting(kKeyboardDeviceId, "PC Keyboard");
-  rewriter_->set_ime_keyboard_for_testing(&ime_keyboard);
-
-  // By default, F15 should work as Control.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT,
-                                      ui::EF_CONTROL_DOWN, ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Control is applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_CONTROL_DOWN,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-  // Release F15
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
-                                      ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Control is no longer applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-
-  IntegerPrefMember diamond;
-  InitModifierKeyPref(&diamond, prefs::kLanguageRemapDiamondKeyTo,
-                      ui::chromeos::ModifierKey::kVoidKey);
-
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_UNKNOWN,
-                                      ui::DomCode::NONE, ui::EF_NONE,
-                                      ui::DomKey::UNIDENTIFIED),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that no modifier is applied to another key.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-
-  InitModifierKeyPref(&diamond, prefs::kLanguageRemapDiamondKeyTo,
-                      ui::chromeos::ModifierKey::kControlKey);
-
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT,
-                                      ui::EF_CONTROL_DOWN, ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Control is applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_CONTROL_DOWN,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-  // Release F15
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_CONTROL,
-                                      ui::DomCode::CONTROL_LEFT, ui::EF_NONE,
-                                      ui::DomKey::CONTROL),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Control is no longer applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-
-  InitModifierKeyPref(&diamond, prefs::kLanguageRemapDiamondKeyTo,
-                      ui::chromeos::ModifierKey::kAltKey);
-
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_MENU,
-                                      ui::DomCode::ALT_LEFT, ui::EF_ALT_DOWN,
-                                      ui::DomKey::ALT),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Alt is applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_ALT_DOWN,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-  // Release F15
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_MENU,
-                                      ui::DomCode::ALT_LEFT, ui::EF_NONE,
-                                      ui::DomKey::ALT),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Alt is no longer applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-
-  InitModifierKeyPref(&diamond, prefs::kLanguageRemapDiamondKeyTo,
-                      ui::chromeos::ModifierKey::kCapsLockKey);
-
-  EXPECT_EQ(GetExpectedResultAsString(
-                ui::ET_KEY_PRESSED, ui::VKEY_CAPITAL, ui::DomCode::CAPS_LOCK,
-                ui::EF_CAPS_LOCK_ON | ui::EF_MOD3_DOWN, ui::DomKey::CAPS_LOCK),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Caps is applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A,
-                                      ui::EF_CAPS_LOCK_ON | ui::EF_MOD3_DOWN,
-                                      ui::DomKey::Constant<'A'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-  // Release F15
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_RELEASED, ui::VKEY_CAPITAL,
-                                      ui::DomCode::CAPS_LOCK, ui::EF_NONE,
-                                      ui::DomKey::CAPS_LOCK),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_RELEASED,
-                                      ui::VKEY_F15, ui::DomCode::F15,
-                                      ui::EF_NONE, ui::DomKey::F15));
-  // Check that Control is no longer applied to a subsequent key press.
-  EXPECT_EQ(GetExpectedResultAsString(ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character),
-            GetRewrittenEventAsString(rewriter_, ui::ET_KEY_PRESSED, ui::VKEY_A,
-                                      ui::DomCode::US_A, ui::EF_NONE,
-                                      ui::DomKey::Constant<'a'>::Character));
-
-  *base::CommandLine::ForCurrentProcess() = original_cl;
 }
 
 TEST_F(EventRewriterTest, TestRewriteCapsLockToControl) {
@@ -2378,8 +2211,15 @@ class EventRewriterAshTest : public ChromeAshTestBase {
                     ui::KeyboardCode key_code,
                     ui::DomCode code,
                     ui::DomKey key) {
-    ui::KeyEvent press(type, key_code, code, ui::EF_NONE, key,
-                       ui::EventTimeForNow());
+    SendKeyEvent(type, key_code, code, key, ui::EF_NONE);
+  }
+
+  void SendKeyEvent(ui::EventType type,
+                    ui::KeyboardCode key_code,
+                    ui::DomCode code,
+                    ui::DomKey key,
+                    int flags) {
+    ui::KeyEvent press(type, key_code, code, flags, key, ui::EventTimeForNow());
     ui::EventDispatchDetails details = Send(&press);
     CHECK(!details.dispatcher_destroyed);
   }
@@ -2753,6 +2593,55 @@ TEST_F(EventRewriterAshTest, MouseWheelEventModifiersRewritten) {
   EXPECT_TRUE(events[0]->IsMouseWheelEvent());
   EXPECT_FALSE(events[0]->flags() & ui::EF_CONTROL_DOWN);
   EXPECT_TRUE(events[0]->flags() & ui::EF_ALT_DOWN);
+}
+
+// Tests edge cases of key event rewriting (see https://crbug.com/913209).
+TEST_F(EventRewriterAshTest, KeyEventRewritingEdgeCases) {
+  std::vector<std::unique_ptr<ui::Event>> events;
+
+  // Edge case 1: Press the Launcher button first. Then press the Up Arrow
+  // button.
+  SendKeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_COMMAND, ui::DomCode::META_LEFT,
+               ui::DomKey::META);
+  SendKeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_UP, ui::DomCode::ARROW_UP,
+               ui::DomKey::ARROW_UP, ui::EF_COMMAND_DOWN);
+
+  PopEvents(&events);
+  EXPECT_EQ(2u, events.size());
+  events.clear();
+
+  SendKeyEvent(ui::ET_KEY_RELEASED, ui::VKEY_COMMAND, ui::DomCode::META_LEFT,
+               ui::DomKey::META);
+  PopEvents(&events);
+
+  // When releasing the Launcher button, the rewritten event should be released
+  // as well.
+  EXPECT_EQ(2u, events.size());
+  EXPECT_EQ(ui::VKEY_COMMAND,
+            static_cast<ui::KeyEvent*>(events[0].get())->key_code());
+  EXPECT_EQ(ui::VKEY_PRIOR,
+            static_cast<ui::KeyEvent*>(events[1].get())->key_code());
+
+  events.clear();
+
+  // Edge case 2: Press the Up Arrow button first. Then press the Launch button.
+  SendKeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_UP, ui::DomCode::ARROW_UP,
+               ui::DomKey::ARROW_UP);
+  SendKeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_COMMAND, ui::DomCode::META_LEFT,
+               ui::DomKey::META);
+
+  PopEvents(&events);
+  EXPECT_EQ(2u, events.size());
+  events.clear();
+
+  SendKeyEvent(ui::ET_KEY_RELEASED, ui::VKEY_UP, ui::DomCode::ARROW_UP,
+               ui::DomKey::ARROW_UP, ui::EF_COMMAND_DOWN);
+  PopEvents(&events);
+
+  // When releasing the Up Arrow button, the rewritten event should be blocked.
+  EXPECT_EQ(1u, events.size());
+  EXPECT_EQ(ui::VKEY_UP,
+            static_cast<ui::KeyEvent*>(events[0].get())->key_code());
 }
 
 class StickyKeysOverlayTest : public EventRewriterAshTest {

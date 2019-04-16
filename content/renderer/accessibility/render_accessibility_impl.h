@@ -11,6 +11,7 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "content/common/ax_content_node_data.h"
+#include "content/common/content_export.h"
 #include "content/public/renderer/render_accessibility.h"
 #include "content/public/renderer/render_frame_observer.h"
 #include "content/renderer/accessibility/blink_ax_tree_source.h"
@@ -24,7 +25,7 @@
 namespace blink {
 class WebDocument;
 class WebNode;
-};
+}  // namespace blink
 
 namespace ui {
 struct AXActionData;
@@ -32,6 +33,8 @@ struct AXEvent;
 }
 
 namespace content {
+
+class AXImageAnnotator;
 class RenderFrameImpl;
 
 // The browser process implements native accessibility APIs, allowing
@@ -65,8 +68,10 @@ class CONTENT_EXPORT RenderAccessibilityImpl
                                         AXContentTreeUpdate* response,
                                         ui::AXMode ax_mode);
 
-  RenderAccessibilityImpl(RenderFrameImpl* render_frame, ui::AXMode mode);
+  RenderAccessibilityImpl(RenderFrameImpl* const render_frame, ui::AXMode mode);
   ~RenderAccessibilityImpl() override;
+
+  RenderFrameImpl* render_frame() { return render_frame_; }
 
   // RenderAccessibility implementation.
   int GenerateAXID() override;
@@ -75,6 +80,8 @@ class CONTENT_EXPORT RenderAccessibilityImpl
 
   // RenderFrameObserver implementation.
   void DidCreateNewDocument() override;
+  void DidCommitProvisionalLoad(bool is_same_document_navigation,
+                                ui::PageTransition transition) override;
   void AccessibilityModeChanged() override;
   bool OnMessageReceived(const IPC::Message& message) override;
 
@@ -98,11 +105,11 @@ class CONTENT_EXPORT RenderAccessibilityImpl
                      ax::mojom::Event event,
                      int action_request_id = -1);
 
- protected:
   // Returns the main top-level document for this page, or NULL if there's
   // no view or frame.
   blink::WebDocument GetMainDocument();
 
+ protected:
   // Send queued events from the renderer to the browser.
   void SendPendingAccessibilityEvents();
 
@@ -132,6 +139,19 @@ class CONTENT_EXPORT RenderAccessibilityImpl
   void OnLoadInlineTextBoxes(const blink::WebAXObject& obj);
   void OnGetImageData(const blink::WebAXObject& obj, const gfx::Size& max_size);
   void AddPluginTreeToUpdate(AXContentTreeUpdate* update);
+
+  // Creates and takes ownership of an instance of the class that automatically
+  // labels images for accessibility.
+  void CreateAXImageAnnotator();
+
+  // Automatically labels images for accessibility if the accessibility mode for
+  // this feature is turned on, otherwise stops automatic labeling and removes
+  // any automatic annotations that might have been added before.
+  void StartOrStopLabelingImages(ui::AXMode old_mode, ui::AXMode new_mode);
+
+  // Marks all AXObjects with the given role in the current tree dirty.
+  void MarkAllAXObjectsDirty(ax::mojom::Role role);
+
   void Scroll(const blink::WebAXObject& target,
               ax::mojom::Action scroll_action);
   void ScrollPlugin(int id_to_make_visible);
@@ -144,6 +164,9 @@ class CONTENT_EXPORT RenderAccessibilityImpl
 
   // This keeps accessibility enabled as long as it lives.
   std::unique_ptr<blink::WebAXContext> ax_context_;
+
+  // Manages the automatic image annotations, if enabled.
+  std::unique_ptr<AXImageAnnotator> ax_image_annotator_;
 
   // Events from Blink are collected until they are ready to be
   // sent to the browser.
@@ -194,6 +217,7 @@ class CONTENT_EXPORT RenderAccessibilityImpl
   // So we can queue up tasks to be executed later.
   base::WeakPtrFactory<RenderAccessibilityImpl> weak_factory_;
 
+  friend class AXImageAnnotatorTest;
   DISALLOW_COPY_AND_ASSIGN(RenderAccessibilityImpl);
 };
 

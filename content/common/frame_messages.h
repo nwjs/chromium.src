@@ -57,11 +57,13 @@
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/frame_policy.h"
+#include "third_party/blink/public/common/frame/occlusion_state.h"
 #include "third_party/blink/public/common/frame/user_activation_update_type.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/messaging/transferable_message.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
@@ -69,7 +71,6 @@
 #include "third_party/blink/public/platform/web_scroll_types.h"
 #include "third_party/blink/public/platform/web_sudden_termination_disabler_type.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
-#include "third_party/blink/public/web/web_frame_serializer_cache_control_policy.h"
 #include "third_party/blink/public/web/web_fullscreen_options.h"
 #include "third_party/blink/public/web/web_media_player_action.h"
 #include "third_party/blink/public/web/web_tree_scope_type.h"
@@ -155,6 +156,11 @@ IPC_ENUM_TRAITS_MIN_MAX_VALUE(content::NavigationDownloadPolicy,
                               content::NavigationDownloadPolicy::kMaxValue)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FeaturePolicyDisposition,
                           blink::mojom::FeaturePolicyDisposition::kMaxValue)
+IPC_ENUM_TRAITS_MAX_VALUE(blink::mojom::FrameVisibility,
+                          blink::mojom::FrameVisibility::kMaxValue)
+IPC_ENUM_TRAITS_MIN_MAX_VALUE(blink::FrameOcclusionState,
+                              blink::kUnknownOcclusionState,
+                              blink::kMaxOcclusionState)
 
 IPC_STRUCT_TRAITS_BEGIN(blink::WebFloatSize)
   IPC_STRUCT_TRAITS_MEMBER(width)
@@ -310,7 +316,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::ResourceTimingInfo)
   IPC_STRUCT_TRAITS_MEMBER(connection_info)
   IPC_STRUCT_TRAITS_MEMBER(timing)
   IPC_STRUCT_TRAITS_MEMBER(last_redirect_end_time)
-  IPC_STRUCT_TRAITS_MEMBER(finish_time)
+  IPC_STRUCT_TRAITS_MEMBER(response_end)
   IPC_STRUCT_TRAITS_MEMBER(transfer_size)
   IPC_STRUCT_TRAITS_MEMBER(encoded_body_size)
   IPC_STRUCT_TRAITS_MEMBER(decoded_body_size)
@@ -516,7 +522,6 @@ IPC_STRUCT_TRAITS_BEGIN(content::CommitNavigationParams)
   IPC_STRUCT_TRAITS_MEMBER(was_discarded)
   IPC_STRUCT_TRAITS_MEMBER(is_view_source)
   IPC_STRUCT_TRAITS_MEMBER(should_clear_history_list)
-  IPC_STRUCT_TRAITS_MEMBER(should_create_service_worker)
   IPC_STRUCT_TRAITS_MEMBER(navigation_timing)
   IPC_STRUCT_TRAITS_MEMBER(service_worker_provider_id)
   IPC_STRUCT_TRAITS_MEMBER(appcache_host_id)
@@ -528,9 +533,9 @@ IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(blink::ParsedFeaturePolicyDeclaration)
   IPC_STRUCT_TRAITS_MEMBER(feature)
-  IPC_STRUCT_TRAITS_MEMBER(matches_all_origins)
-  IPC_STRUCT_TRAITS_MEMBER(matches_opaque_src)
-  IPC_STRUCT_TRAITS_MEMBER(origins)
+  IPC_STRUCT_TRAITS_MEMBER(values)
+  IPC_STRUCT_TRAITS_MEMBER(fallback_value)
+  IPC_STRUCT_TRAITS_MEMBER(opaque_value)
 IPC_STRUCT_TRAITS_END()
 
 IPC_STRUCT_TRAITS_BEGIN(content::FrameReplicationState)
@@ -540,6 +545,7 @@ IPC_STRUCT_TRAITS_BEGIN(content::FrameReplicationState)
   IPC_STRUCT_TRAITS_MEMBER(feature_policy_header)
   IPC_STRUCT_TRAITS_MEMBER(active_sandbox_flags)
   IPC_STRUCT_TRAITS_MEMBER(frame_policy)
+  IPC_STRUCT_TRAITS_MEMBER(opener_feature_state)
   IPC_STRUCT_TRAITS_MEMBER(accumulated_csp_headers)
   IPC_STRUCT_TRAITS_MEMBER(scope)
   IPC_STRUCT_TRAITS_MEMBER(insecure_request_policy)
@@ -628,9 +634,6 @@ IPC_STRUCT_BEGIN(FrameMsg_SerializeAsMHTML_Params)
   // supported outside of Chrome, so this should not be used if the MHTML is
   // intended for sharing.
   IPC_STRUCT_MEMBER(bool, mhtml_binary_encoding)
-
-  IPC_STRUCT_MEMBER(blink::WebFrameSerializerCacheControlPolicy,
-                    mhtml_cache_control_policy)
 
   // Whether to remove popup overlay while serializing.
   IPC_STRUCT_MEMBER(bool, mhtml_popup_overlay_removal)
@@ -873,36 +876,6 @@ IPC_MESSAGE_ROUTED2(FrameMsg_AddMessageToConsole,
                     content::ConsoleMessageLevel /* level */,
                     std::string /* message */)
 
-// Request for the renderer to execute JavaScript in the frame's context.
-//
-// javascript is the string containing the JavaScript to be executed in the
-// target frame's context.
-//
-// If the third parameter is true the result is sent back to the browser using
-// the message FrameHostMsg_JavaScriptExecuteResponse.
-// FrameHostMsg_JavaScriptExecuteResponse is passed the ID parameter so that the
-// host can uniquely identify the request.
-IPC_MESSAGE_ROUTED3(FrameMsg_JavaScriptExecuteRequest,
-                    base::string16,  /* javascript */
-                    int,  /* ID */
-                    bool  /* if true, a reply is requested */)
-
-// ONLY FOR TESTS: Same as above but adds a fake UserGestureindicator around
-// execution. (crbug.com/408426)
-IPC_MESSAGE_ROUTED4(FrameMsg_JavaScriptExecuteRequestForTests,
-                    base::string16,  /* javascript */
-                    int,  /* ID */
-                    bool, /* if true, a reply is requested */
-                    bool  /* if true, a user gesture indicator is created */)
-
-// Same as FrameMsg_JavaScriptExecuteRequest above except the script is
-// run in the isolated world specified by the fourth parameter.
-IPC_MESSAGE_ROUTED4(FrameMsg_JavaScriptExecuteRequestInIsolatedWorld,
-                    base::string16, /* javascript */
-                    int, /* ID */
-                    bool, /* if true, a reply is requested */
-                    int /* world_id */)
-
 // Tells the renderer to reload the frame, optionally bypassing the cache while
 // doing so.
 IPC_MESSAGE_ROUTED1(FrameMsg_Reload,
@@ -1109,6 +1082,11 @@ IPC_MESSAGE_ROUTED0(FrameMsg_SuppressFurtherDialogs)
 // Notifies the RenderFrame about a user activation detected in the browser side
 // (e.g. during Android voice search).
 IPC_MESSAGE_ROUTED0(FrameMsg_NotifyUserActivation)
+
+// Notifies a parent frame that the child frame requires information about
+// whether it is occluded or has visual effects applied.
+IPC_MESSAGE_ROUTED1(FrameMsg_SetNeedsOcclusionTracking,
+                    bool /* needs_tracking */)
 
 // Tells the frame to update the user activation state in appropriate part of
 // the frame tree (ancestors for activation notification and all nodes for
@@ -1464,10 +1442,17 @@ IPC_MESSAGE_ROUTED2(FrameHostMsg_SynchronizeVisualProperties,
 IPC_MESSAGE_ROUTED3(FrameHostMsg_UpdateViewportIntersection,
                     gfx::Rect /* viewport_intersection */,
                     gfx::Rect /* compositor_visible_rect */,
-                    bool /* occluded or obscured */)
+                    blink::FrameOcclusionState /* occlusion_state */)
+
+// Indicates that a child frame requires its parent frame to send it information
+// about whether it is occluded or has visual effects applied, in order to
+// service IntersectionObserver's that track visibility.
+IPC_MESSAGE_ROUTED1(FrameHostMsg_SetNeedsOcclusionTracking,
+                    bool /* needs_tracking */)
 
 // Informs the child that the frame has changed visibility.
-IPC_MESSAGE_ROUTED1(FrameHostMsg_VisibilityChanged, bool /* visible */)
+IPC_MESSAGE_ROUTED1(FrameHostMsg_VisibilityChanged,
+                    blink::mojom::FrameVisibility /* visibility */)
 
 // Sent by a RenderFrameProxy to the browser signaling that the renderer
 // has determined the DOM subtree it represents is inert and should no
@@ -1512,15 +1497,6 @@ IPC_MESSAGE_ROUTED3(FrameHostMsg_SelectionChanged,
                     base::string16 /* text covers the selection range */,
                     uint32_t /* the offset of the text in the document */,
                     gfx::Range /* selection range in the document */)
-
-// Response for FrameMsg_JavaScriptExecuteRequest, sent when a reply was
-// requested. The ID is the parameter supplied to
-// FrameMsg_JavaScriptExecuteRequest. The result has the value returned by the
-// script as its only element, one of Null, Boolean, Integer, Real, Date, or
-// String.
-IPC_MESSAGE_ROUTED2(FrameHostMsg_JavaScriptExecuteResponse,
-                    int  /* id */,
-                    base::ListValue  /* result */)
 
 // A request to run a JavaScript dialog.
 IPC_SYNC_MESSAGE_ROUTED3_2(FrameHostMsg_RunJavaScriptDialog,

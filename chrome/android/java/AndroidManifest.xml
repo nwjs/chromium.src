@@ -48,6 +48,9 @@ by a child template that "extends" this file.
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.MANAGE_ACCOUNTS"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    {% if target_sdk_version|int > 28 or target_sdk_version == "Q" %}
+        <uses-permission-sdk-23 android:name="android.permission.READ_MEDIA_IMAGES"/>
+    {% endif %}
     <uses-permission android:name="android.permission.NFC"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
@@ -55,6 +58,7 @@ by a child template that "extends" this file.
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.USE_CREDENTIALS"/>
+    <uses-permission-sdk-23 android:name="android.permission.USE_FINGERPRINT"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
@@ -138,6 +142,8 @@ by a child template that "extends" this file.
         {% endif %}
         android:networkSecurityConfig="@xml/network_security_config"
         {% block extra_application_attributes %}{% endblock %}>
+
+       <meta-data android:name="android.allow_multiple_resumed_activities" android:value="true" />
 
         <!-- Samsung MultiWindow Support -->
         <meta-data android:name="com.samsung.android.sdk.multiwindow.enable"
@@ -341,10 +347,22 @@ by a child template that "extends" this file.
             android:excludeFromRecents="true"
             android:exported="false" />
 
+        <activity android:name="org.chromium.chrome.browser.incognito.IncognitoTabLauncher"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:taskAffinity=""
+            android:enabled="false"
+            android:excludeFromRecents="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.chromium.chrome.browser.incognito.OPEN_PRIVATE_TAB" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Upgrade related -->
         <activity android:name="org.chromium.chrome.browser.upgrade.UpgradeActivity"
             android:excludeFromRecents="true"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:windowSoftInputMode="adjustResize"
             android:taskAffinity=""
             android:launchMode="singleInstance"
@@ -373,7 +391,7 @@ by a child template that "extends" this file.
         <!-- Document mode Activities. -->
         <activity android:name="org.chromium.chrome.browser.document.DocumentActivity"
             android:exported="false"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:taskAffinity=""
             android:persistableMode="persistAcrossReboots"
             android:autoRemoveFromRecents="false"
@@ -386,7 +404,7 @@ by a child template that "extends" this file.
         <activity android:name="org.chromium.chrome.browser.document.IncognitoDocumentActivity"
             android:icon="@mipmap/incognito_app_icon"
             android:exported="false"
-            android:theme="@style/IncognitoTheme"
+            android:theme="@style/Theme.Chromium.Incognito"
             android:taskAffinity=""
             android:persistableMode="persistNever"
             android:autoRemoveFromRecents="false"
@@ -399,7 +417,7 @@ by a child template that "extends" this file.
 
         <!-- Custom Tabs -->
         <activity android:name="org.chromium.chrome.browser.customtabs.CustomTabActivity"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:exported="false"
             {{ self.chrome_activity_common() }}
             {{ self.supports_video_persistence() }}
@@ -408,7 +426,7 @@ by a child template that "extends" this file.
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
         <activity android:name="org.chromium.chrome.browser.customtabs.PaymentHandlerActivity"
-            android:theme="@style/TranslucentMainTheme"
+            android:theme="@style/Theme.Chromium.Activity.Translucent"
             android:exported="false"
             {{ self.chrome_activity_common() }}
             {{ self.supports_video_persistence() }}
@@ -422,7 +440,7 @@ by a child template that "extends" this file.
              TODO(arthursonzogni, tedchoc): Enabled this only on Android < 21 after M74.
         -->
         <activity android:name="org.chromium.chrome.browser.customtabs.SeparateTaskCustomTabActivity"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:exported="false"
             android:taskAffinity=""
             android:persistableMode="persistNever"
@@ -436,7 +454,7 @@ by a child template that "extends" this file.
         {% if min_sdk_version|int < 21 %}
           {% for i in range(10) %}
             <activity android:name="org.chromium.chrome.browser.customtabs.SeparateTaskCustomTabActivity{{ i }}"
-                android:theme="@style/MainTheme"
+                android:theme="@style/Theme.Chromium.Activity"
                 android:icon="@mipmap/app_single_page_icon"
                 android:exported="false"
                 android:launchMode="singleTask"
@@ -452,13 +470,13 @@ by a child template that "extends" this file.
         {% endif %}
 
         <activity android:name="org.chromium.chrome.browser.incognito.IncognitoDisclosureActivity"
-          android:theme="@style/FullscreenTransparentActivityTheme"
+          android:theme="@style/Theme.Chromium.Activity.Fullscreen.Transparent"
           android:exported="false">
         </activity>
 
         <!-- ChromeTabbedActivity related -->
         <activity android:name="org.chromium.chrome.browser.ChromeTabbedActivity"
-            android:theme="@style/TabbedModeTheme"
+            android:theme="@style/Theme.Chromium.TabbedMode"
             android:exported="true"
             android:launchMode="singleTask"
             {# We can only use blocks once in Jinja, for future substitutions we use
@@ -515,7 +533,7 @@ by a child template that "extends" this file.
             {% endif %}
         </activity-alias>
         <activity android:name="org.chromium.chrome.browser.ChromeTabbedActivity2"
-            android:theme="@style/TabbedModeTheme"
+            android:theme="@style/Theme.Chromium.TabbedMode"
             android:exported="false"
             android:taskAffinity="{{ manifest_package }}.ChromeTabbedActivity2"
             android:launchMode="singleTask"
@@ -526,30 +544,33 @@ by a child template that "extends" this file.
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
         <activity android:name="org.chromium.chrome.browser.multiwindow.MultiInstanceChromeTabbedActivity"
-            android:theme="@style/TabbedModeTheme"
+            android:theme="@style/Theme.Chromium.TabbedMode"
             android:exported="false"
             {{ self.chrome_activity_common() }}>
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
+        {% set notouch_build = notouch_build|default(0) %}
+        {% if notouch_build == "true" %}
         <activity android:name="org.chromium.chrome.browser.touchless.NoTouchActivity"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:exported="false"
             android:launchMode="singleTask"
             {{ self.chrome_activity_common() }}
             {{ self.supports_video_persistence() }} >
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
+        {% endif %}
 
         <activity android:name="org.chromium.chrome.browser.sync.ui.PassphraseActivity"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:autoRemoveFromRecents="true">
         </activity>
         <activity android:name="org.chromium.chrome.browser.firstrun.LightweightFirstRunActivity"
-            android:theme="@style/SimpleDialog"
+            android:theme="@style/Theme.Chromium.AlertDialog.NoActionBar"
             {{ self.first_run_activity_common() }}>
         </activity>
         <activity android:name="org.chromium.chrome.browser.firstrun.FirstRunActivity"
-            android:theme="@style/FirstRunTheme"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             {% block first_run_activity_common %}
             android:label="@string/fre_activity_label"
             android:launchMode="singleInstance"
@@ -560,7 +581,7 @@ by a child template that "extends" this file.
             {% endblock %}>
         </activity>
         <activity android:name="org.chromium.chrome.browser.firstrun.TabbedModeFirstRunActivity"
-            android:theme="@style/TabbedModeFirstRunTheme"
+            android:theme="@style/Theme.Chromium.TabbedMode"
             {{ self.first_run_activity_common() }}>
         </activity>
         {% if enable_vr == "true" %}
@@ -575,34 +596,34 @@ by a child template that "extends" this file.
         </activity>
         {% endif %}
         <activity android:name="org.chromium.chrome.browser.signin.AccountSigninActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
         </activity>
         <activity android:name="org.chromium.chrome.browser.signin.SigninActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
             android:exported="false">
         </activity>
         <activity android:name="org.chromium.chrome.browser.preferences.Preferences"
-            android:theme="@style/PreferencesTheme"
+            android:theme="@style/Theme.Chromium.Preferences"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
             android:label="@string/preferences"
             android:exported="false">
         </activity>
         <activity android:name="org.chromium.chrome.browser.preferences.website.ManageSpaceActivity"
-            android:theme="@style/ManageSpaceTheme"
+            android:theme="@style/Theme.Chromium.Preferences.ManageSpace"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
             android:label="@string/storage_management_activity_label"
             android:exported="false">
         </activity>
         <activity android:name="org.chromium.chrome.browser.bookmarks.BookmarkActivity"
-            android:theme="@style/FullscreenWhiteActivityTheme"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen"
             android:exported="false"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
         </activity>
         <activity android:name="org.chromium.chrome.browser.bookmarks.BookmarkAddActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:windowSoftInputMode="stateHidden"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
             <intent-filter>
@@ -611,19 +632,19 @@ by a child template that "extends" this file.
             </intent-filter>
         </activity>
         <activity android:name="org.chromium.chrome.browser.bookmarks.BookmarkEditActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:windowSoftInputMode="stateHidden"
             android:exported="false"
             android:label="@string/edit_bookmark"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
         </activity>
         <activity android:name="org.chromium.chrome.browser.bookmarks.BookmarkAddEditFolderActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:exported="false"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
         </activity>
         <activity android:name="org.chromium.chrome.browser.bookmarks.BookmarkFolderSelectActivity"
-            android:theme="@style/DialogWhenLarge"
+            android:theme="@style/Theme.Chromium.DialogWhenLarge"
             android:windowSoftInputMode="stateAlwaysHidden"
             android:label="@string/bookmark_choose_folder"
             android:exported="false"
@@ -632,7 +653,7 @@ by a child template that "extends" this file.
 
         <!-- Activities for downloads. -->
         <activity android:name="org.chromium.chrome.browser.download.DownloadActivity"
-            android:theme="@style/FullscreenWhiteActivityTheme"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:exported="false"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
@@ -640,7 +661,7 @@ by a child template that "extends" this file.
 
         <!-- Activities for history. -->
         <activity android:name="org.chromium.chrome.browser.history.HistoryActivity"
-            android:theme="@style/FullscreenWhiteActivityTheme"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen"
             android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:exported="false"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
@@ -669,7 +690,7 @@ by a child template that "extends" this file.
             android:targetActivity="org.chromium.chrome.browser.webapps.WebappLauncherActivity">
         </activity-alias>
         <activity android:name="org.chromium.chrome.browser.webapps.WebappActivity"
-            android:theme="@style/WebappTheme"
+            android:theme="@style/Theme.Chromium.Webapp"
             android:label="@string/webapp_activity_title"
             android:launchMode="singleTop"
             android:documentLaunchMode="intoExisting"
@@ -688,7 +709,7 @@ by a child template that "extends" this file.
         </activity-alias>
         {% for i in range(10) %}
         <activity android:name="org.chromium.chrome.browser.webapps.WebappActivity{{ i }}"
-            android:theme="@style/WebappTheme"
+            android:theme="@style/Theme.Chromium.Webapp"
             android:icon="@mipmap/app_shortcut_icon"
             android:label="@string/webapp_activity_title"
             android:launchMode="singleTask"
@@ -709,7 +730,7 @@ by a child template that "extends" this file.
         {% endfor %}
         <!-- Activities for WebAPKs. -->
         <activity android:name="org.chromium.chrome.browser.webapps.SameTaskWebApkActivity"
-            android:theme="@style/WebappTheme"
+            android:theme="@style/Theme.Chromium.Webapp"
             android:label="@string/webapp_activity_title"
             android:exported="false"
             android:persistableMode="persistNever"
@@ -720,7 +741,7 @@ by a child template that "extends" this file.
             {{ self.extra_web_rendering_activity_definitions() }}
         </activity>
         <activity android:name="org.chromium.chrome.browser.webapps.WebApkActivity"
-            android:theme="@style/WebappTheme"
+            android:theme="@style/Theme.Chromium.Webapp"
             android:label="@string/webapp_activity_title"
             android:launchMode="singleTop"
             android:documentLaunchMode="intoExisting"
@@ -734,7 +755,7 @@ by a child template that "extends" this file.
         </activity>
         {% for i in range(10) %}
         <activity android:name="org.chromium.chrome.browser.webapps.WebApkActivity{{ i }}"
-            android:theme="@style/WebappTheme"
+            android:theme="@style/Theme.Chromium.Webapp"
             android:icon="@mipmap/app_shortcut_icon"
             android:label="@string/webapp_activity_title"
             android:launchMode="singleTask"
@@ -749,18 +770,8 @@ by a child template that "extends" this file.
         </activity>
         {% endfor %}
 
-        <activity android:name="org.chromium.chrome.browser.media.remote.ExpandedControllerActivity"
-            android:theme="@style/MainTheme"
-            android:label="Chrome.ExpandedControllerActivity"
-            android:hardwareAccelerated="true"
-            android:launchMode="singleTask"
-            android:noHistory="true"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize"
-            android:excludeFromRecents="true">
-        </activity>
-
         <activity android:name="org.chromium.chrome.browser.media.router.caf.remoting.CafExpandedControllerActivity"
-            android:theme="@style/MainTheme"
+            android:theme="@style/Theme.Chromium.Activity"
             android:label="Chrome.CafExpandedControllerActivity"
             android:hardwareAccelerated="true"
             android:launchMode="singleTask"
@@ -837,7 +848,7 @@ by a child template that "extends" this file.
 
         <!-- Activities for Browser Actions -->
         <activity android:name="org.chromium.chrome.browser.browseractions.BrowserActionActivity"
-            android:theme="@style/FullscreenTransparentActivityTheme"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen.Transparent"
             android:exported="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
             <intent-filter>
@@ -875,12 +886,12 @@ by a child template that "extends" this file.
         {% endif %}
 
         <activity android:name="org.chromium.chrome.browser.browserservices.ClearDataDialogActivity"
-            android:theme="@style/ClearDataDialogActivityTheme"
+            android:theme="@style/Theme.Chromium.ClearDataDialogActivity"
             android:exported="false"/>
 
         <activity
             android:name="org.chromium.chrome.browser.browserservices.ManageTrustedWebActivityDataActivity"
-            android:theme="@style/FullscreenTransparentActivityTheme"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen.Transparent"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.support.customtabs.action.ACTION_MANAGE_TRUSTED_WEB_ACTIVITY_DATA" />
@@ -981,7 +992,7 @@ by a child template that "extends" this file.
 
         <!-- Search Activity -->
         <activity android:name="org.chromium.chrome.browser.searchwidget.SearchActivity"
-            android:theme="@style/SearchActivityTheme"
+            android:theme="@style/Theme.Chromium.SearchActivity"
             android:label="Search"
             android:exported="false"
             android:launchMode="singleTask"

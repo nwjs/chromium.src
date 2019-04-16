@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "base/synchronization/waitable_event.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/mojom/net/ip_address_space.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
@@ -29,7 +30,6 @@
 #include "third_party/blink/renderer/platform/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/network/content_security_policy_parsers.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
 #include "third_party/blink/renderer/platform/web_thread_supporting_gc.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -59,7 +59,7 @@ class FakeWorkerGlobalScope : public WorkerGlobalScope {
   // WorkerGlobalScope
   void ImportModuleScript(
       const KURL& module_url_record,
-      FetchClientSettingsObjectSnapshot* outside_settings_object,
+      const FetchClientSettingsObjectSnapshot& outside_settings_object,
       network::mojom::FetchCredentialsMode) override {
     NOTREACHED();
   }
@@ -96,7 +96,8 @@ class WorkerThreadForTest : public WorkerThread {
         {"contentSecurityPolicy", kContentSecurityPolicyHeaderTypeReport}};
     auto creation_params = std::make_unique<GlobalScopeCreationParams>(
         script_url, mojom::ScriptType::kClassic,
-        OffMainThreadWorkerScriptFetchOption::kDisabled, "fake user agent",
+        OffMainThreadWorkerScriptFetchOption::kDisabled,
+        "fake global scope name", "fake user agent",
         nullptr /* web_worker_fetch_context */, headers,
         network::mojom::ReferrerPolicy::kDefault, security_origin,
         false /* starter_secure_context */,
@@ -115,9 +116,9 @@ class WorkerThreadForTest : public WorkerThread {
   }
 
   void WaitForInit() {
-    WaitableEvent completion_event;
+    base::WaitableEvent completion_event;
     GetWorkerBackingThread().BackingThread().PostTask(
-        FROM_HERE, CrossThreadBind(&WaitableEvent::Signal,
+        FROM_HERE, CrossThreadBind(&base::WaitableEvent::Signal,
                                    CrossThreadUnretained(&completion_event)));
     completion_event.Wait();
   }
@@ -160,7 +161,7 @@ class MockWorkerReportingProxy final : public WorkerReportingProxy {
   void WaitUntilScriptEvaluation() { script_evaluation_event_.Wait(); }
 
  private:
-  WaitableEvent script_evaluation_event_;
+  base::WaitableEvent script_evaluation_event_;
 };
 
 }  // namespace blink

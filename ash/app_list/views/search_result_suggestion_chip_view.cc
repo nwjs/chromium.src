@@ -9,8 +9,8 @@
 #include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/app_list_view_delegate.h"
 #include "ash/app_list/model/search/search_result.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/internal_app_id_constants.h"
+#include "ash/public/interfaces/app_list.mojom.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -39,6 +39,9 @@ void LogAppLaunch(int index_in_suggestion_chip_container) {
 SearchResultSuggestionChipView::SearchResultSuggestionChipView(
     AppListViewDelegate* view_delegate)
     : view_delegate_(view_delegate), weak_ptr_factory_(this) {
+  // Make it unfocusable to avoid violating accessibiliy rule since its child
+  // view |suggestion_chip_view_| is focusable.
+  SetFocusBehavior(FocusBehavior::NEVER);
   suggestion_chip_view_ = new SuggestionChipView(
       app_list::SuggestionChipView::Params(), /* listener */ this);
   AddChildView(suggestion_chip_view_);
@@ -68,7 +71,11 @@ void SearchResultSuggestionChipView::ButtonPressed(views::Button* sender,
   LogAppLaunch(index_in_suggestion_chip_container_);
   RecordSearchResultOpenSource(result(), view_delegate_->GetModel(),
                                view_delegate_->GetSearchModel());
-  view_delegate_->OpenSearchResult(result()->id(), event.flags());
+  view_delegate_->OpenSearchResult(
+      result()->id(), event.flags(),
+      ash::mojom::AppListLaunchedFrom::kLaunchedFromSuggestionChip,
+      ash::mojom::AppListLaunchType::kAppSearchResult,
+      index_in_suggestion_chip_container_);
 }
 
 void SearchResultSuggestionChipView::Layout() {

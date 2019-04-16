@@ -249,11 +249,21 @@
   'linux_intel_hd_630': {
     'swarming': {
       'dimensions': {
-        'gpu': '8086:5912',
+        'gpu': '8086:5912-17.1.4',
         'os': 'Ubuntu',
         'pool': 'Chrome-GPU',
       }
     }
+  },
+  'linux_intel_hd_630_experimental': {
+    # Similar to stable, but with a newer Mesa version.
+    'swarming': {
+      'dimensions': {
+        'gpu': '8086:5912-18.0.5',
+        'os': 'Ubuntu',
+        'pool': 'Chrome-GPU',
+      },
+    },
   },
   'linux_nvidia_quadro_p400': {
     'swarming': {

@@ -4,6 +4,7 @@
 
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_node_data.h"
@@ -15,7 +16,7 @@
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/layout/layout_manager.h"
 #include "ui/views/layout/layout_provider.h"
-#include "ui/views/view_properties.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/window/dialog_client_view.h"
@@ -65,6 +66,7 @@ Widget* CreateBubbleWidget(BubbleDialogDelegateView* bubble) {
                               ? Widget::InitParams::TRANSLUCENT_WINDOW
                               : Widget::InitParams::OPAQUE_WINDOW;
   bubble_params.accept_events = bubble->accept_events();
+  bubble_params.remove_standard_frame = true;
   // Use a window default shadow if the bubble doesn't provides its own.
   if (bubble->GetShadow() == BubbleBorder::NO_ASSETS)
     bubble_params.shadow_type = Widget::InitParams::SHADOW_TYPE_DEFAULT;
@@ -139,8 +141,8 @@ ClientView* BubbleDialogDelegateView::CreateClientView(Widget* widget) {
 NonClientFrameView* BubbleDialogDelegateView::CreateNonClientFrameView(
     Widget* widget) {
   BubbleFrameView* frame = new BubbleDialogFrameView(title_margins_);
-
   LayoutProvider* provider = LayoutProvider::Get();
+
   frame->set_footnote_margins(
       provider->GetInsetsMetric(INSETS_DIALOG_SUBSECTION));
   frame->SetFootnoteView(CreateFootnoteView());
@@ -150,10 +152,13 @@ NonClientFrameView* BubbleDialogDelegateView::CreateNonClientFrameView(
     adjusted_arrow = BubbleBorder::horizontal_mirror(adjusted_arrow);
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(adjusted_arrow, GetShadow(), color());
-  // If custom shadows aren't supported we fall back to an OS provided square
-  // shadow.
-  if (!CustomShadowsSupported())
-    border->SetCornerRadius(0);
+  if (CustomShadowsSupported() && ShouldHaveRoundCorners()) {
+    // TODO(sajadm): Remove when fixing https://crbug.com/822075 and use
+    // EMPHASIS_HIGH metric values from the LayoutProvider to get the
+    // corner radius.
+    border->SetCornerRadius(2);
+  }
+
   frame->SetBubbleBorder(std::move(border));
   return frame;
 }

@@ -18,11 +18,8 @@
 #include "base/values.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_app_manager.h"
-#include "chrome/browser/chromeos/lock_screen_apps/state_controller.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host_webui.h"
 #include "chrome/browser/chromeos/login/ui/login_display_webui.h"
-#include "chrome/browser/chromeos/login/ui/preloaded_web_view.h"
-#include "chrome/browser/chromeos/login/ui/preloaded_web_view_factory.h"
 #include "chrome/browser/chromeos/login/ui/web_contents_forced_title.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
@@ -51,8 +48,8 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
-#include "content/public/common/renderer_preferences.h"
 #include "extensions/browser/view_type_utils.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -219,32 +216,21 @@ void WebUILoginView::InitializeWebView(views::WebView* web_view,
   extensions::SetViewType(web_contents, extensions::VIEW_TYPE_COMPONENT);
   extensions::ChromeExtensionWebContentsObserver::CreateForWebContents(
       web_contents);
-  content::RendererPreferences* prefs = web_contents->GetMutableRendererPrefs();
+  blink::mojom::RendererPreferences* prefs =
+      web_contents->GetMutableRendererPrefs();
   renderer_preferences_util::UpdateFromSystemSettings(
       prefs, ProfileHelper::GetSigninProfile());
 }
 
 void WebUILoginView::Init() {
   Profile* signin_profile = ProfileHelper::GetSigninProfile();
-
-  if (settings_.check_for_preload) {
-    PreloadedWebView* preloaded_web_view =
-        PreloadedWebViewFactory::GetForProfile(signin_profile);
-    // webui_login_ may still be null after this call if there is no preloaded
-    // instance.
-    webui_login_ = preloaded_web_view->TryTake();
-    is_reusing_webview_ = true;
-  }
-
   if (!webui_login_) {
     webui_login_ = std::make_unique<views::WebView>(signin_profile);
     webui_login_->set_owned_by_client();
-    is_reusing_webview_ = false;
   }
 
   WebContents* web_contents = web_view()->GetWebContents();
-  if (!is_reusing_webview_)
-    InitializeWebView(web_view(), settings_.web_view_title);
+  InitializeWebView(web_view(), settings_.web_view_title);
 
   web_view()->set_allow_accelerators(true);
   AddChildView(web_view());
@@ -315,8 +301,7 @@ gfx::NativeWindow WebUILoginView::GetNativeWindow() const {
 }
 
 void WebUILoginView::LoadURL(const GURL& url) {
-  if (!is_reusing_webview_)
-    web_view()->LoadInitialURL(url);
+  web_view()->LoadInitialURL(url);
   web_view()->RequestFocus();
 }
 
@@ -408,18 +393,6 @@ views::WebView* WebUILoginView::web_view() {
   return webui_login_.get();
 }
 
-void WebUILoginView::SetLockScreenAppFocusCyclerDelegate() {
-  delegates_lock_screen_app_focus_cycle_ = true;
-  lock_screen_apps::StateController::Get()->SetFocusCyclerDelegate(this);
-}
-
-void WebUILoginView::ClearLockScreenAppFocusCyclerDelegate() {
-  if (!delegates_lock_screen_app_focus_cycle_)
-    return;
-  lock_screen_apps::StateController::Get()->SetFocusCyclerDelegate(nullptr);
-  delegates_lock_screen_app_focus_cycle_ = false;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // ChromeKeyboardControllerClient::Observer
 
@@ -434,6 +407,7 @@ void WebUILoginView::OnKeyboardVisibilityChanged(bool visible) {
 // WebUILoginView private: -----------------------------------------------------
 
 bool WebUILoginView::HandleContextMenu(
+    content::RenderFrameHost* render_frame_host,
     const content::ContextMenuParams& params) {
 #ifndef NDEBUG
   // Do not show the context menu.
@@ -476,15 +450,6 @@ bool WebUILoginView::TakeFocus(content::WebContents* source, bool reverse) {
   if (!reverse && MoveFocusToSystemTray(reverse))
     return true;
 
-  // Either if tab order is reversed (in which case system tray focus was not
-  // attempted), or system tray focus failed (in which case focusing an app
-  // window is preferrable to  focus returning to login UI), try moving focus
-  // to the app window.
-  if (!lock_screen_app_focus_handler_.is_null()) {
-    lock_screen_app_focus_handler_.Run(reverse);
-    return true;
-  }
-
   // If initial MoveFocusToSystemTray was skipped due to lock screen app being
   // a preferred option (due to traversal direction), try focusing system tray
   // again.
@@ -522,28 +487,7 @@ bool WebUILoginView::PreHandleGestureEvent(
   return blink::WebInputEvent::IsPinchGestureEventType(event.GetType());
 }
 
-void WebUILoginView::RegisterLockScreenAppFocusHandler(
-    const LockScreenAppFocusCallback& focus_handler) {
-  lock_screen_app_focus_handler_ = focus_handler;
-}
-
-void WebUILoginView::UnregisterLockScreenAppFocusHandler() {
-  lock_screen_app_focus_handler_.Reset();
-}
-
-void WebUILoginView::HandleLockScreenAppFocusOut(bool reverse) {
-  if (reverse && MoveFocusToSystemTray(reverse))
-    return;
-
-  AboutToRequestFocusFromTabTraversal(reverse);
-}
-
 void WebUILoginView::OnFocusLeavingSystemTray(bool reverse) {
-  if (!reverse && !lock_screen_app_focus_handler_.is_null()) {
-    lock_screen_app_focus_handler_.Run(reverse);
-    return;
-  }
-
   AboutToRequestFocusFromTabTraversal(reverse);
 }
 

@@ -92,6 +92,8 @@ class GPU_GLES2_EXPORT SharedImageFactory {
   // eventually.
   std::unique_ptr<SharedImageBackingFactory> backing_factory_;
 
+  std::unique_ptr<SharedImageBackingFactory> interop_backing_factory_;
+
   // Non-null if gpu_preferences.enable_raster_to_sk_image.
   std::unique_ptr<raster::WrappedSkImageFactory> wrapped_sk_image_factory_;
 };
@@ -106,6 +108,8 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
   // MemoryTypeTracker.
   std::unique_ptr<SharedImageRepresentationGLTexture> ProduceGLTexture(
       const Mailbox& mailbox);
+  std::unique_ptr<SharedImageRepresentationGLTexture>
+  ProduceRGBEmulationGLTexture(const Mailbox& mailbox);
   std::unique_ptr<SharedImageRepresentationGLTexturePassthrough>
   ProduceGLTexturePassthrough(const Mailbox& mailbox);
   std::unique_ptr<SharedImageRepresentationSkia> ProduceSkia(

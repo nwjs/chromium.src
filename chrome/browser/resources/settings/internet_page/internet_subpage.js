@@ -111,6 +111,18 @@ Polymer({
         return [];
       },
     },
+
+    /**
+     * Whether to show technology badge on mobile network icons.
+     * @private
+     */
+    showTechnologyBadge_: {
+      type: Boolean,
+      value: function() {
+        return loadTimeData.valueExists('showTechnologyBadge') &&
+            loadTimeData.getBoolean('showTechnologyBadge');
+      }
+    },
   },
 
   listeners: {
@@ -533,6 +545,7 @@ Polymer({
 
   /**
    * @param {!CrOnc.NetworkStateProperties} state The network state.
+   * @return {boolean}
    * @private
    */
   isBlockedByPolicy_: function(state) {

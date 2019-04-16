@@ -4,8 +4,8 @@
 <script src="file:///gen/layout_test_data/mojo/public/js/mojo_bindings.js"></script>
 <script src="file:///gen/device/vr/public/mojom/vr_service.mojom.js"></script>
 <script src="../external/wpt/resources/chromium/webxr-test.js"></script>
+<script src="../external/wpt/webxr/resources/webxr_test_constants.js"></script>
 <script src="../xr/resources/xr-test-utils.js"></script>
-<script src="../xr/resources/test-constants.js"></script>
 <canvas id="webgl-canvas"></canvas>
 
 <script>
@@ -19,7 +19,7 @@ let requestSessionOptions = [{ mode: 'immersive-vr' }];
 
 let testFunction = function(session, t, fakeDeviceController) {
   // Session must have a baseLayer or frame requests will be ignored.
-  session.baseLayer = new XRWebGLLayer(session, gl);
+  session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
   // Need to have a valid pose or input event's don't process.
   fakeDeviceController.setXRPresentationFrameData(VALID_POSE_MATRIX, [{
       eye:"left",
@@ -47,8 +47,9 @@ let testFunction = function(session, t, fakeDeviceController) {
           assert_matrices_approx_equal(pose.views[1].projectionMatrix, VALID_PROJECTION_MATRIX);
 
           // Update the near and far depths for the session.
-          session.depthNear = 1.0;
-          session.depthFar = 10.0;
+          session.updateRenderState({
+            depthNear: 1.0,
+            depthFar: 10.0 });
 
           // The projection matrices the views report should not take into
           // account the new session depth values this frame.
@@ -56,8 +57,8 @@ let testFunction = function(session, t, fakeDeviceController) {
           assert_matrices_approx_equal(pose.views[1].projectionMatrix, VALID_PROJECTION_MATRIX);
         } else {
           // New depth values should be retained between frames.
-          assert_equals(session.depthNear, 1.0);
-          assert_equals(session.depthFar, 10.0);
+          assert_equals(session.renderState.depthNear, 1.0);
+          assert_equals(session.renderState.depthFar, 10.0);
 
           // Projection matricies should now reflect the new depth values, i.e.
           // have changed.

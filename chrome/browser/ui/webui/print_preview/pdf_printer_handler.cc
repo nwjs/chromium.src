@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -13,6 +14,7 @@
 #include "base/i18n/file_util_icu.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/values.h"
@@ -76,28 +78,30 @@ base::Value GetPdfCapabilities(const std::string& locale) {
   using namespace cloud_devices::printer;
 
   OrientationCapability orientation;
-  orientation.AddOption(cloud_devices::printer::PORTRAIT);
-  orientation.AddOption(cloud_devices::printer::LANDSCAPE);
-  orientation.AddDefaultOption(AUTO_ORIENTATION, true);
+  orientation.AddOption(cloud_devices::printer::OrientationType::PORTRAIT);
+  orientation.AddOption(cloud_devices::printer::OrientationType::LANDSCAPE);
+  orientation.AddDefaultOption(OrientationType::AUTO_ORIENTATION, true);
   orientation.SaveTo(&description);
 
   ColorCapability color;
   {
-    Color standard_color(STANDARD_COLOR);
-    standard_color.vendor_id = base::IntToString(COLOR);
+    Color standard_color(ColorType::STANDARD_COLOR);
+    standard_color.vendor_id = base::NumberToString(COLOR);
     color.AddDefaultOption(standard_color, true);
   }
   color.SaveTo(&description);
 
   static const cloud_devices::printer::MediaType kPdfMedia[] = {
-      ISO_A0, ISO_A1,   ISO_A2,    ISO_A3,   ISO_A4,
-      ISO_A5, NA_LEGAL, NA_LETTER, NA_LEDGER};
+      MediaType::ISO_A0,   MediaType::ISO_A1,    MediaType::ISO_A2,
+      MediaType::ISO_A3,   MediaType::ISO_A4,    MediaType::ISO_A5,
+      MediaType::NA_LEGAL, MediaType::NA_LETTER, MediaType::NA_LEDGER};
   const gfx::Size default_media_size = GetDefaultPdfMediaSizeMicrons();
   Media default_media("", "", default_media_size.width(),
                       default_media_size.height());
   if (!default_media.MatchBySize() ||
       !base::ContainsValue(kPdfMedia, default_media.type)) {
-    default_media = Media(locale == "en-US" ? NA_LETTER : ISO_A4);
+    default_media =
+        Media(locale == "en-US" ? MediaType::NA_LETTER : MediaType::ISO_A4);
   }
   MediaCapability media;
   for (const auto& pdf_media : kPdfMedia) {
@@ -120,18 +124,6 @@ void PrintToPdfCallback(const scoped_refptr<base::RefCountedMemory>& data,
                          base::checked_cast<int>(data->size()));
   if (!pdf_file_saved_closure.is_null())
     pdf_file_saved_closure.Run();
-}
-
-// Returns a unique path for |path|, just like with downloads.
-base::FilePath GetUniquePath(const base::FilePath& path) {
-  base::FilePath unique_path = path;
-  int uniquifier =
-      base::GetUniquePathNumber(path, base::FilePath::StringType());
-  if (uniquifier > 0) {
-    unique_path = unique_path.InsertBeforeExtensionASCII(
-        base::StringPrintf(" (%d)", uniquifier));
-  }
-  return unique_path;
 }
 
 base::FilePath SelectSaveDirectory(const base::FilePath& path,
@@ -179,12 +171,9 @@ void PdfPrinterHandler::StartGetCapability(const std::string& destination_id,
 }
 
 void PdfPrinterHandler::StartPrint(
-    const std::string& destination_id,
-    const std::string& capability,
     const base::string16& job_title,
-    const std::string& ticket_json,
-    const gfx::Size& page_size,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
+    base::Value settings,
+    scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
   print_data_ = print_data;
   if (!chrome::NWPrintGetPDFPath().empty() && chrome::NWPrintGetCustomPrinting()) {
@@ -332,7 +321,7 @@ void PdfPrinterHandler::SelectFile(const base::FilePath& default_filename,
   if (!prompt_user) {
     base::PostTaskWithTraitsAndReplyWithResult(
         FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-        base::Bind(&GetUniquePath, path.Append(default_filename)),
+        base::Bind(&base::GetUniquePath, path.Append(default_filename)),
         base::Bind(&PdfPrinterHandler::OnGotUniqueFileName,
                    weak_ptr_factory_.GetWeakPtr()));
     return;

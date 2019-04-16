@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #include "content/renderer/navigation_client.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "content/renderer/render_frame_impl.h"
 #include "third_party/blink/public/platform/task_type.h"
 
@@ -30,7 +32,7 @@ void NavigationClient::CommitNavigation(
   // race conditions leading to the early deletion of NavigationRequest would
   // unexpectedly abort the ongoing navigation. Remove when the races are fixed.
   ResetDisconnectionHandler();
-  render_frame_->CommitNavigation(
+  render_frame_->CommitPerNavigationMojoInterfaceNavigation(
       head, common_params, commit_params,
       std::move(url_loader_client_endpoints), std::move(subresource_loaders),
       std::move(subresource_overrides),
@@ -48,7 +50,7 @@ void NavigationClient::CommitFailedNavigation(
     std::unique_ptr<blink::URLLoaderFactoryBundleInfo> subresource_loaders,
     CommitFailedNavigationCallback callback) {
   ResetDisconnectionHandler();
-  render_frame_->CommitFailedNavigation(
+  render_frame_->CommitFailedPerNavigationMojoInterfaceNavigation(
       common_params, commit_params, has_stale_copy_in_cache, error_code,
       error_page_content, std::move(subresource_loaders), std::move(callback));
 }
@@ -58,6 +60,11 @@ void NavigationClient::Bind(mojom::NavigationClientAssociatedRequest request) {
       std::move(request),
       render_frame_->GetTaskRunner(blink::TaskType::kInternalIPC));
   SetDisconnectionHandler();
+}
+
+void NavigationClient::MarkWasInitiatedInThisFrame() {
+  DCHECK(!was_initiated_in_this_frame_);
+  was_initiated_in_this_frame_ = true;
 }
 
 void NavigationClient::SetDisconnectionHandler() {

@@ -54,7 +54,7 @@ class MockCopyTexImageResourceManager : public CopyTexImageResourceManager {
       GLsizei width,
       GLsizei height,
       GLuint source_framebuffer,
-      GLenum source_framebuffer_internal_format) override{};
+      GLenum source_framebuffer_internal_format) override {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockCopyTexImageResourceManager);
@@ -141,7 +141,7 @@ class MockCopyTextureResourceManager
       bool unpremultiply_alpha,
       bool dither,
       const GLfloat transform_matrix[16],
-      CopyTexImageResourceManager* luma_emulation_blitter) override{};
+      CopyTexImageResourceManager* luma_emulation_blitter) override {}
   void DoCopyTextureWithTransform(
       DecoderContext* decoder,
       GLenum source_target,
@@ -160,7 +160,7 @@ class MockCopyTextureResourceManager
       bool dither,
       const GLfloat transform_matrix[16],
       CopyTextureMethod method,
-      CopyTexImageResourceManager* luma_emulation_blitter) override{};
+      CopyTexImageResourceManager* luma_emulation_blitter) override {}
 
  private:
   DISALLOW_COPY_AND_ASSIGN(MockCopyTextureResourceManager);

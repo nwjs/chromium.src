@@ -13,8 +13,10 @@
 #import "ios/chrome/browser/ui/commands/activity_service_commands.h"
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
+#import "ios/chrome/browser/ui/commands/infobar_commands.h"
 #import "ios/chrome/browser/ui/commands/load_query_commands.h"
 #import "ios/chrome/browser/ui/fullscreen/fullscreen_animator.h"
+#import "ios/chrome/browser/ui/infobars/infobar_feature.h"
 #include "ios/chrome/browser/ui/location_bar/location_bar_steady_view.h"
 #import "ios/chrome/browser/ui/orchestrator/location_bar_offset_provider.h"
 #include "ios/chrome/browser/ui/ui_feature_flags.h"
@@ -173,6 +175,10 @@ typedef NS_ENUM(int, TrailingButtonState) {
   AddSameConstraints(self.locationBarSteadyView, self.view);
 
   [self switchToEditing:NO];
+
+  if (IsInfobarUIRebootEnabled()) {
+    [self updateInfobarButton];
+  }
 }
 
 - (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
@@ -236,6 +242,10 @@ typedef NS_ENUM(int, TrailingButtonState) {
   if (self.trailingButtonState == kShareButton) {
     self.locationBarSteadyView.trailingButton.enabled = enabled;
   }
+}
+
+- (void)displayInfobarButton:(BOOL)display {
+  self.locationBarSteadyView.leadingButton.hidden = !display;
 }
 
 #pragma mark - LocationBarAnimatee
@@ -420,6 +430,23 @@ typedef NS_ENUM(int, TrailingButtonState) {
   base::RecordAction(base::UserMetricsAction("MobileToolbarShareMenu"));
 }
 
+// TODO(crbug.com/935804): This method is currently only being used in the
+// Infobar redesign.
+- (void)updateInfobarButton {
+  DCHECK(IsInfobarUIRebootEnabled());
+  [self.locationBarSteadyView.leadingButton
+      setImage:[[UIImage imageNamed:@"infobar_passwords_icon"]
+                   imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]
+      forState:UIControlStateNormal];
+  [self.locationBarSteadyView.leadingButton
+             addTarget:self.dispatcher
+                action:@selector(displayModalInfobar)
+      forControlEvents:UIControlEventTouchUpInside];
+  self.locationBarSteadyView.leadingButton.tintColor = [UIColor lightGrayColor];
+  // Set as hidden as it should only be shown by |displayInfobarButton:|
+  self.locationBarSteadyView.leadingButton.hidden = YES;
+}
+
 #pragma mark - UIMenu
 
 - (void)showLongPressMenu:(UILongPressGestureRecognizer*)sender {
@@ -454,6 +481,10 @@ typedef NS_ENUM(int, TrailingButtonState) {
 
       [menu setTargetRect:self.locationBarSteadyView.frame inView:self.view];
       [menu setMenuVisible:YES animated:YES];
+      // When we present the menu manually, it doesn't get focused by Voiceover.
+      // This notification forces voiceover to select the presented menu.
+      UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                      menu);
     });
   }
 }
@@ -475,7 +506,8 @@ typedef NS_ENUM(int, TrailingButtonState) {
     ClipboardRecentContent* clipboardRecentContent =
         ClipboardRecentContent::GetInstance();
     DCHECK(base::FeatureList::IsEnabled(kCopiedContentBehavior));
-    if (clipboardRecentContent->GetRecentImageFromClipboard().has_value()) {
+    if (self.searchByImageEnabled &&
+        clipboardRecentContent->GetRecentImageFromClipboard().has_value()) {
       return action == @selector(searchCopiedImage:);
     }
     if (clipboardRecentContent->GetRecentURLFromClipboard().has_value()) {

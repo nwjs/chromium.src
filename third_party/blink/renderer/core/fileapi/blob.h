@@ -70,13 +70,13 @@ class CORE_EXPORT Blob : public ScriptWrappable,
   }
 
   static Blob* Create(const unsigned char* data,
-                      size_t bytes,
+                      size_t size,
                       const String& content_type);
 
   explicit Blob(scoped_refptr<BlobDataHandle>);
   ~Blob() override;
 
-  virtual unsigned long long size() const { return blob_data_handle_->size(); }
+  virtual uint64_t size() const { return blob_data_handle_->size(); }
   virtual Blob* slice(long long start,
                       long long end,
                       const String& content_type,

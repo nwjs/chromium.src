@@ -39,6 +39,7 @@
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/common/frame/user_activation_update_type.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/platform/blame_context.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider.h"
 #include "third_party/blink/public/platform/web_application_cache_host.h"
@@ -92,6 +93,7 @@ class WebApplicationCacheHostClient;
 class WebComputedAXTree;
 class WebContentDecryptionModule;
 class WebCookieJar;
+class WebDedicatedWorkerHostFactoryClient;
 class WebDocumentLoader;
 class WebEncryptedMediaClient;
 class WebExternalPopupMenu;
@@ -170,9 +172,17 @@ class BLINK_EXPORT WebLocalFrameClient {
     return nullptr;
   }
 
-  // Returns a new WebWorkerFetchContext for a dedicated worker. Ownership of
-  // the returned object is transferred to the caller.
+  // Returns a new WebWorkerFetchContext for a dedicated worker (in the
+  // non-PlzDedicatedWorker case) or worklet.
   virtual scoped_refptr<WebWorkerFetchContext> CreateWorkerFetchContext() {
+    return nullptr;
+  }
+
+  // Returns a new WebWorkerFetchContext for PlzDedicatedWorker.
+  // (https://crbug.com/906991)
+  virtual scoped_refptr<WebWorkerFetchContext>
+  CreateWorkerFetchContextForPlzDedicatedWorker(
+      WebDedicatedWorkerHostFactoryClient*) {
     return nullptr;
   }
 
@@ -310,6 +320,10 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Called when a frame is capturing mouse input, such as when a scrollbar
   // is being dragged.
   virtual void SetMouseCapture(bool capture) {}
+
+  // Announces that an embedded frame needs occlusion information from its
+  // parent frame.
+  virtual void SetNeedsOcclusionTracking(bool needs_tracking) {}
 
   // Console messages ----------------------------------------------------
 
@@ -619,17 +633,18 @@ class BLINK_EXPORT WebLocalFrameClient {
   // connection with certificate errors.
   virtual void DidRunContentWithCertificateErrors() {}
 
-  // This frame loaded a resource with an otherwise-valid legacy Symantec
-  // certificate that is slated for distrust (|did_fail|=false) or has already
-  // been distrusted (|did_fail|=true).
-  virtual void ReportLegacySymantecCert(const WebURL&, bool did_fail) {}
-
   // The frame loaded a resource with a legacy TLS version that will be removed
   // in the future. Prints a console message to warn about this.
   virtual void ReportLegacyTLSVersion(const WebURL&) {}
 
   // A performance timing event (e.g. first paint) occurred
   virtual void DidChangePerformanceTiming() {}
+
+  // A cpu task or tasks completed.  Triggered when at least 100ms of wall time
+  // was spent in tasks on the frame.
+  virtual void DidChangeCpuTiming(base::TimeDelta time) {}
+
+  virtual void VisibilityChanged(blink::mojom::FrameVisibility visibility) {}
 
   // UseCounter ----------------------------------------------------------
   // Blink exhibited a certain loading behavior that the browser process will
@@ -813,6 +828,14 @@ class BLINK_EXPORT WebLocalFrameClient {
                                          const WebURL& url,
                                          const WebString& suggested_mime_type) {
     return false;
+  }
+
+  // Returns a scriptable object for the given plugin element. This is used for
+  // having an external handler implement certain customized APIs for the
+  // plugin element (e.g., to expose postMessage).
+  virtual v8::Local<v8::Object> GetScriptableObject(const WebElement&,
+                                                    v8::Isolate*) {
+    return v8::Local<v8::Object>();
   }
 };
 

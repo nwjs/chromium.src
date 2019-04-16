@@ -8,7 +8,6 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <vector>
 
 #include "base/callback.h"
 #include "base/compiler_specific.h"
@@ -58,8 +57,7 @@ class SyncEngine : public ModelTypeConfigurer {
     scoped_refptr<base::SequencedTaskRunner> sync_task_runner;
     SyncEngineHost* host = nullptr;
     std::unique_ptr<SyncBackendRegistrar> registrar;
-    std::vector<std::unique_ptr<SyncEncryptionHandler::Observer>>
-        encryption_observer_proxies;
+    std::unique_ptr<SyncEncryptionHandler::Observer> encryption_observer_proxy;
     scoped_refptr<ExtensionsActivity> extensions_activity;
     WeakHandle<JsEventHandler> event_handler;
     GURL service_url;
@@ -78,6 +76,13 @@ class SyncEngine : public ModelTypeConfigurer {
     base::Closure report_unrecoverable_error_function;
     std::unique_ptr<SyncEncryptionHandler::NigoriState> saved_nigori_state;
     std::map<ModelType, int64_t> invalidation_versions;
+
+    // Non-authoritative values from prefs, to be compared with the Directory's
+    // counterparts.
+    // TODO(crbug.com/923285): Consider making these the authoritative data.
+    std::string cache_guid;
+    std::string birthday;
+    std::string bag_of_chips;
 
     // Define the polling intervals. Must not be zero.
     base::TimeDelta short_poll_interval;
@@ -178,9 +183,6 @@ class SyncEngine : public ModelTypeConfigurer {
 
   // Disables the sending of directory type debug counters.
   virtual void DisableDirectoryTypeDebugInfoForwarding() = 0;
-
-  // See SyncManager::ClearServerData.
-  virtual void ClearServerData(const base::Closure& callback) = 0;
 
   // Notify the syncer that the cookie jar has changed.
   // See SyncManager::OnCookieJarChanged.

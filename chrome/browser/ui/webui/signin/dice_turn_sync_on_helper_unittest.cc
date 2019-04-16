@@ -24,7 +24,6 @@
 #include "chrome/browser/signin/test_signin_client_builder.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/sync/profile_sync_test_util.h"
-#include "chrome/browser/unified_consent/chrome_unified_consent_service_client.h"
 #include "chrome/test/base/scoped_testing_local_state.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -45,7 +44,6 @@
 
 using ::testing::AtLeast;
 using ::testing::Return;
-using ::testing::ReturnRef;
 using namespace unified_consent;
 
 class DiceTurnSyncOnHelperTestBase;
@@ -255,7 +253,8 @@ class DiceTurnSyncOnHelperTestBase : public testing::Test {
       DiceTurnSyncOnHelper::SigninAbortedMode mode) {
     return new DiceTurnSyncOnHelper(
         profile(), kAccessPoint, kSigninPromoAction, kSigninReason, account_id_,
-        mode, std::make_unique<TestDiceTurnSyncOnHelperDelegate>(this));
+        mode, std::make_unique<TestDiceTurnSyncOnHelperDelegate>(this),
+        base::DoNothing());
   }
 
   void UseEnterpriseAccount() {
@@ -285,8 +284,6 @@ class DiceTurnSyncOnHelperTestBase : public testing::Test {
     ON_CALL(*sync_service_mock, GetTransportState())
         .WillByDefault(
             Return(syncer::SyncService::TransportState::INITIALIZING));
-    ON_CALL(*sync_service_mock, GetAuthError())
-        .WillByDefault(ReturnRef(kNoAuthError));
   }
 
   void CheckDelegateCalls() {
@@ -421,10 +418,6 @@ class DiceTurnSyncOnHelperTestBase : public testing::Test {
   bool switched_to_new_profile_ = false;
   bool sync_confirmation_shown_ = false;
   bool sync_settings_shown_ = false;
-
-  // Note: This needs to be a member variable for testing::ReturnRef.
-  const GoogleServiceAuthError kNoAuthError =
-      GoogleServiceAuthError::AuthErrorNone();
 };
 
 // Test class with only DiceMigration enabled.
@@ -746,23 +739,12 @@ TEST_F(DiceTurnSyncOnHelperTestWithUnifiedConsent,
   EXPECT_CALL(*GetProfileSyncServiceMock()->GetUserSettingsMock(),
               SetFirstSetupComplete())
       .Times(1);
-  using Service = UnifiedConsentServiceClient::Service;
-  using ServiceState = UnifiedConsentServiceClient::ServiceState;
   PrefService* pref_service = profile()->GetPrefs();
-  ChromeUnifiedConsentServiceClient consent_service_client(pref_service);
   std::unique_ptr<UrlKeyedDataCollectionConsentHelper>
       url_keyed_collection_helper = UrlKeyedDataCollectionConsentHelper::
           NewAnonymizedDataCollectionConsentHelper(
               pref_service,
               ProfileSyncServiceFactory::GetForProfile(profile()));
-  for (int i = 0; i <= static_cast<int>(Service::kLast); ++i) {
-    Service service = static_cast<Service>(i);
-    if (consent_service_client.IsServiceSupported(service)) {
-      consent_service_client.SetServiceEnabled(service, false);
-      EXPECT_EQ(ServiceState::kDisabled,
-                consent_service_client.GetServiceState(service));
-    }
-  }
   EXPECT_FALSE(url_keyed_collection_helper->IsEnabled());
 
   // Signin flow.
@@ -774,13 +756,6 @@ TEST_F(DiceTurnSyncOnHelperTestWithUnifiedConsent,
   EXPECT_TRUE(identity_manager()->HasAccountWithRefreshToken(account_id()));
   EXPECT_EQ(account_id(), identity_manager()->GetPrimaryAccountId());
   CheckDelegateCalls();
-  for (int i = 0; i <= static_cast<int>(Service::kLast); ++i) {
-    Service service = static_cast<Service>(i);
-    if (consent_service_client.IsServiceSupported(service)) {
-      EXPECT_EQ(ServiceState::kEnabled,
-                consent_service_client.GetServiceState(service));
-    }
-  }
   EXPECT_TRUE(url_keyed_collection_helper->IsEnabled());
 }
 

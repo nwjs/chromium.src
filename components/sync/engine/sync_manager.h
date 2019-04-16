@@ -250,6 +250,13 @@ class SyncManager {
     // Define the polling intervals. Must not be zero.
     base::TimeDelta short_poll_interval;
     base::TimeDelta long_poll_interval;
+
+    // Non-authoritative values from prefs, to be compared with the Directory's
+    // counterparts.
+    // TODO(crbug.com/923285): Consider making these the authoritative data.
+    std::string cache_guid;
+    std::string birthday;
+    std::string bag_of_chips;
   };
 
   // The state of sync the feature. If the user turned on sync explicitly, it
@@ -382,13 +389,6 @@ class SyncManager {
   // Request that all current counter values be emitted as though they had just
   // been updated.  Useful for initializing new observers' state.
   virtual void RequestEmitDebugInfo() = 0;
-
-  // Clears server data and invokes |callback| when complete.
-  //
-  // This is an asynchronous operation that requires interaction with the sync
-  // server. The operation will automatically be retried with backoff until it
-  // completes successfully or sync is shutdown.
-  virtual void ClearServerData(const base::Closure& callback) = 0;
 
   // Updates Sync's tracking of whether the cookie jar has a mismatch with the
   // chrome account. See ClientConfigParams proto message for more info.

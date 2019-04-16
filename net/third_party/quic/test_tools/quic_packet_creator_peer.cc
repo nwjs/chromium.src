@@ -43,9 +43,27 @@ QuicPacketNumberLength QuicPacketCreatorPeer::GetPacketNumberLength(
   return creator->GetPacketNumberLength();
 }
 
+// static
+QuicVariableLengthIntegerLength
+QuicPacketCreatorPeer::GetRetryTokenLengthLength(QuicPacketCreator* creator) {
+  return creator->GetRetryTokenLengthLength();
+}
+
+// static
+QuicVariableLengthIntegerLength QuicPacketCreatorPeer::GetLengthLength(
+    QuicPacketCreator* creator) {
+  return creator->GetLengthLength();
+}
+
 void QuicPacketCreatorPeer::SetPacketNumber(QuicPacketCreator* creator,
-                                            QuicPacketNumber s) {
-  creator->packet_.packet_number = s;
+                                            uint64_t s) {
+  DCHECK_NE(0u, s);
+  creator->packet_.packet_number = QuicPacketNumber(s);
+}
+
+// static
+void QuicPacketCreatorPeer::ClearPacketNumber(QuicPacketCreator* creator) {
+  creator->packet_.packet_number.Clear();
 }
 
 // static

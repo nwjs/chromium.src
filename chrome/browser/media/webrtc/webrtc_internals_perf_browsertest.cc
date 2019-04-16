@@ -74,7 +74,7 @@ class WebRtcInternalsPerfBrowserTest : public WebRtcTestBase {
         webrtc_internals_tab);
 
     std::unique_ptr<base::Value> parsed_json =
-        base::JSONReader::Read(all_stats_json);
+        base::JSONReader::ReadDeprecated(all_stats_json);
     base::DictionaryValue* result;
     if (parsed_json.get() && parsed_json->GetAsDictionary(&result)) {
       ignore_result(parsed_json.release());
@@ -247,17 +247,9 @@ IN_PROC_BROWSER_TEST_F(
   RunsAudioVideoCall60SecsAndLogsInternalMetrics("VP9");
 }
 
-// See https://crbug.com/922198.
-#if defined(OS_MACOSX)
-#define MAYBE_MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2 \
-  DISABLED_MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2
-#else
-#define MAYBE_MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2 \
-  MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2
-#endif  // defined(OS_MACOSX)
 IN_PROC_BROWSER_TEST_F(
     WebRtcInternalsPerfBrowserTest,
-    MAYBE_MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2) {
+    MANUAL_RunsAudioVideoCall60SecsAndLogsInternalMetricsVp9Profile2) {
   base::ScopedAllowBlockingForTesting allow_blocking;
   RunsAudioVideoCall60SecsAndLogsInternalMetrics(
       "VP9", true /* prefer_hw_video_codec */,

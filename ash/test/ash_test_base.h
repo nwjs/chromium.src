@@ -34,6 +34,10 @@ class ScopedTaskEnvironment;
 }
 }  // namespace base
 
+namespace chromeos {
+class FakePowerManagerClient;
+}
+
 namespace display {
 class Display;
 class DisplayManager;
@@ -175,6 +179,9 @@ class AshTestBase : public testing::Test {
   // Convenience method to return the DisplayManager.
   display::DisplayManager* display_manager();
 
+  // Convenience method to return the FakePowerManagerClient.
+  chromeos::FakePowerManagerClient* power_manager_client() const;
+
   // Test if moving a mouse to |point_in_screen| warps it to another
   // display.
   bool TestIfMouseWarpsAt(ui::test::EventGenerator* event_generator,
@@ -290,6 +297,7 @@ class NoSessionAshTestBase : public AshTestBase {
 // Base test class that forces single-process mash to be enabled *and* creates
 // a views::MusClient. This base class is useful for testing WindowService
 // related functionality exposed by Ash.
+// TODO(sky): this name is misleading. Rename to better indicate what it does.
 class SingleProcessMashTestBase : public AshTestBase {
  public:
   SingleProcessMashTestBase();

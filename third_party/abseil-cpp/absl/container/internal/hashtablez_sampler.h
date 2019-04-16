@@ -33,6 +33,7 @@
 
 #include "absl/base/internal/per_thread_tls.h"
 #include "absl/base/optimization.h"
+#include "absl/container/internal/have_sse.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/utility/utility.h"
 
@@ -82,10 +83,24 @@ struct HashtablezInfo {
   void* stack[kMaxStackDepth];
 };
 
+inline void RecordRehashSlow(HashtablezInfo* info, size_t total_probe_length) {
+#if SWISSTABLE_HAVE_SSE2
+  total_probe_length /= 16;
+#else
+  total_probe_length /= 8;
+#endif
+  info->total_probe_length.store(total_probe_length, std::memory_order_relaxed);
+  info->num_erases.store(0, std::memory_order_relaxed);
+}
+
 inline void RecordStorageChangedSlow(HashtablezInfo* info, size_t size,
                                      size_t capacity) {
   info->size.store(size, std::memory_order_relaxed);
   info->capacity.store(capacity, std::memory_order_relaxed);
+  if (size == 0) {
+    // This is a clear, reset the total/num_erases too.
+    RecordRehashSlow(info, 0);
+  }
 }
 
 void RecordInsertSlow(HashtablezInfo* info, size_t hash,
@@ -126,6 +141,11 @@ class HashtablezInfoHandle {
     RecordStorageChangedSlow(info_, size, capacity);
   }
 
+  inline void RecordRehash(size_t total_probe_length) {
+    if (ABSL_PREDICT_TRUE(info_ == nullptr)) return;
+    RecordRehashSlow(info_, total_probe_length);
+  }
+
   inline void RecordInsert(size_t hash, size_t distance_from_desired) {
     if (ABSL_PREDICT_TRUE(info_ == nullptr)) return;
     RecordInsertSlow(info_, hash, distance_from_desired);
@@ -146,23 +166,23 @@ class HashtablezInfoHandle {
   HashtablezInfo* info_;
 };
 
-// Returns an RAII sampling handle that manages registration and unregistation
-// with the global sampler.
 #if ABSL_PER_THREAD_TLS == 1
-extern ABSL_PER_THREAD_TLS_KEYWORD int64_t next_sample;
+extern ABSL_PER_THREAD_TLS_KEYWORD int64_t global_next_sample;
 #endif  // ABSL_PER_THREAD_TLS
 
+// Returns an RAII sampling handle that manages registration and unregistation
+// with the global sampler.
 inline HashtablezInfoHandle Sample() {
 #if ABSL_PER_THREAD_TLS == 0
   static auto* mu = new absl::Mutex;
-  static int64_t next_sample = 0;
+  static int64_t global_next_sample = 0;
   absl::MutexLock l(mu);
 #endif  // !ABSL_HAVE_THREAD_LOCAL
 
-  if (ABSL_PREDICT_TRUE(--next_sample > 0)) {
+  if (ABSL_PREDICT_TRUE(--global_next_sample > 0)) {
     return HashtablezInfoHandle(nullptr);
   }
-  return HashtablezInfoHandle(SampleSlow(&next_sample));
+  return HashtablezInfoHandle(SampleSlow(&global_next_sample));
 }
 
 // Holds samples and their associated stack traces with a soft limit of
@@ -182,6 +202,13 @@ class HashtablezSampler {
 
   // Unregisters the sample.
   void Unregister(HashtablezInfo* sample);
+
+  // The dispose callback will be called on all samples the moment they are
+  // being unregistered. Only affects samples that are unregistered after the
+  // callback has been set.
+  // Returns the previous callback.
+  using DisposeCallback = void (*)(const HashtablezInfo&);
+  DisposeCallback SetDisposeCallback(DisposeCallback f);
 
   // Iterates over all the registered `StackInfo`s.  Returning the number of
   // samples that have been dropped.
@@ -222,6 +249,8 @@ class HashtablezSampler {
   //
   std::atomic<HashtablezInfo*> all_;
   HashtablezInfo graveyard_;
+
+  std::atomic<DisposeCallback> dispose_;
 };
 
 // Enables or disables sampling for Swiss tables.
@@ -232,6 +261,13 @@ void SetHashtablezSampleParameter(int32_t rate);
 
 // Sets a soft max for the number of samples that will be kept.
 void SetHashtablezMaxSamples(int32_t max);
+
+// Configuration override.
+// This allows process-wide sampling without depending on order of
+// initialization of static storage duration objects.
+// The definition of this constant is weak, which allows us to inject a
+// different value for it at link time.
+extern "C" const bool kAbslContainerInternalSampleEverything;
 
 }  // namespace container_internal
 }  // namespace absl

@@ -8,11 +8,9 @@
 #include <memory>
 #include <string>
 
-#include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/media_router/media_cast_mode.h"
-#include "chrome/browser/ui/toolbar/media_router_action.h"
 #include "chrome/test/media_router/media_router_base_browsertest.h"
 #include "chrome/test/media_router/media_router_ui_for_test.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"

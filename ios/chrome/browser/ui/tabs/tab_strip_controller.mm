@@ -19,8 +19,8 @@
 #include "ios/chrome/browser/drag_and_drop/drag_and_drop_flag.h"
 #import "ios/chrome/browser/drag_and_drop/drop_and_navigate_delegate.h"
 #import "ios/chrome/browser/drag_and_drop/drop_and_navigate_interaction.h"
-#include "ios/chrome/browser/experimental_flags.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
+#include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/tabs/legacy_tab_helper.h"
 #import "ios/chrome/browser/tabs/tab.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
@@ -33,6 +33,7 @@
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #include "ios/chrome/browser/ui/fullscreen/fullscreen_controller_factory.h"
 #include "ios/chrome/browser/ui/fullscreen/scoped_fullscreen_disabler.h"
+#import "ios/chrome/browser/ui/ntp/ntp_util.h"
 #import "ios/chrome/browser/ui/popup_menu/public/popup_menu_long_press_delegate.h"
 #import "ios/chrome/browser/ui/tabs/requirements/tab_strip_constants.h"
 #import "ios/chrome/browser/ui/tabs/requirements/tab_strip_presentation.h"
@@ -1050,7 +1051,7 @@ UIColor* BackgroundColor() {
       [view setFavicon:favicon.ToUIImage()];
   }
 
-  if (tab.webState->IsLoading())
+  if (tab.webState->IsLoading() && !IsVisibleURLNewTabPage(tab.webState))
     [view startProgressSpinner];
   else
     [view stopProgressSpinner];
@@ -1704,11 +1705,11 @@ UIColor* BackgroundColor() {
   DCHECK_NE(NSNotFound, static_cast<NSInteger>(index));
   if (index == NSNotFound)
     return;
-  Tab* tab = [_tabModel tabAtIndex:index];
+  web::WebState* webState = _tabModel.webStateList->GetWebStateAt(index);
 
   web::NavigationManager::WebLoadParams params(url);
   params.transition_type = ui::PAGE_TRANSITION_GENERATED;
-  tab.navigationManager->LoadURLWithParams(params);
+  webState->GetNavigationManager()->LoadURLWithParams(params);
 }
 
 @end

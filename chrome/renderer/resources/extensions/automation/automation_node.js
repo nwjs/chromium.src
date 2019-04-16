@@ -293,6 +293,14 @@ var GetNameFrom = natives.GetNameFrom;
 /**
  * @param {string} axTreeID The id of the accessibility tree.
  * @param {number} nodeID The id of a node.
+ * @return {?string} The image annotation status, which may
+ *     include the annotation itself if completed successfully.
+ */
+var GetImageAnnotation = natives.GetImageAnnotation;
+
+/**
+ * @param {string} axTreeID The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
  * @return {boolean}
  */
 var GetBold = natives.GetBold;
@@ -379,6 +387,13 @@ var GetTableCellColumnIndex = natives.GetTableCellColumnIndex;
  * @return {number} Row index for this cell.
  */
 var GetTableCellRowIndex = natives.GetTableCellRowIndex;
+
+/**
+ * @param {string} axTreeId The id of the accessibility tree.
+ * @param {number} nodeID The id of a node.
+ * @return {string} Detected language for this node.
+ */
+var GetDetectedLanguage = natives.GetDetectedLanguage;
 
 var logging = requireNative('logging');
 var utils = require('utils');
@@ -548,6 +563,10 @@ AutomationNodeImpl.prototype = {
     return GetNameFrom(this.treeID, this.id);
   },
 
+  get imageAnnotation() {
+    return GetImageAnnotation(this.treeID, this.id);
+  },
+
   get bold() {
     return GetBold(this.treeID, this.id);
   },
@@ -562,6 +581,10 @@ AutomationNodeImpl.prototype = {
 
   get lineThrough() {
     return GetLineThrough(this.treeID, this.id);
+  },
+
+  get detectedLanguage() {
+    return GetDetectedLanguage(this.treeID, this.id)
   },
 
   get customActions() {
@@ -1003,6 +1026,7 @@ var stringAttributes = [
     'containerLiveStatus',
     'description',
     'display',
+    'fontFamily',
     'htmlTag',
     'imageDataUrl',
     'innerHtml',
@@ -1077,9 +1101,10 @@ var nodeRefListAttributes = [
     ['labelledbyIds', 'labelledBy', 'labelFor']];
 
 var floatAttributes = [
-    'valueForRange',
+    'fontSize',
+    'maxValueForRange',
     'minValueForRange',
-    'maxValueForRange'];
+    'valueForRange'];
 
 var htmlAttributes = [
     ['type', 'inputType']];
@@ -1542,6 +1567,7 @@ utils.expose(AutomationNode, AutomationNodeImpl, {
         'restriction',
         'state',
         'location',
+        'imageAnnotation',
         'indexInParent',
         'lineStartOffsets',
         'root',
@@ -1551,6 +1577,7 @@ utils.expose(AutomationNode, AutomationNodeImpl, {
         'italic',
         'underline',
         'lineThrough',
+        'detectedLanguage',
         'customActions',
         'standardActions',
         'unclippedLocation',

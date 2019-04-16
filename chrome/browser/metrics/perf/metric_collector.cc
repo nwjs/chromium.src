@@ -4,6 +4,7 @@
 
 #include "chrome/browser/metrics/perf/metric_collector.h"
 
+#include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/rand_util.h"
 #include "base/system/sys_info.h"
@@ -311,6 +312,7 @@ void MetricCollector::SaveSerializedPerfProto(
   // Add the collected data to the container of collected SampledProfiles.
   cached_profile_data_.resize(cached_profile_data_.size() + 1);
   cached_profile_data_.back().Swap(sampled_profile.get());
+  AddToUmaHistogram(CollectionAttemptStatus::SUCCESS);
 }
 
 size_t MetricCollector::cached_profile_data_size() const {

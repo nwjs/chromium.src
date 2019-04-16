@@ -44,7 +44,7 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // Ideally we'd have a linked_hash_set: the  boolean is unused.
   typedef QuicLinkedHashMap<QuicBlockedWriterInterface*, bool> WriteBlockedList;
 
-  QuicDispatcher(const QuicConfig& config,
+  QuicDispatcher(const QuicConfig* config,
                  const QuicCryptoServerConfig* crypto_config,
                  QuicVersionManager* version_manager,
                  std::unique_ptr<QuicConnectionHelperInterface> helper,
@@ -91,6 +91,11 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // Collects reset error code received on streams.
   void OnRstStreamReceived(const QuicRstStreamFrame& frame) override;
 
+  // QuicSession::Visitor interface implementation (via inheritance of
+  // QuicTimeWaitListManager::Visitor):
+  // Collects reset error code received on streams.
+  void OnStopSendingReceived(const QuicStopSendingFrame& frame) override;
+
   // QuicTimeWaitListManager::Visitor interface implementation
   // Called whenever the time wait list manager adds a new connection to the
   // time-wait list.
@@ -110,7 +115,7 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   // send a handshake and then up to 50 or so data packets, and then it may
   // resend the handshake packet up to 10 times.  (Retransmitted packets are
   // sent with unique packet numbers.)
-  static const QuicPacketNumber kMaxReasonableInitialPacketNumber = 100;
+  static const uint64_t kMaxReasonableInitialPacketNumber = 100;
   static_assert(kMaxReasonableInitialPacketNumber >=
                     kInitialCongestionWindow + 10,
                 "kMaxReasonableInitialPacketNumber is unreasonably small "
@@ -138,6 +143,7 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
       const QuicVersionNegotiationPacket& packet) override;
   void OnDecryptedPacket(EncryptionLevel level) override;
   bool OnPacketHeader(const QuicPacketHeader& header) override;
+  void OnCoalescedPacket(const QuicEncryptedPacket& packet) override;
   bool OnStreamFrame(const QuicStreamFrame& frame) override;
   bool OnCryptoFrame(const QuicCryptoFrame& frame) override;
   bool OnAckFrameStart(QuicPacketNumber largest_acked,
@@ -266,7 +272,7 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
   }
   const QuicReceivedPacket& current_packet() const { return *current_packet_; }
 
-  const QuicConfig& config() const { return config_; }
+  const QuicConfig& config() const { return *config_; }
 
   const QuicCryptoServerConfig* crypto_config() const { return crypto_config_; }
 
@@ -322,10 +328,6 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
 
   void StopAcceptingNewConnections();
 
-  // Return true if the blocked writer should be added to blocked list.
-  // TODO(wub): Remove when deprecating --quic_check_blocked_writer_for_blockage
-  virtual bool ShouldAddToBlockedList();
-
   // Called to terminate a connection statelessly. Depending on |format|, either
   // 1) send connection close with |error_code| and |error_details| and add
   // connection to time wait list or 2) directly add connection to time wait
@@ -345,11 +347,6 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
 
   // Skip validating that the public flags are set to legal values.
   void DisableFlagValidation();
-
-  // Please do not use this method.
-  // TODO(fayang): Remove this method when deprecating
-  // quic_proxy_use_real_packet_format_when_reject flag.
-  PacketHeaderFormat GetLastPacketFormat() const;
 
  private:
   friend class test::QuicDispatcherPeer;
@@ -405,7 +402,7 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
     new_sessions_allowed_per_event_loop_ = new_sessions_allowed_per_event_loop;
   }
 
-  const QuicConfig& config_;
+  const QuicConfig* config_;
 
   const QuicCryptoServerConfig* crypto_config_;
 
@@ -473,9 +470,6 @@ class QuicDispatcher : public QuicTimeWaitListManager::Visitor,
 
   // True if this dispatcher is not draining.
   bool accept_new_connections_;
-
-  // Latched value of --quic_check_blocked_writer_for_blockage.
-  const bool check_blocked_writer_for_blockage_;
 };
 
 }  // namespace quic

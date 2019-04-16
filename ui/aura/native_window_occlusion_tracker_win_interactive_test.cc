@@ -29,6 +29,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/display/win/dpi.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/win/singleton_hwnd.h"
 #include "ui/gfx/win/window_impl.h"
 #include "ui/gl/test/gl_surface_test_support.h"
 
@@ -123,10 +124,13 @@ class NativeWindowOcclusionTrackerTest : public test::AuraTestBase {
                        GetWindowLong(hwnd, GWL_EXSTYLE));
 
     // Make sure to keep the window onscreen, as AdjustWindowRectEx() may have
-    // moved part of it offscreen.
+    // moved part of it offscreen. But, if the original requested bounds are
+    // offscreen, don't adjust the position.
     gfx::Rect window_bounds(wr);
-    window_bounds.set_x(std::max(0, window_bounds.x()));
-    window_bounds.set_y(std::max(0, window_bounds.y()));
+    if (bounds.x() >= 0)
+      window_bounds.set_x(std::max(0, window_bounds.x()));
+    if (bounds.y() >= 0)
+      window_bounds.set_y(std::max(0, window_bounds.y()));
     SetWindowPos(hwnd, HWND_TOP, window_bounds.x(), window_bounds.y(),
                  window_bounds.width(), window_bounds.height(),
                  SWP_NOREPOSITION);
@@ -187,6 +191,38 @@ TEST_F(NativeWindowOcclusionTrackerTest, SimpleOcclusion) {
   CreateTrackedAuraWindowWithBounds(&observer, gfx::Rect(0, 0, 100, 100));
   observer.set_expectation(Window::OcclusionState::OCCLUDED);
   CreateNativeWindowWithBounds(gfx::Rect(0, 0, 100, 100));
+  run_loop.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+}
+
+// Simple test partially covering an aura window with a native window.
+TEST_F(NativeWindowOcclusionTrackerTest, PartialOcclusion) {
+  base::RunLoop run_loop;
+
+  MockWindowTreeHostObserver observer(run_loop.QuitClosure());
+  CreateTrackedAuraWindowWithBounds(&observer, gfx::Rect(0, 0, 100, 100));
+  observer.set_expectation(Window::OcclusionState::VISIBLE);
+  CreateNativeWindowWithBounds(gfx::Rect(0, 0, 50, 50));
+  run_loop.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+}
+
+// Simple test that a partly off screen aura window, with the on screen part
+// occluded by a native window, is considered occluded.
+TEST_F(NativeWindowOcclusionTrackerTest, OffscreenOcclusion) {
+  base::RunLoop run_loop;
+
+  MockWindowTreeHostObserver observer(run_loop.QuitClosure());
+  CreateTrackedAuraWindowWithBounds(&observer, gfx::Rect(0, 0, 100, 100));
+
+  // Move the tracked window 50 pixels offscreen to the left.
+  int screen_left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+  SetWindowPos(host()->GetAcceleratedWidget(), HWND_TOP, screen_left - 50, 0,
+               100, 100, SWP_NOZORDER | SWP_NOSIZE);
+
+  // Create a native window that covers the onscreen part of the tracked window.
+  CreateNativeWindowWithBounds(gfx::Rect(screen_left, 0, 50, 100));
+  observer.set_expectation(Window::OcclusionState::OCCLUDED);
   run_loop.Run();
   EXPECT_FALSE(observer.is_expecting_call());
 }
@@ -262,6 +298,58 @@ TEST_F(NativeWindowOcclusionTrackerTest, OcclusionAfterVisibilityToggle) {
   observer.set_quit_closure(run_loop4.QuitClosure());
   CreateNativeWindowWithBounds(gfx::Rect(0, 0, 100, 100));
   run_loop4.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+}
+
+// Test that locking the screen causes visible windows to become occluded.
+TEST_F(NativeWindowOcclusionTrackerTest, LockScreenVisibleOcclusion) {
+  base::RunLoop run_loop;
+
+  MockWindowTreeHostObserver observer(run_loop.QuitClosure());
+  CreateTrackedAuraWindowWithBounds(&observer, gfx::Rect(0, 0, 100, 100));
+  observer.set_expectation(Window::OcclusionState::VISIBLE);
+  run_loop.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+
+  observer.set_expectation(Window::OcclusionState::OCCLUDED);
+  base::RunLoop run_loop2;
+  observer.set_quit_closure(run_loop2.QuitClosure());
+  // Unfortunately, this relies on knowing that NativeWindowOcclusionTracker
+  // uses SessionChangeObserver to listen for WM_WTSSESSION_CHANGE messages, but
+  // actually locking the screen isn't feasible.
+  PostMessage(gfx::SingletonHwnd::GetInstance()->hwnd(), WM_WTSSESSION_CHANGE,
+              WTS_SESSION_LOCK, 0);
+  run_loop2.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+}
+
+// Test that locking the screen leaves hidden windows as hidden.
+TEST_F(NativeWindowOcclusionTrackerTest, LockScreenHiddenOcclusion) {
+  base::RunLoop run_loop;
+
+  MockWindowTreeHostObserver observer(run_loop.QuitClosure());
+  CreateTrackedAuraWindowWithBounds(&observer, gfx::Rect(0, 0, 100, 100));
+  // Iconify the tracked aura window and check that its occlusion state
+  // is HIDDEN.
+  CloseWindow(host()->GetAcceleratedWidget());
+  observer.set_expectation(Window::OcclusionState::HIDDEN);
+  run_loop.Run();
+  EXPECT_FALSE(observer.is_expecting_call());
+
+  // Observer only gets notified on occlusion state changes, so force the
+  // state to VISIBLE so that setting the state to hidden will trigger
+  // a notification.
+  host()->SetNativeWindowOcclusionState(Window::OcclusionState::VISIBLE);
+
+  observer.set_expectation(Window::OcclusionState::HIDDEN);
+  base::RunLoop run_loop2;
+  observer.set_quit_closure(run_loop2.QuitClosure());
+  // Unfortunately, this relies on knowing that NativeWindowOcclusionTracker
+  // uses SessionChangeObserver to listen for WM_WTSSESSION_CHANGE messages, but
+  // actually locking the screen isn't feasible.
+  PostMessage(gfx::SingletonHwnd::GetInstance()->hwnd(), WM_WTSSESSION_CHANGE,
+              WTS_SESSION_LOCK, 0);
+  run_loop2.Run();
   EXPECT_FALSE(observer.is_expecting_call());
 }
 

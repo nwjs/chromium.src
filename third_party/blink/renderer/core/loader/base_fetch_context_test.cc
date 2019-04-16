@@ -51,6 +51,10 @@ class MockBaseFetchContext final : public BaseFetchContext {
 
   // BaseFetchContext overrides:
   KURL GetSiteForCookies() const override { return KURL(); }
+  scoped_refptr<const blink::SecurityOrigin> GetTopFrameOrigin()
+      const override {
+    return SecurityOrigin::CreateUniqueOpaque();
+  }
   bool AllowScriptFromSource(const KURL&) const override { return false; }
   SubresourceFilter* GetSubresourceFilter() const override { return nullptr; }
   PreviewsResourceLoadingHints* GetPreviewsResourceLoadingHints()
@@ -92,10 +96,6 @@ class MockBaseFetchContext final : public BaseFetchContext {
   const SecurityOrigin* GetParentSecurityOrigin() const override {
     return nullptr;
   }
-  base::Optional<mojom::IPAddressSpace> GetAddressSpace() const override {
-    return base::make_optional(
-        execution_context_->GetSecurityContext().AddressSpace());
-  }
   const ContentSecurityPolicy* GetContentSecurityPolicy() const override {
     return execution_context_->GetContentSecurityPolicy();
   }
@@ -107,16 +107,9 @@ class MockBaseFetchContext final : public BaseFetchContext {
     BaseFetchContext::Trace(visitor);
   }
 
-  bool IsDetached() const override { return is_detached_; }
-  FetchContext* Detach() override {
-    is_detached_ = true;
-    return this;
-  }
-
  private:
   Member<ExecutionContext> execution_context_;
-  Member<FetchClientSettingsObjectImpl> fetch_client_settings_object_;
-  bool is_detached_ = false;
+  Member<const FetchClientSettingsObjectImpl> fetch_client_settings_object_;
 };
 
 class BaseFetchContextTest : public testing::Test {
@@ -127,11 +120,12 @@ class BaseFetchContextTest : public testing::Test {
         ->SetUpSecurityContext();
     fetch_context_ =
         MakeGarbageCollected<MockBaseFetchContext>(execution_context_);
-    auto* properties = MakeGarbageCollected<TestResourceFetcherProperties>(
-        *MakeGarbageCollected<FetchClientSettingsObjectImpl>(
-            *execution_context_));
+    resource_fetcher_properties_ =
+        MakeGarbageCollected<TestResourceFetcherProperties>(
+            *MakeGarbageCollected<FetchClientSettingsObjectImpl>(
+                *execution_context_));
     resource_fetcher_ = MakeGarbageCollected<ResourceFetcher>(
-        ResourceFetcherInit(*properties, fetch_context_,
+        ResourceFetcherInit(*resource_fetcher_properties_, fetch_context_,
                             base::MakeRefCounted<scheduler::FakeTaskRunner>()));
   }
 
@@ -145,6 +139,7 @@ class BaseFetchContextTest : public testing::Test {
   Persistent<ExecutionContext> execution_context_;
   Persistent<MockBaseFetchContext> fetch_context_;
   Persistent<ResourceFetcher> resource_fetcher_;
+  Persistent<TestResourceFetcherProperties> resource_fetcher_properties_;
 };
 
 TEST_F(BaseFetchContextTest, SetIsExternalRequestForPublicContext) {
@@ -168,14 +163,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForPublicContext) {
     ScopedCorsRFC1918ForTest cors_rfc1918(false);
     for (const auto& test : cases) {
       SCOPED_TRACE(test.url);
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_FALSE(main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_FALSE(sub_request.IsExternalRequest());
     }
   }
@@ -184,14 +173,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForPublicContext) {
     ScopedCorsRFC1918ForTest cors_rfc1918(true);
     for (const auto& test : cases) {
       SCOPED_TRACE(test.url);
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_EQ(test.is_external_expectation, main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_EQ(test.is_external_expectation, sub_request.IsExternalRequest());
     }
   }
@@ -220,14 +203,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForPrivateContext) {
     ScopedCorsRFC1918ForTest cors_rfc1918(false);
     for (const auto& test : cases) {
       SCOPED_TRACE(test.url);
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_FALSE(main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_FALSE(sub_request.IsExternalRequest());
     }
   }
@@ -236,14 +213,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForPrivateContext) {
     ScopedCorsRFC1918ForTest cors_rfc1918(true);
     for (const auto& test : cases) {
       SCOPED_TRACE(test.url);
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_EQ(test.is_external_expectation, main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_EQ(test.is_external_expectation, sub_request.IsExternalRequest());
     }
   }
@@ -271,14 +242,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForLocalContext) {
   {
     ScopedCorsRFC1918ForTest cors_rfc1918(false);
     for (const auto& test : cases) {
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_FALSE(main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_FALSE(sub_request.IsExternalRequest());
     }
   }
@@ -286,14 +251,8 @@ TEST_F(BaseFetchContextTest, SetIsExternalRequestForLocalContext) {
   {
     ScopedCorsRFC1918ForTest cors_rfc1918(true);
     for (const auto& test : cases) {
-      ResourceRequest main_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(main_request,
-                                                  kFetchMainResource);
-      EXPECT_EQ(test.is_external_expectation, main_request.IsExternalRequest());
-
       ResourceRequest sub_request(test.url);
-      fetch_context_->AddAdditionalRequestHeaders(sub_request,
-                                                  kFetchSubresource);
+      fetch_context_->AddAdditionalRequestHeaders(sub_request);
       EXPECT_EQ(test.is_external_expectation, sub_request.IsExternalRequest());
     }
   }

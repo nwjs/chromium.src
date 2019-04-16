@@ -57,9 +57,10 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/service_manager/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
-#include "services/test/echo/manifest.h"
+#include "services/test/echo/public/cpp/manifest.h"
 #include "services/test/echo/public/mojom/echo.mojom.h"
 #include "storage/browser/quota/quota_settings.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "ui/base/ui_base_features.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -76,7 +77,7 @@
 #include "content/public/browser/context_factory.h"
 #include "content/public/browser/gpu_interface_provider_factory.h"
 #include "services/ws/public/mojom/constants.mojom.h"         // nogncheck
-#include "services/ws/test_ws/manifest.h"                     // nogncheck
+#include "services/ws/test_ws/test_manifest.h"                // nogncheck
 #include "services/ws/test_ws/test_window_service_factory.h"  // nogncheck
 #include "services/ws/test_ws/test_ws.mojom.h"                // nogncheck
 #endif
@@ -232,6 +233,21 @@ std::string GetShellUserAgent() {
   if (command_line->HasSwitch(switches::kUseMobileUserAgent))
     product += " Mobile";
   return BuildUserAgentFromProduct(product);
+}
+
+blink::UserAgentMetadata GetShellUserAgentMetadata() {
+  blink::UserAgentMetadata metadata;
+
+  metadata.brand = "content_shell";
+  metadata.full_version = CONTENT_SHELL_VERSION;
+  metadata.major_version = CONTENT_SHELL_MAJOR_VERSION;
+  metadata.platform = BuildOSCpuInfo(false);
+
+  // TODO(mkwst): Split these out from BuildOSCpuInfo().
+  metadata.architecture = "";
+  metadata.model = "";
+
+  return metadata;
 }
 
 ShellContentBrowserClient* ShellContentBrowserClient::Get() {
@@ -465,9 +481,9 @@ void ShellContentBrowserClient::OpenURL(
                    ->web_contents());
 }
 
-scoped_refptr<LoginDelegate> ShellContentBrowserClient::CreateLoginDelegate(
+std::unique_ptr<LoginDelegate> ShellContentBrowserClient::CreateLoginDelegate(
     net::AuthChallengeInfo* auth_info,
-    content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+    content::WebContents* web_contents,
     const content::GlobalRequestID& request_id,
     bool is_main_frame,
     const GURL& url,
@@ -489,6 +505,11 @@ scoped_refptr<LoginDelegate> ShellContentBrowserClient::CreateLoginDelegate(
 
 std::string ShellContentBrowserClient::GetUserAgent() const {
   return GetShellUserAgent();
+}
+
+blink::UserAgentMetadata ShellContentBrowserClient::GetUserAgentMetadata()
+    const {
+  return GetShellUserAgentMetadata();
 }
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)

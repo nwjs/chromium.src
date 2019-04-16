@@ -1,5 +1,7 @@
 # WebView Test Instructions
 
+[TOC]
+
 ## Android Instructions
 
 Please follow the instructions at
@@ -118,7 +120,6 @@ with:
 
 # Run pre-built WebView CTS tests:
 $ android_webview/tools/run_cts.py \
-    --apk-dir="$HOME/run-cts-apk-dir" \ # Any folder, to use as an optional cache
     --verbose \ # Optional
     -f=android.webkit.cts.WebViewTest#* # Supports similar test filters
 ```

@@ -136,7 +136,7 @@ class LinuxInputMethodContextForTesting : public LinuxInputMethodContext {
     re << "selectionrangeend:" << selection_range.end();
     TestResult::GetInstance()->RecordAction(base::ASCIIToUTF16(rs.str()));
     TestResult::GetInstance()->RecordAction(base::ASCIIToUTF16(re.str()));
-  };
+  }
 
  private:
   LinuxInputMethodContextDelegate* delegate_;
@@ -152,14 +152,14 @@ class LinuxInputMethodContextForTesting : public LinuxInputMethodContext {
 class LinuxInputMethodContextFactoryForTesting
     : public LinuxInputMethodContextFactory {
  public:
-  LinuxInputMethodContextFactoryForTesting(){};
+  LinuxInputMethodContextFactoryForTesting() {}
 
   std::unique_ptr<LinuxInputMethodContext> CreateInputMethodContext(
       LinuxInputMethodContextDelegate* delegate,
       bool is_simple) const override {
     return std::unique_ptr<ui::LinuxInputMethodContext>(
         new LinuxInputMethodContextForTesting(delegate));
-  };
+  }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(LinuxInputMethodContextFactoryForTesting);
@@ -172,7 +172,7 @@ class InputMethodDelegateForTesting : public internal::InputMethodDelegate {
 
   ui::EventDispatchDetails DispatchKeyEventPostIME(
       ui::KeyEvent* key_event,
-      base::OnceCallback<void(bool)> ack_callback) override {
+      DispatchKeyEventPostIMECallback callback) override {
     std::string action;
     switch (key_event->type()) {
       case ET_KEY_PRESSED:
@@ -188,7 +188,7 @@ class InputMethodDelegateForTesting : public internal::InputMethodDelegate {
     ss << key_event->key_code();
     action += std::string(ss.str());
     TestResult::GetInstance()->RecordAction(base::ASCIIToUTF16(action));
-    CallDispatchKeyEventPostIMEAck(key_event, std::move(ack_callback));
+    RunDispatchKeyEventPostIMECallback(key_event, std::move(callback));
     return ui::EventDispatchDetails();
   }
 
@@ -199,7 +199,7 @@ class InputMethodDelegateForTesting : public internal::InputMethodDelegate {
 class TextInputClientForTesting : public DummyTextInputClient {
  public:
   explicit TextInputClientForTesting(TextInputType text_input_type)
-      : DummyTextInputClient(text_input_type){};
+      : DummyTextInputClient(text_input_type) {}
 
   base::string16 composition_text;
   gfx::Range text_range;

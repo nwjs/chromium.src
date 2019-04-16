@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/frame/navigation_initiator.mojom-blink.h"
 #include "third_party/blink/public/mojom/portal/portal.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_security_policy_struct.h"
@@ -100,7 +101,9 @@ class ResourceResponse;
 class SecurityOrigin;
 class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
+class WebContentCaptureClient;
 class WebCookieJar;
+class WebDedicatedWorkerHostFactoryClient;
 class WebLayerTreeView;
 class WebLocalFrame;
 class WebMediaPlayer;
@@ -121,6 +124,10 @@ enum class DownloadCrossOriginRedirects { kFollow, kNavigate };
 class CORE_EXPORT LocalFrameClient : public FrameClient {
  public:
   ~LocalFrameClient() override = default;
+
+  virtual WebContentCaptureClient* GetWebContentCaptureClient() const {
+    return nullptr;
+  }
 
   virtual WebLocalFrame* GetWebFrame() const { return nullptr; }
 
@@ -209,19 +216,15 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // The frame ran content with certificate errors with the given URL.
   virtual void DidRunContentWithCertificateErrors() = 0;
 
-  // The frame loaded a resource with a legacy Symantec certificate that is
-  // slated for distrust (indicated by |did_fail| being false) or has already
-  // been distrusted (indicated by |did_fail| being true). Prints a console
-  // message (possibly overridden by the embedder) to warn about the
-  // certificate.
-  virtual void ReportLegacySymantecCert(const KURL&, bool did_fail) {}
-
   // The frame loaded a resource with a legacy TLS version that will be removed
   // in the future. Prints a console message to warn about this.
   virtual void ReportLegacyTLSVersion(const KURL&) {}
 
   // Will be called when |PerformanceTiming| events are updated
   virtual void DidChangePerformanceTiming() {}
+
+  // Will be called when |CpuTiming| events are updated
+  virtual void DidChangeCpuTiming(base::TimeDelta time) {}
 
   // Will be called when a particular loading code path has been used. This
   // propogates renderer loading behavior to the browser process for histograms.
@@ -260,6 +263,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) = 0;
 
   virtual String UserAgent() = 0;
+  virtual blink::UserAgentMetadata UserAgentMetadata() = 0;
 
   virtual String DoNotTrackValue() = 0;
 
@@ -387,8 +391,24 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
     return nullptr;
   }
 
+  // Binds |js_handle| to the currently bound implementation of
+  // DocumentInterfaceBroker to share the same broker between C++ and JavaScript
+  // clients.
+  virtual void BindDocumentInterfaceBroker(
+      mojo::ScopedMessagePipeHandle js_handle) {}
+
   virtual mojom::blink::DocumentInterfaceBroker* GetDocumentInterfaceBroker() {
     return nullptr;
+  }
+
+  // Used in tests to set a custom override for DocumentInterfaceBroker methods.
+  // |blink_handle| is bound to the test implementation on the caller side.
+  // Returns the handle to the previously bound 'production' implementation,
+  // which will be used to forward the calls to methods that have not been
+  // overridden.
+  virtual mojo::ScopedMessagePipeHandle SetDocumentInterfaceBrokerForTesting(
+      mojo::ScopedMessagePipeHandle blink_handle) {
+    return mojo::ScopedMessagePipeHandle();
   }
 
   virtual AssociatedInterfaceProvider*
@@ -451,10 +471,26 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
                                          const KURL&,
                                          const String&) {
     return false;
-  };
+  }
 
-  // Returns a new WebWorkerFetchContext for a dedicated worker or worklet.
+  // When a plugin element is handled externally, this method is used to obtain
+  // a scriptable object which exposes custom API such as postMessage.
+  virtual v8::Local<v8::Object> GetScriptableObject(HTMLPlugInElement&,
+                                                    v8::Isolate*) {
+    return v8::Local<v8::Object>();
+  }
+
+  // Returns a new WebWorkerFetchContext for a dedicated worker (in the
+  // non-PlzDedicatedWorker case) or worklet.
   virtual scoped_refptr<WebWorkerFetchContext> CreateWorkerFetchContext() {
+    return nullptr;
+  }
+
+  // Returns a new WebWorkerFetchContext for PlzDedicatedWorker.
+  // (https://crbug.com/906991)
+  virtual scoped_refptr<WebWorkerFetchContext>
+  CreateWorkerFetchContextForPlzDedicatedWorker(
+      WebDedicatedWorkerHostFactoryClient*) {
     return nullptr;
   }
 
@@ -468,6 +504,13 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // Returns whether we are associated with a print context who suggests to use
   // printing layout.
   virtual bool UsePrintingLayout() const { return false; }
+
+  // Called to get the FeatureState inherited from an opener if any. This works
+  // with disowned openers, i.e., even if Frame::Opener() is nullptr, there
+  // could be a non-empty feature state which is taken from the the original
+  // opener of the frame. This is similar to how sandbox flags are propagated to
+  // the opened new browsing contexts.
+  virtual const FeaturePolicy::FeatureState& GetOpenerFeatureState() const = 0;
 };
 
 }  // namespace blink

@@ -34,7 +34,7 @@
 #include "components/viz/common/gpu/context_provider.h"
 #include "components/viz/common/resources/resource_format.h"
 #include "components/viz/common/resources/resource_settings.h"
-#include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
+#include "components/viz/common/surfaces/child_local_surface_id_allocator.h"
 #include "components/viz/common/switches.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "components/viz/host/renderer_settings_creation.h"
@@ -71,7 +71,8 @@ Compositor::Compositor(
     bool enable_pixel_canvas,
     ui::ExternalBeginFrameClient* external_begin_frame_client,
     bool force_software_compositor,
-    const char* trace_environment_name)
+    const char* trace_environment_name,
+    bool automatically_allocate_surface_ids)
     : context_factory_(context_factory),
       context_factory_private_(context_factory_private),
       frame_sink_id_(frame_sink_id),
@@ -112,6 +113,9 @@ Compositor::Compositor(
 
   // Disable edge anti-aliasing in order to increase support for HW overlays.
   settings.enable_edge_anti_aliasing = false;
+
+  settings.automatically_allocate_surface_ids =
+      automatically_allocate_surface_ids;
 
   if (command_line->HasSwitch(cc::switches::kUIShowCompositedLayerBorders)) {
     std::string layer_borders_string = command_line->GetSwitchValueASCII(
@@ -371,14 +375,9 @@ void Compositor::SetScaleAndSize(
   bool device_scale_factor_changed = device_scale_factor_ != scale;
   device_scale_factor_ = scale;
 
-  if (size_ != size_in_pixel && local_surface_id_allocation.IsValid()) {
-    // A new LocalSurfaceId must be set when the compositor size changes.
-    DCHECK_NE(
-        local_surface_id_allocation.local_surface_id(),
-        host_->local_surface_id_allocation_from_parent().local_surface_id());
-    DCHECK_NE(local_surface_id_allocation,
-              host_->local_surface_id_allocation_from_parent());
-  }
+  if (size_ != size_in_pixel && local_surface_id_allocation.IsValid())
+    DCHECK_NE(local_surface_id_allocation, last_local_surface_id_allocation_);
+  last_local_surface_id_allocation_ = local_surface_id_allocation;
 
   if (!size_in_pixel.IsEmpty()) {
     bool size_changed = size_ != size_in_pixel;
@@ -399,6 +398,46 @@ void Compositor::SetScaleAndSize(
     if (root_layer_)
       root_layer_->OnDeviceScaleFactorChanged(scale);
   }
+}
+
+viz::LocalSurfaceIdAllocation Compositor::UpdateLocalSurfaceIdFromParent(
+    const viz::LocalSurfaceIdAllocation& local_surface_id_allocation) {
+  DCHECK(local_surface_id_allocation.IsValid());
+  if (!host_->local_surface_id_allocation_from_parent().IsValid()) {
+    host_->SetLocalSurfaceIdAllocationFromParent(local_surface_id_allocation);
+    return local_surface_id_allocation;
+  }
+  // It's entirely possible |local_surface_id_allocation| has an older child
+  // sequence number than LayerTreeHost. Create a new LocalSurfaceId to ensure
+  // the child sequence number matches that in LayerTreeHost. To do otherwise
+  // would lead to the cached value in LayerTreeHost not necessarily matching
+  // the most recent supplied value, which is problematic for any code expecting
+  // the value to be up to date.
+  const viz::LocalSurfaceId& current_id =
+      host_->local_surface_id_allocation_from_parent().local_surface_id();
+  auto allocator =
+      viz::ChildLocalSurfaceIdAllocator::CreateWithChildSequenceNumber(
+          current_id.child_sequence_number());
+  allocator->UpdateFromParent(local_surface_id_allocation);
+  const viz::LocalSurfaceIdAllocation resulting_id =
+      allocator->GetCurrentLocalSurfaceIdAllocation();
+  host_->SetLocalSurfaceIdAllocationFromParent(resulting_id);
+  return resulting_id;
+}
+
+viz::LocalSurfaceIdAllocation Compositor::GetLocalSurfaceIdAllocation() const {
+  return host_->local_surface_id_allocation_from_parent();
+}
+
+viz::LocalSurfaceIdAllocation Compositor::RequestNewChildLocalSurfaceId() {
+  const uint32_t child_sequence_number =
+      host_->GenerateChildSurfaceSequenceNumberSync();
+  const viz::LocalSurfaceId current_id =
+      host_->local_surface_id_allocation_from_parent().local_surface_id();
+  return viz::LocalSurfaceIdAllocation(
+      viz::LocalSurfaceId(current_id.parent_sequence_number(),
+                          child_sequence_number, current_id.embed_token()),
+      base::TimeTicks::Now());
 }
 
 void Compositor::SetDisplayColorSpace(const gfx::ColorSpace& color_space) {
@@ -543,6 +582,16 @@ bool Compositor::HasAnimationObserver(
   return animation_observer_list_.HasObserver(observer);
 }
 
+void Compositor::DidUpdateLayers() {
+  // Dump property trees and layers if run with:
+  //   --vmodule=*ui/compositor*=3
+  VLOG(3) << "After updating layers:\n"
+          << "property trees:\n"
+          << host_->property_trees()->ToString() << "\n"
+          << "cc::Layers:\n"
+          << host_->LayersAsString();
+}
+
 void Compositor::BeginMainFrame(const viz::BeginFrameArgs& args) {
   DCHECK(!IsLocked());
   for (auto& observer : animation_observer_list_)
@@ -562,7 +611,7 @@ static void SendDamagedRectsRecursive(ui::Layer* layer) {
     SendDamagedRectsRecursive(child);
 }
 
-void Compositor::UpdateLayerTreeHost(bool record_main_frame_metrics) {
+void Compositor::UpdateLayerTreeHost() {
   if (!root_layer())
     return;
   SendDamagedRectsRecursive(root_layer());

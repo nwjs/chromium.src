@@ -196,6 +196,9 @@ cr.define('print_preview', function() {
         ],
       ]);
 
+      /** @private {!Set<string>} */
+      this.inFlightCloudPrintRequests_ = new Set();
+
       /**
        * Maps user account to the list of origins for which destinations are
        * already loaded.
@@ -230,12 +233,6 @@ cr.define('print_preview', function() {
       this.platformOrigin_ = cr.isChromeOS ?
           print_preview.DestinationOrigin.CROS :
           print_preview.DestinationOrigin.LOCAL;
-
-      /**
-       * The recent print destinations, set when the store is initialized.
-       * @private {!Array<!print_preview.RecentDestination>}
-       */
-      this.recentDestinations_ = [];
 
       /**
        * Currently selected destination.
@@ -376,7 +373,6 @@ cr.define('print_preview', function() {
         return;
       }
 
-      this.recentDestinations_ = recentDestinations;
       let startedAutoSelect = false;
       let selected = false;
       let account = '';
@@ -397,7 +393,6 @@ cr.define('print_preview', function() {
           continue;
         }
         if (candidate != undefined) {
-          candidate.isRecent = true;
           // Destination is already in the store. Select it, if we haven't
           // started selecting a destination already.
           if (shouldSelectDestination) {
@@ -460,6 +455,14 @@ cr.define('print_preview', function() {
      * @private
      */
     fetchPreselectedDestination_(serializedDestination, autoSelect) {
+      const key =
+          print_preview.createRecentDestinationKey(serializedDestination);
+      if (this.inFlightCloudPrintRequests_.has(key)) {
+        // Don't send another request if we are already fetching this
+        // destination.
+        return true;
+      }
+
       const id = serializedDestination.id;
       const origin = serializedDestination.origin;
       if (autoSelect) {
@@ -494,20 +497,18 @@ cr.define('print_preview', function() {
                 };
             this.selectedDestination_ = new print_preview.Destination(
                 id, print_preview.DestinationType.LOCAL, origin,
-                serializedDestination.displayName, false /* isRecent */,
+                serializedDestination.displayName,
                 print_preview.DestinationConnectionStatus.ONLINE, params);
 
             if (serializedDestination.capabilities) {
               this.selectedDestination_.capabilities =
                   serializedDestination.capabilities;
-              this.dispatchEvent(new CustomEvent(
-                  DestinationStore.EventType
-                      .SELECTED_DESTINATION_CAPABILITIES_READY));
             }
           }
           break;
         case print_preview.PrinterType.CLOUD_PRINTER:
           if (this.cloudPrintInterface_) {
+            this.inFlightCloudPrintRequests_.add(key);
             this.cloudPrintInterface_.printer(
                 id, origin, serializedDestination.account);
           } else {
@@ -703,7 +704,6 @@ cr.define('print_preview', function() {
 
       // Update and persist selected destination.
       this.selectedDestination_ = destination;
-      this.selectedDestination_.isRecent = true;
       // Adjust metrics.
       if (destination.cloudID &&
           this.destinations_.some(function(otherDestination) {
@@ -941,6 +941,11 @@ cr.define('print_preview', function() {
      * @param {string} id The ID of the destination to load.
      */
     startLoadCookieDestination(id) {
+      if (this.destinationMap_.get(print_preview.createDestinationKey(
+              id, print_preview.DestinationOrigin.COOKIES, this.activeUser_))) {
+        // Already loaded.
+        return;
+      }
       this.fetchPreselectedDestination_(
           {
             id: id,
@@ -1103,12 +1108,6 @@ cr.define('print_preview', function() {
       const key = destination.key;
       const existingDestination = this.destinationMap_.get(key);
       if (existingDestination == undefined) {
-        destination.isRecent = destination.isRecent ||
-            this.recentDestinations_.some(function(recent) {
-              return (
-                  destination.id == recent.id &&
-                  destination.origin == recent.origin);
-            }, this);
         this.destinations_.push(destination);
         this.destinationMap_.set(key, destination);
         return true;
@@ -1135,7 +1134,7 @@ cr.define('print_preview', function() {
             print_preview.Destination.GooglePromotedId.SAVE_AS_PDF,
             print_preview.DestinationType.LOCAL,
             print_preview.DestinationOrigin.LOCAL,
-            loadTimeData.getString('printToPDF'), false /*isRecent*/,
+            loadTimeData.getString('printToPDF'),
             print_preview.DestinationConnectionStatus.ONLINE));
       }
     }
@@ -1158,7 +1157,7 @@ cr.define('print_preview', function() {
     reset_() {
       this.destinations_ = [];
       this.destinationMap_.clear();
-      this.selectDestination(null);
+      this.inFlightCloudPrintRequests_.clear();
       this.loadedCloudOrigins_.clear();
       this.destinationSearchStatus_.forEach((status, type) => {
         this.destinationSearchStatus_.set(
@@ -1256,13 +1255,12 @@ cr.define('print_preview', function() {
     /**
      * Called when the /search call completes, either successfully or not.
      * In case of success, stores fetched destinations.
-     * @param {!CustomEvent} event Contains the request result.
+     * @param {!CustomEvent<!cloudprint.CloudPrintInterfaceSearchDoneDetail>}
+     *      event Contains the request result.
      * @private
      */
     onCloudPrintSearchDone_(event) {
-      const payload =
-          /** @type {!cloudprint.CloudPrintInterfaceSearchDoneDetail} */ (
-              event.detail);
+      const payload = event.detail;
       if (payload.printers && payload.printers.length > 0) {
         this.insertDestinations_(payload.printers);
         if (this.selectFirstDestination_) {
@@ -1307,46 +1305,47 @@ cr.define('print_preview', function() {
     /**
      * Called when /printer call completes. Updates the specified destination's
      * print capabilities.
-     * @param {!CustomEvent} event Contains detailed information about the
-     *     destination.
+     * @param {!CustomEvent<!print_preview.Destination>} event Contains
+     *     detailed information about the destination.
      * @private
      */
     onCloudPrintPrinterDone_(event) {
-      this.updateDestination_(
-          /** @type {!print_preview.Destination} */ (event.detail));
+      this.updateDestination_(event.detail);
+      this.inFlightCloudPrintRequests_.delete(event.detail.key);
     }
 
     /**
      * Called when the Google Cloud Print interface fails to lookup a
      * destination. Selects another destination if the failed destination was
      * the initial destination.
-     * @param {!CustomEvent} event Contains the ID of the destination that was
-     *     failed to be looked up.
+     * @param {!CustomEvent<!cloudprint.CloudPrintInterfacePrinterFailedDetail>}
+     *     event Contains the ID of the destination that failed to be looked up.
      * @private
      */
     onCloudPrintPrinterFailed_(event) {
-      const eventDetail =
-          /** @type {!cloudprint.CloudPrintInterfacePrinterFailedDetail } */ (
-              event.detail);
+      const key = print_preview.createDestinationKey(
+          event.detail.destinationId, event.detail.origin, this.activeUser_);
+      this.inFlightCloudPrintRequests_.delete(key);
       if (this.autoSelectMatchingDestination_ &&
           this.autoSelectMatchingDestination_.matchIdAndOrigin(
-              eventDetail.destinationId, eventDetail.origin)) {
+              event.detail.destinationId, event.detail.origin)) {
         console.warn(
             'Failed to fetch last used printer caps: ' +
-            eventDetail.destinationId);
+            event.detail.destinationId);
         this.selectDefaultDestination_();
       } else {
         // Log the failure
         console.warn(
             'Failed to fetch printer capabilities for ' +
-            eventDetail.destinationId + ' with origin ' + eventDetail.origin);
+            event.detail.destinationId + ' with origin ' + event.detail.origin);
       }
     }
 
     /**
      * Called when printer sharing invitation was processed successfully.
-     * @param {!CustomEvent} event Contains detailed information about the
-     *     invite and newly accepted destination (if known).
+     * @param {!CustomEvent<!cloudprint.CloudPrintInterfaceProcessInviteDetail>}
+     *     event Contains detailed information about the invite and newly
+     *     accepted destination (if known).
      * @private
      */
     onCloudPrintProcessInviteDone_(event) {

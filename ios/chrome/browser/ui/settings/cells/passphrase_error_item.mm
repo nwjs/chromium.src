@@ -4,14 +4,11 @@
 
 #import "ios/chrome/browser/ui/settings/cells/passphrase_error_item.h"
 
+#import "ios/chrome/browser/ui/table_view/cells/table_view_cells_constants.h"
+
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
-
-namespace {
-// Padding used on the leading and trailing edges of the cell.
-const CGFloat kHorizontalPadding = 16;
-}  // namespace
 
 @implementation PassphraseErrorItem
 
@@ -25,7 +22,7 @@ const CGFloat kHorizontalPadding = 16;
   return self;
 }
 
-- (void)configureCell:(UITableViewCell*)cell
+- (void)configureCell:(TableViewCell*)cell
            withStyler:(ChromeTableViewStyler*)styler {
   [super configureCell:cell withStyler:styler];
   cell.textLabel.text = self.text;
@@ -65,17 +62,22 @@ const CGFloat kHorizontalPadding = 16;
     [NSLayoutConstraint activateConstraints:@[
       [_errorImageView.leadingAnchor
           constraintEqualToAnchor:contentView.leadingAnchor
-                         constant:kHorizontalPadding],
+                         constant:kTableViewHorizontalSpacing],
       [_textLabel.leadingAnchor
           constraintEqualToAnchor:_errorImageView.trailingAnchor
-                         constant:kHorizontalPadding],
+                         constant:kTableViewHorizontalSpacing],
       [_textLabel.trailingAnchor
           constraintEqualToAnchor:contentView.trailingAnchor
-                         constant:-kHorizontalPadding],
+                         constant:-kTableViewHorizontalSpacing],
       [_errorImageView.centerYAnchor
           constraintEqualToAnchor:contentView.centerYAnchor],
-      [_textLabel.centerYAnchor
-          constraintEqualToAnchor:contentView.centerYAnchor],
+      [_textLabel.topAnchor
+          constraintEqualToAnchor:contentView.topAnchor
+                         constant:kTableViewOneLabelCellVerticalSpacing],
+      [_textLabel.bottomAnchor
+          constraintEqualToAnchor:contentView.bottomAnchor
+                         constant:-kTableViewOneLabelCellVerticalSpacing],
+
     ]];
 
     [_errorImageView

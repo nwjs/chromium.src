@@ -7,6 +7,7 @@
 
 #include <array>
 #include <atomic>
+#include <limits>
 #include <memory>
 
 #include "base/compiler_specific.h"
@@ -100,8 +101,8 @@ class GWP_ASAN_EXPORT GuardedPageAllocator {
   // encapsulates the logic for updating the stack traces and metadata for a
   // given slot.
   ALWAYS_INLINE
-  void RecordAllocationInSlot(size_t slot, size_t size, void* ptr);
-  ALWAYS_INLINE void RecordDeallocationInSlot(size_t slot);
+  void RecordAllocationMetadata(size_t slot, size_t size, void* ptr);
+  ALWAYS_INLINE void RecordDeallocationMetadata(size_t slot);
 
   // Allocator state shared with with the crash analyzer.
   AllocatorState state_;
@@ -123,17 +124,17 @@ class GWP_ASAN_EXPORT GuardedPageAllocator {
 
   // We dynamically allocate the SlotMetadata array to avoid allocating
   // extraneous memory for when total_pages < kGpaMaxPages.
-  std::unique_ptr<AllocatorState::SlotMetadata[]> slots_;
+  std::unique_ptr<AllocatorState::SlotMetadata[]> metadata_;
 
   // Required for a singleton to access the constructor.
   friend base::NoDestructor<GuardedPageAllocator>;
-
-  DISALLOW_COPY_AND_ASSIGN(GuardedPageAllocator);
 
   friend class GuardedPageAllocatorTest;
   FRIEND_TEST_ALL_PREFIXES(GuardedPageAllocatorTest,
                            GetNearestValidPageEdgeCases);
   FRIEND_TEST_ALL_PREFIXES(GuardedPageAllocatorTest, GetErrorTypeEdgeCases);
+
+  DISALLOW_COPY_AND_ASSIGN(GuardedPageAllocator);
 };
 
 }  // namespace internal

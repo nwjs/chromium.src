@@ -1,5 +1,5 @@
 This is a testharness.js-based test.
-Found 207 tests; 188 PASS, 19 FAIL, 0 TIMEOUT, 0 NOTRUN.
+Found 215 tests; 198 PASS, 17 FAIL, 0 TIMEOUT, 0 NOTRUN.
 PASS idl_test setup
 PASS Partial interface Navigator: original interface defined
 PASS Partial dictionary WebGLContextAttributes: original dictionary defined
@@ -27,11 +27,11 @@ PASS XRSession interface: existence and properties of interface prototype object
 PASS XRSession interface: existence and properties of interface prototype object's "constructor" property
 PASS XRSession interface: existence and properties of interface prototype object's @@unscopables property
 PASS XRSession interface: attribute mode
-PASS XRSession interface: attribute outputContext
+FAIL XRSession interface: attribute outputContext assert_true: The prototype object must have a property "outputContext" expected true got false
 PASS XRSession interface: attribute environmentBlendMode
-PASS XRSession interface: attribute depthNear
-PASS XRSession interface: attribute depthFar
-PASS XRSession interface: attribute baseLayer
+PASS XRSession interface: attribute renderState
+FAIL XRSession interface: attribute viewerSpace assert_true: The prototype object must have a property "viewerSpace" expected true got false
+FAIL XRSession interface: operation updateRenderState(XRRenderStateInit) assert_equals: property has wrong .length expected 0 but got 1
 PASS XRSession interface: operation requestReferenceSpace(XRReferenceSpaceOptions)
 PASS XRSession interface: operation getInputSources()
 PASS XRSession interface: operation requestAnimationFrame(XRFrameRequestCallback)
@@ -44,6 +44,15 @@ FAIL XRSession interface: attribute onselect assert_true: The prototype object m
 FAIL XRSession interface: attribute oninputsourceschange assert_true: The prototype object must have a property "oninputsourceschange" expected true got false
 FAIL XRSession interface: attribute onselectstart assert_true: The prototype object must have a property "onselectstart" expected true got false
 FAIL XRSession interface: attribute onselectend assert_true: The prototype object must have a property "onselectend" expected true got false
+PASS XRRenderState interface: existence and properties of interface object
+PASS XRRenderState interface object length
+PASS XRRenderState interface object name
+PASS XRRenderState interface: existence and properties of interface prototype object
+PASS XRRenderState interface: existence and properties of interface prototype object's "constructor" property
+PASS XRRenderState interface: existence and properties of interface prototype object's @@unscopables property
+PASS XRRenderState interface: attribute depthNear
+PASS XRRenderState interface: attribute depthFar
+PASS XRRenderState interface: attribute baseLayer
 PASS XRFrame interface: existence and properties of interface object
 PASS XRFrame interface object length
 PASS XRFrame interface object name
@@ -51,22 +60,21 @@ PASS XRFrame interface: existence and properties of interface prototype object
 PASS XRFrame interface: existence and properties of interface prototype object's "constructor" property
 PASS XRFrame interface: existence and properties of interface prototype object's @@unscopables property
 PASS XRFrame interface: attribute session
-FAIL XRFrame interface: operation getViewerPose(XRReferenceSpace) assert_equals: property has wrong .length expected 0 but got 1
-FAIL XRFrame interface: operation getInputPose(XRInputSource, XRReferenceSpace) assert_equals: property has wrong .length expected 1 but got 2
+PASS XRFrame interface: operation getViewerPose(XRReferenceSpace)
+PASS XRFrame interface: operation getPose(XRSpace, XRSpace)
 PASS XRSpace interface: existence and properties of interface object
 PASS XRSpace interface object length
 PASS XRSpace interface object name
 PASS XRSpace interface: existence and properties of interface prototype object
 PASS XRSpace interface: existence and properties of interface prototype object's "constructor" property
 PASS XRSpace interface: existence and properties of interface prototype object's @@unscopables property
-PASS XRSpace interface: operation getTransformTo(XRSpace)
 PASS XRReferenceSpace interface: existence and properties of interface object
 PASS XRReferenceSpace interface object length
 PASS XRReferenceSpace interface object name
 PASS XRReferenceSpace interface: existence and properties of interface prototype object
 PASS XRReferenceSpace interface: existence and properties of interface prototype object's "constructor" property
 PASS XRReferenceSpace interface: existence and properties of interface prototype object's @@unscopables property
-FAIL XRReferenceSpace interface: attribute originOffset assert_true: The prototype object must have a property "originOffset" expected true got false
+PASS XRReferenceSpace interface: attribute originOffset
 PASS XRReferenceSpace interface: attribute onreset
 PASS XRStationaryReferenceSpace interface: existence and properties of interface object
 PASS XRStationaryReferenceSpace interface object length
@@ -97,7 +105,7 @@ PASS XRView interface: existence and properties of interface prototype object's 
 PASS XRView interface: attribute eye
 PASS XRView interface: attribute projectionMatrix
 PASS XRView interface: attribute viewMatrix
-FAIL XRView interface: attribute transform assert_true: The prototype object must have a property "transform" expected true got false
+PASS XRView interface: attribute transform
 PASS XRViewport interface: existence and properties of interface object
 PASS XRViewport interface object length
 PASS XRViewport interface object name
@@ -125,14 +133,21 @@ PASS XRRay interface: existence and properties of interface prototype object's "
 PASS XRRay interface: existence and properties of interface prototype object's @@unscopables property
 PASS XRRay interface: attribute origin
 PASS XRRay interface: attribute direction
-FAIL XRRay interface: attribute matrix assert_true: The prototype object must have a property "matrix" expected true got false
+PASS XRRay interface: attribute matrix
+PASS XRPose interface: existence and properties of interface object
+PASS XRPose interface object length
+PASS XRPose interface object name
+PASS XRPose interface: existence and properties of interface prototype object
+PASS XRPose interface: existence and properties of interface prototype object's "constructor" property
+PASS XRPose interface: existence and properties of interface prototype object's @@unscopables property
+PASS XRPose interface: attribute transform
+PASS XRPose interface: attribute emulatedPosition
 PASS XRViewerPose interface: existence and properties of interface object
 PASS XRViewerPose interface object length
 PASS XRViewerPose interface object name
 PASS XRViewerPose interface: existence and properties of interface prototype object
 PASS XRViewerPose interface: existence and properties of interface prototype object's "constructor" property
 PASS XRViewerPose interface: existence and properties of interface prototype object's @@unscopables property
-FAIL XRViewerPose interface: attribute transform assert_true: The prototype object must have a property "transform" expected true got false
 PASS XRViewerPose interface: attribute views
 PASS XRInputSource interface: existence and properties of interface object
 PASS XRInputSource interface object length
@@ -142,15 +157,8 @@ PASS XRInputSource interface: existence and properties of interface prototype ob
 PASS XRInputSource interface: existence and properties of interface prototype object's @@unscopables property
 PASS XRInputSource interface: attribute handedness
 PASS XRInputSource interface: attribute targetRayMode
-PASS XRInputPose interface: existence and properties of interface object
-PASS XRInputPose interface object length
-PASS XRInputPose interface object name
-PASS XRInputPose interface: existence and properties of interface prototype object
-PASS XRInputPose interface: existence and properties of interface prototype object's "constructor" property
-PASS XRInputPose interface: existence and properties of interface prototype object's @@unscopables property
-PASS XRInputPose interface: attribute emulatedPosition
-PASS XRInputPose interface: attribute targetRay
-FAIL XRInputPose interface: attribute gripTransform assert_true: The prototype object must have a property "gripTransform" expected true got false
+FAIL XRInputSource interface: attribute targetRaySpace assert_true: The prototype object must have a property "targetRaySpace" expected true got false
+FAIL XRInputSource interface: attribute gripSpace assert_true: The prototype object must have a property "gripSpace" expected true got false
 PASS XRLayer interface: existence and properties of interface object
 PASS XRLayer interface object length
 PASS XRLayer interface object name

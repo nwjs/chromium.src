@@ -4,6 +4,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/run_loop.h"
@@ -285,11 +286,11 @@ class TabClosingObserver : public TabStripModelObserver {
   DISALLOW_COPY_AND_ASSIGN(TabClosingObserver);
 };
 
-INSTANTIATE_TEST_CASE_P(, SupervisedUserTest, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, SupervisedUserTest, ::testing::Values(false, true));
 
-INSTANTIATE_TEST_CASE_P(,
-                        SupervisedUserBlockModeTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SupervisedUserBlockModeTest,
+                         ::testing::Values(false, true));
 
 // Navigates to a blocked URL.
 IN_PROC_BROWSER_TEST_P(SupervisedUserBlockModeTest,

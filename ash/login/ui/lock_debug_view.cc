@@ -24,6 +24,7 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/wallpaper/wallpaper_controller.h"
+#include "base/bind.h"
 #include "base/optional.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -56,6 +57,7 @@ enum {
   kGlobalCycleAuthErrorMessage,
   kGlobalToggleWarningBanner,
   kGlobalToggleManagedSessionDisclosure,
+  kGlobalToggleParentAccess,
   kPerUserTogglePin,
   kPerUserToggleTap,
   kPerUserCycleEasyUnlockState,
@@ -689,6 +691,8 @@ LockDebugView::LockDebugView(mojom::TrayActionState initial_note_action_state,
             toggle_container);
   AddButton("Toggle warning banner", ButtonId::kGlobalToggleWarningBanner,
             toggle_container);
+  AddButton("Toggle parent access", ButtonId::kGlobalToggleParentAccess,
+            toggle_container);
 
   auto* kiosk_container = add_horizontal_container();
   AddButton("Add kiosk app", ButtonId::kGlobalAddKioskApp, kiosk_container);
@@ -997,6 +1001,12 @@ void LockDebugView::ButtonPressed(views::Button* sender,
     debug_data_dispatcher_->TogglePublicAccountForUserIndex(sender->tag());
     UpdatePerUserActionContainer();
     Layout();
+  }
+
+  // Toggle parent access view.
+  if (sender->id() == ButtonId::kGlobalToggleParentAccess) {
+    is_parent_access_shown_ = !is_parent_access_shown_;
+    lock_->OnSetShowParentAccessDialog(is_parent_access_shown_);
   }
 }
 

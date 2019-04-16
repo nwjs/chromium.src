@@ -225,8 +225,8 @@ void PaintTiming::ReportSwapTime(PaintEvent event,
 void PaintTiming::SetFirstPaintSwap(TimeTicks stamp) {
   DCHECK(first_paint_swap_.is_null());
   first_paint_swap_ = stamp;
-  probe::paintTiming(GetSupplementable(), "firstPaint",
-                     TimeTicksInSeconds(first_paint_swap_));
+  probe::PaintTiming(GetSupplementable(), "firstPaint",
+                     first_paint_swap_.since_origin().InSecondsF());
   WindowPerformance* performance = GetPerformanceInstance(GetFrame());
   if (performance)
     performance->AddFirstPaintTiming(first_paint_swap_);
@@ -236,8 +236,8 @@ void PaintTiming::SetFirstPaintSwap(TimeTicks stamp) {
 void PaintTiming::SetFirstContentfulPaintSwap(TimeTicks stamp) {
   DCHECK(first_contentful_paint_swap_.is_null());
   first_contentful_paint_swap_ = stamp;
-  probe::paintTiming(GetSupplementable(), "firstContentfulPaint",
-                     TimeTicksInSeconds(first_contentful_paint_swap_));
+  probe::PaintTiming(GetSupplementable(), "firstContentfulPaint",
+                     first_contentful_paint_swap_.since_origin().InSecondsF());
   WindowPerformance* performance = GetPerformanceInstance(GetFrame());
   if (performance)
     performance->AddFirstContentfulPaintTiming(first_contentful_paint_swap_);
@@ -250,8 +250,8 @@ void PaintTiming::SetFirstContentfulPaintSwap(TimeTicks stamp) {
 void PaintTiming::SetFirstImagePaintSwap(TimeTicks stamp) {
   DCHECK(first_image_paint_swap_.is_null());
   first_image_paint_swap_ = stamp;
-  probe::paintTiming(GetSupplementable(), "firstImagePaint",
-                     TimeTicksInSeconds(first_image_paint_swap_));
+  probe::PaintTiming(GetSupplementable(), "firstImagePaint",
+                     first_image_paint_swap_.since_origin().InSecondsF());
   NotifyPaintTimingChanged();
 }
 

@@ -41,7 +41,7 @@ void DedicatedWorkerMessagingProxy::StartWorkerGlobalScope(
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     const WorkerOptions* options,
     const KURL& script_url,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     const v8_inspector::V8StackTraceId& stack_id,
     const String& source_code) {
   DCHECK(IsParentContextThread());
@@ -179,7 +179,7 @@ void DedicatedWorkerMessagingProxy::DispatchErrorEvent(
   // "Thus, error reports propagate up to the chain of dedicated workers up to
   // the original Document, even if some of the workers along this chain have
   // been terminated and garbage collected."
-  // https://html.spec.whatwg.org/multipage/workers.html#runtime-script-errors-2
+  // https://html.spec.whatwg.org/C/#runtime-script-errors-2
   ErrorEvent* event =
       ErrorEvent::Create(error_message, location->Clone(), nullptr);
   if (worker_object_->DispatchEvent(*event) !=
@@ -194,7 +194,7 @@ void DedicatedWorkerMessagingProxy::DispatchErrorEvent(
 
   // The HTML spec requires to queue an error event using the DOM manipulation
   // task source.
-  // https://html.spec.whatwg.org/multipage/workers.html#runtime-script-errors-2
+  // https://html.spec.whatwg.org/C/#runtime-script-errors-2
   PostCrossThreadTask(
       *GetWorkerThread()->GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&DedicatedWorkerObjectProxy::ProcessUnhandledException,
@@ -225,8 +225,8 @@ DedicatedWorkerMessagingProxy::CreateBackingThreadStartupData(
 
 std::unique_ptr<WorkerThread>
 DedicatedWorkerMessagingProxy::CreateWorkerThread() {
-  return DedicatedWorkerThread::Create(
-      worker_object_->Name(), GetExecutionContext(), WorkerObjectProxy());
+  return DedicatedWorkerThread::Create(GetExecutionContext(),
+                                       WorkerObjectProxy());
 }
 
 }  // namespace blink

@@ -4,6 +4,8 @@
 
 #include "net/third_party/quic/core/qpack/qpack_instruction_decoder.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "net/third_party/quic/core/qpack/qpack_constants.h"
 #include "net/third_party/quic/core/qpack/qpack_test_utils.h"
@@ -13,6 +15,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 
 using ::testing::_;
+using ::testing::Eq;
 using ::testing::Expectation;
 using ::testing::Return;
 using ::testing::StrictMock;
@@ -98,10 +101,10 @@ class QpackInstructionDecoderTest : public QuicTestWithParam<FragmentMode> {
   const FragmentMode fragment_mode_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        QpackInstructionDecoderTest,
-                        Values(FragmentMode::kSingleChunk,
-                               FragmentMode::kOctetByOctet));
+INSTANTIATE_TEST_SUITE_P(,
+                         QpackInstructionDecoderTest,
+                         Values(FragmentMode::kSingleChunk,
+                                FragmentMode::kOctetByOctet));
 
 TEST_P(QpackInstructionDecoderTest, SBitAndVarint2) {
   EXPECT_CALL(delegate_, OnInstructionDecoded(TestInstruction1()));
@@ -140,14 +143,12 @@ TEST_P(QpackInstructionDecoderTest, NameAndValue) {
 }
 
 TEST_P(QpackInstructionDecoderTest, InvalidHuffmanEncoding) {
-  EXPECT_CALL(delegate_,
-              OnError(QuicStringPiece("Error in Huffman-encoded string.")));
+  EXPECT_CALL(delegate_, OnError(Eq("Error in Huffman-encoded string.")));
   decoder_.Decode(QuicTextUtils::HexDecode("c1ff"));
 }
 
 TEST_P(QpackInstructionDecoderTest, InvalidVarintEncoding) {
-  EXPECT_CALL(delegate_,
-              OnError(QuicStringPiece("Encoded integer too large.")));
+  EXPECT_CALL(delegate_, OnError(Eq("Encoded integer too large.")));
   decoder_.Decode(QuicTextUtils::HexDecode("ffffffffffffffffffffff"));
 }
 

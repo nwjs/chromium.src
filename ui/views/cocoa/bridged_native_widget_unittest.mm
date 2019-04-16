@@ -9,6 +9,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #import "base/mac/foundation_util.h"
 #import "base/mac/mac_util.h"
 #import "base/mac/scoped_objc_class_swizzler.h"
@@ -1821,6 +1822,41 @@ TEST_F(BridgedNativeWidgetTest, TextInput_RecursiveUpdateWindows) {
   g_fake_current_input_context = nullptr;
   g_fake_interpret_key_events = nullptr;
   g_update_windows_closure = nullptr;
+}
+
+// Write selection text to the pasteboard.
+TEST_F(BridgedNativeWidgetTest, TextInput_WriteToPasteboard) {
+  const std::string test_string = "foo bar baz";
+  InstallTextField(test_string);
+
+  NSArray* types =
+      @[ NSStringPboardType, base::mac::CFToNSCast(kUTTypeUTF8PlainText) ];
+
+  // Try to write with no selection. This will succeed, but the string will be
+  // empty.
+  {
+    NSPasteboard* pboard = [NSPasteboard pasteboardWithUniqueName];
+    BOOL wrote_to_pboard = [ns_view_ writeSelectionToPasteboard:pboard
+                                                          types:types];
+    EXPECT_TRUE(wrote_to_pboard);
+    NSArray* objects = [pboard readObjectsForClasses:@ [[NSString class]]
+        options:0];
+    EXPECT_EQ(1u, [objects count]);
+    EXPECT_NSEQ(@"", [objects lastObject]);
+  }
+
+  // Write a selection successfully.
+  {
+    SetSelectionRange(NSMakeRange(4, 7));
+    NSPasteboard* pboard = [NSPasteboard pasteboardWithUniqueName];
+    BOOL wrote_to_pboard = [ns_view_ writeSelectionToPasteboard:pboard
+                                                          types:types];
+    EXPECT_TRUE(wrote_to_pboard);
+    NSArray* objects = [pboard readObjectsForClasses:@ [[NSString class]]
+        options:0];
+    EXPECT_EQ(1u, [objects count]);
+    EXPECT_NSEQ(@"bar baz", [objects lastObject]);
+  }
 }
 
 typedef BridgedNativeWidgetTestBase BridgedNativeWidgetSimulateFullscreenTest;

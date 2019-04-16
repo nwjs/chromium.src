@@ -13,8 +13,6 @@
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
-#include "content/renderer/media/stream/media_stream_audio_track.h"
-#include "content/renderer/media/webrtc/webrtc_uma_histograms.h"
 #include "content/renderer/media_recorder/audio_track_recorder.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_codecs.h"
@@ -25,7 +23,9 @@
 #include "media/base/video_frame.h"
 #include "media/muxers/webm_muxer.h"
 #include "third_party/blink/public/platform/modules/media_capabilities/web_media_configuration.h"
+#include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_track.h"
+#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
 #include "third_party/blink/public/platform/scoped_web_callbacks.h"
 #include "third_party/blink/public/platform/web_media_recorder_handler_client.h"
 #include "third_party/blink/public/platform/web_media_stream_source.h"
@@ -249,18 +249,18 @@ bool MediaRecorderHandler::Start(int timeslice) {
   video_tracks_ = media_stream_.VideoTracks();
   audio_tracks_ = media_stream_.AudioTracks();
 
-  if (video_tracks_.IsEmpty() && audio_tracks_.IsEmpty()) {
+  if (video_tracks_.empty() && audio_tracks_.empty()) {
     LOG(WARNING) << __func__ << ": no media tracks.";
     return false;
   }
 
   const bool use_video_tracks =
-      !video_tracks_.IsEmpty() &&
+      !video_tracks_.empty() &&
       video_tracks_[0].Source().GetReadyState() !=
           blink::WebMediaStreamSource::kReadyStateEnded;
   const bool use_audio_tracks =
-      !audio_tracks_.IsEmpty() &&
-      MediaStreamAudioTrack::From(audio_tracks_[0]) &&
+      !audio_tracks_.empty() &&
+      blink::MediaStreamAudioTrack::From(audio_tracks_[0]) &&
       audio_tracks_[0].Source().GetReadyState() !=
           blink::WebMediaStreamSource::kReadyStateEnded;
 
@@ -385,7 +385,8 @@ void MediaRecorderHandler::EncodingInfo(
         VideoTrackRecorder::CanUseAcceleratedEncoder(
             VideoStringToCodecId(codec),
             configuration.video_configuration->width,
-            configuration.video_configuration->height);
+            configuration.video_configuration->height,
+            configuration.video_configuration->framerate);
 
     const float pixels_per_second =
         configuration.video_configuration->width *

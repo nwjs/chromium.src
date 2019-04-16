@@ -60,6 +60,7 @@
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/web/web_ime_text_span.h"
+#include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/platform/aura_window_properties.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/cursor_client.h"
@@ -110,6 +111,7 @@
 #include "content/browser/accessibility/browser_accessibility_manager_win.h"
 #include "content/browser/accessibility/browser_accessibility_win.h"
 #include "content/browser/renderer_host/legacy_render_widget_host_win.h"
+#include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/base/ime/input_method_keyboard_controller.h"
 #include "ui/base/ime/input_method_keyboard_controller_observer.h"
 #include "ui/base/win/hidden_window.h"
@@ -567,10 +569,15 @@ gfx::NativeViewAccessible RenderWidgetHostViewAura::GetNativeViewAccessible() {
   aura::WindowTreeHost* window_host = window_->GetHost();
   if (!window_host)
     return static_cast<gfx::NativeViewAccessible>(NULL);
+
+  if (legacy_render_widget_host_HWND_)
+    return legacy_render_widget_host_HWND_->GetOrCreateWindowRootAccessible();
+
   BrowserAccessibilityManager* manager =
       host()->GetOrCreateRootBrowserAccessibilityManager();
   if (manager)
     return ToBrowserAccessibilityWin(manager->GetRoot())->GetCOM();
+
 #elif defined(USE_X11)
   BrowserAccessibilityManager* manager =
       host()->GetOrCreateRootBrowserAccessibilityManager();
@@ -844,15 +851,6 @@ uint32_t RenderWidgetHostViewAura::GetCaptureSequenceNumber() const {
   return latest_capture_sequence_number_;
 }
 
-bool RenderWidgetHostViewAura::DoBrowserControlsShrinkRendererSize() const {
-  return host()->delegate() &&
-         host()->delegate()->DoBrowserControlsShrinkRendererSize();
-}
-
-float RenderWidgetHostViewAura::GetTopControlsHeight() const {
-  return host()->delegate() ? host()->delegate()->GetTopControlsHeight() : 0;
-}
-
 void RenderWidgetHostViewAura::CopyFromSurface(
     const gfx::Rect& src_subrect,
     const gfx::Size& dst_size,
@@ -886,6 +884,16 @@ void RenderWidgetHostViewAura::UpdateMouseLockRegion() {
 void RenderWidgetHostViewAura::OnLegacyWindowDestroyed() {
   legacy_render_widget_host_HWND_ = nullptr;
   legacy_window_destroyed_ = true;
+}
+
+gfx::NativeViewAccessible
+RenderWidgetHostViewAura::GetParentNativeViewAccessible() {
+  if (window_->parent()) {
+    return window_->parent()->GetProperty(
+        aura::client::kParentNativeViewAccessibleKey);
+  }
+
+  return nullptr;
 }
 #endif
 
@@ -1187,8 +1195,17 @@ RenderWidgetHostViewAura::AccessibilityGetAcceleratedWidget() {
 gfx::NativeViewAccessible
 RenderWidgetHostViewAura::AccessibilityGetNativeViewAccessible() {
 #if defined(OS_WIN)
-  if (legacy_render_widget_host_HWND_)
-    return legacy_render_widget_host_HWND_->window_accessible();
+  if (legacy_render_widget_host_HWND_) {
+    if (switches::IsExperimentalAccessibilityPlatformUIAEnabled()) {
+      ui::AXFragmentRootWin* fragment_root =
+          ui::AXFragmentRootWin::GetForAcceleratedWidget(
+              legacy_render_widget_host_HWND_->hwnd());
+      if (fragment_root)
+        return fragment_root->GetNativeViewAccessible();
+    } else {
+      return legacy_render_widget_host_HWND_->window_accessible();
+    }
+  }
 #endif
 
   if (window_->parent()) {
@@ -1550,6 +1567,19 @@ bool RenderWidgetHostViewAura::ShouldDoLearning() {
   return GetTextInputManager() && GetTextInputManager()->should_do_learning();
 }
 
+#if defined(OS_WIN)
+void RenderWidgetHostViewAura::SetCompositionFromExistingText(
+    const gfx::Range& range,
+    const std::vector<ui::ImeTextSpan>& ui_ime_text_spans) {
+  RenderFrameHostImpl* frame = GetFocusedFrame();
+  if (frame) {
+    frame->GetFrameInputHandler()->SetCompositionFromExistingText(
+        range.start(), range.end(), ui_ime_text_spans);
+    has_composition_text_ = true;
+  }
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostViewAura, display::DisplayObserver implementation:
 
@@ -1734,8 +1764,7 @@ bool RenderWidgetHostViewAura::HasFallbackSurface() const {
 bool RenderWidgetHostViewAura::TransformPointToCoordSpaceForView(
     const gfx::PointF& point,
     RenderWidgetHostViewBase* target_view,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) {
+    gfx::PointF* transformed_point) {
   if (target_view == this || !delegated_frame_host_) {
     *transformed_point = point;
     return true;
@@ -1745,7 +1774,7 @@ bool RenderWidgetHostViewAura::TransformPointToCoordSpaceForView(
   // but it is not necessary here because the final target view is responsible
   // for converting before computing the final transform.
   return target_view->TransformPointToLocalCoordSpace(
-      point, GetCurrentSurfaceId(), transformed_point, source);
+      point, GetCurrentSurfaceId(), transformed_point);
 }
 
 viz::FrameSinkId RenderWidgetHostViewAura::GetRootFrameSinkId() {

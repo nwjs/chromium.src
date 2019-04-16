@@ -372,10 +372,6 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // in flight change).
   bool RequestRepaintForTesting();
 
-  // Called by the RenderProcessHost to handle the case when the process
-  // changed its state of being blocked.
-  void RenderProcessBlockedStateChanged(bool blocked);
-
   // Called after every cross-document navigation. If Surface Synchronizaton is
   // on, we send a new LocalSurfaceId to RenderWidget to be used after
   // navigation. If Surface Synchronization is off, we block CompositorFrames
@@ -441,6 +437,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   void QueueSyntheticGesture(
       std::unique_ptr<SyntheticGesture> synthetic_gesture,
       base::OnceCallback<void(SyntheticGesture::Result)> on_complete);
+  void QueueSyntheticGestureCompleteImmediately(
+      std::unique_ptr<SyntheticGesture> synthetic_gesture);
 
   void CancelUpdateTextDirection();
 
@@ -511,6 +509,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // properties.
   void ResetSentVisualProperties();
 
+  // When the WebContents (which acts as the Delegate) is destroyed, this object
+  // may still outlive it while the renderer is shutting down. In that case the
+  // delegate pointer is removed (since it would be a UAF).
   void DetachDelegate();
 
   // Update the renderer's cache of the screen rect of the view and window.
@@ -672,6 +673,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
       const std::vector<gfx::Rect>& character_bounds) override;
   void OnImeCancelComposition() override;
   bool IsWheelScrollInProgress() override;
+  bool IsAutoscrollInProgress() override;
   void SetMouseCapture(bool capture) override;
 
   // FrameTokenMessageQueue::Client:
@@ -891,6 +893,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   void OnSnapshotReceived(int snapshot_id, gfx::Image image);
 
+  // Called by the RenderProcessHost to handle the case when the process
+  // changed its state of being blocked.
+  void RenderProcessBlockedStateChanged(bool blocked);
+
   // 1. Grants permissions to URL (if any)
   // 2. Grants permissions to filenames
   // 3. Grants permissions to file system files.
@@ -939,6 +945,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // already exists; calling this function will not force creation of a
   // TouchEmulator.
   TouchEmulator* GetExistingTouchEmulator();
+
+  void CreateSyntheticGestureControllerIfNecessary();
 
   // true if a renderer has once been valid. We use this flag to display a sad
   // tab only when we lose our renderer and not if a paint occurs during
@@ -1198,6 +1206,10 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   bool sent_autoscroll_scroll_begin_ = false;
   gfx::PointF autoscroll_start_position_;
+
+  // True when the cursor has entered the autoscroll mode. A GSB is not
+  // necessarily sent yet.
+  bool autoscroll_in_progress_ = false;
 
   base::WeakPtrFactory<RenderWidgetHostImpl> weak_factory_;
 

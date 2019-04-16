@@ -74,7 +74,7 @@ class CORE_EXPORT CSSVariableData : public RefCounted<CSSVariableData> {
   // is required for e.g. registered properties with 'em' units.
   bool IsAbsolutized() const { return absolutized_; }
 
-  const KURL& BaseURL() const { return base_url_; }
+  const String& BaseURL() const { return base_url_; }
 
   const WTF::TextEncoding& Charset() const { return charset_; }
 
@@ -88,7 +88,7 @@ class CORE_EXPORT CSSVariableData : public RefCounted<CSSVariableData> {
         needs_url_resolution_(false),
         has_font_units_(false),
         has_root_font_units_(false),
-        absolutized_(false){};
+        absolutized_(false) {}
 
   CSSVariableData(const CSSParserTokenRange&,
                   bool is_animation_tainted,
@@ -124,7 +124,7 @@ class CORE_EXPORT CSSVariableData : public RefCounted<CSSVariableData> {
   bool has_font_units_;
   bool has_root_font_units_;
   bool absolutized_;
-  KURL base_url_;
+  String base_url_;
   WTF::TextEncoding charset_;
   DISALLOW_COPY_AND_ASSIGN(CSSVariableData);
 };

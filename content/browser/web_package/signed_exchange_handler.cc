@@ -4,8 +4,10 @@
 
 #include "content/browser/web_package/signed_exchange_handler.h"
 
+#include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
@@ -21,6 +23,8 @@
 #include "content/browser/web_package/signed_exchange_devtools_proxy.h"
 #include "content/browser/web_package/signed_exchange_envelope.h"
 #include "content/browser/web_package/signed_exchange_prologue.h"
+#include "content/browser/web_package/signed_exchange_reporter.h"
+#include "content/browser/web_package/signed_exchange_request_matcher.h"
 #include "content/browser/web_package/signed_exchange_signature_verifier.h"
 #include "content/browser/web_package/signed_exchange_utils.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -51,7 +55,7 @@ namespace content {
 
 namespace {
 
-constexpr char kDigestHeader[] = "Digest";
+constexpr char kDigestHeader[] = "digest";
 constexpr char kHistogramSignatureVerificationResult[] =
     "SignedExchange.SignatureVerificationResult";
 constexpr char kHistogramCertVerificationResult[] =
@@ -183,7 +187,9 @@ SignedExchangeHandler::SignedExchangeHandler(
     ExchangeHeadersCallback headers_callback,
     std::unique_ptr<SignedExchangeCertFetcherFactory> cert_fetcher_factory,
     int load_flags,
+    std::unique_ptr<SignedExchangeRequestMatcher> request_matcher,
     std::unique_ptr<SignedExchangeDevToolsProxy> devtools_proxy,
+    SignedExchangeReporter* reporter,
     base::RepeatingCallback<int(void)> frame_tree_node_id_getter)
     : is_secure_transport_(is_secure_transport),
       has_nosniff_(has_nosniff),
@@ -191,7 +197,9 @@ SignedExchangeHandler::SignedExchangeHandler(
       source_(std::move(body)),
       cert_fetcher_factory_(std::move(cert_fetcher_factory)),
       load_flags_(load_flags),
+      request_matcher_(std::move(request_matcher)),
       devtools_proxy_(std::move(devtools_proxy)),
+      reporter_(reporter),
       frame_tree_node_id_getter_(frame_tree_node_id_getter),
       weak_factory_(this) {
   DCHECK(signed_exchange_utils::IsSignedExchangeHandlingEnabled());
@@ -301,6 +309,7 @@ void SignedExchangeHandler::DidReadHeader(bool completed_syncly,
   }
 
   header_read_buf_->DidConsume(read_result);
+  exchange_header_length_ += read_result;
   if (header_read_buf_->BytesRemaining() == 0) {
     SignedExchangeLoadResult result = SignedExchangeLoadResult::kSuccess;
     switch (state_) {
@@ -425,6 +434,11 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
     return SignedExchangeLoadResult::kHeaderParseError;
   }
 
+  if (reporter_) {
+    reporter_->set_inner_url(envelope_->request_url().url);
+    reporter_->set_cert_url(envelope_->signature().cert_url);
+  }
+
   const GURL cert_url = envelope_->signature().cert_url;
   // TODO(https://crbug.com/819467): When we will support ed25519Key, |cert_url|
   // may be empty.
@@ -440,7 +454,7 @@ SignedExchangeHandler::ParseHeadersAndFetchCertificate() {
                           cert_url, force_fetch,
                           base::BindOnce(&SignedExchangeHandler::OnCertReceived,
                                          base::Unretained(this)),
-                          devtools_proxy_.get());
+                          devtools_proxy_.get(), reporter_);
 
   state_ = State::kFetchingCertificate;
   return SignedExchangeLoadResult::kSuccess;
@@ -501,8 +515,10 @@ void SignedExchangeHandler::OnCertReceived(
         error_field ? base::make_optional(
                           std::make_pair(0 /* signature_index */, *error_field))
                     : base::nullopt);
-    RunErrorCallback(SignedExchangeLoadResult::kSignatureVerificationError,
-                     net::ERR_INVALID_SIGNED_EXCHANGE);
+    RunErrorCallback(
+        signed_exchange_utils::GetLoadResultFromSignatureVerifierResult(
+            verify_result),
+        net::ERR_INVALID_SIGNED_EXCHANGE);
     return;
   }
 
@@ -633,6 +649,15 @@ void SignedExchangeHandler::OnVerifyCert(
   response_head.headers->GetMimeTypeAndCharset(&response_head.mime_type,
                                                &response_head.charset);
 
+  if (!request_matcher_->MatchRequest(envelope_->response_headers())) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(),
+        "Signed Exchange's Variants / Variant-Key don't match the request.");
+    RunErrorCallback(SignedExchangeLoadResult::kVariantMismatch,
+                     net::ERR_INVALID_SIGNED_EXCHANGE);
+    return;
+  }
+
   // TODO(https://crbug.com/803774): Resource timing for signed exchange
   // loading is not speced yet. https://github.com/WICG/webpackage/issues/156
   response_head.load_timing.request_start_time = base::Time::Now();
@@ -642,19 +667,12 @@ void SignedExchangeHandler::OnVerifyCert(
   response_head.load_timing.send_end = now;
   response_head.load_timing.receive_headers_end = now;
 
-  std::string digest_header_value;
-  if (!response_head.headers->EnumerateHeader(nullptr, kDigestHeader,
-                                              &digest_header_value)) {
-    // TODO(https://crbug.com/803774): Detect this error in
-    // SignedExchangeEnvelope::Parse().
-    signed_exchange_utils::ReportErrorAndTraceEvent(
-        devtools_proxy_.get(), "Signed exchange has no Digest: header");
-    RunErrorCallback(SignedExchangeLoadResult::kHeaderParseError,
+  auto body_stream = CreateResponseBodyStream();
+  if (!body_stream) {
+    RunErrorCallback(SignedExchangeLoadResult::kInvalidIntegrityHeader,
                      net::ERR_INVALID_SIGNED_EXCHANGE);
     return;
   }
-  auto mi_stream = std::make_unique<MerkleIntegritySourceStream>(
-      digest_header_value, std::move(source_));
 
   net::SSLInfo ssl_info;
   ssl_info.cert = cv_result.verified_cert;
@@ -676,8 +694,50 @@ void SignedExchangeHandler::OnVerifyCert(
   response_head.ssl_info = std::move(ssl_info);
   std::move(headers_callback_)
       .Run(SignedExchangeLoadResult::kSuccess, net::OK,
-           envelope_->request_url().url, response_head, std::move(mi_stream));
+           envelope_->request_url().url, response_head, std::move(body_stream));
   state_ = State::kHeadersCallbackCalled;
+}
+
+// https://wicg.github.io/webpackage/loading.html#read-a-body
+std::unique_ptr<net::SourceStream>
+SignedExchangeHandler::CreateResponseBodyStream() {
+  if (!base::EqualsCaseInsensitiveASCII(envelope_->signature().integrity,
+                                        "digest/mi-sha256-03")) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(),
+        "The current implemention only supports \"digest/mi-sha256-03\" "
+        "integrity scheme.",
+        std::make_pair(0 /* signature_index */,
+                       SignedExchangeError::Field::kSignatureIintegrity));
+    return nullptr;
+  }
+  const auto& headers = envelope_->response_headers();
+  auto digest_iter = headers.find(kDigestHeader);
+  if (digest_iter == headers.end()) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(), "Signed exchange has no Digest: header");
+    return nullptr;
+  }
+
+  // For now, we allow only mi-sha256-03 content encoding.
+  // TODO(crbug.com/934629): Handle other content codings, such as gzip and br.
+  auto content_encoding_iter = headers.find("content-encoding");
+  if (content_encoding_iter == headers.end()) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(),
+        "Signed exchange has no Content-Encoding: header");
+    return nullptr;
+  }
+  if (!base::LowerCaseEqualsASCII(content_encoding_iter->second,
+                                  "mi-sha256-03")) {
+    signed_exchange_utils::ReportErrorAndTraceEvent(
+        devtools_proxy_.get(),
+        "Exchange's Content-Encoding must be \"mi-sha256-03\".");
+    return nullptr;
+  }
+
+  return std::make_unique<MerkleIntegritySourceStream>(digest_iter->second,
+                                                       std::move(source_));
 }
 
 }  // namespace content

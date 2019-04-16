@@ -13,6 +13,7 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
+#include "base/bind.h"
 #include "base/macros.h"
 
 namespace ash {
@@ -50,7 +51,7 @@ TEST_F(AppListShelfItemDelegateTest, OnlyMinimizeCycleListWindows) {
       ui::EventType::ET_MOUSE_PRESSED, ui::VKEY_UNKNOWN, ui::EF_NONE);
   delegate()->ItemSelected(
       std::move(test_event), GetPrimaryDisplay().id(),
-      ShelfLaunchSource::LAUNCH_FROM_UNKNOWN,
+      ShelfLaunchSource::LAUNCH_FROM_SHELF,
       base::BindOnce(
           [](ash::ShelfAction, base::Optional<ash::MenuItemList>) {}));
   ASSERT_TRUE(wm::GetWindowState(w1.get())->IsMinimized());

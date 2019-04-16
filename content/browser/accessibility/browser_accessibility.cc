@@ -13,9 +13,12 @@
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "content/app/strings/grit/content_strings.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/common/accessibility_messages.h"
+#include "content/public/common/content_client.h"
+#include "ui/accessibility/ax_node_position.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_text_utils.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
@@ -34,11 +37,10 @@ BrowserAccessibility* BrowserAccessibility::Create() {
 BrowserAccessibility::BrowserAccessibility()
     : manager_(nullptr), node_(nullptr) {}
 
-BrowserAccessibility::~BrowserAccessibility() {
-}
+BrowserAccessibility::~BrowserAccessibility() {}
 
 void BrowserAccessibility::Init(BrowserAccessibilityManager* manager,
-    ui::AXNode* node) {
+                                ui::AXNode* node) {
   manager_ = manager;
   node_ = node;
 }
@@ -74,6 +76,8 @@ bool BrowserAccessibility::PlatformIsLeaf() const {
 }
 
 bool BrowserAccessibility::CanFireEvents() const {
+  if (!instance_active())
+    return false;
   // Allow events unless this object would be trimmed away.
   return !PlatformIsChildOfLeaf();
 }
@@ -399,8 +403,8 @@ gfx::Rect BrowserAccessibility::GetPageBoundsForRange(int start,
   for (size_t i = 0; i < InternalChildCount() && child_end < start + len; ++i) {
     BrowserAccessibility* child = InternalGetChild(i);
     if (child->GetRole() != ax::mojom::Role::kInlineTextBox) {
-      DLOG(WARNING) << "BrowserAccessibility objects with role STATIC_TEXT " <<
-          "should have children of role INLINE_TEXT_BOX.";
+      DLOG(WARNING) << "BrowserAccessibility objects with role STATIC_TEXT "
+                    << "should have children of role INLINE_TEXT_BOX.";
       continue;
     }
 
@@ -434,8 +438,7 @@ gfx::Rect BrowserAccessibility::GetPageBoundsForRange(int start,
     }
     int start_pixel_offset =
         local_start > 0 ? character_offsets[local_start - 1] : 0;
-    int end_pixel_offset =
-        local_end > 0 ? character_offsets[local_end - 1] : 0;
+    int end_pixel_offset = local_end > 0 ? character_offsets[local_end - 1] : 0;
     int max_pixel_offset = character_offsets_length > 0
                                ? character_offsets[character_offsets_length - 1]
                                : 0;
@@ -725,13 +728,13 @@ bool BrowserAccessibility::GetIntListAttribute(
   return GetData().GetIntListAttribute(attribute, value);
 }
 
-bool BrowserAccessibility::GetHtmlAttribute(
-    const char* html_attr, std::string* value) const {
+bool BrowserAccessibility::GetHtmlAttribute(const char* html_attr,
+                                            std::string* value) const {
   return GetData().GetHtmlAttribute(html_attr, value);
 }
 
-bool BrowserAccessibility::GetHtmlAttribute(
-    const char* html_attr, base::string16* value) const {
+bool BrowserAccessibility::GetHtmlAttribute(const char* html_attr,
+                                            base::string16* value) const {
   return GetData().GetHtmlAttribute(html_attr, value);
 }
 
@@ -860,6 +863,23 @@ BrowserAccessibility::CreatePositionAt(int offset,
       manager_->ax_tree_id(), GetId(), offset, affinity);
 }
 
+// |offset| could either be a text character or a child index in case of
+// non-text objects.
+// Currently, to be safe, we convert to text leaf equivalents and we don't use
+// tree positions.
+// TODO(nektar): Remove this function once selection fixes in Blink are
+// thoroughly tested and convert to tree positions.
+BrowserAccessibilityPosition::AXPositionInstance
+BrowserAccessibility::CreatePositionForSelectionAt(int offset) const {
+  BrowserAccessibilityPositionInstance position =
+      CreatePositionAt(offset)->AsLeafTextPosition();
+  if (position->GetAnchor() &&
+      position->GetAnchor()->GetRole() == ax::mojom::Role::kInlineTextBox) {
+    return position->CreateParentPosition();
+  }
+  return position;
+}
+
 base::string16 BrowserAccessibility::GetInnerText() const {
   if (IsTextOnlyObject())
     return GetString16Attribute(ax::mojom::StringAttribute::kName);
@@ -907,18 +927,63 @@ bool BrowserAccessibility::IsOffscreen() const {
   return offscreen;
 }
 
-std::set<int32_t> BrowserAccessibility::GetReverseRelations(
-    ax::mojom::IntAttribute attr,
-    int32_t dst_id) {
-  DCHECK(manager_);
-  return manager_->ax_tree()->GetReverseRelations(attr, dst_id);
+bool BrowserAccessibility::IsWebContent() const {
+  return true;
 }
 
-std::set<int32_t> BrowserAccessibility::GetReverseRelations(
-    ax::mojom::IntListAttribute attr,
-    int32_t dst_id) {
+std::set<ui::AXPlatformNode*> BrowserAccessibility::GetNodesForNodeIdSet(
+    const std::set<int32_t>& ids) {
+  std::set<ui::AXPlatformNode*> nodes;
+  for (int32_t node_id : ids) {
+    if (ui::AXPlatformNode* node = GetFromNodeID(node_id)) {
+      nodes.insert(node);
+    }
+  }
+  return nodes;
+}
+
+ui::AXPlatformNode* BrowserAccessibility::GetTargetNodeForRelation(
+    ax::mojom::IntAttribute attr) {
+  DCHECK(ui::IsNodeIdIntAttribute(attr));
+
+  if (!node_)
+    return nullptr;
+
+  int target_id;
+  if (!GetData().GetIntAttribute(attr, &target_id))
+    return nullptr;
+
+  return GetFromNodeID(target_id);
+}
+
+std::set<ui::AXPlatformNode*> BrowserAccessibility::GetTargetNodesForRelation(
+    ax::mojom::IntListAttribute attr) {
+  DCHECK(ui::IsNodeIdIntListAttribute(attr));
+
+  std::vector<int32_t> target_ids;
+  if (!GetIntListAttribute(attr, &target_ids))
+    return std::set<ui::AXPlatformNode*>();
+
+  std::set<int32_t> target_id_set(target_ids.begin(), target_ids.end());
+  return GetNodesForNodeIdSet(target_id_set);
+}
+
+std::set<ui::AXPlatformNode*> BrowserAccessibility::GetReverseRelations(
+    ax::mojom::IntAttribute attr) {
   DCHECK(manager_);
-  return manager_->ax_tree()->GetReverseRelations(attr, dst_id);
+  DCHECK(node_);
+  DCHECK(ui::IsNodeIdIntAttribute(attr));
+  return GetNodesForNodeIdSet(
+      manager_->ax_tree()->GetReverseRelations(attr, GetData().id));
+}
+
+std::set<ui::AXPlatformNode*> BrowserAccessibility::GetReverseRelations(
+    ax::mojom::IntListAttribute attr) {
+  DCHECK(manager_);
+  DCHECK(node_);
+  DCHECK(ui::IsNodeIdIntListAttribute(attr));
+  return GetNodesForNodeIdSet(
+      manager_->ax_tree()->GetReverseRelations(attr, GetData().id));
 }
 
 const ui::AXUniqueId& BrowserAccessibility::GetUniqueId() const {
@@ -926,6 +991,44 @@ const ui::AXUniqueId& BrowserAccessibility::GetUniqueId() const {
   // those ids are only unique within the Blink process. We need one that is
   // unique for the browser process.
   return unique_id_;
+}
+
+ui::AXPlatformNodeDelegate::EnclosingBoundaryOffsets
+BrowserAccessibility::FindTextBoundariesAtOffset(
+    ui::TextBoundaryType boundary_type,
+    int offset,
+    ax::mojom::TextAffinity affinity) const {
+  switch (boundary_type) {
+    case ui::WORD_BOUNDARY: {
+      BrowserAccessibilityPositionInstance position =
+          CreatePositionAt(static_cast<int>(offset), affinity);
+      BrowserAccessibilityPositionInstance previous_word_start =
+          position->CreatePreviousWordStartPosition(
+              ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+      BrowserAccessibilityPositionInstance next_word_start =
+          position->CreateNextWordStartPosition(
+              ui::AXBoundaryBehavior::StopAtAnchorBoundary);
+      return std::make_pair(previous_word_start->text_offset(),
+                            next_word_start->text_offset());
+    }
+    case ui::LINE_BOUNDARY: {
+      BrowserAccessibilityPositionInstance position =
+          CreatePositionAt(static_cast<int>(offset), affinity);
+      BrowserAccessibilityPositionInstance previous_line_start =
+          position->CreatePreviousLineStartPosition(
+              ui::AXBoundaryBehavior::StopIfAlreadyAtBoundary);
+      BrowserAccessibilityPositionInstance next_line_start =
+          position->CreateNextLineStartPosition(
+              ui::AXBoundaryBehavior::StopAtAnchorBoundary);
+      return std::make_pair(previous_line_start->text_offset(),
+                            next_line_start->text_offset());
+    }
+    case ui::CHAR_BOUNDARY:
+    case ui::SENTENCE_BOUNDARY:
+    case ui::PARAGRAPH_BOUNDARY:
+    case ui::ALL_BOUNDARY:
+      return base::nullopt;
+  }
 }
 
 gfx::NativeViewAccessible BrowserAccessibility::GetNativeViewAccessible() {
@@ -955,6 +1058,15 @@ const ui::AXTreeData& BrowserAccessibility::GetTreeData() const {
     return manager()->GetTreeData();
   else
     return *empty_data;
+}
+
+ui::AXNodePosition::AXPositionInstance
+BrowserAccessibility::CreateTextPositionAt(
+    int offset,
+    ax::mojom::TextAffinity affinity) const {
+  DCHECK(manager_);
+  return ui::AXNodePosition::CreateTextPosition(manager_->ax_tree_id(), GetId(),
+                                                offset, affinity);
 }
 
 gfx::NativeViewAccessible BrowserAccessibility::GetNSWindow() {
@@ -1057,11 +1169,11 @@ int32_t BrowserAccessibility::GetTableColCount() const {
   return node()->GetTableColCount();
 }
 
-int32_t BrowserAccessibility::GetTableAriaColCount() const {
+base::Optional<int32_t> BrowserAccessibility::GetTableAriaColCount() const {
   return node()->GetTableAriaColCount();
 }
 
-int32_t BrowserAccessibility::GetTableAriaRowCount() const {
+base::Optional<int32_t> BrowserAccessibility::GetTableAriaRowCount() const {
   return node()->GetTableAriaRowCount();
 }
 
@@ -1093,6 +1205,13 @@ const std::vector<int32_t> BrowserAccessibility::GetRowHeaderNodeIds(
   std::vector<int32_t> result;
   node()->GetTableRowHeaderNodeIds(row_index, &result);
   return result;
+}
+
+ui::AXPlatformNode* BrowserAccessibility::GetTableCaption() {
+  if (ui::AXNode* caption = node()->GetTableCaption())
+    return GetFromNodeID(caption->id());
+
+  return nullptr;
 }
 
 bool BrowserAccessibility::IsTableRow() const {
@@ -1173,12 +1292,56 @@ bool BrowserAccessibility::AccessibilityPerformAction(
     case ax::mojom::Action::kScrollToMakeVisible:
       manager_->ScrollToMakeVisible(*this, data.target_rect);
       return true;
+    case ax::mojom::Action::kSetScrollOffset:
+      manager_->SetScrollOffset(*this, data.target_point);
+      return true;
+    case ax::mojom::Action::kSetSelection:
+      manager_->SetSelection(data);
+      return true;
     case ax::mojom::Action::kSetValue:
       manager_->SetValue(*this, data.value);
+      return true;
+    case ax::mojom::Action::kShowContextMenu:
+      manager_->ShowContextMenu(*this);
       return true;
     default:
       return false;
   }
+}
+
+base::string16 BrowserAccessibility::GetLocalizedStringForImageAnnotationStatus(
+    ax::mojom::ImageAnnotationStatus status) const {
+  const ContentClient* content_client = content::GetContentClient();
+
+  int message_id = 0;
+  switch (status) {
+    case ax::mojom::ImageAnnotationStatus::kEligibleForAnnotation:
+      message_id = IDS_AX_IMAGE_ELIGIBLE_FOR_ANNOTATION;
+      break;
+    case ax::mojom::ImageAnnotationStatus::kAnnotationPending:
+      message_id = IDS_AX_IMAGE_ANNOTATION_PENDING;
+      break;
+    case ax::mojom::ImageAnnotationStatus::kAnnotationAdult:
+      message_id = IDS_AX_IMAGE_ANNOTATION_ADULT;
+      break;
+    case ax::mojom::ImageAnnotationStatus::kAnnotationEmpty:
+    case ax::mojom::ImageAnnotationStatus::kAnnotationProcessFailed:
+    case ax::mojom::ImageAnnotationStatus::kNone:
+    case ax::mojom::ImageAnnotationStatus::kIneligibleForAnnotation:
+    case ax::mojom::ImageAnnotationStatus::kAnnotationSucceeded:
+      return base::string16();
+  }
+
+  DCHECK(message_id);
+
+  return content_client->GetLocalizedString(message_id);
+}
+
+base::string16
+BrowserAccessibility::GetLocalizedRoleDescriptionForUnlabeledImage() const {
+  const ContentClient* content_client = content::GetContentClient();
+  return content_client->GetLocalizedString(
+      IDS_AX_UNLABELED_IMAGE_ROLE_DESCRIPTION);
 }
 
 bool BrowserAccessibility::ShouldIgnoreHoveredStateForTesting() {

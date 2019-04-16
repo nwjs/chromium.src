@@ -6,8 +6,9 @@
 
 #include <lib/zx/event.h>
 
-#include "base/fuchsia/component_context.h"
+#include "base/bind.h"
 #include "base/fuchsia/fuchsia_logging.h"
+#include "base/fuchsia/service_directory_client.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "ui/gfx/native_pixmap.h"
@@ -68,11 +69,10 @@ class ScenicPixmap : public gfx::NativePixmap {
                         gfx::Size size,
                         gfx::BufferFormat format)
       : size_(size), format_(format) {
-    NOTIMPLEMENTED();
+    NOTIMPLEMENTED_LOG_ONCE();
   }
 
   bool AreDmaBufFdsValid() const override { return false; }
-  size_t GetDmaBufFdCount() const override { return 0; }
   int GetDmaBufFd(size_t plane) const override { return -1; }
   int GetDmaBufPitch(size_t plane) const override { return 0; }
   int GetDmaBufOffset(size_t plane) const override { return 0; }
@@ -215,7 +215,7 @@ void ScenicSurfaceFactory::CreateScenicSessionOnMainThread(
     fidl::InterfaceHandle<fuchsia::ui::scenic::SessionListener> listener) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (!scenic_) {
-    scenic_ = base::fuchsia::ComponentContext::GetDefault()
+    scenic_ = base::fuchsia::ServiceDirectoryClient::ForCurrentProcess()
                   ->ConnectToService<fuchsia::ui::scenic::Scenic>();
     scenic_.set_error_handler([](zx_status_t status) {
       ZX_LOG(FATAL, status) << "Scenic connection failed";

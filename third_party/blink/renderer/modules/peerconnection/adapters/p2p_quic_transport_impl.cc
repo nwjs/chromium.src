@@ -73,7 +73,7 @@ class P2PQuicPacketWriter : public quic::QuicPacketWriter,
     }
 
     P2PQuicPacketTransport::QuicPacket packet;
-    packet.packet_number = connection_->packet_generator().packet_number();
+    packet.packet_number = connection_->packet_generator().packet_number().ToUint64();
     packet.buffer = buffer;
     packet.buf_len = buf_len;
     int bytes_written = packet_transport_->WritePacket(packet);
@@ -82,11 +82,6 @@ class P2PQuicPacketWriter : public quic::QuicPacketWriter,
       return quic::WriteResult(quic::WRITE_STATUS_BLOCKED, EWOULDBLOCK);
     }
     return quic::WriteResult(quic::WRITE_STATUS_OK, bytes_written);
-  }
-
-  bool IsWriteBlockedDataBuffered() const override {
-    DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-    return false;
   }
 
   bool IsWriteBlocked() const override {
@@ -159,13 +154,9 @@ std::unique_ptr<quic::QuicConnection> CreateQuicConnection(
   ip.FromString("0.0.0.0");
   quic::QuicSocketAddress dummy_address(ip, 0 /* Port */);
   quic::QuicConnectionId dummy_connection_id;
-  if (GetQuicRestartFlag(quic_variable_length_connection_ids_client)) {
-    char connection_id_bytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-    dummy_connection_id = quic::QuicConnectionId(connection_id_bytes,
-                                                 sizeof(connection_id_bytes));
-  } else {
-    dummy_connection_id = quic::EmptyQuicConnectionId();
-  }
+  char connection_id_bytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+  dummy_connection_id =
+      quic::QuicConnectionId(connection_id_bytes, sizeof(connection_id_bytes));
   return std::make_unique<quic::QuicConnection>(
       dummy_connection_id, dummy_address, helper, alarm_factory, packet_writer,
       /* owns_writer */ true, perspective, quic::CurrentSupportedVersions());
@@ -181,6 +172,7 @@ class DummyCryptoServerStreamHelper
   ~DummyCryptoServerStreamHelper() override {}
 
   quic::QuicConnectionId GenerateConnectionIdForReject(
+      quic::QuicTransportVersion /*version*/,
       quic::QuicConnectionId connection_id) const override {
     return quic::QuicUtils::CreateRandomConnectionId(random_);
   }
@@ -513,6 +505,12 @@ void P2PQuicTransportImpl::OnConnectionClosed(
     // This connection was closed by the application of the remote side.
     delegate_->OnRemoteStopped();
   }
+}
+
+bool P2PQuicTransportImpl::ShouldKeepConnectionAlive() const {
+  // TODO: this is default behavior; please change the timeout logic as
+  // appropriate.
+  return GetNumOpenDynamicStreams() > 0;
 }
 
 bool P2PQuicTransportImpl::IsClosed() {

@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -60,6 +62,11 @@
 #include "components/infobars/core/infobar_manager.h"
 #endif
 
+using download::DownloadItem;
+using download::DownloadPathReservationTracker;
+using download::PathValidationResult;
+using safe_browsing::DownloadFileType;
+using ::testing::_;
 using ::testing::AnyNumber;
 using ::testing::AtMost;
 using ::testing::DoAll;
@@ -72,9 +79,6 @@ using ::testing::ReturnRef;
 using ::testing::ReturnRefOfCopy;
 using ::testing::SetArgPointee;
 using ::testing::WithArg;
-using ::testing::_;
-using download::DownloadItem;
-using safe_browsing::DownloadFileType;
 
 namespace {
 
@@ -932,6 +936,15 @@ const SafeBrowsingTestParameters kSafeBrowsingTestCases[] = {
      download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE,
      /*blocked=*/true},
 
+    // UNKNOWN verdict for a potentially dangerous file not blocked by policy.
+    {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+     DownloadFileType::ALLOW_ON_USER_GESTURE,
+     safe_browsing::DownloadCheckResult::UNKNOWN,
+     DownloadPrefs::DownloadRestriction::MALICIOUS_FILES,
+
+     download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE,
+     /*blocked=*/false},
+
     // DANGEROUS verdict for a potentially dangerous file.
     {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
      DownloadFileType::ALLOW_ON_USER_GESTURE,
@@ -940,6 +953,33 @@ const SafeBrowsingTestParameters kSafeBrowsingTestCases[] = {
 
      download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT,
      /*blocked=*/false},
+
+    // DANGEROUS verdict for a potentially dangerous file block by policy.
+    {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+     DownloadFileType::ALLOW_ON_USER_GESTURE,
+     safe_browsing::DownloadCheckResult::DANGEROUS,
+     DownloadPrefs::DownloadRestriction::MALICIOUS_FILES,
+
+     download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT,
+     /*blocked=*/true},
+
+    // DANGEROUS verdict for a potentially dangerous file block by policy.
+    {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+     DownloadFileType::ALLOW_ON_USER_GESTURE,
+     safe_browsing::DownloadCheckResult::DANGEROUS,
+     DownloadPrefs::DownloadRestriction::MALICIOUS_FILES,
+
+     download::DOWNLOAD_DANGER_TYPE_DANGEROUS_HOST,
+     /*blocked=*/true},
+
+    // DANGEROUS verdict for a potentially dangerous file block by policy.
+    {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+     DownloadFileType::ALLOW_ON_USER_GESTURE,
+     safe_browsing::DownloadCheckResult::DANGEROUS,
+     DownloadPrefs::DownloadRestriction::MALICIOUS_FILES,
+
+     download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL,
+     /*blocked=*/true},
 
     // UNCOMMON verdict for a potentially dangerous file.
     {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
@@ -975,6 +1015,16 @@ const SafeBrowsingTestParameters kSafeBrowsingTestCases[] = {
      DownloadFileType::ALLOW_ON_USER_GESTURE,
      safe_browsing::DownloadCheckResult::POTENTIALLY_UNWANTED,
      DownloadPrefs::DownloadRestriction::DANGEROUS_FILES,
+
+     download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED,
+     /*blocked=*/false},
+
+    // POTENTIALLY_UNWANTED verdict for a potentially dangerous file, not
+    // blocked by policy.
+    {download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+     DownloadFileType::ALLOW_ON_USER_GESTURE,
+     safe_browsing::DownloadCheckResult::POTENTIALLY_UNWANTED,
+     DownloadPrefs::DownloadRestriction::MALICIOUS_FILES,
 
      download::DOWNLOAD_DANGER_TYPE_POTENTIALLY_UNWANTED,
      /*blocked=*/false},
@@ -1021,9 +1071,9 @@ const SafeBrowsingTestParameters kSafeBrowsingTestCases[] = {
      /*blocked=*/false},
 };
 
-INSTANTIATE_TEST_CASE_P(_,
-                        ChromeDownloadManagerDelegateTestWithSafeBrowsing,
-                        ::testing::ValuesIn(kSafeBrowsingTestCases));
+INSTANTIATE_TEST_SUITE_P(_,
+                         ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+                         ::testing::ValuesIn(kSafeBrowsingTestCases));
 
 }  // namespace
 

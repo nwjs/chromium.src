@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/single_thread_task_runner.h"
@@ -180,7 +181,7 @@ class ResourceFetcherImpl::ClientImpl : public network::mojom::URLLoaderClient {
     // Existing callers need URL and HTTP status code. URL is already set in
     // Start().
     if (response_head.headers)
-      response_.SetHTTPStatusCode(response_head.headers->response_code());
+      response_.SetHttpStatusCode(response_head.headers->response_code());
   }
   void OnReceiveRedirect(
       const net::RedirectInfo& redirect_info,

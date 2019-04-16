@@ -7,7 +7,6 @@
 
 #include "base/files/file_path.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/web/web_frame_serializer_cache_control_policy.h"
 
 namespace content {
 
@@ -22,12 +21,6 @@ struct CONTENT_EXPORT MHTMLGenerationParams {
   // https://tools.ietf.org/html/rfc2045 for details about
   // Content-Transfer-Encoding.
   bool use_binary_encoding = false;
-
-  // By default, MHTML includes all subresources.  This flag can be used to
-  // cause the generator to fail or silently ignore resources if the
-  // Cache-Control header is used.
-  blink::WebFrameSerializerCacheControlPolicy cache_control_policy =
-      blink::WebFrameSerializerCacheControlPolicy::kNone;
 
   // Removes popups that could obstruct the user's view of normal content.
   bool remove_popup_overlay = false;

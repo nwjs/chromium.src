@@ -30,6 +30,7 @@
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/download/ar_quick_look_coordinator.h"
 #import "ios/chrome/browser/ui/download/pass_kit_coordinator.h"
 #import "ios/chrome/browser/ui/page_info/page_info_legacy_coordinator.h"
@@ -39,7 +40,9 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_coordinator.h"
 #import "ios/chrome/browser/ui/snackbar/snackbar_coordinator.h"
 #import "ios/chrome/browser/ui/translate/language_selection_coordinator.h"
-#import "ios/chrome/browser/ui/translate/translate_popup_menu_coordinator.h"
+#import "ios/chrome/browser/ui/translate/translate_infobar_coordinator.h"
+#import "ios/chrome/browser/url_loading/url_loading_service.h"
+#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/web/print_tab_helper.h"
 #import "ios/chrome/browser/web/repost_form_tab_helper.h"
 #import "ios/chrome/browser/web/repost_form_tab_helper_delegate.h"
@@ -53,6 +56,7 @@
 
 @interface BrowserCoordinator () <FormInputAccessoryCoordinatorDelegate,
                                   RepostFormTabHelperDelegate,
+                                  URLLoadingServiceDelegate,
                                   WebStateListObserving>
 
 // Whether the coordinator is started.
@@ -115,7 +119,7 @@
 // Coordinator for the translate infobar's language selection and translate
 // option popup menus.
 @property(nonatomic, strong)
-    TranslatePopupMenuCoordinator* translatePopupMenuCoordinator;
+    TranslateInfobarCoordinator* translateInfobarCoordinator;
 
 @end
 
@@ -142,6 +146,7 @@
       startDispatchingToTarget:self
                    forProtocol:@protocol(BrowserCoordinatorCommands)];
   [self installDelegatesForAllWebStates];
+  [self installDelegatesForBrowserState];
   [self addWebStateListObserver];
   [super start];
   self.started = YES;
@@ -152,6 +157,7 @@
     return;
   [super stop];
   [self removeWebStateListObserver];
+  [self uninstallDelegatesForBrowserState];
   [self uninstallDelegatesForAllWebStates];
   [self.dispatcher stopDispatchingToTarget:self];
   [self stopChildCoordinators];
@@ -251,11 +257,11 @@
   [self.formInputAccessoryCoordinator start];
 
   if (base::FeatureList::IsEnabled(translate::kCompactTranslateInfobarIOS)) {
-    self.translatePopupMenuCoordinator = [[TranslatePopupMenuCoordinator alloc]
+    self.translateInfobarCoordinator = [[TranslateInfobarCoordinator alloc]
         initWithBaseViewController:self.viewController
                       browserState:self.browserState
                       webStateList:self.tabModel.webStateList];
-    [self.translatePopupMenuCoordinator start];
+    [self.translateInfobarCoordinator start];
   } else {
     self.languageSelectionCoordinator = [[LanguageSelectionCoordinator alloc]
         initWithBaseViewController:self.viewController
@@ -268,7 +274,7 @@
       initWithBaseViewController:self.viewController
                     browserState:self.browserState];
   self.pageInfoCoordinator.dispatcher = self.dispatcher;
-  self.pageInfoCoordinator.loader = self.viewController;
+
   self.pageInfoCoordinator.presentationProvider = self.viewController;
   self.pageInfoCoordinator.tabModel = self.tabModel;
 
@@ -337,8 +343,8 @@
   [self.storeKitCoordinator stop];
   self.storeKitCoordinator = nil;
 
-  [self.translatePopupMenuCoordinator stop];
-  self.translatePopupMenuCoordinator = nil;
+  [self.translateInfobarCoordinator stop];
+  self.translateInfobarCoordinator = nil;
 }
 
 #pragma mark - BrowserCoordinatorCommands
@@ -353,8 +359,7 @@
 - (void)showReadingList {
   self.readingListCoordinator = [[ReadingListCoordinator alloc]
       initWithBaseViewController:self.viewController
-                    browserState:self.browserState
-                          loader:self.viewController];
+                    browserState:self.browserState];
   [self.readingListCoordinator start];
 }
 
@@ -376,7 +381,9 @@
   self.recentTabsCoordinator = [[RecentTabsCoordinator alloc]
       initWithBaseViewController:self.viewController
                     browserState:self.browserState];
-  self.recentTabsCoordinator.loader = self.viewController;
+  self.recentTabsCoordinator.loader =
+      UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
+          ->GetUrlLoader();
   self.recentTabsCoordinator.dispatcher = self.applicationCommandHandler;
   self.recentTabsCoordinator.webStateList = self.tabModel.webStateList;
   [self.recentTabsCoordinator start];
@@ -417,6 +424,19 @@
     (RepostFormTabHelper*)helper {
   [self.repostFormCoordinator stop];
   self.repostFormCoordinator = nil;
+}
+
+#pragma mark - URLLoadingServiceDelegate
+
+- (void)openURLInNewTabWithCommand:(OpenNewTabCommand*)command {
+  [self.viewController.dispatcher openURLInNewTab:command];
+}
+
+- (void)animateOpenBackgroundTabFromCommand:(OpenNewTabCommand*)command
+                                 completion:(void (^)())completion {
+  [self.viewController
+      animateOpenBackgroundTabFromOriginPoint:command.originPoint
+                                   completion:completion];
 }
 
 // TODO(crbug.com/906525) : Move WebStateListObserving out of
@@ -469,6 +489,26 @@
   for (int i = 0; i < self.tabModel.webStateList->count(); i++) {
     web::WebState* webState = self.tabModel.webStateList->GetWebStateAt(i);
     [self installDelegatesForWebState:webState];
+  }
+}
+
+// Installs delegates for self.browserState.
+- (void)installDelegatesForBrowserState {
+  UrlLoadingService* urlLoadingService =
+      UrlLoadingServiceFactory::GetForBrowserState(self.browserState);
+  if (urlLoadingService) {
+    urlLoadingService->SetDelegate(self);
+    urlLoadingService->SetBrowser(self.browser);
+  }
+}
+
+// Uninstalls delegates for self.browserState.
+- (void)uninstallDelegatesForBrowserState {
+  UrlLoadingService* urlLoadingService =
+      UrlLoadingServiceFactory::GetForBrowserState(self.browserState);
+  if (urlLoadingService) {
+    urlLoadingService->SetDelegate(nil);
+    urlLoadingService->SetBrowser(nil);
   }
 }
 

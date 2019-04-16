@@ -20,6 +20,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/win/core_winrt_util.h"
@@ -549,7 +550,7 @@ class NotificationPlatformBridgeWinImpl
     std::vector<mswr::ComPtr<winui::Notifications::IToastNotification>>
         notifications = GetNotifications(profile_id, incognito);
 
-    auto displayed_notifications = std::make_unique<std::set<std::string>>();
+    std::set<std::string> displayed_notifications;
     for (const auto& notification : notifications) {
       NotificationLaunchId launch_id(
           GetNotificationLaunchId(notification.Get()));
@@ -564,7 +565,7 @@ class NotificationPlatformBridgeWinImpl
         continue;
       }
       LogGetDisplayedLaunchIdStatus(GetDisplayedLaunchIdStatus::SUCCESS);
-      displayed_notifications->insert(launch_id.notification_id());
+      displayed_notifications.insert(launch_id.notification_id());
     }
 
     base::PostTaskWithTraits(
@@ -678,7 +679,7 @@ class NotificationPlatformBridgeWinImpl
                         bool incognito) {
     std::string payload = base::StringPrintf(
         "%s|%s|%d", notification_id.c_str(), profile_id.c_str(), incognito);
-    return base::UintToString16(base::Hash(payload));
+    return base::NumberToString16(base::Hash(payload));
   }
 
   HRESULT OnDismissed(

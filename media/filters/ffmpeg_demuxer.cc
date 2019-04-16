@@ -33,7 +33,9 @@
 #include "media/base/limits.h"
 #include "media/base/media_log.h"
 #include "media/base/media_tracks.h"
+#include "media/base/media_types.h"
 #include "media/base/sample_rates.h"
+#include "media/base/supported_types.h"
 #include "media/base/timestamp_constants.h"
 #include "media/base/video_codecs.h"
 #include "media/base/webvtt_util.h"
@@ -252,16 +254,15 @@ std::unique_ptr<FFmpegDemuxerStream> FFmpegDemuxerStream::Create(
   if (stream->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
     audio_config.reset(new AudioDecoderConfig());
 
-    // IsValidConfig() checks that the codec is supported and that the channel
-    // layout and sample format are valid.
-    //
     // TODO(chcunningham): Change AVStreamToAudioDecoderConfig to check
     // IsValidConfig internally and return a null scoped_ptr if not valid.
     if (!AVStreamToAudioDecoderConfig(stream, audio_config.get()) ||
-        !audio_config->IsValidConfig()) {
+        !audio_config->IsValidConfig() ||
+        !IsSupportedAudioType(AudioType::FromDecoderConfig(*audio_config))) {
       MEDIA_LOG(DEBUG, media_log) << "Warning, FFmpegDemuxer failed to create "
-                                     "a valid audio decoder configuration from "
-                                     "muxed stream";
+                                     "a valid/supported audio decoder "
+                                     "configuration from muxed stream, config:"
+                                  << audio_config->AsHumanReadableString();
       return nullptr;
     }
 
@@ -270,16 +271,15 @@ std::unique_ptr<FFmpegDemuxerStream> FFmpegDemuxerStream::Create(
   } else if (stream->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
     video_config.reset(new VideoDecoderConfig());
 
-    // IsValidConfig() checks that the codec is supported and that the channel
-    // layout and sample format are valid.
-    //
     // TODO(chcunningham): Change AVStreamToVideoDecoderConfig to check
     // IsValidConfig internally and return a null scoped_ptr if not valid.
     if (!AVStreamToVideoDecoderConfig(stream, video_config.get()) ||
-        !video_config->IsValidConfig()) {
+        !video_config->IsValidConfig() ||
+        !IsSupportedVideoType(VideoType::FromDecoderConfig(*video_config))) {
       MEDIA_LOG(DEBUG, media_log) << "Warning, FFmpegDemuxer failed to create "
-                                     "a valid video decoder configuration from "
-                                     "muxed stream";
+                                     "a valid/supported video decoder "
+                                     "configuration from muxed stream, config:"
+                                  << video_config->AsHumanReadableString();
       return nullptr;
     }
 
@@ -570,7 +570,8 @@ void FFmpegDemuxerStream::EnqueuePacket(ScopedAVPacket packet) {
   const base::TimeDelta stream_timestamp =
       ConvertStreamTimestamp(stream_->time_base, packet->pts);
 
-  if (stream_timestamp == kNoTimestamp) {
+  if (stream_timestamp == kNoTimestamp ||
+      stream_timestamp == kInfiniteDuration) {
     MEDIA_LOG(ERROR, media_log_) << "FFmpegDemuxer: PTS is not defined";
     demuxer_->NotifyDemuxerError(DEMUXER_ERROR_COULD_NOT_PARSE);
     return;
@@ -1032,7 +1033,7 @@ void FFmpegDemuxer::AbortPendingReads() {
   // Aborting the read may cause EOF to be marked, undo this.
   blocking_task_runner_->PostTask(
       FROM_HERE,
-      base::Bind(&UnmarkEndOfStreamAndClearError, glue_->format_context()));
+      base::BindOnce(&UnmarkEndOfStreamAndClearError, glue_->format_context()));
   pending_read_ = false;
 
   // TODO(dalecurtis): We probably should report PIPELINE_ERROR_ABORT here
@@ -1418,6 +1419,9 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
                               base::TimeDelta());
     }
 
+    // TODO(chcunningham): Remove the IsValidConfig() checks below. If the
+    // config isn't valid we shouldn't have created a demuxer stream nor
+    // an entry in |media_tracks|, so the check should always be true.
     if ((codec_type == AVMEDIA_TYPE_AUDIO &&
          media_tracks->getAudioConfig(track_id).IsValidConfig()) ||
         (codec_type == AVMEDIA_TYPE_VIDEO &&
@@ -1437,7 +1441,7 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
 
       media_track = media_tracks->AddAudioTrack(audio_config, track_id, "main",
                                                 track_label, track_language);
-      media_track->set_id(base::UintToString(track_id));
+      media_track->set_id(base::NumberToString(track_id));
       DCHECK(track_id_to_demux_stream_map_.find(media_track->id()) ==
              track_id_to_demux_stream_map_.end());
       track_id_to_demux_stream_map_[media_track->id()] = streams_[i].get();
@@ -1449,7 +1453,7 @@ void FFmpegDemuxer::OnFindStreamInfoDone(int result) {
 
       media_track = media_tracks->AddVideoTrack(video_config, track_id, "main",
                                                 track_label, track_language);
-      media_track->set_id(base::UintToString(track_id));
+      media_track->set_id(base::NumberToString(track_id));
       DCHECK(track_id_to_demux_stream_map_.find(media_track->id()) ==
              track_id_to_demux_stream_map_.end());
       track_id_to_demux_stream_map_[media_track->id()] = streams_[i].get();
@@ -1602,7 +1606,7 @@ void FFmpegDemuxer::LogMetadata(AVFormatContext* avctx,
       ++audio_track_count;
       std::string suffix = "";
       if (audio_track_count > 1)
-        suffix = "_track" + base::IntToString(audio_track_count);
+        suffix = "_track" + base::NumberToString(audio_track_count);
       const AVCodecParameters* audio_parameters = avctx->streams[i]->codecpar;
       const AudioDecoderConfig& audio_config = stream->audio_decoder_config();
       params.SetString("audio_codec_name" + suffix,
@@ -1617,7 +1621,7 @@ void FFmpegDemuxer::LogMetadata(AVFormatContext* avctx,
       ++video_track_count;
       std::string suffix = "";
       if (video_track_count > 1)
-        suffix = "_track" + base::IntToString(video_track_count);
+        suffix = "_track" + base::NumberToString(video_track_count);
       const AVStream* video_av_stream = avctx->streams[i];
       const AVCodecParameters* video_parameters = video_av_stream->codecpar;
       const VideoDecoderConfig& video_config = stream->video_decoder_config();

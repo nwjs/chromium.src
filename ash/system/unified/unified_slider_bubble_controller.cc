@@ -165,8 +165,14 @@ void UnifiedSliderBubbleController::ShowBubble(SliderType slider_type) {
   init_params.max_width = kTrayMenuWidth;
   init_params.delegate = this;
   init_params.parent_window = tray_->GetBubbleWindowContainer();
-  init_params.anchor_view =
-      tray_->shelf()->GetSystemTrayAnchorView()->GetBubbleAnchor();
+  init_params.anchor_view = nullptr;
+  init_params.anchor_mode = TrayBubbleView::AnchorMode::kRect;
+  init_params.anchor_rect = tray_->shelf()->GetSystemTrayAnchorRect();
+  // Decrease bottom and right insets to compensate for the adjustment of
+  // the respective edges in Shelf::GetSystemTrayAnchorRect().
+  init_params.insets =
+      gfx::Insets(kUnifiedMenuPadding, kUnifiedMenuPadding,
+                  kUnifiedMenuPadding - 1, kUnifiedMenuPadding - 1);
   init_params.corner_radius = kUnifiedTrayCornerRadius;
   init_params.has_shadow = false;
 
@@ -177,8 +183,6 @@ void UnifiedSliderBubbleController::ShowBubble(SliderType slider_type) {
   bubble_view_->AddChildView(slider_view);
   bubble_view_->set_color(SK_ColorTRANSPARENT);
   bubble_view_->layer()->SetFillsBoundsOpaquely(false);
-  bubble_view_->set_anchor_view_insets(
-      UnifiedSystemTrayBubble::GetAdjustedAnchorInsets(tray_, bubble_view_));
 
   bubble_widget_ = views::BubbleDialogDelegateView::CreateBubble(bubble_view_);
 

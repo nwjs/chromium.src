@@ -30,9 +30,14 @@ class UI_BASE_EXPORT SimpleMenuModel : public MenuModel {
    public:
     ~Delegate() override {}
 
-    // Methods for determining the state of specific command ids.
-    virtual bool IsCommandIdChecked(int command_id) const = 0;
-    virtual bool IsCommandIdEnabled(int command_id) const = 0;
+    // Makes |command_id| appear toggled true if it's a "check" or "radio" type
+    // menu item. This has no effect for menu items with no boolean state.
+    virtual bool IsCommandIdChecked(int command_id) const;
+
+    // Delegate should return true if |command_id| should be enabled.
+    virtual bool IsCommandIdEnabled(int command_id) const;
+
+    // Delegate should return true if |command_id| should be visible.
     virtual bool IsCommandIdVisible(int command_id) const;
 
     // Some command ids have labels, sublabels, minor text and icons that change
@@ -188,9 +193,6 @@ class UI_BASE_EXPORT SimpleMenuModel : public MenuModel {
   MenuModel* GetSubmenuModelAt(int index) const override;
   void MenuWillShow() override;
   void MenuWillClose() override;
-  void SetMenuModelDelegate(
-      ui::MenuModelDelegate* menu_model_delegate) override;
-  MenuModelDelegate* GetMenuModelDelegate() const override;
 
   // Sets |histogram_name_|.
   void set_histogram_name(const std::string& histogram_name) {
@@ -246,8 +248,6 @@ class UI_BASE_EXPORT SimpleMenuModel : public MenuModel {
   ItemVector items_;
 
   Delegate* delegate_;
-
-  MenuModelDelegate* menu_model_delegate_;
 
   // The UMA histogram name that is be used to log command ids.
   std::string histogram_name_;

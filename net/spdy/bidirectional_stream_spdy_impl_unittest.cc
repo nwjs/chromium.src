@@ -13,6 +13,7 @@
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/timer/mock_timer.h"
+#include "base/timer/timer.h"
 #include "net/base/load_timing_info.h"
 #include "net/base/load_timing_info_test_util.h"
 #include "net/base/net_errors.h"
@@ -442,9 +443,9 @@ TEST_F(BidirectionalStreamSpdyImplTest, SendDataAfterStreamFailed) {
   EXPECT_EQ(0, delegate->GetTotalReceivedBytes());
 }
 
-INSTANTIATE_TEST_CASE_P(BidirectionalStreamSpdyImplTests,
-                        BidirectionalStreamSpdyImplTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(BidirectionalStreamSpdyImplTests,
+                         BidirectionalStreamSpdyImplTest,
+                         ::testing::Bool());
 
 // Tests that when received RST_STREAM with NO_ERROR, BidirectionalStream does
 // not crash when processing pending writes. See crbug.com/650438.

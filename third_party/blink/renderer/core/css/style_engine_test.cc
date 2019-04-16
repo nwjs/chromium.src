@@ -975,12 +975,12 @@ TEST_F(StyleEngineTest, ModifyStyleRuleMatchedPropertiesCache) {
   EXPECT_EQ(MakeRGB(0, 0, 255), t1->GetComputedStyle()->VisitedDependentColor(
                                     GetCSSPropertyColor()));
 
-  CSSStyleSheet* sheet = ToCSSStyleSheet(GetDocument().StyleSheets().item(0));
+  auto* sheet = To<CSSStyleSheet>(GetDocument().StyleSheets().item(0));
   ASSERT_TRUE(sheet);
   DummyExceptionStateForTesting exception_state;
   ASSERT_TRUE(sheet->cssRules(exception_state));
   CSSStyleRule* style_rule =
-      ToCSSStyleRule(sheet->cssRules(exception_state)->item(0));
+      To<CSSStyleRule>(sheet->cssRules(exception_state)->item(0));
   ASSERT_FALSE(exception_state.HadException());
   ASSERT_TRUE(style_rule);
   ASSERT_TRUE(style_rule->style());
@@ -1225,7 +1225,7 @@ TEST_F(StyleEngineTest, ViewportDescriptionForZoomDSF) {
       WebWidget::LifecycleUpdateReason::kTest);
 
   Document* document =
-      ToLocalFrame(web_view_impl->GetPage()->MainFrame())->GetDocument();
+      To<LocalFrame>(web_view_impl->GetPage()->MainFrame())->GetDocument();
 
   auto desc = document->GetViewportData().GetViewportDescription();
   float min_width = desc.min_width.GetFloatValue();
@@ -1510,7 +1510,6 @@ TEST_F(StyleEngineTest, MediaQueriesChangeColorScheme) {
 }
 
 TEST_F(StyleEngineTest, MediaQueriesChangePrefersReducedMotion) {
-  RuntimeEnabledFeatures::SetMediaQueryPrefersReducedMotionEnabled(true);
   GetDocument().body()->SetInnerHTMLFromString(R"HTML(
     <style>
       body { color: red }
@@ -1593,7 +1592,7 @@ TEST_F(StyleEngineTest, RejectSelectorForPseudoElement) {
   div->SetInlineStyleProperty(CSSPropertyColor, "green");
 
   GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
-  GetStyleEngine().RecalcStyle(kNoChange);
+  GetStyleEngine().RecalcStyle({});
 
   // Should fast reject ".not-in-filter div::before {}" for both the div and its
   // ::before pseudo element.
@@ -1805,7 +1804,7 @@ TEST_F(StyleEngineTest, EnsuredComputedStyleRecalc) {
   span_outer->SetInlineStyleProperty(CSSPropertyColor, "blue");
   EXPECT_TRUE(span_outer->NeedsStyleRecalc());
   GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
-  GetStyleEngine().RecalcStyle(kNoChange);
+  GetStyleEngine().RecalcStyle({});
   GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kStyleClean);
 
   EXPECT_FALSE(span_outer->NeedsStyleRecalc());
@@ -1822,6 +1821,44 @@ TEST_F(StyleEngineTest, EnsuredComputedStyleRecalc) {
   EXPECT_FALSE(computed->GetComputedStyle());
   EXPECT_FALSE(span_outer->GetComputedStyle());
   EXPECT_FALSE(span_inner->GetComputedStyle());
+}
+
+TEST_F(StyleEngineTest, EnsureCustomComputedStyle) {
+  GetDocument().body()->SetInnerHTMLFromString("");
+  GetDocument().body()->SetInnerHTMLFromString(R"HTML(
+    <div id=div>
+      <progress id=progress>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  // Note: <progress> is chosen because it creates ProgressShadowElement
+  // instances, which override CustomStyleForLayoutObject with
+  // display:none.
+  Element* div = GetDocument().getElementById("div");
+  Element* progress = GetDocument().getElementById("progress");
+  ASSERT_TRUE(div);
+  ASSERT_TRUE(progress);
+
+  // This causes ProgressShadowElements to get ComputedStyles with
+  // IsEnsuredInDisplayNone==true.
+  for (Node* node = progress; node;
+       node = FlatTreeTraversal::Next(*node, progress)) {
+    node->EnsureComputedStyle();
+  }
+
+  // This triggers layout tree building.
+  div->SetInlineStyleProperty(CSSPropertyDisplay, "inline");
+  UpdateAllLifecyclePhases();
+
+  // We must not create LayoutObjects for Nodes with
+  // IsEnsuredInDisplayNone==true
+  for (Node* node = progress; node;
+       node = FlatTreeTraversal::Next(*node, progress)) {
+    ASSERT_TRUE(!node->GetComputedStyle() ||
+                !node->ComputedStyleRef().IsEnsuredInDisplayNone() ||
+                !node->GetLayoutObject());
+  }
 }
 
 }  // namespace blink

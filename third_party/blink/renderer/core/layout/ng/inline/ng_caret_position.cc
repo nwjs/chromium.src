@@ -155,7 +155,7 @@ unsigned GetTextOffsetBefore(const NGPhysicalFragment& fragment) {
       NGOffsetMapping::GetFor(before_node)->GetTextContentOffset(before_node);
   // We should have offset mapping for atomic inline boxes.
   DCHECK(maybe_offset_before.has_value());
-  return maybe_offset_before.value();
+  return *maybe_offset_before;
 }
 
 // Returns a |kFailed| resolution if |offset| doesn't belong to the atomic
@@ -251,7 +251,7 @@ bool IsUpstreamAfterLineBreak(const NGCaretPosition& caret_position) {
       ToNGPhysicalTextFragment(caret_position.fragment->PhysicalFragment());
   if (!text_fragment.IsLineBreak())
     return false;
-  return caret_position.text_offset.value() == text_fragment.EndOffset();
+  return *caret_position.text_offset == text_fragment.EndOffset();
 }
 
 NGCaretPosition BetterCandidateBetween(const NGCaretPosition& current,
@@ -286,10 +286,10 @@ NGCaretPosition ComputeNGCaretPosition(const LayoutBlockFlow& context,
   DCHECK(root_fragment) << "no paint fragment on layout object " << &context;
 
   NGCaretPosition candidate;
-  for (const auto& child :
+  for (const NGPaintFragment* child :
        NGPaintFragmentTraversal::InlineDescendantsOf(*root_fragment)) {
     const CaretPositionResolution resolution =
-        TryResolveCaretPositionWithFragment(*child.fragment, offset, affinity);
+        TryResolveCaretPositionWithFragment(*child, offset, affinity);
 
     if (resolution.type == ResolutionType::kFailed)
       continue;
@@ -315,8 +315,7 @@ NGCaretPosition ComputeNGCaretPosition(const PositionWithAffinity& position) {
   if (!context)
     return NGCaretPosition();
 
-  const NGOffsetMapping* mapping =
-      NGInlineNode::GetOffsetMapping(context, nullptr);
+  const NGOffsetMapping* mapping = NGInlineNode::GetOffsetMapping(context);
   DCHECK(mapping);
   const base::Optional<unsigned> maybe_offset =
       mapping->GetTextContentOffset(position.GetPosition());
@@ -326,7 +325,7 @@ NGCaretPosition ComputeNGCaretPosition(const PositionWithAffinity& position) {
     return NGCaretPosition();
   }
 
-  const unsigned offset = maybe_offset.value();
+  const unsigned offset = *maybe_offset;
   const TextAffinity affinity = position.Affinity();
   return ComputeNGCaretPosition(*context, offset, affinity);
 }
@@ -358,10 +357,9 @@ PositionWithAffinity NGCaretPosition::ToPositionInDOMTreeWithAffinity() const {
         return PositionWithAffinity();
       const NGPhysicalTextFragment& text_fragment =
           ToNGPhysicalTextFragment(fragment->PhysicalFragment());
-      const TextAffinity affinity =
-          text_offset.value() == text_fragment.EndOffset()
-              ? TextAffinity::kUpstreamIfPossible
-              : TextAffinity::kDownstream;
+      const TextAffinity affinity = *text_offset == text_fragment.EndOffset()
+                                        ? TextAffinity::kUpstreamIfPossible
+                                        : TextAffinity::kDownstream;
       return PositionWithAffinity(position, affinity);
   }
   NOTREACHED();

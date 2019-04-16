@@ -9,12 +9,14 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/single_thread_task_runner.h"
 #include "cc/trees/layer_tree_frame_sink_client.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/service/display/direct_renderer.h"
 #include "components/viz/service/display/output_surface.h"
+#include "components/viz/service/display/skia_output_surface.h"
 #include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 
@@ -75,8 +77,16 @@ bool TestLayerTreeFrameSink::BindToClient(
   frame_sink_manager_ =
       std::make_unique<FrameSinkManagerImpl>(shared_bitmap_manager_.get());
 
-  std::unique_ptr<OutputSurface> display_output_surface =
-      test_client_->CreateDisplayOutputSurface(context_provider());
+  std::unique_ptr<OutputSurface> display_output_surface;
+  SkiaOutputSurface* display_skia_output_surface = nullptr;
+  if (renderer_settings_.use_skia_renderer) {
+    auto output_surface = test_client_->CreateDisplaySkiaOutputSurface();
+    display_skia_output_surface = output_surface.get();
+    display_output_surface = std::move(output_surface);
+  } else {
+    display_output_surface =
+        test_client_->CreateDisplayOutputSurface(context_provider());
+  }
 
   std::unique_ptr<DisplayScheduler> scheduler;
   if (!synchronous_composite_) {
@@ -104,7 +114,7 @@ bool TestLayerTreeFrameSink::BindToClient(
   display_ = std::make_unique<Display>(
       shared_bitmap_manager_.get(), renderer_settings_, frame_sink_id_,
       std::move(display_output_surface), std::move(scheduler),
-      compositor_task_runner_);
+      compositor_task_runner_, display_skia_output_surface);
 
   constexpr bool is_root = true;
   constexpr bool needs_sync_points = true;

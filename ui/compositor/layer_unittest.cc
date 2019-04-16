@@ -983,7 +983,8 @@ TEST_F(LayerWithNullDelegateTest, EscapedDebugNames) {
   std::string json;
   debug_info->AppendAsTraceFormat(&json);
   base::JSONReader json_reader;
-  std::unique_ptr<base::Value> debug_info_value(json_reader.ReadToValue(json));
+  std::unique_ptr<base::Value> debug_info_value(
+      json_reader.ReadToValueDeprecated(json));
   EXPECT_TRUE(debug_info_value);
   EXPECT_TRUE(debug_info_value->is_dict());
   base::DictionaryValue* dictionary = 0;
@@ -1221,6 +1222,29 @@ TEST_F(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
 }
 
+TEST_F(LayerWithDelegateTest, RoundedCorner) {
+  gfx::Rect layer_bounds(10, 20, 100, 100);
+  const std::array<uint32_t, 4> radii = {5, 10, 15, 20};
+  const std::array<uint32_t, 4> kEmpty = {0, 0, 0, 0};
+  std::unique_ptr<Layer> layer(new Layer(LAYER_TEXTURED));
+
+  NullLayerDelegate delegate;
+  layer->set_delegate(&delegate);
+  layer->SetVisible(true);
+  layer->SetBounds(layer_bounds);
+  layer->SetMasksToBounds(true);
+
+  compositor()->SetRootLayer(layer.get());
+  Draw();
+
+  EXPECT_EQ(layer->rounded_corner_radii(), kEmpty);
+
+  // Setting a rounded corner radius should set an rrect with bounds same as the
+  // layer.
+  layer->SetRoundedCornerRadius(radii);
+  EXPECT_EQ(layer->rounded_corner_radii(), radii);
+}
+
 // Checks that stacking-related methods behave as advertised.
 TEST_F(LayerWithNullDelegateTest, Stacking) {
   std::unique_ptr<Layer> root(new Layer(LAYER_NOT_DRAWN));
@@ -1379,6 +1403,25 @@ TEST_F(LayerWithNullDelegateTest, UpdateDamageInDeferredPaint) {
   root->PaintContentsToDisplayList(
       cc::ContentLayerClient::PAINTING_BEHAVIOR_NORMAL);
   EXPECT_EQ(bound_union, LastInvalidation());
+}
+
+// Tests that Layer::SendDamagedRects() always recurses into its mask layer, if
+// present, even if it shouldn't send its damaged regions itself.
+TEST_F(LayerWithNullDelegateTest, AlwaysSendsMaskDamagedRects) {
+  gfx::Rect bound(gfx::Rect(2, 2));
+  std::unique_ptr<Layer> mask(CreateTextureLayer(bound));
+  std::unique_ptr<Layer> root(CreateTextureRootLayer(bound));
+  root->SetMaskLayer(mask.get());
+
+  WaitForCommit();
+  EXPECT_EQ(root->damaged_region_for_testing().bounds(), gfx::Rect());
+  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), gfx::Rect());
+
+  const gfx::Rect invalid_rect(gfx::Size(1, 1));
+  mask->SchedulePaint(invalid_rect);
+  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), invalid_rect);
+  root->SendDamagedRects();
+  EXPECT_EQ(mask->damaged_region_for_testing().bounds(), gfx::Rect());
 }
 
 void ExpectRgba(int x, int y, SkColor expected_color, SkColor actual_color) {

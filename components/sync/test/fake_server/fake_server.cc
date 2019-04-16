@@ -94,8 +94,8 @@ void VerifyNoWalletDataProgressMarkerExists(
 }
 
 std::string GetTokenFromHashAndTime(int64_t hash, const base::Time& time) {
-  return base::Int64ToString(hash) + " " +
-         base::Int64ToString(time.ToDeltaSinceWindowsEpoch().InMicroseconds());
+  return base::NumberToString(hash) + " " +
+         base::NumberToString(time.ToDeltaSinceWindowsEpoch().InMicroseconds());
 }
 
 int64_t GetHashFromToken(const std::string& token, int64_t default_value) {
@@ -451,6 +451,11 @@ void FakeServer::EnableStrongConsistencyWithConflictDetectionModel() {
 void FakeServer::SetMaxGetUpdatesBatchSize(int batch_size) {
   DCHECK(thread_checker_.CalledOnValidThread());
   loopback_server_->SetMaxGetUpdatesBatchSize(batch_size);
+}
+
+void FakeServer::SetBagOfChips(const sync_pb::ChipBag& bag_of_chips) {
+  DCHECK(thread_checker_.CalledOnValidThread());
+  loopback_server_->SetBagOfChipsForTesting(bag_of_chips);
 }
 
 const std::set<std::string>& FakeServer::GetCommittedHistoryURLs() const {

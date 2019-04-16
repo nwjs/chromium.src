@@ -7,6 +7,7 @@
 
 #include "mojo/public/cpp/bindings/binding.h"
 #include "services/video_capture/public/mojom/device.mojom.h"
+#include "services/video_capture/public/mojom/receiver.mojom.h"
 #include "services/video_capture/public/mojom/video_source.mojom.h"
 
 namespace video_capture {
@@ -28,9 +29,9 @@ class PushVideoStreamSubscriptionImpl
   void SetOnClosedHandler(
       base::OnceCallback<void(base::OnceClosure done_cb)> handler);
 
-  void NotifySubscriberCreateSubscriptionSucceededWithSettings(
+  void OnDeviceStartSucceededWithSettings(
       const media::VideoCaptureParams& settings);
-  void NotifySubscriberCreateSubscriptionFailed();
+  void OnDeviceStartFailed();
 
   // mojom::PushVideoStreamSubscription implementation.
   void Activate() override;

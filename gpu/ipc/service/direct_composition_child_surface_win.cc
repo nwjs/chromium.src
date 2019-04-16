@@ -154,7 +154,9 @@ bool DirectCompositionChildSurfaceWin::ReleaseDrawTexture(bool will_discard) {
       params.DirtyRectsCount = 1;
       params.pDirtyRects = &dirty_rect;
       HRESULT hr = swap_chain_->Present1(interval, flags, &params);
-      if (FAILED(hr)) {
+      // Ignore DXGI_STATUS_OCCLUDED since that's not an error but only
+      // indicates that the window is occluded and we can stop rendering.
+      if (FAILED(hr) && hr != DXGI_STATUS_OCCLUDED) {
         DLOG(ERROR) << "Present1 failed with error " << std::hex << hr;
         return false;
       }
@@ -216,7 +218,7 @@ void* DirectCompositionChildSurfaceWin::GetHandle() {
 }
 
 gfx::SwapResult DirectCompositionChildSurfaceWin::SwapBuffers(
-    const PresentationCallback& callback) {
+    PresentationCallback callback) {
   // PresentationCallback is handled by DirectCompositionSurfaceWin. The child
   // surface doesn't need provide presentation feedback.
   DCHECK(!callback);
@@ -262,19 +264,19 @@ bool DirectCompositionChildSurfaceWin::SupportsDCLayers() const {
 bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
     const gfx::Rect& rectangle) {
   if (!gfx::Rect(size_).Contains(rectangle)) {
-    VLOG(1) << "Draw rectangle must be contained within size of surface";
+    DLOG(ERROR) << "Draw rectangle must be contained within size of surface";
     return false;
   }
 
   if (draw_texture_) {
-    VLOG(1) << "SetDrawRectangle must be called only once per swap buffers";
+    DLOG(ERROR) << "SetDrawRectangle must be called only once per swap buffers";
     return false;
   }
   DCHECK(!real_surface_);
   DCHECK(!g_current_surface);
 
   if (gfx::Rect(size_) != rectangle && !swap_chain_ && !dcomp_surface_) {
-    VLOG(1) << "First draw to surface must draw to everything";
+    DLOG(ERROR) << "First draw to surface must draw to everything";
     return false;
   }
 
@@ -294,7 +296,7 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
         size_.width(), size_.height(), output_format,
         DXGI_ALPHA_MODE_PREMULTIPLIED, dcomp_surface_.GetAddressOf());
     if (FAILED(hr)) {
-      VLOG(1) << "CreateSurface failed with error " << std::hex << hr;
+      DLOG(ERROR) << "CreateSurface failed with error " << std::hex << hr;
       return false;
     }
   } else if (!enable_dc_layers_ && !swap_chain_) {
@@ -331,8 +333,8 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
         d3d11_device_.Get(), &desc, nullptr, swap_chain_.GetAddressOf());
     first_swap_ = true;
     if (FAILED(hr)) {
-      VLOG(1) << "CreateSwapChainForComposition failed with error " << std::hex
-              << hr;
+      DLOG(ERROR) << "CreateSwapChainForComposition failed with error "
+                  << std::hex << hr;
       return false;
     }
   }
@@ -346,7 +348,7 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
     HRESULT hr = dcomp_surface_->BeginDraw(
         &rect, IID_PPV_ARGS(draw_texture_.GetAddressOf()), &update_offset);
     if (FAILED(hr)) {
-      VLOG(1) << "BeginDraw failed with error " << std::hex << hr;
+      DLOG(ERROR) << "BeginDraw failed with error " << std::hex << hr;
       return false;
     }
     draw_offset_ = gfx::Point(update_offset) - rectangle.origin();
@@ -373,8 +375,8 @@ bool DirectCompositionChildSurfaceWin::SetDrawRectangle(
       eglCreatePbufferFromClientBuffer(GetDisplay(), EGL_D3D_TEXTURE_ANGLE,
                                        buffer, GetConfig(), pbuffer_attribs);
   if (!real_surface_) {
-    VLOG(1) << "eglCreatePbufferFromClientBuffer failed with error "
-            << ui::GetLastEGLErrorString();
+    DLOG(ERROR) << "eglCreatePbufferFromClientBuffer failed with error "
+                << ui::GetLastEGLErrorString();
     return false;
   }
 

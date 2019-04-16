@@ -127,7 +127,7 @@ DnsResourceRecord BuildTextRecord(std::string name,
   for (std::string text_string : text_strings) {
     DCHECK(!text_string.empty());
 
-    rdata += base::checked_cast<char>(text_string.size());
+    rdata += base::checked_cast<unsigned char>(text_string.size());
     rdata += std::move(text_string);
   }
   record.SetOwnedRdata(std::move(rdata));
@@ -186,20 +186,26 @@ class MockTransaction : public DnsTransaction,
   MockTransaction(const MockDnsClientRuleList& rules,
                   const std::string& hostname,
                   uint16_t qtype,
+                  SecureDnsMode secure_dns_mode,
                   DnsTransactionFactory::CallbackType callback)
       : result_(MockDnsClientRule::FAIL),
         hostname_(hostname),
         qtype_(qtype),
         callback_(std::move(callback)),
+        secure_(false),
         started_(false),
         delayed_(false) {
-    // Find the relevant rule which matches |qtype| and prefix of |hostname|.
+    // Find the relevant rule which matches |qtype|, |secure_dns_mode|, and
+    // prefix of |hostname|.
     for (size_t i = 0; i < rules.size(); ++i) {
       const std::string& prefix = rules[i].prefix;
-      if ((rules[i].qtype == qtype) && (hostname.size() >= prefix.size()) &&
+      if ((rules[i].qtype == qtype) &&
+          rules[i].secure_dns_mode == secure_dns_mode &&
+          (hostname.size() >= prefix.size()) &&
           (hostname.compare(0, prefix.size(), prefix) == 0)) {
         const MockDnsClientRule::Result* result = &rules[i].result;
         result_ = MockDnsClientRule::Result(result->type);
+        secure_ = result->secure;
         delayed_ = rules[i].delay;
 
         // Generate a DnsResponse when not provided with the rule.
@@ -268,7 +274,7 @@ class MockTransaction : public DnsTransaction,
       return;
     // Using WeakPtr to cleanly cancel when transaction is destroyed.
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(&MockTransaction::Finish, AsWeakPtr()));
+        FROM_HERE, base::BindOnce(&MockTransaction::Finish, AsWeakPtr()));
   }
 
   void FinishDelayedTransaction() {
@@ -285,15 +291,15 @@ class MockTransaction : public DnsTransaction,
       case MockDnsClientRule::NODOMAIN:
       case MockDnsClientRule::FAIL:
         std::move(callback_).Run(this, ERR_NAME_NOT_RESOLVED,
-                                 result_.response.get());
+                                 result_.response.get(), secure_);
         break;
       case MockDnsClientRule::EMPTY:
       case MockDnsClientRule::OK:
       case MockDnsClientRule::MALFORMED:
-        std::move(callback_).Run(this, OK, result_.response.get());
+        std::move(callback_).Run(this, OK, result_.response.get(), secure_);
         break;
       case MockDnsClientRule::TIMEOUT:
-        std::move(callback_).Run(this, ERR_DNS_TIMED_OUT, nullptr);
+        std::move(callback_).Run(this, ERR_DNS_TIMED_OUT, nullptr, secure_);
         break;
     }
   }
@@ -305,6 +311,7 @@ class MockTransaction : public DnsTransaction,
   const std::string hostname_;
   const uint16_t qtype_;
   DnsTransactionFactory::CallbackType callback_;
+  bool secure_;
   bool started_;
   bool delayed_;
 };
@@ -429,6 +436,14 @@ MockDnsClientRule::Result::~Result() = default;
 MockDnsClientRule::Result& MockDnsClientRule::Result::operator=(
     Result&& result) = default;
 
+// static
+MockDnsClientRule::Result MockDnsClientRule::CreateSecureResult(
+    std::unique_ptr<DnsResponse> response) {
+  auto result = Result(std::move(response));
+  result.secure = true;
+  return result;
+}
+
 // A DnsTransactionFactory which creates MockTransaction.
 class MockDnsClient::MockTransactionFactory : public DnsTransactionFactory {
  public:
@@ -441,18 +456,17 @@ class MockDnsClient::MockTransactionFactory : public DnsTransactionFactory {
       const std::string& hostname,
       uint16_t qtype,
       DnsTransactionFactory::CallbackType callback,
-      const NetLogWithSource&) override {
+      const NetLogWithSource&,
+      SecureDnsMode secure_dns_mode) override {
     std::unique_ptr<MockTransaction> transaction =
         std::make_unique<MockTransaction>(rules_, hostname, qtype,
-                                          std::move(callback));
+                                          secure_dns_mode, std::move(callback));
     if (transaction->delayed())
       delayed_transactions_.push_back(transaction->AsWeakPtr());
     return transaction;
   }
 
-  void AddEDNSOption(const OptRecordRdata::Opt& opt) override {
-    NOTREACHED() << "Not implemented";
-  }
+  void AddEDNSOption(const OptRecordRdata::Opt& opt) override {}
 
   void CompleteDelayedTransactions() {
     DelayedTransactionList old_delayed_transactions;

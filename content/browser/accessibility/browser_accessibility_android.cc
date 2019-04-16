@@ -46,9 +46,7 @@ enum {
 
 // These are enums from
 // android.view.accessibility.AccessibilityNodeInfo.RangeInfo in Java:
-enum {
-  ANDROID_VIEW_ACCESSIBILITY_RANGE_TYPE_FLOAT = 1
-};
+enum { ANDROID_VIEW_ACCESSIBILITY_RANGE_TYPE_FLOAT = 1 };
 
 static bool HasListAncestor(const content::BrowserAccessibility* node) {
   if (node == nullptr)
@@ -100,6 +98,8 @@ static bool IsHierarchicalList(const content::BrowserAccessibility* node) {
 }  // namespace
 
 namespace content {
+
+const float kContentInvalidTimeoutMillisecs = 6000.0;
 
 // static
 BrowserAccessibility* BrowserAccessibility::Create() {
@@ -264,6 +264,20 @@ bool BrowserAccessibilityAndroid::IsCollectionItem() const {
 }
 
 bool BrowserAccessibilityAndroid::IsContentInvalid() const {
+  if (IsFocused()) {
+    // When a node has focus, only report that it's invalid for a short period
+    // of time. Otherwise it's annoying to hear the invalid message every time
+    // a character is entered.
+    if (content_invalid_timer_.Elapsed().InMillisecondsF() <
+        kContentInvalidTimeoutMillisecs) {
+      bool invalid_state =
+          HasIntAttribute(ax::mojom::IntAttribute::kInvalidState) &&
+          GetData().GetInvalidState() != ax::mojom::InvalidState::kFalse;
+      if (invalid_state)
+        return true;
+    }
+    return false;
+  }
   return HasIntAttribute(ax::mojom::IntAttribute::kInvalidState) &&
          GetData().GetInvalidState() != ax::mojom::InvalidState::kFalse;
 }
@@ -380,19 +394,19 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
 
   // Otherwise, the interesting nodes are leaf nodes with non-whitespace text.
   return PlatformIsLeaf() &&
-      !base::ContainsOnlyChars(GetText(), base::kWhitespaceUTF16);
+         !base::ContainsOnlyChars(GetText(), base::kWhitespaceUTF16);
 }
 
 const BrowserAccessibilityAndroid*
-    BrowserAccessibilityAndroid::GetSoleInterestingNodeFromSubtree() const {
+BrowserAccessibilityAndroid::GetSoleInterestingNodeFromSubtree() const {
   if (IsInterestingOnAndroid())
     return this;
 
   const BrowserAccessibilityAndroid* sole_interesting_node = nullptr;
   for (uint32_t i = 0; i < PlatformChildCount(); ++i) {
     const BrowserAccessibilityAndroid* interesting_node =
-        static_cast<const BrowserAccessibilityAndroid*>(PlatformGetChild(i))->
-            GetSoleInterestingNodeFromSubtree();
+        static_cast<const BrowserAccessibilityAndroid*>(PlatformGetChild(i))
+            ->GetSoleInterestingNodeFromSubtree();
     if (interesting_node && sole_interesting_node) {
       // If there are two interesting nodes, return nullptr.
       return nullptr;
@@ -531,7 +545,7 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
     int level = GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel);
     if (level >= 1 && level <= 6) {
       std::vector<base::string16> values;
-      values.push_back(base::IntToString16(level));
+      values.push_back(base::NumberToString16(level));
       return base::ReplaceStringPlaceholders(
           content_client->GetLocalizedString(IDS_AX_ROLE_HEADING_WITH_LEVEL),
           values, nullptr);
@@ -578,7 +592,7 @@ base::string16 BrowserAccessibilityAndroid::GetRoleDescription() const {
       break;
     case ax::mojom::Role::kCaption:
       // No role description.
-       break;
+      break;
     case ax::mojom::Role::kCaret:
       // No role description.
       break;
@@ -1123,8 +1137,7 @@ bool BrowserAccessibilityAndroid::CanScrollForward() const {
     float max = GetFloatAttribute(ax::mojom::FloatAttribute::kMaxValueForRange);
     return value < max;
   } else {
-    return GetScrollX() < GetMaxScrollX() ||
-           GetScrollY() < GetMaxScrollY();
+    return GetScrollX() < GetMaxScrollX() || GetScrollY() < GetMaxScrollY();
   }
 }
 
@@ -1134,8 +1147,7 @@ bool BrowserAccessibilityAndroid::CanScrollBackward() const {
     float min = GetFloatAttribute(ax::mojom::FloatAttribute::kMinValueForRange);
     return value > min;
   } else {
-    return GetScrollX() > GetMinScrollX() ||
-           GetScrollY() > GetMinScrollY();
+    return GetScrollX() > GetMinScrollX() || GetScrollY() > GetMinScrollY();
   }
 }
 
@@ -1283,30 +1295,24 @@ int BrowserAccessibilityAndroid::GetTextChangeRemovedCount() const {
 }
 
 // static
-size_t BrowserAccessibilityAndroid::CommonPrefixLength(
-    const base::string16 a,
-    const base::string16 b) {
+size_t BrowserAccessibilityAndroid::CommonPrefixLength(const base::string16 a,
+                                                       const base::string16 b) {
   size_t a_len = a.length();
   size_t b_len = b.length();
   size_t i = 0;
-  while (i < a_len &&
-         i < b_len &&
-         a[i] == b[i]) {
+  while (i < a_len && i < b_len && a[i] == b[i]) {
     i++;
   }
   return i;
 }
 
 // static
-size_t BrowserAccessibilityAndroid::CommonSuffixLength(
-    const base::string16 a,
-    const base::string16 b) {
+size_t BrowserAccessibilityAndroid::CommonSuffixLength(const base::string16 a,
+                                                       const base::string16 b) {
   size_t a_len = a.length();
   size_t b_len = b.length();
   size_t i = 0;
-  while (i < a_len &&
-         i < b_len &&
-         a[a_len - i - 1] == b[b_len - i - 1]) {
+  while (i < a_len && i < b_len && a[a_len - i - 1] == b[b_len - i - 1]) {
     i++;
   }
   return i;
@@ -1316,9 +1322,8 @@ size_t BrowserAccessibilityAndroid::CommonSuffixLength(
 // |BrowserAccessibilityCocoa::computeTextEdit|.
 //
 // static
-size_t BrowserAccessibilityAndroid::CommonEndLengths(
-    const base::string16 a,
-    const base::string16 b) {
+size_t BrowserAccessibilityAndroid::CommonEndLengths(const base::string16 a,
+                                                     const base::string16 b) {
   size_t prefix_len = CommonPrefixLength(a, b);
   // Remove the matching prefix before finding the suffix. Otherwise, if
   // old_value_ is "a" and new_value_ is "aa", "a" will be double-counted as
@@ -1335,14 +1340,45 @@ base::string16 BrowserAccessibilityAndroid::GetTextChangeBeforeText() const {
 
 int BrowserAccessibilityAndroid::GetSelectionStart() const {
   int sel_start = 0;
-  GetIntAttribute(ax::mojom::IntAttribute::kTextSelStart, &sel_start);
-  return sel_start;
+  if (IsPlainTextField() &&
+      GetIntAttribute(ax::mojom::IntAttribute::kTextSelStart, &sel_start)) {
+    return sel_start;
+  }
+
+  int32_t anchor_id = manager()->GetTreeData().sel_anchor_object_id;
+  BrowserAccessibility* anchor_object = manager()->GetFromID(anchor_id);
+  if (!anchor_object) {
+    return 0;
+  }
+
+  auto position = anchor_object->CreatePositionAt(
+      manager()->GetTreeData().sel_anchor_offset,
+      manager()->GetTreeData().sel_anchor_affinity);
+  while (position->GetAnchor() && position->GetAnchor() != this)
+    position = position->CreateParentPosition();
+
+  return !position->IsNullPosition() ? position->text_offset() : 0;
 }
 
 int BrowserAccessibilityAndroid::GetSelectionEnd() const {
   int sel_end = 0;
-  GetIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, &sel_end);
-  return sel_end;
+  if (IsPlainTextField() &&
+      GetIntAttribute(ax::mojom::IntAttribute::kTextSelEnd, &sel_end)) {
+    return sel_end;
+  }
+
+  int32_t focus_id = manager()->GetTreeData().sel_focus_object_id;
+  BrowserAccessibility* focus_object = manager()->GetFromID(focus_id);
+  if (!focus_object)
+    return 0;
+
+  auto position = focus_object->CreatePositionAt(
+      manager()->GetTreeData().sel_focus_offset,
+      manager()->GetTreeData().sel_focus_affinity);
+  while (position->GetAnchor() && position->GetAnchor() != this)
+    position = position->CreateParentPosition();
+
+  return !position->IsNullPosition() ? position->text_offset() : 0;
 }
 
 int BrowserAccessibilityAndroid::GetEditableTextLength() const {
@@ -1647,7 +1683,7 @@ bool BrowserAccessibilityAndroid::ShouldExposeValueAsName() const {
       break;
   }
 
-  if (HasState(ax::mojom::State::kEditable))
+  if (IsPlainTextField() || IsRichTextField())
     return true;
 
   base::string16 value = GetValue();
@@ -1680,6 +1716,44 @@ int BrowserAccessibilityAndroid::CountChildrenWithRole(
       count++;
   }
   return count;
+}
+
+base::string16 BrowserAccessibilityAndroid::GetContentInvalidErrorMessage()
+    const {
+  content::ContentClient* content_client = content::GetContentClient();
+  int message_id = -1;
+
+  if (!IsContentInvalid())
+    return base::string16();
+
+  switch (GetData().GetInvalidState()) {
+    case ax::mojom::InvalidState::kNone:
+    case ax::mojom::InvalidState::kFalse:
+      // No error message necessary
+      break;
+
+    case ax::mojom::InvalidState::kTrue:
+    case ax::mojom::InvalidState::kOther:
+      message_id = CONTENT_INVALID_TRUE;
+      break;
+
+    case ax::mojom::InvalidState::kSpelling:
+      message_id = CONTENT_INVALID_SPELLING;
+      break;
+
+    case ax::mojom::InvalidState::kGrammar:
+      message_id = CONTENT_INVALID_GRAMMAR;
+      break;
+  }
+
+  if (message_id != -1)
+    return content_client->GetLocalizedString(message_id);
+
+  return base::string16();
+}
+
+void BrowserAccessibilityAndroid::ResetContentInvalidTimer() {
+  content_invalid_timer_ = base::ElapsedTimer();
 }
 
 }  // namespace content

@@ -131,8 +131,10 @@ public class BasicSuggestionProcessor implements SuggestionProcessor {
             if ((suggestionType == OmniboxSuggestionType.SEARCH_SUGGEST_ENTITY)
                     || (suggestionType == OmniboxSuggestionType.SEARCH_SUGGEST_PROFILE)) {
                 textLine2 = SpannableString.valueOf(suggestion.getDescription());
-                textLine2Color = SuggestionViewViewBinder.getStandardFontColor(
-                        mContext, model.get(SuggestionCommonProperties.USE_DARK_COLORS));
+                textLine2Color = ApiCompatibilityUtils.getColor(mContext.getResources(),
+                        model.get(SuggestionCommonProperties.USE_DARK_COLORS)
+                                ? R.color.default_text_color_dark
+                                : R.color.url_emphasis_light_default_text);
                 textLine2Direction = View.TEXT_DIRECTION_INHERIT;
             } else if (mEnableNewAnswerLayout
                     && suggestionType == OmniboxSuggestionType.CALCULATOR) {
@@ -156,7 +158,7 @@ public class BasicSuggestionProcessor implements SuggestionProcessor {
                 SuggestionViewProperties.TEXT_LINE_1_TEXT, new SuggestionTextContainer(textLine1));
         model.set(SuggestionViewProperties.TEXT_LINE_1_SIZING,
                 Pair.create(TypedValue.COMPLEX_UNIT_PX,
-                        mContext.getResources().getDimension(
+                        (int) mContext.getResources().getDimension(
                                 org.chromium.chrome.R.dimen
                                         .omnibox_suggestion_first_line_text_size)));
 
@@ -166,7 +168,7 @@ public class BasicSuggestionProcessor implements SuggestionProcessor {
         model.set(SuggestionViewProperties.TEXT_LINE_2_TEXT_DIRECTION, textLine2Direction);
         model.set(SuggestionViewProperties.TEXT_LINE_2_SIZING,
                 Pair.create(TypedValue.COMPLEX_UNIT_PX,
-                        mContext.getResources().getDimension(
+                        (int) mContext.getResources().getDimension(
                                 org.chromium.chrome.R.dimen
                                         .omnibox_suggestion_second_line_text_size)));
         model.set(SuggestionViewProperties.TEXT_LINE_1_MAX_LINES, 1);

@@ -44,12 +44,12 @@ const bool kUseColorEstimator = true;
 DEFINE_SCOPED_UMA_HISTOGRAM_AREA_TIMER(
     ScopedSoftwareRasterTaskTimer,
     "Compositing.%s.RasterTask.RasterUs.Software",
-    "Compositing.%s.RasterTask.RasterPixelsPerMs2.Software");
+    "Compositing.%s.RasterTask.RasterPixelsPerMs2.Software")
 
 DEFINE_SCOPED_UMA_HISTOGRAM_AREA_TIMER(
     ScopedGpuRasterTaskTimer,
     "Compositing.%s.RasterTask.RasterUs.Gpu",
-    "Compositing.%s.RasterTask.RasterPixelsPerMs2.Gpu");
+    "Compositing.%s.RasterTask.RasterPixelsPerMs2.Gpu")
 
 class ScopedRasterTaskTimer {
  public:
@@ -72,6 +72,36 @@ class ScopedRasterTaskTimer {
   base::Optional<ScopedGpuRasterTaskTimer> gpu_timer_;
 };
 
+// This class is wrapper for both ImageProvider and PaintWorkletImageProvider,
+// which is used in RasterSource::PlaybackSettings. It looks at the draw image
+// and decides which one of the two providers to dispatch the request to.
+class DispatchingImageProvider : public ImageProvider {
+ public:
+  DispatchingImageProvider(
+      PlaybackImageProvider playback_image_provider,
+      PaintWorkletImageProvider paint_worklet_image_provider)
+      : playback_image_provider_(std::move(playback_image_provider)),
+        paint_worklet_image_provider_(std::move(paint_worklet_image_provider)) {
+  }
+  ~DispatchingImageProvider() override = default;
+
+  DispatchingImageProvider(DispatchingImageProvider&& other) = default;
+
+  ImageProvider::ScopedResult GetRasterContent(
+      const DrawImage& draw_image) override {
+    return draw_image.paint_image().IsPaintWorklet()
+               ? paint_worklet_image_provider_.GetPaintRecordResult(
+                     draw_image.paint_image().paint_worklet_input())
+               : playback_image_provider_.GetRasterContent(draw_image);
+  }
+
+ private:
+  PlaybackImageProvider playback_image_provider_;
+  PaintWorkletImageProvider paint_worklet_image_provider_;
+
+  DISALLOW_COPY_AND_ASSIGN(DispatchingImageProvider);
+};
+
 class RasterTaskImpl : public TileTask {
  public:
   RasterTaskImpl(TileManager* tile_manager,
@@ -85,8 +115,7 @@ class RasterTaskImpl : public TileTask {
                  std::unique_ptr<RasterBuffer> raster_buffer,
                  TileTask::Vector* dependencies,
                  bool is_gpu_rasterization,
-                 PlaybackImageProvider image_provider,
-                 PaintWorkletImageProvider paint_worklet_image_provider,
+                 DispatchingImageProvider image_provider,
                  GURL url)
       : TileTask(!is_gpu_rasterization, dependencies),
         tile_manager_(tile_manager),
@@ -106,12 +135,9 @@ class RasterTaskImpl : public TileTask {
         is_gpu_rasterization_(is_gpu_rasterization),
         raster_buffer_(std::move(raster_buffer)),
         image_provider_(std::move(image_provider)),
-        paint_worklet_image_provider_(std::move(paint_worklet_image_provider)),
         url_(std::move(url)) {
     DCHECK(origin_thread_checker_.CalledOnValidThread());
     playback_settings_.image_provider = &image_provider_;
-    playback_settings_.paint_worklet_image_provider =
-        &paint_worklet_image_provider_;
   }
 
   // Overridden from Task:
@@ -177,8 +203,7 @@ class RasterTaskImpl : public TileTask {
   int source_frame_number_;
   bool is_gpu_rasterization_;
   std::unique_ptr<RasterBuffer> raster_buffer_;
-  PlaybackImageProvider image_provider_;
-  PaintWorkletImageProvider paint_worklet_image_provider_;
+  DispatchingImageProvider image_provider_;
   GURL url_;
 
   DISALLOW_COPY_AND_ASSIGN(RasterTaskImpl);
@@ -559,6 +584,8 @@ bool TileManager::PrepareTiles(
 
   // Schedule tile tasks.
   ScheduleTasks(std::move(prioritized_work));
+
+  image_controller_.paint_worklet_image_cache()->NotifyDidPrepareTiles();
 
   TRACE_EVENT_INSTANT1("cc", "DidPrepareTiles", TRACE_EVENT_SCOPE_THREAD,
                        "state", BasicStateAsValue());
@@ -1145,7 +1172,7 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
         tile->id(), tile->invalidated_content_rect(), tile->invalidated_id(),
         &invalidated_rect);
   }
-  const RasterColorSpace& raster_color_space = client_->GetRasterColorSpace();
+  const gfx::ColorSpace& raster_color_space = client_->GetRasterColorSpace();
   bool partial_tile_decode = false;
   if (resource) {
     resource_content_id = tile->invalidated_id();
@@ -1154,7 +1181,7 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
   } else {
     resource = resource_pool_->AcquireResource(tile->desired_texture_size(),
                                                DetermineResourceFormat(tile),
-                                               raster_color_space.color_space);
+                                               raster_color_space);
     DCHECK(resource);
   }
 
@@ -1242,18 +1269,17 @@ scoped_refptr<TileTask> TileManager::CreateRasterTask(
 
   PlaybackImageProvider image_provider(image_controller_.cache(),
                                        std::move(settings));
-
-  playback_settings.raster_color_space = raster_color_space;
-
   PaintWorkletImageProvider paint_worklet_image_provider(
       image_controller_.paint_worklet_image_cache());
+  DispatchingImageProvider dispatching_image_provider(
+      std::move(image_provider), std::move(paint_worklet_image_provider));
 
   return base::MakeRefCounted<RasterTaskImpl>(
       this, tile, std::move(resource), prioritized_tile.raster_source(),
       playback_settings, prioritized_tile.priority().resolution,
       invalidated_rect, prepare_tiles_count_, std::move(raster_buffer),
-      &decode_tasks, use_gpu_rasterization_, std::move(image_provider),
-      std::move(paint_worklet_image_provider), active_url_);
+      &decode_tasks, use_gpu_rasterization_,
+      std::move(dispatching_image_provider), active_url_);
 }
 
 void TileManager::ResetSignalsForTesting() {

@@ -4,7 +4,11 @@
 
 #include "chrome/browser/ui/webui/settings/chromeos/crostini_handler.h"
 
+#include <string>
+
+#include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "chrome/browser/chromeos/crostini/crostini_export_import.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_share_path.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -18,7 +22,13 @@ namespace settings {
 CrostiniHandler::CrostiniHandler(Profile* profile)
     : profile_(profile), weak_ptr_factory_(this) {}
 
-CrostiniHandler::~CrostiniHandler() = default;
+CrostiniHandler::~CrostiniHandler() {
+  if (crostini::CrostiniManager::GetForProfile(profile_)
+          ->HasInstallerViewStatusObserver(this)) {
+    crostini::CrostiniManager::GetForProfile(profile_)
+        ->RemoveInstallerViewStatusObserver(this);
+  }
+}
 
 void CrostiniHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
@@ -38,6 +48,21 @@ void CrostiniHandler::RegisterMessages() {
       "removeCrostiniSharedPath",
       base::BindRepeating(&CrostiniHandler::HandleRemoveCrostiniSharedPath,
                           weak_ptr_factory_.GetWeakPtr()));
+  web_ui()->RegisterMessageCallback(
+      "exportCrostiniContainer",
+      base::BindRepeating(&CrostiniHandler::HandleExportCrostiniContainer,
+                          weak_ptr_factory_.GetWeakPtr()));
+  web_ui()->RegisterMessageCallback(
+      "importCrostiniContainer",
+      base::BindRepeating(&CrostiniHandler::HandleImportCrostiniContainer,
+                          weak_ptr_factory_.GetWeakPtr()));
+  web_ui()->RegisterMessageCallback(
+      "requestCrostiniInstallerStatus",
+      base::BindRepeating(
+          &CrostiniHandler::HandleCrostiniInstallerStatusRequest,
+          weak_ptr_factory_.GetWeakPtr()));
+  crostini::CrostiniManager::GetForProfile(profile_)
+      ->AddInstallerViewStatusObserver(this);
 }
 
 void CrostiniHandler::HandleRequestCrostiniInstallerView(
@@ -86,6 +111,38 @@ void CrostiniHandler::HandleRemoveCrostiniSharedPath(
             }
           },
           path));
+}
+
+void CrostiniHandler::HandleExportCrostiniContainer(
+    const base::ListValue* args) {
+  CHECK_EQ(0U, args->GetSize());
+  crostini::CrostiniExportImport::GetForProfile(profile_)->ExportContainer(
+      web_ui()->GetWebContents());
+}
+
+void CrostiniHandler::HandleImportCrostiniContainer(
+    const base::ListValue* args) {
+  CHECK_EQ(0U, args->GetSize());
+  crostini::CrostiniExportImport::GetForProfile(profile_)->ImportContainer(
+      web_ui()->GetWebContents());
+}
+
+void CrostiniHandler::HandleCrostiniInstallerStatusRequest(
+    const base::ListValue* args) {
+  AllowJavascript();
+  CHECK_EQ(0U, args->GetSize());
+  bool status = crostini::CrostiniManager::GetForProfile(profile_)
+                    ->GetInstallerViewStatus();
+  OnCrostiniInstallerViewStatusChanged(status);
+}
+
+void CrostiniHandler::OnCrostiniInstallerViewStatusChanged(bool status) {
+  // It's technically possible for this to be called before Javascript is
+  // enabled, in which case we must not call FireWebUIListener
+  if (IsJavascriptAllowed()) {
+    // Other side listens with cr.addWebUIListener
+    FireWebUIListener("crostini-installer-status-changed", base::Value(status));
+  }
 }
 
 }  // namespace settings

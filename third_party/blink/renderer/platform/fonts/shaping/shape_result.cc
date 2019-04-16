@@ -364,17 +364,17 @@ void ShapeResult::RunInfo::CharacterIndexForXPosition(
   }
 }
 
-void HarfBuzzRunGlyphData::SetGlyphAndPositions(uint16_t glyph_id,
-                                                uint16_t character_index,
-                                                float advance,
-                                                const FloatSize& offset,
-                                                bool safe_to_break_before) {
-  glyph = glyph_id;
-  DCHECK_LE(character_index, kMaxCharacterIndex);
-  this->character_index = character_index;
-  this->advance = advance;
-  this->offset = offset;
-  this->safe_to_break_before = safe_to_break_before;
+void HarfBuzzRunGlyphData::SetGlyphAndPositions(uint16_t new_glyph_id,
+                                                uint16_t new_character_index,
+                                                float new_advance,
+                                                const FloatSize& new_offset,
+                                                bool new_safe_to_break_before) {
+  this->glyph = new_glyph_id;
+  DCHECK_LE(new_character_index, kMaxCharacterIndex);
+  this->character_index = new_character_index;
+  this->advance = new_advance;
+  this->offset = new_offset;
+  this->safe_to_break_before = new_safe_to_break_before;
   this->bounds_before_raw_value = std::numeric_limits<int16_t>::max();
   this->bounds_after_raw_value = std::numeric_limits<int16_t>::max();
 }
@@ -1276,9 +1276,10 @@ void ShapeResult::UpdateStartIndex() {
 float ShapeResult::LineLeftBounds() const {
   DCHECK(!runs_.IsEmpty());
   const RunInfo& run = *runs_.front();
+  if (run.glyph_data_.IsEmpty())
+    return 0.0f;
   const bool is_horizontal_run = run.IsHorizontal();
   const SimpleFontData& font_data = *run.font_data_;
-  DCHECK(!run.glyph_data_.IsEmpty()) << *this;
   const unsigned character_index = run.glyph_data_.front().character_index;
   GlyphBoundsAccumulator bounds(0.f);
   for (const auto& glyph : run.glyph_data_) {
@@ -1297,9 +1298,10 @@ float ShapeResult::LineLeftBounds() const {
 float ShapeResult::LineRightBounds() const {
   DCHECK(!runs_.IsEmpty());
   const RunInfo& run = *runs_.back();
+  if (run.glyph_data_.IsEmpty())
+    return 0.0f;
   const bool is_horizontal_run = run.IsHorizontal();
   const SimpleFontData& font_data = *run.font_data_;
-  DCHECK(!run.glyph_data_.IsEmpty()) << *this;
   const unsigned character_index = run.glyph_data_.back().character_index;
   GlyphBoundsAccumulator bounds(width_);
   for (const auto& glyph : base::Reversed(run.glyph_data_)) {
@@ -1320,11 +1322,53 @@ float ShapeResult::LineRightBounds() const {
 
 void ShapeResult::CopyRange(unsigned start_offset,
                             unsigned end_offset,
-                            ShapeResult* target,
-                            unsigned* start_run_index) const {
+                            ShapeResult* target) const {
+  unsigned run_index = 0;
+  CopyRangeInternal(run_index, start_offset, end_offset, target);
+}
+
+void ShapeResult::CopyRanges(const ShapeRange* ranges,
+                             unsigned num_ranges) const {
+  DCHECK_GT(num_ranges, 0u);
   if (!runs_.size())
     return;
 
+  // Ranges are in logical order so for RTL the ranges are proccessed back to
+  // front to ensure that they're in a sequential visual order with regards to
+  // the runs.
+  if (Rtl()) {
+    unsigned run_index = 0;
+    unsigned last_range = num_ranges - 1;
+    for (unsigned i = 0; i < num_ranges; i++) {
+      const ShapeRange& range = ranges[last_range - i];
+#if DCHECK_IS_ON()
+      DCHECK_GE(range.end, range.start);
+      if (i != last_range)
+        DCHECK_GE(range.start, ranges[last_range - (i + 1)].end);
+#endif
+      run_index =
+          CopyRangeInternal(run_index, range.start, range.end, range.target);
+    }
+    return;
+  }
+
+  unsigned run_index = 0;
+  for (unsigned i = 0; i < num_ranges; i++) {
+    const ShapeRange& range = ranges[i];
+#if DCHECK_IS_ON()
+    DCHECK_GE(range.end, range.start);
+    if (i)
+      DCHECK_GE(range.start, ranges[i - 1].end);
+#endif
+    run_index =
+        CopyRangeInternal(run_index, range.start, range.end, range.target);
+  }
+}
+
+unsigned ShapeResult::CopyRangeInternal(unsigned run_index,
+                                        unsigned start_offset,
+                                        unsigned end_offset,
+                                        ShapeResult* target) const {
 #if DCHECK_IS_ON()
   unsigned target_num_characters_before = target->num_characters_;
 #endif
@@ -1337,7 +1381,6 @@ void ShapeResult::CopyRange(unsigned start_offset,
           : target->EndIndex() - std::max(start_offset, StartIndex());
   unsigned target_run_size_before = target->runs_.size();
   float total_width = 0;
-  unsigned run_index = start_run_index ? *start_run_index : 0;
   for (; run_index < runs_.size(); run_index++) {
     const auto& run = runs_[run_index];
     unsigned run_start = run->start_index_;
@@ -1357,11 +1400,7 @@ void ShapeResult::CopyRange(unsigned start_offset,
 
       // No need to process runs after the end of the range.
       if ((!Rtl() && end_offset <= run_end) ||
-          (Rtl() && start_offset > run_start)) {
-        // RTL cannot use |start_run_index| because runs are in the descending
-        // order.
-        if (!Rtl() && start_run_index)
-          *start_run_index = run_index;
+          (Rtl() && start_offset >= run_start)) {
         break;
       }
     }
@@ -1369,7 +1408,7 @@ void ShapeResult::CopyRange(unsigned start_offset,
 
   if (!target->num_glyphs_) {
     target->UpdateStartIndex();
-    return;
+    return run_index;
   }
 
   // Runs in RTL result are in visual order, and that new runs should be
@@ -1406,18 +1445,17 @@ void ShapeResult::CopyRange(unsigned start_offset,
   DCHECK_EQ(
       target->num_characters_ - target_num_characters_before,
       std::min(end_offset, EndIndex()) - std::max(start_offset, StartIndex()));
-
   target->CheckConsistency();
 #endif
+
+  return run_index;
 }
 
-scoped_refptr<ShapeResult> ShapeResult::SubRange(
-    unsigned start_offset,
-    unsigned end_offset,
-    unsigned* start_run_index) const {
+scoped_refptr<ShapeResult> ShapeResult::SubRange(unsigned start_offset,
+                                                 unsigned end_offset) const {
   scoped_refptr<ShapeResult> sub_range =
       Create(primary_font_.get(), 0, Direction());
-  CopyRange(start_offset, end_offset, sub_range.get(), start_run_index);
+  CopyRange(start_offset, end_offset, sub_range.get());
   return sub_range;
 }
 
@@ -1480,33 +1518,56 @@ scoped_refptr<ShapeResult> ShapeResult::CreateForTabulationCharacters(
     const Font* font,
     const TextRun& text_run,
     float position_offset,
-    unsigned count) {
+    unsigned length) {
+  return CreateForTabulationCharacters(
+      font, text_run.Direction(), text_run.GetTabSize(),
+      text_run.XPos() + position_offset, 0, length);
+}
+
+scoped_refptr<ShapeResult> ShapeResult::CreateForTabulationCharacters(
+    const Font* font,
+    TextDirection direction,
+    const TabSize& tab_size,
+    float position,
+    unsigned start_index,
+    unsigned length) {
+  DCHECK_GT(length, 0u);
   const SimpleFontData* font_data = font->PrimaryFont();
-  // Tab characters are always LTR or RTL, not TTB, even when
-  // isVerticalAnyUpright().
-  scoped_refptr<ShapeResult::RunInfo> run = RunInfo::Create(
-      font_data, text_run.Rtl() ? HB_DIRECTION_RTL : HB_DIRECTION_LTR,
-      CanvasRotationInVertical::kRegular, HB_SCRIPT_COMMON, 0, count, count);
-  float position = text_run.XPos() + position_offset;
-  float start_position = position;
-  for (unsigned i = 0; i < count; i++) {
-    float advance = font->TabWidth(font_data, text_run.GetTabSize(), position);
-    HarfBuzzRunGlyphData& glyph_data = run->glyph_data_[i];
-    glyph_data.SetGlyphAndPositions(font_data->SpaceGlyph(), i, advance,
-                                    FloatSize(), true);
-
-    position += advance;
-  }
-  run->width_ = position - start_position;
-
   scoped_refptr<ShapeResult> result =
-      ShapeResult::Create(font, count, text_run.Direction());
-  result->width_ = run->width_;
-  result->num_glyphs_ = count;
-  DCHECK_EQ(result->num_glyphs_, count);  // no overflow
+      ShapeResult::Create(font, length, direction);
+  result->num_glyphs_ = length;
+  DCHECK_EQ(result->num_glyphs_, length);  // no overflow
   result->has_vertical_offsets_ =
       font_data->PlatformData().IsVerticalAnyUpright();
-  result->runs_.push_back(std::move(run));
+  // Tab characters are always LTR or RTL, not TTB, even when
+  // isVerticalAnyUpright().
+  hb_direction_t hb_direction =
+      IsLtr(direction) ? HB_DIRECTION_LTR : HB_DIRECTION_RTL;
+  // Only the advance of the first tab is affected by |position|.
+  float advance = font->TabWidth(font_data, tab_size, position);
+  do {
+    unsigned run_length = std::min(length, HarfBuzzRunGlyphData::kMaxGlyphs);
+    scoped_refptr<ShapeResult::RunInfo> run = RunInfo::Create(
+        font_data, hb_direction, CanvasRotationInVertical::kRegular,
+        HB_SCRIPT_COMMON, start_index, run_length, run_length);
+    float start_position = position;
+    for (unsigned i = 0; i < run_length; i++) {
+      // 2nd and following tabs have the base width, without using |position|.
+      if (i == 1)
+        advance = font->TabWidth(font_data, tab_size);
+      HarfBuzzRunGlyphData& glyph_data = run->glyph_data_[i];
+      glyph_data.SetGlyphAndPositions(font_data->SpaceGlyph(), i, advance,
+                                      FloatSize(), true);
+
+      position += advance;
+    }
+    run->width_ = position - start_position;
+    result->width_ += run->width_;
+    result->runs_.push_back(std::move(run));
+    DCHECK_GE(length, run_length);
+    length -= run_length;
+    start_index += run_length;
+  } while (length);
   result->UpdateStartIndex();
   return result;
 }

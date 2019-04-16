@@ -99,7 +99,8 @@ SyncConfigInfo::SyncConfigInfo()
 SyncConfigInfo::~SyncConfigInfo() {}
 
 bool GetConfiguration(const std::string& json, SyncConfigInfo* config) {
-  std::unique_ptr<base::Value> parsed_value = base::JSONReader::Read(json);
+  std::unique_ptr<base::Value> parsed_value =
+      base::JSONReader::ReadDeprecated(json);
   base::DictionaryValue* result;
   if (!parsed_value || !parsed_value->GetAsDictionary(&result)) {
     DLOG(ERROR) << "GetConfiguration() not passed a Dictionary";
@@ -295,7 +296,7 @@ void PeopleHandler::OnJavascriptAllowed() {
   // This is intentionally not using GetSyncService(), to go around the
   // Profile::IsSyncAllowed() check.
   syncer::SyncService* sync_service =
-      ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_);
+      ProfileSyncServiceFactory::GetForProfile(profile_);
   if (sync_service)
     sync_service_observer_.Add(sync_service);
 }
@@ -421,7 +422,7 @@ void PeopleHandler::SyncStartupCompleted() {
 
 syncer::SyncService* PeopleHandler::GetSyncService() const {
   return profile_->IsSyncAllowed()
-             ? ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_)
+             ? ProfileSyncServiceFactory::GetForProfile(profile_)
              : nullptr;
 }
 
@@ -467,11 +468,11 @@ void PeopleHandler::HandleGetStoredAccounts(const base::ListValue* args) {
   ResolveJavascriptCallback(*callback_id, GetStoredAccountsList());
 }
 
-void PeopleHandler::OnAccountUpdated(const AccountInfo& info) {
+void PeopleHandler::OnExtendedAccountInfoUpdated(const AccountInfo& info) {
   FireWebUIListener("stored-accounts-updated", GetStoredAccountsList());
 }
 
-void PeopleHandler::OnAccountRemovedWithInfo(const AccountInfo& info) {
+void PeopleHandler::OnExtendedAccountInfoRemoved(const AccountInfo& info) {
   FireWebUIListener("stored-accounts-updated", GetStoredAccountsList());
 }
 
@@ -497,10 +498,11 @@ base::Value PeopleHandler::GetStoredAccountsList() {
     // If dice is disabled (and unified consent enabled), show only the primary
     // account.
     auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
-    if (identity_manager->HasPrimaryAccount()) {
-      accounts_list.push_back(
-          GetAccountValue(identity_manager->GetPrimaryAccountInfo()));
-    }
+    base::Optional<AccountInfo> primary_account_info =
+        identity_manager->FindExtendedAccountInfoForAccount(
+            identity_manager->GetPrimaryAccountInfo());
+    if (primary_account_info.has_value())
+      accounts_list.push_back(GetAccountValue(primary_account_info.value()));
   }
 
   return accounts;
@@ -767,7 +769,9 @@ void PeopleHandler::HandlePauseSync(const base::ListValue* args) {
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
   DCHECK(identity_manager->HasPrimaryAccount());
 
-  AccountInfo primary_account_info = identity_manager->GetPrimaryAccountInfo();
+  CoreAccountInfo primary_account_info =
+      identity_manager->GetPrimaryAccountInfo();
+
   identity_manager->GetAccountsMutator()->AddOrUpdateAccount(
       primary_account_info.gaia, primary_account_info.email,
       OAuth2TokenServiceDelegate::kInvalidRefreshToken,
@@ -874,12 +878,12 @@ void PeopleHandler::CloseUI() {
 }
 
 void PeopleHandler::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   UpdateSyncStatus();
 }
 
 void PeopleHandler::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   UpdateSyncStatus();
 }
 
@@ -933,7 +937,7 @@ PeopleHandler::GetSyncStatusDictionary() {
   // nuanced information, since GetSyncService() returns nullptr if anything
   // makes Profile::IsSyncAllowed() false.
   syncer::SyncService* service =
-      ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_);
+      ProfileSyncServiceFactory::GetForProfile(profile_);
   bool disallowed_by_policy =
       service && service->HasDisableReason(
                      syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
@@ -950,8 +954,7 @@ PeopleHandler::GetSyncStatusDictionary() {
   sync_ui_util::ActionType action_type = sync_ui_util::NO_ACTION;
 
   bool status_has_error =
-      sync_ui_util::GetStatusLabels(profile_, service, identity_manager,
-                                    &status_label, &link_label,
+      sync_ui_util::GetStatusLabels(profile_, &status_label, &link_label,
                                     &action_type) == sync_ui_util::SYNC_ERROR;
   sync_status->SetString("statusText", status_label);
   sync_status->SetString("statusActionText", link_label);
@@ -1046,12 +1049,15 @@ void PeopleHandler::PushSyncPrefs() {
   if (!passphrase_time.is_null()) {
     base::string16 passphrase_time_str =
         base::TimeFormatShortDate(passphrase_time);
-    args.SetString("enterPassphraseBody",
-                   GetStringFUTF16(IDS_SYNC_ENTER_PASSPHRASE_BODY_WITH_DATE,
-                                   passphrase_time_str));
+    args.SetString(
+        "enterPassphraseBody",
+        GetStringFUTF16(IDS_SYNC_ENTER_PASSPHRASE_BODY_WITH_DATE,
+                        base::ASCIIToUTF16(chrome::kSyncErrorsHelpURL),
+                        passphrase_time_str));
     args.SetString(
         "enterGooglePassphraseBody",
         GetStringFUTF16(IDS_SYNC_ENTER_GOOGLE_PASSPHRASE_BODY_WITH_DATE,
+                        base::ASCIIToUTF16(chrome::kSyncErrorsHelpURL),
                         passphrase_time_str));
     switch (passphrase_type) {
       case syncer::PassphraseType::FROZEN_IMPLICIT_PASSPHRASE:
@@ -1088,10 +1094,6 @@ void PeopleHandler::UpdateSyncStatus() {
 }
 
 void PeopleHandler::MarkFirstSetupComplete() {
-  // Suppress the sign in promo once the user starts sync. This way the user
-  // doesn't see the sign in promo even if they sign out later on.
-  signin::SetUserSkippedPromo(profile_);
-
   syncer::SyncService* service = GetSyncService();
   // The sync service may be nullptr if it has been just disabled by policy.
   if (!service || service->GetUserSettings()->IsFirstSetupComplete())
@@ -1102,7 +1104,6 @@ void PeopleHandler::MarkFirstSetupComplete() {
 
   // We're done configuring, so notify SyncService that it is OK to start
   // syncing.
-  sync_blocker_.reset();
   service->GetUserSettings()->SetFirstSetupComplete();
   FireWebUIListener("sync-settings-saved");
 }

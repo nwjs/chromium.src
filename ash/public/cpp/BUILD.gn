@@ -11,10 +11,10 @@ component("cpp") {
     "accelerators.h",
     "app_list/app_list_config.cc",
     "app_list/app_list_config.h",
-    "app_list/app_list_constants.cc",
-    "app_list/app_list_constants.h",
     "app_list/app_list_features.cc",
     "app_list/app_list_features.h",
+    "app_list/app_list_metrics.cc",
+    "app_list/app_list_metrics.h",
     "app_list/app_list_switches.cc",
     "app_list/app_list_switches.h",
     "app_list/app_list_types.cc",
@@ -61,6 +61,8 @@ component("cpp") {
     "default_frame_header.h",
     "default_scale_factor_retriever.cc",
     "default_scale_factor_retriever.h",
+    "fps_counter.cc",
+    "fps_counter.h",
     "frame_header.cc",
     "frame_header.h",
     "frame_utils.cc",
@@ -87,6 +89,8 @@ component("cpp") {
     "notification_utils.h",
     "power_utils.cc",
     "power_utils.h",
+    "presentation_time_recorder.cc",
+    "presentation_time_recorder.h",
     "remote_shelf_item_delegate.cc",
     "remote_shelf_item_delegate.h",
     "rounded_corner_decorator.cc",
@@ -128,6 +132,7 @@ component("cpp") {
 
   deps = [
     "//ash/public/cpp/vector_icons",
+    "//chromeos/constants",
     "//chromeos/dbus:power_manager_proto",
     "//components/prefs",
     "//mojo/public/cpp/bindings",
@@ -158,6 +163,45 @@ component("cpp") {
       [ "//ash/public/interfaces:interfaces_internal" ]
 
   output_name = "ash_public_cpp"
+}
+
+source_set("manifest") {
+  sources = [
+    "manifest.cc",
+    "manifest.h",
+  ]
+
+  deps = [
+    "//ash/public/interfaces:interfaces_internal",
+    "//base",
+    "//chromeos/services/multidevice_setup/public/mojom",
+    "//services/content/public/mojom",
+    "//services/data_decoder/public/mojom",
+    "//services/device/public/mojom",
+    "//services/preferences/public/mojom",
+    "//services/service_manager/public/cpp",
+    "//services/service_manager/public/mojom",
+    "//services/viz/public/interfaces",
+    "//services/ws/public/cpp:manifest",
+    "//services/ws/public/mojom",
+  ]
+}
+
+source_set("manifest_for_tests") {
+  testonly = true
+
+  sources = [
+    "test_manifest.cc",
+    "test_manifest.h",
+  ]
+
+  deps = [
+    ":manifest",
+    "//ash/public/interfaces:test_interfaces",
+    "//base",
+    "//services/service_manager/public/cpp",
+    "//services/service_manager/public/mojom",
+  ]
 }
 
 # Using a test service because the traits need to pass handles around. Revisit
@@ -197,6 +241,7 @@ source_set("unit_tests") {
 }
 
 source_set("test_support") {
+  testonly = true
   sources = [
     "immersive/immersive_fullscreen_controller_test_api.cc",
     "immersive/immersive_fullscreen_controller_test_api.h",
@@ -209,6 +254,7 @@ source_set("test_support") {
     "//base",
     "//services/service_manager/public/cpp",
     "//ui/aura",
+    "//ui/aura:test_support",
     "//ui/gfx",
     "//ui/keyboard:mojom",
     "//ui/views",

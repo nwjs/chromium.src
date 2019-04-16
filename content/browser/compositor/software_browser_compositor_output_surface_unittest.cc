@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/test/test_message_loop.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -25,8 +26,8 @@ class FakeVSyncProvider : public gfx::VSyncProvider {
   FakeVSyncProvider() : call_count_(0) {}
   ~FakeVSyncProvider() override {}
 
-  void GetVSyncParameters(const UpdateVSyncCallback& callback) override {
-    callback.Run(timebase_, interval_);
+  void GetVSyncParameters(UpdateVSyncCallback callback) override {
+    std::move(callback).Run(timebase_, interval_);
     call_count_++;
   }
 

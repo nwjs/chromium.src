@@ -470,6 +470,36 @@ experimental domain Audits
       # Size after re-encoding.
       integer encodedSize
 
+# Defines events for background web platform features.
+experimental domain BackgroundService
+  # The Background Service that will be associated with the commands/events.
+  # Every Background Service operates independently, but they share the same
+  # API.
+  type ServiceName extends string
+    enum
+      backgroundFetch
+      backgroundSync
+
+  command enable
+    parameters
+      ServiceName service
+
+  command disable
+    parameters
+      ServiceName service
+
+  # Set the recording state for the service.
+  command setRecording
+    parameters
+      boolean shouldRecord
+      ServiceName service
+
+  # Called when the recording state for the service has been updated.
+  event recordingStateChanged
+    parameters
+      boolean isRecording
+      ServiceName service
+
 # The Browser domain defines methods and events for browser managing.
 domain Browser
 
@@ -537,6 +567,9 @@ domain Browser
 
   # Crashes browser on the main thread.
   experimental command crash
+
+  # Crashes GPU process.
+  experimental command crashGpuProcess
 
   # Returns version information.
   command getVersion
@@ -1243,6 +1276,8 @@ experimental domain CacheStorage
       CacheId cacheId
       # URL spec of the request.
       string requestURL
+      # headers of the request.
+      array of Header requestHeaders
     returns
       # Response read from the cache.
       CachedResponse response
@@ -1621,7 +1656,7 @@ domain DOM
     returns
       # Resulting node.
       BackendNodeId backendNodeId
-      # Id of the node at given coordinates, only when enabled.
+      # Id of the node at given coordinates, only when enabled and requested document.
       optional NodeId nodeId
 
   # Returns node's HTML markup.
@@ -1891,7 +1926,7 @@ domain DOM
     returns
       # Resulting node.
       BackendNodeId backendNodeId
-      # Id of the node at given coordinates, only when enabled.
+      # Id of the node at given coordinates, only when enabled and requested document.
       optional NodeId nodeId
 
   # Fired when `Element`'s attribute is modified.
@@ -2705,22 +2740,8 @@ domain Emulation
       # Frame height (DIP).
       integer height
 
-  # Notification sent after the virtual time has advanced.
-  experimental event virtualTimeAdvanced
-    parameters
-      # The amount of virtual time that has elapsed in milliseconds since virtual time was first
-      # enabled.
-      number virtualTimeElapsed
-
   # Notification sent after the virtual time budget for the current VirtualTimePolicy has run out.
   experimental event virtualTimeBudgetExpired
-
-  # Notification sent after the virtual time has paused.
-  experimental event virtualTimePaused
-    parameters
-      # The amount of virtual time that has elapsed in milliseconds since virtual time was first
-      # enabled.
-      number virtualTimeElapsed
 
   # Allows overriding user agent with the given string.
   command setUserAgentOverride
@@ -2972,6 +2993,21 @@ experimental domain IndexedDB
       array of DataEntry objectStoreDataEntries
       # If true, there are more entries to fetch in the given range.
       boolean hasMore
+
+  # Gets the auto increment number of an object store. Only meaningful
+  # when objectStore.autoIncrement is true.
+  command getKeyGeneratorCurrentNumber
+    parameters
+      # Security origin.
+      string securityOrigin
+      # Database name.
+      string databaseName
+      # Object store name.
+      string objectStoreName
+    returns
+      # the current value of key generator, to become the next inserted
+      # key into the object store.
+      number currentNumber
 
   # Requests database with given name in given frame.
   command requestDatabase
@@ -3521,6 +3557,9 @@ experimental domain Memory
       integer jsEventListeners
 
   command prepareForLeakDetection
+
+  # Simulate OomIntervention by purging V8 memory.
+  command forciblyPurgeJavaScriptMemory
 
   # Enable/disable suppressing memory pressure notifications in all processes.
   command setPressureNotificationsSuppressed

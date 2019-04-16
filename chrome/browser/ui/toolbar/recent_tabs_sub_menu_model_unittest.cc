@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -90,7 +91,7 @@ class TestRecentTabsMenuModelDelegate : public ui::MenuModelDelegate {
   }
 
   ~TestRecentTabsMenuModelDelegate() override {
-    model_->SetMenuModelDelegate(NULL);
+    model_->SetMenuModelDelegate(nullptr);
   }
 
   // ui::MenuModelDelegate implementation:
@@ -164,11 +165,10 @@ class RecentTabsSubMenuModelTest
   }
 
   void RegisterRecentTabs(RecentTabsBuilderTestHelper* helper) {
-    helper->ExportToSessionSync(
-        sync_processor_.get(),
-        static_cast<sync_sessions::SessionSyncServiceImpl*>(
-            session_sync_service_)
-            ->GetUnderlyingOpenTabsUIDelegateForTest());
+    helper->ExportToSessionSync(sync_processor_.get());
+    helper->VerifyExport(static_cast<sync_sessions::SessionSyncServiceImpl*>(
+                             session_sync_service_)
+                             ->GetUnderlyingOpenTabsUIDelegateForTest());
   }
 
  private:

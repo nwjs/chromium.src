@@ -5,6 +5,8 @@
 #include "third_party/blink/renderer/platform/graphics/video_frame_submitter.h"
 
 #include <memory>
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/test/simple_test_tick_clock.h"
@@ -18,6 +20,7 @@
 #include "media/base/video_frame.h"
 #include "mojo/public/cpp/bindings/interface_request.h"
 #include "services/viz/public/interfaces/compositing/compositor_frame_sink.mojom-blink.h"
+#include "services/viz/public/interfaces/hit_test/hit_test_region_list.mojom-blink.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/graphics/test/mock_compositor_frame_sink.h"
@@ -111,7 +114,7 @@ class MockVideoFrameResourceProvider
     : public blink::VideoFrameResourceProvider {
  public:
   MockVideoFrameResourceProvider(
-      viz::ContextProvider* context_provider,
+      viz::RasterContextProvider* context_provider,
       viz::SharedBitmapReporter* shared_bitmap_reporter)
       : blink::VideoFrameResourceProvider(cc::LayerTreeSettings(), false) {
     blink::VideoFrameResourceProvider::Initialize(context_provider,
@@ -120,7 +123,7 @@ class MockVideoFrameResourceProvider
   ~MockVideoFrameResourceProvider() override = default;
 
   MOCK_METHOD2(Initialize,
-               void(viz::ContextProvider*, viz::SharedBitmapReporter*));
+               void(viz::RasterContextProvider*, viz::SharedBitmapReporter*));
   MOCK_METHOD4(AppendQuads,
                void(viz::RenderPass*,
                     scoped_refptr<media::VideoFrame>,
@@ -156,10 +159,7 @@ class VideoFrameSubmitterTest : public testing::Test {
     resource_provider_ = new StrictMock<MockVideoFrameResourceProvider>(
         context_provider_.get(), nullptr);
     submitter_ = std::make_unique<VideoFrameSubmitter>(
-        base::BindRepeating(
-            [](scoped_refptr<viz::ContextProvider>,
-               base::OnceCallback<void(
-                   bool, scoped_refptr<viz::ContextProvider>)>) {}),
+        base::DoNothing(),
         base::WrapUnique<MockVideoFrameResourceProvider>(resource_provider_));
 
     submitter_->Initialize(video_frame_provider_.get());
@@ -205,7 +205,7 @@ class VideoFrameSubmitterTest : public testing::Test {
 
   void OnReceivedContextProvider(
       bool use_gpu_compositing,
-      scoped_refptr<viz::ContextProvider> context_provider) {
+      scoped_refptr<viz::RasterContextProvider> context_provider) {
     submitter_->OnReceivedContextProvider(use_gpu_compositing,
                                           std::move(context_provider));
   }
@@ -230,6 +230,56 @@ TEST_F(VideoFrameSubmitterTest, StatRenderingFlipsBits) {
   scoped_task_environment_.RunUntilIdle();
 
   EXPECT_TRUE(IsRendering());
+}
+
+TEST_F(VideoFrameSubmitterTest, StopRenderingSkipsUpdateCurrentFrame) {
+  EXPECT_FALSE(IsRendering());
+  EXPECT_CALL(*sink_, SetNeedsBeginFrame(true));
+
+  submitter_->StartRendering();
+
+  scoped_task_environment_.RunUntilIdle();
+
+  EXPECT_TRUE(IsRendering());
+
+  // OnBeginFrame() submits one frame.
+  EXPECT_CALL(*video_frame_provider_, GetCurrentFrame())
+      .WillOnce(Return(media::VideoFrame::CreateFrame(
+          media::PIXEL_FORMAT_YV12, gfx::Size(8, 8), gfx::Rect(gfx::Size(8, 8)),
+          gfx::Size(8, 8), base::TimeDelta())));
+  EXPECT_CALL(*video_frame_provider_, UpdateCurrentFrame(_, _))
+      .WillOnce(Return(true));
+  EXPECT_CALL(*sink_, DoSubmitCompositorFrame(_, _));
+  EXPECT_CALL(*video_frame_provider_, PutCurrentFrame());
+  EXPECT_CALL(*resource_provider_, AppendQuads(_, _, _, _));
+  EXPECT_CALL(*resource_provider_, PrepareSendToParent(_, _));
+  EXPECT_CALL(*resource_provider_, ReleaseFrameResources());
+
+  viz::BeginFrameArgs args = begin_frame_source_->CreateBeginFrameArgs(
+      BEGINFRAME_FROM_HERE, now_src_.get());
+  submitter_->OnBeginFrame(args, {});
+  scoped_task_environment_.RunUntilIdle();
+
+  // StopRendering submits one more frame.
+  EXPECT_CALL(*video_frame_provider_, GetCurrentFrame())
+      .WillOnce(Return(media::VideoFrame::CreateFrame(
+          media::PIXEL_FORMAT_YV12, gfx::Size(8, 8), gfx::Rect(gfx::Size(8, 8)),
+          gfx::Size(8, 8), base::TimeDelta())));
+  EXPECT_CALL(*sink_, DoSubmitCompositorFrame(_, _));
+  EXPECT_CALL(*video_frame_provider_, PutCurrentFrame());
+  EXPECT_CALL(*sink_, SetNeedsBeginFrame(false));
+  EXPECT_CALL(*resource_provider_, AppendQuads(_, _, _, _));
+  EXPECT_CALL(*resource_provider_, PrepareSendToParent(_, _));
+  EXPECT_CALL(*resource_provider_, ReleaseFrameResources());
+  submitter_->StopRendering();
+  scoped_task_environment_.RunUntilIdle();
+
+  // No frames should be produced after StopRendering().
+  EXPECT_CALL(*sink_, DidNotProduceFrame(_));
+  begin_frame_source_->CreateBeginFrameArgs(BEGINFRAME_FROM_HERE,
+                                            now_src_.get());
+  submitter_->OnBeginFrame(args, {});
+  scoped_task_environment_.RunUntilIdle();
 }
 
 TEST_F(VideoFrameSubmitterTest, StopUsingProviderNullsProvider) {

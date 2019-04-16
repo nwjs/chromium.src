@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_macros.h"
@@ -176,7 +177,7 @@ void SubprocessMetricsProvider::RenderProcessReady(
 
   // If the render-process-host passed a persistent-memory-allocator to the
   // renderer process, extract it and register it here.
-  std::unique_ptr<base::SharedPersistentMemoryAllocator> allocator =
+  std::unique_ptr<base::PersistentMemoryAllocator> allocator =
       host->TakeMetricsAllocator();
   if (allocator) {
     RegisterSubprocessAllocator(
@@ -215,7 +216,7 @@ SubprocessMetricsProvider::GetSubprocessHistogramAllocatorOnIOThread(int id) {
   if (!host)
     return nullptr;
 
-  std::unique_ptr<base::SharedPersistentMemoryAllocator> allocator =
+  std::unique_ptr<base::PersistentMemoryAllocator> allocator =
       host->TakeMetricsAllocator();
   if (!allocator)
     return nullptr;

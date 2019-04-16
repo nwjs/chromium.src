@@ -25,8 +25,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "services/ws/public/cpp/property_type_converters.h"
 #include "services/ws/public/mojom/window_manager.mojom.h"
+#include "services/ws/top_level_proxy_window.h"
 #include "services/ws/window_properties.h"
-#include "services/ws/window_service.h"
 #include "services/ws/window_utils.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/accessibility/ax_tree_id.h"
@@ -44,14 +44,14 @@
 #include "ui/views/window/caption_button_layout_constants.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
-DEFINE_UI_CLASS_PROPERTY_TYPE(ash::NonClientFrameController*);
+DEFINE_UI_CLASS_PROPERTY_TYPE(ash::NonClientFrameController*)
 
 namespace ash {
 namespace {
 
 DEFINE_UI_CLASS_PROPERTY_KEY(NonClientFrameController*,
                              kNonClientFrameControllerKey,
-                             nullptr);
+                             nullptr)
 
 bool DoesClientProvideFrame(
     std::map<std::string, std::vector<uint8_t>>* properties) {
@@ -201,9 +201,9 @@ class ClientViewMus : public views::ClientView {
  public:
   ClientViewMus(views::Widget* widget,
                 views::View* contents_view,
-                NonClientFrameController* frame_controller)
+                ws::TopLevelProxyWindow* top_level_proxy_window)
       : views::ClientView(widget, contents_view),
-        frame_controller_(frame_controller) {}
+        top_level_proxy_window_(top_level_proxy_window) {}
   ~ClientViewMus() override = default;
 
   // views::ClientView:
@@ -213,8 +213,7 @@ class ClientViewMus : public views::ClientView {
     // pass the request to the remote client and return false (to cancel the
     // close). If the remote client wants the window to close, it will close it
     // in a way that does not reenter this code path.
-    Shell::Get()->window_service_owner()->window_service()->RequestClose(
-        frame_controller_->window());
+    top_level_proxy_window_->RequestClose();
     return false;
   }
 
@@ -222,7 +221,7 @@ class ClientViewMus : public views::ClientView {
   const char* GetClassName() const override { return "ClientViewMus"; }
 
  private:
-  NonClientFrameController* frame_controller_;
+  ws::TopLevelProxyWindow* top_level_proxy_window_;
 
   DISALLOW_COPY_AND_ASSIGN(ClientViewMus);
 };
@@ -230,22 +229,19 @@ class ClientViewMus : public views::ClientView {
 }  // namespace
 
 NonClientFrameController::NonClientFrameController(
+    ws::TopLevelProxyWindow* top_level_proxy_window,
     aura::Window* parent,
     aura::Window* context,
     const gfx::Rect& bounds,
-    ws::mojom::WindowType window_type,
     aura::PropertyConverter* property_converter,
     std::map<std::string, std::vector<uint8_t>>* properties)
-    : widget_(new views::Widget), window_(nullptr) {
+    : widget_(new views::Widget),
+      top_level_proxy_window_(top_level_proxy_window) {
   // To simplify things this code creates a Widget. While a Widget is created
   // we need to ensure we don't inadvertently change random properties of the
   // underlying ui::Window. For example, showing the Widget shouldn't change
   // the bounds of the ui::Window in anyway.
-  //
-  // Assertions around InitParams::Type matching ws::mojom::WindowType exist in
-  // MusClient.
-  views::Widget::InitParams params(
-      static_cast<views::Widget::InitParams::Type>(window_type));
+  views::Widget::InitParams params;
   DCHECK((parent && !context) || (!parent && context));
   params.parent = parent;
   params.context = context;
@@ -254,7 +250,7 @@ NonClientFrameController::NonClientFrameController(
   params.delegate = this;
   params.bounds = bounds;
   params.opacity = views::Widget::InitParams::OPAQUE_WINDOW;
-  params.layer_type = ui::LAYER_SOLID_COLOR;
+  params.layer_type = ui::LAYER_NOT_DRAWN;
   WmNativeWidgetAura* native_widget =
       new WmNativeWidgetAura(widget_, DoesClientProvideFrame(properties));
   window_ = native_widget->GetNativeView();
@@ -262,7 +258,7 @@ NonClientFrameController::NonClientFrameController(
   window_->SetProperty(kWidgetCreationTypeKey, WidgetCreationType::FOR_CLIENT);
   window_->AddObserver(this);
   params.native_widget = native_widget;
-  aura::SetWindowType(window_, window_type);
+  aura::SetWindowType(window_, ws::mojom::WindowType::WINDOW);
   for (auto& property_pair : *properties) {
     property_converter->SetPropertyFromTransportValue(
         window_, property_pair.first, &property_pair.second);
@@ -274,14 +270,7 @@ NonClientFrameController::NonClientFrameController(
   widget_->Init(params);
   did_init_native_widget_ = true;
 
-  // Only the caption draws any content. So the caption has its own layer (see
-  // above in WmNativeWidgetAura::CreateNonClientFrameView()). The rest of the
-  // region needs to take part in occlusion in the compositor, but not generate
-  // any content to draw. So the layer is marked as opaque and to draw
-  // solid-color (but the color is transparent, so nothing is actually drawn).
-  ui::Layer* layer = widget_->GetNativeWindow()->layer();
-  layer->SetColor(SK_ColorTRANSPARENT);
-  layer->SetFillsBoundsOpaquely(true);
+  wm::MakeGestureDraggableInImmersiveMode(window_);
 }
 
 // static
@@ -367,7 +356,15 @@ views::ClientView* NonClientFrameController::CreateClientView(
     views::Widget* widget) {
   DCHECK(!contents_view_);
   contents_view_ = new ContentsViewMus();  // Owned by views hierarchy.
-  return new ClientViewMus(widget, contents_view_, this);
+  return new ClientViewMus(widget, contents_view_, top_level_proxy_window_);
+}
+
+void NonClientFrameController::OnWindowBeginUserBoundsChange() {
+  top_level_proxy_window_->OnWindowResizeLoopStarted();
+}
+
+void NonClientFrameController::OnWindowEndUserBoundsChange() {
+  top_level_proxy_window_->OnWindowResizeLoopEnded();
 }
 
 void NonClientFrameController::OnWindowPropertyChanged(aura::Window* window,

@@ -49,7 +49,7 @@
 #endif
 
 #if defined(OS_ANDROID)
-#include "base/debug/elf_reader_linux.h"
+#include "base/debug/elf_reader.h"
 
 // The linker assigns the virtual address of the start of current library to
 // this symbol.
@@ -648,8 +648,26 @@ void TraceLog::SetArgumentFilterPredicate(
     const ArgumentFilterPredicate& argument_filter_predicate) {
   AutoLock lock(lock_);
   DCHECK(!argument_filter_predicate.is_null());
-  DCHECK(argument_filter_predicate_.is_null());
+  // Replace the existing argument filter.
   argument_filter_predicate_ = argument_filter_predicate;
+}
+
+ArgumentFilterPredicate TraceLog::GetArgumentFilterPredicate() const {
+  AutoLock lock(lock_);
+  return argument_filter_predicate_;
+}
+
+void TraceLog::SetMetadataFilterPredicate(
+    const MetadataFilterPredicate& metadata_filter_predicate) {
+  AutoLock lock(lock_);
+  DCHECK(!metadata_filter_predicate.is_null());
+  // Replace the existing argument filter.
+  metadata_filter_predicate_ = metadata_filter_predicate;
+}
+
+MetadataFilterPredicate TraceLog::GetMetadataFilterPredicate() const {
+  AutoLock lock(lock_);
+  return metadata_filter_predicate_;
 }
 
 TraceLog::InternalTraceOptions TraceLog::GetInternalOptionsFromTraceConfig(
@@ -1211,17 +1229,19 @@ TraceEventHandle TraceLog::AddTraceEventWithThreadIdAndTimestamp(
                                   args);
 #endif  // OS_WIN
 
-  auto trace_event_override =
-      add_trace_event_override_.load(std::memory_order_relaxed);
-  if (trace_event_override) {
-    TraceEvent new_trace_event(thread_id, offset_event_timestamp, thread_now,
-                               phase, category_group_enabled, name, scope, id,
-                               bind_id, args, flags);
+  if (*category_group_enabled & RECORDING_MODE) {
+    auto trace_event_override =
+        add_trace_event_override_.load(std::memory_order_relaxed);
+    if (trace_event_override) {
+      TraceEvent new_trace_event(thread_id, offset_event_timestamp, thread_now,
+                                 phase, category_group_enabled, name, scope, id,
+                                 bind_id, args, flags);
 
-    trace_event_override(
-        &new_trace_event,
-        /*thread_will_flush=*/thread_local_event_buffer != nullptr, &handle);
-    return handle;
+      trace_event_override(
+          &new_trace_event,
+          /*thread_will_flush=*/thread_local_event_buffer != nullptr, &handle);
+      return handle;
+    }
   }
 
   std::string console_message;
@@ -1505,11 +1525,12 @@ void TraceLog::AddMetadataEventsWhileLocked() {
   AddMetadataEventWhileLocked(current_thread_id, "chrome_library_address",
                               "start_address",
                               base::StringPrintf("%p", &__executable_start));
-  base::Optional<std::string> buildid =
-      base::debug::ReadElfBuildId(&__executable_start);
-  if (buildid) {
+  base::debug::ElfBuildIdBuffer build_id;
+  size_t build_id_length =
+      base::debug::ReadElfBuildId(&__executable_start, true, build_id);
+  if (build_id_length > 0) {
     AddMetadataEventWhileLocked(current_thread_id, "chrome_library_module",
-                                "id", buildid.value());
+                                "id", build_id);
   }
 #endif
 

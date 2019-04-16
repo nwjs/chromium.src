@@ -18,7 +18,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-// https://html.spec.whatwg.org/#the-iframe-element
+// https://html.spec.whatwg.org/C/#the-iframe-element
 
 // The `HTMLString` and `URLString` references below are from Trusted Types:
 // https://github.com/WICG/trusted-types/, which is still WIP.
@@ -46,13 +46,13 @@ interface HTMLIFrameElement : HTMLElement {
 
     // Feature Policy
     [CEReactions, Reflect] attribute DOMString allow;
-    // https://wicg.github.io/feature-policy/#the-policy-object
-    [OriginTrialEnabled=FeaturePolicyJavaScriptInterface] readonly attribute FeaturePolicy featurePolicy;
+    // https://w3c.github.io/webappsec-feature-policy/#the-policy-object
+    [RuntimeEnabled=FeaturePolicyJavaScriptInterface] readonly attribute FeaturePolicy featurePolicy;
 
-    [RuntimeEnabled=LazyFrameLoading, CEReactions, Reflect, ReflectOnly=("on", "off", "auto"), ReflectMissing="auto", ReflectInvalid="auto"] attribute DOMString lazyLoad;
+    [RuntimeEnabled=LazyFrameLoading, CEReactions, Reflect, ReflectOnly=("lazy", "eager", "auto"), ReflectMissing="auto", ReflectInvalid="auto"] attribute DOMString load;
 
     // obsolete members
-    // https://html.spec.whatwg.org/#HTMLIFrameElement-partial
+    // https://html.spec.whatwg.org/C/#HTMLIFrameElement-partial
     [CEReactions, Reflect] attribute DOMString align;
     [CEReactions, Reflect] attribute DOMString scrolling;
     [CEReactions, Reflect] attribute DOMString frameBorder;

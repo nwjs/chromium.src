@@ -8,19 +8,13 @@
 #include "base/no_destructor.h"
 #include "base/stl_util.h"
 #include "chromeos/components/multidevice/logging/logging.h"
+#include "chromeos/services/device_sync/cryptauth_constants.h"
 
 namespace chromeos {
 
 namespace device_sync {
 
 namespace {
-
-// The special string used in SyncSingleKeyRequest::key_name, which is
-// understood by CryptAuth to be the user's (non-rotated) key pair. If the user
-// already enrolled with CryptAuth v1, this string will correspond to the
-// existing key pair returned by
-// CryptAuthEnrollmentManager::GetUser{Public,Private}Key().
-const char kUserKeyPairName[] = "PublicKey";
 
 const char kBundleNameDictKey[] = "name";
 const char kKeyListDictKey[] = "keys";
@@ -55,7 +49,8 @@ std::string KeyDirectiveToPrefString(
 // static
 const base::flat_set<CryptAuthKeyBundle::Name>& CryptAuthKeyBundle::AllNames() {
   static const base::NoDestructor<base::flat_set<CryptAuthKeyBundle::Name>>
-      name_list({CryptAuthKeyBundle::Name::kUserKeyPair});
+      name_list({CryptAuthKeyBundle::Name::kUserKeyPair,
+                 CryptAuthKeyBundle::Name::kLegacyMasterKey});
   return *name_list;
 }
 
@@ -64,15 +59,19 @@ std::string CryptAuthKeyBundle::KeyBundleNameEnumToString(
     CryptAuthKeyBundle::Name name) {
   switch (name) {
     case CryptAuthKeyBundle::Name::kUserKeyPair:
-      return kUserKeyPairName;
+      return kCryptAuthUserKeyPairName;
+    case CryptAuthKeyBundle::Name::kLegacyMasterKey:
+      return kCryptAuthLegacyMasterKeyName;
   }
 }
 
 // static
 base::Optional<CryptAuthKeyBundle::Name>
 CryptAuthKeyBundle::KeyBundleNameStringToEnum(const std::string& name) {
-  if (name == kUserKeyPairName)
+  if (name == kCryptAuthUserKeyPairName)
     return CryptAuthKeyBundle::Name::kUserKeyPair;
+  if (name == kCryptAuthLegacyMasterKeyName)
+    return CryptAuthKeyBundle::Name::kLegacyMasterKey;
 
   return base::nullopt;
 }

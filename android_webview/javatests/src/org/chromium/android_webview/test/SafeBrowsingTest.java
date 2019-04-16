@@ -43,6 +43,7 @@ import org.chromium.android_webview.test.util.GraphicsTestUtils;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
@@ -51,6 +52,7 @@ import org.chromium.base.test.util.InMemorySharedPreferences;
 import org.chromium.components.safe_browsing.SafeBrowsingApiBridge;
 import org.chromium.components.safe_browsing.SafeBrowsingApiHandler;
 import org.chromium.components.safe_browsing.SafeBrowsingApiHandler.Observer;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -185,9 +187,9 @@ public class SafeBrowsingTest {
             }
 
             // clang-format off
-            ThreadUtils.runOnUiThread(
+            PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
                     (Runnable) () -> mObserver.onUrlCheckDone(
-                        callbackId, STATUS_SUCCESS, metadata, CHECK_DELTA_US));
+                        callbackId, SafeBrowsingResult.SUCCESS, metadata, CHECK_DELTA_US));
             // clang-format on
         }
     }
@@ -371,7 +373,7 @@ public class SafeBrowsingTest {
 
     private void evaluateJavaScriptOnInterstitialOnUiThread(
             final String script, final Callback<String> callback) {
-        ThreadUtils.runOnUiThread(
+        PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
                 () -> mAwContents.evaluateJavaScriptOnInterstitialForTesting(script, callback));
     }
 
@@ -498,21 +500,6 @@ public class SafeBrowsingTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add("disable-features=BillingInterstitial")
-    public void testSafeBrowsingDoesNotBlockBillingPages() throws Throwable {
-        // TODO(ntfschr): this is a temporary check until we launch support for Billing warnings
-        // (http://crbug/887186).
-        loadGreenPage();
-        final String responseUrl = mTestServer.getURL(BILLING_HTML_PATH);
-        mActivityTestRule.loadUrlSync(
-                mAwContents, mContentsClient.getOnPageFinishedHelper(), responseUrl);
-        assertTargetPageHasLoaded(BILLING_PAGE_BACKGROUND_COLOR);
-    }
-
-    @Test
-    @SmallTest
-    @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add("enable-features=BillingInterstitial")
     public void testSafeBrowsingBlocksBillingPages() throws Throwable {
         loadGreenPage();
         loadPathAndWaitForInterstitial(BILLING_HTML_PATH);
@@ -525,7 +512,6 @@ public class SafeBrowsingTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add("enable-features=BillingInterstitial")
     public void testSafeBrowsingOnSafeBrowsingHitBillingCode() throws Throwable {
         loadGreenPage();
         loadPathAndWaitForInterstitial(BILLING_HTML_PATH);
@@ -565,7 +551,6 @@ public class SafeBrowsingTest {
         assertTargetPageHasLoaded(MALWARE_PAGE_BACKGROUND_COLOR);
     }
 
-    @DisabledTest(message = "crbug.com/855732")
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
@@ -810,7 +795,6 @@ public class SafeBrowsingTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
-    @CommandLineFlags.Add("enable-features=BillingInterstitial")
     public void testSafeBrowsingCanShowQuietBillingInterstitial() throws Throwable {
         mAwContents.setCanShowBigInterstitial(false);
         loadGreenPage();

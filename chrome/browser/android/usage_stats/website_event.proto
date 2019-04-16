@@ -8,6 +8,9 @@ option optimize_for = LITE_RUNTIME;
 
 package usage_stats;
 
+option java_package = "org.chromium.chrome.browser.usage_stats";
+option java_outer_classname = "WebsiteEventProtos";
+
 message WebsiteEvent {
   // Fully-qualified domain name of the website. Example: "docs.google.com".
   optional string fqdn = 1;
@@ -38,14 +41,4 @@ message TokenMapping {
 
 message Suspension {
   optional string fqdn = 1;
-}
-
-// Allows for any one of {WebsiteEvent, Suspension, TokenMapping} to be stored
-// in the same proto database.
-message UsageStat {
-  oneof value {
-    WebsiteEvent website_event = 1;
-    Suspension suspension = 2;
-    TokenMapping token_mapping = 3;
-  }
 }

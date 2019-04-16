@@ -5,8 +5,10 @@
 #include "chrome/browser/media/webrtc/webrtc_log_uploader.h"
 
 #include <stddef.h>
+#include <cstdlib>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -668,12 +670,13 @@ void WebRtcLogUploader::NotifyUploadDoneAndLogStats(
             "WebRtcTextLogging.UploadFailureReason",
             WebRtcLoggingHandlerHost::UploadFailureReason::kNetworkError);
         base::UmaHistogramSparse("WebRtcTextLogging.UploadFailureNetErrorCode",
-                                 network_error_code);
+                                 std::abs(network_error_code));
       }
-      error_message = base::StrCat(
-          {"Uploading failed, response code: ",
-           response_code.has_value() ? base::IntToString(response_code.value())
-                                     : "<no value>"});
+      error_message =
+          base::StrCat({"Uploading failed, response code: ",
+                        response_code.has_value()
+                            ? base::NumberToString(response_code.value())
+                            : "<no value>"});
     }
     base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
                              base::BindOnce(upload_done_data.callback, success,

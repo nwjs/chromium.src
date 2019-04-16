@@ -8,6 +8,8 @@
 
 #include <commdlg.h>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/run_loop.h"
@@ -59,7 +61,7 @@ class FakePdfPrinterHandler : public PdfPrinterHandler {
   }
 
   void StartPrintToPdf(const base::string16& job_title) {
-    StartPrint("", "", job_title, "", gfx::Size(), nullptr, base::DoNothing());
+    StartPrint(job_title, base::Value(), nullptr, base::DoNothing());
     run_loop_.Run();
   }
 

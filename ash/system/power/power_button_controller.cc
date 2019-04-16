@@ -24,6 +24,7 @@
 #include "ash/wm/session_state_animator.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_util.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/time/default_tick_clock.h"
@@ -157,7 +158,7 @@ PowerButtonController::PowerButtonController(
   display_controller_ = std::make_unique<PowerButtonDisplayController>(
       backlights_forced_off_setter_, tick_clock_);
   chromeos::PowerManagerClient* power_manager_client =
-      chromeos::DBusThreadManager::Get()->GetPowerManagerClient();
+      chromeos::PowerManagerClient::Get();
   power_manager_client->AddObserver(this);
   power_manager_client->GetSwitchStates(base::BindOnce(
       &PowerButtonController::OnGetSwitchStates, weak_factory_.GetWeakPtr()));
@@ -174,8 +175,7 @@ PowerButtonController::~PowerButtonController() {
     Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
   Shell::Get()->display_configurator()->RemoveObserver(this);
   AccelerometerReader::GetInstance()->RemoveObserver(this);
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
 }
 
 void PowerButtonController::OnPreShutdownTimeout() {
@@ -532,7 +532,7 @@ void PowerButtonController::ParsePowerButtonPositionSwitch() {
     return;
 
   std::unique_ptr<base::DictionaryValue> position_info =
-      base::DictionaryValue::From(base::JSONReader::Read(
+      base::DictionaryValue::From(base::JSONReader::ReadDeprecated(
           cl->GetSwitchValueASCII(switches::kAshPowerButtonPosition)));
   if (!position_info) {
     LOG(ERROR) << switches::kAshPowerButtonPosition << " flag has no value";

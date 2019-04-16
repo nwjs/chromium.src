@@ -72,7 +72,7 @@ GURL GetMockUrl(const std::string& scheme,
   CHECK_LE(phase, URLRequestFailedJob::FailurePhase::READ_ASYNC);
   CHECK_LT(net_error, OK);
   return GURL(scheme + "://" + hostname + "/error?" + kFailurePhase[phase] +
-              "=" + base::IntToString(net_error));
+              "=" + base::NumberToString(net_error));
 }
 
 }  // namespace
@@ -99,8 +99,8 @@ URLRequestFailedJob::URLRequestFailedJob(URLRequest* request,
 
 void URLRequestFailedJob::Start() {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE,
-      base::Bind(&URLRequestFailedJob::StartAsync, weak_factory_.GetWeakPtr()));
+      FROM_HERE, base::BindOnce(&URLRequestFailedJob::StartAsync,
+                                weak_factory_.GetWeakPtr()));
 }
 
 int URLRequestFailedJob::ReadRawData(IOBuffer* buf, int buf_size) {
@@ -109,8 +109,8 @@ int URLRequestFailedJob::ReadRawData(IOBuffer* buf, int buf_size) {
     return net_error_;
 
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(&URLRequestFailedJob::ReadRawDataComplete,
-                            weak_factory_.GetWeakPtr(), net_error_));
+      FROM_HERE, base::BindOnce(&URLRequestFailedJob::ReadRawDataComplete,
+                                weak_factory_.GetWeakPtr(), net_error_));
   return ERR_IO_PENDING;
 }
 

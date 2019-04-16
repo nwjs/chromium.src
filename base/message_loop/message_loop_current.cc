@@ -176,7 +176,7 @@ bool MessageLoopCurrentForUI::WatchFileDescriptor(
 }
 #endif
 
-#if defined(OS_IOS) || defined(OS_ANDROID)
+#if defined(OS_IOS)
 void MessageLoopCurrentForUI::Attach() {
   current_->AttachToMessagePump();
 }
@@ -258,6 +258,17 @@ bool MessageLoopCurrentForIO::WatchFileDescriptor(
                                                     controller, delegate);
 }
 #endif  // defined(OS_WIN)
+
+#if defined(OS_MACOSX) && !defined(OS_IOS)
+bool MessageLoopCurrentForIO::WatchMachReceivePort(
+    mach_port_t port,
+    MessagePumpForIO::MachPortWatchController* controller,
+    MessagePumpForIO::MachPortWatcher* delegate) {
+  DCHECK(current_->IsBoundToCurrentThread());
+  return GetMessagePumpForIO()->WatchMachReceivePort(port, controller,
+                                                     delegate);
+}
+#endif
 
 #endif  // !defined(OS_NACL_SFI)
 

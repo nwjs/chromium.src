@@ -469,13 +469,13 @@ class SearchBoxViewAutocompleteTest
   DISALLOW_COPY_AND_ASSIGN(SearchBoxViewAutocompleteTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SearchBoxViewAutocompleteTest,
-                        ::testing::Values(ui::VKEY_LEFT,
-                                          ui::VKEY_RIGHT,
-                                          ui::VKEY_UP,
-                                          ui::VKEY_DOWN,
-                                          ui::VKEY_BACK));
+INSTANTIATE_TEST_SUITE_P(,
+                         SearchBoxViewAutocompleteTest,
+                         ::testing::Values(ui::VKEY_LEFT,
+                                           ui::VKEY_RIGHT,
+                                           ui::VKEY_UP,
+                                           ui::VKEY_DOWN,
+                                           ui::VKEY_BACK));
 
 // Tests that autocomplete suggestions are consistent with top SearchResult list
 // titles.
@@ -612,14 +612,6 @@ TEST_F(SearchBoxViewAutocompleteTest,
       ui::GestureEvent(0, 0, 0, ui::EventTimeForNow(),
                        ui::GestureEventDetails(ui::ET_GESTURE_TAP)),
       true);
-}
-
-// Tests that only the autocomplete suggestion text is deleted after pressing
-// up, down, left, right, or backspace.
-TEST_P(SearchBoxViewAutocompleteTest,
-       SearchBoxDeletesAutocompleteTextOnlyAfterUpDownLeftRightBackspace) {
-  TestKeyEvent(ui::KeyEvent(ui::ET_KEY_PRESSED, key_code(), ui::EF_NONE),
-               false);
 }
 
 // Tests that autocomplete is not handled if IME is using composition text.

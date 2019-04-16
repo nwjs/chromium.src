@@ -152,7 +152,7 @@ function finishEditLink() {
   }
 
   // Update the link only if a field was changed.
-  if (!!newUrl || !!newTitle) {
+  if (newUrl || newTitle) {
     chrome.embeddedSearch.newTabPage.updateCustomLink(
         prepopulatedLink.rid, newUrl, newTitle);
   }
@@ -209,6 +209,15 @@ function focusBackOnCancel(event) {
 
 
 /**
+ * Handler for the 'updateTheme' message from the host page.
+ * @param {object} info Data received in the message.
+ */
+function updateTheme(info) {
+  document.documentElement.setAttribute('darkmode', info.isDarkMode);
+}
+
+
+/**
  * Event handler for messages from the host page.
  * @param {Event} event Event received.
  */
@@ -234,6 +243,8 @@ function handlePostMessage(event) {
     window.setTimeout(() => {
       $(IDS.TITLE_FIELD).select();
     }, 10);
+  } else if (cmd === 'updateTheme') {
+    updateTheme(args);
   }
 }
 
@@ -258,11 +269,6 @@ function init() {
   // Enable RTL.
   if (queryArgs['rtl'] == '1') {
     document.documentElement.setAttribute('dir', 'rtl');
-  }
-
-  // Enable dark mode.
-  if (queryArgs['enableDarkMode'] == '1') {
-    document.documentElement.setAttribute('darkmode', true);
   }
 
   // Populate text content.
@@ -327,6 +333,8 @@ function init() {
   // Disables the "Done" button when the URL field is empty.
   $(IDS.URL_FIELD).addEventListener('input',
       () => $(IDS.DONE).disabled = ($(IDS.URL_FIELD).value.trim() === ''));
+
+  utils.setPlatformClass(document.body);
 
   $(IDS.EDIT_DIALOG).showModal();
 

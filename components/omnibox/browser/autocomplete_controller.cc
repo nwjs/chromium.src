@@ -13,6 +13,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
@@ -28,15 +29,15 @@
 #include "components/omnibox/browser/autocomplete_controller_delegate.h"
 #include "components/omnibox/browser/bookmark_provider.h"
 #include "components/omnibox/browser/builtin_provider.h"
-#include "components/omnibox/browser/clipboard_url_provider.h"
+#include "components/omnibox/browser/clipboard_provider.h"
 #include "components/omnibox/browser/document_provider.h"
 #include "components/omnibox/browser/history_quick_provider.h"
 #include "components/omnibox/browser/history_url_provider.h"
 #include "components/omnibox/browser/keyword_provider.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/search_provider.h"
 #include "components/omnibox/browser/shortcuts_provider.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/open_from_clipboard/clipboard_recent_content.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -63,16 +64,24 @@ void AutocompleteMatchToAssistedQuery(
   // Default value, indicating no subtype.
   *subtype = base::string16::npos;
 
-  // If provider is TYPE_ZERO_SUGGEST, set the subtype accordingly.
-  // Type will be set in the switch statement below where we'll enter one of
-  // SEARCH_SUGGEST or NAVSUGGEST. This subtype indicates context-aware zero
-  // suggest.
-  if (provider &&
-      (provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST) &&
-      (match != AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED)) {
-    DCHECK((match == AutocompleteMatchType::SEARCH_SUGGEST) ||
-           (match == AutocompleteMatchType::NAVSUGGEST));
-    *subtype = 66;
+  // If provider is TYPE_ZERO_SUGGEST or TYPE_ON_DEVICE_HEAD, set the subtype
+  // accordingly. Type will be set in the switch statement below where we'll
+  // enter one of SEARCH_SUGGEST or NAVSUGGEST.
+  if (provider) {
+    if (provider->type() == AutocompleteProvider::TYPE_ZERO_SUGGEST &&
+        (match != AutocompleteMatchType::SEARCH_SUGGEST_PERSONALIZED)) {
+      DCHECK((match == AutocompleteMatchType::SEARCH_SUGGEST) ||
+             (match == AutocompleteMatchType::NAVSUGGEST));
+      // We abuse this subtype and use it to for zero-suggest suggestions that
+      // aren't personalized by the server. That is, it indicates either
+      // client-side most-likely URL suggestions or server-side suggestions
+      // that depend only on the URL as context.
+      *subtype = 66;
+    } else if (provider->type() == AutocompleteProvider::TYPE_ON_DEVICE_HEAD) {
+      DCHECK(match == AutocompleteMatchType::SEARCH_SUGGEST);
+      // This subtype indicates a match from an on-device head provider.
+      *subtype = 271;
+    }
   }
 
   switch (match) {
@@ -251,7 +260,7 @@ AutocompleteController::AutocompleteController(
   // history_url_provider_.
   if (provider_types & (AutocompleteProvider::TYPE_HISTORY_URL |
                         AutocompleteProvider::TYPE_ZERO_SUGGEST |
-                        AutocompleteProvider::TYPE_CLIPBOARD_URL)) {
+                        AutocompleteProvider::TYPE_CLIPBOARD)) {
     history_url_provider_ =
         new HistoryURLProvider(provider_client_.get(), this);
     if (provider_types & AutocompleteProvider::TYPE_HISTORY_URL)
@@ -269,7 +278,7 @@ AutocompleteController::AutocompleteController(
     document_provider_ = DocumentProvider::Create(provider_client_.get(), this);
     providers_.push_back(document_provider_);
   }
-  if (provider_types & AutocompleteProvider::TYPE_CLIPBOARD_URL) {
+  if (provider_types & AutocompleteProvider::TYPE_CLIPBOARD) {
 #if !defined(OS_IOS)
     // On iOS, a global ClipboardRecentContent should've been created by now
     // (if enabled).  If none has been created (e.g., we're on a different
@@ -285,8 +294,8 @@ AutocompleteController::AutocompleteController(
     // ClipboardRecentContent can be null in iOS tests.  For non-iOS, we
     // create a ClipboardRecentContent as above (for both Chrome and tests).
     if (ClipboardRecentContent::GetInstance()) {
-      providers_.push_back(new ClipboardURLProvider(
-          provider_client_.get(), history_url_provider_,
+      providers_.push_back(new ClipboardProvider(
+          provider_client_.get(), this, history_url_provider_,
           ClipboardRecentContent::GetInstance()));
     }
   }
@@ -537,8 +546,7 @@ void AutocompleteController::UpdateResult(
        i != providers_.end(); ++i)
     result_.AppendMatches(input_, (*i)->matches());
 
-  if (OmniboxFieldTrial::GetPedalSuggestionMode() ==
-      OmniboxFieldTrial::PedalSuggestionMode::DEDICATED)
+  if (OmniboxFieldTrial::IsPedalSuggestionsEnabled())
     result_.AppendDedicatedPedalMatches(provider_client_.get(), input_);
 
   // Sort the matches and trim to a small number of "best" matches.
@@ -546,10 +554,6 @@ void AutocompleteController::UpdateResult(
 
   if (OmniboxFieldTrial::IsTabSwitchSuggestionsEnabled())
     result_.ConvertOpenTabMatches(provider_client_.get(), &input_);
-
-  if (OmniboxFieldTrial::GetPedalSuggestionMode() ==
-      OmniboxFieldTrial::PedalSuggestionMode::IN_SUGGESTION)
-    result_.ConvertInSuggestionPedalMatches(provider_client_.get());
 
   // Need to validate before invoking CopyOldMatches as the old matches are not
   // valid against the current input.

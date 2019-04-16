@@ -4,7 +4,8 @@
 
 #include "components/viz/service/display_embedder/gl_output_surface.h"
 
-#include <stdint.h>
+#include <utility>
+#include <vector>
 
 #include "base/bind.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -66,6 +67,9 @@ void GLOutputSurface::BindFramebuffer() {
 }
 
 void GLOutputSurface::SetDrawRectangle(const gfx::Rect& rect) {
+  if (!context_provider_->ContextCapabilities().dc_layers)
+    return;
+
   if (set_draw_rectangle_for_frame_)
     return;
   DCHECK(gfx::Rect(size_).Contains(rect));
@@ -107,6 +111,10 @@ void GLOutputSurface::SwapBuffers(OutputSurfaceFrame frame) {
   if (frame.sub_buffer_rect) {
     HandlePartialSwap(*frame.sub_buffer_rect, flags, std::move(swap_callback),
                       std::move(presentation_callback));
+  } else if (!frame.content_bounds.empty()) {
+    context_provider_->ContextSupport()->SwapWithBounds(
+        frame.content_bounds, flags, std::move(swap_callback),
+        std::move(presentation_callback));
   } else {
     context_provider_->ContextSupport()->Swap(flags, std::move(swap_callback),
                                               std::move(presentation_callback));
@@ -187,13 +195,6 @@ void GLOutputSurface::OnPresentation(
     const gfx::PresentationFeedback& feedback) {
   client_->DidReceivePresentationFeedback(feedback);
 }
-
-#if BUILDFLAG(ENABLE_VULKAN)
-gpu::VulkanSurface* GLOutputSurface::GetVulkanSurface() {
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-#endif
 
 unsigned GLOutputSurface::UpdateGpuFence() {
   if (!use_gpu_fence_)

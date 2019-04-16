@@ -37,11 +37,9 @@ void FadeInWidgetAndMaybeSlideOnEnter(views::Widget* widget,
 // Fades |widget| to opacity zero with animation settings depending on
 // |animation_type|. Used by several classes which need to be destroyed on
 // exiting overview, but have some widgets which need to continue animating.
-// |widget| is destroyed after finishing animation. Additionally slide |widget|
-// towards the top of screen if |slide| is true.
+// |widget| is destroyed after finishing animation.
 void FadeOutWidgetAndMaybeSlideOnExit(std::unique_ptr<views::Widget> widget,
-                                      OverviewAnimationType animation_type,
-                                      bool slide);
+                                      OverviewAnimationType animation_type);
 
 // Creates and returns a background translucent widget parented in
 // |root_window|'s default container and having |background_color|.
@@ -50,7 +48,8 @@ void FadeOutWidgetAndMaybeSlideOnExit(std::unique_ptr<views::Widget> widget,
 // The new background widget starts with |initial_opacity| and then fades in.
 // If |parent| is prvoided the return widget will be parented to that window,
 // otherwise its parent will be in kShellWindowId_WallpaperContainer of
-// |root_window|.
+// |root_window|. |accept_events| is true if the newly-created widget should
+// handle events.
 std::unique_ptr<views::Widget> CreateBackgroundWidget(aura::Window* root_window,
                                                       ui::LayerType layer_type,
                                                       SkColor background_color,
@@ -59,18 +58,20 @@ std::unique_ptr<views::Widget> CreateBackgroundWidget(aura::Window* root_window,
                                                       SkColor border_color,
                                                       float initial_opacity,
                                                       aura::Window* parent,
-                                                      bool stack_on_top);
+                                                      bool stack_on_top,
+                                                      bool accept_events);
 
 // Calculates the bounds of the |transformed_window|. Those bounds are a union
 // of all regular (normal and panel) windows in the |transformed_window|'s
 // transient hierarchy. The returned Rect is in virtual screen coordinates. The
 // returned bounds are adjusted to allow the original |transformed_window|'s
 // header to be hidden if |top_inset| is not zero.
-gfx::Rect GetTransformedBounds(aura::Window* transformed_window, int top_inset);
+gfx::RectF GetTransformedBounds(aura::Window* transformed_window,
+                                int top_inset);
 
 // Returns the original target bounds of |window|. The bounds are a union of all
 // regular (normal and panel) windows in the window's transient hierarchy.
-gfx::Rect GetTargetBoundsInScreen(aura::Window* window);
+gfx::RectF GetTargetBoundsInScreen(aura::Window* window);
 
 // Applies the |transform| to |window| and all of its transient children. Note
 // |transform| is the transform that is applied to |window| and needs to be

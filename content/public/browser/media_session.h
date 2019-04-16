@@ -13,7 +13,6 @@
 
 namespace content {
 
-class MediaSessionObserver;
 class WebContents;
 
 // MediaSession manages the media session and audio focus for a given
@@ -90,14 +89,16 @@ class MediaSession : public media_session::mojom::MediaSession {
   // |type| represents the origin of the request.
   void Stop(SuspendType suspend_type) override = 0;
 
+  // Downloads the bitmap version of a MediaImage at least |minimum_size_px|
+  // and closest to |desired_size_px|. If the download failed, was too small or
+  // the image did not come from the media session then returns a null image.
+  void GetMediaImageBitmap(const media_session::MediaImage& image,
+                           int minimum_size_px,
+                           int desired_size_px,
+                           GetMediaImageBitmapCallback callback) override = 0;
+
  protected:
   MediaSession() = default;
-
- private:
-  friend class MediaSessionObserver;
-
-  virtual void AddObserver(MediaSessionObserver* observer) = 0;
-  virtual void RemoveObserver(MediaSessionObserver* observer) = 0;
 };
 
 }  // namespace content

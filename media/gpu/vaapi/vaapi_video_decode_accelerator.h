@@ -178,12 +178,37 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   // |available_va_surfaces_|
   void RecycleVASurfaceID(VASurfaceID va_surface_id);
 
-  // Initiate wait cycle for surfaces to be released before we release them
-  // and allocate new ones, as requested by the decoder.
-  void InitiateSurfaceSetChange(size_t num_pics, gfx::Size size);
+  // Request a new set of |num_pics| PictureBuffers to be allocated by
+  // |client_|. Up to |num_reference_frames| out of |num_pics_| might be needed
+  // by |decoder_|.
+  void InitiateSurfaceSetChange(size_t num_pics,
+                                gfx::Size size,
+                                size_t num_reference_frames);
 
   // Check if the surfaces have been released or post ourselves for later.
   void TryFinishSurfaceSetChange();
+
+  // Different modes of internal buffer allocations.
+  enum class BufferAllocationMode {
+    // Only using |client_|s provided PictureBuffers, none internal.
+    kNone,
+    // Using a reduced amount of |client_|s provided PictureBuffers and
+    // |decoder_|s GetNumReferenceFrames() internallly.
+    kSuperReduced,
+    // Similar to kSuperReduced, but we have to increase slightly the amount of
+    // PictureBuffers allocated for the |client_|.
+    kReduced,
+
+    // VaapiVideoDecodeAccelerator can work with this mode on all platforms.
+    // Using |client_|s provided PictureBuffers and as many internally
+    // allocated.
+    kNormal,
+  };
+
+  // Decides the concrete buffer allocation mode, depending on the hardware
+  // platform and other parameters.
+  BufferAllocationMode DecideBufferAllocationMode() const;
+  bool IsBufferAllocationModeReducedOrSuperReduced() const;
 
   // VAVDA state.
   enum State {
@@ -221,6 +246,9 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   // Only used on |decoder_thread_task_runner_|.
   std::unique_ptr<AcceleratedVideoDecoder> decoder_;
 
+  // Filled in during Initialize().
+  BufferAllocationMode buffer_allocation_mode_;
+
   // VaapiWrapper for VPP (Video Post Processing). This is used for copying
   // from a decoded surface to a surface bound to client's PictureBuffer.
   scoped_refptr<VaapiWrapper> vpp_vaapi_wrapper_;
@@ -251,10 +279,6 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   // once the client gives us more textures via ReusePictureBuffer().
   // Only used on |task_runner_|.
   base::queue<base::OnceClosure> pending_output_cbs_;
-
-  // Under some circumstances, we can pass to libva our own VASurfaceIDs to
-  // decode onto, which skips one copy. Only used on |task_runner_|.
-  bool decode_using_client_picture_buffers_;
 
   // WeakPtr<> pointing to |this| for use in posting tasks from the decoder
   // thread back to the ChildThread.  Because the decoder thread is a member of
@@ -289,10 +313,14 @@ class MEDIA_GPU_EXPORT VaapiVideoDecodeAccelerator
   // to be returned before we can free them. Only used on |task_runner_|.
   bool awaiting_va_surfaces_recycle_;
 
-  // Last requested number/resolution of output picture buffers and their
-  // format.
+  // Last requested number/resolution of output PictureBuffers.
   size_t requested_num_pics_;
   gfx::Size requested_pic_size_;
+  // Max number of reference frames needed by |decoder_|. Only used on
+  // |task_runner_| and when in BufferAllocationMode::kNone.
+  size_t requested_num_reference_frames_;
+  size_t previously_requested_num_reference_frames_;
+
   VideoCodecProfile profile_;
 
   // Callback to make GL context current.

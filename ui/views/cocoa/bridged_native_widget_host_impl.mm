@@ -828,7 +828,9 @@ bool BridgedNativeWidgetHostImpl::GetHasMenuController(
     bool* has_menu_controller) {
   MenuController* menu_controller = MenuController::GetActiveInstance();
   *has_menu_controller = menu_controller && root_view_ &&
-                         menu_controller->owner() == root_view_->GetWidget();
+                         menu_controller->owner() == root_view_->GetWidget() &&
+                         // The editable combobox menu does not swallow keys.
+                         !menu_controller->IsEditableCombobox();
   return true;
 }
 
@@ -1384,13 +1386,13 @@ void BridgedNativeWidgetHostImpl::OnDidChangeFocus(View* focused_before,
 
 ui::EventDispatchDetails BridgedNativeWidgetHostImpl::DispatchKeyEventPostIME(
     ui::KeyEvent* key,
-    base::OnceCallback<void(bool)> ack_callback) {
+    DispatchKeyEventPostIMECallback callback) {
   DCHECK(focus_manager_);
   if (!focus_manager_->OnKeyEvent(*key))
     key->StopPropagation();
   else
     native_widget_mac_->GetWidget()->OnKeyEvent(key);
-  CallDispatchKeyEventPostIMEAck(key, std::move(ack_callback));
+  RunDispatchKeyEventPostIMECallback(key, std::move(callback));
   return ui::EventDispatchDetails();
 }
 

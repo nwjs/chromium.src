@@ -12,6 +12,7 @@
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/v8_value_converter.h"
 #include "extensions/common/api/messaging/message.h"
+#include "extensions/common/api/messaging/messaging_endpoint.h"
 #include "extensions/common/api/messaging/port_id.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/manifest_handlers/externally_connectable.h"
@@ -120,8 +121,8 @@ void NativeRendererMessagingService::PostMessageToPort(
   if (!ScriptContextIsValid(script_context))
     return;
 
-  bindings_system_->GetIPCMessageSender()->SendPostMessageToPort(
-      routing_id, port_id, *message);
+  bindings_system_->GetIPCMessageSender()->SendPostMessageToPort(port_id,
+                                                                 *message);
 }
 
 void NativeRendererMessagingService::ClosePort(v8::Local<v8::Context> context,
@@ -191,8 +192,12 @@ void NativeRendererMessagingService::DispatchOnConnectToListeners(
   v8::Context::Scope context_scope(v8_context);
 
   gin::DataObjectBuilder sender_builder(isolate);
-  if (!info.source_id.empty())
-    sender_builder.Set("id", info.source_id);
+  if (info.source_endpoint.extension_id)
+    sender_builder.Set("id", *info.source_endpoint.extension_id);
+  if (info.source_endpoint.native_app_name) {
+    sender_builder.Set("nativeApplication",
+                       *info.source_endpoint.native_app_name);
+  }
   if (!info.source_url.is_empty())
     sender_builder.Set("url", info.source_url.spec());
   if (source->frame_id >= 0)
@@ -242,8 +247,10 @@ void NativeRendererMessagingService::DispatchOnConnectToListeners(
         std::make_unique<base::Value>(base::Value::Type::LIST);
     auto& list = activity_logging_args->GetList();
     list.reserve(2u);
-    if (!info.source_id.empty())
-      list.emplace_back(info.source_id);
+    if (info.source_endpoint.extension_id)
+      list.emplace_back(*info.source_endpoint.extension_id);
+    else if (info.source_endpoint.native_app_name)
+      list.emplace_back(*info.source_endpoint.native_app_name);
     else
       list.emplace_back();
 

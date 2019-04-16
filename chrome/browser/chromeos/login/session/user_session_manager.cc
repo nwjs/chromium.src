@@ -20,6 +20,7 @@
 #include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/chromeos/base/locale_util.h"
 #include "chrome/browser/chromeos/boot_times_recorder.h"
+#include "chrome/browser/chromeos/child_accounts/child_policy_observer.h"
 #include "chrome/browser/chromeos/child_accounts/consumer_status_reporting_service_factory.h"
 #include "chrome/browser/chromeos/child_accounts/screen_time_controller_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
@@ -90,7 +92,6 @@
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_error_controller_factory.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service.h"
@@ -102,6 +103,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/discover/discover_manager.h"
 #include "chrome/browser/ui/webui/chromeos/login/discover/modules/discover_module_pin_setup.h"
 #include "chrome/common/channel_info.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
@@ -132,7 +134,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/quirks/quirks_manager.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user.h"
@@ -141,11 +142,13 @@
 #include "components/user_manager/user_type.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/common/features/feature_session_type.h"
 #include "rlz/buildflags/buildflags.h"
+#include "services/identity/public/cpp/accounts_mutator.h"
 #include "services/identity/public/cpp/identity_manager.h"
 #include "third_party/cros_system_api/switches/chrome_switches.h"
 #include "ui/base/ime/chromeos/input_method_descriptor.h"
@@ -172,6 +175,11 @@ namespace {
 // http://crbug/866790: After Supervised Users are deprecated, remove this.
 const char kUserSessionManagerNotifier[] = "chrome://settings/people";
 const char kSupervisedUserDeprecated[] = "supervised_user_deprecated";
+
+// Time to wait for child policy refresh. If that time is exceeded session
+// should start with cached policy.
+constexpr base::TimeDelta kWaitForChildPolicyTimeout =
+    base::TimeDelta::FromSeconds(10);
 
 // Milliseconds until we timeout our attempt to fetch flags from the child
 // account service.
@@ -245,7 +253,7 @@ void InitLocaleAndInputMethodsForNewUser(
   language_preload_engines.SetValue(base::JoinString(input_method_ids, ","));
   BootTimesRecorder::Get()->AddLoginTimeMarker("IMEStarted", false);
 
-  // Second, we'll set kLanguagePreferredLanguages.
+  // Second, we'll set kPreferredLanguages.
   std::vector<std::string> language_codes;
 
   // The current locale should be on the top.
@@ -269,7 +277,7 @@ void InitLocaleAndInputMethodsForNewUser(
     }
   }
   // Save the preferred languages in the user's preferences.
-  prefs->SetString(prefs::kLanguagePreferredLanguages,
+  prefs->SetString(language::prefs::kPreferredLanguages,
                    base::JoinString(language_codes, ","));
 
   // Indicate that we need to merge the syncable input methods when we sync,
@@ -499,6 +507,7 @@ void UserSessionManager::MaybeAppendPolicySwitches(
 
 UserSessionManager::UserSessionManager()
     : delegate_(nullptr),
+      network_connection_tracker_(nullptr),
       authenticator_(nullptr),
       has_auth_cookies_(false),
       user_sessions_restored_(false),
@@ -511,9 +520,11 @@ UserSessionManager::UserSessionManager()
       waiting_for_child_account_status_(false),
       attempt_restart_closure_(base::BindRepeating(&CallChromeAttemptRestart)),
       weak_factory_(this) {
-  net::NetworkChangeNotifier::AddNetworkChangeObserver(this);
   user_manager::UserManager::Get()->AddSessionStateObserver(this);
   user_manager::UserManager::Get()->AddObserver(this);
+  content::GetNetworkConnectionTrackerFromUIThread(
+      base::BindOnce(&UserSessionManager::SetNetworkConnectionTracker,
+                     weak_factory_.GetWeakPtr()));
 }
 
 UserSessionManager::~UserSessionManager() {
@@ -525,7 +536,13 @@ UserSessionManager::~UserSessionManager() {
     user_manager::UserManager::Get()->RemoveSessionStateObserver(this);
     user_manager::UserManager::Get()->RemoveObserver(this);
   }
-  net::NetworkChangeNotifier::RemoveNetworkChangeObserver(this);
+}
+
+void UserSessionManager::SetNetworkConnectionTracker(
+    network::NetworkConnectionTracker* network_connection_tracker) {
+  DCHECK(network_connection_tracker);
+  network_connection_tracker_ = network_connection_tracker;
+  network_connection_tracker_->AddLeakyNetworkConnectionObserver(this);
 }
 
 void UserSessionManager::SetShouldObtainHandleInTests(
@@ -663,7 +680,8 @@ void UserSessionManager::RestoreAuthenticationSession(Profile* user_profile) {
                         account_id_valid);
 
   DCHECK(user);
-  if (!net::NetworkChangeNotifier::IsOffline()) {
+  if (network_connection_tracker_ &&
+      !network_connection_tracker_->IsOffline()) {
     pending_signin_restore_sessions_.erase(user->GetAccountId().GetUserEmail());
     RestoreAuthSessionImpl(user_profile, false /* has_auth_cookies */);
   } else {
@@ -1016,10 +1034,10 @@ void UserSessionManager::OnSessionRestoreStateChanged(
     ProfileHelper::Get()->FlushProfile(user_profile);
 }
 
-void UserSessionManager::OnNetworkChanged(
-    net::NetworkChangeNotifier::ConnectionType type) {
+void UserSessionManager::OnConnectionChanged(
+    network::mojom::ConnectionType type) {
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  if (type == net::NetworkChangeNotifier::CONNECTION_NONE ||
+  if (type == network::mojom::ConnectionType::CONNECTION_NONE ||
       !user_manager->IsUserLoggedIn() ||
       !user_manager->IsLoggedInAsUserWithGaiaAccount() ||
       user_manager->IsLoggedInAsStub() || IsRunningTest()) {
@@ -1298,13 +1316,18 @@ void UserSessionManager::InitProfilePreferences(
     // not be available when unlocking a previously opened profile, or when
     // creating a supervised users.  However, in these cases the gaia_id should
     // be already available in the account tracker.
+    identity::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(profile);
     std::string gaia_id = user_context.GetGaiaID();
     if (gaia_id.empty()) {
-      AccountTrackerService* account_tracker =
-          AccountTrackerServiceFactory::GetForProfile(profile);
-      const AccountInfo info = account_tracker->FindAccountInfoByEmail(
-          user_context.GetAccountId().GetUserEmail());
-      gaia_id = info.gaia;
+      base::Optional<AccountInfo> maybe_account_info =
+          identity_manager
+              ->FindAccountInfoForAccountWithRefreshTokenByEmailAddress(
+                  user_context.GetAccountId().GetUserEmail());
+
+      DCHECK(maybe_account_info.has_value() || IsRunningTest());
+      if (maybe_account_info.has_value())
+        gaia_id = maybe_account_info.value().gaia;
 
       // Use a fake gaia id for tests that do not have it.
       if (IsRunningTest() && gaia_id.empty())
@@ -1320,28 +1343,31 @@ void UserSessionManager::InitProfilePreferences(
     // mainstream Identity Service API once that API exists. Note that this
     // might require supplying a valid refresh token here as opposed to an
     // empty string.
-    identity::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(profile);
     identity_manager->SetPrimaryAccountSynchronously(
         gaia_id, user_context.GetAccountId().GetUserEmail(),
         /*refresh_token=*/std::string());
     std::string account_id = identity_manager->GetPrimaryAccountId();
+    VLOG(1) << "Seed IdentityManager with the authenticated account info, "
+            << "success=" << !account_id.empty();
+
     const user_manager::User* user =
         user_manager->FindUser(user_context.GetAccountId());
     bool is_child = user->GetType() == user_manager::USER_TYPE_CHILD;
     DCHECK(is_child ==
            (user_context.GetUserType() == user_manager::USER_TYPE_CHILD));
-    AccountTrackerService* account_tracker =
-        AccountTrackerServiceFactory::GetForProfile(profile);
-    account_tracker->SetIsChildAccount(account_id, is_child);
-    VLOG(1)
-        << "Seed IdentityManager and SigninManagerBase with the "
-        << "authenticated account info, success="
-        << IdentityManagerFactory::GetForProfile(profile)->HasPrimaryAccount();
 
+    base::Optional<bool> is_under_advanced_protection;
     if (IsOnlineSignin(user_context)) {
-      account_tracker->SetIsAdvancedProtectionAccount(
-          account_id, user_context.IsUnderAdvancedProtection());
+      is_under_advanced_protection = user_context.IsUnderAdvancedProtection();
+    }
+
+    identity_manager->GetAccountsMutator()->UpdateAccountInfo(
+        account_id, /*is_child_account=*/is_child,
+        is_under_advanced_protection);
+
+    if (is_child &&
+        base::FeatureList::IsEnabled(::features::kDMServerOAuthForChildUser)) {
+      child_policy_observer_ = std::make_unique<ChildPolicyObserver>(profile);
     }
 
     // Backfill GAIA ID in user prefs stored in Local State.
@@ -1550,11 +1576,6 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     if (tether_service)
       tether_service->StartTetherIfPossible();
 
-    if (user->GetType() == user_manager::USER_TYPE_CHILD) {
-      ScreenTimeControllerFactory::GetForBrowserContext(profile);
-      ConsumerStatusReportingServiceFactory::GetForBrowserContext(profile);
-    }
-
     // PrefService is ready, check whether we need to force a VPN connection.
     always_on_vpn_manager_ =
         std::make_unique<arc::AlwaysOnVpnManager>(profile->GetPrefs());
@@ -1584,6 +1605,23 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
     }
   }
 
+  if (user->GetType() == user_manager::USER_TYPE_CHILD) {
+    if (base::FeatureList::IsEnabled(::features::kDMServerOAuthForChildUser)) {
+      VLOG(1) << "Waiting for child policy refresh before showing session UI";
+      DCHECK(child_policy_observer_);
+      child_policy_observer_->NotifyWhenPolicyReady(
+          base::BindOnce(&UserSessionManager::OnChildPolicyReady,
+                         weak_factory_.GetWeakPtr()),
+          kWaitForChildPolicyTimeout);
+      return;
+    }
+    InitializeChildUserServices(profile);
+  }
+
+  InitializeBrowser(profile);
+}
+
+void UserSessionManager::InitializeBrowser(Profile* profile) {
   // Now that profile is ready, proceed to either alternative login flows or
   // launch browser.
   bool browser_launched = InitializeUserSession(profile);
@@ -1606,6 +1644,11 @@ void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
   // resolved.
   if (delegate_)
     delegate_->OnProfilePrepared(profile, browser_launched);
+}
+
+void UserSessionManager::InitializeChildUserServices(Profile* profile) {
+  ConsumerStatusReportingServiceFactory::GetForBrowserContext(profile);
+  ScreenTimeControllerFactory::GetForBrowserContext(profile);
 }
 
 void UserSessionManager::ActivateWizard(OobeScreen screen) {
@@ -2012,6 +2055,19 @@ void UserSessionManager::OnEasyUnlockKeyOpsFinished(const std::string& user_id,
     easy_unlock_service->CheckCryptohomeKeysAndMaybeHardlock();
 
   NotifyEasyUnlockKeyOpsFinished();
+}
+
+void UserSessionManager::OnChildPolicyReady(
+    Profile* profile,
+    ChildPolicyObserver::InitialPolicyRefreshResult result) {
+  VLOG(1) << "Child policy refresh finished with result "
+          << static_cast<int>(result) << " - showing session UI";
+  DCHECK(profile->IsChild());
+
+  child_policy_observer_.reset();
+
+  InitializeChildUserServices(profile);
+  InitializeBrowser(profile);
 }
 
 void UserSessionManager::ActiveUserChanged(

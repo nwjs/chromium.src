@@ -23,6 +23,7 @@
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/animation/animation_delegate.h"
 #include "ui/gfx/animation/slide_animation.h"
+#include "ui/gfx/animation/tween.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/view.h"
 #include "ui/views/view_targeter_delegate.h"
@@ -54,7 +55,7 @@ constexpr int kWhiteBarBoundsChangeDurationMs = 150;
 
 // The distance to the divider edge in which a touch gesture will be considered
 // as a valid event on the divider.
-constexpr int kDividerEdgeInsetForTouch = 5;
+constexpr int kDividerEdgeInsetForTouch = 8;
 
 // The window targeter that is installed on the always on top container window
 // when the split view mode is active.
@@ -125,6 +126,7 @@ class DividerView : public views::View,
     SetEventTargeter(
         std::unique_ptr<views::ViewTargeter>(new views::ViewTargeter(this)));
     white_bar_animation_.SetSlideDuration(kWhiteBarBoundsChangeDurationMs);
+    white_bar_animation_.SetTweenType(gfx::Tween::EASE_IN);
   }
   ~DividerView() override { white_bar_animation_.Stop(); }
 

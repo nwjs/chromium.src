@@ -19,18 +19,12 @@
 <link rel="import" href="../site_settings/all_sites.html">
 <link rel="import" href="../site_settings/category_default_setting.html">
 <link rel="import" href="../site_settings/category_setting_exceptions.html">
-<!--
-  In order for the browser test for chooser-exception-list to work
-  properly, the custom element needs to be a dependency of the settings page.
-  TODO(https://crbug.com/854329): Delete this comment once this element is used.
--->
 <link rel="import" href="../site_settings/chooser_exception_list.html">
 <link rel="import" href="../site_settings/constants.html">
 <link rel="import" href="../site_settings/media_picker.html">
 <link rel="import" href="../site_settings/pdf_documents.html">
 <link rel="import" href="../site_settings/protocol_handlers.html">
 <link rel="import" href="../site_settings/site_data_details_subpage.html">
-<link rel="import" href="../site_settings/usb_devices.html">
 <link rel="import" href="../site_settings/site_data.html">
 <link rel="import" href="../site_settings/site_details.html">
 <link rel="import" href="../site_settings/zoom_levels.html">
@@ -96,10 +90,9 @@
           </div>
         </template>
         <cr-link-row label="$i18n{syncAndNonPersonalizedServices}"
-           sub-label="$i18n{syncAndGoogleServicesPrivacyDescription}"
-           icon-class="subpage-arrow" on-click="onSyncAndGoogleServicesClick_"
-           hidden="[[!unifiedConsentEnabled_]]">
-        </cr-link-row>
+            sub-label="$i18n{syncAndGoogleServicesPrivacyDescription}"
+            on-click="onSyncAndGoogleServicesClick_"
+            hidden="[[!unifiedConsentEnabled_]]"></cr-link-row>
 <if expr="not chromeos">
         <settings-toggle-button id="signinAllowedToggle"
             pref="{{prefs.signin.allowed_on_next_startup}}"
@@ -214,8 +207,10 @@
       </template>
 
       <template is="dom-if" route-path="/content/all" no-search>
-        <settings-subpage page-title="$i18n{siteSettingsAllSites}">
-          <all-sites focus-config="[[focusConfig_]]"></all-sites>
+        <settings-subpage page-title="$i18n{siteSettingsAllSites}"
+            search-label="$i18n{siteSettingsAllSitesSearch}"
+            search-term="{{searchFilter_}}">
+          <all-sites filter="[[searchFilter_]]"></all-sites>
         </settings-subpage>
       </template>
       <template is="dom-if" route-path="/content/automaticDownloads" no-search>
@@ -373,33 +368,30 @@
           </category-setting-exceptions>
         </settings-subpage>
       </template>
-      <template is="dom-if" if="[[enableSoundContentSetting_]]"
-          no-search>
-        <template is="dom-if" route-path="/content/sound" no-search>
-          <settings-subpage page-title="$i18n{siteSettingsSound}"
-              search-label="$i18n{siteSettingsAllSitesSearch}"
-              search-term="{{searchFilter_}}">
-            <category-default-setting
-                toggle-off-label="$i18n{siteSettingsSoundBlock}"
-                toggle-on-label="$i18n{siteSettingsSoundAllowRecommended}"
-                category="{{ContentSettingsTypes.SOUND}}">
-            </category-default-setting>
-            <settings-toggle-button
-                id="block-autoplay-setting"
-                label="$i18n{siteSettingsBlockAutoplaySetting}"
-                pref="{{blockAutoplayStatus_.pref}}"
-                disabled="[[!blockAutoplayStatus_.enabled]]"
-                hidden="[[!enableBlockAutoplayContentSetting_]]"
-                on-settings-boolean-control-change="onBlockAutoplayToggleChange_"
-                no-set-pref>
-            </settings-toggle-button>
-            <category-setting-exceptions
-                category="{{ContentSettingsTypes.SOUND}}"
-                block-header="$i18n{siteSettingsBlockSound}"
-                search-filter="[[searchFilter_]]">
-            </category-setting-exceptions>
-          </settings-subpage>
-        </template>
+      <template is="dom-if" route-path="/content/sound" no-search>
+        <settings-subpage page-title="$i18n{siteSettingsSound}"
+            search-label="$i18n{siteSettingsAllSitesSearch}"
+            search-term="{{searchFilter_}}">
+          <category-default-setting
+              toggle-off-label="$i18n{siteSettingsSoundBlock}"
+              toggle-on-label="$i18n{siteSettingsSoundAllowRecommended}"
+              category="{{ContentSettingsTypes.SOUND}}">
+          </category-default-setting>
+          <settings-toggle-button
+              id="block-autoplay-setting"
+              label="$i18n{siteSettingsBlockAutoplaySetting}"
+              pref="{{blockAutoplayStatus_.pref}}"
+              disabled="[[!blockAutoplayStatus_.enabled]]"
+              hidden="[[!enableBlockAutoplayContentSetting_]]"
+              on-settings-boolean-control-change="onBlockAutoplayToggleChange_"
+              no-set-pref>
+          </settings-toggle-button>
+          <category-setting-exceptions
+              category="{{ContentSettingsTypes.SOUND}}"
+              block-header="$i18n{siteSettingsBlockSound}"
+              search-filter="[[searchFilter_]]">
+          </category-setting-exceptions>
+        </settings-subpage>
       </template>
       <template is="dom-if" route-path="/content/microphone" no-search>
         <settings-subpage page-title="$i18n{siteSettingsCategoryMicrophone}"
@@ -559,7 +551,10 @@
                   "$i18n{siteSettingsUsbDevicesAskRecommended}"
               category="{{ContentSettingsTypes.USB_DEVICES}}">
           </category-default-setting>
-          <usb-devices></usb-devices>
+          <chooser-exception-list
+              category="{{ContentSettingsTypes.USB_DEVICES}}"
+              chooser-type="{{ChooserType.USB_DEVICES}}">
+          </chooser-exception-list>
         </settings-subpage>
       </template>
       <template is="dom-if" route-path="/content/siteDetails" no-search>

@@ -11,6 +11,7 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_url_loader_mock_factory.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
+#include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/link_rel_attribute.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
@@ -161,10 +162,16 @@ constexpr PreloadTestParams kPreloadTestParams[] = {
      mojom::RequestContextType::STYLE, true},
     // TODO(yoav): It doesn't seem like the audio context is ever used. That
     // should probably be fixed (or we can consolidate audio and video).
+    //
+    // Until the preload cache is defined in terms of range requests and media
+    // fetches we can't reliably preload audio/video content and expect it to be
+    // served from the cache correctly. Until
+    // https://github.com/w3c/preload/issues/97 is resolved and implemented we
+    // need to disable these preloads.
     {"http://example.test/cat.wav", "audio", ResourceLoadPriority::kLow,
-     mojom::RequestContextType::AUDIO, true},
+     mojom::RequestContextType::AUDIO, false},
     {"http://example.test/cat.mp4", "video", ResourceLoadPriority::kLow,
-     mojom::RequestContextType::VIDEO, true},
+     mojom::RequestContextType::VIDEO, false},
     {"http://example.test/cat.vtt", "track", ResourceLoadPriority::kLow,
      mojom::RequestContextType::TRACK, true},
     {"http://example.test/cat.woff", "font", ResourceLoadPriority::kHigh,
@@ -198,9 +205,9 @@ TEST_P(LinkLoaderPreloadTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadTest,
-                        LinkLoaderPreloadTest,
-                        testing::ValuesIn(kPreloadTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadTest,
+                         LinkLoaderPreloadTest,
+                         testing::ValuesIn(kPreloadTestParams));
 
 struct PreloadMimeTypeTestParams {
   const char* href;
@@ -229,13 +236,18 @@ constexpr PreloadMimeTypeTestParams kPreloadMimeTypeTestParams[] = {
     {"http://example.test/cat.css", "style", "text/sass",
      ResourceLoadPriority::kUnresolved, mojom::RequestContextType::STYLE,
      false},
+    // Until the preload cache is defined in terms of range requests and media
+    // fetches we can't reliably preload audio/video content and expect it to be
+    // served from the cache correctly. Until
+    // https://github.com/w3c/preload/issues/97 is resolved and implemented we
+    // need to disable these preloads.
     {"http://example.test/cat.wav", "audio", "audio/wav",
-     ResourceLoadPriority::kLow, mojom::RequestContextType::AUDIO, true},
+     ResourceLoadPriority::kLow, mojom::RequestContextType::AUDIO, false},
     {"http://example.test/cat.wav", "audio", "audio/mp57",
      ResourceLoadPriority::kUnresolved, mojom::RequestContextType::AUDIO,
      false},
     {"http://example.test/cat.webm", "video", "video/webm",
-     ResourceLoadPriority::kLow, mojom::RequestContextType::VIDEO, true},
+     ResourceLoadPriority::kLow, mojom::RequestContextType::VIDEO, false},
     {"http://example.test/cat.mp199", "video", "video/mp199",
      ResourceLoadPriority::kUnresolved, mojom::RequestContextType::VIDEO,
      false},
@@ -273,9 +285,9 @@ TEST_P(LinkLoaderPreloadMimeTypeTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadMimeTypeTest,
-                        LinkLoaderPreloadMimeTypeTest,
-                        testing::ValuesIn(kPreloadMimeTypeTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadMimeTypeTest,
+                         LinkLoaderPreloadMimeTypeTest,
+                         testing::ValuesIn(kPreloadMimeTypeTestParams));
 
 struct PreloadMediaTestParams {
   const char* media;
@@ -308,9 +320,9 @@ TEST_P(LinkLoaderPreloadMediaTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadMediaTest,
-                        LinkLoaderPreloadMediaTest,
-                        testing::ValuesIn(kPreloadMediaTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadMediaTest,
+                         LinkLoaderPreloadMediaTest,
+                         testing::ValuesIn(kPreloadMediaTestParams));
 
 constexpr network::mojom::ReferrerPolicy kPreloadReferrerPolicyTestParams[] = {
     network::mojom::ReferrerPolicy::kOrigin,
@@ -337,9 +349,9 @@ TEST_P(LinkLoaderPreloadReferrerPolicyTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadReferrerPolicyTest,
-                        LinkLoaderPreloadReferrerPolicyTest,
-                        testing::ValuesIn(kPreloadReferrerPolicyTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadReferrerPolicyTest,
+                         LinkLoaderPreloadReferrerPolicyTest,
+                         testing::ValuesIn(kPreloadReferrerPolicyTestParams));
 
 struct PreloadNonceTestParams {
   const char* nonce;
@@ -377,9 +389,9 @@ TEST_P(LinkLoaderPreloadNonceTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadNonceTest,
-                        LinkLoaderPreloadNonceTest,
-                        testing::ValuesIn(kPreloadNonceTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadNonceTest,
+                         LinkLoaderPreloadNonceTest,
+                         testing::ValuesIn(kPreloadNonceTestParams));
 
 struct PreloadImageSrcsetTestParams {
   const char* href;
@@ -429,9 +441,9 @@ TEST_P(LinkLoaderPreloadImageSrcsetTest, Preload) {
   TestPreload(params, expectations);
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderPreloadImageSrcsetTest,
-                        LinkLoaderPreloadImageSrcsetTest,
-                        testing::ValuesIn(kPreloadImageSrcsetTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderPreloadImageSrcsetTest,
+                         LinkLoaderPreloadImageSrcsetTest,
+                         testing::ValuesIn(kPreloadImageSrcsetTestParams));
 
 struct ModulePreloadTestParams {
   const char* href;
@@ -517,9 +529,9 @@ TEST_P(LinkLoaderModulePreloadTest, ModulePreload) {
   ASSERT_EQ(test_case.expecting_load, modulator->fetched());
 }
 
-INSTANTIATE_TEST_CASE_P(LinkLoaderModulePreloadTest,
-                        LinkLoaderModulePreloadTest,
-                        testing::ValuesIn(kModulePreloadTestParams));
+INSTANTIATE_TEST_SUITE_P(LinkLoaderModulePreloadTest,
+                         LinkLoaderModulePreloadTest,
+                         testing::ValuesIn(kModulePreloadTestParams));
 
 TEST(LinkLoaderTest, Prefetch) {
   struct TestCase {

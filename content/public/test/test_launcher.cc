@@ -136,6 +136,8 @@ class WrapperTestLauncherDelegate : public base::TestLauncherDelegate {
 
   // base::TestLauncherDelegate:
   bool GetTests(std::vector<base::TestIdentifier>* output) override;
+  bool WillRunTest(const std::string& test_case_name,
+                   const std::string& test_name) override;
   bool ShouldRunTest(const std::string& test_case_name,
                      const std::string& test_name) override;
   size_t RunTests(base::TestLauncher* test_launcher,
@@ -261,9 +263,8 @@ bool IsPreTestName(const std::string& test_name) {
                           base::CompareCase::SENSITIVE);
 }
 
-bool WrapperTestLauncherDelegate::ShouldRunTest(
-    const std::string& test_case_name,
-    const std::string& test_name) {
+bool WrapperTestLauncherDelegate::WillRunTest(const std::string& test_case_name,
+                                              const std::string& test_name) {
   all_test_names_.insert(test_case_name + "." + test_name);
 
   if (base::StartsWith(test_name, kManualTestPrefix,
@@ -271,6 +272,15 @@ bool WrapperTestLauncherDelegate::ShouldRunTest(
       !base::CommandLine::ForCurrentProcess()->HasSwitch(kRunManualTestsFlag)) {
     return false;
   }
+
+  return true;
+}
+
+bool WrapperTestLauncherDelegate::ShouldRunTest(
+    const std::string& test_case_name,
+    const std::string& test_name) {
+  if (!WillRunTest(test_case_name, test_name))
+    return false;
 
   if (IsPreTestName(test_name)) {
     // We will actually run PRE_ tests, but to ensure they run on the same shard
@@ -462,10 +472,10 @@ void WrapperTestLauncherDelegate::RunDependentTest(
     test_list.push_back(test_name);
     DoRunTests(test_launcher, test_list);
   } else {
-    // Otherwise skip the test.
+    // Otherwise mark the test as a failure.
     base::TestResult test_result;
     test_result.full_name = test_name;
-    test_result.status = base::TestResult::TEST_SKIPPED;
+    test_result.status = base::TestResult::TEST_FAILURE;
     test_launcher->OnTestFinished(test_result);
 
     if (base::ContainsKey(dependent_test_map_, test_name)) {

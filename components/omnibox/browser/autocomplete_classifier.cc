@@ -14,7 +14,7 @@
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
 #include "components/omnibox/browser/document_provider.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "url/gurl.h"
 
@@ -40,11 +40,10 @@ int AutocompleteClassifier::DefaultOmniboxProviders() {
 #if !defined(OS_ANDROID) && !defined(OS_IOS)
       // Custom search engines cannot be used on mobile.
       AutocompleteProvider::TYPE_KEYWORD |
+#else
+      AutocompleteProvider::TYPE_CLIPBOARD |
 #endif
       AutocompleteProvider::TYPE_ZERO_SUGGEST |
-      (base::FeatureList::IsEnabled(omnibox::kEnableClipboardProvider)
-           ? AutocompleteProvider::TYPE_CLIPBOARD_URL
-           : 0) |
       (base::FeatureList::IsEnabled(omnibox::kDocumentProvider)
            ? AutocompleteProvider::TYPE_DOCUMENT
            : 0) |

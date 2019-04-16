@@ -52,7 +52,6 @@ std::string AEDescToString(const AEDesc* aedesc) {
       }
 
       return FourCharToString(code);
-      break;
     }
     case typeSInt16:
     case typeSInt32:
@@ -71,8 +70,7 @@ std::string AEDescToString(const AEDesc* aedesc) {
         return std::string();
       }
 
-      return base::Int64ToString(value);
-      break;
+      return base::NumberToString(value);
     }
     case typeIEEE32BitFloatingPoint:
     case typeIEEE64BitFloatingPoint: {
@@ -92,7 +90,6 @@ std::string AEDescToString(const AEDesc* aedesc) {
       }
 
       return base::NumberToString(value);
-      break;
     }
     // Text formats look like:
     //  'utxt'("string here")
@@ -108,8 +105,6 @@ std::string AEDescToString(const AEDesc* aedesc) {
              base::UTF16ToUTF8(
                  base::string16(data_vector.begin(), data_vector.end())) +
              "\")";
-
-      break;
     }
     // Lists look like:
     //  [ item1, item2, item3 ]
@@ -149,7 +144,6 @@ std::string AEDescToString(const AEDesc* aedesc) {
 
       result += is_record ? " }" : " ]";
       return result;
-      break;
     }
     default: {
       NOTREACHED() << "unexpected descriptor type "
@@ -236,7 +230,7 @@ TEST_F(AppleEventUtilTest, ValueToAppleEventDescriptor) {
 
   for (size_t i = 0; i < base::size(cases); ++i) {
     std::unique_ptr<base::Value> value =
-        base::JSONReader::Read(cases[i].json_input);
+        base::JSONReader::ReadDeprecated(cases[i].json_input);
     NSAppleEventDescriptor* descriptor =
         chrome::mac::ValueToAppleEventDescriptor(value.get());
 

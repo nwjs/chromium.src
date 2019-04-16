@@ -8,7 +8,7 @@
 namespace switches {
 
 // Delays execution of base::TaskPriority::BEST_EFFORT tasks until shutdown.
-const char kDisableBackgroundTasks[] = "disable-background-tasks";
+const char kDisableBestEffortTasks[] = "disable-best-effort-tasks";
 
 // Disables the crash reporting.
 const char kDisableBreakpad[]               = "disable-breakpad";
@@ -123,6 +123,10 @@ const char kEnableCrashReporterForTesting[] =
 #endif
 
 #if defined(OS_ANDROID)
+// Enables the reached code profiler that samples all threads in all processes
+// to determine which functions are almost never executed.
+const char kEnableReachedCodeProfiler[] = "enable-reached-code-profiler";
+
 // Specifies optimization of memory layout of the native library using the
 // orderfile symbols given in base/android/library_loader/anchor_functions.h,
 // via madvise and changing the library prefetch behavior.

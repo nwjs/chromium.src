@@ -26,6 +26,8 @@ class SessionFileOperationsHandler : public IpcFileOperations::RequestHandler {
   ~SessionFileOperationsHandler() override;
 
   // IpcFileOperations::RequestHandler implementation
+  void ReadFile(std::uint64_t file_id) override;
+  void ReadChunk(std::uint64_t file_id, std::uint64_t size) override;
   void WriteFile(std::uint64_t file_id,
                  const base::FilePath& filename) override;
   void WriteChunk(std::uint64_t file_id, std::string data) override;
@@ -33,21 +35,21 @@ class SessionFileOperationsHandler : public IpcFileOperations::RequestHandler {
   void Cancel(std::uint64_t file_id) override;
 
  private:
-  void OnWriteFileResult(
-      std::uint64_t file_id,
-      protocol::FileTransferResult<std::unique_ptr<FileOperations::Writer>>
-          result);
-  void OnWriteChunkResult(std::uint64_t file_id,
-                          protocol::FileTransferResult<Monostate> result);
-  void OnCloseResult(std::uint64_t file_id,
-                     protocol::FileTransferResult<Monostate> result);
+  void OnReaderOpenResult(std::uint64_t file_id,
+                          FileOperations::Reader::OpenResult result);
+  void OnReaderReadResult(std::uint64_t file_id,
+                          FileOperations::Reader::ReadResult result);
+  void OnWriterOperationResult(std::uint64_t file_id,
+                               FileOperations::Writer::Result result);
+  void OnWriterCloseResult(std::uint64_t file_id,
+                           FileOperations::Writer::Result result);
 
   IpcFileOperations::ResultHandler* result_handler_;
   std::unique_ptr<FileOperations> file_operations_;
   base::flat_map<std::uint64_t, std::unique_ptr<FileOperations::Writer>>
       writers_;
-
-  base::WeakPtrFactory<SessionFileOperationsHandler> weak_ptr_factory_;
+  base::flat_map<std::uint64_t, std::unique_ptr<FileOperations::Reader>>
+      readers_;
 };
 
 }  // namespace remoting

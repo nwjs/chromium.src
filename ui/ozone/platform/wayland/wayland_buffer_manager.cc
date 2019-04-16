@@ -54,7 +54,8 @@ WaylandBufferManager::WaylandBufferManager(
     WaylandConnection* connection)
     : zwp_linux_dmabuf_(zwp_linux_dmabuf), connection_(connection) {
   static const zwp_linux_dmabuf_v1_listener dmabuf_listener = {
-      &WaylandBufferManager::Format, &WaylandBufferManager::Modifiers,
+      &WaylandBufferManager::Format,
+      &WaylandBufferManager::Modifiers,
   };
   zwp_linux_dmabuf_v1_add_listener(zwp_linux_dmabuf_.get(), &dmabuf_listener,
                                    this);
@@ -87,10 +88,11 @@ bool WaylandBufferManager::CreateBuffer(base::File file,
                            modifiers, planes_count, buffer_id)) {
     // base::File::Close() has an assertion that checks if blocking operations
     // are allowed. Thus, manually close the fd here.
-    base::ScopedFD fd(file.TakePlatformFile());
-    fd.reset();
+    base::ScopedFD deleter(file.TakePlatformFile());
     return false;
   }
+
+  base::ScopedFD fd(file.TakePlatformFile());
 
   // Store |params| connected to |buffer_id| to track buffer creation and
   // identify, which buffer a client wants to use.
@@ -98,16 +100,23 @@ bool WaylandBufferManager::CreateBuffer(base::File file,
   struct zwp_linux_buffer_params_v1* params =
       zwp_linux_dmabuf_v1_create_params(zwp_linux_dmabuf_.get());
 
-  std::unique_ptr<Buffer> buffer =
-      std::make_unique<Buffer>(buffer_id, params, gfx::Size(width, height));
   buffers_.insert(std::pair<uint32_t, std::unique_ptr<Buffer>>(
-      buffer_id, std::move(buffer)));
+      buffer_id,
+      std::make_unique<Buffer>(buffer_id, params, gfx::Size(width, height))));
 
-  uint32_t fd = file.TakePlatformFile();
   for (size_t i = 0; i < planes_count; i++) {
-    zwp_linux_buffer_params_v1_add(params, fd, i /* plane id */, offsets[i],
-                                   strides[i], modifiers[i] >> 32,
-                                   modifiers[i] & UINT32_MAX);
+    uint32_t modifier_lo = 0;
+    uint32_t modifier_hi = 0;
+    if (modifiers[i] != DRM_FORMAT_MOD_INVALID) {
+      modifier_lo = modifiers[i] & UINT32_MAX;
+      modifier_hi = modifiers[i] >> 32;
+    } else {
+      DCHECK_EQ(planes_count, 1u) << "Invalid modifier may be passed only in "
+                                     "case of single plane format being used";
+    }
+    zwp_linux_buffer_params_v1_add(params, fd.get(), i /* plane id */,
+                                   offsets[i], strides[i], modifier_hi,
+                                   modifier_lo);
   }
   zwp_linux_buffer_params_v1_add_listener(params, &params_listener, this);
   zwp_linux_buffer_params_v1_create(params, width, height, format, 0);
@@ -398,13 +407,16 @@ void WaylandBufferManager::FrameCallbackDone(void* data,
       buffer->swap_result = gfx::SwapResult::SWAP_ACK;
       buffer->wl_frame_callback.reset();
 
-      // If presentation feedback is not supported, use fake feedback and
-      // trigger the callback.
+      // If presentation feedback is not supported, use a fake feedback
       if (!self->connection_->presentation()) {
         buffer->feedback = gfx::PresentationFeedback(base::TimeTicks::Now(),
                                                      base::TimeDelta(), 0);
-        self->OnBufferSwapped(buffer);
       }
+      // If presentation feedback event either has already been fired or
+      // has not been set, trigger swap callback.
+      if (!buffer->wp_presentation_feedback)
+        self->OnBufferSwapped(buffer);
+
       return;
     }
   }
@@ -437,16 +449,20 @@ void WaylandBufferManager::FeedbackPresented(
   for (auto& item : self->buffers_) {
     Buffer* buffer = item.second.get();
     if (buffer->wp_presentation_feedback.get() == wp_presentation_feedback) {
-      // Frame callback must come before a feedback is presented.
-      DCHECK(!buffer->wl_frame_callback);
-
       buffer->feedback = gfx::PresentationFeedback(
           GetPresentationFeedbackTimeStamp(tv_sec_hi, tv_sec_lo, tv_nsec),
           base::TimeDelta::FromNanoseconds(refresh),
           GetPresentationKindFlags(flags));
-
       buffer->wp_presentation_feedback.reset();
-      self->OnBufferSwapped(buffer);
+
+      // Some compositors not always fire PresentationFeedback and Frame
+      // events in the same order (i.e, frame callbacks coming always before
+      // feedback presented/discaded ones). So, check FrameCallbackDone has
+      // already been called at this point, if yes, trigger the swap callback.
+      // otherwise it will be triggered in the upcoming frame callback.
+      if (!buffer->wl_frame_callback)
+        self->OnBufferSwapped(buffer);
+
       return;
     }
   }
@@ -465,11 +481,17 @@ void WaylandBufferManager::FeedbackDiscarded(
     Buffer* buffer = item.second.get();
     if (buffer->wp_presentation_feedback.get() == wp_presentation_feedback) {
       // Frame callback must come before a feedback is presented.
-      DCHECK(!buffer->wl_frame_callback);
       buffer->feedback = gfx::PresentationFeedback::Failure();
-
       buffer->wp_presentation_feedback.reset();
-      self->OnBufferSwapped(buffer);
+
+      // Some compositors not always fire PresentationFeedback and Frame
+      // events in the same order (i.e, frame callbacks coming always before
+      // feedback presented/discaded ones). So, check FrameCallbackDone has
+      // already been called at this point, if yes, trigger the swap callback.
+      // Otherwise it will be triggered in the upcoming frame callback.
+      if (!buffer->wl_frame_callback)
+        self->OnBufferSwapped(buffer);
+
       return;
     }
   }

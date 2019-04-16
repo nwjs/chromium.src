@@ -22,7 +22,9 @@
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_injection_handler.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/password_coordinator.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
+#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/chrome/grit/ios_strings.h"
+#import "ios/web/public/web_state/web_state.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -97,6 +99,7 @@
 - (void)stop {
   [self stopChildren];
   [self.formInputAccessoryViewController restoreOriginalKeyboardView];
+  [self.formInputAccessoryMediator disconnect];
 }
 
 #pragma mark - Presenting Children
@@ -109,11 +112,14 @@
 }
 
 - (void)startPasswordsFromButton:(UIButton*)button {
+  DCHECK(self.webStateList->GetActiveWebState());
+  const GURL& URL =
+      self.webStateList->GetActiveWebState()->GetLastCommittedURL();
   ManualFillPasswordCoordinator* passwordCoordinator =
       [[ManualFillPasswordCoordinator alloc]
           initWithBaseViewController:self.baseViewController
                         browserState:self.browserState
-                        webStateList:self.webStateList
+                                 URL:URL
                     injectionHandler:self.manualFillInjectionHandler];
   passwordCoordinator.delegate = self;
   if (IsIPadIdiom()) {

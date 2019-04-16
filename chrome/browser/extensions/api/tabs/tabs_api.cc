@@ -105,6 +105,8 @@
 #include "ash/public/cpp/window_pin_type.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/interfaces/window_pin_type.mojom.h"
+#include "chrome/browser/chromeos/arc/arc_session_manager.h"
+#include "chrome/browser/chromeos/arc/arc_util.h"
 #include "chrome/browser/ui/ash/chrome_screenshot_grabber.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -194,7 +196,7 @@ bool GetTabById(int tab_id,
 
   if (error_message) {
     *error_message = ErrorUtils::FormatErrorMessage(
-        tabs_constants::kTabNotFoundError, base::IntToString(tab_id));
+        tabs_constants::kTabNotFoundError, base::NumberToString(tab_id));
   }
 
   return false;
@@ -299,6 +301,8 @@ bool ExtensionHasLockedFullscreenPermission(const Extension* extension) {
 }
 
 #if defined(OS_CHROMEOS)
+// TODO(isandrk, crbug.com/937786): Move platform specific code out of this
+// file.
 void SetLockedFullscreenState(Browser* browser, bool locked) {
   UMA_HISTOGRAM_BOOLEAN("Extensions.LockedFullscreenStateRequest", locked);
 
@@ -322,6 +326,21 @@ void SetLockedFullscreenState(Browser* browser, bool locked) {
   // fullscreen (security concerns).
   ui::Clipboard::GetForCurrentThread()->Clear(ui::CLIPBOARD_TYPE_COPY_PASTE);
   content::DevToolsAgentHost::DetachAllClients();
+
+  // Disable ARC while in the locked fullscreen mode.
+  arc::ArcSessionManager* const arc_session_manager =
+      arc::ArcSessionManager::Get();
+  Profile* const profile = browser->profile();
+  if (arc_session_manager && arc::IsArcAllowedForProfile(profile)) {
+    if (locked) {
+      // Disable ARC, preserve data.
+      arc_session_manager->RequestDisable();
+    } else {
+      // Re-enable ARC if needed.
+      if (arc::IsArcPlayStoreEnabledForProfile(profile))
+        arc_session_manager->RequestEnable();
+    }
+  }
 }
 
 #endif  // defined(OS_CHROMEOS)
@@ -706,7 +725,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         ConvertToWindowShowState(create_data->state);
   }
 
-  Browser* new_window = new Browser(create_params);
+  Browser* new_window = Browser::Create(create_params);
+  if (!new_window)
+    return RespondNow(Error(tabs_constants::kBrowserWindowNotAllowed));
 
   if (position == "center")
     BrowserView::GetBrowserViewForBrowser(new_window)->frame()->CenterWindow(create_params.initial_bounds.size());
@@ -753,7 +774,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!contents && urls.empty() && window_type != Browser::TYPE_POPUP) {
     chrome::NewTab(new_window);
   }
-  chrome::SelectNumberedTab(new_window, 0);
+  chrome::SelectNumberedTab(new_window, 0, {TabStripModel::GestureType::kNone});
 
   new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
   new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
@@ -1373,7 +1394,7 @@ bool TabsHighlightFunction::HighlightTab(TabStripModel* tabstrip,
   // Make sure the index is in range.
   if (!tabstrip->ContainsIndex(index)) {
     *error = ErrorUtils::FormatErrorMessage(
-        tabs_constants::kTabIndexNotFoundError, base::IntToString(index));
+        tabs_constants::kTabIndexNotFoundError, base::NumberToString(index));
     return false;
   }
 
@@ -1449,7 +1470,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
 
   if (active) {
     if (tab_strip->active_index() != tab_index) {
-      tab_strip->ActivateTabAt(tab_index, false);
+      tab_strip->ActivateTabAt(tab_index);
       DCHECK_EQ(contents, tab_strip->GetActiveWebContents());
     }
   }
@@ -1472,7 +1493,8 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
       !chrome::SetTabAudioMuted(contents, *params->update_properties.muted,
                                 TabMutedReason::EXTENSION, extension()->id())) {
     return RespondNow(Error(ErrorUtils::FormatErrorMessage(
-        tabs_constants::kCannotUpdateMuteCaptured, base::IntToString(tab_id))));
+        tabs_constants::kCannotUpdateMuteCaptured,
+        base::NumberToString(tab_id))));
   }
 
   if (params->update_properties.opener_tab_id.get()) {
@@ -1484,7 +1506,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
                                       include_incognito_information(), nullptr,
                                       nullptr, &opener_contents, nullptr)) {
       return RespondNow(Error(ErrorUtils::FormatErrorMessage(
-          tabs_constants::kTabNotFoundError, base::IntToString(opener_id))));
+          tabs_constants::kTabNotFoundError, base::NumberToString(opener_id))));
     }
 
     if (tab_strip->GetIndexOfWebContents(opener_contents) ==
@@ -1672,7 +1694,7 @@ bool TabsMoveFunction::MoveTab(int tab_id,
           source_tab_strip->DetachWebContentsAt(tab_index);
       if (!web_contents) {
         *error = ErrorUtils::FormatErrorMessage(
-            tabs_constants::kTabNotFoundError, base::IntToString(tab_id));
+            tabs_constants::kTabNotFoundError, base::NumberToString(tab_id));
         return false;
       }
 
@@ -2079,9 +2101,9 @@ bool ExecuteCodeInTabFunction::CanExecuteScriptOnPage(std::string* error) {
   content::RenderFrameHost* rfh =
       ExtensionApiFrameIdMap::GetRenderFrameHostById(contents, frame_id);
   if (!rfh) {
-    *error = ErrorUtils::FormatErrorMessage(tabs_constants::kFrameNotFoundError,
-                                            base::IntToString(frame_id),
-                                            base::IntToString(execute_tab_id_));
+    *error = ErrorUtils::FormatErrorMessage(
+        tabs_constants::kFrameNotFoundError, base::NumberToString(frame_id),
+        base::NumberToString(execute_tab_id_));
     return false;
   }
 
@@ -2312,11 +2334,11 @@ ExtensionFunction::ResponseAction TabsDiscardFunction::Run() {
   }
 
   // Return appropriate error message otherwise.
-  return RespondNow(Error(
-      params->tab_id
-          ? ErrorUtils::FormatErrorMessage(tabs_constants::kCannotDiscardTab,
-                                           base::IntToString(*params->tab_id))
-          : tabs_constants::kCannotFindTabToDiscard));
+  return RespondNow(Error(params->tab_id
+                              ? ErrorUtils::FormatErrorMessage(
+                                    tabs_constants::kCannotDiscardTab,
+                                    base::NumberToString(*params->tab_id))
+                              : tabs_constants::kCannotFindTabToDiscard));
 }
 
 TabsDiscardFunction::TabsDiscardFunction() {}

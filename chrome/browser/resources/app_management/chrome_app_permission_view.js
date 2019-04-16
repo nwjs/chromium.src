@@ -24,23 +24,8 @@ Polymer({
   },
 
   attached: function() {
-    this.watch('app_', (state) => {
-      const selectedAppId = state.currentPage.selectedAppId;
-      if (selectedAppId) {
-        return state.apps[selectedAppId];
-      }
-    });
-
+    this.watch('app_', state => app_management.util.getSelectedApp(state));
     this.updateFromStore();
-  },
-
-  /**
-   * @param {App} app
-   * @return {string}
-   * @private
-   */
-  iconUrlFromId_: function(app) {
-    return app_management.util.getAppIcon(app);
   },
 
   /**
@@ -53,6 +38,11 @@ Polymer({
     // TODO(ceciliani) Remove this after app service can fetch description.
     this.$['app-description'].hidden = this.app_.description.length === 0;
     this.messages_ = messages;
+  },
+
+  onClickExtensionsSettingsButton_: function() {
+    app_management.BrowserProxy.getInstance().handler.openNativeSettings(
+        this.app_.id);
   },
 
   /**

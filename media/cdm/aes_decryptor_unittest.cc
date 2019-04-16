@@ -59,7 +59,8 @@ MATCHER(NotEmpty, "") {
 }
 MATCHER(IsJSONDictionary, "") {
   std::string result(arg.begin(), arg.end());
-  std::unique_ptr<base::Value> root(base::JSONReader().ReadToValue(result));
+  std::unique_ptr<base::Value> root(
+      base::JSONReader().ReadToValueDeprecated(result));
   return (root.get() && root->type() == base::Value::Type::DICTIONARY);
 }
 MATCHER(IsNullTime, "") {
@@ -1083,14 +1084,14 @@ TEST_P(AesDecryptorTest, RandomSessionIDs) {
   EXPECT_EQ(kNumIterations, seen_sessions.size());
 }
 
-INSTANTIATE_TEST_CASE_P(AesDecryptor,
-                        AesDecryptorTest,
-                        testing::Values(TestType::kAesDecryptor));
+INSTANTIATE_TEST_SUITE_P(AesDecryptor,
+                         AesDecryptorTest,
+                         testing::Values(TestType::kAesDecryptor));
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
-INSTANTIATE_TEST_CASE_P(CdmAdapter,
-                        AesDecryptorTest,
-                        testing::Values(TestType::kCdmAdapter));
+INSTANTIATE_TEST_SUITE_P(CdmAdapter,
+                         AesDecryptorTest,
+                         testing::Values(TestType::kCdmAdapter));
 #endif
 
 // TODO(jrummell): Once MojoCdm/MojoCdmService/MojoDecryptor/

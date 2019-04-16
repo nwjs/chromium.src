@@ -23,11 +23,11 @@ bool StructTraits<viz::mojom::RendererSettingsDataView, viz::RendererSettings>::
       data.release_overlay_resources_after_gpu_query();
   out->tint_gl_composited_content = data.tint_gl_composited_content();
   out->show_overdraw_feedback = data.show_overdraw_feedback();
-  out->enable_draw_occlusion = data.enable_draw_occlusion();
   out->highp_threshold_min = data.highp_threshold_min();
   out->slow_down_compositing_scale_factor =
       data.slow_down_compositing_scale_factor();
   out->use_skia_renderer = data.use_skia_renderer();
+  out->use_skia_renderer_non_ddl = data.use_skia_renderer_non_ddl();
   out->record_sk_picture = data.record_sk_picture();
   out->allow_overlays = data.allow_overlays();
   out->requires_alpha_channel = data.requires_alpha_channel();

@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/feature_policy/iframe_policy.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
+#include "third_party/blink/renderer/core/frame/sandbox_flags.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
 #include "third_party/blink/renderer/core/html/html_document.h"
 #include "third_party/blink/renderer/core/html_names.h"
@@ -148,8 +149,19 @@ void HTMLIFrameElement::ParseAttribute(
                                                         invalid_tokens));
     if (!invalid_tokens.IsNull()) {
       GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-          kOtherMessageSource, kErrorMessageLevel,
+          kOtherMessageSource, mojom::ConsoleMessageLevel::kError,
           "Error while parsing the 'sandbox' attribute: " + invalid_tokens));
+    }
+    if (RuntimeEnabledFeatures::FeaturePolicyForSandboxEnabled()) {
+      Vector<String> messages;
+      UpdateContainerPolicy(&messages);
+      if (!messages.IsEmpty()) {
+        for (const String& message : messages) {
+          GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+              kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
+              message));
+        }
+      }
     }
     UseCounter::Count(GetDocument(), WebFeature::kSandboxViaIFrame);
   } else if (name == kNwuseragentAttr) {
@@ -198,7 +210,7 @@ void HTMLIFrameElement::ParseAttribute(
             value.GetString(), GetDocument().RequiredCSP().GetString())) {
       required_csp_ = g_null_atom;
       GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-          kOtherMessageSource, kErrorMessageLevel,
+          kOtherMessageSource, mojom::ConsoleMessageLevel::kError,
           "'csp' attribute is not a valid policy: " + value));
       return;
     }
@@ -214,7 +226,8 @@ void HTMLIFrameElement::ParseAttribute(
       if (!messages.IsEmpty()) {
         for (const String& message : messages) {
           GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-              kOtherMessageSource, kWarningMessageLevel, message));
+              kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
+              message));
         }
       }
       if (!value.IsEmpty()) {
@@ -234,11 +247,11 @@ void HTMLIFrameElement::ParseAttribute(
             WebFeature::kHTMLIFrameElementGestureMedia)) {
       UseCounter::Count(GetDocument(),
                         WebFeature::kHTMLIFrameElementGestureMedia);
-      GetDocument().AddConsoleMessage(
-          ConsoleMessage::Create(kOtherMessageSource, kWarningMessageLevel,
-                                 "<iframe gesture=\"media\"> is not supported. "
-                                 "Use <iframe allow=\"autoplay\">, "
-                                 "https://goo.gl/ximf56"));
+      GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+          kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
+          "<iframe gesture=\"media\"> is not supported. "
+          "Use <iframe allow=\"autoplay\">, "
+          "https://goo.gl/ximf56"));
     }
 
     if (name == kSrcAttr)
@@ -252,8 +265,33 @@ ParsedFeaturePolicy HTMLIFrameElement::ConstructContainerPolicy(
   scoped_refptr<const SecurityOrigin> src_origin = GetOriginForFeaturePolicy();
   scoped_refptr<const SecurityOrigin> self_origin =
       GetDocument().GetSecurityOrigin();
+
+  // Start with the allow attribute
   ParsedFeaturePolicy container_policy = ParseFeaturePolicyAttribute(
       allow_, self_origin, src_origin, messages, &GetDocument());
+
+  // Next, process sandbox flags. These all only take effect if a corresponding
+  // policy does *not* exist in the allow attribute's value.
+  if (RuntimeEnabledFeatures::FeaturePolicyForSandboxEnabled()) {
+    SandboxFlags sandbox_flags = GetSandboxFlags();
+
+    // If the frame is sandboxed at all, then warn if feature policy attributes
+    // will override the sandbox attributes.
+    if (messages && (sandbox_flags & kSandboxNavigation)) {
+      if (!(sandbox_flags & kSandboxForms) &&
+          IsFeatureDeclared(mojom::FeaturePolicyFeature::kFormSubmission,
+                            container_policy)) {
+        messages->push_back(
+            "Allow and Sandbox attributes both mention forms. Allow will take "
+            "precedence.");
+      }
+    }
+    ApplySandboxFlagsToParsedFeaturePolicy(sandbox_flags, container_policy);
+  }
+
+  // Finally, process the allow* attribuets. Like sandbox attributes, they only
+  // take effect if the corresponding feature is not present in the allow
+  // attribute's value.
 
   // If allowfullscreen attribute is present and no fullscreen policy is set,
   // enable the feature for all origins.
@@ -276,7 +314,8 @@ ParsedFeaturePolicy HTMLIFrameElement::ConstructContainerPolicy(
     }
   }
 
-  // Update Policy associated with this iframe, if exists.
+  // Update the JavaScript policy object associated with this iframe, if it
+  // exists.
   if (policy_)
     policy_->UpdateContainerPolicy(container_policy, src_origin);
 
@@ -304,7 +343,7 @@ Node::InsertionNotificationRequest HTMLIFrameElement::InsertedInto(
             required_csp_, GetDocument().RequiredCSP().GetString())) {
       if (!required_csp_.IsEmpty()) {
         GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-            kOtherMessageSource, kErrorMessageLevel,
+            kOtherMessageSource, mojom::ConsoleMessageLevel::kError,
             "'csp' attribute is not a valid policy: " + required_csp_));
       }
       if (required_csp_ != GetDocument().RequiredCSP()) {

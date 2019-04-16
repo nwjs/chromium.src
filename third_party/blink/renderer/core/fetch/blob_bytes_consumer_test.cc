@@ -7,13 +7,13 @@
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/fetch/bytes_consumer_test_util.h"
-#include "third_party/blink/renderer/core/fetch/data_consumer_handle_test_util.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/blob/testing/fake_blob.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
+#include "third_party/blink/renderer/platform/loader/testing/bytes_consumer_test_reader.h"
 #include "third_party/blink/renderer/platform/network/encoded_form_data.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -22,9 +22,7 @@ namespace blink {
 
 namespace {
 
-using DataConsumerCommand = DataConsumerHandleTestUtil::Command;
 using PublicState = BytesConsumer::PublicState;
-using ReplayingHandle = DataConsumerHandleTestUtil::ReplayingHandle;
 using Result = BytesConsumer::Result;
 
 class BlobBytesConsumerTestClient final
@@ -83,8 +81,7 @@ TEST_F(BlobBytesConsumerTest, TwoPhaseRead) {
   EXPECT_EQ(PublicState::kReadableOrWaiting, consumer->GetPublicState());
 
   auto result =
-      (MakeGarbageCollected<BytesConsumerTestUtil::TwoPhaseReader>(consumer))
-          ->Run();
+      (MakeGarbageCollected<BytesConsumerTestReader>(consumer))->Run();
   EXPECT_EQ(Result::kDone, result.first);
   EXPECT_EQ("hello, world",
             BytesConsumerTestUtil::CharVectorToString(result.second));
@@ -150,7 +147,8 @@ TEST_F(BlobBytesConsumerTest, DrainAsBlobDataHandle) {
 
 TEST_F(BlobBytesConsumerTest, DrainAsBlobDataHandle_2) {
   scoped_refptr<BlobDataHandle> blob_data_handle = BlobDataHandle::Create(
-      "uuid", "", -1, CreateBlob("foo bar")->CloneBlobPtr().PassInterface());
+      "uuid", "", std::numeric_limits<uint64_t>::max(),
+      CreateBlob("foo bar")->CloneBlobPtr().PassInterface());
   ;
   BlobBytesConsumer* consumer =
       MakeGarbageCollected<BlobBytesConsumer>(&GetDocument(), blob_data_handle);
@@ -170,7 +168,8 @@ TEST_F(BlobBytesConsumerTest, DrainAsBlobDataHandle_2) {
 
 TEST_F(BlobBytesConsumerTest, DrainAsBlobDataHandle_3) {
   scoped_refptr<BlobDataHandle> blob_data_handle = BlobDataHandle::Create(
-      "uuid", "", -1, CreateBlob("foo bar")->CloneBlobPtr().PassInterface());
+      "uuid", "", std::numeric_limits<uint64_t>::max(),
+      CreateBlob("foo bar")->CloneBlobPtr().PassInterface());
   ;
   BlobBytesConsumer* consumer =
       MakeGarbageCollected<BlobBytesConsumer>(&GetDocument(), blob_data_handle);

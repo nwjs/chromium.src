@@ -16,72 +16,29 @@
 <dom-module id="app-management-pwa-permission-view">
   <template>
     <style include="app-management-shared-css paper-button-style">
-    #permission-list {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .control-divider {
-      background: var(--control-separator-color);
-      height: 24px;
-      margin: 0 24px;
-      width: 1px;
-    }
-
-    #site-settings-button {
-      --paper-button-ink-color: none;
-      border: none;
-      display: flex;
-      font-size: 12px;
-    }
-
-    #site-settings-icon {
-      display: flex;
-      margin-inline-start: 0;
-    }
-
-    .subpermission-row {
-      height: 48px;
-    }
-
-    #subpermission-list {
-      align-items: stretch;
-      display: flex;
-      flex-direction: column;
-      padding: 8px 0;
-    }
-
-    #permission-list > * {
-      flex: 0 0 var(--permission-list-item-height);
-    }
-
-    #extra-button {
-      margin-inline-end: 16px;
-    }
     </style>
-    <app-management-permission-view-header app="[[app_]]">
-      <div slot="extra-right-buttons" id="extra-button">
-        <paper-button id="site-settings-button"
-            class="secondary-text"
+
+    <app-management-permission-view-header>
+      <div slot="extra-right-buttons" class="extra-permission-header-button">
+        <paper-button class="native-settings-button secondary-text"
             on-click="onClickSiteSettingsButton_">
           $i18n{openSiteSettings}
-          <paper-icon-button-light id="site-settings-icon"
-              class="icon-external">
+          <paper-icon-button-light class="native-settings-icon icon-external">
             <button></button>
           </paper-icon-button-light>
         </paper-button>
       </div>
     </app-management-permission-view-header>
 
-    <div id="permission-list" class="card-container">
+    <div class="permission-list card-container">
       <app-management-permission-item
+        id="notifications"
         class="permission-card-row separated-row header-text"
-        app="[[app_]]"
         permission-label="$i18n{notifications}"
         permission-type="CONTENT_SETTINGS_TYPE_NOTIFICATIONS">
       </app-management-permission-item>
       <div class="permission-card-row">
-        <div id="subpermission-list">
+        <div class="subpermission-list">
           <div class="subpermission-row separated-row"
               on-click="toggleListExpanded_">
             <div class="header-text">$i18n{permissions}</div>
@@ -92,29 +49,27 @@
                   </iron-icon>
                 </button>
               </paper-icon-button-light>
-              <div class="control-divider"></div>
-              <cr-toggle class="left-separated-control"></cr-toggle>
             </div>
           </div>
 
           <iron-collapse opened="[[listExpanded_]]">
             <app-management-permission-item
+                id="location"
                 class="subpermission-row"
-                app="[[app_]]"
                 icon="cr:location-on"
                 permission-label="$i18n{location}"
                 permission-type="CONTENT_SETTINGS_TYPE_GEOLOCATION">
             </app-management-permission-item>
             <app-management-permission-item
+                id="camera"
                 class="subpermission-row"
-                app="[[app_]]"
                 icon="cr:videocam"
                 permission-label="$i18n{camera}"
                 permission-type="CONTENT_SETTINGS_TYPE_MEDIASTREAM_CAMERA">
             </app-management-permission-item>
             <app-management-permission-item
+                id="microphone"
                 class="subpermission-row"
-                app="[[app_]]"
                 icon="cr:mic"
                 permission-label="$i18n{microphone}"
                 permission-type="CONTENT_SETTINGS_TYPE_MEDIASTREAM_MIC">
@@ -123,7 +78,7 @@
         </div>
       </div>
     </div>
-    <app-management-metadata-view app="[[app_]]"></app-management-metadata-view>
+    <app-management-metadata-view></app-management-metadata-view>
   </template>
   <script src="pwa_permission_view.js"></script>
 </dom-module>

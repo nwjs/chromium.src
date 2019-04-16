@@ -84,10 +84,16 @@ class FindTaskController::IdleFindTask
         TimeDelta::FromMillisecondsD(deadline->timeRemaining());
     const TimeTicks start_time = CurrentTimeTicks();
 
-    PositionInFlatTree search_start = PositionInFlatTree::FirstPositionInNode(
-        *controller_->GetLocalFrame()->GetDocument());
-    PositionInFlatTree search_end = PositionInFlatTree::LastPositionInNode(
-        *controller_->GetLocalFrame()->GetDocument());
+    Document& document = *controller_->GetLocalFrame()->GetDocument();
+    PositionInFlatTree search_start =
+        PositionInFlatTree::FirstPositionInNode(document);
+    PositionInFlatTree search_end;
+    if (document.documentElement() && document.documentElement()->lastChild()) {
+      search_end = PositionInFlatTree::AfterNode(
+          *document.documentElement()->lastChild());
+    } else {
+      search_end = PositionInFlatTree::LastPositionInNode(document);
+    }
     DCHECK_EQ(search_start.GetDocument(), search_end.GetDocument());
 
     if (Range* resume_from_range = controller_->ResumeFindingFromRange()) {
@@ -107,11 +113,17 @@ class FindTaskController::IdleFindTask
     int match_count = 0;
     bool full_range_searched = false;
     PositionInFlatTree next_task_start_position;
-    do {
+
+    blink::FindOptions find_options =
+        (options_->forward ? 0 : kBackwards) |
+        (options_->match_case ? 0 : kCaseInsensitive) |
+        (options_->find_next ? 0 : kStartInSelection);
+
+    while (search_start != search_end) {
       // Find in the whole block.
-      FindBuffer buffer(search_start);
+      FindBuffer buffer(EphemeralRangeInFlatTree(search_start, search_end));
       std::unique_ptr<FindBuffer::Results> match_results =
-          buffer.FindMatches(search_text_, *options_);
+          buffer.FindMatches(search_text_, find_options);
       for (FindBuffer::BufferMatchResult match : *match_results) {
         const EphemeralRangeInFlatTree ephemeral_match_range =
             buffer.RangeFromBufferIndex(match.start,
@@ -138,7 +150,9 @@ class FindTaskController::IdleFindTask
         break;
       }
       next_task_start_position = search_start;
-    } while (deadline->timeRemaining() > 0);
+      if (deadline->timeRemaining() <= 0)
+        break;
+    }
 
     const TimeDelta time_spent = CurrentTimeTicks() - start_time;
     UMA_HISTOGRAM_TIMES("WebCore.FindInPage.ScopingTime",
@@ -285,6 +299,10 @@ void FindTaskController::Trace(Visitor* visitor) {
   visitor->Trace(text_finder_);
   visitor->Trace(idle_find_task_);
   visitor->Trace(resume_finding_from_range_);
+}
+
+void FindTaskController::ResetLastFindRequestCompletedWithNoMatches() {
+  last_find_request_completed_with_no_matches_ = false;
 }
 
 }  // namespace blink

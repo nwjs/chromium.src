@@ -53,37 +53,6 @@ namespace blink {
 namespace {
 constexpr float kmax_oversize_ratio = 2.0f;
 
-bool CheckForOptimizedImagePolicy(const Document& document,
-                                  ImageResourceContent* new_image) {
-  // Render the image as a placeholder image if the document does not have the
-  // 'legacy-image-formats' feature enabled, and the image is not one of the
-  // allowed formats.
-  if (!new_image->IsAcceptableContentType()) {
-    document.CountPotentialFeaturePolicyViolation(
-        mojom::FeaturePolicyFeature::kLegacyImageFormats);
-    if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
-        !document.IsFeatureEnabled(
-            mojom::FeaturePolicyFeature::kLegacyImageFormats,
-            ReportOptions::kReportOnFailure)) {
-      return true;
-    }
-  }
-  // Render the image as a placeholder image if the document does not have the
-  // 'unoptimized-images' feature enabled and the image is not
-  // sufficiently-well-compressed.
-  if (!new_image->IsAcceptableCompressionRatio()) {
-    document.CountPotentialFeaturePolicyViolation(
-        mojom::FeaturePolicyFeature::kUnoptimizedImages);
-    if (RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
-        !document.IsFeatureEnabled(
-            mojom::FeaturePolicyFeature::kUnoptimizedImages,
-            ReportOptions::kReportOnFailure)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 bool CheckForOversizedImagesPolicy(const Document& document,
                                    ImageResourceContent* new_image,
                                    LayoutImage* layout_image) {
@@ -121,7 +90,6 @@ LayoutImage::LayoutImage(Element* element)
       did_increment_visually_non_empty_pixel_count_(false),
       is_generated_content_(false),
       image_device_pixel_ratio_(1.0f),
-      is_legacy_format_or_unoptimized_image_(false),
       is_oversized_image_(false) {}
 
 LayoutImage* LayoutImage::CreateAnonymous(PseudoElement& pseudo) {
@@ -193,8 +161,7 @@ void LayoutImage::ImageChanged(WrappedImagePtr new_image,
   // https://github.com/igrigorik/http-client-hints/blob/master/draft-grigorik-http-client-hints-01.txt#L255
   if (image_resource_->CachedImage() &&
       image_resource_->CachedImage()->HasDevicePixelRatioHeaderValue()) {
-    UseCounter::Count(&(View()->GetFrameView()->GetFrame()),
-                      WebFeature::kClientHintsContentDPR);
+    UseCounter::Count(GetDocument(), WebFeature::kClientHintsContentDPR);
     image_device_pixel_ratio_ =
         1 / image_resource_->CachedImage()->DevicePixelRatioHeaderValue();
   }
@@ -272,17 +239,20 @@ void LayoutImage::InvalidatePaintAndMarkForLayoutIfNeeded(
 }
 
 void LayoutImage::ImageNotifyFinished(ImageResourceContent* new_image) {
+  LayoutObject::ImageNotifyFinished(new_image);
   if (!image_resource_)
     return;
 
   if (DocumentBeingDestroyed())
     return;
 
-  InvalidateBackgroundObscurationStatus();
-
-  // Check for optimized image policies.
-  if (IsHTMLImageElement(GetNode()))
-    ValidateImagePolicies();
+  // Check for oversized-images policy.
+  // TODO(loonybear): Support oversized-images policy on other image types
+  // in addition to HTMLImageElement (crbug.com/930281).
+  if (IsHTMLImageElement(GetNode()) && image_resource_->CachedImage()) {
+    is_oversized_image_ = CheckForOversizedImagesPolicy(
+        GetDocument(), image_resource_->CachedImage(), this);
+  }
 
   if (new_image == image_resource_->CachedImage()) {
     // tell any potential compositing layers
@@ -442,8 +412,7 @@ void LayoutImage::ComputeIntrinsicSizingInfo(
     // Our intrinsicSize is empty if we're laying out generated images with
     // relative width/height. Figure out the right intrinsic size to use.
     if (intrinsic_sizing_info.size.IsEmpty() &&
-        image_resource_->ImageHasRelativeSize() &&
-        !IsLayoutNGListMarkerImage()) {
+        !image_resource_->HasIntrinsicSize() && !IsLayoutNGListMarkerImage()) {
       if (HasOverrideContainingBlockContentLogicalWidth() &&
           HasOverrideContainingBlockContentLogicalHeight()) {
         intrinsic_sizing_info.size.SetWidth(
@@ -493,25 +462,36 @@ SVGImage* LayoutImage::EmbeddedSVGImage() const {
 }
 
 bool LayoutImage::IsImagePolicyViolated() const {
-  return is_oversized_image_ || is_legacy_format_or_unoptimized_image_;
+  DCHECK(ToHTMLImageElementOrNull(GetNode()));
+  return is_oversized_image_ ||
+         ToHTMLImageElement(GetNode())->IsImagePolicyViolated();
 }
 
-void LayoutImage::ValidateImagePolicies() {
-  if (image_resource_ && image_resource_->CachedImage()) {
-    is_oversized_image_ = CheckForOversizedImagesPolicy(
-        GetDocument(), image_resource_->CachedImage(), this);
-    is_legacy_format_or_unoptimized_image_ = CheckForOptimizedImagePolicy(
-        GetDocument(), image_resource_->CachedImage());
+void LayoutImage::ReportImagePolicyViolation() const {
+  if (is_oversized_image_) {
+    auto state = GetDocument().GetFeatureEnabledState(
+        mojom::FeaturePolicyFeature::kOversizedImages);
+    GetDocument().ReportFeaturePolicyViolation(
+        mojom::FeaturePolicyFeature::kOversizedImages,
+        state == FeatureEnabledState::kReportOnly
+            ? mojom::FeaturePolicyDisposition::kReport
+            : mojom::FeaturePolicyDisposition::kEnforce);
   }
+  // TODO(loonybear): move unsized-media violation here.
 }
 
 void LayoutImage::UpdateAfterLayout() {
   LayoutBox::UpdateAfterLayout();
   Node* node = GetNode();
 
+  // Check for oversized-images policy.
+  // TODO(loonybear): Support oversized-images policy on other image types
+  // in addition to HTMLImageElement.
   if (auto* image_element = ToHTMLImageElementOrNull(node)) {
-    // Check for optimized image policies.
-    ValidateImagePolicies();
+    if (image_resource_ && image_resource_->CachedImage()) {
+      is_oversized_image_ = CheckForOversizedImagesPolicy(
+          GetDocument(), image_resource_->CachedImage(), this);
+    }
 
     // Report violation of unsized-media policy.
     media_element_parser_helpers::ReportUnsizedMediaViolation(

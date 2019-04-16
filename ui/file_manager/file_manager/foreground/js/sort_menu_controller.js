@@ -39,7 +39,7 @@ function SortMenuController(sortButton, toggleRipple, fileListModel) {
  */
 SortMenuController.prototype.updateCheckmark_ = function() {
   this.toggleRipple_.activated = true;
-  var sortField = this.fileListModel_.sortStatus.field;
+  const sortField = this.fileListModel_.sortStatus.field;
 
   this.setCheckStatus_(this.sortByNameButton_, sortField === 'name');
   this.setCheckStatus_(this.sortBySizeButton_, sortField === 'size');
@@ -62,7 +62,7 @@ SortMenuController.prototype.onHideSortMenu_ = function() {
  * @param {boolean} checked True if the item should have 'checked' attribute.
  * @private
  */
-SortMenuController.prototype.setCheckStatus_ = function(menuItem, checked) {
+SortMenuController.prototype.setCheckStatus_ = (menuItem, checked) => {
   if (checked) {
     menuItem.setAttribute('checked', '');
   } else {

@@ -120,6 +120,8 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
     // Target path of an in-progress download. We may be downloading to a
     // temporary or intermediate file (specified by |current_path|).  Once the
     // download completes, we will rename the file to |target_path|.
+    // |target_path| should be a valid file path on the system. On Android, this
+    // could be a content Uri.
     base::FilePath target_path;
 
     // Full path to the downloaded or downloading file. This is the path to the
@@ -348,6 +350,8 @@ class COMPONENTS_DOWNLOAD_EXPORT DownloadItemImpl
       std::unique_ptr<crypto::SecureHash> hash_state) override;
 
   void SetDelegate(DownloadItemImplDelegate* delegate);
+
+  void SetDownloadId(uint32_t download_id);
 
   const DownloadUrlParameters::RequestHeadersType& request_headers() const {
     return request_headers_;

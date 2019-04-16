@@ -64,6 +64,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "net/third_party/quic/core/quic_interval_set.h"
 #include "net/third_party/quic/core/quic_packets.h"
 #include "net/third_party/quic/core/quic_types.h"
 #include "net/third_party/quic/platform/api/quic_export.h"
@@ -239,6 +240,9 @@ class QUIC_EXPORT_PRIVATE QuicStreamSequencerBuffer {
 
   // Total number of bytes that have been prefetched.
   QuicStreamOffset total_bytes_prefetched_;
+
+  // Latched value of --quic_faster_interval_add_in_sequence_buffer.
+  const bool faster_interval_add_in_sequence_buffer_;
 };
 }  // namespace quic
 

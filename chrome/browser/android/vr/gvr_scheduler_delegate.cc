@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/android/android_hardware_buffer_compat.h"
+#include "base/bind.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/traced_value.h"
@@ -73,8 +74,6 @@ GvrSchedulerDelegate::GvrSchedulerDelegate(GlBrowserInterface* browser,
                             kWebVrInitialFrameTimeoutSeconds),
       browser_(browser),
       gvr_api_(gvr_api),
-      webvr_vsync_align_(
-          base::FeatureList::IsEnabled(features::kWebVrVsyncAlign)),
       cardboard_gamepad_(cardboard_gamepad),
       vsync_helper_(base::BindRepeating(&GvrSchedulerDelegate::OnVSync,
                                         base::Unretained(this))),
@@ -210,36 +209,21 @@ GvrSchedulerDelegate::GetWebXrFrameTransportOptions(
   webxr_use_shared_buffer_draw_ = false;
   webxr_use_gpu_fence_ = false;
 
-  std::string render_path_string = base::GetFieldTrialParamValueByFeature(
-      features::kWebXrRenderPath, features::kWebXrRenderPathParamName);
-  DVLOG(1) << __func__ << ": WebXrRenderPath=" << render_path_string;
-  if (render_path_string == features::kWebXrRenderPathParamValueClientWait) {
-    // Use the baseline kClientWait.
-  } else if (render_path_string ==
-             features::kWebXrRenderPathParamValueGpuFence) {
-    // Use GpuFence if available. If not, fall back to kClientWait.
-    if (gl::GLFence::IsGpuFenceSupported()) {
-      webxr_use_gpu_fence_ = true;
-
+  // Use SharedBuffer if supported, otherwise fall back to GpuFence or
+  // ClientWait.
+  if (gl::GLFence::IsGpuFenceSupported()) {
+    webxr_use_gpu_fence_ = true;
+    if (base::AndroidHardwareBufferCompat::IsSupportAvailable() &&
+        !options->use_legacy_webvr_render_path) {
+      // Currently, SharedBuffer mode is only supported for WebXR via
+      // XRWebGlDrawingBuffer, WebVR 1.1 doesn't use that.
+      webxr_use_shared_buffer_draw_ = true;
+      render_path = MetricsUtilAndroid::XRRenderPath::kSharedBuffer;
+    } else {
       render_path = MetricsUtilAndroid::XRRenderPath::kGpuFence;
     }
-  } else {
-    // Default aka features::kWebXrRenderPathParamValueSharedBuffer.
-    // Use that if supported, otherwise fall back to GpuFence or
-    // ClientWait.
-    if (gl::GLFence::IsGpuFenceSupported()) {
-      webxr_use_gpu_fence_ = true;
-      if (base::AndroidHardwareBufferCompat::IsSupportAvailable() &&
-          !options->use_legacy_webvr_render_path) {
-        // Currently, SharedBuffer mode is only supported for WebXR via
-        // XRWebGlDrawingBuffer, WebVR 1.1 doesn't use that.
-        webxr_use_shared_buffer_draw_ = true;
-        render_path = MetricsUtilAndroid::XRRenderPath::kSharedBuffer;
-      } else {
-        render_path = MetricsUtilAndroid::XRRenderPath::kGpuFence;
-      }
-    }
   }
+
   DVLOG(1) << __func__ << ": render_path=" << static_cast<int>(render_path);
   MetricsUtilAndroid::LogXrRenderPathUsed(render_path);
 
@@ -690,10 +674,8 @@ bool GvrSchedulerDelegate::WebVrCanAnimateFrame(bool is_from_onvsync) {
   // If we want to send vsync-aligned frames, we only allow animation to start
   // when called from OnVSync, so if we're called from somewhere else we can
   // skip all the other checks. Legacy Cardboard mode (not surfaceless) doesn't
-  // use vsync aligned frames, and there's a flag to disable it for surfaceless
-  // mode.
-  if (graphics_->DoesSurfacelessRendering() && webvr_vsync_align_ &&
-      !is_from_onvsync) {
+  // use vsync aligned frames.
+  if (graphics_->DoesSurfacelessRendering() && !is_from_onvsync) {
     DVLOG(3) << __func__ << ": waiting for onvsync (vsync aligned)";
     return false;
   }

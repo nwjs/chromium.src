@@ -27,59 +27,71 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/base/resource/resource_bundle.h"
+// #include "ui/native_theme/test_native_theme.h"
+
+// namespace {
+
+// // Delimiter in the Most Visited icon URL that indicates a dark icon. Keep
+// value
+// // in sync with NtpIconSource.
+// const char kMVIconDarkParameter[] = "/dark/";
+
+// }  // namespace
 
 namespace local_ntp_test_utils {
 
-namespace {
+// // Tests that dark mode styling is properly applied to the local NTP.
+// class BaseDarkModeTest {
+//  public:
+//   BaseDarkModeTest() {}
 
-void WaitUntilTilesLoaded(content::WebContents* active_tab,
-                          content::DOMMessageQueue* msg_queue,
-                          int delay) {
-  // At this point, the MV iframe may or may not have been fully loaded. Once
-  // it loads, it sends a 'loaded' postMessage to the page. Check if the page
-  // has already received that, and if not start listening for it. It's
-  // important that these two things happen in the same JS invocation, since
-  // otherwise we might miss the message.
-  bool mv_tiles_loaded = false;
-  ASSERT_TRUE(instant_test_utils::GetBoolFromJS(
-      active_tab, base::StringPrintf(R"js(
-      (function() {
-        if (tilesAreLoaded) {
-          tilesAreLoaded = false;
-          return true;
-        }
-        const loaded = (event) => {
-          if (event.data.cmd == 'loaded') {
-            window.removeEventListener('message', loaded);
-            setTimeout(() => {
-              tilesAreLoaded = false;
-              domAutomationController.send('WaitUntilTilesLoaded');
-            }, %d);
-          }
-        };
-        window.addEventListener('message', loaded);
-        return false;
-      })()
-      )js", delay), &mv_tiles_loaded));
+//   ui::TestNativeTheme* theme() { return &theme_; }
 
-  std::string message;
-  // Get rid of the message that the GetBoolFromJS call produces.
-  ASSERT_TRUE(msg_queue->PopMessage(&message));
+//   // Returns true if dark mode is applied on the |frame|.
+//   bool GetIsDarkModeApplied(const content::ToRenderFrameHost& frame) {
+//     bool dark_mode_applied = false;
+//     if (instant_test_utils::GetBoolFromJS(
+//             frame,
+//             "document.documentElement.getAttribute('darkmode') === 'true'",
+//             &dark_mode_applied)) {
+//       return dark_mode_applied;
+//     }
+//     return false;
+//   }
 
-  if (mv_tiles_loaded) {
-    // The tiles are already loaded, i.e. we missed the 'loaded' message. All
-    // is well.
-    return;
-  }
+//   // Returns true if dark mode is applied on the |frame|.
+//   bool GetIsDarkModeChipApplied(const content::ToRenderFrameHost& frame) {
+//     bool dark_mode_chip_applied = false;
+//     if (!instant_test_utils::GetBoolFromJS(
+//             frame,
+//             "document.documentElement.getAttribute('darkmode') === 'true' &&
+//             "
+//             "!document.body.classList.contains('light-chip')",
+//             &dark_mode_chip_applied)) {
+//       return dark_mode_chip_applied;
+//     }
+//     return false;
+//   }
 
-  // Not loaded yet. Wait for the "WaitUntilTilesLoaded" message.
-  ASSERT_TRUE(msg_queue->WaitForMessage(&message));
-  ASSERT_EQ("\"WaitUntilTilesLoaded\"", message);
-  // There shouldn't be any other messages.
-  ASSERT_FALSE(msg_queue->PopMessage(&message));
-}
+//   // Returns true if dark mode is applied to the Most Visited icon at |index|
+//   // (i.e. the icon URL contains the |kMVIconDarkParameter|).
+//   bool GetIsDarkTile(const content::ToRenderFrameHost& frame, int index) {
+//     bool dark_tile = false;
+//     if (instant_test_utils::GetBoolFromJS(
+//             frame,
+//             base::StringPrintf(
+//                 "document.querySelectorAll('#mv-tiles .md-icon img')[%d]"
+//                 ".src.includes('%s')",
+//                 index, kMVIconDarkParameter),
+//             &dark_tile)) {
+//       return dark_tile;
+//     }
+//     return false;
+//   }
 
-}  // namespace
+//  private:
+//   ui::TestNativeTheme theme_;
+// };
 
 content::WebContents* OpenNewTab(Browser* browser, const GURL& url) {
   ui_test_utils::NavigateToURLWithDisposition(
@@ -126,6 +138,53 @@ void ExecuteScriptOnNTPAndWaitUntilLoaded(content::RenderFrameHost* host,
   ASSERT_TRUE(msg_queue.PopMessage(&message));
 
   WaitUntilTilesLoaded(contents, &msg_queue, /*delay=*/0);
+}
+
+void WaitUntilTilesLoaded(content::WebContents* active_tab,
+                          content::DOMMessageQueue* msg_queue,
+                          int delay) {
+  // At this point, the MV iframe may or may not have been fully loaded. Once
+  // it loads, it sends a 'loaded' postMessage to the page. Check if the page
+  // has already received that, and if not start listening for it. It's
+  // important that these two things happen in the same JS invocation, since
+  // otherwise we might miss the message.
+  bool mv_tiles_loaded = false;
+  ASSERT_TRUE(instant_test_utils::GetBoolFromJS(
+      active_tab, base::StringPrintf(R"js(
+      (function() {
+        if (tilesAreLoaded) {
+          tilesAreLoaded = false;
+          return true;
+        }
+        const loaded = (event) => {
+          if (event.data.cmd == 'loaded') {
+            window.removeEventListener('message', loaded);
+            setTimeout(() => {
+              tilesAreLoaded = false;
+              domAutomationController.send('WaitUntilTilesLoaded');
+            }, %d);
+          }
+        };
+        window.addEventListener('message', loaded);
+        return false;
+      })()
+      )js", delay), &mv_tiles_loaded));
+
+  std::string message;
+  // Get rid of the message that the GetBoolFromJS call produces.
+  ASSERT_TRUE(msg_queue->PopMessage(&message));
+
+  if (mv_tiles_loaded) {
+    // The tiles are already loaded, i.e. we missed the 'loaded' message. All
+    // is well.
+    return;
+  }
+
+  // Not loaded yet. Wait for the "WaitUntilTilesLoaded" message.
+  ASSERT_TRUE(msg_queue->WaitForMessage(&message));
+  ASSERT_EQ("\"WaitUntilTilesLoaded\"", message);
+  // There shouldn't be any other messages.
+  ASSERT_FALSE(msg_queue->PopMessage(&message));
 }
 
 bool SwitchBrowserLanguageToFrench() {

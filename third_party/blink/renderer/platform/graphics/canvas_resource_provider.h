@@ -16,7 +16,7 @@ class SkCanvas;
 namespace cc {
 class ImageDecodeCache;
 class PaintCanvas;
-}
+}  // namespace cc
 
 namespace gpu {
 namespace gles2 {
@@ -48,14 +48,14 @@ class WebGraphicsContext3DProviderWrapper;
 
 class PLATFORM_EXPORT CanvasResourceProvider
     : public WebGraphicsContext3DProviderWrapper::DestructionObserver {
-
  public:
   enum ResourceUsage {
     kSoftwareResourceUsage,
     kSoftwareCompositedResourceUsage,
     kAcceleratedResourceUsage,
     kAcceleratedCompositedResourceUsage,
-    kAcceleratedDirectResourceUsage,
+    kAcceleratedDirect2DResourceUsage,
+    kAcceleratedDirect3DResourceUsage,
   };
 
   enum PresentationMode {
@@ -71,7 +71,8 @@ class PLATFORM_EXPORT CanvasResourceProvider
     kSharedBitmap = 2,
     kTextureGpuMemoryBuffer = 3,
     kBitmapGpuMemoryBuffer = 4,
-    kMaxValue = kBitmapGpuMemoryBuffer,
+    kSharedImage = 5,
+    kMaxValue = kSharedImage,
   };
 
   void static RecordTypeToUMA(ResourceProviderType type);
@@ -88,9 +89,9 @@ class PLATFORM_EXPORT CanvasResourceProvider
 
   // Use Snapshot() for capturing a frame that is intended to be displayed via
   // the compositor. Cases that are destined to be transferred via a
-  // TransferableResource should call ProduceFrame() instead.
-  virtual scoped_refptr<CanvasResource> ProduceFrame() = 0;
-  scoped_refptr<StaticBitmapImage> Snapshot();
+  // TransferableResource should call ProduceCanvasResource() instead.
+  virtual scoped_refptr<CanvasResource> ProduceCanvasResource() = 0;
+  virtual scoped_refptr<StaticBitmapImage> Snapshot() = 0;
 
   // WebGraphicsContext3DProvider::DestructionObserver implementation.
   void OnContextDestroyed() override;
@@ -111,17 +112,21 @@ class PLATFORM_EXPORT CanvasResourceProvider
   }
 
   // Indicates that the compositing path is single buffered, meaning that
-  // ProduceFrame() return a reference to the same resource each time, which
-  // implies that Producing an animation frame may overwrite the resource used
-  // by the previous frame. This results in graphics updates skipping the queue,
-  // thus reducing latency, but with the possible side effects of tearing (in
-  // cases where the resource is scanned out directly) and irregular frame rate.
+  // ProduceCanvasResource() return a reference to the same resource each time,
+  // which implies that Producing an animation frame may overwrite the resource
+  // used by the previous frame. This results in graphics updates skipping the
+  // queue, thus reducing latency, but with the possible side effects of tearing
+  // (in cases where the resource is scanned out directly) and irregular frame
+  // rate.
   bool IsSingleBuffered() { return !resource_recycling_enabled_; }
 
   // Attempt to enable single buffering mode on this resource provider.  May
   // fail if the CanvasResourcePRovider subclass does not support this mode of
   // operation.
   void TryEnableSingleBuffering();
+
+  // Only works in single buffering mode.
+  bool ImportResource(scoped_refptr<CanvasResource>);
 
   void RecycleResource(scoped_refptr<CanvasResource>);
   void SetResourceRecyclingEnabled(bool);
@@ -146,6 +151,10 @@ class PLATFORM_EXPORT CanvasResourceProvider
   void Clear();
   ~CanvasResourceProvider() override;
 
+  base::WeakPtr<CanvasResourceProvider> CreateWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
+
  protected:
   gpu::gles2::GLES2Interface* ContextGL() const;
   GrContext* GetGrContext() const;
@@ -153,9 +162,7 @@ class PLATFORM_EXPORT CanvasResourceProvider
     return context_provider_wrapper_;
   }
   SkFilterQuality FilterQuality() const { return filter_quality_; }
-  base::WeakPtr<CanvasResourceProvider> CreateWeakPtr() {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
+  scoped_refptr<StaticBitmapImage> SnapshotInternal();
 
   CanvasResourceProvider(const IntSize&,
                          const CanvasColorParams&,

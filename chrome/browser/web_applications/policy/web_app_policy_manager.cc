@@ -10,7 +10,6 @@
 #include "base/bind.h"
 #include "base/task/post_task.h"
 #include "base/values.h"
-#include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_constants.h"
@@ -20,17 +19,17 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/profiles/profile_helper.h"
-#endif  // OS_CHROMEOS
-
 namespace web_app {
 
 WebAppPolicyManager::WebAppPolicyManager(Profile* profile,
                                          PendingAppManager* pending_app_manager)
     : profile_(profile),
       pref_service_(profile_->GetPrefs()),
-      pending_app_manager_(pending_app_manager) {
+      pending_app_manager_(pending_app_manager) {}
+
+WebAppPolicyManager::~WebAppPolicyManager() = default;
+
+void WebAppPolicyManager::Start() {
   content::BrowserThread::PostAfterStartupTask(
       FROM_HERE,
       base::CreateSingleThreadTaskRunnerWithTraits(
@@ -40,28 +39,10 @@ WebAppPolicyManager::WebAppPolicyManager(Profile* profile,
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-WebAppPolicyManager::~WebAppPolicyManager() = default;
-
 // static
 void WebAppPolicyManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterListPref(prefs::kWebAppInstallForceList);
-}
-
-// static
-bool WebAppPolicyManager::ShouldEnableForProfile(Profile* profile) {
-// PolicyBrowserTests applies test policies to all profiles, including the
-// sign-in profile. This causes tests to become flaky since the tests could
-// finish before, during, or after the policy apps fail to install in the
-// sign-in profile. So we temporarily add a guard to ignore the policy for the
-// sign-in profile.
-// TODO(crbug.com/876705): Remove once the policy no longer applies to the
-// sign-in profile during tests.
-#if defined(OS_CHROMEOS)
-  return !chromeos::ProfileHelper::IsSigninProfile(profile);
-#else  // !OS_CHROMEOS
-  return true;
-#endif
 }
 
 void WebAppPolicyManager::InitChangeRegistrarAndRefreshPolicyInstalledApps() {

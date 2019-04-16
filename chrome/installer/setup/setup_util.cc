@@ -30,6 +30,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/stl_util.h"
@@ -38,6 +39,7 @@
 #include "base/version.h"
 #include "base/win/registry.h"
 #include "base/win/windows_version.h"
+#include "build/build_config.h"
 #include "chrome/install_static/install_details.h"
 #include "chrome/install_static/install_modes.h"
 #include "chrome/install_static/install_util.h"
@@ -242,8 +244,9 @@ void RemoveLegacyChromeAppCommands(const InstallerState& installer_state) {
 
 }  // namespace
 
-const char kUnPackStatusMetricsName[] = "Setup.Install.LzmaUnPackStatus";
 const char kUnPackNTSTATUSMetricsName[] = "Setup.Install.LzmaUnPackNTSTATUS";
+const char kUnPackResultMetricsName[] = "Setup.Install.LzmaUnPackResult";
+const char kUnPackStatusMetricsName[] = "Setup.Install.LzmaUnPackStatus";
 
 int CourgettePatchFiles(const base::FilePath& src,
                         const base::FilePath& patch,
@@ -481,7 +484,13 @@ bool ContainsUnsupportedSwitch(const base::CommandLine& cmd_line) {
 }
 
 bool IsProcessorSupported() {
+#if defined(ARCH_CPU_X86_FAMILY)
   return base::CPU().has_sse2();
+#elif defined(ARCH_CPU_ARM64)
+  return true;
+#else
+#error Port
+#endif
 }
 
 base::string16 GetCommandKey(const wchar_t* name) {
@@ -655,6 +664,7 @@ int GetInstallAge(const InstallerState& installer_state) {
 
 void RecordUnPackMetrics(UnPackStatus unpack_status,
                          int32_t status,
+                         DWORD lzma_result,
                          UnPackConsumer consumer) {
   std::string consumer_name = "";
 
@@ -673,16 +683,15 @@ void RecordUnPackMetrics(UnPackStatus unpack_status,
       break;
   }
 
-  base::LinearHistogram::FactoryGet(
-      std::string(kUnPackStatusMetricsName) + "_" + consumer_name, 1,
-      UNPACK_STATUS_COUNT, UNPACK_STATUS_COUNT + 1,
-      base::HistogramBase::kUmaTargetedHistogramFlag)
-      ->Add(unpack_status);
+  base::UmaHistogramExactLinear(
+      std::string(std::string(kUnPackStatusMetricsName) + "_" + consumer_name),
+      unpack_status, UNPACK_STATUS_COUNT);
 
-  base::SparseHistogram::FactoryGet(
-      std::string(kUnPackNTSTATUSMetricsName) + "_" + consumer_name,
-      base::HistogramBase::kUmaTargetedHistogramFlag)
-      ->Add(status);
+  base::UmaHistogramSparse(
+      std::string(kUnPackResultMetricsName) + "_" + consumer_name, lzma_result);
+
+  base::UmaHistogramSparse(
+      std::string(kUnPackNTSTATUSMetricsName) + "_" + consumer_name, status);
 }
 
 void RegisterEventLogProvider(const base::FilePath& install_directory,

@@ -253,6 +253,22 @@ class Browser : public TabStripModelObserver,
 
   // Constructors, Creation, Showing //////////////////////////////////////////
 
+  // Creates a browser instance with the provided params.
+  // Returns nullptr if the requested browser creation is not allowed.
+  // For example, browser creation will not be allowed for profiles that
+  // disallow browsing (like sign-in profile on Chrome OS).
+  //
+  // Unless |params->window| is specified, a new BrowserWindow will be created
+  // for the browser - the created BrowserWindow will take the ownership of the
+  // created Browser instance.
+  //
+  // If |params.window| or |params.skip_window_init_for_testing| are set, the
+  // caller is expected to take the ownership of the created Browser instance.
+  static Browser* Create(const CreateParams& params);
+
+  // DEPRECATED in favor of Create().
+  // TODO(tbarzic): Make the constructor non-public once browser construction
+  // instances are replaced with Create(). https://crbug.com/916859.
   nw::Menu* nw_menu_;
   explicit Browser(const CreateParams& params);
   ~Browser() override;
@@ -316,7 +332,10 @@ class Browser : public TabStripModelObserver,
     location_bar_model->swap(location_bar_model_);
   }
 #endif
+
+  // Never nullptr.
   TabStripModel* tab_strip_model() const { return tab_strip_model_.get(); }
+
   chrome::BrowserCommandController* command_controller() {
     return command_controller_.get();
   }
@@ -552,10 +571,6 @@ class Browser : public TabStripModelObserver,
   std::unique_ptr<content::BluetoothChooser> RunBluetoothChooser(
       content::RenderFrameHost* frame,
       const content::BluetoothChooser::EventHandler& event_handler) override;
-  std::unique_ptr<content::SerialChooser> RunSerialChooser(
-      content::RenderFrameHost* frame,
-      std::vector<blink::mojom::SerialPortFilterPtr> filters,
-      content::SerialChooser::Callback callback) override;
   void PassiveInsecureContentFound(const GURL& resource_url) override;
   bool ShouldAllowRunningInsecureContent(content::WebContents* web_contents,
                                          bool allowed_per_prefs,
@@ -721,6 +736,7 @@ class Browser : public TabStripModelObserver,
       content::WebContents* web_contents) override;
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
       content::WebContents* source) override;
+  bool GuestSaveFrame(content::WebContents* guest_web_contents) override;
   content::ColorChooser* OpenColorChooser(
       content::WebContents* web_contents,
       SkColor color,
@@ -1004,8 +1020,8 @@ class Browser : public TabStripModelObserver,
   // This Browser's window.
   BrowserWindow* window_;
 
-  std::unique_ptr<TabStripModelDelegate> tab_strip_model_delegate_;
-  std::unique_ptr<TabStripModel> tab_strip_model_;
+  std::unique_ptr<TabStripModelDelegate> const tab_strip_model_delegate_;
+  std::unique_ptr<TabStripModel> const tab_strip_model_;
 
   // The application name that is also the name of the window to the shell.
   // This name should be set when:

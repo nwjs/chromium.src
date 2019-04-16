@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/navigation_policy.h"
+#include "third_party/blink/renderer/core/loader/network_hints_interface.h"
 #include "third_party/blink/renderer/core/loader/ping_loader.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -50,7 +51,6 @@
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_url.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
-#include "third_party/blink/renderer/platform/network/network_hints.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
@@ -234,8 +234,10 @@ void HTMLAnchorElement::ParseAttribute(
       String parsed_url = StripLeadingAndTrailingHTMLSpaces(params.new_value);
       if (GetDocument().IsDNSPrefetchEnabled()) {
         if (ProtocolIs(parsed_url, "http") || ProtocolIs(parsed_url, "https") ||
-            parsed_url.StartsWith("//"))
-          PrefetchDNS(GetDocument().CompleteURL(parsed_url).Host());
+            parsed_url.StartsWith("//")) {
+          NetworkHintsInterfaceImpl().DnsPrefetchHost(
+              GetDocument().CompleteURL(parsed_url).Host());
+        }
       }
     }
     InvalidateCachedVisitedLinkHash();
@@ -433,7 +435,7 @@ void HTMLAnchorElement::HandleClick(Event& event) {
     request.SetSuggestedFilename(
         static_cast<String>(FastGetAttribute(kDownloadAttr)));
     request.SetRequestContext(mojom::RequestContextType::DOWNLOAD);
-    request.SetRequestorOrigin(SecurityOrigin::Create(GetDocument().Url()));
+    request.SetRequestorOrigin(GetDocument().GetSecurityOrigin());
     frame->Client()->DownloadURL(request,
                                  DownloadCrossOriginRedirects::kNavigate);
     return;
@@ -460,6 +462,8 @@ void HTMLAnchorElement::HandleClick(Event& event) {
   frame_request.SetInputStartTime(event.PlatformTimeStamp());
   // TODO(japhet): Link clicks can be emulated via JS without a user gesture.
   // Why doesn't this go through NavigationScheduler?
+
+  frame->MaybeLogAdClickNavigation();
   frame->Loader().StartNavigation(frame_request, WebFrameLoadType::kStandard,
                                   NavigationPolicyFromEvent(&event));
 }
@@ -477,9 +481,10 @@ bool IsLinkClick(Event& event) {
     return false;
   }
   auto& mouse_event = ToMouseEvent(event);
-  short button = mouse_event.button();
-  return (button == static_cast<short>(WebPointerProperties::Button::kLeft) ||
-          button == static_cast<short>(WebPointerProperties::Button::kMiddle));
+  int16_t button = mouse_event.button();
+  return (button == static_cast<int16_t>(WebPointerProperties::Button::kLeft) ||
+          button ==
+              static_cast<int16_t>(WebPointerProperties::Button::kMiddle));
 }
 
 bool HTMLAnchorElement::WillRespondToMouseClickEvents() {

@@ -219,7 +219,7 @@ WebIDBFactory* IDBFactory::GetFactory(ExecutionContext* execution_context) {
         mojo::MakeRequest(&web_idb_factory_host_info));
     web_idb_factory_ = std::make_unique<WebIDBFactoryImpl>(
         std::move(web_idb_factory_host_info),
-        execution_context->GetTaskRunner(TaskType::kInternalIndexedDB));
+        execution_context->GetTaskRunner(TaskType::kDatabaseAccess));
   }
   return web_idb_factory_.get();
 }
@@ -290,7 +290,7 @@ IDBRequest* IDBFactory::GetDatabaseNames(ScriptState* script_state,
 
 IDBOpenDBRequest* IDBFactory::open(ScriptState* script_state,
                                    const String& name,
-                                   unsigned long long version,
+                                   uint64_t version,
                                    ExceptionState& exception_state) {
   if (!version) {
     exception_state.ThrowTypeError("The version provided must not be 0.");
@@ -411,10 +411,10 @@ IDBOpenDBRequest* IDBFactory::DeleteDatabaseInternal(
   return request;
 }
 
-short IDBFactory::cmp(ScriptState* script_state,
-                      const ScriptValue& first_value,
-                      const ScriptValue& second_value,
-                      ExceptionState& exception_state) {
+int16_t IDBFactory::cmp(ScriptState* script_state,
+                        const ScriptValue& first_value,
+                        const ScriptValue& second_value,
+                        ExceptionState& exception_state) {
   const std::unique_ptr<IDBKey> first =
       ScriptValue::To<std::unique_ptr<IDBKey>>(script_state->GetIsolate(),
                                                first_value, exception_state);
@@ -439,7 +439,7 @@ short IDBFactory::cmp(ScriptState* script_state,
     return 0;
   }
 
-  return static_cast<short>(first->Compare(second.get()));
+  return static_cast<int16_t>(first->Compare(second.get()));
 }
 
 }  // namespace blink

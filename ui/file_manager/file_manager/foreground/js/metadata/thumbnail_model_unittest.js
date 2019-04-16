@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-var imageEntry = {
+const imageEntry = {
   name: 'image.jpg',
   toURL: function() {
     return 'filesystem://A';
   }
 };
 
-var nonImageEntry = {
+const nonImageEntry = {
   name: 'note.txt',
   toURL: function() {
     return 'filesystem://B';
@@ -28,9 +28,9 @@ const imageTransformation = {
   rotate90: 2,
 };
 
-var metadata;
-var contentMetadata;
-var thumbnailModel;
+let metadata;
+let contentMetadata;
+let thumbnailModel;
 
 function setUp() {
   metadata = new MetadataItem();
@@ -44,9 +44,9 @@ function setUp() {
 
   thumbnailModel = new ThumbnailModel(/** @type {!MetadataModel} */ ({
     get: function(entries, names) {
-      var result = new MetadataItem();
-      for (var i = 0; i < names.length; i++) {
-        var name = names[i];
+      const result = new MetadataItem();
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
         result[name] = metadata[name];
       }
       return Promise.resolve([result]);
@@ -55,7 +55,7 @@ function setUp() {
 }
 
 function testThumbnailModelGetBasic(callback) {
-  reportPromise(thumbnailModel.get([imageEntry]).then(function(results) {
+  reportPromise(thumbnailModel.get([imageEntry]).then(results => {
     assertEquals(1, results.length);
     assertEquals(
         new Date(2015, 0, 1).toString(),
@@ -71,7 +71,7 @@ function testThumbnailModelGetBasic(callback) {
 
 function testThumbnailModelGetNotPresent(callback) {
   metadata.present = false;
-  reportPromise(thumbnailModel.get([imageEntry]).then(function(results) {
+  reportPromise(thumbnailModel.get([imageEntry]).then(results => {
     assertEquals(1, results.length);
     assertEquals(
         new Date(2015, 0, 1).toString(),
@@ -86,7 +86,7 @@ function testThumbnailModelGetNotPresent(callback) {
 }
 
 function testThumbnailModelGetNonImage(callback) {
-  reportPromise(thumbnailModel.get([nonImageEntry]).then(function(results) {
+  reportPromise(thumbnailModel.get([nonImageEntry]).then(results => {
     assertEquals(1, results.length);
     assertEquals(
         new Date(2015, 0, 1).toString(),

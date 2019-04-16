@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "base/memory/ptr_util.h"
+#include "third_party/blink/public/mojom/loader/mhtml_load_result.mojom-shared.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/web_document_subresource_filter.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -58,32 +59,24 @@ WebURL WebDocumentLoaderImpl::OriginalUrl() const {
 }
 
 WebString WebDocumentLoaderImpl::OriginalReferrer() const {
-  return DocumentLoader::OriginalReferrer();
+  return DocumentLoader::OriginalReferrer().referrer;
 }
 
 WebURL WebDocumentLoaderImpl::GetUrl() const {
-  return request_wrapper_.Url();
+  return DocumentLoader::Url();
 }
 
 WebString WebDocumentLoaderImpl::HttpMethod() const {
-  return request_wrapper_.HttpMethod();
-}
-
-mojom::FetchCacheMode WebDocumentLoaderImpl::GetCacheMode() const {
-  return request_wrapper_.GetCacheMode();
+  return DocumentLoader::HttpMethod();
 }
 
 WebString WebDocumentLoaderImpl::Referrer() const {
-  return DocumentLoader::Referrer();
+  return DocumentLoader::GetReferrer().referrer;
 }
 
 network::mojom::ReferrerPolicy WebDocumentLoaderImpl::GetReferrerPolicy()
     const {
-  return request_wrapper_.GetReferrerPolicy();
-}
-
-const WebURLRequest& WebDocumentLoaderImpl::GetRequest() const {
-  return request_wrapper_;
+  return DocumentLoader::GetReferrer().referrer_policy;
 }
 
 const WebURLResponse& WebDocumentLoaderImpl::GetResponse() const {
@@ -98,8 +91,8 @@ WebURL WebDocumentLoaderImpl::UnreachableURL() const {
   return DocumentLoader::UnreachableURL();
 }
 
-void WebDocumentLoaderImpl::AppendRedirect(const WebURL& url) {
-  DocumentLoader::AppendRedirect(url);
+int WebDocumentLoaderImpl::ErrorCode() const {
+  return DocumentLoader::ErrorCode();
 }
 
 void WebDocumentLoaderImpl::RedirectChain(WebVector<WebURL>& result) const {
@@ -132,7 +125,6 @@ WebDocumentLoaderImpl::WebDocumentLoaderImpl(
     WebNavigationType navigation_type,
     std::unique_ptr<WebNavigationParams> navigation_params)
     : DocumentLoader(frame, navigation_type, std::move(navigation_params)),
-      request_wrapper_(request_),
       response_wrapper_(DocumentLoader::GetResponse()) {}
 
 WebDocumentLoaderImpl::~WebDocumentLoaderImpl() {
@@ -169,13 +161,20 @@ void WebDocumentLoaderImpl::ResumeParser() {
   DocumentLoader::ResumeParser();
 }
 
-bool WebDocumentLoaderImpl::IsArchive() const {
-  return Fetcher()->Archive();
+bool WebDocumentLoaderImpl::HasBeenLoadedAsWebArchive() const {
+  return Fetcher()->Archive() ||
+         (Fetcher()->ArchiveLoadResult() != mojom::MHTMLLoadResult::kSuccess);
 }
 
 WebArchiveInfo WebDocumentLoaderImpl::GetArchiveInfo() const {
   const MHTMLArchive* archive = Fetcher()->Archive();
-  return {archive->MainResource()->Url(), archive->Date()};
+  const mojom::MHTMLLoadResult load_result = Fetcher()->ArchiveLoadResult();
+
+  if (archive) {
+    DCHECK(archive->MainResource());
+    return {load_result, archive->MainResource()->Url(), archive->Date()};
+  }
+  return {load_result, WebURL(), base::Time()};
 }
 
 bool WebDocumentLoaderImpl::HadUserGesture() const {

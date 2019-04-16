@@ -19,6 +19,7 @@
 #include "ash/test/ash_test_helper.h"
 #include "ash/test_shell_delegate.h"
 #include "ash/wm/window_util.h"
+#include "base/bind_helpers.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/session_manager/session_manager_types.h"
 #include "ui/aura/window_event_dispatcher.h"
@@ -439,7 +440,7 @@ class ShelfWidgetViewsVisibilityTest : public AshTestBase {
     ASSERT_NE(nullptr, primary_shelf_widget_);
     secondary_shelf_widget_ = Shelf::ForWindow(root_windows[1])->shelf_widget();
     ASSERT_NE(nullptr, secondary_shelf_widget_);
-  };
+  }
 
   void ExpectVisible(session_manager::SessionState state,
                      ShelfVisibility primary_shelf_visibility,
@@ -520,10 +521,7 @@ class ShelfWidgetVirtualKeyboardTest : public AshTestBase {
         keyboard::switches::kEnableVirtualKeyboard);
     AshTestBase::SetUp();
     ASSERT_TRUE(keyboard::IsKeyboardEnabled());
-
-    keyboard_controller()->LoadKeyboardWindowInBackground();
-    // Wait for the keyboard window to load.
-    base::RunLoop().RunUntilIdle();
+    keyboard::test::WaitUntilLoaded();
 
     // These tests only apply to the floating virtual keyboard, as it is the
     // only case where both the virtual keyboard and the shelf are visible.

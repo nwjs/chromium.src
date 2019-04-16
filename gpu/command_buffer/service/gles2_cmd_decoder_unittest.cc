@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -465,9 +466,8 @@ TEST_P(GLES3DecoderTest, GetInternalformativValidArgsSamples) {
                                         GL_NUM_SAMPLE_COUNTS, 1, _))
       .WillOnce(SetArgPointee<4>(kNumSampleCounts))
       .RetiresOnSaturation();
-  EXPECT_CALL(*gl_, GetInternalformativ(GL_RENDERBUFFER, GL_RGBA8,
-                                        GL_SAMPLES, kNumSampleCounts,
-                                        result->GetData()))
+  EXPECT_CALL(*gl_, GetInternalformativ(GL_RENDERBUFFER, GL_RGBA8, GL_SAMPLES,
+                                        kNumSampleCounts, _))
       .Times(1)
       .RetiresOnSaturation();
   result->size = 0;
@@ -1852,31 +1852,43 @@ void GLES3DecoderRGBBackbufferTest::SetUp() {
   SetupDefaultProgram();
 }
 
-INSTANTIATE_TEST_CASE_P(Service, GLES2DecoderTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service, GLES2DecoderTest, ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES2DecoderWithShaderTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES2DecoderWithShaderTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES2DecoderManualInitTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES2DecoderManualInitTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service,
-                        GLES2DecoderRGBBackbufferTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES2DecoderRGBBackbufferTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES2DecoderDoCommandsTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES2DecoderDoCommandsTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service,
-                        GLES2DecoderDescheduleUntilFinishedTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES2DecoderDescheduleUntilFinishedTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES3DecoderTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service, GLES3DecoderTest, ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES3DecoderWithShaderTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service, WebGL2DecoderTest, ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service, GLES3DecoderManualInitTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES3DecoderWithShaderTest,
+                         ::testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(Service,
-                        GLES3DecoderRGBBackbufferTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES3DecoderManualInitTest,
+                         ::testing::Bool());
+
+INSTANTIATE_TEST_SUITE_P(Service,
+                         GLES3DecoderRGBBackbufferTest,
+                         ::testing::Bool());
 
 }  // namespace gles2
 }  // namespace gpu

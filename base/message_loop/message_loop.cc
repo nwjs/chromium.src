@@ -4,33 +4,20 @@
 
 #include "base/message_loop/message_loop.h"
 
-#include <algorithm>
-#include <atomic>
 #include <utility>
 
 #include "base/bind.h"
-#include "base/callback_helpers.h"
-#include "base/compiler_specific.h"
-#include "base/debug/task_annotator.h"
-#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
-#include "base/message_loop/message_loop_impl.h"
-#include "base/message_loop/message_loop_task_runner.h"
 #include "base/message_loop/message_pump_default.h"
 #include "base/message_loop/message_pump_for_io.h"
 #include "base/message_loop/message_pump_for_ui.h"
-#include "base/message_loop/sequenced_task_source.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
-#include "base/synchronization/waitable_event.h"
 #include "base/task/sequence_manager/sequence_manager.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
 #include "base/task/sequence_manager/task_queue.h"
-#include "base/threading/thread_id_name_manager.h"
-#include "base/threading/thread_restrictions.h"
-#include "base/threading/thread_task_runner_handle.h"
-#include "base/trace_event/trace_event.h"
+#include "build/build_config.h"
 
 #if defined(OS_MACOSX)
 #include "base/message_loop/message_pump_mac.h"
@@ -41,10 +28,6 @@ namespace base {
 namespace {
 
 MessageLoop::MessagePumpFactory* message_pump_for_ui_factory_ = nullptr;
-
-std::unique_ptr<MessagePump> ReturnPump(std::unique_ptr<MessagePump> pump) {
-  return pump;
-}
 
 }  // namespace
 
@@ -58,13 +41,16 @@ constexpr MessageLoop::Type MessageLoop::TYPE_IO;
 constexpr MessageLoop::Type MessageLoop::TYPE_JAVA;
 #endif
 
-MessageLoop::MessageLoop(Type type)
-    : MessageLoop(type, MessagePumpFactoryCallback()) {
+MessageLoop::MessageLoop(Type type) : MessageLoop(type, nullptr) {
+  // For TYPE_CUSTOM you must either use
+  // MessageLoop(std::unique_ptr<MessagePump> pump) or
+  // MessageLoop::CreateUnbound()
+  DCHECK_NE(type_, TYPE_CUSTOM);
   BindToCurrentThread();
 }
 
 MessageLoop::MessageLoop(std::unique_ptr<MessagePump> pump)
-    : MessageLoop(TYPE_CUSTOM, BindOnce(&ReturnPump, std::move(pump))) {
+    : MessageLoop(TYPE_CUSTOM, std::move(pump)) {
   BindToCurrentThread();
 }
 
@@ -181,59 +167,29 @@ MessageLoopBase* MessageLoop::GetMessageLoopBase() {
 //------------------------------------------------------------------------------
 
 // static
-std::unique_ptr<MessageLoop> MessageLoop::CreateUnbound(
-    Type type,
-    MessagePumpFactoryCallback pump_factory) {
-  return WrapUnique(new MessageLoop(type, std::move(pump_factory)));
+std::unique_ptr<MessageLoop> MessageLoop::CreateUnbound(Type type) {
+  return WrapUnique(new MessageLoop(type, nullptr));
 }
 
-const Feature kMessageLoopUsesSequenceManager{"MessageLoopUsesSequenceManager",
-                                              FEATURE_DISABLED_BY_DEFAULT};
+// static
+std::unique_ptr<MessageLoop> MessageLoop::CreateUnbound(
+    std::unique_ptr<MessagePump> custom_pump) {
+  return WrapUnique(new MessageLoop(TYPE_CUSTOM, std::move(custom_pump)));
+}
 
-MessageLoop::MessageLoop(Type type, MessagePumpFactoryCallback pump_factory)
-    : MessageLoop(type,
-                  std::move(pump_factory),
-                  FeatureList::IsEnabled(kMessageLoopUsesSequenceManager)
-                      ? BackendType::SEQUENCE_MANAGER
-                      : BackendType::MESSAGE_LOOP_IMPL) {}
-
-MessageLoop::MessageLoop(Type type,
-                         MessagePumpFactoryCallback pump_factory,
-                         BackendType backend_type)
-    : pump_(nullptr),
-      backend_(backend_type == BackendType::MESSAGE_LOOP_IMPL
-                   ? CreateMessageLoopImpl(type)
-                   : CreateSequenceManager(type)),
-      default_task_queue_(CreateDefaultTaskQueue(backend_type)),
+MessageLoop::MessageLoop(Type type, std::unique_ptr<MessagePump> custom_pump)
+    : backend_(sequence_manager::internal::SequenceManagerImpl::CreateUnbound(
+          sequence_manager::SequenceManager::Settings{.message_loop_type =
+                                                          type})),
+      default_task_queue_(CreateDefaultTaskQueue()),
       type_(type),
-      pump_factory_(std::move(pump_factory)) {
-  // If type is TYPE_CUSTOM non-null pump_factory must be given.
-  DCHECK(type_ != TYPE_CUSTOM || !pump_factory_.is_null());
-
+      custom_pump_(std::move(custom_pump)) {
   // Bound in BindToCurrentThread();
   DETACH_FROM_THREAD(bound_thread_checker_);
 }
 
-std::unique_ptr<MessageLoopBase> MessageLoop::CreateMessageLoopImpl(
-    MessageLoop::Type type) {
-  return std::make_unique<MessageLoopImpl>(type);
-}
-
-std::unique_ptr<MessageLoopBase> MessageLoop::CreateSequenceManager(
-    MessageLoop::Type type) {
-  std::unique_ptr<sequence_manager::internal::SequenceManagerImpl> manager =
-      sequence_manager::internal::SequenceManagerImpl::CreateUnboundWithPump(
-          sequence_manager::SequenceManager::Settings{.message_loop_type =
-                                                          type});
-  // std::move() for nacl, it doesn't properly handle returning unique_ptr
-  // for subtypes.
-  return std::move(manager);
-}
-
-scoped_refptr<sequence_manager::TaskQueue> MessageLoop::CreateDefaultTaskQueue(
-    BackendType backend_type) {
-  if (backend_type == BackendType::MESSAGE_LOOP_IMPL)
-    return nullptr;
+scoped_refptr<sequence_manager::TaskQueue>
+MessageLoop::CreateDefaultTaskQueue() {
   sequence_manager::internal::SequenceManagerImpl* manager =
       static_cast<sequence_manager::internal::SequenceManagerImpl*>(
           backend_.get());
@@ -257,17 +213,11 @@ void MessageLoop::BindToCurrentThread() {
       << "should only have one message loop per thread";
 
   backend_->BindToCurrentThread(std::move(pump));
-
-#if defined(OS_ANDROID)
-  // On Android, attach to the native loop when there is one.
-  if (type_ == TYPE_UI || type_ == TYPE_JAVA)
-    backend_->AttachToMessagePump();
-#endif
 }
 
 std::unique_ptr<MessagePump> MessageLoop::CreateMessagePump() {
-  if (!pump_factory_.is_null()) {
-    return std::move(pump_factory_).Run();
+  if (custom_pump_) {
+    return std::move(custom_pump_);
   } else {
     return CreateMessagePumpForType(type_);
   }

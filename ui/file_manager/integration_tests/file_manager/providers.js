@@ -4,7 +4,7 @@
 
 'use strict';
 
-(function() {
+(() => {
 
 /**
  * Returns provider name of the given testing provider manifest viz., the
@@ -130,27 +130,39 @@ async function requestMountInternal(multipleMounts, manifest) {
 
   await confirmVolume(appId, false /* ejectExpected */);
 
-  // If multipleMounts we display the providers menu, otherwise we display the
-  // gear menu and check the "add new service" menu item.
+  // If multipleMounts we display the providers menu and check the provider is
+  // still listed.
   if (multipleMounts) {
     await showProvidersMenu(appId);
-  } else {
-    await clickGearMenu(appId);
+    const selector =
+        '#add-new-services-menu:not([hidden]) cr-menu-item:first-child ' +
+        'span';
+    result = await remoteCall.waitForElement(appId, selector);
+    chrome.test.assertEq(providerName, result.text);
+    return;
   }
 
-  // When multiple mounts are supported, then the "new service" menu item should
-  // open the providers menu. Otherwise it should go directly to
+  // If !multipleMounts and !isSmbEnabled, we open the gear menu and check the
+  // "add new service" menu item. add-new-servuces goes directly to
   // install-new-extension, however install-new-service command uses webview
   // which doesn't work in the integration tests.
-  var selector = multipleMounts ?
-      '#add-new-services-menu:not([hidden]) cr-menu-item:first-child ' +
-          'span' :
-      '#gear-menu:not([hidden]) ' +
-          'cr-menu-item[command="#install-new-extension"]';
-  result = await remoteCall.waitForElement(appId, selector);
-  if (multipleMounts) {
-    chrome.test.assertEq(providerName, result.text);
+  const isSmbEnabled = await sendTestMessage({name: 'isSmbEnabled'}) === 'true';
+  if (!isSmbEnabled) {
+    await clickGearMenu(appId);
+    const selector = '#gear-menu:not([hidden]) ' +
+        'cr-menu-item[command="#install-new-extension"]';
+    result = await remoteCall.waitForElement(appId, selector);
+    return;
   }
+
+  // If !multipleMounts but isSmbEnabled, we display the provider menu and check
+  // the provider is not listed.
+  await showProvidersMenu(appId);
+  const selector =
+      '#add-new-services-menu:not([hidden]) cr-menu-item:first-child ' +
+      'span';
+  result = await remoteCall.waitForElement(appId, selector);
+  chrome.test.assertFalse(providerName === result.text);
 }
 
 /**
@@ -165,17 +177,41 @@ async function requestMountNotInMenuInternal(manifest) {
   await confirmVolume(appId, true /* ejectExpected */);
   const element = await clickGearMenu(appId);
 
-  // clickGearMenu returns the "Add new service" menu item.
-  // Here we only check these attributes because the menu item calls
-  // Webstore using webview which doesn't work in the integration test.
-  chrome.test.assertEq('Install new service', element.text);
-  chrome.test.assertEq('#install-new-extension', element.attributes.command);
+  const isSmbEnabled = await sendTestMessage({name: 'isSmbEnabled'}) === 'true';
+
+  if (!isSmbEnabled) {
+    // Here we only check these attributes because the menu item calls
+    // Webstore using webview which doesn't work in the integration test.
+    chrome.test.assertEq('Install new service', element.text);
+    // Since there is no FSP provider, there should be no add-new-service
+    // sub-menu, it should instead point to CWS install-new-extension.
+    chrome.test.assertEq('#install-new-extension', element.attributes.command);
+    return;
+  }
+
+  // Since a provider is installed (here isSmbEnabled), we need to test that
+  // 'add-new-service' sub-menu does not contain the |manifest| provider.
+  chrome.test.assertTrue(isSmbEnabled);
+  chrome.test.assertEq('Add new service', element.text);
+  chrome.test.assertEq('#new-service', element.attributes.command);
+  chrome.test.assertEq(
+      '#add-new-services-menu', element.attributes['sub-menu']);
+
+  // Extract 'add-new-service' sub-menu items.
+  const selector = ['#add-new-services-menu[hidden] cr-menu-item'];
+  const submenu =
+      await remoteCall.callRemoteTestUtil('queryAllElements', appId, selector);
+
+  // Check the sub-menu do not contain the |manifest| provider.
+  chrome.test.assertEq(2, submenu.length);
+  chrome.test.assertEq('SMB file share', submenu[0].text);
+  chrome.test.assertEq('Install new service', submenu[1].text);
 }
 
 /**
  * Tests mounting a single mount point in the button menu.
  */
-testcase.requestMount = function() {
+testcase.requestMount = () => {
   const multipleMounts = false;
   return requestMountInternal(multipleMounts, 'manifest.json');
 };
@@ -183,7 +219,7 @@ testcase.requestMount = function() {
 /**
  * Tests mounting multiple mount points in the button menu.
  */
-testcase.requestMountMultipleMounts = function() {
+testcase.requestMountMultipleMounts = () => {
   const multipleMounts = true;
   return requestMountInternal(multipleMounts, 'manifest_multiple_mounts.json');
 };
@@ -191,14 +227,14 @@ testcase.requestMountMultipleMounts = function() {
 /**
  * Tests mounting a device not present in the button menu.
  */
-testcase.requestMountSourceDevice = function() {
+testcase.requestMountSourceDevice = () => {
   return requestMountNotInMenuInternal('manifest_source_device.json');
 };
 
 /**
  * Tests mounting a file not present in the button menu.
  */
-testcase.requestMountSourceFile = function() {
+testcase.requestMountSourceFile = () => {
   return requestMountNotInMenuInternal('manifest_source_file.json');
 };
 
@@ -206,7 +242,7 @@ testcase.requestMountSourceFile = function() {
  * Tests that pressing the eject button on a FSP adds a message to screen
  * reader.
  */
-testcase.providerEject = async function() {
+testcase.providerEject = async () => {
   const manifest = 'manifest_source_file.json';
   const appId = await setUpProvider(manifest);
 

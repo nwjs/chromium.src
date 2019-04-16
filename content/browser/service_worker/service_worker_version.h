@@ -47,7 +47,7 @@
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_client.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom.h"
-#include "third_party/blink/public/platform/web_feature.mojom.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -73,19 +73,13 @@ FORWARD_DECLARE_TEST(ServiceWorkerControlleeRequestHandlerTest,
 
 namespace service_worker_version_unittest {
 class ServiceWorkerVersionTest;
-class ServiceWorkerRequestTimeoutTest;
-class ServiceWorkerFailToStartTest;
-FORWARD_DECLARE_TEST(ServiceWorkerFailToStartTest, Timeout);
-FORWARD_DECLARE_TEST(ServiceWorkerRequestTimeoutTest, RequestTimeout);
-FORWARD_DECLARE_TEST(ServiceWorkerStallInStoppingTest, DetachThenRestart);
-FORWARD_DECLARE_TEST(ServiceWorkerStallInStoppingTest,
-                     DetachThenRestartNoCrash);
-FORWARD_DECLARE_TEST(ServiceWorkerStallInStoppingTest, DetachThenStart);
+FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, FailToStart_Timeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, IdleTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, MixedRequestTimeouts);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RegisterForeignFetchScopes);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestCustomizedTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestNowTimeout);
+FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestTimeout);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RestartWorker);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, RequestNowTimeoutKill);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, SetDevToolsAttached);
@@ -94,8 +88,15 @@ FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StaleUpdate_FreshWorker);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StaleUpdate_NonActiveWorker);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StaleUpdate_RunningWorker);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StaleUpdate_StartWorker);
+FORWARD_DECLARE_TEST(ServiceWorkerVersionTest,
+                     StallInStopping_DetachThenRestart);
+FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StallInStopping_DetachThenStart);
 FORWARD_DECLARE_TEST(ServiceWorkerVersionTest, StartRequestWithNullContext);
 }  // namespace service_worker_version_unittest
+
+namespace service_worker_storage_unittest {
+FORWARD_DECLARE_TEST(ServiceWorkerStorageDiskTest, ScriptResponseTime);
+}  // namespace service_worker_storage_unittest
 
 namespace service_worker_registration_unittest {
 class ServiceWorkerActivationTest;
@@ -160,12 +161,13 @@ class CONTENT_EXPORT ServiceWorkerVersion
                                  int line_number,
                                  int column_number,
                                  const GURL& source_url) {}
-    virtual void OnReportConsoleMessage(ServiceWorkerVersion* version,
-                                        int source_identifier,
-                                        int message_level,
-                                        const base::string16& message,
-                                        int line_number,
-                                        const GURL& source_url) {}
+    virtual void OnReportConsoleMessage(
+        ServiceWorkerVersion* version,
+        int source_identifier,
+        blink::mojom::ConsoleMessageLevel message_level,
+        const base::string16& message,
+        int line_number,
+        const GURL& source_url) {}
     // OnControlleeAdded/Removed are called asynchronously. It is possible the
     // provider host identified by |client_uuid| was already destroyed when they
     // are called.
@@ -493,6 +495,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
     return used_features_;
   }
 
+  void set_script_response_time_for_devtools(base::Time response_time) {
+    script_response_time_for_devtools_ = std::move(response_time);
+  }
+
   static bool IsInstalled(ServiceWorkerVersion::Status status);
   static std::string VersionStatusToString(ServiceWorkerVersion::Status status);
 
@@ -528,6 +534,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // Called by the EmbeddedWorkerInstance to determine if its worker process
   // should be kept at foreground priority.
   bool ShouldRequireForegroundPriority(int worker_process_id) const;
+
+  // Called when a controlled client's state changes in a way that might effect
+  // whether the service worker should be kept at foreground priority.
+  void UpdateForegroundPriority();
 
  private:
   friend class base::RefCounted<ServiceWorkerVersion>;
@@ -576,27 +586,24 @@ class CONTENT_EXPORT ServiceWorkerVersion
       service_worker_version_unittest::ServiceWorkerVersionTest,
       StartRequestWithNullContext);
   FRIEND_TEST_ALL_PREFIXES(
-      service_worker_version_unittest::ServiceWorkerRequestTimeoutTest,
-      RequestTimeout);
-  FRIEND_TEST_ALL_PREFIXES(
-      service_worker_version_unittest::ServiceWorkerFailToStartTest,
-      Timeout);
+      service_worker_version_unittest::ServiceWorkerVersionTest,
+      FailToStart_Timeout);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerVersionBrowserTest,
                            TimeoutStartingWorker);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerVersionBrowserTest,
                            TimeoutWorkerInEvent);
   FRIEND_TEST_ALL_PREFIXES(
-      service_worker_version_unittest::ServiceWorkerStallInStoppingTest,
-      DetachThenStart);
+      service_worker_version_unittest::ServiceWorkerVersionTest,
+      StallInStopping_DetachThenStart);
   FRIEND_TEST_ALL_PREFIXES(
-      service_worker_version_unittest::ServiceWorkerStallInStoppingTest,
-      DetachThenRestart);
-  FRIEND_TEST_ALL_PREFIXES(
-      service_worker_version_unittest::ServiceWorkerStallInStoppingTest,
-      DetachThenRestartNoCrash);
+      service_worker_version_unittest::ServiceWorkerVersionTest,
+      StallInStopping_DetachThenRestart);
   FRIEND_TEST_ALL_PREFIXES(
       service_worker_version_unittest::ServiceWorkerVersionTest,
       RequestNowTimeout);
+  FRIEND_TEST_ALL_PREFIXES(
+      service_worker_version_unittest::ServiceWorkerVersionTest,
+      RequestTimeout);
   FRIEND_TEST_ALL_PREFIXES(
       service_worker_version_unittest::ServiceWorkerVersionTest,
       RestartWorker);
@@ -609,6 +616,9 @@ class CONTENT_EXPORT ServiceWorkerVersion
   FRIEND_TEST_ALL_PREFIXES(
       service_worker_version_unittest::ServiceWorkerVersionTest,
       MixedRequestTimeouts);
+  FRIEND_TEST_ALL_PREFIXES(
+      service_worker_storage_unittest::ServiceWorkerStorageDiskTest,
+      ScriptResponseTime);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerURLRequestJobTest, EarlyResponse);
   FRIEND_TEST_ALL_PREFIXES(ServiceWorkerURLRequestJobTest, CancelRequest);
 
@@ -676,7 +686,7 @@ class CONTENT_EXPORT ServiceWorkerVersion
                          int column_number,
                          const GURL& source_url) override;
   void OnReportConsoleMessage(int source_identifier,
-                              int message_level,
+                              blink::mojom::ConsoleMessageLevel message_level,
                               const base::string16& message,
                               int line_number,
                               const GURL& source_url) override;
@@ -812,6 +822,8 @@ class CONTENT_EXPORT ServiceWorkerVersion
                                  GetClientCallback callback,
                                  bool success);
 
+  void InitializeGlobalScope();
+
   const int64_t version_id_;
   const int64_t registration_id_;
   const GURL script_url_;
@@ -936,6 +948,14 @@ class CONTENT_EXPORT ServiceWorkerVersion
 
   std::unique_ptr<net::HttpResponseInfo> main_script_http_info_;
 
+  // DevTools requires each service worker's script receive time, even for
+  // the ones that haven't started. However, a ServiceWorkerVersion's field
+  // |main_script_http_info_| is not set until starting up. Rather than
+  // reading HttpResponseInfo for all service workers from disk cache and
+  // populating |main_script_http_info_| just in order to expose that timestamp,
+  // we provide that timestamp here.
+  base::Time script_response_time_for_devtools_;
+
   std::unique_ptr<blink::TrialTokenValidator::FeatureToTokensMap>
       origin_trial_tokens_;
 
@@ -973,6 +993,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // when ServiceWorkerImportedScriptUpdateCheck is enabled.
   std::map<GURL, ServiceWorkerUpdateChecker::ComparedScriptInfo>
       compared_script_info_map_;
+
+  // This holds a mojo interface pointer info to this instance until
+  // InitializeGlobalScope() is called.
+  blink::mojom::ServiceWorkerHostAssociatedPtrInfo service_worker_host_;
 
   base::WeakPtrFactory<ServiceWorkerVersion> weak_factory_;
 

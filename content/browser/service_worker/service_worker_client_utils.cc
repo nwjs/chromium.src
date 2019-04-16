@@ -9,6 +9,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/single_thread_task_runner.h"
@@ -284,8 +285,21 @@ void NavigateClientOnUI(const GURL& url,
     return;
   }
 
-  int frame_tree_node_id = rfhi->frame_tree_node()->frame_tree_node_id();
+  // Reject the navigate() call if there is an ongoing browser-initiated
+  // navigation. Not rejecting it would allow websites to prevent the user from
+  // navigating away. See https://crbug.com/930154.
+  NavigationRequest* ongoing_navigation_request =
+      rfhi->frame_tree_node()->frame_tree()->root()->navigation_request();
+  if (ongoing_navigation_request &&
+      ongoing_navigation_request->browser_initiated()) {
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
+        base::BindOnce(std::move(callback), ChildProcessHost::kInvalidUniqueID,
+                       MSG_ROUTING_NONE));
+    return;
+  }
 
+  int frame_tree_node_id = rfhi->frame_tree_node()->frame_tree_node_id();
   Navigator* navigator = rfhi->frame_tree_node()->navigator();
   navigator->RequestOpenURL(
       rfhi, url, url::Origin::Create(script_url), false /* uses_post */,
@@ -474,6 +488,39 @@ void GetWindowClients(const base::WeakPtr<ServiceWorkerVersion>& controller,
                      std::move(clients)));
 }
 
+void DidGetExecutionReadyClient(
+    const base::WeakPtr<ServiceWorkerContextCore>& context,
+    const std::string& client_uuid,
+    const GURL& sane_origin,
+    NavigationCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  if (!context) {
+    std::move(callback).Run(blink::ServiceWorkerStatusCode::kErrorAbort,
+                            nullptr /* client_info */);
+    return;
+  }
+
+  ServiceWorkerProviderHost* provider_host =
+      context->GetProviderHostByClientID(client_uuid);
+  if (!provider_host || !provider_host->is_execution_ready()) {
+    // The page was destroyed before it became execution ready.  Tell the
+    // renderer the page opened but it doesn't have access to it.
+    std::move(callback).Run(blink::ServiceWorkerStatusCode::kOk,
+                            nullptr /* client_info */);
+    return;
+  }
+
+  CHECK_EQ(provider_host->url().GetOrigin(), sane_origin);
+
+  base::PostTaskWithTraitsAndReplyWithResult(
+      FROM_HERE, {BrowserThread::UI},
+      base::BindOnce(&GetWindowClientInfoOnUI, provider_host->process_id(),
+                     provider_host->route_id(), provider_host->create_time(),
+                     provider_host->client_uuid()),
+      base::BindOnce(std::move(callback), blink::ServiceWorkerStatusCode::kOk));
+}
+
 }  // namespace
 
 void FocusWindowClient(ServiceWorkerProviderHost* provider_host,
@@ -596,20 +643,26 @@ void DidNavigate(const base::WeakPtr<ServiceWorkerContextCore>& context,
 
   for (std::unique_ptr<ServiceWorkerContextCore::ProviderHostIterator> it =
            context->GetClientProviderHostIterator(
-               origin, false /* include_reserved_clients */);
+               origin, true /* include_reserved_clients */);
        !it->IsAtEnd(); it->Advance()) {
     ServiceWorkerProviderHost* provider_host = it->GetProviderHost();
     if (provider_host->process_id() != render_process_id ||
         provider_host->frame_id() != render_frame_id) {
       continue;
     }
-    base::PostTaskWithTraitsAndReplyWithResult(
-        FROM_HERE, {BrowserThread::UI},
-        base::BindOnce(&GetWindowClientInfoOnUI, provider_host->process_id(),
-                       provider_host->route_id(), provider_host->create_time(),
-                       provider_host->client_uuid()),
-        base::BindOnce(std::move(callback),
-                       blink::ServiceWorkerStatusCode::kOk));
+    // DidNavigate must be called with a preparation complete client (the
+    // navigation was committed), but the client might not be execution ready
+    // yet (Blink hasn't yet created the Document).
+    DCHECK(provider_host->is_response_committed());
+    if (!provider_host->is_execution_ready()) {
+      provider_host->AddExecutionReadyCallback(base::BindOnce(
+          &DidGetExecutionReadyClient, context, provider_host->client_uuid(),
+          origin, std::move(callback)));
+      return;
+    }
+
+    DidGetExecutionReadyClient(context, provider_host->client_uuid(), origin,
+                               std::move(callback));
     return;
   }
 

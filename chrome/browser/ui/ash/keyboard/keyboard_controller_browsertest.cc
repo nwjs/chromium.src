@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
@@ -422,7 +423,6 @@ IN_PROC_BROWSER_TEST_F(KeyboardControllerStateTest,
 
   auto* controller = keyboard::KeyboardController::Get();
 
-  controller->LoadKeyboardWindowInBackground();
   EXPECT_EQ(controller->GetStateForTest(),
             keyboard::KeyboardControllerState::LOADING_EXTENSION);
 

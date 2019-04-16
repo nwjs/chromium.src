@@ -4,9 +4,6 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.basic;
 
-import android.content.Context;
-import android.support.annotation.ColorInt;
-import android.support.annotation.ColorRes;
 import android.support.v4.view.ViewCompat;
 import android.text.Spannable;
 import android.text.TextUtils;
@@ -37,7 +34,9 @@ public class SuggestionViewViewBinder {
             view.updateRefineIconTint(useDarkColors);
             view.updateSuggestionIconTint(useDarkColors);
             view.getTextLine1().setTextColor(
-                    getStandardFontColor(view.getContext(), useDarkColors));
+                    ApiCompatibilityUtils.getColor(view.getContext().getResources(),
+                            useDarkColors ? R.color.default_text_color_dark
+                                          : R.color.url_emphasis_light_default_text));
         } else if (SuggestionCommonProperties.LAYOUT_DIRECTION.equals(propertyKey)) {
             ViewCompat.setLayoutDirection(
                     view, model.get(SuggestionCommonProperties.LAYOUT_DIRECTION));
@@ -83,42 +82,6 @@ public class SuggestionViewViewBinder {
                     allowTint = false;
                     drawableId = R.drawable.ic_equals_sign_round;
                     break;
-                case SuggestionIcon.DICTIONARY:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_book_round;
-                    break;
-                case SuggestionIcon.FINANCE:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_swap_vert_round;
-                    break;
-                case SuggestionIcon.KNOWLEDGE:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_google_round;
-                    break;
-                case SuggestionIcon.SUNRISE:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_wb_sunny_round;
-                    break;
-                case SuggestionIcon.TRANSLATION:
-                    allowTint = false;
-                    drawableId = R.drawable.logo_translate_round;
-                    break;
-                case SuggestionIcon.WEATHER:
-                    allowTint = false;
-                    drawableId = R.drawable.logo_partly_cloudy_light;
-                    break;
-                case SuggestionIcon.EVENT:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_event_round;
-                    break;
-                case SuggestionIcon.CURRENCY:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_loop_round;
-                    break;
-                case SuggestionIcon.SPORTS:
-                    allowTint = false;
-                    drawableId = R.drawable.ic_google_round;
-                    break;
                 default:
                     break;
             }
@@ -126,7 +89,7 @@ public class SuggestionViewViewBinder {
             view.setSuggestionIconDrawable(
                     drawableId, model.get(SuggestionCommonProperties.USE_DARK_COLORS), allowTint);
         } else if (SuggestionViewProperties.TEXT_LINE_1_SIZING.equals(propertyKey)) {
-            Pair<Integer, Float> sizing = model.get(SuggestionViewProperties.TEXT_LINE_1_SIZING);
+            Pair<Integer, Integer> sizing = model.get(SuggestionViewProperties.TEXT_LINE_1_SIZING);
             view.getTextLine1().setTextSize(sizing.first, sizing.second);
         } else if (SuggestionViewProperties.TEXT_LINE_1_MAX_LINES.equals(propertyKey)) {
             updateSuggestionLayoutType(view, model);
@@ -136,12 +99,12 @@ public class SuggestionViewViewBinder {
             view.getTextLine1().setTextColor(
                     model.get(SuggestionViewProperties.TEXT_LINE_1_TEXT_COLOR));
         } else if (SuggestionViewProperties.TEXT_LINE_1_TEXT_DIRECTION.equals(propertyKey)) {
-            ApiCompatibilityUtils.setTextDirection(view.getTextLine1(),
+            view.getTextLine1().setTextDirection(
                     model.get(SuggestionViewProperties.TEXT_LINE_1_TEXT_DIRECTION));
         } else if (SuggestionViewProperties.TEXT_LINE_1_TEXT.equals(propertyKey)) {
             view.getTextLine1().setText(model.get(SuggestionViewProperties.TEXT_LINE_1_TEXT).text);
         } else if (SuggestionViewProperties.TEXT_LINE_2_SIZING.equals(propertyKey)) {
-            Pair<Integer, Float> sizing = model.get(SuggestionViewProperties.TEXT_LINE_2_SIZING);
+            Pair<Integer, Integer> sizing = model.get(SuggestionViewProperties.TEXT_LINE_2_SIZING);
             view.getTextLine2().setTextSize(sizing.first, sizing.second);
         } else if (SuggestionViewProperties.TEXT_LINE_2_MAX_LINES.equals(propertyKey)) {
             updateSuggestionLayoutType(view, model);
@@ -151,7 +114,7 @@ public class SuggestionViewViewBinder {
             view.getTextLine2().setTextColor(
                     model.get(SuggestionViewProperties.TEXT_LINE_2_TEXT_COLOR));
         } else if (SuggestionViewProperties.TEXT_LINE_2_TEXT_DIRECTION.equals(propertyKey)) {
-            ApiCompatibilityUtils.setTextDirection(view.getTextLine2(),
+            view.getTextLine2().setTextDirection(
                     model.get(SuggestionViewProperties.TEXT_LINE_2_TEXT_DIRECTION));
         } else if (SuggestionViewProperties.TEXT_LINE_2_TEXT.equals(propertyKey)) {
             Spannable line2Text = model.get(SuggestionViewProperties.TEXT_LINE_2_TEXT).text;
@@ -192,19 +155,5 @@ public class SuggestionViewViewBinder {
                             ? SuggestionView.SuggestionLayoutType.MULTI_LINE_ANSWER
                             : SuggestionView.SuggestionLayoutType.ANSWER);
         }
-    }
-
-    /**
-     * Get the appropriate font color to be used for non-URL text in suggestions.
-     * @param context The context to load the color.
-     * @param useDarkColors Whether dark colors should be used.
-     * @return The font color to be used.
-     */
-    @ColorInt
-    public static int getStandardFontColor(Context context, boolean useDarkColors) {
-        @ColorRes
-        int res = useDarkColors ? R.color.url_emphasis_default_text
-                                : R.color.url_emphasis_light_default_text;
-        return ApiCompatibilityUtils.getColor(context.getResources(), res);
     }
 }

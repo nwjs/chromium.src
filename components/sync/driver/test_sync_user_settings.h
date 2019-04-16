@@ -38,6 +38,7 @@ class TestSyncUserSettings : public SyncUserSettings {
   bool IsEncryptEverythingEnabled() const override;
   void EnableEncryptEverything() override;
 
+  syncer::ModelTypeSet GetEncryptedDataTypes() const override;
   bool IsPassphraseRequired() const override;
   bool IsPassphraseRequiredForDecryption() const override;
   bool IsUsingSecondaryPassphrase() const override;
@@ -48,12 +49,19 @@ class TestSyncUserSettings : public SyncUserSettings {
   bool SetDecryptionPassphrase(const std::string& passphrase) override;
 
   void SetFirstSetupComplete(bool first_setup_complete);
+  void SetPassphraseRequired(bool required);
+  void SetPassphraseRequiredForDecryption(bool required);
+  void SetIsUsingSecondaryPassphrase(bool enabled);
 
  private:
   TestSyncService* service_;
 
   bool first_setup_complete_ = true;
   bool sync_everything_enabled_ = true;
+
+  bool passphrase_required_ = false;
+  bool passphrase_required_for_decryption_ = false;
+  bool using_secondary_passphrase_ = false;
 };
 
 }  // namespace syncer

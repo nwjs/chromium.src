@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
 #include "base/macros.h"
@@ -100,9 +101,10 @@ TtsPlatformImplLinux::TtsPlatformImplLinux() : utterance_id_(0) {
   if (!command_line.HasSwitch(switches::kEnableSpeechDispatcher))
     return;
 
-  base::PostTaskWithTraits(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&TtsPlatformImplLinux::Initialize, base::Unretained(this)));
+  base::PostTaskWithTraits(FROM_HERE,
+                           {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+                           base::BindOnce(&TtsPlatformImplLinux::Initialize,
+                                          base::Unretained(this)));
 }
 
 void TtsPlatformImplLinux::Initialize() {
@@ -278,25 +280,29 @@ void TtsPlatformImplLinux::OnSpeechEvent(SPDNotificationType type) {
   TtsController* controller = TtsController::GetInstance();
   switch (type) {
     case SPD_EVENT_BEGIN:
-      controller->OnTtsEvent(utterance_id_, TTS_EVENT_START, 0, std::string());
+      controller->OnTtsEvent(utterance_id_, TTS_EVENT_START, 0,
+                             utterance_.size(), std::string());
       break;
     case SPD_EVENT_RESUME:
-      controller->OnTtsEvent(utterance_id_, TTS_EVENT_RESUME, 0, std::string());
+      controller->OnTtsEvent(utterance_id_, TTS_EVENT_RESUME, 0, -1,
+                             std::string());
       break;
     case SPD_EVENT_END:
-      controller->OnTtsEvent(utterance_id_, TTS_EVENT_END, utterance_.size(),
+      controller->OnTtsEvent(utterance_id_, TTS_EVENT_END, utterance_.size(), 0,
                              std::string());
       break;
     case SPD_EVENT_PAUSE:
       controller->OnTtsEvent(utterance_id_, TTS_EVENT_PAUSE, utterance_.size(),
-                             std::string());
+                             -1, std::string());
       break;
     case SPD_EVENT_CANCEL:
-      controller->OnTtsEvent(utterance_id_, TTS_EVENT_CANCELLED, 0,
+      controller->OnTtsEvent(utterance_id_, TTS_EVENT_CANCELLED, 0, -1,
                              std::string());
       break;
     case SPD_EVENT_INDEX_MARK:
-      controller->OnTtsEvent(utterance_id_, TTS_EVENT_MARKER, 0, std::string());
+      // TODO: Can we get length from linux?
+      controller->OnTtsEvent(utterance_id_, TTS_EVENT_MARKER, 0, -1,
+                             std::string());
       break;
   }
 }
@@ -311,9 +317,9 @@ void TtsPlatformImplLinux::NotificationCallback(size_t msg_id,
     current_notification_ = type;
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::UI},
-        base::Bind(&TtsPlatformImplLinux::OnSpeechEvent,
-                   base::Unretained(TtsPlatformImplLinux::GetInstance()),
-                   type));
+        base::BindOnce(&TtsPlatformImplLinux::OnSpeechEvent,
+                       base::Unretained(TtsPlatformImplLinux::GetInstance()),
+                       type));
   }
 }
 
@@ -331,9 +337,9 @@ void TtsPlatformImplLinux::IndexMarkCallback(size_t msg_id,
     current_notification_ = state;
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::UI},
-        base::Bind(&TtsPlatformImplLinux::OnSpeechEvent,
-                   base::Unretained(TtsPlatformImplLinux::GetInstance()),
-                   state));
+        base::BindOnce(&TtsPlatformImplLinux::OnSpeechEvent,
+                       base::Unretained(TtsPlatformImplLinux::GetInstance()),
+                       state));
   }
 }
 

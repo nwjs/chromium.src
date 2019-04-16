@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/metrics/user_metrics.h"
@@ -248,8 +249,8 @@ void WebViewGuest::CleanUp(content::BrowserContext* browser_context,
   // Clean up web request event listeners for the WebView.
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::IO},
-      base::Bind(&RemoveWebViewEventListenersOnIOThread, browser_context,
-                 embedder_process_id, view_instance_id));
+      base::BindOnce(&RemoveWebViewEventListenersOnIOThread, browser_context,
+                     embedder_process_id, view_instance_id));
 
   // Clean up content scripts for the WebView.
   auto* csm = WebViewContentScriptManager::Get(browser_context);
@@ -436,7 +437,9 @@ void WebViewGuest::ClearCodeCache(base::Time remove_since,
   base::OnceClosure code_cache_removal_done_callback = base::BindOnce(
       &WebViewGuest::ClearDataInternal, weak_ptr_factory_.GetWeakPtr(),
       remove_since, removal_mask, callback);
-  partition->ClearCodeCaches(std::move(code_cache_removal_done_callback));
+  partition->ClearCodeCaches(remove_since, base::Time::Now(),
+                             base::RepeatingCallback<bool(const GURL&)>(),
+                             std::move(code_cache_removal_done_callback));
 }
 
 void WebViewGuest::ClearDataInternal(base::Time remove_since,
@@ -610,6 +613,7 @@ ZoomController::ZoomMode WebViewGuest::GetZoomMode() {
 }
 
 bool WebViewGuest::HandleContextMenu(
+    content::RenderFrameHost* render_frame_host,
     const content::ContextMenuParams& params) {
   return web_view_guest_delegate_ &&
          web_view_guest_delegate_->HandleContextMenu(params);

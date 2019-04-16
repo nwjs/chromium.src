@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/guid.h"
 #include "base/json/json_reader.h"
@@ -253,7 +254,7 @@ class SyncedPrintersManagerImpl : public SyncedPrintersManager,
       }
 
       std::unique_ptr<base::DictionaryValue> printer_dictionary =
-          base::DictionaryValue::From(base::JSONReader::Read(
+          base::DictionaryValue::From(base::JSONReader::ReadDeprecated(
               printer_json, base::JSON_ALLOW_TRAILING_COMMAS));
 
       if (!printer_dictionary) {

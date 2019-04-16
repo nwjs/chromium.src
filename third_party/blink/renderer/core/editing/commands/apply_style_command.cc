@@ -120,7 +120,7 @@ static bool OffsetIsBeforeLastNodeOffset(int offset, Node* anchor_node) {
 ApplyStyleCommand::ApplyStyleCommand(Document& document,
                                      const EditingStyle* style,
                                      InputEvent::InputType input_type,
-                                     EPropertyLevel property_level)
+                                     PropertyLevel property_level)
     : CompositeEditCommand(document),
       style_(style->Copy()),
       input_type_(input_type),
@@ -944,7 +944,7 @@ class InlineRunToApplyStyle {
     return start && end && start->isConnected() && end->isConnected();
   }
 
-  void Trace(blink::Visitor* visitor) {
+  void Trace(Visitor* visitor) {
     visitor->Trace(start);
     visitor->Trace(end);
     visitor->Trace(past_end_node);
@@ -962,7 +962,7 @@ class InlineRunToApplyStyle {
 
 }  // namespace blink
 
-WTF_ALLOW_INIT_WITH_MEM_FUNCTIONS(blink::InlineRunToApplyStyle);
+WTF_ALLOW_INIT_WITH_MEM_FUNCTIONS(blink::InlineRunToApplyStyle)
 
 namespace blink {
 
@@ -1388,14 +1388,14 @@ void ApplyStyleCommand::PushDownInlineStyleAroundNode(
         continue;
       if (!child->contains(target_node) && elements_to_push_down.size()) {
         for (const auto& element : elements_to_push_down) {
-          Element* wrapper = element->CloneWithoutChildren();
-          wrapper->removeAttribute(kStyleAttr);
+          Element& wrapper = element->CloneWithoutChildren();
+          wrapper.removeAttribute(kStyleAttr);
           // Delete id attribute from the second element because the same id
           // cannot be used for more than one element
           element->removeAttribute(html_names::kIdAttr);
           if (IsHTMLAnchorElement(element))
             element->removeAttribute(html_names::kNameAttr);
-          SurroundNodeRangeWithElement(child, child, wrapper, editing_state);
+          SurroundNodeRangeWithElement(child, child, &wrapper, editing_state);
           if (editing_state->IsAborted())
             return;
         }
@@ -1877,7 +1877,7 @@ void ApplyStyleCommand::ApplyInlineStyleChange(
     Node* passed_start,
     Node* passed_end,
     StyleChange& style_change,
-    EAddStyledElement add_styled_element,
+    AddStyledElement add_styled_element,
     EditingState* editing_state) {
   Node* start_node = passed_start;
   Node* end_node = passed_end;
@@ -2010,9 +2010,9 @@ void ApplyStyleCommand::ApplyInlineStyleChange(
   }
 
   if (styled_inline_element_ && add_styled_element == kAddStyledElement) {
-    SurroundNodeRangeWithElement(start_node, end_node,
-                                 styled_inline_element_->CloneWithoutChildren(),
-                                 editing_state);
+    SurroundNodeRangeWithElement(
+        start_node, end_node, &styled_inline_element_->CloneWithoutChildren(),
+        editing_state);
   }
 }
 
@@ -2075,7 +2075,7 @@ void ApplyStyleCommand::JoinChildTextNodes(ContainerNode* node,
   UpdateStartEnd(EphemeralRange(new_start, new_end));
 }
 
-void ApplyStyleCommand::Trace(blink::Visitor* visitor) {
+void ApplyStyleCommand::Trace(Visitor* visitor) {
   visitor->Trace(style_);
   visitor->Trace(start_);
   visitor->Trace(end_);

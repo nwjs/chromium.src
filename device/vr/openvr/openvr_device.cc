@@ -6,6 +6,7 @@
 
 #include <math.h>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/math_constants.h"
@@ -180,10 +181,7 @@ void OpenVRDevice::RequestSession(
     return;
   }
 
-  if (!options->immersive) {
-    ReturnNonImmersiveSession(std::move(callback));
-    return;
-  }
+  DCHECK(options->immersive);
 
   if (!render_loop_->IsRunning()) {
     render_loop_->Start();
@@ -223,6 +221,7 @@ void OpenVRDevice::RequestSession(
                                 base::Unretained(render_loop_.get()),
                                 std::move(on_presentation_ended),
                                 std::move(options), std::move(my_callback)));
+  outstanding_session_requests_count_++;
 }
 
 void OpenVRDevice::EnsureInitialized(int render_process_id,
@@ -250,7 +249,7 @@ bool OpenVRDevice::EnsureValidDisplayInfo() {
 }
 
 void OpenVRDevice::OnPresentationEnded() {
-  if (!openvr_) {
+  if (!openvr_ && outstanding_session_requests_count_ == 0) {
     openvr_ = std::make_unique<OpenVRWrapper>(false /* presenting */);
     if (!openvr_->IsInitialized()) {
       openvr_ = nullptr;
@@ -263,6 +262,7 @@ void OpenVRDevice::OnRequestSessionResult(
     mojom::XRRuntime::RequestSessionCallback callback,
     bool result,
     mojom::XRSessionPtr session) {
+  outstanding_session_requests_count_--;
   if (!result) {
     OnPresentationEnded();
     std::move(callback).Run(nullptr, nullptr);
@@ -329,23 +329,6 @@ void OpenVRDevice::OnPresentingControllerMojoConnectionError() {
   // provider on the next session, or look into why the callback gets lost.
   OnExitPresent();
   exclusive_controller_binding_.Close();
-}
-
-void OpenVRDevice::OnGetInlineFrameData(
-    mojom::XRFrameDataProvider::GetFrameDataCallback callback) {
-  if (!openvr_) {
-    std::move(callback).Run(nullptr);
-    return;
-  }
-  const float kPredictionTimeSeconds = 0.03f;
-  vr::TrackedDevicePose_t rendering_poses[vr::k_unMaxTrackedDeviceCount];
-  openvr_->GetSystem()->GetDeviceToAbsoluteTrackingPose(
-      vr::TrackingUniverseSeated, kPredictionTimeSeconds, rendering_poses,
-      vr::k_unMaxTrackedDeviceCount);
-  mojom::XRFrameDataPtr data = mojom::XRFrameData::New();
-  data->pose = mojo::ConvertTo<mojom::VRPosePtr>(
-      rendering_poses[vr::k_unTrackedDeviceIndex_Hmd]);
-  std::move(callback).Run(std::move(data));
 }
 
 // Only deal with events that will cause displayInfo changes for now.

@@ -33,9 +33,10 @@
         android:layout_height="@dimen/keyboard_accessory_height"
         android:layout_gravity="start|bottom"
         android:orientation="horizontal"
-        android:background="@color/modern_grey_100">
+        android:background="@color/modern_secondary_color">
 
-        <include layout="@layout/keyboard_accessory_tabs"/>
+        <include layout="@layout/keyboard_accessory_tabs"
+            android:id="@+id/tabs"/>
 
         <View style="@style/VerticalDivider" />
 

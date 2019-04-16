@@ -120,6 +120,10 @@ class FormDataImporter {
   CreditCard ExtractCreditCardFromForm(const FormStructure& form,
                                        bool* hasDuplicateFieldType);
 
+  // Whether the form imported has non-focusable fields after user entered
+  // information into it.
+  bool has_non_focusable_field_ = false;
+
   // The associated autofill client. Weak reference.
   AutofillClient* client_;
 
@@ -145,6 +149,7 @@ class FormDataImporter {
   friend class AutofillMergeTest;
   friend class FormDataImporterTest;
   friend class FormDataImporterTestBase;
+  friend class LocalCardMigrationBrowserTest;
   friend class SaveCardBubbleViewsFullFormBrowserTest;
   friend class SaveCardInfobarEGTestHelper;
   FRIEND_TEST_ALL_PREFIXES(AutofillMergeTest, MergeProfiles);

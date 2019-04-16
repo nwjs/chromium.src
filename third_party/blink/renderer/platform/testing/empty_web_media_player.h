@@ -28,12 +28,7 @@ class EmptyWebMediaPlayer : public WebMediaPlayer {
   void Seek(double seconds) override {}
   void SetRate(double) override {}
   void SetVolume(double) override {}
-  void EnterPictureInPicture(PipWindowOpenedCallback) override {}
-  void ExitPictureInPicture(PipWindowClosedCallback) override {}
-  void SetPictureInPictureCustomControls(
-      const std::vector<PictureInPictureControlInfo>&) override {}
-  void RegisterPictureInPictureWindowResizeCallback(
-      PipWindowResizedCallback) override {}
+  void OnRequestPictureInPicture() override {}
   SurfaceLayerMode GetVideoSurfaceLayerMode() const override {
     return SurfaceLayerMode::kNever;
   }
@@ -56,7 +51,7 @@ class EmptyWebMediaPlayer : public WebMediaPlayer {
   bool WouldTaintOrigin() const override { return false; }
   double MediaTimeForTimeValue(double time_value) const override {
     return time_value;
-  };
+  }
   unsigned DecodedFrameCount() const override { return 0; }
   unsigned DroppedFrameCount() const override { return 0; }
   uint64_t AudioDecodedByteCount() const override { return 0; }

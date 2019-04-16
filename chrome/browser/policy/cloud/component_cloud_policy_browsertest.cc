@@ -48,6 +48,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/identity_test_utils.h"
 #include "services/identity/public/cpp/primary_account_mutator.h"
 #endif
 
@@ -115,7 +116,7 @@ class ComponentCloudPolicyTest : public extensions::ExtensionBrowserTest {
   }
 
   void SetUpInProcessBrowserTestFixture() override {
-    test_server_.RegisterClient(kDMToken, kDeviceID);
+    test_server_.RegisterClient(kDMToken, kDeviceID, {} /* state_keys */);
     EXPECT_TRUE(test_server_.UpdatePolicyData(
         dm_protocol::kChromeExtensionPolicyType, kTestExtension, kTestPolicy));
     ASSERT_TRUE(test_server_.Start());
@@ -182,12 +183,9 @@ class ComponentCloudPolicyTest : public extensions::ExtensionBrowserTest {
 #else
     // Mock a signed-in user. This is used by the UserCloudPolicyStore to pass
     // the account id to the UserCloudPolicyValidator.
-    auto* primary_account_mutator =
-        IdentityManagerFactory::GetForProfile(browser()->profile())
-            ->GetPrimaryAccountMutator();
-    primary_account_mutator->LegacyStartSigninWithRefreshTokenForPrimaryAccount(
-        "", "account_id", "12345", PolicyBuilder::kFakeUsername,
-        base::OnceCallback<void(const std::string&)>());
+    identity::SetPrimaryAccount(
+        IdentityManagerFactory::GetForProfile(browser()->profile()),
+        PolicyBuilder::kFakeUsername);
 
     UserCloudPolicyManager* policy_manager =
         UserCloudPolicyManagerFactory::GetForBrowserContext(

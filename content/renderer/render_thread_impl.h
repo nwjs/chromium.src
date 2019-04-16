@@ -56,6 +56,7 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/viz/public/interfaces/compositing/compositing_mode_watcher.mojom.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/dom_storage/storage_partition_service.mojom.h"
 #include "third_party/blink/public/platform/scheduler/web_rail_mode_observer.h"
 #include "third_party/blink/public/platform/web_connection_type.h"
@@ -117,7 +118,6 @@ class Gpu;
 
 namespace content {
 
-class AppCacheFrontendImpl;
 class AecDumpMessageFilter;
 class AudioRendererMixerManager;
 class BrowserPluginManager;
@@ -204,7 +204,7 @@ class CONTENT_EXPORT RenderThreadImpl
       ResourceDispatcherDelegate* delegate) override;
   std::unique_ptr<base::SharedMemory> HostAllocateSharedMemoryBuffer(
       size_t buffer_size) override;
-  void RegisterExtension(v8::Extension* extension) override;
+  void RegisterExtension(std::unique_ptr<v8::Extension> extension) override;
   int PostTaskToAllWebWorkers(const base::Closure& closure) override;
   bool ResolveProxy(const GURL& url, std::string* proxy_list) override;
   base::WaitableEvent* GetShutdownEvent() override;
@@ -213,6 +213,7 @@ class CONTENT_EXPORT RenderThreadImpl
   void SetRendererProcessType(
       blink::scheduler::WebRendererProcessType type) override;
   blink::WebString GetUserAgent() override;
+  const blink::UserAgentMetadata& GetUserAgentMetadata() override;
 
   // IPC::Listener implementation via ChildThreadImpl:
   void OnAssociatedInterfaceRequest(
@@ -315,10 +316,6 @@ class CONTENT_EXPORT RenderThreadImpl
     return compositor_task_runner_;
   }
 
-  AppCacheFrontendImpl* appcache_frontend_impl() const {
-    return appcache_frontend_impl_.get();
-  }
-
   DomStorageDispatcher* dom_storage_dispatcher() const {
     return dom_storage_dispatcher_.get();
   }
@@ -383,8 +380,9 @@ class CONTENT_EXPORT RenderThreadImpl
   // video frame compositing. The ContextProvider given as an argument is
   // one that has been lost, and is a hint to the RenderThreadImpl to clear
   // it's |video_frame_compositor_context_provider_| if it matches.
-  scoped_refptr<viz::ContextProvider> GetVideoFrameCompositorContextProvider(
-      scoped_refptr<viz::ContextProvider>);
+  scoped_refptr<viz::RasterContextProvider>
+      GetVideoFrameCompositorContextProvider(
+          scoped_refptr<viz::RasterContextProvider>);
 
   // Returns a worker context provider that will be bound on the compositor
   // thread.
@@ -460,15 +458,6 @@ class CONTENT_EXPORT RenderThreadImpl
     return &histogram_customizer_;
   }
 
-  // Called by a RenderWidget when it is created or destroyed. This
-  // allows the process to know when there are no visible widgets.
-  void WidgetCreated();
-  // Note: A widget must not be hidden when it is destroyed - ensure that
-  // WidgetRestored is called before WidgetDestroyed for any hidden widget.
-  void WidgetDestroyed();
-  void WidgetHidden();
-  void WidgetRestored();
-
   void RegisterPendingFrameCreate(
       const service_manager::BindSourceInfo& source_info,
       int routing_id,
@@ -506,6 +495,8 @@ class CONTENT_EXPORT RenderThreadImpl
   }
 
  private:
+  friend class RenderThreadImplBrowserTest;
+
   void OnProcessFinalRelease() override;
   // IPC::Listener
   void OnChannelError() override;
@@ -539,7 +530,8 @@ class CONTENT_EXPORT RenderThreadImpl
       const FrameReplicationState& replicated_state,
       const base::UnguessableToken& devtools_frame_token) override;
   void SetUpEmbeddedWorkerChannelForServiceWorker(
-      mojom::EmbeddedWorkerInstanceClientRequest client_request) override;
+      blink::mojom::EmbeddedWorkerInstanceClientRequest client_request)
+      override;
   void OnNetworkConnectionChanged(
       net::NetworkChangeNotifier::ConnectionType type,
       double max_bandwidth_mbps) override;
@@ -549,13 +541,14 @@ class CONTENT_EXPORT RenderThreadImpl
                                double bandwidth_kbps) override;
   void SetWebKitSharedTimersSuspended(bool suspend) override;
   void SetUserAgent(const std::string& user_agent) override;
+  void SetUserAgentMetadata(const blink::UserAgentMetadata& metadata) override;
   void UpdateScrollbarTheme(
       mojom::UpdateScrollbarThemeParamsPtr params) override;
   void OnSystemColorsChanged(int32_t aqua_color_variant,
                              const std::string& highlight_text_color,
                              const std::string& highlight_color) override;
   void PurgePluginListCache(bool reload_pages) override;
-  void SetProcessBackgrounded(bool backgrounded) override;
+  void SetProcessState(mojom::RenderProcessState process_state) override;
   void SetSchedulerKeepActive(bool keep_active) override;
   void ProcessPurgeAndSuspend() override;
   void SetIsLockedToSite() override;
@@ -567,6 +560,10 @@ class CONTENT_EXPORT RenderThreadImpl
   bool RendererIsHidden() const;
   void OnRendererHidden();
   void OnRendererVisible();
+
+  bool RendererIsBackgrounded() const;
+  void OnRendererBackgrounded();
+  void OnRendererForegrounded();
 
   void RecordMemoryUsageAfterBackgrounded(const char* suffix,
                                           int foregrounded_count);
@@ -588,7 +585,6 @@ class CONTENT_EXPORT RenderThreadImpl
       discardable_shared_memory_manager_;
 
   // These objects live solely on the render thread.
-  std::unique_ptr<AppCacheFrontendImpl> appcache_frontend_impl_;
   std::unique_ptr<DomStorageDispatcher> dom_storage_dispatcher_;
   std::unique_ptr<blink::scheduler::WebThreadScheduler> main_thread_scheduler_;
   std::unique_ptr<RendererBlinkPlatformImpl> blink_platform_impl_;
@@ -622,13 +618,13 @@ class CONTENT_EXPORT RenderThreadImpl
   // Used on the render thread.
   std::unique_ptr<VideoCaptureImplManager> vc_manager_;
 
-  // The count of RenderWidgets running through this thread.
-  int widget_count_;
-
-  // The count of hidden RenderWidgets running through this thread.
-  int hidden_widget_count_;
+  // Used to keep track of the renderer's backgrounded and visibility state.
+  // Updated via an IPC from the browser process. If nullopt, the browser
+  // process has yet to send an update and the state is unknown.
+  base::Optional<mojom::RenderProcessState> process_state_;
 
   blink::WebString user_agent_;
+  blink::UserAgentMetadata user_agent_metadata_;
 
   // Used to control web test specific behavior.
   std::unique_ptr<WebTestDependencies> web_test_deps_;
@@ -666,7 +662,8 @@ class CONTENT_EXPORT RenderThreadImpl
 
   base::ObserverList<RenderThreadObserver>::Unchecked observers_;
 
-  scoped_refptr<viz::ContextProvider> video_frame_compositor_context_provider_;
+  scoped_refptr<viz::RasterContextProvider>
+      video_frame_compositor_context_provider_;
 
   scoped_refptr<viz::RasterContextProvider> shared_worker_context_provider_;
 

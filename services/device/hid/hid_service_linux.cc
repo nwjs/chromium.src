@@ -94,7 +94,7 @@ class HidServiceLinux::BlockingTaskHelper : public UdevWatcher::Observer {
   void OnDeviceAdded(ScopedUdevDevicePtr device) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     base::ScopedBlockingCall scoped_blocking_call(
-        base::BlockingType::MAY_BLOCK);
+        FROM_HERE, base::BlockingType::MAY_BLOCK);
 
     const char* device_path = udev_device_get_syspath(device.get());
     if (!device_path)
@@ -171,7 +171,7 @@ class HidServiceLinux::BlockingTaskHelper : public UdevWatcher::Observer {
   void OnDeviceRemoved(ScopedUdevDevicePtr device) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     base::ScopedBlockingCall scoped_blocking_call(
-        base::BlockingType::MAY_BLOCK);
+        FROM_HERE, base::BlockingType::MAY_BLOCK);
 
     const char* device_path = udev_device_get_syspath(device.get());
     if (device_path) {
@@ -216,7 +216,7 @@ void HidServiceLinux::Connect(const std::string& device_guid,
   const auto& map_entry = devices().find(device_guid);
   if (map_entry == devices().end()) {
     base::SequencedTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(callback, nullptr));
+        FROM_HERE, base::BindOnce(callback, nullptr));
     return;
   }
   scoped_refptr<HidDeviceInfo> device_info = map_entry->second;
@@ -267,7 +267,8 @@ void HidServiceLinux::OnPathOpenError(const std::string& device_path,
 // static
 void HidServiceLinux::OpenOnBlockingThread(
     std::unique_ptr<ConnectParams> params) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   scoped_refptr<base::SequencedTaskRunner> task_runner = params->task_runner;
 
   base::FilePath device_path(params->device_info->device_node());

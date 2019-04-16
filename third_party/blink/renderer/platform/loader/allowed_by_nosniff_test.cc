@@ -23,7 +23,6 @@ using ::testing::_;
 
 class CountUsageMockFetchContext : public MockFetchContext {
  public:
-  CountUsageMockFetchContext() : MockFetchContext(nullptr, nullptr) {}
   static CountUsageMockFetchContext* Create() {
     return MakeGarbageCollected<
         ::testing::StrictMock<CountUsageMockFetchContext>>();

@@ -26,6 +26,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -54,7 +55,6 @@
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_dialogs.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/translate/translate_bubble_view_state_transition.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/common/buildflags.h"
@@ -85,7 +85,6 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/page_state.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "content/public/common/user_agent.h"
@@ -104,8 +103,8 @@
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
+#include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "extensions/browser/extension_registry.h"
@@ -346,8 +345,8 @@ bool SupportsCommand(Browser* browser, int command) {
   return browser->command_controller()->SupportsCommand(command);
 }
 
-bool ExecuteCommand(Browser* browser, int command) {
-  return browser->command_controller()->ExecuteCommand(command);
+bool ExecuteCommand(Browser* browser, int command, base::TimeTicks time_stamp) {
+  return browser->command_controller()->ExecuteCommand(command, time_stamp);
 }
 
 bool ExecuteCommandWithDisposition(Browser* browser,
@@ -680,14 +679,16 @@ TabStripModelDelegate::RestoreTabType GetRestoreTabType(
   return TabStripModelDelegate::RESTORE_TAB;
 }
 
-void SelectNextTab(Browser* browser) {
+void SelectNextTab(Browser* browser,
+                   TabStripModel::UserGestureDetails gesture_detail) {
   base::RecordAction(UserMetricsAction("SelectNextTab"));
-  browser->tab_strip_model()->SelectNextTab();
+  browser->tab_strip_model()->SelectNextTab(gesture_detail);
 }
 
-void SelectPreviousTab(Browser* browser) {
+void SelectPreviousTab(Browser* browser,
+                       TabStripModel::UserGestureDetails gesture_detail) {
   base::RecordAction(UserMetricsAction("SelectPrevTab"));
-  browser->tab_strip_model()->SelectPreviousTab();
+  browser->tab_strip_model()->SelectPreviousTab(gesture_detail);
 }
 
 void MoveTabNext(Browser* browser) {
@@ -700,16 +701,19 @@ void MoveTabPrevious(Browser* browser) {
   browser->tab_strip_model()->MoveTabPrevious();
 }
 
-void SelectNumberedTab(Browser* browser, int index) {
+void SelectNumberedTab(Browser* browser,
+                       int index,
+                       TabStripModel::UserGestureDetails gesture_detail) {
   if (index < browser->tab_strip_model()->count()) {
     base::RecordAction(UserMetricsAction("SelectNumberedTab"));
-    browser->tab_strip_model()->ActivateTabAt(index, true);
+    browser->tab_strip_model()->ActivateTabAt(index, gesture_detail);
   }
 }
 
-void SelectLastTab(Browser* browser) {
+void SelectLastTab(Browser* browser,
+                   TabStripModel::UserGestureDetails gesture_detail) {
   base::RecordAction(UserMetricsAction("SelectLastTab"));
-  browser->tab_strip_model()->SelectLastTab();
+  browser->tab_strip_model()->SelectLastTab(gesture_detail);
 }
 
 void DuplicateTab(Browser* browser) {
@@ -787,12 +791,9 @@ void PinTab(Browser* browser) {
 }
 
 void MuteSite(Browser* browser) {
-  TabStripModel::ContextMenuCommand command_id =
-      base::FeatureList::IsEnabled(features::kSoundContentSetting)
-          ? TabStripModel::ContextMenuCommand::CommandToggleSiteMuted
-          : TabStripModel::ContextMenuCommand::CommandToggleTabAudioMuted;
   browser->tab_strip_model()->ExecuteContextMenuCommand(
-      browser->tab_strip_model()->active_index(), command_id);
+      browser->tab_strip_model()->active_index(),
+      TabStripModel::ContextMenuCommand::CommandToggleSiteMuted);
 }
 
 void ConvertPopupToTabbedBrowser(Browser* browser) {
@@ -914,6 +915,11 @@ void Translate(Browser* browser) {
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(web_contents);
 
+  std::string source_language;
+  std::string target_language;
+  chrome_translate_client->GetTranslateLanguages(web_contents, &source_language,
+                                                 &target_language);
+
   translate::TranslateStep step = translate::TRANSLATE_STEP_BEFORE_TRANSLATE;
   if (chrome_translate_client) {
     if (chrome_translate_client->GetLanguageState().translation_pending())
@@ -924,7 +930,8 @@ void Translate(Browser* browser) {
       step = translate::TRANSLATE_STEP_AFTER_TRANSLATE;
   }
   ShowTranslateBubbleResult result = browser->window()->ShowTranslateBubble(
-      web_contents, step, translate::TranslateErrors::NONE, true);
+      web_contents, step, source_language, target_language,
+      translate::TranslateErrors::NONE, true);
   if (result != ShowTranslateBubbleResult::SUCCESS)
     translate::ReportUiAction(TranslateBubbleResultToUiEvent(result));
 #endif
@@ -960,9 +967,8 @@ bool CanSavePage(const Browser* browser) {
 }
 
 void SendToMyDevices(Browser* browser) {
-  browser->tab_strip_model()->ExecuteContextMenuCommand(
-      browser->tab_strip_model()->active_index(),
-      TabStripModel::ContextMenuCommand::CommandSendToMyDevices);
+  send_tab_to_self::CreateNewEntry(
+      browser->tab_strip_model()->GetActiveWebContents(), browser->profile());
 }
 
 void ShowFindBar(Browser* browser) {
@@ -1105,7 +1111,7 @@ void FocusToolbar(Browser* browser) {
 
 void FocusLocationBar(Browser* browser) {
   base::RecordAction(UserMetricsAction("FocusLocation"));
-  browser->window()->SetFocusToLocationBar();
+  browser->window()->SetFocusToLocationBar(true);
 }
 
 void FocusSearch(Browser* browser) {
@@ -1183,8 +1189,12 @@ void ShowAppMenu(Browser* browser) {
 }
 
 void ShowAvatarMenu(Browser* browser) {
+  const bool incognito =
+      browser->profile()->GetProfileType() == Profile::INCOGNITO_PROFILE;
   browser->window()->ShowAvatarBubbleFromAvatarButton(
-      BrowserWindow::AVATAR_BUBBLE_MODE_DEFAULT, signin::ManageAccountsParams(),
+      incognito ? BrowserWindow::AVATAR_BUBBLE_MODE_INCOGNITO
+                : BrowserWindow::AVATAR_BUBBLE_MODE_DEFAULT,
+      signin::ManageAccountsParams(),
       signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN, true);
 }
 
@@ -1298,13 +1308,11 @@ bool CanViewSource(const Browser* browser) {
 void CreateBookmarkAppFromCurrentWebContents(Browser* browser,
                                              bool force_shortcut_app) {
   base::RecordAction(UserMetricsAction("CreateHostedApp"));
-  web_app::WebAppProvider::InstallWebApp(
-      browser->tab_strip_model()->GetActiveWebContents(), force_shortcut_app);
+  web_app::CreateWebAppFromCurrentWebContents(browser, force_shortcut_app);
 }
 
 bool CanCreateBookmarkApp(const Browser* browser) {
-  return web_app::WebAppProvider::CanInstallWebApp(
-      browser->tab_strip_model()->GetActiveWebContents());
+  return web_app::CanCreateWebApp(browser);
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 

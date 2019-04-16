@@ -28,7 +28,7 @@ class FakeSyncService : public SyncService {
   const syncer::SyncUserSettings* GetUserSettings() const override;
   int GetDisableReasons() const override;
   TransportState GetTransportState() const override;
-  AccountInfo GetAuthenticatedAccountInfo() const override;
+  CoreAccountInfo GetAuthenticatedAccountInfo() const override;
   bool IsAuthenticatedAccountPrimary() const override;
   bool IsLocalSyncEnabled() const override;
   void TriggerRefresh(const ModelTypeSet& types) override;
@@ -36,6 +36,10 @@ class FakeSyncService : public SyncService {
   void AddObserver(SyncServiceObserver* observer) override;
   void RemoveObserver(SyncServiceObserver* observer) override;
   bool HasObserver(const SyncServiceObserver* observer) const override;
+  void AddPreferenceProvider(SyncTypePreferenceProvider* provider) override;
+  void RemovePreferenceProvider(SyncTypePreferenceProvider* provider) override;
+  bool HasPreferenceProvider(
+      SyncTypePreferenceProvider* provider) const override;
   void OnDataTypeRequestsSyncStartup(ModelType type) override;
   void StopAndClear() override;
   ModelTypeSet GetRegisteredDataTypes() const override;
@@ -44,9 +48,7 @@ class FakeSyncService : public SyncService {
   std::unique_ptr<SyncSetupInProgressHandle> GetSetupInProgressHandle()
       override;
   bool IsSetupInProgress() const override;
-  const GoogleServiceAuthError& GetAuthError() const override;
-  bool IsPassphraseRequiredForDecryption() const override;
-  bool IsUsingSecondaryPassphrase() const override;
+  GoogleServiceAuthError GetAuthError() const override;
   UserShare* GetUserShare() const override;
   void ReenableDatatype(ModelType type) override;
   void ReadyForStartChanged(syncer::ModelType type) override;
@@ -67,15 +69,10 @@ class FakeSyncService : public SyncService {
                        callback) override;
   void SetInvalidationsForSessionsEnabled(bool enabled) override;
 
-  // DataTypeEncryptionHandler implementation.
-  bool IsPassphraseRequired() const override;
-  ModelTypeSet GetEncryptedDataTypes() const override;
-
   // KeyedService implementation.
   void Shutdown() override;
 
  private:
-  GoogleServiceAuthError error_;
   GURL sync_service_url_;
   std::unique_ptr<UserShare> user_share_;
 };

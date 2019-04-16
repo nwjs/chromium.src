@@ -214,7 +214,7 @@ Polymer({
                 'Failed to resolve provisional destination: ' + destination.id);
           })
           .then(() => {
-            if (this.$.dialog.open && !!listItem && !listItem.hidden) {
+            if (this.$.dialog.open && listItem && !listItem.hidden) {
               listItem.focus();
             }
           });
@@ -410,6 +410,8 @@ Polymer({
 
   /** @private */
   onOpenSettingsPrintPage_: function() {
+    this.metrics_.record(
+        print_preview.Metrics.DestinationSearchBucket.MANAGE_BUTTON_CLICKED);
     print_preview.NativeLayer.getInstance().openSettingsPrintPage();
   },
 });

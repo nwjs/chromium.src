@@ -5,6 +5,8 @@
 #ifndef COMPONENTS_OFFLINE_PAGES_CORE_PREFETCH_PREFETCH_PREFS_H_
 #define COMPONENTS_OFFLINE_PAGES_CORE_PREFETCH_PREFETCH_PREFS_H_
 
+#include <string>
+
 class PrefService;
 class PrefRegistrySimple;
 
@@ -27,6 +29,16 @@ bool IsEnabled(PrefService* prefs);
 void SetLimitlessPrefetchingEnabled(PrefService* prefs, bool enabled);
 
 bool IsLimitlessPrefetchingEnabled(PrefService* prefs);
+
+// Sets the value of "X-Offline-Prefetch_Testing" to be sent with
+// GeneratePageBundle requests. Sending "ForceEnable" instructs OPS not to apply
+// its country filtering logic, sending "ForceDisable" causes any
+// GeneratePageBundle request to be answered with 403 Forbidden, and omitting
+// the header (by passing |value|="") leaves the server to apply its country
+// filtering logic as usual.
+void SetPrefetchTestingHeader(PrefService* prefs, const std::string& value);
+
+std::string GetPrefetchTestingHeader(PrefService* prefs);
 
 }  // namespace prefetch_prefs
 }  // namespace offline_pages

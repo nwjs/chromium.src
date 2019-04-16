@@ -24,16 +24,15 @@ Polymer({
   },
 
   attached: function() {
-    this.watch('app_', (state) => {
-      const selectedAppId = state.currentPage.selectedAppId;
-      if (selectedAppId) {
-        return state.apps[selectedAppId];
-      }
-    });
-
+    this.watch('app_', state => app_management.util.getSelectedApp(state));
     this.updateFromStore();
+
+    this.listExpanded_ = false;
   },
 
+  /**
+   * @private
+   */
   onClickSiteSettingsButton_: function() {
     app_management.BrowserProxy.getInstance().handler.openNativeSettings(
         this.app_.id);

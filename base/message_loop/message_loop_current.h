@@ -27,7 +27,6 @@ class MessageLoopBase;
 class MessageLoopImpl;
 
 namespace sequence_manager {
-class LazyThreadControllerForTest;
 
 namespace internal {
 class SequenceManagerImpl;
@@ -204,7 +203,6 @@ class BASE_EXPORT MessageLoopCurrent {
   friend class MessagePumpLibeventTest;
   friend class ScheduleWorkTest;
   friend class Thread;
-  friend class sequence_manager::LazyThreadControllerForTest;
   friend class sequence_manager::internal::SequenceManagerImpl;
   friend class MessageLoopTaskRunnerTest;
   friend class web::TestWebThreadBundle;
@@ -243,7 +241,7 @@ class BASE_EXPORT MessageLoopCurrentForUI : public MessageLoopCurrent {
                            MessagePumpForUI::FdWatcher* delegate);
 #endif
 
-#if defined(OS_IOS) || defined(OS_ANDROID)
+#if defined(OS_IOS)
   // Forwards to MessageLoopForUI::Attach().
   // TODO(https://crbug.com/825327): Plumb the actual MessageLoopForUI* to
   // callers and remove ability to access this method from
@@ -301,6 +299,13 @@ class BASE_EXPORT MessageLoopCurrentForIO : public MessageLoopCurrent {
                            MessagePumpForIO::FdWatchController* controller,
                            MessagePumpForIO::FdWatcher* delegate);
 #endif  // defined(OS_WIN)
+
+#if defined(OS_MACOSX) && !defined(OS_IOS)
+  bool WatchMachReceivePort(
+      mach_port_t port,
+      MessagePumpForIO::MachPortWatchController* controller,
+      MessagePumpForIO::MachPortWatcher* delegate);
+#endif
 
 #if defined(OS_FUCHSIA)
   // Additional watch API for native platform resources.

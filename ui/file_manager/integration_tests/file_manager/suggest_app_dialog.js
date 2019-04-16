@@ -7,13 +7,13 @@
 /**
  * Tests sharing a file on Drive
  */
-testcase.suggestAppDialog = async function() {
+testcase.suggestAppDialog = async () => {
   // Fetch the mock CWS page data.
   const data =
       JSON.parse(await sendTestMessage({name: 'getCwsWidgetContainerMockUrl'}));
 
   // Override the container URL with the mock.
-  var appState = {
+  const appState = {
     suggestAppsDialogState: {
       overrideCwsContainerUrlForTest: data.url,
       overrideCwsContainerOriginForTest: data.origin

@@ -5,10 +5,13 @@
 #ifndef MEDIA_GPU_ANDROID_MEDIA_CODEC_VIDEO_DECODER_H_
 #define MEDIA_GPU_ANDROID_MEDIA_CODEC_VIDEO_DECODER_H_
 
+#include <vector>
+
 #include "base/containers/circular_deque.h"
 #include "base/optional.h"
 #include "base/threading/thread_checker.h"
 #include "base/timer/elapsed_timer.h"
+#include "base/timer/timer.h"
 #include "gpu/config/gpu_feature_info.h"
 #include "gpu/config/gpu_preferences.h"
 #include "media/base/android_overlay_mojo_factory.h"
@@ -25,6 +28,7 @@
 namespace media {
 
 class ScopedAsyncTrace;
+struct SupportedVideoDecoderConfig;
 
 struct PendingDecode {
   static PendingDecode CreateEos();
@@ -54,6 +58,8 @@ struct PendingDecode {
 class MEDIA_GPU_EXPORT MediaCodecVideoDecoder : public VideoDecoder,
                                                 public CodecAllocatorClient {
  public:
+  static std::vector<SupportedVideoDecoderConfig> GetSupportedConfigs();
+
   MediaCodecVideoDecoder(
       const gpu::GpuPreferences& gpu_preferences,
       const gpu::GpuFeatureInfo& gpu_feature_info,

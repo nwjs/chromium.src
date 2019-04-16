@@ -122,7 +122,7 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
   bool IsMultiline() const;
   Length FlexBasisForChild(const LayoutBox& child) const;
   LayoutUnit CrossAxisExtentForChild(const LayoutBox& child) const;
-  LayoutUnit CrossAxisIntrinsicExtentForChild(const LayoutBox& child) const;
+  LayoutUnit CrossAxisUnstretchedExtentForChild(const LayoutBox& child) const;
   LayoutUnit ChildIntrinsicLogicalHeight(const LayoutBox& child) const;
   LayoutUnit ChildIntrinsicLogicalWidth(const LayoutBox& child) const;
   LayoutUnit MainAxisExtentForChild(const LayoutBox& child) const;
@@ -155,7 +155,8 @@ class CORE_EXPORT LayoutFlexibleBox : public LayoutBlock {
       ChildLayoutType = kLayoutIfNeeded);
   void AdjustAlignmentForChild(LayoutBox& child, LayoutUnit);
   bool MainAxisLengthIsDefinite(const LayoutBox& child,
-                                const Length& flex_basis) const;
+                                const Length& flex_basis,
+                                bool add_to_cb = true) const;
   bool CrossAxisLengthIsDefinite(const LayoutBox& child,
                                  const Length& flex_basis) const;
   bool NeedToStretchChildLogicalHeight(const LayoutBox& child) const;

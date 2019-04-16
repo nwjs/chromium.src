@@ -7,7 +7,6 @@ import("//build/config/jumbo.gni")
 import("//build/config/linux/pkg_config.gni")
 import("//build/config/ui.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
-import("//services/service_manager/public/service_manifest.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//testing/test.gni")
 import("//tools/json_schema_compiler/json_schema_api.gni")
@@ -24,6 +23,12 @@ mojom_component("ax_enums_mojo") {
 
   macro_prefix = "UI_ACCESSIBILITY_AX_MOJOM"
   output_prefix = "ui_accessibility_ax_mojom"
+}
+
+mojom("ax_constants_mojo") {
+  sources = [
+    "ax_constants.mojom",
+  ]
 }
 
 jumbo_component("accessibility") {
@@ -43,6 +48,7 @@ jumbo_component("accessibility") {
     "ax_event_generator.h",
     "ax_export.h",
     "ax_language_info.h",
+    "ax_mode.cc",
     "ax_mode.h",
     "ax_mode_observer.h",
     "ax_node.cc",
@@ -73,11 +79,15 @@ jumbo_component("accessibility") {
     "ax_tree_id.h",
     "ax_tree_id_registry.cc",
     "ax_tree_id_registry.h",
+    "ax_tree_manager.h",
+    "ax_tree_manager_map.cc",
+    "ax_tree_manager_map.h",
     "ax_tree_observer.cc",
     "ax_tree_observer.h",
     "ax_tree_serializer.cc",
     "ax_tree_serializer.h",
     "ax_tree_source.h",
+    "ax_tree_source_checker.h",
     "ax_tree_update.h",
     "platform/ax_android_constants.cc",
     "platform/ax_android_constants.h",
@@ -98,8 +108,14 @@ jumbo_component("accessibility") {
 
   if (has_native_accessibility) {
     sources += [
+      "platform/ax_fragment_root_win.cc",
+      "platform/ax_fragment_root_win.h",
       "platform/ax_platform_node_mac.h",
       "platform/ax_platform_node_mac.mm",
+      "platform/ax_platform_node_textprovider_win.cc",
+      "platform/ax_platform_node_textprovider_win.h",
+      "platform/ax_platform_node_textrangeprovider_win.cc",
+      "platform/ax_platform_node_textrangeprovider_win.h",
       "platform/ax_platform_node_win.cc",
       "platform/ax_platform_node_win.h",
       "platform/ax_platform_relation_win.cc",
@@ -112,6 +128,7 @@ jumbo_component("accessibility") {
   defines = [ "ACCESSIBILITY_IMPLEMENTATION" ]
 
   public_deps = [
+    ":ax_constants_mojo",
     ":ax_enums_mojo",
     "//base",
     "//base:i18n",
@@ -124,7 +141,10 @@ jumbo_component("accessibility") {
 
   if (is_win) {
     public_deps += [ "//third_party/iaccessible2" ]
-    libs = [ "oleacc.lib" ]
+    libs = [
+      "oleacc.lib",
+      "uiautomationcore.lib",
+    ]
   }
 
   if (is_mac) {
@@ -182,15 +202,9 @@ source_set("ax_assistant") {
   ]
 }
 
-service_manifest("manifest") {
-  name = "ax_host_service"
-  source = "ax_host_service_manifest.json"
-}
-
 static_library("test_support") {
   testonly = true
   sources = [
-    "ax_tree_source_checker.h",
     "tree_generator.cc",
     "tree_generator.h",
   ]
@@ -210,6 +224,7 @@ static_library("test_support") {
 test("accessibility_unittests") {
   testonly = true
   sources = [
+    "ax_enum_util_unittest.cc",
     "ax_event_generator_unittest.cc",
     "ax_generated_tree_unittest.cc",
     "ax_language_info_unittest.cc",
@@ -227,15 +242,20 @@ test("accessibility_unittests") {
     "mojom/ax_tree_data_mojom_traits_unittest.cc",
     "mojom/ax_tree_id_mojom_traits_unittest.cc",
     "mojom/ax_tree_update_mojom_traits_unittest.cc",
+    "platform/ax_fragment_root_win_unittest.cc",
+    "platform/ax_platform_node_textprovider_win_unittest.cc",
+    "platform/ax_platform_node_textrangeprovider_win_unittest.cc",
     "platform/ax_platform_node_unittest.cc",
     "platform/ax_platform_node_unittest.h",
     "platform/ax_platform_node_win_unittest.cc",
+    "platform/ax_platform_node_win_unittest.h",
     "platform/ax_unique_id_unittest.cc",
     "run_all_unittests.cc",
   ]
 
   deps = [
     ":accessibility",
+    ":ax_constants_mojo",
     ":ax_enums_mojo",
     ":test_support",
     "//base",
@@ -244,6 +264,7 @@ test("accessibility_unittests") {
     "//mojo/core/test:test_support",
     "//mojo/public/cpp/test_support:test_utils",
     "//skia",
+    "//testing/gmock",
     "//testing/gtest",
     "//ui/accessibility/mojom",
     "//ui/base",
@@ -285,4 +306,17 @@ fuzzer_test("ax_table_fuzzer") {
   ]
 
   seed_corpus = "fuzz_corpus"
+}
+
+source_set("ax_host_manifest") {
+  sources = [
+    "ax_host_manifest.cc",
+    "ax_host_manifest.h",
+  ]
+
+  deps = [
+    "//base",
+    "//services/service_manager/public/cpp",
+    "//ui/accessibility/mojom",
+  ]
 }

@@ -30,9 +30,9 @@ CastWebViewExtension::CastWebViewExtension(
           initial_url,
           site_instance.get(),
           extensions::VIEW_TYPE_EXTENSION_POPUP)),
-      cast_web_contents_(delegate_,
-                         extension_host_->host_contents(),
-                         params.enabled_for_dev) {
+      cast_web_contents_(
+          extension_host_->host_contents(),
+          {delegate_, params.enabled_for_dev, params.use_cma_renderer}) {
   DCHECK(delegate_);
   content::WebContentsObserver::Observe(web_contents());
   web_contents()->GetNativeView()->SetName(params.activity_id);
@@ -69,8 +69,6 @@ void CastWebViewExtension::InitializeWindow(
                                       initial_priority);
   web_contents()->Focus();
 }
-
-void CastWebViewExtension::SetContext(base::Value context) {}
 
 void CastWebViewExtension::GrantScreenAccess() {
   window_->GrantScreenAccess();

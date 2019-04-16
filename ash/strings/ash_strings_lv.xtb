@@ -14,6 +14,7 @@
 <translation id="1153356358378277386">Pārī savienotās ierīces</translation>
 <translation id="1195412055398077112">attēla izvērse</translation>
 <translation id="119944043368869598">Notīrīt visu</translation>
+<translation id="123828989343052515">Jauns galds</translation>
 <translation id="1247372569136754018">Mikrofons (iebūvētais)</translation>
 <translation id="1252999807265626933">Uzlādes avots: <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Kādi ir laikapstākļi?</translation>
@@ -38,6 +39,7 @@
 <translation id="1525508553941733066">NERĀDĪT</translation>
 <translation id="1537254971476575106">Pilnekrāna lupa</translation>
 <translation id="15373452373711364">Liels peles kursors</translation>
+<translation id="1546492247443594934">2. galds</translation>
 <translation id="1550523713251050646">Noklikšķiniet, lai skatītu citas iespējas.</translation>
 <translation id="1570871743947603115">Pārslēgt Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Piekļūt visām jūsu darbībām šīs sesijas laikā</translation>
@@ -73,6 +75,7 @@
 <translation id="2016340657076538683">Ierakstiet ziņojumu</translation>
 <translation id="2050339315714019657">Portrets</translation>
 <translation id="2067602449040652523">Tastatūras spilgtums</translation>
+<translation id="209965399369889474">Nav savienojuma ar tīklu</translation>
 <translation id="2127372758936585790">Lādētājs ar mazu strāvas padevi</translation>
 <translation id="2135456203358955318">Dokota lupa</translation>
 <translation id="2144487987174258011">Restartējiet, lai atjauninātu Adobe Flash Player</translation>
@@ -129,6 +132,7 @@
 <translation id="2961963223658824723">Radās problēma. Pēc dažām sekundēm mēģiniet vēlreiz.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2970920913501714344">Instalēt lietotnes, paplašinājumus un motīvus</translation>
+<translation id="2977598380246111477">Nākamais cipars</translation>
 <translation id="2995447421581609334">Rādīt apraides ierīces</translation>
 <translation id="2996462380875591307">Dokotās lupas režīms ir iespējots. Lai to izslēgtu, nospiediet taustiņu kombināciju Ctrl+Search+D.</translation>
 <translation id="3000461861112256445">Mono audio</translation>
@@ -141,16 +145,19 @@
 <translation id="3087734570205094154">Apakšā</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Restartēt, lai atjauninātu</translation>
+<translation id="3139942575505304791">1. galds</translation>
 <translation id="315116470104423982">Mobilie dati</translation>
 <translation id="3151786313568798007">Orientācija</translation>
+<translation id="3152934361839663679">Jūsu ierīce ir savienota ar maksimālo monitoru skaitu, tāpēc ar vienu no ekrāniem savienojums tika pārtraukts.</translation>
 <translation id="3153444934357957346">Vairākkārtējas pierakstīšanās laikā var izmantot ne vairāk kā <ph name="MULTI_PROFILE_USER_LIMIT" /> kontus.</translation>
 <translation id="3154351730702813399">Ierīces administrators var uzraudzīt jūsu pārlūkošanas darbības.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Savienots ar ierīci}zero{Savienots ar # ierīcēm}one{Savienots ar # ierīci}other{Savienots ar # ierīcēm}}</translation>
-<translation id="32244657276328332">Nav izveidots savienojums ar tīklu</translation>
+<translation id="3226991577105957773">vēl <ph name="COUNT" /></translation>
 <translation id="3236488194889173876">Mobilais tīkls nav pieejams</translation>
 <translation id="3255483164551725916">Iespējamās darbības</translation>
 <translation id="3294437725009624529">Viesis</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> joprojām varēs pierakstīties vēlāk.</translation>
+<translation id="3321628682574733415">Nepareizs vecāku kods</translation>
 <translation id="332587331255250389">Lūdzu, nomainiet bateriju.</translation>
 <translation id="3351879221545518001">Jūsu ekrānā šobrīd tiek veikta apraide.</translation>
 <translation id="3364721542077212959">Skārienekrāna pildspalvas rīki</translation>
@@ -195,6 +202,7 @@
 <translation id="4017989525502048489">Lāzera rādītājs</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Izslēgt lietotnē}zero{Izslēgt # lietotnēs}one{Izslēgt # lietotnē}other{Izslēgt # lietotnēs}}</translation>
 <translation id="4072264167173457037">Vidēji spēcīgs signāls</translation>
+<translation id="4129129681837227511">Lai skatītu paziņojumus bloķēšanas ekrānā, atbloķējiet, lai mainītu iestatījumu</translation>
 <translation id="4146833061457621061">Atskaņot mūziku</translation>
 <translation id="4181841719683918333">Valodas</translation>
 <translation id="4195877955194704651">Poga Automātiskie klikšķi</translation>
@@ -227,6 +235,8 @@
 <translation id="4585337515783392668">Pārtraukt apraidi nezināmā uztvērējā</translation>
 <translation id="4628757576491864469">Ierīces</translation>
 <translation id="4659419629803378708">ChromeVox iespējots</translation>
+<translation id="4696813013609194136">Ierīces atbloķēšana, ievadot vecāku kodu</translation>
+<translation id="4731797938093519117">Vecāku piekļuve</translation>
 <translation id="4734965478015604180">Horizontāli</translation>
 <translation id="476166673298332917">Ierīces administrators var novērot visas jūsu pārlūkošanas darbības.</translation>
 <translation id="4774338217796918551">Atgriezieties plkst. <ph name="COME_BACK_TIME" />.</translation>
@@ -253,6 +263,7 @@
 <translation id="5207949376430453814">Izcelt teksta ievietošanas punktu</translation>
 <translation id="5222676887888702881">Izrakstīties</translation>
 <translation id="523505283826916779">Pieejamības iestatījumi</translation>
+<translation id="5260676007519551770">4. galds</translation>
 <translation id="5283198616748585639">Pievienot 1 min</translation>
 <translation id="5302048478445481009">Valoda</translation>
 <translation id="5313326810920013265">Bluetooth iestatījumi</translation>
@@ -262,6 +273,7 @@
 <translation id="5430931332414098647">Tūlītēja piesaiste</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Visi pieejamie lietotāji jau ir pievienoti šai sesijai.</translation>
+<translation id="5465662442746197494">Vai nepieciešama palīdzība?</translation>
 <translation id="5496819745535887422">Administrators jūsu ierīcē veic atriti. Kad ierīce tiks restartēta, visi dati tiks dzēsti.</translation>
 <translation id="553675580533261935">Iziešana no sesijas</translation>
 <translation id="5537725057119320332">Apraidīt</translation>
@@ -330,12 +342,14 @@
 <translation id="6528179044667508675">Netraucēt</translation>
 <translation id="6537270692134705506">Uzņemt ekrāna attēlu</translation>
 <translation id="6542521951477560771">Notiek apraide uz ierīci <ph name="RECEIVER_NAME" /></translation>
+<translation id="6559976592393364813">Jautājiet administratoram</translation>
 <translation id="6574601967010742428">Jūsu darbības var pārraudzīt ierīces pārvaldnieks.</translation>
 <translation id="6585808820553845416">Atlikušais laiks līdz šīs sesijas beigām: <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Meklēšana+Shift+K</translation>
 <translation id="6650933572246256093">Bluetooth ierīce “<ph name="DEVICE_NAME" />” vēlas saņemt atļauju, lai izveidotu savienojumu pārī. Lūdzu, ievadiet ierīcē šo ieejas atslēgu: <ph name="PASSKEY" />.</translation>
 <translation id="6657585470893396449">Parole</translation>
 <translation id="6665545700722362599">Piešķirt tīmekļa vietnēm, lietotnēm un paplašinājumiem atļauju izmantot atrašanās vietu pakalpojumus, ierīces mikrofonu, kameru un citas funkcijas</translation>
+<translation id="6670153871843998651">3. galds</translation>
 <translation id="6691659475504239918">Search+Shift+H</translation>
 <translation id="6696025732084565524">Noņemamajai tastatūrai nepieciešams svarīgs atjauninājums</translation>
 <translation id="6700713906295497288">IME izvēlnes poga</translation>
@@ -376,6 +390,7 @@
 <translation id="7377169924702866686">Funkcija Caps Lock ir ieslēgta.</translation>
 <translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" /> s</translation>
 <translation id="7398254312354928459">Ieslēgts tīkla savienojums</translation>
+<translation id="7405710164030118432">Lai atbloķētu šo ierīci, ievadiet Family Link vecāku piekļuves kodu.</translation>
 <translation id="742594950370306541">Kamera tiek lietota.</translation>
 <translation id="743058460480092004">Kamera un mikrofons tiek lietoti.</translation>
 <translation id="7497767806359279797">Izvēlēties valodu un tastatūru</translation>
@@ -451,7 +466,6 @@
 <translation id="8454013096329229812">Wi-Fi tīkls ir ieslēgts.</translation>
 <translation id="847056008324733326">Displeja mēroga iestatījumi</translation>
 <translation id="8477270416194247200">Lai atceltu, nospiediet alternēšanas taustiņu + meklēšanas vai pārslēgšanas taustiņu.</translation>
-<translation id="8484916590211895857"><ph name="NAME" />: notiek atkārtota savienojuma izveide…</translation>
 <translation id="8513108775083588393">Automātiska pagriešana</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> ierīce, iespējams, netiks uzlādēta, kamēr tā būs ieslēgta.</translation>
 <translation id="8627191004499078455">Izveidots savienojums ar ierīci (<ph name="DEVICE_NAME" />)</translation>
@@ -467,7 +481,6 @@
 <translation id="8735953464173050365">Rādīt tastatūras iestatījumus. Ir atlasīta tastatūra <ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">Rādīt VPN iestatījumus</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
-<translation id="8825534185036233643">Spoguļošana ar vairāk nekā diviem ekrāniem netiek atbalstīta.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Pārslēgt pagriešanas bloķēšanu. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Search+Esc</translation>

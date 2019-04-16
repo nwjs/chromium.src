@@ -4,6 +4,7 @@
 
 #include "chrome/browser/thumbnails/thumbnail_tab_helper.h"
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
@@ -309,8 +310,8 @@ void ThumbnailTabHelper::ProcessCapturedBitmap(TriggerReason trigger,
     // back on something other than the UI thread.
     base::PostTaskWithTraits(
         FROM_HERE, {content::BrowserThread::UI},
-        base::Bind(&ThumbnailTabHelper::CleanUpFromThumbnailGeneration,
-                   weak_factory_.GetWeakPtr()));
+        base::BindOnce(&ThumbnailTabHelper::CleanUpFromThumbnailGeneration,
+                       weak_factory_.GetWeakPtr()));
   }
 }
 

@@ -143,7 +143,7 @@ cr.define('multidevice_setup', function() {
     },
 
     initializeSetupFlow: function() {
-      this.mojoInterfaceProvider_.getInterfacePtr()
+      this.mojoInterfaceProvider_.getMojoServiceProxy()
           .getEligibleHostDevices()
           .then((responseParams) => {
             if (responseParams.eligibleHostDevices.length == 0) {
@@ -152,6 +152,7 @@ cr.define('multidevice_setup', function() {
             }
 
             this.devices_ = responseParams.eligibleHostDevices;
+            this.fire('forward-button-focus-requested');
           })
           .catch((error) => {
             console.warn('Mojo service failure: ' + error);
@@ -170,6 +171,7 @@ cr.define('multidevice_setup', function() {
 
       this.$$('password-page').clearPasswordTextInput();
       this.visiblePageName = PageName.START;
+      this.fire('forward-button-focus-requested');
     },
 
     /** @private */
@@ -211,7 +213,7 @@ cr.define('multidevice_setup', function() {
       // An authentication token must be set if a password is required.
       assert(this.delegate.isPasswordRequiredToSetHost() == !!this.authToken_);
 
-      let deviceId = /** @type {string} */ (this.selectedDeviceId_);
+      const deviceId = /** @type {string} */ (this.selectedDeviceId_);
       this.delegate.setHostDevice(deviceId, this.authToken_)
           .then((responseParams) => {
             if (!responseParams.success) {

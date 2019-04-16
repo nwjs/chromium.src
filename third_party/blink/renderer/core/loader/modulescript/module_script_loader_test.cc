@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/testing/fetch_testing_platform_support.h"
 #include "third_party/blink/renderer/platform/loader/testing/mock_fetch_context.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_loader_factory.h"
 #include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
@@ -166,7 +167,8 @@ void ModuleScriptLoaderTest::InitializeForDocument() {
       MakeGarbageCollected<TestResourceFetcherProperties>(security_origin_);
   fetcher_ = MakeGarbageCollected<ResourceFetcher>(
       ResourceFetcherInit(*properties, fetch_context,
-                          base::MakeRefCounted<scheduler::FakeTaskRunner>()));
+                          base::MakeRefCounted<scheduler::FakeTaskRunner>(),
+                          MakeGarbageCollected<TestLoaderFactory>()));
   modulator_ = MakeGarbageCollected<ModuleScriptLoaderTestModulator>(
       ToScriptStateForMainWorld(&GetFrame()));
 }
@@ -177,22 +179,23 @@ void ModuleScriptLoaderTest::InitializeForWorklet() {
       MakeGarbageCollected<TestResourceFetcherProperties>(security_origin_);
   fetcher_ = MakeGarbageCollected<ResourceFetcher>(
       ResourceFetcherInit(*properties, fetch_context,
-                          base::MakeRefCounted<scheduler::FakeTaskRunner>()));
+                          base::MakeRefCounted<scheduler::FakeTaskRunner>(),
+                          MakeGarbageCollected<TestLoaderFactory>()));
   reporting_proxy_ = std::make_unique<MockWorkerReportingProxy>();
   auto creation_params = std::make_unique<GlobalScopeCreationParams>(
       url_, mojom::ScriptType::kModule,
-      OffMainThreadWorkerScriptFetchOption::kEnabled, "UserAgent",
-      nullptr /* web_worker_fetch_context */, Vector<CSPHeaderAndType>(),
-      network::mojom::ReferrerPolicy::kDefault, security_origin_.get(),
-      true /* is_secure_context */, HttpsState::kModern,
+      OffMainThreadWorkerScriptFetchOption::kEnabled, "GlobalScopeName",
+      "UserAgent", nullptr /* web_worker_fetch_context */,
+      Vector<CSPHeaderAndType>(), network::mojom::ReferrerPolicy::kDefault,
+      security_origin_.get(), true /* is_secure_context */, HttpsState::kModern,
       nullptr /* worker_clients */, mojom::IPAddressSpace::kLocal,
       nullptr /* origin_trial_token */, base::UnguessableToken::Create(),
       nullptr /* worker_settings */, kV8CacheOptionsDefault,
       MakeGarbageCollected<WorkletModuleResponsesMap>());
   global_scope_ = MakeGarbageCollected<WorkletGlobalScope>(
       std::move(creation_params), *reporting_proxy_, &GetFrame());
-  global_scope_->ScriptController()->InitializeContextIfNeeded("Dummy Context",
-                                                               NullURL());
+  ASSERT_TRUE(global_scope_->ScriptController()->InitializeContext(
+      "Dummy Context", NullURL()));
   modulator_ = MakeGarbageCollected<ModuleScriptLoaderTestModulator>(
       global_scope_->ScriptController()->GetScriptState());
 }

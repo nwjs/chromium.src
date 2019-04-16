@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.autofill.keyboard_accessory;
 
+import static org.chromium.ui.base.LocalizationUtils.isLayoutRtl;
+
 import android.content.Context;
 import android.support.v4.view.PagerAdapter;
 import android.support.v4.view.ViewPager;
@@ -31,6 +33,10 @@ class AccessorySheetView extends FrameLayout {
         super.onFinishInflate();
         mViewPager = findViewById(org.chromium.chrome.R.id.keyboard_accessory_sheet);
         mTopShadow = findViewById(org.chromium.chrome.R.id.accessory_sheet_shadow);
+
+        // Ensure that sub components of the sheet use the RTL direction:
+        int layoutDirection = isLayoutRtl() ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
+        mViewPager.setLayoutDirection(layoutDirection);
     }
 
     void setAdapter(PagerAdapter adapter) {

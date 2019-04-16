@@ -61,8 +61,7 @@ struct ChildProcessLauncherPriority {
                                bool has_foreground_service_worker,
                                unsigned int frame_depth,
                                bool intersects_viewport,
-                               bool boost_for_pending_views,
-                               bool should_boost_for_pending_views
+                               bool boost_for_pending_views
 #if defined(OS_ANDROID)
                                ,
                                ChildProcessImportance importance
@@ -73,8 +72,7 @@ struct ChildProcessLauncherPriority {
         has_foreground_service_worker(has_foreground_service_worker),
         frame_depth(frame_depth),
         intersects_viewport(intersects_viewport),
-        boost_for_pending_views(boost_for_pending_views),
-        should_boost_for_pending_views(should_boost_for_pending_views)
+        boost_for_pending_views(boost_for_pending_views)
 #if defined(OS_ANDROID)
         ,
         importance(importance)
@@ -126,14 +124,6 @@ struct ChildProcessLauncherPriority {
   // during navigation).
   bool boost_for_pending_views;
 
-  // True iff |boost_for_pending_views| should be considered in
-  // |is_background()|. This needs to be a separate parameter as opposed to
-  // having the experiment set |boost_for_pending_views == false| when
-  // |!should_boost_for_pending_views| as that would result in different
-  // |is_background()| logic than before and defeat the purpose of the
-  // experiment. TODO(gab): Remove this field when the
-  // BoostRendererPriorityForPendingViews desktop experiment is over.
-  bool should_boost_for_pending_views;
 #if defined(OS_ANDROID)
   ChildProcessImportance importance;
 #endif
@@ -152,6 +142,10 @@ class CONTENT_EXPORT ChildProcessLauncher {
 
     virtual void OnProcessLaunchFailed(int error_code) {}
 
+#if defined(OS_ANDROID)
+    // Whether the process can use pre-warmed up connection.
+    virtual bool CanUseWarmUpConnection();
+#endif
    protected:
     virtual ~Client() {}
   };
@@ -220,6 +214,10 @@ class CONTENT_EXPORT ChildProcessLauncher {
   // support multiple shell context creation in unit_tests.
   static void ResetRegisteredFilesForTesting();
 
+#if defined(OS_ANDROID)
+  // Dumps the stack of the child process without crashing it.
+  void DumpProcessStack();
+#endif
  private:
   friend class internal::ChildProcessLauncherHelper;
 

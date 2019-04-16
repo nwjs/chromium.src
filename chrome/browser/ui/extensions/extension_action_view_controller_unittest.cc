@@ -379,8 +379,9 @@ ExtensionActionViewControllerGrayscaleTest::CreateExtension(
       .SetLocation(extensions::Manifest::INTERNAL);
   switch (permission_type) {
     case PermissionType::kScriptableHost: {
-      std::unique_ptr<base::Value> content_scripts = base::JSONReader::Read(
-          R"([{
+      std::unique_ptr<base::Value> content_scripts =
+          base::JSONReader::ReadDeprecated(
+              R"([{
                      "matches": ["https://www.google.com/*"],
                      "js": ["script.js"]
                  }])");
@@ -407,9 +408,9 @@ TEST_P(ExtensionActionViewControllerGrayscaleTest,
   RunGrayscaleTest(PermissionType::kScriptableHost);
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        ExtensionActionViewControllerGrayscaleTest,
-                        testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         ExtensionActionViewControllerGrayscaleTest,
+                         testing::Values(false, true));
 
 TEST_P(ToolbarActionsBarUnitTest, RuntimeHostsTooltip) {
   base::test::ScopedFeatureList feature_list;

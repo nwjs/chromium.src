@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/values.h"
@@ -265,8 +266,11 @@ void SyncInternalsMessageHandler::OnReceivedAllNodes(
     int request_id,
     std::unique_ptr<base::ListValue> nodes) {
   base::Value id(request_id);
+  base::Value nodes_clone = nodes->Clone();
+
+  std::vector<const base::Value*> args{&id, &nodes_clone};
   web_ui()->CallJavascriptFunction(syncer::sync_ui_util::kGetAllNodesCallback,
-                                   id, *nodes);
+                                   args);
 }
 
 void SyncInternalsMessageHandler::OnStateChanged(syncer::SyncService* sync) {
@@ -276,7 +280,7 @@ void SyncInternalsMessageHandler::OnStateChanged(syncer::SyncService* sync) {
 void SyncInternalsMessageHandler::OnProtocolEvent(
     const syncer::ProtocolEvent& event) {
   std::unique_ptr<base::DictionaryValue> value(
-      syncer::ProtocolEvent::ToValue(event, include_specifics_));
+      event.ToValue(include_specifics_));
   DispatchEvent(syncer::sync_ui_util::kOnProtocolEvent, *value);
 }
 
@@ -336,6 +340,9 @@ syncer::SyncService* SyncInternalsMessageHandler::GetSyncService() {
 void SyncInternalsMessageHandler::DispatchEvent(
     const std::string& name,
     const base::Value& details_value) {
-  web_ui()->CallJavascriptFunction(syncer::sync_ui_util::kDispatchEvent,
-                                   base::Value(name), details_value);
+  base::Value event_name = base::Value(name);
+
+  std::vector<const base::Value*> args{&event_name, &details_value};
+
+  web_ui()->CallJavascriptFunction(syncer::sync_ui_util::kDispatchEvent, args);
 }

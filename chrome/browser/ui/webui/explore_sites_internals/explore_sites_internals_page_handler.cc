@@ -11,7 +11,7 @@
 #include "chrome/browser/android/explore_sites/explore_sites_feature.h"
 #include "chrome/browser/android/explore_sites/url_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/pref_names.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 
 namespace explore_sites {
@@ -28,6 +28,8 @@ std::string GetChromeFlagsSetupString() {
       return "Experiment";
     case ExploreSitesVariation::PERSONALIZED:
       return "Personalized";
+    case ExploreSitesVariation::CONDENSED:
+      return "Condensed";
     case ExploreSitesVariation::DISABLED:
       return "Disabled";
   }
@@ -68,7 +70,7 @@ void ExploreSitesInternalsPageHandler::ForceNetworkRequest(
     ForceNetworkRequestCallback callback) {
   explore_sites_service_->UpdateCatalogFromNetwork(
       true /* is_immediate_fetch */,
-      profile_->GetPrefs()->GetString(prefs::kAcceptLanguages),
+      profile_->GetPrefs()->GetString(language::prefs::kAcceptLanguages),
       std::move(callback));
 }
 

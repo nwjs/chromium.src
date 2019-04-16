@@ -67,11 +67,10 @@ class TestOverlayCandidatesOzone : public ui::OverlayCandidatesOzone {
 std::unique_ptr<viz::CompositorOverlayCandidateValidator>
 CreateTestValidatorOzone() {
 #if defined(USE_OZONE)
-  return std::unique_ptr<viz::CompositorOverlayCandidateValidator>(
-      new viz::CompositorOverlayCandidateValidatorOzone(
-          std::unique_ptr<ui::OverlayCandidatesOzone>(
-              new TestOverlayCandidatesOzone()),
-          ""));
+  std::vector<viz::OverlayStrategy> strategies = {
+      viz::OverlayStrategy::kSingleOnTop, viz::OverlayStrategy::kUnderlay};
+  return std::make_unique<viz::CompositorOverlayCandidateValidatorOzone>(
+      std::make_unique<TestOverlayCandidatesOzone>(), std::move(strategies));
 #else
   return nullptr;
 #endif  // defined(USE_OZONE)
@@ -113,9 +112,6 @@ class TestOutputSurface : public BrowserCompositorOutputSurface {
     }
   }
 
-#if BUILDFLAG(ENABLE_VULKAN)
-  gpu::VulkanSurface* GetVulkanSurface() override { return nullptr; }
-#endif
   unsigned UpdateGpuFence() override { return 0; }
 
  private:
@@ -204,7 +200,7 @@ namespace {
 TEST_F(ReflectorImplTest, CheckNormalOutputSurface) {
   // TODO(jonross): Re-enable once Reflector is re-written to work with
   // VizDisplayCompositor. https://crbug.com/601869
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
+  if (features::IsVizDisplayCompositorEnabled())
     return;
   output_surface_->SetFlip(false);
   SetUpReflector();
@@ -218,7 +214,7 @@ TEST_F(ReflectorImplTest, CheckNormalOutputSurface) {
 TEST_F(ReflectorImplTest, CheckInvertedOutputSurface) {
   // TODO(jonross): Re-enable once Reflector is re-written to work with
   // VizDisplayCompositor. https://crbug.com/601869
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
+  if (features::IsVizDisplayCompositorEnabled())
     return;
   output_surface_->SetFlip(true);
   SetUpReflector();
@@ -231,7 +227,7 @@ TEST_F(ReflectorImplTest, CheckInvertedOutputSurface) {
 TEST_F(ReflectorImplTest, CheckOverlayNoReflector) {
   // TODO(jonross): Re-enable once Reflector is re-written to work with
   // VizDisplayCompositor. https://crbug.com/601869
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
+  if (features::IsVizDisplayCompositorEnabled())
     return;
   viz::OverlayCandidateList list;
   viz::OverlayCandidate plane_1, plane_2;
@@ -246,7 +242,7 @@ TEST_F(ReflectorImplTest, CheckOverlayNoReflector) {
 TEST_F(ReflectorImplTest, CheckOverlaySWMirroring) {
   // TODO(jonross): Re-enable once Reflector is re-written to work with
   // VizDisplayCompositor. https://crbug.com/601869
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
+  if (features::IsVizDisplayCompositorEnabled())
     return;
   SetUpReflector();
   viz::OverlayCandidateList list;

@@ -5,6 +5,9 @@
 #ifndef UI_OZONE_PLATFORM_WAYLAND_WAYLAND_WINDOW_H_
 #define UI_OZONE_PLATFORM_WAYLAND_WAYLAND_WINDOW_H_
 
+#include <set>
+#include <vector>
+
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "ui/events/platform/platform_event_dispatcher.h"
@@ -53,6 +56,13 @@ class WaylandWindow : public PlatformWindow,
   XDGPopupWrapper* xdg_popup() const { return xdg_popup_.get(); }
 
   gfx::AcceleratedWidget GetWidget() const;
+
+  // Returns the list of wl_outputs aka displays, which this window occupies.
+  // The window can be shown on one or more displays at the same time. An empty
+  // vector can also be returned if the window is not configured on the
+  // compositor side or it has been moved due to unplug action (check the
+  // comment in RemoveEnteredOutputId).
+  std::set<uint32_t> GetEnteredOutputsIds() const;
 
   // Apply the bounds specified in the most recent configure event. This should
   // be called after processing all pending events in the wayland connection.
@@ -124,6 +134,7 @@ class WaylandWindow : public PlatformWindow,
                               bool is_maximized,
                               bool is_fullscreen,
                               bool is_activated);
+  void HandlePopupConfigure(const gfx::Rect& bounds);
 
   void OnCloseRequest();
 
@@ -146,13 +157,35 @@ class WaylandWindow : public PlatformWindow,
   void CreateXdgPopup();
   // Creates a surface window, which is visible as a main window.
   void CreateXdgSurface();
-  // Creates a subsurface window, to host tooltip's content.
-  void CreateTooltipSubSurface();
+  // Creates (if necessary) and show subsurface window, to host
+  // tooltip's content.
+  void CreateAndShowTooltipSubSurface();
 
   // Gets a parent window for this window.
   WaylandWindow* GetParentWindow(gfx::AcceleratedWidget parent_widget);
 
   WmMoveResizeHandler* AsWmMoveResizeHandler();
+
+  // Install a surface listener and start getting wl_output enter/leave events.
+  void AddSurfaceListener();
+
+  void AddEnteredOutputId(struct wl_output* output);
+  void RemoveEnteredOutputId(struct wl_output* output);
+
+  void UpdateCursorPositionFromEvent(std::unique_ptr<Event> event);
+
+  // Returns bounds with origin relative to parent window's origin.
+  gfx::Rect AdjustPopupWindowPosition() const;
+
+  WaylandWindow* GetTopLevelWindow();
+
+  // wl_surface_listener
+  static void Enter(void* data,
+                    struct wl_surface* wl_surface,
+                    struct wl_output* output);
+  static void Leave(void* data,
+                    struct wl_surface* wl_surface,
+                    struct wl_output* output);
 
   PlatformWindowDelegate* delegate_;
   WaylandConnection* connection_;
@@ -177,7 +210,7 @@ class WaylandWindow : public PlatformWindow,
 
   gfx::Rect bounds_;
   gfx::Rect pending_bounds_;
-  // The bounds of our window before we were maximized or fullscreen.
+  // The bounds of the window before it went maximized or fullscreen.
   gfx::Rect restored_bounds_;
   bool has_pointer_focus_ = false;
   bool has_keyboard_focus_ = false;
@@ -194,6 +227,9 @@ class WaylandWindow : public PlatformWindow,
   bool is_minimizing_ = false;
 
   bool is_tooltip_ = false;
+
+  // Stores the list of entered outputs that the window is currently in.
+  std::set<uint32_t> entered_outputs_ids_;
 
   DISALLOW_COPY_AND_ASSIGN(WaylandWindow);
 };

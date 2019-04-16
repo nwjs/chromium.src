@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
 #include "base/md5.h"
@@ -72,7 +73,7 @@ ChecksumStatus LoadFile(const base::FilePath& file_path,
   std::string contents;
   {
     base::ScopedBlockingCall scoped_blocking_call(
-        base::BlockingType::MAY_BLOCK);
+        FROM_HERE, base::BlockingType::MAY_BLOCK);
     base::ReadFileToString(file_path, &contents);
   }
   size_t pos = contents.rfind(CHECKSUM_PREFIX);
@@ -158,7 +159,7 @@ void SaveDictionaryFileReliably(const base::FilePath& path,
   content << CHECKSUM_PREFIX << checksum;
   {
     base::ScopedBlockingCall scoped_blocking_call(
-        base::BlockingType::MAY_BLOCK);
+        FROM_HERE, base::BlockingType::MAY_BLOCK);
     base::CopyFile(path, path.AddExtension(BACKUP_EXTENSION));
     base::ImportantFileWriter::WriteFileAtomically(path, content.str());
   }

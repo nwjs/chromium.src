@@ -9,7 +9,6 @@
 #include "media/base/media_client.h"
 #include "media/base/media_switches.h"
 #include "media/media_buildflags.h"
-#include "third_party/libaom/av1_buildflags.h"
 #include "ui/display/display_switches.h"
 
 #if BUILDFLAG(ENABLE_LIBVPX)
@@ -251,10 +250,16 @@ bool IsDefaultSupportedVideoType(const VideoType& type) {
     case media::kUnknownVideoCodec:
     case media::kCodecVC1:
     case media::kCodecMPEG2:
-    case media::kCodecMPEG4:
     case media::kCodecHEVC:
     case media::kCodecDolbyVision:
       return false;
+
+    case media::kCodecMPEG4:
+#if defined(OS_CHROMEOS)
+      return true;
+#else
+      return false;
+#endif
   }
 
   NOTREACHED();

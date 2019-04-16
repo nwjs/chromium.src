@@ -4,12 +4,14 @@
 
 #include "chrome/browser/chromeos/preferences.h"
 
+#include <limits>
 #include <vector>
 
 #include "ash/public/cpp/ash_constants.h"
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "ash/public/interfaces/cros_display_config.mojom.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_macros.h"
@@ -42,6 +44,7 @@
 #include "chromeos/timezone/timezone_resolver.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/feedback/tracing_manager.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_member.h"
@@ -70,8 +73,6 @@ namespace chromeos {
 
 namespace {
 
-static const char kFallbackInputMethodLocale[] = "en-US";
-
 // The keyboard preferences that determine how we remap modifier keys. These
 // preferences will be saved in global user preferences dictionary so that they
 // can be used on signin screen.
@@ -82,7 +83,6 @@ const char* const kLanguageRemapPrefs[] = {
     prefs::kLanguageRemapCapsLockKeyTo,
     prefs::kLanguageRemapEscapeKeyTo,
     prefs::kLanguageRemapBackspaceKeyTo,
-    prefs::kLanguageRemapDiamondKeyTo,
     prefs::kLanguageRemapExternalCommandKeyTo,
     prefs::kLanguageRemapExternalMetaKeyTo};
 
@@ -348,12 +348,8 @@ void Preferences::RegisterProfilePrefs(
   // because they're just used to track the logout state of the device.
   registry->RegisterStringPref(prefs::kLanguageCurrentInputMethod, "");
   registry->RegisterStringPref(prefs::kLanguagePreviousInputMethod, "");
-  registry->RegisterListPref(prefs::kLanguageAllowedInputMethods,
-                             std::make_unique<base::ListValue>());
-  registry->RegisterListPref(prefs::kAllowedLanguages,
-                             std::make_unique<base::ListValue>());
-  registry->RegisterStringPref(prefs::kLanguagePreferredLanguages,
-                               kFallbackInputMethodLocale);
+  registry->RegisterListPref(prefs::kLanguageAllowedInputMethods);
+  registry->RegisterListPref(prefs::kAllowedLanguages);
   registry->RegisterStringPref(prefs::kLanguagePreloadEngines,
                                hardware_keyboard_id);
   registry->RegisterStringPref(prefs::kLanguageEnabledImes, "");
@@ -372,6 +368,10 @@ void Preferences::RegisterProfilePrefs(
       prefs::kLanguageRemapAltKeyTo,
       static_cast<int>(ui::chromeos::ModifierKey::kAltKey),
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
+  registry->RegisterIntegerPref(
+      prefs::kLanguageRemapAssistantKeyTo,
+      static_cast<int>(ui::chromeos::ModifierKey::kAssistantKey),
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
   // We don't sync the CapsLock remapping pref, since the UI hides this pref
   // on certain devices, so syncing a non-default value to a device that
   // doesn't allow changing the pref would be odd. http://crbug.com/167237
@@ -385,10 +385,6 @@ void Preferences::RegisterProfilePrefs(
   registry->RegisterIntegerPref(
       prefs::kLanguageRemapBackspaceKeyTo,
       static_cast<int>(ui::chromeos::ModifierKey::kBackspaceKey),
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
-  registry->RegisterIntegerPref(
-      prefs::kLanguageRemapDiamondKeyTo,
-      static_cast<int>(ui::chromeos::ModifierKey::kControlKey),
       user_prefs::PrefRegistrySyncable::SYNCABLE_PRIORITY_PREF);
   // The Command key on external Apple keyboards is remapped by default to Ctrl
   // until the user changes it from the keyboard settings.
@@ -536,7 +532,6 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterBooleanPref(prefs::kTPMFirmwareUpdateCleanupDismissed,
                                 false);
-  registry->RegisterBooleanPref(prefs::kVpnConfigAllowed, true);
 }
 
 void Preferences::InitUserPrefs(sync_preferences::PrefServiceSyncable* prefs) {
@@ -569,12 +564,11 @@ void Preferences::InitUserPrefs(sync_preferences::PrefServiceSyncable* prefs) {
   allowed_input_methods_.Init(prefs::kLanguageAllowedInputMethods, prefs,
                               callback);
   allowed_languages_.Init(prefs::kAllowedLanguages, prefs, callback);
-  preferred_languages_.Init(prefs::kLanguagePreferredLanguages, prefs,
+  preferred_languages_.Init(language::prefs::kPreferredLanguages, prefs,
                             callback);
   ime_menu_activated_.Init(prefs::kLanguageImeMenuActivated, prefs, callback);
   // Notifies the system tray to remove the IME items.
-  if (base::FeatureList::IsEnabled(features::kOptInImeMenu) &&
-      ime_menu_activated_.GetValue())
+  if (ime_menu_activated_.GetValue())
     input_method::InputMethodManager::Get()->ImeMenuActivationChanged(true);
 
   xkb_auto_repeat_enabled_.Init(
@@ -845,7 +839,7 @@ void Preferences::ApplyPreferences(ApplyReason reason,
     locale_util::RemoveDisallowedLanguagesFromPreferred(prefs_);
 
   if (reason != REASON_PREF_CHANGED ||
-      pref_name == prefs::kLanguagePreferredLanguages) {
+      pref_name == language::prefs::kPreferredLanguages) {
     // In case setting has been changed with sync it can contain disallowed
     // values.
     locale_util::RemoveDisallowedLanguagesFromPreferred(prefs_);
@@ -875,8 +869,7 @@ void Preferences::ApplyPreferences(ApplyReason reason,
   }
 
   if (pref_name == prefs::kLanguageImeMenuActivated &&
-      (reason == REASON_PREF_CHANGED || reason == REASON_ACTIVE_USER_CHANGED) &&
-      base::FeatureList::IsEnabled(features::kOptInImeMenu)) {
+      (reason == REASON_PREF_CHANGED || reason == REASON_ACTIVE_USER_CHANGED)) {
     const bool activated = ime_menu_activated_.GetValue();
     input_method::InputMethodManager::Get()->ImeMenuActivationChanged(
         activated);

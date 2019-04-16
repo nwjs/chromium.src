@@ -4,6 +4,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "build/build_config.h"
@@ -740,7 +741,8 @@ TEST_F(StructTraitsTest, RenderPass) {
   backdrop_filters.Append(cc::FilterOperation::CreateSaturateFilter(4.f));
   backdrop_filters.Append(cc::FilterOperation::CreateZoomFilter(2.0f, 1));
   backdrop_filters.Append(cc::FilterOperation::CreateSaturateFilter(2.f));
-  gfx::RectF backdrop_filter_bounds = gfx::RectF(10, 20, 130, 140);
+  gfx::RRectF backdrop_filter_bounds =
+      gfx::RRectF(10, 20, 130, 140, 1, 2, 3, 4, 5, 6, 7, 8);
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateXYZD50();
   const bool has_transparent_background = true;
   const bool cache_render_pass = true;
@@ -810,8 +812,7 @@ TEST_F(StructTraitsTest, RenderPass) {
   EXPECT_EQ(has_transparent_background, output->has_transparent_background);
   EXPECT_EQ(filters, output->filters);
   EXPECT_EQ(backdrop_filters, output->backdrop_filters);
-  EXPECT_EQ(gfx::ToNearestRect(backdrop_filter_bounds),
-            gfx::ToNearestRect(output->backdrop_filter_bounds));
+  EXPECT_EQ(backdrop_filter_bounds, output->backdrop_filter_bounds);
   EXPECT_EQ(cache_render_pass, output->cache_render_pass);
   EXPECT_EQ(has_damage_from_contributing_content,
             output->has_damage_from_contributing_content);
@@ -879,7 +880,7 @@ TEST_F(StructTraitsTest, RenderPassWithEmptySharedQuadStateList) {
       gfx::Transform(1.0, 0.5, 0.5, -0.5, -1.0, 0.0);
   const gfx::Rect damage_rect(56, 123, 19, 43);
   skcms_Matrix3x3 to_XYZD50 = SkNamedGamut::kXYZ;
-  SkColorSpaceTransferFn fn = {1, 0, 1, 0, 0, 0, 1};
+  skcms_TransferFunction fn = {1, 0, 1, 0, 0, 0, 1};
   gfx::ColorSpace color_space = gfx::ColorSpace::CreateCustom(to_XYZD50, fn);
   const bool has_transparent_background = true;
   const bool cache_render_pass = false;
@@ -887,7 +888,7 @@ TEST_F(StructTraitsTest, RenderPassWithEmptySharedQuadStateList) {
   const bool generate_mipmap = false;
   std::unique_ptr<RenderPass> input = RenderPass::Create();
   input->SetAll(render_pass_id, output_rect, damage_rect, transform_to_root,
-                cc::FilterOperations(), cc::FilterOperations(), gfx::RectF(),
+                cc::FilterOperations(), cc::FilterOperations(), gfx::RRectF(),
                 color_space, has_transparent_background, cache_render_pass,
                 has_damage_from_contributing_content, generate_mipmap);
 
@@ -983,13 +984,11 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   const bool needs_blending6 = false;
   const ResourceId resource_id6(1234);
   const gfx::Size resource_size_in_pixels(1234, 5678);
-  const gfx::Transform matrix(16.1f, 15.3f, 14.3f, 13.7f, 12.2f, 11.4f, 10.4f,
-                              9.8f, 8.1f, 7.3f, 6.3f, 5.7f, 4.8f, 3.4f, 2.4f,
-                              1.2f);
   StreamVideoDrawQuad* stream_video_draw_quad =
       render_pass->CreateAndAppendDrawQuad<StreamVideoDrawQuad>();
   stream_video_draw_quad->SetNew(sqs, rect6, rect6, needs_blending6,
-                                 resource_id6, resource_size_in_pixels, matrix);
+                                 resource_id6, resource_size_in_pixels,
+                                 uv_top_left, uv_bottom_right);
 
   std::unique_ptr<RenderPass> output;
   mojo::test::SerializeAndDeserialize<mojom::RenderPass>(&render_pass, &output);
@@ -1064,7 +1063,8 @@ TEST_F(StructTraitsTest, QuadListBasic) {
   EXPECT_EQ(resource_id6, out_stream_video_draw_quad->resource_id());
   EXPECT_EQ(resource_size_in_pixels,
             out_stream_video_draw_quad->resource_size_in_pixels());
-  EXPECT_EQ(matrix, out_stream_video_draw_quad->matrix);
+  EXPECT_EQ(uv_top_left, out_stream_video_draw_quad->uv_top_left);
+  EXPECT_EQ(uv_bottom_right, out_stream_video_draw_quad->uv_bottom_right);
 }
 
 TEST_F(StructTraitsTest, SurfaceId) {

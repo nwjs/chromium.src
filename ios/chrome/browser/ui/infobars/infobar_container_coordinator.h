@@ -11,8 +11,8 @@ namespace web {
 class WebState;
 }
 
+@class CommandDispatcher;
 @class TabModel;
-@protocol ApplicationCommands;
 @protocol InfobarPositioner;
 @protocol SyncPresenter;
 
@@ -37,8 +37,11 @@ class WebState;
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
                                    browser:(Browser*)browser NS_UNAVAILABLE;
 
-// The InfobarContainer View.
-- (UIView*)view;
+// Sets the visibility of the container to |hidden|.
+- (void)hideContainer:(BOOL)hidden;
+
+// The InfobarContainer Legacy View.
+- (UIView*)legacyContainerView;
 
 // Updates the InfobarContainer according to the positioner information.
 - (void)updateInfobarContainer;
@@ -46,8 +49,8 @@ class WebState;
 // YES if an Infobar is being presented for |webState|.
 - (BOOL)isInfobarPresentingForWebState:(web::WebState*)webState;
 
-// The dispatcher for this Coordinator.
-@property(nonatomic, weak) id<ApplicationCommands> dispatcher;
+// The CommandDispatcher for this Coordinator.
+@property(nonatomic, weak) CommandDispatcher* commandDispatcher;
 
 // The delegate used to position the InfobarContainer in the view.
 @property(nonatomic, weak) id<InfobarPositioner> positioner;

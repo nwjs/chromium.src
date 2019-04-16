@@ -6,8 +6,8 @@
 
 #include "base/no_destructor.h"
 #include "content/public/common/service_names.mojom.h"
-#include "services/content/manifest.h"
-#include "services/file/manifest.h"
+#include "services/content/public/cpp/manifest.h"
+#include "services/file/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
 
 namespace content {
@@ -120,16 +120,11 @@ const service_manager::Manifest& GetContentBrowserManifest() {
           .RequireCapability("file", "file:leveldb")
           .RequireCapability("network", "network_service")
           .RequireCapability("network", "test")
-          .RequireCapability("network", "url_loader")
           .RequireCapability(mojom::kRendererServiceName, "browser")
           .RequireCapability("media", "media:media")
           .RequireCapability("*", "app")
           .RequireCapability("content", "navigation")
-          .RequireCapability("resource_coordinator", "coordination_unit")
-          .RequireCapability("resource_coordinator",
-                             "coordination_unit_introspector")
           .RequireCapability("resource_coordinator", "service_callbacks")
-          .RequireCapability("resource_coordinator", "page_signal")
           .RequireCapability("service_manager",
                              "service_manager:service_manager")
           .RequireCapability("chromecast", "multizone")
@@ -179,7 +174,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
               "navigation:dedicated_worker", "renderer",
               std::set<const char*>{
                   "blink.mojom.CacheStorage",
-                  "blink.mojom.DedicatedWorkerFactory",
+                  "blink.mojom.DedicatedWorkerHostFactory",
                   "blink.mojom.FileSystemManager", "blink.mojom.IDBFactory",
                   "blink.mojom.IdleManager", "blink.mojom.LockManager",
                   "blink.mojom.NotificationService",
@@ -218,7 +213,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
                   "blink.mojom.ContactsManager",
                   "blink.mojom.CredentialManager",
                   "blink.mojom.DisplayCutoutHost",
-                  "blink.mojom.DedicatedWorkerFactory",
+                  "blink.mojom.DedicatedWorkerHostFactory",
                   "blink.mojom.FileChooser",
                   "blink.mojom.FileSystemManager",
                   "blink.mojom.GeolocationService",
@@ -232,6 +227,7 @@ const service_manager::Manifest& GetContentBrowserManifest() {
                   "blink.mojom.MediaSessionService",
                   "blink.mojom.NotificationService",
                   "blink.mojom.PermissionService",
+                  "blink.mojom.PictureInPictureService",
                   "blink.mojom.Portal",
                   "blink.mojom.PrefetchURLLoaderService",
                   "blink.mojom.PresentationService",

@@ -31,6 +31,31 @@ bool GetCanvasClipBounds(SkCanvas* canvas, gfx::Rect* clip_bounds) {
   return true;
 }
 
+void FillTextContent(const PaintOpBuffer* buffer,
+                     std::vector<NodeHolder>* content) {
+  for (auto* op : PaintOpBuffer::Iterator(buffer)) {
+    if (op->GetType() == PaintOpType::DrawTextBlob) {
+      content->push_back(static_cast<DrawTextBlobOp*>(op)->node_holder);
+    } else if (op->GetType() == PaintOpType::DrawRecord) {
+      FillTextContent(static_cast<DrawRecordOp*>(op)->record.get(), content);
+    }
+  }
+}
+
+void FillTextContentByOffsets(const PaintOpBuffer* buffer,
+                              const std::vector<size_t>& offsets,
+                              std::vector<NodeHolder>* content) {
+  if (!buffer)
+    return;
+  for (auto* op : PaintOpBuffer::OffsetIterator(buffer, &offsets)) {
+    if (op->GetType() == PaintOpType::DrawTextBlob) {
+      content->push_back(static_cast<DrawTextBlobOp*>(op)->node_holder);
+    } else if (op->GetType() == PaintOpType::DrawRecord) {
+      FillTextContent(static_cast<DrawRecordOp*>(op)->record.get(), content);
+    }
+  }
+}
+
 }  // namespace
 
 DisplayItemList::DisplayItemList(UsageHint usage_hint)
@@ -44,10 +69,8 @@ DisplayItemList::DisplayItemList(UsageHint usage_hint)
 
 DisplayItemList::~DisplayItemList() = default;
 
-void DisplayItemList::Raster(
-    SkCanvas* canvas,
-    ImageProvider* image_provider,
-    PaintWorkletImageProvider* paint_worklet_image_provider) const {
+void DisplayItemList::Raster(SkCanvas* canvas,
+                             ImageProvider* image_provider) const {
   DCHECK(usage_hint_ == kTopLevelDisplayItemList);
   gfx::Rect canvas_playback_rect;
   if (!GetCanvasClipBounds(canvas, &canvas_playback_rect))
@@ -55,9 +78,14 @@ void DisplayItemList::Raster(
 
   std::vector<size_t> offsets;
   rtree_.Search(canvas_playback_rect, &offsets);
-  paint_op_buffer_.Playback(
-      canvas, PlaybackParams(image_provider, paint_worklet_image_provider),
-      &offsets);
+  paint_op_buffer_.Playback(canvas, PlaybackParams(image_provider), &offsets);
+}
+
+void DisplayItemList::CaptureContent(const gfx::Rect& rect,
+                                     std::vector<NodeHolder>* content) const {
+  std::vector<size_t> offsets;
+  rtree_.Search(rect, &offsets);
+  FillTextContentByOffsets(&paint_op_buffer_, offsets, content);
 }
 
 void DisplayItemList::Finalize() {

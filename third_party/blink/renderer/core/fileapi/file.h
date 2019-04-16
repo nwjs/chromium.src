@@ -31,6 +31,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 namespace blink {
@@ -39,6 +40,7 @@ class ExceptionState;
 class ExecutionContext;
 class FilePropertyBag;
 class FileMetadata;
+class FormControlState;
 class KURL;
 
 class CORE_EXPORT File final : public Blob {
@@ -105,6 +107,13 @@ class CORE_EXPORT File final : public Blob {
                                       true, size, last_modified,
                                       std::move(blob_data_handle));
   }
+
+  // For session restore feature.
+  // See also AppendToControlState().
+  static File* CreateFromControlState(const FormControlState& state,
+                                      wtf_size_t& index);
+  static String PathFromControlState(const FormControlState& state,
+                                     wtf_size_t& index);
 
   static File* CreateWithRelativePath(const String& path,
                                       const String& relative_path);
@@ -178,7 +187,7 @@ class CORE_EXPORT File final : public Blob {
 
   File* Clone(const String& name = String()) const;
 
-  unsigned long long size() const override;
+  uint64_t size() const override;
   Blob* slice(long long start,
               long long end,
               const String& content_type,
@@ -224,6 +233,9 @@ class CORE_EXPORT File final : public Blob {
   // of the file objects are same or not.
   bool HasSameSource(const File& other) const;
 
+  // Return false if this File instance is not serializable to FormControlState.
+  bool AppendToControlState(FormControlState& state);
+
  private:
   void InvalidateSnapshotMetadata() { snapshot_size_ = -1; }
 
@@ -257,7 +269,10 @@ class CORE_EXPORT File final : public Blob {
   String relative_path_;
 };
 
-DEFINE_TYPE_CASTS(File, Blob, blob, blob->IsFile(), blob.IsFile());
+template <>
+struct DowncastTraits<File> {
+  static bool AllowFrom(const Blob& blob) { return blob.IsFile(); }
+};
 
 }  // namespace blink
 

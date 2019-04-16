@@ -15,7 +15,6 @@ extern const char kSyncLastSyncedTime[];
 extern const char kSyncLastPollTime[];
 extern const char kSyncShortPollIntervalSeconds[];
 extern const char kSyncLongPollIntervalSeconds[];
-extern const char kSyncHasAuthError[];
 extern const char kSyncFirstSetupComplete[];
 extern const char kSyncKeepEverythingSynced[];
 
@@ -83,9 +82,6 @@ extern const char kSyncShutdownCleanly[];
 extern const char kSyncInvalidationVersions[];
 
 extern const char kSyncLastRunVersion[];
-
-extern const char kSyncPassphraseEncryptionTransitionInProgress[];
-extern const char kSyncNigoriStateForPassphraseTransition[];
 
 extern const char kEnableLocalSyncBackend[];
 extern const char kLocalSyncBackendDir[];

@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-#include "build/build_config.h"
+#include "base/bind.h"
 #include "chrome/browser/browser_switcher/alternative_browser_driver.h"
 #include "chrome/browser/browser_switcher/browser_switcher_prefs.h"
 #include "chrome/browser/browser_switcher/browser_switcher_sitelist.h"
@@ -15,29 +15,23 @@
 #include "chrome/browser/profiles/profile.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_thread.h"
+#include "content/public/browser/file_url_loader.h"
+#include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/browser/storage_partition.h"
 #include "net/base/load_flags.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
-#include "services/network/public/cpp/simple_url_loader.h"
-
-#if defined(OS_WIN)
-#include "base/strings/utf_string_conversions.h"
-#include "base/win/registry.h"
-#endif
 
 namespace browser_switcher {
 
 namespace {
 
-#if defined(OS_WIN)
-const wchar_t kIeSiteListKey[] =
-    L"SOFTWARE\\Policies\\Microsoft\\Internet Explorer\\Main\\EnterpriseMode";
-const wchar_t kIeSiteListValue[] = L"SiteList";
-#endif
-
 // How long to wait after |BrowserSwitcherService| is created before initiating
 // the sitelist fetch.
 const base::TimeDelta kFetchSitelistDelay = base::TimeDelta::FromSeconds(60);
+
+// How long to wait after a fetch to re-fetch the sitelist to keep it fresh.
+const base::TimeDelta kRefreshSitelistDelay = base::TimeDelta::FromMinutes(30);
 
 // How many times to re-try fetching the XML file for the sitelist.
 const int kFetchNumRetries = 1;
@@ -78,105 +72,114 @@ constexpr net::NetworkTrafficAnnotationTag traffic_annotation =
 
 }  // namespace
 
-class XmlDownloader {
- public:
-  // Posts a task to start downloading+parsing the rules after |delay|. Calls
-  // |done_callback| when done, so the caller can apply the parsed rules and
-  // clean up this object.
-  XmlDownloader(Profile* profile,
-                GURL url,
-                base::TimeDelta delay,
-                base::OnceCallback<void(ParsedXml)> done_callback);
-  virtual ~XmlDownloader() = default;
+RulesetSource::RulesetSource(
+    GURL url_,
+    base::OnceCallback<void(ParsedXml xml)> parsed_callback_)
+    : url(std::move(url_)), parsed_callback(std::move(parsed_callback_)) {}
 
- private:
-  void FetchXml();
-  void ParseXml(std::unique_ptr<std::string> bytes);
-  void DoneParsing(ParsedXml xml);
+RulesetSource::RulesetSource(RulesetSource&&) = default;
 
-  GURL url_;
-  scoped_refptr<network::SharedURLLoaderFactory> factory_;
-
-  std::unique_ptr<network::SimpleURLLoader> url_loader_;
-  base::OnceCallback<void(ParsedXml)> done_callback_;
-
-  base::WeakPtrFactory<XmlDownloader> weak_ptr_factory_;
-};
+RulesetSource::~RulesetSource() = default;
 
 XmlDownloader::XmlDownloader(Profile* profile,
-                             GURL url,
-                             base::TimeDelta delay,
-                             base::OnceCallback<void(ParsedXml)> done_callback)
-    : url_(std::move(url)),
-      done_callback_(std::move(done_callback)),
+                             std::vector<RulesetSource> sources,
+                             base::OnceCallback<void()> all_done_callback)
+    : sources_(std::move(sources)),
+      all_done_callback_(std::move(all_done_callback)),
       weak_ptr_factory_(this) {
-  factory_ = content::BrowserContext::GetDefaultStoragePartition(profile)
-                 ->GetURLLoaderFactoryForBrowserProcess();
-  DCHECK(factory_);
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&XmlDownloader::FetchXml, weak_ptr_factory_.GetWeakPtr()),
-      delay);
+  file_url_factory_ =
+      content::CreateFileURLLoaderFactory(base::FilePath(), nullptr);
+  other_url_factory_ =
+      content::BrowserContext::GetDefaultStoragePartition(profile)
+          ->GetURLLoaderFactoryForBrowserProcess();
+  FetchXml();
 }
+
+XmlDownloader::~XmlDownloader() = default;
 
 void XmlDownloader::FetchXml() {
-  auto request = std::make_unique<network::ResourceRequest>();
-  request->url = url_;
-  request->load_flags =
-      (net::LOAD_DO_NOT_SEND_COOKIES | net::LOAD_DO_NOT_SAVE_COOKIES |
-       net::LOAD_DISABLE_CACHE);
-  url_loader_ =
-      network::SimpleURLLoader::Create(std::move(request), traffic_annotation);
-  url_loader_->SetRetryOptions(
-      kFetchNumRetries,
-      network::SimpleURLLoader::RetryMode::RETRY_ON_NETWORK_CHANGE);
-  url_loader_->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      factory_.get(),
-      base::BindOnce(&XmlDownloader::ParseXml, weak_ptr_factory_.GetWeakPtr()));
+  for (auto& source : sources_) {
+    auto request = std::make_unique<network::ResourceRequest>();
+    request->url = source.url;
+    request->load_flags =
+        (net::LOAD_DO_NOT_SEND_COOKIES | net::LOAD_DO_NOT_SAVE_COOKIES |
+         net::LOAD_DISABLE_CACHE);
+    source.url_loader = network::SimpleURLLoader::Create(std::move(request),
+                                                         traffic_annotation);
+    source.url_loader->SetRetryOptions(
+        kFetchNumRetries,
+        network::SimpleURLLoader::RetryMode::RETRY_ON_NETWORK_CHANGE);
+    source.url_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
+        GetURLLoaderFactoryForURL(source.url),
+        base::BindOnce(&XmlDownloader::ParseXml, weak_ptr_factory_.GetWeakPtr(),
+                       base::Unretained(&source)));
+  }
 }
 
-void XmlDownloader::ParseXml(std::unique_ptr<std::string> bytes) {
+network::mojom::URLLoaderFactory* XmlDownloader::GetURLLoaderFactoryForURL(
+    const GURL& url) {
+  if (url.SchemeIsFile())
+    return file_url_factory_.get();
+  return other_url_factory_.get();
+}
+
+void XmlDownloader::ParseXml(RulesetSource* source,
+                             std::unique_ptr<std::string> bytes) {
   if (!bytes) {
-    DoneParsing(ParsedXml({}, {}, "could not fetch XML"));
+    DoneParsing(source, ParsedXml({}, {}, "could not fetch XML"));
     return;
   }
   ParseIeemXml(*bytes, base::BindOnce(&XmlDownloader::DoneParsing,
-                                      weak_ptr_factory_.GetWeakPtr()));
+                                      weak_ptr_factory_.GetWeakPtr(),
+                                      base::Unretained(source)));
 }
 
-void XmlDownloader::DoneParsing(ParsedXml xml) {
-  factory_.reset();
-  url_loader_.reset();
-  std::move(done_callback_).Run(std::move(xml));
+void XmlDownloader::DoneParsing(RulesetSource* source, ParsedXml xml) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (xml.error)
+    LOG(ERROR) << *xml.error;
+  std::move(source->parsed_callback).Run(std::move(xml));
+
+  // Run the "all done" callback if this was the last ruleset.
+  counter_++;
+  DCHECK(counter_ <= sources_.size());
+  if (counter_ == sources_.size())
+    std::move(all_done_callback_).Run();
 }
 
 BrowserSwitcherService::BrowserSwitcherService(Profile* profile)
-    : prefs_(profile->GetPrefs()),
+    : prefs_(profile),
       driver_(new AlternativeBrowserDriverImpl(&prefs_)),
       sitelist_(new BrowserSwitcherSitelistImpl(&prefs_)),
       weak_ptr_factory_(this) {
-  GURL external_url = prefs_.GetExternalSitelistUrl();
-  if (external_url.is_valid()) {
-    external_sitelist_downloader_ = std::make_unique<XmlDownloader>(
-        profile, std::move(external_url), fetch_delay_,
-        base::BindOnce(&BrowserSwitcherService::OnExternalSitelistParsed,
-                       weak_ptr_factory_.GetWeakPtr()));
-  }
-
-#if defined(OS_WIN)
-  if (prefs_.UseIeSitelist()) {
-    GURL sitelist_url = GetIeemSitelistUrl();
-    if (sitelist_url.is_valid()) {
-      ieem_downloader_ = std::make_unique<XmlDownloader>(
-          profile, std::move(sitelist_url), fetch_delay_,
-          base::BindOnce(&BrowserSwitcherService::OnIeemSitelistParsed,
-                         weak_ptr_factory_.GetWeakPtr()));
-    }
-  }
-#endif
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&BrowserSwitcherService::StartDownload,
+                     weak_ptr_factory_.GetWeakPtr(), base::Unretained(profile)),
+      fetch_delay_);
 }
 
-BrowserSwitcherService::~BrowserSwitcherService() {}
+BrowserSwitcherService::~BrowserSwitcherService() = default;
+
+void BrowserSwitcherService::StartDownload(Profile* profile) {
+  auto sources = GetRulesetSources();
+  if (!sources.empty()) {
+    sitelist_downloader_ = std::make_unique<XmlDownloader>(
+        profile, std::move(sources),
+        base::BindOnce(&BrowserSwitcherService::OnAllRulesetsParsed,
+                       base::Unretained(this)));
+  }
+  // Refresh in 30 minutes, so the sitelists are never too stale.
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&BrowserSwitcherService::StartDownload,
+                     weak_ptr_factory_.GetWeakPtr(), base::Unretained(profile)),
+      refresh_delay_);
+}
+
+void BrowserSwitcherService::Shutdown() {
+  prefs_.Shutdown();
+}
 
 AlternativeBrowserDriver* BrowserSwitcherService::driver() {
   return driver_.get();
@@ -186,7 +189,7 @@ BrowserSwitcherSitelist* BrowserSwitcherService::sitelist() {
   return sitelist_.get();
 }
 
-const BrowserSwitcherPrefs& BrowserSwitcherService::prefs() const {
+BrowserSwitcherPrefs& BrowserSwitcherService::prefs() {
   return prefs_;
 }
 
@@ -200,6 +203,22 @@ void BrowserSwitcherService::SetSitelistForTesting(
   sitelist_ = std::move(sitelist);
 }
 
+std::vector<RulesetSource> BrowserSwitcherService::GetRulesetSources() {
+  std::vector<RulesetSource> sources;
+  GURL external_url = prefs_.GetExternalSitelistUrl();
+  if (!external_url.is_valid())
+    return sources;
+  sources.emplace_back(
+      external_url,
+      base::BindOnce(&BrowserSwitcherService::OnExternalSitelistParsed,
+                     weak_ptr_factory_.GetWeakPtr()));
+  return sources;
+}
+
+void BrowserSwitcherService::OnAllRulesetsParsed() {
+  sitelist_downloader_.reset();
+}
+
 void BrowserSwitcherService::OnExternalSitelistParsed(ParsedXml xml) {
   if (xml.error) {
     LOG(ERROR) << "Unable to parse IEEM SiteList: " << *xml.error;
@@ -208,52 +227,18 @@ void BrowserSwitcherService::OnExternalSitelistParsed(ParsedXml xml) {
             << "Applying rules to future navigations.";
     sitelist()->SetExternalSitelist(std::move(xml));
   }
-  external_sitelist_downloader_.reset();
 }
 
 base::TimeDelta BrowserSwitcherService::fetch_delay_ = kFetchSitelistDelay;
+base::TimeDelta BrowserSwitcherService::refresh_delay_ = kRefreshSitelistDelay;
 
 // static
 void BrowserSwitcherService::SetFetchDelayForTesting(base::TimeDelta delay) {
   fetch_delay_ = delay;
 }
 
-#if defined(OS_WIN)
-base::Optional<std::string>
-    BrowserSwitcherService::ieem_sitelist_url_for_testing_;
-
-// static
-void BrowserSwitcherService::SetIeemSitelistUrlForTesting(
-    const std::string& spec) {
-  ieem_sitelist_url_for_testing_ = spec;
+void BrowserSwitcherService::SetRefreshDelayForTesting(base::TimeDelta delay) {
+  refresh_delay_ = delay;
 }
-
-// static
-GURL BrowserSwitcherService::GetIeemSitelistUrl() {
-  if (ieem_sitelist_url_for_testing_ != base::nullopt)
-    return GURL(*ieem_sitelist_url_for_testing_);
-
-  base::win::RegKey key;
-  if (ERROR_SUCCESS != key.Open(HKEY_LOCAL_MACHINE, kIeSiteListKey, KEY_READ) &&
-      ERROR_SUCCESS != key.Open(HKEY_CURRENT_USER, kIeSiteListKey, KEY_READ)) {
-    return GURL();
-  }
-  std::wstring url_string;
-  if (ERROR_SUCCESS != key.ReadValue(kIeSiteListValue, &url_string))
-    return GURL();
-  return GURL(base::UTF16ToUTF8(url_string));
-}
-
-void BrowserSwitcherService::OnIeemSitelistParsed(ParsedXml xml) {
-  if (xml.error) {
-    LOG(ERROR) << "Unable to parse IEEM SiteList: " << *xml.error;
-  } else {
-    VLOG(2) << "Done parsing IEEM SiteList. "
-            << "Applying rules to future navigations.";
-    sitelist()->SetIeemSitelist(std::move(xml));
-  }
-  ieem_downloader_.reset();
-}
-#endif
 
 }  // namespace browser_switcher

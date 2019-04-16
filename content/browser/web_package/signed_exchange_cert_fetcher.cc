@@ -4,6 +4,7 @@
 
 #include "content/browser/web_package/signed_exchange_cert_fetcher.h"
 
+#include "base/bind.h"
 #include "base/format_macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
@@ -13,12 +14,14 @@
 #include "content/browser/loader/resource_dispatcher_host_impl.h"
 #include "content/browser/web_package/signed_exchange_consts.h"
 #include "content/browser/web_package/signed_exchange_devtools_proxy.h"
+#include "content/browser/web_package/signed_exchange_reporter.h"
 #include "content/browser/web_package/signed_exchange_utils.h"
 #include "content/common/throttling_url_loader.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/url_loader_throttle.h"
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_status_code.h"
 #include "services/network/loader_util.h"
@@ -75,6 +78,7 @@ SignedExchangeCertFetcher::CreateAndStart(
     bool force_fetch,
     CertificateCallback callback,
     SignedExchangeDevToolsProxy* devtools_proxy,
+    SignedExchangeReporter* reporter,
     const base::Optional<base::UnguessableToken>& throttling_profile_id) {
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("loading"),
                "SignedExchangeCertFetcher::CreateAndStart");
@@ -82,7 +86,7 @@ SignedExchangeCertFetcher::CreateAndStart(
       new SignedExchangeCertFetcher(std::move(shared_url_loader_factory),
                                     std::move(throttles), cert_url, force_fetch,
                                     std::move(callback), devtools_proxy,
-                                    throttling_profile_id));
+                                    reporter, throttling_profile_id));
   cert_fetcher->Start();
   return cert_fetcher;
 }
@@ -95,12 +99,14 @@ SignedExchangeCertFetcher::SignedExchangeCertFetcher(
     bool force_fetch,
     CertificateCallback callback,
     SignedExchangeDevToolsProxy* devtools_proxy,
+    SignedExchangeReporter* reporter,
     const base::Optional<base::UnguessableToken>& throttling_profile_id)
     : shared_url_loader_factory_(std::move(shared_url_loader_factory)),
       throttles_(std::move(throttles)),
       resource_request_(std::make_unique<network::ResourceRequest>()),
       callback_(std::move(callback)),
-      devtools_proxy_(devtools_proxy) {
+      devtools_proxy_(devtools_proxy),
+      reporter_(reporter) {
   // TODO(https://crbug.com/803774): Revisit more ResourceRequest flags.
   resource_request_->url = cert_url;
   // |request_initiator| is used for cookie checks, but cert requests don't use
@@ -212,6 +218,9 @@ void SignedExchangeCertFetcher::OnReceiveResponse(
     devtools_proxy_->CertificateResponseReceived(*cert_request_id_,
                                                  resource_request_->url, head);
   }
+
+  if (reporter_)
+    reporter_->set_cert_server_ip_address(head.remote_endpoint.address());
 
   // |headers| is null when loading data URL.
   if (head.headers && head.headers->response_code() != net::HTTP_OK) {

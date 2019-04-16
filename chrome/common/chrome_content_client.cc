@@ -12,6 +12,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_util.h"
@@ -266,8 +267,9 @@ bool TryCreatePepperFlashInfo(const base::FilePath& flash_filename,
   if (!base::ReadFileToString(manifest_path, &manifest_data))
     return false;
 
-  std::unique_ptr<base::DictionaryValue> manifest = base::DictionaryValue::From(
-      base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
+  std::unique_ptr<base::DictionaryValue> manifest =
+      base::DictionaryValue::From(base::JSONReader::ReadDeprecated(
+          manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
   if (!manifest)
     return false;
 
@@ -359,9 +361,8 @@ bool GetBundledPepperFlash(content::PepperPluginInfo* plugin) {
   std::string manifest_data;
   if (!base::ReadFileToString(manifest_path, &manifest_data))
     return false;
-  std::unique_ptr<base::Value> manifest_value(
-      base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS));
-  if (!manifest_value.get())
+  base::Optional<base::Value> manifest_value = base::JSONReader::Read(manifest_data, base::JSON_ALLOW_TRAILING_COMMAS);
+  if (!(manifest_value))
     return false;
   base::DictionaryValue* manifest = NULL;
   if (!manifest_value->GetAsDictionary(&manifest))
@@ -477,7 +478,8 @@ void ChromeContentClient::SetActiveURL(const GURL& url,
   static crash_reporter::CrashKeyString<1024> active_url("url-chunk");
   active_url.Set(url.possibly_invalid_spec());
 
-  static crash_reporter::CrashKeyString<64> top_origin_key("top-origin");
+  // Use a large enough size for Origin::GetDebugString.
+  static crash_reporter::CrashKeyString<128> top_origin_key("top-origin");
   top_origin_key.Set(top_origin);
 }
 
@@ -719,6 +721,12 @@ base::string16 ChromeContentClient::GetLocalizedString(int message_id) const {
   return l10n_util::GetStringUTF16(message_id);
 }
 
+base::string16 ChromeContentClient::GetLocalizedString(
+    int message_id,
+    const base::string16& replacement) const {
+  return l10n_util::GetStringFUTF16(message_id, replacement);
+}
+
 base::StringPiece ChromeContentClient::GetDataResource(
     int resource_id,
     ui::ScaleFactor scale_factor) const {
@@ -762,9 +770,9 @@ std::string ChromeContentClient::GetProcessTypeNameInEnglish(int type) {
 }
 
 bool ChromeContentClient::AllowScriptExtensionForServiceWorker(
-    const GURL& script_url) {
+    const url::Origin& script_origin) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  return script_url.SchemeIs(extensions::kExtensionScheme);
+  return script_origin.scheme() == extensions::kExtensionScheme;
 #else
   return false;
 #endif

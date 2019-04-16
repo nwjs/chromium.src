@@ -643,7 +643,8 @@ void FrameSelection::SelectFrameElementInParentIfFullySelected() {
     return;
 
   // FIXME: This is not yet implemented for cross-process frame relationships.
-  if (!parent->IsLocalFrame())
+  auto* parent_local_frame = DynamicTo<LocalFrame>(parent);
+  if (!parent_local_frame)
     return;
 
   // Get to the <iframe> or <frame> (or even <object>) element in the parent
@@ -672,9 +673,9 @@ void FrameSelection::SelectFrameElementInParentIfFullySelected() {
   // SetFocusedFrame can dispatch synchronous focus/blur events.  The document
   // tree might be modified.
   if (!owner_element->isConnected() ||
-      owner_element->GetDocument() != ToLocalFrame(parent)->GetDocument())
+      owner_element->GetDocument() != parent_local_frame->GetDocument())
     return;
-  ToLocalFrame(parent)->Selection().SetSelectionAndEndTyping(
+  parent_local_frame->Selection().SetSelectionAndEndTyping(
       SelectionInDOMTree::Builder()
           .SetBaseAndExtent(Position::BeforeNode(*owner_element),
                             Position::AfterNode(*owner_element))
@@ -1063,7 +1064,7 @@ void FrameSelection::ShowTreeForThis() const {
 
 #endif
 
-void FrameSelection::Trace(blink::Visitor* visitor) {
+void FrameSelection::Trace(Visitor* visitor) {
   visitor->Trace(frame_);
   visitor->Trace(layout_selection_);
   visitor->Trace(selection_editor_);
@@ -1088,9 +1089,9 @@ bool FrameSelection::SelectWordAroundCaret() {
   if (!selection.IsCaret())
     return false;
   const Position position = selection.Start();
-  static const EWordSide kWordSideList[2] = {kNextWordIfOnBoundary,
-                                             kPreviousWordIfOnBoundary};
-  for (EWordSide word_side : kWordSideList) {
+  static const WordSide kWordSideList[2] = {kNextWordIfOnBoundary,
+                                            kPreviousWordIfOnBoundary};
+  for (WordSide word_side : kWordSideList) {
     Position start = StartOfWordPosition(position, word_side);
     Position end = EndOfWordPosition(position, word_side);
 

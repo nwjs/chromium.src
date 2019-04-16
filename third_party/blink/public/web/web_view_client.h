@@ -33,6 +33,7 @@
 
 #include "base/strings/string_piece.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
+#include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/web_ax_enums.h"
 #include "third_party/blink/public/web/web_frame.h"
@@ -73,6 +74,7 @@ class WebViewClient {
       WebNavigationPolicy policy,
       bool suppress_opener,
       WebSandboxFlags,
+      const FeaturePolicy::FeatureState&,
       const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest = nullptr) {
     return nullptr;
   }
@@ -87,6 +89,12 @@ class WebViewClient {
 
   // Misc ----------------------------------------------------------------
 
+  // Called when a region of the WebView needs to be re-painted. This is only
+  // for non-composited WebViews that exist to contribute to a "parent" WebView
+  // painting. Otherwise invalidations are transmitted to the compositor through
+  // the layers.
+  virtual void DidInvalidateRect(const WebRect&) {}
+
   // Called when script in the page calls window.print().  If frame is
   // non-null, then it selects a particular frame, including its
   // children, to print.  Otherwise, the main frame and its children
@@ -95,10 +103,6 @@ class WebViewClient {
 
   // Called when PageImportanceSignals for the WebView is updated.
   virtual void PageImportanceSignalsChanged() {}
-
-  // Called to get the position of the root window containing the widget
-  // in screen coordinates.
-  virtual WebRect RootWindowRect() { return WebRect(); }
 
   // Dialogs -------------------------------------------------------------
 
@@ -200,6 +204,10 @@ class WebViewClient {
   // Gestures -------------------------------------------------------------
 
   virtual bool CanHandleGestureEvent() { return false; }
+
+  // Policies -------------------------------------------------------------
+
+  virtual bool AllowPopupsDuringPageUnload() { return false; }
 };
 
 }  // namespace blink

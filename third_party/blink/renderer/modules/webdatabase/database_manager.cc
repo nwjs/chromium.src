@@ -142,8 +142,7 @@ Database* DatabaseManager::OpenDatabaseInternal(
   DCHECK_EQ(error, DatabaseError::kNone);
 
   DatabaseContext* backend_context = DatabaseContextFor(context)->Backend();
-  if (DatabaseTracker::Tracker().CanEstablishDatabase(
-          backend_context, name, display_name, estimated_size, error)) {
+  if (DatabaseTracker::Tracker().CanEstablishDatabase(backend_context, error)) {
     Database* backend = MakeGarbageCollected<Database>(
         backend_context, name, expected_version, display_name, estimated_size);
     if (backend->OpenAndVerifyVersion(set_version_in_new_database, error,
@@ -201,7 +200,7 @@ String DatabaseManager::FullPathForDatabase(const SecurityOrigin* origin,
 void DatabaseManager::LogErrorMessage(ExecutionContext* context,
                                       const String& message) {
   context->AddConsoleMessage(ConsoleMessage::Create(
-      kStorageMessageSource, kErrorMessageLevel, message));
+      kStorageMessageSource, mojom::ConsoleMessageLevel::kError, message));
 }
 
 }  // namespace blink

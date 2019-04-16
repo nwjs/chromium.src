@@ -45,6 +45,11 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
   // Deprecated: use AwBrowserContext::GetDefault() instead.
   static AwBrowserContext* GetAwBrowserContext();
 
+  // Sets whether the net stack should check the cleartext policy from the
+  // platform. For details, see
+  // https://developer.android.com/reference/android/security/NetworkSecurityPolicy.html#isCleartextTrafficPermitted().
+  static void set_check_cleartext_permitted(bool permitted);
+
   // |aw_feature_list_creator| should not be null.
   explicit AwContentBrowserClient(
       AwFeatureListCreator* aw_feature_list_creator);
@@ -188,9 +193,9 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
                                 ui::PageTransition transition,
                                 bool* ignore_navigation) override;
   bool ShouldCreateTaskScheduler() override;
-  scoped_refptr<content::LoginDelegate> CreateLoginDelegate(
+  std::unique_ptr<content::LoginDelegate> CreateLoginDelegate(
       net::AuthChallengeInfo* auth_info,
-      content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+      content::WebContents* web_contents,
       const content::GlobalRequestID& request_id,
       bool is_main_frame,
       const GURL& url,
@@ -222,6 +227,8 @@ class AwContentBrowserClient : public content::ContentBrowserClient {
       bool* bypass_redirect_checks) override;
   std::string GetProduct() const override;
   std::string GetUserAgent() const override;
+  ContentBrowserClient::WideColorGamutHeuristic GetWideColorGamutHeuristic()
+      const override;
 
   AwFeatureListCreator* aw_feature_list_creator() {
     return aw_feature_list_creator_;

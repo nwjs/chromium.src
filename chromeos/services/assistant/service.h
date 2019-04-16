@@ -27,7 +27,7 @@
 #include "mojo/public/cpp/bindings/binding.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
-#include "services/identity/public/mojom/identity_manager.mojom.h"
+#include "services/identity/public/mojom/identity_accessor.mojom.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/service.h"
 #include "services/service_manager/public/cpp/service_binding.h"
@@ -41,6 +41,7 @@ class OneShotTimer;
 
 namespace network {
 class NetworkConnectionTracker;
+class SharedURLLoaderFactoryInfo;
 }  // namespace network
 
 namespace power_manager {
@@ -61,7 +62,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
  public:
   Service(service_manager::mojom::ServiceRequest request,
           network::NetworkConnectionTracker* network_connection_tracker,
-          scoped_refptr<base::SingleThreadTaskRunner> io_task_runner);
+          std::unique_ptr<network::SharedURLLoaderFactoryInfo>
+              url_loader_factory_info);
   ~Service() override;
 
   mojom::Client* client() { return client_.get(); }
@@ -88,19 +90,17 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   }
 
   ash::AssistantStateBase* assistant_state() { return &assistant_state_; }
-  // net::URLRequestContextGetter requires a base::SingleThreadTaskRunner.
-  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner() {
-    return io_task_runner_;
-  }
 
   scoped_refptr<base::SequencedTaskRunner> main_task_runner() {
     return main_task_runner_;
   }
 
+  bool is_signed_out_mode() const { return is_signed_out_mode_; }
+
   void RequestAccessToken();
 
-  void SetIdentityManagerForTesting(
-      identity::mojom::IdentityManagerPtr identity_manager);
+  void SetIdentityAccessorForTesting(
+      identity::mojom::IdentityAccessorPtr identity_accessor);
 
   void SetAssistantManagerForTesting(
       std::unique_ptr<AssistantManagerService> assistant_manager_service);
@@ -131,7 +131,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   void OnVoiceInteractionHotwordAlwaysOn(bool always_on) override;
   void OnLocaleChanged(const std::string& locale) override;
 
-  void MaybeRestartAssistantManager();
   void UpdateAssistantManagerState();
   void BindAssistantSettingsManager(
       mojom::AssistantSettingsManagerRequest request);
@@ -140,7 +139,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   void Init(mojom::ClientPtr client,
             mojom::DeviceActionsPtr device_actions) override;
 
-  identity::mojom::IdentityManager* GetIdentityManager();
+  identity::mojom::IdentityAccessor* GetIdentityAccessor();
 
   void GetPrimaryAccountInfoCallback(
       const base::Optional<AccountInfo>& account_info,
@@ -173,7 +172,7 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   mojom::ClientPtr client_;
   mojom::DeviceActionsPtr device_actions_;
 
-  identity::mojom::IdentityManagerPtr identity_manager_;
+  identity::mojom::IdentityAccessorPtr identity_accessor_;
 
   AccountId account_id_;
   std::unique_ptr<AssistantManagerService> assistant_manager_service_;
@@ -188,10 +187,11 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   bool session_active_ = false;
   // Whether the lock screen is on.
   bool locked_ = false;
-  // Whether there is a pending run for updating AssistantManagerService
-  bool pending_restart_assistant_manager_ = false;
   // Whether the power source is connected.
   bool power_source_connected_ = false;
+  // In the signed-out mode, we are going to run Assistant service without
+  // using user's signed in account information.
+  bool is_signed_out_mode_ = false;
 
   base::Optional<std::string> access_token_;
 
@@ -205,7 +205,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   ash::AssistantStateProxy assistant_state_;
 
   network::NetworkConnectionTracker* network_connection_tracker_;
-  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner_;
+  // non-null until |assistant_manager_service_| is created.
+  std::unique_ptr<network::SharedURLLoaderFactoryInfo> url_loader_factory_info_;
 
   base::WeakPtrFactory<Service> weak_ptr_factory_;
 

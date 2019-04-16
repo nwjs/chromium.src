@@ -42,11 +42,10 @@ class AutoclickTitleView : public views::View, public views::ButtonListener {
  public:
   explicit AutoclickTitleView(AutoclickTray* autoclick_tray)
       : autoclick_tray_(autoclick_tray) {
-    const int separator_width = TrayConstants::separator_width();
     SetBorder(views::CreatePaddedBorder(
-        views::CreateSolidSidedBorder(0, 0, separator_width, 0,
+        views::CreateSolidSidedBorder(0, 0, kTraySeparatorWidth, 0,
                                       kMenuSeparatorColor),
-        gfx::Insets(kMenuSeparatorVerticalPadding - separator_width, 0)));
+        gfx::Insets(kMenuSeparatorVerticalPadding - kTraySeparatorWidth, 0)));
     auto box_layout =
         std::make_unique<views::BoxLayout>(views::BoxLayout::kHorizontal);
     box_layout->set_minimum_cross_axis_size(kTrayPopupItemMinHeight);
@@ -228,8 +227,7 @@ void AutoclickTray::UpdateIconsForSession() {
       Shell::Get()->session_controller()->GetSessionState();
   SkColor color = TrayIconColor(session_state);
 
-  // TODO(katie): Use autoclick asset when available.
-  tray_image_ = gfx::CreateVectorIcon(kSystemTraySelectToSpeakNewuiIcon, color);
+  tray_image_ = gfx::CreateVectorIcon(kAutoclickIcon, color);
 }
 
 void AutoclickTray::CheckStatusAndUpdateIcon() {

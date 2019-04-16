@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/animationworklet/worklet_animation.h"
 
+#include <memory>
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
 #include "third_party/blink/renderer/bindings/modules/v8/animation_effect_or_animation_effect_sequence.h"
@@ -20,6 +21,14 @@
 namespace blink {
 
 namespace {
+
+// Only expect precision up to 1 microsecond with an additional epsilon to
+// account for float conversion error (mainly due to timeline time getting
+// converted between float and TimeDelta).
+static constexpr double time_error_ms = 0.001 + 1e-13;
+
+#define EXPECT_TIME_NEAR(expected, value) \
+  EXPECT_NEAR(expected, value, time_error_ms)
 
 KeyframeEffectModelBase* CreateEffectModel() {
   StringKeyframeVector frames_mixed_properties;
@@ -56,10 +65,13 @@ WorkletAnimation* CreateWorkletAnimation(
   scoped_refptr<SerializedScriptValue> options;
 
   ScriptState::Scope scope(script_state);
-  DummyExceptionStateForTesting exception_state;
   return WorkletAnimation::Create(script_state, animator_name, effects,
                                   timeline, std::move(options),
-                                  exception_state);
+                                  ASSERT_NO_EXCEPTION);
+}
+
+base::TimeDelta ToTimeDelta(double milliseconds) {
+  return base::TimeDelta::FromMillisecondsD(milliseconds);
 }
 
 }  // namespace
@@ -80,6 +92,16 @@ class WorkletAnimationTest : public RenderingTest {
         animator_name_);
     worklet_animation_ =
         CreateWorkletAnimation(GetScriptState(), element_, animator_name_);
+    GetDocument().Timeline().ResetForTesting();
+    GetDocument().GetAnimationClock().ResetTimeForTesting();
+  }
+
+  void SimulateFrame(double milliseconds) {
+    base::TimeTicks tick = base::TimeTicks() + ToTimeDelta(milliseconds);
+    GetDocument().GetAnimationClock().ResetTimeForTesting(tick);
+    GetDocument().GetWorkletAnimationController().UpdateAnimationStates();
+    GetDocument().GetWorkletAnimationController().UpdateAnimationTimings(
+        kTimingUpdateForAnimationFrame);
   }
 
   ScriptState* GetScriptState() {
@@ -92,8 +114,7 @@ class WorkletAnimationTest : public RenderingTest {
 };
 
 TEST_F(WorkletAnimationTest, WorkletAnimationInElementAnimations) {
-  DummyExceptionStateForTesting exception_state;
-  worklet_animation_->play(exception_state);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
   EXPECT_EQ(1u,
             element_->EnsureElementAnimations().GetWorkletAnimations().size());
   worklet_animation_->cancel();
@@ -105,28 +126,17 @@ TEST_F(WorkletAnimationTest, StyleHasCurrentAnimation) {
   scoped_refptr<ComputedStyle> style =
       GetDocument().EnsureStyleResolver().StyleForElement(element_).get();
   EXPECT_EQ(false, style->HasCurrentOpacityAnimation());
-  DummyExceptionStateForTesting exception_state;
-  worklet_animation_->play(exception_state);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
   element_->EnsureElementAnimations().UpdateAnimationFlags(*style);
   EXPECT_EQ(true, style->HasCurrentOpacityAnimation());
 }
 
 TEST_F(WorkletAnimationTest,
        CurrentTimeFromDocumentTimelineIsOffsetByStartTime) {
-  // Only expect precision up to 1 microsecond with an additional smaller
-  // component to account for double rounding/conversion error.
-  double error =
-      base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF() + 1e-13;
-
   WorkletAnimationId id = worklet_animation_->GetWorkletAnimationId();
-  base::TimeTicks first_ticks =
-      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111);
-  base::TimeTicks second_ticks =
-      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111 + 123.4);
 
-  GetDocument().GetAnimationClock().ResetTimeForTesting(first_ticks);
-  DummyExceptionStateForTesting exception_state;
-  worklet_animation_->play(exception_state);
+  SimulateFrame(111);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
   worklet_animation_->UpdateCompositingState();
 
   std::unique_ptr<AnimationWorkletDispatcherInput> state =
@@ -135,12 +145,13 @@ TEST_F(WorkletAnimationTest,
   // First state request sets the start time and thus current time should be 0.
   std::unique_ptr<AnimationWorkletInput> input =
       state->TakeWorkletState(id.worklet_id);
-  EXPECT_NEAR(0, input->added_and_updated_animations[0].current_time, error);
+  EXPECT_TIME_NEAR(0, input->added_and_updated_animations[0].current_time);
+
+  SimulateFrame(111 + 123.4);
   state.reset(new AnimationWorkletDispatcherInput);
-  GetDocument().GetAnimationClock().ResetTimeForTesting(second_ticks);
   worklet_animation_->UpdateInputState(state.get());
   input = state->TakeWorkletState(id.worklet_id);
-  EXPECT_NEAR(123.4, input->updated_animations[0].current_time, error);
+  EXPECT_TIME_NEAR(123.4, input->updated_animations[0].current_time);
 }
 
 TEST_F(WorkletAnimationTest,
@@ -171,42 +182,25 @@ TEST_F(WorkletAnimationTest,
       ScrollTimeline::Create(GetDocument(), options, ASSERT_NO_EXCEPTION);
   WorkletAnimation* worklet_animation = CreateWorkletAnimation(
       GetScriptState(), element_, animator_name_, scroll_timeline);
-  WorkletAnimationId id = worklet_animation->GetWorkletAnimationId();
 
-  DummyExceptionStateForTesting exception_state;
-  worklet_animation->play(exception_state);
+  worklet_animation->play(ASSERT_NO_EXCEPTION);
   worklet_animation->UpdateCompositingState();
 
-  // Only expect precision up to 1 microsecond with an additional smaller
-  // component to account for double rounding/conversion error.
-  double error =
-      base::TimeDelta::FromMicrosecondsD(1).InMillisecondsF() + 1e-13;
   scrollable_area->SetScrollOffset(ScrollOffset(0, 40), kProgrammaticScroll);
-  std::unique_ptr<AnimationWorkletDispatcherInput> state =
-      std::make_unique<AnimationWorkletDispatcherInput>();
-  worklet_animation->UpdateInputState(state.get());
-  std::unique_ptr<AnimationWorkletInput> input =
-      state->TakeWorkletState(id.worklet_id);
 
-  EXPECT_NEAR(40, input->added_and_updated_animations[0].current_time, error);
-  state.reset(new AnimationWorkletDispatcherInput);
+  EXPECT_TIME_NEAR(40,
+                   worklet_animation->CurrentTime().value().InMillisecondsF());
 
   scrollable_area->SetScrollOffset(ScrollOffset(0, 70), kProgrammaticScroll);
-  worklet_animation->UpdateInputState(state.get());
-  input = state->TakeWorkletState(id.worklet_id);
-  EXPECT_NEAR(70, input->updated_animations[0].current_time, error);
+  EXPECT_TIME_NEAR(70,
+                   worklet_animation->CurrentTime().value().InMillisecondsF());
 }
 
 TEST_F(WorkletAnimationTest, MainThreadSendsPeekRequestTest) {
   WorkletAnimationId id = worklet_animation_->GetWorkletAnimationId();
-  base::TimeTicks first_ticks =
-      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111);
-  base::TimeTicks second_ticks =
-      base::TimeTicks() + base::TimeDelta::FromMillisecondsD(111 + 123.4);
 
-  GetDocument().GetAnimationClock().ResetTimeForTesting(first_ticks);
-  DummyExceptionStateForTesting exception_state;
-  worklet_animation_->play(exception_state);
+  SimulateFrame(111.0);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
   worklet_animation_->UpdateCompositingState();
 
   // Only peek if animation is running on compositor.
@@ -246,7 +240,9 @@ TEST_F(WorkletAnimationTest, MainThreadSendsPeekRequestTest) {
   state.reset(new AnimationWorkletDispatcherInput);
 
   // Input time changes. Need to peek again.
-  GetDocument().GetAnimationClock().ResetTimeForTesting(second_ticks);
+  GetDocument().GetAnimationClock().ResetTimeForTesting(
+      base::TimeTicks() + ToTimeDelta(111.0 + 123.4));
+
   worklet_animation_->UpdateInputState(state.get());
   input = state->TakeWorkletState(id.worklet_id);
   EXPECT_EQ(input->peeked_animations.size(), 1u);
@@ -254,6 +250,173 @@ TEST_F(WorkletAnimationTest, MainThreadSendsPeekRequestTest) {
   EXPECT_EQ(input->updated_animations.size(), 0u);
   EXPECT_EQ(input->removed_animations.size(), 0u);
   state.reset(new AnimationWorkletDispatcherInput);
+}
+
+// Verifies correctness of current time when playback rate is set while the
+// animation is in idle state.
+TEST_F(WorkletAnimationTest, DocumentTimelineSetPlaybackRate) {
+  double playback_rate = 2.0;
+
+  SimulateFrame(111.0);
+  worklet_animation_->setPlaybackRate(GetScriptState(), playback_rate);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
+  worklet_animation_->UpdateCompositingState();
+  // Zero current time is not impacted by playback rate.
+  EXPECT_TIME_NEAR(0,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+  // Play the animation until second_ticks.
+  SimulateFrame(111.0 + 123.4);
+  // Verify that the current time is updated playback_rate faster than the
+  // timeline time.
+  EXPECT_TIME_NEAR(123.4 * playback_rate,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+}
+
+// Verifies correctness of current time when playback rate is set while the
+// animation is playing.
+TEST_F(WorkletAnimationTest, DocumentTimelineSetPlaybackRateWhilePlaying) {
+  SimulateFrame(0);
+  double playback_rate = 0.5;
+  // Start animation.
+  SimulateFrame(111.0);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
+  worklet_animation_->UpdateCompositingState();
+  // Update playback rate after second tick.
+  SimulateFrame(111.0 + 123.4);
+  worklet_animation_->setPlaybackRate(GetScriptState(), playback_rate);
+  // Verify current time after third tick.
+  SimulateFrame(111.0 + 123.4 + 200.0);
+  EXPECT_TIME_NEAR(123.4 + 200.0 * playback_rate,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+}
+
+TEST_F(WorkletAnimationTest, PausePlay) {
+  SimulateFrame(0);
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
+  EXPECT_EQ(Animation::kPending, worklet_animation_->PlayState());
+  SimulateFrame(0);
+  EXPECT_EQ(Animation::kRunning, worklet_animation_->PlayState());
+  EXPECT_TRUE(worklet_animation_->Playing());
+  EXPECT_TIME_NEAR(0,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+  SimulateFrame(10);
+  worklet_animation_->pause(ASSERT_NO_EXCEPTION);
+  EXPECT_EQ(Animation::kPaused, worklet_animation_->PlayState());
+  EXPECT_FALSE(worklet_animation_->Playing());
+  EXPECT_TIME_NEAR(10,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+  SimulateFrame(20);
+  EXPECT_EQ(Animation::kPaused, worklet_animation_->PlayState());
+  EXPECT_TIME_NEAR(10,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+  worklet_animation_->play(ASSERT_NO_EXCEPTION);
+  EXPECT_EQ(Animation::kPending, worklet_animation_->PlayState());
+  SimulateFrame(20);
+  EXPECT_EQ(Animation::kRunning, worklet_animation_->PlayState());
+  EXPECT_TRUE(worklet_animation_->Playing());
+  EXPECT_TIME_NEAR(10,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+  SimulateFrame(30);
+  EXPECT_EQ(Animation::kRunning, worklet_animation_->PlayState());
+  EXPECT_TIME_NEAR(20,
+                   worklet_animation_->CurrentTime().value().InMillisecondsF());
+}
+
+// Verifies correctness of current time when playback rate is set while
+// scroll-linked animation is in idle state.
+TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRate) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #scroller { overflow: scroll; width: 100px; height: 100px; }
+      #spacer { width: 200px; height: 200px; }
+    </style>
+    <div id='scroller'>
+      <div id='spacer'></div>
+    </div>
+  )HTML");
+
+  LayoutBoxModelObject* scroller =
+      ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"));
+  ASSERT_TRUE(scroller);
+  ASSERT_TRUE(scroller->HasOverflowClip());
+  PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 20), kProgrammaticScroll);
+  ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
+  DoubleOrScrollTimelineAutoKeyword time_range =
+      DoubleOrScrollTimelineAutoKeyword::FromDouble(100);
+  options->setTimeRange(time_range);
+  options->setScrollSource(GetElementById("scroller"));
+  ScrollTimeline* scroll_timeline =
+      ScrollTimeline::Create(GetDocument(), options, ASSERT_NO_EXCEPTION);
+  WorkletAnimation* worklet_animation = CreateWorkletAnimation(
+      GetScriptState(), element_, animator_name_, scroll_timeline);
+
+  DummyExceptionStateForTesting exception_state;
+  double playback_rate = 2.0;
+
+  // Set playback rate while the animation is in 'idle' state.
+  worklet_animation->setPlaybackRate(GetScriptState(), playback_rate);
+  worklet_animation->play(exception_state);
+  worklet_animation->UpdateCompositingState();
+
+  // Initial current time increased by playback rate.
+  EXPECT_TIME_NEAR(40,
+                   worklet_animation->CurrentTime().value().InMillisecondsF());
+
+  // Update scroll offset.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40), kProgrammaticScroll);
+
+  // Verify that the current time is updated playback_rate faster than the
+  // timeline time.
+  EXPECT_TIME_NEAR(40 + 20 * playback_rate,
+                   worklet_animation->CurrentTime().value().InMillisecondsF());
+}
+
+// Verifies correctness of current time when playback rate is set while the
+// scroll-linked animation is playing.
+TEST_F(WorkletAnimationTest, ScrollTimelineSetPlaybackRateWhilePlaying) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #scroller { overflow: scroll; width: 100px; height: 100px; }
+      #spacer { width: 200px; height: 200px; }
+    </style>
+    <div id='scroller'>
+      <div id='spacer'></div>
+    </div>
+  )HTML");
+
+  LayoutBoxModelObject* scroller =
+      ToLayoutBoxModelObject(GetLayoutObjectByElementId("scroller"));
+  ASSERT_TRUE(scroller);
+  ASSERT_TRUE(scroller->HasOverflowClip());
+  PaintLayerScrollableArea* scrollable_area = scroller->GetScrollableArea();
+  ASSERT_TRUE(scrollable_area);
+  ScrollTimelineOptions* options = ScrollTimelineOptions::Create();
+  DoubleOrScrollTimelineAutoKeyword time_range =
+      DoubleOrScrollTimelineAutoKeyword::FromDouble(100);
+  options->setTimeRange(time_range);
+  options->setScrollSource(GetElementById("scroller"));
+  ScrollTimeline* scroll_timeline =
+      ScrollTimeline::Create(GetDocument(), options, ASSERT_NO_EXCEPTION);
+  WorkletAnimation* worklet_animation = CreateWorkletAnimation(
+      GetScriptState(), element_, animator_name_, scroll_timeline);
+
+  double playback_rate = 0.5;
+
+  // Start the animation.
+  DummyExceptionStateForTesting exception_state;
+  worklet_animation->play(exception_state);
+  worklet_animation->UpdateCompositingState();
+
+  // Update scroll offset and playback rate.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 40), kProgrammaticScroll);
+  worklet_animation->setPlaybackRate(GetScriptState(), playback_rate);
+
+  // Verify the current time after another scroll offset update.
+  scrollable_area->SetScrollOffset(ScrollOffset(0, 80), kProgrammaticScroll);
+  EXPECT_TIME_NEAR(40 + 40 * playback_rate,
+                   worklet_animation->CurrentTime().value().InMillisecondsF());
 }
 
 }  //  namespace blink

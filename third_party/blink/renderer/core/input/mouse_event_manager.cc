@@ -255,7 +255,7 @@ WebInputEventResult MouseEventManager::DispatchMouseEvent(
         mouse_event.FlattenTransform(), target_node->GetDocument().domWindow(),
         initializer);
     UpdateMouseMovementXY(mouse_event, last_position, initializer);
-    initializer->setButton(static_cast<short>(mouse_event.button));
+    initializer->setButton(static_cast<int16_t>(mouse_event.button));
     initializer->setButtons(MouseEvent::WebInputEventModifiersToButtons(
         mouse_event.GetModifiers()));
     initializer->setView(target_node->GetDocument().domWindow());
@@ -1036,7 +1036,7 @@ WebInputEventResult MouseEventManager::DispatchDragEvent(
     return WebInputEventResult::kNotHandled;
 
   // We should be setting relatedTarget correctly following the spec:
-  // https://html.spec.whatwg.org/multipage/interaction.html#dragevent
+  // https://html.spec.whatwg.org/C/#dragevent
   // At the same time this should prevent exposing a node from another document.
   if (related_target &&
       related_target->GetDocument() != drag_target->GetDocument())

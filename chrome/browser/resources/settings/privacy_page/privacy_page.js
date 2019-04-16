@@ -95,14 +95,6 @@ Polymer({
     },
 
     /** @private */
-    enableSoundContentSetting_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('enableSoundContentSetting');
-      }
-    },
-
-    /** @private */
     enableBlockAutoplayContentSetting_: {
       type: Boolean,
       value: function() {
@@ -199,6 +191,7 @@ Polymer({
   /** @override */
   ready: function() {
     this.ContentSettingsTypes = settings.ContentSettingsTypes;
+    this.ChooserType = settings.ChooserType;
 
     this.browserProxy_ = settings.PrivacyPageBrowserProxyImpl.getInstance();
 

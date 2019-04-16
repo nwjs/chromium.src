@@ -779,6 +779,13 @@ void GLES2InterfaceStub::RenderbufferStorageMultisampleCHROMIUM(
     GLenum /* internalformat */,
     GLsizei /* width */,
     GLsizei /* height */) {}
+void GLES2InterfaceStub::RenderbufferStorageMultisampleAdvancedAMD(
+    GLenum /* target */,
+    GLsizei /* samples */,
+    GLsizei /* storageSamples */,
+    GLenum /* internalformat */,
+    GLsizei /* width */,
+    GLsizei /* height */) {}
 void GLES2InterfaceStub::RenderbufferStorageMultisampleEXT(
     GLenum /* target */,
     GLsizei /* samples */,
@@ -852,6 +859,36 @@ void GLES2InterfaceStub::BindImageTexture(GLuint /* unit */,
 void GLES2InterfaceStub::DispatchCompute(GLuint /* num_groups_x */,
                                          GLuint /* num_groups_y */,
                                          GLuint /* num_groups_z */) {}
+void GLES2InterfaceStub::GetProgramInterfaceiv(GLuint /* program */,
+                                               GLenum /* program_interface */,
+                                               GLenum /* pname */,
+                                               GLint* /* params */) {}
+GLuint GLES2InterfaceStub::GetProgramResourceIndex(
+    GLuint /* program */,
+    GLenum /* program_interface */,
+    const char* /* name */) {
+  return 0;
+}
+void GLES2InterfaceStub::GetProgramResourceName(GLuint /* program */,
+                                                GLenum /* program_interface */,
+                                                GLuint /* index */,
+                                                GLsizei /* bufsize */,
+                                                GLsizei* /* length */,
+                                                char* /* name */) {}
+void GLES2InterfaceStub::GetProgramResourceiv(GLuint /* program */,
+                                              GLenum /* program_interface */,
+                                              GLuint /* index */,
+                                              GLsizei /* prop_count */,
+                                              const GLenum* /* props */,
+                                              GLsizei /* bufsize */,
+                                              GLsizei* /* length */,
+                                              GLint* /* params */) {}
+GLint GLES2InterfaceStub::GetProgramResourceLocation(
+    GLuint /* program */,
+    GLenum /* program_interface */,
+    const char* /* name */) {
+  return 0;
+}
 void GLES2InterfaceStub::MemoryBarrierEXT(GLbitfield /* barriers */) {}
 void GLES2InterfaceStub::MemoryBarrierByRegion(GLbitfield /* barriers */) {}
 void GLES2InterfaceStub::SwapBuffers(GLuint64 /* swap_id */,
@@ -1278,6 +1315,12 @@ void GLES2InterfaceStub::FramebufferTextureMultiviewLayeredANGLE(
 void GLES2InterfaceStub::MaxShaderCompilerThreadsKHR(GLuint /* count */) {}
 GLuint GLES2InterfaceStub::CreateAndTexStorage2DSharedImageCHROMIUM(
     const GLbyte* /* mailbox */) {
+  return 0;
+}
+GLuint
+GLES2InterfaceStub::CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+    const GLbyte* /* mailbox */,
+    GLenum /* internalformat */) {
   return 0;
 }
 void GLES2InterfaceStub::BeginSharedImageAccessDirectCHROMIUM(

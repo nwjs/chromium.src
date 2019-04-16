@@ -245,7 +245,6 @@ void CleanUpQueue(MainThreadTaskQueue* queue) {
   queue->DetachFromMainThreadScheduler();
   queue->DetachFromFrameScheduler();
   queue->SetBlameContext(nullptr);
-  queue->SetQueuePriority(TaskQueue::QueuePriority::kLowPriority);
 }
 
 }  // namespace
@@ -372,8 +371,8 @@ void FrameSchedulerImpl::InitializeTaskTypeQueueTraitsMap(
     TaskType type = static_cast<TaskType>(i);
     base::Optional<QueueTraits> queue_traits =
         CreateQueueTraitsForTaskType(type);
-    if (queue_traits && (throttleable_task_type_names.size() ||
-                         freezable_task_type_names.size())) {
+    if (queue_traits && (!throttleable_task_type_names.empty() ||
+                         !freezable_task_type_names.empty())) {
       const char* task_type_name = TaskTypeNames::TaskTypeToString(type);
       if (throttleable_task_type_names.erase(task_type_name))
         queue_traits->SetCanBeThrottled(true);
@@ -392,6 +391,9 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     TaskType type) {
   // TODO(haraken): Optimize the mapping from TaskTypes to task runners.
   switch (type) {
+    // kInternalContentCapture uses BestEffortTaskQueue and is handled
+    // sparately.
+    case TaskType::kInternalContentCapture:
     case TaskType::kJavascriptTimer:
       return ThrottleableTaskQueueTraits();
     case TaskType::kInternalLoading:
@@ -409,7 +411,6 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     // TODO(nhiroki): Throttle them again after we're convinced that it's safe
     // or provide a mechanism that web pages can opt-out it if throttling is not
     // desirable.
-    case TaskType::kDatabaseAccess:
     case TaskType::kDOMManipulation:
     case TaskType::kHistoryTraversal:
     case TaskType::kEmbed:
@@ -435,14 +436,15 @@ base::Optional<QueueTraits> FrameSchedulerImpl::CreateQueueTraitsForTaskType(
     // PostedMessage can be used for navigation, so we shouldn't defer it
     // when expecting a user gesture.
     case TaskType::kPostedMessage:
+    case TaskType::kServiceWorkerClientMessage:
     case TaskType::kWorkerAnimation:
     // UserInteraction tasks should be run even when expecting a user gesture.
     case TaskType::kUserInteraction:
     // Media events should not be deferred to ensure that media playback is
     // smooth.
     case TaskType::kMediaElementEvent:
+    case TaskType::kDatabaseAccess:
     case TaskType::kInternalWebCrypto:
-    case TaskType::kInternalIndexedDB:
     case TaskType::kInternalMedia:
     case TaskType::kInternalMediaRealTime:
     case TaskType::kInternalUserInteraction:
@@ -505,6 +507,8 @@ scoped_refptr<MainThreadTaskQueue> FrameSchedulerImpl::GetTaskQueue(
       return frame_task_queue_controller_->LoadingControlTaskQueue();
     case TaskType::kInternalInspector:
       return frame_task_queue_controller_->InspectorTaskQueue();
+    case TaskType::kInternalContentCapture:
+      return frame_task_queue_controller_->BestEffortTaskQueue();
     case TaskType::kExperimentalWebSchedulingUserInteraction:
       return frame_task_queue_controller_->ExperimentalWebSchedulingTaskQueue(
           FrameTaskQueueController::WebSchedulingTaskQueueType::
@@ -813,6 +817,12 @@ TaskQueue::QueuePriority FrameSchedulerImpl::ComputePriority(
   if (fixed_priority)
     return fixed_priority.value();
 
+  if (!parent_page_scheduler_) {
+    // Frame might be detached during its shutdown. Return a default priority
+    // in that case.
+    return TaskQueue::QueuePriority::kNormalPriority;
+  }
+
   // A hidden page with no audio.
   if (parent_page_scheduler_->IsBackgrounded()) {
     if (main_thread_scheduler_->scheduling_settings()
@@ -956,6 +966,20 @@ void FrameSchedulerImpl::OnTaskQueueCreated(
     if (task_queues_throttled_) {
       UpdateTaskQueueThrottling(task_queue, true);
     }
+  }
+}
+
+void FrameSchedulerImpl::AddTaskTime(base::TimeDelta time) {
+  // The duration of task time under which AddTaskTime buffers rather than
+  // sending the task time update to the delegate.
+  constexpr base::TimeDelta kTaskDurationSendThreshold =
+      base::TimeDelta::FromMilliseconds(100);
+  if (!delegate_)
+    return;
+  task_time_ += time;
+  if (task_time_ >= kTaskDurationSendThreshold) {
+    delegate_->UpdateTaskTime(task_time_);
+    task_time_ = base::TimeDelta();
   }
 }
 

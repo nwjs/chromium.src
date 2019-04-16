@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/web/image_fetch_tab_helper.h"
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -207,3 +208,5 @@ void ImageFetchTabHelper::OnJsTimeout(int call_id) {
     RecordGetImageDataByJsResult(ContextMenuGetImageDataByJsResult::kTimeout);
   }
 }
+
+WEB_STATE_USER_DATA_KEY_IMPL(ImageFetchTabHelper)

@@ -80,16 +80,34 @@ suite('CrostiniPageTests', function() {
 
     setup(function() {
       setCrostiniPrefs(true);
+      loadTimeData.overrideValues({
+        showCrostiniExportImport: true,
+      });
+
+      let eventPromise = new Promise((resolve) => {
+                           let v = cr.addWebUIListener(
+                               'crostini-installer-status-changed', () => {
+                                 resolve(v);
+                               });
+                         }).then((v) => {
+        assertTrue(cr.removeWebUIListener(v));
+      });
+
       settings.navigateTo(settings.routes.CROSTINI);
       crostiniPage.$$('#crostini').click();
-      return flushAsync().then(() => {
+
+      let pageLoadPromise = flushAsync().then(() => {
         subpage = crostiniPage.$$('settings-crostini-subpage');
         assertTrue(!!subpage);
       });
+
+      return Promise.all([pageLoadPromise, eventPromise]);
     });
 
     test('Sanity', function() {
       assertTrue(!!subpage.$$('#crostini-shared-paths'));
+      assertTrue(!!subpage.$$('#export'));
+      assertTrue(!!subpage.$$('#import'));
       assertTrue(!!subpage.$$('#remove'));
     });
 
@@ -102,6 +120,19 @@ suite('CrostiniPageTests', function() {
       });
     });
 
+    test('Export', function() {
+      assertTrue(!!subpage.$$('#export paper-button'));
+      subpage.$$('#export paper-button').click();
+      assertEquals(
+          1, crostiniBrowserProxy.getCallCount('exportCrostiniContainer'));
+    });
+
+    test('Import', function() {
+      assertTrue(!!subpage.$$('#import paper-button'));
+      subpage.$$('#import paper-button').click();
+      assertEquals(
+          1, crostiniBrowserProxy.getCallCount('importCrostiniContainer'));
+    });
 
     test('Remove', function() {
       assertTrue(!!subpage.$$('#remove .subpage-arrow'));
@@ -111,6 +142,23 @@ suite('CrostiniPageTests', function() {
       return whenPopState().then(function() {
         assertEquals(settings.getCurrentRoute(), settings.routes.CROSTINI);
         assertTrue(!!crostiniPage.$$('#enable'));
+      });
+    });
+
+    test('RemoveHidden', function() {
+      // Elements are not destroyed when a dom-if stops being shown, but we can
+      // check if their rendered width is non-zero. This should be resilient
+      // against most formatting changes, since we're not relying on them having
+      // any exact size, or on Polymer using any particular means of hiding
+      // elements.
+      assertTrue(!!subpage.shadowRoot.querySelector('#remove').clientWidth);
+      cr.webUIListenerCallback('crostini-installer-status-changed', true);
+      return flushAsync().then(() => {
+        assertFalse(!!subpage.shadowRoot.querySelector('#remove').clientWidth);
+        cr.webUIListenerCallback('crostini-installer-status-changed', false);
+        return flushAsync().then(() => {
+          assertTrue(!!subpage.shadowRoot.querySelector('#remove').clientWidth);
+        });
       });
     });
 
@@ -195,12 +243,11 @@ suite('CrostiniPageTests', function() {
     });
 
     test('USB devices are shown', function() {
-      assertEquals(
-          3, subpage.shadowRoot.querySelectorAll('.settings-box').length);
+      assertEquals(3, subpage.shadowRoot.querySelectorAll('.toggle').length);
     });
 
     test('USB shared pref is updated by toggling', function() {
-      assertTrue(!!subpage.$$('.settings-box .toggle'));
+      assertTrue(!!subpage.$$('.toggle'));
       subpage.$$('.toggle').click();
       return flushAsync()
           .then(() => {

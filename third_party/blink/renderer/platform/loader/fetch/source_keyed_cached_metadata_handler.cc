@@ -58,12 +58,24 @@ class SourceKeyedCachedMetadataHandler::SingleKeyHandler final
     return parent_->IsServedFromCacheStorage();
   }
 
+  void OnMemoryDump(WebProcessMemoryDump* pmd,
+                    const String& dump_prefix) const override {
+    // No memory to report here because it is attributed to |parent_|.
+  }
+
+  size_t GetCodeCacheSize() const override {
+    // No need to implement this because it is attributed to |parent_|.
+    return 0;
+  }
+
  private:
   Member<SourceKeyedCachedMetadataHandler> parent_;
   Key key_;
 };
 
 class SourceKeyedCachedMetadataHandler::KeyHash {
+  STATIC_ONLY(KeyHash);
+
  public:
   static unsigned GetHash(const Key& key) {
     return StringHasher::ComputeHash(key.data(),
@@ -96,10 +108,27 @@ void SourceKeyedCachedMetadataHandler::ClearCachedMetadata(
   cached_metadata_map_.clear();
   if (cache_type == CachedMetadataHandler::kSendToPlatform)
     SendToPlatform();
-};
+}
 
 String SourceKeyedCachedMetadataHandler::Encoding() const {
   return String(encoding_.GetName());
+}
+
+void SourceKeyedCachedMetadataHandler::OnMemoryDump(
+    WebProcessMemoryDump* pmd,
+    const String& dump_prefix) const {
+  if (cached_metadata_map_.IsEmpty())
+    return;
+
+  const String dump_name = dump_prefix + "/inline";
+  uint64_t value = 0;
+  for (const auto& metadata : cached_metadata_map_.Values()) {
+    value += metadata->SerializedData().size();
+  }
+  auto* dump = pmd->CreateMemoryAllocatorDump(dump_name);
+  dump->AddScalar("size", "bytes", value);
+  pmd->AddSuballocation(dump->Guid(),
+                        String(WTF::Partitions::kAllocatedObjectPoolName));
 }
 
 // Encoding of keyed map:
@@ -190,7 +219,7 @@ void SourceKeyedCachedMetadataHandler::SetSerializedCachedMetadata(
   if (size > 0) {
     cached_metadata_map_.clear();
   }
-};
+}
 
 void SourceKeyedCachedMetadataHandler::SendToPlatform() {
   if (!sender_)

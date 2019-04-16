@@ -10,6 +10,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/base/ime/composition_text.h"
+#include "ui/base/ime/ime_text_span.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -70,10 +71,33 @@ void WaylandInputMethodContext::Init(bool initialize_for_testing) {
 
 bool WaylandInputMethodContext::DispatchKeyEvent(
     const ui::KeyEvent& key_event) {
-  return false;
+  if (key_event.type() != ET_KEY_PRESSED ||
+      !character_composer_.FilterKeyPress(key_event))
+    return false;
+
+  // CharacterComposer consumed the key event. Update the composition text.
+  UpdatePreeditText(character_composer_.preedit_string());
+  auto composed = character_composer_.composed_character();
+  if (!composed.empty())
+    delegate_->OnCommit(composed);
+  return true;
+}
+
+void WaylandInputMethodContext::UpdatePreeditText(
+    const base::string16& preedit_text) {
+  CompositionText preedit;
+  preedit.text = preedit_text;
+  auto length = preedit.text.size();
+
+  preedit.selection = gfx::Range(length);
+  preedit.ime_text_spans.push_back(
+      ImeTextSpan(ImeTextSpan::Type::kComposition, 0, length,
+                  ImeTextSpan::Thickness::kThin, SK_ColorTRANSPARENT));
+  delegate_->OnPreeditChanged(preedit);
 }
 
 void WaylandInputMethodContext::Reset() {
+  character_composer_.Reset();
   if (text_input_)
     text_input_->Reset();
 }

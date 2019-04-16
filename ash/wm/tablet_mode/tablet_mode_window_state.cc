@@ -77,8 +77,10 @@ gfx::Rect GetCenteredBounds(const gfx::Rect& bounds_in_parent,
 
 // Returns the maximized/full screen and/or centered bounds of a window.
 gfx::Rect GetBoundsInMaximizedMode(wm::WindowState* state_object) {
-  if (state_object->IsFullscreen() || state_object->IsPinned())
-    return screen_util::GetDisplayBoundsInParent(state_object->window());
+  if (state_object->IsFullscreen() || state_object->IsPinned()) {
+    return screen_util::GetFullscreenWindowBoundsInParent(
+        state_object->window());
+  }
 
   if (state_object->GetStateType() == mojom::WindowStateType::LEFT_SNAPPED) {
     return Shell::Get()
@@ -168,14 +170,18 @@ void TabletModeWindowState::UpdateWindowPosition(wm::WindowState* window_state,
 
 TabletModeWindowState::TabletModeWindowState(aura::Window* window,
                                              TabletModeWindowManager* creator,
-                                             bool defer_bounds_updates)
+                                             bool snap,
+                                             bool animate_bounds_on_attach)
     : window_(window),
       creator_(creator),
-      current_state_type_(wm::GetWindowState(window)->GetStateType()),
-      defer_bounds_updates_(defer_bounds_updates) {
-  old_state_.reset(wm::GetWindowState(window)
-                       ->SetStateObject(std::unique_ptr<State>(this))
-                       .release());
+      animate_bounds_on_attach_(animate_bounds_on_attach) {
+  wm::WindowState* state = wm::GetWindowState(window);
+  current_state_type_ = state->GetStateType();
+  DCHECK(!snap || CanSnapInSplitview(window));
+  state_type_on_attach_ =
+      snap ? current_state_type_ : GetMaximizedOrCenteredWindowType(state);
+  old_state_.reset(
+      state->SetStateObject(std::unique_ptr<State>(this)).release());
 }
 
 TabletModeWindowState::~TabletModeWindowState() {
@@ -341,14 +347,13 @@ void TabletModeWindowState::AttachState(
                               window_state->GetShowState());
   }
 
-  // Initialize the state to a good preset.
   if (current_state_type_ != mojom::WindowStateType::MAXIMIZED &&
       current_state_type_ != mojom::WindowStateType::MINIMIZED &&
       current_state_type_ != mojom::WindowStateType::FULLSCREEN &&
       current_state_type_ != mojom::WindowStateType::PINNED &&
       current_state_type_ != mojom::WindowStateType::TRUSTED_PINNED) {
-    UpdateWindow(window_state, GetMaximizedOrCenteredWindowType(window_state),
-                 true /* animated */);
+    UpdateWindow(window_state, state_type_on_attach_,
+                 animate_bounds_on_attach_);
   }
 }
 

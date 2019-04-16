@@ -16,6 +16,8 @@ namespace vr {
 enum class UserFriendlyElementName : int {
   kNone = 0,         // A special "element" that causes the controller to point
                      // straight forward.
+  kCurrentPosition,  // A special "element" that causes the controller to
+                     // remain where it is.
   kUrl,              // URL bar
   kBackButton,       // Back button on the URL bar
   kForwardButton,    // Forward button in the overflow menu
@@ -43,6 +45,11 @@ enum class UserFriendlyElementName : int {
   kWebXrExternalPromptNotification,  // The notification shown in the headset
                                      // if a permission is requested while in
                                      // immersive WebXR session.
+  kCameraPermissionIndicator,    // The camera icon that appears when a page is
+                                 // using the camera permission.
+  kLocationPermissionIndicator,  // The location icon that appears when a page
+                                 // is using the high accuracy location
+                                 // permission.
 };
 
 // These are the types of actions that Java can request callbacks for once

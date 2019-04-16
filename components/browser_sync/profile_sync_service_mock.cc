@@ -15,7 +15,7 @@ ProfileSyncServiceMock::ProfileSyncServiceMock(InitParams init_params)
 
 ProfileSyncServiceMock::~ProfileSyncServiceMock() {}
 
-SyncUserSettingsMock* ProfileSyncServiceMock::GetUserSettingsMock() {
+syncer::SyncUserSettingsMock* ProfileSyncServiceMock::GetUserSettingsMock() {
   return &user_settings_;
 }
 
@@ -34,20 +34,7 @@ bool ProfileSyncServiceMock::IsAuthenticatedAccountPrimary() const {
 
 syncer::ModelTypeSet ProfileSyncServiceMock::GetPreferredDataTypes() const {
   return syncer::SyncPrefs::ResolvePrefGroups(
-      /*registered_types=*/syncer::ModelTypeSet::All(),
       user_settings_.GetChosenDataTypes());
-}
-
-bool ProfileSyncServiceMock::IsPassphraseRequiredForDecryption() const {
-  return user_settings_.IsPassphraseRequiredForDecryption();
-}
-
-bool ProfileSyncServiceMock::IsUsingSecondaryPassphrase() const {
-  return user_settings_.IsUsingSecondaryPassphrase();
-}
-
-bool ProfileSyncServiceMock::IsPassphraseRequired() const {
-  return user_settings_.IsPassphraseRequired();
 }
 
 std::unique_ptr<syncer::SyncSetupInProgressHandle>

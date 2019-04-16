@@ -331,8 +331,7 @@ void PushMessagingServiceImpl::DeliverMessageCallback(
               switches::kAllowSilentPush)) {
         notification_manager_.EnforceUserVisibleOnlyRequirements(
             requesting_origin, service_worker_registration_id,
-            base::AdaptCallbackForRepeating(
-                completion_closure_runner.Release()));
+            completion_closure_runner.Release());
       }
       break;
     case content::mojom::PushDeliveryStatus::SERVICE_WORKER_ERROR:
@@ -419,8 +418,7 @@ void PushMessagingServiceImpl::OnSendAcknowledged(
 // GetEndpoint method ----------------------------------------------------------
 
 GURL PushMessagingServiceImpl::GetEndpoint(bool standard_protocol) const {
-  return GURL(standard_protocol ? kPushMessagingPushProtocolEndpoint
-                                : kPushMessagingGcmEndpoint);
+  return GURL(kPushMessagingGcmEndpoint);
 }
 
 // Subscribe and GetPermissionStatus methods -----------------------------------

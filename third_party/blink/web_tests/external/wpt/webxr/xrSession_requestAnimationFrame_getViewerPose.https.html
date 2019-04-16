@@ -15,7 +15,7 @@
     let fakeDeviceInitParams = { supportsImmersive: true };
 
     let immersiveSessionOptions = { mode: 'immersive-vr' };
-    let nonImmersiveSessionOptions = { outputContext: getOutputContext() };
+    let nonImmersiveSessionOptions = { mode: 'inline' };
 
     // Valid matrices for  when we don't care about specific values
     const validPoseMatrix = [0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1];
@@ -52,7 +52,7 @@
                 let pose = vrFrame.getViewerPose(referenceSpace);
                 assert_not_equals(pose, null);
 
-                let poseMatrix = pose.poseModelMatrix;
+                let poseMatrix = pose.transform.matrix;
                 assert_not_equals(poseMatrix, null);
 
                 for(let i = 0; i < poseMatrix.length; i++) {

@@ -60,7 +60,7 @@
 
 namespace blink {
 
-const unsigned long long EventSource::kDefaultReconnectDelay = 3000;
+const uint64_t EventSource::kDefaultReconnectDelay = 3000;
 
 inline EventSource::EventSource(ExecutionContext* context,
                                 const KURL& url,
@@ -152,7 +152,7 @@ void EventSource::Connect() {
   ResourceLoaderOptions resource_loader_options;
   resource_loader_options.data_buffering_policy = kDoNotBufferData;
 
-  probe::willSendEventSourceRequest(&execution_context, this);
+  probe::WillSendEventSourceRequest(&execution_context);
   loader_ = MakeGarbageCollected<ThreadableLoader>(execution_context, this,
                                                    resource_loader_options);
   loader_->Start(request);
@@ -219,11 +219,8 @@ ExecutionContext* EventSource::GetExecutionContext() const {
   return ContextLifecycleObserver::GetExecutionContext();
 }
 
-void EventSource::DidReceiveResponse(
-    unsigned long identifier,
-    const ResourceResponse& response,
-    std::unique_ptr<WebDataConsumerHandle> handle) {
-  DCHECK(!handle);
+void EventSource::DidReceiveResponse(unsigned long identifier,
+                                     const ResourceResponse& response) {
   DCHECK_EQ(kConnecting, state_);
   DCHECK(loader_);
 
@@ -246,7 +243,8 @@ void EventSource::DidReceiveResponse(
       message.Append("\") that is not UTF-8. Aborting the connection.");
       // FIXME: We are missing the source line.
       GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-          kJSMessageSource, kErrorMessageLevel, message.ToString()));
+          kJSMessageSource, mojom::ConsoleMessageLevel::kError,
+          message.ToString()));
     }
   } else {
     // To keep the signal-to-noise ratio low, we only log 200-response with an
@@ -259,7 +257,8 @@ void EventSource::DidReceiveResponse(
           "\") that is not \"text/event-stream\". Aborting the connection.");
       // FIXME: We are missing the source line.
       GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-          kJSMessageSource, kErrorMessageLevel, message.ToString()));
+          kJSMessageSource, mojom::ConsoleMessageLevel::kError,
+          message.ToString()));
     }
   }
 
@@ -328,13 +327,13 @@ void EventSource::OnMessageEvent(const AtomicString& event_type,
   e->initMessageEvent(event_type, false, false, data, event_stream_origin_,
                       last_event_id, nullptr, nullptr);
 
-  probe::willDispatchEventSourceEvent(GetExecutionContext(),
+  probe::WillDispatchEventSourceEvent(GetExecutionContext(),
                                       resource_identifier_, event_type,
                                       last_event_id, data);
   DispatchEvent(*e);
 }
 
-void EventSource::OnReconnectionTimeSet(unsigned long long reconnection_time) {
+void EventSource::OnReconnectionTimeSet(uint64_t reconnection_time) {
   reconnect_delay_ = reconnection_time;
 }
 

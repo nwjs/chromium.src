@@ -222,25 +222,18 @@ void LogPowerMLSmartDimParameterResult(SmartDimParameterResult result) {
   UMA_HISTOGRAM_ENUMERATION("PowerML.SmartDimParameter.Result", result);
 }
 
-// Returns "dim_threshold" from experiment parameter. Also logs status to UMA
-// (i.e. whether the parameter is undefined or cannot be parsed, or can be
-// parsed successfully.
-base::Optional<float> GetDimThreshold() {
-  const std::string dim_threshold_str = base::GetFieldTrialParamValueByFeature(
-      features::kUserActivityPrediction, "dim_threshold");
-  if (dim_threshold_str.empty()) {
-    LogPowerMLSmartDimParameterResult(SmartDimParameterResult::kUndefinedError);
-    return base::nullopt;
+// Returns "dim_threshold" from experiment parameter. Also logs status to UMA.
+float GetDimThreshold() {
+  const double default_threshold = -0.18;
+  const double dim_threshold = base::GetFieldTrialParamByFeatureAsDouble(
+      features::kUserActivityPrediction, "dim_threshold", default_threshold);
+  if (std::abs(dim_threshold - default_threshold) < 1e-10) {
+    LogPowerMLSmartDimParameterResult(
+        SmartDimParameterResult::kUseDefaultValue);
+  } else {
+    LogPowerMLSmartDimParameterResult(SmartDimParameterResult::kSuccess);
   }
-
-  double dim_threshold_double;
-  if (!base::StringToDouble(dim_threshold_str, &dim_threshold_double)) {
-    LogPowerMLSmartDimParameterResult(SmartDimParameterResult::kParsingError);
-    return base::nullopt;
-  }
-
-  LogPowerMLSmartDimParameterResult(SmartDimParameterResult::kSuccess);
-  return base::Optional<float>(dim_threshold_double);
+  return dim_threshold;
 }
 
 }  // namespace
@@ -322,18 +315,17 @@ SmartDimModelResult SmartDimModelImpl::CalculateInactivityScoreTfNative(
 UserActivityEvent::ModelPrediction
 SmartDimModelImpl::CreatePredictionFromInactivityScore(float inactivity_score) {
   UserActivityEvent::ModelPrediction prediction;
-  const base::Optional<float> dim_threshold = GetDimThreshold();
+  const float dim_threshold = GetDimThreshold();
 
-  prediction.set_decision_threshold(ScoreToProbability(dim_threshold.value()));
+  prediction.set_decision_threshold(ScoreToProbability(dim_threshold));
   prediction.set_inactivity_score(ScoreToProbability(inactivity_score));
 
-  if (inactivity_score >= dim_threshold.value()) {
+  if (inactivity_score >= dim_threshold) {
     prediction.set_response(UserActivityEvent::ModelPrediction::DIM);
   } else {
     prediction.set_response(UserActivityEvent::ModelPrediction::NO_DIM);
   }
 
-  LogPowerMLSmartDimModelResult(SmartDimModelResult::kSuccess);
   return prediction;
 }
 
@@ -341,11 +333,6 @@ UserActivityEvent::ModelPrediction SmartDimModelImpl::ShouldDimTfNative(
     const UserActivityEvent::Features& input_features) {
   UserActivityEvent::ModelPrediction prediction;
   prediction.set_response(UserActivityEvent::ModelPrediction::MODEL_ERROR);
-
-  const base::Optional<float> dim_threshold = GetDimThreshold();
-  if (!dim_threshold) {
-    return prediction;
-  }
 
   float inactivity_score = 0;
   const SmartDimModelResult result =
@@ -357,8 +344,7 @@ UserActivityEvent::ModelPrediction SmartDimModelImpl::ShouldDimTfNative(
     return prediction;
   }
 
-  // Logging for the success case will take place in
-  // CreatePredictionFromInactivityScore().
+  LogPowerMLSmartDimModelResult(SmartDimModelResult::kSuccess);
   return CreatePredictionFromInactivityScore(inactivity_score);
 }
 
@@ -367,12 +353,6 @@ void SmartDimModelImpl::ShouldDimMlService(
     DimDecisionCallback callback) {
   UserActivityEvent::ModelPrediction prediction;
   prediction.set_response(UserActivityEvent::ModelPrediction::MODEL_ERROR);
-
-  const base::Optional<float> dim_threshold = GetDimThreshold();
-  if (!dim_threshold) {
-    std::move(callback).Run(prediction);
-    return;
-  }
 
   std::vector<float> vectorized_features;
   auto preprocess_result =
@@ -428,12 +408,18 @@ void SmartDimModelImpl::CancelPreviousRequest() {
   cancelable_callback_.Cancel();
 }
 
+void SmartDimModelImpl::SetMlServiceClientForTesting(
+    std::unique_ptr<MlServiceClient> client) {
+  DCHECK(!ml_service_client_);
+  ml_service_client_ = std::move(client);
+}
+
 void SmartDimModelImpl::LazyInitialize() {
   // TODO(crbug.com/893425): Remove the flag check once we shift to ML service
   // completely.
   if (use_ml_service_) {
     if (!ml_service_client_) {
-      ml_service_client_ = std::make_unique<MlServiceClient>();
+      ml_service_client_ = CreateMlServiceClient();
     }
   }
 

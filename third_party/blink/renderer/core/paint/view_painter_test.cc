@@ -19,7 +19,7 @@ class ViewPainterTest : public PaintControllerPaintTest {
   void RunFixedBackgroundTest(bool prefer_compositing_to_lcd_text);
 };
 
-INSTANTIATE_PAINT_TEST_CASE_P(ViewPainterTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(ViewPainterTest);
 
 void ViewPainterTest::RunFixedBackgroundTest(
     bool prefer_compositing_to_lcd_text) {
@@ -114,6 +114,10 @@ void ViewPainterTest::RunFixedBackgroundTest(
 }
 
 TEST_P(ViewPainterTest, DocumentFixedBackgroundLowDPI) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   RunFixedBackgroundTest(false);
 }
 
@@ -159,13 +163,8 @@ TEST_P(ViewPainterTest, DocumentBackgroundWithScroll) {
   }
 }
 
-class ViewPainterTestWithPaintTouchAction
-    : public ViewPainterTest,
-      private ScopedPaintTouchActionRectsForTest {
+class ViewPainterTouchActionRectTest : public ViewPainterTest {
  public:
-  ViewPainterTestWithPaintTouchAction()
-      : ViewPainterTest(), ScopedPaintTouchActionRectsForTest(true) {}
-
   void SetUp() override {
     ViewPainterTest::SetUp();
     Settings* settings = GetDocument().GetFrame()->GetSettings();
@@ -173,9 +172,9 @@ class ViewPainterTestWithPaintTouchAction
   }
 };
 
-INSTANTIATE_PAINT_TEST_CASE_P(ViewPainterTestWithPaintTouchAction);
+INSTANTIATE_PAINT_TEST_SUITE_P(ViewPainterTouchActionRectTest);
 
-TEST_P(ViewPainterTestWithPaintTouchAction, TouchActionRectScrollingContents) {
+TEST_P(ViewPainterTouchActionRectTest, TouchActionRectScrollingContents) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none; }
@@ -246,8 +245,7 @@ TEST_P(ViewPainterTestWithPaintTouchAction, TouchActionRectScrollingContents) {
   }
 }
 
-TEST_P(ViewPainterTestWithPaintTouchAction,
-       TouchActionRectNonScrollingContents) {
+TEST_P(ViewPainterTouchActionRectTest, TouchActionRectNonScrollingContents) {
   SetBodyInnerHTML(R"HTML(
     <style>
       ::-webkit-scrollbar { display: none; }

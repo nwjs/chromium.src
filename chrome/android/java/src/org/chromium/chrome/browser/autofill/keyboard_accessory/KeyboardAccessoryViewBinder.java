@@ -7,7 +7,9 @@ package org.chromium.chrome.browser.autofill.keyboard_accessory;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BAR_ITEMS;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BOTTOM_OFFSET_PX;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.KEYBOARD_TOGGLE_VISIBLE;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.SHEET_TITLE;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.SHOW_KEYBOARD_CALLBACK;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TAB_LAYOUT_ITEM;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.VISIBLE;
 
 import android.os.Build;
@@ -35,7 +37,7 @@ class KeyboardAccessoryViewBinder {
                 return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_action);
             case BarItem.Type.SUGGESTION:
                 return new BarItemTextViewHolder(parent, R.layout.keyboard_accessory_chip);
-            case BarItem.Type.TAB_SWITCHER: // Intentional fallthrough. Not supported.
+            case BarItem.Type.TAB_LAYOUT: // Intentional fallthrough. Not supported.
             case BarItem.Type.COUNT:
                 assert false : "Type " + viewType + " is not a valid accessory bar action!";
         }
@@ -75,7 +77,7 @@ class KeyboardAccessoryViewBinder {
         @Override
         public void bind(BarItem barItem, TextView textView) {
             KeyboardAccessoryData.Action action = barItem.getAction();
-            assert action != null : "";
+            assert action != null : "Tried to bind item without action. Chose a wrong ViewHolder?";
             textView.setText(action.getCaption());
             textView.setOnClickListener(view -> action.getCallback().onResult(action));
         }
@@ -104,9 +106,8 @@ class KeyboardAccessoryViewBinder {
             view.setVisible(model.get(VISIBLE));
         } else if (propertyKey == BOTTOM_OFFSET_PX) {
             view.setBottomOffset(model.get(BOTTOM_OFFSET_PX));
-        } else if (propertyKey == SHOW_KEYBOARD_CALLBACK) {
-            // No binding required.
-        } else if (propertyKey == KEYBOARD_TOGGLE_VISIBLE) {
+        } else if (propertyKey == SHOW_KEYBOARD_CALLBACK || propertyKey == KEYBOARD_TOGGLE_VISIBLE
+                || propertyKey == SHEET_TITLE || propertyKey == TAB_LAYOUT_ITEM) {
             // No binding required.
         } else {
             return false;

@@ -7,6 +7,8 @@
 #include <stdint.h>
 
 #include "ash/public/interfaces/constants.mojom.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/ui/ash/ash_util.h"
@@ -96,7 +98,7 @@ void OobeDisplayChooser::MoveToTouchDisplay() {
       auto config_properties = ash::mojom::DisplayConfigProperties::New();
       config_properties->set_primary = true;
       cros_display_config_ptr_->SetDisplayProperties(
-          base::Int64ToString(device.target_display_id),
+          base::NumberToString(device.target_display_id),
           std::move(config_properties), base::DoNothing());
       break;
     }

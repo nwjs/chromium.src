@@ -50,19 +50,19 @@ TEST_F(NGInlineLayoutAlgorithmTest, BreakToken) {
           .ToConstraintSpace();
 
   NGInlineChildLayoutContext context;
-  scoped_refptr<NGLayoutResult> layout_result =
+  scoped_refptr<const NGLayoutResult> layout_result =
       inline_node.Layout(constraint_space, nullptr, &context);
   auto* line1 = ToNGPhysicalLineBoxFragment(layout_result->PhysicalFragment());
   EXPECT_FALSE(line1->BreakToken()->IsFinished());
 
   // Perform 2nd layout with the break token from the 1st line.
-  scoped_refptr<NGLayoutResult> layout_result2 =
+  scoped_refptr<const NGLayoutResult> layout_result2 =
       inline_node.Layout(constraint_space, line1->BreakToken(), &context);
   auto* line2 = ToNGPhysicalLineBoxFragment(layout_result2->PhysicalFragment());
   EXPECT_FALSE(line2->BreakToken()->IsFinished());
 
   // Perform 3rd layout with the break token from the 2nd line.
-  scoped_refptr<NGLayoutResult> layout_result3 =
+  scoped_refptr<const NGLayoutResult> layout_result3 =
       inline_node.Layout(constraint_space, line2->BreakToken(), &context);
   auto* line3 = ToNGPhysicalLineBoxFragment(layout_result3->PhysicalFragment());
   EXPECT_TRUE(line3->BreakToken()->IsFinished());
@@ -229,11 +229,11 @@ TEST_F(NGInlineLayoutAlgorithmTest, ContainerBorderPadding) {
   NGBlockNode block_node(block_flow);
   NGConstraintSpace space =
       NGConstraintSpace::CreateFromLayoutObject(*block_flow);
-  scoped_refptr<NGLayoutResult> layout_result = block_node.Layout(space);
+  scoped_refptr<const NGLayoutResult> layout_result = block_node.Layout(space);
 
   auto* block_box = ToNGPhysicalBoxFragment(layout_result->PhysicalFragment());
   EXPECT_TRUE(layout_result->BfcBlockOffset().has_value());
-  EXPECT_EQ(0, layout_result->BfcBlockOffset().value());
+  EXPECT_EQ(0, *layout_result->BfcBlockOffset());
   EXPECT_EQ(0, layout_result->BfcLineOffset());
 
   NGPhysicalOffset line_offset = block_box->Children()[0].Offset();
@@ -253,6 +253,7 @@ TEST_F(NGInlineLayoutAlgorithmTest, MAYBE_VerticalAlignBottomReplaced) {
     <style>
     html { font-size: 10px; }
     img { vertical-align: bottom; }
+    #container { display: flow-root; }
     </style>
     <div id=container><img src="#" width="96" height="96"></div>
   )HTML");
@@ -262,7 +263,7 @@ TEST_F(NGInlineLayoutAlgorithmTest, MAYBE_VerticalAlignBottomReplaced) {
   NGInlineChildLayoutContext context;
   NGConstraintSpace space =
       NGConstraintSpace::CreateFromLayoutObject(*block_flow);
-  scoped_refptr<NGLayoutResult> layout_result =
+  scoped_refptr<const NGLayoutResult> layout_result =
       inline_node.Layout(space, nullptr, &context);
 
   auto* line = ToNGPhysicalLineBoxFragment(layout_result->PhysicalFragment());

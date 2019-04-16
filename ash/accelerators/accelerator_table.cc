@@ -75,7 +75,6 @@ const AcceleratorData kDebugAcceleratorData[] = {
     {true, ui::VKEY_O, kDebugModifier, DEBUG_SHOW_TOAST},
     {true, ui::VKEY_P, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
      DEBUG_TOGGLE_TOUCH_PAD},
-    {true, ui::VKEY_Q, kDebugModifier, DEBUG_SHOW_QUICK_LAUNCH},
     {true, ui::VKEY_T, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
      DEBUG_TOGGLE_TOUCH_SCREEN},
     {true, ui::VKEY_T, kDebugModifier, DEBUG_TOGGLE_TABLET_MODE},
@@ -357,6 +356,7 @@ const AcceleratorAction kActionsKeepingMenuOpen[] = {
     TAKE_SCREENSHOT,
     TAKE_WINDOW_SCREENSHOT,
     TOGGLE_APP_LIST,
+    TOGGLE_APP_LIST_FULLSCREEN,
     TOGGLE_CAPS_LOCK,
     TOGGLE_DICTATION,
     TOGGLE_DOCKED_MAGNIFIER,
@@ -371,5 +371,29 @@ const AcceleratorAction kActionsKeepingMenuOpen[] = {
 
 const size_t kActionsKeepingMenuOpenLength =
     base::size(kActionsKeepingMenuOpen);
+
+const AcceleratorAction kActionsAllowedForKioskNextShell[] = {
+    BRIGHTNESS_DOWN,
+    BRIGHTNESS_UP,
+    KEYBOARD_BRIGHTNESS_DOWN,
+    KEYBOARD_BRIGHTNESS_UP,
+    MEDIA_NEXT_TRACK,
+    MEDIA_PLAY_PAUSE,
+    MEDIA_PREV_TRACK,
+    POWER_PRESSED,
+    POWER_RELEASED,
+    TOGGLE_CAPS_LOCK,
+    TOGGLE_DICTATION,
+    TOGGLE_DOCKED_MAGNIFIER,
+    TOGGLE_FULLSCREEN_MAGNIFIER,
+    TOGGLE_HIGH_CONTRAST,
+    TOGGLE_SPOKEN_FEEDBACK,
+    VOLUME_DOWN,
+    VOLUME_MUTE,
+    VOLUME_UP,
+};
+
+const size_t kActionsAllowedForKioskNextShellLength =
+    base::size(kActionsAllowedForKioskNextShell);
 
 }  // namespace ash

@@ -696,6 +696,47 @@ bool LogContainsEventType(const BoundTestNetLog& log,
 }  // namespace
 
 using HttpCacheTest = TestWithScopedTaskEnvironment;
+class HttpCacheIOCallbackTest : public HttpCacheTest {
+ public:
+  HttpCacheIOCallbackTest() {}
+  ~HttpCacheIOCallbackTest() override = default;
+
+  // HttpCache::ActiveEntry is private, doing this allows tests to use it
+  using ActiveEntry = HttpCache::ActiveEntry;
+  using Transaction = HttpCache::Transaction;
+
+  // The below functions are forwarding calls to the HttpCache class.
+  int OpenEntry(HttpCache* cache,
+                const std::string& key,
+                HttpCache::ActiveEntry** entry,
+                HttpCache::Transaction* trans) {
+    return cache->OpenEntry(key, entry, trans);
+  }
+
+  int OpenOrCreateEntry(HttpCache* cache,
+                        const std::string& key,
+                        HttpCache::ActiveEntry** entry,
+                        HttpCache::Transaction* trans) {
+    return cache->OpenOrCreateEntry(key, entry, trans);
+  }
+
+  int CreateEntry(HttpCache* cache,
+                  const std::string& key,
+                  HttpCache::ActiveEntry** entry,
+                  HttpCache::Transaction* trans) {
+    return cache->CreateEntry(key, entry, trans);
+  }
+
+  int DoomEntry(HttpCache* cache,
+                const std::string& key,
+                HttpCache::Transaction* trans) {
+    return cache->DoomEntry(key, trans);
+  }
+
+  void DeactivateEntry(HttpCache* cache, ActiveEntry* entry) {
+    cache->DeactivateEntry(entry);
+  }
+};
 
 //-----------------------------------------------------------------------------
 // Tests.
@@ -736,7 +777,7 @@ TEST_F(HttpCacheTest, SimpleGET) {
 TEST_F(HttpCacheTest, SimpleGETNoDiskCache) {
   MockHttpCache cache;
 
-  cache.disk_cache()->set_fail_requests();
+  cache.disk_cache()->set_fail_requests(true);
 
   BoundTestNetLog log;
   LoadTimingInfo load_timing_info;
@@ -2189,7 +2230,7 @@ TEST_F(HttpCacheTest, RangeGET_ParallelValidationCouldConditionalize) {
   mock_transaction.data = kFullRangeData;
   std::string response_headers_str = base::StrCat(
       {"ETag: StrongOne\n",
-       "Content-Length:", base::IntToString(strlen(kFullRangeData)), "\n"});
+       "Content-Length:", base::NumberToString(strlen(kFullRangeData)), "\n"});
   mock_transaction.response_headers = response_headers_str.c_str();
 
   ScopedMockTransaction transaction(mock_transaction);
@@ -3368,7 +3409,7 @@ TEST_F(HttpCacheTest, SimpleGET_ParallelWritingHuge) {
   MockTransaction transaction(kSimpleGET_Transaction);
   std::string response_headers = base::StrCat(
       {kSimpleGET_Transaction.response_headers, "Content-Length: ",
-       base::IntToString(strlen(kSimpleGET_Transaction.data)), "\n"});
+       base::NumberToString(strlen(kSimpleGET_Transaction.data)), "\n"});
   transaction.response_headers = response_headers.c_str();
   AddMockTransaction(&transaction);
   MockHttpRequest request(transaction);
@@ -8340,10 +8381,12 @@ TEST_F(HttpCacheTest, WriteResponseInfo_Truncated) {
 
 // Tests basic pickling/unpickling of HttpResponseInfo.
 TEST_F(HttpCacheTest, PersistHttpResponseInfo) {
+  const IPEndPoint expected_endpoint =
+      IPEndPoint(net::IPAddress(1, 2, 3, 4), 80);
   // Set some fields (add more if needed.)
   HttpResponseInfo response1;
   response1.was_cached = false;
-  response1.socket_address = HostPortPair("1.2.3.4", 80);
+  response1.remote_endpoint = expected_endpoint;
   response1.headers = new HttpResponseHeaders("HTTP/1.1 200 OK");
 
   // Pickle.
@@ -8358,8 +8401,7 @@ TEST_F(HttpCacheTest, PersistHttpResponseInfo) {
 
   // Verify fields.
   EXPECT_TRUE(response2.was_cached);  // InitFromPickle sets this flag.
-  EXPECT_EQ("1.2.3.4", response2.socket_address.host());
-  EXPECT_EQ(80, response2.socket_address.port());
+  EXPECT_EQ(expected_endpoint, response2.remote_endpoint);
   EXPECT_EQ("HTTP/1.1 200 OK", response2.headers->GetStatusLine());
 }
 
@@ -9469,21 +9511,25 @@ TEST_F(HttpCacheTest, SplitCache) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(net::features::kSplitCacheByTopFrameOrigin);
 
+  base::HistogramTester histograms;
   MockHttpCache cache;
   HttpResponseInfo response;
 
   url::Origin origin_a = url::Origin::Create(GURL("http://a.com"));
   url::Origin origin_b = url::Origin::Create(GURL("http://b.com"));
+  url::Origin origin_data =
+      url::Origin::Create(GURL("data:text/html,<body>Hello World</body>"));
 
-  // A request without a top frame origin is cached normally.
+  // A request without a top frame origin is not cached at all.
   MockHttpRequest trans_info = MockHttpRequest(kSimpleGET_Transaction);
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
   EXPECT_FALSE(response.was_cached);
+  histograms.ExpectUniqueSample("HttpCache.TopFrameOriginPresent", false, 1);
 
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
-  EXPECT_TRUE(response.was_cached);
+  EXPECT_FALSE(response.was_cached);
 
   // Now request with a.com as the top frame origin. It shouldn't be cached
   // since the cached resource has a different top frame origin.
@@ -9491,6 +9537,8 @@ TEST_F(HttpCacheTest, SplitCache) {
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
   EXPECT_FALSE(response.was_cached);
+  histograms.ExpectBucketCount("HttpCache.TopFrameOriginPresent", true, 1);
+  histograms.ExpectTotalCount("HttpCache.TopFrameOriginPresent", 3);
 
   // The second request should be cached.
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
@@ -9513,6 +9561,19 @@ TEST_F(HttpCacheTest, SplitCache) {
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
   EXPECT_TRUE(response.was_cached);
+
+  // Now make a request with an opaque top frame origin.  It shouldn't be
+  // cached.
+  trans_info.top_frame_origin = origin_data;
+  EXPECT_TRUE(trans_info.top_frame_origin->opaque());
+  RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
+                                trans_info, &response);
+  EXPECT_FALSE(response.was_cached);
+
+  // On the second request, it still shouldn't be cached.
+  RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
+                                trans_info, &response);
+  EXPECT_FALSE(response.was_cached);
 
   // Verify that a post transaction with a data stream uses a separate key.
   const int64_t kUploadId = 1;  // Just a dummy value.
@@ -9537,6 +9598,7 @@ TEST_F(HttpCacheTest, NonSplitCache) {
   feature_list.InitAndDisableFeature(
       net::features::kSplitCacheByTopFrameOrigin);
 
+  base::HistogramTester histograms;
   MockHttpCache cache;
   HttpResponseInfo response;
 
@@ -9557,6 +9619,8 @@ TEST_F(HttpCacheTest, NonSplitCache) {
   RunTransactionTestWithRequest(cache.http_cache(), kSimpleGET_Transaction,
                                 trans_info, &response);
   EXPECT_TRUE(response.was_cached);
+  histograms.ExpectBucketCount("HttpCache.TopFrameOriginPresent", true, 1);
+  histograms.ExpectTotalCount("HttpCache.TopFrameOriginPresent", 3);
 }
 
 // Tests that we can write metadata to an entry.
@@ -10326,7 +10390,7 @@ HttpCacheHugeResourceTest::GetTestModes() {
 std::list<HugeCacheTestConfiguration> HttpCacheHugeResourceTest::kTestModes =
     HttpCacheHugeResourceTest::GetTestModes();
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     _,
     HttpCacheHugeResourceTest,
     ::testing::ValuesIn(HttpCacheHugeResourceTest::kTestModes));
@@ -10336,7 +10400,7 @@ INSTANTIATE_TEST_CASE_P(
 // Test what happens when StopCaching() is called while reading a huge resource
 // fetched via GET. Various combinations of cache state and when StopCaching()
 // is called is controlled by the parameter passed into the test via the
-// INSTANTIATE_TEST_CASE_P invocation above.
+// INSTANTIATE_TEST_SUITE_P invocation above.
 TEST_P(HttpCacheHugeResourceTest,
        StopCachingFollowedByReadForHugeTruncatedResource) {
   // This test is going to be repeated for all combinations of TransactionPhase
@@ -11187,11 +11251,639 @@ TEST_F(HttpCacheTest, CacheEntryStatusCantConditionalize) {
             response_info.cache_entry_status);
 }
 
+class TestCompletionCallbackForHttpCache : public TestCompletionCallback {
+ public:
+  TestCompletionCallbackForHttpCache() {}
+  ~TestCompletionCallbackForHttpCache() override = default;
+
+  const std::vector<int>& results() { return results_; }
+
+ private:
+  std::vector<int> results_;
+
+ protected:
+  void SetResult(int result) override {
+    results_.push_back(result);
+    DidSetResult();
+  }
+};
+
+TEST_F(HttpCacheIOCallbackTest, FailedDoomFollowedByOpen) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to DoomEntry and OpenEntry
+  // below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = DoomEntry(cache.http_cache(), m_transaction.url, transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = OpenEntry(cache.http_cache(), m_transaction.url, &entry1,
+                 transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that DoomEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_DOOM_FAILURE);
+  // Verify that OpenEntry fails with the same code.
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_DOOM_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedDoomFollowedByCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to DoomEntry and CreateEntry
+  // below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = DoomEntry(cache.http_cache(), m_transaction.url, transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                   transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that DoomEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_DOOM_FAILURE);
+  // Verify that CreateEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+  ASSERT_EQ(entry1, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedDoomFollowedByDoom) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to DoomEntry below require that
+  // it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = DoomEntry(cache.http_cache(), m_transaction.url, transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = DoomEntry(cache.http_cache(), m_transaction.url, transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that DoomEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_DOOM_FAILURE);
+  // Verify that the second DoomEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedOpenFollowedByCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenEntry and CreateEntry
+  // below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = OpenEntry(cache.http_cache(), m_transaction.url, &entry1,
+                     transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                   transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that OpenEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_OPEN_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  // Verify that the CreateEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedCreateFollowedByOpen) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry and OpenEntry
+  // below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = OpenEntry(cache.http_cache(), m_transaction.url, &entry2,
+                 transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that CreateEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  // Verify that the OpenEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedCreateFollowedByCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry below require
+  // that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                   transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify the CreateEntry(s) failed.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, CreateFollowedByCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry below require
+  // that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  // Queue up our operations.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                   transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the first CreateEntry succeeded.
+  ASSERT_EQ(cb.results()[0], OK);
+  ASSERT_NE(entry1, nullptr);
+  // Verify that the second CreateEntry failed.
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, OperationFollowedByDoom) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry and DoomEntry
+  // below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+
+  // Queue up our operations.
+  // For this test all we need is some operation followed by a doom, a create
+  // fulfills that requirement.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = DoomEntry(cache.http_cache(), m_transaction.url, transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the CreateEntry succeeded.
+  ASSERT_EQ(cb.results()[0], OK);
+  // Verify that the DoomEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+}
+
+TEST_F(HttpCacheIOCallbackTest, CreateFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry and
+  // OpenOrCreateEntry below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  // Queue up our operations.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the CreateEntry succeeded.
+  ASSERT_EQ(cb.results()[0], OK);
+  ASSERT_NE(entry1, nullptr);
+  // Verify that OpenOrCreateEntry succeeded.
+  ASSERT_EQ(cb.results()[1], OK);
+  ASSERT_NE(entry2, nullptr);
+  ASSERT_EQ(entry1->disk_entry, entry2->disk_entry);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedCreateFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to CreateEntry and
+  // OpenOrCreateEntry below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that CreateEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  // Verify that the OpenOrCreateEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, OpenFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenEntry and
+  // OpenOrCreateEntry below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry0 = nullptr;
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  // First need to create and entry so we can open it.
+  int rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry0,
+                       transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), static_cast<size_t>(1));
+  ASSERT_EQ(cb.results()[0], OK);
+  ASSERT_NE(entry0, nullptr);
+  // Manually DeactivateEntry() because OpenEntry() fails if there is an
+  // existing active entry.
+  DeactivateEntry(cache.http_cache(), entry0);
+
+  // Queue up our operations.
+  rv = OpenEntry(cache.http_cache(), m_transaction.url, &entry1,
+                 transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 3u);
+
+  // Verify that the OpenEntry succeeded.
+  ASSERT_EQ(cb.results()[1], OK);
+  ASSERT_NE(entry1, nullptr);
+  // Verify that OpenOrCreateEntry succeeded.
+  ASSERT_EQ(cb.results()[2], OK);
+  ASSERT_NE(entry2, nullptr);
+  ASSERT_EQ(entry1->disk_entry, entry2->disk_entry);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedOpenFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenEntry and
+  // OpenOrCreateEntry below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = OpenEntry(cache.http_cache(), m_transaction.url, &entry1,
+                     transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that OpenEntry failed correctly.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_OPEN_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  // Verify that the OpenOrCreateEntry requests a restart (CACHE_RACE).
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_RACE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, OpenOrCreateFollowedByCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenOrCreateEntry and
+  // CreateEntry below require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  // Queue up our operations.
+  int rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                             transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = CreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                   transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the OpenOrCreateEntry succeeded.
+  ASSERT_EQ(cb.results()[0], OK);
+  ASSERT_NE(entry1, nullptr);
+  // Verify that CreateEntry failed.
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_CREATE_FAILURE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, OpenOrCreateFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenOrCreateEntry below
+  // require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  // Queue up our operations.
+  int rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                             transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the OpenOrCreateEntry succeeded.
+  ASSERT_EQ(cb.results()[0], OK);
+  ASSERT_NE(entry1, nullptr);
+  // Verify that the other succeeded.
+  ASSERT_EQ(cb.results()[1], OK);
+  ASSERT_NE(entry2, nullptr);
+}
+
+TEST_F(HttpCacheIOCallbackTest, FailedOpenOrCreateFollowedByOpenOrCreate) {
+  MockHttpCache cache;
+  TestCompletionCallbackForHttpCache cb;
+  std::unique_ptr<Transaction> transaction =
+      std::make_unique<Transaction>(DEFAULT_PRIORITY, cache.http_cache());
+
+  transaction->SetIOCallBackForTest(cb.callback());
+
+  // Create the backend here as our direct calls to OpenOrCreateEntry below
+  // require that it exists.
+  cache.backend();
+
+  // Need a mock transaction in order to use some of MockHttpCache's
+  // functions.
+  ScopedMockTransaction m_transaction(kSimpleGET_Transaction);
+
+  ActiveEntry* entry1 = nullptr;
+  ActiveEntry* entry2 = nullptr;
+
+  cache.disk_cache()->set_force_fail_callback_later(true);
+
+  // Queue up our operations.
+  int rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry1,
+                             transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+  cache.disk_cache()->set_force_fail_callback_later(false);
+  rv = OpenOrCreateEntry(cache.http_cache(), m_transaction.url, &entry2,
+                         transaction.get());
+  ASSERT_EQ(rv, ERR_IO_PENDING);
+
+  // Wait for all the results to arrive.
+  cb.GetResult(rv);
+  ASSERT_EQ(cb.results().size(), 2u);
+
+  // Verify that the OpenOrCreateEntry failed.
+  ASSERT_EQ(cb.results()[0], ERR_CACHE_OPEN_OR_CREATE_FAILURE);
+  ASSERT_EQ(entry1, nullptr);
+  // Verify that the other failed.
+  ASSERT_EQ(cb.results()[1], ERR_CACHE_OPEN_OR_CREATE_FAILURE);
+  ASSERT_EQ(entry2, nullptr);
+}
+
 class HttpCacheMemoryDumpTest
     : public testing::TestWithParam<base::trace_event::MemoryDumpLevelOfDetail>,
       public WithScopedTaskEnvironment {};
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     HttpCacheMemoryDumpTest,
     ::testing::Values(base::trace_event::MemoryDumpLevelOfDetail::DETAILED,

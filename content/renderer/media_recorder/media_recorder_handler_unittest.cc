@@ -41,7 +41,6 @@ ACTION_P(RunClosure, closure) {
   closure.Run();
 }
 
-static const std::string kTestStreamUrl = "stream_url";
 static const std::string kTestVideoTrackId = "video_track_id";
 static const std::string kTestAudioTrackId = "audio_track_id";
 static const int kTestAudioChannels = 2;
@@ -86,7 +85,7 @@ class MediaRecorderHandlerTest : public TestWithParam<MediaRecorderTestParams>,
                       kTestAudioSampleRate) {
     EXPECT_FALSE(media_recorder_handler_->recording_);
 
-    registry_.Init(kTestStreamUrl);
+    registry_.Init();
   }
 
   ~MediaRecorderHandlerTest() {
@@ -320,9 +319,9 @@ TEST_P(MediaRecorderHandlerTest, EncodeVideoFrames) {
   media_recorder_handler_.reset();
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        MediaRecorderHandlerTest,
-                        ValuesIn(kMediaRecorderTestParams));
+INSTANTIATE_TEST_SUITE_P(,
+                         MediaRecorderHandlerTest,
+                         ValuesIn(kMediaRecorderTestParams));
 
 // Sends 2 frames and expect them as WebM (or MKV) contained encoded audio data
 // in writeData().

@@ -6,31 +6,31 @@
 
 #include "base/no_destructor.h"
 #include "build/build_config.h"
-#include "components/services/heap_profiling/manifest.h"
+#include "components/services/heap_profiling/public/cpp/manifest.h"
 #include "content/public/common/service_names.mojom.h"
 #include "media/mojo/services/cdm_manifest.h"
 #include "media/mojo/services/media_manifest.h"
-#include "services/audio/manifest.h"
-#include "services/data_decoder/manifest.h"
-#include "services/device/manifest.h"
-#include "services/media_session/manifest.h"
-#include "services/metrics/manifest.h"
-#include "services/network/manifest.h"
-#include "services/resource_coordinator/manifest.h"
+#include "services/audio/public/cpp/manifest.h"
+#include "services/data_decoder/public/cpp/manifest.h"
+#include "services/device/public/cpp/manifest.h"
+#include "services/media_session/public/cpp/manifest.h"
+#include "services/metrics/public/cpp/manifest.h"
+#include "services/network/public/cpp/manifest.h"
+#include "services/resource_coordinator/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
-#include "services/shape_detection/manifest.h"
+#include "services/shape_detection/public/cpp/manifest.h"
 #include "services/tracing/manifest.h"
-#include "services/video_capture/manifest.h"
-#include "services/viz/manifest.h"
+#include "services/video_capture/public/cpp/manifest.h"
+#include "services/viz/public/cpp/manifest.h"
 
 #if defined(OS_LINUX)
-#include "components/services/font/manifest.h"
+#include "components/services/font/public/cpp/manifest.h"  // nogncheck
 #endif
 
 #if defined(OS_CHROMEOS)
 #include "chromeos/assistant/buildflags.h"
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-#include "chromeos/services/assistant/audio_decoder/manifest.h"
+#include "chromeos/services/assistant/public/cpp/audio_decoder_manifest.h"  // nogncheck
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // defined(OS_CHROMEOS)
 
@@ -54,8 +54,8 @@ const service_manager::Manifest& GetContentPackagedServicesManifest() {
         .RequireCapability(mojom::kBrowserServiceName, "")
         .RequireCapability("*", "app")
         .PackageService(heap_profiling::GetManifest())
-        .PackageService(cdm::GetManifest())
-        .PackageService(media::GetManifest())
+        .PackageService(media::GetCdmManifest())
+        .PackageService(media::GetMediaManifest())
         .PackageService(audio::GetManifest())
         .PackageService(data_decoder::GetManifest())
         .PackageService(device::GetManifest())
@@ -72,7 +72,8 @@ const service_manager::Manifest& GetContentPackagedServicesManifest() {
 #endif
 #if defined(OS_CHROMEOS)
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
-        .PackageService(assistant_audio_decoder::GetManifest())
+        // TODO(https://crbug.com/929340): This doesn't belong here!
+        .PackageService(chromeos::assistant::GetAudioDecoderManifest())
 #endif  // BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
 #endif  // defined(OS_CHROMEOS)
         .Build()

@@ -81,13 +81,6 @@ const char kUseCras[] = "use-cras";
 const char kUnsafelyAllowProtectedMediaIdentifierForDomain[] =
     "unsafely-allow-protected-media-identifier-for-domain";
 
-#if BUILDFLAG(ENABLE_RUNTIME_MEDIA_RENDERER_SELECTION)
-// Rather than use the renderer hosted remotely in the media service, fall back
-// to the default renderer within content_renderer. Does not change the behavior
-// of the media service.
-const char kDisableMojoRenderer[] = "disable-mojo-renderer";
-#endif  // BUILDFLAG(ENABLE_RUNTIME_MEDIA_RENDERER_SELECTION)
-
 // Use fake device for Media Stream to replace actual camera and microphone.
 const char kUseFakeDeviceForMediaStream[] = "use-fake-device-for-media-stream";
 
@@ -259,6 +252,11 @@ const base::Feature kMojoVideoDecoder{"MojoVideoDecoder",
 const base::Feature kD3D11VideoDecoder{"D3D11VideoDecoder",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Tell D3D11VideoDecoder to ignore workarounds for zero copy.  Requires that
+// kD3D11VideoDecoder is enabled.
+const base::Feature kD3D11VideoDecoderIgnoreWorkarounds{
+    "D3D11VideoDecoderIgnoreWorkarounds", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Falls back to other decoders after audio/video decode error happens. The
 // implementation may choose different strategies on when to fallback. See
 // DecoderStream for details. When disabled, playback will fail immediately
@@ -277,10 +275,6 @@ const base::Feature kMseBufferByPts{"MseBufferByPts",
 // new estimator.
 const base::Feature kNewEncodeCpuLoadEstimator{
     "NewEncodeCpuLoadEstimator", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Use the new Remote Playback / media flinging pipeline.
-const base::Feature kNewRemotePlaybackPipeline{
-    "NewRemotePlaybackPipeline", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Use the new RTC hardware decode path via RTCVideoDecoderAdapter.
 const base::Feature kRTCVideoDecoderAdapter{"RTCVideoDecoderAdapter",
@@ -308,15 +302,13 @@ const base::Feature kUnifiedAutoplay{"UnifiedAutoplay",
 const base::Feature kUseSurfaceLayerForVideo{"UseSurfaceLayerForVideo",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Use SurfaceLayer instead of VideoLayer when entering Picture-in-Picture mode.
-// Does nothing if UseSurfaceLayerForVideo is enabled.  Does not affect
-// MediaStream playbacks.
-const base::Feature kUseSurfaceLayerForVideoPIP{
-    "UseSurfaceLayerForVideoPIP", base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enable VA-API hardware encode acceleration for VP8.
 const base::Feature kVaapiVP8Encoder{"VaapiVP8Encoder",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enable VA-API hardware encode acceleration for VP9.
+const base::Feature kVaapiVP9Encoder{"VaapiVP9Encoder",
+                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Inform video blitter of video color space.
 const base::Feature kVideoBlitColorAccuracy{"video-blit-color-accuracy",
@@ -338,7 +330,7 @@ const base::Feature kHardwareSecureDecryption{
 // Enables handling of hardware media keys for controlling media.
 const base::Feature kHardwareMediaKeyHandling{
   "HardwareMediaKeyHandling",
-#if defined(OS_CHROMEOS)
+#if defined(OS_CHROMEOS) || defined(OS_WIN) || defined(OS_MACOSX)
       base::FEATURE_ENABLED_BY_DEFAULT
 #else
       base::FEATURE_DISABLED_BY_DEFAULT
@@ -366,6 +358,7 @@ const base::Feature kAutoplayWhitelistSettings{
 
 #if defined(OS_ANDROID)
 // Enable a gesture to make the media controls expaned into the display cutout.
+// TODO(beccahughes): Remove this.
 const base::Feature kMediaControlsExpandGesture{
     "MediaControlsExpandGesture", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -383,14 +376,24 @@ const base::Feature kVideoRotateToFullscreen{"VideoRotateToFullscreen",
 const base::Feature kMediaDrmPersistentLicense{
     "MediaDrmPersistentLicense", base::FEATURE_ENABLED_BY_DEFAULT};
 
-// Enables the Android MediaRouter implementation using CAF (Cast v3).
-const base::Feature kCafMediaRouterImpl{"CafMediaRouterImpl",
-                                        base::FEATURE_DISABLED_BY_DEFAULT};
+// Enables MediaDrmOriginIdManager to provide preprovisioned origin IDs for
+// MediaDrmBridge. If disabled, MediaDrmBridge will get unprovisioned origin IDs
+// which will trigger provisioning process after MediaDrmBridge is created.
+const base::Feature kMediaDrmPreprovisioning{"MediaDrmPreprovisioning",
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Determines if MediaDrmOriginIdManager should attempt to pre-provision origin
+// IDs at startup (whenever a profile is loaded). Also used by tests that
+// disable it so that the tests can setup before pre-provisioning is done.
+// Note: Have no effect if kMediaDrmPreprovisioning feature is disabled.
+const base::Feature kMediaDrmPreprovisioningAtStartup{
+    "MediaDrmPreprovisioningAtStartup", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables the Android Image Reader path for Video decoding(for AVDA and MCVD)
 const base::Feature kAImageReaderVideoOutput{"AImageReaderVideoOutput",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
-#endif
+
+#endif  // defined(OS_ANDROID)
 
 #if defined(OS_WIN)
 // Does NV12->NV12 video copy on the main thread right before the texture's
@@ -431,10 +434,12 @@ std::string GetEffectiveAutoplayPolicy(const base::CommandLine& command_line) {
 }
 
 // Adds icons to the overflow menu on the native media controls.
+// TODO(steimel): Remove this.
 const base::Feature kOverflowIconsForMediaControls{
     "OverflowIconsForMediaControls", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the new redesigned media controls.
+// TODO(steimel): Remove this.
 const base::Feature kUseModernMediaControls{"UseModernMediaControls",
                                             base::FEATURE_ENABLED_BY_DEFAULT};
 

@@ -14,17 +14,12 @@
 #include "base/android/scoped_java_ref.h"
 #include "base/callback_forward.h"
 #include "base/macros.h"
-#include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "chrome/browser/android/tab_state.h"
 #include "chrome/browser/sync/glue/synced_tab_delegate_android.h"
-#include "components/favicon/core/favicon_driver_observer.h"
 #include "components/infobars/core/infobar_manager.h"
 #include "components/omnibox/browser/location_bar_model.h"
 #include "components/sessions/core/session_id.h"
-#include "content/public/browser/web_contents_observer.h"
-#include "services/service_manager/public/cpp/binder_registry.h"
-#include "third_party/blink/public/platform/media_download_in_product_help.mojom.h"
 
 class GURL;
 class Profile;
@@ -42,7 +37,6 @@ class TabContentManager;
 
 namespace content {
 class DevToolsAgentHost;
-class NavigationHandle;
 class WebContents;
 }
 
@@ -50,8 +44,7 @@ namespace prerender {
 class PrerenderManager;
 }
 
-class TabAndroid : public favicon::FaviconDriverObserver,
-                   public content::WebContentsObserver {
+class TabAndroid {
  public:
   // A Java counterpart will be generated for this enum.
   // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser
@@ -75,7 +68,7 @@ class TabAndroid : public favicon::FaviconDriverObserver,
   static void AttachTabHelpers(content::WebContents* web_contents);
 
   TabAndroid(JNIEnv* env, const base::android::JavaRef<jobject>& obj);
-  ~TabAndroid() override;
+  ~TabAndroid();
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 
@@ -117,13 +110,6 @@ class TabAndroid : public favicon::FaviconDriverObserver,
   void HandlePopupNavigation(NavigateParams* params);
 
   bool HasPrerenderedUrl(GURL gurl);
-
-  // Overridden from favicon::FaviconDriverObserver:
-  void OnFaviconUpdated(favicon::FaviconDriver* favicon_driver,
-                        NotificationIconType notification_icon_type,
-                        const GURL& icon_url,
-                        bool icon_url_changed,
-                        const gfx::Image& image) override;
 
   // Returns true if this tab is currently presented in the context of custom
   // tabs. Tabs can be moved between different activities so the returned value
@@ -173,19 +159,13 @@ class TabAndroid : public favicon::FaviconDriverObserver,
       jboolean should_replace_current_entry,
       jboolean has_user_gesture,
       jboolean should_clear_history_list,
-      jlong omnibox_input_received_timestamp);
+      jlong omnibox_input_received_timestamp,
+      jlong intent_received_timestamp);
   void SetActiveNavigationEntryTitleForUrl(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj,
       const base::android::JavaParamRef<jstring>& jurl,
       const base::android::JavaParamRef<jstring>& jtitle);
-  bool Print(JNIEnv* env,
-             const base::android::JavaParamRef<jobject>& obj,
-             jint render_process_id,
-             jint render_frame_id);
-
-  // Sets the tab as content to be printed through JNI.
-  void SetPendingPrint(int render_process_id, int render_frame_id);
 
   // Called to get default favicon of current tab, return null if no
   // favicon is avaliable for current tab.
@@ -228,10 +208,6 @@ class TabAndroid : public favicon::FaviconDriverObserver,
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj);
 
-  jint GetCurrentRenderProcessId(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& obj);
-
   bool HasPrerenderedUrl(JNIEnv* env,
                          const base::android::JavaParamRef<jobject>& obj,
                          const base::android::JavaParamRef<jstring>& url);
@@ -255,10 +231,6 @@ class TabAndroid : public favicon::FaviconDriverObserver,
       const base::android::JavaParamRef<jobject>& obj,
       jboolean enabled);
 
-  void MediaDownloadInProductHelpDismissed(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& obj);
-
   bool ShouldEnableEmbeddedMediaExperience() const;
 
   scoped_refptr<content::DevToolsAgentHost> GetDevToolsAgentHost();
@@ -268,36 +240,12 @@ class TabAndroid : public favicon::FaviconDriverObserver,
   void AttachDetachedTab(JNIEnv* env,
                          const base::android::JavaParamRef<jobject>& obj);
 
-  // Register the Tab's native methods through JNI.
-  static bool RegisterTabAndroid(JNIEnv* env);
-
-  // content::WebContentsObserver implementation.
-  void OnInterfaceRequestFromFrame(
-      content::RenderFrameHost* render_frame_host,
-      const std::string& interface_name,
-      mojo::ScopedMessagePipeHandle* interface_pipe) override;
-  void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
-  void NavigationEntryChanged(
-      const content::EntryChangedDetails& change_details) override;
-  void DidFinishNavigation(
-      content::NavigationHandle* navigation_handle) override;
-
   bool AreRendererInputEventsIgnored(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& obj);
 
  private:
-  class MediaDownloadInProductHelp;
-
   prerender::PrerenderManager* GetPrerenderManager() const;
-
-  // methods used by MediaDownloadInProductHelp.
-  void CreateInProductHelpService(
-      blink::mojom::MediaDownloadInProductHelpRequest request,
-      content::RenderFrameHost* render_frame_host);
-  void ShowMediaDownloadInProductHelp(const gfx::Rect& rect_in_frame);
-  void DismissMediaDownloadInProductHelp();
-  void OnMediaDownloadInProductHelpConnectionError();
 
   JavaObjectWeakGlobalRef weak_java_tab_;
 
@@ -316,13 +264,6 @@ class TabAndroid : public favicon::FaviconDriverObserver,
   GURL webapp_manifest_scope_;
   bool picture_in_picture_enabled_;
   bool embedded_media_experience_enabled_;
-
-  std::unique_ptr<MediaDownloadInProductHelp> media_in_product_help_;
-
-  service_manager::BinderRegistryWithArgs<content::RenderFrameHost*>
-      frame_interfaces_;
-
-  base::WeakPtrFactory<TabAndroid> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(TabAndroid);
 };

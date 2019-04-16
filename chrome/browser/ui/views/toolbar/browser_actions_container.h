@@ -164,6 +164,9 @@ class BrowserActionsContainer : public views::View,
     return resize_animation_ && resize_animation_->is_animating();
   }
 
+  // Is the view being resized?
+  bool resizing() const { return resize_starting_width_.has_value(); }
+
   // Returns the ID of the action represented by the view at |index|.
   std::string GetIdAt(size_t index) const;
 
@@ -212,6 +215,7 @@ class BrowserActionsContainer : public views::View,
 
   // Overridden from views::ResizeAreaDelegate:
   void OnResize(int resize_amount, bool done_resizing) override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
 
   // Overridden from gfx::AnimationDelegate:
   void AnimationProgressed(const gfx::Animation* animation) override;
@@ -255,6 +259,8 @@ class BrowserActionsContainer : public views::View,
   void OnPaint(gfx::Canvas* canvas) override;
 
  private:
+  friend class BrowserActionsContainerBrowserTest;
+
   // A struct representing the position at which an action will be dropped.
   struct DropPosition;
 
@@ -281,6 +287,10 @@ class BrowserActionsContainer : public views::View,
   // Width of the separator and surrounding padding. 0 when the separator should
   // not be shown.
   int GetSeparatorAreaWidth() const;
+
+  // Updates the enabled state of the resize area based on whether a resize can
+  // happen with the current browser size and actions bar state.
+  void UpdateResizeArea();
 
   const ToolbarActionsBar::PlatformSettings& platform_settings() const {
     return toolbar_actions_bar_->platform_settings();

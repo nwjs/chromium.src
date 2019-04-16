@@ -43,7 +43,7 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplClient,
   void InitializePaintWorkletLayerPainterOnImpl(
       std::unique_ptr<PaintWorkletLayerPainter> painter);
   void SetInputThrottledUntilCommitOnImpl(bool is_throttled);
-  void SetDeferMainFrameUpdateOnImpl(bool defer_main_frame_update) const;
+  void SetDeferBeginMainFrameOnImpl(bool defer_begin_main_frame) const;
   void SetNeedsRedrawOnImpl(const gfx::Rect& damage_rect);
   void SetNeedsCommitOnImpl();
   void BeginMainFrameAbortedOnImpl(
@@ -110,6 +110,9 @@ class CC_EXPORT ProxyImpl : public LayerTreeHostImplClient,
       const gfx::PresentationFeedback& feedback) override;
   void DidGenerateLocalSurfaceIdAllocationOnImplThread(
       const viz::LocalSurfaceIdAllocation& allocation) override;
+  void NotifyAnimationWorkletStateChange(
+      AnimationWorkletMutationState state,
+      ElementListType element_list_type) override;
 
   // SchedulerClient implementation
   bool WillBeginImplFrame(const viz::BeginFrameArgs& args) override;

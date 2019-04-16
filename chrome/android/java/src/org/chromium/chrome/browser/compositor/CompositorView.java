@@ -44,7 +44,6 @@ import java.util.List;
 public class CompositorView
         extends FrameLayout implements CompositorSurfaceManager.SurfaceManagerCallbackTarget {
     private static final String TAG = "CompositorView";
-    private static final long NANOSECONDS_PER_MILLISECOND = 1000000;
 
     // Cache objects that should not be created every frame
     private final Rect mCacheAppRect = new Rect();
@@ -354,6 +353,12 @@ public class CompositorView
         if (swappedCurrentSize) {
             runDrawFinishedCallbacks();
         }
+    }
+
+    @CalledByNative
+    private void notifyWillUseSurfaceControl() {
+        mAlwaysTranslucent = true;
+        mCompositorSurfaceManager.requestSurface(getSurfacePixelFormat());
     }
 
     /**

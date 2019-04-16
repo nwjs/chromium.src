@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
@@ -490,19 +491,14 @@ void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   webrtc::DesktopVector origin;
   if (show_display_id_ != webrtc::kFullDesktopScreenId) {
-    const DisplayGeometry* display_info =
-        desktop_display_info_.GetDisplayInfo(show_display_id_);
-    if (display_info) {
-      origin.set(display_info->x, display_info->y);
-    }
+    origin = desktop_display_info_.CalcDisplayOffset(show_display_id_);
   }
-  mouse_clamping_filter_.set_output_size(
-      webrtc::DesktopRect::MakeOriginSize(origin, size));
+  mouse_clamping_filter_.set_output_offset(origin);
+  mouse_clamping_filter_.set_output_size(size);
 
   switch (connection_->session()->config().protocol()) {
     case protocol::SessionConfig::Protocol::ICE:
-      mouse_clamping_filter_.set_input_size(
-          webrtc::DesktopRect::MakeSize(size));
+      mouse_clamping_filter_.set_input_size(webrtc::DesktopSize(size));
       break;
 
     case protocol::SessionConfig::Protocol::WEBRTC: {
@@ -511,8 +507,7 @@ void ClientSession::OnVideoSizeChanged(protocol::VideoStream* video_stream,
       // TODO(sergeyu): Fix InputInjector implementations to use DIPs as well.
       webrtc::DesktopSize size_dips =
           DesktopDisplayInfo::CalcSizeDips(size, dpi.x(), dpi.y());
-      mouse_clamping_filter_.set_input_size(
-          webrtc::DesktopRect::MakeSize(size_dips));
+      mouse_clamping_filter_.set_input_size(webrtc::DesktopSize(size_dips));
 
       // Generate and send VideoLayout message.
       protocol::VideoLayout layout;
@@ -549,17 +544,22 @@ void ClientSession::OnDesktopDisplayChanged(
   for (int display_id = 0; display_id < displays->video_track_size();
        display_id++) {
     protocol::VideoTrackLayout track = displays->video_track(display_id);
-    int x = track.position_x();
-    int y = track.position_y();
-    min_x = std::min(x, min_x);
-    min_y = std::min(y, min_y);
-    max_x = std::max(x + track.width(), max_x);
-    max_y = std::max(y + track.height(), max_y);
-
     if (dpi_x == 0)
       dpi_x = track.x_dpi();
     if (dpi_y == 0)
       dpi_y = track.y_dpi();
+
+    // The WebRTC desktop only includes displays that match the main display's
+    // DPI. Here, we filter out non-matching displays so that our desktop
+    // geometry matches what WebRTC can handle.
+    if (dpi_x == track.x_dpi() && dpi_y == track.y_dpi()) {
+      int x = track.position_x();
+      int y = track.position_y();
+      min_x = std::min(x, min_x);
+      min_y = std::min(y, min_y);
+      max_x = std::max(x + track.width(), max_x);
+      max_y = std::max(y + track.height(), max_y);
+    }
   }
 
   // Calc desktop scaled geometry (in DIPs)

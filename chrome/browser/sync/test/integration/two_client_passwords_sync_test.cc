@@ -17,6 +17,7 @@
 #include "chrome/browser/sync/test/integration/profile_sync_service_harness.h"
 #include "chrome/browser/sync/test/integration/sync_integration_test_util.h"
 #include "chrome/browser/sync/test/integration/sync_test.h"
+#include "chrome/browser/sync/test/integration/updated_progress_marker_checker.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/engine/cycle/sync_cycle_snapshot.h"
 #include "components/sync/engine/model_safe_worker.h"
@@ -25,6 +26,7 @@ using passwords_helper::AddLogin;
 using passwords_helper::AllProfilesContainSamePasswordForms;
 using passwords_helper::AllProfilesContainSamePasswordFormsAsVerifier;
 using passwords_helper::CreateTestPasswordForm;
+using passwords_helper::GetLogins;
 using passwords_helper::GetPasswordCount;
 using passwords_helper::GetPasswordStore;
 using passwords_helper::GetVerifierPasswordCount;
@@ -53,21 +55,30 @@ class TwoClientPasswordsSyncTest
   // after it has been used is needed for this test (by setting up each client
   // with a different ScopedFeatureList).
   void BeforeSetupClient(int index) override {
-    const bool should_enable_pseudo_uss =
+    const bool should_enable_uss =
         index == 0 ? std::get<0>(GetParam()) : std::get<1>(GetParam());
 
-    // The value of the feature kSyncPseudoUSSPasswords only matters during the
+    // In order to avoid test flakiness, for any client other than the first, we
+    // need to make sure the feature toggle has been fully read by PasswordStore
+    // before overriding it again. The way to achieve that, for the current
+    // implementation of PasswordStore, is to make a round trip to the backend
+    // sequence, which guarantees that initialization has completed.
+    if (index != 0) {
+      // We ignore the returned value since all we want is to wait for the
+      // round trip to be completed.
+      GetPasswordCount(index - 1);
+    }
+
+    // The value of the feature kSyncUSSPasswords only matters during the
     // setup of each client, when the profile is created, ProfileSyncService
     // instantiated as well as the datatype controllers. By overriding the
     // feature, we can influence whether client |index| is running with the new
     // codepath or the legacy one.
     override_features_ = std::make_unique<base::test::ScopedFeatureList>();
-    if (should_enable_pseudo_uss) {
-      override_features_->InitAndEnableFeature(
-          switches::kSyncPseudoUSSPasswords);
+    if (should_enable_uss) {
+      override_features_->InitAndEnableFeature(switches::kSyncUSSPasswords);
     } else {
-      override_features_->InitAndDisableFeature(
-          switches::kSyncPseudoUSSPasswords);
+      override_features_->InitAndDisableFeature(switches::kSyncUSSPasswords);
     }
   }
 
@@ -113,6 +124,57 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest, E2E_ENABLED(MAYBE_Race)) {
   AddLogin(GetPasswordStore(1), form1);
 
   ASSERT_TRUE(SamePasswordFormsChecker().Wait());
+}
+
+// Flaky on TSAN: crbug.com/915219
+#if defined(THREAD_SANITIZER)
+#define MAYBE_MergeWithTheMostRecent DISABLED_MergeWithTheMostRecent
+#else
+#define MAYBE_MergeWithTheMostRecent MergeWithTheMostRecent
+#endif
+IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
+                       E2E_ENABLED(MAYBE_MergeWithTheMostRecent)) {
+  // Setup the test to have Form 0 and Form 1 added on both clients. Form 0 is
+  // more recent on Client 0, and Form 1 is more recent on Client 1. They should
+  // be merged such that recent passwords are chosen.
+
+  base::Time now = base::Time::Now();
+  base::Time yesterday = now - base::TimeDelta::FromDays(1);
+
+  PasswordForm form0_recent = CreateTestPasswordForm(0);
+  form0_recent.date_created = now;
+  PasswordForm form0_old = CreateTestPasswordForm(0);
+  form0_old.date_created = yesterday;
+
+  PasswordForm form1_recent = CreateTestPasswordForm(1);
+  form1_recent.date_created = now;
+  PasswordForm form1_old = CreateTestPasswordForm(1);
+  form1_old.date_created = yesterday;
+
+  ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
+
+  // Add the passwords to Client 0.
+  AddLogin(GetPasswordStore(0), form0_recent);
+  AddLogin(GetPasswordStore(0), form1_old);
+  // Enable sync on Client 0 and wait until they are committed.
+  ASSERT_TRUE(GetClient(0)->SetupSync()) << "GetClient(0)->SetupSync() failed.";
+  ASSERT_TRUE(UpdatedProgressMarkerChecker(GetSyncService(0)).Wait());
+
+  // Add the passwords to Client 1.
+  AddLogin(GetPasswordStore(1), form0_old);
+  AddLogin(GetPasswordStore(1), form1_recent);
+
+  // Enable sync on Client 1 and wait until all passwords are merged.
+  ASSERT_TRUE(GetClient(1)->SetupSync()) << "GetClient(1)->SetupSync() failed.";
+  ASSERT_TRUE(SamePasswordFormsChecker().Wait());
+
+  // There should be only 2 passwords.
+  EXPECT_EQ(2, GetPasswordCount(0));
+  // All passwords should be the recent ones.
+  for (const std::unique_ptr<PasswordForm>& form :
+       GetLogins(GetPasswordStore(0))) {
+    EXPECT_EQ(now, form->date_created);
+  }
 }
 
 // Flaky on TSAN: crbug.com/915219
@@ -197,9 +259,15 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest, MAYBE_Delete) {
   ASSERT_TRUE(AllProfilesContainSamePasswordFormsAsVerifier());
 }
 
-// https://crbug.com/874929, flaky on all platform.
+// Flaky on TSAN: crbug.com/915219
+#if defined(THREAD_SANITIZER)
+#define MAYBE_SetPassphraseAndThenSetupSync \
+  DISABLED_SetPassphraseAndThenSetupSync
+#else
+#define MAYBE_SetPassphraseAndThenSetupSync SetPassphraseAndThenSetupSync
+#endif
 IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
-                       DISABLED_SetPassphraseAndThenSetupSync) {
+                       MAYBE_SetPassphraseAndThenSetupSync) {
   ASSERT_TRUE(SetupClients());
 
   ASSERT_TRUE(GetClient(0)->SetupSync());
@@ -209,7 +277,8 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
 
   // When client 1 hits a passphrase required state, we can infer that
   // client 0's passphrase has been committed. to the server.
-  ASSERT_FALSE(GetClient(1)->SetupSync());
+  ASSERT_TRUE(GetClient(1)->SetupSyncNoWaitForCompletion(
+      syncer::UserSelectableTypes()));
   ASSERT_TRUE(PassphraseRequiredChecker(GetSyncService(1)).Wait());
 
   // Get client 1 out of the passphrase required state.
@@ -340,10 +409,10 @@ IN_PROC_BROWSER_TEST_P(TwoClientPasswordsSyncTest,
   }
 }
 
-// We instantiate every test 4 times, for every combination of pseudo-USS being
-// enabled in individual clients. This verifies backward-compatibility between
-// the two implementations.
-INSTANTIATE_TEST_CASE_P(USS,
-                        TwoClientPasswordsSyncTest,
-                        ::testing::Combine(::testing::Values(false, true),
-                                           ::testing::Values(false, true)));
+// We instantiate every test 4 times, for every combination of USS being enabled
+// in individual clients. This verifies backward-compatibility between the two
+// implementations.
+INSTANTIATE_TEST_SUITE_P(USS,
+                         TwoClientPasswordsSyncTest,
+                         ::testing::Combine(::testing::Values(false, true),
+                                            ::testing::Values(false, true)));

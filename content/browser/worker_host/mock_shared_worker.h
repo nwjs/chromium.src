@@ -14,10 +14,13 @@
 
 #include "base/macros.h"
 #include "content/browser/worker_host/shared_worker_host.h"
-#include "content/common/shared_worker/shared_worker_factory.mojom.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/controller_service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_factory.mojom.h"
+#include "third_party/blink/public/mojom/worker/worker_content_settings_proxy.mojom.h"
 
 class GURL;
 
@@ -53,9 +56,10 @@ class MockSharedWorker : public blink::mojom::SharedWorker {
   DISALLOW_COPY_AND_ASSIGN(MockSharedWorker);
 };
 
-class MockSharedWorkerFactory : public mojom::SharedWorkerFactory {
+class MockSharedWorkerFactory : public blink::mojom::SharedWorkerFactory {
  public:
-  explicit MockSharedWorkerFactory(mojom::SharedWorkerFactoryRequest request);
+  explicit MockSharedWorkerFactory(
+      blink::mojom::SharedWorkerFactoryRequest request);
   ~MockSharedWorkerFactory() override;
 
   bool CheckReceivedCreateSharedWorker(
@@ -67,15 +71,15 @@ class MockSharedWorkerFactory : public mojom::SharedWorkerFactory {
       blink::mojom::SharedWorkerRequest* request);
 
  private:
-  // mojom::SharedWorkerFactory methods:
+  // blink::mojom::SharedWorkerFactory methods:
   void CreateSharedWorker(
       blink::mojom::SharedWorkerInfoPtr info,
       bool pause_on_start,
       const base::UnguessableToken& devtools_worker_token,
-      const RendererPreferences& renderer_preferences,
-      mojom::RendererPreferenceWatcherRequest preference_watcher_request,
+      blink::mojom::RendererPreferencesPtr renderer_preferences,
+      blink::mojom::RendererPreferenceWatcherRequest preference_watcher_request,
       blink::mojom::WorkerContentSettingsProxyPtr content_settings,
-      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+      blink::mojom::ServiceWorkerProviderInfoForWorkerPtr
           service_worker_provider_info,
       int appcache_host_id,
       network::mojom::URLLoaderFactoryAssociatedPtrInfo
@@ -99,7 +103,7 @@ class MockSharedWorkerFactory : public mojom::SharedWorkerFactory {
     service_manager::mojom::InterfaceProviderPtr interface_provider;
   };
 
-  mojo::Binding<mojom::SharedWorkerFactory> binding_;
+  mojo::Binding<blink::mojom::SharedWorkerFactory> binding_;
   std::unique_ptr<CreateParams> create_params_;
 
   DISALLOW_COPY_AND_ASSIGN(MockSharedWorkerFactory);

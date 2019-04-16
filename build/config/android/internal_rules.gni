@@ -1106,11 +1106,19 @@ if (enable_java_templates) {
         _proguard_enabled && (!defined(invoker.proguard_jar_path) || use_r8)
     _enable_multidex =
         defined(invoker.enable_multidex) && invoker.enable_multidex
+    _enable_main_dex_list =
+        _enable_multidex &&
+        (!defined(invoker.min_sdk_version) || invoker.min_sdk_version < 21)
+    if (!_enable_main_dex_list) {
+      if (defined(invoker.negative_main_dex_globs)) {
+        not_needed(invoker, [ "negative_main_dex_globs" ])
+      }
+    }
 
     assert(!(defined(invoker.input_jars) && _proguard_enabled),
            "input_jars can't be specified when proguarding a dex.")
 
-    if (_enable_multidex) {
+    if (_enable_main_dex_list) {
       _main_dex_rules = "//build/android/main_dex_classes.flags"
     }
 
@@ -1122,11 +1130,6 @@ if (enable_java_templates) {
     }
 
     if (_proguard_enabled) {
-      if (defined(invoker.enable_multidex)) {
-        if (defined(invoker.negative_main_dex_globs)) {
-          assert(invoker.negative_main_dex_globs != [])
-        }
-      }
       if (_proguarding_with_r8) {
         _proguard_output_path = invoker.output
         _proguard_target_name = target_name
@@ -1179,8 +1182,7 @@ if (enable_java_templates) {
         }
 
         if (_enable_multidex && _proguarding_with_r8) {
-          if (!defined(invoker.min_sdk_version) ||
-              invoker.min_sdk_version < 21) {
+          if (_enable_main_dex_list) {
             if (defined(invoker.extra_main_dex_proguard_config)) {
               args += [
                 "--main-dex-rules-path",
@@ -1195,8 +1197,9 @@ if (enable_java_templates) {
             ]
             inputs += [ _main_dex_rules ]
           } else {
-            not_needed(invoker, [ "extra_main_dex_proguard_config" ])
-            not_needed([ "_main_dex_rules" ])
+            if (defined(invoker.extra_main_dex_proguard_config)) {
+              not_needed(invoker, [ "extra_main_dex_proguard_config" ])
+            }
           }
         }
 
@@ -1208,7 +1211,7 @@ if (enable_java_templates) {
     }
 
     if (!_proguarding_with_r8) {
-      if (_enable_multidex) {
+      if (_enable_main_dex_list) {
         _main_dex_list_path = invoker.output + ".main_dex_list"
         _main_dex_list_target_name = "${target_name}__main_dex_list"
         action_with_pydeps(_main_dex_list_target_name) {
@@ -1316,13 +1319,15 @@ if (enable_java_templates) {
         }
 
         if (_enable_multidex) {
-          args += [
-            "--multi-dex",
-            "--main-dex-list-path",
-            rebase_path(_main_dex_list_path, root_build_dir),
-          ]
-          deps += [ ":${_main_dex_list_target_name}" ]
-          inputs += [ _main_dex_list_path ]
+          args += [ "--multi-dex" ]
+          if (_enable_main_dex_list) {
+            args += [
+              "--main-dex-list-path",
+              rebase_path(_main_dex_list_path, root_build_dir),
+            ]
+            deps += [ ":${_main_dex_list_target_name}" ]
+            inputs += [ _main_dex_list_path ]
+          }
         }
 
         if (defined(invoker.input_dex_classpath)) {
@@ -1481,8 +1486,10 @@ if (enable_java_templates) {
 
     _desugar = defined(invoker.supports_android) && invoker.supports_android
     _emma_instrument = invoker.emma_instrument
+    _enable_split_compat = defined(invoker.split_compat_class_names)
     _enable_bytecode_rewriter =
-        _enable_assert || _enable_custom_resources || _enable_thread_annotations
+        _enable_assert || _enable_custom_resources ||
+        _enable_thread_annotations || _enable_split_compat
     _is_prebuilt = defined(invoker.is_prebuilt) && invoker.is_prebuilt
     _enable_bytecode_checks = !defined(invoker.enable_bytecode_checks) ||
                               invoker.enable_bytecode_checks
@@ -1564,6 +1571,10 @@ if (enable_java_templates) {
         }
         if (_enable_bytecode_checks) {
           args += [ "--enable-check-class-path" ]
+        }
+        if (_enable_split_compat) {
+          args += [ "--split-compat-class-names" ] +
+                  invoker.split_compat_class_names
         }
         args += [
           "--direct-classpath-jars",
@@ -1751,9 +1762,13 @@ if (enable_java_templates) {
 
       if (defined(invoker.expected_manifest)) {
         inputs += [ invoker.expected_manifest ]
+        _normalized_output = "${invoker.output_manifest}.normalized"
+        outputs += [ _normalized_output ]
         args += [
           "--expected-manifest",
           rebase_path(invoker.expected_manifest, root_build_dir),
+          "--normalized-output",
+          rebase_path(_normalized_output, root_build_dir),
         ]
         if (check_android_configuration) {
           args += [ "--verify-expected-manifest" ]
@@ -1977,6 +1992,12 @@ if (enable_java_templates) {
   #     except that it restricts the list of non-final resource variables
   #     to the list from the input R.txt file. Overrides shared_resources
   #     when both are specified.
+  #
+  #   shared_resources_whitelist_locales: (optional)
+  #     If shared_resources_whitelist is used, provide an optional list of
+  #     Chromium locale names to determine which localized shared string
+  #     resources to put in the final output, even if aapt_locale_whitelist
+  #     is defined to a smaller subset.
   #
   #   support_zh_hk: (optional)
   #     If true, support zh-HK in Chrome on Android by using the resources
@@ -2215,6 +2236,10 @@ if (enable_java_templates) {
           "--shared-resources-whitelist",
           rebase_path(invoker.shared_resources_whitelist, root_build_dir),
         ]
+      }
+      if (defined(invoker.shared_resources_whitelist_locales)) {
+        args += [ "--shared-resources-whitelist-locales=" +
+                  "${invoker.shared_resources_whitelist_locales}" ]
       }
 
       if (defined(invoker.proguard_file)) {
@@ -2737,10 +2762,6 @@ if (enable_java_templates) {
   #  additional_jar_files: Optional list of files to copy into the resulting
   #    .jar file (by default, only .class files are put there). Each entry
   #    has the 'srcPath:dstPath' format.
-  #  enable_incremental_javac_override: Optional. If provided, determines
-  #    whether incremental javac compilation (based on jmake) is enabled.
-  #    Otherwise, decision is based on the global enable_incremental_javac
-  #    build arg variable.
   #  enable_errorprone: Optional. If True, use the errorprone compiler to
   #    check for error-prone constructs in the language. If not provided,
   #    whether this is enabled depends on chromium_code and the global
@@ -2776,14 +2797,6 @@ if (enable_java_templates) {
     _additional_jar_files = []
     if (defined(invoker.additional_jar_files)) {
       _additional_jar_files = invoker.additional_jar_files
-    }
-
-    if (defined(invoker.enable_incremental_javac_override)) {
-      # Use invoker-specified override.
-      _enable_incremental_javac = invoker.enable_incremental_javac_override
-    } else {
-      # Default to build arg if not overridden.
-      _enable_incremental_javac = enable_incremental_javac
     }
 
     _srcjar_deps = []
@@ -2841,12 +2854,6 @@ if (enable_java_templates) {
       ]
       if (defined(invoker.srcjar_filearg)) {
         args += [ "--java-srcjars=${invoker.srcjar_filearg}" ]
-      }
-      if (_enable_incremental_javac) {
-        args += [ "--incremental" ]
-        deps += [ "//third_party/jmake($default_toolchain)" ]
-        inputs += [ "$root_build_dir/bin/jmake" ]
-        outputs += [ "${invoker.javac_jar_path}.pdb" ]
       }
       if (invoker.requires_android) {
         args += [ "--bootclasspath=@FileArg($_rebased_build_config:android:sdk_interface_jars)" ]
@@ -3382,7 +3389,6 @@ if (enable_java_templates) {
       _compile_java_forward_variables = [
         "additional_jar_files",
         "apk_name",
-        "enable_incremental_javac_override",
         "processor_args_javac",
         "provider_configurations",
         "javac_args",
@@ -3474,6 +3480,7 @@ if (enable_java_templates) {
                                    "enable_bytecode_rewriter",
                                    "jar_excluded_patterns",
                                    "jar_included_patterns",
+                                   "split_compat_class_names",
                                  ])
           is_prebuilt = _is_prebuilt
           supports_android = _supports_android
@@ -3618,6 +3625,12 @@ if (enable_java_templates) {
 #   dex_path_file_arg: Path to the module's dex file passed directly to the
 #     creation script. Must be a rebased path or @FileArg expression.
 #
+#   native_lib_placeholders: List of placeholder filenames to add to each
+#     APK split (optional).
+#
+#   secondary_native_lib_placeholders: List of placeholder filenames to add
+#     to each APK split's secondary ABI (optional).
+#
 template("create_android_app_bundle_module") {
   _build_config = invoker.build_config
   _rebased_build_config = rebase_path(_build_config, root_build_dir)
@@ -3669,6 +3682,14 @@ template("create_android_app_bundle_module") {
             "$_rebased_build_config:native:secondary_abi_libraries)",
         "--secondary-android-abi=$android_app_secondary_abi",
       ]
+    }
+    if (defined(invoker.native_lib_placeholders) &&
+        invoker.native_lib_placeholders != []) {
+      args += [ "--native-lib-placeholders=${invoker.native_lib_placeholders}" ]
+    }
+    if (defined(invoker.secondary_native_lib_placeholders) &&
+        invoker.secondary_native_lib_placeholders != []) {
+      args += [ "--secondary-native-lib-placeholders=${invoker.secondary_native_lib_placeholders}" ]
     }
   }
 }

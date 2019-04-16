@@ -19,7 +19,7 @@
 #include "content/renderer/media/stream/media_stream_dispatcher_eventhandler.h"
 #include "third_party/blink/public/mojom/mediastream/media_devices.mojom.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
-#include "third_party/blink/public/platform/modules/mediastream/platform_media_stream_source.h"
+#include "third_party/blink/public/platform/modules/mediastream/web_platform_media_stream_source.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/public/web/web_user_media_request.h"
 
@@ -28,6 +28,7 @@ class Size;
 }
 
 namespace blink {
+class MediaStreamAudioSource;
 class WebMediaStream;
 class WebMediaStreamSource;
 class WebString;
@@ -37,7 +38,6 @@ namespace content {
 
 class AudioCaptureSettings;
 class AudioDeviceCaptureCapability;
-class MediaStreamAudioSource;
 class MediaStreamDeviceObserver;
 class MediaStreamVideoSource;
 class PeerConnectionDependencyFactory;
@@ -131,7 +131,7 @@ class CONTENT_EXPORT UserMediaProcessor
 
   // Creates a MediaStreamAudioSource/MediaStreamVideoSource objects.
   // These are virtual for test purposes.
-  virtual std::unique_ptr<MediaStreamAudioSource> CreateAudioSource(
+  virtual std::unique_ptr<blink::MediaStreamAudioSource> CreateAudioSource(
       const blink::MediaStreamDevice& device,
       const blink::WebPlatformMediaStreamSource::ConstraintsCallback&
           source_ready);
@@ -275,7 +275,7 @@ class CONTENT_EXPORT UserMediaProcessor
   void FinalizeSelectVideoDeviceSettings(
       const blink::WebUserMediaRequest& web_request,
       const VideoCaptureSettings& settings);
-  void SelectVideoContentSettings(bool allow_device_id_constraint);
+  void SelectVideoContentSettings();
 
   void GenerateStreamForCurrentRequestInfo();
 

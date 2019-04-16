@@ -35,8 +35,8 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_blob_callback.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h"
 #include "third_party/blink/renderer/core/html/canvas/image_encode_options.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
@@ -86,6 +86,16 @@ typedef CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextO
     RenderingContext;
 #endif
 
+// This contains the information of HTML Canvas Element,
+// There are four different types of context this HTML Canvas can contain.
+// It can be a 3D Context (WebGL or WebGL2), 2D Context,
+// BitmapRenderingContext or it can have no context (Offscreencanvas).
+// To check the no context case is good to check if there is a placeholder.
+// For 3D and 2D contexts there are Is3D or Is2D functions.
+// The remaining case is BitmaprenderingContext.
+//
+// TODO (juanmihd): Study if a refactor of context could help in simplifying
+// this class and without overcomplicating context.
 class CORE_EXPORT HTMLCanvasElement final
     : public HTMLElement,
       public ContextLifecycleObserver,

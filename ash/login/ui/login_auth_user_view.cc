@@ -27,10 +27,12 @@
 #include "ash/wallpaper/wallpaper_controller.h"
 #include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/timer/timer.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "components/user_manager/user.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/callback_layer_animation_observer.h"
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/layer_animator.h"
@@ -502,7 +504,8 @@ LoginAuthUserView::LoginAuthUserView(const mojom::LoginUserInfoPtr& user,
   password_view_->UpdateForUser(user);
 
   pin_view_ =
-      new LoginPinView(base::BindRepeating(&LoginPasswordView::InsertNumber,
+      new LoginPinView(LoginPinView::Style::kAlphanumeric,
+                       base::BindRepeating(&LoginPasswordView::InsertNumber,
                                            base::Unretained(password_view_)),
                        base::BindRepeating(&LoginPasswordView::Backspace,
                                            base::Unretained(password_view_)));
@@ -651,8 +654,7 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   external_binary_enrollment_button_->SetVisible(has_external_binary);
 
   if (has_external_binary) {
-    power_manager_client_observer_.Add(
-        chromeos::DBusThreadManager::Get()->GetPowerManagerClient());
+    power_manager_client_observer_.Add(chromeos::PowerManagerClient::Get());
   }
 
   int padding_view_height = kDistanceBetweenPasswordFieldAndPinKeyboardDp;

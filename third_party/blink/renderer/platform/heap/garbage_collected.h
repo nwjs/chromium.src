@@ -56,9 +56,6 @@ struct TraceDescriptor {
   void* base_object_payload;
   // A callback for tracing the object.
   TraceCallback callback;
-  // Indicator whether this object can be traced recursively or whether it
-  // requires iterative tracing.
-  bool can_trace_eagerly;
 };
 
 // The GarbageCollectedMixin interface and helper macro
@@ -115,7 +112,7 @@ class PLATFORM_EXPORT GarbageCollectedMixin {
         BlinkGC::kNotFullyConstructedObject);
   }
   virtual TraceDescriptor GetTraceDescriptor() const {
-    return {BlinkGC::kNotFullyConstructedObject, nullptr, false};
+    return {BlinkGC::kNotFullyConstructedObject, nullptr};
   }
 };
 
@@ -131,7 +128,7 @@ class PLATFORM_EXPORT GarbageCollectedMixin {
                                                                              \
   TraceDescriptor GetTraceDescriptor() const override {                      \
     return {const_cast<TYPE*>(static_cast<const TYPE*>(this)),               \
-            TraceTrait<TYPE>::Trace, TraceEagerlyTrait<TYPE>::value};        \
+            TraceTrait<TYPE>::Trace};                                        \
   }                                                                          \
                                                                              \
  private:
@@ -146,10 +143,10 @@ class PLATFORM_EXPORT GarbageCollectedMixin {
 
 // The USING_GARBAGE_COLLECTED_MIXIN macro defines all methods and markers
 // needed for handling mixins.
-#define USING_GARBAGE_COLLECTED_MIXIN(TYPE)    \
-  IS_GARBAGE_COLLECTED_TYPE();                 \
-  DEFINE_GARBAGE_COLLECTED_MIXIN_METHODS(TYPE) \
-  DEFINE_GARBAGE_COLLECTED_MIXIN_CONSTRUCTOR_MARKER(TYPE)
+#define USING_GARBAGE_COLLECTED_MIXIN(TYPE)               \
+  DEFINE_GARBAGE_COLLECTED_MIXIN_CONSTRUCTOR_MARKER(TYPE) \
+  DEFINE_GARBAGE_COLLECTED_MIXIN_METHODS(TYPE)            \
+  IS_GARBAGE_COLLECTED_TYPE()
 
 // Merge two or more Mixins into one:
 //
@@ -167,17 +164,17 @@ class PLATFORM_EXPORT GarbageCollectedMixin {
 //    // USING_GARBAGE_COLLECTED_MIXIN(TYPE) overrides them later and provides
 //    // the implementations.
 //  };
-#define MERGE_GARBAGE_COLLECTED_MIXINS()                          \
- public:                                                          \
-  HeapObjectHeader* GetHeapObjectHeader() const override {        \
-    return reinterpret_cast<HeapObjectHeader*>(                   \
-        BlinkGC::kNotFullyConstructedObject);                     \
-  }                                                               \
-  TraceDescriptor GetTraceDescriptor() const override {           \
-    return {BlinkGC::kNotFullyConstructedObject, nullptr, false}; \
-  }                                                               \
-                                                                  \
- private:                                                         \
+#define MERGE_GARBAGE_COLLECTED_MIXINS()                   \
+ public:                                                   \
+  HeapObjectHeader* GetHeapObjectHeader() const override { \
+    return reinterpret_cast<HeapObjectHeader*>(            \
+        BlinkGC::kNotFullyConstructedObject);              \
+  }                                                        \
+  TraceDescriptor GetTraceDescriptor() const override {    \
+    return {BlinkGC::kNotFullyConstructedObject, nullptr}; \
+  }                                                        \
+                                                           \
+ private:                                                  \
   using merge_garbage_collected_mixins_requires_semicolon = void
 
 // Base class for objects allocated in the Blink garbage-collected heap.

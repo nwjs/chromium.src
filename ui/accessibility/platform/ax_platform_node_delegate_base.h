@@ -7,6 +7,8 @@
 
 #include "ui/accessibility/platform/ax_platform_node_delegate.h"
 
+#include <set>
+
 namespace ui {
 
 // Base implementation of AXPlatformNodeDelegate where all functions
@@ -26,6 +28,12 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
 
   // Get the accessibility tree data for this node.
   const AXTreeData& GetTreeData() const override;
+
+  // Creates a text position rooted at this object.
+  AXNodePosition::AXPositionInstance CreateTextPositionAt(
+      int offset,
+      ax::mojom::TextAffinity affinity =
+          ax::mojom::TextAffinity::kDownstream) const override;
 
   // See comments in AXPlatformNodeDelegate.
   gfx::NativeViewAccessible GetNSWindow() override;
@@ -71,22 +79,41 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   // Get whether this node is offscreen.
   bool IsOffscreen() const override;
 
+  // Get whether this node is in web content.
+  bool IsWebContent() const override;
+
   AXPlatformNode* GetFromNodeID(int32_t id) override;
 
-  // Given a node ID attribute (one where IsNodeIdIntAttribute is true),
-  // and a destination node ID, return a set of all source node IDs that
-  // have that relationship attribute between them and the destination.
-  std::set<int32_t> GetReverseRelations(ax::mojom::IntAttribute attr,
-                                        int32_t dst_id) override;
+  // Given a node ID attribute (one where IsNodeIdIntAttribute is true), return
+  // a target nodes for which this delegate's node has that relationship
+  // attribute or NULL if there is no such relationship.
+  AXPlatformNode* GetTargetNodeForRelation(
+      ax::mojom::IntAttribute attr) override;
 
-  // Given a node ID list attribute (one where
-  // IsNodeIdIntListAttribute is true), and a destination node ID,
-  // return a set of all source node IDs that have that relationship
-  // attribute between them and the destination.
-  std::set<int32_t> GetReverseRelations(ax::mojom::IntListAttribute attr,
-                                        int32_t dst_id) override;
+  // Given a node ID attribute (one where IsNodeIdIntListAttribute is true),
+  // return a set of all target nodes for which this delegate's node has that
+  // relationship attribute.
+  std::set<AXPlatformNode*> GetTargetNodesForRelation(
+      ax::mojom::IntListAttribute attr) override;
+
+  // Given a node ID attribute (one where IsNodeIdIntAttribute is true), return
+  // a set of all source nodes that have that relationship attribute between
+  // them and this delegate's node.
+  std::set<AXPlatformNode*> GetReverseRelations(
+      ax::mojom::IntAttribute attr) override;
+
+  // Given a node ID list attribute (one where IsNodeIdIntListAttribute is
+  // true) return a set of all source nodes that have that relationship
+  // attribute between them and this delegate's node.
+  std::set<AXPlatformNode*> GetReverseRelations(
+      ax::mojom::IntListAttribute attr) override;
 
   const AXUniqueId& GetUniqueId() const override;
+
+  AXPlatformNodeDelegate::EnclosingBoundaryOffsets FindTextBoundariesAtOffset(
+      TextBoundaryType boundary_type,
+      int offset,
+      ax::mojom::TextAffinity affinity) const override;
 
   //
   // Tables. All of these should be called on a node that's a table-like
@@ -95,8 +122,8 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   bool IsTable() const override;
   int32_t GetTableColCount() const override;
   int32_t GetTableRowCount() const override;
-  int32_t GetTableAriaColCount() const override;
-  int32_t GetTableAriaRowCount() const override;
+  base::Optional<int32_t> GetTableAriaColCount() const override;
+  base::Optional<int32_t> GetTableAriaRowCount() const override;
   int32_t GetTableCellCount() const override;
   const std::vector<int32_t> GetColHeaderNodeIds() const override;
   const std::vector<int32_t> GetColHeaderNodeIds(
@@ -104,6 +131,7 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   const std::vector<int32_t> GetRowHeaderNodeIds() const override;
   const std::vector<int32_t> GetRowHeaderNodeIds(
       int32_t row_index) const override;
+  AXPlatformNode* GetTableCaption() override;
 
   // Table row-like nodes.
   bool IsTableRow() const override;
@@ -144,6 +172,14 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   bool AccessibilityPerformAction(const AXActionData& data) override;
 
   //
+  // Localized strings.
+  //
+
+  base::string16 GetLocalizedStringForImageAnnotationStatus(
+      ax::mojom::ImageAnnotationStatus status) const override;
+  base::string16 GetLocalizedRoleDescriptionForUnlabeledImage() const override;
+
+  //
   // Testing.
   //
 
@@ -153,10 +189,16 @@ class AX_EXPORT AXPlatformNodeDelegateBase : public AXPlatformNodeDelegate {
   // element. The default value should be falses if not in testing mode.
   bool ShouldIgnoreHoveredStateForTesting() override;
 
+ protected:
+  // Given a list of node ids, return the nodes in this delegate's tree to
+  // which they correspond.
+  std::set<ui::AXPlatformNode*> GetNodesForNodeIds(
+      const std::set<int32_t>& ids);
+
  private:
   DISALLOW_COPY_AND_ASSIGN(AXPlatformNodeDelegateBase);
 };
 
 }  // namespace ui
 
-#endif  // UI_ACCESSIBILITY_PLATFORM_AX_PLATFORM_NODE_DELEGATE_H_
+#endif  // UI_ACCESSIBILITY_PLATFORM_AX_PLATFORM_NODE_DELEGATE_BASE_H_

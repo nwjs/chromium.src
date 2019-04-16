@@ -13,14 +13,16 @@
 #include "third_party/blink/renderer/platform/wtf/time.h"
 
 namespace blink {
-class PaintLayer;
 class LayoutObject;
 class TracedValue;
 class LocalFrameView;
+class PropertyTreeState;
 
-struct TextRecord {
+class TextRecord : public base::SupportsWeakPtr<TextRecord> {
+ public:
   DOMNodeId node_id = kInvalidDOMNodeId;
   uint64_t first_size = 0;
+  // This is treated as unset.
   base::TimeTicks first_paint_time = base::TimeTicks();
 #ifndef NDEBUG
   String text = "";
@@ -53,14 +55,18 @@ class CORE_EXPORT TextPaintTimingDetector final
   using ReportTimeCallback =
       WTF::CrossThreadFunction<void(WebLayerTreeView::SwapResult,
                                     base::TimeTicks)>;
+  using TextRecordSetComparator = bool (*)(const base::WeakPtr<TextRecord>&,
+                                           const base::WeakPtr<TextRecord>&);
+  using TextRecordSet =
+      std::set<base::WeakPtr<TextRecord>, TextRecordSetComparator>;
   friend class TextPaintTimingDetectorTest;
 
  public:
   TextPaintTimingDetector(LocalFrameView* frame_view);
-  void RecordText(const LayoutObject& object, const PaintLayer& painting_layer);
+  void RecordText(const LayoutObject& object, const PropertyTreeState&);
   TextRecord* FindLargestPaintCandidate();
   TextRecord* FindLastPaintCandidate();
-  void OnPrePaintFinished();
+  void OnPaintFinished();
   void NotifyNodeRemoved(DOMNodeId);
   void Dispose() { timer_.Stop(); }
   base::TimeTicks LargestTextPaint() const { return largest_text_paint_; }
@@ -83,20 +89,14 @@ class CORE_EXPORT TextPaintTimingDetector final
   void RegisterNotifySwapTime(ReportTimeCallback callback);
   void OnLargestTextDetected(const TextRecord&);
   void OnLastTextDetected(const TextRecord&);
+  TextRecord* FindCandidate(const TextRecordSet& ordered_set);
 
-  HashSet<DOMNodeId> recorded_text_node_ids_;
+  HashMap<DOMNodeId, std::unique_ptr<TextRecord>> id_record_map_;
   HashSet<DOMNodeId> size_zero_node_ids_;
-  std::priority_queue<std::unique_ptr<TextRecord>,
-                      std::vector<std::unique_ptr<TextRecord>>,
-                      bool (*)(const std::unique_ptr<TextRecord>&,
-                               const std::unique_ptr<TextRecord>&)>
-      largest_text_heap_;
-  std::priority_queue<std::unique_ptr<TextRecord>,
-                      std::vector<std::unique_ptr<TextRecord>>,
-                      bool (*)(const std::unique_ptr<TextRecord>&,
-                               const std::unique_ptr<TextRecord>&)>
-      latest_text_heap_;
-  std::vector<TextRecord> texts_to_record_swap_time_;
+  HashSet<DOMNodeId> detached_ids_;
+  TextRecordSet size_ordered_set_;
+  TextRecordSet time_ordered_set_;
+  std::queue<DOMNodeId> texts_to_record_swap_time_;
 
   // Make sure that at most one swap promise is ongoing.
   bool awaiting_swap_promise_ = false;

@@ -9,6 +9,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
@@ -78,7 +79,7 @@ std::string EffectsToString(int effects) {
   if (effects) {
     if (!ret.empty())
       ret += " | ";
-    ret += base::IntToString(effects);
+    ret += base::NumberToString(effects);
   }
 
   return ret;
@@ -480,6 +481,8 @@ std::string MediaInternals::MediaInternalsUMAHandler::GetUMANameForAVStream(
     uma_name += "VP9.";
   } else if (player_info.video_codec_name == "h264") {
     uma_name += "H264.";
+  } else if (player_info.video_codec_name == "av1") {
+    uma_name += "AV1.";
   } else {
     return uma_name + "Other";
   }

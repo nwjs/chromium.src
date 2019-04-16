@@ -48,10 +48,8 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   ~NGLayoutResult();
 
   const NGPhysicalFragment* PhysicalFragment() const {
-    return root_fragment_.get();
+    return physical_fragment_.get();
   }
-  NGPhysicalOffset Offset() const { return root_fragment_.Offset(); }
-  void SetOffset(NGPhysicalOffset offset) { root_fragment_.offset_ = offset; }
 
   const Vector<NGOutOfFlowPositionedDescendant>&
   OutOfFlowPositionedDescendants() const {
@@ -76,8 +74,8 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   const NGMarginStrut EndMarginStrut() const { return end_margin_strut_; }
 
   const LayoutUnit IntrinsicBlockSize() const {
-    DCHECK(root_fragment_->Type() == NGPhysicalFragment::kFragmentBox ||
-           root_fragment_->Type() ==
+    DCHECK(physical_fragment_->Type() == NGPhysicalFragment::kFragmentBox ||
+           physical_fragment_->Type() ==
                NGPhysicalFragment::kFragmentRenderedLegend);
     return intrinsic_block_size_;
   }
@@ -117,6 +115,15 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
     return depends_on_percentage_block_size_;
   }
 
+  // Returns true if the space stored with this layout result, is valid.
+  bool HasValidConstraintSpaceForCaching() const { return has_valid_space_; }
+
+  // Returns the space which generated this object for caching purposes.
+  const NGConstraintSpace& GetConstraintSpaceForCaching() const {
+    DCHECK(has_valid_space_);
+    return space_;
+  }
+
  private:
   friend class NGBoxFragmentBuilder;
   friend class NGLineBoxFragmentBuilder;
@@ -124,18 +131,26 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   // This constructor requires a non-null fragment and sets a success status.
   NGLayoutResult(scoped_refptr<const NGPhysicalFragment> physical_fragment,
                  NGBoxFragmentBuilder*);
-  // This constructor is for a non-success status.
-  NGLayoutResult(NGLayoutResultStatus, NGBoxFragmentBuilder*);
+  // This constructor requires a non-null fragment and sets a success status.
   NGLayoutResult(scoped_refptr<const NGPhysicalFragment> physical_fragment,
                  NGLineBoxFragmentBuilder*);
+  // This constructor is for a non-success status.
+  NGLayoutResult(NGLayoutResultStatus, NGBoxFragmentBuilder*);
 
   // We don't need copy constructor today. Delete this to clarify that the
   // default copy constructor will not work because RefCounted can't be copied.
   NGLayoutResult(const NGLayoutResult&) = delete;
 
+  // Delegate constructor that sets up what it can, based on the builder.
+  NGLayoutResult(NGContainerFragmentBuilder* builder, bool cache_space);
+
   static bool DependsOnPercentageBlockSize(const NGContainerFragmentBuilder&);
 
-  NGLink root_fragment_;
+  // The constraint space which generated this layout result, may not be valid
+  // as indicated by |has_valid_space_|.
+  const NGConstraintSpace space_;
+
+  scoped_refptr<const NGPhysicalFragment> physical_fragment_;
   Vector<NGOutOfFlowPositionedDescendant> oof_positioned_descendants_;
 
   NGUnpositionedListMarker unpositioned_list_marker_;
@@ -144,12 +159,13 @@ class CORE_EXPORT NGLayoutResult : public RefCounted<NGLayoutResult> {
   const LayoutUnit bfc_line_offset_;
   const base::Optional<LayoutUnit> bfc_block_offset_;
   const NGMarginStrut end_margin_strut_;
-  const LayoutUnit intrinsic_block_size_;
-  const LayoutUnit minimal_space_shortage_;
+  LayoutUnit intrinsic_block_size_;
+  LayoutUnit minimal_space_shortage_ = LayoutUnit::Max();
 
-  EBreakBetween initial_break_before_;
-  EBreakBetween final_break_after_;
+  EBreakBetween initial_break_before_ = EBreakBetween::kAuto;
+  EBreakBetween final_break_after_ = EBreakBetween::kAuto;
 
+  unsigned has_valid_space_ : 1;
   unsigned has_forced_break_ : 1;
 
   unsigned is_pushed_by_floats_ : 1;

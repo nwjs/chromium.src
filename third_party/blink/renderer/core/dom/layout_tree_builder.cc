@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/first_letter_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/node.h"
+#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/dom/v0_insertion_point.h"
@@ -77,6 +78,7 @@ LayoutTreeBuilderForElement::LayoutTreeBuilderForElement(Element& element,
     : LayoutTreeBuilder(element, nullptr), style_(style) {
   DCHECK(element.CanParticipateInFlatTree());
   DCHECK(style_);
+  DCHECK(!style_->IsEnsuredInDisplayNone());
   // TODO(ecobos): Move the first-letter logic inside ParentLayoutObject too?
   // It's an extra (unnecessary) check for text nodes, though.
   if (element.IsFirstLetterPseudoElement()) {
@@ -196,7 +198,7 @@ LayoutTreeBuilderForText::CreateInlineWrapperForDisplayContentsIfNeeded() {
 void LayoutTreeBuilderForText::CreateLayoutObject() {
   ComputedStyle& style = *style_;
 
-  DCHECK(style_ == layout_object_parent_->Style() ||
+  DCHECK(style_ == layout_object_parent_->GetNode()->GetComputedStyle() ||
          ToElement(LayoutTreeBuilderTraversal::Parent(*node_))
              ->HasDisplayContentsStyle());
 
@@ -256,20 +258,12 @@ void ReattachLegacyLayoutObjectList::AddForceLegacyAtBFCAncestor(
   if (start == bfc)
     return;
   DCHECK(bfc) << start;
-  if (std::any_of(blocks_.begin(), blocks_.end(),
-                  [bfc](const LayoutObject* object) {
-                    return bfc == object ||
-                           bfc->GetNode()->IsDescendantOf(object->GetNode());
-                  }))
-    return;
-  auto** itr = std::remove_if(
-      blocks_.begin(), blocks_.end(), [bfc](const LayoutObject* object) {
-        return object->GetNode()->IsDescendantOf(bfc->GetNode());
-      });
-  blocks_.resize(static_cast<wtf_size_t>(std::distance(blocks_.begin(), itr)));
+  Element* bfc_element = ToElement(bfc->GetNode());
+  DCHECK(bfc_element);
   // Mark BFC root is added into the list.
-  bfc->MutableStyle()->SetForceLegacyLayout(true);
-  blocks_.push_back(bfc);
+  // TODO(futhark): We should not mutate the ComputedStyle here.
+  bfc_element->MutableComputedStyle()->SetForceLegacyLayout(true);
+  reattach_elements_.push_back(bfc_element);
 }
 
 bool ReattachLegacyLayoutObjectList::IsCollecting() const {
@@ -282,18 +276,19 @@ void ReattachLegacyLayoutObjectList::ForceLegacyLayoutIfNeeded() {
   if (state == State::kBuildingLegacyLayoutTree)
     return;
   DCHECK_EQ(state, State::kCollecting);
-  if (blocks_.IsEmpty())
+  if (reattach_elements_.IsEmpty())
     return;
-  for (const LayoutObject* block : blocks_)
-    ToElement(*block->GetNode()).LazyReattachIfAttached();
+  for (Element* element : reattach_elements_)
+    element->SetForceReattachLayoutTree();
   state_ = State::kForcingLegacyLayout;
-  document_->GetStyleEngine().RecalcStyle(kNoChange);
+  document_->GetStyleEngine().RecalcStyle({});
   document_->GetStyleEngine().RebuildLayoutTree();
   state_ = State::kClosed;
 }
 
 void ReattachLegacyLayoutObjectList::Trace(Visitor* visitor) {
   visitor->Trace(document_);
+  visitor->Trace(reattach_elements_);
 }
 
 ReattachLegacyLayoutObjectList& Document::GetReattachLegacyLayoutObjectList() {

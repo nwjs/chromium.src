@@ -18,7 +18,7 @@
 namespace blink {
 
 class ConsoleLogger;
-class FetchContext;
+class ResourceFetcherProperties;
 
 // Client interface to use the throttling/scheduling functionality that
 // ResourceLoadScheduler provides.
@@ -83,8 +83,6 @@ class PLATFORM_EXPORT ResourceLoadSchedulerClient
 class PLATFORM_EXPORT ResourceLoadScheduler final
     : public GarbageCollectedFinalized<ResourceLoadScheduler>,
       public FrameScheduler::Observer {
-  WTF_MAKE_NONCOPYABLE(ResourceLoadScheduler);
-
  public:
   // An option to use in calling Request(). If kCanNotBeStoppedOrThrottled is
   // specified, the request should be granted and Run() should be called
@@ -153,7 +151,8 @@ class PLATFORM_EXPORT ResourceLoadScheduler final
       std::numeric_limits<size_t>::max();
 
   ResourceLoadScheduler(ThrottlingPolicy initial_throttling_poilcy,
-                        FetchContext*);
+                        const ResourceFetcherProperties&,
+                        FrameScheduler*);
   ~ResourceLoadScheduler() override;
 
   void Trace(blink::Visitor*);
@@ -276,6 +275,8 @@ class PLATFORM_EXPORT ResourceLoadScheduler final
 
   void ShowConsoleMessageIfNeeded();
 
+  const Member<const ResourceFetcherProperties> resource_fetcher_properties_;
+
   // A flag to indicate an internal running state.
   // TODO(toyoshim): We may want to use enum once we start to have more states.
   bool is_shutdown_ = false;
@@ -330,18 +331,18 @@ class PLATFORM_EXPORT ResourceLoadScheduler final
            std::set<ClientIdWithPriority, ClientIdWithPriority::Compare>>
       pending_requests_;
 
-  // Remembers times when the top request in each queue is processed.
-  std::map<ThrottleOption, base::TimeTicks> pending_queue_update_times_;
+  // Remembers elapsed times in seconds when the top request in each queue is
+  // processed.
+  std::map<ThrottleOption, double> pending_queue_update_times_;
 
   // Holds an internal class instance to monitor and report traffic.
   std::unique_ptr<TrafficMonitor> traffic_monitor_;
 
-  // Holds FetchContext reference to contact FrameScheduler.
-  Member<FetchContext> context_;
-
   // Handle to throttling observer.
   std::unique_ptr<FrameScheduler::LifecycleObserverHandle>
       scheduler_observer_handle_;
+
+  DISALLOW_COPY_AND_ASSIGN(ResourceLoadScheduler);
 };
 
 }  // namespace blink

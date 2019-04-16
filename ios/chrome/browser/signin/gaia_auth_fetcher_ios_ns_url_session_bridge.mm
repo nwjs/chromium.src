@@ -6,6 +6,8 @@
 
 #import <Foundation/Foundation.h>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/mac/foundation_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "ios/chrome/browser/signin/feature_flags.h"
@@ -92,8 +94,8 @@ void GaiaAuthFetcherIOSNSURLSessionBridge::FetchPendingRequest() {
       GetBrowserState()->GetCookieManager();
   net::CookieOptions options;
   options.set_include_httponly();
-  options.set_same_site_cookie_mode(
-      net::CookieOptions::SameSiteCookieMode::INCLUDE_STRICT_AND_LAX);
+  options.set_same_site_cookie_context(
+      net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT);
   cookie_manager->GetCookieList(
       GetRequest().url, options,
       base::BindOnce(
@@ -116,8 +118,8 @@ void GaiaAuthFetcherIOSNSURLSessionBridge::SetCanonicalCookiesFromResponse(
   for (NSHTTPCookie* cookie : cookies) {
     cookie_manager->SetCanonicalCookie(
         net::CanonicalCookieFromSystemCookie(cookie, base::Time::Now()),
-        /*secure_source=*/true,
-        /*modify_http_only=*/true, base::DoNothing());
+        base::SysNSStringToUTF8(response.URL.scheme), /*modify_http_only=*/true,
+        base::DoNothing());
   }
 }
 

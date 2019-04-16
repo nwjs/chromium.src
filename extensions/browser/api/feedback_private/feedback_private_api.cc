@@ -8,8 +8,11 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_base.h"
+#include "base/metrics/statistics_recorder.h"
 #include "base/metrics/user_metrics.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
@@ -29,10 +32,7 @@
 #include "extensions/common/constants.h"
 
 #if defined(OS_CHROMEOS)
-#include "ash/public/interfaces/assistant_controller.mojom.h"
-#include "ash/public/interfaces/constants.mojom.h"
 #include "extensions/browser/api/feedback_private/log_source_access_manager.h"
-#include "services/service_manager/public/cpp/connector.h"
 #endif  // defined(OS_CHROMEOS)
 
 using extensions::api::feedback_private::SystemInformation;
@@ -127,7 +127,8 @@ void FeedbackPrivateAPI::RequestFeedbackForFlow(
     const std::string& extra_diagnostics,
     const GURL& page_url,
     api::feedback_private::FeedbackFlow flow,
-    bool from_assistant) {
+    bool from_assistant,
+    bool include_bluetooth_logs) {
   if (browser_context_ && EventRouter::Get(browser_context_)) {
     FeedbackInfo info;
     info.description = description_template;
@@ -138,6 +139,8 @@ void FeedbackPrivateAPI::RequestFeedbackForFlow(
     info.system_information = std::make_unique<SystemInformationList>();
 #if defined(OS_CHROMEOS)
     info.from_assistant = std::make_unique<bool>(from_assistant);
+    info.include_bluetooth_logs =
+        std::make_unique<bool>(include_bluetooth_logs);
 #endif  // defined(OS_CHROMEOS)
 
     // Any extra diagnostics information should be added to the sys info.
@@ -322,26 +325,23 @@ ExtensionFunction::ResponseAction FeedbackPrivateSendFeedbackFunction::Run() {
   }
 
 #if defined(OS_CHROMEOS)
-  // Send feedback to Assistant server if triggered from Google Assistant.
-  if (feedback_info.from_assistant && *feedback_info.from_assistant) {
-    ash::mojom::AssistantControllerPtr assistant_controller;
-    content::BrowserContext::GetConnectorFor(browser_context())
-        ->BindInterface(ash::mojom::kServiceName, &assistant_controller);
-    assistant_controller->SendAssistantFeedback(
-        feedback_info.assistant_debug_info_allowed &&
-            *feedback_info.assistant_debug_info_allowed,
-        feedback_data->description());
-  }
+  feedback_data->set_from_assistant(feedback_info.from_assistant &&
+                                    *feedback_info.from_assistant);
+  feedback_data->set_assistant_debug_info_allowed(
+      feedback_info.assistant_debug_info_allowed &&
+      *feedback_info.assistant_debug_info_allowed);
 
   delegate->FetchAndMergeIwlwifiDumpLogsIfPresent(
       std::move(sys_logs), browser_context(),
-      base::Bind(&FeedbackPrivateSendFeedbackFunction::OnAllLogsFetched, this,
-                 feedback_data,
-                 feedback_info.send_bluetooth_logs &&
-                     *feedback_info.send_bluetooth_logs));
+      base::BindOnce(
+          &FeedbackPrivateSendFeedbackFunction::OnAllLogsFetched, this,
+          feedback_data,
+          feedback_info.send_histograms && *feedback_info.send_histograms,
+          feedback_info.send_bluetooth_logs &&
+              *feedback_info.send_bluetooth_logs));
 #else
-  OnAllLogsFetched(feedback_data, false /* send_bluetooth_logs */,
-                   std::move(sys_logs));
+  OnAllLogsFetched(feedback_data, false /* send_histograms */,
+                   false /* send_bluetooth_logs */, std::move(sys_logs));
 #endif  // defined(OS_CHROMEOS)
 
   return RespondLater();
@@ -349,11 +349,20 @@ ExtensionFunction::ResponseAction FeedbackPrivateSendFeedbackFunction::Run() {
 
 void FeedbackPrivateSendFeedbackFunction::OnAllLogsFetched(
     scoped_refptr<FeedbackData> feedback_data,
+    bool send_histograms,
     bool send_bluetooth_logs,
     std::unique_ptr<system_logs::SystemLogsResponse> sys_logs) {
   VLOG(1) << "All logs have been fetched. Proceeding with sending the report.";
 
   feedback_data->SetAndCompressSystemInfo(std::move(sys_logs));
+
+  if (send_histograms) {
+    auto histograms = std::make_unique<std::string>();
+    *histograms =
+        base::StatisticsRecorder::ToJSON(base::JSON_VERBOSITY_LEVEL_FULL);
+    if (!histograms->empty())
+      feedback_data->SetAndCompressHistograms(std::move(histograms));
+  }
 
   if (send_bluetooth_logs) {
     std::unique_ptr<std::string> bluetooth_logs =

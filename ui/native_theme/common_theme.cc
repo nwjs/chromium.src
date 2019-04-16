@@ -44,6 +44,7 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
     switch (color_id) {
       case NativeTheme::kColorId_LabelEnabledColor:
       case NativeTheme::kColorId_TextfieldDefaultColor:
+      case NativeTheme::kColorId_EnabledMenuItemForegroundColor:
       case NativeTheme::kColorId_SelectedMenuItemForegroundColor:
       case NativeTheme::kColorId_HighlightedMenuItemForegroundColor:
         return gfx::kGoogleGrey200;
@@ -88,10 +89,24 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
         return gfx::kGoogleBlue300;
       case NativeTheme::kColorId_HighlightedMenuItemBackgroundColor:
         return SkColorSetRGB(0x32, 0x36, 0x39);
+      case NativeTheme::kColorId_MenuItemAlertBackgroundColorMax:
+        return SkColorSetA(gfx::kGoogleGrey100, 0x1A);
+      case NativeTheme::kColorId_MenuItemAlertBackgroundColorMin:
+        return SkColorSetA(gfx::kGoogleGrey100, 0x4D);
       case NativeTheme::kColorId_TreeBackground:
         return gfx::kGoogleGrey800;
       case NativeTheme::kColorId_TreeText:
         return SkColorSetA(SK_ColorWHITE, 0xDD);
+      case NativeTheme::kColorId_AlertSeverityLow:
+        return gfx::kGoogleGreen300;
+      case NativeTheme::kColorId_AlertSeverityMedium:
+        return gfx::kGoogleYellow300;
+      case NativeTheme::kColorId_AlertSeverityHigh:
+        return gfx::kGoogleRed300;
+      case NativeTheme::kColorId_ThrobberSpinningColor:
+        return gfx::kGoogleBlue300;
+      case NativeTheme::kColorId_DefaultIconColor:
+        return gfx::kGoogleGrey500;
       default:
         break;
     }
@@ -190,8 +205,10 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
       return gfx::kGoogleGrey900;
     case NativeTheme::kColorId_FocusedHighlightedMenuItemBackgroundColor:
       return gfx::kGoogleGrey200;
-    case NativeTheme::kColorId_MenuItemAlertBackgroundColor:
+    case NativeTheme::kColorId_MenuItemAlertBackgroundColorMax:
       return SkColorSetA(gfx::kGoogleBlue600, 0x1A);
+    case NativeTheme::kColorId_MenuItemAlertBackgroundColorMin:
+      return SkColorSetA(gfx::kGoogleBlue600, 0x4D);
 
     // Label
     case NativeTheme::kColorId_LabelEnabledColor:
@@ -311,6 +328,9 @@ SkColor GetAuraColor(NativeTheme::ColorId color_id,
       return gfx::kGoogleYellow700;
     case NativeTheme::kColorId_AlertSeverityHigh:
       return gfx::kGoogleRed600;
+
+    case NativeTheme::kColorId_DefaultIconColor:
+      return gfx::kGoogleGrey700;
 
     case NativeTheme::kColorId_NumColors:
       break;

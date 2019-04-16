@@ -4,6 +4,7 @@
 
 #include "content/browser/devtools/devtools_url_request_interceptor.h"
 
+#include "base/bind.h"
 #include "base/strings/pattern.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
@@ -63,7 +64,7 @@ DevToolsURLRequestInterceptor::~DevToolsURLRequestInterceptor() {
 
 const DevToolsTargetRegistry::TargetInfo*
 DevToolsURLRequestInterceptor::TargetInfoForRequestInfo(
-    const ResourceRequestInfo* request_info) const {
+    ResourceRequestInfo* request_info) const {
   int frame_node_id = request_info->GetFrameTreeNodeId();
   if (frame_node_id != -1)
     return target_resolver_->GetInfoByFrameTreeNodeId(frame_node_id);
@@ -139,7 +140,7 @@ net::URLRequestJob* DevToolsURLRequestInterceptor::InnerMaybeInterceptRequest(
   // Don't try to intercept blob resources.
   if (request->url().SchemeIsBlob())
     return nullptr;
-  const ResourceRequestInfo* resource_request_info =
+  ResourceRequestInfo* resource_request_info =
       ResourceRequestInfo::ForRequest(request);
   if (!resource_request_info)
     return nullptr;

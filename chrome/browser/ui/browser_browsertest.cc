@@ -99,7 +99,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/frame_navigate_params.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -1854,13 +1853,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest2, NoTabsInPopups) {
 }
 #endif
 
-// Flaky on Chrome OS only. TODO(https://crbug.com/823043) fix it.
-#if defined(OS_CHROMEOS)
-#define MAYBE_WindowOpenClose1 DISABLED_WindowOpenClose1
-#else
-#define MAYBE_WindowOpenClose1 WindowOpenClose1
-#endif
-IN_PROC_BROWSER_TEST_F(BrowserTest, MAYBE_WindowOpenClose1) {
+IN_PROC_BROWSER_TEST_F(BrowserTest, WindowOpenClose1) {
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       switches::kDisablePopupBlocking);
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -2770,4 +2763,43 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DialogsAllowedInFullscreenWithinTabMode) {
 
   browser_as_dialog_delegate->SetWebContentsBlocked(tab, false);
   tab->DecrementCapturerCount();
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserTest, CountIncognitoWindows) {
+  DCHECK_EQ(0, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+
+  // Create an incognito browser and check the count.
+  Browser* browser1 = CreateIncognitoBrowser(browser()->profile());
+  DCHECK_EQ(1, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+
+  // Create another incognito browser and check the count.
+  Browser* browser2 = CreateIncognitoBrowser(browser()->profile());
+  DCHECK_EQ(2, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+
+  // Open a docked DevTool window and count.
+  DevToolsWindow* devtools_window =
+      DevToolsWindowTesting::OpenDevToolsWindowSync(browser1, true);
+  DCHECK_EQ(2, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools_window);
+
+  // Open a detached DevTool window and count.
+  devtools_window =
+      DevToolsWindowTesting::OpenDevToolsWindowSync(browser1, false);
+  DCHECK_EQ(2, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+  DevToolsWindowTesting::CloseDevToolsWindowSync(devtools_window);
+
+  // Close one browser and count.
+  CloseBrowserSynchronously(browser2);
+  DCHECK_EQ(1, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
+
+  // Close another browser and count.
+  CloseBrowserSynchronously(browser1);
+  DCHECK_EQ(0, BrowserList::GetIncognitoSessionsActiveForProfile(
+                   browser()->profile()));
 }

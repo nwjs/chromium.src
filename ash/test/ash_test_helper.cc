@@ -24,12 +24,14 @@
 #include "ash/test/ash_test_views_delegate.h"
 #include "ash/test_shell_delegate.h"
 #include "ash/ws/window_service_owner.h"
+#include "base/bind.h"
 #include "base/guid.h"
 #include "base/run_loop.h"
 #include "base/strings/string_split.h"
 #include "base/token.h"
 #include "chromeos/audio/cras_audio_handler.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/hammerd/hammerd_client.h"
 #include "chromeos/dbus/power_policy_controller.h"
 #include "chromeos/network/network_handler.h"
 #include "chromeos/system/fake_statistics_provider.h"
@@ -159,6 +161,8 @@ void AshTestHelper::SetUp(bool start_session, bool provide_local_state) {
   if (!chromeos::DBusThreadManager::IsInitialized()) {
     chromeos::DBusThreadManager::Initialize(
         chromeos::DBusThreadManager::kShared);
+    chromeos::HammerdClient::Initialize(
+        chromeos::DBusThreadManager::Get()->GetSystemBus());
     dbus_thread_manager_initialized_ = true;
   }
 
@@ -167,9 +171,11 @@ void AshTestHelper::SetUp(bool start_session, bool provide_local_state) {
     bluez_dbus_manager_initialized_ = true;
   }
 
+  chromeos::PowerManagerClient::Initialize();
+
   if (!chromeos::PowerPolicyController::IsInitialized()) {
     chromeos::PowerPolicyController::Initialize(
-        chromeos::DBusThreadManager::Get()->GetPowerManagerClient());
+        chromeos::PowerManagerClient::Get());
     power_policy_controller_initialized_ = true;
   }
 
@@ -260,6 +266,8 @@ void AshTestHelper::TearDown() {
     power_policy_controller_initialized_ = false;
   }
 
+  chromeos::PowerManagerClient::Shutdown();
+
   if (bluez_dbus_manager_initialized_) {
     device::BluetoothAdapterFactory::Shutdown();
     bluez::BluezDBusManager::Shutdown();
@@ -267,6 +275,7 @@ void AshTestHelper::TearDown() {
   }
 
   if (dbus_thread_manager_initialized_) {
+    chromeos::HammerdClient::Shutdown();
     chromeos::DBusThreadManager::Shutdown();
     dbus_thread_manager_initialized_ = false;
   }

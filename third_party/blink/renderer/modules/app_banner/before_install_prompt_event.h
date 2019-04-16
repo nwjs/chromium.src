@@ -7,11 +7,11 @@
 
 #include <utility>
 #include "mojo/public/cpp/bindings/binding.h"
-#include "third_party/blink/public/platform/modules/app_banner/app_banner.mojom-blink.h"
+#include "third_party/blink/public/mojom/app_banner/app_banner.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_property.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/modules/app_banner/app_banner_prompt_result.h"
 #include "third_party/blink/renderer/modules/event_modules.h"

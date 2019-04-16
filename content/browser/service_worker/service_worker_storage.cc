@@ -31,7 +31,7 @@
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
-#include "third_party/blink/public/platform/web_feature.mojom.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 
 using std::swap;
 
@@ -444,6 +444,7 @@ void ServiceWorkerStorage::StoreRegistration(
   if (version->origin_trial_tokens())
     data.origin_trial_tokens = *version->origin_trial_tokens();
   data.navigation_preload_state = registration->navigation_preload_state();
+  data.script_response_time = version->GetInfo().script_response_time;
   for (const blink::mojom::WebFeature feature : version->used_features())
     data.used_features.insert(static_cast<uint32_t>(feature));
 
@@ -1016,6 +1017,41 @@ void ServiceWorkerStorage::GetUserDataForAllRegistrationsByKeyPrefix(
               weak_factory_.GetWeakPtr(), std::move(callback))));
 }
 
+void ServiceWorkerStorage::ClearUserDataForAllRegistrationsByKeyPrefix(
+    const std::string& key_prefix,
+    StatusCallback callback) {
+  switch (state_) {
+    case STORAGE_STATE_DISABLED:
+      RunSoon(FROM_HERE,
+              base::BindOnce(std::move(callback),
+                             blink::ServiceWorkerStatusCode::kErrorAbort));
+      return;
+    case STORAGE_STATE_INITIALIZING:  // Fall-through.
+    case STORAGE_STATE_UNINITIALIZED:
+      LazyInitialize(base::BindOnce(
+          &ServiceWorkerStorage::ClearUserDataForAllRegistrationsByKeyPrefix,
+          weak_factory_.GetWeakPtr(), key_prefix, std::move(callback)));
+      return;
+    case STORAGE_STATE_INITIALIZED:
+      break;
+  }
+
+  if (key_prefix.empty()) {
+    RunSoon(FROM_HERE,
+            base::BindOnce(std::move(callback),
+                           blink::ServiceWorkerStatusCode::kErrorFailed));
+    return;
+  }
+
+  base::PostTaskAndReplyWithResult(
+      database_task_runner_.get(), FROM_HERE,
+      base::BindOnce(
+          &ServiceWorkerDatabase::DeleteUserDataForAllRegistrationsByKeyPrefix,
+          base::Unretained(database_.get()), key_prefix),
+      base::BindOnce(&ServiceWorkerStorage::DidDeleteUserData,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
 void ServiceWorkerStorage::DeleteAndStartOver(StatusCallback callback) {
   Disable();
 
@@ -1398,6 +1434,8 @@ void ServiceWorkerStorage::DidGetAllRegistrationsInfos(
       info.active_version.script_url = registration_data.script;
       info.active_version.version_id = registration_data.version_id;
       info.active_version.registration_id = registration_data.registration_id;
+      info.active_version.script_response_time =
+          registration_data.script_response_time;
       info.active_version.fetch_handler_existence =
           registration_data.has_fetch_handler
               ? ServiceWorkerVersion::FetchHandlerExistence::EXISTS
@@ -1407,6 +1445,8 @@ void ServiceWorkerStorage::DidGetAllRegistrationsInfos(
       info.waiting_version.script_url = registration_data.script;
       info.waiting_version.version_id = registration_data.version_id;
       info.waiting_version.registration_id = registration_data.registration_id;
+      info.waiting_version.script_response_time =
+          registration_data.script_response_time;
       info.waiting_version.fetch_handler_existence =
           registration_data.has_fetch_handler
               ? ServiceWorkerVersion::FetchHandlerExistence::EXISTS
@@ -1617,6 +1657,7 @@ ServiceWorkerStorage::GetOrCreateRegistration(
     }
     version->set_used_features(std::move(used_features));
   }
+  version->set_script_response_time_for_devtools(data.script_response_time);
 
   if (version->status() == ServiceWorkerVersion::ACTIVATED)
     registration->SetActiveVersion(version);

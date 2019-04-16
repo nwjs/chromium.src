@@ -4,8 +4,10 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "build/build_config.h"
@@ -672,7 +674,7 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessTextInputManagerTest,
   ASSERT_TRUE(window);
   LocationBar* location_bar = window->GetLocationBar();
   ASSERT_TRUE(location_bar);
-  location_bar->FocusLocation();
+  location_bar->FocusLocation(true);
 
   focus_input_and_wait_for_selection_bounds_change();
 }

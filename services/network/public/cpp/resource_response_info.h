@@ -13,7 +13,7 @@
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/time/time.h"
-#include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/load_timing_info.h"
 #include "net/base/proxy_server.h"
 #include "net/cert/ct_policy_status.h"
@@ -54,10 +54,6 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceResponseInfo {
 
   // The resource's compliance with the Certificate Transparency policy.
   net::ct::CTPolicyCompliance ct_policy_compliance;
-
-  // True if the resource was loaded with an otherwise-valid legacy Symantec
-  // certificate which will be distrusted in future.
-  bool is_legacy_symantec_cert;
 
   // Content length if available. -1 if not available
   int64_t content_length;
@@ -107,7 +103,7 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceResponseInfo {
   std::string alpn_negotiated_protocol;
 
   // Remote address of the socket which fetched this resource.
-  net::HostPortPair socket_address;
+  net::IPEndPoint remote_endpoint;
 
   // True if the response came from cache.
   bool was_fetched_via_cache = false;

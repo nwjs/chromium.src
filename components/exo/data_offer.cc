@@ -4,6 +4,7 @@
 
 #include "components/exo/data_offer.h"
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/no_destructor.h"
@@ -105,7 +106,7 @@ void DataOffer::RemoveObserver(DataOfferObserver* observer) {
   observers_.RemoveObserver(observer);
 }
 
-void DataOffer::Accept(const std::string& mime_type) {}
+void DataOffer::Accept(const std::string* mime_type) {}
 
 void DataOffer::Receive(const std::string& mime_type, base::ScopedFD fd) {
   const auto data_it = data_.find(mime_type);

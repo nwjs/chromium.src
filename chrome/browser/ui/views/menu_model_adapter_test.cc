@@ -10,9 +10,9 @@
 #include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "chrome/browser/ui/views/test/view_event_test_base.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "chrome/test/base/view_event_test_base.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/views/controls/button/menu_button.h"
@@ -74,12 +74,6 @@ class CommonMenuModel : public ui::MenuModel {
   ui::MenuModel* GetSubmenuModelAt(int index) const override { return nullptr; }
 
   void ActivatedAt(int index) override {}
-
-  void SetMenuModelDelegate(ui::MenuModelDelegate* delegate) override {}
-
-  ui::MenuModelDelegate* GetMenuModelDelegate() const override {
-    return nullptr;
-  }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CommonMenuModel);
@@ -262,12 +256,10 @@ class MenuModelAdapterTest : public ViewEventTestBase,
 
  private:
   // Generate a mouse click on the specified view and post a new task.
-  virtual void Click(views::View* view, const base::Closure& next) {
+  virtual void Click(views::View* view, base::OnceClosure next) {
     ui_test_utils::MoveMouseToCenterAndPress(
-        view,
-        ui_controls::LEFT,
-        ui_controls::DOWN | ui_controls::UP,
-        next);
+        view, ui_controls::LEFT, ui_controls::DOWN | ui_controls::UP,
+        std::move(next));
   }
 
   views::MenuButton* button_;

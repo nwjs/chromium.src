@@ -380,7 +380,7 @@ void HTMLSelectElement::SetOption(unsigned index,
   if (index >= kMaxListItems ||
       GetListItems().size() + diff + 1 > kMaxListItems) {
     GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String::Format("Blocked to expand the option list and set an option at "
                        "index=%u.  The maximum list length is %u.",
                        index, kMaxListItems)));
@@ -412,7 +412,7 @@ void HTMLSelectElement::setLength(unsigned new_len,
   if (new_len > kMaxListItems ||
       GetListItems().size() + new_len - length() > kMaxListItems) {
     GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String::Format("Blocked to expand the option list to %u items.  The "
                        "maximum list length is %u.",
                        new_len, kMaxListItems)));
@@ -793,7 +793,7 @@ void HTMLSelectElement::RecalcListItems() const {
 }
 
 void HTMLSelectElement::ResetToDefaultSelection(ResetReason reason) {
-  // https://html.spec.whatwg.org/multipage/forms.html#ask-for-a-reset
+  // https://html.spec.whatwg.org/C/#ask-for-a-reset
   if (IsMultiple())
     return;
   HTMLOptionElement* first_enabled_option = nullptr;
@@ -1383,7 +1383,7 @@ void HTMLSelectElement::MenuListDefaultEventHandler(Event& event) {
 
   if (event.type() == event_type_names::kMousedown && event.IsMouseEvent() &&
       ToMouseEvent(event).button() ==
-          static_cast<short>(WebPointerProperties::Button::kLeft)) {
+          static_cast<int16_t>(WebPointerProperties::Button::kLeft)) {
     InputDeviceCapabilities* source_capabilities =
         GetDocument()
             .domWindow()
@@ -1511,7 +1511,7 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
   } else if (event.type() == event_type_names::kMousedown &&
              event.IsMouseEvent() &&
              ToMouseEvent(event).button() ==
-                 static_cast<short>(WebPointerProperties::Button::kLeft)) {
+                 static_cast<int16_t>(WebPointerProperties::Button::kLeft)) {
     focus();
     // Calling focus() may cause us to lose our layoutObject, in which case
     // do not want to handle the event.
@@ -1541,7 +1541,7 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
              event.IsMouseEvent()) {
     auto& mouse_event = ToMouseEvent(event);
     if (mouse_event.button() !=
-            static_cast<short>(WebPointerProperties::Button::kLeft) ||
+            static_cast<int16_t>(WebPointerProperties::Button::kLeft) ||
         !mouse_event.ButtonDown())
       return;
 
@@ -1576,7 +1576,7 @@ void HTMLSelectElement::ListBoxDefaultEventHandler(Event& event) {
   } else if (event.type() == event_type_names::kMouseup &&
              event.IsMouseEvent() &&
              ToMouseEvent(event).button() ==
-                 static_cast<short>(WebPointerProperties::Button::kLeft) &&
+                 static_cast<int16_t>(WebPointerProperties::Button::kLeft) &&
              GetLayoutObject()) {
     if (GetDocument().GetPage() &&
         GetDocument()
@@ -1996,7 +1996,7 @@ void HTMLSelectElement::HidePopup() {
     popup_->Hide();
 }
 
-void HTMLSelectElement::DidRecalcStyle(StyleRecalcChange change) {
+void HTMLSelectElement::DidRecalcStyle(const StyleRecalcChange change) {
   HTMLFormControlElementWithState::DidRecalcStyle(change);
   if (PopupIsVisible())
     popup_->UpdateFromElement(PopupMenu::kByStyleChange);

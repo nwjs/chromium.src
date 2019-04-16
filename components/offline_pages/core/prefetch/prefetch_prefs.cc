@@ -16,8 +16,8 @@ namespace {
 const char kEnabled[] = "offline_prefetch.enabled";
 const char kLimitlessPrefetchingEnabledTimePref[] =
     "offline_prefetch.limitless_prefetching_enabled_time";
-
-const bool is_limitless_prefetch_enabled_default = false;
+const char kSendPrefetchTestingHeaderPref[] =
+    "offline_prefetch.testing_header_value";
 }  // namespace
 
 const char kBackoff[] = "offline_prefetch.backoff";
@@ -27,6 +27,7 @@ void RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(kEnabled, true);
   registry->RegisterTimePref(kLimitlessPrefetchingEnabledTimePref,
                              base::Time());
+  registry->RegisterStringPref(kSendPrefetchTestingHeaderPref, std::string());
 }
 
 void SetPrefetchingEnabledInSettings(PrefService* prefs, bool enabled) {
@@ -46,9 +47,6 @@ void SetLimitlessPrefetchingEnabled(PrefService* prefs, bool enabled) {
 }
 
 bool IsLimitlessPrefetchingEnabled(PrefService* prefs) {
-  if (is_limitless_prefetch_enabled_default)
-    return true;
-
   base::TimeDelta max_duration;
   if (version_info::IsOfficialBuild())
     max_duration = base::TimeDelta::FromDays(1);
@@ -61,6 +59,16 @@ bool IsLimitlessPrefetchingEnabled(PrefService* prefs) {
   const base::Time now = OfflineTimeNow();
 
   return (now >= enabled_time) && (now < (enabled_time + max_duration));
+}
+
+void SetPrefetchTestingHeader(PrefService* prefs, const std::string& value) {
+  DCHECK(prefs);
+  prefs->SetString(kSendPrefetchTestingHeaderPref, value);
+}
+
+std::string GetPrefetchTestingHeader(PrefService* prefs) {
+  DCHECK(prefs);
+  return prefs->GetString(kSendPrefetchTestingHeaderPref);
 }
 
 }  // namespace prefetch_prefs

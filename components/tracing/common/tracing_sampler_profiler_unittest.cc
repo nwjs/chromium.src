@@ -5,6 +5,7 @@
 #include "components/tracing/common/tracing_sampler_profiler.h"
 
 #include "base/at_exit.h"
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/profiler/stack_sampling_profiler.h"
@@ -92,7 +93,8 @@ class TracingSampleProfilerTest : public testing::Test {
 
     std::string error_msg;
     std::unique_ptr<base::Value> trace_data =
-        base::JSONReader::ReadAndReturnError(json_data, 0, nullptr, &error_msg);
+        base::JSONReader::ReadAndReturnErrorDeprecated(json_data, 0, nullptr,
+                                                       &error_msg);
     CHECK(trace_data) << "JSON parsing failed (" << error_msg << ")";
 
     base::ListValue* list;
@@ -140,6 +142,20 @@ class TracingSampleProfilerTest : public testing::Test {
   DISALLOW_COPY_AND_ASSIGN(TracingSampleProfilerTest);
 };
 
+// Stub module for testing.
+class TestModule : public base::ModuleCache::Module {
+ public:
+  TestModule() = default;
+
+  TestModule(const TestModule&) = delete;
+  TestModule& operator=(const TestModule&) = delete;
+
+  uintptr_t GetBaseAddress() const override { return 0; }
+  std::string GetId() const override { return ""; }
+  base::FilePath GetDebugBasename() const override { return base::FilePath(); }
+  size_t GetSize() const override { return 0; }
+};
+
 }  // namespace
 
 TEST_F(TracingSampleProfilerTest, OnSampleCompleted) {
@@ -172,6 +188,21 @@ TEST_F(TracingSampleProfilerTest, SamplingChildThread) {
   WaitForEvents();
   EndTracing();
   ValidateReceivedEvents();
+}
+
+TEST(TracingProfileBuilderTest, ValidModule) {
+  TestModule module;
+  TracingSamplerProfiler::TracingProfileBuilder profile_builder(
+      (base::PlatformThreadId()));
+  profile_builder.OnSampleCompleted(
+      {base::StackSamplingProfiler::Frame(0x1010, &module)});
+}
+
+TEST(TracingProfileBuilderTest, InvalidModule) {
+  TracingSamplerProfiler::TracingProfileBuilder profile_builder(
+      (base::PlatformThreadId()));
+  profile_builder.OnSampleCompleted(
+      {base::StackSamplingProfiler::Frame(0x1010, nullptr)});
 }
 
 }  // namespace tracing

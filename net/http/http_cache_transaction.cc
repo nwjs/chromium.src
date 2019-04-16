@@ -1056,6 +1056,10 @@ int HttpCache::Transaction::DoGetBackendComplete(int result) {
   // function can be invoked multiple times for a transaction.
   mode_ = NONE;
 
+  // Keep track of the fraction of requests that we can double-key.
+  UMA_HISTOGRAM_BOOLEAN("HttpCache.TopFrameOriginPresent",
+                        request_->top_frame_origin.has_value());
+
   if (!ShouldPassThrough()) {
     cache_key_ = cache_->GenerateCacheKey(request_);
 
@@ -1329,8 +1333,8 @@ void HttpCache::Transaction::AddCacheLockTimeoutHandler(ActiveEntry* entry) {
        next_state_ == STATE_FINISH_HEADERS_COMPLETE)) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&HttpCache::Transaction::OnCacheLockTimeout,
-                   weak_factory_.GetWeakPtr(), entry_lock_waiting_since_));
+        base::BindOnce(&HttpCache::Transaction::OnCacheLockTimeout,
+                       weak_factory_.GetWeakPtr(), entry_lock_waiting_since_));
   } else {
     int timeout_milliseconds = 20 * 1000;
     if (partial_ && entry->writers && !entry->writers->IsEmpty() &&
@@ -1356,8 +1360,8 @@ void HttpCache::Transaction::AddCacheLockTimeoutHandler(ActiveEntry* entry) {
     }
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&HttpCache::Transaction::OnCacheLockTimeout,
-                   weak_factory_.GetWeakPtr(), entry_lock_waiting_since_),
+        base::BindOnce(&HttpCache::Transaction::OnCacheLockTimeout,
+                       weak_factory_.GetWeakPtr(), entry_lock_waiting_since_),
         TimeDelta::FromMilliseconds(timeout_milliseconds));
   }
 }
@@ -2431,6 +2435,17 @@ bool HttpCache::Transaction::ShouldPassThrough() {
   if (effective_load_flags_ & LOAD_DISABLE_CACHE)
     return true;
 
+  // Prevent resources whose origin is opaque from being cached. Blink's memory
+  // cache should take care of reusing resources within the current page load,
+  // but otherwise a resource with an opaque top-frame origin won’t be used
+  // again. Also, if the request does not have a top frame origin, bypass the
+  // cache otherwise resources from different pages could share a cached entry
+  // in such cases.
+  if (base::FeatureList::IsEnabled(features::kSplitCacheByTopFrameOrigin) &&
+      (!request_->top_frame_origin || request_->top_frame_origin->opaque())) {
+    return true;
+  }
+
   if (method_ == "GET" || method_ == "HEAD")
     return false;
 
@@ -2477,7 +2492,6 @@ int HttpCache::Transaction::BeginCacheRead() {
   } else {
     TransitionToState(STATE_FINISH_HEADERS);
   }
-
   return OK;
 }
 

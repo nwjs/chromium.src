@@ -31,6 +31,7 @@
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_module.h"
 #include "chrome/credential_provider/gaiacp/gcp_utils.h"
 #include "chrome/credential_provider/gaiacp/logging.h"
+#include "chrome/credential_provider/gaiacp/mdm_utils.h"
 #include "chrome/credential_provider/gaiacp/os_process_manager.h"
 #include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "chrome/credential_provider/gaiacp/reauth_credential.h"
@@ -73,7 +74,15 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv) {
     return E_NOTIMPL;
   }
 
-  return _AtlModule.DllGetClassObject(rclsid, riid, ppv);
+  HRESULT hr = _AtlModule.DllGetClassObject(rclsid, riid, ppv);
+
+  // Start refreshing token handle validity as soon as possible so that when
+  // their validity is requested later on by the credential providers they may
+  // already be available and no wait is needed.
+  if (SUCCEEDED(hr))
+    _AtlModule.RefreshTokenHandleValidity();
+
+  return hr;
 }
 
 // DllRegisterServer - Adds entries to the system registry.
@@ -139,7 +148,7 @@ STDAPI DllUnregisterServer(void) {
 }
 
 // This entry point is called via rundll32.  See
-// CGaiaCredential::WaitForLoginUI() for details.
+// CGaiaCredential::ForkSaveAccountInfoStub() for details.
 void CALLBACK SaveAccountInfoW(HWND /*hwnd*/,
                                HINSTANCE /*hinst*/,
                                wchar_t* /*pszCmdLine*/,
@@ -164,8 +173,8 @@ void CALLBACK SaveAccountInfoW(HWND /*hwnd*/,
 
   HRESULT hr = S_OK;
   base::DictionaryValue* dict = nullptr;
-  std::unique_ptr<base::Value> properties =
-      base::JSONReader::Read(buffer, base::JSON_ALLOW_TRAILING_COMMAS);
+  std::unique_ptr<base::Value> properties = base::JSONReader::ReadDeprecated(
+      buffer, base::JSON_ALLOW_TRAILING_COMMAS);
   if (!properties || !properties->GetAsDictionary(&dict)) {
     LOGFN(ERROR) << "base::JSONReader::Read failed length=" << buffer_len_bytes;
     hr = E_FAIL;
@@ -174,21 +183,6 @@ void CALLBACK SaveAccountInfoW(HWND /*hwnd*/,
   hr = credential_provider::CGaiaCredentialBase::SaveAccountInfo(*dict);
   if (FAILED(hr))
     LOGFN(ERROR) << "SaveAccountInfoW hr=" << putHR(hr);
-
-  // If an MDM URL is configured in the registry, use it.
-
-  wchar_t mdm_url[256];
-  ULONG length = base::size(mdm_url);
-  hr = credential_provider::GetGlobalFlag(L"mdm", mdm_url, &length);
-  if (SUCCEEDED(hr)) {
-    dict->SetString(credential_provider::kKeyMdmUrl, mdm_url);
-
-    hr = credential_provider::EnrollToGoogleMdmIfNeeded(*dict);
-    if (FAILED(hr))
-      LOGFN(INFO) << "EnrollToGoogleMdmIfNeeded hr=" << putHR(hr);
-  } else {
-    LOGFN(INFO) << "Not enrolling to MDM";
-  }
 
   LOGFN(INFO) << "Done";
 }

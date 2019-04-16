@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
@@ -75,9 +76,6 @@ AudioProcessor::~AudioProcessor() {
   StopEchoCancellationDump();
   if (audio_processing_)
     audio_processing_->UpdateHistogramsOnCallEnd();
-  // EchoInformation does this by itself on destruction, but since the stats are
-  // reset, they won't get doubly reported.
-  echo_information_.ReportAndResetAecDivergentFilterStats();
 }
 
 // Process the audio from source and return a pointer to the processed data.
@@ -137,12 +135,6 @@ void AudioProcessor::AnalyzePlayout(const AudioBus& audio,
   DCHECK_EQ(apm_error, webrtc::AudioProcessing::kNoError);
 }
 
-void AudioProcessor::UpdateInternalStats() {
-  if (audio_processing_)
-    echo_information_.UpdateAecStats(
-        audio_processing_->GetStatistics(has_reverse_stream_));
-}
-
 void AudioProcessor::GetStats(GetStatsCB callback) {
   webrtc::AudioProcessorInterface::AudioProcessorStatistics out = {};
   if (audio_processing_) {
@@ -198,8 +190,7 @@ void AudioProcessor::InitializeAPM() {
   // 2" in those cases.
 
   // If we use nothing but, possibly, audio mirroring, don't initialize the APM.
-  if (settings_.echo_cancellation != EchoCancellationType::kAec2 &&
-      settings_.echo_cancellation != EchoCancellationType::kAec3 &&
+  if (settings_.echo_cancellation != EchoCancellationType::kAec3 &&
       settings_.noise_suppression == NoiseSuppressionType::kDisabled &&
       settings_.automatic_gain_control == AutomaticGainControlType::kDisabled &&
       !settings_.high_pass_filter && !settings_.typing_detection) {
@@ -211,13 +202,6 @@ void AudioProcessor::InitializeAPM() {
 
   // AEC setup part 1.
 
-  // AEC2 options. Doesn't do anything if AEC2 isn't used.
-  ap_config.Set<webrtc::RefinedAdaptiveFilter>(
-      new webrtc::RefinedAdaptiveFilter(
-          base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kAecRefinedAdaptiveFilter)));
-  ap_config.Set<webrtc::ExtendedFilter>(new webrtc::ExtendedFilter(true));
-  ap_config.Set<webrtc::DelayAgnostic>(new webrtc::DelayAgnostic(true));
 
   // Echo cancellation is configured both before and after AudioProcessing
   // construction, but before Initialize.
@@ -284,7 +268,6 @@ void AudioProcessor::InitializeAPM() {
 
   // AEC setup part 2.
   apm_config.echo_canceller.enabled =
-      settings_.echo_cancellation == EchoCancellationType::kAec2 ||
       settings_.echo_cancellation == EchoCancellationType::kAec3;
   apm_config.echo_canceller.mobile_mode = false;
 

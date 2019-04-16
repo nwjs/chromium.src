@@ -4,6 +4,7 @@
 
 #include "services/video_capture/device_media_to_mojo_adapter.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "media/base/bind_to_current_loop.h"
 #include "media/capture/video/scoped_video_capture_jpeg_decoder.h"
@@ -95,19 +96,6 @@ void DeviceMediaToMojoAdapter::Start(
   device_started_ = true;
 }
 
-void DeviceMediaToMojoAdapter::OnReceiverReportingUtilization(
-    int32_t frame_feedback_id,
-    double utilization) {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  device_->OnUtilizationReport(frame_feedback_id, utilization);
-}
-
-void DeviceMediaToMojoAdapter::RequestRefreshFrame() {
-  if (!device_started_)
-    return;
-  device_->RequestRefreshFrame();
-}
-
 void DeviceMediaToMojoAdapter::MaybeSuspend() {
   if (!device_started_)
     return;
@@ -145,7 +133,7 @@ void DeviceMediaToMojoAdapter::TakePhoto(TakePhotoCallback callback) {
 
 void DeviceMediaToMojoAdapter::Stop() {
   DCHECK(thread_checker_.CalledOnValidThread());
-  if (device_started_ == false)
+  if (!device_started_)
     return;
   device_started_ = false;
   weak_factory_.InvalidateWeakPtrs();

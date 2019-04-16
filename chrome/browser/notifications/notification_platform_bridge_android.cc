@@ -10,6 +10,7 @@
 
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
@@ -325,11 +326,10 @@ void NotificationPlatformBridgeAndroid::DisplayServiceShutDown(
 void NotificationPlatformBridgeAndroid::GetDisplayed(
     Profile* profile,
     GetDisplayedNotificationsCallback callback) const {
-  auto displayed_notifications = std::make_unique<std::set<std::string>>();
+  std::set<std::string> displayed_notifications;
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
-      base::BindOnce(std::move(callback),
-                     base::Passed(&displayed_notifications),
+      base::BindOnce(std::move(callback), std::move(displayed_notifications),
                      false /* supports_synchronization */));
 }
 

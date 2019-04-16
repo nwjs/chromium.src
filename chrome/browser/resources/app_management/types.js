@@ -37,8 +37,26 @@ let Page;
 
 /**
  * @typedef {{
- *   apps: AppMap,
- *   currentPage: Page,
+ *   term: ?string,
+ *   results: ?Array<App>,
+ * }}
+ */
+let SearchState;
+
+/**
+ * @typedef {{
+ *   allowedIds: !Set<string>,
+ *   blockedIds: !Set<string>,
+ * }}
+ */
+let NotificationsState;
+
+/**
+ * @typedef {{
+ *   apps: !AppMap,
+ *   currentPage: !Page,
+ *   search: !SearchState,
+ *   notifications: !NotificationsState,
  * }}
  */
 let AppManagementPageState;

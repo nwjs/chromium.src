@@ -31,13 +31,14 @@
 #include "ui/events/event_sink.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/test/motion_event_test_utils.h"
 #include "ui/touch_selection/touch_selection_controller_test_api.h"
 
 namespace content {
 namespace {
 
 bool JSONToPoint(const std::string& str, gfx::PointF* point) {
-  std::unique_ptr<base::Value> value = base::JSONReader::Read(str);
+  std::unique_ptr<base::Value> value = base::JSONReader::ReadDeprecated(str);
   if (!value)
     return false;
   base::DictionaryValue* root;
@@ -177,6 +178,9 @@ class TouchSelectionControllerClientAuraTest : public ContentBrowserTest {
         new TestTouchSelectionControllerClientAura(rwhva);
     rwhva->SetSelectionControllerClientForTest(
         base::WrapUnique(selection_controller_client_));
+    // Simulate the start of a motion event sequence, since the tests assume it.
+    rwhva->selection_controller()->WillHandleTouchEvent(
+        ui::test::MockMotionEvent(ui::MotionEvent::Action::DOWN));
   }
 
   void SetUpOnMainThread() override {
@@ -384,9 +388,9 @@ class FrameStableObserver {
   DISALLOW_COPY_AND_ASSIGN(FrameStableObserver);
 };
 
-INSTANTIATE_TEST_CASE_P(TouchSelectionForCrossProcessFramesTests,
-                        TouchSelectionControllerClientAuraSiteIsolationTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(TouchSelectionForCrossProcessFramesTests,
+                         TouchSelectionControllerClientAuraSiteIsolationTest,
+                         testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(TouchSelectionControllerClientAuraSiteIsolationTest,
                        BasicSelectionIsolatedIframe) {

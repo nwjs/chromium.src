@@ -258,6 +258,12 @@ void WindowService::OnDisplayMetricsChanged(const display::Display& display,
   screen_provider_->DisplayMetricsChanged(display, changed_metrics);
 }
 
+void WindowService::OnWindowTreeHostsDisplayIdChanged(
+    const std::set<aura::Window*>& root_windows) {
+  for (WindowTree* tree : window_trees_)
+    tree->OnWindowTreeHostsDisplayIdChanged(root_windows);
+}
+
 std::string WindowService::GetIdForDebugging(aura::Window* window) {
   ProxyWindow* proxy_window = ProxyWindow::GetMayBeNull(window);
   if (!proxy_window)

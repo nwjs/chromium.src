@@ -9,6 +9,7 @@
 
 #include "ash/app_list/app_list_controller_observer.h"
 #include "ash/ash_export.h"
+#include "ash/home_screen/home_launcher_gesture_handler_observer.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/session/session_observer.h"
 #include "ash/shelf/shelf.h"
@@ -16,6 +17,7 @@
 #include "ash/system/locale/locale_update_controller.h"
 #include "ash/wallpaper/wallpaper_controller_observer.h"
 #include "ash/wm/lock_state_observer.h"
+#include "ash/wm/overview/overview_observer.h"
 #include "ash/wm/wm_snap_to_pixel_layout_manager.h"
 #include "ash/wm/workspace/workspace_types.h"
 #include "base/macros.h"
@@ -51,7 +53,9 @@ class ShelfWidget;
 // On mus, widget bounds management is handled by the window manager.
 class ASH_EXPORT ShelfLayoutManager
     : public AppListControllerObserver,
+      public HomeLauncherGestureHandlerObserver,
       public ShellObserver,
+      public OverviewObserver,
       public ::wm::ActivationChangeObserver,
       public keyboard::KeyboardControllerObserver,
       public LockStateObserver,
@@ -61,19 +65,6 @@ class ASH_EXPORT ShelfLayoutManager
       public WallpaperControllerObserver,
       public LocaleChangeObserver {
  public:
-  // The snapping threshold for dragging app list from shelf in tablet mode,
-  // measured in DIPs.
-  static constexpr int kAppListDragSnapToFullscreenThreshold = 320;
-
-  // The snapping thresholds for dragging app list from shelf in laptop mode,
-  // measured in DIPs.
-  static constexpr int kAppListDragSnapToClosedThreshold = 144;
-  static constexpr int kAppListDragSnapToPeekingThreshold = 561;
-
-  // The velocity the app list must be dragged in order to change the state of
-  // the app list for fling event, measured in DIPs/event.
-  static constexpr int kAppListDragVelocityThreshold = 6;
-
   ShelfLayoutManager(ShelfWidget* shelf_widget, Shelf* shelf);
   ~ShelfLayoutManager() override;
 
@@ -155,13 +146,17 @@ class ASH_EXPORT ShelfLayoutManager
   // ShellObserver:
   void OnShelfAutoHideBehaviorChanged(aura::Window* root_window) override;
   void OnPinnedStateChanged(aura::Window* pinned_window) override;
-  void OnOverviewModeStartingAnimationComplete(bool canceled) override;
-  void OnOverviewModeEndingAnimationComplete(bool canceled) override;
   void OnSplitViewModeStarted() override;
   void OnSplitViewModeEnded() override;
 
+  // OverviewObserver:
+  void OnOverviewModeStartingAnimationComplete(bool canceled) override;
+  void OnOverviewModeEndingAnimationComplete(bool canceled) override;
+
   // AppListControllerObserver:
   void OnAppListVisibilityChanged(bool shown, int64_t display_id) override;
+
+  // HomeLauncherGestureHandlerObserver:
   void OnHomeLauncherTargetPositionChanged(bool showing,
                                            int64_t display_id) override;
   void OnHomeLauncherAnimationComplete(bool shown, int64_t display_id) override;
@@ -313,6 +308,10 @@ class ASH_EXPORT ShelfLayoutManager
   // Updates the auto hide state immediately.
   void UpdateAutoHideStateNow();
 
+  // Starts the auto hide timer, so that the shelf will be hidden after the
+  // timeout (unless something else happens to interrupt / reset it).
+  void StartAutoHideTimer();
+
   // Stops the auto hide timer and clears
   // |mouse_over_shelf_when_auto_hide_timer_started_|.
   void StopAutoHideTimer();
@@ -415,6 +414,11 @@ class ASH_EXPORT ShelfLayoutManager
   // Whether the mouse was over the shelf when the auto hide timer started.
   // False when neither the auto hide timer nor the timer task are running.
   bool mouse_over_shelf_when_auto_hide_timer_started_ = false;
+
+  // Whether the mouse pointer (not the touch pointer) was over the shelf last
+  // time we saw it. This is used to differentiate between mouse and touch in
+  // the shelf autohide behavior.
+  bool last_seen_mouse_position_was_over_shelf_ = false;
 
   base::ObserverList<ShelfLayoutManagerObserver>::Unchecked observers_;
 

@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/pickle.h"
@@ -361,7 +362,7 @@ void BrowserPluginGuest::InitInternal(
       new_view->OnGuestAttached(owner_web_contents_->GetView());
   }
 
-  RendererPreferences* renderer_prefs =
+  blink::mojom::RendererPreferences* renderer_prefs =
       GetWebContents()->GetMutableRendererPrefs();
   std::string guest_user_agent_override = renderer_prefs->user_agent_override;
   // Copy renderer preferences (and nothing else) from the embedder's

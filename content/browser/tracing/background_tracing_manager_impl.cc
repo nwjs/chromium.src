@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
 #include "base/location.h"
@@ -504,9 +505,15 @@ void BackgroundTracingManagerImpl::StartTracing(
     config.EnableArgumentFilter();
 #if defined(OS_ANDROID)
   // Set low trace buffer size on Android in order to upload small trace files.
-  if (config_->tracing_mode() == BackgroundTracingConfigImpl::PREEMPTIVE)
+  if (config_->tracing_mode() == BackgroundTracingConfigImpl::PREEMPTIVE) {
     config.SetTraceBufferSizeInEvents(20000);
+    config.SetTraceBufferSizeInKb(500);
+  }
 #endif
+
+  is_tracing_ = TracingControllerImpl::GetInstance()->StartTracing(
+      config, base::BindOnce(&BackgroundTracingManagerImpl::OnStartTracingDone,
+                             base::Unretained(this), preset));
 
   // Activate the categories immediately. StartTracing eventually does this
   // itself, but asynchronously via PostTask, and in the meantime events will be
@@ -518,10 +525,6 @@ void BackgroundTracingManagerImpl::StartTracing(
       modes |= base::trace_event::TraceLog::FILTERING_MODE;
     base::trace_event::TraceLog::GetInstance()->SetEnabled(config, modes);
   }
-
-  is_tracing_ = TracingControllerImpl::GetInstance()->StartTracing(
-      config, base::BindOnce(&BackgroundTracingManagerImpl::OnStartTracingDone,
-                             base::Unretained(this), preset));
 
   RecordBackgroundTracingMetric(RECORDING_ENABLED);
 }
@@ -725,8 +728,9 @@ TraceConfig BackgroundTracingManagerImpl::GetConfigForCategoryPreset(
     case BackgroundTracingConfigImpl::CategoryPreset::BENCHMARK_NAVIGATION: {
       auto config = TraceConfig(
           "benchmark,toplevel,ipc,base,browser,navigation,omnibox,ui,shutdown,"
-          "safe_browsing,Java,EarlyJava,loading,startup,"
-          "disabled-by-default-system_stats,disabled-by-default-cpu_profiler",
+          "safe_browsing,Java,EarlyJava,loading,startup,mojom,renderer_host,"
+          "disabled-by-default-system_stats,disabled-by-default-cpu_profiler,"
+          "dwrite,fonts",
           record_mode);
       // Filter only browser process events.
       base::trace_event::TraceConfig::ProcessFilterConfig process_config(
@@ -736,7 +740,8 @@ TraceConfig BackgroundTracingManagerImpl::GetConfigForCategoryPreset(
     }
     case BackgroundTracingConfigImpl::CategoryPreset::BENCHMARK_RENDERERS:
       return TraceConfig(
-          "benchmark,toplevel,ipc,base,ui,v8,renderer,blink,blink_gc,"
+          "benchmark,toplevel,ipc,base,ui,v8,renderer,blink,blink_gc,mojom,"
+          "latency,latencyInfo,renderer_host,cc,memory,dwrite,fonts,"
           "disabled-by-default-v8.gc,"
           "disabled-by-default-blink_gc,"
           "disabled-by-default-renderer.scheduler,"
@@ -747,6 +752,11 @@ TraceConfig BackgroundTracingManagerImpl::GetConfigForCategoryPreset(
           "benchmark,toplevel,ipc,base,ServiceWorker,CacheStorage,Blob,"
           "loader,loading,navigation,blink.user_timing,"
           "disabled-by-default-network",
+          record_mode);
+    case BackgroundTracingConfigImpl::CategoryPreset::BENCHMARK_POWER:
+      return TraceConfig(
+          "benchmark,toplevel,ipc,base,audio,compositor,gpu,media,memory,midi,"
+          "native,omnibox,renderer,skia,task_scheduler,ui,v8,views,webaudio",
           record_mode);
     case BackgroundTracingConfigImpl::CategoryPreset::BLINK_STYLE:
       return TraceConfig("blink_style", record_mode);

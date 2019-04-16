@@ -4,6 +4,7 @@
 
 #include "chrome/browser/metrics/process_memory_metrics_emitter.h"
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -11,18 +12,16 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/tab_footprint_aggregator.h"
+#include "chrome/browser/performance_manager/performance_manager.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "content/public/browser/audio_service_info.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/service_manager_connection.h"
 #include "content/public/common/service_names.mojom.h"
 #include "extensions/buildflags/buildflags.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/resource_coordinator/public/cpp/memory_instrumentation/memory_instrumentation.h"
-#include "services/resource_coordinator/public/mojom/service_constants.mojom.h"
-#include "services/service_manager/public/cpp/connector.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -253,6 +252,13 @@ const Metric kAllocatorDumpNamesForMetrics[] = {
     {"web_cache/Font_resources", "WebCache.FontResources", !kLargeMetric,
      kEffectiveSize, EmitTo::kUkmAndUmaAsSize,
      &Memory_Experimental::SetWebCache_FontResources},
+    {"web_cache/Code_cache", "WebCache.V8CodeCache", !kLargeMetric,
+     kEffectiveSize, EmitTo::kUkmAndUmaAsSize,
+     &Memory_Experimental::SetWebCache_V8CodeCache},
+    {"web_cache/Encoded_size_duplicated_in_data_urls",
+     "WebCache.EncodedSizeDuplicatedInDataUrls", !kLargeMetric, kEffectiveSize,
+     EmitTo::kUkmAndUmaAsSize,
+     &Memory_Experimental::SetWebCache_EncodedSizeDuplicatedInDataUrls},
     {"web_cache/Other_resources", "WebCache.OtherResources", !kLargeMetric,
      kEffectiveSize, EmitTo::kUkmAndUmaAsSize,
      &Memory_Experimental::SetWebCache_OtherResources},
@@ -461,10 +467,9 @@ void ProcessMemoryMetricsEmitter::FetchAndEmitProcessMemoryMetrics() {
   }
 
   // The callback keeps this object alive until the callback is invoked.
-  service_manager::Connector* connector =
-      content::ServiceManagerConnection::GetForProcess()->GetConnector();
-  connector->BindInterface(resource_coordinator::mojom::kServiceName,
-                           mojo::MakeRequest(&introspector_));
+  performance_manager::PerformanceManager* performance_manager =
+      performance_manager::PerformanceManager::GetInstance();
+  performance_manager->BindInterface(mojo::MakeRequest(&introspector_));
   auto callback2 =
       base::Bind(&ProcessMemoryMetricsEmitter::ReceivedProcessInfos, this);
   introspector_->GetProcessToURLMap(callback2);
@@ -657,6 +662,17 @@ void ProcessMemoryMetricsEmitter::CollateResults() {
   }
 
   if (emit_metrics_for_all_processes) {
+    size_t native_resident_kb =
+        global_dump_->aggregated_metrics().native_library_resident_kb();
+
+    // |native_resident_kb| is only calculated for android devices that support
+    // code ordering. Otherwise it is equal to zero and should not be reported.
+    if (native_resident_kb != 0) {
+      MEMORY_METRICS_HISTOGRAM_KB(
+          "Memory.NativeLibrary.MappedAndResidentMemoryFootprint",
+          native_resident_kb);
+    }
+
     UMA_HISTOGRAM_MEMORY_LARGE_MB(
         "Memory.Experimental.Total2.PrivateMemoryFootprint",
         private_footprint_total_kb / 1024);

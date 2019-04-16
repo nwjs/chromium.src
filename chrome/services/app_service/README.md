@@ -255,20 +255,29 @@ Icon data (even compressed as a PNG) is bulky, relative to the rest of the
 `App` type. `Publisher`s will generally serve icon data lazily, on demand,
 especially as the desired icon resolutions (e.g. 64dip or 256dip) aren't known
 up-front. Instead of sending an icon at all possible resolutions, the
-`Publisher` sends an `IconKey`: enough information (when combined with the
-`AppType app_type` and `string app_id`) to load the icon at given resoultions.
-The `IconKey` is an `IconType icon_type` plus additional data (`uint64 u_key`
-and `string s_key`) whose semantics depend on the `icon_type`.
+`Publisher` sends an `IconKey`: enough information to load the icon at given
+resolutions.
+
+The `IconKey` is an `AppType app_type` and a `uint32 icon_effects` bitmask
+(whether to apply various image processing effects such as desaturation to
+gray), plus additional data (`uint64 u_key` and `string s_key`) whose semantics
+depend on the `app_type`.
 
 For example, some icons are statically built into the Chrome or Chrome OS
 binary, as PNG-formatted resources, and can be loaded (synchronously, without
 sandboxing). They can be loaded from a `u_key` resource ID. Some icons are
 dynamically (and asynchronously) loaded from the extension database on disk.
-They can be loaded from the `app_id` alone.
+They can be loaded from the `s_key` app ID, with the `u_key` serving as a
+(monotonically increasing) epoch number so that an icon update results in a
+different `u_key` and hence a different `IconKey`.
 
-TBD: for extension-backed icons, some sort of timestamp or version in the
-`IconKey` (probably encoded in the `u_key`) so that an icon update results in a
-different `IconKey`.
+Grouping the `IconKey` with the other `LoadIcon` arguments, the combination
+identifies a static (unchanging, but possibly obsolete) image: if a new version
+of an app results in a new icon, or if a change in app state results in a
+grayed out icon, this is represented by a different `IconKey`, such as a
+different `u_key` or `icon_effects` value. As a consequence, the combined
+`LoadIcon` arguments can be used to key a cache or map of `IconValue`s, or to
+recognize and coalesce multiple concurrent requests to the same combination.
 
 Consumers (via the `AppServiceProxy`) can always ask the `AppService` to load
 an icon. As an optimization, if the `AppServiceProxy` knows how to load an icon
@@ -279,11 +288,10 @@ statically built resource ID.
     interface AppService {
       // App Icon Factory methods.
       LoadIcon(
-          AppType app_type,
-          string app_id,
           IconKey icon_key,
           IconCompression icon_compression,
-          int32 size_hint_in_dip) => (IconValue icon_value);
+          int32 size_hint_in_dip,
+          bool allow_placeholder_icon) => (IconValue icon_value);
 
       // Some additional methods; not App Icon Factory related.
     };
@@ -291,25 +299,22 @@ statically built resource ID.
     interface Publisher {
       // App Icon Factory methods.
       LoadIcon(
-          string app_id,
           IconKey icon_key,
           IconCompression icon_compression,
-          int32 size_hint_in_dip) => (IconValue icon_value);
+          int32 size_hint_in_dip,
+          bool allow_placeholder_icon) => (IconValue icon_value);
 
       // Some additional methods; not App Icon Factory related.
     };
 
-    enum IconType {
-      kUnknown,
-      kExtension,
-      kResource,
-    };
-
     struct IconKey {
-      IconType icon_type;
-      // The semantics of u_key and s_key depend on the icon_type.
+      AppType app_type;
+      // The semantics of u_key and s_key depend on the app_type.
       uint64 u_key;
       string s_key;
+      // A bitmask of icon post-processing effects, such as desaturation to
+      // gray and rounding the corners.
+      uint32 icon_effects;
     };
 
     enum IconCompression {
@@ -322,10 +327,39 @@ statically built resource ID.
       IconCompression icon_compression;
       gfx.mojom.ImageSkia? uncompressed;
       array<uint8>? compressed;
+      bool is_placeholder_icon;
     };
 
-TBD: post-processing effects like rounded corners, badges or grayed out (for
-disabled apps) icons.
+
+## Placeholder Icons
+
+It can take some time for `Publisher`s to provide an icon. For example, loading
+the canonical icon for an ARC++ or Crostini app might require waiting for a VM
+to start. Such icons are often cached on the file system, but on a cache miss,
+there may be a number of seconds before the system can present an icon. In this
+case, we might want to present a `Publisher`-specific placeholder, typically
+loaded from a resource (an asset statically compiled into the binary).
+
+There are two boolean fields that facilitate this: `allow_placeholder_icon` is
+sent from a `Subsciber` to a `Publisher` and `is_placeholder_icon` is sent in
+the response.
+
+`LoadIcon`'s `allow_placeholder_icon` states whether the the caller will accept
+a placeholder if the real icon can not be provided quickly. Native user
+interfaces like the app launcher will probably set this to true. On the other
+hand, serving Web-UI URLs such as `chrome://app-icon/app_id/icon_size` will set
+this to false, as that URL should identify a particular icon, not one that
+changes over time. Web-UI that wants to display placeholder icons and be
+notified of when real icons are ready will require some mechanism other than a
+`chrome:://app-icon/etc` URL.
+
+`IconValue`'s `is_placeholder_icon` states whether the icon provided is a
+placeholder. That field should only be true if the corresponding `LoadIcon`
+call had `allow_placeholder_icon` true. When the `LoadIcon` caller receives a
+placeholder icon, it is up to the caller to issue a new `LoadIcon` call, this
+time with `allow_placeholder_icon` false. A new Mojo call is necessary, because
+a Mojo callback is a `base::OnceCallback`, so the same callback can't be used
+for both the placeholder and the real icon.
 
 
 # App Runner
@@ -383,4 +417,4 @@ TBD: details.
 
 ---
 
-Updated on 2018-11-22.
+Updated on 2019-03-07.

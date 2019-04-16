@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
@@ -57,8 +58,7 @@ BrowserAccessibilityStateImpl* BrowserAccessibilityStateImpl::GetInstance() {
 }
 
 BrowserAccessibilityStateImpl::BrowserAccessibilityStateImpl()
-    : BrowserAccessibilityState(),
-      disable_hot_tracking_(false) {
+    : BrowserAccessibilityState(), disable_hot_tracking_(false) {
   ResetAccessibilityModeValue();
 
   // We need to AddRef() the leaky singleton so that Bind doesn't
@@ -77,7 +77,7 @@ BrowserAccessibilityStateImpl::BrowserAccessibilityStateImpl()
   // gives us better numbers.
   base::PostDelayedTaskWithTraits(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&BrowserAccessibilityStateImpl::UpdateHistograms, this),
+      base::BindOnce(&BrowserAccessibilityStateImpl::UpdateHistograms, this),
       base::TimeDelta::FromSeconds(ACCESSIBILITY_HISTOGRAM_DELAY_SECS));
 #else
   // On MacOS, UpdateHistograms should be called on the UI thread because it
@@ -173,8 +173,7 @@ ui::AXMode BrowserAccessibilityStateImpl::GetAccessibilityMode() const {
 #if !defined(OS_ANDROID) && !defined(OS_WIN) && !defined(OS_MACOSX)
 void BrowserAccessibilityStateImpl::PlatformInitialize() {}
 
-void BrowserAccessibilityStateImpl::UpdatePlatformSpecificHistograms() {
-}
+void BrowserAccessibilityStateImpl::UpdatePlatformSpecificHistograms() {}
 #endif
 
 void BrowserAccessibilityStateImpl::AddAccessibilityModeFlags(ui::AXMode mode) {

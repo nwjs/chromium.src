@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/big_endian.h"
+#include "base/bind.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/stl_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -233,7 +234,7 @@ class TestHistoryBackendDelegate : public HistoryBackend::Delegate {
 class TestHistoryBackend : public HistoryBackend {
  public:
   TestHistoryBackend()
-      : HistoryBackend(new TestHistoryBackendDelegate(),
+      : HistoryBackend(std::make_unique<TestHistoryBackendDelegate>(),
                        nullptr,
                        base::ThreadTaskRunnerHandle::Get()) {}
 

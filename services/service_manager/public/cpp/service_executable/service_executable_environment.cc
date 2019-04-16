@@ -5,7 +5,6 @@
 #include "services/service_manager/public/cpp/service_executable/service_executable_environment.h"
 
 #include "base/command_line.h"
-#include "base/debug/stack_trace.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_current.h"
@@ -16,8 +15,7 @@
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "mojo/public/cpp/system/message_pipe.h"
-#include "services/service_manager/runner/common/client_util.h"
-#include "services/service_manager/runner/common/switches.h"
+#include "services/service_manager/public/cpp/service_executable/switches.h"
 #include "services/service_manager/sandbox/sandbox.h"
 #include "services/service_manager/sandbox/switches.h"
 
@@ -79,7 +77,9 @@ ServiceExecutableEnvironment::TakeServiceRequestFromCommandLine() {
   auto invitation = mojo::IncomingInvitation::Accept(
       mojo::PlatformChannel::RecoverPassedEndpointFromCommandLine(
           *base::CommandLine::ForCurrentProcess()));
-  return GetServiceRequestFromCommandLine(&invitation);
+  return mojom::ServiceRequest(invitation.ExtractMessagePipe(
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kServiceRequestAttachmentName)));
 }
 
 }  // namespace service_manager

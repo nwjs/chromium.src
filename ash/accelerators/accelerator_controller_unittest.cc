@@ -11,13 +11,13 @@
 #include "ash/accelerators/pre_target_accelerator_handler.h"
 #include "ash/accessibility/accessibility_controller.h"
 #include "ash/accessibility/test_accessibility_controller_client.h"
+#include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/test/app_list_test_helper.h"
 #include "ash/ime/ime_controller.h"
 #include "ash/ime/test_ime_controller_client.h"
 #include "ash/magnifier/docked_magnifier_controller.h"
 #include "ash/magnifier/magnification_controller.h"
 #include "ash/media/media_controller.h"
-#include "ash/public/cpp/ash_features.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/interfaces/ime_info.mojom.h"
@@ -41,15 +41,17 @@
 #include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/metrics/user_action_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "media/base/media_switches.h"
 #include "services/media_session/public/cpp/test/test_media_controller.h"
+#include "services/media_session/public/mojom/media_session.mojom.h"
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/test/test_window_delegate.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
+#include "ui/base/accelerators/media_keys_util.h"
 #include "ui/base/accelerators/test_accelerator_target.h"
 #include "ui/base/ime/chromeos/fake_ime_keyboard.h"
 #include "ui/base/ime/chromeos/ime_keyboard.h"
@@ -879,6 +881,99 @@ TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppList) {
   GetAppListTestHelper()->CheckVisibility(true);
 }
 
+TEST_F(AcceleratorControllerTest, GlobalAcceleratorsToggleAppListFullscreen) {
+  base::HistogramTester histogram_tester;
+
+  int toggle_count_total = 0;
+  int toggle_count_regular = 0;
+  int toggle_count_fullscreen = 0;
+
+  // Shift+VKEY_BROWSER_SEARCH should toggle the AppList in fullscreen mode.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(
+      app_list::AppListViewState::FULLSCREEN_ALL_APPS);
+  histogram_tester.ExpectTotalCount(app_list::kAppListToggleMethodHistogram,
+                                    ++toggle_count_total);
+  histogram_tester.ExpectBucketCount(app_list::kAppListToggleMethodHistogram,
+                                     app_list::kSearchKeyFullscreen,
+                                     ++toggle_count_fullscreen);
+
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(false);
+
+  // Shift+VKEY_BROWSER_SEARCH should transition from peeking to fullscreen
+  // mode.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_NONE)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::PEEKING);
+  histogram_tester.ExpectTotalCount(app_list::kAppListToggleMethodHistogram,
+                                    ++toggle_count_total);
+  histogram_tester.ExpectBucketCount(app_list::kAppListToggleMethodHistogram,
+                                     app_list::kSearchKey,
+                                     ++toggle_count_regular);
+
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(
+      app_list::AppListViewState::FULLSCREEN_ALL_APPS);
+  histogram_tester.ExpectTotalCount(app_list::kAppListToggleMethodHistogram,
+                                    ++toggle_count_total);
+  histogram_tester.ExpectBucketCount(app_list::kAppListToggleMethodHistogram,
+                                     app_list::kSearchKeyFullscreen,
+                                     ++toggle_count_fullscreen);
+  // VKEY_BROWSER_SEARCH (no shift) should not return to peeking, but close the
+  // AppList.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_NONE)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(false);
+
+  // Open AppList in peeking mode and type in the search box.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_NONE)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::PEEKING);
+  histogram_tester.ExpectTotalCount(app_list::kAppListToggleMethodHistogram,
+                                    ++toggle_count_total);
+  histogram_tester.ExpectBucketCount(app_list::kAppListToggleMethodHistogram,
+                                     app_list::kSearchKey,
+                                     ++toggle_count_regular);
+  ui::test::EventGenerator* generator = GetEventGenerator();
+  generator->PressKey(ui::VKEY_0, ui::EF_NONE);
+  generator->ReleaseKey(ui::VKEY_0, ui::EF_NONE);
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::HALF);
+  // Shift+VKEY_BROWSER_SEARCH transitions to FULLSCREEN_SEARCH.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(
+      app_list::AppListViewState::FULLSCREEN_SEARCH);
+  histogram_tester.ExpectTotalCount(app_list::kAppListToggleMethodHistogram,
+                                    ++toggle_count_total);
+  histogram_tester.ExpectBucketCount(app_list::kAppListToggleMethodHistogram,
+                                     app_list::kSearchKeyFullscreen,
+                                     ++toggle_count_fullscreen);
+
+  // Shift+VKEY_BROWSER_SEARCH closes the AppList.
+  EXPECT_TRUE(ProcessInController(
+      ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN)));
+  base::RunLoop().RunUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(false);
+}
+
 TEST_F(AcceleratorControllerTest, ImeGlobalAccelerators) {
   ASSERT_EQ(0u, Shell::Get()->ime_controller()->available_imes().size());
 
@@ -1469,14 +1564,6 @@ class MagnifiersAcceleratorsTester : public AcceleratorControllerTest {
   MagnifiersAcceleratorsTester() = default;
   ~MagnifiersAcceleratorsTester() override = default;
 
-  // AcceleratorControllerTest:
-  void SetUp() override {
-    // Explicitly enable the Docked Magnifier feature for the tests.
-    scoped_feature_list_.InitAndEnableFeature(features::kDockedMagnifier);
-
-    AcceleratorControllerTest::SetUp();
-  }
-
   DockedMagnifierController* docked_magnifier_controller() const {
     return Shell::Get()->docked_magnifier_controller();
   }
@@ -1486,8 +1573,6 @@ class MagnifiersAcceleratorsTester : public AcceleratorControllerTest {
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-
   DISALLOW_COPY_AND_ASSIGN(MagnifiersAcceleratorsTester);
 };
 
@@ -1579,7 +1664,8 @@ struct MediaSessionAcceleratorTestConfig {
   // Runs the test with the media session service enabled.
   bool service_enabled;
 
-  // Runs the test with the supplied action enabled.
+  // Runs the test with the supplied action enabled and will also send the media
+  // session info to the controller.
   base::Optional<MediaSessionAction> with_action_enabled;
 
   // If true then we should expect the action will handle the media keys.
@@ -1620,10 +1706,13 @@ class MediaSessionAcceleratorTest
     media_controller->FlushForTesting();
   }
 
-  void MaybeEnableAction() {
+  void MaybeEnableMediaSession(
+      media_session::mojom::MediaPlaybackState playback_state) {
     if (!GetParam().with_action_enabled)
       return;
+
     SimulateActionsChanged(GetParam().with_action_enabled);
+    SimulatePlaybackState(playback_state);
   }
 
   void SimulateActionsChanged(base::Optional<MediaSessionAction> action) {
@@ -1646,16 +1735,36 @@ class MediaSessionAcceleratorTest
 
   bool eligible_action() const { return GetParam().eligible_action; }
 
+  void ExpectActionRecorded(ui::MediaHardwareKeyAction action) {
+    histogram_tester_.ExpectBucketCount(
+        ui::kMediaHardwareKeyActionHistogramName,
+        static_cast<base::HistogramBase::Sample>(action), 1);
+  }
+
  private:
+  void SimulatePlaybackState(
+      media_session::mojom::MediaPlaybackState playback_state) {
+    media_session::mojom::MediaSessionInfoPtr session_info(
+        media_session::mojom::MediaSessionInfo::New());
+
+    session_info->state =
+        media_session::mojom::MediaSessionInfo::SessionState::kActive;
+    session_info->playback_state = playback_state;
+
+    controller()->SimulateMediaSessionInfoChanged(std::move(session_info));
+    controller()->Flush();
+  }
+
   std::unique_ptr<TestMediaClient> client_;
   std::unique_ptr<media_session::test::TestMediaController> controller_;
 
+  base::HistogramTester histogram_tester_;
   base::test::ScopedFeatureList scoped_feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaSessionAcceleratorTest);
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     MediaSessionAcceleratorTest,
     testing::Values(
@@ -1721,7 +1830,7 @@ TEST_P(MediaSessionAcceleratorTest, MediaPlaybackAcceleratorsBehavior) {
 }
 
 TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_NextTrack) {
-  MaybeEnableAction();
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPaused);
 
   EXPECT_EQ(0, client()->handle_media_next_track_count());
   EXPECT_EQ(0, controller()->next_track_count());
@@ -1736,28 +1845,64 @@ TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_NextTrack) {
     EXPECT_EQ(1, client()->handle_media_next_track_count());
     EXPECT_EQ(0, controller()->next_track_count());
   }
+
+  ExpectActionRecorded(ui::MediaHardwareKeyAction::kNextTrack);
 }
 
-TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_PlayPause) {
-  MaybeEnableAction();
+TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_Play) {
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPaused);
 
   EXPECT_EQ(0, client()->handle_media_play_pause_count());
-  EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+  EXPECT_EQ(0, controller()->resume_count());
 
   ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
   Shell::Get()->media_controller()->FlushForTesting();
 
   if (service_enabled() && eligible_action()) {
     EXPECT_EQ(0, client()->handle_media_play_pause_count());
-    EXPECT_EQ(1, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(1, controller()->resume_count());
+
+    // If media session handles the key then we should always know the playback
+    // state so we can record a more granular action.
+    ExpectActionRecorded(ui::MediaHardwareKeyAction::kPlay);
   } else {
     EXPECT_EQ(1, client()->handle_media_play_pause_count());
-    EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(0, controller()->resume_count());
+
+    // If we pass through to the client we don't know whether the action will
+    // play or pause so we should record a generic "play/pause" action.
+    ExpectActionRecorded(ui::MediaHardwareKeyAction::kPlayPause);
+  }
+}
+
+TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_Pause) {
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPlaying);
+
+  EXPECT_EQ(0, client()->handle_media_play_pause_count());
+  EXPECT_EQ(0, controller()->suspend_count());
+
+  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  Shell::Get()->media_controller()->FlushForTesting();
+
+  if (service_enabled() && eligible_action()) {
+    EXPECT_EQ(0, client()->handle_media_play_pause_count());
+    EXPECT_EQ(1, controller()->suspend_count());
+
+    // If media session handles the key then we should always know the playback
+    // state so we can record a more granular action.
+    ExpectActionRecorded(ui::MediaHardwareKeyAction::kPause);
+  } else {
+    EXPECT_EQ(1, client()->handle_media_play_pause_count());
+    EXPECT_EQ(0, controller()->suspend_count());
+
+    // If we pass through to the client we don't know whether the action will
+    // play or pause so we should record a generic "play/pause" action.
+    ExpectActionRecorded(ui::MediaHardwareKeyAction::kPlayPause);
   }
 }
 
 TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_PrevTrack) {
-  MaybeEnableAction();
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPaused);
 
   EXPECT_EQ(0, client()->handle_media_prev_track_count());
   EXPECT_EQ(0, controller()->previous_track_count());
@@ -1772,62 +1917,64 @@ TEST_P(MediaSessionAcceleratorTest, MediaGlobalAccelerators_PrevTrack) {
     EXPECT_EQ(1, client()->handle_media_prev_track_count());
     EXPECT_EQ(0, controller()->previous_track_count());
   }
+
+  ExpectActionRecorded(ui::MediaHardwareKeyAction::kPreviousTrack);
 }
 
 TEST_P(MediaSessionAcceleratorTest,
        MediaGlobalAccelerators_UpdateAction_Disable) {
-  MaybeEnableAction();
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPaused);
 
-  EXPECT_EQ(0, client()->handle_media_play_pause_count());
-  EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+  EXPECT_EQ(0, client()->handle_media_next_track_count());
+  EXPECT_EQ(0, controller()->next_track_count());
 
-  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_NEXT_TRACK, ui::EF_NONE));
   Shell::Get()->media_controller()->FlushForTesting();
 
   if (service_enabled() && eligible_action()) {
-    EXPECT_EQ(0, client()->handle_media_play_pause_count());
-    EXPECT_EQ(1, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(0, client()->handle_media_next_track_count());
+    EXPECT_EQ(1, controller()->next_track_count());
   } else {
-    EXPECT_EQ(1, client()->handle_media_play_pause_count());
-    EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(1, client()->handle_media_next_track_count());
+    EXPECT_EQ(0, controller()->next_track_count());
   }
 
   SimulateActionsChanged(base::nullopt);
 
-  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_NEXT_TRACK, ui::EF_NONE));
   Shell::Get()->media_controller()->FlushForTesting();
 
   if (service_enabled() && eligible_action()) {
-    EXPECT_EQ(1, client()->handle_media_play_pause_count());
-    EXPECT_EQ(1, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(1, client()->handle_media_next_track_count());
+    EXPECT_EQ(1, controller()->next_track_count());
   } else {
-    EXPECT_EQ(2, client()->handle_media_play_pause_count());
-    EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(2, client()->handle_media_next_track_count());
+    EXPECT_EQ(0, controller()->next_track_count());
   }
 }
 
 TEST_P(MediaSessionAcceleratorTest,
        MediaGlobalAccelerators_UpdateAction_Enable) {
-  EXPECT_EQ(0, client()->handle_media_play_pause_count());
-  EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+  EXPECT_EQ(0, client()->handle_media_next_track_count());
+  EXPECT_EQ(0, controller()->next_track_count());
 
-  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_NEXT_TRACK, ui::EF_NONE));
   Shell::Get()->media_controller()->FlushForTesting();
 
-  EXPECT_EQ(1, client()->handle_media_play_pause_count());
-  EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+  EXPECT_EQ(1, client()->handle_media_next_track_count());
+  EXPECT_EQ(0, controller()->next_track_count());
 
-  MaybeEnableAction();
+  MaybeEnableMediaSession(media_session::mojom::MediaPlaybackState::kPaused);
 
-  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  ProcessInController(ui::Accelerator(ui::VKEY_MEDIA_NEXT_TRACK, ui::EF_NONE));
   Shell::Get()->media_controller()->FlushForTesting();
 
   if (service_enabled() && eligible_action()) {
-    EXPECT_EQ(1, client()->handle_media_play_pause_count());
-    EXPECT_EQ(1, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(1, client()->handle_media_next_track_count());
+    EXPECT_EQ(1, controller()->next_track_count());
   } else {
-    EXPECT_EQ(2, client()->handle_media_play_pause_count());
-    EXPECT_EQ(0, controller()->toggle_suspend_resume_count());
+    EXPECT_EQ(2, client()->handle_media_next_track_count());
+    EXPECT_EQ(0, controller()->next_track_count());
   }
 }
 

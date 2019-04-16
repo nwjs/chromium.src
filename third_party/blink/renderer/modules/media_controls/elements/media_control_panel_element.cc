@@ -78,7 +78,7 @@ class MediaControlPanelElement::TransitionEventListener final
 
 MediaControlPanelElement::MediaControlPanelElement(
     MediaControlsImpl& media_controls)
-    : MediaControlDivElement(media_controls, kMediaControlsPanel),
+    : MediaControlDivElement(media_controls, kMediaIgnore),
       event_listener_(nullptr) {
   SetShadowPseudoId(AtomicString("-webkit-media-controls-panel"));
 }
@@ -101,13 +101,13 @@ void MediaControlPanelElement::MakeOpaque() {
     return;
 
   opaque_ = true;
+  removeAttribute("class");
 
   if (is_displayed_) {
     // Make sure we are listening for the 'transitionend' event.
     EnsureTransitionEventListener();
 
     SetIsWanted(true);
-    removeAttribute("class");
     DidBecomeVisible();
   }
 }

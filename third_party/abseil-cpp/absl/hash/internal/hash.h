@@ -264,7 +264,12 @@ H AbslHashValue(H hash_state, long double value) {
 // AbslHashValue() for hashing pointers
 template <typename H, typename T>
 H AbslHashValue(H hash_state, T* ptr) {
-  return hash_internal::hash_bytes(std::move(hash_state), ptr);
+  auto v = reinterpret_cast<uintptr_t>(ptr);
+  // Due to alignment, pointers tend to have low bits as zero, and the next few
+  // bits follow a pattern since they are also multiples of some base value.
+  // Mixing the pointer twice helps prevent stuck low bits for certain alignment
+  // values.
+  return H::combine(std::move(hash_state), v, v);
 }
 
 // AbslHashValue() for hashing nullptr_t
@@ -541,17 +546,8 @@ hash_range_or_bytes(H hash_state, const T* data, size_t size) {
 //   * If is_uniquely_represented, hash bytes directly.
 //   * ADL AbslHashValue(H, const T&) call.
 //   * std::hash<T>
-
-// In MSVC we can't probe std::hash or stdext::hash because it triggers a
-// static_assert instead of failing substitution.
-#if defined(_MSC_VER)
-#define ABSL_HASH_INTERNAL_CAN_POISON_ 0
-#else   // _MSC_VER
-#define ABSL_HASH_INTERNAL_CAN_POISON_ 1
-#endif  // _MSC_VER
-
 #if defined(ABSL_INTERNAL_LEGACY_HASH_NAMESPACE) && \
-    ABSL_HASH_INTERNAL_CAN_POISON_
+    ABSL_META_INTERNAL_STD_HASH_SFINAE_FRIENDLY_
 #define ABSL_HASH_INTERNAL_SUPPORT_LEGACY_HASH_ 1
 #else
 #define ABSL_HASH_INTERNAL_SUPPORT_LEGACY_HASH_ 0
@@ -616,13 +612,7 @@ struct HashSelect {
 #endif  // ABSL_HASH_INTERNAL_SUPPORT_LEGACY_HASH_
 
   template <typename U>
-  using ProbeStdHash =
-#if ABSL_HASH_INTERNAL_CAN_POISON_
-      std::is_convertible<decltype(std::hash<U>()(std::declval<const U&>())),
-                          size_t>;
-#else   // ABSL_HASH_INTERNAL_CAN_POISON_
-      std::true_type;
-#endif  // ABSL_HASH_INTERNAL_CAN_POISON_
+  using ProbeStdHash = absl::type_traits_internal::IsHashable<U>;
 
   template <typename U>
   using ProbeNone = std::true_type;

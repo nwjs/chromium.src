@@ -17,6 +17,9 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.R;
 import org.chromium.third_party.android.swiperefresh.CircleImageView;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
  * The SideSlideLayout can be used whenever the user navigates the contents
  * of a view using horizontal gesture. Shows an arrow widget moving horizontally
@@ -33,7 +36,8 @@ public class SideSlideLayout extends ViewGroup {
     @IntDef({UmaNavigationType.NAVIGATION_TYPE_NONE, UmaNavigationType.FORWARD_TOUCHPAD,
             UmaNavigationType.BACK_TOUCHPAD, UmaNavigationType.FORWARD_TOUCHSCREEN,
             UmaNavigationType.BACK_TOUCHSCREEN, UmaNavigationType.RELOAD_TOUCHPAD,
-            UmaNavigationType.RELOAD_TOUCHSCREEN, UmaNavigationType.NAVIGATION_TYPE_COUNT})
+            UmaNavigationType.RELOAD_TOUCHSCREEN})
+    @Retention(RetentionPolicy.SOURCE)
     private @interface UmaNavigationType {
         int NAVIGATION_TYPE_NONE = 0;
         int FORWARD_TOUCHPAD = 1;
@@ -42,7 +46,7 @@ public class SideSlideLayout extends ViewGroup {
         int BACK_TOUCHSCREEN = 4;
         int RELOAD_TOUCHPAD = 5;
         int RELOAD_TOUCHSCREEN = 6;
-        int NAVIGATION_TYPE_COUNT = 7;
+        int NUM_ENTRIES = 7;
     }
 
     /**
@@ -375,6 +379,6 @@ public class SideSlideLayout extends ViewGroup {
         RecordHistogram.recordEnumeratedHistogram(name,
                 forward ? UmaNavigationType.FORWARD_TOUCHSCREEN
                         : UmaNavigationType.BACK_TOUCHSCREEN,
-                UmaNavigationType.NAVIGATION_TYPE_COUNT);
+                UmaNavigationType.NUM_ENTRIES);
     }
 }

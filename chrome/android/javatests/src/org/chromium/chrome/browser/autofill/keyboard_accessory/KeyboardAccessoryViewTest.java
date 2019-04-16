@@ -20,8 +20,7 @@ import static org.junit.Assert.assertTrue;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessoryAction.AUTOFILL_SUGGESTION;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessoryAction.GENERATE_PASSWORD_AUTOMATIC;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BAR_ITEMS;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BOTTOM_OFFSET_PX;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.KEYBOARD_TOGGLE_VISIBLE;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TAB_LAYOUT_ITEM;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.VISIBLE;
 import static org.chromium.chrome.test.util.ViewUtils.VIEW_GONE;
 import static org.chromium.chrome.test.util.ViewUtils.VIEW_INVISIBLE;
@@ -41,15 +40,20 @@ import org.junit.runner.RunWith;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.AutofillBarItem;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BarItem;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TabLayoutBarItem;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
+import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.ui.DeferredViewStubInflationProvider;
+import org.chromium.ui.DropdownItem;
 import org.chromium.ui.ViewProvider;
 import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
-import org.chromium.ui.modelutil.ListModel;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.concurrent.ArrayBlockingQueue;
@@ -74,12 +78,18 @@ public class KeyboardAccessoryViewTest {
     public void setUp() throws InterruptedException {
         mActivityTestRule.startMainActivityOnBlankPage();
         ThreadUtils.runOnUiThreadBlocking(() -> {
-            mModel = new PropertyModel
-                             .Builder(BAR_ITEMS, VISIBLE, KEYBOARD_TOGGLE_VISIBLE, BOTTOM_OFFSET_PX)
-                             .with(BAR_ITEMS, new ListModel<>())
-                             .with(VISIBLE, false)
-                             .with(KEYBOARD_TOGGLE_VISIBLE, false)
-                             .build();
+            mModel =
+                    KeyboardAccessoryProperties.defaultModelBuilder()
+                            .with(TAB_LAYOUT_ITEM,
+                                    new TabLayoutBarItem(new TabLayoutBarItem.TabLayoutCallbacks() {
+                                        @Override
+                                        public void onTabLayoutBound(
+                                                KeyboardAccessoryTabLayoutView tabs) {}
+                                        @Override
+                                        public void onTabLayoutUnbound(
+                                                KeyboardAccessoryTabLayoutView tabs) {}
+                                    }))
+                            .build();
             ViewStub viewStub =
                     mActivityTestRule.getActivity().findViewById(R.id.keyboard_accessory_stub);
 
@@ -188,5 +198,28 @@ public class KeyboardAccessoryViewTest {
         onView(withText("First")).check(matches(isDisplayed()));
         onView(withText("Second")).check(doesNotExist());
         onView(withText("Third")).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)
+    public void testAddsClickableAutofillSuggestions() {
+        AtomicReference<Boolean> clickRecorded = new AtomicReference<>();
+        KeyboardAccessoryData.Action action = new KeyboardAccessoryData.Action(
+                "Unused", AUTOFILL_SUGGESTION, result -> clickRecorded.set(true));
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            mModel.set(VISIBLE, true);
+            mModel.get(BAR_ITEMS).set(new BarItem[] {
+                    new AutofillBarItem(
+                            new AutofillSuggestion("Johnathan", "Smithonian-Jackson",
+                                    DropdownItem.NO_ICON, false, 0, false, false, false),
+                            action),
+            });
+        });
+
+        onView(isRoot()).check((root, e) -> waitForView((ViewGroup) root, withText("Johnathan")));
+        onView(withText("Johnathan")).perform(click());
+
+        assertTrue(clickRecorded.get());
     }
 }

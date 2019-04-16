@@ -242,18 +242,18 @@ int32_t AXNode::GetTableRowCount() const {
   return table_info->row_count;
 }
 
-int32_t AXNode::GetTableAriaColCount() const {
+base::Optional<int32_t> AXNode::GetTableAriaColCount() const {
   AXTableInfo* table_info = tree_->GetTableInfo(this);
   if (!table_info)
-    return 0;
+    return base::nullopt;
 
   return table_info->aria_col_count;
 }
 
-int32_t AXNode::GetTableAriaRowCount() const {
+base::Optional<int32_t> AXNode::GetTableAriaRowCount() const {
   AXTableInfo* table_info = tree_->GetTableInfo(this);
   if (!table_info)
-    return 0;
+    return base::nullopt;
 
   return table_info->aria_row_count;
 }
@@ -276,6 +276,14 @@ AXNode* AXNode::GetTableCellFromIndex(int32_t index) const {
     return nullptr;
 
   return tree_->GetFromId(table_info->unique_cell_ids[index]);
+}
+
+AXNode* AXNode::GetTableCaption() const {
+  AXTableInfo* table_info = tree_->GetTableInfo(this);
+  if (!table_info)
+    return nullptr;
+
+  return tree_->GetFromId(table_info->caption_id);
 }
 
 AXNode* AXNode::GetTableCellFromCoords(int32_t row_index,
@@ -344,7 +352,7 @@ std::vector<AXNode*>* AXNode::GetExtraMacNodes() const {
 //
 
 bool AXNode::IsTableRow() const {
-  return data().role == ax::mojom::Role::kRow;
+  return ui::IsTableRow(data().role);
 }
 
 int32_t AXNode::GetTableRowRowIndex() const {
@@ -362,12 +370,13 @@ int32_t AXNode::GetTableRowRowIndex() const {
 }
 
 #if defined(OS_MACOSX)
+
 //
 // Table column-like nodes. These nodes are only present on macOS.
 //
 
 bool AXNode::IsTableColumn() const {
-  return data().role == ax::mojom::Role::kColumn;
+  return ui::IsTableColumn(data().role);
 }
 
 int32_t AXNode::GetTableColColIndex() const {
@@ -386,6 +395,7 @@ int32_t AXNode::GetTableColColIndex() const {
   }
   return index;
 }
+
 #endif  // defined(OS_MACOSX)
 
 //
@@ -465,7 +475,7 @@ int32_t AXNode::GetTableCellRowSpan() const {
 int32_t AXNode::GetTableCellAriaColIndex() const {
   AXTableInfo* table_info = GetAncestorTableInfo();
   if (!table_info)
-    return -0;
+    return 0;
 
   int32_t index = GetTableCellIndex();
   if (index == -1)
@@ -477,11 +487,11 @@ int32_t AXNode::GetTableCellAriaColIndex() const {
 int32_t AXNode::GetTableCellAriaRowIndex() const {
   AXTableInfo* table_info = GetAncestorTableInfo();
   if (!table_info)
-    return -0;
+    return -1;
 
   int32_t index = GetTableCellIndex();
   if (index == -1)
-    return 0;
+    return -1;
 
   return table_info->cell_data_vector[index].aria_row_index;
 }

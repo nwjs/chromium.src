@@ -4,6 +4,33 @@
 
 import("//net/features.gni")
 
+source_set("network_public") {
+  sources = [
+    "net/network_chromium.h",
+  ]
+
+  deps = [
+    "//base",
+  ]
+}
+
+source_set("network") {
+  sources = [
+    "net/network_impl.cc",
+    "net/network_impl.h",
+  ]
+
+  visibility = [ ":*" ]
+
+  deps = [
+    ":network_public",
+    "//base",
+    "//net",
+    "//services/network/public/cpp:cpp",
+    "//url",
+  ]
+}
+
 static_library("update_client") {
   sources = [
     "action_runner.cc",
@@ -26,6 +53,8 @@ static_library("update_client") {
     "crx_downloader.cc",
     "crx_downloader.h",
     "crx_update_item.h",
+    "network.cc",
+    "network.h",
     "persisted_data.cc",
     "persisted_data.h",
     "ping_manager.cc",
@@ -76,7 +105,14 @@ static_library("update_client") {
     "utils.h",
   ]
 
+  # Allows callers to include the network factory through "update_client" deps.
+  public_deps = [
+    ":network_public",
+  ]
+
   deps = [
+    ":network",
+    ":network_public",
     "//base",
     "//components/client_update_protocol",
     "//components/crx_file",
@@ -87,22 +123,25 @@ static_library("update_client") {
     "//components/version_info:version_info",
     "//courgette:courgette_lib",
     "//crypto",
-    "//net",
-    "//services/network/public/cpp:cpp",
     "//third_party/libxml",
     "//url",
+  ]
+
+  allow_circular_includes_from = [
+    ":network",
+    ":network_public",
   ]
 }
 
 static_library("test_support") {
   testonly = true
   sources = [
+    "net/url_loader_post_interceptor.cc",
+    "net/url_loader_post_interceptor.h",
     "test_configurator.cc",
     "test_configurator.h",
     "test_installer.cc",
     "test_installer.h",
-    "url_loader_post_interceptor.cc",
-    "url_loader_post_interceptor.h",
   ]
 
   public_deps = [
@@ -182,6 +221,7 @@ source_set("unit_tests") {
   }
 
   deps = [
+    ":network",
     ":test_support",
     ":unit_tests_bundle_data",
     ":update_client",

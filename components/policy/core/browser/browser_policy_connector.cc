@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -180,6 +181,8 @@ void BrowserPolicyConnector::RegisterPrefs(PrefRegistrySimple* registry) {
       policy_prefs::kMachineLevelUserCloudPolicyEnrollmentToken, std::string());
   registry->RegisterBooleanPref(
       policy_prefs::kCloudManagementEnrollmentMandatory, false);
+  registry->RegisterBooleanPref(
+      policy_prefs::kCloudPolicyOverridesMachinePolicy, false);
 }
 
 }  // namespace policy

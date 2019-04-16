@@ -12,8 +12,9 @@
 #include "ash/app_list/views/search_box_view.h"
 #include "ash/app_list/views/search_result_suggestion_chip_view.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
+#include "base/bind.h"
+#include "base/callback.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/focus/focus_manager.h"
@@ -30,13 +31,15 @@ constexpr int kChipSpacing = 8;
 
 SuggestionChipContainerView::SuggestionChipContainerView(
     ContentsView* contents_view)
-    : contents_view_(contents_view) {
+    : SearchResultContainerView(
+          contents_view != nullptr
+              ? contents_view->GetAppListMainView()->view_delegate()
+              : nullptr),
+      contents_view_(contents_view) {
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
 
   DCHECK(contents_view);
-  view_delegate_ = contents_view_->GetAppListMainView()->view_delegate();
-
   views::BoxLayout* layout_manager =
       SetLayoutManager(std::make_unique<views::BoxLayout>(
           views::BoxLayout::Orientation::kHorizontal, gfx::Insets(),
@@ -44,9 +47,11 @@ SuggestionChipContainerView::SuggestionChipContainerView(
   layout_manager->set_main_axis_alignment(
       views::BoxLayout::MainAxisAlignment::MAIN_AXIS_ALIGNMENT_CENTER);
 
-  for (size_t i = 0; i < static_cast<size_t>(kNumStartPageTiles); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(
+                             AppListConfig::instance().num_start_page_tiles());
+       ++i) {
     SearchResultSuggestionChipView* chip =
-        new SearchResultSuggestionChipView(view_delegate_);
+        new SearchResultSuggestionChipView(view_delegate());
     chip->SetVisible(false);
     chip->SetIndexInSuggestionChipContainer(i);
     suggestion_chip_views_.emplace_back(chip);
@@ -60,20 +65,27 @@ int SuggestionChipContainerView::DoUpdate() {
   if (IgnoreUpdateAndLayout())
     return num_results();
 
+  auto exclude_reinstall_filter = [](const SearchResult& r) -> bool {
+    return r.display_type() == ash::SearchResultDisplayType::kRecommendation &&
+           r.result_type() != ash::SearchResultType::kPlayStoreReinstallApp;
+  };
   std::vector<SearchResult*> display_results =
-      SearchModel::FilterSearchResultsByDisplayType(
-          results(), ash::SearchResultDisplayType::kRecommendation,
-          /*excludes=*/{}, kNumStartPageTiles);
+      SearchModel::FilterSearchResultsByFunction(
+          results(), base::BindRepeating(exclude_reinstall_filter),
+          AppListConfig::instance().num_start_page_tiles());
 
   // Update search results here, but wait until layout to add them as child
   // views when we know this view's bounds.
-  for (size_t i = 0; i < static_cast<size_t>(kNumStartPageTiles); ++i) {
+  for (size_t i = 0; i < static_cast<size_t>(
+                             AppListConfig::instance().num_start_page_tiles());
+       ++i) {
     suggestion_chip_views_[i]->SetResult(
         i < display_results.size() ? display_results[i] : nullptr);
   }
 
   Layout();
-  return std::min(kNumStartPageTiles, static_cast<int>(display_results.size()));
+  return std::min(AppListConfig::instance().num_start_page_tiles(),
+                  display_results.size());
 }
 
 const char* SuggestionChipContainerView::GetClassName() const {
@@ -105,7 +117,7 @@ void SuggestionChipContainerView::Layout() {
 
 bool SuggestionChipContainerView::OnKeyPressed(const ui::KeyEvent& event) {
   // Let the FocusManager handle Left/Right keys.
-  if (!CanProcessUpDownKeyTraversal(event))
+  if (!IsUnhandledUpDownKeyEvent(event))
     return false;
 
   // Up key moves focus to the search box. Down key moves focus to the first

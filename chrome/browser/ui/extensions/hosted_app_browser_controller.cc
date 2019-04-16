@@ -26,7 +26,6 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/web_preferences.h"
 #include "extensions/browser/extension_registry.h"
@@ -34,6 +33,7 @@
 #include "extensions/browser/management_policy.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/image/image_skia.h"
 #include "url/gurl.h"
@@ -329,6 +329,10 @@ const Extension* HostedAppBrowserController::GetExtensionForTesting() const {
 
 std::string HostedAppBrowserController::GetAppShortName() const {
   return GetExtension()->short_name();
+}
+
+std::string HostedAppBrowserController::GetExtensionId() const {
+  return extension_id_;
 }
 
 base::string16 HostedAppBrowserController::GetFormattedUrlOrigin() const {

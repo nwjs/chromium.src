@@ -27,7 +27,7 @@ import zipfile
 # Do NOT CHANGE this if you don't know what you're doing -- see
 # https://chromium.googlesource.com/chromium/src/+/master/docs/updating_clang.md
 # Reverting problematic clang rolls is safe, though.
-CLANG_REVISION = '351477'
+CLANG_REVISION = '354873'
 
 use_head_revision = bool(os.environ.get('LLVM_FORCE_HEAD_REVISION', '0')
                          in ('1', 'YES'))
@@ -370,6 +370,16 @@ def AddGnuWinToPath():
     f.write('group: files\n')
 
 
+def SetMacXcodePath():
+  """Set DEVELOPER_DIR to the path to hermetic Xcode.app on Mac OS X."""
+  if sys.platform != 'darwin':
+    return
+
+  xcode_path = os.path.join(CHROMIUM_DIR, 'build', 'mac_files', 'Xcode.app')
+  if os.path.exists(xcode_path):
+    os.environ['DEVELOPER_DIR'] = xcode_path
+
+
 win_sdk_dir = None
 dia_dll = None
 def GetWinSDKDir():
@@ -530,11 +540,16 @@ def UpdateClang(args):
   base_cmake_args = ['-GNinja',
                      '-DCMAKE_BUILD_TYPE=Release',
                      '-DLLVM_ENABLE_ASSERTIONS=ON',
+                     '-DLLVM_ENABLE_PIC=OFF',
                      '-DLLVM_ENABLE_TERMINFO=OFF',
                      '-DLLVM_TARGETS_TO_BUILD=' + targets,
                      # Statically link MSVCRT to avoid DLL dependencies.
                      '-DLLVM_USE_CRT_RELEASE=MT',
                      '-DCLANG_PLUGIN_SUPPORT=OFF',
+                     '-DCLANG_ENABLE_STATIC_ANALYZER=OFF',
+                     '-DCLANG_ENABLE_ARCMT=OFF',
+                     # TODO(crbug.com/929645): Use newer toolchain to host.
+                     '-DLLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN=ON',
                      ]
 
   if sys.platform != 'win32':
@@ -984,6 +999,12 @@ def main():
         VERSION, args.verify_version)
     print 'clang_version in build/toolchain/toolchain.gni is likely outdated.'
     return 1
+
+  # DEVELOPER_DIR needs to be set when Xcode isn't in a standard location
+  # and xcode-select wasn't run.  This is needed for running clang and ld
+  # for the build done by this script, but it's also needed for running
+  # macOS system svn, so this needs to happen before calling functions using svn.
+  SetMacXcodePath()
 
   global CLANG_REVISION, PACKAGE_VERSION
   if args.print_revision:

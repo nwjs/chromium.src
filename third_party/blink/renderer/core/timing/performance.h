@@ -89,7 +89,6 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   virtual PerformanceTiming* timing() const;
   virtual PerformanceNavigation* navigation() const;
   virtual MemoryInfo* memory() const;
-  virtual bool shouldYield() const;
 
   virtual void UpdateLongTaskInstrumentation() {}
 
@@ -114,9 +113,17 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   DOMHighResTimeStamp timeOrigin() const;
 
   // Internal getter method for the time origin value.
-  double GetTimeOrigin() const { return TimeTicksInSeconds(time_origin_); }
+  double GetTimeOrigin() const {
+    return time_origin_.since_origin().InSecondsF();
+  }
 
   PerformanceEntryVector getEntries();
+  // Get BufferedEntriesByType will return all entries in the buffer regardless
+  // of whether they are exposed in the Performance Timeline. getEntriesByType
+  // will only return all entries for existing types in
+  // PerformanceEntry.IsValidTimelineEntryType.
+  PerformanceEntryVector getBufferedEntriesByType(
+      const AtomicString& entry_type);
   PerformanceEntryVector getEntriesByType(const AtomicString& entry_type);
   PerformanceEntryVector getEntriesByName(const AtomicString& name,
                                           const AtomicString& entry_type);
@@ -125,7 +132,7 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   void setResourceTimingBufferSize(unsigned);
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(resourcetimingbufferfull,
-                                  kResourcetimingbufferfull);
+                                  kResourcetimingbufferfull)
 
   void AddLongTaskTiming(
       TimeTicks start_time,
@@ -164,15 +171,14 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   void clearElementTimings();
   void setElementTimingBufferMaxSize(unsigned);
   DEFINE_ATTRIBUTE_EVENT_LISTENER(elementtimingbufferfull,
-                                  kElementtimingbufferfull);
+                                  kElementtimingbufferfull)
 
   bool IsEventTimingBufferFull() const;
   void AddEventTimingBuffer(PerformanceEventTiming&);
   unsigned EventTimingBufferSize() const;
   void clearEventTimings();
   void setEventTimingBufferMaxSize(unsigned);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(eventtimingbufferfull,
-                                  kEventtimingbufferfull);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(eventtimingbufferfull, kEventtimingbufferfull)
 
   void AddLayoutJankBuffer(PerformanceLayoutJank&);
 
@@ -254,7 +260,6 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
   // TODO(npm): is the AtomicString parameter here actually needed?
   static bool PassesTimingAllowCheck(const ResourceResponse&,
                                      const SecurityOrigin&,
-                                     const AtomicString&,
                                      ExecutionContext*);
 
   static bool AllowsTimingRedirect(const Vector<ResourceResponse>&,
@@ -284,6 +289,8 @@ class CORE_EXPORT Performance : public EventTargetWithInlineData {
                                         ExceptionState&);
 
   void CopySecondaryBuffer();
+  PerformanceEntryVector getEntriesByTypeInternal(
+      PerformanceEntry::EntryType type);
 
  protected:
   Performance(TimeTicks time_origin,

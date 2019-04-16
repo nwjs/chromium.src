@@ -8,6 +8,7 @@
 #include <string>
 
 #include "ash/app_list/test/app_list_test_helper.h"
+#include "ash/app_list/views/app_list_view.h"
 #include "ash/assistant/assistant_controller.h"
 #include "ash/assistant/assistant_ui_controller.h"
 #include "ash/assistant/model/assistant_ui_model.h"
@@ -15,7 +16,6 @@
 #include "ash/root_window_controller.h"
 #include "ash/session/session_controller.h"
 #include "ash/shelf/shelf.h"
-#include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shelf/shelf_view_test_api.h"
 #include "ash/shell.h"
@@ -79,7 +79,7 @@ TEST_F(AppListButtonTest, SwipeUpToOpenFullscreenAppList) {
   // Swiping up less than the threshold should trigger a peeking app list.
   gfx::Point end = start;
   end.set_y(shelf->GetIdealBounds().bottom() -
-            ShelfLayoutManager::kAppListDragSnapToPeekingThreshold + 10);
+            app_list::AppListView::kDragSnapToPeekingThreshold + 10);
   GetEventGenerator()->GestureScrollSequence(
       start, end, base::TimeDelta::FromMilliseconds(100), 4 /* steps */);
   GetAppListTestHelper()->WaitUntilIdle();
@@ -93,7 +93,7 @@ TEST_F(AppListButtonTest, SwipeUpToOpenFullscreenAppList) {
 
   // Swiping above the threshold should trigger a fullscreen app list.
   end.set_y(shelf->GetIdealBounds().bottom() -
-            ShelfLayoutManager::kAppListDragSnapToPeekingThreshold - 10);
+            app_list::AppListView::kDragSnapToPeekingThreshold - 10);
   GetEventGenerator()->GestureScrollSequence(
       start, end, base::TimeDelta::FromMilliseconds(100), 4 /* steps */);
   base::RunLoop().RunUntilIdle();
@@ -101,6 +101,42 @@ TEST_F(AppListButtonTest, SwipeUpToOpenFullscreenAppList) {
   GetAppListTestHelper()->CheckVisibility(true);
   GetAppListTestHelper()->CheckState(
       app_list::AppListViewState::FULLSCREEN_ALL_APPS);
+}
+
+TEST_F(AppListButtonTest, ClickToOpenAppList) {
+  Shelf* shelf = GetPrimaryShelf();
+  EXPECT_EQ(SHELF_ALIGNMENT_BOTTOM, shelf->alignment());
+
+  gfx::Point center = app_list_button()->GetCenterPoint();
+  views::View::ConvertPointToScreen(app_list_button(), &center);
+  GetEventGenerator()->MoveMouseTo(center);
+
+  // Click on the app list button should toggle the app list.
+  GetEventGenerator()->ClickLeftButton();
+  GetAppListTestHelper()->WaitUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::PEEKING);
+  GetEventGenerator()->ClickLeftButton();
+  GetAppListTestHelper()->WaitUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(false);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::CLOSED);
+
+  // Shift-click should open the app list in fullscreen.
+  GetEventGenerator()->set_flags(ui::EF_SHIFT_DOWN);
+  GetEventGenerator()->ClickLeftButton();
+  GetEventGenerator()->set_flags(0);
+  GetAppListTestHelper()->WaitUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(true);
+  GetAppListTestHelper()->CheckState(
+      app_list::AppListViewState::FULLSCREEN_ALL_APPS);
+
+  // Another shift-click should close the app list.
+  GetEventGenerator()->set_flags(ui::EF_SHIFT_DOWN);
+  GetEventGenerator()->ClickLeftButton();
+  GetEventGenerator()->set_flags(0);
+  GetAppListTestHelper()->WaitUntilIdle();
+  GetAppListTestHelper()->CheckVisibility(false);
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::CLOSED);
 }
 
 TEST_F(AppListButtonTest, ButtonPositionInTabletMode) {

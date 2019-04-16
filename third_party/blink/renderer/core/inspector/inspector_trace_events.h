@@ -43,6 +43,7 @@ class ContainerNode;
 class Document;
 class DocumentLoader;
 class Element;
+class EncodedFormData;
 class Event;
 class ExecutionContext;
 struct FetchInitiatorInfo;
@@ -82,13 +83,18 @@ class CORE_EXPORT InspectorTraceEvents
  public:
   InspectorTraceEvents() = default;
 
-  void WillSendRequest(ExecutionContext*,
-                       unsigned long identifier,
+  void WillSendRequest(unsigned long identifier,
                        DocumentLoader*,
-                       ResourceRequest&,
+                       const KURL& fetch_context_url,
+                       const ResourceRequest&,
                        const ResourceResponse& redirect_response,
                        const FetchInitiatorInfo&,
                        ResourceType);
+  void WillSendNavigationRequest(unsigned long identifier,
+                                 DocumentLoader*,
+                                 const KURL&,
+                                 const AtomicString& http_method,
+                                 EncodedFormData*);
   void DidReceiveResourceResponse(unsigned long identifier,
                                   DocumentLoader*,
                                   const ResourceResponse&,
@@ -258,10 +264,6 @@ namespace inspector_paint_invalidation_tracking_event {
 std::unique_ptr<TracedValue> Data(const LayoutObject&);
 }
 
-namespace inspector_scroll_invalidation_tracking_event {
-std::unique_ptr<TracedValue> Data(const LayoutObject&);
-}
-
 namespace inspector_change_resource_priority_event {
 std::unique_ptr<TracedValue> Data(DocumentLoader*,
                                   unsigned long identifier,
@@ -273,6 +275,14 @@ std::unique_ptr<TracedValue> Data(DocumentLoader*,
                                   unsigned long identifier,
                                   LocalFrame*,
                                   const ResourceRequest&);
+}
+
+namespace inspector_send_navigation_request_event {
+std::unique_ptr<TracedValue> Data(DocumentLoader*,
+                                  unsigned long identifier,
+                                  LocalFrame*,
+                                  const KURL&,
+                                  const AtomicString& http_method);
 }
 
 namespace inspector_receive_response_event {
@@ -409,9 +419,7 @@ namespace inspector_compile_script_event {
 
 struct V8CacheResult {
   struct ProduceResult {
-    ProduceResult(v8::ScriptCompiler::CompileOptions produce_options,
-                  int cache_size);
-    v8::ScriptCompiler::CompileOptions produce_options;
+    explicit ProduceResult(int cache_size);
     int cache_size;
   };
   struct ConsumeResult {

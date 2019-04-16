@@ -5,6 +5,7 @@
 #include "services/preferences/public/cpp/pref_service_factory.h"
 
 #include "base/barrier_closure.h"
+#include "base/bind.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
@@ -22,13 +23,15 @@
 #include "services/preferences/pref_store_impl.h"
 #include "services/preferences/public/cpp/dictionary_value_update.h"
 #include "services/preferences/public/cpp/in_process_service_factory.h"
+#include "services/preferences/public/cpp/manifest.h"
 #include "services/preferences/public/cpp/pref_service_main.h"
 #include "services/preferences/public/cpp/scoped_pref_update.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
-#include "services/preferences/tests_catalog_source.h"
 #include "services/preferences/unittest_common.h"
+#include "services/service_manager/public/cpp/manifest_builder.h"
 #include "services/service_manager/public/cpp/service_binding.h"
 #include "services/service_manager/public/cpp/test/test_service_manager.h"
+#include "services/service_manager/public/mojom/constants.mojom.h"
 #include "services/service_manager/public/mojom/service_factory.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -102,7 +105,22 @@ constexpr int kUpdatedValue = 2;
 class PrefServiceFactoryTest : public testing::Test {
  public:
   PrefServiceFactoryTest()
-      : test_service_manager_(CreateServiceTestCatalog()) {}
+      : test_service_manager_(
+            {service_manager::ManifestBuilder()
+                 .WithServiceName(kTestServiceName)
+                 .ExposeCapability(
+                     "service_manager:service_factory",
+                     service_manager::Manifest::InterfaceList<
+                         service_manager::mojom::ServiceFactory>())
+                 .RequireCapability(mojom::kServiceName, "pref_client")
+                 .RequireCapability(kTestHelperServiceName, "")
+                 .PackageService(GetManifest())
+                 .PackageService(
+                     service_manager::ManifestBuilder()
+                         .WithServiceName(kTestHelperServiceName)
+                         .RequireCapability(mojom::kServiceName, "pref_client")
+                         .Build())
+                 .Build()}) {}
 
  protected:
   void SetUp() override {
@@ -671,9 +689,9 @@ TEST_P(IncognitoPrefServiceFactoryTest, MultipleClients) {
   EXPECT_EQ(kUpdatedValue, pref_service2->GetInteger(kKey));
 }
 
-INSTANTIATE_TEST_CASE_P(UnderlayOrOverlayPref,
-                        IncognitoPrefServiceFactoryTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(UnderlayOrOverlayPref,
+                         IncognitoPrefServiceFactoryTest,
+                         testing::Bool());
 
 }  // namespace
 }  // namespace prefs

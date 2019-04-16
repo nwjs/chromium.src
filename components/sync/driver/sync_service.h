@@ -15,10 +15,9 @@
 #include "base/time/time.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/sync/base/model_type.h"
-#include "components/sync/driver/data_type_encryption_handler.h"
 #include "components/sync/driver/sync_service_observer.h"
 
-struct AccountInfo;
+struct CoreAccountInfo;
 class GoogleServiceAuthError;
 class GURL;
 
@@ -28,6 +27,7 @@ class JsController;
 class ProtocolEventObserver;
 class SyncCycleSnapshot;
 struct SyncTokenStatus;
+class SyncTypePreferenceProvider;
 class SyncUserSettings;
 class TypeDebugInfoObserver;
 struct SyncStatus;
@@ -48,7 +48,7 @@ class SyncSetupInProgressHandle {
   base::Closure on_destroy_;
 };
 
-class SyncService : public DataTypeEncryptionHandler, public KeyedService {
+class SyncService : public KeyedService {
  public:
   // The set of reasons due to which Sync can be disabled. Meant to be used as a
   // bitmask.
@@ -73,7 +73,11 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
     // Sync has encountered an unrecoverable error. It won't attempt to start
     // again until either the browser is restarted, or the user fully signs out
     // and back in again.
-    DISABLE_REASON_UNRECOVERABLE_ERROR = 1 << 4
+    DISABLE_REASON_UNRECOVERABLE_ERROR = 1 << 4,
+    // Sync is paused because the user signed out on the web. This is different
+    // from NOT_SIGNED_IN: In this case, there *is* still a primary account, but
+    // it doesn't have valid credentials.
+    DISABLE_REASON_PAUSED = 1 << 5,
   };
 
   // The overall state of the SyncService, in ascending order of "activeness".
@@ -81,15 +85,6 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
     // Sync is inactive, e.g. due to enterprise policy, or simply because there
     // is no authenticated user.
     DISABLED,
-    // Sync can start in principle, but nothing has prodded it to actually do it
-    // yet. Note that during subsequent browser startups, Sync starts
-    // automatically, i.e. no prod is necessary, but during the first start Sync
-    // does need a kick. This usually happens via starting (not finishing!) the
-    // initial setup, or via a call to SyncUserSettings::SetSyncRequested.
-    // TODO(crbug.com/839834): Check whether this state is necessary, or if Sync
-    // can just always start up if all conditions are fulfilled (that's what
-    // happens in practice anyway).
-    WAITING_FOR_START_REQUEST,
     // Sync's startup was deferred, so that it doesn't slow down browser
     // startup. Once the deferral time (usually 10s) expires, or something
     // requests immediate startup, Sync will actually start.
@@ -148,7 +143,7 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   virtual bool IsLocalSyncEnabled() const = 0;
 
   // Information about the currently signed in user.
-  virtual AccountInfo GetAuthenticatedAccountInfo() const = 0;
+  virtual CoreAccountInfo GetAuthenticatedAccountInfo() const = 0;
   // Whether the currently signed in user is the "primary" browser account (see
   // IdentityManager). If this is false, then IsSyncFeatureEnabled will also be
   // false, but Sync-the-transport might still run.
@@ -158,7 +153,7 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   // error can be either from Chrome's identity system (e.g. while trying to get
   // an access token), or from the Sync server. It gets cleared when the error
   // is resolved.
-  virtual const GoogleServiceAuthError& GetAuthError() const = 0;
+  virtual GoogleServiceAuthError GetAuthError() const = 0;
 
   //////////////////////////////////////////////////////////////////////////////
   // DERIVED STATE ACCESS
@@ -278,7 +273,7 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   // Informs the data type manager that the ready-for-start status of a
   // controller has changed. If the controller is not ready any more, it will
   // stop |type|. Otherwise, it will trigger reconfiguration so that |type| gets
-  // started again.
+  // started again. No-op if the type's state didn't actually change.
   virtual void ReadyForStartChanged(ModelType type) = 0;
 
   // Enables/disables invalidations for session sync related datatypes.
@@ -302,16 +297,19 @@ class SyncService : public DataTypeEncryptionHandler, public KeyedService {
   virtual bool HasObserver(const SyncServiceObserver* observer) const = 0;
 
   //////////////////////////////////////////////////////////////////////////////
-  // ENCRYPTION
+  // PREFERENCE PROVIDERS (which provide forced data types)
   //////////////////////////////////////////////////////////////////////////////
 
-  // Returns true if OnPassphraseRequired has been called for decryption and
-  // we have an encrypted data type enabled.
-  virtual bool IsPassphraseRequiredForDecryption() const = 0;
-
-  // Returns true if a secondary (explicit) passphrase is being used. Before the
-  // engine is initialized, this will always return false.
-  virtual bool IsUsingSecondaryPassphrase() const = 0;
+  // Adds a sync type preference provider. Each provider may only be added once.
+  virtual void AddPreferenceProvider(SyncTypePreferenceProvider* provider) = 0;
+  // Removes a sync type preference provider. May only be called for providers
+  // that have been added. Providers must not remove themselves while being
+  // called back.
+  virtual void RemovePreferenceProvider(
+      SyncTypePreferenceProvider* provider) = 0;
+  // Checks whether a given sync type preference provider has been added.
+  virtual bool HasPreferenceProvider(
+      SyncTypePreferenceProvider* provider) const = 0;
 
   //////////////////////////////////////////////////////////////////////////////
   // ACCESS TO INNER OBJECTS

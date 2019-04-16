@@ -32,6 +32,14 @@ function buttonPanelElement(videoElement) {
   return element;
 }
 
+function loadingPanelElement(videoElement) {
+  var controlID = '-internal-media-controls-loading-panel';
+  var element = mediaControlsElement(internals.shadowRoot(videoElement).firstChild, controlID);
+  if (!element)
+    throw 'Failed to find loading panel';
+  return element;
+}
+
 function panelElement(videoElement) {
   var element = mediaControlsButton(videoElement, "panel");
   if (!element)
@@ -184,6 +192,10 @@ function mediaControlsElement(first, id)
     }
 
     return null;
+}
+
+function getFocusedElement(video) {
+  return internals.shadowRoot(video).activeElement;
 }
 
 function mediaControlsButton(element, id)
@@ -540,7 +552,7 @@ function doubleTapAtCoordinates(x, y, timeout, callback) {
       actions: [
         { name: 'pointerDown', x: x, y: y },
         { name: 'pointerUp' },
-        { name: 'pause', duration: timeout / 1000 },
+        { name: 'pause', duration: timeout },
         { name: 'pointerDown', x: x, y: y },
         { name: 'pointerUp' }
       ]
@@ -549,7 +561,6 @@ function doubleTapAtCoordinates(x, y, timeout, callback) {
 }
 
 function singleTapAtCoordinates(xPos, yPos, callback) {
-  let delayCallback = function() { setTimeout(callback); };
   chrome.gpuBenchmarking.pointerActionSequence([
     {
       source: 'mouse',
@@ -558,7 +569,7 @@ function singleTapAtCoordinates(xPos, yPos, callback) {
         { name: 'pointerUp' }
       ]
     }
-  ], delayCallback);
+  ], callback);
 }
 
 function singleTapOutsideControl(control, callback) {
@@ -606,7 +617,7 @@ function doubleTouchAtCoordinates(x, y, timeout, callback) {
       actions: [
         { name: 'pointerDown', x: x, y: y },
         { name: 'pointerUp' },
-        { name: 'pause', duration: timeout / 1000 },
+        { name: 'pause', duration: timeout },
         { name: 'pointerDown', x: x, y: y },
         { name: 'pointerUp' }
       ]

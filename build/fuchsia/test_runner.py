@@ -21,6 +21,7 @@ from net_test_server import SetupTestServer
 from run_package import RunPackage, RunPackageArgs
 
 DEFAULT_TEST_CONCURRENCY = 4
+
 TEST_RESULT_PATH = '/data/test_summary.json'
 TEST_FILTER_PATH = '/data/test_filter.txt'
 
@@ -103,7 +104,8 @@ def main():
     target.Start()
 
     if args.test_launcher_filter_file:
-      target.PutFile(args.test_launcher_filter_file, TEST_FILTER_PATH)
+      target.PutFile(args.test_launcher_filter_file, TEST_FILTER_PATH,
+                     for_package=args.package_name)
       child_args.append('--test-launcher-filter-file=' + TEST_FILTER_PATH)
 
     test_server = None
@@ -119,7 +121,8 @@ def main():
       test_server.Stop()
 
     if args.test_launcher_summary_output:
-      target.GetFile(TEST_RESULT_PATH, args.test_launcher_summary_output)
+      target.GetFile(TEST_RESULT_PATH, args.test_launcher_summary_output,
+                     for_package=args.package_name)
 
     return returncode
 

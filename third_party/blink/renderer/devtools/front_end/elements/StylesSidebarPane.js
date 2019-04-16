@@ -385,7 +385,7 @@ Elements.StylesSidebarPane = class extends Elements.ElementsSidebarPane {
       return;
     this.contentElement.classList.toggle('is-editing-style', editing);
     this._isEditingStyle = editing;
-    this._setActiveProperty(editing ? treeElement || null : null);
+    this._setActiveProperty(null);
   }
 
   /**
@@ -860,6 +860,7 @@ Elements.StylePropertiesSection = class {
     this.element.addEventListener('click', this._handleEmptySpaceClick.bind(this), false);
     this.element.addEventListener('mousemove', this._onMouseMove.bind(this), false);
     this.element.addEventListener('mouseleave', this._onMouseLeave.bind(this), false);
+    this._selectedSinceMouseDown = false;
 
     if (rule) {
       // Prevent editing the user agent and user rules.
@@ -1002,6 +1003,8 @@ Elements.StylePropertiesSection = class {
       this._parentPane._setActiveProperty(/** @type {!Elements.StylePropertyTreeElement} */ (treeElement));
     else
       this._parentPane._setActiveProperty(null);
+    if (!this._selectedSinceMouseDown && this.element.getComponentSelection().toString())
+      this._selectedSinceMouseDown = true;
   }
 
   /**
@@ -1391,6 +1394,8 @@ Elements.StylePropertiesSection = class {
       const isShorthand = !!style.longhandProperties(property.name).length;
       const inherited = this.isPropertyInherited(property.name);
       const overloaded = this._isPropertyOverloaded(property);
+      if (style.parentRule && style.parentRule.isUserAgent() && inherited)
+        continue;
       const item = new Elements.StylePropertyTreeElement(
           this._parentPane, this._matchedStyles, property, isShorthand, inherited, overloaded, false);
       this.propertiesTreeOutline.appendChild(item);
@@ -1548,13 +1553,14 @@ Elements.StylePropertiesSection = class {
 
   _handleEmptySpaceMouseDown() {
     this._willCauseCancelEditing = this._parentPane._isEditingStyle;
+    this._selectedSinceMouseDown = false;
   }
 
   /**
    * @param {!Event} event
    */
   _handleEmptySpaceClick(event) {
-    if (!this.editable || this.element.hasSelection() || this._checkWillCancelEditing())
+    if (!this.editable || this.element.hasSelection() || this._checkWillCancelEditing() || this._selectedSinceMouseDown)
       return;
 
     if (event.target.classList.contains('header') || this.element.classList.contains('read-only') ||

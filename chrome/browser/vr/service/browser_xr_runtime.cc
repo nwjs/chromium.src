@@ -4,6 +4,7 @@
 
 #include "chrome/browser/vr/service/browser_xr_runtime.h"
 
+#include "base/bind.h"
 #include "chrome/browser/vr/service/xr_device_impl.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -30,6 +31,13 @@ BrowserXRRuntime::BrowserXRRuntime(device::mojom::XRRuntimePtr runtime,
 }
 
 BrowserXRRuntime::~BrowserXRRuntime() = default;
+
+void BrowserXRRuntime::ExitVrFromPresentingRendererDevice() {
+  auto* xr_device = GetPresentingRendererDevice();
+  if (xr_device) {
+    xr_device->ExitPresent();
+  }
+}
 
 void BrowserXRRuntime::OnDisplayInfoChanged(
     device::mojom::VRDisplayInfoPtr vr_device_info) {

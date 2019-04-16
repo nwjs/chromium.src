@@ -27,7 +27,8 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/features/feature.h"
 #include "ipc/ipc_message.h"
-#include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom-forward.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom-forward.h"
 
 class ExtensionFunction;
 class UIThreadExtensionFunction;
@@ -233,9 +234,9 @@ class ExtensionFunction
   // returns an error.
   virtual void OnQuotaExceeded(const std::string& violation_error);
 
-  // Specifies the raw arguments to the function, as a JSON value.
-  // TODO(dcheng): This should take a const ref.
-  virtual void SetArgs(const base::ListValue* args);
+  // Specifies the raw arguments to the function, as a JSON value. Expects a
+  // base::Value of type LIST.
+  void SetArgs(base::Value args);
 
   // Retrieves the results of the function as a ListValue.
   const base::ListValue* GetResultList() const;
@@ -613,18 +614,14 @@ class IOThreadExtensionFunction : public ExtensionFunction {
   void SetBadMessage() final;
 
   void set_ipc_sender(
-      base::WeakPtr<extensions::IOThreadExtensionMessageFilter> ipc_sender,
-      int routing_id) {
+      base::WeakPtr<extensions::IOThreadExtensionMessageFilter> ipc_sender) {
     ipc_sender_ = ipc_sender;
-    routing_id_ = routing_id;
   }
 
   base::WeakPtr<extensions::IOThreadExtensionMessageFilter> ipc_sender_weak()
       const {
     return ipc_sender_;
   }
-
-  int routing_id() const { return routing_id_; }
 
   void set_extension_info_map(const extensions::InfoMap* extension_info_map) {
     extension_info_map_ = extension_info_map;
@@ -644,7 +641,6 @@ class IOThreadExtensionFunction : public ExtensionFunction {
 
  private:
   base::WeakPtr<extensions::IOThreadExtensionMessageFilter> ipc_sender_;
-  int routing_id_;
 
   scoped_refptr<const extensions::InfoMap> extension_info_map_;
 

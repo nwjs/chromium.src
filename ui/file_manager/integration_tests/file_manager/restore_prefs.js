@@ -7,8 +7,8 @@
 /**
  * Tests restoring the sorting order.
  */
-testcase.restoreSortColumn = async function() {
-  var EXPECTED_FILES = TestEntryInfo.getExpectedRows([
+testcase.restoreSortColumn = async () => {
+  const EXPECTED_FILES = TestEntryInfo.getExpectedRows([
     ENTRIES.photos,     // 'photos' (directory)
     ENTRIES.world,      // 'world.ogv', 59943 bytes
     ENTRIES.beautiful,  // 'Beautiful Song.ogg', 13410 bytes
@@ -49,7 +49,7 @@ testcase.restoreSortColumn = async function() {
 /**
  * Tests restoring the current view (the file list or the thumbnail grid).
  */
-testcase.restoreCurrentView = async function() {
+testcase.restoreCurrentView = async () => {
   // Set up Files app.
   const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS);
 

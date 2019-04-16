@@ -266,27 +266,38 @@ void InspectorLayerTreeAgent::Restore() {
 }
 
 Response InspectorLayerTreeAgent::enable() {
-  instrumenting_agents_->addInspectorLayerTreeAgent(this);
+  instrumenting_agents_->AddInspectorLayerTreeAgent(this);
   Document* document = inspected_frames_->Root()->GetDocument();
-  if (document &&
-      document->Lifecycle().GetState() >= DocumentLifecycle::kCompositingClean)
+  if (!document)
+    return Response::Error("The root frame doesn't have document");
+
+  if (RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() ||
+      RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    if (document->Lifecycle().GetState() >= DocumentLifecycle::kPaintClean)
+      LayerTreePainted();
+  } else if (document->Lifecycle().GetState() >=
+             DocumentLifecycle::kCompositingClean) {
     LayerTreeDidChange();
+  }
   return Response::OK();
 }
 
 Response InspectorLayerTreeAgent::disable() {
-  instrumenting_agents_->removeInspectorLayerTreeAgent(this);
+  instrumenting_agents_->RemoveInspectorLayerTreeAgent(this);
   snapshot_by_id_.clear();
   return Response::OK();
 }
 
 void InspectorLayerTreeAgent::LayerTreeDidChange() {
+  DCHECK(!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() &&
+         !RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   GetFrontend()->layerTreeDidChange(BuildLayerTree());
 }
 
 void InspectorLayerTreeAgent::DidPaint(const cc::Layer* layer,
-                                       GraphicsContext&,
                                        const LayoutRect& rect) {
+  DCHECK(!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() &&
+         !RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
   if (suppress_layer_paint_events_)
     return;
 
@@ -302,6 +313,21 @@ void InspectorLayerTreeAgent::DidPaint(const cc::Layer* layer,
                                                       .setHeight(rect.Height())
                                                       .build();
   GetFrontend()->layerPainted(IdForLayer(layer), std::move(dom_rect));
+}
+
+void InspectorLayerTreeAgent::LayerTreePainted() {
+  DCHECK(RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled() ||
+         RuntimeEnabledFeatures::CompositeAfterPaintEnabled());
+
+  GetFrontend()->layerTreeDidChange(BuildLayerTree());
+
+  for (const auto& layer :
+       inspected_frames_->Root()->View()->RootCcLayer()->children()) {
+    if (!layer->update_rect().IsEmpty()) {
+      GetFrontend()->layerPainted(IdForLayer(layer.get()),
+                                  BuildObjectForRect(layer->update_rect()));
+    }
+  }
 }
 
 std::unique_ptr<Array<protocol::LayerTree::Layer>>

@@ -172,16 +172,11 @@ MemoryInfo* WindowPerformance::memory() const {
                                 : MemoryInfo::Precision::Bucketized);
 }
 
-bool WindowPerformance::shouldYield() const {
-  return ThreadScheduler::Current()->ShouldYieldForHighPriorityWork();
-}
-
 PerformanceNavigationTiming*
 WindowPerformance::CreateNavigationTimingInstance() {
   if (!GetFrame())
     return nullptr;
-  const DocumentLoader* document_loader =
-      GetFrame()->Loader().GetDocumentLoader();
+  DocumentLoader* document_loader = GetFrame()->Loader().GetDocumentLoader();
   if (!document_loader)
     return nullptr;
   ResourceTimingInfo* info = document_loader->GetNavigationTimingInfo();
@@ -190,7 +185,8 @@ WindowPerformance::CreateNavigationTimingInstance() {
   WebVector<WebServerTimingInfo> server_timing =
       PerformanceServerTiming::ParseServerTiming(*info);
   if (!server_timing.empty())
-    UseCounter::Count(GetFrame(), WebFeature::kPerformanceServerTiming);
+    UseCounter::Count(document_loader, WebFeature::kPerformanceServerTiming);
+
   return MakeGarbageCollected<PerformanceNavigationTiming>(
       GetFrame(), info, time_origin_, server_timing);
 }
@@ -200,8 +196,7 @@ void WindowPerformance::UpdateLongTaskInstrumentation() {
     return;
 
   if (HasObserverFor(PerformanceEntry::kLongTask)) {
-    UseCounter::Count(&GetFrame()->LocalFrameRoot(),
-                      WebFeature::kLongTaskObserver);
+    UseCounter::Count(GetFrame()->GetDocument(), WebFeature::kLongTaskObserver);
     GetFrame()->GetPerformanceMonitor()->Subscribe(
         PerformanceMonitor::kLongTask, kLongTaskObserverThreshold, this);
   } else {
@@ -390,7 +385,7 @@ void WindowPerformance::ReportEventTimings(WebLayerTreeView::SwapResult result,
       continue;
 
     if (HasObserverFor(PerformanceEntry::kEvent)) {
-      UseCounter::Count(GetFrame(),
+      UseCounter::Count(GetFrame()->GetDocument(),
                         WebFeature::kEventTimingExplicitlyRequested);
       NotifyObserversOfEntry(*entry);
     }
@@ -403,12 +398,15 @@ void WindowPerformance::ReportEventTimings(WebLayerTreeView::SwapResult result,
 
 void WindowPerformance::AddElementTiming(const AtomicString& name,
                                          const IntRect& rect,
-                                         TimeTicks timestamp) {
+                                         TimeTicks start_time,
+                                         TimeTicks response_end,
+                                         const AtomicString& identifier) {
   DCHECK(origin_trials::ElementTimingEnabled(GetExecutionContext()));
   PerformanceElementTiming* entry = PerformanceElementTiming::Create(
-      name, rect, MonotonicTimeToDOMHighResTimeStamp(timestamp));
+      name, rect, MonotonicTimeToDOMHighResTimeStamp(start_time),
+      MonotonicTimeToDOMHighResTimeStamp(response_end), identifier);
   if (HasObserverFor(PerformanceEntry::kElement)) {
-    UseCounter::Count(GetFrame(),
+    UseCounter::Count(GetFrame()->GetDocument(),
                       WebFeature::kElementTimingExplicitlyRequested);
     NotifyObserversOfEntry(*entry);
   }
@@ -424,7 +422,8 @@ void WindowPerformance::DispatchFirstInputTiming(
     return;
   DCHECK_EQ("firstInput", entry->entryType());
   if (HasObserverFor(PerformanceEntry::kFirstInput)) {
-    UseCounter::Count(GetFrame(), WebFeature::kEventTimingExplicitlyRequested);
+    UseCounter::Count(GetFrame()->GetDocument(),
+                      WebFeature::kEventTimingExplicitlyRequested);
     NotifyObserversOfEntry(*entry);
   }
 

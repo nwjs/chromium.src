@@ -37,12 +37,14 @@
 #include "chrome/common/extensions/extension_test_util.h"
 #include "chrome/common/extensions/sync_helper.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/crx_file/id_util.h"
+#include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/sync/model/fake_sync_change_processor.h"
 #include "components/sync/model/sync_change_processor_wrapper_for_test.h"
 #include "components/sync/model/sync_data.h"
 #include "components/sync/model/sync_error_factory_mock.h"
+#include "components/sync/protocol/sync.pb.h"
 #include "components/variations/variations_associated_data.h"
 #include "extensions/browser/api_test_utils.h"
 #include "extensions/browser/app_sorting.h"
@@ -344,7 +346,7 @@ TEST_F(ExtensionServiceSyncTest, DisableExtensionFromSync) {
   InitializeInstalledExtensionService(pref_path, source_install_dir);
 
   // The user has enabled sync.
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile());
   sync_service->GetUserSettings()->SetFirstSetupComplete();
 
@@ -380,7 +382,7 @@ TEST_F(ExtensionServiceSyncTest, ReenableDisabledExtensionFromSync) {
   InitializeEmptyExtensionService();
 
   // Enable sync.
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile());
   sync_service->GetUserSettings()->SetFirstSetupComplete();
 
@@ -462,7 +464,7 @@ TEST_F(ExtensionServiceSyncTest,
   InitializeEmptyExtensionService();
 
   // Enable sync.
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile());
   sync_service->GetUserSettings()->SetFirstSetupComplete();
 
@@ -528,7 +530,7 @@ TEST_F(ExtensionServiceSyncTest, IgnoreSyncChangesWhenLocalStateIsMoreRecent) {
   InitializeInstalledExtensionService(pref_path, source_install_dir);
 
   // The user has enabled sync.
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile());
   sync_service->GetUserSettings()->SetFirstSetupComplete();
   // Make sure ExtensionSyncService is created, so it'll be notified of changes.
@@ -2631,7 +2633,7 @@ class BlacklistedExtensionSyncServiceTest : public ExtensionServiceSyncTest {
     InitializeEmptyExtensionService();
 
     // Enable sync.
-    browser_sync::ProfileSyncService* sync_service =
+    syncer::SyncService* sync_service =
         ProfileSyncServiceFactory::GetForProfile(profile());
     sync_service->GetUserSettings()->SetFirstSetupComplete();
 

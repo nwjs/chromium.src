@@ -224,7 +224,7 @@ class CORE_EXPORT InspectorDOMAgent final
   void ReleaseDanglingNodes();
 
   // Methods called from the InspectorInstrumentation.
-  void DOMContentLoadedEventFired(LocalFrame*);
+  void DomContentLoadedEventFired(LocalFrame*);
   void DidCommitLoad(LocalFrame*, DocumentLoader*);
   void DidInsertDOMNode(Node*);
   void WillRemoveDOMNode(Node*);
@@ -251,7 +251,6 @@ class CORE_EXPORT InspectorDOMAgent final
   int BoundNodeId(Node*);
   void SetDOMListener(DOMListener*);
   int PushNodePathToFrontend(Node*);
-  protocol::Response PushDocumentUponHandlelessOperation();
   protocol::Response NodeForRemoteObjectId(const String& remote_object_id,
                                            Node*&);
 

@@ -4,6 +4,8 @@
 
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 
+#include <algorithm>
+#include <string>
 #include <utility>
 
 #include "ash/public/cpp/ash_switches.h"
@@ -23,7 +25,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/time/default_tick_clock.h"
 #include "base/time/tick_clock.h"
-#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/display/display.h"
 #include "ui/display/manager/display_manager.h"
@@ -80,6 +82,11 @@ const float kNoisyMagnitudeDeviation = 1.0f;
 // Interval between calls to RecordLidAngle().
 constexpr base::TimeDelta kRecordLidAngleInterval =
     base::TimeDelta::FromHours(1);
+
+// Time that should wait to reset |occlusion_tracker_pauser_| on
+// entering/exiting tablet mode.
+constexpr base::TimeDelta kOcclusionTrackerTimeout =
+    base::TimeDelta::FromMilliseconds(500);
 
 // The angle between AccelerometerReadings are considered stable if
 // their magnitudes do not differ greatly. This returns false if the deviation
@@ -148,7 +155,7 @@ TabletModeController::TabletModeController()
             base::Unretained(this)));
   }
   chromeos::PowerManagerClient* power_manager_client =
-      chromeos::DBusThreadManager::Get()->GetPowerManagerClient();
+      chromeos::PowerManagerClient::Get();
   power_manager_client->AddObserver(this);
   power_manager_client->GetSwitchStates(base::BindOnce(
       &TabletModeController::OnGetSwitchStates, weak_factory_.GetWeakPtr()));
@@ -159,15 +166,23 @@ TabletModeController::TabletModeController()
 }
 
 TabletModeController::~TabletModeController() {
-  Shell::Get()->RemoveShellObserver(this);
+  UMA_HISTOGRAM_COUNTS_1000("Tablet.AppWindowDrag.CountOfPerUserSession",
+                            app_window_drag_count_);
+  UMA_HISTOGRAM_COUNTS_1000(
+      "Tablet.AppWindowDrag.InSplitView.CountOfPerUserSession",
+      app_window_drag_in_splitview_count_);
+  UMA_HISTOGRAM_COUNTS_1000("Tablet.TabDrag.CountOfPerUserSession",
+                            tab_drag_count_);
+  UMA_HISTOGRAM_COUNTS_1000("Tablet.TabDrag.InSplitView.CountOfPerUserSession",
+                            tab_drag_in_splitview_count_);
 
+  Shell::Get()->RemoveShellObserver(this);
   if (IsEnabled()) {
     Shell::Get()->window_tree_host_manager()->RemoveObserver(this);
     AccelerometerReader::GetInstance()->RemoveObserver(this);
     ui::InputDeviceManager::GetInstance()->RemoveObserver(this);
   }
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
 
   for (auto& observer : tablet_mode_observers_)
     observer.OnTabletControllerDestroyed();
@@ -189,6 +204,9 @@ void TabletModeController::EnableTabletModeWindowManager(bool should_enable) {
     RootWindowController::ForWindow(root_window)->HideContextMenu();
 
   if (should_enable) {
+    // Suspend occlusion tracker when entering tablet mode.
+    SuspendOcclusionTracker();
+
     tablet_mode_window_manager_.reset(new TabletModeWindowManager());
     base::RecordAction(base::UserMetricsAction("Touchview_Enabled"));
     RecordTabletModeUsageInterval(TABLET_MODE_INTERVAL_INACTIVE);
@@ -210,6 +228,9 @@ void TabletModeController::EnableTabletModeWindowManager(bool should_enable) {
       client_->OnTabletModeToggled(true);
     VLOG(1) << "Enter tablet mode.";
   } else {
+    // Suspend occlusion tracker when exiting tablet mode.
+    SuspendOcclusionTracker();
+
     tablet_mode_window_manager_->SetIgnoreWmEventsForExit();
     for (auto& observer : tablet_mode_observers_)
       observer.OnTabletModeEnding();
@@ -283,6 +304,9 @@ void TabletModeController::OnShellInitialized() {
 }
 
 void TabletModeController::OnDisplayConfigurationChanged() {
+  if (!AllowUiModeChange())
+    return;
+
   if (!HasActiveInternalDisplay()) {
     AttemptLeaveTabletMode();
   } else if (tablet_mode_switch_is_on_ && !IsTabletModeWindowManagerEnabled()) {
@@ -577,6 +601,21 @@ void TabletModeController::SetClient(mojom::TabletModeClientPtr client) {
   client_->OnTabletModeToggled(IsTabletModeWindowManagerEnabled());
 }
 
+// Used for testing. Called via Mojo.
+void TabletModeController::SetTabletModeEnabledForTesting(
+    bool enabled,
+    SetTabletModeEnabledForTestingCallback callback) {
+  // Disable Accelerometer and PowerManagerClient observers to prevent possible
+  // tablet mode overrides. It won't be possible to physically switch to/from
+  // tablet mode after calling this function. This is needed for tests that
+  // run on DUTs and require switching to/back tablet mode in runtime, like some
+  // ARC++ Tast tests.
+  AccelerometerReader::GetInstance()->RemoveObserver(this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
+  EnableTabletModeWindowManager(enabled);
+  std::move(callback).Run(IsTabletModeWindowManagerEnabled());
+}
+
 bool TabletModeController::AllowUiModeChange() const {
   return force_ui_mode_ == UiMode::kNone;
 }
@@ -618,13 +657,14 @@ void TabletModeController::HandlePointingDeviceAddedOrRemoved() {
   // Enter clamshell mode whenever an external pointing device is attached.
   if (has_external_pointing_device) {
     AttemptLeaveTabletMode();
-  } else if (LidAngleIsInTabletModeRange() || tablet_mode_switch_is_on_) {
-    // If there is no external pointing device, only enter tablet mode if 1) the
-    // lid angle can be detected and is in tablet mode angle range. or 2) if the
-    // lid angle can't be detected (e.g., tablet device or clamshell device) and
-    // |tablet_mode_switch_is_on_| is true (it can only happen for tablet device
-    // as |tablet_mode_switch_is_on_| should never be true for a clamshell
-    // device).
+  } else if (HasActiveInternalDisplay() &&
+             (LidAngleIsInTabletModeRange() || tablet_mode_switch_is_on_)) {
+    // If there is no external pointing device, only enter tablet mode if docked
+    // mode is inactive and 1) the lid angle can be detected and is in tablet
+    // mode angle range. or 2) if the lid angle can't be detected (e.g., tablet
+    // device or clamshell device) and |tablet_mode_switch_is_on_| is true (it
+    // can only happen for tablet device as |tablet_mode_switch_is_on_| should
+    // never be true for a clamshell device).
     AttemptEnterTabletMode();
   }
 }
@@ -650,7 +690,7 @@ void TabletModeController::UpdateInternalInputDevicesEventBlocker() {
   if (IsTabletModeWindowManagerEnabled()) {
     // If we are currently in tablet mode, the internal input events should
     // always be blocked.
-    should_block_internal_events = true;
+    should_block_internal_events = (force_ui_mode_ == UiMode::kNone);
   } else if (HasActiveInternalDisplay() &&
              (LidAngleIsInTabletModeRange() || tablet_mode_switch_is_on_)) {
     // If we are currently in clamshell mode, the intenral input events should
@@ -673,6 +713,20 @@ void TabletModeController::UpdateInternalInputDevicesEventBlocker() {
 bool TabletModeController::LidAngleIsInTabletModeRange() {
   return can_detect_lid_angle_ && !lid_is_closed_ &&
          lid_angle_ >= kEnterTabletModeAngle;
+}
+
+void TabletModeController::SuspendOcclusionTracker() {
+  occlusion_tracker_reset_timer_.Stop();
+  occlusion_tracker_pauser_ =
+      std::make_unique<aura::WindowOcclusionTracker::ScopedPause>(
+          Shell::Get()->aura_env());
+  occlusion_tracker_reset_timer_.Start(FROM_HERE, kOcclusionTrackerTimeout,
+                                       this,
+                                       &TabletModeController::ResetPauser);
+}
+
+void TabletModeController::ResetPauser() {
+  occlusion_tracker_pauser_.reset();
 }
 
 }  // namespace ash

@@ -32,11 +32,14 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.test.ShadowRecordHistogram;
 import org.chromium.base.task.test.CustomShadowAsyncTask;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.AccessorySheetData;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.FooterCommand;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.PropertyProvider;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.UserInfo;
 import org.chromium.ui.modelutil.ListObservable;
+
+import java.util.HashMap;
 
 /**
  * Controller tests for the password accessory sheet.
@@ -88,12 +91,14 @@ public class PasswordAccessorySheetControllerTest {
         mCoordinator.registerDataProvider(testProvider);
 
         // If the coordinator receives a set of initial items, the model should report an insertion.
-        testProvider.notifyObservers(new AccessorySheetData("Passwords"));
+        testProvider.notifyObservers(
+                new AccessorySheetData(FallbackSheetType.PASSWORD, "Passwords"));
         verify(mMockItemListObserver).onItemRangeInserted(mSheetDataPieces, 0, 1);
         assertThat(mSheetDataPieces.size(), is(1));
 
         // If the coordinator receives a new set of items, the model should report a change.
-        testProvider.notifyObservers(new AccessorySheetData("Other Passwords"));
+        testProvider.notifyObservers(
+                new AccessorySheetData(FallbackSheetType.PASSWORD, "Other Passwords"));
         verify(mMockItemListObserver).onItemRangeChanged(mSheetDataPieces, 0, 1, null);
         assertThat(mSheetDataPieces.size(), is(1));
 
@@ -109,8 +114,10 @@ public class PasswordAccessorySheetControllerTest {
 
     @Test
     public void testSplitsTabDataToList() {
+        setAutofillFeature(false);
         final PropertyProvider<AccessorySheetData> testProvider = new PropertyProvider<>();
-        final AccessorySheetData testData = new AccessorySheetData("Passwords for this site");
+        final AccessorySheetData testData =
+                new AccessorySheetData(FallbackSheetType.PASSWORD, "Passwords for this site");
         testData.getUserInfoList().add(new UserInfo(null));
         testData.getUserInfoList().get(0).addField(new UserInfo.Field("Name", "Name", false, null));
         testData.getUserInfoList().get(0).addField(
@@ -127,6 +134,35 @@ public class PasswordAccessorySheetControllerTest {
         assertThat(mSheetDataPieces.get(0).getDataPiece(), is(equalTo("Passwords for this site")));
         assertThat(mSheetDataPieces.get(1).getDataPiece(), is(testData.getUserInfoList().get(0)));
         assertThat(mSheetDataPieces.get(2).getDataPiece(), is(testData.getFooterCommands().get(0)));
+    }
+
+    @Test
+    public void testUsesTabTitleOnlyForEmptyListsForModernDesign() {
+        setAutofillFeature(true);
+        final PropertyProvider<AccessorySheetData> testProvider = new PropertyProvider<>();
+        final AccessorySheetData testData =
+                new AccessorySheetData(FallbackSheetType.PASSWORD, "No passwords for this");
+        mCoordinator.registerDataProvider(testProvider);
+
+        // Providing only FooterCommands and no User Info shows the title as empty state:
+        testData.getFooterCommands().add(new FooterCommand("Manage passwords", result -> {}));
+        testProvider.notifyObservers(testData);
+
+        assertThat(mSheetDataPieces.size(), is(2));
+        assertThat(getType(mSheetDataPieces.get(0)), is(TITLE));
+        assertThat(getType(mSheetDataPieces.get(1)), is(FOOTER_COMMAND));
+        assertThat(mSheetDataPieces.get(0).getDataPiece(), is(equalTo("No passwords for this")));
+
+        // As soon UserInfo is available, discard the title.
+        testData.getUserInfoList().add(new UserInfo(null));
+        testData.getUserInfoList().get(0).addField(new UserInfo.Field("Name", "Name", false, null));
+        testData.getUserInfoList().get(0).addField(
+                new UserInfo.Field("Password", "Password for Name", true, field -> {}));
+        testProvider.notifyObservers(testData);
+
+        assertThat(mSheetDataPieces.size(), is(2));
+        assertThat(getType(mSheetDataPieces.get(0)), is(PASSWORD_INFO));
+        assertThat(getType(mSheetDataPieces.get(1)), is(FOOTER_COMMAND));
     }
 
     @Test
@@ -151,7 +187,8 @@ public class PasswordAccessorySheetControllerTest {
         assertThat(getSuggestionsImpressions(AccessoryTabType.ALL, 0), is(0));
 
         // If the tab is shown without interactive item, log "0" samples.
-        AccessorySheetData accessorySheetData = new AccessorySheetData("No passwords!");
+        AccessorySheetData accessorySheetData =
+                new AccessorySheetData(FallbackSheetType.PASSWORD, "No passwords!");
         accessorySheetData.getFooterCommands().add(new FooterCommand("Manage all passwords", null));
         accessorySheetData.getFooterCommands().add(new FooterCommand("Generate password", null));
         testProvider.notifyObservers(accessorySheetData);
@@ -191,5 +228,11 @@ public class PasswordAccessorySheetControllerTest {
                         KeyboardAccessoryMetricsRecorder.UMA_KEYBOARD_ACCESSORY_SHEET_SUGGESTIONS,
                         type),
                 sample);
+    }
+
+    private void setAutofillFeature(boolean enabled) {
+        HashMap<String, Boolean> features = new HashMap<>();
+        features.put(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY, enabled);
+        ChromeFeatureList.setTestFeatures(features);
     }
 }

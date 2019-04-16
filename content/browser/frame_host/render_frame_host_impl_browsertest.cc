@@ -36,7 +36,7 @@
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "content/test/content_browser_test_utils_internal.h"
-#include "content/test/did_commit_provisional_load_interceptor.h"
+#include "content/test/did_commit_navigation_interceptor.h"
 #include "content/test/frame_host_test_interface.mojom.h"
 #include "content/test/test_content_browser_client.h"
 #include "net/dns/mock_host_resolver.h"
@@ -1355,10 +1355,10 @@ namespace {
 // DidCommitProvisionalLoad messages in a given |web_contents| instead of the
 // real one coming from the renderer process.
 class ScopedFakeInterfaceProviderRequestInjector
-    : public DidCommitProvisionalLoadInterceptor {
+    : public DidCommitNavigationInterceptor {
  public:
   explicit ScopedFakeInterfaceProviderRequestInjector(WebContents* web_contents)
-      : DidCommitProvisionalLoadInterceptor(web_contents) {}
+      : DidCommitNavigationInterceptor(web_contents) {}
   ~ScopedFakeInterfaceProviderRequestInjector() override = default;
 
   // Sets the fake InterfaceProvider |request| to inject into the next incoming
@@ -1376,16 +1376,17 @@ class ScopedFakeInterfaceProviderRequestInjector
   }
 
  protected:
-  bool WillDispatchDidCommitProvisionalLoad(
+  bool WillProcessDidCommitNavigation(
       RenderFrameHost* render_frame_host,
+      NavigationRequest* navigation_request,
       ::FrameHostMsg_DidCommitProvisionalLoad_Params* params,
-      mojom::DidCommitProvisionalLoadInterfaceParamsPtr& interface_params)
+      mojom::DidCommitProvisionalLoadInterfaceParamsPtr* interface_params)
       override {
     url_of_last_commit_ = params->url;
-    if (interface_params) {
+    if (*interface_params) {
       original_request_of_last_commit_ =
-          std::move(interface_params->interface_provider_request);
-      interface_params->interface_provider_request =
+          std::move((*interface_params)->interface_provider_request);
+      (*interface_params)->interface_provider_request =
           std::move(next_fake_request_);
     }
     return true;
@@ -2014,6 +2015,45 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   crash_observer.Wait();
   RunPostedTasks();
   EXPECT_EQ(0, process->get_media_stream_count_for_testing());
+}
+
+// Test that a frame is visible/hidden depending on its WebContents visibility
+// state.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       VisibilityScrolledOutOfView) {
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  GURL main_frame(embedded_test_server()->GetURL("/iframe_out_of_view.html"));
+  GURL child_url(embedded_test_server()->GetURL("/hello.html"));
+
+  // This will set up the page frame tree as A(A1()).
+  ASSERT_TRUE(NavigateToURL(shell(), main_frame));
+  FrameTreeNode* root = web_contents->GetFrameTree()->root();
+  FrameTreeNode* nested_iframe_node = root->child_at(0);
+  NavigateFrameToURL(nested_iframe_node, child_url);
+
+  ASSERT_EQ(blink::mojom::FrameVisibility::kRenderedOutOfViewport,
+            nested_iframe_node->current_frame_host()->visibility());
+}
+
+// Test that a frame is visible/hidden depending on its WebContents visibility
+// state.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest, VisibilityChildInView) {
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  GURL main_frame(embedded_test_server()->GetURL("/iframe_clipped.html"));
+  GURL child_url(embedded_test_server()->GetURL("/hello.html"));
+
+  // This will set up the page frame tree as A(A1()).
+  ASSERT_TRUE(NavigateToURL(shell(), main_frame));
+  FrameTreeNode* root = web_contents->GetFrameTree()->root();
+  FrameTreeNode* nested_iframe_node = root->child_at(0);
+  NavigateFrameToURL(nested_iframe_node, child_url);
+
+  ASSERT_EQ(blink::mojom::FrameVisibility::kRenderedInViewport,
+            nested_iframe_node->current_frame_host()->visibility());
 }
 
 IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,

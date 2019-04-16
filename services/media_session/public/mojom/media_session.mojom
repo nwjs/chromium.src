@@ -29,6 +29,12 @@ enum MediaSessionAction {
   kStop,
 };
 
+[Extensible]
+enum MediaSessionImageType {
+  // The artwork associated with the media session (e.g album art)
+  kArtwork,
+};
+
 // Album art in MediaMetadata
 // Spec: https://wicg.github.io/mediasession/
 struct MediaImage {
@@ -43,12 +49,20 @@ struct MediaMetadata {
   mojo_base.mojom.String16 title;
   mojo_base.mojom.String16 artist;
   mojo_base.mojom.String16 album;
-  array<MediaImage> artwork;
 
   // The |source_title| is a human readable title for the source of the media
   // session. This could be the name of the app or the name of the site playing
   // media.
   mojo_base.mojom.String16 source_title;
+};
+
+// A bitmap image. We use this instead of SkImage or skia.image.Bitmap so we can
+// use it in ARC and we do not use ArcBitmap because we need to use it in the
+// service.
+struct MediaImageBitmap {
+  int32 width;
+  int32 height;
+  array<uint8> pixel_data;  // Must be ARGB_8888
 };
 
 // Contains state information about a MediaSession.
@@ -101,7 +115,7 @@ struct MediaSessionDebugInfo {
 };
 
 // The observer for observing media session events.
-// Next Method ID: 1
+// Next Method ID: 4
 interface MediaSessionObserver {
   // Call when the info associated with the session changed.
   MediaSessionInfoChanged@0(MediaSessionInfo info);
@@ -114,13 +128,17 @@ interface MediaSessionObserver {
   // Called when the media session action list has changed. This tells the
   // observer which actions can be used to control the session.
   MediaSessionActionsChanged@2(array<MediaSessionAction> action);
+
+  // Called when the images associated with a media session change.
+  MediaSessionImagesChanged@3(
+      map<MediaSessionImageType, array<MediaImage>> images);
 };
 
 // A MediaSession manages the media session and audio focus for a given
 // WebContents or ARC app.
 // TODO(https://crbug.com/875004): migrate media session from content/public
 // to mojo.
-// Next Method ID: 12
+// Next Method ID: 13
 interface MediaSession {
   [Extensible]
   enum SuspendType {
@@ -177,4 +195,12 @@ interface MediaSession {
 
   // Skip ad.
   SkipAd@11();
+
+  // Gets/Downloads the bitmap version of a MediaImage at least
+  // |minimum_size_px| and closest to |desired_size_px|. If the download
+  // failed, was too small or the image did not come from the media session
+  // then returns a null image.
+  GetMediaImageBitmap@12(
+      MediaImage image, int32 minimum_size_px, int32 desired_size_px)
+          => (MediaImageBitmap? image);
 };

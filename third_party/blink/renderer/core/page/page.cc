@@ -21,6 +21,7 @@
 
 #include "third_party/blink/renderer/core/page/page.h"
 
+#include "base/debug/stack_trace.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_layer_tree_view.h"
 #include "third_party/blink/public/web/blink.h"
@@ -51,6 +52,7 @@
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/console_message_storage.h"
+#include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/page/autoscroll_controller.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -58,6 +60,7 @@
 #include "third_party/blink/renderer/core/page/drag_controller.h"
 #include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page_hidden_state.h"
+#include "third_party/blink/renderer/core/page/plugin_data.h"
 #include "third_party/blink/renderer/core/page/plugins_changed_observer.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scoped_page_pauser.h"
@@ -66,6 +69,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/page/spatial_navigation_controller.h"
 #include "third_party/blink/renderer/core/page/validation_message_client_impl.h"
+#include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay.h"
@@ -74,7 +78,6 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
-#include "third_party/blink/renderer/platform/plugins/plugin_data.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -198,8 +201,8 @@ void Page::CloseSoon() {
   is_closing_ = true;
 
   // TODO(dcheng): Try to remove this in a followup, it's not obviously needed.
-  if (main_frame_->IsLocalFrame())
-    ToLocalFrame(main_frame_)->Loader().StopAllLoaders();
+  if (auto* main_local_frame = DynamicTo<LocalFrame>(main_frame_.Get()))
+    main_local_frame->Loader().StopAllLoaders();
 
   GetChromeClient().CloseWindowSoon();
 }
@@ -275,13 +278,13 @@ void Page::SetMainFrame(Frame* main_frame) {
   // FIXME: Unfortunately we can't assert on this at the moment, because this
   // is called in the base constructor for both LocalFrame and RemoteFrame,
   // when the vtables for the derived classes have not yet been setup. Once this
-  // is fixed, also call  page_scheduler_->SetIsMainFrameLocal() from here
+  // is fixed, also call page_scheduler_->SetIsMainFrameLocal(true) from here
   // instead of from the callers of this method.
   main_frame_ = main_frame;
 }
 
 LocalFrame* Page::DeprecatedLocalMainFrame() const {
-  return ToLocalFrame(main_frame_);
+  return To<LocalFrame>(main_frame_.Get());
 }
 
 void Page::DocumentDetached(Document* document) {
@@ -311,17 +314,18 @@ void Page::PlatformColorsChanged() {
   for (const Page* page : AllPages())
     for (Frame* frame = page->MainFrame(); frame;
          frame = frame->Tree().TraverseNext()) {
-      if (frame->IsLocalFrame())
-        ToLocalFrame(frame)->GetDocument()->PlatformColorsChanged();
+      if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+        local_frame->GetDocument()->PlatformColorsChanged();
     }
 }
 
 void Page::InitialStyleChanged() {
   for (Frame* frame = MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    if (!frame->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(frame);
+    if (!local_frame)
       continue;
-    ToLocalFrame(frame)->GetDocument()->GetStyleEngine().InitialStyleChanged();
+    local_frame->GetDocument()->GetStyleEngine().InitialStyleChanged();
   }
 }
 
@@ -363,13 +367,13 @@ void Page::SetPaused(bool paused) {
     return;
 
   paused_ = paused;
+  mojom::FrameLifecycleState state = paused
+                                         ? mojom::FrameLifecycleState::kPaused
+                                         : mojom::FrameLifecycleState::kRunning;
   for (Frame* frame = MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    if (!frame->IsLocalFrame())
-      continue;
-    LocalFrame* local_frame = ToLocalFrame(frame);
-    local_frame->Loader().SetDefersLoading(paused);
-    local_frame->GetFrameScheduler()->SetPaused(paused);
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+      local_frame->SetLifecycleState(state);
   }
 }
 
@@ -437,9 +441,8 @@ void Page::AllVisitedStateChanged(bool invalidate_visited_link_hashes) {
   for (const Page* page : OrdinaryPages()) {
     for (Frame* frame = page->main_frame_; frame;
          frame = frame->Tree().TraverseNext()) {
-      if (frame->IsLocalFrame())
-        ToLocalFrame(frame)
-            ->GetDocument()
+      if (auto* main_local_frame = DynamicTo<LocalFrame>(frame))
+        main_local_frame->GetDocument()
             ->GetVisitedLinkState()
             .InvalidateStyleForAllLinks(invalidate_visited_link_hashes);
     }
@@ -450,9 +453,8 @@ void Page::VisitedStateChanged(LinkHash link_hash) {
   for (const Page* page : OrdinaryPages()) {
     for (Frame* frame = page->main_frame_; frame;
          frame = frame->Tree().TraverseNext()) {
-      if (frame->IsLocalFrame())
-        ToLocalFrame(frame)
-            ->GetDocument()
+      if (auto* main_local_frame = DynamicTo<LocalFrame>(frame))
+        main_local_frame->GetDocument()
             ->GetVisitedLinkState()
             .InvalidateStyleForLink(link_hash);
     }
@@ -555,17 +557,17 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
     case SettingsDelegate::kDNSPrefetchingChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame())
-          ToLocalFrame(frame)->GetDocument()->InitDNSPrefetch();
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+          local_frame->GetDocument()->InitDNSPrefetch();
       }
       break;
     case SettingsDelegate::kImageLoadingChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame()) {
-          ToLocalFrame(frame)->GetDocument()->Fetcher()->SetImagesEnabled(
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+          local_frame->GetDocument()->Fetcher()->SetImagesEnabled(
               GetSettings().GetImagesEnabled());
-          ToLocalFrame(frame)->GetDocument()->Fetcher()->SetAutoLoadImages(
+          local_frame->GetDocument()->Fetcher()->SetAutoLoadImages(
               GetSettings().GetLoadsImagesAutomatically());
         }
       }
@@ -580,9 +582,8 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
     case SettingsDelegate::kFontFamilyChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame())
-          ToLocalFrame(frame)
-              ->GetDocument()
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+          local_frame->GetDocument()
               ->GetStyleEngine()
               .UpdateGenericFontFamilySettings();
       }
@@ -593,8 +594,8 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
     case SettingsDelegate::kMediaQueryChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame())
-          ToLocalFrame(frame)->GetDocument()->MediaQueryAffectingValueChanged();
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+          local_frame->GetDocument()->MediaQueryAffectingValueChanged();
       }
       break;
     case SettingsDelegate::kAccessibilityStateChange:
@@ -606,17 +607,18 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
           .ClearAXObjectCache();
       break;
     case SettingsDelegate::kViewportRuleChange: {
-      if (!MainFrame() || !MainFrame()->IsLocalFrame())
+      auto* main_local_frame = DynamicTo<LocalFrame>(MainFrame());
+      if (!main_local_frame)
         break;
-      if (Document* doc = ToLocalFrame(MainFrame())->GetDocument())
+      if (Document* doc = main_local_frame->GetDocument())
         doc->GetStyleEngine().ViewportRulesChanged();
       break;
     }
     case SettingsDelegate::kTextTrackKindUserPreferenceChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame()) {
-          Document* doc = ToLocalFrame(frame)->GetDocument();
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
+          Document* doc = local_frame->GetDocument();
           if (doc)
             HTMLMediaElement::SetTextTrackKindUserPreferenceForAllMediaElements(
                 doc);
@@ -628,10 +630,9 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
         break;
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (!frame->IsLocalFrame())
-          continue;
-        LocalFrame* local_frame = ToLocalFrame(frame);
-        if (!local_frame->Loader()
+        LocalFrame* local_frame = nullptr;
+        if ((local_frame = DynamicTo<LocalFrame>(frame)) &&
+            !local_frame->Loader()
                  .StateMachine()
                  ->CreatingInitialEmptyDocument()) {
           // Forcibly instantiate WindowProxy.
@@ -644,9 +645,10 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
     case SettingsDelegate::kMediaControlsChange:
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (!frame->IsLocalFrame())
+        auto* local_frame = DynamicTo<LocalFrame>(frame);
+        if (!local_frame)
           continue;
-        Document* doc = ToLocalFrame(frame)->GetDocument();
+        Document* doc = local_frame->GetDocument();
         if (doc)
           HTMLMediaElement::OnMediaControlsEnabledChange(doc);
       }
@@ -658,8 +660,40 @@ void Page::SettingsChanged(SettingsDelegate::ChangeType change_type) {
     case SettingsDelegate::kHighlightAdsChange: {
       for (Frame* frame = MainFrame(); frame;
            frame = frame->Tree().TraverseNext()) {
-        if (frame->IsLocalFrame())
-          ToLocalFrame(frame)->UpdateAdHighlight();
+        if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+          local_frame->UpdateAdHighlight();
+      }
+      break;
+    }
+    case SettingsDelegate::kPaintChange: {
+      for (Frame* frame = MainFrame(); frame;
+           frame = frame->Tree().TraverseNext()) {
+        auto* local_frame = DynamicTo<LocalFrame>(frame);
+        if (!local_frame)
+          continue;
+        if (LayoutView* view = local_frame->ContentLayoutObject())
+          view->InvalidatePaintForViewAndCompositedLayers();
+      }
+      break;
+    }
+    case SettingsDelegate::kScrollbarLayoutChange: {
+      for (Frame* frame = MainFrame(); frame;
+           frame = frame->Tree().TraverseNext()) {
+        auto* local_frame = DynamicTo<LocalFrame>(frame);
+        if (!local_frame)
+          continue;
+        // Iterate through all of the scrollable areas and mark their layout
+        // objects for layout.
+        if (LocalFrameView* view = local_frame->View()) {
+          if (const auto* scrollable_areas = view->ScrollableAreas()) {
+            for (const auto& scrollable_area : *scrollable_areas) {
+              if (auto* layout_box = scrollable_area->GetLayoutBox()) {
+                layout_box->SetNeedsLayout(
+                    layout_invalidation_reason::kScrollbarChanged);
+              }
+            }
+          }
+        }
       }
       break;
     }
@@ -676,9 +710,10 @@ void Page::NotifyPluginsChanged() const {
 void Page::UpdateAcceleratedCompositingSettings() {
   for (Frame* frame = MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    if (!frame->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(frame);
+    if (!local_frame)
       continue;
-    if (LocalFrameView* view = ToLocalFrame(frame)->View())
+    if (LocalFrameView* view = local_frame->View())
       view->UpdateAcceleratedCompositingSettings();
   }
 }
@@ -707,8 +742,8 @@ void Page::AcceptLanguagesChanged() {
   // fire an event so we keep the frames alive until we are done.
   for (Frame* frame = MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
-    if (frame->IsLocalFrame())
-      frames.push_back(ToLocalFrame(frame));
+    if (auto* local_frame = DynamicTo<LocalFrame>(frame))
+      frames.push_back(local_frame);
   }
 
   for (unsigned i = 0; i < frames.size(); ++i)
@@ -744,10 +779,13 @@ void Page::Trace(blink::Visitor* visitor) {
 }
 
 void Page::LayerTreeViewInitialized(WebLayerTreeView& layer_tree_view,
+                                    cc::AnimationHost& animation_host,
                                     LocalFrameView* view) {
-  if (GetScrollingCoordinator())
-    GetScrollingCoordinator()->LayerTreeViewInitialized(layer_tree_view, view);
-  GetLinkHighlights().LayerTreeViewInitialized(layer_tree_view);
+  if (GetScrollingCoordinator()) {
+    GetScrollingCoordinator()->LayerTreeViewInitialized(layer_tree_view,
+                                                        animation_host, view);
+  }
+  GetLinkHighlights().LayerTreeViewInitialized(layer_tree_view, animation_host);
 }
 
 void Page::WillCloseLayerTreeView(WebLayerTreeView& layer_tree_view,
@@ -813,9 +851,9 @@ void Page::SetPageScheduler(std::unique_ptr<PageScheduler> page_scheduler) {
 
 void Page::ReportIntervention(const String& text) {
   if (LocalFrame* local_frame = DeprecatedLocalMainFrame()) {
-    ConsoleMessage* message =
-        ConsoleMessage::Create(kOtherMessageSource, kWarningMessageLevel, text,
-                               SourceLocation::Create(String(), 0, 0, nullptr));
+    ConsoleMessage* message = ConsoleMessage::Create(
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning, text,
+        SourceLocation::Create(String(), 0, 0, nullptr));
     local_frame->GetDocument()->AddConsoleMessage(message);
   }
 }
@@ -851,6 +889,14 @@ void Page::ClearAutoplayFlags() {
 
 int32_t Page::AutoplayFlags() const {
   return autoplay_flags_;
+}
+
+void Page::SetInsidePortal(bool inside_portal) {
+  inside_portal_ = inside_portal;
+}
+
+bool Page::InsidePortal() const {
+  return inside_portal_;
 }
 
 Page::PageClients::PageClients() : chrome_client(nullptr) {}

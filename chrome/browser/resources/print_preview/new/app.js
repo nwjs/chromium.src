@@ -56,10 +56,14 @@ Polymer({
       computed: 'computeControlsDisabled_(state)',
     },
 
+    /** @private {boolean} */
+    controlsManaged_: Boolean,
+
     /** @private {print_preview.Destination} */
     destination_: {
       type: Object,
       notify: true,
+      value: null,
     },
 
     /** @private {?print_preview.DestinationStore} */
@@ -145,17 +149,6 @@ Polymer({
           'settings.dpi.available, settings.margins.available, ' +
           'settings.pagesPerSheet.available, settings.scaling.available, ' +
           'settings.otherOptions.available, settings.vendorItems.available)',
-    },
-
-    /**
-     * Whether to show pages per sheet feature or not.
-     * @private {boolean}
-     */
-    showPagesPerSheet_: {
-      type: Boolean,
-      value: function() {
-        return loadTimeData.getBoolean('pagesPerSheetEnabled');
-      },
     },
 
     /** @private {!Array<string>} */
@@ -441,9 +434,11 @@ Polymer({
       this.$.model.applyStickySettings();
     }
 
+    // <if expr="chromeos">
     if (this.destination_) {
       this.$.model.applyDestinationSpecificPolicies();
     }
+    // </if>
 
     if (this.state == print_preview_new.State.NOT_READY ||
         this.state == print_preview_new.State.INVALID_PRINTER) {
@@ -621,7 +616,8 @@ Polymer({
   /**
    * Updates the cloud print status to NOT_SIGNED_IN if there is an
    * authentication error.
-   * @param {!CustomEvent<{status: number}>} event Contains the error status
+   * @param {!CustomEvent<!cloudprint.CloudPrintInterfaceErrorEventDetail>}
+   *     event Contains the error status
    * @private
    */
   checkCloudPrintStatus_: function(event) {
@@ -639,7 +635,8 @@ Polymer({
   /**
    * Called when there was an error communicating with Google Cloud print.
    * Displays an error message in the print header.
-   * @param {!CustomEvent} event Contains the error message.
+   * @param {!CustomEvent<!cloudprint.CloudPrintInterfaceErrorEventDetail>}
+   *     event Contains the error message.
    * @private
    */
   onCloudPrintError_: function(event) {

@@ -11,12 +11,10 @@ Polymer({
 
   properties: {
     /**
-     * List of all apps.
-     * @private {Array<App>}
+     * @private {AppMap}
      */
     apps_: {
-      type: Array,
-      value: () => [],
+      type: Object,
       observer: 'onAppsChanged_',
     },
 
@@ -24,86 +22,32 @@ Polymer({
      * List of apps displayed before expanding the app list.
      * @private {Array<App>}
      */
-    displayedApps_: {
+    appsList: {
       type: Array,
       value: () => [],
     },
 
     /**
-     * List of apps displayed after expanding app list.
-     * @private {Array<App>}
+     * A set containing the ids of all the apps with notifications enabled.
+     * @private {!Set<string>}
      */
-    collapsedApps_: {
-      type: Array,
-      value: () => [],
-    },
-
-    /**
-     * @private {boolean}
-     */
-    listExpanded_: {
-      type: Boolean,
-      value: false,
-    },
-
-    /**
-     * List of apps with the notification permission.
-     * @private {Array<App>}
-     */
-    notificationApps_: {
-      type: Array,
-      value: () => [],
+    notificationAppIds_: {
+      type: Object,
       observer: 'getNotificationSublabel_',
     },
   },
 
   attached: function() {
-    this.watch('apps_', function(state) {
-      return Object.values(state.apps);
-    });
+    this.watch('apps_', state => state.apps);
+    this.watch('notificationAppIds_', state => state.notifications.allowedIds);
     this.updateFromStore();
-  },
-
-  /**
-   * @param {number} numApps
-   * @param {boolean} listExpanded
-   * @return {string}
-   * @private
-   */
-  moreAppsString_: function(numApps, listExpanded) {
-    return listExpanded ?
-        loadTimeData.getString('lessApps') :
-        loadTimeData.getStringF(
-            'moreApps', numApps - NUMBER_OF_APPS_DISPLAYED_DEFAULT);
-  },
-
-  /**
-   * @private
-   */
-  toggleListExpanded_: function() {
-    this.listExpanded_ = !this.listExpanded_;
-    this.onAppsChanged_();
   },
 
   /**
    * @private
    */
   onAppsChanged_: function() {
-    this.$['expander-row'].hidden =
-        this.apps_.length <= NUMBER_OF_APPS_DISPLAYED_DEFAULT;
-    this.displayedApps_ = this.apps_.slice(0, NUMBER_OF_APPS_DISPLAYED_DEFAULT);
-    this.collapsedApps_ =
-        this.apps_.slice(NUMBER_OF_APPS_DISPLAYED_DEFAULT, this.apps_.length);
-    this.notificationApps_ = this.apps_.slice();
-  },
-
-  /**
-   * @param {boolean} listExpanded
-   * @return {string}
-   * @private
-   */
-  getCollapsedIcon_: function(listExpanded) {
-    return listExpanded ? 'cr:expand-less' : 'cr:expand-more';
+    this.appsList = Object.values(this.apps_);
   },
 
   /** @private */
@@ -117,20 +61,21 @@ Polymer({
    * @private
    */
   getNotificationSublabelPieces_: async function() {
+    const notificationApps =
+        Array.from(this.notificationAppIds_, id => this.getState().apps[id]);
+
     const /** @type {string} */ label = await cr.sendWithPromise(
-        'getPluralString', 'appListPreview', this.notificationApps_.length);
+        'getPluralString', 'appListPreview', notificationApps.length);
 
     const substitutions = [];
     for (let i = 0;
-         i < APP_LIST_PREVIEW_APP_TITLES && i < this.notificationApps_.length;
-         i++) {
-      substitutions.push(this.notificationApps_[i].title);
+         i < APP_LIST_PREVIEW_APP_TITLES && i < notificationApps.length; i++) {
+      substitutions.push(notificationApps[i].title);
     }
 
     // Add X more apps if the length is more than APP_LIST_PREVIEW_APP_TITLES.
-    if (this.notificationApps_.length >= APP_LIST_PREVIEW_APP_TITLES + 1) {
-      substitutions.push(
-          this.notificationApps_.length - APP_LIST_PREVIEW_APP_TITLES);
+    if (notificationApps.length >= APP_LIST_PREVIEW_APP_TITLES + 1) {
+      substitutions.push(notificationApps.length - APP_LIST_PREVIEW_APP_TITLES);
     }
     // Only APP_LIST_PREVIEW_APP_TITLES of apps' titles get ellipsised
     // if too long. the element after that is "X other apps"
@@ -140,7 +85,7 @@ Polymer({
             .map(function(p) {
               // Make the titles of app collapsible but make the number in the
               // "X other app(s)" part non-collapsible.
-              p.collapsible = !!p.arg && p.arg != '$' + placeholder;
+              p.collapsible = !!p.arg && p.arg !== '$' + placeholder;
               return p;
             });
     return pieces;
@@ -157,7 +102,7 @@ Polymer({
     const textContainer = this.$['notifications-sublabel'];
     textContainer.textContent = '';
     for (const p of pieces) {
-      if (p.value.length == 0) {
+      if (!p.value || p.value.length === 0) {
         return;
       }
 

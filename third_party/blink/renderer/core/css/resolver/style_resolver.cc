@@ -753,7 +753,7 @@ scoped_refptr<ComputedStyle> StyleResolver::StyleForElement(
     EInsideLink link_state = state.ElementLinkState();
     if (link_state != EInsideLink::kNotInsideLink) {
       bool force_visited = false;
-      probe::forcePseudoState(element, CSSSelector::kPseudoVisited,
+      probe::ForcePseudoState(element, CSSSelector::kPseudoVisited,
                               &force_visited);
       if (force_visited)
         link_state = EInsideLink::kInsideVisitedLink;
@@ -1049,9 +1049,9 @@ scoped_refptr<ComputedStyle> StyleResolver::InitialStyleForElement(
 
 scoped_refptr<ComputedStyle> StyleResolver::StyleForText(Text* text_node) {
   DCHECK(text_node);
-  Node* parent_node = LayoutTreeBuilderTraversal::Parent(*text_node);
-  DCHECK(parent_node);
-  return parent_node->MutableComputedStyle();
+  if (Node* parent_node = LayoutTreeBuilderTraversal::Parent(*text_node))
+    return parent_node->MutableComputedStyle();
+  return nullptr;
 }
 
 void StyleResolver::UpdateFont(StyleResolverState& state) {

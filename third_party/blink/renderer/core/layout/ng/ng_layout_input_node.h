@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/ng/geometry/ng_logical_size.h"
+#include "third_party/blink/renderer/core/layout/ng/layout_box_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_marker.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
@@ -34,8 +35,21 @@ enum class NGMinMaxSizeType { kContentBoxSize, kBorderBoxSize };
 // nodes within the same formatting context need to know which floats are beside
 // them.
 struct MinMaxSizeInput {
+  // The min-max size calculation (un-intuitively) requires a percentage
+  // resolution size!
+  // This occurs when a replaced element has an intrinsic size. E.g.
+  // <div style="float: left; height: 100px">
+  //   <img sr="intrinsic-ratio-1x1.png" style="height: 50%;" />
+  // </div>
+  // In the above example float ends up with a width of 50px.
+  //
+  // As we don't perform any tree walking, we need to pass the percentage
+  // resolution block-size for min/max down the min/max size calculation.
+  explicit MinMaxSizeInput(LayoutUnit percentage_resolution_block_size)
+      : percentage_resolution_block_size(percentage_resolution_block_size) {}
   LayoutUnit float_left_inline_size;
   LayoutUnit float_right_inline_size;
+  LayoutUnit percentage_resolution_block_size;
 
   // Whether to return the size as a content-box size or border-box size.
   NGMinMaxSizeType size_type = NGMinMaxSizeType::kBorderBoxSize;
@@ -108,7 +122,7 @@ class CORE_EXPORT NGLayoutInputNode {
   bool IsAnonymousBlock() const { return box_->IsAnonymousBlock(); }
 
   // If the node is a quirky container for margin collapsing, see:
-  // https://html.spec.whatwg.org/#margin-collapsing-quirks
+  // https://html.spec.whatwg.org/C/#margin-collapsing-quirks
   // NOTE: The spec appears to only somewhat match reality.
   bool IsQuirkyContainer() const {
     return box_->GetDocument().InQuirksMode() &&
@@ -127,10 +141,21 @@ class CORE_EXPORT NGLayoutInputNode {
     return IsBlock() && box_->AvoidsFloats();
   }
 
+  // Returns true if this node should pass its percentage resolution block-size
+  // to its children. Typically only quirks-mode, auto block-size, block nodes.
+  bool UseParentPercentageResolutionBlockSizeForChildren() const {
+    if (IsBlock() && box_->IsLayoutBlock()) {
+      return LayoutBoxUtils::SkipContainingBlockForPercentHeightCalculation(
+          ToLayoutBlock(box_));
+    }
+
+    return false;
+  }
+
   // Performs layout on this input node, will return the layout result.
-  scoped_refptr<NGLayoutResult> Layout(const NGConstraintSpace&,
-                                       const NGBreakToken*,
-                                       NGInlineChildLayoutContext*);
+  scoped_refptr<const NGLayoutResult> Layout(const NGConstraintSpace&,
+                                             const NGBreakToken*,
+                                             NGInlineChildLayoutContext*);
 
   // Returns border box.
   MinMaxSize ComputeMinMaxSize(WritingMode,
@@ -155,7 +180,7 @@ class CORE_EXPORT NGLayoutInputNode {
   NGPhysicalSize InitialContainingBlockSize() const;
 
   // Returns the LayoutObject which is associated with this node.
-  LayoutBox* GetLayoutBox() const { return box_; };
+  LayoutBox* GetLayoutBox() const { return box_; }
 
   const ComputedStyle& Style() const { return box_->StyleRef(); }
 

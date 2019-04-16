@@ -39,19 +39,8 @@ function copyAttributes_(source, destination) {
 }
 
 /**
- * Apply localization to |element| with i18n_template.js if available.
- * @param {Element} element Element to be localized.
- * @private
- */
-function localize_(element) {
-  if (window.i18nTemplate && window.loadTimeData) {
-    i18nTemplate.process(element, loadTimeData);
-  }
-}
-
-/**
  * Returns 'N/A' (Not Available) text if |value| is undefined.
- * @param {Object} value Object to print.
+ * @param {*} value Object to print.
  * @return {string} 'N/A' or ''.
  * @private
  */
@@ -67,7 +56,7 @@ function checkIfAvailable_(value) {
  * @private
  */
 function stringToText_(value) {
-  return checkIfAvailable_(value) || value;
+  return checkIfAvailable_(value) || /** @type {string} */ (value);
 }
 
 /**
@@ -173,7 +162,7 @@ let availableSpace = undefined;
  * holding userdata as |treeViewObject.detail|.
  * @type {cr.ui.Tree}
  */
-let treeViewObject = undefined;
+let treeViewObject;
 
 /**
  * Key-value styled statistics data.
@@ -185,11 +174,11 @@ const statistics = {};
 
 /**
  * Initialize and return |treeViewObject|.
- * @return {cr.ui.Tree} Initialized |treeViewObject|.
+ * @return {!cr.ui.Tree} Initialized |treeViewObject|.
  */
 function getTreeViewObject() {
   if (!treeViewObject) {
-    treeViewObject = $('tree-view');
+    treeViewObject = /** @type {!cr.ui.Tree} */ ($('tree-view'));
     cr.ui.decorate(treeViewObject, cr.ui.Tree);
     treeViewObject.detail = {payload: {}, children: {}};
     treeViewObject.addEventListener('change', updateDescription);
@@ -260,12 +249,9 @@ function getOriginObject(type, host, origin) {
  * Event Handler for |cr.quota.onAvailableSpaceUpdated|.
  * |event.detail| contains |availableSpace|.
  * |availableSpace| represents total available disk space.
- * @param {CustomEvent} event AvailableSpaceUpdated event.
+ * @param {!CustomEvent<number>} event AvailableSpaceUpdated event.
  */
 function handleAvailableSpace(event) {
-  /**
-   * @type {string}
-   */
   availableSpace = event.detail;
   $('diskspace-entry').innerHTML = numBytesToText_(availableSpace);
 }
@@ -284,17 +270,14 @@ function handleAvailableSpace(event) {
  *
  *  |usage|, |unlimitedUsage| and |quota| can be missing,
  *  and some additional fields can be included.
- * @param {CustomEvent} event GlobalInfoUpdated event.
+ * @param {!CustomEvent<!{
+ *     type: string,
+ *     usage: ?number,
+ *     unlimitedUsage: ?number,
+ *     quota: ?string
+ * }>} event GlobalInfoUpdated event.
  */
 function handleGlobalInfo(event) {
-  /**
-   * @type {{
-   *         type: {!string},
-   *         usage: {?number},
-   *         unlimitedUsage: {?number}
-   *         quota: {?string}
-   *       }}
-   */
   const data = event.detail;
   const storageObject = getStorageObject(data.type);
   copyAttributes_(data, storageObject.detail.payload);
@@ -318,17 +301,14 @@ function handleGlobalInfo(event) {
  *
  * |usage| and |quota| can be missing,
  * and some additional fields can be included.
- * @param {CustomEvent} event PerHostInfoUpdated event.
+ * @param {!CustomEvent<!Array<{
+ *     host: string,
+ *     type: string,
+ *     usage: ?number,
+ *     quota: ?number
+ * }>>} event PerHostInfoUpdated event.
  */
 function handlePerHostInfo(event) {
-  /**
-   * @type {Array<{
-   *         host: {!string},
-   *         type: {!string},
-   *         usage: {?number},
-   *         quota: {?number}
-   *       }}
-   */
   const dataArray = event.detail;
 
   for (let i = 0; i < dataArray.length; ++i) {
@@ -364,20 +344,17 @@ function handlePerHostInfo(event) {
  *
  * |inUse|, |usedCount|, |lastAccessTime| and |lastModifiedTime| can be missing,
  * and some additional fields can be included.
- * @param {CustomEvent} event PerOriginInfoUpdated event.
+ * @param {!CustomEvent<!Array<!{
+ *     origin: string,
+ *     type: string,
+ *     host: string,
+ *     inUse: ?boolean,
+ *     usedCount: ?number,
+ *     lastAccessTime: ?number,
+ *     lastModifiedTime: ?number
+ * }>>} event PerOriginInfoUpdated event.
  */
 function handlePerOriginInfo(event) {
-  /**
-   * @type {Array<{
-   *         origin: {!string},
-   *         type: {!string},
-   *         host: {!string},
-   *         inUse: {?boolean},
-   *         usedCount: {?number},
-   *         lastAccessTime: {?number}
-   *         lastModifiedTime: {?number}
-   *       }>}
-   */
   const dataArray = event.detail;
 
   for (let i = 0; i < dataArray.length; ++i) {
@@ -394,12 +371,9 @@ function handlePerOriginInfo(event) {
 /**
  * Event Handler for |cr.quota.onStatisticsUpdated|.
  * |event.detail| contains misc statistics data as dictionary.
- * @param {CustomEvent} event StatisticsUpdated event.
+ * @param {!CustomEvent<!Object>} event StatisticsUpdated event.
  */
 function handleStatistics(event) {
-  /**
-   * @type {Object<string>}
-   */
   const data = event.detail;
   for (const key in data) {
     let entry = statistics[key];
@@ -411,7 +385,6 @@ function handleStatistics(event) {
     entry.detail = data[key];
     entry.innerHTML = '<td>' + stringToText_(key) + '</td>' +
         '<td>' + stringToText_(entry.detail) + '</td>';
-    localize_(entry);
   }
 }
 
@@ -447,7 +420,6 @@ function updateDescription() {
       const row = cr.doc.createElement('tr');
       row.innerHTML = '<td>' + label + '</td>' +
           '<td>' + normalize(entry) + '</td>';
-      localize_(row);
       tbody.appendChild(row);
     }
   }
@@ -455,7 +427,7 @@ function updateDescription() {
 
 /**
  * Dump |treeViewObject| or subtree to a object.
- * @param {?{cr.ui.Tree|cr.ui.TreeItem}} opt_treeitem
+ * @param {(cr.ui.Tree|cr.ui.TreeItem)=} opt_treeitem
  * @return {Object} Dump result object from |treeViewObject|.
  */
 function dumpTreeToObj(opt_treeitem) {

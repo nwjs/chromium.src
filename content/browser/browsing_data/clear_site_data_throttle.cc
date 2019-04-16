@@ -4,6 +4,7 @@
 
 #include "content/browser/browsing_data/clear_site_data_throttle.h"
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
@@ -59,7 +60,7 @@ bool AreExperimentalFeaturesEnabled2() {
 }
 
 bool IsNavigationRequest(net::URLRequest* request) {
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
+  ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
   return info && IsResourceTypeFrame(info->GetResourceType());
 }
 
@@ -441,7 +442,7 @@ void ClearSiteDataThrottle::TaskFinished() {
 }
 
 void ClearSiteDataThrottle::OutputConsoleMessages() {
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request_);
+  ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request_);
   if (info)
     delegate_->OutputMessages(info->GetWebContentsGetterForRequest());
 }

@@ -13,6 +13,7 @@ import "services/network/public/mojom/cookie_manager.mojom";
 import "services/network/public/mojom/cors_origin_pattern.mojom";
 import "services/network/public/mojom/host_resolver.mojom";
 import "services/network/public/mojom/http_request_headers.mojom";
+import "services/network/public/mojom/ip_address.mojom";
 import "services/network/public/mojom/ip_endpoint.mojom";
 import "services/network/public/mojom/mdns_responder.mojom";
 import "services/network/public/mojom/mutable_network_traffic_annotation_tag.mojom";
@@ -38,6 +39,9 @@ import "url/mojom/url.mojom";
 [EnableIf=is_ct_supported]
 import "services/network/public/mojom/ct_log_info.mojom";
 
+[EnableIf=is_trial_comparison_cert_verifier_supported]
+import "services/network/public/mojom/trial_comparison_cert_verifier.mojom";
+
 // Config for setting a custom proxy config that will be used if a request
 // matches the proxy rules and would otherwise be direct. This config allows
 // headers to be set on requests to the proxies from the config before and/or
@@ -50,6 +54,11 @@ struct CustomProxyConfig {
   // List of proxies that will be used if
   // ResourceRequest::custom_proxy_use_alternate_proxy_list is set.
   ProxyList alternate_proxy_list;
+
+  // Whether the custom proxy config should apply to requests using
+  // non-idempotent methods. Can be true if the proxy is known to handle this
+  // case properly.
+  bool allow_non_idempotent_methods = false;
 
   // The custom proxy can set these headers in this config which will be added
   // to all requests using the proxy. This allows setting headers that may be
@@ -162,10 +171,6 @@ struct NetworkContextParams {
   // cookies. Otherwise it should be false.
   bool persist_session_cookies = false;
 
-  // Points to the channel ID file. If a cookie file is specified, this must be
-  // specified as well. Otherwise an in-memory store is used.
-  mojo_base.mojom.FilePath? channel_id_path;
-
   // True if an HTTP cache should be used.
   bool http_cache_enabled = true;
   // Maximum size of the HTTP cache. 0 means to use the default size.
@@ -197,6 +202,12 @@ struct NetworkContextParams {
   // Must be false if built without FTP support.
   bool enable_ftp_url_support = false;
 
+  // Whether or not to check the Android platform's cleartext policy for
+  // requests. Under some conditions, Android may advise us to block cleartext
+  // traffic.
+  [EnableIf=is_android]
+  bool check_clear_text_permitted = false;
+
   // True if the "Certificate Transparency in Chrome" policy (see
   // https://github.com/chromium/ct-policy/blob/master/ct_policy.md) should
   // be enforced for certificates and connections.
@@ -208,6 +219,9 @@ struct NetworkContextParams {
 
   // Enables HTTP/0.9 on ports other than 80 for HTTP and 443 for HTTPS.
   bool http_09_on_non_default_ports_enabled = false;
+
+  // If true, idle sockets won't be closed when memory pressure happens.
+  bool disable_idle_sockets_close_on_memory_pressure = false;
 
   // SSL configuration. |initial_proxy_config| is the initial SSL configuration
   // to use. If nullptr, uses the default configuration. Updated SSL
@@ -284,6 +298,12 @@ struct NetworkContextParams {
   // validation.
   [EnableIf=is_chromeos]
   AdditionalCertificates? initial_additional_certificates;
+
+  // Parameters for the cert verifier comparison trial. This is a temporary
+  // interface and embedders should not use it.
+  // See https://crbug.com/649026
+  [EnableIf=is_trial_comparison_cert_verifier_supported]
+  TrialComparisonCertVerifierParams? trial_comparison_cert_verifier_params;
 
   // Parameters for constructing the cookie manager.
   CookieManagerParams? cookie_manager_params;
@@ -381,6 +401,22 @@ struct NetworkUsage {
   int64 total_bytes_sent;
 };
 
+// Represents a signed exchange report.
+// Spec: https://wicg.github.io/webpackage/loading.html#queue-report
+struct SignedExchangeReport {
+  bool success;
+  string type;
+  url.mojom.Url outer_url;
+  url.mojom.Url inner_url;
+  url.mojom.Url cert_url;
+  string referrer;
+  IPAddress server_ip_address;
+  string protocol;
+  string method;
+  int32 status_code;
+  mojo_base.mojom.TimeDelta elapsed_time;
+};
+
 const uint32 kBrowserProcessId = 0;
 const uint32 kInvalidProcessId = 0xffffffff;
 
@@ -422,6 +458,14 @@ struct URLLoaderFactoryParams {
   // headers and Cookie response headers to be modified. This has a performance
   // impact because of the extra process hops, so use should be minimized.
   TrustedURLLoaderHeaderClient? header_client;
+
+  // If non-empty array is given, |factory_bound_allow_patterns| is used for
+  // CORS checks in addition to the per-context allow patterns that is managed
+  // via NetworkContext interface. This still respects the per-context block
+  // lists. To use this feature, caller should set |request_initiator_site_lock|
+  // in order to bind the allow patterns to the factory specific initiator
+  // origin.
+  array<CorsOriginPattern> factory_bound_allow_patterns;
 };
 
 // Callback interface for NetworkContext when routing identifiers aren't
@@ -584,6 +628,9 @@ interface NetworkContext {
               string? user_agent,
               mojo_base.mojom.DictionaryValue body);
 
+  // Queues a signed exchange report.
+  QueueSignedExchangeReport(SignedExchangeReport report);
+
   // Closes all open connections within this context.
   CloseAllConnections() => ();
 
@@ -720,11 +767,17 @@ interface NetworkContext {
   ClearBadProxiesCache() => ();
 
   // Creates a WebSocket connection.
+  // If |header_client| is set, requests with the kURLLoadOptionUseHeaderClient
+  // option will callback to the |header_client|, allowing the Cookie/Referrer
+  // request headers and Cookie response headers to be modified. This has a
+  // performance impact because of the extra process hops, so use should be
+  // minimized.
   CreateWebSocket(WebSocket& request,
                   int32 process_id,
                   int32 render_frame_id,
                   url.mojom.Origin origin,
-                  AuthenticationHandler? auth_handler);
+                  AuthenticationHandler? auth_handler,
+                  TrustedHeaderClient? header_client);
 
   // Create a NetLogExporter, which helps export NetLog to an existing file.
   // Note that the log is generally global, including all NetworkContexts
@@ -758,10 +811,6 @@ interface NetworkContext {
   //
   // All outstanding requests are cancelled if the NetworkContext is destroyed.
   // Such requests will receive ERR_FAILED via |response_client|.
-  //
-  // TODO(crbug.com/821021): Consider deleting this if most/all usage goes
-  // through CreateHostResolver, but most likely most usage except proxy
-  // resolver will directly use this method.
   ResolveHost(HostPortPair host,
               ResolveHostParameters? optional_parameters,
               ResolveHostClient response_client);
@@ -811,6 +860,9 @@ interface NetworkContext {
   // |source_origin|. The passed |patterns| will be set instead. If an empty
   // array is given for |allow_patterns| and/or |block_patterns|, the
   // |source_origin|'s origin list for each is set to empty respectively.
+  // TODO(crbug.com/936310): Eventually, we want to stop using per-context
+  // access lists, and use only per-factory access lists, or stop managing the
+  // list in the NetworkService completely.
   SetCorsOriginAccessListsForOrigin(
       url.mojom.Origin source_origin, array<CorsOriginPattern> allow_patterns,
       array<CorsOriginPattern> block_patterns) => ();

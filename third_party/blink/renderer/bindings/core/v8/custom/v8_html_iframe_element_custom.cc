@@ -17,7 +17,7 @@ void V8HTMLIFrameElement::NwUserAgentAttributeSetterCustom(v8::Local<v8::Value> 
   frame->setAttribute(html_names::kNwuseragentAttr, agentValue);
 
   if (frame->ContentFrame()->IsLocalFrame()) {
-    LocalFrame* lframe = ToLocalFrame(frame->ContentFrame());
+    LocalFrame* lframe = DynamicTo<LocalFrame>(frame->ContentFrame());
     lframe->Loader().setUserAgentOverride(agentValue);
   }
 }

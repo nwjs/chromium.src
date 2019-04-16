@@ -25,7 +25,7 @@ bool ModuleScriptFetcher::WasModuleLoadSuccessful(
     Resource* resource,
     HeapVector<Member<ConsoleMessage>>* error_messages) {
   // Implements conditions in Step 7 of
-  // https://html.spec.whatwg.org/#fetch-a-single-module-script
+  // https://html.spec.whatwg.org/C/#fetch-a-single-module-script
 
   DCHECK(error_messages);
 
@@ -63,7 +63,7 @@ bool ModuleScriptFetcher::WasModuleLoadSuccessful(
         "\". Strict MIME type checking is enforced for module scripts per "
         "HTML spec.";
     error_messages->push_back(ConsoleMessage::CreateForRequest(
-        kJSMessageSource, kErrorMessageLevel, message,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kError, message,
         response.CurrentRequestUrl().GetString(), nullptr,
         resource->Identifier()));
     return false;

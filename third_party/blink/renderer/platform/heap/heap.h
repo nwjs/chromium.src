@@ -44,10 +44,10 @@
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/heap/worklist.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
-#include "third_party/blink/renderer/platform/wtf/address_sanitizer.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
+#include "third_party/blink/renderer/platform/wtf/sanitizers.h"
 
 namespace blink {
 
@@ -77,6 +77,8 @@ using WeakCallbackWorklist =
     Worklist<CustomCallbackItem, 256 /* local entries */>;
 
 class PLATFORM_EXPORT HeapAllocHooks {
+  STATIC_ONLY(HeapAllocHooks);
+
  public:
   // TODO(hajimehoshi): Pass a type name of the allocated object.
   typedef void AllocationHook(Address, size_t, const char*);
@@ -157,6 +159,8 @@ class ObjectAliveTrait<T, true> {
 }  // namespace internal
 
 class PLATFORM_EXPORT ThreadHeap {
+  USING_FAST_MALLOC(ThreadHeap);
+
  public:
   explicit ThreadHeap(ThreadState*);
   ~ThreadHeap();
@@ -604,9 +608,9 @@ inline bool ThreadHeap::IsNormalArenaIndex(int index) {
          index <= BlinkGC::kNormalPage4ArenaIndex;
 }
 
-#define DECLARE_EAGER_FINALIZATION_OPERATOR_NEW() \
- public:                                          \
-  GC_PLUGIN_IGNORE("491488")                      \
+#define DEFINE_INLINE_EAGER_FINALIZATION_OPERATOR_NEW() \
+ public:                                                \
+  GC_PLUGIN_IGNORE("491488")                            \
   void* operator new(size_t size) { return AllocateObject(size, true); }
 
 #define IS_EAGERLY_FINALIZED()                    \
@@ -625,7 +629,7 @@ class VerifyEagerFinalization {
     // this class' leftmost base is for a class that is not
     // eagerly finalized. Declaring and defining an 'operator new'
     // for this class is what's required -- consider using
-    // DECLARE_EAGER_FINALIZATION_OPERATOR_NEW().
+    // DEFINE_INLINE_EAGER_FINALIZATION_OPERATOR_NEW().
     DCHECK(IS_EAGERLY_FINALIZED());
   }
 };
@@ -697,7 +701,7 @@ Address ThreadHeap::Reallocate(void* previous, size_t size) {
   // TODO(haraken): We don't support reallocate() for finalizable objects.
   DCHECK(!GCInfoTable::Get()
               .GCInfoFromIndex(previous_header->GcInfoIndex())
-              ->HasFinalizer());
+              ->non_trivial_finalizer);
   DCHECK_EQ(previous_header->GcInfoIndex(), gc_info_index);
   HeapAllocHooks::FreeHookIfEnabled(static_cast<Address>(previous));
   Address address;

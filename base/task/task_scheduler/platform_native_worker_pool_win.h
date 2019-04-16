@@ -10,7 +10,6 @@
 #include "base/base_export.h"
 #include "base/logging.h"
 #include "base/synchronization/atomic_flag.h"
-#include "base/task/task_scheduler/priority_queue.h"
 #include "base/task/task_scheduler/scheduler_worker_pool.h"
 
 namespace base {
@@ -42,8 +41,10 @@ class BASE_EXPORT PlatformNativeWorkerPoolWin : public SchedulerWorkerPool {
 
   // SchedulerWorkerPool:
   void JoinForTesting() override;
-  void ReEnqueueSequence(SequenceAndTransaction sequence_and_transaction,
-                         bool is_changing_pools) override;
+  void ReEnqueueSequenceChangingPool(
+      SequenceAndTransaction sequence_and_transaction) override;
+  size_t GetMaxConcurrentNonBlockedTasksDeprecated() const override;
+  void ReportHeartbeatMetrics() const override;
 
  private:
   // Callback that gets run by |pool_|. It runs a task off the next sequence on
@@ -73,12 +74,8 @@ class BASE_EXPORT PlatformNativeWorkerPoolWin : public SchedulerWorkerPool {
   // it.
   PTP_WORK work_ = nullptr;
 
-  // PriorityQueue from which all threads of this worker pool get work.
-  PriorityQueue priority_queue_;
-
-  // Indicates whether the pool has been started yet. This is only accessed
-  // under |priority_queue_|'s lock.
-  bool started_ = false;
+  // Indicates whether the pool has been started yet.
+  bool started_ GUARDED_BY(lock_) = false;
 
 #if DCHECK_IS_ON()
   // Set once JoinForTesting() has returned.

@@ -267,6 +267,12 @@ std::string WebUIDataSourceImpl::GetMimeType(const std::string& path) const {
   if (base::EndsWith(file_path, ".svg", base::CompareCase::INSENSITIVE_ASCII))
     return "image/svg+xml";
 
+  if (base::EndsWith(file_path, ".jpg", base::CompareCase::INSENSITIVE_ASCII))
+    return "image/jpeg";
+
+  if (base::EndsWith(file_path, ".png", base::CompareCase::INSENSITIVE_ASCII))
+    return "image/png";
+
   return "text/html";
 }
 

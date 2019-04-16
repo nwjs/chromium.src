@@ -253,6 +253,7 @@ jumbo_component("gfx") {
   ]
   deps += [
     ":gfx_export",
+    ":resize_image_dimensions",
     "//base",
     "//base:base_static",
     "//base:i18n",
@@ -276,6 +277,7 @@ jumbo_component("gfx") {
     set_sources_assignment_filter([])
     sources += [ "scoped_cg_context_save_gstate_mac.h" ]
     set_sources_assignment_filter(sources_assignment_filter)
+    deps += [ "//third_party/google_toolbox_for_mac" ]
   } else {
     public_deps += [ "//cc/paint" ]
     deps += [ "//third_party:freetype_harfbuzz" ]
@@ -297,6 +299,8 @@ jumbo_component("gfx") {
 
   if (!is_ios) {
     sources += [
+      "bidi_line_iterator.cc",
+      "bidi_line_iterator.h",
       "harfbuzz_font_skia.cc",
       "harfbuzz_font_skia.h",
       "paint_vector_icon.cc",
@@ -401,6 +405,14 @@ jumbo_component("color_space") {
     configs += [ "//build/config/linux:x11" ]
   }
   defines = [ "COLOR_SPACE_IMPLEMENTATION" ]
+}
+
+# Depend on this to use image/resize_image_dimensions.h without pulling in
+# all of gfx.
+source_set("resize_image_dimensions") {
+  sources = [
+    "image/resize_image_dimensions.h",
+  ]
 }
 
 # Depend on this to use native_widget_types.h without pulling in all of gfx.
@@ -711,7 +723,10 @@ test("gfx_unittests") {
   ]
 
   if (!is_ios) {
-    sources += [ "render_text_unittest.cc" ]
+    sources += [
+      "bidi_line_iterator_unittest.cc",
+      "render_text_unittest.cc",
+    ]
     deps += [ "//third_party:freetype_harfbuzz" ]
   }
 
@@ -778,12 +793,14 @@ test("gfx_unittests") {
 
   if (is_linux) {
     sources += [ "linux/native_pixmap_dmabuf_unittest.cc" ]
+    deps += [ "//third_party/fontconfig" ]
   }
 }
 
 if (is_android) {
   generate_jni("gfx_jni_headers") {
     sources = [
+      "../android/java/src/org/chromium/ui/gfx/Animation.java",
       "../android/java/src/org/chromium/ui/gfx/BitmapHelper.java",
       "../android/java/src/org/chromium/ui/gfx/ViewConfigurationHelper.java",
     ]

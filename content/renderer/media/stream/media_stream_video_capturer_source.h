@@ -6,13 +6,15 @@
 #define CONTENT_RENDERER_MEDIA_STREAM_MEDIA_STREAM_VIDEO_CAPTURER_SOURCE_H_
 
 #include <memory>
+#include <string>
 
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/threading/thread_checker.h"
-#include "content/common/media/video_capture.h"
 #include "content/renderer/media/stream/media_stream_video_source.h"
+#include "media/capture/video_capture_types.h"
+#include "third_party/blink/public/common/media/video_capture.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 
 namespace media {
@@ -30,6 +32,9 @@ class RenderFrame;
 class CONTENT_EXPORT MediaStreamVideoCapturerSource
     : public MediaStreamVideoSource {
  public:
+  using DeviceCapturerFactoryCallback =
+      base::RepeatingCallback<std::unique_ptr<media::VideoCapturerSource>(
+          int session_id)>;
   MediaStreamVideoCapturerSource(
       const SourceStoppedCallback& stop_callback,
       std::unique_ptr<media::VideoCapturerSource> source);
@@ -37,14 +42,12 @@ class CONTENT_EXPORT MediaStreamVideoCapturerSource
       int render_frame_id,
       const SourceStoppedCallback& stop_callback,
       const blink::MediaStreamDevice& device,
-      const media::VideoCaptureParams& capture_params);
+      const media::VideoCaptureParams& capture_params,
+      DeviceCapturerFactoryCallback device_capturer_factory_callback);
   ~MediaStreamVideoCapturerSource() override;
 
-  using DeviceVideoCapturerFactoryCallback =
-      base::RepeatingCallback<std::unique_ptr<media::VideoCapturerSource>(
-          int session_id)>;
-  void SetDeviceVideoCapturerFactoryCallbackForTesting(
-      DeviceVideoCapturerFactoryCallback testing_factory_callback);
+  void SetDeviceCapturerFactoryCallbackForTesting(
+      DeviceCapturerFactoryCallback testing_factory_callback);
 
  private:
   friend class CanvasCaptureHandlerTest;
@@ -57,10 +60,12 @@ class CONTENT_EXPORT MediaStreamVideoCapturerSource
 
   // MediaStreamVideoSource overrides.
   void RequestRefreshFrame() override;
+  void OnFrameDropped(media::VideoCaptureFrameDropReason reason) override;
+  void OnLog(const std::string& message) override;
   void OnHasConsumers(bool has_consumers) override;
   void OnCapturingLinkSecured(bool is_secure) override;
   void StartSourceImpl(
-      const VideoCaptureDeliverFrameCB& frame_callback) override;
+      const blink::VideoCaptureDeliverFrameCB& frame_callback) override;
   void StopSourceImpl() override;
   void StopSourceForRestartImpl() override;
   void RestartSourceImpl(const media::VideoCaptureFormat& new_format) override;
@@ -75,9 +80,6 @@ class CONTENT_EXPORT MediaStreamVideoCapturerSource
 
   const blink::mojom::MediaStreamDispatcherHostPtr&
   GetMediaStreamDispatcherHost(RenderFrame* render_frame);
-
-  static std::unique_ptr<media::VideoCapturerSource>
-  RecreateLocalVideoCapturerSource(int session_id);
 
   blink::mojom::MediaStreamDispatcherHostPtr dispatcher_host_;
 
@@ -97,8 +99,8 @@ class CONTENT_EXPORT MediaStreamVideoCapturerSource
   State state_ = STOPPED;
 
   media::VideoCaptureParams capture_params_;
-  VideoCaptureDeliverFrameCB frame_callback_;
-  DeviceVideoCapturerFactoryCallback device_video_capturer_factory_callback_;
+  blink::VideoCaptureDeliverFrameCB frame_callback_;
+  DeviceCapturerFactoryCallback device_capturer_factory_callback_;
 
   DISALLOW_COPY_AND_ASSIGN(MediaStreamVideoCapturerSource);
 };

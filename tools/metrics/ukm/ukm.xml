@@ -125,6 +125,66 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="AmpPageLoad" singular="True">
+  <owner>sullivan@chromium.org</owner>
+  <metric name="MainFrameAmpPageLoad">
+    <summary>
+      True if the page loaded in the main frame is an AMP document (has an amp
+      attribute in the html element). Will not be recorded for non-AMP frames.
+      Note that most AMP documents are loaded in a subframe from a reader like
+      Google Search; this metric measures sites that are using AMP as a
+      site-wide framework and not a reader experience.
+    </summary>
+  </metric>
+  <metric name="SubFrame.InteractiveTiming.FirstInputDelay3">
+    <summary>
+      Measures First Input Delay, the duration between the hardware timestamp
+      and the start of event processing on the main thread for the first
+      meaningful input per navigation, in the AMP subframe. See
+      https://goo.gl/tr1oTZ for a detailed explanation. In milliseconds.
+    </summary>
+  </metric>
+  <metric name="SubFrame.LayoutStability.JankScore">
+    <summary>
+      Measures the amount of layout jank (bit.ly/lsm-explainer) that has
+      occurred during the session, in the AMP subframe.
+    </summary>
+  </metric>
+  <metric name="SubFrame.MainFrameToSubFrameNavigationDelta">
+    <summary>
+      Measures the time in milliseconds from the navigation in the main frame to
+      the navigation in the AMP subframe. Will be negative in cases where the
+      AMP subframe was prerendered. Will be positive in cases where the main
+      frame was a non-same-document navigation. Should be near-zero when the
+      main frame navigation is a same-document navigation and the AMP subframe
+      was not prerendered.
+    </summary>
+  </metric>
+  <metric name="SubFrame.PaintTiming.NavigationToFirstContentfulPaint">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints content, in the AMP subframe.
+      A contentful paint includes a paint of text, image, SVG, or canvas.
+    </summary>
+  </metric>
+  <metric name="SubFrame.PaintTiming.NavigationToLargestContentPaint">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints the largest content (text or
+      image) within viewport, in the AMP subframe. See
+      http://bit.ly/largest_contentful_paint_explainer for more details.
+    </summary>
+  </metric>
+  <metric name="SubFrameAmpPageLoad">
+    <summary>
+      True if the page loaded in any subframe is an AMP document (has an amp
+      attribute in the html element). Will not be recorded for non-AMP frames.
+      Note that most AMP documents are loaded in a subframe from a reader like
+      Google Search; this metric measures usage of such readers.
+    </summary>
+  </metric>
+</event>
+
 <event name="Autofill.CardUploadDecision">
   <owner>sebsg@chromium.org</owner>
   <metric name="UploadDecision">
@@ -144,6 +204,20 @@ be describing additional metrics about the same event.
     the app id, for Play apps the keys are based upon a hash of the package name
     and for PWAs the keys are the urls associated with the PWA.
   </summary>
+  <metric name="AllClicksLast24Hours">
+    <summary>
+      Total number of clicks launching logged apps in the last 24 hours.
+      Accurate to the nearest 15 minutes. Bucketing: values above 20 rounded
+      down to the nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="AllClicksLastHour">
+    <summary>
+      Total number of clicks launching logged apps in the last hour. Accurate to
+      the nearest minute. Bucketing: values above 20 rounded down to the nearest
+      10. Maximum value of 200.
+    </summary>
+  </metric>
   <metric name="AppType">
     <summary>
       The type of app. 1: CHROME, 2: PLAY, 3: PWA.
@@ -187,6 +261,249 @@ be describing additional metrics about the same event.
     <summary>
       The position of the app within the grid/suggested apps/shelf. 0 is the
       first position.
+    </summary>
+  </metric>
+  <metric name="TotalHours">
+    <summary>
+      Number of hours in the current session up to this event. Bucketing:
+      exponential buckets, increasing in size by 25%, rounded to the nearest
+      integer. i.e. 0, 1, 2, 3, 4, 5, 6, 7, 9, 12, 15, 18, 23, 28, 36, 44...
+    </summary>
+  </metric>
+</event>
+
+<event name="AppListAppClickData">
+  <owner>pdyson@chromium.org</owner>
+  <summary>
+    AppListAppClickData events contain click history metrics for an app. These
+    events are recorded when an app is launched from the launcher on ChromeOS,
+    but may be for an app different from the app launched. See event
+    AppListAppLaunch for more detail on the keys used.
+  </summary>
+  <metric name="AppLaunchId">
+    <summary>
+      The ID of the app launch event.
+    </summary>
+  </metric>
+  <metric name="AppType">
+    <summary>
+      The type of app. 1: CHROME, 2: PLAY, 3: PWA.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour00">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 12:00am and 1:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour01">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 1:00am and 2:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour02">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 2:00am and 3:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour03">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 3:00am and 4:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour04">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 4:00am and 5:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour05">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 5:00am and 6:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour06">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 6:00am and 7:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour07">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 7:00am and 8:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour08">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 8:00am and 9:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour09">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 9:00am and 10:00am. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour10">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 10:00am and 11:00am. Bucketing: values above 20 rounded down to
+      the nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour11">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 11:00am and 12:00pm. Bucketing: values above 20 rounded down to
+      the nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour12">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 12:00pm and 1:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour13">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 1:00pm and 2:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour14">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 2:00pm and 3:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour15">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 3:00pm and 4:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour16">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 4:00pm and 5:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour17">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 5:00pm and 6:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour18">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 6:00pm and 7:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour19">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 7:00pm and 8:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour20">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 8:00pm and 9:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour21">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 9:00pm and 10:00pm. Bucketing: values above 20 rounded down to the
+      nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour22">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 10:00pm and 11:00pm. Bucketing: values above 20 rounded down to
+      the nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksEachHour23">
+    <summary>
+      The number of clicks on this app in the current session that occurred
+      between 11:00pm and 12:00am. Bucketing: values above 20 rounded down to
+      the nearest 10. Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksLast24Hours">
+    <summary>
+      The number of clicks on this app in the last 24 hours. Accurate to 15
+      minutes. Bucketing: values above 20 rounded down to the nearest 10.
+      Maximum value of 200.
+    </summary>
+  </metric>
+  <metric name="ClicksLastHour">
+    <summary>
+      The number of clicks on this app in the last hour. Accurate to one minute.
+      Bucketing: values above 20 rounded down to the nearest 10. Maximum value
+      of 200.
+    </summary>
+  </metric>
+  <metric name="LastLaunchedFrom">
+    <summary>
+      Where the app was last launched from. 1: GRID, 2: SUGGESTED, 3: SHELF.
+    </summary>
+  </metric>
+  <metric name="MostRecentlyUsedIndex">
+    <summary>
+      Index recording when in the sequence of app launch clicks the app was last
+      clicked on. 0: most recent app clicked on, 1: app clicked immediately
+      before the most recent, etc.
+    </summary>
+  </metric>
+  <metric name="SequenceNumber">
+    <summary>
+      The sequence number of the AppListAppLaunch event that corresponds to this
+      AppListAppClickData event. There will be six AppListAppClickData events
+      for each sequence number.
+    </summary>
+  </metric>
+  <metric name="TimeSinceLastClick">
+    <summary>
+      Time since this app was last clicked on to launch. In seconds, bucketed:
+      [1, 59] to the nearest second, [60, 599] to the nearest minute, [600,
+      1199] to the nearest 5 minutes, [1200, 3599] to the nearest 10 minutes,
+      [3600, 17999] to the nearest 30 minutes, [18000, 86400] to the nearest
+      hour.
+    </summary>
+  </metric>
+  <metric name="TotalClicks">
+    <summary>
+      Total number of clicks launching this app in this sesion. Bucketing:
+      values above 20 rounded down to the nearest 10. Maximum value of 200.
     </summary>
   </metric>
 </event>
@@ -435,6 +752,29 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Autofill.FormEvent">
+  <owner>dlkumar@google.com</owner>
+  <summary>
+    Recorded when user interacted with autofill.
+  </summary>
+  <metric name="AutofillFormEvent">
+    <summary>
+      Logs autofill form events funnel. See |FormEvent|.
+    </summary>
+  </metric>
+  <metric name="FormTypes">
+    <summary>
+      Type of form. Stored as bitvector. A set ith bit implies enum FormType's
+      ith type was detected. Multiple types are possible.
+    </summary>
+  </metric>
+  <metric name="MillisecondsSinceFormParsed">
+    <summary>
+      Time since form parse.
+    </summary>
+  </metric>
+</event>
+
 <event name="Autofill.FormSubmitted">
   <owner>jiahuiguo@google.com</owner>
   <summary>
@@ -510,9 +850,14 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Autofill.SelectedMaskedServerCard">
+  <obsolete>
+    Deprecated 2/2019
+  </obsolete>
   <owner>jiahuiguo@google.com</owner>
   <metric name="MillisecondsSinceFormParsed">
     <summary>
+      Obsolete.
+
       Time since form parse.
     </summary>
   </metric>
@@ -659,6 +1004,39 @@ be describing additional metrics about the same event.
     compositing, and layout update times. The metrics are recorded once per 30
     seconds and at the destruction of the local frame root.
   </summary>
+  <metric name="Animate.Average">
+    <summary>
+      The average time taken for main frame animation in microseconds in the
+      event period.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Animate.AverageRatio">
+    <summary>
+      The average over frames within the sample window of the ratio of time
+      taken for main frame animation to the total time for the main frame. An
+      int in the range [0,100].
+    </summary>
+  </metric>
+  <metric name="Animate.WorstCase">
+    <summary>
+      The longest single time taken for main frame animation in microseconds in
+      the event period.
+    </summary>
+  </metric>
+  <metric name="Animate.WorstCaseRatio">
+    <summary>
+      The highest proportion of a frame ever used for main frame animation
+      within the sample window. An int in the range [0,100].
+    </summary>
+  </metric>
   <metric name="Compositing.Average">
     <summary>
       The average time taken by the compositing phase in microseconds in the
@@ -758,6 +1136,40 @@ be describing additional metrics about the same event.
       The highest proportion of a frame ever taken by forced style recalc and
       layouts at the end of the blink lifecycle to the total time for the main
       frame. An int in the range [0,100].
+    </summary>
+  </metric>
+  <metric name="HandleInputEvents.Average">
+    <summary>
+      The average time taken to process rAF-aligned input for the main frame in
+      microseconds in the event period.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="HandleInputEvents.AverageRatio">
+    <summary>
+      The average over frames within the sample window of the ratio of time
+      taken to process rAF-aligned input for the main frame to the total time
+      for the main frame. An int in the range [0,100].
+    </summary>
+  </metric>
+  <metric name="HandleInputEvents.WorstCase">
+    <summary>
+      The longest single time taken to process rAF-aligned input for the main
+      frame in microseconds in the event period.
+    </summary>
+  </metric>
+  <metric name="HandleInputEvents.WorstCaseRatio">
+    <summary>
+      The highest proportion of a frame ever taken to process rAF-aligned input
+      for the main frame to the total time for the main frame. An int in the
+      range [0,100].
     </summary>
   </metric>
   <metric name="IntersectionObservation.Average">
@@ -1716,6 +2128,20 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="PageForegroundSession">
+  <owner>sullivan@chromium.org</owner>
+  <summary>
+    Total time in foreground in milliseconds, recorded each time the page is
+    backgrounded. May be recorded multiple times for a single page visit.
+  </summary>
+  <metric name="ForegroundDuration">
+    <summary>
+      Total time in foreground in milliseconds, recorded each time the page is
+      backgrounded.
+    </summary>
+  </metric>
+</event>
+
 <event name="Intervention.DocumentWrite.ScriptBlock" singular="True">
   <owner>bmcquade@chromium.org</owner>
   <summary>
@@ -1848,7 +2274,14 @@ be describing additional metrics about the same event.
   <metric name="MatchType">
     <summary>
       An enum value representing the type of the match (popular domain, engaged
-      domain, etc.). The enum is defined in |LookalikeUrlNavigationObserver|.
+      domain, etc.). The enum is defined in |LookalikeUrlInterstitialPage|.
+    </summary>
+  </metric>
+  <metric name="UserAction">
+    <summary>
+      An enum value representing the decision the user made when shown an
+      interstitial (ignored, suggestion_accepted, etc.). The enum is defined in
+      |LookalikeUrlInterstitialPage|.
     </summary>
   </metric>
 </event>
@@ -2998,6 +3431,12 @@ be describing additional metrics about the same event.
       Measure of memory consumed by CSS Stylesheet resources in Blink Web Cache.
     </summary>
   </metric>
+  <metric name="WebCache.EncodedSizeDuplicatedInDataUrls">
+    <summary>
+      Measure of memory consumed by data URLs of Image resources in Blink Web
+      Cache.
+    </summary>
+  </metric>
   <metric name="WebCache.FontResources">
     <summary>
       Measure of memory consumed by Font resources in Blink Web Cache.
@@ -3016,6 +3455,12 @@ be describing additional metrics about the same event.
   <metric name="WebCache.ScriptResources">
     <summary>
       Measure of memory consumed by Script resources in Blink Web Cache.
+    </summary>
+  </metric>
+  <metric name="WebCache.V8CodeCache">
+    <summary>
+      Measure of memory consumed by V8 code cache held by Script resources in
+      Blink Web Cache.
     </summary>
   </metric>
   <metric name="WebCache.XSLStylesheetResources">
@@ -3386,6 +3831,17 @@ be describing additional metrics about the same event.
       image) within viewport. See http://bit.ly/fcp_plus_plus for more details.
     </summary>
   </metric>
+  <metric
+      name="Experimental.PaintTiming.NavigationToLargestContentPaintAllFrames">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time when the page first paints the largest content (text or
+      image) within viewport. Compared with NavigationToLargestContentPaint,
+      this is the aggregate results from all frames, while
+      NavigationToLargestContentPaint is only for main frame. See
+      http://bit.ly/fcp_plus_plus for more details.
+    </summary>
+  </metric>
   <metric name="Experimental.PaintTiming.NavigationToLargestImagePaint">
     <summary>
       Measures the time in milliseconds from navigation timing's navigation
@@ -3463,6 +3919,26 @@ be describing additional metrics about the same event.
     </aggregation>
   </metric>
   <metric name="InteractiveTiming.FirstInputDelay2">
+    <obsolete>
+      Removed on February 2019 in favor of InteractiveTiming.FirstInputDelay3
+      which brings the metric more in line with the EventTiming API.
+    </obsolete>
+    <summary>
+      Measures First Input Delay, the duration between the hardware timestamp
+      and the start of event processing on the main thread for the first
+      meaningful input per navigation. See https://goo.gl/tr1oTZ for a detailed
+      explanation. In ms.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InteractiveTiming.FirstInputDelay3">
     <summary>
       Measures First Input Delay, the duration between the hardware timestamp
       and the start of event processing on the main thread for the first
@@ -3491,6 +3967,23 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.FirstInputTimestamp2">
+    <obsolete>
+      Removed on February 2019 in favor of
+      InteractiveTiming.FirstInputTimestamp3 which brings the metric more in
+      line with the EventTiming API.
+    </obsolete>
+    <summary>
+      The duration between navigation start and the hardware timestamp of the
+      first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
+      detailed explanation. In ms.
+    </summary>
+  </metric>
+  <metric name="InteractiveTiming.FirstInputTimestamp3">
+    <obsolete>
+      Removed on February 2019 in favor of
+      InteractiveTiming.FirstInputTimestamp3 which brings the metric more in
+      line with the EventTiming API.
+    </obsolete>
     <summary>
       The duration between navigation start and the hardware timestamp of the
       first meaningful input per navigation. See https://goo.gl/tr1oTZ for a
@@ -3510,6 +4003,25 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.LongestInputDelay2">
+    <obsolete>
+      Removed on February 2019 in favor of InteractiveTiming.LongestInputDelay3
+      which brings the metric more in line with the EventTiming API.
+    </obsolete>
+    <summary>
+      Measures longest Input Delay, the longest duration between the hardware
+      timestamp and the start of event processing on the main thread for the
+      meaningful input per navigation. In ms.
+    </summary>
+    <aggregation>
+      <history>
+        <index fields="profile.country"/>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="InteractiveTiming.LongestInputDelay3">
     <summary>
       Measures longest Input Delay, the longest duration between the hardware
       timestamp and the start of event processing on the main thread for the
@@ -3536,9 +4048,25 @@ be describing additional metrics about the same event.
     </summary>
   </metric>
   <metric name="InteractiveTiming.LongestInputTimestamp2">
+    <obsolete>
+      Removed on February 2019 in favor of
+      InteractiveTiming.LongestInputTimestamp3 which brings the metric more in
+      line with the EventTiming API.
+    </obsolete>
     <summary>
       The duration between navigation start and the hardware timestamp of the
       meaningful input with longest queuing delay per navigation. In ms.
+    </summary>
+  </metric>
+  <metric name="InteractiveTiming.LongestInputTimestamp3">
+    <summary>
+      The duration between navigation start and the hardware timestamp of the
+      meaningful input with longest queuing delay per navigation. In ms.
+    </summary>
+  </metric>
+  <metric name="IsSignedExchangeInnerResponse">
+    <summary>
+      Set to 1 if the main resource is an inner response of a signed exchange.
     </summary>
   </metric>
   <metric name="LayoutStability.JankScore">
@@ -3558,6 +4086,13 @@ be describing additional metrics about the same event.
     <summary>
       The duration between the start of the DNS resolution to the end for the
       origin of the main frame request. In ms.
+    </summary>
+  </metric>
+  <metric name="MainFrameResource.HttpProtocolScheme">
+    <summary>
+      HTTP Protocol scheme of the connection using which the main frame response
+      was fetched. Recorded as HttpProtocolScheme enum in
+      tools/metrics/histograms/enum.xml.
     </summary>
   </metric>
   <metric name="MainFrameResource.NavigationStartToRequestStart">
@@ -3725,9 +4260,50 @@ be describing additional metrics about the same event.
       start to the time the parser started, for main frame documents.
     </summary>
   </metric>
+  <metric name="SiteEngagementScore">
+    <owner>mcrouse@chromium.org</owner>
+    <owner>tbansal@chromium.org</owner>
+    <summary>
+      Measures the Site Engagement Score for the commited URL rounded to the
+      nearest 10.
+    </summary>
+  </metric>
   <metric name="WasCached">
     <summary>
       Set to 1 if the main resource was served from cache.
+    </summary>
+  </metric>
+</event>
+
+<event name="NoStatePrefetch" singular="True">
+  <owner>tbansal@chromium.org</owner>
+  <summary>
+    Metrics related to NoStatePrefetch that are recorded using the same UKM IDs
+    as PageLoad.
+  </summary>
+  <metric name="PrefetchedRecently.FinalStatus">
+    <summary>
+      Final status of the nostate prefetch if one was recently attempted for
+      either the committed URL of this navigation or for any URL in the redirect
+      chain for the main frame resource for this navigation. page. Recorded as
+      enum PrerenderFinalStatus in //tools/metrics/histograms/enums.xml.
+    </summary>
+  </metric>
+  <metric name="PrefetchedRecently.Origin">
+    <summary>
+      Triggering origin of the nostate prefetch if one was recently attempted
+      for either the committed URL of this navigation or for any URL in the
+      redirect chain for the main frame resource for this navigation. Recorded
+      as enum PrerenderOrigin in //tools/metrics/histograms/enums.xml.
+    </summary>
+  </metric>
+  <metric name="PrefetchedRecently.PrefetchAge">
+    <summary>
+      Records the time (in milliseconds) from the start of the nostate prefetch
+      to the time of commit of this navigation. Metric is recorded down to the
+      nearest power of 2. Recorded only if a nostate prefetch was recently
+      attempted for either the committed URL of this navigation or for any URL
+      in the redirect chain for the main frame resource for this navigation.
     </summary>
   </metric>
 </event>
@@ -4270,6 +4846,11 @@ be describing additional metrics about the same event.
   <metric name="noscript">
     <summary>
       Set to 1 when a user is shown a NoScript preview on a page load.
+    </summary>
+  </metric>
+  <metric name="offline_preview">
+    <summary>
+      Set to 1 when a user is shown an offline preview page in page load.
     </summary>
   </metric>
   <metric name="opt_out">

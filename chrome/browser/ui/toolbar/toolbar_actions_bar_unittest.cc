@@ -187,7 +187,8 @@ void ToolbarActionsBarUnitTest::TearDown() {
 
 void ToolbarActionsBarUnitTest::ActivateTab(int index) {
   ASSERT_NE(nullptr, browser()->tab_strip_model()->GetWebContentsAt(index));
-  browser()->tab_strip_model()->ActivateTabAt(index, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      index, {TabStripModel::GestureType::kOther});
 }
 
 scoped_refptr<const extensions::Extension>
@@ -236,9 +237,9 @@ testing::AssertionResult ToolbarActionsBarUnitTest::VerifyToolbarOrder(
 
 // Note: First argument is optional and intentionally left blank.
 // (it's a prefix for the generated test cases)
-INSTANTIATE_TEST_CASE_P(,
-                        ToolbarActionsBarUnitTest,
-                        testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         ToolbarActionsBarUnitTest,
+                         testing::Values(false, true));
 
 TEST_P(ToolbarActionsBarUnitTest, BasicToolbarActionsBarTest) {
   // Add three extensions to the profile; this is the easiest way to have

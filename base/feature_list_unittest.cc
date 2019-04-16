@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/format_macros.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "base/metrics/field_trial.h"
 #include "base/metrics/persistent_memory_allocator.h"
 #include "base/stl_util.h"
@@ -210,7 +211,7 @@ TEST_F(FeatureListTest, FieldTrialAssociateUseDefault) {
   EXPECT_TRUE(FieldTrialList::IsTrialActive(trial2->trial_name()));
 }
 
-TEST_F(FeatureListTest, CommandLineTakesPrecedenceOverFieldTrial) {
+TEST_F(FeatureListTest, CommandLineEnableTakesPrecedenceOverFieldTrial) {
   ClearFeatureListInstance();
 
   FieldTrialList field_trial_list(nullptr);
@@ -228,6 +229,30 @@ TEST_F(FeatureListTest, CommandLineTakesPrecedenceOverFieldTrial) {
   EXPECT_FALSE(FieldTrialList::IsTrialActive(trial->trial_name()));
   // Command-line should take precedence.
   EXPECT_TRUE(FeatureList::IsEnabled(kFeatureOffByDefault));
+  // Since the feature is on due to the command-line, and not as a result of the
+  // field trial, the field trial should not be activated (since the Associate*
+  // API wasn't used.)
+  EXPECT_FALSE(FieldTrialList::IsTrialActive(trial->trial_name()));
+}
+
+TEST_F(FeatureListTest, CommandLineDisableTakesPrecedenceOverFieldTrial) {
+  ClearFeatureListInstance();
+
+  FieldTrialList field_trial_list(nullptr);
+  std::unique_ptr<FeatureList> feature_list(new FeatureList);
+
+  // The feature is explicitly disabled on the command-line.
+  feature_list->InitializeFromCommandLine("", kFeatureOffByDefaultName);
+
+  // But the FieldTrial would set the feature to enabled.
+  FieldTrial* trial = FieldTrialList::CreateFieldTrial("TrialExample2", "A");
+  feature_list->RegisterFieldTrialOverride(
+      kFeatureOffByDefaultName, FeatureList::OVERRIDE_ENABLE_FEATURE, trial);
+  RegisterFeatureListInstance(std::move(feature_list));
+
+  EXPECT_FALSE(FieldTrialList::IsTrialActive(trial->trial_name()));
+  // Command-line should take precedence.
+  EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOffByDefault));
   // Since the feature is on due to the command-line, and not as a result of the
   // field trial, the field trial should not be activated (since the Associate*
   // API wasn't used.)
@@ -485,9 +510,10 @@ TEST_F(FeatureListTest, StoreAndRetrieveFeaturesFromSharedMemory) {
   feature_list->FinalizeInitialization();
 
   // Create an allocator and store the overrides.
-  std::unique_ptr<SharedMemory> shm(new SharedMemory());
-  shm->CreateAndMapAnonymous(4 << 10);
-  SharedPersistentMemoryAllocator allocator(std::move(shm), 1, "", false);
+  base::MappedReadOnlyRegion shm =
+      base::ReadOnlySharedMemoryRegion::Create(4 << 10);
+  WritableSharedPersistentMemoryAllocator allocator(std::move(shm.mapping), 1,
+                                                    "");
   feature_list->AddFeaturesToAllocator(&allocator);
 
   std::unique_ptr<base::FeatureList> feature_list2(new base::FeatureList);
@@ -520,9 +546,10 @@ TEST_F(FeatureListTest, StoreAndRetrieveAssociatedFeaturesFromSharedMemory) {
   feature_list->FinalizeInitialization();
 
   // Create an allocator and store the overrides.
-  std::unique_ptr<SharedMemory> shm(new SharedMemory());
-  shm->CreateAndMapAnonymous(4 << 10);
-  SharedPersistentMemoryAllocator allocator(std::move(shm), 1, "", false);
+  base::MappedReadOnlyRegion shm =
+      base::ReadOnlySharedMemoryRegion::Create(4 << 10);
+  WritableSharedPersistentMemoryAllocator allocator(std::move(shm.mapping), 1,
+                                                    "");
   feature_list->AddFeaturesToAllocator(&allocator);
 
   std::unique_ptr<base::FeatureList> feature_list2(new base::FeatureList);

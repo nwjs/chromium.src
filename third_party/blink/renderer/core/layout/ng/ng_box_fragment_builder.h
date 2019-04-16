@@ -27,14 +27,15 @@ class CORE_EXPORT NGBoxFragmentBuilder final
  public:
   NGBoxFragmentBuilder(NGLayoutInputNode node,
                        scoped_refptr<const ComputedStyle> style,
+                       const NGConstraintSpace* space,
                        WritingMode writing_mode,
                        TextDirection direction)
       : NGContainerFragmentBuilder(node,
                                    std::move(style),
+                                   space,
                                    writing_mode,
                                    direction),
         box_type_(NGPhysicalFragment::NGBoxType::kNormalBox),
-        is_old_layout_root_(false),
         did_break_(false) {
     layout_object_ = node.GetLayoutBox();
   }
@@ -45,12 +46,12 @@ class CORE_EXPORT NGBoxFragmentBuilder final
                        scoped_refptr<const ComputedStyle> style,
                        WritingMode writing_mode,
                        TextDirection direction)
-      : NGContainerFragmentBuilder(nullptr,
+      : NGContainerFragmentBuilder(/* node */ nullptr,
                                    std::move(style),
+                                   /* space */ nullptr,
                                    writing_mode,
                                    direction),
         box_type_(NGPhysicalFragment::NGBoxType::kNormalBox),
-        is_old_layout_root_(false),
         did_break_(false) {
     layout_object_ = layout_object;
   }
@@ -64,6 +65,7 @@ class CORE_EXPORT NGBoxFragmentBuilder final
     borders_ = border;
     return *this;
   }
+  const NGBoxStrut& Borders() const { return borders_; }
   NGBoxFragmentBuilder& SetPadding(const NGBoxStrut& padding) {
     DCHECK_NE(BoxType(), NGPhysicalFragment::kInlineBox);
     padding_ = padding;
@@ -76,6 +78,7 @@ class CORE_EXPORT NGBoxFragmentBuilder final
     padding_ = NGBoxStrut(padding, IsFlippedLinesWritingMode(GetWritingMode()));
     return *this;
   }
+  const NGBoxStrut& Padding() const { return padding_; }
 
   // Remove all children.
   void RemoveChildren();
@@ -99,11 +102,6 @@ class CORE_EXPORT NGBoxFragmentBuilder final
   // Set how much of the block size we've used so far for this box.
   NGBoxFragmentBuilder& SetUsedBlockSize(LayoutUnit used_block_size) {
     used_block_size_ = used_block_size;
-    return *this;
-  }
-
-  NGBoxFragmentBuilder& SetNeedsFinishedBreakToken() {
-    needs_finished_break_token_ = true;
     return *this;
   }
 
@@ -155,11 +153,11 @@ class CORE_EXPORT NGBoxFragmentBuilder final
   // do not provide a setter here.
 
   // Creates the fragment. Can only be called once.
-  scoped_refptr<NGLayoutResult> ToBoxFragment() {
+  scoped_refptr<const NGLayoutResult> ToBoxFragment() {
     DCHECK_NE(BoxType(), NGPhysicalFragment::kInlineBox);
     return ToBoxFragment(GetWritingMode());
   }
-  scoped_refptr<NGLayoutResult> ToInlineBoxFragment() {
+  scoped_refptr<const NGLayoutResult> ToInlineBoxFragment() {
     // The logical coordinate for inline box uses line-relative writing-mode,
     // not
     // flow-relative.
@@ -167,7 +165,8 @@ class CORE_EXPORT NGBoxFragmentBuilder final
     return ToBoxFragment(ToLineWritingMode(GetWritingMode()));
   }
 
-  scoped_refptr<NGLayoutResult> Abort(NGLayoutResult::NGLayoutResultStatus);
+  scoped_refptr<const NGLayoutResult> Abort(
+      NGLayoutResult::NGLayoutResultStatus);
 
   // A vector of child offsets. Initially set by AddChild().
   const OffsetVector& Offsets() const { return offsets_; }
@@ -226,7 +225,7 @@ class CORE_EXPORT NGBoxFragmentBuilder final
       InlineContainingBlockMap* inline_container_fragments);
 
  private:
-  scoped_refptr<NGLayoutResult> ToBoxFragment(WritingMode);
+  scoped_refptr<const NGLayoutResult> ToBoxFragment(WritingMode);
 
   LayoutUnit intrinsic_block_size_;
   NGBoxStrut borders_;
@@ -234,8 +233,6 @@ class CORE_EXPORT NGBoxFragmentBuilder final
 
   NGPhysicalFragment::NGBoxType box_type_;
   bool is_fieldset_container_ = false;
-  bool is_old_layout_root_;
-  bool needs_finished_break_token_ = false;
   bool did_break_;
   bool has_forced_break_ = false;
   bool is_new_fc_ = false;

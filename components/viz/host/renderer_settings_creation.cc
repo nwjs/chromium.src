@@ -57,10 +57,11 @@ RendererSettings CreateRendererSettings() {
       command_line->HasSwitch(switches::kTintGlCompositedContent);
   renderer_settings.show_overdraw_feedback =
       command_line->HasSwitch(switches::kShowOverdrawFeedback);
-  renderer_settings.enable_draw_occlusion = features::IsDrawOcclusionEnabled();
   renderer_settings.allow_antialiasing =
       !command_line->HasSwitch(switches::kDisableCompositedAntialiasing);
   renderer_settings.use_skia_renderer = features::IsUsingSkiaRenderer();
+  renderer_settings.use_skia_renderer_non_ddl =
+      features::IsUsingSkiaRendererNonDDL();
 #if defined(OS_MACOSX)
   renderer_settings.allow_overlays =
       ui::RemoteLayerAPISupported() &&

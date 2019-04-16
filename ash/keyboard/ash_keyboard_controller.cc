@@ -10,10 +10,12 @@
 #include "ash/session/session_controller.h"
 #include "ash/shell.h"
 #include "ash/shell_delegate.h"
+#include "base/command_line.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/keyboard/keyboard_controller.h"
 #include "ui/keyboard/keyboard_ui_factory.h"
+#include "ui/keyboard/public/keyboard_switches.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
 using keyboard::mojom::KeyboardConfig;
@@ -53,10 +55,6 @@ void AshKeyboardController::EnableKeyboard() {
       keyboard_ui_factory_ ? keyboard_ui_factory_->CreateKeyboardUI()
                            : std::make_unique<AshKeyboardUI>(this),
       virtual_keyboard_controller_.get());
-
-  // Start preloading the virtual keyboard UI in the background, so that it
-  // shows up faster when needed.
-  keyboard_controller_->LoadKeyboardWindowInBackground();
 }
 
 void AshKeyboardController::DisableKeyboard() {
@@ -69,6 +67,12 @@ void AshKeyboardController::CreateVirtualKeyboard(
       << "keyboard_ui_factory can be null only when window service is used.";
   keyboard_ui_factory_ = std::move(keyboard_ui_factory);
   virtual_keyboard_controller_ = std::make_unique<VirtualKeyboardController>();
+
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          keyboard::switches::kEnableVirtualKeyboard)) {
+    keyboard_controller_->SetEnableFlag(
+        KeyboardEnableFlag::kCommandLineEnabled);
+  }
 }
 
 void AshKeyboardController::DestroyVirtualKeyboard() {
@@ -76,10 +80,9 @@ void AshKeyboardController::DestroyVirtualKeyboard() {
 }
 
 void AshKeyboardController::SendOnKeyboardVisibleBoundsChanged(
-    const gfx::Rect& bounds) {
-  DVLOG(1) << "OnKeyboardVisibleBoundsChanged: " << bounds.ToString();
+    const gfx::Rect& screen_bounds) {
+  DVLOG(1) << "OnKeyboardVisibleBoundsChanged: " << screen_bounds.ToString();
   // Pass the bounds in screen coordinates over mojo.
-  gfx::Rect screen_bounds = BoundsToScreen(bounds);
   observers_.ForAllPtrs(
       [&screen_bounds](mojom::KeyboardControllerObserver* observer) {
         observer->OnKeyboardVisibleBoundsChanged(screen_bounds);
@@ -270,15 +273,14 @@ void AshKeyboardController::OnKeyboardVisibilityStateChanged(bool is_visible) {
 }
 
 void AshKeyboardController::OnKeyboardVisibleBoundsChanged(
-    const gfx::Rect& bounds) {
-  SendOnKeyboardVisibleBoundsChanged(bounds);
+    const gfx::Rect& screen_bounds) {
+  SendOnKeyboardVisibleBoundsChanged(screen_bounds);
 }
 
 void AshKeyboardController::OnKeyboardWorkspaceOccludedBoundsChanged(
-    const gfx::Rect& bounds) {
-  DVLOG(1) << "OnKeyboardOccludedBoundsChanged: " << bounds.ToString();
+    const gfx::Rect& screen_bounds) {
+  DVLOG(1) << "OnKeyboardOccludedBoundsChanged: " << screen_bounds.ToString();
   // Pass the bounds in screen coordinates over mojo.
-  gfx::Rect screen_bounds = BoundsToScreen(bounds);
   observers_.ForAllPtrs(
       [&screen_bounds](mojom::KeyboardControllerObserver* observer) {
         observer->OnKeyboardOccludedBoundsChanged(screen_bounds);
@@ -299,14 +301,6 @@ void AshKeyboardController::OnKeyboardEnabledChanged(bool is_enabled) {
       [is_enabled](mojom::KeyboardControllerObserver* observer) {
         observer->OnKeyboardEnabledChanged(is_enabled);
       });
-}
-
-gfx::Rect AshKeyboardController::BoundsToScreen(const gfx::Rect& bounds) {
-  DCHECK(keyboard_controller_->GetKeyboardWindow());
-  gfx::Rect screen_bounds(bounds);
-  ::wm::ConvertRectToScreen(keyboard_controller_->GetKeyboardWindow(),
-                            &screen_bounds);
-  return screen_bounds;
 }
 
 }  // namespace ash

@@ -7,8 +7,10 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/values.h"
@@ -31,6 +33,7 @@ constexpr char kGuidKey[] = "ephemeral-guid";
 constexpr char kProductIdKey[] = "product-id";
 constexpr char kSerialNumberKey[] = "serial-number";
 constexpr char kVendorIdKey[] = "vendor-id";
+constexpr int kDeviceIdWildcard = -1;
 
 // Reasons a permission may be closed. These are used in histograms so do not
 // remove/reorder entries. Only add at the end just before
@@ -65,12 +68,6 @@ std::pair<int, int> GetDeviceIds(const base::DictionaryValue& object) {
 }
 
 base::string16 GetDeviceNameFromIds(int vendor_id, int product_id) {
-// This is currently using the UI strings used for the chooser prompt. This is
-// fine for now since the policy allowed devices are not being displayed in
-// Site Settings yet. However, policy allowed devices can contain wildcards for
-// the IDs, so more specific UI string need to be defined.
-// TODO(https://crbug.com/854329): Add UI strings that are more specific to
-// the Site Settings UI.
 #if !defined(OS_ANDROID)
   const char* product_name =
       device::UsbIds::GetProductName(vendor_id, product_id);
@@ -79,15 +76,31 @@ base::string16 GetDeviceNameFromIds(int vendor_id, int product_id) {
 
   const char* vendor_name = device::UsbIds::GetVendorName(vendor_id);
   if (vendor_name) {
+    if (product_id == kDeviceIdWildcard) {
+      return l10n_util::GetStringFUTF16(IDS_DEVICE_DESCRIPTION_FOR_VENDOR_NAME,
+                                        base::UTF8ToUTF16(vendor_name));
+    }
+
     return l10n_util::GetStringFUTF16(
-        IDS_DEVICE_CHOOSER_DEVICE_NAME_UNKNOWN_DEVICE_WITH_VENDOR_NAME,
+        IDS_DEVICE_DESCRIPTION_FOR_PRODUCT_ID_AND_VENDOR_NAME,
+        base::ASCIIToUTF16(base::StringPrintf("0x%04X", product_id)),
         base::UTF8ToUTF16(vendor_name));
   }
 #endif  // !defined(OS_ANDROID)
+
+  if (product_id == kDeviceIdWildcard) {
+    if (vendor_id == kDeviceIdWildcard)
+      return l10n_util::GetStringUTF16(IDS_DEVICE_DESCRIPTION_FOR_ANY_VENDOR);
+
+    return l10n_util::GetStringFUTF16(
+        IDS_DEVICE_DESCRIPTION_FOR_VENDOR_ID,
+        base::ASCIIToUTF16(base::StringPrintf("0x%04X", vendor_id)));
+  }
+
   return l10n_util::GetStringFUTF16(
-      IDS_DEVICE_CHOOSER_DEVICE_NAME_UNKNOWN_DEVICE_WITH_VENDOR_ID_AND_PRODUCT_ID,
-      base::ASCIIToUTF16(base::StringPrintf("%04x", vendor_id)),
-      base::ASCIIToUTF16(base::StringPrintf("%04x", product_id)));
+      IDS_DEVICE_DESCRIPTION_FOR_PRODUCT_ID_AND_VENDOR_ID,
+      base::ASCIIToUTF16(base::StringPrintf("0x%04X", product_id)),
+      base::ASCIIToUTF16(base::StringPrintf("0x%04X", vendor_id)));
 }
 
 std::unique_ptr<base::DictionaryValue> DeviceIdsToDictValue(int vendor_id,
@@ -225,6 +238,62 @@ UsbChooserContext::GetGrantedObjects(const GURL& requesting_origin,
     }
   }
 
+  // Iterate through the user granted objects and create a mapping of device IDs
+  // to device object if the object is also allowed by policy. Any objects that
+  // have been granted by policy are removed from |objects| to avoid duplicate
+  // permissions from being displayed.
+  // TODO(https://crbug.com/926984): This logic is very similar to the logic for
+  // GetAllGrantedObjects(), so it could potentially be centralized.
+  std::map<std::pair<int, int>, base::Value> device_ids_to_object_map;
+  for (auto it = objects.begin(); it != objects.end();) {
+    ChooserContextBase::Object& object = **it;
+    auto device_ids = GetDeviceIds(object.value);
+
+    if (usb_policy_allowed_devices_->IsDeviceAllowed(
+            requesting_origin, embedding_origin, device_ids)) {
+      device_ids_to_object_map[device_ids] = std::move(object.value);
+      it = objects.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  for (const auto& allowed_devices_entry : usb_policy_allowed_devices_->map()) {
+    // The map key is a tuple of (vendor_id, product_id).
+    const int vendor_id = allowed_devices_entry.first.first;
+    const int product_id = allowed_devices_entry.first.second;
+
+    for (const auto& url_pair : allowed_devices_entry.second) {
+      // Skip entries that do not match the |requesting_origin|.
+      if (url_pair.first.GetOrigin() != requesting_origin.GetOrigin())
+        continue;
+
+      // Skip entries that have a non-empty embedding origin that does not match
+      // the given |embedding_origin|.
+      if (!url_pair.second.is_empty() &&
+          url_pair.second.GetOrigin() != embedding_origin.GetOrigin()) {
+        continue;
+      }
+
+      // If there is an entry for the device in |device_ids_to_object_map|, use
+      // that object to represent the device. Otherwise, attempt to figure out
+      // the name of the device from the |vendor_id| and |product_id|.
+      std::unique_ptr<base::DictionaryValue> object;
+      auto it =
+          device_ids_to_object_map.find(std::make_pair(vendor_id, product_id));
+      if (it != device_ids_to_object_map.end()) {
+        object = base::DictionaryValue::From(
+            base::Value::ToUniquePtrValue(std::move(it->second)));
+      } else {
+        object = DeviceIdsToDictValue(vendor_id, product_id);
+      }
+
+      objects.push_back(std::make_unique<ChooserContextBase::Object>(
+          url_pair.first, url_pair.second, object.get(),
+          content_settings::SETTING_SOURCE_POLICY, is_incognito_));
+    }
+  }
+
   return objects;
 }
 
@@ -253,17 +322,18 @@ UsbChooserContext::GetAllGrantedObjects() {
   // Iterate through the user granted objects to create a mapping of device IDs
   // to device object for the policy granted objects to use, and remove
   // objects that have already been granted permission by the policy.
+  // TODO(https://crbug.com/926984): This logic is very similar to the logic for
+  // GetGrantedObjects(), so it could potentially be centralized.
   std::map<std::pair<int, int>, base::Value> device_ids_to_object_map;
   for (auto it = objects.begin(); it != objects.end();) {
-    const Object& object = **it;
+    Object& object = **it;
     auto device_ids = GetDeviceIds(object.value);
     const GURL& requesting_origin = object.requesting_origin;
     const GURL& embedding_origin = object.embedding_origin;
 
-    device_ids_to_object_map[device_ids] = object.value.Clone();
-
     if (usb_policy_allowed_devices_->IsDeviceAllowed(
             requesting_origin, embedding_origin, device_ids)) {
+      device_ids_to_object_map[device_ids] = std::move(object.value);
       it = objects.erase(it);
     } else {
       ++it;
@@ -276,6 +346,9 @@ UsbChooserContext::GetAllGrantedObjects() {
     const int product_id = allowed_devices_entry.first.second;
 
     for (const auto& url_pair : allowed_devices_entry.second) {
+      // If there is an entry for the device in |device_ids_to_object_map|, use
+      // that object to represent the device. Otherwise, attempt to figure out
+      // the name of the device from the |vendor_id| and |product_id|.
       std::unique_ptr<base::DictionaryValue> object;
       auto it =
           device_ids_to_object_map.find(std::make_pair(vendor_id, product_id));

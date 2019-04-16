@@ -66,9 +66,12 @@ class MockWebSocketChannel : public WebSocketChannel {
   }
   MOCK_CONST_METHOD0(BufferedAmount, unsigned());
   MOCK_METHOD2(Close, void(int, const String&));
-  MOCK_METHOD3(FailMock, void(const String&, MessageLevel, SourceLocation*));
+  MOCK_METHOD3(FailMock,
+               void(const String&,
+                    mojom::ConsoleMessageLevel,
+                    SourceLocation*));
   void Fail(const String& reason,
-            MessageLevel level,
+            mojom::ConsoleMessageLevel level,
             std::unique_ptr<SourceLocation> location) override {
     FailMock(reason, level, location.get());
   }
@@ -82,7 +85,7 @@ class DOMWebSocketWithMockChannel final : public DOMWebSocket {
   static DOMWebSocketWithMockChannel* Create(ExecutionContext* context) {
     DOMWebSocketWithMockChannel* websocket =
         MakeGarbageCollected<DOMWebSocketWithMockChannel>(context);
-    websocket->PauseIfNeeded();
+    websocket->UpdateStateIfNeeded();
     return websocket;
   }
 
@@ -111,6 +114,8 @@ class DOMWebSocketWithMockChannel final : public DOMWebSocket {
 };
 
 class DOMWebSocketTestScope {
+  STACK_ALLOCATED();
+
  public:
   explicit DOMWebSocketTestScope(ExecutionContext* execution_context)
       : websocket_(DOMWebSocketWithMockChannel::Create(execution_context)) {}
@@ -483,7 +488,7 @@ TEST(DOMWebSocketTest, closeWhenConnecting) {
         websocket_scope.Channel(),
         FailMock(
             String("WebSocket is closed before the connection is established."),
-            kWarningMessageLevel, _));
+            mojom::ConsoleMessageLevel::kWarning, _));
   }
   websocket_scope.Socket().Connect("ws://example.com/", Vector<String>(),
                                    scope.GetExceptionState());
@@ -934,8 +939,7 @@ TEST(DOMWebSocketTest, binaryType) {
 
 // FIXME: We should add tests for suspend / resume.
 
-class DOMWebSocketValidClosingTest
-    : public testing::TestWithParam<unsigned short> {};
+class DOMWebSocketValidClosingTest : public testing::TestWithParam<uint16_t> {};
 
 TEST_P(DOMWebSocketValidClosingTest, test) {
   V8TestingScope scope;
@@ -959,12 +963,12 @@ TEST_P(DOMWebSocketValidClosingTest, test) {
   EXPECT_EQ(DOMWebSocket::kClosing, websocket_scope.Socket().readyState());
 }
 
-INSTANTIATE_TEST_CASE_P(DOMWebSocketValidClosing,
-                        DOMWebSocketValidClosingTest,
-                        testing::Values(1000, 3000, 3001, 4998, 4999));
+INSTANTIATE_TEST_SUITE_P(DOMWebSocketValidClosing,
+                         DOMWebSocketValidClosingTest,
+                         testing::Values(1000, 3000, 3001, 4998, 4999));
 
 class DOMWebSocketInvalidClosingCodeTest
-    : public testing::TestWithParam<unsigned short> {};
+    : public testing::TestWithParam<uint16_t> {};
 
 TEST_P(DOMWebSocketInvalidClosingCodeTest, test) {
   V8TestingScope scope;
@@ -993,7 +997,7 @@ TEST_P(DOMWebSocketInvalidClosingCodeTest, test) {
   EXPECT_EQ(DOMWebSocket::kConnecting, websocket_scope.Socket().readyState());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     DOMWebSocketInvalidClosingCode,
     DOMWebSocketInvalidClosingCodeTest,
     testing::Values(0, 1, 998, 999, 1001, 2999, 5000, 9999, 65535));

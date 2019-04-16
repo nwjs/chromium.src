@@ -438,7 +438,7 @@ void XSSAuditor::Init(Document* document,
     }
     if (xss_protection_header == kReflectedXSSInvalid) {
       document->AddConsoleMessage(ConsoleMessage::Create(
-          kSecurityMessageSource, kErrorMessageLevel,
+          kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
           "Error parsing header X-XSS-Protection: " + header_value + ": " +
               error_details + " at character position " +
               String::Format("%u", error_position) +
@@ -448,7 +448,7 @@ void XSSAuditor::Init(Document* document,
     xss_protection_ = xss_protection_header;
     if (xss_protection_ == kReflectedXSSInvalid ||
         xss_protection_ == kReflectedXSSUnset) {
-      xss_protection_ = kBlockReflectedXSS;
+      xss_protection_ = kFilterReflectedXSS;
     }
 
     if (auditor_delegate)

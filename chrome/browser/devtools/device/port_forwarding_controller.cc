@@ -69,7 +69,7 @@ const char kConnectionIdParam[] = "connectionId";
 static bool ParseNotification(const std::string& json,
                               std::string* method,
                               std::unique_ptr<base::DictionaryValue>* params) {
-  std::unique_ptr<base::Value> value = base::JSONReader::Read(json);
+  std::unique_ptr<base::Value> value = base::JSONReader::ReadDeprecated(json);
   if (!value || !value->is_dict())
     return false;
 
@@ -90,7 +90,7 @@ static bool ParseNotification(const std::string& json,
 static bool ParseResponse(const std::string& json,
                           int* command_id,
                           int* error_code) {
-  std::unique_ptr<base::Value> value = base::JSONReader::Read(json);
+  std::unique_ptr<base::Value> value = base::JSONReader::ReadDeprecated(json);
   if (!value || !value->is_dict())
     return false;
 
@@ -636,7 +636,7 @@ PortForwardingController::DeviceListChanged(
       continue;
     auto rit = registry_.find(remote_device->serial());
     if (rit == registry_.end()) {
-      if (remote_device->browsers().size() > 0) {
+      if (!remote_device->browsers().empty()) {
         new Connection(profile_, &registry_, device,
                        remote_device->browsers()[0], forwarding_map_);
       }

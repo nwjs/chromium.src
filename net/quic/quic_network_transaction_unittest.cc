@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
@@ -18,6 +19,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "net/base/chunked_upload_data_stream.h"
 #include "net/base/completion_once_callback.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/mock_network_change_notifier.h"
 #include "net/base/test_completion_callback.h"
 #include "net/base/test_proxy_delegate.h"
@@ -145,7 +147,7 @@ std::string GenerateQuicVersionsListForAltSvcHeader(
   for (const quic::QuicTransportVersion& version : versions) {
     if (!result.empty())
       result.append(",");
-    result.append(base::IntToString(version));
+    result.append(base::NumberToString(version));
   }
   return result;
 }
@@ -277,8 +279,7 @@ class QuicNetworkTransactionTest
         cert_transparency_verifier_(new MultiLogCTVerifier()),
         ssl_config_service_(new SSLConfigServiceDefaults),
         proxy_resolution_service_(ProxyResolutionService::CreateDirect()),
-        auth_handler_factory_(
-            HttpAuthHandlerFactory::CreateDefault(&host_resolver_)),
+        auth_handler_factory_(HttpAuthHandlerFactory::CreateDefault()),
         ssl_data_(ASYNC, OK) {
     request_.method = "GET";
     std::string url("https://");
@@ -312,38 +313,38 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientConnectionClosePacket(quic::QuicPacketNumber num) {
+  ConstructClientConnectionClosePacket(uint64_t num) {
     return client_maker_.MakeConnectionClosePacket(
         num, false, quic::QUIC_CRYPTO_VERSION_NOT_SUPPORTED, "Time to panic!");
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructServerConnectionClosePacket(quic::QuicPacketNumber num) {
+  ConstructServerConnectionClosePacket(uint64_t num) {
     return server_maker_.MakeConnectionClosePacket(
         num, false, quic::QUIC_CRYPTO_VERSION_NOT_SUPPORTED, "Time to panic!");
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructServerGoAwayPacket(
-      quic::QuicPacketNumber num,
+      uint64_t num,
       quic::QuicErrorCode error_code,
       std::string reason_phrase) {
     return server_maker_.MakeGoAwayPacket(num, error_code, reason_phrase);
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientAckPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked) {
     return client_maker_.MakeAckPacket(packet_number, largest_received,
                                        smallest_received, least_unacked, true);
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientAckPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       quic::QuicTime::Delta ack_delay_time) {
     return client_maker_.MakeAckPacket(packet_number, largest_received,
                                        smallest_received, least_unacked, true,
@@ -351,43 +352,43 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientAckAndRstPacket(
-      quic::QuicPacketNumber num,
+      uint64_t num,
       quic::QuicStreamId stream_id,
       quic::QuicRstStreamErrorCode error_code,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked) {
     return client_maker_.MakeAckAndRstPacket(
         num, false, stream_id, error_code, largest_received, smallest_received,
         least_unacked, true);
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientRstPacket(
-      quic::QuicPacketNumber num,
+      uint64_t num,
       quic::QuicStreamId stream_id,
       quic::QuicRstStreamErrorCode error_code,
       size_t bytes_written) {
     return client_maker_.MakeRstPacket(num, false, stream_id, error_code,
-                                       bytes_written);
+                                       bytes_written,
+                                       /*include_stop_sending_if_v99=*/true);
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientAckAndConnectionClosePacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+  ConstructClientAckAndConnectionClosePacket(uint64_t packet_number,
+                                             uint64_t largest_received,
+                                             uint64_t smallest_received,
+                                             uint64_t least_unacked) {
     return client_maker_.MakeAckPacket(packet_number, largest_received,
                                        smallest_received, least_unacked, true);
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
   ConstructClientAckAndConnectionClosePacket(
-      quic::QuicPacketNumber num,
+      uint64_t num,
       quic::QuicTime::Delta delta_time_largest_observed,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       quic::QuicErrorCode quic_error,
       const std::string& quic_error_details) {
     return client_maker_.MakeAckAndConnectionClosePacket(
@@ -396,7 +397,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructServerRstPacket(
-      quic::QuicPacketNumber num,
+      uint64_t num,
       bool include_version,
       quic::QuicStreamId stream_id,
       quic::QuicRstStreamErrorCode error_code) {
@@ -405,22 +406,22 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructInitialSettingsPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset* offset) {
     return client_maker_.MakeInitialSettingsPacket(packet_number, offset);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructServerAckPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked) {
     return server_maker_.MakeAckPacket(packet_number, largest_received,
                                        smallest_received, least_unacked, false);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructClientPriorityPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       bool should_include_version,
       quic::QuicStreamId id,
       quic::QuicStreamId parent_stream_id,
@@ -433,11 +434,11 @@ class QuicNetworkTransactionTest
 
   std::unique_ptr<quic::QuicEncryptedPacket>
   ConstructClientAckAndPriorityFramesPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       bool should_include_version,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       const std::vector<QuicTestPacketMaker::Http2StreamDependency>&
           priority_frames,
       quic::QuicStreamOffset* offset) {
@@ -476,7 +477,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructServerDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool should_include_version,
       bool fin,
@@ -487,7 +488,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool should_include_version,
       bool fin,
@@ -499,7 +500,7 @@ class QuicNetworkTransactionTest
 
   std::unique_ptr<quic::QuicEncryptedPacket>
   ConstructClientMultipleDataFramesPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool should_include_version,
       bool fin,
@@ -511,12 +512,12 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientAckAndDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       bool include_version,
       quic::QuicStreamId stream_id,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       bool fin,
       quic::QuicStreamOffset offset,
       quic::QuicStringPiece data) {
@@ -527,12 +528,12 @@ class QuicNetworkTransactionTest
 
   std::unique_ptr<quic::QuicEncryptedPacket>
   ConstructClientAckAndMultipleDataFramesPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       bool include_version,
       quic::QuicStreamId stream_id,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       bool fin,
       quic::QuicStreamOffset offset,
       const std::vector<std::string> data_writes) {
@@ -542,7 +543,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientForceHolDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool should_include_version,
       bool fin,
@@ -553,7 +554,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       bool fin,
@@ -564,7 +565,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       bool fin,
@@ -576,7 +577,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       bool fin,
@@ -589,7 +590,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       bool fin,
@@ -606,7 +607,7 @@ class QuicNetworkTransactionTest
 
   std::unique_ptr<quic::QuicReceivedPacket>
   ConstructClientRequestHeadersAndDataFramesPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       bool should_include_version,
       bool fin,
@@ -625,7 +626,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientMultipleDataFramesPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientMultipleDataFramesPacket(uint64_t packet_number,
                                           quic::QuicStreamId stream_id,
                                           bool should_include_version,
                                           bool fin,
@@ -636,7 +637,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructServerPushPromisePacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       quic::QuicStreamId promised_stream_id,
       bool should_include_version,
@@ -649,7 +650,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructServerResponseHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructServerResponseHeadersPacket(uint64_t packet_number,
                                        quic::QuicStreamId stream_id,
                                        bool should_include_version,
                                        bool fin,
@@ -660,7 +661,7 @@ class QuicNetworkTransactionTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructServerResponseHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructServerResponseHeadersPacket(uint64_t packet_number,
                                        quic::QuicStreamId stream_id,
                                        bool should_include_version,
                                        bool fin,
@@ -729,7 +730,7 @@ class QuicNetworkTransactionTest
   void CheckResponsePort(HttpNetworkTransaction* trans, uint16_t port) {
     const HttpResponseInfo* response = trans->GetResponseInfo();
     ASSERT_TRUE(response != nullptr);
-    EXPECT_EQ(port, response->socket_address.port());
+    EXPECT_EQ(port, response->remote_endpoint.port());
   }
 
   void CheckWasHttpResponse(HttpNetworkTransaction* trans) {
@@ -998,7 +999,7 @@ class QuicNetworkTransactionTest
   }
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     VersionIncludeStreamDependencySequence,
     QuicNetworkTransactionTest,
     ::testing::Combine(
@@ -1243,7 +1244,7 @@ TEST_P(QuicNetworkTransactionTest, LargeResponseHeaders) {
   spdy::SpdySerializedFrame spdy_frame =
       response_framer.SerializeFrame(headers_frame);
 
-  quic::QuicPacketNumber packet_number = 1;
+  uint64_t packet_number = 1;
   size_t chunk_size = 1200;
   for (size_t offset = 0; offset < spdy_frame.size(); offset += chunk_size) {
     size_t len = std::min(chunk_size, spdy_frame.size() - offset);
@@ -1302,7 +1303,7 @@ TEST_P(QuicNetworkTransactionTest, TooLargeResponseHeaders) {
   spdy::SpdySerializedFrame spdy_frame =
       response_framer.SerializeFrame(headers_frame);
 
-  quic::QuicPacketNumber packet_number = 1;
+  uint64_t packet_number = 1;
   size_t chunk_size = 1200;
   for (size_t offset = 0; offset < spdy_frame.size(); offset += chunk_size) {
     size_t len = std::min(chunk_size, spdy_frame.size() - offset);
@@ -2216,13 +2217,6 @@ TEST_P(QuicNetworkTransactionTest, GoAwayWithConnectionMigrationOnPortsOnly) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -2230,7 +2224,7 @@ TEST_P(QuicNetworkTransactionTest, GoAwayWithConnectionMigrationOnPortsOnly) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -2251,11 +2245,14 @@ TEST_P(QuicNetworkTransactionTest, GoAwayWithConnectionMigrationOnPortsOnly) {
 // alternate network as well, QUIC is marked as broken and the brokenness will
 // not expire when default network changes.
 TEST_P(QuicNetworkTransactionTest, QuicFailsOnBothNetworksWhileTCPSucceeds) {
+  if (version_ >= quic::QUIC_VERSION_47) {
+    // TODO(nharper): reenable once MakeDummyCHLOPacket() fixed
+    return;
+  }
   SetUpTestForRetryConnectionOnAlternateNetwork();
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
 
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
@@ -2308,13 +2305,6 @@ TEST_P(QuicNetworkTransactionTest, QuicFailsOnBothNetworksWhileTCPSucceeds) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -2332,7 +2322,7 @@ TEST_P(QuicNetworkTransactionTest, QuicFailsOnBothNetworksWhileTCPSucceeds) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -2375,11 +2365,14 @@ TEST_P(QuicNetworkTransactionTest, QuicFailsOnBothNetworksWhileTCPSucceeds) {
 // alternate network, QUIC is marked as broken. The brokenness will expire when
 // the default network changes.
 TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPSucceeds) {
+  if (version_ >= quic::QUIC_VERSION_47) {
+    // TODO(nharper): reenable once MakeDummyCHLOPacket() fixed
+    return;
+  }
   SetUpTestForRetryConnectionOnAlternateNetwork();
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
 
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
@@ -2439,13 +2432,6 @@ TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPSucceeds) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -2463,7 +2449,7 @@ TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPSucceeds) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -2513,11 +2499,14 @@ TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPSucceeds) {
 // before handshake is confirmed. If TCP doesn't succeed but QUIC on the
 // alternative network succeeds, QUIC is not marked as broken.
 TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPHanging) {
+  if (version_ >= quic::QUIC_VERSION_47) {
+    // TODO(nharper): reenable once MakeDummyCHLOPacket() fixed
+    return;
+  }
   SetUpTestForRetryConnectionOnAlternateNetwork();
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
 
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
@@ -2583,13 +2572,6 @@ TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPHanging) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -2607,7 +2589,7 @@ TEST_P(QuicNetworkTransactionTest, RetryOnAlternateNetworkWhileTCPHanging) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -2656,8 +2638,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmed) {
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -2724,13 +2705,6 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmed) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -2744,7 +2718,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmed) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -2774,8 +2748,7 @@ TEST_P(QuicNetworkTransactionTest, TooManyRtosAfterHandshakeConfirmed) {
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -2850,13 +2823,6 @@ TEST_P(QuicNetworkTransactionTest, TooManyRtosAfterHandshakeConfirmed) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -2870,7 +2836,7 @@ TEST_P(QuicNetworkTransactionTest, TooManyRtosAfterHandshakeConfirmed) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -2900,8 +2866,7 @@ TEST_P(QuicNetworkTransactionTest,
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -2981,13 +2946,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3002,7 +2960,7 @@ TEST_P(QuicNetworkTransactionTest,
   auto trans = std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY,
                                                         session_.get());
   TestCompletionCallback callback;
-  rv = trans->Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans->Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3029,8 +2987,7 @@ TEST_P(QuicNetworkTransactionTest, ProtocolErrorAfterHandshakeConfirmed) {
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(
       SYNCHRONOUS,
       ConstructClientRequestHeadersPacket(
@@ -3060,13 +3017,6 @@ TEST_P(QuicNetworkTransactionTest, ProtocolErrorAfterHandshakeConfirmed) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
 
@@ -3074,7 +3024,7 @@ TEST_P(QuicNetworkTransactionTest, ProtocolErrorAfterHandshakeConfirmed) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3109,8 +3059,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken) {
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3191,13 +3140,6 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3211,7 +3153,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3251,8 +3193,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken2) {
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3333,13 +3274,6 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken2) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3353,7 +3287,7 @@ TEST_P(QuicNetworkTransactionTest, TimeoutAfterHandshakeConfirmedThenBroken2) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3397,8 +3331,7 @@ TEST_P(QuicNetworkTransactionTest,
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3487,13 +3420,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3507,7 +3433,7 @@ TEST_P(QuicNetworkTransactionTest,
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3550,8 +3476,7 @@ TEST_P(QuicNetworkTransactionTest,
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3640,13 +3565,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3660,7 +3578,7 @@ TEST_P(QuicNetworkTransactionTest,
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3701,8 +3619,7 @@ TEST_P(QuicNetworkTransactionTest,
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3782,13 +3699,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // Use a TestTaskRunner to avoid waiting in real time for timeouts.
@@ -3803,7 +3713,7 @@ TEST_P(QuicNetworkTransactionTest,
   auto trans = std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY,
                                                         session_.get());
   TestCompletionCallback callback;
-  rv = trans->Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans->Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3833,8 +3743,7 @@ TEST_P(QuicNetworkTransactionTest,
   // The request will initially go out over QUIC.
   MockQuicData quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(
       SYNCHRONOUS,
       ConstructClientRequestHeadersPacket(
@@ -3878,13 +3787,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
 
@@ -3892,7 +3794,7 @@ TEST_P(QuicNetworkTransactionTest,
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -3932,8 +3834,7 @@ TEST_P(QuicNetworkTransactionTest, ResetAfterHandshakeConfirmedThenBroken) {
       ConvertRequestPriorityToQuicPriority(DEFAULT_PRIORITY);
 
   std::string request_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   quic_data.AddWrite(SYNCHRONOUS,
                      client_maker_.MakeRequestHeadersPacketAndSaveData(
                          1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -3977,13 +3878,6 @@ TEST_P(QuicNetworkTransactionTest, ResetAfterHandshakeConfirmedThenBroken) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
 
@@ -3991,7 +3885,7 @@ TEST_P(QuicNetworkTransactionTest, ResetAfterHandshakeConfirmedThenBroken) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Pump the message loop to get the request started.
@@ -4954,8 +4848,7 @@ TEST_P(QuicNetworkTransactionTest, HungAlternativeService) {
 TEST_P(QuicNetworkTransactionTest, ZeroRTTWithHttpRace) {
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   mock_quic_data.AddWrite(
       SYNCHRONOUS,
       ConstructClientRequestHeadersPacket(
@@ -4991,8 +4884,7 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithHttpRace) {
 
 TEST_P(QuicNetworkTransactionTest, ZeroRTTWithNoHttpRace) {
   MockQuicData mock_quic_data;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructClientRequestHeadersPacket(
                        1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -5017,13 +4909,6 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithNoHttpRace) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   AddHangingNonAlternateProtocolSocketData();
   CreateSession();
@@ -5055,13 +4940,6 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithProxy) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   request_.url = GURL("http://mail.example.org/");
   CreateSession();
@@ -5104,13 +4982,6 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithConfirmationRequired) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -5118,7 +4989,7 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithConfirmationRequired) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -5133,8 +5004,7 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithTooEarlyResponse) {
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset client_header_stream_offset = 0;
   quic::QuicStreamOffset server_header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructClientRequestHeadersPacket(
                        1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -5193,11 +5063,6 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithTooEarlyResponse) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                         CompletionOnceCallback(), &request, net_log_.bound());
 
   AddHangingNonAlternateProtocolSocketData();
   CreateSession();
@@ -5232,8 +5097,7 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithMultipleTooEarlyResponse) {
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset client_header_stream_offset = 0;
   quic::QuicStreamOffset server_header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructClientRequestHeadersPacket(
                        1, GetNthClientInitiatedBidirectionalStreamId(0), true,
@@ -5290,11 +5154,6 @@ TEST_P(QuicNetworkTransactionTest, ZeroRTTWithMultipleTooEarlyResponse) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                         CompletionOnceCallback(), &request, net_log_.bound());
 
   AddHangingNonAlternateProtocolSocketData();
   CreateSession();
@@ -5360,13 +5219,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -5374,7 +5226,7 @@ TEST_P(QuicNetworkTransactionTest,
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -5427,13 +5279,6 @@ TEST_P(QuicNetworkTransactionTest,
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -5441,7 +5286,7 @@ TEST_P(QuicNetworkTransactionTest,
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -5489,13 +5334,6 @@ TEST_P(QuicNetworkTransactionTest, RstSteamErrorHandling) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -5503,7 +5341,7 @@ TEST_P(QuicNetworkTransactionTest, RstSteamErrorHandling) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -5554,13 +5392,6 @@ TEST_P(QuicNetworkTransactionTest, RstSteamBeforeHeaders) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   session_->quic_stream_factory()->set_require_confirmation(true);
@@ -5568,7 +5399,7 @@ TEST_P(QuicNetworkTransactionTest, RstSteamBeforeHeaders) {
 
   HttpNetworkTransaction trans(DEFAULT_PRIORITY, session_.get());
   TestCompletionCallback callback;
-  rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
   EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
   crypto_client_stream_factory_.last_stream()->SendOnCryptoHandshakeEvent(
@@ -5672,8 +5503,7 @@ TEST_P(QuicNetworkTransactionTest, DelayTCPOnStartWithQuicSupportOnSameIP) {
 
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_INITIAL);
-  client_maker_.SetLongHeaderType(quic::ZERO_RTT_PROTECTED);
+  client_maker_.SetEncryptionLevel(quic::ENCRYPTION_ZERO_RTT);
   mock_quic_data.AddWrite(
       SYNCHRONOUS,
       ConstructClientRequestHeadersPacket(
@@ -5907,6 +5737,10 @@ TEST_P(QuicNetworkTransactionTest, BrokenAlternateProtocolOnConnectFailure) {
 }
 
 TEST_P(QuicNetworkTransactionTest, ConnectionCloseDuringConnect) {
+  if (version_ >= quic::QUIC_VERSION_47) {
+    // TODO(nharper): reenable once MakeDummyCHLOPacket() fixed
+    return;
+  }
   MockQuicData mock_quic_data;
   mock_quic_data.AddWrite(SYNCHRONOUS, client_maker_.MakeDummyCHLOPacket(1));
   mock_quic_data.AddRead(ASYNC, ConstructServerConnectionClosePacket(1));
@@ -5929,13 +5763,6 @@ TEST_P(QuicNetworkTransactionTest, ConnectionCloseDuringConnect) {
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("mail.example.org", "192.168.0.1",
                                            "");
-  HostResolver::RequestInfo info(HostPortPair("mail.example.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   // TODO(rch): Check if we need a 0RTT version of ConnectionCloseDuringConnect
@@ -6010,13 +5837,6 @@ TEST_P(QuicNetworkTransactionTest, ConnectionCloseDuringConnectProxy) {
   // synchronously.
   host_resolver_.set_synchronous_mode(true);
   host_resolver_.rules()->AddIPLiteralRule("myproxy.org", "192.168.0.1", "");
-  HostResolver::RequestInfo info(HostPortPair("myproxy.org", 443));
-  AddressList address;
-  std::unique_ptr<HostResolver::Request> request;
-  int rv = host_resolver_.Resolve(info, DEFAULT_PRIORITY, &address,
-                                  CompletionOnceCallback(), &request,
-                                  net_log_.bound());
-  EXPECT_THAT(rv, IsOk());
 
   CreateSession();
   crypto_client_stream_factory_.set_handshake_mode(
@@ -6378,7 +6198,7 @@ TEST_P(QuicNetworkTransactionTest, QuicServerPush) {
 
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  quic::QuicPacketNumber client_packet_number = 1;
+  uint64_t client_packet_number = 1;
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructInitialSettingsPacket(client_packet_number++,
                                                   &header_stream_offset));
@@ -6469,7 +6289,7 @@ TEST_P(QuicNetworkTransactionTest, CancelServerPushAfterConnectionClose) {
 
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  quic::QuicPacketNumber client_packet_number = 1;
+  uint64_t client_packet_number = 1;
   // Initial SETTINGS frame.
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructInitialSettingsPacket(client_packet_number++,
@@ -6631,7 +6451,7 @@ class QuicURLRequestContext : public URLRequestContext {
     storage_.set_ssl_config_service(
         std::make_unique<SSLConfigServiceDefaults>());
     storage_.set_http_auth_handler_factory(
-        HttpAuthHandlerFactory::CreateDefault(host_resolver()));
+        HttpAuthHandlerFactory::CreateDefault());
     storage_.set_http_server_properties(
         std::make_unique<HttpServerPropertiesImpl>());
     storage_.set_job_factory(std::make_unique<URLRequestJobFactoryImpl>());
@@ -6724,7 +6544,7 @@ TEST_P(QuicNetworkTransactionTest, RawHeaderSizeSuccessfullPushHeadersFirst) {
 
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  quic::QuicPacketNumber client_packet_number = 1;
+  uint64_t client_packet_number = 1;
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructInitialSettingsPacket(client_packet_number++,
                                                   &header_stream_offset));
@@ -6907,8 +6727,7 @@ class QuicNetworkTransactionWithDestinationTest
         cert_transparency_verifier_(new MultiLogCTVerifier()),
         ssl_config_service_(new SSLConfigServiceDefaults),
         proxy_resolution_service_(ProxyResolutionService::CreateDirect()),
-        auth_handler_factory_(
-            HttpAuthHandlerFactory::CreateDefault(&host_resolver_)),
+        auth_handler_factory_(HttpAuthHandlerFactory::CreateDefault()),
         random_generator_(0),
         ssl_data_(ASYNC, OK) {}
 
@@ -6982,7 +6801,7 @@ class QuicNetworkTransactionWithDestinationTest
         expiration, supported_versions_);
   }
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       quic::QuicStreamOffset* offset,
@@ -6992,7 +6811,7 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       quic::QuicStreamId parent_stream_id,
@@ -7008,7 +6827,7 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructClientRequestHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructClientRequestHeadersPacket(uint64_t packet_number,
                                       quic::QuicStreamId stream_id,
                                       bool should_include_version,
                                       QuicTestPacketMaker* maker) {
@@ -7017,7 +6836,7 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructServerResponseHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructServerResponseHeadersPacket(uint64_t packet_number,
                                        quic::QuicStreamId stream_id,
                                        quic::QuicStreamOffset* offset,
                                        QuicTestPacketMaker* maker) {
@@ -7027,7 +6846,7 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket>
-  ConstructServerResponseHeadersPacket(quic::QuicPacketNumber packet_number,
+  ConstructServerResponseHeadersPacket(uint64_t packet_number,
                                        quic::QuicStreamId stream_id,
                                        QuicTestPacketMaker* maker) {
     return ConstructServerResponseHeadersPacket(packet_number, stream_id,
@@ -7035,7 +6854,7 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructServerDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamId stream_id,
       QuicTestPacketMaker* maker) {
     quic::QuicString header = "";
@@ -7050,17 +6869,17 @@ class QuicNetworkTransactionWithDestinationTest
   }
 
   std::unique_ptr<quic::QuicEncryptedPacket> ConstructClientAckPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       QuicTestPacketMaker* maker) {
     return maker->MakeAckPacket(packet_number, largest_received,
                                 smallest_received, least_unacked, true);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructInitialSettingsPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset* offset,
       QuicTestPacketMaker* maker) {
     return maker->MakeInitialSettingsPacket(packet_number, offset);
@@ -7121,7 +6940,7 @@ class QuicNetworkTransactionWithDestinationTest
     EXPECT_TRUE(response->was_alpn_negotiated);
     EXPECT_EQ(QuicHttpStream::ConnectionInfoFromQuicVersion(version_),
               response->connection_info);
-    EXPECT_EQ(443, response->socket_address.port());
+    EXPECT_EQ(443, response->remote_endpoint.port());
   }
 
   quic::QuicStreamId GetNthClientInitiatedBidirectionalStreamId(int n) {
@@ -7155,9 +6974,9 @@ class QuicNetworkTransactionWithDestinationTest
   SSLSocketDataProvider ssl_data_;
 };
 
-INSTANTIATE_TEST_CASE_P(VersionIncludeStreamDependencySequence,
-                        QuicNetworkTransactionWithDestinationTest,
-                        ::testing::ValuesIn(GetPoolingTestParams()));
+INSTANTIATE_TEST_SUITE_P(VersionIncludeStreamDependencySequence,
+                         QuicNetworkTransactionWithDestinationTest,
+                         ::testing::ValuesIn(GetPoolingTestParams()));
 
 // A single QUIC request fails because the certificate does not match the origin
 // hostname, regardless of whether it matches the alternative service hostname.
@@ -7405,7 +7224,7 @@ TEST_P(QuicNetworkTransactionTest, QuicServerPushMatchesRequestWithBody) {
 
   MockQuicData mock_quic_data;
   quic::QuicStreamOffset header_stream_offset = 0;
-  quic::QuicPacketNumber client_packet_number = 1;
+  uint64_t client_packet_number = 1;
   mock_quic_data.AddWrite(
       SYNCHRONOUS, ConstructInitialSettingsPacket(client_packet_number++,
                                                   &header_stream_offset));
@@ -8404,6 +8223,72 @@ TEST_P(QuicNetworkTransactionTest, QuicProxyRequestPriority) {
   EXPECT_TRUE(mock_quic_data.AllWriteDataConsumed());
 }
 
+// Makes sure the CONNECT request packet for a QUIC proxy contains the correct
+// HTTP/2 stream dependency and weights given the request priority.
+TEST_P(QuicNetworkTransactionTest, QuicProxyMultipleRequestsError) {
+  session_params_.enable_quic = true;
+  session_params_.enable_quic_proxies_for_https_urls = true;
+  proxy_resolution_service_ = ProxyResolutionService::CreateFixedFromPacResult(
+      "QUIC proxy.example.org:70", TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  const RequestPriority kRequestPriority = MEDIUM;
+  const RequestPriority kRequestPriority2 = LOWEST;
+
+  MockQuicData mock_quic_data;
+  quic::QuicStreamOffset header_stream_offset = 0;
+  mock_quic_data.AddWrite(
+      ASYNC, ConstructInitialSettingsPacket(1, &header_stream_offset));
+  mock_quic_data.AddWrite(SYNCHRONOUS, ERR_FAILED);
+  // This should never be reached.
+  mock_quic_data.AddRead(ASYNC, ERR_CONNECTION_FAILED);
+  mock_quic_data.AddSocketDataToFactory(&socket_factory_);
+
+  // Second connection attempt just fails - result doesn't really matter.
+  MockQuicData mock_quic_data2;
+  mock_quic_data2.AddConnect(SYNCHRONOUS, ERR_FAILED);
+  mock_quic_data2.AddSocketDataToFactory(&socket_factory_);
+
+  int original_max_sockets_per_group =
+      ClientSocketPoolManager::max_sockets_per_group(
+          HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL);
+  ClientSocketPoolManager::set_max_sockets_per_group(
+      HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL, 1);
+  int original_max_sockets_per_pool =
+      ClientSocketPoolManager::max_sockets_per_pool(
+          HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL);
+  ClientSocketPoolManager::set_max_sockets_per_pool(
+      HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL, 1);
+  CreateSession();
+
+  request_.url = GURL("https://mail.example.org/");
+  HttpNetworkTransaction trans(kRequestPriority, session_.get());
+  TestCompletionCallback callback;
+  int rv = trans.Start(&request_, callback.callback(), net_log_.bound());
+  EXPECT_EQ(ERR_IO_PENDING, rv);
+
+  HttpRequestInfo request2;
+  request2.url = GURL("https://mail.example.org/some/other/path/");
+  request2.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  HttpNetworkTransaction trans2(kRequestPriority2, session_.get());
+  TestCompletionCallback callback2;
+  int rv2 = trans2.Start(&request2, callback2.callback(), net_log_.bound());
+  EXPECT_EQ(ERR_IO_PENDING, rv2);
+
+  EXPECT_EQ(ERR_QUIC_PROTOCOL_ERROR, callback.WaitForResult());
+  EXPECT_TRUE(mock_quic_data.AllWriteDataConsumed());
+
+  EXPECT_EQ(ERR_FAILED, callback2.WaitForResult());
+
+  ClientSocketPoolManager::set_max_sockets_per_pool(
+      HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL,
+      original_max_sockets_per_pool);
+  ClientSocketPoolManager::set_max_sockets_per_group(
+      HttpNetworkSession::SocketPoolType::NORMAL_SOCKET_POOL,
+      original_max_sockets_per_group);
+}
+
 // Test the request-challenge-retry sequence for basic auth, over a QUIC
 // connection when setting up a QUIC proxy tunnel.
 TEST_P(QuicNetworkTransactionTest, QuicProxyAuth) {
@@ -8480,7 +8365,8 @@ TEST_P(QuicNetworkTransactionTest, QuicProxyAuth) {
         SYNCHRONOUS,
         client_maker->MakeRstPacket(
             4, false, GetNthClientInitiatedBidirectionalStreamId(0),
-            quic::QUIC_STREAM_CANCELLED, client_data_offset));
+            quic::QUIC_STREAM_CANCELLED, client_data_offset,
+            /*include_stop_sending_if_v99=*/true));
 
     headers = client_maker->ConnectRequestHeaders("mail.example.org:443");
     headers["proxy-authorization"] = "Basic Zm9vOmJheg==";

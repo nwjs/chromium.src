@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/at_exit.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/files/scoped_file.h"
@@ -165,7 +166,10 @@ class MCSProbeAuthPreferences : public net::HttpAuthPreferences {
   bool CanUseDefaultCredentials(const GURL& auth_origin) const override {
     return false;
   }
-  bool CanDelegate(const GURL& auth_origin) const override { return false; }
+  net::HttpAuth::DelegationType GetDelegationType(
+      const GURL& auth_origin) const override {
+    return net::HttpAuth::DelegationType::kNone;
+  }
 };
 
 class MCSProbe {
@@ -337,8 +341,7 @@ void MCSProbe::InitializeNetworkState() {
 
   host_resolver_ = net::HostResolver::CreateDefaultResolver(&net_log_);
   http_auth_handler_factory_ = net::HttpAuthHandlerRegistryFactory::Create(
-      host_resolver_.get(), &http_auth_preferences_,
-      std::vector<std::string>{net::kBasicAuthScheme});
+      &http_auth_preferences_, std::vector<std::string>{net::kBasicAuthScheme});
 
   net::URLRequestContextBuilder builder;
   builder.set_net_log(&net_log_);

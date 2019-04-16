@@ -68,16 +68,15 @@ TEST_F(ContentSecurityPolicyTest, ParseInsecureRequestPolicy) {
                           kContentSecurityPolicyHeaderSourceHTTP);
     EXPECT_EQ(test.expected_policy, csp->GetInsecureRequestPolicy());
 
-    execution_context = CreateExecutionContext();
-    execution_context->SetSecurityOrigin(secure_origin);
-    execution_context->SetURL(secure_url);
-    csp->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
-    EXPECT_EQ(test.expected_policy,
-              execution_context->GetInsecureRequestPolicy());
+    Document* document = Document::CreateForTest();
+    document->SetSecurityOrigin(secure_origin);
+    document->SetURL(secure_url);
+    csp->BindToDelegate(document->GetContentSecurityPolicyDelegate());
+    EXPECT_EQ(test.expected_policy, document->GetInsecureRequestPolicy());
     bool expect_upgrade = test.expected_policy & kUpgradeInsecureRequests;
     EXPECT_EQ(expect_upgrade,
-              execution_context->InsecureNavigationsToUpgrade()->Contains(
-                  execution_context->Url().Host().Impl()->GetHash()));
+              document->InsecureNavigationsToUpgrade()->Contains(
+                  document->Url().Host().Impl()->GetHash()));
   }
 
   // Report-Only
@@ -733,10 +732,11 @@ TEST_F(ContentSecurityPolicyTest, NonceInline) {
     policy->DidReceiveHeader(String("script-src ") + test.policy,
                              kContentSecurityPolicyHeaderTypeEnforce,
                              kContentSecurityPolicyHeaderSourceHTTP);
-    EXPECT_EQ(test.allowed,
-              policy->AllowInlineScript(
-                  element, context_url, String(test.nonce), context_line,
-                  content, ContentSecurityPolicy::InlineType::kBlock));
+    EXPECT_EQ(
+        test.allowed,
+        policy->AllowInline(
+            ContentSecurityPolicy::InlineType::kInlineScriptElement, element,
+            content, String(test.nonce), context_url, context_line));
     EXPECT_EQ(expected_reports, policy->violation_reports_sent_.size());
 
     // Enforce 'style-src'
@@ -745,10 +745,11 @@ TEST_F(ContentSecurityPolicyTest, NonceInline) {
     policy->DidReceiveHeader(String("style-src ") + test.policy,
                              kContentSecurityPolicyHeaderTypeEnforce,
                              kContentSecurityPolicyHeaderSourceHTTP);
-    EXPECT_EQ(test.allowed,
-              policy->AllowInlineStyle(
-                  element, context_url, String(test.nonce), context_line,
-                  content, ContentSecurityPolicy::InlineType::kBlock));
+    EXPECT_EQ(
+        test.allowed,
+        policy->AllowInline(
+            ContentSecurityPolicy::InlineType::kInlineStyleElement, element,
+            content, String(test.nonce), context_url, context_line));
     EXPECT_EQ(expected_reports, policy->violation_reports_sent_.size());
 
     // Report 'script-src'
@@ -757,9 +758,9 @@ TEST_F(ContentSecurityPolicyTest, NonceInline) {
     policy->DidReceiveHeader(String("script-src ") + test.policy,
                              kContentSecurityPolicyHeaderTypeReport,
                              kContentSecurityPolicyHeaderSourceHTTP);
-    EXPECT_TRUE(policy->AllowInlineScript(
-        element, context_url, String(test.nonce), context_line, content,
-        ContentSecurityPolicy::InlineType::kBlock));
+    EXPECT_TRUE(policy->AllowInline(
+        ContentSecurityPolicy::InlineType::kInlineScriptElement, element,
+        content, String(test.nonce), context_url, context_line));
     EXPECT_EQ(expected_reports, policy->violation_reports_sent_.size());
 
     // Report 'style-src'
@@ -768,9 +769,9 @@ TEST_F(ContentSecurityPolicyTest, NonceInline) {
     policy->DidReceiveHeader(String("style-src ") + test.policy,
                              kContentSecurityPolicyHeaderTypeReport,
                              kContentSecurityPolicyHeaderSourceHTTP);
-    EXPECT_TRUE(policy->AllowInlineStyle(
-        element, context_url, String(test.nonce), context_line, content,
-        ContentSecurityPolicy::InlineType::kBlock));
+    EXPECT_TRUE(policy->AllowInline(
+        ContentSecurityPolicy::InlineType::kInlineStyleElement, element,
+        content, String(test.nonce), context_url, context_line));
     EXPECT_EQ(expected_reports, policy->violation_reports_sent_.size());
   }
 }
@@ -1428,6 +1429,52 @@ TEST_F(ContentSecurityPolicyTest, TrustedTypesReserved) {
   EXPECT_FALSE(csp->AllowTrustedTypePolicy("'three'"));
 }
 
+TEST_F(ContentSecurityPolicyTest, TrustedTypeEnforce) {
+  execution_context->SetRequireTrustedTypesForTesting();
+  csp->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
+  csp->DidReceiveHeader("trusted-types one\ntwo\rthree",
+                        kContentSecurityPolicyHeaderTypeEnforce,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  EXPECT_TRUE(csp->IsRequireTrustedTypes());
+  EXPECT_FALSE(csp->AllowTrustedTypeAssignmentFailure("blabla"));
+}
+
+TEST_F(ContentSecurityPolicyTest, TrustedTypeReport) {
+  execution_context->SetRequireTrustedTypesForTesting();
+  csp->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
+  csp->DidReceiveHeader("trusted-types one\ntwo\rthree",
+                        kContentSecurityPolicyHeaderTypeReport,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  EXPECT_TRUE(csp->IsRequireTrustedTypes());
+  EXPECT_TRUE(csp->AllowTrustedTypeAssignmentFailure("blabla"));
+}
+
+TEST_F(ContentSecurityPolicyTest, TrustedTypeReportAndEnforce) {
+  execution_context->SetRequireTrustedTypesForTesting();
+  csp->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
+  csp->DidReceiveHeader("trusted-types one",
+                        kContentSecurityPolicyHeaderTypeReport,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  csp->DidReceiveHeader("trusted-types two",
+                        kContentSecurityPolicyHeaderTypeEnforce,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  EXPECT_TRUE(csp->IsRequireTrustedTypes());
+  EXPECT_FALSE(csp->AllowTrustedTypeAssignmentFailure("blabla"));
+}
+
+TEST_F(ContentSecurityPolicyTest, TrustedTypeReportAndNonTTEnforce) {
+  execution_context->SetRequireTrustedTypesForTesting();
+  csp->BindToDelegate(execution_context->GetContentSecurityPolicyDelegate());
+  csp->DidReceiveHeader("trusted-types one",
+                        kContentSecurityPolicyHeaderTypeReport,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  csp->DidReceiveHeader("script-src none",
+                        kContentSecurityPolicyHeaderTypeEnforce,
+                        kContentSecurityPolicyHeaderSourceHTTP);
+  EXPECT_TRUE(csp->IsRequireTrustedTypes());
+  EXPECT_TRUE(csp->AllowTrustedTypeAssignmentFailure("blabla"));
+}
+
 TEST_F(ContentSecurityPolicyTest, DirectiveNameCaseInsensitive) {
   KURL example_url("http://example.com");
   KURL not_example_url("http://not-example.com");
@@ -1475,10 +1522,12 @@ TEST_F(ContentSecurityPolicyTest, EmptyCSPIsNoOp) {
       HTMLScriptElement::Create(*document, CreateElementFlags::ByParser());
 
   EXPECT_TRUE(csp->Headers().IsEmpty());
-  EXPECT_TRUE(
-      csp->AllowJavaScriptURLs(element, source, context_url, ordinal_number));
-  EXPECT_TRUE(csp->AllowInlineEventHandler(element, source, context_url,
-                                           ordinal_number));
+  EXPECT_TRUE(csp->AllowInline(
+      ContentSecurityPolicy::InlineType::kJavaScriptURL, element, source,
+      String() /* nonce */, context_url, ordinal_number));
+  EXPECT_TRUE(csp->AllowInline(
+      ContentSecurityPolicy::InlineType::kInlineEventHandler, element, source,
+      String() /* nonce */, context_url, ordinal_number));
   EXPECT_TRUE(csp->AllowEval(nullptr, SecurityViolationReportingPolicy::kReport,
                              ContentSecurityPolicy::kWillNotThrowException,
                              g_empty_string));
@@ -1490,27 +1539,42 @@ TEST_F(ContentSecurityPolicyTest, EmptyCSPIsNoOp) {
   EXPECT_TRUE(csp->AllowPluginTypeForDocument(
       *document, "application/x-type-1", "application/x-type-1", example_url,
       SecurityViolationReportingPolicy::kSuppressReporting));
+
+  ContentSecurityPolicy::DirectiveType types_to_test[] = {
+      ContentSecurityPolicy::DirectiveType::kBaseURI,
+      ContentSecurityPolicy::DirectiveType::kConnectSrc,
+      ContentSecurityPolicy::DirectiveType::kFontSrc,
+      ContentSecurityPolicy::DirectiveType::kFormAction,
+      ContentSecurityPolicy::DirectiveType::kFrameSrc,
+      ContentSecurityPolicy::DirectiveType::kImgSrc,
+      ContentSecurityPolicy::DirectiveType::kManifestSrc,
+      ContentSecurityPolicy::DirectiveType::kMediaSrc,
+      ContentSecurityPolicy::DirectiveType::kObjectSrc,
+      ContentSecurityPolicy::DirectiveType::kPrefetchSrc,
+      ContentSecurityPolicy::DirectiveType::kScriptSrcElem,
+      ContentSecurityPolicy::DirectiveType::kStyleSrcElem,
+      ContentSecurityPolicy::DirectiveType::kWorkerSrc};
+  for (auto type : types_to_test) {
+    EXPECT_TRUE(csp->AllowFromSource(type, example_url));
+  }
+
   EXPECT_TRUE(csp->AllowObjectFromSource(example_url));
-  EXPECT_TRUE(csp->AllowPrefetchFromSource(example_url));
-  EXPECT_TRUE(csp->AllowFrameFromSource(example_url));
   EXPECT_TRUE(csp->AllowImageFromSource(example_url));
-  EXPECT_TRUE(csp->AllowFontFromSource(example_url));
   EXPECT_TRUE(csp->AllowMediaFromSource(example_url));
   EXPECT_TRUE(csp->AllowConnectToSource(example_url));
   EXPECT_TRUE(csp->AllowFormAction(example_url));
   EXPECT_TRUE(csp->AllowBaseURI(example_url));
-  EXPECT_TRUE(csp->AllowTrustedTypePolicy("somepolicy"));
   EXPECT_TRUE(csp->AllowWorkerContextFromSource(example_url));
-  EXPECT_TRUE(csp->AllowManifestFromSource(example_url));
   EXPECT_TRUE(csp->AllowScriptFromSource(
       example_url, nonce, IntegrityMetadataSet(), kParserInserted));
-  EXPECT_TRUE(csp->AllowStyleFromSource(example_url, nonce));
-  EXPECT_TRUE(csp->AllowInlineScript(
-      element, context_url, nonce, ordinal_number, source,
-      ContentSecurityPolicy::InlineType::kBlock));
-  EXPECT_TRUE(csp->AllowInlineStyle(element, context_url, nonce, ordinal_number,
-                                    source,
-                                    ContentSecurityPolicy::InlineType::kBlock));
+
+  EXPECT_TRUE(csp->AllowTrustedTypePolicy("somepolicy"));
+  EXPECT_TRUE(
+      csp->AllowInline(ContentSecurityPolicy::InlineType::kInlineScriptElement,
+                       element, source, nonce, context_url, ordinal_number));
+  EXPECT_TRUE(
+      csp->AllowInline(ContentSecurityPolicy::InlineType::kInlineStyleElement,
+                       element, source, nonce, context_url, ordinal_number));
   EXPECT_TRUE(csp->AllowAncestors(document->GetFrame(), example_url));
   EXPECT_FALSE(csp->IsFrameAncestorsEnforced());
   EXPECT_TRUE(csp->AllowRequestWithoutIntegrity(

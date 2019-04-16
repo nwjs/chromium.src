@@ -68,7 +68,6 @@ class NGPaintFragment;
 class NGPhysicalFragment;
 
 struct NGInlineNodeData;
-struct NGPhysicalOffset;
 
 enum IndentTextOrNot { kDoNotIndentText, kIndentText };
 
@@ -460,23 +459,13 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
   virtual void ClearNGInlineNodeData() {}
   virtual bool HasNGInlineNodeData() const { return false; }
   virtual NGPaintFragment* PaintFragment() const { return nullptr; }
-  virtual scoped_refptr<NGLayoutResult> CachedLayoutResult(
+  virtual scoped_refptr<const NGLayoutResult> CachedLayoutResult(
       const NGConstraintSpace&,
       const NGBreakToken*);
-  virtual scoped_refptr<const NGLayoutResult> CachedLayoutResultForTesting();
-  virtual void SetCachedLayoutResult(const NGConstraintSpace&,
-                                     const NGBreakToken*,
-                                     const NGLayoutResult&);
-  virtual void ClearCachedLayoutResult();
   virtual bool AreCachedLinesValidFor(const NGConstraintSpace&) const;
   virtual void WillCollectInlines() {}
   virtual void SetPaintFragment(const NGBlockBreakToken*,
-                                scoped_refptr<const NGPhysicalFragment>,
-                                NGPhysicalOffset);
-  virtual void UpdatePaintFragmentFromCachedLayoutResult(
-      const NGBlockBreakToken*,
-      scoped_refptr<const NGPhysicalFragment>,
-      NGPhysicalOffset);
+                                scoped_refptr<const NGPhysicalFragment>);
   virtual const NGPhysicalBoxFragment* CurrentFragment() const {
     return nullptr;
   }
@@ -503,10 +492,6 @@ class CORE_EXPORT LayoutBlockFlow : public LayoutBlock {
 
   void UpdateBlockChildDirtyBitsBeforeLayout(bool relayout_children,
                                              LayoutBox&);
-
-  void ComputeSelfHitTestRects(Vector<LayoutRect>&,
-                               const LayoutPoint& layer_offset) const override;
-
   void AbsoluteRects(Vector<IntRect>&,
                      const LayoutPoint& accumulated_offset) const override;
   void AbsoluteQuads(Vector<FloatQuad>&,

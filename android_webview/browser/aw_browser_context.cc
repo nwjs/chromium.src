@@ -14,15 +14,16 @@
 #include "android_webview/browser/aw_permission_manager.h"
 #include "android_webview/browser/aw_quota_manager_bridge.h"
 #include "android_webview/browser/aw_resource_context.h"
-#include "android_webview/browser/aw_safe_browsing_whitelist_manager.h"
 #include "android_webview/browser/aw_web_ui_controller_factory.h"
 #include "android_webview/browser/net/aw_url_request_context_getter.h"
+#include "android_webview/browser/safe_browsing/aw_safe_browsing_whitelist_manager.h"
 #include "base/base_paths_posix.h"
 #include "base/bind.h"
 #include "base/path_service.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
 #include "components/autofill/core/browser/autocomplete_history_manager.h"
+#include "components/download/public/common/in_progress_download_manager.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/triggers/trigger_manager.h"
@@ -31,6 +32,7 @@
 #include "components/visitedlink/browser/visitedlink_master.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/download_request_utils.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
@@ -59,8 +61,6 @@ const char kWebRestrictionsAuthority[] = "web_restrictions_authority";
 
 namespace {
 
-const base::FilePath::CharType kChannelIDFilename[] = "Origin Bound Certs";
-
 const void* const kDownloadManagerDelegateKey = &kDownloadManagerDelegateKey;
 
 AwBrowserContext* g_browser_context = NULL;
@@ -87,6 +87,12 @@ CreateSafeBrowsingWhitelistManager() {
       base::CreateSingleThreadTaskRunnerWithTraits({BrowserThread::IO});
   return std::make_unique<AwSafeBrowsingWhitelistManager>(
       background_task_runner, io_task_runner);
+}
+
+// Empty method to skip origin security check as DownloadManager will set its
+// own method.
+bool IgnoreOriginSecurityCheck(const GURL& url) {
+  return true;
 }
 
 }  // namespace
@@ -132,10 +138,22 @@ AwBrowserContext* AwBrowserContext::FromWebContents(
 // static
 base::FilePath AwBrowserContext::GetCacheDir() {
   FilePath cache_path;
-  base::PathService::Get(base::DIR_CACHE, &cache_path);
+  if (!base::PathService::Get(base::DIR_CACHE, &cache_path)) {
+    NOTREACHED() << "Failed to get app cache directory for Android WebView";
+  }
   cache_path =
       cache_path.Append(FILE_PATH_LITERAL("org.chromium.android_webview"));
   return cache_path;
+}
+
+// static
+base::FilePath AwBrowserContext::GetCookieStorePath() {
+  FilePath cookie_store_path;
+  if (!base::PathService::Get(base::DIR_ANDROID_APP_DATA, &cookie_store_path)) {
+    NOTREACHED() << "Failed to get app data directory for Android WebView";
+  }
+  cookie_store_path = cookie_store_path.Append(FILE_PATH_LITERAL("Cookies"));
+  return cookie_store_path;
 }
 
 void AwBrowserContext::PreMainMessageLoopRun(net::NetLog* net_log) {
@@ -144,9 +162,9 @@ void AwBrowserContext::PreMainMessageLoopRun(net::NetLog* net_log) {
   // TODO(ntfschr): set this to nullptr when the NetworkService is disabled,
   // once we remove a dependency on url_request_context_getter_
   // (http://crbug.com/887538).
-  url_request_context_getter_ = new AwURLRequestContextGetter(
-      cache_path, context_storage_path_.Append(kChannelIDFilename),
-      CreateProxyConfigService(), user_pref_service_.get(), net_log);
+  url_request_context_getter_ =
+      new AwURLRequestContextGetter(cache_path, CreateProxyConfigService(),
+                                    user_pref_service_.get(), net_log);
 
   scoped_refptr<base::SequencedTaskRunner> db_task_runner =
       base::CreateSequencedTaskRunnerWithTraits(
@@ -284,8 +302,6 @@ AwBrowserContext::GetClientHintsControllerDelegate() {
 
 content::BackgroundFetchDelegate*
 AwBrowserContext::GetBackgroundFetchDelegate() {
-  // TODO(crbug.com/766077): Resolve whether to support or disable background
-  // fetch on WebView.
   return nullptr;
 }
 
@@ -333,6 +349,14 @@ AwBrowserContext::CreateMediaRequestContextForStoragePartition(
     bool in_memory) {
   NOTREACHED();
   return NULL;
+}
+
+download::InProgressDownloadManager*
+AwBrowserContext::RetriveInProgressDownloadManager() {
+  return new download::InProgressDownloadManager(
+      nullptr, base::FilePath(),
+      base::BindRepeating(&IgnoreOriginSecurityCheck),
+      base::BindRepeating(&content::DownloadRequestUtils::IsURLSafe));
 }
 
 web_restrictions::WebRestrictionsClient*

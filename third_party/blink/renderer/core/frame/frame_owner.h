@@ -8,8 +8,8 @@
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/sandbox_flags.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 
 namespace blink {
 
@@ -56,11 +56,16 @@ class CORE_EXPORT FrameOwner : public GarbageCollectedMixin {
   // relevant for SVG documents that are embedded via <object> or <embed>.
   virtual void IntrinsicSizingInfoChanged() = 0;
 
+  // Indicates that a child frame requires its parent frame to track whether the
+  // child frame is occluded or has visual effects applied.
+  virtual void SetNeedsOcclusionTracking(bool) = 0;
+
   virtual AtomicString nwuseragent() const = 0;
   virtual bool nwfaketop() const = 0;
+
   // Returns the 'name' content attribute value of the browsing context
   // container.
-  // https://html.spec.whatwg.org/multipage/browsers.html#browsing-context-container
+  // https://html.spec.whatwg.org/C/#browsing-context-container
   virtual AtomicString BrowsingContextContainerName() const = 0;
   virtual ScrollbarMode ScrollingMode() const = 0;
   virtual int MarginWidth() const = 0;
@@ -100,6 +105,7 @@ class CORE_EXPORT DummyFrameOwner final
   bool CanRenderFallbackContent() const override { return false; }
   void RenderFallbackContent(Frame*) override {}
   void IntrinsicSizingInfoChanged() override {}
+  void SetNeedsOcclusionTracking(bool) override {}
   AtomicString BrowsingContextContainerName() const override {
     return AtomicString();
   }

@@ -22,6 +22,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "cc/benchmarks/micro_benchmark.h"
@@ -34,6 +35,7 @@
 #include "cc/input/scrollbar.h"
 #include "cc/layers/layer_collections.h"
 #include "cc/layers/layer_list_iterator.h"
+#include "cc/paint/node_holder.h"
 #include "cc/trees/compositor_mode.h"
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "cc/trees/layer_tree_host_client.h"
@@ -43,6 +45,7 @@
 #include "cc/trees/swap_promise.h"
 #include "cc/trees/swap_promise_manager.h"
 #include "cc/trees/target_property.h"
+#include "cc/trees/viewport_layers.h"
 #include "components/viz/common/resources/resource_format.h"
 #include "components/viz/common/surfaces/local_surface_id_allocation.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -234,6 +237,16 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // StopDeferringCommits is called.
   std::unique_ptr<ScopedDeferMainFrameUpdate> DeferMainFrameUpdate();
 
+  // Prevents the proxy from committing the layer tree to the compositor,
+  // while still allowing main frame lifecycle updates. |timeout|
+  // is the interval after which commits will restart if nothing stops
+  // deferring sooner. If multiple calls are made to StartDeferringCommits
+  // while deferal is active, the first timeout continues to apply.
+  void StartDeferringCommits(base::TimeDelta timeout);
+
+  // Stop deferring commits immediately.
+  void StopDeferringCommits();
+
   // Returns whether there are any outstanding ScopedDeferMainFrameUpdate,
   // though commits may be deferred also when the local_surface_id_from_parent()
   // is not valid.
@@ -317,19 +330,6 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // caller inform blink about the layer and remove the function.
   void SetNonBlinkManagedRootLayer(scoped_refptr<Layer> root_layer);
 
-  // Viewport Layers are used to identify key layers to the compositor thread,
-  // so that it can perform viewport-based scrolling independently, such as
-  // for pinch-zoom or overscroll elasticity.
-  struct CC_EXPORT ViewportLayers {
-    ViewportLayers();
-    ~ViewportLayers();
-    ElementId overscroll_elasticity_element_id;
-    scoped_refptr<Layer> page_scale;
-    scoped_refptr<Layer> inner_viewport_container;
-    scoped_refptr<Layer> outer_viewport_container;
-    scoped_refptr<Layer> inner_viewport_scroll;
-    scoped_refptr<Layer> outer_viewport_scroll;
-  };
   // Sets or gets the collection of viewport Layers, defined to allow pinch-zoom
   // transformations on the compositor thread.
   void RegisterViewportLayers(const ViewportLayers& viewport_layers);
@@ -449,6 +449,11 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
     return local_surface_id_allocation_from_parent_;
   }
 
+  // Generates a new child surface sequence number (from a LocalSurfaceId). This
+  // results in disabling drawing until the LocalSurfaceIdAllocation is received
+  // via the active tree. This only works in single threaded mode.
+  uint32_t GenerateChildSurfaceSequenceNumberSync();
+
   // Requests the allocation of a new LocalSurfaceId on the compositor thread.
   void RequestNewLocalSurfaceId();
 
@@ -483,6 +488,8 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // v2 is enabled.
   PropertyTrees* property_trees() { return &property_trees_; }
   const PropertyTrees* property_trees() const { return &property_trees_; }
+
+  void SetPropertyTreesForTesting(const PropertyTrees* property_trees);
 
   void SetNeedsDisplayOnAllLayers();
 
@@ -578,7 +585,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   void BeginMainFrameNotExpectedSoon();
   void BeginMainFrameNotExpectedUntil(base::TimeTicks time);
   void AnimateLayers(base::TimeTicks monotonic_frame_begin_time);
-  void RequestMainFrameUpdate(bool record_main_frame_metrics);
+  void RequestMainFrameUpdate();
   void FinishCommitOnImplThread(LayerTreeHostImpl* host_impl);
   void WillCommit();
   void CommitComplete();
@@ -602,6 +609,7 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   // Called when the compositor completed page scale animation.
   void DidCompletePageScaleAnimation();
   void ApplyScrollAndScale(ScrollAndScaleSet* info);
+  void RecordStartOfFrameMetrics();
   void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time);
 
   LayerTreeHostClient* client() { return client_; }
@@ -656,6 +664,9 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   gfx::ScrollOffset GetScrollOffsetForAnimation(
       ElementId element_id) const override;
 
+  void NotifyAnimationWorkletStateChange(AnimationWorkletMutationState state,
+                                         ElementListType tree_type) override {}
+
   void QueueImageDecode(const PaintImage& image,
                         base::OnceCallback<void(bool)> callback);
   void ImageDecodesFinished(const std::vector<std::pair<int, bool>>& results);
@@ -668,6 +679,12 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
 
   void SetRenderFrameObserver(
       std::unique_ptr<RenderFrameMetadataObserver> observer);
+
+  std::string LayersAsString() const;
+
+  // Captures the on-screen text content, if success, fills the associated
+  // NodeHolder in |content| and return true, otherwise return false.
+  bool CaptureContent(std::vector<NodeHolder>* content);
 
  protected:
   LayerTreeHost(InitParams params, CompositorMode mode);
@@ -798,6 +815,10 @@ class CC_EXPORT LayerTreeHost : public MutatorHostClient {
   bool has_pushed_local_surface_id_from_parent_ = false;
   bool new_local_surface_id_request_ = false;
   uint32_t defer_main_frame_update_count_ = 0;
+
+  // Last value returned from GenerateChildSurfaceSequenceNumberSync(). This is
+  // reset once a LocalSurfaceId is submitted with a higher id.
+  base::Optional<uint32_t> generated_child_surface_sequence_number_;
 
   SkColor background_color_ = SK_ColorWHITE;
 

@@ -12,7 +12,7 @@
 #include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
-#include "base/sequence_checker.h"
+#include "base/timer/timer.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "services/service_manager/public/cpp/identity.h"
 #include "services/tracing/public/mojom/tracing.mojom.h"
@@ -54,6 +54,7 @@ class AgentRegistry : public mojom::AgentRegistry {
     const mojom::TraceDataType type_;
     const base::ProcessId pid_;
     std::map<const void*, base::OnceClosure> closures_;
+    base::RepeatingTimer timer_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentEntry);
   };
@@ -68,7 +69,6 @@ class AgentRegistry : public mojom::AgentRegistry {
   void DisconnectAllAgents();
 
   void BindAgentRegistryRequest(
-      scoped_refptr<base::SequencedTaskRunner> task_runner,
       mojom::AgentRegistryRequest request);
 
   // Returns the number of existing agents that the callback was run on.
@@ -79,7 +79,6 @@ class AgentRegistry : public mojom::AgentRegistry {
 
   template <typename FunctionType>
   void ForAllAgents(FunctionType function) {
-    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     for (const auto& key_value : agents_) {
       function(key_value.second.get());
     }
@@ -87,9 +86,7 @@ class AgentRegistry : public mojom::AgentRegistry {
 
  private:
   friend class AgentRegistryTest;  // For testing.
-  friend class CoordinatorTest;    // For testing.
-
-  void BindAgentRegistryRequestOnSequence(mojom::AgentRegistryRequest request);
+  friend class CoordinatorTestUtil;  // For testing.
 
   // mojom::AgentRegistry
   void RegisterAgent(mojom::AgentPtr agent,
@@ -103,8 +100,6 @@ class AgentRegistry : public mojom::AgentRegistry {
   size_t next_agent_id_ = 0;
   std::map<size_t, std::unique_ptr<AgentEntry>> agents_;
   AgentInitializationCallback agent_initialization_callback_;
-
-  SEQUENCE_CHECKER(sequence_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(AgentRegistry);
 };

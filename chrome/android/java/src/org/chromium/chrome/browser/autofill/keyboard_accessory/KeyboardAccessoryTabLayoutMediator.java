@@ -12,11 +12,15 @@ import android.support.annotation.Nullable;
 import android.support.design.widget.TabLayout;
 import android.support.v4.view.ViewPager;
 
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryTabLayoutCoordinator.AccessoryTabObserver;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyObservable;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * This mediator observes and changes a {@link PropertyModel} that contains the visual appearance of
@@ -28,7 +32,7 @@ class KeyboardAccessoryTabLayoutMediator
                    KeyboardAccessoryCoordinator.TabSwitchingDelegate {
     private final PropertyModel mModel;
     private @Nullable AccessoryTabObserver mAccessoryTabObserver;
-    private ViewPager.OnPageChangeListener mPageChangeListener;
+    private Set<TabLayout.TabLayoutOnPageChangeListener> mPageChangeListeners = new HashSet<>();
 
     KeyboardAccessoryTabLayoutMediator(PropertyModel model) {
         mModel = model;
@@ -37,25 +41,27 @@ class KeyboardAccessoryTabLayoutMediator
         mModel.set(TAB_SELECTION_CALLBACKS, this);
     }
 
-    void setPageChangeListener(ViewPager.OnPageChangeListener onPageChangeListener) {
-        mPageChangeListener = onPageChangeListener;
-    }
-
     ViewPager.OnPageChangeListener getStableOnPageChangeListener() {
         return new ViewPager.OnPageChangeListener() {
             @Override
             public void onPageScrolled(int i, float v, int j) {
-                if (mPageChangeListener != null) mPageChangeListener.onPageScrolled(i, v, j);
+                for (TabLayout.TabLayoutOnPageChangeListener listener : mPageChangeListeners) {
+                    listener.onPageScrolled(i, v, j);
+                }
             }
 
             @Override
             public void onPageSelected(int i) {
-                if (mPageChangeListener != null) mPageChangeListener.onPageSelected(i);
+                for (TabLayout.TabLayoutOnPageChangeListener listener : mPageChangeListeners) {
+                    listener.onPageSelected(i);
+                }
             }
 
             @Override
             public void onPageScrollStateChanged(int i) {
-                if (mPageChangeListener != null) mPageChangeListener.onPageScrollStateChanged(i);
+                for (TabLayout.TabLayoutOnPageChangeListener listener : mPageChangeListeners) {
+                    listener.onPageScrollStateChanged(i);
+                }
             }
         };
     }
@@ -127,7 +133,7 @@ class KeyboardAccessoryTabLayoutMediator
 
     @Override
     public void onTabSelected(TabLayout.Tab tab) {
-        mModel.set(ACTIVE_TAB, tab.getPosition());
+        mModel.set(ACTIVE_TAB, validateActiveTab(tab.getPosition()));
     }
 
     @Override
@@ -136,7 +142,7 @@ class KeyboardAccessoryTabLayoutMediator
     @Override
     public void onTabReselected(TabLayout.Tab tab) {
         if (mModel.get(ACTIVE_TAB) == null) {
-            mModel.set(ACTIVE_TAB, tab.getPosition());
+            mModel.set(ACTIVE_TAB, validateActiveTab(tab.getPosition()));
         } else if (mAccessoryTabObserver != null) {
             mAccessoryTabObserver.onActiveTabReselected();
         }
@@ -144,5 +150,25 @@ class KeyboardAccessoryTabLayoutMediator
 
     public void setTabObserver(AccessoryTabObserver accessoryTabObserver) {
         mAccessoryTabObserver = accessoryTabObserver;
+    }
+
+    public void addPageChangeListener(TabLayout.TabLayoutOnPageChangeListener pageChangeListener) {
+        mPageChangeListeners.add(pageChangeListener);
+    }
+
+    public void removePageChangeListener(
+            TabLayout.TabLayoutOnPageChangeListener pageChangeListener) {
+        mPageChangeListeners.remove(pageChangeListener);
+    }
+
+    @VisibleForTesting
+    Integer validateActiveTab(int tabLayoutPosition) {
+        // The tab was detached but the object stayed in the pool and was reset:
+        if (tabLayoutPosition == TabLayout.Tab.INVALID_POSITION) return null;
+
+        // The tab was removed but the removeTabAt dispatched a onTabSelected event on it:
+        if (tabLayoutPosition >= mModel.get(TABS).size()) return null;
+
+        return tabLayoutPosition;
     }
 }

@@ -69,6 +69,8 @@ typedef HeapVector<Member<DOMSharedArrayBuffer>> SharedArrayBufferArray;
 
 class CORE_EXPORT SerializedScriptValue
     : public ThreadSafeRefCounted<SerializedScriptValue> {
+  USING_FAST_MALLOC(SerializedScriptValue);
+
  public:
   using ArrayBufferContentsArray = Vector<WTF::ArrayBufferContents, 1>;
   using SharedArrayBufferContentsArray = Vector<WTF::ArrayBufferContents, 1>;
@@ -110,7 +112,7 @@ class CORE_EXPORT SerializedScriptValue
   // This enumeration specifies whether we're serializing a value for storage;
   // e.g. when writing to IndexedDB. This corresponds to the forStorage flag of
   // the HTML spec:
-  // https://html.spec.whatwg.org/multipage/infrastructure.html#safe-passing-of-structured-data
+  // https://html.spec.whatwg.org/C/#safe-passing-of-structured-data
   enum StoragePolicy {
     // Not persisted; used only during the execution of the browser.
     kNotForStorage,

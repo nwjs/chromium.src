@@ -22,6 +22,7 @@
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_macros.h"
@@ -50,7 +51,6 @@
 #include "components/history/core/common/thumbnail_score.h"
 #include "components/sync/model/sync_error_factory.h"
 #include "components/sync/model_impl/proxy_model_type_controller_delegate.h"
-#include "components/variations/variations_associated_data.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/page_transition_types.h"
 
@@ -62,6 +62,9 @@ using base::Time;
 
 namespace history {
 namespace {
+
+const base::Feature kHistoryServiceUsesTaskScheduler{
+    "HistoryServiceUsesTaskScheduler", base::FEATURE_DISABLED_BY_DEFAULT};
 
 static const char* kHistoryThreadName = "Chrome_HistoryThread";
 
@@ -188,9 +191,7 @@ HistoryService::HistoryService() : HistoryService(nullptr, nullptr) {}
 
 HistoryService::HistoryService(std::unique_ptr<HistoryClient> history_client,
                                std::unique_ptr<VisitDelegate> visit_delegate)
-    : thread_(variations::GetVariationParamValue("BrowserScheduler",
-                                                 "RedirectHistoryService") ==
-                      "true"
+    : thread_(base::FeatureList::IsEnabled(kHistoryServiceUsesTaskScheduler)
                   ? nullptr
                   : new base::Thread(kHistoryThreadName)),
       history_client_(std::move(history_client)),
@@ -894,31 +895,8 @@ void HistoryService::Cleanup() {
     // Get rid of the in-memory backend.
     in_memory_backend_.reset();
 
-    // The backend's destructor must run on the history thread since it is not
-    // threadsafe. So this thread must not be the last thread holding a
-    // reference to the backend, or a crash could happen.
-    //
-    // We have a reference to the history backend. There is also an extra
-    // reference held by our delegate installed in the backend, which
-    // HistoryBackend::Closing will release. This means if we scheduled a call
-    // to HistoryBackend::Closing and *then* released our backend reference,
-    // there will be a race between us and the backend's Closing function to see
-    // who is the last holder of a reference. If the backend thread's Closing
-    // manages to run before we release our backend refptr, the last reference
-    // will be held by this thread and the destructor will be called from here.
-    //
-    // Therefore, we create a closure to run the Closing operation first. This
-    // holds a reference to the backend. Then we release our reference, then we
-    // schedule the task to run. After the task runs, it will delete its
-    // reference from the history thread, ensuring everything works properly.
-    //
-    // TODO(ajwong): Cleanup HistoryBackend lifetime issues.
-    //     See http://crbug.com/99767.
-    base::Closure closing_task =
-        base::Bind(&HistoryBackend::Closing, history_backend_);
-    ScheduleTask(PRIORITY_NORMAL, closing_task);
-    closing_task.Reset();
-    backend_task_runner_->ReleaseSoon(FROM_HERE, std::move(history_backend_));
+    ScheduleTask(PRIORITY_NORMAL, base::BindOnce(&HistoryBackend::Closing,
+                                                 std::move(history_backend_)));
   }
 
   // Clear |backend_task_runner_| to make sure it's not used after Cleanup().
@@ -954,9 +932,9 @@ bool HistoryService::Init(
   }
 
   // Create the history backend.
-  scoped_refptr<HistoryBackend> backend(new HistoryBackend(
-      new BackendDelegate(weak_ptr_factory_.GetWeakPtr(),
-                          base::ThreadTaskRunnerHandle::Get()),
+  scoped_refptr<HistoryBackend> backend(base::MakeRefCounted<HistoryBackend>(
+      std::make_unique<BackendDelegate>(weak_ptr_factory_.GetWeakPtr(),
+                                        base::ThreadTaskRunnerHandle::Get()),
       history_client_ ? history_client_->CreateBackendClient() : nullptr,
       backend_task_runner_));
   history_backend_.swap(backend);
@@ -1127,20 +1105,15 @@ void HistoryService::ExpireHistoryBeforeForTesting(
       std::move(callback));
 }
 
-void HistoryService::ExpireLocalAndRemoteHistoryBetween(
+void HistoryService::DeleteLocalAndRemoteHistoryBetween(
     WebHistoryService* web_history,
-    const std::set<GURL>& restrict_urls,
     Time begin_time,
     Time end_time,
-    bool user_initiated,
     base::OnceClosure callback,
     base::CancelableTaskTracker* tracker) {
-  // TODO(dubroy): This should be factored out into a separate class that
-  // dispatches deletions to the proper places.
+  // TODO(crbug.com/929111): This should be factored out into a separate class
+  // that dispatches deletions to the proper places.
   if (web_history) {
-    // TODO(dubroy): This API does not yet support deletion of specific URLs.
-    DCHECK(restrict_urls.empty());
-
     delete_directive_handler_.CreateDeleteDirectives(std::set<int64_t>(),
                                                      begin_time, end_time);
 
@@ -1173,12 +1146,50 @@ void HistoryService::ExpireLocalAndRemoteHistoryBetween(
               }
             }
           })");
-    web_history->ExpireHistoryBetween(restrict_urls, begin_time, end_time,
-                                      base::Bind(&ExpireWebHistoryComplete),
-                                      partial_traffic_annotation);
+    web_history->ExpireHistoryBetween(
+        /*restrict_urls=*/{}, begin_time, end_time,
+        base::Bind(&ExpireWebHistoryComplete), partial_traffic_annotation);
   }
-  ExpireHistoryBetween(restrict_urls, begin_time, end_time, user_initiated,
-                       std::move(callback), tracker);
+  ExpireHistoryBetween(/*restrict_urls=*/{}, begin_time, end_time,
+                       /*user_initiated=*/true, std::move(callback), tracker);
+}
+
+void HistoryService::DeleteLocalAndRemoteUrl(WebHistoryService* web_history,
+                                             const GURL& url) {
+  DCHECK(url.is_valid());
+  // TODO(crbug.com/929111): This should be factored out into a separate class
+  // that dispatches deletions to the proper places.
+  if (web_history) {
+    delete_directive_handler_.CreateUrlDeleteDirective(url);
+
+    // Attempt online deletion from the history server, but ignore the result.
+    // Deletion directives ensure that the results will eventually be deleted.
+    net::PartialNetworkTrafficAnnotationTag partial_traffic_annotation =
+        net::DefinePartialNetworkTrafficAnnotation("web_history_delete_url",
+                                                   "web_history_service", R"(
+          semantics {
+            description:
+              "If a user who syncs their browsing history deletes urls from  "
+              "history, Chrome sends a request to a google.com "
+              "host to execute the corresponding deletion serverside."
+            trigger:
+              "Deleting urls from browsing history, e.g. by an extension."
+            data:
+              "The selected urls, a version info token to resolve transaction "
+              "conflicts, and an OAuth2 token authenticating the user."
+          }
+          policy {
+            chrome_policy {
+              AllowDeletingBrowserHistory {
+                AllowDeletingBrowserHistory: false
+              }
+            }
+          })");
+    web_history->ExpireHistoryBetween(
+        /*restrict_urls=*/{url}, base::Time(), base::Time::Max(),
+        base::Bind(&ExpireWebHistoryComplete), partial_traffic_annotation);
+  }
+  DeleteURL(url);
 }
 
 void HistoryService::OnDBLoaded() {

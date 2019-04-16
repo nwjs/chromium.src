@@ -4,6 +4,12 @@
 
 #include "ui/ozone/platform/wayland/ozone_platform_wayland.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "ui/base/buildflags.h"
 #include "ui/base/cursor/ozone/bitmap_cursor_factory_ozone.h"
@@ -12,6 +18,7 @@
 #include "ui/events/system_input_injector.h"
 #include "ui/gfx/linux/client_native_pixmap_dmabuf.h"
 #include "ui/ozone/common/stub_overlay_manager.h"
+#include "ui/ozone/platform/wayland/gpu/drm_render_node_path_finder.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_connection_proxy.h"
 #include "ui/ozone/platform/wayland/wayland_connection.h"
 #include "ui/ozone/platform/wayland/wayland_connection_connector.h"
@@ -26,7 +33,7 @@
 
 #if BUILDFLAG(USE_XKBCOMMON)
 #include "ui/events/ozone/layout/xkb/xkb_evdev_codes.h"
-#include "ui/ozone/platform/wayland/wayland_xkb_keyboard_layout_engine.h"
+#include "ui/events/ozone/layout/xkb/xkb_keyboard_layout_engine.h"
 #else
 #include "ui/events/ozone/layout/stub/stub_keyboard_layout_engine.h"
 #endif
@@ -35,7 +42,6 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/ozone/common/linux/gbm_wrapper.h"
 #include "ui/ozone/platform/wayland/gpu/drm_render_node_handle.h"
-#include "ui/ozone/platform/wayland/gpu/drm_render_node_path_finder.h"
 #endif
 
 namespace ui {
@@ -126,6 +132,11 @@ class OzonePlatformWayland : public OzonePlatform {
 
   bool IsNativePixmapConfigSupported(gfx::BufferFormat format,
                                      gfx::BufferUsage usage) const override {
+    // If there is no drm render node device available, native pixmaps are not
+    // supported.
+    if (path_finder_.GetDrmRenderNodePath().empty())
+      return false;
+
     if (std::find(supported_buffer_formats_.begin(),
                   supported_buffer_formats_.end(),
                   format) == supported_buffer_formats_.end()) {
@@ -139,8 +150,7 @@ class OzonePlatformWayland : public OzonePlatform {
   void InitializeUI(const InitParams& args) override {
 #if BUILDFLAG(USE_XKBCOMMON)
     KeyboardLayoutEngineManager::SetKeyboardLayoutEngine(
-        std::make_unique<WaylandXkbKeyboardLayoutEngine>(
-            xkb_evdev_code_converter_));
+        std::make_unique<XkbKeyboardLayoutEngine>(xkb_evdev_code_converter_));
 #else
     KeyboardLayoutEngineManager::SetKeyboardLayoutEngine(
         std::make_unique<StubKeyboardLayoutEngine>());
@@ -149,11 +159,7 @@ class OzonePlatformWayland : public OzonePlatform {
     if (!connection_->Initialize())
       LOG(FATAL) << "Failed to initialize Wayland platform";
 
-#if defined(WAYLAND_GBM)
-    if (!args.single_process)
-      connector_.reset(new WaylandConnectionConnector(connection_.get()));
-#endif
-
+    connector_.reset(new WaylandConnectionConnector(connection_.get()));
     cursor_factory_.reset(new BitmapCursorFactoryOzone);
     overlay_manager_.reset(new StubOverlayManager);
     input_controller_ = CreateStubInputController();
@@ -162,28 +168,24 @@ class OzonePlatformWayland : public OzonePlatform {
   }
 
   void InitializeGPU(const InitParams& args) override {
-    if (!args.single_process) {
-      proxy_.reset(new WaylandConnectionProxy(nullptr));
-#if defined(WAYLAND_GBM)
-      DrmRenderNodePathFinder path_finder;
-      const base::FilePath drm_node_path = path_finder.GetDrmRenderNodePath();
-      if (drm_node_path.empty())
-        LOG(FATAL) << "Failed to find drm render node path.";
-
-      DrmRenderNodeHandle handle;
-      if (!handle.Initialize(drm_node_path))
-        LOG(FATAL) << "Failed to initialize drm render node handle.";
-
-      auto gbm = CreateGbmDevice(handle.PassFD().release());
-      if (!gbm)
-        LOG(FATAL) << "Failed to initialize gbm device.";
-
-      proxy_->set_gbm_device(std::move(gbm));
-#endif
-    } else {
-      proxy_.reset(new WaylandConnectionProxy(connection_.get()));
-    }
+    proxy_.reset(new WaylandConnectionProxy(connection_.get()));
     surface_factory_.reset(new WaylandSurfaceFactory(proxy_.get()));
+#if defined(WAYLAND_GBM)
+    const base::FilePath drm_node_path = path_finder_.GetDrmRenderNodePath();
+    if (drm_node_path.empty()) {
+      LOG(WARNING) << "Failed to find drm render node path.";
+    } else {
+      DrmRenderNodeHandle handle;
+      if (!handle.Initialize(drm_node_path)) {
+        LOG(WARNING) << "Failed to initialize drm render node handle.";
+      } else {
+        auto gbm = CreateGbmDevice(handle.PassFD().release());
+        if (!gbm)
+          LOG(WARNING) << "Failed to initialize gbm device.";
+        proxy_->set_gbm_device(std::move(gbm));
+      }
+    }
+#endif
   }
 
   const PlatformProperties& GetPlatformProperties() override {
@@ -220,6 +222,10 @@ class OzonePlatformWayland : public OzonePlatform {
   std::unique_ptr<WaylandConnectionConnector> connector_;
 
   std::vector<gfx::BufferFormat> supported_buffer_formats_;
+
+  // This is used both in the gpu and browser processes to find out if a drm
+  // render node is available.
+  DrmRenderNodePathFinder path_finder_;
 
   DISALLOW_COPY_AND_ASSIGN(OzonePlatformWayland);
 };

@@ -9,6 +9,7 @@
 
 #include "base/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "chrome/browser/installable/installable_metrics.h"
 #include "chrome/browser/web_applications/components/install_manager.h"
 #include "chrome/browser/web_applications/components/web_app_install_utils.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -40,6 +41,8 @@ class WebAppInstallManager final : public InstallManager,
   bool CanInstallWebApp(content::WebContents* web_contents) override;
   void InstallWebApp(content::WebContents* contents,
                      bool force_shortcut_app,
+                     WebappInstallSource install_source,
+                     WebAppInstallDialogCallback dialog_callback,
                      OnceInstallCallback callback) override;
 
   // WebContentsObserver:
@@ -54,7 +57,9 @@ class WebAppInstallManager final : public InstallManager,
   void CallInstallCallback(const AppId& app_id, InstallResultCode code);
   void ReturnError(InstallResultCode code);
 
-  // Checks typical errors like WebContents destroyed.
+  // Checks typical errors like WebContents destroyed. Callers must return
+  // early if this is true. Note that if install interrupted, install_callback_
+  // is already invoked or may be invoked later - no actions needed from caller.
   bool InstallInterrupted() const;
 
   void OnGetWebApplicationInfo(
@@ -66,14 +71,30 @@ class WebAppInstallManager final : public InstallManager,
       const blink::Manifest& manifest,
       bool is_installable);
   void OnIconsRetrieved(std::unique_ptr<WebApplicationInfo> web_app_info,
+                        ForInstallableSite for_installable_site,
                         IconsMap icons_map);
-  void OnInstallFinalized(const AppId& app_id, InstallResultCode code);
+  void OnDialogCompleted(ForInstallableSite for_installable_site,
+                         bool user_accepted,
+                         std::unique_ptr<WebApplicationInfo> web_app_info);
+  void OnInstallFinalized(std::unique_ptr<WebApplicationInfo> web_app_info,
+                          const AppId& app_id,
+                          InstallResultCode code);
+  void OnShortcutsCreated(std::unique_ptr<WebApplicationInfo> web_app_info,
+                          const AppId& app_id,
+                          bool shortcut_created);
 
-  // Saved callback:
+  // TODO(loyso): Extract these parameters as a struct and reset it on every
+  // installation task:
+  WebAppInstallDialogCallback dialog_callback_;
   OnceInstallCallback install_callback_;
+  // The mechanism via which the app creation was triggered.
+  static constexpr WebappInstallSource kNoInstallSource =
+      WebappInstallSource::COUNT;
+  WebappInstallSource install_source_ = kNoInstallSource;
 
   std::unique_ptr<WebAppDataRetriever> data_retriever_;
   std::unique_ptr<InstallFinalizer> install_finalizer_;
+  Profile* profile_;
 
   base::WeakPtrFactory<WebAppInstallManager> weak_ptr_factory_{this};
 

@@ -6,12 +6,12 @@
 
 #include <memory>
 #include "mojo/public/cpp/system/simple_watcher.h"
-#include "third_party/blink/renderer/core/fetch/bytes_consumer.h"
 #include "third_party/blink/renderer/core/fetch/multipart_parser.h"
 #include "third_party/blink/renderer/core/fileapi/file.h"
 #include "third_party/blink/renderer/core/html/forms/form_data.h"
 #include "third_party/blink/renderer/core/html/parser/text_resource_decoder.h"
 #include "third_party/blink/renderer/platform/file_metadata.h"
+#include "third_party/blink/renderer/platform/loader/fetch/bytes_consumer.h"
 #include "third_party/blink/renderer/platform/loader/fetch/text_resource_decoder_options.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
 #include "third_party/blink/renderer/platform/network/parsed_content_disposition.h"
@@ -116,7 +116,8 @@ class FetchDataLoaderAsBlobHandle final : public FetchDataLoader,
 
 class FetchDataLoaderAsArrayBuffer final : public FetchDataLoader,
                                            public BytesConsumer::Client {
-  USING_GARBAGE_COLLECTED_MIXIN(FetchDataLoaderAsArrayBuffer)
+  USING_GARBAGE_COLLECTED_MIXIN(FetchDataLoaderAsArrayBuffer);
+
  public:
   void Start(BytesConsumer* consumer,
              FetchDataLoader::Client* client) override {
@@ -162,7 +163,7 @@ class FetchDataLoaderAsArrayBuffer final : public FetchDataLoader,
           return;
         case BytesConsumer::Result::kDone:
           client_->DidFetchDataLoadedArrayBuffer(
-              DOMArrayBuffer::Create(raw_data_->ToArrayBuffer()));
+              DOMArrayBuffer::Create(raw_data_->PassArrayBuffer()));
           return;
         case BytesConsumer::Result::kError:
           client_->DidFetchDataLoadFailed();

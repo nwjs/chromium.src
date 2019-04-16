@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "services/tracing/perfetto/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -38,9 +39,9 @@ void TestDataSource::WritePacketBigly() {
 
 void TestDataSource::StartTracing(
     ProducerClient* producer_client,
-    const mojom::DataSourceConfig& data_source_config) {
+    const perfetto::DataSourceConfig& data_source_config) {
   producer_client_ = producer_client;
-  target_buffer_ = data_source_config.target_buffer;
+  target_buffer_ = data_source_config.target_buffer();
 
   if (send_packet_count_ > 0) {
     std::unique_ptr<perfetto::TraceWriter> writer =
@@ -81,7 +82,7 @@ void MockProducerClient::SetupDataSource(const std::string& data_source_name) {
 
 void MockProducerClient::StartDataSource(
     uint64_t id,
-    mojom::DataSourceConfigPtr data_source_config) {
+    const perfetto::DataSourceConfig& data_source_config) {
   ProducerClient::StartDataSource(id, std::move(data_source_config));
 
   if (client_enabled_callback_) {
@@ -207,8 +208,8 @@ MockProducerHost::MockProducerHost(
 MockProducerHost::~MockProducerHost() = default;
 
 void MockProducerHost::RegisterDataSource(
-    mojom::DataSourceRegistrationPtr registration_info) {
-  ProducerHost::RegisterDataSource(std::move(registration_info));
+    const perfetto::DataSourceDescriptor& registration_info) {
+  ProducerHost::RegisterDataSource(registration_info);
 
   on_commit_callback_for_testing_ =
       base::BindRepeating(&MockProducerHost::OnCommit, base::Unretained(this));

@@ -141,6 +141,7 @@ NSString* const kWebViewShellJavaScriptDialogTextFieldAccessibiltyIdentifier =
                   action:@selector(showMenu)
         forControlEvents:UIControlEventTouchUpInside];
 
+  _field.placeholder = @"Search or type URL";
   _field.backgroundColor = [UIColor whiteColor];
   _field.tintColor = _headerBackgroundView.backgroundColor;
   [_field setContentHuggingPriority:UILayoutPriorityDefaultLow - 1
@@ -373,6 +374,13 @@ NSString* const kWebViewShellJavaScriptDialogTextFieldAccessibiltyIdentifier =
                                        handler:^(UIAlertAction* action) {
                                          [CWVFlags sharedInstance]
                                              .usesSyncAndWalletSandbox ^= YES;
+                                       }]];
+
+  [alertController
+      addAction:[UIAlertAction actionWithTitle:@"Cancel download"
+                                         style:UIAlertActionStyleDefault
+                                       handler:^(UIAlertAction* action) {
+                                         [weakSelf.downloadTask cancel];
                                        }]];
 
   [self presentViewController:alertController animated:YES completion:nil];

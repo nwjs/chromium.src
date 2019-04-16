@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "chromeos/components/drivefs/mojom/drivefs.mojom-test-utils.h"
@@ -79,11 +80,11 @@ class DriveFsBootstrapTest : public testing::Test,
   }
 
   base::UnguessableToken ListenForConnection() {
-    connection_ = std::make_unique<DriveFsConnection>(
-        CreateListener(), mojom::DriveFsConfiguration::New(), &mock_delegate_,
-        base::BindOnce(&DriveFsBootstrapTest::OnDisconnect,
-                       base::Unretained(this)));
-    return connection_->pending_token();
+    connection_ = DriveFsConnection::Create(CreateListener(),
+                                            mojom::DriveFsConfiguration::New());
+    return connection_->Connect(
+        &mock_delegate_, base::BindOnce(&DriveFsBootstrapTest::OnDisconnect,
+                                        base::Unretained(this)));
   }
 
   void WaitForConnection(const base::UnguessableToken& token) {
@@ -136,7 +137,7 @@ TEST_F(DriveFsBootstrapTest, Listen_Connect_Destroy) {
   auto token = ListenForConnection();
   EXPECT_CALL(*this, OnInit());
   WaitForConnection(token);
-  EXPECT_CALL(*this, OnDisconnect());
+  EXPECT_CALL(*this, OnDisconnect()).Times(0);
   connection_.reset();
   base::RunLoop().RunUntilIdle();
   ASSERT_FALSE(

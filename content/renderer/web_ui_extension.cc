@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/values.h"
 #include "content/common/frame_messages.h"
 #include "content/public/common/bindings_policy.h"
@@ -72,8 +73,7 @@ void WebUIExtension::Install(blink::WebLocalFrame* frame) {
 
   v8::Context::Scope context_scope(context);
 
-  v8::Local<v8::Object> chrome = GetOrCreateChromeObject(isolate,
-                                                          context->Global());
+  v8::Local<v8::Object> chrome = GetOrCreateChromeObject(isolate, context);
   chrome->Set(
       gin::StringToSymbol(isolate, "send"),
       gin::CreateFunctionTemplate(isolate, base::Bind(&WebUIExtension::Send))

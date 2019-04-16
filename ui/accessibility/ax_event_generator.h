@@ -24,6 +24,7 @@ class AX_EXPORT AXEventGenerator : public AXTreeObserver {
   enum class Event : int32_t {
     ACTIVE_DESCENDANT_CHANGED,
     ALERT,
+    AUTO_COMPLETE_CHANGED,
     CHECKED_STATE_CHANGED,
     CHILDREN_CHANGED,
     COLLAPSED,
@@ -31,6 +32,7 @@ class AX_EXPORT AXEventGenerator : public AXTreeObserver {
     DOCUMENT_SELECTION_CHANGED,
     DOCUMENT_TITLE_CHANGED,
     EXPANDED,
+    IMAGE_ANNOTATION_CHANGED,
     INVALID_STATUS_CHANGED,
     LIVE_REGION_CHANGED,  // Fired on the root of a live region.
     LIVE_REGION_CREATED,

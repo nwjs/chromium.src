@@ -4,11 +4,13 @@
 
 #include "net/socket/websocket_transport_connect_job.h"
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
+#include "net/base/address_list.h"
 #include "net/base/net_errors.h"
 #include "net/base/trace_constants.h"
 #include "net/log/net_log_event_type.h"
@@ -23,14 +25,15 @@ WebSocketTransportConnectJob::WebSocketTransportConnectJob(
     RequestPriority priority,
     const CommonConnectJobParams& common_connect_job_params,
     const scoped_refptr<TransportSocketParams>& params,
-    Delegate* delegate)
+    Delegate* delegate,
+    const NetLogWithSource* net_log)
     : ConnectJob(priority,
                  TransportConnectJob::ConnectionTimeout(),
                  common_connect_job_params,
                  delegate,
-                 NetLogWithSource::Make(
-                     common_connect_job_params.net_log,
-                     NetLogSourceType::WEB_SOCKET_TRANSPORT_CONNECT_JOB)),
+                 net_log,
+                 NetLogSourceType::WEB_SOCKET_TRANSPORT_CONNECT_JOB,
+                 NetLogEventType::WEB_SOCKET_TRANSPORT_CONNECT_JOB_CONNECT),
       params_(params),
       next_state_(STATE_NONE),
       race_result_(TransportConnectJob::RACE_UNKNOWN),
@@ -51,6 +54,12 @@ LoadState WebSocketTransportConnectJob::GetLoadState() const {
   if (ipv4_job_ && load_state != LOAD_STATE_CONNECTING)
     load_state = ipv4_job_->GetLoadState();
   return load_state;
+}
+
+bool WebSocketTransportConnectJob::HasEstablishedConnection() const {
+  // No need to ever return true, since NotifyComplete() is called as soon as a
+  // connection is established.
+  return false;
 }
 
 void WebSocketTransportConnectJob::OnIOComplete(int result) {
@@ -95,11 +104,17 @@ int WebSocketTransportConnectJob::DoResolveHost() {
   next_state_ = STATE_RESOLVE_HOST_COMPLETE;
   connect_timing_.dns_start = base::TimeTicks::Now();
 
-  return host_resolver()->Resolve(
-      params_->destination(), priority(), &addresses_,
-      base::Bind(&WebSocketTransportConnectJob::OnIOComplete,
-                 base::Unretained(this)),
-      &request_, net_log());
+  HostResolver::ResolveHostParameters parameters;
+  parameters.initial_priority = priority();
+  parameters.cache_usage =
+      params_->disable_resolver_cache()
+          ? HostResolver::ResolveHostParameters::CacheUsage::DISALLOWED
+          : HostResolver::ResolveHostParameters::CacheUsage::ALLOWED;
+  request_ = host_resolver()->CreateRequest(params_->destination(), net_log(),
+                                            parameters);
+
+  return request_->Start(base::BindOnce(
+      &WebSocketTransportConnectJob::OnIOComplete, base::Unretained(this)));
 }
 
 int WebSocketTransportConnectJob::DoResolveHostComplete(int result) {
@@ -112,10 +127,12 @@ int WebSocketTransportConnectJob::DoResolveHostComplete(int result) {
 
   if (result != OK)
     return result;
+  DCHECK(request_->GetAddressResults());
 
   // Invoke callback, and abort if it fails.
   if (!params_->host_resolution_callback().is_null()) {
-    result = params_->host_resolution_callback().Run(addresses_, net_log());
+    result = params_->host_resolution_callback().Run(
+        request_->GetAddressResults().value(), net_log());
     if (result != OK)
       return result;
   }
@@ -125,13 +142,16 @@ int WebSocketTransportConnectJob::DoResolveHostComplete(int result) {
 }
 
 int WebSocketTransportConnectJob::DoTransportConnect() {
+  DCHECK(request_->GetAddressResults());
+
   AddressList ipv4_addresses;
   AddressList ipv6_addresses;
   int result = ERR_UNEXPECTED;
   next_state_ = STATE_TRANSPORT_CONNECT_COMPLETE;
 
-  for (AddressList::const_iterator it = addresses_.begin();
-       it != addresses_.end(); ++it) {
+  for (AddressList::const_iterator it =
+           request_->GetAddressResults().value().begin();
+       it != request_->GetAddressResults().value().end(); ++it) {
     switch (it->GetFamily()) {
       case ADDRESS_FAMILY_IPV4:
         ipv4_addresses.push_back(*it);

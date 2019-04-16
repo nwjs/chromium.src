@@ -4,7 +4,10 @@
 
 #include "third_party/blink/renderer/core/input/scroll_manager.h"
 
-#include <memory>
+#include <utility>
+
+#include "cc/input/main_thread_scrolling_reason.h"
+#include "cc/input/snap_selection_strategy.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/events/gesture_event.h"
@@ -34,22 +37,22 @@
 namespace blink {
 namespace {
 
-SnapFlingController::GestureScrollType ToGestureScrollType(
+cc::SnapFlingController::GestureScrollType ToGestureScrollType(
     WebInputEvent::Type web_event_type) {
   switch (web_event_type) {
     case WebInputEvent::kGestureScrollBegin:
-      return SnapFlingController::GestureScrollType::kBegin;
+      return cc::SnapFlingController::GestureScrollType::kBegin;
     case WebInputEvent::kGestureScrollUpdate:
-      return SnapFlingController::GestureScrollType::kUpdate;
+      return cc::SnapFlingController::GestureScrollType::kUpdate;
     case WebInputEvent::kGestureScrollEnd:
-      return SnapFlingController::GestureScrollType::kEnd;
+      return cc::SnapFlingController::GestureScrollType::kEnd;
     default:
       NOTREACHED();
-      return SnapFlingController::GestureScrollType::kBegin;
+      return cc::SnapFlingController::GestureScrollType::kBegin;
   }
 }
 
-SnapFlingController::GestureScrollUpdateInfo GetGestureScrollUpdateInfo(
+cc::SnapFlingController::GestureScrollUpdateInfo GetGestureScrollUpdateInfo(
     const WebGestureEvent& event) {
   return {.delta = gfx::Vector2dF(-event.data.scroll_update.delta_x,
                                   -event.data.scroll_update.delta_y),
@@ -147,7 +150,7 @@ static bool CanPropagate(const ScrollState& scroll_state, const Node& node) {
 void ScrollManager::RecomputeScrollChain(const Node& start_node,
                                          const ScrollState& scroll_state,
                                          std::deque<DOMNodeId>& scroll_chain) {
-  DCHECK(!scroll_chain.size());
+  DCHECK(scroll_chain.empty());
   scroll_chain.clear();
 
   DCHECK(start_node.GetLayoutObject());
@@ -248,11 +251,11 @@ bool ScrollManager::LogicalScroll(ScrollDirection direction,
   RecomputeScrollChain(*node, *scroll_state, scroll_chain);
 
   while (!scroll_chain.empty()) {
-    Node* node = DOMNodeIds::NodeForId(scroll_chain.back());
+    Node* scroll_chain_node = DOMNodeIds::NodeForId(scroll_chain.back());
     scroll_chain.pop_back();
-    DCHECK(node);
+    DCHECK(scroll_chain_node);
 
-    LayoutBox* box = ToLayoutBox(node->GetLayoutObject());
+    LayoutBox* box = ToLayoutBox(scroll_chain_node->GetLayoutObject());
     DCHECK(box);
 
     ScrollDirectionPhysical physical_direction =
@@ -392,12 +395,12 @@ void ScrollManager::RecordScrollRelatedMetrics(const WebGestureDevice device) {
   ComputeScrollRelatedMetrics(&non_composited_main_thread_scrolling_reasons);
 
   if (non_composited_main_thread_scrolling_reasons) {
-    DCHECK(MainThreadScrollingReason::HasNonCompositedScrollReasons(
+    DCHECK(cc::MainThreadScrollingReason::HasNonCompositedScrollReasons(
         non_composited_main_thread_scrolling_reasons));
     uint32_t main_thread_scrolling_reason_enum_max =
-        MainThreadScrollingReason::kMainThreadScrollingReasonCount + 1;
-    for (uint32_t i = MainThreadScrollingReason::kNonCompositedReasonsFirst;
-         i <= MainThreadScrollingReason::kNonCompositedReasonsLast; ++i) {
+        cc::MainThreadScrollingReason::kMainThreadScrollingReasonCount + 1;
+    for (uint32_t i = cc::MainThreadScrollingReason::kNonCompositedReasonsFirst;
+         i <= cc::MainThreadScrollingReason::kNonCompositedReasonsLast; ++i) {
       unsigned val = 1 << i;
       if (non_composited_main_thread_scrolling_reasons & val) {
         if (device == kWebGestureDeviceTouchscreen) {
@@ -701,8 +704,8 @@ bool ScrollManager::GetSnapFlingInfo(
 
   FloatPoint current_position = scrollable_area->ScrollPosition();
   *out_initial_position = gfx::Vector2dF(current_position);
-  std::unique_ptr<SnapSelectionStrategy> strategy =
-      SnapSelectionStrategy::CreateForEndAndDirection(
+  std::unique_ptr<cc::SnapSelectionStrategy> strategy =
+      cc::SnapSelectionStrategy::CreateForEndAndDirection(
           gfx::ScrollOffset(*out_initial_position),
           gfx::ScrollOffset(natural_displacement));
   base::Optional<FloatPoint> snap_end =
@@ -785,11 +788,14 @@ WebInputEventResult ScrollManager::PassScrollGestureEvent(
   FrameView* frame_view =
       ToLayoutEmbeddedContent(layout_object)->ChildFrameView();
 
-  if (!frame_view || !frame_view->IsLocalFrameView())
+  if (!frame_view)
     return WebInputEventResult::kNotHandled;
 
-  return ToLocalFrameView(frame_view)
-      ->GetFrame()
+  auto* local_frame_view = DynamicTo<LocalFrameView>(frame_view);
+  if (!local_frame_view)
+    return WebInputEventResult::kNotHandled;
+
+  return local_frame_view->GetFrame()
       .GetEventHandler()
       .HandleGestureScrollEvent(gesture_event);
 }

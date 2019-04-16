@@ -778,7 +778,7 @@ TEST_F(AppListSyncableServiceTest, FirstAvailablePosition) {
   for (int i = 0; i < max_items_in_first_page - 1; ++i) {
     std::unique_ptr<ChromeAppListItem> item =
         std::make_unique<ChromeAppListItem>(
-            profile_.get(), GenerateId("item_id" + base::IntToString(i)),
+            profile_.get(), GenerateId("item_id" + base::NumberToString(i)),
             model_updater());
     item->SetPosition(last_app_position);
     model_updater()->AddItem(std::move(item));
@@ -804,7 +804,7 @@ TEST_F(AppListSyncableServiceTest, FirstAvailablePosition) {
   std::unique_ptr<ChromeAppListItem> app_item =
       std::make_unique<ChromeAppListItem>(
           profile_.get(),
-          GenerateId("item_id" + base::IntToString(max_items_in_first_page)),
+          GenerateId("item_id" + base::NumberToString(max_items_in_first_page)),
           model_updater());
   app_item->SetPosition(last_app_position.CreateBetween(page_break_position));
   model_updater()->AddItem(std::move(app_item));
@@ -826,7 +826,7 @@ TEST_F(AppListSyncableServiceTest, FirstAvailablePositionNotExist) {
   for (int i = 0; i < max_items_in_first_page - 1; ++i) {
     std::unique_ptr<ChromeAppListItem> item =
         std::make_unique<ChromeAppListItem>(
-            profile_.get(), GenerateId("item_id" + base::IntToString(i)),
+            profile_.get(), GenerateId("item_id" + base::NumberToString(i)),
             model_updater());
     item->SetPosition(last_app_position);
     model_updater()->AddItem(std::move(item));

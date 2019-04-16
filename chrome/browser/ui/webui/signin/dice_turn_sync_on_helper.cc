@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/signin/dice_turn_sync_on_helper.h"
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -31,7 +33,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_info.h"
-#include "components/signin/core/browser/device_id_helper.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/signin/core/browser/signin_pref_names.h"
 #include "components/sync/base/sync_prefs.h"
@@ -138,7 +139,8 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
     signin_metrics::Reason signin_reason,
     const std::string& account_id,
     SigninAbortedMode signin_aborted_mode,
-    std::unique_ptr<Delegate> delegate)
+    std::unique_ptr<Delegate> delegate,
+    base::OnceClosure callback)
     : delegate_(std::move(delegate)),
       profile_(profile),
       identity_manager_(IdentityManagerFactory::GetForProfile(profile)),
@@ -147,6 +149,7 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
       signin_reason_(signin_reason),
       signin_aborted_mode_(signin_aborted_mode),
       account_info_(GetAccountInfo(identity_manager_, account_id)),
+      scoped_callback_runner_(std::move(callback)),
       shutdown_subscription_(
           DiceTurnSyncOnHelperShutdownNotifierFactory::GetInstance()
               ->Get(profile)
@@ -157,9 +160,6 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
   DCHECK(profile_);
   // Should not start syncing if the profile is already authenticated
   DCHECK(!identity_manager_->HasPrimaryAccount());
-
-  // Force sign-in uses the modal sign-in flow.
-  DCHECK(!signin_util::IsForceSigninEnabled());
 
   if (account_info_.gaia.empty() || account_info_.email.empty()) {
     LOG(ERROR) << "Cannot turn Sync On for invalid account.";
@@ -210,7 +210,8 @@ DiceTurnSyncOnHelper::DiceTurnSyncOnHelper(
           signin_reason,
           account_id,
           signin_aborted_mode,
-          std::make_unique<DiceTurnSyncOnHelperDelegateImpl>(browser)) {}
+          std::make_unique<DiceTurnSyncOnHelperDelegateImpl>(browser),
+          base::OnceClosure()) {}
 
 DiceTurnSyncOnHelper::~DiceTurnSyncOnHelper() {
 }
@@ -400,7 +401,7 @@ void DiceTurnSyncOnHelper::OnNewProfileCreated(Profile* new_profile,
 
 syncer::SyncService* DiceTurnSyncOnHelper::GetSyncService() {
   return profile_->IsSyncAllowed()
-             ? ProfileSyncServiceFactory::GetSyncServiceForProfile(profile_)
+             ? ProfileSyncServiceFactory::GetForProfile(profile_)
              : nullptr;
 }
 
@@ -411,11 +412,6 @@ void DiceTurnSyncOnHelper::OnNewProfileTokensLoaded(Profile* new_profile) {
       IdentityManagerFactory::GetForProfile(new_profile)->GetAccountsMutator();
   accounts_mutator->MoveAccount(new_profile_accounts_mutator,
                                 account_info_.account_id);
-  // Reset the device ID from the source profile: the exported token is linked
-  // to the device ID of the current profile on the server. Reset the device ID
-  // of the current profile to avoid tying it with the new profile. See
-  // https://crbug.com/813928#c16
-  signin::RecreateSigninScopedDeviceId(profile_->GetPrefs());
 
   SwitchToProfile(new_profile);
   DCHECK_EQ(profile_, new_profile);
@@ -494,7 +490,7 @@ void DiceTurnSyncOnHelper::FinishSyncSetupAndDelete(
   switch (result) {
     case LoginUIService::CONFIGURE_SYNC_FIRST:
       if (consent_service)
-        consent_service->EnableGoogleServices();
+        consent_service->SetUrlKeyedAnonymizedDataCollectionEnabled(true);
       delegate_->ShowSyncSettings();
       break;
     case LoginUIService::SYNC_WITH_DEFAULT_SETTINGS: {
@@ -502,7 +498,7 @@ void DiceTurnSyncOnHelper::FinishSyncSetupAndDelete(
       if (sync_service)
         sync_service->GetUserSettings()->SetFirstSetupComplete();
       if (consent_service)
-        consent_service->EnableGoogleServices();
+        consent_service->SetUrlKeyedAnonymizedDataCollectionEnabled(true);
       break;
     }
     case LoginUIService::ABORT_SIGNIN:

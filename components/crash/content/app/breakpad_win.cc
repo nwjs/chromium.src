@@ -130,7 +130,7 @@ google_breakpad::CustomClientInfo* GetCustomInfo(
   custom_entries->push_back(
       google_breakpad::CustomInfoEntry(L"ptype", type.c_str()));
   custom_entries->push_back(google_breakpad::CustomInfoEntry(
-      L"pid", base::IntToString16(::GetCurrentProcessId()).c_str()));
+      L"pid", base::NumberToString16(::GetCurrentProcessId()).c_str()));
   custom_entries->push_back(
       google_breakpad::CustomInfoEntry(L"channel", channel_name.c_str()));
   custom_entries->push_back(
@@ -634,7 +634,7 @@ ClearBreakpadPipeEnvironmentVariable() {
   env->UnSetVar(kPipeNameVar);
 }
 
-#ifdef _WIN64
+#ifdef _M_X64
 int CrashForExceptionInNonABICompliantCodeRange(
     PEXCEPTION_RECORD ExceptionRecord,
     ULONG64 EstablisherFrame,

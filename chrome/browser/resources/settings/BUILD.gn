@@ -110,6 +110,7 @@ group("closure_compile") {
       "date_time_page:closure_compile",
       "device_page:closure_compile",
       "internet_page:closure_compile",
+      "kiosk_next_shell_page:closure_compile",
       "multidevice_page:closure_compile",
     ]
   }

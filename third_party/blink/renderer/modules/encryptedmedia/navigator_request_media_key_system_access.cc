@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/macros.h"
 #include "base/memory/ptr_util.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
@@ -111,8 +112,6 @@ static WebVector<WebEncryptedMediaSessionType> ConvertSessionTypes(
 // This class allows capabilities to be checked and a MediaKeySystemAccess
 // object to be created asynchronously.
 class MediaKeySystemAccessInitializer final : public EncryptedMediaRequest {
-  WTF_MAKE_NONCOPYABLE(MediaKeySystemAccessInitializer);
-
  public:
   MediaKeySystemAccessInitializer(
       ScriptState*,
@@ -150,6 +149,8 @@ class MediaKeySystemAccessInitializer final : public EncryptedMediaRequest {
   Member<ScriptPromiseResolver> resolver_;
   const String key_system_;
   WebVector<WebMediaKeySystemConfiguration> supported_configurations_;
+
+  DISALLOW_COPY_AND_ASSIGN(MediaKeySystemAccessInitializer);
 };
 
 MediaKeySystemAccessInitializer::MediaKeySystemAccessInitializer(
@@ -294,7 +295,7 @@ void MediaKeySystemAccessInitializer::CheckVideoCapabilityRobustness() const {
     // using an empty robustness here, and provide the link to the doc in this
     // message. See http://crbug.com/720013
     resolver_->GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
         "It is recommended that a robustness level be specified. Not "
         "specifying the robustness level could result in unexpected "
         "behavior."));
@@ -332,9 +333,9 @@ ScriptPromise NavigatorRequestMediaKeySystemAccess::requestMediaKeySystemAccess(
                                   ReportOptions::kReportOnFailure)) {
     UseCounter::Count(document,
                       WebFeature::kEncryptedMediaDisabledByFeaturePolicy);
-    document->AddConsoleMessage(
-        ConsoleMessage::Create(kJSMessageSource, kWarningMessageLevel,
-                               kEncryptedMediaFeaturePolicyConsoleWarning));
+    document->AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
+        kEncryptedMediaFeaturePolicyConsoleWarning));
     return ScriptPromise::RejectWithDOMException(
         script_state,
         DOMException::Create(

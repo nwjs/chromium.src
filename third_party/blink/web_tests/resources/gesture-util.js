@@ -76,22 +76,32 @@ function waitForAnimationEnd(getValue, max_frame, max_unchanged_frame) {
 
 // Enums for gesture_source_type parameters in gpuBenchmarking synthetic
 // gesture methods. Must match C++ side enums in synthetic_gesture_params.h
-const GestureSourceType = {
-  DEFAULT_INPUT: 0,
-  TOUCH_INPUT: 1,
-  MOUSE_INPUT: 2,
-  TOUCHPAD_INPUT:2,
-  PEN_INPUT: 3,
-  ToString: function(value) {
-    switch(value) {
-      case 0: return "DefaultInput";
-      case 1: return "Touchscreen";
-      case 2: return "MouseWheel/Touchpad";
-      case 3: return "Pen";
-      default: return "Invalid";
+const GestureSourceType = (function() {
+  var isDefined = (window.chrome && chrome.gpuBenchmarking);
+  return {
+    DEFAULT_INPUT: isDefined && chrome.gpuBenchmarking.DEFAULT_INPUT,
+    TOUCH_INPUT: isDefined && chrome.gpuBenchmarking.TOUCH_INPUT,
+    MOUSE_INPUT: isDefined && chrome.gpuBenchmarking.MOUSE_INPUT,
+    TOUCHPAD_INPUT: isDefined && chrome.gpuBenchmarking.TOUCHPAD_INPUT,
+    PEN_INPUT: isDefined && chrome.gpuBenchmarking.PEN_INPUT,
+    ToString: function(value) {
+      if (!isDefined)
+        return 'Synthetic gestures unavailable';
+      switch (value) {
+        case chrome.gpuBenchmarking.DEFAULT_INPUT:
+          return 'DefaultInput';
+        case chrome.gpuBenchmarking.TOUCH_INPUT:
+          return 'Touchscreen';
+        case chrome.gpuBenchmarking.MOUSE_INPUT:
+          return 'MouseWheel/Touchpad';
+        case chrome.gpuBenchmarking.PEN_INPUT:
+          return 'Pen';
+        default:
+          return 'Invalid';
+      }
     }
   }
-};
+})();
 
 // Use this for speed to make gestures (effectively) instant. That is, finish
 // entirely within one Begin|Update|End triplet. This is in physical
@@ -328,7 +338,7 @@ function touchTapOn(xPosition, yPosition) {
 
 function doubleTapAt(xPosition, yPosition) {
   // This comes from config constants in gesture_detector.cc.
-  const DOUBLE_TAP_MINIMUM_DURATION_S = 0.04;
+  const DOUBLE_TAP_MINIMUM_DURATION_MS = 40;
 
   return new Promise(function(resolve, reject) {
     if (!window.chrome || !chrome.gpuBenchmarking) {
@@ -341,7 +351,7 @@ function doubleTapAt(xPosition, yPosition) {
       actions: [
         { name: 'pointerDown', x: xPosition, y: yPosition },
         { name: 'pointerUp' },
-        { name: 'pause', duration: DOUBLE_TAP_MINIMUM_DURATION_S },
+        { name: 'pause', duration: DOUBLE_TAP_MINIMUM_DURATION_MS },
         { name: 'pointerDown', x: xPosition, y: yPosition },
         { name: 'pointerUp' }
       ]

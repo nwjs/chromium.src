@@ -34,6 +34,7 @@
 #include "base/strings/string_util.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "base/win/registry.h"
@@ -706,11 +707,6 @@ void ReportForcelistExtensions(ExtensionFileLogger* extension_file_logger) {
 void ReportInstalledExtensions(JsonParserAPI* json_parser,
                                ExtensionFileLogger* extension_file_logger) {
   DCHECK(json_parser);
-  // TODO(proberge): Temporarily allowing syncing to avoid crashes in debug
-  // mode. This isn't catastrophic since the cleanup tool doesn't have a UI and
-  // the system report is collected at the end of the process.
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
-  base::ScopedAllowBaseSyncPrimitivesForTesting allow_sync;
 
   ReportForcelistExtensions(extension_file_logger);
 
@@ -897,13 +893,6 @@ void SystemReportComponent::CreateFullSystemReport() {
 
   // Don't collect a system report if logs won't be uploaded.
   if (!logging_service->uploads_enabled()) {
-    // TODO(proberge): Remove this by EOQ4 2018.
-    if (base::CommandLine::ForCurrentProcess()->HasSwitch(kDumpRawLogsSwitch)) {
-      ReportInstalledExtensions(json_parser_, &extension_file_logger);
-      ReportShortcutModifications(shortcut_parser_);
-      created_report_ = true;
-    }
-
     return;
   }
 
@@ -936,8 +925,16 @@ void SystemReportComponent::CreateFullSystemReport() {
   ReportInstalledPrograms();
   ReportLayeredServiceProviders();
   ReportProxySettingsInformation();
-  ReportInstalledExtensions(json_parser_, &extension_file_logger);
-  ReportShortcutModifications(shortcut_parser_);
+
+  {
+    // ReportInstalledExtensions and ReportShortcutModifications use
+    // WaitableEvent. This is acceptable since the Chrome Cleaner doesn't have a
+    // UI and the system report is collected at the end of the process.
+    base::ScopedAllowBaseSyncPrimitives allow_sync;
+
+    ReportInstalledExtensions(json_parser_, &extension_file_logger);
+    ReportShortcutModifications(shortcut_parser_);
+  }
 
   created_report_ = true;
 }

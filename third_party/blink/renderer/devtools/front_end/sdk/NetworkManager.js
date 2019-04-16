@@ -229,7 +229,7 @@ SDK.NetworkManager.Conditions;
 
 /** @type {!SDK.NetworkManager.Conditions} */
 SDK.NetworkManager.NoThrottlingConditions = {
-  title: Common.UIString('Online'),
+  title: Common.UIString('No throttling'),
   download: -1,
   upload: -1,
   latency: 0
@@ -841,8 +841,16 @@ SDK.NetworkDispatcher = class {
   _finishNetworkRequest(networkRequest, finishTime, encodedDataLength, shouldReportCorbBlocking) {
     networkRequest.endTime = finishTime;
     networkRequest.finished = true;
-    if (encodedDataLength >= 0)
-      networkRequest.setTransferSize(encodedDataLength);
+    if (encodedDataLength >= 0) {
+      const redirectSource = networkRequest.redirectSource();
+      if (redirectSource && redirectSource.signedExchangeInfo()) {
+        networkRequest.setTransferSize(0);
+        redirectSource.setTransferSize(encodedDataLength);
+        this._updateNetworkRequest(redirectSource);
+      } else {
+        networkRequest.setTransferSize(encodedDataLength);
+      }
+    }
     this._manager.dispatchEventToListeners(SDK.NetworkManager.Events.RequestFinished, networkRequest);
     delete this._inflightRequestsById[networkRequest.requestId()];
     delete this._inflightRequestsByURL[networkRequest.url()];

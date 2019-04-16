@@ -77,11 +77,11 @@
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/drag_data.h"
+#include "third_party/blink/renderer/core/page/drag_image.h"
 #include "third_party/blink/renderer/core/page/drag_state.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image_for_container.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/drag_image.h"
 #include "third_party/blink/renderer/platform/geometry/int_rect.h"
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/bitmap_image.h"
@@ -141,7 +141,8 @@ static DataTransfer* CreateDraggingDataTransfer(DataTransferAccessPolicy policy,
 }
 
 DragController::DragController(Page* page)
-    : page_(page),
+    : ContextLifecycleObserver(nullptr),
+      page_(page),
       document_under_mouse_(nullptr),
       drag_initiator_(nullptr),
       file_input_element_under_mouse_(nullptr),
@@ -294,12 +295,21 @@ void DragController::PerformDrag(DragData* drag_data, LocalFrame& local_root) {
   if (OperationForLoad(drag_data, local_root) != kDragOperationNone) {
     if (page_->GetSettings().GetNavigateOnDragDrop()) {
       ResourceRequest resource_request(drag_data->AsURL());
-      // TODO(mkwst): Perhaps this should use a unique origin as the requestor
-      // origin rather than the origin of the dragged data URL?
-      resource_request.SetRequestorOrigin(
-          SecurityOrigin::Create(KURL(drag_data->AsURL())));
       resource_request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(
           document_under_mouse_ ? document_under_mouse_->GetFrame() : nullptr));
+
+      // Use a unique origin to match other navigations that are initiated
+      // outside of a renderer process (e.g. omnibox navigations).  Here, the
+      // initiator of the navigation is a user dragging files from *outside* of
+      // the current page.  See also https://crbug.com/930049.
+      //
+      // TODO(lukasza): Once drag-and-drop remembers the source of the drag
+      // (unique origin for drags started from top-level Chrome like bookmarks
+      // or for drags started from other apps like Windows Explorer;  specific
+      // origin for drags started from another tab) we should use the source of
+      // the drag as the initiator of the navigation below.
+      resource_request.SetRequestorOrigin(SecurityOrigin::CreateUniqueOpaque());
+
       page_->MainFrame()->Navigate(FrameLoadRequest(nullptr, resource_request),
                                    WebFrameLoadType::kStandard);
     }
@@ -990,6 +1000,11 @@ bool DragController::PopulateDragDataTransfer(LocalFrame* src,
     // FIXME: For DHTML/draggable element drags, write element markup to
     // clipboard.
   }
+
+  // Observe context related to source to allow dropping drag_state_ when the
+  // Document goes away.
+  SetContext(src->GetDocument());
+
   return true;
 }
 
@@ -1298,6 +1313,7 @@ void DragController::DoSystemDrag(DragImage* image,
                                   bool for_link) {
   did_initiate_drag_ = true;
   drag_initiator_ = frame->GetDocument();
+  SetContext(drag_initiator_);
 
   // TODO(pdr): |drag_location| and |event_pos| should be passed in as
   // FloatPoints and we should calculate these adjusted values in floating
@@ -1354,12 +1370,17 @@ DragState& DragController::GetDragState() {
   return *drag_state_;
 }
 
+void DragController::ContextDestroyed(ExecutionContext*) {
+  drag_state_ = nullptr;
+}
+
 void DragController::Trace(blink::Visitor* visitor) {
   visitor->Trace(page_);
   visitor->Trace(document_under_mouse_);
   visitor->Trace(drag_initiator_);
   visitor->Trace(drag_state_);
   visitor->Trace(file_input_element_under_mouse_);
+  ContextLifecycleObserver::Trace(visitor);
 }
 
 }  // namespace blink

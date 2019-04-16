@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #include "components/browser_sync/profile_sync_service_mock.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -50,7 +51,7 @@ PassphraseTableViewControllerTest::CreateNiceProfileSyncServiceMock(
     web::BrowserState* context) {
   browser_sync::ProfileSyncService::InitParams init_params =
       CreateProfileSyncServiceParamsForTest(
-          nullptr, ios::ChromeBrowserState::FromBrowserState(context));
+          ios::ChromeBrowserState::FromBrowserState(context));
   return std::make_unique<NiceMock<browser_sync::ProfileSyncServiceMock>>(
       std::move(init_params));
 }

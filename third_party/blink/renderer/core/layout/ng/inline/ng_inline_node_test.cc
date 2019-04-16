@@ -8,6 +8,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_child_layout_context.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_items.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_layout_algorithm.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_line_box_fragment.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_text_fragment.h"
@@ -112,6 +113,12 @@ class NGInlineNodeTest : public NGLayoutTest {
     return node;
   }
 
+  MinMaxSize ComputeMinMaxSize(NGInlineNode node) {
+    return node.ComputeMinMaxSize(
+        node.Style().GetWritingMode(),
+        MinMaxSizeInput(/* percentage_resolution_block_size */ LayoutUnit()));
+  }
+
   void CreateLine(
       NGInlineNode node,
       Vector<scoped_refptr<const NGPhysicalTextFragment>>* fragments_out) {
@@ -122,7 +129,7 @@ class NGInlineNodeTest : public NGLayoutTest {
             .SetAvailableSize({LayoutUnit::Max(), LayoutUnit(-1)})
             .ToConstraintSpace();
     NGInlineChildLayoutContext context;
-    scoped_refptr<NGLayoutResult> result =
+    scoped_refptr<const NGLayoutResult> result =
         NGInlineLayoutAlgorithm(node, constraint_space,
                                 nullptr /* break_token */, &context)
             .Layout();
@@ -183,7 +190,7 @@ class NGInlineNodeTest : public NGLayoutTest {
 class NodeParameterTest : public NGInlineNodeTest,
                           public testing::WithParamInterface<const char*> {};
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     NGInlineNodeTest,
     NodeParameterTest,
     testing::Values("text",
@@ -442,7 +449,7 @@ TEST_F(NGInlineNodeTest, SegmentBidiIsolate) {
 TEST_F(NGInlineNodeTest, CreateLineBidiIsolate) {
   UseLayoutObjectAndAhem();
   scoped_refptr<ComputedStyle> style = ComputedStyle::Create();
-  style->SetLineHeight(Length(1, kFixed));
+  style->SetLineHeight(Length::Fixed(1));
   style->GetFont().Update(nullptr);
   NGInlineNodeForTest node = CreateInlineNode();
   node = CreateBidiIsolateNode(node, style.get(), layout_object_);
@@ -461,8 +468,7 @@ TEST_F(NGInlineNodeTest, MinMaxSize) {
   LoadAhem();
   SetupHtml("t", "<div id=t style='font:10px Ahem'>AB CDEF</div>");
   NGInlineNodeForTest node = CreateInlineNode();
-  MinMaxSize sizes =
-      node.ComputeMinMaxSize(WritingMode::kHorizontalTb, MinMaxSizeInput());
+  MinMaxSize sizes = ComputeMinMaxSize(node);
   EXPECT_EQ(40, sizes.min_size);
   EXPECT_EQ(70, sizes.max_size);
 }
@@ -471,8 +477,7 @@ TEST_F(NGInlineNodeTest, MinMaxSizeElementBoundary) {
   LoadAhem();
   SetupHtml("t", "<div id=t style='font:10px Ahem'>A B<span>C D</span></div>");
   NGInlineNodeForTest node = CreateInlineNode();
-  MinMaxSize sizes =
-      node.ComputeMinMaxSize(WritingMode::kHorizontalTb, MinMaxSizeInput());
+  MinMaxSize sizes = ComputeMinMaxSize(node);
   // |min_content| should be the width of "BC" because there is an element
   // boundary between "B" and "C" but no break opportunities.
   EXPECT_EQ(20, sizes.min_size);
@@ -491,8 +496,7 @@ TEST_F(NGInlineNodeTest, MinMaxSizeFloats) {
   )HTML");
 
   NGInlineNodeForTest node = CreateInlineNode();
-  MinMaxSize sizes =
-      node.ComputeMinMaxSize(WritingMode::kHorizontalTb, MinMaxSizeInput());
+  MinMaxSize sizes = ComputeMinMaxSize(node);
 
   EXPECT_EQ(50, sizes.min_size);
   EXPECT_EQ(130, sizes.max_size);
@@ -511,8 +515,7 @@ TEST_F(NGInlineNodeTest, MinMaxSizeFloatsClearance) {
   )HTML");
 
   NGInlineNodeForTest node = CreateInlineNode();
-  MinMaxSize sizes =
-      node.ComputeMinMaxSize(WritingMode::kHorizontalTb, MinMaxSizeInput());
+  MinMaxSize sizes = ComputeMinMaxSize(node);
 
   EXPECT_EQ(50, sizes.min_size);
   EXPECT_EQ(160, sizes.max_size);
@@ -524,11 +527,15 @@ TEST_F(NGInlineNodeTest, AssociatedItemsWithControlItem) {
   LayoutText* const layout_text = ToLayoutText(
       GetDocument().getElementById("t")->firstChild()->GetLayoutObject());
   ASSERT_TRUE(layout_text->HasValidInlineItems());
-  const Vector<NGInlineItem*>& items = layout_text->InlineItems();
-  ASSERT_EQ(3u, items.size());
+  Vector<const NGInlineItem*> items;
+  for (const NGInlineItem& item : layout_text->InlineItems())
+    items.push_back(&item);
+  ASSERT_EQ(5u, items.size());
   TEST_ITEM_TYPE_OFFSET((*items[0]), kText, 1u, 3u);
-  TEST_ITEM_TYPE_OFFSET((*items[1]), kControl, 4u, 5u);
-  TEST_ITEM_TYPE_OFFSET((*items[2]), kText, 6u, 8u);
+  TEST_ITEM_TYPE_OFFSET((*items[1]), kBidiControl, 3u, 4u);
+  TEST_ITEM_TYPE_OFFSET((*items[2]), kControl, 4u, 5u);
+  TEST_ITEM_TYPE_OFFSET((*items[3]), kBidiControl, 5u, 6u);
+  TEST_ITEM_TYPE_OFFSET((*items[4]), kText, 6u, 8u);
 }
 
 TEST_F(NGInlineNodeTest, InvalidateAddSpan) {
@@ -931,8 +938,7 @@ TEST_F(NGInlineNodeTest, MarkLineBoxesDirtyInInlineBlock) {
   // Inline block with auto-size calls |ComputeMinMaxSize|, which may call
   // |CollectInlines|. Emulate it to ensure it does not let tests to fail.
   GetDocument().UpdateStyleAndLayoutTree();
-  NGInlineNode(layout_block_flow_)
-      .ComputeMinMaxSize(layout_block_flow_->StyleRef().GetWritingMode(), {});
+  ComputeMinMaxSize(NGInlineNode(layout_block_flow_));
 
   auto lines = MarkLineBoxesDirty();
   EXPECT_FALSE(lines[0]->IsDirty());

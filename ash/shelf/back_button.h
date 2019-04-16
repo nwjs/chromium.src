@@ -18,21 +18,18 @@ namespace ash {
 // in/out of the icon matches the movement of ShelfView's items.
 class ASH_EXPORT BackButton : public ShelfControlButton {
  public:
+  static const char kViewClassName[];
+
   explicit BackButton(ShelfView* shelf_view);
   ~BackButton() override;
 
  protected:
   // views::Button:
-  void OnGestureEvent(ui::GestureEvent* event) override;
-  bool OnMousePressed(const ui::MouseEvent& event) override;
-  void OnMouseReleased(const ui::MouseEvent& event) override;
+  void NotifyClick(const ui::Event& event) override;
   void PaintButtonContents(gfx::Canvas* canvas) override;
+  const char* GetClassName() const override;
 
  private:
-  // Generate and send a VKEY_BROWSER_BACK key event when the back button
-  // is pressed.
-  void GenerateAndSendBackEvent(const ui::EventType& original_event_type);
-
   DISALLOW_COPY_AND_ASSIGN(BackButton);
 };
 

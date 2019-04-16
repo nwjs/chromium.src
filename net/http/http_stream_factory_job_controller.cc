@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
@@ -735,8 +736,8 @@ void HttpStreamFactory::JobController::RunLoop(int result) {
     DCHECK(!alternative_job_);
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&HttpStreamFactory::JobController::NotifyRequestFailed,
-                   ptr_factory_.GetWeakPtr(), rv));
+        base::BindOnce(&HttpStreamFactory::JobController::NotifyRequestFailed,
+                       ptr_factory_.GetWeakPtr(), rv));
   }
 }
 
@@ -1088,7 +1089,7 @@ GURL HttpStreamFactory::JobController::ApplyHostMappingRules(
     HostPortPair* endpoint) {
   if (session_->params().host_mapping_rules.RewriteHost(endpoint)) {
     url::Replacements<char> replacements;
-    const std::string port_str = base::UintToString(endpoint->port());
+    const std::string port_str = base::NumberToString(endpoint->port());
     replacements.SetPort(port_str.c_str(), url::Component(0, port_str.size()));
     replacements.SetHost(endpoint->host().c_str(),
                          url::Component(0, endpoint->host().size()));

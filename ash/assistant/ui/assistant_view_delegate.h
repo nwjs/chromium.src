@@ -7,12 +7,13 @@
 
 #include <map>
 #include <string>
-#include <vector>
 
 #include "ash/assistant/model/assistant_cache_model.h"
 #include "ash/assistant/model/assistant_cache_model_observer.h"
 #include "ash/assistant/model/assistant_interaction_model.h"
 #include "ash/assistant/model/assistant_interaction_model_observer.h"
+#include "ash/assistant/model/assistant_notification_model.h"
+#include "ash/assistant/model/assistant_notification_model_observer.h"
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/model/assistant_ui_model_observer.h"
 #include "ash/assistant/ui/assistant_mini_view.h"
@@ -21,6 +22,7 @@
 #include "ash/assistant/ui/main_stage/assistant_opt_in_view.h"
 #include "ash/public/cpp/assistant/default_voice_interaction_observer.h"
 #include "ash/public/interfaces/assistant_image_downloader.mojom.h"
+#include "base/component_export.h"
 #include "base/observer_list_types.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "services/content/public/mojom/navigable_contents_factory.mojom.h"
@@ -34,20 +36,37 @@ enum class DeepLinkType;
 }  // namespace util
 }  // namespace assistant
 
-class ASH_PUBLIC_EXPORT AssistantViewDelegateObserver
+class COMPONENT_EXPORT(ASSISTANT_UI) AssistantViewDelegateObserver
     : public base::CheckedObserver {
  public:
+  using AssistantSuggestion = chromeos::assistant::mojom::AssistantSuggestion;
+
   // Invoked when Assistant has received a deep link of the specified |type|
   // with the given |params|.
   virtual void OnDeepLinkReceived(
       assistant::util::DeepLinkType type,
       const std::map<std::string, std::string>& params) {}
+
+  // Invoked when the dialog plate button identified by |id| is pressed.
+  virtual void OnDialogPlateButtonPressed(AssistantButtonId id) {}
+
+  // Invoked when the dialog plate contents have been committed.
+  virtual void OnDialogPlateContentsCommitted(const std::string& text) {}
+
+  // Invoked when the mini view is pressed.
+  virtual void OnMiniViewPressed() {}
+
+  // Invoked when the opt in button is pressed.
+  virtual void OnOptInButtonPressed() {}
+
+  // Invoked when a suggestion chip is pressed.
+  virtual void OnSuggestionChipPressed(const AssistantSuggestion* suggestion) {}
 };
 
 // A delegate of views in assistant/ui that handles views related actions e.g.
 // get models for the views, adding observers, closing the views, opening urls,
 // etc.
-class ASH_PUBLIC_EXPORT AssistantViewDelegate {
+class COMPONENT_EXPORT(ASSISTANT_UI) AssistantViewDelegate {
  public:
   using AssistantSuggestion = chromeos::assistant::mojom::AssistantSuggestion;
 
@@ -59,8 +78,15 @@ class ASH_PUBLIC_EXPORT AssistantViewDelegate {
   // Gets the interaction model associated with the view delegate.
   virtual const AssistantInteractionModel* GetInteractionModel() const = 0;
 
+  // Gets the notification model associated with the view delegate.
+  virtual const AssistantNotificationModel* GetNotificationModel() const = 0;
+
   // Gets the ui model associated with the view delegate.
   virtual const AssistantUiModel* GetUiModel() const = 0;
+
+  // Adds/removes the specified view delegate observer.
+  virtual void AddObserver(AssistantViewDelegateObserver* observer) = 0;
+  virtual void RemoveObserver(AssistantViewDelegateObserver* observer) = 0;
 
   // Adds/removes the cache model observer associated with the view delegate.
   virtual void AddCacheModelObserver(AssistantCacheModelObserver* observer) = 0;
@@ -74,15 +100,16 @@ class ASH_PUBLIC_EXPORT AssistantViewDelegate {
   virtual void RemoveInteractionModelObserver(
       AssistantInteractionModelObserver* observer) = 0;
 
+  // Adds/removes the notification model observer associated with the view
+  // delegate.
+  virtual void AddNotificationModelObserver(
+      AssistantNotificationModelObserver* observer) = 0;
+  virtual void RemoveNotificationModelObserver(
+      AssistantNotificationModelObserver* observer) = 0;
+
   // Adds/removes the ui model observer associated with the view delegate.
   virtual void AddUiModelObserver(AssistantUiModelObserver* observer) = 0;
   virtual void RemoveUiModelObserver(AssistantUiModelObserver* observer) = 0;
-
-  // Adds/removes the view delegate observer.
-  virtual void AddViewDelegateObserver(
-      AssistantViewDelegateObserver* observer) = 0;
-  virtual void RemoveViewDelegateObserver(
-      AssistantViewDelegateObserver* observer) = 0;
 
   // Adds/removes the voice interaction controller observer associated with the
   // view delegate.
@@ -94,15 +121,6 @@ class ASH_PUBLIC_EXPORT AssistantViewDelegate {
   // Gets the caption bar delegate associated with the view delegate.
   virtual CaptionBarDelegate* GetCaptionBarDelegate() = 0;
 
-  // Gets the dialog plate observers associated with the view delegate.
-  virtual std::vector<DialogPlateObserver*> GetDialogPlateObservers() = 0;
-
-  // Gets the mini view delegate associated with the view delegate.
-  virtual AssistantMiniViewDelegate* GetMiniViewDelegate() = 0;
-
-  // Gets the opt in delegate associated with the view delegate.
-  virtual AssistantOptInDelegate* GetOptInDelegate() = 0;
-
   // Downloads the image found at the specified |url|. On completion, the
   // supplied |callback| will be run with the downloaded image. If the download
   // attempt is unsuccessful, a NULL image is returned.
@@ -110,18 +128,41 @@ class ASH_PUBLIC_EXPORT AssistantViewDelegate {
       const GURL& url,
       mojom::AssistantImageDownloader::DownloadCallback callback) = 0;
 
+  // Returns the status of the user's consent.
+  virtual mojom::ConsentStatus GetConsentStatus() const = 0;
+
   // Returns the cursor_manager.
-  virtual wm::CursorManager* GetCursorManager() = 0;
+  virtual ::wm::CursorManager* GetCursorManager() = 0;
 
   // Acquires a NavigableContentsFactory from the Content Service to allow
   // Assistant to display embedded web contents.
   virtual void GetNavigableContentsFactoryForView(
       content::mojom::NavigableContentsFactoryRequest request) = 0;
 
+  // Returns the root window that newly created windows should be added to.
   virtual aura::Window* GetRootWindowForNewWindows() = 0;
+
+  // Returns true if user prefers to start with voice interaction.
+  virtual bool IsLaunchWithMicOpen() const = 0;
 
   // Returns true if in tablet mode.
   virtual bool IsTabletMode() const = 0;
+
+  // Invoked when the dialog plate button identified by |id| is pressed.
+  virtual void OnDialogPlateButtonPressed(AssistantButtonId id) = 0;
+
+  // Invoked when the dialog plate contents have been committed.
+  virtual void OnDialogPlateContentsCommitted(const std::string& text) = 0;
+
+  // Invoked when the mini view is pressed.
+  virtual void OnMiniViewPressed() = 0;
+
+  // Invoked when an in-Assistant notification button is pressed.
+  virtual void OnNotificationButtonPressed(const std::string& notification_id,
+                                           int notification_button_index) = 0;
+
+  // Invoked when the opt in button is pressed.
+  virtual void OnOptInButtonPressed() {}
 
   // Invoked when suggestion chip is pressed.
   virtual void OnSuggestionChipPressed(
@@ -130,9 +171,6 @@ class ASH_PUBLIC_EXPORT AssistantViewDelegate {
   // Opens the specified |url| in a new browser tab. Special handling is applied
   // to deep links which may cause deviation from this behavior.
   virtual void OpenUrlFromView(const GURL& url) = 0;
-
-  // Returns true if voice interaction controller setup completed.
-  virtual bool VoiceInteractionControllerSetupCompleted() const = 0;
 };
 
 }  // namespace ash

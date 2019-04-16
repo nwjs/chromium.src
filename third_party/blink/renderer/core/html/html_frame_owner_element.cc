@@ -195,9 +195,8 @@ HTMLFrameOwnerElement::~HTMLFrameOwnerElement() {
 }
 
 Document* HTMLFrameOwnerElement::contentDocument() const {
-  return (content_frame_ && content_frame_->IsLocalFrame())
-             ? ToLocalFrame(content_frame_)->GetDocument()
-             : nullptr;
+  auto* content_local_frame = DynamicTo<LocalFrame>(content_frame_.Get());
+  return content_local_frame ? content_local_frame->GetDocument() : nullptr;
 }
 
 DOMWindow* HTMLFrameOwnerElement::contentWindow() const {
@@ -241,9 +240,8 @@ void HTMLFrameOwnerElement::UpdateContainerPolicy(Vector<String>* messages) {
 }
 
 void HTMLFrameOwnerElement::PointerEventsChanged() {
-  if (ContentFrame() && ContentFrame()->IsRemoteFrame()) {
-    ToRemoteFrame(ContentFrame())->PointerEventsChanged();
-  }
+  if (auto* remote_frame = DynamicTo<RemoteFrame>(ContentFrame()))
+    remote_frame->PointerEventsChanged();
 }
 
 void HTMLFrameOwnerElement::FrameOwnerPropertiesChanged() {
@@ -357,20 +355,23 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
   // attribute value "off" for "lazyload" is ignored (i.e., interpreted as
   // "auto" instead).
   if (should_lazy_load_children_ &&
-      EqualIgnoringASCIICase(FastGetAttribute(html_names::kLazyloadAttr),
-                             "off") &&
+      EqualIgnoringASCIICase(FastGetAttribute(html_names::kLoadAttr),
+                             "eager") &&
       !GetDocument().IsLazyLoadPolicyEnforced()) {
     should_lazy_load_children_ = false;
   }
 
   UpdateContainerPolicy();
 
+  KURL url_to_request = url.IsNull() ? BlankURL() : url;
   if (ContentFrame()) {
     // TODO(sclittle): Support lazily loading frame navigations.
     WebFrameLoadType frame_load_type = WebFrameLoadType::kStandard;
     if (replace_current_item)
       frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
-    ContentFrame()->ScheduleNavigation(GetDocument(), url, frame_load_type,
+
+    ContentFrame()->ScheduleNavigation(GetDocument(), url_to_request,
+                                       frame_load_type,
                                        UserGestureStatus::kNone);
     return true;
   }
@@ -388,7 +389,7 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
   if (!child_frame)
     return false;
 
-  ResourceRequest request(url.IsNull() ? BlankURL() : url);
+  ResourceRequest request(url_to_request);
   network::mojom::ReferrerPolicy policy = ReferrerPolicyAttribute();
   request.SetReferrerPolicy(policy);
 
@@ -414,8 +415,8 @@ bool HTMLFrameOwnerElement::LoadOrRedirectSubframe(
       // URLs like invalid or empty URLs, "about:blank", local file URLs, etc.
       // that it doesn't make sense to lazily load.
       url.ProtocolIsInHTTPFamily() &&
-      (EqualIgnoringASCIICase(FastGetAttribute(html_names::kLazyloadAttr),
-                              "on") ||
+      (EqualIgnoringASCIICase(FastGetAttribute(html_names::kLoadAttr),
+                              "lazy") ||
        (should_lazy_load_children_ &&
         // Disallow lazy loading by default if javascript in the embedding
         // document would be able to access the contents of the frame, since in
@@ -470,11 +471,11 @@ bool HTMLFrameOwnerElement::ShouldLazyLoadChildren() const {
 
 void HTMLFrameOwnerElement::ParseAttribute(
     const AttributeModificationParams& params) {
-  if (params.name == html_names::kLazyloadAttr) {
+  if (params.name == html_names::kLoadAttr) {
     // Note that when the *feature policy* for "lazyload" is disabled, the
     // attribute value "off" for "lazyload" is ignored (i.e., interpreted as
     // "auto" instead).
-    if (EqualIgnoringASCIICase(params.new_value, "off") &&
+    if (EqualIgnoringASCIICase(params.new_value, "eager") &&
         !GetDocument().IsLazyLoadPolicyEnforced()) {
       should_lazy_load_children_ = false;
       if (lazy_load_frame_observer_ &&

@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ash/public/cpp/ash_pref_names.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/gtest_prod_util.h"
 #include "base/json/json_writer.h"
@@ -250,7 +251,7 @@ void ArcSettingsServiceImpl::OnPrefChanged(const std::string& pref_name) const {
   } else if (pref_name == ash::prefs::kAccessibilityVirtualKeyboardEnabled) {
     SyncAccessibilityVirtualKeyboardEnabled();
   } else if (pref_name == ::language::prefs::kApplicationLocale ||
-             pref_name == ::prefs::kLanguagePreferredLanguages) {
+             pref_name == ::language::prefs::kPreferredLanguages) {
     SyncLocale();
   } else if (pref_name == ::prefs::kUse24HourClock) {
     SyncUse24HourClock();
@@ -376,7 +377,7 @@ void ArcSettingsServiceImpl::SyncAppTimeSettings() {
   // implementation.
   SyncLocale();
   AddPrefToObserve(::language::prefs::kApplicationLocale);
-  AddPrefToObserve(::prefs::kLanguagePreferredLanguages);
+  AddPrefToObserve(::language::prefs::kPreferredLanguages);
 }
 
 void ArcSettingsServiceImpl::SyncAccessibilityLargeMouseCursorEnabled() const {

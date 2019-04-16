@@ -151,6 +151,10 @@ class BASE_EXPORT TraceLog : public MemoryDumpProvider {
     // TraceLog::IsEnabled() is false at this point.
     virtual void OnTraceLogDisabled() = 0;
   };
+  // TODO(oysteine): This API originally needed to use WeakPtrs as the observer
+  // list was copied under the global trace lock, but iterated over outside of
+  // that lock so that observers could add tracing. The list is now protected by
+  // its own lock, so this can be changed to a raw ptr.
   void AddAsyncEnabledStateObserver(
       WeakPtr<AsyncEnabledStateObserver> listener);
   void RemoveAsyncEnabledStateObserver(AsyncEnabledStateObserver* listener);
@@ -165,6 +169,11 @@ class BASE_EXPORT TraceLog : public MemoryDumpProvider {
 
   void SetArgumentFilterPredicate(
       const ArgumentFilterPredicate& argument_filter_predicate);
+  ArgumentFilterPredicate GetArgumentFilterPredicate() const;
+
+  void SetMetadataFilterPredicate(
+      const MetadataFilterPredicate& metadata_filter_predicate);
+  MetadataFilterPredicate GetMetadataFilterPredicate() const;
 
   // Flush all collected events to the given output callback. The callback will
   // be called one or more times either synchronously or asynchronously from
@@ -522,6 +531,7 @@ class BASE_EXPORT TraceLog : public MemoryDumpProvider {
   OutputCallback flush_output_callback_;
   scoped_refptr<SequencedTaskRunner> flush_task_runner_;
   ArgumentFilterPredicate argument_filter_predicate_;
+  MetadataFilterPredicate metadata_filter_predicate_;
   subtle::AtomicWord generation_;
   bool use_worker_thread_;
   std::atomic<AddTraceEventOverrideCallback> add_trace_event_override_;

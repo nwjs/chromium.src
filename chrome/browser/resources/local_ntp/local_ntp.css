@@ -44,13 +44,12 @@ html {
   height: 100%;
 }
 
-html[darkmode=true] {
+html[darkmode=true] body:not(.light-chip) {
   /* These can be overridden by themes. */
   --text-color: rgb(var(--GG200-rgb));
   --text-color-light: rgb(var(--GG200-rgb));
   --text-color-link: rgb(var(--GB400-dark-rgb));
 }
-
 
 /* width >= (3 cols * (16px + 154px) - 16px + 200px) */
 @media (min-width: 694px) {
@@ -66,13 +65,10 @@ html[darkmode=true] {
   }
 }
 
-/* TODO: Need to discuss with NTP folks before we remove font-family from the
- * body tag. */
 body {
   background-attachment: fixed !important;
   cursor: default;
   display: none;
-  font-family: arial, sans-serif;
   font-size: small;
   margin: 0;
   min-height: 100%;
@@ -89,10 +85,6 @@ button {
   border: 0;
   margin: 0;
   padding: 0;
-}
-
-.mouse-navigation {
-  outline: none;
 }
 
 #ntp-contents {
@@ -130,6 +122,10 @@ body.hide-fakebox #fakebox {
   width: var(--content-width);
 }
 
+body.remove-fakebox #fakebox-container {
+  display: none;
+}
+
 .alternate-fakebox #fakebox-container {
   /* Increase min-width to account for larger font + increased padding: 341px
    * min-width + 50px */
@@ -157,7 +153,7 @@ body.hide-fakebox #fakebox {
   transition: background-color 300ms ease-in-out, opacity 200ms
 }
 
-html[darkmode=true] body:not(.alternate-fakebox) #fakebox {
+html[darkmode=true] body:not(.alternate-fakebox):not(.light-chip) #fakebox {
   background-color: rgb(var(--GG900-rgb));
 }
 
@@ -180,7 +176,7 @@ html[darkmode=true] .alternate-fakebox #fakebox {
   background-color: rgb(var(--GG200-rgb));
 }
 
-html[darkmode=true] body:not(.alternate-fakebox) #fakebox:hover {
+html[darkmode=true] body:not(.alternate-fakebox):not(.light-chip) #fakebox:hover {
   background-color: rgb(42, 43, 46);
 }
 
@@ -244,7 +240,6 @@ html[dir=rtl] #fakebox-search-icon {
 #fakebox-text {
   bottom: 4px;
   color: rgb(var(--GG600-rgb));
-  font-family: 'Roboto', arial, sans-serif;
   font-size: 14px;
   left: 0;
   margin-top: 1px;
@@ -260,7 +255,7 @@ html[dir=rtl] #fakebox-search-icon {
   white-space: nowrap;
 }
 
-html[darkmode=true] body:not(.alternate-fakebox) #fakebox-text {
+html[darkmode=true] body:not(.alternate-fakebox):not(.light-chip) #fakebox-text {
   color: rgb(var(--GG200-rgb));
 }
 
@@ -303,7 +298,7 @@ html[dir=rtl] #fakebox-cursor {
   right: 20px;
 }
 
-html[darkmode=true] body:not(.alternate-fakebox) #fakebox-cursor {
+html[darkmode=true] body:not(.alternate-fakebox):not(.light-chip) #fakebox-cursor {
   background: rgb(var(--GB300-rgb));
 }
 
@@ -374,6 +369,12 @@ body.fakebox-focused #fakebox-cursor {
   margin-top: -2px;
 }
 
+body.remove-fakebox #user-content {
+  /* Total of 48px margin between the logo and MV tiles/suggestions: 29px logo
+   * margin-bottom + 32px margin (from #most-visited or #suggestions) - 13px */
+  margin-top: -13px;
+}
+
 #most-visited {
   margin-top: 56px;
   text-align: -webkit-center;
@@ -430,7 +431,7 @@ body.fakebox-focused #fakebox-cursor {
   width: 16px;
 }
 
-html[darkmode=true] #mv-notice-x {
+html[darkmode=true] body:not(.light-chip) #mv-notice-x {
   background-color: rgb(var(--GG200-rgb));
 }
 
@@ -442,8 +443,8 @@ html[darkmode=true] #mv-notice-x {
   background-color: rgb(var(--GB500-rgb));
 }
 
-html[darkmode=true] #mv-notice-x:hover,
-html[darkmode=true] #mv-notice-x:active {
+html[darkmode=true] body:not(.light-chip) #mv-notice-x:hover,
+html[darkmode=true] body:not(.light-chip) #mv-notice-x:active {
   background-color: rgb(var(--GG400-rgb));
 }
 
@@ -495,7 +496,6 @@ html[darkmode=true] #mv-notice-x:active {
   border: 1px solid rgb(var(--GG300-rgb));
   /* Necessary for a "pill" shape. Using 50% creates an oval. */
   border-radius: 16px;
-  font-family: 'Roboto', arial, sans-serif;
   font-weight: normal;
   height: fit-content;
   margin: 0 auto;
@@ -503,7 +503,7 @@ html[darkmode=true] #mv-notice-x:active {
   width: fit-content;
 }
 
-html[darkmode=true] .md-icons #mv-notice {
+html[darkmode=true] body:not(.light-chip) .md-icons #mv-notice {
   background-color: rgb(var(--GG900-rgb));
   border-color: rgba(0, 0, 0, 0.1);
 }
@@ -523,7 +523,7 @@ html[darkmode=true] .md-icons #mv-notice {
   vertical-align: unset;
 }
 
-html[darkmode=true] .md-icons #mv-notice span {
+html[darkmode=true] body:not(.light-chip) .md-icons #mv-notice span {
   color: rgb(var(--GG200-rgb));
 }
 
@@ -545,7 +545,7 @@ html[darkmode=true] .md-icons #mv-notice span {
   position: relative;
 }
 
-html[darkmode=true] .md-icons #mv-notice-links span {
+html[darkmode=true] body:not(.light-chip) .md-icons #mv-notice-links span {
   color: rgb(var(--GB400-dark-rgb));
 }
 
@@ -561,8 +561,8 @@ html[darkmode=true] .md-icons #mv-notice-links span {
   transition: background-color 200ms;
 }
 
-html[darkmode=true] .md-icons #mv-notice-links span:hover,
-html[darkmode=true] .md-icons #mv-notice-links span:active {
+html[darkmode=true] body:not(.light-chip) .md-icons #mv-notice-links span:hover,
+html[darkmode=true] body:not(.light-chip) .md-icons #mv-notice-links span:active {
   background-color: rgba(var(--GB400-dark-rgb), 0.1);
 }
 
@@ -582,8 +582,8 @@ html[darkmode=true] .md-icons #mv-notice-links span:active {
   color: #fff;
 }
 
-html[darkmode=true] .default-theme.dark #mv-msg :not(.md-icons),
-html[darkmode=true] .default-theme.dark #mv-notice-links :not(.md-icons) span {
+html[darkmode=true] body:not(.light-chip) .default-theme.dark #mv-msg :not(.md-icons),
+html[darkmode=true] body:not(.light-chip) .default-theme.dark #mv-notice-links :not(.md-icons) span {
   color: rgb(var(--GG200-rgb));
 }
 
@@ -750,7 +750,6 @@ input:checked + .toggle::before {
   border-radius: 16px;
   color: rgb(var(--GR600-rgb));
   display: flex;
-  font-family: 'Roboto', arial, sans-serif;
   font-size: 12px;
   font-weight: normal;
   height: fit-content;
@@ -761,7 +760,7 @@ input:checked + .toggle::before {
   width: fit-content;
 }
 
-html[darkmode=true] #error-notice {
+html[darkmode=true] body:not(.light-chip) #error-notice {
   background-color: rgb(var(--GG900-rgb));
   border-color: rgba(0, 0, 0, 0.1);
   color: rgb(var(--GR500-dark-rgb));
@@ -809,7 +808,7 @@ html[dir=rtl] #error-notice.has-link #error-notice-msg {
   position: relative;
 }
 
-html[darkmode=true] #error-notice-link {
+html[darkmode=true] body:not(.light-chip) #error-notice-link {
   color: rgb(var(--GB400-dark-rgb));
 }
 
@@ -829,25 +828,20 @@ html[darkmode=true] #error-notice-link {
   transition: background-color 200ms;
 }
 
-html[darkmode=true] #error-notice-link:hover,
-html[darkmode=true] #error-notice-link:active {
+html[darkmode=true] body:not(.light-chip) #error-notice-link:hover,
+html[darkmode=true] body:not(.light-chip) #error-notice-link:active {
   background-color: rgba(var(--GB400-dark-rgb), 0.1);
 }
 
 #promo {
   bottom: 16px;
+  display: block;
   left: 0;
   pointer-events: none;
   position: fixed;
   right: 0;
   text-align: center;
   transition: bottom 400ms;
-}
-
-/* TODO(https://crbug/925492): Remove once promos have been optimized for dark
- * mode. */
-html[darkmode=true] #promo {
-  display: none;
 }
 
 #promo.float-down {
@@ -861,7 +855,6 @@ html[darkmode=true] #promo {
   box-sizing: border-box;
   color: rgb(var(--GG700-rgb));
   display: inline-block;
-  font-family: 'Roboto', arial, sans-serif;
   font-size: 12px;
   line-height: 32px;
   margin-bottom: 0;
@@ -873,7 +866,7 @@ html[darkmode=true] #promo {
   white-space: nowrap;
 }
 
-html[darkmode=true] #promo > div {
+html[darkmode=true] body:not(.light-chip) #promo > div {
   background-color: rgb(var(--GG900-rgb));
   border-color: rgba(0, 0, 0, 0.1);
   color: rgb(var(--GG200-rgb));
@@ -900,20 +893,32 @@ html[darkmode=true] #promo > div {
   color: rgb(51, 103, 214) !important;
 }
 
-html[darkmode=true] #promo > div > a,
-html[darkmode=true] #promo > div > a:visited {
+html[darkmode=true] body:not(.light-chip) #promo > div > a,
+html[darkmode=true] body:not(.light-chip) #promo > div > a:visited {
   color: rgb(var(--GB400-dark-rgb)) !important;
 }
 
 #promo > div > img {
   border-radius: 50%;
   height: 24px;
-  margin: 0 8px 0 -12px;
+  margin: 0 8px 2px -12px;
   object-fit: cover;
   vertical-align: middle;
   width: 24px;
 }
 
+html[darkmode=true] body:not(.light-chip) #promo > div > img {
+  background-color: rgb(var(--GG200-rgb));
+}
+
+#promo.hide-promo {
+  display: none;
+}
+
 #promo.notice-hide {
   display: none;
+}
+
+#user-content {
+  z-index: -1;
 }

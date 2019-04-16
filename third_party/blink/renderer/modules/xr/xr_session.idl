@@ -23,19 +23,15 @@ enum XREnvironmentBlendMode {
     OriginTrialEnabled=WebXR
 ] interface XRSession : EventTarget {
   readonly attribute XRSessionMode mode;
-  readonly attribute XRPresentationContext outputContext;
   readonly attribute XREnvironmentBlendMode environmentBlendMode;
-
-  attribute double depthNear;
-  attribute double depthFar;
-
-  attribute XRLayer baseLayer;
+  readonly attribute XRRenderState renderState;
 
   attribute EventHandler onblur;
   attribute EventHandler onfocus;
   attribute EventHandler onresetpose;
   attribute EventHandler onend;
 
+  [RaisesException] void updateRenderState(XRRenderStateInit init);
   [CallWith=ScriptState] Promise<XRReferenceSpace> requestReferenceSpace([PermissiveDictionaryConversion] XRReferenceSpaceOptions options);
 
   long requestAnimationFrame(XRFrameRequestCallback callback);
@@ -43,7 +39,7 @@ enum XREnvironmentBlendMode {
 
   [MeasureAs=XRSessionGetInputSources] FrozenArray<XRInputSource> getInputSources();
 
-  [RuntimeEnabled=WebXRHitTest, CallWith=ScriptState] Promise<FrozenArray<XRHitResult>> requestHitTest(Float32Array origin, Float32Array direction, XRSpace space);
+  [RuntimeEnabled=WebXRHitTest, CallWith=ScriptState] Promise<FrozenArray<XRHitResult>> requestHitTest(XRRay ray, XRSpace space);
 
   [CallWith=ScriptState] Promise<void> end();
 };

@@ -62,8 +62,9 @@ TlsServerHandshaker::TlsServerHandshaker(QuicCryptoStream* stream,
       proof_source_(proof_source),
       crypto_negotiated_params_(new QuicCryptoNegotiatedParameters) {
   CrypterPair crypters;
-  CryptoUtils::CreateTlsInitialCrypters(Perspective::IS_SERVER,
-                                        session->connection_id(), &crypters);
+  CryptoUtils::CreateTlsInitialCrypters(
+      Perspective::IS_SERVER, session->connection()->transport_version(),
+      session->connection_id(), &crypters);
   session->connection()->SetEncrypter(ENCRYPTION_NONE,
                                       std::move(crypters.encrypter));
   session->connection()->SetDecrypter(ENCRYPTION_NONE,
@@ -130,12 +131,6 @@ void TlsServerHandshaker::SetPreviousCachedNetworkParams(
 
 bool TlsServerHandshaker::ShouldSendExpectCTHeader() const {
   return false;
-}
-
-QuicLongHeaderType TlsServerHandshaker::GetLongHeaderType(
-    QuicStreamOffset /*offset*/) const {
-  // TODO(fayang): Returns the right value when actually using TLS handshaker.
-  return HANDSHAKE;
 }
 
 bool TlsServerHandshaker::encryption_established() const {

@@ -74,15 +74,37 @@ public class NotificationUmaTracker {
      * sure to keep this list in sync.  Additions should be treated as APPEND ONLY to keep the UMA
      * metric semantics the same over time.
      */
-    @IntDef({ActionType.UNKNOWN})
+    @IntDef({ActionType.UNKNOWN, ActionType.DOWNLOAD_PAUSE, ActionType.DOWNLOAD_RESUME,
+            ActionType.DOWNLOAD_CANCEL, ActionType.DOWNLOAD_PAGE_PAUSE,
+            ActionType.DOWNLOAD_PAGE_RESUME, ActionType.DOWNLOAD_PAGE_CANCEL,
+            ActionType.CONTENT_SUGGESTION_SETTINGS, ActionType.WEB_APP_ACTION_SHARE,
+            ActionType.WEB_APP_ACTION_OPEN_IN_CHROME,
+            ActionType.OFFLINE_CONTENT_SUGGESTION_SETTINGS})
     @Retention(RetentionPolicy.SOURCE)
     public @interface ActionType {
         int UNKNOWN = -1;
-        // Pause button when an user download is in progress.
-        int DOWNLOAD_FILES_IN_PROGRESS_PAUSE = 0;
-        // Resume button when an user download is in progress.
-        int DOWNLOAD_FILES_IN_PROGRESS_RESUME = 1;
-        int NUM_ENTRIES = 2;
+        // Pause button on user download notification.
+        int DOWNLOAD_PAUSE = 0;
+        // Resume button on user download notification.
+        int DOWNLOAD_RESUME = 1;
+        // Cancel button on user download notification.
+        int DOWNLOAD_CANCEL = 2;
+        // Pause button on page download notification.
+        int DOWNLOAD_PAGE_PAUSE = 3;
+        // Resume button on page download notification.
+        int DOWNLOAD_PAGE_RESUME = 4;
+        // Cancel button on page download notification.
+        int DOWNLOAD_PAGE_CANCEL = 5;
+        // Setting button on content suggestion notification.
+        int CONTENT_SUGGESTION_SETTINGS = 6;
+        // Share button on web app action notification.
+        int WEB_APP_ACTION_SHARE = 7;
+        // Open in Chrome button on web app action notification.
+        int WEB_APP_ACTION_OPEN_IN_CHROME = 8;
+        // Setting button in offline content suggestion notification.
+        int OFFLINE_CONTENT_SUGGESTION_SETTINGS = 9;
+
+        int NUM_ENTRIES = 10;
     }
 
     private static final String LAST_SHOWN_NOTIFICATION_TYPE_KEY =

@@ -182,9 +182,7 @@ source_set("common") {
     "media/aec_dump_messages.h",
     "media/cdm_info.cc",
     "media/media_player_delegate_messages.h",
-    "media/media_player_messages_android.h",
     "media/peer_connection_tracker_messages.h",
-    "media/video_capture.h",
     "mime_sniffing_throttle.cc",
     "mime_sniffing_throttle.h",
     "mime_sniffing_url_loader.cc",
@@ -211,8 +209,6 @@ source_set("common") {
     "pepper_plugin_list.h",
     "pepper_renderer_instance_data.cc",
     "pepper_renderer_instance_data.h",
-    "plugin_list.cc",
-    "plugin_list.h",
     "possibly_associated_interface_ptr.h",
     "possibly_associated_interface_ptr_info.h",
     "possibly_associated_wrapper_shared_url_loader_factory.h",
@@ -321,7 +317,6 @@ source_set("common") {
     "//services/network/public/mojom",
     "//services/resource_coordinator/public/cpp/memory_instrumentation",
     "//services/service_manager/public/mojom",
-    "//services/service_manager/runner/common",
     "//services/service_manager/zygote:zygote_buildflags",
     "//services/video_capture/public/mojom",
     "//services/viz/public/interfaces",
@@ -424,8 +419,6 @@ source_set("common") {
       "pepper_plugin_list.h",
       "pepper_renderer_instance_data.cc",
       "pepper_renderer_instance_data.h",
-      "plugin_list.cc",
-      "plugin_list.h",
     ]
   }
 
@@ -502,8 +495,6 @@ mojom("mojo_bindings") {
     "render_widget_window_tree_client_factory.mojom",
     "renderer.mojom",
     "renderer_host.mojom",
-    "service_worker/embedded_worker.mojom",
-    "shared_worker/shared_worker_factory.mojom",
     "widget.mojom",
   ]
 
@@ -541,8 +532,8 @@ mojom("mojo_bindings") {
     "//services/ws/public/mojom/ime",
     "//skia/public/interfaces",
     "//third_party/blink/public:mojo_bindings",
-    "//third_party/blink/public:web_feature_mojo_bindings",
     "//third_party/blink/public/mojom:mojom_core",
+    "//third_party/blink/public/mojom:web_feature_mojo_bindings",
     "//ui/base/mojo",
     "//ui/events/mojo:interfaces",
     "//ui/gfx/geometry/mojo",

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/syncable/syncable_util.h"
@@ -103,6 +104,11 @@ void MockModelTypeWorker::VerifyPendingCommits(
           << "Hash for tag " << tag_hashes[i][j] << " doesn't match.";
     }
   }
+}
+
+void MockModelTypeWorker::UpdateModelTypeState(
+    const sync_pb::ModelTypeState& model_type_state) {
+  model_type_state_ = model_type_state;
 }
 
 void MockModelTypeWorker::UpdateFromServer() {

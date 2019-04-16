@@ -5,6 +5,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -14,6 +15,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
+#include "build/build_config.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/profiles/profile.h"
@@ -946,12 +948,16 @@ class MockSpellCheckHost : spellcheck::mojom::SpellCheckHost {
     TextReceived(text);
   }
 
-  void ToggleSpellCheck(bool, bool) override {}
   void CheckSpelling(const base::string16& word,
                      int,
                      CheckSpellingCallback) override {}
   void FillSuggestionList(const base::string16& word,
                           FillSuggestionListCallback) override {}
+#endif
+
+#if defined(OS_ANDROID)
+  // spellcheck::mojom::SpellCheckHost:
+  void DisconnectSessionBridge() override {}
 #endif
 
   content::RenderProcessHost* process_host_;
@@ -1001,7 +1007,7 @@ class TestBrowserClientForSpellCheck : public ChromeContentBrowserClient {
   }
 
   void RunUntilBind() {
-    if (spell_check_hosts_.size())
+    if (!spell_check_hosts_.empty())
       return;
 
     base::RunLoop run_loop;
@@ -1010,7 +1016,7 @@ class TestBrowserClientForSpellCheck : public ChromeContentBrowserClient {
   }
 
   void RunUntilBindOrTimeout() {
-    if (spell_check_hosts_.size())
+    if (!spell_check_hosts_.empty())
       return;
 
     auto ui_task_runner = base::CreateSingleThreadTaskRunnerWithTraits(

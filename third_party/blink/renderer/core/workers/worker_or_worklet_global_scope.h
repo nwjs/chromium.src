@@ -43,6 +43,8 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   using SecurityContext::GetContentSecurityPolicy;
 
   WorkerOrWorkletGlobalScope(v8::Isolate*,
+                             const String& name,
+                             V8CacheOptions,
                              WorkerClients*,
                              scoped_refptr<WebWorkerFetchContext>,
                              WorkerReportingProxy&);
@@ -107,13 +109,17 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   // ResourceFetcher, and have dependencies to WorkerOrWorkletGlobalScope. Plumb
   // more data to the outside ResourceFetcher to fix the behavior and reduce the
   // dependencies.
-  ResourceFetcher* CreateOutsideSettingsFetcher(FetchClientSettingsObject*);
+  ResourceFetcher* CreateOutsideSettingsFetcher(
+      const FetchClientSettingsObject&);
+
+  const String Name() const { return name_; }
 
   WorkerClients* Clients() const { return worker_clients_.Get(); }
 
   WorkerOrWorkletScriptController* ScriptController() {
     return script_controller_.Get();
   }
+  V8CacheOptions GetV8CacheOptions() const { return v8_cache_options_; }
 
   WorkerReportingProxy& ReportingProxy() { return reporting_proxy_; }
 
@@ -127,13 +133,12 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
       const Vector<CSPHeaderAndType>& headers);
   virtual void BindContentSecurityPolicyToExecutionContext();
 
-  void FetchModuleScript(
-      const KURL& module_url_record,
-      FetchClientSettingsObjectSnapshot* fetch_client_settings_object,
-      mojom::RequestContextType destination,
-      network::mojom::FetchCredentialsMode,
-      ModuleScriptCustomFetchType,
-      ModuleTreeClient*);
+  void FetchModuleScript(const KURL& module_url_record,
+                         const FetchClientSettingsObjectSnapshot&,
+                         mojom::RequestContextType destination,
+                         network::mojom::FetchCredentialsMode,
+                         ModuleScriptCustomFetchType,
+                         ModuleTreeClient*);
 
   void TasksWerePaused() override;
   void TasksWereUnpaused() override;
@@ -142,9 +147,12 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
 
  private:
   void InitializeWebFetchContextIfNeeded();
-  ResourceFetcher* CreateFetcherInternal(FetchClientSettingsObject*);
+  ResourceFetcher* CreateFetcherInternal(const FetchClientSettingsObject&,
+                                         ContentSecurityPolicy&);
 
   bool web_fetch_context_initialized_ = false;
+
+  const String name_;
 
   CrossThreadPersistent<WorkerClients> worker_clients_;
 
@@ -170,6 +178,11 @@ class CORE_EXPORT WorkerOrWorkletGlobalScope : public EventTargetWithInlineData,
   Member<SubresourceFilter> subresource_filter_;
 
   Member<WorkerOrWorkletScriptController> script_controller_;
+  const V8CacheOptions v8_cache_options_;
+
+  // TODO(hiroshige): Pass outsideSettings-CSP via
+  // outsideSettings-FetchClientSettingsObject.
+  Vector<CSPHeaderAndType> outside_content_security_policy_parsed_headers_;
 
   WorkerReportingProxy& reporting_proxy_;
 

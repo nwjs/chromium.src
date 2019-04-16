@@ -4,6 +4,7 @@
 
 #include "components/invalidation/impl/per_user_topic_registration_request.h"
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop.h"
@@ -30,7 +31,8 @@ using testing::_;
 using testing::SaveArg;
 
 MATCHER_P(EqualsJSON, json, "equals JSON") {
-  std::unique_ptr<base::Value> expected = base::JSONReader::Read(json);
+  std::unique_ptr<base::Value> expected =
+      base::JSONReader::ReadDeprecated(json);
   if (!expected) {
     *result_listener << "INTERNAL ERROR: couldn't parse expected JSON";
     return false;
@@ -38,8 +40,9 @@ MATCHER_P(EqualsJSON, json, "equals JSON") {
 
   std::string err_msg;
   int err_line, err_col;
-  std::unique_ptr<base::Value> actual = base::JSONReader::ReadAndReturnError(
-      arg, base::JSON_PARSE_RFC, nullptr, &err_msg, &err_line, &err_col);
+  std::unique_ptr<base::Value> actual =
+      base::JSONReader::ReadAndReturnErrorDeprecated(
+          arg, base::JSON_PARSE_RFC, nullptr, &err_msg, &err_line, &err_col);
   if (!actual) {
     *result_listener << "input:" << err_line << ":" << err_col << ": "
                      << "parse error: " << err_msg;
@@ -330,10 +333,10 @@ TEST_P(PerUserTopicRegistrationRequestParamTest,
   EXPECT_EQ(status.code, StatusCode::FAILED_NON_RETRIABLE);
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        PerUserTopicRegistrationRequestParamTest,
-                        testing::Values(net::HTTP_BAD_REQUEST,
-                                        net::HTTP_FORBIDDEN,
-                                        net::HTTP_NOT_FOUND));
+INSTANTIATE_TEST_SUITE_P(,
+                         PerUserTopicRegistrationRequestParamTest,
+                         testing::Values(net::HTTP_BAD_REQUEST,
+                                         net::HTTP_FORBIDDEN,
+                                         net::HTTP_NOT_FOUND));
 
 }  // namespace syncer

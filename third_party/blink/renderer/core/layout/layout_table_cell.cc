@@ -171,11 +171,11 @@ Length LayoutTableCell::LogicalWidthFromColumns(
   // Column widths specified on <col> apply to the border box of the cell, see
   // bug 8126.
   // FIXME: Why is border/padding ignored in the negative width case?
-  if (col_width_sum > 0)
-    return Length(
-        std::max(0, col_width_sum - BorderAndPaddingLogicalWidth().Ceil()),
-        kFixed);
-  return Length(col_width_sum, kFixed);
+  if (col_width_sum > 0) {
+    return Length::Fixed(
+        std::max(0, col_width_sum - BorderAndPaddingLogicalWidth().Ceil()));
+  }
+  return Length::Fixed(col_width_sum);
 }
 
 void LayoutTableCell::ComputePreferredLogicalWidths() {
@@ -212,24 +212,6 @@ void LayoutTableCell::ComputePreferredLogicalWidths() {
           std::max(LayoutUnit(w.Value()), min_preferred_logical_width_);
     }
   }
-}
-
-void LayoutTableCell::AddLayerHitTestRects(
-    LayerHitTestRects& layer_rects,
-    const PaintLayer* current_layer,
-    const LayoutPoint& layer_offset,
-    TouchAction supported_fast_actions,
-    const LayoutRect& container_rect,
-    TouchAction container_whitelisted_touch_action) const {
-  LayoutPoint adjusted_layer_offset = layer_offset;
-  // LayoutTableCell's location includes the offset of it's containing
-  // LayoutTableRow, so we need to subtract that again here (as for
-  // LayoutTableCell::offsetFromContainer.
-  if (Parent())
-    adjusted_layer_offset -= ParentBox()->LocationOffset();
-  LayoutBox::AddLayerHitTestRects(
-      layer_rects, current_layer, adjusted_layer_offset, supported_fast_actions,
-      container_rect, container_whitelisted_touch_action);
 }
 
 void LayoutTableCell::ComputeIntrinsicPadding(int collapsed_height,

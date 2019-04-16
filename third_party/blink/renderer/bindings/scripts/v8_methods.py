@@ -188,7 +188,8 @@ def method_context(interface, method, is_visible=True):
         'arguments': argument_contexts,
         'camel_case_name': NameStyleConverter(name).to_upper_camel_case(),
         'cpp_type': (v8_types.cpp_template_type('base::Optional', idl_type.cpp_type)
-                     if idl_type.is_explicit_nullable else idl_type.cpp_type),
+                     if idl_type.is_explicit_nullable
+                     else v8_types.cpp_type(idl_type, extended_attributes=extended_attributes)),
         'cpp_value': this_cpp_value,
         'cpp_type_initializer': idl_type.cpp_type_initializer,
         'high_entropy': v8_utilities.high_entropy(method),  # [HighEntropy]
@@ -434,7 +435,7 @@ def v8_value_to_local_cpp_value(interface_name, method, argument, index):
 
     # History.pushState and History.replaceState are explicitly specified as
     # serializing the value for storage. The default is to not serialize for
-    # storage. See https://html.spec.whatwg.org/multipage/browsers.html#dom-history-pushstate
+    # storage. See https://html.spec.whatwg.org/C/#dom-history-pushstate
     if idl_type.name == 'SerializedScriptValue':
         for_storage = (interface_name == 'History' and
                        method.name in ('pushState', 'replaceState'))

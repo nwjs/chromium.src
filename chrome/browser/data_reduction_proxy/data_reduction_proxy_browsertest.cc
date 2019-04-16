@@ -4,6 +4,7 @@
 
 #include <tuple>
 
+#include "base/bind.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -26,6 +27,7 @@
 #include "components/data_reduction_proxy/proto/client_config.pb.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/common/network_service_util.h"
 #include "content/public/common/service_manager_connection.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/test/browser_test_utils.h"
@@ -72,7 +74,7 @@ std::unique_ptr<net::test_server::HttpResponse> IncrementRequestCount(
 
 void SimulateNetworkChange(network::mojom::ConnectionType type) {
   if (base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-      !content::IsNetworkServiceRunningInProcess()) {
+      !content::IsInProcessNetworkService()) {
     network::mojom::NetworkServiceTestPtr network_service_test;
     content::ServiceManagerConnection::GetForProcess()
         ->GetConnector()
@@ -593,6 +595,47 @@ IN_PROC_BROWSER_TEST_F(DataReductionProxyFallbackBrowsertest,
   EXPECT_THAT(GetBody(), kDummyBody);
 }
 
+IN_PROC_BROWSER_TEST_F(DataReductionProxyFallbackBrowsertest,
+                       FallbackProxyUsedWhenBlockForLargeDurationSent) {
+  base::HistogramTester histogram_tester;
+  net::EmbeddedTestServer test_server;
+  test_server.RegisterRequestHandler(
+      base::BindRepeating(&BasicResponse, kDummyBody));
+  ASSERT_TRUE(test_server.Start());
+
+  // Sending block=86400 triggers a long bypass event that blocks requests for
+  // a day.
+  SetHeader("block=86400");
+  ui_test_utils::NavigateToURL(browser(),
+                               GetURLWithMockHost(test_server, "/echo"));
+  EXPECT_THAT(GetBody(), kDummyBody);
+  histogram_tester.ExpectUniqueSample("DataReductionProxy.BlockTypePrimary",
+                                      BYPASS_EVENT_TYPE_LONG, 1);
+
+  // Request should still not use proxy.
+  SetHeader("");
+  ui_test_utils::NavigateToURL(browser(),
+                               GetURLWithMockHost(test_server, "/echo"));
+  EXPECT_THAT(GetBody(), kDummyBody);
+}
+
+IN_PROC_BROWSER_TEST_F(DataReductionProxyFallbackBrowsertest,
+                       ProxyBlockedOnAuthError) {
+  base::HistogramTester histogram_tester;
+  net::EmbeddedTestServer test_server;
+  test_server.RegisterRequestHandler(
+      base::BindRepeating(&BasicResponse, kDummyBody));
+  ASSERT_TRUE(test_server.Start());
+
+  SetStatusCode(net::HTTP_PROXY_AUTHENTICATION_REQUIRED);
+
+  ui_test_utils::NavigateToURL(browser(),
+                               GetURLWithMockHost(test_server, "/echo"));
+  EXPECT_THAT(GetBody(), kDummyBody);
+  histogram_tester.ExpectUniqueSample("DataReductionProxy.BlockTypePrimary",
+                                      BYPASS_EVENT_TYPE_MALFORMED_407, 1);
+}
+
 class DataReductionProxyResourceTypeBrowsertest
     : public DataReductionProxyBrowsertest {
  public:
@@ -770,7 +813,7 @@ IN_PROC_BROWSER_TEST_P(DataReductionProxyWarmupURLBrowsertest,
 // First parameter indicate proxy scheme for proxies that are being tested.
 // Second parameter is true if the test proxy server should set via header
 // correctly on the response headers.
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     DataReductionProxyWarmupURLBrowsertest,
     ::testing::Combine(testing::Values(ProxyServer_ProxyScheme_HTTP,

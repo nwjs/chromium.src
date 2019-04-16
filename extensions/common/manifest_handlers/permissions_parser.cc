@@ -94,8 +94,7 @@ bool ParseHelper(Extension* extension,
 
   const base::Value* permissions = nullptr;
   if (!extension->manifest()->GetList(key, &permissions)) {
-    *error = ErrorUtils::FormatErrorMessageUTF16(errors::kInvalidPermissions,
-                                                 std::string());
+    *error = base::UTF8ToUTF16(errors::kInvalidPermissions);
     return false;
   }
 
@@ -356,11 +355,13 @@ void PermissionsParser::Finalize(Extension* extension) {
   ManifestHandler::AddExtensionInitialRequiredPermissions(
       extension, &initial_required_permissions_->manifest_permissions);
 
+  // TODO(devlin): Make this destructive and std::move() from initial
+  // permissions so we can std::move() the sets.
   std::unique_ptr<const PermissionSet> required_permissions(new PermissionSet(
       initial_required_permissions_->api_permissions.Clone(),
       initial_required_permissions_->manifest_permissions.Clone(),
-      initial_required_permissions_->host_permissions,
-      initial_required_permissions_->scriptable_hosts));
+      initial_required_permissions_->host_permissions.Clone(),
+      initial_required_permissions_->scriptable_hosts.Clone()));
   extension->SetManifestData(
       keys::kPermissions,
       std::make_unique<ManifestPermissions>(std::move(required_permissions)));
@@ -368,7 +369,8 @@ void PermissionsParser::Finalize(Extension* extension) {
   std::unique_ptr<const PermissionSet> optional_permissions(new PermissionSet(
       initial_optional_permissions_->api_permissions.Clone(),
       initial_optional_permissions_->manifest_permissions.Clone(),
-      initial_optional_permissions_->host_permissions, URLPatternSet()));
+      initial_optional_permissions_->host_permissions.Clone(),
+      URLPatternSet()));
   extension->SetManifestData(
       keys::kOptionalPermissions,
       std::make_unique<ManifestPermissions>(std::move(optional_permissions)));

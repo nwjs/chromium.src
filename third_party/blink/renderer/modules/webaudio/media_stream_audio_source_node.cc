@@ -136,11 +136,6 @@ MediaStreamAudioSourceNode* MediaStreamAudioSourceNode::Create(
     ExceptionState& exception_state) {
   DCHECK(IsMainThread());
 
-  if (context.IsContextClosed()) {
-    context.ThrowExceptionForClosedState(exception_state);
-    return nullptr;
-  }
-
   MediaStreamTrackVector audio_tracks = media_stream.getAudioTracks();
   if (audio_tracks.IsEmpty()) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
@@ -196,6 +191,11 @@ void MediaStreamAudioSourceNode::SetFormat(uint32_t number_of_channels,
                                            float source_sample_rate) {
   GetMediaStreamAudioSourceHandler().SetFormat(number_of_channels,
                                                source_sample_rate);
+}
+
+bool MediaStreamAudioSourceNode::HasPendingActivity() const {
+  // As long as the context is running, this node has activity.
+  return (context()->ContextState() == BaseAudioContext::kRunning);
 }
 
 }  // namespace blink

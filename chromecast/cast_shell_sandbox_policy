@@ -1,5 +1,8 @@
 {
-  "features": [ "persistent-storage", "root-ssl-certificates", "system-temp",
+  "features": [
+      "isolated-persistent-storage",
+      "root-ssl-certificates",
+      "system-temp",
       "vulkan" ],
   "dev": ["null", "zero"],
   "services": [
@@ -8,7 +11,7 @@
       "fuchsia.fonts.Provider",
       "fuchsia.media.Audio",
       "fuchsia.mediacodec.CodecFactory",
-      "fuchsia.net.LegacySocketProvider",
+      "fuchsia.net.SocketProvider",
       "fuchsia.netstack.Netstack",
       "fuchsia.process.Launcher",
       "fuchsia.sys.Launcher",
@@ -16,9 +19,7 @@
       "fuchsia.ui.input.ImeVisibilityService",
       "fuchsia.ui.policy.Presenter",
       "fuchsia.ui.scenic.Scenic",
-      "fuchsia.ui.viewsv1.ViewManager",
       "fuchsia.vulkan.loader.Loader",
       "fuchsia.wlan.service.Wlan"
-  ],
-  "system": [ "data/cast" ]
+  ]
 }

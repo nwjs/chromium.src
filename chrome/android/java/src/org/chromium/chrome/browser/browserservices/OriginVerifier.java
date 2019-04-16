@@ -9,6 +9,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.customtabs.CustomTabsService;
 import android.support.customtabs.CustomTabsService.Relation;
 import android.text.TextUtils;
@@ -37,10 +38,14 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.inject.Inject;
+
+import dagger.Reusable;
 
 /**
  * Used to verify postMessage origin for a designated package name.
@@ -63,7 +68,7 @@ public class OriginVerifier {
     private final String mSignatureFingerprint;
     private final @Relation int mRelation;
     private long mNativeOriginVerifier;
-    private OriginVerificationListener mListener;
+    @Nullable private OriginVerificationListener mListener;
     private Origin mOrigin;
 
     /**
@@ -72,6 +77,16 @@ public class OriginVerifier {
      */
     private static final AtomicReference<Set<String>> sVerificationOverrides =
             new AtomicReference<>();
+
+    @Reusable
+    public static class Factory {
+        @Inject
+        public Factory() {}
+
+        public OriginVerifier create(String packageName, @Relation int relation) {
+            return new OriginVerifier(packageName, relation);
+        }
+    }
 
     /** Small helper class to post a result of origin verification. */
     private class VerifiedCallback implements Runnable {
@@ -112,7 +127,7 @@ public class OriginVerifier {
             int relationship) {
         if (sVerificationOverrides.get() == null) {
             sVerificationOverrides.compareAndSet(null,
-                    Collections.newSetFromMap(new ConcurrentHashMap<>()));
+                    Collections.synchronizedSet(new HashSet<>()));
         }
         sVerificationOverrides.get().add(
                 new Relationship(packageName, "", origin, relationship).toString());
@@ -258,6 +273,13 @@ public class OriginVerifier {
                     BrowserServicesMetrics.VerificationResult.REQUEST_FAILURE);
             ThreadUtils.runOnUiThread(new VerifiedCallback(false, false));
         }
+    }
+
+    /**
+     * Removes the verification listener, but finishes the ongoing verification process, if any.
+     */
+    public void removeListener() {
+        mListener = null;
     }
 
     private static boolean shouldOverrideVerification(String packageName, Origin origin,

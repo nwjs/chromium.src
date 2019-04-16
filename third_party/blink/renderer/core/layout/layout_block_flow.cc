@@ -2543,35 +2543,19 @@ void LayoutBlockFlow::AddLayoutOverflowFromFloats() {
   }
 }
 
-scoped_refptr<NGLayoutResult> LayoutBlockFlow::CachedLayoutResult(
+scoped_refptr<const NGLayoutResult> LayoutBlockFlow::CachedLayoutResult(
     const NGConstraintSpace&,
     const NGBreakToken*) {
   return nullptr;
 }
 
-scoped_refptr<const NGLayoutResult>
-LayoutBlockFlow::CachedLayoutResultForTesting() {
-  return nullptr;
-}
-
-void LayoutBlockFlow::SetCachedLayoutResult(const NGConstraintSpace&,
-                                            const NGBreakToken*,
-                                            const NGLayoutResult&) {}
-
-void LayoutBlockFlow::ClearCachedLayoutResult() {}
-
 bool LayoutBlockFlow::AreCachedLinesValidFor(const NGConstraintSpace&) const {
   return false;
 }
 
-void LayoutBlockFlow::SetPaintFragment(const NGBlockBreakToken*,
-                                       scoped_refptr<const NGPhysicalFragment>,
-                                       NGPhysicalOffset) {}
-
-void LayoutBlockFlow::UpdatePaintFragmentFromCachedLayoutResult(
+void LayoutBlockFlow::SetPaintFragment(
     const NGBlockBreakToken*,
-    scoped_refptr<const NGPhysicalFragment>,
-    NGPhysicalOffset) {}
+    scoped_refptr<const NGPhysicalFragment>) {}
 
 void LayoutBlockFlow::ComputeVisualOverflow(
     bool recompute_floats) {
@@ -2582,8 +2566,9 @@ void LayoutBlockFlow::ComputeVisualOverflow(
   AddVisualEffectOverflow();
   AddVisualOverflowFromTheme();
 
-  if (recompute_floats || CreatesNewFormattingContext() ||
-      HasSelfPaintingLayer())
+  if (!IsLayoutNGContainingBlock(this) &&
+      (recompute_floats || CreatesNewFormattingContext() ||
+       HasSelfPaintingLayer()))
     AddVisualOverflowFromFloats();
   if (VisualOverflowRect() != previous_visual_overflow_rect) {
     SetShouldCheckForPaintInvalidation();
@@ -2596,30 +2581,10 @@ void LayoutBlockFlow::ComputeLayoutOverflow(LayoutUnit old_client_after_edge,
   LayoutBlock::ComputeLayoutOverflow(old_client_after_edge, recompute_floats);
   // TODO(chrishtr): why does it check for a self-painting layer? That should
   // only apply to visual overflow.
-  if (recompute_floats || CreatesNewFormattingContext() ||
-      HasSelfPaintingLayer())
+  if (!IsLayoutNGContainingBlock(this) &&
+      (recompute_floats || CreatesNewFormattingContext() ||
+       HasSelfPaintingLayer()))
     AddLayoutOverflowFromFloats();
-}
-
-void LayoutBlockFlow::ComputeSelfHitTestRects(
-    Vector<LayoutRect>& rects,
-    const LayoutPoint& layer_offset) const {
-  LayoutBlock::ComputeSelfHitTestRects(rects, layer_offset);
-
-  if (!HasHorizontalLayoutOverflow() && !HasVerticalLayoutOverflow())
-    return;
-
-  for (RootInlineBox* curr = FirstRootBox(); curr; curr = curr->NextRootBox()) {
-    LayoutUnit top = std::max<LayoutUnit>(curr->LineTop(), curr->Y());
-    LayoutUnit bottom =
-        std::min<LayoutUnit>(curr->LineBottom(), curr->Y() + curr->Height());
-    LayoutRect rect(layer_offset.X() + curr->X(), layer_offset.Y() + top,
-                    curr->Width(), bottom - top);
-    // It's common for this rect to be entirely contained in our box, so exclude
-    // that simple case.
-    if (!rect.IsEmpty() && (rects.IsEmpty() || !rects[0].Contains(rect)))
-      rects.push_back(rect);
-  }
 }
 
 void LayoutBlockFlow::AbsoluteRects(
@@ -4695,25 +4660,16 @@ bool LayoutBlockFlow::RecalcInlineChildrenLayoutOverflow() {
 
 void LayoutBlockFlow::RecalcInlineChildrenVisualOverflow() {
   DCHECK(ChildrenInline());
-  ListHashSet<RootInlineBox*> line_boxes;
   for (InlineWalker walker(LineLayoutBlockFlow(this)); !walker.AtEnd();
        walker.Advance()) {
     LayoutObject* layout_object = walker.Current().GetLayoutObject();
     RecalcNormalFlowChildVisualOverflowIfNeeded(layout_object);
-    if (layout_object->IsBox()) {
-      if (InlineBox* inline_box_wrapper =
-              ToLayoutBox(layout_object)->InlineBoxWrapper())
-        line_boxes.insert(&inline_box_wrapper->Root());
-    }
   }
 
   // Child inline boxes' self visual overflow is already computed at the same
   // time as layout overflow. But we need to add replaced children visual rects.
-  for (ListHashSet<RootInlineBox*>::const_iterator it = line_boxes.begin();
-       it != line_boxes.end(); ++it) {
-    RootInlineBox* box = *it;
+  for (RootInlineBox* box = FirstRootBox(); box; box = box->NextRootBox())
     box->AddReplacedChildrenVisualOverflow(box->LineTop(), box->LineBottom());
-  }
 }
 
 PositionWithAffinity LayoutBlockFlow::PositionForPoint(

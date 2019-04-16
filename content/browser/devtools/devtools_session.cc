@@ -4,6 +4,7 @@
 
 #include "content/browser/devtools/devtools_session.h"
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/strings/stringprintf.h"
 #include "content/browser/devtools/devtools_manager.h"
@@ -35,16 +36,6 @@ static const char kResumeMethod[] = "Runtime.runIfWaitingForDebugger";
 static const char kSessionId[] = "sessionId";
 
 }  // namespace
-
-// static
-bool DevToolsSession::IsRuntimeResumeCommand(base::Value* value) {
-  if (value && value->is_dict()) {
-    base::Value* method = value->FindKey(kMethod);
-    return method && method->is_string() &&
-           method->GetString() == kResumeMethod;
-  }
-  return false;
-}
 
 DevToolsSession::DevToolsSession(DevToolsAgentHostClient* client)
     : binding_(this),
@@ -149,55 +140,52 @@ bool DevToolsSession::DispatchProtocolMessage(const std::string& message) {
     return true;
   }
 
-  std::unique_ptr<base::DictionaryValue> parsed_message =
-      base::DictionaryValue::From(base::JSONReader::Read(message));
+  std::unique_ptr<protocol::DictionaryValue> value =
+      protocol::DictionaryValue::cast(protocol::StringUtil::parseMessage(
+          message, client_->UsesBinaryProtocol()));
 
   std::string session_id;
-  if (!parsed_message || !parsed_message->GetString(kSessionId, &session_id))
-    return DispatchProtocolMessageInternal(message, std::move(parsed_message));
+  if (!value || !value->getString(kSessionId, &session_id))
+    return DispatchProtocolMessageInternal(message, std::move(value));
 
   auto it = child_sessions_.find(session_id);
   if (it == child_sessions_.end())
     return false;
   DevToolsSession* session = it->second;
   DCHECK(!session->proxy_delegate_);
-  return session->DispatchProtocolMessageInternal(message,
-                                                  std::move(parsed_message));
+  return session->DispatchProtocolMessageInternal(message, std::move(value));
 }
 
 bool DevToolsSession::DispatchProtocolMessageInternal(
     const std::string& message,
-    std::unique_ptr<base::DictionaryValue> parsed_message) {
-  if (!runtime_resume_.is_null() &&
-      IsRuntimeResumeCommand(parsed_message.get())) {
+    std::unique_ptr<protocol::DictionaryValue> value) {
+  std::string method;
+  bool has_method = value && value->getString(kMethod, &method);
+  if (!runtime_resume_.is_null() && has_method && method == kResumeMethod)
     std::move(runtime_resume_).Run();
-  }
 
   DevToolsManagerDelegate* delegate =
       DevToolsManager::GetInstance()->delegate();
-  if (delegate && parsed_message) {
-    delegate->HandleCommand(agent_host_, client_, std::move(parsed_message),
-                            message,
-                            base::BindOnce(&DevToolsSession::HandleCommand,
-                                           weak_factory_.GetWeakPtr()));
+  if (delegate && has_method) {
+    delegate->HandleCommand(
+        agent_host_, client_, method, message,
+        base::BindOnce(&DevToolsSession::HandleCommand,
+                       weak_factory_.GetWeakPtr(), std::move(value)));
   } else {
-    HandleCommand(std::move(parsed_message), message);
+    HandleCommand(std::move(value), message);
   }
   return true;
 }
 
 void DevToolsSession::HandleCommand(
-    std::unique_ptr<base::DictionaryValue> parsed_message,
+    std::unique_ptr<protocol::DictionaryValue> value,
     const std::string& message) {
-  std::unique_ptr<protocol::Value> protocol_command =
-      protocol::toProtocolValue(parsed_message.get(), 1000);
   int call_id;
   std::string method;
-  if (!dispatcher_->parseCommand(protocol_command.get(), &call_id, &method))
+  if (!dispatcher_->parseCommand(value.get(), &call_id, &method))
     return;
   if (browser_only_ || dispatcher_->canDispatch(method)) {
-    dispatcher_->dispatch(call_id, method, std::move(protocol_command),
-                          message);
+    dispatcher_->dispatch(call_id, method, std::move(value), message);
   } else {
     fallThrough(call_id, method, message);
   }
@@ -223,12 +211,17 @@ void DevToolsSession::DispatchProtocolMessageToAgent(
     const std::string& method,
     const std::string& message) {
   DCHECK(!browser_only_);
+  auto message_ptr = blink::mojom::DevToolsMessage::New();
+  message_ptr->data = mojo_base::BigBuffer(base::make_span(
+      reinterpret_cast<const uint8_t*>(message.data()), message.length()));
   if (ShouldSendOnIO(method)) {
     if (io_session_ptr_)
-      io_session_ptr_->DispatchProtocolCommand(call_id, method, message);
+      io_session_ptr_->DispatchProtocolCommand(call_id, method,
+                                               std::move(message_ptr));
   } else {
     if (session_ptr_)
-      session_ptr_->DispatchProtocolCommand(call_id, method, message);
+      session_ptr_->DispatchProtocolCommand(call_id, method,
+                                            std::move(message_ptr));
   }
 }
 
@@ -252,13 +245,15 @@ void DevToolsSession::ResumeSendingMessagesToAgent() {
 void DevToolsSession::sendProtocolResponse(
     int call_id,
     std::unique_ptr<protocol::Serializable> message) {
-  client_->DispatchProtocolMessage(agent_host_, message->serialize());
+  bool binary = client_->UsesBinaryProtocol();
+  client_->DispatchProtocolMessage(agent_host_, message->serialize(binary));
   // |this| may be deleted at this point.
 }
 
 void DevToolsSession::sendProtocolNotification(
     std::unique_ptr<protocol::Serializable> message) {
-  client_->DispatchProtocolMessage(agent_host_, message->serialize());
+  bool binary = client_->UsesBinaryProtocol();
+  client_->DispatchProtocolMessage(agent_host_, message->serialize(binary));
   // |this| may be deleted at this point.
 }
 
@@ -266,20 +261,26 @@ void DevToolsSession::flushProtocolNotifications() {
 }
 
 void DevToolsSession::DispatchProtocolResponse(
-    const std::string& message,
+    blink::mojom::DevToolsMessagePtr message,
     int call_id,
     blink::mojom::DevToolsSessionStatePtr updates) {
   ApplySessionStateUpdates(std::move(updates));
   waiting_for_response_messages_.erase(call_id);
-  client_->DispatchProtocolMessage(agent_host_, message);
+  client_->DispatchProtocolMessage(
+      agent_host_,
+      std::string(reinterpret_cast<const char*>(message->data.data()),
+                  message->data.size()));
   // |this| may be deleted at this point.
 }
 
 void DevToolsSession::DispatchProtocolNotification(
-    const std::string& message,
+    blink::mojom::DevToolsMessagePtr message,
     blink::mojom::DevToolsSessionStatePtr updates) {
   ApplySessionStateUpdates(std::move(updates));
-  client_->DispatchProtocolMessage(agent_host_, message);
+  client_->DispatchProtocolMessage(
+      agent_host_,
+      std::string(reinterpret_cast<const char*>(message->data.data()),
+                  message->data.size()));
   // |this| may be deleted at this point.
 }
 
@@ -334,14 +335,17 @@ void DevToolsSession::SendMessageFromChildSession(const std::string& session_id,
                                                   const std::string& message) {
   if (child_sessions_.find(session_id) == child_sessions_.end())
     return;
-  if (!message.length() || message[message.length() - 1] != '}')
-    return;
-  std::string suffix =
-      base::StringPrintf(", \"sessionId\": \"%s\"}", session_id.c_str());
   std::string patched;
-  patched.reserve(message.length() + suffix.length() - 1);
-  patched.append(message.data(), message.length() - 1);
-  patched.append(suffix);
+  bool patched_ok;
+  if (client_->UsesBinaryProtocol()) {
+    patched_ok = protocol::AppendStringValueToMapBinary(message, kSessionId,
+                                                        session_id, &patched);
+  } else {
+    patched_ok = protocol::AppendStringValueToMapJSON(message, kSessionId,
+                                                      session_id, &patched);
+  }
+  if (!patched_ok)
+    return;
   client_->DispatchProtocolMessage(agent_host_, patched);
   // |this| may be deleted at this point.
 }

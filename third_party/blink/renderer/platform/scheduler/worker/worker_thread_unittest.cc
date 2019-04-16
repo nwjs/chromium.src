@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_thread.h"
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/synchronization/waitable_event.h"
@@ -118,7 +119,12 @@ TEST_F(WorkerThreadTest, TestDefaultTask) {
   completion.Wait();
 }
 
-TEST_F(WorkerThreadTest, TestTaskExecutedBeforeThreadDeletion) {
+#if defined(OS_LINUX)
+#define MAYBE_TestTaskExecutedBeforeThreadDeletion DISABLED_TestTaskExecutedBeforeThreadDeletion
+#else
+#define MAYBE_TestTaskExecutedBeforeThreadDeletion TestTaskExecutedBeforeThreadDeletion
+#endif
+TEST_F(WorkerThreadTest, MAYBE_TestTaskExecutedBeforeThreadDeletion) {
   MockTask task;
   base::WaitableEvent completion(
       base::WaitableEvent::ResetPolicy::AUTOMATIC,

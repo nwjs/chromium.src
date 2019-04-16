@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_EVENTS_POINTER_EVENT_FACTORY_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EVENTS_POINTER_EVENT_FACTORY_H_
 
+#include <unordered_map>
+
 #include "third_party/blink/public/platform/web_pointer_event.h"
 #include "third_party/blink/public/platform/web_pointer_properties.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -89,6 +91,13 @@ class CORE_EXPORT PointerEventFactory {
                                     const WebPointerProperties& event) const;
 
  private:
+  // We use int64_t to cover the whole range for PointerId with no
+  // deleted hash value.
+  template <typename T>
+  using PointerIdKeyMap = HashMap<int64_t,
+                                  T,
+                                  WTF::IntHash<int64_t>,
+                                  WTF::UnsignedWithZeroKeyHashTraits<int64_t>>;
   typedef struct IncomingId : public std::pair<int, int> {
     IncomingId() = default;
     IncomingId(WebPointerProperties::PointerType pointer_type, int raw_id)
@@ -143,11 +152,7 @@ class CORE_EXPORT PointerEventFactory {
           WTF::PairHashTraits<WTF::UnsignedWithZeroKeyHashTraits<int>,
                               WTF::UnsignedWithZeroKeyHashTraits<int>>>
       pointer_incoming_id_mapping_;
-  HashMap<PointerId,
-          PointerAttributes,
-          WTF::IntHash<PointerId>,
-          WTF::UnsignedWithZeroKeyHashTraits<PointerId>>
-      pointer_id_mapping_;
+  PointerIdKeyMap<PointerAttributes> pointer_id_mapping_;
   int primary_id_[static_cast<int>(
                       WebPointerProperties::PointerType::kLastEntry) +
                   1];
@@ -155,11 +160,7 @@ class CORE_EXPORT PointerEventFactory {
                     WebPointerProperties::PointerType::kLastEntry) +
                 1];
 
-  HashMap<PointerId,
-          FloatPoint,
-          WTF::IntHash<PointerId>,
-          WTF::UnsignedWithZeroKeyHashTraits<PointerId>>
-      pointer_id_last_position_mapping_;
+  PointerIdKeyMap<FloatPoint> pointer_id_last_position_mapping_;
 };
 
 }  // namespace blink

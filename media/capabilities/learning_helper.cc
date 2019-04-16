@@ -4,24 +4,47 @@
 
 #include "media/capabilities/learning_helper.h"
 
+#include "base/task/post_task.h"
+#include "media/learning/common/feature_library.h"
 #include "media/learning/common/learning_task.h"
 
 namespace media {
 
+using learning::FeatureLibrary;
+using learning::FeatureProviderFactoryCB;
 using learning::FeatureValue;
 using learning::LabelledExample;
+using learning::LearningSessionImpl;
 using learning::LearningTask;
+using learning::SequenceBoundFeatureProvider;
 using learning::TargetValue;
 
-const char* kDroppedFrameRatioTaskName = "DroppedFrameRatioTask";
+// Dropped frame ratio, default features, regression tree.
+const char* const kDroppedFrameRatioBaseTreeTaskName =
+    "DroppedFrameRatioBaseTreeTask";
+// Dropped frame ratio, default+FeatureLibrary features, regression tree.
+const char* const kDroppedFrameRatioEnhancedTreeTaskName =
+    "DroppedFrameRatioEnhancedTreeTask";
+// Dropped frame ratio, default features, lookup table.
+const char* const kDroppedFrameRatioBaseTableTaskName =
+    "DroppedFrameRatioBaseTableTask";
 
-LearningHelper::LearningHelper() {
+LearningHelper::LearningHelper(FeatureProviderFactoryCB feature_factory) {
+  // Create the LearningSession on a background task runner.  In the future,
+  // it's likely that the session will live on the main thread, and handle
+  // delegation of LearningTaskControllers to other threads.  However, for now,
+  // do it here.
+  learning_session_ = base::SequenceBound<LearningSessionImpl>(
+      base::CreateSequencedTaskRunnerWithTraits(
+          {base::TaskPriority::BEST_EFFORT,
+           base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
+
   // Register a few learning tasks.
   //
   // We only do this here since we own the session.  Normally, whatever creates
   // the session would register all the learning tasks.
   LearningTask dropped_frame_task(
-      kDroppedFrameRatioTaskName, LearningTask::Model::kExtraTrees,
+      kDroppedFrameRatioBaseTableTaskName, LearningTask::Model::kLookupTable,
       {
           {"codec_profile",
            ::media::learning::LearningTask::Ordering::kUnordered},
@@ -31,10 +54,34 @@ LearningHelper::LearningHelper() {
       },
       LearningTask::ValueDescription(
           {"dropped_ratio", LearningTask::Ordering::kNumeric}));
+
   // Enable hacky reporting of accuracy.
   dropped_frame_task.uma_hacky_confusion_matrix =
       "Media.Learning.MediaCapabilities.DroppedFrameRatioTask.BaseTree";
-  learning_session_.RegisterTask(dropped_frame_task);
+  learning_session_.Post(FROM_HERE, &LearningSessionImpl::RegisterTask,
+                         dropped_frame_task, SequenceBoundFeatureProvider());
+
+  // Modify the task to use ExtraTrees.
+  dropped_frame_task.name = kDroppedFrameRatioBaseTreeTaskName;
+  dropped_frame_task.model = LearningTask::Model::kExtraTrees;
+  dropped_frame_task.uma_hacky_confusion_matrix =
+      "Media.Learning.MediaCapabilities.DroppedFrameRatioTask.BaseTable";
+  learning_session_.Post(FROM_HERE, &LearningSessionImpl::RegisterTask,
+                         dropped_frame_task, SequenceBoundFeatureProvider());
+
+  // Add common features, if we have a factory.
+  if (feature_factory) {
+    dropped_frame_task.name = kDroppedFrameRatioEnhancedTreeTaskName;
+    dropped_frame_task.feature_descriptions.push_back(
+        FeatureLibrary::NetworkType());
+    dropped_frame_task.feature_descriptions.push_back(
+        FeatureLibrary::BatteryPower());
+    dropped_frame_task.uma_hacky_confusion_matrix =
+        "Media.Learning.MediaCapabilities.DroppedFrameRatioTask.EnhancedTree";
+    learning_session_.Post(FROM_HERE, &LearningSessionImpl::RegisterTask,
+                           dropped_frame_task,
+                           feature_factory.Run(dropped_frame_task));
+  }
 }
 
 LearningHelper::~LearningHelper() = default;
@@ -72,7 +119,15 @@ void LearningHelper::AppendStats(
   example.target_value = TargetValue(
       static_cast<double>(new_stats.frames_dropped) / new_stats.frames_decoded);
   example.weight = new_stats.frames_decoded;
-  learning_session_.AddExample(kDroppedFrameRatioTaskName, example);
+
+  // Add this example to both tasks.
+  learning_session_.Post(FROM_HERE, &LearningSessionImpl::AddExample,
+                         kDroppedFrameRatioBaseTreeTaskName, example);
+  learning_session_.Post(FROM_HERE, &LearningSessionImpl::AddExample,
+                         kDroppedFrameRatioBaseTableTaskName, example);
+  // Might fail, but that's okay.
+  learning_session_.Post(FROM_HERE, &LearningSessionImpl::AddExample,
+                         kDroppedFrameRatioEnhancedTreeTaskName, example);
 }
 
 }  // namespace media

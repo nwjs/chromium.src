@@ -74,6 +74,7 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
           browser_state->GetOriginalChromeBrowserState())),
       autocomplete_history_manager_(
           AutocompleteHistoryManagerFactory::GetForBrowserState(browser_state)),
+      browser_state_(browser_state),
       web_state_(web_state),
       bridge_(bridge),
       identity_manager_(IdentityManagerFactory::GetForBrowserState(
@@ -90,8 +91,6 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
           payments_client_.get(),
           personal_data_manager_,
           GetApplicationContext()->GetApplicationLocale())),
-      legacy_strike_database_(LegacyStrikeDatabaseFactory::GetForBrowserState(
-          browser_state->GetOriginalChromeBrowserState())),
       infobar_manager_(infobar_manager),
       password_generation_manager_(password_generation_manager),
       unmask_controller_(browser_state->GetPrefs(),
@@ -140,11 +139,13 @@ payments::PaymentsClient* ChromeAutofillClientIOS::GetPaymentsClient() {
 }
 
 LegacyStrikeDatabase* ChromeAutofillClientIOS::GetLegacyStrikeDatabase() {
-  return legacy_strike_database_;
+  return LegacyStrikeDatabaseFactory::GetForBrowserState(
+      browser_state_->GetOriginalChromeBrowserState());
 }
 
 StrikeDatabase* ChromeAutofillClientIOS::GetStrikeDatabase() {
-  return strike_database_;
+  return StrikeDatabaseFactory::GetForBrowserState(
+      browser_state_->GetOriginalChromeBrowserState());
 }
 
 ukm::UkmRecorder* ChromeAutofillClientIOS::GetUkmRecorder() {
@@ -240,12 +241,12 @@ void ChromeAutofillClientIOS::ConfirmSaveAutofillProfile(
 
 void ChromeAutofillClientIOS::ConfirmSaveCreditCardLocally(
     const CreditCard& card,
-    bool show_prompt,
+    SaveCreditCardOptions options,
     LocalSaveCardPromptCallback callback) {
-  DCHECK(show_prompt);
+  DCHECK(options.show_prompt);
   infobar_manager_->AddInfoBar(CreateSaveCardInfoBarMobile(
       std::make_unique<AutofillSaveCardInfoBarDelegateMobile>(
-          /*upload=*/false, /*should_request_name_from_user=*/false, card,
+          /*upload=*/false, options, card,
           std::make_unique<base::DictionaryValue>(),
           /*upload_save_card_callback=*/UploadSaveCardPromptCallback(),
           /*local_save_card_callback=*/std::move(callback), GetPrefs(),
@@ -255,15 +256,12 @@ void ChromeAutofillClientIOS::ConfirmSaveCreditCardLocally(
 void ChromeAutofillClientIOS::ConfirmSaveCreditCardToCloud(
     const CreditCard& card,
     std::unique_ptr<base::DictionaryValue> legal_message,
-    bool should_request_name_from_user,
-    bool should_request_expiration_date_from_user,
-    bool show_prompt,
+    SaveCreditCardOptions options,
     UploadSaveCardPromptCallback callback) {
-  DCHECK(show_prompt);
+  DCHECK(options.show_prompt);
   auto save_card_info_bar_delegate_mobile =
       std::make_unique<AutofillSaveCardInfoBarDelegateMobile>(
-          /*upload=*/true, /*should_request_name_from_user=*/false, card,
-          std::move(legal_message),
+          /*upload=*/true, options, card, std::move(legal_message),
           /*upload_save_card_callback=*/std::move(callback),
           /*local_save_card_callback=*/LocalSaveCardPromptCallback(),
           GetPrefs(), payments_client_->is_off_the_record());

@@ -28,30 +28,34 @@ enum class Error {
 
   CBOR_INVALID_INT32 = 0x0e,
   CBOR_INVALID_DOUBLE = 0x0f,
-  CBOR_INVALID_STRING8 = 0x10,
-  CBOR_INVALID_STRING16 = 0x11,
-  CBOR_INVALID_BINARY = 0x12,
-  CBOR_UNSUPPORTED_VALUE = 0x13,
-  CBOR_NO_INPUT = 0x14,
-  CBOR_INVALID_START_BYTE = 0x15,
-  CBOR_UNEXPECTED_EOF_EXPECTED_VALUE = 0x16,
-  CBOR_UNEXPECTED_EOF_IN_ARRAY = 0x17,
-  CBOR_UNEXPECTED_EOF_IN_MAP = 0x18,
-  CBOR_INVALID_MAP_KEY = 0x19,
-  CBOR_STACK_LIMIT_EXCEEDED = 0x1a,
-  CBOR_STRING8_MUST_BE_7BIT = 0x1b,
-  CBOR_TRAILING_JUNK = 0x1c,
+  CBOR_INVALID_ENVELOPE = 0x10,
+  CBOR_INVALID_STRING8 = 0x11,
+  CBOR_INVALID_STRING16 = 0x12,
+  CBOR_INVALID_BINARY = 0x13,
+  CBOR_UNSUPPORTED_VALUE = 0x14,
+  CBOR_NO_INPUT = 0x15,
+  CBOR_INVALID_START_BYTE = 0x16,
+  CBOR_UNEXPECTED_EOF_EXPECTED_VALUE = 0x17,
+  CBOR_UNEXPECTED_EOF_IN_ARRAY = 0x18,
+  CBOR_UNEXPECTED_EOF_IN_MAP = 0x19,
+  CBOR_INVALID_MAP_KEY = 0x1a,
+  CBOR_STACK_LIMIT_EXCEEDED = 0x1b,
+  CBOR_STRING8_MUST_BE_7BIT = 0x1c,
+  CBOR_TRAILING_JUNK = 0x1d,
+  CBOR_MAP_START_EXPECTED = 0x1e,
 };
 
 // A status value with position that can be copied. The default status
 // is OK. Usually, error status values should come with a valid position.
 struct Status {
-  static constexpr int64_t npos() { return -1; }
+  static constexpr std::ptrdiff_t npos() { return -1; }
 
   bool ok() const { return error == Error::OK; }
 
   Error error = Error::OK;
-  int64_t pos = npos();
+  std::ptrdiff_t pos = npos();
+  Status(Error error, std::ptrdiff_t pos) : error(error), pos(pos) {}
+  Status() = default;
 };
 }  // namespace inspector_protocol
 #endif  // INSPECTOR_PROTOCOL_ENCODING_STATUS_H_

@@ -14,6 +14,7 @@
 <translation id="1153356358378277386">Seotud seadmed</translation>
 <translation id="1195412055398077112">liighälvitus</translation>
 <translation id="119944043368869598">Tühjenda kõik</translation>
+<translation id="123828989343052515">Uus laud</translation>
 <translation id="1247372569136754018">Mikrofon (sisemine)</translation>
 <translation id="1252999807265626933">Laadimine toiteallikast <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Milline on ilm?</translation>
@@ -38,6 +39,7 @@
 <translation id="1525508553941733066">LOOBU</translation>
 <translation id="1537254971476575106">Täisekraani luup</translation>
 <translation id="15373452373711364">Suur hiirekursor</translation>
+<translation id="1546492247443594934">Töölaud 2</translation>
 <translation id="1550523713251050646">Klõpsake lisavalikute nägemiseks</translation>
 <translation id="1570871743947603115">Lülitab Bluetoothi sisse või välja. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Juurdepääs kõigile teie tegevustele selle seansi ajal</translation>
@@ -73,6 +75,7 @@
 <translation id="2016340657076538683">Sisestage sõnum</translation>
 <translation id="2050339315714019657">Vertikaalpaigutus</translation>
 <translation id="2067602449040652523">Klaviatuuri eredus</translation>
+<translation id="209965399369889474">Pole võrguga ühendatud</translation>
 <translation id="2127372758936585790">Väikese energiakuluga laadija</translation>
 <translation id="2135456203358955318">Dokitud luup</translation>
 <translation id="2144487987174258011">Taaskäivitage Adobe Flash Playeri värskendamiseks</translation>
@@ -129,6 +132,7 @@
 <translation id="2961963223658824723">Midagi läks valesti. Proovige mõne sekundi pärast uuesti.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2970920913501714344">Installige rakendusi, laiendusi ja teemasid</translation>
+<translation id="2977598380246111477">Järgmine number</translation>
 <translation id="2995447421581609334">Kuvab ülekandeseadmed.</translation>
 <translation id="2996462380875591307">Dokitud luup on lubatud. Vajutage selle väljalülitamiseks klahvikombinatsiooni Ctrl + otsinguklahv + D.</translation>
 <translation id="3000461861112256445">Monoheli</translation>
@@ -141,16 +145,19 @@
 <translation id="3087734570205094154">Alaserv</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Taaskäivitage värskendamiseks</translation>
+<translation id="3139942575505304791">Töölaud 1</translation>
 <translation id="315116470104423982">Mobiilne andmeside</translation>
 <translation id="3151786313568798007">Suund</translation>
+<translation id="3152934361839663679">Teie seade on ühendatud maksimaalse arvu monitoridega, seetõttu katkestati ühendus ühe ekraaniga.</translation>
 <translation id="3153444934357957346">Saate korraga sisse logida kuni <ph name="MULTI_PROFILE_USER_LIMIT" /> kontole.</translation>
 <translation id="3154351730702813399">Seadme administraator võib jälgida teie sirvimistegevust.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Ühendatud ühe seadmega}other{Ühendatud # seadmega}}</translation>
-<translation id="32244657276328332">Võrguga ühendamata</translation>
+<translation id="3226991577105957773">ja veel <ph name="COUNT" /></translation>
 <translation id="3236488194889173876">Ühtegi mobiilsidevõrku pole saadaval</translation>
 <translation id="3255483164551725916">Mida sa teha oskad?</translation>
 <translation id="3294437725009624529">Külaline</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> saab siiski hiljem sisse logida.</translation>
+<translation id="3321628682574733415">Vanema kood on vale</translation>
 <translation id="332587331255250389">Vahetage akut</translation>
 <translation id="3351879221545518001">Kannate praegu oma ekraani üle.</translation>
 <translation id="3364721542077212959">Elektronpliiatsi tööriistad</translation>
@@ -196,6 +203,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4017989525502048489">Laserkursor</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Rakenduse puhul välja lülitatud}other{# rakenduse puhul välja lülitatud}}</translation>
 <translation id="4072264167173457037">Keskmine signaal</translation>
+<translation id="4129129681837227511">Lukustuskuval märguannete nägemiseks avage ekraan ja muutke seadet</translation>
 <translation id="4146833061457621061">Esita muusikat</translation>
 <translation id="4181841719683918333">Keeled</translation>
 <translation id="4195877955194704651">Nupp Automaatsed klikid</translation>
@@ -228,6 +236,8 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4585337515783392668">Katkesta ülekandmine tundmatus vastuvõtjas</translation>
 <translation id="4628757576491864469">Seadmed</translation>
 <translation id="4659419629803378708">ChromeVox on lubatud</translation>
+<translation id="4696813013609194136">Avage seade lapsevanema koodiga</translation>
+<translation id="4731797938093519117">Vanema juurdepääs</translation>
 <translation id="4734965478015604180">Horisontaalne</translation>
 <translation id="476166673298332917">Seadme administraator võib jälgida teie sirvimistegevust.</translation>
 <translation id="4774338217796918551">Tulge tagasi homme kell <ph name="COME_BACK_TIME" />.</translation>
@@ -254,6 +264,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="5207949376430453814">Tekstisisestusmärgi esiletõstmine</translation>
 <translation id="5222676887888702881">Logi välja</translation>
 <translation id="523505283826916779">Juurdepääsuseaded</translation>
+<translation id="5260676007519551770">Töölaud 4</translation>
 <translation id="5283198616748585639">Lisa 1 min</translation>
 <translation id="5302048478445481009">Keel</translation>
 <translation id="5313326810920013265">Bluetoothi seaded</translation>
@@ -263,6 +274,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="5430931332414098647">Automaatne jagamine</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Kõik saadaval kasutajad on sellesse seanssi juba lisatud.</translation>
+<translation id="5465662442746197494">Kas vajate abi?</translation>
 <translation id="5496819745535887422">Administraator viib seadme vanemale versioonile. Seadme taaskäivitamisel kustutatakse kõik andmed.</translation>
 <translation id="553675580533261935">Seansist väljumine</translation>
 <translation id="5537725057119320332">Ülekanne</translation>
@@ -331,12 +343,14 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="6528179044667508675">Mitte segada</translation>
 <translation id="6537270692134705506">Jäädvusta ekraanikuva</translation>
 <translation id="6542521951477560771">Ülekandmine seadmesse <ph name="RECEIVER_NAME" /></translation>
+<translation id="6559976592393364813">Küsige administraatorilt</translation>
 <translation id="6574601967010742428">Seadme haldur võib saada teie tegevust jälgida.</translation>
 <translation id="6585808820553845416">Seansi lõpuni on jäänud <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Otsing + Tõstuklahv + K</translation>
 <translation id="6650933572246256093">Bluetoothi seade „<ph name="DEVICE_NAME" />” küsib luba sidumiseks. Sisestage seadmesse see parool: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Parool</translation>
 <translation id="6665545700722362599">Andke veebisaitidele, rakendustele ja laiendustele luba kasutada asukohateenuseid, seadme mikrofoni, kaamerat ning teisi funktsioone</translation>
+<translation id="6670153871843998651">Töölaud 3</translation>
 <translation id="6691659475504239918">Otsinguklahv + tõstuklahv + H</translation>
 <translation id="6696025732084565524">Eemaldatav klaviatuur vajab kriitilist värskendust</translation>
 <translation id="6700713906295497288">IME menüünupp</translation>
@@ -377,6 +391,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="7377169924702866686">Suurtähelukk on sisse lülitatud.</translation>
 <translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" />s</translation>
 <translation id="7398254312354928459">Võrguühendust vahetati</translation>
+<translation id="7405710164030118432">Seadme lukustuse avamiseks sisestage oma Family Linki vanema pääsukood</translation>
 <translation id="742594950370306541">Kaamera on kasutusel.</translation>
 <translation id="743058460480092004">Kaamera ja mikrofon on kasutusel.</translation>
 <translation id="7497767806359279797">Valige keel ja klaviatuur</translation>
@@ -452,7 +467,6 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8454013096329229812">WiFi on sisse lülitatud.</translation>
 <translation id="847056008324733326">Ekraani skaala seaded</translation>
 <translation id="8477270416194247200">Tühistamiseks vajutage klahvikombinatsiooni Alt + Otsing või tõstuklahvi.</translation>
-<translation id="8484916590211895857"><ph name="NAME" />: uuesti ühendamine …</translation>
 <translation id="8513108775083588393">Automaatne pööramine</translation>
 <translation id="8517041960877371778">Kui seade <ph name="DEVICE_TYPE" /> on sisse lülitatud, ei pruugita seda laadida.</translation>
 <translation id="8627191004499078455">Ühendatud seadmega <ph name="DEVICE_NAME" /></translation>
@@ -468,7 +482,6 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8735953464173050365">Kuvab klaviatuuriseaded. Valitud on <ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">Kuvab VPN-i seaded</translation>
 <translation id="8814190375133053267">WiFi</translation>
-<translation id="8825534185036233643">Rohkem kui kahe ekraaniga peegeldamist ei toetata.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Lülitab pööramisluku sisse või välja. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Otsing + ESC</translation>

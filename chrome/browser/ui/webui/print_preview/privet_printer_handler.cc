@@ -76,19 +76,27 @@ void PrivetPrinterHandler::StartGetCapability(const std::string& destination_id,
 }
 
 void PrivetPrinterHandler::StartPrint(
-    const std::string& destination_id,
-    const std::string& capability,
     const base::string16& job_title,
-    const std::string& ticket_json,
-    const gfx::Size& page_size,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
+    base::Value settings,
+    scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
+  std::string destination_id;
+  std::string capabilities;
+  gfx::Size page_size;
+  base::Value ticket;
+  if (!ParseSettings(settings, &destination_id, &capabilities, &page_size,
+                     &ticket)) {
+    std::move(callback).Run(base::Value(-1));
+    return;
+  }
+
   DCHECK(!print_callback_);
   print_callback_ = std::move(callback);
-  CreateHTTP(destination_id,
-             base::Bind(&PrivetPrinterHandler::PrintUpdateClient,
-                        weak_ptr_factory_.GetWeakPtr(), job_title, print_data,
-                        ticket_json, capability, page_size));
+  CreateHTTP(
+      destination_id,
+      base::BindOnce(&PrivetPrinterHandler::PrintUpdateClient,
+                     weak_ptr_factory_.GetWeakPtr(), job_title, print_data,
+                     std::move(ticket), capabilities, page_size));
 }
 
 void PrivetPrinterHandler::LocalPrinterChanged(
@@ -190,14 +198,14 @@ void PrivetPrinterHandler::OnGotCapabilities(
   printer_info_and_caps.SetDictionary(kSettingCapabilities,
                                       std::move(capabilities_copy));
   std::move(capabilities_callback_)
-      .Run(std::move(*ValidateCddForPrintPreview(printer_info_and_caps)));
+      .Run(ValidateCddForPrintPreview(std::move(printer_info_and_caps)));
   privet_capabilities_operation_.reset();
 }
 
 void PrivetPrinterHandler::PrintUpdateClient(
     const base::string16& job_title,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
-    const std::string& print_ticket,
+    scoped_refptr<base::RefCountedMemory> print_data,
+    base::Value print_ticket,
     const std::string& capabilities,
     const gfx::Size& page_size,
     std::unique_ptr<cloud_print::PrivetHTTPClient> http_client) {
@@ -206,7 +214,8 @@ void PrivetPrinterHandler::PrintUpdateClient(
     std::move(print_callback_).Run(base::Value(-1));
     return;
   }
-  StartPrint(job_title, print_data, print_ticket, capabilities, page_size);
+  StartPrint(job_title, print_data, std::move(print_ticket), capabilities,
+             page_size);
 }
 
 bool PrivetPrinterHandler::UpdateClient(
@@ -228,14 +237,14 @@ bool PrivetPrinterHandler::UpdateClient(
 
 void PrivetPrinterHandler::StartPrint(
     const base::string16& job_title,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
-    const std::string& print_ticket,
+    scoped_refptr<base::RefCountedMemory> print_data,
+    base::Value print_ticket,
     const std::string& capabilities,
     const gfx::Size& page_size) {
   privet_local_print_operation_ =
       privet_http_client_->CreateLocalPrintOperation(this);
 
-  privet_local_print_operation_->SetTicket(print_ticket);
+  privet_local_print_operation_->SetTicket(std::move(print_ticket));
   privet_local_print_operation_->SetCapabilities(capabilities);
   privet_local_print_operation_->SetJobname(base::UTF16ToUTF8(job_title));
   privet_local_print_operation_->SetPageSize(page_size);

@@ -713,11 +713,8 @@ static void InvalidatePaintForTickmarks(const Node& node) {
 }
 
 void DocumentMarkerController::InvalidateRectsForTextMatchMarkersInNode(
-    const Node& node) {
-  // TODO(yoichio): Make this function to take Text instead of Node.
-  if (!node.IsTextNode())
-    return;
-  MarkerLists* markers = markers_.at(&ToText(node));
+    const Text& node) {
+  MarkerLists* markers = markers_.at(&node);
 
   const DocumentMarkerList* const marker_list =
       ListForType(markers, DocumentMarker::kTextMatch);
@@ -744,7 +741,7 @@ void DocumentMarkerController::DidProcessMarkerMap(Visitor* visitor) {
     Clear();
 }
 
-void DocumentMarkerController::Trace(blink::Visitor* visitor) {
+void DocumentMarkerController::Trace(Visitor* visitor) {
   // Note: To make |DidProcessMarkerMap()| called after weak members callback
   // of |markers_|, we should register it before tracing |markers_|.
   visitor->template RegisterWeakMembers<
@@ -872,7 +869,7 @@ void DocumentMarkerController::RemoveMarkersFromList(
   }
 
   if (needs_repainting) {
-    const Node& node = *iterator->key;
+    const Text& node = *iterator->key;
     InvalidatePaintForNode(node);
     InvalidatePaintForTickmarks(node);
   }
@@ -927,22 +924,21 @@ bool DocumentMarkerController::SetTextMatchMarkersActive(
 
   bool marker_found = false;
   for (Node& node : range.Nodes()) {
+    if (!node.IsTextNode())
+      continue;
     int start_offset = node == start_container ? container_start_offset : 0;
     int end_offset = node == end_container ? container_end_offset : INT_MAX;
-    marker_found |=
-        SetTextMatchMarkersActive(&node, start_offset, end_offset, active);
+    marker_found |= SetTextMatchMarkersActive(ToText(node), start_offset,
+                                              end_offset, active);
   }
   return marker_found;
 }
 
-bool DocumentMarkerController::SetTextMatchMarkersActive(const Node* node,
+bool DocumentMarkerController::SetTextMatchMarkersActive(const Text& text,
                                                          unsigned start_offset,
                                                          unsigned end_offset,
                                                          bool active) {
-  // TODO(yoichio): Make this function to take Text instead of Node.
-  if (!node->IsTextNode())
-    return false;
-  MarkerLists* markers = markers_.at(ToText(node));
+  MarkerLists* markers = markers_.at(&text);
   if (!markers)
     return false;
 
@@ -956,7 +952,7 @@ bool DocumentMarkerController::SetTextMatchMarkersActive(const Node* node,
 
   if (!doc_dirty)
     return false;
-  InvalidatePaintForNode(*node);
+  InvalidatePaintForNode(text);
   return true;
 }
 
@@ -1022,7 +1018,7 @@ void DocumentMarkerController::DidUpdateCharacterData(CharacterData* node,
     return;
   if (!node->GetLayoutObject())
     return;
-  InvalidateRectsForTextMatchMarkersInNode(*node);
+  InvalidateRectsForTextMatchMarkersInNode(ToText(*node));
   InvalidatePaintForNode(*node);
 }
 

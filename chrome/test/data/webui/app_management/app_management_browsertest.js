@@ -18,14 +18,17 @@ AppManagementBrowserTest.prototype = {
 
   browsePreload: 'chrome://apps',
 
-  extraLibraries: PolymerTest.getLibraries(ROOT_PATH),
+  extraLibraries: PolymerTest.getLibraries(ROOT_PATH).concat([
+    '../test_store.js',
+    'test_util.js',
+    'test_store.js',
+  ]),
 
   featureList: ['features::kAppManagement', ''],
 
   /** override */
   runAccessibilityChecks: true,
 };
-
 
 function AppManagementAppTest() {}
 
@@ -38,6 +41,20 @@ AppManagementAppTest.prototype = {
 };
 
 TEST_F('AppManagementAppTest', 'All', function() {
+  mocha.run();
+});
+
+function AppManagementDomSwitchTest() {}
+
+AppManagementDomSwitchTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'dom_switch_test.js',
+  ]),
+};
+
+TEST_F('AppManagementDomSwitchTest', 'All', function() {
   mocha.run();
 });
 
@@ -55,6 +72,20 @@ TEST_F('AppManagementMainViewTest', 'All', function() {
   mocha.run();
 });
 
+function AppManagementMetadataViewTest() {}
+
+AppManagementMetadataViewTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'metadata_view_test.js',
+  ]),
+};
+
+TEST_F('AppManagementMetadataViewTest', 'All', function() {
+  mocha.run();
+});
+
 function AppManagementReducersTest() {}
 
 AppManagementReducersTest.prototype = {
@@ -66,5 +97,33 @@ AppManagementReducersTest.prototype = {
 };
 
 TEST_F('AppManagementReducersTest', 'All', function() {
+  mocha.run();
+});
+
+function AppManagementRouterTest() {}
+
+AppManagementRouterTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'router_test.js',
+  ]),
+};
+
+TEST_F('AppManagementRouterTest', 'All', function() {
+  mocha.run();
+});
+
+function AppManagementPwaPermissionViewTest() {}
+
+AppManagementPwaPermissionViewTest.prototype = {
+  __proto__: AppManagementBrowserTest.prototype,
+
+  extraLibraries: AppManagementBrowserTest.prototype.extraLibraries.concat([
+    'pwa_permission_view_test.js',
+  ]),
+};
+
+TEST_F('AppManagementPwaPermissionViewTest', 'All', function() {
   mocha.run();
 });

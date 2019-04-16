@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/files/file_util.h"
 #include "base/location.h"
@@ -36,7 +37,6 @@
 #include "net/base/address_list.h"
 #include "net/base/net_errors.h"
 #include "net/cert/pem_tokenizer.h"
-#include "net/socket/client_socket_handle.h"
 #include "net/socket/socket_test_util.h"
 #include "net/socket/ssl_client_socket.h"
 #include "net/socket/ssl_server_socket.h"
@@ -233,6 +233,7 @@ class MockTestCastSocket : public TestCastSocketBase {
   DISALLOW_COPY_AND_ASSIGN(MockTestCastSocket);
 };
 
+// TODO(https://crbug.com/928467):  Remove this class.
 class TestSocketFactory : public net::ClientSocketFactory {
  public:
   explicit TestSocketFactory(net::IPEndPoint ip) : ip_(ip) {}
@@ -314,30 +315,28 @@ class TestSocketFactory : public net::ClientSocketFactory {
     }
   }
   std::unique_ptr<net::SSLClientSocket> CreateSSLClientSocket(
-      std::unique_ptr<net::ClientSocketHandle> client_handle,
+      std::unique_ptr<net::StreamSocket> nested_socket,
       const net::HostPortPair& host_and_port,
       const net::SSLConfig& ssl_config,
       const net::SSLClientSocketContext& context) override {
     if (!ssl_connect_data_) {
       // Test isn't overriding SSL socket creation.
       return net::ClientSocketFactory::GetDefaultFactory()
-          ->CreateSSLClientSocket(std::move(client_handle), host_and_port,
+          ->CreateSSLClientSocket(std::move(nested_socket), host_and_port,
                                   ssl_config, context);
     }
     ssl_socket_data_provider_ = std::make_unique<net::SSLSocketDataProvider>(
         ssl_connect_data_->mode, ssl_connect_data_->result);
-    //  auto client_handle = std::make_unique<net::ClientSocketHandle>();
 
     if (tls_socket_created_)
       std::move(tls_socket_created_).Run();
 
-    // client_handle->SetSocket(std::move(tcp_socket));
     return std::make_unique<net::MockSSLClientSocket>(
-        std::move(client_handle), net::HostPortPair(), net::SSLConfig(),
+        std::move(nested_socket), net::HostPortPair(), net::SSLConfig(),
         ssl_socket_data_provider_.get());
   }
   std::unique_ptr<net::ProxyClientSocket> CreateProxyClientSocket(
-      std::unique_ptr<net::ClientSocketHandle> transport_socket,
+      std::unique_ptr<net::StreamSocket> stream_socket,
       const std::string& user_agent,
       const net::HostPortPair& endpoint,
       const net::ProxyServer& proxy_server,
@@ -351,7 +350,6 @@ class TestSocketFactory : public net::ClientSocketFactory {
     NOTIMPLEMENTED();
     return nullptr;
   }
-  void ClearSSLSessionCache() override { NOTIMPLEMENTED(); }
 
   net::IPEndPoint ip_;
   // Simulated connect data

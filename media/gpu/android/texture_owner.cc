@@ -4,21 +4,22 @@
 
 #include "media/gpu/android/texture_owner.h"
 
-#include "base/android/android_image_reader_compat.h"
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "gpu/command_buffer/service/abstract_texture.h"
 #include "gpu/command_buffer/service/decoder_context.h"
-#include "media/base/media_switches.h"
 #include "media/gpu/android/image_reader_gl_owner.h"
 #include "media/gpu/android/surface_texture_gl_owner.h"
 #include "ui/gl/scoped_binders.h"
 
 namespace media {
 
-TextureOwner::TextureOwner(std::unique_ptr<gpu::gles2::AbstractTexture> texture)
+TextureOwner::TextureOwner(bool binds_texture_on_update,
+                           std::unique_ptr<gpu::gles2::AbstractTexture> texture)
     : base::RefCountedDeleteOnSequence<TextureOwner>(
           base::ThreadTaskRunnerHandle::Get()),
+      binds_texture_on_update_(binds_texture_on_update),
       texture_(std::move(texture)),
       task_runner_(base::ThreadTaskRunnerHandle::Get()) {
   // Notify the subclass when the texture is destroyed.
@@ -35,21 +36,25 @@ TextureOwner::~TextureOwner() {
 
 // static
 scoped_refptr<TextureOwner> TextureOwner::Create(
-    std::unique_ptr<gpu::gles2::AbstractTexture> texture) {
+    std::unique_ptr<gpu::gles2::AbstractTexture> texture,
+    Mode mode) {
   // Set the parameters on the texture.
   texture->SetParameteri(GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   texture->SetParameteri(GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   texture->SetParameteri(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   texture->SetParameteri(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-  // If AImageReader is supported and is enabled by media flag, use it.
-  if (base::android::AndroidImageReader::GetInstance().IsSupported() &&
-      base::FeatureList::IsEnabled(media::kAImageReaderVideoOutput)) {
-    return new ImageReaderGLOwner(std::move(texture));
+  switch (mode) {
+    case Mode::kAImageReaderSecure:
+      return new ImageReaderGLOwner(std::move(texture), mode);
+    case Mode::kAImageReaderInsecure:
+      return new ImageReaderGLOwner(std::move(texture), mode);
+    case Mode::kSurfaceTextureInsecure:
+      return new SurfaceTextureGLOwner(std::move(texture));
   }
 
-  // If not, fall back to legacy path.
-  return new SurfaceTextureGLOwner(std::move(texture));
+  NOTREACHED();
+  return nullptr;
 }
 
 // static

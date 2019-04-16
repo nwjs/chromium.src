@@ -45,8 +45,7 @@ class NotificationBrowserClient : public TestContentBrowserClient {
 
 class PlatformNotificationContextTest : public ::testing::Test {
  public:
-  PlatformNotificationContextTest()
-      : thread_bundle_(TestBrowserThreadBundle::IO_MAINLOOP), success_(false) {}
+  PlatformNotificationContextTest() : success_(false) {}
 
   // Callback to provide when reading a single notification from the database.
   void DidReadNotificationData(bool success,
@@ -105,9 +104,8 @@ class PlatformNotificationContextTest : public ::testing::Test {
   CreatePlatformNotificationContext() {
     auto context = base::MakeRefCounted<PlatformNotificationContextImpl>(
         base::FilePath(), &browser_context_, nullptr);
-    context->Initialize();
-
     OverrideTaskRunnerForTesting(context.get());
+    context->Initialize();
     return context;
   }
 
@@ -329,9 +327,8 @@ TEST_F(PlatformNotificationContextTest, ServiceWorkerUnregistered) {
       new PlatformNotificationContextImpl(
           base::FilePath(), browser_context(),
           embedded_worker_test_helper->context_wrapper()));
-  notification_context->Initialize();
-
   OverrideTaskRunnerForTesting(notification_context.get());
+  notification_context->Initialize();
 
   GURL origin("https://example.com");
   GURL script_url("https://example.com/worker.js");
@@ -525,6 +522,8 @@ TEST_F(PlatformNotificationContextTest, SynchronizeNotifications) {
 
   scoped_refptr<PlatformNotificationContextImpl> context =
       CreatePlatformNotificationContext();
+  // Let PlatformNotificationContext synchronize displayed notifications.
+  base::RunLoop().RunUntilIdle();
 
   GURL origin("https://example.com");
   NotificationDatabaseData notification_database_data;

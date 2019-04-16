@@ -25,6 +25,7 @@ FrameOwnerProperties ConvertWebFrameOwnerPropertiesToFrameOwnerProperties(
   result.nwfaketop = web_frame_owner_properties.nwFakeTop;
   result.allow_payment_request =
       web_frame_owner_properties.allow_payment_request;
+  result.is_display_none = web_frame_owner_properties.is_display_none;
   result.required_csp = web_frame_owner_properties.required_csp.Utf8();
 
   return result;
@@ -42,6 +43,7 @@ ConvertFrameOwnerPropertiesToWebFrameOwnerProperties(
   result.allow_fullscreen = frame_owner_properties.allow_fullscreen;
   result.nwFakeTop = frame_owner_properties.nwfaketop;
   result.allow_payment_request = frame_owner_properties.allow_payment_request;
+  result.is_display_none = frame_owner_properties.is_display_none;
   result.required_csp =
       blink::WebString::FromUTF8(frame_owner_properties.required_csp);
 

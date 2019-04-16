@@ -6,8 +6,8 @@
 
 #include <utility>
 
-#include "base/fuchsia/component_context.h"
 #include "base/fuchsia/fuchsia_logging.h"
+#include "base/fuchsia/service_directory_client.h"
 #include "base/logging.h"
 
 namespace ui {
@@ -16,17 +16,12 @@ InputMethodKeyboardControllerFuchsia::InputMethodKeyboardControllerFuchsia(
     fuchsia::ui::input::ImeService* ime_service)
     : ime_service_(ime_service),
       ime_visibility_(
-          base::fuchsia::ComponentContext::GetDefault()
+          base::fuchsia::ServiceDirectoryClient::ForCurrentProcess()
               ->ConnectToService<fuchsia::ui::input::ImeVisibilityService>()) {
   DCHECK(ime_service_);
 
-  ime_visibility_.set_error_handler([this](zx_status_t status) {
-    ZX_LOG(WARNING, status) << "ImeVisibilityService connection lost.";
-
-    // We can't observe visibility events anymore, so dismiss the keyboard and
-    // assume that it's closed for good.
-    DismissVirtualKeyboard();
-    keyboard_visible_ = false;
+  ime_visibility_.set_error_handler([](zx_status_t status) {
+    ZX_LOG(FATAL, status) << " ImeVisibilityService lost.";
   });
 
   ime_visibility_.events().OnKeyboardVisibilityChanged = [this](bool visible) {

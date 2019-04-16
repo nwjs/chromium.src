@@ -64,7 +64,6 @@ class ImageFactory;
 class SharedImageFactory;
 class SharedImageInterface;
 class SyncPointClientState;
-class TransferBufferManager;
 struct ContextCreationAttribs;
 struct SwapBuffersCompleteParams;
 
@@ -157,6 +156,7 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   void OnRescheduleAfterFinished() override;
   void OnSwapBuffers(uint64_t swap_id, uint32_t flags) override;
   void ScheduleGrContextCleanup() override;
+  void HandleReturnData(base::span<const uint8_t> data) override;
 
 // ImageTransportSurfaceDelegate implementation:
 #if defined(OS_WIN)
@@ -309,6 +309,8 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
                                      uint32_t flags,
                                      const gfx::PresentationFeedback& feedback);
 
+  void HandleReturnDataOnOriginThread(std::vector<uint8_t> data);
+
   const CommandBufferId command_buffer_id_;
 
   // Members accessed on the gpu thread (possibly with the exception of
@@ -316,7 +318,6 @@ class GL_IN_PROCESS_CONTEXT_EXPORT InProcessCommandBuffer
   bool use_virtualized_gl_context_ = false;
   raster::GrShaderCache* gr_shader_cache_ = nullptr;
   scoped_refptr<base::SingleThreadTaskRunner> origin_task_runner_;
-  std::unique_ptr<TransferBufferManager> transfer_buffer_manager_;
   std::unique_ptr<CommandBufferService> command_buffer_;
   std::unique_ptr<DecoderContext> decoder_;
   base::Optional<raster::GrCacheController> gr_cache_controller_;

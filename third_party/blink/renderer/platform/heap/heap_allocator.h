@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/platform/heap/heap.h"
 #include "third_party/blink/renderer/platform/heap/heap_buildflags.h"
 #include "third_party/blink/renderer/platform/heap/marking_visitor.h"
+#include "third_party/blink/renderer/platform/heap/thread_state_scopes.h"
 #include "third_party/blink/renderer/platform/heap/trace_traits.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -629,6 +630,9 @@ class HeapVector : public Vector<T, inlineCapacity, HeapAllocator> {
   template <wtf_size_t otherCapacity>
   HeapVector(const HeapVector<T, otherCapacity>& other)
       : Vector<T, inlineCapacity, HeapAllocator>(other) {}
+
+  HeapVector(std::initializer_list<T> elements)
+      : Vector<T, inlineCapacity, HeapAllocator>(elements) {}
 };
 
 template <typename T, wtf_size_t inlineCapacity = 0>

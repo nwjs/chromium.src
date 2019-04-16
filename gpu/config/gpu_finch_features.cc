@@ -3,7 +3,31 @@
 // found in the LICENSE file.
 #include "gpu/config/gpu_finch_features.h"
 
+#if defined(OS_ANDROID)
+#include "base/android/build_info.h"
+#include "base/metrics/field_trial_params.h"
+#include "base/strings/string_split.h"
+#include "ui/gl/android/android_surface_control_compat.h"
+#endif
+
 namespace features {
+namespace {
+
+#if defined(OS_ANDROID)
+bool FieldIsInBlacklist(const char* current_value, std::string blacklist_str) {
+  std::vector<std::string> blacklist = base::SplitString(
+      blacklist_str, ",", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  for (const std::string& value : blacklist) {
+    if (value == current_value)
+      return true;
+  }
+
+  return false;
+}
+#endif
+
+}  // namespace
+
 #if defined(OS_ANDROID)
 // Use android AImageReader when playing videos with MediaPlayer.
 const base::Feature kAImageReaderMediaPlayer{"AImageReaderMediaPlayer",
@@ -44,6 +68,12 @@ const base::Feature kDefaultPassthroughCommandDecoder{
 const base::Feature kDirectCompositionPreferNV12Overlays{
     "DirectCompositionPreferNV12Overlays", base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Allow putting a video swapchain underneath the main swapchain, so overlays
+// can be used even if there are controls on top of the video. It can be
+// enabled only when overlay is supported.
+const base::Feature kDirectCompositionUnderlays{
+    "DirectCompositionUnderlays", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Causes us to use the SharedImageManager, removing support for the old
 // mailbox system. Any consumers of the GPU process using the old mailbox
 // system will experience undefined results.
@@ -67,5 +97,30 @@ const base::Feature kDirectCompositionUseNV12DecodeSwapChain{
 // https://crbug.com/868400 is resolved.
 const base::Feature kVaapiJpegImageDecodeAcceleration{
     "VaapiJpegImageDecodeAcceleration", base::FEATURE_DISABLED_BY_DEFAULT};
+
+#if defined(OS_ANDROID)
+bool IsAndroidSurfaceControlEnabled() {
+  if (!gl::SurfaceControl::IsSupported())
+    return false;
+
+  if (!base::FeatureList::IsEnabled(kAndroidSurfaceControl))
+    return false;
+
+  if (FieldIsInBlacklist(base::android::BuildInfo::GetInstance()->model(),
+                         base::GetFieldTrialParamValueByFeature(
+                             kAndroidSurfaceControl, "blacklisted_models"))) {
+    return false;
+  }
+
+  if (FieldIsInBlacklist(
+          base::android::BuildInfo::GetInstance()->android_build_id(),
+          base::GetFieldTrialParamValueByFeature(kAndroidSurfaceControl,
+                                                 "blacklisted_build_ids"))) {
+    return false;
+  }
+
+  return true;
+}
+#endif
 
 }  // namespace features

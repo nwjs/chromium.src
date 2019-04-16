@@ -81,6 +81,8 @@ std::string IntAttrToString(const BrowserAccessibility& node,
       return ui::ToString(static_cast<ax::mojom::TextDirection>(value));
     case ax::mojom::IntAttribute::kTextPosition:
       return ui::ToString(static_cast<ax::mojom::TextPosition>(value));
+    case ax::mojom::IntAttribute::kImageAnnotationStatus:
+      return ui::ToString(static_cast<ax::mojom::ImageAnnotationStatus>(value));
     // No pretty printing necessary for these:
     case ax::mojom::IntAttribute::kActivedescendantId:
     case ax::mojom::IntAttribute::kAriaCellColumnIndex:
@@ -135,6 +137,45 @@ AccessibilityTreeFormatterBlink::AccessibilityTreeFormatterBlink()
     : AccessibilityTreeFormatterBrowser() {}
 
 AccessibilityTreeFormatterBlink::~AccessibilityTreeFormatterBlink() {}
+
+void AccessibilityTreeFormatterBlink::AddDefaultFilters(
+    std::vector<PropertyFilter>* property_filters) {
+  // Noisy, perhaps add later:
+  //   editable, focus*, horizontal, linked, richlyEditable, vertical
+  // Too flaky: hovered, offscreen
+  // States
+  AddPropertyFilter(property_filters, "collapsed");
+  AddPropertyFilter(property_filters, "haspopup");
+  AddPropertyFilter(property_filters, "invisible");
+  AddPropertyFilter(property_filters, "multiline");
+  AddPropertyFilter(property_filters, "protected");
+  AddPropertyFilter(property_filters, "required");
+  AddPropertyFilter(property_filters, "select*");
+  AddPropertyFilter(property_filters, "visited");
+  // Other attributes
+  AddPropertyFilter(property_filters, "busy=true");
+  AddPropertyFilter(property_filters, "valueForRange*");
+  AddPropertyFilter(property_filters, "minValueForRange*");
+  AddPropertyFilter(property_filters, "maxValueForRange*");
+  AddPropertyFilter(property_filters, "hierarchicalLevel*");
+  AddPropertyFilter(property_filters, "autoComplete*");
+  AddPropertyFilter(property_filters, "restriction*");
+  AddPropertyFilter(property_filters, "keyShortcuts*");
+  AddPropertyFilter(property_filters, "activedescendantId*");
+  AddPropertyFilter(property_filters, "controlsIds*");
+  AddPropertyFilter(property_filters, "flowtoIds*");
+  AddPropertyFilter(property_filters, "detailsIds*");
+  AddPropertyFilter(property_filters, "invalidState=*");
+  AddPropertyFilter(property_filters, "invalidState=false",
+                    PropertyFilter::DENY);  // Don't show false value
+  AddPropertyFilter(property_filters, "roleDescription=*");
+  AddPropertyFilter(property_filters, "errormessageId=*");
+}
+// static
+std::unique_ptr<AccessibilityTreeFormatter>
+AccessibilityTreeFormatterBlink::CreateBlink() {
+  return std::make_unique<AccessibilityTreeFormatterBlink>();
+}
 
 const char* const TREE_DATA_ATTRIBUTES[] = {"TreeData.textSelStartOffset",
                                             "TreeData.textSelEndOffset"};
@@ -306,7 +347,7 @@ base::string16 AccessibilityTreeFormatterBlink::ProcessTreeForOutput(
   if (show_ids()) {
     int id_value;
     dict.GetInteger("id", &id_value);
-    WriteAttribute(true, base::IntToString16(id_value), &line);
+    WriteAttribute(true, base::NumberToString16(id_value), &line);
   }
 
   base::string16 role_value;
@@ -434,7 +475,7 @@ base::string16 AccessibilityTreeFormatterBlink::ProcessTreeForOutput(
       } else {
         int int_value;
         value->GetInteger(i, &int_value);
-        attr_string += base::IntToString(int_value);
+        attr_string += base::NumberToString(int_value);
       }
     }
     WriteAttribute(false, attr_string, &line);
@@ -502,6 +543,10 @@ const std::string AccessibilityTreeFormatterBlink::GetAllowString() {
 
 const std::string AccessibilityTreeFormatterBlink::GetDenyString() {
   return "@BLINK-DENY:";
+}
+
+const std::string AccessibilityTreeFormatterBlink::GetDenyNodeString() {
+  return "@BLINK-DENY-NODE:";
 }
 
 }  // namespace content

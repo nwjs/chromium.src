@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//mojo/public/tools/bindings/mojom.gni")
+import("//net/features.gni")
 import("//services/network/public/cpp/features.gni")
 
 # These interfaces are put in their own target to avoid a circular dependency,
@@ -57,6 +58,7 @@ mojom("websocket_mojom") {
   ]
 
   public_deps = [
+    ":mojom_ip_address",
     "//url/mojom:url_mojom_gurl",
     "//url/mojom:url_mojom_origin",
   ]
@@ -144,5 +146,10 @@ mojom("mojom") {
 
   if (is_android || is_chromeos) {
     enabled_features += [ "network_change_notifier_in_browser" ]
+  }
+
+  if (trial_comparison_cert_verifier_supported) {
+    enabled_features += [ "is_trial_comparison_cert_verifier_supported" ]
+    sources += [ "trial_comparison_cert_verifier.mojom" ]
   }
 }

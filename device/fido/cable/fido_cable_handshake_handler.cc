@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/containers/span.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/cbor/reader.h"
@@ -102,6 +103,7 @@ void FidoCableHandshakeHandler::InitiateCableHandshake(
     return;
   }
 
+  VLOG(2) << "Sending the caBLE handshake message";
   cable_device_->SendHandshakeMessage(
       fido_parsing_utils::Materialize(*handshake_message), std::move(callback));
 }

@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/containers/queue.h"
 #include "base/logging.h"
@@ -690,7 +691,7 @@ class ChannelAssociatedGroupController
       // other threads in order to simulate IPC::ChannelProxy::Send behavior.
       task_runner_->PostTask(
           FROM_HERE,
-          base::Bind(
+          base::BindOnce(
               &ChannelAssociatedGroupController::SendMessageOnMasterThread,
               this, base::Passed(message)));
       return true;
@@ -745,9 +746,9 @@ class ChannelAssociatedGroupController
     } else {
       endpoint->task_runner()->PostTask(
           FROM_HERE,
-          base::Bind(&ChannelAssociatedGroupController::
-                         NotifyEndpointOfErrorOnEndpointThread,
-                     this, endpoint->id(), base::Unretained(endpoint)));
+          base::BindOnce(&ChannelAssociatedGroupController::
+                             NotifyEndpointOfErrorOnEndpointThread,
+                         this, endpoint->id(), base::Unretained(endpoint)));
     }
   }
 
@@ -838,15 +839,15 @@ class ChannelAssociatedGroupController
             endpoint->EnqueueSyncMessage(std::move(message_wrapper));
         proxy_task_runner_->PostTask(
             FROM_HERE,
-            base::Bind(&ChannelAssociatedGroupController::AcceptSyncMessage,
-                       this, id, message_id));
+            base::BindOnce(&ChannelAssociatedGroupController::AcceptSyncMessage,
+                           this, id, message_id));
         return true;
       }
 
       proxy_task_runner_->PostTask(
           FROM_HERE,
-          base::Bind(&ChannelAssociatedGroupController::AcceptOnProxyThread,
-                     this, base::Passed(message)));
+          base::BindOnce(&ChannelAssociatedGroupController::AcceptOnProxyThread,
+                         this, base::Passed(message)));
       return true;
     }
 

@@ -26,7 +26,7 @@ namespace {
 void LoadDefaultImage(const content::URLDataSource::GotDataCallback& callback) {
   base::StringPiece contents =
       ui::ResourceBundle::GetSharedInstance().GetRawDataResourceForScale(
-          IDR_APP_DEFAULT_ICON, ui::SCALE_FACTOR_100P);
+          IDR_APP_DEFAULT_ICON, apps_util::GetPrimaryDisplayUIScaleFactor());
 
   base::RefCountedBytes* image_bytes = new base::RefCountedBytes();
   image_bytes->data().assign(contents.data(),
@@ -36,7 +36,7 @@ void LoadDefaultImage(const content::URLDataSource::GotDataCallback& callback) {
 
 void RunCallback(const content::URLDataSource::GotDataCallback& callback,
                  apps::mojom::IconValuePtr iv) {
-  if (!iv->compressed.has_value()) {
+  if (!iv->compressed.has_value() || iv->compressed.value().empty()) {
     LoadDefaultImage(callback);
     return;
   }
@@ -88,7 +88,7 @@ void AppIconSource::StartDataRequest(
     LoadDefaultImage(callback);
     return;
   }
-  int size_in_dip = ConvertPxToDip(size);
+  int size_in_dip = apps_util::ConvertPxToDip(size);
 
   apps::AppServiceProxy* app_service_proxy =
       apps::AppServiceProxy::Get(profile_);
@@ -97,8 +97,9 @@ void AppIconSource::StartDataRequest(
     return;
   }
 
+  constexpr bool allow_placeholder_icon = false;
   app_service_proxy->LoadIcon(app_id, apps::mojom::IconCompression::kCompressed,
-                              size_in_dip,
+                              size_in_dip, allow_placeholder_icon,
                               base::BindOnce(&RunCallback, callback));
 }
 

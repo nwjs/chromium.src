@@ -7,6 +7,8 @@
 #include <tuple>
 #include <vector>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/optional.h"
 #include "base/run_loop.h"
@@ -57,6 +59,10 @@ bool operator==(const ui::DidOverscrollParams& lhs,
 }
 
 }  // namespace ui
+
+namespace cc {
+class AnimationHost;
+}
 
 namespace content {
 
@@ -136,7 +142,8 @@ class MockHandledEventCallback {
 class StubWebPagePopup : public blink::WebPagePopup {
  public:
   // WebWidget implementation.
-  void SetLayerTreeView(blink::WebLayerTreeView*) override {}
+  void SetLayerTreeView(blink::WebLayerTreeView*, cc::AnimationHost*) override {
+  }
   blink::WebURL GetURLForDebugTrace() override { return {}; }
   blink::WebHitTestResult HitTestResultAt(const gfx::Point&) override {
     return {};
@@ -165,7 +172,8 @@ class InteractiveRenderWidget : public RenderWidget {
                      blink::kWebDisplayModeUndefined,
                      false,
                      false,
-                     false),
+                     false,
+                     nullptr),
         always_overscroll_(false) {
     InitForPopup(base::NullCallback(), &mock_page_popup_);
 
@@ -440,7 +448,8 @@ class PopupRenderWidget : public RenderWidget {
                      blink::kWebDisplayModeUndefined,
                      false,
                      false,
-                     false) {
+                     false,
+                     nullptr) {
     InitForPopup(RenderWidget::ShowCallback(), &stub_page_popup_);
   }
 

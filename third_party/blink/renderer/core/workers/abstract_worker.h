@@ -33,9 +33,9 @@
 
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/renderer/core/core_export.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 
@@ -46,7 +46,7 @@ class KURL;
 class ExecutionContext;
 
 // Implementation of the AbstractWorker interface defined in the WebWorker HTML
-// spec: https://html.spec.whatwg.org/multipage/workers.html#abstractworker
+// spec: https://html.spec.whatwg.org/C/#abstractworker
 class CORE_EXPORT AbstractWorker : public EventTargetWithInlineData,
                                    public ContextLifecycleObserver {
   USING_GARBAGE_COLLECTED_MIXIN(AbstractWorker);
@@ -57,7 +57,7 @@ class CORE_EXPORT AbstractWorker : public EventTargetWithInlineData,
     return ContextLifecycleObserver::GetExecutionContext();
   }
 
-  DEFINE_STATIC_ATTRIBUTE_EVENT_LISTENER(error, kError);
+  DEFINE_STATIC_ATTRIBUTE_EVENT_LISTENER(error, kError)
 
   AbstractWorker(ExecutionContext*);
   ~AbstractWorker() override;

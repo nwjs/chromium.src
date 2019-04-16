@@ -32,6 +32,9 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 
+#include <memory>
+#include <utility>
+
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/renderer/bindings/core/v8/referrer_script_info.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_source_code.h"
@@ -130,9 +133,9 @@ v8::Local<v8::Value> ScriptController::ExecuteScriptAndReturnValue(
     v8::MaybeLocal<v8::Value> maybe_result;
     maybe_result = V8ScriptRunner::RunCompiledScript(GetIsolate(), script,
                                                      GetFrame()->GetDocument());
-    probe::produceCompilationCache(frame_, source, script);
+    probe::ProduceCompilationCache(frame_, source, script);
     V8CodeCache::ProduceCache(GetIsolate(), script, source,
-                              produce_cache_options, compile_options);
+                              produce_cache_options);
 
     if (!maybe_result.ToLocal(&result)) {
       return result;
@@ -181,13 +184,14 @@ Vector<const char*>& RegisteredExtensionNames() {
 
 }  // namespace
 
-void ScriptController::RegisterExtensionIfNeeded(v8::Extension* extension) {
+void ScriptController::RegisterExtensionIfNeeded(
+    std::unique_ptr<v8::Extension> extension) {
   for (const auto* extension_name : RegisteredExtensionNames()) {
     if (!strcmp(extension_name, extension->name()))
       return;
   }
   RegisteredExtensionNames().push_back(extension->name());
-  v8::RegisterExtension(extension);
+  v8::RegisterExtension(std::move(extension));
 }
 
 v8::ExtensionConfiguration ScriptController::ExtensionsFor(
@@ -227,12 +231,10 @@ bool ScriptController::ExecuteScriptIfJavaScriptURL(
       ContentSecurityPolicy::ShouldBypassMainWorld(GetFrame()->GetDocument());
   if (!GetFrame()->GetPage() ||
       (!should_bypass_main_world_content_security_policy &&
-       !GetFrame()
-            ->GetDocument()
-            ->GetContentSecurityPolicy()
-            ->AllowJavaScriptURLs(element, script_source,
-                                  GetFrame()->GetDocument()->Url(),
-                                  EventHandlerPosition().line_))) {
+       !GetFrame()->GetDocument()->GetContentSecurityPolicy()->AllowInline(
+           ContentSecurityPolicy::InlineType::kJavaScriptURL, element,
+           script_source, String() /* nonce */,
+           GetFrame()->GetDocument()->Url(), EventHandlerPosition().line_))) {
     return true;
   }
 
@@ -245,7 +247,7 @@ bool ScriptController::ExecuteScriptIfJavaScriptURL(
 
   v8::HandleScope handle_scope(GetIsolate());
 
-  // https://html.spec.whatwg.org/multipage/browsing-the-web.html#navigate
+  // https://html.spec.whatwg.org/C/#navigate
   // Step 12.8 "Let base URL be settings object's API base URL." [spec text]
   KURL base_url = owner_document->BaseURL();
 

@@ -7,6 +7,7 @@
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/loader/url_loader_factory_bundle.h"
+#include "third_party/blink/public/mojom/worker/shared_worker_info.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -67,7 +68,7 @@ void MockSharedWorker::BindDevToolsAgent(
 }
 
 MockSharedWorkerFactory::MockSharedWorkerFactory(
-    mojom::SharedWorkerFactoryRequest request)
+    blink::mojom::SharedWorkerFactoryRequest request)
     : binding_(this, std::move(request)) {}
 
 MockSharedWorkerFactory::~MockSharedWorkerFactory() = default;
@@ -100,10 +101,10 @@ void MockSharedWorkerFactory::CreateSharedWorker(
     blink::mojom::SharedWorkerInfoPtr info,
     bool pause_on_start,
     const base::UnguessableToken& devtools_worker_token,
-    const RendererPreferences& renderer_preferences,
-    mojom::RendererPreferenceWatcherRequest preference_watcher_request,
+    blink::mojom::RendererPreferencesPtr renderer_preferences,
+    blink::mojom::RendererPreferenceWatcherRequest preference_watcher_request,
     blink::mojom::WorkerContentSettingsProxyPtr content_settings,
-    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr
+    blink::mojom::ServiceWorkerProviderInfoForWorkerPtr
         service_worker_provider_info,
     int appcache_host_id,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo

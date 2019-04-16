@@ -6,9 +6,7 @@ package org.chromium.chrome.browser.feed;
 
 import android.support.annotation.Nullable;
 
-import com.google.android.libraries.feed.api.common.ThreadUtils;
 import com.google.android.libraries.feed.api.scope.FeedProcessScope;
-import com.google.android.libraries.feed.feedapplifecyclelistener.FeedAppLifecycleListener;
 import com.google.android.libraries.feed.host.config.ApplicationInfo;
 import com.google.android.libraries.feed.host.config.Configuration;
 import com.google.android.libraries.feed.host.config.DebugBehavior;
@@ -132,8 +130,6 @@ public class FeedProcessScopeFactory {
 
         FeedSchedulerBridge schedulerBridge = new FeedSchedulerBridge(profile);
         sFeedScheduler = schedulerBridge;
-        FeedAppLifecycleListener lifecycleListener =
-                new FeedAppLifecycleListener(new ThreadUtils());
         FeedContentStorage contentStorage = new FeedContentStorage(profile);
         FeedJournalStorage journalStorage = new FeedJournalStorage(profile);
         NetworkClient networkClient = sTestNetworkClient == null ?
@@ -141,8 +137,8 @@ public class FeedProcessScopeFactory {
         sFeedLoggingBridge = new FeedLoggingBridge(profile);
         sFeedProcessScope = new FeedProcessScope
                                     .Builder(configHostApi, Executors.newSingleThreadExecutor(),
-                                            new LoggingApiImpl(), networkClient, schedulerBridge,
-                                            lifecycleListener, DebugBehavior.SILENT,
+                                            new LoggingApiImpl(), sFeedLoggingBridge, networkClient,
+                                            schedulerBridge, DebugBehavior.SILENT,
                                             ContextUtils.getApplicationContext(), applicationInfo)
                                     .setContentStorage(contentStorage)
                                     .setJournalStorage(journalStorage)
@@ -164,27 +160,28 @@ public class FeedProcessScopeFactory {
      * @param feedScheduler A {@link FeedScheduler} to use for testing.
      * @param networkClient A {@link NetworkClient} to use for testing.
      * @param feedOfflineIndicator A {@link FeedOfflineIndicator} to use for testing.
+     * @param feedAppLifecycle A {@link FeedAppLifecycle} to use for testing.
+     * @param loggingBridge A {@link FeedLoggingBridge} to use for testing.
      */
     @VisibleForTesting
     static void createFeedProcessScopeForTesting(FeedScheduler feedScheduler,
             NetworkClient networkClient, FeedOfflineIndicator feedOfflineIndicator,
-            FeedAppLifecycle feedAppLifecycle, FeedAppLifecycleListener lifecycleListener,
-            FeedLoggingBridge loggingBridge) {
+            FeedAppLifecycle feedAppLifecycle, FeedLoggingBridge loggingBridge) {
         Configuration configHostApi = FeedConfiguration.createConfiguration();
 
         sFeedScheduler = feedScheduler;
+        sFeedLoggingBridge = loggingBridge;
+        sFeedOfflineIndicator = feedOfflineIndicator;
+        sFeedAppLifecycle = feedAppLifecycle;
         ApplicationInfo applicationInfo =
                 new ApplicationInfo.Builder(ContextUtils.getApplicationContext()).build();
 
         sFeedProcessScope = new FeedProcessScope
                                     .Builder(configHostApi, Executors.newSingleThreadExecutor(),
-                                            new LoggingApiImpl(), networkClient, sFeedScheduler,
-                                            lifecycleListener, DebugBehavior.SILENT,
+                                            new LoggingApiImpl(), sFeedLoggingBridge, networkClient,
+                                            sFeedScheduler, DebugBehavior.SILENT,
                                             ContextUtils.getApplicationContext(), applicationInfo)
                                     .build();
-        sFeedOfflineIndicator = feedOfflineIndicator;
-        sFeedAppLifecycle = feedAppLifecycle;
-        sFeedLoggingBridge = loggingBridge;
     }
 
     /** Use supplied NetworkClient instead of real one, for tests. */
@@ -222,15 +219,16 @@ public class FeedProcessScopeFactory {
     }
 
     private static void articlesEnabledPrefChange() {
-        // Should only be subscribed while it was enabled. A change should mean articles are now
-        // disabled.
-        assert !PrefServiceBridge.getInstance().getBoolean(Pref.NTP_ARTICLES_SECTION_ENABLED);
-        // There have been quite a few crashes/bugs that happen when code does not correctly handle
-        // the scenario where Feed suddenly becomes disabled and the above getters start returning
-        // nulls. Having this log a warning helps diagnose this pattern from the logcat.
-        Log.w(TAG, "Disabling Feed because of policy.");
-        sEverDisabledForPolicy = true;
-        destroy();
+        // Cannot assume this is called because of an actual change. May be going from true to true.
+        if (!PrefServiceBridge.getInstance().getBoolean(Pref.NTP_ARTICLES_SECTION_ENABLED)) {
+            // There have been quite a few crashes/bugs that happen when code does not correctly
+            // handle the scenario where Feed suddenly becomes disabled and the above getters start
+            // returning nulls. Having this log a warning helps diagnose this pattern from the
+            // logcat.
+            Log.w(TAG, "Disabling Feed because of policy.");
+            sEverDisabledForPolicy = true;
+            destroy();
+        }
     }
 
     /** Clears out all static state. */

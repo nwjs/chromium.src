@@ -521,10 +521,10 @@ class SyncerTest : public testing::Test,
   void ConfigureNoGetUpdatesRequired() {
     context_->set_server_enabled_pre_commit_update_avoidance(true);
     nudge_tracker_.OnInvalidationsEnabled();
-    nudge_tracker_.RecordSuccessfulSyncCycle();
+    nudge_tracker_.RecordSuccessfulSyncCycle(ProtocolTypes());
 
     ASSERT_FALSE(context_->ShouldFetchUpdatesBeforeCommit());
-    ASSERT_FALSE(nudge_tracker_.IsGetUpdatesRequired());
+    ASSERT_FALSE(nudge_tracker_.IsGetUpdatesRequired(ProtocolTypes()));
   }
 
   base::test::ScopedTaskEnvironment task_environment_;
@@ -3041,7 +3041,7 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_Success) {
   {
     syncable::WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     for (uint32_t i = 0; i < items_to_commit; i++) {
-      string nameutf8 = base::UintToString(i);
+      string nameutf8 = base::NumberToString(i);
       string name(nameutf8.begin(), nameutf8.end());
       MutableEntry e(&trans, CREATE, BOOKMARKS, trans.root_id(), name);
       e.PutIsUnsynced(true);
@@ -3064,7 +3064,7 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_PostBufferFail) {
   {
     syncable::WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     for (uint32_t i = 0; i < items_to_commit; i++) {
-      string nameutf8 = base::UintToString(i);
+      string nameutf8 = base::NumberToString(i);
       string name(nameutf8.begin(), nameutf8.end());
       MutableEntry e(&trans, CREATE, BOOKMARKS, trans.root_id(), name);
       e.PutIsUnsynced(true);
@@ -3095,7 +3095,7 @@ TEST_F(SyncerTest, CommitManyItemsInOneGo_CommitConflict) {
   {
     syncable::WriteTransaction trans(FROM_HERE, UNITTEST, directory());
     for (uint32_t i = 0; i < items_to_commit; i++) {
-      string nameutf8 = base::UintToString(i);
+      string nameutf8 = base::NumberToString(i);
       string name(nameutf8.begin(), nameutf8.end());
       MutableEntry e(&trans, CREATE, BOOKMARKS, trans.root_id(), name);
       e.PutIsUnsynced(true);
@@ -3180,18 +3180,18 @@ TEST_F(SyncerTest, SendDebugInfoEventsOnGetUpdates_PostFailsDontDrop) {
 TEST_F(SyncerTest, CommitFailureWithConflict) {
   ConfigureNoGetUpdatesRequired();
   CreateUnsyncedDirectory("X", "id_X");
-  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired());
+  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired(ProtocolTypes()));
 
   EXPECT_TRUE(SyncShareNudge());
-  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired());
+  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired(ProtocolTypes()));
 
   CreateUnsyncedDirectory("Y", "id_Y");
   mock_server_->set_conflict_n_commits(1);
   EXPECT_FALSE(SyncShareNudge());
-  EXPECT_TRUE(nudge_tracker_.IsGetUpdatesRequired());
+  EXPECT_TRUE(nudge_tracker_.IsGetUpdatesRequired(ProtocolTypes()));
 
-  nudge_tracker_.RecordSuccessfulSyncCycle();
-  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired());
+  nudge_tracker_.RecordSuccessfulSyncCycle(ProtocolTypes());
+  EXPECT_FALSE(nudge_tracker_.IsGetUpdatesRequired(ProtocolTypes()));
 }
 
 // Tests that sending debug info events on Commit works.
@@ -5728,9 +5728,9 @@ class MixedResult : public SyncerTest,
   }
 };
 
-INSTANTIATE_TEST_CASE_P(ExtensionsActivity,
-                        MixedResult,
-                        testing::Range(0, 1 << TEST_PARAM_BIT_COUNT));
+INSTANTIATE_TEST_SUITE_P(ExtensionsActivity,
+                         MixedResult,
+                         testing::Range(0, 1 << TEST_PARAM_BIT_COUNT));
 
 TEST_P(MixedResult, ExtensionsActivity) {
   {

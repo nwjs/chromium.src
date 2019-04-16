@@ -12,18 +12,17 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "content/browser/appcache/appcache_frontend.h"
 #include "content/browser/appcache/appcache_group.h"
 #include "content/browser/appcache/appcache_histograms.h"
-#include "content/browser/appcache/appcache_update_request_base.h"
 #include "content/browser/appcache/appcache_update_url_fetcher.h"
-#include "content/common/appcache_interfaces.h"
+#include "content/browser/appcache/appcache_update_url_loader_request.h"
 #include "content/public/browser/browser_thread.h"
 #include "net/base/io_buffer.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/base/request_priority.h"
 #include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "url/origin.h"
 
 namespace content {
@@ -101,14 +100,9 @@ void EmptyCompletionCallback(int result) {}
 // so that only one notification is sent for all hosts using the same frontend.
 class HostNotifier {
  public:
-  using HostIds = std::vector<int>;
-  using NotifyHostMap = std::map<AppCacheFrontend*, HostIds>;
-
   // Caller is responsible for ensuring there will be no duplicate hosts.
   void AddHost(AppCacheHost* host) {
-    std::pair<NotifyHostMap::iterator, bool> ret = hosts_to_notify_.insert(
-        NotifyHostMap::value_type(host->frontend(), HostIds()));
-    ret.first->second.push_back(host->host_id());
+    hosts_to_notify_.insert(host->frontend());
   }
 
   void AddHosts(const std::set<AppCacheHost*>& hosts) {
@@ -117,41 +111,32 @@ class HostNotifier {
   }
 
   void SendNotifications(blink::mojom::AppCacheEventID event_id) {
-    for (auto& pair : hosts_to_notify_) {
-      AppCacheFrontend* frontend = pair.first;
-      frontend->OnEventRaised(pair.second, event_id);
-    }
+    for (auto* frontend : hosts_to_notify_)
+      frontend->EventRaised(event_id);
   }
 
   void SendProgressNotifications(const GURL& url,
                                  int num_total,
                                  int num_complete) {
-    for (const auto& pair : hosts_to_notify_) {
-      AppCacheFrontend* frontend = pair.first;
-      frontend->OnProgressEventRaised(pair.second, url, num_total,
-                                      num_complete);
-    }
+    for (auto* frontend : hosts_to_notify_)
+      frontend->ProgressEventRaised(url, num_total, num_complete);
   }
 
   void SendErrorNotifications(
       const blink::mojom::AppCacheErrorDetails& details) {
     DCHECK(!details.message.empty());
-    for (const auto& pair : hosts_to_notify_) {
-      AppCacheFrontend* frontend = pair.first;
-      frontend->OnErrorEventRaised(pair.second, details);
-    }
+    for (auto* frontend : hosts_to_notify_)
+      frontend->ErrorEventRaised(details.Clone());
   }
 
   void SendLogMessage(const std::string& message) {
-    for (const auto& pair : hosts_to_notify_) {
-      AppCacheFrontend* frontend = pair.first;
-      for (const auto& id : pair.second)
-        frontend->OnLogMessage(id, APPCACHE_LOG_WARNING, message);
-    }
+    for (auto* frontend : hosts_to_notify_)
+      frontend->LogMessage(blink::mojom::ConsoleMessageLevel::kWarning,
+                           message);
   }
 
  private:
-  NotifyHostMap hosts_to_notify_;
+  std::set<blink::mojom::AppCacheFrontend*> hosts_to_notify_;
 };
 AppCacheUpdateJob::UrlToFetch::UrlToFetch(const GURL& url,
                                           bool checked,
@@ -371,7 +356,7 @@ void AppCacheUpdateJob::HandleManifestFetchCompleted(URLFetcher* fetcher,
 
   manifest_fetcher_ = nullptr;
 
-  UpdateRequestBase* request = fetcher->request();
+  UpdateURLLoaderRequest* request = fetcher->request();
   int response_code = -1;
   bool is_valid_response_code = false;
   if (net_error == net::OK) {
@@ -507,7 +492,7 @@ void AppCacheUpdateJob::HandleUrlFetchCompleted(URLFetcher* fetcher,
                                                 int net_error) {
   DCHECK(internal_state_ == DOWNLOADING);
 
-  UpdateRequestBase* request = fetcher->request();
+  UpdateURLLoaderRequest* request = fetcher->request();
   const GURL& url = request->GetURL();
   pending_url_fetches_.erase(url);
   NotifyAllProgress(url);
@@ -608,7 +593,7 @@ void AppCacheUpdateJob::HandleMasterEntryFetchCompleted(URLFetcher* fetcher,
   // master entry fetches when entering cache failure state so this will never
   // be called in CACHE_FAILURE state.
 
-  UpdateRequestBase* request = fetcher->request();
+  UpdateURLLoaderRequest* request = fetcher->request();
   const GURL& url = request->GetURL();
   master_entry_fetches_.erase(url);
   ++master_entries_completed_;
@@ -729,12 +714,18 @@ void AppCacheUpdateJob::HandleManifestRefetchCompleted(URLFetcher* fetcher,
       const char kFormatString[] = "Manifest re-fetch failed (%d) %s";
       std::string message = FormatUrlErrorMessage(
           kFormatString, manifest_url_, fetcher->result(), response_code);
+      ResultType result = fetcher->result();
+      if (result == UPDATE_OK) {
+        // URLFetcher considers any 2xx response a success, however in this
+        // particular case we want to treat any non 200 responses as failures.
+        result = SERVER_ERROR;
+      }
       HandleCacheFailure(
           blink::mojom::AppCacheErrorDetails(
               message,
               blink::mojom::AppCacheErrorReason::APPCACHE_MANIFEST_ERROR,
               GURL(), response_code, false /*is_cross_origin*/),
-          fetcher->result(), GURL());
+          result, GURL());
     }
   }
 }
@@ -828,8 +819,7 @@ void AppCacheUpdateJob::OnGroupAndNewestCacheStored(AppCacheGroup* group,
 void AppCacheUpdateJob::NotifySingleHost(
     AppCacheHost* host,
     blink::mojom::AppCacheEventID event_id) {
-  std::vector<int> ids(1, host->host_id());
-  host->frontend()->OnEventRaised(ids, event_id);
+  host->frontend()->EventRaised(event_id);
 }
 
 void AppCacheUpdateJob::NotifyAllAssociatedHosts(

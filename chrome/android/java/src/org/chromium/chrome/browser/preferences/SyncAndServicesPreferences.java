@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.preferences;
 
 import android.accounts.Account;
+import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
@@ -19,15 +20,22 @@ import android.preference.PreferenceGroup;
 import android.provider.Settings;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.content.res.AppCompatResources;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
-import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.contextual_suggestions.ContextualSuggestionsEnabledStateUtils;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial;
@@ -48,6 +56,8 @@ import org.chromium.components.signin.AccountManagerFacade;
 import org.chromium.components.signin.ChromeSigninController;
 import org.chromium.components.sync.AndroidSyncSettings;
 import org.chromium.components.sync.ProtocolErrorClientAction;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
+import org.chromium.ui.widget.ButtonCompat;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -57,12 +67,13 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class SyncAndServicesPreferences extends PreferenceFragment
         implements PassphraseDialogFragment.Listener, Preference.OnPreferenceChangeListener,
-                   ProfileSyncService.SyncStateChangedListener {
+                   ProfileSyncService.SyncStateChangedListener, Preferences.OnBackPressedListener {
     private static final String IS_FROM_SIGNIN_SCREEN =
             "SyncAndServicesPreferences.isFromSigninScreen";
 
     @VisibleForTesting
     public static final String FRAGMENT_ENTER_PASSPHRASE = "enter_password";
+    private static final String FRAGMENT_CANCEL_SYNC = "cancel_sync_dialog";
 
     private static final String PREF_SIGNIN = "sign_in";
 
@@ -72,7 +83,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
 
     private static final String PREF_SERVICES_CATEGORY = "services_category";
     private static final String PREF_SEARCH_SUGGESTIONS = "search_suggestions";
-    private static final String PREF_NETWORK_PREDICTIONS = "network_predictions";
     private static final String PREF_NAVIGATION_ERROR = "navigation_error";
     private static final String PREF_SAFE_BROWSING = "safe_browsing";
     private static final String PREF_SAFE_BROWSING_SCOUT_REPORTING =
@@ -110,7 +120,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
     private ChromeSwitchPreference mSyncRequested;
 
     private ChromeSwitchPreference mSearchSuggestions;
-    private ChromeSwitchPreference mNetworkPredictions;
     private ChromeSwitchPreference mNavigationError;
     private ChromeSwitchPreference mSafeBrowsing;
     private ChromeSwitchPreference mSafeBrowsingReporting;
@@ -144,6 +153,12 @@ public class SyncAndServicesPreferences extends PreferenceFragment
 
         getActivity().setTitle(R.string.prefs_sync_and_services);
         setHasOptionsMenu(true);
+        if (mIsFromSigninScreen) {
+            ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
+            assert actionBar != null;
+            actionBar.setHomeActionContentDescription(
+                    R.string.prefs_sync_and_services_content_description);
+        }
 
         PreferenceUtils.addPreferencesFromResource(this, R.xml.sync_and_services_preferences);
 
@@ -152,6 +167,8 @@ public class SyncAndServicesPreferences extends PreferenceFragment
 
         mSyncCategory = (PreferenceCategory) findPreference(PREF_SYNC_CATEGORY);
         mSyncErrorCard = findPreference(PREF_SYNC_ERROR_CARD);
+        mSyncErrorCard.setIcon(
+                AppCompatResources.getDrawable(getActivity(), R.drawable.ic_sync_error_40dp));
         mSyncErrorCard.setOnPreferenceClickListener(
                 SyncPreferenceUtils.toOnClickListener(this, this::onSyncErrorCardClicked));
         mSyncRequested = (ChromeSwitchPreference) findPreference(PREF_SYNC_REQUESTED);
@@ -160,10 +177,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
         mSearchSuggestions = (ChromeSwitchPreference) findPreference(PREF_SEARCH_SUGGESTIONS);
         mSearchSuggestions.setOnPreferenceChangeListener(this);
         mSearchSuggestions.setManagedPreferenceDelegate(mManagedPreferenceDelegate);
-
-        mNetworkPredictions = (ChromeSwitchPreference) findPreference(PREF_NETWORK_PREDICTIONS);
-        mNetworkPredictions.setOnPreferenceChangeListener(this);
-        mNetworkPredictions.setManagedPreferenceDelegate(mManagedPreferenceDelegate);
 
         mNavigationError = (ChromeSwitchPreference) findPreference(PREF_NAVIGATION_ERROR);
         mNavigationError.setOnPreferenceChangeListener(this);
@@ -229,7 +242,11 @@ public class SyncAndServicesPreferences extends PreferenceFragment
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.menu_id_targeted_help) {
+        if (item.getItemId() == android.R.id.home) {
+            if (!mIsFromSigninScreen) return false; // Let Preferences activity handle it.
+            showCancelSyncDialog();
+            return true;
+        } else if (item.getItemId() == R.id.menu_id_targeted_help) {
             HelpAndFeedback.getInstance(getActivity())
                     .show(getActivity(), getString(R.string.help_context_sync_and_services),
                             Profile.getLastUsedProfile(), null);
@@ -239,10 +256,41 @@ public class SyncAndServicesPreferences extends PreferenceFragment
     }
 
     @Override
+    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
+        ViewGroup result = (ViewGroup) super.onCreateView(inflater, container, savedInstanceState);
+        if (mIsFromSigninScreen) {
+            inflater.inflate(R.layout.sync_and_services_bottom_bar, result, true);
+            ButtonCompat cancelButton = result.findViewById(R.id.cancel_button);
+            cancelButton.setOnClickListener(view -> cancelSync());
+
+            ButtonCompat confirmButton = result.findViewById(R.id.confirm_button);
+            confirmButton.setOnClickListener(view -> confirmSettings());
+        }
+        return result;
+    }
+
+    @Override
     public void onStart() {
         super.onStart();
         mProfileSyncService.addSyncStateChangedListener(this);
         mSigninPreference.registerForUpdates();
+
+        if (!mIsFromSigninScreen || ChromeSigninController.get().isSignedIn()) {
+            return;
+        }
+
+        // Don't show CancelSyncDialog and hide bottom bar.
+        mIsFromSigninScreen = false;
+        View bottomBarShadow = getView().findViewById(R.id.bottom_bar_shadow);
+        bottomBarShadow.setVisibility(View.GONE);
+        View bottomBarButtonContainer = getView().findViewById(R.id.bottom_bar_button_container);
+        bottomBarButtonContainer.setVisibility(View.GONE);
+
+        ActionBar actionBar = ((AppCompatActivity) getActivity()).getSupportActionBar();
+        assert actionBar != null;
+        // Content description was overridden in onCreate, reset it to the standard one.
+        actionBar.setHomeActionContentDescription(null);
     }
 
     @Override
@@ -265,16 +313,13 @@ public class SyncAndServicesPreferences extends PreferenceFragment
         if (PREF_SYNC_REQUESTED.equals(key)) {
             assert canDisableSync();
             SyncPreferenceUtils.enableSync((boolean) newValue);
-            ThreadUtils.postOnUiThread(this::updatePreferences);
+            PostTask.postTask(UiThreadTaskTraits.DEFAULT, this::updatePreferences);
         } else if (PREF_SEARCH_SUGGESTIONS.equals(key)) {
             mPrefServiceBridge.setSearchSuggestEnabled((boolean) newValue);
         } else if (PREF_SAFE_BROWSING.equals(key)) {
             mPrefServiceBridge.setSafeBrowsingEnabled((boolean) newValue);
         } else if (PREF_SAFE_BROWSING_SCOUT_REPORTING.equals(key)) {
             mPrefServiceBridge.setSafeBrowsingExtendedReportingEnabled((boolean) newValue);
-        } else if (PREF_NETWORK_PREDICTIONS.equals(key)) {
-            mPrefServiceBridge.setNetworkPredictionEnabled((boolean) newValue);
-            recordNetworkPredictionEnablingUMA((boolean) newValue);
         } else if (PREF_NAVIGATION_ERROR.equals(key)) {
             mPrefServiceBridge.setResolveNavigationErrorEnabled((boolean) newValue);
         } else if (PREF_USAGE_AND_CRASH_REPORTING.equals(key)) {
@@ -440,11 +485,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
         }
     }
 
-    private void recordNetworkPredictionEnablingUMA(boolean enabled) {
-        // Report user turning on and off NetworkPrediction.
-        RecordHistogram.recordBooleanHistogram("PrefService.NetworkPredictionEnabled", enabled);
-    }
-
     private static void removePreference(PreferenceGroup from, Preference preference) {
         boolean found = from.removePreference(preference);
         assert found : "Don't have such preference! Preference key: " + preference.getKey();
@@ -454,7 +494,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
         updateSyncPreferences();
 
         mSearchSuggestions.setChecked(mPrefServiceBridge.isSearchSuggestEnabled());
-        mNetworkPredictions.setChecked(mPrefServiceBridge.getNetworkPredictionEnabled());
         mNavigationError.setChecked(mPrefServiceBridge.isResolveNavigationErrorEnabled());
         mSafeBrowsing.setChecked(mPrefServiceBridge.isSafeBrowsingEnabled());
         mSafeBrowsingReporting.setChecked(
@@ -517,9 +556,6 @@ public class SyncAndServicesPreferences extends PreferenceFragment
             if (PREF_SAFE_BROWSING.equals(key)) {
                 return mPrefServiceBridge.isSafeBrowsingManaged();
             }
-            if (PREF_NETWORK_PREDICTIONS.equals(key)) {
-                return mPrefServiceBridge.isNetworkPredictionManaged();
-            }
             if (PREF_USAGE_AND_CRASH_REPORTING.equals(key)) {
                 return mPrefServiceBridge.isMetricsReportingManaged();
             }
@@ -528,5 +564,65 @@ public class SyncAndServicesPreferences extends PreferenceFragment
             }
             return false;
         };
+    }
+
+    @Override
+    public boolean onBackPressed() {
+        if (!mIsFromSigninScreen) return false; // Let parent activity handle it.
+        showCancelSyncDialog();
+        return true;
+    }
+
+    private void showCancelSyncDialog() {
+        RecordUserAction.record("Signin_Signin_BackOnAdvancedSyncSettings");
+        CancelSyncDialog dialog = new CancelSyncDialog();
+        dialog.setTargetFragment(this, 0);
+        dialog.show(getFragmentManager(), FRAGMENT_CANCEL_SYNC);
+    }
+
+    private void confirmSettings() {
+        RecordUserAction.record("Signin_Signin_ConfirmAdvancedSyncSettings");
+        UnifiedConsentServiceBridge.recordSyncSetupDataTypesHistogram();
+        // Settings will be applied when mSyncSetupInProgressHandle is released in onDestroy.
+        getActivity().finish();
+    }
+
+    private void cancelSync() {
+        RecordUserAction.record("Signin_Signin_CancelAdvancedSyncSettings");
+        SigninManager.get().signOut(SignoutReason.USER_CLICKED_SIGNOUT_SETTINGS, null, null);
+        getActivity().finish();
+    }
+
+    /**
+     * The dialog that offers the user to cancel sync. Only shown when
+     * {@link SyncAndServicesPreferences} is opened from the sign-in screen. Shown when the user
+     * tries to close the settings page without confirming settings.
+     */
+    public static class CancelSyncDialog extends DialogFragment {
+        public CancelSyncDialog() {
+            // Fragment must have an empty public constructor
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            return new AlertDialog.Builder(getActivity(), R.style.Theme_Chromium_AlertDialog)
+                    .setTitle(R.string.cancel_sync_dialog_title)
+                    .setMessage(R.string.cancel_sync_dialog_message)
+                    .setNegativeButton(R.string.back, (dialog, which) -> onBackPressed())
+                    .setPositiveButton(
+                            R.string.cancel_sync_button, (dialog, which) -> onCancelSyncPressed())
+                    .create();
+        }
+
+        private void onBackPressed() {
+            RecordUserAction.record("Signin_Signin_CancelCancelAdvancedSyncSettings");
+            dismiss();
+        }
+
+        public void onCancelSyncPressed() {
+            RecordUserAction.record("Signin_Signin_ConfirmCancelAdvancedSyncSettings");
+            SyncAndServicesPreferences fragment = (SyncAndServicesPreferences) getTargetFragment();
+            fragment.cancelSync();
+        }
     }
 }

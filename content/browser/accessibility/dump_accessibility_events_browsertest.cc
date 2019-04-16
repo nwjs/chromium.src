@@ -27,7 +27,7 @@
 
 namespace content {
 
-typedef AccessibilityTreeFormatter::Filter Filter;
+typedef AccessibilityTreeFormatter::PropertyFilter PropertyFilter;
 
 // See content/test/data/accessibility/readme.md for an overview.
 //
@@ -63,10 +63,12 @@ typedef AccessibilityTreeFormatter::Filter Filter;
 // the end of the test; anything received after that is too late.
 class DumpAccessibilityEventsTest : public DumpAccessibilityTestBase {
  public:
-  void AddDefaultFilters(std::vector<Filter>* filters) override {
+  void AddDefaultFilters(
+      std::vector<PropertyFilter>* property_filters) override {
     // Suppress spurious focus events on the document object.
-    filters->push_back(Filter(
-        base::ASCIIToUTF16("EVENT_OBJECT_FOCUS*DOCUMENT*"), Filter::DENY));
+    property_filters->push_back(
+        PropertyFilter(base::ASCIIToUTF16("EVENT_OBJECT_FOCUS*DOCUMENT*"),
+                       PropertyFilter::DENY));
   }
 
   std::vector<std::string> Dump(std::vector<std::string>& run_until) override;
@@ -99,12 +101,13 @@ bool IsRecordingComplete(AccessibilityEventRecorder& event_recorder,
 
 std::vector<std::string> DumpAccessibilityEventsTest::Dump(
     std::vector<std::string>& run_until) {
-  WebContentsImpl* web_contents = static_cast<WebContentsImpl*>(
-      shell()->web_contents());
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
   base::ProcessId pid = base::GetCurrentProcId();
-  std::unique_ptr<AccessibilityEventRecorder> event_recorder(
-      AccessibilityEventRecorder::Create(
-          web_contents->GetRootBrowserAccessibilityManager(), pid));
+  std::unique_ptr<AccessibilityEventRecorder> event_recorder =
+      event_recorder_factory_(
+          web_contents->GetRootBrowserAccessibilityManager(), pid,
+          base::StringPiece{});
   event_recorder->set_only_web_events(true);
 
   // Save a copy of the accessibility tree (as a text dump); we'll
@@ -148,8 +151,8 @@ std::vector<std::string> DumpAccessibilityEventsTest::Dump(
   std::vector<std::string> event_logs = event_recorder->event_logs();
   std::vector<std::string> result;
   for (size_t i = 0; i < event_logs.size(); ++i) {
-    if (AccessibilityTreeFormatter::MatchesFilters(
-            filters_, base::UTF8ToUTF16(event_logs[i]), true)) {
+    if (AccessibilityTreeFormatter::MatchesPropertyFilters(
+            property_filters_, base::UTF8ToUTF16(event_logs[i]), true)) {
       result.push_back(event_logs[i]);
     }
   }
@@ -456,9 +459,8 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
   RunEventTest(FILE_PATH_LITERAL("report-validity-invalid-field.html"));
 }
 
-IN_PROC_BROWSER_TEST_F(
-    DumpAccessibilityEventsTest,
-    AccessibilityEventsRemoveHiddenAttributeSubtree) {
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
+                       AccessibilityEventsRemoveHiddenAttributeSubtree) {
   RunEventTest(FILE_PATH_LITERAL("remove-hidden-attribute-subtree.html"));
 }
 
@@ -500,6 +502,21 @@ IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
 IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
                        AccessibilityEventsAriaPressedChanged) {
   RunEventTest(FILE_PATH_LITERAL("aria-pressed-changed.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
+                       AccessibilityEventsTheadFocus) {
+  RunEventTest(FILE_PATH_LITERAL("thead-focus.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
+                       AccessibilityEventsTfootFocus) {
+  RunEventTest(FILE_PATH_LITERAL("tfoot-focus.html"));
+}
+
+IN_PROC_BROWSER_TEST_F(DumpAccessibilityEventsTest,
+                       AccessibilityEventsTbodyFocus) {
+  RunEventTest(FILE_PATH_LITERAL("tbody-focus.html"));
 }
 
 }  // namespace content

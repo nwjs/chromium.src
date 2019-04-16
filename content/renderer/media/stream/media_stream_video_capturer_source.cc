@@ -4,159 +4,16 @@
 
 #include "content/renderer/media/stream/media_stream_video_capturer_source.h"
 
-#include <algorithm>
 #include <utility>
 
 #include "base/bind.h"
-#include "base/callback_helpers.h"
-#include "base/debug/stack_trace.h"
-#include "base/location.h"
-#include "base/macros.h"
-#include "base/strings/utf_string_conversions.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/renderer/media/stream/media_stream_constraints_util.h"
-#include "content/renderer/media/video_capture_impl_manager.h"
-#include "content/renderer/render_thread_impl.h"
-#include "media/base/bind_to_current_loop.h"
-#include "media/base/limits.h"
-#include "media/base/video_frame.h"
 #include "media/capture/video_capturer_source.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
-#include "third_party/blink/public/common/mediastream/media_stream_request.h"
 #include "third_party/blink/public/web/web_local_frame.h"
 
 namespace content {
-
-namespace {
-
-// LocalVideoCapturerSource is a delegate used by MediaStreamVideoCapturerSource
-// for local video capture. It uses the Render singleton VideoCaptureImplManager
-// to start / stop and receive I420 frames from Chrome's video capture
-// implementation. This is a main Render thread only object.
-class LocalVideoCapturerSource final : public media::VideoCapturerSource {
- public:
-  explicit LocalVideoCapturerSource(int session_id);
-  ~LocalVideoCapturerSource() override;
-
-  // VideoCaptureDelegate Implementation.
-  media::VideoCaptureFormats GetPreferredFormats() override;
-  void StartCapture(const media::VideoCaptureParams& params,
-                    const VideoCaptureDeliverFrameCB& new_frame_callback,
-                    const RunningCallback& running_callback) override;
-  void RequestRefreshFrame() override;
-  void MaybeSuspend() override;
-  void Resume() override;
-  void StopCapture() override;
-
- private:
-  void OnStateUpdate(VideoCaptureState state);
-
-  // |session_id_| identifies the capture device used for this capture session.
-  const media::VideoCaptureSessionId session_id_;
-
-  VideoCaptureImplManager* const manager_;
-
-  base::Closure release_device_cb_;
-
-  // These two are valid between StartCapture() and StopCapture().
-  // |running_call_back_| is run when capture is successfully started, and when
-  // it is stopped or error happens.
-  RunningCallback running_callback_;
-  base::Closure stop_capture_cb_;
-
-  // Bound to the main render thread.
-  THREAD_CHECKER(thread_checker_);
-
-  base::WeakPtrFactory<LocalVideoCapturerSource> weak_factory_;
-
-  DISALLOW_COPY_AND_ASSIGN(LocalVideoCapturerSource);
-};
-
-LocalVideoCapturerSource::LocalVideoCapturerSource(int session_id)
-    : session_id_(session_id),
-      manager_(RenderThreadImpl::current()->video_capture_impl_manager()),
-      release_device_cb_(manager_->UseDevice(session_id_)),
-      weak_factory_(this) {
-  DCHECK(RenderThreadImpl::current());
-}
-
-LocalVideoCapturerSource::~LocalVideoCapturerSource() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  release_device_cb_.Run();
-}
-
-media::VideoCaptureFormats LocalVideoCapturerSource::GetPreferredFormats() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  return media::VideoCaptureFormats();
-}
-
-void LocalVideoCapturerSource::StartCapture(
-    const media::VideoCaptureParams& params,
-    const VideoCaptureDeliverFrameCB& new_frame_callback,
-    const RunningCallback& running_callback) {
-  DCHECK(params.requested_format.IsValid());
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  running_callback_ = running_callback;
-
-  stop_capture_cb_ =
-      manager_->StartCapture(session_id_, params,
-                             media::BindToCurrentLoop(base::Bind(
-                                 &LocalVideoCapturerSource::OnStateUpdate,
-                                 weak_factory_.GetWeakPtr())),
-                             new_frame_callback);
-}
-
-void LocalVideoCapturerSource::RequestRefreshFrame() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  if (stop_capture_cb_.is_null())
-    return;  // Do not request frames if the source is stopped.
-  manager_->RequestRefreshFrame(session_id_);
-}
-
-void LocalVideoCapturerSource::MaybeSuspend() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  manager_->Suspend(session_id_);
-}
-
-void LocalVideoCapturerSource::Resume() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  manager_->Resume(session_id_);
-}
-
-void LocalVideoCapturerSource::StopCapture() {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  // Immediately make sure we don't provide more frames.
-  if (!stop_capture_cb_.is_null())
-    base::ResetAndReturn(&stop_capture_cb_).Run();
-}
-
-void LocalVideoCapturerSource::OnStateUpdate(VideoCaptureState state) {
-  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  if (running_callback_.is_null())
-    return;
-  switch (state) {
-    case VIDEO_CAPTURE_STATE_STARTED:
-      running_callback_.Run(true);
-      break;
-
-    case VIDEO_CAPTURE_STATE_STOPPING:
-    case VIDEO_CAPTURE_STATE_STOPPED:
-    case VIDEO_CAPTURE_STATE_ERROR:
-    case VIDEO_CAPTURE_STATE_ENDED:
-      release_device_cb_.Run();
-      release_device_cb_ = manager_->UseDevice(session_id_);
-      running_callback_.Run(false);
-      break;
-
-    case VIDEO_CAPTURE_STATE_STARTING:
-    case VIDEO_CAPTURE_STATE_PAUSED:
-    case VIDEO_CAPTURE_STATE_RESUMED:
-      // Not applicable to reporting on device starts or errors.
-      break;
-  }
-}
-
-}  // namespace
 
 MediaStreamVideoCapturerSource::MediaStreamVideoCapturerSource(
     const SourceStoppedCallback& stop_callback,
@@ -177,30 +34,41 @@ MediaStreamVideoCapturerSource::MediaStreamVideoCapturerSource(
     int render_frame_id,
     const SourceStoppedCallback& stop_callback,
     const blink::MediaStreamDevice& device,
-    const media::VideoCaptureParams& capture_params)
+    const media::VideoCaptureParams& capture_params,
+    DeviceCapturerFactoryCallback device_capturer_factory_callback)
     : render_frame_id_(render_frame_id),
-      source_(new LocalVideoCapturerSource(device.session_id)),
-      capture_params_(capture_params) {
+      source_(device_capturer_factory_callback.Run(device.session_id)),
+      capture_params_(capture_params),
+      device_capturer_factory_callback_(
+          std::move(device_capturer_factory_callback)) {
   SetStopCallback(stop_callback);
   SetDevice(device);
   SetDeviceRotationDetection(true /* enabled */);
-  device_video_capturer_factory_callback_ = base::BindRepeating(
-      &MediaStreamVideoCapturerSource::RecreateLocalVideoCapturerSource);
 }
 
 MediaStreamVideoCapturerSource::~MediaStreamVideoCapturerSource() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
-void MediaStreamVideoCapturerSource::
-    SetDeviceVideoCapturerFactoryCallbackForTesting(
-        DeviceVideoCapturerFactoryCallback testing_factory_callback) {
-  device_video_capturer_factory_callback_ = std::move(testing_factory_callback);
+void MediaStreamVideoCapturerSource::SetDeviceCapturerFactoryCallbackForTesting(
+    DeviceCapturerFactoryCallback testing_factory_callback) {
+  device_capturer_factory_callback_ = std::move(testing_factory_callback);
 }
 
 void MediaStreamVideoCapturerSource::RequestRefreshFrame() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   source_->RequestRefreshFrame();
+}
+
+void MediaStreamVideoCapturerSource::OnFrameDropped(
+    media::VideoCaptureFrameDropReason reason) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  source_->OnFrameDropped(reason);
+}
+
+void MediaStreamVideoCapturerSource::OnLog(const std::string& message) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  source_->OnLog(message);
 }
 
 void MediaStreamVideoCapturerSource::OnHasConsumers(bool has_consumers) {
@@ -221,7 +89,7 @@ void MediaStreamVideoCapturerSource::OnCapturingLinkSecured(bool is_secure) {
 }
 
 void MediaStreamVideoCapturerSource::StartSourceImpl(
-    const VideoCaptureDeliverFrameCB& frame_callback) {
+    const blink::VideoCaptureDeliverFrameCB& frame_callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   state_ = STARTING;
   frame_callback_ = frame_callback;
@@ -278,7 +146,7 @@ MediaStreamVideoCapturerSource::GetCurrentCaptureParams() const {
 void MediaStreamVideoCapturerSource::ChangeSourceImpl(
     const blink::MediaStreamDevice& new_device) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(device_video_capturer_factory_callback_);
+  DCHECK(device_capturer_factory_callback_);
 
   if (state_ != STARTED) {
     return;
@@ -287,7 +155,7 @@ void MediaStreamVideoCapturerSource::ChangeSourceImpl(
   state_ = STOPPING_FOR_CHANGE_SOURCE;
   source_->StopCapture();
   SetDevice(new_device);
-  source_ = device_video_capturer_factory_callback_.Run(new_device.session_id);
+  source_ = device_capturer_factory_callback_.Run(new_device.session_id);
   source_->StartCapture(
       capture_params_, frame_callback_,
       base::BindRepeating(&MediaStreamVideoCapturerSource::OnRunStateChanged,
@@ -300,6 +168,7 @@ void MediaStreamVideoCapturerSource::OnRunStateChanged(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   switch (state_) {
     case STARTING:
+      source_->OnLog("MediaStreamVideoCapturerSource sending OnStartDone");
       if (is_running) {
         state_ = STARTED;
         DCHECK(capture_params_ == new_capture_params);
@@ -316,6 +185,8 @@ void MediaStreamVideoCapturerSource::OnRunStateChanged(
       }
       break;
     case STOPPING_FOR_RESTART:
+      source_->OnLog(
+          "MediaStreamVideoCapturerSource sending OnStopForRestartDone");
       state_ = is_running ? STARTED : STOPPED;
       OnStopForRestartDone(!is_running);
       break;
@@ -329,6 +200,7 @@ void MediaStreamVideoCapturerSource::OnRunStateChanged(
       } else {
         state_ = STOPPED;
       }
+      source_->OnLog("MediaStreamVideoCapturerSource sending OnRestartDone");
       OnRestartDone(is_running);
       break;
     case STOPPED:
@@ -345,13 +217,6 @@ MediaStreamVideoCapturerSource::GetMediaStreamDispatcherHost(
         mojo::MakeRequest(&dispatcher_host_));
   }
   return dispatcher_host_;
-}
-
-// static
-std::unique_ptr<media::VideoCapturerSource>
-MediaStreamVideoCapturerSource::RecreateLocalVideoCapturerSource(
-    int session_id) {
-  return std::make_unique<LocalVideoCapturerSource>(session_id);
 }
 
 }  // namespace content

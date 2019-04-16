@@ -7,6 +7,7 @@
 
 #include "base/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/dom/document_lifecycle.h"
 #include "third_party/blink/renderer/core/editing/text_affinity.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -16,6 +17,7 @@
 
 namespace blink {
 
+class LayoutBlockFlow;
 struct NGInlineNodeData;
 
 // Hosts the |text_content| of an inline formatting context and provides
@@ -23,10 +25,14 @@ struct NGInlineNodeData;
 // left/right characters and visual left/right caret movements.
 // Design doc: http://bit.ly/2QVAwGq
 class CORE_EXPORT NGCaretNavigator {
+  STACK_ALLOCATED();
+
  public:
-  NGCaretNavigator(NGCaretNavigator&&);
-  explicit NGCaretNavigator(const NGInlineNodeData&);
+  explicit NGCaretNavigator(const LayoutBlockFlow&);
   ~NGCaretNavigator();
+
+  const String& GetText() const;
+  bool IsBidiEnabled() const;
 
   // Abstraction of a caret position in |text_|.
   enum class PositionAnchorType { kBefore, kAfter };
@@ -71,8 +77,6 @@ class CORE_EXPORT NGCaretNavigator {
   // TODO(xiaochengh): Handle the following
   // - Grapheme clusters
   // - Enterable atomic inlines
-  // - Editing-ignored contents
-  // - Multiple lines
 
   enum class VisualMovementResultType {
     kWithinContext,
@@ -119,12 +123,39 @@ class CORE_EXPORT NGCaretNavigator {
   VisualCaretMovementResult RightPositionOf(const Position&) const;
 
  private:
+  // A caret position is invalid if it is:
+  // - kAfter to a line break character.
+  // - Anchored to a collapsible space that's removed by line wrap.
+  // - Anchored to a character that's ignored in caret movement.
+  // TODO(xiaochengh): Handle the the following:
+  // - Enterable atomic inlines
+  bool IsValidCaretPosition(const Position&) const;
+  bool IsLineBreak(unsigned index) const;
+  bool IsCollapsibleWhitespace(unsigned index) const;
+  bool IsCollapsedSpaceByLineWrap(unsigned index) const;
+  bool IsIgnoredInCaretMovement(unsigned index) const;
+
   enum class MoveDirection { kTowardsLeft, kTowardsRight };
   static MoveDirection OppositeDirectionOf(MoveDirection);
   static bool TowardsSameDirection(MoveDirection, TextDirection);
-  static base::Optional<unsigned> MoveVisualIndex(unsigned index,
-                                                  unsigned length,
-                                                  MoveDirection);
+
+  // ------ Line-related functions ------
+
+  // A line contains a consecutive substring of |GetText()|. The lines should
+  // not overlap, and should together cover the entire |GetText()|.
+  struct Line {
+    unsigned start_offset;
+    unsigned end_offset;
+    TextDirection base_direction;
+  };
+  Line ContainingLineOf(unsigned index) const;
+  Vector<int32_t, 32> CharacterIndicesInVisualOrder(const Line&) const;
+  unsigned VisualMostForwardCharacterOf(const Line&,
+                                        MoveDirection direction) const;
+  unsigned VisualLastCharacterOf(const Line&) const;
+  unsigned VisualFirstCharacterOf(const Line&) const;
+
+  // ------ Implementation of public visual movement functions ------
 
   Position EdgeOfInternal(unsigned index, MoveDirection) const;
   VisualCharacterMovementResult MoveCharacterInternal(unsigned index,
@@ -132,19 +163,31 @@ class CORE_EXPORT NGCaretNavigator {
   VisualCaretMovementResult MoveCaretInternal(const Position&,
                                               MoveDirection) const;
 
-  String text_;
+  // Performs a "minimal" caret movement to the left/right without validating
+  // the result. The result might be invalid due to, e.g., anchored to an
+  // unallowed character, being visually the same as the input, etc. It's a
+  // subroutine of |MoveCaretInternal|, who keeps calling it until both of the
+  // folliwng are satisfied:
+  // - We've reached a valid caret position.
+  // - During the process, the caret has moved passing a character on which
+  // |IsIgnoredInCaretMovement| is false (indicated by |has_passed_character|).
+  struct UnvalidatedVisualCaretMovementResult {
+    VisualMovementResultType type;
+    base::Optional<Position> position;
+    bool has_passed_character = false;
+  };
+  UnvalidatedVisualCaretMovementResult MoveCaretWithoutValidation(
+      const Position&,
+      MoveDirection) const;
 
-  // TODO(xiaochengh): Add line-aware index.
-  // TODO(xiaochengh): Reduce memory consumption.
-  Vector<UBiDiLevel, 32> bidi_levels_;
-  Vector<int32_t, 32> indices_in_visual_order_;
-  Vector<int32_t, 32> visual_indices_;
+  const NGInlineNodeData& GetData() const;
 
-  bool is_bidi_enabled_;
-  TextDirection base_direction_;
-
-  DISALLOW_COPY_AND_ASSIGN(NGCaretNavigator);
+  const LayoutBlockFlow& context_;
+  DocumentLifecycle::DisallowTransitionScope disallow_transition_;
 };
+
+CORE_EXPORT std::ostream& operator<<(std::ostream&,
+                                     const NGCaretNavigator::Position&);
 
 }  // namespace blink
 

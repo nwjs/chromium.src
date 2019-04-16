@@ -27,7 +27,7 @@ base::FilePath GetRootPath() {
   return home_dir;
 }
 
-std::string CreateLibAssistantConfig(bool disable_hotword) {
+std::string CreateLibAssistantConfig() {
   using Value = base::Value;
   using Type = base::Value::Type;
 
@@ -47,6 +47,9 @@ std::string CreateLibAssistantConfig(bool disable_hotword) {
   discovery.SetKey("enable_mdns", Value(false));
   config.SetKey("discovery", std::move(discovery));
 
+  Value internal(Type::DICTIONARY);
+  internal.SetKey("surface_type", Value("OPA_CROS"));
+
   if (base::SysInfo::IsRunningOnChromeOS()) {
     // Log to 'log' sub dir in user's home dir.
     Value logging(Type::DICTIONARY);
@@ -61,17 +64,11 @@ std::string CreateLibAssistantConfig(bool disable_hotword) {
     config.SetKey("logging", std::move(logging));
   } else {
     // Print logs to console if running in desktop mode.
-    Value internal(Type::DICTIONARY);
     internal.SetKey("disable_log_files", Value(true));
-    config.SetKey("internal", std::move(internal));
   }
+  config.SetKey("internal", std::move(internal));
 
   Value audio_input(Type::DICTIONARY);
-  Value sources(Type::LIST);
-  Value dict(Type::DICTIONARY);
-  dict.SetKey("disable_hotword", Value(disable_hotword));
-  sources.GetList().push_back(std::move(dict));
-  audio_input.SetKey("sources", std::move(sources));
   // Skip sending speaker ID selection info to disable user verification.
   audio_input.SetKey("should_send_speaker_id_selection_info", Value(false));
   config.SetKey("audio_input", std::move(audio_input));

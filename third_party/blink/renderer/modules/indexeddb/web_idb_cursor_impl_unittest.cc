@@ -9,6 +9,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "mojo/public/cpp/bindings/associated_binding.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -53,8 +54,10 @@ class MockCursorImpl : public mojom::blink::IDBCursor {
   void CursorContinue(
       std::unique_ptr<IDBKey> key,
       std::unique_ptr<IDBKey> primary_key,
-      mojom::blink::IDBCallbacksAssociatedPtrInfo callbacks) override {
+      mojom::blink::IDBCursor::CursorContinueCallback callback) override {
     ++continue_calls_;
+    std::move(callback).Run(mojom::blink::IDBErrorPtr(),
+                            mojom::blink::IDBCursorValuePtr());
   }
 
   void CursorDestroyed() { destroyed_ = true; }

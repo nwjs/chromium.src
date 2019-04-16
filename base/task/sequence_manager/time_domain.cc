@@ -43,7 +43,7 @@ void TimeDomain::SetNextDelayedDoWork(LazyNow* lazy_now, TimeTicks run_time) {
 }
 
 void TimeDomain::RequestDoWork() {
-  sequence_manager_->MaybeScheduleImmediateWork(FROM_HERE);
+  sequence_manager_->ScheduleWork();
 }
 
 void TimeDomain::UnregisterQueue(internal::TaskQueueImpl* queue) {
@@ -158,6 +158,10 @@ void TimeDomain::AsValueIntoInternal(trace_event::TracedValue* state) const {
 
 bool TimeDomain::HasPendingHighResolutionTasks() const {
   return pending_high_res_wake_up_count_;
+}
+
+bool TimeDomain::Empty() const {
+  return delayed_wake_up_queue_.empty();
 }
 
 }  // namespace sequence_manager

@@ -51,13 +51,6 @@ namespace {
 const char kWindowTreeHostForAcceleratedWidget[] =
     "__AURA_WINDOW_TREE_HOST_ACCELERATED_WIDGET__";
 
-bool ShouldAllocateLocalSurfaceId(Window* window) {
-  // When running with the window service (either in 'mus' or 'mash' mode), the
-  // LocalSurfaceId allocation for the WindowTreeHost is managed by the
-  // WindowTreeClient and WindowTreeHostMus.
-  return window->env()->mode() == Env::Mode::LOCAL;
-}
-
 #if DCHECK_IS_ON()
 class ScopedLocalSurfaceIdValidator {
  public:
@@ -67,9 +60,10 @@ class ScopedLocalSurfaceIdValidator {
             window ? window->GetLocalSurfaceIdAllocation().local_surface_id()
                    : viz::LocalSurfaceId()) {}
   ~ScopedLocalSurfaceIdValidator() {
-    if (window_ && ShouldAllocateLocalSurfaceId(window_))
+    if (window_) {
       DCHECK_EQ(local_surface_id_,
                 window_->GetLocalSurfaceIdAllocation().local_surface_id());
+    }
   }
 
  private:
@@ -265,7 +259,7 @@ void WindowTreeHost::SetSharedInputMethod(ui::InputMethod* input_method) {
 
 ui::EventDispatchDetails WindowTreeHost::DispatchKeyEventPostIME(
     ui::KeyEvent* event,
-    base::OnceCallback<void(bool)> ack_callback) {
+    DispatchKeyEventPostIMECallback callback) {
   // If dispatch to IME is already disabled we shouldn't reach here.
   DCHECK(!dispatcher_->should_skip_ime());
   dispatcher_->set_skip_ime(true);
@@ -274,7 +268,7 @@ ui::EventDispatchDetails WindowTreeHost::DispatchKeyEventPostIME(
       event_sink()->OnEventFromSource(event);
   if (!dispatch_details.dispatcher_destroyed)
     dispatcher_->set_skip_ime(false);
-  CallDispatchKeyEventPostIMEAck(event, std::move(ack_callback));
+  RunDispatchKeyEventPostIMECallback(event, std::move(callback));
   return dispatch_details;
 }
 
@@ -392,7 +386,8 @@ void WindowTreeHost::CreateCompositor(
     bool force_software_compositor,
     ui::ExternalBeginFrameClient* external_begin_frame_client,
     bool are_events_in_pixels,
-    const char* trace_environment_name) {
+    const char* trace_environment_name,
+    bool automatically_allocate_surface_ids) {
   DCHECK(window()->env());
   Env* env = window()->env();
   ui::ContextFactory* context_factory = env->context_factory();
@@ -406,7 +401,7 @@ void WindowTreeHost::CreateCompositor(
       context_factory, context_factory_private,
       base::ThreadTaskRunnerHandle::Get(), ui::IsPixelCanvasRecordingEnabled(),
       external_begin_frame_client, force_software_compositor,
-      trace_environment_name);
+      trace_environment_name, automatically_allocate_surface_ids);
 #if defined(OS_CHROMEOS)
   compositor_->AddObserver(this);
 #endif
@@ -458,12 +453,16 @@ void WindowTreeHost::OnHostResizedInPixels(
   // Allocate a new LocalSurfaceId for the new state.
   viz::LocalSurfaceIdAllocation local_surface_id_allocation(
       new_local_surface_id_allocation);
-  if (ShouldAllocateLocalSurfaceId(window()) &&
+  if (ShouldAllocateLocalSurfaceIdOnResize() &&
       !new_local_surface_id_allocation.IsValid()) {
     window_->AllocateLocalSurfaceId();
     local_surface_id_allocation = window_->GetLocalSurfaceIdAllocation();
   }
-  ScopedLocalSurfaceIdValidator lsi_validator(window());
+  std::unique_ptr<ScopedLocalSurfaceIdValidator> lsi_validator;
+  // With mus |local_surface_id_allocation|, may be applied to Window by way of
+  // Compositor::SetScaleAndSize() so that we can't check here.
+  if (window()->env()->mode() == Env::Mode::LOCAL)
+    lsi_validator = std::make_unique<ScopedLocalSurfaceIdValidator>(window());
   compositor_->SetScaleAndSize(device_scale_factor_, new_size_in_pixels,
                                local_surface_id_allocation);
 
@@ -521,6 +520,10 @@ gfx::Rect WindowTreeHost::GetTransformedRootWindowBoundsInPixels(
   return gfx::ToEnclosingRect(new_bounds);
 }
 
+bool WindowTreeHost::ShouldAllocateLocalSurfaceIdOnResize() {
+  return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // WindowTreeHost, private:
 
@@ -537,7 +540,7 @@ void WindowTreeHost::MoveCursorToInternal(const gfx::Point& root_location,
   dispatcher()->OnCursorMovedToRootLocation(root_location);
 }
 
-void WindowTreeHost::OnCompositingDidCommit(ui::Compositor* compositor) {
+void WindowTreeHost::OnCompositingEnded(ui::Compositor* compositor) {
   if (!holding_pointer_moves_)
     return;
 

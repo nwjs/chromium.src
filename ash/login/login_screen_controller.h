@@ -43,6 +43,10 @@ class ASH_EXPORT LoginScreenController : public mojom::LoginScreen,
   // succeeded/failed.
   using OnAuthenticateCallback =
       base::OnceCallback<void(base::Optional<bool> success)>;
+  // Callback for parent access code validation. |success| is nullopt if
+  // validation did not run, otherwise it contains validation result.
+  using OnParentAccessValidation =
+      base::OnceCallback<void(base::Optional<bool> success)>;
 
   explicit LoginScreenController(SystemTrayNotifier* system_tray_notifier);
   ~LoginScreenController() override;
@@ -67,6 +71,9 @@ class ASH_EXPORT LoginScreenController : public mojom::LoginScreen,
                                           OnAuthenticateCallback callback);
   void EnrollUserWithExternalBinary(OnAuthenticateCallback callback);
   void AuthenticateUserWithEasyUnlock(const AccountId& account_id);
+  void ValidateParentAccessCode(const AccountId& account_id,
+                                const std::string& code,
+                                OnParentAccessValidation callback);
   void HardlockPod(const AccountId& account_id);
   void OnFocusPod(const AccountId& account_id);
   void OnNoPodFocused();
@@ -91,6 +98,7 @@ class ASH_EXPORT LoginScreenController : public mojom::LoginScreen,
   void ShowResetScreen();
   void ShowAccountAccessHelpApp();
   void FocusOobeDialog();
+  void NotifyUserActivity();
 
   // Add or remove an observer.
   void AddObserver(LoginScreenControllerObserver* observer);
@@ -157,7 +165,8 @@ class ASH_EXPORT LoginScreenController : public mojom::LoginScreen,
   void SetShutdownButtonEnabled(bool enable) override;
   void SetAllowLoginAsGuest(bool allow_guest) override;
   void SetShowGuestButtonInOobe(bool show) override;
-  void SetShowParentAccess(bool show) override;
+  void SetShowParentAccessButton(bool show) override;
+  void SetShowParentAccessDialog(bool show) override;
   void FocusLoginShelf(bool reverse) override;
 
   // Flushes the mojo pipes - to be used in tests.
@@ -169,6 +178,8 @@ class ASH_EXPORT LoginScreenController : public mojom::LoginScreen,
 
  private:
   void OnAuthenticateComplete(OnAuthenticateCallback callback, bool success);
+  void OnParentAccessValidationComplete(OnParentAccessValidation callback,
+                                        bool success);
 
   // Returns the active data dispatcher or nullptr if there is no lock screen.
   LoginDataDispatcher* DataDispatcher() const;

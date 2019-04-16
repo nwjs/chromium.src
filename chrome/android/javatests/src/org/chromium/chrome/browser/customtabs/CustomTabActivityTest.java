@@ -68,10 +68,12 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
@@ -106,6 +108,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.test.ScreenShooter;
 import org.chromium.chrome.browser.toolbar.top.CustomTabToolbar;
 import org.chromium.chrome.browser.util.ColorUtils;
+import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
@@ -114,6 +117,7 @@ import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.chrome.test.util.browser.LocationSettingsTestUtil;
 import org.chromium.chrome.test.util.browser.contextmenu.ContextMenuUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
@@ -754,7 +758,7 @@ public class CustomTabActivityTest {
                     callbackTriggered.notifyCalled();
                 }
             }
-        });
+        }).session;
 
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(mTestPage));
@@ -1299,7 +1303,7 @@ public class CustomTabActivityTest {
                     navigationFinishedSemaphore.release();
                 }
             }
-        });
+        }).session;
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(mTestPage));
         intent.setComponent(new ComponentName(
@@ -1319,6 +1323,7 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @RetryOnFailure
+    @MinAndroidSdkLevel(Build.VERSION_CODES.LOLLIPOP) // Details in https://crbug.com/709681.
     public void testPageLoadMetricsAreSent() throws Exception {
         checkPageLoadMetrics(true);
     }
@@ -1357,7 +1362,7 @@ public class CustomTabActivityTest {
             public void onNavigationEvent(int navigationEvent, Bundle extras) {
                 if (navigationEvent == CustomTabsCallback.NAVIGATION_FINISHED) semaphore.release();
             }
-        });
+        }).session;
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(mTestPage));
         intent.setComponent(new ComponentName(
@@ -1471,7 +1476,7 @@ public class CustomTabActivityTest {
             @Override
             public boolean isSatisfied() {
                 final Tab currentTab = mCustomTabActivityTestRule.getActivity().getActivityTab();
-                return currentTab.isLoadingAndRenderingDone();
+                return ChromeTabUtils.isLoadingAndRenderingDone(currentTab);
             }
         });
         Assert.assertTrue(connection.postMessage(token, "Message", null)
@@ -1511,7 +1516,7 @@ public class CustomTabActivityTest {
                 renderProcessCallback.notifyCalled();
             }
         };
-        ThreadUtils.postOnUiThread(() -> {
+        PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> {
             WebContentsUtils.simulateRendererKilled(
                     mCustomTabActivityTestRule.getActivity().getActivityTab().getWebContents(),
                     false);
@@ -1598,7 +1603,7 @@ public class CustomTabActivityTest {
                     public void onPostMessage(String message, Bundle extras) {
                         onPostMessageHelper.notifyCalled();
                     }
-                });
+                }).session;
         session.requestPostMessageChannel(null);
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(url));
@@ -1621,6 +1626,7 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @RetryOnFailure
+    @MinAndroidSdkLevel(Build.VERSION_CODES.LOLLIPOP) // Details in https://crbug.com/709681.
     public void testPostMessageReceivedFromPageWithLateRequest() throws Exception {
         final CallbackHelper messageChannelHelper = new CallbackHelper();
         final CallbackHelper onPostMessageHelper = new CallbackHelper();
@@ -1637,7 +1643,7 @@ public class CustomTabActivityTest {
                     public void onPostMessage(String message, Bundle extras) {
                         onPostMessageHelper.notifyCalled();
                     }
-                });
+                }).session;
 
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(url));
@@ -1714,7 +1720,7 @@ public class CustomTabActivityTest {
                     public void onMessageChannelReady(Bundle extras) {
                         messageChannelHelper.notifyCalled();
                     }
-                });
+                }).session;
 
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
         intent.setData(Uri.parse(url));
@@ -2304,6 +2310,46 @@ public class CustomTabActivityTest {
     }
 
     @Test
+    @SmallTest
+    public void testLaunchCustomTabWithColorSchemeDark() throws Exception {
+        FeatureUtilities.setNightModeForCustomTabsAvailableForTesting(true);
+
+        Intent intent = createMinimalCustomTabIntent();
+        addColorSchemeToIntent(intent, CustomTabsIntent.COLOR_SCHEME_DARK);
+
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+
+        final CustomTabActivity cctActivity = mCustomTabActivityTestRule.getActivity();
+
+        Assert.assertNotNull(cctActivity.getNightModeStateProvider());
+        Assert.assertTrue(cctActivity.getNightModeStateProvider().isInNightMode());
+
+        FeatureUtilities.setNightModeForCustomTabsAvailableForTesting(null);
+    }
+
+    @Test
+    @SmallTest
+    public void testLaunchCustomTabWithColorSchemeLight() throws Exception {
+        FeatureUtilities.setNightModeForCustomTabsAvailableForTesting(true);
+
+        Intent intent = createMinimalCustomTabIntent();
+        addColorSchemeToIntent(intent, CustomTabsIntent.COLOR_SCHEME_LIGHT);
+
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+
+        final CustomTabActivity cctActivity = mCustomTabActivityTestRule.getActivity();
+
+        Assert.assertNotNull(cctActivity.getNightModeStateProvider());
+        Assert.assertFalse(cctActivity.getNightModeStateProvider().isInNightMode());
+
+        FeatureUtilities.setNightModeForCustomTabsAvailableForTesting(null);
+    }
+
+    private void addColorSchemeToIntent(Intent intent, int colorScheme) {
+        intent.putExtra(CustomTabsIntent.EXTRA_COLOR_SCHEME, colorScheme);
+    }
+
+    @Test
     @MediumTest
     public void testLaunchIncognitoCustomTabForPaymentRequest() throws Exception {
         Intent intent = createMinimalCustomTabIntent();
@@ -2536,7 +2582,7 @@ public class CustomTabActivityTest {
             }
         };
         tabToBeReparented.addObserver(observer);
-        ThreadUtils.postOnUiThread(() -> {
+        PostTask.postTask(UiThreadTaskTraits.DEFAULT, () -> {
             getActivity().openCurrentUrlInBrowser(true);
             Assert.assertNull(getActivity().getActivityTab());
         });
@@ -2613,7 +2659,7 @@ public class CustomTabActivityTest {
             }
         };
 
-        CustomTabsSession session = CustomTabsTestUtils.bindWithCallback(cb);
+        CustomTabsSession session = CustomTabsTestUtils.bindWithCallback(cb).session;
         Intent intent = new CustomTabsIntent.Builder(session).build().intent;
 
         if (allowMetrics) {

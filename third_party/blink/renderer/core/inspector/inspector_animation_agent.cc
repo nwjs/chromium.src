@@ -55,7 +55,7 @@ void InspectorAnimationAgent::Restore() {
 
 Response InspectorAnimationAgent::enable() {
   enabled_.Set(true);
-  instrumenting_agents_->addInspectorAnimationAgent(this);
+  instrumenting_agents_->AddInspectorAnimationAgent(this);
   return Response::OK();
 }
 
@@ -64,7 +64,7 @@ Response InspectorAnimationAgent::disable() {
   for (const auto& clone : id_to_animation_clone_.Values())
     clone->cancel();
   enabled_.Clear();
-  instrumenting_agents_->removeInspectorAnimationAgent(this);
+  instrumenting_agents_->RemoveInspectorAnimationAgent(this);
   id_to_animation_.clear();
   id_to_animation_type_.clear();
   id_to_animation_clone_.clear();
@@ -364,36 +364,12 @@ Response InspectorAnimationAgent::setTiming(const String& animation_id,
   animation = AnimationClone(animation);
   NonThrowableExceptionState exception_state;
 
-  String type = id_to_animation_type_.at(animation_id);
-  if (type == AnimationType::CSSTransition) {
-    KeyframeEffect* effect = ToKeyframeEffect(animation->effect());
-    const TransitionKeyframeEffectModel* old_model =
-        ToTransitionKeyframeEffectModel(effect->Model());
-    // Refer to CSSAnimations::calculateTransitionUpdateForProperty() for the
-    // structure of transitions.
-    const KeyframeVector& frames = old_model->GetFrames();
-    DCHECK(frames.size() == 3);
-    KeyframeVector new_frames;
-    for (int i = 0; i < 3; i++)
-      new_frames.push_back(ToTransitionKeyframe(frames[i]->Clone()));
-    // Update delay, represented by the distance between the first two
-    // keyframes.
-    new_frames[1]->SetOffset(delay / (delay + duration));
-    effect->Model()->SetFrames(new_frames);
-
-    UnrestrictedDoubleOrString unrestricted_duration;
-    unrestricted_duration.SetUnrestrictedDouble(duration + delay);
-    OptionalEffectTiming* timing = OptionalEffectTiming::Create();
-    timing->setDuration(unrestricted_duration);
-    effect->updateTiming(timing, exception_state);
-  } else {
-    OptionalEffectTiming* timing = OptionalEffectTiming::Create();
-    UnrestrictedDoubleOrString unrestricted_duration;
-    unrestricted_duration.SetUnrestrictedDouble(duration);
-    timing->setDuration(unrestricted_duration);
-    timing->setDelay(delay);
-    animation->effect()->updateTiming(timing, exception_state);
-  }
+  OptionalEffectTiming* timing = OptionalEffectTiming::Create();
+  UnrestrictedDoubleOrString unrestricted_duration;
+  unrestricted_duration.SetUnrestrictedDouble(duration);
+  timing->setDuration(unrestricted_duration);
+  timing->setDelay(delay);
+  animation->effect()->updateTiming(timing, exception_state);
   return Response::OK();
 }
 
@@ -478,7 +454,7 @@ String InspectorAnimationAgent::CreateCSSId(blink::Animation& animation) {
     AddStringToDigestor(digestor.get(),
                         css_agent_->StyleSheetId(style->ParentStyleSheet()));
     AddStringToDigestor(digestor.get(),
-                        ToCSSStyleRule(style->parentRule())->selectorText());
+                        To<CSSStyleRule>(style->parentRule())->selectorText());
   }
   DigestValue digest_result;
   FinishDigestor(digestor.get(), digest_result);

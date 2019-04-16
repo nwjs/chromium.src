@@ -96,9 +96,9 @@ std::unique_ptr<net::NetworkChangeNotifier> CreateNetworkChangeNotifierIfNeeded(
     // browser process.
     return std::make_unique<net::NetworkChangeNotifierPosix>(
         initial_connection_type, initial_connection_subtype);
-#elif defined(OS_IOS) || defined(OS_FUCHSIA)
-    // iOS doesn't embed //content. Fuchsia doesn't have an implementation yet.
-    // TODO(xunjieli): Figure out what to do for these 2 platforms.
+#elif defined(OS_IOS)
+    // iOS doesn't embed //content.
+    // TODO(xunjieli): Figure out what to do for iOS.
     NOTIMPLEMENTED();
     return nullptr;
 #endif
@@ -142,6 +142,16 @@ bool LoadInfoIsMoreInteresting(const mojom::LoadInfo& a,
   return a.load_state > b.load_state;
 }
 
+void OnGetNetworkList(std::unique_ptr<net::NetworkInterfaceList> networks,
+                      mojom::NetworkService::GetNetworkListCallback callback,
+                      bool success) {
+  if (success) {
+    std::move(callback).Run(*networks);
+  } else {
+    std::move(callback).Run(base::nullopt);
+  }
+}
+
 #if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
 // Used for Negotiate authentication on Android, which needs to generate tokens
 // in the browser process.
@@ -182,7 +192,9 @@ class NetworkServiceAuthNegotiateAndroid : public net::HttpNegotiateAuthSystem {
     return net::ERR_IO_PENDING;
   }
 
-  void Delegate() override { auth_negotiate_.Delegate(); }
+  void SetDelegation(net::HttpAuth::DelegationType delegation_type) override {
+    auth_negotiate_.SetDelegation(delegation_type);
+  }
 
  private:
   void Finish(std::string* auth_token_out,
@@ -495,8 +507,7 @@ void NetworkService::SetUpHttpAuth(
   DCHECK(!http_auth_handler_factory_);
 
   http_auth_handler_factory_ = net::HttpAuthHandlerRegistryFactory::Create(
-      host_resolver_.get(), &http_auth_preferences_,
-      http_auth_static_params->supported_schemes
+      &http_auth_preferences_, http_auth_static_params->supported_schemes
 #if defined(OS_CHROMEOS)
       ,
       http_auth_static_params->allow_gssapi_library_load
@@ -517,6 +528,8 @@ void NetworkService::ConfigureHttpAuthPrefs(
       http_auth_dynamic_params->server_whitelist);
   http_auth_preferences_.SetDelegateWhitelist(
       http_auth_dynamic_params->delegate_whitelist);
+  http_auth_preferences_.set_delegate_by_kdc_policy(
+      http_auth_dynamic_params->delegate_by_kdc_policy);
   http_auth_preferences_.set_negotiate_disable_cname_lookup(
       http_auth_dynamic_params->negotiate_disable_cname_lookup);
   http_auth_preferences_.set_negotiate_enable_port(
@@ -583,12 +596,14 @@ void NetworkService::GetTotalNetworkUsages(
 void NetworkService::GetNetworkList(
     uint32_t policy,
     mojom::NetworkService::GetNetworkListCallback callback) {
-  net::NetworkInterfaceList networks;
-  if (net::GetNetworkList(&networks, policy)) {
-    std::move(callback).Run(networks);
-  } else {
-    std::move(callback).Run(base::nullopt);
-  }
+  auto networks = std::make_unique<net::NetworkInterfaceList>();
+  auto* raw_networks = networks.get();
+  // net::GetNetworkList may block depending on platform.
+  base::PostTaskWithTraitsAndReplyWithResult(
+      FROM_HERE, {base::MayBlock()},
+      base::BindOnce(&net::GetNetworkList, raw_networks, policy),
+      base::BindOnce(&OnGetNetworkList, std::move(networks),
+                     std::move(callback)));
 }
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
@@ -660,7 +675,7 @@ void NetworkService::SetEnvironment(
 net::HttpAuthHandlerFactory* NetworkService::GetHttpAuthHandlerFactory() {
   if (!http_auth_handler_factory_) {
     http_auth_handler_factory_ = net::HttpAuthHandlerFactory::CreateDefault(
-        host_resolver_.get(), &http_auth_preferences_
+        &http_auth_preferences_
 #if defined(OS_ANDROID) && BUILDFLAG(USE_KERBEROS)
         ,
         base::BindRepeating(&CreateAuthSystem, this)

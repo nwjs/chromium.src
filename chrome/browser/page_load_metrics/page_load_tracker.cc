@@ -325,6 +325,12 @@ void PageLoadTracker::WebContentsShown() {
   INVOKE_AND_PRUNE_OBSERVERS(observers_, OnShown);
 }
 
+void PageLoadTracker::FrameDeleted(content::RenderFrameHost* rfh) {
+  for (const auto& observer : observers_) {
+    observer->OnFrameDeleted(rfh);
+  }
+}
+
 void PageLoadTracker::WillProcessNavigationResponse(
     content::NavigationHandle* navigation_handle) {
   DCHECK(!navigation_request_id_.has_value());
@@ -360,10 +366,18 @@ void PageLoadTracker::DidInternalNavigationAbort(
   }
 }
 
-void PageLoadTracker::DidFinishSubFrameNavigation(
+void PageLoadTracker::ReadyToCommitNavigation(
     content::NavigationHandle* navigation_handle) {
   for (const auto& observer : observers_) {
-    observer->OnDidFinishSubFrameNavigation(navigation_handle);
+    observer->ReadyToCommitNextNavigation(navigation_handle);
+  }
+}
+
+void PageLoadTracker::DidFinishSubFrameNavigation(
+    content::NavigationHandle* navigation_handle) {
+  PageLoadExtraInfo extra_info(ComputePageLoadExtraInfo());
+  for (const auto& observer : observers_) {
+    observer->OnDidFinishSubFrameNavigation(navigation_handle, extra_info);
   }
 }
 
@@ -382,7 +396,6 @@ void PageLoadTracker::Redirect(content::NavigationHandle* navigation_handle) {
 }
 
 void PageLoadTracker::OnInputEvent(const blink::WebInputEvent& event) {
-  input_tracker_.OnInputEvent(event);
   const PageLoadExtraInfo info = ComputePageLoadExtraInfo();
   for (const auto& observer : observers_) {
     observer->OnUserInput(event, metrics_update_dispatcher_.timing(), info);
@@ -428,6 +441,22 @@ void PageLoadTracker::FrameReceivedFirstUserActivation(
     content::RenderFrameHost* rfh) {
   for (const auto& observer : observers_) {
     observer->FrameReceivedFirstUserActivation(rfh);
+  }
+}
+
+void PageLoadTracker::FrameDisplayStateChanged(
+    content::RenderFrameHost* render_frame_host,
+    bool is_display_none) {
+  for (const auto& observer : observers_) {
+    observer->FrameDisplayStateChanged(render_frame_host, is_display_none);
+  }
+}
+
+void PageLoadTracker::FrameSizeChanged(
+    content::RenderFrameHost* render_frame_host,
+    const gfx::Size& frame_size) {
+  for (const auto& observer : observers_) {
+    observer->FrameSizeChanged(render_frame_host, frame_size);
   }
 }
 
@@ -494,8 +523,7 @@ PageLoadExtraInfo PageLoadTracker::ComputePageLoadExtraInfo() const {
   // user initiated.
   DCHECK(page_end_reason_ != END_NONE ||
          (!page_end_user_initiated_info_.browser_initiated &&
-          !page_end_user_initiated_info_.user_gesture &&
-          !page_end_user_initiated_info_.user_input_event));
+          !page_end_user_initiated_info_.user_gesture));
   return PageLoadExtraInfo(
       navigation_start_, first_background_time, first_foreground_time,
       started_in_foreground_, user_initiated_info_, url(), start_url_,
@@ -599,9 +627,9 @@ void PageLoadTracker::UpdatePageEndInternal(
 
 void PageLoadTracker::MediaStartedPlaying(
     const content::WebContentsObserver::MediaPlayerInfo& video_type,
-    bool is_in_main_frame) {
+    content::RenderFrameHost* render_frame_host) {
   for (const auto& observer : observers_)
-    observer->MediaStartedPlaying(video_type, is_in_main_frame);
+    observer->MediaStartedPlaying(video_type, render_frame_host);
 }
 
 void PageLoadTracker::OnTimingChanged() {
@@ -625,6 +653,16 @@ void PageLoadTracker::OnSubFrameTimingChanged(
   DCHECK(rfh->GetParent());
   for (const auto& observer : observers_) {
     observer->OnTimingUpdate(rfh, timing, extra_info);
+  }
+}
+
+void PageLoadTracker::OnSubFrameRenderDataChanged(
+    content::RenderFrameHost* rfh,
+    const mojom::PageRenderData& render_data) {
+  PageLoadExtraInfo extra_info(ComputePageLoadExtraInfo());
+  DCHECK(rfh->GetParent());
+  for (const auto& observer : observers_) {
+    observer->OnSubFrameRenderDataUpdate(rfh, render_data, extra_info);
   }
 }
 
@@ -662,6 +700,13 @@ void PageLoadTracker::UpdateResourceDataUse(
     const std::vector<mojom::ResourceDataUpdatePtr>& resources) {
   for (const auto& observer : observers_) {
     observer->OnResourceDataUseObserved(frame_tree_node_id, resources);
+  }
+}
+
+void PageLoadTracker::UpdateFrameCpuTiming(content::RenderFrameHost* rfh,
+                                           const mojom::CpuTiming& timing) {
+  for (const auto& observer : observers_) {
+    observer->OnCpuTimingUpdate(rfh, timing);
   }
 }
 

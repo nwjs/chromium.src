@@ -7,6 +7,7 @@
 
 #include "base/files/file_enumerator.h"
 #include "base/path_service.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autofill/captured_sites_test_utils.h"
 #include "chrome/browser/password_manager/password_manager_test_base.h"
@@ -241,8 +242,8 @@ IN_PROC_BROWSER_TEST_P(CapturedSitesPasswordManagerBrowserTest, Recipe) {
       recipe_replayer()->ReplayTest(capture_file_path, recipe_file_path));
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        CapturedSitesPasswordManagerBrowserTest,
-                        testing::ValuesIn(GetCapturedSites()),
-                        GetParamAsString());
+INSTANTIATE_TEST_SUITE_P(,
+                         CapturedSitesPasswordManagerBrowserTest,
+                         testing::ValuesIn(GetCapturedSites()),
+                         GetParamAsString());
 }  // namespace password_manager

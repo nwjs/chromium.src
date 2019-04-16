@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/i18n/rtl.h"
 #include "base/macros.h"
@@ -333,7 +334,12 @@ TabDragController::TabDragController()
       last_move_screen_loc_(0),
       source_tab_index_(std::numeric_limits<size_t>::max()),
       initial_move_(true),
+#if defined(USE_OZONE) && !defined(OS_CHROMEOS)
+      // TODO(crbug.com/896640): Support detachable tabs
+      detach_behavior_(NOT_DETACHABLE),
+#else
       detach_behavior_(DETACHABLE),
+#endif
       move_behavior_(REORDER),
       mouse_has_ever_moved_left_(false),
       mouse_has_ever_moved_right_(false),
@@ -502,6 +508,7 @@ void TabDragController::Drag(const gfx::Point& point_in_screen) {
         GetModel(source_tabstrip_)->count()) {
       views::Widget* widget = GetAttachedBrowserWidget();
       gfx::Rect new_bounds;
+      gfx::Vector2d drag_offset;
       if (was_source_maximized_ || was_source_fullscreen_) {
         did_restore_window_ = true;
         // When all tabs in a maximized browser are dragged the browser gets
@@ -517,14 +524,15 @@ void TabDragController::Drag(const gfx::Point& point_in_screen) {
         widget->SetVisibilityChangedAnimationsEnabled(false);
         widget->Restore();
         widget->SetBounds(new_bounds);
-        AdjustBrowserAndTabBoundsForDrag(last_tabstrip_width,
-                                         point_in_screen,
-                                         &drag_bounds);
+        drag_offset = GetWindowOffset(point_in_screen);
+        AdjustBrowserAndTabBoundsForDrag(last_tabstrip_width, point_in_screen,
+                                         &drag_offset, &drag_bounds);
         widget->SetVisibilityChangedAnimationsEnabled(true);
       } else {
         new_bounds =
             CalculateNonMaximizedDraggedBrowserBounds(widget, point_in_screen);
         widget->SetBounds(new_bounds);
+        drag_offset = GetWindowOffset(point_in_screen);
       }
 
 #if defined(OS_CHROMEOS)
@@ -532,7 +540,7 @@ void TabDragController::Drag(const gfx::Point& point_in_screen) {
                                                    new_bounds);
 #endif
 
-      RunMoveLoop(GetWindowOffset(point_in_screen));
+      RunMoveLoop(drag_offset);
       return;
     }
   }
@@ -814,7 +822,7 @@ TabDragController::DragBrowserToNewTabStrip(TabStrip* target_tabstrip,
     else
       target_tabstrip->GetWidget()->SetCapture(attached_tabstrip_);
 
-#if !defined(OS_LINUX)
+#if !defined(OS_LINUX) || defined(OS_CHROMEOS)
     // EndMoveLoop is going to snap the window back to its original location.
     // Hide it so users don't see this. Hiding a window in Linux aura causes
     // it to lose capture so skip it.
@@ -1274,13 +1282,22 @@ void TabDragController::DetachIntoNewBrowserAndRunMoveLoop(
       ui::TransferTouchesBehavior::kDontCancel);
 #endif
 
+#if defined(OS_CHROMEOS)
+  // On ChromeOS, Detach should release capture; |can_release_capture_| is
+  // false on ChromeOS because it can cancel touches, but for this cases
+  // the touches are already transferred, so releasing is fine. Without
+  // releasing, the capture remains and further touch events can be sent to a
+  // wrong target.
+  Detach(RELEASE_CAPTURE);
+#else
   Detach(can_release_capture_ ? RELEASE_CAPTURE : DONT_RELEASE_CAPTURE);
+#endif
 
+  dragged_widget->SetCanAppearInExistingFullscreenSpaces(true);
   dragged_widget->SetVisibilityChangedAnimationsEnabled(false);
   Attach(dragged_browser_view->tabstrip(), gfx::Point());
-  AdjustBrowserAndTabBoundsForDrag(last_tabstrip_width,
-                                   point_in_screen,
-                                   &drag_bounds);
+  AdjustBrowserAndTabBoundsForDrag(last_tabstrip_width, point_in_screen,
+                                   &drag_offset, &drag_bounds);
   browser->window()->Show();
   dragged_widget->SetVisibilityChangedAnimationsEnabled(true);
   // Activate may trigger a focus loss, destroying us.
@@ -1311,6 +1328,16 @@ void TabDragController::RunMoveLoop(const gfx::Vector2d& drag_offset) {
     attached_tabstrip_->GetWidget()->ReleaseCapture();
     attached_tabstrip_->OwnDragController(this);
   }
+#if defined(OS_CHROMEOS)
+  // When the window service is used, there's some chance of having gesture
+  // events in the attached (moving) widget during the window move loop. Without
+  // setting the mouse handler, such gestures might arrive to a wrong view. See
+  // https://crbug.com/943316.
+  if (features::IsUsingWindowService()) {
+    attached_tabstrip_->GetWidget()->GetRootView()->SetMouseHandler(
+        attached_tabstrip_);
+  }
+#endif
   const views::Widget::MoveLoopSource move_loop_source =
       event_source_ == EVENT_SOURCE_MOUSE ?
       views::Widget::MOVE_LOOP_SOURCE_MOUSE :
@@ -1435,6 +1462,7 @@ void TabDragController::EndDragImpl(EndDragType type) {
         RestoreFocus();
       }
 
+      GetAttachedBrowserWidget()->SetCanAppearInExistingFullscreenSpaces(false);
       if (type == CANCELED)
         RevertDrag();
       else
@@ -1481,7 +1509,12 @@ void TabDragController::PerformDeferredAttach() {
   // GetCursorScreenPoint() needs to be called before Detach() is called as
   // GetCursorScreenPoint() may use the current attached tabstrip to get the
   // touch event position but Detach() sets attached tabstrip to nullptr.
-  const gfx::Point current_screen_point = GetCursorScreenPoint();
+  // On ChromeOS, the gesture state is already cleared and so
+  // GetCursorScreenPoint() will fail to obtain the last touch location.
+  // Therefore it uses the last remembered location instead.
+  const gfx::Point current_screen_point = (event_source_ == EVENT_SOURCE_TOUCH)
+                                              ? last_point_in_screen_
+                                              : GetCursorScreenPoint();
   Detach(DONT_RELEASE_CAPTURE);
   // If we're attaching the dragged tabs to an overview window's tabstrip, the
   // tabstrip should not have focus.
@@ -1658,6 +1691,10 @@ void TabDragController::CompleteDrag() {
 
 void TabDragController::MaximizeAttachedWindow() {
   GetAttachedBrowserWidget()->Maximize();
+#if defined(OS_MACOSX)
+  if (was_source_fullscreen_)
+    GetAttachedBrowserWidget()->SetFullscreen(true);
+#endif
 #if defined(OS_CHROMEOS)
   if (was_source_fullscreen_) {
     // In fullscreen mode it is only possible to get here if the source
@@ -1850,6 +1887,7 @@ gfx::Rect TabDragController::CalculateNonMaximizedDraggedBrowserBounds(
 void TabDragController::AdjustBrowserAndTabBoundsForDrag(
     int last_tabstrip_width,
     const gfx::Point& point_in_screen,
+    gfx::Vector2d* drag_offset,
     std::vector<gfx::Rect>* drag_bounds) {
   attached_tabstrip_->InvalidateLayout();
   attached_tabstrip_->DoLayout();
@@ -1881,6 +1919,7 @@ void TabDragController::AdjustBrowserAndTabBoundsForDrag(
     gfx::Rect bounds = GetAttachedBrowserWidget()->GetWindowBoundsInScreen();
     bounds.set_x(point_in_screen.x() - offset.x());
     GetAttachedBrowserWidget()->SetBounds(bounds);
+    *drag_offset = point_in_screen - bounds.origin();
   }
   attached_tabstrip_->SetTabBoundsForDrag(*drag_bounds);
 }
@@ -1950,8 +1989,13 @@ TabDragController::Liveness TabDragController::GetLocalProcessWindow(
   if (exclude_dragged_view) {
     gfx::NativeWindow dragged_window =
         attached_tabstrip_->GetWidget()->GetNativeWindow();
-    if (dragged_window)
+    if (dragged_window) {
+#if defined(OS_CHROMEOS)
+      if (features::IsUsingWindowService())
+        dragged_window = dragged_window->GetRootWindow();
+#endif
       exclude.insert(dragged_window);
+    }
   }
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
   // Exclude windows which are pending deletion via Browser::TabStripEmpty().

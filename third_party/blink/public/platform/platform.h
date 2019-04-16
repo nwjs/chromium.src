@@ -47,6 +47,7 @@
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom-shared.h"
 #include "third_party/blink/public/platform/blame_context.h"
 #include "third_party/blink/public/platform/code_cache_loader.h"
@@ -55,6 +56,7 @@
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_data.h"
 #include "third_party/blink/public/platform/web_data_consumer_handle.h"
+#include "third_party/blink/public/platform/web_dedicated_worker_host_factory_client.h"
 #include "third_party/blink/public/platform/web_gesture_device.h"
 #include "third_party/blink/public/platform/web_localized_string.h"
 #include "third_party/blink/public/platform/web_rtc_api_name.h"
@@ -109,6 +111,7 @@ class WebCanvasCaptureHandler;
 class WebCookieJar;
 class WebCrypto;
 class WebDatabaseObserver;
+class WebDedicatedWorker;
 class WebGraphicsContext3DProvider;
 class WebImageCaptureFrameGrabber;
 class WebLocalFrame;
@@ -375,6 +378,12 @@ class BLINK_PLATFORM_EXPORT Platform {
   // Returns the User-Agent string.
   virtual WebString UserAgent() { return WebString(); }
 
+  // Returns the User Agent metadata. This will replace `UserAgent()` if we
+  // end up shipping https://github.com/WICG/ua-client-hints.
+  virtual blink::UserAgentMetadata UserAgentMetadata() {
+    return blink::UserAgentMetadata();
+  }
+
   // A suggestion to cache this metadata in association with this URL.
   virtual void CacheMetadata(blink::mojom::CodeCacheType cache_type,
                              const WebURL&,
@@ -429,18 +438,6 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   // DEPRECATED: Use Thread::CreateThread() instead.
   std::unique_ptr<Thread> CreateThread(const ThreadCreationParams&);
-
-  // DEPRECATED: Use Thread::CreateWebAudioThread() instead.
-  std::unique_ptr<Thread> CreateWebAudioThread();
-
-  // DEPRECATED: Use Thread::Current() instead.
-  Thread* CurrentThread();
-
-  // DEPRECATED: Use Thread::MainThread() instead.
-  Thread* MainThread();
-
-  // DEPRECATED: Use Thread::CompositorThread() instead.
-  Thread* CompositorThread();
 
   // The two compositor-related functions below are called by the embedder.
   // TODO(yutak): Perhaps we should move these to somewhere else?
@@ -681,10 +678,16 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   // WebWorker ----------------------------------------------------------
 
+  virtual std::unique_ptr<WebDedicatedWorkerHostFactoryClient>
+  CreateDedicatedWorkerHostFactoryClient(WebDedicatedWorker*,
+                                         service_manager::InterfaceProvider*) {
+    return nullptr;
+  }
   virtual void DidStartWorkerThread() {}
   virtual void WillStopWorkerThread() {}
   virtual void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) {}
-  virtual bool AllowScriptExtensionForServiceWorker(const WebURL& script_url) {
+  virtual bool AllowScriptExtensionForServiceWorker(
+      const WebSecurityOrigin& script_origin) {
     return false;
   }
 
@@ -700,36 +703,6 @@ class BLINK_PLATFORM_EXPORT Platform {
 
   virtual const char* GetBrowserServiceName() const { return ""; }
 
-  // This method converts from the supplied DOM code enum to the
-  // embedder's DOM code value for the key pressed. |dom_code| values are
-  // based on the value defined in
-  // ui/events/keycodes/dom4/keycode_converter_data.h.
-  // Returns null string, if DOM code value is not found.
-  virtual WebString DomCodeStringFromEnum(int dom_code) { return WebString(); }
-
-  // This method converts from the suppled DOM code value to the
-  // embedder's DOM code enum for the key pressed. |code_string| is defined in
-  // ui/events/keycodes/dom4/keycode_converter_data.h.
-  // Returns 0, if DOM code enum is not found.
-  virtual int DomEnumFromCodeString(const WebString& code_string) { return 0; }
-
-  // This method converts from the supplied DOM |key| enum to the
-  // corresponding DOM |key| string value for the key pressed. |dom_key| values
-  // are based on the value defined in ui/events/keycodes/dom3/dom_key_data.h.
-  // Returns empty string, if DOM key value is not found.
-  virtual WebString DomKeyStringFromEnum(int dom_key) { return WebString(); }
-
-  // This method converts from the suppled DOM |key| value to the
-  // embedder's DOM |key| enum for the key pressed. |key_string| is defined in
-  // ui/events/keycodes/dom3/dom_key_data.h.
-  // Returns 0 if DOM key enum is not found.
-  virtual int DomKeyEnumFromString(const WebString& key_string) { return 0; }
-
-  // This method returns whether the specified |dom_key| is a modifier key.
-  // |dom_key| values are based on the value defined in
-  // ui/events/keycodes/dom3/dom_key_data.h.
-  virtual bool IsDomKeyForModifier(int dom_key) { return false; }
-
   // WebDatabase --------------------------------------------------------
 
   virtual WebDatabaseObserver* DatabaseObserver() { return nullptr; }
@@ -743,14 +716,6 @@ class BLINK_PLATFORM_EXPORT Platform {
   virtual WebMediaCapabilitiesClient* MediaCapabilitiesClient() {
     return nullptr;
   }
-
-  // Memory ------------------------------------------------------------
-
-  // Requests purging memory. The platform may or may not purge memory,
-  // depending on memory pressure.
-  virtual void RequestPurgeMemory() {}
-
-  virtual void SetMemoryPressureNotificationsSuppressed(bool suppressed) {}
 
   // V8 Context Snapshot --------------------------------------------------
 

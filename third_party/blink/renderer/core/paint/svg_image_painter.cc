@@ -4,9 +4,13 @@
 
 #include "third_party/blink/renderer/core/paint/svg_image_painter.h"
 
+#include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/layout_image_resource.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_image.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
+#include "third_party/blink/renderer/core/paint/image_element_timing.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
+#include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/scoped_svg_paint_state.h"
 #include "third_party/blink/renderer/core/paint/svg_model_object_painter.h"
 #include "third_party/blink/renderer/core/svg/graphics/svg_image.h"
@@ -41,8 +45,7 @@ void SVGImagePainter::Paint(const PaintInfo& paint_info) {
         !DrawingRecorder::UseCachedDrawingIfPossible(
             paint_state.GetPaintInfo().context, layout_svg_image_,
             paint_state.GetPaintInfo().phase)) {
-      if (RuntimeEnabledFeatures::PaintTouchActionRectsEnabled())
-        SVGModelObjectPainter::RecordHitTestData(layout_svg_image_, paint_info);
+      SVGModelObjectPainter::RecordHitTestData(layout_svg_image_, paint_info);
       DrawingRecorder recorder(paint_state.GetPaintInfo().context,
                                layout_svg_image_,
                                paint_state.GetPaintInfo().phase);
@@ -61,7 +64,8 @@ void SVGImagePainter::PaintForeground(const PaintInfo& paint_info) {
   if (image_viewport_size.IsEmpty())
     return;
 
-  scoped_refptr<Image> image = image_resource->GetImage(image_viewport_size);
+  scoped_refptr<Image> image =
+      image_resource->GetImage(ExpandedIntSize(image_viewport_size));
   FloatRect dest_rect = layout_svg_image_.ObjectBoundingBox();
   FloatRect src_rect(0, 0, image->width(), image->height());
 
@@ -75,6 +79,22 @@ void SVGImagePainter::PaintForeground(const PaintInfo& paint_info) {
   Image::ImageDecodingMode decode_mode =
       image_element->GetDecodingModeForPainting(image->paint_image_id());
   paint_info.context.DrawImage(image.get(), decode_mode, dest_rect, &src_rect);
+  if (origin_trials::ElementTimingEnabled(&layout_svg_image_.GetDocument()) &&
+      !paint_info.context.ContextDisabled() && image_resource->CachedImage() &&
+      image_resource->CachedImage()->IsLoaded()) {
+    LocalDOMWindow* window = layout_svg_image_.GetDocument().domWindow();
+    DCHECK(window);
+    DCHECK(paint_info.PaintContainer());
+    ImageElementTiming::From(*window).NotifyImagePainted(
+        &layout_svg_image_, image_resource->CachedImage(),
+        paint_info.PaintContainer()->Layer());
+  }
+
+  if (RuntimeEnabledFeatures::FirstContentfulPaintPlusPlusEnabled()) {
+    PaintTimingDetector::NotifyImagePaint(
+        layout_svg_image_,
+        paint_info.context.GetPaintController().CurrentPaintChunkProperties());
+  }
 }
 
 FloatSize SVGImagePainter::ComputeImageViewportSize() const {

@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/graphics/compositing/property_tree_manager.h"
 
+#include "cc/input/overscroll_behavior.h"
 #include "cc/layers/layer.h"
 #include "cc/trees/clip_node.h"
 #include "cc/trees/effect_node.h"
@@ -32,7 +33,7 @@ static constexpr int kSecondaryRootNodeId = 1;
 
 }  // namespace
 
-inline const TransformPaintPropertyNode*
+inline const TransformPaintPropertyNode&
 PropertyTreeManager::EffectState::Transform() const {
   return effect_type == CcEffectType::kEffect ? effect->LocalTransformSpace()
                                               : clip->LocalTransformSpace();
@@ -89,6 +90,7 @@ void PropertyTreeManager::SetupRootTransformNode() {
   // cc.
   float device_scale_factor =
       root_layer_->layer_tree_host()->device_scale_factor();
+  transform_tree.set_device_scale_factor(device_scale_factor);
   gfx::Transform to_screen;
   to_screen.Scale(device_scale_factor, device_scale_factor);
   transform_tree.SetToScreen(kRealRootNodeId, to_screen);
@@ -143,8 +145,8 @@ void PropertyTreeManager::SetupRootEffectNode() {
   root_layer_->SetEffectTreeIndex(effect_node.id);
 
   SetCurrentEffectState(effect_node, CcEffectType::kEffect,
-                        &EffectPaintPropertyNode::Root(),
-                        &ClipPaintPropertyNode::Root());
+                        EffectPaintPropertyNode::Root(),
+                        ClipPaintPropertyNode::Root());
 }
 
 void PropertyTreeManager::SetupRootScrollNode() {
@@ -160,32 +162,38 @@ void PropertyTreeManager::SetupRootScrollNode() {
   root_layer_->SetScrollTreeIndex(scroll_node.id);
 }
 
-static bool TransformsAre2dAxisAligned(const TransformPaintPropertyNode* a,
-                                       const TransformPaintPropertyNode* b) {
-  return a == b || GeometryMapper::SourceToDestinationProjection(a, b)
-                       .Preserves2dAxisAlignment();
+static bool TransformsAre2dAxisAligned(const TransformPaintPropertyNode& a,
+                                       const TransformPaintPropertyNode& b) {
+  if (&a == &b)
+    return true;
+  const auto& translation_2d_or_matrix =
+      GeometryMapper::SourceToDestinationProjection(a, b);
+  return translation_2d_or_matrix.IsIdentityOr2DTranslation() ||
+         translation_2d_or_matrix.Matrix().Preserves2dAxisAlignment();
 }
 
 void PropertyTreeManager::SetCurrentEffectState(
     const cc::EffectNode& cc_effect_node,
     CcEffectType effect_type,
-    const EffectPaintPropertyNode* effect,
-    const ClipPaintPropertyNode* clip) {
+    const EffectPaintPropertyNode& effect,
+    const ClipPaintPropertyNode& clip) {
   const auto* previous_transform =
-      effect->IsRoot() ? nullptr : current_.Transform();
+      effect.IsRoot() ? nullptr : &current_.Transform();
   current_.effect_id = cc_effect_node.id;
   current_.effect_type = effect_type;
-  DCHECK(!effect->IsParentAlias() || !effect->Parent());
-  current_.effect = effect;
-  DCHECK(!clip->IsParentAlias() || !clip->Parent());
-  current_.clip = clip;
+  DCHECK(!effect.IsParentAlias() || !effect.Parent());
+  current_.effect = &effect;
+  DCHECK(!clip.IsParentAlias() || !clip.Parent());
+  current_.clip = &clip;
 
   if (cc_effect_node.has_render_surface) {
     current_.may_be_2d_axis_misaligned_to_render_surface = false;
   } else if (previous_transform &&
              !current_.may_be_2d_axis_misaligned_to_render_surface) {
     current_.may_be_2d_axis_misaligned_to_render_surface =
-        !TransformsAre2dAxisAligned(current_.Transform(), previous_transform);
+        !TransformsAre2dAxisAligned(current_.Transform(),
+                                    *previous_transform) ||
+        current_.Transform().Unalias().HasActiveTransformAnimation();
   }
 }
 
@@ -196,42 +204,43 @@ void PropertyTreeManager::SetCurrentEffectHasRenderSurface() {
 }
 
 int PropertyTreeManager::EnsureCompositorTransformNode(
-    const TransformPaintPropertyNode* transform_node) {
-  transform_node = transform_node->Unalias();
-  auto it = transform_node_map_.find(transform_node);
+    const TransformPaintPropertyNode& transform_node_arg) {
+  const auto& transform_node = transform_node_arg.Unalias();
+  auto it = transform_node_map_.find(&transform_node);
   if (it != transform_node_map_.end())
     return it->value;
 
-  int parent_id = EnsureCompositorTransformNode(transform_node->Parent());
+  DCHECK(transform_node.Parent());
+  int parent_id = EnsureCompositorTransformNode(*transform_node.Parent());
   int id = GetTransformTree().Insert(cc::TransformNode(), parent_id);
 
   cc::TransformNode& compositor_node = *GetTransformTree().Node(id);
   compositor_node.source_node_id = parent_id;
 
-  FloatPoint3D origin = transform_node->Origin();
+  FloatPoint3D origin = transform_node.Origin();
   compositor_node.pre_local.matrix().setTranslate(-origin.X(), -origin.Y(),
                                                   -origin.Z());
   // The sticky offset on the blink transform node is pre-computed and stored
   // to the local matrix. Cc applies sticky offset dynamically on top of the
   // local matrix. We should not set the local matrix on cc node if it is a
   // sticky node because the sticky offset would be applied twice otherwise.
-  if (!transform_node->GetStickyConstraint()) {
+  if (!transform_node.GetStickyConstraint()) {
     compositor_node.local.matrix() =
-        TransformationMatrix::ToSkMatrix44(transform_node->Matrix());
+        TransformationMatrix::ToSkMatrix44(transform_node.Matrix());
   }
   compositor_node.post_local.matrix().setTranslate(origin.X(), origin.Y(),
                                                    origin.Z());
   compositor_node.needs_local_transform_update = true;
   compositor_node.flattens_inherited_transform =
-      transform_node->FlattensInheritedTransform();
-  compositor_node.sorting_context_id = transform_node->RenderingContextId();
+      transform_node.FlattensInheritedTransform();
+  compositor_node.sorting_context_id = transform_node.RenderingContextId();
 
-  if (transform_node->IsAffectedByOuterViewportBoundsDelta()) {
+  if (transform_node.IsAffectedByOuterViewportBoundsDelta()) {
     compositor_node.moved_by_outer_viewport_bounds_delta_y = true;
     GetTransformTree().AddNodeAffectedByOuterViewportBoundsDelta(id);
   }
 
-  if (const auto* sticky_constraint = transform_node->GetStickyConstraint()) {
+  if (const auto* sticky_constraint = transform_node.GetStickyConstraint()) {
     DCHECK(sticky_constraint->is_sticky);
     cc::StickyPositionNodeData* sticky_data =
         GetTransformTree().StickyPositionData(id);
@@ -239,19 +248,18 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
     // TODO(pdr): This could be a performance issue because it crawls up the
     // transform tree for each pending layer. If this is on profiles, we should
     // cache a lookup of transform node to scroll translation transform node.
-    const auto& scroll_ancestor =
-        transform_node->NearestScrollTranslationNode();
-    sticky_data->scroll_ancestor = EnsureCompositorScrollNode(&scroll_ancestor);
+    const auto& scroll_ancestor = transform_node.NearestScrollTranslationNode();
+    sticky_data->scroll_ancestor = EnsureCompositorScrollNode(scroll_ancestor);
     if (scroll_ancestor.ScrollNode()->ScrollsOuterViewport())
       GetTransformTree().AddNodeAffectedByOuterViewportBoundsDelta(id);
-    if (CompositorElementId shifting_sticky_box_element_id =
+    if (auto shifting_sticky_box_element_id =
             sticky_data->constraints.nearest_element_shifting_sticky_box) {
       sticky_data->nearest_node_shifting_sticky_box =
           GetTransformTree()
               .FindNodeFromElementId(shifting_sticky_box_element_id)
               ->id;
     }
-    if (CompositorElementId shifting_containing_block_element_id =
+    if (auto shifting_containing_block_element_id =
             sticky_data->constraints
                 .nearest_element_shifting_containing_block) {
       sticky_data->nearest_node_shifting_containing_block =
@@ -261,23 +269,27 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
     }
   }
 
-  CompositorElementId compositor_element_id =
-      transform_node->GetCompositorElementId();
+  auto compositor_element_id = transform_node.GetCompositorElementId();
   if (compositor_element_id) {
     property_trees_.element_id_to_transform_node_index[compositor_element_id] =
         id;
     compositor_node.element_id = compositor_element_id;
   }
 
+  // Set has_potential_animation in case we push property tree during an ongoing
+  // animation. This condition should be kept consistent with cc.
+  if (transform_node.HasActiveTransformAnimation())
+    compositor_node.has_potential_animation = true;
+
   // If this transform is a scroll offset translation, create the associated
   // compositor scroll property node and adjust the compositor transform node's
   // scroll offset.
-  if (auto* scroll_node = transform_node->ScrollNode()) {
+  if (auto* scroll_node = transform_node.ScrollNode()) {
     // Blink creates a 2d transform node just for scroll offset whereas cc's
     // transform node has a special scroll offset field. To handle this we
     // adjust cc's transform node to remove the 2d scroll translation and
     // instead set the scroll_offset field.
-    auto scroll_offset_size = transform_node->Matrix().To2DTranslation();
+    auto scroll_offset_size = transform_node.Matrix().To2DTranslation();
     auto scroll_offset = gfx::ScrollOffset(-scroll_offset_size.Width(),
                                            -scroll_offset_size.Height());
     DCHECK(compositor_node.local.IsIdentityOr2DTranslation());
@@ -286,7 +298,7 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
     compositor_node.scrolls = true;
     compositor_node.should_be_snapped = true;
 
-    CreateCompositorScrollNode(scroll_node, compositor_node);
+    CreateCompositorScrollNode(*scroll_node, compositor_node);
   }
 
   // If the parent transform node flattens transform (as |transform_node|
@@ -296,13 +308,12 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
   auto* current_cc_effect = GetEffectTree().Node(current_.effect_id);
   if (current_cc_effect && !current_cc_effect->has_render_surface &&
       current_cc_effect->transform_id == parent_id &&
-      transform_node->FlattensInheritedTransform() &&
-      transform_node->Parent() &&
-      transform_node->Parent()->RenderingContextId() &&
-      !transform_node->Parent()->FlattensInheritedTransform())
+      transform_node.FlattensInheritedTransform() && transform_node.Parent() &&
+      transform_node.Parent()->RenderingContextId() &&
+      !transform_node.Parent()->FlattensInheritedTransform())
     SetCurrentEffectHasRenderSurface();
 
-  auto result = transform_node_map_.Set(transform_node, id);
+  auto result = transform_node_map_.Set(&transform_node, id);
   DCHECK(result.is_new_entry);
   GetTransformTree().set_needs_update(true);
 
@@ -310,7 +321,7 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
 }
 
 int PropertyTreeManager::EnsureCompositorPageScaleTransformNode(
-    const TransformPaintPropertyNode* node) {
+    const TransformPaintPropertyNode& node) {
   int id = EnsureCompositorTransformNode(node);
   DCHECK(GetTransformTree().Node(id));
   cc::TransformNode& compositor_node = *GetTransformTree().Node(id);
@@ -318,7 +329,7 @@ int PropertyTreeManager::EnsureCompositorPageScaleTransformNode(
   // The page scale node is special because its transform matrix is assumed to
   // be in the post_local matrix by the compositor. There should be no
   // translation from the origin so we clear the other matrices.
-  DCHECK(node->Origin() == FloatPoint3D());
+  DCHECK(node.Origin() == FloatPoint3D());
   compositor_node.post_local.matrix() = compositor_node.local.matrix();
   compositor_node.pre_local.matrix().setIdentity();
   compositor_node.local.matrix().setIdentity();
@@ -327,34 +338,35 @@ int PropertyTreeManager::EnsureCompositorPageScaleTransformNode(
 }
 
 int PropertyTreeManager::EnsureCompositorClipNode(
-    const ClipPaintPropertyNode* clip_node) {
-  clip_node = clip_node->Unalias();
-  auto it = clip_node_map_.find(clip_node);
+    const ClipPaintPropertyNode& clip_node_arg) {
+  const auto& clip_node = clip_node_arg.Unalias();
+  auto it = clip_node_map_.find(&clip_node);
   if (it != clip_node_map_.end())
     return it->value;
 
-  int parent_id = EnsureCompositorClipNode(clip_node->Parent());
+  DCHECK(clip_node.Parent());
+  int parent_id = EnsureCompositorClipNode(*clip_node.Parent());
   int id = GetClipTree().Insert(cc::ClipNode(), parent_id);
 
   cc::ClipNode& compositor_node = *GetClipTree().Node(id);
 
-  compositor_node.clip = clip_node->ClipRect().Rect();
+  compositor_node.clip = clip_node.ClipRect().Rect();
   compositor_node.transform_id =
-      EnsureCompositorTransformNode(clip_node->LocalTransformSpace());
+      EnsureCompositorTransformNode(clip_node.LocalTransformSpace());
   compositor_node.clip_type = cc::ClipNode::ClipType::APPLIES_LOCAL_CLIP;
 
-  auto result = clip_node_map_.Set(clip_node, id);
+  auto result = clip_node_map_.Set(&clip_node, id);
   DCHECK(result.is_new_entry);
   GetClipTree().set_needs_update(true);
   return id;
 }
 
 void PropertyTreeManager::CreateCompositorScrollNode(
-    const ScrollPaintPropertyNode* scroll_node,
+    const ScrollPaintPropertyNode& scroll_node,
     const cc::TransformNode& scroll_offset_translation) {
-  DCHECK(!scroll_node_map_.Contains(scroll_node));
+  DCHECK(!scroll_node_map_.Contains(&scroll_node));
 
-  auto parent_it = scroll_node_map_.find(scroll_node->Parent());
+  auto parent_it = scroll_node_map_.find(scroll_node.Parent());
   // Compositor transform nodes up to scroll_offset_translation must exist.
   // Scrolling uses the transform tree for scroll offsets so this means all
   // ancestor scroll nodes must also exist.
@@ -366,26 +378,26 @@ void PropertyTreeManager::CreateCompositorScrollNode(
   compositor_node.scrollable = true;
 
   compositor_node.container_bounds =
-      static_cast<gfx::Size>(scroll_node->ContainerRect().Size());
-  compositor_node.bounds = static_cast<gfx::Size>(scroll_node->ContentsSize());
+      static_cast<gfx::Size>(scroll_node.ContainerRect().Size());
+  compositor_node.bounds = static_cast<gfx::Size>(scroll_node.ContentsSize());
   compositor_node.user_scrollable_horizontal =
-      scroll_node->UserScrollableHorizontal();
+      scroll_node.UserScrollableHorizontal();
   compositor_node.user_scrollable_vertical =
-      scroll_node->UserScrollableVertical();
-  compositor_node.scrolls_inner_viewport = scroll_node->ScrollsInnerViewport();
-  compositor_node.scrolls_outer_viewport = scroll_node->ScrollsOuterViewport();
+      scroll_node.UserScrollableVertical();
+  compositor_node.scrolls_inner_viewport = scroll_node.ScrollsInnerViewport();
+  compositor_node.scrolls_outer_viewport = scroll_node.ScrollsOuterViewport();
   compositor_node.max_scroll_offset_affected_by_page_scale =
-      scroll_node->MaxScrollOffsetAffectedByPageScale();
+      scroll_node.MaxScrollOffsetAffectedByPageScale();
   compositor_node.main_thread_scrolling_reasons =
-      scroll_node->GetMainThreadScrollingReasons();
+      scroll_node.GetMainThreadScrollingReasons();
   compositor_node.overscroll_behavior = cc::OverscrollBehavior(
       static_cast<cc::OverscrollBehavior::OverscrollBehaviorType>(
-          scroll_node->OverscrollBehaviorX()),
+          scroll_node.OverscrollBehaviorX()),
       static_cast<cc::OverscrollBehavior::OverscrollBehaviorType>(
-          scroll_node->OverscrollBehaviorY()));
-  compositor_node.snap_container_data = scroll_node->GetSnapContainerData();
+          scroll_node.OverscrollBehaviorY()));
+  compositor_node.snap_container_data = scroll_node.GetSnapContainerData();
 
-  auto compositor_element_id = scroll_node->GetCompositorElementId();
+  auto compositor_element_id = scroll_node.GetCompositorElementId();
   if (compositor_element_id) {
     compositor_node.element_id = compositor_element_id;
     property_trees_.element_id_to_scroll_node_index[compositor_element_id] = id;
@@ -395,7 +407,7 @@ void PropertyTreeManager::CreateCompositorScrollNode(
 
   // TODO(pdr): Set the scroll node's non_fast_scrolling_region value.
 
-  auto result = scroll_node_map_.Set(scroll_node, id);
+  auto result = scroll_node_map_.Set(&scroll_node, id);
   DCHECK(result.is_new_entry);
 
   GetScrollTree().SetScrollOffset(compositor_element_id,
@@ -404,8 +416,8 @@ void PropertyTreeManager::CreateCompositorScrollNode(
 }
 
 int PropertyTreeManager::EnsureCompositorScrollNode(
-    const TransformPaintPropertyNode* scroll_offset_translation) {
-  const auto* scroll_node = scroll_offset_translation->ScrollNode();
+    const TransformPaintPropertyNode& scroll_offset_translation) {
+  const auto* scroll_node = scroll_offset_translation.ScrollNode();
   DCHECK(scroll_node);
   EnsureCompositorTransformNode(scroll_offset_translation);
   auto it = scroll_node_map_.find(scroll_node);
@@ -414,10 +426,10 @@ int PropertyTreeManager::EnsureCompositorScrollNode(
 }
 
 void PropertyTreeManager::EmitClipMaskLayer() {
-  int clip_id = EnsureCompositorClipNode(current_.clip);
+  int clip_id = EnsureCompositorClipNode(*current_.clip);
   CompositorElementId mask_isolation_id, mask_effect_id;
   cc::Layer* mask_layer = client_.CreateOrReuseSynthesizedClipLayer(
-      current_.clip, mask_isolation_id, mask_effect_id);
+      *current_.clip, mask_isolation_id, mask_effect_id);
 
   cc::EffectNode& mask_isolation = *GetEffectTree().Node(current_.effect_id);
   // Assignment of mask_isolation.stable_id was delayed until now.
@@ -430,10 +442,9 @@ void PropertyTreeManager::EmitClipMaskLayer() {
       GetEffectTree().Insert(cc::EffectNode(), current_.effect_id));
   mask_effect.stable_id = mask_effect_id.GetInternalValue();
   mask_effect.clip_id = clip_id;
-  mask_effect.has_render_surface = true;
   mask_effect.blend_mode = SkBlendMode::kDstIn;
 
-  const auto* clip_space = current_.clip->LocalTransformSpace();
+  const auto& clip_space = current_.clip->LocalTransformSpace();
   layer_list_builder_->Add(mask_layer);
   mask_layer->set_property_tree_sequence_number(
       root_layer_->property_tree_sequence_number());
@@ -442,7 +453,7 @@ void PropertyTreeManager::EmitClipMaskLayer() {
   // transform tree for each pending layer. If this is on profiles, we should
   // cache a lookup of transform node to scroll translation transform node.
   int scroll_id =
-      EnsureCompositorScrollNode(&clip_space->NearestScrollTranslationNode());
+      EnsureCompositorScrollNode(clip_space.NearestScrollTranslationNode());
   mask_layer->SetScrollTreeIndex(scroll_id);
   mask_layer->SetClipTreeIndex(clip_id);
   mask_layer->SetEffectTreeIndex(mask_effect.id);
@@ -528,12 +539,12 @@ int PropertyTreeManager::SwitchToEffectNodeWithSynthesizedClip(
   // effect. Another mask layer L2M is generated, along with its internal
   // effect node for blending.
   const auto& ancestor =
-      *LowestCommonAncestor(*current_.effect, next_effect).Unalias();
+      LowestCommonAncestor(*current_.effect, next_effect).Unalias();
   while (current_.effect != &ancestor)
     CloseCcEffect();
 
-  BuildEffectNodesRecursively(&next_effect);
-  SynthesizeCcEffectsForClipsIfNeeded(&next_clip, SkBlendMode::kSrcOver);
+  BuildEffectNodesRecursively(next_effect);
+  SynthesizeCcEffectsForClipsIfNeeded(next_clip, SkBlendMode::kSrcOver);
   return current_.effect_id;
 }
 
@@ -570,9 +581,9 @@ PropertyTreeManager::NeedsSyntheticEffect(
 }
 
 SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
-    const ClipPaintPropertyNode* target_clip,
+    const ClipPaintPropertyNode& target_clip_arg,
     SkBlendMode delegated_blend) {
-  auto* unaliased_target_clip = target_clip->Unalias();
+  const auto* target_clip = &target_clip_arg.Unalias();
   if (delegated_blend != SkBlendMode::kSrcOver) {
     // Exit all synthetic effect node if the next child has exotic blending mode
     // because it has to access the backdrop of enclosing effect.
@@ -587,9 +598,16 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     // Exit synthetic effects until there are no more synthesized clips below
     // our lowest common ancestor.
     const auto& lca =
-        *LowestCommonAncestor(*current_.clip, *unaliased_target_clip).Unalias();
+        LowestCommonAncestor(*current_.clip, *target_clip).Unalias();
     while (current_.clip != &lca) {
-      DCHECK(IsCurrentCcEffectSynthetic());
+      if (!IsCurrentCcEffectSynthetic()) {
+        // This happens in pre-CompositeAfterPaint due to some clip-escaping
+        // corner cases that are very difficult to fix in legacy architecture.
+        // In CompositeAfterPaint this should never happen.
+        if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
+          NOTREACHED();
+        return delegated_blend;
+      }
       const auto* pre_exit_clip = current_.clip;
       CloseCcEffect();
       // We may run past the lowest common ancestor because it may not have
@@ -599,18 +617,25 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     }
   }
 
-  DCHECK(current_.clip->IsAncestorOf(*unaliased_target_clip));
-
   struct PendingClip {
     const ClipPaintPropertyNode* clip;
     CcEffectType type;
   };
   Vector<PendingClip> pending_clips;
-  for (; unaliased_target_clip != current_.clip;
-       unaliased_target_clip = unaliased_target_clip->Parent()->Unalias()) {
-    DCHECK(unaliased_target_clip);
-    if (auto type = NeedsSyntheticEffect(*unaliased_target_clip))
-      pending_clips.emplace_back(PendingClip{unaliased_target_clip, *type});
+  for (; target_clip && target_clip != current_.clip;
+       target_clip = SafeUnalias(target_clip->Parent())) {
+    if (auto type = NeedsSyntheticEffect(*target_clip))
+      pending_clips.emplace_back(PendingClip{target_clip, *type});
+  }
+
+  if (!target_clip) {
+    // This means that current_.clip is not an ancestor of the target clip.
+    // which happens in pre-CompositeAfterPaint due to some clip-escaping
+    // corner cases that are very difficult to fix in legacy architecture.
+    // In CompositeAfterPaint this should never happen.
+    if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled())
+      NOTREACHED();
+    return delegated_blend;
   }
 
   for (size_t i = pending_clips.size(); i--;) {
@@ -623,7 +648,7 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     cc::EffectNode& synthetic_effect = *GetEffectTree().Node(
         GetEffectTree().Insert(cc::EffectNode(), current_.effect_id));
     if (pending_clip.type == CcEffectType::kSyntheticForNonTrivialClip) {
-      synthetic_effect.clip_id = EnsureCompositorClipNode(pending_clip.clip);
+      synthetic_effect.clip_id = EnsureCompositorClipNode(*pending_clip.clip);
       // For non-trivial clip, isolation_effect.stable_id will be assigned later
       // when the effect is closed. For now the default value INVALID_STABLE_ID
       // is used. See PropertyTreeManager::EmitClipMaskLayer().
@@ -634,11 +659,13 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
               .GetInternalValue();
       // The clip of the synthetic effect is the parent of the clip, so that
       // the clip itself will be applied in the render surface.
+      DCHECK(pending_clip.clip->Parent());
       synthetic_effect.clip_id =
-          EnsureCompositorClipNode(pending_clip.clip->Parent());
+          EnsureCompositorClipNode(*pending_clip.clip->Parent());
     }
-    synthetic_effect.transform_id =
-        EnsureCompositorTransformNode(pending_clip.clip->LocalTransformSpace());
+    const auto& transform = pending_clip.clip->LocalTransformSpace();
+    synthetic_effect.transform_id = EnsureCompositorTransformNode(transform);
+    synthetic_effect.double_sided = !transform.IsBackfaceHidden();
     synthetic_effect.has_render_surface = true;
     // Clip and kDstIn do not commute. This shall never be reached because
     // kDstIn is only used internally to implement CSS clip-path and mask,
@@ -649,90 +676,93 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     delegated_blend = SkBlendMode::kSrcOver;
 
     effect_stack_.emplace_back(current_);
-    SetCurrentEffectState(synthetic_effect, pending_clip.type, current_.effect,
-                          pending_clip.clip);
+    SetCurrentEffectState(synthetic_effect, pending_clip.type, *current_.effect,
+                          *pending_clip.clip);
   }
 
   return delegated_blend;
 }
 
 void PropertyTreeManager::BuildEffectNodesRecursively(
-    const EffectPaintPropertyNode* next_effect) {
-  next_effect = SafeUnalias(next_effect);
-  if (next_effect == current_.effect)
+    const EffectPaintPropertyNode& next_effect_arg) {
+  const auto& next_effect = next_effect_arg.Unalias();
+  if (&next_effect == current_.effect)
     return;
-  DCHECK(next_effect);
 
-  BuildEffectNodesRecursively(next_effect->Parent());
-  DCHECK_EQ(next_effect->Parent()->Unalias(), current_.effect);
+  DCHECK(next_effect.Parent());
+  BuildEffectNodesRecursively(*next_effect.Parent());
+  DCHECK_EQ(&next_effect.Parent()->Unalias(), current_.effect);
 
 #if DCHECK_IS_ON()
-  DCHECK(!effect_nodes_converted_.Contains(next_effect))
+  DCHECK(!effect_nodes_converted_.Contains(&next_effect))
       << "Malformed paint artifact. Paint chunks under the same effect should "
          "be contiguous.";
-  effect_nodes_converted_.insert(next_effect);
+  effect_nodes_converted_.insert(&next_effect);
 #endif
 
   SkBlendMode used_blend_mode;
   int output_clip_id;
-  const auto* output_clip = SafeUnalias(next_effect->OutputClip());
+  const auto* output_clip = SafeUnalias(next_effect.OutputClip());
   if (output_clip) {
     used_blend_mode = SynthesizeCcEffectsForClipsIfNeeded(
-        output_clip, next_effect->BlendMode());
-    output_clip_id = EnsureCompositorClipNode(output_clip);
+        *output_clip, next_effect.BlendMode());
+    output_clip_id = EnsureCompositorClipNode(*output_clip);
   } else {
     while (IsCurrentCcEffectSynthetic())
       CloseCcEffect();
     // An effect node can't omit render surface if it has child with exotic
     // blending mode.
     // TODO(crbug.com/504464): Remove premature optimization here.
-    if (next_effect->BlendMode() != SkBlendMode::kSrcOver)
+    if (next_effect.BlendMode() != SkBlendMode::kSrcOver)
       SetCurrentEffectHasRenderSurface();
 
-    used_blend_mode = next_effect->BlendMode();
+    used_blend_mode = next_effect.BlendMode();
     output_clip = current_.clip;
+    DCHECK(output_clip);
     output_clip_id = GetEffectTree().Node(current_.effect_id)->clip_id;
-    DCHECK_EQ(output_clip_id, EnsureCompositorClipNode(output_clip));
+    DCHECK_EQ(output_clip_id, EnsureCompositorClipNode(*output_clip));
   }
 
   cc::EffectNode& effect_node = *GetEffectTree().Node(
       GetEffectTree().Insert(cc::EffectNode(), current_.effect_id));
   effect_node.stable_id =
-      next_effect->GetCompositorElementId().GetInternalValue();
+      next_effect.GetCompositorElementId().GetInternalValue();
   effect_node.clip_id = output_clip_id;
 
-  // An effect with filters, backdrop filters or non-kSrcOver blend mode needs
-  // a render surface. The render surface status of opacity-only effects will be
-  // updated in PaintArtifactCompositor::UpdateRenderSurfaceForEffects().
-  if (!next_effect->Filter().IsEmpty() ||
-      !next_effect->BackdropFilter().IsEmpty() ||
-      used_blend_mode != SkBlendMode::kSrcOver)
+  // An effect with filters or backdrop filters needs a render surface.
+  // Also, kDstIn and kSrcOver blend modes have fast paths if only one layer
+  // is under the blend mode. This value is adjusted in
+  // PAC::UpdateRenderSurfaceForEffects to account for more than one layer.
+  if (!next_effect.Filter().IsEmpty() ||
+      !next_effect.BackdropFilter().IsEmpty() ||
+      (used_blend_mode != SkBlendMode::kSrcOver &&
+       used_blend_mode != SkBlendMode::kDstIn))
     effect_node.has_render_surface = true;
 
-  effect_node.opacity = next_effect->Opacity();
-  if (next_effect->GetColorFilter() != kColorFilterNone) {
+  effect_node.opacity = next_effect.Opacity();
+  if (next_effect.GetColorFilter() != kColorFilterNone) {
     // Currently color filter is only used by SVG masks.
     // We are cutting corner here by support only specific configuration.
-    DCHECK(next_effect->GetColorFilter() == kColorFilterLuminanceToAlpha);
+    DCHECK(next_effect.GetColorFilter() == kColorFilterLuminanceToAlpha);
     DCHECK(used_blend_mode == SkBlendMode::kDstIn);
-    DCHECK(next_effect->Filter().IsEmpty());
+    DCHECK(next_effect.Filter().IsEmpty());
     effect_node.filters.Append(cc::FilterOperation::CreateReferenceFilter(
         sk_make_sp<ColorFilterPaintFilter>(SkLumaColorFilter::Make(),
                                            nullptr)));
   } else {
-    effect_node.filters = next_effect->Filter().AsCcFilterOperations();
+    effect_node.filters = next_effect.Filter().AsCcFilterOperations();
     effect_node.backdrop_filters =
-        next_effect->BackdropFilter().AsCcFilterOperations();
-    effect_node.backdrop_filter_bounds = next_effect->BackdropFilterBounds();
-    effect_node.filters_origin = next_effect->FiltersOrigin();
+        next_effect.BackdropFilter().AsCcFilterOperations();
+    effect_node.backdrop_filter_bounds = next_effect.BackdropFilterBounds();
+    effect_node.filters_origin = next_effect.FiltersOrigin();
     effect_node.transform_id =
-        EnsureCompositorTransformNode(next_effect->LocalTransformSpace());
+        EnsureCompositorTransformNode(next_effect.LocalTransformSpace());
   }
   effect_node.blend_mode = used_blend_mode;
   effect_node.double_sided =
-      !next_effect->LocalTransformSpace()->IsBackfaceHidden();
+      !next_effect.LocalTransformSpace().IsBackfaceHidden();
   CompositorElementId compositor_element_id =
-      next_effect->GetCompositorElementId();
+      next_effect.GetCompositorElementId();
   if (compositor_element_id) {
     DCHECK(property_trees_.element_id_to_effect_node_index.find(
                compositor_element_id) ==
@@ -740,9 +770,17 @@ void PropertyTreeManager::BuildEffectNodesRecursively(
     property_trees_.element_id_to_effect_node_index[compositor_element_id] =
         effect_node.id;
   }
+
+  // Set has_potential_xxx_animation in case we push property tree during
+  // ongoing animations. The conditions should be kept consistent with cc.
+  if (next_effect.HasActiveOpacityAnimation())
+    effect_node.has_potential_opacity_animation = true;
+  if (next_effect.HasActiveFilterAnimation())
+    effect_node.has_potential_filter_animation = true;
+
   effect_stack_.emplace_back(current_);
   SetCurrentEffectState(effect_node, CcEffectType::kEffect, next_effect,
-                        output_clip);
+                        *output_clip);
 }
 
 }  // namespace blink

@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/command_line.h"
 #include "base/macros.h"
@@ -436,14 +437,14 @@ IN_PROC_BROWSER_TEST_P(CastStreamingApiTestWithPixelOutput,
 #if (defined(OS_LINUX) && !defined(OS_CHROMEOS)) || defined(OS_MACOSX) || \
     defined(OS_WIN)
 // Supported platforms.
-INSTANTIATE_TEST_CASE_P(,
-                        CastStreamingApiTestWithPixelOutput,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(,
+                         CastStreamingApiTestWithPixelOutput,
+                         ::testing::Bool());
 #else
 // Platforms where the out of process audio service isn't supported
-INSTANTIATE_TEST_CASE_P(,
-                        CastStreamingApiTestWithPixelOutput,
-                        ::testing::Values(false));
+INSTANTIATE_TEST_SUITE_P(,
+                         CastStreamingApiTestWithPixelOutput,
+                         ::testing::Values(false));
 #endif
 
 }  // namespace extensions

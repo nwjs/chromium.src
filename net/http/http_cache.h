@@ -58,7 +58,6 @@ class HttpNetworkSession;
 class HttpResponseInfo;
 class IOBuffer;
 class NetLog;
-class ViewCacheHelper;
 struct HttpRequestInfo;
 
 class NET_EXPORT HttpCache : public HttpTransactionFactory {
@@ -89,7 +88,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
 
 #if defined(OS_ANDROID)
     virtual void SetAppStatusListener(
-        base::android::ApplicationStatusListener* app_status_listener){};
+        base::android::ApplicationStatusListener* app_status_listener) {}
 #endif
   };
 
@@ -257,7 +256,7 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
 
   // HttpTransactionFactory implementation:
   int CreateTransaction(RequestPriority priority,
-                        std::unique_ptr<HttpTransaction>* trans) override;
+                        std::unique_ptr<HttpTransaction>* transaction) override;
   HttpCache* GetCache() override;
   HttpNetworkSession* GetSession() override;
 
@@ -279,6 +278,15 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
  private:
   // Types --------------------------------------------------------------------
 
+  // The type of operation represented by a work item.
+  enum WorkItemOperation {
+    WI_CREATE_BACKEND,
+    WI_OPEN_OR_CREATE_ENTRY,
+    WI_OPEN_ENTRY,
+    WI_CREATE_ENTRY,
+    WI_DOOM_ENTRY
+  };
+
   // Disk cache entry data indices.
   enum {
     kResponseInfoIndex = 0,
@@ -299,11 +307,11 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
   friend class TestHttpCacheTransaction;
   friend class TestHttpCache;
   friend class Transaction;
-  friend class ViewCacheHelper;
   struct PendingOp;  // Info for an entry under construction.
 
   // To help with testing.
   friend class MockHttpCache;
+  friend class HttpCacheIOCallbackTest;
 
   using TransactionList = std::list<Transaction*>;
   using TransactionSet = std::unordered_set<Transaction*>;
@@ -381,17 +389,24 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
 
   // Methods ------------------------------------------------------------------
 
+  // Creates a WorkItem and sets it as the |pending_op|'s writer, or adds it to
+  // the queue if a writer already exists.
+  net::Error CreateAndSetWorkItem(ActiveEntry** entry,
+                                  Transaction* transaction,
+                                  WorkItemOperation operation,
+                                  PendingOp* pending_op);
+
   // Creates the |backend| object and notifies the |callback| when the operation
   // completes. Returns an error code.
   int CreateBackend(disk_cache::Backend** backend,
                     CompletionOnceCallback callback);
 
   // Makes sure that the backend creation is complete before allowing the
-  // provided transaction to use the object. Returns an error code.  |trans|
-  // will be notified via its IO callback if this method returns ERR_IO_PENDING.
-  // The transaction is free to use the backend directly at any time after
-  // receiving the notification.
-  int GetBackendForTransaction(Transaction* trans);
+  // provided transaction to use the object. Returns an error code.
+  // |transaction| will be notified via its IO callback if this method returns
+  // ERR_IO_PENDING. The transaction is free to use the backend directly at any
+  // time after receiving the notification.
+  int GetBackendForTransaction(Transaction* transaction);
 
   // Generates the cache key for this request.
   std::string GenerateCacheKey(const HttpRequestInfo*);
@@ -400,17 +415,17 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
   // entries.
   void DoomActiveEntry(const std::string& key);
 
-  // Dooms the entry selected by |key|. |trans| will be notified via its IO
-  // callback if this method returns ERR_IO_PENDING. The entry can be
-  // currently in use or not. If entry is in use and the invoking transaction
-  // is associated with this entry and this entry is already doomed, this API
+  // Dooms the entry selected by |key|. |transaction| will be notified via its
+  // IO callback if this method returns ERR_IO_PENDING. The entry can be
+  // currently in use or not. If entry is in use and the invoking transaction is
+  // associated with this entry and this entry is already doomed, this API
   // should not be invoked.
-  int DoomEntry(const std::string& key, Transaction* trans);
+  int DoomEntry(const std::string& key, Transaction* transaction);
 
-  // Dooms the entry selected by |key|. |trans| will be notified via its IO
-  // callback if this method returns ERR_IO_PENDING. The entry should not
-  // be currently in use.
-  int AsyncDoomEntry(const std::string& key, Transaction* trans);
+  // Dooms the entry selected by |key|. |transaction| will be notified via its
+  // IO callback if this method returns ERR_IO_PENDING. The entry should not be
+  // currently in use.
+  int AsyncDoomEntry(const std::string& key, Transaction* transaction);
 
   // Dooms the entry associated with a GET for a given |url|, loaded from
   // a page with top-level frame at |top_frame_origin|.
@@ -440,19 +455,30 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
   // Deletes a PendingOp.
   void DeletePendingOp(PendingOp* pending_op);
 
+  // Opens the disk cache entry associated with |key|, creating the entry if it
+  // does not already exist, returning an ActiveEntry in |*entry|. |transaction|
+  // will be notified via its IO callback if this method returns ERR_IO_PENDING.
+  // This should not be called if there already is an active entry associated
+  // with |key|, e.g. you should call FindActiveEntry first.
+  int OpenOrCreateEntry(const std::string& key,
+                        ActiveEntry** entry,
+                        Transaction* transaction);
+
   // Opens the disk cache entry associated with |key|, returning an ActiveEntry
-  // in |*entry|. |trans| will be notified via its IO callback if this method
-  // returns ERR_IO_PENDING. This should not be called if there already is
-  // an active entry associated with |key|, e.g. you should call FindActiveEntry
-  // first.
-  int OpenEntry(const std::string& key, ActiveEntry** entry,
-                Transaction* trans);
+  // in |*entry|. |transaction| will be notified via its IO callback if this
+  // method returns ERR_IO_PENDING. This should not be called if there already
+  // is an active entry associated with |key|, e.g. you should call
+  // FindActiveEntry first.
+  int OpenEntry(const std::string& key,
+                ActiveEntry** entry,
+                Transaction* transaction);
 
   // Creates the disk cache entry associated with |key|, returning an
-  // ActiveEntry in |*entry|. |trans| will be notified via its IO callback if
-  // this method returns ERR_IO_PENDING.
-  int CreateEntry(const std::string& key, ActiveEntry** entry,
-                  Transaction* trans);
+  // ActiveEntry in |*entry|. |transaction| will be notified via its IO callback
+  // if this method returns ERR_IO_PENDING.
+  int CreateEntry(const std::string& key,
+                  ActiveEntry** entry,
+                  Transaction* transaction);
 
   // Destroys an ActiveEntry (active or doomed). Should only be called if
   // entry->SafeToDestroy() returns true.
@@ -557,19 +583,20 @@ class NET_EXPORT HttpCache : public HttpTransactionFactory {
   bool IsWritingInProgress(ActiveEntry* entry) const;
 
   // Returns the LoadState of the provided pending transaction.
-  LoadState GetLoadStateForPendingTransaction(const Transaction* trans);
+  LoadState GetLoadStateForPendingTransaction(const Transaction* transaction);
 
-  // Removes the transaction |trans|, from the pending list of an entry
+  // Removes the transaction |transaction|, from the pending list of an entry
   // (PendingOp, active or doomed entry).
-  void RemovePendingTransaction(Transaction* trans);
+  void RemovePendingTransaction(Transaction* transaction);
 
-  // Removes the transaction |trans|, from the pending list of |entry|.
+  // Removes the transaction |transaction|, from the pending list of |entry|.
   bool RemovePendingTransactionFromEntry(ActiveEntry* entry,
-                                         Transaction* trans);
+                                         Transaction* transaction);
 
-  // Removes the transaction |trans|, from the pending list of |pending_op|.
+  // Removes the transaction |transaction|, from the pending list of
+  // |pending_op|.
   bool RemovePendingTransactionFromPendingOp(PendingOp* pending_op,
-                                             Transaction* trans);
+                                             Transaction* transaction);
 
   // Events (called via PostTask) ---------------------------------------------
 

@@ -191,6 +191,36 @@ class PasswordManager : public LoginModel, public FormSubmissionObserver {
   // Notifies that Credential Management API function store() is called.
   void NotifyStorePasswordCalled();
 
+#if defined(OS_IOS)
+  // TODO(https://crbug.com/866444): Use these methods instead olds ones when
+  // the old parser is gone.
+
+  // Presaves the form with |generated_password|. This function is called once
+  // when the user accepts the generated password. The password was generated in
+  // the field with identifier |generation_element|. |driver| corresponds to the
+  // |form| parent frame.
+  void PresaveGeneratedPassword(PasswordManagerDriver* driver,
+                                const autofill::FormData& form,
+                                const base::string16& generated_password,
+                                const base::string16& generation_element,
+                                bool is_manually_triggered);
+
+  // Updates the presaved credential with the generated password when the user
+  // types in field with |field_identifier|, which is in form with
+  // |form_identifier| and the field value is |field_value|. |driver|
+  // corresponds to the form parent frame.
+  void UpdateGeneratedPasswordOnUserInput(
+      PasswordManagerDriver* driver,
+      const base::string16& form_identifier,
+      const base::string16& field_identifier,
+      const base::string16& field_value);
+
+  // Stops treating a password as generated. |driver| corresponds to the
+  // form parent frame.
+  void OnPasswordNoLongerGenerated(PasswordManagerDriver* driver);
+
+#endif
+
  private:
   FRIEND_TEST_ALL_PREFIXES(
       PasswordManagerTest,
@@ -208,11 +238,11 @@ class PasswordManager : public LoginModel, public FormSubmissionObserver {
   bool IsAutomaticSavePromptAvailable();
 
   // Returns true if there already exists a provisionally saved password form
-  // from the same origin as |form|, but with a different and secure scheme.
+  // from the origin |origin|, but with a different and secure scheme.
   // This prevents a potential attack where users can be tricked into saving
   // unwanted credentials, see http://crbug.com/571580 for details.
   bool ShouldBlockPasswordForSameOriginButDifferentScheme(
-      const autofill::PasswordForm& form) const;
+      const GURL& origin) const;
 
   // Called when the login was deemed successful. It handles the special case
   // when the provisionally saved password is a sync credential, and otherwise

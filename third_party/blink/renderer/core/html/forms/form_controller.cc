@@ -28,10 +28,12 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
+#include "third_party/blink/renderer/core/html/custom/custom_element.h"
+#include "third_party/blink/renderer/core/html/custom/element_internals.h"
 #include "third_party/blink/renderer/core/html/forms/file_chooser.h"
-#include "third_party/blink/renderer/core/html/forms/html_form_control_element_with_state.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
+#include "third_party/blink/renderer/core/html/forms/listed_element.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/blink/renderer/platform/wtf/hash_table_deleted_value_type.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
@@ -40,13 +42,23 @@ namespace blink {
 
 using namespace html_names;
 
-static inline HTMLFormElement* OwnerFormForState(
-    const HTMLFormControlElementWithState& control) {
+namespace {
+
+inline HTMLFormElement* OwnerFormForState(const ListedElement& control) {
   // Assume controls with form attribute have no owners because we restore
   // state during parsing and form owners of such controls might be
   // indeterminate.
-  return control.FastHasAttribute(kFormAttr) ? nullptr : control.Form();
+  return ToHTMLElement(control).FastHasAttribute(kFormAttr) ? nullptr
+                                                            : control.Form();
 }
+
+const AtomicString& ControlType(const ListedElement& control) {
+  if (auto* control_element = ToHTMLFormControlElementOrNull(control))
+    return control_element->type();
+  return To<ElementInternals>(control).Target().localName();
+}
+
+}  // namespace
 
 // ----------------------------------------------------------------------------
 
@@ -237,7 +249,8 @@ std::unique_ptr<SavedFormState> SavedFormState::Deserialize(
     String type = state_vector[index++];
     FormControlState state = FormControlState::Deserialize(state_vector, index);
     if (type.IsEmpty() ||
-        type.Find(IsNotFormControlTypeCharacter) != kNotFound ||
+        (type.Find(IsNotFormControlTypeCharacter) != kNotFound &&
+         !CustomElement::IsValidName(AtomicString(type))) ||
         state.IsFailure())
       return nullptr;
     saved_form_state->AppendControlState(AtomicString(name), AtomicString(type),
@@ -285,7 +298,7 @@ FormControlState SavedFormState::TakeControlState(const AtomicString& name,
   DCHECK_GT(it->value.size(), 0u);
   FormControlState state = it->value.TakeFirst();
   control_state_count_--;
-  if (!it->value.size())
+  if (it->value.empty())
     state_for_new_form_elements_.erase(it);
   return state;
 }
@@ -319,7 +332,7 @@ class FormKeyGenerator final
   FormKeyGenerator() = default;
 
   void Trace(Visitor* visitor) { visitor->Trace(form_to_key_map_); }
-  const AtomicString& FormKey(const HTMLFormControlElementWithState&);
+  const AtomicString& FormKey(const ListedElement&);
   void WillDeleteForm(HTMLFormElement*);
 
  private:
@@ -340,13 +353,12 @@ static inline void RecordFormStructure(const HTMLFormElement& form,
   for (wtf_size_t i = 0, named_controls = 0;
        i < controls.size() && named_controls < kNamedControlsToBeRecorded;
        ++i) {
-    if (!controls[i]->IsFormControlElementWithState())
+    ListedElement& control = *controls[i];
+    if (!control.ClassSupportsStateRestore())
       continue;
-    HTMLFormControlElementWithState* control =
-        ToHTMLFormControlElementWithState(controls[i]);
-    if (!OwnerFormForState(*control))
+    if (!OwnerFormForState(control))
       continue;
-    AtomicString name = control->GetName();
+    AtomicString name = control.GetName();
     if (name.IsEmpty())
       continue;
     named_controls++;
@@ -371,8 +383,7 @@ static inline String FormSignature(const HTMLFormElement& form) {
   return builder.ToString();
 }
 
-const AtomicString& FormKeyGenerator::FormKey(
-    const HTMLFormControlElementWithState& control) {
+const AtomicString& FormKeyGenerator::FormKey(const ListedElement& control) {
   HTMLFormElement* form = OwnerFormForState(control);
   if (!form) {
     DEFINE_STATIC_LOCAL(const AtomicString, form_key_for_no_owner,
@@ -431,10 +442,9 @@ static String FormStateSignature() {
 Vector<String> DocumentState::ToStateVector() {
   if (form_controls_dirty_) {
     for (auto& element : Traversal<Element>::DescendantsOf(*document_)) {
-      if (auto* control_element = ToHTMLFormControlElementOrNull(element)) {
-        if (auto* stateful_control_element =
-                ToHTMLFormControlElementWithStateOrNull(control_element))
-          form_controls_.push_back(stateful_control_element);
+      if (auto* control = ListedElement::From(element)) {
+        if (control->ClassSupportsStateRestore())
+          form_controls_.push_back(control);
       }
     }
     form_controls_dirty_ = false;
@@ -443,7 +453,7 @@ Vector<String> DocumentState::ToStateVector() {
   std::unique_ptr<SavedFormStateMap> state_map =
       base::WrapUnique(new SavedFormStateMap);
   for (auto& control : form_controls_) {
-    DCHECK(control->isConnected());
+    DCHECK(ToHTMLElement(control)->isConnected());
     if (!control->ShouldSaveAndRestoreFormControlState())
       continue;
     SavedFormStateMap::AddResult result =
@@ -451,7 +461,8 @@ Vector<String> DocumentState::ToStateVector() {
     if (result.is_new_entry)
       result.stored_value->value = SavedFormState::Create();
     result.stored_value->value->AppendControlState(
-        control->GetName(), control->type(), control->SaveFormControlState());
+        control->GetName(), ControlType(*control),
+        control->SaveFormControlState());
   }
 
   Vector<String> state_vector;
@@ -493,7 +504,7 @@ bool FormController::HasFormStates() const {
 }
 
 FormControlState FormController::TakeStateForFormElement(
-    const HTMLFormControlElementWithState& control) {
+    const ListedElement& control) {
   if (saved_form_state_map_.IsEmpty())
     return FormControlState();
   if (!form_key_generator_)
@@ -503,7 +514,7 @@ FormControlState FormController::TakeStateForFormElement(
   if (it == saved_form_state_map_.end())
     return FormControlState();
   FormControlState state =
-      it->value->TakeControlState(control.GetName(), control.type());
+      it->value->TakeControlState(control.GetName(), ControlType(control));
   if (it->value->IsEmpty())
     saved_form_state_map_.erase(it);
   return state;
@@ -537,10 +548,9 @@ void FormController::WillDeleteForm(HTMLFormElement* form) {
     form_key_generator_->WillDeleteForm(form);
 }
 
-void FormController::RestoreControlStateFor(
-    HTMLFormControlElementWithState& control) {
+void FormController::RestoreControlStateFor(ListedElement& control) {
   // We don't save state of a control with
-  // shouldSaveAndRestoreFormControlState() == false. But we need to skip
+  // ShouldSaveAndRestoreFormControlState() == false. But we need to skip
   // restoring process too because a control in another form might have the same
   // pair of name and type and saved its state.
   if (!control.ShouldSaveAndRestoreFormControlState())
@@ -555,11 +565,9 @@ void FormController::RestoreControlStateFor(
 void FormController::RestoreControlStateIn(HTMLFormElement& form) {
   EventQueueScope scope;
   const ListedElement::List& elements = form.ListedElements();
-  for (const auto& element : elements) {
-    if (!element->IsFormControlElementWithState())
+  for (const auto& control : elements) {
+    if (!control->ClassSupportsStateRestore())
       continue;
-    HTMLFormControlElementWithState* control =
-        ToHTMLFormControlElementWithState(element);
     if (!control->ShouldSaveAndRestoreFormControlState())
       continue;
     if (OwnerFormForState(*control) != &form)
@@ -570,6 +578,15 @@ void FormController::RestoreControlStateIn(HTMLFormElement& form) {
       control->RestoreFormControlState(state);
     }
   }
+}
+
+void FormController::RestoreControlStateOnUpgrade(ListedElement& control) {
+  DCHECK(control.ClassSupportsStateRestore());
+  if (!control.ShouldSaveAndRestoreFormControlState())
+    return;
+  FormControlState state = TakeStateForFormElement(control);
+  if (state.ValueSize() > 0)
+    control.RestoreFormControlState(state);
 }
 
 Vector<String> FormController::GetReferencedFilePaths(

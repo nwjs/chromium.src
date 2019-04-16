@@ -14,8 +14,8 @@
 #include "cc/cc_export.h"
 #include "cc/debug/rendering_stats_instrumentation.h"
 #include "cc/layers/recording_source.h"
-#include "cc/paint/color_space_transfer_cache_entry.h"
 #include "cc/paint/image_id.h"
+#include "gpu/command_buffer/client/raster_interface.h"
 #include "third_party/skia/include/core/SkPicture.h"
 #include "ui/gfx/color_space.h"
 
@@ -27,7 +27,6 @@ namespace cc {
 class DisplayItemList;
 class DrawImage;
 class ImageProvider;
-class PaintWorkletImageProvider;
 
 class CC_EXPORT RasterSource : public base::RefCountedThreadSafe<RasterSource> {
  public:
@@ -40,14 +39,7 @@ class CC_EXPORT RasterSource : public base::RefCountedThreadSafe<RasterSource> {
     // If set to true, we should use LCD text.
     bool use_lcd_text = true;
 
-    // The ImageProvider used to replace images during playback.
     ImageProvider* image_provider = nullptr;
-
-    // The PaintWorkletImageProvider is a bridge connecting the playback and the
-    // paint worklet image cache.
-    PaintWorkletImageProvider* paint_worklet_image_provider = nullptr;
-
-    RasterColorSpace raster_color_space;
   };
 
   // Helper function to apply a few common operations before passing the canvas
@@ -75,10 +67,8 @@ class CC_EXPORT RasterSource : public base::RefCountedThreadSafe<RasterSource> {
   //
   // Note that this should only be called after the image decode controller has
   // been set, which happens during commit.
-  virtual void PlaybackToCanvas(
-      SkCanvas* canvas,
-      ImageProvider* image_provider,
-      PaintWorkletImageProvider* paint_worklet_image_provider) const;
+  virtual void PlaybackToCanvas(SkCanvas* canvas,
+                                ImageProvider* image_provider) const;
 
   // Returns whether the given rect at given scale is of solid color in
   // this raster source, as well as the solid color value.
@@ -131,6 +121,8 @@ class CC_EXPORT RasterSource : public base::RefCountedThreadSafe<RasterSource> {
   base::flat_map<PaintImage::Id, PaintImage::DecodingMode>
   TakeDecodingModeMap();
 
+  size_t* max_op_size_hint() { return &max_op_size_hint_; }
+
  protected:
   // RecordingSource is the only class that can create a raster source.
   friend class RecordingSource;
@@ -143,6 +135,11 @@ class CC_EXPORT RasterSource : public base::RefCountedThreadSafe<RasterSource> {
                             const gfx::Size& content_size,
                             const gfx::Rect& canvas_bitmap_rect,
                             const gfx::Rect& canvas_playback_rect) const;
+
+  // The serialized size for the largest op in this RasterSource. This is
+  // accessed only on the raster threads with the context lock acquired.
+  size_t max_op_size_hint_ =
+      gpu::raster::RasterInterface::kDefaultMaxOpSizeHint;
 
   // These members are const as this raster source may be in use on another
   // thread and so should not be touched after construction.

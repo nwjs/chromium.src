@@ -7,13 +7,13 @@
 #include <string>
 
 #include "base/bind.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
-#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/data_reduction_proxy/data_reduction_proxy_chrome_settings.h"
@@ -25,11 +25,13 @@
 #include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths_internal.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "components/certificate_transparency/pref_names.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -42,15 +44,19 @@
 #include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/associated_interface_ptr.h"
 #include "net/http/http_util.h"
-#include "net/net_buildflags.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/network_service.mojom.h"
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/policy/policy_cert_service.h"
 #include "chrome/browser/chromeos/policy/policy_cert_service_factory.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "components/user_manager/user.h"
+#endif
+
+#if BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+#include "chrome/browser/net/trial_comparison_cert_verifier_controller.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -97,7 +103,7 @@ ProfileNetworkContextService::ProfileNetworkContextService(Profile* profile)
       base::Bind(&ProfileNetworkContextService::DisableQuicIfNotAllowed,
                  base::Unretained(this)));
   pref_accept_language_.Init(
-      prefs::kAcceptLanguages, profile_prefs,
+      language::prefs::kAcceptLanguages, profile_prefs,
       base::BindRepeating(&ProfileNetworkContextService::UpdateAcceptLanguage,
                           base::Unretained(this)));
   enable_referrers_.Init(
@@ -373,6 +379,12 @@ ProfileNetworkContextService::CreateNetworkContextParams(
   network_context_params->accept_language = ComputeAcceptLanguage();
   network_context_params->enable_referrers = enable_referrers_.GetValue();
 
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(switches::kShortReportingDelay)) {
+    network_context_params->reporting_delivery_interval =
+        base::TimeDelta::FromMilliseconds(100);
+  }
+
   // Always enable the HTTP cache.
   network_context_params->http_cache_enabled = true;
 
@@ -466,6 +478,32 @@ ProfileNetworkContextService::CreateNetworkContextParams(
   network_context_params->enable_certificate_reporting = true;
   network_context_params->enable_expect_ct_reporting = true;
 
+#if BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+  if (!in_memory &&
+      TrialComparisonCertVerifierController::MaybeAllowedForProfile(profile_)) {
+    network::mojom::TrialComparisonCertVerifierConfigClientPtr config_client;
+    auto config_client_request = mojo::MakeRequest(&config_client);
+
+    network_context_params->trial_comparison_cert_verifier_params =
+        network::mojom::TrialComparisonCertVerifierParams::New();
+
+    if (!trial_comparison_cert_verifier_controller_) {
+      trial_comparison_cert_verifier_controller_ =
+          std::make_unique<TrialComparisonCertVerifierController>(profile_);
+    }
+    trial_comparison_cert_verifier_controller_->AddClient(
+        std::move(config_client),
+        mojo::MakeRequest(
+            &network_context_params->trial_comparison_cert_verifier_params
+                 ->report_client));
+    network_context_params->trial_comparison_cert_verifier_params
+        ->initial_allowed =
+        trial_comparison_cert_verifier_controller_->IsAllowed();
+    network_context_params->trial_comparison_cert_verifier_params
+        ->config_client_request = std::move(config_client_request);
+  }
+#endif
+
   if (domain_reliability::DomainReliabilityServiceFactory::
           ShouldCreateService()) {
     network_context_params->enable_domain_reliability = true;
@@ -526,9 +564,9 @@ ProfileNetworkContextService::CreateNetworkContextParams(
             .CreateCorsOriginAccessPatternsList();
   }
 
-  const base::CommandLine& command_line =
+  const base::CommandLine& cmd_line =
     *base::CommandLine::ForCurrentProcess();
-  if (command_line.HasSwitch("disable-cookie-encryption")) {
+  if (cmd_line.HasSwitch("disable-cookie-encryption")) {
     network_context_params->enable_encrypted_cookies = false;
   }
 

@@ -12,13 +12,6 @@
  */
 
 (function() {
-/**
- * URL of the help article for the clickable link.
- * @type {string}
- */
-const HELP_ARTICLE_URL =
-    'https://support.google.com/chromebook/?p=is_chrome_managed';
-
 Polymer({
   is: 'managed-footnote',
 
@@ -37,26 +30,10 @@ Polymer({
         return loadTimeData.getBoolean('isManaged');
       },
     },
-
-    /**
-     * Localized message to display in the footnote. May contain an <a>
-     * element.
-     * @private
-     */
-    message_: String,
   },
 
   /** @override */
   ready: function() {
-    this.message_ = this.i18nAdvanced('managedByOrg', {
-      substitutions: [HELP_ARTICLE_URL],
-      tags: ['a'],
-      attrs: {
-        target: (node, v) => v === '_blank',
-        href: (node, v) => v === HELP_ARTICLE_URL,
-      },
-    });
-
     cr.addWebUIListener('is-managed-changed', managed => {
       loadTimeData.overrideValues({isManaged: managed});
       this.isManaged_ = managed;
@@ -65,5 +42,4 @@ Polymer({
 });
 
 chrome.send('observeManagedUI');
-
 })();

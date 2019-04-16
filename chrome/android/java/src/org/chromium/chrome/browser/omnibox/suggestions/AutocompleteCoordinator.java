@@ -8,6 +8,7 @@ import android.content.Context;
 import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
 import android.view.KeyEvent;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -25,6 +26,8 @@ import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController.OnSuggestionsReceivedListener;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxSuggestionsList.OmniboxSuggestionListEmbedder;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
+import org.chromium.chrome.browser.omnibox.suggestions.answer.AnswerSuggestionView;
+import org.chromium.chrome.browser.omnibox.suggestions.answer.AnswerSuggestionViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionView;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewViewBinder;
 import org.chromium.chrome.browser.omnibox.suggestions.editurl.EditUrlSuggestionProcessor;
@@ -201,6 +204,12 @@ public class AutocompleteCoordinator implements UrlFocusChangeListener, UrlTextC
                         OmniboxSuggestionUiType.EDIT_URL_SUGGESTION,
                         () -> EditUrlSuggestionProcessor.createView(mListView.getContext()),
                         EditUrlSuggestionViewBinder::bind);
+
+                adapter.registerType(
+                        OmniboxSuggestionUiType.ANSWER_SUGGESTION,
+                        () -> (AnswerSuggestionView) LayoutInflater.from(mListView.getContext())
+                                .inflate(R.layout.omnibox_answer_suggestion, null),
+                        AnswerSuggestionViewBinder::bind);
                 // clang-format on
 
                 mHolder = new SuggestionListViewHolder(container, list, adapter);

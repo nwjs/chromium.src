@@ -5,12 +5,15 @@
 #ifndef ASH_WM_SPLITSVIEW_SPLIT_VIEW_CONTROLLER_H_
 #define ASH_WM_SPLITSVIEW_SPLIT_VIEW_CONTROLLER_H_
 
+#include <memory>
+
 #include "ash/accessibility/accessibility_observer.h"
 #include "ash/ash_export.h"
 #include "ash/display/screen_orientation_controller.h"
 #include "ash/public/interfaces/split_view.mojom.h"
 #include "ash/session/session_observer.h"
 #include "ash/shell_observer.h"
+#include "ash/wm/overview/overview_observer.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_observer.h"
 #include "ash/wm/window_state_observer.h"
@@ -32,6 +35,7 @@ class Layer;
 }  // namespace ui
 
 namespace ash {
+class PresentationTimeRecorder;
 class OverviewSession;
 class SplitViewControllerTest;
 class SplitViewDivider;
@@ -46,6 +50,7 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
                                        public ash::wm::WindowStateObserver,
                                        public ::wm::ActivationChangeObserver,
                                        public ShellObserver,
+                                       public OverviewObserver,
                                        public display::DisplayObserver,
                                        public TabletModeObserver,
                                        public AccessibilityObserver,
@@ -135,6 +140,9 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   // Ends the split view mode.
   void EndSplitView(EndReason end_reason = EndReason::kNormal);
 
+  // Returns true if |window| is a snapped window in splitview.
+  bool IsWindowInSplitView(const aura::Window* window) const;
+
   // Called when a window (either it's browser window or an app window) start/
   // end being dragged.
   void OnWindowDragStarted(aura::Window* dragged_window);
@@ -168,6 +176,8 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
 
   // ShellObserver:
   void OnPinnedStateChanged(aura::Window* pinned_window) override;
+
+  // OverviewObserver:
   void OnOverviewModeStarting() override;
   void OnOverviewModeEnding(OverviewSession* overview_session) override;
 
@@ -199,6 +209,7 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   friend class SplitViewControllerTest;
   friend class SplitViewOverviewSessionTest;
   class TabDraggedWindowObserver;
+  class DividerSnapAnimation;
 
   // Start observing |window|.
   void StartObserving(aura::Window* window);
@@ -244,13 +255,22 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
                  gfx::Rect* left_or_top_rect,
                  gfx::Rect* right_or_bottom_rect);
 
-  // Finds the closest fix location for |divider_position_| and updates its
-  // value.
-  void MoveDividerToClosestFixedPosition();
+  // Returns the closest fix location for |divider_position_|.
+  int GetClosestFixedDividerPosition();
+
+  // Returns true during the divider snap animation.
+  bool IsDividerAnimating();
+
+  // While the divider is animating to somewhere, stop it and shove it there.
+  void StopAndShoveAnimatedDivider();
 
   // Returns true if we should end split view mode after resizing, i.e., the
   // split view divider is near to the edge of the screen.
   bool ShouldEndSplitViewAfterResizing();
+
+  // Ends split view if ShouldEndSplitViewAfterResizing() returns true. Handles
+  // extra details associated with dragging the divider off the screen.
+  void EndSplitViewAfterResizingIfAppropriate();
 
   // After resizing, if we should end split view mode, returns the window that
   // needs to be activated. Returns nullptr if there is no such window.
@@ -271,8 +291,9 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   // window side of the screen. If there is only one snapped windows, closing/
   // minimizing/tab-dragging the sanpped window will end split view mode and
   // adjust the overview window grid bounds if the overview mode is active at
-  // that moment.
-  void OnSnappedWindowDetached(aura::Window* window);
+  // that moment. |window_drag| is true if the window was detached as a result
+  // of dragging.
+  void OnSnappedWindowDetached(aura::Window* window, bool window_drag);
 
   // If the desired bounds of the snapped windows bounds |left_or_top_rect| and
   // |right_or_bottom_rect| are smaller than the minimum bounds of the snapped
@@ -338,12 +359,16 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   void InsertWindowToOverview(aura::Window* window);
 
   // Starts/Ends overview mode if the overview mode is inactive/active.
-  void StartOverview();
+  void StartOverview(bool window_drag = false);
   void EndOverview();
 
   // Finalizes and cleans up after stopping dragging the divider bar to resize
   // snapped windows.
   void FinishWindowResizing(aura::Window* window);
+
+  // Finalizes and cleans up divider dragging/animating. Called when the divider
+  // snapping animation completes or is interrupted or totally skipped.
+  void EndResizeImpl();
 
   // Called by OnWindowDragEnded to do the actual work of finishing the window
   // dragging. If |is_being_destroyed| equals true, the dragged window is to be
@@ -400,6 +425,9 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   // The location of the previous mouse/gesture event in screen coordinates.
   gfx::Point previous_event_location_;
 
+  // The animation that animates the divider to a fixed position after resizing.
+  std::unique_ptr<DividerSnapAnimation> divider_snap_animation_;
+
   // Current snap state.
   State state_ = NO_SNAP;
 
@@ -412,7 +440,7 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   // The previous orientation of the screen.
   OrientationLockType previous_screen_orientation_ = OrientationLockType::kAny;
 
-  // If the divider is currently being dragging.
+  // True when the divider is being dragged (not during its snap animation).
   bool is_resizing_ = false;
 
   // Stores the reason which cause splitview to end.
@@ -429,6 +457,9 @@ class ASH_EXPORT SplitViewController : public mojom::SplitViewController,
   mojo::InterfacePtrSet<mojom::SplitViewObserver> mojo_observers_;
   ScopedObserver<TabletModeController, TabletModeObserver>
       tablet_mode_observer_{this};
+
+  // Records the presentation time of resize operation in split view mode.
+  std::unique_ptr<PresentationTimeRecorder> presentation_time_recorder_;
 
   DISALLOW_COPY_AND_ASSIGN(SplitViewController);
 };

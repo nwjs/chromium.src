@@ -102,10 +102,12 @@ void PaymentRequestSpec::UpdateWith(mojom::PaymentDetailsPtr details) {
   DCHECK(details_);
   if (details->total)
     details_->total = std::move(details->total);
-  details_->display_items = std::move(details->display_items);
+  if (!details->display_items.empty())
+    details_->display_items = std::move(details->display_items);
   if (details->shipping_options)
     details_->shipping_options = std::move(details->shipping_options);
-  details_->modifiers = std::move(details->modifiers);
+  if (!details->modifiers.empty())
+    details_->modifiers = std::move(details->modifiers);
   details_->error = std::move(details->error);
   if (details->shipping_address_errors)
     details_->shipping_address_errors =
@@ -193,7 +195,6 @@ bool PaymentRequestSpec::has_shipping_address_error() const {
            details_->shipping_address_errors->postal_code.empty() &&
            details_->shipping_address_errors->recipient.empty() &&
            details_->shipping_address_errors->region.empty() &&
-           details_->shipping_address_errors->region_code.empty() &&
            details_->shipping_address_errors->sorting_code.empty());
 }
 
@@ -357,7 +358,7 @@ void PaymentRequestSpec::UpdateSelectedShippingOption(bool after_update) {
 
   selected_shipping_option_ = nullptr;
   selected_shipping_option_error_.clear();
-  if (details_->shipping_options->empty()) {
+  if (details_->shipping_options->empty() || !details_->error.empty()) {
     // No options are provided by the merchant.
     if (after_update) {
       // This is after an update, which means that the selected address is not

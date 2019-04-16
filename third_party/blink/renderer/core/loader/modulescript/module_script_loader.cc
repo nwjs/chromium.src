@@ -93,7 +93,7 @@ void ModuleScriptLoader::Fetch(
                         level, custom_fetch_type);
 }
 
-// https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
+// https://html.spec.whatwg.org/C/#fetch-a-single-module-script
 void ModuleScriptLoader::FetchInternal(
     const ModuleScriptFetchRequest& module_request,
     ResourceFetcher* fetch_client_settings_object_fetcher,
@@ -128,7 +128,7 @@ void ModuleScriptLoader::FetchInternal(
   // Step 6. "Set up the module script request given request and options."
   // [spec text]
   // [SMSR]
-  // https://html.spec.whatwg.org/multipage/webappapis.html#set-up-the-module-script-request
+  // https://html.spec.whatwg.org/C/#set-up-the-module-script-request
 
   // [SMSR] "... its parser metadata to options's parser metadata, ..."
   // [spec text]
@@ -195,7 +195,7 @@ void ModuleScriptLoader::FetchInternal(
   // -> set by ResourceFetcher
 
   // Note: The fetch request's "origin" isn't specified in
-  // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
+  // https://html.spec.whatwg.org/C/#fetch-a-single-module-script
   // Thus, the "origin" is "client" per
   // https://fetch.spec.whatwg.org/#concept-request-origin
 
@@ -222,7 +222,7 @@ void ModuleScriptLoader::FetchInternal(
   // [spec text]
   module_fetcher_ = modulator_->CreateModuleScriptFetcher(custom_fetch_type);
   module_fetcher_->Fetch(fetch_params, fetch_client_settings_object_fetcher,
-                         level, this);
+                         modulator_, level, this);
 }
 
 void ModuleScriptLoader::NotifyFetchFinished(
@@ -253,9 +253,10 @@ void ModuleScriptLoader::NotifyFetchFinished(
   // Step 10. "Let module script be the result of creating a module script given
   // source text, module map settings object, response's url, and options."
   // [spec text]
-  module_script_ = ModuleScript::Create(params->GetSourceText(), modulator_,
-                                        params->GetResponseUrl(),
-                                        params->GetResponseUrl(), options_);
+  module_script_ = ModuleScript::Create(
+      params->GetSourceText(), params->CacheHandler(),
+      ScriptSourceLocationType::kExternalFile, modulator_,
+      params->GetResponseUrl(), params->GetResponseUrl(), options_);
 
   AdvanceState(State::kFinished);
 }

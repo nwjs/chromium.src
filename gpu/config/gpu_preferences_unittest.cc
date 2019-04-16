@@ -14,8 +14,6 @@ namespace gpu {
 namespace {
 
 void CheckGpuPreferencesEqual(GpuPreferences left, GpuPreferences right) {
-  EXPECT_EQ(left.single_process, right.single_process);
-  EXPECT_EQ(left.in_process_gpu, right.in_process_gpu);
   EXPECT_EQ(left.disable_accelerated_video_decode,
             right.disable_accelerated_video_decode);
   EXPECT_EQ(left.disable_accelerated_video_encode,
@@ -35,8 +33,6 @@ void CheckGpuPreferencesEqual(GpuPreferences left, GpuPreferences right) {
             right.disable_software_rasterizer);
   EXPECT_EQ(left.log_gpu_control_list_decisions,
             right.log_gpu_control_list_decisions);
-  EXPECT_EQ(left.enable_trace_export_events_to_etw,
-            right.enable_trace_export_events_to_etw);
   EXPECT_EQ(left.compile_shader_always_succeeds,
             right.compile_shader_always_succeeds);
   EXPECT_EQ(left.disable_gl_error_limit, right.disable_gl_error_limit);
@@ -112,8 +108,6 @@ TEST(GpuPreferencesTest, EncodeDecode) {
   prefs_mojom.name = value;                        \
   EXPECT_EQ(input_prefs.name, prefs_mojom.name);
 
-    GPU_PREFERENCES_FIELD(single_process, true)
-    GPU_PREFERENCES_FIELD(in_process_gpu, true)
     GPU_PREFERENCES_FIELD(disable_accelerated_video_decode, true)
     GPU_PREFERENCES_FIELD(disable_accelerated_video_encode, true)
     GPU_PREFERENCES_FIELD(gpu_startup_dialog, true)
@@ -127,7 +121,6 @@ TEST(GpuPreferencesTest, EncodeDecode) {
     GPU_PREFERENCES_FIELD(enable_media_foundation_vea_on_windows7, true)
     GPU_PREFERENCES_FIELD(disable_software_rasterizer, true)
     GPU_PREFERENCES_FIELD(log_gpu_control_list_decisions, true)
-    GPU_PREFERENCES_FIELD(enable_trace_export_events_to_etw, true)
     GPU_PREFERENCES_FIELD(compile_shader_always_succeeds, true)
     GPU_PREFERENCES_FIELD(disable_gl_error_limit, true)
     GPU_PREFERENCES_FIELD(disable_glsl_translator, true)

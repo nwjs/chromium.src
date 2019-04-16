@@ -167,10 +167,9 @@ In the [tools/build] workspace:
             and then break on the waterfall.
         *   This file defines the behavior of the following GPU-related try
             bots:
-            *   `linux_chromium_rel_ng`, `mac_chromium_rel_ng`, and
-                `win_chromium_rel_ng`, which run against every Chromium CL, and
-                which mirror the behavior of bots on the chromium.gpu
-                waterfall.
+            *   `linux-rel`, `mac-rel`, and `win7-rel`, which run against every
+                Chromium CL, and which mirror the behavior of bots on the
+                chromium.gpu waterfall.
             *   The ANGLE try bots, which run against ANGLE CLs, and mirror the
                 behavior of the chromium.gpu.fyi waterfall (including using
                 top-of-tree ANGLE, and running additional tests not run by the
@@ -391,9 +390,9 @@ Builder].
 
 [bots.cfg]:            https://chrome-internal.googlesource.com/infradata/config/+/master/configs/chromium-swarm/bots.cfg
 [infradata/config]:    https://chrome-internal.googlesource.com/infradata/config/
-[cr-buildbucket.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/global/cr-buildbucket.cfg
-[luci-milo.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/global/luci-milo.cfg
-[luci-scheduler.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/global/luci-scheduler.cfg
+[cr-buildbucket.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/cr-buildbucket.cfg
+[luci-milo.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/luci-milo.cfg
+[luci-scheduler.cfg]:  https://chromium.googlesource.com/chromium/src/+/master/infra/config/luci-scheduler.cfg
 [GPU FYI Win Builder]: https://ci.chromium.org/p/chromium/builders/luci.chromium.ci/GPU%20FYI%20Win%20Builder
 
 ### How to start running tests on a new GPU type on an existing try bot

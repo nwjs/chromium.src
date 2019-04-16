@@ -80,10 +80,11 @@ class QuicEndpoint : public Endpoint,
 
   // Begin QuicConnectionVisitorInterface implementation.
   void OnStreamFrame(const QuicStreamFrame& frame) override;
+  void OnCryptoFrame(const QuicCryptoFrame& frame) override;
   void OnCanWrite() override;
   bool WillingAndAbleToWrite() const override;
   bool HasPendingHandshake() const override;
-  bool HasOpenDynamicStreams() const override;
+  bool ShouldKeepConnectionAlive() const override;
 
   void OnWindowUpdateFrame(const QuicWindowUpdateFrame& frame) override {}
   void OnBlockedFrame(const QuicBlockedFrame& frame) override {}
@@ -108,13 +109,13 @@ class QuicEndpoint : public Endpoint,
   void OnForwardProgressConfirmed() override {}
   bool OnMaxStreamIdFrame(const QuicMaxStreamIdFrame& frame) override {
     return true;
-  };
+  }
   bool OnStreamIdBlockedFrame(const QuicStreamIdBlockedFrame& frame) override {
     return true;
-  };
+  }
   bool OnStopSendingFrame(const QuicStopSendingFrame& frame) override {
     return true;
-  };
+  }
 
   // End QuicConnectionVisitorInterface implementation.
 
@@ -141,7 +142,6 @@ class QuicEndpoint : public Endpoint,
                             const QuicIpAddress& self_address,
                             const QuicSocketAddress& peer_address,
                             PerPacketOptions* options) override;
-    bool IsWriteBlockedDataBuffered() const override;
     bool IsWriteBlocked() const override;
     void SetWritable() override;
     QuicByteCount GetMaxPacketSize(

@@ -44,12 +44,14 @@ var horizontal_scrollend_arrived = false;
 var vertical_scrollend_arrived = false;
 function onHorizontalScrollEnd(event) {
   assert_false(event.cancelable);
-  assert_false(event.bubbles);
+  // scrollend events are bubbled when the target node is document.
+  assert_true(event.bubbles);
   horizontal_scrollend_arrived = true;
 }
 function onVerticalScrollEnd(event) {
   assert_false(event.cancelable);
-  assert_false(event.bubbles);
+  // scrollend events are bubbled when the target node is document.
+  assert_true(event.bubbles);
   vertical_scrollend_arrived = true;
 }
 document.addEventListener("scrollend", onHorizontalScrollEnd);

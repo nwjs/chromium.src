@@ -24,6 +24,7 @@
 #include "ios/chrome/browser/chrome_paths.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #include "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
+#include "ios/chrome/browser/main/test_browser.h"
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
@@ -40,6 +41,7 @@
 #import "ios/chrome/browser/ui/commands/application_commands.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
+#import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/commands/page_info_commands.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_controller.h"
 #import "ios/chrome/browser/ui/page_not_available_controller.h"
@@ -238,7 +240,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 
     SnapshotTabHelper::CreateForWebState(webStateImpl_.get(),
                                          [[NSUUID UUID] UUIDString]);
-    SadTabTabHelper::CreateForWebState(webStateImpl_.get(), nil);
+    SadTabTabHelper::CreateForWebState(webStateImpl_.get());
 
     // Load TemplateURLService.
     TemplateURLService* template_url_service =
@@ -255,6 +257,11 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   void TearDown() override {
     [[bvc_ view] removeFromSuperview];
     [bvc_ shutdown];
+
+    // Cleanup to avoid debugger crash in non empty observer lists.
+    WebStateList* web_state_list = tabModel_.webStateList;
+    web_state_list->CloseAllWebStates(
+        WebStateList::ClosingFlags::CLOSE_NO_FLAGS);
 
     BlockCleanupTest::TearDown();
   }
@@ -286,90 +293,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   BrowserViewController* bvc_;
   UIWindow* window_;
 };
-
-TEST_F(BrowserViewControllerTest, TestSwitchToTab) {
-  WebStateList* web_state_list = tabModel_.webStateList;
-  ASSERT_EQ(0, web_state_list->count());
-
-  std::unique_ptr<web::TestWebState> web_state = CreateTestWebState();
-  web::WebState* web_state_ptr = web_state.get();
-  web_state->SetCurrentURL(GURL("http://test/1"));
-  web_state_list->InsertWebState(0, std::move(web_state),
-                                 WebStateList::INSERT_FORCE_INDEX,
-                                 WebStateOpener());
-
-  std::unique_ptr<web::TestWebState> web_state_2 = CreateTestWebState();
-  web::WebState* web_state_ptr_2 = web_state_2.get();
-  GURL url("http://test/2");
-  web_state_2->SetCurrentURL(url);
-  web_state_list->InsertWebState(1, std::move(web_state_2),
-                                 WebStateList::INSERT_FORCE_INDEX,
-                                 WebStateOpener());
-
-  web_state_list->ActivateWebStateAt(0);
-
-  ASSERT_EQ(web_state_ptr, web_state_list->GetActiveWebState());
-
-  ChromeLoadParams params(url);
-  params.disposition = WindowOpenDisposition::SWITCH_TO_TAB;
-  [bvc_ loadURLWithParams:params];
-  EXPECT_EQ(web_state_ptr_2, web_state_list->GetActiveWebState());
-}
-
-// Tests that switch to open tab from the NTP close it if it doesn't have
-// navigation history.
-TEST_F(BrowserViewControllerTest, TestSwitchToTabFromNTP) {
-  WebStateList* web_state_list = tabModel_.webStateList;
-  ASSERT_EQ(0, web_state_list->count());
-
-  std::unique_ptr<web::TestWebState> web_state = CreateTestWebState();
-  web::WebState* web_state_ptr = web_state.get();
-  web_state->SetCurrentURL(GURL("chrome://newtab"));
-  web_state_list->InsertWebState(0, std::move(web_state),
-                                 WebStateList::INSERT_FORCE_INDEX,
-                                 WebStateOpener());
-
-  std::unique_ptr<web::TestWebState> web_state_2 = CreateTestWebState();
-  web::WebState* web_state_ptr_2 = web_state_2.get();
-  GURL url("http://test/2");
-  web_state_2->SetCurrentURL(url);
-  web_state_list->InsertWebState(1, std::move(web_state_2),
-                                 WebStateList::INSERT_FORCE_INDEX,
-                                 WebStateOpener());
-
-  web_state_list->ActivateWebStateAt(0);
-
-  ASSERT_EQ(web_state_ptr, web_state_list->GetActiveWebState());
-
-  ChromeLoadParams params(url);
-  params.disposition = WindowOpenDisposition::SWITCH_TO_TAB;
-  [bvc_ loadURLWithParams:params];
-  EXPECT_EQ(web_state_ptr_2, web_state_list->GetActiveWebState());
-  EXPECT_EQ(1, web_state_list->count());
-}
-
-// Tests that trying to switch to a closed tab open from the NTP opens it in the
-// NTP.
-TEST_F(BrowserViewControllerTest, TestSwitchToClosedTab) {
-  WebStateList* web_state_list = tabModel_.webStateList;
-  ASSERT_EQ(0, web_state_list->count());
-
-  std::unique_ptr<web::TestWebState> web_state = CreateTestWebState();
-  web_state->SetCurrentURL(GURL("chrome://newtab"));
-  web::WebState* web_state_ptr = web_state.get();
-  web_state_list->InsertWebState(0, std::move(web_state),
-                                 WebStateList::INSERT_FORCE_INDEX,
-                                 WebStateOpener());
-  web_state_list->ActivateWebStateAt(0);
-
-  GURL url("http://test/2");
-
-  ChromeLoadParams params(url);
-  params.disposition = WindowOpenDisposition::SWITCH_TO_TAB;
-  [bvc_ loadURLWithParams:params];
-  EXPECT_EQ(1, web_state_list->count());
-  EXPECT_EQ(web_state_ptr, web_state_list->GetActiveWebState());
-}
 
 TEST_F(BrowserViewControllerTest, TestTabSelected) {
   [bvc_ tabSelected:tab_ notifyToolbar:YES];

@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/macros.h"
@@ -112,6 +113,11 @@ bool SiteIsolationPolicy::ShouldPdfCompositorBeEnabledForOopifs() {
   // feature testing purpose. Eventually, we will remove this check and use pdf
   // compositor service by default for printing.
   return AreIsolatedOriginsEnabled() || UseDedicatedProcessesForAllSites();
+}
+
+// static
+bool SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled() {
+  return !IsSiteIsolationDisabled();
 }
 
 // static

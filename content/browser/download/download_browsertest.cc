@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -582,7 +583,7 @@ class DownloadCreateObserver : DownloadManager::Observer {
 
 class ErrorStreamCountingObserver : download::DownloadItem::Observer {
  public:
-  ErrorStreamCountingObserver() : item_(nullptr), count_(0){};
+  ErrorStreamCountingObserver() : item_(nullptr), count_(0) {}
 
   ~ErrorStreamCountingObserver() override {
     if (item_)
@@ -965,7 +966,7 @@ class ParallelDownloadTest : public DownloadContentTest {
     std::map<std::string, std::string> params = {
         {download::kMinSliceSizeFinchKey, "1"},
         {download::kParallelRequestCountFinchKey,
-         base::IntToString(kTestRequestCount)},
+         base::NumberToString(kTestRequestCount)},
         {download::kParallelRequestDelayFinchKey, "0"},
         {download::kParallelRequestRemainingTimeFinchKey, "0"}};
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
@@ -3823,7 +3824,16 @@ class MhtmlDownloadTest : public DownloadContentTest {
   ContentBrowserClient* old_client_;
 };
 
-IN_PROC_BROWSER_TEST_F(MhtmlDownloadTest, ForceDownloadMultipartRelatedPage) {
+#if defined(THREAD_SANITIZER)
+// Flaky on TSAN https://crbug.com/932092
+#define MAYBE_ForceDownloadMultipartRelatedPage \
+  DISABLED_ForceDownloadMultipartRelatedPage
+#else
+#define MAYBE_ForceDownloadMultipartRelatedPage \
+  ForceDownloadMultipartRelatedPage
+#endif
+IN_PROC_BROWSER_TEST_F(MhtmlDownloadTest,
+                       MAYBE_ForceDownloadMultipartRelatedPage) {
   NavigateToURLAndWaitForDownload(
       shell(),
       // .mhtml file is mapped to "multipart/related" by the test server.

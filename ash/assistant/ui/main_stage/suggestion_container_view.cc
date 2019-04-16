@@ -12,6 +12,8 @@
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/util/assistant_util.h"
+#include "ash/public/cpp/app_list/app_list_features.h"
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/views/layout/box_layout.h"
 
@@ -71,7 +73,9 @@ void SuggestionContainerView::InitLayout() {
           gfx::Insets(0, kPaddingDip), kSpacingDip));
 
   layout_manager_->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::CROSS_AXIS_ALIGNMENT_END);
+      app_list_features::IsEmbeddedAssistantUIEnabled()
+          ? views::BoxLayout::CrossAxisAlignment::CROSS_AXIS_ALIGNMENT_CENTER
+          : views::BoxLayout::CrossAxisAlignment::CROSS_AXIS_ALIGNMENT_END);
 
   // We center align when showing conversation starters.
   layout_manager_->set_main_axis_alignment(
@@ -115,8 +119,7 @@ void SuggestionContainerView::OnSuggestionsChanged(
     // suggestion chip view.
     const int id = suggestion.first;
 
-    app_list::SuggestionChipView::Params params;
-    params.assistant_style = true;
+    SuggestionChipView::Params params;
     params.text = base::UTF8ToUTF16(suggestion.second->text);
 
     if (!suggestion.second->icon_url.is_empty()) {
@@ -133,8 +136,8 @@ void SuggestionContainerView::OnSuggestionsChanged(
       params.icon = gfx::ImageSkia();
     }
 
-    app_list::SuggestionChipView* suggestion_chip_view =
-        new app_list::SuggestionChipView(params, /*listener=*/this);
+    SuggestionChipView* suggestion_chip_view =
+        new SuggestionChipView(params, /*listener=*/this);
     suggestion_chip_view->SetAccessibleName(params.text);
 
     // Given a suggestion chip view, we need to be able to look up the id of
@@ -181,7 +184,6 @@ void SuggestionContainerView::ButtonPressed(views::Button* sender,
             sender->id());
   }
 
-  // TODO(dmblack): Use a delegate pattern here similar to CaptionBar.
   delegate_->OnSuggestionChipPressed(suggestion);
 }
 

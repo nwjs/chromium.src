@@ -10,9 +10,7 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/google/google_brand.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/signin_promo_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
@@ -21,7 +19,6 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/account_consistency_method.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "url/gurl.h"
@@ -32,118 +29,12 @@
 
 namespace signin {
 
-namespace {
-
-// The maximum number of times we want to show the sign in promo at startup.
-const int kSignInPromoShowAtStartupMaximum = 10;
-
-// Forces the web based signin flow when set.
-bool g_force_web_based_signin_flow = false;
-
-// Checks we want to show the sign in promo for the given brand.
-bool AllowPromoAtStartupForCurrentBrand() {
-  std::string brand;
-  google_brand::GetBrand(&brand);
-
-  if (brand.empty())
-    return true;
-
-  if (google_brand::IsInternetCafeBrandCode(brand))
-    return false;
-
-  // Enable for both organic and distribution.
-  return true;
-}
-
-// Returns true if a user has seen the sign in promo at startup previously.
-bool HasShownPromoAtStartup(Profile* profile) {
-  return profile->GetPrefs()->HasPrefPath(prefs::kSignInPromoStartupCount);
-}
-
-// Returns true if the user has previously skipped the sign in promo.
-bool HasUserSkippedPromo(Profile* profile) {
-  return profile->GetPrefs()->GetBoolean(prefs::kSignInPromoUserSkipped);
-}
-
-GURL GetEmbeddedReauthURLInternal(signin_metrics::AccessPoint access_point,
-                                  signin_metrics::Reason reason,
-                                  const std::string& email) {
-  GURL url = GetEmbeddedPromoURL(access_point, reason, /*auto_close=*/true);
-  url = net::AppendQueryParameter(url, "email", email);
-  url = net::AppendQueryParameter(url, "validateEmail", "1");
-  return net::AppendQueryParameter(url, "readOnlyEmail", "1");
-}
-
-}  // namespace
-
 const char kSignInPromoQueryKeyAccessPoint[] = "access_point";
 const char kSignInPromoQueryKeyAutoClose[] = "auto_close";
-const char kSignInPromoQueryKeyContinue[] = "continue";
 const char kSignInPromoQueryKeyForceKeepData[] = "force_keep_data";
 const char kSignInPromoQueryKeyReason[] = "reason";
 const char kSignInPromoQueryKeySource[] = "source";
 const char kSigninPromoLandingURLSuccessPage[] = "success.html";
-
-bool ShouldShowPromoAtStartup(Profile* profile, bool is_new_profile) {
-  DCHECK(profile);
-
-  // Don't show if the profile is an incognito.
-  if (profile->IsOffTheRecord())
-    return false;
-
-  if (!ShouldShowPromo(profile))
-    return false;
-
-  if (!is_new_profile) {
-    if (!HasShownPromoAtStartup(profile))
-      return false;
-  }
-
-#if defined(OS_WIN)
-  // Do not show the promo on first run on Win10 and newer.
-  if (is_new_profile && base::win::GetVersion() >= base::win::VERSION_WIN10)
-    return false;
-#endif
-
-  if (HasUserSkippedPromo(profile))
-    return false;
-
-  // For Chinese users skip the sign in promo.
-  if (g_browser_process->GetApplicationLocale() == "zh-CN")
-    return false;
-
-  PrefService* prefs = profile->GetPrefs();
-  int show_count = prefs->GetInteger(prefs::kSignInPromoStartupCount);
-  if (show_count >= kSignInPromoShowAtStartupMaximum)
-    return false;
-
-  // This pref can be set in the master preferences file to allow or disallow
-  // showing the sign in promo at startup.
-  if (prefs->HasPrefPath(prefs::kSignInPromoShowOnFirstRunAllowed))
-    return prefs->GetBoolean(prefs::kSignInPromoShowOnFirstRunAllowed);
-
-  // For now don't show the promo for some brands.
-  if (!AllowPromoAtStartupForCurrentBrand())
-    return false;
-
-  // Default to show the promo for Google Chrome builds.
-#if defined(GOOGLE_CHROME_BUILD)
-  return true;
-#else
-  return false;
-#endif
-}
-
-void DidShowPromoAtStartup(Profile* profile) {
-  int show_count = profile->GetPrefs()->GetInteger(
-      prefs::kSignInPromoStartupCount);
-  show_count++;
-  profile->GetPrefs()->SetInteger(prefs::kSignInPromoStartupCount, show_count);
-}
-
-void SetUserSkippedPromo(Profile* profile) {
-  profile->GetPrefs()->SetBoolean(prefs::kSignInPromoUserSkipped, true);
-}
 
 GURL GetLandingURL(signin_metrics::AccessPoint access_point) {
   GURL url(extensions::kGaiaAuthExtensionOrigin);
@@ -153,7 +44,7 @@ GURL GetLandingURL(signin_metrics::AccessPoint access_point) {
 
   url = net::AppendQueryParameter(
       url, kSignInPromoQueryKeyAccessPoint,
-      base::IntToString(static_cast<int>(access_point)));
+      base::NumberToString(static_cast<int>(access_point)));
 
   // TODO(gogerald): right now, gaia server needs to distinguish the source from
   // signin_metrics::SOURCE_START_PAGE, signin_metrics::SOURCE_SETTINGS and
@@ -167,18 +58,11 @@ GURL GetLandingURL(signin_metrics::AccessPoint access_point) {
     source = signin_metrics::SOURCE_SETTINGS;
   }
   url = net::AppendQueryParameter(url, signin::kSignInPromoQueryKeySource,
-                                  base::IntToString(static_cast<int>(source)));
+                                  base::NumberToString(source));
   return GURL(url);
 }
 
-#if defined(OS_CHROMEOS)
-GURL GetEmbeddedPromoURLForTab(signin_metrics::AccessPoint access_point,
-                               signin_metrics::Reason reason,
-                               bool auto_close) {
-  return GetEmbeddedPromoURL(access_point, reason, auto_close);
-}
-#endif
-
+#if !defined(OS_CHROMEOS)
 GURL GetEmbeddedPromoURL(signin_metrics::AccessPoint access_point,
                          signin_metrics::Reason reason,
                          bool auto_close) {
@@ -194,9 +78,10 @@ GURL GetEmbeddedPromoURL(signin_metrics::AccessPoint access_point,
   GURL url(chrome::kChromeUIChromeSigninURL);
   url = net::AppendQueryParameter(
       url, signin::kSignInPromoQueryKeyAccessPoint,
-      base::IntToString(static_cast<int>(access_point)));
-  url = net::AppendQueryParameter(url, signin::kSignInPromoQueryKeyReason,
-                                  base::IntToString(static_cast<int>(reason)));
+      base::NumberToString(static_cast<int>(access_point)));
+  url =
+      net::AppendQueryParameter(url, signin::kSignInPromoQueryKeyReason,
+                                base::NumberToString(static_cast<int>(reason)));
   if (auto_close) {
     url = net::AppendQueryParameter(url, signin::kSignInPromoQueryKeyAutoClose,
                                     "1");
@@ -204,33 +89,34 @@ GURL GetEmbeddedPromoURL(signin_metrics::AccessPoint access_point,
   return url;
 }
 
-GURL GetEmbeddedReauthURL(signin_metrics::AccessPoint access_point,
-                          signin_metrics::Reason reason,
-                          Profile* profile,
-                          const std::string& account_id) {
-  AccountInfo info =
-      AccountTrackerServiceFactory::GetForProfile(profile)->GetAccountInfo(
-          account_id);
-  return GetEmbeddedReauthURLInternal(access_point, reason, info.email);
-}
-
 GURL GetEmbeddedReauthURLWithEmail(signin_metrics::AccessPoint access_point,
                                    signin_metrics::Reason reason,
                                    const std::string& email) {
-  return GetEmbeddedReauthURLInternal(access_point, reason, email);
+  GURL url = GetEmbeddedPromoURL(access_point, reason, /*auto_close=*/true);
+  url = net::AppendQueryParameter(url, "email", email);
+  url = net::AppendQueryParameter(url, "validateEmail", "1");
+  return net::AppendQueryParameter(url, "readOnlyEmail", "1");
 }
+#endif  // !defined(OS_CHROMEOS)
 
-GURL GetSigninURLForDice(Profile* profile, const std::string& email) {
-  DCHECK(signin::DiceMethodGreaterOrEqual(
-      AccountConsistencyModeManager::GetMethodForProfile(profile),
-      signin::AccountConsistencyMethod::kDiceMigration));
+GURL GetChromeSyncURLForDice(const std::string& email,
+                             const std::string& continue_url) {
   GURL url = GaiaUrls::GetInstance()->signin_chrome_sync_dice();
   if (!email.empty())
     url = net::AppendQueryParameter(url, "email_hint", email);
-  // Pass www.gooogle.com as the continue URL as otherwise Gaia navigates to
-  // myaccount which may be very confusing for the user.
-  return net::AppendQueryParameter(
-      url, "continue", UIThreadSearchTermsData(profile).GoogleBaseURLValue());
+  if (!continue_url.empty())
+    url = net::AppendQueryParameter(url, "continue", continue_url);
+  return url;
+}
+
+GURL GetAddAccountURLForDice(const std::string& email,
+                             const std::string& continue_url) {
+  GURL url = GaiaUrls::GetInstance()->add_account_url();
+  if (!email.empty())
+    url = net::AppendQueryParameter(url, "Email", email);
+  if (!continue_url.empty())
+    url = net::AppendQueryParameter(url, "continue", continue_url);
+  return url;
 }
 
 GURL GetSigninPartitionURL() {
@@ -283,14 +169,8 @@ bool IsAutoCloseEnabledInEmbeddedURL(const GURL& url) {
   return false;
 }
 
-void ForceWebBasedSigninFlowForTesting(bool force) {
-  g_force_web_based_signin_flow = force;
-}
-
 void RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterIntegerPref(prefs::kSignInPromoStartupCount, 0);
-  registry->RegisterBooleanPref(prefs::kSignInPromoUserSkipped, false);
   registry->RegisterBooleanPref(prefs::kSignInPromoShowOnFirstRunAllowed, true);
   registry->RegisterBooleanPref(prefs::kSignInPromoShowNTPBubble, false);
   registry->RegisterIntegerPref(prefs::kDiceSigninUserMenuPromoCount, 0);

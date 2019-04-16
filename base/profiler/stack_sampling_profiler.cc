@@ -50,8 +50,8 @@ const int kNullProfilerId = -1;
 // StackSamplingProfiler::Frame -------------------------------------
 
 StackSamplingProfiler::Frame::Frame(uintptr_t instruction_pointer,
-                                    ModuleCache::Module module)
-    : instruction_pointer(instruction_pointer), module(std::move(module)) {}
+                                    const ModuleCache::Module* module)
+    : instruction_pointer(instruction_pointer), module(module) {}
 
 StackSamplingProfiler::Frame::~Frame() = default;
 
@@ -523,7 +523,6 @@ void StackSamplingProfiler::SamplingThread::RecordSampleTask(
   if (collection->sample_count == 0) {
     collection->profile_start_time = Time::Now();
     collection->next_sample_time = Time::Now();
-    collection->native_sampler->ProfileRecordingStarting();
   }
 
   // Record a single sample.
@@ -699,7 +698,8 @@ void StackSamplingProfiler::Start() {
   DCHECK(profile_builder_);
 
   if (!native_sampler_)
-    native_sampler_ = NativeStackSampler::Create(thread_id_, test_delegate_);
+    native_sampler_ = NativeStackSampler::Create(
+        thread_id_, profile_builder_->GetModuleCache(), test_delegate_);
 
   if (!native_sampler_)
     return;

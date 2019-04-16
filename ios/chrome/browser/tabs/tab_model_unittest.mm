@@ -701,7 +701,7 @@ TEST_P(TabModelTest, TabCreatedOnInsertion) {
   EXPECT_NSNE(nil, LegacyTabHelper::GetTabForWebState(web_state_ptr));
 }
 
-TEST_P(TabModelTest, PersistSelectionChange) {
+TEST_P(TabModelTest, DISABLED_PersistSelectionChange) {
   NSString* stashPath =
       base::SysUTF8ToNSString(chrome_browser_state_->GetStatePath().value());
 
@@ -760,9 +760,9 @@ TEST_P(TabModelTest, PersistSelectionChange) {
                                                          error:nullptr]);
 }
 
-INSTANTIATE_TEST_CASE_P(ProgrammaticTabModelTest,
-                        TabModelTest,
-                        ::testing::Values(NavigationManagerChoice::LEGACY,
-                                          NavigationManagerChoice::WK_BASED));
+INSTANTIATE_TEST_SUITE_P(ProgrammaticTabModelTest,
+                         TabModelTest,
+                         ::testing::Values(NavigationManagerChoice::LEGACY,
+                                           NavigationManagerChoice::WK_BASED));
 
 }  // anonymous namespace

@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "base/bind.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/feedback/feedback_uploader_chrome.h"
@@ -40,11 +41,13 @@ int GetSysInfoCheckboxStringId(content::BrowserContext* browser_context) {
 #if defined(OS_CHROMEOS)
   if (arc::IsArcPlayStoreEnabledForProfile(
           Profile::FromBrowserContext(browser_context))) {
-    return IDS_FEEDBACK_INCLUDE_SYSTEM_INFORMATION_CHKBOX_ARC;
+    return IDS_FEEDBACK_INCLUDE_SYSTEM_INFORMATION_AND_METRICS_CHKBOX_ARC;
+  } else {
+    return IDS_FEEDBACK_INCLUDE_SYSTEM_INFORMATION_AND_METRICS_CHKBOX;
   }
-#endif
-
+#else
   return IDS_FEEDBACK_INCLUDE_SYSTEM_INFORMATION_CHKBOX;
+#endif
 }
 
 }  // namespace
@@ -85,6 +88,8 @@ ChromeFeedbackPrivateDelegate::GetStrings(
              IDS_FEEDBACK_INCLUDE_PERFORMANCE_TRACE_CHECKBOX);
   SET_STRING("bluetooth-logs-info", IDS_FEEDBACK_BLUETOOTH_LOGS_CHECKBOX);
   SET_STRING("bluetooth-logs-message", IDS_FEEDBACK_BLUETOOTH_LOGS_MESSAGE);
+  SET_STRING("assistant-logs-message", IDS_FEEDBACK_ASSISTANT_LOGS_MESSAGE);
+
   // Add the localized strings needed for the "system information" page.
   SET_STRING("sysinfoPageTitle", IDS_FEEDBACK_SYSINFO_PAGE_TITLE);
   SET_STRING("sysinfoPageDescription", IDS_ABOUT_SYS_DESC);

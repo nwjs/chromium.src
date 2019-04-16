@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/common/media_router/discovery/media_sink_service_base.h"
+#include "base/bind.h"
 #include "chrome/common/media_router/media_route.h"
 
 #include <vector>
@@ -115,6 +116,8 @@ void MediaSinkServiceBase::OnDiscoveryComplete() {
   for (const auto& sink_it : sinks_)
     sinks.push_back(sink_it.second);
 
+  for (auto& observer : observers_)
+    observer.OnSinksDiscovered(sinks);
   on_sinks_discovered_cb_.Run(std::move(sinks));
   previous_sinks_ = sinks_;
 }

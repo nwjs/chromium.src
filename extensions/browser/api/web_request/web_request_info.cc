@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/stl_util.h"
 #include "base/values.h"
@@ -18,6 +19,7 @@
 #include "extensions/browser/extension_navigation_ui_data.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/upload_bytes_element_reader.h"
 #include "net/base/upload_data_stream.h"
 #include "net/base/upload_file_element_reader.h"
@@ -274,6 +276,7 @@ WebRequestInfo::WebRequestInfo(net::URLRequest* url_request)
       render_process_id = url_loader->GetProcessId();
       frame_id = url_loader->GetRenderFrameId();
     }
+    type = static_cast<content::ResourceType>(url_loader->GetResourceType());
   } else {
     // There may be basic process and frame info associated with the request
     // even when |info| is null. Attempt to grab it as a last ditch effort. If
@@ -348,7 +351,7 @@ void WebRequestInfo::AddResponseInfoFromURLRequest(
     net::URLRequest* url_request) {
   response_code = url_request->GetResponseCode();
   response_headers = url_request->response_headers();
-  response_ip = url_request->GetSocketAddress().host();
+  response_ip = url_request->GetResponseRemoteEndpoint().ToStringWithoutPort();
   response_from_cache = url_request->was_cached();
 }
 
@@ -357,7 +360,7 @@ void WebRequestInfo::AddResponseInfoFromResourceResponse(
   response_headers = response.headers;
   if (response_headers)
     response_code = response_headers->response_code();
-  response_ip = response.socket_address.host();
+  response_ip = response.remote_endpoint.ToStringWithoutPort();
   response_from_cache = response.was_fetched_via_cache;
 }
 

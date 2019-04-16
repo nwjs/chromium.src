@@ -6,7 +6,7 @@
  * Metadata containing thumbnail information.
  * @typedef {Object}
  */
-var ThumbnailMetadataItem;
+let ThumbnailMetadataItem;
 
 /**
  * @param {!MetadataModel} metadataModel
@@ -27,7 +27,7 @@ function ThumbnailModel(metadataModel) {
  *     metadata list.
  */
 ThumbnailModel.prototype.get = function(entries) {
-  var results = {};
+  const results = {};
   return this.metadataModel_
       .get(
           entries,
@@ -35,10 +35,10 @@ ThumbnailModel.prototype.get = function(entries) {
             'modificationTime', 'customIconUrl', 'contentMimeType',
             'thumbnailUrl', 'croppedThumbnailUrl', 'present'
           ])
-      .then(function(metadataList) {
-        var contentRequestEntries = [];
-        for (var i = 0; i < entries.length; i++) {
-          var url = entries[i].toURL();
+      .then(metadataList => {
+        const contentRequestEntries = [];
+        for (let i = 0; i < entries.length; i++) {
+          const url = entries[i].toURL();
           // TODO(hirono): Use the provider results directly after removing code
           // using old metadata format.
           results[url] = {
@@ -60,7 +60,7 @@ ThumbnailModel.prototype.get = function(entries) {
             thumbnail: {},
             media: {}
           };
-          var canUseContentThumbnail =
+          const canUseContentThumbnail =
               metadataList[i].present &&
               (FileType.isImage(entries[i], metadataList[i].contentMimeType) ||
                FileType.isAudio(entries[i], metadataList[i].contentMimeType));
@@ -75,9 +75,9 @@ ThumbnailModel.prototype.get = function(entries) {
                 'contentThumbnailUrl',
                 'contentThumbnailTransform',
                 'contentImageTransform'
-              ]).then(function(contentMetadataList) {
-                for (var i = 0; i < contentRequestEntries.length; i++) {
-                  var url = contentRequestEntries[i].toURL();
+              ]).then(contentMetadataList => {
+                for (let i = 0; i < contentRequestEntries.length; i++) {
+                  const url = contentRequestEntries[i].toURL();
                   results[url].thumbnail.url =
                       contentMetadataList[i].contentThumbnailUrl;
                   results[url].thumbnail.urlError =
@@ -93,9 +93,9 @@ ThumbnailModel.prototype.get = function(entries) {
                 }
               });
         }
-      }.bind(this))
-      .then(function() {
-        return entries.map(function(entry) {
+      })
+      .then(() => {
+        return entries.map(entry => {
           return results[entry.toURL()];
         });
       });

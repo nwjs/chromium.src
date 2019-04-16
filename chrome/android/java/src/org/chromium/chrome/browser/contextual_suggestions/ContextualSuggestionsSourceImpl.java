@@ -44,7 +44,8 @@ class ContextualSuggestionsSourceImpl
     @Override
     public void fetchSuggestionImage(SnippetArticle suggestion, Callback<Bitmap> callback) {
         String url = mBridge.getImageUrl(suggestion);
-        mCachedImageFetcher.fetchImage(url, callback);
+        mCachedImageFetcher.fetchImage(
+                url, CachedImageFetcher.CONTEXTUAL_SUGGESTIONS_UMA_CLIENT_NAME, callback);
     }
 
     @Override
@@ -56,7 +57,8 @@ class ContextualSuggestionsSourceImpl
             return;
         }
 
-        mCachedImageFetcher.fetchImage(url, callback);
+        mCachedImageFetcher.fetchImage(
+                url, CachedImageFetcher.CONTEXTUAL_SUGGESTIONS_UMA_CLIENT_NAME, callback);
     }
 
     @Override
@@ -68,7 +70,9 @@ class ContextualSuggestionsSourceImpl
             return;
         }
 
-        mCachedImageFetcher.fetchImage(url, desiredSizePx, desiredSizePx, callback);
+        mCachedImageFetcher.fetchImage(url,
+                CachedImageFetcher.CONTEXTUAL_SUGGESTIONS_UMA_CLIENT_NAME, desiredSizePx,
+                desiredSizePx, callback);
     }
 
     @Override

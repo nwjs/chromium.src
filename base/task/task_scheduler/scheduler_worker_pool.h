@@ -8,6 +8,8 @@
 #include "base/base_export.h"
 #include "base/memory/ref_counted.h"
 #include "base/task/task_scheduler/can_schedule_sequence_observer.h"
+#include "base/task/task_scheduler/priority_queue.h"
+#include "base/task/task_scheduler/scheduler_lock.h"
 #include "base/task/task_scheduler/sequence.h"
 #include "base/task/task_scheduler/task.h"
 #include "base/task/task_scheduler/tracked_ref.h"
@@ -27,10 +29,9 @@ class BASE_EXPORT SchedulerWorkerPool : public CanScheduleSequenceObserver {
 
     // Invoked when the Sequence in |sequence_and_transaction| is non-empty
     // after the SchedulerWorkerPool has run a task from it. The implementation
-    // must enqueue the Sequence in the appropriate priority queue, depending
-    // on the Sequence's traits.
-    virtual void ReEnqueueSequence(
-        SequenceAndTransaction sequence_and_transaction) = 0;
+    // must return the pool in which the Sequence should be reenqueued.
+    virtual SchedulerWorkerPool* GetWorkerPoolForTraits(
+        const TaskTraits& traits) = 0;
   };
 
   ~SchedulerWorkerPool() override;
@@ -54,6 +55,15 @@ class BASE_EXPORT SchedulerWorkerPool : public CanScheduleSequenceObserver {
   // Returns true if the worker pool is registered in TLS.
   bool IsBoundToCurrentThread() const;
 
+  // Updates the position of the Sequence in |sequence_and_transaction| in
+  // |shared_priority_queue| based on the Sequence's current traits.
+  void UpdateSortKey(SequenceAndTransaction sequence_and_transaction);
+
+  // Removes |sequence| from |priority_queue_|. Returns true if successful, or
+  // false if |sequence| is not currently in |priority_queue_|, such as when a
+  // worker is running a task from it.
+  bool RemoveSequence(scoped_refptr<Sequence> sequence);
+
   // Prevents new tasks from starting to run and waits for currently running
   // tasks to complete their execution. It is guaranteed that no thread will do
   // work on behalf of this SchedulerWorkerPool after this returns. It is
@@ -62,12 +72,10 @@ class BASE_EXPORT SchedulerWorkerPool : public CanScheduleSequenceObserver {
   // task during JoinForTesting(). This can only be called once.
   virtual void JoinForTesting() = 0;
 
-  // Enqueues the Sequence in |sequence_and_transaction| in the worker pool's
-  // priority queue, then wakes up a worker if |is_changing_pools|, i.e. if the
-  // Sequence came from a different worker pool.
-  virtual void ReEnqueueSequence(
-      SequenceAndTransaction sequence_and_transaction,
-      bool is_changing_pools) = 0;
+  // Enqueues the Sequence in |sequence_and_transaction| which was previously in
+  // a different worker pool into this worker pool's priority queue.
+  virtual void ReEnqueueSequenceChangingPool(
+      SequenceAndTransaction sequence_and_transaction) = 0;
 
   // Called when the Sequence in |sequence_and_transaction| can be scheduled.
   // It is expected that TaskTracker::RunNextTask() will be called with
@@ -75,9 +83,27 @@ class BASE_EXPORT SchedulerWorkerPool : public CanScheduleSequenceObserver {
   virtual void OnCanScheduleSequence(
       SequenceAndTransaction sequence_and_transaction) = 0;
 
+  // Returns the maximum number of non-blocked tasks that can run concurrently
+  // in this pool.
+  //
+  // TODO(fdoray): Remove this method. https://crbug.com/687264
+  virtual size_t GetMaxConcurrentNonBlockedTasksDeprecated() const = 0;
+
+  // Reports relevant metrics per implementation.
+  virtual void ReportHeartbeatMetrics() const = 0;
+
  protected:
   SchedulerWorkerPool(TrackedRef<TaskTracker> task_tracker,
                       TrackedRef<Delegate> delegate);
+
+  // Synchronizes accesses to all members of this class which are neither const,
+  // atomic, nor immutable after start. Since this lock is a bottleneck to post
+  // and schedule work, only simple data structure manipulations are allowed
+  // within its scope (no thread creation or wake up).
+  mutable SchedulerLock lock_;
+
+  // PriorityQueue from which all threads of this worker pool get work.
+  PriorityQueue priority_queue_ GUARDED_BY(lock_);
 
   const TrackedRef<TaskTracker> task_tracker_;
   const TrackedRef<Delegate> delegate_;

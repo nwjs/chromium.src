@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -158,7 +159,7 @@ StringMap MapSocketsToProcesses(const std::string& response) {
     if (fields[3] != "00010000" || fields[5] != "01")
       continue;
     std::string path_field = fields[7];
-    if (path_field.size() < 1 || path_field[0] != '@')
+    if (path_field.empty() || path_field[0] != '@')
       continue;
     size_t socket_name_pos = path_field.find(kDevToolsSocketSuffix);
     if (socket_name_pos == std::string::npos)

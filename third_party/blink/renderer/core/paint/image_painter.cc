@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/image_element_timing.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
+#include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/scoped_paint_state.h"
 #include "third_party/blink/renderer/platform/geometry/layout_point.h"
 #include "third_party/blink/renderer/platform/graphics/paint/display_item_cache_skipper.h"
@@ -189,7 +190,9 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
                 image->paint_image_id())
           : Image::kUnspecifiedDecode;
 
-  if (layout_image_.IsImagePolicyViolated()) {
+  // TODO(loonybear): Support image policies on other image types in addition to
+  // HTMLImageElement.
+  if (IsHTMLImageElement(node) && layout_image_.IsImagePolicyViolated()) {
     // Does not set an observer for the placeholder image, setting it to null.
     scoped_refptr<PlaceholderImage> placeholder_image =
         PlaceholderImage::Create(nullptr, image->Size(),
@@ -197,6 +200,9 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
     placeholder_image->SetIconAndTextScaleFactor(
         layout_image_.GetFrame()->PageZoomFactor());
     image = std::move(placeholder_image);
+
+    // Report layout related image policy violation.
+    layout_image_.ReportImagePolicyViolation();
   }
 
   context.DrawImage(
@@ -209,7 +215,13 @@ void ImagePainter::PaintIntoRect(GraphicsContext& context,
     LocalDOMWindow* window = layout_image_.GetDocument().domWindow();
     DCHECK(window);
     ImageElementTiming::From(*window).NotifyImagePainted(
-        ToHTMLImageElement(node), &layout_image_, painting_layer);
+        &layout_image_, layout_image_.CachedImage(), painting_layer);
+  }
+
+  if (RuntimeEnabledFeatures::FirstContentfulPaintPlusPlusEnabled()) {
+    PaintTimingDetector::NotifyImagePaint(
+        layout_image_,
+        context.GetPaintController().CurrentPaintChunkProperties());
   }
 }
 

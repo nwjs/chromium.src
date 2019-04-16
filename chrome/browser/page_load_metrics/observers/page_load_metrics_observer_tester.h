@@ -58,6 +58,8 @@ class PageLoadMetricsObserverTester : public test::WeakMockTimerProvider {
       const std::vector<mojom::ResourceDataUpdatePtr>& resources,
       content::RenderFrameHost* render_frame_host);
   void SimulateRenderDataUpdate(const mojom::PageRenderData& render_data);
+  void SimulateRenderDataUpdate(const mojom::PageRenderData& render_data,
+                                content::RenderFrameHost* render_frame_host);
 
   // Simulates a loaded resource. Main frame resources must specify a
   // GlobalRequestID, using the SimulateLoadedResource() method that takes a
@@ -89,6 +91,7 @@ class PageLoadMetricsObserverTester : public test::WeakMockTimerProvider {
                                     const mojom::PageLoadMetadata& metadata,
                                     const mojom::PageLoadFeatures& new_features,
                                     const mojom::PageRenderData& render_data,
+                                    const mojom::CpuTiming& cpu_timing,
                                     content::RenderFrameHost* rfh);
 
   content::WebContents* web_contents() const { return web_contents_; }

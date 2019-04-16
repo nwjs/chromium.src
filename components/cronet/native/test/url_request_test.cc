@@ -223,9 +223,9 @@ class UrlRequestTest : public ::testing::TestWithParam<bool> {
 };
 
 const bool kDirectExecutorEnabled[]{true, false};
-INSTANTIATE_TEST_CASE_P(,
-                        UrlRequestTest,
-                        testing::ValuesIn(kDirectExecutorEnabled));
+INSTANTIATE_TEST_SUITE_P(,
+                         UrlRequestTest,
+                         testing::ValuesIn(kDirectExecutorEnabled));
 
 TEST_P(UrlRequestTest, InitChecks) {
   Cronet_EngineParamsPtr engine_params = Cronet_EngineParams_Create();
@@ -292,6 +292,9 @@ TEST_P(UrlRequestTest, InitChecks) {
 
   request = Cronet_UrlRequest_Create();
   Cronet_UrlRequestParams_http_method_set(request_params, "HEAD");
+  Cronet_UrlRequestParams_priority_set(
+      request_params,
+      Cronet_UrlRequestParams_REQUEST_PRIORITY_REQUEST_PRIORITY_IDLE);
   // Check header validation
   Cronet_HttpHeaderPtr http_header = Cronet_HttpHeader_Create();
   Cronet_UrlRequestParams_request_headers_add(request_params, http_header);
@@ -303,6 +306,9 @@ TEST_P(UrlRequestTest, InitChecks) {
   Cronet_UrlRequest_Destroy(request);
 
   request = Cronet_UrlRequest_Create();
+  Cronet_UrlRequestParams_priority_set(
+      request_params,
+      Cronet_UrlRequestParams_REQUEST_PRIORITY_REQUEST_PRIORITY_LOWEST);
   Cronet_HttpHeader_name_set(http_header, "bad:name");
   Cronet_UrlRequestParams_request_headers_add(request_params, http_header);
   EXPECT_EQ(
@@ -313,6 +319,9 @@ TEST_P(UrlRequestTest, InitChecks) {
   Cronet_UrlRequest_Destroy(request);
 
   request = Cronet_UrlRequest_Create();
+  Cronet_UrlRequestParams_priority_set(
+      request_params,
+      Cronet_UrlRequestParams_REQUEST_PRIORITY_REQUEST_PRIORITY_LOW);
   Cronet_HttpHeader_value_set(http_header, "header value");
   Cronet_UrlRequestParams_request_headers_add(request_params, http_header);
   EXPECT_EQ(
@@ -323,6 +332,9 @@ TEST_P(UrlRequestTest, InitChecks) {
   Cronet_UrlRequest_Destroy(request);
 
   request = Cronet_UrlRequest_Create();
+  Cronet_UrlRequestParams_priority_set(
+      request_params,
+      Cronet_UrlRequestParams_REQUEST_PRIORITY_REQUEST_PRIORITY_HIGHEST);
   Cronet_HttpHeader_name_set(http_header, "header-name");
   Cronet_UrlRequestParams_request_headers_add(request_params, http_header);
   EXPECT_EQ(Cronet_RESULT_SUCCESS, Cronet_UrlRequest_InitWithParams(
@@ -993,13 +1005,7 @@ TEST_P(UrlRequestTest, PerfTest) {
   cronet::TestServer::ReleaseBigDataURL();
 }
 
-// https://crbug.com/921713 Flaky crash on Fuchsia.
-#if defined(OS_FUCHSIA)
-#define MAYBE_GetStatus DISABLED_GetStatus
-#else
-#define MAYBE_GetStatus GetStatus
-#endif
-TEST_P(UrlRequestTest, MAYBE_GetStatus) {
+TEST_P(UrlRequestTest, GetStatus) {
   Cronet_EnginePtr engine = cronet::test::CreateTestEngine(0);
   Cronet_UrlRequestPtr request = Cronet_UrlRequest_Create();
   Cronet_UrlRequestParamsPtr request_params = Cronet_UrlRequestParams_Create();
@@ -1050,7 +1056,7 @@ TEST_P(UrlRequestTest, MAYBE_GetStatus) {
     // final callbacks.
     GetRequestStatus(request, &test_callback);
     test_callback.WaitForNextStep();
-  } while (!test_callback.IsDone());
+  } while (!Cronet_UrlRequest_IsDone(request));
 
   EXPECT_EQ(Cronet_UrlRequestStatusListener_Status_INVALID,
             GetRequestStatus(request, &test_callback));

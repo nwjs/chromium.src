@@ -4,6 +4,7 @@
 
 #include <tuple>
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/run_loop.h"
@@ -101,7 +102,8 @@ class YUVReadbackTest : public testing::Test {
 
     std::string error_msg;
     std::unique_ptr<base::Value> trace_data =
-        base::JSONReader::ReadAndReturnError(json_data, 0, nullptr, &error_msg);
+        base::JSONReader::ReadAndReturnErrorDeprecated(json_data, 0, nullptr,
+                                                       &error_msg);
     CHECK(trace_data) << "JSON parsing failed (" << error_msg
                       << ") JSON data:" << std::endl
                       << json_data;
@@ -549,7 +551,7 @@ TEST_P(YUVReadbackPixelTest, Test) {
 }
 
 // First argument is intentionally empty.
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     YUVReadbackPixelTest,
     ::testing::Combine(

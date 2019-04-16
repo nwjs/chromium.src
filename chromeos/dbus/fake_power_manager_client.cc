@@ -20,6 +20,9 @@
 namespace chromeos {
 
 namespace {
+
+FakePowerManagerClient* g_instance = nullptr;
+
 // Minimum power for a USB power source to be classified as AC.
 constexpr double kUsbMinAcWatts = 24;
 
@@ -53,11 +56,10 @@ power_manager::BacklightBrightnessChange_Cause RequestCauseToChangeCause(
 }  // namespace
 
 FakePowerManagerClient::FakePowerManagerClient()
-    : props_(power_manager::PowerSupplyProperties()), weak_ptr_factory_(this) {}
+    : props_(power_manager::PowerSupplyProperties()) {
+  DCHECK(!g_instance);
+  g_instance = this;
 
-FakePowerManagerClient::~FakePowerManagerClient() = default;
-
-void FakePowerManagerClient::Init(dbus::Bus* bus) {
   props_->set_battery_percent(50);
   props_->set_is_calculating_battery_time(false);
   props_->set_battery_state(
@@ -66,6 +68,11 @@ void FakePowerManagerClient::Init(dbus::Bus* bus) {
       power_manager::PowerSupplyProperties_ExternalPower_DISCONNECTED);
   props_->set_battery_time_to_full_sec(0);
   props_->set_battery_time_to_empty_sec(18000);
+}
+
+FakePowerManagerClient::~FakePowerManagerClient() {
+  DCHECK_EQ(g_instance, this);
+  g_instance = nullptr;
 }
 
 void FakePowerManagerClient::AddObserver(Observer* observer) {
@@ -165,6 +172,10 @@ void FakePowerManagerClient::NotifyVideoActivity(bool is_fullscreen) {
   video_activity_reports_.push_back(is_fullscreen);
 }
 
+void FakePowerManagerClient::NotifyWakeNotification() {
+  ++num_wake_notification_calls_;
+}
+
 void FakePowerManagerClient::SetPolicy(
     const power_manager::PowerManagementPolicy& policy) {
   policy_ = policy;
@@ -252,12 +263,16 @@ void FakePowerManagerClient::CreateArcTimers(
     const std::string& tag,
     std::vector<std::pair<clockid_t, base::ScopedFD>> arc_timer_requests,
     DBusMethodCallback<std::vector<TimerId>> callback) {
-  // Check if client tag already exists. Return error iff it does.
-  if (base::ContainsKey(client_timer_ids_, tag)) {
+  // Return error if tag is empty.
+  if (tag.empty()) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), std::vector<TimerId>()));
     return;
   }
+
+  // Just like the real implementation, delete any old timers associated with
+  // |tag|.
+  DeleteArcTimersInternal(tag);
 
   // First, ensure that there are no duplicate clocks in the arguments. Return
   // error if there are.
@@ -312,19 +327,7 @@ void FakePowerManagerClient::StartArcTimer(
 
 void FakePowerManagerClient::DeleteArcTimers(const std::string& tag,
                                              VoidDBusMethodCallback callback) {
-  // Retrieve all timer ids associated with |tag|. Delete all timers associated
-  // with these timer ids. Return true even if |tag| isn't found.
-  auto it = client_timer_ids_.find(tag);
-  if (it == client_timer_ids_.end()) {
-    base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), true));
-    return;
-  }
-
-  for (auto timer_id : it->second)
-    timer_expiration_fds_.erase(timer_id);
-
-  client_timer_ids_.erase(it);
+  DeleteArcTimersInternal(tag);
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), true));
 }
@@ -423,10 +426,28 @@ void FakePowerManagerClient::NotifyObservers() {
     observer.PowerChanged(*props_);
 }
 
+FakePowerManagerClient* FakePowerManagerClient::Get() {
+  DCHECK(g_instance);
+  return g_instance;
+}
+
 void FakePowerManagerClient::HandleSuspendReadiness() {
   CHECK_GT(num_pending_suspend_readiness_callbacks_, 0);
 
   --num_pending_suspend_readiness_callbacks_;
+}
+
+void FakePowerManagerClient::DeleteArcTimersInternal(const std::string& tag) {
+  // Retrieve all timer ids associated with |tag|. Delete all timers associated
+  // with these timer ids.
+  auto it = client_timer_ids_.find(tag);
+  if (it == client_timer_ids_.end())
+    return;
+
+  for (auto timer_id : it->second)
+    timer_expiration_fds_.erase(timer_id);
+
+  client_timer_ids_.erase(it);
 }
 
 void FakePowerManagerClient::SetPowerPolicyQuitClosure(

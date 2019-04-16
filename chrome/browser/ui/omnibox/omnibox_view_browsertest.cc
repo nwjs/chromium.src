@@ -649,7 +649,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, ClearUserTextAfterBackgroundCommit) {
 
   // Switch back to the first tab.  The user text should be cleared, and the
   // omnibox should have the new URL.
-  browser()->tab_strip_model()->ActivateTabAt(0, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      0, {TabStripModel::GestureType::kOther});
   EXPECT_EQ(ASCIIToUTF16(url2.spec()), omnibox_view->GetText());
 }
 
@@ -703,7 +704,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EscapeToDefaultMatch) {
 
   base::string16 old_text = omnibox_view->GetText();
 
-  // Make sure inline autocomplete is triggerred.
+  // Make sure inline autocomplete is triggered.
   EXPECT_GT(old_text.length(), base::size(kInlineAutocompleteText) - 1);
 
   size_t old_selected_line = popup_model->selected_line();
@@ -724,6 +725,63 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, EscapeToDefaultMatch) {
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_ESCAPE, 0));
   EXPECT_EQ(old_text, omnibox_view->GetText());
   EXPECT_EQ(old_selected_line, popup_model->selected_line());
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
+                       RevertDefaultRevertInlineTextWhenSelectingDefaultMatch) {
+  OmniboxView* omnibox_view = NULL;
+  ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
+  OmniboxPopupModel* popup_model = omnibox_view->model()->popup_model();
+  ASSERT_TRUE(popup_model);
+
+  // Input something to trigger inline autocomplete.
+  ASSERT_NO_FATAL_FAILURE(SendKeySequence(kInlineAutocompleteTextKeys));
+  ASSERT_NO_FATAL_FAILURE(WaitForAutocompleteControllerDone());
+  ASSERT_TRUE(popup_model->IsOpen());
+
+  base::string16 old_text = omnibox_view->GetText();
+
+  // Make sure inline autocomplete is triggered.
+  EXPECT_GT(old_text.length(), base::size(kInlineAutocompleteText) - 1);
+
+  size_t old_selected_line = popup_model->selected_line();
+  EXPECT_EQ(0U, old_selected_line);
+
+  // Move to another line with different text.
+  size_t size = popup_model->result().size();
+  while (popup_model->selected_line() < size - 1) {
+    ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_DOWN, 0));
+    ASSERT_NE(old_selected_line, popup_model->selected_line());
+    if (old_text != omnibox_view->GetText())
+      break;
+  }
+
+  EXPECT_NE(old_text, omnibox_view->GetText());
+
+  // Move back to the first line
+  while (popup_model->selected_line() > 0)
+    ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_UP, 0));
+
+  EXPECT_EQ(old_text, omnibox_view->GetText());
+  EXPECT_EQ(old_selected_line, popup_model->selected_line());
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
+                       RendererInitiatedFocusPreservesUserText) {
+  OmniboxView* omnibox_view = nullptr;
+  ASSERT_NO_FATAL_FAILURE(GetOmniboxView(&omnibox_view));
+
+  // Type a single character.
+  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_A, 0));
+  EXPECT_EQ(base::ASCIIToUTF16("a"), omnibox_view->GetText());
+
+  // Simulate a renderer-initated focus event.
+  browser()->SetFocusToLocationBar();
+
+  // Type an additional character and verify that we didn't clobber the
+  // character we already typed.
+  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_B, 0));
+  EXPECT_EQ(base::ASCIIToUTF16("ab"), omnibox_view->GetText());
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxViewTest, BasicTextOperations) {
@@ -1048,12 +1106,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, MAYBE_AcceptKeywordBySpace) {
   ASSERT_EQ(ASCIIToUTF16("foobar.com"), omnibox_view->GetText());
   omnibox_view->model()->OnUpOrDownKeyPressed(1);
   omnibox_view->model()->OnUpOrDownKeyPressed(-1);
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
-  ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_LEFT, 0));
   ASSERT_NO_FATAL_FAILURE(SendKey(ui::VKEY_SPACE, 0));
   ASSERT_FALSE(omnibox_view->model()->is_keyword_hint());
@@ -1386,7 +1438,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PersistKeywordModeOnTabSwitch) {
   chrome::NewTab(browser());
 
   // Switch back to the first tab.
-  browser()->tab_strip_model()->ActivateTabAt(0, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      0, {TabStripModel::GestureType::kOther});
 
   // Make sure we're still in keyword mode.
   ASSERT_TRUE(omnibox_view->model()->is_keyword_selected());
@@ -1397,8 +1450,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest, PersistKeywordModeOnTabSwitch) {
   ASSERT_NO_FATAL_FAILURE(SendKeySequence(kSearchTextKeys));
 
   // Switch to the second tab and back to the first.
-  browser()->tab_strip_model()->ActivateTabAt(1, true);
-  browser()->tab_strip_model()->ActivateTabAt(0, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      1, {TabStripModel::GestureType::kOther});
+  browser()->tab_strip_model()->ActivateTabAt(
+      0, {TabStripModel::GestureType::kOther});
 
   // Make sure we're still in keyword mode.
   ASSERT_TRUE(omnibox_view->model()->is_keyword_selected());
@@ -1420,7 +1475,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxViewTest,
 
   base::string16 old_text = omnibox_view->GetText();
 
-  // Make sure inline autocomplete is triggerred.
+  // Make sure inline autocomplete is triggered.
   EXPECT_GT(old_text.length(), base::size(kInlineAutocompleteText) - 1);
 
   // Press ctrl key.

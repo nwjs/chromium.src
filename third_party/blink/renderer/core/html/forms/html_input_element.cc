@@ -39,6 +39,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/scoped_event_queue.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
+#include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/dom/v0_insertion_point.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -460,7 +461,7 @@ void HTMLInputElement::UpdateType() {
 
   ValueMode new_value_mode = input_type_->GetValueMode();
 
-  // https://html.spec.whatwg.org/multipage/forms.html#input-type-change
+  // https://html.spec.whatwg.org/C/#input-type-change
   //
   // 1. If the previous state of the element's type attribute put the value IDL
   // attribute in the value mode, and the element's value is not the empty
@@ -882,11 +883,8 @@ LayoutObject* HTMLInputElement::CreateLayoutObject(const ComputedStyle& style) {
 
 void HTMLInputElement::AttachLayoutTree(AttachContext& context) {
   TextControlElement::AttachLayoutTree(context);
-  if (GetLayoutObject()) {
+  if (GetLayoutObject())
     input_type_->OnAttachWithLayoutObject();
-  }
-
-  input_type_view_->StartResourceLoading();
   input_type_->CountUsage();
 }
 
@@ -999,7 +997,8 @@ void HTMLInputElement::setChecked(bool now_checked,
   // unchecked to match other browsers. DOM is not a useful standard for this
   // because it says only to fire change events at "lose focus" time, which is
   // definitely wrong in practice for these types of elements.
-  if (event_behavior == kDispatchInputAndChangeEvent && isConnected() &&
+  if (event_behavior == TextFieldEventBehavior::kDispatchInputAndChangeEvent &&
+      isConnected() &&
       input_type_->ShouldSendChangeEventAfterCheckedChanged()) {
     DispatchInputEvent();
   }
@@ -1071,7 +1070,7 @@ String HTMLInputElement::ValueOrDefaultLabel() const {
 
 void HTMLInputElement::SetValueForUser(const String& value) {
   // Call setValue and make it send a change event.
-  setValue(value, kDispatchChangeEvent);
+  setValue(value, TextFieldEventBehavior::kDispatchChangeEvent);
 }
 
 void HTMLInputElement::SetSuggestedValue(const String& value) {
@@ -1245,7 +1244,7 @@ EventDispatchHandlingState* HTMLInputElement::PreDispatchEventHandler(
     return nullptr;
   if (!event.IsMouseEvent() ||
       ToMouseEvent(event).button() !=
-          static_cast<short>(WebPointerProperties::Button::kLeft))
+          static_cast<int16_t>(WebPointerProperties::Button::kLeft))
     return nullptr;
   return input_type_view_->WillDispatchClick();
 }
@@ -1262,7 +1261,7 @@ void HTMLInputElement::PostDispatchEventHandler(
 void HTMLInputElement::DefaultEventHandler(Event& evt) {
   if (evt.IsMouseEvent() && evt.type() == event_type_names::kClick &&
       ToMouseEvent(evt).button() ==
-          static_cast<short>(WebPointerProperties::Button::kLeft)) {
+          static_cast<int16_t>(WebPointerProperties::Button::kLeft)) {
     input_type_view_->HandleClickEvent(ToMouseEvent(evt));
     if (evt.DefaultHandled())
       return;
@@ -1944,12 +1943,9 @@ scoped_refptr<ComputedStyle> HTMLInputElement::CustomStyleForLayoutObject() {
       OriginalStyleForLayoutObject());
 }
 
-void HTMLInputElement::DidRecalcStyle(StyleRecalcChange change) {
+void HTMLInputElement::DidRecalcStyle(const StyleRecalcChange change) {
   TextControlElement::DidRecalcStyle(change);
-  if (change != kReattach)
-    return;
-  ComputedStyle* style = GetNonAttachedStyle();
-  if (style && style->Display() != EDisplay::kNone)
+  if (NeedsReattachLayoutTree() && GetComputedStyle())
     input_type_view_->StartResourceLoading();
 }
 

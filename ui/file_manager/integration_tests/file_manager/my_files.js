@@ -4,13 +4,13 @@
 /**
  * Tests if MyFiles is displayed when flag is true.
  */
-testcase.showMyFiles = async function() {
+testcase.showMyFiles = async () => {
   const expectedElementLabels = [
     'Recent: FakeItem',
     'My files: EntryListItem',
     'Downloads: SubDirectoryItem',
-    'Play files: SubDirectoryItem',
     'Linux files: FakeItem',
+    'Play files: SubDirectoryItem',
     'Google Drive: DriveVolumeItem',
     'My Drive: SubDirectoryItem',
     'Shared with me: SubDirectoryItem',
@@ -27,7 +27,7 @@ testcase.showMyFiles = async function() {
       'queryAllElements', appId, dirTreeQuery);
 
   // Check tree elements for the correct order and label/element type.
-  var visibleElements = [];
+  const visibleElements = [];
   for (let element of elements) {
     if (!element.hidden) {  // Ignore hidden elements.
       visibleElements.push(
@@ -54,7 +54,7 @@ testcase.showMyFiles = async function() {
 /**
  * Tests search button hidden when selected My Files.
  */
-testcase.hideSearchButton = async function() {
+testcase.hideSearchButton = async () => {
   // Open Files app on local Downloads.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.beautiful], []);
@@ -95,7 +95,7 @@ testcase.hideSearchButton = async function() {
  * DirectoryTree expects NavigationModelItem to be the same instance through
  * updates.
  */
-testcase.directoryTreeRefresh = async function() {
+testcase.directoryTreeRefresh = async () => {
   const USB_VOLUME_QUERY = '#directory-tree [volume-type-icon="removable"]';
 
   // Open Files app on local Downloads.
@@ -117,7 +117,7 @@ testcase.directoryTreeRefresh = async function() {
  * Tests My Files displaying Downloads on file list (RHS) and opening Downloads
  * from file list.
  */
-testcase.myFilesDisplaysAndOpensEntries = async function() {
+testcase.myFilesDisplaysAndOpensEntries = async () => {
   // Open Files app on local Downloads.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.beautiful], []);
@@ -158,7 +158,7 @@ testcase.myFilesDisplaysAndOpensEntries = async function() {
  * If it doesn't update its children recursively it can cause directory tree to
  * not show or hide sub-folders crbug.com/864453.
  */
-testcase.myFilesUpdatesChildren = async function() {
+testcase.myFilesUpdatesChildren = async () => {
   const downloadsQuery = '#directory-tree [entry-label="Downloads"]';
   const hiddenFolder = new TestEntryInfo({
     type: EntryType.DIRECTORY,
@@ -221,7 +221,7 @@ testcase.myFilesUpdatesChildren = async function() {
  * Check naming a folder after navigating inside MyFiles using file list (RHS).
  * crbug.com/889636.
  */
-testcase.myFilesFolderRename = async function() {
+testcase.myFilesFolderRename = async () => {
   const textInput = '#file-list .table-row[renaming] input.rename';
 
   // Open Files app on local Downloads.
@@ -293,4 +293,42 @@ testcase.myFilesFolderRename = async function() {
   await remoteCall.waitForFiles(
       appId, expectedRows2,
       {ignoreFileSize: true, ignoreLastModifiedTime: true});
+};
+
+/**
+ * Tests that MyFiles only auto expands once.
+ */
+testcase.myFilesAutoExpandOnce = async () => {
+  // Open Files app on local Downloads.
+  const appId = await setupAndWaitUntilReady(
+      RootPath.DOWNLOADS, [ENTRIES.photos], [ENTRIES.beautiful]);
+
+  // Collapse MyFiles.
+  const myFiles = '#directory-tree [entry-label="My files"]';
+  let expandIcon = myFiles + '[expanded] > .tree-row[has-children=true]' +
+      '> .expand-icon';
+  await remoteCall.waitAndClickElement(appId, expandIcon);
+  await remoteCall.waitForElement(appId, myFiles + ':not([expanded])');
+
+  // Expand Google Drive.
+  const driveGrandRoot = '#directory-tree [entry-label="Google Drive"]';
+  expandIcon = driveGrandRoot + ' > .tree-row > .expand-icon';
+  await remoteCall.waitAndClickElement(appId, expandIcon);
+
+  // Wait for its subtree to expand and display its children.
+  const expandedSubItems =
+      driveGrandRoot + ' > .tree-children[expanded] > .tree-item';
+  await remoteCall.waitForElement(appId, expandedSubItems);
+
+  // Click on My Drive
+  const myDrive = '#directory-tree [entry-label="My Drive"]';
+  await remoteCall.waitAndClickElement(appId, myDrive);
+
+  // Wait for My Drive to selected.
+  await remoteCall.waitForFiles(
+      appId, [ENTRIES.beautiful.getExpectedRow()],
+      {ignoreFileSize: true, ignoreLastModifiedTime: true});
+
+  // Check that MyFiles is still collapsed.
+  await remoteCall.waitForElement(appId, myFiles + ':not([expanded])');
 };

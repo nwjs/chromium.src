@@ -16,10 +16,10 @@
 WebOmniboxEditControllerImpl::WebOmniboxEditControllerImpl(
     id<LocationBarDelegate> delegate)
     : delegate_(delegate){
-          // TODO(crbug.com/818645): add security icon and its a11y labels
-      };
+  // TODO(crbug.com/818645): add security icon and its a11y labels
+}
 
-WebOmniboxEditControllerImpl::~WebOmniboxEditControllerImpl(){};
+WebOmniboxEditControllerImpl::~WebOmniboxEditControllerImpl() {}
 
 web::WebState* WebOmniboxEditControllerImpl::GetWebState() {
   return [delegate_ webState];
@@ -37,6 +37,7 @@ void WebOmniboxEditControllerImpl::OnSetFocus() {
 
 void WebOmniboxEditControllerImpl::OnAutocompleteAccept(
     const GURL& destination_url,
+    TemplateURLRef::PostContent* post_content,
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
     AutocompleteMatchType::Type match_type,
@@ -45,6 +46,7 @@ void WebOmniboxEditControllerImpl::OnAutocompleteAccept(
     transition = ui::PageTransitionFromInt(
         transition | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
     [URLLoader_ loadGURLFromLocationBar:destination_url
+                            postContent:post_content
                              transition:transition
                             disposition:disposition];
   }

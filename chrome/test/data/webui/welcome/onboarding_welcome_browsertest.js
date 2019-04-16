@@ -54,6 +54,28 @@ TEST_F('OnboardingWelcomeEmailChooserTest', 'All', function() {
   mocha.run();
 });
 
+OnboardingWelcomeEmailInterstitialTest =
+    class extends OnboardingWelcomeBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://welcome/email-interstitial?provider=0';
+  }
+
+  /** @override */
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'email_interstitial_test.js',
+      'test_email_interstitial_proxy.js',
+      'test_nux_email_proxy.js',
+      'test_welcome_browser_proxy.js',
+    ]);
+  }
+};
+
+TEST_F('OnboardingWelcomeEmailInterstitialTest', 'All', function() {
+  mocha.run();
+});
+
 OnboardingWelcomeWelcomeAppTest = class extends OnboardingWelcomeBrowserTest {
   /** @override */
   get browsePreload() {
@@ -152,5 +174,26 @@ OnboardingWelcomeSetAsDefaultTest = class extends OnboardingWelcomeBrowserTest {
 };
 
 TEST_F('OnboardingWelcomeSetAsDefaultTest', 'All', function() {
+  mocha.run();
+});
+
+OnboardingWelcomeNtpBackgroundTest =
+    class extends OnboardingWelcomeBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://welcome/ntp_background/nux_ntp_background.html';
+  }
+
+  /** @override */
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'nux_ntp_background_test.js',
+      'test_metrics_proxy.js',
+      'test_ntp_background_proxy.js',
+    ]);
+  }
+};
+
+TEST_F('OnboardingWelcomeNtpBackgroundTest', 'All', function() {
   mocha.run();
 });

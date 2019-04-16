@@ -5,6 +5,8 @@
 #include "base/android/application_status_listener.h"
 #include "base/android/build_info.h"
 #include "base/base_switches.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/viz/common/features.h"
 #include "content/browser/browser_main_loop.h"
@@ -95,11 +97,11 @@ class CompositorImplBrowserTest
   DISALLOW_COPY_AND_ASSIGN(CompositorImplBrowserTest);
 };
 
-INSTANTIATE_TEST_CASE_P(P,
-                        CompositorImplBrowserTest,
-                        ::testing::Values(CompositorImplMode::kNormal,
-                                          CompositorImplMode::kViz,
-                                          CompositorImplMode::kVizSkDDL));
+INSTANTIATE_TEST_SUITE_P(P,
+                         CompositorImplBrowserTest,
+                         ::testing::Values(CompositorImplMode::kNormal,
+                                           CompositorImplMode::kViz,
+                                           CompositorImplMode::kVizSkDDL));
 
 class CompositorImplLowEndBrowserTest : public CompositorImplBrowserTest {
  public:
@@ -113,9 +115,9 @@ class CompositorImplLowEndBrowserTest : public CompositorImplBrowserTest {
 // Viz on android is not yet compatible with in-process GPU. Only run in
 // kNormal mode.
 // TODO(ericrk): Make this work everywhere. https://crbug.com/851643
-INSTANTIATE_TEST_CASE_P(P,
-                        CompositorImplLowEndBrowserTest,
-                        ::testing::Values(CompositorImplMode::kNormal));
+INSTANTIATE_TEST_SUITE_P(P,
+                         CompositorImplLowEndBrowserTest,
+                         ::testing::Values(CompositorImplMode::kNormal));
 
 // RunLoop implementation that calls glFlush() every second until it observes
 // OnContextLost().

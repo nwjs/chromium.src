@@ -56,15 +56,15 @@ class TestScriptModuleResolver final : public ScriptModuleResolver {
     return register_module_script_call_count_;
   }
 
-  void RegisterModuleScript(ModuleScript*) override {
+  void RegisterModuleScript(const ModuleScript*) override {
     register_module_script_call_count_++;
   }
 
-  void UnregisterModuleScript(ModuleScript*) override {
+  void UnregisterModuleScript(const ModuleScript*) override {
     FAIL() << "UnregisterModuleScript shouldn't be called in ModuleMapTest";
   }
 
-  ModuleScript* GetHostDefined(const ScriptModule&) const override {
+  const ModuleScript* GetHostDefined(const ScriptModule&) const override {
     NOTREACHED();
     return nullptr;
   }
@@ -111,11 +111,12 @@ class ModuleMapTestModulator final : public DummyModulator {
         : modulator_(modulator) {}
     void Fetch(FetchParameters& request,
                ResourceFetcher*,
+               const Modulator* modulator_for_built_in_modules,
                ModuleGraphLevel,
                ModuleScriptFetcher::Client* client) override {
       TestRequest* test_request = MakeGarbageCollected<TestRequest>(
           ModuleScriptCreationParams(
-              request.Url(), ParkableString(String("").ReleaseImpl()),
+              request.Url(), ParkableString(String("").ReleaseImpl()), nullptr,
               request.GetResourceRequest().GetFetchCredentialsMode()),
           client);
       modulator_->test_requests_.push_back(test_request);
@@ -141,20 +142,20 @@ class ModuleMapTestModulator final : public DummyModulator {
 
   base::SingleThreadTaskRunner* TaskRunner() override {
     return Thread::Current()->GetTaskRunner().get();
-  };
+  }
 
   struct TestRequest final : public GarbageCollectedFinalized<TestRequest> {
     TestRequest(const ModuleScriptCreationParams& params,
                 ModuleScriptFetcher::Client* client)
         : params_(params), client_(client) {}
     void NotifyFetchFinished() {
-      client_->NotifyFetchFinished(params_,
+      client_->NotifyFetchFinished(*params_,
                                    HeapVector<Member<ConsoleMessage>>());
     }
     void Trace(blink::Visitor* visitor) { visitor->Trace(client_); }
 
    private:
-    ModuleScriptCreationParams params_;
+    base::Optional<ModuleScriptCreationParams> params_;
     Member<ModuleScriptFetcher::Client> client_;
   };
   HeapVector<Member<TestRequest>> test_requests_;

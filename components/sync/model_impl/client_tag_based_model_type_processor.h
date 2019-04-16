@@ -70,6 +70,10 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
   void UntrackEntityForClientTagHash(
       const std::string& client_tag_hash) override;
   bool IsEntityUnsynced(const std::string& storage_key) override;
+  base::Time GetEntityCreationTime(
+      const std::string& storage_key) const override;
+  base::Time GetEntityModificationTime(
+      const std::string& storage_key) const override;
   void OnModelStarting(ModelTypeSyncBridge* bridge) override;
   void ModelReadyToSync(std::unique_ptr<MetadataBatch> batch) override;
   bool IsTrackingMetadata() override;
@@ -112,7 +116,7 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
   // Clears all metadata and directs the bridge to clear the persisted metadata
   // as well. In addition, it resets the state of the processor and clears all
   // tracking maps such as |entities_| and |storage_key_to_tag_hash_|.
-  ModelTypeSyncBridge::StopSyncResponse ClearMetadataAndResetState();
+  void ClearMetadataAndResetState();
 
   // Returns true if the model is ready or encountered an error.
   bool IsModelReadyOrError() const;
@@ -190,9 +194,13 @@ class ClientTagBasedModelTypeProcessor : public ModelTypeProcessor,
   // Gets the entity for the given storage key, or null if there isn't one.
   ProcessorEntityTracker* GetEntityForStorageKey(
       const std::string& storage_key);
+  const ProcessorEntityTracker* GetEntityForStorageKey(
+      const std::string& storage_key) const;
 
   // Gets the entity for the given tag hash, or null if there isn't one.
   ProcessorEntityTracker* GetEntityForTagHash(const std::string& tag_hash);
+  const ProcessorEntityTracker* GetEntityForTagHash(
+      const std::string& tag_hash) const;
 
   // Create an entity in the entity map for |storage_key| and return a pointer
   // to it.

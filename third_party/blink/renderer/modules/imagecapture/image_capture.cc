@@ -24,7 +24,6 @@
 #include "third_party/blink/renderer/modules/mediastream/media_track_capabilities.h"
 #include "third_party/blink/renderer/modules/mediastream/media_track_constraints.h"
 #include "third_party/blink/renderer/platform/mojo/mojo_helper.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
@@ -326,7 +325,9 @@ ScriptPromise ImageCapture::grabFrame(ScriptState* script_state) {
   WebMediaStreamTrack track(stream_track_->Component());
   auto resolver_callback_adapter =
       std::make_unique<CallbackPromiseAdapter<ImageBitmap, void>>(resolver);
-  frame_grabber_->GrabFrame(&track, std::move(resolver_callback_adapter));
+  frame_grabber_->GrabFrame(&track, std::move(resolver_callback_adapter),
+                            ExecutionContext::From(script_state)
+                                ->GetTaskRunner(TaskType::kDOMManipulation));
 
   return promise;
 }

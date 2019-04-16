@@ -76,7 +76,7 @@ class MockSyncPrefObserver : public SyncPrefObserver {
   MOCK_METHOD1(OnSyncManagedPrefChange, void(bool));
   MOCK_METHOD1(OnFirstSetupCompletePrefChange, void(bool));
   MOCK_METHOD1(OnSyncRequestedPrefChange, void(bool));
-  MOCK_METHOD2(OnPreferredDataTypesPrefChange, void(bool, ModelTypeSet));
+  MOCK_METHOD0(OnPreferredDataTypesPrefChange, void());
 };
 
 TEST_F(SyncPrefsTest, ObservedPrefs) {
@@ -182,12 +182,20 @@ TEST_F(SyncPrefsTest, DeleteDirectivesAndProxyTabsMigration) {
   registered_types.Remove(HISTORY_DELETE_DIRECTIVES);
 
   // Enable all other types.
+  ModelTypeSet initial_preferred_types = UserSelectableTypes();
+  initial_preferred_types.RetainAll(registered_types);
   sync_prefs_->SetDataTypesConfiguration(/*keep_everything_synced=*/false,
-                                         /*registered_types=*/registered_types,
-                                         /*preferred_types=*/registered_types);
+                                         registered_types,
+                                         initial_preferred_types);
 
-  // Manually enable typed urls (to simulate the old world).
+  // Manually enable typed urls (to simulate the old world) and perform the
+  // migration to check it doesn't affect the proxy tab preference value.
   pref_service_.SetBoolean(prefs::kSyncTypedUrls, true);
+  // TODO(crbug.com/906611): now we make an extra assumption that the migration
+  // can be called a second time and it will do the real migration if during the
+  // first call this migration wasn't needed. Maybe consider splitting this
+  // test?
+  MigrateSessionsToProxyTabsPrefs(&pref_service_);
 
   // Proxy tabs should not be enabled (since sessions wasn't), but history
   // delete directives should (since typed urls was).
@@ -196,11 +204,13 @@ TEST_F(SyncPrefsTest, DeleteDirectivesAndProxyTabsMigration) {
   EXPECT_FALSE(preferred_types.Has(PROXY_TABS));
   EXPECT_TRUE(preferred_types.Has(HISTORY_DELETE_DIRECTIVES));
 
-  // Now manually enable sessions, which should result in proxy tabs also being
-  // enabled. Also, manually disable typed urls, which should mean that history
-  // delete directives are not enabled.
+  // Now manually enable sessions and perform the migration, which should result
+  // in proxy tabs also being enabled. Also, manually disable typed urls, which
+  // should mean that history delete directives are not enabled.
   pref_service_.SetBoolean(prefs::kSyncTypedUrls, false);
   pref_service_.SetBoolean(prefs::kSyncSessions, true);
+  MigrateSessionsToProxyTabsPrefs(&pref_service_);
+
   preferred_types = sync_prefs_->GetPreferredDataTypes(UserTypes());
   EXPECT_TRUE(preferred_types.Has(PROXY_TABS));
   EXPECT_FALSE(preferred_types.Has(HISTORY_DELETE_DIRECTIVES));
@@ -226,7 +236,7 @@ TEST_F(SyncPrefsTest, PreferredTypesNotKeepEverythingSynced) {
   sync_prefs_->SetDataTypesConfiguration(
       /*keep_everything_synced=*/false,
       /*registered_types=*/UserTypes(),
-      /*preferred_types=*/AlwaysPreferredUserTypes());
+      /*preferred_types=*/ModelTypeSet());
 
   const ModelTypeSet user_types = UserTypes();
   ASSERT_NE(user_types, sync_prefs_->GetPreferredDataTypes(user_types));
@@ -247,10 +257,8 @@ TEST_F(SyncPrefsTest, PreferredTypesNotKeepEverythingSynced) {
     }
     if (type == APPS) {
       expected_preferred_types.Put(APP_LIST);
-      expected_preferred_types.Put(APP_NOTIFICATIONS);
       expected_preferred_types.Put(APP_SETTINGS);
       expected_preferred_types.Put(ARC_PACKAGE);
-      expected_preferred_types.Put(READING_LIST);
     }
     if (type == EXTENSIONS) {
       expected_preferred_types.Put(EXTENSION_SETTINGS);

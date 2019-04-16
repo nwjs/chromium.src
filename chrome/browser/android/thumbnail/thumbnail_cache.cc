@@ -22,7 +22,7 @@
 #include "build/build_config.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
-#include "content/public/common/content_switches.h"
+#include "gpu/command_buffer/service/gpu_switches.h"
 #include "third_party/android_opengl/etc1/etc1.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -261,7 +261,7 @@ base::FilePath ThumbnailCache::GetCacheDirectory() {
 
 base::FilePath ThumbnailCache::GetFilePath(TabId tab_id) {
   base::FilePath path = GetCacheDirectory();
-  return path.Append(base::IntToString(tab_id));
+  return path.Append(base::NumberToString(tab_id));
 }
 
 bool ThumbnailCache::CheckAndUpdateThumbnailMetaData(TabId tab_id,
@@ -395,11 +395,12 @@ void ThumbnailCache::CompressThumbnailIfNecessary(
   gfx::Size encoded_size = GetEncodedSize(
       raw_data_size, ui_resource_provider_->SupportsETC1NonPowerOfTwo());
 
-  base::PostTaskWithTraits(FROM_HERE,
-                           {base::TaskPriority::BEST_EFFORT,
-                            base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                           base::Bind(&ThumbnailCache::CompressionTask, bitmap,
-                                      encoded_size, post_compression_task));
+  base::PostTaskWithTraits(
+      FROM_HERE,
+      {base::TaskPriority::BEST_EFFORT,
+       base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+      base::BindOnce(&ThumbnailCache::CompressionTask, bitmap, encoded_size,
+                     post_compression_task));
 }
 
 void ThumbnailCache::ReadNextThumbnail() {
@@ -615,8 +616,8 @@ void ThumbnailCache::CompressionTask(
 
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
-      base::Bind(post_compression_task, std::move(compressed_data),
-                 content_size));
+      base::BindOnce(post_compression_task, std::move(compressed_data),
+                     content_size));
 }
 
 void ThumbnailCache::PostCompressionTask(
@@ -778,14 +779,14 @@ void ThumbnailCache::ReadTask(
 
   if (decompress) {
     base::PostTaskWithTraits(
-        FROM_HERE, {base::TaskPriority::BEST_EFFORT},
-        base::Bind(post_read_task, std::move(compressed_data), scale,
-                   content_size));
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+        base::BindOnce(post_read_task, std::move(compressed_data), scale,
+                       content_size));
   } else {
     base::PostTaskWithTraits(
         FROM_HERE, {content::BrowserThread::UI},
-        base::Bind(post_read_task, std::move(compressed_data), scale,
-                   content_size));
+        base::BindOnce(post_read_task, std::move(compressed_data), scale,
+                       content_size));
   }
 }
 
@@ -890,7 +891,7 @@ void ThumbnailCache::DecompressionTask(
 
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
-      base::Bind(post_decompression_callback, success, raw_data_small));
+      base::BindOnce(post_decompression_callback, success, raw_data_small));
 }
 
 ThumbnailCache::ThumbnailMetaData::ThumbnailMetaData() {

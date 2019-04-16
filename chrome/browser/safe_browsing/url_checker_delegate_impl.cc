@@ -8,7 +8,6 @@
 #include "base/feature_list.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/data_reduction_proxy_util.h"
 #include "chrome/browser/prerender/prerender_contents.h"
 #include "chrome/browser/prerender/prerender_final_status.h"
 #include "chrome/browser/profiles/profile.h"
@@ -56,7 +55,7 @@ void StartDisplayingBlockingPage(
 
   // Tab is gone or it's being prerendered.
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::IO},
-                           base::Bind(resource.callback, false));
+                           base::BindOnce(resource.callback, false));
 }
 
 }  // namespace
@@ -69,17 +68,13 @@ UrlCheckerDelegateImpl::UrlCheckerDelegateImpl(
       threat_types_(CreateSBThreatTypeSet({
 // TODO(crbug.com/835961): Enable on Android when list is available.
 #if defined(SAFE_BROWSING_DB_LOCAL)
-            safe_browsing::SB_THREAT_TYPE_SUSPICIOUS_SITE,
+        safe_browsing::SB_THREAT_TYPE_SUSPICIOUS_SITE,
 #endif
             safe_browsing::SB_THREAT_TYPE_URL_MALWARE,
             safe_browsing::SB_THREAT_TYPE_URL_PHISHING,
-            safe_browsing::SB_THREAT_TYPE_URL_UNWANTED
+            safe_browsing::SB_THREAT_TYPE_URL_UNWANTED,
+            safe_browsing::SB_THREAT_TYPE_BILLING
       })) {
-  if (base::FeatureList::IsEnabled(safe_browsing::kBillingInterstitial)) {
-    SBThreatTypeSet billing =
-        CreateSBThreatTypeSet({safe_browsing::SB_THREAT_TYPE_BILLING});
-    threat_types_.insert(billing.begin(), billing.end());
-  }
 }
 
 UrlCheckerDelegateImpl::~UrlCheckerDelegateImpl() = default;
@@ -124,12 +119,7 @@ bool UrlCheckerDelegateImpl::ShouldSkipRequestCheck(
     int render_process_id,
     int render_frame_id,
     bool originated_from_service_worker) {
-  // When DataReductionProxyResourceThrottle is enabled for a request, it is
-  // responsible for checking whether the resource is safe, so we skip
-  // SafeBrowsing URL checks in that case.
-  return !base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-         IsDataReductionProxyResourceThrottleEnabledForUrl(resource_context,
-                                                           original_url);
+  return false;
 }
 
 void UrlCheckerDelegateImpl::NotifySuspiciousSiteDetected(

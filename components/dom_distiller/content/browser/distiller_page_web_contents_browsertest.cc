@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/path_service.h"
@@ -330,8 +331,7 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest,
   bool expect_new_web_contents = true;
   bool setup_main_frame_observer = true;
   bool wait_for_document_loaded = true;
-  RunUseCurrentWebContentsTest(url,
-                               expect_new_web_contents,
+  RunUseCurrentWebContentsTest(url, expect_new_web_contents,
                                setup_main_frame_observer,
                                wait_for_document_loaded);
 }
@@ -349,8 +349,7 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest,
   bool expect_new_web_contents = true;
   bool setup_main_frame_observer = false;
   bool wait_for_document_loaded = true;
-  RunUseCurrentWebContentsTest(url,
-                               expect_new_web_contents,
+  RunUseCurrentWebContentsTest(url, expect_new_web_contents,
                                setup_main_frame_observer,
                                wait_for_document_loaded);
 }
@@ -368,8 +367,7 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest,
   bool expect_new_web_contents = false;
   bool setup_main_frame_observer = true;
   bool wait_for_document_loaded = false;
-  RunUseCurrentWebContentsTest(url,
-                               expect_new_web_contents,
+  RunUseCurrentWebContentsTest(url, expect_new_web_contents,
                                setup_main_frame_observer,
                                wait_for_document_loaded);
 }
@@ -387,8 +385,7 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest,
   bool expect_new_web_contents = false;
   bool setup_main_frame_observer = true;
   bool wait_for_document_loaded = true;
-  RunUseCurrentWebContentsTest(url,
-                               expect_new_web_contents,
+  RunUseCurrentWebContentsTest(url, expect_new_web_contents,
                                setup_main_frame_observer,
                                wait_for_document_loaded);
 }
@@ -408,10 +405,8 @@ void DistillerPageWebContentsTest::RunUseCurrentWebContentsTest(
                                                url_loaded_runner.QuitClosure(),
                                                wait_for_document_loaded);
   current_web_contents->GetController().LoadURL(
-      embedded_test_server()->GetURL(url),
-      content::Referrer(),
-      ui::PAGE_TRANSITION_TYPED,
-      std::string());
+      embedded_test_server()->GetURL(url), content::Referrer(),
+      ui::PAGE_TRANSITION_TYPED, std::string());
   url_loaded_runner.Run();
 
   std::unique_ptr<SourcePageHandleWebContents> source_page_handle(
@@ -447,14 +442,11 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest,
       current_web_contents);
 
   base::RunLoop url_loaded_runner;
-  WebContentsMainFrameHelper main_frame_loaded(current_web_contents,
-                                               url_loaded_runner.QuitClosure(),
-                                               true);
+  WebContentsMainFrameHelper main_frame_loaded(
+      current_web_contents, url_loaded_runner.QuitClosure(), true);
   current_web_contents->GetController().LoadURL(
-      embedded_test_server()->GetURL(kSimpleArticlePath),
-      content::Referrer(),
-      ui::PAGE_TRANSITION_TYPED,
-      std::string());
+      embedded_test_server()->GetURL(kSimpleArticlePath), content::Referrer(),
+      ui::PAGE_TRANSITION_TYPED, std::string());
   url_loaded_runner.Run();
 
   std::unique_ptr<SourcePageHandleWebContents> source_page_handle(
@@ -567,14 +559,11 @@ IN_PROC_BROWSER_TEST_F(DistillerPageWebContentsTest, MAYBE_TestPinch) {
   dom_distiller::WebContentsMainFrameObserver::CreateForWebContents(
       web_contents);
   base::RunLoop url_loaded_runner;
-  WebContentsMainFrameHelper main_frame_loaded(web_contents,
-                                               url_loaded_runner.QuitClosure(),
-                                               true);
+  WebContentsMainFrameHelper main_frame_loaded(
+      web_contents, url_loaded_runner.QuitClosure(), true);
   web_contents->GetController().LoadURL(
-      embedded_test_server()->GetURL("/pinch_tester.html"),
-      content::Referrer(),
-      ui::PAGE_TRANSITION_TYPED,
-      std::string());
+      embedded_test_server()->GetURL("/pinch_tester.html"), content::Referrer(),
+      ui::PAGE_TRANSITION_TYPED, std::string());
   url_loaded_runner.Run();
 
   // Execute the JS to run the tests, and wait until it has finished.

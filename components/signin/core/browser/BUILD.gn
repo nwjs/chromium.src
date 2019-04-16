@@ -22,6 +22,8 @@ buildflag_header("signin_buildflags") {
 # both by IdentityManager and by its clients.
 static_library("shared") {
   sources = [
+    "account_consistency_method.cc",
+    "account_consistency_method.h",
     "account_info.cc",
     "account_info.h",
     "account_info_util.cc",
@@ -64,8 +66,6 @@ static_library("shared") {
 # not add code to this target without consulting with blundell@chromium.org.
 static_library("internals") {
   sources = [
-    "account_consistency_method.cc",
-    "account_consistency_method.h",
     "account_fetcher_service.cc",
     "account_fetcher_service.h",
     "account_info_fetcher.cc",
@@ -78,12 +78,12 @@ static_library("internals") {
     "device_id_helper.h",
     "gaia_cookie_manager_service.cc",
     "gaia_cookie_manager_service.h",
+    "oauth2_token_service_delegate_android.cc",
+    "oauth2_token_service_delegate_android.h",
     "profile_oauth2_token_service.cc",
     "profile_oauth2_token_service.h",
     "signin_client.cc",
     "signin_client.h",
-    "signin_internals_util.cc",
-    "signin_internals_util.h",
     "signin_manager.cc",
     "signin_manager.h",
     "signin_manager_base.cc",
@@ -134,16 +134,18 @@ static_library("browser") {
     "dice_account_reconcilor_delegate.h",
     "dice_header_helper.cc",
     "dice_header_helper.h",
+    "mice_account_reconcilor_delegate.cc",
+    "mice_account_reconcilor_delegate.h",
     "mirror_account_reconcilor_delegate.cc",
     "mirror_account_reconcilor_delegate.h",
     "mutable_profile_oauth2_token_service_delegate.cc",
     "mutable_profile_oauth2_token_service_delegate.h",
-    "oauth2_token_service_delegate_android.cc",
-    "oauth2_token_service_delegate_android.h",
     "signin_error_controller.cc",
     "signin_error_controller.h",
     "signin_header_helper.cc",
     "signin_header_helper.h",
+    "signin_internals_util.cc",
+    "signin_internals_util.h",
     "signin_investigator.cc",
     "signin_investigator.h",
     "signin_status_metrics_provider.cc",
@@ -152,8 +154,6 @@ static_library("browser") {
     "signin_status_metrics_provider_base.h",
     "signin_status_metrics_provider_delegate.cc",
     "signin_status_metrics_provider_delegate.h",
-    "signin_tracker.cc",
-    "signin_tracker.h",
     "webdata/token_service_table.cc",
     "webdata/token_service_table.h",
     "webdata/token_web_data.cc",
@@ -170,7 +170,6 @@ static_library("browser") {
     "//components/account_id",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/common",
-    "//components/invalidation/public",
     "//components/keyed_service/core",
     "//components/prefs",
     "//google_apis",
@@ -209,10 +208,6 @@ static_library("browser") {
       "dice_header_helper.h",
     ]
   }
-
-  if (is_android) {
-    deps += [ "android:jni_headers" ]
-  }
 }
 
 # This target contains test support that backs the test support for
@@ -223,14 +218,10 @@ static_library("browser") {
 static_library("internals_test_support") {
   testonly = true
   sources = [
-    "fake_account_fetcher_service.cc",
-    "fake_account_fetcher_service.h",
-    "fake_gaia_cookie_manager_service.cc",
-    "fake_gaia_cookie_manager_service.h",
     "fake_profile_oauth2_token_service.cc",
     "fake_profile_oauth2_token_service.h",
-    "fake_signin_manager.cc",
-    "fake_signin_manager.h",
+    "test_image_decoder.cc",
+    "test_image_decoder.h",
 
     # TODO(https://crbug.com/907782): Move list_accounts_test_utils to
     # //services/identity/public/cpp once FakeGCMS no longer depends on it.
@@ -270,6 +261,7 @@ source_set("unit_tests") {
     "dice_account_reconcilor_delegate_unittest.cc",
     "gaia_cookie_manager_service_unittest.cc",
     "identity_utils_unittest.cc",
+    "mice_account_reconcilor_delegate_unittest.cc",
     "mutable_profile_oauth2_token_service_delegate_unittest.cc",
     "signin_error_controller_unittest.cc",
     "signin_header_helper_unittest.cc",
@@ -277,7 +269,6 @@ source_set("unit_tests") {
     "signin_manager_unittest.cc",
     "signin_metrics_unittest.cc",
     "signin_status_metrics_provider_unittest.cc",
-    "signin_tracker_unittest.cc",
     "ubertoken_fetcher_impl_unittest.cc",
     "webdata/token_service_table_unittest.cc",
   ]
@@ -289,6 +280,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/content_settings/core/browser",
     "//components/image_fetcher/core",
+    "//components/image_fetcher/core:test_support",
     "//components/os_crypt:test_support",
     "//components/prefs",
     "//components/prefs:test_support",
@@ -300,6 +292,7 @@ source_set("unit_tests") {
     "//services/identity/public/cpp:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/gfx:test_support",
   ]
 
   if (is_chromeos) {
@@ -316,8 +309,9 @@ source_set("unit_tests") {
 }
 
 if (is_android) {
-  java_cpp_enum("investigated_scenario_java") {
+  java_cpp_enum("signin_enums_javagen") {
     sources = [
+      "signin_header_helper.h",
       "signin_investigator.h",
     ]
   }

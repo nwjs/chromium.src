@@ -8,17 +8,26 @@ import static org.chromium.chrome.browser.autofill.keyboard_accessory.AccessoryS
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BAR_ITEMS;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BOTTOM_OFFSET_PX;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.KEYBOARD_TOGGLE_VISIBLE;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.SHEET_TITLE;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.SHOW_KEYBOARD_CALLBACK;
+import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TAB_LAYOUT_ITEM;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.VISIBLE;
 
 import android.support.annotation.Nullable;
 import android.support.annotation.Px;
 
 import org.chromium.base.VisibleForTesting;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryCoordinator.TabSwitchingDelegate;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryCoordinator.VisibilityDelegate;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryData.Action;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.AutofillBarItem;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BarItem;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TabLayoutBarItem;
+import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.TabLayoutBarItem.TabLayoutCallbacks;
+import org.chromium.components.autofill.AutofillDelegate;
+import org.chromium.components.autofill.AutofillSuggestion;
+import org.chromium.components.autofill.PopupItemId;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -47,32 +56,80 @@ class KeyboardAccessoryMediator
     private boolean mShowIfNotEmpty;
 
     KeyboardAccessoryMediator(PropertyModel model, VisibilityDelegate visibilityDelegate,
-            TabSwitchingDelegate tabSwitcher) {
+            TabSwitchingDelegate tabSwitcher, TabLayoutCallbacks tabLayoutCallbacks) {
         mModel = model;
         mVisibilityDelegate = visibilityDelegate;
         mTabSwitcher = tabSwitcher;
 
         // Add mediator as observer so it can use model changes as signal for accessory visibility.
         mModel.set(SHOW_KEYBOARD_CALLBACK, this::closeSheet);
+        mModel.set(TAB_LAYOUT_ITEM, new TabLayoutBarItem(tabLayoutCallbacks));
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+            mModel.get(BAR_ITEMS).add(mModel.get(TAB_LAYOUT_ITEM));
+        }
         mModel.get(BAR_ITEMS).addObserver(this);
         mModel.addObserver(this);
     }
 
+    /**
+     * Creates an observer object that refreshes the accessory bar items when a connected provider
+     * notifies it about new {@link AutofillSuggestion}s. It ensures the delegate receives
+     * interactions with the view representing a suggestion.
+     * @param delegate A {@link AutofillDelegate}.
+     * @return A {@link KeyboardAccessoryData.Observer} accepting only {@link AutofillSuggestion}s.
+     */
+    public KeyboardAccessoryData.Observer<AutofillSuggestion[]> createAutofillSuggestionsObserver(
+            AutofillDelegate delegate) {
+        return (@AccessoryAction int typeId, AutofillSuggestion[] suggestions) -> {
+            assert typeId
+                    == AccessoryAction.AUTOFILL_SUGGESTION
+                : "Autofill suggestions observer received wrong data: "
+                            + typeId;
+            List<BarItem> retainedItems = collectItemsToRetain(AccessoryAction.AUTOFILL_SUGGESTION);
+            retainedItems.addAll(toBarItems(suggestions, delegate));
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+                retainedItems.add(retainedItems.size(), mModel.get(TAB_LAYOUT_ITEM));
+            }
+            mModel.get(BAR_ITEMS).set(retainedItems);
+        };
+    }
+
     @Override
-    public void onItemAvailable(@BarItem.Type int typeId, KeyboardAccessoryData.Action[] actions) {
+    public void onItemAvailable(
+            @AccessoryAction int typeId, KeyboardAccessoryData.Action[] actions) {
         assert typeId != DEFAULT_TYPE : "Did not specify which Action type has been updated.";
-        // If there is a new list, retain all actions that are of a different type than the provided
-        // actions.
+        List<BarItem> retainedItems = collectItemsToRetain(typeId);
+        retainedItems.addAll(0, toBarItems(actions));
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+            retainedItems.add(retainedItems.size(), mModel.get(TAB_LAYOUT_ITEM));
+        }
+        mModel.get(BAR_ITEMS).set(retainedItems);
+    }
+
+    private List<BarItem> collectItemsToRetain(@AccessoryAction int actionType) {
         List<BarItem> retainedItems = new ArrayList<>();
         for (BarItem item : mModel.get(BAR_ITEMS)) {
             if (item.getAction() == null) continue;
-            if (item.getAction().getActionType() == typeId) continue;
+            if (item.getAction().getActionType() == actionType) continue;
             retainedItems.add(item);
         }
-        // Append autofill suggestions to the end, right before the tab switcher.
-        int insertPos = typeId == AccessoryAction.AUTOFILL_SUGGESTION ? retainedItems.size() : 0;
-        retainedItems.addAll(insertPos, toBarItems(actions));
-        mModel.get(BAR_ITEMS).set(retainedItems);
+        return retainedItems;
+    }
+
+    private List<BarItem> toBarItems(AutofillSuggestion[] suggestions, AutofillDelegate delegate) {
+        List<BarItem> barItems = new ArrayList<>(suggestions.length);
+        for (int position = 0; position < suggestions.length; ++position) {
+            AutofillSuggestion suggestion = suggestions[position];
+            // The accessory doesn't need any special options like clearing or managing for now.
+            if (suggestion.getSuggestionId() == PopupItemId.ITEM_ID_ALL_SAVED_PASSWORDS_ENTRY
+                    || suggestion.getSuggestionId() == PopupItemId.ITEM_ID_CLEAR_FORM
+                    || suggestion.getSuggestionId() == PopupItemId.ITEM_ID_SEPARATOR
+                    || suggestion.getSuggestionId() == PopupItemId.ITEM_ID_AUTOFILL_OPTIONS) {
+                continue;
+            }
+            barItems.add(new AutofillBarItem(suggestion, createAutofillAction(delegate, position)));
+        }
+        return barItems;
     }
 
     private Collection<BarItem> toBarItems(Action[] actions) {
@@ -81,6 +138,16 @@ class KeyboardAccessoryMediator
             barItems.add(new BarItem(toBarItemType(action.getActionType()), action));
         }
         return barItems;
+    }
+
+    private KeyboardAccessoryData.Action createAutofillAction(AutofillDelegate delegate, int pos) {
+        return new KeyboardAccessoryData.Action(
+                null, // Unused. The AutofillSuggestion has more meaningful labels.
+                AccessoryAction.AUTOFILL_SUGGESTION, result -> {
+                    KeyboardAccessoryMetricsRecorder.recordActionSelected(
+                            AccessoryAction.AUTOFILL_SUGGESTION);
+                    delegate.suggestionSelected(pos);
+                });
     }
 
     private @BarItem.Type int toBarItemType(@AccessoryAction int accessoryAction) {
@@ -152,8 +219,13 @@ class KeyboardAccessoryMediator
             }
             return;
         }
+        if (propertyKey == KEYBOARD_TOGGLE_VISIBLE) {
+            KeyboardAccessoryData.Tab activeTab = mTabSwitcher.getActiveTab();
+            if (activeTab != null) mModel.set(SHEET_TITLE, activeTab.getTitle());
+            return;
+        }
         if (propertyKey == BOTTOM_OFFSET_PX || propertyKey == SHOW_KEYBOARD_CALLBACK
-                || propertyKey == KEYBOARD_TOGGLE_VISIBLE) {
+                || propertyKey == TAB_LAYOUT_ITEM || propertyKey == SHEET_TITLE) {
             return;
         }
         assert false : "Every property update needs to be handled explicitly!";
@@ -189,6 +261,10 @@ class KeyboardAccessoryMediator
     }
 
     boolean hasContents() {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+            return mModel.get(BAR_ITEMS).size() > 1
+                    || mTabSwitcher.hasTabs(); // Ignore tab switcher item.
+        }
         return mModel.get(BAR_ITEMS).size() > 0 || mTabSwitcher.hasTabs();
     }
 

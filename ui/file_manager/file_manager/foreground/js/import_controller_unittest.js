@@ -3,31 +3,31 @@
 // found in the LICENSE file.
 
 /** @const {!Event} */
-var EMPTY_EVENT = new Event('directory-changed');
+const EMPTY_EVENT = new Event('directory-changed');
 
 /** @type {!MockVolumeManager} */
-var volumeManager;
+let volumeManager;
 
 /** @type {!TestMediaScanner} */
-var mediaScanner;
+let mediaScanner;
 
 /** @type {!TestImportRunner} */
-var mediaImporter;
+let mediaImporter;
 
 /** @type {!TestControllerEnvironment} */
-var environment;
+let environment;
 
 /** @type {!VolumeInfo} */
-var sourceVolume;
+let sourceVolume;
 
 /** @type {!VolumeInfo} */
-var destinationVolume;
+let destinationVolume;
 
 /** @type {!importer.TestCommandWidget} */
-var widget;
+let widget;
 
 /** @type {!DirectoryEntry} */
-var nonDcimDirectory;
+let nonDcimDirectory;
 
 /**
  * Mock metrics.
@@ -74,7 +74,7 @@ function testClickPanelToStartImport(callback) {
 }
 
 function testClickCancel(callback) {
-  var promise = startImport(importer.ClickSource.IMPORT).then(function(task) {
+  const promise = startImport(importer.ClickSource.IMPORT).then(task => {
     widget.click(importer.ClickSource.CANCEL);
     return task.whenCanceled;
   });
@@ -83,7 +83,7 @@ function testClickCancel(callback) {
 }
 
 function testVolumeUnmount_InvalidatesScans(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -97,12 +97,12 @@ function testVolumeUnmount_InvalidatesScans(callback) {
       ],
       '/DCIM');
 
-  var dcim = environment.getCurrentDirectory();
+  let dcim = environment.getCurrentDirectory();
   assert(dcim);
 
   environment.directoryChangedListener(EMPTY_EVENT);
-  var promise = widget.updateResolver.promise.then(
-      function() {
+  const promise = widget.updateResolver.promise.then(
+      () => {
         // Reset the promise so we can wait on a second widget update.
         widget.resetPromises();
         environment.setCurrentDirectory(nonDcimDirectory);
@@ -115,7 +115,7 @@ function testVolumeUnmount_InvalidatesScans(callback) {
         // fire once the widget has been updated again.
         return widget.updateResolver.promise;
       }).then(
-          function() {
+          () => {
             mediaScanner.assertScanCount(2);
           });
 
@@ -123,7 +123,7 @@ function testVolumeUnmount_InvalidatesScans(callback) {
 }
 
 function testDirectoryChange_TriggersUpdate(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -138,7 +138,7 @@ function testDirectoryChange_TriggersUpdate(callback) {
 }
 
 function testDirectoryChange_CancelsScan(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -153,14 +153,14 @@ function testDirectoryChange_CancelsScan(callback) {
       '/DCIM');
 
   environment.directoryChangedListener(EMPTY_EVENT);
-  var promise = widget.updateResolver.promise.then(
-      function() {
+  const promise = widget.updateResolver.promise.then(
+      () => {
         // Reset the promise so we can wait on a second widget update.
         widget.resetPromises();
         environment.setCurrentDirectory(nonDcimDirectory);
         environment.directoryChangedListener(EMPTY_EVENT);
       }).then(
-          function() {
+          () => {
             mediaScanner.assertScanCount(1);
             mediaScanner.assertLastScanCanceled();
           });
@@ -169,7 +169,7 @@ function testDirectoryChange_CancelsScan(callback) {
 }
 
 function testWindowClose_CancelsScan(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -184,13 +184,13 @@ function testWindowClose_CancelsScan(callback) {
       '/DCIM');
 
   environment.directoryChangedListener(EMPTY_EVENT);
-  var promise = widget.updateResolver.promise.then(
-      function() {
+  const promise = widget.updateResolver.promise.then(
+      () => {
         // Reset the promise so we can wait on a second widget update.
         widget.resetPromises();
         environment.windowCloseListener();
       }).then(
-          function() {
+          () => {
             mediaScanner.assertScanCount(1);
             mediaScanner.assertLastScanCanceled();
           });
@@ -199,7 +199,7 @@ function testWindowClose_CancelsScan(callback) {
 }
 
 function testDirectoryChange_DetailsPanelVisibility_InitialChangeDir(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -209,8 +209,8 @@ function testDirectoryChange_DetailsPanelVisibility_InitialChangeDir(callback) {
       ],
       '/DCIM');
 
-  var fileSystem = new MockFileSystem('testFs');
-  var event = new Event('directory-changed');
+  const fileSystem = new MockFileSystem('testFs');
+  const event = new Event('directory-changed');
   event.newDirEntry = new MockDirectoryEntry(fileSystem, '/DCIM/');
 
   // Ensure there is some content in the scan so the code that depends
@@ -222,13 +222,13 @@ function testDirectoryChange_DetailsPanelVisibility_InitialChangeDir(callback) {
   environment.directoryChangedListener(event);
   assertFalse(widget.detailsVisible);
 
-  var promise = widget.updateResolver.promise.then(function() {
+  const promise = widget.updateResolver.promise.then(() => {
     // "scanning..."
     assertFalse(widget.detailsVisible);
     widget.resetPromises();
     mediaScanner.finalizeScans();
     return widget.updateResolver.promise;
-  }).then(function() {
+  }).then(() => {
     // "ready to update"
     // Details should pop up.
     assertTrue(widget.detailsVisible);
@@ -238,7 +238,7 @@ function testDirectoryChange_DetailsPanelVisibility_InitialChangeDir(callback) {
 }
 
 function testDirectoryChange_DetailsPanelVisibility_SubsequentChangeDir() {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -248,7 +248,7 @@ function testDirectoryChange_DetailsPanelVisibility_SubsequentChangeDir() {
       ],
       '/DCIM');
 
-  var event = new Event('directory-changed');
+  const event = new Event('directory-changed');
   event.newDirEntry = new MockDirectoryEntry(
       new MockFileSystem('testFs'),
       '/DCIM/');
@@ -261,7 +261,7 @@ function testDirectoryChange_DetailsPanelVisibility_SubsequentChangeDir() {
 }
 
 function testSelectionChange_TriggersUpdate(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -271,7 +271,7 @@ function testSelectionChange_TriggersUpdate(callback) {
       ],
       '/DCIM');
 
-  var fileSystem = new MockFileSystem('testFs');
+  const fileSystem = new MockFileSystem('testFs');
 
   // Ensure there is some content in the scan so the code that depends
   // on this state doesn't croak which it finds it missing.
@@ -284,7 +284,7 @@ function testSelectionChange_TriggersUpdate(callback) {
 }
 
 function testFinalizeScans_TriggersUpdate(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -294,7 +294,7 @@ function testFinalizeScans_TriggersUpdate(callback) {
       ],
       '/DCIM');
 
-  var fileSystem = new MockFileSystem('testFs');
+  const fileSystem = new MockFileSystem('testFs');
 
   // Ensure there is some content in the scan so the code that depends
   // on this state doesn't croak which it finds it missing.
@@ -309,7 +309,7 @@ function testFinalizeScans_TriggersUpdate(callback) {
 }
 
 function testClickDestination_ShowsRootPriorToImport(callback) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -325,11 +325,11 @@ function testClickDestination_ShowsRootPriorToImport(callback) {
 }
 
 function testClickDestination_ShowsDestinationAfterImportStarted(callback) {
-  var promise = startImport(importer.ClickSource.MAIN)
+  const promise = startImport(importer.ClickSource.MAIN)
       .then(
-          function() {
+          () => {
             return mediaImporter.importResolver.promise.then(
-                function() {
+                () => {
                   widget.click(importer.ClickSource.DESTINATION);
                   return environment.showImportDestinationResolver.promise;
                 });
@@ -339,7 +339,7 @@ function testClickDestination_ShowsDestinationAfterImportStarted(callback) {
 }
 
 function startImport(clickSource) {
-  var controller = createController(
+  const controller = createController(
       VolumeManagerCommon.VolumeType.MTP,
       'mtp-volume',
       [
@@ -350,7 +350,7 @@ function startImport(clickSource) {
       ],
       '/DCIM');
 
-  var fileSystem = new MockFileSystem('testFs');
+  const fileSystem = new MockFileSystem('testFs');
 
   // Ensure there is some content in the scan so the code that depends
   // on this state doesn't croak which it finds it missing.
@@ -361,11 +361,11 @@ function startImport(clickSource) {
   environment.directoryChangedListener(EMPTY_EVENT);
 
   return widget.updateResolver.promise.then(
-      function() {
+      () => {
         widget.resetPromises();
         mediaScanner.finalizeScans();
         return widget.updateResolver.promise.then(
-            function() {
+            () => {
               widget.resetPromises();
               widget.click(clickSource);
               return mediaImporter.importResolver.promise;
@@ -438,7 +438,7 @@ function TestImportRunner() {
 TestImportRunner.prototype.importFromScanResult = function(
     scan, destination, destinationDirectory) {
   this.imported.push(scan);
-  var task = new TestImportTask(scan, destination, destinationDirectory);
+  const task = new TestImportTask(scan, destination, destinationDirectory);
   this.tasks_.push(task);
   this.importResolver.resolve(task);
   return this.toMediaImportTask_(task);
@@ -450,7 +450,7 @@ TestImportRunner.prototype.importFromScanResult = function(
  * @return {!importer.MediaImportHandler.ImportTask}
  * @private
  */
-TestImportRunner.prototype.toMediaImportTask_ = function(task) {
+TestImportRunner.prototype.toMediaImportTask_ = task => {
   return /** @type {!importer.MediaImportHandler.ImportTask} */ (task);
 };
 
@@ -567,7 +567,7 @@ TestControllerEnvironment.prototype.addSelectionChangedListener =
 };
 
 /** @override */
-TestControllerEnvironment.prototype.getImportDestination = function(date) {
+TestControllerEnvironment.prototype.getImportDestination = date => {
   const fileSystem = new MockFileSystem('testFs');
   const directoryEntry = new MockDirectoryEntry(fileSystem, '/abc/123');
   return Promise.resolve(directoryEntry);
@@ -641,10 +641,10 @@ importer.TestCommandWidget.prototype.update = function(
   this.updateResolver.resolve(activityState);
 };
 
-importer.TestCommandWidget.prototype.updateDetails = function(scan) {};
+importer.TestCommandWidget.prototype.updateDetails = scan => {};
 
 importer.TestCommandWidget.prototype.performMainButtonRippleAnimation =
-    function() {};
+    () => {};
 
 /** @override */
 importer.TestCommandWidget.prototype.toggleDetails = function() {
@@ -661,8 +661,7 @@ importer.TestCommandWidget.prototype.setDetailsVisible = function(visible) {
 };
 
 /** @override */
-importer.TestCommandWidget.prototype.setDetailsBannerVisible = function(
-    visible) {};
+importer.TestCommandWidget.prototype.setDetailsBannerVisible = visible => {};
 
 /**
  * @param {!VolumeManagerCommon.VolumeType} volumeType
@@ -689,10 +688,10 @@ function createController(volumeType, volumeId, fileNames, currentDirectory) {
  * @return {!VolumeInfo}
  */
 function setupFileSystem(volumeType, volumeId, fileNames) {
-  var volumeInfo = volumeManager.createVolumeInfo(
+  const volumeInfo = volumeManager.createVolumeInfo(
       volumeType, volumeId, 'A volume known as ' + volumeId);
   assertTrue(volumeInfo != null);
-  var mockFileSystem = /** @type {!MockFileSystem} */ (volumeInfo.fileSystem);
+  const mockFileSystem = /** @type {!MockFileSystem} */ (volumeInfo.fileSystem);
   mockFileSystem.populate(fileNames);
   return volumeInfo;
 }

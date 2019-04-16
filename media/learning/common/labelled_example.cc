@@ -11,6 +11,10 @@ namespace learning {
 
 LabelledExample::LabelledExample() = default;
 
+LabelledExample::LabelledExample(FeatureVector feature_vector,
+                                 TargetValue target)
+    : features(std::move(feature_vector)), target_value(target) {}
+
 LabelledExample::LabelledExample(std::initializer_list<FeatureValue> init_list,
                                  TargetValue target)
     : features(init_list), target_value(target) {}
@@ -59,7 +63,8 @@ bool LabelledExample::operator<(const LabelledExample& rhs) const {
 LabelledExample& LabelledExample::operator=(const LabelledExample& rhs) =
     default;
 
-LabelledExample& LabelledExample::operator=(LabelledExample&& rhs) = default;
+LabelledExample& LabelledExample::operator=(LabelledExample&& rhs) noexcept =
+    default;
 
 TrainingData::TrainingData() = default;
 
@@ -68,6 +73,8 @@ TrainingData::TrainingData(const TrainingData& rhs) = default;
 TrainingData::TrainingData(TrainingData&& rhs) = default;
 
 TrainingData::~TrainingData() = default;
+
+TrainingData& TrainingData::operator=(const TrainingData& rhs) = default;
 
 TrainingData& TrainingData::operator=(TrainingData&& rhs) = default;
 

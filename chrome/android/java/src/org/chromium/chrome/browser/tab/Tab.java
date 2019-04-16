@@ -8,58 +8,46 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
-import android.graphics.Bitmap;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Browser;
 import android.support.annotation.IntDef;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.view.ContextThemeWrapper;
-import android.view.Gravity;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
-import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.PopupWindow;
-import android.widget.PopupWindow.OnDismissListener;
 
-import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ObserverList.RewindableIterator;
-import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActionModeCallback;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeVersionInfo;
 import org.chromium.chrome.browser.IntentHandler;
-import org.chromium.chrome.browser.IntentHandler.TabOpenType;
 import org.chromium.chrome.browser.SwipeRefreshHandler;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.WebContentsFactory;
-import org.chromium.chrome.browser.banners.AppBannerManager;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.content.ContentUtils;
 import org.chromium.chrome.browser.contextmenu.ContextMenuPopulator;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchTabHelper;
 import org.chromium.chrome.browser.crypto.CipherFactory;
-import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
-import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
@@ -69,10 +57,8 @@ import org.chromium.chrome.browser.native_page.NativePage;
 import org.chromium.chrome.browser.native_page.NativePageAssassin;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
-import org.chromium.chrome.browser.policy.PolicyAuditor;
 import org.chromium.chrome.browser.prerender.ExternalPrerenderHandler;
 import org.chromium.chrome.browser.previews.PreviewsAndroidBridge;
-import org.chromium.chrome.browser.printing.TabPrinter;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.ssl.SecurityStateModel;
@@ -85,13 +71,10 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabReparentingParams;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.vr.VrModuleProvider;
-import org.chromium.chrome.browser.widget.PulseDrawable;
-import org.chromium.chrome.browser.widget.textbubble.TextBubble;
+import org.chromium.components.content_capture.ContentCaptureFeatures;
+import org.chromium.components.content_capture.ContentCaptureReceiverManager;
 import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.components.embedder_support.view.ContentView;
-import org.chromium.components.feature_engagement.EventConstants;
-import org.chromium.components.feature_engagement.FeatureConstants;
-import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.navigation_interception.InterceptNavigationDelegate;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.ChildProcessImportance;
@@ -105,14 +88,9 @@ import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.common.BrowserControlsState;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.content_public.common.ResourceRequestBody;
-import org.chromium.printing.PrintManagerDelegateImpl;
-import org.chromium.printing.PrintingController;
-import org.chromium.printing.PrintingControllerImpl;
-import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.mojom.WindowOpenDisposition;
-import org.chromium.ui.widget.AnchoredPopupWindow;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -130,12 +108,6 @@ public class Tab
     public static final long INVALID_BOOKMARK_ID = -1;
 
     private static final long INVALID_TIMESTAMP = -1;
-
-    /**
-     * The required page load percentage for the page to be considered ready assuming the
-     * TextureView is also ready.
-     */
-    private static final int CONSIDERED_READY_LOAD_PERCENTAGE = 100;
 
     /** Used for logging. */
     private static final String TAG = "Tab";
@@ -201,31 +173,14 @@ public class Tab
     private int mParentId = INVALID_TAB_ID;
 
     /**
-     * If this tab was opened from another tab in another Activity, this is the Intent that can be
-     * fired to bring the parent Activity back.
-     * TODO(dfalcantara): Remove this mechanism when we have a global TabManager.
+     * By default, this id inherits from the tab that caused it to be opened, or it equals to tab
+     * id. This is used to restore the relationship that defined by {@link TabModelFilter} between
+     * this tab and other tabs. This id can be re-set whenever is needed.
      */
-    private Intent mParentIntent;
-
-    /**
-     * Whether the tab should be grouped with its parent tab.
-     */
-    private boolean mGroupedWithParent = true;
+    private int mRootId;
 
     private boolean mIsClosing;
     private boolean mIsShowingErrorPage;
-    private boolean mIsShowingTabModalDialog;
-
-    private Bitmap mFavicon;
-    private int mFaviconWidth;
-    private int mFaviconHeight;
-    private String mFaviconUrl;
-
-    /**
-     * The size in pixels at which favicons will be drawn. Ideally mFavicon will have this size to
-     * avoid scaling artifacts.
-     */
-    private int mIdealFaviconSize;
 
     /** Whether or not the TabState has changed. */
     private boolean mIsTabStateDirty = true;
@@ -254,11 +209,6 @@ public class Tab
      * to null.
      */
     private WebContentsState mFrozenContentsState;
-
-    /**
-     * Whether the restoration from frozen state failed.
-     */
-    private boolean mFailedToRestore;
 
     /**
      * URL load to be performed lazily when the Tab is next shown.
@@ -313,15 +263,9 @@ public class Tab
     private long mTimestampMillis = INVALID_TIMESTAMP;
 
     /**
-     * Title of the ContentViews webpage.Always update mTitle through updateTitle() so that it also
-     * updates mIsTitleDirectionRtl correctly.
+     * Title of the ContentViews webpage.
      */
     private String mTitle;
-
-    /**
-     * Indicates if mTitle should be displayed from right to left.
-     */
-    private boolean mIsTitleDirectionRtl;
 
     /**
      * The mInterceptNavigationDelegate will be consulted for top-level frame navigations. This
@@ -342,63 +286,8 @@ public class Tab
 
     private FullscreenManager mFullscreenManager;
 
-    /**
-     * Indicates whether this tab is detached from any activity and its corresponding
-     * {@link WindowAndroid}.
-     */
-    private boolean mIsDetached;
-
-    /**
-     * The Text bubble used to display In Product help widget for download feature on videos.
-     */
-    private TextBubble mDownloadIPHBubble;
-
-    /**
-     * The popup used to display the pulse around the download button on videos.
-     */
-    private PopupWindow mPulsePopupWindow;
-
-    /** Whether or not the tab closing the tab can send the user back to the app that opened it. */
-    private boolean mIsAllowedToReturnToExternalApp;
-
-    private int mTopControlsHeight;
-    private int mBottomControlsHeight;
-    private boolean mControlsResizeView;
-
-    /**
-     * The publisher URL for pages hosted on a trusted CDN, or null otherwise.
-     */
-    private @Nullable String mTrustedCdnPublisherUrl;
-
     /** The current browser controls constraints. -1 if not set. */
     private @BrowserControlsState int mBrowserConstrolsConstraints = -1;
-
-    // TODO(dtrainor): Port more methods to the observer.
-    private final TabObserver mTabObserver = new EmptyTabObserver() {
-        @Override
-        public void onSSLStateUpdated(Tab tab) {
-            PolicyAuditor auditor = AppHooks.get().getPolicyAuditor();
-            auditor.notifyCertificateFailure(
-                    PolicyAuditor.nativeGetCertificateFailure(getWebContents()),
-                    getApplicationContext());
-        }
-
-        @Override
-        public void onWebContentsSwapped(Tab tab, boolean didStartLoad, boolean didFinishLoad) {
-            if (!didStartLoad) return;
-
-            String url = tab.getUrl();
-            // Simulate the PAGE_LOAD_STARTED notification that we did not get.
-            didStartPageLoad(url);
-
-            if (didFinishLoad) {
-                // Simulate the PAGE_LOAD_FINISHED notification that we did not get.
-                didFinishPageLoad(url);
-            }
-        }
-    };
-
-    private final TabObserver mFullscreenHandler = new TabFullscreenHandler();
 
     private TabDelegateFactory mDelegateFactory;
 
@@ -430,58 +319,66 @@ public class Tab
     /**
      * Creates an instance of a {@link Tab}.
      *
-     * This constructor may be called before the native library has been loaded, so any additions
-     * must be vetted for library calls.
-     *
-     * @param id        The id this tab should be identified with.
-     * @param incognito Whether or not this tab is incognito.
-     * @param window    An instance of a {@link WindowAndroid}.
-     */
-    public Tab(int id, boolean incognito, WindowAndroid window) {
-        this(id, INVALID_TAB_ID, incognito, window, null, null, null);
-    }
-
-    /**
-     * Creates an instance of a {@link Tab}.
-     *
      * This constructor can be called before the native library has been loaded, so any additions
      * must be vetted for library calls.
      *
-     * @param id          The id this tab should be identified with.
-     * @param parentId    The id id of the tab that caused this tab to be opened.
-     * @param incognito   Whether or not this tab is incognito.
-     * @param window      An instance of a {@link WindowAndroid}.
-     * @param creationState State in which the tab is created, needed to initialize TabUma
-     *                      accounting. When null, TabUma will not be initialized.
-     * @param frozenState State containing information about this Tab, if it was persisted.
+     * Package-private. Use {@link TabBuilder} to create an instance.
+     *
+     * @param id            The id this tab should be identified with.
+     * @param parentId      The id id of the tab that caused this tab to be opened.
+     * @param incognito     Whether or not this tab is incognito.
+     * @param window        An instance of a {@link WindowAndroid}.
+     * @param launchType    Type indicating how this tab was launched.
+     * @param creationState State in which the tab is created.
+     * @param frozenState   State containing information about this Tab, if it was persisted.
+     * @param loadUrlParams Parameters used for a lazily loaded Tab.
      */
     @SuppressLint("HandlerLeak")
-    public Tab(int id, int parentId, boolean incognito, WindowAndroid window,
-            @Nullable @TabLaunchType Integer type,
-            @Nullable @TabCreationState Integer creationState, TabState frozenState) {
+    Tab(int id, int parentId, boolean incognito, WindowAndroid window,
+            @Nullable @TabLaunchType Integer launchType,
+            @Nullable @TabCreationState Integer creationState, TabState frozenState,
+            LoadUrlParams loadUrlParams) {
         mId = TabIdManager.getInstance().generateValidId(id);
         mParentId = parentId;
         mIncognito = incognito;
-        mThemedApplicationContext = new ContextThemeWrapper(
-                ContextUtils.getApplicationContext(), ChromeActivity.getThemeId());
-        mWindowAndroid = window;
-        mLaunchType = type;
-        mLaunchTypeAtCreation = type;
-        mIsDetached = getActivity() == null;
 
-        Resources resources = mThemedApplicationContext.getResources();
-        mIdealFaviconSize = resources.getDimensionPixelSize(R.dimen.default_favicon_size);
+        // Override the configuration for night mode to always stay in light mode until all UIs in
+        // Tab are inflated from activity context instead of application context. This is to avoid
+        // getting the wrong night mode state when application context inherits a system UI mode
+        // different from the UI mode we need.
+        // TODO(https://crbug.com/938641): Remove this once Tab UIs are all inflated from activity.
+        ContextThemeWrapper themeWrapper = new ContextThemeWrapper(
+                ContextUtils.getApplicationContext(), ChromeActivity.getThemeId());
+        Configuration config = new Configuration();
+        // Pre-Android O, fontScale gets initialized to 1 in the constructor. Set it to 0 so
+        // that applyOverrideConfiguration() does not interpret it as an overridden value.
+        config.fontScale = 0;
+        config.uiMode = Configuration.UI_MODE_NIGHT_NO
+                | (config.uiMode & ~Configuration.UI_MODE_NIGHT_MASK);
+        themeWrapper.applyOverrideConfiguration(config);
+        mThemedApplicationContext = themeWrapper;
+
+        mWindowAndroid = window;
+        mLaunchType = launchType;
+        mLaunchTypeAtCreation = launchType;
+        mPendingLoadParams = loadUrlParams;
+        if (loadUrlParams != null) mUrl = loadUrlParams.getUrl();
 
         TabThemeColorHelper.createForTab(this);
 
         // Restore data from the TabState, if it existed.
         if (frozenState != null) {
-            assert type == TabLaunchType.FROM_RESTORE;
             restoreFieldsFromState(frozenState);
+        } else {
+            if (mParentId == INVALID_TAB_ID || getTabModelSelector() == null
+                    || getTabModelSelector().getTabById(mParentId) == null) {
+                mRootId = mId;
+            } else {
+                mRootId = getTabModelSelector().getTabById(mParentId).getRootId();
+            }
         }
 
-        addObserver(mTabObserver);
-        addObserver(mFullscreenHandler);
+        TabFullscreenHandler.createForTab(this);
 
         if (incognito) {
             CipherFactory.getInstance().triggerKeyGeneration();
@@ -490,15 +387,7 @@ public class Tab
         ContextualSearchTabHelper.createForTab(this);
         MediaSessionTabHelper.createForTab(this);
 
-        if (creationState != null) {
-            TabUma.create(this, creationState);
-            if (frozenState == null) {
-                assert creationState != TabCreationState.FROZEN_ON_RESTORE;
-            } else {
-                assert type == TabLaunchType.FROM_RESTORE
-                        && creationState == TabCreationState.FROZEN_ON_RESTORE;
-            }
-        }
+        if (creationState != null) TabUma.create(this, creationState);
 
         mAttachStateChangeListener = new OnAttachStateChangeListener() {
             @Override
@@ -529,10 +418,8 @@ public class Tab
 
         TabThemeColorHelper.get(this).updateFromTabState(state);
         mTitle = state.getDisplayTitleFromState();
-        mIsTitleDirectionRtl = mTitle != null
-                && LocalizationUtils.getFirstStrongCharacterDirection(mTitle)
-                        == LocalizationUtils.RIGHT_TO_LEFT;
         mLaunchTypeAtCreation = state.tabLaunchTypeAtCreation;
+        mRootId = state.rootId == Tab.INVALID_TAB_ID ? mId : state.rootId;
     }
 
     /**
@@ -608,7 +495,6 @@ public class Tab
             if ((params.getTransitionType() & PageTransition.FROM_ADDRESS_BAR)
                     == PageTransition.FROM_ADDRESS_BAR) {
                 mAppAssociatedWith = null;
-                setIsAllowedToReturnToExternalApp(false);
             }
             if ("chrome://java-crash/".equals(params.getUrl())) {
                 return handleJavaCrash();
@@ -633,7 +519,7 @@ public class Tab
                     params.getReferrer() != null ? params.getReferrer().getPolicy() : 0,
                     params.getIsRendererInitiated(), params.getShouldReplaceCurrentEntry(),
                     params.getHasUserGesture(), params.getShouldClearHistoryList(),
-                    params.getInputStartTimestamp());
+                    params.getInputStartTimestamp(), params.getIntentReceivedTimestamp());
 
             for (TabObserver observer : mObservers) {
                 observer.onLoadUrl(this, params, loadType);
@@ -674,13 +560,6 @@ public class Tab
      */
     public boolean isShowingInterstitialPage() {
         return getWebContents() != null && getWebContents().isShowingInterstitialPage();
-    }
-
-    /**
-     * @return Whether a tab modal dialog is showing.
-     */
-    public boolean isShowingTabModalDialog() {
-        return mIsShowingTabModalDialog;
     }
 
     /**
@@ -751,6 +630,17 @@ public class Tab
     }
 
     /**
+     * @return The {@link Activity} {@link Context} if this {@link Tab} is attached to an
+     *         {@link Activity}, otherwise the themed application context (e.g. hidden tab or
+     *         browser action tab).
+     */
+    public @NonNull Context getContext() {
+        if (getWindowAndroid() == null) return getThemedApplicationContext();
+        Context context = getWindowAndroid().getContext().get();
+        return context == context.getApplicationContext() ? getThemedApplicationContext() : context;
+    }
+
+    /**
      * @return {@link TabModelSelector} that currently hosts the {@link TabModel} for this
      *         {@link Tab}.
      */
@@ -769,12 +659,17 @@ public class Tab
         tabState.shouldPreserve = mShouldPreserve;
         tabState.timestampMillis = mTimestampMillis;
         tabState.tabLaunchTypeAtCreation = mLaunchTypeAtCreation;
-        tabState.themeColor = TabThemeColorHelper.getColor(this);
+        // Don't save actual default theme color because it could change on night mode state
+        // changed.
+        tabState.themeColor = TabThemeColorHelper.isDefaultColorUsed(this)
+                ? TabState.UNSPECIFIED_THEME_COLOR
+                : TabThemeColorHelper.getColor(this);
+        tabState.rootId = mRootId;
         return tabState;
     }
 
     /** @return WebContentsState representing the state of the WebContents (navigations, etc.) */
-    public WebContentsState getFrozenContentsState() {
+    private WebContentsState getFrozenContentsState() {
         return mFrozenContentsState;
     }
 
@@ -807,25 +702,6 @@ public class Tab
     }
 
     /**
-     * Prints the current page.
-     *
-     * @return Whether the printing process is started successfully.
-     **/
-    public boolean print(int renderProcessId, int renderFrameId) {
-        assert mNativeTabAndroid != 0;
-        return nativePrint(mNativeTabAndroid, renderProcessId, renderFrameId);
-    }
-
-    @CalledByNative
-    public void setPendingPrint(int renderProcessId, int renderFrameId) {
-        PrintingController printingController = PrintingControllerImpl.getInstance();
-        if (printingController == null) return;
-
-        printingController.setPendingPrint(new TabPrinter(this),
-                new PrintManagerDelegateImpl(getActivity()), renderProcessId, renderFrameId);
-    }
-
-    /**
      * Reloads the current page content.
      */
     public void reload() {
@@ -847,14 +723,6 @@ public class Tab
         if (getWebContents() != null) {
             getWebContents().getNavigationController().reloadBypassingCache(true);
         }
-    }
-
-    /**
-     * @return Whether or not the loading and rendering of the page is done.
-     */
-    @VisibleForTesting
-    public boolean isLoadingAndRenderingDone() {
-        return isReady() && getProgress() >= CONSIDERED_READY_LOAD_PERCENTAGE;
     }
 
     /** Stop the current navigation. */
@@ -920,6 +788,21 @@ public class Tab
         return mId;
     }
 
+    /**
+     * This is used to change how this tab related to other tabs.
+     * @param rootId New relationship id to be set.
+     */
+    public void setRootId(int rootId) {
+        mRootId = rootId;
+    }
+
+    /**
+     * @return Tab's relationship id.
+     */
+    public int getRootId() {
+        return mRootId;
+    }
+
     public boolean isIncognito() {
         return mIncognito;
     }
@@ -948,27 +831,6 @@ public class Tab
         return getWebContents() != null && !isNativePage() && !isShowingInterstitialPage()
                 && getSecurityLevel() != ConnectionSecurityLevel.DANGEROUS
                 && PreviewsAndroidBridge.getInstance().shouldShowPreviewUI(getWebContents());
-    }
-
-    /**
-     * Set whether or not the content layer should be using a desktop user agent for the
-     * currently loaded page.
-     * @param useDesktop     If {@code true}, use a desktop user agent.  Otherwise use a mobile one.
-     * @param reloadOnChange Reload the page if the user agent has changed.
-     */
-    public void setUseDesktopUserAgent(boolean useDesktop, boolean reloadOnChange) {
-        if (getWebContents() != null) {
-            getWebContents().getNavigationController().setUseDesktopUserAgent(
-                    useDesktop, reloadOnChange);
-        }
-    }
-
-    /**
-     * @return Whether or not the content layer is using a desktop user agent.
-     */
-    public boolean getUseDesktopUserAgent() {
-        return getWebContents() != null
-                && getWebContents().getNavigationController().getUseDesktopUserAgent();
     }
 
     /**
@@ -1013,14 +875,6 @@ public class Tab
      */
     public void onActivityHidden() {
         hide(TabHidingType.ACTIVITY_HIDDEN);
-    }
-
-    /**
-     * @return Whether the tab is ready to display or it should be faded in as it loads.
-     */
-    public boolean shouldStall() {
-        return (isFrozen() || needsReload())
-                && !NativePageFactory.isNativePageUrl(getUrl(), isIncognito());
     }
 
     /**
@@ -1213,23 +1067,6 @@ public class Tab
     }
 
     /**
-     * Reparents this Tab to the provided Activity. Unlike {@link #detachAndStartReparenting} which
-     * launches the target Activity which can then reparent the Tab with
-     * {@link #attachAndFinishReparenting}, this method should be called from the target Activity on
-     * a Tab that belongs to a different one.
-     * @param activity - The ChromeActivity that will own the Tab.
-     * @param tabDelegateFactory - The TabDelegateFactory from the Activity for that Tab.
-     */
-    public void reparent(ChromeActivity activity, TabDelegateFactory tabDelegateFactory) {
-        detach();
-        // TODO(peconn): Figure out why this is necessary - it is something to do with
-        // Tab.mIsDetached being true and TabModelSelectorImpl#requestToShowTab not calling
-        // |mVisibleTab.hide()| because of it.
-        hide(TabHidingType.REPARENTED);
-        attachAndFinishReparenting(activity, tabDelegateFactory, null);
-    }
-
-    /**
      * Begins the tab reparenting process. Detaches the tab from its current activity and fires
      * an Intent to reparent the tab into its new host activity.
      *
@@ -1278,23 +1115,21 @@ public class Tab
      * Detaches a tab from its current activity if any.
      *
      * In details, this function:
-     * - Tags the tab using mIsDetached.
      * - Removes the tab from its current {@link TabModelSelector}, effectively severing
      *   the {@link Activity} to {@link Tab} link.
      */
-    private void detach() {
-        mIsDetached = true;
-
-        TabModelSelector tabModelSelector = getTabModelSelector();
-        if (tabModelSelector != null) {
-            tabModelSelector.getModel(mIncognito).removeTab(this);
-        }
+    public void detach() {
         // TODO(yusufo): We can't call updateWindowAndroid here and set mWindowAndroid to null
         // because many code paths (including navigation) expect the tab to always be associated
         // with an activity, and will crash. crbug.com/657007
         WebContents webContents = getWebContents();
         if (webContents != null) webContents.setTopLevelNativeWindow(null);
         attachTabContentManager(null);
+
+        TabModelSelector tabModelSelector = getTabModelSelector();
+        if (tabModelSelector != null) {
+            tabModelSelector.getModel(mIncognito).removeTab(this);
+        }
 
         for (TabObserver observer : mObservers) {
             observer.onActivityAttachmentChanged(this, false);
@@ -1334,7 +1169,7 @@ public class Tab
      * @param tabDelegateFactory  The new delegate factory this tab should be using.
      */
     public void attach(ChromeActivity activity, TabDelegateFactory tabDelegateFactory) {
-        assert mIsDetached;
+        assert isDetached();
         updateWindowAndroid(activity.getWindowAndroid());
 
         // Update for the controllers that need the Compositor from the new Activity.
@@ -1345,8 +1180,6 @@ public class Tab
         mWebContentsDelegate = mDelegateFactory.createWebContentsDelegate(this);
         mBrowserControlsVisibilityDelegate =
                 mDelegateFactory.createBrowserControlsVisibilityDelegate(this);
-
-        mIsDetached = false;
 
         // Reload the NativePage (if any), since the old NativePage has a reference to the old
         // activity.
@@ -1360,7 +1193,6 @@ public class Tab
                             mDelegateFactory.createContextMenuPopulator(this), this));
             setInterceptNavigationDelegate(
                     mDelegateFactory.createInterceptNavigationDelegate(this));
-            getAppBannerManager().setIsEnabledForTab(mDelegateFactory.canShowAppBanners(this));
         }
 
         for (TabObserver observer : mObservers) {
@@ -1386,7 +1218,13 @@ public class Tab
      * with {@link Tab#attachAndFinishReparenting}.
      */
     public boolean isDetached() {
-        return mIsDetached;
+        if (getWebContents() == null) return true;
+        // Should get WindowAndroid from WebContents since the one from |getWindowAndroid()|
+        // is always non-null even when the tab is in detached state. See the comment in |detach()|.
+        WindowAndroid window = getWebContents().getTopLevelNativeWindow();
+        if (window == null) return true;
+        Activity activity = WindowAndroid.activityFromContext(window.getContext().get());
+        return !(activity instanceof ChromeActivity);
     }
 
     /**
@@ -1455,7 +1293,6 @@ public class Tab
     protected void didFinishPageLoad(String url) {
         mIsTabStateDirty = true;
         updateTitle();
-        updateFullscreenEnabledState();
 
         for (TabObserver observer : mObservers) observer.onPageLoadFinished(this, url);
         mIsBeingRestored = false;
@@ -1536,6 +1373,7 @@ public class Tab
             updateInteractableState();
             mWebContentsDelegate = mDelegateFactory.createWebContentsDelegate(this);
             TabWebContentsObserver.from(this);
+            TabFavicon.from(this);
 
             int parentId = getParentId();
             if (parentId != INVALID_TAB_ID) {
@@ -1546,8 +1384,8 @@ public class Tab
             }
 
             assert mNativeTabAndroid != 0;
-            nativeInitWebContents(mNativeTabAndroid, mIncognito, mIsDetached, webContents, parentId,
-                    mWebContentsDelegate,
+            nativeInitWebContents(mNativeTabAndroid, mIncognito, isDetached(), webContents,
+                    parentId, mWebContentsDelegate,
                     new TabContextMenuPopulator(
                             mDelegateFactory.createContextMenuPopulator(this), this));
 
@@ -1560,6 +1398,7 @@ public class Tab
             InfoBarContainer.from(this);
 
             SwipeRefreshHandler.from(this);
+            TrustedCdn.from(this);
 
             notifyContentChanged();
 
@@ -1586,8 +1425,10 @@ public class Tab
 
             setInterceptNavigationDelegate(mDelegateFactory.createInterceptNavigationDelegate(
                     this));
-
-            getAppBannerManager().setIsEnabledForTab(mDelegateFactory.canShowAppBanners(this));
+            if (ContentCaptureFeatures.isEnabled()) {
+                // The created object is held by native side.
+                ContentCaptureReceiverManager.create(getWebContents());
+            }
         } finally {
             TraceEvent.end("ChromeTab.initBrowserComponents");
         }
@@ -1608,7 +1449,7 @@ public class Tab
         // While detached for reparenting we don't have an owning Activity, or TabModelSelector,
         // so we can't create the native page. The native page will be created once reparenting is
         // completed.
-        if (mIsDetached) return false;
+        if (isDetached()) return false;
         NativePage candidateForReuse = forceReload ? null : getNativePage();
         NativePage nativePage = NativePageFactory.createNativePageForURL(url, candidateForReuse,
                 this, getTabModelSelector(), getActivity());
@@ -1640,16 +1481,6 @@ public class Tab
     }
 
     /**
-     * @return The ID of the renderer process that backs this tab or
-     *         {@link #INVALID_RENDER_PROCESS_PID} if there is none.
-     */
-    @VisibleForTesting
-    public int getCurrentRenderProcessIdForTesting() {
-        assert mNativeTabAndroid != 0;
-        return nativeGetCurrentRenderProcessId(mNativeTabAndroid);
-    }
-
-    /**
      * Calls onContentChanged on all TabObservers and updates accessibility visibility.
      */
     void notifyContentChanged() {
@@ -1670,8 +1501,6 @@ public class Tab
 
         for (TabObserver observer : mObservers) observer.onDestroyed(this);
         mObservers.clear();
-
-        hideMediaDownloadInProductHelp();
 
         mUserDataHost.destroy();
 
@@ -1754,8 +1583,6 @@ public class Tab
 
         mIsTabStateDirty = true;
         mTitle = title;
-        mIsTitleDirectionRtl = LocalizationUtils.getFirstStrongCharacterDirection(title)
-                == LocalizationUtils.RIGHT_TO_LEFT;
         notifyPageTitleChanged();
     }
 
@@ -1779,29 +1606,6 @@ public class Tab
         while (observers.hasNext()) {
             observers.next().onFaviconUpdated(this, null);
         }
-    }
-
-    /**
-     * @return True if the tab title should be displayed from right to left.
-     */
-    public boolean isTitleDirectionRtl() {
-        return mIsTitleDirectionRtl;
-    }
-
-    /**
-     * @return The bitmap of the favicon scaled to 16x16dp. null if no favicon
-     *         is specified or it requires the default favicon.
-     */
-    public Bitmap getFavicon() {
-        // If we have no content or a native page, return null.
-        if (isNativePage() || getWebContents() == null) return null;
-
-        // Use the cached favicon only if the page wasn't changed.
-        if (mFavicon != null && mFaviconUrl != null && mFaviconUrl.equals(getUrl())) {
-            return mFavicon;
-        }
-
-        return nativeGetFavicon(mNativeTabAndroid);
     }
 
     /**
@@ -1858,20 +1662,21 @@ public class Tab
      * frozen with a saved TabState, and NOT if it was frozen for a lazy load.
      * @return Whether or not the restoration was successful.
      */
-    protected boolean unfreezeContents() {
+    private void unfreezeContents() {
         try {
             TraceEvent.begin("Tab.unfreezeContents");
             assert mFrozenContentsState != null;
 
             WebContents webContents =
                     mFrozenContentsState.restoreContentsFromByteBuffer(isHidden());
+            boolean failedToRestore = false;
             if (webContents == null) {
                 // State restore failed, just create a new empty web contents as that is the best
                 // that can be done at this point. TODO(jcivelli) http://b/5910521 - we should show
                 // an error page instead of a blank page in that case (and the last loaded URL).
                 webContents = WebContentsFactory.createWebContents(isIncognito(), isHidden());
                 TabUma.create(this, TabCreationState.FROZEN_ON_RESTORE_FAILED);
-                mFailedToRestore = true;
+                failedToRestore = true;
             }
             View compositorView = getActivity().getCompositorViewHolder();
             webContents.setSize(compositorView.getWidth(), compositorView.getHeight());
@@ -1879,21 +1684,13 @@ public class Tab
             mFrozenContentsState = null;
             initWebContents(webContents);
 
-            if (mFailedToRestore) {
+            if (failedToRestore) {
                 String url = TextUtils.isEmpty(mUrl) ? UrlConstants.NTP_URL : mUrl;
                 loadUrl(new LoadUrlParams(url, PageTransition.GENERATED));
             }
-            return !mFailedToRestore;
         } finally {
             TraceEvent.end("Tab.unfreezeContents");
         }
-    }
-
-    /**
-     * @return Whether the unfreeze attempt from a saved tab state failed.
-     */
-    public boolean didFailToRestore() {
-        return mFailedToRestore;
     }
 
     /**
@@ -1987,23 +1784,6 @@ public class Tab
         return mParentId;
     }
 
-    /**
-     * @return Whether the tab should be grouped with its parent tab (true by default).
-     */
-    public boolean isGroupedWithParent() {
-        return mGroupedWithParent;
-    }
-
-    /**
-     * Sets whether the tab should be grouped with its parent tab.
-     *
-     * @param groupedWithParent The new value.
-     * @see #isGroupedWithParent
-     */
-    public void setGroupedWithParent(boolean groupedWithParent) {
-        mGroupedWithParent = groupedWithParent;
-    }
-
     private void destroyNativePageInternal(NativePage nativePage) {
         if (nativePage == null) return;
         assert nativePage != mNativePage : "Attempting to destroy active page.";
@@ -2053,49 +1833,6 @@ public class Tab
         return mWebContentsDelegate;
     }
 
-    private boolean isIdealFaviconSize(int width, int height) {
-        return width == mIdealFaviconSize && height == mIdealFaviconSize;
-    }
-
-    /**
-     * @param width new favicon's width.
-     * @param height new favicon's height.
-     * @return true iff the new favicon should replace the current one.
-     */
-    private boolean isBetterFavicon(int width, int height) {
-        if (isIdealFaviconSize(width, height)) return true;
-
-        // Prefer square favicons over rectangular ones
-        if (mFaviconWidth != mFaviconHeight && width == height) return true;
-        if (mFaviconWidth == mFaviconHeight && width != height) return false;
-
-        // Do not update favicon if it's already at least as big as the ideal size in both dimens
-        if (mFaviconWidth >= mIdealFaviconSize && mFaviconHeight >= mIdealFaviconSize) return false;
-
-        // Update favicon if the new one is larger in one dimen, but not smaller in the other
-        return (width > mFaviconWidth && !(height < mFaviconHeight))
-                || (!(width < mFaviconWidth) && height > mFaviconHeight);
-    }
-
-    @CalledByNative
-    protected void onFaviconAvailable(Bitmap icon) {
-        if (icon == null) return;
-        String url = getUrl();
-        boolean pageUrlChanged = !url.equals(mFaviconUrl);
-        // This method will be called multiple times if the page has more than one favicon.
-        // We are trying to use the |mIdealFaviconSize|x|mIdealFaviconSize| DP icon here, or the
-        // first one larger than that received. Bitmap.createScaledBitmap will return the original
-        // bitmap if it is already |mIdealFaviconSize|x|mIdealFaviconSize| DP.
-        if (pageUrlChanged || isBetterFavicon(icon.getWidth(), icon.getHeight())) {
-            mFavicon = Bitmap.createScaledBitmap(icon, mIdealFaviconSize, mIdealFaviconSize, true);
-            mFaviconWidth = icon.getWidth();
-            mFaviconHeight = icon.getHeight();
-            mFaviconUrl = url;
-        }
-
-        for (TabObserver observer : mObservers) observer.onFaviconUpdated(this, icon);
-    }
-
     /**
      * Checks if this tab is currently presented in the context of custom tabs. Tabs can be moved
      * between different activities so the returned value might change over the lifetime of the tab.
@@ -2105,15 +1842,6 @@ public class Tab
     public boolean isCurrentlyACustomTab() {
         ChromeActivity activity = getActivity();
         return activity != null && activity.isCustomTab();
-    }
-
-    /**
-     * Called when the navigation entry containing the history item changed,
-     * for example because of a scroll offset or form field change.
-     */
-    @CalledByNative
-    private void onNavEntryChanged() {
-        mIsTabStateDirty = true;
     }
 
     /**
@@ -2132,10 +1860,6 @@ public class Tab
         return mNativeTabAndroid;
     }
 
-    private static Rect getEstimatedContentSize(Context context) {
-        return ExternalPrerenderHandler.estimateContentSize(context, false);
-    }
-
     /** This is currently called when committing a pre-rendered page. */
     @VisibleForTesting
     public void swapWebContents(
@@ -2150,7 +1874,7 @@ public class Tab
 
         Rect bounds = new Rect();
         if (originalWidth == 0 && originalHeight == 0) {
-            bounds = getEstimatedContentSize(getApplicationContext());
+            bounds = ExternalPrerenderHandler.estimateContentSize(getApplicationContext(), false);
             originalWidth = bounds.right - bounds.left;
             originalHeight = bounds.bottom - bounds.top;
         }
@@ -2173,6 +1897,17 @@ public class Tab
         initWebContents(webContents);
 
         destroyNativePageInternal(previousNativePage);
+
+        String url = getUrl();
+
+        if (didStartLoad) {
+            // Simulate the PAGE_LOAD_STARTED notification that we did not get.
+            didStartPageLoad(url);
+
+            // Simulate the PAGE_LOAD_FINISHED notification that we did not get.
+            if (didFinishLoad) didFinishPageLoad(url);
+        }
+
         for (TabObserver observer : mObservers) {
             observer.onWebContentsSwapped(this, didStartLoad, didFinishLoad);
         }
@@ -2218,14 +1953,6 @@ public class Tab
      */
     private LoadUrlParams getPendingLoadParams() {
         return mPendingLoadParams;
-    }
-
-    /**
-     * @param params Parameters that should be used for a lazily loaded Tab.
-     */
-    private void setPendingLoadParams(LoadUrlParams params) {
-        mPendingLoadParams = params;
-        mUrl = params.getUrl();
     }
 
     /**
@@ -2445,27 +2172,6 @@ public class Tab
         return constraints;
     }
 
-    public void setTopControlsHeight(int height, boolean controlsResizeView) {
-        mTopControlsHeight = height;
-        mControlsResizeView = controlsResizeView;
-    }
-
-    public void setBottomControlsHeight(int height) {
-        mBottomControlsHeight = height;
-    }
-
-    int getTopControlsHeight() {
-        return mTopControlsHeight;
-    }
-
-    int getBottomControlsHeight() {
-        return mBottomControlsHeight;
-    }
-
-    boolean controlsResizeView() {
-        return mControlsResizeView;
-    }
-
     /**
      * @param manager The fullscreen manager that should be notified of changes to this tab (if
      *                set to null, no more updates will come from this tab).
@@ -2591,69 +2297,23 @@ public class Tab
     /**
      * See {@link #mInterceptNavigationDelegate}.
      */
+    @VisibleForTesting
     public InterceptNavigationDelegateImpl getInterceptNavigationDelegate() {
         return mInterceptNavigationDelegate;
-    }
-
-    @VisibleForTesting
-    public AuthenticatorNavigationInterceptor getAuthenticatorHelper() {
-        return getInterceptNavigationDelegate().getAuthenticatorNavigationInterceptor();
     }
 
     /**
      * See {@link #mInterceptNavigationDelegate}.
      */
-    public void setInterceptNavigationDelegate(InterceptNavigationDelegateImpl delegate) {
+    @VisibleForTesting
+    void setInterceptNavigationDelegate(InterceptNavigationDelegateImpl delegate) {
         mInterceptNavigationDelegate = delegate;
         nativeSetInterceptNavigationDelegate(mNativeTabAndroid, delegate);
-    }
-
-    /**
-     * @return the AppBannerManager.
-     */
-    public AppBannerManager getAppBannerManager() {
-        return AppBannerManager.getAppBannerManagerForWebContents(getWebContents());
     }
 
     @VisibleForTesting
     public boolean hasPrerenderedUrl(String url) {
         return nativeHasPrerenderedUrl(mNativeTabAndroid, url);
-    }
-
-    @VisibleForTesting
-    public int getSystemWindowInsetBottom() {
-        ChromeActivity activity = getActivity();
-        if (activity != null && activity.getInsetObserverView() != null) {
-            return activity.getInsetObserverView().getSystemWindowInsetsBottom();
-        }
-        return 0;
-    }
-
-    /**
-     * Sets the Intent that can be fired to restart the Activity of this Tab's parent.
-     * Should only be called if the Tab was launched via a different Activity.
-     */
-    public void setParentIntent(Intent parentIntent) {
-        mParentIntent = parentIntent;
-    }
-
-    /**
-     * @return Intent that can be fired to restart the parent Activity.
-     */
-    protected Intent getParentIntent() {
-        return mParentIntent;
-    }
-
-    /**
-     * Creates a new, "frozen" tab from a saved state. This can be used for background tabs restored
-     * on cold start that should be loaded when switched to. initialize() needs to be called
-     * afterwards to complete the second level initialization.
-     */
-    public static Tab createFrozenTabFromState(
-            int id, boolean incognito, WindowAndroid nativeWindow, int parentId, TabState state) {
-        assert state != null;
-        return new Tab(id, parentId, incognito, nativeWindow, TabLaunchType.FROM_RESTORE,
-                TabCreationState.FROZEN_ON_RESTORE, state);
     }
 
     /**
@@ -2687,80 +2347,6 @@ public class Tab
         return activity != null && activity.isViewObscuringAllTabs();
     }
 
-    /**
-     * Creates a new tab to be loaded lazily. This can be used for tabs opened in the background
-     * that should be loaded when switched to. initialize() needs to be called afterwards to
-     * complete the second level initialization.
-     */
-    public static Tab createTabForLazyLoad(boolean incognito, WindowAndroid nativeWindow,
-            @TabLaunchType int type, int parentId, LoadUrlParams loadUrlParams) {
-        Tab tab = new Tab(INVALID_TAB_ID, parentId, incognito, nativeWindow, type,
-                TabCreationState.FROZEN_FOR_LAZY_LOAD, null);
-        tab.setPendingLoadParams(loadUrlParams);
-        return tab;
-    }
-
-    /**
-     * Creates a fresh tab. initialize() needs to be called afterwards to complete the second level
-     * initialization.
-     * @param initiallyHidden true iff the tab being created is initially in background
-     */
-    public static Tab createLiveTab(int id, boolean incognito, WindowAndroid nativeWindow,
-            @TabLaunchType int type, int parentId, boolean initiallyHidden) {
-        return new Tab(id, parentId, incognito, nativeWindow, type,
-                initiallyHidden ? TabCreationState.LIVE_IN_BACKGROUND
-                                : TabCreationState.LIVE_IN_FOREGROUND,
-                null);
-    }
-
-    /**
-     * Creates an instance of a {@link Tab} that is fully detached from any activity.
-     * Also performs general tab initialization as well as detached specifics.
-     *
-     * The current application context must allow the creation of a WindowAndroid.
-     *
-     * @return The newly created and initialized tab.
-     */
-    public static Tab createDetached(TabDelegateFactory delegateFactory) {
-        Context context = ContextUtils.getApplicationContext();
-        WindowAndroid windowAndroid = new WindowAndroid(context);
-        Tab tab = new Tab(INVALID_TAB_ID, INVALID_TAB_ID, false, windowAndroid,
-                TabLaunchType.FROM_SPECULATIVE_BACKGROUND_CREATION, null, null);
-        tab.initialize(null, null, delegateFactory, true, false);
-
-        // Resize the webContent to avoid expensive post load resize when attaching the tab.
-        Rect bounds = getEstimatedContentSize(context);
-        int width = bounds.right - bounds.left;
-        int height = bounds.bottom - bounds.top;
-        tab.getWebContents().setSize(width, height);
-
-        tab.detach();
-        return tab;
-    }
-
-    /**
-     * @return Intent that tells Chrome to bring an Activity for a particular Tab back to the
-     *         foreground, or null if this isn't possible.
-     */
-    @Nullable
-    public static Intent createBringTabToFrontIntent(int tabId) {
-        // Iterate through all {@link CustomTab}s and check whether the given tabId belongs to a
-        // {@link CustomTab}. If so, return null as the client app's task cannot be foregrounded.
-        for (Activity activity : ApplicationStatus.getRunningActivities()) {
-            if (activity instanceof CustomTabActivity
-                    && ((CustomTabActivity) activity).getActivityTab() != null
-                    && tabId == ((CustomTabActivity) activity).getActivityTab().getId()) {
-                return null;
-            }
-        }
-
-        Context context = ContextUtils.getApplicationContext();
-        Intent intent = new Intent(context, ChromeLauncherActivity.class);
-        intent.putExtra(Browser.EXTRA_APPLICATION_ID, context.getPackageName());
-        intent.putExtra(TabOpenType.BRING_TAB_TO_FRONT_STRING, tabId);
-        return intent;
-    }
-
     void handleRendererResponsiveStateChanged(boolean isResponsive) {
         mIsRendererUnresponsive = !isResponsive;
         for (TabObserver observer : mObservers) {
@@ -2773,20 +2359,6 @@ public class Tab
      */
     protected boolean isRendererUnresponsive() {
         return mIsRendererUnresponsive;
-    }
-
-    /**
-     * Set whether closing this Tab should return the user to the app that spawned Chrome.
-     */
-    public void setIsAllowedToReturnToExternalApp(boolean state) {
-        mIsAllowedToReturnToExternalApp = state;
-    }
-
-    /**
-     * @return Whether closing this Tab should return the user to the app that spawned Chrome.
-     */
-    public boolean isAllowedToReturnToExternalApp() {
-        return mIsAllowedToReturnToExternalApp;
     }
 
     /**
@@ -2825,118 +2397,10 @@ public class Tab
     }
 
     /**
-     * Called when the orientation of the activity has changed.
-     */
-    public void onOrientationChange() {
-        hideMediaDownloadInProductHelp();
-    }
-
-    /**
-     * Handle browser controls when a tab modal dialog is shown.
-     * @param isShowing Whether a tab modal dialog is showing.
-     */
-    public void onTabModalDialogStateChanged(boolean isShowing) {
-        mIsShowingTabModalDialog = isShowing;
-    }
-
-    /**
      * @return Whether input events from the renderer are ignored on the browser side.
      */
     public boolean areRendererInputEventsIgnored() {
         return nativeAreRendererInputEventsIgnored(mNativeTabAndroid);
-    }
-
-    @CalledByNative
-    private void showMediaDownloadInProductHelp(int x, int y, int width, int height) {
-        Rect rect = new Rect(x, y, x + width, y + height);
-
-        // If we are not currently showing the widget, ask the tracker if we can show it.
-        if (mDownloadIPHBubble == null) {
-            Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
-            tracker.notifyEvent(EventConstants.MEDIA_DOWNLOAD_BUTTON_DISPLAYED);
-            if (!tracker.shouldTriggerHelpUI(FeatureConstants.MEDIA_DOWNLOAD_FEATURE)) {
-                // Inform native that the button was dismissed to notify the renderer that the
-                // request was rejected.
-                nativeMediaDownloadInProductHelpDismissed(mNativeTabAndroid);
-                return;
-            }
-
-            mDownloadIPHBubble = new TextBubble(getApplicationContext(), mContentView,
-                    R.string.iph_media_download_text,
-                    R.string.iph_media_download_accessibility_text, rect);
-            mDownloadIPHBubble.setDismissOnTouchInteraction(true);
-            mDownloadIPHBubble.addOnDismissListener(new OnDismissListener() {
-                @Override
-                public void onDismiss() {
-                    ThreadUtils.postOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            hideMediaDownloadInProductHelp();
-                        }
-                    });
-                }
-            });
-        }
-
-        mDownloadIPHBubble.setPreferredVerticalOrientation(
-                AnchoredPopupWindow.VERTICAL_ORIENTATION_BELOW);
-        mDownloadIPHBubble.show();
-        createPulse(rect);
-    }
-
-    private void createPulse(Rect rect) {
-        if (mPulsePopupWindow == null) {
-            PulseDrawable pulseDrawable = PulseDrawable.createCircle(mThemedApplicationContext);
-            View view = new Button(getActivity());
-            view.setLayoutParams(new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            view.setBackground(pulseDrawable);
-
-            mPulsePopupWindow = new PopupWindow(getActivity());
-            mPulsePopupWindow.setBackgroundDrawable(null);
-            mPulsePopupWindow.setContentView(view);
-            mPulsePopupWindow.setWidth(ViewGroup.LayoutParams.WRAP_CONTENT);
-            mPulsePopupWindow.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
-            mPulsePopupWindow.getContentView().setOnClickListener(
-                    v -> hideMediaDownloadInProductHelp());
-            mPulsePopupWindow.showAtLocation(
-                    getView(), Gravity.TOP | Gravity.START, rect.left, rect.top);
-            pulseDrawable.start();
-        }
-
-        mPulsePopupWindow.update(rect.left, rect.top, rect.width(), rect.height());
-    }
-
-    @CalledByNative
-    private void hideMediaDownloadInProductHelp() {
-        if (mPulsePopupWindow != null && mPulsePopupWindow.isShowing()) {
-            mPulsePopupWindow.dismiss();
-            mPulsePopupWindow = null;
-        }
-
-        if (mDownloadIPHBubble == null) return;
-
-        mDownloadIPHBubble.dismiss();
-        mDownloadIPHBubble = null;
-        Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
-        tracker.dismissed(FeatureConstants.MEDIA_DOWNLOAD_FEATURE);
-        nativeMediaDownloadInProductHelpDismissed(mNativeTabAndroid);
-    }
-
-    /**
-     * @return The publisher URL if the current page is hosted on a trusted CDN, or null otherwise.
-     */
-    public @Nullable String getTrustedCdnPublisherUrl() {
-        ChromeActivity activity = getActivity();
-        if (activity == null) return null;
-        if (!activity.canShowTrustedCdnPublisherUrl()) return null;
-        if (getSecurityLevel() == ConnectionSecurityLevel.DANGEROUS) return null;
-        return mTrustedCdnPublisherUrl;
-    }
-
-    @CalledByNative
-    private void setTrustedCdnPublisherUrl(@Nullable String url) {
-        mTrustedCdnPublisherUrl = url;
     }
 
     private native void nativeInit();
@@ -2953,12 +2417,10 @@ public class Tab
     private native int nativeLoadUrl(long nativeTabAndroid, String url, String initiatorOrigin,
             String extraHeaders, ResourceRequestBody postData, int transition, String referrerUrl,
             int referrerPolicy, boolean isRendererInitiated, boolean shoulReplaceCurrentEntry,
-            boolean hasUserGesture, boolean shouldClearHistoryList, long inputStartTimestamp);
+            boolean hasUserGesture, boolean shouldClearHistoryList, long inputStartTimestamp,
+            long intentReceivedTimestamp);
     private native void nativeSetActiveNavigationEntryTitleForUrl(long nativeTabAndroid, String url,
             String title);
-    private native boolean nativePrint(
-            long nativeTabAndroid, int renderProcessId, int renderFrameId);
-    private native Bitmap nativeGetFavicon(long nativeTabAndroid);
     private native void nativeCreateHistoricalTab(long nativeTabAndroid);
     private native void nativeUpdateBrowserControlsState(
             long nativeTabAndroid, int constraints, int current, boolean animate);
@@ -2974,7 +2436,5 @@ public class Tab
     private native void nativeSetPictureInPictureEnabled(long nativeTabAndroid, boolean enabled);
     private native void nativeEnableEmbeddedMediaExperience(long nativeTabAndroid, boolean enabled);
     private native void nativeAttachDetachedTab(long nativeTabAndroid);
-    private native void nativeMediaDownloadInProductHelpDismissed(long nativeTabAndroid);
-    private native int nativeGetCurrentRenderProcessId(long nativeTabAndroid);
     private native boolean nativeAreRendererInputEventsIgnored(long nativeTabAndroid);
 }

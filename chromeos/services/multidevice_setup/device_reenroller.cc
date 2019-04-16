@@ -4,8 +4,10 @@
 
 #include "chromeos/services/multidevice_setup/device_reenroller.h"
 
+#include "base/bind.h"
 #include "base/containers/flat_set.h"
 #include "base/no_destructor.h"
+#include "base/timer/timer.h"
 #include "chromeos/components/multidevice/logging/logging.h"
 #include "chromeos/services/device_sync/proto/enum_util.h"
 #include "chromeos/services/device_sync/public/cpp/gcm_device_info_provider.h"

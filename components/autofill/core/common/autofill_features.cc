@@ -67,6 +67,10 @@ const base::Feature kAutofillDeleteDisusedAddresses{
 const base::Feature kAutofillDeleteDisusedCreditCards{
     "AutofillDeleteDisusedCreditCards", base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kAutofillDoNotUploadSaveUnsupportedCards{
+    "AutofillDoNotUploadSaveUnsupportedCards",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether the credit card downstream keyboard accessory shows
 // the Google Pay logo animation on iOS.
 const base::Feature kAutofillDownstreamUseGooglePayBrandingOniOS{
@@ -95,6 +99,12 @@ const base::Feature kAutofillEnableCompanyName{
 // Controls whether the iframe messaging is enabled for autofill on iOS.
 const base::Feature kAutofillEnableIFrameSupportOniOS{
     "AutofillEnableIFrameSupportOniOS", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// When enabled, enable local card migration flow for user who has signed in but
+// has not turned on sync.
+const base::Feature kAutofillEnableLocalCardMigrationForNonSyncUser{
+    "AutofillEnableLocalCardMigrationForNonSyncUser",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // When enabled, no local copy of server card will be saved when upload
 // succeeds.
@@ -147,6 +157,12 @@ const base::Feature kAutofillLocalCardMigrationShowFeedback{
     "AutofillLocalCardMigrationShowFeedback",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether offering to migrate cards will consider data from the
+// Autofill strike database (new version).
+const base::Feature kAutofillLocalCardMigrationUsesStrikeSystemV2{
+    "AutofillLocalCardMigrationUsesStrikeSystemV2",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether the manual fallback will be present.
 const base::Feature kAutofillManualFallback{"AutofillManualFallback",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
@@ -165,6 +181,11 @@ const base::Feature kAutofillPreferServerNamePredictions{
 // website.
 const base::Feature kAutofillPrefilledFields{"AutofillPrefilledFields",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls whether Autofill uses server-side validation to ensure that fields
+// with invalid data are not suggested.
+const base::Feature kAutofillProfileServerValidation{
+    "AutofillProfileServerValidation", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether or not a group of fields not enclosed in a form can be
 // considered a form. If this is enabled, unowned fields will only constitute
@@ -249,6 +270,11 @@ const base::Feature kAutofillShowAutocompleteConsoleWarnings{
     "AutofillShowAutocompleteConsoleWarnings",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether suggestions' labels use the full disclosure format to
+// display disambiguation information.
+const base::Feature kAutofillShowFullDisclosureLabel{
+    "AutofillShowFullDisclosureLabel", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls attaching the autofill type predictions to their respective
 // element in the DOM.
 const base::Feature kAutofillShowTypePredictions{
@@ -259,9 +285,6 @@ const base::Feature kAutofillShowTypePredictions{
 const base::Feature kAutofillSkipComparingInferredLabels{
     "AutofillSkipComparingInferredLabels", base::FEATURE_DISABLED_BY_DEFAULT};
 
-const base::Feature kAutofillSuggestInvalidProfileData{
-    "AutofillSuggestInvalidProfileData", base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kAutofillSuppressDisusedAddresses{
     "AutofillSuppressDisusedAddresses", base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -270,6 +293,11 @@ const base::Feature kAutofillProfileClientValidation{
 
 const base::Feature kAutofillSuppressDisusedCreditCards{
     "AutofillSuppressDisusedCreditCards", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls whether Autofill should search prefixes of all words/tokens when
+// filtering profiles, or only on prefixes of the whole string.
+const base::Feature kAutofillTokenPrefixMatching{
+    "AutofillTokenPrefixMatching", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kAutofillUploadThrottling{"AutofillUploadThrottling",
                                               base::FEATURE_ENABLED_BY_DEFAULT};

@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "base/base_paths.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/debug/stack_trace.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/user_metrics.h"
@@ -186,7 +186,6 @@ ChromeNetworkDelegate::ChromeNetworkDelegate(
     extensions::EventRouterForwarder* event_router)
     : extensions_delegate_(
           ChromeExtensionsNetworkDelegate::Create(event_router)),
-      profile_(nullptr),
       experimental_web_platform_features_enabled_(
           base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kEnableExperimentalWebPlatformFeatures)) {}
@@ -199,7 +198,6 @@ void ChromeNetworkDelegate::set_extension_info_map(
 }
 
 void ChromeNetworkDelegate::set_profile(void* profile) {
-  profile_ = profile;
   extensions_delegate_->set_profile(profile);
 }
 
@@ -264,7 +262,7 @@ int ChromeNetworkDelegate::OnHeadersReceived(
 void ChromeNetworkDelegate::OnBeforeRedirect(net::URLRequest* request,
                                              const GURL& new_location) {
   extensions_delegate_->NotifyBeforeRedirect(request, new_location);
-  variations::StripVariationHeaderIfNeeded(new_location, request);
+  variations::StripVariationsHeaderIfNeeded(new_location, request);
 }
 
 void ChromeNetworkDelegate::OnResponseStarted(net::URLRequest* request,
@@ -313,7 +311,7 @@ ChromeNetworkDelegate::OnAuthRequired(net::URLRequest* request,
 bool ChromeNetworkDelegate::OnCanGetCookies(const net::URLRequest& request,
                                             const net::CookieList& cookie_list,
                                             bool allowed_from_caller) {
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(&request);
+  ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(&request);
   if (info) {
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::UI},
@@ -329,7 +327,7 @@ bool ChromeNetworkDelegate::OnCanSetCookie(const net::URLRequest& request,
                                            const net::CanonicalCookie& cookie,
                                            net::CookieOptions* options,
                                            bool allowed_from_caller) {
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(&request);
+  ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(&request);
   if (info) {
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::UI},

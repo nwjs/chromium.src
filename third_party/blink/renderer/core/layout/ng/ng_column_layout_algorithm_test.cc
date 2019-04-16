@@ -30,7 +30,7 @@ class NGColumnLayoutAlgorithmTest : public NGBaseLayoutAlgorithmTest {
   scoped_refptr<const NGPhysicalBoxFragment> RunBlockLayoutAlgorithm(
       const NGConstraintSpace& space,
       NGBlockNode node) {
-    scoped_refptr<NGLayoutResult> result =
+    scoped_refptr<const NGLayoutResult> result =
         NGBlockLayoutAlgorithm(node, space).Layout();
 
     return ToNGPhysicalBoxFragment(result->PhysicalFragment());
@@ -1988,7 +1988,8 @@ TEST_F(NGColumnLayoutAlgorithmTest, MinMax) {
       NGLogicalSize(LayoutUnit(1000), NGSizeIndefinite));
   NGColumnLayoutAlgorithm algorithm(node, space);
   base::Optional<MinMaxSize> size;
-  MinMaxSizeInput zero_input;
+  MinMaxSizeInput zero_input(
+      /* percentage_resolution_block_size */ (LayoutUnit()));
 
   // Both column-count and column-width set.
   style->SetColumnCount(3);

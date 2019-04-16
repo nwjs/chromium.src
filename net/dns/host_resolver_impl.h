@@ -43,6 +43,12 @@ class MDnsSocketFactory;
 class NetLog;
 class NetLogWithSource;
 
+// Scheduler and controller of host resolution requests. Because of the global
+// nature of host resolutions, this class is generally expected to be singleton
+// within the browser and only be interacted with through per-context
+// ContextHostResolver objects (which are themselves generally interacted with
+// though the HostResolver interface).
+//
 // For each hostname that is requested, HostResolver creates a
 // HostResolverImpl::Job. When this job gets dispatched it creates a task
 // (ProcTask for the system resolver or DnsTask for the async resolver) which
@@ -72,48 +78,14 @@ class NetLogWithSource;
 //
 // Jobs are ordered in the queue based on their priority and order of arrival.
 class NET_EXPORT HostResolverImpl
-    : public HostResolver,
-      public NetworkChangeNotifier::IPAddressObserver,
+    : public NetworkChangeNotifier::IPAddressObserver,
       public NetworkChangeNotifier::ConnectionTypeObserver,
       public NetworkChangeNotifier::DNSObserver {
  public:
-  // Parameters for ProcTask which resolves hostnames using HostResolveProc.
-  //
-  // |resolver_proc| is used to perform the actual resolves; it must be
-  // thread-safe since it may be run from multiple worker threads. If
-  // |resolver_proc| is NULL then the default host resolver procedure is
-  // used (which is SystemHostResolverProc except if overridden).
-  //
-  // For each attempt, we could start another attempt if host is not resolved
-  // within |unresponsive_delay| time. We keep attempting to resolve the host
-  // for |max_retry_attempts|. For every retry attempt, we grow the
-  // |unresponsive_delay| by the |retry_factor| amount (that is retry interval
-  // is multiplied by the retry factor each time). Once we have retried
-  // |max_retry_attempts|, we give up on additional attempts.
-  //
-  struct NET_EXPORT_PRIVATE ProcTaskParams {
-    // Sets up defaults.
-    ProcTaskParams(HostResolverProc* resolver_proc, size_t max_retry_attempts);
-
-    ProcTaskParams(const ProcTaskParams& other);
-
-    ~ProcTaskParams();
-
-    // The procedure to use for resolving host names. This will be NULL, except
-    // in the case of unit-tests which inject custom host resolving behaviors.
-    scoped_refptr<HostResolverProc> resolver_proc;
-
-    // Maximum number retry attempts to resolve the hostname.
-    // Pass HostResolver::kDefaultRetryAttempts to choose a default value.
-    size_t max_retry_attempts;
-
-    // This is the limit after which we make another attempt to resolve the host
-    // if the worker thread has not responded yet.
-    base::TimeDelta unresponsive_delay;
-
-    // Factor to grow |unresponsive_delay| when we re-re-try.
-    uint32_t retry_factor;
-  };
+  using MdnsListener = HostResolver::MdnsListener;
+  using Options = HostResolver::Options;
+  using ResolveHostRequest = HostResolver::ResolveHostRequest;
+  using ResolveHostParameters = HostResolver::ResolveHostParameters;
 
   // Creates a HostResolver as specified by |options|. Blocking tasks are run in
   // TaskScheduler.
@@ -143,32 +115,18 @@ class NET_EXPORT HostResolverImpl
   std::unique_ptr<ResolveHostRequest> CreateRequest(
       const HostPortPair& host,
       const NetLogWithSource& net_log,
-      const base::Optional<ResolveHostParameters>& optional_parameters)
-      override;
-  int Resolve(const RequestInfo& info,
-              RequestPriority priority,
-              AddressList* addresses,
-              CompletionOnceCallback callback,
-              std::unique_ptr<Request>* out_req,
-              const NetLogWithSource& source_net_log) override;
-  int ResolveFromCache(const RequestInfo& info,
-                       AddressList* addresses,
-                       const NetLogWithSource& source_net_log) override;
-  int ResolveStaleFromCache(const RequestInfo& info,
-                            AddressList* addresses,
-                            HostCache::EntryStaleness* stale_info,
-                            const NetLogWithSource& source_net_log) override;
-  std::unique_ptr<MdnsListener> CreateMdnsListener(
-      const HostPortPair& host,
-      DnsQueryType query_type) override;
-  void SetDnsClientEnabled(bool enabled) override;
+      const base::Optional<ResolveHostParameters>& optional_parameters);
+  std::unique_ptr<MdnsListener> CreateMdnsListener(const HostPortPair& host,
+                                                   DnsQueryType query_type);
+  void SetDnsClientEnabled(bool enabled);
 
-  HostCache* GetHostCache() override;
+  HostCache* GetHostCache();
   bool HasCached(base::StringPiece hostname,
                  HostCache::Entry::Source* source_out,
-                 HostCache::EntryStaleness* stale_out) const override;
+                 HostCache::EntryStaleness* stale_out,
+                 bool* secure_out) const;
 
-  std::unique_ptr<base::Value> GetDnsConfigAsValue() const override;
+  std::unique_ptr<base::Value> GetDnsConfigAsValue() const;
 
   // Returns the number of host cache entries that were restored, or 0 if there
   // is no cache.
@@ -176,14 +134,14 @@ class NET_EXPORT HostResolverImpl
   // Returns the number of entries in the host cache, or 0 if there is no cache.
   size_t CacheSize() const;
 
-  void SetNoIPv6OnWifi(bool no_ipv6_on_wifi) override;
-  bool GetNoIPv6OnWifi() override;
+  void SetNoIPv6OnWifi(bool no_ipv6_on_wifi);
+  bool GetNoIPv6OnWifi();
 
-  void SetDnsConfigOverrides(const DnsConfigOverrides& overrides) override;
+  void SetDnsConfigOverrides(const DnsConfigOverrides& overrides);
 
-  void SetRequestContext(URLRequestContext* request_context) override;
+  void SetRequestContext(URLRequestContext* request_context);
   const std::vector<DnsConfig::DnsOverHttpsServerConfig>*
-  GetDnsOverHttpsServersForTesting() const override;
+  GetDnsOverHttpsServersForTesting() const;
 
   void set_proc_params_for_test(const ProcTaskParams& proc_params) {
     proc_params_ = proc_params;
@@ -216,7 +174,6 @@ class NET_EXPORT HostResolverImpl
   class LoopbackProbeJob;
   class DnsTask;
   class RequestImpl;
-  class LegacyRequestImpl;
   using Key = HostCache::Key;
   using JobMap = std::map<Key, std::unique_ptr<Job>>;
 
@@ -251,23 +208,23 @@ class NET_EXPORT HostResolverImpl
   // sources.
   //
   // On ERR_DNS_CACHE_MISS and OK, the cache key for the request is written to
-  // |key|. On other errors, it may not be.
+  // |out_key|. On other errors, it may not be.
   //
-  // If |allow_stale| is true, then stale cache entries can be returned.
-  // |stale_info| must be non-null, and will be filled in with details of the
-  // entry's staleness (if an entry is returned).
+  // If results are returned from the host cache, |out_stale_info| will be
+  // filled in with information on how stale or fresh the result is. Otherwise,
+  // |out_stale_info| will be set to |base::nullopt|.
   //
-  // If |allow_stale| is false, then stale cache entries will not be returned,
-  // and |stale_info| must be null.
-  HostCache::Entry ResolveLocally(const std::string& hostname,
-                                  DnsQueryType requested_address_family,
-                                  HostResolverSource source,
-                                  HostResolverFlags flags,
-                                  bool allow_cache,
-                                  bool allow_stale,
-                                  HostCache::EntryStaleness* stale_info,
-                                  const NetLogWithSource& request_net_log,
-                                  Key* out_key);
+  // If |cache_usage == ResolveHostParameters::CacheUsage::STALE_ALLOWED|, then
+  // stale cache entries can be returned.
+  HostCache::Entry ResolveLocally(
+      const std::string& hostname,
+      DnsQueryType requested_address_family,
+      HostResolverSource source,
+      HostResolverFlags flags,
+      ResolveHostParameters::CacheUsage cache_usage,
+      const NetLogWithSource& request_net_log,
+      Key* out_key,
+      base::Optional<HostCache::EntryStaleness>* out_stale_info);
 
   // Attempts to create and start a Job to asynchronously attempt to resolve
   // |key|. On success, returns ERR_IO_PENDING and attaches the Job to
@@ -280,17 +237,15 @@ class NET_EXPORT HostResolverImpl
                                                const IPAddress* ip_address);
 
   // Returns the result iff a positive match is found for |key| in the cache.
+  // |out_stale_info| must be non-null, and will be filled in with details of
+  // the entry's staleness if an entry is returned, otherwise it will be set to
+  // |base::nullopt|.
   //
   // If |allow_stale| is true, then stale cache entries can be returned.
-  // |stale_info| must be non-null, and will be filled in with details of the
-  // entry's staleness (if an entry is returned).
-  //
-  // If |allow_stale| is false, then stale cache entries will not be returned,
-  // and |stale_info| must be null.
   base::Optional<HostCache::Entry> ServeFromCache(
       const Key& key,
       bool allow_stale,
-      HostCache::EntryStaleness* stale_info);
+      base::Optional<HostCache::EntryStaleness>* out_stale_info);
 
   // Iff we have a DnsClient with a valid DnsConfig, and |key| can be resolved
   // from the HOSTS file, return the results.

@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -24,6 +25,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
+#include "chrome/browser/performance_manager/performance_manager_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/background_tab_navigation_throttle.h"
 #include "chrome/browser/resource_coordinator/local_site_characteristics_data_unittest_utils.h"
@@ -145,6 +147,10 @@ class TabManagerTest : public testing::ChromeTestHarnessWithLocalDB {
 
   std::unique_ptr<WebContents> CreateWebContents() {
     std::unique_ptr<WebContents> web_contents = CreateTestWebContents();
+    // TODO(siggi): This is an abomination, remove this once the
+    //     PageSignalGenerator is folded into the performance manager.
+    performance_manager::PerformanceManagerTabHelper::CreateForWebContents(
+        web_contents.get());
     ResourceCoordinatorTabHelper::CreateForWebContents(web_contents.get());
     // Commit an URL to allow discarding.
     content::WebContentsTester::For(web_contents.get())
@@ -203,12 +209,18 @@ class TabManagerTest : public testing::ChromeTestHarnessWithLocalDB {
                    const char* url2 = kTestUrl,
                    const char* url3 = kTestUrl) {
     contents1_ = CreateTestWebContents();
+    performance_manager::PerformanceManagerTabHelper::CreateForWebContents(
+        contents1_.get());
     ResourceCoordinatorTabHelper::CreateForWebContents(contents1_.get());
     nav_handle1_ = CreateTabAndNavigation(url1, contents1_.get());
     contents2_ = CreateTestWebContents();
+    performance_manager::PerformanceManagerTabHelper::CreateForWebContents(
+        contents2_.get());
     ResourceCoordinatorTabHelper::CreateForWebContents(contents2_.get());
     nav_handle2_ = CreateTabAndNavigation(url2, contents2_.get());
     contents3_ = CreateTestWebContents();
+    performance_manager::PerformanceManagerTabHelper::CreateForWebContents(
+        contents3_.get());
     ResourceCoordinatorTabHelper::CreateForWebContents(contents3_.get());
     nav_handle3_ = CreateTabAndNavigation(url3, contents3_.get());
 
@@ -490,7 +502,7 @@ TEST_F(TabManagerTest, ActivateTabResetPurgeState) {
   EXPECT_TRUE(tab_manager_->GetWebContentsData(raw_tab2)->is_purged());
 
   // Activate tab2. Tab2's PurgeAndSuspend state should be NOT_PURGED.
-  tabstrip->ActivateTabAt(1, true /* user_gesture */);
+  tabstrip->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
   EXPECT_FALSE(tab_manager_->GetWebContentsData(raw_tab2)->is_purged());
 
   // Tabs with a committed URL must be closed explicitly to avoid DCHECK errors.

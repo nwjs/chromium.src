@@ -105,8 +105,11 @@ class DesktopSessionAgent
   void ProcessAudioPacket(std::unique_ptr<AudioPacket> packet);
 
   // IpcFileOperations::ResultHandler implementation.
-  void OnResult(std::uint64_t file_id,
-                protocol::FileTransferResult<Monostate> result) override;
+  void OnResult(std::uint64_t file_id, ResultHandler::Result result) override;
+  void OnInfoResult(std::uint64_t file_id,
+                    ResultHandler::InfoResult result) override;
+  void OnDataResult(std::uint64_t file_id,
+                    ResultHandler::DataResult result) override;
 
   // Creates desktop integration components and a connected IPC channel to be
   // used to access them. The client end of the channel is returned.
@@ -209,9 +212,6 @@ class DesktopSessionAgent
 
   // Used to apply client-requested changes in screen resolution.
   std::unique_ptr<ScreenControls> screen_controls_;
-
-  // Contains the most recently gathered into about the desktop displays.
-  std::unique_ptr<DesktopDisplayInfo> desktop_display_info_;
 
   // IPC channel connecting the desktop process with the network process.
   std::unique_ptr<IPC::ChannelProxy> network_channel_;

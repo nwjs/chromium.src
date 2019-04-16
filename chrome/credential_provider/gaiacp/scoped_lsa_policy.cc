@@ -98,11 +98,8 @@ HRESULT ScopedLsaPolicy::RetrievePrivateData(const wchar_t* key,
   LSA_UNICODE_STRING* lsa_value;
 
   NTSTATUS sts = ::LsaRetrievePrivateData(handle_, &lsa_key, &lsa_value);
-  if (sts != STATUS_SUCCESS) {
-    HRESULT hr = HRESULT_FROM_NT(sts);
-    LOGFN(ERROR) << "LsaRetrievePrivateData hr=" << putHR(hr);
-    return hr;
-  }
+  if (sts != STATUS_SUCCESS)
+    return HRESULT_FROM_NT(sts);
 
   errno_t err = wcscpy_s(value, length, lsa_value->Buffer);
   ::LsaFreeMemory(lsa_value);
@@ -117,6 +114,19 @@ HRESULT ScopedLsaPolicy::AddAccountRights(PSID sid, const wchar_t* right) {
   if (sts != STATUS_SUCCESS) {
     HRESULT hr = HRESULT_FROM_NT(sts);
     LOGFN(ERROR) << "LsaAddAccountRights sts=" << putHR(sts)
+                 << " hr=" << putHR(hr);
+    return hr;
+  }
+  return S_OK;
+}
+
+HRESULT ScopedLsaPolicy::RemoveAccountRights(PSID sid, const wchar_t* right) {
+  LSA_UNICODE_STRING lsa_right;
+  InitLsaString(right, &lsa_right);
+  NTSTATUS sts = ::LsaRemoveAccountRights(handle_, sid, FALSE, &lsa_right, 1);
+  if (sts != STATUS_SUCCESS) {
+    HRESULT hr = HRESULT_FROM_NT(sts);
+    LOGFN(ERROR) << "LsaRemoveAccountRights sts=" << putHR(sts)
                  << " hr=" << putHR(hr);
     return hr;
   }

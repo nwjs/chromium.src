@@ -10,13 +10,12 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
 #include "build/build_config.h"
-#include "components/sync/base/sync_prefs.h"
 #include "components/sync/driver/sync_driver_switches.h"
 #include "components/sync/engine/connection_status.h"
 #include "components/sync/engine/sync_credentials.h"
-#include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "net/base/net_errors.h"
 #include "services/identity/public/cpp/identity_test_environment.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -31,10 +30,7 @@ class SyncAuthManagerTest : public testing::Test {
   using CredentialsChangedCallback =
       SyncAuthManager::CredentialsChangedCallback;
 
-  SyncAuthManagerTest() : identity_env_(&test_url_loader_factory_) {
-    syncer::SyncPrefs::RegisterProfilePrefs(pref_service_.registry());
-    sync_prefs_ = std::make_unique<syncer::SyncPrefs>(&pref_service_);
-  }
+  SyncAuthManagerTest() : identity_env_(&test_url_loader_factory_) {}
 
   ~SyncAuthManagerTest() override {}
 
@@ -45,14 +41,14 @@ class SyncAuthManagerTest : public testing::Test {
   std::unique_ptr<SyncAuthManager> CreateAuthManager(
       const AccountStateChangedCallback& account_state_changed,
       const CredentialsChangedCallback& credentials_changed) {
-    return std::make_unique<SyncAuthManager>(
-        sync_prefs_.get(), identity_env_.identity_manager(),
-        account_state_changed, credentials_changed);
+    return std::make_unique<SyncAuthManager>(identity_env_.identity_manager(),
+                                             account_state_changed,
+                                             credentials_changed);
   }
 
   std::unique_ptr<SyncAuthManager> CreateAuthManagerForLocalSync() {
-    return std::make_unique<SyncAuthManager>(
-        sync_prefs_.get(), nullptr, base::DoNothing(), base::DoNothing());
+    return std::make_unique<SyncAuthManager>(nullptr, base::DoNothing(),
+                                             base::DoNothing());
   }
 
   identity::IdentityTestEnvironment* identity_env() { return &identity_env_; }
@@ -61,8 +57,6 @@ class SyncAuthManagerTest : public testing::Test {
   base::test::ScopedTaskEnvironment task_environment_;
   network::TestURLLoaderFactory test_url_loader_factory_;
   identity::IdentityTestEnvironment identity_env_;
-  sync_preferences::TestingPrefServiceSyncable pref_service_;
-  std::unique_ptr<syncer::SyncPrefs> sync_prefs_;
 };
 
 TEST_F(SyncAuthManagerTest, ProvidesNothingInLocalSyncMode) {
@@ -75,8 +69,8 @@ TEST_F(SyncAuthManagerTest, ProvidesNothingInLocalSyncMode) {
   EXPECT_TRUE(auth_manager->access_token().empty());
   // Note: Calling RegisterForAuthNotifications is illegal in local Sync mode,
   // so we don't test that.
-  // Calling Clear() does nothing, but shouldn't crash.
-  auth_manager->Clear();
+  // Calling ConnectionClosed() does nothing, but shouldn't crash.
+  auth_manager->ConnectionClosed();
 }
 
 // ChromeOS doesn't support sign-in/sign-out.
@@ -167,6 +161,33 @@ TEST_F(SyncAuthManagerTest, ClearsAuthErrorOnSignout) {
   // the auth error, since it's now not meaningful anymore.
   identity_env()->ClearPrimaryAccount();
   EXPECT_EQ(auth_manager->GetLastAuthError().state(),
+            GoogleServiceAuthError::NONE);
+}
+
+TEST_F(SyncAuthManagerTest, DoesNotClearAuthErrorOnSyncDisable) {
+  // Start out already signed in before the SyncAuthManager is created.
+  std::string account_id =
+      identity_env()->MakePrimaryAccountAvailable("test@email.com").account_id;
+
+  auto auth_manager = CreateAuthManager();
+
+  auth_manager->RegisterForAuthNotifications();
+
+  ASSERT_EQ(auth_manager->GetActiveAccountInfo().account_info.account_id,
+            account_id);
+  ASSERT_EQ(auth_manager->GetLastAuthError().state(),
+            GoogleServiceAuthError::NONE);
+
+  // Force an auth error by revoking the refresh token.
+  identity_env()->RemoveRefreshTokenForPrimaryAccount();
+  ASSERT_NE(auth_manager->GetLastAuthError().state(),
+            GoogleServiceAuthError::NONE);
+
+  // Now Sync gets turned off, e.g. because the user disabled it.
+  auth_manager->ConnectionClosed();
+
+  // Since the user is still signed in, the auth error should have remained.
+  EXPECT_NE(auth_manager->GetLastAuthError().state(),
             GoogleServiceAuthError::NONE);
 }
 #endif  // !OS_CHROMEOS
@@ -344,6 +365,37 @@ TEST_F(SyncAuthManagerTest, ExposesServerError) {
   // But the access token should still be there - this might just be some
   // non-auth-related problem with the server.
   EXPECT_EQ(auth_manager->GetCredentials().sync_token, "access_token");
+}
+
+TEST_F(SyncAuthManagerTest, ClearsServerErrorOnSyncDisable) {
+  std::string account_id =
+      identity_env()->MakePrimaryAccountAvailable("test@email.com").account_id;
+  auto auth_manager = CreateAuthManager();
+  auth_manager->RegisterForAuthNotifications();
+  ASSERT_EQ(auth_manager->GetActiveAccountInfo().account_info.account_id,
+            account_id);
+
+  // During Sync startup, the SyncEngine attempts to connect to the server
+  // without an access token, resulting in a call to ConnectionStatusChanged
+  // with CONNECTION_AUTH_ERROR. This is what kicks off the initial access token
+  // fetch.
+  auth_manager->ConnectionStatusChanged(syncer::CONNECTION_AUTH_ERROR);
+  identity_env()->WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
+      "access_token", base::Time::Now() + base::TimeDelta::FromHours(1));
+  ASSERT_EQ(auth_manager->GetCredentials().sync_token, "access_token");
+
+  // A server error happens.
+  auth_manager->ConnectionStatusChanged(syncer::CONNECTION_SERVER_ERROR);
+  ASSERT_NE(auth_manager->GetLastAuthError(),
+            GoogleServiceAuthError::AuthErrorNone());
+
+  // Now Sync gets turned off, e.g. because the user disabled it.
+  auth_manager->ConnectionClosed();
+
+  // This should have cleared the auth error, because it was due to a server
+  // error which is now not meaningful anymore.
+  EXPECT_EQ(auth_manager->GetLastAuthError(),
+            GoogleServiceAuthError::AuthErrorNone());
 }
 
 TEST_F(SyncAuthManagerTest, RequestsNewAccessTokenOnExpiry) {
@@ -548,10 +600,7 @@ TEST_F(SyncAuthManagerTest, IgnoresCookieJarIfFeatureDisabled) {
 
 TEST_F(SyncAuthManagerTest, UsesCookieJarIfFeatureEnabled) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                            switches::kSyncSupportSecondaryAccount},
-      /*disabled_features=*/{});
+  features.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
 
   auto auth_manager = CreateAuthManager();
   auth_manager->RegisterForAuthNotifications();
@@ -572,10 +621,7 @@ TEST_F(SyncAuthManagerTest, UsesCookieJarIfFeatureEnabled) {
 
 TEST_F(SyncAuthManagerTest, DropsAccountWhenCookieGoesAway) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                            switches::kSyncSupportSecondaryAccount},
-      /*disabled_features=*/{});
+  features.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
 
   auto auth_manager = CreateAuthManager();
   auth_manager->RegisterForAuthNotifications();
@@ -601,10 +647,7 @@ TEST_F(SyncAuthManagerTest, DropsAccountWhenCookieGoesAway) {
 
 TEST_F(SyncAuthManagerTest, DropsAccountWhenRefreshTokenGoesAway) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                            switches::kSyncSupportSecondaryAccount},
-      /*disabled_features=*/{});
+  features.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
 
   auto auth_manager = CreateAuthManager();
   auth_manager->RegisterForAuthNotifications();
@@ -630,10 +673,7 @@ TEST_F(SyncAuthManagerTest, DropsAccountWhenRefreshTokenGoesAway) {
 
 TEST_F(SyncAuthManagerTest, PrefersPrimaryAccountOverCookie) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                            switches::kSyncSupportSecondaryAccount},
-      /*disabled_features=*/{});
+  features.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
 
   auto auth_manager = CreateAuthManager();
   auth_manager->RegisterForAuthNotifications();
@@ -659,10 +699,7 @@ TEST_F(SyncAuthManagerTest, PrefersPrimaryAccountOverCookie) {
 
 TEST_F(SyncAuthManagerTest, OnlyUsesFirstCookieAccount) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                            switches::kSyncSupportSecondaryAccount},
-      /*disabled_features=*/{});
+  features.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
 
   auto auth_manager = CreateAuthManager();
   auth_manager->RegisterForAuthNotifications();

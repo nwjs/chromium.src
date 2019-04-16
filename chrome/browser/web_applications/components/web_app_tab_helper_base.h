@@ -27,17 +27,18 @@ class WebAppTabHelperBase
  public:
   ~WebAppTabHelperBase() override;
 
-  // This provides a weak reference to the current audio focus id map instance
-  // which is owned by WebAppProvider. This is used to ensure that all web
-  // contents associated with a web app shared the same audio focus group id.
-  void SetAudioFocusIdMap(WebAppAudioFocusIdMap* audio_focus_id_map);
+  // |audio_focus_id_map| is a weak reference to the current audio focus id map
+  // instance which is owned by WebAppProvider. This is used to ensure that all
+  // web contents associated with a web app shared the same audio focus group
+  // id.
+  void Init(WebAppAudioFocusIdMap* audio_focus_id_map);
 
   const AppId& app_id() const { return app_id_; }
 
-  // Set app_id on web app installation or tab restore.
+  bool HasAssociatedApp() const;
+
+  // Set associated app_id.
   void SetAppId(const AppId& app_id);
-  // Clear app_id on web app uninstallation.
-  void ResetAppId();
 
   // content::WebContentsObserver:
   void DidFinishNavigation(
@@ -61,19 +62,24 @@ class WebAppTabHelperBase
   friend class content::WebContentsUserData<WebAppTabHelperBase>;
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 
+  // TODO(loyso): Call these methods for new extension-independent system.
+  void OnWebAppInstalled(const AppId& installed_app_id);
+  void OnWebAppUninstalled(const AppId& uninstalled_app_id);
+  void OnWebAppRegistryShutdown();
+
   // Clone |this| tab helper (preserving a derived type).
   virtual WebAppTabHelperBase* CloneForWebContents(
       content::WebContents* web_contents) const = 0;
 
-  // Gets AppId from derived platform-specific TabHelper and updates
-  // app_id_ with it.
-  virtual AppId GetAppId(const GURL& url) = 0;
+  virtual AppId FindAppIdInScopeOfUrl(const GURL& url) = 0;
 
   // Returns whether the associated web contents belongs to an app window.
   virtual bool IsInAppWindow() const = 0;
 
  private:
   friend class WebAppAudioFocusBrowserTest;
+
+  void ResetAppId();
 
   // Runs any logic when the associated app either changes or is removed.
   void OnAssociatedAppChanged();

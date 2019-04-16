@@ -4,6 +4,7 @@
 
 #include "chromeos/services/secure_channel/secure_channel_initializer.h"
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/no_destructor.h"
 #include "chromeos/components/multidevice/logging/logging.h"
@@ -70,7 +71,7 @@ SecureChannelInitializer::SecureChannelInitializer(
   // call as a task to ensure that it is returned asynchronously, even in tests.
   task_runner->PostTask(
       FROM_HERE,
-      base::Bind(
+      base::BindOnce(
           device::BluetoothAdapterFactory::GetAdapter,
           base::Bind(&SecureChannelInitializer::OnBluetoothAdapterReceived,
                      weak_ptr_factory_.GetWeakPtr())));

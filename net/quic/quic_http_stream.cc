@@ -7,10 +7,12 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_split.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_response_headers.h"
@@ -80,18 +82,16 @@ HttpResponseInfo::ConnectionInfo QuicHttpStream::ConnectionInfoFromQuicVersion(
   switch (quic_version) {
     case quic::QUIC_VERSION_UNSUPPORTED:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_UNKNOWN_VERSION;
-    case quic::QUIC_VERSION_35:
-      return HttpResponseInfo::CONNECTION_INFO_QUIC_35;
     case quic::QUIC_VERSION_39:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_39;
     case quic::QUIC_VERSION_43:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_43;
     case quic::QUIC_VERSION_44:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_44;
-    case quic::QUIC_VERSION_45:
-      return HttpResponseInfo::CONNECTION_INFO_QUIC_45;
     case quic::QUIC_VERSION_46:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_46;
+    case quic::QUIC_VERSION_47:
+      return HttpResponseInfo::CONNECTION_INFO_QUIC_47;
     case quic::QUIC_VERSION_99:
       return HttpResponseInfo::CONNECTION_INFO_QUIC_99;
   }
@@ -679,7 +679,7 @@ int QuicHttpStream::ProcessResponseHeaders(
   if (rv != OK)
     return rv;
 
-  response_info_->socket_address = HostPortPair::FromIPEndPoint(address);
+  response_info_->remote_endpoint = address;
   response_info_->connection_info =
       ConnectionInfoFromQuicVersion(quic_session()->GetQuicVersion());
   response_info_->vary_data.Init(*request_info_,

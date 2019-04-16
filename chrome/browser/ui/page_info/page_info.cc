@@ -22,6 +22,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browsing_data/browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/browsing_data_database_helper.h"
@@ -45,6 +46,7 @@
 #include "chrome/browser/ui/page_info/page_info_ui.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
+#include "chrome/browser/vr/vr_tab_helper.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
@@ -79,6 +81,8 @@
 #endif
 
 #if !defined(OS_ANDROID)
+#include "chrome/browser/serial/serial_chooser_context.h"
+#include "chrome/browser/serial/serial_chooser_context_factory.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
@@ -167,9 +171,6 @@ bool ShouldShowPermission(
   }
 
   if (info.type == CONTENT_SETTINGS_TYPE_SOUND) {
-    if (!base::FeatureList::IsEnabled(features::kSoundContentSetting))
-      return false;
-
     // The sound content setting should always show up when the tab has played
     // audio.
     if (web_contents && web_contents->WasEverAudible())
@@ -293,13 +294,26 @@ ChooserContextBase* GetUsbChooserContext(Profile* profile) {
   return UsbChooserContextFactory::GetForProfile(profile);
 }
 
+#if !defined(OS_ANDROID)
+ChooserContextBase* GetSerialChooserContext(Profile* profile) {
+  return SerialChooserContextFactory::GetForProfile(profile);
+}
+#endif
+
 // The list of chooser types that need to display entries in the Website
 // Settings UI. THE ORDER OF THESE ITEMS IS IMPORTANT. To propose changing it,
 // email security-dev@chromium.org.
 const PageInfo::ChooserUIInfo kChooserUIInfo[] = {
     {CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA, &GetUsbChooserContext,
-     IDS_PAGE_INFO_USB_DEVICE_LABEL, IDS_PAGE_INFO_USB_DEVICE_SECONDARY_LABEL,
+     IDS_PAGE_INFO_USB_DEVICE_SECONDARY_LABEL,
+     IDS_PAGE_INFO_USB_DEVICE_ALLOWED_BY_POLICY_LABEL,
      IDS_PAGE_INFO_DELETE_USB_DEVICE, "name"},
+#if !defined(OS_ANDROID)
+    {CONTENT_SETTINGS_TYPE_SERIAL_CHOOSER_DATA, &GetSerialChooserContext,
+     IDS_PAGE_INFO_SERIAL_PORT_SECONDARY_LABEL,
+     /*allowed_by_policy_description_string_id=*/-1,
+     IDS_PAGE_INFO_DELETE_SERIAL_PORT, "name"},
+#endif
 };
 
 // Time open histogram prefixes.
@@ -343,6 +357,7 @@ PageInfo::PageInfo(PageInfoUI* ui,
   PresentSitePermissions();
   PresentSiteIdentity();
   PresentSiteData();
+  PresentPageFeatureInfo();
 
   // Every time the Page Info UI is opened a |PageInfo| object is
   // created. So this counts how ofter the Page Info UI is opened.
@@ -896,13 +911,6 @@ void PageInfo::PresentSitePermissions() {
 
     auto chosen_objects = context->GetGrantedObjects(origin, origin);
     for (std::unique_ptr<ChooserContextBase::Object>& object : chosen_objects) {
-      // Ignore policy allowed devices until the UI is able to display them
-      // properly.
-      // TODO(https://crbug.com/854329): Remove this condition when the UI is
-      // capable of displaying policy chooser objects.
-      if (object->source == content_settings::SETTING_SOURCE_POLICY)
-        continue;
-
       chosen_object_info_list.push_back(
           std::make_unique<PageInfoUI::ChosenObjectInfo>(ui_info,
                                                          std::move(object)));
@@ -974,6 +982,14 @@ void PageInfo::PresentSiteIdentity() {
     }
   }
 #endif
+}
+
+void PageInfo::PresentPageFeatureInfo() {
+  PageInfoUI::PageFeatureInfo info;
+  info.is_vr_presentation_in_headset =
+      vr::VrTabHelper::IsContentDisplayedInHeadset(web_contents());
+
+  ui_->SetPageFeatureInfo(info);
 }
 
 std::vector<ContentSettingsType> PageInfo::GetAllPermissionsForTesting() {

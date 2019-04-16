@@ -34,6 +34,8 @@ ASH_PUBLIC_EXPORT extern const char kAccessibilitySwitchAccessEnabled[];
 ASH_PUBLIC_EXPORT extern const char kAccessibilityDictationEnabled[];
 ASH_PUBLIC_EXPORT extern const char kShouldAlwaysShowAccessibilityMenu[];
 
+ASH_PUBLIC_EXPORT extern const char kKioskNextShellEnabled[];
+
 ASH_PUBLIC_EXPORT extern const char kDockedMagnifierEnabled[];
 ASH_PUBLIC_EXPORT extern const char kDockedMagnifierScale[];
 ASH_PUBLIC_EXPORT extern const char
@@ -72,6 +74,8 @@ ASH_PUBLIC_EXPORT extern const char kNightLightTemperature[];
 ASH_PUBLIC_EXPORT extern const char kNightLightScheduleType[];
 ASH_PUBLIC_EXPORT extern const char kNightLightCustomStartTime[];
 ASH_PUBLIC_EXPORT extern const char kNightLightCustomEndTime[];
+ASH_PUBLIC_EXPORT extern const char kNightLightCachedLatitude[];
+ASH_PUBLIC_EXPORT extern const char kNightLightCachedLongitude[];
 
 ASH_PUBLIC_EXPORT extern const char kAllowScreenLock[];
 ASH_PUBLIC_EXPORT extern const char kEnableAutoScreenLock[];
@@ -129,6 +133,8 @@ ASH_PUBLIC_EXPORT extern const char kDetachableBaseDevices[];
 ASH_PUBLIC_EXPORT extern const char kCursorMotionBlurEnabled[];
 
 ASH_PUBLIC_EXPORT extern const char kAssistantNumWarmerWelcomeTriggered[];
+
+ASH_PUBLIC_EXPORT extern const char kVpnConfigAllowed[];
 
 }  // namespace prefs
 

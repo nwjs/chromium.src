@@ -16,6 +16,7 @@
 #include "base/strings/string16.h"
 #include "build/build_config.h"
 #include "ui/base/models/menu_separator_types.h"
+#include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/controls/menu/menu_types.h"
@@ -134,6 +135,7 @@ class VIEWS_EXPORT MenuItemView : public View {
   bool GetTooltipText(const gfx::Point& p,
                       base::string16* tooltip) const override;
   void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
+  bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
 
   // Returns the preferred height of menu items. This is only valid when the
   // menu is about to be shown.
@@ -367,10 +369,11 @@ class VIEWS_EXPORT MenuItemView : public View {
   // border radius, if they are both the same value.
   void SetCornerRadius(int radius);
 
-  // Show an alert on this menu item. An alerted menu item is rendered
-  // differently to draw attention to it.
-  void SetAlerted(bool alerted);
-  bool Alerted() const { return alerted_; }
+  // Shows an alert on this menu item. An alerted menu item is rendered
+  // differently to draw attention to it. This must be called before the menu is
+  // run.
+  void SetAlerted();
+  bool is_alerted() const { return is_alerted_; }
 
  protected:
   // Creates a MenuItemView. This is used by the various AddXXX methods.
@@ -493,6 +496,10 @@ class VIEWS_EXPORT MenuItemView : public View {
   // Returns true if this MenuItemView contains a single child
   // that is responsible for rendering the content.
   bool IsContainer() const;
+
+  // Gets the child view margins. Should only be called when |IsContainer()| is
+  // true.
+  gfx::Insets GetContainerMargins() const;
 
   // Returns number of child views excluding icon_view.
   int NonIconChildViewsCount() const;
@@ -619,7 +626,7 @@ class VIEWS_EXPORT MenuItemView : public View {
   Separator* vertical_separator_;
 
   // Whether this menu item is rendered differently to draw attention to it.
-  bool alerted_ = false;
+  bool is_alerted_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(MenuItemView);
 };

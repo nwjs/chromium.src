@@ -24,6 +24,7 @@ import android.widget.TextView;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.favicon.FaviconHelper;
@@ -105,8 +106,8 @@ public class NavigationPopup implements AdapterView.OnItemClickListener {
 
         mPopup = new ListPopupWindow(context, null, 0, R.style.NavigationPopupDialog);
         mPopup.setOnDismissListener(this::onDismiss);
-        mPopup.setBackgroundDrawable(ApiCompatibilityUtils.getDrawable(
-                resources, anchorToBottom ? R.drawable.popup_bg_bottom : R.drawable.popup_bg));
+        mPopup.setBackgroundDrawable(ApiCompatibilityUtils.getDrawable(resources,
+                anchorToBottom ? R.drawable.popup_bg_bottom : R.drawable.popup_bg_tinted));
         mPopup.setModal(true);
         mPopup.setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED);
         mPopup.setHeight(ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -243,7 +244,11 @@ public class NavigationPopup implements AdapterView.OnItemClickListener {
         } else {
             // 1-based index to keep in line with Desktop implementation.
             RecordUserAction.record(buildComputedAction("HistoryClick" + (position + 1)));
-            mNavigationController.goToNavigationIndex(entry.getIndex());
+            int index = entry.getIndex();
+            RecordHistogram.recordBooleanHistogram(
+                    "Navigation.BackForward.NavigatingToEntryMarkedToBeSkipped",
+                    mNavigationController.isEntryMarkedToBeSkipped(index));
+            mNavigationController.goToNavigationIndex(index);
         }
 
         mPopup.dismiss();

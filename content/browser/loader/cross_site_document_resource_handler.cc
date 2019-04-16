@@ -275,7 +275,7 @@ void CrossSiteDocumentResourceHandler::OnResponseStarted(
         initiator_scheme_exception &&
         request()->initiator().value().scheme() == initiator_scheme_exception;
     if (!is_initiator_scheme_excluded_) {
-      const ResourceRequestInfoImpl* info = GetRequestInfo();
+      ResourceRequestInfoImpl* info = GetRequestInfo();
       if (info) {
         bool nwjs = GetContentClient()->browser()->IsNWOrigin(request()->initiator().value(), info->GetContext());
         if (nwjs)
@@ -658,7 +658,7 @@ bool CrossSiteDocumentResourceHandler::ShouldBlockBasedOnHeaders(
     return false;
 
   // Only block if this is a request made from a renderer process.
-  const ResourceRequestInfoImpl* info = GetRequestInfo();
+  ResourceRequestInfoImpl* info = GetRequestInfo();
   if (!info || info->GetChildID() == -1)
     return false;
 

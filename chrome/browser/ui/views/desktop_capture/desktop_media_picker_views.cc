@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/media/webrtc/desktop_media_list.h"
@@ -171,7 +172,7 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
                                      kTabStyle, tab_title_text));
 
         tab_scroll_view->SetContents(list_views_.back());
-        tab_scroll_view->ClipHeightTo(kTabStyle.item_size.height(),
+        tab_scroll_view->ClipHeightTo(kTabStyle.item_size.height() * 10,
                                       kTabStyle.item_size.height() * 10);
         tab_scroll_view->set_hide_horizontal_scrollbar(true);
 
@@ -198,7 +199,7 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
   if (params.request_audio) {
     audio_share_checkbox_ = new views::Checkbox(
         l10n_util::GetStringUTF16(IDS_DESKTOP_MEDIA_PICKER_AUDIO_SHARE));
-    audio_share_checkbox_->SetChecked(true);
+    audio_share_checkbox_->SetChecked(params.approve_audio_by_default);
   }
 
   // Focus on the first non-null media_list.
@@ -226,7 +227,7 @@ DesktopMediaPickerDialogView::DesktopMediaPickerDialogView(
   // the Id is passed to DesktopMediaList.
   DesktopMediaID dialog_window_id;
   if (!modal_dialog) {
-    dialog_window_id = DesktopMediaID::RegisterAuraWindow(
+    dialog_window_id = DesktopMediaID::RegisterNativeWindow(
         DesktopMediaID::TYPE_WINDOW, widget->GetNativeWindow());
 
     // Set native window ID if the windows is outside Ash.
@@ -343,7 +344,7 @@ bool DesktopMediaPickerDialogView::Accept() {
     }
   } else if (source.type == DesktopMediaID::TYPE_WINDOW) {
 #if defined(USE_AURA)
-    aura::Window* window = DesktopMediaID::GetAuraWindowById(source);
+    aura::Window* window = DesktopMediaID::GetNativeWindowById(source);
     Browser* browser = chrome::FindBrowserWithWindow(window);
     if (browser && browser->window())
       browser->window()->Activate();

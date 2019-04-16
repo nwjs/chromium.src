@@ -4,6 +4,10 @@
 
 #include "chrome/browser/ui/views/autofill/local_card_migration_dialog_view.h"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "base/i18n/message_formatter.h"
 #include "base/location.h"
 #include "base/macros.h"
@@ -94,12 +98,12 @@ std::unique_ptr<views::Label> CreateExplanationText(
     LocalCardMigrationDialogState view_state,
     int card_list_size,
     const base::string16& user_email) {
-  DCHECK_NE((int)user_email.length(), 0);
   auto explanation_text =
       std::make_unique<views::Label>(base::string16(), CONTEXT_BODY_TEXT_LARGE,
                                      ChromeTextStyle::STYLE_SECONDARY);
   switch (view_state) {
     case LocalCardMigrationDialogState::kOffered:
+      DCHECK(!user_email.empty());
       explanation_text->SetText(
           base::i18n::MessageFormatter::FormatWithNumberedArgs(
               l10n_util::GetStringFUTF16(
@@ -329,6 +333,8 @@ class LocalCardMigrationOfferView : public views::View,
   }
 
  private:
+  friend class LocalCardMigrationDialogView;
+
   LocalCardMigrationDialogController* controller_;
 
   views::View* card_list_view_ = nullptr;
@@ -488,6 +494,8 @@ void LocalCardMigrationDialogView::ConstructView() {
 
   if (view_state == LocalCardMigrationDialogState::kOffered) {
     offer_view_ = new LocalCardMigrationOfferView(controller_, this);
+    offer_view_->set_id(DialogViewId::MAIN_CONTENT_VIEW_MIGRATION_OFFER_DIALOG);
+    card_list_view_ = offer_view_->card_list_view_;
     AddChildView(offer_view_);
   } else {
     AddChildView(CreateFeedbackContentView(controller_, this).release());

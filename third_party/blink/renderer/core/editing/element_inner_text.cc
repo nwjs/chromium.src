@@ -35,7 +35,7 @@ namespace {
 
 // The implementation of Element#innerText algorithm[1].
 // [1]
-// https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute
+// https://html.spec.whatwg.org/C/#the-innertext-idl-attribute
 class ElementInnerTextCollector final {
  public:
   ElementInnerTextCollector() = default;
@@ -85,12 +85,6 @@ class ElementInnerTextCollector final {
   // Result character buffer.
   Result result_;
 
-  // Remember last |NGOffsetMapping| to avoid repeated offset mapping
-  // computation.
-  const LayoutBlockFlow* last_offset_mapping_block_flow_ = nullptr;
-  const NGOffsetMapping* last_offset_mapping_ = nullptr;
-  std::unique_ptr<NGOffsetMapping> offset_mapping_storage_;
-
   DISALLOW_COPY_AND_ASSIGN(ElementInnerTextCollector);
 };
 
@@ -137,7 +131,7 @@ bool ElementInnerTextCollector::HasDisplayContentsStyle(const Node& node) {
 // Note: Just being off-screen does not mean the element is not being rendered.
 // The presence of the "hidden" attribute normally means the element is not
 // being rendered, though this might be overridden by the style sheets.
-// From https://html.spec.whatwg.org/multipage/rendering.html#being-rendered
+// From https://html.spec.whatwg.org/C/#being-rendered
 // static
 bool ElementInnerTextCollector::IsBeingRendered(const Node& node) {
   return node.GetLayoutObject();
@@ -220,14 +214,7 @@ const NGOffsetMapping* ElementInnerTextCollector::GetOffsetMapping(
   LayoutBlockFlow* const block_flow =
       NGOffsetMapping::GetInlineFormattingContextOf(layout_text);
   DCHECK(block_flow) << layout_text;
-  if (block_flow == last_offset_mapping_block_flow_)
-    return last_offset_mapping_;
-  const NGOffsetMapping* const mapping =
-      NGInlineNode::GetOffsetMapping(block_flow, &offset_mapping_storage_);
-  DCHECK(mapping) << layout_text;
-  last_offset_mapping_block_flow_ = block_flow;
-  last_offset_mapping_ = mapping;
-  return mapping;
+  return NGInlineNode::GetOffsetMapping(block_flow);
 }
 
 void ElementInnerTextCollector::ProcessChildren(const Node& container) {

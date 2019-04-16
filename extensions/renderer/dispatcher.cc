@@ -101,6 +101,7 @@
 #include "extensions/renderer/wake_event_page.h"
 #include "extensions/renderer/worker_script_context_set.h"
 #include "extensions/renderer/worker_thread_dispatcher.h"
+#include "extensions/renderer/worker_thread_util.h"
 #include "gin/converter.h"
 #include "mojo/public/js/grit/mojo_bindings_resources.h"
 #include "services/network/public/mojom/cors.mojom.h"
@@ -287,6 +288,11 @@ Dispatcher::Dispatcher(std::unique_ptr<DispatcherDelegate> delegate)
 }
 
 Dispatcher::~Dispatcher() {
+}
+
+// static
+WorkerScriptContextSet* Dispatcher::GetWorkerScriptContextSet() {
+  return &(g_worker_script_context_set.Get());
 }
 
 void Dispatcher::OnRenderThreadStarted(content::RenderThread* thread) {
@@ -478,6 +484,7 @@ void Dispatcher::DidInitializeServiceWorkerContextOnWorkerThread(
     // TODO(lazyboy): Get rid of RequireGuestViewModules() as this doesn't seem
     // necessary for Extension SW.
     //RequireGuestViewModules(context); //NWJS#6624
+    worker_dispatcher->DidInitializeContext(service_worker_version_id);
   }
 
   g_worker_script_context_set.Get().Insert(base::WrapUnique(context));
@@ -562,8 +569,9 @@ void Dispatcher::DidStartServiceWorkerContextOnWorkerThread(
   if (!ExtensionsClient::Get()->ExtensionAPIEnabledInExtensionServiceWorkers())
     return;
 
-  DCHECK_NE(content::WorkerThread::GetCurrentId(), kMainThreadId);
-  WorkerThreadDispatcher::Get()->DidStartContext(service_worker_version_id);
+  DCHECK(worker_thread_util::IsWorkerThread());
+  WorkerThreadDispatcher::Get()->DidStartContext(service_worker_scope,
+                                                 service_worker_version_id);
 }
 
 // static
@@ -584,7 +592,8 @@ void Dispatcher::WillDestroyServiceWorkerContextOnWorkerThread(
     ExtensionBindingsSystem* worker_bindings_system =
         WorkerThreadDispatcher::GetBindingsSystem();
     worker_bindings_system->WillReleaseScriptContext(script_context);
-    WorkerThreadDispatcher::Get()->DidStopContext(service_worker_version_id);
+    WorkerThreadDispatcher::Get()->DidStopContext(service_worker_scope,
+                                                  service_worker_version_id);
     // Note: we have to remove the context (and thus perform invalidation on
     // the native handlers) prior to removing the worker data, which destroys
     // the associated bindings system.
@@ -989,6 +998,33 @@ void Dispatcher::OnActivateExtension(const std::string& extension_id) {
                                      extension_id);
   }
 
+  // TODO(yoichio): This is temporary switch to have chrome internal extensions
+  // use the old web APIs.
+  // After completion of the migration, we should remove this.
+  // See crbug.com/924031 for detail.
+  if (extension_id == extension_misc::kPdfExtensionId ||
+      // chrome/common/extensions/extension_constants.h::kZipArchiverExtensionId
+      extension_id == "dmboannefpncccogfdikhmhpmdnddgoe") {
+    blink::WebRuntimeFeatures::EnableShadowDOMV0(true);
+    blink::WebRuntimeFeatures::EnableCustomElementsV0(true);
+    blink::WebRuntimeFeatures::EnableHTMLImports(true);
+  }
+  // FilesApp support. crbug.com/924873
+  // For Polymer1, we still need v0 APIs.
+  // Extensions IDs from src/chrome/browser/chromeos/file_manager/app_id.h.
+  if (!base::FeatureList::IsEnabled(features::kWebUIPolymer2) &&
+      (extension_id == "hhaomjibdihmijegdhdafkllkbggdgoj" ||
+       extension_id == "jcgeabjmjgoblfofpppfkcoakmfobdko" ||
+       extension_id == "nlkncpkkdoccmpiclbokaimcnedabhhm" ||
+       extension_id == "cjbfomnbifhcdnihkgipgfcihmgjfhbf" ||
+       extension_id == "mmfbcljfglbokpmkimbfghdkjmjhdgbg" ||
+       extension_id == "pmfjbimdmchhbnneeidfognadeopoehp" ||
+       extension_id == "dmboannefpncccogfdikhmhpmdnddgoe")) {
+    blink::WebRuntimeFeatures::EnableShadowDOMV0(true);
+    blink::WebRuntimeFeatures::EnableCustomElementsV0(true);
+    blink::WebRuntimeFeatures::EnableHTMLImports(true);
+  }
+
   InitOriginPermissions(extension);
 
   UpdateActiveExtensions();
@@ -999,29 +1035,35 @@ void Dispatcher::OnCancelSuspend(const std::string& extension_id) {
                 nullptr);
 }
 
-void Dispatcher::OnDeliverMessage(const PortId& target_port_id,
+void Dispatcher::OnDeliverMessage(int worker_thread_id,
+                                  const PortId& target_port_id,
                                   const Message& message) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   bindings_system_->GetMessagingService()->DeliverMessage(
-      *script_context_set_, target_port_id, message,
+      script_context_set_.get(), target_port_id, message,
       NULL);  // All render frames.
 }
 
 void Dispatcher::OnDispatchOnConnect(
+    int worker_thread_id,
     const PortId& target_port_id,
     const std::string& channel_name,
     const ExtensionMsg_TabConnectionInfo& source,
     const ExtensionMsg_ExternalConnectionInfo& info) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   DCHECK(!target_port_id.is_opener);
 
   bindings_system_->GetMessagingService()->DispatchOnConnect(
-      *script_context_set_, target_port_id, channel_name, source, info,
+      script_context_set_.get(), target_port_id, channel_name, source, info,
       NULL);  // All render frames.
 }
 
-void Dispatcher::OnDispatchOnDisconnect(const PortId& port_id,
+void Dispatcher::OnDispatchOnDisconnect(int worker_thread_id,
+                                        const PortId& port_id,
                                         const std::string& error_message) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   bindings_system_->GetMessagingService()->DispatchOnDisconnect(
-      *script_context_set_, port_id, error_message,
+      script_context_set_.get(), port_id, error_message,
       NULL);  // All render frames.
 }
 
@@ -1310,7 +1352,7 @@ void Dispatcher::OnUpdateTabSpecificPermissions(const GURL& visible_url,
   extension->permissions_data()->UpdateTabSpecificPermissions(
       tab_id, extensions::PermissionSet(extensions::APIPermissionSet(),
                                         extensions::ManifestPermissionSet(),
-                                        new_hosts, new_hosts));
+                                        new_hosts.Clone(), new_hosts.Clone()));
 
   if (update_origin_whitelist)
     UpdateOriginPermissions(*extension);
@@ -1359,7 +1401,9 @@ void Dispatcher::UpdateOriginPermissions(const Extension& extension) {
   WebSecurityPolicy::ClearOriginAccessListForOrigin(extension.url());
 
   std::vector<network::mojom::CorsOriginPatternPtr> allow_list =
-      CreateCorsOriginAccessAllowList(extension);
+      CreateCorsOriginAccessAllowList(
+          extension,
+          PermissionsData::EffectiveHostPermissionsMode::kIncludeTabSpecific);
   ExtensionsClient::Get()->AddOriginAccessPermissions(
       extension, IsExtensionActive(extension.id()), &allow_list);
   for (const auto& entry : allow_list) {
@@ -1395,9 +1439,10 @@ void Dispatcher::EnableCustomElementWhiteList() {
 }
 
 void Dispatcher::UpdateBindings(const std::string& extension_id) {
-  script_context_set().ForEach(extension_id,
-                               base::Bind(&Dispatcher::UpdateBindingsForContext,
-                                          base::Unretained(this)));
+  script_context_set_iterator()->ForEach(
+      extension_id, base::BindRepeating(&Dispatcher::UpdateBindingsForContext,
+                                        // Called synchronously.
+                                        base::Unretained(this)));
 }
 
 void Dispatcher::UpdateBindingsForContext(ScriptContext* context) {

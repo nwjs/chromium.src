@@ -5,21 +5,30 @@
 #ifndef SERVICES_IDENTITY_PUBLIC_CPP_IDENTITY_MANAGER_H_
 #define SERVICES_IDENTITY_PUBLIC_CPP_IDENTITY_MANAGER_H_
 
+#include <memory>
+#include <string>
+
 #include "base/observer_list.h"
+#include "build/build_config.h"
+#include "components/signin/core/browser/account_fetcher_service.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/gaia_cookie_manager_service.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
-#include "components/signin/core/browser/signin_internals_util.h"
 #include "components/signin/core/browser/signin_manager_base.h"
 #include "components/signin/core/browser/signin_metrics.h"
 #include "components/signin/core/browser/ubertoken_fetcher.h"
 #include "services/identity/public/cpp/access_token_fetcher.h"
+#include "services/identity/public/cpp/accounts_cookie_mutator.h"
 #include "services/identity/public/cpp/accounts_in_cookie_jar_info.h"
 #include "services/identity/public/cpp/scope_set.h"
 
 #if !defined(OS_CHROMEOS)
 #include "components/signin/core/browser/signin_manager.h"
+#endif
+
+#if defined(OS_ANDROID)
+#include "base/android/jni_android.h"
 #endif
 
 // Necessary to declare this class as a friend.
@@ -31,20 +40,26 @@ class ArcTermsOfServiceDefaultNegotiatorTest;
 namespace chromeos {
 class ChromeSessionManager;
 class UserSessionManager;
-}
+}  // namespace chromeos
 
 namespace network {
 class SharedURLLoaderFactory;
-}
+class TestURLLoaderFactory;
+}  // namespace network
 
 // Necessary to declare these classes as friends.
 class ArcSupportHostTest;
+class IdentityManagerFactory;
+class PrefRegistrySimple;
 
 namespace identity {
 
 class AccountsMutator;
+class AccountsCookieMutator;
+class DiagnosticsProvider;
 class PrimaryAccountMutator;
 enum class ClearPrimaryAccountPolicy;
+struct CookieParams;
 
 // Gives access to information about the user's Google identities. See
 // ./README.md for detailed documentation.
@@ -64,20 +79,13 @@ class IdentityManager : public SigninManagerBase::Observer,
 
     // Called when an account becomes the user's primary account.
     // This method is not called during a reauth.
-    virtual void OnPrimaryAccountSet(const AccountInfo& primary_account_info) {}
-
-    // Called when an account becomes the user's primary account using the
-    // legacy workflow (non-DICE). If access to the password is not required,
-    // it is preferred to instead override OnPrimaryAccountSet() which will
-    // also be called at the same time.
-    virtual void OnPrimaryAccountSetWithPassword(
-        const AccountInfo& primary_account_info,
-        const std::string& password) {}
+    virtual void OnPrimaryAccountSet(
+        const CoreAccountInfo& primary_account_info) {}
 
     // Called when when the user moves from having a primary account to no
     // longer having a primary account.
     virtual void OnPrimaryAccountCleared(
-        const AccountInfo& previous_primary_account_info) {}
+        const CoreAccountInfo& previous_primary_account_info) {}
 
     // Called when the user attempts but fails to set their primary
     // account. |error| gives the reason for the failure.
@@ -91,7 +99,7 @@ class IdentityManager : public SigninManagerBase::Observer,
     // likely meet your needs. Otherwise, if this lack of ordering is
     // problematic for your use case, please contact blundell@chromium.org.
     virtual void OnRefreshTokenUpdatedForAccount(
-        const AccountInfo& account_info) {}
+        const CoreAccountInfo& account_info) {}
 
     // Called when the refresh token previously associated with |account_id|
     // has been removed. At the time that this callback is invoked, there is
@@ -112,7 +120,7 @@ class IdentityManager : public SigninManagerBase::Observer,
     // |OnRefreshTokenUpdatedForAccount| when the refresh token is updated. It
     // is not called when the refresh token is removed.
     virtual void OnErrorStateOfRefreshTokenUpdatedForAccount(
-        const AccountInfo& account_info,
+        const CoreAccountInfo& account_info,
         const GoogleServiceAuthError& error) {}
 
     // Called after refresh tokens are loaded.
@@ -136,24 +144,18 @@ class IdentityManager : public SigninManagerBase::Observer,
         const AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
         const GoogleServiceAuthError& error) {}
 
-    // Called whenever an attempt to add |account_id| to the list of Gaia
-    // accounts in the cookie jar has finished. If |error| is equal to
-    // GoogleServiceAuthError::AuthErrorNone() then the addittion succeeded.
-    virtual void OnAddAccountToCookieCompleted(
-        const std::string& account_id,
-        const GoogleServiceAuthError& error) {}
-
-    // Called before a batch of refresh token state changes is started.
-    virtual void OnStartBatchOfRefreshTokenStateChanges() {}
+    // Called when the Gaia cookie has been deleted explicitly by a user
+    // action, e.g. from the settings or by an extension.
+    virtual void OnAccountsCookieDeletedByUserAction() {}
 
     // Called after a batch of refresh token state chagnes is completed.
     virtual void OnEndBatchOfRefreshTokenStateChanges() {}
 
     // Called after an account is updated.
-    virtual void OnAccountUpdated(const AccountInfo& info) {}
+    virtual void OnExtendedAccountInfoUpdated(const AccountInfo& info) {}
 
     // Called after removing an account info.
-    virtual void OnAccountRemovedWithInfo(const AccountInfo& info) {}
+    virtual void OnExtendedAccountInfoRemoved(const AccountInfo& info) {}
   };
 
   // Observer interface for classes that want to monitor status of various
@@ -170,6 +172,31 @@ class IdentityManager : public SigninManagerBase::Observer,
     virtual void OnAccessTokenRequested(const std::string& account_id,
                                         const std::string& consumer_id,
                                         const identity::ScopeSet& scopes) {}
+
+    // Called when an access token request is completed. Contains diagnostic
+    // information about the access token request.
+    virtual void OnAccessTokenRequestCompleted(const std::string& account_id,
+                                               const std::string& consumer_id,
+                                               const ScopeSet& scopes,
+                                               GoogleServiceAuthError error,
+                                               base::Time expiration_time) {}
+
+    // Called when an access token was removed.
+    virtual void OnAccessTokenRemovedFromCache(const std::string& account_id,
+                                               const ScopeSet& scopes) {}
+
+    // Called when a new refresh token is available. Contains diagnostic
+    // information about the source of the operation.
+    virtual void OnRefreshTokenUpdatedForAccountFromSource(
+        const std::string& account_id,
+        bool is_refresh_token_valid,
+        const std::string& source) {}
+
+    // Called when a refreh token is removed. Contains diagnostic information
+    // about the source that initiated the revokation operation.
+    virtual void OnRefreshTokenRemovedForAccountFromSource(
+        const std::string& account_id,
+        const std::string& source) {}
   };
 
   // Possible values for the account ID migration state, needs to be kept in
@@ -184,10 +211,13 @@ class IdentityManager : public SigninManagerBase::Observer,
   IdentityManager(
       SigninManagerBase* signin_manager,
       ProfileOAuth2TokenService* token_service,
+      AccountFetcherService* account_fetcher_service,
       AccountTrackerService* account_tracker_service,
       GaiaCookieManagerService* gaia_cookie_manager_service,
       std::unique_ptr<PrimaryAccountMutator> primary_account_mutator,
-      std::unique_ptr<AccountsMutator> accounts_mutator);
+      std::unique_ptr<AccountsMutator> accounts_mutator,
+      std::unique_ptr<AccountsCookieMutator> accounts_cookie_mutator,
+      std::unique_ptr<DiagnosticsProvider> diagnostics_provider);
   ~IdentityManager() override;
 
   // Provides access to the extended information of the user's primary account.
@@ -248,6 +278,12 @@ class IdentityManager : public SigninManagerBase::Observer,
 
   // Returns true if all refresh tokens have been loaded from disk.
   bool AreRefreshTokensLoaded() const;
+
+  // Returns extended information for account identified by |account_info|.
+  // The information will be returned if the information is available and
+  // refresh token is available for account.
+  base::Optional<AccountInfo> FindExtendedAccountInfoForAccount(
+      const CoreAccountInfo& account_info) const;
 
   // Looks up and returns information for account with given |account_id|. If
   // the account cannot be found, return an empty optional. This is equivalent
@@ -323,6 +359,9 @@ class IdentityManager : public SigninManagerBase::Observer,
   // supported for the current platform.
   static bool IsAccountIdMigrationSupported();
 
+  // Registers local state prefs used by this class.
+  static void RegisterPrefs(PrefRegistrySimple* registry);
+
   // Marks the migration state for account IDs as finished.
   void LegacySetAccountIdMigrationDone();
 
@@ -339,14 +378,22 @@ class IdentityManager : public SigninManagerBase::Observer,
   // returns null.
   AccountsMutator* GetAccountsMutator();
 
-  // Loads credentials from a backing persistent store to make them available
-  // after service is used between profile restarts.
-  // NOTE: In normal usage this method SHOULD NOT be called as the loading of
-  // accounts from disk occurs as part of the internal startup flow. The method
-  // is only used in production for a very small number of corner case startup
-  // flows.
-  // TODO(https://crbug.com/922450): Eliminate the need to expose this.
-  void LegacyLoadCredentials(const std::string& primary_account_id);
+  // Returns pointer to the object used to manipulate the cookies stored and the
+  // accounts associated with them. Guaranteed to be non-null.
+  AccountsCookieMutator* GetAccountsCookieMutator();
+
+  // Performs initalization that is dependent on the network being initialized.
+  void OnNetworkInitialized();
+
+  // Explicitly triggers the loading of accounts in the context of supervised
+  // users.
+  // TODO(https://crbug.com/860492): Eliminate the need to expose this.
+  void LegacyLoadCredentialsForSupervisedUser(
+      const std::string& primary_account_id);
+
+  // Returns pointer to the object used to obtain diagnostics about the internal
+  // state of IdentityManager.
+  DiagnosticsProvider* GetDiagnosticsProvider();
 
   // Picks the correct account_id for the specified account depending on the
   // migration state.
@@ -364,6 +411,54 @@ class IdentityManager : public SigninManagerBase::Observer,
   // account id. It's only for replacement of production code.
   std::string LegacySeedAccountInfo(const AccountInfo& info);
 
+#if defined(OS_IOS)
+  // Forces the processing of GaiaCookieManagerService::OnCookieChange. On
+  // iOS, it's necessary to force-trigger the processing of cookie changes
+  // from the client as the normal mechanism for internally observing them
+  // is not wired up.
+  // TODO(https://crbug.com/930582) : Remove the need to expose this method
+  // or move it to the network::CookieManager.
+  void ForceTriggerOnCookieChange();
+
+  // Adds a given account to the token service from a system account. This
+  // API calls OAuth2TokenServiceDelegate::AddAccountFromSystem and it
+  // triggers platform specific implementation for IOS.
+  // NOTE: In normal usage, this method SHOULD NOT be called.
+  // TODO(https://crbug.com/930094): Eliminate the need to expose this.
+  void LegacyAddAccountFromSystem(const std::string& account_id);
+#endif
+
+#if defined(OS_ANDROID) || defined(OS_IOS)
+  // Reloads the accounts in the token service from the system accounts. This
+  // API calls OAuth2TokenServiceDelegate::ReloadAccountsFromSystem and it
+  // triggers platform specific implementation for Android and IOS.
+  // NOTE: In normal usage, this method SHOULD NOT be called.
+  // TODO(https://crbug.com/930094): Eliminate the need to expose this.
+  void LegacyReloadAccountsFromSystem();
+#endif
+
+#if defined(OS_ANDROID)
+  // Returns a pointer to the AccountTrackerService Java instance associated
+  // with this object.
+  // TODO(https://crbug.com/934688): Eliminate this method once
+  // AccountTrackerService.java has no more client usage.
+  base::android::ScopedJavaLocalRef<jobject>
+  LegacyGetAccountTrackerServiceJavaObject();
+
+  // Returns a pointer to the OAuth2TokenService Java instance associated
+  // with this object.
+  // TODO(https://crbug.com/934688): Eliminate this method once
+  // OAuth2TokenService.java has no more client usage.
+  base::android::ScopedJavaLocalRef<jobject>
+  LegacyGetOAuth2TokenServiceJavaObject();
+
+  // This method has the contractual assumption that the account is a known
+  // account and has as its semantics that it fetches the account info for the
+  // account, triggering an OnExtendedAccountInfoUpdated() callback if the info
+  // was successfully fetched.
+  void ForceRefreshOfExtendedAccountInfo(const std::string& refresh_token);
+#endif
+
   // Methods to register or remove observers.
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
@@ -372,8 +467,8 @@ class IdentityManager : public SigninManagerBase::Observer,
 
  private:
   // These test helpers need to use some of the private methods below.
-  friend AccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
-                                       const std::string& email);
+  friend CoreAccountInfo SetPrimaryAccount(IdentityManager* identity_manager,
+                                           const std::string& email);
   friend void SetRefreshTokenForPrimaryAccount(
       IdentityManager* identity_manager,
       const std::string& token_value);
@@ -398,6 +493,9 @@ class IdentityManager : public SigninManagerBase::Observer,
                                            const std::string& account_id);
   friend void UpdateAccountInfoForAccount(IdentityManager* identity_manager,
                                           AccountInfo account_info);
+  friend void SetFreshnessOfAccountsInGaiaCookie(
+      IdentityManager* identity_manager,
+      bool accounts_are_fresh);
   friend void UpdatePersistentErrorOfRefreshTokenForAccount(
       IdentityManager* identity_manager,
       const std::string& account_id,
@@ -405,16 +503,26 @@ class IdentityManager : public SigninManagerBase::Observer,
 
   friend void DisableAccessTokenFetchRetries(IdentityManager* identity_manager);
 
+  friend void CancelAllOngoingGaiaCookieOperations(
+      IdentityManager* identity_manager);
+
+  friend void SetCookieAccounts(
+      IdentityManager* identity_manager,
+      network::TestURLLoaderFactory* test_url_loader_factory,
+      const std::vector<identity::CookieParams>& cookie_accounts);
+
   // These clients needs to call SetPrimaryAccountSynchronously().
   friend ArcSupportHostTest;
   friend arc::ArcTermsOfServiceDefaultNegotiatorTest;
   friend chromeos::ChromeSessionManager;
   friend chromeos::UserSessionManager;
+  friend IdentityManagerFactory;
 
   // Private getters used for testing only (i.e. see identity_test_utils.h).
   SigninManagerBase* GetSigninManager();
   ProfileOAuth2TokenService* GetTokenService();
   AccountTrackerService* GetAccountTrackerService();
+  GaiaCookieManagerService* GetGaiaCookieManagerService();
 
   // Sets the primary account info synchronously with both the IdentityManager
   // and its backing SigninManager/ProfileOAuth2TokenService instances.
@@ -441,8 +549,6 @@ class IdentityManager : public SigninManagerBase::Observer,
 
   // SigninManagerBase::Observer:
   void GoogleSigninSucceeded(const AccountInfo& account_info) override;
-  void GoogleSigninSucceededWithPassword(const AccountInfo& account_info,
-                                         const std::string& password) override;
   void GoogleSignedOut(const AccountInfo& account_info) override;
   void GoogleSigninFailed(const GoogleServiceAuthError& error) override;
 
@@ -450,7 +556,6 @@ class IdentityManager : public SigninManagerBase::Observer,
   void OnRefreshTokenAvailable(const std::string& account_id) override;
   void OnRefreshTokenRevoked(const std::string& account_id) override;
   void OnRefreshTokensLoaded() override;
-  void OnStartBatchChanges() override;
   void OnEndBatchChanges() override;
   void OnAuthErrorChanged(const std::string& account_id,
                           const GoogleServiceAuthError& auth_error) override;
@@ -460,15 +565,25 @@ class IdentityManager : public SigninManagerBase::Observer,
       const std::vector<gaia::ListedAccount>& signed_in_accounts,
       const std::vector<gaia::ListedAccount>& signed_out_accounts,
       const GoogleServiceAuthError& error) override;
-  void OnAddAccountToCookieCompleted(
-      const std::string& account_id,
-      const GoogleServiceAuthError& error) override;
+  void OnGaiaCookieDeletedByUserAction() override;
 
   // OAuth2TokenService::DiagnosticsObserver:
   void OnAccessTokenRequested(
       const std::string& account_id,
       const std::string& consumer_id,
       const OAuth2TokenService::ScopeSet& scopes) override;
+  void OnFetchAccessTokenComplete(const std::string& account_id,
+                                  const std::string& consumer_id,
+                                  const ScopeSet& scopes,
+                                  GoogleServiceAuthError error,
+                                  base::Time expiration_time) override;
+  void OnAccessTokenRemoved(const std::string& account_id,
+                            const ScopeSet& scopes) override;
+  void OnRefreshTokenAvailableFromSource(const std::string& account_id,
+                                         bool is_refresh_token_valid,
+                                         const std::string& source) override;
+  void OnRefreshTokenRevokedFromSource(const std::string& account_id,
+                                       const std::string& source) override;
 
   // AccountTrackerService::Observer:
   void OnAccountUpdated(const AccountInfo& info) override;
@@ -480,6 +595,7 @@ class IdentityManager : public SigninManagerBase::Observer,
   // backed by the Identity Service.
   SigninManagerBase* signin_manager_;
   ProfileOAuth2TokenService* token_service_;
+  AccountFetcherService* account_fetcher_service_;
   AccountTrackerService* account_tracker_service_;
   GaiaCookieManagerService* gaia_cookie_manager_service_;
 
@@ -490,6 +606,13 @@ class IdentityManager : public SigninManagerBase::Observer,
   // AccountsMutator instance. May be null if mutation of accounts is not
   // supported on the current platform.
   std::unique_ptr<AccountsMutator> accounts_mutator_;
+
+  // AccountsCookieMutator instance. Guaranteed to be non-null, as this
+  // functionality is supported on all platforms.
+  std::unique_ptr<AccountsCookieMutator> accounts_cookie_mutator_;
+
+  // DiagnosticsProvider instance.
+  std::unique_ptr<DiagnosticsProvider> diagnostics_provider_;
 
   // Lists of observers.
   // Makes sure lists are empty on destruction.

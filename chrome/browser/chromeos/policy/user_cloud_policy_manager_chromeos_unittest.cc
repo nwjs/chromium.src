@@ -194,7 +194,7 @@ class UserCloudPolicyManagerChromeOSTest
     policy_data_.set_device_id("id987");
     policy_data_.set_username("user@example.com");
     em::PolicyFetchResponse* policy_response =
-        policy_blob_.mutable_policy_response()->add_response();
+        policy_blob_.mutable_policy_response()->add_responses();
     ASSERT_TRUE(policy_data_.SerializeToString(
         policy_response->mutable_policy_data()));
 
@@ -202,7 +202,6 @@ class UserCloudPolicyManagerChromeOSTest
         .Times(AnyNumber());
 
     AccountId account_id = AccountId::FromUserEmailGaiaId(kEmail, kTestGaiaId);
-    user_manager_->AddUser(account_id);
     TestingProfile* profile =
         profile_manager_->CreateTestingProfile(account_id.GetUserEmail());
     user_manager_->AddUserWithAffiliationAndTypeAndProfile(account_id, false,
@@ -446,7 +445,7 @@ class UserCloudPolicyManagerChromeOSTest
 
 // TODO(agawronska): Remove test instantiation with kDMServerOAuthForChildUser
 // once it is enabled by default.
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     UserCloudPolicyManagerChromeOSTest,
     testing::Values(std::vector<base::Feature>(),
@@ -1027,7 +1026,7 @@ class UserCloudPolicyManagerChromeOSChildTest
 
 // TODO(agawronska): Remove test instantiation with kDMServerOAuthForChildUser
 // once it is enabled by default.
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     UserCloudPolicyManagerChromeOSChildTest,
     testing::Values(std::vector<base::Feature>{

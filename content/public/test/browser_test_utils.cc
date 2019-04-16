@@ -88,7 +88,7 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "content/test/accessibility_browser_test_utils.h"
-#include "content/test/did_commit_provisional_load_interceptor.h"
+#include "content/test/did_commit_navigation_interceptor.h"
 #include "ipc/ipc_security_test_util.h"
 #include "net/base/filename_util.h"
 #include "net/base/io_buffer.h"
@@ -205,7 +205,7 @@ bool ExecuteScriptHelper(RenderFrameHost* render_frame_host,
     return true;
 
   base::JSONReader reader(base::JSON_ALLOW_TRAILING_COMMAS);
-  *result = reader.ReadToValue(json);
+  *result = reader.ReadToValueDeprecated(json);
   if (!*result) {
     DLOG(ERROR) << reader.GetErrorMessage();
     return false;
@@ -538,13 +538,13 @@ const char kHasVideoInputDevice[] = "has-video-input-device";
 
 // Interceptor that replaces params.url with |new_url| and params.origin with
 // |new_origin| for any commits to |target_url|.
-class CommitOriginInterceptor : public DidCommitProvisionalLoadInterceptor {
+class CommitOriginInterceptor : public DidCommitNavigationInterceptor {
  public:
   CommitOriginInterceptor(WebContents* web_contents,
                           const GURL& target_url,
                           const GURL& new_url,
                           const url::Origin& new_origin)
-      : DidCommitProvisionalLoadInterceptor(web_contents),
+      : DidCommitNavigationInterceptor(web_contents),
         target_url_(target_url),
         new_url_(new_url),
         new_origin_(new_origin) {}
@@ -554,10 +554,11 @@ class CommitOriginInterceptor : public DidCommitProvisionalLoadInterceptor {
   void WebContentsDestroyed() override { delete this; }
 
  protected:
-  bool WillDispatchDidCommitProvisionalLoad(
+  bool WillProcessDidCommitNavigation(
       RenderFrameHost* render_frame_host,
+      NavigationRequest* navigation_request,
       ::FrameHostMsg_DidCommitProvisionalLoad_Params* params,
-      mojom::DidCommitProvisionalLoadInterfaceParamsPtr& interface_params)
+      mojom::DidCommitProvisionalLoadInterfaceParamsPtr* interface_params)
       override {
     if (params->url == target_url_) {
       params->url = new_url_;
@@ -869,6 +870,7 @@ void SimulateMouseEvent(WebContents* web_contents,
 
 void SimulateRoutedMouseEvent(WebContents* web_contents,
                               blink::WebInputEvent::Type type,
+                              blink::WebMouseEvent::Button button,
                               const gfx::Point& point) {
   content::WebContentsImpl* web_contents_impl =
       static_cast<content::WebContentsImpl*>(web_contents);
@@ -876,6 +878,7 @@ void SimulateRoutedMouseEvent(WebContents* web_contents,
       static_cast<content::RenderWidgetHostViewBase*>(
           web_contents->GetRenderWidgetHostView());
   blink::WebMouseEvent mouse_event(type, 0, ui::EventTimeForNow());
+  mouse_event.button = button;
   mouse_event.SetPositionInWidget(point.x(), point.y());
   // Mac needs positionInScreen for events to plugins.
   gfx::Rect offset = web_contents->GetContainerBounds();
@@ -884,6 +887,13 @@ void SimulateRoutedMouseEvent(WebContents* web_contents,
 
   web_contents_impl->GetInputEventRouter()->RouteMouseEvent(rwhvb, &mouse_event,
                                                             ui::LatencyInfo());
+}
+
+void SimulateRoutedMouseEvent(WebContents* web_contents,
+                              blink::WebInputEvent::Type type,
+                              const gfx::Point& point) {
+  SimulateRoutedMouseEvent(web_contents, type,
+                           blink::WebMouseEvent::Button::kNoButton, point);
 }
 
 void SimulateMouseWheelEvent(WebContents* web_contents,
@@ -1785,7 +1795,7 @@ bool SetCookie(BrowserContext* browser_context,
   DCHECK(cc.get());
 
   cookie_manager->SetCanonicalCookie(
-      *cc.get(), true /* secure_source */, true /* modify_http_only */,
+      *cc.get(), url.scheme(), true /* modify_http_only */,
       base::BindOnce(
           [](bool* result, base::RunLoop* run_loop, bool success) {
             *result = success;
@@ -2988,13 +2998,6 @@ WebContents* GetEmbedderForGuest(content::WebContents* guest) {
   return static_cast<content::WebContentsImpl*>(guest)->GetOuterWebContents();
 }
 
-bool IsNetworkServiceRunningInProcess() {
-  return base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-         (base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kSingleProcess) ||
-          base::FeatureList::IsEnabled(features::kNetworkServiceInProcess));
-}
-
 int LoadBasicRequest(network::mojom::NetworkContext* network_context,
                      const GURL& url,
                      int process_id,
@@ -3237,6 +3240,19 @@ bool SynchronizeVisualPropertiesMessageFilter::OnMessageReceived(
   // We do not consume the message, so that we can verify the effects of it
   // being processed.
   return false;
+}
+
+RenderWidgetHostMouseEventMonitor::RenderWidgetHostMouseEventMonitor(
+    RenderWidgetHost* host)
+    : host_(host), event_received_(false) {
+  mouse_callback_ = base::BindRepeating(
+      &RenderWidgetHostMouseEventMonitor::MouseEventCallback,
+      base::Unretained(this));
+  host_->AddMouseEventCallback(mouse_callback_);
+}
+
+RenderWidgetHostMouseEventMonitor::~RenderWidgetHostMouseEventMonitor() {
+  host_->RemoveMouseEventCallback(mouse_callback_);
 }
 
 }  // namespace content

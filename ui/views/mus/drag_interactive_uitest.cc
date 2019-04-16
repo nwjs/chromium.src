@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "services/ws/public/mojom/constants.mojom.h"
@@ -159,7 +160,7 @@ TEST_F(DragTestInteractive, DragTest) {
   source_widget->Show();
 
   aura::test::ChangeCompletionWaiter source_waiter(aura::ChangeType::BOUNDS,
-                                                   false);
+                                                   true);
   source_widget->SetBounds(gfx::Rect(0, 0, 20, 20));
   ASSERT_TRUE(source_waiter.Wait());
 
@@ -171,7 +172,7 @@ TEST_F(DragTestInteractive, DragTest) {
   target_widget->Show();
 
   aura::test::ChangeCompletionWaiter target_waiter(aura::ChangeType::BOUNDS,
-                                                   false);
+                                                   true);
   target_widget->SetBounds(gfx::Rect(20, 20, 20, 20));
   ASSERT_TRUE(target_waiter.Wait());
 

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "base/files/file_path.h"
@@ -48,8 +49,10 @@ uint64_t HashModuleFilename(const base::FilePath& filename) {
 CallStackProfileBuilder::CallStackProfileBuilder(
     const CallStackProfileParams& profile_params,
     const WorkIdRecorder* work_id_recorder,
+    const MetadataRecorder* metadata_recorder,
     base::OnceClosure completed_callback)
     : work_id_recorder_(work_id_recorder),
+      metadata_recorder_(metadata_recorder),
       profile_start_time_(base::TimeTicks::Now()) {
   completed_callback_ = std::move(completed_callback);
   sampled_profile_.set_process(
@@ -60,6 +63,10 @@ CallStackProfileBuilder::CallStackProfileBuilder(
 }
 
 CallStackProfileBuilder::~CallStackProfileBuilder() = default;
+
+base::ModuleCache* CallStackProfileBuilder::GetModuleCache() {
+  return &module_cache_;
+}
 
 // This function is invoked on the profiler thread while the target thread is
 // suspended so must not take any locks, including indirectly through use of
@@ -84,22 +91,21 @@ void CallStackProfileBuilder::OnSampleCompleted(
     // keep the frame information even if its module is invalid so we have
     // visibility into how often this issue is happening on the server.
     CallStackProfile::Location* location = stack.add_frame();
-    if (!frame.module.is_valid)
+    if (!frame.module)
       continue;
 
     // Dedup modules.
-    const base::ModuleCache::Module& module = frame.module;
-    auto module_loc = module_index_.find(module.base_address);
+    auto module_loc = module_index_.find(frame.module);
     if (module_loc == module_index_.end()) {
-      modules_.push_back(module);
+      modules_.push_back(frame.module);
       size_t index = modules_.size() - 1;
-      module_loc = module_index_.emplace(module.base_address, index).first;
+      module_loc = module_index_.emplace(frame.module, index).first;
     }
 
     // Write CallStackProfile::Location protobuf message.
     ptrdiff_t module_offset =
         reinterpret_cast<const char*>(frame.instruction_pointer) -
-        reinterpret_cast<const char*>(module.base_address);
+        reinterpret_cast<const char*>(frame.module->GetBaseAddress());
     DCHECK_GE(module_offset, 0);
     location->set_address(static_cast<uint64_t>(module_offset));
     location->set_module_id_index(module_loc->second);
@@ -127,6 +133,24 @@ void CallStackProfileBuilder::OnSampleCompleted(
   stack_sample_proto->set_stack_index(stack_loc->second);
   if (is_continued_work_)
     stack_sample_proto->set_continued_work(is_continued_work_);
+
+  // TODO(crbug.com/913570): Update metadata recording to not heap allocate
+  // and move to RecordMetadata().
+  if (metadata_recorder_) {
+    uint64_t item_hash;
+    int64_t item_value;
+    std::tie(item_hash, item_value) = metadata_recorder_->GetHashAndValue();
+    int next_item_index = call_stack_profile->metadata_name_hash_size();
+    auto result = metadata_hashes_cache_.emplace(item_hash, next_item_index);
+    if (result.second)
+      call_stack_profile->add_metadata_name_hash(item_hash);
+    CallStackProfile::MetadataItem* item = stack_sample_proto->add_metadata();
+    // TODO(crbug.com/913570): Only add metadata items if different than
+    // the value for the previous sample, per
+    // https://cs.chromium.org/chromium/src/third_party/metrics_proto/call_stack_profile.proto?rcl=8811ddb099&l=108-110.
+    item->set_name_hash_index(result.first->second);
+    item->set_value(item_value);
+  }
 }
 
 void CallStackProfileBuilder::OnProfileCompleted(
@@ -140,11 +164,12 @@ void CallStackProfileBuilder::OnProfileCompleted(
   call_stack_profile->set_sampling_period_ms(sampling_period.InMilliseconds());
 
   // Write CallStackProfile::ModuleIdentifier protobuf message.
-  for (const auto& module : modules_) {
+  for (const auto* module : modules_) {
     CallStackProfile::ModuleIdentifier* module_id =
         call_stack_profile->add_module_id();
-    module_id->set_build_id(module.id);
-    module_id->set_name_md5_prefix(HashModuleFilename(module.filename));
+    module_id->set_build_id(module->GetId());
+    module_id->set_name_md5_prefix(
+        HashModuleFilename(module->GetDebugBasename()));
   }
 
   PassProfilesToMetricsProvider(std::move(sampled_profile_));

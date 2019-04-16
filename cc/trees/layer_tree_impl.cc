@@ -1064,6 +1064,8 @@ void LayerTreeImpl::SetLocalSurfaceIdAllocationFromParent(
         local_surface_id_allocation_from_parent) {
   local_surface_id_allocation_from_parent_ =
       local_surface_id_allocation_from_parent;
+  if (IsActiveTree())
+    host_impl_->OnLayerTreeLocalSurfaceIdAllocationChanged();
 }
 
 void LayerTreeImpl::RequestNewLocalSurfaceId() {
@@ -1143,7 +1145,7 @@ gfx::SizeF LayerTreeImpl::ScrollableViewportSize() const {
     return gfx::SizeF();
 
   return gfx::ScaleSize(gfx::SizeF(inner_node->container_bounds),
-                        1.0f / current_page_scale_factor());
+                        1.0f / page_scale_factor_for_scroll());
 }
 
 gfx::Rect LayerTreeImpl::RootScrollLayerDeviceViewportBounds() const {
@@ -1364,8 +1366,7 @@ bool LayerTreeImpl::UpdateDrawProperties(
   }
 
   if (update_image_animation_controller && image_animation_controller()) {
-    image_animation_controller()->UpdateStateFromDrivers(
-        CurrentBeginFrameArgs().frame_time);
+    image_animation_controller()->UpdateStateFromDrivers();
   }
 
   DCHECK(!needs_update_draw_properties_)
@@ -1833,6 +1834,8 @@ bool LayerTreeImpl::IsUIResourceOpaque(UIResourceId uid) const {
 }
 
 void LayerTreeImpl::ProcessUIResourceRequestQueue() {
+  TRACE_EVENT1("cc", "ProcessUIResourceRequestQueue", "queue_size",
+               ui_resource_request_queue_.size());
   for (const auto& req : ui_resource_request_queue_) {
     switch (req.GetType()) {
       case UIResourceRequest::UI_RESOURCE_CREATE:

@@ -38,7 +38,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/invalidation/invalidation_flags.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
-#include "third_party/blink/renderer/platform/wtf/assertions.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string_hash.h"
@@ -49,7 +49,7 @@ namespace blink {
 class Element;
 class TracedValue;
 
-enum InvalidationType { kInvalidateDescendants, kInvalidateSiblings };
+enum class InvalidationType { kInvalidateDescendants, kInvalidateSiblings };
 
 class InvalidationSet;
 
@@ -99,10 +99,10 @@ class CORE_EXPORT InvalidationSet
     return static_cast<InvalidationType>(type_);
   }
   bool IsDescendantInvalidationSet() const {
-    return GetType() == kInvalidateDescendants;
+    return GetType() == InvalidationType::kInvalidateDescendants;
   }
   bool IsSiblingInvalidationSet() const {
-    return GetType() == kInvalidateSiblings;
+    return GetType() == InvalidationType::kInvalidateSiblings;
   }
 
   static void CacheTracingFlag();
@@ -117,7 +117,7 @@ class CORE_EXPORT InvalidationSet
 
   void SetInvalidationFlags(InvalidationFlags flags) {
     invalidation_flags_ = flags;
-  };
+  }
 
   void SetWholeSubtreeInvalid();
   bool WholeSubtreeInvalid() const {
@@ -157,7 +157,7 @@ class CORE_EXPORT InvalidationSet
 
   const InvalidationFlags GetInvalidationFlags() const {
     return invalidation_flags_;
-  };
+  }
 
   void SetInvalidatesParts() { invalidation_flags_.SetInvalidatesParts(true); }
   bool InvalidatesParts() const {
@@ -246,6 +246,13 @@ class CORE_EXPORT InvalidationSet
     bool IsEmpty(const Flags&) const;
     bool IsHashSet(const Flags& flags) const { return flags.bits_ & GetMask(); }
 
+    StringImpl* GetStringImpl(const Flags& flags) const {
+      return IsHashSet(flags) ? nullptr : string_impl_;
+    }
+    const HashSet<AtomicString>* GetHashSet(const Flags& flags) const {
+      return IsHashSet(flags) ? hash_set_ : nullptr;
+    }
+
     // A simple forward iterator, which can either "iterate" over a single
     // StringImpl, or act as a wrapper for HashSet<AtomicString>::iterator.
     class Iterator {
@@ -287,8 +294,8 @@ class CORE_EXPORT InvalidationSet
     class Range {
      public:
       Range(Iterator begin, Iterator end) : begin_(begin), end_(end) {}
-      Iterator begin() const { return begin_; };
-      Iterator end() const { return end_; };
+      Iterator begin() const { return begin_; }
+      Iterator end() const { return end_; }
 
      private:
       Iterator begin_;
@@ -357,6 +364,11 @@ class CORE_EXPORT InvalidationSet
     return attributes_.Items(backing_flags_);
   }
 
+  // Look for any class name on Element that is contained in |classes_|.
+  StringImpl* FindAnyClass(Element&) const;
+  // Look for any attribute on Element that is contained in |attributes_|.
+  StringImpl* FindAnyAttribute(Element&) const;
+
   Backing<BackingType::kClasses> classes_;
   Backing<BackingType::kIds> ids_;
   Backing<BackingType::kTagNames> tag_names_;
@@ -382,7 +394,8 @@ class CORE_EXPORT DescendantInvalidationSet final : public InvalidationSet {
   }
 
  private:
-  DescendantInvalidationSet() : InvalidationSet(kInvalidateDescendants) {}
+  DescendantInvalidationSet()
+      : InvalidationSet(InvalidationType::kInvalidateDescendants) {}
 };
 
 class CORE_EXPORT SiblingInvalidationSet final : public InvalidationSet {
@@ -487,16 +500,19 @@ bool InvalidationSet::Backing<type>::IsEmpty(
   return !IsHashSet(flags) && !string_impl_;
 }
 
-DEFINE_TYPE_CASTS(DescendantInvalidationSet,
-                  InvalidationSet,
-                  value,
-                  value->IsDescendantInvalidationSet(),
-                  value.IsDescendantInvalidationSet());
-DEFINE_TYPE_CASTS(SiblingInvalidationSet,
-                  InvalidationSet,
-                  value,
-                  value->IsSiblingInvalidationSet(),
-                  value.IsSiblingInvalidationSet());
+template <>
+struct DowncastTraits<DescendantInvalidationSet> {
+  static bool AllowFrom(const InvalidationSet& value) {
+    return value.IsDescendantInvalidationSet();
+  }
+};
+
+template <>
+struct DowncastTraits<SiblingInvalidationSet> {
+  static bool AllowFrom(const InvalidationSet& value) {
+    return value.IsSiblingInvalidationSet();
+  }
+};
 
 }  // namespace blink
 

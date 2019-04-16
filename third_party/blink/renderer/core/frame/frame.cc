@@ -124,6 +124,8 @@ void Frame::DisconnectOwnerElement() {
   if (owner_->ContentFrame() == this)
     owner_->ClearContentFrame();
 
+  owner_->SetNeedsOcclusionTracking(false);
+
   owner_ = nullptr;
 }
 
@@ -136,8 +138,7 @@ bool Frame::IsMainFrame() const {
 }
 
 HTMLFrameOwnerElement* Frame::DeprecatedLocalOwner() const {
-  return owner_ && owner_->IsLocal() ? ToHTMLFrameOwnerElement(owner_)
-                                     : nullptr;
+  return DynamicTo<HTMLFrameOwnerElement>(owner_.Get());
 }
 
 static ChromeClient& GetEmptyChromeClient() {
@@ -196,16 +197,18 @@ void Frame::NotifyUserActivationInLocalTree() {
     node->user_activation_state_.Activate();
 
   // See FrameTreeNode::NotifyUserActivation() for details about this block.
-  if (IsLocalFrame() && RuntimeEnabledFeatures::UserActivationV2Enabled() &&
+  auto* local_frame = DynamicTo<LocalFrame>(this);
+  if (local_frame && RuntimeEnabledFeatures::UserActivationV2Enabled() &&
       RuntimeEnabledFeatures::UserActivationSameOriginVisibilityEnabled()) {
     const SecurityOrigin* security_origin =
-        ToLocalFrame(this)->GetSecurityContext()->GetSecurityOrigin();
+        local_frame->GetSecurityContext()->GetSecurityOrigin();
 
     Frame& root = Tree().Top();
     for (Frame* node = &root; node; node = node->Tree().TraverseNext(&root)) {
-      if (node->IsLocalFrame() &&
+      auto* local_frame_node = DynamicTo<LocalFrame>(node);
+      if (local_frame_node &&
           security_origin->CanAccess(
-              ToLocalFrame(node)->GetSecurityContext()->GetSecurityOrigin())) {
+              local_frame_node->GetSecurityContext()->GetSecurityOrigin())) {
         node->user_activation_state_.Activate();
       }
     }
@@ -237,9 +240,10 @@ void Frame::SetOwner(FrameOwner* owner) {
 }
 
 void Frame::UpdateInertIfPossible() {
-  if (owner_ && owner_->IsLocal()) {
-    ToHTMLFrameOwnerElement(owner_)->UpdateDistributionForFlatTreeTraversal();
-    if (ToHTMLFrameOwnerElement(owner_)->IsInert())
+  if (auto* frame_owner_element =
+          DynamicTo<HTMLFrameOwnerElement>(owner_.Get())) {
+    frame_owner_element->UpdateDistributionForFlatTreeTraversal();
+    if (frame_owner_element->IsInert())
       SetIsInert(true);
   }
 }
@@ -301,7 +305,7 @@ bool Frame::isNwDisabledChildFrame() const
   do {
     if (current_frame->owner_) {
       if (current_frame->owner_->IsLocal())
-        if (ToHTMLFrameOwnerElement(current_frame->owner_)->FastHasAttribute(html_names::kNwdisableAttr))
+        if (DynamicTo<HTMLFrameOwnerElement>(current_frame->Owner())->FastHasAttribute(html_names::kNwdisableAttr))
           return true;
     }
     current_frame = ancestor_frame;
@@ -324,7 +328,7 @@ bool Frame::isNwFakeTop() const
 {
   if (owner_) {
     if (owner_->IsLocal())
-      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(html_names::kNwfaketopAttr))
+      if (DynamicTo<HTMLFrameOwnerElement>(Owner())->FastHasAttribute(html_names::kNwfaketopAttr))
         return true;
   }
   return false;

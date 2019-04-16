@@ -13,6 +13,13 @@
 
 namespace ash {
 
+// The initial value of |profile_id_| in AppListControllerImpl.
+constexpr int kAppListInvalidProfileID = -1;
+
+// The value from which the unique profile id starts. Notice that this profile
+// id is only used for mojo callings between AppListController and AppListClient
+constexpr int kAppListProfileIdStartFrom = 0;
+
 // Id of OEM folder in app list.
 ASH_PUBLIC_EXPORT extern const char kOemFolderId[];
 
@@ -22,7 +29,7 @@ enum class AppListState {
   kStateApps = 0,
   kStateSearchResults,
   kStateStart,
-  kStateCustomLauncherPageDeprecated,  // Don't use over IPC
+  kStateEmbeddedAssistant,
   // Add new values here.
 
   kInvalidState,               // Don't use over IPC
@@ -47,6 +54,8 @@ enum class SearchResultType {
   kOmnibox,         // Results from Omnibox.
   kLauncher,        // Results from launcher search (currently only from Files).
   kAnswerCard,      // WebContents based answer card.
+  kPlayStoreReinstallApp,  // Reinstall recommendations from PlayStore.
+  kArcAppShortcut,         // ARC++ app shortcuts.
   // Add new values here.
 };
 

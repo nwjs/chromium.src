@@ -120,13 +120,12 @@ struct ReshapeQueueItem {
   unsigned start_index_;
   unsigned num_characters_;
   ReshapeQueueItem(ReshapeQueueItemAction action, unsigned start, unsigned num)
-      : action_(action), start_index_(start), num_characters_(num){};
+      : action_(action), start_index_(start), num_characters_(num) {}
 };
 
 template <typename T>
 class HarfBuzzScopedPtr {
   STACK_ALLOCATED();
-  WTF_MAKE_NONCOPYABLE(HarfBuzzScopedPtr);
 
  public:
   typedef void (*DestroyFunction)(T*);
@@ -146,6 +145,8 @@ class HarfBuzzScopedPtr {
  private:
   T* ptr_;
   DestroyFunction destroy_;
+
+  DISALLOW_COPY_AND_ASSIGN(HarfBuzzScopedPtr);
 };
 
 using FeaturesVector = Vector<hb_feature_t, 6>;
@@ -471,7 +472,7 @@ bool HarfBuzzShaper::CollectFallbackHintChars(
     const Deque<ReshapeQueueItem>& reshape_queue,
     bool needs_hint_list,
     Vector<UChar32>& hint) const {
-  if (!reshape_queue.size())
+  if (reshape_queue.empty())
     return false;
 
   // Clear without releasing the capacity to avoid reallocations.
@@ -836,7 +837,7 @@ void HarfBuzzShaper::ShapeSegment(
                                                range_data->start);
   }
   scoped_refptr<FontDataForRangeSet> current_font_data_for_range_set;
-  while (range_data->reshape_queue.size()) {
+  while (!range_data->reshape_queue.empty()) {
     ReshapeQueueItem current_queue_item = range_data->reshape_queue.TakeFirst();
 
     if (current_queue_item.action_ == kReshapeQueueNextFont) {
@@ -852,7 +853,7 @@ void HarfBuzzShaper::ShapeSegment(
       current_font_data_for_range_set =
           fallback_iterator->Next(fallback_chars_hint);
       if (!current_font_data_for_range_set->FontData()) {
-        DCHECK(!range_data->reshape_queue.size());
+        DCHECK(range_data->reshape_queue.empty());
         break;
       }
       font_cycle_queued = false;

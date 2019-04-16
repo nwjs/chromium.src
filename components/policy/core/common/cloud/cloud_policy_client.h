@@ -150,7 +150,8 @@ class POLICY_EXPORT CloudPolicyClient {
       const std::string& pem_certificate_chain,
       const std::string& client_id,
       const std::string& requisition,
-      const std::string& current_state_key);
+      const std::string& current_state_key,
+      const std::string& sub_organization);
 
   // Attempts to enroll with the device management service using an enrollment
   // token. Results in a registration change or error notification.
@@ -344,7 +345,7 @@ class POLICY_EXPORT CloudPolicyClient {
   const std::string& client_id() const { return client_id_; }
   const base::DictionaryValue* configuration_seed() const {
     return configuration_seed_.get();
-  };
+  }
 
   // The device mode as received in the registration request.
   DeviceMode device_mode() const { return device_mode_; }

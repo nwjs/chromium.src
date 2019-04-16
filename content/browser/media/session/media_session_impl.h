@@ -11,17 +11,17 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
-#include "base/callback_list.h"
+#include "base/containers/flat_map.h"
 #include "base/containers/id_map.h"
 #include "base/macros.h"
-#include "base/observer_list.h"
 #include "base/optional.h"
+#include "base/timer/timer.h"
 #include "content/browser/media/session/audio_focus_delegate.h"
 #include "content/browser/media/session/media_session_uma_helper.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/media_session.h"
-#include "content/public/browser/media_session_observer.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "mojo/public/cpp/bindings/binding.h"
@@ -49,7 +49,6 @@ class AudioFocusManagerTest;
 class MediaSessionImplServiceRoutingTest;
 class MediaSessionImplStateObserver;
 class MediaSessionImplVisibilityBrowserTest;
-class MediaSessionObserver;
 class MediaSessionPlayerObserver;
 class MediaSessionServiceImpl;
 class MediaSessionServiceImplBrowserTest;
@@ -120,9 +119,6 @@ class MediaSessionImpl : public MediaSession,
   CONTENT_EXPORT void OnPlayerPaused(MediaSessionPlayerObserver* observer,
                                      int player_id);
 
-  void AddObserver(MediaSessionObserver* observer) override;
-  void RemoveObserver(MediaSessionObserver* observer) override;
-
   // Returns if the session is currently active.
   CONTENT_EXPORT bool IsActive() const;
 
@@ -169,14 +165,11 @@ class MediaSessionImpl : public MediaSession,
       mojo::InterfaceRequest<media_session::mojom::MediaSession> request);
 
   // Returns information about the MediaSession.
-  media_session::mojom::MediaSessionInfoPtr GetMediaSessionInfoSync();
+  CONTENT_EXPORT media_session::mojom::MediaSessionInfoPtr
+  GetMediaSessionInfoSync();
 
   // Returns if the session can be controlled by the user.
   CONTENT_EXPORT bool IsControllable() const;
-
-  // Compute if the actual playback state is paused by combining the
-  // MediaSessionService declared state and guessed state (audio_focus_state_).
-  CONTENT_EXPORT bool IsActuallyPaused() const;
 
   // MediaSession overrides ---------------------------------------------------
 
@@ -243,6 +236,15 @@ class MediaSessionImpl : public MediaSession,
   // Skip ad.
   CONTENT_EXPORT void SkipAd() override;
 
+  // Downloads the bitmap version of a MediaImage at least |minimum_size_px|
+  // and closest to |desired_size_px|. If the download failed, was too small or
+  // the image did not come from the media session then returns a null image.
+  CONTENT_EXPORT void GetMediaImageBitmap(
+      const media_session::MediaImage& image,
+      int minimum_size_px,
+      int desired_size_px,
+      GetMediaImageBitmapCallback callback) override;
+
   const base::UnguessableToken& audio_focus_group_id() const {
     return audio_focus_group_id_;
   }
@@ -291,6 +293,16 @@ class MediaSessionImpl : public MediaSession,
 
   void Initialize();
 
+  // Called when we have finished downloading an image.
+  void OnImageDownloadComplete(GetMediaImageBitmapCallback callback,
+                               int minimum_size_px,
+                               int desired_size_px,
+                               int id,
+                               int http_status_code,
+                               const GURL& image_url,
+                               const std::vector<SkBitmap>& bitmaps,
+                               const std::vector<gfx::Size>& sizes);
+
   // Called when system audio focus has been requested and whether the request
   // was granted.
   void OnSystemAudioFocusRequested(bool result);
@@ -303,13 +315,6 @@ class MediaSessionImpl : public MediaSession,
   // delegate to abandon the audio focus.
   CONTENT_EXPORT void AbandonSystemAudioFocusIfNeeded();
 
-  // Notify all information that an observer needs to know when it's added.
-  void NotifyAddedObserver(MediaSessionObserver* observer);
-
-  // Notifies legacy (non-mojo) observers about the state change of the media
-  // session.
-  void NotifyLegacyObserversStateChange();
-
   // Internal method that should be used instead of setting audio_focus_state_.
   // It sets audio_focus_state_ and notifies observers about the state change.
   void SetAudioFocusState(State audio_focus_state);
@@ -317,9 +322,8 @@ class MediaSessionImpl : public MediaSession,
   // Flushes any mojo bindings for testing.
   CONTENT_EXPORT void FlushForTesting();
 
-  // Notifies mojo observers that the MediaSessionInfo has changed.
-  void OnMediaSessionInfoChanged();
-  void NotifyMojoObserversMediaSessionInfoChanged();
+  // Notifies |observers_| and |delegate_| that |MediaSessionInfo| has changed.
+  void RebuildAndNotifyMediaSessionInfoChanged();
 
   // Update the volume multiplier when ducking state changes.
   void UpdateVolumeMultiplier();
@@ -328,19 +332,11 @@ class MediaSessionImpl : public MediaSession,
   // ducking.
   double GetVolumeMultiplier() const;
 
-  // Registers a MediaSessionImpl state change callback.
-  CONTENT_EXPORT std::unique_ptr<base::CallbackList<void(State)>::Subscription>
-  RegisterMediaSessionStateChangedCallbackForTest(
-      const StateChangedCallback& cb);
-
   CONTENT_EXPORT bool AddPepperPlayer(MediaSessionPlayerObserver* observer,
                                       int player_id);
 
   CONTENT_EXPORT bool AddOneShotPlayer(MediaSessionPlayerObserver* observer,
                                        int player_id);
-
-  // Returns the current media metadata associated with this session.
-  media_session::MediaMetadata GetMediaMetadata() const;
 
   // MediaSessionService-related methods
 
@@ -356,6 +352,10 @@ class MediaSessionImpl : public MediaSession,
 
   // Rebuilds |actions_| and notifies observers if they have changed.
   void RebuildAndNotifyActionsChanged();
+
+  // Rebuilds |metadata_| and |images_| and notifies observers if they have
+  // changed.
+  void RebuildAndNotifyMetadataChanged();
 
   // A set of actions supported by |routed_service_| and the current media
   // session.
@@ -377,6 +377,9 @@ class MediaSessionImpl : public MediaSession,
   // we request system audio focus.
   media_session::mojom::AudioFocusType desired_audio_focus_type_;
 
+  // The last updated |MediaSessionInfo| that was sent to |observers_|.
+  media_session::mojom::MediaSessionInfoPtr session_info_;
+
   MediaSessionUmaHelper uma_helper_;
 
   // The ducking state of this media session. The initial value is |false|, and
@@ -388,10 +391,6 @@ class MediaSessionImpl : public MediaSession,
 
   double ducking_volume_multiplier_;
 
-  base::CallbackList<void(State)> media_session_state_listeners_;
-
-  base::ObserverList<MediaSessionObserver>::Unchecked observers_;
-
   // True if the WebContents associated with this MediaSessionImpl is focused.
   bool focused_ = false;
 
@@ -401,6 +400,12 @@ class MediaSessionImpl : public MediaSession,
 
   // MediaSessionService-related fields
   using ServicesMap = std::map<RenderFrameHost*, MediaSessionServiceImpl*>;
+
+  // The current metadata and images associated with the current media session.
+  media_session::MediaMetadata metadata_;
+  base::flat_map<media_session::mojom::MediaSessionImageType,
+                 std::vector<media_session::MediaImage>>
+      images_;
 
   // The collection of all managed services (non-owned pointers). The services
   // are owned by RenderFrameHost and should be registered on creation and
@@ -412,11 +417,7 @@ class MediaSessionImpl : public MediaSession,
   // Bindings for Mojo pointers to |this| held by media route providers.
   mojo::BindingSet<media_session::mojom::MediaSession> bindings_;
 
-  mojo::InterfacePtrSet<media_session::mojom::MediaSessionObserver>
-      mojo_observers_;
-
-  // Timer used for debouncing MediaSessionInfoChanged events.
-  std::unique_ptr<base::OneShotTimer> info_changed_timer_;
+  mojo::InterfacePtrSet<media_session::mojom::MediaSessionObserver> observers_;
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();
 

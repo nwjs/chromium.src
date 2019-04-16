@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback_forward.h"
 #include "base/logging.h"
 #include "base/threading/thread_checker.h"
@@ -14,6 +15,8 @@
 #include "services/service_manager/public/cpp/service_context_ref.h"
 
 namespace tracing {
+
+const int32_t kAgentResponseTimeoutInSeconds = 10;
 
 AgentRegistry::AgentEntry::AgentEntry(size_t id,
                                       AgentRegistry* agent_registry,
@@ -39,10 +42,17 @@ void AgentRegistry::AgentEntry::AddDisconnectClosure(
     base::OnceClosure closure) {
   DCHECK_EQ(0u, closures_.count(closure_name));
   closures_[closure_name] = std::move(closure);
+
+  // Adding a disconnect closure means we're waiting for a response from the
+  // agent. If the client becomes unresponsive, we disconnect it.
+  timer_.Start(FROM_HERE,
+               base::TimeDelta::FromSeconds(kAgentResponseTimeoutInSeconds),
+               this, &AgentRegistry::AgentEntry::OnConnectionError);
 }
 
 bool AgentRegistry::AgentEntry::RemoveDisconnectClosure(
     const void* closure_name) {
+  timer_.Stop();
   return closures_.erase(closure_name) > 0;
 }
 
@@ -66,37 +76,22 @@ void AgentRegistry::AgentEntry::OnConnectionError() {
   agent_registry_->UnregisterAgent(id_);
 }
 
-AgentRegistry::AgentRegistry() {
-  DETACH_FROM_SEQUENCE(sequence_checker_);
-}
+AgentRegistry::AgentRegistry() = default;
 
-AgentRegistry::~AgentRegistry() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
+AgentRegistry::~AgentRegistry() = default;
 
 void AgentRegistry::DisconnectAllAgents() {
   bindings_.CloseAllBindings();
 }
 
 void AgentRegistry::BindAgentRegistryRequest(
-    scoped_refptr<base::SequencedTaskRunner> task_runner,
     mojom::AgentRegistryRequest request) {
-  task_runner->PostTask(
-      FROM_HERE,
-      base::BindOnce(&AgentRegistry::BindAgentRegistryRequestOnSequence,
-                     base::Unretained(this), std::move(request)));
-}
-
-void AgentRegistry::BindAgentRegistryRequestOnSequence(
-    mojom::AgentRegistryRequest request) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   bindings_.AddBinding(this, std::move(request));
 }
 
 size_t AgentRegistry::SetAgentInitializationCallback(
     const AgentInitializationCallback& callback,
     bool call_on_new_agents_only) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   agent_initialization_callback_ = callback;
   size_t num_initialized_agents = 0;
   if (!call_on_new_agents_only) {
@@ -109,7 +104,6 @@ size_t AgentRegistry::SetAgentInitializationCallback(
 }
 
 bool AgentRegistry::HasDisconnectClosure(const void* closure_name) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   for (const auto& key_value : agents_) {
     if (key_value.second->HasDisconnectClosure(closure_name))
       return true;
@@ -121,7 +115,6 @@ void AgentRegistry::RegisterAgent(mojom::AgentPtr agent,
                                   const std::string& label,
                                   mojom::TraceDataType type,
                                   base::ProcessId pid) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   auto id = next_agent_id_++;
   auto entry = std::make_unique<AgentEntry>(id, this, std::move(agent), label,
                                             type, pid);
@@ -132,7 +125,6 @@ void AgentRegistry::RegisterAgent(mojom::AgentPtr agent,
 }
 
 void AgentRegistry::UnregisterAgent(size_t agent_id) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   size_t num_deleted = agents_.erase(agent_id);
   DCHECK_EQ(1u, num_deleted);
 }

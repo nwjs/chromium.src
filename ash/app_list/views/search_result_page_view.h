@@ -34,6 +34,9 @@ class APP_LIST_EXPORT SearchResultPageView
     return result_container_views_;
   }
 
+  bool IsFirstResultTile() const;
+  bool IsFirstResultHighlighted() const;
+
   // Overridden from views::View:
   bool OnKeyPressed(const ui::KeyEvent& event) override;
   const char* GetClassName() const override;
@@ -41,6 +44,8 @@ class APP_LIST_EXPORT SearchResultPageView
 
   // AppListPage overrides:
   void OnHidden() override;
+  void OnShown() override;
+
   gfx::Rect GetPageBoundsForState(ash::AppListState state) const override;
   void OnAnimationUpdated(double progress,
                           ash::AppListState from_state,
@@ -51,6 +56,8 @@ class APP_LIST_EXPORT SearchResultPageView
 
   // Overridden from SearchResultContainerView::Delegate :
   void OnSearchResultContainerResultsChanged() override;
+  void OnSearchResultContainerResultFocused(
+      SearchResultBaseView* focused_result_view) override;
 
   views::View* contents_view() { return contents_view_; }
 

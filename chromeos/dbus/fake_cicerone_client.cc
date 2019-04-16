@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/threading/thread_task_runner_handle.h"
 
 namespace chromeos {
@@ -35,6 +36,12 @@ FakeCiceroneClient::FakeCiceroneClient() {
   vm_tools::cicerone::AppSearchResponse::AppSearchResult* app =
       search_app_response_.add_packages();
   app->set_package_name("fake app");
+
+  export_lxd_container_response_.set_status(
+      vm_tools::cicerone::ExportLxdContainerResponse::EXPORTING);
+
+  import_lxd_container_response_.set_status(
+      vm_tools::cicerone::ImportLxdContainerResponse::IMPORTING);
 }
 
 FakeCiceroneClient::~FakeCiceroneClient() = default;
@@ -59,6 +66,10 @@ bool FakeCiceroneClient::IsLxdContainerCreatedSignalConnected() {
   return is_lxd_container_created_signal_connected_;
 }
 
+bool FakeCiceroneClient::IsLxdContainerDeletedSignalConnected() {
+  return is_lxd_container_deleted_signal_connected_;
+}
+
 bool FakeCiceroneClient::IsLxdContainerDownloadingSignalConnected() {
   return is_lxd_container_downloading_signal_connected_;
 }
@@ -77,6 +88,14 @@ bool FakeCiceroneClient::IsInstallLinuxPackageProgressSignalConnected() {
 
 bool FakeCiceroneClient::IsUninstallPackageProgressSignalConnected() {
   return is_uninstall_package_progress_signal_connected_;
+}
+
+bool FakeCiceroneClient::IsExportLxdContainerProgressSignalConnected() {
+  return is_export_lxd_container_progress_signal_connected_;
+}
+
+bool FakeCiceroneClient::IsImportLxdContainerProgressSignalConnected() {
+  return is_import_lxd_container_progress_signal_connected_;
 }
 
 void FakeCiceroneClient::LaunchContainerApplication(
@@ -99,6 +118,7 @@ void FakeCiceroneClient::GetContainerAppIcons(
 void FakeCiceroneClient::GetLinuxPackageInfo(
     const vm_tools::cicerone::LinuxPackageInfoRequest& request,
     DBusMethodCallback<vm_tools::cicerone::LinuxPackageInfoResponse> callback) {
+  most_recent_linux_package_info_request_ = request;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), get_linux_package_info_response_));
@@ -108,18 +128,28 @@ void FakeCiceroneClient::InstallLinuxPackage(
     const vm_tools::cicerone::InstallLinuxPackageRequest& request,
     DBusMethodCallback<vm_tools::cicerone::InstallLinuxPackageResponse>
         callback) {
+  most_recent_install_linux_package_request_ = request;
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(callback), install_linux_package_response_));
+}
+
+void FakeCiceroneClient::SetOnUninstallPackageOwningFileCallback(
+    UninstallPackageOwningFileCallback callback) {
+  uninstall_package_owning_file_callback_ = std::move(callback);
 }
 
 void FakeCiceroneClient::UninstallPackageOwningFile(
     const vm_tools::cicerone::UninstallPackageOwningFileRequest& request,
     DBusMethodCallback<vm_tools::cicerone::UninstallPackageOwningFileResponse>
         callback) {
-  base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback),
-                                uninstall_package_owning_file_response_));
+  if (uninstall_package_owning_file_callback_) {
+    uninstall_package_owning_file_callback_.Run(request, std::move(callback));
+  } else {
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback),
+                                  uninstall_package_owning_file_response_));
+  }
 }
 
 void FakeCiceroneClient::WaitForServiceToBeAvailable(
@@ -145,6 +175,15 @@ void FakeCiceroneClient::CreateLxdContainer(
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(&FakeCiceroneClient::NotifyLxdContainerCreated,
                                 base::Unretained(this), std::move(signal)));
+}
+
+void FakeCiceroneClient::DeleteLxdContainer(
+    const vm_tools::cicerone::DeleteLxdContainerRequest& request,
+    DBusMethodCallback<vm_tools::cicerone::DeleteLxdContainerResponse>
+        callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), delete_lxd_container_response_));
 }
 
 void FakeCiceroneClient::StartLxdContainer(
@@ -203,6 +242,24 @@ void FakeCiceroneClient::SearchApp(
       FROM_HERE, base::BindOnce(std::move(callback), search_app_response_));
 }
 
+void FakeCiceroneClient::ExportLxdContainer(
+    const vm_tools::cicerone::ExportLxdContainerRequest& request,
+    DBusMethodCallback<vm_tools::cicerone::ExportLxdContainerResponse>
+        callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), export_lxd_container_response_));
+}
+
+void FakeCiceroneClient::ImportLxdContainer(
+    const vm_tools::cicerone::ImportLxdContainerRequest& request,
+    DBusMethodCallback<vm_tools::cicerone::ImportLxdContainerResponse>
+        callback) {
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE,
+      base::BindOnce(std::move(callback), import_lxd_container_response_));
+}
+
 void FakeCiceroneClient::NotifyLxdContainerCreated(
     const vm_tools::cicerone::LxdContainerCreatedSignal& proto) {
   for (auto& observer : observer_list_) {
@@ -228,6 +285,34 @@ void FakeCiceroneClient::NotifyLxdContainerStarting(
     const vm_tools::cicerone::LxdContainerStartingSignal& proto) {
   for (auto& observer : observer_list_) {
     observer.OnLxdContainerStarting(proto);
+  }
+}
+
+void FakeCiceroneClient::NotifyExportLxdContainerProgress(
+    const vm_tools::cicerone::ExportLxdContainerProgressSignal& proto) {
+  for (auto& observer : observer_list_) {
+    observer.OnExportLxdContainerProgress(proto);
+  }
+}
+
+void FakeCiceroneClient::NotifyImportLxdContainerProgress(
+    const vm_tools::cicerone::ImportLxdContainerProgressSignal& proto) {
+  for (auto& observer : observer_list_) {
+    observer.OnImportLxdContainerProgress(proto);
+  }
+}
+
+void FakeCiceroneClient::InstallLinuxPackageProgress(
+    const vm_tools::cicerone::InstallLinuxPackageProgressSignal& signal) {
+  for (auto& observer : observer_list_) {
+    observer.OnInstallLinuxPackageProgress(signal);
+  }
+}
+
+void FakeCiceroneClient::UninstallPackageProgress(
+    const vm_tools::cicerone::UninstallPackageProgressSignal& signal) {
+  for (auto& observer : observer_list_) {
+    observer.OnUninstallPackageProgress(signal);
   }
 }
 

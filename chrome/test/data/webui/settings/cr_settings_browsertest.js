@@ -12,7 +12,7 @@ GEN_INCLUDE(
     [ROOT_PATH + 'chrome/test/data/webui/polymer_browser_test_base.js']);
 GEN('#include "chrome/common/chrome_features.h"');
 GEN('#include "components/autofill/core/common/autofill_features.h"');
-GEN('#include "components/omnibox/browser/omnibox_field_trial.h"');
+GEN('#include "components/omnibox/common/omnibox_features.h"');
 
 /**
  * Test fixture for Polymer Settings elements.
@@ -1345,7 +1345,8 @@ CrSettingsSiteListTest.prototype = {
   ]),
 };
 
-TEST_F('CrSettingsSiteListTest', 'SiteList', function() {
+// TODO(crbug.com/929455): flaky, fix.
+TEST_F('CrSettingsSiteListTest', 'DISABLED_SiteList', function() {
   mocha.grep('SiteList').run();
 });
 
@@ -1372,8 +1373,10 @@ CrSettingsSiteListEntryTest.prototype = {
   /** @override */
   extraLibraries: CrSettingsBrowserTest.prototype.extraLibraries.concat([
     '../cr_elements/cr_policy_strings.js',
+    '../test_browser_proxy.js',
     'site_list_entry_tests.js',
     'test_util.js',
+    'test_site_settings_prefs_browser_proxy.js',
   ]),
 };
 
@@ -1403,31 +1406,6 @@ CrSettingsZoomLevelsTest.prototype = {
 };
 
 TEST_F('CrSettingsZoomLevelsTest', 'All', function() {
-  mocha.run();
-});
-
-/**
- * @constructor
- * @extends {CrSettingsBrowserTest}
- */
-function CrSettingsUsbDevicesTest() {}
-
-CrSettingsUsbDevicesTest.prototype = {
-  __proto__: CrSettingsBrowserTest.prototype,
-
-  /** @override */
-  browsePreload: 'chrome://settings/privacy_page/privacy_page.html',
-
-  /** @override */
-  extraLibraries: CrSettingsBrowserTest.prototype.extraLibraries.concat([
-    '../test_browser_proxy.js',
-    'test_util.js',
-    'test_site_settings_prefs_browser_proxy.js',
-    'usb_devices_tests.js',
-  ]),
-};
-
-TEST_F('CrSettingsUsbDevicesTest', 'All', function() {
   mocha.run();
 });
 
@@ -1924,7 +1902,8 @@ CrSettingsMainPageTest.prototype = {
 
 // Times out on Windows Tests (dbg). See https://crbug.com/651296.
 // Times out / crashes on chromium.linux/Linux Tests (dbg) crbug.com/667882
-GEN('#if !defined(NDEBUG)');
+// Times out on Linux CFI. See http://crbug.com/929288.
+GEN('#if !defined(NDEBUG) || defined(OS_LINUX)');
 GEN('#define MAYBE_MainPage DISABLED_MainPage');
 GEN('#else');
 GEN('#define MAYBE_MainPage MainPage');

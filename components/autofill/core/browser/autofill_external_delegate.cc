@@ -90,7 +90,7 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
     Suggestion scan_credit_card(
         l10n_util::GetStringUTF16(IDS_AUTOFILL_SCAN_CREDIT_CARD));
     scan_credit_card.frontend_id = POPUP_ITEM_ID_SCAN_CREDIT_CARD;
-    scan_credit_card.icon = base::ASCIIToUTF16("scanCreditCardIcon");
+    scan_credit_card.icon = "scanCreditCardIcon";
     suggestions.push_back(scan_credit_card);
   }
 
@@ -108,7 +108,7 @@ void AutofillExternalDelegate::OnSuggestionsReturned(
     suggestions.emplace_back(
         l10n_util::GetStringUTF16(IDS_AUTOFILL_SHOW_ACCOUNT_CARDS));
     suggestions.back().frontend_id = POPUP_ITEM_ID_SHOW_ACCOUNT_CARDS;
-    suggestions.back().icon = base::ASCIIToUTF16("google");
+    suggestions.back().icon = "google";
   }
 
   if (has_autofill_suggestions_)
@@ -358,12 +358,12 @@ void AutofillExternalDelegate::ApplyAutofillOptions(
   // So Google Pay Icon is just attached to an existing menu item.
   if (is_all_server_suggestions) {
 #if defined(OS_ANDROID) || defined(OS_IOS)
-    suggestions->back().icon = base::ASCIIToUTF16("googlePay");
+    suggestions->back().icon = "googlePay";
 #else
-    suggestions->back().icon = base::ASCIIToUTF16(
+    suggestions->back().icon =
         ui::NativeTheme::GetInstanceForNativeUi()->SystemDarkModeEnabled()
             ? "googlePayDark"
-            : "googlePay");
+            : "googlePay";
 #endif
   }
 
@@ -373,7 +373,7 @@ void AutofillExternalDelegate::ApplyAutofillOptions(
           features::kAutofillDownstreamUseGooglePayBrandingOniOS) &&
       is_all_server_suggestions) {
     Suggestion googlepay_icon;
-    googlepay_icon.icon = base::ASCIIToUTF16("googlePay");
+    googlepay_icon.icon = "googlePay";
     googlepay_icon.frontend_id = POPUP_ITEM_ID_GOOGLE_PAY_BRANDING;
     suggestions->insert(suggestions->begin(), googlepay_icon);
   }
@@ -381,10 +381,10 @@ void AutofillExternalDelegate::ApplyAutofillOptions(
 
 #if defined(OS_ANDROID)
   if (IsKeyboardAccessoryEnabled()) {
-    suggestions->back().icon = base::ASCIIToUTF16("settings");
+    suggestions->back().icon = "settings";
     if (IsHintEnabledInKeyboardAccessory() && !query_field_.is_autofilled) {
       Suggestion create_icon;
-      create_icon.icon = base::ASCIIToUTF16("create");
+      create_icon.icon = "create";
       create_icon.frontend_id = POPUP_ITEM_ID_CREATE_HINT;
       suggestions->push_back(create_icon);
     }
@@ -419,8 +419,12 @@ void AutofillExternalDelegate::InsertDataListValues(
   suggestions->insert(suggestions->begin(), data_list_values_.size(),
                       Suggestion());
   for (size_t i = 0; i < data_list_values_.size(); i++) {
+    // A suggestion's label has one line of disambiguating information to show
+    // to the user. However, when the two-line suggestion display experiment is
+    // enabled on desktop, label is replaced by additional label.
     (*suggestions)[i].value = data_list_values_[i];
     (*suggestions)[i].label = data_list_labels_[i];
+    (*suggestions)[i].additional_label = data_list_labels_[i];
     (*suggestions)[i].frontend_id = POPUP_ITEM_ID_DATALIST_ENTRY;
   }
 }

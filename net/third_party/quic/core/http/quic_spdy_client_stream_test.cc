@@ -75,8 +75,8 @@ class QuicSpdyClientStreamTest : public QuicTestWithParam<ParsedQuicVersion> {
     headers_["content-length"] = "11";
 
     stream_ = QuicMakeUnique<QuicSpdyClientStream>(
-        QuicSpdySessionPeer::GetNthClientInitiatedBidirectionalStreamId(
-            session_, 0),
+        GetNthClientInitiatedBidirectionalStreamId(
+            connection_->transport_version(), 0),
         &session_, BIDIRECTIONAL);
     stream_visitor_ = QuicMakeUnique<StreamVisitor>();
     stream_->set_visitor(stream_visitor_.get());
@@ -101,9 +101,9 @@ class QuicSpdyClientStreamTest : public QuicTestWithParam<ParsedQuicVersion> {
   HttpEncoder encoder_;
 };
 
-INSTANTIATE_TEST_CASE_P(Tests,
-                        QuicSpdyClientStreamTest,
-                        ::testing::ValuesIn(AllSupportedVersions()));
+INSTANTIATE_TEST_SUITE_P(Tests,
+                         QuicSpdyClientStreamTest,
+                         ::testing::ValuesIn(AllSupportedVersions()));
 
 TEST_P(QuicSpdyClientStreamTest, TestReceivingIllegalResponseStatusCode) {
   headers_[":status"] = "200 ok";
@@ -125,7 +125,7 @@ TEST_P(QuicSpdyClientStreamTest, TestFraming) {
   QuicByteCount header_length =
       encoder_.SerializeDataFrameHeader(body_.length(), &buffer);
   QuicString header = QuicString(buffer.get(), header_length);
-  QuicString data = connection_->transport_version() == QUIC_VERSION_99
+  QuicString data = VersionHasDataFrameHeader(connection_->transport_version())
                         ? header + body_
                         : body_;
   stream_->OnStreamFrame(
@@ -156,7 +156,7 @@ TEST_P(QuicSpdyClientStreamTest, TestFramingOnePacket) {
   QuicByteCount header_length =
       encoder_.SerializeDataFrameHeader(body_.length(), &buffer);
   QuicString header = QuicString(buffer.get(), header_length);
-  QuicString data = connection_->transport_version() == QUIC_VERSION_99
+  QuicString data = VersionHasDataFrameHeader(connection_->transport_version())
                         ? header + body_
                         : body_;
   stream_->OnStreamFrame(
@@ -166,7 +166,8 @@ TEST_P(QuicSpdyClientStreamTest, TestFramingOnePacket) {
   EXPECT_EQ(body_, stream_->data());
 }
 
-TEST_F(QuicSpdyClientStreamTest, DISABLED_TestFramingExtraData) {
+TEST_P(QuicSpdyClientStreamTest,
+       QUIC_TEST_DISABLED_IN_CHROME(TestFramingExtraData)) {
   QuicString large_body = "hello world!!!!!!";
 
   auto headers = AsHeaderList(headers_);
@@ -180,7 +181,7 @@ TEST_F(QuicSpdyClientStreamTest, DISABLED_TestFramingExtraData) {
   QuicByteCount header_length =
       encoder_.SerializeDataFrameHeader(large_body.length(), &buffer);
   QuicString header = QuicString(buffer.get(), header_length);
-  QuicString data = connection_->transport_version() == QUIC_VERSION_99
+  QuicString data = VersionHasDataFrameHeader(connection_->transport_version())
                         ? header + large_body
                         : large_body;
   EXPECT_CALL(*connection_, SendControlFrame(_));
@@ -219,7 +220,7 @@ TEST_P(QuicSpdyClientStreamTest, ReceivingTrailers) {
   QuicByteCount header_length =
       encoder_.SerializeDataFrameHeader(body_.length(), &buffer);
   QuicString header = QuicString(buffer.get(), header_length);
-  QuicString data = connection_->transport_version() == QUIC_VERSION_99
+  QuicString data = VersionHasDataFrameHeader(connection_->transport_version())
                         ? header + body_
                         : body_;
   stream_->OnStreamFrame(

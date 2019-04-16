@@ -3,6 +3,28 @@
 // found in the LICENSE file.
 'use strict';
 
+(() => {
+
+/**
+ * Waits for QuickView element to be closed.
+ * @param {string} appId Files app windowId.
+ */
+async function waitQuickViewClose(appId) {
+  const caller = getCaller();
+  function checkQuickViewElementsDisplayNone(elements) {
+    chrome.test.assertTrue(Array.isArray(elements));
+    if (elements.length > 0 && elements[0].styles.display !== 'none') {
+      return pending(caller, 'Waiting for Quick View to close.');
+    }
+  }
+  await repeatUntil(async () => {
+    const elements = ['#quick-view', '#dialog:not([open])'];
+    return checkQuickViewElementsDisplayNone(
+        await remoteCall.callRemoteTestUtil(
+            'deepQueryAllElements', appId, [elements, ['display']]));
+  });
+}
+
 /**
  * Opens the Quick View dialog on a given file |name|. The file must be present
  * in the Files app file list.
@@ -48,16 +70,6 @@ async function openQuickView(appId, name) {
  * @param {string} appId Files app windowId.
  */
 async function closeQuickView(appId) {
-  let caller = getCaller();
-
-  function checkQuickViewElementsDisplayNone(elements) {
-    chrome.test.assertTrue(Array.isArray(elements));
-    if (elements.length > 0 && elements[0].styles.display !== 'none') {
-      return pending(caller, 'Waiting for Quick View to close.');
-    }
-    return;
-  }
-
   // Click on Quick View to close it.
   const panelElements = ['#quick-view', '#contentPanel'];
   chrome.test.assertTrue(
@@ -66,18 +78,13 @@ async function closeQuickView(appId) {
       'fakeMouseClick failed');
 
   // Check: the Quick View element should not be shown.
-  await repeatUntil(async () => {
-    const elements = ['#quick-view', '#dialog:not([open])'];
-    return checkQuickViewElementsDisplayNone(
-        await remoteCall.callRemoteTestUtil(
-            'deepQueryAllElements', appId, [elements, ['display']]));
-  });
+  await waitQuickViewClose(appId);
 }
 
 /**
  * Tests opening Quick View on a local downloads file.
  */
-testcase.openQuickView = async function() {
+testcase.openQuickView = async () => {
   // Open Files app on Downloads containing ENTRIES.hello.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
@@ -89,7 +96,7 @@ testcase.openQuickView = async function() {
 /**
  * Tests opening then closing Quick View on a local downloads file.
  */
-testcase.closeQuickView = async function() {
+testcase.closeQuickView = async () => {
   // Open Files app on Downloads containing ENTRIES.hello.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
@@ -104,7 +111,7 @@ testcase.closeQuickView = async function() {
 /**
  * Tests opening Quick View on a Drive file.
  */
-testcase.openQuickViewDrive = async function() {
+testcase.openQuickViewDrive = async () => {
   // Open Files app on Drive containing ENTRIES.hello.
   const appId =
       await setupAndWaitUntilReady(RootPath.DRIVE, [], [ENTRIES.hello]);
@@ -127,7 +134,7 @@ testcase.openQuickViewDrive = async function() {
 /**
  * Tests opening Quick View on a USB file.
  */
-testcase.openQuickViewUsb = async function() {
+testcase.openQuickViewUsb = async () => {
   const USB_VOLUME_QUERY = '#directory-tree [volume-type-icon="removable"]';
 
   // Open Files app on Downloads containing ENTRIES.photos.
@@ -155,9 +162,50 @@ testcase.openQuickViewUsb = async function() {
 };
 
 /**
+ * Tests opening Quick View on a removable partition.
+ */
+testcase.openQuickViewRemovablePartitions = async () => {
+  const PARTITION_QUERY =
+      '#directory-tree .tree-children [volume-type-icon="removable"]';
+  const caller = getCaller();
+
+  // Open Files app on Downloads containing ENTRIES.photos.
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.photos], []);
+
+  // Mount USB device containing partitions.
+  await sendTestMessage({name: 'mountUsbWithPartitions'});
+
+  // Wait for 2 removable partitions to appear in the directory tree.
+  await repeatUntil(async () => {
+    const partitions = await remoteCall.callRemoteTestUtil(
+        'queryAllElements', appId, [PARTITION_QUERY]);
+
+    if (partitions.length == 2) {
+      return true;
+    }
+    return pending(
+        caller, 'Found %d partitions, waiting for 2.', partitions.length);
+  });
+
+  // Click to open the first partition.
+  chrome.test.assertTrue(
+      !!await remoteCall.callRemoteTestUtil(
+          'fakeMouseClick', appId, [PARTITION_QUERY]),
+      'fakeMouseClick failed');
+
+  // Check: the 'hello.txt' file should appear in the file list.
+  const files = [ENTRIES.hello.getExpectedRow()];
+  await remoteCall.waitForFiles(appId, files, {ignoreLastModifiedTime: true});
+
+  // Open the file in Quick View.
+  await openQuickView(appId, ENTRIES.hello.nameText);
+};
+
+/**
  * Tests opening Quick View on an MTP file.
  */
-testcase.openQuickViewMtp = async function() {
+testcase.openQuickViewMtp = async () => {
   const MTP_VOLUME_QUERY = '#directory-tree [volume-type-icon="mtp"]';
 
   // Open Files app on Downloads containing ENTRIES.photos.
@@ -187,41 +235,20 @@ testcase.openQuickViewMtp = async function() {
 /**
  * Tests opening Quick View on a Crostini file.
  */
-testcase.openQuickViewCrostini = async function() {
-  const fakeLinuxFiles = '#directory-tree [root-type-icon="crostini"]';
-  const realLinuxFiles = '#directory-tree [volume-type-icon="crostini"]';
-
+testcase.openQuickViewCrostini = async () => {
   // Open Files app on Downloads containing ENTRIES.photos.
   const appId =
       await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.photos], []);
 
-  // Check: the fake Linux files icon should be shown.
-  await remoteCall.waitForElement(appId, fakeLinuxFiles);
-
-  // Add files to the Crostini volume.
-  await addEntries(['crostini'], BASIC_CROSTINI_ENTRY_SET);
-
-  // Click the fake Linux files icon to mount the Crostini volume.
-  chrome.test.assertTrue(
-      !!await remoteCall.callRemoteTestUtil(
-          'fakeMouseClick', appId, [fakeLinuxFiles]),
-      'fakeMouseClick failed');
-
-  // Check: the Crostini volume icon should appear.
-  await remoteCall.waitForElement(appId, realLinuxFiles);
-
-  // Check: the Crostini files should appear in the file list.
-  const files = TestEntryInfo.getExpectedRows(BASIC_CROSTINI_ENTRY_SET);
-  await remoteCall.waitForFiles(appId, files, {ignoreLastModifiedTime: true});
-
   // Open a Crostini file in Quick View.
+  await mountCrostini(appId);
   await openQuickView(appId, ENTRIES.hello.nameText);
 };
 
 /**
  * Tests opening Quick View on an Android file.
  */
-testcase.openQuickViewAndroid = async function() {
+testcase.openQuickViewAndroid = async () => {
   // Open Files app on Android files.
   const appId = await openNewWindow(RootPath.ANDROID_FILES);
 
@@ -250,10 +277,40 @@ testcase.openQuickViewAndroid = async function() {
 };
 
 /**
+ * Tests opening Quick View on a DocumentsProvider root.
+ */
+testcase.openQuickViewDocumentsProvider = async () => {
+  const DOCUMENTS_PROVIDER_VOLUME_QUERY =
+      '[has-children="true"] [volume-type-icon="documents_provider"]';
+
+  // Open Files app.
+  const appId = await openNewWindow(RootPath.DOWNLOADS);
+
+  // Add files to the DocumentsProvider volume.
+  await addEntries(['documents_provider'], BASIC_LOCAL_ENTRY_SET);
+
+  // Wait for the DocumentsProvider volume to mount.
+  await remoteCall.waitForElement(appId, DOCUMENTS_PROVIDER_VOLUME_QUERY);
+
+  // Click to open the DocumentsProvider volume.
+  chrome.test.assertTrue(
+      !!await remoteCall.callRemoteTestUtil(
+          'fakeMouseClick', appId, [DOCUMENTS_PROVIDER_VOLUME_QUERY]),
+      'fakeMouseClick failed');
+
+  // Check: the DocumentsProvider files should appear in the file list.
+  const files = TestEntryInfo.getExpectedRows(BASIC_LOCAL_ENTRY_SET);
+  await remoteCall.waitForFiles(appId, files, {ignoreLastModifiedTime: true});
+
+  // Open a DocumentsProvider file in Quick View.
+  await openQuickView(appId, ENTRIES.hello.nameText);
+};
+
+/**
  * Tests opening Quick View and scrolling its <webview> which contains a tall
  * text document.
  */
-testcase.openQuickViewScrollText = async function() {
+testcase.openQuickViewScrollText = async () => {
   const caller = getCaller();
 
   /**
@@ -319,7 +376,7 @@ testcase.openQuickViewScrollText = async function() {
  * Tests opening Quick View on a text document to verify that the background
  * color of the <webview> root (html) element is solid white.
  */
-testcase.openQuickViewBackgroundColorText = async function() {
+testcase.openQuickViewBackgroundColorText = async () => {
   const caller = getCaller();
 
   /**
@@ -364,7 +421,7 @@ testcase.openQuickViewBackgroundColorText = async function() {
 /**
  * Tests opening Quick View containing a PDF document.
  */
-testcase.openQuickViewPdf = async function() {
+testcase.openQuickViewPdf = async () => {
   const caller = getCaller();
 
   /**
@@ -418,7 +475,7 @@ testcase.openQuickViewPdf = async function() {
  * Tests opening Quick View and scrolling its <webview> which contains a tall
  * html document.
  */
-testcase.openQuickViewScrollHtml = async function() {
+testcase.openQuickViewScrollHtml = async () => {
   const caller = getCaller();
 
   /**
@@ -485,7 +542,7 @@ testcase.openQuickViewScrollHtml = async function() {
  * color of the <files-safe-media type="html"> that contains the <webview> is
  * solid white.
  */
-testcase.openQuickViewBackgroundColorHtml = async function() {
+testcase.openQuickViewBackgroundColorHtml = async () => {
   const caller = getCaller();
 
   /**
@@ -526,7 +583,7 @@ testcase.openQuickViewBackgroundColorHtml = async function() {
 /**
  * Tests opening Quick View containing an audio file.
  */
-testcase.openQuickViewAudio = async function() {
+testcase.openQuickViewAudio = async () => {
   const caller = getCaller();
 
   /**
@@ -571,7 +628,7 @@ testcase.openQuickViewAudio = async function() {
 /**
  * Tests opening Quick View containing an image.
  */
-testcase.openQuickViewImage = async function() {
+testcase.openQuickViewImage = async () => {
   const caller = getCaller();
 
   /**
@@ -616,7 +673,7 @@ testcase.openQuickViewImage = async function() {
 /**
  * Tests opening Quick View containing a video.
  */
-testcase.openQuickViewVideo = async function() {
+testcase.openQuickViewVideo = async () => {
   const caller = getCaller();
 
   /**
@@ -659,9 +716,143 @@ testcase.openQuickViewVideo = async function() {
 };
 
 /**
+ * Tests opening Quick View with multiple files and using the up/down arrow
+ * keys to select and view their content.
+ */
+testcase.openQuickViewKeyboardUpDownChangesView = async () => {
+  const caller = getCaller();
+
+  /**
+   * The text <webview> resides in the #quick-view shadow DOM, as a child of
+   * the #dialog element.
+   */
+  const webView = ['#quick-view', '#dialog[open] webview.text-content'];
+
+  // Open Files app on Downloads containing two text files.
+  const files = [ENTRIES.hello, ENTRIES.tallText];
+  const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS, files, []);
+
+  // Open the last file in Quick View.
+  await openQuickView(appId, ENTRIES.tallText.nameText);
+
+  // Wait for the Quick View <webview> to load and display its content.
+  function checkWebViewTextLoaded(elements) {
+    let haveElements = Array.isArray(elements) && elements.length === 1;
+    if (haveElements) {
+      haveElements = elements[0].styles.display.includes('block');
+    }
+    if (!haveElements || !elements[0].attributes.src) {
+      return pending(caller, 'Waiting for <webview> to load.');
+    }
+    return;
+  }
+  await repeatUntil(async () => {
+    return checkWebViewTextLoaded(await remoteCall.callRemoteTestUtil(
+        'deepQueryAllElements', appId, [webView, ['display']]));
+  });
+
+  // Press the down arrow key to select the next file.
+  const downArrow = ['#quick-view', 'ArrowDown', false, false, false];
+  chrome.test.assertTrue(
+      await remoteCall.callRemoteTestUtil('fakeKeyDown', appId, downArrow));
+
+  // Wait until the <webview> displays that file's content.
+  await repeatUntil(async () => {
+    const getTextContent = 'window.document.body.textContent';
+    const text = await remoteCall.callRemoteTestUtil(
+        'deepExecuteScriptInWebView', appId, [webView, getTextContent]);
+    if (!text || !text[0].includes('This is a sample file')) {
+      return pending(caller, 'Waiting for <webview> content.');
+    }
+  });
+
+  // Press the up arrow key to select the previous file.
+  const upArrow = ['#quick-view', 'ArrowUp', false, false, false];
+  chrome.test.assertTrue(
+      await remoteCall.callRemoteTestUtil('fakeKeyDown', appId, upArrow));
+
+  // Wait until the <webview> displays that file's content.
+  await repeatUntil(async () => {
+    const getTextContent = 'window.document.body.textContent';
+    const text = await remoteCall.callRemoteTestUtil(
+        'deepExecuteScriptInWebView', appId, [webView, getTextContent]);
+    if (!text || !text[0].includes('42 tall text')) {
+      return pending(caller, 'Waiting for <webview> content.');
+    }
+  });
+};
+
+/**
+ * Tests opening Quick View with multiple files and using the left/right arrow
+ * keys to select and view their content.
+ */
+testcase.openQuickViewKeyboardLeftRightChangesView = async () => {
+  const caller = getCaller();
+
+  /**
+   * The text <webview> resides in the #quick-view shadow DOM, as a child of
+   * the #dialog element.
+   */
+  const webView = ['#quick-view', '#dialog[open] webview.text-content'];
+
+  // Open Files app on Downloads containing two text files.
+  const files = [ENTRIES.hello, ENTRIES.tallText];
+  const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS, files, []);
+
+  // Open the last file in Quick View.
+  await openQuickView(appId, ENTRIES.tallText.nameText);
+
+  // Wait for the Quick View <webview> to load and display its content.
+  function checkWebViewTextLoaded(elements) {
+    let haveElements = Array.isArray(elements) && elements.length === 1;
+    if (haveElements) {
+      haveElements = elements[0].styles.display.includes('block');
+    }
+    if (!haveElements || !elements[0].attributes.src) {
+      return pending(caller, 'Waiting for <webview> to load.');
+    }
+    return;
+  }
+  await repeatUntil(async () => {
+    return checkWebViewTextLoaded(await remoteCall.callRemoteTestUtil(
+        'deepQueryAllElements', appId, [webView, ['display']]));
+  });
+
+  // Press the right arrow key to select the next file item.
+  const rightArrow = ['#quick-view', 'ArrowRight', false, false, false];
+  chrome.test.assertTrue(
+      await remoteCall.callRemoteTestUtil('fakeKeyDown', appId, rightArrow));
+
+  // Wait until the <webview> displays that file's content.
+  await repeatUntil(async () => {
+    const getTextContent = 'window.document.body.textContent';
+    const text = await remoteCall.callRemoteTestUtil(
+        'deepExecuteScriptInWebView', appId, [webView, getTextContent]);
+    if (!text || !text[0].includes('This is a sample file')) {
+      return pending(caller, 'Waiting for <webview> content.');
+    }
+  });
+
+  // Press the left arrow key to select the previous file item.
+  const leftArrow = ['#quick-view', 'ArrowLeft', false, false, false];
+  chrome.test.assertTrue(
+      await remoteCall.callRemoteTestUtil('fakeKeyDown', appId, leftArrow));
+
+  // Wait until the <webview> displays that file's content.
+  await repeatUntil(async () => {
+    const getTextContent = 'window.document.body.textContent';
+    const text = await remoteCall.callRemoteTestUtil(
+        'deepExecuteScriptInWebView', appId, [webView, getTextContent]);
+    if (!text || !text[0].includes('42 tall text')) {
+      return pending(caller, 'Waiting for <webview> content.');
+    }
+  });
+};
+
+/**
  * Tests close/open metadata info via Enter key.
  */
-testcase.pressEnterOnInfoBoxToOpenClose = async function() {
+testcase.pressEnterOnInfoBoxToOpenClose = async () => {
   const infoButton = ['#quick-view', '#metadata-button'];
   const key = [infoButton, 'Enter', false, false, false];
   const infoShown = ['#quick-view', '#contentPanel[metadata-box-active]'];
@@ -695,7 +886,7 @@ testcase.pressEnterOnInfoBoxToOpenClose = async function() {
 /**
  * Tests that Quick View doesn't open with multiple files selected.
  */
-testcase.cantOpenQuickViewWithMultipleFiles = async function() {
+testcase.cantOpenQuickViewWithMultipleFiles = async () => {
   // Open Files app on Downloads containing ENTRIES.hello and ENTRIES.world.
   const appId = await setupAndWaitUntilReady(
       RootPath.DOWNLOADS, [ENTRIES.hello, ENTRIES.world], []);
@@ -723,3 +914,32 @@ testcase.cantOpenQuickViewWithMultipleFiles = async function() {
       await remoteCall.callRemoteTestUtil(
           'deepQueryAllElements', appId, [['#quick-view', '#dialog[open]']]));
 };
+
+/**
+ * Tests opening Quick View and closing with Escape key returns focus to file
+ * list.
+ */
+testcase.openQuickViewAndEscape = async () => {
+  // Open Files app on Downloads containing ENTRIES.hello.
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DOWNLOADS, [ENTRIES.hello], []);
+
+  // Open the file in Quick View.
+  await openQuickView(appId, ENTRIES.hello.nameText);
+
+  // Hit Escape key to close Quick View.
+  const panelElements = ['#quick-view', '#contentPanel'];
+  const key = [panelElements, 'Escape', false, false, false];
+  chrome.test.assertTrue(
+      !!await remoteCall.callRemoteTestUtil('fakeKeyDown', appId, key),
+      'fakeKeyDown Escape failed');
+
+  // Check: the Quick View element should not be shown.
+  await waitQuickViewClose(appId);
+
+  // Check: the file list should gain the focus.
+  const element = await remoteCall.waitForElement(appId, '#file-list:focus');
+  chrome.test.assertEq(
+      'file-list', element.attributes['id'], '#file-list should be focused');
+};
+})();

@@ -96,7 +96,6 @@ DevToolsEmulator::DevToolsEmulator(WebViewImpl* web_view)
               .GetMainFrameResizesAreOrientationChanges()),
       touch_event_emulation_enabled_(false),
       double_tap_to_zoom_enabled_(false),
-      original_device_supports_touch_(false),
       original_max_touch_points_(0),
       embedder_script_enabled_(
           web_view->GetPage()->GetSettings().GetScriptEnabled()),
@@ -258,7 +257,7 @@ void DevToolsEmulator::EnableDeviceEmulation(
   else
     ResetViewport();
 
-  // TODO(dgozman): mainFrameImpl() is null when it's remote. Figure out how
+  // TODO(dgozman): MainFrameImpl() is null when it's remote. Figure out how
   // we end up with enabling emulation in this case.
   if (web_view_->MainFrameImpl()) {
     if (Document* document =
@@ -324,7 +323,7 @@ void DevToolsEmulator::EnableMobileEmulation() {
   original_default_maximum_page_scale_factor_ =
       web_view_->DefaultMaximumPageScaleFactor();
   web_view_->SetDefaultPageScaleLimits(0.25f, 5);
-  // TODO(dgozman): mainFrameImpl() is null when it's remote. Figure out how
+  // TODO(dgozman): MainFrameImpl() is null when it's remote. Figure out how
   // we end up with enabling emulation in this case.
   if (web_view_->MainFrameImpl())
     web_view_->MainFrameImpl()->GetFrameView()->UpdateLayout();
@@ -362,15 +361,9 @@ void DevToolsEmulator::DisableMobileEmulation() {
   web_view_->SetDefaultPageScaleLimits(
       original_default_minimum_page_scale_factor_,
       original_default_maximum_page_scale_factor_);
-  // mainFrameImpl() could be null during cleanup or remote <-> local swap.
+  // MainFrameImpl() could be null during cleanup or remote <-> local swap.
   if (web_view_->MainFrameImpl())
     web_view_->MainFrameImpl()->GetFrameView()->UpdateLayout();
-}
-
-float DevToolsEmulator::CompositorDeviceScaleFactor() const {
-  if (device_metrics_enabled_)
-    return emulation_params_.device_scale_factor;
-  return web_view_->GetPage()->DeviceScaleFactorDeprecated();
 }
 
 void DevToolsEmulator::ForceViewport(const WebFloatPoint& position,
@@ -389,7 +382,7 @@ void DevToolsEmulator::ForceViewport(const WebFloatPoint& position,
     }
   }
 
-  viewport_override_->position = position;
+  viewport_override_->position = FloatPoint(position.x, position.y);
   viewport_override_->scale = scale;
 
   // Move the correct (scaled) content area to show in the top left of the
@@ -438,8 +431,8 @@ void DevToolsEmulator::ApplyViewportOverride(TransformationMatrix* transform) {
   WebFloatPoint visual_offset = web_view_->VisualViewportOffset();
   float scroll_x = scroll_offset.width + visual_offset.x;
   float scroll_y = scroll_offset.height + visual_offset.y;
-  transform->Translate(-viewport_override_->position.x + scroll_x,
-                       -viewport_override_->position.y + scroll_y);
+  transform->Translate(-viewport_override_->position.X() + scroll_x,
+                       -viewport_override_->position.Y() + scroll_y);
 
   // First, reverse page scale, so we don't have to take it into account for
   // calculation of the translation.
@@ -457,17 +450,15 @@ void DevToolsEmulator::UpdateRootLayerTransform() {
   web_view_->SetDeviceEmulationTransform(transform);
 }
 
-base::Optional<IntRect> DevToolsEmulator::VisibleContentRectForPainting()
-    const {
+void DevToolsEmulator::OverrideVisibleRect(const IntSize& viewport_size,
+                                           IntRect* visible_rect) const {
   if (!viewport_override_)
-    return base::nullopt;
-  FloatSize viewport_size(
-      IntSize(web_view_->LayerTreeView()->GetViewportSize()));
-  viewport_size.Scale(1. / CompositorDeviceScaleFactor());
-  viewport_size.Scale(1. / viewport_override_->scale);
-  return EnclosingIntRect(
-      FloatRect(viewport_override_->position.x, viewport_override_->position.y,
-                viewport_size.Width(), viewport_size.Height()));
+    return;
+
+  FloatSize scaled_viewport_size(viewport_size);
+  scaled_viewport_size.Scale(1. / viewport_override_->scale);
+  *visible_rect = EnclosingIntRect(
+      FloatRect(viewport_override_->position, scaled_viewport_size));
 }
 
 float DevToolsEmulator::InputEventsScaleForEmulation() {
@@ -477,8 +468,6 @@ float DevToolsEmulator::InputEventsScaleForEmulation() {
 void DevToolsEmulator::SetTouchEventEmulationEnabled(bool enabled,
                                                      int max_touch_points) {
   if (!touch_event_emulation_enabled_) {
-    original_device_supports_touch_ =
-        web_view_->GetPage()->GetSettings().GetDeviceSupportsTouch();
     original_max_touch_points_ =
         web_view_->GetPage()->GetSettings().GetMaxTouchPoints();
   }
@@ -486,8 +475,6 @@ void DevToolsEmulator::SetTouchEventEmulationEnabled(bool enabled,
   web_view_->GetPage()
       ->GetSettings()
       .SetForceTouchEventFeatureDetectionForInspector(enabled);
-  web_view_->GetPage()->GetSettings().SetDeviceSupportsTouch(
-      enabled ? true : original_device_supports_touch_);
   web_view_->GetPage()->GetSettings().SetMaxTouchPoints(
       enabled ? max_touch_points : original_max_touch_points_);
   web_view_->GetPage()->GetSettings().SetAvailablePointerTypes(
@@ -499,7 +486,7 @@ void DevToolsEmulator::SetTouchEventEmulationEnabled(bool enabled,
   web_view_->GetPage()->GetSettings().SetPrimaryHoverType(
       enabled ? kHoverTypeNone : embedder_primary_hover_type_);
   WebLocalFrameImpl* frame = web_view_->MainFrameImpl();
-  if (!original_device_supports_touch_ && enabled && frame)
+  if (enabled && frame)
     frame->GetFrame()->GetEventHandler().ClearMouseEventManager();
 }
 

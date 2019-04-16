@@ -9,8 +9,10 @@
 #include <memory>
 #include <string>
 
+#include "ash/assistant/model/assistant_ui_model_observer.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/ui/caption_bar.h"
+#include "base/component_export.h"
 #include "base/macros.h"
 #include "base/optional.h"
 #include "mojo/public/cpp/bindings/binding.h"
@@ -27,11 +29,13 @@ class AssistantViewDelegate;
 // to render remotely hosted content within its bubble. It provides a CaptionBar
 // for window level controls and embeds web contents with help from the Content
 // Service.
-class AssistantWebView : public views::View,
-                         public aura::WindowObserver,
-                         public AssistantViewDelegateObserver,
-                         public CaptionBarDelegate,
-                         public content::NavigableContentsObserver {
+class COMPONENT_EXPORT(ASSISTANT_UI) AssistantWebView
+    : public views::View,
+      public aura::WindowObserver,
+      public AssistantViewDelegateObserver,
+      public CaptionBarDelegate,
+      public content::NavigableContentsObserver,
+      public AssistantUiModelObserver {
  public:
   explicit AssistantWebView(AssistantViewDelegate* delegate);
   ~AssistantWebView() override;
@@ -65,6 +69,13 @@ class AssistantWebView : public views::View,
   void DidSuppressNavigation(const GURL& url,
                              WindowOpenDisposition disposition,
                              bool from_user_gesture) override;
+
+  // AssistantUiModelObserver:
+  void OnUiVisibilityChanged(
+      AssistantVisibility new_visibility,
+      AssistantVisibility old_visibility,
+      base::Optional<AssistantEntryPoint> entry_point,
+      base::Optional<AssistantExitPoint> exit_point) override;
 
  private:
   void InitLayout();

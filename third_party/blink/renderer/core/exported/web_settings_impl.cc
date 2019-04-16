@@ -76,10 +76,6 @@ void WebSettingsImpl::SetForceMainWorldInitialization(bool enabled) {
   settings_->SetForceMainWorldInitialization(enabled);
 }
 
-void WebSettingsImpl::SetForcePreloadNoneForMediaElements(bool enabled) {
-  settings_->SetForcePreloadNoneForMediaElements(enabled);
-}
-
 void WebSettingsImpl::SetForceZeroLayoutHeight(bool enabled) {
   settings_->SetForceZeroLayoutHeight(enabled);
 }
@@ -685,10 +681,6 @@ void WebSettingsImpl::SetDoNotUpdateSelectionOnMutatingSelectionRange(
   settings_->SetDoNotUpdateSelectionOnMutatingSelectionRange(enabled);
 }
 
-void WebSettingsImpl::SetMediaDownloadInProductHelpEnabled(bool enabled) {
-  settings_->SetMediaDownloadInProductHelpEnabled(enabled);
-}
-
 void WebSettingsImpl::SetLowPriorityIframesThreshold(
     WebEffectiveConnectionType effective_connection_type) {
   settings_->SetLowPriorityIframesThreshold(effective_connection_type);
@@ -756,6 +748,10 @@ void WebSettingsImpl::SetLazyImageLoadingDistanceThresholdPx3G(
 void WebSettingsImpl::SetLazyImageLoadingDistanceThresholdPx4G(
     int distance_px) {
   settings_->SetLazyImageLoadingDistanceThresholdPx4G(distance_px);
+}
+
+void WebSettingsImpl::SetForceDarkModeEnabled(bool enabled) {
+  settings_->SetForceDarkModeEnabled(enabled);
 }
 
 STATIC_ASSERT_ENUM(WebSettings::ImageAnimationPolicy::kAllowed,

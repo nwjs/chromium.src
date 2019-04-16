@@ -1418,7 +1418,13 @@ gfx::Size H264Decoder::GetPicSize() const {
 }
 
 size_t H264Decoder::GetRequiredNumOfPictures() const {
-  return dpb_.max_num_pics() + kPicsInPipeline;
+  constexpr size_t kPicsInPipeline = limits::kMaxVideoFrames + 1;
+  return GetNumReferenceFrames() + kPicsInPipeline;
+}
+
+size_t H264Decoder::GetNumReferenceFrames() const {
+  // Use the maximum number of pictures in the Decoded Picture Buffer.
+  return dpb_.max_num_pics();
 }
 
 // static

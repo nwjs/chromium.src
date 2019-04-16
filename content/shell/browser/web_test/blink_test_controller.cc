@@ -16,6 +16,7 @@
 
 #include "base/barrier_closure.h"
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/location.h"
@@ -81,6 +82,10 @@
 
 #if defined(OS_MACOSX)
 #include "base/mac/foundation_util.h"
+#endif
+
+#if defined(OS_ANDROID)
+#include "ui/android/view_android.h"
 #endif
 
 namespace content {
@@ -892,7 +897,7 @@ void BlinkTestController::RenderProcessExited(
       const base::Process& process = render_process_host->GetProcess();
       if (process.IsValid()) {
         printer_->AddErrorMessage(std::string("#CRASHED - renderer (pid ") +
-                                  base::IntToString(process.Pid()) + ")");
+                                  base::NumberToString(process.Pid()) + ")");
       } else {
         printer_->AddErrorMessage("#CRASHED - renderer");
       }
@@ -968,6 +973,17 @@ void BlinkTestController::HandleNewRenderFrameHost(RenderFrameHost* frame) {
   if (main_window &&
       !base::ContainsKey(main_window_render_process_hosts_, process_host)) {
     main_window_render_process_hosts_.insert(process_host);
+
+#if defined(OS_ANDROID)
+    // On Android the native view doesn't automatically know its size. This
+    // causes problems with Viz, where the view/renderer synchronize sizes
+    // frequently. Make sure the view hosting the renderer has the same size
+    // that we're about to send.
+    main_window_->web_contents()->GetNativeView()->OnSizeChanged(
+        initial_size_.width(), initial_size_.height());
+    main_window_->web_contents()->GetNativeView()->OnPhysicalBackingSizeChanged(
+        initial_size_);
+#endif
 
     // Make sure the new renderer process_host has a test configuration shared
     // with other renderers.

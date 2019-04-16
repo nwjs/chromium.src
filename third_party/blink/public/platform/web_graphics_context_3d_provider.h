@@ -44,6 +44,7 @@ class ImageDecodeCache;
 namespace gpu {
 struct Capabilities;
 struct GpuFeatureInfo;
+class SharedImageInterface;
 
 namespace gles2 {
 class GLES2Interface;
@@ -68,6 +69,7 @@ class WebGraphicsContext3DProvider {
   virtual gpu::webgpu::WebGPUInterface* WebGPUInterface() = 0;
   virtual bool BindToCurrentThread() = 0;
   virtual GrContext* GetGrContext() = 0;
+  virtual gpu::SharedImageInterface* GetSharedImageInterface() const = 0;
   virtual const gpu::Capabilities& GetCapabilities() const = 0;
   virtual const gpu::GpuFeatureInfo& GetGpuFeatureInfo() const = 0;
   // Creates a viz::GLHelper after first call and returns that instance. This
@@ -82,6 +84,7 @@ class WebGraphicsContext3DProvider {
   virtual cc::ImageDecodeCache* ImageDecodeCache(
       SkColorType color_type,
       sk_sp<SkColorSpace> color_space) = 0;
+  virtual gpu::SharedImageInterface* SharedImageInterface() = 0;
 };
 
 }  // namespace blink

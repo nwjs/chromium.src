@@ -83,7 +83,12 @@ cr.define('system_dialog_browsertest', function() {
       assertFalse(scalingSettings.hidden);
       nativeLayer.resetResolver('getPreview');
 
-      // Set scaling settings to a bad value
+      // Set scaling settings to custom.
+      scalingSettings.$$('.md-select').value =
+          scalingSettings.ScalingValue.CUSTOM;
+      scalingSettings.$$('.md-select').dispatchEvent(new CustomEvent('change'));
+
+      // Set an invalid input.
       const scalingSettingsInput =
           scalingSettings.$$('print-preview-number-settings-section')
               .$.userValue.inputElement;
@@ -97,7 +102,7 @@ cr.define('system_dialog_browsertest', function() {
       });
 
       return test_util.eventToPromise('input-change', scalingSettings)
-          .then(function() {
+          .then(() => {
             // Expect disabled print button
             const header = page.$$('print-preview-header');
             const printButton = header.$$('.action-button');

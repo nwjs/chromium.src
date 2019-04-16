@@ -6,9 +6,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "components_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "components_perftests"
         ],
         "isolate_name": "components_perftests",
         "merge": {
@@ -33,23 +31,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "gpu_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "gpu_perftests"
         ],
         "isolate_name": "gpu_perftests",
         "merge": {
@@ -74,23 +70,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "tracing_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "tracing_perftests"
         ],
         "isolate_name": "tracing_perftests",
         "merge": {
@@ -115,14 +109,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -158,14 +152,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 16,
-          "upload_test_results": true
+          "shards": 16
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -205,14 +199,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 16,
-          "upload_test_results": true
+          "shards": 16
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -252,14 +246,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 8,
-          "upload_test_results": true
+          "shards": 8
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -270,9 +264,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "angle_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "angle_perftests"
         ],
         "isolate_name": "angle_perftests",
         "merge": {
@@ -295,23 +287,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "load_library_perf_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "load_library_perf_tests"
         ],
         "isolate_name": "load_library_perf_tests",
         "merge": {
@@ -334,23 +324,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -373,14 +361,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -388,8 +376,6 @@
         "args": [
           "--gtest-benchmark-name",
           "passthrough_command_buffer_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true",
           "--use-cmd-decoder=passthrough",
           "--use-angle=gl-null"
         ],
@@ -414,14 +400,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -429,8 +415,6 @@
         "args": [
           "--gtest-benchmark-name",
           "validating_command_buffer_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true",
           "--use-cmd-decoder=validating",
           "--use-stub"
         ],
@@ -455,14 +439,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -496,14 +480,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 5,
-          "upload_test_results": true
+          "shards": 5
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -514,9 +498,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "components_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "components_perftests"
         ],
         "isolate_name": "components_perftests",
         "merge": {
@@ -539,23 +521,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "load_library_perf_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "load_library_perf_tests"
         ],
         "isolate_name": "load_library_perf_tests",
         "merge": {
@@ -578,23 +558,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -617,14 +595,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -657,14 +635,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 5,
-          "upload_test_results": true
+          "shards": 5
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -710,14 +688,60 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 19,
-          "upload_test_results": true
+          "shards": 19
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
+          "script": "//testing/trigger_scripts/perf_device_trigger.py"
+        }
+      }
+    ]
+  },
+  "android-go_webview-perf": {
+    "isolated_scripts": [
+      {
+        "args": [
+          "-v",
+          "--browser=android-webview-google",
+          "--upload-results",
+          "--webview-embedder-apk=../../out/Release/apks/SystemWebViewShell.apk",
+          "--test-shard-map-filename=android-go_webview-perf_map.json"
+        ],
+        "isolate_name": "performance_webview_test_suite",
+        "merge": {
+          "script": "//tools/perf/process_perf_results.py"
+        },
+        "name": "performance_webview_test_suite",
+        "override_compile_targets": [
+          "performance_webview_test_suite"
+        ],
+        "swarming": {
+          "can_use_on_swarming_builders": true,
+          "dimension_sets": [
+            {
+              "device_os": "O",
+              "device_os_flavor": "google",
+              "device_type": "gobo",
+              "os": "Android",
+              "pool": "chrome.tests.perf-webview"
+            }
+          ],
+          "expiration": 7200,
+          "hard_timeout": 36000,
+          "ignore_task_failure": false,
+          "io_timeout": 1800,
+          "shards": 25
+        },
+        "trigger_script": {
+          "args": [
+            "--multiple-dimension-script-verbose",
+            "True"
+          ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -729,8 +753,6 @@
         "args": [
           "--gtest-benchmark-name",
           "angle_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true",
           "--shard-timeout=300"
         ],
         "isolate_name": "angle_perftests",
@@ -756,23 +778,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "base_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "base_perftests"
         ],
         "isolate_name": "base_perftests",
         "merge": {
@@ -797,23 +817,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "components_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "components_perftests"
         ],
         "isolate_name": "components_perftests",
         "merge": {
@@ -838,23 +856,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "gpu_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "gpu_perftests"
         ],
         "isolate_name": "gpu_perftests",
         "merge": {
@@ -879,23 +895,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -920,23 +934,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "tracing_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "tracing_perftests"
         ],
         "isolate_name": "tracing_perftests",
         "merge": {
@@ -961,14 +973,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -1004,14 +1016,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 16,
-          "upload_test_results": true
+          "shards": 16
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -1034,9 +1046,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "base_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "base_perftests"
         ],
         "isolate_name": "base_perftests",
         "merge": {
@@ -1059,23 +1069,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "load_library_perf_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "load_library_perf_tests"
         ],
         "isolate_name": "load_library_perf_tests",
         "merge": {
@@ -1098,23 +1106,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -1137,23 +1143,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "net_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "net_perftests"
         ],
         "isolate_name": "net_perftests",
         "merge": {
@@ -1176,23 +1180,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "performance_browser_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "performance_browser_tests"
         ],
         "isolate_name": "performance_browser_tests",
         "merge": {
@@ -1215,23 +1217,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "tracing_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "tracing_perftests"
         ],
         "isolate_name": "tracing_perftests",
         "merge": {
@@ -1254,14 +1254,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -1295,14 +1295,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 26,
-          "upload_test_results": true
+          "shards": 26
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -1313,9 +1313,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "load_library_perf_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "load_library_perf_tests"
         ],
         "isolate_name": "load_library_perf_tests",
         "merge": {
@@ -1338,23 +1336,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "performance_browser_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "performance_browser_tests"
         ],
         "isolate_name": "performance_browser_tests",
         "merge": {
@@ -1377,14 +1373,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -1418,14 +1414,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 26,
-          "upload_test_results": true
+          "shards": 26
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -1436,9 +1432,7 @@
       {
         "args": [
           "--gtest-benchmark-name",
-          "base_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "base_perftests"
         ],
         "isolate_name": "base_perftests",
         "merge": {
@@ -1461,23 +1455,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -1500,23 +1492,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "net_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "net_perftests"
         ],
         "isolate_name": "net_perftests",
         "merge": {
@@ -1539,23 +1529,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "performance_browser_tests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "performance_browser_tests"
         ],
         "isolate_name": "performance_browser_tests",
         "merge": {
@@ -1578,23 +1566,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "views_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "views_perftests"
         ],
         "isolate_name": "views_perftests",
         "merge": {
@@ -1617,14 +1603,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -1658,14 +1644,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 26,
-          "upload_test_results": true
+          "shards": 26
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }
@@ -1682,8 +1668,6 @@
         "args": [
           "--gtest-benchmark-name",
           "angle_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true",
           "--shard-timeout=300"
         ],
         "isolate_name": "angle_perftests",
@@ -1707,23 +1691,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "base_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "base_perftests"
         ],
         "isolate_name": "base_perftests",
         "merge": {
@@ -1746,23 +1728,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "components_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "components_perftests"
         ],
         "isolate_name": "components_perftests",
         "merge": {
@@ -1785,23 +1765,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "media_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "media_perftests"
         ],
         "isolate_name": "media_perftests",
         "merge": {
@@ -1824,23 +1802,21 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
       {
         "args": [
           "--gtest-benchmark-name",
-          "views_perftests",
-          "--non-telemetry=true",
-          "--migrated-test=true"
+          "views_perftests"
         ],
         "isolate_name": "views_perftests",
         "merge": {
@@ -1863,14 +1839,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 1,
-          "upload_test_results": true
+          "shards": 1
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       },
@@ -1904,14 +1880,14 @@
           "hard_timeout": 36000,
           "ignore_task_failure": false,
           "io_timeout": 1800,
-          "shards": 26,
-          "upload_test_results": true
+          "shards": 26
         },
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
             "True"
           ],
+          "requires_simultaneous_shard_dispatch": true,
           "script": "//testing/trigger_scripts/perf_device_trigger.py"
         }
       }

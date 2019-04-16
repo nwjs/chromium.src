@@ -78,7 +78,7 @@ bool IsStackFrameValid(uintptr_t fp, uintptr_t prev_fp, uintptr_t stack_end) {
   }
 
   return true;
-};
+}
 
 // ScanStackForNextFrame() scans the stack for a valid frame to allow unwinding
 // past system libraries. Only supported on Linux where system libraries are
@@ -237,6 +237,15 @@ std::string StackTrace::ToStringWithPrefix(const char* prefix_string) const {
   OutputToStreamWithPrefix(&stream, prefix_string);
 #endif
   return stream.str();
+}
+
+std::ostream& operator<<(std::ostream& os, const StackTrace& s) {
+#if !defined(__UCLIBC__) & !defined(_AIX)
+  s.OutputToStream(&os);
+#else
+  os << "StackTrace::OutputToStream not implemented.";
+#endif
+  return os;
 }
 
 #if BUILDFLAG(CAN_UNWIND_WITH_FRAME_POINTERS)

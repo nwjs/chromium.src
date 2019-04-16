@@ -272,7 +272,7 @@ gfx::Rect View::GetLocalBounds() const {
 }
 
 gfx::Insets View::GetInsets() const {
-  return border_.get() ? border_->GetInsets() : gfx::Insets();
+  return border_ ? border_->GetInsets() : gfx::Insets();
 }
 
 gfx::Rect View::GetVisibleBounds() const {
@@ -526,7 +526,7 @@ void View::Layout() {
   // the call can take appropriate action.
   internal::ScopedChildrenLock lock(this);
   for (auto* child : children_) {
-    if (child->needs_layout_ || !layout_manager_.get()) {
+    if (child->needs_layout_ || !layout_manager_) {
       TRACE_EVENT1("views", "View::Layout", "class", child->GetClassName());
       child->needs_layout_ = false;
       child->Layout();
@@ -1015,8 +1015,7 @@ void View::OnMouseEvent(ui::MouseEvent* event) {
       }
       FALLTHROUGH;
     case ui::ET_MOUSE_DRAGGED:
-      if (ProcessMouseDragged(*event))
-        event->SetHandled();
+      ProcessMouseDragged(event);
       return;
 
     case ui::ET_MOUSE_RELEASED:
@@ -1095,9 +1094,9 @@ ui::EventTargeter* View::GetEventTargeter() {
   return targeter_.get();
 }
 
-void View::ConvertEventToTarget(ui::EventTarget* target,
-                                ui::LocatedEvent* event) {
-  event->ConvertLocationToTarget(this, static_cast<View*>(target));
+void View::ConvertEventToTarget(const ui::EventTarget* target,
+                                ui::LocatedEvent* event) const {
+  event->ConvertLocationToTarget(this, static_cast<const View*>(target));
 }
 
 gfx::PointF View::GetScreenLocationF(const ui::LocatedEvent& event) const {
@@ -1110,17 +1109,17 @@ gfx::PointF View::GetScreenLocationF(const ui::LocatedEvent& event) const {
 // Accelerators ----------------------------------------------------------------
 
 void View::AddAccelerator(const ui::Accelerator& accelerator) {
-  if (!accelerators_.get())
+  if (!accelerators_)
     accelerators_.reset(new std::vector<ui::Accelerator>());
 
-  if (!base::ContainsValue(*accelerators_.get(), accelerator))
+  if (!base::ContainsValue(*accelerators_, accelerator))
     accelerators_->push_back(accelerator);
 
   RegisterPendingAccelerators();
 }
 
 void View::RemoveAccelerator(const ui::Accelerator& accelerator) {
-  if (!accelerators_.get()) {
+  if (!accelerators_) {
     NOTREACHED() << "Removing non-existing accelerator";
     return;
   }
@@ -1146,7 +1145,7 @@ void View::RemoveAccelerator(const ui::Accelerator& accelerator) {
 }
 
 void View::ResetAccelerators() {
-  if (accelerators_.get())
+  if (accelerators_)
     UnregisterAccelerators(false);
 }
 
@@ -1966,7 +1965,7 @@ void View::AddChildViewAtImpl(View* view, int index) {
       view->SchedulePaint();
   }
 
-  if (layout_manager_.get())
+  if (layout_manager_)
     layout_manager_->ViewAdded(this, view);
 
   for (ViewObserver& observer : observers_)
@@ -2190,7 +2189,7 @@ void View::BoundsChanged(const gfx::Rect& previous_bounds) {
 
   // Notify interested Views that visible bounds within the root view may have
   // changed.
-  if (descendants_to_notify_.get()) {
+  if (descendants_to_notify_) {
     for (auto i(descendants_to_notify_->begin());
          i != descendants_to_notify_->end(); ++i) {
       (*i)->OnVisibleBoundsChanged();
@@ -2234,13 +2233,13 @@ void View::UnregisterForVisibleBoundsNotification() {
 
 void View::AddDescendantToNotify(View* view) {
   DCHECK(view);
-  if (!descendants_to_notify_.get())
+  if (!descendants_to_notify_)
     descendants_to_notify_.reset(new Views);
   descendants_to_notify_->push_back(view);
 }
 
 void View::RemoveDescendantToNotify(View* view) {
-  DCHECK(view && descendants_to_notify_.get());
+  DCHECK(view && descendants_to_notify_);
   auto i(std::find(descendants_to_notify_->begin(),
                    descendants_to_notify_->end(), view));
   DCHECK(i != descendants_to_notify_->end());
@@ -2254,7 +2253,7 @@ void View::SetLayoutManagerImpl(std::unique_ptr<LayoutManager> layout_manager) {
   // derived-class-specific-functions. It's an easy mistake to create a new
   // unique_ptr and re-set the layout manager with a new unique_ptr, which
   // will cause a crash. Re-setting to nullptr is OK.
-  CHECK(!layout_manager.get() || layout_manager_.get() != layout_manager.get());
+  CHECK(!layout_manager || layout_manager_ != layout_manager);
 
   layout_manager_ = std::move(layout_manager);
   if (layout_manager_)
@@ -2441,25 +2440,31 @@ bool View::ProcessMousePressed(const ui::MouseEvent& event) {
   return !!context_menu_controller || result;
 }
 
-bool View::ProcessMouseDragged(const ui::MouseEvent& event) {
+void View::ProcessMouseDragged(ui::MouseEvent* event) {
   // Copy the field, that way if we're deleted after drag and drop no harm is
   // done.
   ContextMenuController* context_menu_controller = context_menu_controller_;
   const bool possible_drag = GetDragInfo()->possible_drag;
   if (possible_drag &&
-      ExceededDragThreshold(GetDragInfo()->start_pt - event.location()) &&
+      ExceededDragThreshold(GetDragInfo()->start_pt - event->location()) &&
       (!drag_controller_ ||
-       drag_controller_->CanStartDragForView(
-           this, GetDragInfo()->start_pt, event.location()))) {
-    DoDrag(event, GetDragInfo()->start_pt,
-           ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE);
+       drag_controller_->CanStartDragForView(this, GetDragInfo()->start_pt,
+                                             event->location()))) {
+    if (DoDrag(*event, GetDragInfo()->start_pt,
+               ui::DragDropTypes::DRAG_EVENT_SOURCE_MOUSE)) {
+      event->StopPropagation();
+      return;
+    }
   } else {
-    if (OnMouseDragged(event))
-      return true;
+    if (OnMouseDragged(*event)) {
+      event->SetHandled();
+      return;
+    }
     // Fall through to return value based on context menu controller.
   }
   // WARNING: we may have been deleted.
-  return (context_menu_controller != nullptr) || possible_drag;
+  if ((context_menu_controller != nullptr) || possible_drag)
+    event->SetHandled();
 }
 
 void View::ProcessMouseReleased(const ui::MouseEvent& event) {
@@ -2482,7 +2487,7 @@ void View::ProcessMouseReleased(const ui::MouseEvent& event) {
 // Accelerators ----------------------------------------------------------------
 
 void View::RegisterPendingAccelerators() {
-  if (!accelerators_.get() ||
+  if (!accelerators_ ||
       registered_accelerator_count_ == accelerators_->size()) {
     // No accelerators are waiting for registration.
     return;
@@ -2511,7 +2516,7 @@ void View::RegisterPendingAccelerators() {
 }
 
 void View::UnregisterAccelerators(bool leave_data_intact) {
-  if (!accelerators_.get())
+  if (!accelerators_)
     return;
 
   if (GetWidget()) {

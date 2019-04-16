@@ -11,14 +11,14 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ui_base_features.h"
 
 namespace {
 
 bool ParseAnswer(const std::string& answer_json, SuggestionAnswer* answer) {
-  std::unique_ptr<base::Value> value = base::JSONReader::Read(answer_json);
+  std::unique_ptr<base::Value> value =
+      base::JSONReader::ReadDeprecated(answer_json);
   base::DictionaryValue* dict;
   if (!value || !value->GetAsDictionary(&dict))
     return false;

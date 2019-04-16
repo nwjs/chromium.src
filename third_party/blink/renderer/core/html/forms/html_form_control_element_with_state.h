@@ -43,6 +43,7 @@ class CORE_EXPORT HTMLFormControlElementWithState
   void setIDLExposedAutofillValue(const String& autocomplete_value);
 
   // ListedElement override:
+  bool ClassSupportsStateRestore() const override;
   bool ShouldSaveAndRestoreFormControlState() const override;
 
   bool UserHasEditedTheField() const { return user_has_edited_the_field_; }
@@ -59,7 +60,7 @@ class CORE_EXPORT HTMLFormControlElementWithState
  private:
   bool ShouldForceLegacyLayout() const final { return true; }
 
-  // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-anchor-mantle
+  // https://html.spec.whatwg.org/C/#autofill-anchor-mantle
   bool IsWearingAutofillAnchorMantle() const;
 };
 

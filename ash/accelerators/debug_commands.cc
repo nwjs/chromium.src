@@ -5,7 +5,6 @@
 #include "ash/accelerators/debug_commands.h"
 
 #include "ash/accelerators/accelerator_commands.h"
-#include "ash/components/quick_launch/public/mojom/constants.mojom.h"
 #include "ash/public/cpp/ash_switches.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
@@ -147,12 +146,6 @@ void HandlePrintWindowHierarchy() {
   }
 }
 
-void HandleShowQuickLaunch() {
-  // TODO(https://crbug.com/904148): This should not use |WarmService()|.
-  Shell::Get()->connector()->WarmService(service_manager::ServiceFilter::ByName(
-      quick_launch::mojom::kServiceName));
-}
-
 gfx::ImageSkia CreateWallpaperImage(SkColor fill, SkColor rect) {
   // TODO(oshima): Consider adding a command line option to control wallpaper
   // images for testing. The size is randomly picked.
@@ -184,19 +177,19 @@ void HandleToggleWallpaperMode() {
     case 1:
       wallpaper_controller->ShowWallpaperImage(
           CreateWallpaperImage(SK_ColorRED, SK_ColorBLUE), info,
-          false /*preview_mode=*/);
+          /*preview_mode=*/false, /*always_on_top=*/false);
       break;
     case 2:
       info.layout = WALLPAPER_LAYOUT_CENTER;
       wallpaper_controller->ShowWallpaperImage(
           CreateWallpaperImage(SK_ColorBLUE, SK_ColorGREEN), info,
-          false /*preview_mode=*/);
+          /*preview_mode=*/false, /*always_on_top=*/false);
       break;
     case 3:
       info.layout = WALLPAPER_LAYOUT_CENTER_CROPPED;
       wallpaper_controller->ShowWallpaperImage(
           CreateWallpaperImage(SK_ColorGREEN, SK_ColorRED), info,
-          false /*preview_mode=*/);
+          /*preview_mode=*/false, /*always_on_top=*/false);
       break;
   }
 }
@@ -221,7 +214,7 @@ void HandleToggleTabletMode() {
 }
 
 void HandleTriggerCrash() {
-  CHECK(false) << "Intentional crash via debug accelerator.";
+  LOG(FATAL) << "Intentional crash via debug accelerator.";
 }
 
 }  // namespace
@@ -258,9 +251,6 @@ void PerformDebugActionIfEnabled(AcceleratorAction action) {
       break;
     case DEBUG_PRINT_WINDOW_HIERARCHY:
       HandlePrintWindowHierarchy();
-      break;
-    case DEBUG_SHOW_QUICK_LAUNCH:
-      HandleShowQuickLaunch();
       break;
     case DEBUG_SHOW_TOAST:
       Shell::Get()->toast_manager()->Show(

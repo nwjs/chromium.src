@@ -52,7 +52,7 @@ class FakeTabController : public TabController {
   }
   bool ShouldHideCloseButtonForTab(Tab* tab) const override { return false; }
   bool MaySetClip() override { return false; }
-  void SelectTab(Tab* tab) override {}
+  void SelectTab(Tab* tab, const ui::Event& event) override {}
   void ExtendSelectionTo(Tab* tab) override {}
   void ToggleSelected(Tab* tab) override {}
   void AddSelectionFromAnchorTo(Tab* tab) override {}
@@ -65,7 +65,6 @@ class FakeTabController : public TabController {
   bool IsTabPinned(const Tab* tab) const override { return false; }
   bool IsFirstVisibleTab(const Tab* tab) const override { return false; }
   bool IsLastVisibleTab(const Tab* tab) const override { return false; }
-  bool SingleTabMode() const override { return false; }
   void MaybeStartDrag(
       Tab* tab,
       const ui::LocatedEvent& event,

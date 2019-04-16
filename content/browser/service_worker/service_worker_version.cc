@@ -10,6 +10,7 @@
 #include <map>
 #include <string>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/guid.h"
@@ -25,13 +26,11 @@
 #include "base/time/default_tick_clock.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/child_process_security_policy_impl.h"
-#include "content/browser/service_worker/embedded_worker_registry.h"
 #include "content/browser/service_worker/payment_handler_support.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_context_wrapper.h"
 #include "content/browser/service_worker/service_worker_installed_scripts_sender.h"
 #include "content/browser/service_worker/service_worker_registration.h"
-#include "content/common/service_worker/embedded_worker.mojom.h"
 #include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
@@ -44,6 +43,7 @@
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
 #include "third_party/blink/public/common/service_worker/service_worker_type_converters.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
+#include "third_party/blink/public/mojom/service_worker/embedded_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_error_type.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_installed_scripts_manager.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
@@ -249,12 +249,14 @@ ServiceWorkerVersion::ServiceWorkerVersion(
   DCHECK(context_);
   DCHECK(registration);
   DCHECK(script_url_.is_valid());
-  embedded_worker_ = context_->embedded_worker_registry()->CreateWorker(this);
+  embedded_worker_ = std::make_unique<EmbeddedWorkerInstance>(this);
   embedded_worker_->AddObserver(this);
   context_->AddLiveVersion(this);
 }
 
 ServiceWorkerVersion::~ServiceWorkerVersion() {
+  // TODO(falken): Investigate whether this can be removed. The destructor used
+  // to be more complicated and could result in various methods being called.
   in_dtor_ = true;
 
   // Record UMA if the worker was trying to start. One way we get here is if the
@@ -270,10 +272,6 @@ ServiceWorkerVersion::~ServiceWorkerVersion() {
   if (context_)
     context_->RemoveLiveVersion(version_id_);
 
-  if (running_status() == EmbeddedWorkerStatus::STARTING ||
-      running_status() == EmbeddedWorkerStatus::RUNNING) {
-    embedded_worker_->Stop();
-  }
   embedded_worker_->RemoveObserver(this);
 }
 
@@ -372,9 +370,16 @@ ServiceWorkerVersionInfo ServiceWorkerVersion::GetInfo() {
                                 host->web_contents_getter(),
                                 host->provider_type())));
   }
+
+  info.script_response_time = script_response_time_for_devtools_;
   if (!main_script_http_info_)
     return info;
-  info.script_response_time = main_script_http_info_->response_time;
+  // If the service worker hasn't started, then |main_script_http_info_| is not
+  // set, so we use |script_response_time_for_devtools_| to populate |info|. If
+  // the worker has started, this value should match with the timestamp stored
+  // in |main_script_http_info_|.
+  DCHECK_EQ(info.script_response_time, main_script_http_info_->response_time);
+
   if (main_script_http_info_->headers)
     main_script_http_info_->headers->GetLastModifiedValue(
         &info.script_last_modified);
@@ -559,10 +564,8 @@ int ServiceWorkerVersion::StartRequestWithCustomTimeout(
   // request will be aborted soon, so don't bother aborting the request directly
   // here, and just skip this bookkeeping.
   if (context_) {
-    if (event_type == ServiceWorkerMetrics::EventType::LONG_RUNNING_MESSAGE) {
-      context_->embedded_worker_registry()->AbortLifetimeTracking(
-          embedded_worker_->embedded_worker_id());
-    }
+    if (event_type == ServiceWorkerMetrics::EventType::LONG_RUNNING_MESSAGE)
+      embedded_worker_->AbortLifetimeTracking();
 
     if (event_type != ServiceWorkerMetrics::EventType::INSTALL &&
         event_type != ServiceWorkerMetrics::EventType::ACTIVATE &&
@@ -828,8 +831,17 @@ void ServiceWorkerVersion::SetToNotPauseAfterDownload() {
 }
 
 void ServiceWorkerVersion::OnMainScriptLoaded() {
+  // If this startup isn't paused the service worker after the script load,
+  // there is nothing to do. We already called InitializeGlobalScope() in
+  // StartWorkerInternal().
   if (!pause_after_download_callback_)
     return;
+  // If the script load was successful, unpause the worker by calling
+  // InitializeGlobalScope(). Otherwise, keep it paused and the original
+  // caller of StartWorker() is expected to terminate the worker.
+  net::URLRequestStatus status = script_cache_map()->main_script_status();
+  if (status.is_success())
+    InitializeGlobalScope();
   // The callback can destroy |this|, so protect it first.
   auto protect = base::WrapRefCounted(this);
   std::move(pause_after_download_callback_).Run();
@@ -880,6 +892,7 @@ void ServiceWorkerVersion::SetDevToolsAttached(bool attached) {
 
 void ServiceWorkerVersion::SetMainScriptHttpResponseInfo(
     const net::HttpResponseInfo& http_info) {
+  script_response_time_for_devtools_ = http_info.response_time;
   main_script_http_info_.reset(new net::HttpResponseInfo(http_info));
 
   // Updates |origin_trial_tokens_| if it is not set yet. This happens when:
@@ -1042,11 +1055,12 @@ void ServiceWorkerVersion::OnReportException(
   }
 }
 
-void ServiceWorkerVersion::OnReportConsoleMessage(int source_identifier,
-                                                  int message_level,
-                                                  const base::string16& message,
-                                                  int line_number,
-                                                  const GURL& source_url) {
+void ServiceWorkerVersion::OnReportConsoleMessage(
+    int source_identifier,
+    blink::mojom::ConsoleMessageLevel message_level,
+    const base::string16& message,
+    int line_number,
+    const GURL& source_url) {
   for (auto& observer : observers_) {
     observer.OnReportConsoleMessage(this, source_identifier, message_level,
                                     message, line_number, source_url);
@@ -1202,6 +1216,28 @@ void ServiceWorkerVersion::PostMessageToClient(
     return;
   }
   if (!provider_host->is_execution_ready()) {
+    // It's subtle why this ReportBadMessage is correct. Consider the
+    // sequence:
+    // 1. Page does ServiceWorker.postMessage().
+    // 2. Service worker does onmessage = (evt) => {evt.source.postMessage()};.
+    //
+    // The IPC sequence is:
+    // 1. Page sends NotifyExecutionReady() to its ServiceWorkerContainerHost
+    //    once created.
+    // 2. Page sends PostMessageToServiceWorker() to the object's
+    //    ServiceWorkerObjectHost.
+    // 3. Service worker sends PostMessageToClient() to its ServiceWorkerHost.
+    //
+    // It's guaranteed that 1. arrives before 2., since the
+    // ServiceWorkerObjectHost must have been sent over
+    // ServiceWorkerContainerHost (using Register, GetRegistrationForReady), so
+    // they are associated. After that 3. occurs and we get here and are
+    // guaranteed execution ready the above ordering.
+    //
+    // The above reasoning would break if there is a way for a page to get a
+    // ServiceWorkerObjectHost not associated with its
+    // ServiceWorkerContainerHost. If that world should occur, we should queue
+    // the message instead of crashing.
     mojo::ReportBadMessage(
         "Received Client#postMessage() request for a reserved client.");
     binding_.Close();
@@ -1593,7 +1629,7 @@ void ServiceWorkerVersion::StartWorkerInternal() {
   provider_host_ = ServiceWorkerProviderHost::PreCreateForController(
       context(), base::WrapRefCounted(this), &provider_info);
 
-  auto params = mojom::EmbeddedWorkerStartParams::New();
+  auto params = blink::mojom::EmbeddedWorkerStartParams::New();
   params->service_worker_version_id = version_id_;
   params->scope = scope_;
   params->script_url = script_url_;
@@ -1618,16 +1654,12 @@ void ServiceWorkerVersion::StartWorkerInternal() {
   CHECK(params->service_worker_request.is_pending());
   service_worker_ptr_.set_connection_error_handler(
       base::BindOnce(&OnConnectionError, embedded_worker_->AsWeakPtr()));
-  blink::mojom::ServiceWorkerHostAssociatedPtrInfo service_worker_host;
   binding_.Close();
-  binding_.Bind(mojo::MakeRequest(&service_worker_host));
-  ServiceWorkerRegistration* registration =
-      context_->GetLiveRegistration(registration_id_);
-  DCHECK(registration);
-  service_worker_ptr_->InitializeGlobalScope(
-      std::move(service_worker_host),
-      provider_host_->CreateServiceWorkerRegistrationObjectInfo(
-          base::WrapRefCounted(registration)));
+  binding_.Bind(mojo::MakeRequest(&service_worker_host_));
+  // Initialize the global scope now if the worker won't be paused. Otherwise,
+  // delay initialization until the main script is loaded.
+  if (!pause_after_download())
+    InitializeGlobalScope();
 
   // S13nServiceWorker:
   if (!controller_request_.is_pending()) {
@@ -1717,7 +1749,7 @@ void ServiceWorkerVersion::OnTimeoutTimer() {
     scoped_refptr<ServiceWorkerVersion> protect_this(this);
     embedded_worker_->RemoveObserver(this);
     embedded_worker_->Detach();
-    embedded_worker_ = context_->embedded_worker_registry()->CreateWorker(this);
+    embedded_worker_ = std::make_unique<EmbeddedWorkerInstance>(this);
     embedded_worker_->AddObserver(this);
 
     // Call OnStoppedInternal to fail callbacks and possibly restart.
@@ -2107,7 +2139,7 @@ void ServiceWorkerVersion::set_compared_script_info_map(
     std::map<GURL, ServiceWorkerUpdateChecker::ComparedScriptInfo>
         compared_script_info_map) {
   compared_script_info_map_ = std::move(compared_script_info_map);
-};
+}
 
 const std::map<GURL, ServiceWorkerUpdateChecker::ComparedScriptInfo>&
 ServiceWorkerVersion::compared_script_info_map() const {
@@ -2151,6 +2183,23 @@ bool ServiceWorkerVersion::ShouldRequireForegroundPriority(
       return true;
   }
   return false;
+}
+
+void ServiceWorkerVersion::UpdateForegroundPriority() {
+  embedded_worker_->UpdateForegroundPriority();
+}
+
+void ServiceWorkerVersion::InitializeGlobalScope() {
+  DCHECK(service_worker_host_);
+  scoped_refptr<ServiceWorkerRegistration> registration =
+      base::WrapRefCounted(context_->GetLiveRegistration(registration_id_));
+  // The registration must exist since we keep a reference to it during
+  // service worker startup.
+  DCHECK(registration);
+  service_worker_ptr_->InitializeGlobalScope(
+      std::move(service_worker_host_),
+      provider_host_->CreateServiceWorkerRegistrationObjectInfo(
+          std::move(registration)));
 }
 
 }  // namespace content

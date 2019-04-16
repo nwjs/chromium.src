@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "content/public/test/test_browser_thread_bundle.h"
@@ -18,7 +19,7 @@ namespace {
 
 class TestSerialConnection : public SerialConnection {
  public:
-  TestSerialConnection(device::mojom::SerialPortPtrInfo port_ptr_info)
+  explicit TestSerialConnection(device::mojom::SerialPortPtrInfo port_ptr_info)
       : SerialConnection("dummy_id", std::move(port_ptr_info)) {}
   ~TestSerialConnection() override {}
 
@@ -38,11 +39,10 @@ class TestSerialConnection : public SerialConnection {
     NOTREACHED();
   }
 
-  bool Receive(ReceiveCompleteCallback callback) override {
-    std::move(callback).Run(std::move(receive_buffer_),
-                            api::serial::RECEIVE_ERROR_NONE);
+  void StartPolling(const ReceiveEventCallback& callback) override {
+    set_paused(false);
+    callback.Run(std::move(receive_buffer_), api::serial::RECEIVE_ERROR_NONE);
     receive_buffer_.clear();
-    return true;
   }
 
   bool Send(const std::vector<uint8_t>& data,

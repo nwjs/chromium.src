@@ -234,21 +234,19 @@ enum BlockStatusHistogram {
 };
 
 void OnVideoMemoryUsageStats(
-    const base::Callback<void(const gpu::VideoMemoryUsageStats& stats)>&
-        callback,
+    GpuDataManager::VideoMemoryUsageStatsCallback callback,
     const gpu::VideoMemoryUsageStats& stats) {
   base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
-                           base::BindOnce(callback, stats));
+                           base::BindOnce(std::move(callback), stats));
 }
 
 void RequestVideoMemoryUsageStats(
-    const base::Callback<void(const gpu::VideoMemoryUsageStats& stats)>&
-        callback,
+    GpuDataManager::VideoMemoryUsageStatsCallback callback,
     GpuProcessHost* host) {
   if (!host)
     return;
   host->gpu_service()->GetVideoMemoryUsageStats(
-      base::BindOnce(&OnVideoMemoryUsageStats, callback));
+      base::BindOnce(&OnVideoMemoryUsageStats, std::move(callback)));
 }
 
 #if defined(OS_WIN)
@@ -373,7 +371,7 @@ bool GpuDataManagerImplPrivate::GpuProcessStartAllowed() const {
   //   Browser process: Windows
   //   GPU process: Linux and Mac
   //   N/A: Android and Chrome OS (GPU access can't be disabled)
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor))
+  if (features::IsVizDisplayCompositorEnabled())
     return true;
 #endif
 
@@ -390,7 +388,7 @@ void GpuDataManagerImplPrivate::RequestCompleteGpuInfoIfNeeded() {
   complete_gpu_info_already_requested_ = true;
   GpuProcessHost::CallOnIO(GpuProcessHost::GPU_PROCESS_KIND_UNSANDBOXED_NO_GL,
                            true /* force_create */,
-                           base::Bind([](GpuProcessHost* host) {
+                           base::BindOnce([](GpuProcessHost* host) {
                              if (!host)
                                return;
                              host->gpu_service()->RequestCompleteGpuInfo(
@@ -440,11 +438,10 @@ gpu::GpuFeatureStatus GpuDataManagerImplPrivate::GetFeatureStatus(
 }
 
 void GpuDataManagerImplPrivate::RequestVideoMemoryUsageStatsUpdate(
-    const base::Callback<void(const gpu::VideoMemoryUsageStats& stats)>&
-        callback) const {
-  GpuProcessHost::CallOnIO(GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
-                           false /* force_create */,
-                           base::Bind(&RequestVideoMemoryUsageStats, callback));
+    GpuDataManager::VideoMemoryUsageStatsCallback callback) const {
+  GpuProcessHost::CallOnIO(
+      GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED, false /* force_create */,
+      base::BindOnce(&RequestVideoMemoryUsageStats, std::move(callback)));
 }
 
 void GpuDataManagerImplPrivate::AddObserver(GpuDataManagerObserver* observer) {
@@ -588,12 +585,14 @@ void GpuDataManagerImplPrivate::AppendGpuCommandLine(
 
 #if !defined(OS_MACOSX)
   // MacOSX bots use real GPU in tests.
-  if (browser_command_line->HasSwitch(
-          switches::kOverrideUseSoftwareGLForTests) ||
-      browser_command_line->HasSwitch(switches::kHeadless)) {
-    // TODO(zmo): We should also pass in kUseGL here.
-    // See https://crbug.com/805204.
-    command_line->AppendSwitch(switches::kOverrideUseSoftwareGLForTests);
+  if (browser_command_line->HasSwitch(switches::kHeadless)) {
+    if (command_line->HasSwitch(switches::kUseGL)) {
+      use_gl = command_line->GetSwitchValueASCII(switches::kUseGL);
+      // Don't append kOverrideUseSoftwareGLForTests when we need to enable GPU
+      // hardware for headless chromium.
+      if (use_gl != gl::kGLImplementationEGLName)
+        command_line->AppendSwitch(switches::kOverrideUseSoftwareGLForTests);
+    }
   }
 #endif  // !OS_MACOSX
 }
@@ -691,7 +690,7 @@ void GpuDataManagerImplPrivate::HandleGpuSwitch() {
   // Pass the notification to the GPU process to notify observers there.
   GpuProcessHost::CallOnIO(GpuProcessHost::GPU_PROCESS_KIND_SANDBOXED,
                            false /* force_create */,
-                           base::Bind([](GpuProcessHost* host) {
+                           base::BindOnce([](GpuProcessHost* host) {
                              if (host)
                                host->gpu_service()->GpuSwitched();
                            }));
@@ -863,7 +862,7 @@ gpu::GpuMode GpuDataManagerImplPrivate::GetGpuMode() const {
     return gpu::GpuMode::HARDWARE_ACCELERATED;
   } else if (SwiftShaderAllowed()) {
     return gpu::GpuMode::SWIFTSHADER;
-  } else if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor)) {
+  } else if (features::IsVizDisplayCompositorEnabled()) {
     return gpu::GpuMode::DISPLAY_COMPOSITOR;
   } else {
     return gpu::GpuMode::DISABLED;
@@ -880,12 +879,18 @@ void GpuDataManagerImplPrivate::FallBackToNextGpuMode() {
   // TODO(kylechar): Use GpuMode to store the current mode instead of
   // multiple bools.
 
-  if (!card_disabled_) {
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableSoftwareCompositingFallback)) {
+    // Some tests only want to run with a functional GPU Process. Fail out here
+    // rather than falling back to software compositing and silently passing.
+    LOG(FATAL) << "The GPU Process Crash Limit was reached, and falling back "
+               << "to software compositing is disabled.";
+  } else if (!card_disabled_) {
     DisableHardwareAcceleration();
   } else if (SwiftShaderAllowed()) {
     swiftshader_blocked_ = true;
     OnGpuBlocked();
-  } else if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor)) {
+  } else if (features::IsVizDisplayCompositorEnabled()) {
     // The GPU process is frequently crashing with only the display compositor
     // running. This should never happen so something is wrong. Crash the
     // browser process to reset everything.

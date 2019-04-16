@@ -26,6 +26,7 @@
 #include "components/viz/common/quads/surface_draw_quad.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
+#include "components/viz/common/quads/video_hole_draw_quad.h"
 #include "components/viz/common/quads/yuv_video_draw_quad.h"
 #include "components/viz/common/traced_value.h"
 
@@ -189,7 +190,7 @@ void RenderPass::SetAll(uint64_t id,
                         const gfx::Transform& transform_to_root_target,
                         const cc::FilterOperations& filters,
                         const cc::FilterOperations& backdrop_filters,
-                        const gfx::RectF& backdrop_filter_bounds,
+                        const gfx::RRectF& backdrop_filter_bounds,
                         const gfx::ColorSpace& color_space,
                         bool has_transparent_background,
                         bool cache_render_pass,
@@ -297,6 +298,9 @@ DrawQuad* RenderPass::CopyFromAndAppendDrawQuad(const DrawQuad* quad) {
       break;
     case DrawQuad::SURFACE_CONTENT:
       CopyFromAndAppendTypedDrawQuad<SurfaceDrawQuad>(quad);
+      break;
+    case DrawQuad::VIDEO_HOLE:
+      CopyFromAndAppendTypedDrawQuad<VideoHoleDrawQuad>(quad);
       break;
     case DrawQuad::YUV_VIDEO_CONTENT:
       CopyFromAndAppendTypedDrawQuad<YUVVideoDrawQuad>(quad);

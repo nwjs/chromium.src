@@ -61,7 +61,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/renderer_resource_coordinator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/memory_cache_dump_provider.h"
 #include "third_party/blink/renderer/platform/language.h"
-#include "third_party/blink/renderer/platform/memory_coordinator.h"
+#include "third_party/blink/renderer/platform/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/partition_alloc_memory_dump_provider.h"
 #include "third_party/blink/renderer/platform/scheduler/common/simple_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
@@ -186,7 +186,7 @@ void Platform::InitializeCommon(Platform* platform,
   Thread::SetMainThread(std::move(main_thread));
 
   ProcessHeap::Init();
-  MemoryCoordinator::Initialize();
+  MemoryPressureListenerRegistry::Initialize();
   if (base::ThreadTaskRunnerHandle::IsSet()) {
     base::trace_event::MemoryDumpProvider::Options options;
     base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
@@ -220,7 +220,7 @@ void Platform::InitializeCommon(Platform* platform,
       ParkableStringManagerDumpProvider::Instance(), "ParkableStrings",
       base::ThreadTaskRunnerHandle::Get());
 
-  RendererResourceCoordinator::Initialize();
+  RendererResourceCoordinator::MaybeInitialize();
 }
 
 void Platform::SetCurrentPlatformForTesting(Platform* platform) {
@@ -251,14 +251,6 @@ Platform* Platform::Current() {
   return g_platform;
 }
 
-Thread* Platform::MainThread() {
-  return Thread::MainThread();
-}
-
-Thread* Platform::CurrentThread() {
-  return Thread::Current();
-}
-
 service_manager::Connector* Platform::GetConnector() {
   DEFINE_STATIC_LOCAL(DefaultConnector, connector, ());
   return connector.Get();
@@ -282,21 +274,13 @@ std::unique_ptr<Thread> Platform::CreateThread(
   return Thread::CreateThread(params);
 }
 
-std::unique_ptr<Thread> Platform::CreateWebAudioThread() {
-  return Thread::CreateWebAudioThread();
-}
-
 void Platform::CreateAndSetCompositorThread() {
   Thread::CreateAndSetCompositorThread();
 }
 
-Thread* Platform::CompositorThread() {
-  return Thread::CompositorThread();
-}
-
 scoped_refptr<base::SingleThreadTaskRunner>
 Platform::CompositorThreadTaskRunner() {
-  if (Thread* compositor_thread = CompositorThread())
+  if (Thread* compositor_thread = Thread::CompositorThread())
     return compositor_thread->GetTaskRunner();
   return nullptr;
 }

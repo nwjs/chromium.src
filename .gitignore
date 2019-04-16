@@ -43,6 +43,7 @@
 .project
 .pydevproject
 .checkstyle
+compile_commands.json
 cscope.*
 GPATH
 GRTAGS
@@ -53,6 +54,7 @@ tags
 Thumbs.db
 v8.log
 vs-chromium-project.txt
+/.clangd-index/
 # Settings directories for eclipse
 /.externalToolBuilders/
 /.settings/
@@ -64,7 +66,7 @@ vs-chromium-project.txt
 /ash/ash_unittests_run.xml
 /base/base_unittests_run.xml
 # See build/.gitignore for entries covering src/build.
-/buildtools
+
 # The Chrome OS build creates a /c symlink due to http://crbug.com/54866.
 /c
 /cdm
@@ -130,6 +132,7 @@ vs-chromium-project.txt
 /chrome/test/chromeos/autotest/files/client/deps/perf_data_dep/test_src/
 /chrome/test/chromeos/autotest/files/client/deps/pyauto_dep/test_src/
 /chrome/test/chromeos/autotest/files/client/deps/telemetry_dep/test_src/
+/chrome/test/data/autofill/captured_sites
 /chrome/test/data/extensions/api_test/permissions/nacl_enabled/bin
 /chrome/test/data/firefox2_profile/searchplugins
 /chrome/test/data/firefox2_searchplugins
@@ -207,6 +210,7 @@ vs-chromium-project.txt
 /ios/third_party/motion_interchange_objc/src
 /ios/third_party/motion_transitioning_objc/src
 /ios/third_party/ochamcrest/src
+/ios/third_party/webkit/src
 /ios_internal
 /libassistant
 /libinteraction
@@ -261,6 +265,7 @@ vs-chromium-project.txt
 # See third_party/.gitignore for entries covering src/third_party.
 /tools/.bisect-builds-cache.json
 /tools/cygprofile/*.wprgo
+/tools/clang/dsymutil/bin/dsymutil
 /tools/distcc
 /tools/gn/bin/linux
 /tools/gn/bin/mac
@@ -285,5 +290,11 @@ vs-chromium-project.txt
 /webpagereplay_logs/
 /x86-generic_out/
 /xcodebuild
+
+# Ignore any Android RenderTest goldens
+**/render_tests/*.png
+
+# Ignore IntelliJ files.
+.idea/
 /content/nw
 

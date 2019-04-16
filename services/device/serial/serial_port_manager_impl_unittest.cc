@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/message_loop/message_loop.h"
 #include "base/task/post_task.h"
@@ -86,23 +87,18 @@ void OnGotDevicesForSimpleConnect(
 
 class SerialPortManagerImplTest : public DeviceServiceTestBase {
  public:
-  SerialPortManagerImplTest() {
-    blockable_runner_ = base::CreateSequencedTaskRunnerWithTraits(
-        {base::MayBlock(), base::TaskPriority::BEST_EFFORT});
-  }
+  SerialPortManagerImplTest() = default;
   ~SerialPortManagerImplTest() override = default;
 
  protected:
   void SetUp() override { DeviceServiceTestBase::SetUp(); }
 
   void BindSerialPortManager(mojom::SerialPortManagerRequest request) {
-    blockable_runner_->PostTask(
-        FROM_HERE, base::BindOnce(&CreateAndBindOnBlockableRunner,
-                                  std::move(request), io_thread_.task_runner(),
-                                  base::ThreadTaskRunnerHandle::Get()));
+    file_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(&CreateAndBindOnBlockableRunner, std::move(request),
+                       io_task_runner_, base::ThreadTaskRunnerHandle::Get()));
   }
-
-  scoped_refptr<base::SequencedTaskRunner> blockable_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(SerialPortManagerImplTest);
 };

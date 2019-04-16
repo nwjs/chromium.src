@@ -1,4 +1,6 @@
 <link rel="import" href="chrome://resources/html/polymer.html">
+
+<link rel="import" href="chrome://resources/cr_elements/hidden_style_css.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-progress/paper-progress.html">
 <link rel="import" href="chrome://resources/cr_elements/icons.html">
@@ -12,7 +14,7 @@
 
 <dom-module id="viewer-pdf-toolbar">
   <template>
-    <style>
+    <style include="cr-hidden-style">
       :host ::selection {
         background: rgba(255, 255, 255, 0.3);
       }
@@ -50,11 +52,20 @@
       }
 
       paper-icon-button {
-        margin-inline-end: 12px;
+        height: 36px;
+        margin: 6px;
+        padding: 8px;
+        width: 36px;
       }
 
-      viewer-toolbar-dropdown {
-        margin-inline-end: 4px;
+      paper-icon-button:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 50%;
+      }
+
+      paper-icon-button:focus {
+        --paper-icon-button-ink-color:white;
+        --paper-ripple-opacity: 0.24;
       }
 
       paper-progress {
@@ -100,25 +111,45 @@
         --dropdown-width: 346px;
       }
 
-      #eraser:not([selected]),
-      #pen:not([selected]),
-      #highlighter:not([selected]) {
-        filter: contrast(30%);
-      }
-
       #pen,
       #highlighter {
         --dropdown-open-background: rgb(50, 54, 57);
       }
 
-      #eraser[selected] {
-        background-color: rgb(50, 54, 57);
-        border-radius: 4px;
+      #eraser {
+        opacity: 0.38;
+      }
+
+      #eraser[selected],
+      #eraser:focus,
+      #eraser:hover {
+        opacity: 1;
+      }
+
+      #annotation-separator {
+        background: white;
+        height: 30px;
+        margin-inline-end: 12px;
+        margin-inline-start: 12px;
+        opacity: 0.38;
+        width: 1px;
       }
 
       :host([annotation-mode]) #annotate {
-        background-color: rgb(25, 27, 29);
-        border-radius: 4px;
+        background-color: rgba(255, 255, 255, 0.24);
+        border-radius: 50%;
+      }
+
+      #bookmarks {
+        margin-inline-start: 8px;
+      }
+
+      #pen {
+        margin-inline-end: 10px;
+      }
+
+      #highlighter {
+        margin-inline-end: 6px;
       }
 
       .invisible {
@@ -165,6 +196,7 @@
         <div id="buttons" class="invisible">
           <template is="dom-if" if="[[pdfAnnotationsEnabled]]">
             <paper-icon-button id="annotate" icon="pdf:create"
+                disabled="[[!annotationAvailable]]"
                 on-click="toggleAnnotation"
                 aria-label$="{{strings.tooltipAnnotate}}"
                 title$="{{strings.tooltipAnnotate}}">
@@ -172,6 +204,7 @@
           </template>
 
           <paper-icon-button id="rotate-right" icon="pdf:rotate-right"
+              disabled="[[annotationMode]]"
               on-click="rotateRight"
               aria-label$="{{strings.tooltipRotateCW}}"
               title$="{{strings.tooltipRotateCW}}">
@@ -190,6 +223,7 @@
           </paper-icon-button>
 
           <viewer-toolbar-dropdown id="bookmarks"
+                                   selected
                                    metrics-id="bookmarks"
                                    hidden$="[[!bookmarks.length]]"
                                    open-icon="pdf:bookmark"
@@ -201,19 +235,13 @@
         </div>
       </div>
       <div id="progress-container">
-        <paper-progress id="progress" value="[[loadProgress]]"></paper-progress>
+        <paper-progress id="progress"
+            value="[[loadProgress]]"
+            indeterminate="[[annotationMode]]"></paper-progress>
       </div>
     </div>
 
-    <div id="annotations-bar" class="invisible">
-      <paper-icon-button id="eraser"
-          selected$="[[equal_('eraser', annotationTool.tool)]]"
-          on-click="annotationToolClicked_"
-          icon="pdf:eraser"
-          aria-label$="{{strings.annotationEraser}}"
-          title$="{{strings.annotationEraser}}">
-      </paper-icon-button>
-
+    <div id="annotations-bar" hidden>
       <viewer-toolbar-dropdown id="pen"
           selected$="[[equal_('pen', annotationTool.tool)]]"
           open-after-select
@@ -251,6 +279,32 @@
           on-selected-color-changed="annotationToolOptionChanged_">
         </viewer-pen-options>
       </viewer-toolbar-dropdown>
+
+      <paper-icon-button id="eraser"
+          selected$="[[equal_('eraser', annotationTool.tool)]]"
+          on-click="annotationToolClicked_"
+          icon="pdf:eraser"
+          aria-label$="{{strings.annotationEraser}}"
+          title$="{{strings.annotationEraser}}">
+      </paper-icon-button>
+
+      <div id="annotation-separator"></div>
+
+      <paper-icon-button id="undo"
+          disabled="[[!canUndoAnnotation]]"
+          icon="pdf:undo"
+          on-click="undo"
+          aria-label$="{{strings.annotationUndo}}"
+          title$="{{strings.annotationUndo}}">
+      </paper-icon-button>
+
+      <paper-icon-button id="redo"
+          disabled="[[!canRedoAnnotation]]"
+          icon="pdf:redo"
+          on-click="redo"
+          aria-label$="{{strings.annotationRedo}}"
+          title$="{{strings.annotationRedo}}">
+      </paper-icon-button>
     </div>
   </template>
   <script src="viewer-pdf-toolbar.js"></script>

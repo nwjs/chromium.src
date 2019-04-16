@@ -7,6 +7,7 @@
 #include "ash/public/interfaces/constants.mojom.h"
 #include "ash/public/interfaces/cros_display_config.mojom.h"
 #include "base/base64url.h"
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -529,8 +530,8 @@ base::Optional<base::Value> RecommendAppsFetcher::ParseResponse(
   int error_code;
   std::string error_msg;
   std::unique_ptr<base::Value> json_value =
-      base::JSONReader::ReadAndReturnError(response, base::JSON_PARSE_RFC,
-                                           &error_code, &error_msg);
+      base::JSONReader::ReadAndReturnErrorDeprecated(
+          response, base::JSON_PARSE_RFC, &error_code, &error_msg);
 
   if (!json_value || (!json_value->is_list() && !json_value->is_dict())) {
     LOG(ERROR) << "Error parsing response JSON: " << error_msg;

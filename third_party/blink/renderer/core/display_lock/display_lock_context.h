@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/display_lock/display_lock_budget.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/compiler.h"
 
 namespace blink {
@@ -49,8 +50,19 @@ class CORE_EXPORT DisplayLockContext final
     kDefault = kYieldBetweenLifecyclePhases
   };
 
+  // The current state of the lock. Note that the order of these matters.
+  enum State {
+    kLocked,
+    kUpdating,
+    kCommitting,
+    kUnlocked,
+    kPendingAcquire,
+  };
+
   // See GetScopedPendingFrameRect() for description.
   class ScopedPendingFrameRect {
+    STACK_ALLOCATED();
+
    public:
     ScopedPendingFrameRect(ScopedPendingFrameRect&&);
     ~ScopedPendingFrameRect();
@@ -64,7 +76,9 @@ class CORE_EXPORT DisplayLockContext final
   };
 
   // See GetScopedForcedUpdate() for description.
-  class ScopedForcedUpdate {
+  class CORE_EXPORT ScopedForcedUpdate {
+    DISALLOW_NEW();
+
    public:
     ScopedForcedUpdate(ScopedForcedUpdate&&);
     ~ScopedForcedUpdate();
@@ -95,6 +109,7 @@ class CORE_EXPORT DisplayLockContext final
   ScriptPromise acquire(ScriptState*, DisplayLockOptions*);
   ScriptPromise update(ScriptState*);
   ScriptPromise commit(ScriptState*);
+  ScriptPromise updateAndCommit(ScriptState*);
 
   // Lifecycle observation / state functions.
   bool ShouldStyle() const;
@@ -107,8 +122,20 @@ class CORE_EXPORT DisplayLockContext final
   void DidPaint();
 
   // Returns true if the contents of the associated element should be visible
-  // for find-in-page and tab order.
-  bool IsSearchable() const;
+  // from and activatable by find-in-page, tab order, anchor links, etc.
+  bool IsActivatable() const;
+
+  // Trigger commit because of activation from tab order, url fragment,
+  // find-in-page, etc.
+  void CommitForActivation();
+
+  bool ShouldCommitForActivation() const;
+
+  // Returns true if this lock is locked. Note from the outside perspective, the
+  // lock is locked any time the state is not kUnlocked or kPendingAcquire.
+  bool IsLocked() const {
+    return state_ != kUnlocked && state_ != kPendingAcquire;
+  }
 
   // Called when the layout tree is attached. This is used to verify
   // containment.
@@ -133,6 +160,8 @@ class CORE_EXPORT DisplayLockContext final
   // right document's view.
   void DidMoveToNewDocument(Document& old_document);
 
+  void AddToWhitespaceReattachSet(Element& element);
+
   // LifecycleNotificationObserver overrides.
   void WillStartLifecycleUpdate() override;
   void DidFinishLifecycleUpdate() override;
@@ -142,19 +171,30 @@ class CORE_EXPORT DisplayLockContext final
   friend class DisplayLockSuspendedHandle;
   friend class DisplayLockBudget;
 
-  // The current state of the lock. Note that the order of these matters.
-  enum State {
-    kLocked,
-    kUpdating,
-    kCommitting,
-    kUnlocked,
-    kPendingAcquire,
+  class StateChangeHelper {
+    DISALLOW_NEW();
+
+   public:
+    explicit StateChangeHelper(DisplayLockContext*);
+
+    operator State() const { return state_; }
+    StateChangeHelper& operator=(State);
+    void UpdateActivationBlockingCount(bool old_activatable,
+                                       bool new_activatable);
+
+   private:
+    State state_ = kUnlocked;
+    UntracedMember<DisplayLockContext> context_;
   };
 
   // Initiate a commit.
   void StartCommit();
   // Initiate an update.
   void StartUpdateIfNeeded();
+
+  // Marks ancestors of elements in |whitespace_reattach_set_| with
+  // ChildNeedsReattachLayoutTree and clears the set.
+  void MarkElementsForWhitespaceReattachment();
 
   // The following functions propagate dirty bits from the locked element up to
   // the ancestors in order to be reached. They return true if the element or
@@ -197,10 +237,13 @@ class CORE_EXPORT DisplayLockContext final
 
   // Helper functions to resolve the update/commit promises.
   enum ResolverState { kResolve, kReject, kDetach };
-  void FinishUpdateResolver(ResolverState);
-  void FinishCommitResolver(ResolverState);
-  void FinishAcquireResolver(ResolverState);
-  void FinishResolver(Member<ScriptPromiseResolver>*, ResolverState);
+  void FinishUpdateResolver(ResolverState, const char* reject_reason = nullptr);
+  void FinishCommitResolver(ResolverState, const char* reject_reason = nullptr);
+  void FinishAcquireResolver(ResolverState,
+                             const char* reject_reason = nullptr);
+  void FinishResolver(Member<ScriptPromiseResolver>*,
+                      ResolverState,
+                      const char* reject_reason);
 
   // Returns true if the element supports display locking. Note that this can
   // only be called if the style is clean. It checks the layout object if it
@@ -213,13 +256,24 @@ class CORE_EXPORT DisplayLockContext final
   Member<ScriptPromiseResolver> update_resolver_;
   Member<ScriptPromiseResolver> acquire_resolver_;
   WeakMember<Element> element_;
+  WeakMember<Document> document_;
 
-  State state_ = kUnlocked;
+  // See StyleEngine's |whitespace_reattach_set_|.
+  // Set of elements that had at least one rendered children removed
+  // since its last lifecycle update. For such elements that are located
+  // in a locked subtree, we save it here instead of the global set in
+  // StyleEngine because we don't want to accidentally mark elements
+  // in a locked subtree for layout tree reattachment before we did
+  // style recalc on them.
+  HeapHashSet<Member<Element>> whitespace_reattach_set_;
+
+  StateChangeHelper state_;
   LayoutRect pending_frame_rect_;
   base::Optional<LayoutRect> locked_frame_rect_;
 
   bool update_forced_ = false;
   bool timeout_task_is_scheduled_ = false;
+  bool activatable_ = false;
 
   base::WeakPtrFactory<DisplayLockContext> weak_factory_;
 };

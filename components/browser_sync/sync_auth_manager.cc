@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #include "components/sync/base/stop_source.h"
@@ -49,21 +50,28 @@ constexpr net::BackoffEntry::Policy kRequestAccessTokenBackoffPolicy = {
     false,
 };
 
+bool IsWebSignout(const GoogleServiceAuthError& auth_error) {
+  // The identity code sets an account's refresh token to be invalid (error
+  // CREDENTIALS_REJECTED_BY_CLIENT) if the user signs out of that account on
+  // the web.
+  return auth_error ==
+         GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+             GoogleServiceAuthError::InvalidGaiaCredentialsReason::
+                 CREDENTIALS_REJECTED_BY_CLIENT);
+}
+
 }  // namespace
 
 SyncAuthManager::SyncAuthManager(
-    syncer::SyncPrefs* sync_prefs,
     identity::IdentityManager* identity_manager,
     const AccountStateChangedCallback& account_state_changed,
     const CredentialsChangedCallback& credentials_changed)
-    : sync_prefs_(sync_prefs),
-      identity_manager_(identity_manager),
+    : identity_manager_(identity_manager),
       account_state_changed_callback_(account_state_changed),
       credentials_changed_callback_(credentials_changed),
       registered_for_auth_notifications_(false),
       request_access_token_backoff_(&kRequestAccessTokenBackoffPolicy),
       weak_ptr_factory_(this) {
-  DCHECK(sync_prefs_);
   // |identity_manager_| can be null if local Sync is enabled.
 }
 
@@ -86,24 +94,28 @@ void SyncAuthManager::RegisterForAuthNotifications() {
 }
 
 syncer::SyncAccountInfo SyncAuthManager::GetActiveAccountInfo() const {
-  if (!registered_for_auth_notifications_) {
-    return syncer::SyncAccountInfo();
-  }
-
-#if defined(OS_CHROMEOS)
-  if (!base::FeatureList::IsEnabled(switches::kSyncSupportSecondaryAccount)) {
-    // TODO(crbug.com/814787): Once the ChromeOS test setup is fixed, we can
-    // just return |sync_account_| here instead of re-querying.
-    return DetermineAccountToUse();
-  }
-#endif  // !defined(OS_CHROMEOS)
-  // Note: At this point, |sync_account_| should generally be identical to the
-  // result of a DetermineAccountToUse() call, but there are a few edge cases
-  // when it isn't: E.g. when another identity observer gets notified before us
-  // and calls in here, or when we're currently switching accounts in
+  // Note: |sync_account_| should generally be identical to the result of a
+  // DetermineAccountToUse() call, but there are a few edge cases when it isn't:
+  // E.g. when another identity observer gets notified before us and calls in
+  // here, or when we're currently switching accounts in
   // UpdateSyncAccountIfNecessary(). So unfortunately we can't verify this.
-
   return sync_account_;
+}
+
+GoogleServiceAuthError SyncAuthManager::GetLastAuthError() const {
+  // TODO(crbug.com/921553): Which error should take precedence?
+  if (partial_token_status_.connection_status ==
+      syncer::CONNECTION_SERVER_ERROR) {
+    // TODO(crbug.com/921553): Verify whether CONNECTION_FAILED is really an
+    // appropriate auth error here; maybe SERVICE_ERROR would be better? Or
+    // maybe we shouldn't expose this case as an auth error at all?
+    return GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED);
+  }
+  return last_auth_error_;
+}
+
+bool SyncAuthManager::IsSyncPaused() const {
+  return IsWebSignout(GetLastAuthError());
 }
 
 syncer::SyncTokenStatus SyncAuthManager::GetSyncTokenStatus() const {
@@ -121,9 +133,7 @@ syncer::SyncTokenStatus SyncAuthManager::GetSyncTokenStatus() const {
 }
 
 syncer::SyncCredentials SyncAuthManager::GetCredentials() const {
-  // TODO(crbug.com/814787): Once the ChromeOS test setup is fixed, we can just
-  // use |sync_account_| directly here.
-  const AccountInfo account_info = GetActiveAccountInfo().account_info;
+  const CoreAccountInfo& account_info = sync_account_.account_info;
 
   syncer::SyncCredentials credentials;
   credentials.account_id = account_info.account_id;
@@ -190,13 +200,11 @@ void SyncAuthManager::ConnectionStatusChanged(syncer::ConnectionStatus status) {
       if (!request_access_token_retry_timer_.IsRunning()) {
         request_access_token_backoff_.Reset();
       }
-      last_auth_error_ = GoogleServiceAuthError::AuthErrorNone();
       break;
     case syncer::CONNECTION_SERVER_ERROR:
-      // TODO(crbug.com/839834): Verify whether CONNECTION_FAILED is really an
-      // appropriate auth error here; maybe SERVICE_ERROR would be better?
-      last_auth_error_ =
-          GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED);
+      // Note: This case will be exposed as an auth error, due to the
+      // |connection_status| in |partial_token_error_|.
+      DCHECK(GetLastAuthError().IsTransientError());
       break;
     case syncer::CONNECTION_NOT_ATTEMPTED:
       // The connection status should never change to "not attempted".
@@ -236,28 +244,25 @@ void SyncAuthManager::ScheduleAccessTokenRequest() {
                           weak_ptr_factory_.GetWeakPtr()));
 }
 
-void SyncAuthManager::Clear() {
-  // TODO(crbug.com/839834): Clearing the auth error here isn't quite right.
-  // It makes sense to clear any auth error we got from the Sync server, but we
-  // should probably retain any errors from the identity manager.
-  last_auth_error_ = GoogleServiceAuthError::AuthErrorNone();
+void SyncAuthManager::ConnectionClosed() {
+  partial_token_status_ = syncer::SyncTokenStatus();
   ClearAccessTokenAndRequest();
 }
 
 void SyncAuthManager::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   UpdateSyncAccountIfNecessary();
 }
 
 void SyncAuthManager::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   UMA_HISTOGRAM_ENUMERATION("Sync.StopSource", syncer::SIGN_OUT,
                             syncer::STOP_SOURCE_LIMIT);
   UpdateSyncAccountIfNecessary();
 }
 
 void SyncAuthManager::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   if (UpdateSyncAccountIfNecessary()) {
     // If the syncing account was updated as a result of this, then all that's
     // necessary has been handled; nothing else to be done here.
@@ -269,16 +274,13 @@ void SyncAuthManager::OnRefreshTokenUpdatedForAccount(
   }
 
   // Compute the validity of the new refresh token: The identity code sets an
-  // account's refresh token to be invalid (error
-  // CREDENTIALS_REJECTED_BY_CLIENT) if the user signs out of that account on
-  // the web.
+  // account's refresh token to be invalid if the user signs out of that account
+  // on the web.
   // TODO(blundell): Hide this logic inside IdentityManager.
   GoogleServiceAuthError token_error =
       identity_manager_->GetErrorStateOfRefreshTokenForAccount(
           account_info.account_id);
-  if (token_error == GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
-                         GoogleServiceAuthError::InvalidGaiaCredentialsReason::
-                             CREDENTIALS_REJECTED_BY_CLIENT)) {
+  if (IsWebSignout(token_error)) {
     // When the refresh token is replaced by an invalid token, Sync must be
     // stopped immediately, even if the current access token is still valid.
     // This happens e.g. when the user signs out of the web with Dice enabled.
@@ -324,6 +326,7 @@ void SyncAuthManager::OnRefreshTokenRemovedForAccount(
 
   // If we're still here, then that means Chrome is still signed in to this
   // account. Keep Sync alive but set an auth error.
+  // TODO(crbug.com/906995): Should we stop Sync in this case?
   DCHECK_EQ(sync_account_.account_info.account_id,
             identity_manager_->GetPrimaryAccountId());
 
@@ -354,8 +357,7 @@ syncer::SyncAccountInfo SyncAuthManager::DetermineAccountToUse() const {
   DCHECK(registered_for_auth_notifications_);
   return syncer::DetermineAccountToUse(
       identity_manager_,
-      base::FeatureList::IsEnabled(switches::kSyncStandaloneTransport) &&
-          base::FeatureList::IsEnabled(switches::kSyncSupportSecondaryAccount));
+      base::FeatureList::IsEnabled(switches::kSyncSupportSecondaryAccount));
 }
 
 bool SyncAuthManager::UpdateSyncAccountIfNecessary() {
@@ -376,7 +378,8 @@ bool SyncAuthManager::UpdateSyncAccountIfNecessary() {
     sync_account_ = syncer::SyncAccountInfo();
     // Also clear any pending request or auth errors we might have, since they
     // aren't meaningful anymore.
-    Clear();
+    ConnectionClosed();
+    last_auth_error_ = GoogleServiceAuthError::AuthErrorNone();
     account_state_changed_callback_.Run();
   }
 
@@ -404,9 +407,6 @@ void SyncAuthManager::RequestAccessToken() {
     request_access_token_retry_timer_.Stop();
   }
 
-  const identity::ScopeSet kOAuth2ScopeSet{
-      GaiaConstants::kChromeSyncOAuth2Scope};
-
   // Invalidate any previous token, otherwise the token service will return the
   // same token again.
   InvalidateAccessToken();
@@ -417,7 +417,7 @@ void SyncAuthManager::RequestAccessToken() {
   ongoing_access_token_fetch_ =
       identity_manager_->CreateAccessTokenFetcherForAccount(
           sync_account_.account_info.account_id, kSyncOAuthConsumerName,
-          kOAuth2ScopeSet,
+          {GaiaConstants::kChromeSyncOAuth2Scope},
           base::BindOnce(&SyncAuthManager::AccessTokenFetched,
                          base::Unretained(this)),
           identity::AccessTokenFetcher::Mode::kWaitUntilRefreshTokenAvailable);
@@ -439,7 +439,6 @@ void SyncAuthManager::AccessTokenFetched(
   switch (error.state()) {
     case GoogleServiceAuthError::NONE:
       partial_token_status_.token_receive_time = base::Time::Now();
-      sync_prefs_->SetSyncAuthError(false);
       last_auth_error_ = GoogleServiceAuthError::AuthErrorNone();
       break;
     case GoogleServiceAuthError::CONNECTION_FAILED:
@@ -454,7 +453,6 @@ void SyncAuthManager::AccessTokenFetched(
       ScheduleAccessTokenRequest();
       break;
     case GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS:
-      sync_prefs_->SetSyncAuthError(true);
       last_auth_error_ = error;
       break;
     default:

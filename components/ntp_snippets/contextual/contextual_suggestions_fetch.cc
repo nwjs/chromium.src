@@ -8,6 +8,7 @@
 
 #include "base/base64.h"
 #include "base/base64url.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
@@ -285,9 +286,9 @@ void ContextualSuggestionsFetch::AppendHeaders(
                         base::Base64UrlEncodePolicy::INCLUDE_PADDING,
                         &base64_encoded_body);
   headers.SetHeader("X-Protobuffer-Request-Payload", base64_encoded_body);
-  variations::AppendVariationHeaders(resource_request->url,
-                                     variations::InIncognito::kNo,
-                                     variations::SignedIn::kNo, &headers);
+  variations::AppendVariationsHeader(
+      resource_request->url, variations::InIncognito::kNo,
+      variations::SignedIn::kNo, resource_request);
 
   UMA_HISTOGRAM_COUNTS_1M(
       "ContextualSuggestions.FetchRequestProtoSizeKB",

@@ -22,23 +22,14 @@ IdentityManagerObserverBridge::~IdentityManagerObserverBridge() {
 }
 
 void IdentityManagerObserverBridge::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   if ([delegate_ respondsToSelector:@selector(onPrimaryAccountSet:)]) {
     [delegate_ onPrimaryAccountSet:primary_account_info];
   }
 }
 
-void IdentityManagerObserverBridge::OnPrimaryAccountSetWithPassword(
-    const AccountInfo& primary_account_info,
-    const std::string& password) {
-  if ([delegate_ respondsToSelector:@selector(onPrimaryAccountSet:
-                                                     withPassword:)]) {
-    [delegate_ onPrimaryAccountSet:primary_account_info withPassword:password];
-  }
-}
-
 void IdentityManagerObserverBridge::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   if ([delegate_ respondsToSelector:@selector(onPrimaryAccountCleared:)]) {
     [delegate_ onPrimaryAccountCleared:previous_primary_account_info];
   }
@@ -52,7 +43,7 @@ void IdentityManagerObserverBridge::OnPrimaryAccountSigninFailed(
 }
 
 void IdentityManagerObserverBridge::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   if ([delegate_
           respondsToSelector:@selector(onRefreshTokenUpdatedForAccount:)]) {
     [delegate_ onRefreshTokenUpdatedForAccount:account_info];
@@ -80,13 +71,6 @@ void IdentityManagerObserverBridge::OnAccountsInCookieUpdated(
                                                                   error:)]) {
     [delegate_ onAccountsInCookieUpdated:accounts_in_cookie_jar_info
                                    error:error];
-  }
-}
-
-void IdentityManagerObserverBridge::OnStartBatchOfRefreshTokenStateChanges() {
-  if ([delegate_ respondsToSelector:@selector
-                 (onStartBatchOfRefreshTokenStateChanges)]) {
-    [delegate_ onStartBatchOfRefreshTokenStateChanges];
   }
 }
 

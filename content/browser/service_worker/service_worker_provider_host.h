@@ -35,7 +35,7 @@
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_provider_type.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
-#include "third_party/blink/public/platform/web_feature.mojom.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
 
 namespace network {
 class ResourceRequestBody;
@@ -112,10 +112,9 @@ FORWARD_DECLARE_TEST(ServiceWorkerDispatcherHostTest,
 // created on the renderer, which sends an OnProviderCreated IPC to establish
 // the Mojo connection.
 //
-// 2) For clients created by the renderer not due to navigations (shared workers
-// in the non-S13nServiceWorker case, and about:blank iframes), the provider
-// host is created and the Mojo connection is established when the provider is
-// created by the renderer process and sends an OnProviderCreated IPC.
+// 2) For shared workers in the non-S13nServiceWorker case, the provider host is
+// created and the Mojo connection is established when the provider is created
+// by the renderer process and sends an OnProviderCreated IPC.
 //
 // 3) For shared workers in the S13nServiceWorker case and for service workers,
 // the provider host is pre-created by the browser process, and information
@@ -132,7 +131,7 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   using ExecutionReadyCallback = base::OnceClosure;
 
   // Used to pre-create a ServiceWorkerProviderHost for a navigation. The
-  // ServiceWorkerNetworkProvider will later be created in the renderer, should
+  // ServiceWorkerProviderContext will later be created in the renderer, should
   // the navigation succeed. |are_ancestors_secure| should be true for main
   // frames. Otherwise it is true iff all ancestor frames of this frame have a
   // secure origin. |web_contents_getter| indicates the tab where the navigation
@@ -167,8 +166,7 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   static base::WeakPtr<ServiceWorkerProviderHost> PreCreateForSharedWorker(
       base::WeakPtr<ServiceWorkerContextCore> context,
       int process_id,
-      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr*
-          out_provider_info);
+      blink::mojom::ServiceWorkerProviderInfoForWorkerPtr* out_provider_info);
 
   // Used to create a ServiceWorkerProviderHost when the renderer-side provider
   // is created. This ProviderHost will be created for the process specified by
@@ -197,10 +195,10 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
 
   // Returns whether this provider host is secure enough to have a service
   // worker controller.
-  // Analogous to Blink's Document::isSecureContext. Because of how service
+  // Analogous to Blink's Document::IsSecureContext. Because of how service
   // worker intercepts main resource requests, this check must be done
   // browser-side once the URL is known (see comments in
-  // ServiceWorkerNetworkProvider::CreateForNavigation). This function uses
+  // ServiceWorkerNetworkProviderForFrame::Create). This function uses
   // |url_| and |is_parent_frame_secure_| to determine context security, so they
   // must be set properly before calling this function.
   bool IsContextSecureForServiceWorker() const;
@@ -286,7 +284,7 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   // OriginCanAccessServiceWorkers returned false).
   //
   // The URL may also change on redirects during loading. Once
-  // is_execution_ready() is true, the URL should no longer change.
+  // is_response_committed() is true, the URL should no longer change.
   const GURL& url() const;
 
   // The URL representing the first-party site for this context. See
@@ -318,7 +316,7 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   // TODO(crbug.com/866353): This should be unneccessary: registration code
   // already avoids claiming clients that are not execution ready. However
   // there may be edge cases with shared workers (pre-NetS13nServiceWorker) and
-  // about:blank iframes, since |is_execution_ready_| is initialized true for
+  // about:blank iframes, since |is_execution_ready()| is initialized true for
   // them. Try to remove this after S13nServiceWorker.
   void AllowSetControllerRegistration(bool allow) {
     allow_set_controller_registration_ = allow;
@@ -406,7 +404,8 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
       blink::mojom::ServiceWorkerProviderInfoForStartWorkerPtr provider_info);
 
   // Called when the shared worker main script resource has finished loading.
-  // After this is called, is_execution_ready() returns true.
+  // After this is called, is_response_committed() and is_execution_ready()
+  // return true.
   void CompleteSharedWorkerPreparation();
 
   // For service worker clients. The host keeps track of all the prospective
@@ -468,9 +467,28 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   // execution ready or if it is destroyed first.
   void AddExecutionReadyCallback(ExecutionReadyCallback callback);
 
-  bool is_execution_ready() const { return is_execution_ready_; }
+  // For service worker clients. True if the response for the main resource load
+  // was committed to the renderer. When this is false, the client's URL may
+  // still change due to redirects.
+  bool is_response_committed() const;
+
+  // For service worker clients. True if the client is execution ready and
+  // therefore can be exposed to JavaScript. Execution ready implies connected
+  // to renderer.
+  // https://html.spec.whatwg.org/multipage/webappapis.html#concept-environment-execution-ready-flag
+  bool is_execution_ready() const;
 
  private:
+  // For service worker clients. The flow is kInitial -> kResponseCommitted ->
+  // kExecutionReady.
+  //
+  // - kInitial: The initial phase.
+  // - kResponseCommitted: The response for the main resource has been
+  //   committed to the renderer. This client's URL should no longer change.
+  // - kExecutionReady: This client can be exposed to JavaScript as a Client
+  //   object.
+  enum class ClientPhase { kInitial, kResponseCommitted, kExecutionReady };
+
   friend class LinkHeaderServiceWorkerTest;
   friend class ServiceWorkerProviderHostTest;
   friend class ServiceWorkerWriteToCacheJobTest;
@@ -539,6 +557,12 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   // instructs the renderer to dispatch a 'controllerchange' event.
   void SendSetControllerServiceWorker(bool notify_controllerchange);
 
+  // For service worker clients. Returns false if it's not yet time to send the
+  // renderer information about the controller. Basically returns false if this
+  // client is still loading so due to potential redirects the initial
+  // controller has not yet been decided.
+  bool IsControllerDecided() const;
+
 #if DCHECK_IS_ON()
   void CheckControllerConsistency() const;
 #endif  // DCHECK_IS_ON()
@@ -559,6 +583,7 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
                               container_host_request) override;
   void Ping(PingCallback callback) override;
   void HintToUpdateServiceWorker() override;
+  void OnExecutionReady() override;
 
   // Callback for ServiceWorkerContextCore::RegisterServiceWorker().
   void RegistrationComplete(RegisterCallback callback,
@@ -612,6 +637,10 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   void SetExecutionReady();
 
   void RunExecutionReadyCallbacks();
+
+  void TransitionToClientPhase(ClientPhase new_phase);
+
+  void SetRenderProcessId(int process_id);
 
   // A GUID that is web-exposed as FetchEvent.clientId.
   std::string client_uuid_;
@@ -715,10 +744,11 @@ class CONTENT_EXPORT ServiceWorkerProviderHost
   mojo::Binding<service_manager::mojom::InterfaceProvider>
       interface_provider_binding_;
 
-  // For service worker clients. |is_execution_ready_| is true if the main
-  // resource for this host has finished loading. When false, the document URL
-  // may still change due to redirects.
-  bool is_execution_ready_ = false;
+  // For service worker clients.
+  ClientPhase client_phase_ = ClientPhase::kInitial;
+
+  // For service worker clients. Callbacks to run upon transition to
+  // kExecutionReady.
   std::vector<ExecutionReadyCallback> execution_ready_callbacks_;
 
   // For service worker clients. The service workers in the chain of redirects

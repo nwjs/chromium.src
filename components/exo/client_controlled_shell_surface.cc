@@ -542,10 +542,13 @@ void ClientControlledShellSurface::OnBoundsChangeEvent(
     const gfx::Rect& window_bounds,
     int bounds_change) {
   // 1) Do no update the bounds unless we have geometry from client.
-  // 2) Do not update the bounds if window is minimized.
+  // 2) Do not update the bounds if window is minimized unless it
+  // exiting the minimzied state.
   // The bounds will be provided by client when unminimized.
   if (!geometry().IsEmpty() && !window_bounds.IsEmpty() &&
-      !widget_->IsMinimized() && bounds_changed_callback_) {
+      (!widget_->IsMinimized() ||
+       requested_state != ash::mojom::WindowStateType::MINIMIZED) &&
+      bounds_changed_callback_) {
     // Sends the client bounds, which matches the geometry
     // when frame is enabled.
     ash::NonClientFrameViewAsh* frame_view = GetFrameView();
@@ -553,8 +556,15 @@ void ClientControlledShellSurface::OnBoundsChangeEvent(
     // The client's geometry uses fullscreen in client controlled,
     // (but the surface is placed under the frame), so just use
     // the window bounds instead for maximixed state.
+    // Snapped window states in tablet mode also do not include the caption
+    // height.
+    const bool becoming_snapped =
+        requested_state == ash::mojom::WindowStateType::LEFT_SNAPPED ||
+        requested_state == ash::mojom::WindowStateType::RIGHT_SNAPPED;
+    const bool is_tablet_mode =
+        WMHelper::GetInstance()->IsTabletModeWindowManagerEnabled();
     gfx::Rect client_bounds =
-        widget_->IsMaximized()
+        widget_->IsMaximized() || (becoming_snapped && is_tablet_mode)
             ? window_bounds
             : frame_view->GetClientBoundsForWindowBounds(window_bounds);
     gfx::Size current_size = frame_view->GetBoundsForClientView().size();
@@ -904,7 +914,8 @@ bool ClientControlledShellSurface::OnPreWidgetCommit() {
 
     case ash::mojom::WindowStateType::MAXIMIZED:
     case ash::mojom::WindowStateType::FULLSCREEN:
-      animation_type = ash::wm::ClientControlledState::kAnimationCrossFade;
+      if (!window_state->IsPip())
+        animation_type = ash::wm::ClientControlledState::kAnimationCrossFade;
       break;
 
     default:
@@ -922,10 +933,19 @@ bool ClientControlledShellSurface::OnPreWidgetCommit() {
     decorator_.reset();  // Remove rounded corners.
   }
 
+  bool wasPip = window_state->IsPip();
+
   if (client_controlled_state_->EnterNextState(window_state,
                                                pending_window_state_)) {
     client_controlled_state_->set_next_bounds_change_animation_type(
         animation_type);
+  }
+
+  if (wasPip && !window_state->IsMinimized()) {
+    // As Android doesn't activate PIP tasks after they are expanded, we need
+    // to do it here explicitly.
+    // TODO(937738): Investigate if we can activate PIP windows inside commit.
+    window_state->Activate();
   }
 
   return true;

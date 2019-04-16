@@ -15,13 +15,16 @@
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/frame_host/debug_urls.h"
 #include "content/browser/frame_host/frame_tree_node.h"
+#include "content/browser/isolated_origin_util.h"
 #include "content/browser/isolation_context.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/storage_partition_impl.h"
+#include "content/public/browser/browser_or_resource_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/render_process_host_factory.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_ui_controller_factory.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
@@ -75,7 +78,8 @@ scoped_refptr<SiteInstanceImpl> SiteInstanceImpl::CreateForURL(
   // This will create a new SiteInstance and BrowsingInstance.
   scoped_refptr<BrowsingInstance> instance(
       new BrowsingInstance(browser_context));
-  return instance->GetSiteInstanceForURL(url);
+  return instance->GetSiteInstanceForURL(url,
+                                         /* allow_default_instance */ false);
 }
 
 // static
@@ -101,6 +105,37 @@ int32_t SiteInstanceImpl::GetId() {
 
 const IsolationContext& SiteInstanceImpl::GetIsolationContext() {
   return browsing_instance_->isolation_context();
+}
+
+RenderProcessHost* SiteInstanceImpl::GetDefaultProcessIfUsable() {
+  if (!base::FeatureList::IsEnabled(
+          features::kProcessSharingWithStrictSiteInstances)) {
+    return nullptr;
+  }
+  if (RequiresDedicatedProcess())
+    return nullptr;
+  return browsing_instance_->default_process();
+}
+
+bool SiteInstanceImpl::IsDefaultSiteInstance() {
+  return browsing_instance_->IsDefaultSiteInstance(this);
+}
+
+void SiteInstanceImpl::MaybeSetBrowsingInstanceDefaultProcess() {
+  if (!base::FeatureList::IsEnabled(
+          features::kProcessSharingWithStrictSiteInstances)) {
+    return;
+  }
+  // Wait until this SiteInstance both has a site and a process
+  // assigned, so that we can be sure that RequiresDedicatedProcess()
+  // is accurate and we actually have a process to set.
+  if (!process_ || !has_site_ || RequiresDedicatedProcess())
+    return;
+  if (browsing_instance_->default_process()) {
+    DCHECK_EQ(process_, browsing_instance_->default_process());
+    return;
+  }
+  browsing_instance_->SetDefaultProcess(process_);
 }
 
 // static
@@ -153,6 +188,8 @@ RenderProcessHost* SiteInstanceImpl::GetProcess() {
     CHECK(process_);
     process_->AddObserver(this);
 
+    MaybeSetBrowsingInstanceDefaultProcess();
+
     // If we are using process-per-site, we need to register this process
     // for the current site so that we can find it again.  (If no site is set
     // at this time, we will register it in SetSite().)
@@ -196,11 +233,9 @@ void SiteInstanceImpl::SetSite(const GURL& url) {
   // URL is invalid.
   has_site_ = true;
   BrowserContext* browser_context = browsing_instance_->browser_context();
-  site_ = GetSiteForURL(browser_context, GetIsolationContext(), url,
-                        true /* should_use_effective_urls */);
   original_url_ = url;
-  lock_url_ =
-      DetermineProcessLockURL(browser_context, GetIsolationContext(), url);
+  browsing_instance_->GetSiteAndLockForURL(
+      url, /* allow_default_instance */ false, &site_, &lock_url_);
 
   // Now that we have a site, register it with the BrowsingInstance.  This
   // ensures that we won't create another SiteInstance for this site within
@@ -223,6 +258,7 @@ void SiteInstanceImpl::SetSite(const GURL& url) {
       RenderProcessHostImpl::RegisterSoleProcessHostForSite(browser_context,
                                                             process_, this);
     }
+    MaybeSetBrowsingInstanceDefaultProcess();
   }
 }
 
@@ -239,8 +275,9 @@ bool SiteInstanceImpl::HasRelatedSiteInstance(const GURL& url) {
 }
 
 scoped_refptr<SiteInstance> SiteInstanceImpl::GetRelatedSiteInstance(
-    const GURL& url) {
-  return browsing_instance_->GetSiteInstanceForURL(url);
+                             const GURL& url, bool allow_default_instance) {
+  return browsing_instance_->GetSiteInstanceForURL(
+      url, allow_default_instance);
 }
 
 bool SiteInstanceImpl::IsRelatedSiteInstance(const SiteInstance* instance) {
@@ -279,10 +316,14 @@ bool SiteInstanceImpl::HasWrongProcessForURL(const GURL& url) {
 
   // If the site URL is an extension (e.g., for hosted apps or WebUI) but the
   // process is not (or vice versa), make sure we notice and fix it.
-  GURL site_url = SiteInstanceImpl::GetSiteForURL(
-      browsing_instance_->browser_context(), GetIsolationContext(), url);
-  GURL origin_lock = DetermineProcessLockURL(
-      browsing_instance_->browser_context(), GetIsolationContext(), url);
+  GURL site_url;
+  GURL origin_lock;
+
+  // Note: This call must return information that is identical to what
+  // would be reported in the SiteInstance returned by
+  // GetRelatedSiteInstance(url).
+  browsing_instance_->GetSiteAndLockForURL(
+      url, /* allow_default_instance */ true, &site_url, &origin_lock);
   return !RenderProcessHostImpl::IsSuitableHost(
       GetProcess(), browsing_instance_->browser_context(),
       GetIsolationContext(), site_url, origin_lock);
@@ -436,6 +477,9 @@ bool SiteInstanceImpl::IsSameWebSite(BrowserContext* browser_context,
 // static
 GURL SiteInstance::GetSiteForURL(BrowserContext* browser_context,
                                  const GURL& url) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK(browser_context);
+
   // By default, GetSiteForURL will resolve |real_url| to an effective URL
   // before computing its site, so set |should_use_effective_urls| to true.
   //
@@ -445,24 +489,34 @@ GURL SiteInstance::GetSiteForURL(BrowserContext* browser_context,
   // where needed.  Eventually, GetSiteForURL should always require an
   // IsolationContext to be passed in, and this implementation should just
   // become SiteInstanceImpl::GetSiteForURL.
-  return SiteInstanceImpl::GetSiteForURL(browser_context, IsolationContext(),
-                                         url,
-                                         true /* should_use_effective_urls */);
+  return SiteInstanceImpl::GetSiteForURL(
+      BrowserOrResourceContext(browser_context),
+      IsolationContext(browser_context), url,
+      true /* should_use_effective_urls */);
 }
 
 // static
 GURL SiteInstanceImpl::DetermineProcessLockURL(
-    BrowserContext* browser_context,
+    const BrowserOrResourceContext& context,
     const IsolationContext& isolation_context,
     const GURL& url) {
   // For the process lock URL, convert |url| to a site without resolving |url|
   // to an effective URL.
-  return SiteInstanceImpl::GetSiteForURL(browser_context, isolation_context,
-                                         url,
+  return SiteInstanceImpl::GetSiteForURL(context, isolation_context, url,
                                          false /* should_use_effective_urls */);
 }
 
-GURL SiteInstanceImpl::GetSiteForURL(BrowserContext* browser_context,
+// static
+GURL SiteInstanceImpl::GetSiteForURL(BrowserContext* context,
+                                     const IsolationContext& isolation_context,
+                                     const GURL& url,
+                                     bool should_use_effective_urls) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  return GetSiteForURL(BrowserOrResourceContext(context), isolation_context,
+                       url, should_use_effective_urls);
+}
+
+GURL SiteInstanceImpl::GetSiteForURL(const BrowserOrResourceContext& context,
                                      const IsolationContext& isolation_context,
                                      const GURL& real_url,
                                      bool should_use_effective_urls) {
@@ -470,8 +524,12 @@ GURL SiteInstanceImpl::GetSiteForURL(BrowserContext* browser_context,
   if (real_url.SchemeIs(kGuestScheme))
     return real_url;
 
+  if (should_use_effective_urls)
+    DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
   GURL url = should_use_effective_urls
-                 ? SiteInstanceImpl::GetEffectiveURL(browser_context, real_url)
+                 ? SiteInstanceImpl::GetEffectiveURL(context.ToBrowserContext(),
+                                                     real_url)
                  : real_url;
   url::Origin origin = url::Origin::Create(url);
 
@@ -501,7 +559,7 @@ GURL SiteInstanceImpl::GetSiteForURL(BrowserContext* browser_context,
     // a proper security principal.
     if (should_use_effective_urls && url != real_url) {
       std::string non_translated_site_url(
-          GetSiteForURL(browser_context, isolation_context, real_url,
+          GetSiteForURL(context, isolation_context, real_url,
                         false /* should_use_effective_urls */)
               .spec());
       GURL::Replacements replacements;
@@ -579,6 +637,7 @@ GURL SiteInstanceImpl::GetSiteForOrigin(const url::Origin& origin, const GURL& r
 // static
 GURL SiteInstanceImpl::GetEffectiveURL(BrowserContext* browser_context,
                                        const GURL& url) {
+  DCHECK(browser_context);
   return GetContentClient()->browser()->GetEffectiveURL(browser_context, url);
 }
 
@@ -764,6 +823,29 @@ void SiteInstanceImpl::LockToOriginIfNeeded() {
                    << policy->GetOriginLock(process_->GetID());
     }
   }
+}
+
+// static
+void SiteInstance::StartIsolatingSite(BrowserContext* context,
+                                      const GURL& url) {
+  if (!SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled())
+    return;
+
+  // Ignore attempts to isolate origins that are not supported.  Do this here
+  // instead of relying on AddIsolatedOrigins()'s internal validation, to avoid
+  // the runtime warning generated by the latter.
+  url::Origin origin(url::Origin::Create(url));
+  if (!IsolatedOriginUtil::IsValidIsolatedOrigin(origin))
+    return;
+
+  // Convert |url| to a site, to avoid breaking document.domain.  Note that
+  // this doesn't use effective URL resolution or other special cases from
+  // GetSiteForURL() and simply converts |origin| to a scheme and eTLD+1.
+  GURL site(SiteInstanceImpl::GetSiteForOrigin(origin));
+
+  ChildProcessSecurityPolicyImpl* policy =
+      ChildProcessSecurityPolicyImpl::GetInstance();
+  policy->AddIsolatedOrigins({url::Origin::Create(site)}, context);
 }
 
 }  // namespace content

@@ -4,6 +4,7 @@
 
 #include "ui/aura/mus/property_converter.h"
 
+#include "base/bind.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/type_converter.h"
@@ -71,10 +72,12 @@ PropertyConverter::CreateAcceptAnyValueCallback() {
 
 PropertyConverter::PropertyConverter() {
   // Add known aura properties with associated mus properties.
-  RegisterImageSkiaProperty(client::kAppIconKey,
-                            ws::mojom::WindowManager::kAppIcon_Property);
-  RegisterImageSkiaProperty(client::kWindowIconKey,
-                            ws::mojom::WindowManager::kWindowIcon_Property);
+  RegisterImageSkiaProperty(client::kAppIconLargeKey,
+                            ws::mojom::WindowManager::kAppIconLarge_Property);
+  RegisterImageSkiaProperty(client::kAppIconSmallKey,
+                            ws::mojom::WindowManager::kAppIconSmall_Property);
+  RegisterImageSkiaProperty(client::kAvatarIconKey,
+                            ws::mojom::WindowManager::kAvatarIcon_Property);
   RegisterPrimitiveProperty(client::kAlwaysOnTopKey,
                             ws::mojom::WindowManager::kAlwaysOnTop_Property,
                             CreateAcceptAnyValueCallback());

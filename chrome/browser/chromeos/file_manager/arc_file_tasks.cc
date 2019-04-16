@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -202,7 +203,8 @@ void OnArcIconLoaded(
             ActivityNameToAppId(handler->package_name, handler->activity_name),
             TASK_TYPE_ARC_APP, ArcActionToFileTaskActionId(action)),
         name, handler_verb, icon_url, false /* is_default */,
-        action != arc::kIntentActionView /* is_generic */));
+        action != arc::kIntentActionView /* is_generic */,
+        false /* is_file_extension_match */));
   }
   std::move(callback).Run(std::move(result_list));
 }

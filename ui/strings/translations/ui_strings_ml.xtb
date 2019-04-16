@@ -8,11 +8,13 @@
 <translation id="1181037720776840403">നീക്കംചെയ്യൂ</translation>
 <translation id="1243314992276662751">അപ്‌ലോഡുചെയ്യുക</translation>
 <translation id="1269641567813814718">Win</translation>
+<translation id="1290982764014248209"><ph name="FOLDER_NAME" /> ഫോൾഡറിലേക്ക് <ph name="DRAGGED_APP" /> നീക്കുക.</translation>
 <translation id="1293699935367580298">Esc</translation>
 <translation id="1306549533752902673">ശുപാർശിത ആപ്പുകൾ</translation>
 <translation id="1368832886055348810">ഇടതുനിന്ന് വലത്തേക്ക്</translation>
 <translation id="1383876407941801731">തിരയൂ</translation>
 <translation id="1398853756734560583">വലുതാക്കുക</translation>
+<translation id="1409544243779336081">ആപ്പ് നിർദ്ദേശങ്ങൾ</translation>
 <translation id="1413622004203049571"><ph name="NOTIFIER_NAME" /> എന്നതിൽ നിന്നുള്ള അറിയിപ്പുകൾ പ്രവർത്തനരഹിതമാക്കുക</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{ഒരു മിനിറ്റും }other{# മിനിറ്റും }}</translation>
 <translation id="1643823602425662293">അറിയിപ്പ്</translation>
@@ -57,6 +59,7 @@
 <translation id="2931838996092594335">ക്ലിക്കുചെയ്യുക</translation>
 <translation id="3036649622769666520">ഫയലുകള്‍‌ തുറക്കുക</translation>
 <translation id="3049748772180311791"><ph name="QUANTITY" /> MB</translation>
+<translation id="3068711042108640621">സ്‌ക്രീനിൻ്റെ ഇടതുഭാഗത്താണ് ഷെൽഫ്</translation>
 <translation id="3087734570205094154">താഴെ</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3157931365184549694">പുനഃസ്ഥാപിക്കുക</translation>
@@ -64,9 +67,10 @@
 <translation id="3234408098842461169">താഴേക്കുള്ള ആരോ അടയാളം</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{ഒരു ദിവസം}other{# ദിവസം}}</translation>
 <translation id="335581015389089642">സംഭാഷണം</translation>
-<translation id="3462241349431650993">ഈ നിർദ്ദേശം അദൃശ്യമാക്കിയാൽ അത് ഉപകരണങ്ങളിൽ ഉടനീളമുള്ള നിങ്ങളുടെ അക്കൗണ്ടിൽ കാണിക്കില്ല.</translation>
 <translation id="3479552764303398839">ഇപ്പോഴല്ല</translation>
+<translation id="348799646910989694">ഷെൽഫ് സ്വയമേവ മറച്ചു</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{ഒരു ദിവസം ശേഷിക്കുന്നു}other{# ദിവസം ശേഷിക്കുന്നു}}</translation>
+<translation id="3600969208114796418"><ph name="SAVEAS_EXTENSION_TYPE" /> ഫയൽ</translation>
 <translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” തിരയുക</translation>
 <translation id="364720409959344976">അപ്‌ലോഡുചെയ്യുന്നതിന് ഫോൾഡർ തിരഞ്ഞെടുക്കുക</translation>
@@ -80,12 +84,14 @@
 <translation id="3897092660631435901">മെനു</translation>
 <translation id="3909791450649380159">&amp;മുറിക്കുക</translation>
 <translation id="3990502903496589789">വലത് അഗ്രം</translation>
+<translation id="40579289237549812">{UNREAD_NOTIFICATIONS,plural, =1{വായിക്കാത്ത ഒരു അറിയിപ്പ്}other{വായിക്കാത്ത # അറിയിപ്പുകൾ}}</translation>
 <translation id="4202807286478387388">jump</translation>
 <translation id="4250229828105606438">സ്‌ക്രീൻഷോട്ട്</translation>
 <translation id="4266252015790371705">{MONTHS,plural, =1{ഒരു മാസം മുമ്പ്}other{# മാസം മുമ്പ്}}</translation>
 <translation id="4289300219472526559">സംഭാഷണം ആരംഭിക്കുക</translation>
 <translation id="4316910396681052118">എല്ലാ ആപ്പുകളും</translation>
 <translation id="4588090240171750605">വലത്തോട്ട് സ്ക്രോള്‍ ചെയ്യുക</translation>
+<translation id="4690510401873698237">സ്‌ക്രീനിൻ്റെ ചുവടെയാണ് ഷെൽഫ്</translation>
 <translation id="4724120544754982507">അറിയിപ്പ് കേന്ദ്രം, <ph name="UNREAD_NOTIFICATION_COUNT" /> വായിക്കാത്ത അറിയിപ്പുകൾ</translation>
 <translation id="4730374152663651037">പതിവായി ഉപയോഗിക്കുന്നത്</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{ഒരു മാസം ശേഷിക്കുന്നു}other{# മാസം ശേഷിക്കുന്നു}}</translation>
@@ -99,8 +105,10 @@
 <translation id="5266161281976477809">ഡിസ്‌ക്ലോഷർ ത്രികോണം</translation>
 <translation id="528468243742722775">അവസാനം</translation>
 <translation id="5329858601952122676">&amp;ഇല്ലാതാക്കൂ</translation>
+<translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> എന്നതിന് മുകളിലാണ് <ph name="DRAGGED_APP_NAME" />, ഫോൾഡർ സൃഷ്‌ടിക്കാൻ റിലീസ് ചെയ്യുക.</translation>
 <translation id="5463830097259460683">ഇമോജിയും ചിഹ്നങ്ങളും</translation>
 <translation id="5476505524087279545">അണ്‍ചെക്ക് ചെയ്യുക</translation>
+<translation id="547979256943495781">സ്‌ക്രീനിൻ്റെ വലതുഭാഗത്താണ് ഷെൽഫ്</translation>
 <translation id="5574202486608032840"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /> സിസ്‌റ്റം</translation>
 <translation id="5583640892426849032">ബാക്ക്‌സ്പെയ്‌സ്</translation>
 <translation id="5613020302032141669">ഇടത് ആരോ അടയാളം</translation>
@@ -137,6 +145,7 @@
 <translation id="6808150112686056157">മീഡിയ ‌നിർത്തുക</translation>
 <translation id="6845383723252244143">ഫോള്‍ഡര്‍ തിരഞ്ഞെടുക്കുക</translation>
 <translation id="6845533974506654842">അമര്‍ത്തുക</translation>
+<translation id="686304767576508198">പങ്കിട്ട ഉപകരണം</translation>
 <translation id="6863590663815976734">{HOURS,plural, =1{ഒരു മണിക്കൂർ ശേഷിക്കുന്നു}other{# മണിക്കൂർ ശേഷിക്കുന്നു}}</translation>
 <translation id="688711909580084195">ശീർഷകമില്ലാത്ത വെബ്‌പേജ്</translation>
 <translation id="6907759265145635167"><ph name="QUANTITY" /> PB/s</translation>
@@ -160,11 +169,13 @@
 <translation id="7879499977785298635">ബ്ലോക്ക് ചെയ്യരുത്</translation>
 <translation id="7907591526440419938">ഫയല്‍ തുറക്കുക</translation>
 <translation id="7969046989155602842">കമാൻഡ്</translation>
+<translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{ഒന്നിലധികം വായിക്കാത്ത അറിയിപ്പ് ഉണ്ട്}other{#-ലധികം വായിക്കാത്ത അറിയിപ്പുകൾ ഉണ്ട്}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{ഒരു മണിക്കൂര്‍ മുമ്പ്}other{# മണിക്കൂർ മുമ്പ്}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{ഒരു സെക്കൻഡ് ശേഷിക്കുന്നു}other{# സെക്കൻഡ് ശേഷിക്കുന്നു}}</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, സ്വയമേവ പൂർത്തിയാക്കുക</translation>
 <translation id="815598010540052116">താഴേക്ക് സ്ക്രോള്‍ചെയ്യൂ</translation>
+<translation id="8170087467028567933">ഈ നിർദ്ദേശം നീക്കം ചെയ്യുന്നത്, നിങ്ങളുടെ എല്ലാ ഉപകരണങ്ങളിലെയും അക്കൗണ്ടിൽ നിന്ന് ഇത് മറയ്ക്കും.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">താഴെയുള്ള പേജുകള്‍</translation>
 <translation id="8245914219290430011">ടാബ്</translation>
@@ -178,6 +189,7 @@
 <translation id="8420205633584771378">ഈ നിർദ്ദേശം നീക്കം ചെയ്യണോ?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1വർഷം}other{#വർഷം}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ഫയല്‍ (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
+<translation id="8649597172973390955">ഷെൽഫ് എപ്പോഴും ദൃശ്യമാക്കിയിരിക്കുന്നു</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> KB/s</translation>
 <translation id="8725488761726303204"><ph name="NUMBER" /> എണ്ണം കൂടി</translation>
 <translation id="8730621377337864115">പൂർത്തിയാക്കി</translation>
@@ -187,11 +199,14 @@
 <translation id="883911313571074303">ചിത്രം വ്യാഖ്യാനിക്കുക</translation>
 <translation id="8841375032071747811">ബാക്ക് ബട്ടൺ</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> KB</translation>
+<translation id="8926951137623668982">ഷെൽഫ് എപ്പോഴും അദൃശ്യമാണ്</translation>
 <translation id="9002566407876343676">തുറക്കുക</translation>
+<translation id="9039076430527029379">പേജ് <ph name="PAGE_NUMBER" />, വരി <ph name="ROW_NUMBER" />, കോളം <ph name="COLUMN_NUMBER" /> എന്നിവയിലേക്ക് നീക്കുക.</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{ഒരു സെക്കൻഡ്}other{# സെക്കൻഡ്}}</translation>
 <translation id="9059834730836941392">അറിയിപ്പ് ചുരുക്കുക</translation>
 <translation id="9150735707954472829">ടാബ്</translation>
 <translation id="9161053988251441839">നിർദ്ദേശിച്ചിരിക്കുന്ന ആപ്പുകൾ</translation>
 <translation id="9170848237812810038">‍&amp;പൂര്‍വാവസ്ഥയിലാക്കുക</translation>
 <translation id="932327136139879170">ഹോം</translation>
+<translation id="944069440740578670">വായിക്കാത്ത അറിയിപ്പുകൾ</translation>
 </translationbundle>

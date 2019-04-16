@@ -6,9 +6,14 @@
 #define UI_ACCESSIBILITY_PLATFORM_AX_PLATFORM_NODE_DELEGATE_H_
 
 #include <set>
+#include <utility>
+#include <vector>
 
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_export.h"
+#include "ui/accessibility/ax_node_position.h"
+#include "ui/accessibility/ax_position.h"
+#include "ui/accessibility/ax_text_utils.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/native_widget_types.h"
@@ -49,6 +54,12 @@ class AX_EXPORT AXPlatformNodeDelegate {
 
   // Get the accessibility tree data for this node.
   virtual const AXTreeData& GetTreeData() const = 0;
+
+  // Creates a text position rooted at this object.
+  virtual AXNodePosition::AXPositionInstance CreateTextPositionAt(
+      int offset,
+      ax::mojom::TextAffinity affinity =
+          ax::mojom::TextAffinity::kDownstream) const = 0;
 
   // Get the accessibility node for the NSWindow the node is contained in. This
   // method is only meaningful on macOS.
@@ -95,23 +106,45 @@ class AX_EXPORT AXPlatformNodeDelegate {
   // Get whether this node is offscreen.
   virtual bool IsOffscreen() const = 0;
 
+  // Get whether this node is in web content.
+  virtual bool IsWebContent() const = 0;
+
   virtual AXPlatformNode* GetFromNodeID(int32_t id) = 0;
 
-  // Given a node ID attribute (one where IsNodeIdIntAttribute is true),
-  // and a destination node ID, return a set of all source node IDs that
-  // have that relationship attribute between them and the destination.
-  virtual std::set<int32_t> GetReverseRelations(ax::mojom::IntAttribute attr,
-                                                int32_t dst_id) = 0;
+  // Given a node ID attribute (one where IsNodeIdIntAttribute is true), return
+  // a target nodes for which this delegate's node has that relationship
+  // attribute or NULL if there is no such relationship.
+  virtual AXPlatformNode* GetTargetNodeForRelation(
+      ax::mojom::IntAttribute attr) = 0;
 
-  // Given a node ID list attribute (one where
-  // IsNodeIdIntListAttribute is true), and a destination node ID,
-  // return a set of all source node IDs that have that relationship
-  // attribute between them and the destination.
-  virtual std::set<int32_t> GetReverseRelations(
-      ax::mojom::IntListAttribute attr,
-      int32_t dst_id) = 0;
+  // Given a node ID attribute (one where IsNodeIdIntListAttribute is true),
+  // return a set of all target nodes for which this delegate's node has that
+  // relationship attribute.
+  virtual std::set<AXPlatformNode*> GetTargetNodesForRelation(
+      ax::mojom::IntListAttribute attr) = 0;
+
+  // Given a node ID attribute (one where IsNodeIdIntAttribute is true), return
+  // a set of all source nodes that have that relationship attribute between
+  // them and this delegate's node.
+  virtual std::set<AXPlatformNode*> GetReverseRelations(
+      ax::mojom::IntAttribute attr) = 0;
+
+  // Given a node ID list attribute (one where IsNodeIdIntListAttribute is
+  // true), return a set of all source nodes that have that relationship
+  // attribute between them and this delegate's node.
+  virtual std::set<AXPlatformNode*> GetReverseRelations(
+      ax::mojom::IntListAttribute attr) = 0;
 
   virtual const AXUniqueId& GetUniqueId() const = 0;
+
+  // This method finds text boundaries in the text used for platform text APIs.
+  // Implementations may use side-channel data such as line or word indices to
+  // produce appropriate results.
+  using EnclosingBoundaryOffsets = base::Optional<std::pair<size_t, size_t>>;
+  virtual EnclosingBoundaryOffsets FindTextBoundariesAtOffset(
+      TextBoundaryType boundary_type,
+      int offset,
+      ax::mojom::TextAffinity affinity) const = 0;
 
   //
   // Tables. All of these should be called on a node that's a table-like
@@ -120,8 +153,8 @@ class AX_EXPORT AXPlatformNodeDelegate {
   virtual bool IsTable() const = 0;
   virtual int32_t GetTableColCount() const = 0;
   virtual int32_t GetTableRowCount() const = 0;
-  virtual int32_t GetTableAriaColCount() const = 0;
-  virtual int32_t GetTableAriaRowCount() const = 0;
+  virtual base::Optional<int32_t> GetTableAriaColCount() const = 0;
+  virtual base::Optional<int32_t> GetTableAriaRowCount() const = 0;
   virtual int32_t GetTableCellCount() const = 0;
   virtual const std::vector<int32_t> GetColHeaderNodeIds() const = 0;
   virtual const std::vector<int32_t> GetColHeaderNodeIds(
@@ -129,6 +162,7 @@ class AX_EXPORT AXPlatformNodeDelegate {
   virtual const std::vector<int32_t> GetRowHeaderNodeIds() const = 0;
   virtual const std::vector<int32_t> GetRowHeaderNodeIds(
       int32_t row_index) const = 0;
+  virtual AXPlatformNode* GetTableCaption() = 0;
 
   // Table row-like nodes.
   virtual bool IsTableRow() const = 0;
@@ -167,6 +201,15 @@ class AX_EXPORT AXPlatformNodeDelegate {
   // Perform an accessibility action, switching on the ax::mojom::Action
   // provided in |data|.
   virtual bool AccessibilityPerformAction(const AXActionData& data) = 0;
+
+  //
+  // Localized strings.
+  //
+
+  virtual base::string16 GetLocalizedRoleDescriptionForUnlabeledImage()
+      const = 0;
+  virtual base::string16 GetLocalizedStringForImageAnnotationStatus(
+      ax::mojom::ImageAnnotationStatus status) const = 0;
 
   //
   // Testing.

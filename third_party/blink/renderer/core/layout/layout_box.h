@@ -31,7 +31,7 @@
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 #include "third_party/blink/renderer/core/layout/min_max_size.h"
 #include "third_party/blink/renderer/core/layout/overflow_model.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
+#include "third_party/blink/renderer/platform/graphics/scroll_types.h"
 #include "third_party/blink/renderer/platform/wtf/compiler.h"
 
 namespace blink {
@@ -39,9 +39,12 @@ namespace blink {
 class EventHandler;
 class LayoutBlockFlow;
 class LayoutMultiColumnSpannerPlaceholder;
-struct NGPhysicalBoxStrut;
+class NGBoxFragmentBuilder;
 class ShapeOutsideInfo;
-
+struct BoxLayoutExtraInput;
+class NGBreakToken;
+class NGLayoutResult;
+struct NGPhysicalBoxStrut;
 struct PaintInfo;
 struct WebScrollIntoViewParams;
 
@@ -71,8 +74,7 @@ struct LayoutBoxRareData {
         // TODO(rego): We should store these based on physical direction.
         has_override_containing_block_content_logical_width_(false),
         has_override_containing_block_content_logical_height_(false),
-        has_override_containing_block_percentage_resolution_logical_height_(
-            false),
+        has_override_percentage_resolution_block_size_(false),
         has_previous_content_box_rect_and_layout_overflow_rect_(false),
         percent_height_container_(nullptr),
         snap_container_(nullptr),
@@ -87,12 +89,12 @@ struct LayoutBoxRareData {
 
   bool has_override_containing_block_content_logical_width_ : 1;
   bool has_override_containing_block_content_logical_height_ : 1;
-  bool has_override_containing_block_percentage_resolution_logical_height_ : 1;
+  bool has_override_percentage_resolution_block_size_ : 1;
   bool has_previous_content_box_rect_and_layout_overflow_rect_ : 1;
 
   LayoutUnit override_containing_block_content_logical_width_;
   LayoutUnit override_containing_block_content_logical_height_;
-  LayoutUnit override_containing_block_percentage_resolution_logical_height_;
+  LayoutUnit override_percentage_resolution_block_size_;
 
   LayoutUnit offset_to_next_page_;
 
@@ -735,6 +737,10 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
                      MapCoordinatesFlags mode = 0) const override;
   FloatRect LocalBoundingBoxRectForAccessibility() const final;
 
+  void SetBoxLayoutExtraInput(const BoxLayoutExtraInput* input) {
+    extra_input_ = input;
+  }
+
   void UpdateLayout() override;
   void Paint(const PaintInfo&) const override;
 
@@ -779,10 +785,19 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   void SetOverrideContainingBlockContentLogicalHeight(LayoutUnit);
   void ClearOverrideContainingBlockContentSize();
 
-  LayoutUnit OverrideContainingBlockPercentageResolutionLogicalHeight() const;
-  bool HasOverrideContainingBlockPercentageResolutionLogicalHeight() const;
-  void SetOverrideContainingBlockPercentageResolutionLogicalHeight(LayoutUnit);
-  void ClearOverrideContainingBlockPercentageResolutionLogicalHeight();
+  // When a percentage resolution block size override has been set, we'll use
+  // that size to resolve block-size percentages on this box, rather than
+  // deducing it from the containing block.
+  LayoutUnit OverridePercentageResolutionBlockSize() const;
+  bool HasOverridePercentageResolutionBlockSize() const;
+  void SetOverridePercentageResolutionBlockSize(LayoutUnit);
+  void ClearOverridePercentageResolutionBlockSize();
+
+  // When an available inline size override has been set, we'll use that to fill
+  // available inline size, rather than deducing it from the containing block
+  // (and then subtract space taken up by adjacent floats).
+  LayoutUnit OverrideAvailableInlineSize() const;
+  bool HasOverrideAvailableInlineSize() const { return extra_input_; }
 
   LayoutUnit AdjustBorderBoxLogicalWidthForBoxSizing(float width) const;
   LayoutUnit AdjustBorderBoxLogicalHeightForBoxSizing(float height) const;
@@ -890,6 +905,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   NGPaintFragment* FirstInlineFragment() const final;
   void SetFirstInlineFragment(NGPaintFragment*) final;
+
+  void SetCachedLayoutResult(const NGLayoutResult&, const NGBreakToken*);
+  const NGLayoutResult* GetCachedLayoutResult() const {
+    return cached_layout_result_.get();
+  }
 
   void SetSpannerPlaceholder(LayoutMultiColumnSpannerPlaceholder&);
   void ClearSpannerPlaceholder();
@@ -1368,28 +1388,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   bool HasRelativeLogicalWidth() const;
   bool HasRelativeLogicalHeight() const;
 
-  bool HasHorizontalLayoutOverflow() const {
-    if (!LayoutOverflowIsSet())
-      return false;
-
-    LayoutRect layout_overflow_rect =
-        overflow_->layout_overflow->LayoutOverflowRect();
-    LayoutRect no_overflow_rect = NoOverflowRect();
-    return layout_overflow_rect.X() < no_overflow_rect.X() ||
-           layout_overflow_rect.MaxX() > no_overflow_rect.MaxX();
-  }
-
-  bool HasVerticalLayoutOverflow() const {
-    if (!LayoutOverflowIsSet())
-      return false;
-
-    LayoutRect layout_overflow_rect =
-        overflow_->layout_overflow->LayoutOverflowRect();
-    LayoutRect no_overflow_rect = NoOverflowRect();
-    return layout_overflow_rect.Y() < no_overflow_rect.Y() ||
-           layout_overflow_rect.MaxY() > no_overflow_rect.MaxY();
-  }
-
   virtual LayoutBox* CreateAnonymousBoxWithSameTypeAs(
       const LayoutObject*) const {
     NOTREACHED();
@@ -1540,6 +1538,9 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       LayoutUnit& min_logical_width,
       LayoutUnit& max_logical_width) const;
 
+  // Make it public.
+  using LayoutObject::BackgroundIsKnownToBeObscured;
+
  protected:
   ~LayoutBox() override;
 
@@ -1568,13 +1569,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   // Returns false if it could not cheaply compute the extent (e.g. fixed
   // background), in which case the returned rect may be incorrect.
-  // FIXME: make this a const method once the LayoutBox reference in BoxPainter
-  // is const.
   bool GetBackgroundPaintedExtent(LayoutRect&) const;
   virtual bool ForegroundIsKnownToBeOpaqueInRect(
       const LayoutRect& local_rect,
       unsigned max_depth_to_test) const;
-  bool ComputeBackgroundIsKnownToBeObscured() const override;
+  virtual bool ComputeBackgroundIsKnownToBeObscured() const;
 
   virtual void ComputePositionedLogicalWidth(
       LogicalExtentComputedValues&) const;
@@ -1599,15 +1598,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
                                const HitTestLocation& location_in_container,
                                const LayoutPoint& accumulated_offset,
                                HitTestAction);
-  void AddLayerHitTestRects(
-      LayerHitTestRects&,
-      const PaintLayer* current_composited_layer,
-      const LayoutPoint& layer_offset,
-      TouchAction supported_fast_actions,
-      const LayoutRect& container_rect,
-      TouchAction container_whitelisted_touch_action) const override;
-  void ComputeSelfHitTestRects(Vector<LayoutRect>&,
-                               const LayoutPoint& layer_offset) const override;
 
   void InvalidatePaint(const PaintInvalidatorContext&) const override;
 
@@ -1630,13 +1620,15 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       Length& logical_top,
       Length& logical_bottom,
       const LayoutBox* child,
-      const LayoutBoxModelObject* container_block);
+      const LayoutBoxModelObject* container_block,
+      const NGBoxFragmentBuilder* = nullptr);
   static void ComputeInlineStaticDistance(
       Length& logical_left,
       Length& logical_right,
       const LayoutBox* child,
       const LayoutBoxModelObject* container_block,
-      LayoutUnit container_logical_width);
+      LayoutUnit container_logical_width,
+      const NGBoxFragmentBuilder* = nullptr);
   static void ComputeLogicalLeftPositionedOffset(
       LayoutUnit& logical_left_pos,
       const LayoutBox* child,
@@ -1649,8 +1641,8 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       LayoutUnit logical_height_value,
       const LayoutBoxModelObject* container_block,
       LayoutUnit container_logical_height);
-  bool SkipContainingBlockForPercentHeightCalculation(
-      const LayoutBox* containing_block) const;
+  static bool SkipContainingBlockForPercentHeightCalculation(
+      const LayoutBox* containing_block);
 
   LayoutRect LocalVisualRectIgnoringVisibility() const override;
 
@@ -1790,6 +1782,10 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   // See LayoutObject::maxPreferredLogicalWidth() for more details.
   LayoutUnit max_preferred_logical_width_;
 
+  // LayoutBoxUtils is used for the LayoutNG code querying protected methods on
+  // this class, e.g. determining the static-position of OOF elements.
+  friend class LayoutBoxUtils;
+
  private:
   LogicalToPhysicalSetter<LayoutUnit, LayoutBox> LogicalMarginToPhysicalSetter(
       const ComputedStyle* override_style) {
@@ -1802,6 +1798,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   std::unique_ptr<BoxOverflowModel> overflow_;
 
+  // Extra layout input data. This one may be set during layout, and cleared
+  // afterwards. Always nullptr when this object isn't in the process of being
+  // laid out.
+  const BoxLayoutExtraInput* extra_input_ = nullptr;
+
   union {
     // The inline box containing this LayoutBox, for atomic inline elements.
     // Valid only when !IsInLayoutNGInlineFormattingContext().
@@ -1813,6 +1814,7 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
   };
 
   std::unique_ptr<LayoutBoxRareData> rare_data_;
+  scoped_refptr<const NGLayoutResult> cached_layout_result_;
 };
 
 DEFINE_LAYOUT_OBJECT_TYPE_CASTS(LayoutBox, IsBox());

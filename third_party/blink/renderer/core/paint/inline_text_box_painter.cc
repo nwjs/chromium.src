@@ -5,6 +5,8 @@
 #include "third_party/blink/renderer/core/paint/inline_text_box_painter.h"
 
 #include "base/optional.h"
+#include "third_party/blink/renderer/core/content_capture/content_capture_manager.h"
+#include "third_party/blink/renderer/core/content_capture/content_holder.h"
 #include "third_party/blink/renderer/core/editing/editor.h"
 #include "third_party/blink/renderer/core/editing/markers/composition_marker.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
@@ -20,6 +22,7 @@
 #include "third_party/blink/renderer/core/paint/decoration_info.h"
 #include "third_party/blink/renderer/core/paint/document_marker_painter.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
+#include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
 #include "third_party/blink/renderer/core/paint/selection_painting_utils.h"
 #include "third_party/blink/renderer/core/paint/text_painter.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
@@ -53,6 +56,14 @@ std::pair<unsigned, unsigned> GetTextMatchMarkerPaintOffsets(
   const unsigned end_offset =
       std::min(marker.EndOffset() - text_box_start, text_box.Len());
   return std::make_pair(start_offset, end_offset);
+}
+
+NodeHolder GetNodeHolder(Node* node) {
+  if (node && node->GetLayoutObject()) {
+    DCHECK(node->GetLayoutObject()->IsText());
+    return (ToLayoutText(node->GetLayoutObject()))->EnsureNodeHolder();
+  }
+  return NodeHolder::EmptyNodeHolder();
 }
 
 }  // anonymous namespace
@@ -329,6 +340,10 @@ void InlineTextBoxPainter::Paint(const PaintInfo& paint_info,
   if (inline_text_box_.Truncation() != kCNoTruncation && ltr != flow_is_ltr)
     text_painter.SetEllipsisOffset(inline_text_box_.Truncation());
 
+  NodeHolder node_holder = GetNodeHolder(
+      LineLayoutAPIShim::LayoutObjectFrom(inline_text_box_.GetLineLayoutItem())
+          ->GetNode());
+
   if (!paint_selected_text_only) {
     // Paint text decorations except line-through.
     DecorationInfo decoration_info;
@@ -368,7 +383,8 @@ void InlineTextBoxPainter::Paint(const PaintInfo& paint_info,
       start_offset = selection_end;
       end_offset = selection_start;
     }
-    text_painter.Paint(start_offset, end_offset, length, text_style);
+    text_painter.Paint(start_offset, end_offset, length, text_style,
+                       node_holder);
 
     // Paint line-through decoration if needed.
     if (has_line_through_decoration) {
@@ -392,7 +408,8 @@ void InlineTextBoxPainter::Paint(const PaintInfo& paint_info,
     {
       GraphicsContextStateSaver state_saver(context);
       context.ClipOut(FloatRect(selection_rect));
-      text_painter.Paint(selection_start, selection_end, length, text_style);
+      text_painter.Paint(selection_start, selection_end, length, text_style,
+                         node_holder);
     }
     // the second time, we draw the glyphs inside the selection area, with
     // the selection style.
@@ -400,7 +417,7 @@ void InlineTextBoxPainter::Paint(const PaintInfo& paint_info,
       GraphicsContextStateSaver state_saver(context);
       context.Clip(FloatRect(selection_rect));
       text_painter.Paint(selection_start, selection_end, length,
-                         selection_style);
+                         selection_style, node_holder);
     }
   }
 
@@ -412,6 +429,11 @@ void InlineTextBoxPainter::Paint(const PaintInfo& paint_info,
   if (should_rotate) {
     context.ConcatCTM(TextPainterBase::Rotation(
         box_rect, TextPainterBase::kCounterclockwise));
+  }
+  if (RuntimeEnabledFeatures::FirstContentfulPaintPlusPlusEnabled()) {
+    PaintTimingDetector::NotifyTextPaint(
+        InlineLayoutObject(),
+        paint_info.context.GetPaintController().CurrentPaintChunkProperties());
   }
 }
 
@@ -435,7 +457,7 @@ bool InlineTextBoxPainter::ShouldPaintTextBox(const PaintInfo& paint_info) {
 InlineTextBoxPainter::PaintOffsets
 InlineTextBoxPainter::ApplyTruncationToPaintOffsets(
     const InlineTextBoxPainter::PaintOffsets& offsets) {
-  const unsigned short truncation = inline_text_box_.Truncation();
+  const uint16_t truncation = inline_text_box_.Truncation();
   if (truncation == kCNoTruncation)
     return offsets;
 
@@ -843,7 +865,8 @@ void InlineTextBoxPainter::PaintTextMatchMarkerForeground(
                            inline_text_box_.IsHorizontal());
 
   text_painter.Paint(paint_offsets.first, paint_offsets.second,
-                     inline_text_box_.Len(), text_style);
+                     inline_text_box_.Len(), text_style,
+                     NodeHolder::EmptyNodeHolder());
 }
 
 void InlineTextBoxPainter::PaintTextMatchMarkerBackground(

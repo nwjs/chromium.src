@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/stl_util.h"
 #include "base/strings/string_split.h"
@@ -1685,7 +1686,9 @@ void GLES2DecoderPassthroughImpl::BindOnePendingImage(
     return;
 
   // TODO: internalformat?
-  if (!image->BindTexImage(target))
+  if (image->ShouldBindOrCopy() == gl::GLImage::BIND)
+    image->BindTexImage(target);
+  else
     image->CopyTexImage(target);
 
   // If copy / bind fail, then we could keep the bind state the same.
@@ -2175,10 +2178,22 @@ void GLES2DecoderPassthroughImpl::RemovePendingQuery(GLuint service_id) {
 
 void GLES2DecoderPassthroughImpl::ReadBackBuffersIntoShadowCopies(
     const BufferShadowUpdateMap& updates) {
+  if (updates.empty()) {
+    return;
+  }
+
   GLint old_binding = 0;
   api()->glGetIntegervFn(GL_ARRAY_BUFFER_BINDING, &old_binding);
   for (const auto& u : updates) {
-    GLuint service_id = u.first;
+    GLuint client_id = u.first;
+    GLuint service_id = 0;
+    if (!resources_->buffer_id_map.GetServiceID(client_id, &service_id)) {
+      // Buffer no longer exists, this shadow update should have been removed by
+      // DoDeleteBuffers
+      DCHECK(false);
+      continue;
+    }
+
     const auto& update = u.second;
 
     void* shadow = update.shm->GetDataAddress(update.shm_offset, update.size);
@@ -2436,14 +2451,13 @@ error::Error GLES2DecoderPassthroughImpl::BindTexImage2DCHROMIUMImpl(
     return error::kNoError;
   }
 
-  if (internalformat) {
-    if (!image->BindTexImageWithInternalformat(target, internalformat)) {
-      image->CopyTexImage(target);
-    }
+  if (image->ShouldBindOrCopy() == gl::GLImage::BIND) {
+    if (internalformat)
+      image->BindTexImageWithInternalformat(target, internalformat);
+    else
+      image->BindTexImage(target);
   } else {
-    if (!image->BindTexImage(target)) {
-      image->CopyTexImage(target);
-    }
+    image->CopyTexImage(target);
   }
 
   // Target is already validated

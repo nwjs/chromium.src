@@ -51,7 +51,6 @@
   X("cma")                                                               \
   X("compositor")                                                        \
   X("content")                                                           \
-  X("cpu_profiler")                                                      \
   X("devtools")                                                          \
   X("devtools.timeline")                                                 \
   X("devtools.timeline.async")                                           \
@@ -68,8 +67,7 @@
   X("explore_sites")                                                     \
   X("FileSystem")                                                        \
   X("file_system_provider")                                              \
-  X("font_loader")                                                       \
-  X("font_service")                                                      \
+  X("fonts")                                                             \
   X("GAMEPAD")                                                           \
   X("gpu")                                                               \
   X("gpu.capture")                                                       \
@@ -177,7 +175,6 @@
   X(TRACE_DISABLED_BY_DEFAULT("gpu.service"))                            \
   X(TRACE_DISABLED_BY_DEFAULT("ipc.flow"))                               \
   X(TRACE_DISABLED_BY_DEFAULT("layer-element"))                          \
-  X(TRACE_DISABLED_BY_DEFAULT("lighthouse"))                             \
   X(TRACE_DISABLED_BY_DEFAULT("loading"))                                \
   X(TRACE_DISABLED_BY_DEFAULT("memory-infra"))                           \
   X(TRACE_DISABLED_BY_DEFAULT("memory-infra.v8.code_stats"))             \
@@ -196,7 +193,6 @@
   X(TRACE_DISABLED_BY_DEFAULT("SyncFileSystem"))                         \
   X(TRACE_DISABLED_BY_DEFAULT("system_stats"))                           \
   X(TRACE_DISABLED_BY_DEFAULT("task_scheduler_diagnostics"))             \
-  X(TRACE_DISABLED_BY_DEFAULT("task_scheduler.flow"))                    \
   X(TRACE_DISABLED_BY_DEFAULT("toplevel.flow"))                          \
   X(TRACE_DISABLED_BY_DEFAULT("v8.compile"))                             \
   X(TRACE_DISABLED_BY_DEFAULT("v8.cpu_profiler"))                        \

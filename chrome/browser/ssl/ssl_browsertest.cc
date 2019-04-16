@@ -100,6 +100,7 @@
 #include "components/ssl_errors/error_classification.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/variations/variations_associated_data.h"
+#include "components/variations/variations_params_manager.h"
 #include "components/variations/variations_switches.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/browser_context.h"
@@ -503,7 +504,8 @@ std::unique_ptr<net::test_server::HttpResponse> WaitForJsonRequest(
   EXPECT_EQ("/pkp", request.relative_url);
   EXPECT_EQ("POST", request.method_string);
   base::JSONReader json_reader;
-  std::unique_ptr<base::Value> value = json_reader.ReadToValue(request.content);
+  std::unique_ptr<base::Value> value =
+      json_reader.ReadToValueDeprecated(request.content);
   EXPECT_TRUE(value);
 
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
@@ -641,7 +643,7 @@ class SSLUITestBase : public InProcessBrowserTest,
       WebContents* tab,
       security_interstitials::SecurityInterstitialCommand command) {
     tab->GetInterstitialPage()->GetDelegateForTesting()->CommandReceived(
-        base::IntToString(command));
+        base::NumberToString(command));
   }
 
   network::mojom::NetworkContextParamsPtr CreateDefaultNetworkContextParams() {
@@ -1152,10 +1154,10 @@ class SSLUITest : public SSLUITestBase,
   DISALLOW_COPY_AND_ASSIGN(SSLUITest);
 };
 
-INSTANTIATE_TEST_CASE_P(, SSLUITest, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, SSLUITest, ::testing::Values(false, true));
 
 using SSLUITestCommitted = SSLUITest;
-INSTANTIATE_TEST_CASE_P(, SSLUITestCommitted, ::testing::Values(true));
+INSTANTIATE_TEST_SUITE_P(, SSLUITestCommitted, ::testing::Values(true));
 
 class SSLUITestBlock : public SSLUITest {
  public:
@@ -1168,7 +1170,7 @@ class SSLUITestBlock : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(, SSLUITestBlock, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, SSLUITestBlock, ::testing::Values(false, true));
 
 class SSLUITestIgnoreCertErrors : public SSLUITest {
  public:
@@ -1181,9 +1183,9 @@ class SSLUITestIgnoreCertErrors : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestIgnoreCertErrors,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestIgnoreCertErrors,
+                         ::testing::Values(false, true));
 
 static std::string MakeCertSPKIFingerprint(net::X509Certificate* cert) {
   net::HashValue hash = GetSPKIHash(cert->cert_buffer());
@@ -1208,9 +1210,9 @@ class SSLUITestIgnoreCertErrorsBySPKIHTTPS : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestIgnoreCertErrorsBySPKIHTTPS,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestIgnoreCertErrorsBySPKIHTTPS,
+                         ::testing::Values(false, true));
 
 class SSLUITestIgnoreCertErrorsBySPKIWSS : public SSLUITest {
  public:
@@ -1227,9 +1229,9 @@ class SSLUITestIgnoreCertErrorsBySPKIWSS : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestIgnoreCertErrorsBySPKIWSS,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestIgnoreCertErrorsBySPKIWSS,
+                         ::testing::Values(false, true));
 
 class SSLUITestIgnoreLocalhostCertErrors : public SSLUITest {
  public:
@@ -1242,9 +1244,9 @@ class SSLUITestIgnoreLocalhostCertErrors : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestIgnoreLocalhostCertErrors,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestIgnoreLocalhostCertErrors,
+                         ::testing::Values(false, true));
 
 class SSLUITestWithExtendedReporting : public SSLUITest {
  public:
@@ -1253,11 +1255,21 @@ class SSLUITestWithExtendedReporting : public SSLUITest {
     // been called.
     CertReportHelper::SetFakeOfficialBuildForTesting();
   }
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    SSLUITest::SetUpCommandLine(command_line);
+
+    // CertReportHelper::ShouldReportCertificateError checks the value of this
+    // variation. Ensure reporting is enabled.
+    variations::testing::VariationParamsManager::AppendVariationParams(
+        "ReportCertificateErrors", "ShowAndPossiblySend",
+        {{"sendingThreshold", "1.0"}}, command_line);
+  }
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestWithExtendedReporting,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestWithExtendedReporting,
+                         ::testing::Values(false, true));
 
 class SSLUITestHSTS : public SSLUITest {
  public:
@@ -1267,7 +1279,7 @@ class SSLUITestHSTS : public SSLUITest {
   }
 };
 
-INSTANTIATE_TEST_CASE_P(, SSLUITestHSTS, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, SSLUITestHSTS, ::testing::Values(false, true));
 
 // Visits a regular page over http.
 IN_PROC_BROWSER_TEST_P(SSLUITest, TestHTTP) {
@@ -2769,18 +2781,10 @@ IN_PROC_BROWSER_TEST_P(SSLUITest, TestDisplaysInsecureForm) {
                      AuthState::DISPLAYED_FORM_WITH_INSECURE_ACTION);
 }
 
-// TODO(crbug.com/795820): Fails in Windows, Linux and Mac official builds.
-#if defined(OFFICIAL_BUILD)
-#define MAYBE_TestBrokenHTTPSReportingCloseTab \
-  DISABLED_TestBrokenHTTPSReportingCloseTab
-#else
-#define MAYBE_TestBrokenHTTPSReportingCloseTab TestBrokenHTTPSReportingCloseTab
-#endif
-
 // Test that a report is sent if the user closes the tab on an interstitial
 // before making a decision to proceed or go back.
 IN_PROC_BROWSER_TEST_P(SSLUITestWithExtendedReporting,
-                       MAYBE_TestBrokenHTTPSReportingCloseTab) {
+                       TestBrokenHTTPSReportingCloseTab) {
   ASSERT_TRUE(https_server_expired_.Start());
 
   base::RunLoop run_loop;
@@ -3393,7 +3397,7 @@ class SSLUITestWaitForDOMNotification : public SSLUITestIgnoreCertErrors,
   SSLUITestWaitForDOMNotification()
       : SSLUITestIgnoreCertErrors(), run_loop_(nullptr) {}
 
-  ~SSLUITestWaitForDOMNotification() override { registrar_.RemoveAll(); };
+  ~SSLUITestWaitForDOMNotification() override { registrar_.RemoveAll(); }
 
   void SetUpOnMainThread() override {
     SSLUITestIgnoreCertErrors::SetUpOnMainThread();
@@ -3428,9 +3432,9 @@ class SSLUITestWaitForDOMNotification : public SSLUITestIgnoreCertErrors,
   DISALLOW_COPY_AND_ASSIGN(SSLUITestWaitForDOMNotification);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUITestWaitForDOMNotification,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUITestWaitForDOMNotification,
+                         ::testing::Values(false, true));
 
 // Tests that a mixed resource which includes HTTP in the redirect chain
 // is marked as mixed content, even if the end result is HTTPS.
@@ -3945,7 +3949,7 @@ IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest,
             tab);
     helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
         ->CommandReceived(
-            base::IntToString(security_interstitials::CMD_PROCEED));
+            base::NumberToString(security_interstitials::CMD_PROCEED));
     nav_observer.Wait();
   } else {
     ProceedThroughInterstitial(tab);
@@ -4154,7 +4158,7 @@ IN_PROC_BROWSER_TEST_P(SSLUIWorkerFetchTest, DISABLED_MixedContentSubFrame) {
   content::SetBrowserClientForTesting(old_browser_client);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     SSLUIWorkerFetchTest,
     ::testing::Values(
@@ -4646,7 +4650,8 @@ IN_PROC_BROWSER_TEST_P(SSLUITest, InterstitialNotAffectedByHideShow) {
   EXPECT_EQ(tab, browser()->tab_strip_model()->GetWebContentsAt(1));
   EXPECT_FALSE(tab->GetRenderWidgetHostView()->IsShowing());
 
-  browser()->tab_strip_model()->ActivateTabAt(1, true);
+  browser()->tab_strip_model()->ActivateTabAt(
+      1, {TabStripModel::GestureType::kOther});
   EXPECT_TRUE(tab->GetRenderWidgetHostView()->IsShowing());
 }
 
@@ -4852,9 +4857,9 @@ class SSLNetworkTimeBrowserTest : public SSLUITest {
   DISALLOW_COPY_AND_ASSIGN(SSLNetworkTimeBrowserTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLNetworkTimeBrowserTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLNetworkTimeBrowserTest,
+                         ::testing::Values(false, true));
 
 // Tests that if an on-demand network time fetch returns that the clock
 // is okay, a normal SSL interstitial is shown.
@@ -5189,9 +5194,9 @@ class CommonNameMismatchBrowserTest : public CertVerifierBrowserTest,
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        CommonNameMismatchBrowserTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         CommonNameMismatchBrowserTest,
+                         ::testing::Values(false, true));
 
 // Visit the URL www.mail.example.com on a server that presents a valid
 // certificate for mail.example.com. Verify that the page navigates to
@@ -6056,7 +6061,7 @@ class SSLUITestNoCert : public SSLUITest,
   void CertificatesRefreshed() override {}
 };
 
-INSTANTIATE_TEST_CASE_P(, SSLUITestNoCert, ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(, SSLUITestNoCert, ::testing::Values(false, true));
 
 // Checks that a newly-added certificate authority is usable immediately.
 IN_PROC_BROWSER_TEST_P(SSLUITestNoCert, NewCertificateAuthority) {
@@ -6123,6 +6128,10 @@ IN_PROC_BROWSER_TEST_P(SSLUITestIgnoreLocalhostCertErrors,
 // Put captive portal related tests under a different namespace for nicer
 // pattern matching.
 using SSLUICaptivePortalListTest = SSLUITest;
+
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUICaptivePortalListTest,
+                         ::testing::Values(false, true));
 
 std::unique_ptr<chrome_browser_ssl::SSLErrorAssistantConfig>
 MakeCaptivePortalConfig(int version_id,
@@ -6402,9 +6411,9 @@ class SSLUICaptivePortalListResourceBundleTest
   net::EmbeddedTestServer https_server_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUICaptivePortalListResourceBundleTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUICaptivePortalListResourceBundleTest,
+                         ::testing::Values(false, true));
 
 }  // namespace
 
@@ -6719,9 +6728,9 @@ class SSLUIMITMSoftwareTest : public CertVerifierBrowserTest,
   DISALLOW_COPY_AND_ASSIGN(SSLUIMITMSoftwareTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUIMITMSoftwareTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUIMITMSoftwareTest,
+                         ::testing::Values(false, true));
 
 // The SSLUIMITMSoftwareEnabled and Disabled test classes exist so that the
 // scoped feature list can be instantiated in the set up method of the class
@@ -6747,9 +6756,9 @@ class SSLUIMITMSoftwareEnabledTest : public SSLUIMITMSoftwareTest {
   DISALLOW_COPY_AND_ASSIGN(SSLUIMITMSoftwareEnabledTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUIMITMSoftwareEnabledTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUIMITMSoftwareEnabledTest,
+                         ::testing::Values(false, true));
 
 class SSLUIMITMSoftwareDisabledTest : public SSLUIMITMSoftwareTest {
  public:
@@ -6768,9 +6777,9 @@ class SSLUIMITMSoftwareDisabledTest : public SSLUIMITMSoftwareTest {
   DISALLOW_COPY_AND_ASSIGN(SSLUIMITMSoftwareDisabledTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLUIMITMSoftwareDisabledTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLUIMITMSoftwareDisabledTest,
+                         ::testing::Values(false, true));
 
 }  // namespace
 
@@ -7087,164 +7096,6 @@ void SetShouldNotRequireCTForTesting() {
                      base::Owned(new bool(false))));
 }
 
-// A test fixture that mocks certificate verifications for legacy Symantec
-// certificates that are slated to be distrusted in future Chrome releases.
-class SymantecMessageSSLUITest : public CertVerifierBrowserTest {
- public:
-  SymantecMessageSSLUITest()
-      : CertVerifierBrowserTest(),
-        https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {}
-  ~SymantecMessageSSLUITest() override {}
-
-  void SetUpOnMainThread() override {
-    CertVerifierBrowserTest::SetUpOnMainThread();
-    host_resolver()->AddRule("*", "127.0.0.1");
-
-    https_server_.AddDefaultHandlers(base::FilePath(kDocRoot));
-
-    SetShouldNotRequireCTForTesting();
-  }
-
- protected:
-  void SetUpCertVerifier(const std::string& host_pattern,
-                         bool already_distrusted) {
-    net::CertVerifyResult verify_result;
-    {
-      base::ScopedAllowBlockingForTesting allow_blocking;
-      verify_result.verified_cert = net::CreateCertificateChainFromFile(
-          net::GetTestCertsDirectory(), "post_june_2016.pem",
-          net::X509Certificate::FORMAT_AUTO);
-    }
-    ASSERT_TRUE(verify_result.verified_cert);
-    verify_result.cert_status = 0;
-
-    // Collect the hashes of the leaf and intermediates.
-    verify_result.public_key_hashes.push_back(
-        GetSPKIHash(verify_result.verified_cert->cert_buffer()));
-    for (const auto& intermediate :
-         verify_result.verified_cert->intermediate_buffers()) {
-      verify_result.public_key_hashes.push_back(
-          GetSPKIHash(intermediate.get()));
-    }
-
-    if (already_distrusted) {
-      verify_result.cert_status = net::CERT_STATUS_SYMANTEC_LEGACY;
-    }
-
-    mock_cert_verifier()->set_default_result(net::OK);
-    mock_cert_verifier()->AddResultForCertAndHost(
-        https_server_.GetCertificate().get(), host_pattern, verify_result,
-        already_distrusted ? net::ERR_CERT_SYMANTEC_LEGACY : net::OK);
-  }
-
-  net::EmbeddedTestServer* https_server() { return &https_server_; }
-
- private:
-  net::EmbeddedTestServer https_server_;
-
-  DISALLOW_COPY_AND_ASSIGN(SymantecMessageSSLUITest);
-};
-
-// Tests that the Symantec console message is properly overridden for post-June
-// 2016 certificates.
-IN_PROC_BROWSER_TEST_F(SymantecMessageSSLUITest, PostJune2016) {
-  ASSERT_NO_FATAL_FAILURE(
-      SetUpCertVerifier("*", false /* already_distrusted */));
-  ASSERT_TRUE(https_server()->Start());
-  GURL url(https_server()->GetURL("/ssl/google.html"));
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  content::ConsoleObserverDelegate console_observer(
-      tab,
-      base::StringPrintf(
-          "*The SSL certificate used to load resources from https://%s:%s*",
-          url.host().c_str(), url.port().c_str()));
-  tab->SetDelegate(&console_observer);
-  ui_test_utils::NavigateToURL(browser(), url);
-  console_observer.Wait();
-  EXPECT_TRUE(
-      base::MatchPattern(console_observer.message(), "*distrusted very soon*"));
-}
-
-// Tests that the Symantec console message is logged for subresources, but caps
-// out after many subresource loads.
-IN_PROC_BROWSER_TEST_F(SymantecMessageSSLUITest, ManySubresources) {
-  content::SetupCrossSiteRedirector(https_server());
-  ASSERT_NO_FATAL_FAILURE(
-      SetUpCertVerifier("*", false /* already_distrusted */));
-  ASSERT_TRUE(https_server()->Start());
-  GURL url(https_server()->GetURL("/ssl/page_with_many_subresources.html"));
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-
-  // Observe the message for a cross-site subresource.
-  {
-    content::ConsoleObserverDelegate console_observer(tab, "*https://a.test*");
-    tab->SetDelegate(&console_observer);
-    ui_test_utils::NavigateToURL(browser(), url);
-    console_observer.Wait();
-    EXPECT_TRUE(base::MatchPattern(console_observer.message(),
-                                   "*The SSL certificate used to load*"));
-  }
-  // Observe that the message caps out after some number of subresources.
-  {
-    content::ConsoleObserverDelegate console_observer(tab,
-                                                      "*Additional resources*");
-    tab->SetDelegate(&console_observer);
-    ui_test_utils::NavigateToURL(browser(), url);
-    console_observer.Wait();
-    EXPECT_TRUE(
-        base::MatchPattern(console_observer.message(), "*SSL certificates*"));
-  }
-}
-
-// Tests that the Symantec console message is logged for resources with certs
-// that have already been distrusted.
-IN_PROC_BROWSER_TEST_F(SymantecMessageSSLUITest, DistrustedSubresources) {
-  content::SetupCrossSiteRedirector(https_server());
-  // Only distrust subresources on *.test, so that the main resource loads
-  // without an interstitial.
-  ASSERT_NO_FATAL_FAILURE(
-      SetUpCertVerifier("*.test", true /* already_distrusted */));
-  ASSERT_TRUE(https_server()->Start());
-  GURL url(https_server()->GetURL("/ssl/page_with_many_subresources.html"));
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-
-  content::ConsoleObserverDelegate console_observer(tab, "*https://a.test*");
-  tab->SetDelegate(&console_observer);
-  ui_test_utils::NavigateToURL(browser(), url);
-  ASSERT_FALSE(IsShowingInterstitial(tab));
-  console_observer.Wait();
-  EXPECT_TRUE(
-      base::MatchPattern(console_observer.message(), "*has been distrusted*"));
-}
-
-// Tests that the Symantec console message is logged for iframe resources with
-// certs that have already been distrusted.
-IN_PROC_BROWSER_TEST_F(SymantecMessageSSLUITest, DistrustedIframeResource) {
-  content::SetupCrossSiteRedirector(https_server());
-  // Only distrust subresources on *.test, so that the main resource loads
-  // without an interstitial.
-  ASSERT_NO_FATAL_FAILURE(
-      SetUpCertVerifier("*.test", true /* already_distrusted */));
-  ASSERT_TRUE(https_server()->Start());
-  GURL url(https_server()->GetURL("/ssl/blank_page.html"));
-  WebContents* tab = browser()->tab_strip_model()->GetActiveWebContents();
-  ui_test_utils::NavigateToURL(browser(), url);
-  ASSERT_FALSE(IsShowingInterstitial(tab));
-
-  content::ConsoleObserverDelegate console_observer(tab, "*https://a.test*");
-  tab->SetDelegate(&console_observer);
-  ASSERT_TRUE(
-      content::ExecuteScript(tab,
-                             "var i = document.createElement('iframe');"
-                             "i.src = '" +
-                                 https_server()->GetURL("a.test", "/").spec() +
-                                 "';"
-                                 "document.body.appendChild(i);"));
-  console_observer.Wait();
-  EXPECT_TRUE(
-      base::MatchPattern(console_observer.message(), "*has been distrusted*"));
-}
-
 class TLSLegacyVersionSSLUITest : public CertVerifierBrowserTest {
  public:
   TLSLegacyVersionSSLUITest()
@@ -7471,7 +7322,7 @@ class SSLUIDynamicInterstitialTest : public CertVerifierBrowserTest {
     scoped_refptr<net::X509Certificate> cert = https_server_.GetCertificate();
     filter->set_issuer_common_name_regex(cert.get()->issuer().common_name);
 
-    if (cert.get()->issuer().organization_names.size()) {
+    if (!cert.get()->issuer().organization_names.empty()) {
       filter->set_issuer_organization_regex(
           cert.get()->issuer().organization_names[0]);
     }
@@ -7992,9 +7843,9 @@ class RecurrentInterstitialBrowserTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        RecurrentInterstitialBrowserTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         RecurrentInterstitialBrowserTest,
+                         ::testing::Values(false, true));
 
 // Tests that a message is added to the interstitial when an error code recurs
 // multiple times.

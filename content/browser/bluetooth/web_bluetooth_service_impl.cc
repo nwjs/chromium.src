@@ -12,6 +12,8 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -583,9 +585,8 @@ void WebBluetoothServiceImpl::RemoteServerGetPrimaryServices(
     return;
   }
 
-  if (services_uuid &&
-      !allowed_devices().IsAllowedToAccessService(device_id,
-                                                  services_uuid.value())) {
+  if (services_uuid && !allowed_devices().IsAllowedToAccessService(
+                           device_id, services_uuid.value())) {
     std::move(callback).Run(
         blink::mojom::WebBluetoothResult::NOT_ALLOWED_TO_ACCESS_SERVICE,
         base::nullopt /* service */);

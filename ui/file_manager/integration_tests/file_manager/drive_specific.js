@@ -8,7 +8,7 @@
  * @type {Array<string>}
  * @const
  */
-var EXPECTED_AUTOCOMPLETE_LIST = [
+const EXPECTED_AUTOCOMPLETE_LIST = [
   '\'hello\' - search Drive',
   'hello.txt',
 ];
@@ -19,7 +19,7 @@ var EXPECTED_AUTOCOMPLETE_LIST = [
  * @type {Array<TestEntryInfo>}
  * @const
  */
-var SEARCH_RESULTS_ENTRY_SET = [
+const SEARCH_RESULTS_ENTRY_SET = [
   ENTRIES.hello,
 ];
 
@@ -44,11 +44,11 @@ async function startDriveSearchWithAutoComplete() {
       'fakeEvent', appId, ['#search-box cr-input', 'input']));
 
   // Wait for the auto complete list getting the expected contents.
-  var caller = getCaller();
+  const caller = getCaller();
   await repeatUntil(async () => {
     const elements = await remoteCall.callRemoteTestUtil(
         'queryAllElements', appId, ['#autocomplete-list li']);
-    var list = elements.map((element) => element.text);
+    const list = elements.map((element) => element.text);
     return chrome.test.checkDeepEq(EXPECTED_AUTOCOMPLETE_LIST, list) ?
         undefined :
         pending(caller, 'Current auto complete list: %j.', list);
@@ -62,7 +62,7 @@ async function startDriveSearchWithAutoComplete() {
  * should be shown. "Available offline" entries are hosted documents and the
  * entries cached by DriveCache.
  */
-testcase.driveOpenSidebarOffline = async function() {
+testcase.driveOpenSidebarOffline = async () => {
   // Open Files app on Drive.
   const appId = await setupAndWaitUntilReady(RootPath.DRIVE);
 
@@ -80,7 +80,7 @@ testcase.driveOpenSidebarOffline = async function() {
  * icon, and checks contents of the file list. Only the entries labeled with
  * "shared-with-me" should be shown.
  */
-testcase.driveOpenSidebarSharedWithMe = async function() {
+testcase.driveOpenSidebarSharedWithMe = async () => {
   const isDriveFsEnabled =
       await sendTestMessage({name: 'getDriveFsEnabled'}) === 'true';
 
@@ -123,7 +123,7 @@ testcase.driveOpenSidebarSharedWithMe = async function() {
 /**
  * Tests autocomplete with a query 'hello'.
  */
-testcase.driveAutoCompleteQuery = async function() {
+testcase.driveAutoCompleteQuery = async () => {
   return startDriveSearchWithAutoComplete();
 };
 
@@ -131,7 +131,7 @@ testcase.driveAutoCompleteQuery = async function() {
  * Tests that clicking the first option in the autocomplete box shows all of
  * the results for that query.
  */
-testcase.driveClickFirstSearchResult = async function() {
+testcase.driveClickFirstSearchResult = async () => {
   const appId = await startDriveSearchWithAutoComplete();
   chrome.test.assertTrue(!!await remoteCall.callRemoteTestUtil(
       'fakeKeyDown', appId,
@@ -149,7 +149,7 @@ testcase.driveClickFirstSearchResult = async function() {
  * Tests that pressing enter after typing a search shows all of
  * the results for that query.
  */
-testcase.drivePressEnterToSearch = async function() {
+testcase.drivePressEnterToSearch = async () => {
   const appId = await startDriveSearchWithAutoComplete();
   chrome.test.assertTrue(!!await remoteCall.callRemoteTestUtil(
       'fakeEvent', appId, ['#search-box cr-input', 'focus']));
@@ -163,9 +163,9 @@ testcase.drivePressEnterToSearch = async function() {
 /**
  * Tests pinning a file to a mobile network.
  */
-testcase.drivePinFileMobileNetwork = async function() {
+testcase.drivePinFileMobileNetwork = async () => {
   const appId = await setupAndWaitUntilReady(RootPath.DRIVE);
-  var caller = getCaller();
+  const caller = getCaller();
   await sendTestMessage({name: 'useCellularNetwork'});
   await remoteCall.callRemoteTestUtil('selectFile', appId, ['hello.txt']);
   await repeatUntil(() => {
@@ -212,7 +212,7 @@ testcase.drivePinFileMobileNetwork = async function() {
  * Tests that pressing Ctrl+A (select all files) from the search box doesn't put
  * the Files App into check-select mode (crbug.com/849253).
  */
-testcase.drivePressCtrlAFromSearch = async function() {
+testcase.drivePressCtrlAFromSearch = async () => {
   // Open Files app on Drive.
   const appId = await setupAndWaitUntilReady(RootPath.DRIVE);
 
@@ -235,7 +235,7 @@ testcase.drivePressCtrlAFromSearch = async function() {
 /**
  * Pin hello.txt in the old Drive client.
  */
-testcase.PRE_driveMigratePinnedFile = async function() {
+testcase.PRE_driveMigratePinnedFile = async () => {
   const appId = await setupAndWaitUntilReady(RootPath.DRIVE);
   await remoteCall.callRemoteTestUtil('selectFile', appId, ['hello.txt']);
   await remoteCall.waitForElement(appId, ['.table-row[selected]']);
@@ -256,7 +256,7 @@ testcase.PRE_driveMigratePinnedFile = async function() {
 /**
  * Verify hello.txt is still pinned after migrating to DriveFS.
  */
-testcase.driveMigratePinnedFile = async function() {
+testcase.driveMigratePinnedFile = async () => {
   // After enabling DriveFS, ensure the file is still pinned.
   const appId = await setupAndWaitUntilReady(RootPath.DRIVE);
   await remoteCall.callRemoteTestUtil('selectFile', appId, ['hello.txt']);
@@ -270,14 +270,14 @@ testcase.driveMigratePinnedFile = async function() {
 
 // Match the way the production version formats dates.
 function formatDate(date) {
-  var padAndConvert = function(i) {
+  const padAndConvert = i => {
     return (i < 10 ? '0' : '') + i.toString();
   };
 
-  var year = date.getFullYear().toString();
+  const year = date.getFullYear().toString();
   // Months are 0-based, but days aren't.
-  var month = padAndConvert(date.getMonth() + 1);
-  var day = padAndConvert(date.getDate());
+  const month = padAndConvert(date.getMonth() + 1);
+  const day = padAndConvert(date.getDate());
 
   return `${year}-${month}-${day}`;
 }
@@ -286,7 +286,7 @@ function formatDate(date) {
  * Test that a images within a DCIM directory on removable media is backed up to
  * Drive, in the Chrome OS Cloud backup/<current date> directory.
  */
-testcase.driveBackupPhotos = async function() {
+testcase.driveBackupPhotos = async () => {
   const USB_VOLUME_QUERY = '#directory-tree [volume-type-icon="removable"]';
   let date;
 
@@ -335,7 +335,7 @@ testcase.driveBackupPhotos = async function() {
  * never complete syncing to the fake drive service so will remain dirty
  * forever.
  */
-testcase.PRE_driveRecoverDirtyFiles = async function() {
+testcase.PRE_driveRecoverDirtyFiles = async () => {
   // Open Files app on downloads.
   const appId = await setupAndWaitUntilReady(
       RootPath.DOWNLOADS, [ENTRIES.neverSync], [ENTRIES.directoryA]);
@@ -393,7 +393,7 @@ testcase.PRE_driveRecoverDirtyFiles = async function() {
  * - never-sync.txt
  * - never-sync (1).txt
  */
-testcase.driveRecoverDirtyFiles = async function() {
+testcase.driveRecoverDirtyFiles = async () => {
   // After enabling DriveFS, ensure the dirty files have been
   // recovered into Downloads.
   const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS, [], []);
@@ -412,7 +412,7 @@ testcase.driveRecoverDirtyFiles = async function() {
       'My files/Downloads');
 
   // Ensure it contains never-sync.txt and never-sync (1).txt.
-  var uniquifiedNeverSync = ENTRIES.neverSync.getExpectedRow();
+  const uniquifiedNeverSync = ENTRIES.neverSync.getExpectedRow();
   uniquifiedNeverSync[0] = 'never-sync (1).txt';
   expectedEntryRows = [
     ENTRIES.neverSync.getExpectedRow(),
@@ -426,7 +426,7 @@ testcase.driveRecoverDirtyFiles = async function() {
  * Verify that "Available Offline" is available from the gear menu for a drive
  * file before the context menu has been opened.
  */
-testcase.driveAvailableOfflineGearMenu = async function() {
+testcase.driveAvailableOfflineGearMenu = async () => {
   const pinnedMenuQuery = '#file-context-menu:not([hidden]) ' +
       'cr-menu-item[command="#toggle-pinned"]:not([disabled])';
 
@@ -461,7 +461,7 @@ testcase.driveAvailableOfflineGearMenu = async function() {
  * Verify that "Available Offline" is available from the gear menu for a drive
  * directory before the context menu has been opened.
  */
-testcase.driveAvailableOfflineDirectoryGearMenu = async function() {
+testcase.driveAvailableOfflineDirectoryGearMenu = async () => {
   const pinnedMenuQuery = '#file-context-menu:not([hidden]) ' +
       'cr-menu-item[command="#toggle-pinned"]:not([disabled])';
 

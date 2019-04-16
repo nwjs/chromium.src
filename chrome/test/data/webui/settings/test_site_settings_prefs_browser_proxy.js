@@ -26,7 +26,6 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
     super([
       'clearFlashPref',
       'fetchBlockAutoplayStatus',
-      'fetchUsbDevices',
       'fetchZoomLevels',
       'getAllSites',
       'getChooserExceptionList',
@@ -40,7 +39,6 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
       'observeProtocolHandlersEnabledState',
       'removeIgnoredHandler',
       'removeProtocolHandler',
-      'removeUsbDevice',
       'removeZoomLevel',
       'resetCategoryPermissionForPattern',
       'resetChooserExceptionForSite',
@@ -50,6 +48,7 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
       'setProtocolDefault',
       'updateIncognitoStatus',
       'clearEtldPlus1DataAndCookies',
+      'recordAction',
     ]);
 
     /** @private {boolean} */
@@ -60,9 +59,6 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
 
     /** @private {!Array<ZoomLevelEntry>} */
     this.zoomList_ = [];
-
-    /** @private {!Array<!UsbDeviceEntry>} */
-    this.usbDevices_ = [];
 
     /** @private {!Array<!ProtocolEntry>} */
     this.protocolHandlers_ = [];
@@ -142,15 +138,6 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
    */
   setZoomList(list) {
     this.zoomList_ = list;
-  }
-
-  /**
-   * Sets the prefs to use when testing.
-   * @param {!Array<UsbDeviceEntry>} list The usb device entry list to set.
-   */
-  setUsbDevices(list) {
-    // Shallow copy of the passed-in array so mutation won't impact the source
-    this.usbDevices_ = list.slice();
   }
 
   /**
@@ -289,16 +276,30 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
         settings != null,
         'ContentSettingsType mapping missing for ' + chooserType);
 
-    let pref = this.prefs_.chooserExceptions[setting];
+    // Create a deep copy of the pref so that the chooser-exception-list element
+    // is able update the UI appropriately when incognito mode is toggled.
+    let pref =
+        JSON.parse(JSON.stringify(this.prefs_.chooserExceptions[setting]));
     assert(pref != undefined, 'Pref is missing for ' + chooserType);
 
     if (this.hasIncognito_) {
-      const incognitoElements = [];
       for (let i = 0; i < pref.length; ++i) {
-        // Copy |pref[i]| to avoid changing the original |pref[i]|.
-        incognitoElements.push(Object.assign({}, pref[i], {incognito: true}));
+        const incognitoElements = [];
+        for (let j = 0; j < pref[i].sites.length; ++j) {
+          // Skip preferences that are not controlled by policy since opening an
+          // incognito session does not automatically grant permission to
+          // chooser exceptions that have been granted in the main session.
+          if (pref[i].sites[j].source != settings.SiteSettingSource.POLICY) {
+            continue;
+          }
+
+          // Copy |sites[i]| to avoid changing the original |sites[i]|.
+          const incognitoSite = Object.assign({}, pref[i].sites[j]);
+          incognitoElements.push(
+              Object.assign(incognitoSite, {incognito: true}));
+        }
+        pref[i].sites.push(...incognitoElements);
       }
-      pref.push(...incognitoElements);
     }
 
     this.methodCalled('getChooserExceptionList', chooserType);
@@ -360,13 +361,28 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
     contentTypes.forEach(function(contentType) {
       let setting;
       let source;
-      this.prefs_.exceptions[contentType].some((originPrefs) => {
+      let isSet = this.prefs_.exceptions[contentType].some(originPrefs => {
         if (originPrefs.origin == origin) {
           setting = originPrefs.setting;
           source = originPrefs.source;
           return true;
         }
+        return false;
       });
+
+      if (!isSet) {
+        this.prefs_.chooserExceptions[contentType].some(chooserException => {
+          return chooserException.sites.some(originPrefs => {
+            if (originPrefs.origin == origin) {
+              setting = originPrefs.setting;
+              source = originPrefs.source;
+              return true;
+            }
+            return false;
+          });
+        });
+      }
+
       assert(
           setting != undefined,
           'There was no exception set for origin: ' + origin +
@@ -402,17 +418,6 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
   /** @override */
   removeZoomLevel(host) {
     this.methodCalled('removeZoomLevel', [host]);
-  }
-
-  /** @override */
-  fetchUsbDevices() {
-    this.methodCalled('fetchUsbDevices');
-    return Promise.resolve(this.usbDevices_);
-  }
-
-  /** @override */
-  removeUsbDevice() {
-    this.methodCalled('removeUsbDevice', arguments);
   }
 
   /** @override */
@@ -453,5 +458,10 @@ class TestSiteSettingsPrefsBrowserProxy extends TestBrowserProxy {
   /** @override */
   clearEtldPlus1DataAndCookies() {
     this.methodCalled('clearEtldPlus1DataAndCookies');
+  }
+
+  /** @override */
+  recordAction() {
+    this.methodCalled('recordAction');
   }
 }

@@ -26,8 +26,10 @@ enum class AssistantEntryPoint {
   kLongPressLauncher = 5,
   kSetup = 6,
   kStylus = 7,
+  kLauncherSearchResult = 8,
+  kLauncherSearchBoxMic = 9,
   // Special enumerator value used by histogram macros.
-  kMaxValue = kStylus
+  kMaxValue = kLauncherSearchBoxMic
 };
 
 // Enumeration of Assistant exit points. These values are persisted to logs.
@@ -44,8 +46,11 @@ enum class AssistantExitPoint {
   kOutsidePress = 5,
   kSetup = 6,
   kStylus = 7,
+  kBackInLauncher = 8,
+  kLauncherClose = 9,
+  kLauncherOpen = 10,
   // Special enumerator value used by histogram macros.
-  kMaxValue = kStylus
+  kMaxValue = kLauncherOpen
 };
 
 // Enumeration of Assistant UI modes.
@@ -53,6 +58,7 @@ enum class AssistantUiMode {
   kMainUi,
   kMiniUi,
   kWebUi,
+  kLauncherEmbeddedUi,
 };
 
 // Enumeration of Assistant visibility states.
@@ -72,7 +78,8 @@ enum class AssistantButtonId {
   kKeyboardInputToggle = 4,
   kVoiceInputToggle = 5,
   kSettings = 6,
-  kMaxValue = kSettings,
+  kBackInLauncherDeprecated = 7,
+  kMaxValue = kBackInLauncherDeprecated
 };
 
 // Models the Assistant UI.
@@ -119,7 +126,7 @@ class COMPONENT_EXPORT(ASSISTANT_MODEL) AssistantUiModel {
       base::Optional<AssistantExitPoint> exit_point);
   void NotifyUsableWorkAreaChanged();
 
-  AssistantUiMode ui_mode_ = AssistantUiMode::kMainUi;
+  AssistantUiMode ui_mode_;
 
   AssistantVisibility visibility_ = AssistantVisibility::kClosed;
 

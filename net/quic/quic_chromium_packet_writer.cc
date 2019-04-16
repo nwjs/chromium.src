@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -187,12 +188,6 @@ void QuicChromiumPacketWriter::RetryPacketAfterNoBuffers() {
   quic::WriteResult result = WritePacketToSocketImpl();
   if (result.error_code != ERR_IO_PENDING)
     OnWriteComplete(result.error_code);
-}
-
-bool QuicChromiumPacketWriter::IsWriteBlockedDataBuffered() const {
-  // Chrome sockets' Write() methods buffer the data until the Write is
-  // permitted.
-  return true;
 }
 
 bool QuicChromiumPacketWriter::IsWriteBlocked() const {

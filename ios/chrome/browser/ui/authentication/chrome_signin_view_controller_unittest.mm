@@ -4,6 +4,7 @@
 
 #include "ios/chrome/browser/ui/authentication/chrome_signin_view_controller.h"
 
+#include "base/bind.h"
 #include "base/mac/foundation_util.h"
 #include "base/memory/ptr_util.h"
 #import "base/strings/sys_string_conversions.h"
@@ -245,9 +246,8 @@ class ChromeSigninViewControllerTest
     if (unified_consent_enabled_) {
       return {
           IDS_IOS_ACCOUNT_UNIFIED_CONSENT_TITLE,
-          IDS_IOS_ACCOUNT_UNIFIED_CONSENT_SYNC_DATA,
-          IDS_IOS_ACCOUNT_UNIFIED_CONSENT_PERSONALIZED,
-          IDS_IOS_ACCOUNT_UNIFIED_CONSENT_BETTER_BROWSER,
+          IDS_IOS_ACCOUNT_UNIFIED_CONSENT_SYNC_TITLE,
+          IDS_IOS_ACCOUNT_UNIFIED_CONSENT_SYNC_SUBTITLE,
           IDS_IOS_ACCOUNT_UNIFIED_CONSENT_SETTINGS,
       };
     }
@@ -376,9 +376,9 @@ class ChromeSigninViewControllerTest
   FakeChromeSigninViewControllerDelegate* vc_delegate_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        ChromeSigninViewControllerTest,
-                        ::testing::ValuesIn(kUnifiedConsentParam));
+INSTANTIATE_TEST_SUITE_P(,
+                         ChromeSigninViewControllerTest,
+                         ::testing::ValuesIn(kUnifiedConsentParam));
 
 // Tests that all strings on the screen are either part of the consent string
 // list defined in FakeConsentAuditor::ExpectedConsentStringIds()), or are part

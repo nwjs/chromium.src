@@ -263,7 +263,7 @@ void AttemptRestart() {
   g_send_stop_request_to_session_manager = false;
   // Run exit process in clean stack.
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
-                           base::Bind(&ExitIgnoreUnloadHandlers));
+                           base::BindOnce(&ExitIgnoreUnloadHandlers));
 #else
   // Set the flag to restore state after the restart.
   pref_service->SetBoolean(prefs::kRestartLastSessionOnShutdown, true);
@@ -274,7 +274,7 @@ void AttemptRestart() {
 
 void AttemptRelaunch() {
 #if defined(OS_CHROMEOS)
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart(
+  chromeos::PowerManagerClient::Get()->RequestRestart(
       power_manager::REQUEST_RESTART_OTHER, "Chrome relaunch");
   // If running the Chrome OS build, but we're not on the device, fall through.
 #endif

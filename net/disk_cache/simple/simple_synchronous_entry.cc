@@ -18,7 +18,6 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/sha1.h"
 #include "base/strings/string_piece.h"
 #include "base/timer/elapsed_timer.h"
 #include "crypto/secure_hash.h"
@@ -1117,12 +1116,8 @@ SimpleSynchronousEntry::SimpleSynchronousEntry(net::CacheType cache_type,
       entry_file_key_(entry_hash),
       had_index_(had_index),
       key_(key),
-      have_open_files_(false),
-      initialized_(false),
       file_tracker_(file_tracker),
-      trailer_prefetch_size_(trailer_prefetch_size),
-      computed_trailer_prefetch_size_(-1),
-      sparse_file_open_(false) {
+      trailer_prefetch_size_(trailer_prefetch_size) {
   for (int i = 0; i < kSimpleEntryNormalFileCount; ++i)
     empty_file_omitted_[i] = false;
 }
@@ -1462,9 +1457,21 @@ int SimpleSynchronousEntry::InitializeForOpen(
       out_entry_stat->set_data_size(
           2,
           GetDataSizeFromFileSize(key_.size(), out_entry_stat->data_size(2)));
-      if (out_entry_stat->data_size(2) < 0) {
+      const int32_t data_size_2 = out_entry_stat->data_size(2);
+      if (data_size_2 < 0) {
         DLOG(WARNING) << "Stream 2 file is too small.";
         return net::ERR_FAILED;
+      } else if (data_size_2 > 0) {
+        // Validate non empty stream 2.
+        SimpleFileEOF eof_record;
+        SimpleFileTracker::FileHandle file =
+            file_tracker_->Acquire(this, SubFileForFileIndex(i));
+        int file_offset =
+            out_entry_stat->GetEOFOffsetInFile(key_.size(), 2 /*stream index*/);
+        int ret_value_stream_2 =
+            GetEOFRecordData(file.get(), nullptr, i, file_offset, &eof_record);
+        if (ret_value_stream_2 != net::OK)
+          return ret_value_stream_2;
       }
     }
   }

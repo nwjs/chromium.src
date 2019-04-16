@@ -72,7 +72,6 @@
 #include "components/safe_browsing/db/v4_get_hash_protocol_manager.h"
 #include "components/safe_browsing/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/db/v4_test_util.h"
-#include "components/safe_browsing/features.h"
 #include "components/security_interstitials/core/controller_client.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -390,12 +389,7 @@ class TestSBClient : public base::RefCountedThreadSafe<TestSBClient>,
   void CheckBrowseUrlOnIOThread(const GURL& url) {
     SBThreatTypeSet threat_types = CreateSBThreatTypeSet(
         {SB_THREAT_TYPE_URL_PHISHING, SB_THREAT_TYPE_URL_MALWARE,
-         SB_THREAT_TYPE_URL_UNWANTED});
-    if (base::FeatureList::IsEnabled(kBillingInterstitial)) {
-      SBThreatTypeSet billing =
-          CreateSBThreatTypeSet({safe_browsing::SB_THREAT_TYPE_BILLING});
-      threat_types.insert(billing.begin(), billing.end());
-    }
+         SB_THREAT_TYPE_URL_UNWANTED, SB_THREAT_TYPE_BILLING});
 
     // The async CheckDone() hook will not be called when we have a synchronous
     // safe signal, handle it right away.
@@ -1017,9 +1011,6 @@ IN_PROC_BROWSER_TEST_F(V4SafeBrowsingServiceTest, CheckBrowseUrlForBilling) {
     client->CheckBrowseUrl(bad_url);
     EXPECT_EQ(SB_THREAT_TYPE_SAFE, client->GetThreatType());
 
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(kBillingInterstitial);
-
     // Since bad_url is not in database, it is considered to be
     // safe.
     client->CheckBrowseUrl(bad_url);
@@ -1079,7 +1070,7 @@ IN_PROC_BROWSER_TEST_P(V4SafeBrowsingServiceJsRequestInterstitialTest,
   EXPECT_TRUE(hit_report().is_subresource);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     V4SafeBrowsingServiceJsRequestInterstitialTest,
     ::testing::Values(
@@ -1109,17 +1100,17 @@ IN_PROC_BROWSER_TEST_P(V4SafeBrowsingServiceJsRequestNoInterstitialTest,
   EXPECT_FALSE(got_hit_report());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     V4SafeBrowsingServiceJsRequestNoInterstitialTest,
-    ::testing::Values(
-        JsRequestTestParam(ContextType::kSharedWorker,
-                           JsRequestType::kWebSocket),
-        JsRequestTestParam(ContextType::kServiceWorker,
-                           JsRequestType::kWebSocket),
-        JsRequestTestParam(ContextType::kSharedWorker, JsRequestType::kFetch),
-        JsRequestTestParam(ContextType::kServiceWorker,
-                           JsRequestType::kFetch)));
+    ::testing::Values(JsRequestTestParam(ContextType::kSharedWorker,
+                                         JsRequestType::kWebSocket),
+                      JsRequestTestParam(ContextType::kServiceWorker,
+                                         JsRequestType::kWebSocket),
+                      JsRequestTestParam(ContextType::kSharedWorker,
+                                         JsRequestType::kFetch),
+                      JsRequestTestParam(ContextType::kServiceWorker,
+                                         JsRequestType::kFetch)));
 
 using V4SafeBrowsingServiceJsRequestSafeTest =
     V4SafeBrowsingServiceJsRequestTest;
@@ -1137,7 +1128,7 @@ IN_PROC_BROWSER_TEST_P(V4SafeBrowsingServiceJsRequestSafeTest,
   EXPECT_FALSE(got_hit_report());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     V4SafeBrowsingServiceJsRequestSafeTest,
     ::testing::Values(
@@ -1314,7 +1305,7 @@ IN_PROC_BROWSER_TEST_P(V4SafeBrowsingServiceMetadataTest, MalwareImg) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     MaybeSetMetadata,
     V4SafeBrowsingServiceMetadataTest,
     testing::Values(ThreatPatternType::NONE,

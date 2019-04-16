@@ -48,7 +48,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     private String mUrl;
 
     /**
-     * Checks if this feature (a.k.a. "Sneak peek") for html and image is supported.
+     * Checks if this feature (a.k.a. "Preview page/image") is supported.
      * @return {@code true} if the feature is enabled.
      */
     public static boolean isSupported() {
@@ -109,7 +109,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     }
 
     @Override
-    public void setPanelState(PanelState toState, @StateChangeReason int reason) {
+    public void setPanelState(@PanelState int toState, @StateChangeReason int reason) {
         super.setPanelState(toState, reason);
         if (toState == PanelState.CLOSED) {
             RecordHistogram.recordBooleanHistogram("EphemeralTab.Ctr", mWasPanelOpened);
@@ -175,7 +175,7 @@ public class EphemeralTabPanel extends OverlayPanel {
     }
 
     @Override
-    protected boolean isSupportedState(PanelState state) {
+    protected boolean isSupportedState(@PanelState int state) {
         return state != PanelState.EXPANDED;
     }
 

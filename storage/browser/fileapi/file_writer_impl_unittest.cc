@@ -5,6 +5,8 @@
 #include "storage/browser/fileapi/file_writer_impl.h"
 
 #include <limits>
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/guid.h"
 #include "base/test/bind_test_util.h"
@@ -174,9 +176,9 @@ class FileWriterImplWriteTest : public FileWriterImplTest,
   bool WriteUsingBlobs() override { return GetParam(); }
 };
 
-INSTANTIATE_TEST_CASE_P(FileWriterImplTest,
-                        FileWriterImplWriteTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(FileWriterImplTest,
+                         FileWriterImplWriteTest,
+                         ::testing::Bool());
 
 TEST_F(FileWriterImplTest, WriteInvalidBlob) {
   blink::mojom::BlobPtr blob;

@@ -9,6 +9,7 @@
 #include "ash/public/cpp/ash_pref_names.h"
 #include "ash/session/session_controller.h"
 #include "ash/shell.h"
+#include "base/bind.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/device_event_log/device_event_log.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -181,8 +182,9 @@ void BluetoothPowerController::AdapterPresentChanged(
     // it has "initialized" signal in the future (http://crbug.com/765390).
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&BluetoothPowerController::TriggerRunPendingBluetoothTasks,
-                   weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(
+            &BluetoothPowerController::TriggerRunPendingBluetoothTasks,
+            weak_ptr_factory_.GetWeakPtr()),
         base::TimeDelta::FromMilliseconds(kBluetoothInitializationDelay));
   }
 }

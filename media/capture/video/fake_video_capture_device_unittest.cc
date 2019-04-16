@@ -98,7 +98,7 @@ VideoCaptureDevice::Client::Buffer CreateStubBuffer(int buffer_id,
       buffer_id, arbitrary_frame_feedback_id,
       std::make_unique<StubBufferHandleProvider>(mapped_size, buffer),
       std::make_unique<StubReadWritePermission>(buffer));
-};
+}
 
 class ImageCaptureClient : public base::RefCounted<ImageCaptureClient> {
  public:
@@ -262,7 +262,7 @@ TEST_P(FakeVideoCaptureDeviceTest, CaptureUsing) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     FakeVideoCaptureDeviceTest,
     Combine(
@@ -566,7 +566,7 @@ TEST_P(FakeVideoCaptureDeviceFactoryTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     FakeVideoCaptureDeviceFactoryTest,
     Values(CommandLineTestData{"fps=-1",
@@ -617,4 +617,4 @@ INSTANTIATE_TEST_CASE_P(
                1u,
                FakeVideoCaptureDevice::DisplayMediaType::BROWSER,
                {PIXEL_FORMAT_I420}}));
-};  // namespace media
+}  // namespace media

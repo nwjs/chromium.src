@@ -63,7 +63,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   WebLocalFrameImpl* GetWebFrame() const override;
 
   // LocalFrameClient ----------------------------------------------
-
+  WebContentCaptureClient* GetWebContentCaptureClient() const override;
   void DidCreateNewDocument() override;
   void willHandleNavigationPolicy(const blink::ResourceRequest& request, blink::NavigationPolicy* policy, WebString* manifest = nullptr, bool new_win = true) override;
   // Notifies the WebView delegate that the JS window object has been cleared,
@@ -147,9 +147,9 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   void DidDispatchPingLoader(const KURL&) override;
   void DidDisplayContentWithCertificateErrors() override;
   void DidRunContentWithCertificateErrors() override;
-  void ReportLegacySymantecCert(const KURL&, bool) override;
   void ReportLegacyTLSVersion(const KURL&) override;
   void DidChangePerformanceTiming() override;
+  void DidChangeCpuTiming(base::TimeDelta) override;
   void DidObserveLoadingBehavior(WebLoadingBehaviorFlag) override;
   void DidObserveNewFeatureUsage(mojom::WebFeature) override;
   void DidObserveNewCssPropertyUsage(int, bool) override;
@@ -157,6 +157,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   bool ShouldTrackUseCounter(const KURL&) override;
   void SelectorMatchChanged(const Vector<String>& added_selectors,
                             const Vector<String>& removed_selectors) override;
+  void VisibilityChanged(blink::mojom::FrameVisibility visibility) override;
 
   // Creates a WebDocumentLoaderImpl that is a DocumentLoader but also has:
   // - storage to store an extra data that can be used by the content layer
@@ -174,6 +175,7 @@ class LocalFrameClientImpl final : public LocalFrameClient {
       DocumentLoader* document_loader,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
   WTF::String UserAgent() override;
+  blink::UserAgentMetadata UserAgentMetadata() override;
   WTF::String DoNotTrackValue() override;
   void TransitionToCommittedForNewPage() override;
   LocalFrame* CreateFrame(const WTF::AtomicString& name,
@@ -259,7 +261,20 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   service_manager::InterfaceProvider* GetInterfaceProvider() override;
 
+  // Binds |js_handle| to the current implementation bound to
+  // |document_interface_broker_| to share the same broker between C++ and
+  // JavaScript clients.
+  void BindDocumentInterfaceBroker(
+      mojo::ScopedMessagePipeHandle js_handle) override;
+
   mojom::blink::DocumentInterfaceBroker* GetDocumentInterfaceBroker() override;
+
+  // Binds |document_interface_broker_| to |blink_handle|. Used in tests to set
+  // a custom override for DocumentInterfaceBroker methods. Returns the handle
+  // to the previously bound 'production' implementation, which will be used to
+  // forward the calls to methods that have not been overridden.
+  mojo::ScopedMessagePipeHandle SetDocumentInterfaceBrokerForTesting(
+      mojo::ScopedMessagePipeHandle blink_handle) override;
 
   AssociatedInterfaceProvider* GetRemoteNavigationAssociatedInterfaces()
       override;
@@ -292,8 +307,13 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   bool IsPluginHandledExternally(HTMLPlugInElement&,
                                  const KURL&,
                                  const String&) override;
+  v8::Local<v8::Object> GetScriptableObject(HTMLPlugInElement&,
+                                            v8::Isolate*) override;
 
   scoped_refptr<WebWorkerFetchContext> CreateWorkerFetchContext() override;
+  scoped_refptr<WebWorkerFetchContext>
+  CreateWorkerFetchContextForPlzDedicatedWorker(
+      WebDedicatedWorkerHostFactoryClient*) override;
   std::unique_ptr<WebContentSettingsClient> CreateWorkerContentSettingsClient()
       override;
 
@@ -301,7 +321,21 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   bool UsePrintingLayout() const override;
 
+  const FeaturePolicy::FeatureState& GetOpenerFeatureState() const override;
+
  private:
+  struct DocumentInterfaceBrokerForwarderTraits {
+    using Interface = mojom::blink::DocumentInterfaceBroker;
+    using PointerType = WeakPersistent<LocalFrameClientImpl>;
+    static bool IsNull(PointerType ptr) {
+      return !ptr || !ptr->document_interface_broker_;
+    }
+    static Interface* GetRawPointer(PointerType* ptr) {
+      return (*ptr)->GetDocumentInterfaceBroker();
+    }
+  };
+  friend struct DocumentInterfaceBrokerForwarderTraits;
+
   bool IsLocalFrameClientImpl() const override { return true; }
   WebDevToolsAgentImpl* DevToolsAgent();
 
@@ -310,8 +344,22 @@ class LocalFrameClientImpl final : public LocalFrameClient {
   Member<WebLocalFrameImpl> web_frame_;
 
   String user_agent_;
+  blink::UserAgentMetadata user_agent_metadata_;
 
   mojom::blink::DocumentInterfaceBrokerPtr document_interface_broker_;
+
+  // |document_interface_broker_bindings_| basically just forwards the broker
+  // methods to GetDocumentInterfaceBroker()
+  // via DocumentInterfaceBrokerForwarderTraits.
+  // Used to connect JavaScript clients of DocumentInterfaceBroker with the same
+  // implementation that |document_interface_broker_| is bound to.
+  using DocumentInterfaceBrokerBinding =
+      mojo::Binding<mojom::blink::DocumentInterfaceBroker,
+                    DocumentInterfaceBrokerForwarderTraits>;
+  mojo::BindingSetBase<mojom::blink::DocumentInterfaceBroker,
+                       DocumentInterfaceBrokerBinding,
+                       void>
+      document_interface_broker_bindings_;
 };
 
 DEFINE_TYPE_CASTS(LocalFrameClientImpl,

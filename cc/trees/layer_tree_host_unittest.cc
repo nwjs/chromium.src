@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -146,8 +147,8 @@ class LayerTreeHostTestFrameOrdering : public LayerTreeHostTest {
   enum MainOrder : int {
     MAIN_START = 1,
     MAIN_LAYOUT,
-    MAIN_COMMIT_COMPLETE,
     MAIN_DID_BEGIN_FRAME,
+    MAIN_COMMIT_COMPLETE,
     MAIN_END,
   };
 
@@ -3300,7 +3301,7 @@ class ViewportDeltasAppliedDuringPinch : public LayerTreeHostTest {
     page_scale_layer->AddChild(pinch);
     root_clip->AddChild(page_scale_layer);
 
-    LayerTreeHost::ViewportLayers viewport_layers;
+    ViewportLayers viewport_layers;
     viewport_layers.page_scale = page_scale_layer;
     viewport_layers.inner_viewport_container = root_clip;
     viewport_layers.inner_viewport_scroll = pinch;
@@ -5562,7 +5563,7 @@ class LayerTreeHostTestElasticOverscroll : public LayerTreeHostTest {
     inner_viewport_scroll_layer->AddChild(content_layer);
 
     layer_tree_host()->SetRootLayer(root_layer_);
-    LayerTreeHost::ViewportLayers viewport_layers;
+    ViewportLayers viewport_layers;
     viewport_layers.overscroll_elasticity_element_id =
         overscroll_elasticity_layer->element_id();
     viewport_layers.page_scale = page_scale_layer;
@@ -7071,7 +7072,7 @@ class LayerTreeHostTestCrispUpAfterPinchEnds : public LayerTreeHostTest {
     // pinch.
     pinch->AddChild(layer);
 
-    LayerTreeHost::ViewportLayers viewport_layers;
+    ViewportLayers viewport_layers;
     viewport_layers.page_scale = page_scale_layer;
     viewport_layers.inner_viewport_container = root_clip;
     viewport_layers.inner_viewport_scroll = pinch;
@@ -7381,7 +7382,7 @@ class LayerTreeHostTestContinuousDrawWhenCreatingVisibleTiles
     // pinch.
     pinch->AddChild(layer);
 
-    LayerTreeHost::ViewportLayers viewport_layers;
+    ViewportLayers viewport_layers;
     viewport_layers.page_scale = page_scale_layer;
     viewport_layers.inner_viewport_container = root_clip;
     viewport_layers.inner_viewport_scroll = pinch;
@@ -7753,7 +7754,7 @@ class LayerTreeTestPageScaleFlags : public LayerTreeTest {
     layer_tree_host()->SetRootLayer(root);
     LayerTreeTest::SetupTree();
 
-    LayerTreeHost::ViewportLayers viewport_layers;
+    ViewportLayers viewport_layers;
     viewport_layers.inner_viewport_container = root;
     viewport_layers.page_scale = page_scale;
     viewport_layers.inner_viewport_scroll = inner_viewport_scroll;
@@ -8663,9 +8664,8 @@ class LayerTreeHostTestImageAnimationSynchronousSchedulingSoftwareDraw
   }
 };
 
-// TODO(crbug.com/851231): Disabled this test due to flakiness.
-// MULTI_THREAD_TEST_F(
-//    LayerTreeHostTestImageAnimationSynchronousSchedulingSoftwareDraw);
+MULTI_THREAD_TEST_F(
+    LayerTreeHostTestImageAnimationSynchronousSchedulingSoftwareDraw);
 
 class LayerTreeHostTestImageDecodingHints : public LayerTreeHostTest {
  public:
@@ -9032,6 +9032,66 @@ class LayerTreeHostTestRequestForceSendMetadata
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestRequestForceSendMetadata);
+
+class LayerTreeHostTestPartialTileDamage : public LayerTreeHostTest {
+ public:
+  LayerTreeHostTestPartialTileDamage()
+      : partial_damage_(20, 20, 45, 60), layer_size_(512, 512) {}
+
+  void BeginTest() override { PostSetNeedsCommitToMainThread(); }
+  void AfterTest() override {}
+
+  void InitializeSettings(LayerTreeSettings* settings) override {
+    settings->default_tile_size = gfx::Size(256, 256);
+  }
+
+  void SetupTree() override {
+    content_layer_client_.set_bounds(layer_size_);
+    content_layer_client_.set_fill_with_nonsolid_color(true);
+    layer_tree_host()->SetRootLayer(
+        FakePictureLayer::Create(&content_layer_client_));
+    layer_tree_host()->root_layer()->SetBounds(layer_size_);
+    LayerTreeTest::SetupTree();
+  }
+
+  void DoPartialTileInvalidation() {
+    layer_tree_host()->root_layer()->SetNeedsDisplayRect(partial_damage_);
+  }
+
+  void DisplayReceivedCompositorFrameOnThread(
+      const viz::CompositorFrame& frame) override {
+    frame_count_on_impl_thread_++;
+    gfx::Rect frame_damage = frame.render_pass_list.back()->damage_rect;
+
+    switch (frame_count_on_impl_thread_) {
+      case 1:
+        // We have the first frame, which should damage everything. Schedule
+        // another which partially damages one of tiles.
+        MainThreadTaskRunner()->PostTask(
+            FROM_HERE,
+            base::BindOnce(
+                &LayerTreeHostTestPartialTileDamage::DoPartialTileInvalidation,
+                base::Unretained(this)));
+        EXPECT_EQ(frame_damage, gfx::Rect(layer_size_));
+        break;
+      case 2:
+        EXPECT_EQ(frame_damage, partial_damage_);
+        EndTest();
+    }
+  }
+
+ protected:
+  const gfx::Rect partial_damage_;
+  const gfx::Size layer_size_;
+
+  // Main thread.
+  FakeContentLayerClient content_layer_client_;
+
+  // Impl thread.
+  int frame_count_on_impl_thread_ = 0;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostTestPartialTileDamage);
 
 }  // namespace
 }  // namespace cc

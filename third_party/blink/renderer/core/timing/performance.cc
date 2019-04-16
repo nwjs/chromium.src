@@ -38,8 +38,10 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_timing.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
+#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/loader/document_load_timing.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/timing/performance_element_timing.h"
@@ -59,7 +61,6 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
-#include "third_party/blink/renderer/platform/wtf/time.h"
 
 namespace blink {
 
@@ -199,10 +200,6 @@ MemoryInfo* Performance::memory() const {
   return nullptr;
 }
 
-bool Performance::shouldYield() const {
-  return false;
-}
-
 DOMHighResTimeStamp Performance::timeOrigin() const {
   DCHECK(!time_origin_.is_null());
   return GetUnixAtZeroMonotonic() +
@@ -240,12 +237,30 @@ PerformanceEntryVector Performance::getEntries() {
   return entries;
 }
 
-PerformanceEntryVector Performance::getEntriesByType(
+PerformanceEntryVector Performance::getBufferedEntriesByType(
     const AtomicString& entry_type) {
-  PerformanceEntryVector entries;
   PerformanceEntry::EntryType type =
       PerformanceEntry::ToEntryTypeEnum(entry_type);
+  return getEntriesByTypeInternal(type);
+}
 
+PerformanceEntryVector Performance::getEntriesByType(
+    const AtomicString& entry_type) {
+  PerformanceEntry::EntryType type =
+      PerformanceEntry::ToEntryTypeEnum(entry_type);
+  if (!PerformanceEntry::IsValidTimelineEntryType(type)) {
+    PerformanceEntryVector empty_entries;
+    String message = "Deprecated API for given entry type.";
+    GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
+    return empty_entries;
+  }
+  return getEntriesByTypeInternal(type);
+}
+
+PerformanceEntryVector Performance::getEntriesByTypeInternal(
+    PerformanceEntry::EntryType type) {
+  PerformanceEntryVector entries;
   switch (type) {
     case PerformanceEntry::kResource:
       for (const auto& resource : resource_timing_buffer_)
@@ -409,7 +424,6 @@ void Performance::setResourceTimingBufferSize(unsigned size) {
 bool Performance::PassesTimingAllowCheck(
     const ResourceResponse& response,
     const SecurityOrigin& initiator_security_origin,
-    const AtomicString& original_timing_allow_origin,
     ExecutionContext* context) {
   const KURL& response_url = response.ResponseUrl();
   scoped_refptr<const SecurityOrigin> resource_origin =
@@ -418,9 +432,7 @@ bool Performance::PassesTimingAllowCheck(
     return true;
 
   const AtomicString& timing_allow_origin_string =
-      original_timing_allow_origin.IsEmpty()
-          ? response.HttpHeaderField(http_names::kTimingAllowOrigin)
-          : original_timing_allow_origin;
+      response.HttpHeaderField(http_names::kTimingAllowOrigin);
   if (timing_allow_origin_string.IsEmpty() ||
       EqualIgnoringASCIICase(timing_allow_origin_string, "null"))
     return false;
@@ -459,12 +471,11 @@ bool Performance::AllowsTimingRedirect(
     const SecurityOrigin& initiator_security_origin,
     ExecutionContext* context) {
   if (!PassesTimingAllowCheck(final_response, initiator_security_origin,
-                              AtomicString(), context))
+                              context))
     return false;
 
   for (const ResourceResponse& response : redirect_chain) {
-    if (!PassesTimingAllowCheck(response, initiator_security_origin,
-                                AtomicString(), context))
+    if (!PassesTimingAllowCheck(response, initiator_security_origin, context))
       return false;
   }
 
@@ -496,11 +507,10 @@ WebResourceTimingInfo Performance::GenerateResourceTiming(
   result.alpn_negotiated_protocol = final_response.AlpnNegotiatedProtocol();
   result.connection_info = final_response.ConnectionInfoString();
   result.timing = final_response.GetResourceLoadTiming();
-  result.finish_time = info.LoadFinishTime();
+  result.response_end = info.LoadResponseEnd();
 
   result.allow_timing_details = PassesTimingAllowCheck(
-      final_response, destination_origin, info.OriginalTimingAllowOrigin(),
-      &context_for_use_counter);
+      final_response, destination_origin, &context_for_use_counter);
 
   const Vector<ResourceResponse>& redirect_chain = info.RedirectChain();
   if (!redirect_chain.IsEmpty()) {
@@ -587,7 +597,7 @@ bool Performance::IsEventTimingBufferFull() const {
 
 void Performance::CopySecondaryBuffer() {
   // https://w3c.github.io/resource-timing/#dfn-copy-secondary-buffer
-  while (resource_timing_secondary_buffer_.size() &&
+  while (!resource_timing_secondary_buffer_.empty() &&
          CanAddResourceTimingEntry()) {
     PerformanceEntry* entry = resource_timing_secondary_buffer_.front();
     DCHECK(entry);
@@ -598,7 +608,7 @@ void Performance::CopySecondaryBuffer() {
 
 void Performance::FireResourceTimingBufferFull(TimerBase*) {
   // https://w3c.github.io/resource-timing/#dfn-fire-a-buffer-full-event
-  while (resource_timing_secondary_buffer_.size()) {
+  while (!resource_timing_secondary_buffer_.empty()) {
     int excess_entries_before = resource_timing_secondary_buffer_.size();
     if (!CanAddResourceTimingEntry()) {
       DispatchEvent(
@@ -973,8 +983,8 @@ DOMHighResTimeStamp Performance::MonotonicTimeToDOMHighResTimeStamp(
     return 0.0;
 
   double clamped_time_in_seconds =
-      ClampTimeResolution(TimeTicksInSeconds(monotonic_time)) -
-      ClampTimeResolution(TimeTicksInSeconds(time_origin));
+      ClampTimeResolution(monotonic_time.since_origin().InSecondsF()) -
+      ClampTimeResolution(time_origin.since_origin().InSecondsF());
   if (clamped_time_in_seconds < 0 && !allow_negative_value)
     return 0.0;
   return ConvertSecondsToDOMHighResTimeStamp(clamped_time_in_seconds);

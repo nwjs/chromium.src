@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "build/build_config.h"
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/output_surface_frame.h"
@@ -163,6 +164,9 @@ gfx::BufferFormat GpuBrowserCompositorOutputSurface::GetOverlayBufferFormat()
 
 void GpuBrowserCompositorOutputSurface::SetDrawRectangle(
     const gfx::Rect& rect) {
+  if (!context_provider_->ContextCapabilities().dc_layers)
+    return;
+
   if (set_draw_rectangle_for_frame_)
     return;
   DCHECK(gfx::Rect(size_).Contains(rect));
@@ -196,13 +200,6 @@ GpuBrowserCompositorOutputSurface::GetCommandBufferProxy() {
   DCHECK(command_buffer_proxy);
   return command_buffer_proxy;
 }
-
-#if BUILDFLAG(ENABLE_VULKAN)
-gpu::VulkanSurface* GpuBrowserCompositorOutputSurface::GetVulkanSurface() {
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-#endif
 
 unsigned GpuBrowserCompositorOutputSurface::UpdateGpuFence() {
   return 0;

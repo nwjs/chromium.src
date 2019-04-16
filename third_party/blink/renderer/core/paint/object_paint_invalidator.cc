@@ -218,21 +218,12 @@ PaintInvalidationReason
 ObjectPaintInvalidatorWithContext::ComputePaintInvalidationReason() {
   // This is before any early return to ensure the background obscuration status
   // is saved.
-  bool background_obscuration_changed = false;
-  bool background_obscured = object_.BackgroundIsKnownToBeObscured();
-  if (background_obscured != object_.PreviousBackgroundObscured()) {
-    object_.GetMutableForPainting().SetPreviousBackgroundObscured(
-        background_obscured);
-    background_obscuration_changed = true;
-  }
-
   if (!object_.ShouldCheckForPaintInvalidation() &&
       (!context_.subtree_flags ||
        context_.subtree_flags ==
            PaintInvalidatorContext::kSubtreeVisualRectUpdate)) {
     // No paint invalidation flag, or just kSubtreeVisualRectUpdate (which has
     // been handled in PaintInvalidator). No paint invalidation is needed.
-    DCHECK(!background_obscuration_changed);
     return PaintInvalidationReason::kNone;
   }
 
@@ -248,9 +239,6 @@ ObjectPaintInvalidatorWithContext::ComputePaintInvalidationReason() {
       context_.old_visual_rect.IsEmpty() &&
       context_.fragment_data->VisualRect().IsEmpty())
     return PaintInvalidationReason::kNone;
-
-  if (background_obscuration_changed)
-    return PaintInvalidationReason::kBackground;
 
   if (object_.PaintedOutputOfObjectHasNoEffectRegardlessOfSize())
     return PaintInvalidationReason::kNone;
@@ -302,15 +290,6 @@ ObjectPaintInvalidatorWithContext::ComputePaintInvalidationReason() {
 DISABLE_CFI_PERF
 PaintInvalidationReason ObjectPaintInvalidatorWithContext::InvalidateSelection(
     PaintInvalidationReason reason) {
-  // In LayoutNG, if NGPaintFragment paints the selection, we invalidate for
-  // selection change in PaintInvalidator.
-  if (RuntimeEnabledFeatures::LayoutNGEnabled() && object_.IsInline() &&
-      // LayoutReplaced still paints selection tint by itself.
-      !object_.IsLayoutReplaced() &&
-      NGPaintFragment::InlineFragmentsFor(&object_)
-          .IsInLayoutNGInlineFormattingContext())
-    return reason;
-
   // Update selection rect when we are doing full invalidation with geometry
   // change (in case that the object is moved, composite status changed, etc.)
   // or shouldInvalidationSelection is set (in case that the selection itself

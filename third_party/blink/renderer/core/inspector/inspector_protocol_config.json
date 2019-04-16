@@ -48,7 +48,7 @@
             },
             {
                 "domain": "IndexedDB",
-                "async": ["requestDatabaseNames", "requestDatabase", "requestData", "deleteObjectStoreEntries", "clearObjectStore", "deleteDatabase"]
+                "async": ["requestDatabaseNames", "requestDatabase", "requestData", "getKeyGeneratorCurrentNumber", "deleteObjectStoreEntries", "clearObjectStore", "deleteDatabase"]
             },
             {
                 "domain": "LayerTree"
@@ -69,7 +69,7 @@
             },
             {
                 "domain": "Memory",
-                "include": ["getDOMCounters", "startSampling", "stopSampling", "getSamplingProfile", "getAllTimeSamplingProfile"]
+                "include": ["getDOMCounters", "forciblyPurgeJavaScriptMemory", "startSampling", "stopSampling", "getSamplingProfile", "getAllTimeSamplingProfile"]
             },
             {
                 "domain": "Page",

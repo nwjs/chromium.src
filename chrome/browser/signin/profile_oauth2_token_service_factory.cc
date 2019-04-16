@@ -8,14 +8,13 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
-#include "chrome/browser/signin/chrome_signin_client_factory.h"
-#include "chrome/browser/web_data_service_factory.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/device_id_helper.h"
@@ -26,7 +25,8 @@
 #include "components/signin/core/browser/oauth2_token_service_delegate_android.h"
 #else
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
-#include "chrome/browser/ui/global_error/global_error_service_factory.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/web_data_service_factory.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/signin/core/browser/cookie_settings_util.h"
 #include "components/signin/core/browser/mutable_profile_oauth2_token_service_delegate.h"
@@ -34,10 +34,10 @@
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/chromeos/account_manager/account_manager_util.h"
 #include "chrome/browser/chromeos/oauth2_token_service_delegate.h"
 #include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chromeos/account_manager/account_manager_factory.h"
-#include "chromeos/constants/chromeos_switches.h"
 #include "components/user_manager/user_manager.h"
 #endif  // defined(OS_CHROMEOS)
 
@@ -48,17 +48,6 @@
 namespace {
 
 #if defined(OS_CHROMEOS)
-bool ShouldCreateCrOsOAuthDelegate(Profile* profile) {
-  // Chrome OS Account Manager should only be instantiated in "regular"
-  // profiles. Do not try to create |ChromeOSOAuth2TokenServiceDelegate| (which
-  // uses CrOS Account Manager as the source of truth) for Signin Profile,
-  // Lock Screen Profile and Guest Sessions.
-  return chromeos::switches::IsAccountManagerEnabled() &&
-         !chromeos::ProfileHelper::IsSigninProfile(profile) &&
-         !chromeos::ProfileHelper::IsLockScreenAppProfile(profile) &&
-         !profile->IsGuestSession();
-}
-
 std::unique_ptr<chromeos::ChromeOSOAuth2TokenServiceDelegate>
 CreateCrOsOAuthDelegate(Profile* profile) {
   chromeos::AccountManagerFactory* factory =
@@ -130,7 +119,7 @@ std::unique_ptr<OAuth2TokenServiceDelegate> CreateOAuth2TokenServiceDelegate(
 #else  // defined(OS_ANDROID)
 
 #if defined(OS_CHROMEOS)
-  if (ShouldCreateCrOsOAuthDelegate(profile)) {
+  if (chromeos::IsAccountManagerAvailable(profile)) {
     return CreateCrOsOAuthDelegate(profile);
   }
 #endif  // defined(OS_CHROMEOS)
@@ -138,7 +127,7 @@ std::unique_ptr<OAuth2TokenServiceDelegate> CreateOAuth2TokenServiceDelegate(
   // Fall back to |MutableProfileOAuth2TokenServiceDelegate|:
   // 1. On all platforms other than Android and Chrome OS.
   // 2. On Chrome OS, if |ChromeOSOAuth2TokenServiceDelegate| cannot be used
-  // for this |profile|. See |ShouldCreateCrOsOAuthDelegate|.
+  // for this |profile|. See |chromeos::IsAccountManagerAvailable|.
   return CreateMutableProfileOAuthDelegate(profile);
 
 #endif  // defined(OS_ANDROID)
@@ -151,12 +140,10 @@ ProfileOAuth2TokenServiceFactory::ProfileOAuth2TokenServiceFactory()
         "ProfileOAuth2TokenService",
         BrowserContextDependencyManager::GetInstance()) {
 #if !defined(OS_ANDROID)
-  DependsOn(GlobalErrorServiceFactory::GetInstance());
-#endif
-  DependsOn(WebDataServiceFactory::GetInstance());
   DependsOn(ChromeSigninClientFactory::GetInstance());
-  DependsOn(AccountTrackerServiceFactory::GetInstance());
   DependsOn(WebDataServiceFactory::GetInstance());
+#endif
+  DependsOn(AccountTrackerServiceFactory::GetInstance());
 }
 
 ProfileOAuth2TokenServiceFactory::~ProfileOAuth2TokenServiceFactory() {

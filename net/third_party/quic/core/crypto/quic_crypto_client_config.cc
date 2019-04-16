@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <memory>
 
-#include "base/metrics/histogram_macros.h"
 #include "net/third_party/quic/core/crypto/cert_compressor.h"
 #include "net/third_party/quic/core/crypto/chacha20_poly1305_encrypter.h"
 #include "net/third_party/quic/core/crypto/channel_id.h"
@@ -523,9 +522,11 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
     CryptoHandshakeMessage* out,
     QuicString* error_details) const {
   DCHECK(error_details != nullptr);
-  QUIC_BUG_IF(connection_id.length() != kQuicDefaultConnectionIdLength)
-      << "FillClientHello called with connection ID " << connection_id
-      << " of unsupported length " << connection_id.length();
+  QUIC_BUG_IF(!QuicUtils::IsConnectionIdValidForVersion(
+      connection_id, preferred_version.transport_version))
+      << "FillClientHello: attempted to use connection ID " << connection_id
+      << " which is invalid with version "
+      << QuicVersionToString(preferred_version.transport_version);
 
   FillInchoateClientHello(server_id, preferred_version, cached, rand,
                           /* demand_x509_proof= */ true, out_params, out);
@@ -656,14 +657,7 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
     const QuicData& client_hello_serialized = out->GetSerialized();
     hkdf_input.append(QuicCryptoConfig::kCETVLabel,
                       strlen(QuicCryptoConfig::kCETVLabel) + 1);
-    if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_CLIENT)) {
-      const uint64_t connection_id64_net =
-          QuicEndian::HostToNet64(QuicConnectionIdToUInt64(connection_id));
-      hkdf_input.append(reinterpret_cast<const char*>(&connection_id64_net),
-                        sizeof(connection_id64_net));
-    } else {
       hkdf_input.append(connection_id.data(), connection_id.length());
-    }
     hkdf_input.append(client_hello_serialized.data(),
                       client_hello_serialized.length());
     hkdf_input.append(cached->server_config());
@@ -695,8 +689,7 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
     std::unique_ptr<char[]> output(new char[encrypted_len]);
     size_t output_size = 0;
     if (!crypters.encrypter->EncryptPacket(
-            preferred_version.transport_version, 0 /* packet number */,
-            QuicStringPiece() /* associated data */,
+            0 /* packet number */, QuicStringPiece() /* associated data */,
             cetv_plaintext.AsStringPiece(), output.get(), &output_size,
             encrypted_len)) {
       *error_details = "Packet encryption failed";
@@ -714,16 +707,8 @@ QuicErrorCode QuicCryptoClientConfig::FillClientHello(
   //   out_params->hkdf_input_suffix
   //   out_params->initial_crypters
   out_params->hkdf_input_suffix.clear();
-  if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_CLIENT)) {
-    const uint64_t connection_id64_net =
-        QuicEndian::HostToNet64(QuicConnectionIdToUInt64(connection_id));
-    out_params->hkdf_input_suffix.append(
-        reinterpret_cast<const char*>(&connection_id64_net),
-        sizeof(connection_id64_net));
-  } else {
     out_params->hkdf_input_suffix.append(connection_id.data(),
                                          connection_id.length());
-  }
   const QuicData& client_hello_serialized = out->GetSerialized();
   out_params->hkdf_input_suffix.append(client_hello_serialized.data(),
                                        client_hello_serialized.length());
@@ -856,15 +841,7 @@ QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
 
   if (rej.tag() == kSREJ) {
     QuicConnectionId connection_id;
-    if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_CLIENT)) {
-      uint64_t connection_id64;
-      if (rej.GetUint64(kRCID, &connection_id64) != QUIC_NO_ERROR) {
-        *error_details = "Missing kRCID";
-        return QUIC_CRYPTO_MESSAGE_PARAMETER_NOT_FOUND;
-      }
-      connection_id64 = QuicEndian::NetToHost64(connection_id64);
-      connection_id = QuicConnectionIdFromUInt64(connection_id64);
-    } else {
+
       QuicStringPiece connection_id_bytes;
       if (!rej.GetStringPiece(kRCID, &connection_id_bytes)) {
         *error_details = "Missing kRCID";
@@ -872,15 +849,13 @@ QuicErrorCode QuicCryptoClientConfig::ProcessRejection(
       }
       connection_id = QuicConnectionId(connection_id_bytes.data(),
                                        connection_id_bytes.length());
-      if (connection_id.length() != kQuicDefaultConnectionIdLength) {
+      if (!QuicUtils::IsConnectionIdValidForVersion(connection_id, version)) {
         QUIC_PEER_BUG << "Received server-designated connection ID "
-                      << connection_id << " of bad length "
-                      << connection_id.length() << " with version "
+                      << connection_id << " which is invalid with version "
                       << QuicVersionToString(version);
         *error_details = "Bad kRCID length";
         return QUIC_CRYPTO_INTERNAL_ERROR;
       }
-    }
     cached->add_server_designated_connection_id(connection_id);
     if (!nonce.empty()) {
       cached->add_server_nonce(QuicString(nonce));

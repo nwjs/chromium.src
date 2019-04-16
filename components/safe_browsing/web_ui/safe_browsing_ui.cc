@@ -12,6 +12,7 @@
 
 #include "base/base64.h"
 #include "base/base64url.h"
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/i18n/time_formatting.h"
 #include "base/json/json_string_value_serializer.h"
@@ -38,13 +39,12 @@
 #endif
 
 using base::Time;
+using sync_pb::GaiaPasswordReuse;
 using PasswordCaptured = sync_pb::UserEventSpecifics::GaiaPasswordCaptured;
-using PasswordReuseLookup =
-    sync_pb::UserEventSpecifics::GaiaPasswordReuse::PasswordReuseLookup;
-using PasswordReuseDetected =
-    sync_pb::UserEventSpecifics::GaiaPasswordReuse::PasswordReuseDetected;
-using PasswordReuseDialogInteraction = sync_pb::UserEventSpecifics::
-    GaiaPasswordReuse::PasswordReuseDialogInteraction;
+using PasswordReuseLookup = sync_pb::GaiaPasswordReuse::PasswordReuseLookup;
+using PasswordReuseDetected = sync_pb::GaiaPasswordReuse::PasswordReuseDetected;
+using PasswordReuseDialogInteraction =
+    sync_pb::GaiaPasswordReuse::PasswordReuseDialogInteraction;
 
 namespace safe_browsing {
 WebUIInfoSingleton::WebUIInfoSingleton() = default;
@@ -488,6 +488,11 @@ std::string SerializeClientDownloadRequest(const ClientDownloadRequest& cdr) {
 
   dict.SetBoolean("request_ap_verdicts", cdr.request_ap_verdicts());
 
+  dict.SetInteger("archive_file_count", cdr.archive_file_count());
+  dict.SetInteger("archive_directory_count", cdr.archive_directory_count());
+
+  dict.SetBoolean("request_ap_verdicts", cdr.request_ap_verdicts());
+
   base::Value* request_tree = &dict;
   std::string request_serialized;
   JSONStringValueSerializer serializer(&request_serialized);
@@ -606,8 +611,7 @@ base::DictionaryValue SerializePGEvent(
                        base::Value(event_trigger));
   }
 
-  sync_pb::UserEventSpecifics::GaiaPasswordReuse reuse =
-      event.gaia_password_reuse_event();
+  GaiaPasswordReuse reuse = event.gaia_password_reuse_event();
   if (reuse.has_reuse_detected()) {
     event_dict.SetPath({"reuse_detected", "status", "enabled"},
                        base::Value(reuse.reuse_detected().status().enabled()));

@@ -23,7 +23,6 @@
 #include "chrome/browser/policy/javascript_policy_handler.h"
 #include "chrome/browser/policy/managed_bookmarks_policy_handler.h"
 #include "chrome/browser/policy/network_prediction_policy_handler.h"
-#include "chrome/browser/policy/webusb_allow_devices_for_urls_policy_handler.h"
 #include "chrome/browser/profiles/force_safe_search_policy_handler.h"
 #include "chrome/browser/profiles/force_youtube_safety_mode_policy_handler.h"
 #include "chrome/browser/profiles/guest_mode_policy_handler.h"
@@ -101,6 +100,7 @@
 #include "chrome/browser/download/download_dir_policy_handler.h"
 #include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/policy/local_sync_policy_handler.h"
+#include "chrome/browser/policy/webusb_allow_devices_for_urls_policy_handler.h"
 #endif
 
 #if !defined(OS_CHROMEOS)
@@ -326,6 +326,11 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kSafeSitesFilterBehavior,
     policy_prefs::kSafeSitesFilterBehavior,
     base::Value::Type::INTEGER},
+#if defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
+  { key::kAuthNegotiateDelegateByKdcPolicy,
+    prefs::kAuthNegotiateDelegateByKdcPolicy,
+    base::Value::Type::BOOLEAN },
+#endif  // defined(OS_LINUX) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
 #if defined(OS_POSIX)
   { key::kNtlmV2Enabled,
     prefs::kNtlmV2Enabled,
@@ -535,6 +540,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
 #endif  // !defined(OS_MACOSX)
 
 #if defined(OS_CHROMEOS)
+  { key::kCertificateManagementAllowed,
+    prefs::kCertificateManagementAllowed,
+    base::Value::Type::INTEGER },
   { key::kChromeOsLockOnIdleSuspend,
     ash::prefs::kEnableAutoScreenLock,
     base::Value::Type::BOOLEAN },
@@ -658,6 +666,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kEcryptfsMigrationStrategy,
     arc::prefs::kEcryptfsMigrationStrategy,
     base::Value::Type::INTEGER },
+  { key::kSchedulerConfiguration,
+    prefs::kSchedulerConfiguration,
+    base::Value::Type::STRING },
   { key::kNativePrintersBulkAccessMode,
     prefs::kRecommendedNativePrintersAccessMode,
     base::Value::Type::INTEGER },
@@ -697,6 +708,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kCrostiniAllowed,
     crostini::prefs::kUserCrostiniAllowedByPolicy,
     base::Value::Type::BOOLEAN },
+  { key::kCrostiniExportImportUIAllowed,
+    crostini::prefs::kUserCrostiniExportImportUIAllowedByPolicy,
+    base::Value::Type::BOOLEAN },
   { key::kReportCrostiniUsageEnabled,
     crostini::prefs::kReportCrostiniUsageEnabled,
     base::Value::Type::BOOLEAN },
@@ -709,6 +723,12 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kPluginVmImage,
     plugin_vm::prefs::kPluginVmImage,
     base::Value::Type::DICTIONARY },
+  { key::kVoiceInteractionContextEnabled,
+    arc::prefs::kVoiceInteractionContextEnabled,
+    base::Value::Type::BOOLEAN },
+  { key::kVoiceInteractionHotwordEnabled,
+    arc::prefs::kVoiceInteractionHotwordEnabled,
+    base::Value::Type::BOOLEAN },
 #endif  // defined(OS_CHROMEOS)
 
 // Metrics reporting is controlled by a platform specific policy for ChromeOS
@@ -772,7 +792,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kPrintPreviewUseSystemDefaultPrinter,
     base::Value::Type::BOOLEAN },
   { key::kCloudPolicyOverridesMachinePolicy,
-    prefs::kCloudPolicyOverridesMachinePolicy,
+    policy_prefs::kCloudPolicyOverridesMachinePolicy,
     base::Value::Type::BOOLEAN },
   { key::kCloudReportingEnabled,
     prefs::kCloudReportingEnabled,
@@ -846,7 +866,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::BOOLEAN },
 
   { key::kVpnConfigAllowed,
-    prefs::kVpnConfigAllowed,
+    ash::prefs::kVpnConfigAllowed,
     base::Value::Type::BOOLEAN },
 #endif
 
@@ -940,6 +960,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kEnterpriseHardwarePlatformAPIEnabled,
     prefs::kEnterpriseHardwarePlatformAPIEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kAllowPopupsDuringPageUnload,
+    prefs::kAllowPopupsDuringPageUnload,
+    base::Value::Type::BOOLEAN },
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
     (defined(OS_LINUX) && !defined(OS_CHROMEOS))
@@ -961,11 +984,23 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kBrowserSwitcherEnabled,
     browser_switcher::prefs::kEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kBrowserSwitcherKeepLastChromeTab,
+    browser_switcher::prefs::kKeepLastTab,
+    base::Value::Type::BOOLEAN },
+  { key::kBrowserSwitcherDelay,
+    browser_switcher::prefs::kDelay,
+    base::Value::Type::INTEGER },
 #endif
 #if defined(OS_WIN)
   { key::kBrowserSwitcherUseIeSitelist,
     browser_switcher::prefs::kUseIeSitelist,
     base::Value::Type::BOOLEAN },
+  { key::kBrowserSwitcherChromePath,
+    browser_switcher::prefs::kChromePath,
+    base::Value::Type::STRING },
+  { key::kBrowserSwitcherChromeParameters,
+    browser_switcher::prefs::kChromeParameters,
+    base::Value::Type::LIST },
 #endif
 };
 // clang-format on
@@ -1053,8 +1088,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       SCHEMA_STRICT,
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
-  handlers->AddHandler(
-      std::make_unique<WebUsbAllowDevicesForUrlsPolicyHandler>(chrome_schema));
 
 // On most platforms, there is a legacy policy
 // kUnsafelyTreatInsecureOriginAsSecure which has been replaced by
@@ -1181,6 +1214,13 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
           chrome_schema.GetValidationSchema(),
           SimpleSchemaValidatingPolicyHandler::RECOMMENDED_ALLOWED,
           SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
+  // At the moment, the WebUsbAllowDevicesForUrls policy is not supported on
+  // Android because the Site Settings UI is not yet capable of displaying
+  // policy managed USB items.
+  // TODO(https://crbug.com/931459): Move this statement outside of this
+  // preprocessor if statement once Android supports the policy.
+  handlers->AddHandler(
+      std::make_unique<WebUsbAllowDevicesForUrlsPolicyHandler>(chrome_schema));
 #endif
 
 #if !defined(OS_CHROMEOS)
@@ -1350,9 +1390,12 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(
       std::make_unique<PrintingAllowedDuplexModesPolicyHandler>());
   handlers->AddHandler(
+      std::make_unique<PrintingAllowedPinModesPolicyHandler>());
+  handlers->AddHandler(
       std::make_unique<PrintingAllowedPageSizesPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingColorDefaultPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingDuplexDefaultPolicyHandler>());
+  handlers->AddHandler(std::make_unique<PrintingPinDefaultPolicyHandler>());
   handlers->AddHandler(std::make_unique<PrintingSizeDefaultPolicyHandler>());
 
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(

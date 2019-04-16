@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/files/scoped_temp_dir.h"
@@ -2568,16 +2569,6 @@ TEST_F(SyncManagerTestWithMockScheduler, PurgeDisabledTypes) {
             sync_manager_.GetUserShare()->directory->InitialSyncEndedTypes());
   EXPECT_EQ(disabled_types, sync_manager_.GetTypesWithEmptyProgressMarkerToken(
                                 ModelTypeSet::All()));
-}
-
-// Test that SyncManager::ClearServerData invokes the scheduler.
-TEST_F(SyncManagerTestWithMockScheduler, ClearServerData) {
-  EXPECT_CALL(*scheduler(), Start(SyncScheduler::CLEAR_SERVER_DATA_MODE, _));
-  CallbackCounter callback_counter;
-  sync_manager_.ClearServerData(base::Bind(
-      &CallbackCounter::Callback, base::Unretained(&callback_counter)));
-  PumpLoop();
-  EXPECT_EQ(1, callback_counter.times_called());
 }
 
 // Test that PurgePartiallySyncedTypes purges only those types that have not

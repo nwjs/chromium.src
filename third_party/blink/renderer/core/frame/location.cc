@@ -249,7 +249,7 @@ void Location::reload() {
     return;
   // reload() is not cross-origin accessible, so |dom_window_| will always be
   // local.
-  ToLocalDOMWindow(dom_window_)
+  To<LocalDOMWindow>(dom_window_.Get())
       ->GetFrame()
       ->Reload(WebFrameLoadType::kReload,
                ClientRedirectPolicy::kClientRedirect);
@@ -294,17 +294,19 @@ void Location::SetLocation(const String& url,
     return;
 
   // Check the source browsing context's CSP to fulfill the CSP check
-  // requirement of https://html.spec.whatwg.org/#navigate for javascript URLs.
-  // Although the spec states we should perform this check on task execution,
-  // we do this prior to dispatch since the parent frame's CSP may be
+  // requirement of https://html.spec.whatwg.org/C/#navigate for javascript
+  // URLs. Although the spec states we should perform this check on task
+  // execution, we do this prior to dispatch since the parent frame's CSP may be
   // inaccessible if the target frame is out of process.
   Document* current_document = current_window->document();
   if (current_document && completed_url.ProtocolIsJavaScript() &&
       !ContentSecurityPolicy::ShouldBypassMainWorld(current_document)) {
     String script_source = DecodeURLEscapeSequences(
         completed_url.GetString(), DecodeURLMode::kUTF8OrIsomorphic);
-    if (!current_document->GetContentSecurityPolicy()->AllowJavaScriptURLs(
-            nullptr, script_source, current_document->Url(), OrdinalNumber())) {
+    if (!current_document->GetContentSecurityPolicy()->AllowInline(
+            ContentSecurityPolicy::InlineType::kJavaScriptURL,
+            nullptr /* element */, script_source, String() /* nonce */,
+            current_document->Url(), OrdinalNumber())) {
       return;
     }
   }
@@ -322,13 +324,15 @@ void Location::SetLocation(const String& url,
   WebFrameLoadType frame_load_type = WebFrameLoadType::kStandard;
   if (set_location_policy == SetLocationPolicy::kReplaceThisFrame)
     frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
+
+  current_window->GetFrame()->MaybeLogAdClickNavigation();
   dom_window_->GetFrame()->ScheduleNavigation(*current_window->document(),
                                               completed_url, frame_load_type,
                                               UserGestureStatus::kNone);
 }
 
 Document* Location::GetDocument() const {
-  return ToLocalDOMWindow(dom_window_)->document();
+  return To<LocalDOMWindow>(dom_window_.Get())->document();
 }
 
 bool Location::IsAttached() const {

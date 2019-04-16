@@ -27,7 +27,6 @@ import org.chromium.components.url_formatter.UrlFormatter;
 
 import java.util.Calendar;
 import java.util.Date;
-import java.util.concurrent.TimeUnit;
 
 /** A set of helper utility methods for the UI. */
 public final class UiUtils {
@@ -123,10 +122,10 @@ public final class UiUtils {
         calendar2.setTime(date);
 
         if (CalendarUtils.isSameDay(calendar1, calendar2)) {
-            int hours =
-                    (int) MathUtils.clamp(TimeUnit.MILLISECONDS.toHours(calendar1.getTimeInMillis()
-                                                  - calendar2.getTimeInMillis()),
-                            1, 23);
+            int hours = (int) MathUtils.clamp(
+                    (calendar1.getTimeInMillis() - calendar2.getTimeInMillis())
+                            / DateUtils.HOUR_IN_MILLIS,
+                    1, 23);
             return context.getResources().getQuantityString(
                     R.plurals.download_manager_n_hours, hours, hours);
         } else {
@@ -243,7 +242,7 @@ public final class UiUtils {
                 shownState = CircularProgressView.UiState.PAUSED;
                 break;
             case OfflineItemState.INTERRUPTED:
-                shownState = item.isResumable ? CircularProgressView.UiState.PAUSED
+                shownState = item.isResumable ? CircularProgressView.UiState.RUNNING
                                               : CircularProgressView.UiState.RETRY;
                 break;
             case OfflineItemState.COMPLETE: // Intentional fallthrough.

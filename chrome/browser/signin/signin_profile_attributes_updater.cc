@@ -54,7 +54,7 @@ void SigninProfileAttributesUpdater::UpdateProfileAttributes() {
   std::string old_gaia_id = entry->GetGAIAId();
 
   if (identity_manager_->HasPrimaryAccount()) {
-    AccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
+    CoreAccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
     entry->SetAuthInfo(account_info.gaia,
                        base::UTF8ToUTF16(account_info.email));
   } else {
@@ -80,11 +80,11 @@ void SigninProfileAttributesUpdater::OnErrorChanged() {
 }
 
 void SigninProfileAttributesUpdater::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   UpdateProfileAttributes();
 }
 
 void SigninProfileAttributesUpdater::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   UpdateProfileAttributes();
 }

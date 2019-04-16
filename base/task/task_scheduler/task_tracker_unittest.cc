@@ -486,7 +486,7 @@ TEST_P(TaskSchedulerTaskTrackerTest, IOAllowed) {
   Task task_with_may_block(FROM_HERE, Bind([]() {
                              // Shouldn't fail.
                              ScopedBlockingCall scope_blocking_call(
-                                 BlockingType::WILL_BLOCK);
+                                 FROM_HERE, BlockingType::WILL_BLOCK);
                            }),
                            TimeDelta());
   TaskTraits traits_with_may_block = TaskTraits(MayBlock(), GetParam());
@@ -498,13 +498,13 @@ TEST_P(TaskSchedulerTaskTrackerTest, IOAllowed) {
   // Set the IO allowed bit. Expect TaskTracker to unset it before running a
   // task without the MayBlock() trait.
   ThreadRestrictions::SetIOAllowed(true);
-  Task task_without_may_block(
-      FROM_HERE, Bind([]() {
-        EXPECT_DCHECK_DEATH({
-          ScopedBlockingCall scope_blocking_call(BlockingType::WILL_BLOCK);
-        });
-      }),
-      TimeDelta());
+  Task task_without_may_block(FROM_HERE, Bind([]() {
+                                EXPECT_DCHECK_DEATH({
+                                  ScopedBlockingCall scope_blocking_call(
+                                      FROM_HERE, BlockingType::WILL_BLOCK);
+                                });
+                              }),
+                              TimeDelta());
   TaskTraits traits_without_may_block = TaskTraits(GetParam());
   EXPECT_TRUE(tracker_.WillPostTask(
       &task_without_may_block, traits_without_may_block.shutdown_behavior()));
@@ -866,15 +866,15 @@ TEST_P(TaskSchedulerTaskTrackerTest, DelayedTasksDoNotBlockShutdown) {
   tracker_.Shutdown();
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ContinueOnShutdown,
     TaskSchedulerTaskTrackerTest,
     ::testing::Values(TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN));
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SkipOnShutdown,
     TaskSchedulerTaskTrackerTest,
     ::testing::Values(TaskShutdownBehavior::SKIP_ON_SHUTDOWN));
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     BlockShutdown,
     TaskSchedulerTaskTrackerTest,
     ::testing::Values(TaskShutdownBehavior::BLOCK_SHUTDOWN));

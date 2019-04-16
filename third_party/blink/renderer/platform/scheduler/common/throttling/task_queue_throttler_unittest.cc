@@ -9,6 +9,7 @@
 #include <deque>
 #include <memory>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/macros.h"
 #include "base/task/sequence_manager/sequence_manager.h"
@@ -173,9 +174,9 @@ class TaskQueueThrottlerWithAutoAdvancingTimeTest
   DISALLOW_COPY_AND_ASSIGN(TaskQueueThrottlerWithAutoAdvancingTimeTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        TaskQueueThrottlerWithAutoAdvancingTimeTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(,
+                         TaskQueueThrottlerWithAutoAdvancingTimeTest,
+                         testing::Bool());
 
 TEST_F(TaskQueueThrottlerTest, ThrottledTasksReportRealTime) {
   EXPECT_EQ(timer_queue_->GetTimeDomain()->Now(),

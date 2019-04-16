@@ -72,7 +72,6 @@ PaintLayerCompositor::PaintLayerCompositor(LayoutView& layout_view)
       has_accelerated_compositing_(true),
       compositing_(false),
       root_should_always_composite_dirty_(true),
-      in_overlay_fullscreen_video_(false),
       root_layer_attachment_(kRootLayerUnattached) {
   UpdateAcceleratedCompositingSettings();
 }
@@ -154,9 +153,9 @@ static LayoutVideo* FindFullscreenVideoLayoutObject(Document& document) {
   // Recursively find the document that is in fullscreen.
   Element* fullscreen_element = Fullscreen::FullscreenElementFrom(document);
   Document* content_document = &document;
-  while (fullscreen_element && fullscreen_element->IsFrameOwnerElement()) {
-    content_document =
-        ToHTMLFrameOwnerElement(fullscreen_element)->contentDocument();
+  while (auto* frame_owner =
+             DynamicTo<HTMLFrameOwnerElement>(fullscreen_element)) {
+    content_document = frame_owner->contentDocument();
     if (!content_document)
       return nullptr;
     fullscreen_element = Fullscreen::FullscreenElementFrom(*content_document);
@@ -204,9 +203,9 @@ void PaintLayerCompositor::UpdateIfNeededRecursiveInternal(
   for (Frame* child =
            layout_view_.GetFrameView()->GetFrame().Tree().FirstChild();
        child; child = child->Tree().NextSibling()) {
-    if (!child->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(child);
+    if (!local_frame)
       continue;
-    LocalFrame* local_frame = ToLocalFrame(child);
     // It's possible for trusted Pepper plugins to force hit testing in
     // situations where the frame tree is in an inconsistent state, such as in
     // the middle of frame detach.
@@ -287,9 +286,9 @@ void PaintLayerCompositor::UpdateIfNeededRecursiveInternal(
   for (Frame* child =
            layout_view_.GetFrameView()->GetFrame().Tree().FirstChild();
        child; child = child->Tree().NextSibling()) {
-    if (!child->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(child);
+    if (!local_frame)
       continue;
-    LocalFrame* local_frame = ToLocalFrame(child);
     if (local_frame->ShouldThrottleRendering() ||
         !local_frame->ContentLayoutObject())
       continue;
@@ -341,7 +340,6 @@ GraphicsLayer* PaintLayerCompositor::OverlayFullscreenVideoGraphicsLayer() {
 }
 
 void PaintLayerCompositor::ApplyOverlayFullscreenVideoAdjustmentIfNeeded() {
-  in_overlay_fullscreen_video_ = false;
   GraphicsLayer* content_parent = ParentForContentLayers();
   if (!content_parent)
     return;
@@ -357,7 +355,6 @@ void PaintLayerCompositor::ApplyOverlayFullscreenVideoAdjustmentIfNeeded() {
 
   content_parent->RemoveAllChildren();
   content_parent->AddChild(video_layer);
-  in_overlay_fullscreen_video_ = true;
 }
 
 void PaintLayerCompositor::AdjustOverlayFullscreenVideoPosition(
@@ -560,8 +557,8 @@ void PaintLayerCompositor::UpdateIfNeeded(
     AttachRootLayerViaChromeClient();
 
   // Inform the inspector that the layer tree has changed.
-  if (IsMainFrame())
-    probe::layerTreeDidChange(layout_view_.GetFrame());
+  if (IsMainFrame() && !RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    probe::LayerTreeDidChange(layout_view_.GetFrame());
 
   Lifecycle().AdvanceTo(DocumentLifecycle::kCompositingClean);
 }
@@ -690,11 +687,10 @@ void PaintLayerCompositor::PaintInvalidationOnCompositingChange(
 
 PaintLayerCompositor* PaintLayerCompositor::FrameContentsCompositor(
     LayoutEmbeddedContent& layout_object) {
-  if (!layout_object.GetNode()->IsFrameOwnerElement())
+  auto* element = DynamicTo<HTMLFrameOwnerElement>(layout_object.GetNode());
+  if (!element)
     return nullptr;
 
-  HTMLFrameOwnerElement* element =
-      ToHTMLFrameOwnerElement(layout_object.GetNode());
   if (Document* content_document = element->contentDocument()) {
     if (auto* view = content_document->GetLayoutView())
       return view->Compositor();
@@ -1006,9 +1002,9 @@ bool PaintLayerCompositor::IsRootScrollerAncestor() const {
   if (root_scroller_layer) {
     Frame* frame = root_scroller_layer->GetLayoutObject().GetFrame();
     while (frame) {
-      if (frame->IsLocalFrame()) {
+      if (auto* local_frame = DynamicTo<LocalFrame>(frame)) {
         PaintLayerCompositor* plc =
-            ToLocalFrame(frame)->View()->GetLayoutView()->Compositor();
+            local_frame->View()->GetLayoutView()->Compositor();
         if (plc == this)
           return true;
       }

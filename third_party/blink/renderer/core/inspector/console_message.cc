@@ -12,13 +12,14 @@
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/time.h"
+#include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
 // static
 ConsoleMessage* ConsoleMessage::CreateForRequest(
     MessageSource source,
-    MessageLevel level,
+    mojom::ConsoleMessageLevel level,
     const String& message,
     const String& url,
     DocumentLoader* loader,
@@ -33,7 +34,7 @@ ConsoleMessage* ConsoleMessage::CreateForRequest(
 // static
 ConsoleMessage* ConsoleMessage::Create(
     MessageSource source,
-    MessageLevel level,
+    mojom::ConsoleMessageLevel level,
     const String& message,
     std::unique_ptr<SourceLocation> location) {
   return MakeGarbageCollected<ConsoleMessage>(source, level, message,
@@ -42,7 +43,7 @@ ConsoleMessage* ConsoleMessage::Create(
 
 // static
 ConsoleMessage* ConsoleMessage::Create(MessageSource source,
-                                       MessageLevel level,
+                                       mojom::ConsoleMessageLevel level,
                                        const String& message) {
   return ConsoleMessage::Create(source, level, message,
                                 SourceLocation::Capture());
@@ -50,7 +51,7 @@ ConsoleMessage* ConsoleMessage::Create(MessageSource source,
 
 // static
 ConsoleMessage* ConsoleMessage::CreateFromWorker(
-    MessageLevel level,
+    mojom::ConsoleMessageLevel level,
     const String& message,
     std::unique_ptr<SourceLocation> location,
     WorkerThread* worker_thread) {
@@ -61,8 +62,30 @@ ConsoleMessage* ConsoleMessage::CreateFromWorker(
   return console_message;
 }
 
+ConsoleMessage* ConsoleMessage::CreateFromWebConsoleMessage(
+    const WebConsoleMessage& message,
+    LocalFrame* local_frame) {
+  MessageSource message_source = message.nodes.empty()
+                                     ? kOtherMessageSource
+                                     : kRecommendationMessageSource;
+
+  ConsoleMessage* console_message = ConsoleMessage::Create(
+      message_source, message.level, message.text,
+      SourceLocation::Create(message.url, message.line_number,
+                             message.column_number, nullptr));
+
+  if (local_frame) {
+    Vector<DOMNodeId> nodes;
+    for (const WebNode& web_node : message.nodes)
+      nodes.push_back(DOMNodeIds::IdForNode(&(*web_node)));
+    console_message->SetNodes(local_frame, std::move(nodes));
+  }
+
+  return console_message;
+}
+
 ConsoleMessage::ConsoleMessage(MessageSource source,
-                               MessageLevel level,
+                               mojom::ConsoleMessageLevel level,
                                const String& message,
                                std::unique_ptr<SourceLocation> location)
     : source_(source),
@@ -90,7 +113,7 @@ MessageSource ConsoleMessage::Source() const {
   return source_;
 }
 
-MessageLevel ConsoleMessage::Level() const {
+mojom::ConsoleMessageLevel ConsoleMessage::Level() const {
   return level_;
 }
 
@@ -121,10 +144,5 @@ void ConsoleMessage::SetNodes(LocalFrame* frame, Vector<DOMNodeId> nodes) {
 void ConsoleMessage::Trace(blink::Visitor* visitor) {
   visitor->Trace(frame_);
 }
-
-STATIC_ASSERT_ENUM(mojom::ConsoleMessageLevel::kVerbose, kVerboseMessageLevel);
-STATIC_ASSERT_ENUM(mojom::ConsoleMessageLevel::kInfo, kInfoMessageLevel);
-STATIC_ASSERT_ENUM(mojom::ConsoleMessageLevel::kWarning, kWarningMessageLevel);
-STATIC_ASSERT_ENUM(mojom::ConsoleMessageLevel::kError, kErrorMessageLevel);
 
 }  // namespace blink

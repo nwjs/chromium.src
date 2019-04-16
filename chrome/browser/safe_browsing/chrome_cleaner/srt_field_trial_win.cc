@@ -39,19 +39,13 @@ namespace safe_browsing {
 
 constexpr char kSRTPromptTrial[] = "SRTPromptFieldTrial";
 
-constexpr base::Feature kRebootPromptDialogFeature{
+const base::Feature kRebootPromptDialogFeature{
     "RebootPromptDialog", base::FEATURE_DISABLED_BY_DEFAULT};
 
-constexpr base::Feature kUserInitiatedChromeCleanupsFeature{
-    "UserInitiatedChromeCleanups", base::FEATURE_ENABLED_BY_DEFAULT};
-
-constexpr base::Feature kChromeCleanupDistributionFeature{
+const base::Feature kChromeCleanupDistributionFeature{
     "ChromeCleanupDistribution", base::FEATURE_DISABLED_BY_DEFAULT};
 
-constexpr base::Feature kChromeCleanupQuarantineFeature{
-    "ChromeCleanupQuarantine", base::FEATURE_DISABLED_BY_DEFAULT};
-
-constexpr base::Feature kChromeCleanupExtensionsFeature{
+const base::Feature kChromeCleanupExtensionsFeature{
     "ChromeCleanupExtensions", base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsInSRTPromptFieldTrialGroups() {
@@ -63,10 +57,6 @@ bool SRTPromptNeedsElevationIcon() {
   return !base::StartsWith(
       base::FieldTrialList::FindFullName(kSRTElevationTrial),
       kSRTElevationAsNeededGroup, base::CompareCase::SENSITIVE);
-}
-
-bool UserInitiatedCleanupsEnabled() {
-  return base::FeatureList::IsEnabled(kUserInitiatedChromeCleanupsFeature);
 }
 
 GURL GetStableDownloadURL() {

@@ -5,6 +5,7 @@
 #import <EarlGrey/EarlGrey.h>
 #import <XCTest/XCTest.h>
 
+#include "base/bind.h"
 #include "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -13,8 +14,8 @@
 #include "components/feature_engagement/public/tracker.h"
 #include "components/feature_engagement/test/test_tracker.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#include "ios/chrome/browser/experimental_flags.h"
 #include "ios/chrome/browser/feature_engagement/tracker_factory.h"
+#include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
 #import "ios/chrome/browser/ui/tab_grid/tab_grid_egtest_util.h"
 #import "ios/chrome/browser/ui/table_view/table_view_navigation_controller_constants.h"
@@ -342,7 +343,8 @@ void EnableLongPressTipTriggering(base::test::ScopedFeatureList& feature_list) {
 
 // Verifies that the New Tab Tip does not appear if all conditions are met,
 // but the NTP is open.
-- (void)testNewTabTipPromoDoesNotAppearOnNTP {
+// TODO(crbug.com/934248) The test is flaky.
+- (void)DISABLED_testNewTabTipPromoDoesNotAppearOnNTP {
   base::test::ScopedFeatureList scoped_feature_list;
 
   EnableNewTabTipTriggering(scoped_feature_list);
@@ -367,7 +369,8 @@ void EnableLongPressTipTriggering(base::test::ScopedFeatureList& feature_list) {
 
 // Verifies that the bottom toolbar tip is displayed when the phone is in split
 // toolbar mode.
-- (void)testBottomToolbarAppear {
+// TODO(crbug.com/934248) The test is flaky.
+- (void)DISABLED_testBottomToolbarAppear {
   if (!IsUIRefreshPhase1Enabled())
     return;
 
@@ -433,7 +436,8 @@ void EnableLongPressTipTriggering(base::test::ScopedFeatureList& feature_list) {
 
 // Verifies that the LongPress tip is displayed only after the Bottom Toolbar
 // tip is presented.
-- (void)testLongPressTipAppearAfterBottomToolbar {
+// TODO(crbug.com/934248) The test is flaky.
+- (void)DISABLED_testLongPressTipAppearAfterBottomToolbar {
   if (!IsUIRefreshPhase1Enabled())
     return;
 

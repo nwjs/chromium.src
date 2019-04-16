@@ -78,6 +78,10 @@
 - (void)setScrollProgressForTabletOmnibox:(CGFloat)progress {
   [super setScrollProgressForTabletOmnibox:progress];
 
+  // Sometimes an NTP may make a delegate call when it's no longer visible.
+  if (!self.isNTP)
+    progress = 1;
+
   if (progress == 1) {
     self.view.locationBarContainer.transform = CGAffineTransformIdentity;
   } else {
@@ -98,6 +102,7 @@
     [self.view removeFakeOmniboxTarget];
   }
 }
+
 #pragma mark - UIViewController
 
 - (void)loadView {
@@ -163,8 +168,11 @@
 
 #pragma mark - Property accessors
 
-- (void)setLocationBarView:(UIView*)locationBarView {
-  self.view.locationBarView = locationBarView;
+- (void)setLocationBarViewController:
+    (UIViewController*)locationBarViewController {
+  [self addChildViewController:locationBarViewController];
+  [locationBarViewController didMoveToParentViewController:self];
+  self.view.locationBarView = locationBarViewController.view;
 }
 
 - (void)setIsNTP:(BOOL)isNTP {

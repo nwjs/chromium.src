@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 namespace blink {
 
@@ -175,13 +176,29 @@ struct PaintPropertyTreeBuilderContext {
   // Whether composited raster invalidation is supported for this object.
   // If not, subtree invalidations occur on every property tree change.
   unsigned supports_composited_raster_invalidation : 1;
+
+  // This is always recalculated in PaintPropertyTreeBuilder::UpdateForSelf()
+  // which overrides the inherited value.
+  CompositingReasons direct_compositing_reasons = CompositingReason::kNone;
 };
 
 class VisualViewportPaintPropertyTreeBuilder {
+  STATIC_ONLY(VisualViewportPaintPropertyTreeBuilder);
+
  public:
   // Update the paint properties for the visual viewport and ensure the context
   // is up to date.
   static void Update(VisualViewport&, PaintPropertyTreeBuilderContext&);
+};
+
+// Used to report whether paint properties have changed, and if so, whether
+// it was only due to animations. The order is important - it must go from
+// no change to full change.
+enum class PaintPropertyChangedState {
+  kUnchanged,
+  kChangedOnlyDueToAnimations,
+  kChanged,
+  kAddedOrRemoved,
 };
 
 // Creates paint property tree nodes for non-local effects in the layout tree.
@@ -189,6 +206,8 @@ class VisualViewportPaintPropertyTreeBuilder {
 // fixed-pos, animation, mask, filters, etc. It expects to be invoked for each
 // layout tree node in DOM order during the PrePaint lifecycle phase.
 class PaintPropertyTreeBuilder {
+  STACK_ALLOCATED();
+
  public:
   static void SetupContextForFrame(LocalFrameView&,
                                    PaintPropertyTreeBuilderContext&);
@@ -200,13 +219,13 @@ class PaintPropertyTreeBuilder {
   // Update the paint properties that affect this object (e.g., properties like
   // paint offset translation) and ensure the context is up to date. Also
   // handles updating the object's paintOffset.
-  // Returns true if any paint property of the object has changed.
-  bool UpdateForSelf();
+  // Returns whether any paint property of the object has changed.
+  PaintPropertyChangedState UpdateForSelf();
 
   // Update the paint properties that affect children of this object (e.g.,
   // scroll offset transform) and ensure the context is up to date.
-  // Returns true if any paint property of the object has changed.
-  bool UpdateForChildren();
+  // Returns whether any paint property of the object has changed.
+  PaintPropertyChangedState UpdateForChildren();
 
  private:
   ALWAYS_INLINE void InitFragmentPaintProperties(

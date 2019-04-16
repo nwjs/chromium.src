@@ -220,9 +220,10 @@ bool TestPasswordStore::CommitTransaction() {
   return true;
 }
 
-bool TestPasswordStore::ReadAllLogins(PrimaryKeyToFormMap* key_to_form_map) {
+FormRetrievalResult TestPasswordStore::ReadAllLogins(
+    PrimaryKeyToFormMap* key_to_form_map) {
   NOTIMPLEMENTED();
-  return true;
+  return FormRetrievalResult::kSuccess;
 }
 
 PasswordStoreChangeList TestPasswordStore::RemoveLoginByPrimaryKeySync(
@@ -231,7 +232,8 @@ PasswordStoreChangeList TestPasswordStore::RemoveLoginByPrimaryKeySync(
   return PasswordStoreChangeList();
 }
 
-syncer::SyncMetadataStore* TestPasswordStore::GetMetadataStore() {
+PasswordStoreSync::MetadataStore* TestPasswordStore::GetMetadataStore() {
+  NOTIMPLEMENTED();
   return nullptr;
 }
 

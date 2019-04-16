@@ -45,9 +45,10 @@ namespace blink {
 namespace {
 
 DoubleSize ContentsScrollOffset(AbstractView* abstract_view) {
-  if (!abstract_view || !abstract_view->IsLocalDOMWindow())
+  auto* local_dom_window = DynamicTo<LocalDOMWindow>(abstract_view);
+  if (!local_dom_window)
     return DoubleSize();
-  LocalFrame* frame = ToLocalDOMWindow(abstract_view)->GetFrame();
+  LocalFrame* frame = local_dom_window->GetFrame();
   if (!frame)
     return DoubleSize();
   ScrollableArea* scrollable_area = frame->View()->LayoutViewport();
@@ -59,9 +60,10 @@ DoubleSize ContentsScrollOffset(AbstractView* abstract_view) {
 }
 
 float PageZoomFactor(const UIEvent* event) {
-  if (!event->view() || !event->view()->IsLocalDOMWindow())
+  auto* local_dom_window = DynamicTo<LocalDOMWindow>(event->view());
+  if (!local_dom_window)
     return 1;
-  LocalFrame* frame = ToLocalDOMWindow(event->view())->GetFrame();
+  LocalFrame* frame = local_dom_window->GetFrame();
   if (!frame)
     return 1;
   return frame->PageZoomFactor();
@@ -83,23 +85,18 @@ const LayoutObject* FindTargetLayoutObject(Node*& target_node) {
   return layout_object;
 }
 
-unsigned ButtonsToWebInputEventModifiers(unsigned short buttons) {
+unsigned ButtonsToWebInputEventModifiers(uint16_t buttons) {
   unsigned modifiers = 0;
 
-  if (buttons &
-      static_cast<unsigned short>(WebPointerProperties::Buttons::kLeft))
+  if (buttons & static_cast<uint16_t>(WebPointerProperties::Buttons::kLeft))
     modifiers |= WebInputEvent::kLeftButtonDown;
-  if (buttons &
-      static_cast<unsigned short>(WebPointerProperties::Buttons::kRight))
+  if (buttons & static_cast<uint16_t>(WebPointerProperties::Buttons::kRight))
     modifiers |= WebInputEvent::kRightButtonDown;
-  if (buttons &
-      static_cast<unsigned short>(WebPointerProperties::Buttons::kMiddle))
+  if (buttons & static_cast<uint16_t>(WebPointerProperties::Buttons::kMiddle))
     modifiers |= WebInputEvent::kMiddleButtonDown;
-  if (buttons &
-      static_cast<unsigned short>(WebPointerProperties::Buttons::kBack))
+  if (buttons & static_cast<uint16_t>(WebPointerProperties::Buttons::kBack))
     modifiers |= WebInputEvent::kBackButtonDown;
-  if (buttons &
-      static_cast<unsigned short>(WebPointerProperties::Buttons::kForward))
+  if (buttons & static_cast<uint16_t>(WebPointerProperties::Buttons::kForward))
     modifiers |= WebInputEvent::kForwardButtonDown;
 
   return modifiers;
@@ -248,26 +245,21 @@ void MouseEvent::SetCoordinatesFromWebPointerProperties(
 
 MouseEvent::~MouseEvent() = default;
 
-unsigned short MouseEvent::WebInputEventModifiersToButtons(unsigned modifiers) {
-  unsigned short buttons = 0;
+uint16_t MouseEvent::WebInputEventModifiersToButtons(unsigned modifiers) {
+  uint16_t buttons = 0;
 
   if (modifiers & WebInputEvent::kLeftButtonDown)
-    buttons |=
-        static_cast<unsigned short>(WebPointerProperties::Buttons::kLeft);
+    buttons |= static_cast<uint16_t>(WebPointerProperties::Buttons::kLeft);
   if (modifiers & WebInputEvent::kRightButtonDown) {
-    buttons |=
-        static_cast<unsigned short>(WebPointerProperties::Buttons::kRight);
+    buttons |= static_cast<uint16_t>(WebPointerProperties::Buttons::kRight);
   }
   if (modifiers & WebInputEvent::kMiddleButtonDown) {
-    buttons |=
-        static_cast<unsigned short>(WebPointerProperties::Buttons::kMiddle);
+    buttons |= static_cast<uint16_t>(WebPointerProperties::Buttons::kMiddle);
   }
   if (modifiers & WebInputEvent::kBackButtonDown)
-    buttons |=
-        static_cast<unsigned short>(WebPointerProperties::Buttons::kBack);
+    buttons |= static_cast<uint16_t>(WebPointerProperties::Buttons::kBack);
   if (modifiers & WebInputEvent::kForwardButtonDown) {
-    buttons |=
-        static_cast<unsigned short>(WebPointerProperties::Buttons::kForward);
+    buttons |= static_cast<uint16_t>(WebPointerProperties::Buttons::kForward);
   }
 
   return buttons;
@@ -287,9 +279,9 @@ void MouseEvent::initMouseEvent(ScriptState* script_state,
                                 bool alt_key,
                                 bool shift_key,
                                 bool meta_key,
-                                short button,
+                                int16_t button,
                                 EventTarget* related_target,
-                                unsigned short buttons) {
+                                uint16_t buttons) {
   if (IsBeingDispatched())
     return;
 
@@ -314,10 +306,10 @@ void MouseEvent::InitMouseEventInternal(
     double client_x,
     double client_y,
     WebInputEvent::Modifiers modifiers,
-    short button,
+    int16_t button,
     EventTarget* related_target,
     InputDeviceCapabilities* source_capabilities,
-    unsigned short buttons) {
+    uint16_t buttons) {
   InitUIEventInternal(type, bubbles, cancelable, related_target, view, detail,
                       source_capabilities);
 
@@ -340,7 +332,7 @@ bool MouseEvent::IsMouseEvent() const {
   return true;
 }
 
-short MouseEvent::button() const {
+int16_t MouseEvent::button() const {
   const AtomicString& event_name = type();
   if (button_ == -1 || event_name == event_type_names::kMousemove ||
       event_name == event_type_names::kMouseleave ||
@@ -451,9 +443,8 @@ DispatchEventResult MouseEvent::DispatchEvent(EventDispatcher& dispatcher) {
 }
 
 void MouseEvent::ComputePageLocation() {
-  LocalFrame* frame = view() && view()->IsLocalDOMWindow()
-                          ? ToLocalDOMWindow(view())->GetFrame()
-                          : nullptr;
+  auto* local_dom_window = DynamicTo<LocalDOMWindow>(view());
+  LocalFrame* frame = local_dom_window ? local_dom_window->GetFrame() : nullptr;
   DoublePoint scaled_page_location =
       page_location_.ScaledBy(PageZoomFactor(this));
   if (frame && frame->View()) {

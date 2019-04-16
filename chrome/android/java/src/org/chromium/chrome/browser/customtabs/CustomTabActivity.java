@@ -42,6 +42,7 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabTaskDescriptionHelper;
 import org.chromium.chrome.browser.ChromeActivity;
@@ -72,6 +73,7 @@ import org.chromium.chrome.browser.incognito.IncognitoTabHost;
 import org.chromium.chrome.browser.incognito.IncognitoTabHostRegistry;
 import org.chromium.chrome.browser.infobar.InfoBarContainer;
 import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
+import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.page_info.PageInfoController;
 import org.chromium.chrome.browser.rappor.RapporServiceBridge;
 import org.chromium.chrome.browser.share.ShareMenuActionHandler;
@@ -89,12 +91,12 @@ import org.chromium.components.dom_distiller.core.DomDistillerUrlUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The activity for custom tabs. It will be launched on top of a client's task.
@@ -158,6 +160,8 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
 
     private ActivityTabTaskDescriptionHelper mTaskDescriptionHelper;
 
+    private CustomTabNightModeStateController mNightModeStateController;
+
     /**
      * Return true when the activity has been launched in a separate task. The default behavior is
      * to reuse the same task and put the activity on top of the previous one (i.e hiding it). A
@@ -199,7 +203,7 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
         super.recordIntentToCreationTime(timeMs);
 
         RecordHistogram.recordTimesHistogram(
-                "MobileStartup.IntentToCreationTime.CustomTabs", timeMs, TimeUnit.MILLISECONDS);
+                "MobileStartup.IntentToCreationTime.CustomTabs", timeMs);
     }
 
     @Override
@@ -250,6 +254,8 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
 
     @Nullable
     private NavigationController getNavigationController() {
+        if (getActivityTab() == null) return null;
+
         WebContents webContents = getActivityTab().getWebContents();
         return webContents == null ? null : webContents.getNavigationController();
     }
@@ -301,6 +307,17 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
     @Override
     protected Pair<ChromeTabCreator, ChromeTabCreator> createTabCreators() {
         return mTabFactory.createTabCreators();
+    }
+
+    @Override
+    protected NightModeStateProvider createNightModeStateProvider() {
+        mNightModeStateController = new CustomTabNightModeStateController();
+        return mNightModeStateController;
+    }
+
+    @Override
+    protected void initializeNightModeStateProvider() {
+        mNightModeStateController.initialize(getDelegate(), getIntent());
     }
 
     @Override
@@ -713,12 +730,8 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
             // memory consumption, as the current renderer goes away. We create a renderer as a lot
             // of users open several Custom Tabs in a row. The delay is there to avoid jank in the
             // transition animation when closing the tab.
-            ThreadUtils.postOnUiThreadDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    WarmupManager.getInstance().createSpareWebContents();
-                }
-            }, 500);
+            PostTask.postDelayedTask(UiThreadTaskTraits.DEFAULT,
+                    () -> WarmupManager.getInstance().createSpareWebContents(), 500);
         }
 
         handleFinishAndClose();
@@ -935,7 +948,6 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
         if (TextUtils.isEmpty(url)) url = mIntentDataProvider.getUrlToLoad();
         Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        intent.putExtra(LaunchIntentDispatcher.EXTRA_IS_ALLOWED_TO_RETURN_TO_PARENT, false);
 
         boolean willChromeHandleIntent =
                 getIntentDataProvider().isOpenedByChrome() || getIntentDataProvider().isIncognito();
@@ -1080,6 +1092,10 @@ public class CustomTabActivity extends ChromeActivity<CustomTabActivityComponent
 
         if (mIntentDataProvider.isTrustedWebActivity()) {
             component.resolveTrustedWebActivityCoordinator();
+        }
+        if (mConnection.shouldHideTopBarOnModuleManagedUrlsForSession(
+                    mIntentDataProvider.getSession())) {
+            component.resolveDynamicModuleToolbarController();
         }
 
         return component;

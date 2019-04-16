@@ -45,9 +45,9 @@ MockFileSystem.prototype = {
  * 'metadata', 'content'.  Paths ending in slashes are interpreted as
  * directories.  All intermediate directories leading up to the
  * files/directories to be created, are also created.
- * @param {!Array<string|Object>} entries An array of either string file paths,
- *     or objects containing 'fullPath' and 'metadata' to populate in this
- *     file system.
+ * @param {!Array<string|Object|!Entry>} entries An array of either string file
+ *     paths, objects containing 'fullPath' and 'metadata', or Entry to populate
+ *     in this file system.
  * @param {boolean=} opt_clear Optional, if true clears all entries before
  *     populating.
  */
@@ -55,23 +55,28 @@ MockFileSystem.prototype.populate = function(entries, opt_clear) {
   if (opt_clear) {
     this.entries = {'/': new MockDirectoryEntry(this, '/')};
   }
-  entries.forEach(function(entry) {
-    var path = entry.fullPath || entry;
-    var metadata = entry.metadata || {size: 0};
-    var content = entry.content;
-    var pathElements = path.split('/');
-    pathElements.forEach(function(_, i) {
-      var subpath = pathElements.slice(0, i).join('/');
+  entries.forEach(entry => {
+    if (entry instanceof MockEntry) {
+      this.entries[entry.fullPath] = entry;
+      entry.filesystem = this;
+      return;
+    }
+    const path = entry.fullPath || entry;
+    const metadata = entry.metadata || {size: 0};
+    const content = entry.content;
+    const pathElements = path.split('/');
+    pathElements.forEach((_, i) => {
+      const subpath = pathElements.slice(0, i).join('/');
       if (subpath && !(subpath in this.entries)) {
         this.entries[subpath] = new MockDirectoryEntry(this, subpath, metadata);
       }
-    }.bind(this));
+    });
 
     // If the path doesn't end in a slash, create a file.
     if (!/\/$/.test(path)) {
       this.entries[path] = new MockFileEntry(this, path, metadata, content);
     }
-  }.bind(this));
+  });
 };
 
 /**
@@ -81,11 +86,11 @@ MockFileSystem.prototype.populate = function(entries, opt_clear) {
  * @private
  */
 MockFileSystem.prototype.findChildren_ = function(directory) {
-  var parentPath = directory.fullPath.replace(/\/?$/, '/');
-  var children = [];
-  for (var path in this.entries) {
+  const parentPath = directory.fullPath.replace(/\/?$/, '/');
+  const children = [];
+  for (const path in this.entries) {
     if (path.indexOf(parentPath) === 0 && path !== parentPath) {
-      var nextSeparator = path.indexOf('/', parentPath.length);
+      const nextSeparator = path.indexOf('/', parentPath.length);
       // Add immediate children files and directories...
       if (nextSeparator === -1 ||
           nextSeparator === path.length - 1) {
@@ -106,7 +111,7 @@ function MockEntryInterface() {}
  * @param {FileSystem=} opt_filesystem New file system
  * @return {Entry} Cloned entry.
  */
-MockEntryInterface.prototype.clone = function(fullpath, opt_filesystem) {};
+MockEntryInterface.prototype.clone = (fullpath, opt_filesystem) => {};
 
 /**
  * Base class of mock entries.
@@ -155,8 +160,8 @@ MockEntry.prototype.getMetadata = function(onSuccess, onError) {
  * @return {string} Fake URL.
  */
 MockEntry.prototype.toURL = function() {
-  var segments = this.fullPath.split('/');
-  for (var i = 0; i < segments.length; i++) {
+  const segments = this.fullPath.split('/');
+  for (let i = 0; i < segments.length; i++) {
     segments[i] = encodeURIComponent(segments[i]);
   }
 
@@ -172,7 +177,7 @@ MockEntry.prototype.toURL = function() {
  *     object.
  */
 MockEntry.prototype.getParent = function(onSuccess, onError) {
-  var path = this.fullPath.replace(/\/[^\/]+$/, '') || '/';
+  const path = this.fullPath.replace(/\/[^\/]+$/, '') || '/';
   if (this.filesystem.entries[path]) {
     onSuccess(this.filesystem.entries[path]);
   } else {
@@ -261,7 +266,7 @@ MockEntry.prototype.assertRemoved = function() {
 };
 
 /** @override */
-MockEntry.prototype.clone = function(fullpath, opt_filesystem) {
+MockEntry.prototype.clone = (fullpath, opt_filesystem) => {
   throw new Error('Not implemented.');
 };
 
@@ -370,7 +375,7 @@ MockDirectoryEntry.prototype.getFile = function(
   // them to be no-ops to save on checking their validity later.
   onSuccess = onSuccess || (entry => {});  // no-op
   onError = onError || (error => {});      // no-op
-  var fullPath = path[0] === '/' ? path : joinPath(this.fullPath, path);
+  const fullPath = path[0] === '/' ? path : joinPath(this.fullPath, path);
   if (!this.filesystem.entries[fullPath]) {
     onError(/** @type {!FileError} */ ({name: util.FileError.NOT_FOUND_ERR}));
   } else if (!(this.filesystem.entries[fullPath] instanceof MockFileEntry)) {
@@ -395,8 +400,8 @@ MockDirectoryEntry.prototype.getDirectory = function(
   // them to be no-ops to save on checking their validity later.
   onSuccess = onSuccess || (entry => {});  // no-op
   onError = onError || (error => {});      // no-op
-  var fullPath = path[0] === '/' ? path : joinPath(this.fullPath, path);
-  var result = this.filesystem.entries[fullPath];
+  const fullPath = path[0] === '/' ? path : joinPath(this.fullPath, path);
+  const result = this.filesystem.entries[fullPath];
   if (result) {
     if (!(result instanceof MockDirectoryEntry)) {
       onError(
@@ -411,7 +416,7 @@ MockDirectoryEntry.prototype.getDirectory = function(
     if (!option['create']) {
       onError(/** @type {!FileError} */ ({name: util.FileError.NOT_FOUND_ERR}));
     } else {
-      var newEntry = new MockDirectoryEntry(this.filesystem, fullPath);
+      const newEntry = new MockDirectoryEntry(this.filesystem, fullPath);
       this.filesystem.entries[fullPath] = newEntry;
       onSuccess(newEntry);
     }
@@ -446,7 +451,7 @@ function MockDirectoryReader(entries) {
  */
 MockDirectoryReader.prototype.readEntries = function(success, error) {
   if (this.entries_.length > 0) {
-    var chunk = this.entries_.splice(0, 2);
+    const chunk = this.entries_.splice(0, 2);
     success(chunk);
   } else {
     success([]);

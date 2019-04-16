@@ -559,6 +559,10 @@ static void V3Cross(const Vector3 a, const Vector3 b, Vector3 result) {
   result[2] = (a[0] * b[1]) - (a[1] * b[0]);
 }
 
+// TODO(crbug/937296): This implementation is virtually identical to the
+// implementation in ui/gfx/transform_util with the main difference being
+// the representation of the underlying matrix. These implementations should be
+// consolidated.
 static bool Decompose(const TransformationMatrix::Matrix4& mat,
                       TransformationMatrix::DecomposedType& result) {
   TransformationMatrix::Matrix4 local_matrix;
@@ -2051,11 +2055,6 @@ bool TransformationMatrix::Preserves2dAxisAlignment() const {
 
   return num_non_zero_in_row_1 <= 1 && num_non_zero_in_row_2 <= 1 &&
          num_non_zero_in_col_1 <= 1 && num_non_zero_in_col_2 <= 1;
-}
-
-FloatSize TransformationMatrix::To2DTranslation() const {
-  DCHECK(IsIdentityOr2DTranslation());
-  return FloatSize(matrix_[3][0], matrix_[3][1]);
 }
 
 void TransformationMatrix::ToColumnMajorFloatArray(FloatMatrix4& result) const {

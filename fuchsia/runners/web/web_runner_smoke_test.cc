@@ -4,7 +4,9 @@
 
 #include <fuchsia/sys/cpp/fidl.h>
 
-#include "base/fuchsia/component_context.h"
+#include "base/bind.h"
+#include "base/fuchsia/service_directory_client.h"
+#include "base/test/bind_test_util.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -19,7 +21,9 @@ namespace {
 
 class WebRunnerSmokeTest : public testing::Test {
  public:
-  WebRunnerSmokeTest() : run_timeout_(TestTimeouts::action_timeout()) {}
+  WebRunnerSmokeTest()
+      : run_timeout_(TestTimeouts::action_timeout(),
+                     base::MakeExpectedNotRunClosure(FROM_HERE)) {}
   void SetUp() final {
     test_server_.RegisterRequestHandler(base::BindRepeating(
         &WebRunnerSmokeTest::HandleRequest, base::Unretained(this)));
@@ -57,13 +61,15 @@ class WebRunnerSmokeTest : public testing::Test {
   net::EmbeddedTestServer test_server_;
 
   base::RunLoop run_loop_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebRunnerSmokeTest);
 };
 
 TEST_F(WebRunnerSmokeTest, RequestHtmlAndImage) {
   fuchsia::sys::LaunchInfo launch_info;
   launch_info.url = test_server_.GetURL("/test.html").spec();
 
-  auto launcher = base::fuchsia::ComponentContext::GetDefault()
+  auto launcher = base::fuchsia::ServiceDirectoryClient::ForCurrentProcess()
                       ->ConnectToServiceSync<fuchsia::sys::Launcher>();
 
   fuchsia::sys::ComponentControllerSyncPtr controller;

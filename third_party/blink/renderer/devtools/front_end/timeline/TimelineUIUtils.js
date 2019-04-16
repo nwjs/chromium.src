@@ -109,6 +109,16 @@ Timeline.TimelineUIUtils = class {
         new Timeline.TimelineRecordStyle(Common.UIString('Evaluate Module'), categories['scripting']);
     eventStyles[recordTypes.ParseScriptOnBackground] =
         new Timeline.TimelineRecordStyle(Common.UIString('Parse Script'), categories['scripting']);
+    eventStyles[recordTypes.WasmStreamFromResponseCallback] =
+        new Timeline.TimelineRecordStyle(ls`Streaming Wasm Response`, categories['scripting']);
+    eventStyles[recordTypes.WasmCompiledModule] =
+        new Timeline.TimelineRecordStyle(ls`Compiled Wasm Module`, categories['scripting']);
+    eventStyles[recordTypes.WasmCachedModule] =
+        new Timeline.TimelineRecordStyle(ls`Cached Wasm Module`, categories['scripting']);
+    eventStyles[recordTypes.WasmModuleCacheHit] =
+        new Timeline.TimelineRecordStyle(ls`Wasm Module Cache Hit`, categories['scripting']);
+    eventStyles[recordTypes.WasmModuleCacheInvalid] =
+        new Timeline.TimelineRecordStyle(ls`Wasm Module Cache Invalid`, categories['scripting']);
     eventStyles[recordTypes.FrameStartedLoading] =
         new Timeline.TimelineRecordStyle(ls`Frame Started Loading`, categories['loading'], true);
     eventStyles[recordTypes.MarkLoad] =
@@ -560,6 +570,14 @@ Timeline.TimelineUIUtils = class {
           detailsText = Bindings.displayNameForURL(url) + ':' + (eventData['lineNumber'] + 1);
         break;
       }
+      case recordType.WasmCompiledModule:
+      case recordType.WasmModuleCacheHit: {
+        const url = event.args['url'];
+        if (url)
+          detailsText = Bindings.displayNameForURL(url);
+        break;
+      }
+
       case recordType.ParseScriptOnBackground:
       case recordType.XHRReadyStateChange:
       case recordType.XHRLoad: {
@@ -666,6 +684,11 @@ Timeline.TimelineUIUtils = class {
       case recordType.Animation:
       case recordType.EmbedderCallback:
       case recordType.ParseHTML:
+      case recordType.WasmStreamFromResponseCallback:
+      case recordType.WasmCompiledModule:
+      case recordType.WasmModuleCacheHit:
+      case recordType.WasmCachedModule:
+      case recordType.WasmModuleCacheInvalid:
       case recordType.WebSocketCreate:
       case recordType.WebSocketSendHandshakeRequest:
       case recordType.WebSocketReceiveHandshakeResponse:
@@ -876,11 +899,9 @@ Timeline.TimelineUIUtils = class {
         if (url)
           contentHelper.appendLocationRow(ls`Script`, url, eventData['lineNumber'], eventData['columnNumber']);
         contentHelper.appendTextRow(ls`Streamed`, eventData['streamed']);
-        const cacheProduceOptions = eventData && eventData['cacheProduceOptions'];
-        if (cacheProduceOptions) {
-          contentHelper.appendTextRow(ls`Cache Produce Options`, cacheProduceOptions);
-          contentHelper.appendTextRow(ls`Produced Cache Size`, eventData['producedCacheSize']);
-        }
+        const producedCacheSize = eventData && eventData['producedCacheSize'];
+        if (producedCacheSize)
+          contentHelper.appendTextRow(ls`Produced Cache Size`, producedCacheSize);
         const cacheConsumeOptions = eventData && eventData['cacheConsumeOptions'];
         if (cacheConsumeOptions) {
           contentHelper.appendTextRow(ls`Cache Consume Options`, cacheConsumeOptions);
@@ -892,6 +913,23 @@ Timeline.TimelineUIUtils = class {
         url = eventData && eventData['url'];
         if (url)
           contentHelper.appendLocationRow(ls`Script`, url, eventData['lineNumber'], eventData['columnNumber']);
+        break;
+      case recordTypes.WasmStreamFromResponseCallback:
+      case recordTypes.WasmCompiledModule:
+      case recordTypes.WasmCachedModule:
+      case recordTypes.WasmModuleCacheHit:
+      case recordTypes.WasmModuleCacheInvalid:
+        if (eventData) {
+          url = event.args['url'];
+          if (url)
+            contentHelper.appendTextRow(ls`Url`, url);
+          const producedCachedSize = event.args['producedCachedSize'];
+          if (producedCachedSize)
+            contentHelper.appendTextRow(ls`Produced Cache Size`, producedCachedSize);
+          const consumedCachedSize = event.args['consumedCachedSize'];
+          if (consumedCachedSize)
+            contentHelper.appendTextRow(ls`Consumed Cache Size`, consumedCachedSize);
+        }
         break;
       case recordTypes.Paint:
         const clip = eventData['clip'];
@@ -976,6 +1014,7 @@ Timeline.TimelineUIUtils = class {
         contentHelper.appendTextRow(ls`Type`, eventData['type']);
         break;
 
+      case recordTypes.MarkFirstPaint:
       case recordTypes.MarkFCP:
       case recordTypes.MarkFMP:
       case recordTypes.MarkLoad:
@@ -1531,21 +1570,17 @@ Timeline.TimelineUIUtils = class {
     if (Timeline.TimelineUIUtils._categories)
       return Timeline.TimelineUIUtils._categories;
     Timeline.TimelineUIUtils._categories = {
-      loading: new Timeline.TimelineCategory(
-          'loading', Common.UIString('Loading'), true, 'hsl(214, 67%, 74%)', 'hsl(214, 67%, 66%)'),
-      scripting: new Timeline.TimelineCategory(
-          'scripting', Common.UIString('Scripting'), true, 'hsl(43, 83%, 72%)', 'hsl(43, 83%, 64%) '),
-      rendering: new Timeline.TimelineCategory(
-          'rendering', Common.UIString('Rendering'), true, 'hsl(256, 67%, 76%)', 'hsl(256, 67%, 70%)'),
-      painting: new Timeline.TimelineCategory(
-          'painting', Common.UIString('Painting'), true, 'hsl(109, 33%, 64%)', 'hsl(109, 33%, 55%)'),
-      gpu: new Timeline.TimelineCategory(
-          'gpu', Common.UIString('GPU'), false, 'hsl(109, 33%, 64%)', 'hsl(109, 33%, 55%)'),
-      async: new Timeline.TimelineCategory(
-          'async', Common.UIString('Async'), false, 'hsl(0, 100%, 50%)', 'hsl(0, 100%, 40%)'),
-      other:
-          new Timeline.TimelineCategory('other', Common.UIString('Other'), false, 'hsl(0, 0%, 87%)', 'hsl(0, 0%, 79%)'),
-      idle: new Timeline.TimelineCategory('idle', Common.UIString('Idle'), false, 'hsl(0, 0%, 98%)', 'hsl(0, 0%, 98%)')
+      loading: new Timeline.TimelineCategory('loading', ls`Loading`, true, 'hsl(214, 67%, 74%)', 'hsl(214, 67%, 66%)'),
+      scripting:
+          new Timeline.TimelineCategory('scripting', ls`Scripting`, true, 'hsl(43, 83%, 72%)', 'hsl(43, 83%, 64%) '),
+      rendering:
+          new Timeline.TimelineCategory('rendering', ls`Rendering`, true, 'hsl(256, 67%, 76%)', 'hsl(256, 67%, 70%)'),
+      painting:
+          new Timeline.TimelineCategory('painting', ls`Painting`, true, 'hsl(109, 33%, 64%)', 'hsl(109, 33%, 55%)'),
+      gpu: new Timeline.TimelineCategory('gpu', ls`GPU`, false, 'hsl(109, 33%, 64%)', 'hsl(109, 33%, 55%)'),
+      async: new Timeline.TimelineCategory('async', ls`Async`, false, 'hsl(0, 100%, 50%)', 'hsl(0, 100%, 40%)'),
+      other: new Timeline.TimelineCategory('other', ls`System`, false, 'hsl(0, 0%, 87%)', 'hsl(0, 0%, 79%)'),
+      idle: new Timeline.TimelineCategory('idle', ls`Idle`, false, 'hsl(0, 0%, 98%)', 'hsl(0, 0%, 98%)')
     };
     return Timeline.TimelineUIUtils._categories;
   }
@@ -1786,15 +1821,15 @@ Timeline.TimelineUIUtils = class {
         tall = true;
         break;
       case recordTypes.MarkFirstPaint:
-        color = 'hsl(180, 45%, 79%)';
+        color = '#228847';
         tall = true;
         break;
       case recordTypes.MarkFCP:
-        color = '#208043';
+        color = '#1A6937';
         tall = true;
         break;
       case recordTypes.MarkFMP:
-        color = '#14522B';
+        color = '#134A26';
         tall = true;
         break;
       case recordTypes.TimeStamp:
@@ -1861,15 +1896,19 @@ Timeline.TimelineUIUtils = class {
         span.createTextChild(Common.UIString(' is a likely performance bottleneck.'));
         break;
       case warnings.IdleDeadlineExceeded:
-        span.textContent = Common.UIString(
-            'Idle callback execution extended beyond deadline by ' +
-            Number.millisToString(event.duration - eventData['allottedMilliseconds'], true));
+        const exceededMs = Number.millisToString(event.duration - eventData['allottedMilliseconds'], true);
+        span.textContent = ls`Idle callback execution extended beyond deadline by ${exceededMs}`;
         break;
       case warnings.LongHandler:
         span.textContent = Common.UIString('Handler took %s', Number.millisToString(event.duration, true));
         break;
       case warnings.LongRecurringHandler:
         span.textContent = Common.UIString('Recurring handler took %s', Number.millisToString(event.duration, true));
+        break;
+      case warnings.LongTask:
+        span.appendChild(
+            UI.createDocumentationLink('../../fundamentals/performance/rail#goals-and-guidelines', ls`Long task`));
+        span.createTextChild(ls` took ${Number.millisToString(event.duration, true)}.`);
         break;
       case warnings.V8Deopt:
         span.appendChild(UI.XLink.create(

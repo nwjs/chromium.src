@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
@@ -33,6 +34,7 @@ PageTimingMetricsSender::PageTimingMetricsSender(
     : sender_(std::move(sender)),
       timer_(std::move(timer)),
       last_timing_(std::move(initial_timing)),
+      last_cpu_timing_(mojom::CpuTiming::New()),
       metadata_(mojom::PageLoadMetadata::New()),
       new_features_(mojom::PageLoadFeatures::New()),
       render_data_(),
@@ -188,6 +190,11 @@ void PageTimingMetricsSender::Send(mojom::PageLoadTimingPtr timing) {
   EnsureSendTimer();
 }
 
+void PageTimingMetricsSender::UpdateCpuTiming(base::TimeDelta task_time) {
+  last_cpu_timing_->task_time += task_time;
+  EnsureSendTimer();
+}
+
 void PageTimingMetricsSender::EnsureSendTimer() {
   if (!timer_->IsRunning()) {
     // Send the first IPC eagerly to make sure the receiving side knows we're
@@ -210,8 +217,9 @@ void PageTimingMetricsSender::SendNow() {
     }
   }
   sender_->SendTiming(last_timing_, metadata_, std::move(new_features_),
-                      std::move(resources), render_data_);
+                      std::move(resources), render_data_, last_cpu_timing_);
   new_features_ = mojom::PageLoadFeatures::New();
+  last_cpu_timing_->task_time = base::TimeDelta();
   modified_resources_.clear();
 }
 

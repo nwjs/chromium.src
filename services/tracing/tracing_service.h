@@ -22,7 +22,6 @@
 namespace tracing {
 
 class ServiceListener;
-class PerfettoTracingCoordinator;
 
 class TracingService : public service_manager::Service {
  public:
@@ -37,8 +36,7 @@ class TracingService : public service_manager::Service {
                        mojo::ScopedMessagePipeHandle interface_pipe) override;
 
  private:
-  void OnCoordinatorConnectionClosed(
-      scoped_refptr<base::SequencedTaskRunner> task_runner);
+  void OnCoordinatorConnectionClosed();
   void CloseAgentConnectionsAndTerminate();
 
   service_manager::ServiceBinding service_binding_;
@@ -48,8 +46,6 @@ class TracingService : public service_manager::Service {
       registry_;
   std::unique_ptr<tracing::AgentRegistry> tracing_agent_registry_;
   std::unique_ptr<Coordinator> tracing_coordinator_;
-  scoped_refptr<base::SequencedTaskRunner> task_runner_;
-  std::unique_ptr<PerfettoTracingCoordinator> perfetto_tracing_coordinator_;
 
   std::unique_ptr<ServiceListener> service_listener_;
 

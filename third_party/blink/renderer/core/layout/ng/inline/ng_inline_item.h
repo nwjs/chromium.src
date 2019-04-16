@@ -80,9 +80,7 @@ class CORE_EXPORT NGInlineItem {
   NGInlineItemType Type() const { return static_cast<NGInlineItemType>(type_); }
   const char* NGInlineItemTypeToString(int val) const;
 
-  scoped_refptr<const ShapeResult> TextShapeResult() const {
-    return shape_result_;
-  }
+  const ShapeResult* TextShapeResult() const { return shape_result_.get(); }
   NGLayoutInlineShapeOptions ShapeOptions() const {
     return static_cast<NGLayoutInlineShapeOptions>(shape_options_);
   }
@@ -224,6 +222,11 @@ struct CORE_EXPORT NGInlineItemsData {
   void AssertEndOffset(unsigned index, unsigned offset) const {
     items[index].AssertEndOffset(offset);
   }
+
+  // Returns the non-zero-length inline item whose |StartOffset() <= offset| and
+  // |EndOffset() > offset|, namely, contains the character at |offset|.
+  // Note: This function is not a trivial getter, but does a binary search.
+  const NGInlineItem& FindItemForTextOffset(unsigned offset) const;
 };
 
 }  // namespace blink

@@ -90,6 +90,7 @@ test("components_unittests") {
     "//components/cloud_devices/common:unit_tests",
     "//components/component_updater:unit_tests",
     "//components/consent_auditor:unit_tests",
+    "//components/content_capture/common:unit_tests",
     "//components/content_settings/core/browser:unit_tests",
     "//components/content_settings/core/common:unit_tests",
     "//components/crx_file:unit_tests",
@@ -213,6 +214,7 @@ test("components_unittests") {
       "//components/cast_certificate:unit_tests",
       "//components/cast_channel:unit_tests",
       "//components/certificate_transparency:unit_tests",
+      "//components/content_capture/browser:unit_tests",
       "//components/contextual_search/core:unit_tests",
       "//components/crash/content/app:unit_tests",
       "//components/crash/content/browser:unit_tests",
@@ -290,6 +292,7 @@ test("components_unittests") {
       "//components/cdm/browser:unit_tests",
       "//components/crash/android:java",
       "//components/crash/android:unit_tests",
+      "//components/download/internal/common:internal_java",
       "//components/gcm_driver/instance_id:test_support",
       "//components/gcm_driver/instance_id/android:instance_id_driver_java",
       "//components/gcm_driver/instance_id/android:instance_id_driver_test_support_java",
@@ -391,6 +394,7 @@ test("components_unittests") {
 repack("components_tests_pak") {
   sources = [
     "$root_gen_dir/components/components_resources.pak",
+    "$root_gen_dir/components/strings/components_locale_settings_en-US.pak",
     "$root_gen_dir/components/strings/components_strings_en-US.pak",
   ]
 
@@ -547,6 +551,7 @@ if (!is_ios) {
       deps += [
         "//components/autofill_assistant/browser",
         "//components/autofill_assistant/browser:proto",
+        "//components/download/internal/common:internal_java",
         "//content/public/test/android:web_test_java_support",
         "//content/test:web_test_support",
         "//testing/android/native_test:native_test_support",

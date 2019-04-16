@@ -110,12 +110,8 @@ FloatSize StyleFetchedImageSet::ImageSize(
   return scaled_image_size;
 }
 
-bool StyleFetchedImageSet::ImageHasRelativeSize() const {
-  return best_fit_image_->GetImage()->HasRelativeSize();
-}
-
-bool StyleFetchedImageSet::UsesImageContainerSize() const {
-  return best_fit_image_->GetImage()->UsesContainerSize();
+bool StyleFetchedImageSet::HasIntrinsicSize() const {
+  return best_fit_image_->GetImage()->HasIntrinsicSize();
 }
 
 void StyleFetchedImageSet::AddClient(ImageResourceObserver* observer) {

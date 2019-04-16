@@ -171,9 +171,11 @@ declare_args() {
 declare_args() {
   # Set to true to use lld, the LLVM linker.
   # https://crbug.com/911658 for using lld on 32-bit linux.
+  # https://crbug.com/917504 for arm chromeos
   use_lld = is_clang &&
             (is_win || is_fuchsia || is_android ||
-             (is_linux && target_os != "chromeos" && current_cpu != "x86"))
+             (is_linux && target_os != "chromeos" && current_cpu != "x86") ||
+             (target_os == "chromeos" && current_cpu != "arm"))
 }
 
 declare_args() {
@@ -209,7 +211,14 @@ if (symbol_level == -1) {
     # Use lower symbol level in Simple Chrome build for faster link time.
     # For Simple Chrome, this should take precedence over is_official_build,
     # turned on by --internal.
-    symbol_level = 1
+    if ((target_cpu == "x64" || target_cpu == "x86") && !is_debug) {
+      # For release x86/x64 build, specify symbol_level=0 for faster link time.
+      # x86/x64 shows backtraces with symbol_level=0 (arm requires
+      # symbol_level=1).
+      symbol_level = 0
+    } else {
+      symbol_level = 1
+    }
   } else if ((!is_nacl && !is_linux && !is_fuchsia) || is_debug ||
              is_official_build || is_chromecast) {
     # Linux builds slower by having symbols as part of the target binary,

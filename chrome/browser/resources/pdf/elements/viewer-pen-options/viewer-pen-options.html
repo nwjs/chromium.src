@@ -67,13 +67,14 @@
             checked$="[[equal_(selectedColor, item.color)]]"
             tabindex="1" style="--item-color: [[item.color]]"
             title$="[[lookup_(strings, item.name)]]"
-            aria-label$="[[lookup_(strings, item.name)]]">
+            aria-label$="[[lookup_(strings, item.name)]]"
+            on-pointerdown="blurOnPointerDown">
       </template>
       <paper-icon-button id="expand" icon="cr:expand-more"
           tabindex="3"
           on-click="toggleExpanded_"
-          aria-label$="[[strings.tooltipExpand]]"
-          title$="[[strings.tooltipExpand]]">
+          aria-label$="[[strings.annotationExpand]]"
+          title$="[[strings.annotationExpand]]">
       </paper-icon-button>
     </div>
     <div id="separator"></div>
@@ -83,7 +84,8 @@
             checked$="[[equal_(selectedSize, item.size)]]"
             tabindex="2" style="--item-size: [[item.size]]"
             title$="{{lookup_(strings, item.name)}}"
-            aria-label$="[[lookup_(strings, item.name)]]">
+            aria-label$="[[lookup_(strings, item.name)]]"
+            on-pointerdown="blurOnPointerDown">
       </template>
     </div>
     </paper-icon-button>

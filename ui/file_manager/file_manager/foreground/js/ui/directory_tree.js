@@ -106,8 +106,7 @@ DirectoryItemTreeBaseMethods.searchAndSelectByEntry = function(entry) {
  * @param {boolean} isRootEntry Whether the entry selected was a root entry.
  * @return
  */
-DirectoryItemTreeBaseMethods.recordUMASelectedEntry = function(
-    e, rootType, isRootEntry) {
+DirectoryItemTreeBaseMethods.recordUMASelectedEntry = (e, rootType, isRootEntry) => {
   const expandIconSelected = e.target.classList.contains('expand-icon');
   let metricName = 'Location.OnEntrySelected.TopLevel';
   if (!expandIconSelected && isRootEntry) {
@@ -132,7 +131,7 @@ const TREE_ITEM_INNER_HTML = '<div class="tree-row">' +
     ' <span class="icon"></span>' +
     ' <span class="label entry-name"></span>' +
     '</div>' +
-    '<div class="tree-children"></div>';
+    '<div class="tree-children" role="group"></div>';
 
 ////////////////////////////////////////////////////////////////////////////////
 // DirectoryItem
@@ -411,7 +410,7 @@ DirectoryItem.prototype.searchAndSelectByEntry = function(entry) {
  * @param {boolean=} opt_unused Unused.
  * @override
  */
-DirectoryItem.prototype.scrollIntoViewIfNeeded = function(opt_unused) {};
+DirectoryItem.prototype.scrollIntoViewIfNeeded = opt_unused => {};
 
 /**
  * Removes the child node, but without selecting the parent item, to avoid
@@ -598,7 +597,7 @@ DirectoryItem.prototype.updateItemByEntry = function(changedDirectoryEntry) {
 /**
  * Update the icon based on whether the folder is shared on Drive.
  */
-DirectoryItem.prototype.updateDriveSpecificIcons = function() {};
+DirectoryItem.prototype.updateDriveSpecificIcons = () => {};
 
 /**
  * Select the item corresponding to the given {@code entry}.
@@ -635,6 +634,55 @@ DirectoryItem.prototype.activate = function() {
   if (this.entry) {
     this.parentTree_.directoryModel.activateDirectoryEntry(this.entry);
   }
+};
+
+/**
+ * Set up eject button if needed.
+ * @param {HTMLElement} rowElement The parent element for eject button.
+ * @private
+ */
+DirectoryItem.prototype.setupEjectButton_ = function(rowElement) {
+  const ejectButton = cr.doc.createElement('button');
+  // Block other mouse handlers.
+  ejectButton.addEventListener('mouseup', (event) => {
+    event.stopPropagation();
+  });
+  ejectButton.addEventListener('up', (event) => {
+    event.stopPropagation();
+  });
+  ejectButton.addEventListener('mousedown', (event) => {
+    event.stopPropagation();
+  });
+  ejectButton.addEventListener('down', (event) => {
+    event.stopPropagation();
+  });
+  ejectButton.className = 'root-eject';
+  ejectButton.setAttribute('aria-label', str('UNMOUNT_DEVICE_BUTTON_LABEL'));
+  ejectButton.setAttribute('tabindex', '0');
+  ejectButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const command = cr.doc.querySelector('command#unmount');
+    // Let's make sure 'canExecute' state of the command is properly set for
+    // the root before executing it.
+    command.canExecuteChange(this);
+    command.execute(this);
+  });
+  rowElement.appendChild(ejectButton);
+
+  // Add paper-ripple effect on the eject button.
+  const ripple = cr.doc.createElement('paper-ripple');
+  ripple.setAttribute('fit', '');
+  ripple.className = 'circle recenteringTouch';
+  ejectButton.appendChild(ripple);
+};
+
+/**
+ * Set up the context menu for directory items.
+ * @param {!cr.ui.Menu} menu Menu to be set.
+ * @private
+ */
+DirectoryItem.prototype.setContextMenu_ = function(menu) {
+  cr.ui.contextMenuHandler.setContextMenu(this, menu);
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -676,6 +724,7 @@ function SubDirectoryItem(label, dirEntry, parentDirItem, tree) {
     if (window.IN_TEST && location.volumeInfo) {
       item.setAttribute(
           'volume-type-for-testing', location.volumeInfo.volumeType);
+      item.setAttribute('drive-label', location.volumeInfo.driveLabel);
     }
   } else {
     const rootType = location.rootType || null;
@@ -691,7 +740,7 @@ function SubDirectoryItem(label, dirEntry, parentDirItem, tree) {
 
   // Sets up context menu of the item.
   if (tree.contextMenuForSubitems) {
-    cr.ui.contextMenuHandler.setContextMenu(item, tree.contextMenuForSubitems);
+    item.setContextMenu_(tree.contextMenuForSubitems);
   }
 
   // Populates children now if needed.
@@ -749,9 +798,8 @@ SubDirectoryItem.prototype.updateDriveSpecificIcons = function() {
  * @constructor
  */
 function EntryListItem(rootType, modelItem, tree) {
-  const item = new DirectoryItem(modelItem.label, tree);
-  // Get the original label id defined by TreeItem, before overwriting
-  // prototype.
+  const item =
+      /** @type {EntryListItem} */ (new DirectoryItem(modelItem.label, tree));
   item.__proto__ = EntryListItem.prototype;
   if (window.IN_TEST) {
     item.setAttribute('dir-type', 'EntryListItem');
@@ -763,13 +811,39 @@ function EntryListItem(rootType, modelItem, tree) {
   item.dirEntry_ = modelItem.entry;
   item.parentTree_ = tree;
 
+  if (rootType === VolumeManagerCommon.RootType.REMOVABLE) {
+    item.setupEjectButton_(item.rowElement);
+
+    // For removable add menus for roots to be able to unmount, format, etc.
+    if (tree.contextMenuForRootItems) {
+      item.setContextMenu_(tree.contextMenuForRootItems);
+    }
+  } else {
+    // For MyFiles allow normal file operations menus.
+    if (tree.contextMenuForSubitems) {
+      item.setContextMenu_(tree.contextMenuForSubitems);
+    }
+  }
+
+  const icon = queryRequiredElement('.icon', item);
   if (window.IN_TEST && item.entry && item.entry.volumeInfo) {
     item.setAttribute(
         'volume-type-for-testing', item.entry.volumeInfo.volumeType);
+    // TODO(crbug.com/880130) Remove volume-type-icon from here once
+    // MyFilesVolume flag is removed.
+    icon.setAttribute('volume-type-icon', rootType);
   }
-  const icon = queryRequiredElement('.icon', item);
   icon.classList.add('item-icon');
   icon.setAttribute('root-type-icon', rootType);
+
+  // MyFiles shows expanded by default.
+  if (rootType === VolumeManagerCommon.RootType.MY_FILES) {
+    item.mayHaveChildren_ = true;
+    item.expanded = true;
+  }
+  // Populate children of this volume.
+  item.updateSubDirectories(false /* recursive */);
+
   return item;
 }
 
@@ -808,6 +882,10 @@ EntryListItem.prototype = {
  * @returns {!Array<!Entry>}
  */
 EntryListItem.prototype.sortEntries = function(entries) {
+  if (!entries.length) {
+    return [];
+  }
+
   if (!util.isMyFilesVolumeEnabled()) {
     return DirectoryItem.prototype.sortEntries.apply(this, [entries]);
   }
@@ -845,9 +923,6 @@ EntryListItem.prototype.updateSubDirectories = function(
   const onSuccess = (entries) => {
     this.entries_ = entries;
     this.updateSubElementsFromList(recursive);
-    if (this.entries_.length > 0) {
-      this.expanded = true;
-    }
     opt_successCallback && opt_successCallback();
   };
   const reader = this.entry.createReader();
@@ -861,8 +936,7 @@ EntryListItem.prototype.updateSubDirectories = function(
       for (let i = 0; i < results.length; i++) {
         const entry = results[i];
         if (entry.isDirectory) {
-          // For VolumeEntry we want to display its root.
-          entries.push(util.unwrapEntry(entry));
+          entries.push(entry);
         }
       }
       readEntry();
@@ -958,15 +1032,6 @@ VolumeItem.prototype = {
 };
 
 /**
- * Sets the context menu for volume items.
- * @param {!cr.ui.Menu} menu Menu to be set.
- * @private
- */
-VolumeItem.prototype.setContextMenu_ = function(menu) {
-  cr.ui.contextMenuHandler.setContextMenu(this, menu);
-};
-
-/**
  * @override
  */
 VolumeItem.prototype.updateSubDirectories = function(
@@ -1013,7 +1078,7 @@ VolumeItem.prototype.activate = function() {
  * @param {VolumeInfo} volumeInfo VolumeInfo determines the icon type.
  * @private
  */
-VolumeItem.prototype.setupIcon_ = function(icon, volumeInfo) {
+VolumeItem.prototype.setupIcon_ = (icon, volumeInfo) => {
   icon.classList.add('item-icon');
   const backgroundImage =
       util.iconSetToCSSBackgroundImageValue(volumeInfo.iconSet);
@@ -1035,51 +1100,11 @@ VolumeItem.prototype.setupIcon_ = function(icon, volumeInfo) {
 };
 
 /**
- * Set up eject button if needed.
- * @param {HTMLElement} rowElement The parent element for eject button.
- * @private
- */
-VolumeItem.prototype.setupEjectButton_ = function(rowElement) {
-  const ejectButton = cr.doc.createElement('button');
-  // Block other mouse handlers.
-  ejectButton.addEventListener('mouseup', (event) => {
-    event.stopPropagation();
-  });
-  ejectButton.addEventListener('up', (event) => {
-    event.stopPropagation();
-  });
-  ejectButton.addEventListener('mousedown', (event) => {
-    event.stopPropagation();
-  });
-  ejectButton.addEventListener('down', (event) => {
-    event.stopPropagation();
-  });
-  ejectButton.className = 'root-eject';
-  ejectButton.setAttribute('aria-label', str('UNMOUNT_DEVICE_BUTTON_LABEL'));
-  ejectButton.setAttribute('tabindex', '0');
-  ejectButton.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const unmountCommand = cr.doc.querySelector('command#unmount');
-    // Let's make sure 'canExecute' state of the command is properly set for
-    // the root before executing it.
-    unmountCommand.canExecuteChange(this);
-    unmountCommand.execute(this);
-  });
-  rowElement.appendChild(ejectButton);
-
-  // Add paper-ripple effect on the eject button.
-  const ripple = cr.doc.createElement('paper-ripple');
-  ripple.setAttribute('fit', '');
-  ripple.className = 'circle recenteringTouch';
-  ejectButton.appendChild(ripple);
-};
-
-/**
  * Set up rename input textbox placeholder if needed.
  * @param {HTMLElement} rowElement The parent element for placeholder.
  * @private
  */
-VolumeItem.prototype.setupRenamePlaceholder_ = function(rowElement) {
+VolumeItem.prototype.setupRenamePlaceholder_ = rowElement => {
   const placeholder = cr.doc.createElement('span');
   placeholder.className = 'rename-placeholder';
   rowElement.appendChild(placeholder);
@@ -1313,12 +1338,12 @@ DriveVolumeItem.prototype.updateSubDirectories = function(recursive) {
   let entries = [this.entry];
 
   const teamDrivesDisplayRoot = this.volumeInfo_.teamDriveDisplayRoot;
-  if (!!teamDrivesDisplayRoot) {
+  if (teamDrivesDisplayRoot) {
     entries.push(teamDrivesDisplayRoot);
   }
 
   const computersDisplayRoot = this.volumeInfo_.computersDisplayRoot;
-  if (!!computersDisplayRoot) {
+  if (computersDisplayRoot) {
     entries.push(computersDisplayRoot);
   }
 
@@ -1496,7 +1521,7 @@ ShortcutItem.prototype = {
  *     be a fake.
  * @return {boolean} True if the parent item is found.
  */
-ShortcutItem.prototype.searchAndSelectByEntry = function(entry) {
+ShortcutItem.prototype.searchAndSelectByEntry = entry => {
   // Always false as shortcuts have no children.
   return false;
 };
@@ -1624,7 +1649,7 @@ FakeItem.prototype = {
  * @param {!DirectoryEntry|!FakeEntry} entry
  * @return {boolean} True if the parent item is found.
  */
-FakeItem.prototype.searchAndSelectByEntry = function(entry) {
+FakeItem.prototype.searchAndSelectByEntry = entry => {
   return false;
 };
 
@@ -1658,15 +1683,14 @@ FakeItem.prototype.activate = function() {
  * FakeItem doesn't really have sub-directories, it's defined here only to have
  * the same API of other Items on this file.
  */
-FakeItem.prototype.updateSubDirectories = function(
-    recursive, opt_successCallback, opt_errorCallback) {
+FakeItem.prototype.updateSubDirectories = (recursive, opt_successCallback, opt_errorCallback) => {
   return opt_successCallback && opt_successCallback();
 };
 
 /**
  * FakeItem doesn't really have shared status/icon so we define here as no-op.
  */
-FakeItem.prototype.updateDriveSpecificIcons = function() {};
+FakeItem.prototype.updateDriveSpecificIcons = () => {};
 
 ////////////////////////////////////////////////////////////////////////////////
 // DirectoryTree
@@ -1689,9 +1713,14 @@ function DirectoryTree() {}
  * @param {!FileOperationManager} fileOperationManager
  * @param {boolean} fakeEntriesVisible True if it should show the fakeEntries.
  */
-DirectoryTree.decorate = function(
-    el, directoryModel, volumeManager, metadataModel, fileOperationManager,
-    fakeEntriesVisible) {
+DirectoryTree.decorate = (
+  el,
+  directoryModel,
+  volumeManager,
+  metadataModel,
+  fileOperationManager,
+  fakeEntriesVisible
+) => {
   el.__proto__ = DirectoryTree.prototype;
   /** @type {DirectoryTree} */ (el).decorateDirectoryTree(
       directoryModel, volumeManager, metadataModel, fileOperationManager,
@@ -1775,7 +1804,7 @@ cr.defineProperty(DirectoryTree, 'contextMenuForRootItems', cr.PropertyKind.JS);
  * @return {!cr.ui.TreeItem} a newly created instance of a
  *     DirectoryItem type.
  */
-DirectoryTree.createDirectoryItem = function(modelItem, tree) {
+DirectoryTree.createDirectoryItem = (modelItem, tree) => {
   switch (modelItem.type) {
     case NavigationModelItemType.VOLUME:
       const volumeModelItem =
@@ -1807,8 +1836,11 @@ DirectoryTree.createDirectoryItem = function(modelItem, tree) {
           /** @type {!NavigationModelFakeItem} */ (modelItem), tree);
       break;
     case NavigationModelItemType.ENTRY_LIST:
+      const rootType = modelItem.section === NavigationSection.REMOVABLE ?
+          VolumeManagerCommon.RootType.REMOVABLE :
+          VolumeManagerCommon.RootType.MY_FILES;
       return new EntryListItem(
-          VolumeManagerCommon.RootType.MY_FILES,
+          rootType,
           /** @type {!NavigationModelFakeItem} */ (modelItem), tree);
       break;
   }

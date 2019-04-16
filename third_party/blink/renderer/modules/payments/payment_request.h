@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_PAYMENTS_PAYMENT_REQUEST_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_PAYMENTS_PAYMENT_REQUEST_H_
 
+#include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "components/payments/mojom/payment_request_data.mojom-blink.h"
 #include "mojo/public/cpp/bindings/binding.h"
@@ -12,8 +13,8 @@
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/modules/payments/payment_method_data.h"
 #include "third_party/blink/renderer/modules/payments/payment_options.h"
@@ -23,7 +24,6 @@
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/wtf/compiler.h"
-#include "third_party/blink/renderer/platform/wtf/noncopyable.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -45,8 +45,8 @@ class MODULES_EXPORT PaymentRequest final
       public ContextLifecycleObserver,
       public ActiveScriptWrappable<PaymentRequest> {
   DEFINE_WRAPPERTYPEINFO();
-  USING_GARBAGE_COLLECTED_MIXIN(PaymentRequest)
-  WTF_MAKE_NONCOPYABLE(PaymentRequest);
+  USING_GARBAGE_COLLECTED_MIXIN(PaymentRequest);
+  USING_PRE_FINALIZER(PaymentRequest, ClearResolversAndCloseMojoConnection);
 
  public:
   static PaymentRequest* Create(ExecutionContext*,
@@ -74,10 +74,9 @@ class MODULES_EXPORT PaymentRequest final
   const String& shippingOption() const { return shipping_option_; }
   const String& shippingType() const { return shipping_type_; }
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(shippingaddresschange,
-                                  kShippingaddresschange);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(shippingoptionchange, kShippingoptionchange);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(paymentmethodchange, kPaymentmethodchange);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(shippingaddresschange, kShippingaddresschange)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(shippingoptionchange, kShippingoptionchange)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(paymentmethodchange, kPaymentmethodchange)
 
   ScriptPromise canMakePayment(ScriptState*);
   ScriptPromise hasEnrolledInstrument(ScriptState*);
@@ -94,8 +93,7 @@ class MODULES_EXPORT PaymentRequest final
   ScriptPromise Retry(ScriptState*, const PaymentValidationErrors*) override;
 
   // PaymentUpdater:
-  void OnUpdatePaymentDetails(const AtomicString& event_type,
-                              const ScriptValue& details_script_value) override;
+  void OnUpdatePaymentDetails(const ScriptValue& details_script_value) override;
   void OnUpdatePaymentDetailsFailure(const String& error) override;
 
   void Trace(blink::Visitor*) override;
@@ -157,6 +155,8 @@ class MODULES_EXPORT PaymentRequest final
   payments::mojom::blink::PaymentRequestPtr payment_provider_;
   mojo::Binding<payments::mojom::blink::PaymentRequestClient> client_binding_;
   TaskRunnerTimer<PaymentRequest> complete_timer_;
+
+  DISALLOW_COPY_AND_ASSIGN(PaymentRequest);
 };
 
 }  // namespace blink

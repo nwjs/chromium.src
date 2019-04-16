@@ -16,10 +16,12 @@
 #include "third_party/blink/renderer/platform/wtf/time.h"
 
 namespace blink {
-class PaintLayer;
+
 class LayoutObject;
-class TracedValue;
 class LocalFrameView;
+class PropertyTreeState;
+class TracedValue;
+class Image;
 
 class ImageRecord : public base::SupportsWeakPtr<ImageRecord> {
  public:
@@ -44,7 +46,9 @@ class ImageRecord : public base::SupportsWeakPtr<ImageRecord> {
 // 1. Tracks all images' first invalidation, recording their visual size, if
 // this image is within viewport.
 // 2. When an image finishes loading, record its paint time.
-// 3. At the end of each prepaint tree walk, the algorithm starts an analysis.
+// 3. At the end of each frame, if new images are added and loaded, the
+// algorithm will start an analysis.
+//
 // In the analysis:
 // 3.1 Largest Image Paint finds the largest image by the first visual size. If
 // it has finished loading, reports a candidate result as its first paint time
@@ -62,12 +66,20 @@ class ImageRecord : public base::SupportsWeakPtr<ImageRecord> {
 class CORE_EXPORT ImagePaintTimingDetector final
     : public GarbageCollectedFinalized<ImagePaintTimingDetector> {
   friend class ImagePaintTimingDetectorTest;
+  using NodesQueueComparator = bool (*)(const base::WeakPtr<ImageRecord>&,
+                                        const base::WeakPtr<ImageRecord>&);
+  using ImageRecordSet =
+      std::set<base::WeakPtr<ImageRecord>, NodesQueueComparator>;
 
  public:
   ImagePaintTimingDetector(LocalFrameView*);
-  void RecordImage(const LayoutObject&, const PaintLayer&);
-  static bool HasContentfulBackgroundImage(const LayoutObject& object);
-  void OnPrePaintFinished();
+  void RecordImage(const LayoutObject&,
+                   const PropertyTreeState& current_paint_chunk_properties);
+  static bool IsBackgroundImageContentful(const LayoutObject&, const Image&);
+  static bool HasBackgroundImage(const LayoutObject& object);
+  void OnPaintFinished();
+  ImageRecord* FindLargestPaintCandidate();
+  ImageRecord* FindLastPaintCandidate();
   void NotifyNodeRemoved(DOMNodeId);
   base::TimeTicks LargestImagePaint() const {
     return !largest_image_paint_
@@ -95,12 +107,7 @@ class CORE_EXPORT ImagePaintTimingDetector final
   void Trace(blink::Visitor*);
 
  private:
-  ImageRecord* FindLargestPaintCandidate();
-  ImageRecord* FindLastPaintCandidate();
-  ImageRecord* FindCandidate(
-      std::set<base::WeakPtr<ImageRecord>,
-               bool (*)(const base::WeakPtr<ImageRecord>&,
-                        const base::WeakPtr<ImageRecord>&)>& heap);
+  ImageRecord* FindCandidate(ImageRecordSet&);
   void PopulateTraceValue(TracedValue&,
                           const ImageRecord& first_image_paint,
                           unsigned report_count) const;
@@ -122,14 +129,8 @@ class CORE_EXPORT ImagePaintTimingDetector final
   // We will never destroy the pointers within |id_record_map_|. Once created
   // they will exist for the whole life cycle of |id_record_map_|.
   HashMap<DOMNodeId, std::unique_ptr<ImageRecord>> id_record_map_;
-  std::set<base::WeakPtr<ImageRecord>,
-           bool (*)(const base::WeakPtr<ImageRecord>&,
-                    const base::WeakPtr<ImageRecord>&)>
-      size_ordered_set_;
-  std::set<base::WeakPtr<ImageRecord>,
-           bool (*)(const base::WeakPtr<ImageRecord>&,
-                    const base::WeakPtr<ImageRecord>&)>
-      time_ordered_set_;
+  ImageRecordSet size_ordered_set_;
+  ImageRecordSet time_ordered_set_;
   HashSet<DOMNodeId> detached_ids_;
 
   // Node-ids of records pending swap time are stored in this queue until they

@@ -369,7 +369,7 @@ class AutofillWalletSyncBridgeTest : public UssSwitchToggler,
 
   base::MockCallback<base::RepeatingCallback<void(bool)>>* active_callback() {
     return &active_callback_;
-  };
+  }
 
  private:
   autofill::TestAutofillClock test_clock_;
@@ -487,6 +487,7 @@ TEST_P(AutofillWalletSyncBridgeTest, MergeSyncData_NewWalletAddressAndCard) {
                                                      &customer_data_specifics);
 
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(
                               AddChange(address2.server_id(), address2)));
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(
@@ -533,6 +534,7 @@ TEST_P(AutofillWalletSyncBridgeTest,
                                                      &customer_data_specifics);
 
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
+  EXPECT_CALL(*backend(), CommitChanges());
   StartSyncing({profile_specifics, card_specifics, customer_data_specifics});
 
   if (IsWalletMetadataOnUSS()) {
@@ -573,6 +575,7 @@ TEST_P(AutofillWalletSyncBridgeTest, MergeSyncData_NewPaymentsCustomerData) {
                                                      &customer_data_specifics2);
 
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(_)).Times(0);
   EXPECT_CALL(*backend(), NotifyOfCreditCardChanged(_)).Times(0);
   StartSyncing({profile_specifics, card_specifics, customer_data_specifics2});
@@ -596,6 +599,7 @@ TEST_P(AutofillWalletSyncBridgeTest, MergeSyncData_NoWalletAddressOrCard) {
   table()->SetServerCreditCards({local_card});
 
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(
                               RemoveChange(local_profile.server_id())));
   EXPECT_CALL(*backend(),
@@ -636,6 +640,8 @@ TEST_P(AutofillWalletSyncBridgeTest,
                                                      &customer_data_specifics);
 
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges()).Times(0);
+  // We still need to commit the updated progress marker on the client.
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(_)).Times(0);
   EXPECT_CALL(*backend(), NotifyOfCreditCardChanged(_)).Times(0);
   StartSyncing({profile_specifics, card_specifics, customer_data_specifics});
@@ -672,6 +678,7 @@ TEST_P(AutofillWalletSyncBridgeTest,
   SetAutofillWalletSpecificsFromPaymentsCustomerData(customer_data,
                                                      &customer_data_specifics);
 
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(
                               RemoveChange(profile2.server_id())));
@@ -817,6 +824,7 @@ TEST_P(AutofillWalletSyncBridgeTest, ApplyStopSyncChanges_ClearAllData) {
   CreditCard local_card = test::GetMaskedServerCard();
   table()->SetServerCreditCards({local_card});
 
+  EXPECT_CALL(*backend(), CommitChanges());
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges());
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(
                               RemoveChange(local_profile.server_id())));
@@ -846,6 +854,8 @@ TEST_P(AutofillWalletSyncBridgeTest, ApplyStopSyncChanges_KeepData) {
   CreditCard local_card = test::GetMaskedServerCard();
   table()->SetServerCreditCards({local_card});
 
+  // We do not write to DB at all, so we should not commit any changes.
+  EXPECT_CALL(*backend(), CommitChanges()).Times(0);
   EXPECT_CALL(*backend(), NotifyOfMultipleAutofillChanges()).Times(0);
   EXPECT_CALL(*backend(), NotifyOfAutofillProfileChanged(_)).Times(0);
   EXPECT_CALL(*backend(), NotifyOfCreditCardChanged(_)).Times(0);
@@ -884,8 +894,8 @@ TEST_P(AutofillWalletSyncBridgeTest, NotifiesWhenActivelySyncing) {
   bridge()->ApplyStopSyncChanges(/*delete_metadata_change_list=*/nullptr);
 }
 
-INSTANTIATE_TEST_CASE_P(USS,
-                        AutofillWalletSyncBridgeTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(USS,
+                         AutofillWalletSyncBridgeTest,
+                         ::testing::Values(false, true));
 
 }  // namespace autofill

@@ -111,14 +111,14 @@ void WorkQueue::PushNonNestableTaskToFront(Task task) {
   if (was_empty || was_blocked) {
     work_queue_sets_->OnTaskPushedToEmptyQueue(this);
   } else {
-    work_queue_sets_->OnFrontTaskChanged(this);
+    work_queue_sets_->OnQueuesFrontTaskChanged(this);
   }
 }
 
-void WorkQueue::ReloadEmptyImmediateQueue() {
+void WorkQueue::TakeImmediateIncomingQueueTasks() {
   DCHECK(tasks_.empty());
 
-  task_queue_->ReloadEmptyImmediateQueue(&tasks_);
+  task_queue_->TakeImmediateIncomingQueueTasks(&tasks_);
   if (tasks_.empty())
     return;
 
@@ -137,24 +137,25 @@ Task WorkQueue::TakeTaskFromWorkQueue() {
   if (tasks_.empty()) {
     // NB delayed tasks are inserted via Push, no don't need to reload those.
     if (queue_type_ == QueueType::kImmediate) {
-      // Short-circuit the queue reload so that OnPopQueue does the right
-      // thing.
-      task_queue_->ReloadEmptyImmediateQueue(&tasks_);
+      // Short-circuit the queue reload so that OnPopMinQueueInSet does the
+      // right thing.
+      task_queue_->TakeImmediateIncomingQueueTasks(&tasks_);
     }
     // Since the queue is empty, now is a good time to consider reducing it's
     // capacity if we're wasting memory.
     tasks_.MaybeShrinkQueue();
   }
 
-  // OnPopQueue calls GetFrontTaskEnqueueOrder which checks BlockedByFence() so
-  // we don't need to here.
-  work_queue_sets_->OnPopQueue(this);
+  // OnPopMinQueueInSet calls GetFrontTaskEnqueueOrder which checks
+  // BlockedByFence() so we don't need to here.
+  work_queue_sets_->OnPopMinQueueInSet(this);
   task_queue_->TraceQueueSize();
   return pending_task;
 }
 
 bool WorkQueue::RemoveAllCanceledTasksFromFront() {
-  DCHECK(work_queue_sets_);
+  if (!work_queue_sets_)
+    return false;
   bool task_removed = false;
   while (!tasks_.empty() &&
          (!tasks_.front().task || tasks_.front().task.IsCancelled())) {
@@ -165,15 +166,18 @@ bool WorkQueue::RemoveAllCanceledTasksFromFront() {
     if (tasks_.empty()) {
       // NB delayed tasks are inserted via Push, no don't need to reload those.
       if (queue_type_ == QueueType::kImmediate) {
-        // Short-circuit the queue reload so that OnPopQueue does the right
-        // thing.
-        task_queue_->ReloadEmptyImmediateQueue(&tasks_);
+        // Short-circuit the queue reload so that OnPopMinQueueInSet does the
+        // right thing.
+        task_queue_->TakeImmediateIncomingQueueTasks(&tasks_);
       }
       // Since the queue is empty, now is a good time to consider reducing it's
       // capacity if we're wasting memory.
       tasks_.MaybeShrinkQueue();
     }
-    work_queue_sets_->OnPopQueue(this);
+    // If we have a valid |heap_handle_| (i.e. we're not blocked by a fence or
+    // disabled) then |work_queue_sets_| needs to be told.
+    if (heap_handle_.IsValid())
+      work_queue_sets_->OnQueuesFrontTaskChanged(this);
     task_queue_->TraceQueueSize();
   }
   return task_removed;
@@ -247,7 +251,7 @@ void WorkQueue::DeletePendingTasks() {
   tasks_.clear();
 
   if (work_queue_sets_ && heap_handle().IsValid())
-    work_queue_sets_->OnPopQueue(this);
+    work_queue_sets_->OnQueuesFrontTaskChanged(this);
 }
 
 void WorkQueue::PopTaskForTesting() {

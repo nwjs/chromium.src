@@ -184,10 +184,7 @@ jumbo_source_set("common_sources") {
     "referrer.h",
     "referrer_type_converters.cc",
     "referrer_type_converters.h",
-    "renderer_preferences.cc",
-    "renderer_preferences.h",
-    "renderer_preferences_util.cc",
-    "renderer_preferences_util.h",
+    "resource_intercept_policy.h",
     "resource_request_body_android.cc",
     "resource_request_body_android.h",
     "resource_type.cc",
@@ -352,8 +349,6 @@ mojom("interfaces") {
     "fullscreen_video_element.mojom",
     "load_timing_info.mojom",
     "push_messaging_status.mojom",
-    "renderer_preference_watcher.mojom",
-    "renderer_preferences.mojom",
     "resource_load_info.mojom",
     "resource_usage_reporter.mojom",
     "transferrable_url_loader.mojom",
@@ -369,6 +364,7 @@ mojom("interfaces") {
     ":resource_type_bindings",
     "//mojo/public/mojom/base:base",
     "//services/network/public/mojom",
+    "//services/network/public/mojom:mojom_ip_address",
     "//services/network/public/mojom:websocket_mojom",
     "//third_party/blink/public:mojo_bindings",
     "//ui/accessibility:ax_enums_mojo",
@@ -381,7 +377,10 @@ mojom("interfaces") {
       "ns_view_bridge_factory.mojom",
       "web_contents_ns_view_bridge.mojom",
     ]
-    public_deps += [ "//ui/gfx/geometry/mojo" ]
+    public_deps += [
+      "//ui/gfx/geometry/mojo",
+      "//ui/gfx/image/mojo:interfaces",
+    ]
   }
 
   component_output_prefix = "content_public_common_mojo_bindings"

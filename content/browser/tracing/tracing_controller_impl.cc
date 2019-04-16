@@ -23,6 +23,7 @@
 #include "components/tracing/common/trace_startup_config.h"
 #include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/tracing/file_tracing_provider_impl.h"
+#include "content/browser/tracing/perfetto_file_tracer.h"
 #include "content/browser/tracing/tracing_ui.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
@@ -50,11 +51,12 @@
 #endif
 
 #if defined(OS_WIN)
+#include "base/win/registry.h"
 #include "base/win/windows_version.h"
 #endif
 
 #if defined(OS_ANDROID)
-#include "base/debug/elf_reader_linux.h"
+#include "base/debug/elf_reader.h"
 
 // Symbol with virtual address of the start of ELF header of the current binary.
 extern char __ehdr_start;
@@ -109,6 +111,32 @@ std::string GetClockString() {
   return std::string();
 }
 
+#if defined(OS_WIN)
+// The following code detect whether the current session is a remote session.
+// See:
+// https://docs.microsoft.com/en-us/windows/desktop/TermServ/detecting-the-terminal-services-environment
+bool IsCurrentSessionRemote() {
+  static const wchar_t kRdpSettingsKeyName[] =
+      L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server";
+  static const wchar_t kGlassSessionIdValueName[] = L"GlassSessionId";
+
+  if (::GetSystemMetrics(SM_REMOTESESSION))
+    return true;
+
+  DWORD glass_session_id = 0;
+  DWORD current_session_id = 0;
+  base::win::RegKey key(HKEY_LOCAL_MACHINE, kRdpSettingsKeyName, KEY_READ);
+  if (!::ProcessIdToSessionId(::GetCurrentProcessId(), &current_session_id) ||
+      !key.Valid() ||
+      key.ReadValueDW(kGlassSessionIdValueName, &glass_session_id) !=
+          ERROR_SUCCESS) {
+    return false;
+  }
+
+  return current_session_id != glass_session_id;
+}
+#endif
+
 }  // namespace
 
 TracingController* TracingController::GetInstance() {
@@ -116,22 +144,23 @@ TracingController* TracingController::GetInstance() {
 }
 
 TracingControllerImpl::TracingControllerImpl()
-    : delegate_(GetContentClient()->browser()->GetTracingDelegate()),
-      weak_ptr_factory_(this) {
+    : delegate_(GetContentClient()->browser()->GetTracingDelegate()) {
   DCHECK(!g_tracing_controller);
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   // Deliberately leaked, like this class.
   base::FileTracing::SetProvider(new FileTracingProviderImpl);
   AddAgents();
-  base::trace_event::TraceLog::GetInstance()->AddAsyncEnabledStateObserver(
-      weak_ptr_factory_.GetWeakPtr());
   g_tracing_controller = this;
+
+  // TODO(oysteine): Startup tracing using Perfetto
+  // is enabled by the Mojo consumer in content/browser
+  // for now; this is too late in the browser startup
+  // process however.
+  if (PerfettoFileTracer::ShouldEnable())
+    perfetto_file_tracer_ = std::make_unique<PerfettoFileTracer>();
 }
 
-TracingControllerImpl::~TracingControllerImpl() {
-  base::trace_event::TraceLog::GetInstance()->RemoveAsyncEnabledStateObserver(
-      this);
-}
+TracingControllerImpl::~TracingControllerImpl() = default;
 
 void TracingControllerImpl::AddAgents() {
   tracing::TracedProcessImpl::GetInstance()->SetTaskRunner(
@@ -194,10 +223,10 @@ TracingControllerImpl::GenerateMetadataDict() const {
   // obtained from process maps since library can be mapped from apk directly.
   // This is not added as part of memory-infra os dumps since it is special case
   // only for chrome library.
-  base::Optional<std::string> soname =
+  base::Optional<base::StringPiece> soname =
       base::debug::ReadElfLibraryName(&__ehdr_start);
   if (soname)
-    metadata_dict->SetString("chrome-library-name", soname.value());
+    metadata_dict->SetString("chrome-library-name", *soname);
 #endif  // defined(OS_ANDROID)
   metadata_dict->SetInteger("chrome-bitness", 8 * sizeof(uintptr_t));
 
@@ -219,7 +248,11 @@ TracingControllerImpl::GenerateMetadataDict() const {
       metadata_dict->SetString("os-wow64", "disabled");
     }
   }
+
+  metadata_dict->SetString("os-session",
+                           IsCurrentSessionRemote() ? "remote" : "local");
 #endif
+
   metadata_dict->SetString("os-arch",
                            base::SysInfo::OperatingSystemArchitecture());
 
@@ -273,10 +306,10 @@ TracingControllerImpl::GenerateMetadataDict() const {
   // TODO(crbug.com/737049): The central controller doesn't know about
   // metadata filters, so we temporarily filter here as the controller is
   // what assembles the full trace data.
-  MetadataFilterPredicate metadata_filter;
+  base::trace_event::MetadataFilterPredicate metadata_filter;
   if (trace_config_ && trace_config_->IsArgumentFilterEnabled()) {
-    if (delegate_)
-      metadata_filter = delegate_->GetMetadataFilterPredicate();
+    metadata_filter = base::trace_event::TraceLog::GetInstance()
+                          ->GetMetadataFilterPredicate();
   }
 
   if (!metadata_filter.is_null()) {
@@ -330,31 +363,19 @@ bool TracingControllerImpl::StartTracing(
   trace_config_ =
       std::make_unique<base::trace_event::TraceConfig>(trace_config);
 
-  start_tracing_done_ = std::move(callback);
   ConnectToServiceIfNeeded();
-  coordinator_->StartTracing(trace_config.ToString());
-
-  if (start_tracing_done_ &&
-      (base::trace_event::TraceLog::GetInstance()->IsEnabled() ||
-       !trace_config.process_filter_config().IsEnabled(
-           base::Process::Current().Pid()))) {
-    // If we're already tracing, or if the current process is excluded from the
-    // process filter, we'll never receive a callback from the TraceLog, so then
-    // we just run the callback right away.
-    std::move(start_tracing_done_).Run();
-  }
-
+  coordinator_->StartTracing(
+      trace_config.ToString(),
+      base::BindOnce(
+          [](StartTracingDoneCallback callback, bool success) {
+            if (!callback.is_null())
+              std::move(callback).Run();
+          },
+          std::move(callback)));
   // TODO(chiniforooshan): The actual success value should be sent by the
   // callback asynchronously.
   return true;
 }
-
-void TracingControllerImpl::OnTraceLogEnabled() {
-  if (start_tracing_done_)
-    std::move(start_tracing_done_).Run();
-}
-
-void TracingControllerImpl::OnTraceLogDisabled() {}
 
 bool TracingControllerImpl::StopTracing(
     const scoped_refptr<TraceDataEndpoint>& trace_data_endpoint) {
@@ -456,10 +477,10 @@ void TracingControllerImpl::OnDataComplete() {
 void TracingControllerImpl::OnMetadataAvailable(base::Value metadata) {
   DCHECK(!filtered_metadata_);
   is_metadata_available_ = true;
-  MetadataFilterPredicate metadata_filter;
+  base::trace_event::MetadataFilterPredicate metadata_filter;
   if (trace_config_->IsArgumentFilterEnabled()) {
-    if (delegate_)
-      metadata_filter = delegate_->GetMetadataFilterPredicate();
+    metadata_filter = base::trace_event::TraceLog::GetInstance()
+                          ->GetMetadataFilterPredicate();
   }
   if (metadata_filter.is_null()) {
     filtered_metadata_ = base::DictionaryValue::From(

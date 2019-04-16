@@ -4,6 +4,7 @@
 
 #include "content/browser/frame_host/navigation_throttle_runner.h"
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/optional.h"
 #include "content/public/browser/navigation_throttle.h"
@@ -255,7 +256,7 @@ TEST_P(NavigationThrottleRunnerTestWithEvent,
   EXPECT_FALSE(was_delegate_notified());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     AllEvents,
     NavigationThrottleRunnerTestWithEvent,
     ::testing::Values(NavigationThrottleRunner::Event::WillStartRequest,
@@ -367,7 +368,7 @@ TEST_P(NavigationThrottleRunnerTestWithEventAndAction, ProceedThenCancel) {
   EXPECT_EQ(event(), observer_last_event());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     AllEvents,
     NavigationThrottleRunnerTestWithEventAndAction,
     ::testing::Combine(
@@ -446,7 +447,7 @@ TEST_P(NavigationThrottleRunnerTestWithEventAndError, CustomNetError) {
   CheckNotified(test_throttle);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     AllEvents,
     NavigationThrottleRunnerTestWithEventAndError,
     ::testing::Combine(

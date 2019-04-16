@@ -26,7 +26,6 @@ class Rect;
 }
 
 namespace ash {
-class ImmersiveGestureDragHandler;
 class LockWindowState;
 class TabletModeWindowState;
 
@@ -412,7 +411,7 @@ class ASH_EXPORT WindowState : public aura::WindowObserver {
 
   // Update PIP related state, such as next window animation type, upon
   // state change.
-  void UpdatePipState(bool was_pip);
+  void UpdatePipState(mojom::WindowStateType old_window_state_type);
 
   // Update the PIP bounds if necessary. This may need to happen when the
   // display work area changes, or if system ui regions like the virtual
@@ -467,10 +466,6 @@ class ASH_EXPORT WindowState : public aura::WindowObserver {
   bool ignore_property_change_;
 
   std::unique_ptr<State> current_state_;
-
-  // An object that assists with dragging immersive mode windows in tablet mode.
-  // Only non-null when immersive mode is active.
-  std::unique_ptr<ImmersiveGestureDragHandler> immersive_gesture_drag_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(WindowState);
 };

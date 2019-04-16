@@ -4,6 +4,7 @@
 
 #include "chrome/browser/safe_browsing/download_protection/file_analyzer.h"
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -68,7 +69,7 @@ FileAnalyzer::Results ExtractFileFeatures(
 
 }  // namespace
 
-FileAnalyzer::Results::Results() {}
+FileAnalyzer::Results::Results() : file_count(0), directory_count(0) {}
 FileAnalyzer::Results::~Results() {}
 FileAnalyzer::Results::Results(const FileAnalyzer::Results& other) = default;
 
@@ -207,6 +208,9 @@ void FileAnalyzer::OnZipAnalysisFinished(
     results_.type = ClientDownloadRequest::ZIPPED_EXECUTABLE;
   }
 
+  results_.file_count = archive_results.file_count;
+  results_.directory_count = archive_results.directory_count;
+
   std::move(callback_).Run(std::move(results_));
 }
 
@@ -263,6 +267,9 @@ void FileAnalyzer::OnRarAnalysisFinished(
   } else {
     results_.type = ClientDownloadRequest::RAR_COMPRESSED_EXECUTABLE;
   }
+
+  results_.file_count = archive_results.file_count;
+  results_.directory_count = archive_results.directory_count;
 
   std::move(callback_).Run(std::move(results_));
 }

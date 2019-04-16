@@ -43,6 +43,8 @@ static_library("arc") {
     "lock_screen/arc_lock_screen_bridge.h",
     "metrics/arc_metrics_service.cc",
     "metrics/arc_metrics_service.h",
+    "metrics/stability_metrics_manager.cc",
+    "metrics/stability_metrics_manager.h",
     "midis/arc_midis_bridge.cc",
     "midis/arc_midis_bridge.h",
     "net/always_on_vpn_manager.cc",
@@ -68,7 +70,6 @@ static_library("arc") {
     "volume_mounter/arc_volume_mounter_bridge.h",
     "wake_lock/arc_wake_lock_bridge.cc",
     "wake_lock/arc_wake_lock_bridge.h",
-    "wake_lock/wake_lock_observer.h",
   ]
 
   public_deps = [
@@ -81,8 +82,8 @@ static_library("arc") {
     "//ash:ash",
     "//ash/public/cpp",
     "//base",
-    "//chromeos:chromeos_constants",
     "//chromeos/audio",
+    "//chromeos/constants",
     "//chromeos/dbus",
     "//chromeos/dbus:login_manager_proto",
     "//chromeos/dbus:power_manager_proto",
@@ -114,6 +115,7 @@ static_library("arc") {
     "//ui/base:base",
     "//ui/base/clipboard",
     "//ui/base/ime",
+    "//ui/chromeos/strings",
     "//ui/display/manager",
     "//ui/events",
     "//ui/events:dom_keycode_converter",
@@ -152,6 +154,23 @@ static_library("arc_base_enums") {
   ]
 }
 
+static_library("arc_base_utils") {
+  sources = [
+    "arc_features.cc",
+    "arc_features.h",
+    "arc_util.cc",
+    "arc_util.h",
+  ]
+
+  deps = [
+    "//ash/public/cpp",
+    "//base",
+    "//chromeos/constants",
+    "//chromeos/dbus",
+    "//ui/aura",
+  ]
+}
+
 static_library("arc_base") {
   # TODO(hidehiko): Revisit here and move back some files to "arc"
   # on completion to move ArcSession task to ArcSessionManager.
@@ -167,8 +186,6 @@ static_library("arc_base") {
     "arc_container_client_adapter.h",
     "arc_data_remover.cc",
     "arc_data_remover.h",
-    "arc_features.cc",
-    "arc_features.h",
     "arc_features_parser.cc",
     "arc_features_parser.h",
     "arc_service_manager.cc",
@@ -179,8 +196,6 @@ static_library("arc_base") {
     "arc_session_impl.h",
     "arc_session_runner.cc",
     "arc_session_runner.h",
-    "arc_util.cc",
-    "arc_util.h",
     "arc_vm_client_adapter.cc",
     "arc_vm_client_adapter.h",
   ]
@@ -188,7 +203,7 @@ static_library("arc_base") {
   deps = [
     "//ash/public/cpp",
     "//base",
-    "//chromeos:chromeos_constants",
+    "//chromeos/constants",
     "//chromeos/cryptohome",
     "//chromeos/dbus",
     "//chromeos/dbus:login_manager_proto",
@@ -204,6 +219,7 @@ static_library("arc_base") {
 
   public_deps = [
     ":arc_base_enums",
+    ":arc_base_utils",
     ":connection_holder",
     ":prefs",
     "//components/arc/common",
@@ -316,6 +332,7 @@ source_set("unit_tests") {
     "intent_helper/intent_filter_unittest.cc",
     "intent_helper/link_handler_model_unittest.cc",
     "metrics/arc_metrics_service_unittest.cc",
+    "metrics/stability_metrics_manager_unittest.cc",
     "net/always_on_vpn_manager_unittest.cc",
     "net/arc_net_host_impl_unittest.cc",
     "power/arc_power_bridge_unittest.cc",
@@ -328,7 +345,7 @@ source_set("unit_tests") {
     "//ash/public/cpp",
     "//base",
     "//base/test:test_support",
-    "//chromeos:chromeos_constants",
+    "//chromeos/constants",
     "//chromeos/cryptohome:test_support",
     "//chromeos/dbus:power_manager_proto",
     "//chromeos/dbus:test_support",

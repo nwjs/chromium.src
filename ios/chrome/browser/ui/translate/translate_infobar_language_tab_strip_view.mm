@@ -126,8 +126,7 @@ CGFloat kScrollViewTrailingGradientStart = 0.975;
   self.languagesScrollView.translatesAutoresizingMaskIntoConstraints = NO;
   self.languagesScrollView.showsVerticalScrollIndicator = NO;
   self.languagesScrollView.showsHorizontalScrollIndicator = NO;
-  self.languagesScrollView.canCancelContentTouches = YES;
-  self.languagesScrollView.bounces = NO;
+  self.languagesScrollView.bounces = YES;
   self.languagesScrollView.delegate = self;
   [self addSubview:self.languagesScrollView];
 
@@ -147,6 +146,7 @@ CGFloat kScrollViewTrailingGradientStart = 0.975;
   self.sourceLanguageTab = sourceLanguageTab;
   self.sourceLanguageTab.translatesAutoresizingMaskIntoConstraints = NO;
   self.sourceLanguageTab.title = self.sourceLanguage;
+  self.sourceLanguageTab.state = self.sourceLanguageTabState;
   self.sourceLanguageTab.delegate = self;
   [self.languagesScrollView addSubview:self.sourceLanguageTab];
 
@@ -155,6 +155,7 @@ CGFloat kScrollViewTrailingGradientStart = 0.975;
   self.targetLanguageTab = targetLanguageTab;
   self.targetLanguageTab.translatesAutoresizingMaskIntoConstraints = NO;
   self.targetLanguageTab.title = self.targetLanguage;
+  self.targetLanguageTab.state = self.targetLanguageTabState;
   self.targetLanguageTab.delegate = self;
   [self.languagesScrollView addSubview:self.targetLanguageTab];
 

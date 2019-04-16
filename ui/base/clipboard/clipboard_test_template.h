@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
-// Note: This header doesn't use REGISTER_TYPED_TEST_CASE_P like most
+// Note: This header doesn't use REGISTER_TYPED_TEST_SUITE_P like most
 // type-parameterized gtests. There are lot of test cases in here that are only
 // enabled on certain platforms. However, preprocessor directives in macro
 // arguments result in undefined behavior (and don't work on MSVC). Instead,
 // 'parameterized' tests should typedef TypesToTest (which is used to
-// instantiate the tests using the TYPED_TEST_CASE macro) and then #include this
-// header.
+// instantiate the tests using the TYPED_TEST_SUITE macro) and then #include
+// this header.
 // TODO(dcheng): This is really horrible. In general, all tests should run on
 // all platforms, to avoid this mess.
 
@@ -102,7 +102,7 @@ struct NullClipboardTraits {
 
 // |NamesOfTypesToTest| provides a way to differentiate between different
 // clipboard tests that include this file. See docs in gtest-typed-test.h
-TYPED_TEST_CASE(ClipboardTest, TypesToTest, NamesOfTypesToTest);
+TYPED_TEST_SUITE(ClipboardTest, TypesToTest, NamesOfTypesToTest);
 
 TYPED_TEST(ClipboardTest, ClearTest) {
   {
@@ -189,8 +189,8 @@ TYPED_TEST(ClipboardTest, RTFTest) {
   EXPECT_EQ(rtf, result);
 }
 
-// TODO(dnicoara) Enable test once Ozone implements clipboard support:
-// crbug.com/361707
+// TODO(msisov, tonikitoo): Enable test once ClipboardOzone implements
+// selection support. https://crbug.com/911992
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS) && !defined(USE_OZONE)
 TYPED_TEST(ClipboardTest, MultipleBufferTest) {
   base::string16 text(ASCIIToUTF16("Standard")), text_result;
@@ -376,8 +376,10 @@ TYPED_TEST(ClipboardTest, URLTest) {
   this->clipboard().ReadAsciiText(CLIPBOARD_TYPE_COPY_PASTE, &ascii_text);
   EXPECT_EQ(UTF16ToUTF8(url), ascii_text);
 
+// TODO(tonikitoo, msisov): enable back for ClipboardOzone implements
+// selection support. https://crbug.com/911992
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID) && \
-    !defined(OS_CHROMEOS)
+    !defined(OS_CHROMEOS) && !defined(USE_OZONE)
   ascii_text.clear();
   this->clipboard().ReadAsciiText(CLIPBOARD_TYPE_SELECTION, &ascii_text);
   EXPECT_EQ(UTF16ToUTF8(url), ascii_text);

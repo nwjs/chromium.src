@@ -4,7 +4,7 @@
 /**
  * Tests that the Delete menu item is disabled if no entry is selected.
  */
-testcase.deleteMenuItemNoEntrySelected = async function() {
+testcase.deleteMenuItemNoEntrySelected = async () => {
   const contextMenu = '#file-context-menu:not([hidden])';
 
   const appId = await setupAndWaitUntilReady(RootPath.DOWNLOADS);
@@ -26,8 +26,8 @@ testcase.deleteMenuItemNoEntrySelected = async function() {
 /**
  * Tests deleting an entry using the toolbar.
  */
-testcase.deleteEntryWithToolbar = async function() {
-  var beforeDeletion = TestEntryInfo.getExpectedRows([
+testcase.deleteEntryWithToolbar = async () => {
+  const beforeDeletion = TestEntryInfo.getExpectedRows([
     ENTRIES.photos,
     ENTRIES.hello,
     ENTRIES.world,
@@ -35,7 +35,7 @@ testcase.deleteEntryWithToolbar = async function() {
     ENTRIES.beautiful,
   ]);
 
-  var afterDeletion = TestEntryInfo.getExpectedRows([
+  const afterDeletion = TestEntryInfo.getExpectedRows([
     ENTRIES.photos,
     ENTRIES.hello,
     ENTRIES.world,

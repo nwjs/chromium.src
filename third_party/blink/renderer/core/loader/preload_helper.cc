@@ -105,9 +105,9 @@ void PreloadHelper::DnsPrefetchIfNeeded(
     const NetworkHintsInterface& network_hints_interface,
     LinkCaller caller) {
   if (params.rel.IsDNSPrefetch()) {
-    UseCounter::Count(frame, WebFeature::kLinkRelDnsPrefetch);
+    UseCounter::Count(document, WebFeature::kLinkRelDnsPrefetch);
     if (caller == kLinkCalledFromHeader)
-      UseCounter::Count(frame, WebFeature::kLinkHeaderDnsPrefetch);
+      UseCounter::Count(document, WebFeature::kLinkHeaderDnsPrefetch);
     Settings* settings = frame ? frame->GetSettings() : nullptr;
     // FIXME: The href attribute of the link element can be in "//hostname"
     // form, and we shouldn't attempt to complete that as URL
@@ -117,7 +117,7 @@ void PreloadHelper::DnsPrefetchIfNeeded(
       if (settings->GetLogDnsPrefetchAndPreconnect()) {
         SendMessageToConsoleForPossiblyNullDocument(
             ConsoleMessage::Create(
-                kOtherMessageSource, kVerboseMessageLevel,
+                kOtherMessageSource, mojom::ConsoleMessageLevel::kVerbose,
                 String("DNS prefetch triggered for " + params.href.Host())),
             document, frame);
       }
@@ -134,19 +134,20 @@ void PreloadHelper::PreconnectIfNeeded(
     LinkCaller caller) {
   if (params.rel.IsPreconnect() && params.href.IsValid() &&
       params.href.ProtocolIsInHTTPFamily()) {
-    UseCounter::Count(frame, WebFeature::kLinkRelPreconnect);
+    UseCounter::Count(document, WebFeature::kLinkRelPreconnect);
     if (caller == kLinkCalledFromHeader)
-      UseCounter::Count(frame, WebFeature::kLinkHeaderPreconnect);
+      UseCounter::Count(document, WebFeature::kLinkHeaderPreconnect);
     Settings* settings = frame ? frame->GetSettings() : nullptr;
     if (settings && settings->GetLogDnsPrefetchAndPreconnect()) {
       SendMessageToConsoleForPossiblyNullDocument(
           ConsoleMessage::Create(
-              kOtherMessageSource, kVerboseMessageLevel,
+              kOtherMessageSource, mojom::ConsoleMessageLevel::kVerbose,
               String("Preconnect triggered for ") + params.href.GetString()),
           document, frame);
       if (params.cross_origin != kCrossOriginAttributeNotSet) {
         SendMessageToConsoleForPossiblyNullDocument(
-            ConsoleMessage::Create(kOtherMessageSource, kVerboseMessageLevel,
+            ConsoleMessage::Create(kOtherMessageSource,
+                                   mojom::ConsoleMessageLevel::kVerbose,
                                    String("Preconnect CORS setting is ") +
                                        String((params.cross_origin ==
                                                kCrossOriginAttributeAnonymous)
@@ -159,6 +160,11 @@ void PreloadHelper::PreconnectIfNeeded(
   }
 }
 
+// Until the preload cache is defined in terms of range requests and media
+// fetches we can't reliably preload audio/video content and expect it to be
+// served from the cache correctly. Until
+// https://github.com/w3c/preload/issues/97 is resolved and implemented we need
+// to disable these preloads.
 base::Optional<ResourceType> PreloadHelper::GetResourceTypeFromAsAttribute(
     const String& as) {
   DCHECK_EQ(as.DeprecatedLower(), as);
@@ -168,10 +174,6 @@ base::Optional<ResourceType> PreloadHelper::GetResourceTypeFromAsAttribute(
     return ResourceType::kScript;
   if (as == "style")
     return ResourceType::kCSSStyleSheet;
-  if (as == "video")
-    return ResourceType::kVideo;
-  if (as == "audio")
-    return ResourceType::kAudio;
   if (as == "track")
     return ResourceType::kTextTrack;
   if (as == "font")
@@ -208,6 +210,7 @@ Resource* PreloadHelper::PreloadIfNeeded(
   KURL url;
   if (resource_type == ResourceType::kImage && !params.image_srcset.IsEmpty() &&
       RuntimeEnabledFeatures::PreloadImageSrcSetEnabled()) {
+    UseCounter::Count(document, WebFeature::kLinkRelPreloadImageSrcset);
     media_values = CreateMediaValues(document, viewport_description);
     float source_size =
         SizesAttributeParser(media_values, params.image_sizes).length();
@@ -223,7 +226,7 @@ Resource* PreloadHelper::PreloadIfNeeded(
   UseCounter::Count(document, WebFeature::kLinkRelPreload);
   if (!url.IsValid() || url.IsEmpty()) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String("<link rel=preload> has an invalid `href` value")));
     return nullptr;
   }
@@ -240,20 +243,20 @@ Resource* PreloadHelper::PreloadIfNeeded(
     UseCounter::Count(document, WebFeature::kLinkHeaderPreload);
   if (resource_type == base::nullopt) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String("<link rel=preload> must have a valid `as` value")));
     return nullptr;
   }
 
   if (!IsSupportedType(resource_type.value(), params.type)) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String("<link rel=preload> has an unsupported `type` value")));
     return nullptr;
   }
   ResourceRequest resource_request(url);
   resource_request.SetRequestContext(ResourceFetcher::DetermineRequestContext(
-      resource_type.value(), ResourceFetcher::kImageNotImageSet, false));
+      resource_type.value(), ResourceFetcher::kImageNotImageSet));
 
   resource_request.SetReferrerPolicy(params.referrer_policy);
 
@@ -274,7 +277,7 @@ Resource* PreloadHelper::PreloadIfNeeded(
   Settings* settings = document.GetSettings();
   if (settings && settings->GetLogPreload()) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kVerboseMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kVerbose,
         String("Preload triggered for " + url.Host() + url.GetPath())));
   }
   link_fetch_params.SetLinkPreload(true);
@@ -282,7 +285,7 @@ Resource* PreloadHelper::PreloadIfNeeded(
                                      document.Fetcher());
 }
 
-// https://html.spec.whatwg.org/multipage/links.html#link-type-modulepreload
+// https://html.spec.whatwg.org/C/#link-type-modulepreload
 void PreloadHelper::ModulePreloadIfNeeded(
     const LinkLoadParameters& params,
     Document& document,
@@ -296,9 +299,9 @@ void PreloadHelper::ModulePreloadIfNeeded(
   // Step 1. "If the href attribute's value is the empty string, then return."
   // [spec text]
   if (params.href.IsEmpty()) {
-    document.AddConsoleMessage(
-        ConsoleMessage::Create(kOtherMessageSource, kWarningMessageLevel,
-                               "<link rel=modulepreload> has no `href` value"));
+    document.AddConsoleMessage(ConsoleMessage::Create(
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
+        "<link rel=modulepreload> has no `href` value"));
     return;
   }
 
@@ -321,7 +324,7 @@ void PreloadHelper::ModulePreloadIfNeeded(
   // Currently we only support as="script".
   if (!params.as.IsEmpty() && params.as != "script") {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         String("<link rel=modulepreload> has an invalid `as` value " +
                params.as)));
     // This triggers the same logic as Step 11 asynchronously, which will fire
@@ -341,14 +344,14 @@ void PreloadHelper::ModulePreloadIfNeeded(
   // |href| is already resolved in caller side.
   if (!params.href.IsValid()) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         "<link rel=modulepreload> has an invalid `href` value " +
             params.href.GetString()));
     return;
   }
 
   // Preload only if media matches.
-  // https://html.spec.whatwg.org/#processing-the-media-attribute
+  // https://html.spec.whatwg.org/C/#processing-the-media-attribute
   if (!params.media.IsEmpty()) {
     MediaValues* media_values =
         CreateMediaValues(document, viewport_description);
@@ -389,7 +392,8 @@ void PreloadHelper::ModulePreloadIfNeeded(
       params.href, destination,
       ScriptFetchOptions(params.nonce, integrity_metadata, params.integrity,
                          kNotParserInserted, credentials_mode,
-                         params.referrer_policy),
+                         params.referrer_policy,
+                         mojom::FetchImportanceMode::kImportanceAuto),
       Referrer::NoReferrer(), TextPosition::MinimumPosition());
 
   // Step 11. "Fetch a single module script given url, settings object,
@@ -402,10 +406,10 @@ void PreloadHelper::ModulePreloadIfNeeded(
 
   Settings* settings = document.GetSettings();
   if (settings && settings->GetLogPreload()) {
-    document.AddConsoleMessage(
-        ConsoleMessage::Create(kOtherMessageSource, kVerboseMessageLevel,
-                               "Module preload triggered for " +
-                                   params.href.Host() + params.href.GetPath()));
+    document.AddConsoleMessage(ConsoleMessage::Create(
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kVerbose,
+        "Module preload triggered for " + params.href.Host() +
+            params.href.GetPath()));
   }
 
   // Asynchronously continue processing after
@@ -482,7 +486,7 @@ void PreloadHelper::LoadLinksFromHeader(
       ModulePreloadIfNeeded(params, *document, viewport_description, nullptr);
     }
     if (params.rel.IsServiceWorker()) {
-      UseCounter::Count(&frame, WebFeature::kLinkHeaderServiceWorker);
+      UseCounter::Count(document, WebFeature::kLinkHeaderServiceWorker);
     }
     // TODO(yoav): Add more supported headers as needed.
   }
@@ -519,6 +523,8 @@ Resource* PreloadHelper::StartPreload(ResourceType type,
       resource = RawResource::FetchImport(params, resource_fetcher, nullptr);
       break;
     case ResourceType::kRaw:
+      params.MutableResourceRequest().SetUseStreamOnResponse(true);
+      params.MutableOptions().data_buffering_policy = kDoNotBufferData;
       resource = RawResource::Fetch(params, resource_fetcher, nullptr);
       break;
     default:

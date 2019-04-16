@@ -4,6 +4,7 @@
 
 #include "chrome/browser/media/router/test/test_helper.h"
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/strings/stringprintf.h"
 #include "chrome/common/media_router/media_source.h"
@@ -176,7 +177,7 @@ std::unique_ptr<ParsedDialAppInfo> CreateParsedDialAppInfoPtr(
 
 std::unique_ptr<DialInternalMessage> ParseDialInternalMessage(
     const std::string& message) {
-  auto message_value = base::JSONReader::Read(message);
+  auto message_value = base::JSONReader::ReadDeprecated(message);
   std::string error_unused;
   return message_value ? DialInternalMessage::From(std::move(*message_value),
                                                    &error_unused)

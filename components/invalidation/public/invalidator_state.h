@@ -29,7 +29,16 @@ enum InvalidatorState {
   // The subscription to at least one topic has failed.
   SUBSCRIPTION_FAILURE = 4,
 
-  kMaxValue = SUBSCRIPTION_FAILURE
+  // Invalidator was stopped.
+  STOPPED = 5,
+
+  // Starting was attempted, but failed due to absence of active account.
+  NOT_STARTED_NO_ACTIVE_ACCOUNT = 6,
+
+  // Starting was attempted, but failed due to absence of active account.
+  NOT_STARTED_NO_REFRESH_TOKEN = 7,
+
+  kMaxValue = NOT_STARTED_NO_REFRESH_TOKEN,
 };
 
 INVALIDATION_EXPORT const char* InvalidatorStateToString(

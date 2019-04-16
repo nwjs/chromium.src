@@ -7,7 +7,7 @@
 #include "base/feature_list.h"
 #import "components/image_fetcher/ios/ios_image_data_fetcher_wrapper.h"
 #include "components/omnibox/browser/autocomplete_result.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/ui/commands/command_dispatcher.h"
 #import "ios/chrome/browser/ui/ntp/ntp_util.h"
@@ -39,7 +39,6 @@
 @synthesize browserState = _browserState;
 @synthesize mediator = _mediator;
 @synthesize popupViewController = _popupViewController;
-@synthesize positioner = _positioner;
 @synthesize dispatcher = _dispatcher;
 
 #pragma mark - Public
@@ -69,10 +68,10 @@
   BOOL isIncognito = self.browserState->IsOffTheRecord();
   self.mediator.incognito = isIncognito;
   self.mediator.consumer = self.popupViewController;
-    self.mediator.presenter = [[OmniboxPopupPresenter alloc]
-        initWithPopupPositioner:self.positioner
-            popupViewController:self.popupViewController
-                      incognito:isIncognito];
+  self.mediator.presenter = [[OmniboxPopupPresenter alloc]
+      initWithPopupPresenterDelegate:self.presenterDelegate
+                 popupViewController:self.popupViewController
+                           incognito:isIncognito];
   self.popupViewController.imageRetriever = self.mediator;
   self.popupViewController.delegate = self.mediator;
   [self.dispatcher
@@ -93,7 +92,7 @@
   return self.mediator.isOpen;
 }
 
-- (void)openPopup {
+- (void)presentShortcutsIfNecessary {
   // Initialize the shortcuts feature when necessary.
   if (base::FeatureList::IsEnabled(
           omnibox::kOmniboxPopupShortcutIconsInZeroState) &&
@@ -102,7 +101,7 @@
         initWithBaseViewController:self.popupViewController
                       browserState:self.browserState];
     self.shortcutsCoordinator.dispatcher =
-        (id<ApplicationCommands, BrowserCommands, UrlLoader,
+        (id<ApplicationCommands, BrowserCommands,
             OmniboxFocuser>)(self.dispatcher);
     [self.shortcutsCoordinator start];
     self.popupViewController.shortcutsViewController =
@@ -118,14 +117,14 @@
     self.popupViewController.shortcutsEnabled = YES;
   }
 
-  [self.mediator.presenter updateHeightAndAnimateAppearanceIfNecessary];
-  self.mediator.open = YES;
+  [self.mediator.presenter updatePopup];
+  self.mediator.open = self.mediator.presenter.isOpen;
 }
 
-- (void)closePopup {
-  self.mediator.open = NO;
+- (void)dismissShortcuts {
   self.popupViewController.shortcutsEnabled = NO;
-  [self.mediator.presenter animateCollapse];
+  [self.mediator.presenter updatePopup];
+  self.mediator.open = self.mediator.presenter.isOpen;
 }
 
 #pragma mark - Property accessor

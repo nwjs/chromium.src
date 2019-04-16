@@ -50,6 +50,9 @@ Polymer({
   /** @type {Viewport} */
   viewport: null,
 
+  /** @type {?AnnotationTool} */
+  tool_: null,
+
   /**
    * Whether we should suppress pointer events due to a gesture,
    * eg. pinch-zoom.
@@ -168,6 +171,26 @@ Polymer({
     this.activePointer_ = null;
     if (!this.pointerGesture_) {
       this.dispatchPointerEvent_(e);
+      // If the stroke was not cancelled (type == pointercanel),
+      // notify about mutation and record metrics.
+      if (e.type == 'pointerup') {
+        this.dispatchEvent(new CustomEvent('stroke-added'));
+        if (e.pointerType == 'mouse') {
+          PDFMetrics.record(PDFMetrics.UserAction.ANNOTATE_STROKE_DEVICE_MOUSE);
+        } else if (e.pointerType == 'pen') {
+          PDFMetrics.record(PDFMetrics.UserAction.ANNOTATE_STROKE_DEVICE_PEN);
+        } else if (e.pointerType == 'touch') {
+          PDFMetrics.record(PDFMetrics.UserAction.ANNOTATE_STROKE_DEVICE_TOUCH);
+        }
+        if (this.tool_.tool == 'eraser') {
+          PDFMetrics.record(PDFMetrics.UserAction.ANNOTATE_STROKE_TOOL_ERASER);
+        } else if (this.tool_.tool == 'pen') {
+          PDFMetrics.record(PDFMetrics.UserAction.ANNOTATE_STROKE_TOOL_PEN);
+        } else if (this.tool_.tool == 'highlighter') {
+          PDFMetrics.record(
+              PDFMetrics.UserAction.ANNOTATE_STROKE_TOOL_HIGHLIGHTER);
+        }
+      }
     }
     this.pointerGesture_ = false;
   },
@@ -202,12 +225,15 @@ Polymer({
     this.$.frame.src = 'ink/index.html';
     await new Promise(resolve => this.$.frame.onload = resolve);
     this.ink_ = await this.$.frame.contentWindow.initInk();
+    this.ink_.addUndoStateListener(
+        e => this.dispatchEvent(
+            new CustomEvent('undo-state-changed', {detail: e})));
     this.ink_.setPDF(data);
     this.state_ = State.ACTIVE;
     this.viewportChanged();
-    // TODO(dstockwell): we shouldn't need this extra flush.
-    await this.ink_.flush();
-    await this.ink_.flush();
+    // Wait for the next task to avoid a race where Ink drops the background
+    // color.
+    await new Promise(resolve => setTimeout(resolve));
     this.ink_.setOutOfBoundsColor(BACKGROUND_COLOR);
     const spacing = Viewport.PAGE_SHADOW.top + Viewport.PAGE_SHADOW.bottom;
     this.ink_.setPageSpacing(spacing);
@@ -222,7 +248,7 @@ Polymer({
     const pos = viewport.position;
     const size = viewport.size;
     const zoom = viewport.zoom;
-    const documentWidth = viewport.getDocumentDimensions(zoom).width * zoom;
+    const documentWidth = viewport.getDocumentDimensions().width * zoom;
     // Adjust for page shadows.
     const y = pos.y - Viewport.PAGE_SHADOW.top * zoom;
     let x = pos.x - Viewport.PAGE_SHADOW.left * zoom;
@@ -246,6 +272,16 @@ Polymer({
       this.updateShadow_(zoom);
     }
     this.ink_.setCamera(camera);
+  },
+
+  /** Undo the last edit action. */
+  undo() {
+    this.ink_.undo();
+  },
+
+  /** Redo the last undone edit action. */
+  redo() {
+    this.ink_.redo();
   },
 
   /**

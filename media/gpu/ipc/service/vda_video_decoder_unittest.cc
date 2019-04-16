@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/single_thread_task_runner.h"
@@ -19,6 +20,7 @@
 #include "media/base/decoder_buffer.h"
 #include "media/base/media_util.h"
 #include "media/base/mock_media_log.h"
+#include "media/base/simple_sync_token_client.h"
 #include "media/base/video_codecs.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_rotation.h"
@@ -51,25 +53,6 @@ scoped_refptr<DecoderBuffer> CreateDecoderBuffer(base::TimeDelta timestamp) {
   buffer->set_timestamp(timestamp);
   return buffer;
 }
-
-// TODO(sandersd): Should be part of //media, as it is used by
-// MojoVideoDecoderService (production code) as well.
-class StaticSyncTokenClient : public VideoFrame::SyncTokenClient {
- public:
-  explicit StaticSyncTokenClient(const gpu::SyncToken& sync_token)
-      : sync_token_(sync_token) {}
-
-  void GenerateSyncToken(gpu::SyncToken* sync_token) final {
-    *sync_token = sync_token_;
-  }
-
-  void WaitSyncToken(const gpu::SyncToken& sync_token) final {}
-
- private:
-  gpu::SyncToken sync_token_;
-
-  DISALLOW_COPY_AND_ASSIGN(StaticSyncTokenClient);
-};
 
 VideoDecodeAccelerator::SupportedProfiles GetSupportedProfiles() {
   VideoDecodeAccelerator::SupportedProfiles profiles;
@@ -278,7 +261,7 @@ class VdaVideoDecoderTest : public testing::TestWithParam<bool> {
     gpu::SyncToken sync_token(gpu::GPU_IO,
                               gpu::CommandBufferId::FromUnsafeValue(1),
                               next_release_count_++);
-    StaticSyncTokenClient sync_token_client(sync_token);
+    SimpleSyncTokenClient sync_token_client(sync_token);
     video_frame->UpdateReleaseSyncToken(&sync_token_client);
     return sync_token;
   }
@@ -474,8 +457,8 @@ TEST_P(VdaVideoDecoderTest, Flush) {
   NotifyFlushDone();
 }
 
-INSTANTIATE_TEST_CASE_P(VdaVideoDecoder,
-                        VdaVideoDecoderTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(VdaVideoDecoder,
+                         VdaVideoDecoderTest,
+                         ::testing::Values(false, true));
 
 }  // namespace media

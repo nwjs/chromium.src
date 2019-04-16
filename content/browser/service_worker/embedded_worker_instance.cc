@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
@@ -18,7 +19,6 @@
 #include "content/browser/bad_message.h"
 #include "content/browser/devtools/service_worker_devtools_manager.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
-#include "content/browser/service_worker/embedded_worker_registry.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/service_worker_content_settings_proxy_impl.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -34,13 +34,13 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
-#include "content/public/common/renderer_preference_watcher.mojom.h"
 #include "ipc/ipc_message.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 #include "third_party/blink/public/mojom/loader/url_loader_factory_bundle.mojom.h"
+#include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom.h"
 #include "url/gurl.h"
 
@@ -159,7 +159,7 @@ std::unique_ptr<blink::URLLoaderFactoryBundleInfo> CreateFactoryBundle(
 
 using SetupProcessCallback = base::OnceCallback<void(
     blink::ServiceWorkerStatusCode,
-    mojom::EmbeddedWorkerStartParamsPtr,
+    blink::mojom::EmbeddedWorkerStartParamsPtr,
     std::unique_ptr<ServiceWorkerProcessManager::AllocatedProcessInfo>,
     std::unique_ptr<EmbeddedWorkerInstance::DevToolsProxy>,
     std::unique_ptr<
@@ -177,10 +177,11 @@ using SetupProcessCallback = base::OnceCallback<void(
 // ServiceWorkerScriptLoaderFactory and the other is for passing to the
 // renderer. These bundles include factories for non-network URLs like
 // chrome-extension:// as needed.
-void SetupOnUIThread(base::WeakPtr<ServiceWorkerProcessManager> process_manager,
+void SetupOnUIThread(int embedded_worker_id,
+                     base::WeakPtr<ServiceWorkerProcessManager> process_manager,
                      bool can_use_existing_process,
-                     mojom::EmbeddedWorkerStartParamsPtr params,
-                     mojom::EmbeddedWorkerInstanceClientRequest request,
+                     blink::mojom::EmbeddedWorkerStartParamsPtr params,
+                     blink::mojom::EmbeddedWorkerInstanceClientRequest request,
                      ServiceWorkerContextCore* context,
                      base::WeakPtr<ServiceWorkerContextCore> weak_context,
                      SetupProcessCallback callback) {
@@ -207,8 +208,8 @@ void SetupOnUIThread(base::WeakPtr<ServiceWorkerProcessManager> process_manager,
   // Get a process.
   blink::ServiceWorkerStatusCode status =
       process_manager->AllocateWorkerProcess(
-          params->embedded_worker_id, params->script_url,
-          can_use_existing_process, process_info.get());
+          embedded_worker_id, params->script_url, can_use_existing_process,
+          process_info.get());
   if (status != blink::ServiceWorkerStatusCode::kOk) {
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::IO},
@@ -284,16 +285,17 @@ void SetupOnUIThread(base::WeakPtr<ServiceWorkerProcessManager> process_manager,
   devtools_proxy = std::make_unique<EmbeddedWorkerInstance::DevToolsProxy>(
       process_id, routing_id);
 
-  // TODO(crbug.com/862854): Support changes to RendererPreferences while the
-  // worker is running.
+  // TODO(crbug.com/862854): Support changes to
+  // blink::mojom::RendererPreferences while the worker is running.
   DCHECK(process_manager->browser_context() || process_manager->IsShutdown());
+  params->renderer_preferences = blink::mojom::RendererPreferences::New();
   GetContentClient()->browser()->UpdateRendererPreferencesForWorker(
-      process_manager->browser_context(), &params->renderer_preferences);
+      process_manager->browser_context(), params->renderer_preferences.get());
 
   // Create a RendererPreferenceWatcher to observe updates in the preferences.
-  mojom::RendererPreferenceWatcherPtr watcher_ptr;
+  blink::mojom::RendererPreferenceWatcherPtr watcher_ptr;
   params->preference_watcher_request = mojo::MakeRequest(&watcher_ptr);
-  GetContentClient()->browser()->RegisterRendererPreferenceWatcherForWorkers(
+  GetContentClient()->browser()->RegisterRendererPreferenceWatcher(
       process_manager->browser_context(), std::move(watcher_ptr));
 
   // Continue to OnSetupCompleted on the IO thread.
@@ -398,6 +400,28 @@ class EmbeddedWorkerInstance::DevToolsProxy {
   DISALLOW_COPY_AND_ASSIGN(DevToolsProxy);
 };
 
+// Tracks how long a service worker runs for, for UMA purposes.
+class EmbeddedWorkerInstance::ScopedLifetimeTracker {
+ public:
+  ScopedLifetimeTracker() : start_ticks_(base::TimeTicks::Now()) {}
+
+  ~ScopedLifetimeTracker() {
+    if (!start_ticks_.is_null()) {
+      ServiceWorkerMetrics::RecordRuntime(base::TimeTicks::Now() -
+                                          start_ticks_);
+    }
+  }
+
+  // Called when DevTools was attached to the worker. Ensures no metric is
+  // recorded for this worker.
+  void Abort() { start_ticks_ = base::TimeTicks(); }
+
+ private:
+  base::TimeTicks start_ticks_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedLifetimeTracker);
+};
+
 // A handle for a renderer process managed by ServiceWorkerProcessManager on the
 // UI thread. Lives on the IO thread.
 class EmbeddedWorkerInstance::WorkerProcessHandle {
@@ -445,7 +469,7 @@ class EmbeddedWorkerInstance::StartTask {
 
   StartTask(EmbeddedWorkerInstance* instance,
             const GURL& script_url,
-            mojom::EmbeddedWorkerInstanceClientRequest request,
+            blink::mojom::EmbeddedWorkerInstanceClientRequest request,
             base::TimeTicks start_time)
       : instance_(instance),
         request_(std::move(request)),
@@ -518,7 +542,7 @@ class EmbeddedWorkerInstance::StartTask {
     return skip_recording_startup_time_;
   }
 
-  void Start(mojom::EmbeddedWorkerStartParamsPtr params,
+  void Start(blink::mojom::EmbeddedWorkerStartParamsPtr params,
              StatusCallback sent_start_callback) {
     DCHECK_CURRENTLY_ON(BrowserThread::IO);
     DCHECK(instance_->context_);
@@ -533,7 +557,6 @@ class EmbeddedWorkerInstance::StartTask {
     bool can_use_existing_process =
         context->GetVersionFailureCount(params->service_worker_version_id) <
         kMaxSameProcessFailureCount;
-    DCHECK_EQ(params->embedded_worker_id, instance_->embedded_worker_id_);
     TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("ServiceWorker", "ALLOCATING_PROCESS",
                                       this);
     base::WeakPtr<ServiceWorkerProcessManager> process_manager =
@@ -544,8 +567,9 @@ class EmbeddedWorkerInstance::StartTask {
     base::PostTaskWithTraits(
         FROM_HERE, {BrowserThread::UI},
         base::BindOnce(
-            &SetupOnUIThread, process_manager, can_use_existing_process,
-            std::move(params), std::move(request_), context.get(), context,
+            &SetupOnUIThread, instance_->embedded_worker_id(), process_manager,
+            can_use_existing_process, std::move(params), std::move(request_),
+            context.get(), context,
             base::BindOnce(&StartTask::OnSetupCompleted,
                            weak_factory_.GetWeakPtr(), process_manager)));
   }
@@ -556,7 +580,7 @@ class EmbeddedWorkerInstance::StartTask {
   void OnSetupCompleted(
       base::WeakPtr<ServiceWorkerProcessManager> process_manager,
       blink::ServiceWorkerStatusCode status,
-      mojom::EmbeddedWorkerStartParamsPtr params,
+      blink::mojom::EmbeddedWorkerStartParamsPtr params,
       std::unique_ptr<ServiceWorkerProcessManager::AllocatedProcessInfo>
           process_info,
       std::unique_ptr<EmbeddedWorkerInstance::DevToolsProxy> devtools_proxy,
@@ -640,7 +664,7 @@ class EmbeddedWorkerInstance::StartTask {
   EmbeddedWorkerInstance* instance_;
 
   // Ownership is transferred by a PostTask() call after process allocation.
-  mojom::EmbeddedWorkerInstanceClientRequest request_;
+  blink::mojom::EmbeddedWorkerInstanceClientRequest request_;
 
   StatusCallback sent_start_callback_;
   bool did_send_start_ = false;
@@ -660,17 +684,13 @@ class EmbeddedWorkerInstance::StartTask {
 
 EmbeddedWorkerInstance::~EmbeddedWorkerInstance() {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(status_ == EmbeddedWorkerStatus::STOPPING ||
-         status_ == EmbeddedWorkerStatus::STOPPED)
-      << static_cast<int>(status_);
   devtools_proxy_.reset();
-  if (registry_->GetWorker(embedded_worker_id_))
-    registry_->RemoveWorker(process_id(), embedded_worker_id_);
   ReleaseProcess();
 }
 
-void EmbeddedWorkerInstance::Start(mojom::EmbeddedWorkerStartParamsPtr params,
-                                   StatusCallback callback) {
+void EmbeddedWorkerInstance::Start(
+    blink::mojom::EmbeddedWorkerStartParamsPtr params,
+    StatusCallback callback) {
   DCHECK(context_);
   restart_count_++;
   DCHECK_EQ(EmbeddedWorkerStatus::STOPPED, status_);
@@ -687,12 +707,11 @@ void EmbeddedWorkerInstance::Start(mojom::EmbeddedWorkerStartParamsPtr params,
   for (auto& observer : listener_list_)
     observer.OnStarting();
 
-  params->embedded_worker_id = embedded_worker_id_;
   params->worker_devtools_agent_route_id = MSG_ROUTING_NONE;
   params->wait_for_debugger = false;
   params->v8_cache_options = GetV8CacheOptions();
 
-  mojom::EmbeddedWorkerInstanceClientRequest request =
+  blink::mojom::EmbeddedWorkerInstanceClientRequest request =
       mojo::MakeRequest(&client_);
   client_.set_connection_error_handler(
       base::BindOnce(&EmbeddedWorkerInstance::Detach, base::Unretained(this)));
@@ -751,13 +770,10 @@ void EmbeddedWorkerInstance::ResumeAfterDownload() {
 }
 
 EmbeddedWorkerInstance::EmbeddedWorkerInstance(
-    base::WeakPtr<ServiceWorkerContextCore> context,
-    ServiceWorkerVersion* owner_version,
-    int embedded_worker_id)
-    : context_(context),
-      registry_(context->embedded_worker_registry()),
+    ServiceWorkerVersion* owner_version)
+    : context_(owner_version->context()),
       owner_version_(owner_version),
-      embedded_worker_id_(embedded_worker_id),
+      embedded_worker_id_(context_->GetNextEmbeddedWorkerId()),
       status_(EmbeddedWorkerStatus::STOPPED),
       starting_phase_(NOT_STARTING),
       restart_count_(0),
@@ -768,6 +784,7 @@ EmbeddedWorkerInstance::EmbeddedWorkerInstance(
       foreground_notified_(false),
       weak_factory_(this) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  DCHECK(context_);
 }
 
 void EmbeddedWorkerInstance::OnProcessAllocated(
@@ -799,7 +816,7 @@ void EmbeddedWorkerInstance::OnRegisteredToDevToolsManager(
 }
 
 void EmbeddedWorkerInstance::SendStartWorker(
-    mojom::EmbeddedWorkerStartParamsPtr params,
+    blink::mojom::EmbeddedWorkerStartParamsPtr params,
     scoped_refptr<network::SharedURLLoaderFactory> factory,
     blink::mojom::CacheStoragePtrInfo cache_storage) {
   DCHECK(context_);
@@ -824,7 +841,6 @@ void EmbeddedWorkerInstance::SendStartWorker(
   params->provider_info->cache_storage = std::move(cache_storage);
 
   client_->StartWorker(std::move(params));
-  registry_->BindWorkerToProcess(process_id(), embedded_worker_id());
 
   starting_phase_ = is_script_streaming ? SCRIPT_STREAMING : SENT_START_WORKER;
   for (auto& observer : listener_list_)
@@ -910,7 +926,7 @@ void EmbeddedWorkerInstance::OnScriptEvaluationStart() {
 void EmbeddedWorkerInstance::OnStarted(
     blink::mojom::ServiceWorkerStartStatus start_status,
     int thread_id,
-    mojom::EmbeddedWorkerStartTimingPtr start_timing) {
+    blink::mojom::EmbeddedWorkerStartTimingPtr start_timing) {
   if (!(start_timing->start_worker_received_time <=
             start_timing->script_evaluation_start_time &&
         start_timing->script_evaluation_start_time <=
@@ -919,8 +935,9 @@ void EmbeddedWorkerInstance::OnStarted(
     return;
   }
 
-  if (!registry_->OnWorkerStarted(process_id(), embedded_worker_id_))
-    return;
+  if (!devtools_attached_)
+    lifetime_tracker_ = std::make_unique<ScopedLifetimeTracker>();
+
   // Stop was requested before OnStarted was sent back from the worker. Just
   // pretend startup didn't happen, so observers don't try to use the running
   // worker as it will stop soon.
@@ -956,8 +973,6 @@ void EmbeddedWorkerInstance::OnStarted(
 }
 
 void EmbeddedWorkerInstance::OnStopped() {
-  registry_->OnWorkerStopped(process_id(), embedded_worker_id_);
-
   EmbeddedWorkerStatus old_status = status_;
   ReleaseProcess();
   for (auto& observer : listener_list_)
@@ -968,7 +983,6 @@ void EmbeddedWorkerInstance::Detach() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   if (status() == EmbeddedWorkerStatus::STOPPED)
     return;
-  registry_->DetachWorker(process_id(), embedded_worker_id());
 
   EmbeddedWorkerStatus old_status = status_;
   ReleaseProcess();
@@ -1003,7 +1017,7 @@ void EmbeddedWorkerInstance::OnReportException(
 
 void EmbeddedWorkerInstance::OnReportConsoleMessage(
     int source_identifier,
-    int message_level,
+    blink::mojom::ConsoleMessageLevel message_level,
     const base::string16& message,
     int line_number,
     const GURL& source_url) {
@@ -1039,7 +1053,14 @@ void EmbeddedWorkerInstance::SetDevToolsAttached(bool attached) {
     return;
   if (inflight_start_task_)
     inflight_start_task_->set_skip_recording_startup_time();
-  registry_->AbortLifetimeTracking(embedded_worker_id_);
+  AbortLifetimeTracking();
+}
+
+void EmbeddedWorkerInstance::AbortLifetimeTracking() {
+  if (lifetime_tracker_) {
+    lifetime_tracker_->Abort();
+    lifetime_tracker_.reset();
+  }
 }
 
 void EmbeddedWorkerInstance::OnNetworkAccessedForScriptLoad() {
@@ -1056,6 +1077,7 @@ void EmbeddedWorkerInstance::ReleaseProcess() {
   instance_host_binding_.Close();
   devtools_proxy_.reset();
   process_handle_.reset();
+  lifetime_tracker_.reset();
   status_ = EmbeddedWorkerStatus::STOPPED;
   starting_phase_ = NOT_STARTING;
   thread_id_ = kInvalidEmbeddedWorkerThreadId;

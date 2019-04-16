@@ -53,14 +53,11 @@ void WebViewWebMainParts::PreCreateThreads() {
   std::string enable_features = base::JoinString(
       {autofill::features::kAutofillEnableAccountWalletStorage.name,
        autofill::features::kAutofillAlwaysShowServerCardsInSyncTransport.name,
-       switches::kSyncStandaloneTransport.name,
        switches::kSyncSupportSecondaryAccount.name,
        switches::kSyncUSSAutofillWalletData.name},
       ",");
   std::string disabled_features = base::JoinString(
-      {// TODO(crbug.com/873790): Remove after supporting user consents.
-       switches::kSyncUserConsentEvents.name,
-       // Allows form_structure.cc to run heuristics on single field forms.
+      {// Allows form_structure.cc to run heuristics on single field forms.
        // This is needed to find autofillable password forms with less than 3
        // fields in CWVAutofillControllerDelegate's
        // |autofillController:didScanForAutofillableForms:| method.

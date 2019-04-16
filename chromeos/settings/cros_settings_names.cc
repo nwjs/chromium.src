@@ -268,10 +268,6 @@ const char kLoginVideoCaptureAllowedUrls[] =
 const char kDeviceLoginScreenAppInstallList[] =
     "cros.device.login_screen_app_install_list";
 
-// A string pref storing the url and cryptographic hash of the image in JSON
-// format allowed to set a device-level wallpaper before any user logs in.
-const char kDeviceWallpaperImage[] = "cros.device_wallpaper_image";
-
 // A list pref specifying the locales allowed on the login screen. Currently
 // only the first value is used, as the single locale allowed on the login
 // screen.
@@ -367,5 +363,13 @@ const char kDeviceUnaffiliatedCrostiniAllowed[] =
 const char kPluginVmAllowed[] = "cros.device.plugin_vm_allowed";
 // A string pref that specifies PluginVm license key for this device.
 const char kPluginVmLicenseKey[] = "cros.device.plugin_vm_license_key";
+
+// An enum pref specifying the case when device needs to reboot on user sign
+// out.
+const char kDeviceRebootOnUserSignout[] = "cros.device.reboot_on_user_signout";
+
+// A boolean pref that indicates whether running wilco diagnostics and telemetry
+// controller on Chrome OS is allowed.
+const char kDeviceWilcoDtcAllowed[] = "cros.device.wilco_dtc_allowed";
 
 }  // namespace chromeos

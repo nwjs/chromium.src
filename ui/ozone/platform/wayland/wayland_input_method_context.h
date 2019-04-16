@@ -5,7 +5,11 @@
 #ifndef UI_OZONE_PLATFORM_WAYLAND_WAYLAND_INPUT_METHOD_CONTEXT_H_
 #define UI_OZONE_PLATFORM_WAYLAND_WAYLAND_INPUT_METHOD_CONTEXT_H_
 
+#include <memory>
+#include <string>
+
 #include "base/macros.h"
+#include "ui/base/ime/character_composer.h"
 #include "ui/base/ime/linux/linux_input_method_context.h"
 #include "ui/events/ozone/evdev/event_dispatch_callback.h"
 #include "ui/ozone/platform/wayland/zwp_text_input_wrapper.h"
@@ -42,6 +46,8 @@ class WaylandInputMethodContext : public LinuxInputMethodContext,
   void OnKeysym(uint32_t key, uint32_t state, uint32_t modifiers) override;
 
  private:
+  void UpdatePreeditText(const base::string16& preedit_text);
+
   WaylandConnection* connection_ = nullptr;  // TODO(jani) Handle this better
 
   // Delegate interface back to IME code in ui.
@@ -50,6 +56,10 @@ class WaylandInputMethodContext : public LinuxInputMethodContext,
   EventDispatchCallback callback_;
 
   std::unique_ptr<ZWPTextInputWrapper> text_input_;
+
+  // An object to compose a character from a sequence of key presses
+  // including dead key etc.
+  CharacterComposer character_composer_;
 
   DISALLOW_COPY_AND_ASSIGN(WaylandInputMethodContext);
 };

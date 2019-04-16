@@ -9,7 +9,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "components/omnibox/browser/omnibox_client.h"
 #include "components/omnibox/browser/omnibox_edit_controller.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if (!defined(OS_ANDROID) || BUILDFLAG(ENABLE_VR)) && !defined(OS_IOS)
@@ -93,18 +92,6 @@ const GURL& OmniboxPedal::GetNavigationUrl() const {
   return url_;
 }
 
-bool OmniboxPedal::ShouldExecute(bool button_pressed) const {
-  const auto mode = OmniboxFieldTrial::GetPedalSuggestionMode();
-  return (mode == OmniboxFieldTrial::PedalSuggestionMode::DEDICATED) ||
-         (mode == OmniboxFieldTrial::PedalSuggestionMode::IN_SUGGESTION &&
-          button_pressed);
-}
-
-bool OmniboxPedal::ShouldPresentButton() const {
-  return OmniboxFieldTrial::GetPedalSuggestionMode() ==
-         OmniboxFieldTrial::PedalSuggestionMode::IN_SUGGESTION;
-}
-
 void OmniboxPedal::Execute(OmniboxPedal::ExecutionContext& context) const {
   DCHECK(IsNavigation());
   OpenURL(context, url_);
@@ -141,6 +128,7 @@ bool OmniboxPedal::IsConceptMatch(const base::string16& match_text) const {
 void OmniboxPedal::OpenURL(OmniboxPedal::ExecutionContext& context,
                            const GURL& url) const {
   context.controller_.OnAutocompleteAccept(
-      url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_GENERATED,
-      AutocompleteMatchType::PEDAL, context.match_selection_timestamp_);
+      url, nullptr, WindowOpenDisposition::CURRENT_TAB,
+      ui::PAGE_TRANSITION_GENERATED, AutocompleteMatchType::PEDAL,
+      context.match_selection_timestamp_);
 }

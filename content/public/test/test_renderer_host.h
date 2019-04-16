@@ -71,6 +71,8 @@ class RenderFrameHostTester {
   static bool TestOnMessageReceived(RenderFrameHost* rfh,
                                     const IPC::Message& msg);
 
+  // Commit the load pending in the given |controller| if any.
+  // TODO(ahemery): This should take a WebContents directly.
   static void CommitPendingLoad(NavigationController* controller);
 
   virtual ~RenderFrameHostTester() {}
@@ -105,10 +107,6 @@ class RenderFrameHostTester {
                                           bool did_create_new_entry,
                                           const GURL& url,
                                           ui::PageTransition transition) = 0;
-
-  // If set, future loads will have |mime_type| set as the mime type.
-  // If not set, the mime type will default to "text/html".
-  virtual void SetContentsMimeType(const std::string& mime_type) = 0;
 
   // Calls OnBeforeUnloadACK on this RenderFrameHost with the given parameter.
   virtual void SendBeforeUnloadACK(bool proceed) = 0;

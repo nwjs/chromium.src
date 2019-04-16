@@ -18,10 +18,12 @@
 #include "content/browser/isolation_context.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/render_process_host_observer.h"
 
 class GURL;
 
 namespace content {
+class RenderProcessHost;
 class SiteInstanceImpl;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -63,7 +65,8 @@ class SiteInstanceImpl;
 //
 ///////////////////////////////////////////////////////////////////////////////
 class CONTENT_EXPORT BrowsingInstance final
-    : public base::RefCounted<BrowsingInstance> {
+    : public base::RefCounted<BrowsingInstance>,
+      public RenderProcessHostObserver {
  private:
   friend class base::RefCounted<BrowsingInstance>;
   friend class SiteInstanceImpl;
@@ -81,7 +84,10 @@ class CONTENT_EXPORT BrowsingInstance final
   // Create a new BrowsingInstance.
   explicit BrowsingInstance(BrowserContext* context);
 
-  ~BrowsingInstance();
+  ~BrowsingInstance() final;
+
+  // RenderProcessHostObserver implementation.
+  void RenderProcessHostDestroyed(RenderProcessHost* host) final;
 
   // Get the browser context to which this BrowsingInstance belongs.
   BrowserContext* browser_context() const { return browser_context_; }
@@ -98,7 +104,37 @@ class CONTENT_EXPORT BrowsingInstance final
   // Get the SiteInstance responsible for rendering the given URL.  Should
   // create a new one if necessary, but should not create more than one
   // SiteInstance per site.
-  scoped_refptr<SiteInstanceImpl> GetSiteInstanceForURL(const GURL& url);
+  //
+  // |allow_default_instance| should be set to true in cases where the caller
+  // is ok with |url| sharing a process with other sites that do not require
+  // a dedicated process. Note that setting this to true means that the
+  // SiteInstanceImpl you get back may return "http://unisolated.invalid" for
+  // GetSiteURL() and lock_url() calls because the default instance is not
+  // bound to a single site.
+  scoped_refptr<SiteInstanceImpl> GetSiteInstanceForURL(
+      const GURL& url,
+      bool allow_default_instance);
+
+  // Gets site and lock URLs for |url| that are identical with what these
+  // values would be if we called GetSiteInstanceForURL() with the same
+  // |url| and |allow_default_instance|. This method is used when we need this
+  // information, but do not want to create a SiteInstance yet.
+  void GetSiteAndLockForURL(const GURL& url,
+                            bool allow_default_instance,
+                            GURL* site_url,
+                            GURL* lock_url);
+
+  // Helper function used by GetSiteInstanceForURL() and GetSiteAndLockForURL()
+  // that returns an existing SiteInstance from |site_instance_map_| or
+  // returns |default_site_instance_| if |allow_default_instance| is true and
+  // other conditions are met. If there is no existing SiteInstance that is
+  // appropriate for |url|, |allow_default_instance| combination, then a nullptr
+  // is returned.
+  //
+  // Note: This method is not intended to be called by code outside this object.
+  scoped_refptr<SiteInstanceImpl> GetSiteInstanceForURLHelper(
+      const GURL& url,
+      bool allow_default_instance);
 
   // Adds the given SiteInstance to our map, to ensure that we do not create
   // another SiteInstance for the same site.
@@ -117,6 +153,13 @@ class CONTENT_EXPORT BrowsingInstance final
     DCHECK_LT(0u, active_contents_count_);
     active_contents_count_--;
   }
+
+  // Stores the process that should be used if a SiteInstance doesn't need
+  // a dedicated process.
+  void SetDefaultProcess(RenderProcessHost* default_process);
+  RenderProcessHost* default_process() const { return default_process_; }
+
+  bool IsDefaultSiteInstance(const SiteInstanceImpl* site_instance) const;
 
   // Map of site to SiteInstance, to ensure we only have one SiteInstance per
   // site.
@@ -140,10 +183,24 @@ class CONTENT_EXPORT BrowsingInstance final
   // SiteInstances can be assigned to the same site.  This is ok in rare cases.
   // It also does not contain SiteInstances which have not yet been assigned a
   // site, such as about:blank.  See NavigatorImpl::ShouldAssignSiteForURL.
+  // This map only contains instances that map to a single site. The
+  // |default_site_instance_|, which associates multiple sites with a single
+  // instance, is not contained in this map.
   SiteInstanceMap site_instance_map_;
 
   // Number of WebContentses currently using this BrowsingInstance.
   size_t active_contents_count_;
+
+  // The process to use for any SiteInstance in this BrowsingInstance that
+  // doesn't require a dedicated process.
+  RenderProcessHost* default_process_;
+
+  // SiteInstance to use if a URL does not correspond to an instance in
+  // |site_instance_map_| and it does not require a dedicated process.
+  // This field and |default_process_| are mutually exclusive and this field
+  // should only be set if kProcessSharingWithStrictSiteInstances is not
+  // enabled.
+  scoped_refptr<SiteInstanceImpl> default_site_instance_;
 
   DISALLOW_COPY_AND_ASSIGN(BrowsingInstance);
 };

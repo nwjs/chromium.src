@@ -456,6 +456,14 @@ class CppStyleTest(CppStyleTestBase):
         self.assertEqual(cpp_style.Position(1, 1), cpp_style.close_expression(['}{}{', '}'], cpp_style.Position(0, 3)))
         self.assertEqual(cpp_style.Position(2, -1), cpp_style.close_expression(['][][', ' '], cpp_style.Position(0, 3)))
 
+    # Test the integer type.
+    def test_precise_width_integer(self):
+        errmsg = ('Use a precise-width integer type from <stdint.h> or <cstdint> such as uint16_t instead of %s')
+        self.assert_lint('unsigned short a = 1', errmsg % 'unsigned short  [runtime/int] [1]')
+        self.assert_lint('uint16_t unsignedshort = 1', '')
+        self.assert_lint('signed  short a = 1', errmsg % 'signed  short  [runtime/int] [1]')
+        self.assert_lint('short a = 1', errmsg % 'short  [runtime/int] [1]')
+
     # Test C-style cast cases.
     def test_cstyle_cast(self):
         self.assert_lint(
@@ -1501,7 +1509,7 @@ class CppStyleTest(CppStyleTestBase):
         errmsg = ('Please declare integral type bitfields with either signed or unsigned.  [runtime/bitfields] [5]')
 
         self.assert_lint('int a : 30;', errmsg)
-        self.assert_lint('mutable short a : 14;', errmsg)
+        self.assert_lint('mutable int a : 14;', errmsg)
         self.assert_lint('const char a : 6;', errmsg)
         self.assert_lint('long int a : 30;', errmsg)
         self.assert_lint('int a = 1 ? 0 : 30;', '')
@@ -2218,7 +2226,7 @@ class WebKitStyleTest(CppStyleTestBase):
             '')
         # FIXME: currently we only check first conditional, so we cannot detect errors in next ones.
         self.assert_multi_line_lint(
-            'WTF_MAKE_NONCOPYABLE(ClassName); WTF_MAKE_FAST_ALLOCATED;\n',
+            'WTF_MAKE_FAST_ALLOCATED;\n',
             '')
         self.assert_multi_line_lint(
             'if (condition) doSomething(); else {\n'

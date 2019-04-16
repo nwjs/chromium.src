@@ -83,7 +83,9 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
 
   // Returns |connection_state_| if visible, kStateDisconnect otherwise.
   std::string connection_state() const;
-  void set_connection_state(const std::string connection_state);
+
+  // Updates the connection state and saves the previous connection state.
+  void SetConnectionState(const std::string& connection_state);
 
   const base::Value* proxy_config() const { return proxy_config_.get(); }
   const base::Value* ipv4_config() const { return ipv4_config_.get(); }
@@ -141,6 +143,8 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
   const std::string& tether_guid() const { return tether_guid_; }
   void set_tether_guid(const std::string& guid) { tether_guid_ = guid; }
 
+  bool connect_requested() const { return connect_requested_; }
+
   // Returns true if the network is managed by policy (determined by
   // |onc_source_|).
   bool IsManagedByPolicy() const;
@@ -160,9 +164,8 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
   bool IsConnectingState() const;
   bool IsConnectingOrConnected() const;
 
-  // Returns true if |last_connection_state_| is connected, and
-  // |connection_state_| is connecting.
-  bool IsReconnecting() const;
+  // Similar to IsConnectingOrConnected but also checks activation state.
+  bool IsActive() const;
 
   // Returns true if this is a network stored in a profile.
   bool IsInProfile() const;
@@ -177,6 +180,13 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
   // Returns true if the network is a default Cellular network (see
   // NetworkStateHandler::EnsureCellularNetwork()).
   bool IsDefaultCellular() const;
+
+  // Returns true if Shill or Chrome have detected a captive portal state.
+  // The Chrome network portal detection is different from Shill's so the
+  // results may differ; this method tests both and should be preferred in UI.
+  // (NetworkState is already conservative in interpreting Shill's captive
+  // portal state, see IsCaptivePortalState in the .cc file).
+  bool IsCaptivePortal() const;
 
   // Returns the |raw_ssid| as a hex-encoded string
   std::string GetHexSsid() const;
@@ -199,6 +209,12 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
   std::string GetErrorState() const;
 
   // Setters for testing.
+  void set_connection_state_for_testing(const std::string& connection_state) {
+    connection_state_ = connection_state;
+  }
+  void set_connect_requested_for_testing(bool connect_requested) {
+    connect_requested_ = connect_requested;
+  }
   void set_network_technology_for_testing(const std::string& technology) {
     network_technology_ = technology;
   }
@@ -214,7 +230,6 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
  private:
   friend class MobileActivatorTest;
   friend class NetworkStateHandler;
-  FRIEND_TEST_ALL_PREFIXES(NetworkStateTest, TetherProperties);
 
   // Updates |name_| from the 'WiFi.HexSSID' entry in |properties|, which must
   // be of type DICTIONARY, if the key exists, and validates |name_|. Returns
@@ -293,6 +308,14 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) NetworkState : public ManagedState {
   // TODO(pneubeck): Remove this once (Managed)NetworkConfigurationHandler
   // provides proxy configuration. crbug.com/241775
   std::unique_ptr<base::Value> proxy_config_;
+
+  // Set while a network connect request is queued. Cleared on connect or
+  // if the request is aborted.
+  bool connect_requested_ = false;
+
+  // Set by NetworkStateHandler if Chrome detects a captive portal state.
+  // See IsCaptivePortal() for details.
+  bool is_chrome_captive_portal_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkState);
 };

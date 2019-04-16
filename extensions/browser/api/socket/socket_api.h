@@ -472,9 +472,8 @@ class SocketGetNetworkListFunction : public UIThreadExtensionFunction {
   ResponseAction Run() override;
 
  private:
-  void GetNetworkListOnFileThread();
-  void HandleGetNetworkListError();
-  void SendResponseOnUIThread(const net::NetworkInterfaceList& interface_list);
+  void GotNetworkList(
+      const base::Optional<net::NetworkInterfaceList>& interface_list);
 };
 
 class SocketJoinGroupFunction : public SocketAsyncApiFunction {
@@ -571,7 +570,7 @@ class SocketGetJoinedGroupsFunction : public SocketAsyncApiFunction {
 
 class SocketSecureFunction : public SocketAsyncApiFunction {
  public:
-  DECLARE_EXTENSION_FUNCTION("socket.secure", SOCKET_SECURE);
+  DECLARE_EXTENSION_FUNCTION("socket.secure", SOCKET_SECURE)
   SocketSecureFunction();
 
  protected:

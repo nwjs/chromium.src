@@ -4,6 +4,7 @@
 
 #include "chrome/browser/signin/signin_ui_util.h"
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/metrics/histogram_macros.h"
@@ -14,13 +15,11 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_navigator.h"
 #include "chrome/browser/ui/browser_navigator_params.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/common/pref_names.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/identity_utils.h"
 #include "components/signin/core/browser/signin_pref_names.h"
@@ -102,11 +101,11 @@ void EnableSyncFromPromo(Browser* browser,
                                 is_default_promo_account,
                                 base::BindOnce(&CreateDiceTurnSyncOnHelper));
 #else
-  internal::EnableSyncFromPromo(browser, account, access_point,
-                                is_default_promo_account, base::DoNothing());
+  NOTREACHED();
 #endif
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 namespace internal {
 void EnableSyncFromPromo(
     Browser* browser,
@@ -127,20 +126,6 @@ void EnableSyncFromPromo(
   Profile* profile = browser->profile();
   DCHECK(!profile->IsOffTheRecord());
 
-#if defined(OS_CHROMEOS)
-  // It looks like on ChromeOS there are tests that expect that the Chrome
-  // sign-in tab is presented even thought the user is signed in to Chrome
-  // (e.g. BookmarkBubbleSignInDelegateTest.*). However signing in to Chrome in
-  // a regular profile is not supported on ChromeOS as the primary account is
-  // set when the profile is created.
-  //
-  // TODO(msarda): Investigate whether this flow needs to be supported on
-  // ChromeOS and remove it if not.
-  DCHECK(account.IsEmpty());
-  chrome::ShowBrowserSignin(browser, access_point);
-  return;
-#endif
-
   if (IdentityManagerFactory::GetForProfile(profile)->HasPrimaryAccount()) {
     DVLOG(1) << "There is already a primary account.";
     return;
@@ -151,7 +136,6 @@ void EnableSyncFromPromo(
     return;
   }
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   DCHECK(!account.account_id.empty());
   DCHECK(!account.email.empty());
   DCHECK(AccountConsistencyModeManager::IsDiceEnabledForProfile(profile));
@@ -168,9 +152,8 @@ void EnableSyncFromPromo(
       identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
           account.account_id);
   if (needs_reauth_before_enable_sync) {
-    browser->signin_view_controller()->ShowDiceSigninTab(
-        browser, signin_metrics::Reason::REASON_SIGNIN_PRIMARY_ACCOUNT,
-        access_point, promo_action, account.email);
+    browser->signin_view_controller()->ShowDiceEnableSyncTab(
+        browser, access_point, promo_action, account.email);
     return;
   }
 
@@ -182,13 +165,8 @@ void EnableSyncFromPromo(
            signin_metrics::Reason::REASON_SIGNIN_PRIMARY_ACCOUNT,
            account.account_id,
            DiceTurnSyncOnHelper::SigninAbortedMode::KEEP_ACCOUNT);
-#else
-  NOTREACHED();
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 }
 }  // namespace internal
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 std::string GetDisplayEmail(Profile* profile, const std::string& account_id) {
   identity::IdentityManager* identity_manager =
@@ -262,7 +240,7 @@ std::string GetAllowedDomain(std::string signin_pattern) {
   std::string domain = splitted_signin_pattern[1];
 
   // Trims tailing '$' if existed.
-  if (domain.size() > 0 && domain.back() == '$')
+  if (!domain.empty() && domain.back() == '$')
     domain.pop_back();
 
   // Trims tailing '\E' if existed.

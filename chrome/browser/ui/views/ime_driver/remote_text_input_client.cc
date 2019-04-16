@@ -4,9 +4,21 @@
 
 #include "chrome/browser/ui/views/ime_driver/remote_text_input_client.h"
 
+#include <memory>
+#include <utility>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "ui/events/event_dispatcher.h"
+
+struct RemoteTextInputClient::QueuedEvent {
+  QueuedEvent(std::unique_ptr<ui::Event> event,
+              DispatchKeyEventPostIMECallback callback)
+      : event(std::move(event)), callback(std::move(callback)) {}
+
+  std::unique_ptr<ui::Event> event;
+  DispatchKeyEventPostIMECallback callback;
+};
 
 RemoteTextInputClient::RemoteTextInputClient(
     ws::mojom::TextInputClientPtr client,
@@ -14,8 +26,10 @@ RemoteTextInputClient::RemoteTextInputClient(
     : remote_client_(std::move(client)), details_(std::move(details)) {}
 
 RemoteTextInputClient::~RemoteTextInputClient() {
-  while (!pending_callbacks_.empty())
-    RunNextPendingCallback(false);
+  while (!queued_events_.empty()) {
+    RunNextPendingCallback(/* handled */ false,
+                           /* stopped_propagation */ false);
+  }
 }
 
 void RemoteTextInputClient::SetTextInputState(
@@ -27,8 +41,16 @@ void RemoteTextInputClient::SetCaretBounds(const gfx::Rect& caret_bounds) {
   details_->caret_bounds = caret_bounds;
 }
 
-void RemoteTextInputClient::OnDispatchKeyEventPostIMECompleted(bool completed) {
-  RunNextPendingCallback(completed);
+void RemoteTextInputClient::SetTextInputClientData(
+    ws::mojom::TextInputClientDataPtr data) {
+  details_->data = std::move(data);
+}
+
+void RemoteTextInputClient::OnDispatchKeyEventPostIMECompleted(
+    bool handled,
+    bool stopped_propagation) {
+  RunNextPendingCallback(handled, stopped_propagation);
+  DispatchQueuedEvent();
 }
 
 void RemoteTextInputClient::SetCompositionText(
@@ -88,9 +110,7 @@ bool RemoteTextInputClient::GetCompositionCharacterBounds(
 }
 
 bool RemoteTextInputClient::HasCompositionText() const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  return details_->data->has_composition_text;
 }
 
 ui::TextInputClient::FocusReason RemoteTextInputClient::GetFocusReason() const {
@@ -98,58 +118,67 @@ ui::TextInputClient::FocusReason RemoteTextInputClient::GetFocusReason() const {
 }
 
 bool RemoteTextInputClient::GetTextRange(gfx::Range* range) const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  if (!details_->data->text_range.has_value())
+    return false;
+
+  *range = details_->data->text_range.value();
+  return true;
 }
 
 bool RemoteTextInputClient::GetCompositionTextRange(gfx::Range* range) const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  if (!details_->data->composition_text_range.has_value())
+    return false;
+
+  *range = details_->data->composition_text_range.value();
+  return true;
 }
 
 bool RemoteTextInputClient::GetEditableSelectionRange(gfx::Range* range) const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  if (!details_->data->editable_selection_range.has_value())
+    return false;
+
+  *range = details_->data->editable_selection_range.value();
+  return true;
 }
 
 bool RemoteTextInputClient::SetEditableSelectionRange(const gfx::Range& range) {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  remote_client_->SetEditableSelectionRange(range);
+  // Note that we assume the client side always succeeds.
+  return true;
 }
 
 bool RemoteTextInputClient::DeleteRange(const gfx::Range& range) {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  remote_client_->DeleteRange(range);
+  // Note that we assume the client side always succeeds.
+  return true;
 }
 
 bool RemoteTextInputClient::GetTextFromRange(const gfx::Range& range,
                                              base::string16* text) const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  if (!details_->data->text.has_value() ||
+      !details_->data->text_range.has_value() ||
+      !details_->data->text_range->Contains(range)) {
+    return false;
+  }
+
+  *text = details_->data->text->substr(range.GetMin(), range.length());
+  return true;
 }
 
 void RemoteTextInputClient::OnInputMethodChanged() {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
+  remote_client_->OnInputMethodChanged();
 }
 
 bool RemoteTextInputClient::ChangeTextDirectionAndLayoutAlignment(
     base::i18n::TextDirection direction) {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  remote_client_->ChangeTextDirectionAndLayoutAlignment(direction);
+  // Note that we assume the client side always succeeds.
+  return true;
 }
 
 void RemoteTextInputClient::ExtendSelectionAndDelete(size_t before,
                                                      size_t after) {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
+  remote_client_->ExtendSelectionAndDelete(before, after);
 }
 
 void RemoteTextInputClient::EnsureCaretNotInRect(const gfx::Rect& rect) {
@@ -158,9 +187,14 @@ void RemoteTextInputClient::EnsureCaretNotInRect(const gfx::Rect& rect) {
 
 bool RemoteTextInputClient::IsTextEditCommandEnabled(
     ui::TextEditCommand command) const {
-  // TODO(moshayedi): crbug.com/631527.
-  NOTIMPLEMENTED_LOG_ONCE();
-  return false;
+  if (!details_->data->edit_command_enabled.has_value())
+    return false;
+
+  const size_t index = static_cast<size_t>(command);
+  if (index >= details_->data->edit_command_enabled->size())
+    return false;
+
+  return details_->data->edit_command_enabled->at(index);
 }
 
 void RemoteTextInputClient::SetTextEditCommandForNextKeyEvent(
@@ -179,20 +213,31 @@ bool RemoteTextInputClient::ShouldDoLearning() {
 
 ui::EventDispatchDetails RemoteTextInputClient::DispatchKeyEventPostIME(
     ui::KeyEvent* event,
-    base::OnceCallback<void(bool)> ack_callback) {
-  pending_callbacks_.push(std::move(ack_callback));
-  remote_client_->DispatchKeyEventPostIME(
-      ui::Event::Clone(*event),
-      base::BindOnce(&RemoteTextInputClient::OnDispatchKeyEventPostIMECompleted,
-                     weak_ptr_factory_.GetWeakPtr()));
+    DispatchKeyEventPostIMECallback callback) {
+  const bool is_first_event = queued_events_.empty();
+  queued_events_.emplace(ui::Event::Clone(*event), std::move(callback));
+  if (is_first_event)
+    DispatchQueuedEvent();
   return ui::EventDispatchDetails();
 }
 
-void RemoteTextInputClient::RunNextPendingCallback(bool completed) {
-  DCHECK(!pending_callbacks_.empty());
-  base::OnceCallback<void(bool)> callback =
-      std::move(pending_callbacks_.front());
-  pending_callbacks_.pop();
+void RemoteTextInputClient::DispatchQueuedEvent() {
+  if (queued_events_.empty())
+    return;
+
+  DCHECK(queued_events_.front().event);
+  remote_client_->DispatchKeyEventPostIME(
+      std::move(queued_events_.front().event),
+      base::BindOnce(&RemoteTextInputClient::OnDispatchKeyEventPostIMECompleted,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void RemoteTextInputClient::RunNextPendingCallback(bool handled,
+                                                   bool stopped_propagation) {
+  DCHECK(!queued_events_.empty());
+  DispatchKeyEventPostIMECallback callback =
+      std::move(queued_events_.front().callback);
+  queued_events_.pop();
   if (callback)
-    std::move(callback).Run(completed);
+    std::move(callback).Run(handled, stopped_propagation);
 }

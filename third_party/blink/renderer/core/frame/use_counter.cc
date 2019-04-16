@@ -1320,7 +1320,7 @@ void UseCounter::CountIfFeatureWouldBeBlockedByFeaturePolicy(
   if (!frame.GetSecurityContext()->GetSecurityOrigin()->CanAccess(topOrigin)) {
     // This frame is cross-origin with the top-level frame, and so would be
     // blocked without a feature policy.
-    UseCounter::Count(&frame, blocked_cross_origin);
+    UseCounter::Count(frame.GetDocument(), blocked_cross_origin);
     return;
   }
 
@@ -1330,7 +1330,7 @@ void UseCounter::CountIfFeatureWouldBeBlockedByFeaturePolicy(
   const Frame* f = &frame;
   while (!f->IsMainFrame()) {
     if (!f->GetSecurityContext()->GetSecurityOrigin()->CanAccess(topOrigin)) {
-      UseCounter::Count(&frame, blocked_same_origin);
+      UseCounter::Count(frame.GetDocument(), blocked_same_origin);
       return;
     }
     f = f->Tree().Parent();
@@ -1373,16 +1373,6 @@ void UseCounter::DidCommitLoad(const LocalFrame* frame) {
       FeaturesHistogram().Count(static_cast<int>(WebFeature::kPageVisits));
     }
   }
-}
-
-// TODO(loonybear): Replace Count(LocalFrame*) by Count(DocumentLoader*).
-void UseCounter::Count(const LocalFrame* frame, WebFeature feature) {
-  if (!frame)
-    return;
-  DocumentLoader* loader = frame->GetDocument()
-                               ? frame->GetDocument()->Loader()
-                               : frame->Loader().GetProvisionalDocumentLoader();
-  UseCounter::Count(loader, feature);
 }
 
 void UseCounter::Count(DocumentLoader* loader, WebFeature feature) {
@@ -1441,7 +1431,7 @@ void UseCounter::CountCrossOriginIframe(const Document& document,
                                         WebFeature feature) {
   LocalFrame* frame = document.GetFrame();
   if (frame && frame->IsCrossOriginSubframe())
-    Count(frame, feature);
+    Count(document, feature);
 }
 
 void UseCounter::ReportAndTraceMeasurementByCSSSampleId(int sample_id,

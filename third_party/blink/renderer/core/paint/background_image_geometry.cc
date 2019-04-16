@@ -83,8 +83,26 @@ IntPoint AccumulatedScrollOffsetForFixedBackground(
 
 }  // anonymous namespace
 
-void BackgroundImageGeometry::SetNoRepeatX(LayoutUnit x_offset,
+bool NeedsFullSizeDestination(const FillLayer& fill_layer) {
+  // When dealing with a mask, the dest rect needs to maintain the full size
+  // and the mask should be expanded to fill it out. This allows the mask to
+  // correctly mask the entire area it is meant to. This is unnecessary on the
+  // last layer, so the normal background path is taken for efficiency when
+  // creating the paint shader later on.
+  return fill_layer.GetType() == EFillLayerType::kMask && fill_layer.Next() &&
+         fill_layer.Composite() != kCompositeSourceOver;
+}
+
+void BackgroundImageGeometry::SetNoRepeatX(const FillLayer& fill_layer,
+                                           LayoutUnit x_offset,
                                            LayoutUnit snapped_x_offset) {
+  if (NeedsFullSizeDestination(fill_layer)) {
+    SetPhaseX(-x_offset.ToFloat());
+    SetSpaceSize(
+        LayoutSize(unsnapped_dest_rect_.Width(), SpaceSize().Height()));
+    return;
+  }
+
   // The snapped offset may not yet be snapped, so make sure it is an integer.
   snapped_x_offset = LayoutUnit(RoundToInt(snapped_x_offset));
 
@@ -120,8 +138,16 @@ void BackgroundImageGeometry::SetNoRepeatX(LayoutUnit x_offset,
   SetSpaceSize(LayoutSize(LayoutUnit(), SpaceSize().Height()));
 }
 
-void BackgroundImageGeometry::SetNoRepeatY(LayoutUnit y_offset,
+void BackgroundImageGeometry::SetNoRepeatY(const FillLayer& fill_layer,
+                                           LayoutUnit y_offset,
                                            LayoutUnit snapped_y_offset) {
+  if (NeedsFullSizeDestination(fill_layer)) {
+    SetPhaseY(-y_offset.ToFloat());
+    SetSpaceSize(
+        LayoutSize(SpaceSize().Width(), unsnapped_dest_rect_.Height()));
+    return;
+  }
+
   // The snapped offset may not yet be snapped, so make sure it is an integer.
   snapped_y_offset = LayoutUnit(RoundToInt(snapped_y_offset));
 
@@ -718,10 +744,11 @@ void BackgroundImageGeometry::CalculateFillTileSize(
   StyleImage* image = fill_layer.GetImage();
   EFillSizeType type = fill_layer.SizeType();
 
-  // Tile size is snapped for relative sized images (typically generated
-  // content) and unsnapped for intrinsically sized content. Once we choose
-  // here we stop tracking whether the tile size is snapped or unsnapped.
-  LayoutSize positioning_area_size = image->ImageHasRelativeSize()
+  // Tile size is snapped for images without intrinsic dimensions (typically
+  // generated content) and unsnapped for content that has intrinsic
+  // dimensions. Once we choose here we stop tracking whether the tile size is
+  // snapped or unsnapped.
+  LayoutSize positioning_area_size = !image->HasIntrinsicSize()
                                          ? snapped_positioning_area_size
                                          : unsnapped_positioning_area_size;
   LayoutSize image_intrinsic_size(image->ImageSize(
@@ -751,7 +778,7 @@ void BackgroundImageGeometry::CalculateFillTileSize(
       // If one of the values is auto we have to use the appropriate
       // scale to maintain our aspect ratio.
       if (layer_width.IsAuto() && !layer_height.IsAuto()) {
-        if (image->ImageHasRelativeSize()) {
+        if (!image->HasIntrinsicSize()) {
           // Spec says that auto should be 100% in the absence of
           // an intrinsic ratio or size.
           tile_size_.SetWidth(positioning_area_size.Width());
@@ -764,7 +791,7 @@ void BackgroundImageGeometry::CalculateFillTileSize(
           tile_size_.SetWidth(LayoutUnit(adjusted_width));
         }
       } else if (!layer_width.IsAuto() && layer_height.IsAuto()) {
-        if (image->ImageHasRelativeSize()) {
+        if (!image->HasIntrinsicSize()) {
           // Spec says that auto should be 100% in the absence of
           // an intrinsic ratio or size.
           tile_size_.SetHeight(positioning_area_size.Height());
@@ -783,19 +810,6 @@ void BackgroundImageGeometry::CalculateFillTileSize(
 
       tile_size_.ClampNegativeToZero();
       return;
-    }
-    case EFillSizeType::kSizeNone: {
-      // If both values are 'auto' then the intrinsic width and/or height of the
-      // image should be used, if any.
-      if (!image_intrinsic_size.IsEmpty()) {
-        tile_size_ = image_intrinsic_size;
-        return;
-      }
-
-      // If the image has neither an intrinsic width nor an intrinsic height,
-      // its size is determined as for 'contain'.
-      type = EFillSizeType::kContain;
-      FALLTHROUGH;
     }
     case EFillSizeType::kContain:
     case EFillSizeType::kCover: {
@@ -845,6 +859,9 @@ void BackgroundImageGeometry::CalculateFillTileSize(
       }
       return;
     }
+    case EFillSizeType::kSizeNone:
+      // This value should only be used while resolving style.
+      NOTREACHED();
   }
 
   NOTREACHED();
@@ -978,7 +995,7 @@ void BackgroundImageGeometry::Calculate(const LayoutBoxModelObject* container,
         fill_layer.BackgroundXOrigin() == BackgroundEdgeOrigin::kRight
             ? snapped_available_width - computed_x_position
             : computed_x_position;
-    SetNoRepeatX(unsnapped_box_offset.X() + x_offset,
+    SetNoRepeatX(fill_layer, unsnapped_box_offset.X() + x_offset,
                  snapped_box_offset.X() + snapped_x_offset);
     if (offset_in_background_.X() > tile_size_.Width())
       unsnapped_dest_rect_ = snapped_dest_rect_ = LayoutRect();
@@ -1009,7 +1026,7 @@ void BackgroundImageGeometry::Calculate(const LayoutBoxModelObject* container,
         fill_layer.BackgroundYOrigin() == BackgroundEdgeOrigin::kBottom
             ? snapped_available_height - computed_y_position
             : computed_y_position;
-    SetNoRepeatY(unsnapped_box_offset.Y() + y_offset,
+    SetNoRepeatY(fill_layer, unsnapped_box_offset.Y() + y_offset,
                  snapped_box_offset.Y() + snapped_y_offset);
     if (offset_in_background_.Y() > tile_size_.Height())
       unsnapped_dest_rect_ = snapped_dest_rect_ = LayoutRect();

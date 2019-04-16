@@ -19,9 +19,9 @@
 #include "media/base/media.h"
 #include "media/base/media_switches.h"
 #include "media/base/pipeline_status.h"
-#include "media/test/mock_media_source.h"
+#include "media/media_buildflags.h"
 #include "media/test/pipeline_integration_test_base.h"
-#include "third_party/libaom/av1_buildflags.h"
+#include "media/test/test_media_source.h"
 
 namespace {
 
@@ -191,7 +191,7 @@ class MediaSourcePipelineIntegrationFuzzerTest
     scoped_refptr<media::DecoderBuffer> buffer(
         DecoderBuffer::CopyFrom(data, size));
 
-    MockMediaSource source(buffer, mimetype, kAppendWholeFile);
+    TestMediaSource source(buffer, mimetype, kAppendWholeFile);
 
     // Prevent timeout in the case of not enough media appended to complete
     // demuxer initialization, yet no error in the media appended.  The
@@ -203,9 +203,9 @@ class MediaSourcePipelineIntegrationFuzzerTest
         base::Bind(&OnEncryptedMediaInitData, this));
 
     // Allow parsing to either pass or fail without emitting a gtest failure
-    // from MockMediaSource.
+    // from TestMediaSource.
     source.set_expected_append_result(
-        MockMediaSource::ExpectedAppendResult::kSuccessOrFailure);
+        TestMediaSource::ExpectedAppendResult::kSuccessOrFailure);
 
     // TODO(wolenetz): Vary the behavior (abort/remove/seek/endOfStream/Append
     // in pieces/append near play-head/vary append mode/etc), perhaps using
@@ -248,8 +248,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   FuzzerVariant variant = PIPELINE_FUZZER_VARIANT;
 
   if (variant == SRC) {
-    media::ProgressivePipelineIntegrationFuzzerTest test;
-    test.RunTest(data, size);
+    {
+      media::ProgressivePipelineIntegrationFuzzerTest test;
+      test.RunTest(data, size);
+    }
   } else {
     // Sequentially fuzz with new and old MSE buffering APIs.  See
     // https://crbug.com/718641.

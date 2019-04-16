@@ -13,6 +13,7 @@
 #include "ash/public/interfaces/voice_interaction_controller.mojom.h"
 #include "ash/session/session_observer.h"
 #include "ash/shelf/shelf_control_button.h"
+#include "ash/wm/tablet_mode/tablet_mode_observer.h"
 #include "base/macros.h"
 #include "third_party/skia/include/core/SkColor.h"
 
@@ -30,8 +31,11 @@ class ShelfView;
 class ASH_EXPORT AppListButton : public ShelfControlButton,
                                  public AppListControllerObserver,
                                  public SessionObserver,
+                                 public TabletModeObserver,
                                  public DefaultVoiceInteractionObserver {
  public:
+  static const char kViewClassName[];
+
   AppListButton(ShelfView* shelf_view, Shelf* shelf);
   ~AppListButton() override;
 
@@ -42,6 +46,7 @@ class ASH_EXPORT AppListButton : public ShelfControlButton,
 
   // views::Button:
   void OnGestureEvent(ui::GestureEvent* event) override;
+  const char* GetClassName() const override;
 
  protected:
   // views::Button:
@@ -56,10 +61,14 @@ class ASH_EXPORT AppListButton : public ShelfControlButton,
   void OnVoiceInteractionStatusChanged(
       mojom::VoiceInteractionState state) override;
   void OnVoiceInteractionSettingsEnabled(bool enabled) override;
-  void OnVoiceInteractionSetupCompleted(bool completed) override;
+  void OnVoiceInteractionConsentStatusUpdated(
+      mojom::ConsentStatus consent_status) override;
 
   // SessionObserver:
   void OnActiveUserSessionChanged(const AccountId& account_id) override;
+
+  // TabletModeObserver:
+  void OnTabletModeStarted() override;
 
   void StartVoiceInteractionAnimation();
 

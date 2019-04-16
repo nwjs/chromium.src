@@ -8,11 +8,14 @@
 
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/autofill/strike_database_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/local_card_migration_dialog.h"
 #include "chrome/browser/ui/autofill/local_card_migration_dialog_factory.h"
 #include "chrome/browser/ui/autofill/local_card_migration_dialog_state.h"
@@ -22,7 +25,9 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "components/autofill/core/browser/autofill_metrics.h"
 #include "components/autofill/core/browser/local_card_migration_manager.h"
+#include "components/autofill/core/browser/local_card_migration_strike_database.h"
 #include "components/autofill/core/browser/payments/payments_service_url.h"
+#include "components/autofill/core/browser/strike_database.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -168,12 +173,22 @@ void LocalCardMigrationDialogControllerImpl::OnSaveButtonClicked(
 }
 
 void LocalCardMigrationDialogControllerImpl::OnCancelButtonClicked() {
+  // Add strikes for local card migration due to user closing the main dialog.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillLocalCardMigrationUsesStrikeSystemV2)) {
+    LocalCardMigrationStrikeDatabase local_card_migration_strike_database(
+        StrikeDatabaseFactory::GetForProfile(
+            Profile::FromBrowserContext(web_contents()->GetBrowserContext())));
+    local_card_migration_strike_database.AddStrikes(
+        LocalCardMigrationStrikeDatabase::kStrikesToAddWhenDialogClosed);
+  } else {
+    prefs::SetLocalCardMigrationPromptPreviouslyCancelled(pref_service_, true);
+  }
+
   AutofillMetrics::LogLocalCardMigrationDialogUserInteractionMetric(
       dialog_is_visible_duration_timer_.Elapsed(),
       AutofillMetrics::
           LOCAL_CARD_MIGRATION_DIALOG_CLOSED_CANCEL_BUTTON_CLICKED);
-
-  prefs::SetLocalCardMigrationPromptPreviouslyCancelled(pref_service_, true);
 
   start_migrating_cards_callback_.Reset();
   NotifyMigrationNoLongerAvailable();
@@ -210,13 +225,9 @@ void LocalCardMigrationDialogControllerImpl::DeleteCard(
   DCHECK(delete_local_card_callback_);
   delete_local_card_callback_.Run(deleted_card_guid);
 
-  migratable_credit_cards_.erase(
-      std::remove_if(migratable_credit_cards_.begin(),
-                     migratable_credit_cards_.end(),
-                     [&](const auto& card) {
-                       return card.credit_card().guid() == deleted_card_guid;
-                     }),
-      migratable_credit_cards_.end());
+  base::EraseIf(migratable_credit_cards_, [&](const auto& card) {
+    return card.credit_card().guid() == deleted_card_guid;
+  });
 
   if (!HasFailedCard()) {
     view_state_ = LocalCardMigrationDialogState::kFinished;

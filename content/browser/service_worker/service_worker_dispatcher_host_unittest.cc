@@ -8,13 +8,14 @@
 
 #include <utility>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
 #include "base/time/time.h"
 #include "content/browser/service_worker/embedded_worker_instance.h"
-#include "content/browser/service_worker/embedded_worker_registry.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -53,13 +54,13 @@ std::unique_ptr<ServiceWorkerNavigationHandleCore> CreateNavigationHandleCore(
   std::unique_ptr<ServiceWorkerNavigationHandleCore> navigation_handle_core;
   base::PostTaskWithTraitsAndReplyWithResult(
       FROM_HERE, {BrowserThread::UI},
-      base::Bind(
+      base::BindOnce(
           [](ServiceWorkerContextWrapper* wrapper) {
             return std::make_unique<ServiceWorkerNavigationHandleCore>(nullptr,
                                                                        wrapper);
           },
           base::RetainedRef(context_wrapper)),
-      base::Bind(
+      base::BindOnce(
           [](std::unique_ptr<ServiceWorkerNavigationHandleCore>* dest,
              std::unique_ptr<ServiceWorkerNavigationHandleCore> src) {
             *dest = std::move(src);

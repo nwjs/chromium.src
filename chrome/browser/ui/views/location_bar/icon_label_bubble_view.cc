@@ -222,7 +222,7 @@ void IconLabelBubbleView::UpdateBorder() {
   // the bubble should be smaller, so use an empty border to shrink down the
   // content bounds so the background gets painted correctly.
   SetBorder(views::CreateEmptyBorder(
-      gfx::Insets(GetLayoutConstant(LOCATION_BAR_BUBBLE_VERTICAL_PADDING),
+      gfx::Insets(GetLayoutConstant(LOCATION_BAR_CHILD_INTERIOR_PADDING),
                   GetLayoutInsets(LOCATION_BAR_ICON_INTERIOR_PADDING).left())));
 }
 
@@ -381,8 +381,7 @@ void IconLabelBubbleView::AnimationEnded(const gfx::Animation* animation) {
     // If there is no separator to show, then that means we want the text to
     // disappear after animating.
     ResetSlideAnimation(/*show_label=*/ShouldShowSeparator());
-    parent()->Layout();
-    parent()->SchedulePaint();
+    PreferredSizeChanged();
   }
 
   GetInkDrop()->SetShowHighlightOnHover(true);
@@ -390,10 +389,8 @@ void IconLabelBubbleView::AnimationEnded(const gfx::Animation* animation) {
 }
 
 void IconLabelBubbleView::AnimationProgressed(const gfx::Animation* animation) {
-  if (!is_animation_paused_) {
-    parent()->Layout();
-    parent()->SchedulePaint();
-  }
+  if (!is_animation_paused_)
+    PreferredSizeChanged();
 }
 
 void IconLabelBubbleView::AnimationCanceled(const gfx::Animation* animation) {

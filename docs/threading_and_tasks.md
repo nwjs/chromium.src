@@ -15,6 +15,37 @@ objects. Instead, objects live on only one thread, we pass messages between
 threads for communication, and we use callback interfaces (implemented by
 message passing) for most cross-thread requests.
 
+### Nomenclature
+ * **Thread-unsafe**: The vast majority of types in Chromium are thread-unsafe
+   by design. Access to such types/methods must be synchronized, typically by
+   sequencing access through a single `base::SequencedTaskRunner` (this should
+   be enforced by a `SEQUENCE_CHECKER`) or via low-level synchronization (e.g.
+   locks -- but [prefer sequences](#Using-Sequences-Instead-of-Locks)).
+ * **Thread-affine**: Such types/methods need to be always accessed from the
+   same physical thread (i.e. from the same `base::SingleThreadTaskRunner`) and
+   should use `THREAD_CHECKER` to verify that they are. Short of using a
+   third-party API or having a leaf dependency which is thread-affine: there's
+   pretty much no reason for a type to be thread-affine in Chromium. Note that
+   `base::SingleThreadTaskRunner` is-a `base::SequencedTaskRunner` so
+   thread-affine is a subset of thread-unsafe. Thread-affine is also sometimes
+   referred to as **thread-hostile**.
+ * **Thread-safe**: Such types/methods can be safely accessed concurrently.
+ * **Thread-compatible**: Such types provide safe concurrent access to const
+   methods but require synchronization for non-const (or mixed const/non-const
+   access). Chromium doesn't expose reader-writer locks; as such, the only use
+   case for this is objects (typically globals) which are initialized once in a
+   thread-safe manner (either in the single-threaded phase of startup or lazily
+   through a thread-safe static-local-initialization paradigm a la
+   `base::NoDestructor`) and forever after immutable.
+ * **Immutable**: A subset of thread-compatible types which cannot be modified
+   after construction.
+ * **Sequence-friendly**: Such types/methods are thread-unsafe types which
+   support being invoked from a `base::SequencedTaskRunner`. Ideally this would
+   be the case for all thread-unsafe types but legacy code sometimes has
+   overzealous checks that enforce thread-affinity in mere thread-unsafe
+   scenarios. See [Prefer Sequences to Threads](#prefer-sequences-to-threads)
+   below for more details.
+
 ### Threads
 
 Every Chrome process has
@@ -70,9 +101,10 @@ availability (increased parallelism on bigger machines, avoids trashing
 resources on smaller machines).
 
 Many core APIs were recently made sequence-friendly (classes are rarely
-thread-affine -- i.e. only when using thread-local-storage or third-party APIs
-that do). But the codebase has long evolved assuming single-threaded contexts...
-If your class could run on a sequence but is blocked by an overzealous use of
+thread-affine -- i.e. only when using third-party APIs that are thread-affine;
+even ThreadLocalStorage has a SequenceLocalStorage equivalent). But the codebase
+has long evolved assuming single-threaded contexts... If your class could run on
+a sequence but is blocked by an overzealous use of
 ThreadChecker/ThreadTaskRunnerHandle/SingleThreadTaskRunner in a leaf
 dependency, consider fixing that dependency for everyone's benefit (or at the
 very least file a blocking bug against https://crbug.com/675631 and flag your

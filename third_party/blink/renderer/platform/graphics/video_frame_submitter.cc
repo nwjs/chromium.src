@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/threading/sequenced_task_runner_handle.h"
 #include "base/trace_event/trace_event.h"
 #include "components/viz/common/features.h"
@@ -14,6 +15,7 @@
 #include "media/base/video_frame.h"
 #include "media/base/video_types.h"
 #include "services/viz/public/interfaces/compositing/compositor_frame_sink.mojom-blink.h"
+#include "services/viz/public/interfaces/hit_test/hit_test_region_list.mojom-blink.h"
 #include "services/ws/public/cpp/gpu/context_provider_command_buffer.h"
 #include "third_party/blink/public/platform/interface_provider.h"
 #include "third_party/blink/public/platform/modules/frame_sinks/embedded_frame_sink.mojom-blink.h"
@@ -173,8 +175,10 @@ void VideoFrameSubmitter::OnBeginFrame(
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   TRACE_EVENT0("media", "VideoFrameSubmitter::OnBeginFrame");
 
+  // Don't call UpdateCurrentFrame() for MISSED BeginFrames. Also don't call it
+  // after StopRendering() has been called (forbidden by API contract).
   viz::BeginFrameAck current_begin_frame_ack(args, false);
-  if (args.type == viz::BeginFrameArgs::MISSED) {
+  if (args.type == viz::BeginFrameArgs::MISSED || !is_rendering_) {
     compositor_frame_sink_->DidNotProduceFrame(current_begin_frame_ack);
     return;
   }
@@ -198,10 +202,7 @@ void VideoFrameSubmitter::OnBeginFrame(
   //
   // Not submitting a frame when waiting for a previous ack saves memory by
   // not building up unused remote side resources. See https://crbug.com/830828.
-  //
-  // TODO(dalecurtis): Can |is_rendering_| ever be false here? Presumably if
-  // StopRendering() is called above we will not have gotten a BeginFrame.
-  if (!is_rendering_ || waiting_for_compositor_ack_ ||
+  if (waiting_for_compositor_ack_ ||
       !SubmitFrame(current_begin_frame_ack, std::move(video_frame))) {
     compositor_frame_sink_->DidNotProduceFrame(current_begin_frame_ack);
     return;
@@ -241,7 +242,7 @@ void VideoFrameSubmitter::DidDeleteSharedBitmap(const viz::SharedBitmapId& id) {
 
 void VideoFrameSubmitter::OnReceivedContextProvider(
     bool use_gpu_compositing,
-    scoped_refptr<viz::ContextProvider> context_provider) {
+    scoped_refptr<viz::RasterContextProvider> context_provider) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   if (!use_gpu_compositing) {
     resource_provider_->Initialize(nullptr, this);
@@ -342,7 +343,8 @@ bool VideoFrameSubmitter::SubmitFrame(
     scoped_refptr<media::VideoFrame> video_frame) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(video_frame);
-  TRACE_EVENT0("media", "VideoFrameSubmitter::SubmitFrame");
+  TRACE_EVENT1("media", "VideoFrameSubmitter::SubmitFrame", "frame",
+               video_frame->AsHumanReadableString());
 
   if (!compositor_frame_sink_ || !ShouldSubmit())
     return false;
@@ -371,7 +373,8 @@ bool VideoFrameSubmitter::SubmitFrame(
   resource_provider_->PrepareSendToParent(resources,
                                           &compositor_frame.resource_list);
 
-  // TODO(lethalantidote): Address third/fourth arg in SubmitCompositorFrame.
+  // We can pass nullptr for the HitTestData as the CompositorFram will not
+  // contain any SurfaceDrawQuads.
   compositor_frame_sink_->SubmitCompositorFrame(
       child_local_surface_id_allocator_.GetCurrentLocalSurfaceIdAllocation()
           .local_surface_id(),

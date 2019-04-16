@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -27,6 +28,12 @@ namespace syncer {
 
 namespace {
 
+class TestFCMSyncNetworkChannel : public FCMSyncNetworkChannel {
+ public:
+  void StartListening() override {}
+  void StopListening() override {}
+};
+
 class FCMInvalidatorTestDelegate {
  public:
   FCMInvalidatorTestDelegate() {
@@ -40,7 +47,7 @@ class FCMInvalidatorTestDelegate {
                          const std::string&,
                          const base::WeakPtr<InvalidationStateTracker>&) {
     DCHECK(!invalidator_);
-    auto network_channel = std::make_unique<FCMSyncNetworkChannel>();
+    auto network_channel = std::make_unique<TestFCMSyncNetworkChannel>();
     identity_provider_ =
         std::make_unique<invalidation::ProfileIdentityProvider>(
             identity_test_env_.identity_manager());
@@ -79,9 +86,9 @@ class FCMInvalidatorTestDelegate {
   TestingPrefServiceSimple pref_service_;
 };
 
-INSTANTIATE_TYPED_TEST_CASE_P(FCMInvalidatorTest,
-                              InvalidatorTest,
-                              FCMInvalidatorTestDelegate);
+INSTANTIATE_TYPED_TEST_SUITE_P(FCMInvalidatorTest,
+                               InvalidatorTest,
+                               FCMInvalidatorTestDelegate);
 
 }  // namespace
 

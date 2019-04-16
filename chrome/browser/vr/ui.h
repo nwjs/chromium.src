@@ -41,7 +41,7 @@ class UiRenderer;
 struct Assets;
 struct ControllerModel;
 struct Model;
-struct OmniboxSuggestions;
+struct OmniboxSuggestion;
 struct ReticleModel;
 
 // This class manages all GLThread owned objects and GL rendering for VrShell.
@@ -106,7 +106,7 @@ class VR_UI_EXPORT Ui : public UiInterface,
       bool has_or_can_request_record_audio) override;
   void OnSpeechRecognitionStateChanged(int new_state) override;
   void SetOmniboxSuggestions(
-      std::unique_ptr<OmniboxSuggestions> suggestions) override;
+      std::vector<OmniboxSuggestion> suggestions) override;
   void OnAssetsLoaded(AssetsLoadStatus status,
                       std::unique_ptr<Assets> assets,
                       const base::Version& component_version) override;
@@ -238,33 +238,6 @@ class VR_UI_EXPORT Ui : public UiInterface,
 
   DISALLOW_COPY_AND_ASSIGN(Ui);
 };
-
-#if defined(FEATURE_MODULES)
-
-extern "C" {
-// The factory function obtained from the UI module library via dlsym() when
-// preparing to instantiate a UI instance.
-VR_UI_EXPORT Ui* CreateUi(
-    UiBrowserInterface* browser,
-    PlatformInputHandler* content_input_forwarder,
-    std::unique_ptr<KeyboardDelegate> keyboard_delegate,
-    std::unique_ptr<TextInputDelegate> text_input_delegate,
-    std::unique_ptr<AudioDelegate> audio_delegate,
-    const UiInitialState& ui_initial_state);
-}
-
-// After obtaining a void pointer to CreateUi() via dlsym, the resulting pointer
-// should be cast to this type.  Hence, the arguments to this type must exactly
-// match the method above.
-typedef Ui* CreateUiFunction(
-    UiBrowserInterface* browser,
-    PlatformInputHandler* content_input_forwarder,
-    std::unique_ptr<KeyboardDelegate> keyboard_delegate,
-    std::unique_ptr<TextInputDelegate> text_input_delegate,
-    std::unique_ptr<AudioDelegate> audio_delegate,
-    const UiInitialState& ui_initial_state);
-
-#endif  // defined(FEATURE_MODULES)
 
 }  // namespace vr
 

@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <utility>
+
+#include "base/macros.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
@@ -26,7 +28,6 @@ class MockPaymentStateResolver final
     : public GarbageCollectedFinalized<MockPaymentStateResolver>,
       public PaymentStateResolver {
   USING_GARBAGE_COLLECTED_MIXIN(MockPaymentStateResolver);
-  WTF_MAKE_NONCOPYABLE(MockPaymentStateResolver);
 
  public:
   MockPaymentStateResolver() {
@@ -45,6 +46,8 @@ class MockPaymentStateResolver final
 
  private:
   ScriptPromise dummy_promise_;
+
+  DISALLOW_COPY_AND_ASSIGN(MockPaymentStateResolver);
 };
 
 TEST(PaymentResponseTest, DataCopiedOver) {
@@ -78,8 +81,11 @@ TEST(PaymentResponseTest, DataCopiedOver) {
 
   ScriptValue transaction_id(
       scope.GetScriptState(),
-      details.V8Value().As<v8::Object>()->Get(
-          V8String(scope.GetScriptState()->GetIsolate(), "transactionId")));
+      details.V8Value()
+          .As<v8::Object>()
+          ->Get(scope.GetContext(),
+                V8String(scope.GetIsolate(), "transactionId"))
+          .ToLocalChecked());
 
   ASSERT_TRUE(transaction_id.V8Value()->IsNumber());
   EXPECT_EQ(123, transaction_id.V8Value().As<v8::Number>()->Value());
@@ -172,8 +178,6 @@ TEST(PaymentResponseTest, JSONSerializerTest) {
   input->payer->name = "Jon Doe";
   input->shipping_address = payments::mojom::blink::PaymentAddress::New();
   input->shipping_address->country = "US";
-  input->shipping_address->language_code = "en";
-  input->shipping_address->script_code = "Latn";
   input->shipping_address->address_line.push_back("340 Main St");
   input->shipping_address->address_line.push_back("BIN1");
   input->shipping_address->address_line.push_back("First floor");
@@ -198,8 +202,7 @@ TEST(PaymentResponseTest, JSONSerializerTest) {
       "St\","
       "\"BIN1\",\"First "
       "floor\"],\"region\":\"\",\"city\":\"\",\"dependentLocality\":"
-      "\"\",\"postalCode\":\"\",\"sortingCode\":\"\",\"languageCode\":\"en-"
-      "Latn\","
+      "\"\",\"postalCode\":\"\",\"sortingCode\":\"\","
       "\"organization\":\"\",\"recipient\":\"\",\"phone\":\"\"},"
       "\"shippingOption\":"
       "\"standardShippingOption\",\"payerName\":\"Jon Doe\","

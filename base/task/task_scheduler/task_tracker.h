@@ -14,13 +14,13 @@
 #include "base/atomicops.h"
 #include "base/base_export.h"
 #include "base/callback_forward.h"
-#include "base/debug/task_annotator.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_base.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_piece.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/task/common/task_annotator.h"
 #include "base/task/task_scheduler/can_schedule_sequence_observer.h"
 #include "base/task/task_scheduler/scheduler_lock.h"
 #include "base/task/task_scheduler/sequence.h"
@@ -98,7 +98,7 @@ class BASE_EXPORT TaskTracker {
   // |histogram_label| is used as a suffix for histograms, it must not be empty.
   // The first constructor sets the maximum number of TaskPriority::BEST_EFFORT
   // sequences that can be scheduled concurrently to 0 if the
-  // --disable-background-tasks flag is specified, max() otherwise. The second
+  // --disable-best-effort-tasks flag is specified, max() otherwise. The second
   // constructor sets it to |max_num_scheduled_best_effort_sequences|.
   TaskTracker(StringPiece histogram_label);
   TaskTracker(StringPiece histogram_label,
@@ -347,7 +347,7 @@ class BASE_EXPORT TaskTracker {
   void RunTaskWithShutdownBehavior(TaskShutdownBehavior shutdown_behavior,
                                    Task* task);
 
-  debug::TaskAnnotator task_annotator_;
+  TaskAnnotator task_annotator_;
 
   // Number of tasks blocking shutdown and boolean indicating whether shutdown
   // has started.

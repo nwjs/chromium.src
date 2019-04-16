@@ -13,8 +13,10 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/timer/timer.h"
 #include "base/win/windows_version.h"
 #include "build/build_config.h"
+#include "ui/aura/window.h"
 #include "ui/base/ime/input_method.h"
 #include "ui/base/ime/text_input_client.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -40,7 +42,6 @@
 #include "ui/wm/public/activation_client.h"
 
 #if defined(OS_WIN)
-#include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #include "ui/views/win/hwnd_util.h"
@@ -201,12 +202,12 @@ void DeactivateSync(Widget* widget) {
   // active. But we can simulate deactivation (e.g. as if another application
   // became active) by temporarily making |widget| non-activatable, then
   // activating (and closing) a temporary widget.
-  widget->widget_delegate()->set_can_activate(false);
+  widget->widget_delegate()->SetCanActivate(false);
   Widget* stealer = new Widget;
   stealer->Init(Widget::InitParams(Widget::InitParams::TYPE_WINDOW));
   ShowSync(stealer);
   stealer->CloseNow();
-  widget->widget_delegate()->set_can_activate(true);
+  widget->widget_delegate()->SetCanActivate(true);
 #else
   views::test::WidgetActivationWaiter waiter(widget, false);
   widget->Deactivate();
@@ -997,7 +998,6 @@ TEST_F(WidgetTestInteractive, FullscreenMaximizedWindowBounds) {
 }
 #endif  // defined(OS_WIN)
 
-#if !defined(OS_CHROMEOS)
 // Provides functionality to create a window modal dialog.
 class ModalDialogDelegate : public DialogDelegateView {
  public:
@@ -1038,9 +1038,15 @@ TEST_F(DesktopWidgetTestInteractive, WindowModalWindowDestroyedActivationTest) {
   EXPECT_EQ(top_level_native_view, focus_changes[0]);
 
   // Create a modal dialog.
+  ui::ModalType modal_type = ui::MODAL_TYPE_WINDOW;
+#if defined(OS_CHROMEOS)
+  // On Chrome OS this only works for MODAL_TYPE_CHILD, which makes a widget
+  // backed by NativeWidgetAura. Restoring focus to the parent window from a
+  // closed MODAL_TYPE_WINDOW requires help from the window service.
+  modal_type = ui::MODAL_TYPE_CHILD;
+#endif
   // This instance will be destroyed when the dialog is destroyed.
-  ModalDialogDelegate* dialog_delegate =
-      new ModalDialogDelegate(ui::MODAL_TYPE_WINDOW);
+  ModalDialogDelegate* dialog_delegate = new ModalDialogDelegate(modal_type);
 
   Widget* modal_dialog_widget = views::DialogDelegate::CreateDialogWidget(
       dialog_delegate, NULL, top_level_widget.GetNativeView());
@@ -1077,6 +1083,11 @@ TEST_F(DesktopWidgetTestInteractive, WindowModalWindowDestroyedActivationTest) {
 // was deprecated. It does have application modal windows, but only Ash requests
 // those.
 #if defined(OS_MACOSX) && !defined(USE_AURA)
+#define MAYBE_SystemModalWindowReleasesCapture \
+  DISABLED_SystemModalWindowReleasesCapture
+#elif defined(OS_CHROMEOS)
+// Investigate enabling for Chrome OS. It probably requires help from the window
+// service.
 #define MAYBE_SystemModalWindowReleasesCapture \
     DISABLED_SystemModalWindowReleasesCapture
 #else
@@ -1122,8 +1133,6 @@ TEST_F(DesktopWidgetTestInteractive, MAYBE_SystemModalWindowReleasesCapture) {
   top_level_widget.CloseNow();
   WidgetFocusManager::GetInstance()->RemoveFocusChangeListener(&focus_listener);
 }
-
-#endif  // !defined(OS_CHROMEOS)
 
 TEST_F(DesktopWidgetTestInteractive, CanActivateFlagIsHonored) {
   Widget widget;
@@ -1410,38 +1419,32 @@ TEST_F(DesktopWidgetTestInteractive, RestoreAfterMinimize) {
 }
 
 #if defined(OS_WIN)
-// Tests that widget visibility toggles correctly when minimized and maximized
-// on Windows. Test using both the widget API as well as native win32 functions
-// that operate directly on the underlying HWND. Behavior should be the same.
+// TODO(davidbienvenu): Get this test to pass on Linux and ChromeOS by hiding
+// the root window when desktop widget is minimized.
+// Tests that root window visibility toggles correctly when the desktop widget
+// is minimized and maximized on Windows, and the Widget remains visible.
 TEST_F(DesktopWidgetTestInteractive, RestoreAndMinimizeVisibility) {
   Widget* widget = CreateWidget();
+  aura::Window* root_window = GetRootWindow(widget);
   ShowSync(widget);
   ASSERT_FALSE(widget->IsMinimized());
+  EXPECT_TRUE(root_window->IsVisible());
 
   PropertyWaiter minimize_widget_waiter(
-      base::Bind(&Widget::IsMinimized, base::Unretained(widget)), true);
+      base::BindRepeating(&Widget::IsMinimized, base::Unretained(widget)),
+      true);
   widget->Minimize();
   EXPECT_TRUE(minimize_widget_waiter.Wait());
-  EXPECT_FALSE(widget->IsVisible());
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_FALSE(root_window->IsVisible());
 
   PropertyWaiter restore_widget_waiter(
-      base::Bind(&Widget::IsMinimized, base::Unretained(widget)), false);
+      base::BindRepeating(&Widget::IsMinimized, base::Unretained(widget)),
+      false);
   widget->Restore();
   EXPECT_TRUE(restore_widget_waiter.Wait());
   EXPECT_TRUE(widget->IsVisible());
-
-  PropertyWaiter minimize_hwnd_waiter(
-      base::Bind(&Widget::IsMinimized, base::Unretained(widget)), true);
-  CloseWindow(HWNDForWidget(widget));
-  EXPECT_TRUE(minimize_hwnd_waiter.Wait());
-  EXPECT_FALSE(widget->IsVisible());
-
-  PropertyWaiter restore_hwnd_waiter(
-      base::Bind(&Widget::IsMinimized, base::Unretained(widget)), false);
-  OpenIcon(HWNDForWidget(widget));
-  EXPECT_TRUE(restore_hwnd_waiter.Wait());
-  EXPECT_TRUE(widget->IsVisible());
-
+  EXPECT_TRUE(root_window->IsVisible());
   widget->CloseNow();
 }
 #endif  // defined(OS_WIN)

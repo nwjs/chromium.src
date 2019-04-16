@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_task_environment.h"
@@ -14,6 +15,7 @@
 #include "net/base/completion_once_callback.h"
 #include "net/base/test_completion_callback.h"
 #include "net/proxy_resolution/mock_proxy_resolver.h"
+#include "net/proxy_resolution/proxy_resolve_dns_operation.h"
 #include "net/proxy_resolution/proxy_resolver_v8_tracing.h"
 #include "net/test/event_waiter.h"
 #include "net/test/gtest_util.h"
@@ -144,7 +146,8 @@ class ProxyResolverFactoryImplTest
 
   void OnError(int32_t line_number, const std::string& message) override {}
 
-  void ResolveDns(std::unique_ptr<net::HostResolver::RequestInfo> request_info,
+  void ResolveDns(const std::string& hostname,
+                  net::ProxyResolveDnsOperation operation,
                   mojom::HostResolverRequestClientPtr client) override {}
 
   void WaitForNoServiceRefs() {

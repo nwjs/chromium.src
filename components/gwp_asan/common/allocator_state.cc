@@ -15,6 +15,9 @@ namespace internal {
 // TODO: Delete out-of-line constexpr defininitons once C++17 is in use.
 constexpr size_t AllocatorState::kGpaMaxPages;
 constexpr size_t AllocatorState::kMaxStackFrames;
+constexpr size_t AllocatorState::kMaxPackedTraceLength;
+
+AllocatorState::AllocatorState() {}
 
 AllocatorState::GetMetadataReturnType AllocatorState::GetMetadataForAddress(
     uintptr_t exception_address,
@@ -28,7 +31,7 @@ AllocatorState::GetMetadataReturnType AllocatorState::GetMetadataForAddress(
   if (slot_idx >= kGpaMaxPages)
     return GetMetadataReturnType::kErrorBadSlot;
 
-  *slot_address = slot_metadata + (slot_idx * sizeof(SlotMetadata));
+  *slot_address = metadata_addr + (slot_idx * sizeof(SlotMetadata));
   return GetMetadataReturnType::kGwpAsanCrash;
 }
 
@@ -50,7 +53,7 @@ bool AllocatorState::IsValid() const {
       pages_end_addr - pages_base_addr != page_size * (total_pages * 2 + 1))
     return false;
 
-  if (!slot_metadata)
+  if (!metadata_addr)
     return false;
 
   return true;
@@ -88,9 +91,11 @@ size_t AllocatorState::GetNearestSlot(uintptr_t addr) const {
 AllocatorState::ErrorType AllocatorState::GetErrorType(uintptr_t addr,
                                                        bool allocated,
                                                        bool deallocated) const {
+  if (free_invalid_address)
+    return ErrorType::kFreeInvalidAddress;
   if (!allocated)
     return ErrorType::kUnknown;
-  if (double_free_detected)
+  if (double_free_address)
     return ErrorType::kDoubleFree;
   if (deallocated)
     return ErrorType::kUseAfterFree;
@@ -132,6 +137,8 @@ size_t AllocatorState::AddrToSlot(uintptr_t addr) const {
   DCHECK_LT(slot, kGpaMaxPages);
   return slot;
 }
+
+AllocatorState::SlotMetadata::SlotMetadata() {}
 
 }  // namespace internal
 }  // namespace gwp_asan

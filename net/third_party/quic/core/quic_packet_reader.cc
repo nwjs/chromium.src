@@ -19,6 +19,7 @@
 #include "net/third_party/quic/platform/api/quic_flag_utils.h"
 #include "net/third_party/quic/platform/api/quic_flags.h"
 #include "net/third_party/quic/platform/api/quic_logging.h"
+#include "net/third_party/quic/platform/api/quic_server_stats.h"
 #include "net/third_party/quic/platform/api/quic_socket_address.h"
 #include "net/third_party/quic/platform/impl/quic_socket_utils.h"
 
@@ -64,7 +65,7 @@ bool QuicPacketReader::ReadAndDispatchPackets(
     const QuicClock& clock,
     ProcessPacketInterface* processor,
     QuicPacketCount* packets_dropped) {
-#if MMSG_MORE
+#if MMSG_MORE_NO_ANDROID
   return ReadAndDispatchManyPackets(fd, port, clock, processor,
                                     packets_dropped);
 #else
@@ -79,7 +80,7 @@ bool QuicPacketReader::ReadAndDispatchManyPackets(
     const QuicClock& clock,
     ProcessPacketInterface* processor,
     QuicPacketCount* packets_dropped) {
-#if MMSG_MORE
+#if MMSG_MORE_NO_ANDROID
   // Re-set the length fields in case recvmmsg has changed them.
   for (int i = 0; i < kNumPacketsPerReadMmsgCall; ++i) {
     DCHECK_LE(kMaxPacketSize, packets_[i].iov.iov_len);
@@ -114,9 +115,12 @@ bool QuicPacketReader::ReadAndDispatchManyPackets(
     }
 
     if (QUIC_PREDICT_FALSE(mmsg_hdr_[i].msg_hdr.msg_flags & MSG_TRUNC)) {
-      QUIC_LOG_FIRST_N(ERROR, 10)
+      QUIC_LOG_FIRST_N(WARNING, 100)
           << "Dropping truncated QUIC packet: buffer size:"
           << packets_[i].iov.iov_len << " packet size:" << mmsg_hdr_[i].msg_len;
+      QUIC_SERVER_HISTOGRAM_COUNTS(
+          "QuicPacketReader.DroppedPacketSize", mmsg_hdr_[i].msg_len, 1, 10000,
+          20, "In QuicPacketReader, the size of big packets that are dropped.");
       continue;
     }
 
@@ -158,11 +162,8 @@ bool QuicPacketReader::ReadAndDispatchManyPackets(
         QuicSocketUtils::GetTtlFromMsghdr(&mmsg_hdr_[i].msg_hdr, &ttl);
     char* headers = nullptr;
     size_t headers_length = 0;
-    if (GetQuicReloadableFlag(quic_get_recv_headers)) {
-      QUIC_RELOADABLE_FLAG_COUNT_N(quic_get_recv_headers, 1, 3);
-      QuicSocketUtils::GetPacketHeadersFromMsghdr(&mmsg_hdr_[i].msg_hdr,
-                                                  &headers, &headers_length);
-    }
+    QuicSocketUtils::GetPacketHeadersFromMsghdr(&mmsg_hdr_[i].msg_hdr, &headers,
+                                                &headers_length);
     QuicReceivedPacket packet(reinterpret_cast<char*>(packets_[i].iov.iov_base),
                               mmsg_hdr_[i].msg_len, timestamp, false, ttl,
                               has_ttl, headers, headers_length, false);

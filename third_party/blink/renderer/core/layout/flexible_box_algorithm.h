@@ -40,6 +40,7 @@
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/geometry/layout_point.h"
 #include "third_party/blink/renderer/platform/geometry/layout_unit.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
@@ -65,6 +66,8 @@ enum class TransformedWritingMode {
 typedef Vector<FlexItem, 8> FlexItemVector;
 
 class FlexItem {
+  DISALLOW_NEW();
+
  public:
   // flex_base_content_size includes scrollbar width but not border or padding.
   // min_max_sizes is the min and max size in the main axis direction.
@@ -130,17 +133,19 @@ class FlexItem {
   const LayoutUnit main_axis_margin;
   LayoutUnit flexed_content_size;
 
+  // When set by the caller, this should be the size pre-stretching.
   LayoutUnit cross_axis_size;
-  LayoutUnit cross_axis_intrinsic_size;
   LayoutPoint desired_location;
 
   bool frozen;
 
   NGBlockNode ng_input_node;
-  scoped_refptr<NGLayoutResult> layout_result;
+  scoped_refptr<const NGLayoutResult> layout_result;
 };
 
 class FlexItemVectorView {
+  DISALLOW_NEW();
+
  public:
   FlexItemVectorView(FlexItemVector* flex_vector,
                      wtf_size_t start,
@@ -168,6 +173,8 @@ class FlexItemVectorView {
 };
 
 class FlexLine {
+  DISALLOW_NEW();
+
  public:
   typedef Vector<FlexItem*, 8> ViolationsVector;
 
@@ -244,12 +251,13 @@ class FlexLine {
   LayoutUnit initial_free_space;
   LayoutUnit remaining_free_space;
 
-  // These get filled in by ComputeLineItemsPosition (for now)
-  // TODO(cbiesinger): Move that to FlexibleBoxAlgorithm.
+  // These get filled in by ComputeLineItemsPosition
+  LayoutUnit main_axis_offset;
   LayoutUnit main_axis_extent;
   LayoutUnit cross_axis_offset;
   LayoutUnit cross_axis_extent;
   LayoutUnit max_ascent;
+  LayoutUnit sum_justify_adjustments;
 };
 
 // This class implements the CSS Flexbox layout algorithm:
@@ -275,6 +283,8 @@ class FlexLine {
 //     }
 //     // The final position of each flex item is in item.desired_location
 class FlexLayoutAlgorithm {
+  DISALLOW_NEW();
+
  public:
   FlexLayoutAlgorithm(const ComputedStyle*, LayoutUnit line_break_length);
 
@@ -303,6 +313,8 @@ class FlexLayoutAlgorithm {
   TransformedWritingMode GetTransformedWritingMode() const;
 
   bool ShouldApplyMinSizeAutoForChild(const LayoutBox& child) const;
+
+  LayoutUnit IntrinsicContentBlockSize() const;
 
   static TransformedWritingMode GetTransformedWritingMode(const ComputedStyle&);
 

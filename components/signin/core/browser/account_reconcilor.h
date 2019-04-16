@@ -23,7 +23,6 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/signin/core/browser/account_reconcilor_delegate.h"
-#include "components/signin/core/browser/gaia_cookie_manager_service.h"
 #include "components/signin/core/browser/signin_client.h"
 #include "components/signin/core/browser/signin_header_helper.h"
 #include "components/signin/core/browser/signin_metrics.h"
@@ -41,7 +40,6 @@ class SigninClient;
 
 class AccountReconcilor : public KeyedService,
                           public content_settings::Observer,
-                          public GaiaCookieManagerService::Observer,
                           public identity::IdentityManager::Observer {
  public:
   // When an instance of this class exists, the account reconcilor is suspended.
@@ -96,7 +94,6 @@ class AccountReconcilor : public KeyedService,
   AccountReconcilor(
       identity::IdentityManager* identity_manager,
       SigninClient* client,
-      GaiaCookieManagerService* cookie_manager_service,
       std::unique_ptr<signin::AccountReconcilorDelegate> delegate);
   ~AccountReconcilor() override;
 
@@ -138,7 +135,7 @@ class AccountReconcilor : public KeyedService,
   friend class AccountReconcilorTest;
   friend class DiceBrowserTestBase;
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorMirrorEndpointParamTest,
-                           SigninManagerRegistration);
+                           IdentityManagerRegistration);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorMirrorEndpointParamTest, Reauth);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorMirrorEndpointParamTest,
                            ProfileAlreadyConnected);
@@ -226,6 +223,7 @@ class AccountReconcilor : public KeyedService,
                            DelegateTimeoutIsNotCalled);
   FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest,
                            DelegateTimeoutIsNotCalledIfTimeoutIsNotReached);
+  FRIEND_TEST_ALL_PREFIXES(AccountReconcilorTest, MultiloginLogout);
 
   void set_timer_for_testing(std::unique_ptr<base::OneShotTimer> timer);
 
@@ -234,6 +232,8 @@ class AccountReconcilor : public KeyedService,
   }
 
   // Register and unregister with dependent services.
+  void RegisterWithAllDependencies();
+  void UnregisterWithAllDependencies();
   void RegisterWithIdentityManager();
   void UnregisterWithIdentityManager();
   void RegisterWithCookieManagerService();
@@ -273,29 +273,26 @@ class AccountReconcilor : public KeyedService,
                                ContentSettingsType content_type,
                                const std::string& resource_identifier) override;
 
-  // Overridden from GaiaGookieManagerService::Observer.
-  void OnAddAccountToCookieCompleted(
-      const std::string& account_id,
-      const GoogleServiceAuthError& error) override;
-  void OnSetAccountsInCookieCompleted(
-      const GoogleServiceAuthError& error) override;
-  void OnGaiaAccountsInCookieUpdated(
-        const std::vector<gaia::ListedAccount>& accounts,
-        const std::vector<gaia::ListedAccount>& signed_out_accounts,
-        const GoogleServiceAuthError& error) override;
-  void OnGaiaCookieDeletedByUserAction() override;
 
   // Overridden from identity::IdentityManager::Observer.
   void OnEndBatchOfRefreshTokenStateChanges() override;
   void OnRefreshTokensLoaded() override;
   void OnErrorStateOfRefreshTokenUpdatedForAccount(
-      const AccountInfo& account_info,
+      const CoreAccountInfo& account_info,
       const GoogleServiceAuthError& error) override;
+  void OnAccountsInCookieUpdated(
+      const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+      const GoogleServiceAuthError& error) override;
+  void OnAccountsCookieDeletedByUserAction() override;
 
   void FinishReconcileWithMultiloginEndpoint(
       const std::string& primary_account,
       const std::vector<std::string>& chrome_accounts,
       std::vector<gaia::ListedAccount>&& gaia_accounts);
+
+  void OnAddAccountToCookieCompleted(const std::string& account_id,
+                                     const GoogleServiceAuthError& error);
+  void OnSetAccountsInCookieCompleted(const GoogleServiceAuthError& error);
 
   // Lock related methods.
   void IncrementLockCount();
@@ -317,11 +314,7 @@ class AccountReconcilor : public KeyedService,
   // The SigninClient associated with this reconcilor.
   SigninClient* client_;
 
-  // The GaiaCookieManagerService associated with this reconcilor.
-  GaiaCookieManagerService* cookie_manager_service_;
-
   bool registered_with_identity_manager_;
-  bool registered_with_cookie_manager_service_;
   bool registered_with_content_settings_;
 
   // True while the reconcilor is busy checking or managing the accounts in

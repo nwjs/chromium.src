@@ -76,7 +76,7 @@ struct HTMLConstructionSiteTask {
 }  // namespace blink
 
 WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(
-    blink::HTMLConstructionSiteTask);
+    blink::HTMLConstructionSiteTask)
 
 namespace blink {
 
@@ -275,9 +275,9 @@ class HTMLConstructionSite final {
   // and a Document in all other cases.
   Member<ContainerNode> attachment_root_;
 
-  // https://html.spec.whatwg.org/multipage/syntax.html#head-element-pointer
+  // https://html.spec.whatwg.org/C/#head-element-pointer
   Member<HTMLStackItem> head_;
-  // https://html.spec.whatwg.org/multipage/syntax.html#form-element-pointer
+  // https://html.spec.whatwg.org/C/#form-element-pointer
   Member<HTMLFormElement> form_;
   mutable HTMLElementStack open_elements_;
   mutable HTMLFormattingElementList active_formatting_elements_;

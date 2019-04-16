@@ -38,32 +38,28 @@ ElementId CalculateTargetElementId(const ElementAnimations* element_animations,
 
 }  // namespace
 
-scoped_refptr<ElementAnimations> ElementAnimations::Create() {
-  return base::WrapRefCounted(new ElementAnimations());
+scoped_refptr<ElementAnimations> ElementAnimations::Create(
+    AnimationHost* host,
+    ElementId element_id) {
+  DCHECK(element_id);
+  DCHECK(host);
+  return base::WrapRefCounted(new ElementAnimations(host, element_id));
 }
 
-ElementAnimations::ElementAnimations()
-    : animation_host_(),
-      element_id_(),
+ElementAnimations::ElementAnimations(AnimationHost* host, ElementId element_id)
+    : animation_host_(host),
+      element_id_(element_id),
       has_element_in_active_list_(false),
       has_element_in_pending_list_(false),
-      needs_push_properties_(false) {}
+      needs_push_properties_(false) {
+  InitAffectedElementTypes();
+}
 
 ElementAnimations::~ElementAnimations() = default;
-
-void ElementAnimations::SetAnimationHost(AnimationHost* host) {
-  animation_host_ = host;
-}
-
-void ElementAnimations::SetElementId(ElementId element_id) {
-  element_id_ = element_id;
-}
 
 void ElementAnimations::InitAffectedElementTypes() {
   DCHECK(element_id_);
   DCHECK(animation_host_);
-
-  UpdateKeyframeEffectsTickingState(UpdateTickingType::FORCE);
 
   DCHECK(animation_host_->mutator_host_client());
   if (animation_host_->mutator_host_client()->IsElementInList(
@@ -95,16 +91,15 @@ void ElementAnimations::ClearAffectedElementTypes(
 
   // This method may get called from AnimationHost dtor so it is possible for
   // mutator_host_client() to be null.
-  if (has_element_in_active_list() && animation_host()->mutator_host_client()) {
-    animation_host()->mutator_host_client()->ElementIsAnimatingChanged(
+  if (has_element_in_active_list() && animation_host_->mutator_host_client()) {
+    animation_host_->mutator_host_client()->ElementIsAnimatingChanged(
         element_id_map, ElementListType::ACTIVE, disabled_state_mask,
         disabled_state);
   }
   set_has_element_in_active_list(false);
 
-  if (has_element_in_pending_list() &&
-      animation_host()->mutator_host_client()) {
-    animation_host()->mutator_host_client()->ElementIsAnimatingChanged(
+  if (has_element_in_pending_list() && animation_host_->mutator_host_client()) {
+    animation_host_->mutator_host_client()->ElementIsAnimatingChanged(
         element_id_map, ElementListType::PENDING, disabled_state_mask,
         disabled_state);
   }
@@ -117,13 +112,15 @@ void ElementAnimations::ElementRegistered(ElementId element_id,
                                           ElementListType list_type) {
   DCHECK_EQ(element_id_, element_id);
 
-  if (!has_element_in_any_list())
-    UpdateKeyframeEffectsTickingState(UpdateTickingType::FORCE);
+  bool had_element_in_any_list = has_element_in_any_list();
 
   if (list_type == ElementListType::ACTIVE)
     set_has_element_in_active_list(true);
   else
     set_has_element_in_pending_list(true);
+
+  if (!had_element_in_any_list)
+    UpdateKeyframeEffectsTickingState();
 }
 
 void ElementAnimations::ElementUnregistered(ElementId element_id,
@@ -167,10 +164,9 @@ void ElementAnimations::PushPropertiesTo(
   element_animations_impl->UpdateClientAnimationState();
 }
 
-void ElementAnimations::UpdateKeyframeEffectsTickingState(
-    UpdateTickingType update_ticking_type) const {
+void ElementAnimations::UpdateKeyframeEffectsTickingState() const {
   for (auto& keyframe_effect : keyframe_effects_list_)
-    keyframe_effect.UpdateTickingState(update_ticking_type);
+    keyframe_effect.UpdateTickingState();
 }
 
 void ElementAnimations::RemoveKeyframeEffectsFromTicking() const {
@@ -320,8 +316,8 @@ void ElementAnimations::NotifyClientScrollOffsetAnimated(
 void ElementAnimations::UpdateClientAnimationState() {
   if (!element_id())
     return;
-  DCHECK(animation_host());
-  if (!animation_host()->mutator_host_client())
+  DCHECK(animation_host_);
+  if (!animation_host_->mutator_host_client())
     return;
 
   PropertyAnimationState prev_pending = pending_state_;
@@ -354,12 +350,12 @@ void ElementAnimations::UpdateClientAnimationState() {
 
   if (has_element_in_active_list() && prev_active != active_state_) {
     PropertyAnimationState diff_active = prev_active ^ active_state_;
-    animation_host()->mutator_host_client()->ElementIsAnimatingChanged(
+    animation_host_->mutator_host_client()->ElementIsAnimatingChanged(
         element_id_map, ElementListType::ACTIVE, diff_active, active_state_);
   }
   if (has_element_in_pending_list() && prev_pending != pending_state_) {
     PropertyAnimationState diff_pending = prev_pending ^ pending_state_;
-    animation_host()->mutator_host_client()->ElementIsAnimatingChanged(
+    animation_host_->mutator_host_client()->ElementIsAnimatingChanged(
         element_id_map, ElementListType::PENDING, diff_pending, pending_state_);
   }
 }
@@ -420,9 +416,9 @@ void ElementAnimations::OnFilterAnimated(ElementListType list_type,
                                          KeyframeModel* keyframe_model) {
   ElementId target_element_id = CalculateTargetElementId(this, keyframe_model);
   DCHECK(target_element_id);
-  DCHECK(animation_host());
-  DCHECK(animation_host()->mutator_host_client());
-  animation_host()->mutator_host_client()->SetElementFilterMutated(
+  DCHECK(animation_host_);
+  DCHECK(animation_host_->mutator_host_client());
+  animation_host_->mutator_host_client()->SetElementFilterMutated(
       target_element_id, list_type, filters);
 }
 
@@ -431,9 +427,9 @@ void ElementAnimations::OnOpacityAnimated(ElementListType list_type,
                                           KeyframeModel* keyframe_model) {
   ElementId target_element_id = CalculateTargetElementId(this, keyframe_model);
   DCHECK(target_element_id);
-  DCHECK(animation_host());
-  DCHECK(animation_host()->mutator_host_client());
-  animation_host()->mutator_host_client()->SetElementOpacityMutated(
+  DCHECK(animation_host_);
+  DCHECK(animation_host_->mutator_host_client());
+  animation_host_->mutator_host_client()->SetElementOpacityMutated(
       target_element_id, list_type, opacity);
 }
 
@@ -442,9 +438,9 @@ void ElementAnimations::OnTransformAnimated(ElementListType list_type,
                                             KeyframeModel* keyframe_model) {
   ElementId target_element_id = CalculateTargetElementId(this, keyframe_model);
   DCHECK(target_element_id);
-  DCHECK(animation_host());
-  DCHECK(animation_host()->mutator_host_client());
-  animation_host()->mutator_host_client()->SetElementTransformMutated(
+  DCHECK(animation_host_);
+  DCHECK(animation_host_->mutator_host_client());
+  animation_host_->mutator_host_client()->SetElementTransformMutated(
       target_element_id, list_type, transform);
 }
 
@@ -454,16 +450,16 @@ void ElementAnimations::OnScrollOffsetAnimated(
     KeyframeModel* keyframe_model) {
   ElementId target_element_id = CalculateTargetElementId(this, keyframe_model);
   DCHECK(target_element_id);
-  DCHECK(animation_host());
-  DCHECK(animation_host()->mutator_host_client());
-  animation_host()->mutator_host_client()->SetElementScrollOffsetMutated(
+  DCHECK(animation_host_);
+  DCHECK(animation_host_->mutator_host_client());
+  animation_host_->mutator_host_client()->SetElementScrollOffsetMutated(
       target_element_id, list_type, scroll_offset);
 }
 
 gfx::ScrollOffset ElementAnimations::ScrollOffsetForAnimation() const {
-  if (animation_host()) {
-    DCHECK(animation_host()->mutator_host_client());
-    return animation_host()->mutator_host_client()->GetScrollOffsetForAnimation(
+  if (animation_host_) {
+    DCHECK(animation_host_->mutator_host_client());
+    return animation_host_->mutator_host_client()->GetScrollOffsetForAnimation(
         element_id());
   }
 
@@ -522,6 +518,24 @@ PropertyToElementIdMap ElementAnimations::GetPropertyToElementIdMap() const {
   }
 
   return PropertyToElementIdMap(std::move(entries));
+}
+
+unsigned int ElementAnimations::CountKeyframesForTesting() const {
+  unsigned int count = 0;
+  for (auto it = keyframe_effects_list_.begin();
+       it != keyframe_effects_list_.end(); it++)
+    count++;
+  return count;
+}
+
+KeyframeEffect* ElementAnimations::FirstKeyframeEffectForTesting() const {
+  DCHECK(keyframe_effects_list_.might_have_observers());
+  return &*keyframe_effects_list_.begin();
+}
+
+bool ElementAnimations::HasKeyframeEffectForTesting(
+    const KeyframeEffect* keyframe) const {
+  return keyframe_effects_list_.HasObserver(keyframe);
 }
 
 bool ElementAnimations::KeyframeModelAffectsActiveElements(

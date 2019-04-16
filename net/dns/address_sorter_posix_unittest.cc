@@ -159,7 +159,7 @@ class TestSocketFactory : public ClientSocketFactory {
     return nullptr;
   }
   std::unique_ptr<SSLClientSocket> CreateSSLClientSocket(
-      std::unique_ptr<ClientSocketHandle>,
+      std::unique_ptr<StreamSocket>,
       const HostPortPair&,
       const SSLConfig&,
       const SSLClientSocketContext&) override {
@@ -167,7 +167,7 @@ class TestSocketFactory : public ClientSocketFactory {
     return std::unique_ptr<SSLClientSocket>();
   }
   std::unique_ptr<ProxyClientSocket> CreateProxyClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
       const ProxyServer& proxy_server,
@@ -181,8 +181,6 @@ class TestSocketFactory : public ClientSocketFactory {
     NOTIMPLEMENTED();
     return nullptr;
   }
-  void ClearSSLSessionCache() override { NOTIMPLEMENTED(); }
-
   void AddMapping(const IPAddress& dst, const IPAddress& src) {
     mapping_[dst] = src;
   }

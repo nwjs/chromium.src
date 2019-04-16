@@ -6,13 +6,23 @@
 
 #include "base/bind.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_image_manager.h"
+#include "chrome/browser/chromeos/plugin_vm/plugin_vm_image_manager_factory.h"
+#include "chrome/browser/download/download_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "components/download/public/background_service/download_metadata.h"
+#include "components/download/public/background_service/download_service.h"
 #include "services/network/public/cpp/resource_request_body.h"
 
 namespace plugin_vm {
 
-PluginVmImageDownloadClient::PluginVmImageDownloadClient() = default;
+PluginVmImageDownloadClient::PluginVmImageDownloadClient(Profile* profile)
+    : profile_(profile) {}
 PluginVmImageDownloadClient::~PluginVmImageDownloadClient() = default;
+
+PluginVmImageManager* PluginVmImageDownloadClient::GetManager() {
+  return PluginVmImageManagerFactory::GetForProfile(profile_);
+}
 
 // TODO(okalitova): Remove logs.
 
@@ -20,6 +30,12 @@ void PluginVmImageDownloadClient::OnServiceInitialized(
     bool state_lost,
     const std::vector<download::DownloadMetaData>& downloads) {
   VLOG(1) << __func__ << " called";
+  // TODO(okalitova): Manage downloads after sleep and log out.
+  for (const auto& download : downloads) {
+    VLOG(1) << "Download tracked by DownloadService: " << download.guid;
+    DownloadServiceFactory::GetForBrowserContext(profile_)->CancelDownload(
+        download.guid);
+  }
 }
 
 void PluginVmImageDownloadClient::OnServiceUnavailable() {
@@ -31,6 +47,8 @@ download::Client::ShouldDownload PluginVmImageDownloadClient::OnDownloadStarted(
     const std::vector<GURL>& url_chain,
     const scoped_refptr<const net::HttpResponseHeaders>& headers) {
   VLOG(1) << __func__ << " called";
+  content_length_ = headers->GetContentLength();
+  GetManager()->OnDownloadStarted();
   return download::Client::ShouldDownload::CONTINUE;
 }
 
@@ -39,6 +57,7 @@ void PluginVmImageDownloadClient::OnDownloadUpdated(const std::string& guid,
                                                     uint64_t bytes_downloaded) {
   VLOG(1) << __func__ << " called";
   VLOG(1) << bytes_downloaded << " bytes downloaded";
+  GetManager()->OnDownloadProgressUpdated(bytes_downloaded, content_length_);
 }
 
 void PluginVmImageDownloadClient::OnDownloadFailed(
@@ -66,6 +85,11 @@ void PluginVmImageDownloadClient::OnDownloadFailed(
       VLOG(1) << "Failure reason: CANCELLED";
       break;
   }
+
+  if (reason == download::Client::FailureReason::CANCELLED)
+    GetManager()->OnDownloadCancelled();
+  else
+    GetManager()->OnDownloadFailed();
 }
 
 void PluginVmImageDownloadClient::OnDownloadSucceeded(
@@ -73,16 +97,13 @@ void PluginVmImageDownloadClient::OnDownloadSucceeded(
     const download::CompletionInfo& completion_info) {
   VLOG(1) << __func__ << " called";
   VLOG(1) << "Downloaded file is in " << completion_info.path.value();
-  // TODO(https://crbug.com/904851): Verify download using hash specified by
-  // PluginVmImage user policy. If hashes don't match remove downloaded file.
+  GetManager()->OnDownloadCompleted(completion_info);
 }
 
 bool PluginVmImageDownloadClient::CanServiceRemoveDownloadedFile(
     const std::string& guid,
     bool force_delete) {
   VLOG(1) << __func__ << " called";
-  // TODO(https://crbug.com/904851): Allow file removal only after it is
-  // unzipped to a specific directory.
   return true;
 }
 

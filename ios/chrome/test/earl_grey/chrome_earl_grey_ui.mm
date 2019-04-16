@@ -8,8 +8,8 @@
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/ui/history/history_ui_constants.h"
 #import "ios/chrome/browser/ui/popup_menu/popup_menu_constants.h"
-#import "ios/chrome/browser/ui/settings/accounts_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/clear_browsing_data_ui_constants.h"
+#import "ios/chrome/browser/ui/settings/clear_browsing_data/clear_browsing_data_ui_constants.h"
+#import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/privacy_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_table_view_controller.h"
 #import "ios/chrome/browser/ui/table_view/cells/table_view_url_item.h"
@@ -198,9 +198,6 @@ id<GREYAction> ScrollDown() {
 }
 
 + (void)openShareMenu {
-  if (IsCompactWidth() && !IsRefreshLocationBarEnabled()) {
-    [ChromeEarlGreyUI openToolsMenu];
-  }
   [[EarlGrey selectElementWithMatcher:chrome_test_util::ShareButton()]
       performAction:grey_tap()];
 }

@@ -5,6 +5,7 @@
 #include "content/public/test/browser_test_base.h"
 
 #include <stddef.h>
+#include <iostream>
 
 #include "base/base_switches.h"
 #include "base/bind.h"
@@ -66,12 +67,6 @@
 #include "base/process/process_handle.h"
 #endif
 
-#if defined(OS_CHROMEOS)
-#include "content/public/browser/network_service_instance.h"
-#include "net/base/network_change_notifier.h"
-#include "net/base/network_change_notifier_posix.h"
-#endif
-
 #if defined(USE_AURA)
 #include "content/browser/compositor/image_transport_factory.h"
 #include "ui/aura/test/event_generator_delegate_aura.h"  // nogncheck
@@ -97,7 +92,12 @@ void DumpStackTraceSignalHandler(int signal) {
     message += strsignal(signal);
     message += ". Backtrace:\n";
     logging::RawLog(logging::LOG_ERROR, message.c_str());
-    base::debug::StackTrace().Print();
+    auto stack_trace = base::debug::StackTrace();
+    stack_trace.OutputToStream(&std::cerr);
+#if defined(OS_ANDROID)
+    // Also output the trace to logcat on Android.
+    stack_trace.Print();
+#endif
   }
   _exit(128 + signal);
 }
@@ -193,7 +193,7 @@ void BrowserTestBase::SetUp() {
   // when sharded.
   command_line->AppendSwitchASCII(
       switches::kIPCConnectionTimeout,
-      base::Int64ToString(TestTimeouts::action_max_timeout().InSeconds()));
+      base::NumberToString(TestTimeouts::action_max_timeout().InSeconds()));
 
   // The tests assume that file:// URIs can freely access other file:// URIs.
   if (AllowFileAccessFromFiles())
@@ -341,8 +341,10 @@ void BrowserTestBase::SetUp() {
   field_trial_list_ = SetUpFieldTrialsAndFeatureList();
   StartBrowserTaskScheduler();
   BrowserTaskExecutor::Create();
+  BrowserTaskExecutor::PostFeatureListSetup();
   // TODO(phajdan.jr): Check return code, http://crbug.com/374738 .
   BrowserMain(params);
+  BrowserTaskExecutor::ResetForTesting();
 #else
   GetContentMainParams()->ui_task = ui_task.release();
   GetContentMainParams()->created_main_parts_closure =
@@ -365,7 +367,7 @@ bool BrowserTestBase::AllowFileAccessFromFiles() const {
 
 void BrowserTestBase::SimulateNetworkServiceCrash() {
   CHECK(base::FeatureList::IsEnabled(network::features::kNetworkService));
-  CHECK(!IsNetworkServiceRunningInProcess())
+  CHECK(!IsInProcessNetworkService())
       << "Can't crash the network service if it's running in-process!";
   network::mojom::NetworkServiceTestPtr network_service_test;
   ServiceManagerConnection::GetForProcess()->GetConnector()->BindInterface(
@@ -393,32 +395,6 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
   if (handle_sigterm_)
     signal(SIGTERM, DumpStackTraceSignalHandler);
 #endif  // defined(OS_POSIX)
-
-#if defined(OS_CHROMEOS)
-  // Manually set the connection type since ChromeOS's NetworkChangeNotifier
-  // implementation relies on some other class controlling it (normally
-  // NetworkChangeManagerClient), which may not be set up in all browser tests.
-  net::NetworkChangeNotifierPosix* network_change_notifier =
-      static_cast<net::NetworkChangeNotifierPosix*>(
-          content::GetNetworkChangeNotifier());
-  network_change_notifier->OnConnectionChanged(
-      net::NetworkChangeNotifier::CONNECTION_ETHERNET);
-  // If the network service is enabled, set the connection type for its
-  // NetworkChangeNotifier instance as well.
-  if (base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-      !IsNetworkServiceRunningInProcess()) {
-    network::mojom::NetworkChangeManagerPtr manager_ptr;
-    network::mojom::NetworkChangeManagerRequest request(
-        mojo::MakeRequest(&manager_ptr));
-    GetNetworkService()->GetNetworkChangeManager(std::move(request));
-    manager_ptr->OnNetworkChanged(
-        /*dns_changed=*/false, /*ip_address_changed=*/false,
-        /*connection_type_changed=*/true,
-        network::mojom::ConnectionType::CONNECTION_ETHERNET,
-        /*connection_subtype_changed=*/false,
-        network::mojom::ConnectionSubtype::SUBTYPE_UNKNOWN);
-  }
-#endif
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableTracing)) {

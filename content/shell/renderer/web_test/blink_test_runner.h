@@ -30,7 +30,6 @@ class DictionaryValue;
 }
 
 namespace blink {
-class WebURLRequest;
 class WebView;
 }  // namespace blink
 
@@ -96,9 +95,9 @@ class BlinkTestRunner : public RenderViewObserver,
   void SetDeviceColorSpace(const std::string& name) override;
   float GetWindowToViewportScale() override;
   std::unique_ptr<blink::WebInputEvent> TransformScreenToWidgetCoordinates(
-      test_runner::WebWidgetTestProxyBase* web_widget_test_proxy_base,
+      test_runner::WebWidgetTestProxy* web_widget_test_proxy,
       const blink::WebInputEvent& event) override;
-  test_runner::WebWidgetTestProxyBase* GetWebWidgetTestProxyBase(
+  test_runner::WebWidgetTestProxy* GetWebWidgetTestProxy(
       blink::WebLocalFrame* frame) override;
   void EnableUseZoomForDSF() override;
   bool IsUseZoomForDSFEnabled() override;
@@ -134,10 +133,6 @@ class BlinkTestRunner : public RenderViewObserver,
                      const GURL& origin,
                      const GURL& embedding_origin) override;
   void ResetPermissions() override;
-  bool AddMediaStreamVideoSourceAndTrack(
-      blink::WebMediaStream* stream) override;
-  bool AddMediaStreamAudioSourceAndTrack(
-      blink::WebMediaStream* stream) override;
   void DispatchBeforeInstallPromptEvent(
       const std::vector<std::string>& event_platforms,
       base::OnceCallback<void(bool)> callback) override;
@@ -147,8 +142,6 @@ class BlinkTestRunner : public RenderViewObserver,
   float GetDeviceScaleFactor() const override;
   void RunIdleTasks(base::OnceClosure callback) override;
   void ForceTextInputStateUpdate(blink::WebLocalFrame* frame) override;
-  bool IsNavigationInitiatedByRenderer(
-      const blink::WebURLRequest& request) override;
 
   // Resets a RenderView to a known state for web tests. It is used both when
   // a RenderView is created and when reusing an existing RenderView for the

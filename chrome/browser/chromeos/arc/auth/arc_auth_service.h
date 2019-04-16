@@ -14,14 +14,12 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
-#include "chrome/browser/chromeos/account_mapper_util.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
 #include "chrome/browser/chromeos/arc/auth/arc_active_directory_enrollment_token_fetcher.h"
-#include "chromeos/account_manager/account_manager.h"
 #include "components/arc/common/auth.mojom.h"
 #include "components/arc/connection_observer.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/signin/core/browser/account_tracker_service.h"
+#include "services/identity/public/cpp/identity_manager.h"
 
 class Profile;
 
@@ -48,8 +46,7 @@ class ArcFetcherBase;
 class ArcAuthService : public KeyedService,
                        public mojom::AuthHost,
                        public ConnectionObserver<mojom::AuthInstance>,
-                       public chromeos::AccountManager::Observer,
-                       public AccountTrackerService::Observer,
+                       public identity::IdentityManager::Observer,
                        public ArcSessionManager::Observer {
  public:
   using GetGoogleAccountsInArcCallback =
@@ -95,17 +92,16 @@ class ArcAuthService : public KeyedService,
   void SetURLLoaderFactoryForTesting(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
 
-  // chromeos::AccountManager::Observer:
-  void OnTokenUpserted(
-      const chromeos::AccountManager::AccountKey& account_key) override;
-  void OnAccountRemoved(
-      const chromeos::AccountManager::AccountKey& account_key) override;
-
-  // AccountTrackerService::Observer:
-  void OnAccountRemoved(const AccountInfo& account_info) override;
+  // IdentityManager::Observer:
+  void OnRefreshTokenUpdatedForAccount(
+      const CoreAccountInfo& account_info) override;
+  void OnExtendedAccountInfoRemoved(const AccountInfo& account_info) override;
 
   // ArcSessionManager::Observer:
   void OnArcInitialStart() override;
+
+  // KeyedService:
+  void Shutdown() override;
 
   void SkipMergeSessionForTesting();
 
@@ -168,10 +164,6 @@ class ArcAuthService : public KeyedService,
   // Callback for data removal confirmation.
   void OnDataRemovalAccepted(bool accepted);
 
-  // |AccountManager::GetAccounts| callback.
-  void OnGetAccounts(
-      std::vector<chromeos::AccountManager::AccountKey> accounts);
-
   // Creates an |ArcBackgroundAuthCodeFetcher| for |account_id|. Can be used for
   // Device Account and Secondary Accounts. |initial_signin| denotes whether the
   // fetcher is being created for the initial ARC provisioning flow or for a
@@ -184,7 +176,7 @@ class ArcAuthService : public KeyedService,
   // |pending_token_requests_|.
   void DeletePendingTokenRequest(ArcFetcherBase* fetcher);
 
-  // Triggers an async push of the accounts in Chrome OS Account Manager to ARC.
+  // Triggers an async push of the accounts in IdentityManager to ARC.
   void TriggerAccountsPushToArc();
 
   // Issues a request to ARC, which will complete callback with the list of
@@ -193,12 +185,8 @@ class ArcAuthService : public KeyedService,
 
   // Non-owning pointers.
   Profile* const profile_;
-  chromeos::AccountManager* account_manager_ = nullptr;
-  AccountTrackerService* const account_tracker_service_;
   identity::IdentityManager* const identity_manager_;
   ArcBridgeService* const arc_bridge_service_;
-
-  chromeos::AccountMapperUtil account_mapper_util_;
 
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   bool url_loader_factory_for_testing_set_ = false;

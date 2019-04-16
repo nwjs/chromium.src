@@ -92,14 +92,12 @@ XRRuntimeManager* XRRuntimeManager::GetInstance() {
 #endif
 #endif  // ENABLE_ISOLATED_XR_SERVICE
 
-    if (base::FeatureList::IsEnabled(features::kWebXrOrientationSensorDevice)) {
-      content::ServiceManagerConnection* connection =
-          content::ServiceManagerConnection::GetForProcess();
-      if (connection) {
-        providers.emplace_back(
-            std::make_unique<device::VROrientationDeviceProvider>(
-                connection->GetConnector()));
-      }
+    content::ServiceManagerConnection* connection =
+        content::ServiceManagerConnection::GetForProcess();
+    if (connection) {
+      providers.emplace_back(
+          std::make_unique<device::VROrientationDeviceProvider>(
+              connection->GetConnector()));
     }
 
     // The constructor sets g_xr_runtime_manager, which is cleaned up when
@@ -125,6 +123,14 @@ void XRRuntimeManager::AddObserver(XRRuntimeManagerObserver* observer) {
 
 void XRRuntimeManager::RemoveObserver(XRRuntimeManagerObserver* observer) {
   g_xr_runtime_manager_observers.Get().RemoveObserver(observer);
+}
+
+/* static */
+void XRRuntimeManager::ExitImmersivePresentation() {
+  auto* browser_xr_runtime = GetInstance()->GetImmersiveRuntime();
+  if (browser_xr_runtime) {
+    browser_xr_runtime->ExitVrFromPresentingRendererDevice();
+  }
 }
 
 void XRRuntimeManager::AddService(VRServiceImpl* service) {
@@ -184,8 +190,9 @@ BrowserXRRuntime* XRRuntimeManager::GetRuntimeForOptions(
       return orientation_runtime;
     }
 
-    // Otherwise fall back to immersive providers.
-    return GetImmersiveRuntime();
+    // If we don't have an orientation provider, then we don't have an explicit
+    // runtime to back a non-immersive session
+    return nullptr;
   }
 }
 
@@ -206,6 +213,12 @@ BrowserXRRuntime* XRRuntimeManager::GetImmersiveRuntime() {
   auto* oculus = GetRuntime(device::mojom::XRDeviceId::OCULUS_DEVICE_ID);
   if (oculus)
     return oculus;
+#endif
+
+#if BUILDFLAG(ENABLE_WINDOWS_MR)
+  auto* wmr = GetRuntime(device::mojom::XRDeviceId::WINDOWS_MIXED_REALITY_ID);
+  if (wmr)
+    return wmr;
 #endif
 
   return nullptr;
@@ -280,7 +293,7 @@ bool XRRuntimeManager::IsOtherDevicePresenting(XRDeviceImpl* device) {
 }
 
 bool XRRuntimeManager::HasAnyRuntime() {
-  return runtimes_.size() > 0;
+  return !runtimes_.empty();
 }
 
 void XRRuntimeManager::SupportsSession(

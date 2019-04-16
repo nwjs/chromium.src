@@ -28,6 +28,7 @@
 #include "content/renderer/loader/sync_load_response.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "net/base/net_errors.h"
 #include "net/cert/x509_util.h"
 #include "net/http/http_response_headers.h"
@@ -90,8 +91,7 @@ class TestResourceDispatcher : public ResourceDispatcher {
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       std::vector<std::unique_ptr<URLLoaderThrottle>> throttles,
       std::unique_ptr<NavigationResponseOverrideParameters>
-          navigation_response_override_params,
-      base::OnceClosure* continue_navigation_function) override {
+          navigation_response_override_params) override {
     EXPECT_FALSE(peer_);
     if (sync_load_response_.info.encoded_body_length != -1)
       EXPECT_TRUE(is_sync);
@@ -209,8 +209,7 @@ class TestWebURLLoaderClient : public blink::WebURLLoaderClient {
     return true;
   }
 
-  void DidSendData(unsigned long long bytesSent,
-                   unsigned long long totalBytesToBeSent) override {
+  void DidSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent) override {
     EXPECT_TRUE(loader_);
   }
 
@@ -430,9 +429,9 @@ class WebURLLoaderImplTest : public testing::TestWithParam<bool> {
   std::unique_ptr<TestWebURLLoaderClient> client_;
 };
 
-INSTANTIATE_TEST_CASE_P(WebURLLoaderImplTestP,
-                        WebURLLoaderImplTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(WebURLLoaderImplTestP,
+                         WebURLLoaderImplTest,
+                         testing::Bool());
 
 TEST_P(WebURLLoaderImplTest, Success) {
   DoStartAsyncRequest();
@@ -504,90 +503,6 @@ TEST_P(WebURLLoaderImplTest, DeleteOnFail) {
   DoFailRequest();
 }
 
-TEST_P(WebURLLoaderImplTest, DeleteBeforeResponseDataURL) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->loader()->LoadAsynchronously(request, client());
-  client()->DeleteLoader();
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(client()->did_receive_response());
-}
-
-// Data URL tests.
-
-TEST_P(WebURLLoaderImplTest, DataURL) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->loader()->LoadAsynchronously(request, client());
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ("blah!", client()->received_data());
-  EXPECT_TRUE(client()->did_finish());
-  EXPECT_FALSE(client()->error());
-}
-
-TEST_P(WebURLLoaderImplTest, DataURLDeleteOnReceiveResponse) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->set_delete_on_receive_response();
-  client()->loader()->LoadAsynchronously(request, client());
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(client()->did_receive_response());
-  EXPECT_EQ("", client()->received_data());
-  EXPECT_FALSE(client()->did_finish());
-}
-
-TEST_P(WebURLLoaderImplTest, DataURLDeleteOnReceiveData) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->set_delete_on_receive_data();
-  client()->loader()->LoadAsynchronously(request, client());
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(client()->did_receive_response());
-  EXPECT_EQ("blah!", client()->received_data());
-  EXPECT_FALSE(client()->did_finish());
-}
-
-TEST_P(WebURLLoaderImplTest, DataURLDeleteOnFinish) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->set_delete_on_finish();
-  client()->loader()->LoadAsynchronously(request, client());
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(client()->did_receive_response());
-  EXPECT_EQ("blah!", client()->received_data());
-  EXPECT_TRUE(client()->did_finish());
-}
-
-TEST_P(WebURLLoaderImplTest, DataURLDefersLoading) {
-  blink::WebURLRequest request(GURL("data:text/html;charset=utf-8,blah!"));
-  client()->loader()->LoadAsynchronously(request, client());
-
-  // setDefersLoading() might be called with either false or true in no
-  // specific order. The user of the API will not have sufficient information
-  // about the WebURLLoader's internal state, so the latter gracefully needs to
-  // handle calling setDefersLoading any number of times with any values from
-  // any point in time.
-
-  client()->loader()->SetDefersLoading(false);
-  client()->loader()->SetDefersLoading(true);
-  client()->loader()->SetDefersLoading(true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(client()->did_finish());
-
-  client()->loader()->SetDefersLoading(false);
-  client()->loader()->SetDefersLoading(true);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_FALSE(client()->did_finish());
-
-  client()->loader()->SetDefersLoading(false);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(client()->did_finish());
-
-  client()->loader()->SetDefersLoading(true);
-  client()->loader()->SetDefersLoading(false);
-  client()->loader()->SetDefersLoading(false);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_TRUE(client()->did_finish());
-
-  EXPECT_EQ("blah!", client()->received_data());
-  EXPECT_FALSE(client()->error());
-}
-
 TEST_P(WebURLLoaderImplTest, DefersLoadingBeforeStart) {
   client()->loader()->SetDefersLoading(true);
   EXPECT_FALSE(dispatcher()->defers_loading());
@@ -645,15 +560,17 @@ TEST_P(WebURLLoaderImplTest, ResponseIPAddress) {
       {"123.123.123.123", "123.123.123.123"},
       {"::1", "[::1]"},
       {"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-       "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"},
-      {"2001:db8:85a3:0:0:8a2e:370:7334", "[2001:db8:85a3:0:0:8a2e:370:7334]"},
+       "[2001:db8:85a3::8a2e:370:7334]"},
+      {"2001:db8:85a3:0:0:8a2e:370:7334", "[2001:db8:85a3::8a2e:370:7334]"},
       {"2001:db8:85a3::8a2e:370:7334", "[2001:db8:85a3::8a2e:370:7334]"},
-      {"::ffff:192.0.2.128", "[::ffff:192.0.2.128]"}};
+      {"::ffff:192.0.2.128", "[::ffff:c000:280]"}};
 
   for (const auto& test : cases) {
     SCOPED_TRACE(test.ip);
     network::ResourceResponseInfo info;
-    info.socket_address = net::HostPortPair(test.ip, 443);
+    net::IPAddress address;
+    ASSERT_TRUE(address.AssignFromIPLiteral(test.ip));
+    info.remote_endpoint = net::IPEndPoint(address, 443);
     blink::WebURLResponse response;
     WebURLLoaderImpl::PopulateURLResponse(url, info, &response, true, -1);
     EXPECT_EQ(test.expected, response.RemoteIPAddress().Utf8());

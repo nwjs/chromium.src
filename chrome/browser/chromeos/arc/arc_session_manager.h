@@ -188,7 +188,8 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
 
   // Requests to disable ARC session. This stops ARC instance, or quits Terms
   // Of Service negotiation if it is the middle of the process (e.g. closing
-  // UI for manual negotiation if it is shown).
+  // UI for manual negotiation if it is shown). This does not remove user ARC
+  // data.
   // If it is already requested to disable, no-op.
   void RequestDisable();
 
@@ -198,12 +199,6 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // A log statement with the removal reason must be added prior to calling
   // this.
   void RequestArcDataRemoval();
-
-  // Called from the Chrome OS metrics provider to record Arc.State and similar
-  // values strictly once per every metrics recording interval. This way they
-  // are in every record uploaded to the server and therefore can be used to
-  // split and compare analysis data for all other metrics.
-  void RecordArcState();
 
   // ArcSupportHost:::ErrorDelegate:
   void OnWindowClosed() override;
@@ -349,11 +344,6 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // chromeos::SessionManagerClient::Observer:
   void EmitLoginPromptVisibleCalled() override;
 
-  // Updates |should_record_legacy_enabled_state_| and |enabled_state_uma_|
-  // whenever |profile_| or |enable_requested_| is changed (except Shutdown()).
-  // TODO(crbug.com/929583): Remove this temporary fix.
-  void UpdatePersistentUMAState();
-
   std::unique_ptr<ArcSessionRunner> arc_session_runner_;
 
   // Unowned pointer. Keeps current profile.
@@ -389,13 +379,6 @@ class ArcSessionManager : public ArcSessionRunner::Observer,
   // The time when ARC was about to start.
   base::Time arc_start_time_;
   base::Closure attempt_user_exit_callback_;
-
-  // ARC state depends on |profile_| and |enable_requested_| which is reset in
-  // Shutdown(). Since UMA recording happens after Shutdown() on browser
-  // shutdown, here we persist relevant state for UMA recording purposes.
-  // TODO(crbug.com/929583): Remove this temporary fix.
-  bool should_record_legacy_enabled_state_ = false;
-  bool enabled_state_uma_ = false;
 
   // Must be the last member.
   base::WeakPtrFactory<ArcSessionManager> weak_ptr_factory_;

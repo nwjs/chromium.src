@@ -34,10 +34,10 @@ const char* PointerTypeNameForWebPointPointerType(
   }
 }
 
-unsigned short ButtonToButtonsBitfield(WebPointerProperties::Button button) {
+uint16_t ButtonToButtonsBitfield(WebPointerProperties::Button button) {
 #define CASE_BUTTON_TO_BUTTONS(enumLabel)       \
   case WebPointerProperties::Button::enumLabel: \
-    return static_cast<unsigned short>(WebPointerProperties::Buttons::enumLabel)
+    return static_cast<uint16_t>(WebPointerProperties::Buttons::enumLabel)
 
   switch (button) {
     CASE_BUTTON_TO_BUTTONS(kNoButton);
@@ -73,7 +73,7 @@ const AtomicString& PointerEventNameForEventType(WebInputEvent::Type type) {
   }
 }
 
-float GetPointerEventPressure(float force, int buttons) {
+float GetPointerEventPressure(float force, uint16_t buttons) {
   if (!buttons)
     return 0;
   if (std::isnan(force))
@@ -282,7 +282,7 @@ PointerEvent* PointerEventFactory::Create(
       type = event_type_names::kPointermove;
   } else {
     pointer_event_init->setButton(
-        static_cast<int>(WebPointerProperties::Button::kNoButton));
+        static_cast<int16_t>(WebPointerProperties::Button::kNoButton));
   }
 
   pointer_event_init->setView(view);
@@ -323,7 +323,7 @@ void PointerEventFactory::SetLastPosition(int pointer_id,
 }
 
 void PointerEventFactory::RemoveLastPosition(const int pointer_id) {
-  return pointer_id_last_position_mapping_.erase(pointer_id);
+  pointer_id_last_position_mapping_.erase(pointer_id);
 }
 
 FloatPoint PointerEventFactory::GetLastPointerPosition(
@@ -449,8 +449,8 @@ void PointerEventFactory::Clear() {
   pointer_id_last_position_mapping_.clear();
 
   // Always add mouse pointer in initialization and never remove it.
-  // No need to add it to m_pointerIncomingIdMapping as it is not going to be
-  // used with the existing APIs
+  // No need to add it to |pointer_incoming_id_mapping_| as it is not going to
+  // be used with the existing APIs
   primary_id_[ToInt(WebPointerProperties::PointerType::kMouse)] = kMouseId;
   pointer_id_mapping_.insert(
       kMouseId, PointerAttributes(
@@ -463,7 +463,7 @@ void PointerEventFactory::Clear() {
 PointerId PointerEventFactory::AddIdAndActiveButtons(const IncomingId p,
                                                      bool is_active_buttons,
                                                      bool hovering) {
-  // Do not add extra mouse pointer as it was added in initialization
+  // Do not add extra mouse pointer as it was added in initialization.
   if (p.GetPointerType() == WebPointerProperties::PointerType::kMouse) {
     pointer_id_mapping_.Set(kMouseId,
                             PointerAttributes(p, is_active_buttons, true));
@@ -477,7 +477,7 @@ PointerId PointerEventFactory::AddIdAndActiveButtons(const IncomingId p,
     return mapped_id;
   }
   int type_int = p.PointerTypeInt();
-  // We do not handle the overflow of m_currentId as it should be very rare
+  // We do not handle the overflow of |current_id_| as it should be very rare.
   PointerId mapped_id = current_id_++;
   if (!id_count_[type_int])
     primary_id_[type_int] = mapped_id;
@@ -489,7 +489,7 @@ PointerId PointerEventFactory::AddIdAndActiveButtons(const IncomingId p,
 }
 
 bool PointerEventFactory::Remove(const PointerId mapped_id) {
-  // Do not remove mouse pointer id as it should always be there
+  // Do not remove mouse pointer id as it should always be there.
   if (mapped_id == kMouseId || !pointer_id_mapping_.Contains(mapped_id))
     return false;
 
@@ -510,7 +510,7 @@ Vector<PointerId> PointerEventFactory::GetPointerIdsOfNonHoveringPointers()
 
   for (auto iter = pointer_id_mapping_.begin();
        iter != pointer_id_mapping_.end(); ++iter) {
-    PointerId mapped_id = iter->key;
+    PointerId mapped_id = static_cast<PointerId>(iter->key);
     if (!iter->value.hovering)
       mapped_ids.push_back(mapped_id);
   }

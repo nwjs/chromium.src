@@ -379,6 +379,23 @@ TEST_F(CorsTest, SafelistedAcceptLanguage) {
       IsCorsSafelistedHeader("aCcEPT-lAngUAge", std::string(129, 'a')));
 }
 
+TEST_F(CorsTest, SafelistedSecCHLang) {
+  EXPECT_TRUE(IsCorsSafelistedHeader("Sec-CH-Lang", "\"en\", \"de\""));
+
+  // TODO(mkwst): Validate that `Sec-CH-Lang` is a structured header.
+  // https://crbug.com/924969
+}
+
+TEST_F(CorsTest, SafelistedSecCHUA) {
+  EXPECT_TRUE(IsCorsSafelistedHeader("Sec-CH-UA", "\"User Agent!\""));
+  EXPECT_TRUE(IsCorsSafelistedHeader("Sec-CH-UA-Platform", "\"Platform!\""));
+  EXPECT_TRUE(IsCorsSafelistedHeader("Sec-CH-UA-Arch", "\"Architecture!\""));
+  EXPECT_TRUE(IsCorsSafelistedHeader("Sec-CH-UA-Model", "\"Model!\""));
+
+  // TODO(mkwst): Validate that `Sec-CH-UA-*` is a structured header.
+  // https://crbug.com/924969
+}
+
 TEST_F(CorsTest, SafelistedContentLanguage) {
   EXPECT_TRUE(IsCorsSafelistedHeader("content-language", "en,ja"));
   EXPECT_TRUE(IsCorsSafelistedHeader("cONTent-LANguaGe", "en,ja"));

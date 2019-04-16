@@ -71,8 +71,10 @@ void AccessibilityControllerBindings::Install(
   if (bindings.IsEmpty())
     return;
   v8::Local<v8::Object> global = context->Global();
-  global->Set(gin::StringToV8(isolate, "accessibilityController"),
-              bindings.ToV8());
+  global
+      ->Set(context, gin::StringToV8(isolate, "accessibilityController"),
+            bindings.ToV8())
+      .Check();
 }
 
 AccessibilityControllerBindings::AccessibilityControllerBindings(
@@ -135,9 +137,9 @@ v8::Local<v8::Object> AccessibilityControllerBindings::AccessibleElementById(
 }
 
 AccessibilityController::AccessibilityController(
-    WebViewTestProxyBase* web_view_test_proxy_base)
+    WebViewTestProxy* web_view_test_proxy)
     : log_accessibility_events_(false),
-      web_view_test_proxy_base_(web_view_test_proxy_base),
+      web_view_test_proxy_(web_view_test_proxy),
       weak_factory_(this) {}
 
 AccessibilityController::~AccessibilityController() {}
@@ -275,7 +277,7 @@ AccessibilityController::FindAccessibleElementByIdRecursive(
 }
 
 blink::WebView* AccessibilityController::web_view() {
-  return web_view_test_proxy_base_->web_view();
+  return web_view_test_proxy_->webview();
 }
 
 blink::WebAXObject

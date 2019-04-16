@@ -4,7 +4,7 @@
 
 cr.exportPath('cr.ui');
 
-cr.define('cr.ui', function() {
+cr.define('cr.ui', () => {
   /** @const */
   const Menu = cr.ui.Menu;
 
@@ -32,14 +32,14 @@ cr.define('cr.ui', function() {
     decorate: function() {
       // Listen to the touch events on the document so that we can handle it
       // before cancelled by other UI components.
-      this.ownerDocument.addEventListener('touchstart', this);
+      this.ownerDocument.addEventListener('touchstart', this, {passive: true});
       this.addEventListener('mousedown', this);
       this.addEventListener('keydown', this);
       this.addEventListener('dblclick', this);
       this.addEventListener('blur', this);
 
-      // Adding the 'custom-appearance' class prevents widgets.css from changing
-      // the appearance of this element.
+      // Adding the 'custom-appearance' class prevents widgets.css from
+      // changing the appearance of this element.
       this.classList.add('custom-appearance');
       this.classList.add('menu-button');  // For styles in menu_button.css.
 
@@ -83,11 +83,25 @@ cr.define('cr.ui', function() {
     respondToArrowKeys: true,
 
     /**
+     * Whether a sub-menu is positioned on the left of its parent.
+     * @type {boolean|null} Used to direct the arrow key navigation.
+     * @private
+     */
+    subMenuOnLeft: null,
+
+    /**
      * Property that hosts sub-menus for filling with overflow items.
      * @type {cr.ui.Menu|null} Used for menu-items that overflow parent menu.
      * @public
      */
     overflow: null,
+
+    /**
+     * Reference to the menu that the user is currently navigating.
+     * @type {cr.ui.Menu|null} Used to route events to the correct menu.
+     * @private
+     */
+    currentMenu: null,
 
     /**
      * Checks if the menu(s) should be closed based on the target of a mouse
@@ -123,16 +137,22 @@ cr.define('cr.ui', function() {
       // See if it fits on the right, if not position on the left
       style.left = style.right = style.top = style.bottom = 'auto';
       if ((itemRect.right + childRect.width) > viewportWidth) {
+        this.subMenuOnLeft = true;
         style.left = (itemRect.left - childRect.width) + 'px';
       } else {
+        this.subMenuOnLeft = false;
         style.left = itemRect.right + 'px';
       }
       style.top = itemRect.top + 'px';
       // Size the subMenu to fit inside the height of the viewport
       const menuEndGap = 18;  // padding on cr.menu + 2px
+      // Always set the maximum height so that expanding the window
+      // allows the menu height to grow crbug/934207
+      style.maxHeight = (viewportHeight - itemRect.top - menuEndGap) + 'px';
       if ((itemRect.top + childRect.height + menuEndGap) > viewportHeight) {
-        style.maxHeight = (viewportHeight - itemRect.top - menuEndGap) + 'px';
         style.overflowY = 'scroll';
+      } else {
+        style.overflowY = 'auto';
       }
     },
 
@@ -167,6 +187,7 @@ cr.define('cr.ui', function() {
         item.setAttribute('sub-menu-shown', 'shown');
         this.positionSubMenu_(item, subMenu);
         subMenu.show();
+        subMenu.parentMenuItem = item;
       }
     },
 
@@ -192,13 +213,54 @@ cr.define('cr.ui', function() {
           const childRect = subMenu.getBoundingClientRect();
           if (childRect.left <= e.clientX && e.clientX < childRect.right &&
               childRect.top <= e.clientY && e.clientY < childRect.bottom) {
+            this.currentMenu = subMenu;
             break;
           }
           item.removeAttribute('sub-menu-shown');
           subMenu.hide();
           this.menu.subMenu = null;
+          this.currentMenu = this.menu;
           break;
       }
+    },
+
+    /**
+     * Change the selection from the top level menu to the first item
+     * in the subMenu passed in.
+     * @param {cr.ui.Menu} subMenu sub-menu that should take selection.
+     * @private
+     */
+    moveSelectionToSubMenu_: function(subMenu) {
+      this.menu.selectedItem = null;
+      this.currentMenu = subMenu;
+      subMenu.selectedIndex = 0;
+    },
+
+    /**
+     * Change the selection from the sub menu to the top level menu.
+     * @param {cr.ui.Menu} subMenu sub-menu that should lose selection.
+     * @private
+     */
+    moveSelectionToTopMenu_: function(subMenu) {
+      subMenu.selectedItem = null;
+      this.currentMenu = this.menu;
+      this.menu.selectedItem = subMenu.parentMenuItem;
+    },
+
+    /**
+     * Do we have a menu visible to handle a keyboard event.
+     * @return {boolean} True if there's a visible menu.
+     * @private
+     */
+    hasVisibleMenu_: function() {
+      if (this.currentMenu == this.menu && this.isMenuShown()) {
+        return true;
+      } else if (this.currentMenu) {
+        if (this.currentMenu.parentMenuItem.hasAttribute('sub-menu-shown')) {
+          return true;
+        }
+      }
+      return false;
     },
 
     /**
@@ -241,10 +303,44 @@ cr.define('cr.ui', function() {
           this.classList.add('using-mouse');
           break;
         case 'keydown':
+          switch (e.key) {
+            case 'ArrowLeft':
+            case 'ArrowRight':
+              if (!this.currentMenu) {
+                break;
+              }
+              if (this.currentMenu === this.menu) {
+                const menuItem = this.currentMenu.selectedItem;
+                const subMenu = this.getSubMenuFromItem(menuItem);
+                if (subMenu) {
+                  if (subMenu.hidden) {
+                    break;
+                  }
+                  if (this.subMenuOnLeft && e.key == 'ArrowLeft') {
+                    this.moveSelectionToSubMenu_(subMenu);
+                  } else if (
+                      this.subMenuOnLeft === false && e.key == 'ArrowRight') {
+                    this.moveSelectionToSubMenu_(subMenu);
+                  }
+                }
+              } else {
+                const subMenu = this.currentMenu;
+                // We only move off the sub-menu if we're on the top item
+                if (subMenu.selectedIndex == 0) {
+                  if (this.subMenuOnLeft && e.key == 'ArrowRight') {
+                    this.moveSelectionToTopMenu_(subMenu);
+                  } else if (
+                      this.subMenuOnLeft === false && e.key == 'ArrowLeft') {
+                    this.moveSelectionToTopMenu_(subMenu);
+                  }
+                }
+              }
+              break;
+          }
           this.handleKeyDown(e);
-          // If the menu is visible we let it handle all the keyboard events.
-          if (this.isMenuShown() && e.currentTarget == this.ownerDocument) {
-            this.menu.handleKeyDown(e);
+          // If a menu is visible we let it handle all the keyboard events.
+          if (e.currentTarget == this.ownerDocument && this.hasVisibleMenu_()) {
+            this.currentMenu.handleKeyDown(e);
             e.preventDefault();
             e.stopPropagation();
           }
@@ -365,6 +461,7 @@ cr.define('cr.ui', function() {
       if (shouldSetFocus) {
         this.menu.focusSelectedItem();
       }
+      this.currentMenu = this.menu;
     },
 
     /**
@@ -384,6 +481,7 @@ cr.define('cr.ui', function() {
           menuItem.removeAttribute('sub-menu-shown');
         }
       });
+      this.currentMenu = this.menu;
     },
 
     /**
@@ -442,6 +540,7 @@ cr.define('cr.ui', function() {
       // that is the case we wait some short period before we allow the menu
       // to be shown again.
       this.hideTimestamp_ = cr.isWindows ? Date.now() : 0;
+      this.currentMenu = null;
     },
 
     /**

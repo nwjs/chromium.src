@@ -33,9 +33,6 @@ const char kFeaturePolicyBlocked[] =
 const char kActiveImmersiveSession[] =
     "There is already an active, immersive XRSession.";
 
-const char kNoOutputContext[] =
-    "Inline sessions must be created with an outputContext.";
-
 const char kRequestRequiresUserActivation[] =
     "The requested session requires user activation.";
 
@@ -65,7 +62,6 @@ XR::PendingSessionQuery::PendingSessionQuery(
 
 void XR::PendingSessionQuery::Trace(blink::Visitor* visitor) {
   visitor->Trace(resolver);
-  visitor->Trace(output_context);
 }
 
 XR::XR(LocalFrame& frame, int64_t ukm_source_id)
@@ -113,19 +109,6 @@ XRFrameProvider* XR::frameProvider() {
 const device::mojom::blink::XREnvironmentIntegrationProviderAssociatedPtr&
 XR::xrEnvironmentProviderPtr() {
   return environment_provider_;
-}
-
-const char* XR::checkSessionSupport(
-    const XRSessionCreationOptions* options) const {
-  if (options->mode() == "inline" || options->mode() == "legacy-inline-ar") {
-    // Validation for inline sessions. (Validation for immersive sessions
-    // happens browser-side.)
-    if (!options->hasOutputContext()) {
-      return kNoOutputContext;
-    }
-  }
-
-  return nullptr;
 }
 
 ScriptPromise XR::supportsSessionMode(ScriptState* script_state,
@@ -226,15 +209,6 @@ ScriptPromise XR::requestSession(ScriptState* script_state,
                                            kNoDevicesMessage));
   }
 
-  // Check first to see if the device is capable of supporting the requested
-  // options.
-  const char* reject_reason = checkSessionSupport(options);
-  if (reject_reason) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, DOMException::Create(DOMExceptionCode::kNotSupportedError,
-                                           reject_reason));
-  }
-
   // TODO(ijamardo): Should we just exit if there is not document?
   bool has_user_activation =
       LocalFrame::HasTransientUserActivation(doc ? doc->GetFrame() : nullptr);
@@ -265,7 +239,7 @@ ScriptPromise XR::requestSession(ScriptState* script_state,
     }
 
     doc->AddConsoleMessage(ConsoleMessage::Create(
-        kOtherMessageSource, kWarningMessageLevel,
+        kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
         "Inline AR is deprecated and will be removed soon."));
   }
 
@@ -274,8 +248,6 @@ ScriptPromise XR::requestSession(ScriptState* script_state,
 
   PendingSessionQuery* query = MakeGarbageCollected<PendingSessionQuery>(
       resolver, XRSession::stringToSessionMode(options->mode()));
-  query->output_context =
-      options->hasOutputContext() ? options->outputContext() : nullptr;
   query->has_user_activation = has_user_activation;
 
   if (!device_) {
@@ -292,6 +264,11 @@ ScriptPromise XR::requestSession(ScriptState* script_state,
 
 void XR::DispatchRequestSession(PendingSessionQuery* query) {
   if (!device_) {
+    if (query->mode == XRSession::kModeInline) {
+      CreateInlineIdentitySession(query);
+      return;
+    }
+
     // If we don't have a device by the time we reach this call it indicates
     // that there's no WebXR hardware. Reject as not supported.
     query->resolver->Reject(DOMException::Create(
@@ -389,6 +366,11 @@ void XR::OnRequestSessionReturned(
   // TODO(https://crbug.com/872316) Improve the error messaging to indicate why
   // a request failed.
   if (!session_ptr) {
+    if (query->mode == XRSession::kModeInline) {
+      CreateInlineIdentitySession(query);
+      return;
+    }
+
     DOMException* exception = DOMException::Create(
         DOMExceptionCode::kNotSupportedError, kSessionNotSupported);
     query->resolver->Reject(exception);
@@ -410,8 +392,7 @@ void XR::OnRequestSessionReturned(
     blend_mode = XRSession::kBlendModeAlphaBlend;
 
   XRSession* session = MakeGarbageCollected<XRSession>(
-      this, std::move(session_ptr->client_request), query->mode,
-      query->output_context, blend_mode);
+      this, std::move(session_ptr->client_request), query->mode, blend_mode);
   session->SetXRDisplayInfo(std::move(session_ptr->display_info));
   sessions_.insert(session);
 
@@ -455,17 +436,25 @@ void XR::AddedEventListener(const AtomicString& event_type,
         GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
     if (!binding_.is_bound()) {
       device::mojom::blink::VRServiceClientPtr client;
-      binding_.Bind(mojo::MakeRequest(&client, task_runner));
+      binding_.Bind(mojo::MakeRequest(&client, task_runner), task_runner);
       service_->SetClient(std::move(client));
     }
 
     // Make sure we have an active device to listen for changes with.
     EnsureDevice();
   }
-};
+}
 
 void XR::ContextDestroyed(ExecutionContext*) {
   Dispose();
+}
+
+void XR::CreateInlineIdentitySession(PendingSessionQuery* query) {
+  XRSession* session =
+      MakeGarbageCollected<XRSession>(this, nullptr /* client request */,
+                                      query->mode, XRSession::kBlendModeOpaque);
+  sessions_.insert(session);
+  query->resolver->Resolve(session);
 }
 
 void XR::Dispose() {

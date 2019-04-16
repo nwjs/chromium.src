@@ -36,6 +36,7 @@
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 
 #include <memory>
@@ -108,7 +109,7 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   explicit LocalDOMWindow(LocalFrame&);
   ~LocalDOMWindow() override;
 
-  LocalFrame* GetFrame() const { return ToLocalFrame(DOMWindow::GetFrame()); }
+  LocalFrame* GetFrame() const { return To<LocalFrame>(DOMWindow::GetFrame()); }
 
   void Trace(blink::Visitor*) override;
 
@@ -228,7 +229,7 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   int webkitRequestAnimationFrame(V8FrameRequestCallback*);
   void cancelAnimationFrame(int id);
 
-  // https://html.spec.whatwg.org/#windoworworkerglobalscope-mixin
+  // https://html.spec.whatwg.org/C/#windoworworkerglobalscope-mixin
   void queueMicrotask(V8VoidFunction*);
 
   // Idle callback extensions
@@ -249,19 +250,19 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
 
   bool isSecureContext() const;
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationend, kAnimationend);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationiteration, kAnimationiteration);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationstart, kAnimationstart);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(search, kSearch);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(transitionend, kTransitionend);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationend, kAnimationend)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationiteration, kAnimationiteration)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(animationstart, kAnimationstart)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(search, kSearch)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(transitionend, kTransitionend)
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitanimationstart, kWebkitAnimationStart);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitanimationstart, kWebkitAnimationStart)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitanimationiteration,
-                                  kWebkitAnimationIteration);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitanimationend, kWebkitAnimationEnd);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkittransitionend, kWebkitTransitionEnd);
+                                  kWebkitAnimationIteration)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitanimationend, kWebkitAnimationEnd)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkittransitionend, kWebkitTransitionEnd)
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(orientationchange, kOrientationchange);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(orientationchange, kOrientationchange)
 
   void RegisterEventListenerObserver(EventListenerObserver*);
 
@@ -381,11 +382,12 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   mutable Member<TrustedTypePolicyFactory> trusted_types_;
 };
 
-DEFINE_TYPE_CASTS(LocalDOMWindow,
-                  DOMWindow,
-                  x,
-                  x->IsLocalDOMWindow(),
-                  x.IsLocalDOMWindow());
+template <>
+struct DowncastTraits<LocalDOMWindow> {
+  static bool AllowFrom(const DOMWindow& window) {
+    return window.IsLocalDOMWindow();
+  }
+};
 
 inline String LocalDOMWindow::status() const {
   return status_;

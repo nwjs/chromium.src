@@ -4,8 +4,11 @@
 
 package org.chromium.chrome.browser.usage_stats;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
@@ -23,6 +26,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.Promise;
+import org.chromium.base.UserDataHost;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.Tab.TabHidingType;
@@ -31,6 +36,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.content_public.browser.WebContents;
 
 import java.util.Arrays;
 
@@ -57,19 +63,31 @@ public final class PageViewObserverTest {
     private EventTracker mEventTracker;
     @Mock
     private TokenTracker mTokenTracker;
+    @Mock
+    private SuspensionTracker mSuspensionTracker;
+    @Mock
+    private WebContents mWebContents;
     @Captor
     private ArgumentCaptor<TabObserver> mTabObserverCaptor;
     @Captor
     private ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
 
+    private TabObserver mTabObserver;
+    private UserDataHost mUserDataHost;
+
     @Before
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
+        mUserDataHost = new UserDataHost();
+
         doReturn(false).when(mTab).isIncognito();
         doReturn(null).when(mTab).getUrl();
+        doReturn(mWebContents).when(mTab).getWebContents();
         doReturn(Arrays.asList(mTabModel)).when(mTabModelSelector).getModels();
         doReturn(mTab).when(mTabModelSelector).getCurrentTab();
+        doReturn(mUserDataHost).when(mTab).getUserDataHost();
+        doReturn(Promise.fulfilled("1")).when(mTokenTracker).getTokenForFqdn(anyString());
     }
 
     @Test
@@ -182,9 +200,126 @@ public final class PageViewObserverTest {
 
     // TODO(pnoland): add test for platform reporting once the System API is available in Q.
 
+    @Test
+    public void tabIncognito_eventsNotReported() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(true).when(mTab2).isIncognito();
+        doReturn(DIFFERENT_URL).when(mTab2).getUrl();
+        didSelectTab(mTab2, TabSelectionType.FROM_USER);
+        verify(mEventTracker, times(0)).addWebsiteEvent(argThat(isStartEvent(DIFFERENT_FQDN)));
+        verify(mEventTracker, times(0)).addWebsiteEvent(argThat(isStopEvent(DIFFERENT_FQDN)));
+    }
+
+    @Test
+    public void navigationToSuspendedDomain_suspendedTabShown() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(DIFFERENT_URL).when(mTab).getUrl();
+        doReturn(true).when(mSuspensionTracker).isWebsiteSuspended(DIFFERENT_FQDN);
+        onUpdateUrl(mTab, DIFFERENT_URL);
+
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        assertTrue(mTabObserverCaptor.getValue() instanceof SuspendedTab);
+    }
+
+    @Test
+    public void navigationToUnsuspendedDomain_suspendedTabRemoved() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(DIFFERENT_URL).when(mTab).getUrl();
+        doReturn(true).when(mSuspensionTracker).isWebsiteSuspended(DIFFERENT_FQDN);
+        onUpdateUrl(mTab, DIFFERENT_URL);
+
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        SuspendedTab suspendedTab = (SuspendedTab) mTabObserverCaptor.getValue();
+
+        suspendedTab.onPageLoadStarted(mTab, STARTING_URL);
+        verify(mTab, times(1)).removeObserver(suspendedTab);
+    }
+
+    @Test
+    public void eagerSuspension() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(STARTING_URL).when(mTab).getUrl();
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, true);
+
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        assertTrue(mTabObserverCaptor.getValue() instanceof SuspendedTab);
+    }
+
+    @Test
+    public void eagerSuspension_navigateToDifferentSuspended() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(STARTING_URL).when(mTab).getUrl();
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, true);
+
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        SuspendedTab suspendedTab = (SuspendedTab) mTabObserverCaptor.getValue();
+        assertEquals(STARTING_FQDN, suspendedTab.getFqdn());
+
+        doReturn(true).when(mSuspensionTracker).isWebsiteSuspended(DIFFERENT_FQDN);
+        onUpdateUrl(mTab, DIFFERENT_URL);
+
+        verify(mTab, times(3)).addObserver(any());
+        assertEquals(DIFFERENT_FQDN, suspendedTab.getFqdn());
+    }
+
+    @Test
+    public void eagerUnsuspension() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(STARTING_URL).when(mTab).getUrl();
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, true);
+
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        assertTrue(mTabObserverCaptor.getValue() instanceof SuspendedTab);
+        SuspendedTab suspendedTab = (SuspendedTab) mTabObserverCaptor.getValue();
+
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, false);
+        verify(mTab, times(1)).removeObserver(suspendedTab);
+    }
+
+    @Test
+    public void eagerUnsuspension_otherDomainActiveAndSuspended() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        doReturn(STARTING_URL).when(mTab).getUrl();
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, true);
+        verify(mTab, times(2)).addObserver(mTabObserverCaptor.capture());
+        SuspendedTab suspendedTab = (SuspendedTab) mTabObserverCaptor.getValue();
+
+        doReturn(true).when(mSuspensionTracker).isWebsiteSuspended(DIFFERENT_FQDN);
+        onUpdateUrl(mTab, DIFFERENT_URL);
+
+        // Notifying that STARTING_FQDN is no longer suspended shouldn't remove the active
+        // SuspendedTab for DIFFERENT_FQDN.
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, false);
+        verify(mTab, times(0)).removeObserver(suspendedTab);
+    }
+
+    @Test
+    public void eagerUnsuspension_notAlreadySuspended() {
+        PageViewObserver observer = createPageViewObserver();
+        onUpdateUrl(mTab, STARTING_URL);
+
+        observer.notifySiteSuspensionChanged(STARTING_FQDN, false);
+        verify(mTab, times(1)).addObserver(any());
+        verify(mTab, times(0)).removeObserver(any());
+    }
+
     private PageViewObserver createPageViewObserver() {
-        PageViewObserver observer =
-                new PageViewObserver(mActivity, mTabModelSelector, mEventTracker, mTokenTracker);
+        PageViewObserver observer = new PageViewObserver(
+                mActivity, mTabModelSelector, mEventTracker, mTokenTracker, mSuspensionTracker);
         verify(mTabModel, times(1)).addObserver(mTabModelObserverCaptor.capture());
         if (mTabModelSelector.getCurrentTab() != null) {
             verify(mTabModelSelector.getCurrentTab(), times(1))
@@ -210,7 +345,11 @@ public final class PageViewObserverTest {
     }
 
     private TabObserver getTabObserver() {
-        return mTabObserverCaptor.getValue();
+        if (mTabObserver == null) {
+            mTabObserver = mTabObserverCaptor.getValue();
+        }
+
+        return mTabObserver;
     }
 
     private TabModelObserver getTabModelObserver() {

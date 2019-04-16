@@ -3,7 +3,8 @@
 // found in the LICENSE file.
 'use strict';
 
-goog.require('mojo.interfaceControl');
+goog.require('mojo.interfaceControl.kRunMessageId');
+goog.require('mojo.interfaceControl.RunResponseMessageParamsSpec');
 goog.require('mojo.internal');
 
 goog.provide('mojo.internal.interfaceSupport');
@@ -27,7 +28,7 @@ mojo.internal.interfaceSupport.ControlMessageHandler = class {
       mojo.internal.serializeAndSendMessage(
           this.handle_, mojo.interfaceControl.kRunMessageId, requestId,
           mojo.internal.kMessageFlagExpectsResponse,
-          mojo.interfaceControl.RunMessageParams.$, {'input': input});
+          mojo.interfaceControl.RunMessageParamsSpec.$, {'input': input});
       this.pendingFlushResolvers_.set(requestId, resolve);
     });
   }
@@ -47,12 +48,13 @@ mojo.internal.interfaceSupport.ControlMessageHandler = class {
 
   handleRunRequest_(requestId, decoder) {
     const input = decoder.decodeStructInline(
-        mojo.interfaceControl.RunMessageParams.$.$.structSpec)['input'];
+        mojo.interfaceControl.RunMessageParamsSpec.$.$.structSpec)['input'];
     if (input.hasOwnProperty('flushForTesting')) {
       mojo.internal.serializeAndSendMessage(
           this.handle_, mojo.interfaceControl.kRunMessageId, requestId,
           mojo.internal.kMessageFlagIsResponse,
-          mojo.interfaceControl.RunResponseMessageParams.$, {'output': null});
+          mojo.interfaceControl.RunResponseMessageParamsSpec.$,
+          {'output': null});
       return true;
     }
 
@@ -151,18 +153,23 @@ mojo.internal.interfaceSupport.ConnectionErrorEventRouter = class {
  * Generic helper used to implement all generated proxy classes. Knows how to
  * serialize requests and deserialize their replies, both according to
  * declarative message structure specs.
+ * @template T
  * @export
  */
 mojo.internal.interfaceSupport.InterfaceProxyBase = class {
   /**
+   * @param {!function(new:T, !MojoHandle)} requestType
    * @param {MojoHandle=} opt_handle The message pipe handle to use as a proxy
    *     endpoint. If null, this object must be bound with bindHandle before
    *     it can be used to send any messages.
    * @public
    */
-  constructor(opt_handle) {
+  constructor(requestType, opt_handle) {
     /** @public {?MojoHandle} */
     this.handle = null;
+
+    /** @private {!function(new:T, !MojoHandle)} */
+    this.requestType_ = requestType;
 
     /** @private {?mojo.internal.interfaceSupport.HandleReader} */
     this.reader_ = null;
@@ -184,6 +191,15 @@ mojo.internal.interfaceSupport.InterfaceProxyBase = class {
 
     if (opt_handle instanceof MojoHandle)
       this.bindHandle(opt_handle);
+  }
+
+  /**
+   * @return {!T}
+   */
+  createRequest() {
+    let {handle0, handle1} = Mojo.createMessagePipe();
+    this.bindHandle(handle0);
+    return new this.requestType_(handle1);
   }
 
   /**
@@ -213,6 +229,11 @@ mojo.internal.interfaceSupport.InterfaceProxyBase = class {
       this.reader_.stop();
   }
 
+  /** @export */
+  close() {
+    this.cleanupAndFlushPendingResponses_('Message pipe closed.');
+  }
+
   /**
    * @return {!mojo.internal.interfaceSupport.ConnectionErrorEventRouter}
    * @export
@@ -232,12 +253,12 @@ mojo.internal.interfaceSupport.InterfaceProxyBase = class {
   sendMessage(ordinal, paramStruct, responseStruct, args) {
     if (!this.handle) {
       throw new Error(
-          'Attempting to use an unbound proxy. Try createRequest() first.')
+          'Attempting to use an unbound proxy. Try $.createRequest() first.')
     }
 
     // The pipe has already been closed, so just drop the message.
     if (!this.reader_ || this.reader_.isStopped())
-      return Promise.reject();
+      return Promise.reject(new Error('The pipe has already been closed.'));
 
     const requestId = this.nextRequestId_++;
     const value = {};
@@ -305,14 +326,61 @@ mojo.internal.interfaceSupport.InterfaceProxyBase = class {
    * @private
    */
   onError_(opt_reason) {
+    this.cleanupAndFlushPendingResponses_(opt_reason);
+    this.connectionErrorEventRouter_.dispatchErrorEvent();
+  }
+
+  /**
+   * @param {string=} opt_reason
+   * @private
+   */
+  cleanupAndFlushPendingResponses_(opt_reason) {
     this.reader_.stopAndCloseHandle();
     this.reader_ = null;
     for (const id of this.pendingResponses_.keys())
       this.pendingResponses_.get(id).reject(new Error(opt_reason));
     this.pendingResponses_ = new Map;
-    this.connectionErrorEventRouter_.dispatchErrorEvent();
   }
 };
+
+/**
+ * Wrapper around mojo.internal.interfaceSupport.InterfaceProxyBase that
+ * exposes the subset of InterfaceProxyBase's method that users are allowed
+ * to use.
+ * @template T
+ * @export
+ */
+mojo.internal.interfaceSupport.InterfaceProxyBaseWrapper = class {
+  /**
+   * @param {!mojo.internal.interfaceSupport.InterfaceProxyBase<T>} proxy
+   * @public
+   */
+  constructor(proxy) {
+    /** @private {!mojo.internal.interfaceSupport.InterfaceProxyBase<T>} */
+    this.proxy_ = proxy;
+  }
+
+  /**
+   * @return {!T}
+   * @export
+   */
+  createRequest() {
+    return this.proxy_.createRequest();
+  }
+
+  /** @export */
+  close() {
+    this.proxy_.close();
+  }
+
+  /**
+   * @return {!Promise}
+   * @export
+   */
+  flushForTesting() {
+    return this.proxy_.flushForTesting();
+  }
+}
 
 /**
  * Helper used by generated EventRouter types to dispatch incoming interface

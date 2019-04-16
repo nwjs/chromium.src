@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/media_router/cast_dialog_view.h"
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/optional.h"
 #include "base/strings/utf_string_conversions.h"
@@ -16,7 +17,6 @@
 #include "chrome/browser/ui/media_router/cast_dialog_model.h"
 #include "chrome/browser/ui/media_router/media_cast_mode.h"
 #include "chrome/browser/ui/media_router/ui_media_sink.h"
-#include "chrome/browser/ui/toolbar/component_toolbar_actions_factory.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
@@ -440,7 +440,11 @@ base::Optional<MediaCastMode> CastDialogView::GetCastModeToUse(
 }
 
 void CastDialogView::DisableUnsupportedSinks() {
+  // Go through the AVAILABLE sinks and enable or disable them depending on
+  // whether they support the selected cast mode.
   for (CastDialogSinkButton* sink_button : sink_buttons_) {
+    if (sink_button->sink().state != UIMediaSinkState::AVAILABLE)
+      continue;
     const bool enable = GetCastModeToUse(sink_button->sink()).has_value();
     sink_button->SetEnabled(enable);
   }

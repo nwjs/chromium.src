@@ -521,12 +521,13 @@ class DiceBrowserTestBase : public InProcessBrowserTest,
   void OnStartReconcile() override { ++reconcilor_started_count_; }
 
   // identity::IdentityManager::Observer
-  void OnPrimaryAccountSet(const AccountInfo& primary_account_info) override {
+  void OnPrimaryAccountSet(
+      const CoreAccountInfo& primary_account_info) override {
     RunClosureIfValid(std::move(on_primary_account_set_quit_closure_));
   }
 
   void OnRefreshTokenUpdatedForAccount(
-      const AccountInfo& account_info) override {
+      const CoreAccountInfo& account_info) override {
     if (account_info.account_id == GetMainAccountID()) {
       refresh_token_available_ = true;
       RunClosureIfValid(std::move(refresh_token_available_quit_closure_));
@@ -658,10 +659,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, Signin) {
       GetIdentityManager()->HasAccountWithRefreshToken(GetMainAccountID()));
   // Sync should not be enabled.
   EXPECT_TRUE(GetIdentityManager()->GetPrimaryAccountId().empty());
-  EXPECT_TRUE(GetIdentityManager()
-                  ->GetPrimaryAccountMutator()
-                  ->LegacyPrimaryAccountForAuthInProgress()
-                  .account_id.empty());
 
   EXPECT_EQ(1, reconcilor_blocked_count_);
   WaitForReconcilorUnblockedCount(1);
@@ -783,7 +780,8 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, SignoutAllAccounts) {
 #endif
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, MAYBE_NoDiceFromWebUI) {
   // Navigate to Gaia and from the native tab, which uses an extension.
-  ui_test_utils::NavigateToURL(browser(), GURL("chrome:chrome-signin"));
+  ui_test_utils::NavigateToURL(browser(),
+                               GURL("chrome:chrome-signin?reason=5"));
 
   // Check that the request had no Dice request header.
   if (dice_request_header_.empty())
@@ -905,10 +903,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, PRE_TurnOffDice) {
       browser()->profile()));
 
   EXPECT_FALSE(GetIdentityManager()->GetPrimaryAccountId().empty());
-  EXPECT_TRUE(GetIdentityManager()
-                  ->GetPrimaryAccountMutator()
-                  ->LegacyPrimaryAccountForAuthInProgress()
-                  .account_id.empty());
   EXPECT_TRUE(
       GetIdentityManager()->HasAccountWithRefreshToken(GetMainAccountID()));
   EXPECT_FALSE(GetIdentityManager()->GetAccountsWithRefreshTokens().empty());
@@ -928,10 +922,6 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, TurnOffDice) {
       browser()->profile()));
 
   EXPECT_TRUE(GetIdentityManager()->GetPrimaryAccountId().empty());
-  EXPECT_TRUE(GetIdentityManager()
-                  ->GetPrimaryAccountMutator()
-                  ->LegacyPrimaryAccountForAuthInProgress()
-                  .account_id.empty());
   EXPECT_FALSE(
       GetIdentityManager()->HasAccountWithRefreshToken(GetMainAccountID()));
   EXPECT_TRUE(GetIdentityManager()->GetAccountsWithRefreshTokens().empty());

@@ -30,17 +30,13 @@ syncer::ModelTypeSet AllowedTypesInStandaloneTransportMode() {
 class SingleClientSecondaryAccountSyncTest : public SyncTest {
  public:
   SingleClientSecondaryAccountSyncTest() : SyncTest(SINGLE_CLIENT) {
-    features_.InitWithFeatures(
-        /*enabled_features=*/{switches::kSyncStandaloneTransport,
-                              switches::kSyncSupportSecondaryAccount},
-        /*disabled_features=*/{});
+    features_.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
   }
   ~SingleClientSecondaryAccountSyncTest() override {}
 
   void SetUpInProcessBrowserTestFixture() override {
-    fake_gaia_cookie_manager_factory_ =
-        secondary_account_helper::SetUpFakeGaiaCookieManagerService(
-            &test_url_loader_factory_);
+    test_signin_client_factory_ =
+        secondary_account_helper::SetUpSigninClient(&test_url_loader_factory_);
   }
 
   void SetUpOnMainThread() override {
@@ -55,34 +51,11 @@ class SingleClientSecondaryAccountSyncTest : public SyncTest {
  private:
   base::test::ScopedFeatureList features_;
 
-  secondary_account_helper::ScopedFakeGaiaCookieManagerServiceFactory
-      fake_gaia_cookie_manager_factory_;
+  secondary_account_helper::ScopedSigninClientFactory
+      test_signin_client_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(SingleClientSecondaryAccountSyncTest);
 };
-
-class SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest
-    : public SingleClientSecondaryAccountSyncTest {
- public:
-  SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest() {
-    features_.InitAndDisableFeature(switches::kSyncStandaloneTransport);
-  }
-
- private:
-  base::test::ScopedFeatureList features_;
-};
-
-IN_PROC_BROWSER_TEST_F(
-    SingleClientSecondaryAccountWithoutStandaloneTransportSyncTest,
-    DoesNotStartSyncWithStandaloneTransportDisabled) {
-  ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
-
-  // Since standalone transport is disabled, just signing in (without making the
-  // account Chrome's primary one) should *not* start the Sync machinery.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
-  EXPECT_EQ(syncer::SyncService::TransportState::DISABLED,
-            GetSyncService(0)->GetTransportState());
-}
 
 class SingleClientSecondaryAccountWithoutSecondaryAccountSupportSyncTest
     : public SingleClientSecondaryAccountSyncTest {
@@ -103,7 +76,8 @@ IN_PROC_BROWSER_TEST_F(
   // Since secondary account support is disabled, just signing in (without
   // making the account Chrome's primary one) should *not* start the Sync
   // machinery.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile(), &test_url_loader_factory_, "user@email.com");
   EXPECT_EQ(syncer::SyncService::TransportState::DISABLED,
             GetSyncService(0)->GetTransportState());
 }
@@ -115,7 +89,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
   // Signing in (without making the account Chrome's primary one or explicitly
   // setting up Sync) should trigger starting the Sync machinery in standalone
   // transport mode.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile(), &test_url_loader_factory_, "user@email.com");
   if (browser_defaults::kSyncAutoStarts) {
     EXPECT_EQ(syncer::SyncService::TransportState::INITIALIZING,
               GetSyncService(0)->GetTransportState());
@@ -152,7 +127,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientSecondaryAccountSyncTest,
   ASSERT_TRUE(SetupClients()) << "SetupClients() failed.";
 
   // Set up Sync in transport mode for a non-primary account.
-  secondary_account_helper::SignInSecondaryAccount(profile(), "user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile(), &test_url_loader_factory_, "user@email.com");
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());

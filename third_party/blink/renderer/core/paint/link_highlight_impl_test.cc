@@ -115,7 +115,7 @@ class LinkHighlightImplTest : public testing::Test,
   frame_test_helpers::WebViewHelper web_view_helper_;
 };
 
-INSTANTIATE_PAINT_TEST_CASE_P(LinkHighlightImplTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(LinkHighlightImplTest);
 
 TEST_P(LinkHighlightImplTest, verifyWebViewImplIntegration) {
   WebViewImpl* web_view_impl = web_view_helper_.GetWebView();
@@ -328,12 +328,13 @@ TEST_P(LinkHighlightImplTest, HighlightLayerEffectNode) {
   auto* property_trees = layer->layer_tree_host()->property_trees();
   EXPECT_EQ(
       effect_tree_index,
-      property_trees->element_id_to_effect_node_index[highlight->element_id()]);
+      property_trees
+          ->element_id_to_effect_node_index[highlight->ElementIdForTesting()]);
   // The link highlight cc effect node should correspond to the blink effect
   // node.
-  EXPECT_EQ(highlight->effect()->GetCompositorElementId(),
-            highlight->element_id());
-  EXPECT_TRUE(highlight->effect()->RequiresCompositingForAnimation());
+  EXPECT_EQ(highlight->Effect().GetCompositorElementId(),
+            highlight->ElementIdForTesting());
+  EXPECT_TRUE(highlight->Effect().RequiresCompositingForAnimation());
 
   touch_node->remove(IGNORE_EXCEPTION_FOR_TESTING);
   UpdateAllLifecyclePhases();
@@ -378,16 +379,13 @@ TEST_P(LinkHighlightImplTest, MultiColumn) {
 
   // The link highlight cc effect node should correspond to the blink effect
   // node.
-  const auto* effect = highlight->effect();
-  ASSERT_TRUE(effect);
-  EXPECT_EQ(effect->GetCompositorElementId(), highlight->element_id());
-  EXPECT_TRUE(effect->RequiresCompositingForAnimation());
+  const auto& effect = highlight->Effect();
+  EXPECT_EQ(effect.GetCompositorElementId(), highlight->ElementIdForTesting());
+  EXPECT_TRUE(effect.RequiresCompositingForAnimation());
 
   const auto& first_fragment = touch_node->GetLayoutObject()->FirstFragment();
-  EXPECT_EQ(effect, first_fragment.PaintProperties()->LinkHighlightEffect());
   const auto* second_fragment = first_fragment.NextFragment();
   ASSERT_TRUE(second_fragment);
-  EXPECT_EQ(effect, second_fragment->PaintProperties()->LinkHighlightEffect());
   EXPECT_FALSE(second_fragment->NextFragment());
 
   auto check_layer = [&](const cc::PictureLayer* layer) {
@@ -396,9 +394,8 @@ TEST_P(LinkHighlightImplTest, MultiColumn) {
     EXPECT_EQ(cc::ElementId(), layer->element_id());
     auto effect_tree_index = layer->effect_tree_index();
     auto* property_trees = layer->layer_tree_host()->property_trees();
-    EXPECT_EQ(effect_tree_index,
-              property_trees
-                  ->element_id_to_effect_node_index[highlight->element_id()]);
+    EXPECT_EQ(effect_tree_index, property_trees->element_id_to_effect_node_index
+                                     [highlight->ElementIdForTesting()]);
   };
 
   if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {

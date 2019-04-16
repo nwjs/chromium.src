@@ -12,11 +12,12 @@
 #include "android_webview/browser/aw_contents_client_bridge.h"
 #include "android_webview/browser/aw_contents_io_thread_client.h"
 #include "android_webview/browser/aw_resource_context.h"
-#include "android_webview/browser/aw_safe_browsing_resource_throttle.h"
 #include "android_webview/browser/net/aw_web_resource_request.h"
 #include "android_webview/browser/net_helpers.h"
 #include "android_webview/browser/renderer_host/auto_login_parser.h"
+#include "android_webview/browser/safe_browsing/aw_safe_browsing_resource_throttle.h"
 #include "android_webview/common/url_constants.h"
+#include "base/bind.h"
 #include "base/task/post_task.h"
 #include "components/safe_browsing/android/safe_browsing_api_handler.h"
 #include "components/safe_browsing/features.h"
@@ -153,7 +154,7 @@ IoThreadClientThrottle::GetIoThreadClient() const {
     return AwContentsIoThreadClient::GetServiceWorkerIoThreadClient();
 
   if (render_process_id_ == -1 || render_frame_id_ == -1) {
-    const content::ResourceRequestInfo* resourceRequestInfo =
+    content::ResourceRequestInfo* resourceRequestInfo =
         content::ResourceRequestInfo::ForRequest(request_);
     if (resourceRequestInfo == nullptr) {
       return nullptr;
@@ -244,7 +245,7 @@ void AwResourceDispatcherHostDelegate::RequestBeginning(
     content::AppCacheService* appcache_service,
     ResourceType resource_type,
     std::vector<std::unique_ptr<content::ResourceThrottle>>* throttles) {
-  const content::ResourceRequestInfo* request_info =
+  content::ResourceRequestInfo* request_info =
       content::ResourceRequestInfo::ForRequest(request);
 
   std::unique_ptr<IoThreadClientThrottle> ioThreadThrottle =
@@ -289,7 +290,7 @@ void AwResourceDispatcherHostDelegate::RequestBeginning(
 void AwResourceDispatcherHostDelegate::RequestComplete(
     net::URLRequest* request) {
   if (request && !request->status().is_success()) {
-    const content::ResourceRequestInfo* request_info =
+    content::ResourceRequestInfo* request_info =
         content::ResourceRequestInfo::ForRequest(request);
 
     bool safebrowsing_hit = false;
@@ -335,7 +336,7 @@ void AwResourceDispatcherHostDelegate::DownloadStarting(
   if ("GET" != request->method())
     return;
 
-  const content::ResourceRequestInfo* request_info =
+  content::ResourceRequestInfo* request_info =
       content::ResourceRequestInfo::ForRequest(request);
 
   base::PostTaskWithTraits(
@@ -350,7 +351,7 @@ void AwResourceDispatcherHostDelegate::OnResponseStarted(
     net::URLRequest* request,
     content::ResourceContext* resource_context,
     network::ResourceResponse* response) {
-  const content::ResourceRequestInfo* request_info =
+  content::ResourceRequestInfo* request_info =
       content::ResourceRequestInfo::ForRequest(request);
   if (!request_info) {
     DLOG(FATAL) << "Started request without associated info: " <<

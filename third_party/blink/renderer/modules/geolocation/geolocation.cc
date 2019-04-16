@@ -27,6 +27,7 @@
 
 #include "third_party/blink/renderer/modules/geolocation/geolocation.h"
 
+#include "services/device/public/mojom/geoposition.mojom-blink.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -182,7 +183,7 @@ void Geolocation::getCurrentPosition(V8PositionCallback* success_callback,
   if (!GetFrame())
     return;
 
-  probe::breakableLocation(GetDocument(), "Geolocation.getCurrentPosition");
+  probe::BreakableLocation(GetDocument(), "Geolocation.getCurrentPosition");
 
   GeoNotifier* notifier =
       GeoNotifier::Create(this, success_callback, error_callback, options);
@@ -198,7 +199,7 @@ int Geolocation::watchPosition(V8PositionCallback* success_callback,
   if (!GetFrame())
     return 0;
 
-  probe::breakableLocation(GetDocument(), "Geolocation.watchPosition");
+  probe::BreakableLocation(GetDocument(), "Geolocation.watchPosition");
 
   GeoNotifier* notifier =
       GeoNotifier::Create(this, success_callback, error_callback, options);
@@ -465,7 +466,7 @@ void Geolocation::UpdateGeolocationConnection() {
   GetFrame()->GetInterfaceProvider().GetInterface(&geolocation_service_,
                                                   invalidator, task_runner);
   geolocation_service_->CreateGeolocation(
-      MakeRequest(&geolocation_, invalidator),
+      MakeRequest(&geolocation_, invalidator, std::move(task_runner)),
       LocalFrame::HasTransientUserActivation(GetFrame()));
 
   geolocation_.set_connection_error_handler(WTF::Bind(

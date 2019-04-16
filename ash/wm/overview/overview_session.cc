@@ -448,7 +448,7 @@ void OverviewSession::RemoveOverviewItem(OverviewItem* item, bool reposition) {
 }
 
 void OverviewSession::InitiateDrag(OverviewItem* item,
-                                   const gfx::Point& location_in_screen) {
+                                   const gfx::PointF& location_in_screen) {
   window_drag_controller_ =
       std::make_unique<OverviewWindowDragController>(this);
   window_drag_controller_->InitiateDrag(item, location_in_screen);
@@ -458,14 +458,14 @@ void OverviewSession::InitiateDrag(OverviewItem* item,
 }
 
 void OverviewSession::Drag(OverviewItem* item,
-                           const gfx::Point& location_in_screen) {
+                           const gfx::PointF& location_in_screen) {
   DCHECK(window_drag_controller_);
   DCHECK_EQ(item, window_drag_controller_->item());
   window_drag_controller_->Drag(location_in_screen);
 }
 
 void OverviewSession::CompleteDrag(OverviewItem* item,
-                                   const gfx::Point& location_in_screen) {
+                                   const gfx::PointF& location_in_screen) {
   DCHECK(window_drag_controller_);
   DCHECK_EQ(item, window_drag_controller_->item());
   window_drag_controller_->CompleteDrag(location_in_screen);
@@ -475,12 +475,12 @@ void OverviewSession::CompleteDrag(OverviewItem* item,
 }
 
 void OverviewSession::StartSplitViewDragMode(
-    const gfx::Point& location_in_screen) {
+    const gfx::PointF& location_in_screen) {
   window_drag_controller_->StartSplitViewDragMode(location_in_screen);
 }
 
 void OverviewSession::Fling(OverviewItem* item,
-                            const gfx::Point& location_in_screen,
+                            const gfx::PointF& location_in_screen,
                             float velocity_x,
                             float velocity_y) {
   // Its possible a fling event is not paired with a tap down event. Ignore
@@ -566,26 +566,20 @@ void OverviewSession::UpdateGridAtLocationYPositionAndOpacity(
     grid->UpdateYPositionAndOpacity(new_y, opacity, work_area, callback);
 }
 
-void OverviewSession::UpdateMaskAndShadow(bool show) {
-  for (auto& grid : grid_list_) {
-    // Don't apply rounded corner mask if the grid has move than 10 windows
-    // because it can push the compositor memory usage to the limit.
-    // TODO(osima): Remove this once new rounded corner impl is available.
-    // (crbug.com/903486)
-    if (show && grid->window_list().size() > 10)
-      continue;
+void OverviewSession::UpdateMaskAndShadow() {
+  for (auto& grid : grid_list_)
     for (auto& window : grid->window_list())
-      window->UpdateMaskAndShadow(show);
-  }
+      window->UpdateMaskAndShadow();
 }
 
 void OverviewSession::OnStartingAnimationComplete(bool canceled) {
+  for (auto& grid : grid_list_)
+    grid->OnStartingAnimationComplete(canceled);
+
   if (!canceled) {
-    UpdateMaskAndShadow(!canceled);
     if (overview_focus_widget_)
       overview_focus_widget_->Show();
-    for (auto& grid : grid_list_)
-      grid->OnStartingAnimationComplete();
+    Shell::Get()->overview_controller()->DelayedUpdateMaskAndShadow();
   }
 }
 
@@ -644,6 +638,16 @@ aura::Window* OverviewSession::GetOverviewFocusWindow() {
     return overview_focus_widget_->GetNativeWindow();
 
   return nullptr;
+}
+
+void OverviewSession::SuspendReposition() {
+  for (auto& grid : grid_list_)
+    grid->set_suspend_reposition(true);
+}
+
+void OverviewSession::ResumeReposition() {
+  for (auto& grid : grid_list_)
+    grid->set_suspend_reposition(false);
 }
 
 void OverviewSession::OnDisplayRemoved(const display::Display& display) {
@@ -801,6 +805,14 @@ void OverviewSession::OnSplitViewDividerPositionChanged() {
   PositionWindows(/*animate=*/false);
 }
 
+bool OverviewSession::IsEmpty() const {
+  for (const auto& grid : grid_list_) {
+    if (!grid->empty())
+      return false;
+  }
+  return true;
+}
+
 void OverviewSession::ResetFocusRestoreWindow(bool focus) {
   if (!restore_focus_window_)
     return;
@@ -862,14 +874,6 @@ void OverviewSession::OnDisplayBoundsChanged() {
   PositionWindows(/*animate=*/false);
   if (split_view_drag_indicators_)
     split_view_drag_indicators_->OnDisplayBoundsChanged();
-}
-
-bool OverviewSession::IsEmpty() {
-  for (const auto& grid : grid_list_) {
-    if (!grid->empty())
-      return false;
-  }
-  return true;
 }
 
 }  // namespace ash

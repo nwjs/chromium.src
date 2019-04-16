@@ -59,33 +59,32 @@ HttpEncoder::HttpEncoder() {}
 HttpEncoder::~HttpEncoder() {}
 
 QuicByteCount HttpEncoder::SerializeDataFrameHeader(
-    QuicByteCount length,
+    QuicByteCount payload_length,
     std::unique_ptr<char[]>* output) {
-  DCHECK_NE(0u, length);
+  DCHECK_NE(0u, payload_length);
   QuicByteCount header_length =
-      QuicDataWriter::GetVarInt62Len(length) + kFrameTypeLength;
+      QuicDataWriter::GetVarInt62Len(payload_length) + kFrameTypeLength;
 
   output->reset(new char[header_length]);
-  QuicDataWriter writer(header_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(header_length, output->get());
 
-  if (WriteFrameHeader(length, HttpFrameType::DATA, &writer)) {
+  if (WriteFrameHeader(payload_length, HttpFrameType::DATA, &writer)) {
     return header_length;
   }
   return 0;
 }
 
 QuicByteCount HttpEncoder::SerializeHeadersFrameHeader(
-    const HeadersFrame& headers,
+    QuicByteCount payload_length,
     std::unique_ptr<char[]>* output) {
+  DCHECK_NE(0u, payload_length);
   QuicByteCount header_length =
-      QuicDataWriter::GetVarInt62Len(headers.headers.length()) +
-      kFrameTypeLength;
+      QuicDataWriter::GetVarInt62Len(payload_length) + kFrameTypeLength;
 
   output->reset(new char[header_length]);
-  QuicDataWriter writer(header_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(header_length, output->get());
 
-  if (WriteFrameHeader(headers.headers.length(), HttpFrameType::HEADERS,
-                       &writer)) {
+  if (WriteFrameHeader(payload_length, HttpFrameType::HEADERS, &writer)) {
     return header_length;
   }
   return 0;
@@ -102,7 +101,7 @@ QuicByteCount HttpEncoder::SerializePriorityFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (!WriteFrameHeader(payload_length, HttpFrameType::PRIORITY, &writer)) {
     return 0;
@@ -133,7 +132,7 @@ QuicByteCount HttpEncoder::SerializeCancelPushFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (WriteFrameHeader(payload_length, HttpFrameType::CANCEL_PUSH, &writer) &&
       writer.WriteVarInt62(cancel_push.push_id)) {
@@ -155,7 +154,7 @@ QuicByteCount HttpEncoder::SerializeSettingsFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (!WriteFrameHeader(payload_length, HttpFrameType::SETTINGS, &writer)) {
     return 0;
@@ -182,7 +181,7 @@ QuicByteCount HttpEncoder::SerializePushPromiseFrameWithOnlyPushId(
       QuicDataWriter::GetVarInt62Len(push_promise.push_id);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (WriteFrameHeader(payload_length, HttpFrameType::PUSH_PROMISE, &writer) &&
       writer.WriteVarInt62(push_promise.push_id)) {
@@ -199,7 +198,7 @@ QuicByteCount HttpEncoder::SerializeGoAwayFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (WriteFrameHeader(payload_length, HttpFrameType::GOAWAY, &writer) &&
       writer.WriteVarInt62(goaway.stream_id)) {
@@ -216,7 +215,7 @@ QuicByteCount HttpEncoder::SerializeMaxPushIdFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (WriteFrameHeader(payload_length, HttpFrameType::MAX_PUSH_ID, &writer) &&
       writer.WriteVarInt62(max_push_id.push_id)) {
@@ -233,7 +232,7 @@ QuicByteCount HttpEncoder::SerializeDuplicatePushFrame(
   QuicByteCount total_length = GetTotalLength(payload_length);
 
   output->reset(new char[total_length]);
-  QuicDataWriter writer(total_length, output->get(), NETWORK_BYTE_ORDER);
+  QuicDataWriter writer(total_length, output->get());
 
   if (WriteFrameHeader(payload_length, HttpFrameType::DUPLICATE_PUSH,
                        &writer) &&

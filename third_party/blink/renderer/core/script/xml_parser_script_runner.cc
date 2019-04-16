@@ -14,9 +14,9 @@ namespace blink {
 
 // Spec links:
 // <specdef label="Parsing"
-// href="https://html.spec.whatwg.org/multipage/xhtml.html#parsing-xhtml-documents">
+// href="https://html.spec.whatwg.org/C/#parsing-xhtml-documents">
 // <specdef label="Prepare"
-// href="https://html.spec.whatwg.org/multipage/scripting.html#prepare-a-script">
+// href="https://html.spec.whatwg.org/C/#prepare-a-script">
 
 XMLParserScriptRunner::XMLParserScriptRunner(XMLParserScriptRunnerHost* host)
     : host_(host) {}
@@ -79,10 +79,10 @@ void XMLParserScriptRunner::ProcessScriptElement(
   if (script_loader->GetScriptType() != mojom::ScriptType::kClassic) {
     // XMLDocumentParser does not support a module script, and thus ignores it.
     success = false;
-    document.AddConsoleMessage(
-        ConsoleMessage::Create(kJSMessageSource, kErrorMessageLevel,
-                               "Module scripts in XML documents are currently "
-                               "not supported. See crbug.com/717643"));
+    document.AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, mojom::ConsoleMessageLevel::kError,
+        "Module scripts in XML documents are currently "
+        "not supported. See crbug.com/717643"));
   }
 
   if (!success)

@@ -4,9 +4,14 @@
 
 #include "chromecast/browser/cast_web_contents_impl.h"
 
+#include <utility>
+
+#include "base/bind.h"
 #include "base/threading/sequenced_task_runner_handle.h"
+#include "chromecast/base/chromecast_switches.h"
 #include "chromecast/browser/cast_browser_process.h"
 #include "chromecast/browser/devtools/remote_debugging_server.h"
+#include "chromecast/common/mojom/media_playback_options.mojom.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -16,18 +21,19 @@
 #include "content/public/common/bindings_policy.h"
 #include "net/base/net_errors.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "url/gurl.h"
 
 namespace chromecast {
 
-CastWebContentsImpl::CastWebContentsImpl(
-    CastWebContentsImpl::Delegate* delegate,
-    content::WebContents* web_contents,
-    bool enabled_for_dev)
-    : delegate_(delegate),
-      web_contents_(web_contents),
+CastWebContentsImpl::CastWebContentsImpl(content::WebContents* web_contents,
+                                         const InitParams& init_params)
+    : web_contents_(web_contents),
+      delegate_(init_params.delegate),
       page_state_(PageState::IDLE),
-      enabled_for_dev_(enabled_for_dev),
+      last_state_(PageState::IDLE),
+      enabled_for_dev_(init_params.enabled_for_dev),
+      use_cma_renderer_(init_params.use_cma_renderer),
       remote_debugging_server_(
           shell::CastBrowserProcess::GetInstance()->remote_debugging_server()),
       closing_(false),
@@ -37,7 +43,6 @@ CastWebContentsImpl::CastWebContentsImpl(
       last_error_(net::OK),
       task_runner_(base::SequencedTaskRunnerHandle::Get()),
       weak_factory_(this) {
-  DCHECK(delegate_);
   DCHECK(web_contents_);
   DCHECK(web_contents_->GetController().IsInitialNavigation());
   DCHECK(!web_contents_->IsLoading());
@@ -46,13 +51,19 @@ CastWebContentsImpl::CastWebContentsImpl(
     LOG(INFO) << "Enabling dev console for CastWebContentsImpl";
     remote_debugging_server_->EnableWebContentsForDebugging(web_contents_);
   }
-  delegate_->OnPageStateChanged(this);
+
+  // TODO(yucliu): Change the flag name to kDisableCmaRenderer in a latter diff.
+  if (GetSwitchValueBoolean(switches::kDisableMojoRenderer, false)) {
+    use_cma_renderer_ = false;
+  }
 }
 
 CastWebContentsImpl::~CastWebContentsImpl() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DisableDebugging();
+  DCHECK(!notifying_) << "Do not destroy CastWebContents during observer "
+                         "notification!";
 
+  DisableDebugging();
   for (auto& observer : observer_list_) {
     observer.ResetCastWebContents();
   }
@@ -66,6 +77,13 @@ content::WebContents* CastWebContentsImpl::web_contents() const {
 CastWebContents::PageState CastWebContentsImpl::page_state() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return page_state_;
+}
+
+void CastWebContentsImpl::AddRendererFeatures(
+    std::vector<RendererFeature> features) {
+  for (auto& feature : features) {
+    renderer_features_.push_back({feature.name, feature.value.Clone()});
+  }
 }
 
 void CastWebContentsImpl::LoadUrl(const GURL& url) {
@@ -89,6 +107,7 @@ void CastWebContentsImpl::LoadUrl(const GURL& url) {
                                          ui::PAGE_TRANSITION_TYPED, "");
   UpdatePageState();
   DCHECK_EQ(PageState::LOADING, page_state_);
+  NotifyObservers();
 }
 
 void CastWebContentsImpl::ClosePage() {
@@ -112,6 +131,7 @@ void CastWebContentsImpl::Stop(int error_code) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (stopped_) {
     UpdatePageState();
+    NotifyObservers();
     return;
   }
   last_error_ = error_code;
@@ -121,6 +141,7 @@ void CastWebContentsImpl::Stop(int error_code) {
   DCHECK_NE(PageState::IDLE, page_state_);
   DCHECK_NE(PageState::LOADING, page_state_);
   DCHECK_NE(PageState::LOADED, page_state_);
+  NotifyObservers();
 }
 
 void CastWebContentsImpl::SetDelegate(CastWebContents::Delegate* delegate) {
@@ -163,6 +184,17 @@ void CastWebContentsImpl::RemoveObserver(CastWebContents::Observer* observer) {
   observer_list_.RemoveObserver(observer);
 }
 
+service_manager::BinderRegistry* CastWebContentsImpl::binder_registry() {
+  return &binder_registry_;
+}
+
+void CastWebContentsImpl::RegisterInterfaceProvider(
+    const InterfaceSet& interface_set,
+    service_manager::InterfaceProvider* interface_provider) {
+  DCHECK(interface_provider);
+  interface_providers_map_.emplace(interface_set, interface_provider);
+}
+
 void CastWebContentsImpl::OnClosePageTimeout() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (!closing_ || stopped_) {
@@ -188,14 +220,25 @@ void CastWebContentsImpl::RenderFrameCreated(
     observer.RenderFrameCreated(render_process_id, render_frame_id);
   }
 
-  // Only the root frame should receive feature configuration messages.
-  if (render_frame_host->GetParent()) {
-    return;
-  }
-
   chromecast::shell::mojom::FeatureManagerPtr feature_manager_ptr;
   render_frame_host->GetRemoteInterfaces()->GetInterface(&feature_manager_ptr);
-  feature_manager_ptr->ConfigureFeatures(delegate_->GetRendererFeatures());
+  feature_manager_ptr->ConfigureFeatures(GetRendererFeatures());
+
+  chromecast::shell::mojom::MediaPlaybackOptionsAssociatedPtr
+      media_playback_options;
+  render_frame_host->GetRemoteAssociatedInterfaces()->GetInterface(
+      &media_playback_options);
+  media_playback_options->SetUseCmaRenderer(use_cma_renderer_);
+}
+
+std::vector<chromecast::shell::mojom::FeaturePtr>
+CastWebContentsImpl::GetRendererFeatures() {
+  std::vector<chromecast::shell::mojom::FeaturePtr> features;
+  for (const auto& feature : renderer_features_) {
+    features.push_back(chromecast::shell::mojom::Feature::New(
+        feature.name, feature.value.Clone()));
+  }
+  return features;
 }
 
 void CastWebContentsImpl::OnInterfaceRequestFromFrame(
@@ -204,8 +247,18 @@ void CastWebContentsImpl::OnInterfaceRequestFromFrame(
     mojo::ScopedMessagePipeHandle* interface_pipe) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  for (Observer& observer : observer_list_) {
-    observer.OnInterfaceRequestFromFrame(interface_name, interface_pipe);
+  if (binder_registry_.TryBindInterface(interface_name, interface_pipe)) {
+    return;
+  }
+  for (auto& entry : interface_providers_map_) {
+    auto const& interface_set = entry.first;
+    // Interface is provided by this InterfaceProvider.
+    if (interface_set.find(interface_name) != interface_set.end()) {
+      auto* interface_provider = entry.second;
+      interface_provider->GetInterfaceByName(interface_name,
+                                             std::move(*interface_pipe));
+      break;
+    }
   }
 }
 
@@ -254,6 +307,7 @@ void CastWebContentsImpl::DidStartLoading() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   UpdatePageState();
   DCHECK_EQ(page_state_, PageState::LOADING);
+  NotifyObservers();
 }
 
 void CastWebContentsImpl::DidStopLoading() {
@@ -285,11 +339,12 @@ void CastWebContentsImpl::DidStopLoading() {
   DCHECK((previous == PageState::ERROR && page_state_ == PageState::ERROR) ||
          page_state_ == PageState::LOADED)
       << "Page is in unexpected state: " << page_state_;
+  NotifyObservers();
 }
 
 void CastWebContentsImpl::UpdatePageState() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  PageState last_state = page_state_;
+  last_state_ = page_state_;
   if (!web_contents_) {
     DCHECK(stopped_);
     page_state_ = PageState::DESTROYED;
@@ -306,11 +361,13 @@ void CastWebContentsImpl::UpdatePageState() {
       page_state_ = PageState::CLOSED;
     }
   }
+}
 
+void CastWebContentsImpl::NotifyObservers() {
   if (!delegate_)
     return;
   // Don't notify if the page state didn't change.
-  if (last_state == page_state_)
+  if (last_state_ == page_state_)
     return;
   // Don't recursively notify the delegate.
   if (notifying_)
@@ -352,6 +409,14 @@ void CastWebContentsImpl::DidFailLoad(
   TracePageLoadEnd(validated_url);
   Stop(error_code);
   DCHECK_EQ(PageState::ERROR, page_state_);
+}
+
+void CastWebContentsImpl::InnerWebContentsCreated(
+    content::WebContents* inner_web_contents) {
+  auto result = inner_contents_.insert(std::make_unique<CastWebContentsImpl>(
+      inner_web_contents, InitParams{nullptr, enabled_for_dev_}));
+  if (delegate_)
+    delegate_->InnerContentsCreated(result.first->get(), this);
 }
 
 void CastWebContentsImpl::WebContentsDestroyed() {

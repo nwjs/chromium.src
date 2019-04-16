@@ -117,7 +117,7 @@ Polymer({
 
   properties: {
     /**
-     * An array of saved credit cards.
+     * An array of all saved credit cards.
      * @type {!Array<!PaymentsManager.CreditCardEntry>}
      */
     creditCards: Array,
@@ -215,6 +215,8 @@ Polymer({
 
   listeners: {
     'save-credit-card': 'saveCreditCard_',
+    'dots-card-menu-click': 'onCreditCardDotsMenuTap_',
+    'remote-card-menu-click': 'onRemoteEditCreditCardTap_',
   },
 
   /**
@@ -278,39 +280,18 @@ Polymer({
   },
 
   /**
-   * Formats the expiration date so it's displayed as MM/YYYY.
-   * @param {!chrome.autofillPrivate.CreditCardEntry} item
-   * @return {string}
-   * @private
-   */
-  expiration_: function(item) {
-    return item.expirationMonth + '/' + item.expirationYear;
-  },
-
-  /**
    * Opens the credit card action menu.
-   * @param {!Event} e The polymer event.
+   * @param {!CustomEvent<{creditCard: !chrome.autofillPrivate.CreditCardEntry,
+   *     anchorElement: !HTMLElement}>} e
    * @private
    */
-  onCreditCardMenuTap_: function(e) {
-    const menuEvent = /** @type {!{model: !{item: !Object}}} */ (e);
-
-    /* TODO(scottchen): drop the [dataHost][dataHost] once this bug is fixed:
-     https://github.com/Polymer/polymer/issues/2574 */
-    // TODO(dpapad): The [dataHost][dataHost] workaround is only necessary for
-    // Polymer 1. Remove once migration to Polymer 2 has completed.
-    const item = Polymer.DomIf ? menuEvent.model.item :
-                                 menuEvent.model['dataHost']['dataHost'].item;
-
+  onCreditCardDotsMenuTap_: function(e) {
     // Copy item so dialog won't update model on cancel.
-    this.activeCreditCard =
-        /** @type {!chrome.autofillPrivate.CreditCardEntry} */ (
-            Object.assign({}, item));
+    this.activeCreditCard = e.detail.creditCard;
 
-    const dotsButton = /** @type {!HTMLElement} */ (Polymer.dom(e).localTarget);
     /** @type {!CrActionMenuElement} */ (this.$.creditCardSharedMenu)
-        .showAt(dotsButton);
-    this.activeDialogAnchor_ = dotsButton;
+        .showAt(e.detail.anchorElement);
+    this.activeDialogAnchor_ = e.detail.anchorElement;
   },
 
   /**
@@ -384,31 +365,12 @@ Polymer({
   },
 
   /**
-   * Handles clicking on the "Migrate" button for migrate local credit cards.
+   * Handles clicking on the "Migrate" button for migrate local credit
+   * cards.
    * @private
    */
   onMigrateCreditCardsClick_: function() {
     this.paymentsManager_.migrateCreditCards();
-  },
-
-  /**
-   * The 3-dot menu should not be shown if the card is entirely remote.
-   * @param {!chrome.autofillPrivate.AutofillMetadata} metadata
-   * @return {boolean}
-   * @private
-   */
-  showDots_: function(metadata) {
-    return !!(metadata.isLocal || metadata.isCached);
-  },
-
-  /**
-   * Returns true if the list exists and has items.
-   * @param {Array<Object>} list
-   * @return {boolean}
-   * @private
-   */
-  hasSome_: function(list) {
-    return !!(list && list.length);
   },
 
   /**
@@ -433,9 +395,10 @@ Polymer({
    * @param {!settings.SyncStatus} syncStatus
    * @param {!Array<!PaymentsManager.CreditCardEntry>} creditCards
    * @param {boolean} creditCardEnabled
-   * @return {boolean} Whether to show the migration button. True iff at least
-   * one valid local card, enable migration, signed-in & synced and credit card
-   * pref enabled.
+   * @return {boolean} Whether to show the migration button. True iff at
+   *     least
+   * one valid local card, enable migration, signed-in & synced and credit
+   * card pref enabled.
    * @private
    */
   checkIfMigratable_: function(syncStatus, creditCards, creditCardEnabled) {
@@ -466,8 +429,8 @@ Polymer({
       return false;
     }
 
-    // If upload-to-Google state is not active, card cannot be saved to Google
-    // Payments. Return false.
+    // If upload-to-Google state is not active, card cannot be saved to
+    // Google Payments. Return false.
     if (!this.uploadToGoogleActive_) {
       return false;
     }
@@ -494,7 +457,8 @@ Polymer({
       return false;
     }
 
-    // Update the display text depends on the number of migratable credit cards.
+    // Update the display text depends on the number of migratable credit
+    // cards.
     this.migratableCreditCardsInfo_ = numberOfMigratableCreditCard == 1 ?
         this.i18n('migratableCardsInfoSingle') :
         this.i18n('migratableCardsInfoMultiple');

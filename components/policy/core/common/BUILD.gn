@@ -90,6 +90,7 @@ jumbo_source_set("internal") {
     "config_dir_policy_loader.h",
     "configuration_policy_provider.cc",
     "configuration_policy_provider.h",
+    "extension_policy_migrator.cc",
     "extension_policy_migrator.h",
     "external_data_fetcher.cc",
     "external_data_fetcher.h",
@@ -156,6 +157,7 @@ jumbo_source_set("internal") {
     "//components/crash/core/common:crash_key",  # Remove once https://crbug.com/685996 is fixed.
     "//components/data_use_measurement/core",
     "//components/prefs",
+    "//components/strings",
     "//components/version_info",
     "//extensions/buildflags",
     "//google_apis",
@@ -294,6 +296,7 @@ jumbo_static_library("test_support") {
     "//components/account_id",
     "//components/policy:generated",
     "//components/policy/proto",
+    "//components/strings",
     "//crypto",
     "//net",
     "//services/network/public/cpp",

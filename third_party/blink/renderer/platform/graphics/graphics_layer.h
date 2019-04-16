@@ -62,7 +62,8 @@
 namespace cc {
 class PictureImageLayer;
 class PictureLayer;
-}
+struct OverscrollBehavior;
+}  // namespace cc
 
 namespace blink {
 
@@ -126,9 +127,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
 
   // The offset is the origin of the layoutObject minus the origin of the
   // graphics layer (so either zero or negative).
-  IntSize OffsetFromLayoutObject() const {
-    return offset_from_layout_object_;
-  }
+  IntSize OffsetFromLayoutObject() const { return offset_from_layout_object_; }
   void SetOffsetFromLayoutObject(const IntSize&);
   LayoutSize OffsetFromLayoutObjectWithSubpixelAccumulation() const;
 
@@ -161,7 +160,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
   // This is different from |DrawsContent| because hit test display items are
   // internal to blink and are not copied to the cc::Layer's display list.
   bool PaintsHitTest() const { return paints_hit_test_; }
-  void SetPaintsHitTest(bool paints) { paints_hit_test_ = paints; };
+  void SetPaintsHitTest(bool paints) { paints_hit_test_ = paints; }
 
   bool PaintsContentOrHitTest() const {
     return draws_content_ || paints_hit_test_;
@@ -202,7 +201,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
   }
 
   void SetFilters(CompositorFilterOperations);
-  void SetBackdropFilters(CompositorFilterOperations, const gfx::RectF&);
+  void SetBackdropFilters(CompositorFilterOperations, const gfx::RRectF&);
 
   void SetStickyPositionConstraint(const cc::LayerStickyPositionConstraint&);
 

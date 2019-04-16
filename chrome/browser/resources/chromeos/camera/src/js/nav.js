@@ -1,4 +1,4 @@
-// Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -69,7 +69,7 @@ cca.nav.findNextTopmostIndex_ = function() {
  * @private
  */
 cca.nav.isShown_ = function(index) {
-  return document.body.classList.contains(cca.nav.views_[index].root.id);
+  return cca.state.get(cca.nav.views_[index].root.id);
 };
 
 /**
@@ -82,7 +82,7 @@ cca.nav.isShown_ = function(index) {
 cca.nav.show_ = function(index) {
   var view = cca.nav.views_[index];
   if (!cca.nav.isShown_(index)) {
-    document.body.classList.add(view.root.id);
+    cca.state.set(view.root.id, true);
     view.layout();
     if (index > cca.nav.topmostIndex_) {
       if (cca.nav.topmostIndex_ >= 0) {
@@ -110,7 +110,7 @@ cca.nav.hide_ = function(index) {
     }
     cca.nav.topmostIndex_ = next;
   }
-  document.body.classList.remove(cca.nav.views_[index].root.id);
+  cca.state.set(cca.nav.views_[index].root.id, false);
 };
 
 /**
@@ -190,14 +190,27 @@ cca.nav.close = function(id, condition) {
  */
 cca.nav.onKeyPressed = function(event) {
   var key = cca.util.getShortcutIdentifier(event);
-  if (key == 'BrowserBack') {
-    chrome.app.window.current().minimize();
-    return;
-  }
-  // Make the topmost visible view handle the pressed key.
-  if (cca.nav.topmostIndex_ >= 0 &&
-      cca.nav.views_[cca.nav.topmostIndex_].onKeyPressed(key)) {
-    event.preventDefault();
+  var openInspector = (type) => chrome.fileManagerPrivate &&
+      chrome.fileManagerPrivate.openInspector(type);
+  switch (key) {
+    case 'BrowserBack':
+      chrome.app.window.current().minimize();
+      break;
+    case 'Ctrl-Shift-I':
+      openInspector('normal');
+      break;
+    case 'Ctrl-Shift-J':
+      openInspector('console');
+      break;
+    case 'Ctrl-Shift-C':
+      openInspector('element');
+      break;
+    default:
+      // Make the topmost visible view handle the pressed key.
+      if (cca.nav.topmostIndex_ >= 0 &&
+          cca.nav.views_[cca.nav.topmostIndex_].onKeyPressed(key)) {
+        event.preventDefault();
+      }
   }
 };
 

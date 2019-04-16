@@ -11,10 +11,11 @@
 #include <utility>
 
 #include "base/barrier_closure.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
 #include "base/guid.h"
-#include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
@@ -41,10 +42,10 @@
 #include "net/base/directory_lister.h"
 #include "net/base/net_errors.h"
 #include "storage/browser/blob/blob_storage_context.h"
+#include "storage/browser/quota/padding_key.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
 #include "third_party/blink/public/mojom/quota/quota_types.mojom.h"
 
-using base::LazyInstance;
 using blink::mojom::CacheStorageError;
 using blink::mojom::StorageType;
 using crypto::SymmetricKey;
@@ -52,31 +53,6 @@ using crypto::SymmetricKey;
 namespace content {
 
 namespace {
-
-const SymmetricKey::Algorithm kPaddingKeyAlgorithm = SymmetricKey::AES;
-
-// LazyInstance needs a new-able type so this class exists solely to "own"
-// a SymmetricKey.
-class SymmetricKeyOwner {
- public:
-  std::unique_ptr<SymmetricKey> CreateDuplicate() const {
-    return SymmetricKey::Import(kPaddingKeyAlgorithm, key());
-  }
-
-  // Only for test purposes.
-  void GenerateNew() {
-    key_ = SymmetricKey::GenerateRandomKey(kPaddingKeyAlgorithm, 128);
-  }
-
-  const std::string& key() const { return key_->key(); }
-
- private:
-  std::unique_ptr<SymmetricKey> key_ =
-      SymmetricKey::GenerateRandomKey(kPaddingKeyAlgorithm, 128);
-};
-
-static LazyInstance<SymmetricKeyOwner>::Leaky s_padding_key =
-    LAZY_INSTANCE_INITIALIZER;
 
 std::string HexedHash(const std::string& value) {
   std::string value_hash = base::SHA1HashString(value);
@@ -89,10 +65,6 @@ void SizeRetrievedFromAllCaches(std::unique_ptr<int64_t> accumulator,
                                 CacheStorage::SizeCallback callback) {
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), *accumulator));
-}
-
-std::unique_ptr<SymmetricKey> ImportPaddingKey(const std::string& raw_key) {
-  return SymmetricKey::Import(kPaddingKeyAlgorithm, raw_key);
 }
 
 }  // namespace
@@ -209,14 +181,14 @@ class CacheStorage::MemoryLoader : public CacheStorage::CacheLoader {
       std::unique_ptr<SymmetricKey> cache_padding_key) override {
     return CacheStorageCache::CreateMemoryCache(
         origin_, owner_, cache_name, cache_storage_, quota_manager_proxy_,
-        blob_context_, s_padding_key.Get().CreateDuplicate());
+        blob_context_, storage::CopyDefaultPaddingKey());
   }
 
   void PrepareNewCacheDestination(const std::string& cache_name,
                                   CacheCallback callback) override {
     std::unique_ptr<CacheStorageCache> cache =
         CreateCache(cache_name, 0 /*cache_size*/, 0 /* cache_padding */,
-                    s_padding_key.Get().CreateDuplicate());
+                    storage::CopyDefaultPaddingKey());
     std::move(callback).Run(std::move(cache));
   }
 
@@ -235,13 +207,13 @@ class CacheStorage::MemoryLoader : public CacheStorage::CacheLoader {
                           CacheStorageCacheHandle cache_handle) override {
     DCHECK(!base::ContainsKey(cache_handles_, cache_name));
     cache_handles_.insert(std::make_pair(cache_name, std::move(cache_handle)));
-  };
+  }
 
   void NotifyCacheDoomed(CacheStorageCacheHandle cache_handle) override {
     DCHECK(
         base::ContainsKey(cache_handles_, cache_handle.value()->cache_name()));
     cache_handles_.erase(cache_handle.value()->cache_name());
-  };
+  }
 
  private:
   typedef std::map<std::string, CacheStorageCacheHandle> CacheHandles;
@@ -324,7 +296,7 @@ class CacheStorage::SimpleCacheLoader : public CacheStorage::CacheLoader {
     cache_name_to_cache_dir_[cache_name] = cache_dir;
     std::move(callback).Run(CreateCache(cache_name, CacheStorage::kSizeUnknown,
                                         CacheStorage::kSizeUnknown,
-                                        s_padding_key.Get().CreateDuplicate()));
+                                        storage::CopyDefaultPaddingKey()));
   }
 
   void CleanUpDeletedCache(CacheStorageCache* cache) override {
@@ -442,9 +414,9 @@ class CacheStorage::SimpleCacheLoader : public CacheStorage::CacheLoader {
         cache_padding = CacheStorage::kSizeUnknown;
       }
 
-      std::string cache_padding_key = cache.has_padding_key()
-                                          ? cache.padding_key()
-                                          : s_padding_key.Get().key();
+      std::string cache_padding_key =
+          cache.has_padding_key() ? cache.padding_key()
+                                  : storage::SerializeDefaultPaddingKey();
 
       index->Insert(CacheStorageIndex::CacheMetadata(
           cache.name(), cache_size, cache_padding,
@@ -466,7 +438,7 @@ class CacheStorage::SimpleCacheLoader : public CacheStorage::CacheLoader {
         cache_name_to_cache_dir_.find(cache_handle.value()->cache_name());
     doomed_cache_to_path_[cache_handle.value()] = iter->second;
     cache_name_to_cache_dir_.erase(iter);
-  };
+  }
 
  private:
   friend class MigratedLegacyCacheDirectoryNameTest;
@@ -700,7 +672,7 @@ void CacheStorage::EnumerateCaches(IndexCallback callback) {
 
 void CacheStorage::MatchCache(const std::string& cache_name,
                               blink::mojom::FetchAPIRequestPtr request,
-                              blink::mojom::QueryParamsPtr match_params,
+                              blink::mojom::CacheQueryOptionsPtr match_options,
                               CacheStorageCache::ResponseCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -714,13 +686,13 @@ void CacheStorage::MatchCache(const std::string& cache_name,
   scheduler_->ScheduleOperation(
       CacheStorageSchedulerOp::kMatch,
       base::BindOnce(&CacheStorage::MatchCacheImpl, weak_factory_.GetWeakPtr(),
-                     cache_name, std::move(request), std::move(match_params),
+                     cache_name, std::move(request), std::move(match_options),
                      scheduler_->WrapCallbackToRunNext(std::move(callback))));
 }
 
 void CacheStorage::MatchAllCaches(
     blink::mojom::FetchAPIRequestPtr request,
-    blink::mojom::QueryParamsPtr match_params,
+    blink::mojom::CacheQueryOptionsPtr match_options,
     CacheStorageCache::ResponseCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -735,7 +707,7 @@ void CacheStorage::MatchAllCaches(
       CacheStorageSchedulerOp::kMatchAll,
       base::BindOnce(&CacheStorage::MatchAllCachesImpl,
                      weak_factory_.GetWeakPtr(), std::move(request),
-                     std::move(match_params),
+                     std::move(match_options),
                      scheduler_->WrapCallbackToRunNext(std::move(callback))));
 }
 
@@ -850,11 +822,6 @@ void CacheStorage::StartAsyncOperationForTesting() {
 
 void CacheStorage::CompleteAsyncOperationForTesting() {
   scheduler_->CompleteOperationAndRunNext();
-}
-
-// static
-void CacheStorage::GenerateNewKeyForTesting() {
-  s_padding_key.Get().GenerateNew();
 }
 
 // Init is run lazily so that it is called on the proper MessageLoop.
@@ -1050,7 +1017,7 @@ void CacheStorage::EnumerateCachesImpl(IndexCallback callback) {
 void CacheStorage::MatchCacheImpl(
     const std::string& cache_name,
     blink::mojom::FetchAPIRequestPtr request,
-    blink::mojom::QueryParamsPtr match_params,
+    blink::mojom::CacheQueryOptionsPtr match_options,
     CacheStorageCache::ResponseCallback callback) {
   CacheStorageCacheHandle cache_handle = GetLoadedCache(cache_name);
 
@@ -1064,7 +1031,7 @@ void CacheStorage::MatchCacheImpl(
   // match is done.
   CacheStorageCache* cache_ptr = cache_handle.value();
   cache_ptr->Match(
-      std::move(request), std::move(match_params),
+      std::move(request), std::move(match_options),
       base::BindOnce(&CacheStorage::MatchCacheDidMatch,
                      weak_factory_.GetWeakPtr(), std::move(cache_handle),
                      std::move(callback)));
@@ -1080,7 +1047,7 @@ void CacheStorage::MatchCacheDidMatch(
 
 void CacheStorage::MatchAllCachesImpl(
     blink::mojom::FetchAPIRequestPtr request,
-    blink::mojom::QueryParamsPtr match_params,
+    blink::mojom::CacheQueryOptionsPtr match_options,
     CacheStorageCache::ResponseCallback callback) {
   std::vector<CacheMatchResponse>* match_responses =
       new std::vector<CacheMatchResponse>(cache_index_->num_entries());
@@ -1099,7 +1066,7 @@ void CacheStorage::MatchAllCachesImpl(
     CacheStorageCache* cache_ptr = cache_handle.value();
     cache_ptr->Match(
         BackgroundFetchSettledFetch::CloneRequest(request),
-        match_params ? match_params->Clone() : nullptr,
+        match_options ? match_options->Clone() : nullptr,
         base::BindOnce(&CacheStorage::MatchAllCachesDidMatch,
                        weak_factory_.GetWeakPtr(), std::move(cache_handle),
                        &match_responses->at(idx), barrier_closure));
@@ -1165,7 +1132,7 @@ CacheStorageCacheHandle CacheStorage::GetLoadedCache(
     DCHECK(metadata);
     std::unique_ptr<CacheStorageCache> new_cache = cache_loader_->CreateCache(
         cache_name, metadata->size, metadata->padding,
-        ImportPaddingKey(metadata->padding_key));
+        storage::DeserializePaddingKey(metadata->padding_key));
     CacheStorageCache* cache_ptr = new_cache.get();
     map_iter->second = std::move(new_cache);
 

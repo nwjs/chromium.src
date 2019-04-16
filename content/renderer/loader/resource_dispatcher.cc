@@ -12,7 +12,6 @@
 #include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/debug/alias.h"
-#include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
@@ -406,6 +405,8 @@ void ResourceDispatcher::OnTransferSizeUpdated(int request_id,
   // TODO(yhirano): Consider using int64_t in
   // RequestPeer::OnTransferSizeUpdated.
   request_info->peer->OnTransferSizeUpdated(transfer_size_diff);
+  if (!GetPendingRequestInfo(request_id))
+    return;
 
   NotifyResourceTransferSizeUpdated(request_info->render_frame_id,
                                     request_info->resource_load_info.get(),
@@ -504,8 +505,7 @@ int ResourceDispatcher::StartAsync(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     std::vector<std::unique_ptr<URLLoaderThrottle>> throttles,
     std::unique_ptr<NavigationResponseOverrideParameters>
-        response_override_params,
-    base::OnceClosure* continue_navigation_function) {
+        response_override_params) {
   CheckSchemeForReferrerPolicy(*request);
 
 #if defined(OS_ANDROID)
@@ -532,29 +532,19 @@ int ResourceDispatcher::StartAsync(
       request->referrer, pending_request->resource_type);
 
   if (override_url_loader) {
+    DCHECK(request->resource_type == RESOURCE_TYPE_WORKER ||
+           request->resource_type == RESOURCE_TYPE_SHARED_WORKER)
+        << request->resource_type;
+
     // Redirect checks are handled by NavigationURLLoaderImpl, so it's safe to
     // pass true for |bypass_redirect_checks|.
     pending_request->url_loader_client = std::make_unique<URLLoaderClientImpl>(
         request_id, this, loading_task_runner,
         true /* bypass_redirect_checks */, request->url);
 
-    if (request->resource_type == RESOURCE_TYPE_SHARED_WORKER) {
-      // For shared workers, immediately post a task for continuing loading
-      // because shared workers don't have the concept of the navigation commit
-      // and |continue_navigation_function| is never called.
-      // TODO(nhiroki): Unify this case with the navigation case for code
-      // health.
-      loading_task_runner->PostTask(
-          FROM_HERE, base::BindOnce(&ResourceDispatcher::ContinueForNavigation,
-                                    weak_factory_.GetWeakPtr(), request_id));
-    } else {
-      // For navigations, |continue_navigation_function| is called after the
-      // navigation commit.
-      DCHECK(continue_navigation_function);
-      *continue_navigation_function =
-          base::BindOnce(&ResourceDispatcher::ContinueForNavigation,
-                         weak_factory_.GetWeakPtr(), request_id);
-    }
+    loading_task_runner->PostTask(
+        FROM_HERE, base::BindOnce(&ResourceDispatcher::ContinueForNavigation,
+                                  weak_factory_.GetWeakPtr(), request_id));
     return request_id;
   }
 
@@ -573,7 +563,8 @@ int ResourceDispatcher::StartAsync(
     // MIME sniffing should be disabled for a request initiated by fetch().
     options |= network::mojom::kURLLoadOptionSniffMimeType;
     if (blink::ServiceWorkerUtils::IsServicificationEnabled())
-      throttles.push_back(std::make_unique<MimeSniffingThrottle>());
+      throttles.push_back(
+          std::make_unique<MimeSniffingThrottle>(loading_task_runner));
   }
   if (is_sync) {
     options |= network::mojom::kURLLoadOptionSynchronous;
@@ -630,6 +621,8 @@ void ResourceDispatcher::ToResourceResponseHead(
   RemoteToLocalTimeTicks(converter, &renderer_info->service_worker_ready_time);
 }
 
+// TODO(dgozman): this is not used for navigation anymore, only for worker
+// main script. Rename all related entities accordingly.
 void ResourceDispatcher::ContinueForNavigation(int request_id) {
   PendingRequestInfo* request_info = GetPendingRequestInfo(request_id);
   if (!request_info)

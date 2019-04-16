@@ -48,6 +48,15 @@ test.localNtp.testDoesNotShowFakeboxIfNotGoogle = function() {
 
 
 /**
+ * Tests the fakebox is hidden if the "remove-ntp-fakebox" feature is enabled.
+ */
+test.localNtp.testDoesNotShowFakeboxIfRemoveFeatureEnabled = function() {
+  initLocalNTP(/*isGooglePage=*/ true, /*removeFakebox=*/ true);
+  assertFalse(elementIsVisible($('fakebox-container')));
+};
+
+
+/**
  * Tests that the embeddedSearch.newTabPage.mostVisited API is
  * hooked up, and provides the correct data for the tiles (i.e. only
  * IDs, no URLs).
@@ -72,43 +81,3 @@ test.localNtp.testMostVisitedContents = function() {
   assert(!window.chrome.embeddedSearch.newTabPage.getMostVisitedItemData(
       window.chrome.embeddedSearch.newTabPage.mostVisited[0].rid));
 };
-
-
-// ****************************** ADVANCED TESTS ******************************
-// Advanced tests are controlled from the native side. The helpers here are
-// called from native code to set up the page and to check results.
-
-
-function setupAdvancedTest() {
-  setUpPage('local-ntp-template');
-  initLocalNTP(/*isGooglePage=*/true);
-
-  assertTrue(elementIsVisible($('fakebox')));
-
-  return true;
-}
-
-
-function getFakeboxPositionX() {
-  assertTrue(elementIsVisible($('fakebox')));
-  var rect = $('fakebox').getBoundingClientRect();
-  return rect.left;
-}
-
-
-function getFakeboxPositionY() {
-  assertTrue(elementIsVisible($('fakebox')));
-  var rect = $('fakebox').getBoundingClientRect();
-  return rect.top;
-}
-
-
-function fakeboxIsVisible() {
-  return elementIsVisible($('fakebox'));
-}
-
-
-function fakeboxIsFocused() {
-  return fakeboxIsVisible() &&
-      document.body.classList.contains('fakebox-focused');
-}

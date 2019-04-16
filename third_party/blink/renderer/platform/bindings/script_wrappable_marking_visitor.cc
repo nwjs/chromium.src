@@ -8,7 +8,6 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/platform/bindings/active_script_wrappable_base.h"
 #include "third_party/blink/renderer/platform/bindings/custom_wrappable.h"
-#include "third_party/blink/renderer/platform/bindings/dom_wrapper_map.h"
 #include "third_party/blink/renderer/platform/bindings/dom_wrapper_world.h"
 #include "third_party/blink/renderer/platform/bindings/scoped_persistent.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -30,7 +29,6 @@ void ScriptWrappableMarkingVisitor::TracePrologue() {
   // This CHECK ensures that wrapper tracing is not started from scopes
   // that forbid GC execution, e.g., constructors.
   CHECK(ThreadState::Current());
-  CHECK(!ThreadState::Current()->IsWrapperTracingForbidden());
   PerformCleanup();
 
   CHECK(!tracing_in_progress_);
@@ -44,13 +42,12 @@ void ScriptWrappableMarkingVisitor::TracePrologue() {
 
 void ScriptWrappableMarkingVisitor::EnterFinalPause(EmbedderStackState) {
   CHECK(ThreadState::Current());
-  CHECK(!ThreadState::Current()->IsWrapperTracingForbidden());
+  ThreadState::Current()->DisableWrapperTracingBarrier();
   ActiveScriptWrappableBase::TraceActiveScriptWrappables(isolate(), this);
 }
 
 void ScriptWrappableMarkingVisitor::TraceEpilogue() {
   CHECK(ThreadState::Current());
-  CHECK(!ThreadState::Current()->IsWrapperTracingForbidden());
   DCHECK(marking_deque_.IsEmpty());
 #if DCHECK_IS_ON()
   ScriptWrappableVisitorVerifier verifier(ThreadState::Current());
@@ -62,7 +59,6 @@ void ScriptWrappableMarkingVisitor::TraceEpilogue() {
 
   should_cleanup_ = true;
   tracing_in_progress_ = false;
-  ThreadState::Current()->DisableWrapperTracingBarrier();
   ScheduleIdleLazyCleanup();
 }
 
@@ -76,6 +72,11 @@ void ScriptWrappableMarkingVisitor::AbortTracingForTermination() {
 
 bool ScriptWrappableMarkingVisitor::IsTracingDone() {
   return marking_deque_.empty();
+}
+
+bool ScriptWrappableMarkingVisitor::IsRootForNonTracingGC(
+    const v8::TracedGlobal<v8::Value>& handle) {
+  return UnifiedHeapController::IsRootForNonTracingGCInternal(handle);
 }
 
 void ScriptWrappableMarkingVisitor::PerformCleanup() {
@@ -176,7 +177,6 @@ bool ScriptWrappableMarkingVisitor::AdvanceTracing(double deadline_in_ms) {
   // perform a GC. This makes sure that TraceTraits and friends find
   // themselves in a well-defined environment, e.g., properly set up vtables.
   CHECK(ThreadState::Current());
-  CHECK(!ThreadState::Current()->IsWrapperTracingForbidden());
   CHECK(tracing_in_progress_);
   TimeTicks deadline =
       TimeTicks() + TimeDelta::FromMillisecondsD(deadline_in_ms);
@@ -218,20 +218,6 @@ void ScriptWrappableMarkingVisitor::WriteBarrier(
 
 void ScriptWrappableMarkingVisitor::WriteBarrier(
     v8::Isolate* isolate,
-    DOMWrapperMap<ScriptWrappable>* wrapper_map,
-    ScriptWrappable* key) {
-  if (!ThreadState::IsAnyWrapperTracing())
-    return;
-  ScriptWrappableMarkingVisitor* visitor = CurrentVisitor(isolate);
-  if (!visitor->WrapperTracingInProgress())
-    return;
-
-  // Conservatively assume that the source object key is marked.
-  visitor->Trace(wrapper_map, key);
-}
-
-void ScriptWrappableMarkingVisitor::WriteBarrier(
-    v8::Isolate* isolate,
     const WrapperTypeInfo* wrapper_type_info,
     void* object) {
   if (!ThreadState::IsAnyWrapperTracing())
@@ -250,7 +236,8 @@ void ScriptWrappableMarkingVisitor::Visit(
   // requires us to bail out here when tracing is not in progress.
   if (!tracing_in_progress_ || traced_wrapper.Get().IsEmpty())
     return;
-  traced_wrapper.Get().RegisterExternalReference(isolate());
+
+  RegisterEmbedderReference(traced_wrapper.Get());
 }
 
 void ScriptWrappableMarkingVisitor::VisitWithWrappers(
@@ -276,12 +263,6 @@ void ScriptWrappableMarkingVisitor::VisitBackingStoreStrongly(
   if (!object)
     return;
   desc.callback(this, desc.base_object_payload);
-}
-
-void ScriptWrappableMarkingVisitor::Visit(
-    DOMWrapperMap<ScriptWrappable>* wrapper_map,
-    const ScriptWrappable* key) {
-  wrapper_map->MarkWrapper(const_cast<ScriptWrappable*>(key));
 }
 
 void ScriptWrappableMarkingVisitor::InvalidateDeadObjectsInMarkingDeque() {

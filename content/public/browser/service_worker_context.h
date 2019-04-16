@@ -11,8 +11,14 @@
 
 #include "base/callback_forward.h"
 #include "content/common/content_export.h"
-#include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom-forward.h"
 #include "url/gurl.h"
+
+namespace blink {
+
+struct TransferableMessage;
+
+}
 
 namespace content {
 
@@ -148,19 +154,14 @@ class ServiceWorkerContext {
   virtual void PerformStorageCleanup(base::OnceClosure callback) = 0;
 
   // Returns ServiceWorkerCapability describing existence and properties of a
-  // Service Worker registration matching |url|. Found service worker
-  // registration must also encompass the |other_url|, otherwise it will be
-  // considered non existent by this method. Note that the longest matching
-  // registration for |url| is described, which is not necessarily the longest
-  // matching registration for |other_url|. In case the service worker is being
-  // installed as of calling this method, it will wait for the installation to
-  // finish before coming back with the result.
+  // Service Worker registration matching |url|. In case the service
+  // worker is being installed as of calling this method, it will wait for the
+  // installation to finish before coming back with the result.
   //
   // This function can be called from any thread, but the callback will always
   // be called on the UI thread.
   virtual void CheckHasServiceWorker(
       const GURL& url,
-      const GURL& other_url,
       CheckHasServiceWorkerCallback callback) = 0;
 
   // Stops all running service workers and unregisters all service worker

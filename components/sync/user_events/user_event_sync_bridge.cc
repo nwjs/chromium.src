@@ -54,7 +54,7 @@ std::unique_ptr<EntityData> MoveToEntityData(
     std::unique_ptr<UserEventSpecifics> specifics) {
   auto entity_data = std::make_unique<EntityData>();
   entity_data->non_unique_name =
-      base::Int64ToString(specifics->event_time_usec());
+      base::NumberToString(specifics->event_time_usec());
   entity_data->specifics.set_allocated_user_event(specifics.release());
   return entity_data;
 }
@@ -145,14 +145,12 @@ std::string UserEventSyncBridge::GetStorageKey(const EntityData& entity_data) {
   return GetStorageKeyFromSpecifics(entity_data.specifics.user_event());
 }
 
-ModelTypeSyncBridge::StopSyncResponse UserEventSyncBridge::ApplyStopSyncChanges(
+void UserEventSyncBridge::ApplyStopSyncChanges(
     std::unique_ptr<MetadataChangeList> delete_metadata_change_list) {
   if (delete_metadata_change_list) {
     store_->DeleteAllDataAndMetadata(base::BindOnce(
         &UserEventSyncBridge::OnCommit, weak_ptr_factory_.GetWeakPtr()));
   }
-
-  return StopSyncResponse::kModelStillReadyToSync;
 }
 
 void UserEventSyncBridge::RecordUserEvent(

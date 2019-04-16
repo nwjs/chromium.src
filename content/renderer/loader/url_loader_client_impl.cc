@@ -6,6 +6,7 @@
 
 #include <iterator>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/single_thread_task_runner.h"
@@ -322,13 +323,8 @@ void URLLoaderClientImpl::OnStartLoadingResponseBody(
   has_received_response_body_ = true;
 
   if (!base::FeatureList::IsEnabled(
-          blink::features::kResourceLoadViaDataPipe)) {
-    if (pass_response_pipe_to_dispatcher_) {
-      resource_dispatcher_->OnStartLoadingResponseBody(request_id_,
-                                                       std::move(body));
-      return;
-    }
-
+          blink::features::kResourceLoadViaDataPipe) &&
+      !pass_response_pipe_to_dispatcher_) {
     body_consumer_ = new URLResponseBodyConsumer(
         request_id_, resource_dispatcher_, std::move(body), task_runner_);
 
@@ -378,7 +374,8 @@ void URLLoaderClientImpl::OnComplete(
 }
 
 bool URLLoaderClientImpl::NeedsStoringMessage() const {
-  return is_deferred_ || deferred_messages_.size() > 0;
+  return is_deferred_ || deferred_messages_.size() > 0 ||
+         accumulated_transfer_size_diff_during_deferred_ > 0;
 }
 
 void URLLoaderClientImpl::StoreAndDispatch(
@@ -386,7 +383,8 @@ void URLLoaderClientImpl::StoreAndDispatch(
   DCHECK(NeedsStoringMessage());
   if (is_deferred_) {
     deferred_messages_.push_back(std::move(message));
-  } else if (deferred_messages_.size() > 0) {
+  } else if (deferred_messages_.size() > 0 ||
+             accumulated_transfer_size_diff_during_deferred_ > 0) {
     deferred_messages_.push_back(std::move(message));
     FlushDeferredMessages();
   } else {

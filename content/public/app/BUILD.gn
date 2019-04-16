@@ -23,7 +23,6 @@
 import("//build/config/chrome_build.gni")
 import("//build/config/ui.gni")
 import("//chromeos/assistant/assistant.gni")
-import("//services/service_manager/public/service_manifest.gni")
 import("//tools/v8_context_snapshot/v8_context_snapshot.gni")
 import("//ui/base/ui_features.gni")
 
@@ -41,7 +40,7 @@ public_app_shared_deps = [
   "//base:i18n",
   "//content:export",
   "//content/public/common:common_sources",
-  "//services/service_manager/background:lib",
+  "//services/service_manager",
   "//services/service_manager/embedder",
   "//services/service_manager/public/cpp",
 ]
@@ -190,8 +189,8 @@ source_set("content_browser_manifest") {
     ":v8_snapshot_overlay_manifest",
     "//base",
     "//content/public/common:service_names",
-    "//services/content:manifest",
-    "//services/file:manifest",
+    "//services/content/public/cpp:manifest",
+    "//services/file/public/cpp:manifest",
   ]
 
   public_deps = [
@@ -223,21 +222,21 @@ source_set("content_packaged_services_manifest") {
 
   deps = [
     "//base",
-    "//components/services/heap_profiling:manifest",
+    "//components/services/heap_profiling/public/cpp:manifest",
     "//content/public/common:service_names",
     "//media/mojo/services:cdm_manifest",
     "//media/mojo/services:media_manifest",
-    "//services/audio:manifest",
-    "//services/data_decoder:manifest",
-    "//services/device:manifest",
-    "//services/media_session:manifest",
-    "//services/metrics:manifest",
-    "//services/network:manifest",
-    "//services/resource_coordinator:manifest",
-    "//services/shape_detection:manifest",
+    "//services/audio/public/cpp:manifest",
+    "//services/data_decoder/public/cpp:manifest",
+    "//services/device/public/cpp:manifest",
+    "//services/media_session/public/cpp:manifest",
+    "//services/metrics/public/cpp:manifest",
+    "//services/network/public/cpp:manifest",
+    "//services/resource_coordinator/public/cpp:manifest",
+    "//services/shape_detection/public/cpp:manifest",
     "//services/tracing:manifest",
-    "//services/video_capture:manifest",
-    "//services/viz:manifest",
+    "//services/video_capture/public/cpp:manifest",
+    "//services/viz/public/cpp:manifest",
   ]
 
   public_deps = [
@@ -245,13 +244,14 @@ source_set("content_packaged_services_manifest") {
   ]
 
   if (is_linux) {
-    deps += [ "//components/services/font:manifest" ]
+    deps += [ "//components/services/font/public/cpp:manifest" ]
   }
 
   if (is_chromeos) {
     deps += [ "//chromeos/assistant:buildflags" ]
     if (enable_cros_libassistant) {
-      deps += [ "//chromeos/services/assistant/audio_decoder:manifest" ]
+      deps +=
+          [ "//chromeos/services/assistant/public/cpp:audio_decoder_manifest" ]
     }
   }
 }

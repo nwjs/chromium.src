@@ -14,6 +14,8 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.BitmapCache;
 import org.chromium.chrome.browser.util.ConversionUtils;
 
+import jp.tomorrowkey.android.gifplayer.BaseGifImage;
+
 /**
  * A wrapper around the CachedImageFetcher that also provides in-memory caching.
  */
@@ -48,8 +50,8 @@ public class InMemoryCachedImageFetcher implements CachedImageFetcher {
     }
 
     @Override
-    public void reportEvent(@CachedImageFetcherEvent int eventId) {
-        mCachedImageFetcher.reportEvent(eventId);
+    public void reportEvent(String clientName, @CachedImageFetcherEvent int eventId) {
+        mCachedImageFetcher.reportEvent(clientName, eventId);
     }
 
     @Override
@@ -62,7 +64,13 @@ public class InMemoryCachedImageFetcher implements CachedImageFetcher {
     }
 
     @Override
-    public void fetchImage(String url, int width, int height, Callback<Bitmap> callback) {
+    public void fetchGif(String url, String clientName, Callback<BaseGifImage> callback) {
+        mCachedImageFetcher.fetchGif(url, clientName, callback);
+    }
+
+    @Override
+    public void fetchImage(
+            String url, String clientName, int width, int height, Callback<Bitmap> callback) {
         Bitmap cachedBitmap = tryToGetBitmap(url, width, height);
         if (cachedBitmap == null) {
             if (mCachedImageFetcher == null) {
@@ -70,20 +78,21 @@ public class InMemoryCachedImageFetcher implements CachedImageFetcher {
                 return;
             }
 
-            mCachedImageFetcher.fetchImage(url, width, height, (@Nullable Bitmap bitmap) -> {
-                bitmap = tryToResizeImage(bitmap, width, height);
-                storeBitmap(bitmap, url, width, height);
-                callback.onResult(bitmap);
-            });
+            mCachedImageFetcher.fetchImage(
+                    url, clientName, width, height, (@Nullable Bitmap bitmap) -> {
+                        bitmap = tryToResizeImage(bitmap, width, height);
+                        storeBitmap(bitmap, url, width, height);
+                        callback.onResult(bitmap);
+                    });
         } else {
-            reportEvent(CachedImageFetcherEvent.JAVA_IN_MEMORY_CACHE_HIT);
+            reportEvent(clientName, CachedImageFetcherEvent.JAVA_IN_MEMORY_CACHE_HIT);
             callback.onResult(cachedBitmap);
         }
     }
 
     @Override
-    public void fetchImage(String url, Callback<Bitmap> callback) {
-        fetchImage(url, 0, 0, callback);
+    public void fetchImage(String url, String clientName, Callback<Bitmap> callback) {
+        fetchImage(url, clientName, 0, 0, callback);
     }
 
     /**

@@ -10,6 +10,7 @@
 #include "base/timer/timer.h"
 #include "components/gcm_driver/gcm_app_handler.h"
 #include "components/gcm_driver/instance_id/instance_id.h"
+#include "components/invalidation/impl/channels_states.h"
 #include "components/invalidation/impl/fcm_sync_network_channel.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -28,7 +29,7 @@ struct FCMNetworkHandlerDiagnostic {
   FCMNetworkHandlerDiagnostic();
 
   // Collect all the internal variables in a single readable dictionary.
-  std::unique_ptr<base::DictionaryValue> CollectDebugData() const;
+  base::DictionaryValue CollectDebugData() const;
 
   std::string RegistrationResultToString(
       const instance_id::InstanceID::Result result) const;
@@ -43,6 +44,8 @@ struct FCMNetworkHandlerDiagnostic {
   base::Time instance_id_token_was_received;
   base::Time instance_id_token_verification_requested;
   base::Time instance_id_token_verified;
+
+  int token_validation_requested_num = 0;
 };
 
 /*
@@ -63,10 +66,12 @@ class FCMNetworkHandler : public gcm::GCMAppHandler,
 
   ~FCMNetworkHandler() override;
 
-  void StartListening();
-  void StopListening();
   bool IsListening() const;
-  void UpdateGcmChannelState(bool);
+  void UpdateChannelState(FcmChannelState state);
+
+  // FCMSyncNetworkChannel overrides.
+  void StartListening() override;
+  void StopListening() override;
 
   // GCMAppHandler overrides.
   void ShutdownHandler() override;
@@ -98,7 +103,7 @@ class FCMNetworkHandler : public gcm::GCMAppHandler,
   gcm::GCMDriver* const gcm_driver_;
   instance_id::InstanceIDDriver* const instance_id_driver_;
 
-  bool gcm_channel_online_ = false;
+  FcmChannelState channel_state_ = FcmChannelState::NOT_STARTED;
   std::string token_;
 
   std::unique_ptr<base::OneShotTimer> token_validation_timer_;

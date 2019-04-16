@@ -99,20 +99,21 @@ bool CSSOMTypes::PropertyCanTake(CSSPropertyID id,
   DCHECK_EQ(id == CSSPropertyVariable, !custom_property_name.IsNull());
 
   if (id == CSSPropertyVariable && registration) {
-    if (value.GetType() == CSSStyleValue::kUnknownType) {
-      return ToCSSUnsupportedStyleValue(value).IsValidFor(
+    if (auto* unsupported_style_value =
+            DynamicTo<CSSUnsupportedStyleValue>(value)) {
+      return unsupported_style_value->IsValidFor(
           CSSPropertyName(custom_property_name));
     }
     match = registration->Syntax().Match(value);
     return match != nullptr;
   }
 
-  if (value.GetType() == CSSStyleValue::kKeywordType) {
-    return CSSOMKeywords::ValidKeywordForProperty(
-        id, ToCSSKeywordValue(value));
+  if (auto* css_keyword_value = DynamicTo<CSSKeywordValue>(value)) {
+    return CSSOMKeywords::ValidKeywordForProperty(id, *css_keyword_value);
   }
-  if (value.GetType() == CSSStyleValue::kUnknownType) {
-    return ToCSSUnsupportedStyleValue(value).IsValidFor(CSSPropertyName(id));
+  if (auto* unsupported_style_value =
+          DynamicTo<CSSUnsupportedStyleValue>(value)) {
+    return unsupported_style_value->IsValidFor(CSSPropertyName(id));
   }
   if (value.GetType() == CSSStyleValue::kUnparsedType) {
     return true;

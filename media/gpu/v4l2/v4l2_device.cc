@@ -4,6 +4,8 @@
 
 #include "media/gpu/v4l2/v4l2_device.h"
 
+#include <set>
+
 #include <libdrm/drm_fourcc.h>
 #include <linux/videodev2.h>
 #include <string.h>
@@ -154,20 +156,66 @@ size_t V4L2Buffer::GetMemoryUsage() const {
   return usage;
 }
 
+// A thread-safe pool of buffer indexes, allowing buffers to be obtained and
+// returned from different threads. All the methods of this class are
+// thread-safe. Users should keep a scoped_refptr to instances of this class
+// in order to ensure the list remains alive as long as they need it.
+class V4L2BuffersList : public base::RefCountedThreadSafe<V4L2BuffersList> {
+ public:
+  V4L2BuffersList() = default;
+  // Return a buffer to this list. Also can be called to set the initial pool
+  // of buffers.
+  // Note that it is illegal to return the same buffer twice.
+  void ReturnBuffer(size_t buffer_id);
+  // Get any of the buffers in the list. There is no order guarantee whatsoever.
+  base::Optional<size_t> GetFreeBuffer();
+  // Number of buffers currently in this list.
+  size_t size() const;
+
+ private:
+  mutable base::Lock lock_;
+  std::set<size_t> free_buffers_ GUARDED_BY(lock_);
+  DISALLOW_COPY_AND_ASSIGN(V4L2BuffersList);
+};
+
+void V4L2BuffersList::ReturnBuffer(size_t buffer_id) {
+  base::AutoLock auto_lock(lock_);
+
+  auto inserted = free_buffers_.emplace(buffer_id);
+  DCHECK(inserted.second);
+}
+
+base::Optional<size_t> V4L2BuffersList::GetFreeBuffer() {
+  base::AutoLock auto_lock(lock_);
+
+  auto iter = free_buffers_.begin();
+  if (iter == free_buffers_.end()) {
+    DVLOGF(4) << "No free buffer available!";
+    return base::nullopt;
+  }
+
+  size_t buffer_id = *iter;
+  free_buffers_.erase(iter);
+
+  return buffer_id;
+}
+
+size_t V4L2BuffersList::size() const {
+  base::AutoLock auto_lock(lock_);
+
+  return free_buffers_.size();
+}
+
 // Module-private class that let users query/write V4L2 buffer information.
 // It also makes some private V4L2Queue methods available to this module only.
-class V4L2BufferQueueProxy {
+class V4L2BufferRefBase {
  public:
-  V4L2BufferQueueProxy(const struct v4l2_buffer* v4l2_buffer,
-                       scoped_refptr<V4L2Queue> queue);
-
-  void ReturnBuffer() { queue_->ReturnBuffer(BufferId()); }
+  V4L2BufferRefBase(const struct v4l2_buffer* v4l2_buffer,
+                    base::WeakPtr<V4L2Queue> queue);
+  ~V4L2BufferRefBase();
 
   bool QueueBuffer();
-
-  void* GetPlaneMapping(const size_t plane) {
-    return queue_->buffers_[BufferId()]->GetPlaneMapping(plane);
-  }
+  void* GetPlaneMapping(const size_t plane);
 
   // Data from the buffer, that users can query and/or write.
   struct v4l2_buffer v4l2_buffer_;
@@ -179,18 +227,26 @@ class V4L2BufferQueueProxy {
  private:
   size_t BufferId() const { return v4l2_buffer_.index; }
 
-  // The queue must be kept alive as long as the reference to the buffer exists.
-  scoped_refptr<V4L2Queue> queue_;
+  // A weak pointer to the queue this buffer belongs to. Will remain valid as
+  // long as the underlying V4L2 buffer is valid too.
+  // This can only be accessed from the sequence protected by sequence_checker_.
+  // Thread-safe methods (like ~V4L2BufferRefBase) must *never* access this.
+  base::WeakPtr<V4L2Queue> queue_;
+  // Where to return this buffer if it goes out of scope without being queued.
+  scoped_refptr<V4L2BuffersList> return_to_;
+  bool queued = false;
 
-  DISALLOW_COPY_AND_ASSIGN(V4L2BufferQueueProxy);
+  SEQUENCE_CHECKER(sequence_checker_);
+  DISALLOW_COPY_AND_ASSIGN(V4L2BufferRefBase);
 };
 
-V4L2BufferQueueProxy::V4L2BufferQueueProxy(
-    const struct v4l2_buffer* v4l2_buffer,
-    scoped_refptr<V4L2Queue> queue)
-    : queue_(std::move(queue)) {
+V4L2BufferRefBase::V4L2BufferRefBase(const struct v4l2_buffer* v4l2_buffer,
+                                     base::WeakPtr<V4L2Queue> queue)
+    : queue_(std::move(queue)), return_to_(queue_->free_buffers_) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(V4L2_TYPE_IS_MULTIPLANAR(v4l2_buffer->type));
   DCHECK_LE(v4l2_buffer->length, base::size(v4l2_planes_));
+  DCHECK(return_to_);
 
   memcpy(&v4l2_buffer_, v4l2_buffer, sizeof(v4l2_buffer_));
   memcpy(v4l2_planes_, v4l2_buffer->m.planes,
@@ -198,15 +254,33 @@ V4L2BufferQueueProxy::V4L2BufferQueueProxy(
   v4l2_buffer_.m.planes = v4l2_planes_;
 }
 
-bool V4L2BufferQueueProxy::QueueBuffer() {
-  bool queued = queue_->QueueBuffer(&v4l2_buffer_);
-
-  // If an error occurred during queueing, then the buffer must be made
-  // available again.
+V4L2BufferRefBase::~V4L2BufferRefBase() {
+  // We are the last reference and are only accessing the thread-safe
+  // return_to_, so we are safe to call from any sequence.
+  // If we have been queued, then the queue is our owner so we don't need to
+  // return to the free buffers list.
   if (!queued)
-    ReturnBuffer();
+    return_to_->ReturnBuffer(BufferId());
+}
+
+bool V4L2BufferRefBase::QueueBuffer() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!queue_)
+    return false;
+
+  queued = queue_->QueueBuffer(&v4l2_buffer_);
 
   return queued;
+}
+
+void* V4L2BufferRefBase::GetPlaneMapping(const size_t plane) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!queue_)
+    return nullptr;
+
+  return queue_->buffers_[BufferId()]->GetPlaneMapping(plane);
 }
 
 V4L2WritableBufferRef::V4L2WritableBufferRef() {
@@ -216,9 +290,9 @@ V4L2WritableBufferRef::V4L2WritableBufferRef() {
 
 V4L2WritableBufferRef::V4L2WritableBufferRef(
     const struct v4l2_buffer* v4l2_buffer,
-    scoped_refptr<V4L2Queue> queue)
-    : buffer_data_(std::make_unique<V4L2BufferQueueProxy>(v4l2_buffer,
-                                                          std::move(queue))) {
+    base::WeakPtr<V4L2Queue> queue)
+    : buffer_data_(
+          std::make_unique<V4L2BufferRefBase>(v4l2_buffer, std::move(queue))) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
@@ -232,7 +306,6 @@ V4L2WritableBufferRef::~V4L2WritableBufferRef() {
   // Only valid references should be sequence-checked
   if (buffer_data_) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-    buffer_data_->ReturnBuffer();
   }
 }
 
@@ -244,8 +317,6 @@ V4L2WritableBufferRef& V4L2WritableBufferRef::operator=(
   if (this == &other)
     return *this;
 
-  if (IsValid())
-    buffer_data_->ReturnBuffer();
   buffer_data_ = std::move(other.buffer_data_);
 
   return *this;
@@ -391,7 +462,7 @@ void V4L2WritableBufferRef::SetPlaneBytesUsed(const size_t plane,
     return;
   }
 
-  if (bytes_used >= GetPlaneSize(plane)) {
+  if (bytes_used > GetPlaneSize(plane)) {
     VLOGF(1) << "Set bytes used " << bytes_used << " larger than plane size "
              << GetPlaneSize(plane) << ".";
     return;
@@ -420,17 +491,17 @@ size_t V4L2WritableBufferRef::BufferId() const {
 }
 
 V4L2ReadableBuffer::V4L2ReadableBuffer(const struct v4l2_buffer* v4l2_buffer,
-                                       scoped_refptr<V4L2Queue> queue)
-    : buffer_data_(std::make_unique<V4L2BufferQueueProxy>(v4l2_buffer,
-                                                          std::move(queue))) {
+                                       base::WeakPtr<V4L2Queue> queue)
+    : buffer_data_(
+          std::make_unique<V4L2BufferRefBase>(v4l2_buffer, std::move(queue))) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
 V4L2ReadableBuffer::~V4L2ReadableBuffer() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // This method is thread-safe. Since we are the destructor, we are guaranteed
+  // to be called from the only remaining reference to us. Also, we are just
+  // calling the destructor of buffer_data_, which is also thread-safe.
   DCHECK(buffer_data_);
-
-  buffer_data_->ReturnBuffer();
 }
 
 bool V4L2ReadableBuffer::IsLast() const {
@@ -479,13 +550,13 @@ class V4L2BufferRefFactory {
  public:
   static V4L2WritableBufferRef CreateWritableRef(
       const struct v4l2_buffer* v4l2_buffer,
-      scoped_refptr<V4L2Queue> queue) {
+      base::WeakPtr<V4L2Queue> queue) {
     return V4L2WritableBufferRef(v4l2_buffer, std::move(queue));
   }
 
   static V4L2ReadableBufferRef CreateReadableRef(
       const struct v4l2_buffer* v4l2_buffer,
-      scoped_refptr<V4L2Queue> queue) {
+      base::WeakPtr<V4L2Queue> queue) {
     return new V4L2ReadableBuffer(v4l2_buffer, std::move(queue));
   }
 };
@@ -493,21 +564,14 @@ class V4L2BufferRefFactory {
 V4L2Queue::V4L2Queue(scoped_refptr<V4L2Device> dev,
                      enum v4l2_buf_type type,
                      base::OnceClosure destroy_cb)
-    : type_(type), device_(dev), destroy_cb_(std::move(destroy_cb)) {
-  // TODO(acourbot): fix clients - the constructor should be called on the same
-  // sequence as the rest.
-  DETACH_FROM_SEQUENCE(sequence_checker_);
+    : type_(type),
+      device_(dev),
+      destroy_cb_(std::move(destroy_cb)),
+      weak_this_factory_(this) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
 V4L2Queue::~V4L2Queue() {
-  // TODO(acourbot): we do this prior to checking the sequence because we
-  // tolerate queues to be destroyed in the wrong thread if they are properly
-  // cleaned up. But ultimately clients should be fixed.
-  if (!is_streaming_ && buffers_.empty()) {
-    std::move(destroy_cb_).Run();
-    return;
-  }
-
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (is_streaming_) {
@@ -516,7 +580,7 @@ V4L2Queue::~V4L2Queue() {
   }
 
   DCHECK(queued_buffers_.empty());
-  DCHECK(free_buffers_.empty());
+  DCHECK(!free_buffers_);
 
   if (!buffers_.empty()) {
     VLOGF(1) << "Buffers are still allocated, trying to deallocate them...";
@@ -528,7 +592,7 @@ V4L2Queue::~V4L2Queue() {
 
 size_t V4L2Queue::AllocateBuffers(size_t count, enum v4l2_memory memory) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_EQ(free_buffers_.size(), 0u);
+  DCHECK(!free_buffers_);
   DCHECK_EQ(queued_buffers_.size(), 0u);
 
   if (IsStreaming()) {
@@ -574,6 +638,8 @@ size_t V4L2Queue::AllocateBuffers(size_t count, enum v4l2_memory memory) {
 
   memory_ = memory;
 
+  free_buffers_ = new V4L2BuffersList();
+
   // Now query all buffer information.
   for (size_t i = 0; i < reqbufs.count; i++) {
     auto buffer = V4L2Buffer::Create(device_, type_, memory_, planes_count_, i);
@@ -585,10 +651,11 @@ size_t V4L2Queue::AllocateBuffers(size_t count, enum v4l2_memory memory) {
     }
 
     buffers_.emplace_back(std::move(buffer));
-    ReturnBuffer(i);
+    free_buffers_->ReturnBuffer(i);
   }
 
-  DCHECK_EQ(free_buffers_.size(), buffers_.size());
+  DCHECK(free_buffers_);
+  DCHECK_EQ(free_buffers_->size(), buffers_.size());
   DCHECK_EQ(queued_buffers_.size(), 0u);
 
   return buffers_.size();
@@ -602,13 +669,12 @@ bool V4L2Queue::DeallocateBuffers() {
     return false;
   }
 
-  if (buffers_.size() != free_buffers_.size()) {
-    VPLOGF(1) << "Trying to deallocate buffers while some are still in use!";
-    return false;
-  }
-
   if (buffers_.size() == 0)
     return true;
+
+  weak_this_factory_.InvalidateWeakPtrs();
+  buffers_.clear();
+  free_buffers_ = nullptr;
 
   // Free all buffers.
   struct v4l2_requestbuffers reqbufs = {};
@@ -622,10 +688,7 @@ bool V4L2Queue::DeallocateBuffers() {
     return false;
   }
 
-  buffers_.clear();
-  free_buffers_.clear();
-
-  DCHECK_EQ(free_buffers_.size(), 0u);
+  DCHECK(!free_buffers_);
   DCHECK_EQ(queued_buffers_.size(), 0u);
 
   return true;
@@ -646,25 +709,19 @@ v4l2_memory V4L2Queue::GetMemoryType() const {
 
 V4L2WritableBufferRef V4L2Queue::GetFreeBuffer() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  auto iter = free_buffers_.begin();
 
-  if (iter == free_buffers_.end()) {
-    VLOGF(3) << "No free buffer available!";
+  // No buffers allocated at the moment?
+  if (!free_buffers_)
     return V4L2WritableBufferRef();
-  }
 
-  size_t buffer_id = *iter;
-  free_buffers_.erase(buffer_id);
+  auto buffer_id = free_buffers_->GetFreeBuffer();
+
+  if (!buffer_id.has_value())
+    return V4L2WritableBufferRef();
 
   return V4L2BufferRefFactory::CreateWritableRef(
-      buffers_[buffer_id]->v4l2_buffer(), this);
-}
-
-void V4L2Queue::ReturnBuffer(size_t buffer_id) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  auto inserted = free_buffers_.emplace(buffer_id);
-  DCHECK_EQ(inserted.second, true);
+      buffers_[buffer_id.value()]->v4l2_buffer(),
+      weak_this_factory_.GetWeakPtr());
 }
 
 bool V4L2Queue::QueueBuffer(struct v4l2_buffer* v4l2_buffer) {
@@ -722,8 +779,10 @@ std::pair<bool, V4L2ReadableBufferRef> V4L2Queue::DequeueBuffer() {
   DCHECK(it != queued_buffers_.end());
   queued_buffers_.erase(*it);
 
-  return std::make_pair(
-      true, V4L2BufferRefFactory::CreateReadableRef(&v4l2_buffer, this));
+  DCHECK(free_buffers_);
+  return std::make_pair(true,
+                        V4L2BufferRefFactory::CreateReadableRef(
+                            &v4l2_buffer, weak_this_factory_.GetWeakPtr()));
 }
 
 bool V4L2Queue::IsStreaming() const {
@@ -764,8 +823,10 @@ bool V4L2Queue::Streamoff() {
     return false;
   }
 
-  for (const auto& buffer_id : queued_buffers_)
-    ReturnBuffer(buffer_id);
+  for (const auto& buffer_id : queued_buffers_) {
+    DCHECK(free_buffers_);
+    free_buffers_->ReturnBuffer(buffer_id);
+  }
 
   queued_buffers_.clear();
 
@@ -783,7 +844,7 @@ size_t V4L2Queue::AllocatedBuffersCount() const {
 size_t V4L2Queue::FreeBuffersCount() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  return free_buffers_.size();
+  return free_buffers_ ? free_buffers_->size() : 0;
 }
 
 size_t V4L2Queue::QueuedBuffersCount() const {
@@ -825,9 +886,7 @@ scoped_refptr<V4L2Queue> V4L2Device::GetQueue(enum v4l2_buf_type type) {
     return scoped_refptr<V4L2Queue>(it->second);
 
   scoped_refptr<V4L2Queue> queue = V4L2QueueFactory::CreateQueue(
-      this, type,
-      media::BindToCurrentLoop(
-          base::Bind(&V4L2Device::OnQueueDestroyed, this, type)));
+      this, type, base::BindOnce(&V4L2Device::OnQueueDestroyed, this, type));
 
   queues_[type] = queue.get();
   return queue;

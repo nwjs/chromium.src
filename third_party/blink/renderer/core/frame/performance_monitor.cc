@@ -28,7 +28,7 @@ constexpr auto kLongTaskSubTaskThreshold = TimeDelta::FromMilliseconds(12);
 
 void PerformanceMonitor::BypassLongCompileThresholdOnceForTesting() {
   bypass_long_compile_threshold_ = true;
-};
+}
 
 // static
 base::TimeDelta PerformanceMonitor::Threshold(ExecutionContext* context,
@@ -76,7 +76,7 @@ PerformanceMonitor::PerformanceMonitor(LocalFrame* local_root)
     : local_root_(local_root) {
   std::fill(std::begin(thresholds_), std::end(thresholds_), base::TimeDelta());
   Thread::Current()->AddTaskTimeObserver(this);
-  local_root_->GetProbeSink()->addPerformanceMonitor(this);
+  local_root_->GetProbeSink()->AddPerformanceMonitor(this);
 }
 
 PerformanceMonitor::~PerformanceMonitor() {
@@ -108,7 +108,7 @@ void PerformanceMonitor::Shutdown() {
   subscriptions_.clear();
   UpdateInstrumentation();
   Thread::Current()->RemoveTaskTimeObserver(this);
-  local_root_->GetProbeSink()->removePerformanceMonitor(this);
+  local_root_->GetProbeSink()->RemovePerformanceMonitor(this);
   local_root_ = nullptr;
 }
 
@@ -238,7 +238,7 @@ void PerformanceMonitor::Did(const probe::CallFunction& probe) {
     return;
 
   String name = user_callback->name ? String(user_callback->name)
-                                    : String(user_callback->atomicName);
+                                    : String(user_callback->atomic_name);
   String text = String::Format("'%s' handler took %" PRId64 "ms",
                                name.Utf8().data(), duration.InMilliseconds());
   InnerReportGenericViolation(probe.context, handler_type, text, duration,

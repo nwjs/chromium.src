@@ -35,6 +35,7 @@
 #include "components/payments/core/features.h"
 #include "components/prefs/ios/pref_observer_bridge.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/search_engines/template_url_service.h"
 #include "components/url_formatter/url_formatter.h"
 #include "components/web_resource/web_resource_pref_names.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
@@ -74,7 +75,6 @@
 #include "ios/chrome/browser/crash_report/breakpad_helper.h"
 #import "ios/chrome/browser/crash_report/crash_restore_helper.h"
 #include "ios/chrome/browser/download/download_directory_util.h"
-#include "ios/chrome/browser/experimental_flags.h"
 #include "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #include "ios/chrome/browser/feature_engagement/tracker_util.h"
 #include "ios/chrome/browser/file_metadata_util.h"
@@ -93,6 +93,7 @@
 #include "ios/chrome/browser/pref_names.h"
 #import "ios/chrome/browser/reading_list/reading_list_download_service.h"
 #import "ios/chrome/browser/reading_list/reading_list_download_service_factory.h"
+#import "ios/chrome/browser/search_engines/extension_search_engine_data_updater.h"
 #include "ios/chrome/browser/search_engines/search_engines_util.h"
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/share_extension/share_extension_service.h"
@@ -104,6 +105,7 @@
 #import "ios/chrome/browser/snapshots/snapshot_cache.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
+#include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/tabs/tab.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
 #import "ios/chrome/browser/tabs/tab_model_observer.h"
@@ -123,17 +125,22 @@
 #import "ios/chrome/browser/ui/main/view_controller_swapping.h"
 #import "ios/chrome/browser/ui/orientation_limiting_navigation_controller.h"
 #import "ios/chrome/browser/ui/promos/signin_promo_view_controller.h"
-#import "ios/chrome/browser/ui/settings/google_services_navigation_coordinator.h"
+#import "ios/chrome/browser/ui/settings/google_services/google_services_navigation_coordinator.h"
 #import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
 #import "ios/chrome/browser/ui/signin_interaction/signin_interaction_coordinator.h"
 #include "ios/chrome/browser/ui/tab_grid/tab_grid_coordinator.h"
 #import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
+#import "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/top_view_controller.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/webui/chrome_web_ui_ios_controller_factory.h"
+#import "ios/chrome/browser/url_loading/url_loading_service.h"
+#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/web/tab_id_tab_helper.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
+#include "ios/chrome/common/app_group/app_group_constants.h"
+#include "ios/chrome/common/app_group/app_group_field_trial_version.h"
 #include "ios/chrome/common/app_group/app_group_utils.h"
 #include "ios/net/cookies/cookie_store_ios.h"
 #import "ios/net/crn_http_protocol_handler.h"
@@ -184,6 +191,9 @@ NSString* const kMemoryDebuggingToolsStartup = @"MemoryDebuggingToolsStartup";
 
 // Constants for deferring mailto handling initialization.
 NSString* const kMailtoHandlingInitialization = @"MailtoHandlingInitialization";
+
+// Constants for deferring saving field trial values
+NSString* const kSaveFieldTrialValues = @"SaveFieldTrialValues";
 
 // Constants for deferred check if it is necessary to send pings to
 // Chrome distribution related services.
@@ -380,6 +390,11 @@ enum class EnterTabSwitcherSnapshotResult {
   // Registrar for pref changes notifications to the local state.
   PrefChangeRegistrar _localStatePrefChangeRegistrar;
 
+  // Updates data about the current default search engine to be accessed in
+  // extensions.
+  std::unique_ptr<ExtensionSearchEngineDataUpdater>
+      _extensionSearchEngineDataUpdater;
+
   // The class in charge of showing/hiding the memory debugger when the
   // appropriate pref changes.
   MemoryDebuggerManager* _memoryDebuggerManager;
@@ -427,6 +442,8 @@ enum class EnterTabSwitcherSnapshotResult {
 - (void)showTabSwitcher;
 // Starts a voice search on the current BVC.
 - (void)startVoiceSearchInCurrentBVC;
+// Loads the query from startup parameters in the current BVC.
+- (void)loadStartupQueryInCurrentBVC;
 // Dismisses |signinInteractionCoordinator|.
 - (void)dismissSigninInteractionCoordinator;
 // Called when the last incognito tab was closed.
@@ -957,6 +974,8 @@ enum class EnterTabSwitcherSnapshotResult {
   [_browserViewWrangler shutdown];
   _browserViewWrangler = nil;
 
+  _extensionSearchEngineDataUpdater = nullptr;
+
   [_historyCoordinator stop];
   _historyCoordinator = nil;
 
@@ -1028,12 +1047,19 @@ enum class EnterTabSwitcherSnapshotResult {
                         &_localStatePrefChangeRegistrar);
 
                     // Calls the onPreferenceChanged function in case there was
-                    // a
-                    // change to the observed preferences before the observer
+                    // a change to the observed preferences before the observer
                     // bridge was set up.
                     [self onPreferenceChanged:metrics::prefs::
                                                   kMetricsReportingEnabled];
                     [self onPreferenceChanged:prefs::kMetricsReportingWifiOnly];
+
+                    // Track changes to default search engine.
+                    TemplateURLService* service =
+                        ios::TemplateURLServiceFactory::GetForBrowserState(
+                            _mainBrowserState);
+                    _extensionSearchEngineDataUpdater =
+                        std::make_unique<ExtensionSearchEngineDataUpdater>(
+                            service);
                   }];
 }
 
@@ -1144,6 +1170,49 @@ enum class EnterTabSwitcherSnapshotResult {
                   }];
 }
 
+/**
+ Schedule a call to |saveFieldTrialValuesForExtensions| for deferred execution.
+ */
+- (void)scheduleSaveFieldTrialValuesForExtensions {
+  [[DeferredInitializationRunner sharedInstance]
+      enqueueBlockNamed:kSaveFieldTrialValues
+                  block:^{
+                    [self saveFieldTrialValuesForExtensions];
+                  }];
+}
+
+/**
+ Some extensions need the value of field trials but can't get them because
+ the field trial infrastruction isn't in extensions. Save the necessary
+ values to NSUserDefaults here.
+ */
+- (void)saveFieldTrialValuesForExtensions {
+  NSUserDefaults* sharedDefaults = app_group::GetGroupUserDefaults();
+
+  NSString* fieldTrialValueKey =
+      base::SysUTF8ToNSString(app_group::kChromeExtensionFieldTrialPreference);
+  NSNumber* copiedContentBehaviorValue = [NSNumber
+      numberWithBool:base::FeatureList::IsEnabled(kCopiedContentBehavior)];
+
+  /**
+   Add other field trial values here if they are needed by extensions.
+   The general format is
+   {
+     name: {
+       value: bool,
+       version: bool
+     }
+   }
+   */
+  NSDictionary* fieldTrialValues = @{
+    base::SysUTF8ToNSString(kCopiedContentBehavior.name) : @{
+      kFieldTrialValueKey : copiedContentBehaviorValue,
+      kFieldTrialVersionKey : kCopiedContentBehaviorVersion
+    }
+  };
+  [sharedDefaults setObject:fieldTrialValues forKey:fieldTrialValueKey];
+}
+
 - (void)startFreeMemoryMonitoring {
   // No need for a post-task or a deferred initialisation as the memory
   // monitoring already happens on a background sequence.
@@ -1169,6 +1238,7 @@ enum class EnterTabSwitcherSnapshotResult {
   [self startFreeMemoryMonitoring];
   [self scheduleAppDistributionPings];
   [self initializeMailtoHandling];
+  [self scheduleSaveFieldTrialValuesForExtensions];
 }
 
 - (void)scheduleTasksRequiringBVCWithBrowserState {
@@ -1413,7 +1483,9 @@ enum class EnterTabSwitcherSnapshotResult {
   _historyCoordinator =
       [[HistoryCoordinator alloc] initWithBaseViewController:self.currentBVC
                                                 browserState:_mainBrowserState];
-  _historyCoordinator.loader = self.currentBVC;
+  _historyCoordinator.loader = UrlLoadingServiceFactory::GetForBrowserState(
+                                   [self.currentBVC browserState])
+                                   ->GetUrlLoader();
   _historyCoordinator.dispatcher = self.mainBVC.dispatcher;
   [_historyCoordinator start];
 }
@@ -1505,7 +1577,7 @@ enum class EnterTabSwitcherSnapshotResult {
     if ([command fromChrome]) {
       [self dismissModalsAndOpenSelectedTabInMode:ApplicationMode::NORMAL
                                           withURL:[command URL]
-                                       virtualURL:GURL::EmptyGURL()
+                                       virtualURL:[command virtualURL]
                                    dismissOmnibox:YES
                                        transition:ui::PAGE_TRANSITION_TYPED
                                        completion:nil];
@@ -1515,7 +1587,9 @@ enum class EnterTabSwitcherSnapshotResult {
       [self
           dismissModalDialogsWithCompletion:^{
             [self setCurrentInterfaceForMode:mode];
-            [self.currentBVC webPageOrderedOpen:command];
+            UrlLoadingServiceFactory::GetForBrowserState(
+                [self.currentBVC browserState])
+                ->OpenUrlInNewTab(command);
           }
                              dismissOmnibox:YES];
     }
@@ -1763,6 +1837,35 @@ enum class EnterTabSwitcherSnapshotResult {
     [backgroundBVC startVoiceSearch];
   else
     [self.currentBVC startVoiceSearch];
+}
+
+- (void)loadStartupQueryInCurrentBVC {
+  NSString* query = self.startupParameters.textQuery;
+
+  TemplateURLService* templateURLService =
+      ios::TemplateURLServiceFactory::GetForBrowserState(_mainBrowserState);
+  const TemplateURL* defaultURL =
+      templateURLService->GetDefaultSearchProvider();
+  DCHECK(!defaultURL->url().empty());
+  DCHECK(
+      defaultURL->url_ref().IsValid(templateURLService->search_terms_data()));
+  base::string16 queryString = base::SysNSStringToUTF16(query);
+  TemplateURLRef::SearchTermsArgs search_args(queryString);
+
+  GURL result(defaultURL->url_ref().ReplaceSearchTerms(
+      search_args, templateURLService->search_terms_data()));
+  web::NavigationManager::WebLoadParams params(result);
+  params.transition_type = ui::PAGE_TRANSITION_TYPED;
+  UrlLoadingServiceFactory::GetForBrowserState([self.currentBVC browserState])
+      ->LoadUrlInCurrentTab(ChromeLoadParams(params));
+}
+
+// Loads the image from startup parameters as search-by-image in the current
+// BVC.
+- (void)loadStartupImageQueryInCurrentBVC {
+  NSData* query = self.startupParameters.imageSearchData;
+
+  [self.currentBVC.dispatcher searchByImage:[UIImage imageWithData:query]];
 }
 
 #pragma mark - Preferences Management
@@ -2254,6 +2357,14 @@ enum class EnterTabSwitcherSnapshotResult {
       return ^{
         [self.currentBVC.dispatcher focusOmnibox];
       };
+    case SEARCH_TEXT:
+      return ^{
+        [self loadStartupQueryInCurrentBVC];
+      };
+    case SEARCH_IMAGE:
+      return ^{
+        [self loadStartupImageQueryInCurrentBVC];
+      };
     default:
       return nil;
   }
@@ -2272,6 +2383,7 @@ enum class EnterTabSwitcherSnapshotResult {
   ProceduralBlock startupCompletion =
       [self completionBlockForTriggeringAction:[_startupParameters
                                                    postOpeningAction]];
+
   // Commands are only allowed on NTP.
   DCHECK(IsURLNtp(url) || !startupCompletion);
 

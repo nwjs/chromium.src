@@ -198,7 +198,7 @@ HTMLElement* CustomElement::CreateFailedElement(Document& document,
   DCHECK(ShouldCreateCustomElement(tag_name));
 
   // "create an element for a token":
-  // https://html.spec.whatwg.org/multipage/syntax.html#create-an-element-for-the-token
+  // https://html.spec.whatwg.org/C/#create-an-element-for-the-token
 
   // 7. If this step throws an exception, let element be instead a new element
   // that implements HTMLUnknownElement, with no attributes, namespace set to
@@ -212,7 +212,7 @@ HTMLElement* CustomElement::CreateFailedElement(Document& document,
 
 void CustomElement::Enqueue(Element& element, CustomElementReaction& reaction) {
   // To enqueue an element on the appropriate element queue
-  // https://html.spec.whatwg.org/multipage/scripting.html#enqueue-an-element-on-the-appropriate-element-queue
+  // https://html.spec.whatwg.org/C/#enqueue-an-element-on-the-appropriate-element-queue
 
   // If the custom element reactions stack is not empty, then
   // Add element to the current element queue.
@@ -283,10 +283,20 @@ void CustomElement::EnqueueDisabledStateChangedCallback(Element& element,
   }
 }
 
+void CustomElement::EnqueueRestoreValueCallback(Element& element,
+                                                const FileOrUSVString& value,
+                                                const String& mode) {
+  auto& definition = *DefinitionForElementWithoutCheck(element);
+  if (definition.HasRestoreValueCallback()) {
+    Enqueue(element, CustomElementReactionFactory::CreateRestoreValue(
+                         definition, value, mode));
+  }
+}
+
 void CustomElement::TryToUpgrade(Element& element,
                                  bool upgrade_invisible_elements) {
   // Try to upgrade an element
-  // https://html.spec.whatwg.org/multipage/scripting.html#concept-try-upgrade
+  // https://html.spec.whatwg.org/C/#concept-try-upgrade
 
   DCHECK_EQ(element.GetCustomElementState(), CustomElementState::kUndefined);
 

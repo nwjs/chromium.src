@@ -133,6 +133,9 @@ class StatisticsProviderImpl;
 namespace chrome_browser_net {
 class Predictor;
 }
+namespace chrome_cleaner {
+class SystemReportComponent;
+}
 namespace content {
 class BrowserGpuChannelHostFactory;
 class BrowserMainLoop;
@@ -141,6 +144,7 @@ class BrowserShutdownProfileDumper;
 class BrowserTestBase;
 class CategorizedWorkerPool;
 class DesktopCaptureDevice;
+class DWriteFontLookupTableBuilder;
 class GpuProcessTransportFactory;
 class NestedMessagePumpAndroid;
 class SandboxHostLinux;
@@ -152,6 +156,7 @@ class SynchronousCompositor;
 class SynchronousCompositorHost;
 class SynchronousCompositorSyncCallBridge;
 class TextInputClientMac;
+class WebContentsViewMac;
 }  // namespace content
 namespace cronet {
 class CronetPrefsManager;
@@ -253,6 +258,12 @@ class DesktopConfigurationMonitor;
 
 namespace base {
 
+namespace sequence_manager {
+namespace internal {
+class TaskQueueImpl;
+}
+}  // namespace sequence_manager
+
 namespace android {
 class JavaHandlerThread;
 }
@@ -262,6 +273,7 @@ class TaskTracker;
 }
 
 class AdjustOOMScoreHelper;
+class FileDescriptorWatcher;
 class GetAppOutputScopedAllowBaseSyncPrimitives;
 class MessageLoopImpl;
 class ScopedAllowThreadRecallForStackSamplingProfiler;
@@ -287,14 +299,6 @@ INLINE_IF_DCHECK_IS_OFF void AssertBlockingAllowed()
     EMPTY_BODY_IF_DCHECK_IS_OFF;
 
 }  // namespace internal
-
-// Asserts that blocking calls are allowed in the current scope.
-//
-// DEPRECATED: Use ScopedBlockingCall, which serves as a precise annotation of
-// the scope that may/will block.
-// TODO(etiennep): Complete migration and delete this method.
-INLINE_IF_DCHECK_IS_OFF void AssertBlockingAllowedDeprecated()
-    EMPTY_BODY_IF_DCHECK_IS_OFF;
 
 // Disallows blocking on the current thread.
 INLINE_IF_DCHECK_IS_OFF void DisallowBlocking() EMPTY_BODY_IF_DCHECK_IS_OFF;
@@ -324,6 +328,7 @@ class BASE_EXPORT ScopedAllowBlocking {
   friend class android_webview::ScopedAllowInitGLBindings;
   friend class content::BrowserProcessSubThread;
   friend class content::GpuProcessTransportFactory;
+  friend class content::WebContentsViewMac;
   friend class cronet::CronetPrefsManager;
   friend class cronet::CronetURLRequestContext;
   friend class mojo::CoreLibraryInitializer;
@@ -373,8 +378,10 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   // Allowed usage:
   friend class SimpleThread;
   friend class base::GetAppOutputScopedAllowBaseSyncPrimitives;
+  friend class chrome_cleaner::SystemReportComponent;
   friend class content::BrowserMainLoop;
   friend class content::BrowserProcessSubThread;
+  friend class content::DWriteFontLookupTableBuilder;
   friend class content::ServiceWorkerContextClient;
   friend class content::SessionStorageDatabase;
   friend class functions::ExecScriptScopedAllowBaseSyncPrimitives;
@@ -427,6 +434,8 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitivesOutsideBlockingScope {
       AwFormDatabaseService;  // http://crbug.com/904431
   friend class android_webview::CookieManager;
   friend class audio::OutputDevice;
+  friend class base::sequence_manager::internal::TaskQueueImpl;
+  friend class base::FileDescriptorWatcher;
   friend class base::MessageLoopImpl;
   friend class base::ScopedAllowThreadRecallForStackSamplingProfiler;
   friend class base::StackSamplingProfiler;

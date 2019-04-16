@@ -33,7 +33,6 @@
 #include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
 #include "third_party/blink/public/mojom/script/script_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_cache_options.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -104,10 +103,10 @@ class CORE_EXPORT WorkerGlobalScope
 
   String origin() const;
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(languagechange, kLanguagechange);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(rejectionhandled, kRejectionhandled);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection, kUnhandledrejection);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(languagechange, kLanguagechange)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(rejectionhandled, kRejectionhandled)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection, kUnhandledrejection)
 
   // WorkerUtils
   virtual void importScripts(const HeapVector<StringOrTrustedScriptURL>& urls,
@@ -115,16 +114,18 @@ class CORE_EXPORT WorkerGlobalScope
   ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
 
   // ExecutionContext
-  const KURL& Url() const final { return url_; }
+  const KURL& Url() const final;
   KURL CompleteURL(const String&) const final;
   bool IsWorkerGlobalScope() const final { return true; }
   bool IsContextThread() const final;
-  const KURL& BaseURL() const final { return url_; }
+  const KURL& BaseURL() const final;
   String UserAgent() const final { return user_agent_; }
   HttpsState GetHttpsState() const override { return https_state_; }
   const base::UnguessableToken& GetAgentClusterID() const final {
     return agent_cluster_id_;
   }
+
+  void InitializeURL(const KURL& url);
 
   DOMTimerCoordinator* Timers() final { return &timers_; }
   SecurityContext& GetSecurityContext() final { return *this; }
@@ -152,12 +153,12 @@ class CORE_EXPORT WorkerGlobalScope
                              const v8_inspector::V8StackTraceId& stack_id);
   void ImportClassicScript(
       const KURL& script_url,
-      FetchClientSettingsObjectSnapshot* outside_settings_object,
+      const FetchClientSettingsObjectSnapshot& outside_settings_object,
       const v8_inspector::V8StackTraceId& stack_id);
   // Imports the top-level module script for |module_url_record|.
   virtual void ImportModuleScript(
       const KURL& module_url_record,
-      FetchClientSettingsObjectSnapshot* outside_settings_object,
+      const FetchClientSettingsObjectSnapshot& outside_settings_object,
       network::mojom::FetchCredentialsMode) = 0;
 
   void ReceiveMessage(BlinkTransferableMessage);
@@ -170,7 +171,7 @@ class CORE_EXPORT WorkerGlobalScope
   // FontFaceSource on the IDL.
   FontFaceSet* fonts();
 
-  // https://html.spec.whatwg.org/#windoworworkerglobalscope-mixin
+  // https://html.spec.whatwg.org/C/#windoworworkerglobalscope-mixin
   void queueMicrotask(V8VoidFunction*);
 
   int requestAnimationFrame(V8FrameRequestCallback* callback, ExceptionState&);
@@ -202,9 +203,6 @@ class CORE_EXPORT WorkerGlobalScope
   mojom::ScriptType GetScriptType() const { return script_type_; }
 
  private:
-  virtual void importScriptsFromStrings(const Vector<String>& urls,
-                                        ExceptionState&);
-
   void SetWorkerSettings(std::unique_ptr<WorkerSettings>);
 
   void DidReceiveResponseForClassicScript(
@@ -212,28 +210,9 @@ class CORE_EXPORT WorkerGlobalScope
   void DidImportClassicScript(WorkerClassicScriptLoader* classic_script_loader,
                               const v8_inspector::V8StackTraceId& stack_id);
 
-  // |kNotHandled| is used when the script was not in
-  // InstalledScriptsManager, which means it was not an installed script.
-  enum class LoadResult { kSuccess, kFailed, kNotHandled };
-
-  // Tries to load the script synchronously from the
-  // InstalledScriptsManager, which holds scripts that are sent from the browser
-  // upon starting an installed worker. This blocks until the script is
-  // received. If the script load could not be handled by the
-  // InstalledScriptsManager, e.g. when the script was not an installed script,
-  // returns LoadResult::kNotHandled.
-  // TODO(crbug.com/753350): Factor out LoadScriptFrom* into a new class which
-  // provides the worker's scripts.
-  LoadResult LoadScriptFromInstalledScriptsManager(
-      const KURL& script_url,
-      KURL* out_response_url,
-      String* out_source_code,
-      std::unique_ptr<Vector<uint8_t>>* out_cached_meta_data);
-
-  // Tries to load the script synchronously from the WorkerClassicScriptLoader,
-  // which requests the script from the browser. This blocks until the script is
-  // received.
-  LoadResult LoadScriptFromClassicScriptLoader(
+  // Used for importScripts().
+  void ImportScriptsInternal(const Vector<String>& urls, ExceptionState&);
+  bool FetchClassicImportedScript(
       const KURL& script_url,
       KURL* out_response_url,
       String* out_source_code,
@@ -242,11 +221,10 @@ class CORE_EXPORT WorkerGlobalScope
   // ExecutionContext
   EventTarget* ErrorEventTarget() final { return this; }
 
-  const KURL url_;
+  KURL url_;
   const mojom::ScriptType script_type_;
   const String user_agent_;
   const base::UnguessableToken parent_devtools_token_;
-  const V8CacheOptions v8_cache_options_;
   std::unique_ptr<WorkerSettings> worker_settings_;
 
   mutable Member<WorkerLocation> location_;

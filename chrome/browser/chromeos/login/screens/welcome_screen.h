@@ -9,7 +9,7 @@
 #include <string>
 
 #include "ash/public/interfaces/locale.mojom.h"
-#include "base/callback_forward.h"
+#include "base/callback.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -49,7 +49,8 @@ class WelcomeScreen : public BaseScreen,
 
   WelcomeScreen(BaseScreenDelegate* base_screen_delegate,
                 Delegate* delegate,
-                WelcomeView* view);
+                WelcomeView* view,
+                const base::RepeatingClosure& exit_callback);
   ~WelcomeScreen() override;
 
   static WelcomeScreen* Get(ScreenManager* manager);
@@ -73,26 +74,28 @@ class WelcomeScreen : public BaseScreen,
   std::string GetApplicationLocale();
   std::string GetInputMethod() const;
 
+  void SetApplicationLocale(const std::string& locale);
+  void SetInputMethod(const std::string& input_method);
   void SetTimezone(const std::string& timezone_id);
   std::string GetTimezone() const;
 
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
+ protected:
+  // Exposes exit callback to test overrides.
+  base::RepeatingClosure* exit_callback() { return &exit_callback_; }
+
  private:
   // BaseScreen implementation:
   void Show() override;
   void Hide() override;
   void OnUserAction(const std::string& action_id) override;
-  void OnContextKeyUpdated(const ::login::ScreenContext::KeyType& key) override;
 
   // InputMethodManager::Observer implementation:
   void InputMethodChanged(input_method::InputMethodManager* manager,
                           Profile* profile,
                           bool show_message) override;
-
-  void SetApplicationLocale(const std::string& locale);
-  void SetInputMethod(const std::string& input_method);
 
   // Subscribe to timezone changes.
   void InitializeTimezoneObserver();
@@ -129,6 +132,7 @@ class WelcomeScreen : public BaseScreen,
 
   WelcomeView* view_ = nullptr;
   Delegate* delegate_ = nullptr;
+  base::RepeatingClosure exit_callback_;
 
   std::string input_method_;
   std::string timezone_;

@@ -9,11 +9,13 @@
 
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/public/cpp/vector_icons/vector_icons.h"
+#include "base/bind.h"
 #include "base/files/important_file_writer.h"
 #include "base/location.h"
 #include "base/memory/singleton.h"
 #include "base/path_service.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
@@ -96,8 +98,8 @@ std::string AdjustConfig(const std::string& config, bool is_dns_cname_enabled) {
 
 // Sets up Chrome OS Account Manager.
 // |profile| is a non-owning pointer to |Profile|.
-// |object_guid| is the Active Directory Object GUID for the Device Account.
-void SetupAccountManager(Profile* profile, const std::string& object_guid) {
+// |account_id| is the |AccountId| for the Device Account.
+void SetupAccountManager(Profile* profile, const AccountId& account_id) {
   if (!switches::IsAccountManagerEnabled())
     return;
 
@@ -107,13 +109,13 @@ void SetupAccountManager(Profile* profile, const std::string& object_guid) {
   AccountManager* account_manager =
       factory->GetAccountManager(profile->GetPath().value());
   DCHECK(account_manager);
-  // |AccountManager::UpsertToken| is idempotent and safe to call multiple
+  // |AccountManager::UpsertAccount| is idempotent and safe to call multiple
   // times.
-  account_manager->UpsertToken(
+  account_manager->UpsertAccount(
       AccountManager::AccountKey{
-          object_guid,
+          account_id.GetObjGuid(),
           account_manager::AccountType::ACCOUNT_TYPE_ACTIVE_DIRECTORY},
-      AccountManager::kActiveDirectoryDummyToken);
+      account_id.GetUserEmail(), AccountManager::kActiveDirectoryDummyToken);
 }
 
 }  // namespace
@@ -171,7 +173,7 @@ AuthPolicyCredentialsManager::AuthPolicyCredentialsManager(Profile* profile)
       base::Bind(&AuthPolicyCredentialsManager::OnSignalConnectedCallback,
                  weak_factory_.GetWeakPtr()));
 
-  SetupAccountManager(profile, user->GetAccountId().GetObjGuid());
+  SetupAccountManager(profile, user->GetAccountId());
 }
 
 AuthPolicyCredentialsManager::~AuthPolicyCredentialsManager() {}

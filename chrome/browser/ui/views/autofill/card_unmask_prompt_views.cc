@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/autofill/card_unmask_prompt_views.h"
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/strings/utf_string_conversions.h"
@@ -126,8 +127,11 @@ void CardUnmaskPromptViews::GotVerificationResult(
       // Replace the throbber with a warning icon. Since this is a permanent
       // error we do not intend to return to a previous state.
       views::ImageView* error_icon = new views::ImageView();
+      // The icon doesn't look good with the dark mode warning text color,
+      // so use the same color in light mode and dark mode.
+      // See https://crbug.com/924507
       error_icon->SetImage(
-          gfx::CreateVectorIcon(kBrowserToolsErrorIcon, warning_text_color));
+          gfx::CreateVectorIcon(kBrowserToolsErrorIcon, gfx::kGoogleRed700));
 
       layout->StartRow(1.0, 0);
       layout->AddView(error_icon);

@@ -6,6 +6,7 @@
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
+#include "base/bind.h"
 #include "base/message_loop/message_loop.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/cronet/android/cronet_url_request_adapter.h"
@@ -64,8 +65,8 @@ void TestUtil::RunAfterContextInit(jlong jcontext_adapter,
                                    const base::Closure& task) {
   GetTaskRunner(jcontext_adapter)
       ->PostTask(FROM_HERE,
-                 base::Bind(&TestUtil::RunAfterContextInitOnNetworkThread,
-                            jcontext_adapter, task));
+                 base::BindOnce(&TestUtil::RunAfterContextInitOnNetworkThread,
+                                jcontext_adapter, task));
 }
 
 // static
@@ -91,8 +92,8 @@ void JNI_CronetTestUtil_PrepareNetworkThread(
     JNIEnv* env,
     jlong jcontext_adapter) {
   TestUtil::GetTaskRunner(jcontext_adapter)
-      ->PostTask(FROM_HERE, base::Bind(&PrepareNetworkThreadOnNetworkThread,
-                                       jcontext_adapter));
+      ->PostTask(FROM_HERE, base::BindOnce(&PrepareNetworkThreadOnNetworkThread,
+                                           jcontext_adapter));
 }
 
 static void CleanupNetworkThreadOnNetworkThread() {
@@ -108,6 +109,10 @@ void JNI_CronetTestUtil_CleanupNetworkThread(
     jlong jcontext_adapter) {
   TestUtil::RunAfterContextInit(
       jcontext_adapter, base::Bind(&CleanupNetworkThreadOnNetworkThread));
+}
+
+jboolean JNI_CronetTestUtil_CanGetTaggedBytes(JNIEnv* env) {
+  return net::CanGetTaggedBytes();
 }
 
 jlong JNI_CronetTestUtil_GetTaggedBytes(JNIEnv* env,

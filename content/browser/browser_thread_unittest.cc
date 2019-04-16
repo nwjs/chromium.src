@@ -13,18 +13,55 @@
 #include "base/sequenced_task_runner_helpers.h"
 #include "base/single_thread_task_runner.h"
 #include "base/task/post_task.h"
+#include "base/task/sequence_manager/sequence_manager_impl.h"
 #include "base/test/scoped_task_environment.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "build/build_config.h"
 #include "content/browser/browser_process_sub_thread.h"
 #include "content/browser/browser_thread_impl.h"
 #include "content/browser/scheduler/browser_task_executor.h"
+#include "content/browser/scheduler/browser_ui_thread_scheduler.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/test/test_browser_thread.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
 namespace content {
+
+namespace {
+
+class SequenceManagerTaskEnvironment : public base::Thread::TaskEnvironment {
+ public:
+  SequenceManagerTaskEnvironment(
+      std::unique_ptr<base::sequence_manager::SequenceManager> sequence_manager,
+      scoped_refptr<base::SingleThreadTaskRunner> default_task_runner)
+      : sequence_manager_(std::move(sequence_manager)),
+        default_task_runner_(std::move(default_task_runner)) {
+    sequence_manager_->SetDefaultTaskRunner(default_task_runner_);
+  }
+
+  ~SequenceManagerTaskEnvironment() override {}
+
+  // Thread::TaskEnvironment:
+  scoped_refptr<base::SingleThreadTaskRunner> GetDefaultTaskRunner() override {
+    return default_task_runner_;
+  }
+
+  void BindToCurrentThread(base::TimerSlack timer_slack) override {
+    sequence_manager_->BindToMessagePump(
+        base::MessageLoop::CreateMessagePumpForType(
+            base::MessageLoop::TYPE_DEFAULT));
+    sequence_manager_->SetTimerSlack(timer_slack);
+  }
+
+ private:
+  std::unique_ptr<base::sequence_manager::SequenceManager> sequence_manager_;
+  scoped_refptr<base::SingleThreadTaskRunner> default_task_runner_;
+
+  DISALLOW_COPY_AND_ASSIGN(SequenceManagerTaskEnvironment);
+};
+
+}  // namespace
 
 class BrowserThreadTest : public testing::Test {
  public:
@@ -40,10 +77,24 @@ class BrowserThreadTest : public testing::Test {
 
  protected:
   void SetUp() override {
-    BrowserTaskExecutor::Create();
-
     ui_thread_ = std::make_unique<BrowserProcessSubThread>(BrowserThread::UI);
-    ui_thread_->Start();
+    std::unique_ptr<base::sequence_manager::internal::SequenceManagerImpl>
+        sequence_manager = base::sequence_manager::internal::
+            SequenceManagerImpl::CreateUnbound(
+                base::sequence_manager::SequenceManager::Settings());
+    std::unique_ptr<BrowserUIThreadScheduler> browser_ui_thread_scheduler =
+        BrowserUIThreadScheduler::CreateForTesting(
+            sequence_manager.get(), sequence_manager->GetRealTimeDomain());
+
+    base::Thread::Options ui_options;
+    ui_options.task_environment = new SequenceManagerTaskEnvironment(
+        std::move(sequence_manager),
+        browser_ui_thread_scheduler->GetTaskRunnerForTesting(
+            BrowserUIThreadScheduler::QueueType::kDefault));
+
+    BrowserTaskExecutor::CreateWithBrowserUIThreadSchedulerForTesting(
+        std::move(browser_ui_thread_scheduler));
+    ui_thread_->StartWithOptions(ui_options);
 
     io_thread_ = std::make_unique<BrowserProcessSubThread>(BrowserThread::IO);
     base::Thread::Options io_options;

@@ -61,6 +61,8 @@ std::unique_ptr<WebState> WebState::Create(const CreateParams& params) {
 
   // Initialize the new session.
   web_state->GetNavigationManagerImpl().InitializeSession();
+  web_state->GetNavigationManagerImpl().GetSessionController().delegate =
+      web_state->GetWebController();
 
   return web_state;
 }
@@ -331,13 +333,6 @@ const base::string16& WebStateImpl::GetTitle() const {
   return item ? item->GetTitleForDisplay() : empty_string16_;
 }
 
-void WebStateImpl::ShowTransientContentView(CRWContentView* content_view) {
-  DCHECK(Configured());
-  DCHECK(content_view);
-  DCHECK(content_view.scrollView);
-  [web_controller_ showTransientContentView:content_view];
-}
-
 bool WebStateImpl::IsShowingWebInterstitial() const {
   // Technically we could have |interstitial_| set but its view isn't
   // being displayed, but there's no code path where that could occur.
@@ -386,9 +381,11 @@ void WebStateImpl::UpdateHttpResponseHeaders(const GURL& url) {
 
 void WebStateImpl::ShowWebInterstitial(WebInterstitialImpl* interstitial) {
   DCHECK(Configured());
-  DCHECK(interstitial);
   interstitial_ = interstitial;
-  ShowTransientContentView(interstitial_->GetContentView());
+
+  DCHECK(interstitial_->GetContentView());
+  DCHECK(interstitial_->GetContentView().scrollView);
+  [web_controller_ showTransientContentView:interstitial_->GetContentView()];
 }
 
 void WebStateImpl::SendChangeLoadProgress(double progress) {
@@ -636,6 +633,12 @@ CRWSessionStorage* WebStateImpl::BuildSessionStorage() {
   return session_storage_builder.BuildStorage(this);
 }
 
+void WebStateImpl::LoadData(NSData* data,
+                            NSString* mime_type,
+                            const GURL& url) {
+  [web_controller_ loadData:data MIMEType:mime_type forURL:url];
+}
+
 CRWJSInjectionReceiver* WebStateImpl::GetJSInjectionReceiver() const {
   return [web_controller_ jsInjectionReceiver];
 }
@@ -686,13 +689,16 @@ const GURL& WebStateImpl::GetLastCommittedURL() const {
 GURL WebStateImpl::GetCurrentURL(URLVerificationTrustLevel* trust_level) const {
   GURL result = [web_controller_ currentURLWithTrustLevel:trust_level];
 
-  web::NavigationItem* item = navigation_manager_->GetLastCommittedItem();
+  web::NavigationItemImpl* item =
+      navigation_manager_->GetLastCommittedItemImpl();
   GURL lastCommittedURL;
   if (item) {
     if ([web_controller_.nativeController
-            respondsToSelector:@selector(virtualURL)]) {
-      // For native content |currentURLWithTrustLevel:| returns virtual URL if
-      // one is available.
+            respondsToSelector:@selector(virtualURL)] ||
+        item->error_retry_state_machine().state() ==
+            ErrorRetryState::kReadyToDisplayErrorForFailedNavigation) {
+      // For native content, or when webView.URL is a placeholder URL,
+      // |currentURLWithTrustLevel:| returns virtual URL if one is available.
       lastCommittedURL = item->GetVirtualURL();
     } else {
       // Otherwise document URL is returned.
@@ -840,8 +846,9 @@ void WebStateImpl::WillChangeUserAgentType() {
   [web_controller_ requirePageReconstruction];
 }
 
-void WebStateImpl::LoadCurrentItem() {
-  [web_controller_ loadCurrentURL];
+void WebStateImpl::LoadCurrentItem(NavigationInitiationType type) {
+  [web_controller_ loadCurrentURLWithRendererInitiatedNavigation:
+                       type == NavigationInitiationType::RENDERER_INITIATED];
 }
 
 void WebStateImpl::LoadIfNecessary() {
@@ -902,6 +909,8 @@ void WebStateImpl::RestoreSessionStorage(CRWSessionStorage* session_storage) {
     restored_session_storage_ = session_storage;
   SessionStorageBuilder session_storage_builder;
   session_storage_builder.ExtractSessionState(this, session_storage);
+  GetNavigationManagerImpl().GetSessionController().delegate =
+      GetWebController();
 }
 
 }  // namespace web

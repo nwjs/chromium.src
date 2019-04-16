@@ -4,106 +4,77 @@
 
 /**
  * Handles the Switch Access menu panel.
+ * @implements {PanelInterface}
  */
-const Panel = {
-  /**
-   * This must be kept in sync with the div ID in menu_panel.html.
-   * @type {string}
-   */
-  MENU_ID: 'switchaccess_menu_actions',
-  /**
-   * This must be kept in sync with the class name in menu_panel.css.
-   * @type {string}
-   */
-  FOCUS_CLASS: 'focus',
-
-  /**
-   * Keeps track of whether we have received a 'ready' from the background page.
-   * @type {boolean}
-   */
-  readyReceived: false,
-  /**
-   * Keeps track of whether the context menu is loaded.
-   * @type {boolean}
-   */
-  loaded: false,
-
-  /**
-   * Captures messages before the Panel is initialized.
-   */
-  preMessageHandler: () => {
-    Panel.readyReceived = true;
-    if (Panel.loaded)
-      Panel.sendReady();
-    window.removeEventListener('message', Panel.preMessageHandler);
-  },
+class Panel {
+  constructor() {
+    /**
+     * The menu manager.
+     * @private {MenuManager}
+     */
+    this.menuManager_;
+  }
 
   /**
    * Initialize the panel and buttons.
    */
-  init: () => {
-    Panel.loaded = true;
-    if (Panel.readyReceived)
-      Panel.sendReady();
-
-    const div = document.getElementById(Panel.MENU_ID);
+  init() {
+    const div = document.getElementById(SAConstants.MENU_ID);
     for (const button of div.children)
-      Panel.setupButton(button);
-    window.addEventListener('message', Panel.matchMessage);
-  },
+      this.setupButton_(button);
+
+    const background = chrome.extension.getBackgroundPage();
+    if (background.document.readyState === 'complete')
+      this.connectToBackground();
+    else
+      background.addEventListener('load', this.connectToBackground.bind(this));
+  }
 
   /**
-   * Sends a message to the background when both pages are loaded.
+   * Once both the menu panel and the background page have loaded, pass a
+   * reference to this object for communication.
    */
-  sendReady: () => {
-    MessageHandler.sendMessage(
-        MessageHandler.Destination.BACKGROUND, MessageHandler.READY);
-  },
+  connectToBackground() {
+    const switchAccess = chrome.extension.getBackgroundPage().switchAccess;
+    this.menuManager_ = switchAccess.connectMenuPanel(this);
+  }
 
   /**
    * Adds an event listener to the given button to send a message when clicked.
    * @param {!HTMLElement} button
+   * @private
    */
-  setupButton: (button) => {
-    let id = button.id;
-    button.addEventListener('click', function() {
-      MessageHandler.sendMessage(MessageHandler.Destination.BACKGROUND, id);
-    }.bind(id));
-  },
+  setupButton_(button) {
+    let action = button.id;
+    button.addEventListener('click', function(action) {
+      this.menuManager_.performAction(action);
+    }.bind(this, action));
+  }
 
   /**
-   * Takes the given message and sees if it matches any expected pattern. If
-   * it does, extract the parameters and pass them to the appropriate handler.
-   * If not, log as an unrecognized action.
+   * Temporary function, until multiple focus rings is implemented.
+   * Puts a focus ring around the given menu item.
+   * TODO(crbug/925103): Implement multiple focus rings.
    *
-   * @param {Object} message
+   * @param {string} id
+   * @param {boolean} enable
    */
-  matchMessage: (message) => {
-    let matches = message.data.match(MessageHandler.SET_ACTIONS_REGEX);
-    if (matches && matches.length === 2) {
-      const actions = matches[1].split(',');
-      Panel.setActions(actions);
-      return;
-    }
-    matches = message.data.match(MessageHandler.SET_FOCUS_RING_REGEX);
-    if (matches && matches.length === 3) {
-      const id = matches[1];
-      const shouldAdd = matches[2] === 'on';
-      Panel.updateClass(id, Panel.FOCUS_CLASS, shouldAdd);
-      return;
-    }
-    console.log('Action not recognized: ' + message.data);
-  },
+  setFocusRing(id, enable) {
+    this.updateClass_(id, SAConstants.FOCUS_CLASS, enable);
+    return;
+  }
 
   /**
    * Sets which buttons are enabled/disabled, based on |actions|.
    * @param {!Array<string>} actions
    */
-  setActions: (actions) => {
-    const div = document.getElementById(Panel.MENU_ID);
+  setActions(actions) {
+    const div = document.getElementById(SAConstants.MENU_ID);
     for (const button of div.children)
       button.hidden = !actions.includes(button.id);
-  },
+
+    this.setHeight_(actions.length);
+  }
 
   /**
    * Either adds or removes the class |className| for the element with the given
@@ -112,14 +83,35 @@ const Panel = {
    * @param {string} className
    * @param {bool} shouldAdd
    */
-  updateClass: (id, className, shouldAdd) => {
+  updateClass_(id, className, shouldAdd) {
     const htmlNode = document.getElementById(id);
     if (shouldAdd)
       htmlNode.classList.add(className);
     else
       htmlNode.classList.remove(className);
   }
-};
 
-window.addEventListener('message', Panel.preMessageHandler);
-window.addEventListener('load', Panel.init);
+  /**
+   * Sets the height of the menu (minus the body padding) based on the number of
+   * actions in the menu. This is necessary because floated elements do not
+   * contribute to their parent's height, and the elements are floated to avoid
+   * arbitrary space being added between buttons.
+   *
+   * @param {number} numActions
+   */
+  setHeight_(numActions) {
+    // TODO(anastasi): This should be a preference that the user can change.
+    const maxCols = 3;
+    const numRows = Math.ceil(numActions / maxCols);
+    const height = 60 * numRows;
+    document.getElementById(SAConstants.MENU_ID).style.height = height + 'px';
+  }
+}
+
+let switchAccessMenuPanel = new Panel();
+
+if (document.readyState === 'complete')
+  switchAccessMenuPanel.init();
+else
+  window.addEventListener(
+      'load', switchAccessMenuPanel.init.bind(switchAccessMenuPanel));

@@ -83,6 +83,12 @@ class DiskCacheEntryTest : public DiskCacheTestWithCache {
   bool SimpleCacheMakeBadChecksumEntry(const std::string& key, int data_size);
   bool SimpleCacheThirdStreamFileExists(const char* key);
   void SyncDoomEntry(const char* key);
+  void CreateEntryWithHeaderBodyAndSideData(const std::string& key,
+                                            int data_size);
+  void TruncateFileFromEnd(int file_index,
+                           const std::string& key,
+                           int data_size,
+                           int truncate_size);
   void UseAfterBackendDestruction();
   void LastUsedTimePersists();
 };
@@ -3806,7 +3812,7 @@ TEST_F(DiskCacheEntryTest, SimpleCacheEvictOldEntries) {
       // will be checked for outliving the eviction.
       AddDelay();
     }
-    ASSERT_THAT(CreateEntry(key2 + base::IntToString(i), &entry), IsOk());
+    ASSERT_THAT(CreateEntry(key2 + base::NumberToString(i), &entry), IsOk());
     ScopedEntryPtr entry_closer(entry);
     EXPECT_EQ(kWriteSize,
               WriteData(entry, 1, 0, buffer.get(), kWriteSize, false));
@@ -3821,7 +3827,7 @@ TEST_F(DiskCacheEntryTest, SimpleCacheEvictOldEntries) {
     // Generally there is no guarantee that at this point the backround eviction
     // is finished. We are testing the positive case, i.e. when the eviction
     // never reaches this entry, should be non-flaky.
-    ASSERT_EQ(net::OK, OpenEntry(key2 + base::IntToString(entry_no), &entry))
+    ASSERT_EQ(net::OK, OpenEntry(key2 + base::NumberToString(entry_no), &entry))
         << "Should not have evicted fresh entry " << entry_no;
     entry->Close();
   }
@@ -4258,6 +4264,37 @@ void DiskCacheEntryTest::SyncDoomEntry(const char* key) {
   callback.WaitForResult();
 }
 
+void DiskCacheEntryTest::CreateEntryWithHeaderBodyAndSideData(
+    const std::string& key,
+    int data_size) {
+  // Use one buffer for simplicity.
+  scoped_refptr<net::IOBuffer> buffer =
+      base::MakeRefCounted<net::IOBuffer>(data_size);
+  CacheTestFillBuffer(buffer->data(), data_size, false);
+
+  disk_cache::Entry* entry = nullptr;
+  ASSERT_THAT(CreateEntry(key, &entry), IsOk());
+  for (int i = 0; i < disk_cache::kSimpleEntryStreamCount; ++i) {
+    EXPECT_EQ(data_size, WriteData(entry, i, /* offset */ 0, buffer.get(),
+                                   data_size, false));
+  }
+  entry->Close();
+}
+
+void DiskCacheEntryTest::TruncateFileFromEnd(int file_index,
+                                             const std::string& key,
+                                             int data_size,
+                                             int truncate_size) {
+  // Remove last eof bytes from cache file.
+  ASSERT_GT(data_size, truncate_size);
+  const int64_t new_size =
+      disk_cache::simple_util::GetFileSizeFromDataSize(key.size(), data_size) -
+      truncate_size;
+  const base::FilePath entry_path = cache_path_.AppendASCII(
+      disk_cache::simple_util::GetFilenameFromKeyAndFileIndex(key, file_index));
+  EXPECT_TRUE(TruncatePath(entry_path, new_size));
+}
+
 void DiskCacheEntryTest::UseAfterBackendDestruction() {
   disk_cache::Entry* entry = NULL;
   ASSERT_THAT(CreateEntry("the first key", &entry), IsOk());
@@ -4632,6 +4669,40 @@ TEST_F(DiskCacheEntryTest, SimpleCacheTruncateLargeSparseFile) {
   EXPECT_EQ(kSize, callback.GetResult(ret));
 
   entry->Close();
+}
+
+TEST_F(DiskCacheEntryTest, SimpleCacheNoBodyEOF) {
+  SetSimpleCacheMode();
+  InitCache();
+
+  const std::string key("the first key");
+  const int kSize = 1024;
+  CreateEntryWithHeaderBodyAndSideData(key, kSize);
+
+  disk_cache::Entry* entry = nullptr;
+  ASSERT_THAT(OpenEntry(key, &entry), IsOk());
+  entry->Close();
+
+  TruncateFileFromEnd(0 /*header and body file index*/, key, kSize,
+                      static_cast<int>(sizeof(disk_cache::SimpleFileEOF)));
+  EXPECT_THAT(OpenEntry(key, &entry), IsError(net::ERR_FAILED));
+}
+
+TEST_F(DiskCacheEntryTest, SimpleCacheNoSideDataEOF) {
+  SetSimpleCacheMode();
+  InitCache();
+
+  const std::string key("the first key");
+  const int kSize = 1024;
+  CreateEntryWithHeaderBodyAndSideData(key, kSize);
+
+  disk_cache::Entry* entry = nullptr;
+  ASSERT_THAT(OpenEntry(key, &entry), IsOk());
+  entry->Close();
+
+  TruncateFileFromEnd(1 /*side data file_index*/, key, kSize,
+                      static_cast<int>(sizeof(disk_cache::SimpleFileEOF)));
+  EXPECT_THAT(OpenEntry(key, &entry), IsError(net::ERR_FAILED));
 }
 
 TEST_F(DiskCacheEntryTest, SimpleCacheReadWithoutKeySHA256) {
@@ -5120,11 +5191,11 @@ class DiskCacheSimplePrefetchTest : public DiskCacheEntryTest {
                                    int trailer_speculative_size) {
     std::map<std::string, std::string> params;
     params[disk_cache::kSimpleCacheFullPrefetchBytesParam] =
-        base::IntToString(full_size);
+        base::NumberToString(full_size);
     params[disk_cache::kSimpleCacheTrailerPrefetchHintParam] =
         trailer_hint ? "true" : "false";
     params[disk_cache::kSimpleCacheTrailerPrefetchSpeculativeBytesParam] =
-        base::IntToString(trailer_speculative_size);
+        base::NumberToString(trailer_speculative_size);
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
         disk_cache::kSimpleCachePrefetchExperiment, params);
   }

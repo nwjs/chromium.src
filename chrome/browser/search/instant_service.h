@@ -32,6 +32,7 @@
 #error "Instant is only used on desktop";
 #endif
 
+class DarkModeObserver;
 class InstantIOContext;
 class InstantServiceObserver;
 class NtpBackgroundService;
@@ -100,14 +101,18 @@ class InstantService : public KeyedService,
   bool UndoCustomLinkAction();
   // Invoked when the Instant page wants to delete all custom links and use Most
   // Visited sites instead. Returns false and does nothing if the profile is
-  // using a non-Google search provider.
-  bool ResetCustomLinks();
+  // using a non-Google search provider. Marked virtual for mocking in tests.
+  virtual bool ResetCustomLinks();
 
   // Invoked by the InstantController to update theme information for NTP.
   //
   // TODO(kmadhusu): Invoking this from InstantController shouldn't be
   // necessary. Investigate more and remove this from here.
   void UpdateThemeInfo();
+
+  // Invoked when a background pref update is received via sync, triggering
+  // an update of theme info.
+  void UpdateBackgroundFromSync();
 
   // Invoked by the InstantController to update most visited items details for
   // NTP.
@@ -129,8 +134,8 @@ class InstantService : public KeyedService,
   // Invoked when a user selected the "Upload an image" option on the NTP.
   void SelectLocalBackgroundImage(const base::FilePath& path);
 
-  // Used for testing.
-  ThemeBackgroundInfo* GetThemeInfoForTesting() { return theme_info_.get(); }
+  // Getter for |theme_info_| that will also initialize it if necessary.
+  ThemeBackgroundInfo* GetInitializedThemeInfo();
 
   // Used for testing.
   void SetDarkModeThemeForTesting(ui::NativeTheme* theme);
@@ -141,10 +146,12 @@ class InstantService : public KeyedService,
   // Check if a custom background has been set by the user.
   bool IsCustomBackgroundSet();
 
+  // Reset all NTP customizations to default. Marked virtual for mocking in
+  // tests.
+  virtual void ResetToDefault();
+
  private:
   class SearchProviderObserver;
-
-  class DarkModeHandler;
 
   friend class InstantExtendedTest;
   friend class InstantUnitTestBase;
@@ -152,6 +159,7 @@ class InstantService : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(InstantExtendedTest, ProcessIsolation);
   FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, DeleteThumbnailDataIfExists);
   FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, GetNTPTileSuggestion);
+  FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, TestNoThemeInfo);
 
   // KeyedService:
   void Shutdown() override;
@@ -186,9 +194,9 @@ class InstantService : public KeyedService,
   void ApplyOrResetCustomBackgroundThemeInfo();
 
   void ApplyCustomBackgroundThemeInfo();
-  void ApplyCustomBackgroundThemeInfoFromLocalFile(bool file_exists);
 
-  void ResetCustomBackgroundThemeInfo();
+  // Marked virtual for mocking in tests.
+  virtual void ResetCustomBackgroundThemeInfo();
 
   void FallbackToDefaultThemeInfo();
 
@@ -209,6 +217,8 @@ class InstantService : public KeyedService,
   // Update the background pref to point to
   // chrome-search://local-ntp/background.jpg
   void SetBackgroundToLocalResource();
+
+  void CreateDarkModeObserver(ui::NativeTheme* theme);
 
   Profile* const profile_;
 
@@ -233,12 +243,12 @@ class InstantService : public KeyedService,
   // Keeps track of any changes in search engine provider. May be null.
   std::unique_ptr<SearchProviderObserver> search_provider_observer_;
 
-  // Keeps track of any changes to system dark mode.
-  std::unique_ptr<DarkModeHandler> dark_mode_handler_;
-
   PrefChangeRegistrar pref_change_registrar_;
 
   PrefService* pref_service_;
+
+  // Keeps track of any changes to system dark mode.
+  std::unique_ptr<DarkModeObserver> dark_mode_observer_;
 
   NtpBackgroundService* background_service_;
 

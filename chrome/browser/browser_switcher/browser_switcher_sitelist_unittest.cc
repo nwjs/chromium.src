@@ -22,6 +22,12 @@ namespace browser_switcher {
 
 namespace {
 
+class TestBrowserSwitcherPrefs : public BrowserSwitcherPrefs {
+ public:
+  explicit TestBrowserSwitcherPrefs(PrefService* prefs)
+      : BrowserSwitcherPrefs(prefs, nullptr) {}
+};
+
 std::unique_ptr<base::Value> StringArrayToValue(
     const std::vector<const char*>& strings) {
   std::vector<base::Value> values(strings.size());
@@ -43,7 +49,7 @@ class BrowserSwitcherSitelistTest : public testing::Test {
                                   StringArrayToValue(url_list));
     prefs_backend_.SetManagedPref(prefs::kUrlGreylist,
                                   StringArrayToValue(url_greylist));
-    prefs_ = std::make_unique<BrowserSwitcherPrefs>(&prefs_backend_);
+    prefs_ = std::make_unique<TestBrowserSwitcherPrefs>(&prefs_backend_);
     sitelist_ = std::make_unique<BrowserSwitcherSitelistImpl>(prefs_.get());
   }
 
@@ -59,6 +65,44 @@ class BrowserSwitcherSitelistTest : public testing::Test {
   std::unique_ptr<BrowserSwitcherPrefs> prefs_;
   std::unique_ptr<BrowserSwitcherSitelist> sitelist_;
 };
+
+TEST_F(BrowserSwitcherSitelistTest, CanonicalizeRule) {
+  std::string rule = "Example.Com";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("example.com", rule);
+
+  rule = "Example.Com/";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("//example.com/", rule);
+
+  rule = "!Example.Com/Abc";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("!//example.com/Abc", rule);
+
+  rule = "/Example.Com";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("/Example.Com", rule);
+
+  rule = "//Example.Com";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("//example.com/", rule);
+
+  rule = "!//Example.Com";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("!//example.com/", rule);
+
+  rule = "HTTP://EXAMPLE.COM";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("http://example.com/", rule);
+
+  rule = "HTTP://EXAMPLE.COM/ABC";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("http://example.com/ABC", rule);
+
+  rule = "User@Example.Com:8080/Test";
+  CanonicalizeRule(&rule);
+  EXPECT_EQ("//User@example.com:8080/Test", rule);
+}
 
 TEST_F(BrowserSwitcherSitelistTest, ShouldRedirectWildcard) {
   // A "*" by itself means everything matches.

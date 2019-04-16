@@ -46,6 +46,7 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "services/service_manager/embedder/switches.h"
+#include "skia/ext/test_fonts.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/base/ui_base_switches.h"
@@ -87,6 +88,7 @@
 
 #if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID)
 #include "components/crash/content/app/breakpad_linux.h"
+#include "v8/include/v8-wasm-trap-handler-posix.h"
 #endif
 
 #if defined(OS_FUCHSIA)
@@ -167,7 +169,7 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
   v8_crashpad_support::SetUp();
 #endif
 #if defined(OS_LINUX)
-  breakpad::SetFirstChanceExceptionHandler(v8::V8::TryHandleSignal);
+  breakpad::SetFirstChanceExceptionHandler(v8::TryHandleWebAssemblyTrapPosix);
 #endif
 #if defined(OS_MACOSX)
   // Needs to happen before InitializeResourceBundle() and before
@@ -191,15 +193,15 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
   }
 
   if (command_line.HasSwitch(switches::kRunWebTests)) {
-    // Only run CheckLayoutSystemDeps on the browser process.
-    if (!command_line.HasSwitch(switches::kProcessType)) {
-      // If CheckLayoutSystemDeps fails, we early exit as there's no point in
-      // running the tests.
-      if (!CheckLayoutSystemDeps()) {
-        *exit_code = 1;
-        return true;
-      }
+#if defined(OS_WIN)
+    // Run CheckLayoutSystemDeps() in the browser process and exit early if it
+    // fails.
+    if (!command_line.HasSwitch(switches::kProcessType) &&
+        !CheckLayoutSystemDeps()) {
+      *exit_code = 1;
+      return true;
     }
+#endif
 
     EnableBrowserWebTestMode();
 
@@ -297,10 +299,15 @@ bool ShellMainDelegate::BasicStartupComplete(int* exit_code) {
     command_line.AppendSwitch(
         switches::kDisableGpuProcessForDX12VulkanInfoCollection);
 
-    if (!BlinkTestPlatformInitialize()) {
-      *exit_code = 1;
-      return true;
-    }
+#if defined(OS_WIN) || defined(OS_MACOSX)
+    BlinkTestPlatformInitialize();
+#endif
+
+#if !defined(OS_WIN)
+    // On Windows BlinkTestPlatformInitialize() is responsible for font
+    // initialization.
+    skia::ConfigureTestFont();
+#endif
   }
 
   content_client_.reset(switches::IsRunWebTestsSwitchPresent()

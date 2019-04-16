@@ -8,21 +8,33 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/android/chrome_feature_list.h"
+#include "chrome/browser/download/download_offline_content_provider.h"
 #include "chrome/browser/download/offline_item_utils.h"
+#include "chrome/browser/offline_items_collection/offline_content_aggregator_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/download/public/common/download_utils.h"
+#include "components/offline_items_collection/core/offline_content_aggregator.h"
+#include "content/public/browser/browser_context.h"
+#include "content/public/browser/download_item_utils.h"
 #include "jni/DownloadUtils_jni.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "url/gurl.h"
 
 using base::android::ConvertUTF16ToJavaString;
+using base::android::ConvertUTF8ToJavaString;
 using base::android::JavaParamRef;
 using base::android::ScopedJavaLocalRef;
+using OfflineContentAggregator =
+    offline_items_collection::OfflineContentAggregator;
 
 namespace {
 // If received bytes is more than the size limit and resumption will restart
 // from the beginning, throttle it.
 int kDefaultAutoResumptionSizeLimit = 10 * 1024 * 1024;  // 10 MB
 const char kAutoResumptionSizeLimitParamName[] = "AutoResumptionSizeLimit";
+
+static DownloadOfflineContentProvider* g_download_provider = nullptr;
+static DownloadOfflineContentProvider* g_download_provider_incognito = nullptr;
 
 }  // namespace
 
@@ -52,10 +64,8 @@ base::FilePath DownloadUtils::GetUriStringForPath(
     const base::FilePath& file_path) {
   JNIEnv* env = base::android::AttachCurrentThread();
   auto uri_jstring = Java_DownloadUtils_getUriStringForPath(
-      env,
-      base::android::ConvertUTF8ToJavaString(env, file_path.AsUTF8Unsafe()));
-  return base::FilePath(
-      base::android::ConvertJavaStringToUTF8(env, uri_jstring));
+      env, ConvertUTF8ToJavaString(env, file_path.AsUTF8Unsafe()));
+  return base::FilePath(ConvertJavaStringToUTF8(env, uri_jstring));
 }
 
 // static
@@ -67,4 +77,64 @@ int DownloadUtils::GetAutoResumptionSizeLimit() {
   return base::StringToInt(value, &size_limit)
              ? size_limit
              : kDefaultAutoResumptionSizeLimit;
+}
+
+// static
+void DownloadUtils::OpenDownload(download::DownloadItem* item,
+                                 int open_source) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  content::BrowserContext* browser_context =
+      content::DownloadItemUtils::GetBrowserContext(item);
+  bool is_off_the_record =
+      browser_context ? browser_context->IsOffTheRecord() : false;
+  std::string original_url = item->GetOriginalUrl().SchemeIs(url::kDataScheme)
+                                 ? std::string()
+                                 : item->GetOriginalUrl().spec();
+
+  Java_DownloadUtils_openDownload(
+      env, ConvertUTF8ToJavaString(env, item->GetTargetFilePath().value()),
+      ConvertUTF8ToJavaString(env, item->GetMimeType()),
+      ConvertUTF8ToJavaString(env, item->GetGuid()), is_off_the_record,
+      ConvertUTF8ToJavaString(env, original_url),
+      ConvertUTF8ToJavaString(env, item->GetReferrerUrl().spec()), open_source);
+}
+
+// static
+std::string DownloadUtils::RemapGenericMimeType(const std::string& mime_type,
+                                                const GURL& url,
+                                                const std::string& file_name) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  auto j_remapped_mime_type = Java_DownloadUtils_remapGenericMimeType(
+      env, ConvertUTF8ToJavaString(env, mime_type),
+      ConvertUTF8ToJavaString(env, url.spec()),
+      ConvertUTF8ToJavaString(env, file_name));
+  return ConvertJavaStringToUTF8(env, j_remapped_mime_type);
+}
+
+// static
+DownloadOfflineContentProvider*
+DownloadUtils::GetDownloadOfflineContentProvider(
+    content::BrowserContext* browser_context) {
+  OfflineContentAggregator* aggregator =
+      OfflineContentAggregatorFactory::GetForBrowserContext(browser_context);
+  bool is_off_the_record =
+      browser_context ? browser_context->IsOffTheRecord() : false;
+
+  // Only create the provider if it is needed for the given |browser_context|.
+  if (!is_off_the_record && !g_download_provider) {
+    std::string name_space = OfflineContentAggregator::CreateUniqueNameSpace(
+        OfflineItemUtils::GetDownloadNamespacePrefix(false), false);
+    g_download_provider =
+        new DownloadOfflineContentProvider(aggregator, name_space);
+  }
+
+  if (is_off_the_record && !g_download_provider_incognito) {
+    std::string name_space = OfflineContentAggregator::CreateUniqueNameSpace(
+        OfflineItemUtils::GetDownloadNamespacePrefix(true), true);
+    g_download_provider_incognito =
+        new DownloadOfflineContentProvider(aggregator, name_space);
+  }
+
+  return is_off_the_record ? g_download_provider_incognito
+                           : g_download_provider;
 }

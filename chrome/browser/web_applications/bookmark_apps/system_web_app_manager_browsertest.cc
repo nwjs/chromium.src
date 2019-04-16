@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/extensions/browsertest_util.h"
@@ -16,7 +17,6 @@
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/extensions/pending_bookmark_app_manager.h"
 #include "chrome/browser/web_applications/test/test_system_web_app_manager.h"
-#include "chrome/browser/web_applications/web_app_provider_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_theme_color_info.h"
 #include "chrome/grit/browser_resources.h"
@@ -50,6 +50,15 @@ constexpr char kSystemAppManifestText[] =
       "theme_color": "#00FF00"
     })";
 
+constexpr char kPwaHtml[] =
+    R"(
+<html>
+<head>
+  <link rel="manifest" href="manifest.json">
+</head>
+</html>
+)";
+
 // WebUIController that serves a System PWA.
 class TestWebUIController : public content::WebUIController {
  public:
@@ -58,16 +67,17 @@ class TestWebUIController : public content::WebUIController {
     content::WebUIDataSource* data_source =
         content::WebUIDataSource::Create("test-system-app");
     data_source->AddResourcePath("icon-256.png", IDR_PRODUCT_LOGO_256);
-    data_source->AddResourcePath("pwa.html", IDR_PWA_HTML);
     data_source->SetRequestFilter(base::BindRepeating(
         [](const std::string& id,
            const content::WebUIDataSource::GotDataCallback& callback) {
           scoped_refptr<base::RefCountedString> ref_contents(
               new base::RefCountedString);
-          if (id != "manifest.json")
+          if (id == "manifest.json")
+            ref_contents->data() = kSystemAppManifestText;
+          else if (id == "pwa.html")
+            ref_contents->data() = kPwaHtml;
+          else
             return false;
-
-          ref_contents->data() = kSystemAppManifestText;
 
           callback.Run(ref_contents);
           return true;
@@ -112,7 +122,10 @@ class TestWebUIControllerFactory : public content::WebUIControllerFactory {
 };
 
 SystemWebAppManagerBrowserTest::SystemWebAppManagerBrowserTest()
-    : factory_(std::make_unique<TestWebUIControllerFactory>()) {
+    : factory_(std::make_unique<TestWebUIControllerFactory>()),
+      test_web_app_provider_creator_(
+          base::BindOnce(&SystemWebAppManagerBrowserTest::CreateWebAppProvider,
+                         base::Unretained(this))) {
   scoped_feature_list_.InitWithFeatures(
       {features::kDesktopPWAWindowing, features::kSystemWebApps}, {});
   content::WebUIControllerFactory::RegisterFactory(factory_.get());
@@ -122,48 +135,28 @@ SystemWebAppManagerBrowserTest::~SystemWebAppManagerBrowserTest() {
   content::WebUIControllerFactory::UnregisterFactoryForTesting(factory_.get());
 }
 
-void SystemWebAppManagerBrowserTest::SetUpInProcessBrowserTestFixture() {
-  will_create_browser_context_services_subscription_ =
-      BrowserContextDependencyManager::GetInstance()
-          ->RegisterWillCreateBrowserContextServicesCallbackForTesting(
-              base::BindRepeating(&SystemWebAppManagerBrowserTest::
-                                      OnWillCreateBrowserContextServices,
-                                  base::Unretained(this)));
-}
-
-void SystemWebAppManagerBrowserTest::OnWillCreateBrowserContextServices(
-    content::BrowserContext* context) {
-  WebAppProviderFactory::GetInstance()->SetTestingFactory(
-      context,
-      base::BindRepeating(&SystemWebAppManagerBrowserTest::CreateWebAppProvider,
-                          base::Unretained(this)));
-}
-
 std::unique_ptr<KeyedService>
-SystemWebAppManagerBrowserTest::CreateWebAppProvider(
-    content::BrowserContext* context) {
-  Profile* profile = Profile::FromBrowserContext(context);
-
-  if (!SystemWebAppManager::ShouldEnableForProfile(profile))
-    return nullptr;
+SystemWebAppManagerBrowserTest::CreateWebAppProvider(Profile* profile) {
+  DCHECK(SystemWebAppManager::IsEnabled());
 
   auto provider = std::make_unique<TestWebAppProvider>(profile);
-  // Create all real subsystems:
-  provider->CreateSubsystems();
+  // Create all real subsystems but do not start them:
+  provider->Init();
 
-  // But override SystemWebAppManager with TestSystemWebAppManager:
+  // Override SystemWebAppManager with TestSystemWebAppManager:
   DCHECK(!test_system_web_app_manager_);
   auto test_system_web_app_manager = std::make_unique<TestSystemWebAppManager>(
       profile, &provider->pending_app_manager());
   test_system_web_app_manager_ = test_system_web_app_manager.get();
   provider->SetSystemWebAppManager(std::move(test_system_web_app_manager));
 
-  std::vector<GURL> system_apps;
-  system_apps.emplace_back(GURL("chrome://test-system-app/pwa.html"));
+  base::flat_map<SystemAppType, GURL> system_apps;
+  system_apps[SystemAppType::SETTINGS] =
+      GURL("chrome://test-system-app/pwa.html");
   test_system_web_app_manager_->SetSystemApps(std::move(system_apps));
 
-  // Initialize all subsystems:
-  provider->Init();
+  // Start registry and all dependent subsystems:
+  provider->StartRegistry();
 
   return provider;
 }
@@ -194,6 +187,11 @@ IN_PROC_BROWSER_TEST_F(SystemWebAppManagerBrowserTest, Install) {
   EXPECT_EQ(extensions::util::GetInstalledPwaForUrl(
                 browser()->profile(), GURL("chrome://test-system-app/")),
             app);
+  // The app should be retrievable from the Web Apps system.
+  EXPECT_EQ(app->id(),
+            WebAppProvider::Get(browser()->profile())
+                ->system_web_app_manager()
+                .GetAppIdForSystemApp(web_app::SystemAppType::SETTINGS));
 }
 
 }  // namespace web_app

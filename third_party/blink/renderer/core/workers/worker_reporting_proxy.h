@@ -32,6 +32,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_WORKERS_WORKER_REPORTING_PROXY_H_
 
 #include <memory>
+#include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 #include "third_party/blink/renderer/bindings/core/v8/source_location.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/web_feature_forward.h"
@@ -57,9 +58,12 @@ class CORE_EXPORT WorkerReportingProxy {
                                std::unique_ptr<SourceLocation>,
                                int exception_id) {}
   virtual void ReportConsoleMessage(MessageSource,
-                                    MessageLevel,
+                                    mojom::ConsoleMessageLevel,
                                     const String& message,
                                     SourceLocation*) {}
+
+  // Invoked at the beginning of WorkerThread::InitializeOnWorkerThread.
+  virtual void WillInitializeWorkerContext() {}
 
   // Invoked when the new WorkerGlobalScope is created on
   // WorkerThread::InitializeOnWorkerThread.
@@ -69,15 +73,24 @@ class CORE_EXPORT WorkerReportingProxy {
   // WorkerThread::InitializeOnWorkerThread.
   virtual void DidInitializeWorkerContext() {}
 
+  // Invoked when the WorkerGlobalScope initialization failed on
+  // WorkerThread::InitializeOnWorkerThread.
+  virtual void DidFailToInitializeWorkerContext() {}
+
   // Invoked when the worker's main script is loaded on
   // WorkerThread::InitializeOnWorkerThread(). Only invoked when the script was
   // loaded on the worker thread, i.e., via InstalledScriptsManager rather than
   // via ResourceLoader. Called before WillEvaluateClassicScript().
-  virtual void DidLoadInstalledScript() {}
+  virtual void DidLoadClassicScript() {}
 
-  // Invoked when it's failed to load the worker's main script from
+  // Invoked when it's failed to load the worker's main script on the worker
+  // thread.
+  virtual void DidFailToLoadClassicScript() {}
+
+  // Invoked on success to fetch the worker's main classic/module script from
+  // network. This is not called when the script is loaded from
   // InstalledScriptsManager.
-  virtual void DidFailToLoadInstalledClassicScript() {}
+  virtual void DidFetchScript() {}
 
   // Invoked on failure to fetch the worker's classic script from network. This
   // is not called when the script is loaded from InstalledScriptsManager.

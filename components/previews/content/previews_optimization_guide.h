@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -32,7 +33,9 @@ class Hint;
 
 namespace previews {
 
+class HintsFetcher;
 class PreviewsHints;
+class PreviewsTopHostProvider;
 class PreviewsUserData;
 
 // A Previews optimization guide that makes decisions guided by hints received
@@ -41,10 +44,12 @@ class PreviewsOptimizationGuide
     : public optimization_guide::OptimizationGuideServiceObserver {
  public:
   // The embedder guarantees |optimization_guide_service| outlives |this|.
+  // The embedder guarantees that |previews_top_host_provider_| outlives |this|.
   PreviewsOptimizationGuide(
       optimization_guide::OptimizationGuideService* optimization_guide_service,
       const scoped_refptr<base::SingleThreadTaskRunner>& ui_task_runner,
-      const base::FilePath& profile_path);
+      const base::FilePath& profile_path,
+      PreviewsTopHostProvider* previews_top_host_provider);
 
   ~PreviewsOptimizationGuide() override;
 
@@ -90,6 +95,10 @@ class PreviewsOptimizationGuide
 
   PreviewsHints* GetHintsForTesting() { return hints_.get(); }
 
+  // |next_update_closure| is called the next time OnHintsComponentAvailable is
+  // called and the corresponding hints have been updated.
+  void ListenForNextUpdateForTesting(base::OnceClosure next_update_closure);
+
  private:
   // Callback run after the hint cache is fully initialized. At this point, the
   // PreviewsOptimizationGuide is ready to process components from the
@@ -97,16 +106,28 @@ class PreviewsOptimizationGuide
   void OnHintCacheInitialized();
 
   // Updates the hints to the latest hints sent by the Component Updater.
-  void UpdateHints(std::unique_ptr<PreviewsHints> hints);
+  // |update_closure| is called once the hints are updated.
+  void UpdateHints(base::OnceClosure update_closure,
+                   std::unique_ptr<PreviewsHints> hints);
 
   // Called when the hints have been fully updated with the latest hints from
   // the Component Updater. This is used as a signal during tests.
-  void OnHintsUpdated();
+  // |update_closure| is called immediately if not null.
+  void OnHintsUpdated(base::OnceClosure update_closure);
 
   // Callback when a hint is loaded.
   void OnLoadedHint(base::OnceClosure callback,
                     const GURL& document_url,
                     const optimization_guide::proto::Hint* loaded_hint) const;
+
+  // Method to request OnePlatform client hints for user's sites with top
+  // engagement scores and creates a remote request using |hints_fetcher_| On
+  // request success OnOnePlatformHintsReceived callback will be called.
+  void GetOnePlatformClientHints();
+
+  // Called when the response from the OnePlatform Guide Service is handled and
+  // stored by the |hints_fetcher_|. received.
+  void OnOnePlatformHintsReceived();
 
   // The OptimizationGuideService that this guide is listening to. Not owned.
   optimization_guide::OptimizationGuideService* optimization_guide_service_;
@@ -125,6 +146,16 @@ class PreviewsOptimizationGuide
 
   // The current hints used for this optimization guide.
   std::unique_ptr<PreviewsHints> hints_;
+
+  // Used in testing to subscribe to an update event in this class.
+  base::OnceClosure next_update_closure_;
+
+  // HintsFetcher handles the request to update Hints from OnePlatform Guide
+  // Service.
+  std::unique_ptr<HintsFetcher> hintsfetcher_;
+
+  // TopHostProvider that this guide can query. Not owned.
+  PreviewsTopHostProvider* previews_top_host_provider_ = nullptr;
 
   // Used to get |weak_ptr_| to self on the UI thread.
   base::WeakPtrFactory<PreviewsOptimizationGuide> ui_weak_ptr_factory_;

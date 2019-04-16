@@ -38,6 +38,8 @@ using base::android::ScopedJavaLocalRef;
 
 namespace {
 
+constexpr char kImageFetcherUmaClientName[] = "ExploreSitesExperimental";
+
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("explore_sites_image_fetcher", R"(
 semantics {
@@ -77,7 +79,6 @@ void GotNTPCategoriesFromJson(
 
 void OnGetIconDone(std::unique_ptr<image_fetcher::ImageFetcher> image_fetcher,
                    const ScopedJavaGlobalRef<jobject>& j_callback_obj,
-                   const std::string& id,
                    const gfx::Image& image,
                    const image_fetcher::RequestMetadata& metadata) {
   ScopedJavaLocalRef<jobject> j_bitmap;
@@ -126,16 +127,19 @@ static void JNI_ExploreSitesBridgeExperimental_GetIcon(
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
       content::BrowserContext::GetDefaultStoragePartition(profile)
           ->GetURLLoaderFactoryForBrowserProcess();
+  image_fetcher::ImageFetcherParams params(kTrafficAnnotation,
+                                           kImageFetcherUmaClientName);
+
   auto image_fetcher = std::make_unique<image_fetcher::ImageFetcherImpl>(
       std::make_unique<suggestions::ImageDecoderImpl>(), url_loader_factory);
   // |image_fetcher| will be owned by the callback and gets destroyed at the end
   // of the callback.
   image_fetcher::ImageFetcher* image_fetcher_ptr = image_fetcher.get();
   image_fetcher_ptr->FetchImage(
-      icon_url.spec(), icon_url,
+      icon_url,
       base::BindOnce(&OnGetIconDone, std::move(image_fetcher),
                      ScopedJavaGlobalRef<jobject>(j_callback_obj)),
-      kTrafficAnnotation);
+      std::move(params));
 }
 
 }  // namespace explore_sites

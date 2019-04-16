@@ -873,12 +873,12 @@ Gallery.prototype.updateSelectionAndState_ = function() {
     this.shareButton_.disabled = true;
   }
 
-  util.updateAppState(
-      null,  // Keep the current directory.
+  appUtil.updateAppState(
+      null,              // Keep the current directory.
       selectedEntryURL,  // Update the selection.
       {
-        gallery: (this.currentMode_ === this.thumbnailMode_ ?
-                  'thumbnail' : 'slide')
+        gallery:
+            (this.currentMode_ === this.thumbnailMode_ ? 'thumbnail' : 'slide')
       });
 };
 
@@ -1094,7 +1094,10 @@ let initializePromise = null;
  * it to create the gallery. Calls reload() to populate the gallery entries.
  */
 function initializeGallery() {
-  const promise = Promise.resolve().then(() => {
+  const htmlImportsPromise = new Promise(resolve => {
+    window.HTMLImports.whenReady(resolve);
+  });
+  const promise = htmlImportsPromise.then(() => {
     return Promise.all([loadTimeDataPromise, volumeManagerPromise]);
   });
 

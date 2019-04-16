@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind_helpers.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/location.h"
@@ -79,7 +80,6 @@ IN_PROC_BROWSER_TEST_F(SingleClientDirectorySyncTest,
   ASSERT_TRUE(SetupSync()) << "SetupSync() failed.";
   browser_sync::ProfileSyncService* sync_service = GetSyncService(0);
   FilePath directory_path = sync_service->GetSyncClientForTest()
-                                ->GetModelTypeStoreService()
                                 ->GetSyncDataPath();
   ASSERT_TRUE(FolderContainsFiles(directory_path));
   sync_service->StopAndClear();
@@ -115,7 +115,6 @@ IN_PROC_BROWSER_TEST_F(SingleClientDirectorySyncTest,
 
   // Now corrupt the database.
   FilePath directory_path = sync_service->GetSyncClientForTest()
-                                ->GetModelTypeStoreService()
                                 ->GetSyncDataPath();
   const FilePath sync_db(directory_path.Append(
       syncer::syncable::Directory::kSyncDatabaseFilename));
@@ -128,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(SingleClientDirectorySyncTest,
       0, bookmarks_helper::GetOtherNode(0), 0, "top");
   for (int i = 0; i < 100; ++i) {
     ASSERT_TRUE(
-        bookmarks_helper::AddURL(0, top, 0, base::Int64ToString(i), url));
+        bookmarks_helper::AddURL(0, top, 0, base::NumberToString(i), url));
   }
   sync_service->FlushDirectory();
 

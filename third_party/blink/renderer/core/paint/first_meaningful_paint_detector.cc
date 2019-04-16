@@ -232,8 +232,8 @@ void FirstMeaningfulPaintDetector::ReportSwapTime(
   paint_timing_->ReportSwapResultHistogram(result);
   provisional_first_meaningful_paint_swap_ = timestamp;
 
-  probe::paintTiming(GetDocument(), "firstMeaningfulPaintCandidate",
-                     TimeTicksInSeconds(timestamp));
+  probe::PaintTiming(GetDocument(), "firstMeaningfulPaintCandidate",
+                     timestamp.since_origin().InSecondsF());
 
   // Ignore the first meaningful paint candidate as this generally is the first
   // contentful paint itself.
@@ -264,8 +264,8 @@ void FirstMeaningfulPaintDetector::SetFirstMeaningfulPaint(
   DCHECK(!swap_stamp.is_null());
   DCHECK(network2_quiet_reached_);
 
-  double swap_time_seconds = TimeTicksInSeconds(swap_stamp);
-  probe::paintTiming(GetDocument(), "firstMeaningfulPaint", swap_time_seconds);
+  double swap_time_seconds = swap_stamp.since_origin().InSecondsF();
+  probe::PaintTiming(GetDocument(), "firstMeaningfulPaint", swap_time_seconds);
 
   // If there's only been one contentful paint, then there won't have been
   // a meaningful paint signalled to the Scheduler, so mark one now.

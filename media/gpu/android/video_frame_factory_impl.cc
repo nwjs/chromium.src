@@ -4,7 +4,9 @@
 
 #include "media/gpu/android/video_frame_factory_impl.h"
 
+#include "base/android/android_image_reader_compat.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/callback.h"
 #include "base/memory/ref_counted.h"
 #include "base/single_thread_task_runner.h"
@@ -17,6 +19,7 @@
 #include "gpu/ipc/service/command_buffer_stub.h"
 #include "gpu/ipc/service/gpu_channel.h"
 #include "media/base/bind_to_current_loop.h"
+#include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
 #include "media/gpu/android/codec_image.h"
 #include "media/gpu/android/codec_image_group.h"
@@ -32,6 +35,30 @@ namespace {
 
 bool MakeContextCurrent(gpu::CommandBufferStub* stub) {
   return stub && stub->decoder_context()->MakeCurrent();
+}
+
+TextureOwner::Mode GetTextureOwnerMode(
+    VideoFrameFactory::OverlayMode overlay_mode) {
+  const bool a_image_reader_supported =
+      base::android::AndroidImageReader::GetInstance().IsSupported();
+
+  switch (overlay_mode) {
+    case VideoFrameFactory::OverlayMode::kDontRequestPromotionHints:
+    case VideoFrameFactory::OverlayMode::kRequestPromotionHints:
+      return a_image_reader_supported && base::FeatureList::IsEnabled(
+                                             media::kAImageReaderVideoOutput)
+                 ? TextureOwner::Mode::kAImageReaderInsecure
+                 : TextureOwner::Mode::kSurfaceTextureInsecure;
+    case VideoFrameFactory::OverlayMode::kSurfaceControlSecure:
+      DCHECK(a_image_reader_supported);
+      return TextureOwner::Mode::kAImageReaderSecure;
+    case VideoFrameFactory::OverlayMode::kSurfaceControlInsecure:
+      DCHECK(a_image_reader_supported);
+      return TextureOwner::Mode::kAImageReaderInsecure;
+  }
+
+  NOTREACHED();
+  return TextureOwner::Mode::kSurfaceTextureInsecure;
 }
 
 }  // namespace
@@ -50,8 +77,7 @@ VideoFrameFactoryImpl::~VideoFrameFactoryImpl() {
     gpu_task_runner_->DeleteSoon(FROM_HERE, gpu_video_frame_factory_.release());
 }
 
-void VideoFrameFactoryImpl::Initialize(bool wants_promotion_hint,
-                                       bool use_texture_owner_as_overlays,
+void VideoFrameFactoryImpl::Initialize(OverlayMode overlay_mode,
                                        InitCb init_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!gpu_video_frame_factory_);
@@ -59,8 +85,7 @@ void VideoFrameFactoryImpl::Initialize(bool wants_promotion_hint,
   base::PostTaskAndReplyWithResult(
       gpu_task_runner_.get(), FROM_HERE,
       base::Bind(&GpuVideoFrameFactory::Initialize,
-                 base::Unretained(gpu_video_frame_factory_.get()),
-                 wants_promotion_hint, use_texture_owner_as_overlays,
+                 base::Unretained(gpu_video_frame_factory_.get()), overlay_mode,
                  get_stub_cb_),
       std::move(init_cb));
 }
@@ -131,12 +156,10 @@ GpuVideoFrameFactory::~GpuVideoFrameFactory() {
 }
 
 scoped_refptr<TextureOwner> GpuVideoFrameFactory::Initialize(
-    bool wants_promotion_hint,
-    bool use_texture_owner_as_overlays,
+    VideoFrameFactoryImpl::OverlayMode overlay_mode,
     VideoFrameFactoryImpl::GetStubCb get_stub_cb) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  wants_promotion_hint_ = wants_promotion_hint;
-  use_texture_owner_as_overlays_ = use_texture_owner_as_overlays;
+  overlay_mode_ = overlay_mode;
   stub_ = get_stub_cb.Run();
   if (!MakeContextCurrent(stub_))
     return nullptr;
@@ -147,7 +170,8 @@ scoped_refptr<TextureOwner> GpuVideoFrameFactory::Initialize(
   decoder_helper_ = GLES2DecoderHelper::Create(stub_->decoder_context());
 
   return TextureOwner::Create(
-      TextureOwner::CreateTexture(stub_->decoder_context()));
+      TextureOwner::CreateTexture(stub_->decoder_context()),
+      GetTextureOwnerMode(overlay_mode_));
 }
 
 void GpuVideoFrameFactory::CreateVideoFrame(
@@ -282,21 +306,27 @@ void GpuVideoFrameFactory::CreateVideoFrameInternal(
   if (group->gpu_preferences().enable_threaded_texture_mailboxes)
     frame->metadata()->SetBoolean(VideoFrameMetadata::COPY_REQUIRED, true);
 
+  const bool is_surface_control =
+      overlay_mode_ == VideoFrameFactory::OverlayMode::kSurfaceControlSecure ||
+      overlay_mode_ == VideoFrameFactory::OverlayMode::kSurfaceControlInsecure;
+  const bool wants_promotion_hints =
+      overlay_mode_ == VideoFrameFactory::OverlayMode::kRequestPromotionHints;
+
   bool allow_overlay = false;
-  if (use_texture_owner_as_overlays_) {
+  if (is_surface_control) {
     DCHECK(texture_owner_);
     allow_overlay = true;
   } else {
     // We unconditionally mark the picture as overlayable, even if
     // |!texture_owner_|, if we want to get hints.  It's required, else we won't
     // get hints.
-    allow_overlay = !texture_owner_ || wants_promotion_hint_;
+    allow_overlay = !texture_owner_ || wants_promotion_hints;
   }
 
   frame->metadata()->SetBoolean(VideoFrameMetadata::ALLOW_OVERLAY,
                                 allow_overlay);
   frame->metadata()->SetBoolean(VideoFrameMetadata::WANTS_PROMOTION_HINT,
-                                wants_promotion_hint_);
+                                wants_promotion_hints);
   frame->metadata()->SetBoolean(VideoFrameMetadata::TEXTURE_OWNER,
                                 !!texture_owner_);
 

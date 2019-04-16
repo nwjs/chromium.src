@@ -21,6 +21,7 @@
 #include "printing/print_job_constants.h"
 #include "printing/units.h"
 #include "third_party/icu/source/i18n/unicode/ulocdata.h"
+#include "ui/android/window_android.h"
 
 using base::android::JavaParamRef;
 using base::android::JavaRef;
@@ -67,6 +68,17 @@ std::unique_ptr<PrintingContext> PrintingContext::Create(Delegate* delegate) {
 void PrintingContextAndroid::PdfWritingDone(int page_count) {
   JNIEnv* env = base::android::AttachCurrentThread();
   Java_PrintingContext_pdfWritingDone(env, page_count);
+}
+
+// static
+void PrintingContextAndroid::SetPendingPrint(
+    ui::WindowAndroid* window,
+    const ScopedJavaLocalRef<jobject>& printable,
+    int render_process_id,
+    int render_frame_id) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_PrintingContext_setPendingPrint(env, window->GetJavaObject(), printable,
+                                       render_process_id, render_frame_id);
 }
 
 PrintingContextAndroid::PrintingContextAndroid(Delegate* delegate)
@@ -117,7 +129,7 @@ void PrintingContextAndroid::AskUserForSettingsReply(
   // TODO(thestig): See if the call to set_device_name() can be removed.
   fd_ = Java_PrintingContext_getFileDescriptor(env, j_printing_context_);
   DCHECK(is_file_descriptor_valid());
-  settings_.set_device_name(base::IntToString16(fd_));
+  settings_.set_device_name(base::NumberToString16(fd_));
 
   ScopedJavaLocalRef<jintArray> intArr =
       Java_PrintingContext_getPages(env, j_printing_context_);

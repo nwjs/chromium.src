@@ -4,6 +4,7 @@
 
 #include "chrome/browser/android/explore_sites/record_site_click_task.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
@@ -18,6 +19,7 @@
 using offline_pages::TaskTestBase;
 
 namespace explore_sites {
+using InitializationStatus = ExploreSitesStore::InitializationStatus;
 
 const char kUrl[] = "https://www.example.com";
 const int kType = 5;
@@ -69,7 +71,8 @@ VALUES
 }
 
 TEST_F(ExploreSitesRecordSiteClickTest, StoreFailure) {
-  store()->SetInitializationStatusForTest(InitializationStatus::FAILURE);
+  store()->SetInitializationStatusForTesting(InitializationStatus::kFailure,
+                                             false);
   RecordSiteClickTask task(store(), kUrl, kType);
   RunTask(&task);
 

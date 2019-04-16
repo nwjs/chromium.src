@@ -81,7 +81,6 @@ const char kMediaStreamRenderToAssociatedSink[] =
     "chromeRenderToAssociatedSink";
 // RenderToAssociatedSink will be going away some time.
 const char kMediaStreamAudioHotword[] = "googHotword";
-// TODO(hta): googHotword should go away. https://crbug.com/577627
 const char kEchoCancellation[] = "echoCancellation";
 const char kDisableLocalEcho[] = "disableLocalEcho";
 const char kGoogEchoCancellation[] = "googEchoCancellation";
@@ -308,8 +307,6 @@ static void ParseOldStyleNames(
       // Should give TypeError when it's not parseable.
       // https://crbug.com/576582
       result.render_to_associated_sink.SetExact(ToBoolean(constraint.value_));
-    } else if (constraint.name_.Equals(kMediaStreamAudioHotword)) {
-      result.hotword_enabled.SetExact(ToBoolean(constraint.value_));
     } else if (constraint.name_.Equals(kGoogEchoCancellation)) {
       result.goog_echo_cancellation.SetExact(ToBoolean(constraint.value_));
     } else if (constraint.name_.Equals(kGoogExperimentalEchoCancellation)) {
@@ -416,11 +413,12 @@ static void ParseOldStyleNames(
     } else if (constraint.name_.Equals(kGoogLeakyBucket) ||
                constraint.name_.Equals(kGoogBeamforming) ||
                constraint.name_.Equals(kGoogArrayGeometry) ||
-               constraint.name_.Equals(kPowerLineFrequency)) {
+               constraint.name_.Equals(kPowerLineFrequency) ||
+               constraint.name_.Equals(kMediaStreamAudioHotword)) {
       // TODO(crbug.com/856176): Remove the kGoogBeamforming and
       // kGoogArrayGeometry special cases.
       context->AddConsoleMessage(ConsoleMessage::Create(
-          kDeprecationMessageSource, kWarningMessageLevel,
+          kDeprecationMessageSource, mojom::ConsoleMessageLevel::kWarning,
           "Obsolete constraint named " + String(constraint.name_) +
               " is ignored. Please stop using it."));
     } else if (constraint.name_.Equals(kVideoKind)) {
@@ -444,7 +442,7 @@ static void ParseOldStyleNames(
         // TODO(hta): UMA stats for unknown constraints passed.
         // https://crbug.com/576613
         context->AddConsoleMessage(ConsoleMessage::Create(
-            kDeprecationMessageSource, kWarningMessageLevel,
+            kDeprecationMessageSource, mojom::ConsoleMessageLevel::kWarning,
             "Unknown constraint named " + String(constraint.name_) +
                 " rejected"));
         // TODO(crbug.com/856176): Don't throw an error.
@@ -860,7 +858,7 @@ StringOrStringSequence ConvertStringSequence(
     for (const auto& scanner : input)
       buffer.push_back(scanner);
     the_strings.SetStringSequence(buffer);
-  } else if (input.size() > 0) {
+  } else if (!input.empty()) {
     the_strings.SetString(input[0]);
   }
   return the_strings;
@@ -878,7 +876,7 @@ StringOrStringSequenceOrConstrainDOMStringParameters ConvertString(
       for (const auto& scanner : input_buffer)
         buffer.push_back(scanner);
       output_union.SetStringSequence(buffer);
-    } else if (input_buffer.size() > 0) {
+    } else if (!input_buffer.empty()) {
       output_union.SetString(input_buffer[0]);
     }
   } else if (!input.IsEmpty()) {

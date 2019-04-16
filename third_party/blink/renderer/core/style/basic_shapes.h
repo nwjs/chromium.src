@@ -46,6 +46,8 @@ class FloatSize;
 class Path;
 
 class CORE_EXPORT BasicShape : public RefCounted<BasicShape> {
+  USING_FAST_MALLOC(BasicShape);
+
  public:
   virtual ~BasicShape() = default;
 
@@ -84,7 +86,7 @@ class BasicShapeCenterCoordinate {
   enum Direction { kTopLeft, kBottomRight };
 
   BasicShapeCenterCoordinate(Direction direction = kTopLeft,
-                             const Length& length = Length(0, kFixed))
+                             const Length& length = Length::Fixed(0))
       : direction_(direction),
         length_(length),
         computed_length_(direction == kTopLeft

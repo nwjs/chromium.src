@@ -4,6 +4,7 @@
 
 #include "services/ws/gpu_host/gpu_host.h"
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/shared_memory.h"
 #include "base/run_loop.h"
@@ -38,7 +39,7 @@
 #endif
 
 #if defined(OS_CHROMEOS)
-#include "services/ws/gpu_host/arc_client.h"
+#include "services/ws/gpu_host/arc_gpu_client.h"
 #endif
 
 #if defined(OS_CHROMEOS) && BUILDFLAG(USE_VAAPI)
@@ -174,9 +175,8 @@ void GpuHost::CreateFrameSinkManager(
 }
 
 void GpuHost::Shutdown() {
-  gpu_host_impl_.reset();
-
   gpu_clients_.clear();
+  gpu_host_impl_.reset();
 }
 
 void GpuHost::Add(mojom::GpuRequest request) {
@@ -191,9 +191,9 @@ void GpuHost::Add(mojom::GpuRequest request) {
 }
 
 #if defined(OS_CHROMEOS)
-void GpuHost::AddArc(mojom::ArcRequest request) {
-  arc_bindings_.AddBinding(
-      std::make_unique<ArcClient>(gpu_host_impl_->gpu_service()),
+void GpuHost::AddArcGpu(mojom::ArcGpuRequest request) {
+  arc_gpu_bindings_.AddBinding(
+      std::make_unique<ArcGpuClient>(gpu_host_impl_->gpu_service()),
       std::move(request));
 }
 #endif  // defined(OS_CHROMEOS)

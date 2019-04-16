@@ -145,6 +145,29 @@ TEST(HashtablezInfoTest, RecordErase) {
   EXPECT_EQ(info.num_erases.load(), 1);
 }
 
+TEST(HashtablezInfoTest, RecordRehash) {
+  HashtablezInfo info;
+  absl::MutexLock l(&info.init_mu);
+  info.PrepareForSampling();
+  RecordInsertSlow(&info, 0x1, 0);
+  RecordInsertSlow(&info, 0x2, kProbeLength);
+  RecordInsertSlow(&info, 0x4, kProbeLength);
+  RecordInsertSlow(&info, 0x8, 2 * kProbeLength);
+  EXPECT_EQ(info.size.load(), 4);
+  EXPECT_EQ(info.total_probe_length.load(), 4);
+
+  RecordEraseSlow(&info);
+  RecordEraseSlow(&info);
+  EXPECT_EQ(info.size.load(), 2);
+  EXPECT_EQ(info.total_probe_length.load(), 4);
+  EXPECT_EQ(info.num_erases.load(), 2);
+
+  RecordRehashSlow(&info, 3 * kProbeLength);
+  EXPECT_EQ(info.size.load(), 2);
+  EXPECT_EQ(info.total_probe_length.load(), 3);
+  EXPECT_EQ(info.num_erases.load(), 0);
+}
+
 TEST(HashtablezSamplerTest, SmallSampleParameter) {
   SetHashtablezEnabled(true);
   SetHashtablezSampleParameter(100);
@@ -300,6 +323,31 @@ TEST(HashtablezSamplerTest, MultiThreaded) {
   // spot errors.
   absl::SleepFor(absl::Seconds(3));
   stop.Notify();
+}
+
+TEST(HashtablezSamplerTest, Callback) {
+  HashtablezSampler sampler;
+
+  auto* info1 = Register(&sampler, 1);
+  auto* info2 = Register(&sampler, 2);
+
+  static const HashtablezInfo* expected;
+
+  auto callback = [](const HashtablezInfo& info) {
+    // We can't use `info` outside of this callback because the object will be
+    // disposed as soon as we return from here.
+    EXPECT_EQ(&info, expected);
+  };
+
+  // Set the callback.
+  EXPECT_EQ(sampler.SetDisposeCallback(callback), nullptr);
+  expected = info1;
+  sampler.Unregister(info1);
+
+  // Unset the callback.
+  EXPECT_EQ(callback, sampler.SetDisposeCallback(nullptr));
+  expected = nullptr;  // no more calls.
+  sampler.Unregister(info2);
 }
 
 }  // namespace

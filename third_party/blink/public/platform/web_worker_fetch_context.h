@@ -1,4 +1,5 @@
 // Copyright 2017 The Chromium Authors. All rights reserved.
+
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -56,7 +57,8 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
   virtual ~WebWorkerFetchContext() = default;
 
   // Used to copy a worker fetch context between worker threads.
-  virtual scoped_refptr<WebWorkerFetchContext> CloneForNestedWorker() {
+  virtual scoped_refptr<WebWorkerFetchContext> CloneForNestedWorker(
+      scoped_refptr<base::SingleThreadTaskRunner>) {
     return nullptr;
   }
 
@@ -82,7 +84,7 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
   // cache.
   virtual std::unique_ptr<CodeCacheLoader> CreateCodeCacheLoader() {
     return nullptr;
-  };
+  }
 
   // Returns a WebURLLoaderFactory for loading scripts in this worker context.
   // Unlike GetURLLoaderFactory(), this may return nullptr.
@@ -107,6 +109,11 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
   // https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site.
   // See content::URLRequest::site_for_cookies() for details.
   virtual WebURL SiteForCookies() const = 0;
+
+  // The top-frame-origin for the worker. For a dedicated worker this is the
+  // top-frame origin of the page that created the worker. For a shared worker
+  // this is unset.
+  virtual base::Optional<WebSecurityOrigin> TopFrameOrigin() const = 0;
 
   // Reports the certificate error to the browser process.
   virtual void DidRunContentWithCertificateErrors() {}
@@ -133,9 +140,12 @@ class WebWorkerFetchContext : public base::RefCounted<WebWorkerFetchContext> {
     return nullptr;
   }
 
-  // Creates a WebSocketHandshakeThrottle on the worker thread.
+  // Creates a WebSocketHandshakeThrottle on the worker thread. |task_runner| is
+  // used for internal IPC handling of the throttle, and must be bound to the
+  // same sequence to the current one (which is the worker thread).
   virtual std::unique_ptr<blink::WebSocketHandshakeThrottle>
-  CreateWebSocketHandshakeThrottle() {
+  CreateWebSocketHandshakeThrottle(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner) {
     return nullptr;
   }
 

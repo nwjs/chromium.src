@@ -11,10 +11,10 @@
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "content/child/child_process.h"
-#include "content/public/renderer/media_stream_video_sink.h"
 #include "content/renderer/media/stream/media_stream_video_track.h"
 #include "content/renderer/media/stream/mock_mojo_media_stream_dispatcher_host.h"
 #include "content/renderer/media/stream/video_track_adapter.h"
+#include "content/renderer/media_stream_video_sink.h"
 #include "media/base/bind_to_current_loop.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -36,11 +36,11 @@ class MockVideoCapturerSource : public media::VideoCapturerSource {
   MOCK_METHOD0(GetPreferredFormats, media::VideoCaptureFormats());
   MOCK_METHOD3(MockStartCapture,
                void(const media::VideoCaptureParams& params,
-                    const VideoCaptureDeliverFrameCB& new_frame_callback,
+                    const blink::VideoCaptureDeliverFrameCB& new_frame_callback,
                     const RunningCallback& running_callback));
   MOCK_METHOD0(MockStopCapture, void());
   void StartCapture(const media::VideoCaptureParams& params,
-                    const VideoCaptureDeliverFrameCB& new_frame_callback,
+                    const blink::VideoCaptureDeliverFrameCB& new_frame_callback,
                     const RunningCallback& running_callback) override {
     running_cb_ = running_callback;
     capture_params_ = params;
@@ -122,11 +122,11 @@ class MediaStreamVideoCapturerSourceTest : public testing::Test {
     webkit_source_.SetPlatformSource(base::WrapUnique(source_));
     webkit_source_id_ = webkit_source_.Id();
 
-    MediaStreamVideoCapturerSource::DeviceVideoCapturerFactoryCallback
-        callback = base::BindRepeating(
+    MediaStreamVideoCapturerSource::DeviceCapturerFactoryCallback callback =
+        base::BindRepeating(
             &MediaStreamVideoCapturerSourceTest::RecreateVideoCapturerSource,
             base::Unretained(this));
-    source_->SetDeviceVideoCapturerFactoryCallbackForTesting(callback);
+    source_->SetDeviceCapturerFactoryCallbackForTesting(std::move(callback));
   }
 
   void TearDown() override {
@@ -224,7 +224,7 @@ TEST_F(MediaStreamVideoCapturerSourceTest, StartAndStop) {
 }
 
 TEST_F(MediaStreamVideoCapturerSourceTest, CaptureTimeAndMetadataPlumbing) {
-  VideoCaptureDeliverFrameCB deliver_frame_cb;
+  blink::VideoCaptureDeliverFrameCB deliver_frame_cb;
   media::VideoCapturerSource::RunningCallback running_cb;
 
   InSequence s;

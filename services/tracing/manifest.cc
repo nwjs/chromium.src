@@ -8,6 +8,7 @@
 #include "services/service_manager/public/cpp/manifest_builder.h"
 #include "services/tracing/public/mojom/constants.mojom.h"
 #include "services/tracing/public/mojom/perfetto_service.mojom.h"
+#include "services/tracing/public/mojom/traced_process.mojom.h"
 #include "services/tracing/public/mojom/tracing.mojom.h"
 
 namespace tracing {
@@ -25,7 +26,8 @@ const service_manager::Manifest& GetManifest() {
                            .Build())
           .ExposeCapability(
               "tracing",
-              service_manager::Manifest::InterfaceList<mojom::Coordinator>())
+              service_manager::Manifest::InterfaceList<mojom::Coordinator,
+                                                       mojom::ConsumerHost>())
           .RequireCapability("service_manager",
                              "service_manager:service_manager")
           .WithInterfacesBindableOnAnyService(

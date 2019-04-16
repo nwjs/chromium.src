@@ -80,15 +80,19 @@ SKIP_GN_ISOLATE_MAP_TARGETS = {
   # These targets are listed only in build-side recipes.
   'All_syzygy',
   'blink_tests',
+  'captured_sites_interactive_tests',
   'cast_shell',
   'cast_shell_apk',
   'chrome_official_builder',
   'chrome_official_builder_no_unittests',
+  'chrome_sandbox',
   'chromium_builder_asan',
   'chromium_builder_perf',
   'chromiumos_preflight',
+  'linux_symbols',
   'mini_installer',
   'previous_version_mini_installer',
+  'symupload',
 
   # iOS tests are listed in //ios/build/bots.
   'cronet_test',
@@ -126,6 +130,7 @@ SKIP_GN_ISOLATE_MAP_TARGETS = {
   'device_junit_tests',
   'junit_unit_tests',
   'media_router_e2e_tests',
+  'media_router_junit_tests',
   'media_router_perf_tests',
   'motopho_latency_test',
   'net_junit_tests',

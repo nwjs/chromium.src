@@ -42,6 +42,7 @@
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/fake_session_manager_client.h"
+#include "chromeos/dbus/power_manager_client.h"
 #include "components/account_id/account_id.h"
 #include "components/arc/arc_features.h"
 #include "components/arc/arc_prefs.h"
@@ -101,8 +102,6 @@ class ArcSessionManagerInLoginScreenTest : public testing::Test {
             std::make_unique<chromeos::FakeChromeUserManager>()) {
     chromeos::DBusThreadManager::GetSetterForTesting()->SetSessionManagerClient(
         std::make_unique<chromeos::FakeSessionManagerClient>());
-
-    chromeos::DBusThreadManager::Initialize();
 
     ArcSessionManager::SetUiEnabledForTesting(false);
     SetArcBlockedDueToIncompatibleFileSystemForTesting(false);
@@ -181,7 +180,7 @@ class ArcSessionManagerTestBase : public testing::Test {
     chromeos::DBusThreadManager::GetSetterForTesting()->SetSessionManagerClient(
         std::make_unique<chromeos::FakeSessionManagerClient>());
 
-    chromeos::DBusThreadManager::Initialize();
+    chromeos::PowerManagerClient::Initialize();
 
     SetArcAvailableCommandLineForTesting(
         base::CommandLine::ForCurrentProcess());
@@ -209,6 +208,7 @@ class ArcSessionManagerTestBase : public testing::Test {
     profile_.reset();
     arc_session_manager_.reset();
     arc_service_manager_.reset();
+    chromeos::PowerManagerClient::Shutdown();
     chromeos::DBusThreadManager::Shutdown();
   }
 
@@ -424,7 +424,10 @@ TEST_F(ArcSessionManagerTest, CancelFetchingDisablesArc) {
   EXPECT_FALSE(IsArcPlayStoreEnabledForProfile(profile()));
 
   // Emulate the preference handling.
+  const bool enable_requested = arc_session_manager()->enable_requested();
   arc_session_manager()->RequestDisable();
+  if (enable_requested)
+    arc_session_manager()->RequestArcDataRemoval();
 
   // Wait until data is removed.
   ASSERT_TRUE(WaitForDataRemoved(ArcSessionManager::State::STOPPED));
@@ -700,7 +703,10 @@ TEST_F(ArcSessionManagerTest, ClearArcTransitionOnShutdown) {
       prefs::kArcSupervisionTransition,
       static_cast<int>(ArcSupervisionTransition::CHILD_TO_REGULAR));
   // Simulate ARC shutdown.
+  const bool enable_requested = arc_session_manager()->enable_requested();
   arc_session_manager()->RequestDisable();
+  if (enable_requested)
+    arc_session_manager()->RequestArcDataRemoval();
   EXPECT_EQ(
       static_cast<int>(ArcSupervisionTransition::NO_TRANSITION),
       profile()->GetPrefs()->GetInteger(prefs::kArcSupervisionTransition));
@@ -886,6 +892,26 @@ TEST_F(ArcSessionManagerTest, DataCleanUpOnNextStart) {
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
 
+  arc_session_manager()->Shutdown();
+}
+
+TEST_F(ArcSessionManagerTest, RequestDisableDoesNotRemoveData) {
+  // Start ARC.
+  arc_session_manager()->SetProfile(profile());
+  arc_session_manager()->Initialize();
+  arc_session_manager()->RequestEnable();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_EQ(ArcSessionManager::State::NEGOTIATING_TERMS_OF_SERVICE,
+            arc_session_manager()->state());
+
+  // Disable ARC.
+  arc_session_manager()->RequestDisable();
+
+  // Data removal is not requested.
+  EXPECT_FALSE(
+      profile()->GetPrefs()->GetBoolean(prefs::kArcDataRemoveRequested));
+
+  // Correctly stop service.
   arc_session_manager()->Shutdown();
 }
 
@@ -1075,7 +1101,7 @@ TEST_P(ArcSessionManagerPolicyTest, ReenableManagedArc) {
   arc_session_manager()->Shutdown();
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     ArcSessionManagerPolicyTest,
     // testing::Values is incompatible with move-only types, hence ints are used
@@ -1269,9 +1295,9 @@ class ArcSessionOobeOptInNegotiatorTest
   DISALLOW_COPY_AND_ASSIGN(ArcSessionOobeOptInNegotiatorTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        ArcSessionOobeOptInNegotiatorTest,
-                        ::testing::Values(true, false));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcSessionOobeOptInNegotiatorTest,
+                         ::testing::Values(true, false));
 
 TEST_P(ArcSessionOobeOptInNegotiatorTest, OobeTermsAccepted) {
   view()->Show();
@@ -1429,9 +1455,9 @@ class ArcSessionRetryTest
   DISALLOW_COPY_AND_ASSIGN(ArcSessionRetryTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        ArcSessionRetryTest,
-                        ::testing::ValuesIn(kRetryTestCases));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcSessionRetryTest,
+                         ::testing::ValuesIn(kRetryTestCases));
 
 // Verifies that Android container behaves as expected.* This checks:
 //   * Whether ARC++ container alive or not on error.

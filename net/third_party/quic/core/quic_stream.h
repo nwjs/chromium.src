@@ -286,12 +286,13 @@ class QUIC_EXPORT_PRIVATE QuicStream
                        QuicDataWriter* writer);
 
   // Called when data [offset, offset + data_length) is acked. |fin_acked|
-  // indicates whether the fin is acked. Returns true if any new stream data
-  // (including fin) gets acked.
+  // indicates whether the fin is acked. Returns true and updates
+  // |newly_acked_length| if any new stream data (including fin) gets acked.
   virtual bool OnStreamFrameAcked(QuicStreamOffset offset,
                                   QuicByteCount data_length,
                                   bool fin_acked,
-                                  QuicTime::Delta ack_delay_time);
+                                  QuicTime::Delta ack_delay_time,
+                                  QuicByteCount* newly_acked_length);
 
   // Called when data [offset, offset + data_length) was retransmitted.
   // |fin_retransmitted| indicates whether fin was retransmitted.
@@ -345,6 +346,11 @@ class QUIC_EXPORT_PRIVATE QuicStream
   // QuicStream class.
   virtual void OnStopSending(uint16_t code);
 
+  // Close the write side of the socket.  Further writes will fail.
+  // Can be called by the subclass or internally.
+  // Does not send a FIN.  May cause the stream to be closed.
+  virtual void CloseWriteSide();
+
  protected:
   // Sends as many bytes in the first |count| buffers of |iov| to the connection
   // as the connection will consume. If FIN is consumed, the write side is
@@ -361,11 +367,6 @@ class QUIC_EXPORT_PRIVATE QuicStream
   virtual QuicConsumedData WritevDataInner(size_t write_length,
                                            QuicStreamOffset offset,
                                            bool fin);
-
-  // Close the write side of the socket.  Further writes will fail.
-  // Can be called by the subclass or internally.
-  // Does not send a FIN.  May cause the stream to be closed.
-  virtual void CloseWriteSide();
 
   // Close the read side of the socket.  May cause the stream to be closed.
   // Subclasses and consumers should use StopReading to terminate reading early
@@ -411,11 +412,6 @@ class QUIC_EXPORT_PRIVATE QuicStream
 
   void DisableConnectionFlowControlForThisStream() {
     stream_contributes_to_connection_flow_control_ = false;
-  }
-
-  void set_ack_listener(
-      QuicReferenceCountedPointer<QuicAckListenerInterface> ack_listener) {
-    ack_listener_ = std::move(ack_listener);
   }
 
   const QuicIntervalSet<QuicStreamOffset>& bytes_acked() const;
@@ -520,10 +516,6 @@ class QUIC_EXPORT_PRIVATE QuicStream
   // Indicates whether paddings will be added after the fin is consumed for this
   // stream.
   bool add_random_padding_after_fin_;
-
-  // Ack listener of this stream, and it is notified when any of written bytes
-  // are acked.
-  QuicReferenceCountedPointer<QuicAckListenerInterface> ack_listener_;
 
   // Send buffer of this stream. Send buffer is cleaned up when data gets acked
   // or discarded.

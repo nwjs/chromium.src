@@ -29,6 +29,7 @@
 #include <memory>
 #include <set>
 
+#include "base/macros.h"
 #include "base/numerics/checked_math.h"
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
@@ -123,8 +124,6 @@ class ScopedRGBEmulationColorMask {
 
 class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
                                                  public DrawingBuffer::Client {
-  WTF_MAKE_NONCOPYABLE(WebGLRenderingContextBase);
-
  public:
   ~WebGLRenderingContextBase() override;
 
@@ -565,6 +564,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
 
   scoped_refptr<Uint8Array> PaintRenderingResultsToDataArray(
       SourceDrawingBuffer) override;
+  void ProvideBackBufferToResourceProvider() const override;
 
   unsigned MaxVertexAttribs() const { return max_vertex_attribs_; }
 
@@ -1731,12 +1731,14 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   void HoldReferenceToDrawingBuffer(DrawingBuffer*);
 
   static void InitializeWebGLContextLimits(
-      const DrawingBuffer::WebGLContextLimits&);
+      WebGraphicsContext3DProvider* context_provider);
   static unsigned CurrentMaxGLContexts();
 
   static bool webgl_context_limits_initialized_;
   static unsigned max_active_webgl_contexts_;
   static unsigned max_active_webgl_contexts_on_worker_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebGLRenderingContextBase);
 };
 
 // TODO(fserb): remove this.
@@ -1749,6 +1751,6 @@ DEFINE_TYPE_CASTS(WebGLRenderingContextBase,
 }  // namespace blink
 
 WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(
-    blink::WebGLRenderingContextBase::TextureUnitState);
+    blink::WebGLRenderingContextBase::TextureUnitState)
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_MODULES_WEBGL_WEBGL_RENDERING_CONTEXT_BASE_H_

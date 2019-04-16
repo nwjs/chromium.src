@@ -70,4 +70,19 @@ TEST_F(PrefetchPrefsTest, LimitlessPrefetchingEnabled) {
   EXPECT_FALSE(prefetch_prefs::IsLimitlessPrefetchingEnabled(prefs()));
 }
 
+TEST_F(PrefetchPrefsTest, TestingHeaderValuePref) {
+  // Should be empty string by default.
+  EXPECT_EQ(std::string(), prefetch_prefs::GetPrefetchTestingHeader(prefs()));
+
+  prefetch_prefs::SetPrefetchTestingHeader(prefs(), "ForceEnable");
+  EXPECT_EQ("ForceEnable", prefetch_prefs::GetPrefetchTestingHeader(prefs()));
+
+  prefetch_prefs::SetPrefetchTestingHeader(prefs(), "ForceDisable");
+  EXPECT_EQ("ForceDisable", prefetch_prefs::GetPrefetchTestingHeader(prefs()));
+
+  // We're not doing any checking/changing of the value (the server does that).
+  prefetch_prefs::SetPrefetchTestingHeader(prefs(), "asdfasdfasdf");
+  EXPECT_EQ("asdfasdfasdf", prefetch_prefs::GetPrefetchTestingHeader(prefs()));
+}
+
 }  // namespace offline_pages

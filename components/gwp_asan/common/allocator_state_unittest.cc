@@ -33,7 +33,7 @@ class AllocatorStateTest : public testing::Test {
         end_addr_offset + base + page_size * (total_pages * 2 + 1);
 
     // An invalid address, but it's never dereferenced in AllocatorState.
-    state_.slot_metadata = 0x1234;
+    state_.metadata_addr = 0x1234;
   }
 
   AllocatorState state_;
@@ -108,6 +108,17 @@ TEST_F(AllocatorStateTest, GetErrorTypeEdgeCases) {
             AllocatorState::ErrorType::kBufferUnderflow);
   EXPECT_EQ(state_.GetErrorType(state_.pages_end_addr - 1, true, false),
             AllocatorState::ErrorType::kBufferOverflow);
+}
+
+// Correctly handle the edge case when a free() occurs on a page that has never
+// been allocated.
+TEST_F(AllocatorStateTest, GetErrorTypeFreeInvalidAddressEdgeCase) {
+  InitializeState(base::GetPageSize(), kGpaMaxPages);
+  EXPECT_TRUE(state_.IsValid());
+
+  state_.free_invalid_address = state_.first_page_addr;
+  EXPECT_EQ(state_.GetErrorType(state_.first_page_addr, false, false),
+            AllocatorState::ErrorType::kFreeInvalidAddress);
 }
 
 }  // namespace internal

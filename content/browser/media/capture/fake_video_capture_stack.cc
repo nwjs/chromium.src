@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "content/browser/media/capture/frame_test_util.h"
 #include "media/base/video_frame.h"
@@ -101,6 +102,8 @@ class FakeVideoCaptureStack::Receiver : public media::VideoFrameReceiver {
   void OnStarted() final { capture_stack_->started_ = true; }
 
   void OnStartedUsingGpuDecode() final { NOTREACHED(); }
+
+  void OnStopped() final {}
 
   FakeVideoCaptureStack* const capture_stack_;
   base::flat_map<int, media::mojom::VideoBufferHandlePtr> buffers_;

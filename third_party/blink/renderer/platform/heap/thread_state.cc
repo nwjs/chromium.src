@@ -41,6 +41,7 @@
 #include "base/trace_event/process_memory_dump.h"
 #include "build/build_config.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/renderer/platform/bindings/active_script_wrappable_base.h"
 #include "third_party/blink/renderer/platform/bindings/runtime_call_stats.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
 #include "third_party/blink/renderer/platform/heap/address_cache.h"
@@ -53,6 +54,7 @@
 #include "third_party/blink/renderer/platform/heap/marking_visitor.h"
 #include "third_party/blink/renderer/platform/heap/page_pool.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/heap/thread_state_scopes.h"
 #include "third_party/blink/renderer/platform/heap/unified_heap_marking_visitor.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/histogram.h"
@@ -171,22 +173,13 @@ ThreadState::ThreadState()
       weak_persistent_region_(std::make_unique<PersistentRegion>()),
       start_of_stack_(reinterpret_cast<intptr_t*>(WTF::GetStackStart())),
       end_of_stack_(reinterpret_cast<intptr_t*>(WTF::GetStackStart())),
-      sweep_forbidden_(false),
-      no_allocation_count_(0),
-      gc_forbidden_count_(0),
-      mixins_being_constructed_count_(0),
-      object_resurrection_forbidden_(false),
-      in_atomic_pause_(false),
       gc_state_(kNoGCScheduled),
       gc_phase_(GCPhase::kNone),
       reason_for_scheduled_gc_(BlinkGC::GCReason::kMaxValue),
-      should_optimize_for_load_time_(false),
       isolate_(nullptr),
       trace_dom_wrappers_(nullptr),
       invalidate_dead_objects_in_wrappers_marking_deque_(nullptr),
       perform_cleanup_(nullptr),
-      wrapper_tracing_(false),
-      incremental_marking_(false),
 #if defined(ADDRESS_SANITIZER)
       asan_fake_stack_(__asan_get_current_fake_stack()),
 #endif
@@ -199,6 +192,21 @@ ThreadState::ThreadState()
   **thread_specific_ = this;
 
   heap_ = std::make_unique<ThreadHeap>(this);
+}
+
+// Implementation for WebRAILModeObserver
+void ThreadState::OnRAILModeChanged(v8::RAILMode new_mode) {
+  should_optimize_for_load_time_ = new_mode == v8::RAILMode::PERFORMANCE_LOAD;
+  // When switching RAIL mode to load we try to avoid incremental marking as
+  // the write barrier cost is noticeable on throughput and garbage
+  // accumulated during loading is likely to be alive during that phase. The
+  // same argument holds for unified heap garbage collections with the
+  // difference that these collections are triggered by V8 and should thus be
+  // avoided on that end.
+  if (should_optimize_for_load_time_ && IsIncrementalMarking() &&
+      !IsUnifiedGCMarkingInProgress() &&
+      GetGCState() == GCState::kIncrementalMarkingStepScheduled)
+    ScheduleIncrementalMarkingFinalize();
 }
 
 ThreadState::~ThreadState() {
@@ -315,6 +323,7 @@ void ThreadState::VisitAsanFakeStackForPointer(MarkingVisitor* visitor,
 // Stack scanning may overrun the bounds of local objects and/or race with
 // other threads that use this stack.
 NO_SANITIZE_ADDRESS
+NO_SANITIZE_HWADDRESS
 NO_SANITIZE_THREAD
 void ThreadState::VisitStack(MarkingVisitor* visitor) {
   DCHECK_EQ(current_gc_data_.stack_state, BlinkGC::kHeapPointersOnStack);
@@ -355,7 +364,7 @@ void ThreadState::VisitPersistents(Visitor* visitor) {
       Heap().stats_collector(),
       ThreadHeapStatsCollector::kVisitPersistentRoots);
   {
-    ThreadHeapStatsCollector::Scope stats_scope(
+    ThreadHeapStatsCollector::Scope inner_stats_scope(
         Heap().stats_collector(),
         ThreadHeapStatsCollector::kVisitCrossThreadPersistents);
     // See ProcessHeap::CrossThreadPersistentMutex().
@@ -363,7 +372,7 @@ void ThreadState::VisitPersistents(Visitor* visitor) {
     ProcessHeap::GetCrossThreadPersistentRegion().TracePersistentNodes(visitor);
   }
   {
-    ThreadHeapStatsCollector::Scope stats_scope(
+    ThreadHeapStatsCollector::Scope inner_stats_scope(
         Heap().stats_collector(), ThreadHeapStatsCollector::kVisitPersistents);
     persistent_region_->TracePersistentNodes(visitor);
   }
@@ -547,15 +556,20 @@ void ThreadState::ScheduleV8FollowupGCIfNeeded(BlinkGC::V8GCType gc_type) {
 }
 
 void ThreadState::WillStartV8GC(BlinkGC::V8GCType gc_type) {
+#if defined(ADDRESS_SANITIZER)
+  // In case of running with ASAN we eagerly poison all unmarked objects on
+  // Oilpan garbage collections. Those objects may contain v8 handles which may
+  // be suspect to being removed. Removing requires clearing out the Oilpan
+  // memory. For this reason we need to finish sweeping (which would remove the
+  // handles) before V8 is allowed to continue with its garbage collection.
+  CompleteSweep();
+  return;
+#endif  // ADDRESS_SANITIZER
+
   // Finish Oilpan's complete sweeping before running a V8 major GC.
   // This will let the GC collect more V8 objects.
-  //
-  // TODO(haraken): It's a bit too late for a major GC to schedule
-  // completeSweep() here, because gcPrologue for a major GC is called
-  // not at the point where the major GC started but at the point where
-  // the major GC requests object grouping.
-  DCHECK_EQ(BlinkGC::kV8MajorGC, gc_type);
-  CompleteSweep();
+  if (gc_type == BlinkGC::kV8MajorGC)
+    CompleteSweep();
 }
 
 void ThreadState::SchedulePageNavigationGCIfNeeded(
@@ -1210,9 +1224,10 @@ void UpdateHistograms(const ThreadHeapStatsCollector::Event& event) {
     UMA_HISTOGRAM_TIMES(                                                  \
         "BlinkGC.AtomicPhaseMarking_" #reason,                            \
         event.scope_data[ThreadHeapStatsCollector::kAtomicPhaseMarking]); \
-    DEFINE_STATIC_LOCAL(CustomCountHistogram, collection_rate_histogram,  \
+    DEFINE_STATIC_LOCAL(CustomCountHistogram,                             \
+                        collection_rate_reason_histogram,                 \
                         ("BlinkGC.CollectionRate_" #reason, 1, 100, 20)); \
-    collection_rate_histogram.Count(collection_rate_percent);             \
+    collection_rate_reason_histogram.Count(collection_rate_percent);      \
     break;                                                                \
   }
 
@@ -1303,13 +1318,13 @@ void ThreadState::PushRegistersAndVisitStack() {
 
 void ThreadState::AddObserver(BlinkGCObserver* observer) {
   DCHECK(observer);
-  DCHECK(observers_.find(observer) == observers_.end());
+  DCHECK(!observers_.Contains(observer));
   observers_.insert(observer);
 }
 
 void ThreadState::RemoveObserver(BlinkGCObserver* observer) {
   DCHECK(observer);
-  DCHECK(observers_.find(observer) != observers_.end());
+  DCHECK(observers_.Contains(observer));
   observers_.erase(observer);
 }
 
@@ -1740,11 +1755,20 @@ void ThreadState::MarkPhaseVisitRoots() {
 
   VisitPersistents(visitor);
 
-  // Unified garbage collections do not consider DOM wrapper references as
-  // roots. The cross-component references between V8<->Blink are found using
-  // collaborative tracing where both GCs report live references to each other.
-  if (!IsUnifiedGCMarkingInProgress()) {
+  // DOM wrapper references from V8 are considered as roots. Exceptions are:
+  // - Unified garbage collections: The cross-component references between
+  //   V8<->Blink are found using collaborative tracing where both GCs report
+  //   live references to each other.
+  // - Termination GCs that do not care about V8 any longer.
+  if (!IsUnifiedGCMarkingInProgress() &&
+      current_gc_data_.reason != BlinkGC::GCReason::kThreadTerminationGC) {
     VisitDOMWrappers(visitor);
+  }
+
+  // For unified garbage collections any active ScriptWrappable objects are
+  // considered as roots.
+  if (IsUnifiedGCMarkingInProgress()) {
+    ActiveScriptWrappableBase::TraceActiveScriptWrappables(isolate_, visitor);
   }
 
   if (current_gc_data_.stack_state == BlinkGC::kHeapPointersOnStack) {

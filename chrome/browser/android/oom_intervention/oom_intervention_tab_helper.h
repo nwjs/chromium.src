@@ -10,6 +10,7 @@
 #include "base/optional.h"
 #include "base/scoped_observer.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/android/oom_intervention/near_oom_monitor.h"
 #include "chrome/browser/ui/interventions/intervention_delegate.h"
 #include "components/crash/content/browser/crash_metrics_reporter_android.h"
@@ -17,7 +18,7 @@
 #include "content/public/browser/web_contents_user_data.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
-#include "third_party/blink/public/platform/oom_intervention.mojom.h"
+#include "third_party/blink/public/mojom/oom_intervention/oom_intervention.mojom.h"
 
 namespace content {
 class WebContents;
@@ -116,6 +117,7 @@ class OomInterventionTabHelper
   base::WritableSharedMemoryMapping metrics_mapping_;
 
   base::TimeTicks last_navigation_timestamp_;
+  base::TimeTicks start_monitor_timestamp_;
 
   ScopedObserver<crash_reporter::CrashMetricsReporter,
                  crash_reporter::CrashMetricsReporter::Observer>

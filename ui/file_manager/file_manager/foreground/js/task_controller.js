@@ -179,9 +179,9 @@ TaskController.prototype.onTaskItemClicked_ = function(event) {
 
   // 'select' event from ComboButton has the item as event.item.
   // 'activate' event from cr.ui.MenuButton has the item as event.target.data.
-  var item = event.item || event.target.data;
+  const item = event.item || event.target.data;
   this.getFileTasks()
-      .then(function(tasks) {
+      .then(tasks => {
         switch (item.type) {
           case FileTasks.TaskMenuButtonItemType.ShowMenu:
             this.ui_.taskMenuButton.showMenu(false);
@@ -190,20 +190,20 @@ TaskController.prototype.onTaskItemClicked_ = function(event) {
             tasks.execute(item.task);
             break;
           case FileTasks.TaskMenuButtonItemType.ChangeDefaultTask:
-            var selection = this.selectionHandler_.selection;
-            var extensions = [];
+            const selection = this.selectionHandler_.selection;
+            const extensions = [];
 
-            for (var i = 0; i < selection.entries.length; i++) {
-              var match = /\.(\w+)$/g.exec(selection.entries[i].toURL());
+            for (let i = 0; i < selection.entries.length; i++) {
+              const match = /\.(\w+)$/g.exec(selection.entries[i].toURL());
               if (match) {
-                var ext = match[1].toUpperCase();
+                const ext = match[1].toUpperCase();
                 if (extensions.indexOf(ext) == -1) {
                   extensions.push(ext);
                 }
               }
             }
 
-            var format = '';
+            let format = '';
 
             if (extensions.length == 1) {
               format = extensions[0];
@@ -221,8 +221,8 @@ TaskController.prototype.onTaskItemClicked_ = function(event) {
           default:
             assertNotReached('Unknown task.');
         }
-      }.bind(this))
-      .catch(function(error) {
+      })
+      .catch(error => {
         if (error) {
           console.error(error.stack || error);
         }
@@ -237,10 +237,9 @@ TaskController.prototype.onTaskItemClicked_ = function(event) {
  * @private
  */
 TaskController.prototype.changeDefaultTask_ = function(selection, task) {
-  var entries = selection.entries;
+  const entries = selection.entries;
 
-  Promise.all(entries.map((entry) => this.getMimeType_(entry))).then(function(
-      mimeTypes) {
+  Promise.all(entries.map((entry) => this.getMimeType_(entry))).then(mimeTypes => {
     chrome.fileManagerPrivate.setDefaultTask(
         task.taskId,
         entries,
@@ -253,17 +252,17 @@ TaskController.prototype.changeDefaultTask_ = function(selection, task) {
     if (this.selectionHandler_.selection === selection) {
       this.tasks_ = null;
       this.getFileTasks()
-          .then(function(tasks) {
+          .then(tasks => {
             tasks.display(this.ui_.taskMenuButton, this.ui_.shareMenuButton);
-          }.bind(this))
-          .catch(function(error) {
+          })
+          .catch(error => {
             if (error) {
               console.error(error.stack || error);
             }
           });
     }
     this.selectionHandler_.onFileSelectionChanged();
-  }.bind(this));
+  });
 };
 
 /**
@@ -271,14 +270,16 @@ TaskController.prototype.changeDefaultTask_ = function(selection, task) {
  */
 TaskController.prototype.executeDefaultTask = function() {
   this.getFileTasks()
-      .then(function(tasks) {
-        var task = {
-          taskId: this.ui_.fileContextMenu.defaultTaskMenuItem.taskId,
-          title: this.ui_.fileContextMenu.defaultTaskMenuItem.label,
+      .then(tasks => {
+        const task = {
+          taskId: /** @type {string} */ (
+              this.ui_.fileContextMenu.defaultTaskMenuItem.taskId),
+          title: /** @type {string} */ (
+              this.ui_.fileContextMenu.defaultTaskMenuItem.label),
         };
         tasks.execute(task);
-      }.bind(this))
-      .catch(function(error) {
+      })
+      .catch(error => {
         if (error) {
           console.error(error.stack || error);
         }
@@ -296,12 +297,12 @@ TaskController.prototype.executeDefaultTask = function() {
  */
 TaskController.prototype.getMimeType_ = function(entry) {
   return this.metadataModel_.get([entry], ['contentMimeType'])
-      .then(function(properties) {
+      .then(properties => {
         if (properties[0].contentMimeType) {
           return properties[0].contentMimeType;
         }
-        return new Promise(function(fulfill, reject) {
-          chrome.fileManagerPrivate.getMimeType(entry, function(mimeType) {
+        return new Promise((fulfill, reject) => {
+          chrome.fileManagerPrivate.getMimeType(entry, mimeType => {
             if (!chrome.runtime.lastError) {
               fulfill(mimeType);
             } else {
@@ -317,7 +318,7 @@ TaskController.prototype.getMimeType_ = function(entry) {
  * @private
  */
 TaskController.prototype.onSelectionChanged_ = function() {
-  var selection = this.selectionHandler_.selection;
+  const selection = this.selectionHandler_.selection;
   // Caller of update context menu task items.
   // FileSelectionHandler.EventType.CHANGE
   if (this.dialogType_ === DialogType.FULL_PAGE &&
@@ -339,16 +340,16 @@ TaskController.prototype.onSelectionChanged_ = function() {
  * @private
  */
 TaskController.prototype.updateTasks_ = function() {
-  var selection = this.selectionHandler_.selection;
+  const selection = this.selectionHandler_.selection;
   if (this.dialogType_ === DialogType.FULL_PAGE &&
       (selection.directoryCount > 0 || selection.fileCount > 0)) {
     this.getFileTasks()
-        .then(function(tasks) {
+        .then(tasks => {
           tasks.display(this.ui_.taskMenuButton, this.ui_.shareMenuButton);
           this.updateContextMenuTaskItems_(
               tasks.getOpenTaskItems(), tasks.getNonOpenTaskItems());
-        }.bind(this))
-        .catch(function(error) {
+        })
+        .catch(error => {
           if (error) {
             console.error(error.stack || error);
           }
@@ -364,14 +365,14 @@ TaskController.prototype.updateTasks_ = function() {
  * @public
  */
 TaskController.prototype.getFileTasks = function() {
-  var selection = this.selectionHandler_.selection;
+  const selection = this.selectionHandler_.selection;
   if (this.tasks_ &&
       util.isSameEntries(this.tasksEntries_, selection.entries)) {
     return this.tasks_;
   }
   this.tasksEntries_ = selection.entries;
   this.tasks_ =
-      selection.computeAdditional(this.metadataModel_).then(function() {
+      selection.computeAdditional(this.metadataModel_).then(() => {
         if (this.selectionHandler_.selection !== selection) {
           if (util.isSameEntries(this.tasksEntries_, selection.entries)) {
             this.tasks_ = null;
@@ -383,7 +384,7 @@ TaskController.prototype.getFileTasks = function() {
                 this.volumeManager_, this.metadataModel_, this.directoryModel_,
                 this.ui_, selection.entries, assert(selection.mimeTypes),
                 this.taskHistory_, this.namingController_, this.crostini_)
-            .then(function(tasks) {
+            .then(tasks => {
               if (this.selectionHandler_.selection !== selection) {
                 if (util.isSameEntries(this.tasksEntries_, selection.entries)) {
                   this.tasks_ = null;
@@ -391,8 +392,8 @@ TaskController.prototype.getFileTasks = function() {
                 return Promise.reject();
               }
               return tasks;
-            }.bind(this));
-      }.bind(this));
+            });
+      });
   return this.tasks_;
 };
 
@@ -440,7 +441,7 @@ TaskController.prototype.canExecuteShowOverflow = function() {
  */
 TaskController.prototype.updateContextMenuTaskItems_ = function(
     openTasks, nonOpenTasks) {
-  var defaultTask = FileTasks.getDefaultTask(openTasks, this.taskHistory_);
+  const defaultTask = FileTasks.getDefaultTask(openTasks, this.taskHistory_);
   if (defaultTask) {
     if (defaultTask.iconType) {
       this.ui_.fileContextMenu.defaultTaskMenuItem.style.backgroundImage = '';
@@ -482,14 +483,14 @@ TaskController.prototype.updateContextMenuTaskItems_ = function(
  * @param {FileEntry} entry
  */
 TaskController.prototype.executeEntryTask = function(entry) {
-  this.metadataModel_.get([entry], ['contentMimeType']).then(function(props) {
+  this.metadataModel_.get([entry], ['contentMimeType']).then(props => {
     FileTasks
         .create(
             this.volumeManager_, this.metadataModel_, this.directoryModel_,
             this.ui_, [entry], [props[0].contentMimeType || null],
             this.taskHistory_, this.namingController_, this.crostini_)
-        .then(function(tasks) {
+        .then(tasks => {
           tasks.executeDefault();
         });
-  }.bind(this));
+  });
 };

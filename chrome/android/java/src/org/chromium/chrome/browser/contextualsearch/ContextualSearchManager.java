@@ -197,8 +197,8 @@ public class ContextualSearchManager
     // TODO(donnd): replace with a more systematic approach using the InternalStateController.
     private int mSelectWordAroundCaretCounter;
 
-    /** Whether ContextualSearch UI is suppressed for Smart Selection. */
-    private boolean mDoSuppressContextualSearchForSmartSelection;
+    /** Whether Smart Text Selection might be active.  If false, we know it's not active. */
+    private boolean mCouldSmartSelectionBeActive;
 
     /** An observer that reports selected context to GSA for search quality. */
     private ContextualSearchObserver mContextReportingObserver;
@@ -469,7 +469,8 @@ public class ContextualSearchManager
 
         // If the user is jumping from one unseen search to another search, remove the last search
         // from history.
-        PanelState state = mSearchPanel.getPanelState();
+        @PanelState
+        int state = mSearchPanel.getPanelState();
         if (!mWereSearchResultsSeen && mLoadedSearchUrlTimeMs != 0L
                 && state != PanelState.UNDEFINED && state != PanelState.CLOSED) {
             removeLastSearchVisit();
@@ -489,7 +490,7 @@ public class ContextualSearchManager
             mTranslateController.cacheNativeTranslateData();
         } else if (!TextUtils.isEmpty(selection)) {
             boolean shouldPrefetch = mPolicy.shouldPrefetchSearchResult();
-            mSearchRequest = new ContextualSearchRequest(selection, null, null, shouldPrefetch);
+            mSearchRequest = new ContextualSearchRequest(selection, shouldPrefetch);
             mTranslateController.forceAutoDetectTranslateUnlessDisabled(mSearchRequest);
             mDidStartLoadingResolvedSearchRequest = false;
             mSearchPanel.setSearchTerm(selection);
@@ -679,6 +680,8 @@ public class ContextualSearchManager
      * @param quickActionCategory The {@link QuickActionCategory} for the quick action.
      * @param loggedEventId The EventID logged by the server, which should be recorded and sent back
      *        to the server along with user action results in a subsequent request.
+     * @param searchUrlFull The URL for the full search to present in the overlay, or empty.
+     * @param searchUrlPreload The URL for the search to preload into the overlay, or empty.
      */
     @CalledByNative
     public void onSearchTermResolutionResponse(boolean isNetworkUnavailable, int responseCode,
@@ -686,11 +689,11 @@ public class ContextualSearchManager
             final String mid, boolean doPreventPreload, int selectionStartAdjust,
             int selectionEndAdjust, final String contextLanguage, final String thumbnailUrl,
             final String caption, final String quickActionUri, final int quickActionCategory,
-            final long loggedEventId) {
+            final long loggedEventId, final String searchUrlFull, final String searchUrlPreload) {
         mNetworkCommunicator.handleSearchTermResolutionResponse(isNetworkUnavailable, responseCode,
                 searchTerm, displayText, alternateTerm, mid, doPreventPreload, selectionStartAdjust,
                 selectionEndAdjust, contextLanguage, thumbnailUrl, caption, quickActionUri,
-                quickActionCategory, loggedEventId);
+                quickActionCategory, loggedEventId, searchUrlFull, searchUrlPreload);
     }
 
     @Override
@@ -698,7 +701,8 @@ public class ContextualSearchManager
             String searchTerm, String displayText, String alternateTerm, String mid,
             boolean doPreventPreload, int selectionStartAdjust, int selectionEndAdjust,
             String contextLanguage, String thumbnailUrl, String caption, String quickActionUri,
-            int quickActionCategory, long loggedEventId) {
+            int quickActionCategory, long loggedEventId, String searchUrlFull,
+            String searchUrlPreload) {
         if (!mInternalStateController.isStillWorkingOn(InternalState.RESOLVING)) return;
 
         // Show an appropriate message for what to search for.
@@ -764,8 +768,8 @@ public class ContextualSearchManager
             // TODO(donnd): Instead of preloading, we should prefetch (ie the URL should not
             // appear in the user's history until the user views it).  See crbug.com/406446.
             boolean shouldPreload = !doPreventPreload && mPolicy.shouldPrefetchSearchResult();
-            mSearchRequest =
-                    new ContextualSearchRequest(searchTerm, alternateTerm, mid, shouldPreload);
+            mSearchRequest = new ContextualSearchRequest(
+                    searchTerm, alternateTerm, mid, shouldPreload, searchUrlFull, searchUrlPreload);
             // Trigger translation, if enabled.
             mTranslateController.forceTranslateIfNeeded(mSearchRequest, contextLanguage);
             mDidStartLoadingResolvedSearchRequest = false;
@@ -1044,8 +1048,8 @@ public class ContextualSearchManager
                 // is in progress or we should do a verbatim search now.
                 if (mSearchRequest == null && mPolicy.shouldCreateVerbatimRequest()
                         && !TextUtils.isEmpty(mSelectionController.getSelectedText())) {
-                    mSearchRequest = new ContextualSearchRequest(
-                            mSelectionController.getSelectedText(), null, null, false);
+                    mSearchRequest =
+                            new ContextualSearchRequest(mSelectionController.getSelectedText());
                     mDidStartLoadingResolvedSearchRequest = false;
                 }
                 if (mSearchRequest != null
@@ -1289,9 +1293,13 @@ public class ContextualSearchManager
         return mContextualSearchSelectionClient;
     }
 
-    /** Notifies Contextual Search whether the UI should be suppressed for Smart Selection. */
-    void suppressContextualSearchForSmartSelection(boolean isSmartSelectionEnabled) {
-        mDoSuppressContextualSearchForSmartSelection = isSmartSelectionEnabled;
+    /**
+     * Notifies Contextual Search whether Smart Selection could be active.
+     * @param isSmartSelectionEnabledInChrome Whether Smart Selection is enabled in Chrome, and
+     *        therefore could be active.
+     */
+    void setCouldSmartSelectionBeActive(boolean isSmartSelectionEnabledInChrome) {
+        mCouldSmartSelectionBeActive = isSmartSelectionEnabledInChrome;
     }
 
     /**
@@ -1570,9 +1578,9 @@ public class ContextualSearchManager
                 };
 
                 boolean isTap = mSelectionController.getSelectionType() == SelectionType.TAP;
-                if (!isTap && mDoSuppressContextualSearchForSmartSelection && mContext != null) {
-                    // If Smart Selection is active we need to work around a race
-                    // condition gathering surrounding text.  See issue 773330.
+                if (!isTap && mCouldSmartSelectionBeActive && mContext != null) {
+                    // If Smart Selection might be active we need to work around a race
+                    // condition gathering surrounding text.  See https://crbug.com/773330.
                     // Instead we just return the selection which is good enough for the assistant.
                     mInternalStateController.notifyStartingWorkOn(
                             InternalState.GATHERING_SURROUNDINGS);
@@ -1716,18 +1724,7 @@ public class ContextualSearchManager
             public void showContextualSearchLongpressUi() {
                 mInternalStateController.notifyStartingWorkOn(
                         InternalState.SHOWING_LONGPRESS_SEARCH);
-                boolean suppressForSmartSelection = mDoSuppressContextualSearchForSmartSelection
-                        && !ContextualSearchFieldTrial.isSuppressForSmartSelectionDisabled();
-                if (suppressForSmartSelection) {
-                    // Make sure we close any existing UX since Smart Select has taken this action.
-                    // Specifically, this happens when the user taps on an existing tap-selection
-                    // and the selection-pins show: The original tap processing may still be in
-                    // progress or may have completed and the Bar is being shown.
-                    hideContextualSearch(StateChangeReason.UNKNOWN);
-                    RecordUserAction.record("ContextualSearch.SmartSelectionSuppressed");
-                } else {
-                    showContextualSearch(StateChangeReason.TEXT_SELECT_LONG_PRESS);
-                }
+                showContextualSearch(StateChangeReason.TEXT_SELECT_LONG_PRESS);
                 mInternalStateController.notifyFinishedWorkOn(
                         InternalState.SHOWING_LONGPRESS_SEARCH);
             }

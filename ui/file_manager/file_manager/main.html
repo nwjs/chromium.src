@@ -9,6 +9,7 @@
     <title></title>
 
     <meta name="google" value="notranslate">
+    <script src="chrome://resources/polymer/v1_0/html-imports/html-imports.min.js"></script>
 
     <link rel="import" href="chrome://resources/html/polymer.html">
     <link rel="stylesheet" href="chrome://resources/css/action_link.css">
@@ -142,6 +143,7 @@
       <command id="configure" label="$i18n{CONFIGURE_VOLUME_BUTTON_LABEL}">
 
       <command id="volume-help" label="$i18n{DRIVE_MENU_HELP}">
+      <command id="send-feedback" label="$i18n{SEND_FEEDBACK}">
       <command id="volume-storage">
       <command id="drive-buy-more-space"
                label="$i18n{DRIVE_BUY_MORE_SPACE}">
@@ -241,6 +243,7 @@
       <cr-menu-item command="#share-with-linux"></cr-menu-item>
       <cr-menu-item command="#manage-linux-sharing"></cr-menu-item>
       <hr visibleif="full-page">
+      <cr-menu-item command="#format"></cr-menu-item>
       <cr-menu-item command="#rename"></cr-menu-item>
       <cr-menu-item command="#create-folder-shortcut"></cr-menu-item>
       <cr-menu-item command="#delete">$i18n{DELETE_BUTTON_LABEL}</cr-menu-item>
@@ -285,6 +288,8 @@
                     command="#drive-go-to-drive"></cr-menu-item>
       <cr-menu-item id="gear-menu-volume-help"
                     command="#volume-help"></cr-menu-item>
+      <cr-menu-item id="gear-menu-send-feedback"
+                    command="#send-feedback"></cr-menu-item>
       <hr id="volume-space-info-separator">
       <cr-menu-item id="gear-menu-newservice" command="#new-service"
           sub-menu="#add-new-services-menu"></cr-menu-item>
@@ -335,7 +340,7 @@
       <div id="location-breadcrumbs" class="breadcrumbs"></div>
       <div id="cancel-selection-button-wrapper">
         <paper-button id="cancel-selection-button" class="menu-button" tabindex="8"
-              aria-label="$i18n{CANCEL_SELECTION_BUTTON_LABEL}">
+              aria-label="$i18n{CANCEL_SELECTION_BUTTON_LABEL}" has-tooltip>
           <span class="icon-arrow-back"></span>
           <span id="cancel-selection-label">$i18n{CANCEL_SELECTION_BUTTON_LABEL}</span>
         </paper-button>
@@ -460,8 +465,8 @@
 
     <div class="dialog-container">
       <div class="dialog-navigation-list">
-        <div class="dialog-navigation-list-contents">
-          <tree id="directory-tree" role="navigation" tabindex="21"></tree>
+        <div class="dialog-navigation-list-contents" role="navigation">
+          <tree id="directory-tree" role="tree" tabindex="21"></tree>
         </div>
         <div class="dialog-navigation-list-footer">
           <div id="progress-center" hidden>

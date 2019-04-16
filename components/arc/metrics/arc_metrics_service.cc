@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
@@ -23,6 +24,7 @@
 #include "components/arc/arc_prefs.h"
 #include "components/arc/arc_util.h"
 #include "components/arc/metrics/arc_metrics_constants.h"
+#include "components/arc/metrics/stability_metrics_manager.h"
 #include "components/exo/wm_helper.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
@@ -140,7 +142,6 @@ ArcMetricsService::ArcMetricsService(content::BrowserContext* context,
     : arc_bridge_service_(bridge_service),
       arc_window_delegate_(std::make_unique<ArcWindowDelegateImpl>(this)),
       process_observer_(this),
-      native_bridge_type_(NativeBridgeType::UNKNOWN),
       pref_service_(user_prefs::UserPrefs::Get(context)),
       clock_(base::DefaultClock::GetInstance()),
       tick_clock_(base::DefaultTickClock::GetInstance()),
@@ -150,8 +151,7 @@ ArcMetricsService::ArcMetricsService(content::BrowserContext* context,
   arc_bridge_service_->process()->AddObserver(&process_observer_);
   arc_window_delegate_->RegisterActivationChangeObserver();
   session_manager::SessionManager::Get()->AddObserver(this);
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->AddObserver(this);
 
   DCHECK(pref_service_);
   RestoreEngagementTimeFromPrefs();
@@ -161,6 +161,9 @@ ArcMetricsService::ArcMetricsService(content::BrowserContext* context,
   save_engagement_time_to_prefs_timer_.Start(
       FROM_HERE, kSaveEngagementTimeToPrefsPeriod, this,
       &ArcMetricsService::SaveEngagementTimeToPrefs);
+
+  StabilityMetricsManager::Get()->SetArcNativeBridgeType(
+      NativeBridgeType::UNKNOWN);
 }
 
 ArcMetricsService::~ArcMetricsService() {
@@ -170,8 +173,7 @@ ArcMetricsService::~ArcMetricsService() {
   UpdateEngagementTime();
   SaveEngagementTimeToPrefs();
 
-  chromeos::DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(
-      this);
+  chromeos::PowerManagerClient::Get()->RemoveObserver(this);
   session_manager::SessionManager::Get()->RemoveObserver(this);
   arc_window_delegate_->UnregisterActivationChangeObserver();
   arc_bridge_service_->process()->RemoveObserver(&process_observer_);
@@ -278,7 +280,18 @@ void ArcMetricsService::ReportBootProgress(
     return;
   }
 
-  // Retrieve ARC start time from session manager.
+  if (IsArcVmEnabled()) {
+    // For VM builds, do not call into session_manager since we don't use it
+    // for the builds. Using base::TimeTicks() is fine for now because 1) the
+    // clocks in host and guest are not synchronized, and 2) the guest does not
+    // support mini container.
+    // TODO(yusukes): Once the guest supports mini container (details TBD), we
+    // should have the guest itself report the timing of the upgrade.
+    OnArcStartTimeRetrieved(std::move(events), boot_type, base::TimeTicks());
+    return;
+  }
+
+  // Retrieve ARC full container's start time from session manager.
   chromeos::SessionManagerClient* session_manager_client =
       chromeos::DBusThreadManager::Get()->GetSessionManagerClient();
   session_manager_client->GetArcStartTime(base::BindOnce(
@@ -287,29 +300,26 @@ void ArcMetricsService::ReportBootProgress(
 }
 
 void ArcMetricsService::ReportNativeBridge(
-    mojom::NativeBridgeType native_bridge_type) {
+    mojom::NativeBridgeType mojo_native_bridge_type) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  VLOG(2) << "Mojo native bridge type is " << native_bridge_type;
+  VLOG(2) << "Mojo native bridge type is " << mojo_native_bridge_type;
 
-  // Save value for RecordNativeBridgeUMA instead of recording
-  // immediately since it must appear in every metrics interval
-  // uploaded to UMA.
-  switch (native_bridge_type) {
+  NativeBridgeType native_bridge_type = NativeBridgeType::UNKNOWN;
+  switch (mojo_native_bridge_type) {
     case mojom::NativeBridgeType::NONE:
-      native_bridge_type_ = NativeBridgeType::NONE;
-      return;
+      native_bridge_type = NativeBridgeType::NONE;
+      break;
     case mojom::NativeBridgeType::HOUDINI:
-      native_bridge_type_ = NativeBridgeType::HOUDINI;
-      return;
+      native_bridge_type = NativeBridgeType::HOUDINI;
+      break;
     case mojom::NativeBridgeType::NDK_TRANSLATION:
-      native_bridge_type_ = NativeBridgeType::NDK_TRANSLATION;
-      return;
+      native_bridge_type = NativeBridgeType::NDK_TRANSLATION;
+      break;
   }
-  NOTREACHED() << native_bridge_type;
-}
+  DCHECK_NE(native_bridge_type, NativeBridgeType::UNKNOWN)
+      << mojo_native_bridge_type;
 
-void ArcMetricsService::RecordNativeBridgeUMA() {
-  UMA_HISTOGRAM_ENUMERATION("Arc.NativeBridge", native_bridge_type_);
+  StabilityMetricsManager::Get()->SetArcNativeBridgeType(native_bridge_type);
 }
 
 void ArcMetricsService::OnWindowActivated(

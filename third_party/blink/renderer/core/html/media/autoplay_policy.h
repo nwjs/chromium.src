@@ -14,8 +14,9 @@ namespace blink {
 
 class AutoplayUmaHelper;
 class Document;
-class ElementVisibilityObserver;
 class HTMLMediaElement;
+class IntersectionObserver;
+class IntersectionObserverEntry;
 
 // AutoplayPolicy is the class for handles autoplay logics.
 class CORE_EXPORT AutoplayPolicy final
@@ -26,9 +27,6 @@ class CORE_EXPORT AutoplayPolicy final
     kNoUserGestureRequired = 0,
     // A local user gesture on the element is required.
     kUserGestureRequired,
-    // A local user gesture on the element is required when it is in a cross
-    // origin iframe.
-    kUserGestureRequiredForCrossOrigin,
     // The document needs to have received a user activation or received one
     // before navigating.
     kDocumentUserActivationRequired,
@@ -127,22 +125,11 @@ class CORE_EXPORT AutoplayPolicy final
 
   bool ShouldAutoplay();
 
-  // If the user gesture is required, then this will remove it.  Note that
-  // one should not generally call this method directly; use the one on
-  // m_helper and give it a reason.
-  void UnlockUserGesture();
-
   // Return true if and only if a user gesture is required to unlock this
   // media element for unrestricted autoplay/script control.  Don't confuse
   // this with isGestureNeededForPlayback().  The latter is usually what one
   // should use, if checking to see if an action is allowed.
   bool IsLockedPendingUserGesture() const;
-
-  bool IsLockedPendingUserGestureIfCrossOriginExperimentEnabled() const;
-
-  bool IsGestureNeededForPlaybackIfCrossOriginExperimentEnabled() const;
-
-  bool IsGestureNeededForPlaybackIfPendingUserGestureIsLocked() const;
 
   // Return true if and only if the settings allow autoplay of media on this
   // frame.
@@ -153,7 +140,8 @@ class CORE_EXPORT AutoplayPolicy final
 
   // Called when the video visibility changes while autoplaying muted, will
   // pause the video when invisible and resume the video when visible.
-  void OnVisibilityChangedForAutoplay(bool is_visible);
+  void OnIntersectionChangedForAutoplay(
+      const HeapVector<Member<IntersectionObserverEntry>>& entries);
 
   // Returns whether the current autoplay policy is
   // kDocumentUserActivationRequired. This is a helper method for readability.
@@ -163,10 +151,9 @@ class CORE_EXPORT AutoplayPolicy final
   void MaybeSetAutoplayInitiated();
 
   bool locked_pending_user_gesture_ : 1;
-  bool locked_pending_user_gesture_if_cross_origin_experiment_enabled_ : 1;
 
-  Member<HTMLMediaElement> element_;
-  Member<ElementVisibilityObserver> autoplay_visibility_observer_;
+  Member<HTMLMediaElement> element_ = nullptr;
+  Member<IntersectionObserver> autoplay_intersection_observer_ = nullptr;
 
   Member<AutoplayUmaHelper> autoplay_uma_helper_;
 

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/layout/jank_tracker.h"
 
 #include "third_party/blink/public/platform/web_mouse_event.h"
+#include "third_party/blink/renderer/core/svg_names.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 
 namespace blink {
@@ -231,6 +232,39 @@ TEST_F(JankTrackerTest, IgnoreFixedAndSticky) {
   GetDocument().scrollingElement()->setScrollTop(50);
   UpdateAllLifecyclePhases();
   EXPECT_FLOAT_EQ(0, GetJankTracker().Score());
+}
+
+TEST_F(JankTrackerTest, IgnoreSVG) {
+  SetBodyInnerHTML(R"HTML(
+    <svg>
+      <circle cx="50" cy="50" r="40"
+              stroke="black" stroke-width="3" fill="red" />
+    </svg>
+  )HTML");
+  GetDocument().QuerySelector("circle")->setAttribute(svg_names::kCxAttr,
+                                                      AtomicString("100"));
+  UpdateAllLifecyclePhases();
+  EXPECT_FLOAT_EQ(0, GetJankTracker().Score());
+}
+
+TEST_F(JankTrackerTest, JankWhileScrolled) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body { height: 1000px; margin: 0; }
+      #j { position: relative; width: 300px; height: 200px; }
+    </style>
+    <div id='j'></div>
+  )HTML");
+
+  GetDocument().scrollingElement()->setScrollTop(100);
+  EXPECT_EQ(0.0, GetJankTracker().Score());
+  EXPECT_EQ(0.0, GetJankTracker().MaxDistance());
+
+  GetDocument().getElementById("j")->setAttribute(html_names::kStyleAttr,
+                                                  AtomicString("top: 60px"));
+  UpdateAllLifecyclePhases();
+  // 300 * (height 200 - scrollY 100 + movement 60) / (800 * 600 viewport)
+  EXPECT_FLOAT_EQ(0.1, GetJankTracker().Score());
 }
 
 }  // namespace blink

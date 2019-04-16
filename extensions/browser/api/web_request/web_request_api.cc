@@ -13,7 +13,6 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/feature_list.h"
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/metrics/histogram_macros.h"
@@ -73,6 +72,7 @@
 #include "extensions/common/error_utils.h"
 #include "extensions/common/event_filtering_info.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature.h"
 #include "extensions/common/features/feature_provider.h"
 #include "extensions/common/permissions/permissions_data.h"
@@ -632,7 +632,7 @@ void WebRequestAPI::OnListenerRemoved(const EventListenerInfo& details) {
   // singleton is leaked.
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::IO},
-      base::Bind(
+      base::BindOnce(
           &ExtensionWebRequestEventRouter::RemoveEventListener,
           base::Unretained(ExtensionWebRequestEventRouter::GetInstance()), id,
           false /* not strict */));
@@ -744,7 +744,8 @@ bool WebRequestAPI::MaybeProxyAuthRequest(
 void WebRequestAPI::MaybeProxyWebSocket(
     content::RenderFrameHost* frame,
     network::mojom::WebSocketRequest* request,
-    network::mojom::AuthenticationHandlerPtr* auth_handler) {
+    network::mojom::AuthenticationHandlerPtr* auth_handler,
+    network::mojom::TrustedHeaderClientPtr* header_client) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (!MayHaveProxies())
     return;
@@ -753,6 +754,12 @@ void WebRequestAPI::MaybeProxyWebSocket(
   auto proxied_request = std::move(*request);
   *request = mojo::MakeRequest(&proxied_socket_ptr_info);
   auto authentication_request = mojo::MakeRequest(auth_handler);
+
+  network::mojom::TrustedHeaderClientRequest header_client_request;
+  if (ExtensionWebRequestEventRouter::GetInstance()->HasAnyExtraHeadersListener(
+          frame->GetProcess()->GetBrowserContext())) {
+    header_client_request = mojo::MakeRequest(header_client);
+  }
 
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::IO},
@@ -763,7 +770,8 @@ void WebRequestAPI::MaybeProxyWebSocket(
           frame->GetProcess()->GetBrowserContext(),
           frame->GetProcess()->GetBrowserContext()->GetResourceContext(),
           base::Unretained(info_map_), std::move(proxied_socket_ptr_info),
-          std::move(proxied_request), std::move(authentication_request)));
+          std::move(proxied_request), std::move(authentication_request),
+          std::move(header_client_request)));
 }
 
 void WebRequestAPI::ForceProxyForTesting() {
@@ -775,6 +783,11 @@ bool WebRequestAPI::MayHaveProxies() const {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   if (!base::FeatureList::IsEnabled(network::features::kNetworkService))
     return false;
+
+  if (base::FeatureList::IsEnabled(
+          extensions_features::kForceWebRequestProxyForTest)) {
+    return true;
+  }
 
   return web_request_extension_count_ > 0;
 }
@@ -1417,6 +1430,7 @@ void ExtensionWebRequestEventRouter::OnRequestWillBeDestroyed(
   ClearPendingCallbacks(*request);
   signaled_requests_.erase(request->id);
   request_time_tracker_->LogRequestEndTime(request->id, base::TimeTicks::Now());
+  pending_requests_for_frame_data_.erase(request);
 }
 
 void ExtensionWebRequestEventRouter::ClearPendingCallbacks(
@@ -1465,9 +1479,12 @@ bool ExtensionWebRequestEventRouter::DispatchEvent(
     // We don't have FrameData available yet, so fetch it asynchronously. This
     // event will be dispatched once that operation completes. Unretained is
     // safe here because the ExtensionWebRequestEventRouter singleton is leaked.
-    event_details.release()->DetermineFrameDataOnIO(
-        base::Bind(&ExtensionWebRequestEventRouter::DispatchEventToListeners,
-                   base::Unretained(this), browser_context,
+    pending_requests_for_frame_data_.insert(request);
+    ExtensionApiFrameIdMap::Get()->GetFrameDataOnIO(
+        request->render_process_id, request->frame_id,
+        base::Bind(&ExtensionWebRequestEventRouter::OnFrameDataReceived,
+                   base::Unretained(this), browser_context, request,
+                   base::Passed(&event_details),
                    base::RetainedRef(extension_info_map),
                    base::Passed(&listeners_to_dispatch)));
   }
@@ -1482,6 +1499,31 @@ bool ExtensionWebRequestEventRouter::DispatchEvent(
   }
 
   return false;
+}
+
+void ExtensionWebRequestEventRouter::OnFrameDataReceived(
+    void* browser_context,
+    const WebRequestInfo* request,
+    std::unique_ptr<WebRequestEventDetails> event_details,
+    const InfoMap* extension_info_map,
+    std::unique_ptr<ListenerIDs> listeners_to_dispatch,
+    const ExtensionApiFrameIdMap::FrameData& frame_data) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
+
+  // Store the |frame_data| in |request| so that the same frame_data can be
+  // persisted across the request lifetime. Requesting id every time isn't
+  // working if the frame host gets deleted during a request; see
+  // https://crbug.com/914232.
+  // Check with |pending_requests_for_frame_data_| to ensure that |request| is
+  // still alive.
+  if (pending_requests_for_frame_data_.count(request) > 0) {
+    request->frame_data = frame_data;
+    pending_requests_for_frame_data_.erase(request);
+  }
+  event_details->SetFrameData(frame_data);
+  DispatchEventToListeners(browser_context, extension_info_map,
+                           std::move(listeners_to_dispatch),
+                           std::move(event_details));
 }
 
 void ExtensionWebRequestEventRouter::DispatchEventToListeners(
@@ -1510,8 +1552,10 @@ void ExtensionWebRequestEventRouter::DispatchEventToListeners(
     // it's still there.
     const EventListener* listener =
         FindEventListenerInContainer(id, event_listeners);
+    bool crosses_incognito = false;
     if (!listener && cross_event_listeners) {
       listener = FindEventListenerInContainer(id, *cross_event_listeners);
+      crosses_incognito = true;
     }
     if (!listener)
       continue;
@@ -1521,7 +1565,6 @@ void ExtensionWebRequestEventRouter::DispatchEventToListeners(
 
     // Filter out the optional keys that this listener didn't request.
     std::unique_ptr<base::ListValue> args_filtered(new base::ListValue);
-    void* cross_browser_context = GetCrossBrowserContext(browser_context);
 
     // In Public Sessions we want to restrict access to security or privacy
     // sensitive data. Data is filtered for *all* listeners, not only extensions
@@ -1538,7 +1581,7 @@ void ExtensionWebRequestEventRouter::DispatchEventToListeners(
     }
     args_filtered->Append(custom_event_details->GetFilteredDict(
         listener->extra_info_spec, extension_info_map,
-        listener->id.extension_id, (cross_browser_context != 0)));
+        listener->id.extension_id, crosses_incognito));
 
     EventRouter::DispatchEventToSender(
         listener->ipc_sender.get(), browser_context, listener->id.extension_id,
@@ -2140,10 +2183,11 @@ void ExtensionWebRequestEventRouter::SendMessages(
                                GetRequestStageAsString(blocked_request.event));
       base::PostTaskWithTraits(
           FROM_HERE, {BrowserThread::UI},
-          base::Bind(&SendOnMessageEventOnUI, browser_context,
-                     delta.extension_id, blocked_request.request->is_web_view,
-                     blocked_request.request->web_view_instance_id,
-                     base::Passed(&event_details)));
+          base::BindOnce(&SendOnMessageEventOnUI, browser_context,
+                         delta.extension_id,
+                         blocked_request.request->is_web_view,
+                         blocked_request.request->web_view_instance_id,
+                         std::move(event_details)));
     }
   }
 }
@@ -2525,7 +2569,9 @@ WebRequestInternalAddEventListenerFunction::Run() {
     // webRequests initiated by a regular extension.
     if (!(ArePublicSessionRestrictionsEnabled() && extension->is_extension()) &&
         extension->permissions_data()
-            ->GetEffectiveHostPermissions()
+            ->GetEffectiveHostPermissions(
+                PermissionsData::EffectiveHostPermissionsMode::
+                    kIncludeTabSpecific)
             .is_empty() &&
         extension->permissions_data()
             ->withheld_permissions()
@@ -2726,9 +2772,9 @@ void WebRequestHandlerBehaviorChangedFunction::OnQuotaExceeded(
   WarningSet warnings;
   warnings.insert(
       Warning::CreateRepeatedCacheFlushesWarning(extension_id_safe()));
-  base::PostTaskWithTraits(
-      FROM_HERE, {BrowserThread::UI},
-      base::Bind(&WarningService::NotifyWarningsOnUI, profile_id(), warnings));
+  base::PostTaskWithTraits(FROM_HERE, {BrowserThread::UI},
+                           base::BindOnce(&WarningService::NotifyWarningsOnUI,
+                                          profile_id(), warnings));
 
   // Continue gracefully.
   RunWithValidation()->Execute();

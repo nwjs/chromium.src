@@ -579,6 +579,12 @@ void RenderbufferStorageMultisampleCHROMIUM(GLenum target,
                                             GLenum internalformat,
                                             GLsizei width,
                                             GLsizei height) override;
+void RenderbufferStorageMultisampleAdvancedAMD(GLenum target,
+                                               GLsizei samples,
+                                               GLsizei storageSamples,
+                                               GLenum internalformat,
+                                               GLsizei width,
+                                               GLsizei height) override;
 void RenderbufferStorageMultisampleEXT(GLenum target,
                                        GLsizei samples,
                                        GLenum internalformat,
@@ -627,6 +633,30 @@ void BindImageTexture(GLuint unit,
 void DispatchCompute(GLuint num_groups_x,
                      GLuint num_groups_y,
                      GLuint num_groups_z) override;
+void GetProgramInterfaceiv(GLuint program,
+                           GLenum program_interface,
+                           GLenum pname,
+                           GLint* params) override;
+GLuint GetProgramResourceIndex(GLuint program,
+                               GLenum program_interface,
+                               const char* name) override;
+void GetProgramResourceName(GLuint program,
+                            GLenum program_interface,
+                            GLuint index,
+                            GLsizei bufsize,
+                            GLsizei* length,
+                            char* name) override;
+void GetProgramResourceiv(GLuint program,
+                          GLenum program_interface,
+                          GLuint index,
+                          GLsizei prop_count,
+                          const GLenum* props,
+                          GLsizei bufsize,
+                          GLsizei* length,
+                          GLint* params) override;
+GLint GetProgramResourceLocation(GLuint program,
+                                 GLenum program_interface,
+                                 const char* name) override;
 void MemoryBarrierEXT(GLbitfield barriers) override;
 void MemoryBarrierByRegion(GLbitfield barriers) override;
 void SwapBuffers(GLuint64 swap_id, GLbitfield flags) override;
@@ -959,6 +989,9 @@ void FramebufferTextureMultiviewLayeredANGLE(GLenum target,
                                              GLsizei numViews) override;
 void MaxShaderCompilerThreadsKHR(GLuint count) override;
 GLuint CreateAndTexStorage2DSharedImageCHROMIUM(const GLbyte* mailbox) override;
+GLuint CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+    const GLbyte* mailbox,
+    GLenum internalformat) override;
 void BeginSharedImageAccessDirectCHROMIUM(GLuint texture, GLenum mode) override;
 void EndSharedImageAccessDirectCHROMIUM(GLuint texture) override;
 #endif  // GPU_COMMAND_BUFFER_CLIENT_GLES2_INTERFACE_STUB_AUTOGEN_H_

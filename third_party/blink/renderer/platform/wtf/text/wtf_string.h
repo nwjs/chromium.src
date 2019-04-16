@@ -484,6 +484,7 @@ class WTF_EXPORT String {
 
   // String::fromUTF8 will return a null string if
   // the input data contains invalid UTF-8 sequences.
+  // Does not strip BOMs.
   static String FromUTF8(const LChar*, size_t);
   static String FromUTF8(const LChar*);
   static String FromUTF8(const char* s, size_t length) {
@@ -667,7 +668,7 @@ inline StringView::StringView(const String& string)
 
 }  // namespace WTF
 
-WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(String);
+WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(String)
 
 using WTF::CString;
 using WTF::kStrictUTF8Conversion;

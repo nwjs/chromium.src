@@ -3,50 +3,50 @@
 // found in the LICENSE file.
 
 /** @type {string} */
-var currentVolumeType;
+let currentVolumeType;
 
 /** @type {!ListThumbnailLoader} */
-var listThumbnailLoader;
+let listThumbnailLoader;
 
 /** @type {!Object} */
-var getCallbacks;
+let getCallbacks;
 
 /** @type {!Array<Event>} */
-var thumbnailLoadedEvents;
+let thumbnailLoadedEvents;
 
 /** @type {!ThumbnailModel} */
-var thumbnailModel;
+let thumbnailModel;
 
 /** @type {!MetadataModel} */
-var metadataModel;
+let metadataModel;
 
 /** @type {!FileListModel} */
-var fileListModel;
+let fileListModel;
 
 /** @type {!DirectoryModel} */
-var directoryModel;
+let directoryModel;
 
 /** @type {boolean} */
-var isScanningForTest;
+let isScanningForTest;
 
 /** @type {!MockFileSystem} */
-var fileSystem = new MockFileSystem('volume-id');
+const fileSystem = new MockFileSystem('volume-id');
 
 /** @type {!MockDirectoryEntry} */
-var directory1 = new MockDirectoryEntry(fileSystem, '/TestDirectory');
+const directory1 = new MockDirectoryEntry(fileSystem, '/TestDirectory');
 
 /** @type {!MockEntry} */
-var entry1 = new MockEntry(fileSystem, '/Test1.jpg');
+const entry1 = new MockEntry(fileSystem, '/Test1.jpg');
 /** @type {!MockEntry} */
-var entry2 = new MockEntry(fileSystem, '/Test2.jpg');
+const entry2 = new MockEntry(fileSystem, '/Test2.jpg');
 /** @type {!MockEntry} */
-var entry3 = new MockEntry(fileSystem, '/Test3.jpg');
+const entry3 = new MockEntry(fileSystem, '/Test3.jpg');
 /** @type {!MockEntry} */
-var entry4 = new MockEntry(fileSystem, '/Test4.jpg');
+const entry4 = new MockEntry(fileSystem, '/Test4.jpg');
 /** @type {!MockEntry} */
-var entry5 = new MockEntry(fileSystem, '/Test5.jpg');
+const entry5 = new MockEntry(fileSystem, '/Test5.jpg');
 /** @type {!MockEntry} */
-var entry6 = new MockEntry(fileSystem, '/Test6.jpg');
+const entry6 = new MockEntry(fileSystem, '/Test6.jpg');
 
 function setUp() {
   currentVolumeType = ListThumbnailLoader.TEST_VOLUME_TYPE;
@@ -63,15 +63,15 @@ function setUp() {
   MockThumbnailLoader.testImageHeight = 160;
 
   // Create an image dataURL for testing.
-  var canvas = document.createElement('canvas');
+  const canvas = document.createElement('canvas');
   canvas.width = MockThumbnailLoader.testImageWidth;
   canvas.height = MockThumbnailLoader.testImageHeight;
-  var context = canvas.getContext('2d');
+  const context = canvas.getContext('2d');
   context.fillStyle = 'black';
   context.fillRect(0, 0, 80, 80);
   context.fillRect(80, 80, 80, 80);
   /** @const {string} */
-  var testImageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
+  const testImageDataUrl = canvas.toDataURL('image/jpeg', 0.5);
 
   /** @suppress {const} */
   MockThumbnailLoader.testImageDataUrl = testImageDataUrl;
@@ -80,7 +80,7 @@ function setUp() {
 
   thumbnailModel = /** @type {!ThumbnailModel} */ ({
     get: function(entries) {
-      return new Promise(function(fulfill) {
+      return new Promise(fulfill => {
         getCallbacks[getKeyOfGetCallback_(entries)] = fulfill;
       });
     },
@@ -107,7 +107,7 @@ function setUp() {
     },
   });
 
-  var fakeVolumeManager = /** @type {!VolumeManager} */ ({
+  const fakeVolumeManager = /** @type {!VolumeManager} */ ({
     getVolumeInfo: function(entry) {
       return {
         volumeType: currentVolumeType,
@@ -119,21 +119,21 @@ function setUp() {
       directoryModel, thumbnailModel, fakeVolumeManager, MockThumbnailLoader);
 
   thumbnailLoadedEvents = [];
-  listThumbnailLoader.addEventListener('thumbnailLoaded', function(event) {
+  listThumbnailLoader.addEventListener('thumbnailLoaded', event => {
     thumbnailLoadedEvents.push(event);
   });
 }
 
 function getKeyOfGetCallback_(entries) {
-  return entries.reduce(function(previous, current) {
+  return entries.reduce((previous, current) => {
     return previous + '|' + current.toURL();
   }, '');
 }
 
 function resolveGetLatestCallback(entries) {
-  var key = getKeyOfGetCallback_(entries);
+  const key = getKeyOfGetCallback_(entries);
   assert(getCallbacks[key]);
-  getCallbacks[key](entries.map(function() {
+  getCallbacks[key](entries.map(() => {
     return {thumbnail: {}};
   }));
   delete getCallbacks[key];
@@ -144,7 +144,7 @@ function hasPendingGetLatestCallback(entries) {
 }
 
 function areEntriesInCache(entries) {
-  for (var i = 0; i < entries.length; i++) {
+  for (let i = 0; i < entries.length; i++) {
     if (null === listThumbnailLoader.getThumbnailFromCache(entries[i])) {
       return false;
     }
@@ -179,11 +179,11 @@ function testStory(callback) {
 
   resolveGetLatestCallback([entry2]);
 
-  reportPromise(waitUntil(function() {
+  reportPromise(waitUntil(() => {
     // Assert that thumbnailLoaded event is fired for Test2.jpg.
     return thumbnailLoadedEvents.length === 1;
-  }).then(function() {
-    var event = thumbnailLoadedEvents.shift();
+  }).then(() => {
+    const event = thumbnailLoadedEvents.shift();
     assertEquals('filesystem:volume-id/Test2.jpg', event.fileUrl);
     assertTrue(event.dataUrl.length > 0);
     assertEquals(160, event.width);
@@ -191,26 +191,26 @@ function testStory(callback) {
 
     // Since thumbnail of Test2.jpg is loaded into the cache,
     // getThumbnailFromCache returns thumbnail for the image.
-    var thumbnail = listThumbnailLoader.getThumbnailFromCache(entry2);
+    const thumbnail = listThumbnailLoader.getThumbnailFromCache(entry2);
     assertEquals('filesystem:volume-id/Test2.jpg', thumbnail.fileUrl);
     assertTrue(thumbnail.dataUrl.length > 0);
     assertEquals(160, thumbnail.width);
     assertEquals(160, thumbnail.height);
 
     // Assert that new task is enqueued.
-    return waitUntil(function() {
+    return waitUntil(() => {
       return hasPendingGetLatestCallback([entry1]) &&
           hasPendingGetLatestCallback([entry4]) &&
           Object.keys(getCallbacks).length === 2;
     });
-  }).then(function() {
+  }).then(() => {
     // Set high priority range to 2 - 4.
     listThumbnailLoader.setHighPriorityRange(2, 4);
 
     resolveGetLatestCallback([entry1]);
 
     // Assert that task for (Test3.jpg) is enqueued.
-    return waitUntil(function() {
+    return waitUntil(() => {
       return hasPendingGetLatestCallback([entry3]) &&
           hasPendingGetLatestCallback([entry4]) &&
           Object.keys(getCallbacks).length === 2;
@@ -245,28 +245,28 @@ function testCache(callback) {
   resolveGetLatestCallback([entry2]);
   assertEquals(0, Object.keys(getCallbacks).length);
 
-  reportPromise(waitUntil(function() {
+  reportPromise(waitUntil(() => {
     return areEntriesInCache([entry3, entry2, entry1]);
-  }).then(function() {
+  }).then(() => {
     // Move high priority range to 1 - 3.
     listThumbnailLoader.setHighPriorityRange(1, 3);
     resolveGetLatestCallback([entry4]);
     assertEquals(0, Object.keys(getCallbacks).length);
 
-    return waitUntil(function() {
+    return waitUntil(() => {
       return areEntriesInCache([entry4, entry3, entry2, entry1]);
     });
-  }).then(function() {
+  }).then(() => {
     // Move high priority range to 4 - 6.
     listThumbnailLoader.setHighPriorityRange(4, 6);
     resolveGetLatestCallback([entry5]);
     resolveGetLatestCallback([entry6]);
     assertEquals(0, Object.keys(getCallbacks).length);
 
-    return waitUntil(function() {
+    return waitUntil(() => {
       return areEntriesInCache([entry6, entry5, entry4, entry3, entry2]);
     });
-  }).then(function() {
+  }).then(() => {
     // Move high priority range to 3 - 5.
     listThumbnailLoader.setHighPriorityRange(3, 5);
     assertEquals(0, Object.keys(getCallbacks).length);
@@ -277,7 +277,7 @@ function testCache(callback) {
     resolveGetLatestCallback([entry1]);
     assertEquals(0, Object.keys(getCallbacks).length);
 
-    return waitUntil(function() {
+    return waitUntil(() => {
       return areEntriesInCache([entry3, entry2, entry1, entry6, entry5]);
     });
   }), callback);
@@ -296,7 +296,7 @@ function testErrorHandling(callback) {
   resolveGetLatestCallback([entry2]);
 
   // Assert that new task is enqueued for entry3.
-  reportPromise(waitUntil(function() {
+  reportPromise(waitUntil(() => {
     return hasPendingGetLatestCallback([entry3]);
   }), callback);
 }
@@ -314,14 +314,14 @@ function testSortedEvent(callback) {
 
   // In order to assert that following task enqueues are fired by sorted event,
   // wait until all thumbnail loads are completed.
-  reportPromise(waitUntil(function() {
+  reportPromise(waitUntil(() => {
     return thumbnailLoadedEvents.length === 2;
-  }).then(function() {
+  }).then(() => {
     // After the sort, list should be
     // directory1, entry5, entry4, entry3, entry2, entry1.
     fileListModel.sort('name', 'desc');
 
-    return waitUntil(function() {
+    return waitUntil(() => {
       return hasPendingGetLatestCallback([entry5]) &&
           hasPendingGetLatestCallback([entry4]);
     });
@@ -339,22 +339,22 @@ function testChangeEvent(callback) {
   resolveGetLatestCallback([entry2]);
   assertEquals(0, Object.keys(getCallbacks).length);
 
-  reportPromise(waitUntil(function() {
+  reportPromise(waitUntil(() => {
     return thumbnailLoadedEvents.length === 2;
-  }).then(function() {
+  }).then(() => {
     // entry1 is changed.
-    var changeEvent = new Event('change');
+    const changeEvent = new Event('change');
     changeEvent.index = 1;
     fileListModel.dispatchEvent(changeEvent);
 
     // cache of entry1 should become invalid.
-    var thumbnail = listThumbnailLoader.getThumbnailFromCache(entry1);
+    const thumbnail = listThumbnailLoader.getThumbnailFromCache(entry1);
     assertTrue(thumbnail.outdated);
 
     resolveGetLatestCallback([entry1]);
 
     // Wait until thumbnailLoaded event is fired again for the change.
-    return waitUntil(function() {
+    return waitUntil(() => {
       return thumbnailLoadedEvents.length === 3;
     });
   }), callback);
@@ -396,7 +396,7 @@ function testDirectoryScanIsRunning() {
  * Test case for EXIF IO error and retrying logic.
  */
 function testExifIOError(callback) {
-  var task = new ListThumbnailLoader.Task(
+  const task = new ListThumbnailLoader.Task(
       entry1,
       /** @type {!VolumeManager} */ ({
         getVolumeInfo: function(entry) {
@@ -416,15 +416,15 @@ function testExifIOError(callback) {
           }]);
         },
       }),
-      function() {
+      () => {
         // Thumbnails should be fetched only from EXIF on IO error.
         assertTrue(false);
       });
 
-  return reportPromise(task.fetch().then(function(thumbnailData) {
+  return reportPromise(task.fetch().then(thumbnailData => {
     assertEquals(null, thumbnailData.dataUrl);
     assertFalse(thumbnailData.outdated);
-    return waitUntil(function() {
+    return waitUntil(() => {
       return thumbnailData.outdated;
     });
   }), callback);

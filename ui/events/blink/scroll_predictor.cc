@@ -63,14 +63,14 @@ void ScrollPredictor::ResampleScrollEvents(
     return;
 
   if (event->GetType() == WebInputEvent::kGestureScrollUpdate) {
-    TRACE_EVENT_BEGIN0("input", "ScrollPredictor::ResampleScrollEvents");
-
     // TODO(eirage): When scroll events are coalesced with pinch, we can have
     // empty original event list. In that case, we can't use the original events
     // to update the prediction. We don't want to use the aggregated event to
     // update because of the event time stamp, so skip the prediction for now.
     if (original_events.empty())
       return;
+
+    TRACE_EVENT_BEGIN0("input", "ScrollPredictor::ResampleScrollEvents");
 
     temporary_accumulated_delta_ = current_accumulated_delta_;
     for (auto& coalesced_event : original_events)
@@ -125,7 +125,8 @@ void ScrollPredictor::ResampleEvent(base::TimeTicks time_stamp,
   gfx::PointF predicted_accumulated_delta = current_accumulated_delta_;
   InputPredictor::InputData result;
   if (predictor_->HasPrediction() &&
-      predictor_->GeneratePrediction(time_stamp, &result)) {
+      predictor_->GeneratePrediction(time_stamp, true /* is_resampling */,
+                                     &result)) {
     predicted_accumulated_delta = result.pos;
     gesture_event->SetTimeStamp(time_stamp);
   }
@@ -168,7 +169,8 @@ void ScrollPredictor::ComputeAccuracy(const WebScopedInputEvent& event) {
   temporary_accumulated_delta_.Offset(gesture_event.data.scroll_update.delta_x,
                                       gesture_event.data.scroll_update.delta_y);
   if (predictor_->HasPrediction() &&
-      predictor_->GeneratePrediction(event->TimeStamp(), &predict_result)) {
+      predictor_->GeneratePrediction(
+          event->TimeStamp(), false /* is_resampling */, &predict_result)) {
     float distance =
         (predict_result.pos - gfx::PointF(temporary_accumulated_delta_))
             .Length();

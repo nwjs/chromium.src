@@ -40,7 +40,8 @@ struct Cancelable {
 class WorkQueueTest : public testing::Test {
  public:
   void SetUp() override {
-    dummy_sequence_manager_ = SequenceManagerImpl::CreateUnbound(nullptr);
+    dummy_sequence_manager_ =
+        SequenceManagerImpl::CreateUnbound(SequenceManager::Settings{});
     scoped_refptr<AssociatedThreadId> thread_checker =
         dummy_sequence_manager_->associated_thread();
     thread_checker->BindToCurrentThread();
@@ -196,14 +197,14 @@ TEST_F(WorkQueueTest, PushNonNestableTaskToFrontBeforeFenceHit) {
   EXPECT_EQ(work_queue_.get(), work_queue_sets_->GetOldestQueueInSet(0));
 }
 
-TEST_F(WorkQueueTest, ReloadEmptyImmediateQueue) {
+TEST_F(WorkQueueTest, TakeImmediateIncomingQueueTasks) {
   task_queue_->PushImmediateIncomingTaskForTest(FakeTaskWithEnqueueOrder(2));
   task_queue_->PushImmediateIncomingTaskForTest(FakeTaskWithEnqueueOrder(3));
   task_queue_->PushImmediateIncomingTaskForTest(FakeTaskWithEnqueueOrder(4));
   EXPECT_EQ(nullptr, work_queue_sets_->GetOldestQueueInSet(0));
   EXPECT_TRUE(work_queue_->Empty());
 
-  work_queue_->ReloadEmptyImmediateQueue();
+  work_queue_->TakeImmediateIncomingQueueTasks();
   EXPECT_EQ(work_queue_.get(), work_queue_sets_->GetOldestQueueInSet(0));
   EXPECT_FALSE(work_queue_->Empty());
 
@@ -214,7 +215,7 @@ TEST_F(WorkQueueTest, ReloadEmptyImmediateQueue) {
   EXPECT_EQ(4ull, work_queue_->GetBackTask()->enqueue_order());
 }
 
-TEST_F(WorkQueueTest, ReloadEmptyImmediateQueueAfterFenceHit) {
+TEST_F(WorkQueueTest, TakeImmediateIncomingQueueTasksAfterFenceHit) {
   work_queue_->InsertFence(EnqueueOrder::blocking_fence());
   task_queue_->PushImmediateIncomingTaskForTest(FakeTaskWithEnqueueOrder(2));
   task_queue_->PushImmediateIncomingTaskForTest(FakeTaskWithEnqueueOrder(3));
@@ -222,7 +223,7 @@ TEST_F(WorkQueueTest, ReloadEmptyImmediateQueueAfterFenceHit) {
   EXPECT_EQ(nullptr, work_queue_sets_->GetOldestQueueInSet(0));
   EXPECT_TRUE(work_queue_->Empty());
 
-  work_queue_->ReloadEmptyImmediateQueue();
+  work_queue_->TakeImmediateIncomingQueueTasks();
   EXPECT_EQ(nullptr, work_queue_sets_->GetOldestQueueInSet(0));
   EXPECT_FALSE(work_queue_->Empty());
 
@@ -468,6 +469,27 @@ TEST_F(WorkQueueTest, RemoveAllCanceledTasksFromFrontTasksNotCanceled) {
     EXPECT_TRUE(work_queue_->GetFrontTaskEnqueueOrder(&enqueue_order));
     EXPECT_EQ(2ull, enqueue_order);
   }
+}
+
+TEST_F(WorkQueueTest, RemoveAllCanceledTasksFromFrontQueueBlockedByFence) {
+  {
+    Cancelable cancelable;
+    work_queue_->Push(FakeCancelableTaskWithEnqueueOrder(
+        2, cancelable.weak_ptr_factory.GetWeakPtr()));
+    work_queue_->Push(FakeCancelableTaskWithEnqueueOrder(
+        3, cancelable.weak_ptr_factory.GetWeakPtr()));
+    work_queue_->Push(FakeCancelableTaskWithEnqueueOrder(
+        4, cancelable.weak_ptr_factory.GetWeakPtr()));
+    work_queue_->Push(FakeTaskWithEnqueueOrder(5));
+  }
+
+  EXPECT_FALSE(work_queue_->InsertFence(EnqueueOrder::blocking_fence()));
+  EXPECT_TRUE(work_queue_->BlockedByFence());
+
+  EXPECT_TRUE(work_queue_->RemoveAllCanceledTasksFromFront());
+
+  EnqueueOrder enqueue_order;
+  EXPECT_FALSE(work_queue_->GetFrontTaskEnqueueOrder(&enqueue_order));
 }
 
 }  // namespace internal

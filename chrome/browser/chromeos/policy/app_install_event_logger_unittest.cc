@@ -15,7 +15,6 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/dbus/cros_disks_client.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
-#include "chromeos/dbus/fake_power_manager_client.h"
 #include "chromeos/disks/disk_mount_manager.h"
 #include "chromeos/disks/mock_disk_mount_manager.h"
 #include "chromeos/network/network_handler.h"
@@ -66,7 +65,7 @@ ACTION_TEMPLATE(SaveTimestamp,
                 HAS_1_TEMPLATE_PARAMS(int, k),
                 AND_1_VALUE_PARAMS(out)) {
   *out = testing::get<k>(args).timestamp();
-};
+}
 
 int64_t GetCurrentTimestamp() {
   return (base::Time::Now() - base::Time::UnixEpoch()).InMicroseconds();
@@ -105,10 +104,9 @@ class AppInstallEventLoggerTest : public testing::Test {
     RegisterLocalState(pref_service_.registry());
     TestingBrowserProcess::GetGlobal()->SetLocalState(&pref_service_);
 
-    chromeos::DBusThreadManager::GetSetterForTesting()->SetPowerManagerClient(
-        std::make_unique<chromeos::FakePowerManagerClient>());
     chromeos::DBusThreadManager::Initialize();
     chromeos::NetworkHandler::Initialize();
+    chromeos::PowerManagerClient::Initialize();
 
     disk_mount_manager_ = new chromeos::disks::MockDiskMountManager;
     chromeos::disks::DiskMountManager::InitializeForTesting(
@@ -126,6 +124,7 @@ class AppInstallEventLoggerTest : public testing::Test {
   void TearDown() override {
     logger_.reset();
     browser_thread_bundle_.RunUntilIdle();
+    chromeos::PowerManagerClient::Shutdown();
     chromeos::NetworkHandler::Shutdown();
     chromeos::DBusThreadManager::Shutdown();
     chromeos::disks::DiskMountManager::Shutdown();

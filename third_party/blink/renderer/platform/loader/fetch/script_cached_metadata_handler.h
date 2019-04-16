@@ -48,8 +48,12 @@ class PLATFORM_EXPORT ScriptCachedMetadataHandler final
 
   bool IsServedFromCacheStorage() const override;
 
+  void OnMemoryDump(WebProcessMemoryDump* pmd,
+                    const String& dump_prefix) const override;
+
   // Sets the serialized metadata retrieved from the platform's cache.
   void SetSerializedCachedMetadata(const uint8_t*, size_t);
+  size_t GetCodeCacheSize() const override;
 
  private:
   void SendToPlatform();

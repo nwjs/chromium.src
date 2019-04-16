@@ -42,11 +42,12 @@ class MojoPageTimingSender : public PageTimingSender {
                   const mojom::PageLoadMetadataPtr& metadata,
                   mojom::PageLoadFeaturesPtr new_features,
                   std::vector<mojom::ResourceDataUpdatePtr> resources,
-                  const mojom::PageRenderData& render_data) override {
+                  const mojom::PageRenderData& render_data,
+                  const mojom::CpuTimingPtr& cpu_timing) override {
     DCHECK(page_load_metrics_);
-    page_load_metrics_->UpdateTiming(timing->Clone(), metadata->Clone(),
-                                     std::move(new_features),
-                                     std::move(resources), render_data.Clone());
+    page_load_metrics_->UpdateTiming(
+        timing->Clone(), metadata->Clone(), std::move(new_features),
+        std::move(resources), render_data.Clone(), cpu_timing->Clone());
   }
 
  private:
@@ -66,6 +67,14 @@ MetricsRenderFrameObserver::~MetricsRenderFrameObserver() {}
 
 void MetricsRenderFrameObserver::DidChangePerformanceTiming() {
   SendMetrics();
+}
+
+void MetricsRenderFrameObserver::DidChangeCpuTiming(base::TimeDelta time) {
+  if (!page_timing_metrics_sender_)
+    return;
+  if (HasNoRenderFrame())
+    return;
+  page_timing_metrics_sender_->UpdateCpuTiming(time);
 }
 
 void MetricsRenderFrameObserver::DidObserveLoadingBehavior(
@@ -160,10 +169,9 @@ void MetricsRenderFrameObserver::FrameDetached() {
   page_timing_metrics_sender_.reset();
 }
 
-void MetricsRenderFrameObserver::DidStartProvisionalLoad(
-    blink::WebDocumentLoader* document_loader,
-    bool is_content_initiated) {
-  // Create a new data use tracker for the new provisional load.
+void MetricsRenderFrameObserver::ReadyToCommitNavigation(
+    blink::WebDocumentLoader* document_loader) {
+  // Create a new data use tracker for the new document load.
   provisional_frame_resource_data_use_ =
       std::make_unique<PageResourceDataUse>();
   provisional_frame_resource_id = 0;

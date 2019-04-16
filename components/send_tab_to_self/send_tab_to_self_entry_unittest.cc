@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/test/simple_test_tick_clock.h"
+#include "components/send_tab_to_self/proto/send_tab_to_self.pb.h"
 #include "components/sync/protocol/send_tab_to_self_specifics.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -21,6 +22,20 @@ bool IsEqualForTesting(const SendTabToSelfEntry& a,
          a.GetDeviceName() == b.GetDeviceName() &&
          a.GetSharedTime() == b.GetSharedTime() &&
          a.GetOriginalNavigationTime() == b.GetOriginalNavigationTime();
+}
+
+bool IsEqualForTesting(const SendTabToSelfEntry& entry,
+                       const sync_pb::SendTabToSelfSpecifics& specifics) {
+  return (
+      entry.GetGUID() == specifics.guid() &&
+      entry.GetURL() == specifics.url() &&
+      entry.GetTitle() == specifics.title() &&
+      entry.GetDeviceName() == specifics.device_name() &&
+      specifics.shared_time_usec() ==
+          entry.GetSharedTime().ToDeltaSinceWindowsEpoch().InMicroseconds() &&
+      specifics.navigation_time_usec() == entry.GetOriginalNavigationTime()
+                                              .ToDeltaSinceWindowsEpoch()
+                                              .InMicroseconds());
 }
 
 TEST(SendTabToSelfEntry, CompareEntries) {
@@ -54,18 +69,8 @@ TEST(SendTabToSelfEntry, AsProto) {
   SendTabToSelfEntry entry("1", GURL("http://example.com"), "bar",
                            base::Time::FromTimeT(10), base::Time::FromTimeT(10),
                            "device");
-  base::Time shared_time = entry.GetSharedTime();
-  base::Time navigation_time = entry.GetSharedTime();
-
-  std::unique_ptr<sync_pb::SendTabToSelfSpecifics> pb_entry(entry.AsProto());
-  EXPECT_EQ(pb_entry->url(), "http://example.com/");
-  EXPECT_EQ(pb_entry->title(), "bar");
-  EXPECT_EQ(pb_entry->shared_time_usec(),
-            shared_time.ToDeltaSinceWindowsEpoch().InMicroseconds());
-
-  EXPECT_EQ(pb_entry->navigation_time_usec(),
-            navigation_time.ToDeltaSinceWindowsEpoch().InMicroseconds());
-  EXPECT_EQ(pb_entry->device_name(), "device");
+  SendTabToSelfLocal pb_entry(entry.AsLocalProto());
+  EXPECT_TRUE(IsEqualForTesting(entry, pb_entry.specifics()));
 }
 
 // Tests that the send tab to self entry is correctly parsed from
@@ -83,16 +88,7 @@ TEST(SendTabToSelfEntry, FromProto) {
   std::unique_ptr<SendTabToSelfEntry> entry(
       SendTabToSelfEntry::FromProto(*pb_entry, base::Time::FromTimeT(10)));
 
-  EXPECT_EQ(entry->GetGUID(), "1");
-  EXPECT_EQ(entry->GetURL().spec(), "http://example.com/");
-  EXPECT_EQ(entry->GetTitle(), "title");
-  EXPECT_EQ(entry->GetDeviceName(), "device");
-  EXPECT_EQ(entry->GetSharedTime().ToDeltaSinceWindowsEpoch().InMicroseconds(),
-            1);
-  EXPECT_EQ(entry->GetOriginalNavigationTime()
-                .ToDeltaSinceWindowsEpoch()
-                .InMicroseconds(),
-            1);
+  EXPECT_TRUE(IsEqualForTesting(*entry, *pb_entry));
 }
 
 }  // namespace

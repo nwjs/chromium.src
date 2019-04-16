@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "net/quic/quic_chromium_alarm_factory.h"
 #include "net/quic/test_task_runner.h"
 #include "net/test/gtest_util.h"
@@ -14,6 +15,7 @@
 #include "third_party/blink/renderer/modules/peerconnection/adapters/p2p_quic_transport_impl.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/test/mock_p2p_quic_stream_delegate.h"
 #include "third_party/blink/renderer/modules/peerconnection/adapters/test/mock_p2p_quic_transport_delegate.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/webrtc/rtc_base/rtc_certificate.h"
 #include "third_party/webrtc/rtc_base/ssl_fingerprint.h"
 #include "third_party/webrtc/rtc_base/ssl_identity.h"
@@ -42,6 +44,8 @@ const uint32_t kTransportDelegateReadBufferSize = 100 * 1024;
 //       .WillOnce(FireCallback(run_loop.CreateCallback()));
 //   run_loop.RunUntilCallbacksFired(task_runner);
 class FireCallbackAction {
+  STACK_ALLOCATED();
+
  public:
   FireCallbackAction(base::RepeatingCallback<void()> callback)
       : callback_(callback) {}
@@ -70,6 +74,8 @@ PolymorphicAction<FireCallbackAction> FireCallback(
 // case it will make more sense to use the TestCompletionCallback and the
 // RunLoop for driving the test.
 class CallbackRunLoop {
+  STACK_ALLOCATED();
+
  public:
   CallbackRunLoop(scoped_refptr<net::test::TestTaskRunner> task_runner)
       : task_runner_(task_runner) {}
@@ -118,7 +124,7 @@ class FakePacketTransport : public P2PQuicPacketTransport,
   ~FakePacketTransport() override {
     // The write observer should be unset when it is destroyed.
     DCHECK(!write_observer_);
-  };
+  }
 
   // Called by QUIC for writing data to the other side. The flow for writing a
   // packet is P2PQuicTransportImpl --> quic::QuicConnection -->
@@ -224,7 +230,7 @@ class FakePacketTransport : public P2PQuicPacketTransport,
   // responsibility of the test to disconnect this delegate
   // (set_delegate(nullptr);) before it is destructed.
   FakePacketTransport* peer_packet_transport_ = nullptr;
-  quic::QuicPacketNumber last_packet_num_;
+  uint64_t last_packet_num_;
   quic::MockClock* clock_;
 };
 
@@ -233,6 +239,8 @@ class FakePacketTransport : public P2PQuicPacketTransport,
 // also keeps track of when callbacks are expected on the delegate objects,
 // which allows running the TestTaskRunner tasks until they have been fired.
 class QuicPeerForTest {
+  USING_FAST_MALLOC(QuicPeerForTest);
+
  public:
   QuicPeerForTest(
       std::unique_ptr<FakePacketTransport> packet_transport,
@@ -888,8 +896,8 @@ TEST_F(P2PQuicTransportTest, ClientCreatesStream) {
 
   RunCurrentTasks();
 
-  EXPECT_TRUE(client_peer()->quic_transport()->HasOpenDynamicStreams());
-  EXPECT_FALSE(server_peer()->quic_transport()->HasOpenDynamicStreams());
+  EXPECT_TRUE(client_peer()->quic_transport()->ShouldKeepConnectionAlive());
+  EXPECT_FALSE(server_peer()->quic_transport()->ShouldKeepConnectionAlive());
 
   // After sending data across it will trigger a stream to be created on the
   // server side.
@@ -910,7 +918,7 @@ TEST_F(P2PQuicTransportTest, ClientCreatesStream) {
       /*fin=*/false);
   run_loop.RunUntilCallbacksFired();
 
-  EXPECT_TRUE(server_peer()->quic_transport()->HasOpenDynamicStreams());
+  EXPECT_TRUE(server_peer()->quic_transport()->ShouldKeepConnectionAlive());
 }
 
 // Tests that the server transport can create a stream and an incoming stream
@@ -924,8 +932,8 @@ TEST_F(P2PQuicTransportTest, ServerCreatesStream) {
 
   RunCurrentTasks();
 
-  EXPECT_TRUE(server_peer()->quic_transport()->HasOpenDynamicStreams());
-  EXPECT_FALSE(client_peer()->quic_transport()->HasOpenDynamicStreams());
+  EXPECT_TRUE(server_peer()->quic_transport()->ShouldKeepConnectionAlive());
+  EXPECT_FALSE(client_peer()->quic_transport()->ShouldKeepConnectionAlive());
 
   // After sending data across it will trigger a stream to be created on the
   // server side.
@@ -946,7 +954,7 @@ TEST_F(P2PQuicTransportTest, ServerCreatesStream) {
       /*fin=*/false);
   run_loop.RunUntilCallbacksFired();
 
-  EXPECT_TRUE(client_peer()->quic_transport()->HasOpenDynamicStreams());
+  EXPECT_TRUE(client_peer()->quic_transport()->ShouldKeepConnectionAlive());
 }
 
 // Tests that when the client transport calls Stop() it closes its outgoing

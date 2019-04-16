@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -331,7 +332,7 @@ void TiclInvalidationService::OnIncomingInvalidation(
 std::string TiclInvalidationService::GetOwnerName() const { return "TICL"; }
 
 bool TiclInvalidationService::IsReadyToStart() {
-  if (!identity_provider_->IsActiveAccountAvailable()) {
+  if (!identity_provider_->IsActiveAccountWithRefreshToken()) {
     DVLOG(2) << "Not starting TiclInvalidationService: "
              << "active account is not available";
     return false;

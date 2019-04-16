@@ -452,7 +452,7 @@ TEST_F(RootScrollerTest, TestSetRootScrollerOnElementInIframe) {
 
   {
     // Trying to set an element from a nested document should fail.
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
     Element* inner_container =
         iframe->contentDocument()->getElementById("container");
@@ -466,7 +466,7 @@ TEST_F(RootScrollerTest, TestSetRootScrollerOnElementInIframe) {
 
   {
     // Setting the iframe itself should also work.
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
 
     SetAndSelectRootScroller(*MainFrame()->GetDocument(), iframe);
@@ -484,7 +484,7 @@ TEST_F(RootScrollerTest, TestRootScrollerWithinIframe) {
   ASSERT_EQ(nullptr, MainFrame()->GetDocument()->rootScroller());
 
   {
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
 
     EXPECT_EQ(iframe->contentDocument(),
@@ -509,7 +509,7 @@ TEST_F(RootScrollerTest, SetRootScrollerIframeBecomesEffective) {
   {
     // Try to set the root scroller in the main frame to be the iframe
     // element.
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
 
     SetAndSelectRootScroller(*MainFrame()->GetDocument(), iframe);
@@ -535,7 +535,7 @@ TEST_F(RootScrollerTest, SetRootScrollerIframeUsesCorrectLayerAndCallback) {
   Initialize("root-scroller-iframe.html");
   ASSERT_EQ(nullptr, MainFrame()->GetDocument()->rootScroller());
 
-  HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+  auto* iframe = To<HTMLFrameOwnerElement>(
       MainFrame()->GetDocument()->getElementById("iframe"));
   Element* container = iframe->contentDocument()->getElementById("container");
 
@@ -717,7 +717,7 @@ TEST_F(RootScrollerTest,
   {
     // Try to set the the root scroller of the child document to be the
     // <iframe> element in the parent document.
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
     Element* body =
         MainFrame()->GetDocument()->QuerySelector("body", ASSERT_NO_EXCEPTION);
@@ -870,7 +870,7 @@ TEST_F(RootScrollerTest, NonMainLocalRootLifecycle) {
 
     WebRemoteFrameImpl* remote_frame = frame_test_helpers::CreateRemote();
     WebLocalFrameImpl* child =
-        ToWebLocalFrameImpl(helper_.LocalMainFrame()->FirstChild());
+        To<WebLocalFrameImpl>(helper_.LocalMainFrame()->FirstChild());
     child->Swap(remote_frame);
     remote_frame->SetReplicatedOrigin(
         WebSecurityOrigin(SecurityOrigin::CreateUniqueOpaque()), false);
@@ -910,7 +910,7 @@ TEST_F(RootScrollerTest, RemoveRootScrollerFromDom) {
   Initialize("root-scroller-iframe.html");
 
   {
-    HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+    auto* iframe = To<HTMLFrameOwnerElement>(
         MainFrame()->GetDocument()->getElementById("iframe"));
     Element* inner_container =
         iframe->contentDocument()->getElementById("container");
@@ -974,8 +974,8 @@ TEST_F(RootScrollerTest, UseVisualViewportScrollbarsIframe) {
   Initialize("root-scroller-iframe.html");
 
   Element* iframe = MainFrame()->GetDocument()->getElementById("iframe");
-  LocalFrame* child_frame =
-      ToLocalFrame(ToHTMLFrameOwnerElement(iframe)->ContentFrame());
+  auto* child_frame =
+      To<LocalFrame>(To<HTMLFrameOwnerElement>(iframe)->ContentFrame());
 
   SetAndSelectRootScroller(*MainFrame()->GetDocument(), iframe);
 
@@ -1136,9 +1136,9 @@ TEST_F(RootScrollerTest, IFrameRootScrollerGetsNonFixedLayoutSize) {
   UpdateAllLifecyclePhases(MainFrameView());
 
   Document* document = MainFrame()->GetDocument();
-  HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+  auto* iframe = To<HTMLFrameOwnerElement>(
       MainFrame()->GetDocument()->getElementById("iframe"));
-  LocalFrameView* iframe_view = ToLocalFrame(iframe->ContentFrame())->View();
+  auto* iframe_view = To<LocalFrame>(iframe->ContentFrame())->View();
 
   ASSERT_EQ(IntSize(400, 400), iframe_view->GetLayoutSize());
   ASSERT_EQ(IntSize(400, 400), iframe_view->Size());
@@ -1203,7 +1203,7 @@ TEST_F(RootScrollerTest, ImmediateUpdateOfLayoutViewport) {
   Initialize("root-scroller-iframe.html");
 
   Document* document = MainFrame()->GetDocument();
-  HTMLFrameOwnerElement* iframe = ToHTMLFrameOwnerElement(
+  auto* iframe = To<HTMLFrameOwnerElement>(
       MainFrame()->GetDocument()->getElementById("iframe"));
 
   SetAndSelectRootScroller(*document, iframe);
@@ -1211,7 +1211,7 @@ TEST_F(RootScrollerTest, ImmediateUpdateOfLayoutViewport) {
   RootScrollerController& main_controller =
       MainFrame()->GetDocument()->GetRootScrollerController();
 
-  LocalFrame* iframe_local_frame = ToLocalFrame(iframe->ContentFrame());
+  auto* iframe_local_frame = To<LocalFrame>(iframe->ContentFrame());
   EXPECT_EQ(iframe, &main_controller.EffectiveRootScroller());
   EXPECT_EQ(iframe_local_frame->View()->LayoutViewport(),
             &MainFrameView()->GetRootFrameViewport()->LayoutViewport());
@@ -1486,7 +1486,7 @@ TEST_F(RootScrollerSimTest, RootScrollerDoesntAffectVisualViewport) {
   GetDocument().GetPage()->GetVisualViewport().SetLocation(
       FloatPoint(100, 120));
 
-  LocalFrame* frame = ToLocalFrame(GetDocument().GetPage()->MainFrame());
+  auto* frame = To<LocalFrame>(GetDocument().GetPage()->MainFrame());
   EXPECT_EQ(100, frame->DomWindow()->visualViewport()->pageLeft());
   EXPECT_EQ(120, frame->DomWindow()->visualViewport()->pageTop());
 
@@ -2485,8 +2485,8 @@ TEST_F(ImplicitRootScrollerSimTest, IframeScrollingAffectsPromotion) {
   RunPendingTasks();
   Compositor().BeginFrame();
 
-  HTMLFrameOwnerElement* container =
-      ToHTMLFrameOwnerElement(GetDocument().getElementById("container"));
+  auto* container =
+      To<HTMLFrameOwnerElement>(GetDocument().getElementById("container"));
   Element* inner_html_element = container->contentDocument()->documentElement();
 
   // Shouldn't be promoted since it's not scrollable.
@@ -2553,6 +2553,91 @@ TEST_F(ImplicitRootScrollerSimTest, PromotionChangesLayoutSize) {
   EXPECT_EQ(GetDocument().getElementById("container"),
             GetDocument().GetRootScrollerController().EffectiveRootScroller())
       << "Once loaded, the iframe should be promoted.";
+}
+
+// Ensure that we're using the content box for an iframe. Promotion will cause
+// the content to use the layout size of the parent frame so having padding or
+// a border would cause us to relayout.
+TEST_F(ImplicitRootScrollerSimTest, IframeUsesContentBox) {
+  WebView().ResizeWithBrowserControls(IntSize(800, 600), 0, 0, false);
+  SimRequest main_request("https://example.com/test.html", "text/html");
+  SimRequest child_request("https://example.com/child.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  main_request.Complete(R"HTML(
+          <!DOCTYPE>
+          <style>
+            iframe {
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              border: none;
+              box-sizing: border-box;
+
+            }
+            body, html {
+              margin: 0;
+              width: 100%;
+              height: 100%;
+              overflow:hidden;
+            }
+
+          </style>
+          <iframe id="container" src="child.html">
+      )HTML");
+  child_request.Complete(R"HTML(
+        <!DOCTYPE html>
+        <style>
+          div {
+            border: 5px solid black;
+            background-color: red;
+            width: 99%;
+            height: 100px;
+          }
+          html {
+            height: 200%;
+          }
+        </style>
+        <div></div>
+  )HTML");
+
+  Compositor().BeginFrame();
+
+  Element* iframe = GetDocument().getElementById("container");
+
+  ASSERT_EQ(iframe,
+            GetDocument().GetRootScrollerController().EffectiveRootScroller())
+      << "The iframe should start off promoted.";
+
+  // Adding padding should cause the iframe to be demoted.
+  {
+    iframe->setAttribute(html_names::kStyleAttr, "padding-left: 20%");
+    Compositor().BeginFrame();
+
+    EXPECT_NE(iframe,
+              GetDocument().GetRootScrollerController().EffectiveRootScroller())
+        << "The iframe should be demoted once it has padding.";
+  }
+
+  // Replacing padding with a border should also ensure the iframe remains
+  // demoted.
+  {
+    iframe->setAttribute(html_names::kStyleAttr, "border: 5px solid black");
+    Compositor().BeginFrame();
+
+    EXPECT_NE(iframe,
+              GetDocument().GetRootScrollerController().EffectiveRootScroller())
+        << "The iframe should be demoted once it has border.";
+  }
+
+  // Removing the border should now cause the iframe to be promoted once again.
+  iframe->setAttribute(html_names::kStyleAttr, "");
+  Compositor().BeginFrame();
+
+  ASSERT_EQ(iframe,
+            GetDocument().GetRootScrollerController().EffectiveRootScroller())
+      << "The iframe should once again be promoted when border is removed";
 }
 
 // Test that we don't promote any elements implicitly if the main document has
@@ -3067,7 +3152,7 @@ TEST_F(RootScrollerHitTest, HitTestHideURLBarDifferentLayerIframe) {
   GetDocument().setRootScroller(container, ASSERT_NO_EXCEPTION);
 
   Document* child_document =
-      ToHTMLFrameOwnerElement(container)->contentDocument();
+      To<HTMLFrameOwnerElement>(container)->contentDocument();
   Element* child_container = child_document->getElementById("container");
   child_document->setRootScroller(child_container, ASSERT_NO_EXCEPTION);
 
@@ -3147,7 +3232,7 @@ TEST_F(RootScrollerHitTest, HitTestHideURLBarSameLayerIframe) {
   GetDocument().setRootScroller(container, ASSERT_NO_EXCEPTION);
 
   Document* child_document =
-      ToHTMLFrameOwnerElement(container)->contentDocument();
+      To<HTMLFrameOwnerElement>(container)->contentDocument();
   Element* child_container = child_document->getElementById("container");
   child_document->setRootScroller(child_container, ASSERT_NO_EXCEPTION);
 

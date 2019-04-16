@@ -215,8 +215,11 @@ public class PageInfoController
                         0, emphasizeResponse.schemeLength, Spannable.SPAN_EXCLUSIVE_INCLUSIVE);
             }
         }
+
+        final boolean useDarkColors =
+                !mTab.getActivity().getNightModeStateProvider().isInNightMode();
         OmniboxUrlEmphasizer.emphasizeUrl(displayUrlBuilder, mContext.getResources(),
-                mTab.getProfile(), mSecurityLevel, mIsInternalPage, true, true);
+                mTab.getProfile(), mSecurityLevel, mIsInternalPage, useDarkColors, true);
         viewParams.url = displayUrlBuilder;
         viewParams.urlOriginLength = OmniboxUrlEmphasizer.getOriginEndIndex(
                 displayUrlBuilder.toString(), mTab.getProfile());
@@ -346,7 +349,7 @@ public class PageInfoController
                             // The callback given to NoUnderlineClickableSpan is overridden in
                             // PageInfoView so use previewShowOriginalClickCallback (above) instead
                             // because the entire TextView will be clickable.
-                            new NoUnderlineClickableSpan((view) -> {})));
+                            new NoUnderlineClickableSpan(mContext.getResources(), (view) -> {})));
             viewParams.previewLoadOriginalMessage = loadOriginalSpan;
 
             viewParams.previewStaleTimestamp =

@@ -8,11 +8,13 @@
 <translation id="1181037720776840403">Eltávolítás</translation>
 <translation id="1243314992276662751">Feltöltés</translation>
 <translation id="1269641567813814718">Win</translation>
+<translation id="1290982764014248209"><ph name="DRAGGED_APP" /> áthelyezése a következő mappába: <ph name="FOLDER_NAME" />.</translation>
 <translation id="1293699935367580298">Esc</translation>
 <translation id="1306549533752902673">AJÁNLOTT ALKALMAZÁSOK</translation>
 <translation id="1368832886055348810">Balról jobbra</translation>
 <translation id="1383876407941801731">Keresés</translation>
 <translation id="1398853756734560583">Teljes méret</translation>
+<translation id="1409544243779336081">Javasolt alkalmazás</translation>
 <translation id="1413622004203049571">A(z) <ph name="NOTIFIER_NAME" /> értesítéseinek kikapcsolása</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 perc és }other{# perc és }}</translation>
 <translation id="1643823602425662293">Értesítés</translation>
@@ -57,6 +59,7 @@
 <translation id="2931838996092594335">kattintás</translation>
 <translation id="3036649622769666520">Fájlok megnyitása</translation>
 <translation id="3049748772180311791"><ph name="QUANTITY" /> MB</translation>
+<translation id="3068711042108640621">A polc a bal oldalon található</translation>
 <translation id="3087734570205094154">Alja</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3157931365184549694">Visszaállítás</translation>
@@ -64,9 +67,10 @@
 <translation id="3234408098842461169">Lefelé nyíl</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 nap}other{# nap}}</translation>
 <translation id="335581015389089642">Beszéd</translation>
-<translation id="3462241349431650993">Ha elrejti a javaslatot, a továbbiakban nem jelenik meg a fiókjával használt egyik eszközön sem.</translation>
 <translation id="3479552764303398839">Ne most</translation>
+<translation id="348799646910989694">A polc automatikusan elrejti magát</translation>
 <translation id="3600566671520689681">{DAYS,plural, =1{1 nap van hátra}other{# nap van hátra}}</translation>
+<translation id="3600969208114796418"><ph name="SAVEAS_EXTENSION_TYPE" />-fájl</translation>
 <translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">A(z) „<ph name="LOOKUP_STRING" />” keresése</translation>
 <translation id="364720409959344976">Mappa kiválasztása a feltöltéshez</translation>
@@ -80,12 +84,14 @@
 <translation id="3897092660631435901">Menü</translation>
 <translation id="3909791450649380159">Ki&amp;vágás</translation>
 <translation id="3990502903496589789">Jobb sarok</translation>
+<translation id="40579289237549812">{UNREAD_NOTIFICATIONS,plural, =1{1 olvasatlan értesítés}other{# olvasatlan értesítés}}</translation>
 <translation id="4202807286478387388">Mehet</translation>
 <translation id="4250229828105606438">Képernyőkép</translation>
 <translation id="4266252015790371705">{MONTHS,plural, =1{1 hónapja}other{# hónapja}}</translation>
 <translation id="4289300219472526559">Beszéd megkezdése</translation>
 <translation id="4316910396681052118">MINDEN ALKALMAZÁS</translation>
 <translation id="4588090240171750605">Görgetés jobbra</translation>
+<translation id="4690510401873698237">A polc alul található</translation>
 <translation id="4724120544754982507">Értesítési központ, <ph name="UNREAD_NOTIFICATION_COUNT" /> olvasatlan értesítés</translation>
 <translation id="4730374152663651037">GYAKRAN HASZNÁLT</translation>
 <translation id="4788285488841504513">{MONTHS,plural, =1{hátralévő idő: 1 hónap}other{hátralévő idő: # hónap}}</translation>
@@ -99,8 +105,10 @@
 <translation id="5266161281976477809">Plusz tartalom kibontására szolgáló háromszög</translation>
 <translation id="528468243742722775">Befejezés</translation>
 <translation id="5329858601952122676">&amp;Törlés</translation>
+<translation id="5395308026110844773"><ph name="DRAGGED_APP_NAME" /> az alatta lévő <ph name="IN_PLACE_APP" /> alkalmazáson; mappa létrehozásához engedje el.</translation>
 <translation id="5463830097259460683">Hangulatjelek és szimbólumok</translation>
 <translation id="5476505524087279545">Megjelölés eltávolítása</translation>
+<translation id="547979256943495781">A polc a jobb oldalon található</translation>
 <translation id="5574202486608032840"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /> rendszer</translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5613020302032141669">Bal nyíl</translation>
@@ -137,6 +145,7 @@
 <translation id="6808150112686056157">Leállítás</translation>
 <translation id="6845383723252244143">Mappa választása</translation>
 <translation id="6845533974506654842">Gomb lenyomása</translation>
+<translation id="686304767576508198">Megosztotta:</translation>
 <translation id="6863590663815976734">{HOURS,plural, =1{1 óra van hátra}other{# óra van hátra}}</translation>
 <translation id="688711909580084195">Névtelen weboldal</translation>
 <translation id="6907759265145635167"><ph name="QUANTITY" /> PB/s</translation>
@@ -160,11 +169,13 @@
 <translation id="7879499977785298635">Nincs tiltás</translation>
 <translation id="7907591526440419938">Fájl megnyitása</translation>
 <translation id="7969046989155602842">Command</translation>
+<translation id="8074552109918343525">{MAX_UNREAD_NOTIFICATIONS,plural, =1{Több mint 1 olvasatlan értesítés}other{Több mint # olvasatlan értesítés}}</translation>
 <translation id="8087772101393322318"><ph name="KEY_MODIFIER_NAME" />+<ph name="KEY_COMBO_NAME" /></translation>
 <translation id="8106081041558092062">{HOURS,plural, =1{1 órája}other{# órája}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{1 mp van hátra}other{# mp van hátra}}</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, automatikus kiegészítés</translation>
 <translation id="815598010540052116">Görgetés lefelé</translation>
+<translation id="8170087467028567933">Ha eltávolítja ezt a javaslatot, továbbiakban nem jelenik meg a fiókjával használt egyik eszközön sem.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
 <translation id="8245914219290430011">Lap</translation>
@@ -178,6 +189,7 @@
 <translation id="8420205633584771378">Eltávolítja ezt a javaslatot?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 é}other{# é}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> fájl (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
+<translation id="8649597172973390955">A polc mindig látható</translation>
 <translation id="8677655579646609597"><ph name="QUANTITY" /> kB/s</translation>
 <translation id="8725488761726303204">és <ph name="NUMBER" /> további</translation>
 <translation id="8730621377337864115">Kész</translation>
@@ -187,11 +199,14 @@
 <translation id="883911313571074303">Megjegyzés fűzése a képhez</translation>
 <translation id="8841375032071747811">Vissza gomb</translation>
 <translation id="8901569739625249689"><ph name="QUANTITY" /> kB</translation>
+<translation id="8926951137623668982">A polc mindig rejtve lesz</translation>
 <translation id="9002566407876343676">megnyitás</translation>
+<translation id="9039076430527029379">Áthelyezés ide: <ph name="PAGE_NUMBER" />. oldal, <ph name="ROW_NUMBER" />. sor, <ph name="COLUMN_NUMBER" />. oszlop.</translation>
 <translation id="9044832324875206639">{SECONDS,plural, =1{1 mp}other{# mp}}</translation>
 <translation id="9059834730836941392">Értesítés összecsukása</translation>
 <translation id="9150735707954472829">Lap</translation>
 <translation id="9161053988251441839">JAVASOLT ALKALMAZÁSOK</translation>
 <translation id="9170848237812810038">&amp;Visszavonás</translation>
 <translation id="932327136139879170">Főoldal</translation>
+<translation id="944069440740578670">Olvasatlan értesítések</translation>
 </translationbundle>

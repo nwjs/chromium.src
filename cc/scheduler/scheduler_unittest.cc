@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
@@ -701,7 +702,7 @@ TEST_F(SchedulerTest, RequestCommit) {
 TEST_F(SchedulerTest, RequestCommitAfterSetDeferCommit) {
   SetUpScheduler(EXTERNAL_BFS);
 
-  scheduler_->SetDeferMainFrameUpdate(true);
+  scheduler_->SetDeferBeginMainFrame(true);
 
   scheduler_->SetNeedsBeginMainFrame();
   EXPECT_NO_ACTION();
@@ -713,7 +714,7 @@ TEST_F(SchedulerTest, RequestCommitAfterSetDeferCommit) {
   EXPECT_FALSE(scheduler_->begin_frames_expected());
 
   client_->Reset();
-  scheduler_->SetDeferMainFrameUpdate(false);
+  scheduler_->SetDeferBeginMainFrame(false);
   EXPECT_ACTIONS("AddObserver(this)");
 
   // Start new BeginMainFrame after defer commit is off.
@@ -726,12 +727,12 @@ TEST_F(SchedulerTest, RequestCommitAfterSetDeferCommit) {
 TEST_F(SchedulerTest, DeferCommitWithRedraw) {
   SetUpScheduler(EXTERNAL_BFS);
 
-  scheduler_->SetDeferMainFrameUpdate(true);
+  scheduler_->SetDeferBeginMainFrame(true);
 
   scheduler_->SetNeedsBeginMainFrame();
   EXPECT_NO_ACTION();
 
-  // The SetNeedsRedraw will override the SetDeferMainFrameUpdate(true), to
+  // The SetNeedsRedraw will override the SetDeferBeginMainFrame(true), to
   // allow a begin frame to be needed.
   client_->Reset();
   scheduler_->SetNeedsRedraw();
@@ -2909,6 +2910,33 @@ TEST_F(SchedulerTest, ScheduledActionBeginMainFrameNotExpectedUntil) {
                  "ScheduledActionDrawIfPossible");
 }
 
+// Tests to ensure that BeginMainFrameNotExpectedUntil is only sent once within
+// the same frame.
+TEST_F(SchedulerTest,
+       ScheduledActionBeginMainFrameNotExpectedUntilSentOnlyOncePerFrame) {
+  SetUpScheduler(EXTERNAL_BFS);
+
+  scheduler_->SetNeedsRedraw();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("WillBeginImplFrame",
+                 "ScheduledActionBeginMainFrameNotExpectedUntil",
+                 "ScheduledActionDrawIfPossible");
+  client_->Reset();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(false);
+  task_runner_->RunPendingTasks();
+  EXPECT_NO_ACTION();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  task_runner_->RunPendingTasks();
+  EXPECT_NO_ACTION();
+}
+
 // Tests to ensure that we send a BeginMainFrameNotExpectedSoon when expected.
 TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoon_Requested) {
   SetUpScheduler(EXTERNAL_BFS);
@@ -2940,7 +2968,7 @@ TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoon_Requested) {
   // The BeginImplFrame deadline should SetNeedsBeginFrame(false) and send a
   // SendBeginMainFrameNotExpectedSoon.
   task_runner_->RunPendingTasks();  // Run posted deadline.
-  EXPECT_ACTIONS("RemoveObserver(this)", "SendBeginMainFrameNotExpectedSoon");
+  EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon", "RemoveObserver(this)");
   client_->Reset();
 }
 
@@ -2979,6 +3007,149 @@ TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoon_Unrequested) {
 
   scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
 
+  EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon");
+}
+
+// Tests to ensure that we send a BeginMainFrameNotExpectedSoon only once per
+// frame.
+TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoonOnlyOncePerFrame) {
+  SetUpScheduler(EXTERNAL_BFS);
+
+  // SetNeedsBeginMainFrame should begin the frame on the next BeginImplFrame.
+  scheduler_->SetNeedsBeginMainFrame();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  // Trigger a frame draw.
+  EXPECT_SCOPED(AdvanceFrame());
+  scheduler_->NotifyBeginMainFrameStarted(task_runner_->NowTicks());
+  scheduler_->NotifyReadyToCommit();
+  scheduler_->NotifyReadyToActivate();
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionSendBeginMainFrame",
+                 "ScheduledActionCommit", "ScheduledActionActivateSyncTree",
+                 "ScheduledActionDrawIfPossible");
+  client_->Reset();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+
+  EXPECT_SCOPED(AdvanceFrame());
+  EXPECT_ACTIONS("WillBeginImplFrame",
+                 "ScheduledActionBeginMainFrameNotExpectedUntil");
+  EXPECT_TRUE(client_->IsInsideBeginImplFrame());
+  client_->Reset();
+
+  task_runner_->RunPendingTasks();  // Run posted deadline.
+  EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon", "RemoveObserver(this)");
+  client_->Reset();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(false);
+  EXPECT_NO_ACTION();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  EXPECT_NO_ACTION();
+}
+
+// Tests to ensure that we send a BeginMainFrameNotExpectedSoon in situations
+// where the client doesn't want messages when we first stopped observing
+// BeginFrames but later does.
+TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoon_AlreadyIdle) {
+  SetUpScheduler(EXTERNAL_BFS);
+
+  // SetNeedsBeginMainFrame should begin the frame on the next BeginImplFrame.
+  scheduler_->SetNeedsBeginMainFrame();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  // Trigger a frame draw.
+  EXPECT_SCOPED(AdvanceFrame());
+  scheduler_->NotifyBeginMainFrameStarted(task_runner_->NowTicks());
+  scheduler_->NotifyReadyToCommit();
+  scheduler_->NotifyReadyToActivate();
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionSendBeginMainFrame",
+                 "ScheduledActionCommit", "ScheduledActionActivateSyncTree",
+                 "ScheduledActionDrawIfPossible");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  task_runner_->RunPendingTasks();  // Run posted deadline.
+  EXPECT_ACTIONS("WillBeginImplFrame", "RemoveObserver(this)");
+  client_->Reset();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon");
+}
+
+// This tests to ensure BeginMainFrameNotExpectedSoon is sent during idle
+// periods if (1) it initially wasn't sent because the message wasn't needed at
+// the time, and (2) the BeginMainFrameNotExpectedUntil was already sent in the
+// frame (crbug.com/893653).
+TEST_F(SchedulerTest, SendBeginMainFrameNotExpectedSoonDuringIdleIfNeeded) {
+  SetUpScheduler(EXTERNAL_BFS);
+
+  scheduler_->SetNeedsRedraw();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionDrawIfPossible");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  EXPECT_ACTIONS("WillBeginImplFrame");
+  EXPECT_TRUE(client_->IsInsideBeginImplFrame());
+  client_->Reset();
+
+  // Toggle WantsBeginMainFrameNotExpected while inside BeginImplFrame. This
+  // causes the BeginMainFrameNotExpectedUntil message to get sent and the
+  // BeginMainFrameNotExpectedSoon message to be withheld.
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  EXPECT_ACTIONS("ScheduledActionBeginMainFrameNotExpectedUntil");
+  client_->Reset();
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(false);
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("RemoveObserver(this)");
+  EXPECT_FALSE(client_->IsInsideBeginImplFrame());
+  client_->Reset();
+
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
+  EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon");
+}
+
+// This tests to ensure BeginMainFrameNotExpectedSoon is sent during idle
+// periods if (1) it initially wasn't sent because the message wasn't needed at
+// the time, and (2) |scheduler_|.visible() is false.
+TEST_F(SchedulerTest,
+       ScheduledActionBeginMainFrameNotSoonSentDuringIdleIfNeededNotVisible) {
+  SetUpScheduler(EXTERNAL_BFS);
+
+  scheduler_->SetNeedsRedraw();
+  EXPECT_ACTIONS("AddObserver(this)");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("WillBeginImplFrame", "ScheduledActionDrawIfPossible");
+  client_->Reset();
+
+  EXPECT_SCOPED(AdvanceFrame());
+  EXPECT_ACTIONS("WillBeginImplFrame");
+  EXPECT_TRUE(client_->IsInsideBeginImplFrame());
+  client_->Reset();
+
+  scheduler_->SetVisible(false);
+
+  task_runner_->RunPendingTasks();
+  EXPECT_ACTIONS("RemoveObserver(this)");
+  EXPECT_FALSE(client_->IsInsideBeginImplFrame());
+
+  // The scheduler won't send BeginMainFrameNotExpectedUntil messages while not
+  // visible, but it needs to send a BeginMainFrameNotExpectedSoon to let the
+  // client know it's gone idle.
+  client_->Reset();
+  scheduler_->SetMainThreadWantsBeginMainFrameNotExpected(true);
   EXPECT_ACTIONS("SendBeginMainFrameNotExpectedSoon");
 }
 
@@ -4013,7 +4184,7 @@ TEST_F(SchedulerTest, WaitForAllPipelineStagesAlwaysObservesBeginFrames) {
   EXPECT_ACTIONS("ScheduledActionBeginLayerTreeFrameSinkCreation");
   client_->Reset();
   scheduler_->DidCreateAndInitializeLayerTreeFrameSink();
-  scheduler_->SetDeferMainFrameUpdate(true);
+  scheduler_->SetDeferBeginMainFrame(true);
   scheduler_->SetNeedsBeginMainFrame();
   EXPECT_TRUE(scheduler_->begin_frames_expected());
   EXPECT_FALSE(client_->IsInsideBeginImplFrame());

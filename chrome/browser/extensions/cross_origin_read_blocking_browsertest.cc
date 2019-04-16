@@ -4,10 +4,12 @@
 
 #include "chrome/browser/extensions/extension_action_runner.h"
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/json/json_reader.h"
 #include "base/strings/string16.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -220,7 +222,7 @@ class CrossOriginReadBlockingExtensionTest : public ExtensionBrowserTest {
     std::string json;
     EXPECT_TRUE(message_queue->WaitForMessage(&json));
     base::JSONReader reader(base::JSON_ALLOW_TRAILING_COMMAS);
-    std::unique_ptr<base::Value> value = reader.ReadToValue(json);
+    std::unique_ptr<base::Value> value = reader.ReadToValueDeprecated(json);
     std::string result;
     EXPECT_TRUE(value->GetAsString(&result));
     return result;
@@ -1137,14 +1139,14 @@ IN_PROC_BROWSER_TEST_F(CrossOriginReadBlockingExtensionTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(AllowlistingDisabled,
-                        CrossOriginReadBlockingExtensionAllowlistingTest,
-                        ::testing::Values(AllowlistingParam(false, false)));
-INSTANTIATE_TEST_CASE_P(Allowlisted,
-                        CrossOriginReadBlockingExtensionAllowlistingTest,
-                        ::testing::Values(AllowlistingParam(true, true)));
-INSTANTIATE_TEST_CASE_P(NotAllowlisted,
-                        CrossOriginReadBlockingExtensionAllowlistingTest,
-                        ::testing::Values(AllowlistingParam(true, false)));
+INSTANTIATE_TEST_SUITE_P(AllowlistingDisabled,
+                         CrossOriginReadBlockingExtensionAllowlistingTest,
+                         ::testing::Values(AllowlistingParam(false, false)));
+INSTANTIATE_TEST_SUITE_P(Allowlisted,
+                         CrossOriginReadBlockingExtensionAllowlistingTest,
+                         ::testing::Values(AllowlistingParam(true, true)));
+INSTANTIATE_TEST_SUITE_P(NotAllowlisted,
+                         CrossOriginReadBlockingExtensionAllowlistingTest,
+                         ::testing::Values(AllowlistingParam(true, false)));
 
 }  // namespace extensions

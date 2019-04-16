@@ -38,6 +38,14 @@ class Callbacks {
   using DestroyCallback = base::OnceCallback<void(bool)>;
   using OnCreateCallback = base::OnceCallback<void(ProtoLevelDBWrapper*)>;
 
+  // TODO(ssid): This should be moved to internal folder.
+  using LoadCallback =
+      base::OnceCallback<void(bool, std::unique_ptr<std::vector<std::string>>)>;
+  using GetCallback =
+      base::OnceCallback<void(bool, std::unique_ptr<std::string>)>;
+  using LoadKeysAndEntriesCallback = base::OnceCallback<
+      void(bool, std::unique_ptr<std::map<std::string, std::string>>)>;
+
   template <typename T>
   class Internal {
    public:
@@ -101,12 +109,6 @@ class ProtoDatabase {
           entries_to_save,
       const leveldb_proto::KeyFilter& delete_key_filter,
       Callbacks::UpdateCallback callback) = 0;
-  virtual void UpdateEntriesWithRemoveFilter(
-      std::unique_ptr<typename Util::Internal<T>::KeyEntryVector>
-          entries_to_save,
-      const leveldb_proto::KeyFilter& delete_key_filter,
-      const std::string& target_prefix,
-      Callbacks::UpdateCallback callback) = 0;
 
   // Asynchronously loads all entries from the database and invokes |callback|
   // when complete.
@@ -149,8 +151,6 @@ class ProtoDatabase {
   // Asynchronously loads all keys from the database and invokes |callback| with
   // those keys when complete.
   virtual void LoadKeys(typename Callbacks::LoadKeysCallback callback) = 0;
-  virtual void LoadKeys(const std::string& target_prefix,
-                        typename Callbacks::LoadKeysCallback callback) = 0;
 
   // Asynchronously loads a single entry, identified by |key|, from the database
   // and invokes |callback| when complete. If no entry with |key| is found,

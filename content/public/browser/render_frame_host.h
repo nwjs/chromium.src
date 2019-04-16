@@ -11,15 +11,17 @@
 #include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
+#include "base/optional.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/page_visibility_state.h"
 #include "content/public/common/console_message_level.h"
 #include "ipc/ipc_listener.h"
 #include "ipc/ipc_sender.h"
-#include "services/network/public/mojom/url_loader_factory.mojom.h"
+#include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/common/feature_policy/feature_policy.h"
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
-#include "third_party/blink/public/mojom/loader/pause_subresource_loading_handle.mojom.h"
+#include "third_party/blink/public/mojom/loader/pause_subresource_loading_handle.mojom-forward.h"
 #include "third_party/blink/public/platform/web_sudden_termination_disabler_type.h"
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/gfx/geometry/rect.h"
@@ -43,10 +45,6 @@ class Value;
 namespace features {
 CONTENT_EXPORT extern const base::Feature kCrashReporting;
 }  // namespace features
-
-namespace resource_coordinator {
-class FrameResourceCoordinator;
-}
 
 namespace service_manager {
 class InterfaceProvider;
@@ -112,11 +110,6 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // process.
   virtual SiteInstance* GetSiteInstance() = 0;
 
-  // Returns the interface for the Global Resource Coordinator
-  // for this frame.
-  virtual resource_coordinator::FrameResourceCoordinator*
-  GetFrameResourceCoordinator() = 0;
-
   // Returns the process for this frame.
   virtual RenderProcessHost* GetProcess() = 0;
 
@@ -160,6 +153,13 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // quite possible for a frame to have no name, in which case GetFrameName will
   // return an empty string.
   virtual const std::string& GetFrameName() = 0;
+
+  // Returns true if the frame is display: none.
+  virtual bool IsFrameDisplayNone() = 0;
+
+  // Returns the size of the frame in the viewport. The frame may not be aware
+  // of its size.
+  virtual const base::Optional<gfx::Size>& GetFrameSize() = 0;
 
   // Returns true if the frame is out of process.
   virtual bool IsCrossProcessSubframe() = 0;
@@ -262,7 +262,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Get the number of proxies to this frame, in all processes. Exposed for
   // use by resource metrics.
-  virtual int GetProxyCount() = 0;
+  virtual size_t GetProxyCount() = 0;
 
   // Returns true if the frame has a selection.
   virtual bool HasSelection() = 0;
@@ -302,9 +302,15 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   virtual bool GetSuddenTerminationDisablerState(
       blink::WebSuddenTerminationDisablerType disabler_type) = 0;
 
-  // Returns true if the given Feature Policy |feature| is enabled for this
-  // RenderFrameHost and is allowed to be used by it. Use this in the browser
-  // process to determine whether access to a feature is allowed.
+  // Returns true if the given |threshold_value| is below the threshold value
+  // specified in the policy for |feature| for this RenderFrameHost. See
+  // third_party/blink/public/common/feature_policy/feature_policy.h for how to
+  // compare values of different types. Use this in the browser process to
+  // determine whether access to a feature is allowed.
+  virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature,
+                                blink::PolicyValue threshold_value) = 0;
+  // Same as above, with |threshold_value| set to the max value the given
+  // |feature| can have.
   virtual bool IsFeatureEnabled(blink::mojom::FeaturePolicyFeature feature) = 0;
 
   // Opens view-source tab for the document last committed in this
@@ -349,14 +355,37 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // received by the other end. For test use only.
   virtual void FlushNetworkAndNavigationInterfacesForTesting() = 0;
 
-  // Prepares this frame for attaching an inner WebContents to its own (outer)
-  // WebContents. This includes canceling all navigation requests as well as
-  // reseting the loading state. Returns false if attaching is not possible (
-  // if this is a main frame or a cross-process subframe), or true otherwise.
-  // Note: if this is called during an ongoing navigation it is not safe to
-  // attach WebContentses immediately after returning from this function (post
-  // task to ensure all observer calls related to the navigation complete).
-  virtual bool PrepareForInnerWebContentsAttach() = 0;
+  using PrepareForInnerWebContentsAttachCallback =
+      base::OnceCallback<void(RenderFrameHost*)>;
+  // This API is used to provide the caller with a RenderFrameHost which is safe
+  // for usage in WebContents::AttachToOuterWebContentsFrame API. The final
+  // frame returned with |callback| will share the same FrameTreeNodeId with
+  // this RenderFrameHost but might not necessarily be the same RenderFrameHost.
+  // IMPORTANT: This method can only be called on a child frame. It does not
+  // make sense to attach an inner WebContents to the outer WebContents main
+  // frame.
+  // Essentially, this method will:
+  //  1- Cancel any ongoing navigation and navigation requests for this frame.
+  //  2- Dispatch beforeunload event on this frame and all of the frame's
+  //     subframes, and wait for all beforeunload events to complete.
+  //  3- Will create and return a new RenderFrameHost (destroying this one) if
+  //     this RenderFrameHost is a cross-process subframe.
+  // After steps 1-3 are completed, the callback is invoked asynchronously with
+  // the RenderFrameHost which can be safely used for attaching. This
+  // RenderFrameHost could be different than |this| which is the case if this
+  // RenderFrameHost is for a cross-process frame. The callback could also be
+  // invoked with nullptr. This happens if:
+  //  1- This frame has beforeunload handlers under it and the user decides to
+  //     remain on the page in response to beforeunload prompt.
+  //  2- Preparations happened successfully but the frame was somehow removed (
+  //     e.g. parent frame detached).
+  virtual void PrepareForInnerWebContentsAttach(
+      PrepareForInnerWebContentsAttachCallback callback) = 0;
+
+  // Re-creates loader factories and pushes them to |RenderFrame|.
+  // Used in case we need to add or remove intercepting proxies to the
+  // running renderer, or in case of Network Service connection errors.
+  virtual void UpdateSubresourceLoaderFactories() = 0;
 
  private:
   // This interface should only be implemented inside content.

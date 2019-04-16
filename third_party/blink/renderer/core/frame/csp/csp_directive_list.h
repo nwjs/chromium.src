@@ -52,29 +52,14 @@ class CORE_EXPORT CSPDirectiveList
     return header_source_;
   }
 
-  bool AllowJavaScriptURLs(Element*,
-                           const String& source,
-                           const String& context_url,
-                           const WTF::OrdinalNumber& context_line,
-                           SecurityViolationReportingPolicy) const;
-  bool AllowInlineEventHandlers(Element*,
-                                const String& source,
-                                const String& context_url,
-                                const WTF::OrdinalNumber& context_line,
-                                SecurityViolationReportingPolicy) const;
-  bool AllowInlineScript(Element*,
-                         const String& context_url,
-                         const String& nonce,
-                         const WTF::OrdinalNumber& context_line,
-                         SecurityViolationReportingPolicy,
-                         const String& script_content) const;
-  bool AllowInlineStyle(Element*,
-                        const String& context_url,
-                        const String& nonce,
-                        const WTF::OrdinalNumber& context_line,
-                        SecurityViolationReportingPolicy,
-                        const String& style_content,
-                        ContentSecurityPolicy::InlineType inline_type) const;
+  bool AllowInline(ContentSecurityPolicy::InlineType,
+                   Element*,
+                   const String& content,
+                   const String& nonce,
+                   const String& context_url,
+                   const WTF::OrdinalNumber& context_line,
+                   SecurityViolationReportingPolicy) const;
+
   bool AllowEval(ScriptState*,
                  SecurityViolationReportingPolicy,
                  ContentSecurityPolicy::ExceptionStatus,
@@ -88,51 +73,16 @@ class CORE_EXPORT CSPDirectiveList
                        const KURL&,
                        SecurityViolationReportingPolicy) const;
 
-  bool AllowScriptFromSource(const KURL&,
-                             const String& nonce,
-                             const IntegrityMetadataSet& hashes,
-                             ParserDisposition,
-                             ResourceRequest::RedirectStatus,
-                             SecurityViolationReportingPolicy) const;
-  bool AllowStyleFromSource(const KURL&,
-                            const String& nonce,
-                            ResourceRequest::RedirectStatus,
-                            SecurityViolationReportingPolicy) const;
-
-  bool AllowObjectFromSource(const KURL&,
-                             ResourceRequest::RedirectStatus,
-                             SecurityViolationReportingPolicy) const;
-  bool AllowPrefetchFromSource(const KURL&,
-                               ResourceRequest::RedirectStatus,
-                               SecurityViolationReportingPolicy) const;
-  bool AllowFrameFromSource(const KURL&,
-                            ResourceRequest::RedirectStatus,
-                            SecurityViolationReportingPolicy) const;
-  bool AllowImageFromSource(const KURL&,
-                            ResourceRequest::RedirectStatus,
-                            SecurityViolationReportingPolicy) const;
-  bool AllowFontFromSource(const KURL&,
-                           ResourceRequest::RedirectStatus,
-                           SecurityViolationReportingPolicy) const;
-  bool AllowMediaFromSource(const KURL&,
-                            ResourceRequest::RedirectStatus,
-                            SecurityViolationReportingPolicy) const;
-  bool AllowManifestFromSource(const KURL&,
-                               ResourceRequest::RedirectStatus,
-                               SecurityViolationReportingPolicy) const;
-  bool AllowConnectToSource(const KURL&,
-                            ResourceRequest::RedirectStatus,
-                            SecurityViolationReportingPolicy) const;
-  bool AllowFormAction(const KURL&,
+  bool AllowFromSource(ContentSecurityPolicy::DirectiveType,
+                       const KURL&,
                        ResourceRequest::RedirectStatus,
-                       SecurityViolationReportingPolicy) const;
-  bool AllowBaseURI(const KURL&,
-                    ResourceRequest::RedirectStatus,
-                    SecurityViolationReportingPolicy) const;
+                       SecurityViolationReportingPolicy,
+                       const String& nonce = String(),
+                       const IntegrityMetadataSet& = IntegrityMetadataSet(),
+                       ParserDisposition = kParserInserted) const;
+
   bool AllowTrustedTypePolicy(const String& policy_name) const;
-  bool AllowWorkerFromSource(const KURL&,
-                             ResourceRequest::RedirectStatus,
-                             SecurityViolationReportingPolicy) const;
+
   // |allowAncestors| does not need to know whether the resource was a
   // result of a redirect. After a redirect, source paths are usually
   // ignored to stop a page from learning the path to which the
@@ -142,10 +92,6 @@ class CORE_EXPORT CSPDirectiveList
   bool AllowAncestors(LocalFrame*,
                       const KURL&,
                       SecurityViolationReportingPolicy) const;
-  bool AllowScriptHash(const CSPHashValue&,
-                       ContentSecurityPolicy::InlineType) const;
-  bool AllowStyleHash(const CSPHashValue&,
-                      ContentSecurityPolicy::InlineType) const;
   bool AllowDynamic(ContentSecurityPolicy::DirectiveType) const;
   bool AllowDynamicWorker() const;
 
@@ -153,6 +99,8 @@ class CORE_EXPORT CSPDirectiveList
                                     const KURL&,
                                     ResourceRequest::RedirectStatus,
                                     SecurityViolationReportingPolicy) const;
+
+  bool AllowTrustedTypeAssignmentFailure(const String& message) const;
 
   bool StrictMixedContentChecking() const {
     return strict_mixed_content_checking_enforced_;
@@ -183,6 +131,9 @@ class CORE_EXPORT CSPDirectiveList
   const String& PluginTypesText() const;
 
   bool ShouldSendCSPHeader(ResourceType) const;
+
+  bool AllowHash(const CSPHashValue& hash_value,
+                 const ContentSecurityPolicy::InlineType inline_type) const;
 
   // The algorithm is described here:
   // https://w3c.github.io/webappsec-csp/embedded/#subsume-policy
@@ -241,7 +192,9 @@ class CORE_EXPORT CSPDirectiveList
                        const ContentSecurityPolicy::DirectiveType,
                        const String& console_message,
                        const KURL& blocked_url,
-                       ResourceRequest::RedirectStatus) const;
+                       ResourceRequest::RedirectStatus,
+                       ContentSecurityPolicy::ViolationType violation_type =
+                           ContentSecurityPolicy::kURLViolation) const;
   void ReportViolationWithFrame(const String& directive_text,
                                 const ContentSecurityPolicy::DirectiveType,
                                 const String& console_message,
@@ -335,11 +288,6 @@ class CORE_EXPORT CSPDirectiveList
   static SourceListDirectiveVector GetSourceVector(
       const ContentSecurityPolicy::DirectiveType,
       const CSPDirectiveListVector& policies);
-
-  bool AllowHash(
-      const CSPHashValue& hash_value,
-      const ContentSecurityPolicy::InlineType type,
-      const ContentSecurityPolicy::DirectiveType directive_type) const;
 
   Member<ContentSecurityPolicy> policy_;
 

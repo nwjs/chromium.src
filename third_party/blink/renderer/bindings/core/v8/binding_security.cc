@@ -98,12 +98,12 @@ bool CanAccessWindowInternal(const LocalDOMWindow* accessing_window,
   // possible for a remote frame and local frame to have the same security
   // origin, depending on the model being used to allocate Frames between
   // processes. See https://crbug.com/601629.
-  if (!(accessing_window && target_window && target_window->IsLocalDOMWindow()))
+  const auto* local_target_window = DynamicTo<LocalDOMWindow>(target_window);
+  if (!(accessing_window && local_target_window))
     return false;
 
   const SecurityOrigin* accessing_origin =
       accessing_window->document()->GetSecurityOrigin();
-  const LocalDOMWindow* local_target_window = ToLocalDOMWindow(target_window);
 
   SecurityOrigin::AccessResultDomainDetail detail;
   bool can_access = accessing_origin->CanAccess(
@@ -114,7 +114,7 @@ bool CanAccessWindowInternal(const LocalDOMWindow* accessing_window,
           SecurityOrigin::AccessResultDomainDetail::kDomainMatchNecessary ||
       detail == SecurityOrigin::AccessResultDomainDetail::kDomainMismatch) {
     UseCounter::Count(
-        accessing_window->GetFrame(),
+        accessing_window->document(),
         can_access ? WebFeature::kDocumentDomainEnabledCrossOriginAccess
                    : WebFeature::kDocumentDomainBlockedCrossOriginAccess);
   }
@@ -173,10 +173,10 @@ bool BindingSecurity::ShouldAllowAccessTo(
   bool can_access = CanAccessWindow(accessing_window, target, exception_state);
 
   if (!can_access) {
-    UseCounter::Count(accessing_window->GetFrame(),
+    UseCounter::Count(accessing_window->document(),
                       WebFeature::kCrossOriginPropertyAccess);
     if (target->opener() == accessing_window) {
-      UseCounter::Count(accessing_window->GetFrame(),
+      UseCounter::Count(accessing_window->document(),
                         WebFeature::kCrossOriginPropertyAccessFromOpener);
     }
   }
@@ -201,10 +201,10 @@ bool BindingSecurity::ShouldAllowAccessTo(
   bool can_access = CanAccessWindow(accessing_window, target, reporting_option);
 
   if (!can_access) {
-    UseCounter::Count(accessing_window->GetFrame(),
+    UseCounter::Count(accessing_window->document(),
                       WebFeature::kCrossOriginPropertyAccess);
     if (target->opener() == accessing_window) {
-      UseCounter::Count(accessing_window->GetFrame(),
+      UseCounter::Count(accessing_window->document(),
                         WebFeature::kCrossOriginPropertyAccessFromOpener);
     }
   }
@@ -230,10 +230,10 @@ bool BindingSecurity::ShouldAllowAccessTo(
       CanAccessWindow(accessing_window, target->DomWindow(), exception_state);
 
   if (!can_access) {
-    UseCounter::Count(accessing_window->GetFrame(),
+    UseCounter::Count(accessing_window->document(),
                       WebFeature::kCrossOriginPropertyAccess);
     if (target->DomWindow()->opener() == accessing_window) {
-      UseCounter::Count(accessing_window->GetFrame(),
+      UseCounter::Count(accessing_window->document(),
                         WebFeature::kCrossOriginPropertyAccessFromOpener);
     }
   }
@@ -259,10 +259,10 @@ bool BindingSecurity::ShouldAllowAccessTo(
       CanAccessWindow(accessing_window, target->DomWindow(), reporting_option);
 
   if (!can_access) {
-    UseCounter::Count(accessing_window->GetFrame(),
+    UseCounter::Count(accessing_window->document(),
                       WebFeature::kCrossOriginPropertyAccess);
     if (target->DomWindow()->opener() == accessing_window) {
-      UseCounter::Count(accessing_window->GetFrame(),
+      UseCounter::Count(accessing_window->document(),
                         WebFeature::kCrossOriginPropertyAccessFromOpener);
     }
   }
@@ -385,7 +385,7 @@ bool BindingSecurity::ShouldAllowWrapperCreationOrThrowException(
     return true;
 
   // According to
-  // https://html.spec.whatwg.org/multipage/browsers.html#security-location,
+  // https://html.spec.whatwg.org/C/#security-location,
   // cross-origin script access to a few properties of Location is allowed.
   // Location already implements the necessary security checks.
   if (wrapper_type_info->Equals(V8Location::GetWrapperTypeInfo()))

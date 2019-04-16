@@ -4,10 +4,12 @@
 
 #include "content/browser/service_worker/service_worker_single_script_update_checker.h"
 
+#include "base/bind.h"
 #include "content/browser/appcache/appcache_response.h"
 #include "content/browser/service_worker/service_worker_cache_writer.h"
 #include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/system/simple_watcher.h"
+#include "net/base/ip_endpoint.h"
 #include "services/network/public/cpp/net_adapters.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
@@ -63,7 +65,6 @@ namespace content {
 
 ServiceWorkerSingleScriptUpdateChecker::ServiceWorkerSingleScriptUpdateChecker(
     const GURL& url,
-    int64_t resource_id,
     bool is_main_script,
     scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
     std::unique_ptr<ServiceWorkerResponseReader> compare_reader,
@@ -71,7 +72,6 @@ ServiceWorkerSingleScriptUpdateChecker::ServiceWorkerSingleScriptUpdateChecker(
     std::unique_ptr<ServiceWorkerResponseWriter> writer,
     ResultCallback callback)
     : script_url_(url),
-      resource_id_(resource_id),
       network_client_binding_(this),
       network_watcher_(FROM_HERE,
                        mojo::SimpleWatcher::ArmingPolicy::MANUAL,
@@ -88,10 +88,7 @@ ServiceWorkerSingleScriptUpdateChecker::ServiceWorkerSingleScriptUpdateChecker(
 
   // TODO(momohatt): Handle cases where force_bypass_cache is enabled.
 
-  // |compare_reader| shouldn't be a nullptr, which forces
-  // ServiceWorkerCacheWriter to do the comparison.
-  DCHECK(compare_reader);
-  cache_writer_ = std::make_unique<ServiceWorkerCacheWriter>(
+  cache_writer_ = ServiceWorkerCacheWriter::CreateForComparison(
       std::move(compare_reader), std::move(copy_reader), std::move(writer),
       true /* pause_when_not_identical */);
 
@@ -127,7 +124,7 @@ void ServiceWorkerSingleScriptUpdateChecker::OnReceiveResponse(
   response_info->alpn_negotiated_protocol =
       response_head.alpn_negotiated_protocol;
   response_info->connection_info = response_head.connection_info;
-  response_info->socket_address = response_head.socket_address;
+  response_info->remote_endpoint = response_head.remote_endpoint;
 
   // TODO(momohatt): Check for header errors.
 
@@ -376,14 +373,13 @@ void ServiceWorkerSingleScriptUpdateChecker::Finish(Result result) {
     auto paused_state = std::make_unique<PausedState>(
         std::move(cache_writer_), std::move(network_loader_),
         network_client_binding_.Unbind(), std::move(network_consumer_));
-    std::move(callback_).Run(script_url_, resource_id_, result,
-                             std::move(paused_state));
+    std::move(callback_).Run(script_url_, result, std::move(paused_state));
     return;
   }
   network_loader_.reset();
   network_client_binding_.Close();
   network_consumer_.reset();
-  std::move(callback_).Run(script_url_, resource_id_, result, nullptr);
+  std::move(callback_).Run(script_url_, result, nullptr);
 }
 
 ServiceWorkerSingleScriptUpdateChecker::PausedState::PausedState(

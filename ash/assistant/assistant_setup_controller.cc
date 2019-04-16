@@ -7,6 +7,20 @@
 #include "ash/assistant/assistant_controller.h"
 #include "ash/assistant/assistant_ui_controller.h"
 #include "ash/assistant/util/deep_link_util.h"
+#include "ash/assistant/util/i18n_util.h"
+#include "ash/public/interfaces/voice_interaction_controller.mojom.h"
+#include "ash/shell.h"
+#include "ash/voice_interaction/voice_interaction_controller.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
+#include "chromeos/services/assistant/public/features.h"
+
+namespace {
+
+constexpr char kGSuiteAdministratorInstructionsUrl[] =
+    "https://support.google.com/a/answer/6304876";
+
+}  // namespace
 
 namespace ash {
 
@@ -30,6 +44,14 @@ void AssistantSetupController::SetAssistantSetup(
   assistant_setup_ = std::move(assistant_setup);
 }
 
+void AssistantSetupController::OnAssistantControllerConstructed() {
+  assistant_controller_->view_delegate()->AddObserver(this);
+}
+
+void AssistantSetupController::OnAssistantControllerDestroying() {
+  assistant_controller_->view_delegate()->RemoveObserver(this);
+}
+
 void AssistantSetupController::OnDeepLinkReceived(
     assistant::util::DeepLinkType type,
     const std::map<std::string, std::string>& params) {
@@ -45,7 +67,16 @@ void AssistantSetupController::OnDeepLinkReceived(
 }
 
 void AssistantSetupController::OnOptInButtonPressed() {
-  StartOnboarding(/*relaunch=*/true);
+  mojom::ConsentStatus consent_status =
+      Shell::Get()->voice_interaction_controller()->consent_status().value_or(
+          mojom::ConsentStatus::kUnknown);
+
+  if (consent_status == mojom::ConsentStatus::kUnauthorized) {
+    assistant_controller_->OpenUrl(assistant::util::CreateLocalizedGURL(
+        kGSuiteAdministratorInstructionsUrl));
+  } else {
+    StartOnboarding(/*relaunch=*/true);
+  }
 }
 
 void AssistantSetupController::StartOnboarding(bool relaunch,

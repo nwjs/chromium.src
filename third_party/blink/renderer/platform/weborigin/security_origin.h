@@ -33,8 +33,9 @@
 #include <memory>
 
 #include "base/gtest_prod_util.h"
+#include "base/macros.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
-#include "third_party/blink/renderer/platform/wtf/noncopyable.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
 #include "url/origin.h"
@@ -47,6 +48,7 @@ namespace blink {
 
 class KURL;
 class URLSecurityOriginMap;
+struct SecurityOriginHash;
 
 // An identifier which defines the source of content (e.g. a document) and
 // restricts what other objects it is permitted to access (based on their
@@ -54,9 +56,9 @@ class URLSecurityOriginMap;
 // tuple, such as the tuple origin (https, chromium.org, null, null). However,
 // there are also opaque origins which do not have a corresponding tuple.
 //
-// See also: https://html.spec.whatwg.org/multipage/origin.html#concept-origin
+// See also: https://html.spec.whatwg.org/C/#concept-origin
 class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
-  WTF_MAKE_NONCOPYABLE(SecurityOrigin);
+  USING_FAST_MALLOC(SecurityOrigin);
 
  public:
   enum class AccessResultDomainDetail {
@@ -304,9 +306,10 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   static String CanonicalizeHost(const String& host, bool* success);
 
  private:
-  constexpr static const int kInvalidPort = 0;
+  constexpr static const uint16_t kInvalidPort = 0;
 
   friend struct mojo::UrlOriginAdapter;
+  friend struct blink::SecurityOriginHash;
 
   // Creates a new opaque SecurityOrigin using the supplied |precursor| origin
   // and |nonce|.
@@ -353,6 +356,8 @@ class PLATFORM_EXPORT SecurityOrigin : public RefCounted<SecurityOrigin> {
   // For opaque origins, tracks the non-opaque origin from which the opaque
   // origin is derived.
   const scoped_refptr<const SecurityOrigin> precursor_origin_;
+
+  DISALLOW_COPY_AND_ASSIGN(SecurityOrigin);
 };
 
 }  // namespace blink

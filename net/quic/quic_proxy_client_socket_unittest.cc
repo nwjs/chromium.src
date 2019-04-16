@@ -5,11 +5,16 @@
 #include "net/quic/quic_proxy_client_socket.h"
 
 #include <memory>
+#include <tuple>
 #include <utility>
+#include <vector>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/threading/thread_task_runner_handle.h"
+#include "base/time/default_tick_clock.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_auth_handler_factory.h"
@@ -31,6 +36,7 @@
 #include "net/quic/test_task_runner.h"
 #include "net/socket/socket_test_util.h"
 #include "net/test/cert_test_util.h"
+#include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
 #include "net/test/test_with_scoped_task_environment.h"
 #include "net/third_party/quic/core/crypto/null_encrypter.h"
@@ -94,6 +100,12 @@ class QuicProxyClientSocketTest
       quic::QuicConnectionIdLength connection_id_length,
       quic::QuicPacketNumberLength packet_number_length,
       quic::QuicStreamOffset offset) {
+    quic::QuicVariableLengthIntegerLength retry_token_length_length =
+        quic::VARIABLE_LENGTH_INTEGER_LENGTH_0;
+    quic::QuicVariableLengthIntegerLength length_length =
+        quic::QuicVersionHasLongHeaderLengths(version) && include_version
+            ? quic::VARIABLE_LENGTH_INTEGER_LENGTH_2
+            : quic::VARIABLE_LENGTH_INTEGER_LENGTH_0;
     size_t min_data_length = 1;
     size_t min_packet_length =
         quic::NullEncrypter(quic::Perspective::IS_CLIENT)
@@ -101,7 +113,8 @@ class QuicProxyClientSocketTest
         quic::QuicPacketCreator::StreamFramePacketOverhead(
             version, quic::PACKET_8BYTE_CONNECTION_ID,
             quic::PACKET_0BYTE_CONNECTION_ID, include_version,
-            include_diversification_nonce, packet_number_length, offset);
+            include_diversification_nonce, packet_number_length,
+            retry_token_length_length, length_length, offset);
 
     DCHECK(packet_length >= min_packet_length);
     return min_data_length + packet_length - min_packet_length;
@@ -134,8 +147,7 @@ class QuicProxyClientSocketTest
         proxy_host_port_(kProxyHost, kProxyPort),
         endpoint_host_port_(kOriginHost, kOriginPort),
         host_resolver_(new MockCachingHostResolver()),
-        http_auth_handler_factory_(
-            HttpAuthHandlerFactory::CreateDefault(host_resolver_.get())) {
+        http_auth_handler_factory_(HttpAuthHandlerFactory::CreateDefault()) {
     IPAddress ip(192, 0, 2, 33);
     peer_addr_ = IPEndPoint(ip, 443);
     clock_.AdvanceTime(quic::QuicTime::Delta::FromMilliseconds(20));
@@ -209,17 +221,22 @@ class QuicProxyClientSocketTest
                        SocketTag()),
         /*require_confirmation=*/false, /*migrate_session_early_v2=*/false,
         /*migrate_session_on_network_change_v2=*/false,
-        /*go_away_on_path_degrading*/ false,
         /*default_network=*/NetworkChangeNotifier::kInvalidNetworkHandle,
+        quic::QuicTime::Delta::FromMilliseconds(
+            kDefaultRetransmittableOnWireTimeoutMillisecs),
+        /*migrate_idle_session=*/true,
+        base::TimeDelta::FromSeconds(kDefaultIdleSessionMigrationPeriodSeconds),
         base::TimeDelta::FromSeconds(kMaxTimeOnNonDefaultNetworkSecs),
         kMaxMigrationsToNonDefaultNetworkOnWriteError,
         kMaxMigrationsToNonDefaultNetworkOnPathDegrading,
         kQuicYieldAfterPacketsRead,
         quic::QuicTime::Delta::FromMilliseconds(
             kQuicYieldAfterDurationMilliseconds),
+        /*go_away_on_path_degrading*/ false,
         client_headers_include_h2_stream_dependency_, /*cert_verify_flags=*/0,
         quic::test::DefaultQuicConfig(), &crypto_config_, "CONNECTION_UNKNOWN",
         dns_start, dns_end, &push_promise_index_, nullptr,
+        base::DefaultTickClock::GetInstance(),
         base::ThreadTaskRunnerHandle::Get().get(),
         /*socket_performance_watcher=*/nullptr, net_log_.bound().net_log()));
 
@@ -243,10 +260,10 @@ class QuicProxyClientSocketTest
     sock_.reset(new QuicProxyClientSocket(
         std::move(stream_handle), std::move(session_handle_), user_agent_,
         endpoint_host_port_, net_log_.bound(),
-        new HttpAuthController(HttpAuth::AUTH_PROXY,
-                               GURL("https://" + proxy_host_port_.ToString()),
-                               &http_auth_cache_,
-                               http_auth_handler_factory_.get())));
+        new HttpAuthController(
+            HttpAuth::AUTH_PROXY,
+            GURL("https://" + proxy_host_port_.ToString()), &http_auth_cache_,
+            http_auth_handler_factory_.get(), host_resolver_.get())));
 
     session_->StartReading();
   }
@@ -260,46 +277,62 @@ class QuicProxyClientSocketTest
   // Helper functions for constructing packets sent by the client
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructSettingsPacket(
-      quic::QuicPacketNumber packet_number) {
+      uint64_t packet_number) {
     return client_maker_.MakeInitialSettingsPacket(packet_number,
                                                    &header_stream_offset_);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructAckAndRstPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicRstStreamErrorCode error_code,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked) {
     return client_maker_.MakeAckAndRstPacket(
         packet_number, !kIncludeVersion, client_data_stream_id1_, error_code,
         largest_received, smallest_received, least_unacked, kSendFeedback);
   }
 
-  std::unique_ptr<quic::QuicReceivedPacket> ConstructAckAndRstPacket(
-      quic::QuicPacketNumber packet_number,
+  std::unique_ptr<quic::QuicReceivedPacket> ConstructAckAndRstOnlyPacket(
+      uint64_t packet_number,
       quic::QuicRstStreamErrorCode error_code,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       size_t bytes_written) {
     return client_maker_.MakeAckAndRstPacket(
         packet_number, !kIncludeVersion, client_data_stream_id1_, error_code,
         largest_received, smallest_received, least_unacked, kSendFeedback,
-        bytes_written);
+        bytes_written,
+        /*include_stop_sending=*/false);
+  }
+
+  std::unique_ptr<quic::QuicReceivedPacket> ConstructAckAndRstPacket(
+      uint64_t packet_number,
+      quic::QuicRstStreamErrorCode error_code,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
+      size_t bytes_written) {
+    return client_maker_.MakeAckAndRstPacket(
+        packet_number, !kIncludeVersion, client_data_stream_id1_, error_code,
+        largest_received, smallest_received, least_unacked, kSendFeedback,
+        bytes_written,
+        /*include_stop_sending_if_v99=*/true);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructRstPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicRstStreamErrorCode error_code,
       size_t bytes_written) {
     return client_maker_.MakeRstPacket(packet_number, !kIncludeVersion,
                                        client_data_stream_id1_, error_code,
-                                       bytes_written);
+                                       bytes_written,
+                                       /*include_stop_sending_if_v99=*/true);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructConnectRequestPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       RequestPriority request_priority = LOWEST) {
     spdy::SpdyHeaderBlock block;
     PopulateConnectRequestIR(&block);
@@ -310,7 +343,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructConnectAuthRequestPacket(
-      quic::QuicPacketNumber packet_number) {
+      uint64_t packet_number) {
     spdy::SpdyHeaderBlock block;
     PopulateConnectRequestIR(&block);
     block["proxy-authorization"] = "Basic Zm9vOmJhcg==";
@@ -321,7 +354,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset offset,
       quic::QuicStringPiece data) {
     return client_maker_.MakeDataPacket(packet_number, client_data_stream_id1_,
@@ -329,7 +362,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructMultipleDataFramesPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset offset,
       const std::vector<std::string> data_writes) {
     return client_maker_.MakeMultipleDataFramesPacket(
@@ -338,10 +371,10 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructAckAndDataPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       quic::QuicStreamOffset offset,
       quic::QuicStringPiece data) {
     return client_maker_.MakeAckAndDataPacket(
@@ -352,10 +385,10 @@ class QuicProxyClientSocketTest
 
   std::unique_ptr<quic::QuicReceivedPacket>
   ConstructAckAndMultipleDataFramesPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked,
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked,
       quic::QuicStreamOffset offset,
       const std::vector<std::string> data_writes) {
     return client_maker_.MakeAckAndMultipleDataFramesPacket(
@@ -365,10 +398,10 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructAckPacket(
-      quic::QuicPacketNumber packet_number,
-      quic::QuicPacketNumber largest_received,
-      quic::QuicPacketNumber smallest_received,
-      quic::QuicPacketNumber least_unacked) {
+      uint64_t packet_number,
+      uint64_t largest_received,
+      uint64_t smallest_received,
+      uint64_t least_unacked) {
     return client_maker_.MakeAckPacket(packet_number, largest_received,
                                        smallest_received, least_unacked,
                                        kSendFeedback);
@@ -377,16 +410,17 @@ class QuicProxyClientSocketTest
   // Helper functions for constructing packets sent by the server
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructServerRstPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicRstStreamErrorCode error_code,
       size_t bytes_written) {
     return server_maker_.MakeRstPacket(packet_number, !kIncludeVersion,
                                        client_data_stream_id1_, error_code,
-                                       bytes_written);
+                                       bytes_written,
+                                       /*include_stop_sending_if_v99=*/true);
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructServerDataPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset offset,
       quic::QuicStringPiece data) {
     return server_maker_.MakeDataPacket(packet_number, client_data_stream_id1_,
@@ -394,7 +428,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructServerDataFinPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       quic::QuicStreamOffset offset,
       quic::QuicStringPiece data) {
     return server_maker_.MakeDataPacket(packet_number, client_data_stream_id1_,
@@ -402,7 +436,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket> ConstructServerConnectReplyPacket(
-      quic::QuicPacketNumber packet_number,
+      uint64_t packet_number,
       bool fin) {
     spdy::SpdyHeaderBlock block;
     block[":status"] = "200";
@@ -413,8 +447,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket>
-  ConstructServerConnectAuthReplyPacket(quic::QuicPacketNumber packet_number,
-                                        bool fin) {
+  ConstructServerConnectAuthReplyPacket(uint64_t packet_number, bool fin) {
     spdy::SpdyHeaderBlock block;
     block[":status"] = "407";
     block["proxy-authenticate"] = "Basic realm=\"MyRealm1\"";
@@ -424,9 +457,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket>
-  ConstructServerConnectRedirectReplyPacket(
-      quic::QuicPacketNumber packet_number,
-      bool fin) {
+  ConstructServerConnectRedirectReplyPacket(uint64_t packet_number, bool fin) {
     spdy::SpdyHeaderBlock block;
     block[":status"] = "302";
     block["location"] = kRedirectUrl;
@@ -437,8 +468,7 @@ class QuicProxyClientSocketTest
   }
 
   std::unique_ptr<quic::QuicReceivedPacket>
-  ConstructServerConnectErrorReplyPacket(quic::QuicPacketNumber packet_number,
-                                         bool fin) {
+  ConstructServerConnectErrorReplyPacket(uint64_t packet_number, bool fin) {
     spdy::SpdyHeaderBlock block;
     block[":status"] = "500";
 
@@ -805,8 +835,10 @@ TEST_P(QuicProxyClientSocketTest, GetTotalReceivedBytes) {
 
 TEST_P(QuicProxyClientSocketTest, SetStreamPriority) {
   mock_quic_data_.AddWrite(SYNCHRONOUS, ConstructSettingsPacket(1));
+  // Despite setting the priority to HIGHEST, the requets initial priority of
+  // LOWEST is used.
   mock_quic_data_.AddWrite(SYNCHRONOUS,
-                           ConstructConnectRequestPacket(2, HIGHEST));
+                           ConstructConnectRequestPacket(2, LOWEST));
   mock_quic_data_.AddRead(ASYNC, ConstructServerConnectReplyPacket(1, !kFin));
   mock_quic_data_.AddRead(SYNCHRONOUS, ERR_IO_PENDING);
   mock_quic_data_.AddWrite(
@@ -1622,10 +1654,9 @@ TEST_P(QuicProxyClientSocketTest, RstWithReadAndWritePending) {
     mock_quic_data_.AddWrite(
         ASYNC, ConstructAckAndMultipleDataFramesPacket(
                    3, 1, 1, 1, 0, {header, quic::QuicString(kMsg2, kLen2)}));
-    mock_quic_data_.AddWrite(
-        SYNCHRONOUS,
-        ConstructAckAndRstPacket(4, quic::QUIC_RST_ACKNOWLEDGEMENT, 2, 2, 1,
-                                 header.length() + kLen2));
+    mock_quic_data_.AddWrite(SYNCHRONOUS, ConstructAckAndRstOnlyPacket(
+                                              4, quic::QUIC_STREAM_CANCELLED, 2,
+                                              2, 1, header.length() + kLen2));
   }
 
   Initialize();
@@ -1757,10 +1788,9 @@ TEST_P(QuicProxyClientSocketTest, RstWithReadAndWritePendingDelete) {
     mock_quic_data_.AddWrite(
         ASYNC, ConstructAckAndMultipleDataFramesPacket(
                    3, 1, 1, 1, 0, {header, quic::QuicString(kMsg1, kLen1)}));
-    mock_quic_data_.AddWrite(
-        SYNCHRONOUS,
-        ConstructAckAndRstPacket(4, quic::QUIC_RST_ACKNOWLEDGEMENT, 2, 2, 1,
-                                 header.length() + kLen1));
+    mock_quic_data_.AddWrite(SYNCHRONOUS, ConstructAckAndRstOnlyPacket(
+                                              4, quic::QUIC_STREAM_CANCELLED, 2,
+                                              2, 1, header.length() + kLen1));
   }
 
   Initialize();
@@ -1790,7 +1820,7 @@ TEST_P(QuicProxyClientSocketTest, RstWithReadAndWritePendingDelete) {
   EXPECT_FALSE(write_callback_.have_result());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     VersionIncludeStreamDependencySequence,
     QuicProxyClientSocketTest,
     ::testing::Combine(

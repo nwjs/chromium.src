@@ -39,6 +39,7 @@
 #include "third_party/blink/public/mojom/frame/navigation_initiator.mojom-blink.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
+#include "third_party/blink/renderer/core/accessibility/axid.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/create_element_flags.h"
@@ -62,11 +63,12 @@
 #include "third_party/blink/renderer/core/frame/hosts_using_features.h"
 #include "third_party/blink/renderer/core/html/custom/v0_custom_element.h"
 #include "third_party/blink/renderer/core/html/parser/parser_synchronization_policy.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
+#include "third_party/blink/renderer/platform/graphics/color_scheme.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/bit_vector.h"
@@ -92,6 +94,7 @@ class CSSStyleSheet;
 class CanvasFontCache;
 class ChromeClient;
 class Comment;
+class ComputedAccessibleNode;
 class ComputedStyle;
 class ConsoleMessage;
 class ContextFeatures;
@@ -186,6 +189,7 @@ class USVStringOrTrustedURL;
 class V8NodeFilter;
 class ViewportData;
 class VisitedLinkState;
+class WebComputedAXTree;
 class WebMouseEvent;
 class WorkletAnimationController;
 struct AnnotatedRegionValue;
@@ -286,18 +290,18 @@ class CORE_EXPORT Document : public ContainerNode,
 
   // DOM methods & attributes for Document
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecopy, kBeforecopy);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut, kBeforecut);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforepaste, kBeforepaste);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(freeze, kFreeze);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockchange, kPointerlockchange);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockerror, kPointerlockerror);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(readystatechange, kReadystatechange);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(resume, kResume);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(search, kSearch);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecopy, kBeforecopy)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut, kBeforecut)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(beforepaste, kBeforepaste)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(freeze, kFreeze)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockchange, kPointerlockchange)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(pointerlockerror, kPointerlockerror)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(readystatechange, kReadystatechange)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(resume, kResume)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(search, kSearch)
   DEFINE_ATTRIBUTE_EVENT_LISTENER(securitypolicyviolation,
-                                  kSecuritypolicyviolation);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(visibilitychange, kVisibilitychange);
+                                  kSecuritypolicyviolation)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(visibilitychange, kVisibilitychange)
 
   ViewportData& GetViewportData() const { return *viewport_data_; }
 
@@ -514,18 +518,14 @@ class CORE_EXPORT Document : public ContainerNode,
   void UpdateStyleAndLayout();
   void LayoutUpdated();
   enum RunPostLayoutTasks {
-    kRunPostLayoutTasksAsyhnchronously,
+    kRunPostLayoutTasksAsynchronously,
     kRunPostLayoutTasksSynchronously,
   };
-  void UpdateStyleAndLayoutIgnorePendingStylesheets(
-      RunPostLayoutTasks = kRunPostLayoutTasksAsyhnchronously);
+  void UpdateStyleAndLayoutIgnorePendingStylesheets();
   // Same as UpdateStyleAndLayoutIgnorePendingStyleSheets()
   // but allows style & layout tree calculation for invisible nodes.
-  void UpdateStyleAndLayoutIgnorePendingStylesheetsConsideringInvisibleNodes(
-      RunPostLayoutTasks = kRunPostLayoutTasksAsyhnchronously);
-  void UpdateStyleAndLayoutIgnorePendingStylesheetsForNode(Node*);
-  scoped_refptr<ComputedStyle> StyleForElementIgnoringPendingStylesheets(
-      Element*);
+  void UpdateStyleAndLayoutIgnorePendingStylesheetsConsideringInvisibleNodes();
+  void UpdateStyleAndLayoutIgnorePendingStylesheetsForNode(const Node*);
   scoped_refptr<ComputedStyle> StyleForPage(int page_index);
 
   // Ensures that location-based data will be valid for a given node.
@@ -609,7 +609,7 @@ class CORE_EXPORT Document : public ContainerNode,
   void close();
 
   // Corresponds to "9. Abort the active document of browsingContext."
-  // https://html.spec.whatwg.org/#navigate
+  // https://html.spec.whatwg.org/C/#navigate
   void Abort();
 
   void CheckCompleted();
@@ -680,7 +680,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // comments surrounding their declaration.
 
   // Document base URL.
-  // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#document-base-url
+  // https://html.spec.whatwg.org/C/#document-base-url
   const KURL& BaseURL() const final;
   void SetBaseURLOverride(const KURL&);
   const KURL& BaseURLOverride() const { return base_url_override_; }
@@ -689,7 +689,7 @@ class CORE_EXPORT Document : public ContainerNode,
   void ProcessBaseElement();
 
   // Fallback base URL.
-  // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#fallback-base-url
+  // https://html.spec.whatwg.org/C/#fallback-base-url
   KURL FallbackBaseURL() const;
 
   // Creates URL based on passed relative url and this documents base URL.
@@ -742,13 +742,13 @@ class CORE_EXPORT Document : public ContainerNode,
   bool InNoQuirksMode() const { return compatibility_mode_ == kNoQuirksMode; }
   bool InLineHeightQuirksMode() const { return !InNoQuirksMode(); }
 
-  // https://html.spec.whatwg.org/multipage/dom.html#documentreadystate
+  // https://html.spec.whatwg.org/C/#documentreadystate
   enum DocumentReadyState { kLoading, kInteractive, kComplete };
 
   void SetReadyState(DocumentReadyState);
   bool IsLoadCompleted() const;
 
-  bool IsFreezingInProgress() const { return is_freezing_in_progress_; };
+  bool IsFreezingInProgress() const { return is_freezing_in_progress_; }
 
   enum ParsingState { kParsing, kInDOMContentLoaded, kFinishedParsing };
   void SetParsingState(ParsingState);
@@ -863,10 +863,13 @@ class CORE_EXPORT Document : public ContainerNode,
     kAnimationEndListener = 1 << 6,
     kAnimationStartListener = 1 << 7,
     kAnimationIterationListener = 1 << 8,
-    kTransitionEndListener = 1 << 9,
-    kScrollListener = 1 << 10,
-    kLoadListenerAtCapturePhaseOrAtStyleElement = 1 << 11
-    // 4 bits remaining
+    kTransitionRunListener = 1 << 9,
+    kTransitionStartListener = 1 << 10,
+    kTransitionEndListener = 1 << 11,
+    kTransitionCancelListener = 1 << 12,
+    kScrollListener = 1 << 13,
+    kLoadListenerAtCapturePhaseOrAtStyleElement = 1 << 14
+    // 1 bit remaining
   };
 
   bool HasListenerType(ListenerType listener_type) const {
@@ -898,10 +901,6 @@ class CORE_EXPORT Document : public ContainerNode,
                                       int margin_height,
                                       ScrollbarMode,
                                       bool is_display_none);
-
-  // Returns true if this document belongs to a frame that the parent document
-  // made invisible (for instance by setting as style display:none).
-  bool IsInInvisibleSubframe() const;
 
   String title() const { return title_; }
   void setTitle(const String&);
@@ -965,7 +964,7 @@ class CORE_EXPORT Document : public ContainerNode,
   static bool HasValidNamespaceForAttributes(const QualifiedName&);
 
   // "body element" as defined by HTML5
-  // (https://html.spec.whatwg.org/multipage/dom.html#the-body-element-2).
+  // (https://html.spec.whatwg.org/C/#the-body-element-2).
   // That is, the first body or frameset child of the document element.
   HTMLElement* body() const;
 
@@ -1248,11 +1247,6 @@ class CORE_EXPORT Document : public ContainerNode,
   // Return a Locale for the default locale if the argument is null or empty.
   Locale& GetCachedLocale(const AtomicString& locale = g_null_atom);
 
-  // For CompositeAfterPaint. This is called internally from Initialize(), but
-  // for the local frame root, the frame widget may be not set at the time,
-  // so this is also called from WebLocalFrameImpl::SetFrameWidget().
-  void AttachCompositorAnimationTimeline();
-
   AnimationClock& GetAnimationClock();
   DocumentTimeline& Timeline() const { return *timeline_; }
   PendingAnimations& GetPendingAnimations() { return *pending_animations_; }
@@ -1323,6 +1317,11 @@ class CORE_EXPORT Document : public ContainerNode,
     secure_context_state_ = state;
   }
 
+  void BindDocumentInterfaceBroker(mojo::ScopedMessagePipeHandle js_handle);
+
+  mojo::ScopedMessagePipeHandle SetDocumentInterfaceBrokerForTesting(
+      mojo::ScopedMessagePipeHandle blink_handle);
+
   CanvasFontCache* GetCanvasFontCache();
 
   // Used by unit tests so that all parsing will be main thread for
@@ -1389,6 +1388,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   CoreProbeSink* GetProbeSink() final;
   service_manager::InterfaceProvider* GetInterfaceProvider() final;
+  mojom::blink::DocumentInterfaceBroker* GetDocumentInterfaceBroker() final;
 
   // Set an explicit feature policy on this document in response to an HTTP
   // Feature-Policy header. This will be relayed to the embedder through the
@@ -1486,7 +1486,7 @@ class CORE_EXPORT Document : public ContainerNode,
   // TODO(binji): See http://crbug.com/798572. This implementation shares the
   // same agent cluster ID for any one document. The proper implementation of
   // this function must follow the rules described here:
-  // https://html.spec.whatwg.org/multipage/webappapis.html#integration-with-the-javascript-agent-cluster-formalism.
+  // https://html.spec.whatwg.org/C/#integration-with-the-javascript-agent-cluster-formalism.
   //
   // Even with this simple implementation, we can prevent sharing
   // SharedArrayBuffers and WebAssembly modules with workers that happen to be
@@ -1515,10 +1515,26 @@ class CORE_EXPORT Document : public ContainerNode,
   void ProcessJavaScriptUrl(const KURL&, ContentSecurityPolicyDisposition);
   void CancelPendingJavaScriptUrl();
 
+  // Functions to keep count of display locks in this document.
+  void AddActivationBlockingDisplayLock();
+  void RemoveActivationBlockingDisplayLock();
+  int ActivationBlockingDisplayLockCount() const;
+
+  void AddLockedDisplayLock();
+  void RemoveLockedDisplayLock();
+  int LockedDisplayLockCount() const;
+
   // Returns whether the document is inside the scope specified in the Web App
   // Manifest. If the document doesn't run in a context of a Web App or has no
   // associated Web App Manifest, it will return false.
   bool IsInWebAppScope() const;
+
+  ColorScheme GetColorScheme() const { return color_scheme_; }
+  void SetColorScheme(ColorScheme);
+
+  ComputedAccessibleNode* GetOrCreateComputedAccessibleNode(
+      AXID ax_id,
+      WebComputedAXTree* tree);
 
  protected:
   void DidUpdateSecurityOrigin() final;
@@ -1664,7 +1680,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   void SetFreezingInProgress(bool is_freezing_in_progress) {
     is_freezing_in_progress_ = is_freezing_in_progress;
-  };
+  }
 
   DocumentLifecycle lifecycle_;
 
@@ -1745,7 +1761,7 @@ class CORE_EXPORT Document : public ContainerNode,
   using AttachedRangeSet = HeapHashSet<WeakMember<Range>>;
   AttachedRangeSet ranges_;
 
-  unsigned short listener_types_;
+  uint16_t listener_types_;
 
   MutationObserverOptions mutation_observer_types_;
 
@@ -1756,6 +1772,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   TextLinkColors text_link_colors_;
   const Member<VisitedLinkState> visited_link_state_;
+  ColorScheme color_scheme_ = ColorScheme::kLight;
 
   bool visually_ordered_;
 
@@ -1956,6 +1973,11 @@ class CORE_EXPORT Document : public ContainerNode,
   // The number of canvas elements on the document
   int num_canvases_ = 0;
 
+  // Number of activation blocking display locks currently in this document.
+  int activation_blocking_display_lock_count_ = 0;
+  // Number of locked display locks in the document.
+  int locked_display_lock_count_ = 0;
+
   // A list of all the navigation_initiator bindings owned by this document.
   // Used to report CSP violations that result from CSP blocking
   // navigation requests that were initiated by this document.
@@ -1979,6 +2001,10 @@ class CORE_EXPORT Document : public ContainerNode,
   // Map from isolated world IDs to their ContentSecurityPolicy instances.
   Member<HeapHashMap<int, Member<ContentSecurityPolicy>>>
       isolated_world_csp_map_;
+
+  // Used to keep track of which ComputedAccessibleNodes have already been
+  // instantiated in this document to avoid constructing duplicates.
+  HeapHashMap<AXID, Member<ComputedAccessibleNode>> computed_node_mapping_;
 };
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Document>;

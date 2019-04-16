@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/stl_util.h"
@@ -400,8 +401,8 @@ IN_PROC_BROWSER_TEST_P(SiteIsolationFlagHandlingTest, FlagHandlingTest) {
   EXPECT_EQ(GetParam().expected_flags_for_user, flags_for_user);
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        SiteIsolationFlagHandlingTest,
-                        ::testing::ValuesIn(kTestCases));
+INSTANTIATE_TEST_SUITE_P(,
+                         SiteIsolationFlagHandlingTest,
+                         ::testing::ValuesIn(kTestCases));
 
 }  // namespace chromeos

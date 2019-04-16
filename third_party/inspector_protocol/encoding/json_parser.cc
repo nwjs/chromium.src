@@ -36,10 +36,10 @@ const char* const kFalseString = "false";
 template <typename Char>
 class JsonParser {
  public:
-  JsonParser(const Platform* platform, JsonParserHandler* handler)
+  JsonParser(const Platform* platform, JSONParserHandler* handler)
       : platform_(platform), handler_(handler) {}
 
-  void Parse(const Char* start, size_t length) {
+  void Parse(const Char* start, std::size_t length) {
     start_pos_ = start;
     const Char* end = start + length;
     const Char* tokenEnd;
@@ -50,10 +50,12 @@ class JsonParser {
   }
 
  private:
-  bool CharsToDouble(const uint16_t* chars, size_t length, double* result) {
+  bool CharsToDouble(const uint16_t* chars,
+                     std::size_t length,
+                     double* result) {
     std::string buffer;
     buffer.reserve(length + 1);
-    for (size_t ii = 0; ii < length; ++ii) {
+    for (std::size_t ii = 0; ii < length; ++ii) {
       bool is_ascii = !(chars[ii] & ~0x7F);
       if (!is_ascii) return false;
       buffer.push_back(static_cast<char>(chars[ii]));
@@ -61,7 +63,7 @@ class JsonParser {
     return platform_->StrToD(buffer.c_str(), result);
   }
 
-  bool CharsToDouble(const uint8_t* chars, size_t length, double* result) {
+  bool CharsToDouble(const uint8_t* chars, std::size_t length, double* result) {
     std::string buffer(reinterpret_cast<const char*>(chars), length);
     return platform_->StrToD(buffer.c_str(), result);
   }
@@ -223,7 +225,8 @@ class JsonParser {
 
   static bool IsSpaceOrNewLine(Char c) {
     // \v = vertial tab; \f = form feed page break.
-    return c == ' ' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+    return c == ' ' || c == '\n' || c == '\v' || c == '\f' || c == '\r' ||
+           c == '\t';
   }
 
   static void SkipWhitespaceAndComments(const Char* start, const Char* end,
@@ -465,7 +468,7 @@ class JsonParser {
           HandleError(Error::JSON_PARSER_INVALID_STRING, token_start);
           return;
         }
-        handler_->HandleString16(std::move(value));
+        handler_->HandleString16(span<uint16_t>(value.data(), value.size()));
         break;
       }
       case ArrayBegin: {
@@ -511,7 +514,7 @@ class JsonParser {
             HandleError(Error::JSON_PARSER_INVALID_STRING, token_start);
             return;
           }
-          handler_->HandleString16(std::move(key));
+          handler_->HandleString16(span<uint16_t>(key.data(), key.size()));
           start = token_end;
 
           token = ParseToken(start, end, &token_start, &token_end);
@@ -567,18 +570,18 @@ class JsonParser {
   const Char* start_pos_ = nullptr;
   bool error_ = false;
   const Platform* platform_;
-  JsonParserHandler* handler_;
+  JSONParserHandler* handler_;
 };
 }  // namespace
 
-void parseJSONChars(const Platform* platform, span<uint8_t> chars,
-                    JsonParserHandler* handler) {
+void ParseJSONChars(const Platform* platform, span<uint8_t> chars,
+                    JSONParserHandler* handler) {
   JsonParser<uint8_t> parser(platform, handler);
   parser.Parse(chars.data(), chars.size());
 }
 
-void parseJSONChars(const Platform* platform, span<uint16_t> chars,
-                    JsonParserHandler* handler) {
+void ParseJSONChars(const Platform* platform, span<uint16_t> chars,
+                    JSONParserHandler* handler) {
   JsonParser<uint16_t> parser(platform, handler);
   parser.Parse(chars.data(), chars.size());
 }

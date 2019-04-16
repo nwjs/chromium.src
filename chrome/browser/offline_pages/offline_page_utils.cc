@@ -32,6 +32,7 @@
 #include "components/offline_pages/core/offline_clock.h"
 #include "components/offline_pages/core/offline_page_feature.h"
 #include "components/offline_pages/core/offline_page_item.h"
+#include "components/offline_pages/core/offline_page_item_utils.h"
 #include "components/offline_pages/core/offline_page_model.h"
 #include "components/offline_pages/core/request_header/offline_page_header.h"
 #include "content/public/browser/browser_context.h"
@@ -64,7 +65,7 @@ void OnGetPagesByURLDone(
     base::OnceCallback<void(const std::vector<OfflinePageItem>&)> callback,
     const MultipleOfflinePageItemResult& pages) {
   std::vector<OfflinePageItem> selected_pages;
-  std::string tab_id_str = base::IntToString(tab_id);
+  std::string tab_id_str = base::NumberToString(tab_id);
 
   // Exclude pages whose tab id does not match.
   // Note: For this restriction to work offline pages saved to tab-bound
@@ -269,18 +270,6 @@ bool OfflinePageUtils::IsShowingDownloadButtonInErrorPage(
 }
 
 // static
-bool OfflinePageUtils::EqualsIgnoringFragment(const GURL& lhs,
-                                              const GURL& rhs) {
-  GURL::Replacements remove_params;
-  remove_params.ClearRef();
-
-  GURL lhs_stripped = lhs.ReplaceComponents(remove_params);
-  GURL rhs_stripped = rhs.ReplaceComponents(remove_params);
-
-  return lhs_stripped == rhs_stripped;
-}
-
-// static
 GURL OfflinePageUtils::GetOriginalURLFromWebContents(
     content::WebContents* web_contents) {
   content::NavigationEntry* entry =
@@ -339,7 +328,8 @@ void OfflinePageUtils::ScheduleDownload(content::WebContents* web_contents,
                                         const GURL& url,
                                         DownloadUIActionFlags ui_action,
                                         const std::string& request_origin) {
-  DCHECK(web_contents);
+  if (!web_contents)
+    return;
 
   // Ensure that the storage permission is granted since the archive file is
   // going to be placed in the public directory.

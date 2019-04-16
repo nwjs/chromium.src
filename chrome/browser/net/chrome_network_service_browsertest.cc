@@ -15,6 +15,7 @@
 #include "content/public/test/browser_test.h"
 #include "net/extras/sqlite/cookie_crypto_delegate.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/mojom/network_service.mojom.h"
 
 #if defined(OS_MACOSX)
 #include "base/mac/mac_util.h"
@@ -47,7 +48,7 @@ void SetCookie(const network::mojom::CookieManagerPtr& cookie_manager) {
                               net::COOKIE_PRIORITY_DEFAULT);
   base::RunLoop run_loop;
   cookie_manager->SetCanonicalCookie(
-      cookie, false, false,
+      cookie, "http", false,
       base::BindLambdaForTesting([&](bool success) { run_loop.Quit(); }));
   run_loop.Run();
 }

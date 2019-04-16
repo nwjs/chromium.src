@@ -4,6 +4,7 @@
 
 #include "content/browser/loader/prefetch_url_loader.h"
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "content/browser/web_package/signed_exchange_prefetch_handler.h"
 #include "content/browser/web_package/signed_exchange_prefetch_metric_recorder.h"
@@ -36,7 +37,8 @@ PrefetchURLLoader::PrefetchURLLoader(
     ResourceContext* resource_context,
     scoped_refptr<net::URLRequestContextGetter> request_context_getter,
     scoped_refptr<SignedExchangePrefetchMetricRecorder>
-        signed_exchange_prefetch_metric_recorder)
+        signed_exchange_prefetch_metric_recorder,
+    const std::string& accept_langs)
     : frame_tree_node_id_getter_(frame_tree_node_id_getter),
       resource_request_(resource_request),
       network_loader_factory_(std::move(network_loader_factory)),
@@ -46,12 +48,12 @@ PrefetchURLLoader::PrefetchURLLoader(
       resource_context_(resource_context),
       request_context_getter_(std::move(request_context_getter)),
       signed_exchange_prefetch_metric_recorder_(
-          std::move(signed_exchange_prefetch_metric_recorder)) {
+          std::move(signed_exchange_prefetch_metric_recorder)),
+      accept_langs_(accept_langs) {
   DCHECK(network_loader_factory_);
 
-  if (signed_exchange_utils::ShouldAdvertiseAcceptHeader(
-          url::Origin::Create(resource_request_.url))) {
-    // Set the SignedExchange accept header only for the limited origins.
+  if (signed_exchange_utils::IsSignedExchangeHandlingEnabled()) {
+    // Set the SignedExchange accept header.
     // (https://wicg.github.io/webpackage/draft-yasskin-http-origin-signed-responses.html#internet-media-type-applicationsigned-exchange).
     resource_request_.headers.SetHeader(
         network::kAcceptHeader, kSignedExchangeEnabledAcceptHeaderForPrefetch);
@@ -84,25 +86,9 @@ void PrefetchURLLoader::FollowRedirect(
     return;
   }
 
-  net::HttpRequestHeaders modified_request_headers_for_accept;
-  if (signed_exchange_utils::NeedToCheckRedirectedURLForAcceptHeader()) {
-    // Currently we send the SignedExchange accept header only for the limited
-    // origins when SignedHTTPExchangeOriginTrial feature is enabled without
-    // SignedHTTPExchange feature. So need to update the accept header by
-    // checking the new URL when redirected.
-    if (signed_exchange_utils::ShouldAdvertiseAcceptHeader(
-            url::Origin::Create(resource_request_.url))) {
-      modified_request_headers_for_accept.SetHeader(
-          network::kAcceptHeader,
-          kSignedExchangeEnabledAcceptHeaderForPrefetch);
-    } else {
-      modified_request_headers_for_accept.SetHeader(
-          network::kAcceptHeader, network::kDefaultAcceptHeader);
-    }
-  }
-
   DCHECK(loader_);
-  loader_->FollowRedirect(removed_headers, modified_request_headers_for_accept,
+  loader_->FollowRedirect(removed_headers,
+                          net::HttpRequestHeaders() /* modified_headers */,
                           base::nullopt);
 }
 
@@ -145,7 +131,7 @@ void PrefetchURLLoader::OnReceiveResponse(
             std::move(loader_), client_binding_.Unbind(),
             network_loader_factory_, url_loader_throttles_getter_,
             resource_context_, request_context_getter_, this,
-            signed_exchange_prefetch_metric_recorder_);
+            signed_exchange_prefetch_metric_recorder_, accept_langs_);
     return;
   }
   forwarding_client_->OnReceiveResponse(response);

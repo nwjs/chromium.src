@@ -102,13 +102,14 @@
 #pragma mark - IdentityManagerObserverBridgeDelegate
 
 // Called when a user signs into Google services such as sync.
-- (void)onPrimaryAccountSet:(const AccountInfo&)primaryAccountInfo {
+- (void)onPrimaryAccountSet:(const CoreAccountInfo&)primaryAccountInfo {
   if (!self.signinPromoViewMediator.isSigninInProgress)
     self.shouldShowSigninPromo = NO;
 }
 
 // Called when the currently signed-in user for a user has been signed out.
-- (void)onPrimaryAccountCleared:(const AccountInfo&)previousPrimaryAccountInfo {
+- (void)onPrimaryAccountCleared:
+    (const CoreAccountInfo&)previousPrimaryAccountInfo {
   [self updateShouldShowSigninPromo];
 }
 

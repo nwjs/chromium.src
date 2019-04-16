@@ -37,13 +37,13 @@
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 
-DEFINE_UI_CLASS_PROPERTY_TYPE(ash::NonClientFrameViewAsh*);
+DEFINE_UI_CLASS_PROPERTY_TYPE(ash::NonClientFrameViewAsh*)
 
 namespace ash {
 
 DEFINE_UI_CLASS_PROPERTY_KEY(NonClientFrameViewAsh*,
                              kNonClientFrameViewAshKey,
-                             nullptr);
+                             nullptr)
 
 ///////////////////////////////////////////////////////////////////////////////
 // NonClientFrameViewAshWindowStateDelegate
@@ -257,14 +257,16 @@ NonClientFrameViewAsh::NonClientFrameViewAsh(views::Widget* frame)
     immersive_helper_ =
         std::make_unique<NonClientFrameViewAshImmersiveHelper>(frame, this);
   }
-  Shell::Get()->AddShellObserver(this);
+  Shell::Get()->overview_controller()->AddObserver(this);
   Shell::Get()->split_view_controller()->AddObserver(this);
 
   frame_window->SetProperty(kNonClientFrameViewAshKey, this);
+  wm::MakeGestureDraggableInImmersiveMode(frame_window);
 }
 
 NonClientFrameViewAsh::~NonClientFrameViewAsh() {
-  Shell::Get()->RemoveShellObserver(this);
+  if (Shell::Get()->overview_controller())
+    Shell::Get()->overview_controller()->RemoveObserver(this);
   if (Shell::Get()->split_view_controller())
     Shell::Get()->split_view_controller()->RemoveObserver(this);
 }
@@ -489,7 +491,7 @@ void NonClientFrameViewAsh::OnSplitViewStateChanged(
   UpdateHeaderView();
 }
 
-void NonClientFrameViewAsh::ShowContextMenuForView(
+void NonClientFrameViewAsh::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::MenuSourceType source_type) {

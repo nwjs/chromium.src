@@ -96,15 +96,19 @@ BundleGenerationInfo = collections.namedtuple(
     'keystore_alias')
 
 
-def _GenerateBundleApks(info, output_path, minimal=False, universal=False):
+def _GenerateBundleApks(info,
+                        output_path,
+                        minimal=False,
+                        minimal_sdk_version=None,
+                        mode=None):
   """Generate an .apks archive from a bundle on demand.
 
   Args:
     info: A BundleGenerationInfo instance.
     output_path: Path of output .apks archive.
     minimal: Create the minimal set of apks possible (english-only).
-    universal: Whether to create a single APK that contains the contents of all
-        modules.
+    minimal_sdk_version: When minimal=True, use this sdkVersion.
+    mode: Build mode, either None, or one of app_bundle_utils.BUILD_APKS_MODES.
   """
   app_bundle_utils.GenerateBundleApks(
       info.bundle_path,
@@ -113,8 +117,9 @@ def _GenerateBundleApks(info, output_path, minimal=False, universal=False):
       info.keystore_path,
       info.keystore_password,
       info.keystore_alias,
-      universal=universal,
-      minimal=minimal)
+      mode=mode,
+      minimal=minimal,
+      minimal_sdk_version=minimal_sdk_version)
 
 
 def _InstallBundle(devices, bundle_apks, package_name, command_line_flags_file,
@@ -134,16 +139,21 @@ def _InstallBundle(devices, bundle_apks, package_name, command_line_flags_file,
     return False
 
   def ClearFakeModules(device):
-    for path in [SPLITCOMPAT_PATH, MODULES_SRC_DIRECTORY_PATH]:
-      if device.PathExists(path, as_root=True):
-        device.RemovePath(path, force=True, recursive=True, as_root=True)
-        logging.info('Removed %s', path)
-      else:
-        logging.info('Skipped removing nonexistent %s', path)
+    if device.PathExists(SPLITCOMPAT_PATH, as_root=True):
+      device.RemovePath(
+          SPLITCOMPAT_PATH, force=True, recursive=True, as_root=True)
+      logging.info('Removed %s', SPLITCOMPAT_PATH)
+    else:
+      logging.info('Skipped removing nonexistent %s', SPLITCOMPAT_PATH)
 
   def InstallFakeModules(device):
     try:
       temp_path = tempfile.mkdtemp()
+
+      if not fake_modules:
+        # Push empty temp_path to clear folder on device and update the cache.
+        device.PushChangedFiles([(temp_path, MODULES_SRC_DIRECTORY_PATH)])
+        return
 
       # Device-spec JSON is needed, so create that first.
       device_spec_filename = os.path.join(temp_path, 'device_spec.json')
@@ -153,9 +163,9 @@ def _InstallBundle(devices, bundle_apks, package_name, command_line_flags_file,
       ]
       bundletool.RunBundleTool(get_device_spec_cmd_args)
 
-      # Extract fake modules to temp directory. For now, installation requires
-      # running 'bundletool extract-apks'. Unfortunately, this leads to unneeded
-      # compression of module files.
+      # Extract fake modules to temp directory. For now, installation
+      # requires running 'bundletool extract-apks'. Unfortunately, this leads
+      # to unneeded compression of module files.
       extract_apks_cmd_args = [
           'extract-apks', '--apks=' + bundle_apks,
           '--device-spec=' + device_spec_filename,
@@ -165,19 +175,33 @@ def _InstallBundle(devices, bundle_apks, package_name, command_line_flags_file,
 
       # Push fake modules, with renames.
       for fake_module in fake_modules:
-        remote = posixpath.join(MODULES_SRC_DIRECTORY_PATH,
-                                '%s.apk' % fake_module)
-        # Try |local| filename alternatives, and ensure there's exactly one.
-        # TODO(huangs): Handle fake packages with different languages: See
-        #     http://crbug.com/925358.
-        local_choices = []
-        for suffix in ['-master.apk', '-master_2.apk']:
-          local = os.path.join(temp_path, fake_module + suffix)
-          if os.path.isfile(local):
-            local_choices.append(local)
-        if len(local_choices) != 1:
-          raise Exception('Expect 1 matching local file for %s' % fake_module)
-        device.adb.Push(local_choices[0], remote)
+        found_master = False
+
+        for filename in os.listdir(temp_path):
+          # If file matches expected format, rename it to follow conventions
+          # required by splitcompatting.
+          match = re.match(r'%s-([a-z_0-9]+)\.apk' % fake_module, filename)
+          local_path = os.path.join(temp_path, filename)
+
+          if not match:
+            # File doesn't match - remove from directory.
+            os.remove(local_path)
+            continue
+
+          module_suffix = match.group(1)
+          remote = os.path.join(
+              temp_path, '%s.config.%s.apk' % (fake_module, module_suffix))
+          # Check if filename matches a master apk.
+          if 'master' in module_suffix:
+            if found_master:
+              raise Exception('Expect 1 master apk file for %s' % fake_module)
+            found_master = True
+            remote = os.path.join(temp_path, '%s.apk' % fake_module)
+
+          os.rename(local_path, remote)
+
+      device.PushChangedFiles([(temp_path, MODULES_SRC_DIRECTORY_PATH)])
+
     finally:
       shutil.rmtree(temp_path, ignore_errors=True)
 
@@ -189,7 +213,8 @@ def _InstallBundle(devices, bundle_apks, package_name, command_line_flags_file,
         msg = ('Command line has no %s: Fake modules will be ignored.' %
                FAKE_FEATURE_MODULE_INSTALL)
         print _Colorize(msg, colorama.Fore.YELLOW + colorama.Style.BRIGHT)
-      InstallFakeModules(device)
+
+    InstallFakeModules(device)
 
     # NOTE: For now, installation requires running 'bundletool install-apks'.
     # TODO(digit): Add proper support for bundles to devil instead, then use it.
@@ -1425,17 +1450,36 @@ class _BuildBundleApks(_Command):
         action='store_true',
         help='Build .apks archive that targets the bundle\'s minSdkVersion and '
         'contains only english splits. It still contains optional splits.')
-    group.add_argument('--universal', action='store_true',
-                       help='Build .apks archive containing single APK with '
-                            'contents of all splits. NOTE: Won\'t add modules '
-                            'with <dist:fusing dist:include="false"/> flag.')
+    group.add_argument(
+        '--sdk-version',
+        help='Implies --minimal. The sdkVersion to build the .apks for.')
+    group.add_argument(
+        '--build-mode',
+        choices=app_bundle_utils.BUILD_APKS_MODES,
+        help='Specify which type of APKs archive to build. "default" '
+        'generates regular splits, "universal" generates an archive with a '
+        'single universal APK, "system" generates an archive with a system '
+        'image APK, while "system_compressed" generates a compressed system '
+        'APK, with an additional stub APK for the system image.')
 
   def Run(self):
     _GenerateBundleApks(
         self.bundle_generation_info,
         self.args.output_apks,
-        minimal=self.args.minimal,
-        universal=self.args.universal)
+        minimal=self.args.sdk_version is not None or self.args.minimal,
+        minimal_sdk_version=self.args.sdk_version,
+        mode=self.args.build_mode)
+
+
+class _ManifestCommand(_Command):
+  name = 'dump-manifest'
+  description = 'Dump the android manifest from this bundle, as XML, to stdout.'
+  need_device_args = False
+
+  def Run(self):
+    bundletool.RunBundleTool([
+        'dump', 'manifest', '--bundle', self.bundle_generation_info.bundle_path
+    ])
 
 
 # Shared commands for regular APKs and app bundles.
@@ -1461,6 +1505,7 @@ _COMMANDS = [
 # Commands specific to app bundles.
 _BUNDLE_COMMANDS = [
     _BuildBundleApks,
+    _ManifestCommand,
 ]
 
 

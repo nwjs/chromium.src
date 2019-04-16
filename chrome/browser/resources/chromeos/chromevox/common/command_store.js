@@ -135,7 +135,6 @@ cvox.CommandStore.CMD_WHITELIST = {
   'toggleStickyMode': {
     announce: false,
     msgId: 'toggle_sticky_mode',
-    'disallowOOBE': true,
     category: 'modifier_keys'
   },
   'passThroughMode': {
@@ -414,6 +413,13 @@ cvox.CommandStore.CMD_WHITELIST = {
     announce: false,
     disallowContinuation: true,
     msgId: 'show_options_page',
+    'disallowOOBE': true,
+    category: 'help_commands'
+  },
+  'showLogPage': {
+    announce: false,
+    disallowContinuation: true,
+    msgId: 'show_log_page',
     'disallowOOBE': true,
     category: 'help_commands'
   },

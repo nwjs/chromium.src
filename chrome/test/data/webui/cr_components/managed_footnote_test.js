@@ -19,8 +19,9 @@ suite('managed-footnote', function() {
    *     substitution.
    * @return {HTMLElement}
    */
-  function setupTestElement(isManaged, message) {
+  function setupTestElement(isManaged, message, managementPageUrl) {
     loadTimeData.overrideValues({
+      chromeManagementUrl: managementPageUrl,
       isManaged: isManaged,
       managedByOrg: message,
     });
@@ -31,33 +32,19 @@ suite('managed-footnote', function() {
   }
 
   test('Hidden When isManaged Is False', function() {
-    const footnote = setupTestElement(false, '');
+    const footnote = setupTestElement(false, '', '');
     assertEquals('none', getComputedStyle(footnote).display);
   });
 
   test('Reads Attributes From loadTimeData', function() {
     const message = 'the quick brown fox jumps over the lazy dog';
-    const footnote = setupTestElement(true, message);
+    const footnote = setupTestElement(true, message, '');
     assertNotEquals('none', getComputedStyle(footnote).display);
     assertTrue(footnote.shadowRoot.textContent.includes(message));
   });
 
-  test('Substitutes URL', function() {
-    const message =
-        'Your <a target="_blank" href="$1">browser is managed</a> by your ' +
-        'organization';
-    const targetMessage = 'Your browser is managed by your organization';
-    const supportUrl =
-        'https://support.google.com/chromebook/?p=is_chrome_managed';
-
-    const footnote = setupTestElement(true, message);
-    assertTrue(footnote.shadowRoot.textContent.includes(targetMessage));
-    // The <a> element should have the right link.
-    assertEquals(supportUrl, footnote.$$('a').href);
-  });
-
   test('Responds to is-managed-changed events', function() {
-    const footnote = setupTestElement(false, '');
+    const footnote = setupTestElement(false, '', '');
     assertEquals('none', getComputedStyle(footnote).display);
 
     cr.webUIListenerCallback('is-managed-changed', [true]);

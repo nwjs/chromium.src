@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback_helpers.h"
 #include "base/location.h"
@@ -125,8 +126,8 @@ void QuicChromiumClientStream::Handle::OnError(int error) {
   // the call stack of the owner of the handle.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(&QuicChromiumClientStream::Handle::InvokeCallbacksOnClose,
-                 weak_factory_.GetWeakPtr(), error));
+      base::BindOnce(&QuicChromiumClientStream::Handle::InvokeCallbacksOnClose,
+                     weak_factory_.GetWeakPtr(), error));
 }
 
 void QuicChromiumClientStream::Handle::InvokeCallbacksOnClose(int error) {
@@ -555,7 +556,7 @@ bool QuicChromiumClientStream::WriteStreamData(quic::QuicStringPiece data,
   // Must not be called when data is buffered.
   DCHECK(!HasBufferedData());
   // Writes the data, or buffers it.
-  WriteOrBufferBody(data, fin, nullptr);
+  WriteOrBufferBody(data, fin);
   return !HasBufferedData();  // Was all data written?
 }
 
@@ -569,7 +570,7 @@ bool QuicChromiumClientStream::WritevStreamData(
   for (size_t i = 0; i < buffers.size(); ++i) {
     bool is_fin = fin && (i == buffers.size() - 1);
     quic::QuicStringPiece string_data(buffers[i]->data(), lengths[i]);
-    WriteOrBufferBody(string_data, is_fin, nullptr);
+    WriteOrBufferBody(string_data, is_fin);
   }
   return !HasBufferedData();  // Was all data written?
 }
@@ -619,7 +620,7 @@ void QuicChromiumClientStream::NotifyHandleOfInitialHeadersAvailableLater() {
   DCHECK(handle_);
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(
+      base::BindOnce(
           &QuicChromiumClientStream::NotifyHandleOfInitialHeadersAvailable,
           weak_factory_.GetWeakPtr()));
 }
@@ -636,7 +637,7 @@ void QuicChromiumClientStream::NotifyHandleOfTrailingHeadersAvailableLater() {
   DCHECK(handle_);
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(
+      base::BindOnce(
           &QuicChromiumClientStream::NotifyHandleOfTrailingHeadersAvailable,
           weak_factory_.GetWeakPtr()));
 }
@@ -688,8 +689,8 @@ void QuicChromiumClientStream::NotifyHandleOfDataAvailableLater() {
   DCHECK(handle_);
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(&QuicChromiumClientStream::NotifyHandleOfDataAvailable,
-                 weak_factory_.GetWeakPtr()));
+      base::BindOnce(&QuicChromiumClientStream::NotifyHandleOfDataAvailable,
+                     weak_factory_.GetWeakPtr()));
 }
 
 void QuicChromiumClientStream::NotifyHandleOfDataAvailable() {

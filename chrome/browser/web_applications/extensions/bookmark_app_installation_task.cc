@@ -12,10 +12,10 @@
 #include "chrome/browser/extensions/bookmark_app_helper.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/installable/installable_manager.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_data_retriever.h"
-#include "chrome/browser/web_applications/extensions/bookmark_app_installer.h"
 #include "chrome/common/web_application_info.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/common/constants.h"
@@ -58,19 +58,17 @@ BookmarkAppInstallationTask::BookmarkAppInstallationTask(
     Profile* profile,
     web_app::PendingAppManager::AppInfo app_info)
     : profile_(profile),
+      extension_ids_map_(profile_->GetPrefs()),
       app_info_(std::move(app_info)),
       helper_factory_(base::BindRepeating(&BookmarkAppHelperCreateWrapper)),
-      data_retriever_(std::make_unique<web_app::WebAppDataRetriever>()),
-      installer_(std::make_unique<BookmarkAppInstaller>(profile)) {}
+      data_retriever_(std::make_unique<web_app::WebAppDataRetriever>()) {}
 
 BookmarkAppInstallationTask::~BookmarkAppInstallationTask() = default;
 
-void BookmarkAppInstallationTask::InstallWebAppOrShortcutFromWebContents(
-    content::WebContents* web_contents,
-    ResultCallback callback) {
+void BookmarkAppInstallationTask::Install(content::WebContents* web_contents,
+                                          ResultCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
-  data_retriever().GetWebApplicationInfo(
+  data_retriever_->GetWebApplicationInfo(
       web_contents,
       base::BindOnce(&BookmarkAppInstallationTask::OnGetWebApplicationInfo,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback),
@@ -87,11 +85,6 @@ void BookmarkAppInstallationTask::SetDataRetrieverForTesting(
   data_retriever_ = std::move(data_retriever);
 }
 
-void BookmarkAppInstallationTask::SetInstallerForTesting(
-    std::unique_ptr<BookmarkAppInstaller> installer) {
-  installer_ = std::move(installer);
-}
-
 void BookmarkAppInstallationTask::OnGetWebApplicationInfo(
     ResultCallback result_callback,
     content::WebContents* web_contents,
@@ -103,10 +96,26 @@ void BookmarkAppInstallationTask::OnGetWebApplicationInfo(
     return;
   }
 
-  // TODO(crbug.com/864904): Use an appropriate install source once source
-  // is plumbed through this class.
+  auto install_source = WebappInstallSource::COUNT;
+  switch (app_info_.install_source) {
+    case web_app::InstallSource::kInternal:
+      install_source = WebappInstallSource::INTERNAL_DEFAULT;
+      break;
+    case web_app::InstallSource::kExternalDefault:
+      install_source = WebappInstallSource::EXTERNAL_DEFAULT;
+      break;
+    case web_app::InstallSource::kExternalPolicy:
+      install_source = WebappInstallSource::EXTERNAL_POLICY;
+      break;
+    case web_app::InstallSource::kSystemInstalled:
+      install_source = WebappInstallSource::SYSTEM_DEFAULT;
+      break;
+    case web_app::InstallSource::kArc:
+      NOTREACHED();
+      break;
+  }
   helper_ = helper_factory_.Run(profile_, *web_app_info, web_contents,
-                                WebappInstallSource::MENU_BROWSER_TAB);
+                                install_source);
 
   switch (app_info_.launch_container) {
     case web_app::LaunchContainer::kDefault:
@@ -155,11 +164,16 @@ void BookmarkAppInstallationTask::OnInstalled(
     ResultCallback result_callback,
     const Extension* extension,
     const WebApplicationInfo& web_app_info) {
+  if (extension) {
+    extension_ids_map_.Insert(app_info_.url, extension->id(),
+                              app_info_.install_source);
+    std::move(result_callback)
+        .Run(Result(web_app::InstallResultCode::kSuccess, extension->id()));
+    return;
+  }
   std::move(result_callback)
-      .Run(extension
-               ? Result(web_app::InstallResultCode::kSuccess, extension->id())
-               : Result(web_app::InstallResultCode::kFailedUnknownReason,
-                        base::nullopt));
+      .Run(Result(web_app::InstallResultCode::kFailedUnknownReason,
+                  base::nullopt));
 }
 
 }  // namespace extensions

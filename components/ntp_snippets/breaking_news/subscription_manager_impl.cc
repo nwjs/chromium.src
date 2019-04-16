@@ -229,12 +229,12 @@ void SubscriptionManagerImpl::DidUnsubscribe(const std::string& new_token,
 }
 
 void SubscriptionManagerImpl::OnPrimaryAccountSet(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   SigninStatusChanged();
 }
 
 void SubscriptionManagerImpl::OnPrimaryAccountCleared(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   SigninStatusChanged();
 }
 

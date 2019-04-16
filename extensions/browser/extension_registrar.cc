@@ -4,6 +4,8 @@
 
 #include "extensions/browser/extension_registrar.h"
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "content/nw/src/nw_content.h"
 
 #include "base/logging.h"

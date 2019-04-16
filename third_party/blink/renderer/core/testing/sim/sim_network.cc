@@ -4,13 +4,18 @@
 
 #include "third_party/blink/renderer/core/testing/sim/sim_network.h"
 
+#include <memory>
+#include <utility>
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_url_error.h"
 #include "third_party/blink/public/platform/web_url_loader.h"
 #include "third_party/blink/public/platform/web_url_loader_client.h"
 #include "third_party/blink/public/platform/web_url_loader_mock_factory.h"
 #include "third_party/blink/public/platform/web_url_response.h"
+#include "third_party/blink/public/web/web_navigation_params.h"
+#include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/testing/sim/sim_request.h"
+#include "third_party/blink/renderer/platform/loader/static_data_navigation_body_loader.h"
 
 namespace blink {
 
@@ -90,7 +95,14 @@ void SimNetwork::AddRequest(SimRequestBase& request) {
   requests_.insert(request.url_.GetString(), &request);
   WebURLResponse response(request.url_);
   response.SetMIMEType(request.mime_type_);
-  response.SetHTTPStatusCode(200);
+
+  if (request.redirect_url_.IsEmpty()) {
+    response.SetHttpStatusCode(200);
+  } else {
+    response.SetHttpStatusCode(302);
+    response.AddHTTPHeaderField("Location", request.redirect_url_);
+  }
+
   Platform::Current()->GetURLLoaderMockFactory()->RegisterURL(request.url_,
                                                               response, "");
 }
@@ -98,6 +110,18 @@ void SimNetwork::AddRequest(SimRequestBase& request) {
 void SimNetwork::RemoveRequest(SimRequestBase& request) {
   requests_.erase(request.url_);
   Platform::Current()->GetURLLoaderMockFactory()->UnregisterURL(request.url_);
+}
+
+bool SimNetwork::FillNavigationParamsResponse(WebNavigationParams* params) {
+  auto it = requests_.find(params->url.GetString());
+  SimRequestBase* request = it->value;
+  params->response = WebURLResponse(params->url);
+  params->response.SetMIMEType(request->mime_type_);
+  params->response.SetHttpStatusCode(200);
+  auto body_loader = std::make_unique<StaticDataNavigationBodyLoader>();
+  request->UsedForNavigation(body_loader.get());
+  params->body_loader = std::move(body_loader);
+  return true;
 }
 
 }  // namespace blink

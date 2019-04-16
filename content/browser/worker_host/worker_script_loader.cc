@@ -4,6 +4,7 @@
 
 #include "content/browser/worker_host/worker_script_loader.h"
 
+#include "base/bind.h"
 #include "content/browser/appcache/appcache_request_handler.h"
 #include "content/browser/loader/navigation_loader_interceptor.h"
 #include "content/browser/loader/resource_dispatcher_host_impl.h"
@@ -24,7 +25,7 @@ WorkerScriptLoader::WorkerScriptLoader(
     network::mojom::URLLoaderClientPtr client,
     base::WeakPtr<ServiceWorkerProviderHost> service_worker_provider_host,
     base::WeakPtr<AppCacheHost> appcache_host,
-    ResourceContext* resource_context,
+    const ResourceContextGetter& resource_context_getter,
     scoped_refptr<network::SharedURLLoaderFactory> default_loader_factory,
     const net::MutableNetworkTrafficAnnotationTag& traffic_annotation)
     : process_id_(process_id),
@@ -34,7 +35,7 @@ WorkerScriptLoader::WorkerScriptLoader(
       resource_request_(resource_request),
       client_(std::move(client)),
       service_worker_provider_host_(service_worker_provider_host),
-      resource_context_(resource_context),
+      resource_context_getter_(resource_context_getter),
       default_loader_factory_(std::move(default_loader_factory)),
       traffic_annotation_(traffic_annotation),
       url_loader_client_binding_(this),
@@ -43,7 +44,7 @@ WorkerScriptLoader::WorkerScriptLoader(
 
   if (service_worker_provider_host_) {
     std::unique_ptr<NavigationLoaderInterceptor> service_worker_interceptor =
-        ServiceWorkerRequestHandler::InitializeForSharedWorker(
+        ServiceWorkerRequestHandler::InitializeForWorker(
             resource_request_, service_worker_provider_host_);
     if (service_worker_interceptor)
       interceptors_.push_back(std::move(service_worker_interceptor));
@@ -67,10 +68,18 @@ base::WeakPtr<WorkerScriptLoader> WorkerScriptLoader::GetWeakPtr() {
 }
 
 void WorkerScriptLoader::Start() {
+  DCHECK(!completed_);
+
+  ResourceContext* resource_context = resource_context_getter_.Run();
+  if (!resource_context) {
+    CommitCompleted(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
+    return;
+  }
+
   if (interceptor_index_ < interceptors_.size()) {
     auto* interceptor = interceptors_[interceptor_index_++].get();
     interceptor->MaybeCreateLoader(
-        resource_request_, resource_context_,
+        resource_request_, resource_context,
         base::BindOnce(&WorkerScriptLoader::MaybeStartLoader,
                        weak_factory_.GetWeakPtr(), interceptor),
         base::BindOnce(&WorkerScriptLoader::LoadFromNetwork,
@@ -84,6 +93,7 @@ void WorkerScriptLoader::Start() {
 void WorkerScriptLoader::MaybeStartLoader(
     NavigationLoaderInterceptor* interceptor,
     SingleRequestURLLoaderFactory::RequestHandler single_request_handler) {
+  DCHECK(!completed_);
   DCHECK(interceptor);
 
   // Create SubresourceLoaderParams for intercepting subresource requests and
@@ -116,6 +126,8 @@ void WorkerScriptLoader::MaybeStartLoader(
 }
 
 void WorkerScriptLoader::LoadFromNetwork(bool reset_subresource_loader_params) {
+  DCHECK(!completed_);
+
   default_loader_used_ = true;
   network::mojom::URLLoaderClientPtr client;
   if (url_loader_client_binding_)
@@ -190,8 +202,9 @@ void WorkerScriptLoader::ResumeReadingBodyFromNet() {
   if (url_loader_)
     url_loader_->ResumeReadingBodyFromNet();
 }
+// URLLoader end --------------------------------------------------------------
 
-// URLLoaderClient ----------------------------------------------------------
+// URLLoaderClient ------------------------------------------------------------
 // This class forwards any client messages to the outer client in the renderer.
 // Additionally, on redirects it saves the redirect info so if the renderer
 // calls FollowRedirect(), it can do so.
@@ -205,7 +218,7 @@ void WorkerScriptLoader::OnReceiveRedirect(
     const net::RedirectInfo& redirect_info,
     const network::ResourceResponseHead& response_head) {
   if (--redirect_limit_ == 0) {
-    client_->OnComplete(
+    CommitCompleted(
         network::URLLoaderCompletionStatus(net::ERR_TOO_MANY_REDIRECTS));
     return;
   }
@@ -238,10 +251,10 @@ void WorkerScriptLoader::OnStartLoadingResponseBody(
 
 void WorkerScriptLoader::OnComplete(
     const network::URLLoaderCompletionStatus& status) {
-  if (status.error_code == net::OK)
-    service_worker_provider_host_->CompleteSharedWorkerPreparation();
-  client_->OnComplete(status);
+  CommitCompleted(status);
 }
+
+// URLLoaderClient end ---------------------------------------------------------
 
 bool WorkerScriptLoader::MaybeCreateLoaderForResponse(
     const network::ResourceResponseHead& response,
@@ -269,6 +282,22 @@ bool WorkerScriptLoader::MaybeCreateLoaderForResponse(
     }
   }
   return false;
+}
+
+void WorkerScriptLoader::CommitCompleted(
+    const network::URLLoaderCompletionStatus& status) {
+  DCHECK(!completed_);
+  completed_ = true;
+
+  if (service_worker_provider_host_ && status.error_code == net::OK)
+    service_worker_provider_host_->CompleteSharedWorkerPreparation();
+  client_->OnComplete(status);
+
+  // We're done. Ensure we no longer send messages to our client, and no longer
+  // talk to the loader we're a client of.
+  client_.reset();
+  url_loader_client_binding_.Close();
+  url_loader_.reset();
 }
 
 }  // namespace content

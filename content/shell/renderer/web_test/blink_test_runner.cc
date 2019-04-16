@@ -14,6 +14,7 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/debug/debugger.h"
@@ -51,7 +52,7 @@
 #include "content/shell/test_runner/pixel_dump.h"
 #include "content/shell/test_runner/web_test_interfaces.h"
 #include "content/shell/test_runner/web_test_runner.h"
-#include "content/shell/test_runner/web_view_test_proxy.h"
+#include "content/shell/test_runner/web_widget_test_proxy.h"
 #include "media/base/audio_capturer_source.h"
 #include "media/base/audio_parameters.h"
 #include "media/capture/video_capturer_source.h"
@@ -61,8 +62,8 @@
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "skia/ext/platform_canvas.h"
+#include "third_party/blink/public/mojom/app_banner/app_banner.mojom.h"
 #include "third_party/blink/public/platform/file_path_conversion.h"
-#include "third_party/blink/public/platform/modules/app_banner/app_banner.mojom.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/scheduler/test/renderer_scheduler_test_support.h"
 #include "third_party/blink/public/platform/web_input_event.h"
@@ -157,7 +158,7 @@ class MockAudioCapturerSource : public media::AudioCapturerSource {
   void Stop() override {}
   void SetVolume(double volume) override {}
   void SetAutomaticGainControl(bool enable) override {}
-  void SetOutputDeviceForAec(const std::string& output_device_id) override{};
+  void SetOutputDeviceForAec(const std::string& output_device_id) override {}
 
  protected:
   ~MockAudioCapturerSource() override {}
@@ -324,15 +325,15 @@ float BlinkTestRunner::GetWindowToViewportScale() {
 
 std::unique_ptr<blink::WebInputEvent>
 BlinkTestRunner::TransformScreenToWidgetCoordinates(
-    test_runner::WebWidgetTestProxyBase* web_widget_test_proxy_base,
+    test_runner::WebWidgetTestProxy* web_widget_test_proxy,
     const blink::WebInputEvent& event) {
-  return content::TransformScreenToWidgetCoordinates(web_widget_test_proxy_base,
+  return content::TransformScreenToWidgetCoordinates(web_widget_test_proxy,
                                                      event);
 }
 
-test_runner::WebWidgetTestProxyBase* BlinkTestRunner::GetWebWidgetTestProxyBase(
+test_runner::WebWidgetTestProxy* BlinkTestRunner::GetWebWidgetTestProxy(
     blink::WebLocalFrame* frame) {
-  return content::GetWebWidgetTestProxyBase(frame);
+  return content::GetWebWidgetTestProxy(frame);
 }
 
 void BlinkTestRunner::EnableUseZoomForDSF() {
@@ -515,11 +516,6 @@ bool BlinkTestRunner::CaptureLocalPixelsDump() {
     return false;
   }
 
-  CHECK(render_view()
-            ->GetWebView()
-            ->MainFrameWidget()
-            ->IsAcceleratedCompositingActive());
-
   // Test finish should only be processed in the BlinkTestRunner associated
   // with the current, non-swapped-out RenderView.
   DCHECK(render_view()->GetWebView()->MainFrame()->IsWebLocalFrame());
@@ -678,31 +674,6 @@ void BlinkTestRunner::ForceTextInputStateUpdate(WebLocalFrame* frame) {
   ForceTextInputStateUpdateForRenderFrame(RenderFrame::FromWebFrame(frame));
 }
 
-bool BlinkTestRunner::IsNavigationInitiatedByRenderer(
-    const WebURLRequest& request) {
-  return content::IsNavigationInitiatedByRenderer(request);
-}
-
-bool BlinkTestRunner::AddMediaStreamVideoSourceAndTrack(
-    blink::WebMediaStream* stream) {
-  DCHECK(stream);
-  return AddVideoTrackToMediaStream(std::make_unique<MockVideoCapturerSource>(),
-                                    false,  // is_remote
-                                    stream);
-}
-
-bool BlinkTestRunner::AddMediaStreamAudioSourceAndTrack(
-    blink::WebMediaStream* stream) {
-  DCHECK(stream);
-  return AddAudioTrackToMediaStream(
-      base::MakeRefCounted<MockAudioCapturerSource>(),
-      48000,  // sample rate
-      media::CHANNEL_LAYOUT_STEREO,
-      480,    // sample frames per buffer
-      false,  // is_remote
-      stream);
-}
-
 // RenderViewObserver  --------------------------------------------------------
 
 void BlinkTestRunner::DidClearWindowObject(WebLocalFrame* frame) {
@@ -752,19 +723,22 @@ void BlinkTestRunner::Reset(bool for_new_test) {
   prefs_.Reset();
   waiting_for_reset_ = false;
 
+  WebFrame* main_frame = render_view()->GetWebView()->MainFrame();
+
   render_view()->ClearEditCommands();
   if (for_new_test) {
-    if (render_view()->GetWebView()->MainFrame()->IsWebLocalFrame())
-      render_view()->GetWebView()->MainFrame()->ToWebLocalFrame()->SetName(
-          WebString());
-    render_view()->GetWebView()->MainFrame()->ClearOpener();
+    if (main_frame->IsWebLocalFrame()) {
+      WebLocalFrame* local_main_frame = main_frame->ToWebLocalFrame();
+      local_main_frame->SetName(WebString());
+      GetWebWidgetTestProxy(local_main_frame)->EndSyntheticGestures();
+    }
+    main_frame->ClearOpener();
   }
 
   // Resetting the internals object also overrides the WebPreferences, so we
   // have to sync them to WebKit again.
-  if (render_view()->GetWebView()->MainFrame()->IsWebLocalFrame()) {
-    WebTestingSupport::ResetInternalsObject(
-        render_view()->GetWebView()->MainFrame()->ToWebLocalFrame());
+  if (main_frame->IsWebLocalFrame()) {
+    WebTestingSupport::ResetInternalsObject(main_frame->ToWebLocalFrame());
     render_view()->SetWebkitPreferences(render_view()->GetWebkitPreferences());
   }
 }

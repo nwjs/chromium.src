@@ -12,7 +12,8 @@ js2gtest("interactive_ui_tests_js_webui") {
     "bookmarks/bookmarks_focus_test.js",
     "cr_elements/cr_elements_focus_test.js",
     "cr_focus_row_behavior_interactive_test.js",
-    "md_history/md_history_focus_test.js",
+    "extensions/cr_extensions_interactive_ui_tests.js",
+    "history/history_focus_test.js",
     "print_preview/print_preview_interactive_ui_tests.js",
     "settings/cr_settings_interactive_ui_tests.js",
     "settings/settings_ui_browsertest.js",
@@ -54,8 +55,9 @@ js2gtest("browser_tests_js_webui") {
     "cr_components/cr_components_browsertest.js",
     "cr_elements/cr_elements_browsertest.js",
     "find_shortcut_behavior_browsertest.js",
+    "history/history_browsertest.js",
+    "js2gtest_browsertest.js",
     "load_time_data_browsertest.js",
-    "md_history/md_history_browsertest.js",
     "media_router/media_router_elements_browsertest.js",
     "mock4js_browsertest.js",
     "net_internals/chromeos_view.js",
@@ -65,6 +67,7 @@ js2gtest("browser_tests_js_webui") {
     "net_internals/net_internals_test.js",
     "ntp4.js",
     "polymer_browser_test_base.js",
+    "resources/webui_resources_browsertest.js",
     "sandboxstatus_browsertest.js",
     "settings/a11y/about_a11y_test.js",
     "settings/a11y/accessibility_a11y_test.js",
@@ -129,10 +132,13 @@ js2gtest("browser_tests_js_webui") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 }
 
-js2gtest("browser_tests_js_mojo_webui") {
-  test_type = "mojo_webui"
+js2gtest("browser_tests_js_mojo_lite_webui") {
+  test_type = "mojo_lite_webui"
 
   sources = [
+    "app_management/app_management_browsertest.js",
+    "bluetooth_internals_browsertest.js",
+    "downloads/downloads_browsertest.js",
     "engagement/site_engagement_browsertest.js",
     "interventions_internals_browsertest.js",
     "media/media_engagement_browsertest.js",
@@ -145,23 +151,6 @@ js2gtest("browser_tests_js_mojo_webui") {
   if (is_chromeos) {
     sources += [ "multidevice_setup/multidevice_setup_browsertest.js" ]
   }
-
-  deps = [
-    "//chrome/browser/ui",
-    "//skia",
-  ]
-
-  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-}
-
-js2gtest("browser_tests_js_mojo_lite_webui") {
-  test_type = "mojo_lite_webui"
-
-  sources = [
-    "app_management/app_management_browsertest.js",
-    "bluetooth_internals_browsertest.js",
-    "downloads/downloads_browsertest.js",
-  ]
 
   deps = [
     "//chrome/browser/ui",

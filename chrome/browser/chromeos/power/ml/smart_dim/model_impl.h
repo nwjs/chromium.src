@@ -44,7 +44,8 @@ enum class SmartDimParameterResult {
   kSuccess = 0,
   kUndefinedError = 1,
   kParsingError = 2,
-  kMaxValue = kParsingError
+  kUseDefaultValue = 3,
+  kMaxValue = kUseDefaultValue
 };
 
 // Real implementation of SmartDimModel that predicts whether an upcoming screen
@@ -59,8 +60,14 @@ class SmartDimModelImpl : public SmartDimModel {
                           DimDecisionCallback dim_callback) override;
   void CancelPreviousRequest() override;
 
+  // Override MlServiceClient in a unit test environment where there is no real
+  // ML Service daemon to connect to.
+  void SetMlServiceClientForTesting(std::unique_ptr<MlServiceClient> client);
+
  private:
-  friend class SmartDimModelImplTest;
+  FRIEND_TEST_ALL_PREFIXES(SmartDimTfNativeModelTest, Basic);
+  FRIEND_TEST_ALL_PREFIXES(SmartDimTfNativeModelTest, OptionalFeaturesMissing);
+
   // Loads the preprocessor config if not already loaded. Also initializes the
   // MlServiceClient object if the ML Service is being used for inference.
   void LazyInitialize();
@@ -84,12 +91,6 @@ class SmartDimModelImpl : public SmartDimModel {
 
   // Takes an |inactivity_score| returned from the ML model and, using that,
   // returns a ModelPrediction.
-  //
-  // NOTE: This function is only expected to be called after successful
-  // inference executions, and therefore does not have an error path.
-  // As a corollary, it also performs the logging of a successful inference
-  // call to UMA (doing this here allows the logging to take place in a Mojo
-  // callback in case the ML service was used).
   UserActivityEvent::ModelPrediction CreatePredictionFromInactivityScore(
       float inactivity_score);
 

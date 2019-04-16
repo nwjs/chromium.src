@@ -12,9 +12,9 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/core/css/font_face.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_listener.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
 
@@ -44,9 +44,9 @@ class CORE_EXPORT FontFaceSet : public EventTargetWithInlineData,
                                                    ReadyProperty::kReady)) {}
   ~FontFaceSet() override = default;
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(loading, kLoading);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(loadingdone, kLoadingdone);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(loadingerror, kLoadingerror);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(loading, kLoading)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(loadingdone, kLoadingdone)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(loadingerror, kLoadingerror)
 
   bool check(const String& font, const String& text, ExceptionState&);
   ScriptPromise load(ScriptState*, const String& font, const String& text);

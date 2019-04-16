@@ -49,6 +49,9 @@ FileHandlerInfo::FileHandlerInfo()
 FileHandlerInfo::FileHandlerInfo(const FileHandlerInfo& other) = default;
 FileHandlerInfo::~FileHandlerInfo() {}
 
+FileHandlerMatch::FileHandlerMatch() = default;
+FileHandlerMatch::~FileHandlerMatch() = default;
+
 FileHandlers::FileHandlers() {}
 FileHandlers::~FileHandlers() {}
 
@@ -98,8 +101,7 @@ bool LoadFileHandler(const std::string& handler_id,
     if (include_directories->is_bool()) {
       handler.include_directories = include_directories->GetBool();
     } else {
-      *error = ErrorUtils::FormatErrorMessageUTF16(
-          errors::kInvalidFileHandlerIncludeDirectories, handler_id);
+      *error = base::UTF8ToUTF16(errors::kInvalidFileHandlerIncludeDirectories);
       return false;
     }
   }

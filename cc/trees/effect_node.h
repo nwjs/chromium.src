@@ -9,8 +9,8 @@
 #include "cc/paint/filter_operations.h"
 #include "third_party/skia/include/core/SkBlendMode.h"
 #include "ui/gfx/geometry/point_f.h"
-#include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size_f.h"
+#include "ui/gfx/rrect_f.h"
 
 namespace base {
 namespace trace_event {
@@ -41,7 +41,7 @@ struct CC_EXPORT EffectNode {
 
   FilterOperations filters;
   FilterOperations backdrop_filters;
-  gfx::RectF backdrop_filter_bounds;
+  gfx::RRectF backdrop_filter_bounds;
   float backdrop_filter_quality;
   gfx::PointF filters_origin;
 
@@ -73,6 +73,9 @@ struct CC_EXPORT EffectNode {
   bool is_currently_animating_opacity : 1;
   // Whether this node has a child node with kDstIn blend mode.
   bool has_masking_child : 1;
+  // Whether this node has an ancestor with a mask layer or the node itself has
+  // a mask.
+  bool is_masked : 1;
   // Whether this node's effect has been changed since the last
   // frame. Needed in order to compute damage rect.
   bool effect_changed : 1;

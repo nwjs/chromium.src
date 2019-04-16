@@ -18,11 +18,11 @@
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_timing_info.h"
-#include "third_party/blink/renderer/platform/plugins/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
@@ -63,7 +63,7 @@ void RemoteFrame::ScheduleNavigation(Document& origin_document,
                                      UserGestureStatus user_gesture_status) {
   if (!origin_document.GetSecurityOrigin()->CanDisplay(url)) {
     origin_document.AddConsoleMessage(ConsoleMessage::Create(
-        kSecurityMessageSource, kErrorMessageLevel,
+        kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
         "Not allowed to load local resource: " + url.ElidedString()));
     return;
   }
@@ -125,7 +125,7 @@ void RemoteFrame::DetachImpl(FrameDetachType type) {
   // That combined with wrappers (owned and kept alive by RemoteFrame) keeping
   // persistent strong references to RemoteDOMWindow will prevent the GCing
   // of all these objects. Break the cycle by notifying of detachment.
-  ToRemoteDOMWindow(dom_window_)->FrameDetached();
+  To<RemoteDOMWindow>(dom_window_.Get())->FrameDetached();
   if (cc_layer_)
     SetCcLayer(nullptr, false, false);
 }
@@ -176,10 +176,9 @@ bool RemoteFrame::BubbleLogicalScrollFromChildFrame(
     ScrollDirection direction,
     ScrollGranularity granularity,
     Frame* child) {
-  DCHECK(child->IsLocalFrame());
   DCHECK(child->Client());
-  ToLocalFrame(child)->Client()->BubbleLogicalScrollInParentFrame(direction,
-                                                                  granularity);
+  To<LocalFrame>(child)->Client()->BubbleLogicalScrollInParentFrame(
+      direction, granularity);
   return false;
 }
 
@@ -219,8 +218,9 @@ bool RemoteFrame::IsIgnoredForHitTest() const {
   HTMLFrameOwnerElement* owner = DeprecatedLocalOwner();
   if (!owner || !owner->GetLayoutObject())
     return false;
-  return owner->GetLayoutObject()->Style()->PointerEvents() ==
-         EPointerEvents::kNone;
+  return owner->OwnerType() == FrameOwnerElementType::kPortal ||
+         (owner->GetLayoutObject()->Style()->PointerEvents() ==
+          EPointerEvents::kNone);
 }
 
 void RemoteFrame::SetCcLayer(cc::Layer* cc_layer,
@@ -238,7 +238,7 @@ void RemoteFrame::SetCcLayer(cc::Layer* cc_layer,
     PointerEventsChanged();
   }
 
-  ToHTMLFrameOwnerElement(Owner())->SetNeedsCompositingUpdate();
+  To<HTMLFrameOwnerElement>(Owner())->SetNeedsCompositingUpdate();
 }
 
 void RemoteFrame::AdvanceFocus(WebFocusType type, LocalFrame* source) {

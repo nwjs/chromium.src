@@ -4,6 +4,7 @@
 
 #include "ui/accessibility/ax_table_info.h"
 
+#include "ui/accessibility/ax_constants.mojom.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree.h"
@@ -38,22 +39,25 @@ void FindCellsInRow(AXNode* node, std::vector<AXNode*>* cell_nodes) {
 // for each row find its cells and add them to |cell_nodes_per_row| as a
 // 2-dimensional array.
 //
-// We recursively check generic containers like <div> and any
-// nodes that are ignored, but we don't search any other roles
-// in-between a table and its rows.
-void FindRowsAndThenCells(
-    AXNode* node,
-    std::vector<AXNode*>* row_nodes,
-    std::vector<std::vector<AXNode*>>* cell_nodes_per_row) {
+// We only recursively check for the following roles in between a table and
+// its rows: generic containers like <div>, any nodes that are ignored, and
+// table sections (which have Role::kGroup).
+void FindRowsAndThenCells(AXNode* node,
+                          std::vector<AXNode*>* row_nodes,
+                          std::vector<std::vector<AXNode*>>* cell_nodes_per_row,
+                          int32_t& caption_node_id) {
   for (AXNode* child : node->children()) {
     if (child->data().HasState(ax::mojom::State::kIgnored) ||
-        child->data().role == ax::mojom::Role::kGenericContainer) {
-      FindRowsAndThenCells(child, row_nodes, cell_nodes_per_row);
+        child->data().role == ax::mojom::Role::kGenericContainer ||
+        child->data().role == ax::mojom::Role::kGroup) {
+      FindRowsAndThenCells(child, row_nodes, cell_nodes_per_row,
+                           caption_node_id);
     } else if (child->data().role == ax::mojom::Role::kRow) {
       row_nodes->push_back(child);
       cell_nodes_per_row->push_back(std::vector<AXNode*>());
       FindCellsInRow(child, &cell_nodes_per_row->back());
-    }
+    } else if (child->data().role == ax::mojom::Role::kCaption)
+      caption_node_id = child->id();
   }
 }
 
@@ -91,7 +95,9 @@ bool AXTableInfo::Update() {
 
   std::vector<AXNode*> row_nodes;
   std::vector<std::vector<AXNode*>> cell_nodes_per_row;
-  FindRowsAndThenCells(table_node_, &row_nodes, &cell_nodes_per_row);
+  caption_id = 0;
+  FindRowsAndThenCells(table_node_, &row_nodes, &cell_nodes_per_row,
+                       caption_id);
   DCHECK_EQ(cell_nodes_per_row.size(), row_nodes.size());
 
   // Get the optional row and column count from the table. If we encounter
@@ -101,10 +107,16 @@ bool AXTableInfo::Update() {
       std::max(0, node_data.GetIntAttribute(IntAttribute::kTableRowCount));
   col_count =
       std::max(0, node_data.GetIntAttribute(IntAttribute::kTableColumnCount));
-  aria_row_count =
-      std::max(0, node_data.GetIntAttribute(IntAttribute::kAriaRowCount));
-  aria_col_count =
-      std::max(0, node_data.GetIntAttribute(IntAttribute::kAriaColumnCount));
+
+  int32_t aria_rows = node_data.GetIntAttribute(IntAttribute::kAriaRowCount);
+  aria_row_count = (aria_rows != ax::mojom::kUnknownAriaColumnOrRowCount)
+                       ? base::Optional<int32_t>(std::max(0, aria_rows))
+                       : base::nullopt;
+
+  int32_t aria_cols = node_data.GetIntAttribute(IntAttribute::kAriaColumnCount);
+  aria_col_count = (aria_cols != ax::mojom::kUnknownAriaColumnOrRowCount)
+                       ? base::Optional<int32_t>(std::max(0, aria_cols))
+                       : base::nullopt;
 
   // Iterate over the cells and build up an array of CellData
   // entries, one for each cell. Compute the actual row and column
@@ -233,18 +245,22 @@ void AXTableInfo::BuildCellDataVectorFromRowAndCellNodes(
       // Ensure the ARIA col index is incrementing.
       cell_data.aria_col_index =
           std::max(cell_data.aria_col_index, current_aria_col_index);
+      current_aria_col_index = cell_data.aria_col_index;
 
       // Update the row count and col count for the whole table to make
       // sure they're large enough to fit this cell, including its spans.
-      // The -1 in the ARIA calcluations is because ARIA indices are 1-based,
+      // The -1 in the ARIA calculations is because ARIA indices are 1-based,
       // whereas all other indices are zero-based.
       row_count = std::max(row_count, cell_data.row_index + cell_data.row_span);
       col_count = std::max(col_count, cell_data.col_index + cell_data.col_span);
-      aria_row_count = std::max(
-          aria_row_count, current_aria_row_index + cell_data.row_span - 1);
-      aria_col_count = std::max(
-          aria_col_count, current_aria_col_index + cell_data.col_span - 1);
-
+      if (aria_row_count) {
+        aria_row_count = std::max(
+            (*aria_row_count), current_aria_row_index + cell_data.row_span - 1);
+      }
+      if (aria_col_count) {
+        aria_col_count = std::max(
+            (*aria_col_count), current_aria_col_index + cell_data.col_span - 1);
+      }
       // Update |current_col_index| to reflect the next available index after
       // this cell including its colspan. The next column index in this row
       // must be at least this large. Same for the current ARIA col index.

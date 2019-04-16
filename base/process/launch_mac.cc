@@ -252,10 +252,37 @@ Process LaunchProcess(const std::vector<std::string>& argv,
     }
   }
 
-  // Use posix_spawnp as some callers expect to have PATH consulted.
+  int rv;
   pid_t pid;
-  int rv = posix_spawnp(&pid, executable_path, file_actions.get(), attr.get(),
-                        &argv_cstr[0], new_environ);
+  {
+    Optional<AutoLock> rendezvous_lock;
+    if (!options.mach_ports_for_rendezvous.empty()) {
+      // The server's lock must be held for the duration of posix_spawn so that
+      // new child's PID can be recorded with the set of ports.
+      rendezvous_lock.emplace(
+          MachPortRendezvousServer::GetInstance()->GetLock());
+    }
+
+    // Use posix_spawnp as some callers expect to have PATH consulted.
+    rv = posix_spawnp(&pid, executable_path, file_actions.get(), attr.get(),
+                      &argv_cstr[0], new_environ);
+
+    if (!options.mach_ports_for_rendezvous.empty()) {
+      auto* rendezvous = MachPortRendezvousServer::GetInstance();
+      if (rv == 0) {
+        rendezvous->RegisterPortsForPid(pid, options.mach_ports_for_rendezvous);
+      } else {
+        // Because |options| is const-ref, the collection has to be copied here.
+        // The caller expects to relinquish ownership of any strong rights if
+        // LaunchProcess() were to succeed, so these rights should be manually
+        // destroyed on failure.
+        MachPortsForRendezvous ports = options.mach_ports_for_rendezvous;
+        for (auto& port : ports) {
+          port.second.Destroy();
+        }
+      }
+    }
+  }
 
   // Restore the thread's working directory if it was changed.
   if (!options.current_directory.empty()) {
@@ -271,7 +298,7 @@ Process LaunchProcess(const std::vector<std::string>& argv,
   if (options.wait) {
     // While this isn't strictly disk IO, waiting for another process to
     // finish is the sort of thing ThreadRestrictions is trying to prevent.
-    ScopedBlockingCall scoped_blocking_call(BlockingType::MAY_BLOCK);
+    ScopedBlockingCall scoped_blocking_call(FROM_HERE, BlockingType::MAY_BLOCK);
     pid_t ret = HANDLE_EINTR(waitpid(pid, nullptr, 0));
     DPCHECK(ret > 0);
   }

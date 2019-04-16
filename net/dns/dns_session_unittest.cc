@@ -45,7 +45,7 @@ class TestClientSocketFactory : public ClientSocketFactory {
   }
 
   std::unique_ptr<SSLClientSocket> CreateSSLClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
       const SSLClientSocketContext& context) override {
@@ -54,7 +54,7 @@ class TestClientSocketFactory : public ClientSocketFactory {
   }
 
   std::unique_ptr<ProxyClientSocket> CreateProxyClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
       const ProxyServer& proxy_server,
@@ -68,8 +68,6 @@ class TestClientSocketFactory : public ClientSocketFactory {
     NOTIMPLEMENTED();
     return nullptr;
   }
-
-  void ClearSSLSessionCache() override { NOTIMPLEMENTED(); }
 
  private:
   std::list<std::unique_ptr<SocketDataProvider>> data_providers_;

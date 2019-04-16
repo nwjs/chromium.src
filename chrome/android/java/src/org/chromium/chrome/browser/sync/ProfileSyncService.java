@@ -13,7 +13,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.components.sync.ModelType;
-import org.chromium.components.sync.PassphraseType;
+import org.chromium.components.sync.Passphrase;
 
 import java.util.HashSet;
 import java.util.List;
@@ -170,10 +170,13 @@ public class ProfileSyncService {
      * This method should only be used if you want to know the raw value. For checking whether
      * we should ask the user for a passphrase, use isPassphraseRequiredForDecryption().
      */
-    public PassphraseType getPassphraseType() {
+    public @Passphrase.Type int getPassphraseType() {
         assert isEngineInitialized();
         int passphraseType = nativeGetPassphraseType(mNativeProfileSyncServiceAndroid);
-        return PassphraseType.fromInternalValue(passphraseType);
+        if (passphraseType < 0 || passphraseType >= Passphrase.Type.NUM_ENTRIES) {
+            throw new IllegalArgumentException();
+        }
+        return passphraseType;
     }
 
     /**
@@ -209,6 +212,10 @@ public class ProfileSyncService {
 
     public String getSyncEnterCustomPassphraseBodyText() {
         return nativeGetSyncEnterCustomPassphraseBodyText(mNativeProfileSyncServiceAndroid);
+    }
+
+    public int getNumberOfSyncedDevices() {
+        return nativeGetNumberOfSyncedDevices(mNativeProfileSyncServiceAndroid);
     }
 
     /**
@@ -473,18 +480,6 @@ public class ProfileSyncService {
     }
 
     /**
-     * Returns whether either personalized or anonymized URL keyed data collection is enabled.
-     *
-     * @param personlized Whether to check for personalized data collection. If false, this will
-     *                    check for anonymized data collection.
-     * @return Whether URL-keyed data collection is enabled for the current profile.
-     */
-    public boolean isUrlKeyedDataCollectionEnabled(boolean personalized) {
-        return nativeIsUrlKeyedDataCollectionEnabled(
-                mNativeProfileSyncServiceAndroid, personalized);
-    }
-
-    /**
      * Called when the state of the native sync engine has changed, so various
      * UI elements can update themselves.
      */
@@ -642,6 +637,7 @@ public class ProfileSyncService {
     private native String nativeGetCurrentSignedInAccountText(long nativeProfileSyncServiceAndroid);
     private native String nativeGetSyncEnterCustomPassphraseBodyText(
             long nativeProfileSyncServiceAndroid);
+    private native int nativeGetNumberOfSyncedDevices(long nativeProfileSyncServiceAndroid);
     private native int[] nativeGetActiveDataTypes(long nativeProfileSyncServiceAndroid);
     private native int[] nativeGetChosenDataTypes(long nativeProfileSyncServiceAndroid);
     private native int[] nativeGetPreferredDataTypes(long nativeProfileSyncServiceAndroid);
@@ -656,8 +652,6 @@ public class ProfileSyncService {
     private native boolean nativeIsSyncActive(long nativeProfileSyncServiceAndroid);
     private native boolean nativeHasKeepEverythingSynced(long nativeProfileSyncServiceAndroid);
     private native boolean nativeHasUnrecoverableError(long nativeProfileSyncServiceAndroid);
-    private native boolean nativeIsUrlKeyedDataCollectionEnabled(
-            long nativeProfileSyncServiceAndroid, boolean personalized);
     private native boolean nativeIsPassphrasePrompted(long nativeProfileSyncServiceAndroid);
     private native void nativeSetPassphrasePrompted(long nativeProfileSyncServiceAndroid,
                                                     boolean prompted);

@@ -18,6 +18,7 @@ class WindowServiceDelegateImpl : public ws::WindowServiceDelegate {
 
   // ws::WindowServiceDelegate:
   std::unique_ptr<aura::Window> NewTopLevel(
+      ws::TopLevelProxyWindow* top_level_proxy_window,
       aura::PropertyConverter* property_converter,
       const base::flat_map<std::string, std::vector<uint8_t>>& properties)
       override;
@@ -26,6 +27,7 @@ class WindowServiceDelegateImpl : public ws::WindowServiceDelegate {
   void RunWindowMoveLoop(aura::Window* window,
                          ws::mojom::MoveLoopSource source,
                          const gfx::Point& cursor,
+                         int window_component,
                          DoneCallback callback) override;
   void CancelWindowMoveLoop() override;
   void RunDragLoop(aura::Window* window,
@@ -35,6 +37,7 @@ class WindowServiceDelegateImpl : public ws::WindowServiceDelegate {
                    ui::DragDropTypes::DragEventSource source,
                    DragDropCompletedCallback callback) override;
   void CancelDragLoop(aura::Window* window) override;
+  void SetWindowResizeShadow(aura::Window* window, int hit_test) override;
   void UpdateTextInputState(aura::Window* window,
                             ui::mojom::TextInputStatePtr state) override;
   void UpdateImeVisibility(aura::Window* window,

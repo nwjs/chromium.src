@@ -193,8 +193,8 @@ void LogConsoleError(ExecutionContext* context, const String& message) {
   // FIXME: It's not good to report the bad usage without indicating what source
   // line it came from.  We should pass additional parameters so we can tell the
   // console where the mistake occurred.
-  ConsoleMessage* console_message =
-      ConsoleMessage::Create(kJSMessageSource, kErrorMessageLevel, message);
+  ConsoleMessage* console_message = ConsoleMessage::Create(
+      kJSMessageSource, mojom::ConsoleMessageLevel::kError, message);
   context->AddConsoleMessage(console_message);
 }
 
@@ -236,8 +236,11 @@ class XMLHttpRequest::BlobLoader final
 
   BlobLoader(XMLHttpRequest* xhr, scoped_refptr<BlobDataHandle> handle)
       : xhr_(xhr),
-        loader_(
-            FileReaderLoader::Create(FileReaderLoader::kReadByClient, this)) {
+        loader_(std::make_unique<FileReaderLoader>(
+            FileReaderLoader::kReadByClient,
+            this,
+            xhr->GetExecutionContext()->GetTaskRunner(
+                TaskType::kFileReading))) {
     loader_->Start(std::move(handle));
   }
 
@@ -766,7 +769,7 @@ void XMLHttpRequest::send(
     const ArrayBufferOrArrayBufferViewOrBlobOrDocumentOrStringOrFormDataOrURLSearchParams&
         body,
     ExceptionState& exception_state) {
-  probe::willSendXMLHttpOrFetchNetworkRequest(GetExecutionContext(), Url());
+  probe::WillSendXMLHttpOrFetchNetworkRequest(GetExecutionContext(), Url());
 
   if (body.IsNull()) {
     send(String(), exception_state);
@@ -875,7 +878,7 @@ void XMLHttpRequest::send(Blob* body, ExceptionState& exception_state) {
     // FIXME: add support for uploading bundles.
     http_body = EncodedFormData::Create();
     if (body->HasBackingFile()) {
-      File* file = ToFile(body);
+      auto* file = To<File>(body);
       if (!file->GetPath().IsEmpty())
         http_body->AppendFile(file->GetPath());
       else
@@ -1068,8 +1071,8 @@ void XMLHttpRequest::CreateRequest(scoped_refptr<EncodedFormData> http_body,
   request.SetExternalRequestStateFromRequestorAddressSpace(
       execution_context.GetSecurityContext().AddressSpace());
 
-  probe::willLoadXHR(&execution_context, this, this, method_, url_, async_,
-                     http_body.get(), request_headers_, with_credentials_);
+  probe::WillLoadXHR(&execution_context, method_, url_, async_, http_body.get(),
+                     request_headers_, with_credentials_);
 
   if (http_body) {
     DCHECK_NE(method_, http_names::kGET);
@@ -1301,11 +1304,10 @@ void XMLHttpRequest::DispatchProgressEvent(const AtomicString& type,
                                            long long expected_length) {
   bool length_computable =
       expected_length > 0 && received_length <= expected_length;
-  unsigned long long loaded =
-      received_length >= 0 ? static_cast<unsigned long long>(received_length)
-                           : 0;
-  unsigned long long total =
-      length_computable ? static_cast<unsigned long long>(expected_length) : 0;
+  uint64_t loaded =
+      received_length >= 0 ? static_cast<uint64_t>(received_length) : 0;
+  uint64_t total =
+      length_computable ? static_cast<uint64_t>(expected_length) : 0;
 
   ExecutionContext* context = GetExecutionContext();
   probe::AsyncTask async_task(
@@ -1358,7 +1360,7 @@ void XMLHttpRequest::HandleRequestError(DOMExceptionCode exception_code,
                                         long long expected_length) {
   NETWORK_DVLOG(1) << this << " handleRequestError()";
 
-  probe::didFinishXHR(GetExecutionContext(), this);
+  probe::DidFinishXHR(GetExecutionContext(), this);
 
   send_flag_ = false;
   if (!async_) {
@@ -1385,8 +1387,6 @@ void XMLHttpRequest::HandleRequestError(DOMExceptionCode exception_code,
   // false|, when |handleRequestError| is called after |internalAbort()|.  This
   // is safe, however, as |this| will be kept alive from a strong ref
   // |Event::m_target|.
-  DispatchProgressEvent(event_type_names::kProgress, received_length,
-                        expected_length);
   DispatchProgressEvent(type, received_length, expected_length);
   DispatchProgressEvent(event_type_names::kLoadend, received_length,
                         expected_length);
@@ -1558,12 +1558,33 @@ AtomicString XMLHttpRequest::FinalResponseMIMETypeWithFallback() const {
   return AtomicString("text/xml");
 }
 
-String XMLHttpRequest::FinalResponseCharset() const {
+// https://xhr.spec.whatwg.org/#final-charset
+WTF::TextEncoding XMLHttpRequest::FinalResponseCharset() const {
+  // 1. Let label be null. [spec text]
+  //
+  // 2. If response MIME type's parameters["charset"] exists, then set label to
+  // it. [spec text]
+  String label = response_.TextEncodingName();
+
+  // 3. If override MIME type's parameters["charset"] exists, then set label to
+  // it. [spec text]
   String override_response_charset =
       ExtractCharsetFromMediaType(mime_type_override_);
   if (!override_response_charset.IsEmpty())
-    return override_response_charset;
-  return response_.TextEncodingName();
+    label = override_response_charset;
+
+  // 4. If label is null, then return null. [spec text]
+  //
+  // 5. Let encoding be the result of getting an encoding from label. [spec
+  // text]
+  //
+  // 6. If encoding is failure, then return null. [spec text]
+  //
+  // 7. Return encoding. [spec text]
+  //
+  // We rely on WTF::TextEncoding() to return invalid TextEncoding for
+  // null, empty, or invalid/unsupported |label|.
+  return WTF::TextEncoding(label);
 }
 
 void XMLHttpRequest::UpdateContentTypeAndCharset(
@@ -1735,7 +1756,7 @@ void XMLHttpRequest::NotifyParserStopped() {
 }
 
 void XMLHttpRequest::EndLoading() {
-  probe::didFinishXHR(GetExecutionContext(), this);
+  probe::DidFinishXHR(GetExecutionContext(), this);
 
   if (loader_) {
     // Set |m_error| in order to suppress the cancel notification (see
@@ -1756,8 +1777,8 @@ void XMLHttpRequest::EndLoading() {
         GetDocument()->GetFrame());
 }
 
-void XMLHttpRequest::DidSendData(unsigned long long bytes_sent,
-                                 unsigned long long total_bytes_to_be_sent) {
+void XMLHttpRequest::DidSendData(uint64_t bytes_sent,
+                                 uint64_t total_bytes_to_be_sent) {
   NETWORK_DVLOG(1) << this << " didSendData(" << bytes_sent << ", "
                    << total_bytes_to_be_sent << ")";
   ScopedEventDispatchProtect protect(&event_dispatch_recursion_level_);
@@ -1777,15 +1798,11 @@ void XMLHttpRequest::DidSendData(unsigned long long bytes_sent,
   }
 }
 
-void XMLHttpRequest::DidReceiveResponse(
-    unsigned long identifier,
-    const ResourceResponse& response,
-    std::unique_ptr<WebDataConsumerHandle> handle) {
+void XMLHttpRequest::DidReceiveResponse(unsigned long identifier,
+                                        const ResourceResponse& response) {
   // TODO(yhirano): Remove this CHECK: see https://crbug.com/570946.
   CHECK(&response);
 
-  ALLOW_UNUSED_LOCAL(handle);
-  DCHECK(!handle);
   NETWORK_DVLOG(1) << this << " didReceiveResponse(" << identifier << ")";
   ScopedEventDispatchProtect protect(&event_dispatch_recursion_level_);
 
@@ -1817,15 +1834,12 @@ std::unique_ptr<TextResourceDecoder> XMLHttpRequest::CreateDecoder() const {
   if (response_type_code_ == kResponseTypeJSON)
     return TextResourceDecoder::Create(decoder_options_for_utf8_plain_text);
 
-  String final_response_charset = FinalResponseCharset();
-  if (!final_response_charset.IsEmpty()) {
-    // If the final charset is given, use the charset without sniffing the
-    // content.
-    // TODO(crbug/905968): If WTF::TextEncoding::IsValid() is false, this
-    // currently falls back to Latin1Encoding(). Fallback to UTF-8 instead.
+  WTF::TextEncoding final_response_charset = FinalResponseCharset();
+  if (final_response_charset.IsValid()) {
+    // If the final charset is given and valid, use the charset without
+    // sniffing the content.
     return TextResourceDecoder::Create(TextResourceDecoderOptions(
-        TextResourceDecoderOptions::kPlainTextContent,
-        WTF::TextEncoding(final_response_charset)));
+        TextResourceDecoderOptions::kPlainTextContent, final_response_charset));
   }
 
   TextResourceDecoderOptions decoder_options_for_xml(
@@ -1907,7 +1921,7 @@ void XMLHttpRequest::DidReceiveData(const char* data, unsigned len) {
   TrackProgress(len);
 }
 
-void XMLHttpRequest::DidDownloadData(unsigned long long data_length) {
+void XMLHttpRequest::DidDownloadData(uint64_t data_length) {
   ScopedEventDispatchProtect protect(&event_dispatch_recursion_level_);
   if (error_)
     return;

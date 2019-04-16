@@ -97,10 +97,8 @@ Document* GetEmbeddedDocument(PaintLayer* layer) {
   if (layer->GetLayoutObject().IsLayoutEmbeddedContent()) {
     FrameView* frame_view =
         ToLayoutEmbeddedContent(layer->GetLayoutObject()).ChildFrameView();
-    if (frame_view && frame_view->IsLocalFrameView()) {
-      LocalFrameView* local_frame_view = ToLocalFrameView(frame_view);
+    if (auto* local_frame_view = DynamicTo<LocalFrameView>(frame_view))
       return local_frame_view->GetFrame().GetDocument();
-    }
   }
   return nullptr;
 }
@@ -214,7 +212,7 @@ void InspectorDOMSnapshotAgent::DidInsertDOMNode(Node* node) {
 void InspectorDOMSnapshotAgent::EnableAndReset() {
   enabled_.Set(true);
   origin_url_map_ = std::make_unique<OriginUrlMap>();
-  instrumenting_agents_->addInspectorDOMSnapshotAgent(this);
+  instrumenting_agents_->AddInspectorDOMSnapshotAgent(this);
 }
 
 void InspectorDOMSnapshotAgent::Restore() {
@@ -233,7 +231,7 @@ Response InspectorDOMSnapshotAgent::disable() {
     return Response::Error("DOM snapshot agent hasn't been enabled.");
   enabled_.Clear();
   origin_url_map_.reset();
-  instrumenting_agents_->removeInspectorDOMSnapshotAgent(this);
+  instrumenting_agents_->RemoveInspectorDOMSnapshotAgent(this);
   return Response::OK();
 }
 
@@ -404,15 +402,11 @@ int InspectorDOMSnapshotAgent::VisitNode(Node* node,
     Element* element = ToElement(node);
     value->setAttributes(BuildArrayForElementAttributes(element));
 
-    if (node->IsFrameOwnerElement()) {
-      const HTMLFrameOwnerElement* frame_owner = ToHTMLFrameOwnerElement(node);
+    if (auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(node)) {
       if (LocalFrame* frame =
-              frame_owner->ContentFrame() &&
-                      frame_owner->ContentFrame()->IsLocalFrame()
-                  ? ToLocalFrame(frame_owner->ContentFrame())
-                  : nullptr) {
+              DynamicTo<LocalFrame>(frame_owner->ContentFrame()))
         value->setFrameId(IdentifiersFactory::FrameId(frame));
-      }
+
       if (Document* doc = frame_owner->contentDocument()) {
         value->setContentDocumentIndex(VisitNode(
             doc, include_event_listeners, include_user_agent_shadow_tree));
@@ -633,8 +627,7 @@ int InspectorDOMSnapshotAgent::VisitNode2(Node* node, int parent_index) {
 
   if (node->IsElementNode()) {
     Element* element = ToElement(node);
-    if (node->IsFrameOwnerElement()) {
-      const HTMLFrameOwnerElement* frame_owner = ToHTMLFrameOwnerElement(node);
+    if (auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(node)) {
       if (Document* doc = frame_owner->contentDocument()) {
         SetRare(nodes->getContentDocumentIndex(nullptr), index,
                 document_order_map_.at(doc));

@@ -4,6 +4,7 @@
 
 #include "services/video_capture/virtual_device_enabled_device_factory.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "media/capture/video/video_capture_device_info.h"
 #include "services/video_capture/device_factory.h"
@@ -251,5 +252,14 @@ void VirtualDeviceEnabledDeviceFactory::OnDevicesChangedObserverDisconnected(
   }
   devices_changed_observers_.erase(iter);
 }
+
+#if defined(OS_CHROMEOS)
+void VirtualDeviceEnabledDeviceFactory::BindCrosImageCaptureRequest(
+    cros::mojom::CrosImageCaptureRequest request) {
+  CHECK(device_factory_);
+
+  device_factory_->BindCrosImageCaptureRequest(std::move(request));
+}
+#endif  // defined(OS_CHROMEOS)
 
 }  // namespace video_capture

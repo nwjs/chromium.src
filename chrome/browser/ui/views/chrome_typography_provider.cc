@@ -35,11 +35,11 @@ constexpr char kDefaultMonospacedTypeface[] = "DejaVu Sans Mono";
 #endif
 constexpr char kUnspecifiedTypeface[] = "";
 
-// If the default foreground color from the native theme isn't black, the rest
-// of the Harmony spec isn't going to work. Also skip Harmony if a Windows
-// High Contrast theme is enabled. One of the four standard High Contrast themes
-// in Windows 10 still has black text, but (since the user wants high contrast)
-// the grey text shades in Harmony should not be used.
+// If the default foreground color from the native theme isn't black and dark
+// mode is not on the rest of the Harmony spec isn't going to work. Also skip
+// Harmony if a Windows High Contrast theme is enabled. One of the four standard
+// High Contrast themes in Windows 10 still has black text, but (since the user
+// wants high contrast) the grey text shades in Harmony should not be used.
 bool ShouldIgnoreHarmonySpec(const ui::NativeTheme& theme) {
   // Mac provides users limited ways to customize the UI, including dark and
   // high contrast modes; all these are addressed elsewhere, so there's no need
@@ -50,6 +50,8 @@ bool ShouldIgnoreHarmonySpec(const ui::NativeTheme& theme) {
 #else
   if (theme.UsesHighContrastColors())
     return true;
+  if (theme.SystemDarkModeEnabled())
+    return false;
 
   // TODO(pbos): Revisit this check. Both GG900 and black are considered
   // "default black" as the common theme uses GG900 as primary color.
@@ -118,6 +120,7 @@ int ChromeTypographyProvider::GetPlatformFontHeight(int font_context) {
     case views::style::CONTEXT_DIALOG_TITLE:
       return windows_10 || !direct_write_enabled ? 20 : 21;
     case CONTEXT_BODY_TEXT_LARGE:
+    case CONTEXT_TAB_HOVER_CARD_TITLE:
     case views::style::CONTEXT_MESSAGE_BOX_BODY_TEXT:
       return direct_write_enabled ? 18 : 17;
     case CONTEXT_BODY_TEXT_SMALL:
@@ -159,6 +162,7 @@ const gfx::FontList& ChromeTypographyProvider::GetFont(int context,
           kTouchableLabelSize - gfx::PlatformFont::kDefaultBaseFontSize;
       break;
     case CONTEXT_BODY_TEXT_LARGE:
+    case CONTEXT_TAB_HOVER_CARD_TITLE:
     case views::style::CONTEXT_MESSAGE_BOX_BODY_TEXT:
       size_delta = kBodyTextLargeSize - gfx::PlatformFont::kDefaultBaseFontSize;
       break;
@@ -167,6 +171,11 @@ const gfx::FontList& ChromeTypographyProvider::GetFont(int context,
       break;
     default:
       break;
+  }
+
+  if (context == CONTEXT_TAB_HOVER_CARD_TITLE) {
+    DCHECK_EQ(views::style::STYLE_PRIMARY, style);
+    font_weight = gfx::Font::Weight::SEMIBOLD;
   }
 
   // Use a bold style for emphasized text in body contexts, and ignore |style|
@@ -321,6 +330,7 @@ int ChromeTypographyProvider::GetLineHeight(int context, int style) const {
     case views::style::CONTEXT_DIALOG_TITLE:
       return title_height;
     case CONTEXT_BODY_TEXT_LARGE:
+    case CONTEXT_TAB_HOVER_CARD_TITLE:
     case views::style::CONTEXT_MESSAGE_BOX_BODY_TEXT:
     case views::style::CONTEXT_TABLE_ROW:
       return body_large_height;

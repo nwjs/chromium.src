@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -158,6 +159,10 @@ class TestCryptohomeClient : public ::chromeos::FakeCryptohomeClient {
     remove_ex_should_succeed_ = should_succeed;
   }
 
+  void set_unmount_ex_should_succeed(bool should_succeed) {
+    unmount_ex_should_succeed_ = should_succeed;
+  }
+
   void MountEx(const cryptohome::AccountIdentifier& cryptohome_id,
                const cryptohome::AuthorizationRequest& auth,
                const cryptohome::MountRequest& request,
@@ -229,6 +234,16 @@ class TestCryptohomeClient : public ::chromeos::FakeCryptohomeClient {
         FROM_HERE, base::BindOnce(std::move(callback), reply));
   }
 
+  void UnmountEx(const cryptohome::UnmountRequest& account,
+                 DBusMethodCallback<cryptohome::BaseReply> callback) override {
+    cryptohome::BaseReply reply;
+    if (!unmount_ex_should_succeed_)
+      reply.set_error(cryptohome::CRYPTOHOME_ERROR_REMOVE_FAILED);
+
+    base::ThreadTaskRunnerHandle::Get()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), reply));
+  }
+
  private:
   cryptohome::AccountIdentifier expected_id_;
   std::string expected_authorization_secret_;
@@ -236,6 +251,7 @@ class TestCryptohomeClient : public ::chromeos::FakeCryptohomeClient {
   bool migrate_key_should_succeed_ = false;
   bool mount_guest_should_succeed_ = false;
   bool remove_ex_should_succeed_ = false;
+  bool unmount_ex_should_succeed_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(TestCryptohomeClient);
 };
@@ -581,7 +597,7 @@ TEST_F(CryptohomeAuthenticatorTest, ResolveOwnerNeededFailedMount) {
   EXPECT_TRUE(LoginState::Get()->IsInSafeMode());
 
   // Unset global objects used by this test.
-  fake_cryptohome_client_->set_unmount_result(true);
+  fake_cryptohome_client_->set_unmount_ex_should_succeed(true);
   LoginState::Shutdown();
 }
 
@@ -630,7 +646,7 @@ TEST_F(CryptohomeAuthenticatorTest, ResolveOwnerNeededSuccess) {
   EXPECT_TRUE(LoginState::Get()->IsInSafeMode());
 
   // Unset global objects used by this test.
-  fake_cryptohome_client_->set_unmount_result(true);
+  fake_cryptohome_client_->set_unmount_ex_should_succeed(true);
   LoginState::Shutdown();
 }
 

@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/network/http_header_map.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
@@ -253,7 +254,8 @@ class ResponsesAccumulator : public RefCounted<ResponsesAccumulator> {
           request->redirect_mode, request->integrity, request->priority,
           request->fetch_window_id, request->keepalive, request->is_reload,
           request->is_history_navigation);
-      cache_ptr_->Match(std::move(request), mojom::blink::QueryParams::New(),
+      cache_ptr_->Match(std::move(request),
+                        mojom::blink::CacheQueryOptions::New(),
                         WTF::Bind(
                             [](scoped_refptr<ResponsesAccumulator> accumulator,
                                mojom::blink::FetchAPIRequestPtr request,
@@ -274,23 +276,23 @@ class ResponsesAccumulator : public RefCounted<ResponsesAccumulator> {
       const mojom::blink::FetchAPIRequestPtr& request,
       const mojom::blink::FetchAPIResponsePtr& response) {
     DCHECK_GT(num_responses_left_, 0);
-    RequestResponse& request_response =
+    RequestResponse& next_request_response =
         responses_.at(responses_.size() - num_responses_left_);
 
-    request_response.request_url = request->url.GetString();
-    request_response.request_method = request->method;
+    next_request_response.request_url = request->url.GetString();
+    next_request_response.request_method = request->method;
     for (const auto& header : request->headers) {
-      request_response.request_headers.Set(AtomicString(header.key),
-                                           AtomicString(header.value));
+      next_request_response.request_headers.Set(AtomicString(header.key),
+                                                AtomicString(header.value));
     }
 
-    request_response.response_status = response->status_code;
-    request_response.response_status_text = response->status_text;
-    request_response.response_time = response->response_time.ToDoubleT();
-    request_response.response_type = response->response_type;
+    next_request_response.response_status = response->status_code;
+    next_request_response.response_status_text = response->status_text;
+    next_request_response.response_time = response->response_time.ToDoubleT();
+    next_request_response.response_type = response->response_type;
     for (const auto& header : response->headers) {
-      request_response.response_headers.Set(AtomicString(header.key),
-                                            AtomicString(header.value));
+      next_request_response.response_headers.Set(AtomicString(header.key),
+                                                 AtomicString(header.value));
     }
 
     if (--num_responses_left_ != 0)
@@ -371,7 +373,7 @@ class GetCacheKeysForRequestData {
 
   void Dispatch(std::unique_ptr<GetCacheKeysForRequestData> self) {
     cache_ptr_->Keys(
-        nullptr /* request */, mojom::blink::QueryParams::New(),
+        nullptr /* request */, mojom::blink::CacheQueryOptions::New(),
         WTF::Bind(
             [](DataRequestParams params,
                std::unique_ptr<GetCacheKeysForRequestData> self,
@@ -443,8 +445,12 @@ class CachedResponseFileReaderLoaderClient final
   CachedResponseFileReaderLoaderClient(
       scoped_refptr<BlobDataHandle>&& blob,
       std::unique_ptr<RequestCachedResponseCallback>&& callback)
-      : loader_(
-            FileReaderLoader::Create(FileReaderLoader::kReadByClient, this)),
+      // TODO(hajimehoshi): Use a per-ExecutionContext task runner of
+      // TaskType::kFileReading
+      : loader_(std::make_unique<FileReaderLoader>(
+            FileReaderLoader::kReadByClient,
+            static_cast<FileReaderLoaderClient*>(this),
+            ThreadScheduler::Current()->DeprecatedDefaultTaskRunner())),
         callback_(std::move(callback)),
         data_(SharedBuffer::Create()) {
     loader_->Start(std::move(blob));
@@ -642,6 +648,8 @@ void InspectorCacheStorageAgent::deleteEntry(
 void InspectorCacheStorageAgent::requestCachedResponse(
     const String& cache_id,
     const String& request_url,
+    const std::unique_ptr<protocol::Array<protocol::CacheStorage::Header>>
+        request_headers,
     std::unique_ptr<RequestCachedResponseCallback> callback) {
   String cache_name;
   mojom::blink::CacheStorage* cache_storage = nullptr;
@@ -654,8 +662,17 @@ void InspectorCacheStorageAgent::requestCachedResponse(
   auto request = mojom::blink::FetchAPIRequest::New();
   request->url = KURL(request_url);
   request->method = String("GET");
+  for (size_t i = 0, len = request_headers->length(); i < len; ++i) {
+    auto* header = request_headers->get(i);
+    request->headers.insert(header->getName(), header->getValue());
+  }
+
+  auto multi_query_options = mojom::blink::MultiCacheQueryOptions::New();
+  multi_query_options->query_options = mojom::blink::CacheQueryOptions::New();
+  multi_query_options->cache_name = cache_name;
+
   cache_storage->Match(
-      std::move(request), mojom::blink::QueryParams::New(),
+      std::move(request), std::move(multi_query_options),
       WTF::Bind(
           [](std::unique_ptr<RequestCachedResponseCallback> callback,
              mojom::blink::MatchResultPtr result) {

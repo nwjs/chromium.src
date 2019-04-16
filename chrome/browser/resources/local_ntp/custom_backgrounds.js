@@ -81,8 +81,9 @@ customBackgrounds.IDS = {
   EDIT_BG: 'edit-bg',
   EDIT_BG_DIALOG: 'edit-bg-dialog',
   EDIT_BG_DIVIDER: 'edit-bg-divider',
-  EDIT_BG_GEAR: 'edit-bg-gear',
+  EDIT_BG_ICON: 'edit-bg-icon',
   EDIT_BG_MENU: 'edit-bg-menu',
+  EDIT_BG_TEXT: 'edit-bg-text',
   MSG_BOX: 'message-box',
   MSG_BOX_MSG: 'message-box-message',
   MSG_BOX_LINK: 'message-box-link',
@@ -115,6 +116,8 @@ customBackgrounds.CLASSES = {
   COLLECTION_TILE_BG: 'bg-sel-tile-bg',
   COLLECTION_TITLE: 'bg-sel-tile-title',  // Title of a background image
   DONE_AVAILABLE: 'done-available',
+  // Extended and elevated style for entry point.
+  ENTRY_POINT_ENHANCED: 'ep-enhanced',
   FLOAT_UP: 'float-up',
   HAS_LINK: 'has-link',
   HIDE_MSG_BOX: 'message-box-hide',
@@ -137,8 +140,7 @@ customBackgrounds.CLASSES = {
 customBackgrounds.SOURCES = {
   NONE: -1,
   CHROME_BACKGROUNDS: 0,
-  GOOGLE_PHOTOS: 1,
-  IMAGE_UPLOAD: 2,
+  IMAGE_UPLOAD: 1,
 };
 
 /**
@@ -204,7 +206,8 @@ customBackgrounds.setMenuVisibility = function() {
   $(customBackgrounds.IDS.UPLOAD_IMAGE).hidden = false;
   $(customBackgrounds.IDS.RESTORE_DEFAULT).hidden = false;
   $(customBackgrounds.IDS.EDIT_BG_DIVIDER).hidden = false;
-  $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).hidden = false;
+  $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT).hidden =
+      configData.hideShortcuts;
 };
 
 /**
@@ -310,33 +313,6 @@ customBackgrounds.createChromeBackgroundTile = function(data) {
 };
 
 /**
- * Create a tile for a Google Photos album.
- */
-customBackgrounds.createAlbumTile = function(data) {
-  let tile = document.createElement('div');
-  tile.style.backgroundImage = 'url(' + data.previewImageUrl + ')';
-  tile.dataset.id = data.albumId;
-  tile.dataset.name = data.albumName;
-  tile.dataset.photoContainerId = data.photoContainerId;
-  fadeInImageTile(tile, data.previewImageUrl);
-  return tile;
-};
-
-customBackgrounds.createAlbumPlusTile = function() {
-  var tile = document.createElement('div');
-  var plusIcon = document.createElement('div');
-  tile.classList.add(customBackgrounds.CLASSES.COLLECTION_TILE);
-  plusIcon.classList.add(customBackgrounds.CLASSES.PLUS_ICON);
-  tile.appendChild(plusIcon);
-  tile.onclick = function() {
-    window.open('https://photos.google.com/albums', '_blank');
-    customBackgrounds.closeCollectionDialog($(customBackgrounds.IDS.MENU));
-  };
-  tile.id = 'coll_tile_0';
-  return tile;
-};
-
-/**
  * Get the number of tiles in a row according to current window width.
  * @return {number} the number of tiles per row
  */
@@ -387,19 +363,14 @@ customBackgrounds.getNextTile = function(deltaX, deltaY, current) {
 };
 
 /**
- * Show dialog for selecting either a Chrome background collection or Google
- * Photo album. Draw data from either coll or albums.
+ * Show dialog for selecting a Chrome background.
  * @param {int} collectionsSource The enum value of the source to fetch
  *              collection data from.
  */
 customBackgrounds.showCollectionSelectionDialog = function(collectionsSource) {
   var tileContainer = $(customBackgrounds.IDS.TILES);
   var menu = $(customBackgrounds.IDS.MENU);
-  var collData = null;
-  var sourceIsChromeBackgrounds =
-      (collectionsSource == customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
-  if (collectionsSource != customBackgrounds.SOURCES.CHROME_BACKGROUNDS &&
-      collectionsSource != customBackgrounds.SOURCES.GOOGLE_PHOTOS) {
+  if (collectionsSource != customBackgrounds.SOURCES.CHROME_BACKGROUNDS) {
     console.log(
         'showCollectionSelectionDialog() called with invalid source=' +
         collectionsSource);
@@ -412,32 +383,17 @@ customBackgrounds.showCollectionSelectionDialog = function(collectionsSource) {
   }
 
   // Create dialog header.
-  if (sourceIsChromeBackgrounds) {
-    $(customBackgrounds.IDS.TITLE).textContent =
-        configData.translatedStrings.selectChromeWallpaper;
-    collData = coll;
-  } else {
-    $(customBackgrounds.IDS.TITLE).textContent =
-        configData.translatedStrings.selectGooglePhotoAlbum;
-    collData = albums;
-    if (albums.length == 0) {
-      tileContainer.appendChild(customBackgrounds.createAlbumPlusTile());
-    }
-  }
+  $(customBackgrounds.IDS.TITLE).textContent =
+      configData.translatedStrings.selectChromeWallpaper;
   menu.classList.add(customBackgrounds.CLASSES.COLLECTION_DIALOG);
   menu.classList.remove(customBackgrounds.CLASSES.IMAGE_DIALOG);
 
   // Create dialog tiles.
-  for (var i = 0; i < collData.length; ++i) {
+  for (var i = 0; i < coll.length; ++i) {
     let tileBackground = document.createElement('div');
     tileBackground.classList.add(
         customBackgrounds.CLASSES.COLLECTION_TILE_BG);
-    var tile = null;
-    if (sourceIsChromeBackgrounds) {
-      tile = customBackgrounds.createChromeBackgroundTile(collData[i]);
-    } else {
-      tile = customBackgrounds.createAlbumTile(collData[i]);
-    }
+    var tile = customBackgrounds.createChromeBackgroundTile(coll[i]);
     tile.classList.add(customBackgrounds.CLASSES.COLLECTION_TILE);
     tile.id = 'coll_tile_' + i;
     tile.dataset.tile_num = i;
@@ -462,33 +418,19 @@ customBackgrounds.showCollectionSelectionDialog = function(collectionsSource) {
       }
       var imgScript = document.createElement('script');
       imgScript.id = 'ntp-images-loader';
-
-      if (sourceIsChromeBackgrounds) {
-        imgScript.src = 'chrome-search://local-ntp/ntp-background-images.js?' +
-            'collection_type=background&collection_id=' + tile.dataset.id;
-        ntpApiHandle.logEvent(
-            BACKGROUND_CUSTOMIZATION_LOG_TYPE
-                .NTP_CUSTOMIZE_CHROME_BACKGROUND_SELECT_COLLECTION);
-      } else {
-        imgScript.src = 'chrome-search://local-ntp/ntp-background-images.js?' +
-            'collection_type=album&album_id=' + tile.dataset.id +
-            '&photo_container_id=' + tile.dataset.photoContainerId;
-      }
+      imgScript.src = 'chrome-search://local-ntp/ntp-background-images.js?' +
+          'collection_id=' + tile.dataset.id;
+      ntpApiHandle.logEvent(
+          BACKGROUND_CUSTOMIZATION_LOG_TYPE
+              .NTP_CUSTOMIZE_CHROME_BACKGROUND_SELECT_COLLECTION);
 
       document.body.appendChild(imgScript);
 
       imgScript.onload = function() {
         // Verify that the individual image data was successfully loaded.
-        var imageDataLoaded = false;
-        if (sourceIsChromeBackgrounds) {
-          imageDataLoaded =
-              (coll_img.length > 0 &&
-               coll_img[0].collectionId == tile.dataset.id);
-        } else {
-          imageDataLoaded =
-              (photos.length > 0 && photos[0].albumId == tile.dataset.id &&
-               photos[0].photoContainerId == tile.dataset.photoContainerId);
-        }
+        var imageDataLoaded =
+            (coll_img.length > 0 &&
+             coll_img[0].collectionId == tile.dataset.id);
 
         // Dependent upon the success of the load, populate the image selection
         // dialog or close the current dialog.
@@ -496,18 +438,7 @@ customBackgrounds.showCollectionSelectionDialog = function(collectionsSource) {
           customBackgrounds.resetSelectionDialog();
           customBackgrounds.showImageSelectionDialog(tile.dataset.name);
         } else {
-          let errors =
-              (collectionsSource ==
-                       customBackgrounds.SOURCES.CHROME_BACKGROUNDS ?
-                   coll_img_errors :
-                   photos_errors);
-          // If an auth error occurs leave the dialog open and redirect the
-          // user to sign-in again. Then they can return to the same place in
-          // the customization flow.
-          if (!errors.auth_error) {
-            customBackgrounds.closeCollectionDialog(menu);
-          }
-          customBackgrounds.handleError(errors);
+          customBackgrounds.handleError(coll_img_errors);
         }
       };
     };
@@ -589,8 +520,8 @@ customBackgrounds.removeSelectedState = function(tile) {
 };
 
 /**
- * Show dialog for selecting an image or toggling on daily refresh. Image
- * data should previous have been loaded into coll_img via
+ * Show dialog for selecting an image. Image data should previous have been
+ * loaded into coll_img via
  * chrome-search://local-ntp/ntp-background-images.js?collection_id=<collection_id>
  * @param {string} dialogTitle The title to be displayed at the top of the
  *                 dialog.
@@ -600,25 +531,15 @@ customBackgrounds.showImageSelectionDialog = function(dialogTitle) {
       * customBackgrounds.getTilesWide();
   var menu = $(customBackgrounds.IDS.MENU);
   var tileContainer = $(customBackgrounds.IDS.TILES);
-  var sourceIsChromeBackgrounds =
-      (customBackgrounds.dialogCollectionsSource ==
-       customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
 
   $(customBackgrounds.IDS.TITLE).textContent = dialogTitle;
   menu.classList.remove(customBackgrounds.CLASSES.COLLECTION_DIALOG);
   menu.classList.add(customBackgrounds.CLASSES.IMAGE_DIALOG);
 
-  var imageData = null;
-  if (sourceIsChromeBackgrounds) {
-    imageData = coll_img;
-  } else {
-    imageData = photos;
-  }
-
   let preLoadTiles = [];
   let postLoadTiles = [];
 
-  for (var i = 0; i < imageData.length; ++i) {
+  for (var i = 0; i < coll_img.length; ++i) {
     let tileBackground = document.createElement('div');
     tileBackground.classList.add(
         customBackgrounds.CLASSES.COLLECTION_TILE_BG);
@@ -627,37 +548,25 @@ customBackgrounds.showImageSelectionDialog = function(dialogTitle) {
     // Accessibility support for screen readers.
     tile.setAttribute('role', 'button');
 
-    // Set the background image, the name of the source variable differs
-    // depending on if it's coming from Chrome Backgrounds or Google Photos.
-    if (sourceIsChromeBackgrounds) {
-      // TODO(crbug.com/854028): Remove this hardcoded check when wallpaper
-      // previews are supported.
-      if (imageData[i].collectionId === 'solidcolors') {
-        tile.dataset.attributionLine1 = '';
-        tile.dataset.attributionLine2 = '';
-        tile.dataset.attributionActionUrl = '';
-      } else {
-        tile.dataset.attributionLine1 =
-          (imageData[i].attributions[0] !== undefined ?
-               imageData[i].attributions[0] :
-               '');
-        tile.dataset.attributionLine2 =
-          (imageData[i].attributions[1] !== undefined ?
-               imageData[i].attributions[1] :
-               '');
-        tile.dataset.attributionActionUrl = imageData[i].attributionActionUrl;
-      }
-      tile.setAttribute('aria-label', imageData[i].attributions[0]);
-      tile.dataset.url = imageData[i].imageUrl;
-    } else {
-      tile.style.backgroundImage =
-          'url(' + imageData[i].thumbnailPhotoUrl + ')';
-      tile.dataset.url = imageData[i].photoUrl;
+    // TODO(crbug.com/854028): Remove this hardcoded check when wallpaper
+    // previews are supported.
+    if (coll_img[i].collectionId === 'solidcolors') {
       tile.dataset.attributionLine1 = '';
       tile.dataset.attributionLine2 = '';
       tile.dataset.attributionActionUrl = '';
-      tile.setAttribute('aria-label', configData.translatedStrings.photoLabel);
+    } else {
+      tile.dataset.attributionLine1 =
+          (coll_img[i].attributions[0] !== undefined ?
+               coll_img[i].attributions[0] :
+               '');
+      tile.dataset.attributionLine2 =
+          (coll_img[i].attributions[1] !== undefined ?
+               coll_img[i].attributions[1] :
+               '');
+      tile.dataset.attributionActionUrl = coll_img[i].attributionActionUrl;
     }
+    tile.setAttribute('aria-label', coll_img[i].attributions[0]);
+    tile.dataset.url = coll_img[i].imageUrl;
 
     tile.id = 'img_tile_' + i;
     tile.dataset.tile_num = i;
@@ -744,11 +653,11 @@ customBackgrounds.showImageSelectionDialog = function(dialogTitle) {
   }
   let tileGetsLoaded = 0;
   for (let tile of preLoadTiles) {
-    loadTile(tile, imageData, () => {
+    loadTile(tile, coll_img, () => {
       // After the preloaded tiles finish loading, the rest of the tiles start
       // loading.
       if (++tileGetsLoaded === preLoadTiles.length) {
-        postLoadTiles.forEach((tile) => loadTile(tile, imageData));
+        postLoadTiles.forEach((tile) => loadTile(tile, coll_img));
       }
     });
   }
@@ -770,12 +679,11 @@ let loadTile = function(tile, imageData, countLoad) {
       'url(' + imageData[tile.dataset.tile_num].thumbnailImageUrl + ')'].join(
         ',').trim();
   } else {
-    tile.style.backgroundImage = 'url('
-        + imageData[tile.dataset.tile_num].thumbnailImageUrl + ')' || 'url('
-        + imageData[tile.dataset.tile_num].thumbnailPhotoUrl + ')';
+    tile.style.backgroundImage =
+        'url(' + imageData[tile.dataset.tile_num].thumbnailImageUrl + ')';
   }
-  fadeInImageTile(tile, imageData[tile.dataset.tile_num].thumbnailImageUrl
-      || imageData[tile.dataset.tile_num].thumbnailPhotoUrl, countLoad);
+  fadeInImageTile(
+      tile, imageData[tile.dataset.tile_num].thumbnailImageUrl, countLoad);
 };
 
 /**
@@ -813,23 +721,6 @@ customBackgrounds.loadChromeBackgrounds = function() {
   collScript.src = 'chrome-search://local-ntp/ntp-background-collections.js?' +
       'collection_type=background';
   document.body.appendChild(collScript);
-};
-
-/**
- * Load the NTPGooglePhotoAlbums script. It'll create a global
- * variable name "albums" which is a dict of album data.
- * @private
- */
-customBackgrounds.loadGooglePhotosAlbums = function() {
-  var albumElement = $('ntp-album-loader');
-  if (albumElement) {
-    albumElement.parentNode.removeChild(albumElement);
-  }
-  var albumScript = document.createElement('script');
-  albumScript.id = 'ntp-album-loader';
-  albumScript.src = 'chrome-search://local-ntp/ntp-background-collections.js?' +
-      'collection_type=album';
-  document.body.appendChild(albumScript);
 };
 
 /* Close dialog when an image is selected via the file picker. */
@@ -891,11 +782,11 @@ customBackgrounds.init = function(
   $(customBackgrounds.IDS.OPTIONS_TITLE).textContent =
       configData.translatedStrings.customizeBackground;
 
-  $(customBackgrounds.IDS.EDIT_BG_GEAR)
+  $(customBackgrounds.IDS.EDIT_BG_ICON)
       .setAttribute(
           'aria-label', configData.translatedStrings.customizeThisPage);
 
-  $(customBackgrounds.IDS.EDIT_BG_GEAR)
+  $(customBackgrounds.IDS.EDIT_BG_ICON)
       .setAttribute('title', configData.translatedStrings.customizeBackground);
 
   // Edit gear icon interaction events.
@@ -930,12 +821,6 @@ customBackgrounds.init = function(
       editBackgroundInteraction();
       findFirstMenuOption();
     }
-  };
-
-  // Handle focus state for the gear icon.
-  $(customBackgrounds.IDS.EDIT_BG).onmousedown = function() {
-    $(customBackgrounds.IDS.EDIT_BG)
-        .classList.add(customBackgrounds.CLASSES.MOUSE_NAV);
   };
 
   // Interactions to close the customization option dialog.
@@ -1185,6 +1070,12 @@ customBackgrounds.initCustomBackgrounds = function(showErrorNotification) {
 
   // Escape and Backspace handling for the background picker dialog.
   menu.onkeydown = function(event) {
+    if (event.keyCode === customBackgrounds.KEYCODES.SPACE) {
+      $(customBackgrounds.IDS.TILES).scrollTop +=
+          $(customBackgrounds.IDS.TILES).offsetHeight;
+      event.stopPropagation();
+      event.preventDefault();
+    }
     if (event.keyCode === customBackgrounds.KEYCODES.ESC ||
         event.keyCode === customBackgrounds.KEYCODES.BACKSPACE) {
       event.preventDefault();
@@ -1230,8 +1121,9 @@ customBackgrounds.initCustomBackgrounds = function(showErrorNotification) {
     ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
                               .NTP_CUSTOMIZE_CHROME_BACKGROUND_CANCEL);
   };
-  $(customBackgrounds.IDS.CANCEL).onkeyup = function(event) {
-    if (event.keyCode === customBackgrounds.KEYCODES.ENTER) {
+  $(customBackgrounds.IDS.CANCEL).onkeydown = function(event) {
+    if (event.keyCode === customBackgrounds.KEYCODES.ENTER ||
+        event.keyCode === customBackgrounds.KEYCODES.SPACE) {
       customBackgrounds.closeCollectionDialog(menu);
       ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
                                 .NTP_CUSTOMIZE_CHROME_BACKGROUND_CANCEL);
@@ -1302,8 +1194,6 @@ customBackgrounds.handleError = function(errors) {
         customBackgrounds.showErrorNotification(
             configData.translatedStrings.connectionErrorNoPeriod);
       }
-    } else if (errors.auth_error) {  // Auth errors (Google Photos only).
-      window.open('https://photos.google.com/login', '_blank');
     } else if (errors.service_error) {  // Service errors.
       customBackgrounds.showErrorNotification(unavailableString);
     }

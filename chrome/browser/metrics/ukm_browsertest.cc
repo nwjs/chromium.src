@@ -4,6 +4,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/strings/string_util.h"
@@ -239,7 +240,7 @@ class UkmBrowserTestBase : public SyncTest {
  protected:
   std::unique_ptr<ProfileSyncServiceHarness> InitializeProfileForSync(
       Profile* profile) {
-    ProfileSyncServiceFactory::GetForProfile(profile)
+    ProfileSyncServiceFactory::GetAsProfileSyncServiceForProfile(profile)
         ->OverrideNetworkResourcesForTest(
             std::make_unique<fake_server::FakeServerNetworkResources>(
                 GetFakeServer()->AsWeakPtr()));
@@ -248,7 +249,7 @@ class UkmBrowserTestBase : public SyncTest {
 #if defined(OS_CHROMEOS)
     // In browser tests, the profile may already by authenticated with stub
     // account |user_manager::kStubUserEmail|.
-    AccountInfo info =
+    CoreAccountInfo info =
         IdentityManagerFactory::GetForProfile(profile)->GetPrimaryAccountInfo();
     username = info.email;
 #endif
@@ -276,7 +277,7 @@ class UkmBrowserTestBase : public SyncTest {
     unified_consent::UnifiedConsentService* consent_service =
         UnifiedConsentServiceFactory::GetForProfile(profile);
     if (consent_service)
-      consent_service->EnableGoogleServices();
+      consent_service->SetUrlKeyedAnonymizedDataCollectionEnabled(true);
 
     return harness;
   }
@@ -331,18 +332,15 @@ class UkmBrowserTest : public UkmBrowserTestBase,
 class UkmBrowserTestWithSyncTransport : public UkmBrowserTest {
  public:
   UkmBrowserTestWithSyncTransport() {
-    features_.InitWithFeatures({switches::kSyncStandaloneTransport,
-                                switches::kSyncSupportSecondaryAccount},
-                               {});
+    features_.InitAndEnableFeature(switches::kSyncSupportSecondaryAccount);
   }
 
   void SetUpInProcessBrowserTestFixture() override {
     // This is required to support (fake) secondary-account-signin (based on
     // cookies) in tests. Without this, the real GaiaCookieManagerService would
     // try talking to Google servers which of course wouldn't work in tests.
-    fake_gaia_cookie_manager_factory_ =
-        secondary_account_helper::SetUpFakeGaiaCookieManagerService(
-            &test_url_loader_factory_);
+    test_signin_client_factory_ =
+        secondary_account_helper::SetUpSigninClient(&test_url_loader_factory_);
     UkmBrowserTest::SetUpInProcessBrowserTestFixture();
   }
 
@@ -356,8 +354,8 @@ class UkmBrowserTestWithSyncTransport : public UkmBrowserTest {
  private:
   base::test::ScopedFeatureList features_;
 
-  secondary_account_helper::ScopedFakeGaiaCookieManagerServiceFactory
-      fake_gaia_cookie_manager_factory_;
+  secondary_account_helper::ScopedSigninClientFactory
+      test_signin_client_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(UkmBrowserTestWithSyncTransport);
 };
@@ -1094,7 +1092,7 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTest, HistoryDeleteCheck) {
 }
 
 // Run UKM browser test suite with Unified Consent enabled and disabled.
-INSTANTIATE_TEST_CASE_P(, UkmBrowserTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, UkmBrowserTest, testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithSyncTransport, SyncFeatureCheck) {
   MetricsConsentOverride metrics_consent(true);
@@ -1104,7 +1102,7 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithSyncTransport, SyncFeatureCheck) {
   std::unique_ptr<ProfileSyncServiceHarness> harness =
       EnableSyncForProfile(profile);
 
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile);
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             sync_service->GetTransportState());
@@ -1128,7 +1126,8 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithSyncTransport, SyncFeatureCheck) {
   // CONNECTION_OK.
   sync_service->TriggerRefresh(syncer::Intersection(
       sync_service->GetActiveDataTypes(), syncer::ProtocolTypes()));
-  SyncConnectionOkChecker connection_ok(sync_service);
+  SyncConnectionOkChecker connection_ok(
+      ProfileSyncServiceFactory::GetAsProfileSyncServiceForProfile(profile));
   ASSERT_TRUE(connection_ok.Wait());
 
   // History Sync is now not active anymore, but (maybe surprisingly) TYPED_URLS
@@ -1170,11 +1169,11 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithSyncTransport,
   Profile* profile = ProfileManager::GetActiveUserProfile();
   std::unique_ptr<ProfileSyncServiceHarness> harness =
       InitializeProfileForSync(profile);
-  browser_sync::ProfileSyncService* sync_service =
+  syncer::SyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile);
 
-  secondary_account_helper::SignInSecondaryAccount(profile,
-                                                   "secondary_user@email.com");
+  secondary_account_helper::SignInSecondaryAccount(
+      profile, &test_url_loader_factory_, "secondary_user@email.com");
   ASSERT_NE(syncer::SyncService::TransportState::DISABLED,
             sync_service->GetTransportState());
   ASSERT_TRUE(harness->AwaitSyncTransportActive());
@@ -1196,7 +1195,7 @@ IN_PROC_BROWSER_TEST_P(UkmBrowserTestWithSyncTransport,
 #endif  // !OS_CHROMEOS
 
 // Run UKM browser test suite with Unified Consent enabled and disabled.
-INSTANTIATE_TEST_CASE_P(, UkmBrowserTestWithSyncTransport, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, UkmBrowserTestWithSyncTransport, testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(UkmConsentParamBrowserTest, GroupPolicyConsentCheck) {
   // Note we are not using the synthetic MetricsConsentOverride since we are
@@ -1221,8 +1220,8 @@ IN_PROC_BROWSER_TEST_P(UkmConsentParamBrowserTest, GroupPolicyConsentCheck) {
 }
 
 // Verify UKM is enabled/disabled for both potential settings of group policy.
-INSTANTIATE_TEST_CASE_P(UkmConsentParamBrowserTests,
-                        UkmConsentParamBrowserTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(UkmConsentParamBrowserTests,
+                         UkmConsentParamBrowserTest,
+                         testing::Bool());
 
 }  // namespace metrics

@@ -102,10 +102,10 @@ void SetCallStack(TracedValue* value) {
 }
 
 void InspectorTraceEvents::WillSendRequest(
-    ExecutionContext*,
     unsigned long identifier,
     DocumentLoader* loader,
-    ResourceRequest& request,
+    const KURL& fetch_context_url,
+    const ResourceRequest& request,
     const ResourceResponse& redirect_response,
     const FetchInitiatorInfo&,
     ResourceType) {
@@ -114,6 +114,19 @@ void InspectorTraceEvents::WillSendRequest(
       "devtools.timeline", "ResourceSendRequest", TRACE_EVENT_SCOPE_THREAD,
       "data",
       inspector_send_request_event::Data(loader, identifier, frame, request));
+}
+
+void InspectorTraceEvents::WillSendNavigationRequest(
+    unsigned long identifier,
+    DocumentLoader* loader,
+    const KURL& url,
+    const AtomicString& http_method,
+    EncodedFormData*) {
+  LocalFrame* frame = loader ? loader->GetFrame() : nullptr;
+  TRACE_EVENT_INSTANT1("devtools.timeline", "ResourceSendRequest",
+                       TRACE_EVENT_SCOPE_THREAD, "data",
+                       inspector_send_navigation_request_event::Data(
+                           loader, identifier, frame, url, http_method));
 }
 
 void InspectorTraceEvents::DidReceiveResourceResponse(
@@ -326,6 +339,7 @@ const char* PseudoTypeToString(CSSSelector::PseudoType pseudo_type) {
     DEFINE_STRING_MAPPING(PseudoShadow)
     DEFINE_STRING_MAPPING(PseudoSlotted)
     DEFINE_STRING_MAPPING(PseudoSpatialNavigationFocus)
+    DEFINE_STRING_MAPPING(PseudoSpatialNavigationInterest)
     DEFINE_STRING_MAPPING(PseudoIsHtml)
     DEFINE_STRING_MAPPING(PseudoListBox)
     DEFINE_STRING_MAPPING(PseudoHostHasAppearance)
@@ -391,6 +405,8 @@ const char* NotStreamedReasonString(ScriptStreamer::NotStreamingReason reason) {
       return "already used streamed data";
     case ScriptStreamer::kWorkerTopLevelScript:
       return "worker top-level scripts are not streamable";
+    case ScriptStreamer::kModuleScript:
+      return "module script";
     case ScriptStreamer::kAlreadyLoaded:
     case ScriptStreamer::kCount:
     case ScriptStreamer::kInvalid:
@@ -712,20 +728,6 @@ std::unique_ptr<TracedValue> inspector_paint_invalidation_tracking_event::Data(
   return value;
 }
 
-std::unique_ptr<TracedValue> inspector_scroll_invalidation_tracking_event::Data(
-    const LayoutObject& layout_object) {
-  static const char kScrollInvalidationReason[] =
-      "Scroll with viewport-constrained element";
-
-  std::unique_ptr<TracedValue> value = TracedValue::Create();
-  value->SetString("frame",
-                   IdentifiersFactory::FrameId(layout_object.GetFrame()));
-  value->SetString("reason", kScrollInvalidationReason);
-  SetGeneratingNodeInfo(value.get(), &layout_object, "nodeId", "nodeName");
-  SourceLocation::Capture()->ToTracedValue(value.get(), "stackTrace");
-  return value;
-}
-
 std::unique_ptr<TracedValue> inspector_change_resource_priority_event::Data(
     DocumentLoader* loader,
     unsigned long identifier,
@@ -759,9 +761,29 @@ std::unique_ptr<TracedValue> inspector_send_request_event::Data(
   return value;
 }
 
+std::unique_ptr<TracedValue> inspector_send_navigation_request_event::Data(
+    DocumentLoader* loader,
+    unsigned long identifier,
+    LocalFrame* frame,
+    const KURL& url,
+    const AtomicString& http_method) {
+  std::unique_ptr<TracedValue> value = TracedValue::Create();
+  value->SetString("requestId", IdentifiersFactory::LoaderId(loader));
+  value->SetString("frame", IdentifiersFactory::FrameId(frame));
+  value->SetString("url", url.GetString());
+  value->SetString("requestMethod", http_method);
+  const char* priority =
+      ResourcePriorityString(ResourceLoadPriority::kVeryHigh);
+  if (priority)
+    value->SetString("priority", priority);
+  SetCallStack(value.get());
+  return value;
+}
+
 namespace {
 void RecordTiming(const ResourceLoadTiming& timing, TracedValue* value) {
-  value->SetDouble("requestTime", TimeTicksInSeconds(timing.RequestTime()));
+  value->SetDouble("requestTime",
+                   timing.RequestTime().since_origin().InSecondsF());
   value->SetDouble("proxyStart",
                    timing.CalculateMillisecondDelta(timing.ProxyStart()));
   value->SetDouble("proxyEnd",
@@ -786,8 +808,8 @@ void RecordTiming(const ResourceLoadTiming& timing, TracedValue* value) {
                    timing.CalculateMillisecondDelta(timing.SendEnd()));
   value->SetDouble("receiveHeadersEnd", timing.CalculateMillisecondDelta(
                                             timing.ReceiveHeadersEnd()));
-  value->SetDouble("pushStart", TimeTicksInSeconds(timing.PushStart()));
-  value->SetDouble("pushEnd", TimeTicksInSeconds(timing.PushEnd()));
+  value->SetDouble("pushStart", timing.PushStart().since_origin().InSecondsF());
+  value->SetDouble("pushEnd", timing.PushEnd().since_origin().InSecondsF());
 }
 }  // namespace
 
@@ -845,7 +867,7 @@ std::unique_ptr<TracedValue> inspector_resource_finish_event::Data(
   value->SetDouble("encodedDataLength", encoded_data_length);
   value->SetDouble("decodedBodyLength", decoded_body_length);
   if (!finish_time.is_null())
-    value->SetDouble("finishTime", TimeTicksInSeconds(finish_time));
+    value->SetDouble("finishTime", finish_time.since_origin().InSecondsF());
   return value;
 }
 
@@ -1052,12 +1074,12 @@ void FillCommonFrameData(TracedValue* frame_data, LocalFrame* frame) {
   frame_data->SetString("name", frame->Tree().GetName());
 
   FrameOwner* owner = frame->Owner();
-  if (owner && owner->IsLocal()) {
-    frame_data->SetInteger("nodeId", IdentifiersFactory::IntIdForNode(
-                                         ToHTMLFrameOwnerElement(owner)));
+  if (auto* frame_owner_element = DynamicTo<HTMLFrameOwnerElement>(owner)) {
+    frame_data->SetInteger(
+        "nodeId", IdentifiersFactory::IntIdForNode(frame_owner_element));
   }
   Frame* parent = frame->Tree().Parent();
-  if (parent && parent->IsLocalFrame())
+  if (IsA<LocalFrame>(parent))
     frame_data->SetString("parent", IdentifiersFactory::FrameId(parent));
 }
 
@@ -1123,12 +1145,8 @@ std::unique_ptr<TracedValue> inspector_parse_script_event::Data(
 }
 
 inspector_compile_script_event::V8CacheResult::ProduceResult::ProduceResult(
-    v8::ScriptCompiler::CompileOptions produce_options,
     int cache_size)
-    : produce_options(produce_options), cache_size(cache_size) {
-  DCHECK(produce_options == v8::ScriptCompiler::kNoCompileOptions ||
-         produce_options == v8::ScriptCompiler::kEagerCompile);
-}
+    : cache_size(cache_size) {}
 
 inspector_compile_script_event::V8CacheResult::ConsumeResult::ConsumeResult(
     v8::ScriptCompiler::CompileOptions consume_options,
@@ -1155,9 +1173,6 @@ std::unique_ptr<TracedValue> inspector_compile_script_event::Data(
   std::unique_ptr<TracedValue> value = FillLocation(url, text_position);
 
   if (cache_result.produce_result) {
-    value->SetString(
-        "cacheProduceOptions",
-        CompileOptionsString(cache_result.produce_result->produce_options));
     value->SetInteger("producedCacheSize",
                       cache_result.produce_result->cache_size);
   }
@@ -1343,10 +1358,11 @@ std::unique_ptr<TracedValue> inspector_tracing_started_in_frame::Data(
   value->SetBoolean("persistentIds", true);
   value->BeginArray("frames");
   for (Frame* f = frame; f; f = f->Tree().TraverseNext(frame)) {
-    if (!f->IsLocalFrame())
+    auto* local_frame = DynamicTo<LocalFrame>(f);
+    if (!local_frame)
       continue;
     value->BeginDictionary();
-    FillCommonFrameData(value.get(), ToLocalFrame(f));
+    FillCommonFrameData(value.get(), local_frame);
     value->EndDictionary();
   }
   value->EndArray();

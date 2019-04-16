@@ -30,6 +30,7 @@
 #include "content/browser/indexed_db/indexed_db_pre_close_task_queue.h"
 #include "content/browser/indexed_db/leveldb/leveldb_iterator.h"
 #include "content/browser/indexed_db/leveldb/leveldb_transaction.h"
+#include "content/browser/indexed_db/scopes/disjoint_range_lock_manager.h"
 #include "content/common/content_export.h"
 #include "storage/browser/blob/blob_data_handle.h"
 #include "third_party/blink/public/common/indexeddb/indexeddb_key.h"
@@ -570,6 +571,12 @@ class CONTENT_EXPORT IndexedDBBackingStore
 
   bool is_incognito() const { return !indexed_db_factory_; }
 
+  base::WeakPtr<IndexedDBBackingStore> AsWeakPtr() {
+    return weak_factory_.GetWeakPtr();
+  }
+
+  DisjointRangeLockManager* lock_manager() { return &lock_manager_; }
+
  protected:
   friend class base::RefCounted<IndexedDBBackingStore>;
   virtual ~IndexedDBBackingStore();
@@ -666,9 +673,13 @@ class CONTENT_EXPORT IndexedDBBackingStore
   // complete. While > 0, temporary journal entries may exist so out-of-band
   // journal cleaning must be deferred.
   size_t committing_transaction_count_;
+
+  DisjointRangeLockManager lock_manager_ = {kIndexedDBLockLevelCount};
+
 #if DCHECK_IS_ON()
   bool initialized_ = false;
 #endif
+  base::WeakPtrFactory<IndexedDBBackingStore> weak_factory_;
   DISALLOW_COPY_AND_ASSIGN(IndexedDBBackingStore);
 };
 

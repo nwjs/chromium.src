@@ -5,16 +5,15 @@
 #ifndef CHROME_CREDENTIAL_PROVIDER_GAIACP_REAUTH_CREDENTIAL_H_
 #define CHROME_CREDENTIAL_PROVIDER_GAIACP_REAUTH_CREDENTIAL_H_
 
-#include "chrome/credential_provider/gaiacp/gaia_credential_base.h"
-#include "chrome/credential_provider/gaiacp/gaia_credential_provider_i.h"
+#include "chrome/credential_provider/gaiacp/reauth_credential_base.h"
 
 namespace credential_provider {
 
-// Implementation of a ICredentialProviderCredential backed by a Gaia account.
+// A credential for a user that exists on the system and is associated with a
+// Gaia account.
 class ATL_NO_VTABLE CReauthCredential
     : public CComObjectRootEx<CComMultiThreadModel>,
-      public CGaiaCredentialBase,
-      public IReauthCredential {
+      public CReauthCredentialBase {
  public:
   DECLARE_NO_REGISTRY()
 
@@ -24,9 +23,6 @@ class ATL_NO_VTABLE CReauthCredential
   HRESULT FinalConstruct();
   void FinalRelease();
 
- protected:
-  HRESULT GetEmailForReauth(wchar_t* email, size_t length) override;
-
  private:
   // This class does not say it implements ICredentialProviderCredential2.
   // It only implements ICredentialProviderCredential.  Otherwise the
@@ -34,18 +30,18 @@ class ATL_NO_VTABLE CReauthCredential
   // machines.
   BEGIN_COM_MAP(CReauthCredential)
   COM_INTERFACE_ENTRY(IGaiaCredential)
+  COM_INTERFACE_ENTRY(IReauthCredential)
   COM_INTERFACE_ENTRY(ICredentialProviderCredential)
   COM_INTERFACE_ENTRY(ICredentialProviderCredential2)
-  COM_INTERFACE_ENTRY(IReauthCredential)
   END_COM_MAP()
 
   DECLARE_PROTECT_FINAL_CONSTRUCT()
 
-  // IReauthCredential
-  IFACEMETHODIMP SetEmailForReauth(BSTR email) override;
-  IFACEMETHODIMP SetOSUserInfo(BSTR sid, BSTR username) override;
+  // ICredentialProviderCredential2
+  IFACEMETHODIMP GetUserSid(wchar_t** sid) override;
 
-  CComBSTR email_for_reauth_;
+  // IReauthCredential
+  IFACEMETHODIMP SetOSUserInfo(BSTR sid, BSTR domain, BSTR username) override;
 };
 
 }  // namespace credential_provider

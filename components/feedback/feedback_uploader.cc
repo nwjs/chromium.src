@@ -4,6 +4,7 @@
 
 #include "components/feedback/feedback_uploader.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "components/data_use_measurement/core/data_use_user_data.h"
@@ -168,11 +169,11 @@ void FeedbackUploader::DispatchReport() {
   resource_request->method = "POST";
 
   // Tell feedback server about the variation state of this install.
-  variations::AppendVariationHeadersUnknownSignedIn(
+  variations::AppendVariationsHeaderUnknownSignedIn(
       feedback_post_url_,
       context_->IsOffTheRecord() ? variations::InIncognito::kYes
                                  : variations::InIncognito::kNo,
-      &resource_request->headers);
+      resource_request.get());
 
   AppendExtraHeadersToUploadRequest(resource_request.get());
 

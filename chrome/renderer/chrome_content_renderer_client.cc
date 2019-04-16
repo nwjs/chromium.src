@@ -4,6 +4,7 @@
 
 #include "chrome/renderer/chrome_content_renderer_client.h"
 
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -17,6 +18,7 @@
 #include "base/no_destructor.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -42,7 +44,6 @@
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/renderer_resources.h"
-#include "chrome/renderer/app_categorizer.h"
 #include "chrome/renderer/benchmarking_extension.h"
 #include "chrome/renderer/chrome_render_frame_observer.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
@@ -69,6 +70,8 @@
 #include "components/autofill/content/renderer/autofill_agent.h"
 #include "components/autofill/content/renderer/password_autofill_agent.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
+#include "components/content_capture/common/content_capture_features.h"
+#include "components/content_capture/renderer/content_capture_sender.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/contextual_search/content/renderer/overlay_js_render_frame_observer.h"
 #include "components/data_reduction_proxy/content/renderer/content_previews_render_frame_observer.h"
@@ -162,6 +165,7 @@
 #include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "extensions/common/switches.h"
 #include "extensions/renderer/dispatcher.h"
+#include "extensions/renderer/guest_view/mime_handler_view/mime_handler_view_container_manager.h"
 #include "extensions/renderer/renderer_extension_registry.h"
 #endif
 
@@ -328,9 +332,9 @@ void OnModuleEvent(scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
   // over to it. It is safe to pass an unretained pointer to
   // |module_event_sink|: it is owned by a ChromeContentRendererClient, which is
   // a leaked singleton in the process.
-  io_task_runner->PostTask(
-      FROM_HERE, base::Bind(&HandleModuleEventOnIOThread,
-                            base::ConstRef(module_event_sink), event));
+  io_task_runner->PostTask(FROM_HERE,
+                           base::BindOnce(&HandleModuleEventOnIOThread,
+                                          std::cref(module_event_sink), event));
 }
 #endif
 
@@ -397,7 +401,7 @@ void ChromeContentRendererClient::RenderThreadStarted() {
   // leaked.
   module_watcher_ = ModuleWatcher::Create(
       base::BindRepeating(&OnModuleEvent, thread->GetIOTaskRunner(),
-                          base::ConstRef(module_event_sink_)));
+                          std::cref(module_event_sink_)));
 #endif
 
   chrome_observer_.reset(new ChromeRenderThreadObserver());
@@ -484,10 +488,14 @@ void ChromeContentRendererClient::RenderThreadStarted() {
         WebString::FromASCII(scheme));
   }
 
-  main_thread_profiler_->SetMainThreadTaskRunner(
-      base::ThreadTaskRunnerHandle::Get());
-  ThreadProfiler::SetServiceManagerConnectorForChildProcess(
-      thread->GetConnector());
+  // This doesn't work in single-process mode.
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kSingleProcess)) {
+    main_thread_profiler_->SetMainThreadTaskRunner(
+        base::ThreadTaskRunnerHandle::Get());
+    ThreadProfiler::SetServiceManagerConnectorForChildProcess(
+        thread->GetConnector());
+  }
 }
 
 void ChromeContentRendererClient::RenderFrameCreated(
@@ -513,6 +521,11 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   ChromeExtensionsRendererClient::GetInstance()->RenderFrameCreated(
       render_frame, registry);
+  if (content::MimeHandlerViewMode::UsesCrossProcessFrame()) {
+    registry->AddInterface(base::BindRepeating(
+        &extensions::MimeHandlerViewContainerManager::BindRequest,
+        render_frame->GetRoutingID()));
+  }
 #endif
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -574,6 +587,9 @@ void ChromeContentRendererClient::RenderFrameCreated(
   new AutofillAgent(render_frame, password_autofill_agent,
                     password_generation_agent, associated_interfaces);
 
+  if (content_capture::features::IsContentCaptureEnabled())
+    new content_capture::ContentCaptureSender(render_frame);
+
   // Owned by |render_frame|.
   page_load_metrics::MetricsRenderFrameObserver* metrics_render_frame_observer =
       new page_load_metrics::MetricsRenderFrameObserver(render_frame);
@@ -634,8 +650,7 @@ bool ChromeContentRendererClient::MaybeCreateMimeHandlerView(
     content::RenderFrame* render_frame,
     const blink::WebElement& plugin_element,
     const GURL& original_url,
-    const std::string& mime_type,
-    int32_t instance_id_to_use) {
+    const std::string& mime_type) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   DCHECK(plugin_element.HasHTMLTagName("object") ||
          plugin_element.HasHTMLTagName("embed"));
@@ -653,12 +668,23 @@ bool ChromeContentRendererClient::MaybeCreateMimeHandlerView(
   if (plugin_info->status == chrome::mojom::PluginStatus::kNotFound ||
       !ChromeExtensionsRendererClient::MaybeCreateMimeHandlerView(
           plugin_element, original_url, plugin_info->actual_mime_type,
-          plugin_info->plugin, instance_id_to_use)) {
+          plugin_info->plugin)) {
     return false;
   }
   return true;
 #else
   return false;
+#endif
+}
+
+v8::Local<v8::Object> ChromeContentRendererClient::GetScriptableObject(
+    const blink::WebElement& plugin_element,
+    v8::Isolate* isolate) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  return ChromeExtensionsRendererClient::GetInstance()->GetScriptableObject(
+      plugin_element, isolate);
+#else
+  return v8::Local<v8::Object>();
 #endif
 }
 
@@ -845,10 +871,7 @@ WebPlugin* ChromeContentRendererClient::CreatePlugin(
           const Extension* extension =
               extensions::RendererExtensionRegistry::Get()
                   ->GetExtensionOrAppByURL(manifest_url);
-          if (!IsNaClAllowed(manifest_url,
-                             app_url,
-                             is_nacl_unrestricted,
-                             extension,
+          if (!IsNaClAllowed(app_url, is_nacl_unrestricted, extension,
                              &params)) {
             WebString error_message;
             if (is_nacl_mime_type) {
@@ -1080,7 +1103,6 @@ void ChromeContentRendererClient::GetInterface(
 #if BUILDFLAG(ENABLE_NACL)
 //  static
 bool ChromeContentRendererClient::IsNaClAllowed(
-    const GURL& manifest_url,
     const GURL& app_url,
     bool is_nacl_unrestricted,
     const Extension* extension,
@@ -1110,14 +1132,12 @@ bool ChromeContentRendererClient::IsNaClAllowed(
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // Allow NaCl under any of the following circumstances:
-  //  1) An app or URL is explictly whitelisted above.
-  //  2) An extension is loaded unpacked or built-in (component) to Chrome.
-  //  3) An extension is force installed by policy.
-  //  4) An extension is installed from the webstore, and invoked in that
+  //  1) An extension is loaded unpacked or built-in (component) to Chrome.
+  //  2) An extension is force installed by policy.
+  //  3) An extension is installed from the webstore, and invoked in that
   //     context (hosted app URL or chrome-extension:// scheme).
-  //  5) --enable-nacl is set.
+  //  4) --enable-nacl is set.
   bool is_nacl_allowed_by_location =
-      AppCategorizer::IsWhitelistedApp(manifest_url, app_url) ||
       is_extension_unrestricted ||
       is_extension_force_installed ||
       is_invoked_by_webstore_installed_extension;
@@ -1522,6 +1542,10 @@ void ChromeContentRendererClient::RunScriptsAtDocumentIdle(
 
 void ChromeContentRendererClient::
     SetRuntimeFeaturesDefaultsBeforeBlinkInitialization() {
+  // The performance manager service interfaces are provided by the chrome
+  // embedder only.
+  blink::WebRuntimeFeatures::EnablePerformanceManagerInstrumentation(true);
+
 // Web Share is shipped on Android, experimental otherwise. It is enabled here,
 // in chrome/, to avoid it being made available in other clients of content/
 // that do not have a Web Share Mojo implementation.
@@ -1570,7 +1594,7 @@ void ChromeContentRendererClient::WillDestroyServiceWorkerContextOnWorkerThread(
 
 bool ChromeContentRendererClient::IsExcludedHeaderForServiceWorkerFetchEvent(
     const std::string& header_name) {
-  return header_name == variations::kClientDataHeader;
+  return variations::IsVariationsHeader(header_name);
 }
 
 // If we're in an extension, there is no need disabling multiple routes as
@@ -1591,18 +1615,6 @@ GURL ChromeContentRendererClient::OverrideFlashEmbedWithHTML(const GURL& url) {
 std::unique_ptr<base::TaskScheduler::InitParams>
 ChromeContentRendererClient::GetTaskSchedulerInitParams() {
   return task_scheduler_util::GetTaskSchedulerInitParamsForRenderer();
-}
-
-bool ChromeContentRendererClient::OverrideLegacySymantecCertConsoleMessage(
-    const GURL& url,
-    std::string* console_message) {
-  *console_message = base::StringPrintf(
-      "The SSL certificate used to load resources from %s"
-      " will be distrusted very soon. Once distrusted, users will be prevented"
-      " from loading these resources. See https://g.co/chrome/symantecpkicerts"
-      " for more information.",
-      url::Origin::Create(url).Serialize().c_str());
-  return true;
 }
 
 void ChromeContentRendererClient::CreateRendererService(

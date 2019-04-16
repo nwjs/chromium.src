@@ -225,13 +225,13 @@ void QuicCryptoServerHandshaker::
   //
   // NOTE: the SHLO will be encrypted with the new server write key.
   session()->connection()->SetEncrypter(
-      ENCRYPTION_INITIAL,
+      ENCRYPTION_ZERO_RTT,
       std::move(crypto_negotiated_params_->initial_crypters.encrypter));
-  session()->connection()->SetDefaultEncryptionLevel(ENCRYPTION_INITIAL);
+  session()->connection()->SetDefaultEncryptionLevel(ENCRYPTION_ZERO_RTT);
   // Set the decrypter immediately so that we no longer accept unencrypted
   // packets.
   session()->connection()->SetDecrypter(
-      ENCRYPTION_INITIAL,
+      ENCRYPTION_ZERO_RTT,
       std::move(crypto_negotiated_params_->initial_crypters.decrypter));
   session()->connection()->SetDiversificationNonce(*diversification_nonce);
 
@@ -310,9 +310,13 @@ void QuicCryptoServerHandshaker::FinishSendServerConfigUpdate(
 
   QUIC_DVLOG(1) << "Server: Sending server config update: "
                 << message.DebugString();
-  const QuicData& data = message.GetSerialized();
-  stream_->WriteOrBufferData(QuicStringPiece(data.data(), data.length()), false,
-                             nullptr);
+  if (transport_version() < QUIC_VERSION_47) {
+    const QuicData& data = message.GetSerialized();
+    stream_->WriteOrBufferData(QuicStringPiece(data.data(), data.length()),
+                               false, nullptr);
+  } else {
+    SendHandshakeMessage(message);
+  }
 
   ++num_server_config_update_messages_sent_;
 }
@@ -347,17 +351,6 @@ void QuicCryptoServerHandshaker::SetPreviousCachedNetworkParams(
 
 bool QuicCryptoServerHandshaker::ShouldSendExpectCTHeader() const {
   return signed_config_->proof.send_expect_ct_header;
-}
-
-QuicLongHeaderType QuicCryptoServerHandshaker::GetLongHeaderType(
-    QuicStreamOffset /*offset*/) const {
-  if (last_sent_handshake_message_tag() == kSREJ) {
-    return RETRY;
-  }
-  if (last_sent_handshake_message_tag() == kSHLO) {
-    return ZERO_RTT_PROTECTED;
-  }
-  return HANDSHAKE;
 }
 
 bool QuicCryptoServerHandshaker::GetBase64SHA256ClientChannelID(
@@ -437,7 +430,8 @@ void QuicCryptoServerHandshaker::ProcessClientHello(
       server_designated_connection_id, connection->clock(),
       connection->random_generator(), compressed_certs_cache_,
       crypto_negotiated_params_, signed_config_,
-      QuicCryptoStream::CryptoMessageFramingOverhead(transport_version()),
+      QuicCryptoStream::CryptoMessageFramingOverhead(
+          transport_version(), connection->connection_id()),
       chlo_packet_size_, std::move(done_cb));
 }
 
@@ -467,7 +461,7 @@ QuicConnectionId QuicCryptoServerHandshaker::GenerateConnectionIdForReject(
     return EmptyQuicConnectionId();
   }
   return helper_->GenerateConnectionIdForReject(
-      session()->connection()->connection_id());
+      transport_version(), session()->connection()->connection_id());
 }
 
 const QuicSocketAddress QuicCryptoServerHandshaker::GetClientAddress() {

@@ -313,7 +313,7 @@ class _BlinkPerfMeasurement(legacy_page_test.LegacyPageTest):
   def ValidateAndMeasurePage(self, page, tab, results):
     trace_cpu_time_metrics = {}
     if tab.EvaluateJavaScript('testRunner.tracingCategories'):
-      trace_data = tab.browser.platform.tracing_controller.StopTracing()[0]
+      trace_data = tab.browser.platform.tracing_controller.StopTracing()
       # TODO(#763375): Rely on results.telemetry_info.trace_local_path/etc.
       kwargs = {}
       if hasattr(results.telemetry_info, 'trace_local_path'):
@@ -322,6 +322,7 @@ class _BlinkPerfMeasurement(legacy_page_test.LegacyPageTest):
         kwargs['upload_bucket'] = results.telemetry_info.upload_bucket
         kwargs['cloud_url'] = results.telemetry_info.trace_remote_url
       trace_value = trace.TraceValue(page, trace_data, **kwargs)
+      trace_value.SerializeTraceData()
       results.AddValue(trace_value)
 
       trace_events_to_measure = tab.EvaluateJavaScript(

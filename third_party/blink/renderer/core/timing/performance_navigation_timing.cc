@@ -84,15 +84,15 @@ bool PerformanceNavigationTiming::DidReuseConnection() const {
   return resource_timing_info_->FinalResponse().ConnectionReused();
 }
 
-unsigned long long PerformanceNavigationTiming::GetTransferSize() const {
+uint64_t PerformanceNavigationTiming::GetTransferSize() const {
   return resource_timing_info_->TransferSize();
 }
 
-unsigned long long PerformanceNavigationTiming::GetEncodedBodySize() const {
+uint64_t PerformanceNavigationTiming::GetEncodedBodySize() const {
   return resource_timing_info_->FinalResponse().EncodedBodyLength();
 }
 
-unsigned long long PerformanceNavigationTiming::GetDecodedBodySize() const {
+uint64_t PerformanceNavigationTiming::GetDecodedBodySize() const {
   return resource_timing_info_->FinalResponse().DecodedBodyLength();
 }
 
@@ -223,7 +223,7 @@ AtomicString PerformanceNavigationTiming::type() const {
   return "navigate";
 }
 
-unsigned short PerformanceNavigationTiming::redirectCount() const {
+uint16_t PerformanceNavigationTiming::redirectCount() const {
   bool allow_redirect_details = GetAllowRedirectDetails();
   DocumentLoadTiming* timing = GetDocumentLoadTiming();
   if (!allow_redirect_details || !timing)

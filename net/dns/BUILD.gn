@@ -31,6 +31,8 @@ source_set("dns") {
     sources += [
       "address_sorter.h",
       "address_sorter_win.cc",
+      "context_host_resolver.cc",
+      "context_host_resolver.h",
       "dns_config.cc",
       "dns_config_overrides.cc",
       "dns_config_service.cc",
@@ -139,9 +141,6 @@ source_set("host_resolver") {
   friend = [
     # chrome/browser/io_thread.cc
     # Used to build in-process HostResolver when network service disabled.
-    #
-    # chrome/browser/net/dns_probe_service.cc
-    # TODO(crbug.com/874660): Remove once migrated to network service IPC.
     "//chrome/browser",
 
     # chromecast/browser/url_request_context_factory.cc
@@ -261,11 +260,6 @@ source_set("dns_client") {
     # chrome/browser/local_discovery/service_discovery_client_impl.cc
     # Result parsing utilities for parsing results read through MdnsClient.
     # TODO(crbug.com/874662): Remove once migrated to network service.
-    #
-    # chrome/browser/net/dns_probe_runner.cc
-    # chrome/browser/net/dns_probe_service.cc
-    # DNS lookups using DnsClient.
-    # TODO(crbug.com/874660): Remove once migrated to network service.
     "//chrome/browser",
 
     # chrome/browser/chromeos/smb_client/discovery/mdns_host_locator.cc
@@ -291,6 +285,7 @@ source_set("dns_client") {
       "dns_client.h",
       "dns_response.h",
       "dns_transaction.h",
+      "dns_util.h",
       "record_parsed.h",
       "record_rdata.h",
     ]
@@ -440,8 +435,8 @@ source_set("test_support") {
 source_set("fuzzer_test_support") {
   testonly = true
   sources = [
-    "fuzzed_host_resolver.cc",
-    "fuzzed_host_resolver.h",
+    "fuzzed_context_host_resolver.cc",
+    "fuzzed_context_host_resolver.h",
   ]
   deps = [
     "//base",

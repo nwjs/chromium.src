@@ -81,7 +81,7 @@ class AutoclickTest : public AshTestBase {
     scoped_task_environment_ =
         std::make_unique<base::test::ScopedTaskEnvironment>(
             base::test::ScopedTaskEnvironment::MainThreadType::UI_MOCK_TIME);
-  };
+  }
   ~AutoclickTest() override = default;
 
   void SetUp() override {
@@ -222,7 +222,7 @@ TEST_F(AutoclickTest, MovementThreshold) {
   // Try at a couple different thresholds.
   for (int movement_threshold = 10; movement_threshold < 50;
        movement_threshold += 10) {
-    GetAutoclickController()->set_movement_threshold(movement_threshold);
+    GetAutoclickController()->SetMovementThreshold(movement_threshold);
 
     // Run test for the secondary display too to test fix for crbug.com/449870.
     for (auto* root_window : root_windows) {
@@ -256,7 +256,7 @@ TEST_F(AutoclickTest, MovementThreshold) {
   }
 
   // Reset to default threshold.
-  GetAutoclickController()->set_movement_threshold(20);
+  GetAutoclickController()->SetMovementThreshold(20);
 }
 
 TEST_F(AutoclickTest, SingleKeyModifier) {

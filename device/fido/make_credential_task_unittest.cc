@@ -118,9 +118,8 @@ TEST_F(FidoMakeCredentialTaskTest, DefaultToU2fWhenClientPinSet) {
   AuthenticatorGetInfoResponse device_info(
       {ProtocolVersion::kCtap, ProtocolVersion::kU2f}, kTestDeviceAaguid);
   AuthenticatorSupportedOptions options;
-  options.SetClientPinAvailability(
-      AuthenticatorSupportedOptions::ClientPinAvailability::
-          kSupportedAndPinSet);
+  options.client_pin_availability =
+      AuthenticatorSupportedOptions::ClientPinAvailability::kSupportedAndPinSet;
   device_info.SetOptions(std::move(options));
 
   auto device = MockFidoDevice::MakeCtap(std::move(device_info));
@@ -130,7 +129,6 @@ TEST_F(FidoMakeCredentialTaskTest, DefaultToU2fWhenClientPinSet) {
 
   const auto task = CreateMakeCredentialTask(device.get());
   make_credential_callback_receiver().WaitForCallback();
-  EXPECT_EQ(ProtocolVersion::kU2f, device->supported_protocol());
   EXPECT_EQ(CtapDeviceResponseCode::kSuccess,
             make_credential_callback_receiver().status());
   EXPECT_TRUE(make_credential_callback_receiver().value());
@@ -140,9 +138,8 @@ TEST_F(FidoMakeCredentialTaskTest, EnforceClientPinWhenUserVerificationSet) {
   AuthenticatorGetInfoResponse device_info(
       {ProtocolVersion::kCtap, ProtocolVersion::kU2f}, kTestDeviceAaguid);
   AuthenticatorSupportedOptions options;
-  options.SetClientPinAvailability(
-      AuthenticatorSupportedOptions::ClientPinAvailability::
-          kSupportedAndPinSet);
+  options.client_pin_availability =
+      AuthenticatorSupportedOptions::ClientPinAvailability::kSupportedAndPinSet;
   device_info.SetOptions(std::move(options));
 
   auto device = MockFidoDevice::MakeCtap(std::move(device_info));
@@ -190,7 +187,6 @@ TEST_F(FidoMakeCredentialTaskTest, TestU2fOnly) {
   EXPECT_EQ(CtapDeviceResponseCode::kSuccess,
             make_credential_callback_receiver().status());
   EXPECT_TRUE(make_credential_callback_receiver().value());
-  EXPECT_EQ(device->supported_protocol(), ProtocolVersion::kU2f);
 }
 
 }  // namespace

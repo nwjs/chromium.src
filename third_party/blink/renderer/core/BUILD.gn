@@ -4,6 +4,7 @@
 
 import("//build/config/chromecast_build.gni")
 import("//build/config/compiler/compiler.gni")
+import("//build/config/dcheck_always_on.gni")
 import("//build/config/ui.gni")
 import("//build/split_static_library.gni")
 import("//build/toolchain/toolchain.gni")
@@ -28,9 +29,6 @@ rel_blink_core_gen_dir = rebase_path(blink_core_output_dir, root_build_dir)
 # Config for code that builds as part of core.
 config("config") {
   defines = [ "BLINK_CORE_IMPLEMENTATION=1" ]
-  if (is_chromecast) {
-    defines += [ "BLINK_MEDIA_LOG=LOG(INFO)" ]
-  }
   if (blink_animation_use_time_delta) {
     defines += [ "BLINK_ANIMATION_USE_TIME_DELTA" ]
   }
@@ -120,6 +118,7 @@ source_set("prerequisites") {
     "//third_party/ots",
     "//third_party/snappy",
     "//third_party/zlib",
+    "//ui/events:dom_keycode_converter",
     "//ui/gfx/geometry",
     "//ui/native_theme",
     "//url",
@@ -179,6 +178,7 @@ component("core") {
     "//third_party/blink/renderer/core/animation",
     "//third_party/blink/renderer/core/aom",
     "//third_party/blink/renderer/core/clipboard",
+    "//third_party/blink/renderer/core/content_capture",
     "//third_party/blink/renderer/core/context_features",
     "//third_party/blink/renderer/core/css",
     "//third_party/blink/renderer/core/display_lock",
@@ -274,6 +274,8 @@ jumbo_source_set("testing") {
     "testing/death_aware_script_wrappable.h",
     "testing/dictionary_test.cc",
     "testing/dictionary_test.h",
+    "testing/document_interface_broker_test_helpers.cc",
+    "testing/document_interface_broker_test_helpers.h",
     "testing/dummy_modulator.cc",
     "testing/dummy_modulator.h",
     "testing/dummy_page_holder.cc",
@@ -303,12 +305,16 @@ jumbo_source_set("testing") {
     "testing/sequence_test.h",
     "testing/static_selection.cc",
     "testing/static_selection.h",
+    "testing/test_document_interface_broker.cc",
+    "testing/test_document_interface_broker.h",
     "testing/type_conversions.h",
     "testing/union_types_test.cc",
     "testing/union_types_test.h",
     "testing/use_mock_scrollbar_settings.h",
     "testing/v8/web_core_test_support.cc",
     "testing/v8/web_core_test_support.h",
+    "testing/wait_for_event.cc",
+    "testing/wait_for_event.h",
     "testing/worker_internals.cc",
     "testing/worker_internals.h",
   ]
@@ -333,6 +339,7 @@ generate_event_interfaces("core_event_interfaces") {
   sources = [
     "css/font_face_set_load_event.idl",
     "css/media_query_list_event.idl",
+    "display_lock/before_activate_event.idl",
     "dom/events/custom_event.idl",
     "dom/events/event.idl",
     "events/animation_event.idl",
@@ -352,7 +359,6 @@ generate_event_interfaces("core_event_interfaces") {
     "events/mutation_event.idl",
     "events/overscroll_event.idl",
     "events/page_transition_event.idl",
-    "events/picture_in_picture_control_event.idl",
     "events/pointer_event.idl",
     "events/pop_state_event.idl",
     "events/progress_event.idl",
@@ -1631,6 +1637,7 @@ target("jumbo_" + core_link_small_target_type, "core_generated") {
   foreach(current, targets_generating_sources) {
     sources += get_target_outputs(current)
   }
+  deps = []
   public_deps = [
     ":all_generators",
     "//third_party/blink/renderer/bindings/core/v8:bindings_core_impl",
@@ -1682,6 +1689,10 @@ target("jumbo_" + core_link_small_target_type, "core_generated") {
       "/wd4702",
     ]
   }
+
+  if (is_debug || dcheck_always_on) {
+    deps += [ "//components/crash/core/common:crash_key" ]
+  }
 }
 
 # Fuzzer for blink::TextResourceDecoder.
@@ -1725,6 +1736,7 @@ jumbo_source_set("unit_tests") {
     "animation/timing_input_test.cc",
     "clipboard/data_object_test.cc",
     "clipboard/data_transfer_test.cc",
+    "content_capture/content_capture_test.cc",
     "css/active_style_sheets_test.cc",
     "css/affected_by_pseudo_test.cc",
     "css/css_calculation_value_test.cc",
@@ -1741,6 +1753,7 @@ jumbo_source_set("unit_tests") {
     "css/css_selector_watch_test.cc",
     "css/css_style_declaration_test.cc",
     "css/css_style_sheet_test.cc",
+    "css/css_syntax_string_parser_test.cc",
     "css/css_test_helpers.cc",
     "css/css_test_helpers.h",
     "css/css_value_test_helper.h",
@@ -1800,12 +1813,13 @@ jumbo_source_set("unit_tests") {
     "css/threaded/text_renderer_threaded_test.cc",
     "display_lock/display_lock_budget_test.cc",
     "display_lock/display_lock_context_test.cc",
+    "display_lock/display_lock_utilities_test.cc",
     "dom/attr_test.cc",
     "dom/document_statistics_collector_test.cc",
     "dom/document_test.cc",
     "dom/dom_implementation_test.cc",
+    "dom/dom_node_ids_test.cc",
     "dom/element_test.cc",
-    "dom/element_visibility_observer_test.cc",
     "dom/events/event_path_test.cc",
     "dom/events/event_target_test.cc",
     "dom/events/listener_leak_test.cc",
@@ -1829,6 +1843,7 @@ jumbo_source_set("unit_tests") {
     "dom/tree_scope_adopter_test.cc",
     "dom/tree_scope_test.cc",
     "dom/user_gesture_indicator_test.cc",
+    "dom/weak_identifier_map_test.cc",
     "dom/whitespace_attacher_test.cc",
     "editing/caret_display_item_client_test.cc",
     "editing/finder/text_finder_test.cc",
@@ -1837,7 +1852,7 @@ jumbo_source_set("unit_tests") {
     "events/pointer_event_factory_test.cc",
     "events/touch_event_test.cc",
     "events/web_input_event_conversion_test.cc",
-    "execution_context/pausable_object_test.cc",
+    "execution_context/context_lifecycle_state_observer_test.cc",
     "exported/local_frame_client_impl_test.cc",
     "exported/prerendering_test.cc",
     "exported/web_associated_url_loader_impl_test.cc",
@@ -1863,19 +1878,15 @@ jumbo_source_set("unit_tests") {
     "feature_policy/policy_test.cc",
     "fetch/blob_bytes_consumer_test.cc",
     "fetch/body_stream_buffer_test.cc",
-    "fetch/buffering_bytes_consumer_test.cc",
-    "fetch/bytes_consumer_for_data_consumer_handle_test.cc",
-    "fetch/bytes_consumer_test.cc",
+    "fetch/bytes_consumer_tee_test.cc",
     "fetch/bytes_consumer_test_util.cc",
     "fetch/bytes_consumer_test_util.h",
-    "fetch/data_consumer_handle_test_util.cc",
-    "fetch/data_consumer_handle_test_util.h",
-    "fetch/data_pipe_bytes_consumer_test.cc",
     "fetch/fetch_data_loader_test.cc",
     "fetch/fetch_header_list_test.cc",
     "fetch/fetch_response_data_test.cc",
     "fetch/form_data_bytes_consumer_test.cc",
     "fetch/multipart_parser_test.cc",
+    "fetch/place_holder_bytes_consumer_test.cc",
     "fetch/readable_stream_bytes_consumer_test.cc",
     "fetch/request_test.cc",
     "fetch/response_test.cc",
@@ -1934,6 +1945,7 @@ jumbo_source_set("unit_tests") {
     "html/forms/html_output_element_test.cc",
     "html/forms/html_select_element_test.cc",
     "html/forms/html_text_area_element_test.cc",
+    "html/forms/internal_popup_menu_test.cc",
     "html/forms/option_list_test.cc",
     "html/forms/password_input_type_test.cc",
     "html/forms/step_range_test.cc",
@@ -1975,6 +1987,7 @@ jumbo_source_set("unit_tests") {
     "html/parser/html_document_parser_test.cc",
     "html/parser/html_entity_parser_test.cc",
     "html/parser/html_parser_idioms_test.cc",
+    "html/parser/html_preload_scanner_document_test.cc",
     "html/parser/html_preload_scanner_test.cc",
     "html/parser/html_resource_preloader_test.cc",
     "html/parser/html_srcset_parser_test.cc",
@@ -2114,10 +2127,12 @@ jumbo_source_set("unit_tests") {
     "page/chrome_client_test.cc",
     "page/context_menu_controller_test.cc",
     "page/drag_controller_test.cc",
+    "page/drag_image_test.cc",
     "page/focus_controller_test.cc",
     "page/page_popup_client_test.cc",
+    "page/plugin_data_test.cc",
     "page/print_context_test.cc",
-    "page/scrolling/fragment_anchor_test.cc",
+    "page/scrolling/element_fragment_anchor_test.cc",
     "page/scrolling/main_thread_scrolling_reasons_test.cc",
     "page/scrolling/root_scroller_test.cc",
     "page/scrolling/scroll_into_view_test.cc",
@@ -2125,6 +2140,7 @@ jumbo_source_set("unit_tests") {
     "page/scrolling/scroll_state_test.cc",
     "page/scrolling/scrolling_coordinator_test.cc",
     "page/scrolling/snap_coordinator_test.cc",
+    "page/scrolling/text_fragment_anchor_test.cc",
     "page/slot_scoped_traversal_test.cc",
     "page/spatial_navigation_test.cc",
     "page/touch_adjustment_test.cc",
@@ -2184,12 +2200,16 @@ jumbo_source_set("unit_tests") {
     "script/layered_api_test.cc",
     "script/mock_script_element_base.h",
     "script/module_map_test.cc",
+    "script/module_script_test.cc",
     "script/script_module_resolver_impl_test.cc",
     "script/script_runner_test.cc",
     "scroll/scrollable_area_test.cc",
     "scroll/scrollbar_theme_overlay_test.cc",
+    "streams/miscellaneous_operations_test.cc",
+    "streams/queue_with_sizes_test.cc",
     "streams/readable_stream_operations_test.cc",
     "streams/readable_stream_test.cc",
+    "streams/stream_promise_resolver_test.cc",
     "streams/test_underlying_source.h",
     "streams/transform_stream_test.cc",
     "streams/writable_stream_test.cc",
@@ -2233,6 +2253,7 @@ jumbo_source_set("unit_tests") {
     "workers/worker_thread_test_helper.h",
     "workers/worklet_module_responses_map_test.cc",
     "xml/parser/shared_buffer_reader_test.cc",
+    "xml/parser/xml_document_parser_test.cc",
     "xml/xpath_functions_test.cc",
   ]
 
@@ -2249,6 +2270,7 @@ jumbo_source_set("unit_tests") {
     "//skia:skcms",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/blink/renderer/core/accessibility:unit_tests",
     "//third_party/blink/renderer/core/editing:unit_tests",
     "//third_party/blink/renderer/core/fileapi:unit_tests",
   ]
@@ -2300,6 +2322,8 @@ jumbo_source_set("unit_test_support") {
     "testing/core_unit_test_helper.h",
     "testing/page_test_base.cc",
     "testing/page_test_base.h",
+    "testing/scoped_fake_plugin_registry.cc",
+    "testing/scoped_fake_plugin_registry.h",
   ]
 
   configs += [

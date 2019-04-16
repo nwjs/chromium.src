@@ -16,6 +16,7 @@
 #include "base/sequenced_task_runner.h"
 #include "base/task_runner_util.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "components/gcm_driver/gcm_account_mapper.h"
 #include "components/gcm_driver/gcm_app_handler.h"
@@ -475,8 +476,12 @@ void GCMDriverDesktop::IOWorker::WakeFromSuspendForHeartbeat(bool wake) {
 
   std::unique_ptr<base::RetainingOneShotTimer> timer;
   if (wake)
-    timer = std::make_unique<timers::SimpleAlarmTimer>();
-  else
+    timer = timers::SimpleAlarmTimer::Create();
+
+  // If not |wake|, or SimpleAlarmTimer is not supported on the running
+  // platform (please see SimpleAlarmTimer for the details), fall back to
+  // RetainingOneShotTimer.
+  if (!timer)
     timer = std::make_unique<base::RetainingOneShotTimer>();
 
   gcm_client_->UpdateHeartbeatTimer(std::move(timer));

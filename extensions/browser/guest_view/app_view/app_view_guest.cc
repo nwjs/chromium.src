@@ -6,11 +6,11 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "components/guest_view/browser/guest_view_manager.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/common/renderer_preferences.h"
 #include "extensions/browser/api/app_runtime/app_runtime_api.h"
 #include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/app_window/app_delegate.h"
@@ -117,7 +117,9 @@ AppViewGuest::AppViewGuest(WebContents* owner_web_contents)
 AppViewGuest::~AppViewGuest() {
 }
 
-bool AppViewGuest::HandleContextMenu(const content::ContextMenuParams& params) {
+bool AppViewGuest::HandleContextMenu(
+    content::RenderFrameHost* render_frame_host,
+    const content::ContextMenuParams& params) {
   if (app_view_guest_delegate_) {
     return app_view_guest_delegate_->HandleContextMenu(web_contents(), params);
   }

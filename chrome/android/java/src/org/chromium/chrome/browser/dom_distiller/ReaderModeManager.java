@@ -36,13 +36,13 @@ import org.chromium.components.navigation_interception.NavigationParams;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
+import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Manages UI effects for reader mode including hiding and showing the
@@ -314,9 +314,8 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
             private int mLastDistillerPageIndex;
 
             @Override
-            public void didStartNavigation(String url, boolean isInMainFrame,
-                    boolean isSameDocument, long navigationHandleProxy) {
-                if (!isInMainFrame || isSameDocument) return;
+            public void didStartNavigation(NavigationHandle navigation) {
+                if (!navigation.isInMainFrame() || navigation.isSameDocument()) return;
 
                 // Reader Mode should not pollute the navigation stack. To avoid this, watch for
                 // navigations and prepare to remove any that are "chrome-distiller" urls.
@@ -333,21 +332,20 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
                 ReaderModeTabInfo tabInfo = mTabStatusMap.get(readerTabId);
                 if (tabInfo == null) return;
 
-                tabInfo.setUrl(url);
-                if (DomDistillerUrlUtils.isDistilledPage(url)) {
+                tabInfo.setUrl(navigation.getUrl());
+                if (DomDistillerUrlUtils.isDistilledPage(navigation.getUrl())) {
                     tabInfo.setStatus(STARTED);
-                    mReaderModePageUrl = url;
+                    mReaderModePageUrl = navigation.getUrl();
                 }
             }
 
             @Override
-            public void didFinishNavigation(String url, boolean isInMainFrame, boolean isErrorPage,
-                    boolean hasCommitted, boolean isSameDocument, boolean isFragmentNavigation,
-                    boolean isRendererInitiated, boolean isDownload, Integer pageTransition,
-                    int errorCode, String errorDescription, int httpStatusCode) {
+            public void didFinishNavigation(NavigationHandle navigation) {
                 // TODO(cjhopman): This should possibly ignore navigations that replace the entry
                 // (like those from history.replaceState()).
-                if (!hasCommitted || !isInMainFrame || isSameDocument) return;
+                if (!navigation.hasCommitted() || !navigation.isInMainFrame()
+                        || navigation.isSameDocument())
+                    return;
 
                 if (mShouldRemovePreviousNavigation) {
                     mShouldRemovePreviousNavigation = false;
@@ -362,7 +360,7 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
                 if (tabInfo == null) return;
 
                 tabInfo.setStatus(POSSIBLE);
-                if (!TextUtils.equals(url,
+                if (!TextUtils.equals(navigation.getUrl(),
                             DomDistillerUrlUtils.getOriginalUrlFromDistillerUrl(
                                     mReaderModePageUrl))) {
                     tabInfo.setStatus(NOT_POSSIBLE);
@@ -403,8 +401,7 @@ public class ReaderModeManager extends TabModelSelectorTabObserver {
      * @param timeMs The amount of time in ms that the user spent in Reader Mode.
      */
     private void recordReaderModeViewDuration(long timeMs) {
-        RecordHistogram.recordLongTimesHistogram(
-                "DomDistiller.Time.ViewingReaderModePage", timeMs, TimeUnit.MILLISECONDS);
+        RecordHistogram.recordLongTimesHistogram("DomDistiller.Time.ViewingReaderModePage", timeMs);
     }
 
     /**

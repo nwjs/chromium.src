@@ -15,7 +15,7 @@
 namespace blink {
 
 // Entry struct represents a value in "module map" spec object.
-// https://html.spec.whatwg.org/multipage/webappapis.html#module-map
+// https://html.spec.whatwg.org/C/#module-map
 class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
                                public NameClient,
                                public ModuleScriptLoaderClient {
@@ -120,7 +120,7 @@ void ModuleMap::Trace(blink::Visitor* visitor) {
   visitor->Trace(loader_registry_);
 }
 
-// <specdef href="https://html.spec.whatwg.org/#fetch-a-single-module-script">
+// <specdef href="https://html.spec.whatwg.org/C/#fetch-a-single-module-script">
 void ModuleMap::FetchSingleModuleScript(
     const ModuleScriptFetchRequest& request,
     ResourceFetcher* fetch_client_settings_object_fetcher,

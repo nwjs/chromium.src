@@ -12,6 +12,7 @@ import org.chromium.chrome.browser.ntp.RecentlyClosedBridge;
 import org.chromium.chrome.browser.partnercustomizations.HomepageManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager.TabCreator;
+import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.content_public.browser.WebContents;
 
@@ -106,6 +107,12 @@ public class TabModelImpl extends TabModelJniBridge {
         mObservers.clear();
         mRecentlyClosedBridge.destroy();
         super.destroy();
+    }
+
+    @Override
+    public void broadcastSessionRestoreComplete() {
+        super.broadcastSessionRestoreComplete();
+        for (TabModelObserver observer : mObservers) observer.restoreCompleted();
     }
 
     @Override
@@ -372,6 +379,21 @@ public class TabModelImpl extends TabModelJniBridge {
     }
 
     @Override
+    public void closeMultipleTabs(List<Tab> tabs, boolean canUndo) {
+        for (Tab tab : tabs) {
+            if (!mTabs.contains(tab)) {
+                assert false : "Tried to close a tab from another model!";
+                continue;
+            }
+            tab.setClosing(true);
+            closeTab(tab, false, false, canUndo, false);
+        }
+        if (canUndo && supportsPendingClosures()) {
+            for (TabModelObserver obs : mObservers) obs.multipleTabsPendingClosure(tabs, false);
+        }
+    }
+
+    @Override
     public void closeAllTabs() {
         closeAllTabs(true, false);
     }
@@ -398,7 +420,13 @@ public class TabModelImpl extends TabModelJniBridge {
             return;
         }
 
-        closeAllTabs(true, false, true);
+        // TODO(meiliang): This is a band-aid fix, should remove after LayoutManager is able to
+        // manage the Grid Tab Switcher.
+        // Disable animation if GridTabSwitcher or TabGroup is enabled.
+        boolean animate = !(FeatureUtilities.isGridTabSwitcherEnabled()
+                || FeatureUtilities.isTabGroupsAndroidEnabled());
+
+        closeAllTabs(animate, false, true);
     }
 
     /**
@@ -424,7 +452,8 @@ public class TabModelImpl extends TabModelJniBridge {
         }
 
         if (!uponExit && canUndo && supportsPendingClosures()) {
-            for (TabModelObserver obs : mObservers) obs.allTabsPendingClosure(closedTabs);
+            for (TabModelObserver obs : mObservers)
+                obs.multipleTabsPendingClosure(closedTabs, true);
         }
     }
 

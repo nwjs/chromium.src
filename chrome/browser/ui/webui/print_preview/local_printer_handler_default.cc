@@ -7,7 +7,7 @@
 #include <string>
 #include <utility>
 
-#include "base/json/json_reader.h"
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/ref_counted_memory.h"
@@ -29,7 +29,8 @@ namespace printing {
 namespace {
 
 PrinterList EnumeratePrintersAsync() {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   scoped_refptr<PrintBackend> print_backend(
       PrintBackend::CreateInstance(nullptr));
 
@@ -45,7 +46,8 @@ base::Value FetchCapabilitiesAsync(const std::string& device_name) {
     additional_papers = GetMacCustomPaperSizes();
 #endif
 
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   scoped_refptr<PrintBackend> print_backend(
       PrintBackend::CreateInstance(nullptr));
 
@@ -65,7 +67,8 @@ base::Value FetchCapabilitiesAsync(const std::string& device_name) {
 }
 
 std::string GetDefaultPrinterAsync() {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   scoped_refptr<PrintBackend> print_backend(
       PrintBackend::CreateInstance(nullptr));
 
@@ -119,17 +122,12 @@ void LocalPrinterHandlerDefault::StartGetCapability(
 }
 
 void LocalPrinterHandlerDefault::StartPrint(
-    const std::string& destination_id,
-    const std::string& capability,
     const base::string16& job_title,
-    const std::string& ticket_json,
-    const gfx::Size& page_size,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
+    base::Value settings,
+    scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
-  std::unique_ptr<base::Value> job_settings =
-      base::JSONReader::Read(ticket_json);
-  StartLocalPrint(base::Value::FromUniquePtrValue(std::move(job_settings)),
-                  print_data, preview_web_contents_, std::move(callback));
+  StartLocalPrint(std::move(settings), std::move(print_data),
+                  preview_web_contents_, std::move(callback));
 }
 
 }  // namespace printing

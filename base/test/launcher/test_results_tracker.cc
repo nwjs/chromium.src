@@ -233,15 +233,28 @@ void TestResultsTracker::AddTestLocation(const std::string& test_name,
   test_locations_.insert(std::make_pair(test_name, CodeLocation(file, line)));
 }
 
+void TestResultsTracker::AddTestPlaceholder(const std::string& test_name) {
+  test_placeholders_.insert(test_name);
+}
+
 void TestResultsTracker::AddTestResult(const TestResult& result) {
   DCHECK(thread_checker_.CalledOnValidThread());
   DCHECK_GE(iteration_, 0);
 
+  PerIterationData::ResultsMap& results_map =
+      per_iteration_data_[iteration_].results;
+  std::string test_name_without_disabled_prefix =
+      TestNameWithoutDisabledPrefix(result.full_name);
+  auto it = results_map.find(test_name_without_disabled_prefix);
+  // If the test name is not present in the results map, then we did not
+  // generate a placeholder for the test. We shouldn't record its result either.
+  // It's a test that the delegate ran, e.g. a PRE_XYZ test.
+  if (it == results_map.end())
+    return;
+
   // Record disabled test names without DISABLED_ prefix so that they are easy
   // to compare with regular test names, e.g. before or after disabling.
-  AggregateTestResult& aggregate_test_result =
-      per_iteration_data_[iteration_]
-          .results[TestNameWithoutDisabledPrefix(result.full_name)];
+  AggregateTestResult& aggregate_test_result = it->second;
 
   // If the last test result is a placeholder, then get rid of it now that we
   // have real results. It's possible for no placeholder to exist if the test is
@@ -259,10 +272,8 @@ void TestResultsTracker::AddTestResult(const TestResult& result) {
 void TestResultsTracker::GeneratePlaceholderIteration() {
   DCHECK(thread_checker_.CalledOnValidThread());
 
-  // We use test_locations_ since that only includes tests that will be run in
-  // this shard.
-  for (auto& it : test_locations_) {
-    std::string test_name = TestNameWithoutDisabledPrefix(it.first);
+  for (auto& full_test_name : test_placeholders_) {
+    std::string test_name = TestNameWithoutDisabledPrefix(full_test_name);
 
     // Ignore disabled tests.
     if (disabled_tests_.find(test_name) != disabled_tests_.end())
@@ -274,9 +285,9 @@ void TestResultsTracker::GeneratePlaceholderIteration() {
 
     // There shouldn't be any existing results when we generate placeholder
     // results.
-    DCHECK(per_iteration_data_[iteration_]
-               .results[test_name]
-               .test_results.empty());
+    DCHECK(
+        per_iteration_data_[iteration_].results[test_name].test_results.empty())
+        << test_name;
     per_iteration_data_[iteration_].results[test_name].test_results.push_back(
         test_result);
   }

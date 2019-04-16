@@ -13,7 +13,10 @@
 #include <stdint.h>
 
 #include <list>
+#include <map>
 #include <memory>
+#include <queue>
+#include <utility>
 #include <vector>
 
 #include "base/callback_forward.h"
@@ -33,6 +36,7 @@
 #include "media/video/video_decode_accelerator.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_fence_egl.h"
 
 namespace gl {
 
@@ -163,13 +167,6 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
     kDestroying,  // Destroying state, when shutting down the decoder.
   };
 
-  enum OutputRecordState {
-    kFree,         // Ready to be queued to the device.
-    kAtDevice,     // Held by device.
-    kAtProcessor,  // Held by image processor.
-    kAtClient,     // Held by client of V4L2VideoDecodeAccelerator.
-  };
-
   enum BufferId {
     kFlushBufferId = -2  // Buffer id for flush buffer, queued by FlushTask().
   };
@@ -191,10 +188,7 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
     OutputRecord();
     OutputRecord(OutputRecord&&);
     ~OutputRecord();
-    OutputRecordState state;
     EGLImageKHR egl_image;  // EGLImageKHR for the output buffer.
-    std::unique_ptr<gl::GLFenceEGL> egl_fence;  // sync the compositor's use of
-                                                // the EGLImage.
     int32_t picture_id;     // picture buffer id as returned to PictureReady().
     GLuint texture_id;
     bool cleared;           // Whether the texture is cleared and safe to render
@@ -210,7 +204,9 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   //
 
   // Task to finish initialization on decoder_thread_.
-  void InitializeTask();
+  void InitializeTask(const Config& config,
+                      bool* result,
+                      base::WaitableEvent* done);
 
   // Enqueue a buffer to decode.  This will enqueue a buffer to the
   // decoder_input_queue_, then queue a DecodeBufferTask() to actually decode
@@ -249,6 +245,14 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
                                   std::vector<base::ScopedFD> dmabuf_fds,
                                   int32_t stride);
 
+  // Check |planes| and |dmabuf_fds| are valid in import mode, besides
+  // ImportBufferForPicture.
+  void ImportBufferForPictureForImportTask(
+      int32_t picture_buffer_id,
+      VideoPixelFormat pixel_format,
+      std::vector<base::ScopedFD> dmabuf_fds,
+      std::vector<gfx::NativePixmapPlane> planes);
+
   // Create an EGLImage for the buffer associated with V4L2 |buffer_index| and
   // for |picture_buffer_id|, backed by dmabuf file descriptors in
   // |passed_dmabuf_fds|, taking ownership of them.
@@ -271,6 +275,9 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   // DevicePollTask().  If |event_pending| is true, one or more events
   // on file descriptor are pending.
   void ServiceDeviceTask(bool event_pending);
+
+  // Release buffers awaiting for their fence to be signaled.
+  void CheckGLFences();
   // Handle the various device queues.
   void Enqueue();
   void Dequeue();
@@ -396,9 +403,17 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   bool CreateImageProcessor();
   // Send a frame to the image processor to process. The index of decoder
   // output buffer is |output_buffer_index| and its id is |bitstream_buffer_id|.
-  bool ProcessFrame(int32_t bitstream_buffer_id, int output_buffer_index);
+  bool ProcessFrame(int32_t bitstream_buffer_id, V4L2ReadableBufferRef buf);
 
-  void SendBufferToClient(size_t buffer_index, int32_t bitstream_buffer_id);
+  // Send a buffer to the client.
+  // |buffer_index| is the output buffer index of the buffer to be sent.
+  // |bitstream_buffer_id| is the bitstream ID from which the buffer results.
+  // |vda_buffer| is the output VDA buffer containing the decoded frame.
+  // |frame| is the IP frame that will be sent to the client, if IP is used.
+  void SendBufferToClient(size_t buffer_index,
+                          int32_t bitstream_buffer_id,
+                          V4L2ReadableBufferRef vda_buffer,
+                          scoped_refptr<VideoFrame> frame = nullptr);
 
   //
   // Methods run on child thread.
@@ -414,7 +429,7 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   // |bitstream_buffer_id| and stored in |output_buffer_index| buffer of
   // image processor.
   void FrameProcessed(int32_t bitstream_buffer_id,
-                      int output_buffer_index,
+                      size_t output_buffer_index,
                       scoped_refptr<VideoFrame> frame);
 
   // Image processor notifies an error.
@@ -472,8 +487,6 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   // task execution should complete one buffer.  If we fall behind (due to
   // resource backpressure, etc.), we'll have to schedule more to catch up.
   int decoder_decode_buffer_tasks_scheduled_;
-  // Picture buffers held by the client.
-  int decoder_frames_at_client_;
 
   // Are we flushing?
   bool decoder_flushing_;
@@ -519,8 +532,18 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   // Buffers that have been allocated but are awaiting an ImportBuffer
   // or AssignEGLImage event.
   std::map<int32_t, V4L2WritableBufferRef> output_wait_map_;
+  // Bitstream IDs and VDA buffers currently being processed by the IP.
+  std::queue<std::pair<int32_t, V4L2ReadableBufferRef>> buffers_at_ip_;
   // Keeps decoded buffers out of the free list until the client returns them.
-  std::map<int32_t, V4L2ReadableBufferRef> buffers_at_client_;
+  // First element is the VDA buffer, second is the (optional) IP buffer.
+  std::map<int32_t, std::pair<V4L2ReadableBufferRef, scoped_refptr<VideoFrame>>>
+      buffers_at_client_;
+  // Queue of buffers that have been returned by the client, but which fence
+  // hasn't been signaled yet. Keeps both the VDA and (optional) IP buffer.
+  std::queue<
+      std::pair<std::unique_ptr<gl::GLFenceEGL>,
+                std::pair<V4L2ReadableBufferRef, scoped_refptr<VideoFrame>>>>
+      buffers_awaiting_fence_;
 
   // Mapping of int index to output buffer record.
   std::vector<OutputRecord> output_buffer_map_;
@@ -581,11 +604,6 @@ class MEDIA_GPU_EXPORT V4L2VideoDecodeAccelerator
   gfx::Size egl_image_size_;
   // Number of planes for EGLImage.
   size_t egl_image_planes_count_;
-
-  // IDs of bitstream buffers sent to image processor to process. After a
-  // buffer is processed, it will sent to render if the id is in this
-  // queue. If the id is not in this queue, the buffer will be dropped.
-  base::queue<int> image_processor_bitstream_buffer_ids_;
 
   // Input format V4L2 fourccs this class supports.
   static const uint32_t supported_input_fourccs_[];

@@ -18,16 +18,11 @@ namespace leveldb_proto {
 
 namespace {
 
-const std::string kDefaultNamespace = "ns";
-const std::string kDefaultNamespace2 = "ns2";
-const std::string kDefaultTypePrefix = "tp";
-
 inline void GetClientFromTaskRunner(SharedProtoDatabase* db,
-                                    const std::string& client_namespace,
-                                    const std::string& type_prefix,
+                                    ProtoDbType db_type,
                                     base::OnceClosure closure) {
-  db->GetClientForTesting<TestProto>(
-      client_namespace, type_prefix, true /* create_if_missing */,
+  db->GetClientForTesting(
+      db_type, true /* create_if_missing */,
       base::BindOnce(
           [](base::OnceClosure closure, Enums::InitStatus status,
              SharedDBMetadataProto::MigrationStatus migration_status) {
@@ -67,16 +62,14 @@ class SharedProtoDatabaseTest : public testing::Test {
     return db->init_state_ == SharedProtoDatabase::InitState::kSuccess;
   }
 
-  template <typename T>
-  std::unique_ptr<SharedProtoDatabaseClient<T>> GetClientAndWait(
+  std::unique_ptr<SharedProtoDatabaseClient> GetClientAndWait(
       SharedProtoDatabase* db,
-      const std::string& client_namespace,
-      const std::string& type_prefix,
+      ProtoDbType db_type,
       bool create_if_missing,
       Enums::InitStatus* status) {
     base::RunLoop loop;
-    auto client = db->GetClientForTesting<T>(
-        client_namespace, type_prefix, create_if_missing,
+    auto client = db->GetClientForTesting(
+        db_type, create_if_missing,
         base::BindOnce(
             [](Enums::InitStatus* status_out, base::OnceClosure closure,
                Enums::InitStatus status,
@@ -107,8 +100,8 @@ class SharedProtoDatabaseTest : public testing::Test {
 
 TEST_F(SharedProtoDatabaseTest, CreateClient_SucceedsWithCreate) {
   auto status = Enums::InitStatus::kError;
-  GetClientAndWait<TestProto>(db(), kDefaultNamespace, kDefaultTypePrefix,
-                              true /* create_if_missing */, &status);
+  GetClientAndWait(db(), ProtoDbType::TEST_DATABASE0,
+                   true /* create_if_missing */, &status);
   ASSERT_EQ(status, Enums::InitStatus::kOK);
 }
 
@@ -119,35 +112,35 @@ TEST_F(SharedProtoDatabaseTest, DISABLED_CreateClient_FailsWithoutCreate) {
 TEST_F(SharedProtoDatabaseTest, CreateClient_FailsWithoutCreate) {
 #endif
   auto status = Enums::InitStatus::kError;
-  GetClientAndWait<TestProto>(db(), kDefaultNamespace, kDefaultTypePrefix,
-                              false /* create_if_missing */, &status);
+  GetClientAndWait(db(), ProtoDbType::TEST_DATABASE0,
+                   false /* create_if_missing */, &status);
   ASSERT_EQ(status, Enums::InitStatus::kInvalidOperation);
 }
 
 TEST_F(SharedProtoDatabaseTest,
        CreateClient_SucceedsWithoutCreateIfAlreadyCreated) {
   auto status = Enums::InitStatus::kError;
-  GetClientAndWait<TestProto>(db(), kDefaultNamespace2, kDefaultTypePrefix,
-                              true /* create_if_missing */, &status);
+  GetClientAndWait(db(), ProtoDbType::TEST_DATABASE2,
+                   true /* create_if_missing */, &status);
   ASSERT_EQ(status, Enums::InitStatus::kOK);
-  GetClientAndWait<TestProto>(db(), kDefaultNamespace, kDefaultTypePrefix,
-                              false /* create_if_missing */, &status);
+  GetClientAndWait(db(), ProtoDbType::TEST_DATABASE0,
+                   false /* create_if_missing */, &status);
   ASSERT_EQ(status, Enums::InitStatus::kOK);
 }
 
 TEST_F(SharedProtoDatabaseTest, GetClient_DifferentThreads) {
   auto status = Enums::InitStatus::kError;
-  GetClientAndWait<TestProto>(db(), kDefaultNamespace, kDefaultTypePrefix,
-                              true /* create_if_missing */, &status);
+  GetClientAndWait(db(), ProtoDbType::TEST_DATABASE0,
+                   true /* create_if_missing */, &status);
   ASSERT_EQ(status, Enums::InitStatus::kOK);
 
   base::Thread t("test_thread");
   ASSERT_TRUE(t.Start());
   base::RunLoop run_loop;
   t.task_runner()->PostTask(
-      FROM_HERE, base::BindOnce(&GetClientFromTaskRunner,
-                                base::Unretained(db()), kDefaultNamespace2,
-                                kDefaultTypePrefix, run_loop.QuitClosure()));
+      FROM_HERE,
+      base::BindOnce(&GetClientFromTaskRunner, base::Unretained(db()),
+                     ProtoDbType::TEST_DATABASE2, run_loop.QuitClosure()));
   run_loop.Run();
   base::RunLoop quit_cooldown;
   GetMainThreadTaskRunner()->PostDelayedTask(
@@ -158,7 +151,7 @@ TEST_F(SharedProtoDatabaseTest, GetClient_DifferentThreads) {
 // backing LevelDB has been initialized on another thread.
 TEST_F(SharedProtoDatabaseTest, TestDBDestructionAfterInit) {
   base::RunLoop run_init_loop;
-  InitDB(true /* create_if_missing */, kDefaultNamespace,
+  InitDB(true /* create_if_missing */, "TestDatabaseUMA",
          base::BindOnce(
              [](base::OnceClosure signal, Enums::InitStatus status,
                 SharedDBMetadataProto::MigrationStatus migration_status) {

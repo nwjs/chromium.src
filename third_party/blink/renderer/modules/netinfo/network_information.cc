@@ -83,7 +83,7 @@ NetworkInformation::~NetworkInformation() {
 
 bool NetworkInformation::IsObserving() const {
   return !!connection_observer_handle_;
-};
+}
 
 String NetworkInformation::type() const {
   // type_ is only updated when listening for events, so ask
@@ -316,9 +316,9 @@ void NetworkInformation::MaybeShowWebHoldbackConsoleMsg() {
   web_holdback_console_message_shown_ = true;
   if (!GetNetworkStateNotifier().GetWebHoldbackEffectiveType())
     return;
-  GetExecutionContext()->AddConsoleMessage(
-      ConsoleMessage::Create(kOtherMessageSource, kWarningMessageLevel,
-                             GetConsoleLogStringForWebHoldback()));
+  GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
+      kOtherMessageSource, mojom::ConsoleMessageLevel::kWarning,
+      GetConsoleLogStringForWebHoldback()));
 }
 
 }  // namespace blink

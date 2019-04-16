@@ -63,7 +63,6 @@ class ProcessMemoryDump;
 
 namespace net {
 
-class ClientSocketHandle;
 struct NetLogSource;
 
 namespace internal {
@@ -74,8 +73,7 @@ namespace internal {
 // ClientSocketPoolBaseHelper.  This class is not for external use, please use
 // ClientSocketPoolBase instead.
 class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
-    : public ConnectJob::Delegate,
-      public NetworkChangeNotifier::IPAddressObserver {
+    : public NetworkChangeNotifier::IPAddressObserver {
  public:
   using Flags = uint32_t;
 
@@ -87,8 +85,11 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
   class NET_EXPORT_PRIVATE Request {
    public:
+    // If |proxy_auth_callback| is null, proxy auth challenges will
+    // result in an error.
     Request(ClientSocketHandle* handle,
             CompletionOnceCallback callback,
+            const ClientSocketPool::ProxyAuthCallback& proxy_auth_callback,
             RequestPriority priority,
             const SocketTag& socket_tag,
             ClientSocketPool::RespectLimits respect_limits,
@@ -100,6 +101,9 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     ClientSocketHandle* handle() const { return handle_; }
     bool has_callback() const { return static_cast<bool>(callback_); }
     CompletionOnceCallback release_callback() { return std::move(callback_); }
+    const ClientSocketPool::ProxyAuthCallback& proxy_auth_callback() const {
+      return proxy_auth_callback_;
+    }
     RequestPriority priority() const { return priority_; }
     void set_priority(RequestPriority priority) { priority_ = priority; }
     ClientSocketPool::RespectLimits respect_limits() const {
@@ -130,6 +134,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
     ClientSocketHandle* const handle_;
     CompletionOnceCallback callback_;
+    const ClientSocketPool::ProxyAuthCallback proxy_auth_callback_;
     RequestPriority priority_;
     const ClientSocketPool::RespectLimits respect_limits_;
     const Flags flags_;
@@ -149,7 +154,6 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     virtual ~ConnectJobFactory() {}
 
     virtual std::unique_ptr<ConnectJob> NewConnectJob(
-        const std::string& group_name,
         const Request& request,
         ConnectJob::Delegate* delegate) const = 0;
 
@@ -158,7 +162,6 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
   };
 
   ClientSocketPoolBaseHelper(
-      HigherLayeredPool* pool,
       int max_sockets,
       int max_sockets_per_group,
       base::TimeDelta unused_idle_socket_timeout,
@@ -218,7 +221,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
   // See ClientSocketPool::IdleSocketCountInGroup() for documentation on this
   // function.
-  int IdleSocketCountInGroup(const std::string& group_name) const;
+  size_t IdleSocketCountInGroup(const std::string& group_name) const;
 
   // See ClientSocketPool::GetLoadState() for documentation on this function.
   LoadState GetLoadState(const std::string& group_name,
@@ -231,16 +234,18 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
         ClientSocketPool::kMaxConnectRetryIntervalMs);
   }
 
-  int NumNeverAssignedConnectJobsInGroup(const std::string& group_name) const {
+  // TODO(mmenke): de-inline these.
+  size_t NumNeverAssignedConnectJobsInGroup(
+      const std::string& group_name) const {
     return group_map_.find(group_name)->second->never_assigned_job_count();
   }
 
-  int NumUnassignedConnectJobsInGroup(const std::string& group_name) const {
+  size_t NumUnassignedConnectJobsInGroup(const std::string& group_name) const {
     return group_map_.find(group_name)->second->unassigned_job_count();
   }
 
-  int NumConnectJobsInGroup(const std::string& group_name) const {
-    return group_map_.find(group_name)->second->jobs().size();
+  size_t NumConnectJobsInGroup(const std::string& group_name) const {
+    return group_map_.find(group_name)->second->ConnectJobCount();
   }
 
   int NumActiveSocketsInGroup(const std::string& group_name) const {
@@ -285,9 +290,6 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
   void EnableConnectBackupJobs();
 
-  // ConnectJob::Delegate methods:
-  void OnConnectJobComplete(int result, ConnectJob* job) override;
-
   // NetworkChangeNotifier::IPAddressObserver methods:
   void OnIPAddressChanged() override;
 
@@ -312,22 +314,49 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
   using RequestQueue = PriorityQueue<std::unique_ptr<Request>>;
 
-  // A Group is allocated per group_name when there are idle sockets or pending
-  // requests.  Otherwise, the Group object is removed from the map.
+  // A Group is allocated per group_name when there are idle sockets, unbound
+  // request, or bound requests. Otherwise, the Group object is removed from the
+  // map.
+  //
+  // A request is "bound" to a ConnectJob when an unbound ConnectJob encounters
+  // a proxy HTTP auth challenge, and the auth challenge is presented to that
+  // request. Once a request and ConnectJob are bound together:
+  // * All auth challenges the ConnectJob sees will be sent to that request.
+  // * Cancelling the request will cancel the ConnectJob.
+  // * The final result of the ConnectJob, and any returned socket, will only be
+  //   sent to that bound request, though if the returned socket is returned to
+  //   the socket pool, it can then be used to service any request.
+  //
+  // "assigned" jobs are unbound ConnectJobs that have a corresponding Request.
+  // If there are 5 Jobs and 10 Requests, the 5 highest priority requests are
+  // each assigned a Job. If there are 10 Jobs and 5 Requests, the first 5 Jobs
+  // are each assigned to a request. Assignment is determined by order in their
+  // corresponding arrays. The assignment concept is used to deal with
+  // reprioritizing Jobs, and computing a Request's LoadState.
+  //
   // |active_socket_count| tracks the number of sockets held by clients.
-  // SanityCheck() will always be true, except during the invokation of a
+  // SanityCheck() will always be true, except during the invocation of a
   // method.  So all public methods expect the Group to pass SanityCheck() when
   // invoked.
-  class NET_EXPORT_PRIVATE Group {
+  class NET_EXPORT_PRIVATE Group : public ConnectJob::Delegate {
    public:
     using JobList = std::list<std::unique_ptr<ConnectJob>>;
 
-    Group();
-    ~Group();
+    Group(const std::string& group_name,
+          ClientSocketPoolBaseHelper* client_socket_pool_base_helper);
+    ~Group() override;
+
+    // ConnectJob::Delegate methods:
+    void OnConnectJobComplete(int result, ConnectJob* job) override;
+    void OnNeedsProxyAuth(const HttpResponseInfo& response,
+                          HttpAuthController* auth_controller,
+                          base::OnceClosure restart_with_auth_callback,
+                          ConnectJob* job) override;
 
     bool IsEmpty() const {
       return active_socket_count_ == 0 && idle_sockets_.empty() &&
-          jobs_.empty() && pending_requests_.empty();
+             jobs_.empty() && unbound_requests_.empty() &&
+             bound_requests_.empty();
     }
 
     bool HasAvailableSocketSlot(int max_sockets_per_group) const {
@@ -336,30 +365,30 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
 
     int NumActiveSocketSlots() const {
       return active_socket_count_ + static_cast<int>(jobs_.size()) +
-          static_cast<int>(idle_sockets_.size());
+             static_cast<int>(idle_sockets_.size()) +
+             static_cast<int>(bound_requests_.size());
     }
 
     // Returns true if the group could make use of an additional socket slot, if
     // it were given one.
     bool CanUseAdditionalSocketSlot(int max_sockets_per_group) const {
       return HasAvailableSocketSlot(max_sockets_per_group) &&
-          pending_requests_.size() > jobs_.size();
+             unbound_requests_.size() > jobs_.size();
     }
 
-    // Returns the priority of the top of the pending request queue
+    // Returns the priority of the top of the unbound request queue
     // (which may be less than the maximum priority over the entire
     // queue, due to how we prioritize requests with |respect_limits|
     // DISABLED over others).
     RequestPriority TopPendingPriority() const {
       // NOTE: FirstMax().value()->priority() is not the same as
       // FirstMax().priority()!
-      return pending_requests_.FirstMax().value()->priority();
+      return unbound_requests_.FirstMax().value()->priority();
     }
 
     // Set a timer to create a backup job if it takes too long to
     // create one and if a timer isn't already running.
-    void StartBackupJobTimer(const std::string& group_name,
-                             ClientSocketPoolBaseHelper* pool);
+    void StartBackupJobTimer(const std::string& group_name);
 
     bool BackupJobTimerIsRunning() const;
 
@@ -369,38 +398,64 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     bool TryToUseNeverAssignedConnectJob();
 
     void AddJob(std::unique_ptr<ConnectJob> job, bool is_preconnect);
-    // Remove |job| from this group, which must already own |job|.
-    void RemoveJob(ConnectJob* job);
-    void RemoveAllJobs();
+    // Remove |job| from this group, which must already own |job|. Returns the
+    // removed ConnectJob.
+    std::unique_ptr<ConnectJob> RemoveUnboundJob(ConnectJob* job);
+    void RemoveAllUnboundJobs();
 
-    bool has_pending_requests() const {
-      return !pending_requests_.empty();
-    }
+    bool has_unbound_requests() const { return !unbound_requests_.empty(); }
 
-    size_t pending_request_count() const {
-      return pending_requests_.size();
-    }
+    size_t unbound_request_count() const { return unbound_requests_.size(); }
 
-    // Gets (but does not remove) the next pending request. Returns
-    // NULL if there are no pending requests.
-    const Request* GetNextPendingRequest() const;
+    size_t ConnectJobCount() const;
 
-    // Returns true if there is a connect job for |handle|.
-    bool HasConnectJobForHandle(const ClientSocketHandle* handle) const;
+    // Returns the connect job correspding to |handle|. In particular, if
+    // |handle| is bound to a ConnectJob, returns that job. If |handle| is
+    // "assigned" a ConnectJob, return that job. Otherwise, returns nullptr.
+    ConnectJob* GetConnectJobForHandle(const ClientSocketHandle* handle) const;
 
     // Inserts the request into the queue based on priority
     // order. Older requests are prioritized over requests of equal
     // priority.
-    void InsertPendingRequest(std::unique_ptr<Request> request);
+    void InsertUnboundRequest(std::unique_ptr<Request> request);
 
-    // Gets and removes the next pending request. Returns NULL if
-    // there are no pending requests.
-    std::unique_ptr<Request> PopNextPendingRequest();
+    // Gets (but does not remove) the next unbound request. Returns
+    // NULL if there are no unbound requests.
+    const Request* GetNextUnboundRequest() const;
 
-    // Finds the pending request for |handle| and removes it. Returns
-    // the removed pending request, or NULL if there was none.
-    std::unique_ptr<Request> FindAndRemovePendingRequest(
+    // Gets and removes the next unbound request. Returns NULL if
+    // there are no unbound requests.
+    std::unique_ptr<Request> PopNextUnboundRequest();
+
+    // Finds the unbound request for |handle| and removes it. Returns
+    // the removed unbound request, or NULL if there was none.
+    std::unique_ptr<Request> FindAndRemoveUnboundRequest(
         ClientSocketHandle* handle);
+
+    // Sets a pending error for all bound requests. Bound requests may be in the
+    // middle of a callback, so can't be failed at arbitrary points in time.
+    void SetPendingErrorForAllBoundRequests(int pending_error);
+
+    // Attempts to bind the highest priority unbound request to |connect_job|,
+    // and returns the bound request. If the request has previously been bound
+    // to |connect_job|, returns the previously bound request. If there are no
+    // requests, or the highest priority request doesn't have a proxy auth
+    // callback, returns nullptr.
+    const Request* BindRequestToConnectJob(ConnectJob* connect_job);
+
+    // Finds the request, if any, bound to |connect_job|, and returns it.
+    // Destroys the ConnectJob bound to the request, if there was one. The
+    // pending error if written to |pending_error|. If there is no pending
+    // error, |pending_error| is set to OK.
+    std::unique_ptr<Request> FindAndRemoveBoundRequestForConnectJob(
+        ConnectJob* connect_job,
+        int* pending_error);
+
+    // Finds the bound request, if any, corresponding to |client_socket_handle|
+    // and returns it. Destroys the ConnectJob bound to the request, if there
+    // was one.
+    std::unique_ptr<Request> FindAndRemoveBoundRequest(
+        ClientSocketHandle* client_socket_handle);
 
     // Change the priority of the request named by |*handle|.  |*handle|
     // must refer to a request currently present in the group.  If |priority|
@@ -410,10 +465,11 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     void IncrementActiveSocketCount() { active_socket_count_++; }
     void DecrementActiveSocketCount() { active_socket_count_--; }
 
-    // Whether the request in |pending_requests_| with a given handle has a job.
+    // Whether the request in |unbound_requests_| with a given handle has a job.
     bool RequestWithHandleHasJobForTesting(
         const ClientSocketHandle* handle) const;
 
+    const std::string& group_name() { return group_name_; }
     size_t unassigned_job_count() const { return unassigned_jobs_.size(); }
     const JobList& jobs() const { return jobs_; }
     const std::list<IdleSocket>& idle_sockets() const { return idle_sockets_; }
@@ -424,17 +480,37 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     }
 
    private:
-    // Returns the iterator's pending request after removing it from
+    struct BoundRequest {
+      BoundRequest();
+      BoundRequest(std::unique_ptr<ConnectJob> connect_job,
+                   std::unique_ptr<Request> request);
+      BoundRequest(BoundRequest&& other);
+      BoundRequest& operator=(BoundRequest&& other);
+      ~BoundRequest();
+
+      std::unique_ptr<ConnectJob> connect_job;
+      std::unique_ptr<Request> request;
+
+      // It's not safe to fail a request in a |CancelAllRequestsWithError| call
+      // while it's waiting on user input, as the request may have raw pointers
+      // to objects owned by |connect_job| that it could racily write to after
+      // |connect_job| is destroyed. Instead, just track an error in that case,
+      // and fail the request once the ConnectJob completes.
+      int pending_error;
+    };
+
+    // Returns the iterator's unbound request after removing it from
     // the queue. Expects the Group to pass SanityCheck() when called.
-    std::unique_ptr<Request> RemovePendingRequest(
+    std::unique_ptr<Request> RemoveUnboundRequest(
         const RequestQueue::Pointer& pointer);
 
     // Finds the Request which is associated with the given ConnectJob.
     // Returns nullptr if none is found. Expects the Group to pass SanityCheck()
     // when called.
-    RequestQueue::Pointer FindRequestWithJob(const ConnectJob* job) const;
+    RequestQueue::Pointer FindUnboundRequestWithJob(
+        const ConnectJob* job) const;
 
-    // Finds the Request in |pending_requests_| which is the first request
+    // Finds the Request in |unbound_requests_| which is the first request
     // without a job. Returns a null pointer if all requests have jobs. Does not
     // expect the Group to pass SanityCheck() when called, but does expect all
     // jobs to either be assigned to a request or in |unassigned_jobs_|. Expects
@@ -456,7 +532,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     // expect that:
     //  - the request associated with |request_pointer| must not have
     //    an assigned ConnectJob,
-    //  - the first min( jobs_.size(), pending_requests_.size() - 1 ) Requests
+    //  - the first min( jobs_.size(), unbound_requests_.size() - 1 ) Requests
     //    other than the given request must have ConnectJobs, i.e. the group
     //    must have passed SanityCheck() before the passed in Request was either
     //    added or had its job unassigned.
@@ -468,9 +544,7 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     void TransferJobBetweenRequests(Request* source, Request* dest);
 
     // Called when the backup socket timer fires.
-    void OnBackupJobTimerFired(
-        std::string group_name,
-        ClientSocketPoolBaseHelper* pool);
+    void OnBackupJobTimerFired(std::string group_name);
 
     // Checks that:
     //  - |unassigned_jobs_| is empty iff there are at least as many requests
@@ -484,6 +558,9 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     //  - There are no duplicate entries in |unassigned_jobs_|.
     void SanityCheck() const;
 
+    const std::string group_name_;
+    ClientSocketPoolBaseHelper* const client_socket_pool_base_helper_;
+
     // Total number of ConnectJobs that have never been assigned to a Request.
     // Since jobs use late binding to requests, which ConnectJobs have or have
     // not been assigned to a request are not tracked.  This is incremented on
@@ -496,12 +573,17 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     JobList jobs_;  // For bookkeeping purposes, there is a copy of the raw
                     // pointer of each element of |jobs_| stored either in
                     // |unassigned_jobs_|, or as the associated |job_| of an
-                    // element of |pending_requests_|.
+                    // element of |unbound_requests_|.
     std::list<ConnectJob*> unassigned_jobs_;
-    RequestQueue pending_requests_;
+    RequestQueue unbound_requests_;
     int active_socket_count_;  // number of active sockets used by clients
     // A timer for when to start the backup job.
     base::OneShotTimer backup_job_timer_;
+
+    // List of Requests bound to ConnectJobs currently undergoing proxy auth.
+    // The Requests and ConnectJobs in this list do not appear in
+    // |unbound_requests_| or |jobs_|.
+    std::vector<BoundRequest> bound_requests_;
   };
 
   using GroupMap = std::map<std::string, Group*>;
@@ -605,6 +687,15 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
                                int rv,
                                const SocketTag& socket_tag);
 
+  // These correspond to ConnectJob::Delegate methods, and are invoked by the
+  // Group a ConnectJob belongs to.
+  void OnConnectJobComplete(Group* group, int result, ConnectJob* job);
+  void OnNeedsProxyAuth(Group* group,
+                        const HttpResponseInfo& response,
+                        HttpAuthController* auth_controller,
+                        base::OnceClosure restart_with_auth_callback,
+                        ConnectJob* job);
+
   // Invokes the user callback for |handle|.  By the time this task has run,
   // it's possible that the request has been cancelled, so |handle| may not
   // exist in |pending_callback_map_|.  We look up the callback and result code
@@ -651,18 +742,9 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
   // to the pool, we can make sure that they are discarded rather than reused.
   int pool_generation_number_;
 
-  // Used to add |this| as a higher layer pool on top of lower layer pools.  May
-  // be NULL if no lower layer pools will be added.
-  HigherLayeredPool* pool_;
-
   // Pools that create connections through |this|.  |this| will try to close
   // their idle sockets when it stalls.  Must be empty on destruction.
   std::set<HigherLayeredPool*> higher_pools_;
-
-  // Pools that this goes through.  Typically there's only one, but not always.
-  // |this| will check if they're stalled when it has a new idle socket.  |this|
-  // will remove itself from all lower layered pools on destruction.
-  std::set<LowerLayeredPool*> lower_pools_;
 
   base::WeakPtrFactory<ClientSocketPoolBaseHelper> weak_factory_;
 
@@ -678,6 +760,7 @@ class ClientSocketPoolBase {
    public:
     Request(ClientSocketHandle* handle,
             CompletionOnceCallback callback,
+            const ClientSocketPool::ProxyAuthCallback& proxy_auth_callback,
             RequestPriority priority,
             const SocketTag& socket_tag,
             ClientSocketPool::RespectLimits respect_limits,
@@ -686,6 +769,7 @@ class ClientSocketPoolBase {
             const NetLogWithSource& net_log)
         : internal::ClientSocketPoolBaseHelper::Request(handle,
                                                         std::move(callback),
+                                                        proxy_auth_callback,
                                                         priority,
                                                         socket_tag,
                                                         respect_limits,
@@ -705,7 +789,6 @@ class ClientSocketPoolBase {
     virtual ~ConnectJobFactory() {}
 
     virtual std::unique_ptr<ConnectJob> NewConnectJob(
-        const std::string& group_name,
         const Request& request,
         ConnectJob::Delegate* delegate) const = 0;
 
@@ -719,14 +802,12 @@ class ClientSocketPoolBase {
   // long to leave an unused idle socket open before closing it.
   // |used_idle_socket_timeout| specifies how long to leave a previously used
   // idle socket open before closing it.
-  ClientSocketPoolBase(HigherLayeredPool* self,
-                       int max_sockets,
+  ClientSocketPoolBase(int max_sockets,
                        int max_sockets_per_group,
                        base::TimeDelta unused_idle_socket_timeout,
                        base::TimeDelta used_idle_socket_timeout,
                        ConnectJobFactory* connect_job_factory)
-      : helper_(self,
-                max_sockets,
+      : helper_(max_sockets,
                 max_sockets_per_group,
                 unused_idle_socket_timeout,
                 used_idle_socket_timeout,
@@ -735,10 +816,6 @@ class ClientSocketPoolBase {
   virtual ~ClientSocketPoolBase() {}
 
   // These member functions simply forward to ClientSocketPoolBaseHelper.
-  void AddLowerLayeredPool(LowerLayeredPool* lower_pool) {
-    helper_.AddLowerLayeredPool(lower_pool);
-  }
-
   void AddHigherLayeredPool(HigherLayeredPool* higher_pool) {
     helper_.AddHigherLayeredPool(higher_pool);
   }
@@ -749,17 +826,20 @@ class ClientSocketPoolBase {
 
   // RequestSocket bundles up the parameters into a Request and then forwards to
   // ClientSocketPoolBaseHelper::RequestSocket().
-  int RequestSocket(const std::string& group_name,
-                    const scoped_refptr<SocketParams>& params,
-                    RequestPriority priority,
-                    const SocketTag& socket_tag,
-                    ClientSocketPool::RespectLimits respect_limits,
-                    ClientSocketHandle* handle,
-                    CompletionOnceCallback callback,
-                    const NetLogWithSource& net_log) {
-    std::unique_ptr<Request> request(new Request(
-        handle, std::move(callback), priority, socket_tag, respect_limits,
-        internal::ClientSocketPoolBaseHelper::NORMAL, params, net_log));
+  int RequestSocket(
+      const std::string& group_name,
+      const scoped_refptr<SocketParams>& params,
+      RequestPriority priority,
+      const SocketTag& socket_tag,
+      ClientSocketPool::RespectLimits respect_limits,
+      ClientSocketHandle* handle,
+      CompletionOnceCallback callback,
+      const ClientSocketPool::ProxyAuthCallback& proxy_auth_callback,
+      const NetLogWithSource& net_log) {
+    std::unique_ptr<Request> request = std::make_unique<Request>(
+        handle, std::move(callback), proxy_auth_callback, priority, socket_tag,
+        respect_limits, internal::ClientSocketPoolBaseHelper::NORMAL, params,
+        net_log);
     return helper_.RequestSocket(group_name, std::move(request));
   }
 
@@ -770,10 +850,11 @@ class ClientSocketPoolBase {
                       const scoped_refptr<SocketParams>& params,
                       int num_sockets,
                       const NetLogWithSource& net_log) {
-    const Request request(
-        nullptr /* no handle */, CompletionOnceCallback(), IDLE, SocketTag(),
-        ClientSocketPool::RespectLimits::ENABLED,
-        internal::ClientSocketPoolBaseHelper::NO_IDLE_SOCKETS, params, net_log);
+    const Request request(nullptr /* no handle */, CompletionOnceCallback(),
+                          ClientSocketPool::ProxyAuthCallback(), IDLE,
+                          SocketTag(), ClientSocketPool::RespectLimits::ENABLED,
+                          internal::ClientSocketPoolBaseHelper::NO_IDLE_SOCKETS,
+                          params, net_log);
     helper_.RequestSockets(group_name, request, num_sockets);
   }
 
@@ -806,7 +887,7 @@ class ClientSocketPoolBase {
 
   int idle_socket_count() const { return helper_.idle_socket_count(); }
 
-  int IdleSocketCountInGroup(const std::string& group_name) const {
+  size_t IdleSocketCountInGroup(const std::string& group_name) const {
     return helper_.IdleSocketCountInGroup(group_name);
   }
 
@@ -820,19 +901,16 @@ class ClientSocketPoolBase {
     return helper_.DumpMemoryStats(pmd, parent_dump_absolute_name);
   }
 
-  virtual void OnConnectJobComplete(int result, ConnectJob* job) {
-    return helper_.OnConnectJobComplete(result, job);
-  }
-
-  int NumNeverAssignedConnectJobsInGroup(const std::string& group_name) const {
+  size_t NumNeverAssignedConnectJobsInGroup(
+      const std::string& group_name) const {
     return helper_.NumNeverAssignedConnectJobsInGroup(group_name);
   }
 
-  int NumUnassignedConnectJobsInGroup(const std::string& group_name) const {
+  size_t NumUnassignedConnectJobsInGroup(const std::string& group_name) const {
     return helper_.NumUnassignedConnectJobsInGroup(group_name);
   }
 
-  int NumConnectJobsInGroup(const std::string& group_name) const {
+  size_t NumConnectJobsInGroup(const std::string& group_name) const {
     return helper_.NumConnectJobsInGroup(group_name);
   }
 
@@ -864,10 +942,6 @@ class ClientSocketPoolBase {
 
   bool CloseOneIdleSocket() { return helper_.CloseOneIdleSocket(); }
 
-  bool CloseOneIdleConnectionInHigherLayeredPool() {
-    return helper_.CloseOneIdleConnectionInHigherLayeredPool();
-  }
-
  private:
   // This adaptor class exists to bridge the
   // internal::ClientSocketPoolBaseHelper::ConnectJobFactory and
@@ -885,12 +959,10 @@ class ClientSocketPoolBase {
     ~ConnectJobFactoryAdaptor() override {}
 
     std::unique_ptr<ConnectJob> NewConnectJob(
-        const std::string& group_name,
         const internal::ClientSocketPoolBaseHelper::Request& request,
         ConnectJob::Delegate* delegate) const override {
       const Request& casted_request = static_cast<const Request&>(request);
-      return connect_job_factory_->NewConnectJob(
-          group_name, casted_request, delegate);
+      return connect_job_factory_->NewConnectJob(casted_request, delegate);
     }
 
     const std::unique_ptr<ConnectJobFactory> connect_job_factory_;

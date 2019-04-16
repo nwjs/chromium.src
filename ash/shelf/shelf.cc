@@ -19,6 +19,7 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/system/status_area_widget.h"
+#include "base/bind_helpers.h"
 #include "base/logging.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/geometry/rect.h"
@@ -105,7 +106,7 @@ void Shelf::ActivateShelfItemOnDisplay(int item_index, int64_t display_id) {
   ShelfItemDelegate* item_delegate = shelf_model->GetShelfItemDelegate(item.id);
   std::unique_ptr<ui::Event> event = std::make_unique<ui::KeyEvent>(
       ui::ET_KEY_RELEASED, ui::VKEY_UNKNOWN, ui::EF_NONE);
-  item_delegate->ItemSelected(std::move(event), display_id, LAUNCH_FROM_UNKNOWN,
+  item_delegate->ItemSelected(std::move(event), display_id, LAUNCH_FROM_SHELF,
                               base::DoNothing());
 }
 
@@ -142,13 +143,12 @@ bool Shelf::IsVisible() const {
 }
 
 aura::Window* Shelf::GetWindow() {
-  return shelf_widget_->GetNativeWindow();
+  return shelf_widget_ ? shelf_widget_->GetNativeWindow() : nullptr;
 }
 
 void Shelf::SetAlignment(ShelfAlignment alignment) {
-  // Checks added for http://crbug.com/738011.
-  CHECK(shelf_widget_);
-  CHECK(shelf_layout_manager_);
+  if (!shelf_widget_)
+    return;
 
   if (alignment_ == alignment)
     return;
@@ -217,7 +217,8 @@ void Shelf::UpdateAutoHideState() {
 }
 
 ShelfBackgroundType Shelf::GetBackgroundType() const {
-  return shelf_widget_->GetBackgroundType();
+  return shelf_widget_ ? shelf_widget_->GetBackgroundType()
+                       : SHELF_BACKGROUND_DEFAULT;
 }
 
 void Shelf::UpdateVisibilityState() {
@@ -295,7 +296,7 @@ void Shelf::NotifyShelfIconPositionsChanged() {
 }
 
 StatusAreaWidget* Shelf::GetStatusAreaWidget() const {
-  return shelf_widget_->status_area_widget();
+  return shelf_widget_ ? shelf_widget_->status_area_widget() : nullptr;
 }
 
 TrayBackgroundView* Shelf::GetSystemTrayAnchorView() const {
@@ -303,19 +304,17 @@ TrayBackgroundView* Shelf::GetSystemTrayAnchorView() const {
 }
 
 gfx::Rect Shelf::GetSystemTrayAnchorRect() const {
-  gfx::Rect workspace_bounds = GetUserWorkAreaBounds();
+  gfx::Rect work_area = GetUserWorkAreaBounds();
   switch (alignment_) {
     case SHELF_ALIGNMENT_BOTTOM:
     case SHELF_ALIGNMENT_BOTTOM_LOCKED:
-      return gfx::Rect(base::i18n::IsRTL() ? workspace_bounds.x()
-                                           : (workspace_bounds.right() - 1),
-                       workspace_bounds.bottom() - 1, 0, 0);
+      return gfx::Rect(
+          base::i18n::IsRTL() ? work_area.x() : work_area.right() - 1,
+          work_area.bottom() - 1, 0, 0);
     case SHELF_ALIGNMENT_LEFT:
-      return gfx::Rect(workspace_bounds.x(), workspace_bounds.bottom() - 1, 0,
-                       0);
+      return gfx::Rect(work_area.x(), work_area.bottom() - 1, 0, 0);
     case SHELF_ALIGNMENT_RIGHT:
-      return gfx::Rect(workspace_bounds.right() - 1,
-                       workspace_bounds.bottom() - 1, 0, 0);
+      return gfx::Rect(work_area.right() - 1, work_area.bottom() - 1, 0, 0);
   }
   NOTREACHED();
   return gfx::Rect();

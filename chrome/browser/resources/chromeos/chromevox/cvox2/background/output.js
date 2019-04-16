@@ -27,6 +27,7 @@ goog.require('cvox.TtsCategory');
 goog.require('cvox.ValueSelectionSpan');
 goog.require('cvox.ValueSpan');
 goog.require('goog.i18n.MessageFormat');
+goog.require('LanguageSwitching');
 
 goog.scope(function() {
 var AutomationNode = chrome.automation.AutomationNode;
@@ -450,7 +451,8 @@ Output.RULES = {
           $restriction $description`
     },
     image: {
-      speak: `$if($name, $name, $urlFilename)
+      speak: `$if($name, $name,
+          $if($imageAnnotation, $imageAnnotation, $urlFilename))
           $value $state $role $description`,
     },
     inlineTextBox: {speak: `$name=`},
@@ -1090,7 +1092,11 @@ Output.prototype = {
 
     // Display.
     if (this.speechCategory_ != cvox.TtsCategory.LIVE)
-      chrome.accessibilityPrivate.setFocusRing(this.locations_);
+      chrome.accessibilityPrivate.setFocusRings([{
+        rects: this.locations_,
+        type: chrome.accessibilityPrivate.FocusType.GLOW,
+        color: constants.FOCUS_COLOR
+      }]);
   },
 
   /**
@@ -1245,6 +1251,12 @@ Output.prototype = {
 
           this.append_(buff, node.name || '', options);
           ruleStr.writeTokenWithValue(token, node.name);
+          // Language Switching. Only execute if feature is enabled.
+          if (localStorage['languageSwitching'] === 'true') {
+            speechProps = new Output.SpeechProperties();
+            speechProps['lang'] =
+                LanguageSwitching.updateCurrentLanguageForNode(node);
+          }
         } else if (token == 'description') {
           if (node.name == node.description)
             return;
@@ -1429,9 +1441,9 @@ Output.prototype = {
             else
               msg = Msgs.getMsg(info.msgId);
           } else {
-            var errorMsg = 'Missing role info for ' + node.role;
-            ruleStr.writeError(errorMsg);
-            console.error(errorMsg);
+            // We can safely ignore this role. ChromeVox output tests cover
+            // message id validity.
+            return;
           }
           this.append_(buff, msg || '', options);
           ruleStr.writeTokenWithValue(token, msg);

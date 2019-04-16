@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
@@ -325,7 +326,7 @@ IN_PROC_BROWSER_TEST_P(CookieSettingsTest, BlockCookiesUsingExceptions) {
   ASSERT_FALSE(GetCookies(browser()->profile(), unblocked_url).empty());
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     CookieSettingsTest,
     ::testing::Values(CookieMode::kJSReadJSWrite,
@@ -424,7 +425,7 @@ IN_PROC_BROWSER_TEST_F(ContentSettingsStrictSecureCookiesBrowserTest, Cookies) {
   ui_test_utils::NavigateToURL(browser(),
                                https_server.GetURL("/setsecurecookie.html"));
   EXPECT_FALSE(GetSiteSettingsCookieContainer(browser())->cookies()->empty());
-};
+}
 
 IN_PROC_BROWSER_TEST_F(ContentSettingsTest, ContentSettingsBlockDataURLs) {
   GURL url("data:text/html,<title>Data URL</title><script>alert(1)</script>");

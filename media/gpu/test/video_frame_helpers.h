@@ -6,6 +6,7 @@
 #define MEDIA_GPU_TEST_VIDEO_FRAME_HELPERS_H_
 
 #include "base/memory/scoped_refptr.h"
+#include "media/base/video_frame_layout.h"
 #include "media/base/video_types.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/geometry/size.h"
@@ -35,10 +36,27 @@ class VideoFrameProcessor {
   // VideoFrameProcessor.
   virtual void ProcessVideoFrame(scoped_refptr<const VideoFrame> video_frame,
                                  size_t frame_index) = 0;
+
+  // Wait until all currently scheduled frames have been processed. Returns
+  // whether processing was successful.
+  virtual bool WaitUntilDone() = 0;
 };
 
-// Create a video frame with specified |pixel_format| and |size|.
-scoped_refptr<VideoFrame> CreateVideoFrame(
+// Convert and copy the |src_frame| to the specified |dst_frame|. Supported
+// input formats are I420, NV12 and YV12. Supported output formats are I420 and
+// ARGB. All mappable output storages types are supported, but writing into
+// non-owned memory might produce unexpected side effects.
+bool ConvertVideoFrame(const VideoFrame* src_frame, VideoFrame* dst_frame);
+
+// Convert and copy the |src_frame| to a new video frame with specified format.
+// Supported input formats are I420, NV12 and YV12. Supported output formats are
+// I420 and ARGB.
+scoped_refptr<VideoFrame> ConvertVideoFrame(const VideoFrame* src_frame,
+                                            VideoPixelFormat dst_pixel_format);
+
+// Create a platform-specific DMA-buffer-backed video frame with specified
+// |pixel_format|, |size| and |buffer_usage|.
+scoped_refptr<VideoFrame> CreatePlatformVideoFrame(
     VideoPixelFormat pixel_format,
     const gfx::Size& size,
     gfx::BufferUsage buffer_usage = gfx::BufferUsage::SCANOUT_VDA_WRITE);
@@ -46,6 +64,12 @@ scoped_refptr<VideoFrame> CreateVideoFrame(
 // Create a shared GPU memory handle to the |video_frame|'s data.
 gfx::GpuMemoryBufferHandle CreateGpuMemoryBufferHandle(
     scoped_refptr<VideoFrame> video_frame);
+
+// Create a video frame layout for the specified |pixel_format| and |size|. The
+// created layout will have a separate buffer for each plane in the format.
+base::Optional<VideoFrameLayout> CreateVideoFrameLayout(
+    VideoPixelFormat pixel_format,
+    const gfx::Size& size);
 
 }  // namespace test
 }  // namespace media

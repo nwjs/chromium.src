@@ -10,7 +10,6 @@
 #include "base/time/time.h"
 #include "components/keyed_service/ios/browser_state_dependency_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
-#include "components/prefs/pref_registry_simple.h"
 #include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_pref_names.h"
@@ -20,7 +19,6 @@
 #include "ios/chrome/browser/signin/gaia_cookie_manager_service_factory.h"
 #include "ios/chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "ios/chrome/browser/signin/signin_client_factory.h"
-#include "ios/chrome/browser/signin/signin_manager_factory_observer.h"
 
 namespace ios {
 
@@ -61,26 +59,6 @@ void SigninManagerFactory::RegisterBrowserStatePrefs(
   SigninManagerBase::RegisterProfilePrefs(registry);
 }
 
-// static
-void SigninManagerFactory::RegisterPrefs(PrefRegistrySimple* registry) {
-  SigninManagerBase::RegisterPrefs(registry);
-}
-
-void SigninManagerFactory::AddObserver(SigninManagerFactoryObserver* observer) {
-  observer_list_.AddObserver(observer);
-}
-
-void SigninManagerFactory::RemoveObserver(
-    SigninManagerFactoryObserver* observer) {
-  observer_list_.RemoveObserver(observer);
-}
-
-void SigninManagerFactory::NotifyObserversOfSigninManagerCreationForTesting(
-    SigninManager* manager) {
-  for (auto& observer : observer_list_)
-    observer.SigninManagerCreated(manager);
-}
-
 std::unique_ptr<KeyedService> SigninManagerFactory::BuildServiceInstanceFor(
     web::BrowserState* context) const {
   ios::ChromeBrowserState* chrome_browser_state =
@@ -95,19 +73,7 @@ std::unique_ptr<KeyedService> SigninManagerFactory::BuildServiceInstanceFor(
           chrome_browser_state),
       signin::AccountConsistencyMethod::kMirror));
   service->Initialize(GetApplicationContext()->GetLocalState());
-  for (auto& observer : observer_list_)
-    observer.SigninManagerCreated(service.get());
   return service;
-}
-
-void SigninManagerFactory::BrowserStateShutdown(web::BrowserState* context) {
-  SigninManager* manager =
-      static_cast<SigninManager*>(GetServiceForBrowserState(context, false));
-  if (manager) {
-    for (auto& observer : observer_list_)
-      observer.SigninManagerShutdown(manager);
-  }
-  BrowserStateKeyedServiceFactory::BrowserStateShutdown(context);
 }
 
 }  // namespace ios

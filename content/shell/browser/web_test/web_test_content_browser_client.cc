@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
 #include "base/strings/pattern.h"
@@ -55,7 +56,7 @@ void BindWebTestHelper(mojom::MojoWebTestHelperRequest request,
 class TestOverlayWindow : public OverlayWindow {
  public:
   TestOverlayWindow() = default;
-  ~TestOverlayWindow() override{};
+  ~TestOverlayWindow() override {}
 
   static std::unique_ptr<OverlayWindow> Create(
       PictureInPictureWindowController* controller) {
@@ -64,11 +65,8 @@ class TestOverlayWindow : public OverlayWindow {
 
   bool IsActive() const override { return false; }
   void Close() override {}
-  void Show() override {}
+  void ShowInactive() override {}
   void Hide() override {}
-  void SetPictureInPictureCustomControls(
-      const std::vector<blink::PictureInPictureControlInfo>& controls)
-      override {}
   bool IsVisible() const override { return false; }
   bool IsAlwaysOnTop() const override { return false; }
   ui::Layer* GetLayer() override { return nullptr; }
@@ -76,7 +74,10 @@ class TestOverlayWindow : public OverlayWindow {
   void UpdateVideoSize(const gfx::Size& natural_size) override {}
   void SetPlaybackState(PlaybackState playback_state) override {}
   void SetAlwaysHidePlayPauseButton(bool is_visible) override {}
+  void SetMutedState(MutedState muted_state) override {}
   void SetSkipAdButtonVisibility(bool is_visible) override {}
+  void SetNextTrackButtonVisibility(bool is_visible) override {}
+  void SetPreviousTrackButtonVisibility(bool is_visible) override {}
   ui::Layer* GetWindowBackgroundLayer() override { return nullptr; }
   ui::Layer* GetVideoLayer() override { return nullptr; }
   gfx::Rect GetVideoBounds() override { return gfx::Rect(); }
@@ -316,9 +317,9 @@ void WebTestContentBrowserClient::ExposeInterfacesToFrame(
   registry->AddInterface(base::Bind(&BindWebTestHelper));
 }
 
-scoped_refptr<LoginDelegate> WebTestContentBrowserClient::CreateLoginDelegate(
+std::unique_ptr<LoginDelegate> WebTestContentBrowserClient::CreateLoginDelegate(
     net::AuthChallengeInfo* auth_info,
-    content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+    content::WebContents* web_contents,
     const content::GlobalRequestID& request_id,
     bool is_main_frame,
     const GURL& url,

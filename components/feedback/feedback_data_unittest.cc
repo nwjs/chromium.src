@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
 #include "components/feedback/feedback_report.h"
@@ -23,6 +24,7 @@ namespace feedback {
 
 namespace {
 
+constexpr char kHistograms[] = "Histogram Data";
 constexpr char kImageData[] = "Image Data";
 constexpr char kFileData[] = "File Data";
 
@@ -96,6 +98,7 @@ class FeedbackDataTest : public testing::Test {
 };
 
 TEST_F(FeedbackDataTest, ReportSending) {
+  data_->SetAndCompressHistograms(MakeScoped(kHistograms));
   data_->set_image(MakeScoped(kImageData));
   data_->AttachAndCompressFileData(MakeScoped(kFileData));
   Send();

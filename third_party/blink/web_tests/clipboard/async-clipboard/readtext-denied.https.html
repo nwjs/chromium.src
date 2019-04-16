@@ -7,18 +7,6 @@
 <script>
 promise_test(async t => {
   await PermissionsHelper.setPermission('clipboard-read', 'denied');
-  // Note: Failure returns a rejected promise of type undefined, so
-  // promise_rejects doesn't seem to work here.
-  let promise_rejected = false;
-  try {
-    await navigator.clipboard.readText();
-  }
-  catch {
-    promise_rejected = true;
-  }
-  if(promise_rejected === false) {
-    throw "readText should have failed with permission denied, but succeeded "
-          + "instead";
-  }
+  await promise_rejects(t, 'NotAllowedError', navigator.clipboard.readText());
 }, "navigator.clipboard.readText() fails when permission denied");
 </script>

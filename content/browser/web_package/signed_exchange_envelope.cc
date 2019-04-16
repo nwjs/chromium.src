@@ -136,7 +136,7 @@ bool ParseResponseMap(const cbor::Value& value,
     signed_exchange_utils::ReportErrorAndTraceEvent(
         devtools_proxy,
         base::StringPrintf(
-            "Expected request map, got non-map type. Actual type: %d",
+            "Expected response map, got non-map type. Actual type: %d",
             static_cast<int>(value.type())));
     return false;
   }
@@ -232,7 +232,7 @@ bool ParseResponseMap(const cbor::Value& value,
   if (!IsCacheableBySharedCache(out->response_headers(), devtools_proxy))
     return false;
 
-  // https://wicg.github.io/webpackage/loading.html#parsing-b1
+  // https://wicg.github.io/webpackage/loading.html#parsing-a-signed-exchange
   // Step 26. If parsedExchange’s response's status is a redirect status or the
   //          signed exchange version of parsedExchange’s response is not
   //          undefined, return a failure. [spec text]

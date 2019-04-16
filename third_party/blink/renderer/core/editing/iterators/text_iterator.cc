@@ -85,7 +85,7 @@ static inline bool HasDisplayContents(const Node& node) {
 // |node| is neither a shadow root nor the owner of a layout object.
 static bool NotSkipping(const Node& node) {
   return node.GetLayoutObject() || HasDisplayContents(node) ||
-         (node.IsShadowRoot() && node.OwnerShadowHost()->GetLayoutObject());
+         (IsA<ShadowRoot>(node) && node.OwnerShadowHost()->GetLayoutObject());
 }
 
 template <typename Strategy>
@@ -177,7 +177,7 @@ bool ShouldHandleChildren(const Node& node,
 
   if (node.IsElementNode()) {
     if (auto* context = ToElement(node).GetDisplayLockContext())
-      return context->IsSearchable();
+      return context->IsActivatable();
   }
   return true;
 }
@@ -311,13 +311,13 @@ void TextIteratorAlgorithm<Strategy>::Advance() {
 
     LayoutObject* layout_object = node_->GetLayoutObject();
     if (!layout_object) {
-      if (node_->IsShadowRoot() || HasDisplayContents(*node_)) {
+      if (IsA<ShadowRoot>(node_.Get()) || HasDisplayContents(*node_)) {
         // Shadow roots or display: contents elements don't have LayoutObjects,
         // but we want to visit children anyway.
         iteration_progress_ = iteration_progress_ < kHandledNode
                                   ? kHandledNode
                                   : iteration_progress_;
-        handle_shadow_root_ = node_->IsShadowRoot();
+        handle_shadow_root_ = IsA<ShadowRoot>(node_.Get());
       } else {
         iteration_progress_ = kHandledChildren;
       }
@@ -421,12 +421,12 @@ void TextIteratorAlgorithm<Strategy>::Advance() {
           // 4. Reached the top of a shadow root. If it's created by author,
           // then try to visit the next
           // sibling shadow root, if any.
-          if (!node_->IsShadowRoot()) {
+          const auto* shadow_root = DynamicTo<ShadowRoot>(node_.Get());
+          if (!shadow_root) {
             NOTREACHED();
             should_stop_ = true;
             return;
           }
-          const ShadowRoot* shadow_root = ToShadowRoot(node_);
           if (shadow_root->GetType() == ShadowRootType::V0 ||
               shadow_root->GetType() == ShadowRootType::kOpen) {
             // We are the shadow root; exit from here and go back to
@@ -653,7 +653,7 @@ bool TextIteratorAlgorithm<Strategy>::ShouldEmitNewlineBeforeNode(
 }
 
 static bool ShouldEmitExtraNewlineForNode(const Node* node) {
-  // https://html.spec.whatwg.org/multipage/dom.html#the-innertext-idl-attribute
+  // https://html.spec.whatwg.org/C/#the-innertext-idl-attribute
   // Append two required linebreaks after a P element.
   LayoutObject* r = node->GetLayoutObject();
   if (!r || !r->IsBox())
@@ -750,7 +750,7 @@ void TextIteratorAlgorithm<Strategy>::RepresentNodeOffsetZero() {
   // early-return style.
   // When we haven't been emitting any characters,
   // ShouldRepresentNodeOffsetZero() can create VisiblePositions, which is
-  // expensive. So, we perform the inexpensive checks on m_node to see if it
+  // expensive. So, we perform the inexpensive checks on |node_| to see if it
   // necessitates emitting a character first and will early return before
   // encountering ShouldRepresentNodeOffsetZero()s worse case behavior.
   if (ShouldEmitTabBeforeNode(*node_)) {

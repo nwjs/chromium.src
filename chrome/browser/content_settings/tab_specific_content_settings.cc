@@ -173,14 +173,12 @@ void TabSpecificContentSettings::WebDatabaseAccessed(
     int render_process_id,
     int render_frame_id,
     const GURL& url,
-    const base::string16& name,
-    const base::string16& display_name,
     bool blocked_by_policy) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   TabSpecificContentSettings* settings = GetForFrame(
       render_process_id, render_frame_id);
   if (settings)
-    settings->OnWebDatabaseAccessed(url, name, display_name, blocked_by_policy);
+    settings->OnWebDatabaseAccessed(url, blocked_by_policy);
 }
 
 // static
@@ -418,10 +416,10 @@ void TabSpecificContentSettings::OnCookieChange(
 void TabSpecificContentSettings::OnIndexedDBAccessed(const GURL& url,
                                                      bool blocked_by_policy) {
   if (blocked_by_policy) {
-    blocked_local_shared_objects_.indexed_dbs()->AddIndexedDB(url);
+    blocked_local_shared_objects_.indexed_dbs()->Add(url::Origin::Create(url));
     OnContentBlocked(CONTENT_SETTINGS_TYPE_COOKIES);
   } else {
-    allowed_local_shared_objects_.indexed_dbs()->AddIndexedDB(url);
+    allowed_local_shared_objects_.indexed_dbs()->Add(url::Origin::Create(url));
     OnContentAllowed(CONTENT_SETTINGS_TYPE_COOKIES);
   }
 
@@ -436,7 +434,7 @@ void TabSpecificContentSettings::OnLocalStorageAccessed(
       blocked_local_shared_objects_ : allowed_local_shared_objects_;
   CannedBrowsingDataLocalStorageHelper* helper =
       local ? container.local_storages() : container.session_storages();
-  helper->AddLocalStorage(url);
+  helper->Add(url::Origin::Create(url));
 
   if (blocked_by_policy)
     OnContentBlocked(CONTENT_SETTINGS_TYPE_COOKIES);
@@ -452,11 +450,11 @@ void TabSpecificContentSettings::OnServiceWorkerAccessed(
     bool blocked_by_policy_cookie) {
   DCHECK(scope.is_valid());
   if (blocked_by_policy_javascript || blocked_by_policy_cookie) {
-    blocked_local_shared_objects_.service_workers()->AddServiceWorker(
-        scope.GetOrigin(), std::vector<GURL>(1, scope));
+    blocked_local_shared_objects_.service_workers()->Add(
+        url::Origin::Create(scope));
   } else {
-    allowed_local_shared_objects_.service_workers()->AddServiceWorker(
-        scope.GetOrigin(), std::vector<GURL>(1, scope));
+    allowed_local_shared_objects_.service_workers()->Add(
+        url::Origin::Create(scope));
   }
 
   if (blocked_by_policy_javascript) {
@@ -490,16 +488,12 @@ void TabSpecificContentSettings::OnSharedWorkerAccessed(
 
 void TabSpecificContentSettings::OnWebDatabaseAccessed(
     const GURL& url,
-    const base::string16& name,
-    const base::string16& display_name,
     bool blocked_by_policy) {
   if (blocked_by_policy) {
-    blocked_local_shared_objects_.databases()->AddDatabase(
-        url, base::UTF16ToUTF8(name), base::UTF16ToUTF8(display_name));
+    blocked_local_shared_objects_.databases()->Add(url::Origin::Create(url));
     OnContentBlocked(CONTENT_SETTINGS_TYPE_COOKIES);
   } else {
-    allowed_local_shared_objects_.databases()->AddDatabase(
-        url, base::UTF16ToUTF8(name), base::UTF16ToUTF8(display_name));
+    allowed_local_shared_objects_.databases()->Add(url::Origin::Create(url));
     OnContentAllowed(CONTENT_SETTINGS_TYPE_COOKIES);
   }
 
@@ -509,13 +503,14 @@ void TabSpecificContentSettings::OnWebDatabaseAccessed(
 void TabSpecificContentSettings::OnFileSystemAccessed(
     const GURL& url,
     bool blocked_by_policy) {
+  // Note that all sandboxed file system access is recorded here as
+  // kTemporary; the distinction between temporary (default) and persistent
+  // storage is not made in the UI that presents this data.
   if (blocked_by_policy) {
-    blocked_local_shared_objects_.file_systems()->AddFileSystem(
-        url::Origin::Create(url), storage::kFileSystemTypeTemporary, 0);
+    blocked_local_shared_objects_.file_systems()->Add(url::Origin::Create(url));
     OnContentBlocked(CONTENT_SETTINGS_TYPE_COOKIES);
   } else {
-    allowed_local_shared_objects_.file_systems()->AddFileSystem(
-        url::Origin::Create(url), storage::kFileSystemTypeTemporary, 0);
+    allowed_local_shared_objects_.file_systems()->Add(url::Origin::Create(url));
     OnContentAllowed(CONTENT_SETTINGS_TYPE_COOKIES);
   }
 

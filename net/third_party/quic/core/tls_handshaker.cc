@@ -8,7 +8,6 @@
 #include "net/third_party/quic/core/tls_client_handshaker.h"
 #include "net/third_party/quic/platform/api/quic_arraysize.h"
 #include "net/third_party/quic/platform/api/quic_bug_tracker.h"
-#include "net/third_party/quic/platform/api/quic_singleton.h"
 #include "third_party/boringssl/src/include/openssl/crypto.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 
@@ -19,7 +18,8 @@ namespace {
 class SslIndexSingleton {
  public:
   static SslIndexSingleton* GetInstance() {
-    return QuicSingleton<SslIndexSingleton>::get();
+    static SslIndexSingleton* instance = new SslIndexSingleton();
+    return instance;
   }
 
   int HandshakerIndex() const { return ssl_ex_data_index_handshaker_; }
@@ -34,8 +34,6 @@ class SslIndexSingleton {
 
   SslIndexSingleton(const SslIndexSingleton&) = delete;
   SslIndexSingleton& operator=(const SslIndexSingleton&) = delete;
-
-  friend QuicSingletonFriend<SslIndexSingleton>;
 
   int ssl_ex_data_index_handshaker_;
 };
@@ -108,7 +106,7 @@ EncryptionLevel TlsHandshaker::QuicEncryptionLevel(
       return ENCRYPTION_NONE;
     case ssl_encryption_early_data:
     case ssl_encryption_handshake:
-      return ENCRYPTION_INITIAL;
+      return ENCRYPTION_ZERO_RTT;
     case ssl_encryption_application:
       return ENCRYPTION_FORWARD_SECURE;
   }
@@ -120,7 +118,7 @@ enum ssl_encryption_level_t TlsHandshaker::BoringEncryptionLevel(
   switch (level) {
     case ENCRYPTION_NONE:
       return ssl_encryption_initial;
-    case ENCRYPTION_INITIAL:
+    case ENCRYPTION_ZERO_RTT:
       return ssl_encryption_handshake;
     case ENCRYPTION_FORWARD_SECURE:
       return ssl_encryption_application;
@@ -214,7 +212,7 @@ void TlsHandshaker::SetEncryptionSecret(
     // alternative decrypter instead of the primary decrypter. One reason for
     // this is that after the forward secure keys become available, the server
     // still has crypto handshake messages to read at the handshake encryption
-    // level, meaning that both the ENCRYPTION_INITIAL and
+    // level, meaning that both the ENCRYPTION_ZERO_RTT and
     // ENCRYPTION_FORWARD_SECURE decrypters need to be available. (Tests also
     // assume that an alternative decrypter gets set, so at some point we need
     // to call SetAlternativeDecrypter.)

@@ -202,7 +202,7 @@ TEST_F('CrExtensionsItemsTest', 'HtmlInName', function() {
 CrExtensionsActivityLogTest = class extends CrExtensionsBrowserTest {
   /** @override */
   get browsePreload() {
-    return 'chrome://extensions/activity_log.html';
+    return 'chrome://extensions/activity_log/activity_log.html';
   }
 
   get extraLibraries() {
@@ -217,22 +217,82 @@ TEST_F('CrExtensionsActivityLogTest', 'All', () => {
 });
 
 ////////////////////////////////////////////////////////////////////////////////
-// Extension Activity Log Item Tests
+// Extension Activity Log History Tests
 
-CrExtensionsActivityLogItemTest = class extends CrExtensionsBrowserTest {
+CrExtensionsActivityLogHistoryTest = class extends CrExtensionsBrowserTest {
   /** @override */
   get browsePreload() {
-    return 'chrome://extensions/activity_log_item.html';
+    return 'chrome://extensions/activity_log/activity_log_history.html';
   }
 
   get extraLibraries() {
     return super.extraLibraries.concat([
-      'activity_log_item_test.js',
+      'activity_log_history_test.js',
     ]);
   }
 };
 
-TEST_F('CrExtensionsActivityLogItemTest', 'All', () => {
+TEST_F('CrExtensionsActivityLogHistoryTest', 'All', () => {
+  mocha.run();
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Extension Activity Log Item Tests
+
+CrExtensionsActivityLogHistoryItemTest = class extends CrExtensionsBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://extensions/activity_log/activity_log_item.html';
+  }
+
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'activity_log_history_item_test.js',
+    ]);
+  }
+};
+
+TEST_F('CrExtensionsActivityLogHistoryItemTest', 'All', () => {
+  mocha.run();
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Extension Activity Log Stream Tests
+
+CrExtensionsActivityLogStreamTest = class extends CrExtensionsBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://extensions/activity_log/activity_log_stream.html';
+  }
+
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'activity_log_stream_test.js',
+    ]);
+  }
+};
+
+TEST_F('CrExtensionsActivityLogStreamTest', 'All', () => {
+  mocha.run();
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Extension Activity Log Stream Item Tests
+
+CrExtensionsActivityLogStreamItemTest = class extends CrExtensionsBrowserTest {
+  /** @override */
+  get browsePreload() {
+    return 'chrome://extensions/activity_log/activity_log_stream_item.html';
+  }
+
+  get extraLibraries() {
+    return super.extraLibraries.concat([
+      'activity_log_stream_item_test.js',
+    ]);
+  }
+};
+
+TEST_F('CrExtensionsActivityLogStreamItemTest', 'All', () => {
   mocha.run();
 });
 

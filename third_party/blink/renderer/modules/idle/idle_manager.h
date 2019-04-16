@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_IDLE_IDLE_MANAGER_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_IDLE_IDLE_MANAGER_H_
 
+#include "base/macros.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/platform/modules/idle/idle_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
@@ -27,7 +28,6 @@ class ScriptPromise;
 class ScriptState;
 
 class IdleManager final : public ScriptWrappable {
-  WTF_MAKE_NONCOPYABLE(IdleManager);
   DEFINE_WRAPPERTYPEINFO();
 
  public:
@@ -45,10 +45,12 @@ class IdleManager final : public ScriptWrappable {
   void OnIdleManagerConnectionError();
   void OnAddMonitor(ScriptPromiseResolver*,
                     IdleStatus*,
-                    mojom::blink::IdleState);
+                    mojom::blink::IdleStatePtr);
 
   HeapHashSet<Member<ScriptPromiseResolver>> requests_;
   mojom::blink::IdleManagerPtr service_;
+
+  DISALLOW_COPY_AND_ASSIGN(IdleManager);
 };
 
 }  // namespace blink

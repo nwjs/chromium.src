@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
@@ -20,7 +21,7 @@
 #include "content/renderer/service_worker/embedded_worker_instance_client_impl.h"
 #include "content/renderer/service_worker/service_worker_timeout_timer.h"
 #include "content/renderer/service_worker/service_worker_type_util.h"
-#include "content/renderer/worker_thread_registry.h"
+#include "content/renderer/worker/worker_thread_registry.h"
 #include "mojo/public/cpp/bindings/associated_binding_set.h"
 #include "mojo/public/cpp/bindings/associated_interface_ptr.h"
 #include "services/network/public/cpp/features.h"
@@ -30,6 +31,7 @@
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 #include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/embedded_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 #include "third_party/blink/public/platform/modules/notifications/web_notification_data.h"
 #include "third_party/blink/public/platform/modules/payments/web_payment_request_event_data.h"
@@ -42,6 +44,7 @@
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_response.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
+#include "third_party/blink/public/web/web_embedded_worker.h"
 
 namespace content {
 
@@ -49,6 +52,9 @@ namespace {
 
 // Pipes connected to the context client.
 struct ContextClientPipes {
+  // From the browser to EmbeddedWorkerInstanceClientImpl.
+  blink::mojom::EmbeddedWorkerInstanceClientPtr embedded_worker_instance_client;
+
   // From the browser to ServiceWorkerContextClient.
   blink::mojom::ServiceWorkerPtr service_worker;
   blink::mojom::ControllerServiceWorkerPtr controller;
@@ -56,10 +62,33 @@ struct ContextClientPipes {
 
   // From ServiceWorkerContextClient to the browser.
   blink::mojom::ServiceWorkerHostAssociatedRequest service_worker_host_request;
-  mojom::EmbeddedWorkerInstanceHostAssociatedRequest
+  blink::mojom::EmbeddedWorkerInstanceHostAssociatedRequest
       embedded_worker_host_request;
   blink::mojom::ServiceWorkerRegistrationObjectHostAssociatedRequest
       registration_host_request;
+};
+
+// A fake WebEmbeddedWorker. This is needed to ensure WorkerContextDestroyed()
+// is called on EmbeddedWorkerInstanceClientImpl so it can self-destruct.
+class FakeWebEmbeddedWorker : public blink::WebEmbeddedWorker {
+ public:
+  explicit FakeWebEmbeddedWorker(
+      std::unique_ptr<ServiceWorkerContextClient> context_client)
+      : context_client_(std::move(context_client)) {}
+
+  void StartWorkerContext(const blink::WebEmbeddedWorkerStartData&) override {}
+  void TerminateWorkerContext() override {
+    v8::Local<v8::Context> local;
+    context_client_->WillDestroyWorkerContext(local);
+    context_client_->WorkerContextDestroyed();
+  }
+  void ResumeAfterDownload() override {}
+  void AddMessageToConsole(const blink::WebConsoleMessage&) override {}
+  void BindDevToolsAgent(mojo::ScopedInterfaceEndpointHandle,
+                         mojo::ScopedInterfaceEndpointHandle) override {}
+
+ private:
+  std::unique_ptr<ServiceWorkerContextClient> context_client_;
 };
 
 class MockWebServiceWorkerContextProxy
@@ -239,13 +268,14 @@ class ServiceWorkerContextClientTest : public testing::Test {
     message_loop_.SetTaskRunner(task_runner_);
     // Use this thread as the worker thread.
     WorkerThreadRegistry::Instance()->DidStartCurrentWorkerThread();
+    old_client_ = SetRendererClientForTesting(&renderer_client_);
   }
 
   void TearDown() override {
-    ServiceWorkerContextClient::ResetThreadSpecificInstanceForTesting();
     // Unregister this thread from worker threads.
     WorkerThreadRegistry::Instance()->WillStopCurrentWorkerThread();
     task_runner_->RunUntilIdle();
+    SetRendererClientForTesting(old_client_);
   }
 
   void EnableServicification() {
@@ -263,31 +293,46 @@ class ServiceWorkerContextClientTest : public testing::Test {
 
   // Creates an ContextClient, whose pipes are connected to |out_pipes|, then
   // simulates that the service worker thread has started with |proxy|.
-  std::unique_ptr<ServiceWorkerContextClient> CreateContextClient(
+  //
+  // The client's lifetime is tied to
+  // |out_pipes->embedded_worker_instance_client|.
+  ServiceWorkerContextClient* CreateContextClient(
       ContextClientPipes* out_pipes,
       blink::WebServiceWorkerContextProxy* proxy) {
+    EmbeddedWorkerInstanceClientImpl* embedded_worker_instance_client =
+        new EmbeddedWorkerInstanceClientImpl(
+            mojo::MakeRequest(&out_pipes->embedded_worker_instance_client));
+
     auto service_worker_request = mojo::MakeRequest(&out_pipes->service_worker);
     auto controller_request = mojo::MakeRequest(&out_pipes->controller);
-    mojom::EmbeddedWorkerInstanceHostAssociatedPtr embedded_worker_host_ptr;
+    blink::mojom::EmbeddedWorkerInstanceHostAssociatedPtr
+        embedded_worker_host_ptr;
     out_pipes->embedded_worker_host_request =
         mojo::MakeRequestAssociatedWithDedicatedPipe(&embedded_worker_host_ptr);
     const GURL kScope("https://example.com");
     const GURL kScript("https://example.com/SW.js");
-    std::unique_ptr<ServiceWorkerContextClient> context_client =
-        std::make_unique<ServiceWorkerContextClient>(
-            1 /* embedded_worker_id */, 1 /* service_worker_version_id */,
-            kScope, kScript, false /* is_script_streaming */,
-            RendererPreferences(), std::move(service_worker_request),
-            std::move(controller_request),
-            embedded_worker_host_ptr.PassInterface(), CreateProviderInfo(),
-            nullptr /* embedded_worker_client */,
-            mojom::EmbeddedWorkerStartTiming::New(),
-            nullptr /* preference_watcher_request */,
-            nullptr /* subresource_loaders */,
-            blink::scheduler::GetSingleThreadTaskRunnerForTesting());
+    auto context_client = std::make_unique<ServiceWorkerContextClient>(
+        1 /* service_worker_version_id */, kScope, kScript,
+        false /* is_script_streaming */,
+        blink::mojom::RendererPreferences::New(),
+        std::move(service_worker_request), std::move(controller_request),
+        embedded_worker_host_ptr.PassInterface(), CreateProviderInfo(),
+        embedded_worker_instance_client,
+        blink::mojom::EmbeddedWorkerStartTiming::New(),
+        nullptr /* preference_watcher_request */,
+        nullptr /* subresource_loaders */,
+        blink::scheduler::GetSingleThreadTaskRunnerForTesting());
+    auto* context_client_raw = context_client.get();
     context_client->SetReportDebugLogForTesting(false);
 
-    context_client->WorkerContextStarted(proxy);
+    embedded_worker_instance_client->worker_ =
+        std::make_unique<FakeWebEmbeddedWorker>(std::move(context_client));
+    // TODO(falken): We should mock a worker thread task runner instead of
+    // using GetSingleThreadTaskRunnerForTesting() again, since that's the
+    // runner we used to mock the main thread when constructing the context
+    // client above.
+    context_client_raw->WorkerContextStarted(
+        proxy, blink::scheduler::GetSingleThreadTaskRunnerForTesting());
 
     blink::mojom::ServiceWorkerHostAssociatedPtrInfo service_worker_host;
     out_pipes->service_worker_host_request =
@@ -304,13 +349,13 @@ class ServiceWorkerContextClientTest : public testing::Test {
     out_pipes->service_worker->InitializeGlobalScope(
         std::move(service_worker_host), std::move(registration_info));
     task_runner()->RunUntilIdle();
-    return context_client;
+    return context_client_raw;
   }
 
-  std::unique_ptr<ServiceWorkerContextClient> CreateIdleContextClient(
+  ServiceWorkerContextClient* CreateIdleContextClient(
       ContextClientPipes* pipes,
       MockWebServiceWorkerContextProxy* mock_proxy) {
-    std::unique_ptr<ServiceWorkerContextClient> context_client =
+    ServiceWorkerContextClient* context_client =
         CreateContextClient(pipes, mock_proxy);
     context_client->DidEvaluateScript(true /* success */);
     task_runner()->RunUntilIdle();
@@ -319,6 +364,7 @@ class ServiceWorkerContextClientTest : public testing::Test {
     auto timer = std::make_unique<ServiceWorkerTimeoutTimer>(
         CreateCallbackWithCalledFlag(&is_idle_),
         task_runner()->GetMockTickClock());
+    timer->Start();
     context_client->SetTimeoutTimerForTesting(std::move(timer));
 
     // Ensure the idle state.
@@ -331,6 +377,11 @@ class ServiceWorkerContextClientTest : public testing::Test {
     return context_client;
   }
 
+  ServiceWorkerTimeoutTimer* GetTimeoutTimer(
+      ServiceWorkerContextClient* context_client) {
+    return context_client->GetTimeoutTimerForTesting();
+  }
+
   scoped_refptr<base::TestMockTimeTaskRunner> task_runner() const {
     return task_runner_;
   }
@@ -340,13 +391,14 @@ class ServiceWorkerContextClientTest : public testing::Test {
   scoped_refptr<base::TestMockTimeTaskRunner> task_runner_;
   base::test::ScopedFeatureList feature_list_;
   bool is_idle_;
+  ContentRendererClient renderer_client_;
+  ContentRendererClient* old_client_;
 };
 
 TEST_F(ServiceWorkerContextClientTest, Ping) {
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
-      CreateContextClient(&pipes, &mock_proxy);
+  CreateContextClient(&pipes, &mock_proxy);
 
   bool is_called = false;
   pipes.service_worker->Ping(CreateCallbackWithCalledFlag(&is_called));
@@ -357,7 +409,7 @@ TEST_F(ServiceWorkerContextClientTest, Ping) {
 TEST_F(ServiceWorkerContextClientTest, DispatchFetchEvent) {
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
+  ServiceWorkerContextClient* context_client =
       CreateContextClient(&pipes, &mock_proxy);
   context_client->DidEvaluateScript(true /* success */);
   task_runner()->RunUntilIdle();
@@ -394,7 +446,7 @@ TEST_F(ServiceWorkerContextClientTest, DispatchFetchEvent_Headers) {
 
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
+  ServiceWorkerContextClient* context_client =
       CreateContextClient(&pipes, &mock_proxy);
   context_client->DidEvaluateScript(true /* success */);
   task_runner()->RunUntilIdle();
@@ -435,7 +487,7 @@ TEST_F(ServiceWorkerContextClientTest,
   EnableServicification();
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
+  ServiceWorkerContextClient* context_client =
       CreateContextClient(&pipes, &mock_proxy);
   context_client->DidEvaluateScript(true /* success */);
   task_runner()->RunUntilIdle();
@@ -445,6 +497,7 @@ TEST_F(ServiceWorkerContextClientTest,
   auto timer = std::make_unique<ServiceWorkerTimeoutTimer>(
       CreateCallbackWithCalledFlag(&is_idle),
       task_runner()->GetMockTickClock());
+  timer->Start();
   context_client->SetTimeoutTimerForTesting(std::move(timer));
 
   // The dispatched fetch event should be recorded by |mock_proxy|.
@@ -472,8 +525,7 @@ TEST_F(ServiceWorkerContextClientTest,
   EnableServicification();
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
-      CreateIdleContextClient(&pipes, &mock_proxy);
+  CreateIdleContextClient(&pipes, &mock_proxy);
 
   const GURL expected_url("https://example.com/expected");
 
@@ -495,7 +547,8 @@ TEST_F(ServiceWorkerContextClientTest,
   EXPECT_TRUE(mock_proxy.fetch_events().empty());
 
   // Destruction of |context_client| should not hit any DCHECKs.
-  context_client.reset();
+  pipes.embedded_worker_instance_client.reset();
+  task_runner()->RunUntilIdle();
 }
 
 TEST_F(ServiceWorkerContextClientTest,
@@ -503,7 +556,7 @@ TEST_F(ServiceWorkerContextClientTest,
   EnableServicification();
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
+  ServiceWorkerContextClient* context_client =
       CreateIdleContextClient(&pipes, &mock_proxy);
 
   const GURL expected_url_1("https://example.com/expected_1");
@@ -557,7 +610,7 @@ TEST_F(ServiceWorkerContextClientTest, TaskInServiceWorker) {
   EnableServicification();
   ContextClientPipes pipes;
   MockWebServiceWorkerContextProxy mock_proxy;
-  std::unique_ptr<ServiceWorkerContextClient> context_client =
+  ServiceWorkerContextClient* context_client =
       CreateIdleContextClient(&pipes, &mock_proxy);
 
   int task_id = context_client->WillStartTask();
@@ -570,6 +623,28 @@ TEST_F(ServiceWorkerContextClientTest, TaskInServiceWorker) {
                                ServiceWorkerTimeoutTimer::kUpdateInterval +
                                base::TimeDelta::FromSeconds(1));
   EXPECT_TRUE(context_client->RequestedTermination());
+}
+
+// Tests timing out a task created by WillStartTask().
+TEST_F(ServiceWorkerContextClientTest, AbortedTaskInServiceWorker) {
+  EnableServicification();
+  ContextClientPipes pipes;
+  MockWebServiceWorkerContextProxy mock_proxy;
+  ServiceWorkerContextClient* context_client =
+      CreateIdleContextClient(&pipes, &mock_proxy);
+
+  // Make a task that times out.
+  int task_id = context_client->WillStartTask();
+  task_runner()->FastForwardBy(ServiceWorkerTimeoutTimer::kEventTimeout +
+                               ServiceWorkerTimeoutTimer::kUpdateInterval +
+                               base::TimeDelta::FromSeconds(1));
+
+  // The event should have been aborted.
+  ServiceWorkerTimeoutTimer* timeout_timer = GetTimeoutTimer(context_client);
+  EXPECT_FALSE(timeout_timer->HasEvent(task_id));
+
+  // Calling DidEndTask() shouldn't crash.
+  context_client->DidEndTask(task_id);
 }
 
 }  // namespace content

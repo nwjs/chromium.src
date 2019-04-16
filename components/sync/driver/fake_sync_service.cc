@@ -35,8 +35,8 @@ syncer::SyncService::TransportState FakeSyncService::GetTransportState() const {
   return TransportState::DISABLED;
 }
 
-AccountInfo FakeSyncService::GetAuthenticatedAccountInfo() const {
-  return AccountInfo();
+CoreAccountInfo FakeSyncService::GetAuthenticatedAccountInfo() const {
+  return CoreAccountInfo();
 }
 
 bool FakeSyncService::IsAuthenticatedAccountPrimary() const {
@@ -58,6 +58,17 @@ void FakeSyncService::AddObserver(SyncServiceObserver* observer) {}
 void FakeSyncService::RemoveObserver(SyncServiceObserver* observer) {}
 
 bool FakeSyncService::HasObserver(const SyncServiceObserver* observer) const {
+  return false;
+}
+
+void FakeSyncService::AddPreferenceProvider(
+    SyncTypePreferenceProvider* provider) {}
+
+void FakeSyncService::RemovePreferenceProvider(
+    SyncTypePreferenceProvider* provider) {}
+
+bool FakeSyncService::HasPreferenceProvider(
+    SyncTypePreferenceProvider* provider) const {
   return false;
 }
 
@@ -86,16 +97,8 @@ bool FakeSyncService::IsSetupInProgress() const {
   return false;
 }
 
-const GoogleServiceAuthError& FakeSyncService::GetAuthError() const {
-  return error_;
-}
-
-bool FakeSyncService::IsPassphraseRequiredForDecryption() const {
-  return false;
-}
-
-bool FakeSyncService::IsUsingSecondaryPassphrase() const {
-  return false;
+GoogleServiceAuthError FakeSyncService::GetAuthError() const {
+  return GoogleServiceAuthError();
 }
 
 UserShare* FakeSyncService::GetUserShare() const {
@@ -158,14 +161,6 @@ void FakeSyncService::GetAllNodes(
     const base::Callback<void(std::unique_ptr<base::ListValue>)>& callback) {}
 
 void FakeSyncService::SetInvalidationsForSessionsEnabled(bool enabled) {}
-
-bool FakeSyncService::IsPassphraseRequired() const {
-  return false;
-}
-
-ModelTypeSet FakeSyncService::GetEncryptedDataTypes() const {
-  return ModelTypeSet();
-}
 
 void FakeSyncService::Shutdown() {}
 

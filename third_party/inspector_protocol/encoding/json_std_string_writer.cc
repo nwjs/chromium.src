@@ -53,7 +53,7 @@ void Base64Encode(const std::vector<uint8_t>& in, std::string* out) {
   // The following three cases are based on the tables in the example
   // section in https://en.wikipedia.org/wiki/Base64. We process three
   // input bytes at a time, emitting 4 output bytes at a time.
-  size_t ii = 0;
+  std::size_t ii = 0;
 
   // While possible, process three input bytes.
   for (; ii + 3 <= in.size(); ii += 3) {
@@ -81,7 +81,7 @@ void Base64Encode(const std::vector<uint8_t>& in, std::string* out) {
 }
 
 // Implements a handler for JSON parser events to emit a JSON string.
-class Writer : public JsonParserHandler {
+class Writer : public JSONParserHandler {
  public:
   Writer(Platform* platform, std::string* out, Status* status)
       : platform_(platform), out_(out), status_(status) {
@@ -118,7 +118,7 @@ class Writer : public JsonParserHandler {
     out_->append("]");
   }
 
-  void HandleString16(std::vector<uint16_t> chars) override {
+  void HandleString16(span<uint16_t> chars) override {
     if (!status_->ok()) return;
     state_.top().StartElement(out_);
     out_->append("\"");
@@ -142,6 +142,97 @@ class Writer : public JsonParserHandler {
       } else {
         out_->append("\\u");
         PrintHex(ch, out_);
+      }
+    }
+    out_->append("\"");
+  }
+
+  void HandleString8(span<uint8_t> chars) override {
+    if (!status_->ok())
+      return;
+    state_.top().StartElement(out_);
+    out_->append("\"");
+    for (std::ptrdiff_t ii = 0; ii < chars.size(); ++ii) {
+      uint8_t c = chars[ii];
+      if (c == '"') {
+        out_->append("\\\"");
+      } else if (c == '\\') {
+        out_->append("\\\\");
+      } else if (c == '\b') {
+        out_->append("\\b");
+      } else if (c == '\f') {
+        out_->append("\\f");
+      } else if (c == '\n') {
+        out_->append("\\n");
+      } else if (c == '\r') {
+        out_->append("\\r");
+      } else if (c == '\t') {
+        out_->append("\\t");
+      } else if (c >= 32 && c <= 126) {
+        out_->append(1, c);
+      } else if (c < 32) {
+        out_->append("\\u");
+        PrintHex(static_cast<uint16_t>(c), out_);
+      } else {
+        // Inspect the leading byte to figure out how long the utf8
+        // byte sequence is; while doing this initialize |codepoint|
+        // with the first few bits.
+        // See table in: https://en.wikipedia.org/wiki/UTF-8
+        // byte one is 110x xxxx -> 2 byte utf8 sequence
+        // byte one is 1110 xxxx -> 3 byte utf8 sequence
+        // byte one is 1111 0xxx -> 4 byte utf8 sequence
+        uint32_t codepoint;
+        int num_bytes_left;
+        if ((c & 0xe0) == 0xc0) {  // 2 byte utf8 sequence
+          num_bytes_left = 1;
+          codepoint = c & 0x1f;
+        } else if ((c & 0xf0) == 0xe0) {  // 3 byte utf8 sequence
+          num_bytes_left = 2;
+          codepoint = c & 0x0f;
+        } else if ((c & 0xf8) == 0xf0) {  // 4 byte utf8 sequence
+          codepoint = c & 0x07;
+          num_bytes_left = 3;
+        } else {
+          continue;  // invalid leading byte
+        }
+
+        // If we have enough bytes in our input, decode the remaining ones
+        // belonging to this Unicode character into |codepoint|.
+        if (ii + num_bytes_left > chars.size())
+          continue;
+        while (num_bytes_left > 0) {
+          c = chars[++ii];
+          --num_bytes_left;
+          // Check the next byte is a continuation byte, that is 10xx xxxx.
+          if ((c & 0xc0) != 0x80)
+            continue;
+          codepoint = (codepoint << 6) | (c & 0x3f);
+        }
+
+        // Disallow overlong encodings for ascii characters, as these
+        // would include " and other characters significant to JSON
+        // string termination / control.
+        if (codepoint < 0x7f)
+          continue;
+        // Invalid in UTF8, and can't be represented in UTF16 anyway.
+        if (codepoint > 0x10ffff)
+          continue;
+
+        // So, now we transcode to UTF16,
+        // using the math described at https://en.wikipedia.org/wiki/UTF-16,
+        // for either one or two 16 bit characters.
+        if (codepoint < 0xffff) {
+          out_->append("\\u");
+          PrintHex(static_cast<uint16_t>(codepoint), out_);
+          continue;
+        }
+        codepoint -= 0x10000;
+        // high surrogate
+        out_->append("\\u");
+        PrintHex(static_cast<uint16_t>((codepoint >> 10) + 0xd800), out_);
+        // low surrogate
+        out_->append("\\u");
+        PrintHex(static_cast<uint16_t>((codepoint & 0x3ff) + 0xdc00), out_);
       }
     }
     out_->append("\"");
@@ -207,9 +298,9 @@ class Writer : public JsonParserHandler {
 };
 }  // namespace
 
-std::unique_ptr<JsonParserHandler> NewJsonWriter(Platform* platform,
+std::unique_ptr<JSONParserHandler> NewJSONWriter(Platform* platform,
                                                  std::string* out,
                                                  Status* status) {
-  return std::make_unique<Writer>(platform, out, status);
+  return std::unique_ptr<Writer>(new Writer(platform, out, status));
 }
 }  // namespace inspector_protocol

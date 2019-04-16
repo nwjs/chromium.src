@@ -5,8 +5,13 @@
 #ifndef CHROMECAST_BROWSER_CAST_WEB_CONTENTS_IMPL_H_
 #define CHROMECAST_BROWSER_CAST_WEB_CONTENTS_IMPL_H_
 
+#include <memory>
+#include <set>
 #include <string>
+#include <vector>
 
+#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -15,6 +20,8 @@
 #include "chromecast/browser/cast_web_contents.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "services/service_manager/public/cpp/binder_registry.h"
+#include "services/service_manager/public/cpp/interface_provider.h"
 
 namespace chromecast {
 
@@ -25,21 +32,25 @@ class RemoteDebuggingServer;
 class CastWebContentsImpl : public CastWebContents,
                             public content::WebContentsObserver {
  public:
-  CastWebContentsImpl(Delegate* delegate,
-                      content::WebContents* web_contents,
-                      bool enabled_for_dev);
+  CastWebContentsImpl(content::WebContents* web_contents,
+                      const InitParams& init_params);
   ~CastWebContentsImpl() override;
 
   content::WebContents* web_contents() const override;
   PageState page_state() const override;
 
   // CastWebContents implementation:
+  void SetDelegate(Delegate* delegate) override;
+  void AddRendererFeatures(std::vector<RendererFeature> features) override;
+  void AllowWebAndMojoWebUiBindings() override;
+  void ClearRenderWidgetHostView() override;
   void LoadUrl(const GURL& url) override;
   void ClosePage() override;
   void Stop(int error_code) override;
-  void SetDelegate(Delegate* delegate) override;
-  void AllowWebAndMojoWebUiBindings() override;
-  void ClearRenderWidgetHostView() override;
+  void RegisterInterfaceProvider(
+      const InterfaceSet& interface_set,
+      service_manager::InterfaceProvider* interface_provider) override;
+  service_manager::BinderRegistry* binder_registry() override;
 
   // Observer interface:
   void AddObserver(Observer* observer) override;
@@ -61,19 +72,28 @@ class CastWebContentsImpl : public CastWebContents,
                    const GURL& validated_url,
                    int error_code,
                    const base::string16& error_description) override;
+  void InnerWebContentsCreated(
+      content::WebContents* inner_web_contents) override;
   void WebContentsDestroyed() override;
 
   void UpdatePageState();
+  void NotifyObservers();
   void TracePageLoadBegin(const GURL& url);
   void TracePageLoadEnd(const GURL& url);
   void DisableDebugging();
   void OnClosePageTimeout();
+  std::vector<chromecast::shell::mojom::FeaturePtr> GetRendererFeatures();
 
-  Delegate* delegate_;
   content::WebContents* web_contents_;
+  Delegate* delegate_;
   PageState page_state_;
+  PageState last_state_;
   const bool enabled_for_dev_;
+  bool use_cma_renderer_;
   shell::RemoteDebuggingServer* const remote_debugging_server_;
+
+  base::flat_set<std::unique_ptr<CastWebContents>> inner_contents_;
+  std::vector<RendererFeature> renderer_features_;
 
   base::TimeTicks start_loading_ticks_;
   bool closing_;
@@ -85,6 +105,13 @@ class CastWebContentsImpl : public CastWebContents,
   base::ObserverList<Observer>::Unchecked observer_list_;
 
   const scoped_refptr<base::SequencedTaskRunner> task_runner_;
+
+  service_manager::BinderRegistry binder_registry_;
+
+  // Map of InterfaceSet -> InterfaceProvider pointer.
+  base::flat_map<InterfaceSet, service_manager::InterfaceProvider*>
+      interface_providers_map_;
+
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<CastWebContentsImpl> weak_factory_;
 

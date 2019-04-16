@@ -4,21 +4,9 @@
 
 #include "services/media_session/public/cpp/media_metadata.h"
 
-#include <algorithm>
-#include <iterator>
+#include "services/media_session/public/cpp/media_image.h"
 
 namespace media_session {
-
-MediaMetadata::MediaImage::MediaImage() = default;
-
-MediaMetadata::MediaImage::MediaImage(const MediaImage& other) = default;
-
-MediaMetadata::MediaImage::~MediaImage() = default;
-
-bool MediaMetadata::MediaImage::operator==(
-    const MediaMetadata::MediaImage& other) const {
-  return src == other.src && type == other.type && sizes == other.sizes;
-}
 
 MediaMetadata::MediaMetadata() = default;
 
@@ -28,8 +16,7 @@ MediaMetadata::MediaMetadata(const MediaMetadata& other) = default;
 
 bool MediaMetadata::operator==(const MediaMetadata& other) const {
   return title == other.title && artist == other.artist &&
-         album == other.album && artwork == other.artwork &&
-         source_title == other.source_title;
+         album == other.album && source_title == other.source_title;
 }
 
 bool MediaMetadata::operator!=(const MediaMetadata& other) const {
@@ -38,7 +25,7 @@ bool MediaMetadata::operator!=(const MediaMetadata& other) const {
 
 bool MediaMetadata::IsEmpty() const {
   return title.empty() && artist.empty() && album.empty() &&
-         source_title.empty() && artwork.empty();
+         source_title.empty();
 }
 
 }  // namespace media_session

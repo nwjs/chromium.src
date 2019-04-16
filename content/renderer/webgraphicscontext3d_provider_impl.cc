@@ -43,6 +43,11 @@ GrContext* WebGraphicsContext3DProviderImpl::GetGrContext() {
   return provider_->GrContext();
 }
 
+gpu::SharedImageInterface*
+WebGraphicsContext3DProviderImpl::GetSharedImageInterface() const {
+  return provider_->SharedImageInterface();
+}
+
 const gpu::Capabilities& WebGraphicsContext3DProviderImpl::GetCapabilities()
     const {
   return provider_->ContextCapabilities();
@@ -102,6 +107,11 @@ cc::ImageDecodeCache* WebGraphicsContext3DProviderImpl::ImageDecodeCache(
   DCHECK(insertion_result.second);
   cache_iterator = insertion_result.first;
   return cache_iterator->second.get();
+}
+
+gpu::SharedImageInterface*
+WebGraphicsContext3DProviderImpl::SharedImageInterface() {
+  return provider_->SharedImageInterface();
 }
 
 }  // namespace content

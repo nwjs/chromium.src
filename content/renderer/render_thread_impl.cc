@@ -12,6 +12,8 @@
 
 #include "base/allocator/allocator_extension.h"
 #include "base/at_exit.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/lazy_instance.h"
 #include "base/logging.h"
@@ -68,7 +70,6 @@
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/gpu_stream_constants.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/resource_usage_reporter.mojom.h"
 #include "content/public/common/resource_usage_reporter_type_converters.h"
 #include "content/public/common/service_manager_connection.h"
@@ -79,7 +80,6 @@
 #include "content/public/renderer/content_renderer_client.h"
 #include "content/public/renderer/render_thread_observer.h"
 #include "content/public/renderer/render_view_visitor.h"
-#include "content/renderer/appcache/appcache_frontend_impl.h"
 #include "content/renderer/browser_plugin/browser_plugin_manager.h"
 #include "content/renderer/categorized_worker_pool.h"
 #include "content/renderer/dom_storage/dom_storage_dispatcher.h"
@@ -109,10 +109,10 @@
 #include "content/renderer/renderer_blink_platform_impl.h"
 #include "content/renderer/service_worker/embedded_worker_instance_client_impl.h"
 #include "content/renderer/service_worker/service_worker_context_client.h"
-#include "content/renderer/shared_worker/embedded_shared_worker_stub.h"
-#include "content/renderer/shared_worker/shared_worker_factory_impl.h"
 #include "content/renderer/web_database_observer_impl.h"
-#include "content/renderer/worker_thread_registry.h"
+#include "content/renderer/worker/embedded_shared_worker_stub.h"
+#include "content/renderer/worker/shared_worker_factory_impl.h"
+#include "content/renderer/worker/worker_thread_registry.h"
 #include "device/gamepad/public/cpp/gamepads.h"
 #include "gin/public/debug.h"
 #include "gpu/GLES2/gl2extchromium.h"
@@ -148,7 +148,7 @@
 #include "third_party/blink/public/platform/scheduler/web_thread_scheduler.h"
 #include "third_party/blink/public/platform/web_cache.h"
 #include "third_party/blink/public/platform/web_image_generator.h"
-#include "third_party/blink/public/platform/web_memory_coordinator.h"
+#include "third_party/blink/public/platform/web_memory_pressure_listener.h"
 #include "third_party/blink/public/platform/web_network_state_notifier.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
 #include "third_party/blink/public/platform/web_string.h"
@@ -752,15 +752,6 @@ void RenderThreadImpl::Init() {
   auto registry = std::make_unique<service_manager::BinderRegistry>();
   InitializeWebKit(registry.get());
 
-  // In single process the single process is all there is.
-  widget_count_ = 0;
-  hidden_widget_count_ = 0;
-
-  appcache_frontend_impl_ = std::make_unique<AppCacheFrontendImpl>();
-  registry->AddInterface(
-      base::BindRepeating(&AppCacheFrontendImpl::Bind,
-                          base::Unretained(appcache_frontend_impl())),
-      GetWebMainThreadScheduler()->IPCTaskRunner());
   dom_storage_dispatcher_.reset(new DomStorageDispatcher());
 
   vc_manager_.reset(new VideoCaptureImplManager());
@@ -1275,8 +1266,9 @@ RenderThreadImpl::HostAllocateSharedMemoryBuffer(size_t size) {
   return ChildThreadImpl::AllocateSharedMemory(size);
 }
 
-void RenderThreadImpl::RegisterExtension(v8::Extension* extension) {
-  WebScriptController::RegisterExtension(extension);
+void RenderThreadImpl::RegisterExtension(
+    std::unique_ptr<v8::Extension> extension) {
+  WebScriptController::RegisterExtension(std::move(extension));
 }
 
 int RenderThreadImpl::PostTaskToAllWebWorkers(const base::Closure& closure) {
@@ -1370,9 +1362,9 @@ media::GpuVideoAcceleratorFactories* RenderThreadImpl::GetGpuFactories() {
   return gpu_factories_.back().get();
 }
 
-scoped_refptr<viz::ContextProvider>
+scoped_refptr<viz::RasterContextProvider>
 RenderThreadImpl::GetVideoFrameCompositorContextProvider(
-    scoped_refptr<viz::ContextProvider> unwanted_context_provider) {
+    scoped_refptr<viz::RasterContextProvider> unwanted_context_provider) {
   DCHECK(video_frame_compositor_task_runner_);
   if (video_frame_compositor_context_provider_ &&
       video_frame_compositor_context_provider_ != unwanted_context_provider) {
@@ -1396,7 +1388,7 @@ RenderThreadImpl::GetVideoFrameCompositorContextProvider(
 
   bool support_locking = false;
   bool support_gles2_interface = true;
-  bool support_raster_interface = false;
+  bool support_raster_interface = true;
   bool support_oop_rasterization = false;
   bool support_grcontext = false;
   bool automatic_flushes = false;
@@ -1500,6 +1492,10 @@ void RenderThreadImpl::SetRendererProcessType(
 blink::WebString RenderThreadImpl::GetUserAgent() {
   DCHECK(!user_agent_.IsNull());
   return user_agent_;
+}
+
+const blink::UserAgentMetadata& RenderThreadImpl::GetUserAgentMetadata() {
+  return user_agent_metadata_;
 }
 
 void RenderThreadImpl::OnAssociatedInterfaceRequest(
@@ -1650,32 +1646,27 @@ void RenderThreadImpl::SetSchedulerKeepActive(bool keep_active) {
   main_thread_scheduler_->SetSchedulerKeepActive(keep_active);
 }
 
-void RenderThreadImpl::SetProcessBackgrounded(bool backgrounded) {
-  main_thread_scheduler_->SetRendererBackgrounded(backgrounded);
-  if (backgrounded) {
-    needs_to_record_first_active_paint_ = false;
-    GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
-                       base::Unretained(this), "5min",
-                       process_foregrounded_count_),
-        base::TimeDelta::FromMinutes(5));
-    GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
-                       base::Unretained(this), "10min",
-                       process_foregrounded_count_),
-        base::TimeDelta::FromMinutes(10));
-    GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
-                       base::Unretained(this), "15min",
-                       process_foregrounded_count_),
-        base::TimeDelta::FromMinutes(15));
-    was_backgrounded_time_ = base::TimeTicks::Now();
-  } else {
-    process_foregrounded_count_++;
+void RenderThreadImpl::SetProcessState(
+    mojom::RenderProcessState process_state) {
+  DCHECK(process_state_ != process_state);
+
+  if (process_state_ == mojom::RenderProcessState::kBackgrounded ||
+      (!process_state_.has_value() &&
+       process_state != mojom::RenderProcessState::kBackgrounded)) {
+    OnRendererForegrounded();
   }
+
+  if (process_state == mojom::RenderProcessState::kVisible) {
+    OnRendererVisible();
+  } else if (process_state_ == mojom::RenderProcessState::kVisible ||
+             !process_state_.has_value()) {
+    OnRendererHidden();
+  }
+
+  if (process_state == mojom::RenderProcessState::kBackgrounded)
+    OnRendererBackgrounded();
+
+  process_state_ = process_state;
 }
 
 void RenderThreadImpl::ProcessPurgeAndSuspend() {
@@ -1697,6 +1688,9 @@ void RenderThreadImpl::ProcessPurgeAndSuspend() {
     return;
 
   purge_and_suspend_memory_metrics_ = memory_metrics;
+
+  // Use of Unretained(this) is safe because |this| has the same lifetime as a
+  // renderer process.
   GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(
@@ -2166,9 +2160,8 @@ void RenderThreadImpl::CreateFrameProxy(
 }
 
 void RenderThreadImpl::SetUpEmbeddedWorkerChannelForServiceWorker(
-    mojom::EmbeddedWorkerInstanceClientRequest client_request) {
-  EmbeddedWorkerInstanceClientImpl::Create(GetIOTaskRunner(),
-                                           std::move(client_request));
+    blink::mojom::EmbeddedWorkerInstanceClientRequest client_request) {
+  EmbeddedWorkerInstanceClientImpl::Create(std::move(client_request));
 }
 
 void RenderThreadImpl::OnNetworkConnectionChanged(
@@ -2213,6 +2206,11 @@ void RenderThreadImpl::SetUserAgent(const std::string& user_agent) {
   GetContentClient()->renderer()->DidSetUserAgent(user_agent);
 }
 
+void RenderThreadImpl::SetUserAgentMetadata(
+    const blink::UserAgentMetadata& user_agent_metadata) {
+  user_agent_metadata_ = user_agent_metadata;
+}
+
 void RenderThreadImpl::UpdateScrollbarTheme(
     mojom::UpdateScrollbarThemeParamsPtr params) {
 #if defined(OS_MACOSX)
@@ -2254,7 +2252,7 @@ void RenderThreadImpl::OnMemoryPressure(
     base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
   TRACE_EVENT0("memory", "RenderThreadImpl::OnMemoryPressure");
   if (blink_platform_impl_) {
-    blink::WebMemoryCoordinator::OnMemoryPressure(
+    blink::WebMemoryPressureListener::OnMemoryPressure(
         static_cast<blink::WebMemoryPressureLevel>(memory_pressure_level));
   }
   if (memory_pressure_level ==
@@ -2279,10 +2277,11 @@ RenderThreadImpl::GetMediaThreadTaskRunner() {
   DCHECK(main_thread_runner()->BelongsToCurrentThread());
   if (!media_thread_) {
     media_thread_.reset(new base::Thread("Media"));
-    base::Thread::Options options;
 #if defined(OS_FUCHSIA)
     // Start IO thread on Fuchsia to make that thread usable for FIDL.
-    options = base::Thread::Options(base::MessageLoop::TYPE_IO, 0);
+    base::Thread::Options options(base::MessageLoop::TYPE_IO, 0);
+#else
+    base::Thread::Options options;
 #endif
     media_thread_->StartWithOptions(options);
   }
@@ -2374,39 +2373,8 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
 }
 
 bool RenderThreadImpl::RendererIsHidden() const {
-  return widget_count_ > 0 && hidden_widget_count_ == widget_count_;
-}
-
-void RenderThreadImpl::WidgetCreated() {
-  bool renderer_was_hidden = RendererIsHidden();
-  widget_count_++;
-  if (renderer_was_hidden)
-    OnRendererVisible();
-}
-
-void RenderThreadImpl::WidgetDestroyed() {
-  // TODO(rmcilroy): Remove the restriction that destroyed widgets must be
-  // unhidden before WidgetDestroyed is called.
-  DCHECK_GT(widget_count_, 0);
-  DCHECK_GT(widget_count_, hidden_widget_count_);
-  widget_count_--;
-  if (RendererIsHidden())
-    OnRendererHidden();
-}
-
-void RenderThreadImpl::WidgetHidden() {
-  DCHECK_LT(hidden_widget_count_, widget_count_);
-  hidden_widget_count_++;
-  if (RendererIsHidden())
-    OnRendererHidden();
-}
-
-void RenderThreadImpl::WidgetRestored() {
-  bool renderer_was_hidden = RendererIsHidden();
-  DCHECK_GT(hidden_widget_count_, 0);
-  hidden_widget_count_--;
-  if (renderer_was_hidden)
-    OnRendererVisible();
+  return process_state_ == mojom::RenderProcessState::kHidden ||
+         process_state_ == mojom::RenderProcessState::kBackgrounded;
 }
 
 void RenderThreadImpl::OnRendererHidden() {
@@ -2425,6 +2393,39 @@ void RenderThreadImpl::OnRendererVisible() {
   main_thread_scheduler_->SetRendererHidden(false);
 }
 
+bool RenderThreadImpl::RendererIsBackgrounded() const {
+  return process_state_ == mojom::RenderProcessState::kBackgrounded;
+}
+
+void RenderThreadImpl::OnRendererBackgrounded() {
+  main_thread_scheduler_->SetRendererBackgrounded(true);
+  needs_to_record_first_active_paint_ = false;
+  GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
+                     base::Unretained(this), "5min",
+                     process_foregrounded_count_),
+      base::TimeDelta::FromMinutes(5));
+  GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
+                     base::Unretained(this), "10min",
+                     process_foregrounded_count_),
+      base::TimeDelta::FromMinutes(10));
+  GetWebMainThreadScheduler()->DefaultTaskRunner()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&RenderThreadImpl::RecordMemoryUsageAfterBackgrounded,
+                     base::Unretained(this), "15min",
+                     process_foregrounded_count_),
+      base::TimeDelta::FromMinutes(15));
+  was_backgrounded_time_ = base::TimeTicks::Now();
+}
+
+void RenderThreadImpl::OnRendererForegrounded() {
+  main_thread_scheduler_->SetRendererBackgrounded(false);
+  process_foregrounded_count_++;
+}
+
 void RenderThreadImpl::ReleaseFreeMemory() {
   base::allocator::ReleaseFreeMemory();
   discardable_shared_memory_manager_->ReleaseFreeMemory();
@@ -2433,7 +2434,7 @@ void RenderThreadImpl::ReleaseFreeMemory() {
   if (blink_platform_impl_) {
     // Purge Skia font cache, resource cache, and image filter.
     SkGraphics::PurgeAllCaches();
-    blink::WebMemoryCoordinator::OnPurgeMemory();
+    blink::WebMemoryPressureListener::OnPurgeMemory();
   }
 }
 

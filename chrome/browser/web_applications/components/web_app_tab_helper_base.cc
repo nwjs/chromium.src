@@ -8,6 +8,7 @@
 #include "chrome/browser/web_applications/components/web_app_audio_focus_id_map.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/site_instance.h"
 
 namespace web_app {
 
@@ -18,11 +19,17 @@ WebAppTabHelperBase::WebAppTabHelperBase(content::WebContents* web_contents)
 
 WebAppTabHelperBase::~WebAppTabHelperBase() = default;
 
-void WebAppTabHelperBase::SetAudioFocusIdMap(
-    WebAppAudioFocusIdMap* audio_focus_id_map) {
+void WebAppTabHelperBase::Init(WebAppAudioFocusIdMap* audio_focus_id_map) {
   DCHECK(!audio_focus_id_map_ && audio_focus_id_map);
-
   audio_focus_id_map_ = audio_focus_id_map;
+
+  // Sync app_id with the initial url from WebContents (used in Tab Restore etc)
+  const GURL init_url = web_contents()->GetSiteInstance()->GetSiteURL();
+  SetAppId(FindAppIdInScopeOfUrl(init_url));
+}
+
+bool WebAppTabHelperBase::HasAssociatedApp() const {
+  return !app_id_.empty();
 }
 
 void WebAppTabHelperBase::SetAppId(const AppId& app_id) {
@@ -34,18 +41,12 @@ void WebAppTabHelperBase::SetAppId(const AppId& app_id) {
   OnAssociatedAppChanged();
 }
 
-void WebAppTabHelperBase::ResetAppId() {
-  app_id_.clear();
-
-  OnAssociatedAppChanged();
-}
-
 void WebAppTabHelperBase::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInMainFrame() || !navigation_handle->HasCommitted())
     return;
 
-  const AppId app_id = GetAppId(navigation_handle->GetURL());
+  const AppId app_id = FindAppIdInScopeOfUrl(navigation_handle->GetURL());
   SetAppId(app_id);
 }
 
@@ -57,6 +58,27 @@ void WebAppTabHelperBase::DidCloneToNewWebContents(
   WebAppTabHelperBase* new_tab_helper = CloneForWebContents(new_web_contents);
   // Clone common state:
   new_tab_helper->SetAppId(app_id());
+}
+
+void WebAppTabHelperBase::OnWebAppInstalled(const AppId& installed_app_id) {
+  // Check if current web_contents url is in scope for the newly installed app.
+  const web_app::AppId app_id = FindAppIdInScopeOfUrl(web_contents()->GetURL());
+  if (app_id == installed_app_id)
+    SetAppId(app_id);
+}
+
+void WebAppTabHelperBase::OnWebAppUninstalled(const AppId& uninstalled_app_id) {
+  if (app_id() == uninstalled_app_id)
+    ResetAppId();
+}
+
+void WebAppTabHelperBase::OnWebAppRegistryShutdown() {
+  ResetAppId();
+}
+
+void WebAppTabHelperBase::ResetAppId() {
+  app_id_.clear();
+  OnAssociatedAppChanged();
 }
 
 void WebAppTabHelperBase::OnAssociatedAppChanged() {

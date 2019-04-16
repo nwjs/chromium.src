@@ -12,6 +12,7 @@
 #include "chrome/browser/chromeos/policy/cloud_external_data_store.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "components/policy/core/common/cloud/resource_cache.h"
+#include "components/policy/policy_constants.h"
 
 namespace policy {
 
@@ -19,8 +20,6 @@ namespace {
 
 const char kCacheKey[] = "device_policy_external_data";
 
-// Maximum size of the device policy external data cache directory set to 10MB.
-const int64_t kCacheMaxSize = 10 * 1024 * 1024;
 // Only used for tests.
 int64_t g_cache_max_size_override = 0;
 
@@ -32,7 +31,7 @@ DevicePolicyCloudExternalDataManager::DevicePolicyCloudExternalDataManager(
     const base::FilePath& cache_path,
     CloudPolicyStore* policy_store)
     : CloudExternalDataManagerBase(get_policy_details, backend_task_runner) {
-  int cache_max_size = kCacheMaxSize;
+  int cache_max_size = kDevicePolicyExternalDataResourceCacheSize;
   if (g_cache_max_size_override != 0)
     cache_max_size = g_cache_max_size_override;
   resource_cache_ = std::make_unique<ResourceCache>(

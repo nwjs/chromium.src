@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/metrics/histogram_macros.h"
@@ -253,8 +254,9 @@ FirstScreen GetFirstScreenForMode(chromeos::EncryptionMigrationMode mode) {
 
 namespace chromeos {
 
-EncryptionMigrationScreenHandler::EncryptionMigrationScreenHandler()
-    : BaseScreenHandler(kScreenId),
+EncryptionMigrationScreenHandler::EncryptionMigrationScreenHandler(
+    JSCallsContainer* js_calls_container)
+    : BaseScreenHandler(kScreenId, js_calls_container),
       tick_clock_(base::DefaultTickClock::GetInstance()),
       weak_ptr_factory_(this) {
   set_call_js_prefix(kJsScreenPath);
@@ -264,7 +266,7 @@ EncryptionMigrationScreenHandler::EncryptionMigrationScreenHandler()
 
 EncryptionMigrationScreenHandler::~EncryptionMigrationScreenHandler() {
   DBusThreadManager::Get()->GetCryptohomeClient()->RemoveObserver(this);
-  DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(this);
+  PowerManagerClient::Get()->RemoveObserver(this);
   if (delegate_)
     delegate_->OnViewDestroyed(this);
 }
@@ -320,7 +322,7 @@ void EncryptionMigrationScreenHandler::SetupInitialView() {
     StartMigration();
     return;
   }
-  DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(this);
+  PowerManagerClient::Get()->AddObserver(this);
   CheckAvailableStorage();
 }
 
@@ -461,14 +463,14 @@ void EncryptionMigrationScreenHandler::HandleSkipMigration() {
 
 void EncryptionMigrationScreenHandler::HandleRequestRestartOnLowStorage() {
   RecordUserChoice(UserChoice::USER_CHOICE_RESTART_ON_LOW_STORAGE);
-  DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart(
+  PowerManagerClient::Get()->RequestRestart(
       power_manager::REQUEST_RESTART_OTHER,
       "login encryption migration low storage");
 }
 
 void EncryptionMigrationScreenHandler::HandleRequestRestartOnFailure() {
   RecordUserChoice(UserChoice::USER_CHOICE_RESTART_ON_FAILURE);
-  DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart(
+  PowerManagerClient::Get()->RequestRestart(
       power_manager::REQUEST_RESTART_OTHER,
       "login encryption migration failure");
 }
@@ -478,7 +480,7 @@ void EncryptionMigrationScreenHandler::HandleOpenFeedbackDialog() {
   const std::string description = base::StringPrintf(
       "Auto generated feedback for http://crbug.com/719266.\n"
       "(uniquifier:%s)",
-      base::Int64ToString(base::Time::Now().ToInternalValue()).c_str());
+      base::NumberToString(base::Time::Now().ToInternalValue()).c_str());
   login_feedback_.reset(new LoginFeedback(Profile::FromWebUI(web_ui())));
   login_feedback_->Request(description, base::Closure());
 }
@@ -493,7 +495,7 @@ void EncryptionMigrationScreenHandler::UpdateUIState(UIState state) {
   // When this handler is about to show the READY screen, we should get the
   // latest battery status and show it on the screen.
   if (state == UIState::READY)
-    DBusThreadManager::Get()->GetPowerManagerClient()->RequestStatusUpdate();
+    PowerManagerClient::Get()->RequestStatusUpdate();
 
   // We should request wake lock and not shut down on lid close during
   // migration.
@@ -559,7 +561,7 @@ void EncryptionMigrationScreenHandler::WaitBatteryAndMigrate() {
   UpdateUIState(UIState::READY);
 
   should_migrate_on_enough_battery_ = true;
-  DBusThreadManager::Get()->GetPowerManagerClient()->RequestStatusUpdate();
+  PowerManagerClient::Get()->RequestStatusUpdate();
 }
 
 void EncryptionMigrationScreenHandler::StartMigration() {
@@ -740,7 +742,7 @@ void EncryptionMigrationScreenHandler::DircryptoMigrationProgress(
           std::move(continue_login_callback_).Run(user_context_);
       } else {
         // Restart immediately after successful full migration.
-        DBusThreadManager::Get()->GetPowerManagerClient()->RequestRestart(
+        PowerManagerClient::Get()->RequestRestart(
             power_manager::REQUEST_RESTART_OTHER,
             "login encryption migration success");
       }

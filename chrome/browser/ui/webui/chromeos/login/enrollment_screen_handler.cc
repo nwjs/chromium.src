@@ -173,9 +173,10 @@ authpolicy::KerberosEncryptionTypes TranslateEncryptionTypesString(
 // EnrollmentScreenHandler, public ------------------------------
 
 EnrollmentScreenHandler::EnrollmentScreenHandler(
+    JSCallsContainer* js_calls_container,
     const scoped_refptr<NetworkStateInformer>& network_state_informer,
     ErrorScreen* error_screen)
-    : BaseScreenHandler(kScreenId),
+    : BaseScreenHandler(kScreenId, js_calls_container),
       network_state_informer_(network_state_informer),
       error_screen_(error_screen),
       histogram_helper_(new ErrorScreensHistogramHelper("Enrollment")),
@@ -640,7 +641,7 @@ void EnrollmentScreenHandler::OnAdConfigurationUnlocked(
     return;
   }
   std::unique_ptr<base::ListValue> options =
-      base::ListValue::From(base::JSONReader::Read(
+      base::ListValue::From(base::JSONReader::ReadDeprecated(
           unlocked_data, base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS));
   if (!options) {
     ShowError(IDS_AD_JOIN_CONFIG_NOT_PARSED, true);

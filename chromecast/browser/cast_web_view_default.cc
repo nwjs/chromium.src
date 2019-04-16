@@ -63,9 +63,9 @@ CastWebViewDefault::CastWebViewDefault(
       transparent_(params.transparent),
       allow_media_access_(params.allow_media_access),
       web_contents_(CreateWebContents(browser_context_, site_instance_)),
-      cast_web_contents_(delegate_,
-                         web_contents_.get(),
-                         params.enabled_for_dev),
+      cast_web_contents_(
+          web_contents_.get(),
+          {delegate_, params.enabled_for_dev, params.use_cma_renderer}),
       window_(shell::CastContentWindow::Create(params.window_params)),
       resize_window_when_navigation_starts_(true) {
   DCHECK(delegate_);
@@ -112,8 +112,7 @@ CastWebContents* CastWebViewDefault::cast_web_contents() {
 }
 
 void CastWebViewDefault::LoadUrl(GURL url) {
-  web_contents_->GetController().LoadURL(url, content::Referrer(),
-                                         ui::PAGE_TRANSITION_TYPED, "");
+  cast_web_contents_.LoadUrl(url);
 }
 
 void CastWebViewDefault::ClosePage(const base::TimeDelta& shutdown_delay) {
@@ -145,8 +144,6 @@ void CastWebViewDefault::InitializeWindow(CastWindowManager* window_manager,
                                       z_order, initial_priority);
   web_contents_->Focus();
 }
-
-void CastWebViewDefault::SetContext(base::Value context) {}
 
 void CastWebViewDefault::GrantScreenAccess() {
   window_->GrantScreenAccess();

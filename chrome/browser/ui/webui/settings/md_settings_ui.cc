@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "ash/public/cpp/ash_features.h"
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -85,7 +86,6 @@
 #include "chrome/browser/chromeos/login/demo_mode/demo_session.h"
 #include "chrome/browser/chromeos/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/chromeos/multidevice_setup/multidevice_setup_client_factory.h"
-#include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/ui/webui/chromeos/smb_shares/smb_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/accessibility_handler.h"
 #include "chrome/browser/ui/webui/settings/chromeos/account_manager_handler.h"
@@ -208,7 +208,6 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
     AddSettingsPageUIHandler(
         std::make_unique<chromeos::settings::AccountManagerUIHandler>(
             account_manager,
-            AccountTrackerServiceFactory::GetInstance()->GetForProfile(profile),
             IdentityManagerFactory::GetForProfile(profile)));
   }
   AddSettingsPageUIHandler(
@@ -329,8 +328,14 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "lockScreenHideSensitiveNotificationsSupported",
       ash::features::IsLockScreenHideSensitiveNotificationsSupported());
+  html_source->AddBoolean("showTechnologyBadge",
+                          !ash::features::IsSeparateNetworkIconsEnabled());
   html_source->AddBoolean("hasInternalStylus",
                           ash::stylus_utils::HasInternalStylus());
+
+  html_source->AddBoolean(
+      "showKioskNextShell",
+      base::FeatureList::IsEnabled(ash::features::kKioskNextShell));
 
   html_source->AddBoolean("showCrostini",
                           crostini::IsCrostiniUIAllowedForProfile(
@@ -341,6 +346,9 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
 
   html_source->AddBoolean("isDemoSession",
                           chromeos::DemoSession::IsDeviceInDemoMode());
+
+  html_source->AddBoolean("assistantEnabled",
+                          chromeos::switches::IsAssistantEnabled());
 
   // We have 2 variants of Android apps settings. Default case, when the Play
   // Store app exists we show expandable section that allows as to
@@ -387,7 +395,7 @@ MdSettingsUI::MdSettingsUI(content::WebUI* web_ui)
 
 #if defined(OS_CHROMEOS)
   // Add the System Web App resources for Settings.
-  if (web_app::SystemWebAppManager::ShouldEnableForProfile(profile)) {
+  if (web_app::SystemWebAppManager::IsEnabled()) {
     html_source->AddResourcePath("icon-192.png", IDR_SETTINGS_LOGO_192);
     html_source->AddResourcePath("pwa.html", IDR_PWA_HTML);
 #if BUILDFLAG(OPTIMIZE_WEBUI)

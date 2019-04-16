@@ -9,6 +9,7 @@
 #include <map>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/guid.h"
 #include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
@@ -27,7 +28,6 @@
 #include "components/autofill/core/browser/webdata/autofill_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/form_field_data.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/webdata/common/web_database.h"
 
 using autofill::AutofillChangeList;
@@ -86,7 +86,7 @@ void RemoveKeyDontBlockForSync(int profile, const AutofillKey& key) {
       AutofillWebDataServiceObserverOnDBSequence*) =
       &AutofillWebDataService::AddObserver;
   wds->GetDBTaskRunner()->PostTask(
-      FROM_HERE, base::Bind(add_observer_func, wds, &mock_observer));
+      FROM_HERE, base::BindOnce(add_observer_func, wds, &mock_observer));
 
   wds->RemoveFormValueForElementName(key.name(), key.value());
   done_event.Wait();
@@ -95,7 +95,7 @@ void RemoveKeyDontBlockForSync(int profile, const AutofillKey& key) {
       AutofillWebDataServiceObserverOnDBSequence*) =
       &AutofillWebDataService::RemoveObserver;
   wds->GetDBTaskRunner()->PostTask(
-      FROM_HERE, base::Bind(remove_observer_func, wds, &mock_observer));
+      FROM_HERE, base::BindOnce(remove_observer_func, wds, &mock_observer));
 }
 
 void GetAllAutofillEntriesOnDBSequence(AutofillWebDataService* wds,
@@ -108,8 +108,8 @@ void GetAllAutofillEntriesOnDBSequence(AutofillWebDataService* wds,
 std::vector<AutofillEntry> GetAllAutofillEntries(AutofillWebDataService* wds) {
   std::vector<AutofillEntry> entries;
   wds->GetDBTaskRunner()->PostTask(
-      FROM_HERE, base::Bind(&GetAllAutofillEntriesOnDBSequence,
-                            base::Unretained(wds), &entries));
+      FROM_HERE, base::BindOnce(&GetAllAutofillEntriesOnDBSequence,
+                                base::Unretained(wds), &entries));
   WaitForCurrentTasksToComplete(wds->GetDBTaskRunner());
   return entries;
 }
@@ -148,7 +148,7 @@ bool ProfilesMatchImpl(
     autofill_profiles_a_map.erase(p->guid());
   }
 
-  if (autofill_profiles_a_map.size()) {
+  if (!autofill_profiles_a_map.empty()) {
     DVLOG(1) << "Entries present in Profile " << profile_a << " but not in "
              << profile_b << ".";
     return false;
@@ -236,7 +236,7 @@ void AddKeys(int profile, const std::set<AutofillKey>& keys) {
       AutofillWebDataServiceObserverOnDBSequence*) =
       &AutofillWebDataService::AddObserver;
   wds->GetDBTaskRunner()->PostTask(
-      FROM_HERE, base::Bind(add_observer_func, wds, &mock_observer));
+      FROM_HERE, base::BindOnce(add_observer_func, wds, &mock_observer));
 
   wds->AddFormFields(form_fields);
   done_event.Wait();
@@ -246,7 +246,7 @@ void AddKeys(int profile, const std::set<AutofillKey>& keys) {
       AutofillWebDataServiceObserverOnDBSequence*) =
       &AutofillWebDataService::RemoveObserver;
   wds->GetDBTaskRunner()->PostTask(
-      FROM_HERE, base::Bind(remove_observer_func, wds, &mock_observer));
+      FROM_HERE, base::BindOnce(remove_observer_func, wds, &mock_observer));
 }
 
 void RemoveKey(int profile, const AutofillKey& key) {

@@ -7,10 +7,12 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
@@ -33,10 +35,10 @@
 #include "components/omnibox/browser/document_suggestions_service.h"
 #include "components/omnibox/browser/history_provider.h"
 #include "components/omnibox/browser/in_memory_url_index_types.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/omnibox/browser/scored_history_match.h"
 #include "components/omnibox/browser/search_provider.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/search_engine_type.h"
@@ -70,6 +72,29 @@ const char kDocumentMimetype[] = "application/vnd.google-apps.document";
 const char kFormMimetype[] = "application/vnd.google-apps.form";
 const char kSpreadsheetMimetype[] = "application/vnd.google-apps.spreadsheet";
 const char kPresentationMimetype[] = "application/vnd.google-apps.presentation";
+
+// Returns mappings from MIME types to overridden icons.
+AutocompleteMatch::DocumentType GetIconForMIMEType(
+    const base::StringPiece& mimetype) {
+  static const auto kIconMap =
+      std::map<base::StringPiece, AutocompleteMatch::DocumentType>{
+          {kDocumentMimetype, AutocompleteMatch::DocumentType::DRIVE_DOCS},
+          {kFormMimetype, AutocompleteMatch::DocumentType::DRIVE_FORMS},
+          {kSpreadsheetMimetype, AutocompleteMatch::DocumentType::DRIVE_SHEETS},
+          {kPresentationMimetype,
+           AutocompleteMatch::DocumentType::DRIVE_SLIDES},
+          {"image/jpeg", AutocompleteMatch::DocumentType::DRIVE_IMAGE},
+          {"image/png", AutocompleteMatch::DocumentType::DRIVE_IMAGE},
+          {"image/gif", AutocompleteMatch::DocumentType::DRIVE_IMAGE},
+          {"application/pdf", AutocompleteMatch::DocumentType::DRIVE_PDF},
+          {"video/mp4", AutocompleteMatch::DocumentType::DRIVE_VIDEO},
+      };
+
+  const auto& iterator = kIconMap.find(mimetype);
+  return iterator != kIconMap.end()
+             ? iterator->second
+             : AutocompleteMatch::DocumentType::DRIVE_OTHER;
+}
 
 const char kErrorMessageAdminDisabled[] =
     "Not eligible to query due to admin disabled Chrome search settings.";
@@ -315,8 +340,9 @@ void DocumentProvider::OnURLLoadComplete(
 }
 
 bool DocumentProvider::UpdateResults(const std::string& json_data) {
-  std::unique_ptr<base::DictionaryValue> response = base::DictionaryValue::From(
-      base::JSONReader::Read(json_data, base::JSON_ALLOW_TRAILING_COMMAS));
+  std::unique_ptr<base::DictionaryValue> response =
+      base::DictionaryValue::From(base::JSONReader::ReadDeprecated(
+          json_data, base::JSON_ALLOW_TRAILING_COMMAS));
   if (!response)
     return false;
 
@@ -474,17 +500,7 @@ bool DocumentProvider::ParseDocumentSearchResults(const base::Value& root_val,
     const base::DictionaryValue* metadata = nullptr;
     if (result->GetDictionary("metadata", &metadata)) {
       if (metadata->GetString("mimeType", &mimetype)) {
-        if (mimetype == kDocumentMimetype) {
-          match.document_type = AutocompleteMatch::DocumentType::DRIVE_DOCS;
-        } else if (mimetype == kFormMimetype) {
-          match.document_type = AutocompleteMatch::DocumentType::DRIVE_FORMS;
-        } else if (mimetype == kSpreadsheetMimetype) {
-          match.document_type = AutocompleteMatch::DocumentType::DRIVE_SHEETS;
-        } else if (mimetype == kPresentationMimetype) {
-          match.document_type = AutocompleteMatch::DocumentType::DRIVE_SLIDES;
-        } else {
-          match.document_type = AutocompleteMatch::DocumentType::DRIVE_OTHER;
-        }
+        match.document_type = GetIconForMIMEType(mimetype);
       }
       std::string update_time;
       metadata->GetString("updateTime", &update_time);
@@ -543,6 +559,7 @@ const GURL DocumentProvider::GetURLForDeduping(const GURL& url) {
   // We aim to prevent duplicate Drive URLs to appear between the Drive document
   // search provider and history/bookmark entries.
   // Drive URLs take on two core forms, and may have request parameters.
+  // Additionally, we may have redirector URLs which wrap a drive URL.
   // All URLs are canonicalized to a GURL form only used for deduplication and
   // not guaranteed to be usable for navigation.
   // URLs of the following forms are handled:
@@ -550,6 +567,7 @@ const GURL DocumentProvider::GetURLForDeduping(const GURL& url) {
   // https://docs.google.com/document/d/(id)/edit
   // https://docs.google.com/spreadsheets/d/(id)/edit#gid=12345
   // https://docs.google.com/presentation/d/(id)/edit#slide=id.g12345a_0_26
+  // https://www.google.com/url?[...]url=https://drive.google.com/a/google.com/open?id%3D1fkxx6KYRYnSqljThxShJVliQJLdKzuJBnzogzL3n8rE&[...]
   // where id is comprised of characters in [0-9A-Za-z\-_] = [\w\-]
   std::string id;
   if (url.host() == "drive.google.com" && url.path() == "/open") {
@@ -558,6 +576,12 @@ const GURL DocumentProvider::GetURLForDeduping(const GURL& url) {
     static re2::LazyRE2 doc_link_regex = {
         "^/(?:document|spreadsheets|presentation|forms)/d/([\\w-]+)/"};
     RE2::PartialMatch(url.path(), *doc_link_regex, &id);
+  } else if (url.host() == "www.google.com" && url.path() == "/url") {
+    // Redirect links wrapping a drive.google.com/open?id= link.
+    static re2::LazyRE2 redirect_link_regex = {
+        "^[^#]*url=https://drive\\.google\\.com/(?:a/[\\w\\.]+/"
+        ")?open\\?id%3D([^#&]*)"};
+    RE2::PartialMatch(url.query(), *redirect_link_regex, &id);
   }
 
   if (id.empty()) {

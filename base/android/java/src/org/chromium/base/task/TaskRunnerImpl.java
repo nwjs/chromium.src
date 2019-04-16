@@ -4,10 +4,11 @@
 
 package org.chromium.base.task;
 
+import android.os.Process;
 import android.support.annotation.Nullable;
 import android.util.Pair;
 
-import org.chromium.base.GcStateAssert;
+import org.chromium.base.LifetimeAssert;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.annotations.JNINamespace;
 
@@ -21,7 +22,6 @@ import java.util.List;
  */
 @JNINamespace("base")
 public class TaskRunnerImpl implements TaskRunner {
-    @Nullable
     private final TaskTraits mTaskTraits;
     private final String mTraceEvent;
     private final @TaskRunnerType int mTaskRunnerType;
@@ -29,7 +29,9 @@ public class TaskRunnerImpl implements TaskRunner {
     protected long mNativeTaskRunnerAndroid;
     protected final Runnable mRunPreNativeTaskClosure = this::runPreNativeTask;
     private boolean mIsDestroying;
-    private final GcStateAssert mGcStateAssert = GcStateAssert.create(this, true);
+    private final LifetimeAssert mLifetimeAssert = LifetimeAssert.create(this);
+    private static final ChromeThreadPoolExecutor THREAD_POOL_EXECUTOR =
+            new ChromeThreadPoolExecutor();
 
     @Nullable
     protected LinkedList<Runnable> mPreNativeTasks = new LinkedList<>();
@@ -60,11 +62,16 @@ public class TaskRunnerImpl implements TaskRunner {
     @Override
     public void destroy() {
         synchronized (mLock) {
-            GcStateAssert.setSafeToGc(mGcStateAssert, true);
+            LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
             if (mNativeTaskRunnerAndroid != 0) nativeDestroy(mNativeTaskRunnerAndroid);
             mNativeTaskRunnerAndroid = 0;
             mIsDestroying = true;
         }
+    }
+
+    @Override
+    public void disableLifetimeCheck() {
+        LifetimeAssert.setSafeToGc(mLifetimeAssert, true);
     }
 
     @Override
@@ -99,7 +106,7 @@ public class TaskRunnerImpl implements TaskRunner {
      * time.
      */
     protected void schedulePreNativeTask() {
-        AsyncTask.THREAD_POOL_EXECUTOR.execute(mRunPreNativeTaskClosure);
+        THREAD_POOL_EXECUTOR.execute(mRunPreNativeTaskClosure);
     }
 
     /**
@@ -111,6 +118,17 @@ public class TaskRunnerImpl implements TaskRunner {
             synchronized (mLock) {
                 if (mPreNativeTasks == null) return;
                 task = mPreNativeTasks.poll();
+            }
+            switch (mTaskTraits.mPriority) {
+                case TaskPriority.USER_VISIBLE:
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
+                    break;
+                case TaskPriority.HIGHEST:
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_MORE_FAVORABLE);
+                    break;
+                default:
+                    Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
+                    break;
             }
             task.run();
         }
@@ -124,7 +142,6 @@ public class TaskRunnerImpl implements TaskRunner {
     public void initNativeTaskRunner() {
         synchronized (mLock) {
             if (mPreNativeTasks != null) {
-                GcStateAssert.setSafeToGc(mGcStateAssert, false);
                 mNativeTaskRunnerAndroid =
                         nativeInit(mTaskRunnerType, mTaskTraits.mPrioritySetExplicitly,
                                 mTaskTraits.mPriority, mTaskTraits.mMayBlock,

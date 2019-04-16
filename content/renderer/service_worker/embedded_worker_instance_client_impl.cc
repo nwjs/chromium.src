@@ -6,8 +6,10 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
+#include "content/child/child_thread_impl.h"
 #include "content/child/scoped_child_process_reference.h"
 #include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/common/content_client.h"
@@ -26,29 +28,29 @@ namespace content {
 
 // static
 void EmbeddedWorkerInstanceClientImpl::Create(
-    scoped_refptr<base::SingleThreadTaskRunner> io_thread_runner,
-    mojom::EmbeddedWorkerInstanceClientRequest request) {
+    blink::mojom::EmbeddedWorkerInstanceClientRequest request) {
   // This won't be leaked because the lifetime will be managed internally.
   // See the class documentation for detail.
-  new EmbeddedWorkerInstanceClientImpl(std::move(io_thread_runner),
-                                       std::move(request));
+  // We can't use MakeStrongBinding because must give the worker thread
+  // a chance to stop by calling TerminateWorkerContext() and waiting
+  // before destructing.
+  new EmbeddedWorkerInstanceClientImpl(std::move(request));
 }
 
 void EmbeddedWorkerInstanceClientImpl::WorkerContextDestroyed() {
   DCHECK(worker_);
   TRACE_EVENT0("ServiceWorker",
                "EmbeddedWorkerInstanceClientImpl::WorkerContextDestroyed");
-  // Destroys |this|.
-  worker_.reset();
+  delete this;
 }
 
 void EmbeddedWorkerInstanceClientImpl::StartWorker(
-    mojom::EmbeddedWorkerStartParamsPtr params) {
+    blink::mojom::EmbeddedWorkerStartParamsPtr params) {
   DCHECK(ChildThreadImpl::current());
   DCHECK(!worker_);
   TRACE_EVENT0("ServiceWorker",
                "EmbeddedWorkerInstanceClientImpl::StartWorker");
-  auto start_timing = mojom::EmbeddedWorkerStartTiming::New();
+  auto start_timing = blink::mojom::EmbeddedWorkerStartTiming::New();
   start_timing->start_worker_received_time = base::TimeTicks::Now();
   DCHECK(!params->provider_info->cache_storage ||
          base::FeatureList::IsEnabled(
@@ -58,18 +60,17 @@ void EmbeddedWorkerInstanceClientImpl::StartWorker(
   service_manager::mojom::InterfaceProviderPtrInfo interface_provider =
       std::move(params->provider_info->interface_provider);
   blink::PrivacyPreferences privacy_preferences(
-      params->renderer_preferences.enable_do_not_track,
-      params->renderer_preferences.enable_referrers);
+      params->renderer_preferences->enable_do_not_track,
+      params->renderer_preferences->enable_referrers);
 
   auto client = std::make_unique<ServiceWorkerContextClient>(
-      params->embedded_worker_id, params->service_worker_version_id,
-      params->scope, params->script_url,
+      params->service_worker_version_id, params->scope, params->script_url,
       !params->installed_scripts_info.is_null(),
       std::move(params->renderer_preferences),
       std::move(params->service_worker_request),
       std::move(params->controller_request), std::move(params->instance_host),
-      std::move(params->provider_info), std::move(temporal_self_),
-      std::move(start_timing), std::move(params->preference_watcher_request),
+      std::move(params->provider_info), this, std::move(start_timing),
+      std::move(params->preference_watcher_request),
       std::move(params->subresource_loader_factories),
       RenderThreadImpl::current()
           ->GetWebMainThreadScheduler()
@@ -88,11 +89,11 @@ void EmbeddedWorkerInstanceClientImpl::StartWorker(
 
 void EmbeddedWorkerInstanceClientImpl::StopWorker() {
   // StopWorker must be called after StartWorker is called.
-  DCHECK(ChildThreadImpl::current());
   DCHECK(worker_);
 
   TRACE_EVENT0("ServiceWorker", "EmbeddedWorkerInstanceClientImpl::StopWorker");
   worker_->TerminateWorkerContext();
+  // We continue in WorkerContextDestroyed() after the worker thread is stopped.
 }
 
 void EmbeddedWorkerInstanceClientImpl::ResumeAfterDownload() {
@@ -116,11 +117,8 @@ void EmbeddedWorkerInstanceClientImpl::BindDevToolsAgent(
 }
 
 EmbeddedWorkerInstanceClientImpl::EmbeddedWorkerInstanceClientImpl(
-    scoped_refptr<base::SingleThreadTaskRunner> io_thread_runner,
-    mojom::EmbeddedWorkerInstanceClientRequest request)
-    : binding_(this, std::move(request)),
-      temporal_self_(this),
-      io_thread_runner_(std::move(io_thread_runner)) {
+    blink::mojom::EmbeddedWorkerInstanceClientRequest request)
+    : binding_(this, std::move(request)) {
   binding_.set_connection_error_handler(base::BindOnce(
       &EmbeddedWorkerInstanceClientImpl::OnError, base::Unretained(this)));
 }
@@ -128,14 +126,21 @@ EmbeddedWorkerInstanceClientImpl::EmbeddedWorkerInstanceClientImpl(
 EmbeddedWorkerInstanceClientImpl::~EmbeddedWorkerInstanceClientImpl() {}
 
 void EmbeddedWorkerInstanceClientImpl::OnError() {
-  // Destroys |this| if |temporal_self_| still owns this (i.e., StartWorker()
-  // was not yet called).
-  temporal_self_.reset();
+  // The connection to the browser process broke.
+  if (worker_) {
+    // The worker is running, so tell it to stop. We continue in
+    // WorkerContextDestroyed().
+    StopWorker();
+    return;
+  }
+
+  // Nothing left to do.
+  delete this;
 }
 
 std::unique_ptr<blink::WebEmbeddedWorker>
 EmbeddedWorkerInstanceClientImpl::StartWorkerContext(
-    mojom::EmbeddedWorkerStartParamsPtr params,
+    blink::mojom::EmbeddedWorkerStartParamsPtr params,
     std::unique_ptr<ServiceWorkerContextClient> context_client,
     blink::mojom::CacheStoragePtrInfo cache_storage,
     service_manager::mojom::InterfaceProviderPtrInfo interface_provider,

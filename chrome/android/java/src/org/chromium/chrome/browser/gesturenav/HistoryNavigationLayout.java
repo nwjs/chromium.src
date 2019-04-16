@@ -16,6 +16,9 @@ import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
 /**
  * FrameLayout that supports side-wise slide gesture for history navigation. Inheriting
  * class may need to override {@link #isGestureConsumed()} if {@link #onTouchEvent} cannot
@@ -24,6 +27,7 @@ import org.chromium.chrome.browser.tab.Tab;
  */
 public class HistoryNavigationLayout extends FrameLayout {
     @IntDef({GestureState.NONE, GestureState.STARTED, GestureState.DRAGGED})
+    @Retention(RetentionPolicy.SOURCE)
     private @interface GestureState {
         int NONE = 0;
         int STARTED = 1;
@@ -51,12 +55,10 @@ public class HistoryNavigationLayout extends FrameLayout {
 
     public HistoryNavigationLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.GESTURE_NAVIGATION)) return;
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OVERSCROLL_HISTORY_NAVIGATION)) return;
         if (context instanceof ChromeActivity) {
             mTabProvider = ((ChromeActivity) context).getActivityTabProvider();
             mDetector = new GestureDetector(getContext(), new SideNavGestureListener());
-        } else {
-            throw new IllegalStateException("This native page should be under ChromeActivity");
         }
     }
 
@@ -109,6 +111,9 @@ public class HistoryNavigationLayout extends FrameLayout {
 
         @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            // onScroll needs handling only after the state moves away from none state.
+            if (mState == GestureState.NONE) return true;
+
             if (wasLastSideSwipeGestureConsumed()) {
                 reset();
                 mState = GestureState.NONE;
@@ -157,9 +162,21 @@ public class HistoryNavigationLayout extends FrameLayout {
     /**
      * Reset navigation UI in action.
      */
-    public void reset() {
-        cancelStopNavigatingRunnable();
-        if (mSideSlideLayout != null) mSideSlideLayout.reset();
+    private void reset() {
+        if (mSideSlideLayout != null) {
+            cancelStopNavigatingRunnable();
+            mSideSlideLayout.reset();
+        }
+    }
+
+    /**
+     * Cancel navigation UI with animation effect.
+     */
+    public void release() {
+        if (mSideSlideLayout != null) {
+            cancelStopNavigatingRunnable();
+            mSideSlideLayout.release(false);
+        }
     }
 
     private void cancelStopNavigatingRunnable() {

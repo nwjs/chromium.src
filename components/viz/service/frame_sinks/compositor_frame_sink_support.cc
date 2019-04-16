@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/time/time.h"
@@ -75,6 +76,13 @@ CompositorFrameSinkSupport::~CompositorFrameSinkSupport() {
   DCHECK(!added_frame_observer_);
 }
 
+CompositorFrameSinkSupport::PresentationFeedbackMap
+CompositorFrameSinkSupport::TakePresentationFeedbacks() {
+  PresentationFeedbackMap map;
+  map.swap(presentation_feedbacks_);
+  return map;
+}
+
 void CompositorFrameSinkSupport::SetUpHitTest(
     LatestLocalSurfaceIdLookupDelegate* local_surface_id_lookup_delegate) {
   DCHECK(is_root_);
@@ -140,6 +148,10 @@ void CompositorFrameSinkSupport::OnSurfaceActivated(Surface* surface) {
   }
 
   MaybeEvictSurfaces();
+}
+
+void CompositorFrameSinkSupport::OnSurfaceDrawn(Surface* surface) {
+  last_drawn_frame_index_ = surface->GetActiveFrameIndex();
 }
 
 void CompositorFrameSinkSupport::OnFrameTokenChanged(uint32_t frame_token) {
@@ -273,6 +285,10 @@ void CompositorFrameSinkSupport::SetWantsAnimateOnlyBeginFrames() {
 
 bool CompositorFrameSinkSupport::WantsAnimateOnlyBeginFrames() const {
   return wants_animate_only_begin_frames_;
+}
+
+bool CompositorFrameSinkSupport::IsRoot() const {
+  return is_root_;
 }
 
 void CompositorFrameSinkSupport::DidNotProduceFrame(const BeginFrameAck& ack) {
@@ -463,13 +479,12 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrameInternal(
       return SubmitResult::ACCEPTED;
     }
     current_surface = CreateSurface(surface_info, block_activation_on_parent);
-    last_created_surface_id_ = SurfaceId(frame_sink_id_, local_surface_id);
-
     if (!current_surface) {
       TRACE_EVENT_INSTANT0("viz", "Surface Invariants Violation",
                            TRACE_EVENT_SCOPE_THREAD);
       return SubmitResult::SURFACE_INVARIANTS_VIOLATION;
     }
+    last_created_surface_id_ = SurfaceId(frame_sink_id_, local_surface_id);
 
     surface_manager_->SurfaceDamageExpected(current_surface->surface_id(),
                                             last_begin_frame_args_);
@@ -752,12 +767,30 @@ bool CompositorFrameSinkSupport::ShouldSendBeginFrame(
   if (!surface || !surface->seen_first_surface_embedding())
     return true;
 
-  // Send begin-frames if the client has requested for it, and the previously
-  // submitted frame has already been drawn, or if the previous begin-frame was
-  // sent more than 1 second ago.
+  // If the embedded surface doesn't have an active frame, send begin frame.
+  if (!surface->HasActiveFrame())
+    return true;
+
+  uint64_t active_frame_index = surface->GetActiveFrameIndex();
+
+  // Since we have an active frame, and frame indexes strictly increase during
+  // the lifetime of the CompositorFrameSinkSupport, our active frame index
+  // must be at least as large as our last drawn frame index.
+  DCHECK_GE(active_frame_index, last_drawn_frame_index_);
+
+  // Determine the number of undrawn frames. If this is below our limit, send
+  // begin frame. Limit must be at least 1, as the relative ordering of
+  // renderer / browser frame submissions allows us to have one outstanding
+  // undrawn frame under normal operation.
+  constexpr uint64_t undrawn_frame_limit = 1;
+  uint64_t num_undrawn_frames = active_frame_index - last_drawn_frame_index_;
+  if (num_undrawn_frames <= undrawn_frame_limit)
+    return true;
+
+  // Send begin-frames if the previous begin-frame was sent more than 1 second
+  // ago.
   constexpr base::TimeDelta throttled_rate = base::TimeDelta::FromSeconds(1);
-  return !surface->HasUndrawnActiveFrame() ||
-         (frame_time - last_frame_time_) >= throttled_rate;
+  return (frame_time - last_frame_time_) >= throttled_rate;
 }
 
 }  // namespace viz

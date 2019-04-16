@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/observer_list.h"
@@ -143,7 +144,14 @@ bool MessageCenterImpl::IsQuietMode() const {
 Notification* MessageCenterImpl::FindVisibleNotificationById(
     const std::string& id) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  return notification_list_->GetNotificationById(id);
+
+  const auto& notifications = GetVisibleNotifications();
+  for (auto* notification : notifications) {
+    if (notification->id() == id)
+      return notification;
+  }
+
+  return nullptr;
 }
 
 NotificationList::Notifications MessageCenterImpl::FindNotificationsByAppId(
@@ -216,7 +224,7 @@ void MessageCenterImpl::RemoveNotification(const std::string& id,
                                            bool by_user) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
-  Notification* notification = FindVisibleNotificationById(id);
+  Notification* notification = notification_list_->GetNotificationById(id);
   if (!notification)
     return;
 

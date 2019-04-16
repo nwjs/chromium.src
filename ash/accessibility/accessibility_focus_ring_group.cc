@@ -52,7 +52,7 @@ AccessibilityFocusRingGroup::AccessibilityFocusRingGroup() {
       base::TimeDelta::FromMilliseconds(kFocusFadeOutTimeMilliseconds);
 }
 
-AccessibilityFocusRingGroup::~AccessibilityFocusRingGroup(){};
+AccessibilityFocusRingGroup::~AccessibilityFocusRingGroup() {}
 
 void AccessibilityFocusRingGroup::SetColor(
     SkColor color,
@@ -64,6 +64,19 @@ void AccessibilityFocusRingGroup::SetColor(
 void AccessibilityFocusRingGroup::ResetColor(
     AccessibilityLayerDelegate* delegate) {
   focus_ring_color_.reset();
+  UpdateFocusRingsFromFocusRects(delegate);
+}
+
+void AccessibilityFocusRingGroup::EnableDoubleFocusRing(
+    SkColor color,
+    AccessibilityLayerDelegate* delegate) {
+  focus_ring_secondary_color_ = color;
+  UpdateFocusRingsFromFocusRects(delegate);
+}
+
+void AccessibilityFocusRingGroup::DisableDoubleFocusRing(
+    AccessibilityLayerDelegate* delegate) {
+  focus_ring_secondary_color_.reset();
   UpdateFocusRingsFromFocusRects(delegate);
 }
 
@@ -96,10 +109,15 @@ void AccessibilityFocusRingGroup::UpdateFocusRingsFromFocusRects(
   }
 
   for (size_t i = 0; i < focus_rings_.size(); ++i) {
-    if (focus_ring_color_) {
+    if (focus_ring_color_)
       focus_layers_[i]->SetColor(*(focus_ring_color_));
-    } else
+    else
       focus_layers_[i]->ResetColor();
+
+    if (focus_ring_secondary_color_)
+      focus_layers_[i]->EnableDoubleFocusRing(*(focus_ring_secondary_color_));
+    else
+      focus_layers_[i]->DisableDoubleFocusRing();
   }
 }
 

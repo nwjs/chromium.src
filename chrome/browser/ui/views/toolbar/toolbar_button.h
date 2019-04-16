@@ -9,6 +9,7 @@
 
 #include "base/macros.h"
 #include "base/optional.h"
+#include "ui/base/theme_provider.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/button/button.h"
@@ -67,6 +68,7 @@ class ToolbarButton : public views::LabelButton,
   bool IsMenuShowing() const;
 
   // views::LabelButton:
+  void SetText(const base::string16& text) override;
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   gfx::Rect GetAnchorBoundsInScreen() const override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
@@ -82,11 +84,25 @@ class ToolbarButton : public views::LabelButton,
   SkColor GetInkDropBaseColor() const override;
 
   // views::ContextMenuController:
-  void ShowContextMenuForView(View* source,
-                              const gfx::Point& point,
-                              ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(View* source,
+                                  const gfx::Point& point,
+                                  ui::MenuSourceType source_type) override;
 
   ui::MenuModel* menu_model_for_test() { return model_.get(); }
+
+  // Chooses from |desired_dark_color| and |desired_light_color| based on
+  // whether the toolbar background is dark or light.
+  //
+  // If the resulting color will achieve sufficient contrast,
+  // returns it. Otherwise, blends it towards |dark_extreme| if it's light, or
+  // |dark_extreme| if it's dark until minimum contrast is achieved, and returns
+  // the result.
+  static SkColor AdjustHighlightColorForContrast(
+      const ui::ThemeProvider* theme_provider,
+      SkColor desired_dark_color,
+      SkColor desired_light_color,
+      SkColor dark_extreme,
+      SkColor light_extreme);
 
  protected:
   // Returns if menu should be shown. Override this to change default behavior.

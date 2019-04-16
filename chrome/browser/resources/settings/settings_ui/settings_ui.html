@@ -38,11 +38,12 @@
 
       cr-toolbar {
         @apply --layout-center;
-        --iron-icon-fill-color: white;
-        background-color: var(--md-toolbar-color);
-        color: white;
         min-height: 56px;
         z-index: 2;
+      }
+
+      :host-context(html:not([dark])) cr-toolbar {
+        --iron-icon-fill-color: white;
       }
 
       #container {
@@ -82,6 +83,7 @@
           toolbar-spinner-active="{{toolbarSpinnerActive_}}"
           page-visibility="[[pageVisibility_]]"
           show-android-apps="[[showAndroidApps_]]"
+          show-kiosk-next-shell="[[showKioskNextShell_]]"
           show-crostini="[[showCrostini_]]"
           show-multidevice="[[showMultidevice_]]"
           have-play-store-app="[[havePlayStoreApp_]]"

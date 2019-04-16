@@ -4,6 +4,7 @@
 
 #include "content/shell/test_runner/gc_controller.h"
 
+#include "base/bind.h"
 #include "content/shell/test_runner/test_interfaces.h"
 #include "content/shell/test_runner/web_test_delegate.h"
 #include "gin/arguments.h"
@@ -33,7 +34,10 @@ void GCController::Install(TestInterfaces* interfaces,
   if (controller.IsEmpty())
     return;
   v8::Local<v8::Object> global = context->Global();
-  global->Set(gin::StringToV8(isolate, "GCController"), controller.ToV8());
+  global
+      ->Set(context, gin::StringToV8(isolate, "GCController"),
+            controller.ToV8())
+      .Check();
 }
 
 GCController::GCController(TestInterfaces* interfaces)

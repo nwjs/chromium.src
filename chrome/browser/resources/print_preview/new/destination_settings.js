@@ -49,27 +49,28 @@ Polymer({
     /** @type {!Array<string>} */
     users: Array,
 
-    /** @private {boolean} */
-    loadingDestination_: {
-      type: Boolean,
-      value: true,
-      observer: 'onLoadingDestinationChange_',
-    },
-
     /** @private {!Array<!print_preview.Destination>} */
     recentDestinationList_: Array,
+
+    /** @private */
+    shouldHideSpinner_: {
+      type: Boolean,
+      computed: 'computeShouldHideSpinner_(' +
+          'destination, noDestinationsFound, cloudPrintState)',
+    },
 
     /** @private {string} */
     statusText_: {
       type: String,
-      computed: 'computeStatusText_(destination.connectionStatus, ' +
-          'destination.shouldShowInvalidCertificateError)',
+      computed: 'computeStatusText_(destination)',
     },
   },
 
   observers: [
     'updateRecentDestinationList_(' +
         'recentDestinations.*, activeUser, destinationStore)',
+    'updateDestinationSelect_(' +
+        'destination, noDestinationsFound, cloudPrintState)',
   ],
 
   /** @private {!EventTracker} */
@@ -110,12 +111,6 @@ Polymer({
 
     const recentDestinations = [];
     let update = false;
-    let filterAccount = this.activeUser;
-    // Fallback to the account for the current destination, in case activeUser
-    // is not known yet from cloudprint.
-    if (!filterAccount) {
-      filterAccount = this.destination ? this.destination.account : '';
-    }
     const existingKeys = this.recentDestinationList_ ?
         this.recentDestinationList_.map(listItem => listItem.key) :
         [];
@@ -123,7 +118,7 @@ Polymer({
       const key = print_preview.createRecentDestinationKey(recentDestination);
       const destination = this.destinationStore.getDestinationByKey(key);
       if (destination && !this.destinationIsDriveOrPdf_(recentDestination) &&
-          (!destination.account || destination.account == filterAccount)) {
+          (!destination.account || destination.account == this.activeUser)) {
         recentDestinations.push(destination);
         update = update || !existingKeys.includes(key);
       }
@@ -135,8 +130,6 @@ Polymer({
     if (update) {
       this.recentDestinationList_ = recentDestinations;
     }
-
-    this.loadingDestination_ = !this.destination || !this.destination.id;
   },
 
   /**
@@ -145,7 +138,7 @@ Polymer({
    */
   shouldDisableDropdown_: function() {
     return !this.destinationStore || this.noDestinationsFound ||
-        this.loadingDestination_ ||
+        !this.shouldHideSpinner_ ||
         (this.disabled && this.state != print_preview_new.State.NOT_READY &&
          this.state != print_preview_new.State.INVALID_PRINTER);
   },
@@ -156,11 +149,19 @@ Polymer({
       return;
     }
 
-    if (this.destination && this.destination.account !== '') {
-      this.updateDestination_();
-    }
+    // Load docs, in case the user was not signed in previously and signed in
+    // from the destinations dialog.
+    this.destinationStore.startLoadCookieDestination(
+        print_preview.Destination.GooglePromotedId.DOCS);
 
-    this.loadDropdownCloudDestinations_();
+    // Load any recent cloud destinations for the dropdown.
+    this.recentDestinations.forEach(destination => {
+      if (destination.origin === print_preview.DestinationOrigin.COOKIES &&
+          (destination.account === this.activeUser ||
+           destination.account === '')) {
+        this.destinationStore.startLoadCookieDestination(destination.id);
+      }
+    });
   },
 
   /** @private */
@@ -175,12 +176,15 @@ Polymer({
     }
   },
 
-  /**
-   * @return {boolean} Whether to show the spinner.
-   * @private
-   */
-  shouldShowSpinner_: function() {
-    return this.loadingDestination_ && !this.noDestinationsFound;
+  /** @private */
+  computeShouldHideSpinner_: function() {
+    if (this.noDestinationsFound) {
+      return true;
+    }
+
+    return !!this.destination &&
+        (this.destination.origin !== print_preview.DestinationOrigin.COOKIES ||
+         this.cloudPrintState === print_preview.CloudPrintState.SIGNED_IN);
   },
 
   /**
@@ -196,29 +200,6 @@ Polymer({
     return this.destination.shouldShowInvalidCertificateError ?
         this.i18n('noLongerSupportedFragment') :
         this.destination.connectionStatusText;
-  },
-
-  /** @private */
-  loadDropdownCloudDestinations_: function() {
-    this.destinationStore.startLoadCookieDestination(
-        print_preview.Destination.GooglePromotedId.DOCS);
-    this.recentDestinations.forEach(destination => {
-      if (destination.origin === print_preview.DestinationOrigin.COOKIES &&
-          (destination.account === this.activeUser ||
-           destination.account === '')) {
-        this.destinationStore.startLoadCookieDestination(destination.id);
-      }
-    });
-  },
-
-  /** @private */
-  onLoadingDestinationChange_: function() {
-    if (this.loadingDestination_ || this.noDestinationsFound ||
-        (this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN &&
-         this.destination.account !== '')) {
-      return;
-    }
-    this.updateDestination_();
   },
 
   /**
@@ -242,13 +223,19 @@ Polymer({
   onDialogClose_: function() {
     // Reset the select value if the user dismissed the dialog without
     // selecting a new destination.
-    if (this.destination) {
-      this.updateDestination_();
-    }
+    this.updateDestinationSelect_();
     this.$.destinationSelect.focus();
   },
 
-  updateDestination_: function() {
+  /** @private */
+  updateDestinationSelect_: function() {
+    if (!this.destination ||
+        (this.destination.origin === print_preview.DestinationOrigin.COOKIES &&
+         this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN) ||
+        this.noDestinationsFound) {
+      return;
+    }
+
     // TODO (rbpotter): Remove this conditional when the Polymer 2 migration
     // is completed.
     if (Polymer.DomIf) {

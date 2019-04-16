@@ -40,7 +40,6 @@
 #include "chrome/browser/net/profile_network_context_service.h"
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/policy/cloud/policy_header_service_factory.h"
-#include "chrome/browser/policy/policy_helpers.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
@@ -163,9 +162,9 @@
 #include "net/ssl/client_cert_store_mac.h"
 #endif  // defined(OS_MACOSX)
 
-#if (defined(OS_LINUX) && !defined(OS_CHROMEOS)) || defined(OS_MACOSX)
-#include "chrome/browser/net/trial_comparison_cert_verifier.h"
+#if BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
 #include "net/cert/cert_verify_proc_builtin.h"
+#include "services/network/trial_comparison_cert_verifier_mojo.h"
 #endif
 
 using content::BrowserContext;
@@ -248,9 +247,10 @@ void DidGetTPMInfoForUserOnUIThread(
   if (token_info.has_value() && token_info->slot != -1) {
     DVLOG(1) << "Got TPM slot for " << username_hash << ": "
              << token_info->slot;
-    base::PostTaskWithTraits(FROM_HERE, {BrowserThread::IO},
-                             base::Bind(&crypto::InitializeTPMForChromeOSUser,
-                                        username_hash, token_info->slot));
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
+        base::BindOnce(&crypto::InitializeTPMForChromeOSUser, username_hash,
+                       token_info->slot));
   } else {
     NOTREACHED() << "TPMTokenInfoGetter reported invalid token.";
   }
@@ -283,7 +283,7 @@ void StartTPMSlotInitializationOnIOThread(const AccountId& account_id,
 
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::UI},
-      base::Bind(&GetTPMInfoForUserOnUIThread, account_id, username_hash));
+      base::BindOnce(&GetTPMInfoForUserOnUIThread, account_id, username_hash));
 }
 
 void StartNSSInitOnIOThread(const AccountId& account_id,
@@ -405,8 +405,8 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
       DCHECK(!params->username_hash.empty());
       base::PostTaskWithTraits(
           FROM_HERE, {BrowserThread::IO},
-          base::Bind(&StartNSSInitOnIOThread, user->GetAccountId(),
-                     user->username_hash(), profile->GetPath()));
+          base::BindOnce(&StartNSSInitOnIOThread, user->GetAccountId(),
+                         user->username_hash(), profile->GetPath()));
 
       // Use the device-wide system key slot only if the user is affiliated on
       // the device.
@@ -453,8 +453,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
     sync_first_setup_complete_.Init(syncer::prefs::kSyncFirstSetupComplete,
                                     pref_service);
     sync_first_setup_complete_.MoveToThread(io_task_runner);
-    sync_has_auth_error_.Init(syncer::prefs::kSyncHasAuthError, pref_service);
-    sync_has_auth_error_.MoveToThread(io_task_runner);
   }
 
 #if !defined(OS_CHROMEOS)
@@ -821,10 +819,6 @@ bool ProfileIOData::IsSyncEnabled() const {
          !sync_suppress_start_.GetValue();
 }
 
-bool ProfileIOData::SyncHasAuthError() const {
-  return sync_has_auth_error_.GetValue();
-}
-
 #if !defined(OS_CHROMEOS)
 std::string ProfileIOData::GetSigninScopedDeviceId() const {
   return signin_scoped_device_id_.GetValue();
@@ -984,15 +978,27 @@ void ProfileIOData::Init(
             std::make_unique<net::MultiThreadedCertVerifier>(
                 verify_proc.get()));
       }
-#elif 0
-      cert_verifier = std::make_unique<net::CachingCertVerifier>(
-          std::make_unique<TrialComparisonCertVerifier>(
-              profile_params_->profile, net::CertVerifyProc::CreateDefault(),
-              net::CreateCertVerifyProcBuiltin()));
+#elif 0 //BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+      auto& trial_params = profile_params_->main_network_context_params
+                               ->trial_comparison_cert_verifier_params;
+      if (trial_params) {
+        cert_verifier = std::make_unique<net::CachingCertVerifier>(
+            std::make_unique<network::TrialComparisonCertVerifierMojo>(
+                trial_params->initial_allowed,
+                std::move(trial_params->config_client_request),
+                std::move(trial_params->report_client),
+                net::CertVerifyProc::CreateDefault(),
+                net::CreateCertVerifyProcBuiltin()));
+      }
 #else
     cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
     ((nw::PolicyCertVerifier*)cert_verifier.get())->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
+      if (!cert_verifier) {
+        cert_verifier = std::make_unique<net::CachingCertVerifier>(
+            std::make_unique<net::MultiThreadedCertVerifier>(
+                net::CertVerifyProc::CreateDefault()));
+      }
       const base::CommandLine& command_line =
           *base::CommandLine::ForCurrentProcess();
       cert_verifier = network::IgnoreErrorsCertVerifier::MaybeWrapCertVerifier(
@@ -1155,7 +1161,6 @@ void ProfileIOData::ShutdownOnUIThread(
   google_services_user_account_id_.Destroy();
   sync_suppress_start_.Destroy();
   sync_first_setup_complete_.Destroy();
-  sync_has_auth_error_.Destroy();
 #if !defined(OS_CHROMEOS)
   signin_scoped_device_id_.Destroy();
 #endif

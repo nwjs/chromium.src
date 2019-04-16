@@ -131,9 +131,6 @@ class TabStrip : public views::AccessiblePaneView,
   // Sets |stacked_layout_| and animates if necessary.
   void SetStackedLayout(bool stacked_layout);
 
-  // Called when the value of SingleTabMode() changes.
-  void SingleTabModeChanged();
-
   // Returns the bounds of the new tab button.
   gfx::Rect new_tab_button_bounds() const { return new_tab_button_bounds_; }
 
@@ -240,7 +237,7 @@ class TabStrip : public views::AccessiblePaneView,
   NewTabButtonPosition GetNewTabButtonPosition() const override;
   bool ShouldHideCloseButtonForTab(Tab* tab) const override;
   bool MaySetClip() override;
-  void SelectTab(Tab* tab) override;
+  void SelectTab(Tab* tab, const ui::Event& event) override;
   void ExtendSelectionTo(Tab* tab) override;
   void ToggleSelected(Tab* tab) override;
   void AddSelectionFromAnchorTo(Tab* tab) override;
@@ -253,7 +250,6 @@ class TabStrip : public views::AccessiblePaneView,
   bool IsTabPinned(const Tab* tab) const override;
   bool IsFirstVisibleTab(const Tab* tab) const override;
   bool IsLastVisibleTab(const Tab* tab) const override;
-  bool SingleTabMode() const override;
   void MaybeStartDrag(
       Tab* tab,
       const ui::LocatedEvent& event,
@@ -290,8 +286,9 @@ class TabStrip : public views::AccessiblePaneView,
   // MouseWatcherListener:
   void MouseMovedOutOfHost() override;
 
-  // views::View:
+  // views::AccessiblePaneView:
   void Layout() override;
+  bool OnMouseWheel(const ui::MouseWheelEvent& event) override;
   void PaintChildren(const views::PaintInfo& paint_info) override;
   void OnPaint(gfx::Canvas* canvas) override;
   const char* GetClassName() const override;
@@ -383,6 +380,10 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Sets the visibility state of all tabs based on ShouldTabBeVisible().
   void SetTabVisibility();
+
+  // Updates the indexes and count for AX data on all tabs. Used by some screen
+  // readers (e.g. ChromeVox).
+  void UpdateAccessibleTabIndices();
 
   // Drags the active tab by |delta|. |initial_positions| is the x-coordinates
   // of the tabs when the drag started.  This is only called when
@@ -710,6 +711,10 @@ class TabStrip : public views::AccessiblePaneView,
 
   // Number of mouse moves.
   int mouse_move_count_ = 0;
+
+  // Accumulatated offsets from thumb wheel. Used to throttle horizontal
+  // scroll from thumb wheel.
+  int accumulated_horizontal_scroll_ = 0;
 
   // Timer used when a tab is closed and we need to relayout. Only used when a
   // tab close comes from a touch device.

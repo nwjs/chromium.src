@@ -4,6 +4,7 @@
 
 #include "services/ws/window_service_test_setup.h"
 
+#include "base/bind.h"
 #include "services/ws/embedding.h"
 #include "services/ws/event_queue.h"
 #include "services/ws/event_queue_test_helper.h"
@@ -139,6 +140,9 @@ WindowServiceTestSetup::WindowServiceTestSetup()
   ui::InitializeContextFactoryForTests(enable_pixel_output, &context_factory,
                                        &context_factory_private);
   aura_test_helper_.SetUp(context_factory, context_factory_private);
+  // The resize throttle may interfere with tests, so disable it. If specific
+  // tests want the throttle, they can enable it.
+  aura::Env::GetInstance()->set_throttle_input_on_resize_for_testing(false);
   scoped_capture_client_ = std::make_unique<wm::ScopedCaptureClient>(
       aura_test_helper_.root_window());
   service_ =

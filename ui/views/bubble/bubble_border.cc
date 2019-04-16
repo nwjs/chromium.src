@@ -206,8 +206,7 @@ gfx::Rect BubbleBorder::GetBounds(const gfx::Rect& anchor_rect,
 }
 
 int BubbleBorder::GetBorderCornerRadius() const {
-  constexpr int kCornerRadius = 2;
-  return corner_radius_.value_or(kCornerRadius);
+  return corner_radius_.value_or(0);
 }
 
 void BubbleBorder::Paint(const views::View& view, gfx::Canvas* canvas) {
@@ -232,6 +231,8 @@ gfx::Insets BubbleBorder::GetInsets() const {
     return gfx::Insets();
   if (shadow_ == NO_SHADOW)
     return gfx::Insets(kBorderThicknessDip);
+  if (insets_.has_value())
+    return insets_.value();
   return GetBorderAndShadowInsets(md_shadow_elevation_);
 }
 

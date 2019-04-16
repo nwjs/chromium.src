@@ -325,19 +325,42 @@ bool ShouldQuicGoawayOnPathDegrading(
       "true");
 }
 
-bool ShouldQuicRaceStaleDNSOnConnection(
-    const VariationParameters& quic_trial_params) {
-  return base::LowerCaseEqualsASCII(
-      GetVariationParam(quic_trial_params, "race_stale_dns_on_connection"),
-      "true");
-}
-
 int GetQuicMaxTimeOnNonDefaultNetworkSeconds(
     const VariationParameters& quic_trial_params) {
   int value;
   if (base::StringToInt(
           GetVariationParam(quic_trial_params,
                             "max_time_on_non_default_network_seconds"),
+          &value)) {
+    return value;
+  }
+  return 0;
+}
+
+bool ShouldQuicMigrateIdleSessions(
+    const VariationParameters& quic_trial_params) {
+  return base::LowerCaseEqualsASCII(
+      GetVariationParam(quic_trial_params, "migrate_idle_sessions"), "true");
+}
+
+int GetQuicRetransmittableOnWireTimeoutMilliseconds(
+    const VariationParameters& quic_trial_params) {
+  int value;
+  if (base::StringToInt(
+          GetVariationParam(quic_trial_params,
+                            "retransmittable_on_wire_timeout_milliseconds"),
+          &value)) {
+    return value;
+  }
+  return 0;
+}
+
+int GetQuicIdleSessionMigrationPeriodSeconds(
+    const VariationParameters& quic_trial_params) {
+  int value;
+  if (base::StringToInt(
+          GetVariationParam(quic_trial_params,
+                            "idle_session_migration_period_seconds"),
           &value)) {
     return value;
   }
@@ -477,8 +500,20 @@ void ConfigureQuicParams(base::StringPiece quic_trial_group,
         ShouldQuicRetryOnAlternateNetworkBeforeHandshake(quic_trial_params);
     params->quic_go_away_on_path_degrading =
         ShouldQuicGoawayOnPathDegrading(quic_trial_params);
-    params->quic_race_stale_dns_on_connection =
-        ShouldQuicRaceStaleDNSOnConnection(quic_trial_params);
+    int retransmittable_on_wire_timeout_milliseconds =
+        GetQuicRetransmittableOnWireTimeoutMilliseconds(quic_trial_params);
+    if (retransmittable_on_wire_timeout_milliseconds > 0) {
+      params->quic_retransmittable_on_wire_timeout_milliseconds =
+          retransmittable_on_wire_timeout_milliseconds;
+    }
+    params->quic_migrate_idle_sessions =
+        ShouldQuicMigrateIdleSessions(quic_trial_params);
+    int idle_session_migration_period_seconds =
+        GetQuicIdleSessionMigrationPeriodSeconds(quic_trial_params);
+    if (idle_session_migration_period_seconds > 0) {
+      params->quic_idle_session_migration_period =
+          base::TimeDelta::FromSeconds(idle_session_migration_period_seconds);
+    }
     int max_time_on_non_default_network_seconds =
         GetQuicMaxTimeOnNonDefaultNetworkSeconds(quic_trial_params);
     if (max_time_on_non_default_network_seconds > 0) {

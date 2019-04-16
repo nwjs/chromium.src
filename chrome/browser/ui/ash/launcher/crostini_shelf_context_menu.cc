@@ -9,6 +9,7 @@
 
 #include "ash/public/cpp/app_menu_constants.h"
 #include "ash/public/cpp/shelf_item.h"
+#include "base/bind_helpers.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service_factory.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
@@ -60,11 +61,16 @@ void CrostiniShelfContextMenu::BuildMenu(ui::SimpleMenuModel* menu_model) {
           controller()->profile());
   base::Optional<crostini::CrostiniRegistryService::Registration> registration =
       registry_service->GetRegistration(item().id.app_id);
-  if (registration)
-    AddPinMenu(menu_model);
 
-  menu_model->AddItemWithStringId(ash::MENU_NEW_WINDOW,
-                                  IDS_APP_LIST_NEW_WINDOW);
+  // For apps which Crostini knows about (i.e. those with .desktop files), we
+  // allow the user to pin them and open new windows. Otherwise this window is
+  // not associated with an app.
+  if (registration) {
+    AddPinMenu(menu_model);
+    AddContextMenuOption(menu_model, ash::MENU_NEW_WINDOW,
+                         IDS_APP_LIST_NEW_WINDOW);
+  }
+
   if (item().id.app_id == crostini::kCrostiniTerminalId &&
       crostini::IsCrostiniRunning(controller()->profile())) {
     AddContextMenuOption(menu_model, ash::STOP_APP,
@@ -72,11 +78,11 @@ void CrostiniShelfContextMenu::BuildMenu(ui::SimpleMenuModel* menu_model) {
   }
 
   if (controller()->IsOpen(item().id)) {
-    menu_model->AddItemWithStringId(ash::MENU_CLOSE,
-                                    IDS_LAUNCHER_CONTEXT_MENU_CLOSE);
+    AddContextMenuOption(menu_model, ash::MENU_CLOSE,
+                         IDS_LAUNCHER_CONTEXT_MENU_CLOSE);
   } else {
-    menu_model->AddItemWithStringId(ash::MENU_OPEN_NEW,
-                                    IDS_APP_CONTEXT_MENU_ACTIVATE_ARC);
+    AddContextMenuOption(menu_model, ash::MENU_OPEN_NEW,
+                         IDS_APP_CONTEXT_MENU_ACTIVATE_ARC);
   }
 
   // Offer users the ability to toggle per-application UI scaling.
@@ -85,11 +91,11 @@ void CrostiniShelfContextMenu::BuildMenu(ui::SimpleMenuModel* menu_model) {
   // look better when scaled to match the display density.
   if (ShouldShowDisplayDensityMenuItem(registration, display_id())) {
     if (registration->IsScaled()) {
-      menu_model->AddCheckItemWithStringId(ash::CROSTINI_USE_HIGH_DENSITY,
-                                           IDS_CROSTINI_USE_HIGH_DENSITY);
+      AddContextMenuOption(menu_model, ash::CROSTINI_USE_HIGH_DENSITY,
+                           IDS_CROSTINI_USE_HIGH_DENSITY);
     } else {
-      menu_model->AddCheckItemWithStringId(ash::CROSTINI_USE_LOW_DENSITY,
-                                           IDS_CROSTINI_USE_LOW_DENSITY);
+      AddContextMenuOption(menu_model, ash::CROSTINI_USE_LOW_DENSITY,
+                           IDS_CROSTINI_USE_LOW_DENSITY);
     }
   }
 }

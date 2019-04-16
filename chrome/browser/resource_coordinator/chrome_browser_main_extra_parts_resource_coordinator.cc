@@ -4,13 +4,15 @@
 
 #include "chrome/browser/resource_coordinator/chrome_browser_main_extra_parts_resource_coordinator.h"
 
+#include <utility>
+
 #include "base/process/process.h"
-#include "chrome/browser/resource_coordinator/browser_child_process_watcher.h"
+#include "chrome/browser/performance_manager/browser_child_process_watcher.h"
+#include "chrome/browser/performance_manager/performance_manager.h"
+#include "chrome/browser/performance_manager/process_resource_coordinator.h"
 #include "chrome/browser/resource_coordinator/page_signal_receiver.h"
 #include "chrome/browser/resource_coordinator/render_process_probe.h"
 #include "chrome/browser/resource_coordinator/utils.h"
-#include "content/public/common/service_manager_connection.h"
-#include "services/resource_coordinator/public/cpp/process_resource_coordinator.h"
 #include "services/resource_coordinator/public/cpp/resource_coordinator_features.h"
 
 ChromeBrowserMainExtraPartsResourceCoordinator::
@@ -21,14 +23,10 @@ ChromeBrowserMainExtraPartsResourceCoordinator::
 void ChromeBrowserMainExtraPartsResourceCoordinator::
     ServiceManagerConnectionStarted(
         content::ServiceManagerConnection* connection) {
-  process_resource_coordinator_ =
-      std::make_unique<resource_coordinator::ProcessResourceCoordinator>(
-          connection->GetConnector());
-
-  process_resource_coordinator_->OnProcessLaunched(base::Process::Current());
+  performance_manager_ = performance_manager::PerformanceManager::Create();
 
   browser_child_process_watcher_ =
-      std::make_unique<resource_coordinator::BrowserChildProcessWatcher>();
+      std::make_unique<performance_manager::BrowserChildProcessWatcher>();
 }
 
 void ChromeBrowserMainExtraPartsResourceCoordinator::PreBrowserStart() {
@@ -37,7 +35,7 @@ void ChromeBrowserMainExtraPartsResourceCoordinator::PreBrowserStart() {
     resource_coordinator::PageSignalReceiver* page_signal_receiver =
         resource_coordinator::GetPageSignalReceiver();
 
-    DCHECK(resource_coordinator::PageSignalReceiver::IsEnabled());
+    DCHECK_NE(nullptr, performance_manager_.get());
     resource_coordinator::RenderProcessProbe* render_process_probe =
         resource_coordinator::RenderProcessProbe::GetInstance();
 
@@ -45,4 +43,9 @@ void ChromeBrowserMainExtraPartsResourceCoordinator::PreBrowserStart() {
         std::make_unique<resource_coordinator::PerformanceMeasurementManager>(
             page_signal_receiver, render_process_probe);
   }
+}
+
+void ChromeBrowserMainExtraPartsResourceCoordinator::PostMainMessageLoopRun() {
+  performance_manager::PerformanceManager::Destroy(
+      std::move(performance_manager_));
 }

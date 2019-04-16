@@ -231,6 +231,9 @@ PageInfoUI::IdentityInfo::IdentityInfo()
 
 PageInfoUI::IdentityInfo::~IdentityInfo() {}
 
+PageInfoUI::PageFeatureInfo::PageFeatureInfo()
+    : is_vr_presentation_in_headset(false) {}
+
 std::unique_ptr<PageInfoUI::SecurityDescription>
 PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
   std::unique_ptr<PageInfoUI::SecurityDescription> security_description(
@@ -575,9 +578,21 @@ const gfx::ImageSkia PageInfoUI::GetChosenObjectIcon(
     const ChosenObjectInfo& object,
     bool deleted,
     SkColor related_text_color) {
-  DCHECK_EQ(CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA,
-            object.ui_info.content_settings_type);
-  const gfx::VectorIcon* icon = &vector_icons::kUsbIcon;
+  const gfx::VectorIcon* icon = &gfx::kNoneIcon;
+  switch (object.ui_info.content_settings_type) {
+    case CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA:
+      icon = &vector_icons::kUsbIcon;
+      break;
+    case CONTENT_SETTINGS_TYPE_SERIAL_CHOOSER_DATA:
+      icon = &vector_icons::kSerialPortIcon;
+      break;
+    default:
+      // All other content settings types do not represent chosen object
+      // permissions.
+      NOTREACHED();
+      break;
+  }
+
   if (deleted) {
     return gfx::CreateVectorIconWithBadge(
         *icon, kVectorIconSize,
@@ -602,6 +617,13 @@ const gfx::ImageSkia PageInfoUI::GetSiteSettingsIcon(
     const SkColor related_text_color) {
   return gfx::CreateVectorIcon(
       kSettingsIcon, kVectorIconSize,
+      color_utils::DeriveDefaultIconColor(related_text_color));
+}
+
+// static
+const gfx::ImageSkia PageInfoUI::GetVrSettingsIcon(SkColor related_text_color) {
+  return gfx::CreateVectorIcon(
+      kVrHeadsetIcon, kVectorIconSize,
       color_utils::DeriveDefaultIconColor(related_text_color));
 }
 #endif

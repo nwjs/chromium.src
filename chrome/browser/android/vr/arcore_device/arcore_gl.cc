@@ -9,6 +9,7 @@
 #include <utility>
 #include "base/android/android_hardware_buffer_compat.h"
 #include "base/android/jni_android.h"
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/containers/queue.h"
 #include "base/memory/ptr_util.h"
@@ -271,6 +272,9 @@ void ArCoreGl::ProduceFrame(
 void ArCoreGl::RequestHitTest(
     mojom::XRRayPtr ray,
     mojom::XREnvironmentIntegrationProvider::RequestHitTestCallback callback) {
+  DVLOG(2) << __func__ << ": ray origin=" << ray->origin.ToString()
+           << ", direction=" << ray->direction.ToString();
+
   DCHECK(IsOnGlThread());
   DCHECK(is_initialized_);
 

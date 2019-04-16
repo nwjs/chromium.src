@@ -79,18 +79,8 @@ ApplicationCacheHost::~ApplicationCacheHost() {
 }
 
 void ApplicationCacheHost::WillStartLoading(ResourceRequest& request) {
-  if (!IsApplicationCacheEnabled())
+  if (!IsApplicationCacheEnabled() || !host_)
     return;
-
-  if (request.GetFrameType() ==
-          network::mojom::RequestContextFrameType::kTopLevel ||
-      request.GetFrameType() ==
-          network::mojom::RequestContextFrameType::kNested)
-    WillStartLoadingMainResource(request.Url(), request.HttpMethod());
-
-  if (!host_)
-    return;
-
   int host_id = host_->GetHostID();
   if (host_id != mojom::blink::kAppCacheNoHostId)
     request.SetAppCacheHostID(host_id);
@@ -98,11 +88,11 @@ void ApplicationCacheHost::WillStartLoading(ResourceRequest& request) {
 
 void ApplicationCacheHost::WillStartLoadingMainResource(const KURL& url,
                                                         const String& method) {
+  if (!IsApplicationCacheEnabled())
+    return;
   // We defer creating the outer host object to avoid spurious
   // creation/destruction around creating empty documents. At this point, we're
   // initiating a main resource load for the document, so its for real.
-
-  DCHECK(IsApplicationCacheEnabled());
 
   DCHECK(document_loader_->GetFrame());
   LocalFrame& frame = *document_loader_->GetFrame();
@@ -112,12 +102,12 @@ void ApplicationCacheHost::WillStartLoadingMainResource(const KURL& url,
 
   const WebApplicationCacheHost* spawning_host = nullptr;
   Frame* spawning_frame = frame.Tree().Parent();
-  if (!spawning_frame || !spawning_frame->IsLocalFrame())
+  if (!spawning_frame || !IsA<LocalFrame>(spawning_frame))
     spawning_frame = frame.Loader().Opener();
-  if (!spawning_frame || !spawning_frame->IsLocalFrame())
+  if (!spawning_frame || !IsA<LocalFrame>(spawning_frame))
     spawning_frame = &frame;
   if (DocumentLoader* spawning_doc_loader =
-          ToLocalFrame(spawning_frame)->Loader().GetDocumentLoader()) {
+          To<LocalFrame>(spawning_frame)->Loader().GetDocumentLoader()) {
     spawning_host =
         spawning_doc_loader->GetApplicationCacheHost()
             ? spawning_doc_loader->GetApplicationCacheHost()->host_.get()
@@ -204,7 +194,7 @@ void ApplicationCacheHost::NotifyApplicationCache(
     int error_status,
     const String& error_message) {
   if (id != mojom::AppCacheEventID::APPCACHE_PROGRESS_EVENT) {
-    probe::updateApplicationCacheStatus(document_loader_->GetFrame());
+    probe::UpdateApplicationCacheStatus(document_loader_->GetFrame());
   }
 
   if (defers_events_) {
@@ -301,7 +291,7 @@ bool ApplicationCacheHost::Update() {
 bool ApplicationCacheHost::SwapCache() {
   bool success = host_ ? host_->SwapCache() : false;
   if (success) {
-    probe::updateApplicationCacheStatus(document_loader_->GetFrame());
+    probe::UpdateApplicationCacheStatus(document_loader_->GetFrame());
   }
   return success;
 }

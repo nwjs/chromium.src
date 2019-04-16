@@ -103,9 +103,17 @@ class NGInlineItemsBuilderTest : public NGLayoutTest {
     for (Input& input : inputs) {
       // Collect items for this LayoutObject.
       DCHECK(input.layout_text);
-      for (auto& item : items_) {
-        if (item.GetLayoutObject() == input.layout_text)
-          input.layout_text->AddInlineItem(&item);
+      for (NGInlineItem* item = items_.begin(); item != items_.end();) {
+        if (item->GetLayoutObject() == input.layout_text) {
+          NGInlineItem* begin = item;
+          for (++item; item != items_.end(); ++item) {
+            if (item->GetLayoutObject() != input.layout_text)
+              break;
+          }
+          input.layout_text->SetInlineItems(begin, item);
+        } else {
+          ++item;
+        }
       }
 
       // Try to re-use previous items, or Append if it was not re-usable.
@@ -367,11 +375,11 @@ TEST_F(NGInlineItemsBuilderTest, Empty) {
 class CollapsibleSpaceTest : public NGInlineItemsBuilderTest,
                              public testing::WithParamInterface<UChar> {};
 
-INSTANTIATE_TEST_CASE_P(NGInlineItemsBuilderTest,
-                        CollapsibleSpaceTest,
-                        testing::Values(kSpaceCharacter,
-                                        kTabulationCharacter,
-                                        kNewlineCharacter));
+INSTANTIATE_TEST_SUITE_P(NGInlineItemsBuilderTest,
+                         CollapsibleSpaceTest,
+                         testing::Values(kSpaceCharacter,
+                                         kTabulationCharacter,
+                                         kNewlineCharacter));
 
 TEST_P(CollapsibleSpaceTest, CollapsedSpaceAfterNoWrap) {
   UChar space = GetParam();
@@ -416,7 +424,8 @@ static std::unique_ptr<LayoutInline> CreateLayoutInline(
   scoped_refptr<ComputedStyle> style(ComputedStyle::Create());
   initialize_style(style.get());
   std::unique_ptr<LayoutInline> node = std::make_unique<LayoutInline>(nullptr);
-  node->SetStyleInternal(std::move(style));
+  node->SetModifiedStyleOutsideStyleRecalc(
+      std::move(style), LayoutObject::ApplyStyleChanges::kNo);
   node->SetIsInLayoutNGInlineFormattingContext(true);
   return node;
 }

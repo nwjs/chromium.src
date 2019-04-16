@@ -67,13 +67,6 @@ void QuicControlFrameManager::WriteOrBufferBlocked(QuicStreamId id) {
       QuicFrame(new QuicBlockedFrame(++last_control_frame_id_, id)));
 }
 
-void QuicControlFrameManager::WriteOrBufferStopSending(uint16_t code,
-                                                       QuicStreamId stream_id) {
-  QUIC_DVLOG(1) << "Writing STOP_SENDING_FRAME";
-  WriteOrBufferQuicFrame(QuicFrame(
-      new QuicStopSendingFrame(++last_control_frame_id_, stream_id, code)));
-}
-
 void QuicControlFrameManager::WriteOrBufferStreamIdBlocked(QuicStreamId id) {
   QUIC_DVLOG(1) << "Writing STREAM_ID_BLOCKED Frame";
   QUIC_CODE_COUNT(stream_id_blocked_transmits);
@@ -88,23 +81,11 @@ void QuicControlFrameManager::WriteOrBufferMaxStreamId(QuicStreamId id) {
       QuicFrame(QuicMaxStreamIdFrame(++last_control_frame_id_, id)));
 }
 
-void QuicControlFrameManager::WriteOrBufferRstStreamStopSending(
-    QuicStreamId stream_id,
-    QuicRstStreamErrorCode error_code,
-    QuicStreamOffset bytes_written) {
-  const bool had_buffered_frames = HasBufferedFrames();
-  QUIC_DVLOG(1) << "Queuing RST_STREAM_FRAME";
-  control_frames_.emplace_back(QuicFrame(new QuicRstStreamFrame(
-      ++last_control_frame_id_, stream_id, error_code, bytes_written)));
-  if (session_->connection()->transport_version() == QUIC_VERSION_99) {
-    QUIC_DVLOG(1) << "Version 99, Queuing STOP_SENDING";
-    control_frames_.emplace_back(QuicFrame(new QuicStopSendingFrame(
-        ++last_control_frame_id_, stream_id, error_code)));
-  }
-  if (had_buffered_frames) {
-    return;
-  }
-  WriteBufferedFrames();
+void QuicControlFrameManager::WriteOrBufferStopSending(uint16_t code,
+                                                       QuicStreamId stream_id) {
+  QUIC_DVLOG(1) << "Writing STOP_SENDING_FRAME";
+  WriteOrBufferQuicFrame(QuicFrame(
+      new QuicStopSendingFrame(++last_control_frame_id_, stream_id, code)));
 }
 
 void QuicControlFrameManager::WritePing() {

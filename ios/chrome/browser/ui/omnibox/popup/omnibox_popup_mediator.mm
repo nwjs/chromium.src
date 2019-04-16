@@ -11,7 +11,7 @@
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_result.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/ntp/ntp_util.h"
 #import "ios/chrome/browser/ui/omnibox/autocomplete_match_formatter.h"
@@ -58,14 +58,6 @@
   self.hasResults = !_currentResult.empty();
 
   [self.consumer updateMatches:[self wrappedMatches] withAnimation:animation];
-
-  BOOL shortcutsEnabled = base::FeatureList::IsEnabled(
-      omnibox::kOmniboxPopupShortcutIconsInZeroState);
-  BOOL isNTP = IsVisibleURLNewTabPage(self.webStateList->GetActiveWebState());
-
-  if (!self.hasResults && (!shortcutsEnabled || isNTP)) {
-    [self.presenter animateCollapse];
-  }
 }
 
 - (NSArray<id<AutocompleteSuggestion>>*)wrappedMatches {
@@ -98,9 +90,7 @@
   }
   self.open = !result.empty();
 
-  if (self.open) {
-    [self.presenter updateHeightAndAnimateAppearanceIfNecessary];
-  }
+  [self.presenter updatePopup];
 }
 
 - (void)setTextAlignment:(NSTextAlignment)alignment {

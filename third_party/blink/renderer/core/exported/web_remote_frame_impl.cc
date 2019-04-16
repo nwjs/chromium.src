@@ -224,8 +224,8 @@ void WebRemoteFrameImpl::SetReplicatedOrigin(
   // Run SitePerProcessAccessibilityBrowserTest.TwoCrossSiteNavigations to
   // ensure an alternate fix works.  http://crbug.com/566222
   FrameOwner* owner = GetFrame()->Owner();
-  if (owner && owner->IsLocal()) {
-    HTMLElement* owner_element = ToHTMLFrameOwnerElement(owner);
+  HTMLElement* owner_element = DynamicTo<HTMLFrameOwnerElement>(owner);
+  if (owner_element) {
     AXObjectCache* cache = owner_element->GetDocument().ExistingAXObjectCache();
     if (cache)
       cache->ChildrenChanged(owner_element);
@@ -244,9 +244,16 @@ void WebRemoteFrameImpl::SetReplicatedName(const WebString& name) {
   GetFrame()->Tree().SetName(name);
 }
 
-void WebRemoteFrameImpl::SetReplicatedFeaturePolicyHeader(
-    const ParsedFeaturePolicy& parsed_header) {
+void WebRemoteFrameImpl::SetReplicatedFeaturePolicyHeaderAndOpenerPolicies(
+    const ParsedFeaturePolicy& parsed_header,
+    const FeaturePolicy::FeatureState& opener_feature_state) {
   feature_policy_header_ = parsed_header;
+  if (RuntimeEnabledFeatures::FeaturePolicyForSandboxEnabled()) {
+    DCHECK(opener_feature_state.empty() || GetFrame()->IsMainFrame());
+    if (opener_feature_state_.empty()) {
+      opener_feature_state_ = opener_feature_state;
+    }
+  }
   ApplyReplicatedFeaturePolicyHeader();
 }
 
@@ -261,7 +268,8 @@ void WebRemoteFrameImpl::ApplyReplicatedFeaturePolicyHeader() {
   if (GetFrame()->Owner())
     container_policy = GetFrame()->Owner()->ContainerPolicy();
   GetFrame()->GetSecurityContext()->InitializeFeaturePolicy(
-      feature_policy_header_, container_policy, parent_feature_policy);
+      feature_policy_header_, container_policy, parent_feature_policy,
+      opener_feature_state_.empty() ? nullptr : &opener_feature_state_);
 }
 
 void WebRemoteFrameImpl::AddReplicatedContentSecurityPolicyHeader(
@@ -294,11 +302,9 @@ void WebRemoteFrameImpl::SetReplicatedInsecureNavigationsSet(
 
 void WebRemoteFrameImpl::ForwardResourceTimingToParent(
     const WebResourceTimingInfo& info) {
-  DCHECK(Parent()->IsWebLocalFrame());
-  WebLocalFrameImpl* parent_frame =
-      ToWebLocalFrameImpl(Parent()->ToWebLocalFrame());
+  auto* parent_frame = To<WebLocalFrameImpl>(Parent()->ToWebLocalFrame());
   HTMLFrameOwnerElement* owner_element =
-      ToHTMLFrameOwnerElement(frame_->Owner());
+      To<HTMLFrameOwnerElement>(frame_->Owner());
   DCHECK(owner_element);
   DOMWindowPerformance::performance(*parent_frame->GetFrame()->DomWindow())
       ->AddResourceTiming(info, owner_element->localName());
@@ -307,6 +313,10 @@ void WebRemoteFrameImpl::ForwardResourceTimingToParent(
 void WebRemoteFrameImpl::DispatchLoadEventForFrameOwner() {
   DCHECK(GetFrame()->Owner()->IsLocal());
   GetFrame()->Owner()->DispatchLoad();
+}
+
+void WebRemoteFrameImpl::SetNeedsOcclusionTracking(bool needs_tracking) {
+  GetFrame()->View()->SetNeedsOcclusionTracking(needs_tracking);
 }
 
 void WebRemoteFrameImpl::DidStartLoading() {
@@ -324,7 +334,7 @@ bool WebRemoteFrameImpl::IsIgnoredForHitTest() const {
 void WebRemoteFrameImpl::WillEnterFullscreen() {
   // This should only ever be called when the FrameOwner is local.
   HTMLFrameOwnerElement* owner_element =
-      ToHTMLFrameOwnerElement(GetFrame()->Owner());
+      To<HTMLFrameOwnerElement>(GetFrame()->Owner());
 
   // Call |requestFullscreen()| on |ownerElement| to make it the pending
   // fullscreen element in anticipation of the coming |didEnterFullscreen()|

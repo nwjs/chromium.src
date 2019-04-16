@@ -33,6 +33,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAGE_CHROME_CLIENT_IMPL_H_
 
 #include <memory>
+
+#include "cc/input/overscroll_behavior.h"
 #include "third_party/blink/public/web/web_navigation_policy.h"
 #include "third_party/blink/public/web/web_window_features.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -60,13 +62,14 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
   // ChromeClient methods:
   void ChromeDestroyed() override;
   void SetWindowRect(const IntRect&, LocalFrame&) override;
-  IntRect RootWindowRect() override;
-  IntRect PageRect() override;
+  IntRect RootWindowRect(LocalFrame&) override;
   void Focus(LocalFrame*) override;
   bool CanTakeFocus(WebFocusType) override;
   void TakeFocus(WebFocusType) override;
   void FocusedNodeChanged(Node* from_node, Node* to_node) override;
   void BeginLifecycleUpdates() override;
+  void StartDeferringCommits(base::TimeDelta timeout) override;
+  void StopDeferringCommits() override;
   bool HadFormInteraction() const override;
   void StartDragging(LocalFrame*,
                      const WebDragData&,
@@ -79,6 +82,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                              const WebWindowFeatures&,
                              NavigationPolicy,
                              SandboxFlags,
+                             const FeaturePolicy::FeatureState&,
                              const SessionStorageNamespaceId&, WebString*) override;
   void Show(NavigationPolicy, WebString* manifest = nullptr) override;
   void DidOverscroll(const FloatSize& overscroll_delta,
@@ -90,7 +94,7 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                                             const String&) override;
   void AddMessageToConsole(LocalFrame*,
                            MessageSource,
-                           MessageLevel,
+                           mojom::ConsoleMessageLevel,
                            const String& message,
                            unsigned line_number,
                            const String& source_id,
@@ -112,7 +116,8 @@ class CORE_EXPORT ChromeClientImpl final : public ChromeClient {
                            const LocalFrameView*) const override;
   float WindowToViewportScalar(const float) const override;
   WebScreenInfo GetScreenInfo() const override;
-  base::Optional<IntRect> VisibleContentRectForPainting() const override;
+  void OverrideVisibleRectForMainFrame(LocalFrame& frame,
+                                       IntRect* paint_rect) const override;
   float InputEventsScaleForEmulation() const override;
   void ContentsSizeChanged(LocalFrame*, const IntSize&) const override;
   bool DoubleTapToZoomEnabled() const override;

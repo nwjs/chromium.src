@@ -48,11 +48,11 @@
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/loader/resource/image_resource_content.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
+#include "third_party/blink/renderer/core/page/drag_image.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_painter.h"
-#include "third_party/blink/renderer/platform/drag_image.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -91,7 +91,7 @@ class DraggedNodeImageBuilder {
 #if DCHECK_IS_ON()
     DCHECK_EQ(dom_tree_version_, node_->GetDocument().DomTreeVersion());
 #endif
-    // Construct layout object for |m_node| with pseudo class "-webkit-drag"
+    // Construct layout object for |node_| with pseudo class "-webkit-drag"
     local_frame_->View()->UpdateAllLifecyclePhasesExceptPaint();
     LayoutObject* const dragged_layout_object = node_->GetLayoutObject();
     if (!dragged_layout_object)
@@ -263,7 +263,7 @@ void DataTransfer::setEffectAllowed(const String& effect) {
   if (ConvertEffectAllowedToDragOperation(effect) == kDragOperationPrivate) {
     // This means that there was no conversion, and the effectAllowed that
     // we are passed isn't a valid effectAllowed, so we should ignore it,
-    // and not set m_effectAllowed.
+    // and not set |effect_allowed_|.
 
     // The attribute must ignore any attempts to set it to a value other than
     // none, copy, copyLink, copyMove, link, linkMove, move, all, and
@@ -327,8 +327,8 @@ FileList* DataTransfer::files() const {
   for (uint32_t i = 0; i < data_object_->length(); ++i) {
     if (data_object_->Item(i)->Kind() == DataObjectItem::kFileKind) {
       Blob* blob = data_object_->Item(i)->GetAsFile();
-      if (blob && blob->IsFile())
-        files->Append(ToFile(blob));
+      if (auto* file = DynamicTo<File>(blob))
+        files->Append(file);
     }
   }
 

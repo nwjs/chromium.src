@@ -7,6 +7,7 @@
 // The following line silences a presubmit warning that would otherwise be
 // triggered by this:
 // no-include-guard-because-multiply-included
+// NOLINT(build/header_guard)
 
 // In the event of a failure, a many end events will have a |net_error|
 // parameter with the integer error code associated with the failure.  Most
@@ -709,7 +710,7 @@ EVENT_TYPE(UDP_RECEIVE_ERROR)
 EVENT_TYPE(UDP_SEND_ERROR)
 
 // ------------------------------------------------------------------------
-// ClientSocketPoolBase::ConnectJob
+// ConnectJob
 // ------------------------------------------------------------------------
 
 // The start/end of a ConnectJob.
@@ -719,10 +720,7 @@ EVENT_TYPE(UDP_SEND_ERROR)
 //   {
 //     "group_name": <The group name for the socket request.>,
 //   }
-EVENT_TYPE(SOCKET_POOL_CONNECT_JOB)
-
-// The start/end of the ConnectJob::Connect().
-EVENT_TYPE(SOCKET_POOL_CONNECT_JOB_CONNECT)
+EVENT_TYPE(CONNECT_JOB)
 
 // This event is logged whenever the ConnectJob gets a new socket
 // association. The event parameters point to that socket:
@@ -733,7 +731,26 @@ EVENT_TYPE(SOCKET_POOL_CONNECT_JOB_CONNECT)
 EVENT_TYPE(CONNECT_JOB_SET_SOCKET)
 
 // Whether the connect job timed out.
-EVENT_TYPE(SOCKET_POOL_CONNECT_JOB_TIMED_OUT)
+EVENT_TYPE(CONNECT_JOB_TIMED_OUT)
+
+// ------------------------------------------------------------------------
+// ConnectJob subclasses
+// ------------------------------------------------------------------------
+
+// The start/end of the TransportConnectJob::Connect().
+EVENT_TYPE(TRANSPORT_CONNECT_JOB_CONNECT)
+
+// The start/end of the SSLConnectJob::Connect().
+EVENT_TYPE(SSL_CONNECT_JOB_CONNECT)
+
+// The start/end of the SOCKSConnectJob::Connect().
+EVENT_TYPE(SOCKS_CONNECT_JOB_CONNECT)
+
+// The start/end of the HttpProxyConnectJob::Connect().
+EVENT_TYPE(HTTP_PROXY_CONNECT_JOB_CONNECT)
+
+// The start/end of the WebSocketConnectJob::Connect().
+EVENT_TYPE(WEB_SOCKET_TRANSPORT_CONNECT_JOB_CONNECT)
 
 // ------------------------------------------------------------------------
 // ClientSocketPoolBaseHelper
@@ -769,8 +786,13 @@ EVENT_TYPE(TCP_CLIENT_SOCKET_POOL_REQUESTED_SOCKET)
 //   }
 EVENT_TYPE(TCP_CLIENT_SOCKET_POOL_REQUESTED_SOCKETS)
 
-// A backup connect job is created due to slow connect.
-EVENT_TYPE(BACKUP_CONNECT_JOB_CREATED)
+// A connect job is created by a socket pool. Its parameters are:
+//   {
+//     "backup_job": <Whether this is a backup job created because the other
+//                    ConnectJob was taking too long>,
+//     "group_name": <The group name for the socket request>,
+//   }
+EVENT_TYPE(SOCKET_POOL_CONNECT_JOB_CREATED)
 
 // This event is sent when a connect job is eventually bound to a request
 // (because of late binding and socket backup jobs, we don't assign the job to
@@ -1664,11 +1686,17 @@ EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_CONNECT)
 // will be attempted soon.
 EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_RETRY_ON_ALTERNATE_NETWORK)
 
-// This event indicates that the stale host resolution has failed.
-EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_RESOLUTION_FAILED)
+// This event indicates that the stale host result is used to try connecting.
+EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_TRIED_ON_CONNECTION)
+
+// This event indicates that stale host was not used to try connecting.
+EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_NOT_USED_ON_CONNECTION)
 
 // This event indicates that the stale host doesn't match with fresh host.
 EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_RESOLUTION_NO_MATCH)
+
+// This event indicates that stale host matches with fresh resolution.
+EVENT_TYPE(QUIC_STREAM_FACTORY_JOB_STALE_HOST_RESOLUTION_MATCHED)
 
 // ------------------------------------------------------------------------
 // quic::QuicSession
@@ -1967,7 +1995,9 @@ EVENT_TYPE(QUIC_SESSION_PUSH_PROMISE_RECEIVED)
 // Session was closed, either remotely or by the peer.
 //   {
 //     "quic_error": <quic::QuicErrorCode which caused the connection to be
-//     closed>, "from_peer":  <True if the peer closed the connection>
+//                    closed>,
+//     "details": <The error details string in the connection close.>,
+//     "from_peer":  <True if the peer closed the connection>
 //   }
 EVENT_TYPE(QUIC_SESSION_CLOSED)
 

@@ -135,11 +135,7 @@ const int kAlwaysPrintErrorLevel = LOG_ERROR;
 // Which log file to use? This is initialized by InitLogging or
 // will be lazily initialized to the default value when it is
 // first needed.
-#if defined(OS_WIN)
-typedef std::wstring PathString;
-#elif defined(OS_POSIX) || defined(OS_FUCHSIA)
-typedef std::string PathString;
-#endif
+using PathString = base::FilePath::StringType;
 PathString* g_log_file_name = nullptr;
 
 // This file is lazily opened and the handle may be nullptr
@@ -204,7 +200,7 @@ uint64_t TickCount() {
 
 void DeleteFilePath(const PathString& log_name) {
 #if defined(OS_WIN)
-  DeleteFile(log_name.c_str());
+  DeleteFile(base::as_wcstr(log_name));
 #elif defined(OS_NACL)
   // Do nothing; unlink() isn't supported on NaCl.
 #elif defined(OS_POSIX) || defined(OS_FUCHSIA)
@@ -217,14 +213,14 @@ void DeleteFilePath(const PathString& log_name) {
 PathString GetDefaultLogFile() {
 #if defined(OS_WIN)
   // On Windows we use the same path as the exe.
-  wchar_t module_name[MAX_PATH];
-  GetModuleFileName(nullptr, module_name, MAX_PATH);
+  base::char16 module_name[MAX_PATH];
+  GetModuleFileName(nullptr, base::as_writable_wcstr(module_name), MAX_PATH);
 
   PathString log_name = module_name;
   PathString::size_type last_backslash = log_name.rfind('\\', log_name.size());
   if (last_backslash != PathString::npos)
     log_name.erase(last_backslash + 1);
-  log_name += L"debug.log";
+  log_name += STRING16_LITERAL("debug.log");
   return log_name;
 #elif defined(OS_POSIX) || defined(OS_FUCHSIA)
   // On other platforms we just use the current directory.
@@ -323,7 +319,7 @@ bool InitializeLogFileHandle() {
     // appended to across accesses from multiple threads.
     // https://msdn.microsoft.com/en-us/library/windows/desktop/aa364399(v=vs.85).aspx
     // https://msdn.microsoft.com/en-us/library/windows/desktop/aa363858(v=vs.85).aspx
-    g_log_file = CreateFile(g_log_file_name->c_str(), FILE_APPEND_DATA,
+    g_log_file = CreateFile(base::as_wcstr(*g_log_file_name), FILE_APPEND_DATA,
                             FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
                             OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (g_log_file == INVALID_HANDLE_VALUE || g_log_file == nullptr) {
@@ -333,22 +329,23 @@ bool InitializeLogFileHandle() {
       // some consumers of base logging like chrome_elf, etc.
       // Please don't change the code below to use FilePath.
       // try the current directory
-      wchar_t system_buffer[MAX_PATH];
+      base::char16 system_buffer[MAX_PATH];
       system_buffer[0] = 0;
-      DWORD len =
-          ::GetCurrentDirectory(base::size(system_buffer), system_buffer);
+      DWORD len = ::GetCurrentDirectory(base::size(system_buffer),
+                                        base::as_writable_wcstr(system_buffer));
       if (len == 0 || len > base::size(system_buffer))
         return false;
 
       *g_log_file_name = system_buffer;
       // Append a trailing backslash if needed.
       if (g_log_file_name->back() != L'\\')
-        *g_log_file_name += L"\\";
-      *g_log_file_name += L"debug.log";
+        *g_log_file_name += STRING16_LITERAL("\\");
+      *g_log_file_name += STRING16_LITERAL("debug.log");
 
-      g_log_file = CreateFile(g_log_file_name->c_str(), FILE_APPEND_DATA,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
-                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+      g_log_file =
+          CreateFile(base::as_wcstr(*g_log_file_name), FILE_APPEND_DATA,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS,
+                     FILE_ATTRIBUTE_NORMAL, nullptr);
       if (g_log_file == INVALID_HANDLE_VALUE || g_log_file == nullptr) {
         g_log_file = nullptr;
         return false;
@@ -771,15 +768,21 @@ LogMessage::~LogMessage() {
         priority = ANDROID_LOG_FATAL;
         break;
     }
+    const char kAndroidLogTag[] = "chromium";
 #if DCHECK_IS_ON()
     // Split the output by new lines to prevent the Android system from
     // truncating the log.
-    for (const auto& line : base::SplitString(
-             str_newline, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL))
-      __android_log_write(priority, "chromium", line.c_str());
+    std::vector<std::string> lines = base::SplitString(
+        str_newline, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
+    // str_newline has an extra newline appended to it (at the top of this
+    // function), so skip the last split element to avoid needlessly
+    // logging an empty string.
+    lines.pop_back();
+    for (const auto& line : lines)
+      __android_log_write(priority, kAndroidLogTag, line.c_str());
 #else
     // The Android system may truncate the string if it's too long.
-    __android_log_write(priority, "chromium", str_newline.c_str());
+    __android_log_write(priority, kAndroidLogTag, str_newline.c_str());
 #endif
 #endif  // OS_ANDROID
     ignore_result(fwrite(str_newline.data(), str_newline.size(), 1, stderr));
@@ -1058,10 +1061,10 @@ bool IsLoggingToFileEnabled() {
   return g_logging_destination & LOG_TO_FILE;
 }
 
-std::wstring GetLogFileFullPath() {
+base::string16 GetLogFileFullPath() {
   if (g_log_file_name)
     return *g_log_file_name;
-  return std::wstring();
+  return base::string16();
 }
 #endif
 

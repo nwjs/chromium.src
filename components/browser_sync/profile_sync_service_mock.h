@@ -10,8 +10,8 @@
 
 #include "base/memory/weak_ptr.h"
 #include "components/browser_sync/profile_sync_service.h"
-#include "components/browser_sync/sync_user_settings_mock.h"
 #include "components/sync/base/model_type.h"
+#include "components/sync/driver/sync_user_settings_mock.h"
 #include "components/sync/protocol/sync_protocol_error.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -23,7 +23,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   explicit ProfileSyncServiceMock(InitParams init_params);
   ~ProfileSyncServiceMock() override;
 
-  SyncUserSettingsMock* GetUserSettingsMock();
+  syncer::SyncUserSettingsMock* GetUserSettingsMock();
 
   // SyncService overrides.
   syncer::SyncUserSettings* GetUserSettings() override;
@@ -34,7 +34,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   // return true by default, as a workaround for tests not setting up an
   // authenticated account and IsSyncFeatureEnabled() therefore returning false.
   bool IsAuthenticatedAccountPrimary() const override;
-  MOCK_CONST_METHOD0(GetAuthError, const GoogleServiceAuthError&());
+  MOCK_CONST_METHOD0(GetAuthError, GoogleServiceAuthError());
 
   MOCK_METHOD0(GetSetupInProgressHandle,
                std::unique_ptr<syncer::SyncSetupInProgressHandle>());
@@ -48,9 +48,6 @@ class ProfileSyncServiceMock : public ProfileSyncService {
 
   MOCK_METHOD1(AddObserver, void(syncer::SyncServiceObserver*));
   MOCK_METHOD1(RemoveObserver, void(syncer::SyncServiceObserver*));
-
-  bool IsPassphraseRequiredForDecryption() const override;
-  bool IsUsingSecondaryPassphrase() const override;
 
   MOCK_CONST_METHOD0(GetUserShare, syncer::UserShare*());
 
@@ -80,9 +77,6 @@ class ProfileSyncServiceMock : public ProfileSyncService {
                void(const syncer::DataTypeManager::ConfigureResult&));
   MOCK_METHOD0(OnConfigureStart, void());
 
-  // DataTypeEncryptionHandler overrides.
-  bool IsPassphraseRequired() const override;
-
   // syncer::UnrecoverableErrorHandler overrides.
   MOCK_METHOD2(OnUnrecoverableError,
                void(const base::Location& location,
@@ -100,7 +94,7 @@ class ProfileSyncServiceMock : public ProfileSyncService {
   GetSetupInProgressHandleConcrete();
 
  private:
-  testing::NiceMock<SyncUserSettingsMock> user_settings_;
+  testing::NiceMock<syncer::SyncUserSettingsMock> user_settings_;
 };
 
 }  // namespace browser_sync

@@ -4,6 +4,8 @@
 
 #include "media/learning/impl/learning_session_impl.h"
 
+#include <utility>
+
 #include "base/bind.h"
 #include "base/logging.h"
 #include "media/learning/impl/distribution_reporter.h"
@@ -14,10 +16,12 @@ namespace learning {
 
 LearningSessionImpl::LearningSessionImpl()
     : controller_factory_(
-          base::BindRepeating([](const LearningTask& task)
+          base::BindRepeating([](const LearningTask& task,
+                                 SequenceBoundFeatureProvider feature_provider)
                                   -> std::unique_ptr<LearningTaskController> {
             return std::make_unique<LearningTaskControllerImpl>(
-                task, DistributionReporter::Create(task));
+                task, DistributionReporter::Create(task),
+                std::move(feature_provider));
           })) {}
 
 LearningSessionImpl::~LearningSessionImpl() = default;
@@ -30,13 +34,22 @@ void LearningSessionImpl::SetTaskControllerFactoryCBForTesting(
 void LearningSessionImpl::AddExample(const std::string& task_name,
                                      const LabelledExample& example) {
   auto iter = task_map_.find(task_name);
-  if (iter != task_map_.end())
-    iter->second->AddExample(example);
+  if (iter != task_map_.end()) {
+    // TODO(liberato): We shouldn't be adding examples.  We should provide the
+    // LearningTaskController instead, although ownership gets a bit weird.
+    LearningTaskController::ObservationId id = 1;
+    iter->second->BeginObservation(id, example.features);
+    iter->second->CompleteObservation(
+        id, ObservationCompletion(example.target_value, example.weight));
+  }
 }
 
-void LearningSessionImpl::RegisterTask(const LearningTask& task) {
+void LearningSessionImpl::RegisterTask(
+    const LearningTask& task,
+    SequenceBoundFeatureProvider feature_provider) {
   DCHECK(task_map_.count(task.name) == 0);
-  task_map_.emplace(task.name, controller_factory_.Run(task));
+  task_map_.emplace(task.name,
+                    controller_factory_.Run(task, std::move(feature_provider)));
 }
 
 }  // namespace learning

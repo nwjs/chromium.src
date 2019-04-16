@@ -14,6 +14,7 @@
 #include "base/auto_reset.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
@@ -74,7 +75,6 @@
 #include "content/renderer/render_thread_impl.h"
 #include "content/renderer/render_view_impl.h"
 #include "content/renderer/renderer_blink_platform_impl.h"
-#include "content/renderer/resizing_mode_selector.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "ipc/ipc_message_start.h"
 #include "ipc/ipc_sync_message.h"
@@ -180,6 +180,9 @@ namespace content {
 
 namespace {
 
+RenderWidget::CreateRenderWidgetFunction g_create_render_widget_for_frame =
+    nullptr;
+
 using RoutingIDWidgetMap = std::map<int32_t, RenderWidget*>;
 base::LazyInstance<RoutingIDWidgetMap>::Leaky g_routing_id_widget_map =
     LAZY_INSTANCE_INITIALIZER;
@@ -214,6 +217,21 @@ class WebWidgetLockTarget : public content::MouseLockDispatcher::LockTarget {
 
  private:
   blink::WebWidget* webwidget_;
+};
+
+class ScopedUkmRafAlignedInputTimer {
+ public:
+  explicit ScopedUkmRafAlignedInputTimer(blink::WebWidget* webwidget)
+      : webwidget_(webwidget) {
+    webwidget_->BeginRafAlignedInput();
+  }
+
+  ~ScopedUkmRafAlignedInputTimer() { webwidget_->EndRafAlignedInput(); }
+
+ private:
+  blink::WebWidget* webwidget_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedUkmRafAlignedInputTimer);
 };
 
 bool IsDateTimeInput(ui::TextInputType type) {
@@ -385,6 +403,46 @@ static bool PreferCompositingToLCDText(CompositorDependencies* compositor_deps,
 
 // RenderWidget ---------------------------------------------------------------
 
+// static
+void RenderWidget::InstallCreateForFrameHook(
+    CreateRenderWidgetFunction create_widget) {
+  g_create_render_widget_for_frame = create_widget;
+}
+
+scoped_refptr<RenderWidget> RenderWidget::CreateForFrame(
+    int32_t widget_routing_id,
+    CompositorDependencies* compositor_deps,
+    const ScreenInfo& screen_info,
+    blink::WebDisplayMode display_mode,
+    bool is_frozen,
+    bool hidden,
+    bool never_visible,
+    mojom::WidgetRequest widget_request) {
+  if (g_create_render_widget_for_frame) {
+    return g_create_render_widget_for_frame(
+        widget_routing_id, compositor_deps, screen_info, display_mode,
+        is_frozen, hidden, never_visible, std::move(widget_request));
+  }
+
+  return base::WrapRefCounted(new RenderWidget(
+      widget_routing_id, compositor_deps, screen_info, display_mode, is_frozen,
+      hidden, never_visible, std::move(widget_request)));
+}
+
+scoped_refptr<RenderWidget> RenderWidget::CreateForPopup(
+    int32_t widget_routing_id,
+    CompositorDependencies* compositor_deps,
+    const ScreenInfo& screen_info,
+    blink::WebDisplayMode display_mode,
+    bool is_frozen,
+    bool hidden,
+    bool never_visible,
+    mojom::WidgetRequest widget_request) {
+  return base::WrapRefCounted(new RenderWidget(
+      widget_routing_id, compositor_deps, screen_info, display_mode, is_frozen,
+      hidden, never_visible, std::move(widget_request)));
+}
+
 RenderWidget::RenderWidget(int32_t widget_routing_id,
                            CompositorDependencies* compositor_deps,
                            const ScreenInfo& screen_info,
@@ -418,7 +476,6 @@ RenderWidget::RenderWidget(int32_t widget_routing_id,
       monitor_composition_info_(false),
       popup_origin_scale_for_emulation_(0.f),
       frame_swap_message_queue_(new FrameSwapMessageQueue(routing_id_)),
-      resizing_mode_selector_(new ResizingModeSelector()),
       has_host_context_menu_location_(false),
       has_focus_(false),
       for_child_local_root_frame_(false),
@@ -459,9 +516,6 @@ RenderWidget::~RenderWidget() {
   // and RenderViewImpl are rationalized. Currently, too many unit and
   // browser tests delete a RenderWidget without correclty going through
   // the shutdown. https://crbug.com/545684
-
-  if (input_event_queue_)
-    input_event_queue_->ClearClient();
 
 #if defined(USE_AURA)
   // It is possible for a RenderWidget to be destroyed before it was embedded
@@ -506,7 +560,8 @@ void RenderWidget::Init(ShowCallback show_callback, WebWidget* web_widget) {
   input_handler_ = std::make_unique<RenderWidgetInputHandler>(this, this);
 
   LayerTreeView* layer_tree_view = InitializeLayerTreeView();
-  web_widget->SetLayerTreeView(layer_tree_view);
+  web_widget->SetLayerTreeView(layer_tree_view,
+                               layer_tree_view->animation_host());
 
   blink::scheduler::WebThreadScheduler* main_thread_scheduler = nullptr;
   if (render_thread_impl)
@@ -537,11 +592,6 @@ void RenderWidget::Init(ShowCallback show_callback, WebWidget* web_widget) {
   // Take a reference on behalf of the RenderThread.  This will be balanced
   // when we receive WidgetMsg_Close.
   AddRef();
-  if (RenderThreadImpl::current()) {
-    RenderThreadImpl::current()->WidgetCreated();
-    if (is_hidden_)
-      RenderThreadImpl::current()->WidgetHidden();
-  }
 }
 
 void RenderWidget::ApplyEmulatedScreenMetricsForPopupWidget(
@@ -555,7 +605,7 @@ void RenderWidget::ApplyEmulatedScreenMetricsForPopupWidget(
   popup_screen_origin_for_emulation_ =
       emulator->original_screen_rect().origin();
   UpdateSurfaceAndScreenInfo(local_surface_id_allocation_from_parent_,
-                             compositor_viewport_pixel_size_,
+                             CompositorViewportSize(),
                              emulator->original_screen_info());
 }
 
@@ -677,16 +727,12 @@ void RenderWidget::OnClose() {
   if (routing_id_ != MSG_ROUTING_NONE) {
     RenderThread::Get()->RemoveRoute(routing_id_);
     g_routing_id_widget_map.Get().erase(routing_id_);
-    if (RenderThreadImpl::current()) {
-      // RenderWidgets may be hidden when they are closed. If we were previously
-      // hidden, we are being counted as such in RenderThreadImpl. Thus we
-      // remove that count here by calling WidgetRestored() even though we're
-      // clearly not becoming visible here.
-      if (is_hidden_)
-        RenderThreadImpl::current()->WidgetRestored();
-      RenderThreadImpl::current()->WidgetDestroyed();
-    }
   }
+
+  // Stop handling main thread input events immediately so we don't have them
+  // running while things are partly shut down.
+  if (input_event_queue_)
+    input_event_queue_->ClearClient();
 
   if (for_child_local_root_frame_) {
     // Widgets for frames may be created and closed at any time while the frame
@@ -700,6 +746,15 @@ void RenderWidget::OnClose() {
   // If there is a Send call on the stack, then it could be dangerous to close
   // now.  Post a task that only gets invoked when there are no nested message
   // loops.
+  //
+  // The asynchronous Close() takes an owning reference to |this| keeping the
+  // object alive beyond the Release() below. It is the last reference to this
+  // object.
+  //
+  // TODO(https://crbug.com/545684): The actual lifetime for RenderWidget
+  // seems to be single-owner. It is either owned by "IPC" events (popup,
+  // mainframe, and fullscreen), or a RenderFrame. If Close() self-deleting,
+  // all the ref-counting mess could be removed.
   GetCleanupTaskRunner()->PostNonNestableTask(
       FROM_HERE, base::BindOnce(&RenderWidget::Close, this));
 
@@ -712,6 +767,27 @@ void RenderWidget::OnSynchronizeVisualProperties(
   TRACE_EVENT0("renderer", "RenderWidget::OnSynchronizeVisualProperties");
 
   VisualProperties params = original_params;
+  // Web tests can override the device scale factor in the renderer.
+  if (device_scale_factor_for_testing_) {
+    params.screen_info.device_scale_factor = device_scale_factor_for_testing_;
+    params.compositor_viewport_pixel_size = gfx::ScaleToCeiledSize(
+        params.new_size, params.screen_info.device_scale_factor);
+  }
+
+  // Inform the rendering thread of the color space indicating the presence of
+  // HDR capabilities. The HDR bit happens to be globally true/false for all
+  // browser windows (on Windows OS) and thus would be the same for all
+  // RenderWidgets, so clobbering each other works out since only the HDR bit is
+  // used. See https://crbug.com/803451 and
+  // https://chromium-review.googlesource.com/c/chromium/src/+/852912/15#message-68bbd3e25c3b421a79cd028b2533629527d21fee
+  //
+  // The RenderThreadImpl can be null in tests.
+  {
+    RenderThreadImpl* render_thread = RenderThreadImpl::current();
+    if (render_thread)
+      render_thread->SetRenderingColorSpace(params.screen_info.color_space);
+  }
+
   if (delegate()) {
     if (size_ != params.new_size) {
       // Only hide popups when the size changes. Eg https://crbug.com/761908.
@@ -749,20 +825,43 @@ void RenderWidget::OnSynchronizeVisualProperties(
         params.browser_controls_shrink_blink_size;
     top_controls_height_ = params.top_controls_height;
     bottom_controls_height_ = params.bottom_controls_height;
-
-    // TODO(fsamuel): Modifies the |params| that are used for
-    // SynchronizeVisualProperties(), but does not used this modified
-    // device_scale_factor for the auto-resize values, which is probably a bug.
-    if (device_scale_factor_for_testing_) {
-      params.screen_info.device_scale_factor =
-          *device_scale_factor_for_testing_;
-      params.compositor_viewport_pixel_size = gfx::ScaleToCeiledSize(
-          params.new_size, params.screen_info.device_scale_factor);
-    }
   }
 
-  if (!resizing_mode_selector_->ShouldAbortOnResize(this, params)) {
+  bool ignore_resize_ipc = false;
+  if (synchronous_resize_mode_for_testing_) {
+    // We can ignore browser-initialized resizing during synchronous
+    // (renderer-controlled) mode, unless it is switching us to/from
+    // fullsreen mode or changing the device scale factor.
+    // TODO(danakj): Does the browser actually change DSF inside a web test??
+    // TODO(danakj): Isn't the display mode check redundant with the fullscreen
+    // one?
+    if (params.is_fullscreen_granted == is_fullscreen_granted_ &&
+        params.display_mode == display_mode_ &&
+        params.screen_info.device_scale_factor ==
+            screen_info_.device_scale_factor)
+      ignore_resize_ipc = true;
+  }
+
+  // When controlling the size in the renderer, we should ignore sizes given by
+  // the browser IPC here.
+  // TODO(danakj): There are many things also being ignored that aren't the
+  // widget's size params. It works because tests that use this mode don't
+  // change those parameters, I guess. But it's more complicated then because it
+  // looks like they are related to sync resize mode. Let's move them out of
+  // this block.
+  // TODO(danakj): It would be nice if we can still use the emulator to emulate
+  // things other than the size if we are in sync resize mode - if the emulator
+  // is even used in sync resize tests. It probably isn't though, so either way
+  // it'd be good to get the emulator out of this block (maybe by overwriting
+  // some of |params| in sync resize mode instead of just skipping the emulator.
+  if (!ignore_resize_ipc) {
     if (screen_metrics_emulator_) {
+      // This will call our SynchronizeVisualProperties() method with a
+      // different set of VisualProperties, holding emulated values. Though not
+      // all VisualProperties are modified by the metrics emulator, so it's a
+      // bit unclear to do this with the full structure. Anything it does not
+      // modify can be consumed directly here instead of in
+      // SynchronizeVisualProperties().
       screen_metrics_emulator_->OnSynchronizeVisualProperties(params);
     } else {
       if (!delegate()) {
@@ -806,8 +905,7 @@ void RenderWidget::OnEnableDeviceEmulation(
     VisualProperties visual_properties;
     visual_properties.screen_info = screen_info_;
     visual_properties.new_size = size_;
-    visual_properties.compositor_viewport_pixel_size =
-        compositor_viewport_pixel_size_;
+    visual_properties.compositor_viewport_pixel_size = CompositorViewportSize();
     visual_properties.local_surface_id_allocation =
         local_surface_id_allocation_from_parent_;
     visual_properties.visible_viewport_size = visible_viewport_size_;
@@ -829,36 +927,40 @@ void RenderWidget::OnDisableDeviceEmulation() {
 void RenderWidget::OnWasHidden() {
   if (nw::gRenderWidgetWasHiddenHook && nw::gRenderWidgetWasHiddenHook(this))
     return;
+  // A frozen main frame widget will never be hidden since that would require it
+  // to be shown first. It must be thawed before changing visibility.
+  DCHECK(!is_frozen_);
+
   TRACE_EVENT0("renderer", "RenderWidget::OnWasHidden");
-  // Go into a mode where we stop generating paint and scrolling events.
+
   SetHidden(true);
+
   for (auto& observer : render_frames_)
     observer.WasHidden();
 }
 
 void RenderWidget::OnWasShown(base::TimeTicks show_request_timestamp,
                               bool was_evicted) {
-  TRACE_EVENT0("renderer", "RenderWidget::OnWasShown");
-  // TODO(danakj): Nothing should happen ideally if the RenderWidget is frozen!
-  // It's not visible! However.. the RenderView needs to see it as visible in
-  // order to make the Page visible /o\ so this is hard. We need to detangle
-  // page visibility from the main widget. https://crbug.com/419087
+  // A frozen main frame widget does not become shown, since it has no frame
+  // associated with it. It must be thawed before changing visibility.
+  DCHECK(!is_frozen_);
+
+  TRACE_EVENT_WITH_FLOW0("renderer", "RenderWidget::OnWasShown", routing_id(),
+                         TRACE_EVENT_FLAG_FLOW_IN);
 
   was_shown_time_ = base::TimeTicks::Now();
-  // See OnWasHidden
+
   SetHidden(false);
-  for (auto& observer : render_frames_)
-    observer.WasShown();
-
-  if (was_evicted) {
-    for (auto& observer : render_frame_proxies_) {
-      observer.WasEvicted();
-    }
-  }
-
   if (!show_request_timestamp.is_null()) {
     layer_tree_view_->layer_tree_host()->RequestPresentationTimeForNextFrame(
         CreateTabSwitchingTimeRecorder(show_request_timestamp));
+  }
+
+  for (auto& observer : render_frames_)
+    observer.WasShown();
+  if (was_evicted) {
+    for (auto& observer : render_frame_proxies_)
+      observer.WasEvicted();
   }
 }
 
@@ -868,10 +970,19 @@ void RenderWidget::OnRequestSetBoundsAck() {
 }
 
 void RenderWidget::OnForceRedraw(int snapshot_id) {
+  RequestPresentation(base::BindOnce(&RenderWidget::DidPresentForceDrawFrame,
+                                     weak_ptr_factory_.GetWeakPtr(),
+                                     snapshot_id));
+}
+
+void RenderWidget::RequestPresentation(PresentationTimeCallback callback) {
   layer_tree_view_->layer_tree_host()->RequestPresentationTimeForNextFrame(
-      base::BindOnce(&RenderWidget::DidPresentForceDrawFrame,
-                     weak_ptr_factory_.GetWeakPtr(), snapshot_id));
+      std::move(callback));
   layer_tree_view_->SetNeedsForcedRedraw();
+
+  // Need this since single thread mode doesn't have a scheduler so the above
+  // call won't cause us to generate a new frame.
+  ScheduleAnimation();
 }
 
 void RenderWidget::DidPresentForceDrawFrame(
@@ -885,28 +996,18 @@ viz::FrameSinkId RenderWidget::GetFrameSinkIdAtPoint(const gfx::PointF& point,
   return input_handler_->GetFrameSinkIdAtPoint(point, local_point);
 }
 
-void RenderWidget::HandleInputEvent(
+bool RenderWidget::HandleInputEvent(
     const blink::WebCoalescedInputEvent& input_event,
     const ui::LatencyInfo& latency_info,
     HandledEventCallback callback) {
-  // This class is not removed as the MainThreadEventQueueClient until it
-  // is destroyed, so we must check |closing_| to avoid introducing input
-  // events after close.
-  if (is_frozen_ || closing_) {
-    std::move(callback).Run(INPUT_EVENT_ACK_STATE_NOT_CONSUMED, latency_info,
-                            nullptr, base::nullopt);
-    return;
-  }
+  if (is_frozen_)
+    return false;
   input_handler_->HandleInputEvent(input_event, latency_info,
                                    std::move(callback));
+  return true;
 }
 
 void RenderWidget::SetNeedsMainFrame() {
-  // This class is not removed as the MainThreadEventQueueClient until it
-  // is destroyed.
-  if (closing_)
-    return;
-
   // The WebWidgetClient is not |this| if tests override it for the WebView and
   // WebViewClient.
   blink::WebWidgetClient* client =
@@ -994,10 +1095,25 @@ void RenderWidget::SendScrollEndEventFromImplSide(
 void RenderWidget::BeginMainFrame(base::TimeTicks frame_time) {
   if (!GetWebWidget())
     return;
-  if (input_event_queue_)
-    input_event_queue_->DispatchRafAlignedInput(frame_time);
 
-  GetWebWidget()->BeginFrame(frame_time);
+  // We record metrics only when running in multi-threaded mode, not
+  // single-thread mode for testing.
+  bool record_main_frame_metrics =
+      !!compositor_deps_->GetCompositorImplThreadTaskRunner();
+  if (input_event_queue_) {
+    base::Optional<ScopedUkmRafAlignedInputTimer> ukm_timer;
+    if (record_main_frame_metrics)
+      ukm_timer.emplace(GetWebWidget());
+    input_event_queue_->DispatchRafAlignedInput(frame_time);
+  }
+
+  GetWebWidget()->BeginFrame(frame_time, record_main_frame_metrics);
+}
+
+void RenderWidget::DidBeginMainFrame() {
+  if (!GetWebWidget())
+    return;
+  GetWebWidget()->DidBeginFrame();
 }
 
 void RenderWidget::RequestNewLayerTreeFrameSink(
@@ -1084,6 +1200,10 @@ void RenderWidget::DidCompletePageScaleAnimation() {
     delegate()->DidCompletePageScaleAnimationForWidget();
 }
 
+void RenderWidget::SetRootLayer(scoped_refptr<cc::Layer> layer) {
+  layer_tree_view_->layer_tree_host()->SetRootLayer(std::move(layer));
+}
+
 void RenderWidget::ScheduleAnimation() {
   // This call is not needed in single thread mode for tests without a
   // scheduler, but they need to override the WebWidgetClient and replace this
@@ -1131,9 +1251,18 @@ void RenderWidget::SetShowHitTestBorders(bool show) {
   host->SetDebugState(debug_state);
 }
 
-void RenderWidget::UpdateVisualState(bool record_main_frame_metrics) {
+void RenderWidget::SetBackgroundColor(SkColor color) {
+  layer_tree_view_->layer_tree_host()->set_background_color(color);
+}
+
+void RenderWidget::UpdateVisualState() {
   if (!GetWebWidget())
     return;
+
+  // We record metrics only when running in multi-threaded mode, not
+  // single-thread mode for testing.
+  bool record_main_frame_metrics =
+      !!compositor_deps_->GetCompositorImplThreadTaskRunner();
 
   // When recording main frame metrics set the lifecycle reason to
   // kBeginMainFrame, because this is the calller of UpdateLifecycle
@@ -1167,6 +1296,13 @@ void RenderWidget::RecordTimeToFirstActivePaint() {
         "AfterBackgrounded.5min",
         sample);
   }
+}
+
+void RenderWidget::RecordStartOfFrameMetrics() {
+  if (!GetWebWidget())
+    return;
+
+  GetWebWidget()->RecordStartOfFrameMetrics();
 }
 
 void RenderWidget::RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) {
@@ -1418,6 +1554,10 @@ gfx::Size RenderWidget::GetSizeForWebWidget() const {
   return size_;
 }
 
+gfx::Size RenderWidget::CompositorViewportSize() const {
+  return layer_tree_view_->layer_tree_host()->device_viewport_size();
+}
+
 void RenderWidget::UpdateZoom(double zoom_level) {
   blink::WebFrameWidget* frame_widget = GetFrameWidget();
   if (!frame_widget)
@@ -1440,11 +1580,6 @@ void RenderWidget::UpdateZoom(double zoom_level) {
 }
 
 void RenderWidget::SynchronizeVisualProperties(const VisualProperties& params) {
-  // Inform the rendering thread of the color space indicate the presence of HDR
-  // capabilities.
-  RenderThreadImpl* render_thread = RenderThreadImpl::current();
-  if (render_thread)
-    render_thread->SetRenderingColorSpace(params.screen_info.color_space);
 
   gfx::Size new_compositor_viewport_pixel_size =
       params.auto_resize_enabled
@@ -1459,27 +1594,20 @@ void RenderWidget::SynchronizeVisualProperties(const VisualProperties& params) {
   layer_tree_view_->SetBrowserControlsHeight(
       params.top_controls_height, params.bottom_controls_height,
       params.browser_controls_shrink_blink_size);
-  layer_tree_view_->SetRasterColorSpace(
-      screen_info_.color_space.GetRasterColorSpace());
 
   UpdateZoom(params.zoom_level);
 
   if (!params.auto_resize_enabled) {
     visible_viewport_size_ = params.visible_viewport_size;
-
     display_mode_ = params.display_mode;
-
     size_ = params.new_size;
 
     ResizeWebWidget();
 
-    WebSize visual_viewport_size;
+    gfx::Size visual_viewport_size = visible_viewport_size_;
     if (compositor_deps_->IsUseZoomForDSFEnabled()) {
-      visual_viewport_size =
-          gfx::ScaleToCeiledSize(params.visible_viewport_size,
-                                 GetOriginalScreenInfo().device_scale_factor);
-    } else {
-      visual_viewport_size = visible_viewport_size_;
+      visual_viewport_size = gfx::ScaleToCeiledSize(
+          visual_viewport_size, GetOriginalScreenInfo().device_scale_factor);
     }
     GetWebWidget()->ResizeVisualViewport(visual_viewport_size);
 
@@ -1627,9 +1755,7 @@ LayerTreeView* RenderWidget::InitializeLayerTreeView() {
       compositor_deps_->CreateUkmRecorderFactory());
 
   UpdateSurfaceAndScreenInfo(local_surface_id_allocation_from_parent_,
-                             compositor_viewport_pixel_size_, screen_info_);
-  layer_tree_view_->SetRasterColorSpace(
-      screen_info_.color_space.GetRasterColorSpace());
+                             CompositorViewportSize(), screen_info_);
   layer_tree_view_->SetContentSourceId(current_content_source_id_);
   // If the widget is hidden, delay starting the compositor until the user shows
   // it. Also if the RenderWidget is frozen, we delay starting the compositor
@@ -1792,20 +1918,12 @@ void RenderWidget::CloseWebWidget() {
   // closing. Then we would not have to destroy this so carefully.
   screen_metrics_emulator_.reset();
 
-  // Informs the WebWidget that compositor is being destroyed, so it can remove
-  // references to it first.
-  //
   // When delegate() is present, the RenderWidget is for a main frame,
-  // and the GetWebWidget() is not the same as |webwidget_internal_|. However
-  // that widget is responsible for doing WillCloseLayerTreeView() on the
-  // |webwidget_internal_|, not us. Otherwise, they are the same and this is
-  // notifying |webwidget_internal_|.
-  GetWebWidget()->WillCloseLayerTreeView();
-
-  // While the wrapping WebWidget from an delegate() is responsible for
-  // doing WillCloseLayerTreeView() on the |webwidget_internal_|, this class is
-  // responsible for calling Close() on it. Notably, then, the wrapping
-  // WebWidget does not.
+  // and the GetWebWidget() will be a WebFrameWidget, which is not the same as
+  // |webwidget_internal_|. The WebFrameWidget will be closed when the main
+  // frame is detached, so we do not close it here. But it does not close the
+  // |webwidget_internal_| since this class takes responsibility for that here
+  // in all cases.
   webwidget_internal_->Close();
   webwidget_internal_ = nullptr;
 }
@@ -1919,7 +2037,7 @@ void RenderWidget::SetWindowRect(const WebRect& rect_in_screen) {
   WebRect window_rect = rect_in_screen;
   EmulatedToScreenRectIfNeeded(&window_rect);
 
-  if (resizing_mode_selector_->is_synchronous_mode()) {
+  if (synchronous_resize_mode_for_testing_) {
     // This is a web-test-only path. At one point, it was planned to be
     // removed. See https://crbug.com/309760.
     SetWindowRectSynchronously(window_rect);
@@ -2051,7 +2169,7 @@ void RenderWidget::OnImeFinishComposingText(bool keep_selection) {
 
 void RenderWidget::UpdateSurfaceAndScreenInfo(
     const viz::LocalSurfaceIdAllocation& new_local_surface_id_allocation,
-    const gfx::Size& new_compositor_viewport_pixel_size,
+    const gfx::Size& compositor_viewport_pixel_size,
     const ScreenInfo& new_screen_info) {
   bool orientation_changed =
       screen_info_.orientation_angle != new_screen_info.orientation_angle ||
@@ -2061,16 +2179,19 @@ void RenderWidget::UpdateSurfaceAndScreenInfo(
   ScreenInfo previous_original_screen_info = GetOriginalScreenInfo();
 
   local_surface_id_allocation_from_parent_ = new_local_surface_id_allocation;
-  compositor_viewport_pixel_size_ = new_compositor_viewport_pixel_size;
   screen_info_ = new_screen_info;
 
-  layer_tree_view_->SetViewportVisibleRect(ViewportVisibleRect());
   // Note carefully that the DSF specified in |new_screen_info| is not the
   // DSF used by the compositor during device emulation!
   layer_tree_view_->SetViewportSizeAndScale(
-      compositor_viewport_pixel_size_,
+      compositor_viewport_pixel_size,
       GetOriginalScreenInfo().device_scale_factor,
       local_surface_id_allocation_from_parent_);
+  // The ViewportVisibleRect derives from the LayerTreeView's viewport size,
+  // which is set above.
+  layer_tree_view_->SetViewportVisibleRect(ViewportVisibleRect());
+  layer_tree_view_->SetRasterColorSpace(
+      screen_info_.color_space.GetRasterColorSpace());
 
   if (orientation_changed)
     OnOrientationChange();
@@ -2147,11 +2268,11 @@ void RenderWidget::OnUpdateScreenRects(const gfx::Rect& widget_screen_rect,
 void RenderWidget::OnSetViewportIntersection(
     const gfx::Rect& viewport_intersection,
     const gfx::Rect& compositor_visible_rect,
-    bool occluded_or_obscured) {
+    blink::FrameOcclusionState occlusion_state) {
   if (auto* frame_widget = GetFrameWidget()) {
     compositor_visible_rect_ = compositor_visible_rect;
     frame_widget->SetRemoteViewportIntersection(viewport_intersection,
-                                                occluded_or_obscured);
+                                                occlusion_state);
     layer_tree_view_->SetViewportVisibleRect(ViewportVisibleRect());
   }
 }
@@ -2361,6 +2482,10 @@ void RenderWidget::OnOrientationChange() {
 }
 
 void RenderWidget::SetHidden(bool hidden) {
+  // A frozen main frame widget does not become shown or hidden, since it has
+  // no frame associated with it. It must be thawed before changing visibility.
+  DCHECK(!is_frozen_);
+
   if (is_hidden_ == hidden)
     return;
 
@@ -2373,28 +2498,19 @@ void RenderWidget::SetHidden(bool hidden) {
     RendererWindowTreeClient::Get(routing_id_)->SetVisible(!hidden);
 #endif
 
-  // RenderThreadImpl::current() could be null in tests.
-  if (RenderThreadImpl::current()) {
-    if (is_hidden_) {
-      RenderThreadImpl::current()->WidgetHidden();
-      first_update_visual_state_after_hidden_ = true;
-    } else {
-      RenderThreadImpl::current()->WidgetRestored();
-    }
+  if (is_hidden_) {
+    first_update_visual_state_after_hidden_ = true;
   }
 
   if (render_widget_scheduling_state_)
     render_widget_scheduling_state_->SetHidden(hidden);
 
-  // TODO(danakj): Frozen RenderWidgets become visible with the RenderView but
-  // they don't need to anymore, since the RenderView's visibility is controlled
-  // separately. However even if they become visible, we don't need to start the
-  // compositor in this case.
-  // If frozen, then hidden changing doesn't change anything with the
-  // compositor since when frozen the compositor is always stopped (until
-  // we WarmupCompositor()).
-  if (!is_frozen_)
-    StartStopCompositor();
+  // If the renderer was hidden, resolve any pending synthetic gestures so they
+  // aren't blocked waiting for a compositor frame to be generated.
+  if (is_hidden_)
+    widget_input_handler_manager_->InvokeInputProcessedCallback();
+
+  StartStopCompositor();
 }
 
 void RenderWidget::SetIsFullscreen(bool fullscreen) {
@@ -2505,7 +2621,7 @@ void RenderWidget::DidAutoResize(const gfx::Size& new_size) {
       size_.height() != new_size_in_window.height) {
     size_ = gfx::Size(new_size_in_window.width, new_size_in_window.height);
 
-    if (resizing_mode_selector_->is_synchronous_mode()) {
+    if (synchronous_resize_mode_for_testing_) {
       gfx::Rect new_pos(WindowRect().x, WindowRect().y, size_.width(),
                         size_.height());
       widget_screen_rect_ = new_pos;
@@ -2513,7 +2629,7 @@ void RenderWidget::DidAutoResize(const gfx::Size& new_size) {
     }
 
     // TODO(ccameron): Note that this destroys any information differentiating
-    // |size_| from |compositor_viewport_pixel_size_|. Also note that the
+    // |size_| from the compositor's viewport size. Also note that the
     // calculation of |new_compositor_viewport_pixel_size| does not appear to
     // take into account device emulation.
     layer_tree_view_->RequestNewLocalSurfaceId();
@@ -2847,6 +2963,19 @@ cc::LayerTreeSettings RenderWidget::GenerateLayerTreeSettings(
   settings.scrollbar_fade_delay = base::TimeDelta::FromMilliseconds(300);
   settings.scrollbar_fade_duration = base::TimeDelta::FromMilliseconds(300);
 
+  if (cmd.HasSwitch(cc::switches::kCCScrollAnimationDurationForTesting)) {
+    const int kMinScrollAnimationDuration = 0;
+    const int kMaxScrollAnimationDuration = INT_MAX;
+    int duration;
+    if (switch_value_as_int(cmd,
+                            cc::switches::kCCScrollAnimationDurationForTesting,
+                            kMinScrollAnimationDuration,
+                            kMaxScrollAnimationDuration, &duration)) {
+      settings.scroll_animation_duration_for_testing =
+          base::TimeDelta::FromSeconds(duration);
+    }
+  }
+
 #if defined(OS_ANDROID)
   bool using_synchronous_compositor =
       compositor_deps->UsingSynchronousCompositing();
@@ -2972,7 +3101,7 @@ cc::LayerTreeSettings RenderWidget::GenerateLayerTreeSettings(
 #if defined(OS_ANDROID)
   if (features::IsSurfaceSynchronizationEnabled()) {
     // TODO(crbug.com/933846): LatencyRecovery is causing jank on Android.
-    // Disable in viz mode for now, with plant o disable more widely once
+    // Disable in viz mode for now, with plan to disable more widely once
     // viz launches.
     settings.enable_latency_recovery = false;
   }
@@ -3128,6 +3257,14 @@ void RenderWidget::ZoomToFindInPageRectInMainFrame(
                                                          rect_to_zoom));
 }
 
+void RenderWidget::RegisterViewportLayers(const cc::ViewportLayers& layers) {
+  layer_tree_view_->layer_tree_host()->RegisterViewportLayers(layers);
+}
+
+void RenderWidget::RegisterSelection(const cc::LayerSelection& selection) {
+  layer_tree_view_->layer_tree_host()->RegisterSelection(selection);
+}
+
 void RenderWidget::RequestUnbufferedInputEvents() {
   if (input_event_queue_)
     input_event_queue_->RequestUnbufferedInputEvents();
@@ -3280,13 +3417,6 @@ void RenderWidget::SetMouseCapture(bool capture) {
   }
 }
 
-void RenderWidget::SetWindowScreenRect(const gfx::Rect& window_screen_rect) {
-  if (screen_metrics_emulator_)
-    screen_metrics_emulator_->OnUpdateWindowScreenRect(window_screen_rect);
-  else
-    window_screen_rect_ = window_screen_rect;
-}
-
 bool RenderWidget::IsSurfaceSynchronizationEnabled() const {
   return layer_tree_view_ &&
          layer_tree_view_->IsSurfaceSynchronizationEnabled();
@@ -3314,50 +3444,47 @@ void RenderWidget::PageScaleFactorChanged(float page_scale_factor) {
 }
 
 void RenderWidget::UseSynchronousResizeModeForTesting(bool enable) {
-  resizing_mode_selector_->set_is_synchronous_mode(enable);
+  synchronous_resize_mode_for_testing_ = enable;
 }
 
 void RenderWidget::SetDeviceScaleFactorForTesting(float factor) {
-  device_scale_factor_for_testing_ = factor;
+  DCHECK_GT(factor, 0.f);
 
-  VisualProperties visual_properties;
-  visual_properties.screen_info = screen_info_;
-  visual_properties.screen_info.device_scale_factor = factor;
-  visual_properties.new_size = size();
-  visual_properties.visible_viewport_size = visible_viewport_size_;
-  visual_properties.compositor_viewport_pixel_size =
-      gfx::ScaleToCeiledSize(size(), factor);
-  visual_properties.browser_controls_shrink_blink_size = false;
-  visual_properties.top_controls_height = 0.f;
-  visual_properties.is_fullscreen_granted = is_fullscreen_granted_;
-  visual_properties.display_mode = display_mode_;
-  visual_properties.local_surface_id_allocation =
-      local_surface_id_allocation_from_parent_;
   // We are changing the device scale factor from the renderer, so allocate a
   // new viz::LocalSurfaceId to avoid surface invariants violations in tests.
   layer_tree_view_->RequestNewLocalSurfaceId();
-  OnSynchronizeVisualProperties(visual_properties);
+
+  ScreenInfo info = screen_info_;
+  info.device_scale_factor = factor;
+  gfx::Size viewport_pixel_size = gfx::ScaleToCeiledSize(size_, factor);
+  UpdateSurfaceAndScreenInfo(local_surface_id_allocation_from_parent_,
+                             viewport_pixel_size, info);
+
+  ResizeWebWidget();  // This picks up the new device scale factor in |info|.
+
+  gfx::Size visible_viewport_size = visible_viewport_size_;
+  if (compositor_deps_->IsUseZoomForDSFEnabled()) {
+    visible_viewport_size =
+        gfx::ScaleToCeiledSize(visible_viewport_size, factor);
+  }
+  GetWebWidget()->ResizeVisualViewport(visible_viewport_size);
+
+  // Make sure the DSF override stays for future VisualProperties updates, and
+  // that includes overriding the VisualProperties'
+  // compositor_viewport_pixel_size with size * this for-testing DSF.
+  device_scale_factor_for_testing_ = factor;
 }
 
 void RenderWidget::SetDeviceColorSpaceForTesting(
     const gfx::ColorSpace& color_space) {
-  VisualProperties visual_properties;
-  visual_properties.screen_info = screen_info_;
-  visual_properties.screen_info.color_space = color_space;
-  visual_properties.new_size = size();
-  visual_properties.visible_viewport_size = visible_viewport_size_;
-  visual_properties.compositor_viewport_pixel_size =
-      compositor_viewport_pixel_size_;
-  visual_properties.browser_controls_shrink_blink_size = false;
-  visual_properties.top_controls_height = 0.f;
-  visual_properties.is_fullscreen_granted = is_fullscreen_granted_;
-  visual_properties.display_mode = display_mode_;
-  visual_properties.local_surface_id_allocation =
-      local_surface_id_allocation_from_parent_;
   // We are changing the device color space from the renderer, so allocate a
   // new viz::LocalSurfaceId to avoid surface invariants violations in tests.
-    layer_tree_view_->RequestNewLocalSurfaceId();
-  OnSynchronizeVisualProperties(visual_properties);
+  layer_tree_view_->RequestNewLocalSurfaceId();
+
+  ScreenInfo info = screen_info_;
+  info.color_space = color_space;
+  UpdateSurfaceAndScreenInfo(local_surface_id_allocation_from_parent_,
+                             CompositorViewportSize(), info);
 }
 
 void RenderWidget::SetWindowRectSynchronouslyForTesting(
@@ -3387,8 +3514,7 @@ void RenderWidget::DisableAutoResizeForTesting(const gfx::Size& new_size) {
   visual_properties.auto_resize_enabled = false;
   visual_properties.screen_info = screen_info_;
   visual_properties.new_size = new_size;
-  visual_properties.compositor_viewport_pixel_size =
-      compositor_viewport_pixel_size_;
+  visual_properties.compositor_viewport_pixel_size = CompositorViewportSize();
   visual_properties.browser_controls_shrink_blink_size =
       browser_controls_shrink_blink_size_;
   visual_properties.top_controls_height = top_controls_height_;
@@ -3433,9 +3559,9 @@ PepperPluginInstanceImpl* RenderWidget::GetFocusedPepperPluginInsideWidget() {
 #endif
 
 gfx::Rect RenderWidget::ViewportVisibleRect() {
-  return for_child_local_root_frame_
-             ? compositor_visible_rect_
-             : gfx::Rect(compositor_viewport_pixel_size_);
+  if (for_child_local_root_frame_)
+    return compositor_visible_rect_;
+  return gfx::Rect(CompositorViewportSize());
 }
 
 // static

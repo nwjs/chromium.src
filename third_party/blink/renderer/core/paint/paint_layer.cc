@@ -68,7 +68,6 @@
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_clipper.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_root.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/sticky_position_scrolling_constraints.h"
 #include "third_party/blink/renderer/core/paint/box_reflection_utils.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
@@ -206,10 +205,6 @@ PaintLayer::~PaintLayer() {
       reference_clip->RemoveClient(*rare_data_->resource_info);
     rare_data_->resource_info->ClearLayer();
   }
-  if (GetLayoutObject().GetFrame()) {
-    if (ScrollingCoordinator* scrolling_coordinator = GetScrollingCoordinator())
-      scrolling_coordinator->WillDestroyLayer(this);
-  }
 
   if (GroupedMapping()) {
     DisableCompositingQueryAsserts disabler;
@@ -234,6 +229,10 @@ PaintLayer::~PaintLayer() {
 
 String PaintLayer::DebugName() const {
   return GetLayoutObject().DebugName();
+}
+
+DOMNodeId PaintLayer::OwnerNodeId() const {
+  return static_cast<const DisplayItemClient&>(GetLayoutObject()).OwnerNodeId();
 }
 
 LayoutRect PaintLayer::VisualRect() const {
@@ -628,9 +627,9 @@ void PaintLayer::MapRectInPaintInvalidationContainerToBacking(
   // Move the point into the source_state transform space, map to dest_state
   // transform space, then move into squashing layer state.
   rect.MoveBy(paint_invalidation_container.FirstFragment().PaintOffset());
-  rect = GeometryMapper::SourceToDestinationProjection(source_state.Transform(),
-                                                       dest_state.Transform())
-             .MapRect(rect);
+  GeometryMapper::SourceToDestinationProjection(source_state.Transform(),
+                                                dest_state.Transform())
+      .MapRect(rect);
   rect.MoveBy(-squashing_layer->GetOffsetFromTransformNode());
 }
 
@@ -2463,13 +2462,23 @@ FloatRect PaintLayer::FilterReferenceBox() const {
   return FloatRect();
 }
 
-FloatRect PaintLayer::BackdropFilterBounds() const {
+FloatRect PaintLayer::BackdropFilterReferenceBox() const {
   FloatRect reference_box(GetLayoutObject().BorderBoundingBox());
   float zoom = GetLayoutObject().StyleRef().EffectiveZoom();
   if (zoom != 1)
     reference_box.Scale(1 / zoom);
   reference_box.Move(-ToFloatSize(FilterReferenceBox().Location()));
   return reference_box;
+}
+
+gfx::RRectF PaintLayer::BackdropFilterBounds(
+    const FloatRect& reference_box) const {
+  auto& style = GetLayoutObject().StyleRef();
+  if (!style.HasBorderRadius())
+    return gfx::RRectF(reference_box, 0);
+  FloatRoundedRect rrect = style.GetRoundedBorderFor(LayoutRect(reference_box));
+  // FloatRoundedRect has a typecast to SkRRect().
+  return gfx::RRectF(rrect);
 }
 
 bool PaintLayer::HitTestClippedOutByClipPath(
@@ -3243,15 +3252,16 @@ void PaintLayer::UpdateCompositorFilterOperationsForFilter(
 
 void PaintLayer::UpdateCompositorFilterOperationsForBackdropFilter(
     CompositorFilterOperations& operations,
-    gfx::RectF* backdrop_filter_bounds) const {
+    gfx::RRectF* backdrop_filter_bounds) const {
   DCHECK(backdrop_filter_bounds);
   const auto& style = GetLayoutObject().StyleRef();
   if (style.BackdropFilter().IsEmpty()) {
     operations.Clear();
+    *backdrop_filter_bounds = gfx::RRectF();
     return;
   }
-  FloatRect reference_box = BackdropFilterBounds();
-  *backdrop_filter_bounds = reference_box;
+  FloatRect reference_box = BackdropFilterReferenceBox();
+  *backdrop_filter_bounds = BackdropFilterBounds(reference_box);
   if (operations.IsEmpty() || reference_box != operations.ReferenceBox())
     operations = CreateCompositorFilterOperationsForBackdropFilter();
 }
@@ -3264,7 +3274,7 @@ PaintLayer::CreateCompositorFilterOperationsForBackdropFilter() const {
     return return_value;
   }
   float zoom = style.EffectiveZoom();
-  FloatRect reference_box = BackdropFilterBounds();
+  FloatRect reference_box = BackdropFilterReferenceBox();
   return_value = FilterEffectBuilder(reference_box, zoom)
                      .BuildFilterOperations(style.BackdropFilter());
   DCHECK(!return_value.IsEmpty());
@@ -3333,55 +3343,6 @@ bool PaintLayer::HasFilterThatMovesPixels() const {
   if (style.HasBoxReflect())
     return true;
   return false;
-}
-
-void PaintLayer::AddLayerHitTestRects(
-    LayerHitTestRects& rects,
-    TouchAction supported_fast_actions) const {
-  ComputeSelfHitTestRects(rects, supported_fast_actions);
-  for (PaintLayer* child = FirstChild(); child; child = child->NextSibling())
-    child->AddLayerHitTestRects(rects, supported_fast_actions);
-}
-
-void PaintLayer::ComputeSelfHitTestRects(
-    LayerHitTestRects& rects,
-    TouchAction supported_fast_actions) const {
-  if (!Size().IsEmpty()) {
-    Vector<HitTestRect> rect;
-    TouchAction whitelisted_touch_action =
-        GetLayoutObject().StyleRef().GetEffectiveTouchAction() &
-        supported_fast_actions;
-
-    if (GetLayoutBox() && GetLayoutBox()->ScrollsOverflow()) {
-      // For scrolling layers, rects are taken to be in the space of the
-      // contents.  We need to include the bounding box of the layer in the
-      // space of its parent (eg. for border / scroll bars) and if it's
-      // composited then the entire contents as well as they may be on another
-      // composited layer. Skip reporting contents for non-composited layers as
-      // they'll get projected to the same layer as the bounding box.
-      if (GetCompositingState() != kNotComposited && scrollable_area_) {
-        rect.push_back(HitTestRect(scrollable_area_->OverflowRect(),
-                                   whitelisted_touch_action));
-      }
-
-      rects.Set(this, rect);
-      if (const PaintLayer* parent_layer = Parent()) {
-        LayerHitTestRects::iterator iter = rects.find(parent_layer);
-        if (iter == rects.end()) {
-          rects.insert(parent_layer, Vector<HitTestRect>())
-              .stored_value->value.push_back(HitTestRect(
-                  PhysicalBoundingBox(parent_layer), whitelisted_touch_action));
-        } else {
-          iter->value.push_back(HitTestRect(PhysicalBoundingBox(parent_layer),
-                                            whitelisted_touch_action));
-        }
-      }
-    } else {
-      rect.push_back(
-          HitTestRect(LogicalBoundingBox(), whitelisted_touch_action));
-      rects.Set(this, rect);
-    }
-  }
 }
 
 void PaintLayer::SetNeedsRepaint() {

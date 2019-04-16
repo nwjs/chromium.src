@@ -17,8 +17,6 @@ import org.chromium.chrome.browser.metrics.WebApkUma;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
-import java.util.concurrent.TimeUnit;
-
 /**
  * An Activity is designed for WebAPKs (native Android apps) and displays a webapp in a nearly
  * UI-less Chrome.
@@ -80,8 +78,7 @@ public class WebApkActivity extends WebappActivity {
     protected void recordIntentToCreationTime(long timeMs) {
         super.recordIntentToCreationTime(timeMs);
 
-        RecordHistogram.recordTimesHistogram(
-                "MobileStartup.IntentToCreationTime.WebApk", timeMs, TimeUnit.MILLISECONDS);
+        RecordHistogram.recordTimesHistogram("MobileStartup.IntentToCreationTime.WebApk", timeMs);
     }
 
     @Override

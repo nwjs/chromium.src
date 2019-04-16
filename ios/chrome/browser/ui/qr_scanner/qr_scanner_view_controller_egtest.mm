@@ -22,6 +22,8 @@
 #include "ios/chrome/browser/ui/qr_scanner/qr_scanner_view_controller.h"
 #import "ios/chrome/browser/ui/toolbar/public/features.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
+#import "ios/chrome/browser/url_loading/url_loading_service.h"
+#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #include "ios/chrome/grit/ios_chromium_strings.h"
 #include "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/app/chrome_test_util.h"
@@ -413,20 +415,23 @@ void TapKeyboardReturnKeyInOmniboxWithText(std::string text) {
     (const GURL&)replacementURL {
   // The specific class to swizzle depends on whether the UIRefresh experiment
   // is enabled.
-    void (^loadGURLFromLocationBarBlock)(LocationBarCoordinator*, const GURL&,
-                                         ui::PageTransition) =
-        ^void(LocationBarCoordinator* self, const GURL& url,
-              ui::PageTransition transition) {
-          web::NavigationManager::WebLoadParams params(replacementURL);
-          params.transition_type = transition;
-          ChromeLoadParams chromeParams(params);
-          [self.URLLoader loadURLWithParams:chromeParams];
-          [self cancelOmniboxEdit];
-        };
-    load_GURL_from_location_bar_swizzler_.reset(new ScopedBlockSwizzler(
-        [LocationBarCoordinator class],
-        @selector(loadGURLFromLocationBar:transition:disposition:),
-        loadGURLFromLocationBarBlock));
+  void (^loadGURLFromLocationBarBlock)(LocationBarCoordinator*,
+                                       TemplateURLRef::PostContent*,
+                                       const GURL&, ui::PageTransition) =
+      ^void(LocationBarCoordinator* self,
+            TemplateURLRef::PostContent* postContent, const GURL& url,
+            ui::PageTransition transition) {
+        web::NavigationManager::WebLoadParams params(replacementURL);
+        params.transition_type = transition;
+        ChromeLoadParams chromeParams(params);
+        UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
+            ->LoadUrlInCurrentTab(chromeParams);
+        [self cancelOmniboxEdit];
+      };
+  load_GURL_from_location_bar_swizzler_.reset(new ScopedBlockSwizzler(
+      [LocationBarCoordinator class],
+      @selector(loadGURLFromLocationBar:postContent:transition:disposition:),
+      loadGURLFromLocationBarBlock));
 }
 
 // Creates a new CameraController mock with camera permission granted if

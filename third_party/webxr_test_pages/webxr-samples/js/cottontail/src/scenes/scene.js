@@ -25,7 +25,7 @@ import {Node} from '../core/node.js';
 import {vec3, quat} from '../math/gl-matrix.js';
 
 export class WebXRView extends RenderView {
-  constructor(view, layer) {
+  constructor(view, pose, layer) {
     super(
       view ? view.projectionMatrix : null,
       view ? view.viewMatrix : null,
@@ -79,7 +79,7 @@ export class Scene extends Node {
 
   // Helper function that automatically adds the appropriate visual elements for
   // all input sources.
-  updateInputSources(frame, frameOfRef) {
+  updateInputSources(frame, refSpace) {
     // FIXME: Check for the existence of the API first. This check should be
     // removed once the input API is part of the official spec.
     if (!frame.session.getInputSources) {
@@ -93,15 +93,15 @@ export class Scene extends Node {
     this._hoverFrame++;
 
     for (let inputSource of inputSources) {
-      let inputPose = frame.getInputPose(inputSource, frameOfRef);
+      let inputPose = frame.getInputPose(inputSource, refSpace);
 
       if (!inputPose) {
         continue;
       }
 
       // Any time that we have a grip matrix, we'll render a controller.
-      if (inputPose.gripMatrix) {
-        this.inputRenderer.addController(inputPose.gripMatrix);
+      if (inputPose.gripTransform && inputPose.gripTransform.matrix) {
+        this.inputRenderer.addController(inputPose.gripTransform.matrix);
       }
 
       if (inputPose.targetRay) {
@@ -128,23 +128,6 @@ export class Scene extends Node {
           }
           hitResult.node._hoverFrameId = this._hoverFrame;
           newHoveredNodes.push(hitResult.node);
-        } else {
-          // Statically render the cursor 1 meters down the ray since we didn't
-          // hit anything selectable.
-          let cursorDistance = 1.0;
-          let cursorPos = vec3.fromValues(
-              inputPose.targetRay.origin.x,
-              inputPose.targetRay.origin.y,
-              inputPose.targetRay.origin.z
-              );
-          vec3.add(cursorPos, cursorPos, [
-              inputPose.targetRay.direction.x * cursorDistance,
-              inputPose.targetRay.direction.y * cursorDistance,
-              inputPose.targetRay.direction.z * cursorDistance,
-              ]);
-          // let cursorPos = vec3.fromValues(0, 0, -1.0);
-          // vec3.transformMat4(cursorPos, cursorPos, inputPose.targetRay);
-          this.inputRenderer.addCursor(cursorPos);
         }
       }
     }
@@ -158,8 +141,8 @@ export class Scene extends Node {
     this._hoveredNodes = newHoveredNodes;
   }
 
-  handleSelect(inputSource, frame, frameOfRef) {
-    let inputPose = frame.getInputPose(inputSource, frameOfRef);
+  handleSelect(inputSource, frame, refSpace) {
+    let inputPose = frame.getInputPose(inputSource, refSpace);
 
     if (!inputPose) {
       return;
@@ -240,7 +223,7 @@ export class Scene extends Node {
     let gl = this._renderer.gl;
     let session = xrFrame.session;
     // Assumed to be a XRWebGLLayer for now.
-    let layer = session.baseLayer;
+    let layer = session.renderState.baseLayer;
 
     if (!gl) {
       return;
@@ -254,7 +237,7 @@ export class Scene extends Node {
 
     let views = [];
     for (let view of pose.views) {
-      views.push(new WebXRView(view, layer));
+      views.push(new WebXRView(view, pose, layer));
     }
 
     this.drawViewArray(views);

@@ -14,34 +14,26 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/signin_metrics.h"
-#include "google_apis/gaia/oauth2_token_service.h"
 #include "ios/public/provider/chrome/browser/signin/chrome_identity_service.h"
+#include "services/identity/public/cpp/identity_manager.h"
 
 namespace syncer {
 class SyncService;
 }
 
-namespace identity {
-class IdentityManager;
-}
-
-class AccountTrackerService;
 class AuthenticationServiceDelegate;
 @class ChromeIdentity;
 class PrefService;
-class ProfileOAuth2TokenService;
 class SyncSetupService;
 
 // AuthenticationService is the Chrome interface to the iOS shared
 // authentication library.
 class AuthenticationService : public KeyedService,
-                              public OAuth2TokenService::Observer,
+                              public identity::IdentityManager::Observer,
                               public ios::ChromeIdentityService::Observer {
  public:
   AuthenticationService(PrefService* pref_service,
-                        ProfileOAuth2TokenService* token_service,
                         SyncSetupService* sync_setup_service,
-                        AccountTrackerService* account_tracker,
                         identity::IdentityManager* identity_manager,
                         syncer::SyncService* sync_service);
   ~AuthenticationService() override;
@@ -182,8 +174,8 @@ class AuthenticationService : public KeyedService,
   // they were stored in the  browser state prefs.
   void ComputeHaveAccountsChanged();
 
-  // OAuth2TokenService::Observer implementation.
-  void OnEndBatchChanges() override;
+  // identity::IdentityManager::Observer implementation.
+  void OnEndBatchOfRefreshTokenStateChanges() override;
 
   // ChromeIdentityServiceObserver implementation.
   void OnIdentityListChanged() override;
@@ -198,9 +190,7 @@ class AuthenticationService : public KeyedService,
 
   // Pointer to the KeyedServices used by AuthenticationService.
   PrefService* pref_service_ = nullptr;
-  ProfileOAuth2TokenService* token_service_ = nullptr;
   SyncSetupService* sync_setup_service_ = nullptr;
-  AccountTrackerService* account_tracker_ = nullptr;
   identity::IdentityManager* identity_manager_ = nullptr;
   syncer::SyncService* sync_service_ = nullptr;
 

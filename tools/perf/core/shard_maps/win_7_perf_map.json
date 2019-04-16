@@ -20,32 +20,21 @@
             "jetstream": {},
             "kraken": {},
             "loading.desktop": {},
-            "loading.mobile": {},
             "media.desktop": {},
-            "media.mobile": {},
-            "memory.desktop": {},
-            "memory.long_running_idle_gmail_background_tbmv2": {},
-            "memory.long_running_idle_gmail_tbmv2": {},
-            "memory.top_10_mobile": {}
+            "memory.desktop": {}
         }
     },
     "1": {
         "benchmarks": {
             "octane": {},
-            "oortonline_tbmv2": {},
             "power.desktop": {},
-            "power.typical_10_mobile": {},
             "rasterize_and_record_micro.partial_invalidation": {},
             "rasterize_and_record_micro.top_25": {},
             "rendering.desktop": {},
-            "rendering.mobile": {},
-            "smoothness.gpu_rasterization.tough_pinch_zoom_cases": {},
-            "smoothness.tough_pinch_zoom_cases": {},
             "speedometer": {},
             "speedometer-future": {},
             "speedometer2": {},
             "speedometer2-future": {},
-            "startup.mobile": {},
             "system_health.common_desktop": {
                 "end": 66
             }
@@ -56,7 +45,6 @@
             "system_health.common_desktop": {
                 "begin": 66
             },
-            "system_health.common_mobile": {},
             "system_health.memory_desktop": {
                 "end": 90
             }
@@ -67,8 +55,6 @@
             "system_health.memory_desktop": {
                 "begin": 90
             },
-            "system_health.memory_mobile": {},
-            "system_health.webview_startup": {},
             "tab_switching.typical_25": {},
             "tracing.tracing_with_background_memory_infra": {},
             "v8.browsing_desktop": {},
@@ -82,8 +68,6 @@
             "v8.browsing_desktop-future": {
                 "begin": 1
             },
-            "v8.browsing_mobile": {},
-            "v8.browsing_mobile-future": {},
             "v8.runtime_stats.top_25": {},
             "wasm": {},
             "webrtc": {}

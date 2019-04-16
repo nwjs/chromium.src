@@ -16,6 +16,13 @@ enum QuicConnectionIdLength {
   PACKET_8BYTE_CONNECTION_ID = 8,
 };
 
+// This is a property of QUIC headers, it indicates whether the connection ID
+// should actually be sent over the wire (or was sent on received packets).
+enum QuicConnectionIdIncluded : uint8_t {
+  CONNECTION_ID_PRESENT = 1,
+  CONNECTION_ID_ABSENT = 2,
+};
+
 // Connection IDs can be 0-18 bytes per IETF specifications.
 const uint8_t kQuicMaxConnectionIdLength = 18;
 
@@ -25,16 +32,11 @@ const uint8_t kQuicDefaultConnectionIdLength = 8;
 
 class QUIC_EXPORT_PRIVATE QuicConnectionId {
  public:
-  // Creates a connection ID of length zero, unless the restart flag
-  // quic_connection_ids_network_byte_order is false in which case
-  // it returns an 8-byte all-zeroes connection ID.
+  // Creates a connection ID of length zero.
   QuicConnectionId();
 
   // Creates a connection ID from network order bytes.
   QuicConnectionId(const char* data, uint8_t length);
-
-  // Creator from host byte order uint64_t.
-  explicit QuicConnectionId(uint64_t connection_id64);
 
   ~QuicConnectionId();
 
@@ -51,13 +53,8 @@ class QUIC_EXPORT_PRIVATE QuicConnectionId {
   // in network byte order.
   char* mutable_data();
 
-  // Returns whether the connection ID has length zero, unless the restart flag
-  // quic_connection_ids_network_byte_order is false in which case
-  // it checks if it is all zeroes.
+  // Returns whether the connection ID has length zero.
   bool IsEmpty() const;
-
-  // Converts to host byte order uint64_t.
-  uint64_t ToUInt64() const;
 
   // Hash() is required to use connection IDs as keys in hash tables.
   size_t Hash() const;
@@ -77,27 +74,16 @@ class QUIC_EXPORT_PRIVATE QuicConnectionId {
   bool operator<(const QuicConnectionId& v) const;
 
  private:
-  // The connection ID is currently represented in host byte order in |id64_|.
-  // In the future, it will be saved in the first |length_| bytes of |data_|.
+  // The connection ID is represented in network byte order
+  // in the first |length_| bytes of |data_|.
   char data_[kQuicMaxConnectionIdLength];
   uint8_t length_;
-  uint64_t id64_;  // host byte order
 };
 
 // Creates a connection ID of length zero, unless the restart flag
 // quic_connection_ids_network_byte_order is false in which case
 // it returns an 8-byte all-zeroes connection ID.
 QUIC_EXPORT_PRIVATE QuicConnectionId EmptyQuicConnectionId();
-
-// Converts connection ID from host-byte-order uint64_t to QuicConnectionId.
-// This is currently the identity function.
-QUIC_EXPORT_PRIVATE QuicConnectionId
-QuicConnectionIdFromUInt64(uint64_t connection_id64);
-
-// Converts connection ID from QuicConnectionId to host-byte-order uint64_t.
-// This is currently the identity function.
-QUIC_EXPORT_PRIVATE uint64_t
-QuicConnectionIdToUInt64(QuicConnectionId connection_id);
 
 // QuicConnectionIdHash can be passed as hash argument to hash tables.
 class QuicConnectionIdHash {
@@ -106,16 +92,6 @@ class QuicConnectionIdHash {
     return connection_id.Hash();
   }
 };
-
-// Governs how connection IDs are represented in memory.
-// Checks gfe_restart_flag_quic_connection_ids_network_byte_order.
-QUIC_EXPORT_PRIVATE bool QuicConnectionIdUseNetworkByteOrder();
-
-enum class Perspective : uint8_t;
-// Governs how connection IDs are created.
-// Checks gfe_restart_flag_quic_variable_length_connection_ids_(client|server).
-QUIC_EXPORT_PRIVATE bool QuicConnectionIdSupportsVariableLength(
-    Perspective perspective);
 
 }  // namespace quic
 

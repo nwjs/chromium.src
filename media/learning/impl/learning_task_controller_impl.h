@@ -10,8 +10,10 @@
 #include "base/callback.h"
 #include "base/component_export.h"
 #include "base/memory/weak_ptr.h"
+#include "media/learning/common/learning_task_controller.h"
 #include "media/learning/impl/distribution_reporter.h"
-#include "media/learning/impl/learning_task_controller.h"
+#include "media/learning/impl/feature_provider.h"
+#include "media/learning/impl/learning_task_controller_helper.h"
 #include "media/learning/impl/random_number_generator.h"
 #include "media/learning/impl/training_algorithm.h"
 
@@ -20,6 +22,15 @@ namespace learning {
 
 class LearningTaskControllerImplTest;
 
+// Controller for a single learning task.  Takes training examples, and forwards
+// them to the learner(s).  Responsible for things like:
+//  - Managing underlying learner(s) based on the learning task
+//  - Feature subset selection
+//  - UMA reporting on accuracy / feature importance
+//
+// The idea is that one can create a LearningTask, give it to an LTCI, and the
+// LTCI will do the work of building / evaluating the model based on training
+// examples that are provided to it.
 class COMPONENT_EXPORT(LEARNING_IMPL) LearningTaskControllerImpl
     : public LearningTaskController,
       public HasRandomNumberGenerator,
@@ -27,13 +38,22 @@ class COMPONENT_EXPORT(LEARNING_IMPL) LearningTaskControllerImpl
  public:
   LearningTaskControllerImpl(
       const LearningTask& task,
-      std::unique_ptr<DistributionReporter> reporter = nullptr);
+      std::unique_ptr<DistributionReporter> reporter = nullptr,
+      SequenceBoundFeatureProvider feature_provider =
+          SequenceBoundFeatureProvider());
   ~LearningTaskControllerImpl() override;
 
   // LearningTaskController
-  void AddExample(const LabelledExample& example) override;
+  void BeginObservation(ObservationId id,
+                        const FeatureVector& features) override;
+  void CompleteObservation(ObservationId id,
+                           const ObservationCompletion& completion) override;
+  void CancelObservation(ObservationId id) override;
 
  private:
+  // Add |example| to the training data, and process it.
+  void AddFinishedExample(LabelledExample example);
+
   // Called by |training_cb_| when the model is trained.
   void OnModelTrained(std::unique_ptr<Model> model);
 
@@ -59,6 +79,9 @@ class COMPONENT_EXPORT(LEARNING_IMPL) LearningTaskControllerImpl
 
   // Optional reporter for training accuracy.
   std::unique_ptr<DistributionReporter> reporter_;
+
+  // Helper that we use to handle deferred examples.
+  std::unique_ptr<LearningTaskControllerHelper> helper_;
 
   friend class LearningTaskControllerImplTest;
 };

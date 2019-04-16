@@ -363,7 +363,7 @@ class AudioDecoderTest
     // Generate a lossy hash of the audio used for comparison across platforms.
     AudioHash audio_hash;
     audio_hash.Update(output.get(), output->frames());
-    EXPECT_TRUE(audio_hash.IsEquivalent(sample_info.hash, 0.02))
+    EXPECT_TRUE(audio_hash.IsEquivalent(sample_info.hash, 0.03))
         << "Audio hashes differ. Expected: " << sample_info.hash
         << " Actual: " << audio_hash.ToString();
 
@@ -642,15 +642,15 @@ TEST_P(AudioDecoderTest, NoTimestamp) {
   EXPECT_EQ(DecodeStatus::DECODE_ERROR, last_decode_status());
 }
 
-INSTANTIATE_TEST_CASE_P(FFmpeg,
-                        AudioDecoderTest,
-                        Combine(Values(FFMPEG), ValuesIn(kFFmpegTestParams)));
+INSTANTIATE_TEST_SUITE_P(FFmpeg,
+                         AudioDecoderTest,
+                         Combine(Values(FFMPEG), ValuesIn(kFFmpegTestParams)));
 
 #if defined(OS_ANDROID)
-INSTANTIATE_TEST_CASE_P(MediaCodec,
-                        AudioDecoderTest,
-                        Combine(Values(MEDIA_CODEC),
-                                ValuesIn(kMediaCodecTestParams)));
+INSTANTIATE_TEST_SUITE_P(MediaCodec,
+                         AudioDecoderTest,
+                         Combine(Values(MEDIA_CODEC),
+                                 ValuesIn(kMediaCodecTestParams)));
 #endif  // defined(OS_ANDROID)
 
 }  // namespace media

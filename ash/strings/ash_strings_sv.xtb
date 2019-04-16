@@ -14,6 +14,7 @@
 <translation id="1153356358378277386">Kopplade enheter</translation>
 <translation id="1195412055398077112">överskanning</translation>
 <translation id="119944043368869598">Ta bort alla</translation>
+<translation id="123828989343052515">Ny arbetsyta</translation>
 <translation id="1247372569136754018">Mikrofon (inbyggd)</translation>
 <translation id="1252999807265626933">Laddar från <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Vad är det för väder?</translation>
@@ -38,6 +39,7 @@
 <translation id="1525508553941733066">IGNORERA</translation>
 <translation id="1537254971476575106">Helskärmsförstorare</translation>
 <translation id="15373452373711364">Stor muspekare</translation>
+<translation id="1546492247443594934">Skrivbord 2</translation>
 <translation id="1550523713251050646">Klicka här för fler alternativ</translation>
 <translation id="1570871743947603115">Aktivera och inaktivera Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Få tillgång till all aktivitet i sessionen</translation>
@@ -73,6 +75,7 @@
 <translation id="2016340657076538683">Skriv ett meddelande</translation>
 <translation id="2050339315714019657">Stående</translation>
 <translation id="2067602449040652523">Ljusstyrka för tangentbordet</translation>
+<translation id="209965399369889474">Ingen nätverksanslutning</translation>
 <translation id="2127372758936585790">Laddning med låg effekt</translation>
 <translation id="2135456203358955318">Dockad skärmförstoring</translation>
 <translation id="2144487987174258011">Starta om för att uppdatera Adobe Flash Player</translation>
@@ -129,6 +132,7 @@
 <translation id="2961963223658824723">Ett fel har uppstått. Försök igen om några sekunder.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2970920913501714344">Installera appar, tillägg och teman</translation>
+<translation id="2977598380246111477">Nästa nummer</translation>
 <translation id="2995447421581609334">Visa cast-enheter</translation>
 <translation id="2996462380875591307">Dockad skärmförstoring har aktiverats. Tryck på Ctrl + Sök + D igen om du vill inaktivera funktionen.</translation>
 <translation id="3000461861112256445">Monoljud</translation>
@@ -141,16 +145,19 @@
 <translation id="3087734570205094154">Nederst</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Starta om för att uppdatera</translation>
+<translation id="3139942575505304791">Skrivbord 1</translation>
 <translation id="315116470104423982">Mobildata</translation>
 <translation id="3151786313568798007">Orientering</translation>
+<translation id="3152934361839663679">Enheten är ansluten till maximalt antal bildskärmar. En av skärmarna har därför kopplats från.</translation>
 <translation id="3153444934357957346">Du kan högst använda <ph name="MULTI_PROFILE_USER_LIMIT" /> konton för multiinloggning.</translation>
 <translation id="3154351730702813399">Enhetsadministratören kan övervaka din webbaktivitet.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Ansluten till en enhet}other{Ansluten till # enheter}}</translation>
-<translation id="32244657276328332">Inte ansluten till ett nätverk</translation>
+<translation id="3226991577105957773">och <ph name="COUNT" /> till</translation>
 <translation id="3236488194889173876">Det finns inget tillgängligt mobilnätverk</translation>
 <translation id="3255483164551725916">Vad kan du göra?</translation>
 <translation id="3294437725009624529">Gäst</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> kan ändå logga in igen senare.</translation>
+<translation id="3321628682574733415">Felaktig föräldrakod</translation>
 <translation id="332587331255250389">Byt batteri</translation>
 <translation id="3351879221545518001">Skärmen castas.</translation>
 <translation id="3364721542077212959">Verktyg för e-penna</translation>
@@ -195,6 +202,7 @@
 <translation id="4017989525502048489">Laserpekare</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Av för en app}other{Av för # appar}}</translation>
 <translation id="4072264167173457037">medelstark signal</translation>
+<translation id="4129129681837227511">Lås upp enheten för att ändra inställningen för aviseringar på låsskärmen</translation>
 <translation id="4146833061457621061">Spela upp musik</translation>
 <translation id="4181841719683918333">Språk</translation>
 <translation id="4195877955194704651">Knapp för Automatiska klick</translation>
@@ -227,6 +235,8 @@
 <translation id="4585337515783392668">Sluta casta till en okänd mottagare</translation>
 <translation id="4628757576491864469">Enheter</translation>
 <translation id="4659419629803378708">ChromeVox har aktiverats</translation>
+<translation id="4696813013609194136">Lås upp enheten med föräldrakod</translation>
+<translation id="4731797938093519117">Föräldraåtkomst</translation>
 <translation id="4734965478015604180">Horisontell</translation>
 <translation id="476166673298332917">Enhetens administratör kan övervaka din webbhistorik</translation>
 <translation id="4774338217796918551">Prova igen i morgon klockan <ph name="COME_BACK_TIME" />.</translation>
@@ -253,6 +263,7 @@
 <translation id="5207949376430453814">Markera textmarkören</translation>
 <translation id="5222676887888702881">Logga ut</translation>
 <translation id="523505283826916779">Inställningar för tillgänglighet</translation>
+<translation id="5260676007519551770">Skrivbord 4</translation>
 <translation id="5283198616748585639">Lägg till en min</translation>
 <translation id="5302048478445481009">Språk</translation>
 <translation id="5313326810920013265">Bluetooth-inställningar</translation>
@@ -262,6 +273,7 @@
 <translation id="5430931332414098647">Direktinternetdelning</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Alla tillgängliga användare har redan lagts till i den här sessionen.</translation>
+<translation id="5465662442746197494">Behöver du hjälp?</translation>
 <translation id="5496819745535887422">Enheten återställs av administratören. All data raderas när enheten startas om.</translation>
 <translation id="553675580533261935">Sessionen avslutas</translation>
 <translation id="5537725057119320332">Casta</translation>
@@ -330,12 +342,14 @@
 <translation id="6528179044667508675">Stör inte</translation>
 <translation id="6537270692134705506">Ta en bild av skärmen</translation>
 <translation id="6542521951477560771">Castar till <ph name="RECEIVER_NAME" /></translation>
+<translation id="6559976592393364813">Fråga administratören</translation>
 <translation id="6574601967010742428">Enhetsadministratören kan ha möjlighet att övervaka det du gör.</translation>
 <translation id="6585808820553845416">Sessionen upphör om <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Söktangenten + Skift + K</translation>
 <translation id="6650933572246256093">Bluetooth-enheten <ph name="DEVICE_NAME" /> har begärt tillstånd för koppling. Ange denna lösenordsnyckel på den enheten: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Lösenord</translation>
 <translation id="6665545700722362599">Ge webbplatser, appar och tillägg behörighet att använda platstjänster, enhetens mikrofon, kamera eller andra funktioner</translation>
+<translation id="6670153871843998651">Skrivbord 3</translation>
 <translation id="6691659475504239918">Sök+Skift+H</translation>
 <translation id="6696025732084565524">Det behövs en viktig uppdatering till ditt frånkopplingsbara tangentbord</translation>
 <translation id="6700713906295497288">IME-menyknapp</translation>
@@ -376,6 +390,7 @@
 <translation id="7377169924702866686">Caps Lock är på.</translation>
 <translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" /> s</translation>
 <translation id="7398254312354928459">Bytte nätverksanslutning</translation>
+<translation id="7405710164030118432">Lås upp enheten genom att ange föräldraåtkomstkoden för Family Link</translation>
 <translation id="742594950370306541">Kameran används.</translation>
 <translation id="743058460480092004">Kameran och mikrofonen används.</translation>
 <translation id="7497767806359279797">Välj språk och tangentbord</translation>
@@ -451,7 +466,6 @@
 <translation id="8454013096329229812">Wi-Fi är aktiverat.</translation>
 <translation id="847056008324733326">Inställningar för skala på skärmen</translation>
 <translation id="8477270416194247200">Avbryt genom att trycka på Alt + söktangenten eller Skift.</translation>
-<translation id="8484916590211895857"><ph name="NAME" />: återansluter …</translation>
 <translation id="8513108775083588393">Rotera automatiskt</translation>
 <translation id="8517041960877371778">Din <ph name="DEVICE_TYPE" /> laddas eventuellt inte så länge den är på.</translation>
 <translation id="8627191004499078455">Ansluten till <ph name="DEVICE_NAME" /></translation>
@@ -467,7 +481,6 @@
 <translation id="8735953464173050365">Visa tangentbordsinställningar. Inställt på <ph name="KEYBOARD_NAME" /></translation>
 <translation id="875593634123171288">Visa VPN-inställningar</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
-<translation id="8825534185036233643">Det finns inte stöd för spegling på fler än två skärmar.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Aktivera och inaktivera rotationslås. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Sök+Escape</translation>

@@ -15,6 +15,7 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "crypto/sha2.h"
 #include "device/fido/authenticator_get_assertion_response.h"
@@ -49,7 +50,6 @@ class Origin;
 
 namespace content {
 
-class AuthenticatorRequestClientDelegate;
 class BrowserContext;
 class RenderFrameHost;
 
@@ -85,6 +85,10 @@ class CONTENT_EXPORT AuthenticatorImpl : public blink::mojom::Authenticator,
   base::flat_set<device::FidoTransportProtocol> enabled_transports_for_testing()
       const {
     return transports_;
+  }
+  void set_transports_for_testing(
+      base::flat_set<device::FidoTransportProtocol> transports) {
+    transports_ = transports;
   }
 
  protected:
@@ -149,12 +153,18 @@ class CONTENT_EXPORT AuthenticatorImpl : public blink::mojom::Authenticator,
       base::Optional<device::AuthenticatorGetAssertionResponse> response_data,
       base::Optional<device::FidoTransportProtocol> transport_used);
 
-  void FailWithNotAllowedErrorAndCleanup();
+  void FailWithErrorAndCleanup();
 
   // Runs when timer expires and cancels all issued requests to a U2fDevice.
   void OnTimeout();
   // Runs when the user cancels WebAuthN request via UI dialog.
   void Cancel();
+
+  // Decides whether or not UI is present that needs to block on user
+  // acknowledgement before returning the error, and handles the error
+  // appropriately.
+  void SignalFailureToRequestDelegate(
+      AuthenticatorRequestClientDelegate::InterestingFailureReason reason);
 
   void InvokeCallbackAndCleanup(
       MakeCredentialCallback callback,
@@ -177,7 +187,7 @@ class CONTENT_EXPORT AuthenticatorImpl : public blink::mojom::Authenticator,
 
   RenderFrameHost* const render_frame_host_;
   service_manager::Connector* connector_ = nullptr;
-  const base::flat_set<device::FidoTransportProtocol> transports_;
+  base::flat_set<device::FidoTransportProtocol> transports_;
 
   std::unique_ptr<device::FidoRequestHandlerBase> request_;
   MakeCredentialCallback make_credential_response_callback_;
@@ -191,6 +201,8 @@ class CONTENT_EXPORT AuthenticatorImpl : public blink::mojom::Authenticator,
   // awaiting_attestation_response_ is true if the embedder has been queried
   // about an attestsation decision and the response is still pending.
   bool awaiting_attestation_response_ = false;
+  blink::mojom::AuthenticatorStatus error_awaiting_user_acknowledgement_ =
+      blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR;
 
   // Owns pipes to this Authenticator from |render_frame_host_|.
   mojo::Binding<blink::mojom::Authenticator> binding_;

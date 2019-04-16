@@ -307,7 +307,7 @@ void ExtensionFunctionDispatcher::DispatchOnIOThread(
     NOTREACHED();
     return;
   }
-  function_io->set_ipc_sender(ipc_sender, routing_id);
+  function_io->set_ipc_sender(ipc_sender);
   function_io->set_extension_info_map(extension_info_map);
   if (extension) {
     function->set_include_incognito_information(
@@ -623,7 +623,7 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
     return NULL;
   }
 
-  function->SetArgs(&params.arguments);
+  function->SetArgs(params.arguments.Clone());
   function->set_source_url(params.source_url);
   function->set_request_id(params.request_id);
   function->set_has_callback(params.has_callback);

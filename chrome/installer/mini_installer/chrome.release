@@ -38,6 +38,7 @@ resources.pak: %(ChromeDir)s\
 notification_helper.exe: %(ChromeDir)s\
 node.dll: %(ChromeDir)s\
 v8_context_snapshot.bin: %(ChromeDir)s\
+
 #
 # Sub directories living in the version dir
 #

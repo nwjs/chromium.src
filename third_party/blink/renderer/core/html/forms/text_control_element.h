@@ -42,7 +42,7 @@ enum TextFieldSelectionDirection {
   kSelectionHasForwardDirection,
   kSelectionHasBackwardDirection
 };
-enum TextFieldEventBehavior {
+enum class TextFieldEventBehavior {
   kDispatchNoEvent,
   kDispatchChangeEvent,
   kDispatchInputAndChangeEvent
@@ -123,7 +123,7 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
   virtual String value() const = 0;
   virtual void setValue(
       const String&,
-      TextFieldEventBehavior = kDispatchNoEvent,
+      TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent,
       TextControlSetValueSelection =
           TextControlSetValueSelection::kSetSelectionToEnd) = 0;
 
@@ -190,6 +190,7 @@ class CORE_EXPORT TextControlElement : public HTMLFormControlElementWithState {
                          WebFocusType,
                          InputDeviceCapabilities* source_capabilities) final;
   void ScheduleSelectEvent();
+  void DisabledOrReadonlyAttributeChanged(const QualifiedName&);
 
   // Returns true if user-editable value is empty. Used to check placeholder
   // visibility.

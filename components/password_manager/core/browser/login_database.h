@@ -17,10 +17,10 @@
 #include "build/build_config.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "components/password_manager/core/browser/password_store_change.h"
+#include "components/password_manager/core/browser/password_store_sync.h"
 #include "components/password_manager/core/browser/psl_matching_helper.h"
 #include "components/password_manager/core/browser/statistics_table.h"
 #include "components/sync/model/metadata_batch.h"
-#include "components/sync/model/sync_metadata_store.h"
 #include "components/sync/protocol/model_type_state.pb.h"
 #include "sql/database.h"
 #include "sql/meta_table.h"
@@ -43,7 +43,7 @@ extern const int kCompatibleVersionNumber;
 // Interface to the database storage of login information, intended as a helper
 // for PasswordStore on platforms that need internal storage of some or all of
 // the login information.
-class LoginDatabase : public syncer::SyncMetadataStore {
+class LoginDatabase : public PasswordStoreSync::MetadataStore {
  public:
   explicit LoginDatabase(const base::FilePath& db_path);
   ~LoginDatabase() override;
@@ -145,7 +145,8 @@ class LoginDatabase : public syncer::SyncMetadataStore {
       WARN_UNUSED_RESULT;
 
   // Gets the complete list of all credentials.
-  bool GetAllLogins(PrimaryKeyToFormMap* key_to_form_map) WARN_UNUSED_RESULT;
+  FormRetrievalResult GetAllLogins(PrimaryKeyToFormMap* key_to_form_map)
+      WARN_UNUSED_RESULT;
 
   // Gets the complete list of not blacklisted credentials.
   bool GetAutofillableLogins(
@@ -180,7 +181,8 @@ class LoginDatabase : public syncer::SyncMetadataStore {
   // empty string if the row for this |form| is not found.
   std::string GetEncryptedPassword(const autofill::PasswordForm& form) const;
 
-  // syncer::SyncMetadataStore implementation.
+  // PasswordStoreSync::MetadataStore implementation.
+  std::unique_ptr<syncer::MetadataBatch> GetAllSyncMetadata() override;
   bool UpdateSyncMetadata(syncer::ModelType model_type,
                           const std::string& storage_key,
                           const sync_pb::EntityMetadata& metadata) override;
@@ -196,9 +198,6 @@ class LoginDatabase : public syncer::SyncMetadataStore {
   // the underlying database. Only one transaction may exist at a time.
   bool BeginTransaction();
   bool CommitTransaction();
-
-  // Returns all the stored sync metadata. Returns null in case of failure.
-  std::unique_ptr<syncer::MetadataBatch> GetAllSyncMetadataForTesting();
 
   StatisticsTable& stats_table() { return stats_table_; }
 
@@ -257,11 +256,15 @@ class LoginDatabase : public syncer::SyncMetadataStore {
 
   // Fills |form| from the values in the given statement (which is assumed to be
   // of the form used by the Get*Logins methods). Fills the corresponding DB
-  // primary key in |primary_key|. Returns the EncryptionResult from decrypting
-  // the password in |s|; if not ENCRYPTION_RESULT_SUCCESS, |form| is not
-  // filled.
+  // primary key in |primary_key|. If |decrypt_and_fill_password_value| is set
+  // to true, it tries to decrypt the stored password and returns the
+  // EncryptionResult from decrypting the password in |s|; if not
+  // ENCRYPTION_RESULT_SUCCESS, |form| is not filled. If
+  // |decrypt_and_fill_password_value| is set to false, it always returns
+  // ENCRYPTION_RESULT_SUCCESS.
   EncryptionResult InitPasswordFormFromStatement(
       const sql::Statement& s,
+      bool decrypt_and_fill_password_value,
       int* primary_key,
       autofill::PasswordForm* form) const WARN_UNUSED_RESULT;
 
@@ -287,22 +290,23 @@ class LoginDatabase : public syncer::SyncMetadataStore {
 
   // Reads all the stored sync entities metadata in a MetadataBatch. Returns
   // nullptr in case of failure.
-  std::unique_ptr<syncer::MetadataBatch> GetAllSyncEntityMetadataForTesting();
+  std::unique_ptr<syncer::MetadataBatch> GetAllSyncEntityMetadata();
 
   // Reads the stored ModelTypeState. Returns nullptr in case of failure.
-  std::unique_ptr<sync_pb::ModelTypeState> GetModelTypeStateForTesting();
+  std::unique_ptr<sync_pb::ModelTypeState> GetModelTypeState();
 
-  // Overwrites |forms| with credentials retrieved from |statement|. If
-  // |matched_form| is not null, filters out all results but those PSL-matching
+  // Overwrites |key_to_form_map| with credentials retrieved from |statement|.
+  // If |matched_form| is not null, filters out all results but those
+  // PSL-matching
   // |*matched_form| or federated credentials for it. If feature for recovering
   // passwords is enabled, it removes all passwords that couldn't be decrypted
   // when encryption was available from the database. On success returns true.
   // |key_to_form_map| must not be null and will be used to return the results.
   // The key of the map is the DB primary key.
-  bool StatementToForms(sql::Statement* statement,
-                        const PasswordStore::FormDigest* matched_form,
-                        PrimaryKeyToFormMap* key_to_form_map)
-      WARN_UNUSED_RESULT;
+  FormRetrievalResult StatementToForms(
+      sql::Statement* statement,
+      const PasswordStore::FormDigest* matched_form,
+      PrimaryKeyToFormMap* key_to_form_map) WARN_UNUSED_RESULT;
 
   // Initializes all the *_statement_ data members with appropriate SQL
   // fragments based on |builder|.

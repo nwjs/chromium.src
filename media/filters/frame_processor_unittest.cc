@@ -966,13 +966,10 @@ TEST_P(FrameProcessorTest,
   AddTestTracks(HAS_AUDIO);
 
   if (use_sequence_mode_) {
-    EXPECT_MEDIA_LOG(ParsedDTSGreaterThanPTS()).Times(2);
     frame_processor_->SetSequenceMode(true);
     EXPECT_CALL(callbacks_, PossibleDurationIncrease(Milliseconds(20)));
   } else {
-    EXPECT_MEDIA_LOG(ParsedDTSGreaterThanPTS());
     EXPECT_MEDIA_LOG(TruncatedFrame(-7000, 3000, "start", 0));
-    EXPECT_MEDIA_LOG(ParsedDTSGreaterThanPTS());
     EXPECT_CALL(callbacks_, PossibleDurationIncrease(Milliseconds(13)));
   }
 
@@ -1154,7 +1151,6 @@ TEST_P(FrameProcessorTest,
 
   CheckExpectedRangesByTimestamp(video_.get(), "{ [50,70) }");
 
-  EXPECT_MEDIA_LOG(ParsedDTSGreaterThanPTS());
   EXPECT_CALL(callbacks_,
               OnParseWarning(
                   SourceBufferParseWarning::kKeyframeTimeGreaterThanDependant));
@@ -2035,22 +2031,22 @@ TEST_P(FrameProcessorTest,
   CheckReadsThenReadStalls(audio_.get(), "0 10 20 30");
 }
 
-INSTANTIATE_TEST_CASE_P(SequenceModeLegacyByDts,
-                        FrameProcessorTest,
-                        Values(FrameProcessorTestParams(
-                            true,
-                            ChunkDemuxerStream::RangeApi::kLegacyByDts)));
-INSTANTIATE_TEST_CASE_P(SegmentsModeLegacyByDts,
-                        FrameProcessorTest,
-                        Values(FrameProcessorTestParams(
-                            false,
-                            ChunkDemuxerStream::RangeApi::kLegacyByDts)));
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(SequenceModeLegacyByDts,
+                         FrameProcessorTest,
+                         Values(FrameProcessorTestParams(
+                             true,
+                             ChunkDemuxerStream::RangeApi::kLegacyByDts)));
+INSTANTIATE_TEST_SUITE_P(SegmentsModeLegacyByDts,
+                         FrameProcessorTest,
+                         Values(FrameProcessorTestParams(
+                             false,
+                             ChunkDemuxerStream::RangeApi::kLegacyByDts)));
+INSTANTIATE_TEST_SUITE_P(
     SequenceModeNewByPts,
     FrameProcessorTest,
     Values(FrameProcessorTestParams(true,
                                     ChunkDemuxerStream::RangeApi::kNewByPts)));
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SegmentsModeNewByPts,
     FrameProcessorTest,
     Values(FrameProcessorTestParams(false,

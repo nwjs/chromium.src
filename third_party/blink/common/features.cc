@@ -5,12 +5,10 @@
 #include "third_party/blink/public/common/features.h"
 
 #include "build/build_config.h"
+#include "services/network/public/cpp/features.h"
 
 namespace blink {
 namespace features {
-
-const base::Feature kAutofillPreviewStyleExperiment{
-    "AutofillPreviewStyleExperiment", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable defer commits a bit to avoid flash.
 const base::Feature kAvoidFlashBetweenNavigation{
@@ -36,11 +34,8 @@ const base::Feature kScriptStreaming{"ScriptStreaming",
 const base::Feature kFirstContentfulPaintPlusPlus{
     "FirstContentfulPaintPlusPlus", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Tracks "jank" from layout objects changing their visual location between
-// animation frames (see crbug.com/581518).
-const base::Feature kJankTracking{"JankTracking",
-                                  base::FEATURE_DISABLED_BY_DEFAULT};
-
+// Enables the experimental sweep-line algorithm for tracking "jank" from
+// layout objects changing their visual location between animation frames.
 const base::Feature kJankTrackingSweepLine{"JankTrackingSweepLine",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
 
@@ -69,9 +64,25 @@ const base::Feature kMojoBlobURLs{"MojoBlobURLs",
 const base::Feature kNavigationPredictor{"NavigationPredictor",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enable off-the-main-thread dedicated worker script fetch.
+// (https://crbug.com/835717)
+const base::Feature kOffMainThreadDedicatedWorkerScriptFetch{
+    "OffMainThreadDedicatedWorkerScriptFetch",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable off-the-main-thread service worker script fetch.
+// (https://crbug.com/924043)
+const base::Feature kOffMainThreadServiceWorkerScriptFetch{
+    "OffMainThreadServiceWorkerScriptFetch", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable off-the-main-thread shared worker script fetch.
+// (https://crbug.com/924041)
+const base::Feature kOffMainThreadSharedWorkerScriptFetch{
+    "OffMainThreadSharedWorkerScriptFetch", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Onion souping for all DOMStorage. https://crbug.com/781870
 const base::Feature kOnionSoupDOMStorage{"OnionSoupDOMStorage",
-                                         base::FEATURE_DISABLED_BY_DEFAULT};
+                                         base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991
@@ -85,6 +96,10 @@ const base::Feature kPortals{"Portals", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kPreviewsResourceLoadingHintsSpecificResourceTypes{
     "PreviewsResourceLoadingHintsSpecificResourceTypes",
     base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Purge memory when freezing only if the renderer is backgrounded.
+const base::Feature kPurgeMemoryOnlyForBackgroundedProcesses{
+    "FreezePurgeMemoryBackgroundedOnly", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable Implicit Root Scroller. https://crbug.com/903260.
 const base::Feature kImplicitRootScroller{"ImplicitRootScroller",
@@ -113,7 +128,7 @@ const base::Feature kRTCOfferExtmapAllowMixed{
 // WebURLLoaderClient::DidStartLoadingResponseBody() instead of
 // WebURLLoaderClient::DidReceiveData().
 const base::Feature kResourceLoadViaDataPipe{"ResourceLoadViaDataPipe",
-                                             base::FEATURE_DISABLED_BY_DEFAULT};
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kServiceWorkerImportedScriptUpdateCheck{
     "ServiceWorkerImportedScriptUpdateCheck",
@@ -125,11 +140,6 @@ const base::Feature kServiceWorkerParallelSideDataReading{
 
 const base::Feature kServiceWorkerAggressiveCodeCache{
     "ServiceWorkerAggressiveCodeCache", base::FEATURE_DISABLED_BY_DEFAULT};
-
-// Enable new service worker glue for NetworkService. Can be
-// enabled independently of NetworkService.
-const base::Feature kServiceWorkerServicification{
-    "ServiceWorkerServicification", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Freeze scheduler task queues in background after allowed grace time.
 // "stop" is a legacy name.
@@ -153,6 +163,10 @@ const base::Feature kStopNonTimersInBackground {
 #endif
 };
 
+// Enable text snippets in URL fragments. https://crbug.com/919204.
+const base::Feature kTextFragmentAnchor{"TextFragmentAnchor",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enables the site isolated Wasm code cache that is keyed on the resource URL
 // and the origin lock of the renderer that is requesting the resource. When
 // this flag is enabled, content/GeneratedCodeCache handles code cache requests.
@@ -160,16 +174,19 @@ const base::Feature kWasmCodeCache = {"WasmCodeCache",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Writable files and native filesystem access. https://crbug.com/853326
-const base::Feature kWritableFilesAPI{"WritableFilesAPI",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kNativeFilesystemAPI{"NativeFilesystemAPI",
+                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Allows for synchronous XHR requests during page dismissal
 const base::Feature kForbidSyncXHRInPageDismissal{
     "ForbidSyncXHRInPageDismissal", base::FEATURE_DISABLED_BY_DEFAULT};
 
-const char kAutofillPreviewStyleExperimentBgColorParameterName[] = "bg_color";
-
-const char kAutofillPreviewStyleExperimentColorParameterName[] = "color";
+// Emergency lever that can be used to restore DeviceOrientationEvent and
+// DeviceMotionEvent functionality in non-secure browsing contexts.
+// See: https://crbug.com/932078.
+const base::Feature kRestrictDeviceSensorEventsToSecureContexts{
+    "RestrictDeviceSensorEventsToSecureContexts",
+    base::FEATURE_ENABLED_BY_DEFAULT};
 
 const char kMixedContentAutoupgradeModeParamName[] = "mode";
 const char kMixedContentAutoupgradeModeBlockable[] = "blockable";
@@ -186,8 +203,50 @@ const base::Feature kAlwaysAccelerateCanvas{"AlwaysAccelerateCanvas",
                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables cache-aware WebFonts loading. See https://crbug.com/570205.
-const base::Feature kWebFontsCacheAwareTimeoutAdaption{
-    "WebFontsCacheAwareTimeoutAdaption", base::FEATURE_ENABLED_BY_DEFAULT};
+// The feature is disabled on Android for WebView API issue discussed at
+// https://crbug.com/942440.
+const base::Feature kWebFontsCacheAwareTimeoutAdaption {
+  "WebFontsCacheAwareTimeoutAdaption",
+#if defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
+
+bool IsOffMainThreadSharedWorkerScriptFetchEnabled() {
+  // Off-the-main-thread shared worker script fetch depends on PlzSharedWorker
+  // (NetworkService).
+  DCHECK(!base::FeatureList::IsEnabled(
+             features::kOffMainThreadSharedWorkerScriptFetch) ||
+         base::FeatureList::IsEnabled(network::features::kNetworkService))
+      << "OffMainThreadSharedWorkerScriptFetch is enabled but NetworkService "
+      << "isn't. OffMainThreadSharedWorkerScriptFetch requires NetworkService.";
+  return base::FeatureList::IsEnabled(network::features::kNetworkService) &&
+         base::FeatureList::IsEnabled(
+             features::kOffMainThreadSharedWorkerScriptFetch);
+}
+
+bool IsPlzDedicatedWorkerEnabled() {
+  // PlzDedicatedWorker depends on off-the-main-thread dedicated worker script
+  // fetch and NetworkService.
+#if DCHECK_IS_ON()
+  if (base::FeatureList::IsEnabled(features::kPlzDedicatedWorker)) {
+    DCHECK(base::FeatureList::IsEnabled(
+        features::kOffMainThreadDedicatedWorkerScriptFetch))
+        << "PlzDedicatedWorker is enabled but "
+        << "OffMainThreadDedicatedWorkerScriptFetch isn't. PlzDedicatedWorker "
+        << "requires OffMainThreadDedicatedWorkerScriptFetch.";
+    DCHECK(base::FeatureList::IsEnabled(network::features::kNetworkService))
+        << "PlzDedicatedWorker is enabled but NetworkService isn't. "
+        << "PlzDedicatedWorker requires NetworkService.";
+  }
+#endif  // DCHECK_IS_ON()
+  return base::FeatureList::IsEnabled(
+             features::kOffMainThreadDedicatedWorkerScriptFetch) &&
+         base::FeatureList::IsEnabled(network::features::kNetworkService) &&
+         base::FeatureList::IsEnabled(features::kPlzDedicatedWorker);
+}
 
 }  // namespace features
 }  // namespace blink

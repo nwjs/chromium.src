@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/json/json_reader.h"
@@ -148,9 +149,10 @@ class WebRtcGetUserMediaBrowserTest : public WebRtcContentBrowserTestBase,
 
     int error_code;
     std::string error_message;
-    std::unique_ptr<base::Value> value = base::JSONReader::ReadAndReturnError(
-        devices_as_json, base::JSON_ALLOW_TRAILING_COMMAS, &error_code,
-        &error_message);
+    std::unique_ptr<base::Value> value =
+        base::JSONReader::ReadAndReturnErrorDeprecated(
+            devices_as_json, base::JSON_ALLOW_TRAILING_COMMAS, &error_code,
+            &error_message);
 
     ASSERT_TRUE(value.get() != nullptr) << error_message;
     EXPECT_EQ(value->type(), base::Value::Type::LIST);
@@ -880,12 +882,12 @@ IN_PROC_BROWSER_TEST_P(WebRtcGetUserMediaBrowserTest,
 #if (defined(OS_LINUX) && !defined(CHROME_OS)) || defined(OS_MACOSX) || \
     defined(OS_WIN)
 // Supported platforms.
-INSTANTIATE_TEST_CASE_P(, WebRtcGetUserMediaBrowserTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, WebRtcGetUserMediaBrowserTest, ::testing::Bool());
 #else
 // Platforms where the out of process audio service is not supported
-INSTANTIATE_TEST_CASE_P(,
-                        WebRtcGetUserMediaBrowserTest,
-                        ::testing::Values(false));
+INSTANTIATE_TEST_SUITE_P(,
+                         WebRtcGetUserMediaBrowserTest,
+                         ::testing::Values(false));
 #endif
 
 }  // namespace content

@@ -9,7 +9,10 @@
 #include "ash/display/screen_orientation_controller_test_api.h"
 #include "ash/magnifier/docked_magnifier_controller.h"
 #include "ash/public/cpp/app_types.h"
+#include "ash/public/cpp/fps_counter.h"
+#include "ash/public/cpp/presentation_time_recorder.h"
 #include "ash/public/cpp/window_properties.h"
+#include "ash/root_window_controller.h"
 #include "ash/screen_util.h"
 #include "ash/session/session_controller.h"
 #include "ash/session/test_session_controller_client.h"
@@ -25,12 +28,13 @@
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_item.h"
+#include "ash/wm/overview/overview_observer.h"
 #include "ash/wm/splitview/split_view_divider.h"
 #include "ash/wm/splitview/split_view_drag_indicators.h"
 #include "ash/wm/splitview/split_view_utils.h"
-#include "ash/wm/tablet_mode/tablet_mode_app_window_drag_controller.h"
-#include "ash/wm/tablet_mode/tablet_mode_browser_window_drag_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_browser_window_drag_delegate.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_drag_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_window_drag_delegate.h"
 #include "ash/wm/window_resizer.h"
 #include "ash/wm/window_state.h"
@@ -38,6 +42,7 @@
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
 #include "base/stl_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/test/test_window_delegate.h"
@@ -57,17 +62,17 @@ namespace ash {
 namespace {
 
 // The observer to observe the overview states in |root_window_|.
-class OverviewStatesObserver : public ShellObserver {
+class OverviewStatesObserver : public OverviewObserver {
  public:
   OverviewStatesObserver(aura::Window* root_window)
       : root_window_(root_window) {
-    Shell::Get()->AddShellObserver(this);
+    Shell::Get()->overview_controller()->AddObserver(this);
   }
   ~OverviewStatesObserver() override {
-    Shell::Get()->RemoveShellObserver(this);
+    Shell::Get()->overview_controller()->RemoveObserver(this);
   }
 
-  // ShellObserver:
+  // OverviewObserver:
   void OnOverviewModeStarting() override {
     // Reset the value to true.
     overview_animate_when_exiting_ = true;
@@ -121,6 +126,16 @@ class SplitViewControllerTest : public AshTestBase {
     // mode.
     base::RunLoop().RunUntilIdle();
     Shell::Get()->tablet_mode_controller()->EnableTabletModeWindowManager(true);
+    FpsCounter::SetFoceReportZeroAnimationForTest(true);
+    ash::PresentationTimeRecorder::SetReportPresentationTimeImmediatelyForTest(
+        true);
+  }
+  void TearDown() override {
+    ash::PresentationTimeRecorder::SetReportPresentationTimeImmediatelyForTest(
+        false);
+    FpsCounter::SetFoceReportZeroAnimationForTest(false);
+    trace_names_.clear();
+    AshTestBase::TearDown();
   }
 
   aura::Window* CreateWindow(
@@ -136,6 +151,18 @@ class SplitViewControllerTest : public AshTestBase {
     window->SetProperty(aura::client::kResizeBehaviorKey,
                         ws::mojom::kResizeBehaviorNone);
     return window;
+  }
+
+  bool IsDividerAnimating() {
+    return split_view_controller()->IsDividerAnimating();
+  }
+
+  void SkipDividerSnapAnimation() {
+    if (!IsDividerAnimating())
+      return;
+    split_view_controller()->StopAndShoveAnimatedDivider();
+    split_view_controller()->EndResizeImpl();
+    split_view_controller()->EndSplitViewAfterResizingIfAppropriate();
   }
 
   void EndSplitView() { split_view_controller()->EndSplitView(); }
@@ -155,7 +182,7 @@ class SplitViewControllerTest : public AshTestBase {
   std::vector<aura::Window*> GetWindowsInOverviewGrids() {
     return Shell::Get()
         ->overview_controller()
-        ->GetWindowsListInOverviewGridsForTesting();
+        ->GetWindowsListInOverviewGridsForTest();
   }
 
   SplitViewController* split_view_controller() {
@@ -183,7 +210,40 @@ class SplitViewControllerTest : public AshTestBase {
     void OnWindowDestroyed(aura::Window* window) override { delete this; }
   };
 
+  void CheckOverviewEnterExitHistogram(const char* trace,
+                                       std::vector<int>&& enter_counts,
+                                       std::vector<int>&& exit_counts) {
+    DCHECK(!base::ContainsValue(trace_names_, trace)) << trace;
+    trace_names_.push_back(trace);
+    {
+      SCOPED_TRACE(trace + std::string(".Enter"));
+      CheckOverviewHistogram("Ash.Overview.AnimationSmoothness.Enter",
+                             std::move(enter_counts));
+    }
+    {
+      SCOPED_TRACE(trace + std::string(".Exit"));
+      CheckOverviewHistogram("Ash.Overview.AnimationSmoothness.Exit",
+                             std::move(exit_counts));
+    }
+  }
+
+  const base::HistogramTester& histograms() const { return histograms_; }
+
  private:
+  void CheckOverviewHistogram(const char* histogram, std::vector<int> counts) {
+    // These two events should never happen in this test.
+    histograms_.ExpectTotalCount(histogram + std::string(".ClamshellMode"), 0);
+    histograms_.ExpectTotalCount(
+        histogram + std::string(".SingleClamshellMode"), 0);
+
+    histograms_.ExpectTotalCount(histogram + std::string(".TabletMode"),
+                                 counts[0]);
+    histograms_.ExpectTotalCount(histogram + std::string(".SplitView"),
+                                 counts[1]);
+  }
+  std::vector<std::string> trace_names_;
+  base::HistogramTester histograms_;
+
   DISALLOW_COPY_AND_ASSIGN(SplitViewControllerTest);
 };
 
@@ -490,6 +550,8 @@ TEST_F(SplitViewControllerTest, ExitOverviewTest) {
   EXPECT_EQ(split_view_controller()->IsSplitViewModeActive(), false);
 
   ToggleOverview();
+  CheckOverviewEnterExitHistogram("EnterInTablet", {1, 0}, {0, 0});
+
   split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
   EXPECT_EQ(split_view_controller()->IsSplitViewModeActive(), true);
   EXPECT_EQ(split_view_controller()->state(),
@@ -500,6 +562,7 @@ TEST_F(SplitViewControllerTest, ExitOverviewTest) {
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::BOTH_SNAPPED);
   EXPECT_EQ(split_view_controller()->right_window(), window3.get());
+  CheckOverviewEnterExitHistogram("ExitInSplitView", {1, 0}, {0, 1});
 }
 
 // Tests that if split view mode is active when entering overview, the overview
@@ -519,11 +582,15 @@ TEST_F(SplitViewControllerTest, EnterOverviewModeTest) {
   EXPECT_EQ(split_view_controller()->GetDefaultSnappedWindow(), window1.get());
 
   ToggleOverview();
+  CheckOverviewEnterExitHistogram("EnterInSplitView", {0, 1}, {0, 0});
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::LEFT_SNAPPED);
   EXPECT_FALSE(
       base::ContainsValue(GetWindowsInOverviewGrids(),
                           split_view_controller()->GetDefaultSnappedWindow()));
+
+  ToggleOverview();
+  CheckOverviewEnterExitHistogram("ExitInSplitView", {0, 1}, {0, 1});
 }
 
 // Tests that the split divider was created when the split view mode is active
@@ -578,6 +645,7 @@ TEST_F(SplitViewControllerTest, SplitDividerWindowBounds) {
   GetEventGenerator()->set_current_screen_location(
       divider_bounds.CenterPoint());
   GetEventGenerator()->DragMouseTo(screen_width * 0.67f, 0);
+  SkipDividerSnapAnimation();
   window1_width = window1->GetBoundsInScreen().width();
   window2_width = window2->GetBoundsInScreen().width();
   const int old_window1_width = window1_width;
@@ -594,6 +662,7 @@ TEST_F(SplitViewControllerTest, SplitDividerWindowBounds) {
   GetEventGenerator()->set_current_screen_location(
       divider_bounds.CenterPoint());
   GetEventGenerator()->DragMouseTo(screen_width * 0.7f, 0);
+  SkipDividerSnapAnimation();
   window1_width = window1->GetBoundsInScreen().width();
   window2_width = window2->GetBoundsInScreen().width();
   EXPECT_EQ(window1_width, old_window1_width);
@@ -606,6 +675,7 @@ TEST_F(SplitViewControllerTest, SplitDividerWindowBounds) {
   GetEventGenerator()->set_current_screen_location(
       divider_bounds.CenterPoint());
   GetEventGenerator()->DragMouseTo(screen_width * 0.33f, 0);
+  SkipDividerSnapAnimation();
   window1_width = window1->GetBoundsInScreen().width();
   window2_width = window2->GetBoundsInScreen().width();
   EXPECT_GT(window2_width, 2 * window1_width);
@@ -664,8 +734,178 @@ TEST_F(SplitViewControllerTest, DisplayConfigurationChangeTest) {
             new_bounds_divider.x() + new_bounds_divider.width());
 }
 
+// Tests that the bounds of the snapped windows and divider are adjusted when
+// the internal screen display configuration changes.
+TEST_F(SplitViewControllerTest, InternalDisplayConfigurationChangeTest) {
+  UpdateDisplay("407x400");
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+
+  const gfx::Rect bounds(0, 0, 200, 200);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+
+  const gfx::Rect bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Test that |window1| and |window2| has the same width and height after snap.
+  EXPECT_NEAR(bounds_window1.width(), bounds_window2.width(), 1);
+  EXPECT_EQ(bounds_window1.height(), bounds_window2.height());
+  EXPECT_EQ(bounds_divider.height(), bounds_window1.height());
+
+  // Test that |window1|, divider, |window2| are aligned properly.
+  EXPECT_EQ(bounds_divider.x(), bounds_window1.x() + bounds_window1.width());
+  EXPECT_EQ(bounds_window2.x(), bounds_divider.x() + bounds_divider.width());
+
+  // Now change the display configuration.
+  UpdateDisplay("507x500");
+  const gfx::Rect new_bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect new_bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect new_bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Test that the new bounds are different with the old ones.
+  EXPECT_NE(bounds_window1, new_bounds_window1);
+  EXPECT_NE(bounds_window2, new_bounds_window2);
+  EXPECT_NE(bounds_divider, new_bounds_divider);
+
+  // Test that |window1|, divider, |window2| are still aligned properly.
+  EXPECT_EQ(new_bounds_divider.x(),
+            new_bounds_window1.x() + new_bounds_window1.width());
+  EXPECT_EQ(new_bounds_window2.x(),
+            new_bounds_divider.x() + new_bounds_divider.width());
+}
+
+// Test that if the internal screen display configuration changes during the
+// divider snap animation, then this animation stops, and the bounds of the
+// snapped windows and divider are adjusted as normal.
+TEST_F(SplitViewControllerTest,
+       InternalDisplayConfigurationChangeDuringDividerSnap) {
+  UpdateDisplay("407x400");
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+
+  const gfx::Rect bounds(0, 0, 200, 200);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+
+  const gfx::Rect bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Test that |window1| and |window2| has the same width and height after snap.
+  EXPECT_NEAR(bounds_window1.width(), bounds_window2.width(), 1);
+  EXPECT_EQ(bounds_window1.height(), bounds_window2.height());
+  EXPECT_EQ(bounds_divider.height(), bounds_window1.height());
+
+  // Test that |window1|, divider, |window2| are aligned properly.
+  EXPECT_EQ(bounds_divider.x(), bounds_window1.x() + bounds_window1.width());
+  EXPECT_EQ(bounds_window2.x(), bounds_divider.x() + bounds_divider.width());
+
+  // Drag the divider to trigger the snap animation.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  GetEventGenerator()->DragMouseBy(20, 0);
+  ASSERT_TRUE(IsDividerAnimating());
+  const gfx::Rect animation_start_bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect animation_start_bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect animation_start_bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Change the display configuration and check that the snap animation stops.
+  UpdateDisplay("507x500");
+  EXPECT_FALSE(IsDividerAnimating());
+  const gfx::Rect new_bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect new_bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect new_bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Test that the new bounds are different with the old ones.
+  EXPECT_NE(bounds_window1, new_bounds_window1);
+  EXPECT_NE(bounds_window2, new_bounds_window2);
+  EXPECT_NE(bounds_divider, new_bounds_divider);
+
+  // Test that the new bounds are also different with the ones from the start of
+  // the divider snap animation.
+  EXPECT_NE(bounds_window1, animation_start_bounds_window1);
+  EXPECT_NE(bounds_window2, animation_start_bounds_window2);
+  EXPECT_NE(bounds_divider, animation_start_bounds_divider);
+
+  // Test that |window1|, divider, |window2| are still aligned properly.
+  EXPECT_EQ(new_bounds_divider.x(),
+            new_bounds_window1.x() + new_bounds_window1.width());
+  EXPECT_EQ(new_bounds_window2.x(),
+            new_bounds_divider.x() + new_bounds_divider.width());
+}
+
+// Test that if the internal screen display configuration changes during the
+// divider snap animation, and if the adjusted divider bounds place it at an
+// edge of the screen, then split view ends.
+TEST_F(SplitViewControllerTest,
+       InternalDisplayConfigurationChangeDuringDividerSnapToEndSplitView) {
+  UpdateDisplay("407x400");
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+
+  const gfx::Rect bounds(0, 0, 200, 200);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+
+  const gfx::Rect bounds_window1 = window1->GetBoundsInScreen();
+  const gfx::Rect bounds_window2 = window2->GetBoundsInScreen();
+  const gfx::Rect bounds_divider =
+      split_view_divider()->GetDividerBoundsInScreen(false /* is_dragging */);
+
+  // Test that |window1| and |window2| has the same width and height after snap.
+  EXPECT_NEAR(bounds_window1.width(), bounds_window2.width(), 1);
+  EXPECT_EQ(bounds_window1.height(), bounds_window2.height());
+  EXPECT_EQ(bounds_divider.height(), bounds_window1.height());
+
+  // Test that |window1|, divider, |window2| are aligned properly.
+  EXPECT_EQ(bounds_divider.x(), bounds_window1.x() + bounds_window1.width());
+  EXPECT_EQ(bounds_window2.x(), bounds_divider.x() + bounds_divider.width());
+
+  // Drag the divider to end split view pending the snap animation.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  GetEventGenerator()->DragMouseBy(bounds_window2.width() - 20, 0);
+  ASSERT_TRUE(split_view_controller()->IsSplitViewModeActive());
+  ASSERT_TRUE(IsDividerAnimating());
+
+  // Change the display configuration and check that split view ends.
+  UpdateDisplay("507x500");
+  EXPECT_FALSE(split_view_controller()->IsSplitViewModeActive());
+}
+
 // Verify the left and right windows get swapped when SwapWindows is called or
-// the divider is double tapped.
+// the divider is double clicked.
 TEST_F(SplitViewControllerTest, SwapWindows) {
   const gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
@@ -674,8 +914,8 @@ TEST_F(SplitViewControllerTest, SwapWindows) {
   split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
   split_view_controller()->SnapWindow(window2.get(),
                                       SplitViewController::RIGHT);
-  EXPECT_EQ(split_view_controller()->left_window(), window1.get());
-  EXPECT_EQ(split_view_controller()->right_window(), window2.get());
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
 
   gfx::Rect left_bounds = window1->GetBoundsInScreen();
   gfx::Rect right_bounds = window2->GetBoundsInScreen();
@@ -694,8 +934,8 @@ TEST_F(SplitViewControllerTest, SwapWindows) {
   split_view_controller()->SnapWindow(window1.get(),
                                       SplitViewController::RIGHT);
   split_view_controller()->SnapWindow(window2.get(), SplitViewController::LEFT);
-  EXPECT_EQ(split_view_controller()->right_window(), window1.get());
-  EXPECT_EQ(split_view_controller()->left_window(), window2.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->left_window(), window2.get());
 
   left_bounds = window2->GetBoundsInScreen();
   right_bounds = window1->GetBoundsInScreen();
@@ -706,7 +946,7 @@ TEST_F(SplitViewControllerTest, SwapWindows) {
   EXPECT_EQ(left_bounds, window1->GetBoundsInScreen());
   EXPECT_EQ(right_bounds, window2->GetBoundsInScreen());
 
-  // Perform a double tap on the divider center.
+  // Perform a double click on the divider center.
   const gfx::Point divider_center =
       split_view_divider()
           ->GetDividerBoundsInScreen(false /* is_dragging */)
@@ -718,6 +958,146 @@ TEST_F(SplitViewControllerTest, SwapWindows) {
   EXPECT_EQ(split_view_controller()->right_window(), window1.get());
   EXPECT_EQ(left_bounds, window2->GetBoundsInScreen());
   EXPECT_EQ(right_bounds, window1->GetBoundsInScreen());
+}
+
+// Verify the left and right windows get swapped when the divider is double
+// tapped. SwapWindows() contains a long code comment that shows it is worth
+// having separate tests for double clicking and double tapping the divider.
+TEST_F(SplitViewControllerTest, DoubleTapDivider) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
+
+  gfx::Rect left_bounds = window1->GetBoundsInScreen();
+  gfx::Rect right_bounds = window2->GetBoundsInScreen();
+
+  // Perform a double tap on the divider center.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->GestureTapAt(divider_center);
+  GetEventGenerator()->GestureTapAt(divider_center);
+
+  EXPECT_EQ(split_view_controller()->left_window(), window2.get());
+  EXPECT_EQ(split_view_controller()->right_window(), window1.get());
+  EXPECT_EQ(left_bounds, window2->GetBoundsInScreen());
+  EXPECT_EQ(right_bounds, window1->GetBoundsInScreen());
+}
+
+// Verify the left and right windows do not get swapped when the divider is
+// dragged and double clicked.
+TEST_F(SplitViewControllerTest, DragAndDoubleClickDivider) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
+
+  // Drag the divider and double click it before the snap animation moves it.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  GetEventGenerator()->DragMouseBy(20, 0);
+  GetEventGenerator()->DoubleClickLeftButton();
+
+  EXPECT_EQ(split_view_controller()->left_window(), window1.get());
+  EXPECT_EQ(split_view_controller()->right_window(), window2.get());
+}
+
+// Verify the left and right windows do not get swapped when the divider is
+// dragged and double tapped.
+TEST_F(SplitViewControllerTest, DragAndDoubleTapDivider) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
+
+  // Drag the divider and double tap it before the snap animation moves it.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  const gfx::Point drag_destination = divider_center + gfx::Vector2d(20, 0);
+  GetEventGenerator()->DragMouseTo(drag_destination);
+  GetEventGenerator()->GestureTapAt(drag_destination);
+  GetEventGenerator()->GestureTapAt(drag_destination);
+
+  EXPECT_EQ(split_view_controller()->left_window(), window1.get());
+  EXPECT_EQ(split_view_controller()->right_window(), window2.get());
+}
+
+// Verify that you cannot snap a window during the divider snap animation.
+TEST_F(SplitViewControllerTest, SnapWindowDuringDividerSnapAnimation) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window3(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window4(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
+
+  // Drag the divider to trigger the snap animation.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  GetEventGenerator()->DragMouseBy(20, 0);
+  ASSERT_TRUE(IsDividerAnimating());
+
+  split_view_controller()->SnapWindow(window3.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window4.get(),
+                                      SplitViewController::RIGHT);
+  EXPECT_EQ(split_view_controller()->left_window(), window1.get());
+  EXPECT_EQ(split_view_controller()->right_window(), window2.get());
+}
+
+// Verify that you cannot start dragging the divider during its snap animation.
+TEST_F(SplitViewControllerTest, StartDraggingDividerDuringSnapAnimation) {
+  const gfx::Rect bounds(0, 0, 400, 400);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  ASSERT_EQ(split_view_controller()->left_window(), window1.get());
+  ASSERT_EQ(split_view_controller()->right_window(), window2.get());
+
+  // Drag the divider and then try to start dragging it again without waiting
+  // for the snap animation.
+  const gfx::Point divider_center =
+      split_view_divider()
+          ->GetDividerBoundsInScreen(false /* is_dragging */)
+          .CenterPoint();
+  GetEventGenerator()->set_current_screen_location(divider_center);
+  GetEventGenerator()->DragMouseBy(20, 0);
+  GetEventGenerator()->PressLeftButton();
+  EXPECT_FALSE(split_view_controller()->is_resizing());
+  GetEventGenerator()->ReleaseLeftButton();
 }
 
 // Verifies that by long pressing on the overview button tray, split view gets
@@ -877,6 +1257,7 @@ TEST_F(SplitViewControllerTest, LongPressInOverviewMode) {
   ToggleOverview();
   ASSERT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
   ASSERT_FALSE(split_view_controller()->IsSplitViewModeActive());
+  CheckOverviewEnterExitHistogram("EnterInTablet", {1, 0}, {0, 0});
 
   // Nothing happens if there is only one window.
   LongPressOnOverivewButtonTray();
@@ -886,13 +1267,18 @@ TEST_F(SplitViewControllerTest, LongPressInOverviewMode) {
   // enter splitview.
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
   wm::ActivateWindow(window2.get());
+  CheckOverviewEnterExitHistogram("ExitByActivation", {1, 0}, {1, 0});
+
   ToggleOverview();
+  CheckOverviewEnterExitHistogram("EnterInTablet2", {2, 0}, {1, 0});
   ASSERT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
   ASSERT_FALSE(split_view_controller()->IsSplitViewModeActive());
 
   LongPressOnOverivewButtonTray();
   EXPECT_TRUE(split_view_controller()->IsSplitViewModeActive());
   EXPECT_EQ(window2.get(), split_view_controller()->left_window());
+  // This scenario should not trigger animation.
+  CheckOverviewEnterExitHistogram("NoTransition", {2, 0}, {1, 0});
 }
 
 TEST_F(SplitViewControllerTest, LongPressWithUnsnappableWindow) {
@@ -1099,6 +1485,11 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
   split_view_controller()->StartResize(divider_bounds.CenterPoint());
   gfx::Point resize_point(display_bounds.width() * 0.33f, 0);
   split_view_controller()->Resize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      0);
 
   gfx::Rect snapped_window_bounds =
       split_view_controller()->GetSnappedWindowBoundsInScreen(
@@ -1109,6 +1500,13 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
             window1->delegate()->GetMinimumSize().width());
   EXPECT_FALSE(window1->layer()->GetTargetTransform().IsIdentity());
   split_view_controller()->EndResize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      1);
+
+  SkipDividerSnapAnimation();
   EndSplitView();
 
   // Rotate the screen by 270 degree.
@@ -1138,6 +1536,7 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
             window1->delegate()->GetMinimumSize().height());
   EXPECT_FALSE(window1->layer()->GetTargetTransform().IsIdentity());
   split_view_controller()->EndResize(resize_point);
+  SkipDividerSnapAnimation();
   EndSplitView();
 
   // Rotate the screen by 180 degree.
@@ -1169,6 +1568,7 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
             window1->delegate()->GetMinimumSize().width());
   EXPECT_FALSE(window1->layer()->GetTargetTransform().IsIdentity());
   split_view_controller()->EndResize(resize_point);
+  SkipDividerSnapAnimation();
   EndSplitView();
 
   // Rotate the screen by 90 degree.
@@ -1200,6 +1600,7 @@ TEST_F(SplitViewControllerTest, ResizingSnappedWindowWithMinimumSizeTest) {
             window1->delegate()->GetMinimumSize().height());
   EXPECT_FALSE(window1->layer()->GetTargetTransform().IsIdentity());
   split_view_controller()->EndResize(resize_point);
+  SkipDividerSnapAnimation();
   EndSplitView();
 }
 
@@ -1228,6 +1629,7 @@ TEST_F(SplitViewControllerTest,
       split_view_divider()->GetDividerBoundsInScreen(false);
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.33f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.33f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.5f * workarea_bounds.width());
 
@@ -1235,6 +1637,7 @@ TEST_F(SplitViewControllerTest,
   // dragging.
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.67f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.5f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.67f * workarea_bounds.width());
   EndSplitView();
@@ -1249,6 +1652,7 @@ TEST_F(SplitViewControllerTest,
   divider_bounds = split_view_divider()->GetDividerBoundsInScreen(false);
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.67f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.33f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.5f * workarea_bounds.width());
 
@@ -1256,6 +1660,7 @@ TEST_F(SplitViewControllerTest,
   // dragging.
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.33f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0);
   EXPECT_LE(divider_position(), 0.33f * workarea_bounds.width());
   EndSplitView();
@@ -1275,6 +1680,7 @@ TEST_F(SplitViewControllerTest,
   divider_bounds = split_view_divider()->GetDividerBoundsInScreen(false);
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.33f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.33f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.5f * workarea_bounds.width());
 
@@ -1282,6 +1688,7 @@ TEST_F(SplitViewControllerTest,
   // position after dragging.
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.67f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.33f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.5f * workarea_bounds.width());
   EndSplitView();
@@ -1310,6 +1717,7 @@ TEST_F(SplitViewControllerTest,
       split_view_divider()->GetDividerBoundsInScreen(false);
   generator->set_current_screen_location(divider_bounds.CenterPoint());
   generator->DragMouseTo(gfx::Point(workarea_bounds.width() * 0.67f, 0));
+  SkipDividerSnapAnimation();
   EXPECT_GT(divider_position(), 0.5f * workarea_bounds.width());
   EXPECT_LE(divider_position(), 0.67f * workarea_bounds.width());
 
@@ -1573,6 +1981,7 @@ TEST_F(SplitViewControllerTest, OverviewExitAnimationTest) {
   ToggleOverview();
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_TRUE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("NormalEnterExit", {1, 0}, {1, 0});
 
   // 2) If overview is ended because of activating a window:
   ToggleOverview();
@@ -1580,6 +1989,7 @@ TEST_F(SplitViewControllerTest, OverviewExitAnimationTest) {
   wm::ActivateWindow(window1.get());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_TRUE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("EnterExitByActivation", {2, 0}, {2, 0});
 
   // 3) If overview is ended because of snapping a window:
   split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
@@ -1590,19 +2000,25 @@ TEST_F(SplitViewControllerTest, OverviewExitAnimationTest) {
   EXPECT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
   // Test |overview_animate_when_exiting_| has been properly reset.
   EXPECT_TRUE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("EnterInSplitView", {2, 1}, {2, 0});
+
   split_view_controller()->SnapWindow(window2.get(),
                                       SplitViewController::RIGHT);
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_FALSE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("ExitBySnap", {2, 1}, {2, 1});
 
   // 4) If ending overview causes a window to snap:
   ToggleOverview();
   EXPECT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
   // Test |overview_animate_when_exiting_| has been properly reset.
   EXPECT_TRUE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("EnterInSplitView2", {2, 2}, {2, 1});
+
   ToggleOverview();
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_FALSE(overview_observer->overview_animate_when_exiting());
+  CheckOverviewEnterExitHistogram("ExitInSplitView", {2, 2}, {2, 2});
 }
 
 // Test the window state is normally maximized on splitview end, except when we
@@ -1718,6 +2134,7 @@ TEST_F(SplitViewControllerTest, DividerClosestRatioOnWorkArea) {
   // Drag the divider to one third position of the work area's width.
   generator->DragMouseTo(
       gfx::Point(workarea_bounds.width() * 0.33f, workarea_bounds.y()));
+  SkipDividerSnapAnimation();
   EXPECT_EQ(divider_closest_ratio(), 0.33f);
 
   // Divider closest position ratio changed from one third to two thirds if
@@ -1788,15 +2205,168 @@ TEST_F(SplitViewControllerTest, PinnedWindowDisallowsSplitView) {
   EXPECT_FALSE(ShouldAllowSplitView());
 }
 
-// TestShellObserver which tracks how many overview items there are when
+// Test that if split view ends while the divider is dragged to where a snapped
+// window is sliding off the screen because it has reached minimum size, then
+// the offset is cleared.
+TEST_F(SplitViewControllerTest, EndSplitViewWhileResizingBeyondMinimum) {
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+  ScreenOrientationControllerTestApi test_api(
+      Shell::Get()->screen_orientation_controller());
+
+  const gfx::Rect bounds(0, 0, 300, 200);
+  std::unique_ptr<aura::Window> window(CreateWindow(bounds));
+  aura::test::TestWindowDelegate* delegate =
+      static_cast<aura::test::TestWindowDelegate*>(window->delegate());
+
+  // Set the screen orientation to LANDSCAPE_PRIMARY
+  test_api.SetDisplayRotation(display::Display::ROTATE_0,
+                              display::Display::RotationSource::ACTIVE);
+
+  gfx::Rect display_bounds =
+      screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
+          window.get());
+  split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
+  delegate->set_minimum_size(
+      gfx::Size(display_bounds.width() * 0.4f, display_bounds.height()));
+
+  gfx::Rect divider_bounds =
+      split_view_divider()->GetDividerBoundsInScreen(false);
+  split_view_controller()->StartResize(divider_bounds.CenterPoint());
+  gfx::Point resize_point(display_bounds.width() * 0.33f, 0);
+  split_view_controller()->Resize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      0);
+
+  ASSERT_FALSE(window->layer()->GetTargetTransform().IsIdentity());
+  EndSplitView();
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      1);
+
+  EXPECT_TRUE(window->layer()->GetTargetTransform().IsIdentity());
+}
+
+// Test if presentation time is recorded for multi window resizing
+// and resizing with overview.
+TEST_F(SplitViewControllerTest, ResizeTwoWindows) {
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+  ScreenOrientationControllerTestApi test_api(
+      Shell::Get()->screen_orientation_controller());
+
+  const gfx::Rect bounds(0, 0, 300, 200);
+  std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
+  std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
+
+  gfx::Rect display_bounds =
+      screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
+          window1.get());
+  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+
+  gfx::Rect divider_bounds =
+      split_view_divider()->GetDividerBoundsInScreen(false);
+  split_view_controller()->StartResize(divider_bounds.CenterPoint());
+  gfx::Point resize_point(display_bounds.width() * 0.33f, 0);
+  split_view_controller()->Resize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.MultiWindow", 1);
+  split_view_controller()->Resize(
+      gfx::Point(resize_point.x(), resize_point.y() + 1));
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.MultiWindow", 2);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.MultiWindow",
+      0);
+
+  split_view_controller()->EndResize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.MultiWindow", 2);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.MultiWindow",
+      1);
+
+  ToggleOverview();
+
+  split_view_controller()->StartResize(divider_bounds.CenterPoint());
+  split_view_controller()->Resize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.WithOverview", 1);
+  split_view_controller()->Resize(
+      gfx::Point(resize_point.x(), resize_point.y() + 1));
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.WithOverview", 2);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.WithOverview",
+      0);
+  split_view_controller()->EndResize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.WithOverview", 2);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.WithOverview",
+      1);
+}
+
+// Test that if split view ends during the divider snap animation while a
+// snapped window is sliding off the screen because it has reached minimum size,
+// then the animation is ended and the window offset is cleared.
+TEST_F(SplitViewControllerTest, EndSplitViewDuringDividerSnapAnimation) {
+  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
+  display::DisplayManager* display_manager = Shell::Get()->display_manager();
+  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
+                                                         display_id);
+  ScreenOrientationControllerTestApi test_api(
+      Shell::Get()->screen_orientation_controller());
+
+  const gfx::Rect bounds(0, 0, 300, 200);
+  std::unique_ptr<aura::Window> window(CreateWindow(bounds));
+  aura::test::TestWindowDelegate* delegate =
+      static_cast<aura::test::TestWindowDelegate*>(window->delegate());
+
+  // Set the screen orientation to LANDSCAPE_PRIMARY
+  test_api.SetDisplayRotation(display::Display::ROTATE_0,
+                              display::Display::RotationSource::ACTIVE);
+
+  gfx::Rect display_bounds =
+      screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
+          window.get());
+  split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
+  delegate->set_minimum_size(
+      gfx::Size(display_bounds.width() * 0.4f, display_bounds.height()));
+
+  gfx::Rect divider_bounds =
+      split_view_divider()->GetDividerBoundsInScreen(false);
+  split_view_controller()->StartResize(divider_bounds.CenterPoint());
+  gfx::Point resize_point((int)(display_bounds.width() * 0.33f) + 20, 0);
+  split_view_controller()->Resize(resize_point);
+  split_view_controller()->EndResize(resize_point);
+  ASSERT_TRUE(IsDividerAnimating());
+  ASSERT_FALSE(window->layer()->GetTargetTransform().IsIdentity());
+  EndSplitView();
+  EXPECT_FALSE(IsDividerAnimating());
+  EXPECT_TRUE(window->layer()->GetTargetTransform().IsIdentity());
+}
+
+// TestOverviewObserver which tracks how many overview items there are when
 // overview mode is about to end.
-class TestOverviewItemsOnOverviewModeEndObserver : public ShellObserver {
+class TestOverviewItemsOnOverviewModeEndObserver : public OverviewObserver {
  public:
   TestOverviewItemsOnOverviewModeEndObserver() {
-    Shell::Get()->AddShellObserver(this);
+    Shell::Get()->overview_controller()->AddObserver(this);
   }
   ~TestOverviewItemsOnOverviewModeEndObserver() override {
-    Shell::Get()->RemoveShellObserver(this);
+    Shell::Get()->overview_controller()->RemoveObserver(this);
   }
   void OnOverviewModeEnding(OverviewSession* overview_session) override {
     items_on_last_overview_end_ = overview_session->num_items_for_testing();
@@ -1834,6 +2404,42 @@ TEST_F(SplitViewControllerTest, ItemsRemovedFromOverviewOnSnap) {
   EXPECT_EQ(0, observer.items_on_last_overview_end());
 }
 
+// Test that resizing ends properly if split view ends during divider dragging.
+TEST_F(SplitViewControllerTest, EndSplitViewWhileDragging) {
+  // Enter split view mode.
+  std::unique_ptr<aura::Window> window = CreateTestWindow();
+  split_view_controller()->SnapWindow(window.get(), SplitViewController::LEFT);
+
+  // Start resizing.
+  gfx::Rect divider_bounds =
+      split_view_divider()->GetDividerBoundsInScreen(false);
+
+  split_view_controller()->StartResize(divider_bounds.CenterPoint());
+
+  // Verify the setup.
+  ASSERT_TRUE(split_view_controller()->IsSplitViewModeActive());
+  ASSERT_TRUE(split_view_controller()->is_resizing());
+
+  gfx::Point resize_point(divider_bounds.CenterPoint());
+  resize_point.Offset(100, 0);
+
+  split_view_controller()->Resize(resize_point);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      0);
+
+  // End split view and check that resizing has ended properly.
+  split_view_controller()->EndSplitView();
+  EXPECT_FALSE(split_view_controller()->is_resizing());
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.TabletMode.SingleWindow", 1);
+  histograms().ExpectTotalCount(
+      "Ash.SplitViewResize.PresentationTime.MaxLatency.TabletMode.SingleWindow",
+      1);
+}
+
 // Test the tab-dragging related functionalities in tablet mode. Tab(s) can be
 // dragged out of a window and then put in split view mode or merge into another
 // window.
@@ -1860,8 +2466,12 @@ class SplitViewTabDraggingTest : public SplitViewControllerTest {
   std::unique_ptr<WindowResizer> StartDrag(aura::Window* dragged_window,
                                            aura::Window* source_window) {
     SetIsInTabDragging(dragged_window, /*is_dragging=*/true, source_window);
-    return CreateResizerForTest(dragged_window,
-                                dragged_window->bounds().origin(), HTCAPTION);
+    std::unique_ptr<WindowResizer> resizer = CreateResizerForTest(
+        dragged_window, dragged_window->bounds().origin(), HTCAPTION);
+    GetBrowserWindowDragController(resizer.get())
+        ->drag_delegate_for_testing()
+        ->set_drag_start_deadline_for_testing(base::Time::Now());
+    return resizer;
   }
 
   // Drags the window to |end_position|.
@@ -1929,18 +2539,20 @@ class SplitViewTabDraggingTest : public SplitViewControllerTest {
     }
   }
 
-  IndicatorState GetIndicatorState(WindowResizer* resizer) {
+  TabletModeWindowDragController* GetBrowserWindowDragController(
+      WindowResizer* resizer) {
     WindowResizer* real_window_resizer;
     // TODO(xdai): This piece of codes seems knowing too much impl details about
     // WindowResizer. Revisit the logic here later to see if there is anything
     // we can do to simplify the logic and hide impl details.
     real_window_resizer = static_cast<DragWindowResizer*>(resizer)
                               ->next_window_resizer_for_testing();
-    TabletModeBrowserWindowDragController* browser_controller =
-        static_cast<TabletModeBrowserWindowDragController*>(
-            real_window_resizer);
+    return static_cast<TabletModeWindowDragController*>(real_window_resizer);
+  }
 
-    return browser_controller->drag_delegate_for_testing()
+  IndicatorState GetIndicatorState(WindowResizer* resizer) {
+    return GetBrowserWindowDragController(resizer)
+        ->drag_delegate_for_testing()
         ->split_view_drag_indicators_for_testing()
         ->current_indicator_state();
   }
@@ -1963,8 +2575,8 @@ class SplitViewTabDraggingTest : public SplitViewControllerTest {
         overview_session->GetGridWithRootWindow(window->GetRootWindow());
     DCHECK(current_grid);
 
-    OverviewItem* selector_item = current_grid->GetDropTarget();
-    return selector_item->GetTransformedBounds();
+    OverviewItem* overview_item = current_grid->GetDropTarget();
+    return gfx::ToEnclosedRect(overview_item->GetTransformedBounds());
   }
 
  private:
@@ -2341,6 +2953,8 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_FALSE(overview_session->IsWindowInOverview(window1.get()));
   EXPECT_FALSE(overview_session->IsWindowInOverview(window2.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window3.get()));
+  // Drag to enter doesn't trigger animation.
+  CheckOverviewEnterExitHistogram("EnterInSplitViewByDrag", {0, 0}, {0, 0});
 
   // 1.a. If the window is only dragged for a small distance, the window will
   // be put back to its original position. Overview mode will be ended.
@@ -2351,6 +2965,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_EQ(split_view_controller()->left_window(), window1.get());
   EXPECT_EQ(split_view_controller()->right_window(), window2.get());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
+  CheckOverviewEnterExitHistogram("ExitInSplitViewByDrag", {0, 0}, {0, 1});
 
   // 1.b. If the window is dragged long enough, it can replace the other split
   // window.
@@ -2360,6 +2975,8 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   DragWindowTo(resizer.get(), gfx::Point(600, 300));
   // No preview window shows up on overview side of the screen.
   EXPECT_EQ(GetIndicatorState(resizer.get()), IndicatorState::kNone);
+  CheckOverviewEnterExitHistogram("EnterInSplitViewByDrag2", {0, 0}, {0, 1});
+
   CompleteDrag(std::move(resizer));
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::RIGHT_SNAPPED);
@@ -2369,10 +2986,13 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_FALSE(overview_session->IsWindowInOverview(window1.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window2.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window3.get()));
+  // Still in overview.
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitViewByDrag", {0, 0}, {0, 1});
   // Snap |window2| again to test 1.c.
   split_view_controller()->SnapWindow(window2.get(), SplitViewController::LEFT);
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::BOTH_SNAPPED);
+  CheckOverviewEnterExitHistogram("ExitInSplitViewBySnap", {0, 0}, {0, 2});
 
   // 1.c. If the dragged window is destroyed during dragging (may happen due to
   // all its tabs are attached into another window), nothing changes.
@@ -2381,6 +3001,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
             SplitViewController::LEFT_SNAPPED);
   ASSERT_TRUE(resizer.get());
   EXPECT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
+  CheckOverviewEnterExitHistogram("EnterInSplitViewByDrag3", {0, 0}, {0, 2});
   resizer->Drag(gfx::Point(100, 100), 0);
   resizer->CompleteDrag();
   resizer.reset();
@@ -2388,6 +3009,9 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::LEFT_SNAPPED);
   EXPECT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
+  // Still in overview.
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitViewByDrag3", {0, 0},
+                                  {0, 2});
 
   // Recreate |window1| and snap it to test the following senarioes.
   window1.reset(CreateWindowWithType(bounds, AppType::BROWSER));
@@ -2397,6 +3021,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
             SplitViewController::BOTH_SNAPPED);
   EXPECT_EQ(split_view_controller()->left_window(), window2.get());
   EXPECT_EQ(split_view_controller()->right_window(), window1.get());
+  CheckOverviewEnterExitHistogram("ExitInSplitViewBySnap2", {0, 0}, {0, 3});
 
   // 2. If the dragged window is not the source window:
   // In this case, |window3| can be regarded as a window that originates from
@@ -2412,6 +3037,9 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_EQ(window2->GetBoundsInScreen(),
             split_view_controller()->GetSnappedWindowBoundsInScreen(
                 window2.get(), SplitViewController::LEFT));
+  // Not in overview.
+  CheckOverviewEnterExitHistogram("DoNotEnterInSplitViewByDrag", {0, 0},
+                                  {0, 3});
 
   // 2.a. If the window is only dragged for a small amount of distance, it will
   // replace the same side of the split window that it originates from.
@@ -2432,6 +3060,8 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_EQ(split_view_controller()->left_window(), window3.get());
   EXPECT_EQ(split_view_controller()->right_window(), window1.get());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
+  CheckOverviewEnterExitHistogram("DoNotEnterInSplitViewByDrag2", {0, 0},
+                                  {0, 3});
 
   // 2.b. If the window is dragged long enough, it can replace the other side of
   // the split window.
@@ -2442,9 +3072,15 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindow) {
   EXPECT_EQ(split_view_controller()->left_window(), window3.get());
   EXPECT_EQ(split_view_controller()->right_window(), window1.get());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
+  CheckOverviewEnterExitHistogram("DoNotEnterInSplitViewByDrag3", {0, 0},
+                                  {0, 3});
+
   DragWindowTo(resizer.get(), gfx::Point(0, 300));
   // No preview window shows up on overview side of the screen.
   EXPECT_EQ(GetIndicatorState(resizer.get()), IndicatorState::kNone);
+  CheckOverviewEnterExitHistogram("DoNotEnterInSplitViewByDrag4", {0, 0},
+                                  {0, 3});
+
   CompleteDrag(std::move(resizer));
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::BOTH_SNAPPED);
@@ -2475,6 +3111,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::LEFT_SNAPPED);
   EXPECT_EQ(split_view_controller()->left_window(), window1.get());
+  CheckOverviewEnterExitHistogram("EnterInSplitView", {0, 1}, {0, 0});
 
   // 1. If the dragged window is the source window:
   std::unique_ptr<WindowResizer> resizer =
@@ -2492,10 +3129,14 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   DragWindowTo(resizer.get(),
                gfx::Point(200, GetIndicatorsThreshold(window1.get())));
   EXPECT_EQ(GetIndicatorState(resizer.get()), IndicatorState::kDragArea);
+  EXPECT_FALSE(split_view_controller()->IsSplitViewModeActive());
   CompleteDrag(std::move(resizer));
   EXPECT_TRUE(wm::GetWindowState(window1.get())->IsMaximized());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_FALSE(split_view_controller()->IsSplitViewModeActive());
+  // It exits SplitView during drag, so exit animation is performed in tablet
+  // mode.
+  CheckOverviewEnterExitHistogram("ExitInSplitViewToTablet", {0, 1}, {1, 0});
 
   // 1.b. If the window is dragged long enough, it can be snappped again.
   // Prepare the testing senario first.
@@ -2503,10 +3144,14 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   split_view_controller()->SnapWindow(window2.get(),
                                       SplitViewController::RIGHT);
   ToggleOverview();
+  CheckOverviewEnterExitHistogram("EnterInSplitView2", {0, 2}, {1, 0});
+
   resizer = StartDrag(window1.get(), window1.get());
   ASSERT_TRUE(resizer.get());
   EXPECT_TRUE(Shell::Get()->overview_controller()->IsSelecting());
   EXPECT_FALSE(split_view_controller()->IsSplitViewModeActive());
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitView2", {0, 2}, {1, 0});
+
   DragWindowTo(resizer.get(), gfx::Point(0, 300));
   EXPECT_EQ(GetIndicatorState(resizer.get()), IndicatorState::kPreviewAreaLeft);
   CompleteDrag(std::move(resizer));
@@ -2518,6 +3163,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
       Shell::Get()->overview_controller()->overview_session();
   EXPECT_TRUE(overview_session->IsWindowInOverview(window2.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window3.get()));
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitView3", {0, 2}, {1, 0});
 
   // 2. If the dragged window is not the source window:
   // Prepare the testing senario first. Remove |window2| from overview first
@@ -2528,6 +3174,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   overview_session->RemoveOverviewItem(
       current_grid->GetOverviewItemContaining(window2.get()),
       /*reposition=*/false);
+
   resizer = StartDrag(window2.get(), window1.get());
   ASSERT_TRUE(resizer.get());
   EXPECT_EQ(GetIndicatorState(resizer.get()), IndicatorState::kNone);
@@ -2543,6 +3190,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   EXPECT_EQ(window1->GetBoundsInScreen(),
             split_view_controller()->GetSnappedWindowBoundsInScreen(
                 window1.get(), SplitViewController::LEFT));
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitView4", {0, 2}, {1, 0});
 
   // 2.a. The dragged window can replace the only snapped window in the split
   // screen. After that, the old snapped window will be put back in overview.
@@ -2557,6 +3205,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   overview_session = Shell::Get()->overview_controller()->overview_session();
   EXPECT_TRUE(overview_session->IsWindowInOverview(window1.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window3.get()));
+  CheckOverviewEnterExitHistogram("DoNotExitInSplitView5", {0, 2}, {1, 0});
 
   // 2.b. The dragged window can snap to the other side of the splitscreen,
   // causing overview mode to end.
@@ -2575,6 +3224,7 @@ TEST_F(SplitViewTabDraggingTest, DragSnappedWindowWhileOverviewOpen) {
   EXPECT_EQ(split_view_controller()->left_window(), window2.get());
   EXPECT_EQ(split_view_controller()->right_window(), window1.get());
   EXPECT_FALSE(Shell::Get()->overview_controller()->IsSelecting());
+  CheckOverviewEnterExitHistogram("ExitInSplitView", {0, 2}, {1, 1});
 }
 
 // Test that if a window is in tab-dragging process when overview is open, the
@@ -2619,7 +3269,8 @@ TEST_F(SplitViewTabDraggingTest, ShowNewWindowItemWhenDragStarts) {
       drop_target_widget->GetNativeWindow());
   ASSERT_TRUE(drop_target);
   EXPECT_EQ(drop_target, current_grid->window_list().front().get());
-  const gfx::Rect drop_target_bounds = drop_target->target_bounds();
+  const gfx::Rect drop_target_bounds =
+      gfx::ToEnclosingRect(drop_target->target_bounds());
   DragWindowTo(resizer.get(), drop_target_bounds.CenterPoint());
   CompleteDrag(std::move(resizer));
 
@@ -2629,9 +3280,9 @@ TEST_F(SplitViewTabDraggingTest, ShowNewWindowItemWhenDragStarts) {
   // Test that the dragged window has been added to the overview mode, and it is
   // added at the front of the grid.
   EXPECT_EQ(current_grid->window_list().size(), 2u);
-  OverviewItem* first_selector_item =
+  OverviewItem* first_overview_item =
       current_grid->GetOverviewItemContaining(window1.get());
-  EXPECT_EQ(first_selector_item, current_grid->window_list().front().get());
+  EXPECT_EQ(first_overview_item, current_grid->window_list().front().get());
   EXPECT_TRUE(overview_session->IsWindowInOverview(window1.get()));
   EXPECT_TRUE(overview_session->IsWindowInOverview(window3.get()));
   // Test that the new window item widget has been destroyed.
@@ -2894,9 +3545,10 @@ TEST_F(SplitViewTabDraggingTest, WindowBoundsUpdatedBeforeAddingToOverview) {
   ASSERT_TRUE(current_grid);
   EXPECT_EQ(1u, current_grid->window_list().size());
 
-  OverviewItem* selector_item = current_grid->GetDropTarget();
-  ASSERT_TRUE(selector_item);
-  gfx::Rect drop_target_bounds = selector_item->target_bounds();
+  OverviewItem* overview_item = current_grid->GetDropTarget();
+  ASSERT_TRUE(overview_item);
+  gfx::Rect drop_target_bounds =
+      gfx::ToEnclosingRect(overview_item->target_bounds());
   DragWindowTo(resizer.get(), drop_target_bounds.CenterPoint());
 
   CompleteDrag(std::move(resizer));
@@ -2905,10 +3557,11 @@ TEST_F(SplitViewTabDraggingTest, WindowBoundsUpdatedBeforeAddingToOverview) {
   EXPECT_TRUE(overview_session->IsWindowInOverview(window1.get()));
   // |window1|'s bounds should have been updated to its tablet mode bounds.
   EXPECT_EQ(tablet_mode_bounds, window1->bounds());
-  selector_item = current_grid->window_list().front().get();
-  // The new window selector item's bounds should be the same during drag and
-  // after drag.
-  EXPECT_EQ(drop_target_bounds, selector_item->target_bounds());
+  overview_item = current_grid->window_list().front().get();
+  // The new overview item's bounds should be the same during drag and after
+  // drag.
+  EXPECT_EQ(drop_target_bounds,
+            gfx::ToEnclosingRect(overview_item->target_bounds()));
   ToggleOverview();
   EXPECT_FALSE(overview_controller->IsSelecting());
 
@@ -3566,20 +4219,14 @@ class SplitViewAppDraggingTest : public SplitViewControllerTest {
   ~SplitViewAppDraggingTest() override = default;
 
   // SplitViewControllerTest:
-  void SetUp() override {
-    SplitViewControllerTest::SetUp();
-    controller_ = std::make_unique<TabletModeAppWindowDragController>();
-  }
-
-  // SplitViewControllerTest:
   void TearDown() override {
+    window_.reset();
     controller_.reset();
     SplitViewControllerTest::TearDown();
   }
 
  protected:
-  std::unique_ptr<aura::Window> CreateTestWindowWithWidget(
-      bool can_activate = true) {
+  std::unique_ptr<aura::Window> CreateTestWindowWithWidget(bool can_activate) {
     views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
     params.show_state = ui::SHOW_STATE_MAXIMIZED;
     views::Widget* widget = new views::Widget;
@@ -3593,192 +4240,172 @@ class SplitViewAppDraggingTest : public SplitViewControllerTest {
     return base::WrapUnique<aura::Window>(widget->GetNativeView());
   }
 
+  void InitializeWindow(bool can_activate = true) {
+    window_ = CreateTestWindowWithWidget(can_activate);
+  }
+
   // Sends a gesture scroll sequence to TabletModeAppWindowDragController.
-  void SendGestureEvents(const gfx::Point& start,
-                         float scroll_delta,
-                         aura::Window* window) {
-    base::TimeTicks timestamp = base::TimeTicks::Now();
-    SendScrollStartAndUpdate(start, scroll_delta, timestamp, window);
-
-    EndScrollSequence(start, scroll_delta, timestamp, window);
+  void SendGestureEvents(const gfx::Point& location) {
+    SendScrollStartAndUpdate(location);
+    EndScrollSequence();
   }
 
-  void SendScrollStartAndUpdate(const gfx::Point& start,
-                                float scroll_y,
-                                base::TimeTicks& timestamp,
-                                aura::Window* window,
-                                float scroll_x = 0.f) {
-    SendGestureEventToController(
-        start.x(), start.y(), timestamp,
-        ui::GestureEventDetails(ui::ET_GESTURE_SCROLL_BEGIN, 0, 0), window);
-
-    timestamp += base::TimeDelta::FromMilliseconds(100);
-    SendGestureEventToController(
-        start.x() + scroll_x, start.y() + scroll_y, timestamp,
-        ui::GestureEventDetails(ui::ET_GESTURE_SCROLL_UPDATE, scroll_x,
-                                scroll_y),
-        window);
+  void SendScrollStartAndUpdate(const gfx::Point& location) {
+    wm::WindowState* window_state = wm::GetWindowState(window());
+    window_state->CreateDragDetails(location, HTCAPTION,
+                                    ::wm::WINDOW_MOVE_SOURCE_TOUCH);
+    controller_ = std::make_unique<TabletModeWindowDragController>(
+        window_state, std::make_unique<TabletModeBrowserWindowDragDelegate>());
+    controller_->drag_delegate_for_testing()
+        ->set_drag_start_deadline_for_testing(base::Time::Now());
+    controller_->Drag(location, 0);
   }
 
-  void EndScrollSequence(const gfx::Point& start,
-                         float scroll_delta,
-                         base::TimeTicks& timestamp,
-                         aura::Window* window,
-                         bool is_fling = false,
-                         float velocity_y = 0.f,
-                         float velocity_x = 0.f) {
-    timestamp += base::TimeDelta::FromMilliseconds(100);
-    ui::GestureEventDetails details =
-        is_fling ? ui::GestureEventDetails(ui::ET_SCROLL_FLING_START,
-                                           velocity_x, velocity_y)
-                 : ui::GestureEventDetails(ui::ET_GESTURE_SCROLL_END);
-    SendGestureEventToController(start.x(), start.y() + scroll_delta, timestamp,
-                                 details, window);
+  void EndScrollSequence() {
+    controller_->CompleteDrag();
+    wm::GetWindowState(window())->DeleteDragDetails();
+  }
+
+  void Fling(const gfx::Point& location, float velocity_y, float velocity_x) {
+    ui::GestureEvent event = ui::GestureEvent(
+        location.x(), location.y(), ui::EF_NONE, base::TimeTicks::Now(),
+        ui::GestureEventDetails(ui::ET_SCROLL_FLING_START, velocity_x,
+                                velocity_y));
+    ui::Event::DispatcherApi(&event).set_target(window());
+    controller_->FlingOrSwipe(&event);
+    wm::GetWindowState(window())->DeleteDragDetails();
   }
 
   IndicatorState GetIndicatorState() {
-    return controller_->drag_delegate()
+    return controller_->drag_delegate_for_testing()
         ->split_view_drag_indicators_for_testing()
         ->current_indicator_state();
   }
 
+  aura::Window* window() { return window_.get(); }
+
+  std::unique_ptr<TabletModeWindowDragController> controller_;
+
+  std::unique_ptr<aura::Window> window_;
+
  private:
-  void SendGestureEventToController(int x,
-                                    int y,
-                                    base::TimeTicks& timestamp,
-                                    const ui::GestureEventDetails& details,
-                                    aura::Window* window) {
-    ui::GestureEvent event =
-        ui::GestureEvent(x, y, ui::EF_NONE, timestamp, details);
-    ui::Event::DispatcherApi(&event).set_target(window);
-    controller_->DragWindowFromTop(&event);
-  }
-
-  std::unique_ptr<TabletModeAppWindowDragController> controller_;
-
   DISALLOW_COPY_AND_ASSIGN(SplitViewAppDraggingTest);
 };
 
 // Tests that drag the window that cannot be snapped from top of the display
 // will not snap the window into splitscreen.
-TEST_F(SplitViewAppDraggingTest, DragNoneActiveMaximizedWindow) {
+TEST_F(SplitViewAppDraggingTest, DragNonActiveMaximizedWindow) {
   UpdateDisplay("800x600");
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget(false);
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  InitializeWindow(false);
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
-          window.get());
+          window());
   const float long_scroll_delta = display_bounds.height() / 4 + 5;
 
-  const gfx::Point start;
+  const gfx::Point location(0, long_scroll_delta);
   // Drag the window that cannot be snapped long enough, the window will be
   // dropped into overview.
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  SendScrollStartAndUpdate(location);
   OverviewController* overview_controller = Shell::Get()->overview_controller();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EXPECT_FALSE(overview_controller->overview_session()->IsWindowInOverview(
-      window.get()));
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get());
+  EXPECT_FALSE(
+      overview_controller->overview_session()->IsWindowInOverview(window()));
+  EndScrollSequence();
   EXPECT_TRUE(overview_controller->IsSelecting());
   EXPECT_FALSE(split_view_controller()->IsSplitViewModeActive());
-  EXPECT_TRUE(overview_controller->overview_session()->IsWindowInOverview(
-      window.get()));
+  EXPECT_TRUE(
+      overview_controller->overview_session()->IsWindowInOverview(window()));
 }
 
 // Tests the functionalities that are related to dragging a maximized window
 // into splitscreen.
 TEST_F(SplitViewAppDraggingTest, DragActiveMaximizedWindow) {
   UpdateDisplay("800x600");
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget();
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  InitializeWindow();
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
-          window.get());
+          window());
 
   // Move the window by a small amount of distance will maximize the window
   // again.
-  const gfx::Point start;
-  SendGestureEvents(start, 10, window.get());
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  gfx::Point location(0, 10);
+  SendGestureEvents(location);
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
 
   // Drag the window long enough (pass one fourth of the screen vertical
   // height) to snap the window to splitscreen.
   const float long_scroll_delta = display_bounds.height() / 4 + 5;
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  location.set_y(long_scroll_delta);
+  SendScrollStartAndUpdate(location);
   OverviewController* overview_controller = Shell::Get()->overview_controller();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EXPECT_FALSE(overview_controller->overview_session()->IsWindowInOverview(
-      window.get()));
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get());
+  EXPECT_FALSE(
+      overview_controller->overview_session()->IsWindowInOverview(window()));
+  EndScrollSequence();
   EXPECT_TRUE(overview_controller->IsSelecting());
   EXPECT_TRUE(split_view_controller()->IsSplitViewModeActive());
-  EXPECT_EQ(split_view_controller()->left_window(), window.get());
+  EXPECT_EQ(split_view_controller()->left_window(), window());
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::LEFT_SNAPPED);
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsSnapped());
+  EXPECT_TRUE(wm::GetWindowState(window())->IsSnapped());
 
   // FLING the window with small velocity (smaller than
   // kFlingToOverviewThreshold) will not able to drop the window into overview.
-  timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(start, 10, timestamp, window.get());
+  location.set_y(10);
+  SendScrollStartAndUpdate(location);
   overview_controller = Shell::Get()->overview_controller();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EndScrollSequence(
-      start, 10, timestamp, window.get(), /*is_fling=*/true,
-      /*velocity_y=*/
-      TabletModeWindowDragDelegate::kFlingToOverviewThreshold - 10.f);
+  Fling(location,
+        TabletModeWindowDragDelegate::kFlingToOverviewThreshold - 10.f, 0);
   EXPECT_FALSE(overview_controller->IsSelecting());
 
-  // FLING the window with large veloicty (larger than
+  // FLING the window with large velocity (larger than
   // kFlingToOverviewThreshold) will drop the window into overview.
-  timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(start, 10, timestamp, window.get());
+  SendScrollStartAndUpdate(location);
   overview_controller = Shell::Get()->overview_controller();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EndScrollSequence(
-      start, 10, timestamp, window.get(), /*is_fling=*/true,
-      /*velocity_y=*/
-      TabletModeWindowDragDelegate::kFlingToOverviewThreshold + 10.f);
+  Fling(location,
+        TabletModeWindowDragDelegate::kFlingToOverviewThreshold + 10.f, 0);
   EXPECT_TRUE(overview_controller->IsSelecting());
 }
 
 // Tests the shelf visibility when a fullscreened window is being dragged.
 TEST_F(SplitViewAppDraggingTest, ShelfVisibilityIfDraggingFullscreenedWindow) {
   UpdateDisplay("800x600");
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget();
+  InitializeWindow();
   ShelfLayoutManager* shelf_layout_manager =
       AshTestBase::GetPrimaryShelf()->shelf_layout_manager();
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
-          window.get());
+          window());
 
-  // Shelf will be auto-hidden if the winodw requests to be fullscreened.
-  wm::WindowState* window_state = wm::GetWindowState(window.get());
+  // Shelf will be auto-hidden if the window requests to be fullscreened.
+  wm::WindowState* window_state = wm::GetWindowState(window());
   const wm::WMEvent fullscreen_event(wm::WM_EVENT_TOGGLE_FULLSCREEN);
   window_state->OnWMEvent(&fullscreen_event);
   window_state->SetHideShelfWhenFullscreen(false);
-  window->SetProperty(kImmersiveIsActive, true);
+  window()->SetProperty(kImmersiveIsActive, true);
   shelf_layout_manager->UpdateVisibilityState();
   EXPECT_TRUE(window_state->IsFullscreen());
   EXPECT_FALSE(shelf_layout_manager->IsVisible());
 
   // Drag the window by a small amount of distance, the window will back to
   // fullscreened, and shelf will be hidden again.
-  const gfx::Point start;
-  SendGestureEvents(start, 10, window.get());
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsFullscreen());
+  gfx::Point location(0, 10);
+  SendGestureEvents(location);
+  shelf_layout_manager->UpdateVisibilityState();
+  EXPECT_TRUE(window_state->IsFullscreen());
   EXPECT_FALSE(shelf_layout_manager->IsVisible());
 
   // Shelf is visible during dragging.
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  const float long_scroll_delta = display_bounds.height() / 4 + 5;
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  location.set_y(display_bounds.height() / 4 + 5);
+  SendScrollStartAndUpdate(location);
   EXPECT_TRUE(shelf_layout_manager->IsVisible());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get());
+  EndScrollSequence();
   EXPECT_TRUE(split_view_controller()->IsSplitViewModeActive());
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsSnapped());
+  EXPECT_TRUE(wm::GetWindowState(window())->IsSnapped());
   EXPECT_TRUE(shelf_layout_manager->IsVisible());
 }
 
@@ -3787,85 +4414,47 @@ TEST_F(SplitViewAppDraggingTest, AutoHideShelf) {
   UpdateDisplay("800x600");
   Shelf* shelf = GetPrimaryShelf();
   shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_NEVER);
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget();
+  InitializeWindow();
   gfx::Rect display_bounds =
       display::Screen::GetScreen()->GetPrimaryDisplay().bounds();
   ShelfLayoutManager* shelf_layout_manager =
       AshTestBase::GetPrimaryShelf()->shelf_layout_manager();
   shelf_layout_manager->LayoutShelf();
   EXPECT_EQ(SHELF_VISIBLE, shelf->GetVisibilityState());
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
 
   shelf->SetAutoHideBehavior(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS);
   shelf_layout_manager->LayoutShelf();
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
   EXPECT_EQ(SHELF_AUTO_HIDE_HIDDEN, shelf->GetAutoHideState());
 
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  const gfx::Point start;
-  const float long_scroll_delta = display_bounds.height() / 4 + 5;
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  const gfx::Point location(0, display_bounds.height() / 4 + 5);
+  SendScrollStartAndUpdate(location);
   EXPECT_EQ(SHELF_AUTO_HIDE_BEHAVIOR_ALWAYS, shelf->auto_hide_behavior());
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
   // Shelf should be shown during drag.
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get());
+  EndScrollSequence();
   EXPECT_EQ(split_view_controller()->state(),
             SplitViewController::LEFT_SNAPPED);
   EXPECT_EQ(SHELF_AUTO_HIDE, shelf->GetVisibilityState());
   // Shelf should be shown after drag and snapped window should be covered by
   // the auto-hide-shown shelf.
   EXPECT_EQ(SHELF_AUTO_HIDE_SHOWN, shelf->GetAutoHideState());
-  EXPECT_EQ(split_view_controller()
-                ->GetSnappedWindowBoundsInScreen(window.get(),
-                                                 SplitViewController::LEFT)
-                .height(),
-            display_bounds.height());
-}
-
-// Tests that the app drag will be reverted if the screen is being rotated.
-TEST_F(SplitViewAppDraggingTest, DisplayConfigurationChangeTest) {
-  UpdateDisplay("800x600");
-  int64_t display_id = display::Screen::GetScreen()->GetPrimaryDisplay().id();
-  display::DisplayManager* display_manager = Shell::Get()->display_manager();
-  display::test::ScopedSetInternalDisplayId set_internal(display_manager,
-                                                         display_id);
-  ScreenOrientationControllerTestApi test_api(
-      Shell::Get()->screen_orientation_controller());
-  // Set the screen orientation to LANDSCAPE_PRIMARY.
-  test_api.SetDisplayRotation(display::Display::ROTATE_0,
-                              display::Display::RotationSource::ACTIVE);
-  EXPECT_EQ(test_api.GetCurrentOrientation(),
-            OrientationLockType::kLandscapePrimary);
-
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget();
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
-
-  // Drag the window a small distance that will not drop the window into
-  // overview.
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(gfx::Point(0, 0), 10, timestamp, window.get());
-  OverviewController* overview_controller = Shell::Get()->overview_controller();
-  EXPECT_TRUE(overview_controller->IsSelecting());
-  EXPECT_TRUE(wm::GetWindowState(window.get())->is_dragged());
-
-  // Rotate the screen during drag.
-  test_api.SetDisplayRotation(display::Display::ROTATE_270,
-                              display::Display::RotationSource::ACTIVE);
-  EXPECT_EQ(test_api.GetCurrentOrientation(),
-            OrientationLockType::kPortraitPrimary);
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
-  EXPECT_FALSE(overview_controller->IsSelecting());
-  EXPECT_FALSE(wm::GetWindowState(window.get())->is_dragged());
+  EXPECT_EQ(
+      split_view_controller()
+          ->GetSnappedWindowBoundsInScreen(window(), SplitViewController::LEFT)
+          .height(),
+      display_bounds.height());
 }
 
 // Tests the functionalities that fling the window when preview area is shown.
 TEST_F(SplitViewAppDraggingTest, FlingWhenPreviewAreaIsShown) {
-  std::unique_ptr<aura::Window> window = CreateTestWindowWithWidget();
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  InitializeWindow();
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
-          window.get());
+          window());
 
   const float long_scroll_delta = display_bounds.height() / 4 + 5;
   float large_velocity =
@@ -3874,112 +4463,96 @@ TEST_F(SplitViewAppDraggingTest, FlingWhenPreviewAreaIsShown) {
   float small_velocity =
       TabletModeWindowDragDelegate::kFlingToOverviewFromSnappingAreaThreshold -
       10.f;
-  gfx::Point start;
-  base::TimeTicks timestamp = base::TimeTicks::Now();
 
   // Fling to the right with large enough velocity when trying to snap the
   // window to the left should drop the window to overview.
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  gfx::Point location(0, long_scroll_delta);
+  SendScrollStartAndUpdate(location);
   EXPECT_EQ(IndicatorState::kPreviewAreaLeft, GetIndicatorState());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get(),
-                    /*is_fling=*/true, /*velocity_y*/ 0,
-                    /*velocity_x=*/large_velocity);
+  Fling(location, /*velocity_y*/ 0, /*velocity_x=*/large_velocity);
   OverviewController* overview_controller = Shell::Get()->overview_controller();
   OverviewSession* overview_session = overview_controller->overview_session();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EXPECT_TRUE(overview_session->IsWindowInOverview(window.get()));
+  EXPECT_TRUE(overview_session->IsWindowInOverview(window()));
   ToggleOverview();
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
 
   // Fling to the right with small velocity when trying to snap the
   // window to the left should still snap the window to left.
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  SendScrollStartAndUpdate(location);
   EXPECT_EQ(IndicatorState::kPreviewAreaLeft, GetIndicatorState());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get(),
-                    /*is_fling=*/true, /*velocity_y*/ 0,
-                    /*velocity_x=*/small_velocity);
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsSnapped());
+  Fling(location, /*velocity_y*/ 0, /*velocity_x=*/small_velocity);
+  EXPECT_TRUE(wm::GetWindowState(window())->IsSnapped());
   EndSplitView();
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsMaximized());
+  EXPECT_TRUE(wm::GetWindowState(window())->IsMaximized());
 
   // Fling to the left with large enough velocity when trying to snap the window
   // to the right should drop the window to overvie.
-  start = gfx::Point(display_bounds.right(), 0);
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  location = gfx::Point(display_bounds.right(), long_scroll_delta);
+  SendScrollStartAndUpdate(location);
   EXPECT_EQ(IndicatorState::kPreviewAreaRight, GetIndicatorState());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get(),
-                    /*is_fling=*/true, /*velocity_y*/ 0,
-                    /*velocity_x=*/-large_velocity);
+  Fling(location, /*velocity_y*/ 0, /*velocity_x=*/-large_velocity);
   overview_session = overview_controller->overview_session();
   EXPECT_TRUE(overview_controller->IsSelecting());
-  EXPECT_TRUE(overview_session->IsWindowInOverview(window.get()));
+  EXPECT_TRUE(overview_session->IsWindowInOverview(window()));
   ToggleOverview();
 
   // Fling to the left with small velocity when trying to snap the
   // window to the right should still snap the window to right.
-  SendScrollStartAndUpdate(start, long_scroll_delta, timestamp, window.get());
+  SendScrollStartAndUpdate(location);
   EXPECT_EQ(IndicatorState::kPreviewAreaRight, GetIndicatorState());
-  EndScrollSequence(start, long_scroll_delta, timestamp, window.get(),
-                    /*is_fling=*/true, /*velocity_y*/ 0,
-                    /*velocity_x=*/-small_velocity);
-  EXPECT_TRUE(wm::GetWindowState(window.get())->IsSnapped());
+  Fling(location, /*velocity_y*/ 0, /*velocity_x=*/-small_velocity);
+  EXPECT_TRUE(wm::GetWindowState(window())->IsSnapped());
 }
 
 // Tests the functionalities that fling a window when splitview is active.
 TEST_F(SplitViewAppDraggingTest, FlingWhenSplitViewIsActive) {
-  std::unique_ptr<aura::Window> window1 = CreateTestWindowWithWidget();
-  std::unique_ptr<aura::Window> window2 = CreateTestWindowWithWidget();
+  InitializeWindow();
+  std::unique_ptr<aura::Window> window2 = CreateTestWindowWithWidget(true);
 
-  split_view_controller()->SnapWindow(window1.get(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window(), SplitViewController::LEFT);
   split_view_controller()->SnapWindow(window2.get(),
                                       SplitViewController::RIGHT);
 
   gfx::Rect display_bounds =
       screen_util::GetDisplayWorkAreaBoundsInScreenForDefaultContainer(
-          window1.get());
+          window());
   const float long_scroll_y = display_bounds.bottom() - 10;
   float large_velocity =
       TabletModeWindowDragDelegate::kFlingToOverviewFromSnappingAreaThreshold +
       10.f;
-  const gfx::Point start;
 
   // Fling the window in left snapping area to left should still snap the
   // window.
-  base::TimeTicks timestamp = base::TimeTicks::Now();
-  SendScrollStartAndUpdate(start, long_scroll_y, timestamp, window1.get());
-  EndScrollSequence(start, long_scroll_y, timestamp, window1.get(),
-                    /*is_fling=*/true, /*velocity_y=*/0,
-                    /*velocity_x=*/-large_velocity);
-  EXPECT_TRUE(wm::GetWindowState(window1.get())->IsSnapped());
+  gfx::Point location(0, long_scroll_y);
+  SendScrollStartAndUpdate(location);
+  Fling(location, /*velocity_y=*/0, /*velocity_x=*/-large_velocity);
+  EXPECT_TRUE(wm::GetWindowState(window())->IsSnapped());
   EXPECT_EQ(SplitViewController::BOTH_SNAPPED,
             split_view_controller()->state());
 
   // Fling the window in left snapping area to right should drop the window
   // into overview.
-  SendScrollStartAndUpdate(start, long_scroll_y, timestamp, window1.get());
-  EndScrollSequence(start, long_scroll_y, timestamp, window1.get(),
-                    /*is_fling=*/true, /*velocity_y=*/0,
-                    /*velocity_x=*/large_velocity);
+  SendScrollStartAndUpdate(location);
+  Fling(location, /*velocity_y=*/0, /*velocity_x=*/large_velocity);
   OverviewController* selector_controller = Shell::Get()->overview_controller();
-  EXPECT_TRUE(selector_controller->overview_session()->IsWindowInOverview(
-      window1.get()));
+  EXPECT_TRUE(
+      selector_controller->overview_session()->IsWindowInOverview(window()));
   EXPECT_EQ(SplitViewController::RIGHT_SNAPPED,
             split_view_controller()->state());
+  EXPECT_TRUE(IsTabletMode());
   ToggleOverview();
+  EXPECT_TRUE(IsTabletMode());
 
   // Fling the window in right snapping area to left should drop the window into
   // overview.
   EXPECT_EQ(SplitViewController::BOTH_SNAPPED,
             split_view_controller()->state());
-  const int scroll_x = display_bounds.CenterPoint().x() + 10;
-  SendScrollStartAndUpdate(start, long_scroll_y, timestamp, window1.get(),
-                           scroll_x);
-  gfx::Point end(scroll_x, 0);
-  EndScrollSequence(end, long_scroll_y, timestamp, window1.get(),
-                    /*is_fling=*/true, /*velocity_y=*/0,
-                    /*velocity_x=*/-large_velocity);
-  EXPECT_TRUE(selector_controller->overview_session()->IsWindowInOverview(
-      window1.get()));
+  location.set_x(display_bounds.CenterPoint().x() + 10);
+  SendScrollStartAndUpdate(location);
+  Fling(location, /*velocity_y=*/0, /*velocity_x=*/-large_velocity);
+  EXPECT_TRUE(
+      selector_controller->overview_session()->IsWindowInOverview(window()));
   EXPECT_EQ(SplitViewController::RIGHT_SNAPPED,
             split_view_controller()->state());
   ToggleOverview();
@@ -3988,16 +4561,60 @@ TEST_F(SplitViewAppDraggingTest, FlingWhenSplitViewIsActive) {
   // right side.
   EXPECT_EQ(SplitViewController::BOTH_SNAPPED,
             split_view_controller()->state());
-  SendScrollStartAndUpdate(start, long_scroll_y, timestamp, window1.get(),
-                           scroll_x);
-  EndScrollSequence(end, long_scroll_y, timestamp, window1.get(),
-                    /*is_fling=*/true, /*velocity_y=*/0,
-                    /*velocity_x=*/large_velocity);
-  EXPECT_EQ(split_view_controller()->right_window(), window1.get());
+  SendScrollStartAndUpdate(location);
+  Fling(location, /*velocity_y=*/0, /*velocity_x=*/large_velocity);
+  EXPECT_EQ(split_view_controller()->right_window(), window());
   EXPECT_TRUE(selector_controller->overview_session()->IsWindowInOverview(
       window2.get()));
   EXPECT_EQ(SplitViewController::RIGHT_SNAPPED,
             split_view_controller()->state());
+}
+
+// Tests the backdrop bounds during window drag.
+TEST_F(SplitViewAppDraggingTest, BackdropBoundsDuringDrag) {
+  InitializeWindow();
+  std::unique_ptr<aura::Window> window2 = CreateTestWindowWithWidget(true);
+  split_view_controller()->SnapWindow(window(), SplitViewController::LEFT);
+  split_view_controller()->SnapWindow(window2.get(),
+                                      SplitViewController::RIGHT);
+  EXPECT_EQ(window2.get(), wm::GetActiveWindow());
+
+  const aura::Window* default_container =
+      Shell::GetPrimaryRootWindowController()->GetContainer(
+          kShellWindowId_DefaultContainer);
+
+  // Backdrop window should below two snapped windows and its bounds should be
+  // the same as the container bounds.
+  EXPECT_EQ(3U, default_container->children().size());
+  EXPECT_EQ(window(), default_container->children()[1]);
+  EXPECT_EQ(window2.get(), default_container->children()[2]);
+  EXPECT_EQ(default_container->bounds(),
+            default_container->children()[0]->bounds());
+
+  // Start window drag and activate the dragged window during drag.
+  gfx::Point location(0, 10);
+  SendScrollStartAndUpdate(location);
+  wm::ActivateWindow(window());
+
+  aura::Window::Windows windows = default_container->children();
+  auto it = std::find(windows.begin(), windows.end(), window2.get());
+  // Backdrop window should be the window that just below the snapped |window2|
+  // and its bounds should be the same as the snapped window during drag.
+  aura::Window* backdrop_window = nullptr;
+  if (it != windows.begin())
+    backdrop_window = *(--it);
+  DCHECK(backdrop_window);
+  EXPECT_EQ(window2->bounds(), backdrop_window->bounds());
+
+  // Backdrop should restore back to container bounds after drag.
+  EndScrollSequence();
+  EXPECT_EQ(window(), wm::GetActiveWindow());
+  windows = default_container->children();
+  it = std::find(windows.begin(), windows.end(), window2.get());
+  if (it != windows.begin())
+    backdrop_window = *(--it);
+  DCHECK(backdrop_window);
+  EXPECT_EQ(backdrop_window->bounds(), default_container->bounds());
 }
 
 }  // namespace ash

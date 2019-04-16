@@ -41,7 +41,6 @@
 #include "third_party/blink/public/platform/web_float_rect.h"
 #include "third_party/blink/public/platform/web_point.h"
 #include "third_party/blink/public/platform/web_size.h"
-#include "third_party/blink/renderer/platform/drag_image.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
 #include "third_party/blink/renderer/platform/geometry/layout_rect.h"
 #include "third_party/blink/renderer/platform/geometry/region.h"
@@ -59,7 +58,6 @@
 #include "third_party/blink/renderer/platform/graphics/paint/raster_invalidator.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_snap_data.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
@@ -139,7 +137,7 @@ void GraphicsLayer::SetOverscrollBehavior(
 }
 
 void GraphicsLayer::SetSnapContainerData(
-    base::Optional<SnapContainerData> data) {
+    base::Optional<cc::SnapContainerData> data) {
   CcLayer()->SetSnapContainerData(std::move(data));
 }
 
@@ -387,6 +385,7 @@ bool GraphicsLayer::PaintWithoutCommit(
       !client_.NeedsRepaint(*this) &&
       !GetPaintController().CacheIsAllInvalid() &&
       previous_interest_rect_ == *interest_rect) {
+    GetPaintController().UpdateUMACountsOnFullyCached();
     return false;
   }
 
@@ -455,7 +454,6 @@ void GraphicsLayer::UpdateContentsRect() {
     const auto& offset = GetContentsOffsetFromTransformNode();
     contents_layer->SetOffsetToTransformParent(
         gfx::Vector2dF(offset.X(), offset.Y()));
-    SetPaintArtifactCompositorNeedsUpdate();
   }
   contents_layer->SetPosition(
       FloatPoint(contents_rect_.X(), contents_rect_.Y()));
@@ -707,7 +705,7 @@ void GraphicsLayer::SetRenderingContext(int context) {
   CcLayer()->Set3dSortingContextId(context);
 
   if (contents_layer_)
-    CcLayer()->Set3dSortingContextId(rendering_context3d_);
+    contents_layer_->Set3dSortingContextId(rendering_context3d_);
 }
 
 bool GraphicsLayer::MasksToBounds() const {
@@ -783,7 +781,8 @@ void GraphicsLayer::SetMaskLayer(GraphicsLayer* mask_layer) {
     return;
 
   mask_layer_ = mask_layer;
-  CcLayer()->SetMaskLayer(mask_layer_ ? mask_layer_->CcLayer() : nullptr);
+  if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
+    CcLayer()->SetMaskLayer(mask_layer_ ? mask_layer_->CcLayer() : nullptr);
 }
 
 void GraphicsLayer::SetContentsClippingMaskLayer(
@@ -917,6 +916,7 @@ void GraphicsLayer::SetContentsToImage(
             .TakePaintImage();
     if (!image_layer_) {
       image_layer_ = cc::PictureImageLayer::Create();
+      image_layer_->set_owner_node_id(CcLayer()->owner_node_id());
       RegisterContentsLayer(image_layer_.get());
     }
     image_layer_->SetImage(std::move(paint_image), matrix,
@@ -943,7 +943,7 @@ void GraphicsLayer::SetFilters(CompositorFilterOperations filters) {
 
 void GraphicsLayer::SetBackdropFilters(
     CompositorFilterOperations filters,
-    const gfx::RectF& backdrop_filter_bounds) {
+    const gfx::RRectF& backdrop_filter_bounds) {
   CcLayer()->SetBackdropFilters(filters.ReleaseCcFilterOperations());
   CcLayer()->SetBackdropFilterBounds(backdrop_filter_bounds);
 }
@@ -1046,8 +1046,6 @@ sk_sp<PaintRecord> GraphicsLayer::CapturePaintRecord() const {
 
 void GraphicsLayer::SetLayerState(const PropertyTreeState& layer_state,
                                   const IntPoint& layer_offset) {
-  DCHECK(layer_state.Transform() && layer_state.Clip() && layer_state.Effect());
-
   if (layer_state_) {
     if (layer_state_->state == layer_state &&
         layer_state_->offset == layer_offset)
@@ -1074,7 +1072,6 @@ void GraphicsLayer::SetLayerState(const PropertyTreeState& layer_state,
 
 void GraphicsLayer::SetContentsPropertyTreeState(
     const PropertyTreeState& layer_state) {
-  DCHECK(layer_state.Transform() && layer_state.Clip() && layer_state.Effect());
   DCHECK(ContentsLayer());
 
   if (contents_property_tree_state_) {

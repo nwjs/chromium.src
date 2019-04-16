@@ -11,9 +11,9 @@ blink::WebMediaStreamTrack CreateWebMediaStreamTrack(const std::string& id) {
   web_source.Initialize(blink::WebString::FromUTF8(id),
                         blink::WebMediaStreamSource::kTypeAudio,
                         blink::WebString::FromUTF8("audio_track"), false);
-  std::unique_ptr<MediaStreamAudioSource> audio_source_ptr =
-      std::make_unique<MediaStreamAudioSource>(true);
-  MediaStreamAudioSource* audio_source = audio_source_ptr.get();
+  std::unique_ptr<blink::MediaStreamAudioSource> audio_source_ptr =
+      std::make_unique<blink::MediaStreamAudioSource>(true);
+  blink::MediaStreamAudioSource* audio_source = audio_source_ptr.get();
   // Takes ownership of |audio_source_ptr|.
   web_source.SetPlatformSource(std::move(audio_source_ptr));
 
@@ -41,6 +41,19 @@ std::unique_ptr<blink::WebRTCRtpSender> FakeRTCRtpSender::ShallowCopy() const {
 uintptr_t FakeRTCRtpSender::Id() const {
   NOTIMPLEMENTED();
   return 0;
+}
+
+rtc::scoped_refptr<webrtc::DtlsTransportInterface>
+FakeRTCRtpSender::DtlsTransport() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+webrtc::DtlsTransportInformation FakeRTCRtpSender::DtlsTransportInformation() {
+  NOTIMPLEMENTED();
+  static webrtc::DtlsTransportInformation dummy(
+      webrtc::DtlsTransportState::kNew);
+  return dummy;
 }
 
 blink::WebMediaStreamTrack FakeRTCRtpSender::Track() const {
@@ -105,6 +118,20 @@ std::unique_ptr<blink::WebRTCRtpReceiver> FakeRTCRtpReceiver::ShallowCopy()
 uintptr_t FakeRTCRtpReceiver::Id() const {
   NOTIMPLEMENTED();
   return 0;
+}
+
+rtc::scoped_refptr<webrtc::DtlsTransportInterface>
+FakeRTCRtpReceiver::DtlsTransport() {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+webrtc::DtlsTransportInformation
+FakeRTCRtpReceiver::DtlsTransportInformation() {
+  NOTIMPLEMENTED();
+  static webrtc::DtlsTransportInformation dummy(
+      webrtc::DtlsTransportState::kNew);
+  return dummy;
 }
 
 const blink::WebMediaStreamTrack& FakeRTCRtpReceiver::Track() const {

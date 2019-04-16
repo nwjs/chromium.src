@@ -11,12 +11,12 @@
 #include "third_party/blink/renderer/core/script/classic_script.h"
 #include "third_party/blink/renderer/core/script/pending_script.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
-#include "third_party/blink/renderer/platform/memory_coordinator.h"
+#include "third_party/blink/renderer/platform/memory_pressure_listener.h"
 
 namespace blink {
 
 // PendingScript for a classic script
-// https://html.spec.whatwg.org/multipage/webappapis.html#classic-script.
+// https://html.spec.whatwg.org/C/#classic-script.
 //
 // TODO(kochi): The comment below is from pre-oilpan age and may not be correct
 // now.
@@ -25,11 +25,11 @@ namespace blink {
 // guarantee that the data buffer will not be purged.
 class CORE_EXPORT ClassicPendingScript final : public PendingScript,
                                                public ResourceClient,
-                                               public MemoryCoordinatorClient {
+                                               public MemoryPressureListener {
   USING_GARBAGE_COLLECTED_MIXIN(ClassicPendingScript);
 
  public:
-  // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-classic-script
+  // https://html.spec.whatwg.org/C/#fetch-a-classic-script
   //
   // For a script from an external file, calls ScriptResource::Fetch() and
   // creates ClassicPendingScript. Returns nullptr if Fetch() returns nullptr.
@@ -105,15 +105,15 @@ class CORE_EXPORT ClassicPendingScript final : public PendingScript,
       bool can_use_streamer,
       ScriptStreamer::NotStreamingReason reason);
 
-  // MemoryCoordinatorClient
+  // MemoryPressureListener
   void OnPurgeMemory() override;
 
   const ScriptFetchOptions options_;
 
   // "base url" snapshot taken at #prepare-a-script timing.
-  // https://html.spec.whatwg.org/multipage/scripting.html#prepare-a-script
+  // https://html.spec.whatwg.org/C/#prepare-a-script
   // which will eventually be used as #concept-script-base-url.
-  // https://html.spec.whatwg.org/multipage/webappapis.html#concept-script-base-url
+  // https://html.spec.whatwg.org/C/#concept-script-base-url
   const KURL base_url_for_inline_script_;
 
   // "element's child text content" snapshot taken at

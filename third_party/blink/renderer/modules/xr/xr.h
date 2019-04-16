@@ -9,8 +9,8 @@
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/platform/web_callbacks.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/page/focus_changed_observer.h"
 #include "third_party/blink/renderer/modules/xr/xr_session.h"
 #include "third_party/blink/renderer/modules/xr/xr_session_creation_options.h"
@@ -37,7 +37,7 @@ class XR final : public EventTargetWithInlineData,
 
   explicit XR(LocalFrame& frame, int64_t ukm_source_id_);
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(devicechange, kDevicechange);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(devicechange, kDevicechange)
 
   ScriptPromise supportsSessionMode(ScriptState*, const String&);
   ScriptPromise requestSession(ScriptState*, const XRSessionCreationOptions*);
@@ -74,7 +74,7 @@ class XR final : public EventTargetWithInlineData,
  private:
   class PendingSessionQuery final
       : public GarbageCollected<PendingSessionQuery> {
-    WTF_MAKE_NONCOPYABLE(PendingSessionQuery);
+    DISALLOW_COPY_AND_ASSIGN(PendingSessionQuery);
 
    public:
     PendingSessionQuery(ScriptPromiseResolver*, XRSession::SessionMode);
@@ -84,11 +84,8 @@ class XR final : public EventTargetWithInlineData,
 
     Member<ScriptPromiseResolver> resolver;
     const XRSession::SessionMode mode;
-    Member<XRPresentationContext> output_context;
     bool has_user_activation = false;
   };
-
-  const char* checkSessionSupport(const XRSessionCreationOptions*) const;
 
   void OnRequestDeviceReturned(device::mojom::blink::XRDevicePtr device);
   void DispatchPendingSessionCalls();
@@ -105,6 +102,8 @@ class XR final : public EventTargetWithInlineData,
 
   void AddedEventListener(const AtomicString& event_type,
                           RegisteredEventListener&) override;
+
+  void CreateInlineIdentitySession(PendingSessionQuery*);
 
   void Dispose();
 

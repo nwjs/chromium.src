@@ -96,6 +96,13 @@ class OmniboxViewViews : public OmniboxView,
   bool SelectionAtBeginning() const;
   bool SelectionAtEnd() const;
 
+  // Returns the width in pixels needed to display the current text. The
+  // returned value includes margins.
+  int GetTextWidth() const;
+
+  // Returns the omnibox's width in pixels.
+  int GetWidth() const;
+
   // OmniboxView:
   void EmphasizeURLComponents() override;
   void Update() override;
@@ -114,7 +121,6 @@ class OmniboxViewViews : public OmniboxView,
   void SelectAll(bool reversed) override;
   void RevertAll() override;
   void SetFocus() override;
-  int GetTextWidth() const override;
   bool IsImeComposing() const override;
 
   // views::Textfield:
@@ -125,6 +131,8 @@ class OmniboxViewViews : public OmniboxView,
   void AddedToWidget() override;
   void RemovedFromWidget() override;
   bool ShouldDoLearning() override;
+  base::string16 GetLabelForCommandId(int command_id) const override;
+  bool IsCommandIdEnabled(int command_id) const override;
 
   // For testing only.
   OmniboxPopupContentsView* GetPopupContentsViewForTesting() const {
@@ -172,6 +180,9 @@ class OmniboxViewViews : public OmniboxView,
 
   void ClearAccessibilityLabel();
 
+  void SetAccessibilityLabel(const base::string16& display_text,
+                             const AutocompleteMatch& match);
+
   // Selects the whole omnibox contents as a result of the user gesture. This
   // may also unapply steady state elisions depending on user preferences.
   void SelectAllForUserGesture();
@@ -184,10 +195,11 @@ class OmniboxViewViews : public OmniboxView,
   // flip.)
   bool TextAndUIDirectionMatch() const;
 
-  // Returns true if the caret is completely at the end of the input, and if
-  // there's a tab match present. Helper function for MaybeFocusTabButton()
-  // and MaybeUnfocusTabButton().
-  bool AtEndWithTabMatch() const;
+  // Helper function for MaybeFocusTabButton() and MaybeUnfocusTabButton().
+  bool SelectedSuggestionHasTabMatch() const;
+
+  // Like SelectionAtEnd(), but accounts for RTL.
+  bool DirectionAwareSelectionAtEnd() const;
 
   // Attempts to either focus or unfocus the tab switch button (tests if all
   // conditions are met and makes necessary subroutine call) and returns
@@ -206,12 +218,12 @@ class OmniboxViewViews : public OmniboxView,
   bool OnInlineAutocompleteTextMaybeChanged(const base::string16& display_text,
                                             size_t user_text_length) override;
   void OnInlineAutocompleteTextCleared() override;
-  void OnRevertTemporaryText() override;
+  void OnRevertTemporaryText(const base::string16& display_text,
+                             const AutocompleteMatch& match) override;
   void OnBeforePossibleChange() override;
   bool OnAfterPossibleChange(bool allow_keyword_ui_change) override;
   gfx::NativeView GetNativeView() const override;
   gfx::NativeView GetRelativeWindowForPopup() const override;
-  int GetWidth() const override;
   bool IsImeShowingPopup() const override;
   void ShowVirtualKeyboardIfEnabled() override;
   void HideImeIfNeeded() override;
@@ -225,7 +237,6 @@ class OmniboxViewViews : public OmniboxView,
 
   // views::Textfield:
   bool IsItemForCommandIdDynamic(int command_id) const override;
-  base::string16 GetLabelForCommandId(int command_id) const override;
   const char* GetClassName() const override;
   bool OnMousePressed(const ui::MouseEvent& event) override;
   bool OnMouseDragged(const ui::MouseEvent& event) override;
@@ -237,7 +248,6 @@ class OmniboxViewViews : public OmniboxView,
   bool HandleAccessibleAction(const ui::AXActionData& action_data) override;
   void OnFocus() override;
   void OnBlur() override;
-  bool IsCommandIdEnabled(int command_id) const override;
   base::string16 GetSelectionClipboardText() const override;
   void DoInsertChar(base::char16 ch) override;
   bool IsTextEditCommandEnabled(ui::TextEditCommand command) const override;

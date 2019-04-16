@@ -13,6 +13,7 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
+#include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/client_certificate_delegate.h"
 #include "content/public/browser/login_delegate.h"
 #include "content/public/browser/navigation_ui_data.h"
@@ -34,6 +35,8 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "services/service_manager/sandbox/sandbox_type.h"
 #include "storage/browser/quota/quota_manager.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+#include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "url/gurl.h"
@@ -69,6 +72,10 @@ void ContentBrowserClient::SetBrowserStartupIsCompleteForTesting() {}
 WebContentsViewDelegate* ContentBrowserClient::GetWebContentsViewDelegate(
     WebContents* web_contents) {
   return nullptr;
+}
+
+bool ContentBrowserClient::IsShuttingDown() {
+  return false;
 }
 
 bool ContentBrowserClient::AllowGpuLaunchRetryOnIOThread() {
@@ -251,6 +258,11 @@ bool ContentBrowserClient::ShouldDisableSiteIsolation() {
   return false;
 }
 
+std::vector<std::string>
+ContentBrowserClient::GetAdditionalSiteIsolationModes() {
+  return std::vector<std::string>();
+}
+
 bool ContentBrowserClient::IsFileAccessAllowed(
     const base::FilePath& path,
     const base::FilePath& absolute_path,
@@ -314,7 +326,7 @@ bool ContentBrowserClient::IsDataSaverEnabled(BrowserContext* context) {
 
 void ContentBrowserClient::UpdateRendererPreferencesForWorker(
     BrowserContext* browser_context,
-    RendererPreferences* out_prefs) {
+    blink::mojom::RendererPreferences* out_prefs) {
   // |browser_context| may be null (e.g. during shutdown of a service worker).
 }
 
@@ -578,6 +590,17 @@ DevToolsManagerDelegate* ContentBrowserClient::GetDevToolsManagerDelegate() {
   return nullptr;
 }
 
+void ContentBrowserClient::UpdateDevToolsBackgroundServiceExpiration(
+    BrowserContext* browser_context,
+    int service,
+    base::Time expiration_time) {}
+
+base::flat_map<int, base::Time>
+ContentBrowserClient::GetDevToolsBackgroundServiceExpirations(
+    BrowserContext* browser_context) {
+  return {};
+}
+
 TracingDelegate* ContentBrowserClient::GetTracingDelegate() {
   return nullptr;
 }
@@ -742,12 +765,15 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
 void ContentBrowserClient::WillCreateWebSocket(
     RenderFrameHost* frame,
     network::mojom::WebSocketRequest* request,
-    network::mojom::AuthenticationHandlerPtr* auth_handler) {}
+    network::mojom::AuthenticationHandlerPtr* auth_handler,
+    network::mojom::TrustedHeaderClientPtr* header_client) {}
 
 std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>
 ContentBrowserClient::WillCreateURLLoaderRequestInterceptors(
-    NavigationUIData* navigation_ui_data,
-    int frame_tree_node_id) {
+    content::NavigationUIData* navigation_ui_data,
+    int frame_tree_node_id,
+    const scoped_refptr<network::SharedURLLoaderFactory>&
+        network_loader_factory) {
   return std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>();
 }
 
@@ -812,6 +838,12 @@ void ContentBrowserClient::CreateWebUsbService(
     RenderFrameHost* render_frame_host,
     mojo::InterfaceRequest<blink::mojom::WebUsbService> request) {}
 
+#if !defined(OS_ANDROID)
+SerialDelegate* ContentBrowserClient::GetSerialDelegate() {
+  return nullptr;
+}
+#endif
+
 bool ContentBrowserClient::ShowPaymentHandlerWindow(
     content::BrowserContext* browser_context,
     const GURL& url,
@@ -841,9 +873,9 @@ ContentBrowserClient::CreateClientCertStore(ResourceContext* resource_context) {
   return nullptr;
 }
 
-scoped_refptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
+std::unique_ptr<LoginDelegate> ContentBrowserClient::CreateLoginDelegate(
     net::AuthChallengeInfo* auth_info,
-    content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+    content::WebContents* web_contents,
     const GlobalRequestID& request_id,
     bool is_request_for_main_frame,
     const GURL& url,
@@ -877,16 +909,15 @@ bool ContentBrowserClient::IsSafeRedirectTarget(const GURL& url,
   return true;
 }
 
-void ContentBrowserClient::RegisterRendererPreferenceWatcherForWorkers(
+void ContentBrowserClient::RegisterRendererPreferenceWatcher(
     BrowserContext* browser_context,
-    mojom::RendererPreferenceWatcherPtr watcher) {
+    blink::mojom::RendererPreferenceWatcherPtr watcher) {
   // |browser_context| may be null (e.g. during shutdown of a service worker).
 }
 
 base::Optional<std::string> ContentBrowserClient::GetOriginPolicyErrorPage(
     OriginPolicyErrorReason error_reason,
-    const url::Origin& origin,
-    const GURL& url) {
+    content::NavigationHandle* handle) {
   return base::nullopt;
 }
 
@@ -921,6 +952,10 @@ std::string ContentBrowserClient::GetUserAgent() const {
   return std::string();
 }
 
+blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() const {
+  return blink::UserAgentMetadata();
+}
+
 bool ContentBrowserClient::IsBuiltinComponent(BrowserContext* browser_context,
                                               const url::Origin& origin) {
   return false;
@@ -931,5 +966,17 @@ bool ContentBrowserClient::IsRendererDebugURLBlacklisted(
     BrowserContext* context) {
   return false;
 }
+
+ui::AXMode ContentBrowserClient::GetAXModeForBrowserContext(
+    BrowserContext* browser_context) {
+  return BrowserAccessibilityState::GetInstance()->GetAccessibilityMode();
+}
+
+#if defined(OS_ANDROID)
+ContentBrowserClient::WideColorGamutHeuristic
+ContentBrowserClient::GetWideColorGamutHeuristic() const {
+  return WideColorGamutHeuristic::kNone;
+}
+#endif
 
 }  // namespace content

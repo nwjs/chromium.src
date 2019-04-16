@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
@@ -453,6 +454,8 @@ void PasswordGenerationAgent::GeneratedPasswordAccepted(
       password_generation::PASSWORD_ACCEPTED);
   LogMessage(Logger::STRING_GENERATION_RENDERER_GENERATED_PASSWORD_ACCEPTED);
   for (auto& password_element : current_generation_item_->password_elements_) {
+    base::AutoReset<bool> auto_reset_update_confirmation_password(
+        &current_generation_item_->updating_other_password_fileds_, true);
     password_element.SetAutofillValue(blink::WebString::FromUTF16(password));
     // setAutofillValue() above may have resulted in JavaScript closing the
     // frame.
@@ -691,7 +694,6 @@ bool PasswordGenerationAgent::FocusedNodeHasChanged(
 
   const blink::WebElement web_element = node.ToConst<blink::WebElement>();
   if (!web_element.GetDocument().GetFrame()) {
-    AutomaticGenerationStatusChanged(false);
     return false;
   }
 
@@ -738,7 +740,6 @@ bool PasswordGenerationAgent::FocusedNodeHasChanged(
     return true;
   }
 
-  AutomaticGenerationStatusChanged(false);
   return false;
 }
 
@@ -746,7 +747,8 @@ void PasswordGenerationAgent::DidEndTextFieldEditing(
     const blink::WebInputElement& element) {
   if (!element.IsNull() && current_generation_item_ &&
       element == current_generation_item_->generation_element_) {
-    AutomaticGenerationStatusChanged(false);
+    if (!current_generation_item_->password_is_generated_)
+      AutomaticGenerationStatusChanged(false);
     current_generation_item_->generation_element_.SetShouldRevealPassword(
         false);
   }
@@ -896,6 +898,9 @@ void PasswordGenerationAgent::MaybeCreateCurrentGenerationItem(
       element.Form().IsNull()
           ? password_agent_->GetPasswordFormFromUnownedInputElements()
           : password_agent_->GetPasswordFormFromWebForm(element.Form());
+
+  if (!password_form)
+    return;
 
   std::vector<blink::WebInputElement> passwords = {element};
 

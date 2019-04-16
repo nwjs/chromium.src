@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/scoped_observer.h"
@@ -81,6 +82,8 @@ class MockTranslateBubbleFactory : public TranslateBubbleFactory {
       BrowserWindow* window,
       content::WebContents* web_contents,
       translate::TranslateStep step,
+      const std::string& source_language,
+      const std::string& target_language,
       translate::TranslateErrors::Type error_type) override {
     if (model_) {
       model_->SetViewState(
@@ -90,11 +93,6 @@ class MockTranslateBubbleFactory : public TranslateBubbleFactory {
 
     ChromeTranslateClient* chrome_translate_client =
         ChromeTranslateClient::FromWebContents(web_contents);
-    std::string source_language =
-        chrome_translate_client->GetLanguageState().original_language();
-    std::string target_language =
-        translate::TranslateDownloadManager::GetLanguageCode(
-            g_browser_process->GetApplicationLocale());
 
     std::unique_ptr<translate::TranslateUIDelegate> ui_delegate(
         new translate::TranslateUIDelegate(

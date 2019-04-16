@@ -23,8 +23,10 @@ class PasswordAccessorySheetModernViewBinder {
         switch (viewType) {
             case AccessorySheetDataPiece.Type.PASSWORD_INFO:
                 return new PasswordInfoViewHolder(parent);
-            case AccessorySheetDataPiece.Type.TITLE: // Intentional fallthrough.
-            case AccessorySheetDataPiece.Type.FOOTER_COMMAND: // Intentional fallthrough.
+            case AccessorySheetDataPiece.Type.TITLE:
+                return new AccessorySheetTabViewBinder.TitleViewHolder(
+                        parent, R.layout.keyboard_accessory_sheet_tab_title);
+            case AccessorySheetDataPiece.Type.FOOTER_COMMAND:
                 return AccessorySheetTabViewBinder.create(parent, viewType);
         }
         assert false : "Unhandled type of data piece: " + viewType;
@@ -55,10 +57,10 @@ class PasswordAccessorySheetModernViewBinder {
         }
 
         void bindChipView(ChipView chip, KeyboardAccessoryData.UserInfo.Field field) {
-            chip.getInnerTextView().setTransformationMethod(
+            chip.getPrimaryTextView().setTransformationMethod(
                     field.isObfuscated() ? new PasswordTransformationMethod() : null);
-            chip.getInnerTextView().setText(field.getDisplayText());
-            chip.getInnerTextView().setContentDescription(field.getA11yDescription());
+            chip.getPrimaryTextView().setText(field.getDisplayText());
+            chip.getPrimaryTextView().setContentDescription(field.getA11yDescription());
             chip.setOnClickListener(!field.isSelectable() ? null : src -> field.triggerSelection());
             chip.setClickable(field.isSelectable());
             chip.setEnabled(field.isSelectable());
@@ -67,5 +69,6 @@ class PasswordAccessorySheetModernViewBinder {
 
     static void initializeView(RecyclerView view, AccessorySheetTabModel model) {
         view.setAdapter(PasswordAccessorySheetCoordinator.createModernAdapter(model));
+        view.addItemDecoration(new PasswordAccessoryInfoView.DynamicBottomSpacer());
     }
 }

@@ -51,7 +51,8 @@ namespace {
 const char kUnknownActionType[] = "unknownType";
 
 std::unique_ptr<WebRequestActionSet> CreateSetOfActions(const char* json) {
-  std::unique_ptr<base::Value> parsed_value(base::test::ParseJson(json));
+  std::unique_ptr<base::Value> parsed_value(
+      base::test::ParseJsonDeprecated(json));
   const base::ListValue* parsed_list;
   CHECK(parsed_value->GetAsList(&parsed_list));
 
@@ -163,7 +164,7 @@ bool WebRequestActionWithThreadsTest::ActionWorksOnRequest(
                                              false /*crosses_incognito*/,
                                              &deltas, &ignored_tags };
   action_set->Apply(extension_id, base::Time(), &apply_info);
-  return (1u == deltas.size() || 0u < ignored_tags.size());
+  return (1u == deltas.size() || !ignored_tags.empty());
 }
 
 void WebRequestActionWithThreadsTest::CheckActionNeedsAllUrls(

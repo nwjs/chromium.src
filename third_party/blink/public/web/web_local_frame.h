@@ -14,6 +14,7 @@
 #include "third_party/blink/public/common/frame/sandbox_flags.h"
 #include "third_party/blink/public/mojom/ad_tagging/ad_frame.mojom-shared.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_focus_type.h"
 #include "third_party/blink/public/platform/web_size.h"
@@ -35,6 +36,7 @@ class FrameScheduler;
 class InterfaceRegistry;
 class WebAssociatedURLLoader;
 class WebAutofillClient;
+class WebContentCaptureClient;
 class WebContentSettingsClient;
 class WebDocument;
 class WebDoubleSize;
@@ -81,7 +83,9 @@ class WebLocalFrame : public WebFrame {
       mojo::ScopedMessagePipeHandle,
       WebFrame* opener = nullptr,
       const WebString& name = WebString(),
-      WebSandboxFlags = WebSandboxFlags::kNone);
+      WebSandboxFlags = WebSandboxFlags::kNone,
+      const FeaturePolicy::FeatureState& opener_feature_state =
+          FeaturePolicy::FeatureState());
 
   // Used to create a provisional local frame. Currently, it's possible for a
   // provisional navigation not to commit (i.e. it might turn into a download),
@@ -136,6 +140,9 @@ class WebLocalFrame : public WebFrame {
 
   virtual void SetAutofillClient(WebAutofillClient*) = 0;
   virtual WebAutofillClient* AutofillClient() = 0;
+
+  virtual void SetContentCaptureClient(WebContentCaptureClient*) = 0;
+  virtual WebContentCaptureClient* ContentCaptureClient() const = 0;
 
   // Closing -------------------------------------------------------------
 
@@ -683,11 +690,6 @@ class WebLocalFrame : public WebFrame {
   // This function should be called after pairs of PrintBegin() and PrintEnd().
   virtual void DispatchAfterPrintEvent() = 0;
 
-  // If the frame contains a full-frame plugin or the given node refers to a
-  // plugin whose content indicates that printed output should not be scaled,
-  // return true, otherwise return false.
-  virtual bool IsPrintScalingDisabledForPlugin(const WebNode& = WebNode()) = 0;
-
   // Advance the focus of the WebView to next text input element from current
   // input field wrt sequential navigation with TAB or Shift + TAB
   // WebFocusTypeForward simulates TAB and WebFocusTypeBackward simulates
@@ -730,6 +732,8 @@ class WebLocalFrame : public WebFrame {
   // given location.
   virtual void PerformMediaPlayerAction(const WebPoint&,
                                         const WebMediaPlayerAction&) = 0;
+
+  virtual void SetLifecycleState(mojom::FrameLifecycleState state) = 0;
 
  protected:
   explicit WebLocalFrame(WebTreeScopeType scope) : WebFrame(scope) {}

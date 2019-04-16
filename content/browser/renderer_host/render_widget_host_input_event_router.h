@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
@@ -99,9 +100,13 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
                        const ui::LatencyInfo& latency);
 
   // |event| is in root coordinates.
-  void BubbleScrollEvent(RenderWidgetHostViewBase* target_view,
+  // Returns false if the router is unable to bubble the scroll event. The
+  // caller must not attempt to bubble the rest of the scroll sequence in this
+  // case. Otherwise, returns true.
+  bool BubbleScrollEvent(RenderWidgetHostViewBase* target_view,
                          RenderWidgetHostViewChildFrame* resending_view,
-                         const blink::WebGestureEvent& event);
+                         const blink::WebGestureEvent& event)
+      WARN_UNUSED_RESULT;
   void WillDetachChildView(
       const RenderWidgetHostViewChildFrame* detaching_view);
 
@@ -161,7 +166,10 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   void ShowContextMenuAtPoint(const gfx::Point& point,
                               const ui::MenuSourceType source_type) override;
 
+  bool HasEventsPendingDispatch() const;
+
   size_t TouchEventAckQueueLengthForTesting() const;
+  size_t RegisteredViewCountForTesting() const;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(BrowserSideFlingBrowserTest,
@@ -187,13 +195,7 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   using FrameSinkIdOwnerMap = std::unordered_map<viz::FrameSinkId,
                                                  RenderWidgetHostViewBase*,
                                                  viz::FrameSinkIdHash>;
-  struct TargetData {
-    RenderWidgetHostViewBase* target;
-    gfx::Transform transform;
-
-    TargetData() : target(nullptr) {}
-  };
-  using TargetMap = std::map<uint32_t, TargetData>;
+  using TargetMap = std::map<uint32_t, RenderWidgetHostViewBase*>;
 
   void ClearAllObserverRegistrations();
   RenderWidgetTargetResult FindViewAtLocation(
@@ -325,8 +327,8 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
 
   FrameSinkIdOwnerMap owner_map_;
   TargetMap touchscreen_gesture_target_map_;
-  TargetData touch_target_;
-  TargetData touchscreen_gesture_target_;
+  RenderWidgetHostViewBase* touch_target_ = nullptr;
+  RenderWidgetHostViewBase* touchscreen_gesture_target_ = nullptr;
   // The following variable is temporary, for diagnosis of
   // https://crbug.com/824774.
   bool touchscreen_gesture_target_in_map_;
@@ -336,7 +338,7 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   // Used to target wheel events for the duration of a scroll.
   RenderWidgetHostViewBase* wheel_target_ = nullptr;
   // Maintains the same target between mouse down and mouse up.
-  TargetData mouse_capture_target_;
+  RenderWidgetHostViewBase* mouse_capture_target_ = nullptr;
 
   // Tracked for the purpose of generating MouseEnter and MouseLeave events.
   RenderWidgetHostViewBase* last_mouse_move_target_;
@@ -359,11 +361,47 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
   float last_device_scale_factor_;
 
   int active_touches_;
-  // Keep track of when we are between GesturePinchBegin and GesturePinchEnd
-  // inclusive, as we need to route these events (and anything in between) to
-  // the main frame.
-  bool in_touchscreen_gesture_pinch_;
-  bool gesture_pinch_did_send_scroll_begin_;
+
+  // Touchscreen gesture pinch events must be routed to the main frame. This
+  // keeps track of ongoing scroll and pinch gestures so we know when to divert
+  // gesture events to the main frame and whether additional scroll begin/end
+  // events are needed to wrap the pinch.
+  class TouchscreenPinchState {
+   public:
+    TouchscreenPinchState();
+
+    bool IsInPinch() const;
+    bool NeedsWrappingScrollSequence() const;
+
+    void DidStartBubblingToRoot();
+    void DidStopBubblingToRoot();
+    void DidStartPinchInRoot();
+    void DidStartPinchInChild();
+    void DidStopPinch();
+
+   private:
+    enum class PinchState {
+      NONE,
+      // We have touchscreen scroll bubbling to the root before a gesture pinch
+      // starts.
+      EXISTING_BUBBLING_TO_ROOT,
+
+      // We are in a pinch gesture and the root is already the touchscreen
+      // gesture target.
+      PINCH_WITH_ROOT_GESTURE_TARGET,
+
+      // We are in a pinch gesture that is happening while we're also bubbling
+      // scroll to the root.
+      PINCH_WHILE_BUBBLING_TO_ROOT,
+
+      // We are in a pinch gesture that is happening while the child is the
+      // gesture target and it has not bubbled scroll to the root.
+      PINCH_DURING_CHILD_GESTURE
+    };
+    PinchState state_;
+  };
+  TouchscreenPinchState touchscreen_pinch_state_;
+
   std::unordered_map<viz::SurfaceId, HittestData, viz::SurfaceIdHash>
       hittest_data_;
 

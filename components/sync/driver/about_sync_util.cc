@@ -197,6 +197,8 @@ std::string GetDisableReasonsString(int disable_reasons) {
     reason_strings.push_back("User choice");
   if (disable_reasons & syncer::SyncService::DISABLE_REASON_UNRECOVERABLE_ERROR)
     reason_strings.push_back("Unrecoverable error");
+  if (disable_reasons & syncer::SyncService::DISABLE_REASON_PAUSED)
+    reason_strings.push_back("Paused");
   return base::JoinString(reason_strings, ", ");
 }
 
@@ -204,8 +206,6 @@ std::string GetTransportStateString(syncer::SyncService::TransportState state) {
   switch (state) {
     case syncer::SyncService::TransportState::DISABLED:
       return "Disabled";
-    case syncer::SyncService::TransportState::WAITING_FOR_START_REQUEST:
-      return "Waiting for start request";
     case syncer::SyncService::TransportState::START_DEFERRED:
       return "Start deferred";
     case syncer::SyncService::TransportState::INITIALIZING:
@@ -503,8 +503,10 @@ std::unique_ptr<base::DictionaryValue> ConstructAboutInformation(
 
   // Encryption.
   if (service->IsSyncFeatureActive()) {
-    is_using_explicit_passphrase->Set(service->IsUsingSecondaryPassphrase());
-    is_passphrase_required->Set(service->IsPassphraseRequired());
+    is_using_explicit_passphrase->Set(
+        service->GetUserSettings()->IsUsingSecondaryPassphrase());
+    is_passphrase_required->Set(
+        service->GetUserSettings()->IsPassphraseRequired());
     passphrase_time->Set(
         GetTimeStr(service->GetUserSettings()->GetExplicitPassphraseTime(),
                    "No Passphrase Time"));

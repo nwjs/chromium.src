@@ -22,10 +22,10 @@
 #include "content/public/browser/serial_chooser.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/previews_state.h"
-#include "content/public/common/window_container_type.mojom.h"
+#include "content/public/common/window_container_type.mojom-forward.h"
 #include "third_party/blink/public/common/manifest/web_display_mode.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
-#include "third_party/blink/public/mojom/color_chooser/color_chooser.mojom.h"
+#include "third_party/blink/public/mojom/choosers/color_chooser.mojom-forward.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
 #include "third_party/blink/public/platform/web_security_style.h"
 #include "third_party/blink/public/web/web_fullscreen_options.h"
@@ -248,7 +248,8 @@ class CONTENT_EXPORT WebContentsDelegate {
                            const base::Callback<void(bool)>& callback);
 
   // Returns true if the context menu operation was handled by the delegate.
-  virtual bool HandleContextMenu(const ContextMenuParams& params);
+  virtual bool HandleContextMenu(RenderFrameHost* render_frame_host,
+                                 const ContextMenuParams& params);
 
   // Allows delegates to handle keyboard events before sending to the renderer.
   // See enum for description of return values.
@@ -398,14 +399,6 @@ class CONTENT_EXPORT WebContentsDelegate {
       RenderFrameHost* frame,
       const BluetoothChooser::EventHandler& event_handler);
 
-  // Shows a chooser for the user to select a serial port.  |callback| will be
-  // run when the prompt is closed. Deleting the returned object will cancel the
-  // prompt.
-  virtual std::unique_ptr<SerialChooser> RunSerialChooser(
-      RenderFrameHost* frame,
-      std::vector<blink::mojom::SerialPortFilterPtr> filters,
-      SerialChooser::Callback callback);
-
   // Returns true if the delegate will embed a WebContents-owned fullscreen
   // render widget.  In this case, the delegate may access the widget by calling
   // WebContents::GetFullscreenRenderWidgetHostView().  If false is returned,
@@ -548,6 +541,10 @@ class CONTENT_EXPORT WebContentsDelegate {
 
   // Returns true if the WebContents is never visible.
   virtual bool IsNeverVisible(WebContents* web_contents);
+
+  // Askss |guest_web_contents| to perform the same. If this returns true, the
+  // default behavior is suppressed.
+  virtual bool GuestSaveFrame(WebContents* guest_web_contents);
 
   // Called in response to a request to save a frame. If this returns true, the
   // default behavior is suppressed.

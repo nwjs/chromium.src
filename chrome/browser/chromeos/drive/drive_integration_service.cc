@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/logging.h"
@@ -307,7 +308,7 @@ void CleanupGCacheV1(
   DeleteDirectoryContents(cache_directory);
 }
 
-std::vector<base::FilePath> GetPinnedFiles(
+std::vector<base::FilePath> GetPinnedAndDirtyFiles(
     std::unique_ptr<internal::ResourceMetadataStorage, util::DestroyHelper>
         metadata_storage,
     base::FilePath cache_directory,
@@ -332,6 +333,7 @@ std::vector<base::FilePath> GetPinnedFiles(
           GetFullPath(metadata_storage.get(), value), value.local_id()));
     }
   }
+  UMA_HISTOGRAM_COUNTS("Drive.MigrateDirtyFilesCount", dirty_files.size());
   // Destructing |metadata_storage| requires a posted task to run, so defer
   // deleting its data until after it's been destructed. This also returns the
   // list of files to pin to the UI thread without waiting for the remaining
@@ -517,6 +519,7 @@ class DriveIntegrationService::DriveFsHolder
         drivefs_host_(profile_->GetPath(),
                       this,
                       this,
+                      content::GetNetworkConnectionTracker(),
                       base::DefaultClock::GetInstance(),
                       chromeos::disks::DiskMountManager::GetInstance(),
                       std::make_unique<base::OneShotTimer>()) {}
@@ -1233,7 +1236,8 @@ void DriveIntegrationService::MigratePinnedFiles() {
   base::PostTaskAndReplyWithResult(
       blocking_task_runner_.get(), FROM_HERE,
       base::BindOnce(
-          &GetPinnedFiles, std::move(metadata_storage_), cache_root_directory_,
+          &GetPinnedAndDirtyFiles, std::move(metadata_storage_),
+          cache_root_directory_,
           file_manager::util::GetDownloadsFolderForProfile(profile_)),
       base::BindOnce(&DriveIntegrationService::PinFiles,
                      weak_ptr_factory_.GetWeakPtr()));

@@ -366,10 +366,9 @@ class TokenPreloadScanner::StartTagScanner {
                Match(attribute_name, kImportanceAttr) &&
                priority_hints_origin_trial_enabled_) {
       SetImportance(attribute_value);
-    } else if (!lazyload_attr_set_to_off_ &&
-               Match(attribute_name, kLazyloadAttr) &&
+    } else if (!lazyload_attr_set_to_off_ && Match(attribute_name, kLoadAttr) &&
                RuntimeEnabledFeatures::LazyImageLoadingEnabled() &&
-               EqualIgnoringASCIICase(attribute_value, "off")) {
+               EqualIgnoringASCIICase(attribute_value, "eager")) {
       lazyload_attr_set_to_off_ = true;
     } else if (!width_attr_small_absolute_ &&
                Match(attribute_name, kWidthAttr) &&
@@ -613,9 +612,15 @@ class TokenPreloadScanner::StartTagScanner {
       return false;
     if (Match(tag_impl_, kScriptTag)) {
       mojom::ScriptType script_type = mojom::ScriptType::kClassic;
+      bool is_import_map = false;
       if (!ScriptLoader::IsValidScriptTypeAndLanguage(
               type_attribute_value_, language_attribute_value_,
-              ScriptLoader::kAllowLegacyTypeInTypeAttribute, script_type)) {
+              ScriptLoader::kAllowLegacyTypeInTypeAttribute, &script_type,
+              &is_import_map)) {
+        return false;
+      }
+      if (is_import_map) {
+        // External import maps are not yet supported. https://crbug.com/922212
         return false;
       }
       if (ScriptLoader::BlockForNoModule(script_type,

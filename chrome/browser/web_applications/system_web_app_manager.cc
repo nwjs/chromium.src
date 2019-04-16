@@ -4,6 +4,7 @@
 
 #include "chrome/browser/web_applications/system_web_app_manager.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -17,13 +18,22 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 
-#if defined(OS_CHROMEOS)
-#include "chrome/browser/chromeos/profiles/profile_helper.h"
-#endif  // OS_CHROMEOS
-
 namespace web_app {
 
 namespace {
+
+base::flat_map<SystemAppType, GURL> CreateSystemWebApps() {
+  base::flat_map<SystemAppType, GURL> urls;
+
+// TODO(calamity): Split this into per-platform functions.
+#if defined(OS_CHROMEOS)
+  urls[SystemAppType::DISCOVER] = GURL(chrome::kChromeUIDiscoverURL);
+  constexpr char kChromeSettingsPWAURL[] = "chrome://settings/pwa.html";
+  urls[SystemAppType::SETTINGS] = GURL(kChromeSettingsPWAURL);
+#endif  // OS_CHROMEOS
+
+  return urls;
+}
 
 PendingAppManager::AppInfo CreateAppInfoForSystemApp(const GURL& url) {
   DCHECK_EQ(content::kChromeUIScheme, url.scheme());
@@ -40,11 +50,13 @@ PendingAppManager::AppInfo CreateAppInfoForSystemApp(const GURL& url) {
 
 SystemWebAppManager::SystemWebAppManager(Profile* profile,
                                          PendingAppManager* pending_app_manager)
-    : profile_(profile), pending_app_manager_(pending_app_manager) {}
+    : pending_app_manager_(pending_app_manager) {
+  system_app_urls_ = CreateSystemWebApps();
+}
 
 SystemWebAppManager::~SystemWebAppManager() = default;
 
-void SystemWebAppManager::Init() {
+void SystemWebAppManager::Start() {
   content::BrowserThread::PostAfterStartupTask(
       FROM_HERE,
       base::CreateSingleThreadTaskRunnerWithTraits(
@@ -53,42 +65,33 @@ void SystemWebAppManager::Init() {
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
+base::Optional<std::string> SystemWebAppManager::GetAppIdForSystemApp(
+    SystemAppType id) const {
+  auto app = system_app_urls_.find(id);
+  DCHECK(app != system_app_urls_.end());
+  return pending_app_manager_->LookupAppId(app->second);
+}
+
+void SystemWebAppManager::SetSystemAppsForTesting(
+    base::flat_map<SystemAppType, GURL> system_app_urls) {
+  system_app_urls_ = std::move(system_app_urls);
+}
+
 // static
-bool SystemWebAppManager::ShouldEnableForProfile(Profile* profile) {
-  bool is_enabled = base::FeatureList::IsEnabled(features::kSystemWebApps);
-#if defined(OS_CHROMEOS)
-  // System Apps should not be installed to the signin profile.
-  is_enabled = is_enabled && !chromeos::ProfileHelper::IsSigninProfile(profile);
-#endif
-  return is_enabled;
+bool SystemWebAppManager::IsEnabled() {
+  return base::FeatureList::IsEnabled(features::kSystemWebApps);
 }
 
 void SystemWebAppManager::StartAppInstallation() {
-  std::vector<GURL> urls_to_install;
-  if (ShouldEnableForProfile(profile_)) {
-    // Skipping this will uninstall all System Apps currently installed.
-    urls_to_install = CreateSystemWebApps();
-  }
-
   std::vector<PendingAppManager::AppInfo> apps_to_install;
-  for (const auto& url : urls_to_install)
-    apps_to_install.push_back(CreateAppInfoForSystemApp(url));
+  if (IsEnabled()) {
+    // Skipping this will uninstall all System Apps currently installed.
+    for (const auto& app : system_app_urls_)
+      apps_to_install.push_back(CreateAppInfoForSystemApp(app.second));
+  }
 
   pending_app_manager_->SynchronizeInstalledApps(
       std::move(apps_to_install), InstallSource::kSystemInstalled);
-}
-
-std::vector<GURL> SystemWebAppManager::CreateSystemWebApps() {
-  std::vector<GURL> urls;
-
-// TODO(calamity): Split this into per-platform functions.
-#if defined(OS_CHROMEOS)
-  urls.emplace_back(chrome::kChromeUIDiscoverURL);
-  constexpr char kChromeSettingsPWAURL[] = "chrome://settings/pwa.html";
-  urls.emplace_back(kChromeSettingsPWAURL);
-#endif  // OS_CHROMEOS
-
-  return urls;
 }
 
 }  // namespace web_app

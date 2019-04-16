@@ -1142,6 +1142,16 @@ GLES2RenderbufferStorageMultisampleCHROMIUM(GLenum target,
   gles2::GetGLContext()->RenderbufferStorageMultisampleCHROMIUM(
       target, samples, internalformat, width, height);
 }
+void GL_APIENTRY
+GLES2RenderbufferStorageMultisampleAdvancedAMD(GLenum target,
+                                               GLsizei samples,
+                                               GLsizei storageSamples,
+                                               GLenum internalformat,
+                                               GLsizei width,
+                                               GLsizei height) {
+  gles2::GetGLContext()->RenderbufferStorageMultisampleAdvancedAMD(
+      target, samples, storageSamples, internalformat, width, height);
+}
 void GL_APIENTRY GLES2RenderbufferStorageMultisampleEXT(GLenum target,
                                                         GLsizei samples,
                                                         GLenum internalformat,
@@ -1261,6 +1271,46 @@ void GL_APIENTRY GLES2DispatchCompute(GLuint num_groups_x,
                                       GLuint num_groups_z) {
   gles2::GetGLContext()->DispatchCompute(num_groups_x, num_groups_y,
                                          num_groups_z);
+}
+void GL_APIENTRY GLES2GetProgramInterfaceiv(GLuint program,
+                                            GLenum program_interface,
+                                            GLenum pname,
+                                            GLint* params) {
+  gles2::GetGLContext()->GetProgramInterfaceiv(program, program_interface,
+                                               pname, params);
+}
+GLuint GL_APIENTRY GLES2GetProgramResourceIndex(GLuint program,
+                                                GLenum program_interface,
+                                                const char* name) {
+  return gles2::GetGLContext()->GetProgramResourceIndex(
+      program, program_interface, name);
+}
+void GL_APIENTRY GLES2GetProgramResourceName(GLuint program,
+                                             GLenum program_interface,
+                                             GLuint index,
+                                             GLsizei bufsize,
+                                             GLsizei* length,
+                                             char* name) {
+  gles2::GetGLContext()->GetProgramResourceName(program, program_interface,
+                                                index, bufsize, length, name);
+}
+void GL_APIENTRY GLES2GetProgramResourceiv(GLuint program,
+                                           GLenum program_interface,
+                                           GLuint index,
+                                           GLsizei prop_count,
+                                           const GLenum* props,
+                                           GLsizei bufsize,
+                                           GLsizei* length,
+                                           GLint* params) {
+  gles2::GetGLContext()->GetProgramResourceiv(program, program_interface, index,
+                                              prop_count, props, bufsize,
+                                              length, params);
+}
+GLint GL_APIENTRY GLES2GetProgramResourceLocation(GLuint program,
+                                                  GLenum program_interface,
+                                                  const char* name) {
+  return gles2::GetGLContext()->GetProgramResourceLocation(
+      program, program_interface, name);
 }
 void GL_APIENTRY GLES2MemoryBarrierEXT(GLbitfield barriers) {
   gles2::GetGLContext()->MemoryBarrierEXT(barriers);
@@ -1880,6 +1930,14 @@ GLuint GL_APIENTRY
 GLES2CreateAndTexStorage2DSharedImageCHROMIUM(const GLbyte* mailbox) {
   return gles2::GetGLContext()->CreateAndTexStorage2DSharedImageCHROMIUM(
       mailbox);
+}
+GLuint GL_APIENTRY
+GLES2CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+    const GLbyte* mailbox,
+    GLenum internalformat) {
+  return gles2::GetGLContext()
+      ->CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+          mailbox, internalformat);
 }
 void GL_APIENTRY GLES2BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
                                                            GLenum mode) {
@@ -2808,6 +2866,11 @@ extern const NameToFunc g_gles2_function_table[] = {
             glRenderbufferStorageMultisampleCHROMIUM),
     },
     {
+        "glRenderbufferStorageMultisampleAdvancedAMD",
+        reinterpret_cast<GLES2FunctionPointer>(
+            glRenderbufferStorageMultisampleAdvancedAMD),
+    },
+    {
         "glRenderbufferStorageMultisampleEXT",
         reinterpret_cast<GLES2FunctionPointer>(
             glRenderbufferStorageMultisampleEXT),
@@ -2916,6 +2979,26 @@ extern const NameToFunc g_gles2_function_table[] = {
     {
         "glDispatchCompute",
         reinterpret_cast<GLES2FunctionPointer>(glDispatchCompute),
+    },
+    {
+        "glGetProgramInterfaceiv",
+        reinterpret_cast<GLES2FunctionPointer>(glGetProgramInterfaceiv),
+    },
+    {
+        "glGetProgramResourceIndex",
+        reinterpret_cast<GLES2FunctionPointer>(glGetProgramResourceIndex),
+    },
+    {
+        "glGetProgramResourceName",
+        reinterpret_cast<GLES2FunctionPointer>(glGetProgramResourceName),
+    },
+    {
+        "glGetProgramResourceiv",
+        reinterpret_cast<GLES2FunctionPointer>(glGetProgramResourceiv),
+    },
+    {
+        "glGetProgramResourceLocation",
+        reinterpret_cast<GLES2FunctionPointer>(glGetProgramResourceLocation),
     },
     {
         "glMemoryBarrierEXT",
@@ -3369,6 +3452,11 @@ extern const NameToFunc g_gles2_function_table[] = {
         "glCreateAndTexStorage2DSharedImageCHROMIUM",
         reinterpret_cast<GLES2FunctionPointer>(
             glCreateAndTexStorage2DSharedImageCHROMIUM),
+    },
+    {
+        "glCreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM",
+        reinterpret_cast<GLES2FunctionPointer>(
+            glCreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM),
     },
     {
         "glBeginSharedImageAccessDirectCHROMIUM",

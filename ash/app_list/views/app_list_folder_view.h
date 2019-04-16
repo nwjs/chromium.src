@@ -155,6 +155,10 @@ class APP_LIST_EXPORT AppListFolderView : public views::View,
   // Returns nullptr if there isn't one associated with this widget.
   ui::Compositor* GetCompositor();
 
+  // Creates accessibility event for opening folder if |open| is true.
+  // Otherwise, creates the event for closing folder.
+  void CreateOpenOrCloseFolderAccessibilityEvent(bool open);
+
   // Views below are not owned by views hierarchy.
   AppsContainerView* container_view_;
   ContentsView* contents_view_;
@@ -181,8 +185,6 @@ class APP_LIST_EXPORT AppListFolderView : public views::View,
   gfx::Rect preferred_bounds_;
 
   bool hide_for_reparent_;
-
-  base::string16 accessible_name_;
 
   std::unique_ptr<gfx::SlideAnimation> background_animation_;
   std::unique_ptr<gfx::SlideAnimation> folder_item_title_animation_;

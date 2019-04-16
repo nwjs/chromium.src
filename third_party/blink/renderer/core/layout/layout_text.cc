@@ -28,6 +28,7 @@
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
+#include "third_party/blink/renderer/core/content_capture/content_capture_manager.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/editing/ephemeral_range.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -80,6 +81,7 @@ struct SameSizeAsLayoutText : public LayoutObject {
   float widths[4];
   String text;
   void* pointers[2];
+  NodeHolder node_holder;
 };
 
 static_assert(sizeof(LayoutText) == sizeof(SameSizeAsLayoutText),
@@ -129,6 +131,7 @@ LayoutText::LayoutText(Node* node, scoped_refptr<StringImpl> str)
       known_to_have_no_overflow_and_no_fallback_fonts_(false),
       contains_only_whitespace_or_nbsp_(
           static_cast<unsigned>(OnlyWhitespaceOrNbsp::kUnknown)),
+      is_text_fragment_(false),
       has_abstract_inline_text_box_(false),
       min_width_(-1),
       max_width_(-1),
@@ -164,10 +167,6 @@ LayoutText* LayoutText::CreateEmptyAnonymous(
   text->SetDocumentForAnonymous(&doc);
   text->SetStyle(std::move(style));
   return text;
-}
-
-bool LayoutText::IsTextFragment() const {
-  return false;
 }
 
 bool LayoutText::IsWordBreak() const {
@@ -228,6 +227,13 @@ void LayoutText::WillBeDestroyed() {
   if (SecureTextTimer* secure_text_timer =
           g_secure_text_timers ? g_secure_text_timers->Take(this) : nullptr)
     delete secure_text_timer;
+
+  if (!node_holder_.is_empty) {
+    DCHECK(GetContentCaptureManager());
+    GetContentCaptureManager()->OnLayoutTextWillBeDestroyed(node_holder_);
+    node_holder_.text_holder.reset();
+    node_holder_.is_empty = true;
+  }
 
   RemoveAndDestroyTextBoxes();
   LayoutObject::WillBeDestroyed();
@@ -442,7 +448,7 @@ static IntRect EllipsisRectForBox(InlineTextBox* box,
   if (!box)
     return IntRect();
 
-  unsigned short truncation = box->Truncation();
+  uint16_t truncation = box->Truncation();
   if (truncation == kCNoTruncation)
     return IntRect();
 
@@ -802,13 +808,6 @@ PositionWithAffinity LayoutText::PositionForPoint(
                                         should_affinity_be_downstream)) {
           const int offset = box->OffsetForPosition(
               point_line_direction, IncludePartialGlyphs, BreakGlyphs);
-          if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
-            return CreatePositionWithAffinityForBox(
-                box, offset + box->Start(),
-                static_cast<unsigned>(offset) == box->Len()
-                    ? kAlwaysUpstream
-                    : kAlwaysDownstream);
-          }
           return CreatePositionWithAffinityForBoxAfterAdjustingOffsetForBiDi(
               box, offset, should_affinity_be_downstream);
         }
@@ -820,13 +819,6 @@ PositionWithAffinity LayoutText::PositionForPoint(
   if (last_box) {
     const int offset = last_box->OffsetForPosition(
         point_line_direction, IncludePartialGlyphs, BreakGlyphs);
-    if (RuntimeEnabledFeatures::BidiCaretAffinityEnabled()) {
-      return CreatePositionWithAffinityForBox(
-          last_box, offset + last_box->Start(),
-          static_cast<unsigned>(offset) == last_box->Len() ? kAlwaysUpstream
-                                                           : kAlwaysDownstream);
-    }
-
     ShouldAffinityBeDownstream should_affinity_be_downstream;
     LineDirectionPointFitsInBox(point_line_direction.ToInt(), last_box,
                                 should_affinity_be_downstream);
@@ -1640,22 +1632,26 @@ void LayoutText::SetFirstTextBoxLogicalLeft(float text_width) const {
   LayoutUnit offset_left = ContainingBlock()->LogicalLeftOffsetForContent();
   LayoutUnit available_space = ContainingBlock()->ContentLogicalWidth();
 
-  switch (StyleRef().GetTextAlign(true)) {
-    case ETextAlign::kLeft:
-    case ETextAlign::kWebkitLeft:
-    case ETextAlign::kJustify:
-    case ETextAlign::kStart:
-      // Do nothing.
-      break;
-    case ETextAlign::kRight:
-    case ETextAlign::kWebkitRight:
-    case ETextAlign::kEnd:
-      offset_left += available_space - text_width;
-      break;
-    case ETextAlign::kCenter:
-    case ETextAlign::kWebkitCenter:
-      offset_left += (available_space - text_width) / 2;
-      break;
+  // If |text_width| is bigger than |available_space| it's because the text
+  // doesn't wrap so we don't need to align anything.
+  if (text_width < available_space) {
+    switch (StyleRef().GetTextAlign(true)) {
+      case ETextAlign::kLeft:
+      case ETextAlign::kWebkitLeft:
+      case ETextAlign::kJustify:
+      case ETextAlign::kStart:
+        // Do nothing.
+        break;
+      case ETextAlign::kRight:
+      case ETextAlign::kWebkitRight:
+      case ETextAlign::kEnd:
+        offset_left += available_space - text_width;
+        break;
+      case ETextAlign::kCenter:
+      case ETextAlign::kWebkitCenter:
+        offset_left += (available_space - text_width) / 2;
+        break;
+    }
   }
 
   FirstTextBox()->SetLogicalLeft(offset_left);
@@ -1811,16 +1807,6 @@ UChar LayoutText::PreviousCharacter() const {
   return prev;
 }
 
-void LayoutText::AddLayerHitTestRects(
-    LayerHitTestRects&,
-    const PaintLayer* current_layer,
-    const LayoutPoint& layer_offset,
-    TouchAction supported_fast_actions,
-    const LayoutRect& container_rect,
-    TouchAction container_whitelisted_touch_action) const {
-  // Text nodes aren't event targets, so don't descend any further.
-}
-
 void LayoutText::SetTextInternal(scoped_refptr<StringImpl> text) {
   DCHECK(text);
   text_ = String(std::move(text));
@@ -1922,12 +1908,11 @@ void LayoutText::DirtyLineBoxes() {
   valid_ng_items_ = false;
 }
 
-InlineTextBox* LayoutText::CreateTextBox(int start, unsigned short length) {
+InlineTextBox* LayoutText::CreateTextBox(int start, uint16_t length) {
   return new InlineTextBox(LineLayoutItem(this), start, length);
 }
 
-InlineTextBox* LayoutText::CreateInlineTextBox(int start,
-                                               unsigned short length) {
+InlineTextBox* LayoutText::CreateInlineTextBox(int start, uint16_t length) {
   InlineTextBox* text_box = CreateTextBox(start, length);
   MutableTextBoxes().AppendLineBox(text_box);
   return text_box;
@@ -2065,14 +2050,9 @@ LayoutRect LayoutText::LinesBoundingBox() const {
 LayoutRect LayoutText::VisualOverflowRect() const {
   if (IsInLayoutNGInlineFormattingContext()) {
     LayoutRect rect;
-    auto fragments = NGPaintFragment::InlineFragmentsFor(this);
-    for (const NGPaintFragment* fragment : fragments) {
-      LayoutRect child_rect = fragment->VisualRect();
-      child_rect.MoveBy(fragment->InlineOffsetToContainerBox().ToLayoutPoint());
-      rect.Unite(child_rect);
-    }
-    ContainingBlock()->FlipForWritingMode(rect);
-    return rect;
+    if (NGPaintFragment::FlippedLocalVisualRectFor(this, &rect))
+      return rect;
+    NOTREACHED();
   }
 
   if (!FirstTextBox())
@@ -2120,12 +2100,15 @@ LayoutRect LayoutText::VisualOverflowRect() const {
 }
 
 LayoutRect LayoutText::LocalVisualRectIgnoringVisibility() const {
-  if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
-    LayoutRect visual_rect;
-    if (NGPaintFragment::FlippedLocalVisualRectFor(this, &visual_rect))
-      return visual_rect;
+  if (IsInLayoutNGInlineFormattingContext()) {
+    LayoutRect rect;
+    if (NGPaintFragment::FlippedLocalVisualRectFor(this, &rect)) {
+      if (!IsSelected())
+        return rect;
+      return UnionRect(rect, LocalSelectionRect());
+    }
+    NOTREACHED();
   }
-
   return UnionRect(VisualOverflowRect(), LocalSelectionRect());
 }
 
@@ -2152,6 +2135,15 @@ LayoutRect LayoutText::LocalSelectionRect() const {
       fragment_rect.offset += fragment->InlineOffsetToContainerBox();
       rect.Unite(fragment_rect.ToLayoutRect());
     }
+
+    if (!HasFlippedBlocksWritingMode())
+      return rect;
+    // Since legacy requires LocalSelectionRect return flipped block direction,
+    // we need to convert physical coordinates into physical coordinates in
+    // flipped block direction.
+    NGPaintFragment* container = NGPaintFragment::GetForInlineContainer(this);
+    DCHECK(container);
+    ToLayoutBox(container->GetLayoutObject())->FlipForWritingMode(rect);
     return rect;
   }
 
@@ -2188,7 +2180,13 @@ Position LayoutText::PositionForCaretOffset(unsigned offset) const {
     return Position();
   DCHECK(node->IsTextNode());
   // TODO(layout-dev): Support offset change due to text-transform.
-  return Position(node, offset);
+#if DCHECK_IS_ON()
+  // Ensures that the clamping hack kicks in only with text-transform.
+  if (StyleRef().TextTransform() == ETextTransform::kNone)
+    DCHECK_LE(offset, ToText(node)->length());
+#endif
+  const unsigned clamped_offset = std::min(offset, ToText(node)->length());
+  return Position(node, clamped_offset);
 }
 
 base::Optional<unsigned> LayoutText::CaretOffsetForPosition(
@@ -2442,9 +2440,7 @@ void LayoutText::MomentarilyRevealLastTypedCharacter(
 
 scoped_refptr<AbstractInlineTextBox> LayoutText::FirstAbstractInlineTextBox() {
   if (RuntimeEnabledFeatures::LayoutNGEnabled()) {
-    LayoutObject* const first_letter_part = GetFirstLetterPart();
-    auto fragments = NGPaintFragment::InlineFragmentsFor(
-        first_letter_part ? first_letter_part : this);
+    auto fragments = NGPaintFragment::InlineFragmentsFor(this);
     if (!fragments.IsEmpty() &&
         fragments.IsInLayoutNGInlineFormattingContext()) {
       has_abstract_inline_text_box_ = true;
@@ -2497,13 +2493,34 @@ LayoutRect LayoutText::DebugRect() const {
   return rect;
 }
 
-void LayoutText::AddInlineItem(NGInlineItem* item) {
-  DCHECK_EQ(this, item->GetLayoutObject());
+NodeHolder LayoutText::EnsureNodeHolder() {
+  if (node_holder_.is_empty) {
+    if (auto* content_capture_manager = GetContentCaptureManager())
+      node_holder_ = content_capture_manager->GetNodeHolder(*GetNode());
+  }
+  return node_holder_;
+}
+
+ContentCaptureManager* LayoutText::GetContentCaptureManager() {
+  if (auto* node = GetNode()) {
+    if (auto* frame = node->GetDocument().GetFrame()) {
+      return frame->LocalFrameRoot().GetContentCaptureManager();
+    }
+  }
+  return nullptr;
+}
+
+void LayoutText::SetInlineItems(NGInlineItem* begin, NGInlineItem* end) {
+#if DCHECK_IS_ON()
+  for (NGInlineItem* item = begin; item != end; ++item) {
+    DCHECK_EQ(item->GetLayoutObject(), this);
+  }
+#endif
   NGInlineItems* items = GetNGInlineItems();
   if (!items)
     return;
   valid_ng_items_ = true;
-  items->Add(item);
+  items->SetRange(begin, end);
 }
 
 void LayoutText::ClearInlineItems() {
@@ -2512,10 +2529,11 @@ void LayoutText::ClearInlineItems() {
     items->Clear();
 }
 
-const Vector<NGInlineItem*>& LayoutText::InlineItems() const {
+const NGInlineItems& LayoutText::InlineItems() const {
   DCHECK(valid_ng_items_);
-  DCHECK(!GetNGInlineItems()->Items().IsEmpty());
-  return GetNGInlineItems()->Items();
+  DCHECK(GetNGInlineItems());
+  DCHECK(!GetNGInlineItems()->IsEmpty());
+  return *GetNGInlineItems();
 }
 
 }  // namespace blink

@@ -171,10 +171,10 @@ class ShapeParameterTest : public HarfBuzzShaperTest,
   }
 };
 
-INSTANTIATE_TEST_CASE_P(HarfBuzzShaperTest,
-                        ShapeParameterTest,
-                        testing::Values(TextDirection::kLtr,
-                                        TextDirection::kRtl));
+INSTANTIATE_TEST_SUITE_P(HarfBuzzShaperTest,
+                         ShapeParameterTest,
+                         testing::Values(TextDirection::kLtr,
+                                         TextDirection::kRtl));
 
 TEST_F(HarfBuzzShaperTest, MutableUnique) {
   scoped_refptr<ShapeResult> result =
@@ -436,6 +436,15 @@ TEST_F(HarfBuzzShaperTest, MAYBE_ShapeArabicWithContext) {
   ASSERT_NEAR(combined->Width(), first->Width() + second->Width(), 0.1);
 }
 
+TEST_F(HarfBuzzShaperTest, ShapeTabulationCharacters) {
+  const unsigned length = HarfBuzzRunGlyphData::kMaxGlyphs * 2 + 1;
+  scoped_refptr<ShapeResult> result =
+      ShapeResult::CreateForTabulationCharacters(&font, TextDirection::kLtr,
+                                                 TabSize(8), 0.f, 0, length);
+  EXPECT_EQ(result->NumCharacters(), length);
+  EXPECT_EQ(result->NumGlyphs(), length);
+}
+
 TEST_F(HarfBuzzShaperTest, ShapeVerticalUpright) {
   font_description.SetOrientation(FontOrientation::kVerticalUpright);
   font = Font(font_description);
@@ -532,14 +541,14 @@ TEST_F(HarfBuzzShaperTest, ShapeVerticalMixed) {
 class ShapeStringTest : public HarfBuzzShaperTest,
                         public testing::WithParamInterface<const char16_t*> {};
 
-INSTANTIATE_TEST_CASE_P(HarfBuzzShaperTest,
-                        ShapeStringTest,
-                        testing::Values(
-                            // U+FFF0 is not assigned as of Unicode 10.0.
-                            u"\uFFF0",
-                            u"\uFFF0Hello",
-                            // U+00AD SOFT HYPHEN often does not have glyphs.
-                            u"\u00AD"));
+INSTANTIATE_TEST_SUITE_P(HarfBuzzShaperTest,
+                         ShapeStringTest,
+                         testing::Values(
+                             // U+FFF0 is not assigned as of Unicode 10.0.
+                             u"\uFFF0",
+                             u"\uFFF0Hello",
+                             // U+00AD SOFT HYPHEN often does not have glyphs.
+                             u"\u00AD"));
 
 TEST_P(ShapeStringTest, MissingGlyph) {
   String string(GetParam());
@@ -617,8 +626,11 @@ TEST_P(ShapeParameterTest, MaxGlyphsClusterDevanagari) {
   HarfBuzzShaper shaper(string);
   scoped_refptr<ShapeResult> result = ShapeWithParameter(&shaper);
   EXPECT_EQ(length, result->NumCharacters());
-#if defined(OS_LINUX)
-  // Linux doesn't have glyphs. We can't test RunInfo without all glyphs.
+#if defined(OS_LINUX) || defined(OS_FUCHSIA)
+  // Linux and Fuchsia use Lohit Devanagari. When using that font the shaper
+  // returns 32767 glyphs instead of 32769.
+  // TODO(crbug.com/933551): Add Noto Sans Devanagari to
+  // //third_party/test_fonts and use it here.
   if (result->NumGlyphs() != length)
     return;
 #endif
@@ -741,9 +753,9 @@ class GlyphDataRangeTest
     : public HarfBuzzShaperTest,
       public testing::WithParamInterface<GlyphDataRangeTestData> {};
 
-INSTANTIATE_TEST_CASE_P(HarfBuzzShaperTest,
-                        GlyphDataRangeTest,
-                        testing::ValuesIn(glyph_data_range_test_data));
+INSTANTIATE_TEST_SUITE_P(HarfBuzzShaperTest,
+                         GlyphDataRangeTest,
+                         testing::ValuesIn(glyph_data_range_test_data));
 
 TEST_P(GlyphDataRangeTest, Data) {
   auto data = GetParam();
@@ -751,7 +763,7 @@ TEST_P(GlyphDataRangeTest, Data) {
   HarfBuzzShaper shaper(string);
   scoped_refptr<ShapeResult> result = shaper.Shape(&font, data.direction);
 
-  auto& run = TestInfo(result)->RunInfoForTesting(data.run_index);
+  const auto& run = TestInfo(result)->RunInfoForTesting(data.run_index);
   auto glyphs = run.FindGlyphDataRange(data.start_offset, data.end_offset);
   unsigned start_glyph = std::distance(run.glyph_data_.begin(), glyphs.begin);
   EXPECT_EQ(data.start_glyph, start_glyph);
@@ -803,7 +815,7 @@ class OffsetForPositionTest
     : public HarfBuzzShaperTest,
       public testing::WithParamInterface<OffsetForPositionTestData> {};
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     HarfBuzzShaperTest,
     OffsetForPositionTest,
     testing::ValuesIn(offset_for_position_fixed_pitch_test_data));
@@ -880,7 +892,7 @@ class IncludePartialGlyphsTest
     : public HarfBuzzShaperTest,
       public ::testing::WithParamInterface<IncludePartialGlyphsOption> {};
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     HarfBuzzShaperTest,
     IncludePartialGlyphsTest,
     ::testing::Values(IncludePartialGlyphsOption::OnlyFullGlyphs,
@@ -1091,9 +1103,9 @@ class ShapeResultCopyRangeTest
     : public HarfBuzzShaperTest,
       public testing::WithParamInterface<ShapeResultCopyRangeTestData> {};
 
-INSTANTIATE_TEST_CASE_P(HarfBuzzShaperTest,
-                        ShapeResultCopyRangeTest,
-                        testing::ValuesIn(shape_result_copy_range_test_data));
+INSTANTIATE_TEST_SUITE_P(HarfBuzzShaperTest,
+                         ShapeResultCopyRangeTest,
+                         testing::ValuesIn(shape_result_copy_range_test_data));
 
 // Split a ShapeResult and combine them should match to the original result.
 TEST_P(ShapeResultCopyRangeTest, Split) {
@@ -1260,11 +1272,9 @@ TEST_P(ShapeParameterTest, ShapeResultCopyRangeContextMultiRuns) {
   HarfBuzzShaper shaper(mixed_string);
   scoped_refptr<ShapeResult> result = shaper.Shape(&font, direction);
 
-  // Copy multiple times using |context| from multiple runs
-  unsigned context = 0;
-  scoped_refptr<ShapeResult> sub2to4 = result->SubRange(2, 4, &context);
+  scoped_refptr<ShapeResult> sub2to4 = result->SubRange(2, 4);
   EXPECT_EQ(2u, sub2to4->NumCharacters());
-  scoped_refptr<ShapeResult> sub5to9 = result->SubRange(5, 9, &context);
+  scoped_refptr<ShapeResult> sub5to9 = result->SubRange(5, 9);
   EXPECT_EQ(4u, sub5to9->NumCharacters());
 }
 
@@ -1469,8 +1479,8 @@ TEST_F(HarfBuzzShaperTest, SafeToBreakLatinDiscretionaryLigatures) {
 }
 
 // TODO(crbug.com/870712): This test fails due to font fallback differences on
-// Android.
-#if defined(OS_ANDROID)
+// Android and Fuchsia.
+#if defined(OS_ANDROID) || defined(OS_FUCHSIA)
 #define MAYBE_SafeToBreakArabicCommonLigatures \
   DISABLED_SafeToBreakArabicCommonLigatures
 #else

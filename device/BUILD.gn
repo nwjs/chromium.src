@@ -118,6 +118,7 @@ test("device_unittests") {
   }
 
   deps = [
+    "//base",
     "//base/test:test_support",
     "//base/third_party/dynamic_annotations:dynamic_annotations",
     "//components/apdu",
@@ -142,7 +143,13 @@ test("device_unittests") {
     "//testing/gtest",
     "//third_party/blink/public:blink_headers",
     "//tools/usb_gadget",
+    "//ui/base",
     "//url",
+  ]
+
+  data_deps = [
+    "bluetooth/strings:bluetooth_test_strings",
+    "//ui/resources:ui_test_pak_data",
   ]
 
   # U2F:
@@ -209,6 +216,11 @@ test("device_unittests") {
       ":bluetooth_test_jni_headers",
       "//device/usb:java",
     ]
+  }
+
+  if (is_chromeos) {
+    sources += [ "bluetooth/chromeos/bluetooth_utils_unittest.cc" ]
+    deps += [ "//chromeos/constants" ]
   }
 
   if ((is_chromeos || is_linux) && use_dbus) {
@@ -341,6 +353,8 @@ test("device_unittests") {
     sources += [
       "vr/orientation/orientation_device_provider_unittest.cc",
       "vr/orientation/orientation_device_unittest.cc",
+      "vr/util/fps_meter_unittest.cc",
+      "vr/util/sliding_average_unittest.cc",
       "vr/vr_device_base_unittest.cc",
       "vr/vr_display_impl_unittest.cc",
     ]

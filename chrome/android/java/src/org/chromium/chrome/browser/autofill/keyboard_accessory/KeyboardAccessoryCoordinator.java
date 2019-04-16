@@ -4,10 +4,6 @@
 
 package org.chromium.chrome.browser.autofill.keyboard_accessory;
 
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BAR_ITEMS;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BOTTOM_OFFSET_PX;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.KEYBOARD_TOGGLE_VISIBLE;
-import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.SHOW_KEYBOARD_CALLBACK;
 import static org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.VISIBLE;
 
 import android.support.annotation.Nullable;
@@ -18,6 +14,8 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryProperties.BarItem;
 import org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryViewBinder.BarItemViewHolder;
+import org.chromium.components.autofill.AutofillDelegate;
+import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.ui.ViewProvider;
 import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
 import org.chromium.ui.modelutil.ListModel;
@@ -116,16 +114,12 @@ public class KeyboardAccessoryCoordinator {
      */
     public KeyboardAccessoryCoordinator(VisibilityDelegate visibilityDelegate,
             ViewProvider<KeyboardAccessoryView> viewProvider) {
-        PropertyModel model = new PropertyModel
-                                      .Builder(BAR_ITEMS, VISIBLE, BOTTOM_OFFSET_PX,
-                                              KEYBOARD_TOGGLE_VISIBLE, SHOW_KEYBOARD_CALLBACK)
-                                      .with(BAR_ITEMS, new ListModel<>())
-                                      .with(VISIBLE, false)
-                                      .with(KEYBOARD_TOGGLE_VISIBLE, false)
-                                      .build();
+        PropertyModel model = KeyboardAccessoryProperties.defaultModelBuilder().build();
         mMediator = new KeyboardAccessoryMediator(
-                model, visibilityDelegate, mTabLayout.getTabSwitchingDelegate());
-        viewProvider.whenLoaded(barView -> mTabLayout.assignNewView(barView.getTabLayout()));
+                model, visibilityDelegate, mTabLayout.getTabSwitchingDelegate(), mTabLayout);
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_KEYBOARD_ACCESSORY)) {
+            viewProvider.whenLoaded(barView -> mTabLayout.assignNewView(barView.getTabLayout()));
+        }
 
         mTabLayout.setTabObserver(mMediator);
         PropertyModelChangeProcessor
@@ -195,6 +189,19 @@ public class KeyboardAccessoryCoordinator {
     public void registerActionProvider(
             KeyboardAccessoryData.Provider<KeyboardAccessoryData.Action[]> provider) {
         provider.addObserver(mMediator);
+    }
+
+    /**
+     * Registers a KeyboardAccessoryData.Observer to the given KeyboardAccessoryData.Provider. The
+     * new observer will render chips into the accessory bar for every new suggestion and call the
+     * given {@link AutofillDelegate} when the user interacts with a chip.
+     * @param provider A {@link KeyboardAccessoryData.Provider<AutofillSuggestion[]>}.
+     * @param delegate A {@link AutofillDelegate}.
+     */
+    public void registerAutofillProvider(
+            KeyboardAccessoryData.Provider<AutofillSuggestion[]> provider,
+            AutofillDelegate delegate) {
+        provider.addObserver(mMediator.createAutofillSuggestionsObserver(delegate));
     }
 
     /**

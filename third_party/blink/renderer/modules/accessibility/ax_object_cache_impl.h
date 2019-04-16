@@ -36,7 +36,7 @@
 #include "third_party/blink/public/platform/modules/permissions/permission.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/permissions/permission_status.mojom-blink.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache_base.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
@@ -85,6 +85,7 @@ class MODULES_EXPORT AXObjectCacheImpl
   void ListboxActiveIndexChanged(HTMLSelectElement*) override;
   void LocationChanged(LayoutObject*) override;
   void RadiobuttonRemovedFromGroup(HTMLInputElement*) override;
+  void ImageLoaded(LayoutObject*) override;
 
   void Remove(AccessibleNode*) override;
   void Remove(LayoutObject*) override;
@@ -140,6 +141,10 @@ class MODULES_EXPORT AXObjectCacheImpl
   // Called when scroll bars are added / removed (as the view resizes).
   void HandleLayoutComplete(LayoutObject*) override;
   void HandleScrolledToAnchor(const Node* anchor_node) override;
+
+  // Called when the frame rect changes, which can sometimes happen
+  // without producing any layout or other notifications.
+  void HandleFrameRectsChanged(Document&) override;
 
   const AtomicString& ComputedRoleForNode(Node*) override;
   String ComputedNameForNode(Node*) override;
@@ -232,7 +237,7 @@ class MODULES_EXPORT AXObjectCacheImpl
   void RequestAOMEventListenerPermission();
 
   // For built-in HTML form validation messages.
-  AXObject* ValidationMessageObjectIfVisible();
+  AXObject* ValidationMessageObjectIfInvalid();
 
  protected:
   void PostPlatformNotification(AXObject*, ax::mojom::Event);
@@ -303,6 +308,7 @@ class MODULES_EXPORT AXObjectCacheImpl
 
   // Object for HTML validation alerts. Created at most once per object cache.
   AXObject* GetOrCreateValidationMessageObject();
+  void RemoveValidationMessageObject();
 
   // Whether the user has granted permission for the user to install event
   // listeners for accessibility events using the AOM.

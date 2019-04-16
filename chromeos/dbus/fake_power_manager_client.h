@@ -45,6 +45,9 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
     return num_set_is_projecting_calls_;
   }
   int num_defer_screen_dim_calls() const { return num_defer_screen_dim_calls_; }
+  int num_wake_notification_calls() const {
+    return num_wake_notification_calls_;
+  }
   double screen_brightness_percent() const {
     return screen_brightness_percent_.value();
   }
@@ -68,7 +71,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
   }
 
   // PowerManagerClient overrides:
-  void Init(dbus::Bus* bus) override;
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
   bool HasObserver(const Observer* observer) const override;
@@ -95,6 +97,7 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
                        const std::string& description) override;
   void NotifyUserActivity(power_manager::UserActivityType type) override;
   void NotifyVideoActivity(bool is_fullscreen) override;
+  void NotifyWakeNotification() override;
   void SetPolicy(const power_manager::PowerManagementPolicy& policy) override;
   void SetIsProjecting(bool is_projecting) override;
   void SetPowerSource(const std::string& id) override;
@@ -179,6 +182,8 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
     keyboard_brightness_percent_ = percent;
   }
 
+  static FakePowerManagerClient* Get();
+
  private:
   // Callback that will be run by asynchronous suspend delays to report
   // readiness.
@@ -186,6 +191,9 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
 
   // Notifies |observers_| that |props_| has been updated.
   void NotifyObservers();
+
+  // Deletes all timers, if any, associated with |tag|.
+  void DeleteArcTimersInternal(const std::string& tag);
 
   base::ObserverList<Observer>::Unchecked observers_;
 
@@ -202,6 +210,7 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
   int num_set_is_projecting_calls_ = 0;
   int num_set_backlights_forced_off_calls_ = 0;
   int num_defer_screen_dim_calls_ = 0;
+  int num_wake_notification_calls_ = 0;
 
   // Number of pending suspend readiness callbacks.
   int num_pending_suspend_readiness_callbacks_ = 0;
@@ -274,7 +283,7 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakePowerManagerClient
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.
-  base::WeakPtrFactory<FakePowerManagerClient> weak_ptr_factory_;
+  base::WeakPtrFactory<FakePowerManagerClient> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(FakePowerManagerClient);
 };

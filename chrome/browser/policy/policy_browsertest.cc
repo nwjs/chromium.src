@@ -71,7 +71,6 @@
 #include "chrome/browser/infobars/infobar_service.h"
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/io_thread.h"
-#include "chrome/browser/media/router/media_router_feature.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/media/webrtc/media_stream_devices_controller.h"
 #include "chrome/browser/media/webrtc/webrtc_event_log_manager.h"
@@ -103,8 +102,6 @@
 #include "chrome/browser/ui/search/instant_test_utils.h"
 #include "chrome/browser/ui/search/local_ntp_test_utils.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/toolbar/component_toolbar_actions_factory.h"
-#include "chrome/browser/ui/toolbar/media_router_action_controller.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
@@ -164,9 +161,9 @@
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_infobar_delegate.h"
 #include "components/unified_consent/pref_names.h"
+#include "components/update_client/net/url_loader_post_interceptor.h"
 #include "components/update_client/update_client.h"
 #include "components/update_client/update_client_errors.h"
-#include "components/update_client/url_loader_post_interceptor.h"
 #include "components/user_prefs/user_prefs.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/variations_params_manager.h"
@@ -267,6 +264,7 @@
 #include "chrome/browser/chromeos/accessibility/magnification_manager.h"
 #include "chrome/browser/chromeos/accessibility/magnifier_type.h"
 #include "chrome/browser/chromeos/arc/arc_session_manager.h"
+#include "chrome/browser/chromeos/drive/drive_integration_service.h"
 #include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/note_taking_helper.h"
 #include "chrome/browser/chromeos/policy/login_policy_test_base.h"
@@ -277,6 +275,7 @@
 #include "chrome/browser/ui/ash/chrome_screenshot_grabber_test_observer.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chromeos/audio/cras_audio_handler.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "components/account_id/account_id.h"
@@ -307,6 +306,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
+#include "chrome/browser/ui/toolbar/media_router_action_controller.h"
 #endif
 
 using content::BrowserThread;
@@ -1203,11 +1203,11 @@ class SSLPolicyTestCommittedInterstitials
           security_interstitials::SecurityInterstitialTabHelper::
               FromWebContents(tab);
       helper->GetBlockingPageForCurrentlyCommittedNavigationForTesting()
-          ->CommandReceived(base::IntToString(command));
+          ->CommandReceived(base::NumberToString(command));
       return;
     }
     tab->GetInterstitialPage()->GetDelegateForTesting()->CommandReceived(
-        base::IntToString(command));
+        base::NumberToString(command));
   }
 
  private:
@@ -1215,9 +1215,9 @@ class SSLPolicyTestCommittedInterstitials
   DISALLOW_COPY_AND_ASSIGN(SSLPolicyTestCommittedInterstitials);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLPolicyTestCommittedInterstitials,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLPolicyTestCommittedInterstitials,
+                         ::testing::Values(false, true));
 
 #if defined(OS_WIN)
 // This policy only exists on Windows.
@@ -1274,7 +1274,7 @@ IN_PROC_BROWSER_TEST_F(LoginPolicyTestBase, PRE_AllowedLanguages) {
 
   // Set locale and preferred languages to "en-US".
   prefs->SetString(language::prefs::kApplicationLocale, "en-US");
-  prefs->SetString(prefs::kLanguagePreferredLanguages, "en-US");
+  prefs->SetString(language::prefs::kPreferredLanguages, "en-US");
 
   // Set policy to only allow "fr" as locale.
   std::unique_ptr<base::DictionaryValue> policy =
@@ -1314,7 +1314,7 @@ IN_PROC_BROWSER_TEST_F(LoginPolicyTestBase, AllowedLanguages) {
 
   // Verifiy that the enforced locale is added into the list of
   // preferred languages.
-  EXPECT_EQ("fr", prefs->GetString(prefs::kLanguagePreferredLanguages));
+  EXPECT_EQ("fr", prefs->GetString(language::prefs::kPreferredLanguages));
 }
 
 IN_PROC_BROWSER_TEST_F(LoginPolicyTestBase, AllowedInputMethods) {
@@ -2162,6 +2162,64 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, DownloadDirectory) {
   // Verify that the first download location wasn't affected.
   EXPECT_FALSE(base::PathExists(initial_dir.Append(file)));
 }
+
+#if defined(OS_CHROMEOS)
+class DrivePolicyTest : public PolicyTest,
+                        public testing::WithParamInterface<bool> {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PolicyTest::SetUpCommandLine(command_line);
+    if (GetParam()) {
+      scoped_feature_list_.InitAndEnableFeature(chromeos::features::kDriveFs);
+    } else {
+      scoped_feature_list_.InitAndDisableFeature(chromeos::features::kDriveFs);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Verifies that the download directory can be forced to Google Drive by policy.
+IN_PROC_BROWSER_TEST_P(DrivePolicyTest, DownloadDirectory_Drive) {
+  // Override the download directory with the policy.
+  {
+    PolicyMap policies;
+    policies.Set(key::kDownloadDirectory, POLICY_LEVEL_RECOMMENDED,
+                 POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
+                 std::make_unique<base::Value>("${google_drive}/"), nullptr);
+    UpdateProviderPolicy(policies);
+
+    EXPECT_EQ(drive::DriveIntegrationServiceFactory::FindForProfile(
+                  browser()->profile())
+                  ->GetMountPointPath()
+                  .AppendASCII("root"),
+              DownloadPrefs(browser()->profile())
+                  .DownloadPath()
+                  .StripTrailingSeparators());
+  }
+
+  PolicyMap policies;
+  policies.Set(key::kDownloadDirectory, POLICY_LEVEL_MANDATORY,
+               POLICY_SCOPE_USER, POLICY_SOURCE_CLOUD,
+               std::make_unique<base::Value>("${google_drive}/Downloads"),
+               nullptr);
+  UpdateProviderPolicy(policies);
+
+  EXPECT_EQ(drive::DriveIntegrationServiceFactory::FindForProfile(
+                browser()->profile())
+                ->GetMountPointPath()
+                .AppendASCII("root/Downloads"),
+            DownloadPrefs(browser()->profile())
+                .DownloadPath()
+                .StripTrailingSeparators());
+}
+
+INSTANTIATE_TEST_SUITE_P(DrivePolicyTestInstance,
+                         DrivePolicyTest,
+                         testing::Bool());
+
+#endif  // !defined(OS_CHROMEOS)
 
 IN_PROC_BROWSER_TEST_F(PolicyTest, ExtensionInstallBlacklistSelective) {
   // Verifies that blacklisted extensions can't be installed.
@@ -4014,8 +4072,7 @@ class RestoreOnStartupPolicyTest
     // these tests.
     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
     base::CommandLine::StringVector argv = command_line->argv();
-    argv.erase(std::remove_if(++argv.begin(), argv.end(), IsNonSwitchArgument),
-               argv.end());
+    base::EraseIf(argv, IsNonSwitchArgument);
     command_line->InitFromArgv(argv);
     ASSERT_TRUE(std::equal(argv.begin(), argv.end(),
                            command_line->argv().begin()));
@@ -4149,12 +4206,13 @@ IN_PROC_BROWSER_TEST_P(RestoreOnStartupPolicyTest, MAYBE_RunTest) {
 }
 #undef MAYBE_RunTest
 
-INSTANTIATE_TEST_CASE_P(RestoreOnStartupPolicyTestInstance,
-                        RestoreOnStartupPolicyTest,
-                        testing::Values(&RestoreOnStartupPolicyTest::ListOfURLs,
-                                        &RestoreOnStartupPolicyTest::NTP,
-                                        &RestoreOnStartupPolicyTest::Last,
-                                        &RestoreOnStartupPolicyTest::Blocked));
+INSTANTIATE_TEST_SUITE_P(
+    RestoreOnStartupPolicyTestInstance,
+    RestoreOnStartupPolicyTest,
+    testing::Values(&RestoreOnStartupPolicyTest::ListOfURLs,
+                    &RestoreOnStartupPolicyTest::NTP,
+                    &RestoreOnStartupPolicyTest::Last,
+                    &RestoreOnStartupPolicyTest::Blocked));
 
 // Similar to PolicyTest but sets a couple of policies before the browser is
 // started.
@@ -4543,9 +4601,9 @@ IN_PROC_BROWSER_TEST_P(MediaStreamDevicesControllerBrowserTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(MediaStreamDevicesControllerBrowserTestInstance,
-                        MediaStreamDevicesControllerBrowserTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(MediaStreamDevicesControllerBrowserTestInstance,
+                         MediaStreamDevicesControllerBrowserTest,
+                         testing::Bool());
 
 class WebBluetoothPolicyTest : public PolicyTest {
   void SetUpCommandLine(base::CommandLine* command_line)override {
@@ -5197,17 +5255,6 @@ class MediaRouterActionPolicyTest : public PolicyTest {
                  std::make_unique<base::Value>(enable), nullptr);
     provider_.UpdateChromePolicy(policies);
   }
-
- protected:
-  bool HasMediaRouterActionAtInit() const {
-    const std::set<std::string>& component_ids =
-        ToolbarActionsModel::Get(browser()->profile())
-            ->component_actions_factory()
-            ->GetInitialComponentIds();
-
-    return base::ContainsKey(
-        component_ids, ComponentToolbarActionsFactory::kMediaRouterActionId);
-  }
 };
 
 using MediaRouterActionEnabledPolicyTest = MediaRouterActionPolicyTest<true>;
@@ -5217,14 +5264,12 @@ IN_PROC_BROWSER_TEST_F(MediaRouterActionEnabledPolicyTest,
                        MediaRouterActionEnabled) {
   EXPECT_TRUE(
       MediaRouterActionController::IsActionShownByPolicy(browser()->profile()));
-  EXPECT_TRUE(HasMediaRouterActionAtInit());
 }
 
 IN_PROC_BROWSER_TEST_F(MediaRouterActionDisabledPolicyTest,
                        MediaRouterActionDisabled) {
   EXPECT_FALSE(
       MediaRouterActionController::IsActionShownByPolicy(browser()->profile()));
-  EXPECT_FALSE(HasMediaRouterActionAtInit());
 }
 
 class MediaRouterCastAllowAllIPsPolicyTest
@@ -5253,9 +5298,9 @@ IN_PROC_BROWSER_TEST_P(MediaRouterCastAllowAllIPsPolicyTest, RunTest) {
   EXPECT_EQ(is_enabled(), media_router::GetCastAllowAllIPsPref(pref));
 }
 
-INSTANTIATE_TEST_CASE_P(MediaRouterCastAllowAllIPsPolicyTestInstance,
-                        MediaRouterCastAllowAllIPsPolicyTest,
-                        testing::Values(true, false));
+INSTANTIATE_TEST_SUITE_P(MediaRouterCastAllowAllIPsPolicyTestInstance,
+                         MediaRouterCastAllowAllIPsPolicyTest,
+                         testing::Values(true, false));
 #endif  // !defined(OS_ANDROID)
 
 // Sets the proper policy before the browser is started.
@@ -5515,7 +5560,7 @@ void ComponentUpdaterPolicyTest::VerifyExpectations(bool update_disabled) {
                   update_disabled ? " updatedisabled=\"true\"" : "")));
   } else if (base::StartsWith(request, R"({"request":{)",
                               base::CompareCase::SENSITIVE)) {
-    const auto root = base::JSONReader().Read(request);
+    const auto root = base::JSONReader().ReadDeprecated(request);
     ASSERT_TRUE(root);
     const auto* update_check =
         root->FindKey("request")->FindKey("app")->GetList()[0].FindKey(
@@ -6014,9 +6059,9 @@ IN_PROC_BROWSER_TEST_P(NetworkTimePolicyTest, NetworkTimeQueriesDisabled) {
   EXPECT_EQ(1u, num_requests());
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        NetworkTimePolicyTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         NetworkTimePolicyTest,
+                         ::testing::Values(false, true));
 
 #if defined(OS_CHROMEOS)
 
@@ -6678,11 +6723,11 @@ IN_PROC_BROWSER_TEST_P(PromotionalTabsEnabledPolicyTest, RunTest) {
 }
 #undef MAYBE_RunTest
 
-INSTANTIATE_TEST_CASE_P(,
-                        PromotionalTabsEnabledPolicyTest,
-                        ::testing::Values(BooleanPolicy::kNotConfigured,
-                                          BooleanPolicy::kFalse,
-                                          BooleanPolicy::kTrue));
+INSTANTIATE_TEST_SUITE_P(,
+                         PromotionalTabsEnabledPolicyTest,
+                         ::testing::Values(BooleanPolicy::kNotConfigured,
+                                           BooleanPolicy::kFalse,
+                                           BooleanPolicy::kTrue));
 
 #endif  // !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
 
@@ -6754,12 +6799,19 @@ IN_PROC_BROWSER_TEST_P(WebRtcEventLogCollectionAllowedPolicyTest, RunTest) {
   int render_process_id = web_contents->GetMainFrame()->GetProcess()->GetID();
 
   constexpr int kLid = 123;
-  const std::string kPeerConnectionId = "id";
+  const std::string kSessionId = "id";
 
   {
     base::RunLoop run_loop;
     webrtc_event_log_manager->PeerConnectionAdded(
-        render_process_id, kLid, kPeerConnectionId,
+        render_process_id, kLid, BlockingBoolExpectingReply(&run_loop, true));
+    run_loop.Run();
+  }
+
+  {
+    base::RunLoop run_loop;
+    webrtc_event_log_manager->PeerConnectionSessionIdSet(
+        render_process_id, kLid, kSessionId,
         BlockingBoolExpectingReply(&run_loop, true));
     run_loop.Run();
   }
@@ -6773,19 +6825,19 @@ IN_PROC_BROWSER_TEST_P(WebRtcEventLogCollectionAllowedPolicyTest, RunTest) {
     // Test focus - remote-bound logging allowed if and only if the policy
     // is configured to allow it.
     webrtc_event_log_manager->StartRemoteLogging(
-        render_process_id, kPeerConnectionId, kMaxFileSizeBytes,
-        kOutputPeriodMs, kWebAppId,
+        render_process_id, kSessionId, kMaxFileSizeBytes, kOutputPeriodMs,
+        kWebAppId,
         BlockingBoolExpectingReplyWithExtras(&run_loop,
                                              remote_logging_allowed));
     run_loop.Run();
   }
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        WebRtcEventLogCollectionAllowedPolicyTest,
-                        ::testing::Values(BooleanPolicy::kNotConfigured,
-                                          BooleanPolicy::kFalse,
-                                          BooleanPolicy::kTrue));
+INSTANTIATE_TEST_SUITE_P(,
+                         WebRtcEventLogCollectionAllowedPolicyTest,
+                         ::testing::Values(BooleanPolicy::kNotConfigured,
+                                           BooleanPolicy::kFalse,
+                                           BooleanPolicy::kTrue));
 #endif  // !defined(OS_ANDROID)
 
 }  // namespace policy

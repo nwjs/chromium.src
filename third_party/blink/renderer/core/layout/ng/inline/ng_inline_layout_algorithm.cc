@@ -359,7 +359,7 @@ void NGInlineLayoutAlgorithm::PlaceControlItem(const NGInlineItem& item,
                                                NGInlineItemResult* item_result,
                                                NGInlineBoxState* box) {
   DCHECK_EQ(item.Type(), NGInlineItem::kControl);
-  DCHECK_EQ(item.Length(), 1u);
+  DCHECK_GE(item.Length(), 1u);
   DCHECK(!item.TextShapeResult());
   UChar character = line_info.ItemsData().text_content[item.StartOffset()];
   NGPhysicalTextFragment::NGTextType type;
@@ -730,7 +730,7 @@ LayoutUnit NGInlineLayoutAlgorithm::ComputeContentSize(
   return content_size;
 }
 
-scoped_refptr<NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
+scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
   NGExclusionSpace initial_exclusion_space(ConstraintSpace().ExclusionSpace());
 
   bool is_empty_inline = Node().IsEmptyInline();
@@ -809,7 +809,7 @@ scoped_refptr<NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
 
     NGLineInfo line_info;
     NGLineBreaker line_breaker(Node(), NGLineBreakerMode::kContent,
-                               constraint_space_, line_opportunity,
+                               ConstraintSpace(), line_opportunity,
                                leading_floats, handled_leading_floats_index,
                                break_token, &exclusion_space);
     line_breaker.NextLine(&line_info);
@@ -938,7 +938,7 @@ unsigned NGInlineLayoutAlgorithm::PositionLeadingFloats(
       continue;
 
     LayoutUnit origin_bfc_block_offset =
-        is_empty_inline ? ConstraintSpace().FloatsBfcBlockOffset().value()
+        is_empty_inline ? *ConstraintSpace().FloatsBfcBlockOffset()
                         : ConstraintSpace().BfcOffset().block_offset;
 
     NGPositionedFloat positioned_float = PositionFloat(

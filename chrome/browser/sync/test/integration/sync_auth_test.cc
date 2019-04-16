@@ -336,7 +336,6 @@ IN_PROC_BROWSER_TEST_F(SyncAuthTest, SyncPausedState) {
   EXPECT_TRUE(GetSyncService(0)->IsSyncFeatureActive());
   EXPECT_EQ(GetSyncService(0)->GetTransportState(),
             syncer::SyncService::TransportState::ACTIVE);
-  EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Empty());
 
   // Clear the "Sync paused" state again.
   GetClient(0)->ExitSyncPausedStateForPrimaryAccount();

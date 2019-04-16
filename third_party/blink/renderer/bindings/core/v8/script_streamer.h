@@ -5,13 +5,12 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_SCRIPT_STREAMER_H_
 #define THIRD_PARTY_BLINK_RENDERER_BINDINGS_CORE_V8_SCRIPT_STREAMER_H_
 
-#include <atomic>
 #include <memory>
 
+#include "base/macros.h"
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
-#include "third_party/blink/renderer/platform/wtf/noncopyable.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "v8/include/v8.h"
 
@@ -29,7 +28,6 @@ class SourceStream;
 // ScriptStreamer handles it gracefully.
 class CORE_EXPORT ScriptStreamer final
     : public GarbageCollectedFinalized<ScriptStreamer> {
-  WTF_MAKE_NONCOPYABLE(ScriptStreamer);
   USING_PRE_FINALIZER(ScriptStreamer, Prefinalize);
 
  public:
@@ -42,8 +40,7 @@ class CORE_EXPORT ScriptStreamer final
     kRevalidate,
     kContextNotValid,  // DEPRECATED
     kEncodingNotSupported,
-    // TODO(leszeks): Deprecate once scheduled streaming is on by default
-    kThreadBusy,
+    kThreadBusy,  // DEPRECATED
     kV8CannotStream,
     kScriptTooSmall,
     kNoResourceBuffer,
@@ -55,6 +52,7 @@ class CORE_EXPORT ScriptStreamer final
     kStreamingDisabled,
     kSecondScriptResourceUse,
     kWorkerTopLevelScript,
+    kModuleScript,
 
     // Pseudo values that should never be seen in reported metrics
     kCount,
@@ -155,11 +153,6 @@ class CORE_EXPORT ScriptStreamer final
   // Whether we have received enough data to start the streaming.
   bool have_enough_data_for_streaming_;
 
-  // Flag used to allow atomic cancelling and reposting of the streaming task
-  // when the load completes without the task yet starting.
-  // TODO(874080): Remove this once blocking and non-blocking pools are merged.
-  std::atomic_flag blocking_task_started_or_cancelled_ = ATOMIC_FLAG_INIT;
-
   // Whether the script source code should be retrieved from the Resource
   // instead of the ScriptStreamer.
   bool streaming_suppressed_;
@@ -184,6 +177,8 @@ class CORE_EXPORT ScriptStreamer final
   // doesn't break assumptions.
   // TODO(hiroshige): Check the state in more general way.
   bool prefinalizer_called_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(ScriptStreamer);
 };
 
 }  // namespace blink

@@ -156,6 +156,11 @@ struct ResolveHostParameters {
 
     // Results will only come from Multicast DNS queries.
     MULTICAST_DNS,
+
+    // No external sources will be used. Results will only come from fast local
+    // sources that are available no matter the source setting, e.g. cache,
+    // hosts file, IP literal resolution, etc.
+    LOCAL_ONLY,
   };
 
   // The source to use for resolved addresses. Default allows the resolver to
@@ -235,9 +240,6 @@ interface HostResolver {
   // All outstanding requests are cancelled if the HostResolver or parent
   // NetworkContext are destroyed. Such requests will receive ERR_FAILED via
   // |response_client|.
-  //
-  // TODO(crbug.com/821021): Implement more complex functionality to meet full
-  // capabilities of Resolve() and DnsClient/MDnsClient functionality.
   ResolveHost(HostPortPair host,
               ResolveHostParameters? optional_parameters,
               ResolveHostClient response_client);

@@ -9,6 +9,7 @@
 #include <xkbcommon/xkbcommon.h>
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "base/memory/free_deleter.h"
@@ -26,7 +27,7 @@ namespace ui {
 class EVENTS_OZONE_LAYOUT_EXPORT XkbKeyboardLayoutEngine
     : public KeyboardLayoutEngine {
  public:
-  XkbKeyboardLayoutEngine(const XkbKeyCodeConverter& converter);
+  explicit XkbKeyboardLayoutEngine(const XkbKeyCodeConverter& converter);
   ~XkbKeyboardLayoutEngine() override;
 
   // KeyboardLayoutEngine:
@@ -45,6 +46,11 @@ class EVENTS_OZONE_LAYOUT_EXPORT XkbKeyboardLayoutEngine
               DomKey* dom_key,
               KeyboardCode* key_code) const override;
 
+  int UpdateModifiers(uint32_t depressed,
+                      uint32_t latched,
+                      uint32_t locked,
+                      uint32_t group);
+
   static void ParseLayoutName(const std::string& layout_name,
                               std::string* layout_id,
                               std::string* layout_variant);
@@ -54,11 +60,16 @@ class EVENTS_OZONE_LAYOUT_EXPORT XkbKeyboardLayoutEngine
   struct XkbFlagMapEntry {
     int ui_flag;
     xkb_mod_mask_t xkb_flag;
+    xkb_mod_index_t xkb_index;
   };
   std::vector<XkbFlagMapEntry> xkb_flag_map_;
 
-  // Flag mask for num lock, which is always considered enabled.
+#if defined(OS_CHROMEOS)
+  // Flag mask for num lock, which is always considered enabled in ChromeOS.
   xkb_mod_mask_t num_lock_mod_mask_ = 0;
+#endif
+  xkb_mod_mask_t shift_mod_mask_ = 0;
+  xkb_mod_mask_t altgr_mod_mask_ = 0;
 
   // Determines the Windows-based KeyboardCode (VKEY) for a character key,
   // accounting for non-US layouts. May return VKEY_UNKNOWN, in which case the
@@ -105,7 +116,7 @@ class EVENTS_OZONE_LAYOUT_EXPORT XkbKeyboardLayoutEngine
   base::char16 XkbSubCharacter(xkb_keycode_t xkb_keycode,
                                xkb_mod_mask_t base_flags,
                                base::char16 base_character,
-                               int ui_flags) const;
+                               xkb_mod_mask_t flags) const;
 
   // Callback when keymap file is loaded complete.
   void OnKeymapLoaded(const std::string& layout_name,
@@ -114,6 +125,8 @@ class EVENTS_OZONE_LAYOUT_EXPORT XkbKeyboardLayoutEngine
   std::unique_ptr<xkb_context, XkbContextDeleter> xkb_context_;
 
   std::string current_layout_name_;
+
+  xkb_layout_index_t layout_index_ = 0;
 
   // Support weak pointers for attach & detach callbacks.
   base::WeakPtrFactory<XkbKeyboardLayoutEngine> weak_ptr_factory_;

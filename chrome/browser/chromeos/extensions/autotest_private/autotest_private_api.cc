@@ -8,10 +8,12 @@
 #include <sstream>
 #include <utility>
 
+#include "ash/public/cpp/ash_pref_names.h"
 #include "ash/public/interfaces/ash_message_center_controller.mojom.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "ash/shell.h"
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/lazy_instance.h"
 #include "base/metrics/histogram_base.h"
@@ -25,6 +27,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/chromeos/arc/arc_util.h"
+#include "chrome/browser/chromeos/assistant/assistant_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_manager.h"
 #include "chrome/browser/chromeos/crostini/crostini_pref_names.h"
 #include "chrome/browser/chromeos/crostini/crostini_registry_service.h"
@@ -43,6 +46,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_controller.h"
 #include "chrome/browser/ui/ash/login_screen_client.h"
+#include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/browser/ui/views/crostini/crostini_installer_view.h"
 #include "chrome/browser/ui/views/crostini/crostini_uninstaller_view.h"
 #include "chrome/common/chrome_features.h"
@@ -94,7 +98,9 @@ std::unique_ptr<base::ListValue> GetHostPermissions(const Extension* ext,
   const PermissionsData* permissions_data = ext->permissions_data();
   const URLPatternSet& pattern_set =
       effective_perm ? static_cast<const URLPatternSet&>(
-                           permissions_data->GetEffectiveHostPermissions())
+                           permissions_data->GetEffectiveHostPermissions(
+                               PermissionsData::EffectiveHostPermissionsMode::
+                                   kIncludeTabSpecific))
                      : permissions_data->active_permissions().explicit_hosts();
 
   auto permissions = std::make_unique<base::ListValue>();
@@ -164,6 +170,30 @@ std::string GetPrinterType(chromeos::CupsPrintersManager::PrinterClass type) {
     default:
       return "unknown";
   }
+}
+
+// Helper function to set whitelisted user pref based on |pref_name| with any
+// specific pref validations. Returns error messages if any.
+std::string SetWhitelistedPref(Profile* profile,
+                               const std::string& pref_name,
+                               const base::Value& value) {
+  if (pref_name == arc::prefs::kVoiceInteractionHotwordEnabled) {
+    DCHECK(value.is_bool());
+
+    if (assistant::IsAssistantAllowedForProfile(profile) !=
+        ash::mojom::AssistantAllowedState::ALLOWED) {
+      return "Assistant is not available for the current user";
+    }
+  } else if (pref_name == ash::prefs::kAccessibilityVirtualKeyboardEnabled) {
+    DCHECK(value.is_bool());
+  } else {
+    return "The pref " + pref_name + "is not whitelisted.";
+  }
+
+  // Set value for the specified user pref after validation.
+  profile->GetPrefs()->Set(pref_name, value);
+
+  return std::string();
 }
 
 }  // namespace
@@ -263,7 +293,7 @@ void AutotestPrivateLoginStatusFunction::OnIsReadyForPassword(bool is_ready) {
           break;
 
         default:
-          user_image = base::IntToString(user->image_index());
+          user_image = base::NumberToString(user->image_index());
           break;
       }
       result->SetString("userImage", user_image);
@@ -557,6 +587,27 @@ void AutotestPrivateGetVisibleNotificationsFunction::OnGotNotifications(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// AutotestPrivateGetArcStateFunction
+///////////////////////////////////////////////////////////////////////////////
+
+AutotestPrivateGetArcStateFunction::~AutotestPrivateGetArcStateFunction() =
+    default;
+
+ExtensionFunction::ResponseAction AutotestPrivateGetArcStateFunction::Run() {
+  DVLOG(1) << "AutotestPrivateGetArcStateFunction";
+
+  api::autotest_private::ArcState arc_state;
+  Profile* const profile = Profile::FromBrowserContext(browser_context());
+
+  if (!arc::IsArcAllowedForProfile(profile))
+    return RespondNow(Error("ARC is not available for the current user"));
+
+  arc_state.provisioned = arc::IsArcProvisioned(profile);
+  arc_state.tos_needed = arc::IsArcTermsOfServiceNegotiationNeeded(profile);
+  return RespondNow(OneArgument(arc_state.ToValue()));
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // AutotestPrivateGetPlayStoreStateFunction
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -600,6 +651,12 @@ AutotestPrivateSetPlayStoreEnabledFunction::Run() {
       return RespondNow(
           Error("ARC enabled state cannot be changed for the current user"));
     }
+    // kArcLocationServiceEnabled and kArcBackupRestoreEnabled are prefs that
+    // set together with enabling ARC. That is why we set it here not using
+    // SetWhitelistedPref. At this moment, we don't distinguish the actual
+    // values and set kArcLocationServiceEnabled to true and leave
+    // kArcBackupRestoreEnabled unmodified, which is acceptable for autotests
+    // currently.
     profile->GetPrefs()->SetBoolean(arc::prefs::kArcLocationServiceEnabled,
                                     true);
     return RespondNow(NoArguments());
@@ -783,7 +840,7 @@ ExtensionFunction::ResponseAction AutotestPrivateGetArcPackageFunction::Run() {
                         base::Value(package_info->package_version));
   package_value->SetKey(
       "lastBackupAndroidId",
-      base::Value(base::Int64ToString(package_info->last_backup_android_id)));
+      base::Value(base::NumberToString(package_info->last_backup_android_id)));
   package_value->SetKey("lastBackupTime",
                         base::Value(base::Time::FromDeltaSinceWindowsEpoch(
                                         base::TimeDelta::FromMicroseconds(
@@ -1161,7 +1218,7 @@ AutotestPrivateSetAssistantEnabledFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  if (arc::IsAssistantAllowedForProfile(profile) !=
+  if (assistant::IsAssistantAllowedForProfile(profile) !=
       ash::mojom::AssistantAllowedState::ALLOWED) {
     return RespondNow(Error("Assistant is not available for the current user"));
   }
@@ -1209,6 +1266,7 @@ void AutotestPrivateSetAssistantEnabledFunction::Timeout() {
 ///////////////////////////////////////////////////////////////////////////////
 // AutotestPrivateSendAssistantTextQueryFunction
 ///////////////////////////////////////////////////////////////////////////////
+
 AutotestPrivateSendAssistantTextQueryFunction::
     AutotestPrivateSendAssistantTextQueryFunction()
     : assistant_interaction_subscriber_binding_(this),
@@ -1226,7 +1284,7 @@ AutotestPrivateSendAssistantTextQueryFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  if (!profile || arc::IsAssistantAllowedForProfile(profile) !=
+  if (!profile || assistant::IsAssistantAllowedForProfile(profile) !=
                       ash::mojom::AssistantAllowedState::ALLOWED) {
     return RespondNow(Error("Assistant is not available for the current user"));
   }
@@ -1270,6 +1328,13 @@ void AutotestPrivateSendAssistantTextQueryFunction::OnHtmlResponse(
 
 void AutotestPrivateSendAssistantTextQueryFunction::OnInteractionFinished(
     AssistantInteractionResolution resolution) {
+  // Only return a result to the caller and stop the timer when |result_|
+  // is not empty to avoid an early return before the entire interaction is
+  // completed. This happens when sending queries to modify device settings,
+  // e.g. "turn on bluetooth", which results in two rounds of interaction.
+  if (result_->empty())
+    return;
+
   if (resolution != AssistantInteractionResolution::kNormal) {
     Respond(Error("Interaction ends abnormally."));
     timeout_timer_.AbandonAndStop();
@@ -1282,6 +1347,33 @@ void AutotestPrivateSendAssistantTextQueryFunction::OnInteractionFinished(
 
 void AutotestPrivateSendAssistantTextQueryFunction::Timeout() {
   Respond(Error("Assistant response timeout."));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AutotestPrivateSetWhitelistedPrefFunction
+///////////////////////////////////////////////////////////////////////////////
+
+AutotestPrivateSetWhitelistedPrefFunction::
+    ~AutotestPrivateSetWhitelistedPrefFunction() = default;
+
+ExtensionFunction::ResponseAction
+AutotestPrivateSetWhitelistedPrefFunction::Run() {
+  DVLOG(1) << "AutotestPrivateSetWhitelistedPrefFunction";
+
+  std::unique_ptr<api::autotest_private::SetWhitelistedPref::Params> params(
+      api::autotest_private::SetWhitelistedPref::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params);
+
+  const std::string& pref_name = params->pref_name;
+  const base::Value& value = *(params->value);
+
+  Profile* profile = Profile::FromBrowserContext(browser_context());
+  const std::string& err_msg = SetWhitelistedPref(profile, pref_name, value);
+
+  if (!err_msg.empty())
+    return RespondNow(Error(err_msg));
+
+  return RespondNow(NoArguments());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1386,6 +1478,48 @@ AutotestPrivateGetPrimaryDisplayScaleFactorFunction::Run() {
       display::Screen::GetScreen()->GetPrimaryDisplay();
   float scale_factor = primary_display.device_scale_factor();
   return RespondNow(OneArgument(std::make_unique<base::Value>(scale_factor)));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AutotestPrivateIsTabletModeEnabledFunction
+///////////////////////////////////////////////////////////////////////////////
+
+AutotestPrivateIsTabletModeEnabledFunction::
+    ~AutotestPrivateIsTabletModeEnabledFunction() = default;
+
+ExtensionFunction::ResponseAction
+AutotestPrivateIsTabletModeEnabledFunction::Run() {
+  DVLOG(1) << "AutotestPrivateIsTabletModeEnabledFunction";
+
+  return RespondNow(OneArgument(std::make_unique<base::Value>(
+      TabletModeClient::Get()->tablet_mode_enabled())));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// AutotestPrivateSetTabletModeEnabledFunction
+///////////////////////////////////////////////////////////////////////////////
+
+AutotestPrivateSetTabletModeEnabledFunction::
+    ~AutotestPrivateSetTabletModeEnabledFunction() = default;
+
+ExtensionFunction::ResponseAction
+AutotestPrivateSetTabletModeEnabledFunction::Run() {
+  DVLOG(1) << "AutotestPrivateSetTabletModeEnabledFunction";
+
+  std::unique_ptr<api::autotest_private::SetTabletModeEnabled::Params> params(
+      api::autotest_private::SetTabletModeEnabled::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params);
+  TabletModeClient::Get()->SetTabletModeEnabledForTesting(
+      params->enabled,
+      base::BindOnce(
+          &AutotestPrivateSetTabletModeEnabledFunction::OnSetTabletModeEnabled,
+          this));
+  return RespondLater();
+}
+
+void AutotestPrivateSetTabletModeEnabledFunction::OnSetTabletModeEnabled(
+    bool enabled) {
+  Respond(OneArgument(std::make_unique<base::Value>(enabled)));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

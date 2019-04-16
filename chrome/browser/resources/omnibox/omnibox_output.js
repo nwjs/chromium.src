@@ -163,13 +163,6 @@ cr.define('omnibox_output', function() {
       return this.resultsGroups_.flatMap(
           resultsGroup => resultsGroup.autocompleteMatches);
     }
-
-    /** @return {string} */
-    get visibleTableText() {
-      return this.resultsGroups_
-          .flatMap(resultsGroup => resultsGroup.visibleText)
-          .join('\n');
-    }
   }
 
   /**
@@ -328,12 +321,6 @@ cr.define('omnibox_output', function() {
       return [this.combinedResults]
           .concat(this.individualResultsList)
           .flatMap(results => results.autocompleteMatches);
-    }
-
-    /** @return {!Array<string>} */
-    get visibleText() {
-      return Array.from(this.shadowRoot.querySelectorAll(':host > :not(style)'))
-          .map(child => child.innerText);
     }
   }
 
@@ -539,6 +526,12 @@ cr.define('omnibox_output', function() {
   }
 
   class OutputProperty extends HTMLTableCellElement {
+    constructor() {
+      super();
+      /** @type {string} */
+      this.filterName;
+    }
+
     /**
      * @param {Column} column
      * @param {!Array<*>} values
@@ -547,7 +540,7 @@ cr.define('omnibox_output', function() {
     static create(column, values) {
       const outputProperty = new column.outputClass();
       outputProperty.classList.add(column.cellClassName);
-      outputProperty.name = column.headerText.join('.');
+      outputProperty.filterName = column.tooltip.split('\n', 1)[0];
       outputProperty.values = values;
       return outputProperty;
     }
@@ -571,13 +564,34 @@ cr.define('omnibox_output', function() {
     }
   }
 
-  class OutputPairProperty extends OutputProperty {
+  class FlexWrappingOutputProperty extends OutputProperty {
     constructor() {
       super();
 
+      // margin-right is used on .pair-item's to separate them. To compensate,
+      // .pair-container has negative margin-right. This means .pair-container's
+      // overflow their parent. Overflowing a table cell is problematic, as 1)
+      // scroll bars overlay adjacent cell, and 2) the page receives a
+      // horizontal scroll bar when the right most column overflows. To avoid
+      // this, the parent of any element with negative margins (e.g.
+      // .pair-container) must not be a table cell; hence, the use of
+      // scrollContainer_.
+      // Flex gutters may provide a cleaner alternative once implemented.
+      // https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Mastering_Wrapping_of_Flex_Items#Creating_gutters_between_items
+      /** @private {!Element} */
+      this.scrollContainer_ = document.createElement('div');
+      this.appendChild(this.scrollContainer_);
+
+      /** @private {!Element} */
       this.container_ = document.createElement('div');
       this.container_.classList.add('pair-container');
-      this.appendChild(this.container_);
+      this.scrollContainer_.appendChild(this.container_);
+    }
+  }
+
+  class OutputPairProperty extends FlexWrappingOutputProperty {
+    constructor() {
+      super();
 
       /** @type {!Element} */
       this.first_ = document.createElement('div');
@@ -627,14 +641,9 @@ cr.define('omnibox_output', function() {
     }
   }
 
-  class OutputAnswerProperty extends OutputProperty {
+  class OutputAnswerProperty extends FlexWrappingOutputProperty {
     constructor() {
       super();
-
-      /** @private {!Element} */
-      this.container_ = document.createElement('div');
-      this.container_.classList.add('pair-container');
-      this.appendChild(this.container_);
 
       /** @type {!Element} */
       this.image_ = document.createElement('img');
@@ -669,16 +678,66 @@ cr.define('omnibox_output', function() {
 
     /** @private @override */
     render_() {
-      this.contents_.textContent = this.values_[1];
-      this.description_.textContent = this.values_[2];
-      this.answer_.textContent = this.values_[3];
-      this.imageUrl_.textContent = this.values_[0];
-      this.imageUrl_.href = this.values_[0];
+      // TODO (manukh) Wrap this line when Clang is updated,
+      // https://b.corp.google.com/126708256 .
+      const [image, contents, description, answer, contentsClassification, descriptionClassification] =
+          this.values_;
+      OutputAnswerProperty.renderClassifiedText_(
+          this.contents_, /** @type {string} */ (contents),
+          /** @type {!Array<!mojom.ACMatchClassification>} */
+          (contentsClassification));
+      OutputAnswerProperty.renderClassifiedText_(
+          this.description_, /** @type {string} */ (description),
+          /** @type {!Array<!mojom.ACMatchClassification>} */
+          (descriptionClassification));
+      this.answer_.textContent = answer;
+      this.imageUrl_.textContent = image;
+      this.imageUrl_.href = image;
     }
 
     /** @override @return {string} */
     get text() {
       return this.values_.join('.');
+    }
+
+    /**
+     * @private
+     * @param {!Element} container
+     * @param {string} string
+     * @param {!Array<!mojom.ACMatchClassification>} classes
+     */
+    static renderClassifiedText_(container, string, classes) {
+      clearChildren(container);
+      OutputAnswerProperty.classify(string + '\n', classes)
+          .map(
+              ({string, style}) => OutputJsonProperty.renderJsonWord(
+                  string, OutputAnswerProperty.styleToClasses_(style)))
+          .forEach(span => container.appendChild(span));
+    }
+
+    /**
+     * @param {string} string
+     * @param {!Array<!mojom.ACMatchClassification>} classes
+     * @return {!Array<{string: string, style: number}>}
+     */
+    static classify(string, classes) {
+      return classes.map(({offset, style}, i) => {
+        const end = classes[i + 1] ? classes[i + 1].offset : string.length;
+        return {string: string.substring(offset, end), style};
+      });
+    }
+
+    /**
+     * @private
+     * @param {number} style
+     * @return {!Array<string>}
+     */
+    static styleToClasses_(style) {
+      // Maps the bitmask enum AutocompleteMatch::ACMatchClassification::Style
+      // to strings. See autocomplete_match.h for more details.
+      // E.g., maps the style 5 to classes ['style-url', 'style-dim'].
+      return ['style-url', 'style-match', 'style-dim'].filter(
+          (_, i) => (style >> i) % 2);
     }
   }
 
@@ -694,11 +753,10 @@ cr.define('omnibox_output', function() {
     render_() {
       this.icon_.classList.toggle('check-mark', !!this.value);
       this.icon_.classList.toggle('x-mark', !this.value);
-      this.icon_.textContent = this.value;
     }
 
     get text() {
-      return (this.value ? 'is: ' : 'not: ') + this.name;
+      return (this.value ? 'is: ' : 'not: ') + this.filterName;
     }
   }
 
@@ -717,7 +775,7 @@ cr.define('omnibox_output', function() {
       this.text.split(/("(?:[^"\\]|\\.)*":?|\w+)/)
           .map(word => {
             return OutputJsonProperty.renderJsonWord(
-                word, OutputJsonProperty.classifyJsonWord(word));
+                word, [OutputJsonProperty.classifyJsonWord(word)]);
           })
           .forEach(jsonSpan => this.pre_.appendChild(jsonSpan));
     }
@@ -729,14 +787,12 @@ cr.define('omnibox_output', function() {
 
     /**
      * @param {string} word
-     * @param {string|undefined} cls
+     * @param {!Array<string>} classes
      * @return {!Element}
      */
-    static renderJsonWord(word, cls) {
+    static renderJsonWord(word, classes) {
       const span = document.createElement('span');
-      if (cls) {
-        span.classList.add(cls);
-      }
+      span.classList.add(...classes);
       span.textContent = word;
       return span;
     }
@@ -770,9 +826,9 @@ cr.define('omnibox_output', function() {
       clearChildren(this.pre_);
       this.value.forEach(({key, value}) => {
         this.pre_.appendChild(
-            OutputJsonProperty.renderJsonWord(key + ': ', 'key'));
+            OutputJsonProperty.renderJsonWord(key + ': ', ['key']));
         this.pre_.appendChild(
-            OutputJsonProperty.renderJsonWord(value + '\n', 'number'));
+            OutputJsonProperty.renderJsonWord(value + '\n', ['number']));
       });
     }
 
@@ -783,33 +839,42 @@ cr.define('omnibox_output', function() {
     }
   }
 
-  class OutputUrlProperty extends OutputProperty {
+  class OutputUrlProperty extends FlexWrappingOutputProperty {
     constructor() {
       super();
 
       /** @private {!Element} */
-      this.container_ = document.createElement('div');
-      this.container_.classList.add('pair-container');
-      this.appendChild(this.container_);
+      this.iconAndUrlContainer_ = document.createElement('div');
+      this.iconAndUrlContainer_.classList.add('pair-item');
+      this.container_.appendChild(this.iconAndUrlContainer_);
 
       /** @private {!Element} */
       this.icon_ = document.createElement('img');
-      this.container_.appendChild(this.icon_);
+      this.iconAndUrlContainer_.appendChild(this.icon_);
 
       /** @private {!Element} */
-      this.link_ = document.createElement('a');
-      this.container_.appendChild(this.link_);
+      this.urlLink_ = document.createElement('a');
+      this.iconAndUrlContainer_.appendChild(this.urlLink_);
+
+      /** @private {!Element} */
+      this.strippedUrlLink_ = document.createElement('a');
+      this.strippedUrlLink_.classList.add('pair-item');
+      this.container_.appendChild(this.strippedUrlLink_);
     }
 
     /** @private @override */
     render_() {
-      if (this.values_[1]) {
+      const [destinationUrl, isSearchType, strippedDestinationUrl] =
+          this.values_;
+      if (isSearchType) {
         this.icon_.removeAttribute('src');
       } else {
-        this.icon_.src = `chrome://favicon/${this.value}`;
+        this.icon_.src = `chrome://favicon/${destinationUrl}`;
       }
-      this.link_.textContent = this.value;
-      this.link_.href = this.value;
+      this.urlLink_.textContent = destinationUrl;
+      this.urlLink_.href = destinationUrl;
+      this.strippedUrlLink_.textContent = strippedDestinationUrl;
+      this.strippedUrlLink_.href = strippedDestinationUrl;
     }
   }
 
@@ -857,7 +922,7 @@ cr.define('omnibox_output', function() {
      * of digits, or non alpha characters.
      * E.g., `https://google.com/the-dog-ate-134pies` will be split to:
      * https, :, /, /, google, ., com, /, the, -,  dog, -, ate, -, 134, pies
-     * We don't use `Array.split`, because we want to group digits, e.g. 134.
+     * This differs from `Array.split` in that this groups digits, e.g. 134.
      * @private
      * @param {string} text
      * @return {!Array<string>}
@@ -918,22 +983,27 @@ cr.define('omnibox_output', function() {
   const COLUMNS = [
     new Column(
         ['Provider', 'Type'], '', 'providerAndType', true,
-        'The AutocompleteProvider suggesting this result. / The type of the ' +
-            'result.',
+        'Provider & Type\nThe AutocompleteProvider suggesting this result. / ' +
+            'The type of the result.',
         ['providerName', 'type'], OutputPairProperty),
     new Column(
         ['Relevance'], '', 'relevance', true,
-        'The result score. Higher is more relevant.', ['relevance'],
+        'Relevance\nThe result score. Higher is more relevant.', ['relevance'],
         OutputTextProperty),
     new Column(
         ['Contents', 'Description', 'Answer'], '', 'contentsAndDescription',
         true,
-        'The text that is presented identifying the result. / The page title ' +
-            'of the result.',
-        ['image', 'contents', 'description', 'answer'], OutputAnswerProperty),
+        'Contents & Description & Answer\nURL classifications are styled ' +
+            'blue.\nMATCH classifications are styled bold.\nDIM ' +
+            'classifications are styled with a gray background.',
+        [
+          'image', 'contents', 'description', 'answer', 'contentsClass',
+          'descriptionClass'
+        ],
+        OutputAnswerProperty),
     new Column(
         ['D'], '', 'allowedToBeDefaultMatch', true,
-        'Can Be Default\nA green checkmark indicates that the result can be ' +
+        'Can be Default\nA green checkmark indicates that the result can be ' +
             'the default match (i.e., can be the match that pressing enter ' +
             'in the omnibox navigates to).',
         ['allowedToBeDefaultMatch'], OutputBooleanProperty),
@@ -948,13 +1018,16 @@ cr.define('omnibox_output', function() {
             'matches an open tab.',
         ['hasTabMatch'], OutputBooleanProperty),
     new Column(
-        ['URL'], '', 'destinationUrl', true, 'The URL for the result.',
-        ['destinationUrl', 'isSearchType'], OutputUrlProperty),
+        ['URL', 'Stripped URL'], '', 'destinationUrl', true,
+        'URL & Stripped URL\nThe URL for the result. / The stripped URL for ' +
+            'the result.',
+        ['destinationUrl', 'isSearchType', 'strippedDestinationUrl'],
+        OutputUrlProperty),
     new Column(
         ['Fill', 'Inline'], '', 'fillAndInline', false,
-        'The text shown in the omnibox when the result is selected. / The ' +
-            'text shown in the omnibox as a blue highlight selection ' +
-            'following the cursor, if this match is shown inline.',
+        'Fill & Inline\nThe text shown in the omnibox when the result is ' +
+            'selected. / The text shown in the omnibox as a blue highlight ' +
+            'selection following the cursor, if this match is shown inline.',
         ['fillIntoEdit', 'inlineAutocompletion'],
         OutputOverlappingPairProperty),
     new Column(
@@ -970,8 +1043,8 @@ cr.define('omnibox_output', function() {
         ['Tran'],
         'https://cs.chromium.org/chromium/src/ui/base/page_transition_types.h' +
             '?q=page_transition_types.h&sq=package:chromium&dr=CSs&l=14',
-        'transition', false, 'How the user got to the result.', ['transition'],
-        OutputTextProperty),
+        'transition', false, 'Transition\nHow the user got to the result.',
+        ['transition'], OutputTextProperty),
     new Column(
         ['D'], '', 'providerDone', false,
         'Done\nA green checkmark indicates that the provider is done looking ' +
@@ -979,12 +1052,12 @@ cr.define('omnibox_output', function() {
         ['providerDone'], OutputBooleanProperty),
     new Column(
         ['Associated Keyword'], '', 'associatedKeyword', false,
-        'If non-empty, a "press tab to search" hint will be shown and will ' +
-            'engage this keyword.',
+        'Associated Keyword\nIf non-empty, a "press tab to search" hint will ' +
+            'be shown and will engage this keyword.',
         ['associatedKeyword'], OutputTextProperty),
     new Column(
         ['Keyword'], '', 'keyword', false,
-        'The keyword of the search engine to be used.', ['keyword'],
+        'Keyword\nThe keyword of the search engine to be used.', ['keyword'],
         OutputTextProperty),
     new Column(
         ['D'], '', 'duplicates', false,
@@ -993,8 +1066,8 @@ cr.define('omnibox_output', function() {
         ['duplicates'], OutputTextProperty),
     new Column(
         ['Additional Info'], '', 'additionalInfo', false,
-        'Provider-specific information about the result.', ['additionalInfo'],
-        OutputKeyValueTuplesProperty)
+        'Additional Info\nProvider-specific information about the result.',
+        ['additionalInfo'], OutputKeyValueTuplesProperty)
   ];
 
   /** @type {!Column} */

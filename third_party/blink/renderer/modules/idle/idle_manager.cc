@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <utility>
+
 #include "third_party/blink/renderer/modules/idle/idle_manager.h"
 
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -34,6 +36,8 @@ ScriptPromise IdleManager::query(ScriptState* script_state,
     return ScriptPromise();
   }
 
+  base::TimeDelta threshold = base::TimeDelta::FromSeconds(threshold_seconds);
+
   // TODO: Permission check.
 
   if (!service_) {
@@ -48,13 +52,13 @@ ScriptPromise IdleManager::query(ScriptState* script_state,
   ScriptPromise promise = resolver->Promise();
 
   mojom::blink::IdleMonitorPtr monitor_ptr;
-  IdleStatus* status = MakeGarbageCollected<IdleStatus>(
-      ExecutionContext::From(script_state), threshold_seconds,
-      mojo::MakeRequest(&monitor_ptr));
+  IdleStatus* status =
+      IdleStatus::Create(ExecutionContext::From(script_state), threshold,
+                         mojo::MakeRequest(&monitor_ptr));
 
   requests_.insert(resolver);
   service_->AddMonitor(
-      threshold_seconds, std::move(monitor_ptr),
+      threshold, std::move(monitor_ptr),
       WTF::Bind(&IdleManager::OnAddMonitor, WrapPersistent(this),
                 WrapPersistent(resolver), WrapPersistent(status)));
 
@@ -68,11 +72,11 @@ IdleManager* IdleManager::Create(ExecutionContext* context) {
 
 void IdleManager::OnAddMonitor(ScriptPromiseResolver* resolver,
                                IdleStatus* status,
-                               mojom::blink::IdleState state) {
+                               mojom::blink::IdleStatePtr state) {
   DCHECK(requests_.Contains(resolver));
   requests_.erase(resolver);
 
-  status->Init(state);
+  status->Init(std::move(state));
   resolver->Resolve(status);
 }
 

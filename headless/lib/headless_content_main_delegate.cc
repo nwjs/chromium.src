@@ -21,7 +21,6 @@
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "cc/base/switches.h"
-#include "components/crash/content/app/breakpad_linux.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/viz/common/switches.h"
 #include "content/public/browser/browser_main_runner.h"
@@ -46,6 +45,10 @@
 
 #if defined(OS_MACOSX) || defined(OS_WIN)
 #include "components/crash/content/app/crashpad.h"
+#endif
+
+#if defined(OS_LINUX)
+#include "components/crash/content/app/breakpad_linux.h"
 #endif
 
 #if !defined(CHROME_MULTIPLE_DLL_BROWSER)
@@ -121,7 +124,16 @@ bool HeadlessContentMainDelegate::BasicStartupComplete(int* exit_code) {
   command_line->AppendSwitchASCII(::switches::kOzonePlatform, "headless");
 #endif
 
-  if (!command_line->HasSwitch(::switches::kUseGL)) {
+  if (command_line->HasSwitch(::switches::kUseGL)) {
+    std::string use_gl = command_line->GetSwitchValueASCII(switches::kUseGL);
+    if (use_gl != gl::kGLImplementationEGLName) {
+      // Headless uses a software output device which will cause us to fall back
+      // to software compositing anyway, but only after attempting and failing
+      // to initialize GPU compositing. We disable GPU compositing here
+      // explicitly to preempt this attempt.
+      command_line->AppendSwitch(::switches::kDisableGpuCompositing);
+    }
+  } else {
     if (!browser_->options()->gl_implementation.empty()) {
       command_line->AppendSwitchASCII(::switches::kUseGL,
                                       browser_->options()->gl_implementation);
@@ -129,12 +141,6 @@ bool HeadlessContentMainDelegate::BasicStartupComplete(int* exit_code) {
       command_line->AppendSwitch(::switches::kDisableGpu);
     }
   }
-
-  // Headless uses a software output device which will cause us to fall back to
-  // software compositing anyway, but only after attempting and failing to
-  // initialize GPU compositing. We disable GPU compositing here explicitly to
-  // preempt this attempt.
-  command_line->AppendSwitch(::switches::kDisableGpuCompositing);
 
   content::Profiling::ProcessStarted();
 

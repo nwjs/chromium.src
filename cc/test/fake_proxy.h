@@ -33,6 +33,8 @@ class FakeProxy : public Proxy {
   bool RequestedAnimatePending() override;
   void NotifyInputThrottledUntilCommit() override {}
   void SetDeferMainFrameUpdate(bool defer_main_frame_update) override {}
+  void StartDeferringCommits(base::TimeDelta timeout) override {}
+  void StopDeferringCommits() override {}
   bool CommitRequested() const override;
   void Start() override {}
   void Stop() override {}
@@ -49,6 +51,7 @@ class FakeProxy : public Proxy {
   void ClearHistory() override {}
   void SetRenderFrameObserver(
       std::unique_ptr<RenderFrameMetadataObserver> observer) override {}
+  uint32_t GenerateChildSurfaceSequenceNumberSync() override;
 
  private:
   LayerTreeHost* layer_tree_host_;

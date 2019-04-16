@@ -49,6 +49,7 @@ class AppsGridViewFolderDelegate;
 class ContentsView;
 class PaginationController;
 class PulsingBlockView;
+class GhostImageView;
 
 // Represents the index to an item view in the grid.
 struct GridIndex {
@@ -333,7 +334,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // transition target page.
   const gfx::Vector2d CalculateTransitionOffset(int page_of_view) const;
 
-  void CalculateIdealBounds();
+  // Calculates the item views' bounds for folder.
+  void CalculateIdealBoundsForFolder();
   void AnimateToIdealBounds();
 
   // Invoked when the given |view|'s current bounds and target bounds are on
@@ -448,6 +450,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   void TransitionStarted() override;
   void TransitionChanged() override;
   void TransitionEnded() override;
+  void ScrollStarted() override;
+  void ScrollEnded() override;
 
   // Overridden from AppListModelObserver:
   void OnAppListModelStatusChanged() override;
@@ -523,11 +527,6 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // Update number of columns and rows for apps within a folder.
   void UpdateColsAndRowsForFolder();
 
-  // Returns true if apps grid gap is enabled. If it is enabled, the user can
-  // drag an app to the next page without having to fill up the current
-  // page.
-  bool IsAppsGridGapEnabled() const;
-
   // Convert between the model index and the visual index. The model index
   // is the index of the item in AppListModel. The visual index is the Index
   // struct above with page/slot info of where to display the item.
@@ -561,8 +560,8 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // Returns true if the page is the right target to flip to.
   bool IsValidPageFlipTarget(int page) const;
 
-  // Calculates the item views' bounds when apps grid gap is enabled.
-  void CalculateIdealBoundsWithGridGap();
+  // Calculates the item views' bounds for non-folder.
+  void CalculateIdealBounds();
 
   // Returns model index of the item view of the specified item.
   int GetModelIndexOfItem(const AppListItem* item);
@@ -593,6 +592,20 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   void StartFolderDroppingAnimation(AppListItemView* folder_item_view,
                                     AppListItem* drag_item,
                                     const gfx::Rect& source_bounds);
+
+  // During an app drag, creates an a11y event to verbalize dropping onto a
+  // folder or creating a folder with two apps.
+  void MaybeCreateFolderDroppingAccessibilityEvent();
+
+  // During an app drag, creates an a11y event to verbalize drop target
+  // location.
+  void MaybeCreateReorderAccessibilityEvent();
+
+  // Creates a new GhostImageView at |reorder_placeholder_| and initializes
+  // |current_ghost_view_| and |last_ghost_view_|.
+  void CreateGhostImageView();
+
+  void BeginHideCurrentGhostImageView();
 
   AppListModel* model_ = nullptr;         // Owned by AppListView.
   AppListItemList* item_list_ = nullptr;  // Not owned.
@@ -700,20 +713,32 @@ class APP_LIST_EXPORT AppsGridView : public views::View,
   // The compositor frame number when animation starts.
   int pagination_animation_start_frame_number_;
 
-  // view structure used when apps grid gap is enabled.
+  // view structure used only for non-folder.
   PagedViewStructure view_structure_;
 
   // True if an extra page is opened after the user drags an app to the bottom
-  // of last page with intention to put it in a new page. This is only used when
-  // apps grid gap is enabled.
+  // of last page with intention to put it in a new page. This is only used for
+  // non-folder.
   bool extra_page_opened_ = false;
-
-  // True if the apps grid gap feature is enabled.
-  const bool is_apps_grid_gap_feature_enabled_;
 
   // Tile spacing between the tile views.
   int horizontal_tile_padding_ = 0;
   int vertical_tile_padding_ = 0;
+
+  // The drop location of the most recent reorder related accessibility event.
+  GridIndex last_reorder_a11y_event_location_;
+
+  // The location of the most recent foldering drag related accessibility event.
+  GridIndex last_folder_dropping_a11y_event_location_;
+
+  // The location when |current_ghost_view_| was shown.
+  GridIndex current_ghost_location_;
+
+  GhostImageView* current_ghost_view_ = nullptr;
+  GhostImageView* last_ghost_view_ = nullptr;
+
+  // Records the presentation time for apps grid dragging.
+  std::unique_ptr<ash::PresentationTimeRecorder> presentation_time_recorder_;
 
   DISALLOW_COPY_AND_ASSIGN(AppsGridView);
 };

@@ -43,11 +43,11 @@ bool SortTabTimesByRecency(const TitleTimestampPair& t1,
 }
 
 std::string ToSessionTag(SessionID session_id) {
-  return std::string(kBaseSessionTag + base::IntToString(session_id.id()));
+  return std::string(kBaseSessionTag + base::NumberToString(session_id.id()));
 }
 
 std::string ToSessionName(SessionID session_id) {
-  return std::string(kBaseSessionName + base::IntToString(session_id.id()));
+  return std::string(kBaseSessionName + base::NumberToString(session_id.id()));
 }
 
 std::string ToTabTitle(SessionID session_id,
@@ -185,8 +185,7 @@ base::string16 RecentTabsBuilderTestHelper::GetTabTitle(int session_index,
 }
 
 void RecentTabsBuilderTestHelper::ExportToSessionSync(
-    syncer::ModelTypeProcessor* processor,
-    sync_sessions::OpenTabsUIDelegate* verification_delegate) {
+    syncer::ModelTypeProcessor* processor) {
   syncer::UpdateResponseDataList updates;
 
   for (int s = 0; s < GetSessionCount(); ++s) {
@@ -209,11 +208,11 @@ void RecentTabsBuilderTestHelper::ExportToSessionSync(
   // ClientTagBasedModelTypeProcessor uses ModelTypeProcessorProxy during
   // activation, which involves task posting for receiving updates.
   base::RunLoop().RunUntilIdle();
-  VerifyExport(verification_delegate);
 }
 
 void RecentTabsBuilderTestHelper::VerifyExport(
     sync_sessions::OpenTabsUIDelegate* delegate) {
+  DCHECK(delegate);
   // Make sure data is populated correctly in SessionModelAssociator.
   std::vector<const sync_sessions::SyncedSession*> sessions;
   ASSERT_TRUE(delegate->GetAllForeignSessions(&sessions));

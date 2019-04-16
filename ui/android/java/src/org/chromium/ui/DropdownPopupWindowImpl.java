@@ -82,8 +82,8 @@ class DropdownPopupWindowImpl
 
         ViewRectProvider rectProvider = new ViewRectProvider(mAnchorView);
         rectProvider.setIncludePadding(true);
-        mBackground =
-                ApiCompatibilityUtils.getDrawable(context.getResources(), R.drawable.popup_bg);
+        mBackground = ApiCompatibilityUtils.getDrawable(
+                context.getResources(), R.drawable.popup_bg_tinted);
         mAnchoredPopupWindow = new AnchoredPopupWindow(
                 context, mAnchorView, mBackground, mContentView, rectProvider);
         mAnchoredPopupWindow.addOnDismissListener(onDismissLitener);
@@ -95,7 +95,7 @@ class DropdownPopupWindowImpl
         rectProvider.setInsetPx(0, /* top= */ paddingRect.bottom, 0, /* bottom= */ paddingRect.top);
         mHorizontalPadding = paddingRect.right + paddingRect.left;
         mAnchoredPopupWindow.setPreferredHorizontalOrientation(
-                AnchoredPopupWindow.HORIZONTAL_ORIENTATION_CENTER);
+                AnchoredPopupWindow.HorizontalOrientation.CENTER);
         mAnchoredPopupWindow.setUpdateOrientationOnChange(true);
         mAnchoredPopupWindow.setOutsideTouchable(true);
     }
@@ -117,8 +117,8 @@ class DropdownPopupWindowImpl
     public void onPreLayoutChange(
             boolean positionBelow, int x, int y, int width, int height, Rect anchorRect) {
         mBackground.setBounds(anchorRect);
-        mAnchoredPopupWindow.setBackgroundDrawable(
-                ApiCompatibilityUtils.getDrawable(mContext.getResources(), R.drawable.popup_bg));
+        mAnchoredPopupWindow.setBackgroundDrawable(ApiCompatibilityUtils.getDrawable(
+                mContext.getResources(), R.drawable.popup_bg_tinted));
     }
 
     /**
@@ -148,8 +148,8 @@ class DropdownPopupWindowImpl
         }
         mAnchoredPopupWindow.show();
         mListView.setDividerHeight(0);
-        ApiCompatibilityUtils.setLayoutDirection(
-                mListView, mRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
+        int layoutDirection = mRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR;
+        mListView.setLayoutDirection(layoutDirection);
         if (!wasShowing) {
             mListView.setContentDescription(mDescription);
             mListView.sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);

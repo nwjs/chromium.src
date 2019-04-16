@@ -1,4 +1,4 @@
-// Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -153,24 +153,6 @@ cca.util.orientPhoto = function(blob, onSuccess, onFailure) {
       original.onerror = onFailure;
       original.src = URL.createObjectURL(blob);
     }
-  });
-};
-
-/**
- * Checks if the current device is in the given device list.
- * @param {Array<string>} ids Device ids.
- * @return {!Promise<boolean>} Promise for the result.
- */
-cca.util.isChromeOSDevice = function(ids) {
-  return new Promise((resolve) => {
-    if (!chrome.chromeosInfoPrivate) {
-      resolve(false);
-      return;
-    }
-    chrome.chromeosInfoPrivate.get(['customizationId'], (values) => {
-      var device = values['customizationId'];
-      resolve(device && ids.indexOf(device) >= 0);
-    });
   });
 };
 

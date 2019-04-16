@@ -184,7 +184,7 @@ bool AnalyserHandler::RequiresTailProcessing() const {
 double AnalyserHandler::TailTime() const {
   return RealtimeAnalyser::kMaxFFTSize /
          static_cast<double>(Context()->sampleRate());
-};
+}
 // ----------------------------------------------------------------
 
 AnalyserNode::AnalyserNode(BaseAudioContext& context)
@@ -195,11 +195,6 @@ AnalyserNode::AnalyserNode(BaseAudioContext& context)
 AnalyserNode* AnalyserNode::Create(BaseAudioContext& context,
                                    ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-
-  if (context.IsContextClosed()) {
-    context.ThrowExceptionForClosedState(exception_state);
-    return nullptr;
-  }
 
   return MakeGarbageCollected<AnalyserNode>(context);
 }

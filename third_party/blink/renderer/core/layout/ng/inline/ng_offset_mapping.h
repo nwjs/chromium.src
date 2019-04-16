@@ -100,16 +100,15 @@ class NGMappingUnitRange {
 // in the text content string of the context.
 // See design doc https://goo.gl/CJbxky for details.
 class CORE_EXPORT NGOffsetMapping {
+  USING_FAST_MALLOC(NGOffsetMapping);
+
  public:
   using UnitVector = Vector<NGOffsetMappingUnit>;
   using RangeMap =
       HashMap<Persistent<const Node>, std::pair<unsigned, unsigned>>;
 
   NGOffsetMapping(NGOffsetMapping&&);
-  NGOffsetMapping(UnitVector&&,
-                  RangeMap&&,
-                  String,
-                  std::unique_ptr<NGCaretNavigator>);
+  NGOffsetMapping(UnitVector&&, RangeMap&&, String);
   ~NGOffsetMapping();
 
   const UnitVector& GetUnits() const { return units_; }
@@ -153,9 +152,11 @@ class CORE_EXPORT NGOffsetMapping {
   const NGOffsetMappingUnit* GetMappingUnitForPosition(const Position&) const;
 
   // Returns all NGOffsetMappingUnits whose DOM ranges has non-empty (but
-  // possibly collapsed) intersections with the passed in DOM range. This API
-  // only accepts ranges whose start and end have the same anchor node.
-  NGMappingUnitRange GetMappingUnitsForDOMRange(const EphemeralRange&) const;
+  // possibly collapsed) intersections with the passed in DOM range. If a unit
+  // partially intersects the range, it is clamped with only the part within the
+  // range returned. This API only accepts ranges whose start and end have the
+  // same anchor node.
+  UnitVector GetMappingUnitsForDOMRange(const EphemeralRange&) const;
 
   // Returns all NGOffsetMappingUnits associated to |node|. Note: |node| should
   // have associated mapping.
@@ -221,10 +222,6 @@ class CORE_EXPORT NGOffsetMapping {
   // control charcters. Returns true otherwise.
   bool HasBidiControlCharactersOnly(unsigned start, unsigned end) const;
 
-  const NGCaretNavigator* GetCaretNavigator() const {
-    return caret_navigator_.get();
-  }
-
  private:
   // The NGOffsetMappingUnits of the inline formatting context in osrted order.
   UnitVector units_;
@@ -235,9 +232,6 @@ class CORE_EXPORT NGOffsetMapping {
   // The text content string of the inline formatting context. Same string as
   // |NGInlineNodeData::text_content_|.
   String text_;
-
-  // Helper class for caret nagivation on |text_|.
-  std::unique_ptr<NGCaretNavigator> caret_navigator_;
 
   DISALLOW_COPY_AND_ASSIGN(NGOffsetMapping);
 };

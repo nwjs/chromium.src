@@ -20,6 +20,7 @@
 #include "build/build_config.h"
 #include "services/tracing/public/cpp/perfetto/producer_client.h"
 #include "services/tracing/public/cpp/perfetto/trace_event_data_source.h"
+#include "services/tracing/public/cpp/trace_event_args_whitelist.h"
 #include "services/tracing/public/cpp/tracing_features.h"
 
 namespace {
@@ -40,13 +41,30 @@ TraceEventAgent::TraceEventAgent()
     : BaseAgent(kTraceEventLabel,
                 mojom::TraceDataType::ARRAY,
                 base::trace_event::TraceLog::GetInstance()->process_id()),
-      enabled_tracing_modes_(0) {
+      enabled_tracing_modes_(0),
+      weak_ptr_factory_(this) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+
+  // These filters are used by TraceLog in the legacy tracing system and JSON
+  // exporter (only in tracing service) in perfetto bcakend.
+  if (base::trace_event::TraceLog::GetInstance()
+          ->GetArgumentFilterPredicate()
+          .is_null()) {
+    base::trace_event::TraceLog::GetInstance()->SetArgumentFilterPredicate(
+        base::BindRepeating(&IsTraceEventArgsWhitelisted));
+    base::trace_event::TraceLog::GetInstance()->SetMetadataFilterPredicate(
+        base::BindRepeating(&IsMetadataWhitelisted));
+  }
+
+  base::trace_event::TraceLog::GetInstance()->AddAsyncEnabledStateObserver(
+      weak_ptr_factory_.GetWeakPtr());
 
   ProducerClient::Get()->AddDataSource(TraceEventDataSource::GetInstance());
 }
 
-TraceEventAgent::~TraceEventAgent() = default;
+TraceEventAgent::~TraceEventAgent() {
+  DCHECK(!tracing_enabled_callback_);
+}
 
 void TraceEventAgent::GetCategories(std::set<std::string>* category_set) {
   for (size_t i = base::trace_event::BuiltinCategories::kVisibleCategoryStart;
@@ -72,8 +90,11 @@ void TraceEventAgent::AddMetadataGeneratorFunction(
 }
 
 void TraceEventAgent::StartTracing(const std::string& config,
-                                   base::TimeTicks coordinator_time) {
+                                   base::TimeTicks coordinator_time,
+                                   StartTracingCallback callback) {
+  DCHECK(!IsBoundForTesting() || !TracingUsesPerfettoBackend());
   DCHECK(!recorder_);
+  DCHECK(!tracing_enabled_callback_);
 #if defined(__native_client__)
   // NaCl and system times are offset by a bit, so subtract some time from
   // the captured timestamps. The value might be off by a bit due to messaging
@@ -87,9 +108,11 @@ void TraceEventAgent::StartTracing(const std::string& config,
     enabled_tracing_modes_ |= base::trace_event::TraceLog::FILTERING_MODE;
   base::trace_event::TraceLog::GetInstance()->SetEnabled(
       trace_config, enabled_tracing_modes_);
+  std::move(callback).Run(true);
 }
 
 void TraceEventAgent::StopAndFlush(mojom::RecorderPtr recorder) {
+  DCHECK(!IsBoundForTesting() || !TracingUsesPerfettoBackend());
   DCHECK(!recorder_);
 
   recorder_ = std::move(recorder);
@@ -108,10 +131,35 @@ void TraceEventAgent::StopAndFlush(mojom::RecorderPtr recorder) {
 
 void TraceEventAgent::RequestBufferStatus(
     RequestBufferStatusCallback callback) {
+  DCHECK(!IsBoundForTesting() || !TracingUsesPerfettoBackend());
   base::trace_event::TraceLogStatus status =
       base::trace_event::TraceLog::GetInstance()->GetStatus();
   std::move(callback).Run(status.event_capacity, status.event_count);
 }
+
+void TraceEventAgent::WaitForTracingEnabled(
+    Agent::WaitForTracingEnabledCallback callback) {
+  DCHECK(TracingUsesPerfettoBackend());
+  DCHECK(!tracing_enabled_callback_);
+  if (base::trace_event::TraceLog::GetInstance()->IsEnabled()) {
+    std::move(callback).Run();
+    return;
+  }
+
+  tracing_enabled_callback_ = std::move(callback);
+}
+
+// This callback will always come on the same sequence
+// that TraceLog::AddAsyncEnabledStateObserver was called
+// on to begin with, i.e. the same as any WaitForTracingEnabled()
+// calls are run on.
+void TraceEventAgent::OnTraceLogEnabled() {
+  if (tracing_enabled_callback_) {
+    std::move(tracing_enabled_callback_).Run();
+  }
+}
+
+void TraceEventAgent::OnTraceLogDisabled() {}
 
 void TraceEventAgent::OnTraceLogFlush(
     const scoped_refptr<base::RefCountedString>& events_str,

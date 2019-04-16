@@ -72,9 +72,9 @@ LicenseType TranslateLicenseType(em::LicenseType type) {
 
 void ExtractLicenseMap(const em::CheckDeviceLicenseResponse& license_response,
                        CloudPolicyClient::LicenseMap& licenses) {
-  for (int i = 0; i < license_response.license_availability_size(); i++) {
+  for (int i = 0; i < license_response.license_availabilities_size(); i++) {
     const em::LicenseAvailability& license =
-        license_response.license_availability(i);
+        license_response.license_availabilities(i);
     if (!license.has_license_type() || !license.has_available_licenses())
       continue;
     auto license_type = TranslateLicenseType(license.license_type());
@@ -258,7 +258,8 @@ void CloudPolicyClient::RegisterWithCertificate(
     const std::string& pem_certificate_chain,
     const std::string& client_id,
     const std::string& requisition,
-    const std::string& current_state_key) {
+    const std::string& current_state_key,
+    const std::string& sub_organization) {
   DCHECK(signing_service_);
   DCHECK(service_);
   DCHECK(!is_registered());
@@ -288,6 +289,12 @@ void CloudPolicyClient::RegisterWithCertificate(
   if (license_type != em::LicenseType::UNDEFINED)
     request->mutable_license_type()->set_license_type(license_type);
   request->set_lifetime(lifetime);
+
+  if (!sub_organization.empty()) {
+    em::DeviceRegisterConfiguration* configuration =
+        data.mutable_device_register_configuration();
+    configuration->set_device_owner(sub_organization);
+  }
 
   signing_service_->SignData(
       data.SerializeAsString(),
@@ -383,7 +390,7 @@ void CloudPolicyClient::FetchPolicy() {
   // Build policy fetch requests.
   em::DevicePolicyRequest* policy_request = request->mutable_policy_request();
   for (const auto& type_to_fetch : types_to_fetch_) {
-    em::PolicyFetchRequest* fetch_request = policy_request->add_request();
+    em::PolicyFetchRequest* fetch_request = policy_request->add_requests();
     fetch_request->set_policy_type(type_to_fetch.first);
     if (!type_to_fetch.second.empty())
       fetch_request->set_settings_entity_id(type_to_fetch.second);
@@ -416,7 +423,7 @@ void CloudPolicyClient::FetchPolicy() {
              state_keys_to_upload_.begin());
          key != state_keys_to_upload_.end();
          ++key) {
-      key_update_request->add_server_backed_state_key(*key);
+      key_update_request->add_server_backed_state_keys(*key);
     }
   }
 
@@ -487,7 +494,7 @@ void CloudPolicyClient::FetchRobotAuthCodes(std::unique_ptr<DMAuth> auth,
       mutable_service_api_access_request();
   request->set_oauth2_client_id(
       GaiaUrls::GetInstance()->oauth2_chrome_client_id());
-  request->add_auth_scope(GaiaConstants::kAnyApiOAuth2Scope);
+  request->add_auth_scopes(GaiaConstants::kAnyApiOAuth2Scope);
   request->set_device_type(em::DeviceServiceApiAccessRequest::CHROME_OS);
 
   policy_fetch_request_job_->Start(base::AdaptCallbackForRepeating(
@@ -869,9 +876,10 @@ void CloudPolicyClient::OnRegisterCompleted(
     dm_token_ = response.register_response().device_management_token();
     reregistration_dm_token_.clear();
     if (response.register_response().has_configuration_seed()) {
-      configuration_seed_ = base::DictionaryValue::From(base::JSONReader::Read(
-          response.register_response().configuration_seed(),
-          base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS));
+      configuration_seed_ =
+          base::DictionaryValue::From(base::JSONReader::ReadDeprecated(
+              response.register_response().configuration_seed(),
+              base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS));
       if (!configuration_seed_)
         LOG(ERROR) << "Failed to parse configuration seed";
     }
@@ -924,7 +932,7 @@ void CloudPolicyClient::OnPolicyFetchCompleted(
     const em::DeviceManagementResponse& response) {
   if (status == DM_STATUS_SUCCESS) {
     if (!response.has_policy_response() ||
-        response.policy_response().response_size() == 0) {
+        response.policy_response().responses_size() == 0) {
       LOG(WARNING) << "Empty policy response.";
       status = DM_STATUS_RESPONSE_DECODING_ERROR;
     }
@@ -935,8 +943,8 @@ void CloudPolicyClient::OnPolicyFetchCompleted(
     const em::DevicePolicyResponse& policy_response =
         response.policy_response();
     responses_.clear();
-    for (int i = 0; i < policy_response.response_size(); ++i) {
-      const em::PolicyFetchResponse& response = policy_response.response(i);
+    for (int i = 0; i < policy_response.responses_size(); ++i) {
+      const em::PolicyFetchResponse& response = policy_response.responses(i);
       em::PolicyData policy_data;
       if (!policy_data.ParseFromString(response.policy_data()) ||
           !policy_data.IsInitialized() ||

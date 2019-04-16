@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "ash/public/cpp/shell_window_ids.h"
 #include "base/callback_helpers.h"
 #include "base/containers/adapters.h"
 #include "base/logging.h"
@@ -13,8 +14,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
-#include "cc/trees/layer_tree_frame_sink.h"
 #include "components/exo/buffer.h"
+#include "components/exo/frame_sink_resource_manager.h"
 #include "components/exo/shell_surface_util.h"
 #include "components/exo/surface_delegate.h"
 #include "components/exo/surface_observer.h"
@@ -48,21 +49,21 @@
 #include "ui/gfx/transform_util.h"
 #include "ui/views/widget/widget.h"
 
-DEFINE_UI_CLASS_PROPERTY_TYPE(exo::Surface*);
+DEFINE_UI_CLASS_PROPERTY_TYPE(exo::Surface*)
 
 namespace exo {
 namespace {
 
 // A property key containing the surface that is associated with
 // window. If unset, no surface is associated with window.
-DEFINE_UI_CLASS_PROPERTY_KEY(Surface*, kSurfaceKey, nullptr);
+DEFINE_UI_CLASS_PROPERTY_KEY(Surface*, kSurfaceKey, nullptr)
 
 // A property key to store whether the surface should only consume
 // stylus input events.
-DEFINE_UI_CLASS_PROPERTY_KEY(bool, kStylusOnlyKey, false);
+DEFINE_UI_CLASS_PROPERTY_KEY(bool, kStylusOnlyKey, false)
 
 // Surface Id set by the client.
-DEFINE_UI_CLASS_PROPERTY_KEY(int32_t, kClientSurfaceIdKey, 0);
+DEFINE_UI_CLASS_PROPERTY_KEY(int32_t, kClientSurfaceIdKey, 0)
 
 // Helper function that returns an iterator to the first entry in |list|
 // with |key|.
@@ -128,6 +129,15 @@ class CustomWindowDelegate : public aura::WindowDelegate {
     return ui::CursorType::kNull;
   }
   int GetNonClientComponent(const gfx::Point& point) const override {
+    views::Widget* widget =
+        views::Widget::GetTopLevelWidgetForNativeView(surface_->window());
+    if (widget &&
+        widget->GetNativeView()->parent()->id() ==
+            ash::kShellWindowId_DefaultContainer &&
+        surface_->HitTest(point)) {
+      return HTCLIENT;
+    }
+
     return HTNOWHERE;
   }
   bool ShouldDescendIntoChildForEventHandling(
@@ -659,7 +669,7 @@ void Surface::AppendSurfaceHierarchyCallbacks(
 void Surface::AppendSurfaceHierarchyContentsToFrame(
     const gfx::Point& origin,
     float device_scale_factor,
-    LayerTreeFrameSinkHolder* frame_sink_holder,
+    FrameSinkResourceManager* resource_manager,
     viz::CompositorFrame* frame) {
   // The top most sub-surface is at the front of the RenderPass's quad_list,
   // so we need composite sub-surface in reversed order.
@@ -669,17 +679,16 @@ void Surface::AppendSurfaceHierarchyContentsToFrame(
     // decendents.
     sub_surface->AppendSurfaceHierarchyContentsToFrame(
         origin + sub_surface_entry.second.OffsetFromOrigin(),
-        device_scale_factor, frame_sink_holder, frame);
+        device_scale_factor, resource_manager, frame);
   }
 
   if (needs_update_resource_)
-    UpdateResource(frame_sink_holder);
+    UpdateResource(resource_manager);
 
   AppendContentsToFrame(origin, device_scale_factor, frame);
 
-  DCHECK(
-      !current_resource_.id ||
-      frame_sink_holder->HasReleaseCallbackForResource(current_resource_.id));
+  DCHECK(!current_resource_.id ||
+         resource_manager->HasReleaseCallbackForResource(current_resource_.id));
 }
 
 bool Surface::IsSynchronized() const {
@@ -818,12 +827,12 @@ void Surface::BufferAttachment::Reset(base::WeakPtr<Buffer> buffer) {
   buffer_ = buffer;
 }
 
-void Surface::UpdateResource(LayerTreeFrameSinkHolder* frame_sink_holder) {
+void Surface::UpdateResource(FrameSinkResourceManager* resource_manager) {
   DCHECK(needs_update_resource_);
   needs_update_resource_ = false;
   if (current_buffer_.buffer()) {
     if (current_buffer_.buffer()->ProduceTransferableResource(
-            frame_sink_holder, state_.only_visible_on_secure_output,
+            resource_manager, state_.only_visible_on_secure_output,
             &current_resource_)) {
       current_resource_has_alpha_ =
           FormatHasAlpha(current_buffer_.buffer()->GetFormat());
@@ -933,13 +942,15 @@ void Surface::AppendContentsToFrame(const gfx::Point& origin,
       viz::TextureDrawQuad* texture_quad =
           render_pass->CreateAndAppendDrawQuad<viz::TextureDrawQuad>();
       float vertex_opacity[4] = {1.0, 1.0, 1.0, 1.0};
-
+      SkColor background_color = SK_ColorTRANSPARENT;
+      if (current_resource_has_alpha_ && are_contents_opaque)
+        background_color = SK_ColorBLACK;  // Avoid writing alpha < 1
       texture_quad->SetNew(
-          quad_state, quad_rect, quad_rect, !are_contents_opaque,
-          current_resource_.id, true /* premultiplied_alpha */,
-          uv_crop.origin(), uv_crop.bottom_right(),
-          SK_ColorTRANSPARENT /* background_color */, vertex_opacity,
-          false /* y_flipped */, false /* nearest_neighbor */,
+          quad_state, quad_rect, quad_rect,
+          /* needs_blending=*/!are_contents_opaque, current_resource_.id,
+          /* premultiplied_alpha=*/true, uv_crop.origin(),
+          uv_crop.bottom_right(), background_color, vertex_opacity,
+          /* y_flipped=*/false, /* nearest_neighbor=*/false,
           state_.only_visible_on_secure_output, ui::ProtectedVideoType::kClear);
       if (current_resource_.is_overlay_candidate)
         texture_quad->set_resource_size_in_pixels(current_resource_.size);

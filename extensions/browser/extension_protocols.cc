@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -516,7 +517,7 @@ bool GetDirectoryForExtensionURL(const GURL& url,
 }
 
 bool IsWebViewRequest(net::URLRequest* request) {
-  const content::ResourceRequestInfo* info =
+  content::ResourceRequestInfo* info =
       content::ResourceRequestInfo::ForRequest(request);
   // |info| can be null sometimes: http://crbug.com/370070.
   if (!info)
@@ -589,7 +590,7 @@ ExtensionProtocolHandler::MaybeCreateJob(
   std::string extension_id = request->url().host();
   const Extension* extension =
       extension_info_map_->extensions().GetByID(extension_id);
-  const ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
+  ResourceRequestInfo* info = ResourceRequestInfo::ForRequest(request);
   const bool enabled_in_incognito =
       extension_info_map_->IsIncognitoEnabled(extension_id);
 
@@ -906,13 +907,13 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
 
     // Component extension resources may be part of the embedder's resource
     // files, for example component_extension_resources.pak in Chrome.
-    int resource_id = 0;
+    ComponentExtensionResourceInfo resource_info;
     const base::FilePath bundle_resource_path =
         ExtensionsBrowserClient::Get()->GetBundleResourcePath(
-            request, directory_path, &resource_id);
+            request, directory_path, &resource_info);
     if (!bundle_resource_path.empty()) {
       ExtensionsBrowserClient::Get()->LoadResourceFromResourceBundle(
-          request, std::move(loader), bundle_resource_path, resource_id,
+          request, std::move(loader), bundle_resource_path, resource_info,
           content_security_policy, std::move(client), send_cors_header);
       return;
     }

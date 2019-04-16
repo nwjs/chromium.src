@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/top_controls_slide_controller_chromeos.h"
 
+#include "base/bind.h"
 #include "chrome/browser/permissions/permission_request_manager.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
@@ -469,7 +470,6 @@ void TopControlsSlideControllerChromeOS::OnTabStripModelChanged(
 
   content::WebContents* new_active_contents = selection.new_contents;
   DCHECK(observed_tabs_.count(new_active_contents));
-  DCHECK(!is_gesture_scrolling_in_progress_);
 
   // Restore the newly-activated tab's shown ratio. If this is a newly inserted
   // tab, its |shown_ratio_| is 1.0f.

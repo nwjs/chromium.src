@@ -178,9 +178,9 @@ class AuraWindowVideoCaptureDeviceBrowserTest
   }
 
   std::unique_ptr<FrameSinkVideoCaptureDevice> CreateDevice() final {
-    const DesktopMediaID source_id = DesktopMediaID::RegisterAuraWindow(
+    const DesktopMediaID source_id = DesktopMediaID::RegisterNativeWindow(
         DesktopMediaID::TYPE_WINDOW, GetCapturedWindow());
-    EXPECT_TRUE(DesktopMediaID::GetAuraWindowById(source_id));
+    EXPECT_TRUE(DesktopMediaID::GetNativeWindowById(source_id));
     return std::make_unique<AuraWindowVideoCaptureDevice>(source_id);
   }
 
@@ -196,9 +196,9 @@ IN_PROC_BROWSER_TEST_F(AuraWindowVideoCaptureDeviceBrowserTest,
                        ErrorsOutIfWindowHasGoneBeforeDeviceStart) {
   NavigateToInitialDocument();
 
-  const DesktopMediaID source_id = DesktopMediaID::RegisterAuraWindow(
+  const DesktopMediaID source_id = DesktopMediaID::RegisterNativeWindow(
       DesktopMediaID::TYPE_WINDOW, GetCapturedWindow());
-  EXPECT_TRUE(DesktopMediaID::GetAuraWindowById(source_id));
+  EXPECT_TRUE(DesktopMediaID::GetNativeWindowById(source_id));
   const auto capture_params = SnapshotCaptureParams();
 
   // Close the Shell. This should close the window it owned, making the capture
@@ -324,7 +324,7 @@ class AuraWindowVideoCaptureDeviceBrowserTestP
 };
 
 #if defined(OS_CHROMEOS)
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     AuraWindowVideoCaptureDeviceBrowserTestP,
     testing::Combine(
@@ -333,7 +333,7 @@ INSTANTIATE_TEST_CASE_P(
         testing::Values(false /* variable aspect ratio */,
                         true /* fixed aspect ratio */)));
 #else
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     AuraWindowVideoCaptureDeviceBrowserTestP,
     testing::Combine(testing::Values(false /* GPU-accelerated compositing */,

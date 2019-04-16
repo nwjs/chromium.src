@@ -4,6 +4,7 @@
 
 #include "chrome/browser/safe_browsing/download_protection/file_analyzer.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -765,6 +766,115 @@ TEST_F(FileAnalyzerTest, LargeRarSkipsContentInspection) {
 
   // Since the file is too large enough, we should not have any hashes
   EXPECT_TRUE(result_.archived_binaries.Get(0).digests().sha256().empty());
+}
+
+TEST_F(FileAnalyzerTest, ZipFilesGetFileCount) {
+  scoped_refptr<MockBinaryFeatureExtractor> extractor =
+      new testing::StrictMock<MockBinaryFeatureExtractor>();
+  FileAnalyzer analyzer(extractor);
+  base::RunLoop run_loop;
+
+  base::FilePath target_path(FILE_PATH_LITERAL("target.zip"));
+  base::FilePath tmp_path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("tmp.crdownload"));
+
+  base::ScopedTempDir zip_source_dir;
+  ASSERT_TRUE(zip_source_dir.CreateUniqueTempDir());
+  std::string file_contents = "dummy file";
+  ASSERT_EQ(static_cast<int>(file_contents.size()),
+            base::WriteFile(
+                zip_source_dir.GetPath().Append(FILE_PATH_LITERAL("file.exe")),
+                file_contents.data(), file_contents.size()));
+  ASSERT_TRUE(zip::Zip(zip_source_dir.GetPath(), tmp_path,
+                       /* include_hidden_files= */
+                       false));
+
+  analyzer.Start(
+      target_path, tmp_path,
+      base::BindOnce(&FileAnalyzerTest::DoneCallback, base::Unretained(this),
+                     run_loop.QuitClosure()));
+  run_loop.Run();
+
+  ASSERT_TRUE(has_result_);
+  EXPECT_EQ(1, result_.file_count);
+  EXPECT_EQ(0, result_.directory_count);
+}
+
+TEST_F(FileAnalyzerTest, ZipFilesGetDirectoryCount) {
+  scoped_refptr<MockBinaryFeatureExtractor> extractor =
+      new testing::StrictMock<MockBinaryFeatureExtractor>();
+  FileAnalyzer analyzer(extractor);
+  base::RunLoop run_loop;
+
+  base::FilePath target_path(FILE_PATH_LITERAL("target.zip"));
+  base::FilePath tmp_path =
+      temp_dir_.GetPath().Append(FILE_PATH_LITERAL("tmp.crdownload"));
+
+  base::ScopedTempDir zip_source_dir;
+  ASSERT_TRUE(zip_source_dir.CreateUniqueTempDir());
+  ASSERT_TRUE(base::CreateDirectory(
+      zip_source_dir.GetPath().Append(FILE_PATH_LITERAL("direcotry"))));
+  ASSERT_TRUE(zip::Zip(zip_source_dir.GetPath(), tmp_path,
+                       /* include_hidden_files= */
+                       false));
+
+  analyzer.Start(
+      target_path, tmp_path,
+      base::BindOnce(&FileAnalyzerTest::DoneCallback, base::Unretained(this),
+                     run_loop.QuitClosure()));
+  run_loop.Run();
+
+  ASSERT_TRUE(has_result_);
+  EXPECT_EQ(0, result_.file_count);
+  EXPECT_EQ(1, result_.directory_count);
+}
+
+TEST_F(FileAnalyzerTest, RarFilesGetFileCount) {
+  scoped_refptr<MockBinaryFeatureExtractor> extractor =
+      new testing::StrictMock<MockBinaryFeatureExtractor>();
+  FileAnalyzer analyzer(extractor);
+  base::RunLoop run_loop;
+
+  base::FilePath target_path(FILE_PATH_LITERAL("has_exe.rar"));
+  base::FilePath rar_path;
+  EXPECT_TRUE(base::PathService::Get(chrome::DIR_TEST_DATA, &rar_path));
+  rar_path = rar_path.AppendASCII("safe_browsing")
+                 .AppendASCII("rar")
+                 .AppendASCII("has_exe.rar");
+
+  analyzer.Start(
+      target_path, rar_path,
+      base::BindOnce(&FileAnalyzerTest::DoneCallback, base::Unretained(this),
+                     run_loop.QuitClosure()));
+  run_loop.Run();
+
+  ASSERT_TRUE(has_result_);
+  EXPECT_EQ(1, result_.file_count);
+  EXPECT_EQ(0, result_.directory_count);
+}
+
+TEST_F(FileAnalyzerTest, RarFilesGetDirectoryCount) {
+  scoped_refptr<MockBinaryFeatureExtractor> extractor =
+      new testing::StrictMock<MockBinaryFeatureExtractor>();
+  FileAnalyzer analyzer(extractor);
+  base::RunLoop run_loop;
+
+  base::FilePath target_path(FILE_PATH_LITERAL("has_folder.rar"));
+  base::FilePath rar_path;
+  EXPECT_TRUE(base::PathService::Get(chrome::DIR_TEST_DATA, &rar_path));
+  rar_path = rar_path.AppendASCII("safe_browsing")
+                 .AppendASCII("rar")
+                 .AppendASCII("has_folder.rar");
+
+  analyzer.Start(
+      target_path, rar_path,
+      base::BindOnce(&FileAnalyzerTest::DoneCallback, base::Unretained(this),
+                     run_loop.QuitClosure()));
+  run_loop.Run();
+
+  ASSERT_TRUE(has_result_);
+  EXPECT_EQ(0, result_.file_count);
+  EXPECT_EQ(1, result_.directory_count);
 }
 
 TEST_F(FileAnalyzerTest, LargeZipSkipsContentInspection) {

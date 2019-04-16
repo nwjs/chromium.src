@@ -25,6 +25,8 @@
 #include "base/win/scoped_gdi_object.h"
 #include "base/win/windows_version.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "ui/accessibility/accessibility_switches.h"
+#include "ui/accessibility/platform/ax_fragment_root_win.h"
 #include "ui/accessibility/platform/ax_platform_node_win.h"
 #include "ui/accessibility/platform/ax_system_caret_win.h"
 #include "ui/base/ime/input_method.h"
@@ -36,6 +38,7 @@
 #include "ui/base/win/internal_constants.h"
 #include "ui/base/win/lock_state.h"
 #include "ui/base/win/mouse_wheel_util.h"
+#include "ui/base/win/session_change_observer.h"
 #include "ui/base/win/shell.h"
 #include "ui/base/win/touch_input.h"
 #include "ui/display/win/dpi.h"
@@ -57,7 +60,6 @@
 #include "ui/views/win/fullscreen_handler.h"
 #include "ui/views/win/hwnd_message_handler_delegate.h"
 #include "ui/views/win/scoped_fullscreen_visibility.h"
-#include "ui/views/win/windows_session_change_observer.h"
 
 namespace views {
 namespace {
@@ -1620,9 +1622,9 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
 
   delegate_->HandleCreate();
 
-  windows_session_change_observer_.reset(new WindowsSessionChangeObserver(
-      base::Bind(&HWNDMessageHandler::OnSessionChange,
-                 base::Unretained(this))));
+  session_change_observer_ =
+      std::make_unique<ui::SessionChangeObserver>(base::BindRepeating(
+          &HWNDMessageHandler::OnSessionChange, base::Unretained(this)));
 
   dpi_ = display::win::ScreenWin::GetDPIForHWND(hwnd());
 
@@ -1632,7 +1634,7 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
 
 void HWNDMessageHandler::OnDestroy() {
   ::RemoveProp(hwnd(), ui::kWindowTranslucent);
-  windows_session_change_observer_.reset(nullptr);
+  session_change_observer_.reset(nullptr);
   delegate_->HandleDestroying();
   // If the window going away is a fullscreen window then remove its references
   // from the full screen window map.
@@ -1795,13 +1797,31 @@ LRESULT HWNDMessageHandler::OnGetObject(UINT message,
   DWORD obj_id = static_cast<DWORD>(static_cast<DWORD_PTR>(l_param));
 
   // Accessibility readers will send an OBJID_CLIENT message
-  if (delegate_->GetNativeViewAccessible() &&
-      static_cast<DWORD>(OBJID_CLIENT) == obj_id) {
-    // Retrieve MSAA dispatch object for the root view.
-    Microsoft::WRL::ComPtr<IAccessible> root(
-        delegate_->GetNativeViewAccessible());
-    reference_result = LresultFromObject(IID_IAccessible, w_param,
-        static_cast<IAccessible*>(root.Detach()));
+  if (delegate_->GetNativeViewAccessible()) {
+    bool is_uia_request = static_cast<DWORD>(UiaRootObjectId) == obj_id;
+    bool is_msaa_request = static_cast<DWORD>(OBJID_CLIENT) == obj_id;
+
+    // Expose either the UIA or the MSAA implementation, but not both, depending
+    // on the state of the feature flag.
+    if (is_uia_request &&
+        ::switches::IsExperimentalAccessibilityPlatformUIAEnabled()) {
+      // Retrieve UIA object for the root view.
+      if (!ax_fragment_root_)
+        ax_fragment_root_ = std::make_unique<ui::AXFragmentRootWin>(
+            hwnd(), delegate_->GetNativeViewAccessible());
+      Microsoft::WRL::ComPtr<IRawElementProviderSimple> root;
+      ax_fragment_root_->GetNativeViewAccessible()->QueryInterface(
+          IID_PPV_ARGS(&root));
+      reference_result =
+          UiaReturnRawElementProvider(hwnd(), w_param, l_param, root.Get());
+    } else if (is_msaa_request &&
+               !::switches::IsExperimentalAccessibilityPlatformUIAEnabled()) {
+      // Retrieve MSAA dispatch object for the root view.
+      Microsoft::WRL::ComPtr<IAccessible> root(
+          delegate_->GetNativeViewAccessible());
+      reference_result = LresultFromObject(
+          IID_IAccessible, w_param, static_cast<IAccessible*>(root.Detach()));
+    }
   } else if (::GetFocus() == hwnd() && ax_system_caret_ &&
              static_cast<DWORD>(OBJID_CARET) == obj_id) {
     Microsoft::WRL::ComPtr<IAccessible> ax_system_caret_accessible =
@@ -3043,17 +3063,15 @@ LRESULT HWNDMessageHandler::HandlePointerEventTypeTouch(UINT message,
   event.latency()->AddLatencyNumberWithTimestamp(
       ui::INPUT_EVENT_LATENCY_ORIGINAL_COMPONENT, event_time, 1);
 
+  if (event_type == ui::ET_TOUCH_RELEASED)
+    id_generator_.ReleaseNumber(pointer_id);
+
   // There are cases where the code handling the message destroys the
   // window, so use the weak ptr to check if destruction occurred or not.
   base::WeakPtr<HWNDMessageHandler> ref(msg_handler_weak_factory_.GetWeakPtr());
   delegate_->HandleTouchEvent(&event);
 
   if (ref) {
-    // Release the pointer id only when |HWNDMessageHandler| and |id_generator_|
-    // are not destroyed.
-    if (event_type == ui::ET_TOUCH_RELEASED)
-      id_generator_.ReleaseNumber(pointer_id);
-
     // Mark touch released events handled. These will usually turn into tap
     // gestures, and doing this avoids propagating the event to other windows.
     if (delegate_->GetFrameMode() == FrameMode::SYSTEM_DRAWN) {

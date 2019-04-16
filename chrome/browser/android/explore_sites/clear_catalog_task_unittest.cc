@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
@@ -123,7 +124,8 @@ VALUES
 };
 
 TEST_F(ExploreSitesClearCatalogTest, StoreFailure) {
-  store()->SetInitializationStatusForTest(InitializationStatus::FAILURE);
+  store()->SetInitializationStatusForTesting(
+      ExploreSitesStore::InitializationStatus::kFailure, false);
 
   // A database failure should be completed but return with an error.
   EXPECT_FALSE(RunTaskWithResult());

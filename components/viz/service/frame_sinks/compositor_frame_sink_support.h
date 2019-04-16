@@ -56,6 +56,8 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
                                    const gfx::Size& frame_size_in_pixels,
                                    const gfx::Rect& damage_rect,
                                    base::TimeTicks expected_display_time)>;
+  using PresentationFeedbackMap =
+      base::flat_map<uint32_t, gfx::PresentationFeedback>;
 
   static const uint64_t kFrameIndexStart = 2;
 
@@ -80,10 +82,11 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
 
   FrameSinkManagerImpl* frame_sink_manager() { return frame_sink_manager_; }
 
-  const base::flat_map<uint32_t, gfx::PresentationFeedback>&
-  presentation_feedbacks() {
+  const PresentationFeedbackMap& presentation_feedbacks() {
     return presentation_feedbacks_;
   }
+
+  PresentationFeedbackMap TakePresentationFeedbacks() WARN_UNUSED_RESULT;
 
   // Viz hit-test setup is only called when |is_root_| is true (except on
   // android webview).
@@ -100,6 +103,7 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   // SurfaceClient implementation.
   void OnSurfaceActivated(Surface* surface) override;
   void OnSurfaceDiscarded(Surface* surface) override;
+  void OnSurfaceDrawn(Surface* surface) override;
   void RefResources(
       const std::vector<TransferableResource>& resources) override;
   void UnrefResources(const std::vector<ReturnedResource>& resources) override;
@@ -210,6 +214,7 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   const BeginFrameArgs& LastUsedBeginFrameArgs() const override;
   void OnBeginFrameSourcePausedChanged(bool paused) override;
   bool WantsAnimateOnlyBeginFrames() const override;
+  bool IsRoot() const override;
 
   void UpdateNeedsBeginFramesInternal();
   Surface* CreateSurface(const SurfaceInfo& surface_info,
@@ -304,10 +309,16 @@ class VIZ_SERVICE_EXPORT CompositorFrameSinkSupport
   bool callback_received_receive_ack_ = true;
   uint32_t trace_sequence_ = 0;
 
-  base::flat_map<uint32_t, gfx::PresentationFeedback> presentation_feedbacks_;
+  PresentationFeedbackMap presentation_feedbacks_;
   uint32_t last_evicted_parent_sequence_number_ = 0;
 
   base::TimeTicks last_frame_time_;
+
+  // Initialize |last_drawn_frame_index_| as though the frame before the first
+  // has been drawn.
+  static_assert(kFrameIndexStart > 1,
+                "|last_drawn_frame_index| relies on kFrameIndexStart > 1");
+  uint64_t last_drawn_frame_index_ = kFrameIndexStart - 1;
 
   base::WeakPtrFactory<CompositorFrameSinkSupport> weak_factory_;
 

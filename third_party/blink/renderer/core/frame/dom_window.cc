@@ -132,7 +132,7 @@ void DOMWindow::postMessage(v8::Isolate* isolate,
                             const WindowPostMessageOptions* options,
                             ExceptionState& exception_state) {
   LocalDOMWindow* incumbent_window = IncumbentDOMWindow(isolate);
-  UseCounter::Count(incumbent_window->GetFrame(),
+  UseCounter::Count(incumbent_window->document(),
                     WebFeature::kWindowPostMessage);
 
   Transferables transferables;
@@ -247,8 +247,9 @@ String DOMWindow::CrossDomainAccessErrorMessage(
   // aren't replicated.  For now, construct the URL using the replicated
   // origin for RemoteFrames. If the target frame is remote and sandboxed,
   // there isn't anything else to show other than "null" for its origin.
-  KURL target_url = IsLocalDOMWindow()
-                        ? blink::ToLocalDOMWindow(this)->document()->Url()
+  auto* local_dom_window = DynamicTo<LocalDOMWindow>(this);
+  KURL target_url = local_dom_window
+                        ? local_dom_window->document()->Url()
                         : KURL(NullURL(), target_origin->ToString());
   if (GetFrame()->GetSecurityContext()->IsSandboxed(kSandboxOrigin) ||
       accessing_window->document()->IsSandboxed(kSandboxOrigin)) {
@@ -332,7 +333,7 @@ void DOMWindow::Close(LocalDOMWindow* incumbent_window) {
       !allow_scripts_to_close_windows) {
     active_document->domWindow()->GetFrameConsole()->AddMessage(
         ConsoleMessage::Create(
-            kJSMessageSource, kWarningMessageLevel,
+            kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
             "Scripts may close only the windows that were opened by it."));
     return;
   }
@@ -341,10 +342,10 @@ void DOMWindow::Close(LocalDOMWindow* incumbent_window) {
     return;
 
   ExecutionContext* execution_context = nullptr;
-  if (IsLocalDOMWindow()) {
-    execution_context = blink::ToLocalDOMWindow(this)->GetExecutionContext();
+  if (auto* local_dom_window = DynamicTo<LocalDOMWindow>(this)) {
+    execution_context = local_dom_window->GetExecutionContext();
   }
-  probe::breakableLocation(execution_context, "DOMWindow.close");
+  probe::BreakableLocation(execution_context, "DOMWindow.close");
 
   page->CloseSoon();
 
@@ -457,25 +458,26 @@ void DOMWindow::DoPostMessage(scoped_refptr<SerializedScriptValue> message,
 
   String source_origin = security_origin->ToString();
 
-  KURL target_url = IsLocalDOMWindow()
-                        ? blink::ToLocalDOMWindow(this)->document()->Url()
+  auto* local_dom_window = DynamicTo<LocalDOMWindow>(this);
+  KURL target_url = local_dom_window
+                        ? local_dom_window->document()->Url()
                         : KURL(NullURL(), GetFrame()
                                               ->GetSecurityContext()
                                               ->GetSecurityOrigin()
                                               ->ToString());
   if (MixedContentChecker::IsMixedContent(source_document->GetSecurityOrigin(),
                                           target_url)) {
-    UseCounter::Count(source->GetFrame(),
+    UseCounter::Count(source_document,
                       WebFeature::kPostMessageFromSecureToInsecure);
   } else if (MixedContentChecker::IsMixedContent(
                  GetFrame()->GetSecurityContext()->GetSecurityOrigin(),
                  source_document->Url())) {
-    UseCounter::Count(source->GetFrame(),
+    UseCounter::Count(source_document,
                       WebFeature::kPostMessageFromInsecureToSecure);
     if (MixedContentChecker::IsMixedContent(
             GetFrame()->Tree().Top().GetSecurityContext()->GetSecurityOrigin(),
             source_document->Url())) {
-      UseCounter::Count(source->GetFrame(),
+      UseCounter::Count(source_document,
                         WebFeature::kPostMessageFromInsecureToSecureToplevel);
     }
   }
@@ -484,7 +486,7 @@ void DOMWindow::DoPostMessage(scoped_refptr<SerializedScriptValue> message,
           target_url, RedirectStatus::kNoRedirect,
           SecurityViolationReportingPolicy::kSuppressReporting)) {
     UseCounter::Count(
-        source->GetFrame(),
+        source_document,
         WebFeature::kPostMessageOutgoingWouldBeBlockedByConnectSrc);
   }
   UserActivation* user_activation = nullptr;

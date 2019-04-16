@@ -252,7 +252,8 @@ void DumpBrowserHistograms(const base::FilePath& output_file) {
   std::string output_string(
       base::StatisticsRecorder::ToJSON(base::JSON_VERBOSITY_LEVEL_FULL));
 
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   base::WriteFile(output_file, output_string.data(),
                   static_cast<int>(output_string.size()));
 }
@@ -849,7 +850,7 @@ bool StartupBrowserCreator::ProcessLastOpenedProfiles(
   base::debug::Alias(&last_opened_profiles);
   const Profile* DEBUG_profile_0 = nullptr;
   const Profile* DEBUG_profile_1 = nullptr;
-  if (last_opened_profiles.size() > 0)
+  if (!last_opened_profiles.empty())
     DEBUG_profile_0 = last_opened_profiles[0];
   if (last_opened_profiles.size() > 1)
     DEBUG_profile_1 = last_opened_profiles[1];

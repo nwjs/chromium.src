@@ -7,6 +7,7 @@
 #include "ash/public/cpp/app_list/app_list_switches.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "chromeos/constants/chromeos_switches.h"
 
 namespace app_list_features {
 
@@ -20,22 +21,28 @@ const base::Feature kEnablePlayStoreAppSearch{
     "EnablePlayStoreAppSearch", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableAppDataSearch{"EnableAppDataSearch",
                                          base::FEATURE_DISABLED_BY_DEFAULT};
-const base::Feature kEnableHomeLauncherGestures{
-    "HomeLauncherGestures", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableSettingsShortcutSearch{
     "EnableSettingsShortcutSearch", base::FEATURE_DISABLED_BY_DEFAULT};
-const base::Feature kEnableAppsGridGapFeature{"EnableAppsGridGapFeature",
-                                              base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableZeroStateSuggestions{
-    "EnableZeroStateSuggestions", base::FEATURE_DISABLED_BY_DEFAULT};
+    "EnableZeroStateSuggestions", base::FEATURE_ENABLED_BY_DEFAULT};
 const base::Feature kEnableAppListSearchAutocomplete{
     "EnableAppListSearchAutocomplete", base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kEnableAdaptiveResultRanker{
+    "EnableAdaptiveResultRanker", base::FEATURE_DISABLED_BY_DEFAULT};
 const base::Feature kEnableAppSearchResultRanker{
     "EnableAppSearchResultRanker", base::FEATURE_ENABLED_BY_DEFAULT};
+const base::Feature kEnableAppReinstallZeroState{
+    "EnableAppReinstallZeroState", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kEnableEmbeddedAssistantUI{
+    "EnableEmbeddedAssistantUI", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kEnableAppGridGhost{"EnableAppGridGhost",
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsAnswerCardEnabled() {
   // Not using local static variable to allow tests to change this value.
-  return base::FeatureList::IsEnabled(kEnableAnswerCard);
+  // Do not show answer card if the embedded Assistant UI is enabled.
+  return base::FeatureList::IsEnabled(kEnableAnswerCard) &&
+         !IsEmbeddedAssistantUIEnabled();
 }
 
 bool IsAppShortcutSearchEnabled() {
@@ -55,16 +62,8 @@ bool IsAppDataSearchEnabled() {
   return base::FeatureList::IsEnabled(kEnableAppDataSearch);
 }
 
-bool IsHomeLauncherGesturesEnabled() {
-  return base::FeatureList::IsEnabled(kEnableHomeLauncherGestures);
-}
-
 bool IsSettingsShortcutSearchEnabled() {
   return base::FeatureList::IsEnabled(kEnableSettingsShortcutSearch);
-}
-
-bool IsAppsGridGapFeatureEnabled() {
-  return base::FeatureList::IsEnabled(kEnableAppsGridGapFeature);
 }
 
 bool IsZeroStateSuggestionsEnabled() {
@@ -75,8 +74,25 @@ bool IsAppListSearchAutocompleteEnabled() {
   return base::FeatureList::IsEnabled(kEnableAppListSearchAutocomplete);
 }
 
+bool IsAdaptiveResultRankerEnabled() {
+  return base::FeatureList::IsEnabled(kEnableAdaptiveResultRanker);
+}
+
 bool IsAppSearchResultRankerEnabled() {
   return base::FeatureList::IsEnabled(kEnableAppSearchResultRanker);
+}
+
+bool IsAppReinstallZeroStateEnabled() {
+  return base::FeatureList::IsEnabled(kEnableAppReinstallZeroState);
+}
+
+bool IsEmbeddedAssistantUIEnabled() {
+  return chromeos::switches::IsAssistantEnabled() &&
+         base::FeatureList::IsEnabled(kEnableEmbeddedAssistantUI);
+}
+
+bool IsAppGridGhostEnabled() {
+  return base::FeatureList::IsEnabled(kEnableAppGridGhost);
 }
 
 std::string AnswerServerUrl() {

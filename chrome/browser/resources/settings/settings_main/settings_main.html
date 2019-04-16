@@ -18,7 +18,7 @@
 
 <dom-module id="settings-main">
   <template>
-    <style include="cr-hidden-style">
+    <style include="cr-hidden-style settings-shared">
       #overscroll {
         margin-top: 64px;
       }
@@ -64,6 +64,7 @@
       <settings-basic-page prefs="{{prefs}}"
           page-visibility="[[pageVisibility]]"
           show-android-apps="[[showAndroidApps]]"
+          show-kiosk-next-shell="[[showKioskNextShell]]"
           show-crostini="[[showCrostini]]"
           have-play-store-app="[[havePlayStoreApp]]"
           on-showing-section="onShowingSection_"

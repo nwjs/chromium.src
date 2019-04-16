@@ -4,9 +4,12 @@
 
 #include "chrome/browser/vr/ui_host/vr_ui_host_impl.h"
 
-#include "chrome/browser/permissions/permission_request.h"
+#include <memory>
+
+#include "base/task/post_task.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
+#include "chrome/browser/vr/metrics/session_metrics_helper.h"
 #include "chrome/browser/vr/service/browser_xr_runtime.h"
 #include "chrome/browser/vr/service/xr_runtime_manager.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
@@ -20,9 +23,14 @@
 
 namespace vr {
 
+namespace {
+static constexpr base::TimeDelta kPermissionPromptTimeout =
+    base::TimeDelta::FromSeconds(5);
+}  // namespace
+
 VRUiHostImpl::VRUiHostImpl(device::mojom::XRDeviceId device_id,
                            device::mojom::XRCompositorHostPtr compositor)
-    : compositor_(std::move(compositor)) {
+    : compositor_(std::move(compositor)), weak_ptr_factory_(this) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DVLOG(1) << __func__;
 
@@ -72,6 +80,26 @@ void VRUiHostImpl::SetWebXRWebContents(content::WebContents* contents) {
     permission_request_manager_ = nullptr;
   }
 
+  if (web_contents_ != contents) {
+    if (web_contents_) {
+      auto* metrics_helper =
+          SessionMetricsHelper::FromWebContents(web_contents_);
+      metrics_helper->SetWebVREnabled(false);
+      metrics_helper->SetVRActive(false);
+    }
+    if (contents) {
+      auto* metrics_helper = SessionMetricsHelper::FromWebContents(contents);
+      if (!metrics_helper) {
+        metrics_helper = SessionMetricsHelper::CreateForWebContents(
+            contents, Mode::kWebXrVrPresentation);
+      } else {
+        metrics_helper->SetWebVREnabled(true);
+        metrics_helper->SetVRActive(true);
+      }
+      metrics_helper->RecordVrStartAction(VrStartAction::kPresentationRequest);
+    }
+  }
+
   if (web_contents_)
     VrTabHelper::SetIsContentDisplayedInHeadset(web_contents_, false);
   if (contents)
@@ -119,7 +147,8 @@ void VRUiHostImpl::StartUiRendering() {
   DVLOG(1) << __func__;
 
   DCHECK(info_);
-  ui_rendering_thread_ = std::make_unique<VRBrowserRendererThreadWin>();
+  ui_rendering_thread_ =
+      std::make_unique<VRBrowserRendererThreadWin>(compositor_.get());
   ui_rendering_thread_->SetVRDisplayInfo(info_.Clone());
 }
 
@@ -130,31 +159,53 @@ void VRUiHostImpl::StopUiRendering() {
   ui_rendering_thread_ = nullptr;
 }
 
+void VRUiHostImpl::SetLocationInfoOnUi() {
+  GURL gurl;
+  if (web_contents_) {
+    content::NavigationEntry* entry =
+        web_contents_->GetController().GetVisibleEntry();
+    if (entry) {
+      gurl = entry->GetVirtualURL();
+    }
+  }
+  // TODO(https://crbug.com/905375): The below call should eventually be
+  // rewritten to take a LocationBarState and not just GURL. See
+  // VRBrowserRendererThreadWin::StartOverlay() also.
+  ui_rendering_thread_->SetLocationInfo(gurl);
+}
+
 void VRUiHostImpl::OnBubbleAdded() {
   if (!ui_rendering_thread_) {
     DVLOG(1) << __func__ << ": no ui_rendering_thread_";
     return;
   }
 
-  ui_rendering_thread_->StartOverlay(compositor_.get());
-
-  if (web_contents_) {
-    content::NavigationEntry* entry =
-        web_contents_->GetController().GetVisibleEntry();
-    if (entry) {
-      GURL gurl = entry->GetVirtualURL();
-      ui_rendering_thread_->SetLocationInfo(gurl);
-    }
-  }
+  SetLocationInfoOnUi();
 
   ui_rendering_thread_->SetVisibleExternalPromptNotification(
       ExternalPromptNotificationType::kPromptGenericPermission);
+
+  is_prompt_showing_in_headset_ = true;
+  current_prompt_sequence_num_++;
+  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&VRUiHostImpl::RemoveHeadsetNotificationPrompt,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     current_prompt_sequence_num_),
+      kPermissionPromptTimeout);
 }
 
 void VRUiHostImpl::OnBubbleRemoved() {
-  ui_rendering_thread_->SetVisibleExternalPromptNotification(
-      ExternalPromptNotificationType::kPromptNone);
-  ui_rendering_thread_->StopOverlay();
+  RemoveHeadsetNotificationPrompt(current_prompt_sequence_num_);
 }
 
+void VRUiHostImpl::RemoveHeadsetNotificationPrompt(int prompt_sequence_num) {
+  if (!is_prompt_showing_in_headset_)
+    return;
+  if (prompt_sequence_num != current_prompt_sequence_num_)
+    return;
+  is_prompt_showing_in_headset_ = false;
+  ui_rendering_thread_->SetVisibleExternalPromptNotification(
+      ExternalPromptNotificationType::kPromptNone);
+}
 }  // namespace vr

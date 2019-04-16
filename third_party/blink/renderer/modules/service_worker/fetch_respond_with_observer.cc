@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/feature_list.h"
+#include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "services/network/public/mojom/request_context_frame_type.mojom-blink.h"
@@ -18,12 +19,12 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_response.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
-#include "third_party/blink/renderer/core/fetch/bytes_consumer.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/inspector/console_types.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_global_scope_client.h"
 #include "third_party/blink/renderer/modules/service_worker/wait_until_observer.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/loader/fetch/bytes_consumer.h"
 #include "v8/include/v8.h"
 
 using blink::mojom::ServiceWorkerResponseError;
@@ -125,7 +126,6 @@ bool IsClientRequest(network::mojom::RequestContextFrameType frame_type,
 class FetchLoaderClient final
     : public GarbageCollectedFinalized<FetchLoaderClient>,
       public FetchDataLoader::Client {
-  WTF_MAKE_NONCOPYABLE(FetchLoaderClient);
   USING_GARBAGE_COLLECTED_MIXIN(FetchLoaderClient);
 
  public:
@@ -190,6 +190,8 @@ class FetchLoaderClient final
   bool started_ = false;
   bool pending_complete_ = false;
   bool pending_failure_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(FetchLoaderClient);
 };
 
 }  // namespace
@@ -214,9 +216,9 @@ FetchRespondWithObserver* FetchRespondWithObserver::Create(
 void FetchRespondWithObserver::OnResponseRejected(
     ServiceWorkerResponseError error) {
   DCHECK(GetExecutionContext());
-  GetExecutionContext()->AddConsoleMessage(
-      ConsoleMessage::Create(kJSMessageSource, kWarningMessageLevel,
-                             GetMessageForResponseError(error, request_url_)));
+  GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
+      kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
+      GetMessageForResponseError(error, request_url_)));
 
   // The default value of WebServiceWorkerResponse's status is 0, which maps
   // to a network error.

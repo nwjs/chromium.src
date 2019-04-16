@@ -6,6 +6,8 @@
 
 #include <array>
 #include <set>
+#include <utility>
+#include <vector>
 
 #include "base/bits.h"
 #include "base/process/process_metrics.h"
@@ -67,6 +69,13 @@ TEST_F(GuardedPageAllocatorTest, SingleAllocDealloc) {
   gpa_.Deallocate(buf);
   EXPECT_DEATH(buf[0] = 'B', "");
   EXPECT_DEATH(gpa_.Deallocate(buf), "");
+}
+
+TEST_F(GuardedPageAllocatorTest, CrashOnBadDeallocPointer) {
+  EXPECT_DEATH(gpa_.Deallocate(nullptr), "");
+  char* buf = reinterpret_cast<char*>(gpa_.Allocate(8));
+  EXPECT_DEATH(gpa_.Deallocate(buf + 1), "");
+  gpa_.Deallocate(buf);
 }
 
 TEST_F(GuardedPageAllocatorTest, PointerIsMine) {
@@ -154,9 +163,9 @@ TEST_P(GuardedPageAllocatorParamTest, AllocDeallocAllPages) {
     // Performing death tests post-allocation times out on Windows.
   }
 }
-INSTANTIATE_TEST_CASE_P(VaryNumPages,
-                        GuardedPageAllocatorParamTest,
-                        testing::Values(1, kGpaMaxPages / 2, kGpaMaxPages));
+INSTANTIATE_TEST_SUITE_P(VaryNumPages,
+                         GuardedPageAllocatorParamTest,
+                         testing::Values(1, kGpaMaxPages / 2, kGpaMaxPages));
 
 class ThreadedAllocCountDelegate : public base::DelegateSimpleThread::Delegate {
  public:

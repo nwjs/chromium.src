@@ -81,8 +81,7 @@ void MenuRunnerImpl::RunMenuAt(Widget* parent,
                                MenuButton* button,
                                const gfx::Rect& bounds,
                                MenuAnchorPosition anchor,
-                               int32_t run_types,
-                               base::flat_set<int> alerted_commands) {
+                               int32_t run_types) {
   closing_event_time_ = base::TimeTicks();
   if (running_) {
     // Ignore requests to show the menu while it's already showing. MenuItemView
@@ -126,7 +125,14 @@ void MenuRunnerImpl::RunMenuAt(Widget* parent,
     controller = new MenuController(for_drop_, this);
     owns_controller_ = true;
   }
-  controller->set_is_combobox((run_types & MenuRunner::COMBOBOX) != 0);
+  DCHECK((run_types & MenuRunner::COMBOBOX) == 0 ||
+         (run_types & MenuRunner::EDITABLE_COMBOBOX) == 0);
+  if (run_types & MenuRunner::COMBOBOX)
+    controller->set_combobox_type(MenuController::kReadonlyCombobox);
+  else if (run_types & MenuRunner::EDITABLE_COMBOBOX)
+    controller->set_combobox_type(MenuController::kEditableCombobox);
+  else
+    controller->set_combobox_type(MenuController::kNotACombobox);
   controller->set_send_gesture_events_to_owner(
       (run_types & MenuRunner::SEND_GESTURE_EVENTS_TO_OWNER) != 0);
   controller->set_use_touchable_layout(
@@ -138,7 +144,7 @@ void MenuRunnerImpl::RunMenuAt(Widget* parent,
 
   controller->Run(parent, button, menu_, bounds, anchor,
                   (run_types & MenuRunner::CONTEXT_MENU) != 0,
-                  (run_types & MenuRunner::NESTED_DRAG) != 0, alerted_commands);
+                  (run_types & MenuRunner::NESTED_DRAG) != 0);
 }
 
 void MenuRunnerImpl::Cancel() {

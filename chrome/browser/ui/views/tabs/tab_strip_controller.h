@@ -20,6 +20,7 @@ class Point;
 }
 
 namespace ui {
+class Event;
 class ListSelectionModel;
 }
 
@@ -52,7 +53,8 @@ class TabStripController {
   virtual bool IsTabPinned(int index) const = 0;
 
   // Select the tab at the specified index in the model.
-  virtual void SelectTab(int index) = 0;
+  // |event| is the input event that triggers the tab selection.
+  virtual void SelectTab(int index, const ui::Event& event) = 0;
 
   // Extends the selection from the anchor to the specified index in the model.
   virtual void ExtendSelectionTo(int index) = 0;
@@ -103,9 +105,6 @@ class TabStripController {
 
   // Invoked if the stacked layout (on or off) might have changed.
   virtual void StackedLayoutMaybeChanged() = 0;
-
-  // Whether the special painting mode for one tab is allowed.
-  virtual bool IsSingleTabModeAvailable() = 0;
 
   // Notifies controller that the user started dragging this tabstrip's tabs.
   virtual void OnStartedDraggingTabs() = 0;

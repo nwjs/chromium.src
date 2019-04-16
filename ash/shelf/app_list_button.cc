@@ -24,6 +24,7 @@
 #include "ash/system/tray/tray_popup_utils.h"
 #include "ash/voice_interaction/voice_interaction_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -59,11 +60,15 @@ bool IsTabletMode() {
 
 }  // namespace
 
+// static
+const char AppListButton::kViewClassName[] = "ash/AppListButton";
+
 AppListButton::AppListButton(ShelfView* shelf_view, Shelf* shelf)
     : ShelfControlButton(shelf_view), shelf_(shelf) {
   DCHECK(shelf_);
   Shell::Get()->app_list_controller()->AddObserver(this);
   Shell::Get()->session_controller()->AddObserver(this);
+  Shell::Get()->tablet_mode_controller()->AddObserver(this);
 
   Shell::Get()->voice_interaction_controller()->AddLocalObserver(this);
   SetAccessibleName(
@@ -81,10 +86,12 @@ AppListButton::AppListButton(ShelfView* shelf_view, Shelf* shelf)
 }
 
 AppListButton::~AppListButton() {
-  // AppListController is destroyed early when Shell is being destroyed, it may
-  // not exist.
+  // AppListController and TabletModeController are destroyed early when Shell
+  // is being destroyed, they may not exist.
   if (Shell::Get()->app_list_controller())
     Shell::Get()->app_list_controller()->RemoveObserver(this);
+  if (Shell::Get()->tablet_mode_controller())
+    Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
   Shell::Get()->session_controller()->RemoveObserver(this);
   Shell::Get()->voice_interaction_controller()->RemoveLocalObserver(this);
 }
@@ -141,7 +148,7 @@ void AppListButton::OnGestureEvent(ui::GestureEvent* event) {
       // If assistant overlay animation starts, we need to make sure the event
       // is handled in order to end the animation in |ET_GESTURE_TAP| or
       // |ET_GESTURE_TAP_CANCEL|.
-      DCHECK(event->stopped_propagation());
+      DCHECK(event->handled());
       return;
     case ui::ET_GESTURE_LONG_PRESS:
       if (UseVoiceInteractionStyle()) {
@@ -172,6 +179,10 @@ void AppListButton::OnGestureEvent(ui::GestureEvent* event) {
       Button::OnGestureEvent(event);
       return;
   }
+}
+
+const char* AppListButton::GetClassName() const {
+  return kViewClassName;
 }
 
 std::unique_ptr<views::InkDropRipple> AppListButton::CreateInkDropRipple()
@@ -291,7 +302,8 @@ void AppListButton::OnVoiceInteractionSettingsEnabled(bool enabled) {
   SchedulePaint();
 }
 
-void AppListButton::OnVoiceInteractionSetupCompleted(bool completed) {
+void AppListButton::OnVoiceInteractionConsentStatusUpdated(
+    mojom::ConsentStatus consent_status) {
   SchedulePaint();
 }
 
@@ -305,6 +317,10 @@ void AppListButton::OnActiveUserSessionChanged(const AccountId& account_id) {
   }
 }
 
+void AppListButton::OnTabletModeStarted() {
+  AnimateInkDrop(views::InkDropState::DEACTIVATED, nullptr);
+}
+
 void AppListButton::StartVoiceInteractionAnimation() {
   assistant_overlay_->StartAnimation(false);
 }
@@ -313,11 +329,14 @@ bool AppListButton::UseVoiceInteractionStyle() {
   VoiceInteractionController* controller =
       Shell::Get()->voice_interaction_controller();
   bool settings_enabled = controller->settings_enabled().value_or(false);
-  bool setup_completed = controller->setup_completed().value_or(false);
+
+  const bool consent_given = controller->consent_status() ==
+                             mojom::ConsentStatus::kActivityControlAccepted;
+
   bool is_feature_allowed =
       controller->allowed_state() == mojom::AssistantAllowedState::ALLOWED;
   if (assistant_overlay_ && is_feature_allowed &&
-      (settings_enabled || !setup_completed)) {
+      (settings_enabled || !consent_given)) {
     return true;
   }
   return false;

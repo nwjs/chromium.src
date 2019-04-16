@@ -74,16 +74,10 @@ class CONTENT_EXPORT BlinkPlatformImpl : public blink::Platform {
       const blink::WebString& value2) override;
   void SuddenTerminationChanged(bool enabled) override {}
   bool AllowScriptExtensionForServiceWorker(
-      const blink::WebURL& script_url) override;
+      const blink::WebSecurityOrigin& script_origin) override;
   blink::WebCrypto* Crypto() override;
   const char* GetBrowserServiceName() const override;
   blink::WebMediaCapabilitiesClient* MediaCapabilitiesClient() override;
-
-  blink::WebString DomCodeStringFromEnum(int dom_code) override;
-  int DomEnumFromCodeString(const blink::WebString& codeString) override;
-  blink::WebString DomKeyStringFromEnum(int dom_key) override;
-  int DomKeyEnumFromString(const blink::WebString& key_string) override;
-  bool IsDomKeyForModifier(int dom_key) override;
 
   scoped_refptr<base::SingleThreadTaskRunner> GetIOTaskRunner() const override;
   std::unique_ptr<NestedMessageLoopRunner> CreateNestedMessageLoopRunner()

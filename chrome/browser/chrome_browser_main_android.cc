@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chrome_browser_main_android.h"
 
+#include "base/bind.h"
 #include "base/message_loop/message_loop.h"
 #include "base/message_loop/message_loop_current.h"
 #include "base/path_service.h"
@@ -70,18 +71,7 @@ int ChromeBrowserMainPartsAndroid::PreEarlyInitialization() {
 
   content::Compositor::Initialize();
 
-  // Chrome on Android does not use default MessageLoop. It has its own
-  // Android specific MessageLoop.
-  DCHECK(!main_message_loop_.get());
-
-  // Create the MessageLoop if doesn't yet exist (and bind it to the native Java
-  // loop). This is a critical point in the startup process.
-  {
-    TRACE_EVENT0("startup",
-      "ChromeBrowserMainPartsAndroid::PreEarlyInitialization:CreateUiMsgLoop");
-    if (!base::MessageLoopCurrent::IsSet())
-      main_message_loop_ = std::make_unique<base::MessageLoopForUI>();
-  }
+  CHECK(base::MessageLoopCurrent::IsSet());
 
   return ChromeBrowserMainParts::PreEarlyInitialization();
 }
@@ -91,7 +81,7 @@ void ChromeBrowserMainPartsAndroid::PostBrowserStart() {
 
   base::PostDelayedTaskWithTraits(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
-      base::Bind(&ReportSeccompSupport), base::TimeDelta::FromMinutes(1));
+      base::BindOnce(&ReportSeccompSupport), base::TimeDelta::FromMinutes(1));
 
   RegisterChromeJavaMojoInterfaces();
 }

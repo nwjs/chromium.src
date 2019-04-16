@@ -7,11 +7,13 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/strings/string16.h"
 #include "components/autofill/core/browser/autofill_client.h"
 #include "components/autofill/core/browser/autofill_metrics.h"
+#include "components/autofill/core/browser/local_card_migration_strike_database.h"
 #include "components/autofill/core/browser/payments/payments_client.h"
 
 namespace autofill {
@@ -43,7 +45,7 @@ class MigratableCreditCard {
     FAILURE_ON_UPLOAD,
   };
 
-  MigratableCreditCard(const CreditCard& credit_card);
+  explicit MigratableCreditCard(const CreditCard& credit_card);
   ~MigratableCreditCard();
 
   CreditCard credit_card() const { return credit_card_; }
@@ -66,6 +68,16 @@ class MigratableCreditCard {
 // Owned by FormDataImporter.
 class LocalCardMigrationManager {
  public:
+  // An observer class used by browsertests that gets notified whenever
+  // particular actions occur.
+  class ObserverForTest {
+   public:
+    virtual void OnDecideToRequestLocalCardMigration() = 0;
+    virtual void OnReceivedGetUploadDetailsResponse() = 0;
+    virtual void OnSentMigrateCardsRequest() = 0;
+    virtual void OnReceivedMigrateCardsResponse() = 0;
+  };
+
   // The parameters should outlive the LocalCardMigrationManager.
   LocalCardMigrationManager(AutofillClient* client,
                             payments::PaymentsClient* payments_client,
@@ -123,7 +135,8 @@ class LocalCardMigrationManager {
       bool is_from_settings_page,
       AutofillClient::PaymentsRpcResult result,
       const base::string16& context_token,
-      std::unique_ptr<base::Value> legal_message);
+      std::unique_ptr<base::Value> legal_message,
+      std::vector<std::pair<int, int>> supported_card_bin_ranges);
 
   // Callback after successfully getting the migration save results. Map
   // migration save result to each card depending on the |save_result|. Will
@@ -141,6 +154,7 @@ class LocalCardMigrationManager {
   payments::PaymentsClient* payments_client_;
 
  private:
+  friend class LocalCardMigrationBrowserTest;
   FRIEND_TEST_ALL_PREFIXES(LocalCardMigrationManagerTest,
                            MigrateCreditCard_MigrationPermanentFailure);
   FRIEND_TEST_ALL_PREFIXES(LocalCardMigrationManagerTest,
@@ -149,6 +163,9 @@ class LocalCardMigrationManager {
                            MigrateCreditCard_MigrationSuccess);
   FRIEND_TEST_ALL_PREFIXES(LocalCardMigrationManagerTest,
                            MigrateCreditCard_ToggleIsChosen);
+
+  // Returns the LocalCardMigrationStrikeDatabase for |client_|.
+  LocalCardMigrationStrikeDatabase* GetLocalCardMigrationStrikeDatabase();
 
   // Pops up a larger, modal dialog showing the local cards to be uploaded.
   void ShowMainMigrationDialog();
@@ -160,6 +177,11 @@ class LocalCardMigrationManager {
 
   // Finalizes the migration request and calls PaymentsClient.
   void SendMigrateLocalCardsRequest();
+
+  // For testing.
+  void SetEventObserverForTesting(ObserverForTest* observer) {
+    observer_for_testing_ = observer;
+  }
 
   std::unique_ptr<base::DictionaryValue> legal_message_;
 
@@ -186,6 +208,12 @@ class LocalCardMigrationManager {
 
   // Record the triggering source of the local card migration.
   AutofillMetrics::LocalCardMigrationOrigin local_card_migration_origin_;
+
+  // Initialized only during tests.
+  ObserverForTest* observer_for_testing_ = nullptr;
+
+  std::unique_ptr<LocalCardMigrationStrikeDatabase>
+      local_card_migration_strike_database_;
 
   base::WeakPtrFactory<LocalCardMigrationManager> weak_ptr_factory_;
 

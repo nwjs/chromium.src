@@ -32,6 +32,7 @@
 #include "third_party/blink/public/platform/modules/background_sync/background_sync.mojom.h"
 #include "third_party/blink/public/platform/modules/permissions/permission_status.mojom.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace blink {
 namespace mojom {
@@ -73,7 +74,7 @@ class CONTENT_EXPORT BackgroundSyncManager
   // parameters if the user or UA chose different parameters than those
   // supplied.
   void Register(int64_t sw_registration_id,
-                const BackgroundSyncRegistrationOptions& options,
+                blink::mojom::SyncRegistrationOptions options,
                 StatusAndRegistrationCallback callback);
 
   // Called after the client has resolved its registration promise. At this
@@ -115,6 +116,11 @@ class CONTENT_EXPORT BackgroundSyncManager
   // Called from DevTools to toggle service worker "offline" status
   void EmulateServiceWorkerOffline(int64_t service_worker_id, bool is_offline);
 
+  // Scans the list of available events and fires those that are
+  // ready to fire. For those that can't yet be fired, wakeup alarms are set.
+  // Once all of this is done, invokes |callback|.
+  void FireReadyEventsThenRunCallback(base::OnceClosure callback);
+
  protected:
   explicit BackgroundSyncManager(
       scoped_refptr<ServiceWorkerContextWrapper> context);
@@ -125,7 +131,7 @@ class CONTENT_EXPORT BackgroundSyncManager
   // The following methods are virtual for testing.
   virtual void StoreDataInBackend(
       int64_t sw_registration_id,
-      const GURL& origin,
+      const url::Origin& origin,
       const std::string& backend_key,
       const std::string& data,
       ServiceWorkerStorage::StatusCallback callback);
@@ -139,7 +145,7 @@ class CONTENT_EXPORT BackgroundSyncManager
       ServiceWorkerVersion::StatusCallback callback);
   virtual void ScheduleDelayedTask(base::OnceClosure callback,
                                    base::TimeDelta delay);
-  virtual void HasMainFrameProviderHost(const GURL& origin,
+  virtual void HasMainFrameProviderHost(const url::Origin& origin,
                                         BoolCallback callback);
 
  private:
@@ -154,7 +160,7 @@ class CONTENT_EXPORT BackgroundSyncManager
     ~BackgroundSyncRegistrations();
 
     RegistrationMap registration_map;
-    GURL origin;
+    url::Origin origin;
   };
 
   using SWIdToRegistrationsMap = std::map<int64_t, BackgroundSyncRegistrations>;
@@ -190,7 +196,7 @@ class CONTENT_EXPORT BackgroundSyncManager
 
   void AddActiveRegistration(
       int64_t sw_registration_id,
-      const GURL& origin,
+      const url::Origin& origin,
       const BackgroundSyncRegistration& sync_registration);
 
   void InitImpl(base::OnceClosure callback);
@@ -205,19 +211,19 @@ class CONTENT_EXPORT BackgroundSyncManager
   // Register callbacks
   void RegisterCheckIfHasMainFrame(
       int64_t sw_registration_id,
-      const BackgroundSyncRegistrationOptions& options,
+      blink::mojom::SyncRegistrationOptions options,
       StatusAndRegistrationCallback callback);
   void RegisterDidCheckIfMainFrame(
       int64_t sw_registration_id,
-      const BackgroundSyncRegistrationOptions& options,
+      blink::mojom::SyncRegistrationOptions options,
       StatusAndRegistrationCallback callback,
       bool has_main_frame_client);
   void RegisterImpl(int64_t sw_registration_id,
-                    const BackgroundSyncRegistrationOptions& options,
+                    blink::mojom::SyncRegistrationOptions options,
                     StatusAndRegistrationCallback callback);
   void RegisterDidAskForPermission(
       int64_t sw_registration_id,
-      const BackgroundSyncRegistrationOptions& options,
+      blink::mojom::SyncRegistrationOptions options,
       StatusAndRegistrationCallback callback,
       blink::mojom::PermissionStatus permission_status);
   void RegisterDidStore(int64_t sw_registration_id,
@@ -233,7 +239,7 @@ class CONTENT_EXPORT BackgroundSyncManager
   void GetRegistrationsImpl(int64_t sw_registration_id,
                             StatusAndRegistrationsCallback callback);
 
-  bool AreOptionConditionsMet(const BackgroundSyncRegistrationOptions& options);
+  bool AreOptionConditionsMet();
   bool IsRegistrationReadyToFire(const BackgroundSyncRegistration& registration,
                                  int64_t service_worker_id);
 
@@ -249,6 +255,7 @@ class CONTENT_EXPORT BackgroundSyncManager
   // FireReadyEvents scans the list of available events and fires those that are
   // ready to fire. For those that can't yet be fired, wakeup alarms are set.
   void FireReadyEvents();
+
   void FireReadyEventsImpl(base::OnceClosure callback);
   void FireReadyEventsDidFindRegistration(
       int64_t service_worker_id,

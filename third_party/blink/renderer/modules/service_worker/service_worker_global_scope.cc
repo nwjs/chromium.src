@@ -33,8 +33,10 @@
 #include <memory>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/renderer/bindings/core/v8/callback_promise_adapter.h"
@@ -132,12 +134,13 @@ void ServiceWorkerGlobalScope::ReadyToEvaluateScript() {
 }
 
 bool ServiceWorkerGlobalScope::ShouldInstallV8Extensions() const {
-  return Platform::Current()->AllowScriptExtensionForServiceWorker(Url());
+  return Platform::Current()->AllowScriptExtensionForServiceWorker(
+      WebSecurityOrigin(GetSecurityOrigin()));
 }
 
 void ServiceWorkerGlobalScope::ImportModuleScript(
     const KURL& module_url_record,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     network::mojom::FetchCredentialsMode credentials_mode) {
   Modulator* modulator = Modulator::From(ScriptController()->GetScriptState());
 
@@ -288,8 +291,8 @@ bool ServiceWorkerGlobalScope::AddEventListenerInternal(
         "Event handler of '%s' event must be added on the initial evaluation "
         "of worker script.",
         event_type.Utf8().data());
-    AddConsoleMessage(ConsoleMessage::Create(kJSMessageSource,
-                                             kWarningMessageLevel, message));
+    AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
   }
   return WorkerGlobalScope::AddEventListenerInternal(event_type, listener,
                                                      options);
@@ -310,6 +313,9 @@ void ServiceWorkerGlobalScope::EvaluateClassicScriptInternal(
   }
 
   // Receive the main script via script streaming if needed.
+  // TODO(nhiroki): Merge script loading from the installed script manager
+  // into regular off-the-main-thread script fetch path so that we can remove
+  // this special casing.
   InstalledScriptsManager* installed_scripts_manager =
       GetThread()->GetInstalledScriptsManager();
   if (installed_scripts_manager &&
@@ -318,11 +324,19 @@ void ServiceWorkerGlobalScope::EvaluateClassicScriptInternal(
     std::unique_ptr<InstalledScriptsManager::ScriptData> script_data =
         installed_scripts_manager->GetScriptData(script_url);
     if (!script_data) {
-      ReportingProxy().DidFailToLoadInstalledClassicScript();
+      ReportingProxy().DidFailToLoadClassicScript();
       // This will eventually initiate worker thread termination. See
       // ServiceWorkerGlobalScopeProxy::DidCloseWorkerGlobalScope() for details.
       close();
       return;
+    }
+
+    if (base::FeatureList::IsEnabled(
+            features::kOffMainThreadServiceWorkerScriptFetch)) {
+      // WorkerGlobalScope sets the URL in DidImportClassicScript() when
+      // off-the-main-thread fetch is enabled. Since we bypass calling
+      // DidImportClassicScript(), set the URL here.
+      InitializeURL(script_url);
     }
 
     DCHECK(source_code.IsEmpty());
@@ -344,7 +358,7 @@ void ServiceWorkerGlobalScope::EvaluateClassicScriptInternal(
         script_data->CreateOriginTrialTokens();
     OriginTrialContext::AddTokens(this, origin_trial_tokens.get());
 
-    ReportingProxy().DidLoadInstalledScript();
+    ReportingProxy().DidLoadClassicScript();
   }
 
   WorkerGlobalScope::EvaluateClassicScriptInternal(script_url, source_code,

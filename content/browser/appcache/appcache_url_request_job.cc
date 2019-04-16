@@ -16,7 +16,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/appcache/appcache.h"
-#include "content/browser/appcache/appcache_frontend.h"
 #include "content/browser/appcache/appcache_group.h"
 #include "content/browser/appcache/appcache_histograms.h"
 #include "content/browser/appcache/appcache_host.h"
@@ -30,6 +29,7 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_status.h"
 #include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 
 namespace content {
 
@@ -169,9 +169,10 @@ void AppCacheURLRequestJob::BeginDelivery() {
 }
 
 void AppCacheURLRequestJob::BeginErrorDelivery(const char* message) {
-  if (host_)
-    host_->frontend()->OnLogMessage(host_->host_id(), APPCACHE_LOG_ERROR,
-                                    message);
+  if (host_) {
+    host_->frontend()->LogMessage(blink::mojom::ConsoleMessageLevel::kError,
+                                  message);
+  }
   delivery_type_ = DeliveryType::kError;
   storage_ = nullptr;
   BeginDelivery();
@@ -288,10 +289,10 @@ int AppCacheURLRequestJob::ReadRawData(net::IOBuffer* buf, int buf_size) {
   return net::ERR_IO_PENDING;
 }
 
-net::HostPortPair AppCacheURLRequestJob::GetSocketAddress() const {
+net::IPEndPoint AppCacheURLRequestJob::GetResponseRemoteEndpoint() const {
   if (!http_info())
-    return net::HostPortPair();
-  return http_info()->socket_address;
+    return net::IPEndPoint();
+  return http_info()->remote_endpoint;
 }
 
 void AppCacheURLRequestJob::SetExtraRequestHeaders(

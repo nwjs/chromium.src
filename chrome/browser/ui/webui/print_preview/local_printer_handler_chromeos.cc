@@ -8,8 +8,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
-#include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/task/post_task.h"
@@ -20,6 +20,7 @@
 #include "chrome/browser/chromeos/printing/cups_printers_manager_factory.h"
 #include "chrome/browser/chromeos/printing/ppd_provider_factory.h"
 #include "chrome/browser/chromeos/printing/printer_configurer.h"
+#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_utils.h"
 #include "chrome/common/pref_names.h"
@@ -79,8 +80,9 @@ void FetchCapabilities(std::unique_ptr<chromeos::Printer> printer,
 
   PrinterBasicInfo basic_info = ToBasicInfo(*printer);
 
+  // USER_VISIBLE because the result is displayed in the print preview dialog.
   base::PostTaskWithTraitsAndReplyWithResult(
-      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
       base::BindOnce(&GetSettingsOnBlockingPool, printer->id(), basic_info,
                      PrinterSemanticCapsAndDefaults::Papers(), nullptr),
       base::BindOnce(&CapabilitiesFetched, std::move(policies), std::move(cb)));
@@ -233,19 +235,22 @@ void LocalPrinterHandlerChromeos::HandlePrinterSetup(
 }
 
 void LocalPrinterHandlerChromeos::StartPrint(
-    const std::string& destination_id,
-    const std::string& capability,
     const base::string16& job_title,
-    const std::string& ticket_json,
-    const gfx::Size& page_size,
-    const scoped_refptr<base::RefCountedMemory>& print_data,
+    base::Value settings,
+    scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
   size_t size_in_kb = print_data->size() / 1024;
   UMA_HISTOGRAM_MEMORY_KB("Printing.CUPS.PrintDocumentSize", size_in_kb);
-  std::unique_ptr<base::Value> job_settings =
-      base::JSONReader::Read(ticket_json);
-  StartLocalPrint(base::Value::FromUniquePtrValue(std::move(job_settings)),
-                  print_data, preview_web_contents_, std::move(callback));
+  if (profile_->GetPrefs()->GetBoolean(
+          prefs::kPrintingSendUsernameAndFilenameEnabled)) {
+    settings.SetKey(kSettingUsername,
+                    base::Value(chromeos::ProfileHelper::Get()
+                                    ->GetUserByProfile(profile_)
+                                    ->display_email()));
+    settings.SetKey(kSettingSendUserInfo, base::Value(true));
+  }
+  StartLocalPrint(std::move(settings), std::move(print_data),
+                  preview_web_contents_, std::move(callback));
 }
 
 }  // namespace printing

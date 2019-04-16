@@ -75,6 +75,12 @@ base::string16 ContentClient::GetLocalizedString(int message_id) const {
   return base::string16();
 }
 
+base::string16 ContentClient::GetLocalizedString(
+    int message_id,
+    const base::string16& replacement) const {
+  return base::string16();
+}
+
 base::StringPiece ContentClient::GetDataResource(
     int resource_id,
     ui::ScaleFactor scale_factor) const {
@@ -105,7 +111,7 @@ blink::OriginTrialPolicy* ContentClient::GetOriginTrialPolicy() {
 }
 
 bool ContentClient::AllowScriptExtensionForServiceWorker(
-    const GURL& script_url) {
+    const url::Origin& script_origin) {
   return false;
 }
 

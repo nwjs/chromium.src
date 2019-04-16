@@ -65,6 +65,7 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "media/base/media_switches.h"
+#include "media/mojo/interfaces/media_types.mojom.h"
 #include "media/mojo/services/video_decode_perf_history.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/dns/mock_host_resolver.h"
@@ -281,7 +282,8 @@ bool SetGaiaCookieForProfile(Profile* profile) {
   network::mojom::CookieManager* cookie_manager =
       content::BrowserContext::GetDefaultStoragePartition(profile)
           ->GetCookieManagerForBrowserProcess();
-  cookie_manager->SetCanonicalCookie(cookie, true, true, std::move(callback));
+  cookie_manager->SetCanonicalCookie(cookie, "https", true,
+                                     std::move(callback));
   loop.Run();
   return success;
 }
@@ -1350,8 +1352,10 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest, StorageRemovedFromDisk) {
 
 // TODO(crbug.com/840080, crbug.com/824533): Filesystem and
 // CacheStorage can't be deleted on exit correctly at the moment.
+// TODO(crbug.com/927312): LocalStorage deletion is flaky.
 const std::vector<std::string> kSessionOnlyStorageTestTypes{
-    "Cookie", "LocalStorage",
+    "Cookie",
+    // "LocalStorage",
     // "FileSystem",
     "SessionStorage", "IndexedDb", "WebSql", "ServiceWorker",
     // "CacheStorage",
@@ -1390,6 +1394,6 @@ IN_PROC_BROWSER_TEST_F(BrowsingDataRemoverBrowserTest,
 
 // Some storage backend use a different code path for full deletions and
 // partial deletions, so we need to test both.
-INSTANTIATE_TEST_CASE_P(/* no prefix */,
-                        BrowsingDataRemoverBrowserTestP,
-                        ::testing::Values(base::Time(), kLastHour));
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         BrowsingDataRemoverBrowserTestP,
+                         ::testing::Values(base::Time(), kLastHour));

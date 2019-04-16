@@ -25,13 +25,6 @@ if (!is_component_build && is_win) {
 
 config("modules_implementation") {
   defines = [ "BLINK_MODULES_IMPLEMENTATION=1" ]
-
-  if (is_chromecast) {
-    defines += [
-      "BLINK_MSLOG=LOG(INFO)",
-      "BLINK_SBLOG=LOG(INFO)",
-    ]
-  }
 }
 
 make_names("module_names") {
@@ -117,6 +110,7 @@ target("jumbo_" + modules_target_type, "modules") {
     "//third_party/blink/renderer/modules/filesystem",
     "//third_party/blink/renderer/modules/gamepad",
     "//third_party/blink/renderer/modules/geolocation",
+    "//third_party/blink/renderer/modules/hid",
     "//third_party/blink/renderer/modules/idle",
     "//third_party/blink/renderer/modules/imagecapture",
     "//third_party/blink/renderer/modules/indexeddb",
@@ -190,6 +184,8 @@ jumbo_source_set("modules_testing") {
     "accessibility/testing/internals_accessibility.h",
     "mediastream/testing/internals_media_stream.cc",
     "mediastream/testing/internals_media_stream.h",
+    "netinfo/testing/internals_net_info.cc",
+    "netinfo/testing/internals_net_info.h",
     "peerconnection/adapters/test/mock_ice_transport_adapter.h",
     "peerconnection/adapters/test/mock_ice_transport_adapter_cross_thread_factory.h",
     "peerconnection/adapters/test/mock_p2p_quic_packet_transport.h",
@@ -249,6 +245,7 @@ jumbo_source_set("unit_tests") {
     "accessibility/testing/accessibility_test.cc",
     "accessibility/testing/accessibility_test.h",
     "animationworklet/animation_worklet_global_scope_test.cc",
+    "animationworklet/animation_worklet_proxy_client_test.cc",
     "animationworklet/worklet_animation_test.cc",
     "background_fetch/background_fetch_icon_loader_test.cc",
     "background_fetch/background_fetch_manager_test.cc",
@@ -304,6 +301,7 @@ jumbo_source_set("unit_tests") {
     "payments/abort_test.cc",
     "payments/can_make_payment_test.cc",
     "payments/complete_test.cc",
+    "payments/merchant_validation_event_test.cc",
     "payments/on_payment_response_test.cc",
     "payments/payment_address_test.cc",
     "payments/payment_event_data_conversion_test.cc",
@@ -326,7 +324,7 @@ jumbo_source_set("unit_tests") {
     "peerconnection/rtc_quic_stream_test.cc",
     "peerconnection/rtc_quic_transport_test.cc",
     "peerconnection/rtc_quic_transport_test.h",
-    "picture_in_picture/html_video_element_picture_in_picture_test.cc",
+    "picture_in_picture/picture_in_picture_controller_test.cc",
     "presentation/mock_presentation_service.h",
     "presentation/presentation_availability_state_test.cc",
     "presentation/presentation_availability_test.cc",
@@ -356,6 +354,8 @@ jumbo_source_set("unit_tests") {
     "websockets/dom_websocket_test.cc",
     "websockets/websocket_channel_impl_test.cc",
     "worklet/animation_and_paint_worklet_thread_test.cc",
+    "worklet/worklet_thread_test_common.cc",
+    "worklet/worklet_thread_test_common.h",
   ]
 
   configs += [

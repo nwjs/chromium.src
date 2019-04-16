@@ -68,7 +68,7 @@ class CORE_EXPORT SpellCheckRequest
 
   int RequestNumber() const { return request_number_; }
 
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
  private:
   Member<SpellCheckRequester> requester_;
@@ -88,7 +88,7 @@ class CORE_EXPORT SpellCheckRequester final
 
   explicit SpellCheckRequester(LocalFrame&);
   ~SpellCheckRequester();
-  void Trace(blink::Visitor*);
+  void Trace(Visitor*);
 
   // Returns true if a request is initiated. Returns false otherwise.
   bool RequestCheckingFor(const EphemeralRange&);
@@ -99,9 +99,9 @@ class CORE_EXPORT SpellCheckRequester final
 
   int LastProcessedSequence() const { return last_processed_sequence_; }
 
-  // Exposed for leak detector only, see comment for corresponding
-  // SpellChecker method.
-  void PrepareForLeakDetection();
+  // Called to clean up pending requests when no more checking is needed. For
+  // example, when document is closed.
+  void Deactivate();
 
  private:
   friend class SpellCheckRequest;

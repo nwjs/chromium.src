@@ -7,6 +7,7 @@
 
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_input_node.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 
 namespace blink {
@@ -31,6 +32,8 @@ namespace blink {
 //
 // The break token should encapsulate enough information to "resume" the layout.
 class CORE_EXPORT NGBreakToken : public RefCounted<NGBreakToken> {
+  USING_FAST_MALLOC(NGBreakToken);
+
  public:
   virtual ~NGBreakToken() = default;
 
@@ -100,7 +103,7 @@ class CORE_EXPORT NGBreakToken : public RefCounted<NGBreakToken> {
   unsigned has_last_resort_break_ : 1;
 };
 
-typedef Vector<scoped_refptr<NGBreakToken>, 16> NGBreakTokenVector;
+typedef Vector<scoped_refptr<NGBreakToken>> NGBreakTokenVector;
 
 }  // namespace blink
 

@@ -5,6 +5,7 @@
 #include <set>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/containers/queue.h"
 #include "base/feature_list.h"
@@ -3074,7 +3075,7 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, DownloadCookieIsolation_CrossSession) {
   // number.
   for (auto* download : saved_downloads) {
     const std::string port_string =
-        base::UintToString(embedded_test_server()->port());
+        base::NumberToString(embedded_test_server()->port());
     url::Replacements<char> replacements;
     replacements.SetPort(port_string.c_str(),
                          url::Component(0, port_string.size()));
@@ -3360,7 +3361,8 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestPerOriginZoomMode) {
   TestHelper("testPerOriginZoomMode", "web_view/shim", NO_TEST_SERVER);
 }
 
-IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestPerViewZoomMode) {
+// TODO(crbug.com/935665): Test has flaky failures on all platforms.
+IN_PROC_BROWSER_TEST_F(WebViewTest, DISABLED_Shim_TestPerViewZoomMode) {
   TestHelper("testPerViewZoomMode", "web_view/shim", NO_TEST_SERVER);
 }
 
@@ -3475,10 +3477,10 @@ IN_PROC_BROWSER_TEST_P(WebViewChannelTest,
             registry->rules_cache_delegate_for_testing()->type());
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        WebViewChannelTest,
-                        testing::Values(version_info::Channel::UNKNOWN,
-                                        version_info::Channel::STABLE));
+INSTANTIATE_TEST_SUITE_P(,
+                         WebViewChannelTest,
+                         testing::Values(version_info::Channel::UNKNOWN,
+                                         version_info::Channel::STABLE));
 
 // This test verifies that webview.contentWindow works inside an iframe.
 IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestWebViewInsideFrame) {
@@ -3532,7 +3534,11 @@ IN_PROC_BROWSER_TEST_F(WebViewTest, BasicPostMessage) {
 }
 
 // Tests that webviews do get garbage collected.
-IN_PROC_BROWSER_TEST_F(WebViewTest, Shim_TestGarbageCollect) {
+// This test is disabled because it relies on garbage collections triggered from
+// window.gc() to run precisely. This is not the case with unified heap where
+// they need to conservatively scan the stack, potentially keeping objects
+// alive. https://crbug.com/843903
+IN_PROC_BROWSER_TEST_F(WebViewTest, DISABLED_Shim_TestGarbageCollect) {
   TestHelper("testGarbageCollect", "web_view/shim", NO_TEST_SERVER);
   GetGuestViewManager()->WaitForSingleViewGarbageCollected();
 }
@@ -3915,9 +3921,9 @@ class WebViewGuestScrollTouchTest : public WebViewGuestScrollTest {
 // Create two test instances, one where the guest body is scrollable and the
 // other where the body is not scrollable: fast-path scrolling will generate
 // different ack results in between these two cases.
-INSTANTIATE_TEST_CASE_P(WebViewScrollBubbling,
-                        WebViewGuestScrollTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(WebViewScrollBubbling,
+                         WebViewGuestScrollTest,
+                         testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(WebViewGuestScrollTest, TestGuestWheelScrollsBubble) {
   LoadAppWithGuest("web_view/scrollable_embedder_and_guest");
@@ -4080,9 +4086,9 @@ IN_PROC_BROWSER_TEST_P(WebViewGuestScrollTest,
   guest_frame_observer.WaitForScrollOffset(default_offset);
 }
 
-INSTANTIATE_TEST_CASE_P(WebViewScrollBubbling,
-                        WebViewGuestScrollTouchTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(WebViewScrollBubbling,
+                         WebViewGuestScrollTouchTest,
+                         testing::Bool());
 
 IN_PROC_BROWSER_TEST_P(WebViewGuestScrollTouchTest,
                        TestGuestGestureScrollsBubble) {
@@ -4259,7 +4265,7 @@ class ChromeSignInWebViewTest : public WebViewTest {
 // This verifies the fix for http://crbug.com/667708.
 IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
                        ClosingChromeSignInShouldNotCrash) {
-  GURL signin_url{"chrome://chrome-signin"};
+  GURL signin_url{"chrome://chrome-signin/?reason=5"};
 
   AddTabAtIndex(0, signin_url, ui::PAGE_TRANSITION_TYPED);
   AddTabAtIndex(1, signin_url, ui::PAGE_TRANSITION_TYPED);
@@ -4275,14 +4281,8 @@ IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
 // unlike the attached guest, no find requests are sent for the unattached
 // guest. For more context see https://crbug.com/897465.
 // TODO(crbug.com/914098): Address flakiness and reenable.
-#if defined(OS_LINUX) || defined(OS_MACOSX)
-#define MAYBE_NoFindInPageForUnattachedGuest \
-  DISABLED_NoFindInPageForUnattachedGuest
-#else
-#define MAYBE_NoFindInPageForUnattachedGuest NoFindInPageForUnattachedGuest
-#endif
 IN_PROC_BROWSER_TEST_F(ChromeSignInWebViewTest,
-                       MAYBE_NoFindInPageForUnattachedGuest) {
+                       DISABLED_NoFindInPageForUnattachedGuest) {
   GURL signin_url{"chrome://chrome-signin"};
   ui_test_utils::NavigateToURL(browser(), signin_url);
   auto* embedder_web_contents =

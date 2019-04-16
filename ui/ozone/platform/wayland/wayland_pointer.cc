@@ -6,6 +6,7 @@
 
 #include <linux/input.h>
 #include <wayland-client.h>
+#include <memory>
 
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
@@ -41,7 +42,7 @@ WaylandPointer::WaylandPointer(wl_pointer* pointer,
 
   wl_pointer_add_listener(obj_.get(), &listener, this);
 
-  cursor_.reset(new WaylandCursor);
+  cursor_ = std::make_unique<WaylandCursor>();
 }
 
 WaylandPointer::~WaylandPointer() {
@@ -61,11 +62,10 @@ void WaylandPointer::Enter(void* data,
   WaylandPointer* pointer = static_cast<WaylandPointer*>(data);
   pointer->location_.SetPoint(wl_fixed_to_double(surface_x),
                               wl_fixed_to_double(surface_y));
-  if (surface) {
-    WaylandWindow* window = WaylandWindow::FromSurface(surface);
-    window->set_pointer_focus(true);
-    pointer->window_with_pointer_focus_ = window;
-  }
+  pointer->FocusWindow(surface);
+  MouseEvent event(ET_MOUSE_ENTERED, pointer->location_, pointer->location_,
+                   EventTimeForNow(), pointer->flags_, 0);
+  pointer->callback_.Run(&event);
 }
 
 // static
@@ -77,12 +77,7 @@ void WaylandPointer::Leave(void* data,
   MouseEvent event(ET_MOUSE_EXITED, gfx::Point(), gfx::Point(),
                    EventTimeForNow(), pointer->flags_, 0);
   pointer->callback_.Run(&event);
-  if (surface) {
-    WaylandWindow* window = WaylandWindow::FromSurface(surface);
-    window->set_pointer_focus(false);
-    window->set_has_implicit_grab(false);
-    pointer->window_with_pointer_focus_ = nullptr;
-  }
+  pointer->UnfocusWindow(surface);
 }
 
 // static
@@ -216,6 +211,23 @@ int WaylandPointer::GetFlagsWithKeyboardModifiers() {
 void WaylandPointer::ResetFlags() {
   flags_ = 0;
   keyboard_modifiers_ = 0;
+}
+
+void WaylandPointer::FocusWindow(wl_surface* surface) {
+  if (surface) {
+    WaylandWindow* window = WaylandWindow::FromSurface(surface);
+    window->set_pointer_focus(true);
+    window_with_pointer_focus_ = window;
+  }
+}
+
+void WaylandPointer::UnfocusWindow(wl_surface* surface) {
+  if (surface) {
+    WaylandWindow* window = WaylandWindow::FromSurface(surface);
+    window->set_pointer_focus(false);
+    window->set_has_implicit_grab(false);
+    window_with_pointer_focus_ = nullptr;
+  }
 }
 
 }  // namespace ui

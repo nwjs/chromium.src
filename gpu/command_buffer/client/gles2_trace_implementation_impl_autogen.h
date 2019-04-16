@@ -1651,6 +1651,19 @@ void GLES2TraceImplementation::RenderbufferStorageMultisampleCHROMIUM(
                                               width, height);
 }
 
+void GLES2TraceImplementation::RenderbufferStorageMultisampleAdvancedAMD(
+    GLenum target,
+    GLsizei samples,
+    GLsizei storageSamples,
+    GLenum internalformat,
+    GLsizei width,
+    GLsizei height) {
+  TRACE_EVENT_BINARY_EFFICIENT0(
+      "gpu", "GLES2Trace::RenderbufferStorageMultisampleAdvancedAMD");
+  gl_->RenderbufferStorageMultisampleAdvancedAMD(
+      target, samples, storageSamples, internalformat, width, height);
+}
+
 void GLES2TraceImplementation::RenderbufferStorageMultisampleEXT(
     GLenum target,
     GLsizei samples,
@@ -1828,6 +1841,55 @@ void GLES2TraceImplementation::DispatchCompute(GLuint num_groups_x,
                                                GLuint num_groups_z) {
   TRACE_EVENT_BINARY_EFFICIENT0("gpu", "GLES2Trace::DispatchCompute");
   gl_->DispatchCompute(num_groups_x, num_groups_y, num_groups_z);
+}
+
+void GLES2TraceImplementation::GetProgramInterfaceiv(GLuint program,
+                                                     GLenum program_interface,
+                                                     GLenum pname,
+                                                     GLint* params) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu", "GLES2Trace::GetProgramInterfaceiv");
+  gl_->GetProgramInterfaceiv(program, program_interface, pname, params);
+}
+
+GLuint GLES2TraceImplementation::GetProgramResourceIndex(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu", "GLES2Trace::GetProgramResourceIndex");
+  return gl_->GetProgramResourceIndex(program, program_interface, name);
+}
+
+void GLES2TraceImplementation::GetProgramResourceName(GLuint program,
+                                                      GLenum program_interface,
+                                                      GLuint index,
+                                                      GLsizei bufsize,
+                                                      GLsizei* length,
+                                                      char* name) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu", "GLES2Trace::GetProgramResourceName");
+  gl_->GetProgramResourceName(program, program_interface, index, bufsize,
+                              length, name);
+}
+
+void GLES2TraceImplementation::GetProgramResourceiv(GLuint program,
+                                                    GLenum program_interface,
+                                                    GLuint index,
+                                                    GLsizei prop_count,
+                                                    const GLenum* props,
+                                                    GLsizei bufsize,
+                                                    GLsizei* length,
+                                                    GLint* params) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu", "GLES2Trace::GetProgramResourceiv");
+  gl_->GetProgramResourceiv(program, program_interface, index, prop_count,
+                            props, bufsize, length, params);
+}
+
+GLint GLES2TraceImplementation::GetProgramResourceLocation(
+    GLuint program,
+    GLenum program_interface,
+    const char* name) {
+  TRACE_EVENT_BINARY_EFFICIENT0("gpu",
+                                "GLES2Trace::GetProgramResourceLocation");
+  return gl_->GetProgramResourceLocation(program, program_interface, name);
 }
 
 void GLES2TraceImplementation::MemoryBarrierEXT(GLbitfield barriers) {
@@ -2716,6 +2778,17 @@ GLuint GLES2TraceImplementation::CreateAndTexStorage2DSharedImageCHROMIUM(
   TRACE_EVENT_BINARY_EFFICIENT0(
       "gpu", "GLES2Trace::CreateAndTexStorage2DSharedImageCHROMIUM");
   return gl_->CreateAndTexStorage2DSharedImageCHROMIUM(mailbox);
+}
+
+GLuint GLES2TraceImplementation::
+    CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+        const GLbyte* mailbox,
+        GLenum internalformat) {
+  TRACE_EVENT_BINARY_EFFICIENT0(
+      "gpu",
+      "GLES2Trace::CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM");
+  return gl_->CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+      mailbox, internalformat);
 }
 
 void GLES2TraceImplementation::BeginSharedImageAccessDirectCHROMIUM(

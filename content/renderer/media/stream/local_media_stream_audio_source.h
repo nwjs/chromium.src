@@ -7,8 +7,9 @@
 
 #include <string>
 
-#include "content/renderer/media/stream/media_stream_audio_source.h"
+#include "content/common/content_export.h"
 #include "media/base/audio_capturer_source.h"
+#include "third_party/blink/public/platform/modules/mediastream/media_stream_audio_source.h"
 
 namespace content {
 
@@ -18,7 +19,7 @@ namespace content {
 // first track is connected. Audio data is transported directly to the tracks
 // (i.e., there is no audio processing).
 class CONTENT_EXPORT LocalMediaStreamAudioSource
-    : public MediaStreamAudioSource,
+    : public blink::MediaStreamAudioSource,
       public media::AudioCapturerSource::CaptureCallback {
  public:
   // |consumer_render_frame_id| references the RenderFrame that will consume the
@@ -26,7 +27,6 @@ class CONTENT_EXPORT LocalMediaStreamAudioSource
   // ID are read from |device_info|.
   LocalMediaStreamAudioSource(int consumer_render_frame_id,
                               const blink::MediaStreamDevice& device,
-                              bool hotword_enabled,
                               bool disable_local_echo,
                               const ConstraintsCallback& started_callback);
 

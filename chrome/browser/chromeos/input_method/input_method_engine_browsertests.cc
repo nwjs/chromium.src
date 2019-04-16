@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
@@ -144,15 +145,15 @@ class KeyEventDoneCallback {
   DISALLOW_COPY_AND_ASSIGN(KeyEventDoneCallback);
 };
 
-INSTANTIATE_TEST_CASE_P(InputMethodEngineBrowserTest,
-                        InputMethodEngineBrowserTest,
-                        ::testing::Values(kTestTypeNormal));
-INSTANTIATE_TEST_CASE_P(InputMethodEngineIncognitoBrowserTest,
-                        InputMethodEngineBrowserTest,
-                        ::testing::Values(kTestTypeIncognito));
-INSTANTIATE_TEST_CASE_P(InputMethodEngineComponentExtensionBrowserTest,
-                        InputMethodEngineBrowserTest,
-                        ::testing::Values(kTestTypeComponent));
+INSTANTIATE_TEST_SUITE_P(InputMethodEngineBrowserTest,
+                         InputMethodEngineBrowserTest,
+                         ::testing::Values(kTestTypeNormal));
+INSTANTIATE_TEST_SUITE_P(InputMethodEngineIncognitoBrowserTest,
+                         InputMethodEngineBrowserTest,
+                         ::testing::Values(kTestTypeIncognito));
+INSTANTIATE_TEST_SUITE_P(InputMethodEngineComponentExtensionBrowserTest,
+                         InputMethodEngineBrowserTest,
+                         ::testing::Values(kTestTypeComponent));
 
 IN_PROC_BROWSER_TEST_P(InputMethodEngineBrowserTest,
                        BasicScenarioTest) {

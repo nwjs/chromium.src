@@ -11,6 +11,7 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/prefs/pref_service.h"
+#include "components/sync/base/data_type_histogram.h"
 #include "components/sync/driver/sync_client.h"
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/model/sync_error.h"
@@ -24,6 +25,7 @@ AutofillWalletDataTypeController::AutofillWalletDataTypeController(
     const base::Closure& dump_stack,
     syncer::SyncService* sync_service,
     syncer::SyncClient* sync_client,
+    const PersonalDataManagerProvider& pdm_provider,
     const scoped_refptr<autofill::AutofillWebDataService>& web_data_service)
     : AsyncDirectoryTypeController(type,
                                    dump_stack,
@@ -31,6 +33,7 @@ AutofillWalletDataTypeController::AutofillWalletDataTypeController(
                                    sync_client,
                                    syncer::GROUP_DB,
                                    std::move(db_thread)),
+      pdm_provider_(pdm_provider),
       callback_registered_(false),
       web_data_service_(web_data_service),
       currently_enabled_(IsEnabled()) {
@@ -95,10 +98,14 @@ void AutofillWalletDataTypeController::StopModels() {
     if (!sync_service()->CanSyncFeatureStart() ||
         !sync_service()->GetPreferredDataTypes().Has(type()) ||
         !currently_enabled_) {
-      autofill::PersonalDataManager* pdm =
-          sync_client()->GetPersonalDataManager();
-      if (pdm)
+      autofill::PersonalDataManager* pdm = pdm_provider_.Run();
+      if (pdm) {
+        int count = pdm->GetServerCreditCards().size() +
+                    pdm->GetServerProfiles().size() +
+                    (pdm->GetPaymentsCustomerData() == nullptr ? 0 : 1);
+        SyncWalletDataRecordClearedEntitiesCount(count);
         pdm->ClearAllServerData();
+      }
     }
   }
 }

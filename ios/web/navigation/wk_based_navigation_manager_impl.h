@@ -105,6 +105,7 @@ class WKBasedNavigationManagerImpl : public NavigationManagerImpl {
       NavigationInitiationType initiation_type,
       UserAgentOverrideOption user_agent_override_option) override;
   void CommitPendingItem() override;
+  void CommitPendingItem(std::unique_ptr<NavigationItemImpl> item) override;
   int GetIndexForOffset(int offset) const override;
   // Returns the previous navigation item in the main frame.
   int GetPreviousItemIndex() const override;
@@ -215,7 +216,8 @@ class WKBasedNavigationManagerImpl : public NavigationManagerImpl {
                        NavigationInitiationType initiation_type,
                        bool has_user_gesture) override;
   void FinishReload() override;
-  void FinishLoadURLWithParams() override;
+  void FinishLoadURLWithParams(
+      NavigationInitiationType initiation_type) override;
   bool IsPlaceholderUrl(const GURL& url) const override;
 
   // Restores the specified navigation session in the current web view. This

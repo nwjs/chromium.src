@@ -8,6 +8,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/json/json_writer.h"
@@ -166,7 +167,7 @@ class PrefServiceSyncableTest : public testing::Test {
     auto it = list.begin();
     for (; it != list.end(); ++it) {
       if (syncer::SyncDataLocal(it->sync_data()).GetTag() == name) {
-        return base::JSONReader::Read(
+        return base::JSONReader::ReadDeprecated(
             it->sync_data().GetSpecifics().preference().value());
       }
     }
@@ -206,7 +207,7 @@ TEST_F(PrefServiceSyncableTest, CreatePrefSyncData) {
   EXPECT_EQ(std::string(kStringPrefName), specifics.name());
 
   std::unique_ptr<base::Value> value =
-      base::JSONReader::Read(specifics.value());
+      base::JSONReader::ReadDeprecated(specifics.value());
   EXPECT_TRUE(pref->GetValue()->Equals(value.get()));
 }
 
@@ -416,7 +417,7 @@ class PrefServiceSyncableMergeTest : public testing::Test {
     auto it = list.begin();
     for (; it != list.end(); ++it) {
       if (syncer::SyncDataLocal(it->sync_data()).GetTag() == name) {
-        return base::JSONReader::Read(
+        return base::JSONReader::ReadDeprecated(
             it->sync_data().GetSpecifics().preference().value());
       }
     }

@@ -207,8 +207,8 @@ void UDPSocketTest::ConnectTest(bool use_nonblocking_io) {
   // Client sends to the server.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(&UDPSocketTest::WriteSocketIgnoreResult,
-                 base::Unretained(this), client.get(), simple_message));
+      base::BindOnce(&UDPSocketTest::WriteSocketIgnoreResult,
+                     base::Unretained(this), client.get(), simple_message));
   run_loop.Run();
   EXPECT_EQ(simple_message.length(), static_cast<size_t>(read_result));
   EXPECT_EQ(simple_message, std::string(buffer_->data(), read_result));
@@ -1311,6 +1311,11 @@ TEST_F(UDPSocketTest, ReadWithSocketOptimizationTruncation) {
 // works as expected.
 #if defined(OS_ANDROID)
 TEST_F(UDPSocketTest, Tag) {
+  if (!CanGetTaggedBytes()) {
+    DVLOG(0) << "Skipping test - GetTaggedBytes unsupported.";
+    return;
+  }
+
   UDPServerSocket server(nullptr, NetLogSource());
   ASSERT_THAT(server.Listen(IPEndPoint(IPAddress::IPv4Localhost(), 0)), IsOk());
   IPEndPoint server_address;

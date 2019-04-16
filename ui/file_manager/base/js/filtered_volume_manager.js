@@ -83,27 +83,27 @@ function FilteredVolumeManager(allowedPaths, writableOnly, opt_backgroundPage) {
   this.disposed_ = false;
 
   // Start initialize the VolumeManager.
-  var queue = new AsyncUtil.Queue();
+  const queue = new AsyncUtil.Queue();
 
   if (opt_backgroundPage) {
     this.backgroundPage_ = opt_backgroundPage;
   } else {
-    queue.run(function(callNextStep) {
+    queue.run(callNextStep => {
       chrome.runtime.getBackgroundPage(/** @type {function(Window=)} */(
-          function(opt_backgroundPage) {
+          opt_backgroundPage => {
             this.backgroundPage_ = opt_backgroundPage;
             callNextStep();
-          }.bind(this)));
-    }.bind(this));
+          }));
+    });
   }
 
-  queue.run(function(callNextStep) {
+  queue.run(callNextStep => {
     this.backgroundPage_.volumeManagerFactory.getInstance(
-        function(volumeManager) {
+        volumeManager => {
           this.onReady_(volumeManager);
           callNextStep();
-        }.bind(this));
-  }.bind(this));
+        });
+  });
 }
 
 /**
@@ -177,9 +177,9 @@ FilteredVolumeManager.prototype.onReady_ = function(volumeManager) {
   cr.dispatchSimpleEvent(this, 'drive-connection-changed');
 
   // Cache volumeInfoList.
-  var volumeInfoList = [];
+  const volumeInfoList = [];
   for (var i = 0; i < this.volumeManager_.volumeInfoList.length; i++) {
-    var volumeInfo = this.volumeManager_.volumeInfoList.item(i);
+    const volumeInfo = this.volumeManager_.volumeInfoList.item(i);
     // TODO(hidehiko): Filter mounted volumes located on Drive File System.
     if (!this.isAllowedVolume_(volumeInfo)) {
       continue;
@@ -195,7 +195,7 @@ FilteredVolumeManager.prototype.onReady_ = function(volumeManager) {
       'splice', this.onVolumeInfoListUpdatedBound_);
 
   // Run pending tasks.
-  var pendingTasks = this.pendingTasks_;
+  const pendingTasks = this.pendingTasks_;
   this.pendingTasks_ = null;
   for (var i = 0; i < pendingTasks.length; i++) {
     pendingTasks[i]();
@@ -252,7 +252,7 @@ FilteredVolumeManager.prototype.onEvent_ = function(event) {
  */
 FilteredVolumeManager.prototype.onVolumeInfoListUpdated_ = function(event) {
   // Filters some volumes.
-  var index = event.index;
+  let index = event.index;
   for (var i = 0; i < event.index; i++) {
     var volumeInfo = this.volumeManager_.volumeInfoList.item(i);
     if (!this.isAllowedVolume_(volumeInfo)) {
@@ -260,7 +260,7 @@ FilteredVolumeManager.prototype.onVolumeInfoListUpdated_ = function(event) {
     }
   }
 
-  var numRemovedVolumes = 0;
+  let numRemovedVolumes = 0;
   for (var i = 0; i < event.removed.length; i++) {
     var volumeInfo = event.removed[i];
     if (this.isAllowedVolume_(volumeInfo)) {
@@ -268,7 +268,7 @@ FilteredVolumeManager.prototype.onVolumeInfoListUpdated_ = function(event) {
     }
   }
 
-  var addedVolumes = [];
+  const addedVolumes = [];
   for (var i = 0; i < event.added.length; i++) {
     var volumeInfo = event.added[i];
     if (this.isAllowedVolume_(volumeInfo)) {
@@ -340,11 +340,11 @@ FilteredVolumeManager.prototype.getCurrentProfileVolumeInfo =
 /** @override */
 FilteredVolumeManager.prototype.getDefaultDisplayRoot =
     function(callback) {
-  this.ensureInitialized(function() {
-    var defaultVolume = this.getCurrentProfileVolumeInfo(
+  this.ensureInitialized(() => {
+    const defaultVolume = this.getCurrentProfileVolumeInfo(
         VolumeManagerCommon.VolumeType.DOWNLOADS);
     if (defaultVolume) {
-      defaultVolume.resolveDisplayRoot(callback, function() {
+      defaultVolume.resolveDisplayRoot(callback, () => {
         // defaultVolume is DOWNLOADS and resolveDisplayRoot should succeed.
         throw new Error(
             'Unexpectedly failed to obtain the default display root.');
@@ -353,7 +353,7 @@ FilteredVolumeManager.prototype.getDefaultDisplayRoot =
       console.warn('Unexpectedly failed to obtain the default display root.');
       callback(null);
     }
-  }.bind(this));
+  });
 };
 
 /**
@@ -363,7 +363,7 @@ FilteredVolumeManager.prototype.getDefaultDisplayRoot =
  * @return {EntryLocation} Location information.
  */
 FilteredVolumeManager.prototype.getLocationInfo = function(entry) {
-  var locationInfo =
+  const locationInfo =
       this.volumeManager_ && this.volumeManager_.getLocationInfo(entry);
   if (!locationInfo) {
     return null;
@@ -377,7 +377,7 @@ FilteredVolumeManager.prototype.getLocationInfo = function(entry) {
 
 /** @override */
 FilteredVolumeManager.prototype.findByDevicePath = function(devicePath) {
-  for (var i = 0; i < this.volumeInfoList.length; i++) {
+  for (let i = 0; i < this.volumeInfoList.length; i++) {
     const volumeInfo = this.volumeInfoList.item(i);
     if (volumeInfo.devicePath && volumeInfo.devicePath === devicePath) {
       return this.filterDisallowedVolume_(volumeInfo);
@@ -450,11 +450,11 @@ FilteredVolumeManager.prototype.unmount = function(
  */
 FilteredVolumeManager.prototype.configure = function(volumeInfo) {
   if (this.pendingTasks_) {
-    return new Promise(function(fulfill, reject) {
-      this.pendingTasks_.push(function() {
+    return new Promise((fulfill, reject) => {
+      this.pendingTasks_.push(() => {
         return this.volumeManager_.configure(volumeInfo).then(fulfill, reject);
-      }.bind(this));
-    }.bind(this));
+      });
+    });
   }
 
   return this.volumeManager_.configure(volumeInfo);

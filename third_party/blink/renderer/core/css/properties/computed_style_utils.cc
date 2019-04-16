@@ -1552,13 +1552,13 @@ CSSValueList* ComputedStyleUtils::ValuesForBorderRadiusCorner(
     const LengthSize& radius,
     const ComputedStyle& style) {
   CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  if (radius.Width().GetType() == kPercent) {
+  if (radius.Width().IsPercent()) {
     list->Append(*CSSPrimitiveValue::Create(
         radius.Width().Percent(), CSSPrimitiveValue::UnitType::kPercentage));
   } else {
     list->Append(*ZoomAdjustedPixelValueForLength(radius.Width(), style));
   }
-  if (radius.Height().GetType() == kPercent) {
+  if (radius.Height().IsPercent()) {
     list->Append(*CSSPrimitiveValue::Create(
         radius.Height().Percent(), CSSPrimitiveValue::UnitType::kPercentage));
   } else {
@@ -1779,7 +1779,7 @@ CSSValue* ComputedStyleUtils::ValueForCounterDirectives(
       continue;
 
     list->Append(*CSSCustomIdentValue::Create(item.key));
-    short number =
+    int32_t number =
         is_increment ? item.value.IncrementValue() : item.value.ResetValue();
     list->Append(*CSSPrimitiveValue::Create(
         (double)number, CSSPrimitiveValue::UnitType::kInteger));
@@ -2035,7 +2035,7 @@ CSSValue* ComputedStyleUtils::ValueForFilter(
 }
 
 CSSValue* ComputedStyleUtils::ValueForScrollSnapType(
-    const ScrollSnapType& type,
+    const cc::ScrollSnapType& type,
     const ComputedStyle& style) {
   if (!type.is_none) {
     return CSSValuePair::Create(CSSIdentifierValue::Create(type.axis),
@@ -2046,7 +2046,7 @@ CSSValue* ComputedStyleUtils::ValueForScrollSnapType(
 }
 
 CSSValue* ComputedStyleUtils::ValueForScrollSnapAlign(
-    const ScrollSnapAlign& align,
+    const cc::ScrollSnapAlign& align,
     const ComputedStyle& style) {
   return CSSValuePair::Create(
       CSSIdentifierValue::Create(align.alignment_block),

@@ -21,6 +21,11 @@ ASH_PUBLIC_EXPORT extern const base::Feature kDockedMagnifier;
 // https://crbug.com/823769.
 ASH_PUBLIC_EXPORT extern const base::Feature kDragTabsInTabletMode;
 
+// Enables rounded corners in overview mode for testing.
+// TODO(crbug.com/903486): Remove this when new rounded corners implementation
+// has landed.
+ASH_PUBLIC_EXPORT extern const base::Feature kEnableOverviewRoundedCorners;
+
 // Enables notifications on the lock screen.
 ASH_PUBLIC_EXPORT extern const base::Feature kLockScreenNotifications;
 
@@ -60,11 +65,14 @@ ASH_PUBLIC_EXPORT extern const base::Feature kTrilinearFiltering;
 // Enables running an external binary which provides lock screen authentication.
 ASH_PUBLIC_EXPORT extern const base::Feature kUnlockWithExternalBinary;
 
-// Enables the ContainedShell feature.
-ASH_PUBLIC_EXPORT extern const base::Feature kContainedShell;
+// Enables the KioskNextShell feature.
+ASH_PUBLIC_EXPORT extern const base::Feature kKioskNextShell;
 
 // Enables views login.
 ASH_PUBLIC_EXPORT extern const base::Feature kViewsLogin;
+
+// Enables the Virtual Desks feature.
+ASH_PUBLIC_EXPORT extern const base::Feature kVirtualDesks;
 
 // Enables using the BluetoothSystem Mojo interface for Bluetooth operations.
 ASH_PUBLIC_EXPORT extern const base::Feature kUseBluetoothSystemInAsh;
@@ -72,7 +80,8 @@ ASH_PUBLIC_EXPORT extern const base::Feature kUseBluetoothSystemInAsh;
 // Enables the Supervised User Deprecation notices.
 ASH_PUBLIC_EXPORT extern const base::Feature kSupervisedUserDeprecationNotice;
 
-ASH_PUBLIC_EXPORT bool IsDockedMagnifierEnabled();
+// Enables the notification stacking bar redesigned UI.
+ASH_PUBLIC_EXPORT extern const base::Feature kNotificationStackingBarRedesign;
 
 ASH_PUBLIC_EXPORT bool IsKeyboardShortcutViewerAppEnabled();
 
@@ -81,8 +90,6 @@ ASH_PUBLIC_EXPORT bool IsLockScreenNotificationsEnabled();
 ASH_PUBLIC_EXPORT bool IsLockScreenInlineReplyEnabled();
 
 ASH_PUBLIC_EXPORT bool IsLockScreenHideSensitiveNotificationsSupported();
-
-ASH_PUBLIC_EXPORT bool IsNightLightEnabled();
 
 ASH_PUBLIC_EXPORT bool IsNotificationExpansionAnimationEnabled();
 
@@ -96,7 +103,11 @@ ASH_PUBLIC_EXPORT bool IsTrilinearFilteringEnabled();
 
 ASH_PUBLIC_EXPORT bool IsViewsLoginEnabled();
 
+ASH_PUBLIC_EXPORT bool IsVirtualDesksEnabled();
+
 ASH_PUBLIC_EXPORT bool IsSupervisedUserDeprecationNoticeEnabled();
+
+ASH_PUBLIC_EXPORT bool IsNotificationStackingBarRedesignEnabled();
 
 }  // namespace features
 }  // namespace ash

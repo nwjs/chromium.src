@@ -52,15 +52,15 @@ String MessageSourceValue(MessageSource source) {
   }
 }
 
-String MessageLevelValue(MessageLevel level) {
+String MessageLevelValue(mojom::ConsoleMessageLevel level) {
   switch (level) {
-    case kVerboseMessageLevel:
+    case mojom::ConsoleMessageLevel::kVerbose:
       return protocol::Log::LogEntry::LevelEnum::Verbose;
-    case kInfoMessageLevel:
+    case mojom::ConsoleMessageLevel::kInfo:
       return protocol::Log::LogEntry::LevelEnum::Info;
-    case kWarningMessageLevel:
+    case mojom::ConsoleMessageLevel::kWarning:
       return protocol::Log::LogEntry::LevelEnum::Warning;
-    case kErrorMessageLevel:
+    case mojom::ConsoleMessageLevel::kError:
       return protocol::Log::LogEntry::LevelEnum::Error;
   }
   return protocol::Log::LogEntry::LevelEnum::Info;
@@ -165,7 +165,7 @@ void InspectorLogAgent::ConsoleMessageAdded(ConsoleMessage* message) {
 }
 
 void InspectorLogAgent::InnerEnable() {
-  instrumenting_agents_->addInspectorLogAgent(this);
+  instrumenting_agents_->AddInspectorLogAgent(this);
   if (storage_->ExpiredCount()) {
     std::unique_ptr<protocol::Log::LogEntry> expired =
         protocol::Log::LogEntry::create()
@@ -195,7 +195,7 @@ Response InspectorLogAgent::disable() {
     return Response::OK();
   enabled_.Clear();
   stopViolationsReport();
-  instrumenting_agents_->removeInspectorLogAgent(this);
+  instrumenting_agents_->RemoveInspectorLogAgent(this);
   return Response::OK();
 }
 
@@ -256,7 +256,8 @@ void InspectorLogAgent::ReportLongLayout(base::TimeDelta duration) {
       "Forced reflow while executing JavaScript took %" PRId64 "ms",
       duration.InMilliseconds());
   ConsoleMessage* message = ConsoleMessage::Create(
-      kViolationMessageSource, kVerboseMessageLevel, message_text);
+      kViolationMessageSource, mojom::ConsoleMessageLevel::kVerbose,
+      message_text);
   ConsoleMessageAdded(message);
 }
 
@@ -265,8 +266,9 @@ void InspectorLogAgent::ReportGenericViolation(PerformanceMonitor::Violation,
                                                base::TimeDelta time,
                                                SourceLocation* location) {
   ConsoleMessage* message = ConsoleMessage::Create(
-      kViolationMessageSource, kVerboseMessageLevel, text, location->Clone());
+      kViolationMessageSource, mojom::ConsoleMessageLevel::kVerbose, text,
+      location->Clone());
   ConsoleMessageAdded(message);
-};
+}
 
 }  // namespace blink

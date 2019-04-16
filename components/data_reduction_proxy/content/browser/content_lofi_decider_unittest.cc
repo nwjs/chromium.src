@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/field_trial.h"
 #include "base/stl_util.h"
@@ -104,7 +105,7 @@ class ContentLoFiDeciderTest : public testing::Test {
     content::ResourceRequestInfo::AllocateForTesting(
         request, resource_type, nullptr, -1, -1, -1,
         resource_type == content::RESOURCE_TYPE_MAIN_FRAME,
-        false,  // allow_download
+        content::ResourceInterceptPolicy::kAllowNone,
         false,  // is_async
         previews_state,
         nullptr);  // navigation_ui_data

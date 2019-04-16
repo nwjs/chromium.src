@@ -42,7 +42,7 @@ ssize_t IppWrite(base::span<uint8_t>* dst, ipp_uchar_t* source, size_t bytes) {
   uint8_t* src = static_cast<uint8_t*>(source);
 
   size_t num_to_write = std::min(dst->size(), bytes);
-  std::copy(src, src + bytes, dst->begin());
+  std::copy(src, src + num_to_write, dst->begin());
   *dst = dst->subspan(num_to_write);
 
   return num_to_write;
@@ -98,9 +98,10 @@ base::Optional<ValueType> ValueTagToType(const int value_tag) {
       return ValueType::STRING;
 
     default:
-      NOTREACHED();
+      break;
   }
 
+  // Fail to convert any unrecognized types.
   return base::nullopt;
 }
 
@@ -160,6 +161,9 @@ base::Optional<std::vector<uint8_t>> BuildHeaders(
                     {term.first, kHeaderDelimiter, term.second, kCarriage});
   }
 
+  // End-of-headers sentinel is a double carriage return; add the second one.
+  headers += kCarriage;
+
   std::vector<uint8_t> ret;
   std::copy(headers.begin(), headers.end(), std::back_inserter(ret));
   return ret;
@@ -188,11 +192,17 @@ printing::ScopedIppPtr ParseIppMessage(base::span<const uint8_t> ipp_slice) {
 base::Optional<std::vector<uint8_t>> BuildIppMessage(ipp_t* ipp) {
   std::vector<uint8_t> request(ippLength(ipp));
 
+  // Need to start in idle state for reading/writing.
+  if (!ippSetState(ipp, IPP_STATE_IDLE)) {
+    return base::nullopt;
+  }
+
   // Casting IppWrite callback to correct internal CUPS type
   // Note: This is safe since we essentially only cast the first argument from
-  // vector<const uint8_t> to base::span<const uint8_t>, which is well defined.
-  auto ret = ippWriteIO(&request, reinterpret_cast<ipp_iocb_t>(IppWrite), 1,
-                        nullptr, ipp);
+  // base::span<uint8_t> to void* and back, only accessing it from the former.
+  base::span<uint8_t> request_view(request);
+  auto ret = ippWriteIO(&request_view, reinterpret_cast<ipp_iocb_t>(IppWrite),
+                        1, nullptr, ipp);
 
   if (ret == IPP_STATE_ERROR) {
     // Write failed
@@ -277,7 +287,12 @@ chrome::mojom::IppMessagePtr ConvertIppToMojo(ipp_t* ipp) {
        attr = ippNextAttribute(ipp)) {
     chrome::mojom::IppAttributePtr attrptr = chrome::mojom::IppAttribute::New();
 
-    attrptr->name = ippGetName(attr);
+    auto* name = ippGetName(attr);
+    if (!name) {
+      return nullptr;
+    }
+    attrptr->name = name;
+
     attrptr->group_tag = ippGetGroupTag(attr);
     if (attrptr->group_tag == IPP_TAG_ZERO) {
       return nullptr;

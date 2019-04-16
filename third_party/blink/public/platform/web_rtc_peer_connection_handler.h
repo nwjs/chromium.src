@@ -32,6 +32,7 @@
 #define THIRD_PARTY_BLINK_PUBLIC_PLATFORM_WEB_RTC_PEER_CONNECTION_HANDLER_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "third_party/blink/public/platform/web_rtc_ice_candidate.h"
@@ -52,7 +53,6 @@ class WebMediaConstraints;
 class WebMediaStream;
 class WebMediaStreamTrack;
 class WebRTCAnswerOptions;
-class WebRTCDataChannelHandler;
 class WebRTCOfferOptions;
 class WebRTCRtpSender;
 class WebRTCSessionDescription;
@@ -115,7 +115,7 @@ class WebRTCPeerConnectionHandler {
   // API when the new API has matured enough.
   virtual void GetStats(std::unique_ptr<WebRTCStatsReportCallback>,
                         RTCStatsFilter) = 0;
-  virtual WebRTCDataChannelHandler* CreateDataChannel(
+  virtual scoped_refptr<webrtc::DataChannelInterface> CreateDataChannel(
       const WebString& label,
       const WebRTCDataChannelInit&) = 0;
   virtual webrtc::RTCErrorOr<std::unique_ptr<WebRTCRtpTransceiver>>
@@ -139,11 +139,15 @@ class WebRTCPeerConnectionHandler {
       WebRTCRtpSender*) = 0;
   virtual void Stop() = 0;
 
-  // Origin Trial - RtcPeerConnectionId
-  virtual WebString Id() const = 0;
-
   // Returns a pointer to the underlying native PeerConnection object.
   virtual webrtc::PeerConnectionInterface* NativePeerConnection() = 0;
+
+  virtual void RunSynchronousOnceClosureOnSignalingThread(
+      base::OnceClosure closure,
+      const char* trace_event_name) = 0;
+  virtual void RunSynchronousRepeatingClosureOnSignalingThread(
+      const base::RepeatingClosure& closure,
+      const char* trace_event_name) = 0;
 };
 
 }  // namespace blink

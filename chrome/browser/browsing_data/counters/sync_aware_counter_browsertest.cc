@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/threading/platform_thread.h"
@@ -95,8 +96,7 @@ IN_PROC_BROWSER_TEST_F(SyncAwareCounterTest, AutofillCounter) {
   // Set up the Sync client.
   ASSERT_TRUE(SetupClients());
   static const int kFirstProfileIndex = 0;
-  browser_sync::ProfileSyncService* sync_service =
-      GetSyncService(kFirstProfileIndex);
+  syncer::SyncService* sync_service = GetSyncService(kFirstProfileIndex);
   Profile* profile = GetProfile(kFirstProfileIndex);
   // Set up the counter.
   browsing_data::AutofillCounter counter(
@@ -159,8 +159,7 @@ IN_PROC_BROWSER_TEST_F(SyncAwareCounterTest, PasswordCounter) {
   // Set up the Sync client.
   ASSERT_TRUE(SetupClients());
   static const int kFirstProfileIndex = 0;
-  browser_sync::ProfileSyncService* sync_service =
-      GetSyncService(kFirstProfileIndex);
+  syncer::SyncService* sync_service = GetSyncService(kFirstProfileIndex);
   Profile* profile = GetProfile(kFirstProfileIndex);
   // Set up the counter.
   browsing_data::PasswordsCounter counter(
@@ -227,8 +226,7 @@ IN_PROC_BROWSER_TEST_F(SyncAwareCounterTest, HistoryCounter) {
   // Set up the Sync client.
   ASSERT_TRUE(SetupClients());
   static const int kFirstProfileIndex = 0;
-  browser_sync::ProfileSyncService* sync_service =
-      GetSyncService(kFirstProfileIndex);
+  syncer::SyncService* sync_service = GetSyncService(kFirstProfileIndex);
   Profile* profile = GetProfile(kFirstProfileIndex);
 
   // Set up the fake web history service and the counter.

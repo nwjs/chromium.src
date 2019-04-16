@@ -13,9 +13,10 @@ FakeAssistantManagerServiceImpl::FakeAssistantManagerServiceImpl() = default;
 
 FakeAssistantManagerServiceImpl::~FakeAssistantManagerServiceImpl() = default;
 
-void FakeAssistantManagerServiceImpl::Start(const std::string& access_token,
-                                            bool enable_hotword,
-                                            base::OnceClosure callback) {
+void FakeAssistantManagerServiceImpl::Start(
+    const base::Optional<std::string>& access_token,
+    bool enable_hotword,
+    base::OnceClosure callback) {
   state_ = State::RUNNING;
 
   if (callback)
@@ -30,6 +31,8 @@ void FakeAssistantManagerServiceImpl::SetAccessToken(
     const std::string& access_token) {}
 
 void FakeAssistantManagerServiceImpl::EnableListening(bool enable) {}
+
+void FakeAssistantManagerServiceImpl::EnableHotword(bool enable) {}
 
 AssistantManagerService::State FakeAssistantManagerServiceImpl::GetState()
     const {

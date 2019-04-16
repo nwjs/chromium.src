@@ -17,68 +17,40 @@ namespace blink {
 NGLayoutResult::NGLayoutResult(
     scoped_refptr<const NGPhysicalFragment> physical_fragment,
     NGBoxFragmentBuilder* builder)
-    : unpositioned_list_marker_(builder->unpositioned_list_marker_),
-      exclusion_space_(std::move(builder->exclusion_space_)),
-      bfc_line_offset_(builder->bfc_line_offset_),
-      bfc_block_offset_(builder->bfc_block_offset_),
-      end_margin_strut_(builder->end_margin_strut_),
-      intrinsic_block_size_(builder->intrinsic_block_size_),
-      minimal_space_shortage_(builder->minimal_space_shortage_),
-      initial_break_before_(builder->initial_break_before_),
-      final_break_after_(builder->previous_break_after_),
-      has_forced_break_(builder->has_forced_break_),
-      is_pushed_by_floats_(builder->is_pushed_by_floats_),
-      adjoining_floats_(builder->adjoining_floats_),
-      has_orthogonal_flow_roots_(builder->has_orthogonal_flow_roots_),
-      depends_on_percentage_block_size_(DependsOnPercentageBlockSize(*builder)),
-      status_(kSuccess) {
+    : NGLayoutResult(builder, /* cache_space */ true) {
+  intrinsic_block_size_ = builder->intrinsic_block_size_;
+  minimal_space_shortage_ = builder->minimal_space_shortage_;
+  initial_break_before_ = builder->initial_break_before_;
+  final_break_after_ = builder->previous_break_after_;
+  has_forced_break_ = builder->has_forced_break_;
   DCHECK(physical_fragment) << "Use the other constructor for aborting layout";
-  root_fragment_.fragment_ = std::move(physical_fragment);
+  physical_fragment_ = std::move(physical_fragment);
   oof_positioned_descendants_ = std::move(builder->oof_positioned_descendants_);
-}
-
-NGLayoutResult::NGLayoutResult(NGLayoutResultStatus status,
-                               NGBoxFragmentBuilder* builder)
-    : bfc_line_offset_(builder->bfc_line_offset_),
-      bfc_block_offset_(builder->bfc_block_offset_),
-      end_margin_strut_(builder->end_margin_strut_),
-      initial_break_before_(EBreakBetween::kAuto),
-      final_break_after_(EBreakBetween::kAuto),
-      has_forced_break_(false),
-      is_pushed_by_floats_(builder->is_pushed_by_floats_),
-      adjoining_floats_(kFloatTypeNone),
-      has_orthogonal_flow_roots_(builder->has_orthogonal_flow_roots_),
-      depends_on_percentage_block_size_(false),
-      status_(status) {
-  DCHECK_NE(status, kSuccess)
-      << "Use the other constructor for successful layout";
 }
 
 NGLayoutResult::NGLayoutResult(
     scoped_refptr<const NGPhysicalFragment> physical_fragment,
     NGLineBoxFragmentBuilder* builder)
-    : unpositioned_list_marker_(builder->unpositioned_list_marker_),
-      exclusion_space_(std::move(builder->exclusion_space_)),
-      bfc_line_offset_(builder->bfc_line_offset_),
-      bfc_block_offset_(builder->bfc_block_offset_),
-      end_margin_strut_(builder->end_margin_strut_),
-      minimal_space_shortage_(LayoutUnit::Max()),
-      initial_break_before_(EBreakBetween::kAuto),
-      final_break_after_(EBreakBetween::kAuto),
-      has_forced_break_(false),
-      is_pushed_by_floats_(builder->is_pushed_by_floats_),
-      adjoining_floats_(builder->adjoining_floats_),
-      has_orthogonal_flow_roots_(builder->has_orthogonal_flow_roots_),
-      depends_on_percentage_block_size_(DependsOnPercentageBlockSize(*builder)),
-      status_(kSuccess) {
-  root_fragment_.fragment_ = std::move(physical_fragment);
+    : NGLayoutResult(builder, /* cache_space */ false) {
+  physical_fragment_ = std::move(physical_fragment);
   oof_positioned_descendants_ = std::move(builder->oof_positioned_descendants_);
+}
+
+NGLayoutResult::NGLayoutResult(NGLayoutResultStatus status,
+                               NGBoxFragmentBuilder* builder)
+    : NGLayoutResult(builder, /* cache_space */ false) {
+  adjoining_floats_ = kFloatTypeNone;
+  depends_on_percentage_block_size_ = false;
+  status_ = status;
+  DCHECK_NE(status, kSuccess)
+      << "Use the other constructor for successful layout";
 }
 
 // We can't use =default here because RefCounted can't be copied.
 NGLayoutResult::NGLayoutResult(const NGLayoutResult& other,
                                base::Optional<LayoutUnit> bfc_block_offset)
-    : root_fragment_(other.root_fragment_),
+    : space_(other.space_),
+      physical_fragment_(other.physical_fragment_),
       oof_positioned_descendants_(other.oof_positioned_descendants_),
       unpositioned_list_marker_(other.unpositioned_list_marker_),
       exclusion_space_(other.exclusion_space_),
@@ -89,6 +61,7 @@ NGLayoutResult::NGLayoutResult(const NGLayoutResult& other,
       minimal_space_shortage_(other.minimal_space_shortage_),
       initial_break_before_(other.initial_break_before_),
       final_break_after_(other.final_break_after_),
+      has_valid_space_(other.has_valid_space_),
       has_forced_break_(other.has_forced_break_),
       is_pushed_by_floats_(other.is_pushed_by_floats_),
       adjoining_floats_(other.adjoining_floats_),
@@ -96,6 +69,24 @@ NGLayoutResult::NGLayoutResult(const NGLayoutResult& other,
       depends_on_percentage_block_size_(
           other.depends_on_percentage_block_size_),
       status_(other.status_) {}
+
+NGLayoutResult::NGLayoutResult(NGContainerFragmentBuilder* builder,
+                               bool cache_space)
+    : space_(cache_space && builder->space_
+                 ? NGConstraintSpace(*builder->space_)
+                 : NGConstraintSpace()),
+      unpositioned_list_marker_(builder->unpositioned_list_marker_),
+      exclusion_space_(std::move(builder->exclusion_space_)),
+      bfc_line_offset_(builder->bfc_line_offset_),
+      bfc_block_offset_(builder->bfc_block_offset_),
+      end_margin_strut_(builder->end_margin_strut_),
+      has_valid_space_(cache_space && builder->space_),
+      has_forced_break_(false),
+      is_pushed_by_floats_(builder->is_pushed_by_floats_),
+      adjoining_floats_(builder->adjoining_floats_),
+      has_orthogonal_flow_roots_(builder->has_orthogonal_flow_roots_),
+      depends_on_percentage_block_size_(DependsOnPercentageBlockSize(*builder)),
+      status_(kSuccess) {}
 
 // Define the destructor here, so that we can forward-declare more in the
 // header.
@@ -106,7 +97,7 @@ bool NGLayoutResult::DependsOnPercentageBlockSize(
   NGLayoutInputNode node = builder.node_;
 
   if (!node || node.IsInline())
-    return builder.has_depends_on_percentage_block_size_child_;
+    return builder.has_child_that_depends_on_percentage_block_size_;
 
   // NOTE: If an element is OOF positioned, and has top/bottom constraints
   // which are percentage based, this function will return false.
@@ -119,18 +110,18 @@ bool NGLayoutResult::DependsOnPercentageBlockSize(
   // element if it has a percentage block-size however, but this will return
   // the correct result from below.
 
-  const ComputedStyle& style = builder.Style();
-  if (style.LogicalHeight().IsAuto() &&
-      builder.has_depends_on_percentage_block_size_child_) {
+  if ((builder.has_child_that_depends_on_percentage_block_size_ ||
+       builder.is_old_layout_root_) &&
+      node.UseParentPercentageResolutionBlockSizeForChildren()) {
     // Quirks mode has different %-block-size behaviour, than standards mode.
     // An arbitrary descendant may depend on the percentage resolution
     // block-size given.
     // If this is also an anonymous block we need to mark ourselves dependent
     // if we have a dependent child.
-    if (node.IsAnonymousBlock() || node.GetDocument().InQuirksMode())
-      return true;
+    return true;
   }
 
+  const ComputedStyle& style = builder.Style();
   if (style.LogicalHeight().IsPercentOrCalc() ||
       style.LogicalMinHeight().IsPercentOrCalc() ||
       style.LogicalMaxHeight().IsPercentOrCalc())

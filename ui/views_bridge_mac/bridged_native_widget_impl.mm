@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <cmath>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #import "base/mac/foundation_util.h"
@@ -845,10 +846,6 @@ void BridgedNativeWidgetImpl::OnWindowWillClose() {
 
 void BridgedNativeWidgetImpl::OnFullscreenTransitionStart(
     bool target_fullscreen_state) {
-  // Note: This can fail for fullscreen changes started externally, but a user
-  // shouldn't be able to do that if the window is invisible to begin with.
-  DCHECK(window_visible_);
-
   DCHECK_NE(target_fullscreen_state, target_fullscreen_state_);
   target_fullscreen_state_ = target_fullscreen_state;
   in_fullscreen_transition_ = true;
@@ -1156,6 +1153,19 @@ void BridgedNativeWidgetImpl::SetFullscreen(bool fullscreen) {
   if (fullscreen == target_fullscreen_state_)
     return;
   ToggleDesiredFullscreenState();
+}
+
+void BridgedNativeWidgetImpl::SetCanAppearInExistingFullscreenSpaces(
+    bool can_appear_in_existing_fullscreen_spaces) {
+  NSWindow* window = window_.get();
+  NSWindowCollectionBehavior collectionBehavior = window.collectionBehavior;
+  if (can_appear_in_existing_fullscreen_spaces) {
+    collectionBehavior |= NSWindowCollectionBehaviorFullScreenAuxiliary;
+    collectionBehavior &= ~NSWindowCollectionBehaviorFullScreenPrimary;
+  } else {
+    collectionBehavior &= ~NSWindowCollectionBehaviorFullScreenAuxiliary;
+  }
+  window.collectionBehavior = collectionBehavior;
 }
 
 bool BridgedNativeWidgetImpl::IsMaximized(bool* maximized) {

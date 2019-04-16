@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -516,6 +517,10 @@ void FaviconCache::UpdateMappingsFromForeignTab(const sync_pb::SessionTab& tab,
     if (synced_favicons_.count(icon_url) != 0)
       UpdateFaviconVisitTime(icon_url, visit_time);
   }
+}
+
+base::WeakPtr<FaviconCache> FaviconCache::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 size_t FaviconCache::NumFaviconsForTest() const {

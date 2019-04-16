@@ -43,7 +43,6 @@ class DebugDaemonClient;
 class DiagnosticsdClient;
 class EasyUnlockClient;
 class GsmSMSClient;
-class HammerdClient;
 class ImageBurnerClient;
 class ImageLoaderClient;
 class LorgnetteManagerClient;
@@ -52,7 +51,6 @@ class MediaAnalyticsClient;
 class ModemMessagingClient;
 class OobeConfigurationClient;
 class PermissionBrokerClient;
-class PowerManagerClient;
 class RuntimeProbeClient;
 class SeneschalClient;
 class SessionManagerClient;
@@ -64,7 +62,6 @@ class ShillServiceClient;
 class ShillThirdPartyVpnDriverClient;
 class SmbProviderClient;
 class SMSClient;
-class SystemClockClient;
 class UpdateEngineClient;
 class UpstartClient;
 class VirtualFileProviderClient;
@@ -152,7 +149,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManager {
   DiagnosticsdClient* GetDiagnosticsdClient();
   EasyUnlockClient* GetEasyUnlockClient();
   GsmSMSClient* GetGsmSMSClient();
-  HammerdClient* GetHammerdClient();
   ImageBurnerClient* GetImageBurnerClient();
   ImageLoaderClient* GetImageLoaderClient();
   LorgnetteManagerClient* GetLorgnetteManagerClient();
@@ -161,7 +157,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManager {
   ModemMessagingClient* GetModemMessagingClient();
   OobeConfigurationClient* GetOobeConfigurationClient();
   PermissionBrokerClient* GetPermissionBrokerClient();
-  PowerManagerClient* GetPowerManagerClient();
   RuntimeProbeClient* GetRuntimeProbeClient();
   SeneschalClient* GetSeneschalClient();
   SessionManagerClient* GetSessionManagerClient();
@@ -173,7 +168,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManager {
   ShillThirdPartyVpnDriverClient* GetShillThirdPartyVpnDriverClient();
   SmbProviderClient* GetSmbProviderClient();
   SMSClient* GetSMSClient();
-  SystemClockClient* GetSystemClockClient();
   UpdateEngineClient* GetUpdateEngineClient();
   UpstartClient* GetUpstartClient();
   VirtualFileProviderClient* GetVirtualFileProviderClient();
@@ -218,13 +212,11 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManagerSetter {
   void SetCrosDisksClient(std::unique_ptr<CrosDisksClient> client);
   void SetCryptohomeClient(std::unique_ptr<CryptohomeClient> client);
   void SetDebugDaemonClient(std::unique_ptr<DebugDaemonClient> client);
-  void SetHammerdClient(std::unique_ptr<HammerdClient> client);
   void SetImageBurnerClient(std::unique_ptr<ImageBurnerClient> client);
   void SetImageLoaderClient(std::unique_ptr<ImageLoaderClient> client);
   void SetMediaAnalyticsClient(std::unique_ptr<MediaAnalyticsClient> client);
   void SetPermissionBrokerClient(
       std::unique_ptr<PermissionBrokerClient> client);
-  void SetPowerManagerClient(std::unique_ptr<PowerManagerClient> client);
   void SetSeneschalClient(std::unique_ptr<SeneschalClient> client);
   void SetRuntimeProbeClient(std::unique_ptr<RuntimeProbeClient> client);
   void SetSessionManagerClient(std::unique_ptr<SessionManagerClient> client);
@@ -236,7 +228,6 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DBusThreadManagerSetter {
   void SetShillThirdPartyVpnDriverClient(
       std::unique_ptr<ShillThirdPartyVpnDriverClient> client);
   void SetSmbProviderClient(std::unique_ptr<SmbProviderClient> client);
-  void SetSystemClockClient(std::unique_ptr<SystemClockClient> client);
   void SetUpdateEngineClient(std::unique_ptr<UpdateEngineClient> client);
   void SetUpstartClient(std::unique_ptr<UpstartClient> client);
 

@@ -43,7 +43,6 @@
 #include "net/http/http_chunked_decoder.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_proxy_client_socket.h"
-#include "net/http/http_proxy_client_socket_pool.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_response_headers.h"
@@ -58,7 +57,6 @@
 #include "net/log/net_log_event_type.h"
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/next_proto.h"
-#include "net/socket/socks_client_socket_pool.h"
 #include "net/socket/transport_client_socket_pool.h"
 #include "net/spdy/spdy_http_stream.h"
 #include "net/spdy/spdy_session.h"
@@ -130,14 +128,9 @@ HttpNetworkTransaction::HttpNetworkTransaction(RequestPriority priority,
 
 HttpNetworkTransaction::~HttpNetworkTransaction() {
 #if BUILDFLAG(ENABLE_REPORTING)
-  // Report a success if we have not already done so. Errors would have been
-  // reported from DoCallback(), DoReadBodyComplete(), HandleIOError(), or
-  // DoReadHeadersComplete().
-  // Note: This may incorrectly report an error as a success, e.g. if the
-  // request is cancelled after successfully receiving headers but would
-  // otherwise have encountered an error on reading the body.
-  if (headers_valid_ && next_state_ == STATE_NONE)
-    GenerateNetworkErrorLoggingReport(OK);
+  // If no error or success report has been generated yet at this point, then
+  // this network transaction was prematurely cancelled.
+  GenerateNetworkErrorLoggingReport(ERR_ABORTED);
 #endif  // BUILDFLAG(ENABLE_REPORTING)
   if (stream_.get()) {
     // TODO(mbelshe): The stream_ should be able to compute whether or not the
@@ -954,11 +947,9 @@ int HttpNetworkTransaction::DoGenerateProxyAuthToken() {
     return OK;
   HttpAuth::Target target = HttpAuth::AUTH_PROXY;
   if (!auth_controllers_[target].get())
-    auth_controllers_[target] =
-        new HttpAuthController(target,
-                               AuthURL(target),
-                               session_->http_auth_cache(),
-                               session_->http_auth_handler_factory());
+    auth_controllers_[target] = new HttpAuthController(
+        target, AuthURL(target), session_->http_auth_cache(),
+        session_->http_auth_handler_factory(), session_->host_resolver());
   return auth_controllers_[target]->MaybeGenerateAuthToken(request_,
                                                            io_callback_,
                                                            net_log_);
@@ -975,11 +966,9 @@ int HttpNetworkTransaction::DoGenerateServerAuthToken() {
   next_state_ = STATE_GENERATE_SERVER_AUTH_TOKEN_COMPLETE;
   HttpAuth::Target target = HttpAuth::AUTH_SERVER;
   if (!auth_controllers_[target].get()) {
-    auth_controllers_[target] =
-        new HttpAuthController(target,
-                               AuthURL(target),
-                               session_->http_auth_cache(),
-                               session_->http_auth_handler_factory());
+    auth_controllers_[target] = new HttpAuthController(
+        target, AuthURL(target), session_->http_auth_cache(),
+        session_->http_auth_handler_factory(), session_->host_resolver());
     if (request_->load_flags & LOAD_DO_NOT_USE_EMBEDDED_IDENTITY)
       auth_controllers_[target]->DisableEmbeddedIdentity();
   }
@@ -1257,12 +1246,15 @@ int HttpNetworkTransaction::DoReadHeadersComplete(int result) {
   ProcessNetworkErrorLoggingHeader();
 
   // Generate NEL report here if we have to report an HTTP error (4xx or 5xx
-  // code), or if the response body will not be read.
+  // code), or if the response body will not be read, or on a redirect.
+  // Note: This will report a success for a redirect even if an error is
+  // encountered later while draining the body.
   int response_code = response_.headers->response_code();
   if ((response_code >= 400 && response_code < 600) ||
       response_code == HTTP_NO_CONTENT || response_code == HTTP_RESET_CONTENT ||
       response_code == HTTP_NOT_MODIFIED || request_->method == "HEAD" ||
-      response_.headers->GetContentLength() == 0) {
+      response_.headers->GetContentLength() == 0 ||
+      response_.headers->IsRedirect(nullptr /* location */)) {
     GenerateNetworkErrorLoggingReport(OK);
   }
 #endif  // BUILDFLAG(ENABLE_REPORTING)
@@ -1421,6 +1413,11 @@ void HttpNetworkTransaction::ProcessNetworkErrorLoggingHeader() {
     return;
   }
 
+  // Don't accept NEL headers received via a proxy, because the IP address of
+  // the destination server is not known.
+  if (response_.was_fetched_via_proxy)
+    return;
+
   // Only accept NEL headers on HTTPS connections that have no certificate
   // errors.
   if (!response_.ssl_info.is_valid()) {
@@ -1462,6 +1459,17 @@ void HttpNetworkTransaction::GenerateNetworkErrorLoggingReport(int rv) {
         RecordRequestDiscardedForNoNetworkErrorLoggingService();
     return;
   }
+
+  // Don't report on proxy auth challenges.
+  if (response_.headers && response_.headers->response_code() ==
+                               HTTP_PROXY_AUTHENTICATION_REQUIRED) {
+    return;
+  }
+
+  // Don't generate NEL reports if we are behind a proxy, to avoid leaking
+  // internal network details.
+  if (response_.was_fetched_via_proxy)
+    return;
 
   // Ignore errors from non-HTTPS origins.
   if (!url_.SchemeIsCryptographic()) {
@@ -1853,15 +1861,7 @@ GURL HttpNetworkTransaction::AuthURL(HttpAuth::Target target) const {
     }
     case HttpAuth::AUTH_SERVER:
       if (ForWebSocketHandshake()) {
-        const GURL& url = request_->url;
-        url::Replacements<char> ws_to_http;
-        if (url.SchemeIs("ws")) {
-          ws_to_http.SetScheme("http", url::Component(0, 4));
-        } else {
-          DCHECK(url.SchemeIs("wss"));
-          ws_to_http.SetScheme("https", url::Component(0, 5));
-        }
-        return url.ReplaceComponents(ws_to_http);
+        return net::ChangeWebSocketSchemeToHttpScheme(request_->url);
       }
       return request_->url;
     default:

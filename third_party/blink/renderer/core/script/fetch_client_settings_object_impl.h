@@ -31,7 +31,8 @@ class CORE_EXPORT FetchClientSettingsObjectImpl final
   explicit FetchClientSettingsObjectImpl(ExecutionContext&);
   ~FetchClientSettingsObjectImpl() override = default;
 
-  const KURL& BaseURL() const override;
+  const KURL& GlobalObjectUrl() const override;
+  const KURL& BaseUrl() const override;
   const SecurityOrigin* GetSecurityOrigin() const override;
   network::mojom::ReferrerPolicy GetReferrerPolicy() const override;
   const String GetOutgoingReferrer() const override;
@@ -40,6 +41,8 @@ class CORE_EXPORT FetchClientSettingsObjectImpl final
 
   AllowedByNosniff::MimeTypeCheck MimeTypeCheckForClassicWorkerScript()
       const override;
+
+  base::Optional<mojom::IPAddressSpace> GetAddressSpace() const override;
 
   void Trace(Visitor* visitor) override;
 

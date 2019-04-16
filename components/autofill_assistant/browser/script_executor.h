@@ -8,6 +8,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <ostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -17,6 +18,7 @@
 #include "components/autofill_assistant/browser/actions/action.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
 #include "components/autofill_assistant/browser/details.h"
+#include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/script.h"
 #include "components/autofill_assistant/browser/script_executor_delegate.h"
 #include "components/autofill_assistant/browser/service.pb.h"
@@ -87,6 +89,8 @@ class ScriptExecutor : public ActionDelegate {
 
     Result();
     ~Result();
+
+    friend std::ostream& operator<<(std::ostream& out, const Result& result);
   };
 
   using RunScriptCallback = base::OnceCallback<void(const Result&)>;
@@ -111,12 +115,10 @@ class ScriptExecutor : public ActionDelegate {
   void ClickOrTapElement(const Selector& selector,
                          base::OnceCallback<void(bool)> callback) override;
   void GetPaymentInformation(
-      payments::mojom::PaymentOptionsPtr payment_options,
-      base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
-      const std::string& title,
-      const std::vector<std::string>& supported_basic_card_networks) override;
+      std::unique_ptr<PaymentRequestOptions> options) override;
   void GetFullCard(GetFullCardCallback callback) override;
-  void Prompt(std::unique_ptr<std::vector<Chip>> chips) override;
+  void Prompt(std::unique_ptr<std::vector<Chip>> chips,
+              base::OnceCallback<void()> on_terminate) override;
   void CancelPrompt() override;
   void FillAddressForm(const autofill::AutofillProfile* profile,
                        const Selector& selector,
@@ -155,11 +157,11 @@ class ScriptExecutor : public ActionDelegate {
   ClientMemory* GetClientMemory() override;
   autofill::PersonalDataManager* GetPersonalDataManager() override;
   content::WebContents* GetWebContents() override;
-  void StopCurrentScriptAndShutdown(const std::string& message) override;
-  void ClearDetails() override;
-  void SetDetails(const Details& details) override;
-  void ShowProgressBar(int progress) override;
-  void HideProgressBar() override;
+  void SetDetails(std::unique_ptr<Details> details) override;
+  void ClearInfoBox() override;
+  void SetInfoBox(const InfoBox& info_box) override;
+  void SetProgress(int progress) override;
+  void SetProgressVisible(bool visible) override;
 
  private:
   // Helper for WaitForElementVisible that keeps track of the state required to
@@ -309,6 +311,10 @@ class ScriptExecutor : public ActionDelegate {
   const std::vector<Script*>* ordered_interrupts_;
 
   std::unique_ptr<WaitWithInterrupts> wait_with_interrupts_;
+
+  // Callback set by Prompt(). This is called when the prompt is terminated
+  // without selecting any chips. nullptr unless showing a prompt.
+  base::OnceCallback<void()> on_terminate_prompt_;
 
   base::WeakPtrFactory<ScriptExecutor> weak_ptr_factory_;
   DISALLOW_COPY_AND_ASSIGN(ScriptExecutor);

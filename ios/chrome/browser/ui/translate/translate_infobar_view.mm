@@ -5,8 +5,10 @@
 #import "ios/chrome/browser/ui/translate/translate_infobar_view.h"
 
 #include "base/logging.h"
+#include "base/strings/sys_string_conversions.h"
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/procedural_block_types.h"
+#import "ios/chrome/browser/ui/fullscreen/fullscreen_ui_element.h"
 #import "ios/chrome/browser/ui/infobars/infobar_constants.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_button.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_configuration.h"
@@ -19,6 +21,7 @@
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui_util/constraints_ui_util.h"
+#include "ios/chrome/grit/ios_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -44,6 +47,7 @@ const CGFloat kIconTrailingMargin = 12;
 }  // namespace
 
 @interface TranslateInfobarView () <
+    FullscreenUIElement,
     TranslateInfobarLanguageTabStripViewDelegate>
 
 // Translate icon view.
@@ -64,6 +68,9 @@ const CGFloat kIconTrailingMargin = 12;
 // Constraint used to add bottom margin to the view.
 @property(nonatomic, weak) NSLayoutConstraint* bottomAnchorConstraint;
 
+// Last recorded fullscreen progress.
+@property(nonatomic, assign) CGFloat previousFullscreenProgress;
+
 @end
 
 @implementation TranslateInfobarView
@@ -74,6 +81,7 @@ const CGFloat kIconTrailingMargin = 12;
   // Create and add subviews the first time this moves to a superview.
   if (newSuperview && !self.subviews.count) {
     [self setupSubviews];
+
     // Lower constraint's priority to avoid breaking other constraints while
     // |newSuperview| is animating.
     // TODO(crbug.com/904521): Investigate why this is needed.
@@ -87,11 +95,25 @@ const CGFloat kIconTrailingMargin = 12;
   if (!self.superview)
     return;
 
-  self.state = TranslateInfobarViewStateBeforeTranslate;
+  // Constrain the options button named guide to its corresponding view. Reset
+  // the named guide's existing constrained view beforehand. Otherwise this will
+  // be a no-op if the new constrained view is the same as the existing one,
+  // even though the existing constraints are invalid (e.g., when the infobar is
+  // removed from the view hierarchy and added again after a tab switch).
+  NamedGuide* namedGuide =
+      [NamedGuide guideWithName:kTranslateInfobarOptionsGuide
+                           view:self.optionsButton];
+  [namedGuide resetConstraints];
+  namedGuide.constrainedView = self.optionsButton;
 
-  [NamedGuide guideWithName:kTranslateInfobarOptionsGuide
-                       view:self.optionsButton]
-      .constrainedView = self.optionsButton;
+  // The initial bottom padding should be the current height of the secondary
+  // toolbar or the bottom safe area inset, whichever is greater.
+  UILayoutGuide* secondaryToolbarGuide =
+      [NamedGuide guideWithName:kSecondaryToolbarGuide view:self];
+  DCHECK(secondaryToolbarGuide);
+  self.bottomAnchorConstraint.constant =
+      MAX(secondaryToolbarGuide.layoutFrame.size.height,
+          self.superview.safeAreaInsets.bottom);
 
   // Increase constraint's priority after the view was added to its superview.
   // TODO(crbug.com/904521): Investigate why this is needed.
@@ -99,26 +121,6 @@ const CGFloat kIconTrailingMargin = 12;
 }
 
 - (CGSize)sizeThatFits:(CGSize)size {
-  // Calculate the safe area and current Toolbar height. Set the
-  // bottomAnchorConstraint constant to this height to create the bottom
-  // padding.
-  CGFloat bottomSafeAreaInset = self.safeAreaInsets.bottom;
-  CGFloat toolbarHeight = 0;
-  UILayoutGuide* guide = [NamedGuide guideWithName:kSecondaryToolbarGuide
-                                              view:self];
-  UILayoutGuide* guideNoFullscreen =
-      [NamedGuide guideWithName:kSecondaryToolbarNoFullscreenGuide view:self];
-  if (guide && guideNoFullscreen) {
-    CGFloat toolbarHeightCurrent = guide.layoutFrame.size.height;
-    CGFloat toolbarHeightMax = guideNoFullscreen.layoutFrame.size.height;
-    if (toolbarHeightMax > 0) {
-      CGFloat fullscreenProgress = toolbarHeightCurrent / toolbarHeightMax;
-      CGFloat toolbarHeightInSafeArea = toolbarHeightMax - bottomSafeAreaInset;
-      toolbarHeight += fullscreenProgress * toolbarHeightInSafeArea;
-    }
-  }
-  self.bottomAnchorConstraint.constant = toolbarHeight + bottomSafeAreaInset;
-
   // Now that the constraint constant has been set calculate the fitting size.
   CGSize computedSize = [self systemLayoutSizeFittingSize:size];
   return CGSizeMake(size.width, computedSize.height);
@@ -138,26 +140,10 @@ const CGFloat kIconTrailingMargin = 12;
 
 - (void)setState:(TranslateInfobarViewState)state {
   _state = state;
-  switch (state) {
-    case TranslateInfobarViewStateBeforeTranslate:
-      self.languagesView.sourceLanguageTabState =
-          TranslateInfobarLanguageTabViewStateSelected;
-      self.languagesView.targetLanguageTabState =
-          TranslateInfobarLanguageTabViewStateDefault;
-      break;
-    case TranslateInfobarViewStateTranslating:
-      self.languagesView.sourceLanguageTabState =
-          TranslateInfobarLanguageTabViewStateDefault;
-      self.languagesView.targetLanguageTabState =
-          TranslateInfobarLanguageTabViewStateLoading;
-      break;
-    case TranslateInfobarViewStateAfterTranslate:
-      self.languagesView.sourceLanguageTabState =
-          TranslateInfobarLanguageTabViewStateDefault;
-      self.languagesView.targetLanguageTabState =
-          TranslateInfobarLanguageTabViewStateSelected;
-      break;
-  }
+  self.languagesView.sourceLanguageTabState =
+      [self sourceLanguageTabStateFromTranslateInfobarViewState:state];
+  self.languagesView.targetLanguageTabState =
+      [self targetLanguageTabStateFromTranslateInfobarViewState:state];
 }
 
 #pragma mark - Public
@@ -166,6 +152,37 @@ const CGFloat kIconTrailingMargin = 12;
   self.optionsButton.spotlighted = displayed;
   self.optionsButton.dimmed = displayed;
   self.dismissButton.dimmed = displayed;
+}
+
+#pragma mark - FullscreenUIElement methods
+
+- (void)updateForFullscreenProgress:(CGFloat)progress {
+  // The maximum bottom padding is the maximum height of the secondary toolbar
+  // or the bottom safe area inset, whichever is greater.
+  UILayoutGuide* secondaryToolbarNoFullscreenGuide =
+      [NamedGuide guideWithName:kSecondaryToolbarNoFullscreenGuide view:self];
+  DCHECK(secondaryToolbarNoFullscreenGuide);
+  CGFloat maxBottomPadding =
+      MAX(secondaryToolbarNoFullscreenGuide.layoutFrame.size.height,
+          self.safeAreaInsets.bottom);
+
+  // Calculate the appropriate bottom padding given the fullscreen progress.
+  // Bottom padding can range from the negative value of the infobar's height
+  // in fullscreen mode (i.e., progress == 0), thus hiding the infobar, to the
+  // maximum bottom padding calculated above.
+  CGFloat bottomPadding =
+      progress * (maxBottomPadding + kInfobarHeight) - kInfobarHeight;
+
+  // If the fullscreen progress is greater than the previous progress, i.e., we
+  // are exiting the fullscreen mode, update the bottom padding only if the
+  // calculated value is greater than the current bottom padding. Otherwise,
+  // the infobar will initially hide and then start to fully appear again.
+  self.bottomAnchorConstraint.constant =
+      (progress > self.previousFullscreenProgress)
+          ? MAX(bottomPadding, self.bottomAnchorConstraint.constant)
+          : bottomPadding;
+
+  self.previousFullscreenProgress = progress;
 }
 
 #pragma mark - TranslateInfobarLanguageTabStripViewDelegate
@@ -184,6 +201,16 @@ const CGFloat kIconTrailingMargin = 12;
 
 - (void)setupSubviews {
   [self setAccessibilityViewIsModal:YES];
+  NSString* a11yAnnoucement =
+      [self a11yAnnouncementFromTranslateInfobarViewState:self.state
+                                           targetLanguage:self.targetLanguage];
+  if (a11yAnnoucement.length > 0) {
+    // TODO(crbug.com/834285): This accessibility announcement is sometimes
+    // partially read or not read due to focus being stolen by the progress bar.
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                    a11yAnnoucement);
+  }
+
   if (IsUIRefreshPhase1Enabled()) {
     self.backgroundColor = UIColorFromRGB(kInfobarBackgroundColor);
   } else {
@@ -219,23 +246,33 @@ const CGFloat kIconTrailingMargin = 12;
   self.languagesView = languagesView;
   self.languagesView.translatesAutoresizingMaskIntoConstraints = NO;
   self.languagesView.sourceLanguage = self.sourceLanguage;
+  self.languagesView.sourceLanguageTabState =
+      [self sourceLanguageTabStateFromTranslateInfobarViewState:self.state];
   self.languagesView.targetLanguage = self.targetLanguage;
+  self.languagesView.targetLanguageTabState =
+      [self targetLanguageTabStateFromTranslateInfobarViewState:self.state];
   self.languagesView.delegate = self;
   [contentView addSubview:self.languagesView];
 
   self.toolbarConfiguration =
       [[ToolbarConfiguration alloc] initWithStyle:NORMAL];
 
-  self.optionsButton =
+  NSString* optionsButtonA11yLabel = l10n_util::GetNSString(
+      IDS_IOS_TRANSLATE_INFOBAR_OPTIONS_ACCESSIBILITY_LABEL);
+  ToolbarButton* optionsButton =
       [self toolbarButtonWithImageNamed:@"translate_options"
+                              a11yLabel:optionsButtonA11yLabel
                                  target:self
                                  action:@selector(showOptions)];
+  self.optionsButton = optionsButton;
   [contentView addSubview:self.optionsButton];
 
-  self.dismissButton =
+  ToolbarButton* dismissButton =
       [self toolbarButtonWithImageNamed:@"translate_dismiss"
+                              a11yLabel:l10n_util::GetNSString(IDS_CLOSE)
                                  target:self
                                  action:@selector(dismiss)];
+  self.dismissButton = dismissButton;
   [contentView addSubview:self.dismissButton];
 
   ApplyVisualConstraintsWithMetrics(
@@ -264,12 +301,42 @@ const CGFloat kIconTrailingMargin = 12;
   AddSameCenterYConstraint(contentView, self.dismissButton);
 }
 
+// Returns the source language tab view state for the given infobar view state.
+- (TranslateInfobarLanguageTabViewState)
+    sourceLanguageTabStateFromTranslateInfobarViewState:
+        (TranslateInfobarViewState)state {
+  switch (state) {
+    case TranslateInfobarViewStateBeforeTranslate:
+      return TranslateInfobarLanguageTabViewStateSelected;
+    case TranslateInfobarViewStateTranslating:
+      return TranslateInfobarLanguageTabViewStateDefault;
+    case TranslateInfobarViewStateAfterTranslate:
+      return TranslateInfobarLanguageTabViewStateDefault;
+  }
+}
+
+// Returns the target language tab view state for the given infobar view state.
+- (TranslateInfobarLanguageTabViewState)
+    targetLanguageTabStateFromTranslateInfobarViewState:
+        (TranslateInfobarViewState)state {
+  switch (state) {
+    case TranslateInfobarViewStateBeforeTranslate:
+      return TranslateInfobarLanguageTabViewStateDefault;
+    case TranslateInfobarViewStateTranslating:
+      return TranslateInfobarLanguageTabViewStateLoading;
+    case TranslateInfobarViewStateAfterTranslate:
+      return TranslateInfobarLanguageTabViewStateSelected;
+  }
+}
+
 - (ToolbarButton*)toolbarButtonWithImageNamed:(NSString*)name
+                                    a11yLabel:(NSString*)a11yLabel
                                        target:(id)target
                                        action:(SEL)action {
   UIImage* image = [[UIImage imageNamed:name]
       imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
   ToolbarButton* button = [ToolbarButton toolbarButtonWithImage:image];
+  [button setAccessibilityLabel:a11yLabel];
   [button addTarget:target
                 action:action
       forControlEvents:UIControlEventTouchUpInside];
@@ -286,6 +353,24 @@ const CGFloat kIconTrailingMargin = 12;
 
 - (void)dismiss {
   [self.delegate translateInfobarViewDidTapDismiss:self];
+}
+
+// Returns the infobar's a11y announcement for the given infobar view state.
+- (NSString*)a11yAnnouncementFromTranslateInfobarViewState:
+                 (TranslateInfobarViewState)state
+                                            targetLanguage:
+                                                (NSString*)targetLanguage {
+  switch (state) {
+    case TranslateInfobarViewStateBeforeTranslate:
+      return l10n_util::GetNSString(
+          IDS_IOS_TRANSLATE_INFOBAR_DEFAULT_ACCESSIBILITY_ANNOUNCEMENT);
+    case TranslateInfobarViewStateTranslating:
+      return base::SysUTF16ToNSString(l10n_util::GetStringFUTF16(
+          IDS_IOS_TRANSLATE_INFOBAR_TRANSLATING_ACCESSIBILITY_ANNOUNCEMENT,
+          base::SysNSStringToUTF16(targetLanguage)));
+    case TranslateInfobarViewStateAfterTranslate:
+      return @"";
+  }
 }
 
 @end

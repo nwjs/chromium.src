@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
@@ -343,7 +344,7 @@ ExtensionFunction::ResponseAction ExtensionActionFunction::Run() {
                                  include_incognito_information(), nullptr,
                                  nullptr, &contents_, nullptr);
     if (!contents_)
-      return RespondNow(Error(kNoTabError, base::IntToString(tab_id_)));
+      return RespondNow(Error(kNoTabError, base::NumberToString(tab_id_)));
   } else {
     // Only browser actions and system indicators have a default tabId.
     ActionInfo::Type action_type = extension_action_->action_type();

@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <set>
 #include <string>
 #include <utility>
@@ -199,7 +200,7 @@ std::string GetKey(const net::X509Certificate& cert, int error) {
       base::StringPiece(reinterpret_cast<const char*>(fingerprint.data),
                         sizeof(fingerprint.data)),
       &base64_fingerprint);
-  return base::UintToString(error) + base64_fingerprint;
+  return base::NumberToString(error) + base64_fingerprint;
 }
 
 void MigrateOldSettings(HostContentSettingsMap* map) {
@@ -320,7 +321,7 @@ void ChromeSSLHostStateDelegate::Clear(
   HostContentSettingsMap::PatternSourcePredicate pattern_filter;
   if (!host_filter.is_null()) {
     pattern_filter =
-        base::Bind(&HostFilterToPatternFilter, base::ConstRef(host_filter));
+        base::Bind(&HostFilterToPatternFilter, std::cref(host_filter));
   }
 
   HostContentSettingsMapFactory::GetForProfile(profile_)
@@ -630,7 +631,7 @@ base::DictionaryValue* ChromeSSLHostStateDelegate::GetValidCertDecisionsDict(
     // values, only doubles. Since this mildly depends on precision, it is
     // better to store the value as a string.
     dict->SetString(kSSLCertDecisionExpirationTimeKey,
-                    base::Int64ToString(expiration_time.ToInternalValue()));
+                    base::NumberToString(expiration_time.ToInternalValue()));
   }
 
   // Extract the map of certificate fingerprints to errors from the setting.

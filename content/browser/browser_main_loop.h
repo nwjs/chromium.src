@@ -36,13 +36,9 @@ class CommandLine;
 class FilePath;
 class HighResolutionTimerManager;
 class MemoryPressureMonitor;
-class MessageLoop;
 class PowerMonitor;
 class SingleThreadTaskRunner;
 class SystemMonitor;
-namespace trace_event {
-class TraceEventSystemStatsMonitor;
-}  // namespace trace_event
 }  // namespace base
 
 namespace discardable_memory {
@@ -80,6 +76,12 @@ class ScopedIPCSupport;
 namespace net {
 class NetworkChangeNotifier;
 }  // namespace net
+
+#if defined(OS_MACOSX)
+namespace now_playing {
+class RemoteCommandCenterDelegate;
+}  // namespace now_playing
+#endif
 
 namespace viz {
 class CompositingModeReporterImpl;
@@ -306,7 +308,6 @@ class CONTENT_EXPORT BrowserMainLoop {
       scoped_execution_fence_;
 
   // Members initialized in |MainMessageLoopStart()| ---------------------------
-  std::unique_ptr<base::MessageLoop> main_message_loop_;
 
   // Members initialized in |PostMainMessageLoopStart()| -----------------------
   std::unique_ptr<BrowserProcessSubThread> io_thread_;
@@ -318,9 +319,6 @@ class CONTENT_EXPORT BrowserMainLoop {
 
   // Per-process listener for online state changes.
   std::unique_ptr<BrowserOnlineStateObserver> online_state_observer_;
-
-  std::unique_ptr<base::trace_event::TraceEventSystemStatsMonitor>
-      system_stats_monitor_;
 
 #if defined(USE_AURA)
   std::unique_ptr<aura::Env> env_;
@@ -364,6 +362,10 @@ class CONTENT_EXPORT BrowserMainLoop {
   // Members initialized in |BrowserThreadsStarted()| --------------------------
   std::unique_ptr<mojo::core::ScopedIPCSupport> mojo_ipc_support_;
   std::unique_ptr<MediaKeysListenerManagerImpl> media_keys_listener_manager_;
+#if defined(OS_MACOSX)
+  std::unique_ptr<now_playing::RemoteCommandCenterDelegate>
+      remote_command_center_delegate_;
+#endif
 
   // |user_input_monitor_| has to outlive |audio_manager_|, so declared first.
   std::unique_ptr<media::UserInputMonitor> user_input_monitor_;

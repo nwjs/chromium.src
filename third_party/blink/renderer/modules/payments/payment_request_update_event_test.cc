@@ -5,6 +5,8 @@
 #include "third_party/blink/renderer/modules/payments/payment_request_update_event.h"
 
 #include <memory>
+
+#include "base/macros.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -22,18 +24,19 @@ namespace {
 class MockPaymentUpdater : public GarbageCollectedFinalized<MockPaymentUpdater>,
                            public PaymentUpdater {
   USING_GARBAGE_COLLECTED_MIXIN(MockPaymentUpdater);
-  WTF_MAKE_NONCOPYABLE(MockPaymentUpdater);
 
  public:
   MockPaymentUpdater() = default;
   ~MockPaymentUpdater() override = default;
 
-  MOCK_METHOD2(OnUpdatePaymentDetails,
-               void(const AtomicString& event_type,
-                    const ScriptValue& detailsScriptValue));
+  MOCK_METHOD1(OnUpdatePaymentDetails,
+               void(const ScriptValue& detailsScriptValue));
   MOCK_METHOD1(OnUpdatePaymentDetailsFailure, void(const String& error));
 
   void Trace(blink::Visitor* visitor) override {}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(MockPaymentUpdater);
 };
 
 TEST(PaymentRequestUpdateEventTest, OnUpdatePaymentDetailsCalled) {
@@ -50,9 +53,7 @@ TEST(PaymentRequestUpdateEventTest, OnUpdatePaymentDetailsCalled) {
                     scope.GetExceptionState());
   EXPECT_FALSE(scope.GetExceptionState().HadException());
 
-  EXPECT_CALL(*updater,
-              OnUpdatePaymentDetails(event_type_names::kShippingaddresschange,
-                                     testing::_));
+  EXPECT_CALL(*updater, OnUpdatePaymentDetails(testing::_));
   EXPECT_CALL(*updater, OnUpdatePaymentDetailsFailure(testing::_)).Times(0);
 
   payment_details->Resolve("foo");
@@ -72,10 +73,7 @@ TEST(PaymentRequestUpdateEventTest, OnUpdatePaymentDetailsFailureCalled) {
                     scope.GetExceptionState());
   EXPECT_FALSE(scope.GetExceptionState().HadException());
 
-  EXPECT_CALL(*updater,
-              OnUpdatePaymentDetails(event_type_names::kShippingaddresschange,
-                                     testing::_))
-      .Times(0);
+  EXPECT_CALL(*updater, OnUpdatePaymentDetails(testing::_)).Times(0);
   EXPECT_CALL(*updater, OnUpdatePaymentDetailsFailure(testing::_));
 
   payment_details->Reject("oops");

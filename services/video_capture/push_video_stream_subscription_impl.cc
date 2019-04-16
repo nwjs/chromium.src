@@ -4,6 +4,8 @@
 
 #include "services/video_capture/push_video_stream_subscription_impl.h"
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "services/video_capture/broadcasting_receiver.h"
 
 namespace video_capture {
@@ -38,11 +40,12 @@ void PushVideoStreamSubscriptionImpl::SetOnClosedHandler(
                      weak_factory_.GetWeakPtr()));
 }
 
-void PushVideoStreamSubscriptionImpl::
-    NotifySubscriberCreateSubscriptionSucceededWithSettings(
-        const media::VideoCaptureParams& settings) {
-  DCHECK_EQ(Status::kCreationCallbackNotYetRun, status_)
-      << "Illegal call in current state.";
+void PushVideoStreamSubscriptionImpl::OnDeviceStartSucceededWithSettings(
+    const media::VideoCaptureParams& settings) {
+  if (status_ != Status::kCreationCallbackNotYetRun) {
+    // Creation callback has already been run from a previous device start.
+    return;
+  }
   mojom::CreatePushSubscriptionResultCode result_code =
       settings == requested_settings_
           ? mojom::CreatePushSubscriptionResultCode::
@@ -53,10 +56,11 @@ void PushVideoStreamSubscriptionImpl::
   status_ = Status::kNotYetActivated;
 }
 
-void PushVideoStreamSubscriptionImpl::
-    NotifySubscriberCreateSubscriptionFailed() {
-  DCHECK_EQ(Status::kCreationCallbackNotYetRun, status_)
-      << "Illegal call in current state.";
+void PushVideoStreamSubscriptionImpl::OnDeviceStartFailed() {
+  if (status_ != Status::kCreationCallbackNotYetRun) {
+    // Creation callback has already been run from a previous device start.
+    return;
+  }
   std::move(creation_callback_)
       .Run(mojom::CreatePushSubscriptionResultCode::kFailed,
            requested_settings_);
@@ -66,7 +70,8 @@ void PushVideoStreamSubscriptionImpl::
 void PushVideoStreamSubscriptionImpl::Activate() {
   if (status_ != Status::kNotYetActivated)
     return;
-  broadcaster_client_id_ = broadcaster_->AddClient(std::move(subscriber_));
+  broadcaster_client_id_ = broadcaster_->AddClient(
+      std::move(subscriber_), requested_settings_.buffer_type);
   status_ = Status::kActive;
 }
 
@@ -74,7 +79,7 @@ void PushVideoStreamSubscriptionImpl::Suspend(SuspendCallback callback) {
   if (status_ != Status::kActive)
     return;
 
-  subscriber_ = broadcaster_->RemoveClient(broadcaster_client_id_);
+  broadcaster_->SuspendClient(broadcaster_client_id_);
   status_ = Status::kSuspended;
   std::move(callback).Run();
 }
@@ -82,7 +87,7 @@ void PushVideoStreamSubscriptionImpl::Suspend(SuspendCallback callback) {
 void PushVideoStreamSubscriptionImpl::Resume() {
   if (status_ != Status::kSuspended)
     return;
-  broadcaster_client_id_ = broadcaster_->AddClient(std::move(subscriber_));
+  broadcaster_->ResumeClient(broadcaster_client_id_);
   status_ = Status::kActive;
 }
 
@@ -137,14 +142,14 @@ void PushVideoStreamSubscriptionImpl::Close(CloseCallback callback) {
     case Status::kClosed:
       std::move(callback).Run();
       return;
-    case Status::kActive:
+    case Status::kActive:  // Fall through.
+    case Status::kSuspended:
       broadcaster_->RemoveClient(broadcaster_client_id_);
       status_ = Status::kClosed;
       if (on_closed_handler_)
         std::move(on_closed_handler_).Run(std::move(callback));
       return;
-    case Status::kNotYetActivated:  // Fall through.
-    case Status::kSuspended:
+    case Status::kNotYetActivated:
       status_ = Status::kClosed;
       if (on_closed_handler_)
         std::move(on_closed_handler_).Run(std::move(callback));

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -447,6 +448,7 @@ class FakeServiceWorkerContainerHost
   }
   void Ping(PingCallback callback) override { NOTIMPLEMENTED(); }
   void HintToUpdateServiceWorker() override { NOTIMPLEMENTED(); }
+  void OnExecutionReady() override {}
 
  private:
   int get_controller_service_worker_count_ = 0;
@@ -1253,7 +1255,7 @@ TEST_F(ServiceWorkerSubresourceLoaderTest, TooManyRedirects) {
   int count = 1;
   std::string redirect_location =
       std::string("https://www.example.com/redirect_") +
-      base::IntToString(count);
+      base::NumberToString(count);
   fake_controller_.RespondWithRedirect(redirect_location);
   network::mojom::URLLoaderFactoryPtr factory =
       CreateSubresourceLoaderFactory();
@@ -1284,7 +1286,7 @@ TEST_F(ServiceWorkerSubresourceLoaderTest, TooManyRedirects) {
 
     // Redirect more.
     redirect_location = std::string("https://www.example.com/redirect_") +
-                        base::IntToString(count);
+                        base::NumberToString(count);
     fake_controller_.RespondWithRedirect(redirect_location);
     loader->FollowRedirect({}, {}, base::nullopt);
   }

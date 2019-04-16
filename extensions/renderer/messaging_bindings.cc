@@ -17,7 +17,10 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/values.h"
 #include "content/public/renderer/render_frame.h"
+#include "content/public/renderer/worker_thread.h"
 #include "extensions/common/api/messaging/message.h"
+#include "extensions/common/api/messaging/messaging_endpoint.h"
+#include "extensions/common/api/messaging/port_context.h"
 #include "extensions/common/api/messaging/port_id.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/renderer/extension_frame_helper.h"
@@ -27,6 +30,7 @@
 #include "extensions/renderer/script_context.h"
 #include "extensions/renderer/script_context_set.h"
 #include "extensions/renderer/v8_helpers.h"
+#include "extensions/renderer/worker_thread_util.h"
 #include "gin/converter.h"
 #include "third_party/blink/public/web/web_user_gesture_indicator.h"
 #include "v8/include/v8.h"
@@ -173,6 +177,9 @@ void MessagingBindings::BindToGC(
 
 void MessagingBindings::OpenChannelToExtension(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
+  // TODO(crbug.com/925918): Support messaging from a Service Worker.
+  DCHECK(!worker_thread_util::IsWorkerThread());
+
   content::RenderFrame* render_frame = context()->GetRenderFrame();
   if (!render_frame)
     return;
@@ -188,14 +195,22 @@ void MessagingBindings::OpenChannelToExtension(
   ports_[js_id] = std::make_unique<ExtensionPort>(context(), port_id, js_id);
 
   ExtensionMsg_ExternalConnectionInfo info;
+
   // For messaging APIs, hosted apps should be considered a web page so hide
   // its extension ID.
   const Extension* extension = context()->extension();
-  if (extension && !extension->is_hosted_app())
-    info.source_id = extension->id();
+  if (extension && !extension->is_hosted_app()) {
+    info.source_endpoint =
+        context()->context_type() == Feature::CONTENT_SCRIPT_CONTEXT
+            ? MessagingEndpoint::ForContentScript(extension->id())
+            : MessagingEndpoint::ForExtension(extension->id());
+  } else {
+    info.source_endpoint = MessagingEndpoint::ForWebPage();
+  }
 
   v8::Isolate* isolate = args.GetIsolate();
   info.target_id = *v8::String::Utf8Value(isolate, args[0]);
+
   info.source_url = context()->url();
   std::string channel_name = *v8::String::Utf8Value(isolate, args[1]);
 
@@ -203,7 +218,8 @@ void MessagingBindings::OpenChannelToExtension(
     SCOPED_UMA_HISTOGRAM_TIMER(
         "Extensions.Messaging.SetPortIdTime.Extension");
     render_frame->Send(new ExtensionHostMsg_OpenChannelToExtension(
-        render_frame->GetRoutingID(), info, channel_name, port_id));
+        PortContext::ForFrame(render_frame->GetRoutingID()), info, channel_name,
+        port_id));
   }
 
   ++num_extension_ports_;
@@ -217,6 +233,9 @@ void MessagingBindings::OpenChannelToNativeApp(
   CHECK(args[0]->IsString());
   // This should be checked by our function routing code.
   CHECK(context()->GetAvailability("runtime.connectNative").is_available());
+
+  // TODO(crbug.com/925918): Support native messaging for Service Workers.
+  DCHECK(!worker_thread_util::IsWorkerThread());
 
   content::RenderFrame* render_frame = context()->GetRenderFrame();
   if (!render_frame)
@@ -233,7 +252,8 @@ void MessagingBindings::OpenChannelToNativeApp(
     SCOPED_UMA_HISTOGRAM_TIMER(
         "Extensions.Messaging.SetPortIdTime.NativeApp");
     render_frame->Send(new ExtensionHostMsg_OpenChannelToNativeApp(
-        render_frame->GetRoutingID(), native_app_name, port_id));
+        PortContext::ForFrame(render_frame->GetRoutingID()), native_app_name,
+        port_id));
   }
 
   args.GetReturnValue().Set(static_cast<int32_t>(js_id));
@@ -241,9 +261,14 @@ void MessagingBindings::OpenChannelToNativeApp(
 
 void MessagingBindings::OpenChannelToTab(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
+  // TODO(crbug.com/925918): Support Service worker to tab messaging.
+  DCHECK(!worker_thread_util::IsWorkerThread());
+
   content::RenderFrame* render_frame = context()->GetRenderFrame();
   if (!render_frame)
     return;
+
+  DCHECK_NE(context()->context_type(), Feature::CONTENT_SCRIPT_CONTEXT);
 
   // tabs_custom_bindings.js unwraps arguments to tabs.connect/sendMessage and
   // passes them to OpenChannelToTab, in the following order:
@@ -276,8 +301,8 @@ void MessagingBindings::OpenChannelToTab(
   {
     SCOPED_UMA_HISTOGRAM_TIMER("Extensions.Messaging.SetPortIdTime.Tab");
     render_frame->Send(new ExtensionHostMsg_OpenChannelToTab(
-        render_frame->GetRoutingID(), info, extension_id, channel_name,
-        port_id));
+        PortContext::ForFrame(render_frame->GetRoutingID()), info, extension_id,
+        channel_name, port_id));
   }
 
   args.GetReturnValue().Set(static_cast<int32_t>(js_id));

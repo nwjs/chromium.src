@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
@@ -67,7 +68,8 @@
 #include "content/renderer/storage_util.h"
 #include "content/renderer/web_database_observer_impl.h"
 #include "content/renderer/webgraphicscontext3d_provider_impl.h"
-#include "content/renderer/worker_thread_registry.h"
+#include "content/renderer/worker/dedicated_worker_host_factory_client.h"
+#include "content/renderer/worker/worker_thread_registry.h"
 #include "device/gamepad/public/cpp/gamepads.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
 #include "gpu/config/gpu_info.h"
@@ -121,7 +123,7 @@
 
 #include "content/renderer/media/webrtc/peer_connection_dependency_factory.h"
 #include "content/renderer/media/webrtc/rtc_certificate_generator.h"
-#include "content/renderer/media/webrtc/webrtc_uma_histograms.h"
+#include "third_party/blink/public/platform/modules/mediastream/webrtc_uma_histograms.h"
 
 using blink::Platform;
 using blink::WebAudioDevice;
@@ -404,6 +406,14 @@ blink::WebString RendererBlinkPlatformImpl::UserAgent() {
   if (!render_thread)
     return WebString();
   return render_thread->GetUserAgent();
+}
+
+blink::UserAgentMetadata RendererBlinkPlatformImpl::UserAgentMetadata() {
+  auto* render_thread = RenderThreadImpl::current();
+  // RenderThreadImpl is null in some tests.
+  if (!render_thread)
+    return blink::UserAgentMetadata();
+  return render_thread->GetUserAgentMetadata();
 }
 
 void RendererBlinkPlatformImpl::CacheMetadata(
@@ -801,7 +811,7 @@ void RendererBlinkPlatformImpl::CreateHTMLAudioElementCapturer(
                                      track_id, false /* is_remote */);
   web_media_stream_track.Initialize(web_media_stream_source);
 
-  MediaStreamAudioSource* const media_stream_source =
+  blink::MediaStreamAudioSource* const media_stream_source =
       HtmlAudioElementCapturerSource::CreateFromWebMediaPlayerImpl(
           web_media_player);
 
@@ -1053,6 +1063,14 @@ blink::WebPushProvider* RendererBlinkPlatformImpl::PushProvider() {
 
 //------------------------------------------------------------------------------
 
+std::unique_ptr<blink::WebDedicatedWorkerHostFactoryClient>
+RendererBlinkPlatformImpl::CreateDedicatedWorkerHostFactoryClient(
+    blink::WebDedicatedWorker* worker,
+    service_manager::InterfaceProvider* interface_provider) {
+  return std::make_unique<DedicatedWorkerHostFactoryClient>(worker,
+                                                            interface_provider);
+}
+
 void RendererBlinkPlatformImpl::DidStartWorkerThread() {
   WorkerThreadRegistry::Instance()->DidStartCurrentWorkerThread();
 }
@@ -1099,15 +1117,6 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
 }
 
 //------------------------------------------------------------------------------
-void RendererBlinkPlatformImpl::RequestPurgeMemory() {
-  base::MemoryPressureListener::NotifyMemoryPressure(
-      base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL);
-}
-
-void RendererBlinkPlatformImpl::SetMemoryPressureNotificationsSuppressed(
-    bool suppressed) {
-  base::MemoryPressureListener::SetNotificationsSuppressed(suppressed);
-}
 
 void RendererBlinkPlatformImpl::InitializeWebDatabaseHostIfNeeded() {
   if (!web_database_host_) {

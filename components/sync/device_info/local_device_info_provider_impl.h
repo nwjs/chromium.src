@@ -20,7 +20,6 @@ namespace syncer {
 
 class LocalDeviceInfoProviderImpl : public LocalDeviceInfoProvider {
  public:
-  // TODO(crbug.com/922971): This could be moved to DeviceInfoSyncService.
   using SigninScopedDeviceIdCallback = base::RepeatingCallback<std::string()>;
 
   LocalDeviceInfoProviderImpl(
@@ -34,7 +33,6 @@ class LocalDeviceInfoProviderImpl : public LocalDeviceInfoProvider {
   version_info::Channel GetChannel() const override;
   const DeviceInfo* GetLocalDeviceInfo() const override;
   std::string GetSyncUserAgent() const override;
-  std::string GetLocalSyncCacheGUID() const override;
   std::unique_ptr<Subscription> RegisterOnInitializedCallback(
       const base::RepeatingClosure& callback) override;
 
@@ -55,7 +53,6 @@ class LocalDeviceInfoProviderImpl : public LocalDeviceInfoProvider {
 
   const SigninScopedDeviceIdCallback signin_scoped_device_id_callback_;
 
-  std::string cache_guid_;
   std::unique_ptr<DeviceInfo> local_device_info_;
   base::CallbackList<void(void)> callback_list_;
 

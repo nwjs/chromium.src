@@ -35,8 +35,6 @@ class APP_LIST_EXPORT SuggestionChipView : public views::Button {
     base::string16 text;
     // Optional icon.
     base::Optional<gfx::ImageSkia> icon;
-    // True if the chip should use assistant style.
-    bool assistant_style = false;
   };
 
   SuggestionChipView(const Params& params, views::ButtonListener* listener);
@@ -78,9 +76,6 @@ class APP_LIST_EXPORT SuggestionChipView : public views::Button {
   views::Label* text_view_;      // Owned by view hierarchy.
 
   views::BoxLayout* layout_manager_;  // Owned by view hierarchy.
-
-  // True if this chip should use assistant style.
-  bool assistant_style_;
 
   // The owner of a mask layer used to clip the chip.
   std::unique_ptr<ui::LayerOwner> chip_mask_;

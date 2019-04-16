@@ -90,50 +90,63 @@ const char* GetDestinationFromContext(mojom::RequestContextType context) {
   return "";
 }
 
+// This maps the network::mojom::FetchRequestMode to a string that can be used
+// in a `Sec-Fetch-Mode` header.
+const char* FetchRequestModeToString(network::mojom::FetchRequestMode mode) {
+  switch (mode) {
+    case network::mojom::FetchRequestMode::kSameOrigin:
+      return "same-origin";
+    case network::mojom::FetchRequestMode::kNoCors:
+      return "no-cors";
+    case network::mojom::FetchRequestMode::kCors:
+    case network::mojom::FetchRequestMode::kCorsWithForcedPreflight:
+      return "cors";
+    case network::mojom::FetchRequestMode::kNavigate:
+      return "navigate";
+  }
+  NOTREACHED();
+  return "";
+}
+
 }  // namespace
 
-void BaseFetchContext::AddAdditionalRequestHeaders(ResourceRequest& request,
-                                                   FetchResourceType type) {
+void BaseFetchContext::AddAdditionalRequestHeaders(ResourceRequest& request) {
   const FetchClientSettingsObject& fetch_client_settings_object =
       GetResourceFetcherProperties().GetFetchClientSettingsObject();
-  bool is_main_resource = type == kFetchMainResource;
-  if (!is_main_resource) {
-    // TODO(domfarolino): we can probably *just set* the HTTP `Referer` here
-    // no matter what now.
-    if (!request.DidSetHTTPReferrer()) {
-      String referrer_to_use = request.ReferrerString();
-      network::mojom::ReferrerPolicy referrer_policy_to_use =
-          request.GetReferrerPolicy();
+  // TODO(domfarolino): we can probably *just set* the HTTP `Referer` here
+  // no matter what now.
+  if (!request.DidSetHTTPReferrer()) {
+    String referrer_to_use = request.ReferrerString();
+    network::mojom::ReferrerPolicy referrer_policy_to_use =
+        request.GetReferrerPolicy();
 
-      if (referrer_to_use == Referrer::ClientReferrerString())
-        referrer_to_use = fetch_client_settings_object.GetOutgoingReferrer();
+    if (referrer_to_use == Referrer::ClientReferrerString())
+      referrer_to_use = fetch_client_settings_object.GetOutgoingReferrer();
 
-      if (referrer_policy_to_use == network::mojom::ReferrerPolicy::kDefault) {
-        referrer_policy_to_use =
-            fetch_client_settings_object.GetReferrerPolicy();
-      }
-
-      // TODO(domfarolino): Stop storing ResourceRequest's referrer as a header
-      // and store it elsewhere. See https://crbug.com/850813.
-      request.SetHTTPReferrer(SecurityPolicy::GenerateReferrer(
-          referrer_policy_to_use, request.Url(), referrer_to_use));
-      request.SetHTTPOriginIfNeeded(
-          fetch_client_settings_object.GetSecurityOrigin());
-    } else {
-      CHECK_EQ(SecurityPolicy::GenerateReferrer(request.GetReferrerPolicy(),
-                                                request.Url(),
-                                                request.HttpReferrer())
-                   .referrer,
-               request.HttpReferrer());
-      request.SetHTTPOriginToMatchReferrerIfNeeded();
+    if (referrer_policy_to_use == network::mojom::ReferrerPolicy::kDefault) {
+      referrer_policy_to_use = fetch_client_settings_object.GetReferrerPolicy();
     }
+
+    // TODO(domfarolino): Stop storing ResourceRequest's referrer as a header
+    // and store it elsewhere. See https://crbug.com/850813.
+    request.SetHTTPReferrer(SecurityPolicy::GenerateReferrer(
+        referrer_policy_to_use, request.Url(), referrer_to_use));
+  } else {
+    CHECK_EQ(
+        SecurityPolicy::GenerateReferrer(request.GetReferrerPolicy(),
+                                         request.Url(), request.HttpReferrer())
+            .referrer,
+        request.HttpReferrer());
   }
 
-  auto address_space = GetAddressSpace();
+  auto address_space = fetch_client_settings_object.GetAddressSpace();
   if (address_space)
     request.SetExternalRequestStateFromRequestorAddressSpace(*address_space);
 
-  if (blink::RuntimeEnabledFeatures::SecMetadataEnabled()) {
+  scoped_refptr<SecurityOrigin> url_origin =
+      SecurityOrigin::Create(request.Url());
+  if (blink::RuntimeEnabledFeatures::SecMetadataEnabled() &&
+      url_origin->IsPotentiallyTrustworthy()) {
     const char* destination_value =
         GetDestinationFromContext(request.GetRequestContext());
 
@@ -146,9 +159,8 @@ void BaseFetchContext::AddAdditionalRequestHeaders(ResourceRequest& request,
     if (strncmp(destination_value, "document", 8) != 0 &&
         request.GetRequestContext() != mojom::RequestContextType::INTERNAL) {
       const char* site_value = "cross-site";
-      if (SecurityOrigin::Create(request.Url())
-              ->IsSameSchemeHostPort(
-                  fetch_client_settings_object.GetSecurityOrigin())) {
+      if (url_origin->IsSameSchemeHostPort(
+              fetch_client_settings_object.GetSecurityOrigin())) {
         site_value = "same-origin";
       } else {
         OriginAccessEntry access_entry(
@@ -163,6 +175,9 @@ void BaseFetchContext::AddAdditionalRequestHeaders(ResourceRequest& request,
       }
 
       request.AddHTTPHeaderField("Sec-Fetch-Dest", destination_value);
+      request.AddHTTPHeaderField(
+          "Sec-Fetch-Mode",
+          FetchRequestModeToString(request.GetFetchRequestMode()));
       request.AddHTTPHeaderField("Sec-Fetch-Site", site_value);
       request.AddHTTPHeaderField("Sec-Fetch-User", "?F");
     }
@@ -187,18 +202,15 @@ base::Optional<ResourceRequestBlockedReason> BaseFetchContext::CanRequest(
   return blocked_reason;
 }
 
-bool BaseFetchContext::IsAdResource(
-    const KURL& resource_url,
-    ResourceType type,
-    mojom::RequestContextType request_context) const {
+bool BaseFetchContext::CalculateIfAdSubresource(const ResourceRequest& request,
+                                                ResourceType type) {
+  // A base class should override this is they have more signals than just the
+  // SubresourceFilter.
   SubresourceFilter* filter = GetSubresourceFilter();
 
-  // We do not need main document tagging currently so skipping main resources.
-  if (filter && type != ResourceType::kMainResource) {
-    return filter->IsAdResource(resource_url, request_context);
-  }
-
-  return false;
+  return request.IsAdResource() ||
+         (filter &&
+          filter->IsAdResource(request.Url(), request.GetRequestContext()));
 }
 
 void BaseFetchContext::PrintAccessDeniedMessage(const KURL& url) const {
@@ -218,8 +230,8 @@ void BaseFetchContext::PrintAccessDeniedMessage(const KURL& url) const {
               ". Domains, protocols and ports must match.\n";
   }
 
-  AddConsoleMessage(ConsoleMessage::Create(kSecurityMessageSource,
-                                           kErrorMessageLevel, message));
+  AddConsoleMessage(ConsoleMessage::Create(
+      kSecurityMessageSource, mojom::ConsoleMessageLevel::kError, message));
 }
 
 base::Optional<ResourceRequestBlockedReason>
@@ -265,7 +277,7 @@ BaseFetchContext::CanRequestInternal(
     const ResourceLoaderOptions& options,
     SecurityViolationReportingPolicy reporting_policy,
     ResourceRequest::RedirectStatus redirect_status) const {
-  if (IsDetached()) {
+  if (GetResourceFetcherProperties().IsDetached()) {
     if (!resource_request.GetKeepalive() ||
         redirect_status == ResourceRequest::RedirectStatus::kNoRedirect) {
       return ResourceRequestBlockedReason::kOther;
@@ -287,7 +299,7 @@ BaseFetchContext::CanRequestInternal(
       !origin->CanDisplay(url)) {
     if (reporting_policy == SecurityViolationReportingPolicy::kReport) {
       AddConsoleMessage(ConsoleMessage::Create(
-          kJSMessageSource, kErrorMessageLevel,
+          kJSMessageSource, mojom::ConsoleMessageLevel::kError,
           "Not allowed to load local resource: " + url.GetString()));
     }
     RESOURCE_LOADING_DVLOG(1) << "ResourceFetcher::requestResource URL was not "
@@ -333,8 +345,7 @@ BaseFetchContext::CanRequestInternal(
 
   // SVG Images have unique security rules that prevent all subresource requests
   // except for data urls.
-  if (type != ResourceType::kMainResource && IsSVGImageChromeClient() &&
-      !url.ProtocolIsData())
+  if (IsSVGImageChromeClient() && !url.ProtocolIsData())
     return ResourceRequestBlockedReason::kOrigin;
 
   network::mojom::RequestContextFrameType frame_type =
@@ -386,8 +397,7 @@ BaseFetchContext::CanRequestInternal(
 
   // Let the client have the final say into whether or not the load should
   // proceed.
-  if (GetSubresourceFilter() && type != ResourceType::kMainResource &&
-      type != ResourceType::kImportResource) {
+  if (GetSubresourceFilter() && type != ResourceType::kImportResource) {
     if (!GetSubresourceFilter()->AllowLoad(url, request_context,
                                            reporting_policy)) {
       return ResourceRequestBlockedReason::kSubresourceFilter;

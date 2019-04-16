@@ -39,9 +39,7 @@
 #include "services/service_manager/embedder/switches.h"
 #include "services/service_manager/public/cpp/service.h"
 #include "services/service_manager/public/cpp/service_executable/service_executable_environment.h"
-#include "services/service_manager/runner/common/client_util.h"
-#include "services/service_manager/runner/common/switches.h"
-#include "services/service_manager/runner/init.h"
+#include "services/service_manager/public/cpp/service_executable/switches.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_paths.h"
 #include "ui/base/ui_base_switches.h"
@@ -77,34 +75,6 @@ namespace {
 // Maximum message size allowed to be read from a Mojo message pipe in any
 // service manager embedder process.
 constexpr size_t kMaximumMojoMessageSize = 256 * 1024 * 1024;
-
-class ServiceProcessLauncherDelegateImpl
-    : public service_manager::ServiceProcessLauncherDelegate {
- public:
-  explicit ServiceProcessLauncherDelegateImpl(MainDelegate* main_delegate)
-      : main_delegate_(main_delegate) {}
-  ~ServiceProcessLauncherDelegateImpl() override {}
-
- private:
-  // service_manager::ServiceProcessLauncherDelegate:
-  void AdjustCommandLineArgumentsForTarget(
-      const service_manager::Identity& target,
-      base::CommandLine* command_line) override {
-    if (main_delegate_->ShouldLaunchAsServiceProcess(target)) {
-      command_line->AppendSwitchASCII(switches::kProcessType,
-                                      switches::kProcessTypeService);
-#if defined(OS_WIN)
-      command_line->AppendArg(switches::kDefaultServicePrefetchArgument);
-#endif
-    }
-
-    main_delegate_->AdjustServiceProcessCommandLine(target, command_line);
-  }
-
-  MainDelegate* const main_delegate_;
-
-  DISALLOW_COPY_AND_ASSIGN(ServiceProcessLauncherDelegateImpl);
-};
 
 #if defined(OS_POSIX) && !defined(OS_ANDROID)
 
@@ -187,7 +157,14 @@ void CommonSubprocessInit() {
 }
 
 void NonEmbedderProcessInit() {
-  service_manager::InitializeLogging();
+  logging::LoggingSettings settings;
+  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  logging::InitLogging(settings);
+  // To view log output with IDs and timestamps use "adb logcat -v threadtime".
+  logging::SetLogItems(true,   // Process ID
+                       true,   // Thread ID
+                       true,   // Timestamp
+                       true);  // Tick count
 
 #if !defined(OFFICIAL_BUILD)
   // Initialize stack dumping before initializing sandbox to make sure symbol
@@ -203,25 +180,6 @@ void NonEmbedderProcessInit() {
   base::TaskScheduler::CreateAndStartWithDefaultParams("ServiceManagerProcess");
 }
 
-void WaitForDebuggerIfNecessary() {
-  if (!ServiceManagerIsRemote())
-    return;
-
-  const auto& command_line = *base::CommandLine::ForCurrentProcess();
-  const std::string service_name =
-      command_line.GetSwitchValueASCII(switches::kServiceName);
-  if (service_name !=
-      command_line.GetSwitchValueASCII(::switches::kWaitForDebugger)) {
-    return;
-  }
-
-  // Include the pid as logging may not have been initialized yet (the pid
-  // printed out by logging is wrong).
-  LOG(WARNING) << "waiting for debugger to attach for service " << service_name
-               << " pid=" << base::Process::Current().Pid();
-  base::debug::WaitForDebugger(120, true);
-}
-
 int RunServiceManager(MainDelegate* delegate) {
   NonEmbedderProcessInit();
 
@@ -234,10 +192,8 @@ int RunServiceManager(MainDelegate* delegate) {
       ipc_thread.task_runner(),
       mojo::core::ScopedIPCSupport::ShutdownPolicy::FAST);
 
-  ServiceProcessLauncherDelegateImpl service_process_launcher_delegate(
-      delegate);
   service_manager::BackgroundServiceManager background_service_manager(
-      &service_process_launcher_delegate, delegate->GetServiceManifests());
+      delegate->GetServiceManifests());
 
   base::RunLoop run_loop;
   delegate->OnServiceManagerInitialized(run_loop.QuitClosure(),
@@ -262,7 +218,6 @@ void InitializeResources() {
 
 int RunService(MainDelegate* delegate) {
   NonEmbedderProcessInit();
-  WaitForDebuggerIfNecessary();
 
   InitializeResources();
 

@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/containers/circular_deque.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -81,7 +82,7 @@ class Buffer : public PacketPipe {
     int64_t microseconds = static_cast<int64_t>(seconds * 1E6);
     task_runner_->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&Buffer::ProcessBuffer, weak_factory_.GetWeakPtr()),
+        base::BindOnce(&Buffer::ProcessBuffer, weak_factory_.GetWeakPtr()),
         base::TimeDelta::FromMicroseconds(microseconds));
   }
 
@@ -146,8 +147,8 @@ class SimpleDelayBase : public PacketPipe {
     double seconds = GetDelay();
     task_runner_->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&SimpleDelayBase::SendInternal, weak_factory_.GetWeakPtr(),
-                   base::Passed(&packet)),
+        base::BindOnce(&SimpleDelayBase::SendInternal,
+                       weak_factory_.GetWeakPtr(), std::move(packet)),
         base::TimeDelta::FromMicroseconds(static_cast<int64_t>(seconds * 1E6)));
   }
  protected:
@@ -247,8 +248,8 @@ class RandomSortedDelay : public PacketPipe {
     int64_t microseconds = static_cast<int64_t>(seconds * 1E6);
     task_runner_->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&RandomSortedDelay::CauseExtraDelay,
-                   weak_factory_.GetWeakPtr()),
+        base::BindOnce(&RandomSortedDelay::CauseExtraDelay,
+                       weak_factory_.GetWeakPtr()),
         base::TimeDelta::FromMicroseconds(microseconds));
   }
 
@@ -277,8 +278,8 @@ class RandomSortedDelay : public PacketPipe {
     if (!buffer_.empty()) {
       task_runner_->PostDelayedTask(
           FROM_HERE,
-          base::Bind(&RandomSortedDelay::ProcessBuffer,
-                     weak_factory_.GetWeakPtr()),
+          base::BindOnce(&RandomSortedDelay::ProcessBuffer,
+                         weak_factory_.GetWeakPtr()),
           next_send_ - now);
     }
   }
@@ -329,7 +330,7 @@ class NetworkGlitchPipe : public PacketPipe {
     int64_t microseconds = static_cast<int64_t>(seconds * 1E6);
     task_runner_->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&NetworkGlitchPipe::Flip, weak_factory_.GetWeakPtr()),
+        base::BindOnce(&NetworkGlitchPipe::Flip, weak_factory_.GetWeakPtr()),
         base::TimeDelta::FromMicroseconds(microseconds));
   }
 
@@ -486,8 +487,8 @@ void InterruptedPoissonProcess::UpdateRates() {
   rate_index_ = (rate_index_ + 1) % average_rates_.size();
   task_runner_->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&InterruptedPoissonProcess::UpdateRates,
-                 weak_factory_.GetWeakPtr()),
+      base::BindOnce(&InterruptedPoissonProcess::UpdateRates,
+                     weak_factory_.GetWeakPtr()),
       base::TimeDelta::FromSeconds(1));
 }
 
@@ -495,8 +496,8 @@ void InterruptedPoissonProcess::SwitchOff() {
   on_state_ = false;
   task_runner_->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&InterruptedPoissonProcess::SwitchOn,
-                 weak_factory_.GetWeakPtr()),
+      base::BindOnce(&InterruptedPoissonProcess::SwitchOn,
+                     weak_factory_.GetWeakPtr()),
       NextEvent(switch_on_rate_));
 }
 
@@ -504,16 +505,16 @@ void InterruptedPoissonProcess::SwitchOn() {
   on_state_ = true;
   task_runner_->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&InterruptedPoissonProcess::SwitchOff,
-                 weak_factory_.GetWeakPtr()),
+      base::BindOnce(&InterruptedPoissonProcess::SwitchOff,
+                     weak_factory_.GetWeakPtr()),
       NextEvent(switch_off_rate_));
 }
 
 void InterruptedPoissonProcess::SendPacket() {
   task_runner_->PostDelayedTask(
       FROM_HERE,
-      base::Bind(&InterruptedPoissonProcess::SendPacket,
-                 weak_factory_.GetWeakPtr()),
+      base::BindOnce(&InterruptedPoissonProcess::SendPacket,
+                     weak_factory_.GetWeakPtr()),
       NextEvent(send_rate_));
 
   // If OFF then don't send.
@@ -701,11 +702,8 @@ class UDPProxyImpl : public UDPProxy {
         base::WaitableEvent::ResetPolicy::AUTOMATIC,
         base::WaitableEvent::InitialState::NOT_SIGNALED);
     proxy_thread_.task_runner()->PostTask(
-        FROM_HERE,
-        base::Bind(&UDPProxyImpl::Start,
-                   base::Unretained(this),
-                   base::Unretained(&start_event),
-                   net_log));
+        FROM_HERE, base::BindOnce(&UDPProxyImpl::Start, base::Unretained(this),
+                                  base::Unretained(&start_event), net_log));
     start_event.Wait();
   }
 
@@ -715,10 +713,8 @@ class UDPProxyImpl : public UDPProxy {
         base::WaitableEvent::ResetPolicy::AUTOMATIC,
         base::WaitableEvent::InitialState::NOT_SIGNALED);
     proxy_thread_.task_runner()->PostTask(
-        FROM_HERE,
-        base::Bind(&UDPProxyImpl::Stop,
-                   base::Unretained(this),
-                   base::Unretained(&stop_event)));
+        FROM_HERE, base::BindOnce(&UDPProxyImpl::Stop, base::Unretained(this),
+                                  base::Unretained(&stop_event)));
     stop_event.Wait();
     proxy_thread_.Stop();
   }

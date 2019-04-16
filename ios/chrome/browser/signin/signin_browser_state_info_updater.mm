@@ -58,7 +58,7 @@ void SigninBrowserStateInfoUpdater::UpdateBrowserStateInfo() {
     return;
 
   if (identity_manager_->HasPrimaryAccount()) {
-    AccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
+    CoreAccountInfo account_info = identity_manager_->GetPrimaryAccountInfo();
     cache->SetAuthInfoOfBrowserStateAtIndex(
         index, account_info.gaia, base::UTF8ToUTF16(account_info.email));
   } else {
@@ -80,11 +80,11 @@ void SigninBrowserStateInfoUpdater::OnErrorChanged() {
 }
 
 void SigninBrowserStateInfoUpdater::OnPrimaryAccountSet(
-    const AccountInfo& primary_account_info) {
+    const CoreAccountInfo& primary_account_info) {
   UpdateBrowserStateInfo();
 }
 
 void SigninBrowserStateInfoUpdater::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   UpdateBrowserStateInfo();
 }

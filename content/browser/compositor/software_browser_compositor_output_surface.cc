@@ -52,9 +52,7 @@ void SoftwareBrowserCompositorOutputSurface::BindFramebuffer() {
 }
 
 void SoftwareBrowserCompositorOutputSurface::SetDrawRectangle(
-    const gfx::Rect& draw_rectangle) {
-  NOTREACHED();
-}
+    const gfx::Rect& draw_rectangle) {}
 
 void SoftwareBrowserCompositorOutputSurface::Reshape(
     const gfx::Size& size,
@@ -122,13 +120,6 @@ SoftwareBrowserCompositorOutputSurface::GetFramebufferCopyTextureFormat() {
   NOTREACHED();
   return 0;
 }
-
-#if BUILDFLAG(ENABLE_VULKAN)
-gpu::VulkanSurface* SoftwareBrowserCompositorOutputSurface::GetVulkanSurface() {
-  NOTIMPLEMENTED();
-  return nullptr;
-}
-#endif
 
 unsigned SoftwareBrowserCompositorOutputSurface::UpdateGpuFence() {
   return 0;

@@ -9,7 +9,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 
-import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeActivity;
@@ -18,6 +17,7 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.IntentUtils;
 
+import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -128,9 +128,14 @@ public class AutofillAssistantFacade {
         Map<String, String> result = new HashMap<>();
         if (extras != null) {
             for (String key : extras.keySet()) {
-                if (key.startsWith(INTENT_EXTRA_PREFIX) && !key.startsWith(INTENT_SPECIAL_PREFIX)) {
-                    result.put(key.substring(INTENT_EXTRA_PREFIX.length()),
-                            extras.get(key).toString());
+                try {
+                    if (key.startsWith(INTENT_EXTRA_PREFIX)
+                            && !key.startsWith(INTENT_SPECIAL_PREFIX)) {
+                        result.put(key.substring(INTENT_EXTRA_PREFIX.length()),
+                                URLDecoder.decode(extras.get(key).toString(), "UTF-8"));
+                    }
+                } catch (java.io.UnsupportedEncodingException e) {
+                    throw new IllegalStateException("UTF-8 encoding not available.", e);
                 }
             }
         }
@@ -161,7 +166,7 @@ public class AutofillAssistantFacade {
         if (pendingIntent == null) {
             return false;
         }
-        String packageName = ApiCompatibilityUtils.getCreatorPackage(pendingIntent);
+        String packageName = pendingIntent.getCreatorPackage();
         for (String whitelistedPackage : whitelist) {
             if (whitelistedPackage.equals(packageName)) {
                 return true;

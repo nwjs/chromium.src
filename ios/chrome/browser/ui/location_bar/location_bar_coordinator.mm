@@ -37,15 +37,18 @@
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_coordinator.h"
 #include "ios/chrome/browser/ui/omnibox/web_omnibox_edit_controller_impl.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator_delegate.h"
-#import "ios/chrome/browser/ui/url_loader.h"
 #import "ios/chrome/browser/ui/util/pasteboard_util.h"
+#import "ios/chrome/browser/url_loading/url_loading_service.h"
+#import "ios/chrome/browser/url_loading/url_loading_service_factory.h"
 #import "ios/chrome/browser/url_loading/url_loading_util.h"
+#import "ios/chrome/browser/web/web_navigation_util.h"
 #import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #include "ios/public/provider/chrome/browser/voice/voice_search_provider.h"
 #import "ios/web/public/navigation_manager.h"
 #import "ios/web/public/referrer.h"
 #import "ios/web/public/web_state/web_state.h"
+#include "services/network/public/cpp/resource_request.h"
 #include "url/gurl.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -92,17 +95,15 @@ const int kLocationAuthorizationStatusCount = 4;
 @synthesize mediator = _mediator;
 @synthesize browserState = _browserState;
 @synthesize dispatcher = _dispatcher;
-@synthesize URLLoader = _URLLoader;
 @synthesize delegate = _delegate;
 @synthesize webStateList = _webStateList;
 @synthesize omniboxPopupCoordinator = _omniboxPopupCoordinator;
-@synthesize popupPositioner = _popupPositioner;
 @synthesize omniboxCoordinator = _omniboxCoordinator;
 
 #pragma mark - public
 
-- (UIView*)view {
-  return self.viewController.view;
+- (UIViewController*)locationBarViewController {
+  return self.viewController;
 }
 
 - (void)start {
@@ -148,8 +149,8 @@ const int kLocationAuthorizationStatusCount = 4;
       didMoveToParentViewController:self.viewController];
   self.viewController.offsetProvider = [self.omniboxCoordinator offsetProvider];
 
-  self.omniboxPopupCoordinator =
-      [self.omniboxCoordinator createPopupCoordinator:self.popupPositioner];
+  self.omniboxPopupCoordinator = [self.omniboxCoordinator
+      createPopupCoordinator:self.popupPresenterDelegate];
   self.omniboxPopupCoordinator.dispatcher = self.dispatcher;
   self.omniboxPopupCoordinator.webStateList = self.webStateList;
   [self.omniboxPopupCoordinator start];
@@ -157,6 +158,8 @@ const int kLocationAuthorizationStatusCount = 4;
   self.mediator = [[LocationBarMediator alloc]
       initWithLocationBarModel:[self locationBarModel]];
   self.mediator.webStateList = self.webStateList;
+  self.mediator.templateURLService =
+      ios::TemplateURLServiceFactory::GetForBrowserState(self.browserState);
   self.mediator.consumer = self;
 
   _fullscreenObserver =
@@ -226,6 +229,7 @@ const int kLocationAuthorizationStatusCount = 4;
 #pragma mark - LocationBarURLLoader
 
 - (void)loadGURLFromLocationBar:(const GURL&)url
+                    postContent:(TemplateURLRef::PostContent*)postContent
                      transition:(ui::PageTransition)transition
                     disposition:(WindowOpenDisposition)disposition {
   if (url.SchemeIs(url::kJavaScriptScheme)) {
@@ -240,12 +244,16 @@ const int kLocationAuthorizationStatusCount = 4;
     // |loadURL|?  It doesn't seem to be causing major problems.  If we call
     // cancel before load, then any prerendered pages get destroyed before the
     // call to load.
-    web::NavigationManager::WebLoadParams params(url);
-    params.transition_type = transition;
-    params.extra_headers = [self variationHeadersForURL:url];
+    web::NavigationManager::WebLoadParams params =
+        web_navigation_util::CreateWebLoadParams(url, transition, postContent);
+    NSMutableDictionary* combinedExtraHeaders =
+        [[self variationHeadersForURL:url] mutableCopy];
+    [combinedExtraHeaders addEntriesFromDictionary:params.extra_headers];
+    params.extra_headers = [combinedExtraHeaders copy];
     ChromeLoadParams chromeParams(params);
     chromeParams.disposition = disposition;
-    [self.URLLoader loadURLWithParams:chromeParams];
+    UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
+        ->LoadUrlInCurrentTab(chromeParams);
 
     if (google_util::IsGoogleSearchUrl(url)) {
       UMA_HISTOGRAM_ENUMERATION(
@@ -262,10 +270,12 @@ const int kLocationAuthorizationStatusCount = 4;
 - (void)focusOmniboxFromSearchButton {
   // TODO(crbug.com/931284): Temporary workaround for intermediate broken state
   // in the NTP.  Remove this once crbug.com/899827 is fixed.
-  NewTabPageTabHelper* NTPHelper =
-      NewTabPageTabHelper::FromWebState(self.webState);
-  if (NTPHelper && NTPHelper->IsActive() && NTPHelper->IgnoreLoadRequests()) {
-    return;
+  if (self.webState) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(self.webState);
+    if (NTPHelper && NTPHelper->IsActive() && NTPHelper->IgnoreLoadRequests()) {
+      return;
+    }
   }
   [self.omniboxCoordinator setNextFocusSourceAsSearchButton];
   [self focusOmnibox];
@@ -278,22 +288,24 @@ const int kLocationAuthorizationStatusCount = 4;
 - (void)focusOmnibox {
   // TODO(crbug.com/931284): Temporary workaround for intermediate broken state
   // in the NTP.  Remove this once crbug.com/899827 is fixed.
-  NewTabPageTabHelper* NTPHelper =
-      NewTabPageTabHelper::FromWebState(self.webState);
-  if (NTPHelper && NTPHelper->IsActive() && NTPHelper->IgnoreLoadRequests()) {
-    return;
+  if (self.webState) {
+    NewTabPageTabHelper* NTPHelper =
+        NewTabPageTabHelper::FromWebState(self.webState);
+    if (NTPHelper && NTPHelper->IsActive() && NTPHelper->IgnoreLoadRequests()) {
+      return;
+    }
   }
   // Dismiss the edit menu.
   [[UIMenuController sharedMenuController] setMenuVisible:NO animated:NO];
 
   // When the NTP and fakebox are visible, make the fakebox animates into place
-  // before focusing the omnibox.webState
+  // before focusing the omnibox.
   if (IsVisibleURLNewTabPage([self webState]) &&
       !self.browserState->IsOffTheRecord()) {
     [self.viewController.dispatcher focusFakebox];
   } else {
     [self.omniboxCoordinator focusOmnibox];
-    [self.omniboxPopupCoordinator openPopup];
+    [self.omniboxPopupCoordinator presentShortcutsIfNecessary];
   }
 }
 
@@ -303,7 +315,7 @@ const int kLocationAuthorizationStatusCount = 4;
   }
   self.isCancellingOmniboxEdit = YES;
   [self.omniboxCoordinator endEditing];
-  [self.omniboxPopupCoordinator closePopup];
+  [self.omniboxPopupCoordinator dismissShortcuts];
   self.isCancellingOmniboxEdit = NO;
 }
 
@@ -364,21 +376,29 @@ const int kLocationAuthorizationStatusCount = 4;
   [self.viewController setShareButtonEnabled:shareable];
 }
 
+- (void)updateSearchByImageSupported:(BOOL)searchByImageSupported {
+  self.viewController.searchByImageEnabled = searchByImageSupported;
+}
+
+- (void)displayInfobarBadge:(BOOL)display {
+  [self.viewController displayInfobarButton:display];
+}
+
 #pragma mark - private
 
 // Returns a dictionary with variation headers for qualified URLs. Can be empty.
 - (NSDictionary*)variationHeadersForURL:(const GURL&)URL {
-  net::HttpRequestHeaders variation_headers;
-  variations::AppendVariationHeadersUnknownSignedIn(
+  network::ResourceRequest resource_request;
+  variations::AppendVariationsHeaderUnknownSignedIn(
       URL,
       self.browserState->IsOffTheRecord() ? variations::InIncognito::kYes
                                           : variations::InIncognito::kNo,
-      &variation_headers);
+      &resource_request);
   NSMutableDictionary* result = [NSMutableDictionary dictionary];
-  net::HttpRequestHeaders::Iterator header_iterator(variation_headers);
-  while (header_iterator.GetNext()) {
-    NSString* name = base::SysUTF8ToNSString(header_iterator.name());
-    NSString* value = base::SysUTF8ToNSString(header_iterator.value());
+  if (!resource_request.client_data_header.empty()) {
+    NSString* name = base::SysUTF8ToNSString("X-Client-Data");
+    NSString* value =
+        base::SysUTF8ToNSString(resource_request.client_data_header);
     result[name] = value;
   }
   return [result copy];
@@ -403,7 +423,8 @@ const int kLocationAuthorizationStatusCount = 4;
     params.transition_type = ui::PageTransitionFromInt(
         ui::PAGE_TRANSITION_LINK | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
     ChromeLoadParams chromeParams(params);
-    [self.URLLoader loadURLWithParams:chromeParams];
+    UrlLoadingServiceFactory::GetForBrowserState(self.browserState)
+        ->LoadUrlInCurrentTab(chromeParams);
   }
 }
 

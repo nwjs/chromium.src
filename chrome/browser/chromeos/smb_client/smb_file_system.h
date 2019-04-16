@@ -52,11 +52,17 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
       base::RepeatingCallback<void(const std::string& /* share_path */,
                                    int32_t /* mount_id */,
                                    base::OnceClosure /* reply */)>;
+  using RequestUpdatedSharePathCallback =
+      base::RepeatingCallback<void(const std::string& /* share_path */,
+                                   int32_t /* mount_id */,
+                                   SmbService::StartReadDirIfSuccessfulCallback
+                                   /* reply */)>;
 
   SmbFileSystem(
       const file_system_provider::ProvidedFileSystemInfo& file_system_info,
       UnmountCallback unmount_callback,
-      RequestCredentialsCallback request_creds_callback);
+      RequestCredentialsCallback request_creds_callback,
+      RequestUpdatedSharePathCallback request_path_callback);
   ~SmbFileSystem() override;
 
   // ProvidedFileSystemInterface overrides.
@@ -233,6 +239,11 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
   // updated, |reply| is executed.
   void RequestUpdatedCredentials(base::OnceClosure reply);
 
+  // Requests updated share path for the mount. Once the share path have been,
+  // updated, |reply| is executed.
+  void RequestUpdatedSharePath(
+      SmbService::StartReadDirIfSuccessfulCallback reply);
+
   void HandleRequestUnmountCallback(
       storage::AsyncFileUtil::StatusCallback callback,
       smbprovider::ErrorType error);
@@ -338,12 +349,24 @@ class SmbFileSystem : public file_system_provider::ProvidedFileSystemInterface,
   // the OperationId for the newly created Operation.
   OperationId EnqueueTaskAndGetOperationId(SmbTask task);
 
+  // Check if the error can be recovered and handled to continue its original
+  // operation. Returns true if error can be handled.
+  bool IsRecoverableError(smbprovider::ErrorType error) const;
+
+  // Runs the StartReadDirectory if |should_retry_start_read_dir| is true. If
+  // false, |callback| will run instead.
+  void RetryStartReadDir(const base::FilePath& directory_path,
+                         OperationId operation_id,
+                         storage::AsyncFileUtil::ReadDirectoryCallback callback,
+                         bool should_retry_start_read_dir);
+
   const file_system_provider::ProvidedFileSystemInfo file_system_info_;
   // opened_files_ is marked const since is currently unsupported.
   const file_system_provider::OpenedFiles opened_files_;
 
   UnmountCallback unmount_callback_;
   RequestCredentialsCallback request_creds_callback_;
+  RequestUpdatedSharePathCallback request_path_callback_;
   std::unique_ptr<TempFileManager> temp_file_manager_;
   mutable SmbTaskQueue task_queue_;
 

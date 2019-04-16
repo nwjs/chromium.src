@@ -46,10 +46,10 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
                                      public ui::WebDialogDelegate,
                                      public views::WidgetDelegate {
  public:
-  // |handler| must not be NULL and this class takes the ownership.
+  // |handler| must not be nullptr.
   WebDialogView(content::BrowserContext* context,
                 ui::WebDialogDelegate* delegate,
-                WebContentsHandler* handler);
+                std::unique_ptr<WebContentsHandler> handler);
   ~WebDialogView() override;
 
   // For testing.
@@ -93,7 +93,8 @@ class WEBVIEW_EXPORT WebDialogView : public views::ClientView,
   void OnCloseContents(content::WebContents* source,
                        bool* out_close_dialog) override;
   bool ShouldShowDialogTitle() const override;
-  bool HandleContextMenu(const content::ContextMenuParams& params) override;
+  bool HandleContextMenu(content::RenderFrameHost* render_frame_host,
+                         const content::ContextMenuParams& params) override;
 
   // Overridden from content::WebContentsDelegate:
   void SetContentsBounds(content::WebContents* source,

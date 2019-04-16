@@ -116,14 +116,13 @@ class QuicConnectionPeer {
                                          QuicPacketCount packets);
   static void SetNextMtuProbeAt(QuicConnection* connection,
                                 QuicPacketNumber number);
-  static void SetAckMode(QuicConnection* connection,
-                         QuicConnection::AckMode ack_mode);
+  static void SetAckMode(QuicConnection* connection, AckMode ack_mode);
   static void SetFastAckAfterQuiescence(QuicConnection* connection,
                                         bool fast_ack_after_quiescence);
   static void SetAckDecimationDelay(QuicConnection* connection,
                                     float ack_decimation_delay);
   static bool HasRetransmittableFrames(QuicConnection* connection,
-                                       QuicPacketNumber packet_number);
+                                       uint64_t packet_number);
   static bool GetNoStopWaitingFrames(QuicConnection* connection);
   static void SetNoStopWaitingFrames(QuicConnection* connection,
                                      bool no_stop_waiting_frames);

@@ -7,9 +7,11 @@
 #include <cmath>
 #include <limits>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "media/capabilities/bucket_utility.h"
+#include "media/mojo/interfaces/media_types.mojom.h"
 
 namespace media {
 

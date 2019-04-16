@@ -14,7 +14,6 @@ import android.support.annotation.ColorRes;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
-import android.support.v7.content.res.AppCompatResources;
 import android.util.AttributeSet;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -40,6 +39,7 @@ import org.chromium.chrome.browser.toolbar.MenuButton;
 import org.chromium.chrome.browser.toolbar.TabCountProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
+import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.util.ViewUtils;
 import org.chromium.chrome.browser.widget.ToolbarProgressBar;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
@@ -80,9 +80,8 @@ public abstract class ToolbarLayout extends FrameLayout {
      */
     public ToolbarLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mDarkModeTint = AppCompatResources.getColorStateList(getContext(), R.color.dark_mode_tint);
-        mLightModeTint =
-                AppCompatResources.getColorStateList(getContext(), R.color.light_mode_tint);
+        mDarkModeTint = ColorUtils.getThemedToolbarIconTint(getContext(), false);
+        mLightModeTint = ColorUtils.getThemedToolbarIconTint(getContext(), true);
         mProgressBar = createProgressBar();
 
         addOnLayoutChangeListener(new OnLayoutChangeListener() {
@@ -139,6 +138,11 @@ public abstract class ToolbarLayout extends FrameLayout {
     ToolbarProgressBar createProgressBar() {
         return new ToolbarProgressBar(getContext(), getProgressBarHeight(), this, false);
     }
+
+    /**
+     * @param isVisible Whether the bottom toolbar is visible.
+     */
+    void onBottomToolbarVisibilityChanged(boolean isVisible) {}
 
     /**
      * Disable the menu button. This removes the view from the hierarchy and nulls the related
@@ -709,11 +713,6 @@ public abstract class ToolbarLayout extends FrameLayout {
     public abstract LocationBar getLocationBar();
 
     /**
-     * @return Whether or not this toolbar should use light or dark assets based on the theme.
-     */
-    abstract boolean useLightDrawables();
-
-    /**
      * Navigates the current Tab back.
      * @return Whether or not the current Tab did go back.
      */
@@ -757,7 +756,12 @@ public abstract class ToolbarLayout extends FrameLayout {
 
     void showAppMenuUpdateBadge(boolean animate) {
         if (mMenuButtonWrapper == null) return;
-        mMenuButtonWrapper.showAppMenuUpdateBadge(animate);
+        mMenuButtonWrapper.showAppMenuUpdateBadgeIfAvailable(animate);
+    }
+
+    void setAppMenuUpdateBadgeSuppressed(boolean suppress) {
+        if (mMenuButtonWrapper == null) return;
+        mMenuButtonWrapper.setAppMenuUpdateBadgeSuppressed(suppress);
     }
 
     boolean isShowingAppMenuUpdateBadge() {

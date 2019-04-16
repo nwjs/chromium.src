@@ -86,7 +86,7 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DebugDaemonClient
   virtual void GetPerfOutput(base::TimeDelta duration,
                              const std::vector<std::string>& perf_args,
                              int file_descriptor,
-                             VoidDBusMethodCallback callback) = 0;
+                             DBusMethodCallback<uint64_t> callback) = 0;
 
   // Callback type for GetScrubbedLogs(), GetAllLogs() or GetUserLogFiles().
   using GetLogsCallback =
@@ -236,6 +236,12 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) DebugDaemonClient
   // Calls debugd::kSetRlzPingSent, which sets |should_send_rlz_ping| in RW_VPD
   // to 0.
   virtual void SetRlzPingSent(SetRlzPingSentCallback callback) = 0;
+
+  // Request switching to the scheduler configuration profile indicated. The
+  // profile names are defined by debugd, which adjusts various knobs affecting
+  // kernel level task scheduling (see debugd source code for details).
+  virtual void SetSchedulerConfiguration(const std::string& config_name,
+                                         VoidDBusMethodCallback callback) = 0;
 
   // Factory function, creates a new instance and returns ownership.
   // For normal usage, access the singleton via DBusThreadManager::Get().

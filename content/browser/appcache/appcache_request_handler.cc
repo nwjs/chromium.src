@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "content/browser/appcache/appcache.h"
 #include "content/browser/appcache/appcache_backend_impl.h"
@@ -23,6 +24,7 @@
 #include "net/url_request/url_request.h"
 #include "net/url_request/url_request_job.h"
 #include "services/network/public/cpp/features.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/appcache/appcache_info.mojom.h"
 
 namespace content {
@@ -239,6 +241,15 @@ AppCacheRequestHandler::InitializeForMainResourceNetworkService(
   return handler;
 }
 
+// static
+bool AppCacheRequestHandler::IsMainResourceType(ResourceType type) {
+  // When PlzDedicatedWorker is enabled, a dedicated worker script is considered
+  // to be a main resource.
+  if (type == RESOURCE_TYPE_WORKER)
+    return blink::features::IsPlzDedicatedWorkerEnabled();
+  return IsResourceTypeFrame(type) || type == RESOURCE_TYPE_SHARED_WORKER;
+}
+
 void AppCacheRequestHandler::OnDestructionImminent(AppCacheHost* host) {
   storage()->CancelDelegateCallbacks(this);
   host_ = nullptr;  // no need to RemoveObserver, the host is being deleted
@@ -399,7 +410,7 @@ void AppCacheRequestHandler::OnMainResponseFound(
       host_->NotifyMainResourceBlocked(manifest_url);
     } else {
       DCHECK_EQ(resource_type_, RESOURCE_TYPE_SHARED_WORKER);
-      host_->frontend()->OnContentBlocked(host_->host_id(), manifest_url);
+      host_->OnContentBlocked(manifest_url);
     }
     DeliverNetworkResponse();
     return;

@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
@@ -69,6 +70,11 @@ bool IsValidStateChange(LifecycleUnitState from,
         case LifecycleUnitState::DISCARDED: {
           return reason == StateChangeReason::SYSTEM_MEMORY_PRESSURE ||
                  reason == StateChangeReason::EXTENSION_INITIATED;
+        }
+        case LifecycleUnitState::FROZEN: {
+          // Render-initiated freezing, which happens when freezing a page
+          // through ChromeDriver.
+          return reason == StateChangeReason::RENDERER_INITIATED;
         }
         default:
           return false;
@@ -779,7 +785,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
   DCHECK_EQ(GetLoadingState(), LifecycleUnitLoadingState::UNLOADED);
 }
 
-bool TabLifecycleUnitSource::TabLifecycleUnit::DiscardImpl(
+bool TabLifecycleUnitSource::TabLifecycleUnit::Discard(
     LifecycleUnitDiscardReason reason) {
   // Can't discard a tab when it isn't in a tabstrip.
   if (!tab_strip_model_) {
@@ -802,6 +808,8 @@ bool TabLifecycleUnitSource::TabLifecycleUnit::DiscardImpl(
                       << target_state << " is not allowed.";
     return false;
   }
+
+  discard_reason_ = reason;
 
   // If the tab is not going through an urgent discard, it should be frozen
   // first. Freeze the tab and set a timer to callback to FinishDiscard() in
@@ -893,7 +901,8 @@ void TabLifecycleUnitSource::TabLifecycleUnit::OnLifecycleUnitStateChanged(
   const bool is_discarded = IsDiscardedOrPendingDiscard(GetState());
   if (was_discarded != is_discarded) {
     for (auto& observer : *observers_)
-      observer.OnDiscardedStateChange(web_contents(), is_discarded);
+      observer.OnDiscardedStateChange(web_contents(), GetDiscardReason(),
+                                      is_discarded);
   }
 }
 
@@ -1012,6 +1021,11 @@ void TabLifecycleUnitSource::TabLifecycleUnit::CanDiscardHeuristicsChecks(
         break;
     }
   }
+}
+
+LifecycleUnitDiscardReason
+TabLifecycleUnitSource::TabLifecycleUnit::GetDiscardReason() const {
+  return discard_reason_;
 }
 
 }  // namespace resource_coordinator

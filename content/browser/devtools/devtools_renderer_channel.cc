@@ -4,6 +4,8 @@
 
 #include "content/browser/devtools/devtools_renderer_channel.h"
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "content/browser/devtools/devtools_agent_host_impl.h"
 #include "content/browser/devtools/devtools_session.h"
 #include "content/browser/devtools/protocol/devtools_domain_handler.h"
@@ -145,6 +147,7 @@ void DevToolsRendererChannel::ChildWorkerCreated(
     blink::mojom::DevToolsAgentPtr worker_devtools_agent,
     blink::mojom::DevToolsAgentHostRequest host_request,
     const GURL& url,
+    const std::string& name,
     const base::UnguessableToken& devtools_worker_token,
     bool waiting_for_debugger) {
   if (content::DevToolsAgentHost::GetForId(devtools_worker_token.ToString())) {
@@ -158,7 +161,7 @@ void DevToolsRendererChannel::ChildWorkerCreated(
   process->FilterURL(true /* empty_allowed */, &filtered_url);
   auto agent_host = base::MakeRefCounted<WorkerDevToolsAgentHost>(
       process_id_, std::move(worker_devtools_agent), std::move(host_request),
-      filtered_url, devtools_worker_token, owner_->GetId(),
+      filtered_url, std::move(name), devtools_worker_token, owner_->GetId(),
       base::BindOnce(&DevToolsRendererChannel::ChildWorkerDestroyed,
                      weak_factory_.GetWeakPtr()));
   child_workers_.insert(agent_host.get());

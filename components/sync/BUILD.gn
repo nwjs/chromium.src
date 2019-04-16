@@ -108,7 +108,6 @@ jumbo_static_library("sync") {
     "driver/async_directory_type_controller.h",
     "driver/backend_migrator.cc",
     "driver/backend_migrator.h",
-    "driver/clear_server_data_events.h",
     "driver/configure_context.h",
     "driver/data_type_controller.cc",
     "driver/data_type_controller.h",
@@ -131,8 +130,8 @@ jumbo_static_library("sync") {
     "driver/generic_change_processor_factory.h",
     "driver/glue/sync_backend_host_core.cc",
     "driver/glue/sync_backend_host_core.h",
-    "driver/glue/sync_backend_host_impl.cc",
-    "driver/glue/sync_backend_host_impl.h",
+    "driver/glue/sync_engine_impl.cc",
+    "driver/glue/sync_engine_impl.h",
     "driver/model_association_manager.cc",
     "driver/model_association_manager.h",
     "driver/model_associator.h",
@@ -170,6 +169,8 @@ jumbo_static_library("sync") {
     "driver/sync_token_status.h",
     "driver/sync_type_preference_provider.h",
     "driver/sync_user_settings.h",
+    "driver/sync_user_settings_impl.cc",
+    "driver/sync_user_settings_impl.h",
     "driver/sync_util.cc",
     "driver/sync_util.h",
     "driver/syncable_service_based_model_type_controller.cc",
@@ -260,8 +261,6 @@ jumbo_static_library("sync") {
     "engine_impl/apply_control_data_updates.h",
     "engine_impl/backoff_delay_provider.cc",
     "engine_impl/backoff_delay_provider.h",
-    "engine_impl/clear_server_data.cc",
-    "engine_impl/clear_server_data.h",
     "engine_impl/commit.cc",
     "engine_impl/commit.h",
     "engine_impl/commit_contribution.cc",
@@ -301,10 +300,6 @@ jumbo_static_library("sync") {
     "engine_impl/directory_commit_contributor.h",
     "engine_impl/directory_update_handler.cc",
     "engine_impl/directory_update_handler.h",
-    "engine_impl/events/clear_server_data_request_event.cc",
-    "engine_impl/events/clear_server_data_request_event.h",
-    "engine_impl/events/clear_server_data_response_event.cc",
-    "engine_impl/events/clear_server_data_response_event.h",
     "engine_impl/events/commit_request_event.cc",
     "engine_impl/events/commit_request_event.h",
     "engine_impl/events/commit_response_event.cc",
@@ -610,7 +605,7 @@ jumbo_static_library("sync") {
 
   if (is_chromeos) {
     # Required by get_session_name.cc on Chrome OS.
-    deps += [ "//chromeos:chromeos_constants" ]
+    deps += [ "//chromeos/constants" ]
   }
 
   if (is_mac) {
@@ -801,8 +796,6 @@ static_library("test_support_driver") {
     "driver/fake_data_type_controller.h",
     "driver/fake_generic_change_processor.cc",
     "driver/fake_generic_change_processor.h",
-    "driver/fake_sync_client.cc",
-    "driver/fake_sync_client.h",
     "driver/fake_sync_service.cc",
     "driver/fake_sync_service.h",
     "driver/frontend_data_type_controller_mock.cc",
@@ -813,6 +806,8 @@ static_library("test_support_driver") {
     "driver/sync_api_component_factory_mock.h",
     "driver/sync_client_mock.cc",
     "driver/sync_client_mock.h",
+    "driver/sync_user_settings_mock.cc",
+    "driver/sync_user_settings_mock.h",
     "driver/test_sync_service.cc",
     "driver/test_sync_service.h",
     "driver/test_sync_user_settings.cc",
@@ -869,7 +864,7 @@ source_set("unit_tests") {
     "driver/data_type_manager_impl_unittest.cc",
     "driver/frontend_data_type_controller_unittest.cc",
     "driver/generic_change_processor_unittest.cc",
-    "driver/glue/sync_backend_host_impl_unittest.cc",
+    "driver/glue/sync_engine_impl_unittest.cc",
     "driver/model_association_manager_unittest.cc",
     "driver/model_type_controller_unittest.cc",
     "driver/shared_change_processor_unittest.cc",
@@ -994,7 +989,7 @@ source_set("unit_tests") {
 
   if (is_chromeos) {
     # Required by get_session_name_unittest.cc on Chrome OS.
-    deps += [ "//chromeos:chromeos_constants" ]
+    deps += [ "//chromeos/constants" ]
   }
 
   if (is_ios) {

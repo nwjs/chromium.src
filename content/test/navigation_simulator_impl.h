@@ -10,6 +10,8 @@
 
 #include "base/callback.h"
 #include "base/optional.h"
+#include "content/browser/frame_host/navigation_handle_impl.h"
+#include "content/common/content_security_policy/csp_disposition_enum.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -17,6 +19,7 @@
 #include "content/public/test/navigation_simulator.h"
 #include "mojo/public/cpp/bindings/associated_interface_request.h"
 #include "net/base/host_port_pair.h"
+#include "net/base/ip_endpoint.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/mojom/frame/document_interface_broker.mojom.h"
 #include "url/gurl.h"
@@ -52,8 +55,8 @@ class NavigationSimulatorImpl : public NavigationSimulator,
       const GURL& original_url,
       RenderFrameHost* render_frame_host);
 
-  static std::unique_ptr<NavigationSimulatorImpl>
-  CreateFromPendingBrowserInitiated(WebContents* contents);
+  static std::unique_ptr<NavigationSimulatorImpl> CreateFromPending(
+      WebContents* contents);
 
   // NavigationSimulator implementation.
   void Start() override;
@@ -77,7 +80,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   void SetMethod(const std::string& method) override;
   void SetIsFormSubmission(bool is_form_submission) override;
   void SetReferrer(const Referrer& referrer) override;
-  void SetSocketAddress(const net::HostPortPair& socket_address) override;
+  void SetSocketAddress(const net::IPEndPoint& remote_endpoint) override;
   void SetIsSignedExchangeInnerResponse(
       bool is_signed_exchange_inner_response) override;
   void SetInterfaceProviderRequest(
@@ -86,11 +89,36 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   void SetAutoAdvance(bool auto_advance) override;
 
   NavigationThrottle::ThrottleCheckResult GetLastThrottleCheckResult() override;
-  NavigationHandle* GetNavigationHandle() const override;
+  NavigationHandleImpl* GetNavigationHandle() const override;
   content::GlobalRequestID GetGlobalRequestID() const override;
 
   // Additional utilites usable only inside content/.
+
+  // This will do the very beginning of a navigation but stop before the
+  // beforeunload event response. Will leave the Simulator in a
+  // WAITING_BEFORE_UNLOAD state. We do not wait for beforeunload event when
+  // starting renderer-side, use solely for browser initiated navigations.
+  void BrowserInitiatedStartAndWaitBeforeUnload();
+
+  // Set LoadURLParams and make browser initiated navigations use
+  // LoadURLWithParams instead of LoadURL.
   void SetLoadURLParams(NavigationController::LoadURLParams* load_url_params);
+  void set_should_check_main_world_csp(CSPDisposition disposition) {
+    should_check_main_world_csp_ = disposition;
+  }
+
+  // Set DidCommit*Params history_list_was_cleared flag to |history_cleared|.
+  void set_history_list_was_cleared(bool history_cleared);
+
+  // Manually force the value of did_create_new__entry flag in DidCommit*Params
+  // to |did_create_new_entry|.
+  void set_did_create_new_entry(bool did_create_new_entry);
+
+  void set_http_connection_info(net::HttpResponseInfo::ConnectionInfo info) {
+    http_connection_info_ = info;
+  }
+
+  void set_ssl_info(net::SSLInfo ssl_info) { ssl_info_ = ssl_info; }
 
  private:
   NavigationSimulatorImpl(const GURL& original_url,
@@ -144,7 +172,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   // Helper method to set the OnThrottleChecksComplete callback on the
   // NavigationHandle.
-  void PrepareCompleteCallbackOnHandle();
+  void PrepareCompleteCallbackOnHandle(NavigationHandleImpl* handle);
 
   // Check if the navigation corresponds to a same-document navigation.
   // Only use on renderer-initiated navigations.
@@ -166,6 +194,7 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   enum State {
     INITIALIZATION,
+    WAITING_BEFORE_UNLOAD,
     STARTED,
     READY_TO_COMMIT,
     FAILED,
@@ -175,6 +204,9 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   State state_ = INITIALIZATION;
 
   // The WebContents in which the navigation is taking place.
+  // IMPORTANT: Because NavigationSimulator is used outside content/ where we
+  // sometimes use WebContentsImpl and not TestWebContents, this cannot be
+  // assumed to cast properly to TestWebContents.
   WebContentsImpl* web_contents_;
 
   // The renderer associated with this navigation.
@@ -183,13 +215,13 @@ class NavigationSimulatorImpl : public NavigationSimulator,
 
   FrameTreeNode* frame_tree_node_;
 
-  // The NavigationHandle associated with this navigation.
-  NavigationHandleImpl* handle_;
+  // The NavigationRequest associated with this navigation.
+  NavigationRequest* request_;
 
   // Note: additional parameters to modify the navigation should be properly
   // initialized (if needed) in InitializeFromStartedRequest.
   GURL navigation_url_;
-  net::HostPortPair socket_address_;
+  net::IPEndPoint remote_endpoint_;
   bool is_signed_exchange_inner_response_ = false;
   std::string initial_method_;
   bool is_form_submission_ = false;
@@ -206,12 +238,19 @@ class NavigationSimulatorImpl : public NavigationSimulator,
   blink::mojom::DocumentInterfaceBrokerRequest
       document_interface_broker_blink_request_;
   std::string contents_mime_type_;
+  CSPDisposition should_check_main_world_csp_ = CSPDisposition::CHECK;
+  net::HttpResponseInfo::ConnectionInfo http_connection_info_ =
+      net::HttpResponseInfo::CONNECTION_INFO_UNKNOWN;
+  base::Optional<net::SSLInfo> ssl_info_;
+
+  bool auto_advance_ = true;
 
   // Generic params structure used for fully customized browser initiated
   // navigation requests. Only valid if explicitely provided.
   NavigationController::LoadURLParams* load_url_params_;
 
-  bool auto_advance_ = true;
+  bool history_list_was_cleared_ = false;
+  base::Optional<bool> did_create_new_entry_;
 
   // These are used to sanity check the content/public/ API calls emitted as
   // part of the navigation.

@@ -32,6 +32,7 @@
 <translation id="2181097965834437145">ブックマーク バーの表示と非表示を切り替える</translation>
 <translation id="2185166372312820725">前のタブに移動する</translation>
 <translation id="2194790690264064655"><ph name="CTRL" /> キーを押しながらリンクをクリックする</translation>
+<translation id="2246352309084894470">全画面ランチャーを開く / 閉じる</translation>
 <translation id="2382644247745281995">現在のキーボード レイアウトではサポートされていません</translation>
 <translation id="2397416548179033562">Chrome メニューを表示</translation>
 <translation id="2424073332829844142">CapsLock 機能のオンとオフを切り替える</translation>
@@ -154,7 +155,7 @@
 <translation id="7076878155205969899">音声をミュートします</translation>
 <translation id="7077383985738259936">ブックマーク バーにフォーカスするかブックマーク バーをハイライト表示します（ブックマーク バーが表示されている場合）</translation>
 <translation id="7237562915163138771">アドレスバーにウェブアドレスを入力して、<ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> キーを押します</translation>
-<translation id="7254764037241667478">端末をスリープモード（停止）にします</translation>
+<translation id="7254764037241667478">デバイスをスリープモード（停止）にします</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> キーまたは<ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" />キーを押す</translation>
 <translation id="7422707470576323858">次の入力方法に切り替えます</translation>
 <translation id="743754632698445141">アプリの固定を解除します</translation>
@@ -166,7 +167,7 @@
 <translation id="7787242579016742662">ブラウザ内でファイルを開く</translation>
 <translation id="7917881398263220094">現在のページの読み込みを停止する</translation>
 <translation id="7952165122793773711">1～8 番目のタブに移動します</translation>
-<translation id="8026334261755873520">閲覧履歴データを削除する</translation>
+<translation id="8026334261755873520">閲覧履歴データの削除</translation>
 <translation id="8130528849632411619">ドキュメントの先頭に移動する</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> または <ph name="E" /> キーを押す</translation>
 <translation id="8232835244134740473">フォーカスを次の順に切り替えます: アカウント画像が表示されているステータス領域、ランチャー、アドレスバー、ブックマーク バー（表示されている場合）、開いているウェブページ、ダウンロード バー（表示されている場合）</translation>

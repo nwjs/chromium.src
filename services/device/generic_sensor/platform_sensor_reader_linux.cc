@@ -4,6 +4,7 @@
 
 #include "services/device/generic_sensor/platform_sensor_reader_linux.h"
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/single_thread_task_runner.h"
 #include "base/stl_util.h"
@@ -122,8 +123,9 @@ void PollingSensorReader::PollForData() {
 
   if (is_reading_active_) {
     task_runner_->PostTask(
-        FROM_HERE, base::Bind(&PlatformSensorLinux::UpdatePlatformSensorReading,
-                              sensor_, readings));
+        FROM_HERE,
+        base::BindOnce(&PlatformSensorLinux::UpdatePlatformSensorReading,
+                       sensor_, readings));
   }
 }
 
@@ -156,7 +158,8 @@ void SensorReader::NotifyReadError() {
   if (is_reading_active_) {
     task_runner_->PostTask(
         FROM_HERE,
-        base::Bind(&PlatformSensorLinux::NotifyPlatformSensorError, sensor_));
+        base::BindOnce(&PlatformSensorLinux::NotifyPlatformSensorError,
+                       sensor_));
   }
 }
 

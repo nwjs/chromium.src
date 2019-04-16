@@ -37,7 +37,11 @@ DataSaverSiteBreakdownMetricsObserver::OnCommit(
   // will be called is in MetricsWebContentsObserver's destructor, which is
   // called in WebContents destructor.
   browser_context_ = navigation_handle->GetWebContents()->GetBrowserContext();
-  committed_host_ = navigation_handle->GetURL().HostNoBrackets();
+
+  // Use Virtual URL instead of actual host.
+  committed_host_ = navigation_handle->GetWebContents()
+                        ->GetLastCommittedURL()
+                        .HostNoBrackets();
   return CONTINUE_OBSERVING;
 }
 
@@ -79,4 +83,13 @@ void DataSaverSiteBreakdownMetricsObserver::OnResourceDataUseObserved(
               data_use_measurement::DataUseUserData::OTHER, 0);
     }
   }
+}
+
+page_load_metrics::PageLoadMetricsObserver::ObservePolicy
+DataSaverSiteBreakdownMetricsObserver::ShouldObserveMimeType(
+    const std::string& mime_type) const {
+  // Observe all MIME types. We still only use actual data usage, so strange
+  // cases (e.g., data:// URLs) will still record the right amount of data
+  // usage.
+  return CONTINUE_OBSERVING;
 }

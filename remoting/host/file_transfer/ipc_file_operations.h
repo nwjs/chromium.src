@@ -6,6 +6,8 @@
 #define REMOTING_HOST_FILE_TRANSFER_IPC_FILE_OPERATIONS_H_
 
 #include <cstdint>
+#include <string>
+#include <tuple>
 
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
@@ -28,6 +30,8 @@ class IpcFileOperations : public FileOperations {
    public:
     virtual ~RequestHandler() = default;
 
+    virtual void ReadFile(std::uint64_t file_id) = 0;
+    virtual void ReadChunk(std::uint64_t file_id, std::uint64_t size) = 0;
     virtual void WriteFile(std::uint64_t file_id,
                            const base::FilePath& filename) = 0;
     virtual void WriteChunk(std::uint64_t file_id, std::string data) = 0;
@@ -38,22 +42,31 @@ class IpcFileOperations : public FileOperations {
   // Handles responses to file operations requests.
   class ResultHandler {
    public:
+    using Result = protocol::FileTransferResult<Monostate>;
+    using InfoResult =
+        protocol::FileTransferResult<std::tuple<base::FilePath, uint64_t>>;
+    using DataResult = remoting::protocol::FileTransferResult<std::string>;
+
     virtual ~ResultHandler() = default;
-    virtual void OnResult(std::uint64_t file_id,
-                          protocol::FileTransferResult<Monostate> result) = 0;
+    virtual void OnResult(std::uint64_t file_id, Result result) = 0;
+    virtual void OnInfoResult(std::uint64_t file_id, InfoResult result) = 0;
+    virtual void OnDataResult(std::uint64_t file_id, DataResult result) = 0;
   };
 
   ~IpcFileOperations() override;
 
   // FileOperations implementation.
-  void WriteFile(const base::FilePath& filename,
-                 WriteFileCallback callback) override;
-  void ReadFile(ReadFileCallback) override;
+  std::unique_ptr<Reader> CreateReader() override;
+  std::unique_ptr<Writer> CreateWriter() override;
 
  private:
-  using ResultCallback =
-      base::OnceCallback<void(protocol::FileTransferResult<Monostate>)>;
+  using ResultCallback = base::OnceCallback<void(ResultHandler::Result)>;
+  using InfoResultCallback =
+      base::OnceCallback<void(ResultHandler::InfoResult)>;
+  using DataResultCallback =
+      base::OnceCallback<void(ResultHandler::DataResult)>;
 
+  class IpcReader;
   class IpcWriter;
 
   struct SharedState {
@@ -61,12 +74,19 @@ class IpcFileOperations : public FileOperations {
     explicit SharedState(RequestHandler* request_handler);
     ~SharedState();
 
+    // Send a Cancel request for |file_id| and provide an error response to any
+    // pending response callbacks for it. Called in the event of an unexpected
+    // message from the Desktop process.
+    void Abort(std::uint64_t file_id);
+
     // File ID to use for the next file opened.
     std::uint64_t next_file_id = 0;
 
     // Pending callbacks awaiting responses from the desktop process, keyed by
     // the file_id of the waiting Reader or Writer.
     base::flat_map<std::uint64_t, ResultCallback> result_callbacks;
+    base::flat_map<std::uint64_t, InfoResultCallback> info_result_callbacks;
+    base::flat_map<std::uint64_t, DataResultCallback> data_result_callbacks;
 
     // The associated RequestHandler.
     RequestHandler* request_handler;
@@ -79,9 +99,7 @@ class IpcFileOperations : public FileOperations {
 
   explicit IpcFileOperations(base::WeakPtr<SharedState> shared_state);
 
-  static void OnWriteFileResult(std::unique_ptr<IpcWriter> writer,
-                                WriteFileCallback callback,
-                                protocol::FileTransferResult<Monostate> result);
+  std::uint64_t GetNextFileId();
 
   // Contains shared state used by all instances tied to a given
   // RequestHandler.
@@ -105,8 +123,9 @@ class IpcFileOperationsFactory : public IpcFileOperations::ResultHandler {
   std::unique_ptr<FileOperations> CreateFileOperations();
 
   // ResultHandler implementation.
-  void OnResult(std::uint64_t file_id,
-                protocol::FileTransferResult<Monostate> result) override;
+  void OnResult(std::uint64_t file_id, Result result) override;
+  void OnInfoResult(std::uint64_t file_id, InfoResult result) override;
+  void OnDataResult(std::uint64_t file_id, DataResult result) override;
 
  private:
   IpcFileOperations::SharedState shared_state_;

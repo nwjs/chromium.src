@@ -25,6 +25,7 @@
 
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
 
+#include "cc/input/main_thread_scrolling_reason.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -41,7 +42,6 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/style/shadow_list.h"
 #include "third_party/blink/renderer/platform/geometry/length_functions.h"
-#include "third_party/blink/renderer/platform/scroll/main_thread_scrolling_reason.h"
 #include "third_party/blink/renderer/platform/transforms/transform_state.h"
 
 namespace blink {
@@ -134,7 +134,7 @@ BackgroundPaintLocation LayoutBoxModelObject::GetBackgroundPaintLocation(
   if (StyleRef().BoxShadow()) {
     if (main_thread_scrolling_reasons) {
       *main_thread_scrolling_reasons |=
-          MainThreadScrollingReason::kHasBoxShadowFromNonRootLayer;
+          cc::MainThreadScrollingReason::kHasBoxShadowFromNonRootLayer;
     }
     return kBackgroundPaintInGraphicsLayer;
   }
@@ -517,34 +517,6 @@ PaintLayerScrollableArea* LayoutBoxModelObject::GetScrollableArea() const {
   return Layer() ? Layer()->GetScrollableArea() : nullptr;
 }
 
-void LayoutBoxModelObject::AddLayerHitTestRects(
-    LayerHitTestRects& rects,
-    const PaintLayer* current_layer,
-    const LayoutPoint& layer_offset,
-    TouchAction supported_fast_actions,
-    const LayoutRect& container_rect,
-    TouchAction container_whitelisted_touch_action) const {
-  if (HasLayer()) {
-    if (IsLayoutView()) {
-      // LayoutView is handled with a special fast-path, but it needs to know
-      // the current layer.
-      LayoutObject::AddLayerHitTestRects(rects, Layer(), LayoutPoint(),
-                                         supported_fast_actions, LayoutRect(),
-                                         TouchAction::kTouchActionAuto);
-    } else {
-      // Since a LayoutObject never lives outside it's container Layer, we can
-      // switch to marking entire layers instead. This may sometimes mark more
-      // than necessary (when a layer is made of disjoint objects) but in
-      // practice is a significant performance savings.
-      Layer()->AddLayerHitTestRects(rects, supported_fast_actions);
-    }
-  } else {
-    LayoutObject::AddLayerHitTestRects(rects, current_layer, layer_offset,
-                                       supported_fast_actions, container_rect,
-                                       container_whitelisted_touch_action);
-  }
-}
-
 void LayoutBoxModelObject::AddOutlineRectsForNormalChildren(
     Vector<LayoutRect>& rects,
     const LayoutPoint& additional_offset,
@@ -718,18 +690,21 @@ bool LayoutBoxModelObject::HasAutoHeightOrContainingBlockWithAutoHeight(
     return false;
   if (this_box && this_box->IsCustomItem() &&
       (this_box->HasOverrideContainingBlockContentLogicalHeight() ||
-       this_box->HasOverrideContainingBlockPercentageResolutionLogicalHeight()))
+       this_box->HasOverridePercentageResolutionBlockSize()))
     return false;
 
   if (logical_height_length.IsAuto() &&
       !IsOutOfFlowPositionedWithImplicitHeight(this))
     return true;
 
-  if (GetDocument().InQuirksMode())
-    return false;
-
-  if (cb)
-    return !cb->HasDefiniteLogicalHeight();
+  if (cb) {
+    // We need the containing block to have a definite block-size in order to
+    // resolve the block-size of the descendant, except when in quirks mode.
+    // Flexboxes follow strict behavior even in quirks mode, though.
+    if (!GetDocument().InQuirksMode() ||
+        cb->IsFlexibleBoxIncludingDeprecatedAndNG())
+      return !cb->HasDefiniteLogicalHeight();
+  }
 
   return false;
 }
@@ -1234,19 +1209,6 @@ void LayoutBoxModelObject::SetContinuation(LayoutBoxModelObject* continuation) {
     if (g_continuation_map)
       g_continuation_map->erase(this);
   }
-}
-
-void LayoutBoxModelObject::ComputeLayerHitTestRects(
-    LayerHitTestRects& rects,
-    TouchAction supported_fast_actions) const {
-  LayoutObject::ComputeLayerHitTestRects(rects, supported_fast_actions);
-
-  // If there is a continuation then we need to consult it here, since this is
-  // the root of the tree walk and it wouldn't otherwise get picked up.
-  // Continuations should always be siblings in the tree, so any others should
-  // get picked up already by the tree walk.
-  if (Continuation())
-    Continuation()->ComputeLayerHitTestRects(rects, supported_fast_actions);
 }
 
 LayoutRect LayoutBoxModelObject::LocalCaretRectForEmptyElement(

@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -75,6 +76,10 @@ class AudioFocusManagerTest
 
   int GetTransientMaybeDuckCount() {
     return GetCountForType(mojom::AudioFocusType::kGainTransientMayDuck);
+  }
+
+  int GetAmbientCount() {
+    return GetCountForType(mojom::AudioFocusType::kAmbient);
   }
 
   void AbandonAudioFocusNoReset(test::MockMediaSession* session) {
@@ -247,7 +252,7 @@ class AudioFocusManagerTest
   DISALLOW_COPY_AND_ASSIGN(AudioFocusManagerTest);
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ,
     AudioFocusManagerTest,
     testing::Values(mojom::EnforcementMode::kDefault,
@@ -1479,6 +1484,32 @@ TEST_P(AudioFocusManagerTest, TransientDuckFocusTypeHasNoEffectIfSuspended) {
     observer.WaitForState(
         GetStateFromParam(mojom::MediaSessionInfo::SessionState::kDucking));
   }
+}
+
+TEST_P(AudioFocusManagerTest, AmbientFocusHasNoEffect) {
+  test::MockMediaSession media_session_1;
+  test::MockMediaSession media_session_2;
+
+  AudioFocusManager::RequestId request_id_1 =
+      RequestAudioFocus(&media_session_1, mojom::AudioFocusType::kGain);
+  EXPECT_EQ(request_id_1, GetAudioFocusedSession());
+  EXPECT_EQ(mojom::MediaSessionInfo::SessionState::kActive,
+            GetState(&media_session_1));
+
+  EXPECT_EQ(0, GetAmbientCount());
+  RequestAudioFocus(&media_session_2, mojom::AudioFocusType::kAmbient);
+
+  EXPECT_EQ(1, GetAmbientCount());
+  EXPECT_EQ(mojom::MediaSessionInfo::SessionState::kActive,
+            GetState(&media_session_1));
+  EXPECT_EQ(mojom::MediaSessionInfo::SessionState::kActive,
+            GetState(&media_session_2));
+
+  media_session_2.AbandonAudioFocusFromClient();
+
+  EXPECT_EQ(0, GetAmbientCount());
+  EXPECT_EQ(mojom::MediaSessionInfo::SessionState::kActive,
+            GetState(&media_session_1));
 }
 
 }  // namespace media_session

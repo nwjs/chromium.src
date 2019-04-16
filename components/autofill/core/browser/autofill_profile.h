@@ -9,6 +9,7 @@
 
 #include <iosfwd>
 #include <list>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -38,26 +39,6 @@ class AutofillProfile : public AutofillDataModel {
     LOCAL_PROFILE,
     // A profile synced down from the server. These are read-only locally.
     SERVER_PROFILE,
-  };
-
-  enum ValidityState {
-    // The field has not been validated.
-    UNVALIDATED = 0,
-    // The field is empty.
-    EMPTY = 1,
-    // The field is valid.
-    VALID = 2,
-    // The field is invalid.
-    INVALID = 3,
-    // The validation for the field is unsupported.
-    UNSUPPORTED = 4,
-  };
-
-  enum ValidationSource {
-    // The validity state is according to the client validation.
-    CLIENT = 0,
-    // The validity state is according to the server validation.
-    SERVER = 1,
   };
 
   AutofillProfile(const std::string& guid, const std::string& origin);
@@ -224,6 +205,24 @@ class AutofillProfile : public AutofillDataModel {
   // use and updates |previous_use_date_| to the last value of |use_date_|.
   void RecordAndLogUse();
 
+  // Returns true if the current profile has greater frescocency than the
+  // |other|. Frescocency is a combination of validation score and frecency to
+  // determine the relevance of the profile. Frescocency is a total order: it
+  // puts all the valid profiles before the invalid ones, and uses frecency
+  // (another total order) in case of tie. Please see
+  // AutofillDataModel::HasGreaterFrecencyThan.
+  bool HasGreaterFrescocencyThan(const AutofillProfile* other,
+                                 base::Time comparison_time,
+                                 bool use_client_validation,
+                                 bool use_server_validation) const;
+
+  // Returns false if the profile has any invalid field, according to the client
+  // source of validation.
+  bool IsValidByClient() const;
+  // Returns false if the profile has any invalid field, according to the server
+  // source of validation.
+  bool IsValidByServer() const;
+
   const base::Time& previous_use_date() const { return previous_use_date_; }
   void set_previous_use_date(const base::Time& time) {
     previous_use_date_ = time;
@@ -235,7 +234,7 @@ class AutofillProfile : public AutofillDataModel {
 
   // Returns the validity state of the specified autofill type.
   ValidityState GetValidityState(ServerFieldType type,
-                                 ValidationSource source) const;
+                                 ValidationSource source) const override;
 
   // Sets the validity state of the specified autofill type.
   // This should only be called from autofill profile validtion API or in tests.

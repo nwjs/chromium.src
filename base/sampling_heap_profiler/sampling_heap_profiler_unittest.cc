@@ -9,6 +9,7 @@
 
 #include "base/allocator/allocator_shim.h"
 #include "base/debug/alias.h"
+#include "base/rand_util.h"
 #include "base/threading/simple_thread.h"
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -62,11 +63,9 @@ TEST_F(SamplingHeapProfilerTest, SampleObserver) {
   auto* sampler = PoissonAllocationSampler::Get();
   sampler->SuppressRandomnessForTest(true);
   sampler->SetSamplingInterval(1024);
-  sampler->Start();
   sampler->AddSamplesObserver(&collector);
   void* volatile p = malloc(10000);
   free(p);
-  sampler->Stop();
   sampler->RemoveSamplesObserver(&collector);
   EXPECT_TRUE(collector.sample_added);
   EXPECT_TRUE(collector.sample_removed);
@@ -77,14 +76,12 @@ TEST_F(SamplingHeapProfilerTest, SampleObserverMuted) {
   auto* sampler = PoissonAllocationSampler::Get();
   sampler->SuppressRandomnessForTest(true);
   sampler->SetSamplingInterval(1024);
-  sampler->Start();
   sampler->AddSamplesObserver(&collector);
   {
     PoissonAllocationSampler::ScopedMuteThreadSamples muted_scope;
     void* volatile p = malloc(10000);
     free(p);
   }
-  sampler->Stop();
   sampler->RemoveSamplesObserver(&collector);
   EXPECT_FALSE(collector.sample_added);
   EXPECT_FALSE(collector.sample_removed);
@@ -202,6 +199,42 @@ TEST_F(SamplingHeapProfilerTest, DISABLED_SequentialLargeSmallStats) {
       Allocate3();
     }
   });
+}
+
+// Platform TLS: alloc+free[ns]: 22.184  alloc[ns]: 8.910  free[ns]: 13.274
+// thread_local: alloc+free[ns]: 18.353  alloc[ns]: 5.021  free[ns]: 13.331
+TEST_F(SamplingHeapProfilerTest, MANUAL_SamplerMicroBenchmark) {
+  // With the sampling interval of 100KB it happens to record ~ every 450th
+  // allocation in the browser process. We model this pattern here.
+  constexpr size_t sampling_interval = 100000;
+  constexpr size_t allocation_size = sampling_interval / 450;
+  SamplesCollector collector(0);
+  auto* sampler = PoissonAllocationSampler::Get();
+  sampler->SetSamplingInterval(sampling_interval);
+  sampler->AddSamplesObserver(&collector);
+  int kNumAllocations = 50000000;
+
+  base::TimeTicks t0 = base::TimeTicks::Now();
+  for (int i = 1; i <= kNumAllocations; ++i) {
+    sampler->RecordAlloc(
+        reinterpret_cast<void*>(static_cast<intptr_t>(i)), allocation_size,
+        PoissonAllocationSampler::AllocatorType::kMalloc, nullptr);
+  }
+  base::TimeTicks t1 = base::TimeTicks::Now();
+  for (int i = 1; i <= kNumAllocations; ++i)
+    sampler->RecordFree(reinterpret_cast<void*>(static_cast<intptr_t>(i)));
+  base::TimeTicks t2 = base::TimeTicks::Now();
+
+  printf(
+      "alloc+free[ns]: %.3f   alloc[ns]: %.3f   free[ns]: %.3f   "
+      "alloc+free[mln/s]: %.1f   total[ms]: %.1f\n",
+      (t2 - t0).InNanoseconds() * 1. / kNumAllocations,
+      (t1 - t0).InNanoseconds() * 1. / kNumAllocations,
+      (t2 - t1).InNanoseconds() * 1. / kNumAllocations,
+      kNumAllocations / (t2 - t0).InMicrosecondsF(),
+      (t2 - t0).InMillisecondsF());
+
+  sampler->RemoveSamplesObserver(&collector);
 }
 
 }  // namespace base

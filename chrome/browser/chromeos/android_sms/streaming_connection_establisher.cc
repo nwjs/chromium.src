@@ -4,6 +4,7 @@
 
 #include "chrome/browser/chromeos/android_sms/streaming_connection_establisher.h"
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -12,6 +13,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "third_party/blink/public/common/messaging/string_message_codec.h"
+#include "third_party/blink/public/common/messaging/transferable_message.h"
 
 namespace chromeos {
 
@@ -25,7 +27,7 @@ const char StreamingConnectionEstablisher::kResumeStreamingMessage[] =
 
 StreamingConnectionEstablisher::StreamingConnectionEstablisher(
     base::Clock* clock)
-    : clock_(clock) {}
+    : clock_(clock), weak_ptr_factory_(this) {}
 StreamingConnectionEstablisher::~StreamingConnectionEstablisher() = default;
 
 void StreamingConnectionEstablisher::EstablishConnection(
@@ -36,7 +38,7 @@ void StreamingConnectionEstablisher::EstablishConnection(
       FROM_HERE, {content::BrowserThread::IO},
       base::BindOnce(&StreamingConnectionEstablisher::
                          SendStartStreamingMessageIfNotConnected,
-                     base::Unretained(this), url, connection_mode,
+                     weak_ptr_factory_.GetWeakPtr(), url, connection_mode,
                      service_worker_context));
 }
 
@@ -77,7 +79,7 @@ void StreamingConnectionEstablisher::SendStartStreamingMessageIfNotConnected(
   service_worker_context->StartServiceWorkerAndDispatchLongRunningMessage(
       url, std::move(msg),
       base::BindOnce(&StreamingConnectionEstablisher::OnMessageDispatchResult,
-                     base::Unretained(this)));
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void StreamingConnectionEstablisher::OnMessageDispatchResult(bool status) {

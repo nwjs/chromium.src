@@ -98,8 +98,8 @@
 #include "ui/views/drag_utils.h"
 #include "ui/views/metrics.h"
 #include "ui/views/style/platform_style.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/view_constants.h"
-#include "ui/views/view_properties.h"
 #include "ui/views/widget/tooltip_manager.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/non_client_view.h"
@@ -136,8 +136,7 @@ static const int kBookmarkBarAppsShortcutButtonTag = 2;
 
 namespace {
 
-// To enable/disable BookmarkBar animations during testing. In production
-// animations are enabled by default.
+// Used to globally disable rich animations.
 bool animations_enabled = true;
 
 gfx::ImageSkia* GetImageSkiaNamed(int id) {
@@ -560,6 +559,8 @@ BookmarkBarView::BookmarkBarView(Browser* browser, BrowserView* browser_view)
   SetPaintToLayer();
 
   size_animation_.Reset(1);
+  if (!gfx::Animation::ShouldRenderRichAnimation())
+    animations_enabled = false;
 }
 
 BookmarkBarView::~BookmarkBarView() {
@@ -1433,9 +1434,10 @@ void BookmarkBarView::ButtonPressed(views::Button* sender,
   RecordBookmarkLaunch(node, GetBookmarkLaunchLocation());
 }
 
-void BookmarkBarView::ShowContextMenuForView(views::View* source,
-                                             const gfx::Point& point,
-                                             ui::MenuSourceType source_type) {
+void BookmarkBarView::ShowContextMenuForViewImpl(
+    views::View* source,
+    const gfx::Point& point,
+    ui::MenuSourceType source_type) {
   if (!model_->loaded()) {
     // Don't do anything if the model isn't loaded.
     return;
@@ -1751,6 +1753,9 @@ void BookmarkBarView::ShowDropFolderForNode(const BookmarkNode* node) {
       browser_, page_navigator_, GetWidget(), node, start_index, true);
   bookmark_drop_menu_->set_observer(this);
   bookmark_drop_menu_->RunMenuAt(this);
+
+  for (BookmarkBarViewObserver& observer : observers_)
+    observer.OnDropMenuShown();
 }
 
 void BookmarkBarView::StopShowFolderDropMenuTimer() {

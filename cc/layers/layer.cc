@@ -54,6 +54,7 @@ Layer::Inputs::Inputs(int layer_id)
       use_parent_backface_visibility(false),
       background_color(0),
       backdrop_filter_quality(1.0f),
+      corner_radii({0, 0, 0, 0}),
       scrollable(false),
       is_scrollbar(false),
       user_scrollable_horizontal(true),
@@ -209,6 +210,9 @@ bool Layer::IsPropertyChangeAllowed() const {
   return !layer_tree_host_->in_paint_layer_contents();
 }
 
+void Layer::CaptureContent(const gfx::Rect& rect,
+                           std::vector<NodeHolder>* content) {}
+
 sk_sp<SkPicture> Layer::GetPicture() const {
   return nullptr;
 }
@@ -300,9 +304,10 @@ void Layer::SetBounds(const gfx::Size& size) {
   if (!layer_tree_host_)
     return;
 
-  // Both bounds clipping and mask clipping can result in new areas of subtrees
-  // being exposed on a bounds change. Ensure the damaged areas are updated.
-  if (masks_to_bounds() || inputs_.mask_layer.get()) {
+  // Rounded corner clipping, bounds clipping and mask clipping can result in
+  // new areas of subtrees being exposed on a bounds change. Ensure the damaged
+  // areas are updated.
+  if (masks_to_bounds() || inputs_.mask_layer.get() || HasRoundedCorner()) {
     SetSubtreePropertyChanged();
     SetPropertyTreesNeedRebuild();
   }
@@ -483,8 +488,13 @@ void Layer::SetSafeOpaqueBackgroundColor(SkColor background_color) {
 }
 
 SkColor Layer::SafeOpaqueBackgroundColor() const {
-  if (contents_opaque())
+  if (contents_opaque()) {
+    // TODO(936906): We should uncomment this DCHECK, since the
+    // |safe_opaque_background_color_| could be transparent if it is never set
+    // (the default is 0). But to do that, one test needs to be fixed.
+    // DCHECK_EQ(SkColorGetA(safe_opaque_background_color_), SK_AlphaOPAQUE);
     return safe_opaque_background_color_;
+  }
   SkColor color = background_color();
   if (SkColorGetA(color) == 255)
     color = SK_ColorTRANSPARENT;
@@ -563,7 +573,7 @@ void Layer::SetBackdropFilters(const FilterOperations& filters) {
   SetNeedsCommit();
 }
 
-void Layer::SetBackdropFilterBounds(const gfx::RectF& backdrop_filter_bounds) {
+void Layer::SetBackdropFilterBounds(const gfx::RRectF& backdrop_filter_bounds) {
   inputs_.backdrop_filter_bounds = backdrop_filter_bounds;
 }
 
@@ -579,6 +589,17 @@ void Layer::SetFiltersOrigin(const gfx::PointF& filters_origin) {
   SetSubtreePropertyChanged();
   SetPropertyTreesNeedRebuild();
   SetNeedsCommit();
+}
+
+void Layer::SetRoundedCorner(const std::array<uint32_t, 4>& corner_radii) {
+  DCHECK(IsPropertyChangeAllowed());
+  if (inputs_.corner_radii == corner_radii)
+    return;
+
+  inputs_.corner_radii = corner_radii;
+  SetSubtreePropertyChanged();
+  SetNeedsCommit();
+  SetPropertyTreesNeedRebuild();
 }
 
 void Layer::SetOpacity(float opacity) {

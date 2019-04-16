@@ -67,7 +67,6 @@ namespace IsPendingCustodianApproval =
 namespace IsInIncognitoMode = api::webstore_private::IsInIncognitoMode;
 namespace LaunchEphemeralApp = api::webstore_private::LaunchEphemeralApp;
 namespace SetStoreLogin = api::webstore_private::SetStoreLogin;
-namespace GetReferrerChain = api::webstore_private::GetReferrerChain;
 
 namespace {
 
@@ -683,13 +682,18 @@ WebstorePrivateGetReferrerChainFunction::
 ExtensionFunction::ResponseAction
 WebstorePrivateGetReferrerChainFunction::Run() {
 #if 1
-    return RespondNow(ArgumentList(GetReferrerChain::Results::Create("")));
+  return RespondNow(ArgumentList(api::webstore_private::GetReferrerChain::Results::Create("")));
 #else
   Profile* profile = chrome_details_.GetProfile();
-  conent::WebContents* web_contents = GetSenderWebContents();
+  if (!SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile))
+    return RespondNow(ArgumentList(
+        api::webstore_private::GetReferrerChain::Results::Create("")));
+
+  content::WebContents* web_contents = GetSenderWebContents();
   if (!web_contents) {
-    return RespondNow(ErrorWithArguments(GetReferrerChain::Results::Create(""),
-                                         kWebstoreUserCancelledError));
+    return RespondNow(ErrorWithArguments(
+        api::webstore_private::GetReferrerChain::Results::Create(""),
+        kWebstoreUserCancelledError));
   }
 
   scoped_refptr<SafeBrowsingNavigationObserverManager>
@@ -722,8 +726,9 @@ WebstorePrivateGetReferrerChainFunction::Run() {
   // Base64 encode the proto to avoid issues with base::Value rejecting strings
   // which are not valid UTF8.
   base::Base64Encode(serialized_referrer_proto, &serialized_referrer_proto);
-  return RespondNow(ArgumentList(
-      GetReferrerChain::Results::Create(serialized_referrer_proto)));
+  return RespondNow(
+      ArgumentList(api::webstore_private::GetReferrerChain::Results::Create(
+          serialized_referrer_proto)));
 #endif
 }
 

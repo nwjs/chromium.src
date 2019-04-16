@@ -136,7 +136,7 @@ constexpr int kTextFontSizeDelta = 1;
 constexpr double kProgressNotificationMessageRatio = 0.7;
 
 // This key/property allows tagging the textfield with its index.
-DEFINE_LOCAL_UI_CLASS_PROPERTY_KEY(int, kTextfieldIndexKey, 0U);
+DEFINE_UI_CLASS_PROPERTY_KEY(int, kTextfieldIndexKey, 0U)
 
 // FontList for the texts except for the header.
 gfx::FontList GetTextFontList() {
@@ -1021,8 +1021,7 @@ void NotificationViewMD::CreateOrUpdateActionButtonViews(
     for (auto* item : action_buttons_)
       delete item;
     action_buttons_.clear();
-    if (buttons.empty())
-      actions_row_->SetVisible(false);
+    actions_row_->SetVisible(expanded_ && !buttons.empty());
   }
 
   DCHECK_EQ(this, actions_row_->parent());
@@ -1291,7 +1290,7 @@ void NotificationViewMD::OnSettingsButtonPressed(const ui::Event& event) {
 }
 
 void NotificationViewMD::Activate() {
-  GetWidget()->widget_delegate()->set_can_activate(true);
+  GetWidget()->widget_delegate()->SetCanActivate(true);
   GetWidget()->Activate();
 }
 

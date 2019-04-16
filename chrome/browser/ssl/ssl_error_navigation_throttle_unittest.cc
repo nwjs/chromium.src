@@ -8,7 +8,7 @@
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
-#include "chrome/browser/ssl/certificate_reporting_test_utils.cc"
+#include "chrome/browser/ssl/certificate_reporting_test_utils.h"
 #include "chrome/browser/ssl/ssl_blocking_page.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -130,7 +130,7 @@ TEST_P(SSLErrorNavigationThrottleTest, NoSSLInfo) {
   content::NavigationThrottle::ThrottleCheckResult result =
       throttle_->WillFailRequest();
 
-  EXPECT_FALSE(handle_->GetSSLInfo().is_valid());
+  EXPECT_FALSE(handle_->GetSSLInfo().has_value());
   EXPECT_EQ(content::NavigationThrottle::PROCEED, result);
 }
 
@@ -146,7 +146,7 @@ TEST_P(SSLErrorNavigationThrottleTest, SSLInfoWithoutCertError) {
   content::NavigationThrottle::ThrottleCheckResult result =
       throttle_->WillFailRequest();
 
-  EXPECT_EQ(net::CERT_STATUS_IS_EV, handle_->GetSSLInfo().cert_status);
+  EXPECT_EQ(net::CERT_STATUS_IS_EV, handle_->GetSSLInfo()->cert_status);
   EXPECT_EQ(content::NavigationThrottle::PROCEED, result);
 }
 
@@ -172,8 +172,8 @@ TEST_P(SSLErrorNavigationThrottleTest, SSLInfoWithCertError) {
   EXPECT_TRUE(deferred_result_.error_page_content().has_value());
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        SSLErrorNavigationThrottleTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,
+                         SSLErrorNavigationThrottleTest,
+                         ::testing::Values(false, true));
 
 }  // namespace

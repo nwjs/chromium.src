@@ -23,6 +23,7 @@ class ShellBrowserContext;
 class ShellBrowserMainParts;
 
 std::string GetShellUserAgent();
+blink::UserAgentMetadata GetShellUserAgentMetadata();
 
 class ShellContentBrowserClient : public ContentBrowserClient {
  public:
@@ -77,9 +78,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
   void OpenURL(SiteInstance* site_instance,
                const OpenURLParams& params,
                const base::Callback<void(WebContents*)>& callback) override;
-  scoped_refptr<LoginDelegate> CreateLoginDelegate(
+  std::unique_ptr<LoginDelegate> CreateLoginDelegate(
       net::AuthChallengeInfo* auth_info,
-      content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+      content::WebContents* web_contents,
       const content::GlobalRequestID& request_id,
       bool is_main_frame,
       const GURL& url,
@@ -88,6 +89,7 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       LoginAuthRequiredCallback auth_required_callback) override;
 
   std::string GetUserAgent() const override;
+  blink::UserAgentMetadata GetUserAgentMetadata() const override;
 
 #if defined(OS_LINUX) || defined(OS_ANDROID)
   void GetAdditionalMappedFilesForChildProcess(

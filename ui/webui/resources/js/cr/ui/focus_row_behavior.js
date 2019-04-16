@@ -125,7 +125,7 @@ cr.define('cr.ui', function() {
 
       Polymer.RenderStatus.afterNextRender(this, function() {
         const rowContainer = this.root.querySelector('[focus-row-container]');
-        assert(!!rowContainer);
+        assert(rowContainer);
         this.row_ = new VirtualFocusRow(
             rowContainer, new FocusRowBehaviorDelegate(this));
         this.ironListTabIndexChanged_();
@@ -147,9 +147,17 @@ cr.define('cr.ui', function() {
       this.unlisten(this, 'mousedown', 'onMouseDown_');
       this.unlisten(this, 'blur', 'onBlur_');
       this.removeObservers_();
+      if (this.firstControl_) {
+        this.unlisten(this.firstControl_, 'keydown', 'onFirstControlKeydown_');
+      }
       if (this.row_) {
         this.row_.destroy();
       }
+    },
+
+    /** @return {!cr.ui.FocusRow} */
+    getFocusRow: function() {
+      return assert(this.row_);
     },
 
     /** @private */
@@ -172,9 +180,6 @@ cr.define('cr.ui', function() {
 
     /** @private */
     removeObservers_: function() {
-      if (this.firstControl_) {
-        this.unlisten(this.firstControl_, 'keydown', 'onFirstControlKeydown_');
-      }
       if (this.controlObservers_.length > 0) {
         this.controlObservers_.forEach(observer => {
           observer.disconnect();

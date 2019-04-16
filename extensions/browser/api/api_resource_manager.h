@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/scoped_observer.h"
@@ -261,20 +262,22 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
     void InitiateExtensionUnloadedCleanup(const std::string& extension_id) {
       ThreadingTraits::GetSequencedTaskRunner()->PostTask(
           FROM_HERE,
-          base::Bind(&ApiResourceData::CleanupResourcesFromUnloadedExtension,
-                     this, extension_id));
+          base::BindOnce(
+              &ApiResourceData::CleanupResourcesFromUnloadedExtension, this,
+              extension_id));
     }
 
     void InitiateExtensionSuspendedCleanup(const std::string& extension_id) {
       ThreadingTraits::GetSequencedTaskRunner()->PostTask(
           FROM_HERE,
-          base::Bind(&ApiResourceData::CleanupResourcesFromSuspendedExtension,
-                     this, extension_id));
+          base::BindOnce(
+              &ApiResourceData::CleanupResourcesFromSuspendedExtension, this,
+              extension_id));
     }
 
     void InititateCleanup() {
       ThreadingTraits::GetSequencedTaskRunner()->PostTask(
-          FROM_HERE, base::Bind(&ApiResourceData::Cleanup, this));
+          FROM_HERE, base::BindOnce(&ApiResourceData::Cleanup, this));
     }
 
    private:

@@ -4,8 +4,10 @@
 
 #include "services/network/websocket_factory.h"
 
+#include "base/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
+#include "net/base/url_util.h"
 #include "services/network/network_context.h"
 #include "services/network/network_service.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -62,10 +64,7 @@ class WebSocketFactory::Delegate final : public WebSocket::Delegate {
 
   bool CanReadRawCookies(const GURL& url) override {
     DCHECK(url.SchemeIsWSOrWSS());
-    GURL::Replacements replace_scheme;
-    replace_scheme.SetSchemeStr(
-        url.SchemeIs(url::kWssScheme) ? url::kHttpsScheme : url::kHttpScheme);
-    GURL url_to_check = url.ReplaceComponents(replace_scheme);
+    GURL url_to_check = net::ChangeWebSocketSchemeToHttpScheme(url);
     return factory_->context_->network_service()->HasRawHeadersAccess(
         process_id_, url_to_check);
   }
@@ -103,6 +102,7 @@ WebSocketFactory::~WebSocketFactory() {}
 void WebSocketFactory::CreateWebSocket(
     mojom::WebSocketRequest request,
     mojom::AuthenticationHandlerPtr auth_handler,
+    mojom::TrustedHeaderClientPtr header_client,
     int32_t process_id,
     int32_t render_frame_id,
     const url::Origin& origin) {
@@ -115,7 +115,7 @@ void WebSocketFactory::CreateWebSocket(
   }
   connections_.insert(std::make_unique<WebSocket>(
       std::make_unique<Delegate>(this, process_id), std::move(request),
-      std::move(auth_handler),
+      std::move(auth_handler), std::move(header_client),
       throttler_.IssuePendingConnectionTracker(process_id), process_id,
       render_frame_id, origin, throttler_.CalculateDelay(process_id)));
 }

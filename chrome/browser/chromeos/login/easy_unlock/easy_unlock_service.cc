@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/guid.h"
 #include "base/logging.h"
@@ -144,12 +145,10 @@ class EasyUnlockService::PowerMonitor : public PowerManagerClient::Observer {
  public:
   explicit PowerMonitor(EasyUnlockService* service)
       : service_(service), waking_up_(false), weak_ptr_factory_(this) {
-    DBusThreadManager::Get()->GetPowerManagerClient()->AddObserver(this);
+    PowerManagerClient::Get()->AddObserver(this);
   }
 
-  ~PowerMonitor() override {
-    DBusThreadManager::Get()->GetPowerManagerClient()->RemoveObserver(this);
-  }
+  ~PowerMonitor() override { PowerManagerClient::Get()->RemoveObserver(this); }
 
   // Called when the remote device has been authenticated to record the time
   // delta from waking up. No time will be recorded if the start-up time has
@@ -212,9 +211,7 @@ EasyUnlockService::~EasyUnlockService() {}
 // static
 void EasyUnlockService::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterDictionaryPref(prefs::kEasyUnlockPairing,
-                                   std::make_unique<base::DictionaryValue>());
-
+  registry->RegisterDictionaryPref(prefs::kEasyUnlockPairing);
   proximity_auth::ProximityAuthProfilePrefManager::RegisterPrefs(registry);
 }
 

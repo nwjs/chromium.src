@@ -4,9 +4,9 @@
 
 #include "components/gwp_asan/crash_handler/crash_analyzer.h"
 
-#include <algorithm>
-
 #include <stddef.h>
+#include <algorithm>
+#include <string>
 
 #include "base/logging.h"
 #include "base/process/process_metrics.h"
@@ -14,6 +14,7 @@
 #include "build/build_config.h"
 #include "components/gwp_asan/common/allocator_state.h"
 #include "components/gwp_asan/common/crash_key_name.h"
+#include "components/gwp_asan/common/pack_stack_trace.h"
 #include "components/gwp_asan/crash_handler/crash.pb.h"
 #include "third_party/crashpad/crashpad/client/annotation.h"
 #include "third_party/crashpad/crashpad/snapshot/cpu_context.h"
@@ -53,15 +54,11 @@ GwpAsanCrashAnalysisResult CrashAnalyzer::GetExceptionInfo(
   if (exception->Context()->Is64Bit() != is_64_bit)
     return GwpAsanCrashAnalysisResult::kErrorMismatchedBitness;
 
-  crashpad::VMAddress crash_addr = GetAccessAddress(*exception);
-  if (!crash_addr)
-    return GwpAsanCrashAnalysisResult::kUnrelatedCrash;
-
   if (!process_snapshot.Memory())
     return GwpAsanCrashAnalysisResult::kErrorNullProcessMemory;
 
-  return AnalyzeCrashedAllocator(*process_snapshot.Memory(), gpa_ptr,
-                                 crash_addr, proto);
+  return AnalyzeCrashedAllocator(*process_snapshot.Memory(), *exception,
+                                 gpa_ptr, proto);
 }
 
 crashpad::VMAddress CrashAnalyzer::GetAllocatorAddress(
@@ -91,8 +88,8 @@ crashpad::VMAddress CrashAnalyzer::GetAllocatorAddress(
 
 GwpAsanCrashAnalysisResult CrashAnalyzer::AnalyzeCrashedAllocator(
     const crashpad::ProcessMemory& memory,
+    const crashpad::ExceptionSnapshot& exception,
     crashpad::VMAddress gpa_addr,
-    crashpad::VMAddress exception_addr,
     gwp_asan::Crash* proto) {
   AllocatorState unsafe_state;
   if (!memory.Read(gpa_addr, sizeof(unsafe_state), &unsafe_state)) {
@@ -105,6 +102,15 @@ GwpAsanCrashAnalysisResult CrashAnalyzer::AnalyzeCrashedAllocator(
     return GwpAsanCrashAnalysisResult::kErrorAllocatorFailedSanityCheck;
   }
   const AllocatorState& valid_state = unsafe_state;
+
+  crashpad::VMAddress exception_addr = GetAccessAddress(exception);
+  if (valid_state.double_free_address)
+    exception_addr = valid_state.double_free_address;
+  else if (valid_state.free_invalid_address)
+    exception_addr = valid_state.free_invalid_address;
+
+  if (!exception_addr)
+    return GwpAsanCrashAnalysisResult::kUnrelatedCrash;
 
   uintptr_t slot_address;
   auto ret = valid_state.GetMetadataForAddress(exception_addr, &slot_address);
@@ -133,6 +139,8 @@ GwpAsanCrashAnalysisResult CrashAnalyzer::AnalyzeCrashedAllocator(
   proto->set_region_start(valid_state.pages_base_addr);
   proto->set_region_size(valid_state.pages_end_addr -
                          valid_state.pages_base_addr);
+  if (valid_state.free_invalid_address)
+    proto->set_free_invalid_address(valid_state.free_invalid_address);
 
   return GwpAsanCrashAnalysisResult::kGwpAsanCrash;
 }
@@ -146,17 +154,26 @@ void CrashAnalyzer::ReadAllocationInfo(
   if (!slot_info.trace_len || !slot_info.trace_collected)
     return;
 
-  if (slot_info.trace_len > AllocatorState::kMaxStackFrames) {
+  if (slot_info.trace_len > AllocatorState::kMaxPackedTraceLength) {
     DLOG(ERROR) << "Stack trace length is corrupted: " << slot_info.trace_len;
     return;
   }
 
-  // On 32-bit platforms we can't copy directly to
+  uintptr_t unpacked_stack_trace[AllocatorState::kMaxPackedTraceLength];
+  size_t unpacked_len =
+      Unpack(slot_info.packed_trace, slot_info.trace_len, unpacked_stack_trace,
+             AllocatorState::kMaxPackedTraceLength);
+  if (!unpacked_len) {
+    DLOG(ERROR) << "Failed to unpack stack trace.";
+    return;
+  }
+
+  // On 32-bit platforms we can't copy directly into
   // proto_info->mutable_stack_trace()->mutable_data().
-  proto_info->mutable_stack_trace()->Resize(slot_info.trace_len, 0);
+  proto_info->mutable_stack_trace()->Resize(unpacked_len, 0);
   uint64_t* output = proto_info->mutable_stack_trace()->mutable_data();
-  for (size_t i = 0; i < slot_info.trace_len; i++)
-    output[i] = slot_info.trace[i];
+  for (size_t i = 0; i < unpacked_len; i++)
+    output[i] = unpacked_stack_trace[i];
 }
 
 }  // namespace internal

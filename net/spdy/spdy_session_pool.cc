@@ -7,10 +7,12 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "base/trace_event/memory_allocator_dump.h"
 #include "base/trace_event/memory_usage_estimator.h"
 #include "base/trace_event/process_memory_dump.h"
@@ -19,6 +21,8 @@
 #include "build/build_config.h"
 #include "net/base/address_list.h"
 #include "net/base/trace_constants.h"
+#include "net/dns/host_resolver.h"
+#include "net/dns/host_resolver_source.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties.h"
 #include "net/http/http_stream_request.h"
@@ -98,48 +102,38 @@ SpdySessionPool::~SpdySessionPool() {
   CertDatabase::GetInstance()->RemoveObserver(this);
 }
 
+base::WeakPtr<SpdySession>
+SpdySessionPool::CreateAvailableSessionFromSocketHandle(
+    const SpdySessionKey& key,
+    bool is_trusted_proxy,
+    std::unique_ptr<ClientSocketHandle> client_socket_handle,
+    const NetLogWithSource& net_log) {
+  TRACE_EVENT0(NetTracingCategory(),
+               "SpdySessionPool::CreateAvailableSessionFromSocketHandle");
+
+  std::unique_ptr<SpdySession> new_session =
+      CreateSession(key, is_trusted_proxy, net_log.net_log());
+  new_session->InitializeWithSocketHandle(std::move(client_socket_handle),
+                                          this);
+  return InsertSession(key, std::move(new_session), net_log);
+}
+
 base::WeakPtr<SpdySession> SpdySessionPool::CreateAvailableSessionFromSocket(
     const SpdySessionKey& key,
     bool is_trusted_proxy,
-    std::unique_ptr<ClientSocketHandle> connection,
+    std::unique_ptr<StreamSocket> socket_stream,
+    const LoadTimingInfo::ConnectTiming& connect_timing,
     const NetLogWithSource& net_log) {
   TRACE_EVENT0(NetTracingCategory(),
                "SpdySessionPool::CreateAvailableSessionFromSocket");
 
-  UMA_HISTOGRAM_ENUMERATION(
-      "Net.SpdySessionGet", IMPORTED_FROM_SOCKET, SPDY_SESSION_GET_MAX);
+  std::unique_ptr<SpdySession> new_session =
+      CreateSession(key, is_trusted_proxy, net_log.net_log());
 
-  auto new_session = std::make_unique<SpdySession>(
-      key, http_server_properties_, transport_security_state_,
-      ssl_config_service_, quic_supported_versions_,
-      enable_sending_initial_data_, enable_ping_based_connection_checking_,
-      support_ietf_format_quic_altsvc_, is_trusted_proxy,
-      session_max_recv_window_size_, initial_settings_, greased_http2_frame_,
-      time_func_, push_delegate_, network_quality_estimator_,
-      net_log.net_log());
+  new_session->InitializeWithSocket(std::move(socket_stream), connect_timing,
+                                    this);
 
-  new_session->InitializeWithSocket(std::move(connection), this);
-
-  base::WeakPtr<SpdySession> available_session = new_session->GetWeakPtr();
-  sessions_.insert(new_session.release());
-  MapKeyToAvailableSession(key, available_session);
-
-  net_log.AddEvent(
-      NetLogEventType::HTTP2_SESSION_POOL_IMPORTED_SESSION_FROM_SOCKET,
-      available_session->net_log().source().ToEventParametersCallback());
-
-  // Look up the IP address for this session so that we can match
-  // future sessions (potentially to different domains) which can
-  // potentially be pooled with this one. Because GetPeerAddress()
-  // reports the proxy's address instead of the origin server, check
-  // to see if this is a direct connection.
-  if (key.proxy_server().is_direct()) {
-    IPEndPoint address;
-    if (available_session->GetPeerAddress(&address) == OK)
-      aliases_.insert(AliasMap::value_type(address, key));
-  }
-
-  return available_session;
+  return InsertSession(key, std::move(new_session), net_log);
 }
 
 base::WeakPtr<SpdySession> SpdySessionPool::FindAvailableSession(
@@ -183,18 +177,19 @@ base::WeakPtr<SpdySession> SpdySessionPool::FindAvailableSession(
     return base::WeakPtr<SpdySession>();
 
   // Look up IP addresses from resolver cache.
-  HostResolver::RequestInfo resolve_info(key.host_port_pair());
-  AddressList addresses;
-  int rv = resolver_->ResolveFromCache(resolve_info, &addresses, net_log);
+  HostResolver::ResolveHostParameters parameters;
+  parameters.source = HostResolverSource::LOCAL_ONLY;
+  std::unique_ptr<HostResolver::ResolveHostRequest> request =
+      resolver_->CreateRequest(key.host_port_pair(), net_log, parameters);
+
+  int rv = request->Start(base::BindOnce([](int error) { NOTREACHED(); }));
   DCHECK_NE(rv, ERR_IO_PENDING);
   if (rv != OK)
     return base::WeakPtr<SpdySession>();
 
   // Check if we have a session through a domain alias.
-  for (AddressList::const_iterator address_it = addresses.begin();
-       address_it != addresses.end();
-       ++address_it) {
-    auto range = aliases_.equal_range(*address_it);
+  for (const auto& address : request->GetAddressResults().value().endpoints()) {
+    auto range = aliases_.equal_range(address);
     for (auto alias_it = range.first; alias_it != range.second; ++alias_it) {
       // We found an alias.
       const SpdySessionKey& alias_key = alias_it->second;
@@ -600,6 +595,48 @@ void SpdySessionPool::CloseCurrentSessionsHelper(Error error,
     DCHECK(!IsSessionAvailable(session));
     DCHECK(!session || session->IsDraining());
   }
+}
+
+std::unique_ptr<SpdySession> SpdySessionPool::CreateSession(
+    const SpdySessionKey& key,
+    bool is_trusted_proxy,
+    NetLog* net_log) {
+  UMA_HISTOGRAM_ENUMERATION("Net.SpdySessionGet", IMPORTED_FROM_SOCKET,
+                            SPDY_SESSION_GET_MAX);
+
+  return std::make_unique<SpdySession>(
+      key, http_server_properties_, transport_security_state_,
+      ssl_config_service_, quic_supported_versions_,
+      enable_sending_initial_data_, enable_ping_based_connection_checking_,
+      support_ietf_format_quic_altsvc_, is_trusted_proxy,
+      session_max_recv_window_size_, initial_settings_, greased_http2_frame_,
+      time_func_, push_delegate_, network_quality_estimator_, net_log);
+}
+
+base::WeakPtr<SpdySession> SpdySessionPool::InsertSession(
+    const SpdySessionKey& key,
+    std::unique_ptr<SpdySession> new_session,
+    const NetLogWithSource& source_net_log) {
+  base::WeakPtr<SpdySession> available_session = new_session->GetWeakPtr();
+  sessions_.insert(new_session.release());
+  MapKeyToAvailableSession(key, available_session);
+
+  source_net_log.AddEvent(
+      NetLogEventType::HTTP2_SESSION_POOL_IMPORTED_SESSION_FROM_SOCKET,
+      available_session->net_log().source().ToEventParametersCallback());
+
+  // Look up the IP address for this session so that we can match
+  // future sessions (potentially to different domains) which can
+  // potentially be pooled with this one. Because GetPeerAddress()
+  // reports the proxy's address instead of the origin server, check
+  // to see if this is a direct connection.
+  if (key.proxy_server().is_direct()) {
+    IPEndPoint address;
+    if (available_session->GetPeerAddress(&address) == OK)
+      aliases_.insert(AliasMap::value_type(address, key));
+  }
+
+  return available_session;
 }
 
 }  // namespace net

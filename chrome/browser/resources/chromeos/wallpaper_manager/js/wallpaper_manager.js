@@ -24,8 +24,6 @@ function WallpaperManager(dialogDom) {
   this.currentWallpaper_ = null;
   this.wallpaperRequest_ = null;
   this.preDownloadDomInit_();
-  // TODO(wzang): Remove this class.
-  this.document_.body.classList.add('v2');
 
   // The wallpaper picker has two steps of fetching the online images: it first
   // fetches a list of collection names (ie. categories such as Art,
@@ -379,12 +377,12 @@ WallpaperManager.prototype.postDownloadDomInit_ = function() {
   };
 
   getThirdPartyAppName(function(appName) {
-    if (!!appName) {
-      $('wallpaper-set-by-message').textContent =
+    if (appName) {
+      $('message-container').textContent =
           loadTimeData.getStringF('currentWallpaperSetByMessage', appName);
-      $('wallpaper-grid').classList.add('small');
+      $('message-container').style.visibility = 'visible';
     } else {
-      $('wallpaper-grid').classList.remove('small');
+      $('message-container').style.visibility = 'hidden';
     }
   });
 
@@ -655,11 +653,7 @@ WallpaperManager.prototype.onWallpaperChanged_ = function(
   this.wallpaperGrid_.activeItem = activeItem;
   this.currentWallpaper_ = currentWallpaperURL;
   this.decorateCurrentWallpaperInfoBar_();
-  // Hides the wallpaper set by message.
-  $('wallpaper-set-by-message').textContent = '';
-  $('wallpaper-grid').classList.remove('small');
-
-    this.wallpaperGrid_.checkmark.focus();
+  this.wallpaperGrid_.checkmark.focus();
 
   // Disables daily refresh if user selects a non-daily wallpaper.
   if (activeItem && activeItem.source !== Constants.WallpaperSourceEnum.Daily)
@@ -1254,10 +1248,6 @@ WallpaperManager.prototype.onCategoriesChange_ = function() {
   var selectedIndex = categoriesList.selectionModel.selectedIndex;
   if (selectedIndex == -1)
     return;
-  var selectedListItem = categoriesList.getListItemByIndex(selectedIndex);
-  var bar = $('bar');
-  bar.style.left = selectedListItem.offsetLeft + 'px';
-  bar.style.width = selectedListItem.offsetWidth + 'px';
   // Cancel any ongoing wallpaper request if user clicks on another category.
   if (this.wallpaperRequest_) {
     this.wallpaperRequest_.abort();
@@ -1265,7 +1255,7 @@ WallpaperManager.prototype.onCategoriesChange_ = function() {
   }
   // Always start with the top when showing a new category.
   this.wallpaperGrid_.scrollTop = 0;
-
+  var selectedListItem = categoriesList.getListItemByIndex(selectedIndex);
   if (selectedListItem.custom) {
     var wallpapersDataModel = new cr.ui.ArrayDataModel([]);
     if (loadTimeData.getBoolean('isOEMDefaultWallpaper')) {

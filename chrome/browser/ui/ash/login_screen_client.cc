@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "ash/public/interfaces/constants.mojom.h"
+#include "base/bind.h"
 #include "chrome/browser/chromeos/login/existing_user_controller.h"
 #include "chrome/browser/chromeos/login/help_app_launcher.h"
 #include "chrome/browser/chromeos/login/lock/screen_locker.h"
@@ -28,6 +29,8 @@ LoginScreenClient* g_login_screen_client_instance = nullptr;
 
 LoginScreenClient::Delegate::Delegate() = default;
 LoginScreenClient::Delegate::~Delegate() = default;
+
+LoginScreenClient::ParentAccessDelegate::~ParentAccessDelegate() = default;
 
 LoginScreenClient::LoginScreenClient()
     : binding_(this),
@@ -65,6 +68,11 @@ void LoginScreenClient::SetDelegate(Delegate* delegate) {
   delegate_ = delegate;
 }
 
+void LoginScreenClient::SetParentAccessDelegate(
+    ParentAccessDelegate* delegate) {
+  parent_access_delegate_ = delegate;
+}
+
 void LoginScreenClient::AddSystemTrayFocusObserver(
     ash::SystemTrayFocusObserver* observer) {
   system_tray_focus_observers_.AddObserver(observer);
@@ -100,6 +108,7 @@ void LoginScreenClient::AuthenticateUserWithPasswordOrPin(
     std::move(callback).Run(false);
   }
 }
+
 void LoginScreenClient::AuthenticateUserWithExternalBinary(
     const AccountId& account_id,
     AuthenticateUserWithExternalBinaryCallback callback) {
@@ -130,6 +139,19 @@ void LoginScreenClient::AuthenticateUserWithEasyUnlock(
     auth_recorder_->RecordAuthMethod(
         chromeos::LoginAuthRecorder::AuthMethod::kSmartlock);
   }
+}
+
+void LoginScreenClient::ValidateParentAccessCode(
+    const AccountId& account_id,
+    const std::string& access_code,
+    ValidateParentAccessCodeCallback callback) {
+  if (!parent_access_delegate_) {
+    LOG(ERROR) << "Cannot validate parent access code - no delegate";
+    std::move(callback).Run(false);
+    return;
+  }
+  parent_access_delegate_->ValidateParentAccessCode(access_code,
+                                                    std::move(callback));
 }
 
 void LoginScreenClient::HardlockPod(const AccountId& account_id) {
@@ -285,4 +307,12 @@ void LoginScreenClient::SetPublicSessionKeyboardLayout(
   }
   login_screen_->SetPublicSessionKeyboardLayouts(account_id, locale,
                                                  std::move(result));
+}
+
+void LoginScreenClient::OnUserActivity() {
+  if (chromeos::LoginDisplayHost::default_host()) {
+    chromeos::LoginDisplayHost::default_host()
+        ->GetExistingUserController()
+        ->ResetAutoLoginTimer();
+  }
 }

@@ -4,15 +4,16 @@
 
 #include "third_party/blink/renderer/modules/animationworklet/animation_worklet_global_scope.h"
 
-#include "base/metrics/histogram_macros.h"
-#include "base/timer/elapsed_timer.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_object_parser.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_function.h"
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_animate_callback.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_animator_constructor.h"
 #include "third_party/blink/renderer/core/workers/global_scope_creation_params.h"
 #include "third_party/blink/renderer/core/workers/worker_thread.h"
 #include "third_party/blink/renderer/modules/animationworklet/animation_worklet_proxy_client.h"
 #include "third_party/blink/renderer/modules/animationworklet/worklet_animation_options.h"
+#include "third_party/blink/renderer/platform/bindings/callback_method_retriever.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding_macros.h"
 #include "third_party/blink/renderer/platform/bindings/v8_object_constructor.h"
@@ -23,13 +24,13 @@ namespace blink {
 
 namespace {
 
-void UpdateAnimation(Animator* animator,
-                     ScriptState* script_state,
+void UpdateAnimation(v8::Isolate* isolate,
+                     Animator* animator,
                      WorkletAnimationId id,
                      double current_time,
                      AnimationWorkletDispatcherOutput* result) {
   AnimationWorkletDispatcherOutput::AnimationState animation_output(id);
-  if (animator->Animate(script_state, current_time, &animation_output)) {
+  if (animator->Animate(isolate, current_time, &animation_output)) {
     result->animations.push_back(std::move(animation_output));
   }
 }
@@ -80,21 +81,17 @@ Animator* AnimationWorkletGlobalScope::CreateAnimatorFor(
   return animator;
 }
 
-std::unique_ptr<AnimationWorkletOutput> AnimationWorkletGlobalScope::Mutate(
-    const AnimationWorkletInput& mutator_input) {
-  base::ElapsedTimer timer;
+void AnimationWorkletGlobalScope::UpdateAnimatorsList(
+    const AnimationWorkletInput& input) {
   DCHECK(IsContextThread());
 
   ScriptState* script_state = ScriptController()->GetScriptState();
   ScriptState::Scope scope(script_state);
 
-  std::unique_ptr<AnimationWorkletOutput> result =
-      std::make_unique<AnimationWorkletOutput>();
-
-  for (const auto& worklet_animation_id : mutator_input.removed_animations)
+  for (const auto& worklet_animation_id : input.removed_animations)
     animators_.erase(worklet_animation_id.animation_id);
 
-  for (const auto& animation : mutator_input.added_and_updated_animations) {
+  for (const auto& animation : input.added_and_updated_animations) {
     int id = animation.worklet_animation_id.animation_id;
     DCHECK(!animators_.Contains(id));
     const String name =
@@ -104,44 +101,55 @@ std::unique_ptr<AnimationWorkletOutput> AnimationWorkletGlobalScope::Mutate(
     WorkletAnimationOptions* options =
         static_cast<WorkletAnimationOptions*>(animation.options.get());
 
-    Animator* animator =
-        CreateAnimatorFor(id, name, options, animation.num_effects);
-    if (!animator)
-      continue;
-
-    UpdateAnimation(animator, script_state, animation.worklet_animation_id,
-                    animation.current_time, result.get());
+    CreateAnimatorFor(id, name, options, animation.num_effects);
   }
+}
 
-  for (const auto& animation : mutator_input.updated_animations) {
+void AnimationWorkletGlobalScope::UpdateAnimators(
+    const AnimationWorkletInput& input,
+    AnimationWorkletOutput* output,
+    bool (*predicate)(Animator*)) {
+  DCHECK(IsContextThread());
+
+  ScriptState* script_state = ScriptController()->GetScriptState();
+  v8::Isolate* isolate = script_state->GetIsolate();
+  ScriptState::Scope scope(script_state);
+
+  for (const auto& animation : input.added_and_updated_animations) {
     int id = animation.worklet_animation_id.animation_id;
     Animator* animator = animators_.at(id);
     // We don't try to create an animator if there isn't any.
-    if (!animator)
+    // This can only happen if constructing an animator instance has failed
+    // e.g., the constructor throws an exception.
+    if (!animator || !predicate(animator))
       continue;
 
-    UpdateAnimation(animator, script_state, animation.worklet_animation_id,
-                    animation.current_time, result.get());
+    UpdateAnimation(isolate, animator, animation.worklet_animation_id,
+                    animation.current_time, output);
   }
 
-  for (const auto& worklet_animation_id : mutator_input.peeked_animations) {
+  for (const auto& animation : input.updated_animations) {
+    int id = animation.worklet_animation_id.animation_id;
+    Animator* animator = animators_.at(id);
+    // We don't try to create an animator if there isn't any.
+    if (!animator || !predicate(animator))
+      continue;
+
+    UpdateAnimation(isolate, animator, animation.worklet_animation_id,
+                    animation.current_time, output);
+  }
+
+  for (const auto& worklet_animation_id : input.peeked_animations) {
     int id = worklet_animation_id.animation_id;
     Animator* animator = animators_.at(id);
-    if (!animator)
+    if (!animator || !predicate(animator))
       continue;
 
     AnimationWorkletDispatcherOutput::AnimationState animation_output(
         worklet_animation_id);
     animation_output.local_times = animator->GetLocalTimes();
-    result->animations.push_back(animation_output);
+    output->animations.push_back(animation_output);
   }
-
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-      "Animation.AnimationWorklet.GlobalScope.MutateDuration", timer.Elapsed(),
-      base::TimeDelta::FromMicroseconds(1),
-      base::TimeDelta::FromMilliseconds(100), 50);
-
-  return result;
 }
 
 void AnimationWorkletGlobalScope::RegisterWithProxyClientIfNeeded() {
@@ -150,14 +158,14 @@ void AnimationWorkletGlobalScope::RegisterWithProxyClientIfNeeded() {
 
   if (AnimationWorkletProxyClient* proxy_client =
           AnimationWorkletProxyClient::From(Clients())) {
-    proxy_client->SetGlobalScope(this);
+    proxy_client->AddGlobalScope(this);
     registered_ = true;
   }
 }
 
 void AnimationWorkletGlobalScope::registerAnimator(
     const String& name,
-    const ScriptValue& constructor_value,
+    V8AnimatorConstructor* animator_ctor,
     ExceptionState& exception_state) {
   RegisterWithProxyClientIfNeeded();
 
@@ -174,26 +182,26 @@ void AnimationWorkletGlobalScope::registerAnimator(
     return;
   }
 
-  v8::Isolate* isolate = ScriptController()->GetScriptState()->GetIsolate();
-  v8::Local<v8::Context> context = ScriptController()->GetContext();
-
-  DCHECK(constructor_value.V8Value()->IsFunction());
-  v8::Local<v8::Function> constructor =
-      v8::Local<v8::Function>::Cast(constructor_value.V8Value());
-
-  v8::Local<v8::Object> prototype;
-  if (!V8ObjectParser::ParsePrototype(context, constructor, &prototype,
-                                      &exception_state))
+  CallbackMethodRetriever retriever(animator_ctor);
+  retriever.GetPrototypeObject(exception_state);
+  if (exception_state.HadException())
     return;
-
-  v8::Local<v8::Function> animate;
-  if (!V8ObjectParser::ParseFunction(context, prototype, "animate", &animate,
-                                     &exception_state))
+  v8::Local<v8::Function> v8_animate =
+      retriever.GetMethodOrThrow("animate", exception_state);
+  if (exception_state.HadException())
     return;
+  V8AnimateCallback* animate = V8AnimateCallback::Create(v8_animate);
+  v8::Local<v8::Value> v8_state =
+      retriever.GetMethodOrUndefined("state", exception_state);
+  V8Function* state = v8_state->IsFunction()
+                          ? V8Function::Create(v8_state.As<v8::Function>())
+                          : nullptr;
 
   AnimatorDefinition* definition =
-      MakeGarbageCollected<AnimatorDefinition>(isolate, constructor, animate);
+      MakeGarbageCollected<AnimatorDefinition>(animator_ctor, animate, state);
 
+  // TODO(https://crbug.com/923063): Ensure worklet definitions are compatible
+  // across global scopes.
   animator_definitions_.Set(name, definition);
   // TODO(yigu): Currently one animator name is synced back per registration.
   // Eventually all registered names should be synced in batch once a module
@@ -214,22 +222,24 @@ Animator* AnimationWorkletGlobalScope::CreateInstance(
     return nullptr;
 
   v8::Isolate* isolate = ScriptController()->GetScriptState()->GetIsolate();
-  v8::Local<v8::Function> constructor = definition->ConstructorLocal(isolate);
-  DCHECK(!IsUndefinedOrNull(constructor));
-  v8::Local<v8::Value> value;
-  if (options && options->GetData())
-    value = options->GetData()->Deserialize(isolate);
+  v8::Local<v8::Value> v8_options =
+      options && options->GetData() ? options->GetData()->Deserialize(isolate)
+                                    : v8::Undefined(isolate).As<v8::Value>();
+  ScriptValue options_value(ScriptController()->GetScriptState(), v8_options);
 
-  v8::Local<v8::Value> instance;
-  if (!V8ScriptRunner::CallAsConstructor(
-           isolate, constructor,
-           ExecutionContext::From(ScriptController()->GetScriptState()),
-           !value.IsEmpty() ? 1 : 0, &value)
-           .ToLocal(&instance))
+  ScriptValue instance;
+  if (!definition->ConstructorFunction()
+           ->Construct(options_value)
+           .To(&instance)) {
     return nullptr;
+  }
 
-  return MakeGarbageCollected<Animator>(isolate, definition, instance,
+  return MakeGarbageCollected<Animator>(isolate, definition, instance.V8Value(),
                                         num_effects);
+}
+
+bool AnimationWorkletGlobalScope::IsAnimatorStateful(int animation_id) {
+  return animators_.at(animation_id)->IsStateful();
 }
 
 AnimatorDefinition* AnimationWorkletGlobalScope::FindDefinitionForTest(

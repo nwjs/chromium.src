@@ -36,8 +36,10 @@ class BackgroundTaskSchedulerUma {
     static final int BACKGROUND_TASK_DEPRECATED_EXPLORE_SITES_REFRESH = 16;
     static final int BACKGROUND_TASK_EXPLORE_SITES_REFRESH = 17;
     static final int BACKGROUND_TASK_DOWNLOAD_AUTO_RESUMPTION = 18;
+    static final int BACKGROUND_TASK_ONE_SHOT_SYNC_WAKE_UP = 19;
+    static final int BACKGROUND_TASK_NOTIFICATION_SCHEDULER = 20;
     // Keep this one at the end and increment appropriately when adding new tasks.
-    static final int BACKGROUND_TASK_COUNT = 19;
+    static final int BACKGROUND_TASK_COUNT = 21;
 
     static final String KEY_CACHED_UMA = "bts_cached_uma";
 
@@ -157,6 +159,23 @@ class BackgroundTaskSchedulerUma {
                 toUmaEnumValueFromTaskId(taskId));
     }
 
+    /**
+     * Report metrics for starting a NativeBackgroundTask. This does not consider tasks that are
+     * short-circuited before any work is done.
+     */
+    public void reportNativeTaskStarted(int taskId) {
+        cacheEvent("Android.NativeBackgroundTask.TaskStarted", toUmaEnumValueFromTaskId(taskId));
+    }
+
+    /**
+     * Reports metrics that a NativeBackgroundTask has been finished cleanly (i.e., no unexpected
+     * exits because of chrome crash or OOM). This includes tasks that have been stopped due to
+     * timeout.
+     */
+    public void reportNativeTaskFinished(int taskId) {
+        cacheEvent("Android.NativeBackgroundTask.TaskFinished", toUmaEnumValueFromTaskId(taskId));
+    }
+
     /** Method that actually invokes histogram recording. Extracted for testing. */
     @VisibleForTesting
     void recordEnumeratedHistogram(String histogram, int value, int maxCount) {
@@ -262,6 +281,10 @@ class BackgroundTaskSchedulerUma {
                 return BACKGROUND_TASK_DEPRECATED_EXPLORE_SITES_REFRESH;
             case TaskIds.EXPLORE_SITES_REFRESH_JOB_ID:
                 return BACKGROUND_TASK_EXPLORE_SITES_REFRESH;
+            case TaskIds.BACKGROUND_SYNC_ONE_SHOT_JOB_ID:
+                return BACKGROUND_TASK_ONE_SHOT_SYNC_WAKE_UP;
+            case TaskIds.NOTIFICATION_SCHEDULER_JOB_ID:
+                return BACKGROUND_TASK_NOTIFICATION_SCHEDULER;
             default:
                 assert false;
         }

@@ -53,6 +53,7 @@ class SkBitmap;
 
 namespace cc {
 struct ApplyViewportChangesArgs;
+class AnimationHost;
 }
 
 namespace gfx {
@@ -68,7 +69,7 @@ class WebWidget {
   // Called during set up of the WebWidget to declare the WebLayerTreeView for
   // the widget to use. This does not pass ownership, but the caller must keep
   // the pointer valid until Close() is called.
-  virtual void SetLayerTreeView(WebLayerTreeView*) = 0;
+  virtual void SetLayerTreeView(WebLayerTreeView*, cc::AnimationHost*) = 0;
 
   // This method closes and deletes the WebWidget.
   virtual void Close() {}
@@ -95,16 +96,36 @@ class WebWidget {
 
   // Called to update imperative animation state. This should be called before
   // paint, although the client can rate-limit these calls.
-  // |last_frame_time| is in seconds.
-  virtual void BeginFrame(base::TimeTicks last_frame_time) {}
+  // |last_frame_time| is in seconds. |record_main_frame_metrics| is true when
+  // UMA and UKM metrics should be emitted for animation work.
+  virtual void BeginFrame(base::TimeTicks last_frame_time,
+                          bool record_main_frame_metrics) {}
+
+  // Called after UpdateAllLifecyclePhases has run in response to a BeginFrame.
+  virtual void DidBeginFrame() {}
+
+  // Called when main frame metrics are desired. The local frame's UKM
+  // aggregator must be informed that collection is starting for the
+  // frame.
+  virtual void RecordStartOfFrameMetrics() {}
 
   // Called when a main frame time metric should be emitted, along with
   // any metrics that depend upon the main frame total time.
   virtual void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) {}
 
+  // Methods called to mark the beginning and end of input processing work
+  // before rAF scripts are executed. Only called when gathering main frame
+  // UMA and UKM. That is, when RecordStartOfFrameMetrics has been called, and
+  // before RecordEndOfFrameMetrics has been called. Only implement if the
+  // rAF input update will be called as part of a layer tree view main frame
+  // update.
+  virtual void BeginRafAlignedInput() {}
+  virtual void EndRafAlignedInput() {}
+
   // Called to run through the entire set of document lifecycle phases needed
   // to render a frame of the web widget. This MUST be called before Paint,
-  // and it may result in calls to WebWidgetClient::DidInvalidateRect.
+  // and it may result in calls to WebViewClient::DidInvalidateRect (for
+  // non-composited WebViews).
   // |LifecycleUpdateReason| must be used to indicate the source of the
   // update for the purposes of metrics gathering.
   enum class LifecycleUpdate { kLayout, kPrePaint, kAll };
@@ -210,10 +231,6 @@ class WebWidget {
 
   // Returns true if the WebWidget created is of type WebFrameWidget.
   virtual bool IsWebFrameWidget() const { return false; }
-
-  // The WebLayerTreeView initialized on this WebWidgetClient will be going away
-  // and is no longer safe to access.
-  virtual void WillCloseLayerTreeView() {}
 
   // Calling WebWidgetClient::requestPointerLock() will result in one
   // return call to didAcquirePointerLock() or didNotAcquirePointerLock().

@@ -7,6 +7,11 @@
 #include <string>
 #include <utility>
 
+#if defined(OS_WIN)
+#include <vector>
+#endif
+
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/trace_event/trace_event.h"
@@ -1184,9 +1189,9 @@ void Textfield::OnCompositionTextConfirmedOrCleared() {
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, ContextMenuController overrides:
 
-void Textfield::ShowContextMenuForView(View* source,
-                                       const gfx::Point& point,
-                                       ui::MenuSourceType source_type) {
+void Textfield::ShowContextMenuForViewImpl(View* source,
+                                           const gfx::Point& point,
+                                           ui::MenuSourceType source_type) {
   UpdateContextMenu();
   context_menu_runner_->RunMenuAt(GetWidget(), NULL,
                                   gfx::Rect(point, gfx::Size()),
@@ -1769,6 +1774,14 @@ bool Textfield::ShouldDoLearning() {
   return false;
 }
 
+#if defined(OS_WIN)
+// TODO(IME): Implement this method to support Korean IME reconversion feature
+// on native text fields (e.g. find bar).
+void Textfield::SetCompositionFromExistingText(
+    const gfx::Range& range,
+    const std::vector<ui::ImeTextSpan>& ui_ime_text_spans) {}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Textfield, protected:
 
@@ -2257,11 +2270,12 @@ bool Textfield::Paste() {
 
 void Textfield::UpdateContextMenu() {
   // TextfieldController may modify Textfield's menu, so the menu should be
-  // recreated each time it's shown. Reset the MenuRunner first so it doesn't
-  // reference the old menu model.
+  // recreated each time it's shown. Destroy the existing objects in the reverse
+  // order of creation.
   context_menu_runner_.reset();
+  context_menu_contents_.reset();
 
-  context_menu_contents_.reset(new ui::SimpleMenuModel(this));
+  context_menu_contents_ = std::make_unique<ui::SimpleMenuModel>(this);
   context_menu_contents_->AddItemWithStringId(IDS_APP_UNDO, IDS_APP_UNDO);
   context_menu_contents_->AddSeparator(ui::NORMAL_SEPARATOR);
   context_menu_contents_->AddItemWithStringId(IDS_APP_CUT, IDS_APP_CUT);

@@ -13,6 +13,7 @@
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_test.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 namespace blink {
 
@@ -950,8 +951,7 @@ TEST_F(NGOffsetMappingTest, OneContainerWithLeadingAndTrailingSpaces) {
 
   auto unit_range = result.GetMappingUnitsForDOMRange(
       EphemeralRange(Position::BeforeNode(*span), Position::AfterNode(*span)));
-  EXPECT_EQ(result.GetUnits().begin(), unit_range.begin());
-  EXPECT_EQ(result.GetUnits().end(), unit_range.end());
+  EXPECT_EQ(result.GetUnits().size(), unit_range.size());
 
   EXPECT_EQ(0u, *GetTextContentOffset(Position::BeforeNode(*span)));
   EXPECT_EQ(3u, *GetTextContentOffset(Position::AfterNode(*span)));
@@ -971,8 +971,7 @@ TEST_F(NGOffsetMappingTest, ContainerWithGeneratedContent) {
 
   auto unit_range = result.GetMappingUnitsForDOMRange(
       EphemeralRange(Position::BeforeNode(*span), Position::AfterNode(*span)));
-  EXPECT_EQ(result.GetUnits().begin(), unit_range.begin());
-  EXPECT_EQ(result.GetUnits().end(), unit_range.end());
+  EXPECT_EQ(result.GetUnits().size(), unit_range.size());
 
   // Offset mapping for inline containers skips generated content.
   EXPECT_EQ(3u, *GetTextContentOffset(Position::BeforeNode(*span)));
@@ -1164,9 +1163,9 @@ class NGOffsetMappingGetterTest : public RenderingTest,
   NGOffsetMappingGetterTest() : ScopedLayoutNGForTest(GetParam()) {}
 };
 
-INSTANTIATE_TEST_CASE_P(NGOffsetMappingTest,
-                        NGOffsetMappingGetterTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(NGOffsetMappingTest,
+                         NGOffsetMappingGetterTest,
+                         testing::Bool());
 
 TEST_P(NGOffsetMappingGetterTest, Get) {
   SetBodyInnerHTML(R"HTML(
@@ -1182,9 +1181,8 @@ TEST_P(NGOffsetMappingGetterTest, Get) {
   // engine.
   DCHECK_EQ(layout_block_flow->IsLayoutNGMixin(), GetParam());
 
-  std::unique_ptr<NGOffsetMapping> storage;
   const NGOffsetMapping* mapping =
-      NGInlineNode::GetOffsetMapping(layout_block_flow, &storage);
+      NGInlineNode::GetOffsetMapping(layout_block_flow);
   EXPECT_TRUE(mapping);
 
   const String& text_content = mapping->GetText();

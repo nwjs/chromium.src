@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "content/public/renderer/render_frame.h"
@@ -74,6 +75,12 @@ void CastMediaPlaybackOptions::SetMediaLoadingBlocked(bool blocked) {
 void CastMediaPlaybackOptions::SetBackgroundVideoPlaybackEnabled(bool enabled) {
   renderer_media_playback_options_.is_background_video_playback_enabled =
       enabled;
+  render_frame()->SetRenderFrameMediaPlaybackOptions(
+      renderer_media_playback_options_);
+}
+
+void CastMediaPlaybackOptions::SetUseCmaRenderer(bool enable) {
+  renderer_media_playback_options_.is_mojo_renderer_enabled = enable;
   render_frame()->SetRenderFrameMediaPlaybackOptions(
       renderer_media_playback_options_);
 }

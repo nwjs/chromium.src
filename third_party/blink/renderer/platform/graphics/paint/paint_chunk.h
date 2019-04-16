@@ -37,14 +37,7 @@ struct PLATFORM_EXPORT PaintChunk {
         id(id),
         properties(props),
         is_cacheable(id.client.IsCacheable()),
-        client_is_just_created(id.client.IsJustCreated()) {
-    // PaintChunk properties should not be null. If these checks are hit,
-    // we may be missing a call to ScopedPaintChunkProperties, see comment in
-    // PaintChunker::IncrementDisplayItemIndex for more information.
-    CHECK(props.Transform());
-    CHECK(props.Clip());
-    CHECK(props.Effect());
-  }
+        client_is_just_created(id.client.IsJustCreated()) {}
 
   size_t size() const {
     DCHECK_GE(end_index, begin_index);
@@ -111,6 +104,8 @@ struct PLATFORM_EXPORT PaintChunk {
   // is the maximum DisplayItemClient::VisualRectOutsetForRasterEffects() of
   // all clients of items in this chunk.
   float outset_for_raster_effects = 0;
+
+  SkColor safe_opaque_background_color = 0;
 
   // True if the bounds are filled entirely with opaque contents.
   bool known_to_be_opaque = false;

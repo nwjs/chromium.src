@@ -16,6 +16,7 @@
 #include "base/command_line.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
+#include "base/metrics/field_trial.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/no_destructor.h"
 #include "base/stl_util.h"
@@ -97,6 +98,15 @@ enum FieldFilterMask {
                                      FILTER_READONLY_ELEMENTS |
                                      FILTER_NON_FOCUSABLE_ELEMENTS,
 };
+
+// Returns whether sending autofill field metadata to the server is enabled.
+// TODO(crbug.com/938804): Remove this when button titles are crowdsourced in
+// all channels.
+bool IsAutofillFieldMetadataEnabled() {
+  static base::NoDestructor<std::string> kGroupName(
+      base::FieldTrialList::FindFullName("AutofillFieldMetadata"));
+  return base::StartsWith(*kGroupName, "Enabled", base::CompareCase::SENSITIVE);
+}
 
 void TruncateString(base::string16* str, size_t max_length) {
   if (str->length() > max_length)
@@ -1415,6 +1425,11 @@ bool UnownedFormElementsAndFieldSetsToFormData(
     FormData* form,
     FormFieldData* field) {
   form->origin = GetCanonicalOriginForDocument(document);
+  if (IsAutofillFieldMetadataEnabled() && !document.Body().IsNull()) {
+    SCOPED_UMA_HISTOGRAM_TIMER(
+        "PasswordManager.ButtonTitlePerformance.NoFormTag");
+    form->button_titles = InferButtonTitlesForForm(document.Body());
+  }
   if (document.GetFrame() && document.GetFrame()->Top()) {
     form->main_frame_origin = document.GetFrame()->Top()->GetSecurityOrigin();
   } else {
@@ -1791,6 +1806,11 @@ bool WebFormElementToFormData(
   form->unique_renderer_id = form_element.UniqueRendererFormId();
   form->origin = GetCanonicalOriginForDocument(frame->GetDocument());
   form->action = GetCanonicalActionForForm(form_element);
+  if (IsAutofillFieldMetadataEnabled()) {
+    SCOPED_UMA_HISTOGRAM_TIMER(
+        "PasswordManager.ButtonTitlePerformance.HasFormTag");
+    form->button_titles = InferButtonTitlesForForm(form_element);
+  }
   if (frame->Top()) {
     form->main_frame_origin = frame->Top()->GetSecurityOrigin();
   } else {

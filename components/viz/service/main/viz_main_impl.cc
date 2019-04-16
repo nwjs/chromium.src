@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/message_loop/message_loop.h"
 #include "base/power_monitor/power_monitor_device_source.h"
 #include "base/single_thread_task_runner.h"
@@ -35,7 +36,7 @@ std::unique_ptr<base::Thread> CreateAndStartIOThread() {
   // It should be possible to use |main_task_runner_| for doing IO tasks.
   base::Thread::Options thread_options(base::MessageLoop::TYPE_IO, 0);
   thread_options.priority = base::ThreadPriority::NORMAL;
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS) || defined(USE_OZONE)
   // TODO(reveman): Remove this in favor of setting it explicitly for each
   // type of process.
   thread_options.priority = base::ThreadPriority::DISPLAY;
@@ -196,7 +197,8 @@ void VizMainImpl::CreateGpuService(
       std::move(gpu_host),
       gpu::GpuProcessActivityFlags(std::move(activity_flags)),
       gpu_init_->TakeDefaultOffscreenSurface(),
-      dependencies_.sync_point_manager, dependencies_.shutdown_event);
+      dependencies_.sync_point_manager, dependencies_.shared_image_manager,
+      dependencies_.shutdown_event);
 
   if (!pending_frame_sink_manager_params_.is_null()) {
     CreateFrameSinkManagerInternal(

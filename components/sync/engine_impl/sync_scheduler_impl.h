@@ -35,7 +35,7 @@ struct ModelNeutralState;
 class SyncSchedulerImpl : public SyncScheduler {
  public:
   // |name| is a display string to identify the syncer thread.  Takes
-  // |ownership of |syncer| and |delay_provider|.
+  // ownership of |syncer| and |delay_provider|.
   SyncSchedulerImpl(const std::string& name,
                     BackoffDelayProvider* delay_provider,
                     SyncCycleContext* context,
@@ -47,7 +47,6 @@ class SyncSchedulerImpl : public SyncScheduler {
 
   void Start(Mode mode, base::Time last_poll_time) override;
   void ScheduleConfiguration(const ConfigurationParams& params) override;
-  void ScheduleClearServerData(const ClearParams& params) override;
   void Stop() override;
   void ScheduleLocalNudge(ModelTypeSet types,
                           const base::Location& nudge_location) override;
@@ -106,7 +105,6 @@ class SyncSchedulerImpl : public SyncScheduler {
   };
 
   friend class SyncSchedulerImplTest;
-  friend class SyncSchedulerWhiteboxTest;
   friend class SyncerTest;
 
   FRIEND_TEST_ALL_PREFIXES(SyncSchedulerTest, TransientPollFailure);
@@ -127,8 +125,6 @@ class SyncSchedulerImpl : public SyncScheduler {
 
   // Invoke the syncer to perform a configuration job.
   void DoConfigurationSyncCycleJob(JobPriority priority);
-
-  void DoClearServerDataSyncCycleJob(JobPriority priority);
 
   // Helper function for Do{Nudge,Configuration,Poll}SyncCycleJob.
   void HandleSuccess();
@@ -257,8 +253,6 @@ class SyncSchedulerImpl : public SyncScheduler {
   // Storage for variables related to an in-progress configure request.  Note
   // that (mode_ != CONFIGURATION_MODE) \implies !pending_configure_params_.
   std::unique_ptr<ConfigurationParams> pending_configure_params_;
-
-  std::unique_ptr<ClearParams> pending_clear_params_;
 
   // Keeps track of work that the syncer needs to handle.
   NudgeTracker nudge_tracker_;

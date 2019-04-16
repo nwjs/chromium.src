@@ -87,12 +87,14 @@ class GetCookieListCallback : public CookieCallback {
 
   ~GetCookieListCallback();
 
-  void Run(const CookieList& cookies);
+  void Run(const CookieList& cookies, const CookieStatusList& excluded_cookies);
 
   const CookieList& cookies() { return cookies_; }
+  const CookieStatusList& excluded_cookies() { return excluded_cookies_; }
 
  private:
   CookieList cookies_;
+  CookieStatusList excluded_cookies_;
 };
 
 }  // namespace net

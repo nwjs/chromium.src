@@ -30,6 +30,7 @@
 #include <utility>
 
 #include "third_party/blink/public/common/manifest/web_display_mode.h"
+#include "third_party/blink/public/mojom/frame/lifecycle.mojom-blink.h"
 #include "third_party/blink/public/platform/shape_properties.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
@@ -46,27 +47,29 @@
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
 #include "third_party/blink/renderer/platform/graphics/subtree_paint_property_update_reason.h"
 #include "third_party/blink/renderer/platform/timer.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/skia/include/core/SkColor.h"
 
 namespace cc {
+class AnimationHost;
 class Layer;
 }
 
 namespace blink {
-
 class AXObjectCache;
 class ChromeClient;
-class CompositorAnimationHost;
 class CompositorAnimationTimeline;
 class Cursor;
 class DisplayItemClient;
 class DocumentLifecycle;
-class ElementVisibilityObserver;
 class FloatRect;
 class FloatSize;
 class FragmentAnchor;
 class Frame;
 class FrameViewAutoSizeInfo;
+class IntersectionObserver;
+class IntersectionObserverEntry;
 class JSONObject;
 class JankTracker;
 class KURL;
@@ -216,7 +219,7 @@ class CORE_EXPORT LocalFrameView final
 
   // Get the InstersectionObservation::ComputeFlags for target elements in this
   // view.
-  unsigned GetIntersectionObservationFlags() const;
+  unsigned GetIntersectionObservationFlags(unsigned parent_flags) const;
 
   void SetPaintArtifactCompositorNeedsUpdate() const;
 
@@ -369,8 +372,11 @@ class CORE_EXPORT LocalFrameView final
   // desired state.
   bool UpdateLifecycleToLayoutClean();
 
-  // Record any UMA and UKM metrics that depend on the end of a main frame.
-  void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time);
+  // This for doing work that needs to run synchronously at the end of lifecyle
+  // updates, but needs to happen outside of the lifecycle code. It's OK to
+  // schedule another animation frame here, but the layout tree should not be
+  // invalidated.
+  void RunPostLifecycleSteps();
 
   void ScheduleVisualUpdateForPaintInvalidationIfNeeded();
 
@@ -599,10 +605,6 @@ class CORE_EXPORT LocalFrameView final
   bool IsHiddenForThrottling() const { return hidden_for_throttling_; }
   void SetupRenderThrottling();
 
-  // For testing, run pending intersection observer notifications for this
-  // frame.
-  void UpdateRenderThrottlingStatusForTesting();
-
   void BeginLifecycleUpdates();
 
   // Shorthands of LayoutView's corresponding methods.
@@ -656,7 +658,7 @@ class CORE_EXPORT LocalFrameView final
 
   LayoutUnit CaretWidth() const;
 
-  size_t PaintFrameCount() const { return paint_frame_count_; };
+  size_t PaintFrameCount() const { return paint_frame_count_; }
 
   // Return the ScrollableArea in a FrameView with the given ElementId, if any.
   // This is not recursive and will only return ScrollableAreas owned by this
@@ -698,7 +700,7 @@ class CORE_EXPORT LocalFrameView final
   void ScrollableAreasDidChange();
 
   ScrollingCoordinatorContext* GetScrollingContext() const;
-  CompositorAnimationHost* GetCompositorAnimationHost() const;
+  cc::AnimationHost* GetCompositorAnimationHost() const;
   CompositorAnimationTimeline* GetCompositorAnimationTimeline() const;
 
   JankTracker& GetJankTracker() { return *jank_tracker_; }
@@ -727,6 +729,8 @@ class CORE_EXPORT LocalFrameView final
  private:
 #if DCHECK_IS_ON()
   class DisallowLayoutInvalidationScope {
+    STACK_ALLOCATED();
+
    public:
     DisallowLayoutInvalidationScope(LocalFrameView* view)
         : local_frame_view_(view) {
@@ -771,6 +775,8 @@ class CORE_EXPORT LocalFrameView final
   void SetupPrintContext();
   void ClearPrintContext();
 
+  void StopDeferringCommits();
+
   // Returns whether the lifecycle was succesfully updated to the
   // target state.
   bool UpdateLifecyclePhases(DocumentLifecycle::LifecycleState target_state,
@@ -795,6 +801,8 @@ class CORE_EXPORT LocalFrameView final
   void PrePaint();
   void PaintTree();
   void UpdateStyleAndLayoutIfNeededRecursive();
+  void OnViewportIntersectionChanged(
+      const HeapVector<Member<IntersectionObserverEntry>>& entries);
 
   void PushPaintArtifactToCompositor(
       CompositorElementIdSet& composited_element_ids);
@@ -806,6 +814,8 @@ class CORE_EXPORT LocalFrameView final
   void PerformPostLayoutTasks();
 
   DocumentLifecycle& Lifecycle() const;
+
+  void RunIntersectionObserverSteps();
 
   // Methods to do point conversion via layoutObjects, in order to take
   // transforms into account.
@@ -854,7 +864,9 @@ class CORE_EXPORT LocalFrameView final
   template <typename Function>
   void ForAllNonThrottledLocalFrameViews(const Function&);
 
-  void UpdateViewportIntersectionsForSubtree() override;
+  bool UpdateViewportIntersectionsForSubtree(unsigned parent_flags) override;
+  void DeliverSynchronousIntersectionObservations();
+
   void UpdateThrottlingStatusForSubtree();
 
   void NotifyResizeObservers();
@@ -865,18 +877,21 @@ class CORE_EXPORT LocalFrameView final
 
   void LayoutFromRootObject(LayoutObject& root);
 
+  void UpdateVisibility(bool is_visible);
+
   LayoutSize size_;
 
   typedef HashSet<scoped_refptr<LayoutEmbeddedObject>> EmbeddedObjectSet;
   EmbeddedObjectSet part_update_set_;
 
   Member<LocalFrame> frame_;
-  Member<LocalFrameView> parent_;
 
   IntRect frame_rect_;
   bool is_attached_;
   bool self_visible_;
   bool parent_visible_;
+  blink::mojom::FrameVisibility visibility_ =
+      blink::mojom::FrameVisibility::kRenderedInViewport;
 
   WebDisplayMode display_mode_;
 
@@ -977,7 +992,7 @@ class CORE_EXPORT LocalFrameView final
 
   bool needs_focus_on_fragment_;
 
-  Member<ElementVisibilityObserver> visibility_observer_;
+  Member<IntersectionObserver> visibility_observer_;
 
   IntRect remote_viewport_intersection_;
 
@@ -1001,7 +1016,7 @@ class CORE_EXPORT LocalFrameView final
 
   MainThreadScrollingReasons main_thread_scrolling_reasons_;
 
-  std::unique_ptr<LocalFrameUkmAggregator> ukm_aggregator_;
+  scoped_refptr<LocalFrameUkmAggregator> ukm_aggregator_;
   unsigned forced_layout_stack_depth_;
   TimeTicks forced_layout_start_time_;
 
@@ -1062,11 +1077,12 @@ inline std::ostream& operator<<(
   return os << info.name << " reason=" << info.reason;
 }
 
-DEFINE_TYPE_CASTS(LocalFrameView,
-                  EmbeddedContentView,
-                  embedded_content_view,
-                  embedded_content_view->IsLocalFrameView(),
-                  embedded_content_view.IsLocalFrameView());
+template <>
+struct DowncastTraits<LocalFrameView> {
+  static bool AllowFrom(const EmbeddedContentView& embedded_content_view) {
+    return embedded_content_view.IsLocalFrameView();
+  }
+};
 
 }  // namespace blink
 

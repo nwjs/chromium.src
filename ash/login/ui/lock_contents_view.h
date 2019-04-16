@@ -181,6 +181,7 @@ class ASH_EXPORT LockContentsView
       bool show_full_management_disclosure) override;
   void OnDetachableBasePairingStatusChanged(
       DetachableBasePairingStatus pairing_status) override;
+  void OnSetShowParentAccessDialog(bool show) override;
 
   // SystemTrayFocusObserver:
   void OnFocusLeavingSystemTray(bool reverse) override;
@@ -192,7 +193,7 @@ class ASH_EXPORT LockContentsView
   // views::StyledLabelListener:
   void StyledLabelLinkClicked(views::StyledLabel* label,
                               const gfx::Range& range,
-                              int event_flags) override{};
+                              int event_flags) override {}
   // SessionObserver:
   void OnLockStateChanged(bool locked) override;
 
@@ -222,6 +223,8 @@ class ASH_EXPORT LockContentsView
    private:
     DISALLOW_COPY_AND_ASSIGN(UserState);
   };
+
+  class AutoLoginUserActivityHandler;
 
   using DisplayLayoutAction = base::RepeatingCallback<void(bool landscape)>;
 
@@ -303,6 +306,9 @@ class ASH_EXPORT LockContentsView
   // Called when the easy unlock icon is tapped.
   void OnEasyUnlockIconTapped();
 
+  // Called when parent access validation finished.
+  void OnParentAccessValidationFinished(bool access_granted);
+
   // Returns keyboard controller for the view. Returns nullptr if keyboard is
   // not activated, view has not been added to the widget yet or keyboard is not
   // displayed in this window.
@@ -339,10 +345,6 @@ class ASH_EXPORT LockContentsView
   // Performs the specified accelerator action.
   void PerformAction(AcceleratorAction action);
 
-  // Deletes the various bubbles, either by Close()-ing the hosting widget or
-  // deleting any orphaned views.
-  void CleanupBubbles();
-
   const LockScreen::ScreenType screen_type_;
 
   std::vector<UserState> users_;
@@ -377,8 +379,9 @@ class ASH_EXPORT LockContentsView
       this};
   ScopedSessionObserver session_observer_{this};
 
-  // Error bubbles are owned by LockContentsView, or by the Ash menu container
-  // if they have been shown. Bubble for displaying authentication error.
+  // All error bubbles and the tooltip view are child views of LockContentsView,
+  // and will be torn down when LockContentsView is torn down.
+  // Bubble for displaying authentication error.
   LoginErrorBubble* auth_error_bubble_;
   // Bubble for displaying detachable base errors.
   LoginErrorBubble* detachable_base_error_bubble_;
@@ -408,6 +411,11 @@ class ASH_EXPORT LockContentsView
 
   // Accelerators handled by login screen.
   std::map<ui::Accelerator, AcceleratorAction> accel_map_;
+
+  // Notifies Chrome when user activity is detected on the login screen so that
+  // the auto-login timer can be reset.
+  std::unique_ptr<AutoLoginUserActivityHandler>
+      auto_login_user_activity_handler_;
 
   DISALLOW_COPY_AND_ASSIGN(LockContentsView);
 };

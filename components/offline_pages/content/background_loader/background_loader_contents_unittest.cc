@@ -4,8 +4,10 @@
 
 #include "components/offline_pages/content/background_loader/background_loader_contents.h"
 
+#include "base/bind.h"
 #include "base/synchronization/waitable_event.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/window_container_type.mojom-shared.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -54,9 +56,9 @@ BackgroundLoaderContentsTest::BackgroundLoaderContentsTest()
     : download_(false),
       delegate_called_(false),
       waiter_(base::WaitableEvent::ResetPolicy::MANUAL,
-              base::WaitableEvent::InitialState::NOT_SIGNALED){};
+              base::WaitableEvent::InitialState::NOT_SIGNALED) {}
 
-BackgroundLoaderContentsTest::~BackgroundLoaderContentsTest(){};
+BackgroundLoaderContentsTest::~BackgroundLoaderContentsTest() {}
 
 void BackgroundLoaderContentsTest::SetUp() {
   contents_.reset(new BackgroundLoaderContents());

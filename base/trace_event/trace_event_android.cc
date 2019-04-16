@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/format_macros.h"
 #include "base/logging.h"
 #include "base/posix/eintr_wrapper.h"
@@ -126,8 +127,8 @@ void TraceLog::StopATrace() {
                                WaitableEvent::InitialState::NOT_SIGNALED);
   end_chrome_tracing_thread.Start();
   end_chrome_tracing_thread.task_runner()->PostTask(
-      FROM_HERE, base::Bind(&EndChromeTracing, Unretained(this),
-                            Unretained(&complete_event)));
+      FROM_HERE, base::BindOnce(&EndChromeTracing, Unretained(this),
+                                Unretained(&complete_event)));
   complete_event.Wait();
 }
 

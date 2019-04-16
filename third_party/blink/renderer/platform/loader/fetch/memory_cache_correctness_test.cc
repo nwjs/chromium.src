@@ -119,7 +119,6 @@ class MemoryCacheCorrectnessTest : public testing::Test {
     MockFetchContext* context = MakeGarbageCollected<MockFetchContext>();
     auto* properties =
         MakeGarbageCollected<TestResourceFetcherProperties>(security_origin_);
-    properties->SetShouldBlockLoadingMainResource(true);
     properties->SetShouldBlockLoadingSubResource(true);
     fetcher_ = MakeGarbageCollected<ResourceFetcher>(
         ResourceFetcherInit(*properties, context,
@@ -141,7 +140,7 @@ class MemoryCacheCorrectnessTest : public testing::Test {
 
 TEST_F(MemoryCacheCorrectnessTest, FreshFromLastModified) {
   ResourceResponse fresh200_response;
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField("Last-Modified",
                                        kOneDayBeforeOriginalRequest);
@@ -158,7 +157,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshFromLastModified) {
 
 TEST_F(MemoryCacheCorrectnessTest, FreshFromExpires) {
   ResourceResponse fresh200_response;
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField("Expires", kOneDayAfterOriginalRequest);
 
@@ -174,7 +173,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshFromExpires) {
 
 TEST_F(MemoryCacheCorrectnessTest, FreshFromMaxAge) {
   ResourceResponse fresh200_response;
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField("Cache-Control", "max-age=600");
 
@@ -188,11 +187,9 @@ TEST_F(MemoryCacheCorrectnessTest, FreshFromMaxAge) {
   EXPECT_EQ(fresh200, fetched);
 }
 
-// The strong validator causes a revalidation to be launched, and the proxy and
-// original resources leak because of their reference loop.
-TEST_F(MemoryCacheCorrectnessTest, DISABLED_ExpiredFromLastModified) {
+TEST_F(MemoryCacheCorrectnessTest, ExpiredFromLastModified) {
   ResourceResponse expired200_response;
-  expired200_response.SetHTTPStatusCode(200);
+  expired200_response.SetHttpStatusCode(200);
   expired200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   expired200_response.SetHTTPHeaderField("Last-Modified",
                                          kOneDayBeforeOriginalRequest);
@@ -202,13 +199,18 @@ TEST_F(MemoryCacheCorrectnessTest, DISABLED_ExpiredFromLastModified) {
   // Advance the clock beyond the implicit freshness period.
   AdvanceClock(24. * 60. * 60. * 0.2);
 
+  EXPECT_FALSE(expired200->ErrorOccurred());
   MockResource* fetched = FetchMockResource();
-  EXPECT_NE(expired200, fetched);
+  // We want to make sure that revalidation happens, and we are checking the
+  // ResourceStatus because in this case the revalidation request fails
+  // synchronously.
+  EXPECT_EQ(expired200, fetched);
+  EXPECT_TRUE(expired200->ErrorOccurred());
 }
 
 TEST_F(MemoryCacheCorrectnessTest, ExpiredFromExpires) {
   ResourceResponse expired200_response;
-  expired200_response.SetHTTPStatusCode(200);
+  expired200_response.SetHttpStatusCode(200);
   expired200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   expired200_response.SetHTTPHeaderField("Expires",
                                          kOneDayAfterOriginalRequest);
@@ -227,7 +229,7 @@ TEST_F(MemoryCacheCorrectnessTest, ExpiredFromExpires) {
 // shouldn't have list of available resources logic.
 TEST_F(MemoryCacheCorrectnessTest, NewMockResourceExpiredFromExpires) {
   ResourceResponse expired200_response;
-  expired200_response.SetHTTPStatusCode(200);
+  expired200_response.SetHttpStatusCode(200);
   expired200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   expired200_response.SetHTTPHeaderField("Expires",
                                          kOneDayAfterOriginalRequest);
@@ -247,7 +249,7 @@ TEST_F(MemoryCacheCorrectnessTest, NewMockResourceExpiredFromExpires) {
 // bypassed.
 TEST_F(MemoryCacheCorrectnessTest, ReuseMockResourceExpiredFromExpires) {
   ResourceResponse expired200_response;
-  expired200_response.SetHTTPStatusCode(200);
+  expired200_response.SetHttpStatusCode(200);
   expired200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   expired200_response.SetHTTPHeaderField("Expires",
                                          kOneDayAfterOriginalRequest);
@@ -270,7 +272,7 @@ TEST_F(MemoryCacheCorrectnessTest, ReuseMockResourceExpiredFromExpires) {
 
 TEST_F(MemoryCacheCorrectnessTest, ExpiredFromMaxAge) {
   ResourceResponse expired200_response;
-  expired200_response.SetHTTPStatusCode(200);
+  expired200_response.SetHttpStatusCode(200);
   expired200_response.SetHTTPHeaderField("Date", kOriginalRequestDateAsString);
   expired200_response.SetHTTPHeaderField("Cache-Control", "max-age=600");
 
@@ -286,7 +288,7 @@ TEST_F(MemoryCacheCorrectnessTest, ExpiredFromMaxAge) {
 
 TEST_F(MemoryCacheCorrectnessTest, FreshButNoCache) {
   ResourceResponse fresh200_nocache_response;
-  fresh200_nocache_response.SetHTTPStatusCode(200);
+  fresh200_nocache_response.SetHttpStatusCode(200);
   fresh200_nocache_response.SetHTTPHeaderField(http_names::kDate,
                                                kOriginalRequestDateAsString);
   fresh200_nocache_response.SetHTTPHeaderField(http_names::kExpires,
@@ -317,7 +319,7 @@ TEST_F(MemoryCacheCorrectnessTest, RequestWithNoCache) {
 
 TEST_F(MemoryCacheCorrectnessTest, FreshButNoStore) {
   ResourceResponse fresh200_nostore_response;
-  fresh200_nostore_response.SetHTTPStatusCode(200);
+  fresh200_nostore_response.SetHttpStatusCode(200);
   fresh200_nostore_response.SetHTTPHeaderField(http_names::kDate,
                                                kOriginalRequestDateAsString);
   fresh200_nostore_response.SetHTTPHeaderField(http_names::kExpires,
@@ -350,7 +352,7 @@ TEST_F(MemoryCacheCorrectnessTest, RequestWithNoStore) {
 // See crbug.com/340088 .
 TEST_F(MemoryCacheCorrectnessTest, DISABLED_FreshButMustRevalidate) {
   ResourceResponse fresh200_must_revalidate_response;
-  fresh200_must_revalidate_response.SetHTTPStatusCode(200);
+  fresh200_must_revalidate_response.SetHttpStatusCode(200);
   fresh200_must_revalidate_response.SetHTTPHeaderField(
       http_names::kDate, kOriginalRequestDateAsString);
   fresh200_must_revalidate_response.SetHTTPHeaderField(
@@ -379,7 +381,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshWithFreshRedirect) {
   MockResource* first_resource = MockResource::Create(request);
 
   ResourceResponse fresh301_response(redirect_url);
-  fresh301_response.SetHTTPStatusCode(301);
+  fresh301_response.SetHttpStatusCode(301);
   fresh301_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh301_response.SetHTTPHeaderField(http_names::kLocation,
@@ -394,7 +396,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshWithFreshRedirect) {
 
   // Add the final response to our request.
   ResourceResponse fresh200_response(redirect_target_url);
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField(http_names::kExpires,
@@ -421,7 +423,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshWithStaleRedirect) {
   MockResource* first_resource = MockResource::Create(request);
 
   ResourceResponse stale301_response(redirect_url);
-  stale301_response.SetHTTPStatusCode(301);
+  stale301_response.SetHttpStatusCode(301);
   stale301_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   stale301_response.SetHTTPHeaderField(http_names::kLocation,
@@ -434,7 +436,7 @@ TEST_F(MemoryCacheCorrectnessTest, FreshWithStaleRedirect) {
 
   // Add the final response to our request.
   ResourceResponse fresh200_response(redirect_target_url);
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField(http_names::kExpires,
@@ -476,7 +478,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectNotImplicitlyFresh) {
       redirect_url, GetSecurityOrigin(), ResourceType::kRaw);
 
   ResourceResponse fresh302_response(redirect_url);
-  fresh302_response.SetHTTPStatusCode(302);
+  fresh302_response.SetHttpStatusCode(302);
   fresh302_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh302_response.SetHTTPHeaderField(http_names::kLastModified,
@@ -491,7 +493,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectNotImplicitlyFresh) {
 
   // Add the final response to our request.
   ResourceResponse fresh200_response(redirect_target_url);
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField(http_names::kExpires,
@@ -517,7 +519,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectExplicitlyFreshMaxAge) {
   MockResource* first_resource = MockResource::Create(request);
 
   ResourceResponse fresh302_response(redirect_url);
-  fresh302_response.SetHTTPStatusCode(302);
+  fresh302_response.SetHttpStatusCode(302);
   fresh302_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh302_response.SetHTTPHeaderField(http_names::kCacheControl,
@@ -532,7 +534,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectExplicitlyFreshMaxAge) {
 
   // Add the final response to our request.
   ResourceResponse fresh200_response(redirect_target_url);
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField(http_names::kExpires,
@@ -558,7 +560,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectExplicitlyFreshExpires) {
   MockResource* first_resource = MockResource::Create(request);
 
   ResourceResponse fresh302_response(redirect_url);
-  fresh302_response.SetHTTPStatusCode(302);
+  fresh302_response.SetHttpStatusCode(302);
   fresh302_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh302_response.SetHTTPHeaderField(http_names::kExpires,
@@ -572,7 +574,7 @@ TEST_F(MemoryCacheCorrectnessTest, 302RedirectExplicitlyFreshExpires) {
 
   // Add the final response to our request.
   ResourceResponse fresh200_response(redirect_target_url);
-  fresh200_response.SetHTTPStatusCode(200);
+  fresh200_response.SetHttpStatusCode(200);
   fresh200_response.SetHTTPHeaderField(http_names::kDate,
                                        kOriginalRequestDateAsString);
   fresh200_response.SetHTTPHeaderField(http_names::kExpires,

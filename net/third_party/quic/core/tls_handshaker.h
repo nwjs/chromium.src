@@ -40,11 +40,9 @@ class QUIC_EXPORT_PRIVATE TlsHandshaker : public CryptoMessageParser {
   QuicErrorCode error() const override { return parser_error_; }
   const QuicString& error_detail() const override {
     return parser_error_detail_;
-  };
+  }
 
   // From QuicCryptoStream
-  virtual QuicLongHeaderType GetLongHeaderType(
-      QuicStreamOffset offset) const = 0;
   virtual bool encryption_established() const = 0;
   virtual bool handshake_confirmed() const = 0;
   virtual const QuicCryptoNegotiatedParameters& crypto_negotiated_params()

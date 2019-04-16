@@ -41,7 +41,7 @@ namespace blink {
 ErrorEvent* ErrorEvent::CreateSanitizedError(ScriptState* script_state) {
   // "6. If script's muted errors is true, then set message to "Script error.",
   // urlString to the empty string, line and col to 0, and errorValue to null."
-  // https://html.spec.whatwg.org/multipage/webappapis.html#runtime-script-errors:muted-errors
+  // https://html.spec.whatwg.org/C/#runtime-script-errors:muted-errors
   DCHECK(script_state);
   return MakeGarbageCollected<ErrorEvent>(
       "Script error.", SourceLocation::Create(String(), 0, 0, nullptr),
@@ -103,7 +103,7 @@ bool ErrorEvent::CanBeDispatchedInWorld(const DOMWrapperWorld& world) const {
 }
 
 ScriptValue ErrorEvent::error(ScriptState* script_state) const {
-  // Don't return |m_error| when we are in the different worlds to avoid
+  // Don't return |error_| when we are in the different worlds to avoid
   // leaking a V8 value.
   // We do not clone Error objects (exceptions), for 2 reasons:
   // 1) Errors carry a reference to the isolated world's global object, and

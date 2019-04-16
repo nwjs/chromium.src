@@ -27,6 +27,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WEBORIGIN_KURL_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WEBORIGIN_KURL_H_
 
+#include <iosfwd>
 #include <memory>
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
@@ -160,7 +161,7 @@ class PLATFORM_EXPORT KURL {
   //
   // We treat URLs with out-of-range port numbers as invalid URLs, and they
   // will be rejected by the canonicalizer.
-  unsigned short Port() const;
+  uint16_t Port() const;
   bool HasPort() const;
   String User() const;
   String Pass() const;
@@ -189,7 +190,7 @@ class PLATFORM_EXPORT KURL {
   void SetHost(const String&);
 
   void RemovePort();
-  void SetPort(unsigned short);
+  void SetPort(uint16_t);
   void SetPort(const String&);
 
   // Input is like "foo.com" or "foo.com:8000".
@@ -275,6 +276,10 @@ PLATFORM_EXPORT bool operator==(const String&, const KURL&);
 PLATFORM_EXPORT bool operator!=(const KURL&, const KURL&);
 PLATFORM_EXPORT bool operator!=(const KURL&, const String&);
 PLATFORM_EXPORT bool operator!=(const String&, const KURL&);
+
+// Pretty printer for gtest and base/logging.*.  It prepends and appends
+// double-quotes, and escapes characters other than ASCII printables.
+PLATFORM_EXPORT std::ostream& operator<<(std::ostream&, const KURL&);
 
 PLATFORM_EXPORT bool EqualIgnoringFragmentIdentifier(const KURL&, const KURL&);
 

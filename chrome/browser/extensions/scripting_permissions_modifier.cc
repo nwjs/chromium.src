@@ -7,6 +7,7 @@
 #include "base/bind_helpers.h"
 #include "base/feature_list.h"
 #include "chrome/browser/extensions/permissions_updater.h"
+#include "chrome/common/webui_url_constants.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
@@ -70,7 +71,8 @@ void PartitionHostPermissions(
           // chrome://favicon/), we auto-grant it and treat it like an API
           // permission.
           bool is_chrome_favicon =
-              pattern.host() == "favicon" && pattern.scheme() == "chrome";
+              pattern.scheme() == content::kChromeUIScheme &&
+              pattern.host() == chrome::kChromeUIFaviconHost;
           if (is_chrome_favicon)
             granted->AddPattern(pattern);
         }
@@ -88,7 +90,7 @@ void PartitionHostPermissions(
   *granted_permissions_out = std::make_unique<PermissionSet>(
       requested_permissions.apis().Clone(),
       requested_permissions.manifest_permissions().Clone(),
-      granted_explicit_hosts, granted_scriptable_hosts);
+      std::move(granted_explicit_hosts), std::move(granted_scriptable_hosts));
 }
 
 // Returns true if the extension should even be considered for being affected
@@ -200,7 +202,7 @@ std::unique_ptr<const PermissionSet> GetRuntimePermissionsFromPrefs(
 
   return std::make_unique<PermissionSet>(
       permissions->apis().Clone(), permissions->manifest_permissions().Clone(),
-      std::move(new_explicit_hosts), permissions->scriptable_hosts());
+      std::move(new_explicit_hosts), permissions->scriptable_hosts().Clone());
 }
 
 }  // namespace
@@ -346,7 +348,7 @@ void ScriptingPermissionsModifier::GrantHostPermission(const GURL& url) {
       .GrantRuntimePermissions(
           *extension_,
           PermissionSet(APIPermissionSet(), ManifestPermissionSet(),
-                        explicit_hosts, scriptable_hosts),
+                        std::move(explicit_hosts), std::move(scriptable_hosts)),
           base::DoNothing::Once());
 }
 
@@ -383,7 +385,7 @@ void ScriptingPermissionsModifier::RemoveGrantedHostPermission(
       .RevokeRuntimePermissions(
           *extension_,
           PermissionSet(APIPermissionSet(), ManifestPermissionSet(),
-                        explicit_hosts, scriptable_hosts),
+                        std::move(explicit_hosts), std::move(scriptable_hosts)),
           base::DoNothing::Once());
 }
 
@@ -464,8 +466,8 @@ void ScriptingPermissionsModifier::GrantWithheldHostPermissions() {
       extension_->permissions_data()->withheld_permissions();
 
   PermissionSet permissions(APIPermissionSet(), ManifestPermissionSet(),
-                            withheld.explicit_hosts(),
-                            withheld.scriptable_hosts());
+                            withheld.explicit_hosts().Clone(),
+                            withheld.scriptable_hosts().Clone());
   PermissionsUpdater(browser_context_)
       .GrantRuntimePermissions(*extension_, permissions,
                                base::DoNothing::Once());

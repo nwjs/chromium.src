@@ -94,15 +94,30 @@ Polymer({
     this.selectedColor = e.target.value;
   },
 
+  /** @private */
   toggleExpanded_: function() {
     this.expanded_ = !this.expanded_;
     this.updateExpandedState_();
   },
 
-  attached() {
+  /** @private */
+  updateExpandedStateAndFinishAnimations_: function() {
     this.updateExpandedState_();
     for (const animation of this.expandAnimations_) {
       animation.finish();
+    }
+  },
+
+  /** @override */
+  attached: function() {
+    // TODO (rbpotter): Remove this conditional when the migration to Polymer 2
+    // is completed.
+    if (Polymer.DomIf) {
+      Polymer.RenderStatus.beforeNextRender(this, () => {
+        this.updateExpandedStateAndFinishAnimations_();
+      });
+    } else {
+      this.updateExpandedStateAndFinishAnimations_();
     }
   },
 
@@ -133,14 +148,16 @@ Polymer({
         }),
       ];
     }
-    if (this.expanded_) {
-      for (const animation of this.expandAnimations_) {
-        animation.playbackRate = 1;
-      }
-    } else {
-      for (const animation of this.expandAnimations_) {
-        animation.playbackRate = -1;
-      }
+    for (const animation of this.expandAnimations_) {
+      // TODO(dstockwell): Ideally we would just set playbackRate,
+      // but there appears to be a web-animations bug that
+      // results in the animation getting stuck in the 'pending'
+      // state sometimes. See crbug.com/938857
+      const currentTime = animation.currentTime;
+      animation.cancel();
+      animation.playbackRate = this.expanded_ ? 1 : -1;
+      animation.currentTime = currentTime;
+      animation.play();
     }
     for (const input of colors.querySelectorAll('input:nth-child(n+8)')) {
       if (this.expanded_) {
@@ -157,7 +174,7 @@ Polymer({
    * @param {*} a
    * @param {*} b
    */
-  equal_: function(a,b) {
+  equal_: function(a, b) {
     return a == b;
   },
 
@@ -169,6 +186,16 @@ Polymer({
    * @return {string}
    */
   lookup_: function(strings, name) {
-    return strings[name];
-  }
+    return strings ? strings[name] : '';
+  },
+
+  /**
+   * Used to remove focus when clicking or tapping on a styled input
+   * element. This is a workaround until we can use the :focus-visible
+   * pseudo selector.
+   */
+  blurOnPointerDown(e) {
+    const target = e.target;
+    setTimeout(() => target.blur(), 0);
+  },
 });

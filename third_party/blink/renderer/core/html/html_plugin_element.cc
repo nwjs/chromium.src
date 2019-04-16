@@ -47,13 +47,13 @@
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/plugin_data.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
 #include "third_party/blink/renderer/platform/histogram.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_from_url.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
-#include "third_party/blink/renderer/platform/plugins/plugin_data.h"
 
 namespace blink {
 
@@ -181,6 +181,7 @@ bool HTMLPlugInElement::RequestObjectInternal(
           service_type_.IsEmpty() ? GetMIMETypeFromURL(completed_url)
                                   : service_type_);
   if (handled_externally_) {
+    ResetInstance();
     // This is a temporary placeholder and the logic around
     // |handled_externally_| might change as MimeHandlerView is moving towards
     // depending on OOPIFs instead of WebPlugin (https://crbug.com/659750).
@@ -316,9 +317,8 @@ ParsedFeaturePolicy HTMLPlugInElement::ConstructContainerPolicy(
   // origin.
   // https://fullscreen.spec.whatwg.org/#model
   ParsedFeaturePolicy container_policy;
-  ParsedFeaturePolicyDeclaration allowlist;
-  allowlist.feature = mojom::FeaturePolicyFeature::kFullscreen;
-  allowlist.matches_all_origins = false;
+  ParsedFeaturePolicyDeclaration allowlist(
+      mojom::FeaturePolicyFeature::kFullscreen, mojom::PolicyValueType::kBool);
   container_policy.push_back(allowlist);
   return container_policy;
 }
@@ -390,7 +390,10 @@ v8::Local<v8::Object> HTMLPlugInElement::PluginWrapper() {
   // return the cached allocated Bindings::Instance. Not supporting this
   // edge-case is OK.
   v8::Isolate* isolate = V8PerIsolateData::MainThreadIsolate();
-  if (plugin_wrapper_.IsEmpty()) {
+  if (handled_externally_ && plugin_wrapper_.IsEmpty()) {
+    plugin_wrapper_.Reset(isolate,
+                          frame->Client()->GetScriptableObject(*this, isolate));
+  } else if (plugin_wrapper_.IsEmpty()) {
     WebPluginContainerImpl* plugin;
 
     if (persisted_plugin_)
@@ -480,8 +483,9 @@ LayoutEmbeddedContent* HTMLPlugInElement::LayoutEmbeddedContentForJSBindings()
   // Needs to load the plugin immediatedly because this function is called
   // when JavaScript code accesses the plugin.
   // FIXME: Check if dispatching events here is safe.
-  GetDocument().UpdateStyleAndLayoutIgnorePendingStylesheets(
-      Document::kRunPostLayoutTasksSynchronously);
+  GetDocument().UpdateStyleAndLayoutIgnorePendingStylesheets();
+  GetDocument().View()->FlushAnyPendingPostLayoutTasks();
+
   return ExistingLayoutEmbeddedContent();
 }
 
@@ -692,12 +696,12 @@ bool HTMLPlugInElement::AllowedToLoadObject(const KURL& url,
 bool HTMLPlugInElement::AllowedToLoadPlugin(const KURL& url,
                                             const String& mime_type) {
   if (GetDocument().IsSandboxed(kSandboxPlugins)) {
-    GetDocument().AddConsoleMessage(
-        ConsoleMessage::Create(kSecurityMessageSource, kErrorMessageLevel,
-                               "Failed to load '" + url.ElidedString() +
-                                   "' as a plugin, because the "
-                                   "frame into which the plugin "
-                                   "is loading is sandboxed."));
+    GetDocument().AddConsoleMessage(ConsoleMessage::Create(
+        kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
+        "Failed to load '" + url.ElidedString() +
+            "' as a plugin, because the "
+            "frame into which the plugin "
+            "is loading is sandboxed."));
     return false;
   }
   return true;

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "ash/public/cpp/app_list/app_list_config.h"
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/macros.h"
@@ -56,10 +57,11 @@
 #include "components/arc/arc_util.h"
 #include "components/arc/metrics/arc_metrics_constants.h"
 #include "components/arc/test/fake_app_instance.h"
-#include "components/browser_sync/profile_sync_service.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/sync/model/fake_sync_change_processor.h"
 #include "components/sync/model/sync_data.h"
 #include "components/sync/model/sync_error_factory_mock.h"
+#include "components/sync/protocol/sync.pb.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_utils.h"
@@ -363,6 +365,7 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
                 package_info->last_backup_android_id);
       EXPECT_EQ(package->last_backup_time, package_info->last_backup_time);
       EXPECT_EQ(package->sync, package_info->should_sync);
+      EXPECT_EQ(package->permissions, package_info->permissions);
     }
   }
 
@@ -451,9 +454,13 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
   }
 
   arc::mojom::ArcPackageInfoPtr CreatePackage(const std::string& package_name) {
+    base::flat_map<arc::mojom::AppPermission, bool> permissions;
+    permissions.insert(std::make_pair(arc::mojom::AppPermission::CAMERA, 0));
+    permissions.insert(std::make_pair(arc::mojom::AppPermission::LOCATION, 1));
     return arc::mojom::ArcPackageInfo::New(
         package_name, 1 /* package_version */, 1 /* last_backup_android_id */,
-        1 /* last_backup_time */, true /* sync */);
+        1 /* last_backup_time */, true /* sync */, false /* system */,
+        false /* vpn_provider */, nullptr /* web_app_info */, permissions);
   }
 
   void AddPackage(const arc::mojom::ArcPackageInfoPtr& package) {
@@ -507,13 +514,20 @@ class ArcAppModelBuilderRecreate : public ArcAppModelBuilderTest {
  protected:
   // Simulates ARC restart.
   void RestartArc() {
-    arc_test()->TearDown();
-    ResetBuilder();
+    StopArc();
+    StartArc();
+  }
 
+  void StartArc() {
     ArcAppListPrefsFactory::GetInstance()->RecreateServiceInstanceForTesting(
         profile_.get());
     arc_test()->SetUp(profile_.get());
     CreateBuilder();
+  }
+
+  void StopArc() {
+    arc_test()->TearDown();
+    ResetBuilder();
   }
 
   // ArcAppModelBuilderTest:
@@ -1469,6 +1483,39 @@ TEST_P(ArcAppModelBuilderRecreate, AppModelRestart) {
   app_instance()->SendRefreshAppList(fake_apps());
   ValidateHaveApps(fake_apps());
   EXPECT_EQ(fake_apps().size(), GetArcItemCount());
+}
+
+// Verifies that no OnAppRegistered/OnAppRemoved is called in case ARC++ started
+// next time disabled.
+TEST_P(ArcAppModelBuilderRecreate, AppsNotReportedNextSessionDisabled) {
+  ArcAppListPrefs* prefs = ArcAppListPrefs::Get(profile_.get());
+  ASSERT_TRUE(prefs);
+
+  // Register one app first.
+  const arc::mojom::AppInfo& app = fake_apps()[0];
+  const std::string app_id = ArcAppTest::GetAppId(app);
+  app_instance()->RefreshAppList();
+  app_instance()->SendRefreshAppList({app});
+
+  // We will wait for default apps manually once observer is set.
+  arc_test()->set_wait_default_apps(false);
+  arc_test()->set_activate_arc_on_start(false);
+  StopArc();
+  // Disable ARC in beetwen sessions.
+  arc::SetArcPlayStoreEnabledForProfile(profile(), false);
+  StartArc();
+
+  prefs = ArcAppListPrefs::Get(profile_.get());
+
+  arc::MockArcAppListPrefsObserver observer;
+  prefs->AddObserver(&observer);
+  EXPECT_CALL(observer,
+              OnAppRegistered(
+                  app_id, GetAppInfoExpectation(app, true /* launchable */)))
+      .Times(0);
+  EXPECT_CALL(observer, OnAppRemoved(app_id)).Times(0);
+
+  arc_test()->WaitForDefaultApps();
 }
 
 TEST_P(ArcPlayStoreAppTest, PlayStore) {
@@ -2701,24 +2748,24 @@ TEST_P(ArcDefaultAppForManagedUserTest, DefaultAppsForManagedUser) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        ArcAppModelBuilderTest,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcDefaultAppTest,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcAppLauncherForDefaulAppTest,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcDefaultAppForManagedUserTest,
-                        ::testing::ValuesIn(kManagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcPlayStoreAppTest,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcAppModelBuilderRecreate,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
-INSTANTIATE_TEST_CASE_P(,
-                        ArcAppModelIconTest,
-                        ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcAppModelBuilderTest,
+                         ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcDefaultAppTest,
+                         ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcAppLauncherForDefaulAppTest,
+                         ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcDefaultAppForManagedUserTest,
+                         ::testing::ValuesIn(kManagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcPlayStoreAppTest,
+                         ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcAppModelBuilderRecreate,
+                         ::testing::ValuesIn(kUnmanagedArcStates));
+INSTANTIATE_TEST_SUITE_P(,
+                         ArcAppModelIconTest,
+                         ::testing::ValuesIn(kUnmanagedArcStates));

@@ -5,7 +5,6 @@
 #ifndef NET_THIRD_PARTY_QUIC_CORE_PACKET_NUMBER_INDEXED_QUEUE_H_
 #define NET_THIRD_PARTY_QUIC_CORE_PACKET_NUMBER_INDEXED_QUEUE_H_
 
-#include "base/logging.h"
 #include "net/third_party/quic/core/quic_constants.h"
 #include "net/third_party/quic/core/quic_types.h"
 #include "net/third_party/quic/platform/api/quic_bug_tracker.h"
@@ -37,8 +36,7 @@ namespace quic {
 template <typename T>
 class PacketNumberIndexedQueue {
  public:
-  PacketNumberIndexedQueue()
-      : number_of_present_entries_(0), first_packet_(kInvalidPacketNumber) {}
+  PacketNumberIndexedQueue() : number_of_present_entries_(0) {}
 
   // Retrieve the entry associated with the packet number.  Returns the pointer
   // to the entry in case of success, or nullptr if the entry does not exist.
@@ -75,7 +73,7 @@ class PacketNumberIndexedQueue {
   // empty.
   QuicPacketNumber last_packet() const {
     if (IsEmpty()) {
-      return kInvalidPacketNumber;
+      return QuicPacketNumber();
     }
     return first_packet_ + entries_.size() - 1;
   }
@@ -129,14 +127,14 @@ template <typename T>
 template <typename... Args>
 bool PacketNumberIndexedQueue<T>::Emplace(QuicPacketNumber packet_number,
                                           Args&&... args) {
-  if (packet_number == kInvalidPacketNumber) {
+  if (!packet_number.IsInitialized()) {
     QUIC_BUG << "Try to insert an uninitialized packet number";
     return false;
   }
 
   if (IsEmpty()) {
     DCHECK(entries_.empty());
-    DCHECK_EQ(kInvalidPacketNumber, first_packet_);
+    DCHECK(!first_packet_.IsInitialized());
 
     entries_.emplace_back(std::forward<Args>(args)...);
     number_of_present_entries_ = 1;
@@ -183,14 +181,14 @@ void PacketNumberIndexedQueue<T>::Cleanup() {
     first_packet_++;
   }
   if (entries_.empty()) {
-    first_packet_ = kInvalidPacketNumber;
+    first_packet_.Clear();
   }
 }
 
 template <typename T>
 auto PacketNumberIndexedQueue<T>::GetEntryWrapper(
     QuicPacketNumber packet_number) const -> const EntryWrapper* {
-  if (packet_number == kInvalidPacketNumber || IsEmpty() ||
+  if (!packet_number.IsInitialized() || IsEmpty() ||
       packet_number < first_packet_) {
     return nullptr;
   }

@@ -20,12 +20,11 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/version.h"
 #include "components/update_client/component.h"
+#include "components/update_client/net/url_loader_post_interceptor.h"
 #include "components/update_client/protocol_definition.h"
 #include "components/update_client/protocol_serializer.h"
 #include "components/update_client/test_configurator.h"
 #include "components/update_client/update_engine.h"
-#include "components/update_client/url_loader_post_interceptor.h"
-#include "net/url_request/url_request_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/re2/src/re2/re2.h"
 
@@ -115,7 +114,7 @@ scoped_refptr<UpdateContext> PingManagerTest::MakeMockUpdateContext() const {
 
 // This test is parameterized for using JSON or XML serialization. |true| means
 // JSON serialization is used.
-INSTANTIATE_TEST_CASE_P(Parameterized, PingManagerTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(Parameterized, PingManagerTest, testing::Bool());
 
 TEST_P(PingManagerTest, SendPing) {
   auto interceptor = std::make_unique<URLLoaderPostInterceptor>(
@@ -140,7 +139,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       ASSERT_TRUE(request);
       EXPECT_TRUE(request->FindKey("@os"));
@@ -220,7 +220,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       const auto& app = request->FindKey("app")->GetList()[0];
       EXPECT_EQ("abc", app.FindKey("appid")->GetString());
@@ -267,7 +268,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       const auto& app = request->FindKey("app")->GetList()[0];
       EXPECT_EQ("abc", app.FindKey("appid")->GetString());
@@ -317,7 +319,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       const auto& app = request->FindKey("app")->GetList()[0];
       EXPECT_EQ("abc", app.FindKey("appid")->GetString());
@@ -351,7 +354,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       const auto& app = request->FindKey("app")->GetList()[0];
       EXPECT_EQ("abc", app.FindKey("appid")->GetString());
@@ -415,7 +419,8 @@ TEST_P(PingManagerTest, SendPing) {
     EXPECT_EQ(1, interceptor->GetCount()) << interceptor->GetRequestsAsString();
     const auto msg = interceptor->GetRequestBody(0);
     if (use_JSON_) {
-      const auto root = base::JSONReader().Read(msg);
+      const auto root = base::JSONReader::Read(msg);
+      ASSERT_TRUE(root);
       const auto* request = root->FindKey("request");
       const auto& app = request->FindKey("app")->GetList()[0];
       EXPECT_EQ("abc", app.FindKey("appid")->GetString());

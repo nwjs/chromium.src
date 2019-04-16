@@ -31,16 +31,16 @@ class ModuleTreeLinkerRegistry;
 //
 // Spec links:
 // [IMSGF]
-// https://html.spec.whatwg.org/#internal-module-script-graph-fetching-procedure
+// https://html.spec.whatwg.org/C/#internal-module-script-graph-fetching-procedure
 // [FD]
-// https://html.spec.whatwg.org/#fetch-the-descendants-of-a-module-script
+// https://html.spec.whatwg.org/C/#fetch-the-descendants-of-a-module-script
 // [FDaI]
-// https://html.spec.whatwg.org/#fetch-the-descendants-of-and-instantiate-a-module-script
+// https://html.spec.whatwg.org/C/#fetch-the-descendants-of-and-instantiate-a-module-script
 // [FFPE]
-// https://html.spec.whatwg.org/#finding-the-first-parse-error
+// https://html.spec.whatwg.org/C/#finding-the-first-parse-error
 class CORE_EXPORT ModuleTreeLinker final : public SingleModuleClient {
  public:
-  // https://html.spec.whatwg.org/#fetch-a-module-script-tree
+  // https://html.spec.whatwg.org/C/#fetch-a-module-script-tree
   static void Fetch(const KURL&,
                     ResourceFetcher* fetch_client_settings_object_fetcher,
                     mojom::RequestContextType destination,
@@ -101,7 +101,7 @@ class CORE_EXPORT ModuleTreeLinker final : public SingleModuleClient {
   // Steps 3--7 of [IMSGF], and [FD]/[FDaI] called from [IMSGF].
   // TODO(hiroshige): Currently
   void NotifyModuleLoadFinished(ModuleScript*) override;
-  void FetchDescendants(ModuleScript*);
+  void FetchDescendants(const ModuleScript*);
 
   // Completion of [FD].
   void FinalizeFetchDescendantsForOneModuleScript();
@@ -110,8 +110,9 @@ class CORE_EXPORT ModuleTreeLinker final : public SingleModuleClient {
   void Instantiate();
 
   // [FFPE]
-  ScriptValue FindFirstParseError(ModuleScript*,
-                                  HeapHashSet<Member<ModuleScript>>*) const;
+  ScriptValue FindFirstParseError(
+      const ModuleScript*,
+      HeapHashSet<Member<const ModuleScript>>*) const;
 
   const Member<ResourceFetcher> fetch_client_settings_object_fetcher_;
 
@@ -124,7 +125,7 @@ class CORE_EXPORT ModuleTreeLinker final : public SingleModuleClient {
   State state_ = State::kInitial;
 
   // Correspond to _result_ in
-  // https://html.spec.whatwg.org/multipage/webappapis.html#internal-module-script-graph-fetching-procedure
+  // https://html.spec.whatwg.org/C/#internal-module-script-graph-fetching-procedure
   TraceWrapperMember<ModuleScript> result_;
 
   bool found_parse_error_ = false;

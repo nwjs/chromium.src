@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 namespace blink {
 
@@ -46,6 +47,8 @@ class CORE_EXPORT ObjectPaintProperties {
   ~ObjectPaintProperties() { DCHECK(!is_immutable_); }
 
   class UpdateResult {
+    STACK_ALLOCATED();
+
    public:
     bool Unchanged() const { return result_ == kUnchanged; }
     bool NewNodeCreated() const { return result_ == kNewNodeCreated; }
@@ -68,6 +71,7 @@ class CORE_EXPORT ObjectPaintProperties {
 // class-level comment ("update & clear implementation note") for details
 // about why this is needed for efficient updates.
 #define ADD_NODE(type, function, variable)                                   \
+ public:                                                                     \
   const type##PaintPropertyNode* function() const { return variable.get(); } \
   UpdateResult Update##function(const type##PaintPropertyNode& parent,       \
                                 type##PaintPropertyNode::State&& state,      \
@@ -88,10 +92,8 @@ class CORE_EXPORT ObjectPaintProperties {
   }                                                                          \
                                                                              \
  private:                                                                    \
-  scoped_refptr<type##PaintPropertyNode> variable;                           \
-                                                                             \
- public:
-// (End of ADD_NODE definition)
+  scoped_refptr<type##PaintPropertyNode> variable
+  // (End of ADD_NODE definition)
 
 #define ADD_TRANSFORM(function, variable) \
   ADD_NODE(Transform, function, variable)
@@ -142,8 +144,8 @@ class CORE_EXPORT ObjectPaintProperties {
   // follows:
   // [ effect ]
   // |     Isolated group to apply various CSS effects, including opacity,
-  // |     mix-blend-mode, and for isolation if a mask needs to be applied or
-  // |     backdrop-dependent children are present.
+  // |     mix-blend-mode, backdrop-filter, and for isolation if a mask needs
+  // |     to be applied or backdrop-dependent children are present.
   // +-[ filter ]
   // |     Isolated group for CSS filter.
   // +-[ vertical/horizontal scrollbar effect ]
@@ -153,12 +155,9 @@ class CORE_EXPORT ObjectPaintProperties {
   // |     Isolated group for painting the CSS mask. This node will have
   // |     SkBlendMode::kDstIn and shall paint last, i.e. after masked contents.
   // +-[ clip path ]
-  // |     Isolated group for painting the CSS clip-path. This node will have
-  // |     SkBlendMode::kDstIn and shall paint last, i.e. after clipped
-  // |     contents.
-  // +-[ link highlight effect ]
-  //       The link highlight effect is only used for link highlight animations
-  //       and should never have descendants.
+  //       Isolated group for painting the CSS clip-path. This node will have
+  //       SkBlendMode::kDstIn and shall paint last, i.e. after clipped
+  //       contents.
   //
   // ... +-[ effectIsolationNode ]
   //       This serves as a parent to subtree effects on an element with paint
@@ -170,15 +169,7 @@ class CORE_EXPORT ObjectPaintProperties {
   ADD_EFFECT(HorizontalScrollbarEffect, horizontal_scrollbar_effect_);
   ADD_EFFECT(Mask, mask_);
   ADD_EFFECT(ClipPath, clip_path_);
-  ADD_EFFECT(LinkHighlightEffect, link_highlight_effect_);
   ADD_EFFECT(EffectIsolationNode, effect_isolation_node_);
-
-  // For a fragmented link highlight, we only need one LinkHighlightEffect node.
-  // PaintPropertyTreeBuilder uses this method to let the subsequent fragments
-  // share the same LinkHighlightEffect node created for the first fragment.
-  void SetLinkHighlightEffect(const EffectPaintPropertyNode* effect) {
-    link_highlight_effect_ = const_cast<EffectPaintPropertyNode*>(effect);
-  }
 
   // The hierarchy of the clip subtree created by a LayoutObject is as follows:
   // [ fragment clip ]
@@ -228,6 +219,12 @@ class CORE_EXPORT ObjectPaintProperties {
   ADD_CLIP(OverflowClip, overflow_clip_);
   ADD_CLIP(ClipIsolationNode, clip_isolation_node_);
 
+#undef ADD_CLIP
+#undef ADD_EFFECT
+#undef ADD_TRANSFORM
+#undef ADD_NODE
+
+ public:
 #if DCHECK_IS_ON()
   // Used by FindPropertiesNeedingUpdate.h for verifying state doesn't change.
   void SetImmutable() const { is_immutable_ = true; }

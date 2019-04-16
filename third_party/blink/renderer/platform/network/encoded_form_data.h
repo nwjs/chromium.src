@@ -117,6 +117,8 @@ inline bool operator!=(const FormDataElement& a, const FormDataElement& b) {
 }
 
 class PLATFORM_EXPORT EncodedFormData : public RefCounted<EncodedFormData> {
+  USING_FAST_MALLOC(EncodedFormData);
+
  public:
   enum EncodingType {
     kFormURLEncoded,    // for application/x-www-form-urlencoded
@@ -171,7 +173,7 @@ class PLATFORM_EXPORT EncodedFormData : public RefCounted<EncodedFormData> {
   }
 
   // Size of the elements making up the EncodedFormData.
-  unsigned long long SizeInBytes() const;
+  uint64_t SizeInBytes() const;
 
   bool IsSafeToSendToAnotherThread() const;
 

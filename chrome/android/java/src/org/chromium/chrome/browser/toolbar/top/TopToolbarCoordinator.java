@@ -153,7 +153,7 @@ public class TopToolbarCoordinator implements Toolbar {
     }
 
     /**
-     * @return The view containing the menu button and menu button badge.
+     * @return The wrapper for the browsing mode toolbar's menu button.
      */
     public MenuButton getMenuButtonWrapper() {
         if (mToolbarLayout == null) return null;
@@ -374,6 +374,18 @@ public class TopToolbarCoordinator implements Toolbar {
     }
 
     /**
+     * Overrides tab switcher launching behavior.
+     * @param newClickListener The new {@link OnClickListener} for tab switcher button clicks.
+     *
+     */
+    public void setTabSwitcherClickListener(OnClickListener newClickListener) {
+        if (mTabSwitcherModeCoordinatorPhone != null) {
+            mTabSwitcherModeCoordinatorPhone.setOnTabSwitcherClickHandler(newClickListener);
+        }
+        mToolbarLayout.setOnTabSwitcherClickHandler(newClickListener);
+    }
+
+    /**
      * Gives inheriting classes the chance to show or hide the TabSwitcher mode of this toolbar.
      * @param inTabSwitcherMode Whether or not TabSwitcher mode should be shown or hidden.
      * @param showToolbar    Whether or not to show the normal toolbar while animating.
@@ -564,6 +576,14 @@ public class TopToolbarCoordinator implements Toolbar {
             mToolbarLayout.enableExperimentalButton(
                     onClickListener, drawableResId, contentDescriptionResId);
         });
+    }
+
+    /**
+     * @param isVisible Whether the bottom toolbar is visible.
+     */
+    public void onBottomToolbarVisibilityChanged(boolean isVisible) {
+        mToolbarProvider.whenLoaded(
+                (toolbar) -> toolbar.onBottomToolbarVisibilityChanged(isVisible));
     }
 
     /**

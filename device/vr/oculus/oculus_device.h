@@ -37,8 +37,6 @@ class DEVICE_VR_EXPORT OculusDevice
   void EnsureInitialized(int render_process_id,
                          int render_frame_id,
                          EnsureInitializedCallback callback) override;
-  void OnGetInlineFrameData(
-      mojom::XRFrameDataProvider::GetFrameDataCallback callback) override;
   void OnRequestSessionResult(mojom::XRRuntime::RequestSessionCallback callback,
                               bool result,
                               mojom::XRSessionPtr session);
@@ -67,6 +65,7 @@ class DEVICE_VR_EXPORT OculusDevice
   void StartOvrSession();
   void StopOvrSession();
 
+  int outstanding_session_requests_count_ = 0;
   bool have_real_display_info_ = false;
   std::unique_ptr<XRCompositorCommon> render_loop_;
   ovrSession session_ = nullptr;

@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_string_value_serializer.h"
@@ -19,6 +20,7 @@
 #include "base/path_service.h"
 #include "base/rand_util.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/post_task.h"
@@ -604,12 +606,11 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   }
 }
 
-// Tests that the separator character '^' correctly matches the end of the url.
-// TODO(crbug.com/772260): Enable once the bug is fixed.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
-                       DISABLED_BlockRequests_SeparatorMatchesEndOfURL) {
+                       BlockRequests_SeparatorMatchesEndOfURL) {
   TestRule rule = CreateGenericRule();
   rule.condition->url_filter = std::string("page2.html^");
+  rule.condition->resource_types = std::vector<std::string>({"main_frame"});
 
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules({rule}));
 
@@ -1286,9 +1287,11 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, RendererCacheCleared) {
 
   // NOTE: When the Network Service is enabled, the RulesetMatcher will not see
   // network requests if no rulesets are active.
-  EXPECT_TRUE(
-      base::FeatureList::IsEnabled(network::features::kNetworkService) ||
-      script_monitor.GetAndResetRequestSeen(false));
+  bool expect_request_seen =
+      !base::FeatureList::IsEnabled(network::features::kNetworkService) ||
+      base::FeatureList::IsEnabled(
+          extensions_features::kForceWebRequestProxyForTest);
+  EXPECT_EQ(expect_request_seen, script_monitor.GetAndResetRequestSeen(false));
 
   // Another request to |url| should not cause a network request for
   // script.js since it will be served by the renderer's in-memory
@@ -1322,9 +1325,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, RendererCacheCleared) {
   ui_test_utils::NavigateToURL(browser(), url);
   EXPECT_EQ(content::PAGE_TYPE_NORMAL, GetPageType());
   EXPECT_TRUE(WasFrameWithScriptLoaded(GetMainFrame()));
-  EXPECT_TRUE(
-      base::FeatureList::IsEnabled(network::features::kNetworkService) ||
-      script_monitor.GetAndResetRequestSeen(false));
+  EXPECT_EQ(expect_request_seen, script_monitor.GetAndResetRequestSeen(false));
 }
 
 // Tests that proxy requests aren't intercepted. See https://crbug.com/794674.
@@ -2373,23 +2374,23 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestResourceTypeBrowserTest, Test2) {
             {"block_none.com", kNone}});
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        DeclarativeNetRequestBrowserTest,
-                        ::testing::Values(ExtensionLoadType::PACKED,
-                                          ExtensionLoadType::UNPACKED));
+INSTANTIATE_TEST_SUITE_P(,
+                         DeclarativeNetRequestBrowserTest,
+                         ::testing::Values(ExtensionLoadType::PACKED,
+                                           ExtensionLoadType::UNPACKED));
 
-INSTANTIATE_TEST_CASE_P(,
-                        DeclarativeNetRequestHostPermissionsBrowserTest,
-                        ::testing::Values(ExtensionLoadType::PACKED,
-                                          ExtensionLoadType::UNPACKED));
-INSTANTIATE_TEST_CASE_P(,
-                        DeclarativeNetRequestResourceTypeBrowserTest,
-                        ::testing::Values(ExtensionLoadType::PACKED,
-                                          ExtensionLoadType::UNPACKED));
+INSTANTIATE_TEST_SUITE_P(,
+                         DeclarativeNetRequestHostPermissionsBrowserTest,
+                         ::testing::Values(ExtensionLoadType::PACKED,
+                                           ExtensionLoadType::UNPACKED));
+INSTANTIATE_TEST_SUITE_P(,
+                         DeclarativeNetRequestResourceTypeBrowserTest,
+                         ::testing::Values(ExtensionLoadType::PACKED,
+                                           ExtensionLoadType::UNPACKED));
 
-INSTANTIATE_TEST_CASE_P(,
-                        DeclarativeNetRequestBrowserTest_Packed,
-                        ::testing::Values(ExtensionLoadType::PACKED));
+INSTANTIATE_TEST_SUITE_P(,
+                         DeclarativeNetRequestBrowserTest_Packed,
+                         ::testing::Values(ExtensionLoadType::PACKED));
 
 }  // namespace
 }  // namespace declarative_net_request

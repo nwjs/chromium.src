@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser;
 
 import android.content.Context;
-import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
@@ -13,6 +12,7 @@ import android.view.ViewGroup.LayoutParams;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.gesturenav.SideSlideLayout;
@@ -21,12 +21,11 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabWebContentsUserData;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.third_party.android.swiperefresh.SwipeRefreshLayout;
+import org.chromium.ui.OverscrollAction;
 import org.chromium.ui.OverscrollRefreshHandler;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 /**
  * An overscroll handler implemented in terms a modified version of the Android
@@ -34,18 +33,6 @@ import java.lang.annotation.RetentionPolicy;
  */
 public class SwipeRefreshHandler
         extends TabWebContentsUserData implements OverscrollRefreshHandler {
-    /**
-     * The targets that can handle MotionEvents.
-     */
-    @IntDef({SwipeType.NONE, SwipeType.PULL_TO_REFRESH, SwipeType.HISTORY_NAV})
-    @Retention(RetentionPolicy.SOURCE)
-    private @interface SwipeType {
-        int NONE = 0;
-        int PULL_TO_REFRESH = 1;
-        int HISTORY_NAV = 2;
-    }
-
-    private @SwipeType int mSwipeType;
 
     private static final Class<SwipeRefreshHandler> USER_DATA_KEY = SwipeRefreshHandler.class;
 
@@ -56,6 +43,8 @@ public class SwipeRefreshHandler
     // Max allowed duration of the refresh animation after a refresh signal,
     // guarding against cases where the page reload fails or takes too long.
     private static final int MAX_REFRESH_ANIMATION_DURATION_MS = 7500;
+
+    private @OverscrollAction int mSwipeType;
 
     private final boolean mNavigationEnabled;
 
@@ -114,7 +103,8 @@ public class SwipeRefreshHandler
     private SwipeRefreshHandler(Tab tab) {
         super(tab);
         mTab = tab;
-        mNavigationEnabled = ChromeFeatureList.isEnabled(ChromeFeatureList.GESTURE_NAVIGATION);
+        mNavigationEnabled =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.OVERSCROLL_HISTORY_NAVIGATION);
     }
 
     private void initSwipeRefreshLayout() {
@@ -127,8 +117,8 @@ public class SwipeRefreshHandler
 
         mSwipeRefreshLayout.setOnRefreshListener(() -> {
             cancelStopRefreshingRunnable();
-            ThreadUtils.postOnUiThreadDelayed(
-                    getStopRefreshingRunnable(), MAX_REFRESH_ANIMATION_DURATION_MS);
+            PostTask.postDelayedTask(UiThreadTaskTraits.DEFAULT, getStopRefreshingRunnable(),
+                    MAX_REFRESH_ANIMATION_DURATION_MS);
             if (mAccessibilityRefreshString == null) {
                 int resId = R.string.accessibility_swipe_refresh;
                 mAccessibilityRefreshString = context.getResources().getString(resId);
@@ -143,7 +133,7 @@ public class SwipeRefreshHandler
                 mDetachRefreshLayoutRunnable = null;
                 detachSwipeRefreshLayoutIfNecessary();
             };
-            ThreadUtils.postOnUiThread(mDetachRefreshLayoutRunnable);
+            PostTask.postTask(UiThreadTaskTraits.DEFAULT, mDetachRefreshLayoutRunnable);
         });
     }
 
@@ -213,39 +203,37 @@ public class SwipeRefreshHandler
     }
 
     @Override
-    public boolean start(float xDelta, float yDelta) {
+    public boolean start(@OverscrollAction int type, boolean navigateForward) {
         if (mTab.getActivity() != null && mTab.getActivity().getBottomSheet() != null) {
             Tracker tracker = TrackerFactory.getTrackerForProfile(Profile.getLastUsedProfile());
             tracker.notifyEvent(EventConstants.PULL_TO_REFRESH);
         }
 
-        if (yDelta > 0 && yDelta > Math.abs(xDelta)) {
+        mSwipeType = type;
+        if (type == OverscrollAction.PULL_TO_REFRESH) {
             if (mSwipeRefreshLayout == null) initSwipeRefreshLayout();
-            mSwipeType = SwipeType.PULL_TO_REFRESH;
             attachSwipeRefreshLayoutIfNecessary();
             return mSwipeRefreshLayout.start();
-        } else if (Math.abs(xDelta) > Math.abs(yDelta) && mNavigationEnabled) {
+        } else if (type == OverscrollAction.HISTORY_NAVIGATION && mNavigationEnabled) {
             if (mSideSlideLayout == null) initSideSlideLayout();
-            mSwipeType = SwipeType.HISTORY_NAV;
-            boolean isForward = xDelta <= 0;
-            boolean shouldStart = isForward ? mTab.canGoForward() : mTab.canGoBack();
+            boolean shouldStart = navigateForward ? mTab.canGoForward() : mTab.canGoBack();
             if (shouldStart) {
-                mSideSlideLayout.setDirection(isForward);
+                mSideSlideLayout.setDirection(navigateForward);
                 attachSideSlideLayoutIfNecessary();
                 mSideSlideLayout.start();
             }
             return shouldStart;
         }
-        mSwipeType = SwipeType.NONE;
+        mSwipeType = OverscrollAction.NONE;
         return false;
     }
 
     @Override
     public void pull(float xDelta, float yDelta) {
         TraceEvent.begin("SwipeRefreshHandler.pull");
-        if (mSwipeType == SwipeType.PULL_TO_REFRESH) {
+        if (mSwipeType == OverscrollAction.PULL_TO_REFRESH) {
             mSwipeRefreshLayout.pull(yDelta);
-        } else if (mSwipeType == SwipeType.HISTORY_NAV) {
+        } else if (mSwipeType == OverscrollAction.HISTORY_NAVIGATION) {
             mSideSlideLayout.pull(xDelta);
         }
         TraceEvent.end("SwipeRefreshHandler.pull");
@@ -254,9 +242,9 @@ public class SwipeRefreshHandler
     @Override
     public void release(boolean allowRefresh) {
         TraceEvent.begin("SwipeRefreshHandler.release");
-        if (mSwipeType == SwipeType.PULL_TO_REFRESH) {
+        if (mSwipeType == OverscrollAction.PULL_TO_REFRESH) {
             mSwipeRefreshLayout.release(allowRefresh);
-        } else if (mSwipeType == SwipeType.HISTORY_NAV) {
+        } else if (mSwipeType == OverscrollAction.HISTORY_NAVIGATION) {
             mSideSlideLayout.release(allowRefresh);
         }
         TraceEvent.end("SwipeRefreshHandler.release");

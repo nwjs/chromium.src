@@ -86,6 +86,8 @@ typedef blink::protocol::IndexedDB::Backend::DeleteObjectStoreEntriesCallback
     DeleteObjectStoreEntriesCallback;
 typedef blink::protocol::IndexedDB::Backend::ClearObjectStoreCallback
     ClearObjectStoreCallback;
+typedef blink::protocol::IndexedDB::Backend::
+    GetKeyGeneratorCurrentNumberCallback GetKeyGeneratorCurrentNumberCallback;
 typedef blink::protocol::IndexedDB::Backend::DeleteDatabaseCallback
     DeleteDatabaseCallback;
 
@@ -442,8 +444,7 @@ class DatabaseLoader final
     std::unique_ptr<DatabaseWithObjectStores> result =
         DatabaseWithObjectStores::create()
             .setName(idb_database->name())
-            .setVersion(
-                static_cast<unsigned long long>(idb_database->version()))
+            .setVersion(idb_database->version())
             .setObjectStores(std::move(object_stores))
             .build();
 
@@ -468,24 +469,24 @@ static std::unique_ptr<IDBKey> IdbKeyFromInspectorObject(
     return nullptr;
   String type = key->getType();
 
-  DEFINE_STATIC_LOCAL(String, number, ("number"));
-  DEFINE_STATIC_LOCAL(String, string, ("string"));
-  DEFINE_STATIC_LOCAL(String, date, ("date"));
-  DEFINE_STATIC_LOCAL(String, array, ("array"));
+  DEFINE_STATIC_LOCAL(String, number_type, ("number"));
+  DEFINE_STATIC_LOCAL(String, string_type, ("string"));
+  DEFINE_STATIC_LOCAL(String, date_type, ("date"));
+  DEFINE_STATIC_LOCAL(String, array_type, ("array"));
 
-  if (type == number) {
+  if (type == number_type) {
     if (!key->hasNumber())
       return nullptr;
     idb_key = IDBKey::CreateNumber(key->getNumber(0));
-  } else if (type == string) {
+  } else if (type == string_type) {
     if (!key->hasString())
       return nullptr;
     idb_key = IDBKey::CreateString(key->getString(String()));
-  } else if (type == date) {
+  } else if (type == date_type) {
     if (!key->hasDate())
       return nullptr;
     idb_key = IDBKey::CreateDate(key->getDate(0));
-  } else if (type == array) {
+  } else if (type == array_type) {
     IDBKey::KeyArray key_array;
     auto* array = key->getArray(nullptr);
     for (size_t i = 0; array && i < array->length(); ++i)
@@ -825,6 +826,107 @@ void InspectorIndexedDBAgent::requestData(
       idb_key_range, skip_count, page_size);
 
   data_loader->Start(
+      inspected_frames_->FrameWithSecurityOrigin(security_origin),
+      database_name);
+}
+
+class GetKeyGeneratorCurrentNumberListener final : public NativeEventListener {
+ public:
+  static GetKeyGeneratorCurrentNumberListener* Create(
+      std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback) {
+    return MakeGarbageCollected<GetKeyGeneratorCurrentNumberListener>(
+        std::move(request_callback));
+  }
+
+  GetKeyGeneratorCurrentNumberListener(
+      std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback)
+      : request_callback_(std::move(request_callback)) {}
+  ~GetKeyGeneratorCurrentNumberListener() override = default;
+
+  void Invoke(ExecutionContext*, Event* event) override {
+    if (event->type() != event_type_names::kSuccess) {
+      request_callback_->sendFailure(
+          Response::Error("Failed to get current number of key generator."));
+      return;
+    }
+
+    IDBRequest* idb_request = static_cast<IDBRequest*>(event->target());
+    IDBAny* request_result = idb_request->ResultAsAny();
+    if (request_result->GetType() != IDBAny::kIntegerType) {
+      request_callback_->sendFailure(
+          Response::Error("Unexpected result type."));
+      return;
+    }
+    request_callback_->sendSuccess(request_result->Integer());
+  }
+
+ private:
+  std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback_;
+};
+
+class GetKeyGeneratorCurrentNumber final
+    : public ExecutableWithDatabase<GetKeyGeneratorCurrentNumberCallback> {
+ public:
+  static scoped_refptr<GetKeyGeneratorCurrentNumber> Create(
+      const String& object_store_name,
+      std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback) {
+    return AdoptRef(new GetKeyGeneratorCurrentNumber(
+        object_store_name, std::move(request_callback)));
+  }
+
+ private:
+  GetKeyGeneratorCurrentNumber(
+      const String& object_store_name,
+      std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback)
+      : object_store_name_(object_store_name),
+        request_callback_(std::move(request_callback)) {}
+
+  void Execute(IDBDatabase* idb_database, ScriptState* script_state) override {
+    IDBTransaction* idb_transaction =
+        TransactionForDatabase(script_state, idb_database, object_store_name_,
+                               indexed_db_names::kReadonly);
+    if (!idb_transaction) {
+      request_callback_->sendFailure(
+          Response::Error("Could not get transaction"));
+      return;
+    }
+    IDBObjectStore* idb_object_store =
+        ObjectStoreForTransaction(idb_transaction, object_store_name_);
+    if (!idb_object_store) {
+      request_callback_->sendFailure(
+          Response::Error("Could not get object store"));
+      return;
+    }
+    IDBRequest* idb_request =
+        idb_object_store->getKeyGeneratorCurrentNumber(script_state);
+    idb_request->addEventListener(event_type_names::kSuccess,
+                                  GetKeyGeneratorCurrentNumberListener::Create(
+                                      std::move(request_callback_)),
+                                  false);
+    idb_request->addEventListener(event_type_names::kError,
+                                  GetKeyGeneratorCurrentNumberListener::Create(
+                                      std::move(request_callback_)),
+                                  false);
+  }
+
+  GetKeyGeneratorCurrentNumberCallback* GetRequestCallback() override {
+    return request_callback_.get();
+  }
+
+ private:
+  const String object_store_name_;
+  std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback_;
+};
+
+void InspectorIndexedDBAgent::getKeyGeneratorCurrentNumber(
+    const String& security_origin,
+    const String& database_name,
+    const String& object_store_name,
+    std::unique_ptr<GetKeyGeneratorCurrentNumberCallback> request_callback) {
+  scoped_refptr<GetKeyGeneratorCurrentNumber> get_auto_increment_number =
+      GetKeyGeneratorCurrentNumber::Create(object_store_name,
+                                           std::move(request_callback));
+  get_auto_increment_number->Start(
       inspected_frames_->FrameWithSecurityOrigin(security_origin),
       database_name);
 }

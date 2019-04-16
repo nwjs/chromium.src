@@ -18,7 +18,9 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/cpp/window_state_type.h"
 #include "ash/public/interfaces/constants.mojom.h"
+#include "ash/public/interfaces/window_properties.mojom.h"
 #include "ash/wm/window_state.h"  // mash-ok
+#include "base/bind.h"
 #include "base/logging.h"
 #include "chrome/browser/chromeos/note_taking_helper.h"
 #include "chrome/browser/profiles/profile.h"
@@ -107,8 +109,11 @@ void ChromeNativeAppWindowViewsAuraAsh::InitializeWindow(
     const AppWindow::CreateParams& create_params) {
   ChromeNativeAppWindowViewsAura::InitializeWindow(app_window, create_params);
   aura::Window* window = GetNativeWindow();
-  window->SetProperty(aura::client::kAppType,
-                      static_cast<int>(ash::AppType::CHROME_APP));
+  // For Mash, this property is set in OnBeforeWidgetInit.
+  if (!features::IsUsingWindowService()) {
+    window->SetProperty(aura::client::kAppType,
+                        static_cast<int>(ash::AppType::CHROME_APP));
+  }
   window->SetProperty(
       ash::kImmersiveWindowType,
       static_cast<int>(
@@ -139,8 +144,15 @@ void ChromeNativeAppWindowViewsAuraAsh::OnBeforeWidgetInit(
   else if (create_params.show_on_lock_screen)
     container_id = ash::kShellWindowId_LockActionHandlerContainer;
 
-  if (container_id.has_value())
+  if (container_id.has_value()) {
     ash_util::SetupWidgetInitParamsForContainer(init_params, *container_id);
+    if (!ash::IsActivatableShellWindowId(*container_id)) {
+      // This ensures calls to Activate() don't attempt to activate the window
+      // locally, which can have side effects that should be avoided (such as
+      // changing focus). See https://crbug.com/935274 for more details.
+      init_params->activatable = views::Widget::InitParams::ACTIVATABLE_NO;
+    }
+  }
 
   // Resizable lock screen apps will end up maximized by ash. Do it now to
   // save back-and-forth communication with the window manager. Right now all
@@ -167,6 +179,9 @@ void ChromeNativeAppWindowViewsAuraAsh::OnBeforeWidgetInit(
   init_params
       ->mus_properties[ws::mojom::WindowManager::kWindowTitleShown_Property] =
       mojo::ConvertTo<std::vector<uint8_t>>(static_cast<int64_t>(false));
+  init_params->mus_properties[ash::mojom::kAppType_Property] =
+      mojo::ConvertTo<std::vector<uint8_t>>(
+          static_cast<int64_t>(ash::AppType::CHROME_APP));
 }
 
 views::NonClientFrameView*
@@ -245,7 +260,7 @@ bool ChromeNativeAppWindowViewsAuraAsh::IsAlwaysOnTop() const {
 
 ///////////////////////////////////////////////////////////////////////////////
 // views::ContextMenuController implementation:
-void ChromeNativeAppWindowViewsAuraAsh::ShowContextMenuForView(
+void ChromeNativeAppWindowViewsAuraAsh::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& p,
     ui::MenuSourceType source_type) {
@@ -338,26 +353,39 @@ void ChromeNativeAppWindowViewsAuraAsh::UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions) {
   ChromeNativeAppWindowViewsAura::UpdateDraggableRegions(regions);
 
+  if (!features::IsUsingWindowService() || !widget())
+    return;
+
   SkRegion* draggable_region = GetDraggableRegion();
+  auto* window_tree_host =
+      aura::WindowTreeHostMus::ForWindow(widget()->GetNativeWindow());
+  DCHECK(window_tree_host);
+
   // Set the NativeAppWindow's draggable region on the mus window.
-  if (draggable_region && !draggable_region->isEmpty() && widget() &&
-      features::IsUsingWindowService()) {
+  if (draggable_region && !draggable_region->isEmpty()) {
     // Supply client area insets that encompass all draggable regions.
     gfx::Insets insets(draggable_region->getBounds().bottom(), 0, 0, 0);
 
     // Invert the draggable regions to determine the additional client areas.
+    // Inversion should be computed for the difference between the inset area
+    // and the draggable_region -- draggable_region->getBounds() could have
+    // smaller width than widget's width.
     SkRegion inverted_region;
-    inverted_region.setRect(draggable_region->getBounds());
+    inverted_region.setRect(0, 0, widget()->GetWindowBoundsInScreen().width(),
+                            draggable_region->getBounds().bottom());
     inverted_region.op(*draggable_region, SkRegion::kDifference_Op);
     std::vector<gfx::Rect> additional_client_regions;
     for (SkRegion::Iterator i(inverted_region); !i.done(); i.next())
       additional_client_regions.push_back(gfx::SkIRectToRect(i.rect()));
 
-    aura::WindowTreeHostMus* window_tree_host =
-        static_cast<aura::WindowTreeHostMus*>(
-            widget()->GetNativeWindow()->GetHost());
     window_tree_host->SetClientArea(insets,
                                     std::move(additional_client_regions));
+    draggable_regions_sent_ = true;
+  } else if (draggable_regions_sent_) {
+    // Once client area is sent and now it's empty, it needs to resend the empty
+    // insets.
+    window_tree_host->SetClientArea(gfx::Insets(), std::vector<gfx::Rect>());
+    draggable_regions_sent_ = false;
   }
 }
 

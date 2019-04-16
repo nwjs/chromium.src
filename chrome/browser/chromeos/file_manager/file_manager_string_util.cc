@@ -12,6 +12,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/chromeos/strings/grit/ui_chromeos_strings.h"
 #include "ui/strings/grit/ui_strings.h"
 
 namespace {
@@ -671,6 +672,7 @@ std::unique_ptr<base::DictionaryValue> GetFileManagerStrings() {
              IDS_FILE_BROWSER_ADD_TO_VERB_BUTTON_LABEL);
   SET_STRING("PACK_WITH_VERB_BUTTON_LABEL",
              IDS_FILE_BROWSER_PACK_WITH_VERB_BUTTON_LABEL);
+  SET_STRING("SEND_FEEDBACK", IDS_FILE_BROWSER_SEND_FEEDBACK_BUTTON_LABEL);
   SET_STRING("SHARE_WITH_VERB_BUTTON_LABEL",
              IDS_FILE_BROWSER_SHARE_WITH_VERB_BUTTON_LABEL);
   SET_STRING("PASTE_BUTTON_LABEL", IDS_FILE_BROWSER_PASTE_BUTTON_LABEL);

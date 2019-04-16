@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/compiler_specific.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/ranges.h"
@@ -26,7 +27,6 @@
 #include "chrome/browser/ui/views/extensions/browser_action_drag_data.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/toolbar/browser_app_menu_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_actions_bar_bubble_views.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -194,15 +194,15 @@ void BrowserActionsContainer::Redraw(bool order_changed) {
     return;
   }
 
-  // Don't allow resizing if the bar is highlighting.
-  if (resize_area_)
-    resize_area_->SetEnabled(!toolbar_actions_bar()->is_highlighting());
+  // Need to update the resize area because resizing is not allowed when the
+  // actions bar is highlighting.
+  UpdateResizeArea();
 
-  std::vector<ToolbarActionViewController*> actions =
-      toolbar_actions_bar_->GetActions();
   if (order_changed) {
     // Run through the views and compare them to the desired order. If something
     // is out of place, find the correct spot for it.
+    std::vector<ToolbarActionViewController*> actions =
+        toolbar_actions_bar_->GetActions();
     for (int i = 0; i < static_cast<int>(actions.size()) - 1; ++i) {
       if (actions[i] != toolbar_action_views_[i]->view_controller()) {
         // Find where the correct view is (it's guaranteed to be after our
@@ -313,12 +313,10 @@ void BrowserActionsContainer::ShowToolbarActionBubble(
 }
 
 bool BrowserActionsContainer::CloseOverflowMenuIfOpen() {
-  // TODO(mgiuca): Use toolbar_button_provider() instead of toolbar(), so this
-  // also works for hosted app windows.
-  BrowserAppMenuButton* app_menu_button =
+  AppMenuButton* app_menu_button =
       BrowserView::GetBrowserViewForBrowser(browser_)
-          ->toolbar()
-          ->app_menu_button();
+          ->toolbar_button_provider()
+          ->GetAppMenuButton();
   if (!app_menu_button || !app_menu_button->IsMenuShowing())
     return false;
 
@@ -342,8 +340,8 @@ int BrowserActionsContainer::GetWidthForMaxWidth(int max_width) const {
     // for enough space to show the resize handle (if there are no icons, we
     // will ask for a width of zero so it won't matter).
     preferred_width =
-        std::max(GetResizeAreaWidth(),
-                 GetWidthForIconCount(WidthToIconCount(max_width)));
+        std::max(GetResizeAreaWidth(), GetWidthForIconCount(WidthToIconCount(
+                                           max_width - GetResizeAreaWidth())));
   }
   return preferred_width;
 }
@@ -357,13 +355,28 @@ views::FlexRule BrowserActionsContainer::GetFlexRule() {
       [](const views::View* view, const views::SizeBounds& maximum_size) {
         const BrowserActionsContainer* browser_actions =
             static_cast<const BrowserActionsContainer*>(view);
-        gfx::Size size = browser_actions->GetPreferredSize();
+        gfx::Size preferred_size = browser_actions->GetPreferredSize();
         if (maximum_size.width()) {
-          size.set_width(
-              browser_actions->GetWidthForMaxWidth(*maximum_size.width()));
+          int width;
+          if (browser_actions->resizing() || browser_actions->animating()) {
+            // When there are actions present, the floor on the size of the
+            // browser actions bar should be the resize handle.
+            const int min_width = browser_actions->num_toolbar_actions() == 0
+                                      ? 0
+                                      : browser_actions->GetResizeAreaWidth();
+            // The ceiling on the value is the lesser of the preferred and
+            // available size.
+            width = std::max(min_width, std::min(preferred_size.width(),
+                                                 *maximum_size.width()));
+          } else {
+            // When not animating or resizing, the desired width should always
+            // be based on the number of icons that can be displayed.
+            width = browser_actions->GetWidthForMaxWidth(*maximum_size.width());
+          }
+          preferred_size =
+              gfx::Size(width, browser_actions->GetHeightForWidth(width));
         }
-        size.set_height(browser_actions->GetHeightForWidth(size.width()));
-        return size;
+        return preferred_size;
       });
 }
 
@@ -672,6 +685,14 @@ void BrowserActionsContainer::OnResize(int resize_amount, bool done_resizing) {
   toolbar_actions_bar_->OnResizeComplete(icon_area_width);
 }
 
+void BrowserActionsContainer::OnBoundsChanged(
+    const gfx::Rect& previous_bounds) {
+  // When bounds change, it's possible that the amount of space available to the
+  // view changes as well. If the amount of space is not enough to fit a single
+  // icon, the resize handle should be disabled.
+  UpdateResizeArea();
+}
+
 void BrowserActionsContainer::AnimationProgressed(
     const gfx::Animation* animation) {
   DCHECK_EQ(resize_animation_.get(), animation);
@@ -802,4 +823,15 @@ int BrowserActionsContainer::GetSeparatorAreaWidth() const {
     return 0;
   return 2 * GetLayoutConstant(TOOLBAR_STANDARD_SPACING) +
          views::Separator::kThickness;
+}
+
+void BrowserActionsContainer::UpdateResizeArea() {
+  if (!resize_area_)
+    return;
+
+  const base::Optional<int> max_width = delegate_->GetMaxBrowserActionsWidth();
+  const bool enable_resize_area =
+      interactive_ && !toolbar_actions_bar()->is_highlighting() &&
+      (!max_width || *max_width >= GetWidthForIconCount(1));
+  resize_area_->SetEnabled(enable_resize_area);
 }

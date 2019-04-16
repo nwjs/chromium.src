@@ -122,9 +122,6 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   // views::View:
   void OnPaint(gfx::Canvas* canvas) override;
 
-  // BrowserNonClientFrameView:
-  bool ShouldPaintAsThemed() const override;
-
   OpaqueBrowserFrameViewLayout* layout() { return layout_; }
 
  private:

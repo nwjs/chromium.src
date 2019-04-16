@@ -48,24 +48,22 @@ std::unique_ptr<SequenceManager> CreateSequenceManagerOnCurrentThreadWithPump(
     std::unique_ptr<MessagePump> message_pump,
     SequenceManager::Settings settings) {
   std::unique_ptr<SequenceManager> sequence_manager =
-      internal::SequenceManagerImpl::CreateUnboundWithPump(std::move(settings));
+      internal::SequenceManagerImpl::CreateUnbound(std::move(settings));
   sequence_manager->BindToMessagePump(std::move(message_pump));
   return sequence_manager;
 }
 
 std::unique_ptr<SequenceManager> CreateUnboundSequenceManager(
-    MessageLoopBase* message_loop_base,
     SequenceManager::Settings settings) {
-  return internal::SequenceManagerImpl::CreateUnbound(message_loop_base,
-                                                      std::move(settings));
+  return internal::SequenceManagerImpl::CreateUnbound(std::move(settings));
 }
 
 namespace internal {
 
 namespace {
 
-constexpr base::TimeDelta kLongTaskTraceEventThreshold =
-    base::TimeDelta::FromMilliseconds(50);
+constexpr TimeDelta kLongTaskTraceEventThreshold =
+    TimeDelta::FromMilliseconds(50);
 // Proportion of tasks which will record thread time for metrics.
 const double kTaskSamplingRateForRecordingCPUTime = 0.01;
 // Proprortion of SequenceManagers which will record thread time for each task,
@@ -82,6 +80,8 @@ void ReclaimMemoryFromQueue(internal::TaskQueueImpl* queue,
   if (time_domain_now->find(time_domain) == time_domain_now->end())
     time_domain_now->insert(std::make_pair(time_domain, time_domain->Now()));
   queue->ReclaimMemory(time_domain_now->at(time_domain));
+  queue->delayed_work_queue()->RemoveAllCanceledTasksFromFront();
+  queue->immediate_work_queue()->RemoveAllCanceledTasksFromFront();
 }
 
 SequenceManager::MetricRecordingSettings InitializeMetricRecordingSettings(
@@ -105,6 +105,7 @@ SequenceManagerImpl::SequenceManagerImpl(
       type_(settings.message_loop_type),
       metric_recording_settings_(InitializeMetricRecordingSettings(
           settings.randomised_sampling_enabled)),
+      empty_queues_to_reload_(associated_thread_),
       memory_corruption_sentinel_(kMemoryCorruptionSentinelValue),
       main_thread_only_(associated_thread_,
                         settings.randomised_sampling_enabled),
@@ -112,6 +113,9 @@ SequenceManagerImpl::SequenceManagerImpl(
   TRACE_EVENT_OBJECT_CREATED_WITH_ID(
       TRACE_DISABLED_BY_DEFAULT("sequence_manager"), "SequenceManager", this);
   main_thread_only().selector.SetTaskQueueSelectorObserver(this);
+
+  main_thread_only().next_time_to_reclaim_memory =
+      settings.clock->NowTicks() + kReclaimMemoryInterval;
 
   RegisterTimeDomain(main_thread_only().real_time_domain.get());
 
@@ -123,14 +127,22 @@ SequenceManagerImpl::~SequenceManagerImpl() {
   TRACE_EVENT_OBJECT_DELETED_WITH_ID(
       TRACE_DISABLED_BY_DEFAULT("sequence_manager"), "SequenceManager", this);
 
-  // TODO(altimin): restore default task runner automatically when
-  // ThreadController is destroyed.
-  controller_->RestoreDefaultTaskRunner();
+  // Make sure no Task is running as given that RunLoop does not support the
+  // Delegate being destroyed from a Task and
+  // ThreadControllerWithMessagePumpImpl does not support being destroyed from a
+  // Task. If we are using a ThreadControllerImpl (i.e. no pump) destruction is
+  // fine
+  DCHECK(!controller_->GetBoundMessagePump() ||
+         main_thread_only().task_execution_stack.empty());
 
   for (internal::TaskQueueImpl* queue : main_thread_only().active_queues) {
     main_thread_only().selector.RemoveQueue(queue);
     queue->UnregisterTaskQueue();
   }
+
+  // TODO(altimin): restore default task runner automatically when
+  // ThreadController is destroyed.
+  controller_->RestoreDefaultTaskRunner();
 
   main_thread_only().active_queues.clear();
   main_thread_only().queues_to_gracefully_shutdown.clear();
@@ -149,10 +161,6 @@ SequenceManagerImpl::~SequenceManagerImpl() {
     MessageLoopCurrent::UnbindFromCurrentThreadInternal(this);
 }
 
-SequenceManagerImpl::AnyThread::AnyThread() = default;
-
-SequenceManagerImpl::AnyThread::~AnyThread() = default;
-
 SequenceManagerImpl::MainThreadOnly::MainThreadOnly(
     const scoped_refptr<AssociatedThreadId>& associated_thread,
     bool randomised_sampling_enabled)
@@ -170,25 +178,17 @@ SequenceManagerImpl::MainThreadOnly::~MainThreadOnly() = default;
 // static
 std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateOnCurrentThread(
     SequenceManager::Settings settings) {
-  std::unique_ptr<SequenceManagerImpl> manager =
-      CreateUnbound(MessageLoopCurrent::Get()->ToMessageLoopBaseDeprecated(),
-                    std::move(settings));
+  MessageLoopBase* message_loop_base =
+      MessageLoopCurrent::Get()->ToMessageLoopBaseDeprecated();
+  std::unique_ptr<SequenceManagerImpl> manager(new SequenceManagerImpl(
+      ThreadControllerImpl::Create(message_loop_base, settings.clock),
+      std::move(settings)));
   manager->BindToCurrentThread();
-  manager->CompleteInitializationOnBoundThread();
   return manager;
 }
 
 // static
 std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateUnbound(
-    MessageLoopBase* message_loop_base,
-    SequenceManager::Settings settings) {
-  return WrapUnique(new SequenceManagerImpl(
-      ThreadControllerImpl::Create(message_loop_base, settings.clock),
-      std::move(settings)));
-}
-
-// static
-std::unique_ptr<SequenceManagerImpl> SequenceManagerImpl::CreateUnboundWithPump(
     SequenceManager::Settings settings) {
   return WrapUnique(new SequenceManagerImpl(
       ThreadControllerWithMessagePumpImpl::CreateUnbound(settings.clock),
@@ -204,21 +204,27 @@ void SequenceManagerImpl::BindToMessageLoop(
 void SequenceManagerImpl::BindToMessagePump(std::unique_ptr<MessagePump> pump) {
   controller_->BindToCurrentThread(std::move(pump));
   CompleteInitializationOnBoundThread();
+
+  // On Android attach to the native loop when there is one.
+#if defined(OS_ANDROID)
+  if (type_ == TYPE_UI || type_ == TYPE_JAVA)
+    controller_->AttachToMessagePump();
+#endif
 }
 
 void SequenceManagerImpl::BindToCurrentThread() {
   associated_thread_->BindToCurrentThread();
+  CompleteInitializationOnBoundThread();
 }
 
 void SequenceManagerImpl::BindToCurrentThread(
     std::unique_ptr<MessagePump> pump) {
-  BindToCurrentThread();
+  associated_thread_->BindToCurrentThread();
   BindToMessagePump(std::move(pump));
 }
 
 void SequenceManagerImpl::CompleteInitializationOnBoundThread() {
   controller_->AddNestingObserver(this);
-  work_id_provider_ = WorkIdProvider::GetForCurrentThread();
   main_thread_only().nesting_observer_registered_ = true;
   if (GetMessagePump())
     MessageLoopCurrent::BindToCurrentThreadInternal(this);
@@ -249,8 +255,6 @@ SequenceManagerImpl::CreateTaskQueueImpl(const TaskQueue::Spec& spec) {
       std::make_unique<internal::TaskQueueImpl>(this, time_domain, spec);
   main_thread_only().active_queues.insert(task_queue.get());
   main_thread_only().selector.AddQueue(task_queue.get());
-  main_thread_only().queues_to_reload.resize(
-      main_thread_only().active_queues.size());
   return task_queue;
 }
 
@@ -264,41 +268,6 @@ bool SequenceManagerImpl::GetAddQueueTimeToTasks() {
 
 void SequenceManagerImpl::SetObserver(Observer* observer) {
   main_thread_only().observer = observer;
-}
-
-bool SequenceManagerImpl::AddToIncomingImmediateWorkList(
-    internal::TaskQueueImpl* task_queue,
-    internal::EnqueueOrder enqueue_order) {
-  AutoLock lock(any_thread_lock_);
-  // Check if |task_queue| is already in the linked list.
-  if (task_queue->immediate_work_list_storage()->queue)
-    return false;
-
-  // Insert into the linked list.
-  task_queue->immediate_work_list_storage()->queue = task_queue;
-  task_queue->immediate_work_list_storage()->order = enqueue_order;
-  task_queue->immediate_work_list_storage()->next =
-      any_thread().incoming_immediate_work_list;
-  any_thread().incoming_immediate_work_list =
-      task_queue->immediate_work_list_storage();
-  return true;
-}
-
-void SequenceManagerImpl::RemoveFromIncomingImmediateWorkList(
-    internal::TaskQueueImpl* task_queue) {
-  AutoLock lock(any_thread_lock_);
-  internal::IncomingImmediateWorkList** prev =
-      &any_thread().incoming_immediate_work_list;
-  while (*prev) {
-    if ((*prev)->queue == task_queue) {
-      *prev = (*prev)->next;
-      break;
-    }
-    prev = &(*prev)->next;
-  }
-
-  task_queue->immediate_work_list_storage()->next = nullptr;
-  task_queue->immediate_work_list_storage()->queue = nullptr;
 }
 
 void SequenceManagerImpl::ShutdownTaskQueueGracefully(
@@ -321,50 +290,28 @@ void SequenceManagerImpl::UnregisterTaskQueueImpl(
   // when posting a task.
   task_queue->UnregisterTaskQueue();
 
-  // Remove |task_queue| from the linked list if present.
-  // This is O(n).  We assume this will be a relatively infrequent operation.
-  RemoveFromIncomingImmediateWorkList(task_queue.get());
-
   // Add |task_queue| to |main_thread_only().queues_to_delete| so we can prevent
   // it from being freed while any of our structures hold hold a raw pointer to
   // it.
   main_thread_only().active_queues.erase(task_queue.get());
   main_thread_only().queues_to_delete[task_queue.get()] = std::move(task_queue);
-  main_thread_only().queues_to_reload.resize(
-      main_thread_only().active_queues.size());
 }
 
-void SequenceManagerImpl::ReloadEmptyWorkQueues() {
-  size_t num_queues_to_reload = 0;
+AtomicFlagSet::AtomicFlag
+SequenceManagerImpl::GetFlagToRequestReloadForEmptyQueue(
+    TaskQueueImpl* task_queue) {
+  return empty_queues_to_reload_.AddFlag(BindRepeating(
+      &TaskQueueImpl::ReloadEmptyImmediateWorkQueue, Unretained(task_queue)));
+}
 
-  DCHECK_EQ(main_thread_only().active_queues.size(),
-            main_thread_only().queues_to_reload.size());
-  {
-    AutoLock lock(any_thread_lock_);
-
-    for (internal::IncomingImmediateWorkList* iter =
-             any_thread().incoming_immediate_work_list;
-         iter; iter = iter->next) {
-      DCHECK_LT(num_queues_to_reload,
-                main_thread_only().queues_to_reload.size());
-      main_thread_only().queues_to_reload[num_queues_to_reload++] = iter->queue;
-      iter->queue = nullptr;
-    }
-
-    any_thread().incoming_immediate_work_list = nullptr;
-  }
-
+void SequenceManagerImpl::ReloadEmptyWorkQueues() const {
   // There are two cases where a queue needs reloading.  First, it might be
   // completely empty and we've just posted a task (this method handles that
   // case). Secondly if the work queue becomes empty in when calling
   // WorkQueue::TakeTaskFromWorkQueue (handled there).
-  for (size_t i = 0; i < num_queues_to_reload; i++) {
-    // It's important we call ReloadImmediateWorkQueueIfEmpty out side of
-    // |any_thread_lock_| avoid lock order inversion.
-    main_thread_only().queues_to_reload[i]->ReloadImmediateWorkQueueIfEmpty();
-    main_thread_only().queues_to_reload[i] =
-        nullptr;  // Not strictly necessary.
-  }
+  //
+  // Invokes callbacks created by GetFlagToRequestReloadForEmptyQueue above.
+  empty_queues_to_reload_.RunActiveCallbacks();
 }
 
 void SequenceManagerImpl::WakeUpReadyDelayedQueues(LazyNow* lazy_now) {
@@ -406,16 +353,7 @@ void SequenceManagerImpl::OnExitNestedRunLoop() {
     main_thread_only().observer->OnExitNestedRunLoop();
 }
 
-void SequenceManagerImpl::OnQueueHasIncomingImmediateWork(
-    internal::TaskQueueImpl* queue,
-    internal::EnqueueOrder enqueue_order,
-    bool schedule_work) {
-  if (AddToIncomingImmediateWorkList(queue, enqueue_order) && schedule_work)
-    controller_->ScheduleWork();
-}
-
-void SequenceManagerImpl::MaybeScheduleImmediateWork(
-    const Location& from_here) {
+void SequenceManagerImpl::ScheduleWork() {
   controller_->ScheduleWork();
 }
 
@@ -439,8 +377,6 @@ Optional<PendingTask> SequenceManagerImpl::TakeTask() {
                      executing_task.task_queue->GetName(), "task_type",
                      executing_task.task_type);
 
-  work_id_provider_->IncrementWorkId();
-
   return task;
 }
 
@@ -453,6 +389,13 @@ Optional<PendingTask> SequenceManagerImpl::TakeTaskImpl() {
   ReloadEmptyWorkQueues();
   LazyNow lazy_now(controller_->GetClock());
   WakeUpReadyDelayedQueues(&lazy_now);
+
+  // If we sampled now, check if it's time to reclaim memory next time we go
+  // idle.
+  if (lazy_now.has_value() &&
+      lazy_now.Now() >= main_thread_only().next_time_to_reclaim_memory) {
+    main_thread_only().memory_reclaim_scheduled = true;
+  }
 
   while (true) {
     internal::WorkQueue* work_queue =
@@ -517,17 +460,12 @@ TimeDelta SequenceManagerImpl::DelayTillNextTask(LazyNow* lazy_now) const {
   if (!main_thread_only().selector.AllEnabledWorkQueuesAreEmpty())
     return TimeDelta();
 
-  // Its possible the selectors state is dirty because ReloadEmptyWorkQueues
-  // hasn't been called yet. This check catches the case of fresh incoming work.
-  {
-    AutoLock lock(any_thread_lock_);
-    for (const internal::IncomingImmediateWorkList* iter =
-             any_thread().incoming_immediate_work_list;
-         iter; iter = iter->next) {
-      if (iter->queue->CouldTaskRun(iter->order))
-        return TimeDelta();
-    }
-  }
+  // There may be some incoming immediate work which we haven't accounted for.
+  // NB ReloadEmptyWorkQueues involves a memory barrier, so it's fastest to not
+  // do this always.
+  ReloadEmptyWorkQueues();
+  if (!main_thread_only().selector.AllEnabledWorkQueuesAreEmpty())
+    return TimeDelta();
 
   // Otherwise we need to find the shortest delay, if any.  NB we don't need to
   // call WakeUpReadyDelayedQueues because it's assumed DelayTillNextTask will
@@ -560,6 +498,8 @@ bool SequenceManagerImpl::OnSystemIdle() {
       have_work_to_do = true;
     }
   }
+  if (!have_work_to_do)
+    MaybeReclaimMemory();
   return have_work_to_do;
 }
 
@@ -771,16 +711,6 @@ SequenceManagerImpl::AsValueWithSelectorResult(
   for (auto* time_domain : main_thread_only().time_domains)
     time_domain->AsValueInto(state.get());
   state->EndArray();
-  {
-    AutoLock lock(any_thread_lock_);
-    state->BeginArray("has_incoming_immediate_work");
-    for (const internal::IncomingImmediateWorkList* iter =
-             any_thread().incoming_immediate_work_list;
-         iter; iter = iter->next) {
-      state->AppendString(iter->queue->GetName());
-    }
-    state->EndArray();
-  }
   return std::move(state);
 }
 
@@ -789,7 +719,20 @@ void SequenceManagerImpl::OnTaskQueueEnabled(internal::TaskQueueImpl* queue) {
   DCHECK(queue->IsQueueEnabled());
   // Only schedule DoWork if there's something to do.
   if (queue->HasTaskToRunImmediately() && !queue->BlockedByFence())
-    MaybeScheduleImmediateWork(FROM_HERE);
+    ScheduleWork();
+}
+
+void SequenceManagerImpl::MaybeReclaimMemory() {
+  if (!main_thread_only().memory_reclaim_scheduled)
+    return;
+
+  TRACE_EVENT0("sequence_manager", "SequenceManagerImpl::MaybeReclaimMemory");
+  ReclaimMemory();
+
+  // To avoid performance regressions we only want to do this every so often.
+  main_thread_only().next_time_to_reclaim_memory =
+      NowTicks() + kReclaimMemoryInterval;
+  main_thread_only().memory_reclaim_scheduled = false;
 }
 
 void SequenceManagerImpl::ReclaimMemory() {
@@ -804,7 +747,6 @@ void SequenceManagerImpl::CleanUpQueues() {
   for (auto it = main_thread_only().queues_to_gracefully_shutdown.begin();
        it != main_thread_only().queues_to_gracefully_shutdown.end();) {
     if (it->first->IsEmpty()) {
-      // Will resize |main_thread_only().queues_to_reload|.
       UnregisterTaskQueueImpl(std::move(it->second));
       main_thread_only().active_queues.erase(it->first);
       main_thread_only().queues_to_gracefully_shutdown.erase(it++);
@@ -813,6 +755,13 @@ void SequenceManagerImpl::CleanUpQueues() {
     }
   }
   main_thread_only().queues_to_delete.clear();
+}
+
+void SequenceManagerImpl::RemoveAllCanceledTasksFromFrontOfWorkQueues() {
+  for (internal::TaskQueueImpl* queue : main_thread_only().active_queues) {
+    queue->delayed_work_queue()->RemoveAllCanceledTasksFromFront();
+    queue->immediate_work_queue()->RemoveAllCanceledTasksFromFront();
+  }
 }
 
 WeakPtr<SequenceManagerImpl> SequenceManagerImpl::GetWeakPtr() {
@@ -862,6 +811,7 @@ void SequenceManagerImpl::DeletePendingTasks() {
 
 bool SequenceManagerImpl::HasTasks() {
   DCHECK_CALLED_ON_VALID_THREAD(associated_thread_->thread_checker);
+  RemoveAllCanceledTasksFromFrontOfWorkQueues();
 
   for (TaskQueueImpl* task_queue : main_thread_only().active_queues) {
     if (task_queue->HasTasks())
@@ -878,6 +828,10 @@ bool SequenceManagerImpl::HasTasks() {
   return false;
 }
 
+MessageLoop::Type SequenceManagerImpl::GetType() const {
+  return type_;
+}
+
 void SequenceManagerImpl::SetTaskExecutionAllowed(bool allowed) {
   controller_->SetTaskExecutionAllowed(allowed);
 }
@@ -886,17 +840,15 @@ bool SequenceManagerImpl::IsTaskExecutionAllowed() const {
   return controller_->IsTaskExecutionAllowed();
 }
 
-#if defined(OS_IOS) || defined(OS_ANDROID)
+#if defined(OS_IOS)
 void SequenceManagerImpl::AttachToMessagePump() {
   return controller_->AttachToMessagePump();
 }
 #endif
 
 bool SequenceManagerImpl::IsIdleForTesting() {
-  // We don't use DelayTillNextTask here because the MessageLoop version which
-  // we're emulating does not take Now() into account.  If it did tests would
-  // become flaky wrt delayed tasks that are just about to run.
   ReloadEmptyWorkQueues();
+  RemoveAllCanceledTasksFromFrontOfWorkQueues();
   return main_thread_only().selector.AllEnabledWorkQueuesAreEmpty();
 }
 
@@ -980,6 +932,8 @@ internal::TaskQueueImpl* SequenceManagerImpl::currently_executing_task_queue()
     return nullptr;
   return main_thread_only().task_execution_stack.rbegin()->task_queue;
 }
+
+constexpr TimeDelta SequenceManagerImpl::kReclaimMemoryInterval;
 
 }  // namespace internal
 }  // namespace sequence_manager

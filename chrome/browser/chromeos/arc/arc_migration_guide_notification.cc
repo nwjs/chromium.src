@@ -8,6 +8,7 @@
 
 #include "ash/public/cpp/notification_utils.h"
 #include "ash/public/cpp/vector_icons/vector_icons.h"
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/optional.h"
 #include "chrome/browser/chromeos/arc/arc_migration_constants.h"
@@ -43,9 +44,7 @@ void ShowArcMigrationGuideNotification(Profile* profile) {
       multi_user_util::GetAccountIdFromProfile(profile).GetUserEmail();
 
   base::Optional<power_manager::PowerSupplyProperties> power =
-      chromeos::DBusThreadManager::Get()
-          ->GetPowerManagerClient()
-          ->GetLastStatus();
+      chromeos::PowerManagerClient::Get()->GetLastStatus();
   const bool is_low_battery =
       power &&
       power->battery_state() !=

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -14,8 +15,8 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/omnibox_client.h"
 #include "components/omnibox/browser/omnibox_edit_controller.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_popup_view.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "third_party/icu/source/common/unicode/ubidi.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -159,10 +160,6 @@ void OmniboxPopupModel::SetSelectedLine(size_t line,
     edit_model_->OnPopupDataChanged(match.fill_into_edit, &current_destination,
                                     keyword, is_keyword_hint);
   }
-
-  // Repaint old and new selected lines immediately, so that the edit doesn't
-  // appear to update [much] faster than the popup.
-  view_->PaintUpdatesNow();
 }
 
 void OmniboxPopupModel::ResetToDefaultMatch() {

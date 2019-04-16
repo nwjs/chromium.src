@@ -8,12 +8,11 @@
 #include "build/build_config.h"
 #include "components/viz/common/switches.h"
 
-namespace features {
+#if defined(OS_ANDROID)
+#include "gpu/config/gpu_finch_features.h"  // nogncheck
+#endif
 
-// Enables running draw occlusion algorithm to remove Draw Quads that are not
-// shown on screen from CompositorFrame.
-const base::Feature kEnableDrawOcclusion{"DrawOcclusion",
-                                         base::FEATURE_ENABLED_BY_DEFAULT};
+namespace features {
 
 #if defined(USE_AURA) || defined(OS_MACOSX)
 const base::Feature kEnableSurfaceSynchronization{
@@ -28,7 +27,7 @@ const base::Feature kEnableSurfaceSynchronization{
 // (OOP-D).
 // TODO(dnicoara): Look at enabling Chromecast support when ChromeOS support is
 // ready.
-#if defined(OS_CHROMEOS) || defined(IS_CHROMECAST) || defined(OS_ANDROID)
+#if defined(OS_CHROMEOS) || defined(IS_CHROMECAST)
 const base::Feature kVizDisplayCompositor{"VizDisplayCompositor",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 #else
@@ -47,15 +46,27 @@ const base::Feature kEnableVizHitTestSurfaceLayer{
 const base::Feature kUseSkiaRenderer{"UseSkiaRenderer",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Use the SkiaRenderer without DDL.
+const base::Feature kUseSkiaRendererNonDDL{"UseSkiaRendererNonDDL",
+                                           base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Use the SkiaRenderer to record SkPicture.
 const base::Feature kRecordSkPicture{"RecordSkPicture",
                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsSurfaceSynchronizationEnabled() {
   auto* command_line = base::CommandLine::ForCurrentProcess();
-  return base::FeatureList::IsEnabled(kEnableSurfaceSynchronization) ||
-         command_line->HasSwitch(switches::kEnableSurfaceSynchronization) ||
-         base::FeatureList::IsEnabled(kVizDisplayCompositor);
+  return IsVizDisplayCompositorEnabled() ||
+         base::FeatureList::IsEnabled(kEnableSurfaceSynchronization) ||
+         command_line->HasSwitch(switches::kEnableSurfaceSynchronization);
+}
+
+bool IsVizDisplayCompositorEnabled() {
+#if defined(OS_ANDROID)
+  if (features::IsAndroidSurfaceControlEnabled())
+    return true;
+#endif
+  return base::FeatureList::IsEnabled(kVizDisplayCompositor);
 }
 
 bool IsVizHitTestingDebugEnabled() {
@@ -82,12 +93,12 @@ bool IsVizHitTestingSurfaceLayerEnabled() {
          base::FeatureList::IsEnabled(kEnableVizHitTestSurfaceLayer);
 }
 
-bool IsDrawOcclusionEnabled() {
-  return base::FeatureList::IsEnabled(kEnableDrawOcclusion);
-}
-
 bool IsUsingSkiaRenderer() {
   return base::FeatureList::IsEnabled(kUseSkiaRenderer);
+}
+
+bool IsUsingSkiaRendererNonDDL() {
+  return base::FeatureList::IsEnabled(kUseSkiaRendererNonDDL);
 }
 
 bool IsRecordingSkPicture() {

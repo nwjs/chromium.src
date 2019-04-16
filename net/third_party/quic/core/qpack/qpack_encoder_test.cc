@@ -11,6 +11,7 @@
 #include "net/third_party/quic/platform/api/quic_text_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using ::testing::Eq;
 using ::testing::StrictMock;
 using ::testing::Values;
 
@@ -36,10 +37,10 @@ class QpackEncoderTest : public QuicTestWithParam<FragmentMode> {
   const FragmentMode fragment_mode_;
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        QpackEncoderTest,
-                        Values(FragmentMode::kSingleChunk,
-                               FragmentMode::kOctetByOctet));
+INSTANTIATE_TEST_SUITE_P(,
+                         QpackEncoderTest,
+                         Values(FragmentMode::kSingleChunk,
+                                FragmentMode::kOctetByOctet));
 
 TEST_P(QpackEncoderTest, Empty) {
   spdy::SpdyHeaderBlock header_list;
@@ -153,7 +154,7 @@ TEST_P(QpackEncoderTest, SimpleIndexed) {
 
 TEST_P(QpackEncoderTest, DecoderStreamError) {
   EXPECT_CALL(decoder_stream_error_delegate_,
-              OnError(QuicStringPiece("Encoded integer too large.")));
+              OnDecoderStreamError(Eq("Encoded integer too large.")));
 
   QpackEncoder encoder(&decoder_stream_error_delegate_,
                        &encoder_stream_sender_delegate_);

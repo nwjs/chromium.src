@@ -54,7 +54,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/worker_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_thread_scheduler.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
 #include "third_party/blink/renderer/platform/web_thread_supporting_gc.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -179,27 +178,27 @@ void WorkerThread::EvaluateClassicScript(
 
 void WorkerThread::ImportClassicScript(
     const KURL& script_url,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     const v8_inspector::V8StackTraceId& stack_id) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   PostCrossThreadTask(
       *GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&WorkerThread::ImportClassicScriptOnWorkerThread,
                       CrossThreadUnretained(this), script_url,
-                      WTF::Passed(outside_settings_object->CopyData()),
+                      WTF::Passed(outside_settings_object.CopyData()),
                       stack_id));
 }
 
 void WorkerThread::ImportModuleScript(
     const KURL& script_url,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     network::mojom::FetchCredentialsMode credentials_mode) {
   DCHECK_CALLED_ON_VALID_THREAD(parent_thread_checker_);
   PostCrossThreadTask(
       *GetTaskRunner(TaskType::kDOMManipulation), FROM_HERE,
       CrossThreadBind(&WorkerThread::ImportModuleScriptOnWorkerThread,
                       CrossThreadUnretained(this), script_url,
-                      WTF::Passed(outside_settings_object->CopyData()),
+                      WTF::Passed(outside_settings_object.CopyData()),
                       credentials_mode));
 }
 
@@ -449,6 +448,8 @@ void WorkerThread::InitializeOnWorkerThread(
 
   bool isNodeJS = global_scope_creation_params->nodejs_;
   std::string main_script = global_scope_creation_params->main_script_;
+
+  worker_reporting_proxy_.WillInitializeWorkerContext();
   {
     MutexLocker lock(mutex_);
     DCHECK_EQ(ThreadState::kNotStarted, thread_state_);
@@ -461,6 +462,9 @@ void WorkerThread::InitializeOnWorkerThread(
     }
     GetWorkerBackingThread().BackingThread().AddTaskObserver(this);
 
+    // TODO(crbug.com/866666): Ideally this URL should be the response URL of
+    // the worker top-level script, while currently can be the request URL
+    // for off-the-main-thread top-level script fetch cases.
     const KURL url_for_debugger = global_scope_creation_params->script_url;
 
     console_message_storage_ = MakeGarbageCollected<ConsoleMessageStorage>();
@@ -469,7 +473,8 @@ void WorkerThread::InitializeOnWorkerThread(
     worker_reporting_proxy_.DidCreateWorkerGlobalScope(GlobalScope());
 
     worker_inspector_controller_ = WorkerInspectorController::Create(
-        this, inspector_task_runner_, std::move(devtools_params));
+        this, url_for_debugger, inspector_task_runner_,
+        std::move(devtools_params));
 
     // Since context initialization below may fail, we should notify debugger
     // about the new worker thread separately, so that it can resolve it by id
@@ -478,14 +483,18 @@ void WorkerThread::InitializeOnWorkerThread(
             WorkerThreadDebugger::From(GetIsolate()))
       debugger->WorkerThreadCreated(this);
 
-    // TODO(nhiroki): Handle a case where the script controller fails to
-    // initialize the context.
-    if (GlobalScope()->ScriptController()->InitializeContextIfNeeded(
+    if (GlobalScope()->ScriptController()->InitializeContext(
             String(), url_for_debugger)) {
       worker_reporting_proxy_.DidInitializeWorkerContext();
       v8::HandleScope handle_scope(GetIsolate());
       Platform::Current()->WorkerContextCreated(
-               GlobalScope()->ScriptController()->GetContext(), isNodeJS, main_script);
+                                                GlobalScope()->ScriptController()->GetContext(), isNodeJS, main_script);
+    } else {
+      // TODO(nhiroki): Handle a case where the script controller fails to
+      // initialize the context. Specifically, we need to terminate this worker
+      // thread from the the parent thread. Currently we only record trace
+      // event.
+      worker_reporting_proxy_.DidFailToInitializeWorkerContext();
     }
 
     inspector_task_runner_->InitIsolate(GetIsolate());
@@ -513,9 +522,16 @@ void WorkerThread::EvaluateClassicScriptOnWorkerThread(
     String source_code,
     std::unique_ptr<Vector<uint8_t>> cached_meta_data,
     const v8_inspector::V8StackTraceId& stack_id) {
-  To<WorkerGlobalScope>(GlobalScope())
-      ->EvaluateClassicScript(script_url, std::move(source_code),
-                              std::move(cached_meta_data), stack_id);
+  // TODO(crbug.com/930618): Remove this check after we identified the cause
+  // of the crash.
+  {
+    MutexLocker lock(mutex_);
+    CHECK_EQ(ThreadState::kRunning, thread_state_);
+  }
+  WorkerGlobalScope* global_scope = To<WorkerGlobalScope>(GlobalScope());
+  CHECK(global_scope);
+  global_scope->EvaluateClassicScript(script_url, std::move(source_code),
+                                      std::move(cached_meta_data), stack_id);
 }
 
 void WorkerThread::ImportClassicScriptOnWorkerThread(
@@ -526,7 +542,7 @@ void WorkerThread::ImportClassicScriptOnWorkerThread(
   To<WorkerGlobalScope>(GlobalScope())
       ->ImportClassicScript(
           script_url,
-          MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
+          *MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               std::move(outside_settings_object)),
           stack_id);
 }
@@ -542,7 +558,7 @@ void WorkerThread::ImportModuleScriptOnWorkerThread(
   To<WorkerGlobalScope>(GlobalScope())
       ->ImportModuleScript(
           script_url,
-          MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
+          *MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               std::move(outside_settings_object)),
           credentials_mode);
 }

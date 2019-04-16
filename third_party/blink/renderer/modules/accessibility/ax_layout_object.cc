@@ -230,9 +230,14 @@ ax::mojom::Role AXLayoutObject::NativeRoleIgnoringAria() const {
   if (layout_object_->IsSVGRoot())
     return ax::mojom::Role::kSvgRoot;
 
-  // Table sections should be ignored.
-  if (layout_object_->IsTableSection())
+  // Table sections should be ignored if there is no reason not to, e.g.
+  // ARIA 1.2 (and Core-AAM 1.1) state that elements which are focusable
+  // and not hidden must be included in the accessibility tree.
+  if (layout_object_->IsTableSection()) {
+    if (CanSetFocusAttribute())
+      return ax::mojom::Role::kGroup;
     return ax::mojom::Role::kIgnored;
+  }
 
   if (layout_object_->IsHR())
     return ax::mojom::Role::kSplitter;
@@ -310,7 +315,8 @@ bool AXLayoutObject::IsDefault() const {
     return false;
 
   // Checks for any kind of disabled, including aria-disabled.
-  if (Restriction() == kDisabled || RoleValue() != ax::mojom::Role::kButton)
+  if (Restriction() == kRestrictionDisabled ||
+      RoleValue() != ax::mojom::Role::kButton)
     return false;
 
   // Will only match :default pseudo class if it's the first default button in
@@ -1272,24 +1278,6 @@ int32_t AXLayoutObject::GetTextStyle() const {
   return text_style;
 }
 
-KURL AXLayoutObject::Url() const {
-  if (IsAnchor() && IsHTMLAnchorElement(layout_object_->GetNode())) {
-    if (HTMLAnchorElement* anchor = ToHTMLAnchorElement(AnchorElement()))
-      return anchor->Href();
-  }
-
-  if (IsWebArea())
-    return layout_object_->GetDocument().Url();
-
-  if (IsImage() && IsHTMLImageElement(layout_object_->GetNode()))
-    return ToHTMLImageElement(*layout_object_->GetNode()).Src();
-
-  if (IsInputImage())
-    return ToHTMLInputElement(layout_object_->GetNode())->Src();
-
-  return KURL();
-}
-
 //
 // Inline text boxes.
 //
@@ -1332,8 +1320,10 @@ static AXObject* NextOnLineInternalNG(const AXObject& ax_object) {
                NGPaintFragmentTraversalContext::Create(&fragments.back()));
        !runner.IsNull();
        runner = NGPaintFragmentTraversal::NextInlineLeafOf(runner)) {
-    LayoutObject* layout_object = runner.GetFragment()->GetLayoutObject();
-    if (AXObject* result = ax_object.AXObjectCache().GetOrCreate(layout_object))
+    LayoutObject* runner_layout_object =
+        runner.GetFragment()->GetLayoutObject();
+    if (AXObject* result =
+            ax_object.AXObjectCache().GetOrCreate(runner_layout_object))
       return result;
   }
   if (!ax_object.ParentObject())
@@ -1405,8 +1395,10 @@ static AXObject* PreviousOnLineInlineNG(const AXObject& ax_object) {
                NGPaintFragmentTraversalContext::Create(&fragments.front()));
        !runner.IsNull();
        runner = NGPaintFragmentTraversal::PreviousInlineLeafOf(runner)) {
-    LayoutObject* layout_object = runner.GetFragment()->GetLayoutObject();
-    if (AXObject* result = ax_object.AXObjectCache().GetOrCreate(layout_object))
+    LayoutObject* earlier_layout_object =
+        runner.GetFragment()->GetLayoutObject();
+    if (AXObject* result =
+            ax_object.AXObjectCache().GetOrCreate(earlier_layout_object))
       return result;
   }
   if (!ax_object.ParentObject())
@@ -1503,7 +1495,7 @@ String AXLayoutObject::StringValue() const {
   // time controls, by returning their value converted to text, with the
   // exception of checkboxes and radio buttons (which would return "on"), and
   // buttons which will return their name.
-  // https://html.spec.whatwg.org/multipage/forms.html#dom-input-value
+  // https://html.spec.whatwg.org/C/#dom-input-value
   if (const auto* input = ToHTMLInputElementOrNull(GetNode())) {
     if (input->type() != input_type_names::kButton &&
         input->type() != input_type_names::kCheckbox &&
@@ -2194,7 +2186,7 @@ AtomicString AXLayoutObject::Language() const {
   // The style engine relies on, for example, the "lang" attribute of the
   // current node and its ancestors, and the document's "content-language"
   // header. See the Language of a Node Spec at
-  // https://html.spec.whatwg.org/multipage/dom.html#language
+  // https://html.spec.whatwg.org/C/#language
 
   if (!GetLayoutObject())
     return AXNodeObject::Language();
@@ -2555,13 +2547,13 @@ bool AXLayoutObject::OnNativeSetValueAction(const String& string) {
   LayoutBoxModelObject* layout_object = ToLayoutBoxModelObject(layout_object_);
   if (layout_object->IsTextField() && IsHTMLInputElement(*GetNode())) {
     ToHTMLInputElement(*GetNode())
-        .setValue(string, kDispatchInputAndChangeEvent);
+        .setValue(string, TextFieldEventBehavior::kDispatchInputAndChangeEvent);
     return true;
   }
 
   if (layout_object->IsTextArea() && IsHTMLTextAreaElement(*GetNode())) {
     ToHTMLTextAreaElement(*GetNode())
-        .setValue(string, kDispatchInputAndChangeEvent);
+        .setValue(string, TextFieldEventBehavior::kDispatchInputAndChangeEvent);
     return true;
   }
 
@@ -2785,7 +2777,7 @@ void AXLayoutObject::AddInlineTextBoxChildren(bool force) {
 void AXLayoutObject::AddValidationMessageChild() {
   if (!IsWebArea())
     return;
-  AXObject* ax_object = AXObjectCache().ValidationMessageObjectIfVisible();
+  AXObject* ax_object = AXObjectCache().ValidationMessageObjectIfInvalid();
   if (ax_object)
     children_.push_back(ax_object);
 }
@@ -2803,7 +2795,7 @@ AXObject* AXLayoutObject::ErrorMessage() const {
   if (this != AXObjectCache().FocusedObject())
     return nullptr;
 
-  return AXObjectCache().ValidationMessageObjectIfVisible();
+  return AXObjectCache().ValidationMessageObjectIfInvalid();
 }
 
 void AXLayoutObject::LineBreaks(Vector<int>& line_breaks) const {
@@ -3174,24 +3166,73 @@ ax::mojom::SortDirection AXLayoutObject::GetSortDirection() const {
   return ax::mojom::SortDirection::kOther;
 }
 
-static ax::mojom::Role DecideRoleFromSibling(LayoutTableCell* sibling_cell) {
-  if (!sibling_cell)
+static bool IsNonEmptyNonHeaderCell(LayoutTableCell* cell) {
+  if (!cell)
+    return false;
+
+  if (Node* node = cell->GetNode())
+    return node->hasChildren() && node->HasTagName(kTdTag);
+
+  return false;
+}
+
+static bool IsHeaderCell(LayoutTableCell* cell) {
+  if (!cell)
+    return false;
+
+  if (Node* node = cell->GetNode())
+    return node->HasTagName(kThTag);
+
+  return false;
+}
+
+static ax::mojom::Role DecideRoleFromSiblings(LayoutTableCell* cell) {
+  if (!IsHeaderCell(cell))
     return ax::mojom::Role::kCell;
 
-  if (Node* sibling_node = sibling_cell->GetNode()) {
-    if (sibling_node->HasTagName(kThTag))
-      return ax::mojom::Role::kColumnHeader;
-    if (sibling_node->HasTagName(kTdTag))
-      return ax::mojom::Role::kRowHeader;
-  }
+  // If this header is only cell in its row, it is a column header.
+  // It is also a column header if it has a header on either side of it.
+  // If instead it has a non-empty td element next to it, it is a row header.
+  LayoutTableCell* next_cell = cell->NextCell();
+  LayoutTableCell* previous_cell = cell->PreviousCell();
+  if (!next_cell && !previous_cell)
+    return ax::mojom::Role::kColumnHeader;
+  if (IsHeaderCell(next_cell) && IsHeaderCell(previous_cell))
+    return ax::mojom::Role::kColumnHeader;
+  if (IsNonEmptyNonHeaderCell(next_cell) ||
+      IsNonEmptyNonHeaderCell(previous_cell))
+    return ax::mojom::Role::kRowHeader;
 
-  return ax::mojom::Role::kCell;
+  LayoutTableRow* layout_row = cell->Row();
+  DCHECK(layout_row);
+
+  // If this row's first or last cell is a non-empty td, this is a row header.
+  // Do the same check for the second and second-to-last cells because tables
+  // often have an empty cell at the intersection of the row and column headers.
+  LayoutTableCell* first_cell = layout_row->FirstCell();
+  DCHECK(first_cell);
+
+  LayoutTableCell* last_cell = layout_row->LastCell();
+  DCHECK(last_cell);
+
+  if (IsNonEmptyNonHeaderCell(first_cell) || IsNonEmptyNonHeaderCell(last_cell))
+    return ax::mojom::Role::kRowHeader;
+
+  if (IsNonEmptyNonHeaderCell(first_cell->NextCell()) ||
+      IsNonEmptyNonHeaderCell(last_cell->PreviousCell()))
+    return ax::mojom::Role::kRowHeader;
+
+  // We have no evidence that this is not a column header.
+  return ax::mojom::Role::kColumnHeader;
 }
 
 ax::mojom::Role AXLayoutObject::DetermineTableRowRole() const {
   AXObject* parent = ParentObjectUnignored();
   if (!parent)
     return ax::mojom::Role::kGenericContainer;
+
+  if (parent->GetLayoutObject()->IsTableSection())
+    parent = parent->ParentObjectUnignored();
 
   if (parent->RoleValue() == ax::mojom::Role::kLayoutTable)
     return ax::mojom::Role::kLayoutTableRow;
@@ -3210,6 +3251,9 @@ ax::mojom::Role AXLayoutObject::DetermineTableCellRole() const {
     return ax::mojom::Role::kGenericContainer;
 
   AXObject* grandparent = parent->ParentObjectUnignored();
+  if (grandparent && grandparent->GetLayoutObject()->IsTableSection())
+    grandparent = grandparent->ParentObjectUnignored();
+
   if (!grandparent || !grandparent->IsTableLikeRole())
     return ax::mojom::Role::kGenericContainer;
 
@@ -3230,23 +3274,7 @@ ax::mojom::Role AXLayoutObject::DetermineTableCellRole() const {
       EqualIgnoringASCIICase(scope, "colgroup"))
     return ax::mojom::Role::kColumnHeader;
 
-  // Check the previous cell and the next cell on the same row.
-  LayoutTableCell* layout_cell = ToLayoutTableCell(layout_object_);
-  ax::mojom::Role header_role = ax::mojom::Role::kCell;
-  // if header is preceded by header cells on the same row, then it is a
-  // column header. If it is preceded by other cells then it's a row header.
-  if ((header_role = DecideRoleFromSibling(layout_cell->PreviousCell())) !=
-      ax::mojom::Role::kCell)
-    return header_role;
-
-  // if header is followed by header cells on the same row, then it is a
-  // column header. If it is followed by other cells then it's a row header.
-  if ((header_role = DecideRoleFromSibling(layout_cell->NextCell())) !=
-      ax::mojom::Role::kCell)
-    return header_role;
-
-  // If there are no other cells on that row, then it is a column header.
-  return ax::mojom::Role::kColumnHeader;
+  return DecideRoleFromSiblings(ToLayoutTableCell(layout_object_));
 }
 
 AXObject* AXLayoutObject::CellForColumnAndRow(unsigned target_column_index,

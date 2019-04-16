@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/css/style_auto_color.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/core/style/border_value.h"
 #include "third_party/blink/renderer/core/style/computed_style_base.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -48,7 +49,6 @@
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/graphics/touch_action.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
 #include "third_party/blink/renderer/platform/text/writing_mode_utils.h"
 #include "third_party/blink/renderer/platform/transforms/transform_operations.h"
@@ -124,9 +124,9 @@ class WebkitTextStrokeColor;
 //
 // In addition to storing the computed value of every CSS property,
 // ComputedStyle also contains various internal style information. Examples
-// include cached_pseudo_styles_ (for storing pseudo element styles), unique_
-// (for style caching) and has_simple_underline_ (cached indicator flag of
-// text-decoration). These are stored on ComputedStyle for two reasons:
+// include cached_pseudo_styles_ (for storing pseudo element styles) and
+// has_simple_underline_ (cached indicator flag of text-decoration). These are
+// stored on ComputedStyle for two reasons:
 //
 //  1) They share the same lifetime as ComputedStyle, so it is convenient to
 //  store them in the same object rather than a separate object that have to be
@@ -253,9 +253,41 @@ class ComputedStyle : public ComputedStyleBase,
   static const ComputedStyle& InitialStyle() { return MutableInitialStyle(); }
   static void InvalidateInitialStyle();
 
-  // Computes how the style change should be propagated down the tree.
-  static StyleRecalcChange StylePropagationDiff(const ComputedStyle* old_style,
-                                                const ComputedStyle* new_style);
+  // Find out how two ComputedStyles differ. Used for figuring out if style
+  // recalc needs to propagate style changes down the tree. The constants are
+  // listed in increasing severity. E.g. kInherited also means we need to update
+  // pseudo elements (kPseudoStyle).
+  enum class Difference {
+    // The ComputedStyle objects have the same computed style. The might have
+    // some different extra flags which means we still need to replace the old
+    // with the new instance.
+    kEqual,
+    // Non-inherited properties differ which means we need to apply visual
+    // difference changes to the layout tree through LayoutObject::SetStyle().
+    kNonInherited,
+    // Pseudo element style is different which means we have to update pseudo
+    // element existence and computed style.
+    kPseudoStyle,
+    // Inherited properties are different which means we need to recalc style
+    // for children. Only independent properties changed which means we can
+    // inherit by cloning the exiting ComputedStyle for children an set modified
+    // properties directly without re-matching rules.
+    kIndependentInherited,
+    // Inherited properties are different which means we need to recalc style
+    // for children.
+    kInherited,
+    // Display type changes for flex/grid/custom layout affects computed style
+    // adjustments for descendants. For instance flex/grid items are blockified
+    // at computed style time and such items can be arbitrarily deep down the
+    // flat tree in the presence of display:contents.
+    kDisplayAffectingDescendantStyles,
+  };
+  static Difference ComputeDifference(const ComputedStyle* old_style,
+                                      const ComputedStyle* new_style);
+
+  // Returns true if the ComputedStyle change requires a LayoutObject re-attach.
+  static bool NeedsReattachLayoutTree(const ComputedStyle* old_style,
+                                      const ComputedStyle* new_style);
 
   // Copies the values of any independent inherited properties from the parent
   // that are not explicitly set in this style.
@@ -513,9 +545,9 @@ class ComputedStyle : public ComputedStyleBase,
 
   // Column properties.
   // column-count (aka -webkit-column-count)
-  void SetColumnCount(unsigned short c) {
+  void SetColumnCount(uint16_t c) {
     SetHasAutoColumnCountInternal(false);
-    SetColumnCountInternal(clampTo<unsigned short>(c, 1));
+    SetColumnCountInternal(clampTo<uint16_t>(c, 1));
   }
   void SetHasAutoColumnCount() {
     SetHasAutoColumnCountInternal(true);
@@ -531,13 +563,13 @@ class ComputedStyle : public ComputedStyleBase,
   }
 
   // column-rule-width (aka -webkit-column-rule-width)
-  unsigned short ColumnRuleWidth() const {
+  uint16_t ColumnRuleWidth() const {
     if (ColumnRuleStyle() == EBorderStyle::kNone ||
         ColumnRuleStyle() == EBorderStyle::kHidden)
       return 0;
-    return ColumnRuleWidthInternal().ToFloat();
+    return ColumnRuleWidthInternal().ToUnsigned();
   }
-  void SetColumnRuleWidth(unsigned short w) {
+  void SetColumnRuleWidth(uint16_t w) {
     SetColumnRuleWidthInternal(LayoutUnit(w));
   }
 
@@ -618,15 +650,12 @@ class ComputedStyle : public ComputedStyleBase,
   }
 
   // outline-width
-  unsigned short OutlineWidth() const {
+  uint16_t OutlineWidth() const {
     if (OutlineStyle() == EBorderStyle::kNone)
       return 0;
-    // FIXME: Why is this stored as a float but converted to short?
-    return OutlineWidthInternal().ToFloat();
+    return OutlineWidthInternal().ToUnsigned();
   }
-  void SetOutlineWidth(unsigned short v) {
-    SetOutlineWidthInternal(LayoutUnit(v));
-  }
+  void SetOutlineWidth(uint16_t v) { SetOutlineWidthInternal(LayoutUnit(v)); }
 
   // outline-offset
   int OutlineOffset() const {
@@ -978,10 +1007,10 @@ class ComputedStyle : public ComputedStyleBase,
   void SetWordSpacing(float);
 
   // orphans
-  void SetOrphans(short o) { SetOrphansInternal(clampTo<short>(o, 1)); }
+  void SetOrphans(int16_t o) { SetOrphansInternal(clampTo<int16_t>(o, 1)); }
 
   // widows
-  void SetWidows(short w) { SetWidowsInternal(clampTo<short>(w, 1)); }
+  void SetWidows(int16_t w) { SetWidowsInternal(clampTo<int16_t>(w, 1)); }
 
   // SVG properties.
   const SVGComputedStyle& SvgStyle() const { return *svg_style_.Get(); }
@@ -1459,10 +1488,10 @@ class ComputedStyle : public ComputedStyleBase,
            !PaddingTop().IsZero() || !PaddingBottom().IsZero();
   }
   void ResetPadding() {
-    SetPaddingTop(Length(kFixed));
-    SetPaddingBottom(Length(kFixed));
-    SetPaddingLeft(Length(kFixed));
-    SetPaddingRight(Length(kFixed));
+    SetPaddingTop(Length::Fixed());
+    SetPaddingBottom(Length::Fixed());
+    SetPaddingLeft(Length::Fixed());
+    SetPaddingRight(Length::Fixed());
   }
   void SetPadding(const LengthBox& b) {
     SetPaddingTop(b.top_);
@@ -1754,7 +1783,7 @@ class ComputedStyle : public ComputedStyleBase,
   }
   void SetBorderRadius(const IntSize& s) {
     SetBorderRadius(
-        LengthSize(Length(s.Width(), kFixed), Length(s.Height(), kFixed)));
+        LengthSize(Length::Fixed(s.Width()), Length::Fixed(s.Height())));
   }
 
   FloatRoundedRect GetRoundedBorderFor(

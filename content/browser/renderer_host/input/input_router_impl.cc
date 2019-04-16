@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
@@ -72,7 +73,6 @@ InputRouterImpl::InputRouterImpl(
     : client_(client),
       disposition_handler_(disposition_handler),
       frame_tree_node_id_(-1),
-      active_renderer_fling_count_(0),
       touch_scroll_started_sent_(false),
       wheel_event_queue_(this),
       touch_event_queue_(this, config.touch_config),
@@ -216,8 +216,7 @@ void InputRouterImpl::NotifySiteIsMobileOptimized(bool is_mobile_optimized) {
 bool InputRouterImpl::HasPendingEvents() const {
   return !touch_event_queue_.Empty() || !gesture_event_queue_.empty() ||
          wheel_event_queue_.has_pending() ||
-         touchpad_pinch_event_queue_.has_pending() ||
-         active_renderer_fling_count_ > 0;
+         touchpad_pinch_event_queue_.has_pending();
 }
 
 void InputRouterImpl::SetDeviceScaleFactor(float device_scale_factor) {
@@ -381,10 +380,10 @@ void InputRouterImpl::OnTouchEventAck(const TouchEventWithLatencyInfo& event,
     touch_action_filter_.AppendToGestureSequenceForDebugging(
         base::NumberToString(event.event.unique_touch_event_id).c_str());
     touch_action_filter_.IncreaseActiveTouches();
-    if ((compositor_touch_action_enabled_ &&
-         !touch_action_filter_.white_listed_touch_action().has_value()) ||
-        (!compositor_touch_action_enabled_ &&
-         !touch_action_filter_.allowed_touch_action().has_value())) {
+    // In certain corner cases, the ack for the touch start may not come with a
+    // touch action, then we should set the touch actions to Auto.
+    if (!compositor_touch_action_enabled_ &&
+        !touch_action_filter_.allowed_touch_action().has_value()) {
       touch_action_filter_.OnSetTouchAction(cc::kTouchActionAuto);
       if (compositor_touch_action_enabled_)
         touch_event_queue_.StopTimeoutMonitor();
@@ -477,6 +476,10 @@ void InputRouterImpl::OnGestureEventForPinchAck(
 
 bool InputRouterImpl::IsWheelScrollInProgress() {
   return client_->IsWheelScrollInProgress();
+}
+
+bool InputRouterImpl::IsAutoscrollInProgress() {
+  return client_->IsAutoscrollInProgress();
 }
 
 void InputRouterImpl::FilterAndSendWebInputEvent(
@@ -706,13 +709,12 @@ void InputRouterImpl::UpdateTouchAckTimeoutEnabled() {
   // to page functionality, so the timeout could do more harm than good.
   base::Optional<cc::TouchAction> allowed_touch_action =
       touch_action_filter_.allowed_touch_action();
-  base::Optional<cc::TouchAction> white_listed_touch_action =
+  cc::TouchAction white_listed_touch_action =
       touch_action_filter_.white_listed_touch_action();
   const bool touch_ack_timeout_disabled =
       (allowed_touch_action.has_value() &&
        allowed_touch_action.value() == cc::kTouchActionNone) ||
-      (white_listed_touch_action.has_value() &&
-       white_listed_touch_action.value() == cc::kTouchActionNone);
+      (white_listed_touch_action == cc::kTouchActionNone);
   touch_event_queue_.SetAckTimeoutEnabled(!touch_ack_timeout_disabled);
 }
 

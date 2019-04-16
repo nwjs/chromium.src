@@ -2,13 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/macros.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/chromeos/login/screens/gaia_view.h"
 #include "chrome/browser/chromeos/login/screens/sync_consent_screen.h"
+#include "chrome/browser/chromeos/login/test/fake_gaia_mixin.h"
 #include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/login/test/oobe_base_test.h"
 #include "chrome/browser/chromeos/login/test/test_condition_waiter.h"
@@ -18,6 +21,7 @@
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/grit/generated_resources.h"
 #include "content/public/browser/notification_service.h"
+#include "content/public/test/test_utils.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace chromeos {
@@ -75,17 +79,6 @@ class ConsentRecordedWaiter
   base::RunLoop run_loop_;
 };
 
-// Waits for js condition to be fulfilled.
-void WaitForJsCondition(const std::string& js_condition) {
-  return test::TestConditionWaiter(base::BindRepeating(
-                                       [](const std::string& js_condition) {
-                                         return test::OobeJS().GetBool(
-                                             js_condition);
-                                       },
-                                       js_condition))
-      .Wait();
-}
-
 std::string GetLocalizedConsentString(const int id) {
   std::string sanitized_string =
       base::UTF16ToUTF8(l10n_util::GetStringUTF16(id));
@@ -126,7 +119,7 @@ class SyncConsentTest : public OobeBaseTest {
                             "');");
     const std::string condition =
         base::StringPrintf("%s > %d", get_num_reloads, prev_reloads);
-    WaitForJsCondition(condition);
+    test::OobeJS().CreateWaiter(condition)->Wait();
   }
 
   void LoginToSyncConsentScreen() {
@@ -136,11 +129,13 @@ class SyncConsentTest : public OobeBaseTest {
     LoginDisplayHost::default_host()
         ->GetOobeUI()
         ->GetGaiaScreenView()
-        ->ShowSigninScreenForTest(OobeBaseTest::kFakeUserEmail,
-                                  OobeBaseTest::kFakeUserPassword,
-                                  OobeBaseTest::kEmptyUserServices);
+        ->ShowSigninScreenForTest(FakeGaiaMixin::kFakeUserEmail,
+                                  FakeGaiaMixin::kFakeUserPassword,
+                                  FakeGaiaMixin::kEmptyUserServices);
 
-    WaitForJsCondition("Oobe.getInstance().currentScreen.id == 'sync-consent'");
+    test::OobeJS()
+        .CreateWaiter("Oobe.getInstance().currentScreen.id == 'sync-consent'")
+        ->Wait();
   }
 
  protected:
@@ -157,7 +152,7 @@ class SyncConsentTest : public OobeBaseTest {
     screen->SetProfileSyncEngineInitializedForTesting(true);
     screen->OnStateChanged(nullptr);
 
-    WaitForJsCondition("!$('sync-consent-impl').hidden");
+    test::OobeJS().CreateWaiter("!$('sync-consent-impl').hidden")->Wait();
     test::OobeJS().ExpectTrue(
         "!$('sync-consent-impl').$.syncConsentOverviewDialog.hidden");
     test::OobeJS().Evaluate(
@@ -248,9 +243,9 @@ IN_PROC_BROWSER_TEST_P(SyncConsentTestWithParams, SyncConsentTestWithLocale) {
 }
 
 // "es" tests language switching, "en-GB" checks switching to language varants.
-INSTANTIATE_TEST_CASE_P(SyncConsentTestWithParamsImpl,
-                        SyncConsentTestWithParams,
-                        testing::Values("es", "en-GB"));
+INSTANTIATE_TEST_SUITE_P(SyncConsentTestWithParamsImpl,
+                         SyncConsentTestWithParams,
+                         testing::Values("es", "en-GB"));
 
 // Check that policy-disabled sync does not trigger SyncConsent screen.
 //
@@ -277,11 +272,13 @@ IN_PROC_BROWSER_TEST_P(SyncConsenPolicyDisabledTest,
   screen->OnStateChanged(nullptr);
 
   // Expect to see "user image selection" or some other screen here.
-  WaitForJsCondition("Oobe.getInstance().currentScreen.id != 'sync-consent'");
+  test::OobeJS()
+      .CreateWaiter("Oobe.getInstance().currentScreen.id != 'sync-consent'")
+      ->Wait();
 }
 
-INSTANTIATE_TEST_CASE_P(/* no prefix */,
-                        SyncConsenPolicyDisabledTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         SyncConsenPolicyDisabledTest,
+                         testing::Bool());
 
 }  // namespace chromeos

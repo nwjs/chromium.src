@@ -42,6 +42,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.WindowDelegate;
@@ -56,12 +57,14 @@ import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.page_info.PageInfoController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TrustedCdn;
 import org.chromium.chrome.browser.toolbar.ToolbarDataProvider;
 import org.chromium.chrome.browser.toolbar.ToolbarTabController;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.browser.util.ColorUtils;
 import org.chromium.chrome.browser.widget.TintedDrawable;
 import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.GURLUtils;
 import org.chromium.ui.base.Clipboard;
@@ -137,7 +140,7 @@ public class CustomTabToolbar
     private ImageButton mMenuButton;
 
     // Whether dark tint should be applied to icons and text.
-    private boolean mUseDarkColors = true;
+    private boolean mUseDarkColors;
 
     private ValueAnimator mBrandColorTransitionAnimation;
     private boolean mBrandColorTransitionActive;
@@ -165,7 +168,9 @@ public class CustomTabToolbar
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
-        setBackground(new ColorDrawable(ColorUtils.getDefaultThemeColor(getResources(), false)));
+        final int backgroundColor = ColorUtils.getDefaultThemeColor(getResources(), false);
+        setBackground(new ColorDrawable(backgroundColor));
+        mUseDarkColors = !ColorUtils.shouldUseLightForegroundOnBackground(backgroundColor);
         mUrlBar = (TextView) findViewById(R.id.url_bar);
         mUrlBar.setHint("");
         mUrlBar.setEnabled(false);
@@ -346,7 +351,7 @@ public class CustomTabToolbar
         Tab tab = getToolbarDataProvider().getTab();
         if (tab == null) return null;
 
-        String publisherUrl = tab.getTrustedCdnPublisherUrl();
+        String publisherUrl = TrustedCdn.getPublisherUrl(tab);
         if (publisherUrl != null) return extractPublisherFromPublisherUrl(publisherUrl);
 
         // TODO(bauerb): Remove this once trusted CDN publisher URLs have rolled out completely.
@@ -370,7 +375,8 @@ public class CustomTabToolbar
                 && !title.equals(getToolbarDataProvider().getCurrentUrl())
                 && !title.equals(ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL)) {
             // Delay the title animation until security icon animation finishes.
-            ThreadUtils.postOnUiThreadDelayed(mTitleAnimationStarter, TITLE_ANIM_DELAY_MS);
+            PostTask.postDelayedTask(
+                    UiThreadTaskTraits.DEFAULT, mTitleAnimationStarter, TITLE_ANIM_DELAY_MS);
         }
 
         mTitleBar.setText(title);
@@ -402,14 +408,15 @@ public class CustomTabToolbar
 
     @Override
     public void setUrlToPageUrl() {
-        if (getCurrentTab() == null) {
+        Tab tab = getCurrentTab();
+        if (tab == null) {
             mUrlCoordinator.setUrlBarData(
                     UrlBarData.EMPTY, UrlBar.ScrollType.NO_SCROLL, SelectionState.SELECT_ALL);
             return;
         }
 
-        String publisherUrl = getCurrentTab().getTrustedCdnPublisherUrl();
-        String url = publisherUrl != null ? publisherUrl : getCurrentTab().getUrl().trim();
+        String publisherUrl = TrustedCdn.getPublisherUrl(tab);
+        String url = publisherUrl != null ? publisherUrl : tab.getUrl().trim();
         if (mState == STATE_TITLE_ONLY) {
             if (!TextUtils.isEmpty(getToolbarDataProvider().getTitle())) setTitleToPageTitle();
         }
@@ -483,11 +490,9 @@ public class CustomTabToolbar
             setUrlToPageUrl();
         }
 
-        int titleTextColor = mUseDarkColors
-                ? ApiCompatibilityUtils.getColor(resources, R.color.url_emphasis_default_text)
-                : ApiCompatibilityUtils.getColor(
-                        resources, R.color.url_emphasis_light_default_text);
-        mTitleBar.setTextColor(titleTextColor);
+        mTitleBar.setTextColor(ApiCompatibilityUtils.getColor(resources,
+                mUseDarkColors ? R.color.default_text_color_dark
+                               : R.color.url_emphasis_light_default_text));
 
         if (getProgressBar() != null) {
             if (!ColorUtils.isUsingDefaultToolbarColor(
@@ -708,11 +713,6 @@ public class CustomTabToolbar
     @Override
     public LocationBar getLocationBar() {
         return this;
-    }
-
-    @Override
-    boolean useLightDrawables() {
-        return !mUseDarkColors;
     }
 
     @Override

@@ -338,6 +338,7 @@ class NewPasswordFormManagerTest : public testing::Test {
   MockPasswordManagerClient client_;
   MockPasswordManagerDriver driver_;
   scoped_refptr<TestMockTimeTaskRunner> task_runner_;
+
   // Define |fetcher_| before |form_manager_|, because the former needs to
   // outlive the latter.
   std::unique_ptr<FakeFormFetcher> fetcher_;
@@ -561,6 +562,11 @@ TEST_F(NewPasswordFormManagerTest, ServerPredictionsWithinDelay) {
 
   // Expect filling without delay on receiving server predictions.
   EXPECT_CALL(driver_, FillPasswordForm(_)).Times(1);
+  form_manager_->ProcessServerPredictions(predictions);
+  Mock::VerifyAndClearExpectations(&driver_);
+
+  // Expect no filling on receving predictions again.
+  EXPECT_CALL(driver_, FillPasswordForm(_)).Times(0);
   form_manager_->ProcessServerPredictions(predictions);
 }
 

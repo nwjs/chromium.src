@@ -6,6 +6,7 @@
 
 #include "ash/login/ui/hover_notifier.h"
 #include "ash/login/ui/non_accessible_view.h"
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/label.h"
@@ -72,7 +73,6 @@ class MenuItemView : public views::Button, public views::ButtonListener {
       return;
 
     on_highlight_.Run(true /*by_selection*/);
-    GetWidget()->Close();
   }
 
   void OnHover(bool has_hover) {
@@ -126,9 +126,7 @@ LoginMenuView::LoginMenuView(const std::vector<Item>& items,
                              LoginButton* opener,
                              const OnSelect& on_select)
     : LoginBaseBubbleView(anchor_view), opener_(opener), on_select_(on_select) {
-  set_can_activate(true);
-  set_margins(gfx::Insets());
-  set_color(kMenuBackgroundColor);
+  SetBackground(views::CreateSolidBackground(kMenuBackgroundColor));
   SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
 
   scroller_ = new views::ScrollView();
@@ -173,6 +171,7 @@ void LoginMenuView::OnHighLightChange(int item_index, bool by_selection) {
   }
 
   if (by_selection) {
+    SetVisible(false);
     MenuItemView* menu_view = static_cast<MenuItemView*>(highlight_item);
     on_select_.Run(menu_view->item());
   }

@@ -7,6 +7,7 @@
 #include <iterator>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/containers/adapters.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/unguessable_token.h"
@@ -439,6 +440,8 @@ void AudioFocusManager::EnforceAudioFocus() {
       case mojom::AudioFocusType::kGainTransientMayDuck:
         if (!session->IsSuspended())
           state.should_duck = true;
+        break;
+      case mojom::AudioFocusType::kAmbient:
         break;
     }
   }

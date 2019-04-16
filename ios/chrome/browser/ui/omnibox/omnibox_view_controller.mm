@@ -10,6 +10,7 @@
 #include "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/ui/commands/browser_commands.h"
 #import "ios/chrome/browser/ui/commands/load_query_commands.h"
+#import "ios/chrome/browser/ui/omnibox/omnibox_constants.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_container_view.h"
 #import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
@@ -35,15 +36,15 @@ const CGFloat kClearButtonSize = 28.0f;
 // Override of UIViewController's view with a different type.
 @property(nonatomic, strong) OmniboxContainerView* view;
 
+// Whether the default search engine supports search-by-image. This controls the
+// edit menu option to do an image search.
+@property(nonatomic, assign) BOOL searchByImageEnabled;
+
 @property(nonatomic, assign) BOOL incognito;
 
 @end
 
 @implementation OmniboxViewController
-@synthesize incognito = _incognito;
-@synthesize dispatcher = _dispatcher;
-@synthesize defaultLeadingImage = _defaultLeadingImage;
-@synthesize emptyTextLeadingImage = _emptyTextLeadingImage;
 @dynamic view;
 
 - (instancetype)initWithIncognito:(BOOL)isIncognito {
@@ -118,6 +119,13 @@ const CGFloat kClearButtonSize = 28.0f;
            object:self.textField];
 }
 
+- (void)viewWillDisappear:(BOOL)animated {
+  [super viewWillDisappear:animated];
+  self.textField.selectedTextRange =
+      [self.textField textRangeFromPosition:self.textField.beginningOfDocument
+                                 toPosition:self.textField.beginningOfDocument];
+}
+
 - (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
   [super traitCollectionDidChange:previousTraitCollection];
   [self updateLeadingImageVisibility];
@@ -133,6 +141,10 @@ const CGFloat kClearButtonSize = 28.0f;
 
 - (void)updateAutocompleteIcon:(UIImage*)icon {
   [self.view setLeadingImage:icon];
+}
+
+- (void)updateSearchByImageSupported:(BOOL)searchByImageSupported {
+  self.searchByImageEnabled = searchByImageSupported;
 }
 
 #pragma mark - EditViewAnimatee
@@ -159,8 +171,9 @@ const CGFloat kClearButtonSize = 28.0f;
 
 // Tint color for the textfield placeholder and the clear button.
 - (UIColor*)placeholderAndClearButtonColor {
-  return self.incognito ? [UIColor colorWithWhite:1 alpha:0.5]
-                        : [UIColor colorWithWhite:0 alpha:0.3];
+  return self.incognito
+             ? [UIColor colorWithWhite:1 alpha:0.5]
+             : [UIColor colorWithWhite:0 alpha:kOmniboxPlaceholderAlpha];
 }
 
 #pragma mark notification callbacks
@@ -259,7 +272,8 @@ const CGFloat kClearButtonSize = 28.0f;
       action == @selector(searchCopiedText:)) {
     ClipboardRecentContent* clipboardRecentContent =
         ClipboardRecentContent::GetInstance();
-    if (clipboardRecentContent->GetRecentImageFromClipboard().has_value()) {
+    if (self.searchByImageEnabled &&
+        clipboardRecentContent->GetRecentImageFromClipboard().has_value()) {
       return action == @selector(searchCopiedImage:);
     }
     if (clipboardRecentContent->GetRecentURLFromClipboard().has_value()) {

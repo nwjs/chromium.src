@@ -41,6 +41,10 @@ class GLES2Interface;
 }
 }  // namespace gpu
 
+namespace gfx {
+class RRectF;
+}
+
 namespace viz {
 
 class DynamicGeometryBinding;
@@ -102,7 +106,8 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
   bool FlippedRootFramebuffer() const;
   void EnsureScissorTestEnabled() override;
   void EnsureScissorTestDisabled() override;
-  void CopyDrawnRenderPass(std::unique_ptr<CopyOutputRequest> request) override;
+  void CopyDrawnRenderPass(const copy_output::RenderPassGeometry& geometry,
+                           std::unique_ptr<CopyOutputRequest> request) override;
   void SetEnableDCLayers(bool enable) override;
   void FinishDrawingQuadList() override;
   void GenerateMipmap() override;
@@ -196,9 +201,9 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
       const cc::FilterOperations* filters,
       const cc::FilterOperations* backdrop_filters,
       const gfx::QuadF* clip_region,
-      const gfx::RectF* backdrop_filter_bounds_input,
+      const gfx::RRectF* backdrop_filter_bounds_input,
       bool use_aa,
-      gfx::Rect* backdrop_filter_bounds,
+      gfx::RRectF* backdrop_filter_bounds,
       gfx::Rect* unclipped_rect);
   // Allocates and returns a texture id that contains a copy of the contents
   // of the current RenderPass being drawn.
@@ -223,7 +228,7 @@ class VIZ_SERVICE_EXPORT GLRenderer : public DirectRenderer {
       const gfx::Rect& rect,
       const gfx::Rect& unclipped_rect,
       const float backdrop_filter_quality,
-      const gfx::Rect& backdrop_filter_bounds);
+      const gfx::RRectF& backdrop_filter_bounds);
 
   const TileDrawQuad* CanPassBeDrawnDirectly(const RenderPass* pass) override;
 

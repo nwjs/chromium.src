@@ -59,7 +59,7 @@ class CONTENT_EXPORT TouchActionFilter {
     return allowed_touch_action_;
   }
 
-  base::Optional<cc::TouchAction> white_listed_touch_action() const {
+  cc::TouchAction white_listed_touch_action() const {
     return white_listed_touch_action_;
   }
 
@@ -137,7 +137,7 @@ class CONTENT_EXPORT TouchActionFilter {
   base::Optional<cc::TouchAction> active_touch_action_;
 
   // Whitelisted touch action received from the compositor.
-  base::Optional<cc::TouchAction> white_listed_touch_action_;
+  cc::TouchAction white_listed_touch_action_;
 
   // Debugging only.
   std::string gesture_sequence_;

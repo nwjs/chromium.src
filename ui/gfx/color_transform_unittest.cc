@@ -365,7 +365,7 @@ TEST(SimpleColorSpace, Scale) {
   EXPECT_NEAR(tmp.x(), 0.735356983052449f, kEpsilon);
   EXPECT_NEAR(tmp.y(), 0.735356983052449f, kEpsilon);
   EXPECT_NEAR(tmp.z(), 0.735356983052449f, kEpsilon);
-};
+}
 
 TEST(SimpleColorSpace, ToUndefined) {
   ColorSpace null;
@@ -431,10 +431,10 @@ TEST(SimpleColorSpace, ShaderSourceTrFnOptimizations) {
   skcms_Matrix3x3 primaries;
   gfx::ColorSpace::CreateSRGB().GetPrimaryMatrix(&primaries);
 
-  SkColorSpaceTransferFn fn_no_pow = {
+  skcms_TransferFunction fn_no_pow = {
       1.f, 2.f, 0.f, 1.f, 0.f, 0.f, 0.f,
   };
-  SkColorSpaceTransferFn fn_yes_pow = {
+  skcms_TransferFunction fn_yes_pow = {
       2.f, 2.f, 0.f, 1.f, 0.f, 0.f, 0.f,
   };
   gfx::ColorSpace src;
@@ -531,9 +531,9 @@ TEST_P(TransferTest, basicTest) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(ColorSpace,
-                        TransferTest,
-                        testing::ValuesIn(simple_transfers));
+INSTANTIATE_TEST_SUITE_P(ColorSpace,
+                         TransferTest,
+                         testing::ValuesIn(simple_transfers));
 
 class NonInvertibleTransferTest
     : public testing::TestWithParam<ColorSpace::TransferID> {};
@@ -561,9 +561,9 @@ TEST_P(NonInvertibleTransferTest, basicTest) {
   from_linear->Transform(&tristim, 1);
 }
 
-INSTANTIATE_TEST_CASE_P(ColorSpace,
-                        NonInvertibleTransferTest,
-                        testing::ValuesIn(noninvertible_transfers));
+INSTANTIATE_TEST_SUITE_P(ColorSpace,
+                         NonInvertibleTransferTest,
+                         testing::ValuesIn(noninvertible_transfers));
 
 class ExtendedTransferTest
     : public testing::TestWithParam<ColorSpace::TransferID> {};
@@ -592,9 +592,9 @@ TEST_P(ExtendedTransferTest, extendedTest) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(ColorSpace,
-                        ExtendedTransferTest,
-                        testing::ValuesIn(extended_transfers));
+INSTANTIATE_TEST_SUITE_P(ColorSpace,
+                         ExtendedTransferTest,
+                         testing::ValuesIn(extended_transfers));
 
 typedef std::tuple<ColorSpace::PrimaryID,
                    ColorSpace::TransferID,
@@ -640,7 +640,7 @@ TEST_P(ColorSpaceTest, toXYZandBack) {
   EXPECT_NEAR(tristim.z(), 0.6f, 0.001f);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     A,
     ColorSpaceTest,
     testing::Combine(testing::ValuesIn(all_primaries),
@@ -649,7 +649,7 @@ INSTANTIATE_TEST_CASE_P(
                      testing::Values(ColorSpace::RangeID::LIMITED),
                      testing::ValuesIn(intents)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     B,
     ColorSpaceTest,
     testing::Combine(testing::Values(ColorSpace::PrimaryID::BT709),
@@ -658,7 +658,7 @@ INSTANTIATE_TEST_CASE_P(
                      testing::ValuesIn(all_ranges),
                      testing::ValuesIn(intents)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     C,
     ColorSpaceTest,
     testing::Combine(testing::ValuesIn(all_primaries),

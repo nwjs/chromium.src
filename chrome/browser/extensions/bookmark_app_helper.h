@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "base/callback.h"
@@ -153,6 +154,10 @@ class BookmarkAppHelper : public content::NotificationObserver {
   // installation steps.
   void FinishInstallation(const Extension* extension);
 
+  // Called when shortcut creation is complete.
+  void OnShortcutCreationCompleted(const std::string& extension_id,
+                                   bool shortcut_created);
+
   // Overridden from content::NotificationObserver:
   void Observe(int type,
                const content::NotificationSource& source,
@@ -213,9 +218,6 @@ class BookmarkAppHelper : public content::NotificationObserver {
 void CreateOrUpdateBookmarkApp(ExtensionService* service,
                                WebApplicationInfo* web_app_info,
                                bool is_locally_installed);
-
-// Returns whether the given |url| is a valid user bookmark app url.
-bool IsValidBookmarkAppUrl(const GURL& url);
 
 }  // namespace extensions
 

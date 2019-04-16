@@ -6,8 +6,10 @@
 #define MEDIA_CAPABILITIES_LEARNING_HELPER_H_
 
 #include "base/macros.h"
+#include "base/threading/sequence_bound.h"
 #include "media/base/media_export.h"
 #include "media/capabilities/video_decode_stats_db.h"
+#include "media/learning/impl/feature_provider.h"
 #include "media/learning/impl/learning_session_impl.h"
 
 namespace media {
@@ -16,7 +18,9 @@ namespace media {
 // media::learning LearningTask.
 class MEDIA_EXPORT LearningHelper {
  public:
-  LearningHelper();
+  // |feature_factory| lets us register FeatureProviders with those
+  // LearningTasks that include standard features.
+  LearningHelper(learning::FeatureProviderFactoryCB feature_factory);
   ~LearningHelper();
 
   void AppendStats(const VideoDecodeStatsDB::VideoDescKey& video_key,
@@ -27,7 +31,7 @@ class MEDIA_EXPORT LearningHelper {
   // directly, but would instead get one that's connected to a browser profile.
   // For now, however, we just instantiate one and assume that we'll be
   // destroyed when the profile changes / history is cleared.
-  learning::LearningSessionImpl learning_session_;
+  base::SequenceBound<learning::LearningSessionImpl> learning_session_;
 };
 
 }  // namespace media

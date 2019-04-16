@@ -105,8 +105,6 @@ public class LocationBarLayout extends FrameLayout
 
     private OmniboxPrerender mOmniboxPrerender;
 
-    private boolean mUseDarkColors;
-
     private boolean mOmniboxVoiceSearchAlwaysVisible;
     protected float mUrlFocusChangePercent;
     protected LinearLayout mUrlActionContainer;
@@ -606,6 +604,13 @@ public class LocationBarLayout extends FrameLayout
                     + MarginLayoutParamsCompat.getMarginStart(childLayoutParams)
                     + MarginLayoutParamsCompat.getMarginEnd(childLayoutParams);
         }
+        if (mUrlActionContainer != null && mUrlActionContainer.getVisibility() == View.VISIBLE) {
+            ViewGroup.MarginLayoutParams urlActionContainerLayoutParams =
+                    (ViewGroup.MarginLayoutParams) mUrlActionContainer.getLayoutParams();
+            urlContainerMarginEnd +=
+                    MarginLayoutParamsCompat.getMarginStart(urlActionContainerLayoutParams)
+                    + MarginLayoutParamsCompat.getMarginEnd(urlActionContainerLayoutParams);
+        }
         return urlContainerMarginEnd;
     }
 
@@ -1014,41 +1019,27 @@ public class LocationBarLayout extends FrameLayout
      */
     @Override
     public void updateVisualsForState() {
-        updateUseDarkColors();
+        // If the location bar is focused, the toolbar background color would be the default color
+        // regardless of whether it is branded or not.
+        final int defaultPrimaryColor =
+                ColorUtils.getDefaultThemeColor(getResources(), mToolbarDataProvider.isIncognito());
+        final int primaryColor =
+                mUrlHasFocus ? defaultPrimaryColor : mToolbarDataProvider.getPrimaryColor();
+        final boolean useDarkColors = !ColorUtils.shouldUseLightForegroundOnBackground(primaryColor);
 
-        int id = mUseDarkColors ? R.color.dark_mode_tint : R.color.light_mode_tint;
+        int id = ColorUtils.getIconTintRes(!useDarkColors);
         ColorStateList colorStateList = AppCompatResources.getColorStateList(getContext(), id);
         ApiCompatibilityUtils.setImageTintList(mMicButton, colorStateList);
         ApiCompatibilityUtils.setImageTintList(mDeleteButton, colorStateList);
 
         // If the URL changed colors and is not focused, update the URL to account for the new
         // color scheme.
-        if (mUrlCoordinator.setUseDarkTextColors(mUseDarkColors) && !mUrlBar.hasFocus()) {
+        if (mUrlCoordinator.setUseDarkTextColors(useDarkColors) && !mUrlBar.hasFocus()) {
             setUrlToPageUrl();
         }
 
-        mStatusViewCoordinator.setUseDarkColors(mUseDarkColors);
-        mAutocompleteCoordinator.updateVisualsForState(mUseDarkColors);
-    }
-
-    /**
-     * Checks the current specs and updates {@link LocationBarLayout#mUseDarkColors} if necessary.
-     * @return Whether {@link LocationBarLayout#mUseDarkColors} has been updated.
-     */
-    private boolean updateUseDarkColors() {
-        boolean brandColorNeedsLightText = false;
-        if (mToolbarDataProvider.isUsingBrandColor() && !mUrlHasFocus) {
-            int currentPrimaryColor = mToolbarDataProvider.getPrimaryColor();
-            brandColorNeedsLightText =
-                    ColorUtils.shouldUseLightForegroundOnBackground(currentPrimaryColor);
-        }
-
-        boolean useDarkColors = !mToolbarDataProvider.isIncognito()
-                && (!mToolbarDataProvider.hasTab() || !brandColorNeedsLightText);
-        boolean hasChanged = useDarkColors != mUseDarkColors;
-        mUseDarkColors = useDarkColors;
-
-        return hasChanged;
+        mStatusViewCoordinator.setUseDarkColors(useDarkColors);
+        mAutocompleteCoordinator.updateVisualsForState(useDarkColors);
     }
 
     @Override

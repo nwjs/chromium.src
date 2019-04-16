@@ -5,6 +5,7 @@
 #include <memory>
 #include <ostream>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/macros.h"
 #include "base/memory/ptr_util.h"
@@ -201,6 +202,16 @@ class UserAffiliationBrowserTest
     policy::DeviceManagementService::SetRetryDelayForTesting(0);
   }
 
+  void CreatedBrowserMainParts(
+      content::BrowserMainParts* browser_main_parts) override {
+    InProcessBrowserTest::CreatedBrowserMainParts(browser_main_parts);
+
+    login_ui_visible_waiter_ =
+        std::make_unique<content::WindowedNotificationObserver>(
+            chrome::NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,
+            content::NotificationService::AllSources());
+  }
+
   // InProcessBrowserTest:
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
@@ -209,10 +220,7 @@ class UserAffiliationBrowserTest
       // This is a workaround for chrome crashing when running with DCHECKS when
       // it exits while the login manager is being loaded.
       // TODO(pmarko): Remove this when https://crbug.com/869272 is fixed.
-      content::WindowedNotificationObserver(
-          chrome::NOTIFICATION_LOGIN_OR_LOCK_WEBUI_VISIBLE,
-          content::NotificationService::AllSources())
-          .Wait();
+      login_ui_visible_waiter_->Wait();
     }
   }
 
@@ -277,6 +285,9 @@ class UserAffiliationBrowserTest
 
   std::unique_ptr<crypto::ScopedTestSystemNSSKeySlot> test_system_slot_;
 
+  std::unique_ptr<content::WindowedNotificationObserver>
+      login_ui_visible_waiter_;
+
   DISALLOW_COPY_AND_ASSIGN(UserAffiliationBrowserTest);
 };
 
@@ -300,16 +311,16 @@ IN_PROC_BROWSER_TEST_P(UserAffiliationBrowserTest, TestAffiliation) {
   ASSERT_NO_FATAL_FAILURE(VerifyAffiliationExpectations());
 }
 
-INSTANTIATE_TEST_CASE_P(AffiliationCheck,
-                        UserAffiliationBrowserTest,
-                        //         affiliated            active_directory
-                        //              |                         |
-                        //              +----------+      ______  +---------+
-                        //                         |     /      \______     |
-                        ::testing::Values(Params(true, true),     //   \   /
-                                          Params(false, true),    //    \ /
-                                          Params(true, false),    //     X
-                                          Params(false, false)),  //    / \<--!
-                        PrintParam);                              //    \_/
+INSTANTIATE_TEST_SUITE_P(AffiliationCheck,
+                         UserAffiliationBrowserTest,
+                         //         affiliated            active_directory
+                         //              |                         |
+                         //              +----------+      ______  +---------+
+                         //                         |     /      \______     |
+                         ::testing::Values(Params(true, true),     //   \   /
+                                           Params(false, true),    //    \ /
+                                           Params(true, false),    //     X
+                                           Params(false, false)),  //    / \<--!
+                         PrintParam);                              //    \_/
 
 }  // namespace policy

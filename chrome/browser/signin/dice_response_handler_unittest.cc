@@ -5,6 +5,7 @@
 #include "chrome/browser/signin/dice_response_handler.h"
 
 #include <memory>
+#include <utility>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -12,27 +13,19 @@
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
-#include "base/message_loop/message_loop.h"
 #include "base/scoped_observer.h"
-#include "base/test/test_mock_time_task_runner.h"
-#include "base/threading/thread_task_runner_handle.h"
+#include "base/test/scoped_task_environment.h"
 #include "base/time/time.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/signin/core/browser/about_signin_internals.h"
 #include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_reconcilor.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/signin/core/browser/dice_account_reconcilor_delegate.h"
-#include "components/signin/core/browser/fake_gaia_cookie_manager_service.h"
-#include "components/signin/core/browser/fake_signin_manager.h"
-#include "components/signin/core/browser/mutable_profile_oauth2_token_service_delegate.h"
-#include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_error_controller.h"
 #include "components/signin/core/browser/signin_header_helper.h"
 #include "components/signin/core/browser/test_signin_client.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/test/test_browser_thread_bundle.h"
-#include "google_apis/gaia/fake_oauth2_token_service_delegate.h"
 #include "services/identity/public/cpp/identity_test_environment.h"
 #include "services/identity/public/cpp/identity_test_utils.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -94,46 +87,31 @@ class DiceResponseHandlerTest : public testing::Test,
 
  protected:
   DiceResponseHandlerTest()
-      : loop_(base::MessageLoop::TYPE_IO),  // URLRequestContext requires IO.
-        task_runner_(new base::TestMockTimeTaskRunner()),
+      : scoped_task_environment_(
+            base::test::ScopedTaskEnvironment::MainThreadType::
+                IO_MOCK_TIME),  // URLRequestContext requires IO.
         signin_client_(&pref_service_),
-        token_service_(&pref_service_,
-                       std::make_unique<FakeOAuth2TokenServiceDelegate>()),
-        signin_manager_(&signin_client_,
-                        &token_service_,
-                        &account_tracker_service_,
-                        nullptr),
-        cookie_service_(&token_service_, &signin_client_),
-        identity_test_env_(&account_tracker_service_,
-                           &token_service_,
-                           &signin_manager_,
-                           &cookie_service_),
+        identity_test_env_(/*test_url_loader_factory=*/nullptr,
+                           &pref_service_,
+                           signin::AccountConsistencyMethod::kDice,
+                           &signin_client_),
         signin_error_controller_(
             SigninErrorController::AccountMode::PRIMARY_ACCOUNT,
             identity_test_env_.identity_manager()),
-        about_signin_internals_(&token_service_,
-                                &account_tracker_service_,
-                                identity_test_env_.identity_manager(),
+        about_signin_internals_(identity_test_env_.identity_manager(),
                                 &signin_error_controller_,
-                                &cookie_service_,
                                 signin::AccountConsistencyMethod::kDice),
         reconcilor_blocked_count_(0),
         reconcilor_unblocked_count_(0) {
-    loop_.SetTaskRunner(task_runner_);
-    DCHECK_EQ(task_runner_, base::ThreadTaskRunnerHandle::Get());
     EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
     AboutSigninInternals::RegisterPrefs(pref_service_.registry());
-    AccountTrackerService::RegisterPrefs(pref_service_.registry());
-    ProfileOAuth2TokenService::RegisterProfilePrefs(pref_service_.registry());
-    SigninManager::RegisterProfilePrefs(pref_service_.registry());
     auto account_reconcilor_delegate =
         std::make_unique<signin::DiceAccountReconcilorDelegate>(
             &signin_client_, signin::AccountConsistencyMethod::kDiceMigration);
     account_reconcilor_ = std::make_unique<AccountReconcilor>(
-        identity_test_env_.identity_manager(), &signin_client_, nullptr,
+        identity_test_env_.identity_manager(), &signin_client_,
         std::move(account_reconcilor_delegate));
     about_signin_internals_.Initialize(&signin_client_);
-    account_tracker_service_.Initialize(&pref_service_, base::FilePath());
     account_reconcilor_->AddObserver(this);
   }
 
@@ -141,13 +119,7 @@ class DiceResponseHandlerTest : public testing::Test,
     account_reconcilor_->RemoveObserver(this);
     account_reconcilor_->Shutdown();
     about_signin_internals_.Shutdown();
-    cookie_service_.Shutdown();
     signin_error_controller_.Shutdown();
-    signin_manager_.Shutdown();
-    account_tracker_service_.Shutdown();
-    token_service_.Shutdown();
-    signin_client_.Shutdown();
-    task_runner_->ClearPendingTasks();
   }
 
   void InitializeDiceResponseHandler(
@@ -198,15 +170,10 @@ class DiceResponseHandlerTest : public testing::Test,
     return identity_test_env_.identity_manager();
   }
 
-  base::MessageLoop loop_;
+  base::test::ScopedTaskEnvironment scoped_task_environment_;
   base::ScopedTempDir temp_dir_;
-  scoped_refptr<base::TestMockTimeTaskRunner> task_runner_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   DiceTestSigninClient signin_client_;
-  FakeProfileOAuth2TokenService token_service_;
-  AccountTrackerService account_tracker_service_;
-  FakeSigninManager signin_manager_;
-  FakeGaiaCookieManagerService cookie_service_;
   identity::IdentityTestEnvironment identity_test_env_;
   SigninErrorController signin_error_controller_;
   AboutSigninInternals about_signin_internals_;
@@ -469,7 +436,7 @@ TEST_F(DiceResponseHandlerTest, Timeout) {
   EXPECT_EQ(
       1u, dice_response_handler_->GetPendingDiceTokenFetchersCountForTesting());
   // Force a timeout.
-  task_runner_->FastForwardBy(
+  scoped_task_environment_.FastForwardBy(
       base::TimeDelta::FromSeconds(kDiceTokenFetchTimeoutSeconds + 1));
   EXPECT_EQ(
       0u, dice_response_handler_->GetPendingDiceTokenFetchersCountForTesting());

@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_util.h"
 #include "base/metrics/histogram_functions.h"
@@ -61,6 +62,7 @@ constexpr char kName[] = "name";
 constexpr char kNotificationsEnabled[] = "notifications_enabled";
 constexpr char kPackageName[] = "package_name";
 constexpr char kPackageVersion[] = "package_version";
+constexpr char kPermissions[] = "permissions";
 constexpr char kSticky[] = "sticky";
 constexpr char kShortcut[] = "shortcut";
 constexpr char kShouldSync[] = "should_sync";
@@ -484,15 +486,6 @@ void ArcAppListPrefs::RequestIcon(const std::string& app_id,
     return;
   }
 
-  if (app_connection_holder_->instance_version() <
-      arc::mojom::AppInstance::kRequestAppIconMinVersion) {
-    LOG(WARNING) << "Using depreciated interface ("
-                 << app_connection_holder_->instance_version()
-                 << ") to request icons.";
-    SendIconRequestDeprecated(app_id, *app_info, descriptor);
-    return;
-  }
-
   SendIconRequest(app_id, *app_info, descriptor);
 }
 
@@ -519,31 +512,6 @@ void ArcAppListPrefs::SendIconRequest(const std::string& app_id,
     app_instance->RequestShortcutIcon(app_info.icon_resource_id,
                                       descriptor.GetSizeInPixels(),
                                       std::move(callback));
-  }
-}
-
-void ArcAppListPrefs::SendIconRequestDeprecated(
-    const std::string& app_id,
-    const AppInfo& app_info,
-    const ArcAppIconDescriptor& descriptor) {
-  if (app_info.icon_resource_id.empty()) {
-    auto* app_instance = ARC_GET_INSTANCE_FOR_METHOD(app_connection_holder_,
-                                                     RequestAppIconDeprecated);
-    if (!app_instance)
-      return;  // Error is logged in macro.
-    app_instance->RequestAppIconDeprecated(
-        app_info.package_name, app_info.activity,
-        static_cast<arc::mojom::ScaleFactor>(descriptor.scale_factor));
-  } else {
-    auto* app_instance = ARC_GET_INSTANCE_FOR_METHOD(
-        app_connection_holder_, RequestShortcutIconDeprecated);
-    if (!app_instance)
-      return;  // Error is logged in macro.
-    app_instance->RequestShortcutIconDeprecated(
-        app_info.icon_resource_id,
-        static_cast<arc::mojom::ScaleFactor>(descriptor.scale_factor),
-        base::BindOnce(&ArcAppListPrefs::OnIconDeprecated,
-                       weak_ptr_factory_.GetWeakPtr(), app_id, descriptor));
   }
 }
 
@@ -629,6 +597,7 @@ std::unique_ptr<ArcAppListPrefs::PackageInfo> ArcAppListPrefs::GetPackage(
   bool should_sync = false;
   bool system = false;
   bool vpn_provider = false;
+  base::flat_map<arc::mojom::AppPermission, bool> permissions;
 
   GetInt64FromPref(package, kLastBackupAndroidId, &last_backup_android_id);
   GetInt64FromPref(package, kLastBackupTime, &last_backup_time);
@@ -636,10 +605,30 @@ std::unique_ptr<ArcAppListPrefs::PackageInfo> ArcAppListPrefs::GetPackage(
   package->GetBoolean(kShouldSync, &should_sync);
   package->GetBoolean(kSystem, &system);
   package->GetBoolean(kVPNProvider, &vpn_provider);
+  const base::Value* permission_val = package->FindKey(kPermissions);
+  if (permission_val) {
+    const base::DictionaryValue* permission_dict = nullptr;
+    permission_val->GetAsDictionary(&permission_dict);
+    DCHECK(permission_dict);
 
-  return std::make_unique<PackageInfo>(package_name, package_version,
-                                       last_backup_android_id, last_backup_time,
-                                       should_sync, system, vpn_provider);
+    for (base::DictionaryValue::Iterator iter(*permission_dict);
+         !iter.IsAtEnd(); iter.Advance()) {
+      int64_t permission_type = -1;
+      base::StringToInt64(iter.key(), &permission_type);
+      DCHECK_NE(-1, permission_type);
+
+      bool value = false;
+      iter.value().GetAsBoolean(&value);
+
+      arc::mojom::AppPermission permission =
+          static_cast<arc::mojom::AppPermission>(permission_type);
+      permissions.insert(std::make_pair(permission, value));
+    }
+  }
+
+  return std::make_unique<PackageInfo>(
+      package_name, package_version, last_backup_android_id, last_backup_time,
+      should_sync, system, vpn_provider, permissions);
 }
 
 std::vector<std::string> ArcAppListPrefs::GetAppIds() const {
@@ -710,6 +699,7 @@ std::unique_ptr<ArcAppListPrefs::AppInfo> ArcAppListPrefs::GetAppFromPrefs(
   bool notifications_enabled = true;
   bool shortcut = false;
   bool launchable = true;
+
   app->GetString(kName, &name);
   app->GetString(kPackageName, &package_name);
   app->GetString(kActivity, &activity);
@@ -785,7 +775,7 @@ void ArcAppListPrefs::SetLastLaunchTime(const std::string& app_id) {
   const base::Time time = base::Time::Now();
   arc::ArcAppScopedPrefUpdate update(prefs_, app_id, arc::prefs::kArcApps);
   base::DictionaryValue* app_dict = update.Get();
-  const std::string string_value = base::Int64ToString(time.ToInternalValue());
+  const std::string string_value = base::NumberToString(time.ToInternalValue());
   app_dict->SetString(kLastLaunchTime, string_value);
 
   for (auto& observer : observer_list_)
@@ -1101,7 +1091,7 @@ void ArcAppListPrefs::AddAppAndShortcut(const std::string& name,
   // actual install time in Android side.
   if (GetInstallTime(app_id).is_null()) {
     std::string install_time_str =
-        base::Int64ToString(base::Time::Now().ToInternalValue());
+        base::NumberToString(base::Time::Now().ToInternalValue());
     app_dict->SetString(kInstallTime, install_time_str);
   }
 
@@ -1192,7 +1182,14 @@ void ArcAppListPrefs::RemoveApp(const std::string& app_id) {
   const bool removed = apps->Remove(app_id, nullptr);
   DCHECK(removed);
 
-  DCHECK(tracked_apps_.count(app_id));
+  // |tracked_apps_| contains apps that are reported externally as available.
+  // However, in case ARC++ appears as disbled on next start and had some apps
+  // left in prefs from the previous session, app clean up is performed on very
+  // early stage. Don't report |OnAppRemoved| in this case once the app was not
+  // reported as available for the current session.
+  if (!tracked_apps_.count(app_id))
+    return;
+
   for (auto& observer : observer_list_)
     observer.OnAppRemoved(app_id);
   tracked_apps_.erase(app_id);
@@ -1212,8 +1209,8 @@ void ArcAppListPrefs::AddOrUpdatePackagePrefs(
                                      arc::prefs::kArcPackages);
   base::DictionaryValue* package_dict = update.Get();
   const std::string id_str =
-      base::Int64ToString(package.last_backup_android_id);
-  const std::string time_str = base::Int64ToString(package.last_backup_time);
+      base::NumberToString(package.last_backup_android_id);
+  const std::string time_str = base::NumberToString(package.last_backup_time);
 
   int old_package_version = -1;
   package_dict->GetInteger(kPackageVersion, &old_package_version);
@@ -1225,6 +1222,18 @@ void ArcAppListPrefs::AddOrUpdatePackagePrefs(
   package_dict->SetBoolean(kSystem, package.system);
   package_dict->SetBoolean(kUninstalled, false);
   package_dict->SetBoolean(kVPNProvider, package.vpn_provider);
+  if (package.permissions.has_value()) {
+    base::DictionaryValue permission_dict;
+    for (const auto& permission : package.permissions.value()) {
+      permission_dict.SetBoolean(
+          base::Int64ToString(static_cast<int64_t>(permission.first)),
+          permission.second);
+    }
+    package_dict->SetKey(kPermissions, std::move(permission_dict));
+  } else {
+    // Remove kPermissions from dict if there are no permissions.
+    package_dict->RemoveKey(kPermissions);
+  }
 
   if (old_package_version == -1 ||
       old_package_version == package.package_version) {
@@ -1506,18 +1515,6 @@ void ArcAppListPrefs::OnPackageRemoved(const std::string& package_name) {
     observer.OnPackageRemoved(package_name, true);
 }
 
-void ArcAppListPrefs::OnAppIconDeprecated(
-    const std::string& package_name,
-    const std::string& activity,
-    arc::mojom::ScaleFactor scale_factor,
-    const std::vector<uint8_t>& icon_png_data) {
-  const std::string app_id = GetAppId(package_name, activity);
-  // There is no info about original request dimension. Use active requests to
-  // notify all.
-  for (const auto& descriptor : active_icons_[app_id])
-    OnIconDeprecated(app_id, descriptor, icon_png_data);
-}
-
 void ArcAppListPrefs::OnIcon(const std::string& app_id,
                              const ArcAppIconDescriptor& descriptor,
                              const std::vector<uint8_t>& icon_png_data) {
@@ -1534,32 +1531,6 @@ void ArcAppListPrefs::OnIcon(const std::string& app_id,
   }
 
   InstallIcon(app_id, descriptor, icon_png_data);
-}
-
-void ArcAppListPrefs::OnIconDeprecated(
-    const std::string& app_id,
-    const ArcAppIconDescriptor& descriptor,
-    const std::vector<uint8_t>& icon_png_data) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-
-  if (icon_png_data.empty()) {
-    LOG(WARNING) << "Cannot fetch icon for " << app_id;
-    return;
-  }
-
-  constexpr int kLegacyIconDimension = 48;
-
-  // Icon may not have required dimension. We only can safely use legacy app
-  // dimension.
-  if (descriptor.dip_size == kLegacyIconDimension) {
-    OnIcon(app_id, descriptor, icon_png_data);
-    return;
-  }
-
-  resize_requests_.emplace_back(std::make_unique<ResizeRequest>(
-      weak_ptr_factory_.GetWeakPtr(), app_id, descriptor));
-  // Result will be delivered to |OnIconResized|
-  ImageDecoder::Start(resize_requests_.back().get(), icon_png_data);
 }
 
 void ArcAppListPrefs::OnIconResized(const std::string& app_id,
@@ -1865,17 +1836,24 @@ bool ArcAppListPrefs::AppInfo::operator==(const AppInfo& other) const {
          shortcut == other.shortcut && launchable == other.launchable;
 }
 
-ArcAppListPrefs::PackageInfo::PackageInfo(const std::string& package_name,
-                                          int32_t package_version,
-                                          int64_t last_backup_android_id,
-                                          int64_t last_backup_time,
-                                          bool should_sync,
-                                          bool system,
-                                          bool vpn_provider)
+ArcAppListPrefs::PackageInfo::PackageInfo(
+    const std::string& package_name,
+    int32_t package_version,
+    int64_t last_backup_android_id,
+    int64_t last_backup_time,
+    bool should_sync,
+    bool system,
+    bool vpn_provider,
+    const base::flat_map<arc::mojom::AppPermission, bool>& permissions)
     : package_name(package_name),
       package_version(package_version),
       last_backup_android_id(last_backup_android_id),
       last_backup_time(last_backup_time),
       should_sync(should_sync),
       system(system),
-      vpn_provider(vpn_provider) {}
+      vpn_provider(vpn_provider),
+      permissions(permissions) {}
+
+// Need to add explicit destructor for chromium style checker error:
+// Complex class/struct needs an explicit out-of-line destructor
+ArcAppListPrefs::PackageInfo::~PackageInfo() = default;

@@ -4,11 +4,14 @@
 
 source_set("cpp") {
   sources = [
+    "client_app_metadata_provider.h",
     "cryptauth_device_id_provider.h",
     "device_sync_client.cc",
     "device_sync_client.h",
     "device_sync_client_impl.cc",
     "device_sync_client_impl.h",
+    "gcm_constants.cc",
+    "gcm_constants.h",
     "gcm_device_info_provider.h",
   ]
 
@@ -66,5 +69,19 @@ source_set("unit_tests") {
     "//services/network:test_support",
     "//services/service_manager/public/cpp/test:test_support",
     "//testing/gtest",
+  ]
+}
+
+source_set("manifest") {
+  sources = [
+    "manifest.cc",
+    "manifest.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chromeos/services/device_sync/public/mojom",
+    "//services/preferences/public/mojom",
+    "//services/service_manager/public/cpp",
   ]
 }

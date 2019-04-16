@@ -8,14 +8,11 @@
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/web_url_loader_factory.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_context.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_parameters.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_timing_info.h"
-#include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
-#include "third_party/blink/renderer/platform/scheduler/test/fake_frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/test/fake_task_runner.h"
 
 #include <memory>
@@ -29,15 +26,7 @@ struct ResourceLoaderOptions;
 // Mocked FetchContext for testing.
 class MockFetchContext : public FetchContext {
  public:
-  MockFetchContext(
-      scoped_refptr<base::SingleThreadTaskRunner> loading_task_runner = nullptr,
-      std::unique_ptr<WebURLLoaderFactory> url_loader_factory = nullptr)
-      : frame_scheduler_(new MockFrameScheduler(
-            loading_task_runner
-                ? std::move(loading_task_runner)
-                : base::MakeRefCounted<scheduler::FakeTaskRunner>())),
-        url_loader_factory_(std::move(url_loader_factory)),
-        transfer_size_(-1) {}
+  MockFetchContext() = default;
   ~MockFetchContext() override = default;
 
   long long GetTransferSize() const { return transfer_size_; }
@@ -53,7 +42,7 @@ class MockFetchContext : public FetchContext {
   // FetchContext:
   void DispatchWillSendRequest(
       unsigned long identifier,
-      ResourceRequest& request,
+      const ResourceRequest& request,
       const ResourceResponse& redirect_response,
       ResourceType,
       const FetchInitiatorInfo& = FetchInitiatorInfo()) override {
@@ -84,42 +73,8 @@ class MockFetchContext : public FetchContext {
     transfer_size_ = resource_timing_info.TransferSize();
   }
 
-  std::unique_ptr<WebURLLoader> CreateURLLoader(
-      const ResourceRequest& request,
-      const ResourceLoaderOptions&) override {
-    if (!url_loader_factory_) {
-      url_loader_factory_ =
-          Platform::Current()->CreateDefaultURLLoaderFactory();
-    }
-    WrappedResourceRequest wrapped(request);
-    return url_loader_factory_->CreateURLLoader(
-        wrapped,
-        scheduler::WebResourceLoadingTaskRunnerHandle::CreateUnprioritized(
-            GetLoadingTaskRunner()));
-  }
-
-  FrameScheduler* GetFrameScheduler() const override {
-    return frame_scheduler_.get();
-  }
-
  private:
-  class MockFrameScheduler final : public scheduler::FakeFrameScheduler {
-   public:
-    explicit MockFrameScheduler(
-        scoped_refptr<base::SingleThreadTaskRunner> runner)
-        : runner_(std::move(runner)) {}
-    scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner(
-        TaskType) override {
-      return runner_;
-    }
-
-   private:
-    scoped_refptr<base::SingleThreadTaskRunner> runner_;
-  };
-
-  std::unique_ptr<FrameScheduler> frame_scheduler_;
-  std::unique_ptr<WebURLLoaderFactory> url_loader_factory_;
-  long long transfer_size_;
+  long long transfer_size_ = -1;
   base::Optional<ResourceRequest> will_send_request_;
 };
 

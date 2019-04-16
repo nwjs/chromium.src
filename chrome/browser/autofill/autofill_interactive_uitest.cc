@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/base_switches.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/macros.h"
@@ -2149,14 +2150,14 @@ IN_PROC_BROWSER_TEST_F(AutofillInteractiveTest,
   std::vector<AutofillProfile> profiles;
   for (int i = 0; i < kNumProfiles; i++) {
     AutofillProfile profile;
-    base::string16 name(base::IntToString16(i));
+    base::string16 name(base::NumberToString16(i));
     base::string16 email(name + ASCIIToUTF16("@example.com"));
-    base::string16 street = ASCIIToUTF16(
-        base::IntToString(base::RandInt(0, 10000)) + " " +
-        streets[base::RandInt(0, streets.size() - 1)]);
+    base::string16 street =
+        ASCIIToUTF16(base::NumberToString(base::RandInt(0, 10000)) + " " +
+                     streets[base::RandInt(0, streets.size() - 1)]);
     base::string16 city =
         ASCIIToUTF16(cities[base::RandInt(0, cities.size() - 1)]);
-    base::string16 zip(base::IntToString16(base::RandInt(0, 10000)));
+    base::string16 zip(base::NumberToString16(base::RandInt(0, 10000)));
     profile.SetRawInfo(NAME_FIRST, name);
     profile.SetRawInfo(EMAIL_ADDRESS, email);
     profile.SetRawInfo(ADDRESS_HOME_LINE1, street);
@@ -3465,13 +3466,13 @@ IN_PROC_BROWSER_TEST_P(AutofillDynamicFormInteractiveTest,
   ExpectFieldValue("phone", "15125551234");
 }
 
-INSTANTIATE_TEST_CASE_P(All, AutofillCompanyInteractiveTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, AutofillCompanyInteractiveTest, testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(All,
-                        AutofillDynamicFormInteractiveTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         AutofillDynamicFormInteractiveTest,
+                         testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(All,
-                        AutofillRestrictUnownedFieldsTest,
-                        testing::Combine(testing::Bool(), testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(All,
+                         AutofillRestrictUnownedFieldsTest,
+                         testing::Combine(testing::Bool(), testing::Bool()));
 }  // namespace autofill

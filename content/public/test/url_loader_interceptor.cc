@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
@@ -29,7 +30,6 @@
 #include "net/test/embedded_test_server/request_handler_util.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
-#include "third_party/blink/public/common/features.h"
 
 namespace content {
 
@@ -70,10 +70,13 @@ class URLLoaderInterceptor::IOState
     DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
     url_loader_factory_getter_wrappers_.clear();
     subresource_wrappers_.clear();
+    navigation_wrappers_.clear();
 
     if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
       URLLoaderFactoryGetter::SetGetNetworkFactoryCallbackForTesting(
           URLLoaderFactoryGetter::GetNetworkFactoryCallback());
+      NavigationURLLoaderImpl::SetURLLoaderFactoryInterceptorForTesting(
+          NavigationURLLoaderImpl::URLLoaderFactoryInterceptor());
     } else {
       NavigationURLLoaderImpl::SetBeginNavigationInterceptorForTesting(
           NavigationURLLoaderImpl::BeginNavigationInterceptor());
@@ -135,6 +138,21 @@ class URLLoaderInterceptor::IOState
     return false;
   }
 
+  // Callback on IO thread whenever NavigationURLLoaderImpl needs a
+  // URLLoaderFactory with a network::mojom::TrustedURLLoaderHeaderClient.
+  void InterceptNavigationRequestCallback(
+      network::mojom::URLLoaderFactoryRequest* request) {
+    DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
+
+    auto proxied_request = std::move(*request);
+    network::mojom::URLLoaderFactoryPtr target_factory;
+    *request = mojo::MakeRequest(&target_factory);
+
+    navigation_wrappers_.emplace(
+        std::make_unique<URLLoaderFactoryNavigationWrapper>(
+            std::move(proxied_request), std::move(target_factory), this));
+  }
+
  private:
   friend class base::RefCountedThreadSafe<IOState>;
   ~IOState() {}
@@ -154,6 +172,8 @@ class URLLoaderInterceptor::IOState
   // For intercepting subresources with network service. There is one per
   // active render frame commit. Only accessed on IO thread.
   std::set<std::unique_ptr<SubresourceWrapper>> subresource_wrappers_;
+  std::set<std::unique_ptr<URLLoaderFactoryNavigationWrapper>>
+      navigation_wrappers_;
 
   DISALLOW_COPY_AND_ASSIGN(IOState);
 };
@@ -361,32 +381,24 @@ URLLoaderInterceptor::URLLoaderInterceptor(const InterceptCallback& callback,
   DCHECK(!BrowserThread::IsThreadInitialized(BrowserThread::UI) ||
          BrowserThread::CurrentlyOn(BrowserThread::UI));
   use_runloop_ = !ready_callback;
-  if (base::FeatureList::IsEnabled(
-          blink::features::kServiceWorkerServicification) ||
-      base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    RenderFrameHostImpl::SetNetworkFactoryForTesting(base::BindRepeating(
-        &URLLoaderInterceptor::CreateURLLoaderFactoryForSubresources,
-        base::Unretained(this)));
-    // Note: This URLLoaderFactory creation callback will be used not only for
-    // subresource loading from service workers (i.e., fetch()), but also for
-    // loading non-installed service worker scripts.
-    EmbeddedWorkerInstance::SetNetworkFactoryForTesting(base::BindRepeating(
-        &URLLoaderInterceptor::CreateURLLoaderFactoryForSubresources,
-        base::Unretained(this)));
-  }
+  RenderFrameHostImpl::SetNetworkFactoryForTesting(base::BindRepeating(
+      &URLLoaderInterceptor::CreateURLLoaderFactoryForSubresources,
+      base::Unretained(this)));
+  SharedWorkerHost::SetNetworkFactoryForTesting(base::BindRepeating(
+      &URLLoaderInterceptor::CreateURLLoaderFactoryForSubresources,
+      base::Unretained(this)));
+  // Note: This URLLoaderFactory creation callback will be used not only for
+  // subresource loading from service workers (i.e., fetch()), but also for
+  // loading non-installed service worker scripts.
+  EmbeddedWorkerInstance::SetNetworkFactoryForTesting(base::BindRepeating(
+      &URLLoaderInterceptor::CreateURLLoaderFactoryForSubresources,
+      base::Unretained(this)));
 
   StoragePartitionImpl::
       SetGetURLLoaderFactoryForBrowserProcessCallbackForTesting(
           base::BindRepeating(
               &URLLoaderInterceptor::GetURLLoaderFactoryForBrowserProcess,
               base::Unretained(this)));
-
-  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    NavigationURLLoaderImpl::SetURLLoaderFactoryInterceptorForTesting(
-        base::BindRepeating(
-            &URLLoaderInterceptor::InterceptNavigationRequestCallback,
-            base::Unretained(this)));
-  }
 
   if (BrowserThread::IsThreadInitialized(BrowserThread::IO)) {
     if (use_runloop_) {
@@ -418,23 +430,16 @@ URLLoaderInterceptor::~URLLoaderInterceptor() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   io_thread_->UnsetParent();
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kServiceWorkerServicification) ||
-      base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    RenderFrameHostImpl::SetNetworkFactoryForTesting(
-        RenderFrameHostImpl::CreateNetworkFactoryCallback());
-    EmbeddedWorkerInstance::SetNetworkFactoryForTesting(
-        RenderFrameHostImpl::CreateNetworkFactoryCallback());
-  }
+  RenderFrameHostImpl::SetNetworkFactoryForTesting(
+      RenderFrameHostImpl::CreateNetworkFactoryCallback());
+  SharedWorkerHost::SetNetworkFactoryForTesting(
+      RenderFrameHostImpl::CreateNetworkFactoryCallback());
+  EmbeddedWorkerInstance::SetNetworkFactoryForTesting(
+      RenderFrameHostImpl::CreateNetworkFactoryCallback());
 
   StoragePartitionImpl::
       SetGetURLLoaderFactoryForBrowserProcessCallbackForTesting(
           StoragePartitionImpl::CreateNetworkFactoryCallback());
-
-  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    NavigationURLLoaderImpl::SetURLLoaderFactoryInterceptorForTesting(
-        NavigationURLLoaderImpl::URLLoaderFactoryInterceptor());
-  }
 
   if (use_runloop_) {
     base::RunLoop run_loop;
@@ -545,20 +550,6 @@ URLLoaderInterceptor::GetURLLoaderFactoryForBrowserProcess(
   return loader_factory;
 }
 
-void URLLoaderInterceptor::InterceptNavigationRequestCallback(
-    network::mojom::URLLoaderFactoryRequest* request) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-
-  auto proxied_request = std::move(*request);
-  network::mojom::URLLoaderFactoryPtr target_factory;
-  *request = mojo::MakeRequest(&target_factory);
-
-  navigation_wrappers_.emplace(
-      std::make_unique<URLLoaderFactoryNavigationWrapper>(
-          std::move(proxied_request), std::move(target_factory),
-          io_thread_.get()));
-}
-
 bool URLLoaderInterceptor::Intercept(RequestParams* params) {
   if (callback_.Run(params))
     return true;
@@ -598,6 +589,11 @@ void URLLoaderInterceptor::IOState::Initialize(base::OnceClosure closure) {
     URLLoaderFactoryGetter::SetGetNetworkFactoryCallbackForTesting(
         base::BindRepeating(
             &URLLoaderInterceptor::IOState::GetNetworkFactoryCallback,
+            base::Unretained(this)));
+
+    NavigationURLLoaderImpl::SetURLLoaderFactoryInterceptorForTesting(
+        base::BindRepeating(
+            &URLLoaderInterceptor::IOState::InterceptNavigationRequestCallback,
             base::Unretained(this)));
   } else {
     NavigationURLLoaderImpl::SetBeginNavigationInterceptorForTesting(

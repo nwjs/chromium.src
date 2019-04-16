@@ -4,16 +4,16 @@
 
 #include "ash/shell/content/client/shell_content_browser_client.h"
 
+#include <memory>
 #include <utility>
 
 #include "ash/ash_service.h"
-#include "ash/components/quick_launch/manifest.h"
-#include "ash/components/quick_launch/public/mojom/constants.mojom.h"
-#include "ash/components/shortcut_viewer/manifest.h"
+#include "ash/components/shortcut_viewer/public/cpp/manifest.h"
 #include "ash/components/shortcut_viewer/public/mojom/shortcut_viewer.mojom.h"
-#include "ash/components/tap_visualizer/manifest.h"
+#include "ash/components/tap_visualizer/public/cpp/manifest.h"
 #include "ash/components/tap_visualizer/public/mojom/tap_visualizer.mojom.h"
-#include "ash/manifest.h"
+#include "ash/public/cpp/manifest.h"
+#include "ash/public/cpp/test_manifest.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/public/interfaces/constants.mojom.h"
 #include "ash/shell.h"
@@ -32,7 +32,7 @@
 #include "services/device/public/mojom/constants.mojom.h"
 #include "services/service_manager/public/cpp/manifest.h"
 #include "services/service_manager/public/cpp/manifest_builder.h"
-#include "services/ws/ime/test_ime_driver/manifest.h"
+#include "services/ws/ime/test_ime_driver/public/cpp/manifest.h"
 #include "services/ws/ime/test_ime_driver/public/mojom/constants.mojom.h"
 #include "services/ws/public/mojom/constants.mojom.h"
 #include "services/ws/window_service.h"
@@ -49,9 +49,9 @@ const service_manager::Manifest& GetAshShellBrowserOverlayManifest() {
       service_manager::ManifestBuilder()
           .RequireCapability(device::mojom::kServiceName, "device:fingerprint")
           .RequireCapability(shortcut_viewer::mojom::kServiceName,
-                             "shortcut_viewer")
+                             shortcut_viewer::mojom::kToggleUiCapability)
           .RequireCapability(tap_visualizer::mojom::kServiceName,
-                             "tap_visualizer")
+                             tap_visualizer::mojom::kShowUiCapability)
           .Build()};
   return *manifest;
 }
@@ -59,10 +59,10 @@ const service_manager::Manifest& GetAshShellBrowserOverlayManifest() {
 const service_manager::Manifest& GetAshShellPackagedServicesOverlayManifest() {
   static base::NoDestructor<service_manager::Manifest> manifest{
       service_manager::ManifestBuilder()
-          .PackageService(ash::GetManifest())
-          .PackageService(quick_launch_app::GetManifest())
-          .PackageService(shortcut_viewer_app::GetManifest())
-          .PackageService(tap_visualizer_app::GetManifest())
+          .PackageService(service_manager::Manifest(ash::GetManifest())
+                              .Amend(ash::GetManifestOverlayForTesting()))
+          .PackageService(shortcut_viewer::GetManifest())
+          .PackageService(tap_visualizer::GetManifest())
           .PackageService(test_ime_driver::GetManifest())
           .Build()};
   return *manifest;
@@ -86,7 +86,8 @@ void ShellContentBrowserClient::GetQuotaSettings(
     content::StoragePartition* partition,
     storage::OptionalQuotaSettingsCallback callback) {
   storage::GetNominalDynamicSettings(
-      partition->GetPath(), context->IsOffTheRecord(), std::move(callback));
+      partition->GetPath(), context->IsOffTheRecord(),
+      storage::GetDefaultDiskInfoHelper(), std::move(callback));
 }
 
 base::Optional<service_manager::Manifest>
@@ -104,8 +105,6 @@ ShellContentBrowserClient::GetServiceManifestOverlay(base::StringPiece name) {
 
 void ShellContentBrowserClient::RegisterOutOfProcessServices(
     OutOfProcessServiceMap* services) {
-  (*services)[quick_launch::mojom::kServiceName] = base::BindRepeating(
-      &base::ASCIIToUTF16, quick_launch::mojom::kServiceName);
   (*services)[shortcut_viewer::mojom::kServiceName] = base::BindRepeating(
       &base::ASCIIToUTF16, shortcut_viewer::mojom::kServiceName);
   (*services)[tap_visualizer::mojom::kServiceName] = base::BindRepeating(

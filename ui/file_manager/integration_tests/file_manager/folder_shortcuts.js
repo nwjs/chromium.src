@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 'use strict';
 
-(function() {
+(() => {
 
 /**
  * Directory tree selector constants.
@@ -72,35 +72,16 @@ const DIRECTORY = {
 };
 
 /**
- * Expands a directory tree item by clicking on its expand icon.
- *
- * @param {string} appId Files app windowId.
- * @param {Object} directory Directory whose tree item should be expanded.
- * @return {Promise} Promise fulfilled on success.
- */
-async function expandTreeItem(appId, directory) {
-  const expandIcon =
-      directory.treeItem + '> .tree-row[has-children=true] > .expand-icon';
-  await remoteCall.waitForElement(appId, expandIcon);
-  chrome.test.assertTrue(await remoteCall.callRemoteTestUtil(
-      'fakeMouseClick', appId, [expandIcon]));
-
-
-  const expandedSubtree = directory.treeItem + '> .tree-children[expanded]';
-  await remoteCall.waitForElement(appId, expandedSubtree);
-}
-
-/**
  * Expands whole directory tree under DIRECTORY.Drive.
  *
  * @param {string} appId Files app windowId.
  * @return {Promise} Promise fulfilled on success.
  */
 async function expandDirectoryTree(appId) {
-  await expandTreeItem(appId, DIRECTORY.Drive);
-  await expandTreeItem(appId, DIRECTORY.A);
-  await expandTreeItem(appId, DIRECTORY.B);
-  await expandTreeItem(appId, DIRECTORY.D);
+  await expandTreeItem(appId, DIRECTORY.Drive.treeItem);
+  await expandTreeItem(appId, DIRECTORY.A.treeItem);
+  await expandTreeItem(appId, DIRECTORY.B.treeItem);
+  await expandTreeItem(appId, DIRECTORY.D.treeItem);
 }
 
 /**
@@ -117,35 +98,6 @@ async function navigateToDirectory(appId, directory) {
       await remoteCall.callRemoteTestUtil('fakeMouseClick', appId, [itemIcon]));
 
   await remoteCall.waitForFiles(appId, directory.contents);
-}
-
-/**
- * Creates a folder shortcut to |directory| using the context menu. Note the
- * current directory must be a parent of the given |directory|.
- *
- * @param {string} appId Files app windowId.
- * @param {Object} directory Directory of shortcut to be created.
- * @return {Promise} Promise fulfilled on success.
- */
-async function createShortcut(appId, directory) {
-  chrome.test.assertTrue(await remoteCall.callRemoteTestUtil(
-      'selectFile', appId, [directory.name]));
-
-  await remoteCall.waitForElement(appId, ['.table-row[selected]']);
-  chrome.test.assertTrue(await remoteCall.callRemoteTestUtil(
-      'fakeMouseRightClick', appId, ['.table-row[selected]']));
-
-
-  await remoteCall.waitForElement(appId, '#file-context-menu:not([hidden])');
-  await remoteCall.waitForElement(
-      appId,
-      '[command="#create-folder-shortcut"]:not([hidden]):not([disabled])');
-  chrome.test.assertTrue(await remoteCall.callRemoteTestUtil(
-      'fakeMouseClick', appId,
-      ['[command="#create-folder-shortcut"]:not([hidden]):not([disabled])']));
-
-
-  await remoteCall.waitForElement(appId, directory.navItem);
 }
 
 /**
@@ -213,7 +165,7 @@ async function clickShortcut(appId, directory) {
 /**
  * Creates some shortcuts and traverse them and some other directories.
  */
-testcase.traverseFolderShortcuts = async function() {
+testcase.traverseFolderShortcuts = async () => {
   // Open Files app on Drive.
   const appId =
       await setupAndWaitUntilReady(RootPath.DRIVE, [], FOLDER_ENTRY_SET);
@@ -222,13 +174,13 @@ testcase.traverseFolderShortcuts = async function() {
   await expandDirectoryTree(appId);
 
   // Create a shortcut to directory D.
-  await createShortcut(appId, DIRECTORY.D);
+  await createShortcut(appId, DIRECTORY.D.name);
 
   // Navigate to directory B.
   await navigateToDirectory(appId, DIRECTORY.B);
 
   // Create a shortcut to directory C.
-  await createShortcut(appId, DIRECTORY.C);
+  await createShortcut(appId, DIRECTORY.C.name);
 
   // Click the Drive root (My Drive) shortcut.
   await clickShortcut(appId, DIRECTORY.Drive);
@@ -265,7 +217,7 @@ testcase.traverseFolderShortcuts = async function() {
  * Adds and removes shortcuts from other window and check if the active
  * directories and selected navigation items are correct.
  */
-testcase.addRemoveFolderShortcuts = async function() {
+testcase.addRemoveFolderShortcuts = async () => {
   async function openFilesAppOnDrive() {
     const appId = await openNewWindow(RootPath.DRIVE);
     await remoteCall.waitForElement(appId, '#file-list');
@@ -283,7 +235,7 @@ testcase.addRemoveFolderShortcuts = async function() {
   const appId2 = await openFilesAppOnDrive();
 
   // Create a shortcut to D.
-  await createShortcut(appId1, DIRECTORY.D);
+  await createShortcut(appId1, DIRECTORY.D.name);
 
   // Click the shortcut to D.
   await clickShortcut(appId1, DIRECTORY.D);
@@ -292,7 +244,7 @@ testcase.addRemoveFolderShortcuts = async function() {
   await expectSelection(appId1, DIRECTORY.D, DIRECTORY.D);
 
   // Create a shortcut to A from the other window.
-  await createShortcut(appId2, DIRECTORY.A);
+  await createShortcut(appId2, DIRECTORY.A.name);
 
   // Check: current directory and selection should still be D.
   await expectSelection(appId1, DIRECTORY.D, DIRECTORY.D);

@@ -57,7 +57,6 @@
 #include "media/filters/memory_data_source.h"
 #include "media/media_buildflags.h"
 #include "net/base/data_url.h"
-#include "third_party/blink/public/common/picture_in_picture/picture_in_picture_control_info.h"
 #include "third_party/blink/public/platform/web_encrypted_media_types.h"
 #include "third_party/blink/public/platform/web_localized_string.h"
 #include "third_party/blink/public/platform/web_media_player_client.h"
@@ -126,10 +125,6 @@ bool IsBackgroundVideoTrackOptimizationEnabled(
 
 bool IsBackgroundVideoPauseOptimizationEnabled() {
   return base::FeatureList::IsEnabled(kBackgroundVideoPauseOptimization);
-}
-
-bool IsNewRemotePlaybackPipelineEnabled() {
-  return base::FeatureList::IsEnabled(kNewRemotePlaybackPipeline);
 }
 
 bool IsNetworkStateError(blink::WebMediaPlayer::NetworkState state) {
@@ -325,9 +320,6 @@ WebMediaPlayerImpl::WebMediaPlayerImpl(
       context_provider_(params->context_provider()),
       vfc_task_runner_(params->video_frame_compositor_task_runner()),
       compositor_(std::move(compositor)),
-#if defined(OS_ANDROID)  // WMPI_CAST
-      cast_impl_(this, client_, params->context_provider()),
-#endif
       renderer_factory_selector_(std::move(renderer_factory_selector)),
       observer_(params->media_observer()),
       enable_instant_source_buffer_gc_(
@@ -524,11 +516,8 @@ void WebMediaPlayerImpl::OnSurfaceIdUpdated(viz::SurfaceId surface_id) {
   // disabled.
   // The viz::SurfaceId may be updated when the video begins playback or when
   // the size of the video changes.
-  if (client_ && IsInPictureInPicture() && !client_->IsInAutoPIP()) {
-    delegate_->DidPictureInPictureSurfaceChange(
-        delegate_id_, surface_id, pipeline_metadata_.natural_size,
-        ShouldShowPlayPauseButtonInPictureInPictureWindow());
-  }
+  if (client_)
+    client_->OnPictureInPictureStateChange();
 }
 
 bool WebMediaPlayerImpl::SupportsOverlayFullscreenVideo() {
@@ -743,10 +732,6 @@ void WebMediaPlayerImpl::DoLoad(LoadType load_type,
     mb_data_source_->Initialize(
         base::Bind(&WebMediaPlayerImpl::DataSourceInitialized, AsWeakPtr()));
   }
-
-#if defined(OS_ANDROID)  // WMPI_CAST
-  cast_impl_.Initialize(url, frame_, delegate_id_);
-#endif
 }
 
 void WebMediaPlayerImpl::Play() {
@@ -757,12 +742,6 @@ void WebMediaPlayerImpl::Play() {
   if (blink::WebUserGestureIndicator::IsProcessingUserGesture(frame_))
     video_locked_when_paused_when_hidden_ = false;
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-  if (IsRemote()) {
-    cast_impl_.play();
-    return;
-  }
-#endif
   // TODO(sandersd): Do we want to reset the idle timer here?
   delegate_->SetIdle(delegate_id_, false);
   paused_ = false;
@@ -808,13 +787,6 @@ void WebMediaPlayerImpl::Pause() {
   if (blink::WebUserGestureIndicator::IsProcessingUserGesture(frame_))
     video_locked_when_paused_when_hidden_ = true;
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-  if (IsRemote()) {
-    cast_impl_.pause();
-    return;
-  }
-#endif
-
   pipeline_controller_.SetPlaybackRate(0.0);
   paused_time_ = pipeline_controller_.GetMediaTime();
 
@@ -835,7 +807,8 @@ void WebMediaPlayerImpl::Pause() {
 void WebMediaPlayerImpl::Seek(double seconds) {
   DVLOG(1) << __func__ << "(" << seconds << "s)";
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-  media_log_->AddEvent(media_log_->CreateSeekEvent(seconds));
+  media_log_->AddEvent(
+      media_log_->CreateTimeEvent(MediaLogEvent::SEEK, "seek_target", seconds));
   DoSeek(base::TimeDelta::FromSecondsD(seconds), true);
 }
 
@@ -843,13 +816,6 @@ void WebMediaPlayerImpl::DoSeek(base::TimeDelta time, bool time_updated) {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   TRACE_EVENT2("media", "WebMediaPlayerImpl::DoSeek", "target",
                time.InSecondsF(), "id", media_log_->id());
-
-#if defined(OS_ANDROID)  // WMPI_CAST
-  if (IsRemote()) {
-    cast_impl_.seek(time);
-    return;
-  }
-#endif
 
   ReadyState old_state = ready_state_;
   if (ready_state_ > WebMediaPlayer::kReadyStateHaveMetadata)
@@ -935,44 +901,12 @@ void WebMediaPlayerImpl::SetVolume(double volume) {
   UpdatePlayState();
 }
 
-void WebMediaPlayerImpl::EnterPictureInPicture(
-    blink::WebMediaPlayer::PipWindowOpenedCallback callback) {
+void WebMediaPlayerImpl::OnRequestPictureInPicture() {
   if (!surface_layer_for_video_enabled_)
     ActivateSurfaceLayerForVideo();
 
   DCHECK(bridge_);
-
-  const viz::SurfaceId& surface_id = bridge_->GetSurfaceId();
-  DCHECK(surface_id.is_valid());
-
-  // Notifies the browser process that the player should now be in
-  // Picture-in-Picture mode.
-  delegate_->DidPictureInPictureModeStart(
-      delegate_id_, surface_id, pipeline_metadata_.natural_size,
-      std::move(callback), ShouldShowPlayPauseButtonInPictureInPictureWindow());
-}
-
-void WebMediaPlayerImpl::ExitPictureInPicture(
-    blink::WebMediaPlayer::PipWindowClosedCallback callback) {
-  // Notifies the browser process that Picture-in-Picture has ended. It will
-  // clear out the states and close the window.
-  delegate_->DidPictureInPictureModeEnd(delegate_id_, std::move(callback));
-
-  // Internal cleanups.
-  OnPictureInPictureModeEnded();
-}
-
-void WebMediaPlayerImpl::SetPictureInPictureCustomControls(
-    const std::vector<blink::PictureInPictureControlInfo>& controls) {
-  delegate_->DidSetPictureInPictureCustomControls(delegate_id_, controls);
-}
-
-void WebMediaPlayerImpl::RegisterPictureInPictureWindowResizeCallback(
-    blink::WebMediaPlayer::PipWindowResizedCallback callback) {
-  DCHECK(IsInPictureInPicture() && !client_->IsInAutoPIP());
-
-  delegate_->RegisterPictureInPictureWindowResizeCallback(delegate_id_,
-                                                          std::move(callback));
+  DCHECK(bridge_->GetSurfaceId().is_valid());
 }
 
 void WebMediaPlayerImpl::SetSinkId(
@@ -1061,12 +995,6 @@ blink::WebSize WebMediaPlayerImpl::VisibleRect() const {
 
 bool WebMediaPlayerImpl::Paused() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-
-#if defined(OS_ANDROID)  // WMPI_CAST
-  if (IsRemote())
-    return cast_impl_.IsPaused();
-#endif
-
   return pipeline_controller_.GetPlaybackRate() == 0.0f;
 }
 
@@ -1119,10 +1047,6 @@ base::TimeDelta WebMediaPlayerImpl::GetCurrentTimeInternal() const {
   base::TimeDelta current_time;
   if (Seeking())
     current_time = seek_time_;
-#if defined(OS_ANDROID)  // WMPI_CAST
-  else if (IsRemote())
-    current_time = cast_impl_.currentTime();
-#endif
   else if (paused_)
     current_time = paused_time_;
   else
@@ -1548,15 +1472,7 @@ void WebMediaPlayerImpl::OnPipelineSeeked(bool time_updated) {
   seek_time_ = base::TimeDelta();
 
   if (paused_) {
-#if defined(OS_ANDROID)  // WMPI_CAST
-    if (IsRemote()) {
-      paused_time_ = cast_impl_.currentTime();
-    } else {
-      paused_time_ = pipeline_controller_.GetMediaTime();
-    }
-#else
     paused_time_ = pipeline_controller_.GetMediaTime();
-#endif
   } else {
     DCHECK(watch_time_reporter_);
     watch_time_reporter_->OnPlaying();
@@ -1613,14 +1529,6 @@ void WebMediaPlayerImpl::OnPipelineSeeked(bool time_updated) {
 void WebMediaPlayerImpl::OnPipelineSuspended() {
   // Add a log event so the player shows up as "SUSPENDED" in media-internals.
   media_log_->AddEvent(media_log_->CreateEvent(MediaLogEvent::SUSPENDED));
-
-#if defined(OS_ANDROID)
-  if (IsRemote() && !IsNewRemotePlaybackPipelineEnabled()) {
-    scoped_refptr<VideoFrame> frame = cast_impl_.GetCastingBanner();
-    if (frame)
-      compositor_->PaintSingleFrame(frame);
-  }
-#endif
 
   // Tell the data source we have enough data so that it may release the
   // connection.
@@ -1714,11 +1622,17 @@ void WebMediaPlayerImpl::OnError(PipelineStatus status) {
   // URL, since MediaPlayer doesn't support data:// URLs, fail playback now.
   const bool found_hls = status == PipelineStatus::DEMUXER_ERROR_DETECTED_HLS;
   if (found_hls && mb_data_source_) {
+    demuxer_found_hls_ = true;
+
     UMA_HISTOGRAM_BOOLEAN("Media.WebMediaPlayerImpl.HLS.IsCorsCrossOrigin",
                           mb_data_source_->IsCorsCrossOrigin());
-    // Note: Does not consider the full redirect chain. Redirecting through
-    // another origin will set WouldTaintOrigin() though, assuming that the
-    // crossorigin attribute is not set.
+    if (mb_data_source_->IsCorsCrossOrigin()) {
+      UMA_HISTOGRAM_BOOLEAN("Media.WebMediaPlayerImpl.HLS.HasAccessControl",
+                            mb_data_source_->HasAccessControl());
+    }
+
+    // Note: Does not consider the full redirect chain, which could contain
+    // undetected mixed content.
     bool frame_url_is_cryptographic = url::Origin(frame_->GetSecurityOrigin())
                                           .GetURL()
                                           .SchemeIsCryptographic();
@@ -1728,10 +1642,6 @@ void WebMediaPlayerImpl::OnError(PipelineStatus status) {
     UMA_HISTOGRAM_BOOLEAN(
         "Media.WebMediaPlayerImpl.HLS.IsMixedContent",
         frame_url_is_cryptographic && !manifest_url_is_cryptographic);
-    UMA_HISTOGRAM_BOOLEAN("Media.WebMediaPlayerImpl.HLS.WouldTaintOrigin",
-                          WouldTaintOrigin());
-    // Note: Affects WouldTaintOrigin().
-    demuxer_found_hls_ = true;
 
     renderer_factory_selector_->SetUseMediaPlayer(true);
 
@@ -2357,6 +2267,10 @@ void WebMediaPlayerImpl::OnPause() {
   client_->RequestPause();
 }
 
+void WebMediaPlayerImpl::OnMuted(bool muted) {
+  client_->RequestMuted(muted);
+}
+
 void WebMediaPlayerImpl::OnSeekForward(double seconds) {
   DCHECK_GE(seconds, 0) << "Attempted to seek by a negative number of seconds";
   client_->RequestSeek(CurrentTime() + seconds);
@@ -2385,14 +2299,6 @@ void WebMediaPlayerImpl::OnPictureInPictureModeEnded() {
     return;
 
   client_->PictureInPictureStopped();
-}
-
-void WebMediaPlayerImpl::OnPictureInPictureControlClicked(
-    const std::string& control_id) {
-  if (client_ && IsInPictureInPicture()) {
-    client_->PictureInPictureControlClicked(
-        blink::WebString::FromUTF8(control_id));
-  }
 }
 
 void WebMediaPlayerImpl::SendBytesReceivedUpdate() {
@@ -2432,36 +2338,7 @@ void WebMediaPlayerImpl::RequestRemotePlaybackDisabled(bool disabled) {
     observer_->OnRemotePlaybackDisabled(disabled);
 }
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-bool WebMediaPlayerImpl::IsRemote() const {
-  return cast_impl_.isRemote();
-}
-
-void WebMediaPlayerImpl::SetMediaPlayerManager(
-    RendererMediaPlayerManagerInterface* media_player_manager) {
-  cast_impl_.SetMediaPlayerManager(media_player_manager);
-}
-
-void WebMediaPlayerImpl::RequestRemotePlayback() {
-  cast_impl_.requestRemotePlayback();
-}
-
-void WebMediaPlayerImpl::RequestRemotePlaybackControl() {
-  cast_impl_.requestRemotePlaybackControl();
-}
-
-void WebMediaPlayerImpl::RequestRemotePlaybackStop() {
-  cast_impl_.requestRemotePlaybackStop();
-}
-
-void WebMediaPlayerImpl::OnRemotePlaybackEnded() {
-  DVLOG(1) << __func__;
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
-
-  ended_ = true;
-  client_->TimeChanged();
-}
-
+#if defined(OS_ANDROID)
 void WebMediaPlayerImpl::FlingingStarted() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
   DCHECK(!disable_pipeline_auto_suspend_);
@@ -2488,65 +2365,17 @@ void WebMediaPlayerImpl::FlingingStopped() {
 
   ScheduleRestart();
 }
-
-void WebMediaPlayerImpl::OnDisconnectedFromRemoteDevice(double t) {
-  DoSeek(base::TimeDelta::FromSecondsD(t), false);
-
-  // Capabilities reporting can resume now that playback is local.
-  CreateVideoDecodeStatsReporter();
-
-  // |client_| might destroy us in methods below.
-  UpdatePlayState();
-
-  // We already told the delegate we're paused when remoting started.
-  client_->RequestPause();
-  client_->DisconnectedFromRemoteDevice();
-}
-
-void WebMediaPlayerImpl::SuspendForRemote() {
-  // Capabilities reporting should only be performed for local playbacks.
-  video_decode_stats_reporter_.reset();
-
-  if (pipeline_controller_.IsPipelineSuspended() &&
-      !IsNewRemotePlaybackPipelineEnabled()) {
-    scoped_refptr<VideoFrame> frame = cast_impl_.GetCastingBanner();
-    if (frame)
-      compositor_->PaintSingleFrame(frame);
-  }
-
-  UpdatePlayState();
-}
-
-gfx::Size WebMediaPlayerImpl::GetCanvasSize() const {
-  if (!surface_layer_for_video_enabled_) {
-    if (!video_layer_)
-      return pipeline_metadata_.natural_size;
-
-    return video_layer_->bounds();
-  }
-  if (!bridge_->GetCcLayer())
-    return pipeline_metadata_.natural_size;
-
-  return bridge_->GetCcLayer()->bounds();
-}
-
-void WebMediaPlayerImpl::SetDeviceScaleFactor(float scale_factor) {
-  cast_impl_.SetDeviceScaleFactor(scale_factor);
-}
-#endif  // defined(OS_ANDROID)  // WMPI_CAST
+#endif  // defined(OS_ANDROID)
 
 void WebMediaPlayerImpl::SetPoster(const blink::WebURL& poster) {
   has_poster_ = !poster.IsEmpty();
-#if defined(OS_ANDROID)  // WMPI_CAST
-  cast_impl_.setPoster(poster);
-#endif  // defined(OS_ANDROID)  // WMPI_CAST
 }
 
 void WebMediaPlayerImpl::DataSourceInitialized(bool success) {
   DVLOG(1) << __func__;
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
-  if (observer_ && IsNewRemotePlaybackPipelineEnabled() && mb_data_source_)
+  if (observer_ && mb_data_source_)
     observer_->OnDataSourceInitialized(mb_data_source_->GetUrlAfterRedirects());
 
   if (!success) {
@@ -2694,11 +2523,8 @@ void WebMediaPlayerImpl::StartPipeline() {
   if (demuxer_found_hls_ ||
       renderer_factory_selector_->GetCurrentFactory()
               ->GetRequiredMediaResourceType() == MediaResource::Type::URL) {
-    // MediaPlayerRendererClient factory is the only factory that a
-    // MediaResource::Type::URL for the moment. This might no longer be true
-    // when we remove WebMediaPlayerCast.
-    //
-    // TODO(tguilbert/avayvod): Update this flag when removing |cast_impl_|.
+    // MediaPlayerRendererClientFactory is the only factory that a uses
+    // MediaResource::Type::URL for the moment.
     using_media_player_renderer_ = true;
 
     // MediaPlayerRenderer does not provide pipeline stats, so nuke capabilities
@@ -2829,12 +2655,6 @@ scoped_refptr<VideoFrame> WebMediaPlayerImpl::GetCurrentFrameFromCompositor()
 
 void WebMediaPlayerImpl::UpdatePlayState() {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
-
-#if defined(OS_ANDROID)  // WMPI_CAST
-  bool is_remote = IsRemote();
-  bool can_auto_suspend = true;
-#else
-  bool is_remote = false;
   bool can_auto_suspend = !disable_pipeline_auto_suspend_;
   // For streaming videos, we only allow suspending at the very beginning of the
   // video, and only if we know the length of the video. (If we don't know
@@ -2847,12 +2667,11 @@ void WebMediaPlayerImpl::UpdatePlayState() {
     if (!at_beginning || GetPipelineMediaDuration() == kInfiniteDuration)
       can_auto_suspend = false;
   }
-#endif
 
   bool is_suspended = pipeline_controller_.IsSuspended();
   bool is_backgrounded = IsBackgroundSuspendEnabled(this) && IsHidden();
   PlayState state = UpdatePlayState_ComputePlayState(
-      is_remote, is_flinging_, can_auto_suspend, is_suspended, is_backgrounded);
+      is_flinging_, can_auto_suspend, is_suspended, is_backgrounded);
   SetDelegateState(state.delegate_state, state.is_idle);
   SetMemoryReportingState(state.is_memory_reporting_enabled);
   SetSuspendState(state.is_suspended || pending_suspend_resume_cycle_);
@@ -2947,18 +2766,8 @@ void WebMediaPlayerImpl::SetSuspendState(bool is_suspended) {
   }
 }
 
-// NOTE: |is_remote| and |is_flinging| both indicate that we are in a remote
-// playback session, with the following differences:
-//   - |is_remote| : we are using |cast_impl_|, and most of WMPI's functions
-//     are forwarded to it. This method of remote playback is scheduled
-//     for deprecation soon, in favor of the |is_flinging| path.
-//   - |is_flinging| : we are using the FlingingRenderer, and WMPI should
-//     behave exactly if we are using the DefaultRenderer, except for the
-//     disabling of certain optimizations.
-// See https://crbug.com/790766.
 WebMediaPlayerImpl::PlayState
-WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_remote,
-                                                     bool is_flinging,
+WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_flinging,
                                                      bool can_auto_suspend,
                                                      bool is_suspended,
                                                      bool is_backgrounded) {
@@ -3002,11 +2811,10 @@ WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_remote,
                             paused_ && !seeking_ && !needs_first_frame_;
 
   // Combined suspend state.
-  result.is_suspended = is_remote || must_suspend || idle_suspended ||
+  result.is_suspended = must_suspend || idle_suspended ||
                         background_suspended || can_stay_suspended;
 
-  DVLOG(3) << __func__ << ": is_remote=" << is_remote
-           << ", must_suspend=" << must_suspend
+  DVLOG(3) << __func__ << ": must_suspend=" << must_suspend
            << ", idle_suspended=" << idle_suspended
            << ", background_suspended=" << background_suspended
            << ", can_stay_suspended=" << can_stay_suspended
@@ -3037,8 +2845,7 @@ WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_remote,
   //   - |have_future_data|, since we need to know whether we are paused to
   //     correctly configure the session and also because the tracks and
   //     duration are passed to DidPlay(),
-  //   - |is_remote| and |is_flinging| are false as remote playback is not
-  //     handled by the delegate,
+  //   - |is_flinging| is false (RemotePlayback is not handled by the delegate)
   //   - |has_error| is false as player should have no errors,
   //   - |background_suspended| is false, otherwise |has_remote_controls| must
   //     be true.
@@ -3055,8 +2862,7 @@ WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_remote,
   bool can_play = !has_error && have_future_data;
   bool has_remote_controls =
       HasAudio() && !backgrounded_video_has_no_remote_controls;
-  bool in_remote_playback = is_remote || is_flinging;
-  bool alive = can_play && !in_remote_playback && !must_suspend &&
+  bool alive = can_play && !is_flinging && !must_suspend &&
                (!background_suspended || has_remote_controls);
   if (!alive) {
     // Do not mark players as idle when flinging.
@@ -3075,9 +2881,9 @@ WebMediaPlayerImpl::UpdatePlayState_ComputePlayState(bool is_remote,
 
   // It's not critical if some cases where memory usage can change are missed,
   // since media memory changes are usually gradual.
-  result.is_memory_reporting_enabled =
-      !has_error && can_play && !in_remote_playback && !result.is_suspended &&
-      (!paused_ || seeking_);
+  result.is_memory_reporting_enabled = !has_error && can_play && !is_flinging &&
+                                       !result.is_suspended &&
+                                       (!paused_ || seeking_);
 
   return result;
 }
@@ -3167,8 +2973,8 @@ void WebMediaPlayerImpl::ScheduleIdlePauseTimer() {
   }
 
 #if defined(OS_ANDROID)
-  // Remote players will be suspended and locally paused.
-  if (IsRemote())
+  // Don't pause videos casted as part of RemotePlayback.
+  if (is_flinging_)
     return;
 #endif
 
@@ -3290,6 +3096,16 @@ bool WebMediaPlayerImpl::IsOpaque() const {
   return opaque_;
 }
 
+int WebMediaPlayerImpl::GetDelegateId() {
+  return delegate_id_;
+}
+
+base::Optional<viz::SurfaceId> WebMediaPlayerImpl::GetSurfaceId() {
+  if (!surface_layer_for_video_enabled_)
+    return base::nullopt;
+  return bridge_->GetSurfaceId();
+}
+
 bool WebMediaPlayerImpl::ShouldPauseVideoWhenHidden() const {
   if (!is_background_video_playback_enabled_)
     return true;
@@ -3301,7 +3117,7 @@ bool WebMediaPlayerImpl::ShouldPauseVideoWhenHidden() const {
       return false;
 
 #if defined(OS_ANDROID)
-    if (IsRemote() || is_flinging_)
+    if (is_flinging_)
       return false;
 #endif
 
@@ -3336,11 +3152,11 @@ bool WebMediaPlayerImpl::IsBackgroundOptimizationCandidate() const {
   if (IsInPictureInPicture())
     return false;
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-  // Don't optimize players being Cast.
-  if (IsRemote())
+#if defined(OS_ANDROID)
+  // Don't optimize videos casted as part of RemotePlayback.
+  if (is_flinging_)
     return false;
-#endif  // defined(OS_ANDROID)
+#endif
 
   // Don't optimize audio-only or streaming players.
   if (!HasVideo() || IsStreaming())
@@ -3592,11 +3408,6 @@ bool WebMediaPlayerImpl::IsInPictureInPicture() const {
   DCHECK(client_);
   return client_->DisplayType() ==
          WebMediaPlayer::DisplayType::kPictureInPicture;
-}
-
-bool WebMediaPlayerImpl::ShouldShowPlayPauseButtonInPictureInPictureWindow()
-    const {
-  return Duration() != std::numeric_limits<double>::infinity();
 }
 
 void WebMediaPlayerImpl::MaybeSetContainerName() {

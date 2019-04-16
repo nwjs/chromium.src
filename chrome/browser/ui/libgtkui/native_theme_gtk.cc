@@ -25,17 +25,6 @@ enum BackgroundRenderMode {
   BG_RENDER_RECURSIVE,
 };
 
-std::string GetGtkSettingsStringProperty(GtkSettings* settings,
-                                         const gchar* prop_name) {
-  GValue layout = G_VALUE_INIT;
-  g_value_init(&layout, G_TYPE_STRING);
-  g_object_get_property(G_OBJECT(settings), prop_name, &layout);
-  DCHECK(G_VALUE_HOLDS_STRING(&layout));
-  std::string prop_value(g_value_get_string(&layout));
-  g_value_unset(&layout);
-  return prop_value;
-}
-
 ScopedStyleContext GetTooltipContext() {
   return AppendCssNodeToStyleContext(
       nullptr, GtkVersionCheck(3, 20) ? "#tooltip.background"
@@ -136,7 +125,8 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
     case ui::NativeTheme::kColorId_HighlightedMenuItemBackgroundColor:
     case ui::NativeTheme::kColorId_HighlightedMenuItemForegroundColor:
     case ui::NativeTheme::kColorId_FocusedHighlightedMenuItemBackgroundColor:
-    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColor:
+    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMax:
+    case ui::NativeTheme::kColorId_MenuItemAlertBackgroundColorMin:
       return ui::NativeTheme::GetInstanceForNativeUi()->GetSystemColor(
           color_id);
 
@@ -331,6 +321,11 @@ SkColor SkColorFromColorId(ui::NativeTheme::ColorId color_id) {
               : ui::NativeThemeDarkAura::instance();
       return fallback_theme->GetSystemColor(color_id);
     }
+
+    case ui::NativeTheme::kColorId_DefaultIconColor:
+      if (GtkVersionCheck(3, 20))
+        return GetFgColor("GtkMenu#menu GtkMenuItem#menuitem #radio");
+      return GetFgColor("GtkMenu#menu GtkMenuItem#menuitem.radio");
 
     case ui::NativeTheme::kColorId_NumColors:
       NOTREACHED();

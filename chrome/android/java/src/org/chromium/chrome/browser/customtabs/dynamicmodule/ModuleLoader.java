@@ -12,7 +12,6 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Process;
 import android.support.annotation.Nullable;
 
 import dalvik.system.DexClassLoader;
@@ -24,6 +23,8 @@ import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.base.task.TaskPriority;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.customtabs.dynamicmodule.ModuleMetrics.DestructionReason;
@@ -48,11 +49,20 @@ public class ModuleLoader {
 
     /** Specifies the module package name and entry point class name. */
     private final ComponentName mComponentName;
-    private final int mDexResourceId;
+    @Nullable
+    private final String mDexAssetName;
     private final DexInputStreamProvider mDexInputStreamProvider;
     private final DexClassLoaderProvider mDexClassLoaderProvider;
     private final long mModuleLastUpdateTime;
     private final String mModuleId;
+
+    /** @param moduleContext The context for the package to load the class from. */
+    private Context mModuleContext;
+
+    @Nullable
+    private ClassLoader mClassLoader;
+    private boolean mIsClassLoaderCreating;
+    private boolean mNeedsToLoadModule;
 
     /**
      * Tracks the number of usages of the module. If it is no longer used, it may be destroyed, but
@@ -88,20 +98,20 @@ public class ModuleLoader {
     /**
      * Instantiates a new {@link ModuleLoader}.
      * @param componentName Specifies the module package name and entry point class name.
-     * @param dexResourceId Identifier for the resource that contains the dex file to load the
-     *         module from. {@code 0} if the module should not be loaded from a dex file.
+     * @param dexAssetName Identifier for the asset that contains the dex file to load the
+     *         module from. {@code null} if the module should not be loaded from a dex file.
      */
-    public ModuleLoader(ComponentName componentName, int dexResourceId) {
-        this(componentName, dexResourceId, new DexInputStreamProviderImpl(),
+    public ModuleLoader(ComponentName componentName, @Nullable String dexAssetName) {
+        this(componentName, dexAssetName, new DexInputStreamProviderImpl(),
                 new DexClassLoaderProviderImpl());
     }
 
     @VisibleForTesting
-    /* package */ ModuleLoader(ComponentName componentName, int dexResourceId,
+    /* package */ ModuleLoader(ComponentName componentName, @Nullable String dexAssetName,
             DexInputStreamProvider dexInputStreamProvider,
             DexClassLoaderProvider dexClassLoaderProvider) {
         mComponentName = componentName;
-        mDexResourceId = dexResourceId;
+        mDexAssetName = dexAssetName;
         mDexInputStreamProvider = dexInputStreamProvider;
         mDexClassLoaderProvider = dexClassLoaderProvider;
         String packageName = componentName.getPackageName();
@@ -121,20 +131,30 @@ public class ModuleLoader {
         }
         mModuleLastUpdateTime = lastUpdateTime;
         mModuleId = String.format("%s v%s (%s)", packageName, versionCode, versionName);
+
+        mModuleContext = createModuleContext(
+                mComponentName.getPackageName(), /* resourcesOnly = */ mDexAssetName != null);
     }
 
     public ComponentName getComponentName() {
         return mComponentName;
     }
 
-    public int getDexResourceId() {
-        return mDexResourceId;
+    @Nullable
+    public String getDexAssetName() {
+        return mDexAssetName;
     }
 
     /**
      * If the module is not loaded yet, dynamically loads the module entry point class.
      */
     public void loadModule() {
+        if (mClassLoader == null) {
+            mNeedsToLoadModule = true;
+            if (!mIsClassLoaderCreating) createClassLoader();
+            return;
+        }
+
         if (mIsModuleLoading) return;
 
         // If module has been already loaded all callbacks must be notified synchronously.
@@ -144,9 +164,7 @@ public class ModuleLoader {
             return;
         }
 
-        Context moduleContext = createModuleContext(
-                mComponentName.getPackageName(), /* resourcesOnly = */ mDexResourceId != 0);
-        if (moduleContext == null) {
+        if (mModuleContext == null) {
             runAndClearCallbacks();
             return;
         }
@@ -154,7 +172,16 @@ public class ModuleLoader {
         ModuleMetrics.registerLifecycleState(ModuleMetrics.LifecycleState.NOT_LOADED);
 
         mIsModuleLoading = true;
-        new LoadClassTask(moduleContext).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        new LoadClassTask().executeWithTaskTraits(
+                new TaskTraits().taskPriority(TaskPriority.USER_VISIBLE).mayBlock(true));
+    }
+
+    public void createClassLoader() {
+        if (mClassLoader != null) return;
+
+        mIsClassLoaderCreating = true;
+        new ClassLoaderTask().executeWithTaskTraits(
+                new TaskTraits().taskPriority(TaskPriority.USER_VISIBLE).mayBlock(true));
     }
 
     /**
@@ -307,52 +334,34 @@ public class ModuleLoader {
     }
 
     /**
-     * A task for loading the module entry point class on a background thread.
+     * A task for creating module {@link ClassLoader}.
      */
-    private class LoadClassTask extends AsyncTask<Class<?>> {
+    private class ClassLoaderTask extends AsyncTask<ClassLoader> {
         /** Buffer size to use while copying an input stream into the disk. */
         private static final int BUFFER_SIZE = 16 * 1024;
 
-        private final Context mModuleContext;
-
-        /**
-         * Constructs the task.
-         * @param moduleContext The context for the package to load the class from.
-         */
-        LoadClassTask(Context moduleContext) {
-            mModuleContext = moduleContext;
-        }
-
         @Override
         @Nullable
-        protected Class<?> doInBackground() {
-            int oldPriority = Process.getThreadPriority(0);
+        protected ClassLoader doInBackground() {
             try {
-                // We don't want to block the UI thread, but we don't want to be really slow either.
-                // The AsyncTask class sets the thread priority quite low
-                // (THREAD_PRIORITY_BACKGROUND) and does not distinguish between user-visible
-                // user-invisible tasks.
-                // TODO(crbug.com/863457): Replace this with something like a task trait that
-                // influences priority once we have a task scheduler in Java.
-                Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT);
-
                 boolean loadFromDex = updateModuleDexInDiskIfNeeded();
-                long entryPointLoadClassStartTime = ModuleMetrics.now();
-                Class<?> clazz =
-                        getModuleClassLoader(loadFromDex).loadClass(mComponentName.getClassName());
-                ModuleMetrics.recordLoadClassTime(entryPointLoadClassStartTime);
-                return clazz;
-            } catch (ClassNotFoundException e) {
-                Log.e(TAG, "Could not find class %s", mComponentName.getClassName(), e);
-                ModuleMetrics.recordLoadResult(ModuleMetrics.LoadResult.CLASS_NOT_FOUND_EXCEPTION);
+                mClassLoader = getModuleClassLoader(loadFromDex);
+                return mClassLoader;
             } catch (IOException e) {
                 Log.e(TAG, "Could not copy dex to local storage", e);
                 ModuleMetrics.recordLoadResult(
                         ModuleMetrics.LoadResult.FAILED_TO_COPY_DEX_EXCEPTION);
-            } finally {
-                Process.setThreadPriority(oldPriority);
             }
             return null;
+        }
+
+        @Override
+        protected void onPostExecute(ClassLoader classLoader) {
+            mIsClassLoaderCreating = false;
+            if (mNeedsToLoadModule) {
+                mNeedsToLoadModule = false;
+                loadModule();
+            }
         }
 
         /**
@@ -368,7 +377,7 @@ public class ModuleLoader {
             String dexLastUpdateTimePref = getDexLastUpdateTimePrefName();
             long localDexLastUpdateTime = preferences.getLong(dexLastUpdateTimePref, -1);
 
-            if (mDexResourceId == 0) {
+            if (mDexAssetName == null) {
                 if (localDexLastUpdateTime != -1) {
                     // The module had a dex before but now it doesn't. Clean up previous local dex.
                     cleanUpLocalDex();
@@ -376,7 +385,7 @@ public class ModuleLoader {
                 return false;
             } else if (localDexLastUpdateTime != mModuleLastUpdateTime) {
                 try {
-                    copyDexToDisk(mDexResourceId);
+                    copyDexToDisk(mDexAssetName);
                     preferences.edit()
                             .putLong(dexLastUpdateTimePref, mModuleLastUpdateTime)
                             .apply();
@@ -391,21 +400,42 @@ public class ModuleLoader {
         }
 
         /**
-         * Copies the dex file with the given {@code dexResourceId} from the module's context
+         * Copies the dex file with the given {@code dexAssetName} from the module's context
          * into the local storage.
          */
-        private void copyDexToDisk(int dexResourceId) throws IOException {
+        private void copyDexToDisk(String dexAssetName) throws IOException {
             InputStream in =
-                    mDexInputStreamProvider.createInputStream(dexResourceId, mModuleContext);
+                    mDexInputStreamProvider.createInputStream(dexAssetName, mModuleContext);
             FileUtils.copyFileStreamAtomicWithBuffer(in, getDexFile(), new byte[BUFFER_SIZE]);
         }
 
         private ClassLoader getModuleClassLoader(boolean loadFromDex) {
-            if (mDexResourceId == 0 || !loadFromDex) {
+            if (mDexAssetName == null || !loadFromDex) {
                 // Load directly from the APK if an extra dex file is not provided.
                 return mModuleContext.getClassLoader();
             }
             return mDexClassLoaderProvider.createClassLoader(getDexFile());
+        }
+    }
+
+    /**
+     * A task for loading the module entry point class on a background thread.
+     */
+    private class LoadClassTask extends AsyncTask<Class<?>> {
+        @Override
+        @Nullable
+        protected Class<?> doInBackground() {
+            if (mClassLoader == null) return null;
+            try {
+                long entryPointLoadClassStartTime = ModuleMetrics.now();
+                Class<?> clazz = mClassLoader.loadClass(mComponentName.getClassName());
+                ModuleMetrics.recordLoadClassTime(entryPointLoadClassStartTime);
+                return clazz;
+            } catch (ClassNotFoundException e) {
+                Log.e(TAG, "Could not find class %s", mComponentName.getClassName(), e);
+                ModuleMetrics.recordLoadResult(ModuleMetrics.LoadResult.CLASS_NOT_FOUND_EXCEPTION);
+            }
+            return null;
         }
 
         @Override
@@ -504,13 +534,15 @@ public class ModuleLoader {
      */
     @VisibleForTesting
     public interface DexInputStreamProvider {
-        InputStream createInputStream(int dexResourceId, Context moduleContext);
+        InputStream createInputStream(@Nullable String dexAssetName, Context moduleContext)
+                throws IOException;
     }
 
     private static class DexInputStreamProviderImpl implements DexInputStreamProvider {
         @Override
-        public InputStream createInputStream(int dexResourceId, Context moduleContext) {
-            return moduleContext.getResources().openRawResource(dexResourceId);
+        public InputStream createInputStream(@Nullable String dexAssetName, Context moduleContext)
+                throws IOException {
+            return moduleContext.getResources().getAssets().open(dexAssetName);
         }
     }
 

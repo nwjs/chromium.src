@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
@@ -149,7 +150,8 @@ UsbDeviceHandleImpl::InterfaceClaimer::InterfaceClaimer(
 
 UsbDeviceHandleImpl::InterfaceClaimer::~InterfaceClaimer() {
   DCHECK(sequence_checker_.CalledOnValidSequence());
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rc = libusb_release_interface(handle_->handle(), interface_number_);
   if (rc != LIBUSB_SUCCESS) {
     USB_LOG(DEBUG) << "Failed to release interface: "
@@ -396,7 +398,8 @@ UsbDeviceHandleImpl::Transfer::~Transfer() {
 }
 
 void UsbDeviceHandleImpl::Transfer::Submit() {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   const int rv = libusb_submit_transfer(platform_transfer_);
   if (rv != LIBUSB_SUCCESS) {
     USB_LOG(EVENT) << "Failed to submit transfer: "
@@ -850,7 +853,8 @@ UsbDeviceHandleImpl::~UsbDeviceHandleImpl() {
 
 void UsbDeviceHandleImpl::SetConfigurationBlocking(int configuration_value,
                                                    ResultCallback callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rv = libusb_set_configuration(handle(), configuration_value);
   if (rv != LIBUSB_SUCCESS) {
     USB_LOG(EVENT) << "Failed to set configuration " << configuration_value
@@ -878,7 +882,8 @@ void UsbDeviceHandleImpl::SetConfigurationComplete(bool success,
 
 void UsbDeviceHandleImpl::ClaimInterfaceBlocking(int interface_number,
                                                  ResultCallback callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rv = libusb_claim_interface(handle(), interface_number);
   scoped_refptr<InterfaceClaimer> interface_claimer;
   if (rv == LIBUSB_SUCCESS) {
@@ -919,7 +924,8 @@ void UsbDeviceHandleImpl::SetInterfaceAlternateSettingBlocking(
     int interface_number,
     int alternate_setting,
     ResultCallback callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rv = libusb_set_interface_alt_setting(handle(), interface_number,
                                             alternate_setting);
   if (rv != LIBUSB_SUCCESS) {
@@ -953,7 +959,8 @@ void UsbDeviceHandleImpl::SetInterfaceAlternateSettingComplete(
 }
 
 void UsbDeviceHandleImpl::ResetDeviceBlocking(ResultCallback callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rv = libusb_reset_device(handle());
   if (rv != LIBUSB_SUCCESS) {
     USB_LOG(EVENT) << "Failed to reset device: "
@@ -965,7 +972,8 @@ void UsbDeviceHandleImpl::ResetDeviceBlocking(ResultCallback callback) {
 
 void UsbDeviceHandleImpl::ClearHaltBlocking(uint8_t endpoint,
                                             ResultCallback callback) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   int rv = libusb_clear_halt(handle(), endpoint);
   if (rv != LIBUSB_SUCCESS) {
     USB_LOG(EVENT) << "Failed to clear halt: "

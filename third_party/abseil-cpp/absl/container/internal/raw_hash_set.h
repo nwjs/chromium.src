@@ -115,7 +115,6 @@
 #include "absl/container/internal/layout.h"
 #include "absl/memory/memory.h"
 #include "absl/meta/type_traits.h"
-#include "absl/types/optional.h"
 #include "absl/utility/utility.h"
 
 namespace absl {
@@ -502,126 +501,6 @@ inline size_t GrowthToLowerboundCapacity(size_t growth) {
   return growth + static_cast<size_t>((static_cast<int64_t>(growth) - 1) / 7);
 }
 
-// The node_handle concept from C++17.
-// We specialize node_handle for sets and maps. node_handle_base holds the
-// common API of both.
-template <typename Policy, typename Alloc>
-class node_handle_base {
- protected:
-  using PolicyTraits = hash_policy_traits<Policy>;
-  using slot_type = typename PolicyTraits::slot_type;
-
- public:
-  using allocator_type = Alloc;
-
-  constexpr node_handle_base() {}
-  node_handle_base(node_handle_base&& other) noexcept {
-    *this = std::move(other);
-  }
-  ~node_handle_base() { destroy(); }
-  node_handle_base& operator=(node_handle_base&& other) {
-    destroy();
-    if (!other.empty()) {
-      alloc_ = other.alloc_;
-      PolicyTraits::transfer(alloc(), slot(), other.slot());
-      other.reset();
-    }
-    return *this;
-  }
-
-  bool empty() const noexcept { return !alloc_; }
-  explicit operator bool() const noexcept { return !empty(); }
-  allocator_type get_allocator() const { return *alloc_; }
-
- protected:
-  template <typename, typename, typename, typename>
-  friend class raw_hash_set;
-
-  node_handle_base(const allocator_type& a, slot_type* s) : alloc_(a) {
-    PolicyTraits::transfer(alloc(), slot(), s);
-  }
-
-  void destroy() {
-    if (!empty()) {
-      PolicyTraits::destroy(alloc(), slot());
-      reset();
-    }
-  }
-
-  void reset() {
-    assert(alloc_.has_value());
-    alloc_ = absl::nullopt;
-  }
-
-  slot_type* slot() const {
-    assert(!empty());
-    return reinterpret_cast<slot_type*>(std::addressof(slot_space_));
-  }
-  allocator_type* alloc() { return std::addressof(*alloc_); }
-
- private:
-  absl::optional<allocator_type> alloc_;
-  mutable absl::aligned_storage_t<sizeof(slot_type), alignof(slot_type)>
-      slot_space_;
-};
-
-// For sets.
-template <typename Policy, typename Alloc, typename = void>
-class node_handle : public node_handle_base<Policy, Alloc> {
-  using Base = typename node_handle::node_handle_base;
-
- public:
-  using value_type = typename Base::PolicyTraits::value_type;
-
-  constexpr node_handle() {}
-
-  value_type& value() const {
-    return Base::PolicyTraits::element(this->slot());
-  }
-
- private:
-  template <typename, typename, typename, typename>
-  friend class raw_hash_set;
-
-  node_handle(const Alloc& a, typename Base::slot_type* s) : Base(a, s) {}
-};
-
-// For maps.
-template <typename Policy, typename Alloc>
-class node_handle<Policy, Alloc, absl::void_t<typename Policy::mapped_type>>
-    : public node_handle_base<Policy, Alloc> {
-  using Base = typename node_handle::node_handle_base;
-
- public:
-  using key_type = typename Policy::key_type;
-  using mapped_type = typename Policy::mapped_type;
-
-  constexpr node_handle() {}
-
-  auto key() const -> decltype(Base::PolicyTraits::key(this->slot())) {
-    return Base::PolicyTraits::key(this->slot());
-  }
-
-  mapped_type& mapped() const {
-    return Base::PolicyTraits::value(
-        &Base::PolicyTraits::element(this->slot()));
-  }
-
- private:
-  template <typename, typename, typename, typename>
-  friend class raw_hash_set;
-
-  node_handle(const Alloc& a, typename Base::slot_type* s) : Base(a, s) {}
-};
-
-// Implement the insert_return_type<> concept of C++17.
-template <class Iterator, class NodeType>
-struct insert_return_type {
-  Iterator position;
-  bool inserted;
-  NodeType node;
-};
-
 // Policy: a policy defines how to perform different operations on
 // the slots of the hashtable (see hash_policy_traits.h for the full interface
 // of policy).
@@ -828,7 +707,8 @@ class raw_hash_set {
     iterator inner_;
   };
 
-  using node_type = container_internal::node_handle<Policy, Alloc>;
+  using node_type = node_handle<Policy, hash_policy_traits<Policy>, Alloc>;
+  using insert_return_type = InsertReturnType<iterator, node_type>;
 
   raw_hash_set() noexcept(
       std::is_nothrow_default_constructible<hasher>::value&&
@@ -1035,7 +915,7 @@ class raw_hash_set {
   size_t capacity() const { return capacity_; }
   size_t max_size() const { return (std::numeric_limits<size_t>::max)(); }
 
-  void clear() {
+  ABSL_ATTRIBUTE_REINITIALIZES void clear() {
     // Iterating over this container is O(bucket_count()). When bucket_count()
     // is much greater than size(), iteration becomes prohibitively expensive.
     // For clear() it is more important to reuse the allocated array when the
@@ -1056,7 +936,7 @@ class raw_hash_set {
       reset_growth_left();
     }
     assert(empty());
-    infoz_.RecordStorageChanged(size_, capacity_);
+    infoz_.RecordStorageChanged(0, capacity_);
   }
 
   // This overload kicks in when the argument is an rvalue of insertable and
@@ -1136,13 +1016,14 @@ class raw_hash_set {
     insert(ilist.begin(), ilist.end());
   }
 
-  insert_return_type<iterator, node_type> insert(node_type&& node) {
+  insert_return_type insert(node_type&& node) {
     if (!node) return {end(), false, node_type()};
-    const auto& elem = PolicyTraits::element(node.slot());
+    const auto& elem = PolicyTraits::element(CommonAccess::GetSlot(node));
     auto res = PolicyTraits::apply(
-        InsertSlot<false>{*this, std::move(*node.slot())}, elem);
+        InsertSlot<false>{*this, std::move(*CommonAccess::GetSlot(node))},
+        elem);
     if (res.second) {
-      node.reset();
+      CommonAccess::Reset(&node);
       return {res.first, true, node_type()};
     } else {
       return {res.first, false, std::move(node)};
@@ -1306,7 +1187,8 @@ class raw_hash_set {
   }
 
   node_type extract(const_iterator position) {
-    node_type node(alloc_ref(), position.inner_.slot_);
+    auto node =
+        CommonAccess::Make<node_type>(alloc_ref(), position.inner_.slot_);
     erase_meta_only(position);
     return node;
   }
@@ -1344,7 +1226,7 @@ class raw_hash_set {
     if (n == 0 && capacity_ == 0) return;
     if (n == 0 && size_ == 0) {
       destroy_slots();
-      infoz_.RecordStorageChanged(size_, capacity_);
+      infoz_.RecordStorageChanged(0, 0);
       return;
     }
     // bitor is a faster way of doing `max` here. We will round up to the next
@@ -1601,11 +1483,14 @@ class raw_hash_set {
     capacity_ = new_capacity;
     initialize_slots();
 
+    size_t total_probe_length = 0;
     for (size_t i = 0; i != old_capacity; ++i) {
       if (IsFull(old_ctrl[i])) {
         size_t hash = PolicyTraits::apply(HashElement{hash_ref()},
                                           PolicyTraits::element(old_slots + i));
-        size_t new_i = find_first_non_full(hash).offset;
+        auto target = find_first_non_full(hash);
+        size_t new_i = target.offset;
+        total_probe_length += target.probe_length;
         set_ctrl(new_i, H2(hash));
         PolicyTraits::transfer(&alloc_ref(), slots_ + new_i, old_slots + i);
       }
@@ -1617,6 +1502,7 @@ class raw_hash_set {
       Deallocate<Layout::Alignment()>(&alloc_ref(), old_ctrl,
                                       layout.AllocSize());
     }
+    infoz_.RecordRehash(total_probe_length);
   }
 
   void drop_deletes_without_resize() ABSL_ATTRIBUTE_NOINLINE {
@@ -1640,12 +1526,15 @@ class raw_hash_set {
     ConvertDeletedToEmptyAndFullToDeleted(ctrl_, capacity_);
     typename std::aligned_storage<sizeof(slot_type), alignof(slot_type)>::type
         raw;
+    size_t total_probe_length = 0;
     slot_type* slot = reinterpret_cast<slot_type*>(&raw);
     for (size_t i = 0; i != capacity_; ++i) {
       if (!IsDeleted(ctrl_[i])) continue;
       size_t hash = PolicyTraits::apply(HashElement{hash_ref()},
                                         PolicyTraits::element(slots_ + i));
-      size_t new_i = find_first_non_full(hash).offset;
+      auto target = find_first_non_full(hash);
+      size_t new_i = target.offset;
+      total_probe_length += target.probe_length;
 
       // Verify if the old and new i fall within the same group wrt the hash.
       // If they do, we don't need to move the object as it falls already in the
@@ -1678,6 +1567,7 @@ class raw_hash_set {
       }
     }
     reset_growth_left();
+    infoz_.RecordRehash(total_probe_length);
   }
 
   void rehash_and_grow_if_necessary() {

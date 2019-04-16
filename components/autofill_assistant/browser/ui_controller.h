@@ -12,8 +12,9 @@
 #include "base/callback_forward.h"
 #include "components/autofill_assistant/browser/chip.h"
 #include "components/autofill_assistant/browser/details.h"
+#include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/metrics.h"
-#include "components/autofill_assistant/browser/payment_information.h"
+#include "components/autofill_assistant/browser/payment_request.h"
 #include "components/autofill_assistant/browser/script.h"
 #include "components/autofill_assistant/browser/state.h"
 #include "components/autofill_assistant/browser/ui_delegate.h"
@@ -22,57 +23,58 @@
 namespace autofill_assistant {
 
 // Controller to control autofill assistant UI.
+//
+// TODO(crbug/925947): Rename this class to Observer and make treat it as a real
+// observer in the Controller.
 class UiController {
  public:
-  virtual ~UiController() = default;
+  UiController();
+  virtual ~UiController();
 
   // Called when the controller has entered a new state.
-  virtual void OnStateChanged(AutofillAssistantState new_state) = 0;
+  virtual void OnStateChanged(AutofillAssistantState new_state);
 
   // Report that the status message has changed.
-  virtual void OnStatusMessageChanged(const std::string& message) = 0;
+  virtual void OnStatusMessageChanged(const std::string& message);
 
-  // Shuts down Autofill Assistant: hide the UI and frees any associated state.
+  // Autofill Assistant is about to be shut down for this tab.
   //
-  // Warning: this indirectly deletes the caller.
-  virtual void Shutdown(Metrics::DropOutReason reason) = 0;
+  // Pointer to UIDelegate will become invalid as soon as this method has
+  // returned.
+  virtual void WillShutdown(Metrics::DropOutReason reason);
 
-  // Shuts down Autofill Assistant and closes Chrome.
-  virtual void Close() = 0;
+  // Report that the set of suggestions has changed.
+  virtual void OnSuggestionsChanged(const std::vector<Chip>& suggestions);
 
-  // Show UI to ask user to make a choice between different chips.
-  virtual void SetChips(std::unique_ptr<std::vector<Chip>> chips) = 0;
+  // Report that the set of actions has changed.
+  virtual void OnActionsChanged(const std::vector<Chip>& actions);
 
-  // Remove all chips from the UI.
-  virtual void ClearChips() = 0;
-
-  // Get payment information (through similar to payment request UX) to fill
-  // forms.
-  virtual void GetPaymentInformation(
-      payments::mojom::PaymentOptionsPtr payment_options,
-      base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
-      const std::string& title,
-      const std::vector<std::string>& supported_basic_card_networks) = 0;
+  // Gets or clears request for payment information.
+  virtual void OnPaymentRequestChanged(const PaymentRequestOptions* options);
 
   // Called when details have changed. Details will be null if they have been
   // cleared.
-  virtual void OnDetailsChanged(const Details* details) = 0;
+  virtual void OnDetailsChanged(const Details* details);
 
-  // Show the progress bar and set it at |progress|%.
-  virtual void ShowProgressBar(int progress) = 0;
+  // Called when info box has changed. |info_box| will be null if it has been
+  // cleared.
+  virtual void OnInfoBoxChanged(const InfoBox* info_box);
 
-  // Hide the progress bar.
-  virtual void HideProgressBar() = 0;
+  // Called when the current progress has changed. Progress, is expressed as a
+  // percentage.
+  virtual void OnProgressChanged(int progress);
+
+  // Called when the current progress bar visibility has changed. If |visible|
+  // is true, then the bar is now shown.
+  virtual void OnProgressVisibilityChanged(bool visible);
 
   // Updates the area of the visible viewport that is accessible when the
   // overlay state is OverlayState::PARTIAL.
   //
-  // |areas| is expressed in coordinates relative to the width or height of the
-  // visible viewport, as a number between 0 and 1. It can be empty.
-  virtual void SetTouchableArea(const std::vector<RectF>& areas) = 0;
-
- protected:
-  UiController() = default;
+  // |rectangles| contains one element per configured rectangles, though these
+  // can correspond to empty rectangles. Coordinates are relative to the width
+  // or height of the visible viewport, as a number between 0 and 1.
+  virtual void OnTouchableAreaChanged(const std::vector<RectF>& rectangles);
 };
 }  // namespace autofill_assistant
 #endif  // COMPONENTS_AUTOFILL_ASSISTANT_BROWSER_UI_CONTROLLER_H_

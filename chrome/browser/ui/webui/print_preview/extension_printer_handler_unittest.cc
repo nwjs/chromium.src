@@ -13,6 +13,7 @@
 
 #include "base/bind.h"
 #include "base/containers/queue.h"
+#include "base/json/json_reader.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted_memory.h"
@@ -30,6 +31,8 @@
 #include "device/base/mock_device_client.h"
 #include "device/usb/mock_usb_device.h"
 #include "device/usb/mock_usb_service.h"
+#include "device/usb/mojo/type_converters.h"
+#include "device/usb/public/mojom/device.mojom.h"
 #include "extensions/browser/api/device_permissions_manager.h"
 #include "extensions/browser/api/printer_provider/printer_provider_api.h"
 #include "extensions/browser/api/printer_provider/printer_provider_api_factory.h"
@@ -69,29 +72,6 @@ const char kPrinterDescriptionList[] =
     "  \"description\": \"Test printer 2\""
     "}]";
 
-// Printer capability for printer that supports all content types.
-const char kAllContentTypesSupportedPrinter[] =
-    "{"
-    "  \"version\": \"1.0\","
-    "  \"printer\": {"
-    "    \"supported_content_type\": ["
-    "      {\"content_type\": \"*/*\"}"
-    "    ]"
-    "  }"
-    "}";
-
-// Printer capability for a printer that supports PDF.
-const char kPdfSupportedPrinter[] =
-    "{"
-    "  \"version\": \"1.0\","
-    "  \"printer\": {"
-    "    \"supported_content_type\": ["
-    "      {\"content_type\": \"application/pdf\"},"
-    "      {\"content_type\": \"image/pwg-raster\"}"
-    "    ]"
-    "  }"
-    "}";
-
 // Printer capability for a printer that supportd only PWG raster.
 const char kPWGRasterOnlyPrinterSimpleDescription[] =
     "{"
@@ -100,30 +80,6 @@ const char kPWGRasterOnlyPrinterSimpleDescription[] =
     "    \"supported_content_type\": ["
     "      {\"content_type\": \"image/pwg-raster\"}"
     "    ]"
-    "  }"
-    "}";
-
-// Printer capability for a printer that supportd only PWG raster that has
-// options other that supported_content_type set.
-const char kPWGRasterOnlyPrinter[] =
-    "{"
-    "  \"version\": \"1.0\","
-    "  \"printer\": {"
-    "    \"supported_content_type\": ["
-    "      {\"content_type\": \"image/pwg-raster\"}"
-    "    ],"
-    "    \"pwg_raster_config\": {"
-    "      \"document_sheet_back\": \"FLIPPED\","
-    "      \"reverse_order_streaming\": true,"
-    "      \"rotate_all_pages\": true"
-    "    },"
-    "    \"dpi\": {"
-    "      \"option\": [{"
-    "        \"horizontal_dpi\": 100,"
-    "        \"vertical_dpi\": 200,"
-    "        \"is_default\": true"
-    "      }]"
-    "    }"
     "  }"
     "}";
 
@@ -182,6 +138,99 @@ const char kExtension2[] =
     "    ]"
     "  }"
     "}";
+
+const char kPdfSettings[] = R"({
+  "deviceName": "printer_id",
+  "capabilities": "{
+      \"version\": \"1.0\",
+      \"printer\": {
+        \"supported_content_type\": [
+          {\"content_type\": \"application/pdf\"},
+          {\"content_type\": \"image/pwg-raster\"}
+        ]
+      }
+    }",
+  "ticket": "{\"version\": \"1.0\"}",
+  "pageWidth": 100,
+  "pageHeight": 50
+})";
+
+const char kAllTypesSettings[] = R"({
+  "deviceName": "printer_id",
+  "capabilities": "{
+      \"version\": \"1.0\",
+      \"printer\": {
+        \"supported_content_type\": [
+          {\"content_type\": \"*/*\"}
+        ]
+      }
+    }",
+  "ticket": "{\"version\": \"1.0\"}",
+  "pageWidth": 100,
+  "pageHeight": 50
+})";
+
+const char kSimpleRasterSettings[] = R"({
+  "deviceName": "printer_id",
+  "capabilities": "{
+      \"version\": \"1.0\",
+      \"printer\": {
+        \"supported_content_type\": [
+          {\"content_type\": \"image/pwg-raster\"}
+        ]
+      }
+    }",
+  "ticket": "{\"version\": \"1.0\"}",
+  "pageWidth": 100,
+  "pageHeight": 50
+})";
+
+const char kInvalidSettings[] = R"({
+  "deviceName": "printer_id",
+  "capabilities": "{
+      \"version\": \"1.0\",
+      \"printer\": {
+        \"supported_content_type\": [
+          {\"content_type\": \"image/pwg-raster\"}
+        ]
+      }
+    }",
+  "ticket": "{}",
+  "pageWidth": 100,
+  "pageHeight": 50
+})";
+
+const char kDuplexSettings[] = R"({
+  "deviceName": "printer_id",
+  "capabilities": "{
+      \"version\": \"1.0\",
+      \"printer\": {
+        \"supported_content_type\": [
+          {\"content_type\": \"image/pwg-raster\"}
+        ],
+        \"pwg_raster_config\": {
+          \"document_sheet_back\": \"FLIPPED\",
+          \"reverse_order_streaming\": true,
+          \"rotate_all_pages\": true
+        },
+        \"dpi\": {
+          \"option\": [{
+            \"horizontal_dpi\": 100,
+            \"vertical_dpi\": 200,
+            \"is_default\": true
+          }]
+        }
+      }
+    }",
+  "ticket": "{
+      \"version\": \"1.0\",
+      \"print\": {
+        \"duplex\": {\"type\": \"LONG_EDGE\"}
+      }
+    }",
+  "pageWidth": 100,
+  "pageHeight": 50
+})";
 
 const char kContentTypePDF[] = "application/pdf";
 const char kContentTypePWG[] = "image/pwg-raster";
@@ -349,21 +398,21 @@ class FakePrinterProviderAPI : public PrinterProviderAPI {
   }
 
   void DispatchPrintRequested(
-      const PrinterProviderPrintJob& job,
+      PrinterProviderPrintJob job,
       PrinterProviderAPI::PrintCallback callback) override {
     PrintRequestInfo request_info;
     request_info.callback = std::move(callback);
-    request_info.job = job;
+    request_info.job = std::move(job);
 
     pending_print_requests_.push(std::move(request_info));
   }
 
   void DispatchGetUsbPrinterInfoRequested(
       const std::string& extension_id,
-      scoped_refptr<device::UsbDevice> device,
+      const device::mojom::UsbDeviceInfo& device,
       PrinterProviderAPI::GetPrinterInfoCallback callback) override {
     EXPECT_EQ("fake extension id", extension_id);
-    EXPECT_TRUE(device);
+    EXPECT_FALSE(device.guid.empty());
     pending_usb_info_callbacks_.push(std::move(callback));
   }
 
@@ -538,21 +587,25 @@ TEST_F(ExtensionPrinterHandlerTest, GetPrinters_Reset) {
 }
 
 TEST_F(ExtensionPrinterHandlerTest, GetUsbPrinters) {
-  auto device0 =
+  scoped_refptr<device::UsbDevice> device0 =
       base::MakeRefCounted<MockUsbDevice>(0, 0, "Google", "USB Printer", "");
   usb_service().AddDevice(device0);
-  auto device1 =
+  scoped_refptr<device::UsbDevice> device1 =
       base::MakeRefCounted<MockUsbDevice>(0, 1, "Google", "USB Printer", "");
   usb_service().AddDevice(device1);
 
-  const Extension* extension_1 = env_.MakeExtension(
-      *base::test::ParseJson(kExtension1), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-  const Extension* extension_2 = env_.MakeExtension(
-      *base::test::ParseJson(kExtension2), "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+  const Extension* extension_1 =
+      env_.MakeExtension(*base::test::ParseJsonDeprecated(kExtension1),
+                         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  const Extension* extension_2 =
+      env_.MakeExtension(*base::test::ParseJsonDeprecated(kExtension2),
+                         "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
   extensions::DevicePermissionsManager* permissions_manager =
       extensions::DevicePermissionsManager::Get(env_.profile());
-  permissions_manager->AllowUsbDevice(extension_2->id(), device0);
+  auto device_info_0 = device::mojom::UsbDeviceInfo::From(*device0);
+  DCHECK(device_info_0);
+  permissions_manager->AllowUsbDevice(extension_2->id(), *device_info_0);
 
   size_t call_count = 0;
   std::unique_ptr<base::ListValue> printers;
@@ -664,8 +717,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pdf) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPdfSupportedPrinter, title, kEmptyPrintTicket,
-      gfx::Size(100, 100), print_data,
+      title, *base::JSONReader::Read(kPdfSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -678,7 +730,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pdf) {
 
   EXPECT_EQ(kPrinterId, print_job->printer_id);
   EXPECT_EQ(title, print_job->job_title);
-  EXPECT_EQ(kEmptyPrintTicket, print_job->ticket_json);
+  EXPECT_EQ(*base::JSONReader::Read(kEmptyPrintTicket), print_job->ticket);
   EXPECT_EQ(kContentTypePDF, print_job->content_type);
   ASSERT_TRUE(print_job->document_bytes);
   EXPECT_EQ(RefCountedMemoryToString(print_data),
@@ -701,8 +753,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pdf_Reset) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPdfSupportedPrinter, title, kEmptyPrintTicket,
-      gfx::Size(100, 100), print_data,
+      title, *base::JSONReader::Read(kPdfSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -727,8 +778,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_All) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kAllContentTypesSupportedPrinter, title, kEmptyPrintTicket,
-      gfx::Size(100, 100), print_data,
+      title, *base::JSONReader::Read(kAllTypesSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -742,7 +792,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_All) {
 
   EXPECT_EQ(kPrinterId, print_job->printer_id);
   EXPECT_EQ(title, print_job->job_title);
-  EXPECT_EQ(kEmptyPrintTicket, print_job->ticket_json);
+  EXPECT_EQ(*base::JSONReader::Read(kEmptyPrintTicket), print_job->ticket);
   EXPECT_EQ(kContentTypePDF, print_job->content_type);
   ASSERT_TRUE(print_job->document_bytes);
   EXPECT_EQ(RefCountedMemoryToString(print_data),
@@ -765,8 +815,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPWGRasterOnlyPrinterSimpleDescription, title,
-      kEmptyPrintTicket, gfx::Size(100, 50), print_data,
+      title, *base::JSONReader::Read(kSimpleRasterSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -796,7 +845,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg) {
 
   EXPECT_EQ(kPrinterId, print_job->printer_id);
   EXPECT_EQ(title, print_job->job_title);
-  EXPECT_EQ(kEmptyPrintTicket, print_job->ticket_json);
+  EXPECT_EQ(*base::JSONReader::Read(kEmptyPrintTicket), print_job->ticket);
   EXPECT_EQ(kContentTypePWG, print_job->content_type);
   ASSERT_TRUE(print_job->document_bytes);
   EXPECT_EQ(RefCountedMemoryToString(print_data),
@@ -819,8 +868,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_NonDefaultSettings) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPWGRasterOnlyPrinter, title, kPrintTicketWithDuplex,
-      gfx::Size(100, 50), print_data,
+      title, *base::JSONReader::Read(kDuplexSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -850,7 +898,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_NonDefaultSettings) {
 
   EXPECT_EQ(kPrinterId, print_job->printer_id);
   EXPECT_EQ(title, print_job->job_title);
-  EXPECT_EQ(kPrintTicketWithDuplex, print_job->ticket_json);
+  EXPECT_EQ(*base::JSONReader::Read(kPrintTicketWithDuplex), print_job->ticket);
   EXPECT_EQ(kContentTypePWG, print_job->content_type);
   ASSERT_TRUE(print_job->document_bytes);
   EXPECT_EQ(RefCountedMemoryToString(print_data),
@@ -873,8 +921,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_Reset) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPWGRasterOnlyPrinterSimpleDescription, title,
-      kEmptyPrintTicket, gfx::Size(100, 50), print_data,
+      title, *base::JSONReader::Read(kSimpleRasterSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(0u, call_count);
@@ -902,8 +949,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_InvalidTicket) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPWGRasterOnlyPrinterSimpleDescription, title,
-      "{}" /* ticket */, gfx::Size(100, 100), print_data,
+      title, *base::JSONReader::Read(kInvalidSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(1u, call_count);
@@ -924,8 +970,7 @@ TEST_F(ExtensionPrinterHandlerTest, Print_Pwg_FailedConversion) {
   base::string16 title = base::ASCIIToUTF16("Title");
 
   extension_printer_handler_->StartPrint(
-      kPrinterId, kPWGRasterOnlyPrinterSimpleDescription, title,
-      kEmptyPrintTicket, gfx::Size(100, 100), print_data,
+      title, *base::JSONReader::Read(kSimpleRasterSettings), print_data,
       base::Bind(&RecordPrintResult, &call_count, &success, &status));
 
   EXPECT_EQ(1u, call_count);

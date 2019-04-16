@@ -8,6 +8,8 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/posix/eintr_wrapper.h"
 #include "base/task/post_task.h"
@@ -122,10 +124,12 @@ using file_system_provider::AbortCallback;
 SmbFileSystem::SmbFileSystem(
     const file_system_provider::ProvidedFileSystemInfo& file_system_info,
     UnmountCallback unmount_callback,
-    RequestCredentialsCallback request_creds_callback)
+    RequestCredentialsCallback request_creds_callback,
+    RequestUpdatedSharePathCallback request_path_callback)
     : file_system_info_(file_system_info),
       unmount_callback_(std::move(unmount_callback)),
       request_creds_callback_(std::move(request_creds_callback)),
+      request_path_callback_(std::move(request_path_callback)),
       task_queue_(kTaskQueueCapacity) {}
 
 SmbFileSystem::~SmbFileSystem() {}
@@ -573,6 +577,11 @@ void SmbFileSystem::RequestUpdatedCredentials(base::OnceClosure reply) {
   request_creds_callback_.Run(GetMountPath(), GetMountId(), std::move(reply));
 }
 
+void SmbFileSystem::RequestUpdatedSharePath(
+    SmbService::StartReadDirIfSuccessfulCallback reply) {
+  request_path_callback_.Run(GetMountPath(), GetMountId(), std::move(reply));
+}
+
 void SmbFileSystem::HandleRequestReadDirectoryCallback(
     storage::AsyncFileUtil::ReadDirectoryCallback callback,
     const base::ElapsedTimer& metrics_timer,
@@ -690,14 +699,26 @@ void SmbFileSystem::HandleStartReadDirectoryCallback(
     const smbprovider::DirectoryEntryListProto& entries) {
   task_queue_.TaskFinished();
 
-  if (error == smbprovider::ERROR_ACCESS_DENIED) {
-    // Request updated credentials for share, then retry the read directory from
-    // the start.
-    base::OnceClosure retry =
-        base::BindOnce(&SmbFileSystem::StartReadDirectory, AsWeakPtr(),
-                       directory_path, operation_id, std::move(callback));
-    RequestUpdatedCredentials(std::move(retry));
-    return;
+  if (IsRecoverableError(error)) {
+    if (error == smbprovider::ERROR_ACCESS_DENIED) {
+      base::OnceClosure retry =
+          base::BindOnce(&SmbFileSystem::StartReadDirectory, AsWeakPtr(),
+                         directory_path, operation_id, std::move(callback));
+      // Request updated credentials for share, then retry the read directory
+      // from the start.
+      RequestUpdatedCredentials(std::move(retry));
+      return;
+    }
+
+    if (error == smbprovider::ERROR_NOT_FOUND) {
+      // Request updated share path for share, then retry the read directory
+      // from the start.
+      SmbService::StartReadDirIfSuccessfulCallback retry_start_read_dir =
+          base::BindOnce(&SmbFileSystem::RetryStartReadDir, AsWeakPtr(),
+                         directory_path, operation_id, std::move(callback));
+      RequestUpdatedSharePath(std::move(retry_start_read_dir));
+      return;
+    }
   }
 
   int entries_count = 0;
@@ -857,6 +878,27 @@ void SmbFileSystem::HandleStatusCallback(
 base::WeakPtr<file_system_provider::ProvidedFileSystemInterface>
 SmbFileSystem::GetWeakPtr() {
   return AsWeakPtr();
+}
+
+bool SmbFileSystem::IsRecoverableError(smbprovider::ErrorType error) const {
+  return (error == smbprovider::ERROR_NOT_FOUND) ||
+         (error == smbprovider::ERROR_INVALID_OPERATION) ||
+         (error == smbprovider::ERROR_ACCESS_DENIED);
+}
+
+void SmbFileSystem::RetryStartReadDir(
+    const base::FilePath& directory_path,
+    OperationId operation_id,
+    storage::AsyncFileUtil::ReadDirectoryCallback callback,
+    bool should_retry_start_read_dir) {
+  if (should_retry_start_read_dir) {
+    StartReadDirectory(directory_path, operation_id, std::move(callback));
+  } else {
+    // Run |callback| to terminate StartReadDirectory early.
+    std::move(callback).Run(base::File::FILE_ERROR_NOT_FOUND,
+                            storage::AsyncFileUtil::EntryList(),
+                            false /* has_more */);
+  }
 }
 
 }  // namespace smb_client

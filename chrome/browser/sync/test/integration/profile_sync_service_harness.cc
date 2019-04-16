@@ -117,7 +117,8 @@ ProfileSyncServiceHarness::ProfileSyncServiceHarness(
     const std::string& password,
     SigninType signin_type)
     : profile_(profile),
-      service_(ProfileSyncServiceFactory::GetForProfile(profile)),
+      service_(ProfileSyncServiceFactory::GetAsProfileSyncServiceForProfile(
+          profile)),
       username_(username),
       password_(password),
       signin_type_(signin_type),
@@ -200,21 +201,6 @@ bool ProfileSyncServiceHarness::SetupSync() {
                << GetServiceStatus();
   } else {
     DVLOG(1) << profile_debug_name_ << ": SetupSync successful.";
-  }
-  return result;
-}
-
-bool ProfileSyncServiceHarness::SetupSyncForClearingServerData() {
-  bool result = SetupSyncImpl(syncer::UserSelectableTypes(),
-                              EncryptionSetupMode::kNoEncryption,
-                              /*encryption_passphrase=*/base::nullopt) &&
-                AwaitSyncSetupCompletion();
-  if (!result) {
-    LOG(ERROR) << profile_debug_name_
-               << ": SetupSyncForClear failed. Syncer status:\n"
-               << GetServiceStatus();
-  } else {
-    DVLOG(1) << profile_debug_name_ << ": SetupSyncForClear successful.";
   }
   return result;
 }
@@ -303,13 +289,6 @@ bool ProfileSyncServiceHarness::SetupSyncImpl(
   if (signin_type_ == SigninType::UI_SIGNIN) {
     LoginUIServiceFactory::GetForProfile(profile_)->SyncConfirmationUIClosed(
         LoginUIService::SYNC_WITH_DEFAULT_SETTINGS);
-  }
-
-  if (encryption_mode == EncryptionSetupMode::kNoEncryption &&
-      service()->GetUserSettings()->IsUsingSecondaryPassphrase()) {
-    LOG(ERROR) << "A passphrase is required for decryption. Sync cannot proceed"
-                  " until SetDecryptionPassphrase is called.";
-    return false;
   }
 
   return true;

@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "base/logging.h"
-#include "cc/paint/color_space_transfer_cache_entry.h"
 #include "cc/paint/decode_stashing_image_provider.h"
 #include "cc/paint/display_item_list.h"  // nogncheck
 #include "cc/paint/paint_op_buffer_serializer.h"
@@ -128,7 +127,7 @@ void RasterImplementationGLES::BeginRasterCHROMIUM(
     GLuint sk_color,
     GLuint msaa_sample_count,
     GLboolean can_use_lcd_text,
-    const cc::RasterColorSpace& raster_color_space,
+    const gfx::ColorSpace& color_space,
     const GLbyte* mailbox) {
   NOTREACHED();
 }
@@ -141,7 +140,8 @@ void RasterImplementationGLES::RasterCHROMIUM(
     const gfx::Rect& playback_rect,
     const gfx::Vector2dF& post_translate,
     GLfloat post_scale,
-    bool requires_clear) {
+    bool requires_clear,
+    size_t* max_op_size_hint) {
   NOTREACHED();
 }
 
@@ -151,6 +151,12 @@ void RasterImplementationGLES::SetActiveURLCHROMIUM(const char* url) {
 
 void RasterImplementationGLES::EndRasterCHROMIUM() {
   NOTREACHED();
+}
+
+bool RasterImplementationGLES::CanDecodeWithHardwareAcceleration(
+    base::span<const uint8_t> encoded_data) {
+  NOTREACHED();
+  return false;
 }
 
 SyncToken RasterImplementationGLES::ScheduleImageDecode(

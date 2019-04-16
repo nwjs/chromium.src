@@ -14,9 +14,9 @@
 #include "ash/app_list/pagination_model.h"
 #include "ash/app_list/views/app_list_item_view.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/vector_icons/vector_icons.h"
+#include "ash/public/interfaces/app_list.mojom.h"
 #include "base/bind.h"
 #include "base/i18n/number_formatting.h"
 #include "base/metrics/histogram_macros.h"
@@ -58,6 +58,13 @@ constexpr int kIconSelectedCornerRadius = 4;
 // Icon selected color, Google Grey 900 8%.
 constexpr int kIconSelectedColor = SkColorSetA(gfx::kGoogleGrey900, 0x14);
 
+// Offset for centering star rating when there is no price.
+constexpr int kSearchRatingCenteringOffset =
+    ((kSearchTileWidth -
+      (kSearchRatingSize + kSearchRatingStarHorizontalSpacing +
+       kSearchRatingStarSize)) /
+     2);
+
 constexpr SkColor kSearchTitleColor = gfx::kGoogleGrey900;
 constexpr SkColor kSearchAppRatingColor = gfx::kGoogleGrey700;
 constexpr SkColor kSearchAppPriceColor = gfx::kGoogleGreen600;
@@ -73,6 +80,8 @@ SearchResultTileItemView::SearchResultTileItemView(
       pagination_model_(pagination_model),
       is_play_store_app_search_enabled_(
           app_list_features::IsPlayStoreAppSearchEnabled()),
+      is_app_reinstall_recommendation_enabled_(
+          app_list_features::IsAppReinstallZeroStateEnabled()),
       show_in_apps_page_(show_in_apps_page),
       weak_ptr_factory_(this) {
   SetFocusBehavior(FocusBehavior::ALWAYS);
@@ -88,7 +97,8 @@ SearchResultTileItemView::SearchResultTileItemView(
   AddChildView(icon_);
 
   if (is_play_store_app_search_enabled_ ||
-      app_list_features::IsAppShortcutSearchEnabled()) {
+      app_list_features::IsAppShortcutSearchEnabled() ||
+      is_app_reinstall_recommendation_enabled_) {
     badge_ = new views::ImageView;
     badge_->set_can_process_events_within_subtree(false);
     badge_->SetVerticalAlignment(views::ImageView::LEADING);
@@ -105,7 +115,8 @@ SearchResultTileItemView::SearchResultTileItemView(
   title_->SetAllowCharacterBreak(true);
   AddChildView(title_);
 
-  if (is_play_store_app_search_enabled_) {
+  if (is_play_store_app_search_enabled_ ||
+      is_app_reinstall_recommendation_enabled_) {
     rating_ = new views::Label;
     rating_->SetEnabledColor(kSearchAppRatingColor);
     rating_->SetLineHeight(kTileTextLineHeight);
@@ -157,33 +168,36 @@ void SearchResultTileItemView::OnResultChanged() {
   } else {
     // Set solid color background to avoid broken text. See crbug.com/746563.
     if (rating_) {
-      rating_->SetBackground(
-          views::CreateSolidBackground(kCardBackgroundColor));
+      rating_->SetBackground(views::CreateSolidBackground(
+          AppListConfig::instance().card_background_color()));
       if (!IsSuggestedAppTile()) {
         // App search results use different fonts than AppList apps.
         rating_->SetFontList(
             ui::ResourceBundle::GetSharedInstance().GetFontList(
-                kSearchResultTitleFontStyle));
+                AppListConfig::instance().search_result_title_font_style()));
       } else {
         rating_->SetFontList(font);
       }
     }
     if (price_) {
-      price_->SetBackground(views::CreateSolidBackground(kCardBackgroundColor));
+      price_->SetBackground(views::CreateSolidBackground(
+          AppListConfig::instance().card_background_color()));
       if (!IsSuggestedAppTile()) {
         // App search results use different fonts than AppList apps.
         price_->SetFontList(ui::ResourceBundle::GetSharedInstance().GetFontList(
-            kSearchResultTitleFontStyle));
+            AppListConfig::instance().search_result_title_font_style()));
       } else {
         price_->SetFontList(font);
       }
     }
-    title_->SetBackground(views::CreateSolidBackground(kCardBackgroundColor));
+    title_->SetBackground(views::CreateSolidBackground(
+        AppListConfig::instance().card_background_color()));
     if (!IsSuggestedAppTile()) {
       // App search results use different fonts than AppList apps.
       title_->SetFontList(
           ui::ResourceBundle::GetSharedInstance()
-              .GetFontList(kSearchResultTitleFontStyle)
+              .GetFontList(
+                  AppListConfig::instance().search_result_title_font_style())
               .DeriveWithSizeDelta(kSearchResultTileTitleTextSizeDelta));
     } else {
       title_->SetFontList(font);
@@ -216,7 +230,18 @@ void SearchResultTileItemView::OnResultChanged() {
   }
   if (price_ && price_->visible())
     accessible_name += base::UTF8ToUTF16(", ") + price_->text();
+
+  if (result()->result_type() ==
+      ash::SearchResultType::kPlayStoreReinstallApp) {
+    accessible_name +=
+        base::UTF8ToUTF16(", ") +
+        l10n_util::GetStringUTF16(IDS_APP_ACCESSIBILITY_APP_RECOMMENDATION_ARC);
+  }
   SetAccessibleName(accessible_name);
+}
+
+void SearchResultTileItemView::SetIndexInItemListView(size_t index) {
+  index_in_item_list_view_ = index;
 }
 
 void SearchResultTileItemView::SetParentBackgroundColor(SkColor color) {
@@ -226,12 +251,7 @@ void SearchResultTileItemView::SetParentBackgroundColor(SkColor color) {
 
 void SearchResultTileItemView::ButtonPressed(views::Button* sender,
                                              const ui::Event& event) {
-  if (IsSuggestedAppTile())
-    LogAppLaunch();
-
-  RecordSearchResultOpenSource(result(), view_delegate_->GetModel(),
-                               view_delegate_->GetSearchModel());
-  view_delegate_->OpenSearchResult(result()->id(), event.flags());
+  ActivateResult(event.flags());
 }
 
 void SearchResultTileItemView::GetAccessibleNodeData(
@@ -259,15 +279,9 @@ bool SearchResultTileItemView::OnKeyPressed(const ui::KeyEvent& event) {
     return true;
 
   if (event.key_code() == ui::VKEY_RETURN) {
-    if (IsSuggestedAppTile())
-      LogAppLaunch();
-
-    RecordSearchResultOpenSource(result(), view_delegate_->GetModel(),
-                                 view_delegate_->GetSearchModel());
-    view_delegate_->OpenSearchResult(result()->id(), event.flags());
+    ActivateResult(event.flags());
     return true;
   }
-
   return false;
 }
 
@@ -281,7 +295,6 @@ void SearchResultTileItemView::OnFocus() {
   }
   SetBackgroundHighlighted(true);
   UpdateBackgroundColor();
-  NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
 }
 
 void SearchResultTileItemView::OnBlur() {
@@ -303,7 +316,7 @@ void SearchResultTileItemView::PaintButtonContents(gfx::Canvas* canvas) {
   flags.setStyle(cc::PaintFlags::kFill_Style);
   if (IsSuggestedAppTileShownInAppPage()) {
     rect.ClampToCenteredSize(AppListConfig::instance().grid_focus_size());
-    flags.setColor(kGridSelectedColor);
+    flags.setColor(AppListConfig::instance().grid_selected_color());
     canvas->DrawRoundRect(gfx::RectF(rect),
                           AppListConfig::instance().grid_focus_corner_radius(),
                           flags);
@@ -325,7 +338,7 @@ void SearchResultTileItemView::OnMetadataChanged() {
   Layout();
 }
 
-void SearchResultTileItemView::ShowContextMenuForView(
+void SearchResultTileItemView::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::MenuSourceType source_type) {
@@ -374,6 +387,20 @@ void SearchResultTileItemView::ExecuteCommand(int command_id, int event_flags) {
     view_delegate_->SearchResultContextMenuItemSelected(
         result()->id(), command_id, event_flags);
   }
+}
+
+void SearchResultTileItemView::ActivateResult(int event_flags) {
+  LogAppLaunchForSuggestedApp();
+
+  RecordSearchResultOpenSource(result(), view_delegate_->GetModel(),
+                               view_delegate_->GetSearchModel());
+  view_delegate_->OpenSearchResult(
+      result()->id(), event_flags,
+      ash::mojom::AppListLaunchedFrom::kLaunchedFromSearchBox,
+      ash::mojom::AppListLaunchType::kAppSearchResult,
+      index_in_item_list_view_);
+  view_delegate_->LogResultLaunchHistogram(
+      SearchResultLaunchLocation::kTileList, index_in_item_list_view_);
 }
 
 void SearchResultTileItemView::SetIcon(const gfx::ImageSkia& icon) {
@@ -472,14 +499,19 @@ bool SearchResultTileItemView::IsSuggestedAppTileShownInAppPage() const {
   return IsSuggestedAppTile() && show_in_apps_page_;
 }
 
-void SearchResultTileItemView::LogAppLaunch() const {
+void SearchResultTileItemView::LogAppLaunchForSuggestedApp() const {
   // Only log the app launch if the class is being used as a suggested app.
   if (!IsSuggestedAppTile())
     return;
 
-  UMA_HISTOGRAM_BOOLEAN(kAppListAppLaunchedFullscreen,
-                        true /* suggested app */);
-  base::RecordAction(base::UserMetricsAction("AppList_OpenSuggestedApp"));
+  // We only need to record opening the installed app in zero state, no need to
+  // record the opening of a fast re-installed app, since the latter is already
+  // recorded in ArcAppReinstallAppResult::Open.
+  if (result()->result_type() !=
+      ash::SearchResultType::kPlayStoreReinstallApp) {
+    base::RecordAction(
+        base::UserMetricsAction("AppList_ZeroStateOpenInstalledApp"));
+  }
 }
 
 void SearchResultTileItemView::UpdateBackgroundColor() {
@@ -522,9 +554,16 @@ void SearchResultTileItemView::Layout() {
     rect.set_height(title_->GetPreferredSize().height());
     title_->SetBoundsRect(rect);
 
+    // If there is no price set, we center the rating.
+    const bool center_rating =
+        rating_ && rating_star_ && price_ && price_->text().empty();
+    const int rating_horizontal_offset =
+        center_rating ? kSearchRatingCenteringOffset : 0;
+
     if (rating_) {
       gfx::Rect rating_rect(rect);
-      rating_rect.Inset(0, title_->GetPreferredSize().height(), 0, 0);
+      rating_rect.Inset(rating_horizontal_offset,
+                        title_->GetPreferredSize().height(), 0, 0);
       rating_rect.set_size(rating_->GetPreferredSize());
       rating_rect.set_width(kSearchRatingSize);
       rating_->SetBoundsRect(rating_rect);
@@ -532,11 +571,11 @@ void SearchResultTileItemView::Layout() {
 
     if (rating_star_) {
       gfx::Rect rating_star_rect(rect);
-      rating_star_rect.Inset(
-          kSearchRatingSize + kSearchRatingStarHorizontalSpacing,
-          title_->GetPreferredSize().height() +
-              kSearchRatingStarVerticalSpacing,
-          0, 0);
+      rating_star_rect.Inset(rating_horizontal_offset + kSearchRatingSize +
+                                 kSearchRatingStarHorizontalSpacing,
+                             title_->GetPreferredSize().height() +
+                                 kSearchRatingStarVerticalSpacing,
+                             0, 0);
       rating_star_rect.set_size(rating_star_->GetPreferredSize());
       rating_star_->SetBoundsRect(rating_star_rect);
     }
@@ -564,7 +603,8 @@ gfx::Size SearchResultTileItemView::CalculatePreferredSize() const {
                      AppListConfig::instance().grid_tile_height());
   }
 
-  return gfx::Size(kSearchTileWidth, kSearchTileHeight);
+  return gfx::Size(kSearchTileWidth,
+                   AppListConfig::instance().search_tile_height());
 }
 
 bool SearchResultTileItemView::GetTooltipText(const gfx::Point& p,

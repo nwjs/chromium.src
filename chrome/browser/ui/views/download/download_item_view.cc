@@ -70,7 +70,7 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/mouse_constants.h"
-#include "ui/views/view_properties.h"
+#include "ui/views/view_class_properties.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
 
@@ -520,9 +520,10 @@ void DownloadItemView::OnGestureEvent(ui::GestureEvent* event) {
   views::View::OnGestureEvent(event);
 }
 
-void DownloadItemView::ShowContextMenuForView(View* source,
-                                              const gfx::Point& point,
-                                              ui::MenuSourceType source_type) {
+void DownloadItemView::ShowContextMenuForViewImpl(
+    View* source,
+    const gfx::Point& point,
+    ui::MenuSourceType source_type) {
   ShowContextMenuImpl(gfx::Rect(point, gfx::Size()), source_type);
 }
 

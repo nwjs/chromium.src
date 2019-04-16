@@ -440,12 +440,12 @@ AutomationPredicate.shouldIgnoreNode = function(node) {
 
   // Ignore nodes acting as labels for another control, that don't
   // have actionable descendants.
-  if (!!node.labelFor && node.labelFor.length > 0 &&
+  if (node.labelFor && node.labelFor.length > 0 &&
       !hasActionableDescendant(node))
     return true;
 
   // Similarly, ignore nodes acting as descriptions.
-  if (!!node.descriptionFor && node.descriptionFor.length > 0 &&
+  if (node.descriptionFor && node.descriptionFor.length > 0 &&
       !hasActionableDescendant(node))
     return true;
 
@@ -480,7 +480,13 @@ AutomationPredicate.checkable = function(node) {
  * @return {boolean}
  */
 AutomationPredicate.clickable = AutomationPredicate.match({
-  anyPredicate: [AutomationPredicate.button, AutomationPredicate.link],
+  anyPredicate: [
+    AutomationPredicate.button, AutomationPredicate.link,
+    (node) => {
+      return node.defaultActionVerb ==
+          chrome.automation.DefaultActionVerb.CLICK;
+    }
+  ],
   anyAttribute: {clickable: true}
 });
 

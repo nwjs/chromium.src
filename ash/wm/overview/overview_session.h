@@ -37,11 +37,11 @@ class Widget;
 
 namespace ash {
 
+class OverviewDelegate;
+class OverviewGrid;
+class OverviewItem;
 class OverviewWindowDragController;
 class SplitViewDragIndicators;
-class OverviewGrid;
-class OverviewDelegate;
-class OverviewItem;
 
 enum class IndicatorState;
 
@@ -105,7 +105,7 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // Cancels window selection.
   void CancelSelection();
 
-  // Called when the last window selector item from a grid is deleted.
+  // Called when the last overview item from a grid is deleted.
   void OnGridEmpty(OverviewGrid* grid);
 
   // Moves the current selection by |increment| items. Positive values of
@@ -147,8 +147,8 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // then added to the overview.
   void AddItem(aura::Window* window, bool reposition, bool animate);
 
-  // Removes the window selector item from the overview window grid. And if
-  // |reposition| is true, re-position all windows in the target window grid.
+  // Removes the overview item from the overview grid. And if
+  // |reposition| is true, re-position all windows in the target overview grid.
   // This may be called in two scenarioes: 1) when a user drags an overview item
   // to snap to one side of the screen, the item should be removed from the
   // overview grid; 2) when a window (not from overview) ends its dragging while
@@ -156,12 +156,12 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // the windows in the window grid do not need to be repositioned.
   void RemoveOverviewItem(OverviewItem* item, bool reposition);
 
-  void InitiateDrag(OverviewItem* item, const gfx::Point& location_in_screen);
-  void Drag(OverviewItem* item, const gfx::Point& location_in_screen);
-  void CompleteDrag(OverviewItem* item, const gfx::Point& location_in_screen);
-  void StartSplitViewDragMode(const gfx::Point& location_in_screen);
+  void InitiateDrag(OverviewItem* item, const gfx::PointF& location_in_screen);
+  void Drag(OverviewItem* item, const gfx::PointF& location_in_screen);
+  void CompleteDrag(OverviewItem* item, const gfx::PointF& location_in_screen);
+  void StartSplitViewDragMode(const gfx::PointF& location_in_screen);
   void Fling(OverviewItem* item,
-             const gfx::Point& location_in_screen,
+             const gfx::PointF& location_in_screen,
              float velocity_x,
              float velocity_y);
   void ActivateDraggedWindow();
@@ -201,8 +201,8 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
       const gfx::Rect& work_area,
       UpdateAnimationSettingsCallback callback);
 
-  // Shows or hides all the window selector items' mask and shadow.
-  void UpdateMaskAndShadow(bool show);
+  // Updates all the overview items' mask and shadow.
+  void UpdateMaskAndShadow();
 
   // Called when the overview mode starting animation completes.
   void OnStartingAnimationComplete(bool canceled);
@@ -220,6 +220,10 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
 
   // Gets the window which keeps focus for the duration of overview mode.
   aura::Window* GetOverviewFocusWindow();
+
+  // Suspends/Resumes window re-positiong in overview.
+  void SuspendReposition();
+  void ResumeReposition();
 
   OverviewDelegate* delegate() { return delegate_; }
 
@@ -262,6 +266,9 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
                                SplitViewController::State state) override;
   void OnSplitViewDividerPositionChanged() override;
 
+  // Returns true if all its window grids don't have any window item.
+  bool IsEmpty() const;
+
  private:
   friend class OverviewSessionTest;
 
@@ -279,14 +286,11 @@ class ASH_EXPORT OverviewSession : public display::DisplayObserver,
   // Called when the display area for the overview window grids changed.
   void OnDisplayBoundsChanged();
 
-  // Returns true if all its window grids don't have any window item.
-  bool IsEmpty();
-
   // Tracks observed windows.
   base::flat_set<aura::Window*> observed_windows_;
 
-  // Weak pointer to the selector delegate which will be called when a
-  // selection is made.
+  // Weak pointer to the overview delegate which will be called when a selection
+  // is made.
   OverviewDelegate* delegate_;
 
   // A weak pointer to the window which was focused on beginning window

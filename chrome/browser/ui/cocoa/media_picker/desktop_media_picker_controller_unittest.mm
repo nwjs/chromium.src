@@ -99,6 +99,7 @@ class DesktopMediaPickerControllerTest : public CocoaTest {
     params.app_name = base::ASCIIToUTF16("Screenshare Test");
     params.target_name = base::ASCIIToUTF16("https://foo.com");
     params.request_audio = true;
+    params.approve_audio_by_default = true;
     controller_.reset([[DesktopMediaPickerController alloc]
         initWithSourceLists:std::move(source_lists)
                    callback:callback

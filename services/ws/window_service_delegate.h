@@ -42,6 +42,7 @@ class SystemInputInjector;
 
 namespace ws {
 
+class TopLevelProxyWindow;
 class WindowManagerInterface;
 class WindowTree;
 
@@ -51,11 +52,15 @@ class COMPONENT_EXPORT(WINDOW_SERVICE) WindowServiceDelegate {
   // A client requested a new top-level window. Implementations should create a
   // new window, parenting it in the appropriate container. Return null to
   // reject the request.
+  // |top_level_proxy_window| is owned by the WindowService and may be used by
+  // the delegate to perform operations specific to the window. See
+  // TopLevelProxyWindow for details.
   // NOTE: it is recommended that when clients create a new window they use
   // WindowDelegateImpl as the WindowDelegate of the Window (this must be done
   // by the WindowServiceDelegate, as the Window's delegate can not be changed
   // after creation).
   virtual std::unique_ptr<aura::Window> NewTopLevel(
+      TopLevelProxyWindow* top_level_proxy_window,
       aura::PropertyConverter* property_converter,
       const base::flat_map<std::string, std::vector<uint8_t>>& properties) = 0;
 
@@ -75,6 +80,7 @@ class COMPONENT_EXPORT(WINDOW_SERVICE) WindowServiceDelegate {
   virtual void RunWindowMoveLoop(aura::Window* window,
                                  mojom::MoveLoopSource source,
                                  const gfx::Point& cursor,
+                                 int window_component,
                                  DoneCallback callback);
 
   // Called to cancel an in-progress window move loop that was started by
@@ -97,6 +103,10 @@ class COMPONENT_EXPORT(WINDOW_SERVICE) WindowServiceDelegate {
 
   // Called to cancel an in-progress drag loop that was started by RunDragLoop.
   virtual void CancelDragLoop(aura::Window* window) {}
+
+  // Called to update resize shadow for the window.
+  virtual void SetWindowResizeShadow(aura::Window* window,
+                                     int window_component) {}
 
   // Called to update the text input state of the PlatformWindow associated with
   // |window|. It is a no-op if |window| is not focused.

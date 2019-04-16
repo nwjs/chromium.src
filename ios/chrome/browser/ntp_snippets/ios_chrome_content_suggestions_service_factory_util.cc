@@ -7,13 +7,14 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/json/json_reader.h"
-#include "base/memory/singleton.h"
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_clock.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "components/image_fetcher/core/image_decoder.h"
 #include "components/image_fetcher/core/image_fetcher.h"
@@ -70,13 +71,14 @@ void ParseJson(const std::string& json,
                const ntp_snippets::SuccessCallback& success_callback,
                const ntp_snippets::ErrorCallback& error_callback) {
   base::JSONReader json_reader;
-  std::unique_ptr<base::Value> value = json_reader.ReadToValue(json);
+  std::unique_ptr<base::Value> value = json_reader.ReadToValueDeprecated(json);
   if (value) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(success_callback, base::Passed(&value)));
+        FROM_HERE, base::BindOnce(success_callback, std::move(value)));
   } else {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(error_callback, json_reader.GetErrorMessage()));
+        FROM_HERE,
+        base::BindOnce(error_callback, json_reader.GetErrorMessage()));
   }
 }
 

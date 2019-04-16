@@ -154,8 +154,8 @@ int WebURLResponse::HttpStatusCode() const {
   return resource_response_->HttpStatusCode();
 }
 
-void WebURLResponse::SetHTTPStatusCode(int http_status_code) {
-  resource_response_->SetHTTPStatusCode(http_status_code);
+void WebURLResponse::SetHttpStatusCode(int http_status_code) {
+  resource_response_->SetHttpStatusCode(http_status_code);
 }
 
 WebString WebURLResponse::HttpStatusText() const {
@@ -238,10 +238,6 @@ void WebURLResponse::SetCTPolicyCompliance(
           ResourceResponse::kCTPolicyComplianceDetailsNotAvailable);
       break;
   };
-}
-
-void WebURLResponse::SetIsLegacySymantecCert(bool value) {
-  resource_response_->SetIsLegacySymantecCert(value);
 }
 
 void WebURLResponse::SetIsLegacyTLSVersion(bool value) {
@@ -372,11 +368,11 @@ void WebURLResponse::SetRemoteIPAddress(const WebString& remote_ip_address) {
   resource_response_->SetRemoteIPAddress(remote_ip_address);
 }
 
-unsigned short WebURLResponse::RemotePort() const {
+uint16_t WebURLResponse::RemotePort() const {
   return resource_response_->RemotePort();
 }
 
-void WebURLResponse::SetRemotePort(unsigned short remote_port) {
+void WebURLResponse::SetRemotePort(uint16_t remote_port) {
   resource_response_->SetRemotePort(remote_port);
 }
 

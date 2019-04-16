@@ -102,8 +102,18 @@ void AssistantController::OpenAssistantSettings() {
 }
 
 void AssistantController::StartSpeakerIdEnrollmentFlow() {
-  setup_controller()->StartOnboarding(false /* relaunch */,
-                                      mojom::FlowType::SPEAKER_ID_ENROLLMENT);
+  mojom::ConsentStatus consent_status =
+      Shell::Get()->voice_interaction_controller()->consent_status().value_or(
+          mojom::ConsentStatus::kUnknown);
+  if (consent_status == mojom::ConsentStatus::kActivityControlAccepted) {
+    // If activity control has been accepted, launch the enrollment flow.
+    setup_controller()->StartOnboarding(false /* relaunch */,
+                                        mojom::FlowType::SPEAKER_ID_ENROLLMENT);
+  } else {
+    // If activity control has not been accepted, launch the opt-in flow.
+    setup_controller()->StartOnboarding(false /* relaunch */,
+                                        mojom::FlowType::CONSENT_FLOW);
+  }
 }
 
 void AssistantController::DownloadImage(
@@ -152,6 +162,8 @@ void AssistantController::OnDeepLinkReceived(
       Shell::Get()->new_window_controller()->ShowTaskManager();
       break;
     case DeepLinkType::kUnsupported:
+    case DeepLinkType::kLists:
+    case DeepLinkType::kNotes:
     case DeepLinkType::kOnboarding:
     case DeepLinkType::kQuery:
     case DeepLinkType::kReminders:
@@ -239,6 +251,10 @@ void AssistantController::GetNavigableContentsFactory(
       std::move(request));
 }
 
+bool AssistantController::IsAssistantReady() const {
+  return !!assistant_;
+}
+
 void AssistantController::NotifyConstructed() {
   for (AssistantControllerObserver& observer : observers_)
     observer.OnAssistantControllerConstructed();
@@ -277,12 +293,14 @@ void AssistantController::OnVoiceInteractionStatusChanged(
 
 void AssistantController::SendAssistantFeedback(
     bool assistant_debug_info_allowed,
-    const std::string& feedback_description) {
+    const std::string& feedback_description,
+    const std::string& screenshot_png) {
   chromeos::assistant::mojom::AssistantFeedbackPtr assistant_feedback =
       chromeos::assistant::mojom::AssistantFeedback::New();
   assistant_feedback->assistant_debug_info_allowed =
       assistant_debug_info_allowed;
   assistant_feedback->description = feedback_description;
+  assistant_feedback->screenshot_png = screenshot_png;
   assistant_->SendAssistantFeedback(std::move(assistant_feedback));
 }
 

@@ -11,14 +11,6 @@
 #include "base/sequence_checker.h"
 #include "media/gpu/test/video_player/frame_renderer.h"
 
-#ifdef USE_OZONE
-namespace ui {
-
-class OzoneGpuTestHelper;
-
-}  // namespace ui
-#endif
-
 namespace media {
 namespace test {
 
@@ -37,18 +29,16 @@ class FrameRendererDummy : public FrameRenderer {
   void ReleaseGLContext() override;
   gl::GLContext* GetGLContext() override;
   void RenderFrame(scoped_refptr<VideoFrame> video_frame) override;
+  scoped_refptr<VideoFrame> CreateVideoFrame(VideoPixelFormat pixel_format,
+                                             const gfx::Size& size,
+                                             uint32_t texture_target,
+                                             uint32_t* texture_id) override;
 
  private:
   FrameRendererDummy();
 
   // Initialize the frame renderer, performs all rendering-related setup.
   bool Initialize();
-  // Destroy the frame renderer.
-  void Destroy();
-
-#ifdef USE_OZONE
-  std::unique_ptr<ui::OzoneGpuTestHelper> gpu_helper_;
-#endif
 
   SEQUENCE_CHECKER(sequence_checker_);
   DISALLOW_COPY_AND_ASSIGN(FrameRendererDummy);

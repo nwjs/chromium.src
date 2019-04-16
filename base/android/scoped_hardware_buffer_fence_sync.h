@@ -26,6 +26,10 @@ class BASE_EXPORT ScopedHardwareBufferFenceSync {
   ScopedHardwareBufferHandle TakeBuffer();
   ScopedFD TakeFence();
 
+  // Provides fence which is signaled when the reads for this buffer are done
+  // and it can be reused. Must only be called once.
+  virtual void SetReadFence(base::ScopedFD fence_fd, bool has_context) = 0;
+
  private:
   ScopedHardwareBufferHandle handle_;
   ScopedFD fence_fd_;

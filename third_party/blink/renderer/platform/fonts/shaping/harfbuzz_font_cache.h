@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_SHAPING_HARFBUZZ_FONT_CACHE_H_
 
 #include <memory>
+
 #include "third_party/blink/renderer/platform/fonts/font_metrics.h"
 #include "third_party/blink/renderer/platform/fonts/opentype/open_type_vertical_data.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_face.h"
@@ -36,7 +37,6 @@ const unsigned kInvalidFallbackMetricsValue = static_cast<unsigned>(-1);
 // particular size.
 struct HarfBuzzFontData {
   USING_FAST_MALLOC(HarfBuzzFontData);
-  WTF_MAKE_NONCOPYABLE(HarfBuzzFontData);
 
  public:
   HarfBuzzFontData()
@@ -120,6 +120,9 @@ struct HarfBuzzFontData {
 
   scoped_refptr<OpenTypeVerticalData> vertical_data_;
   scoped_refptr<UnicodeRangeSet> range_set_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(HarfBuzzFontData);
 };
 
 // Though we have FontCache class, which provides the cache mechanism for
@@ -142,7 +145,7 @@ class HbFontCacheEntry : public RefCounted<HbFontCacheEntry> {
  private:
   explicit HbFontCacheEntry(hb_font_t* font)
       : hb_font_(HbFontUniquePtr(font)),
-        hb_font_data_(std::make_unique<HarfBuzzFontData>()){};
+        hb_font_data_(std::make_unique<HarfBuzzFontData>()) {}
 
   HbFontUniquePtr hb_font_;
   std::unique_ptr<HarfBuzzFontData> hb_font_data_;

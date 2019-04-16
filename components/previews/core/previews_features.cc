@@ -74,8 +74,14 @@ const base::Feature kOptimizationHintsExperiments{
     "OptimizationHintsExperiments", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables the application of the resource loading hints when loading resources.
-const base::Feature kResourceLoadingHints{"ResourceLoadingHints",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kResourceLoadingHints {
+  "ResourceLoadingHints",
+#if defined(OS_ANDROID)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else   // !defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // defined(OS_ANDROID)
+};
 
 // Enables client redirects to a server-rendered lite page preview.
 const base::Feature kLitePageServerPreviews{"LitePageServerPreviews",
@@ -90,10 +96,6 @@ const base::Feature kAndroidOmniboxPreviewsBadge{
 const base::Feature kSlowPageTriggering{"PreviewsSlowPageTriggering",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
 
-// A feature to prevent previews on all reloads.
-const base::Feature kPreviewsDisallowedOnReloads{
-    "PreviewsDisallowedOnReloads", base::FEATURE_DISABLED_BY_DEFAULT};
-
 // Allows HTTPS previews to be served via a URLLoader when network service is
 // enabled.
 const base::Feature kHTTPSServerPreviewsUsingURLLoader{
@@ -107,6 +109,10 @@ const base::Feature kDataSaverLiteModeRebranding{
 // to trigger.
 const base::Feature kPreviewsReloadsAreSoftOptOuts{
     "PreviewsReloadsAreSoftOptOuts", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enables using the OnePlatform Client Hints requests.
+const base::Feature kPreviewsOnePlatformHints{
+    "PreviewsOnePlatformHints", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace features
 }  // namespace previews

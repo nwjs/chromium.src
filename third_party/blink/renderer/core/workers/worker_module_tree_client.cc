@@ -17,7 +17,7 @@ WorkerModuleTreeClient::WorkerModuleTreeClient(Modulator* modulator)
 
 // A partial implementation of the "Processing model" algorithm in the HTML
 // WebWorker spec:
-// https://html.spec.whatwg.org/multipage/workers.html#worker-processing-model
+// https://html.spec.whatwg.org/C/#worker-processing-model
 void WorkerModuleTreeClient::NotifyModuleTreeLoadFinished(
     ModuleScript* module_script) {
   auto* execution_context =
@@ -31,6 +31,7 @@ void WorkerModuleTreeClient::NotifyModuleTreeLoadFinished(
     worker_reporting_proxy.DidFailToFetchModuleScript();
     return;
   }
+  worker_reporting_proxy.DidFetchScript();
 
   // Step 12: "Otherwise, continue the rest of these steps after the algorithm's
   // asynchronous completion, with script being the asynchronous completion

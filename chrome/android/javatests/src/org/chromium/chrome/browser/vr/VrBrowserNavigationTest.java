@@ -24,6 +24,7 @@ import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.UrlConstants;
@@ -34,17 +35,20 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.vr.rules.ChromeTabbedActivityVrTestRule;
 import org.chromium.chrome.browser.vr.util.NativeUiUtils;
+import org.chromium.chrome.browser.vr.util.RenderTestUtils;
 import org.chromium.chrome.browser.vr.util.VrBrowserTransitionUtils;
 import org.chromium.chrome.browser.vr.util.VrInfoBarUtils;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.NewTabPageTestUtils;
+import org.chromium.chrome.test.util.RenderTestRule;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.ClickUtils;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 
+import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
@@ -62,6 +66,10 @@ public class VrBrowserNavigationTest {
     // only ever runs in ChromeTabbedActivity.
     @Rule
     public ChromeTabbedActivityVrTestRule mTestRule = new ChromeTabbedActivityVrTestRule();
+
+    @Rule
+    public RenderTestRule mRenderTestRule =
+            new RenderTestRule("components/test/data/vr_browser_ui/render_tests");
 
     private WebXrVrTestFramework mWebXrVrTestFramework;
     private WebVrTestFramework mWebVrTestFramework;
@@ -167,7 +175,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(Page.PAGE_2D_2);
 
-        assertState(mVrBrowserTestFramework.getFirstTabWebContents(), Page.PAGE_2D_2,
+        assertState(mVrBrowserTestFramework.getCurrentWebContents(), Page.PAGE_2D_2,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
 
         // Test that the navigations were added to history
@@ -189,7 +197,7 @@ public class VrBrowserNavigationTest {
         ThreadUtils.runOnUiThreadBlocking(() -> itemViews.get(0).onClick());
         ChromeTabUtils.waitForTabPageLoaded(
                 mTestRule.getActivity().getActivityTab(), getUrl(Page.PAGE_2D_2));
-        assertState(mWebXrVrTestFramework.getFirstTabWebContents(), Page.PAGE_2D_2,
+        assertState(mWebXrVrTestFramework.getCurrentWebContents(), Page.PAGE_2D_2,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -222,7 +230,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(page);
 
-        assertState(framework.getFirstTabWebContents(), page, PresentationMode.NON_PRESENTING,
+        assertState(framework.getCurrentWebContents(), page, PresentationMode.NON_PRESENTING,
                 FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -252,11 +260,11 @@ public class VrBrowserNavigationTest {
     private void impl2dFullscreenToWeb(@Page int page, WebXrVrTestFramework framework)
             throws InterruptedException, TimeoutException {
         framework.loadUrlAndAwaitInitialization(TEST_PAGE_2D_URL, PAGE_LOAD_TIMEOUT_S);
-        enterFullscreenOrFail(framework.getFirstTabWebContents());
+        enterFullscreenOrFail(framework.getCurrentWebContents());
 
         navigateTo(page);
 
-        assertState(framework.getFirstTabWebContents(), page, PresentationMode.NON_PRESENTING,
+        assertState(framework.getCurrentWebContents(), page, PresentationMode.NON_PRESENTING,
                 FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -289,7 +297,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(Page.PAGE_2D);
 
-        assertState(framework.getFirstTabWebContents(), Page.PAGE_2D,
+        assertState(framework.getCurrentWebContents(), Page.PAGE_2D,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -322,7 +330,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(page);
 
-        assertState(framework.getFirstTabWebContents(), page, PresentationMode.NON_PRESENTING,
+        assertState(framework.getCurrentWebContents(), page, PresentationMode.NON_PRESENTING,
                 FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -356,7 +364,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(Page.PAGE_2D);
 
-        assertState(framework.getFirstTabWebContents(), Page.PAGE_2D,
+        assertState(framework.getCurrentWebContents(), Page.PAGE_2D,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -390,7 +398,7 @@ public class VrBrowserNavigationTest {
 
         navigateTo(page);
 
-        assertState(framework.getFirstTabWebContents(), page, PresentationMode.NON_PRESENTING,
+        assertState(framework.getCurrentWebContents(), page, PresentationMode.NON_PRESENTING,
                 FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -420,11 +428,11 @@ public class VrBrowserNavigationTest {
     private void webFullscreenTo2dImpl(@Page int page, WebXrVrTestFramework framework)
             throws InterruptedException, TimeoutException {
         framework.loadUrlAndAwaitInitialization(getUrl(page), PAGE_LOAD_TIMEOUT_S);
-        enterFullscreenOrFail(framework.getFirstTabWebContents());
+        enterFullscreenOrFail(framework.getCurrentWebContents());
 
         navigateTo(Page.PAGE_2D);
 
-        assertState(framework.getFirstTabWebContents(), Page.PAGE_2D,
+        assertState(framework.getCurrentWebContents(), Page.PAGE_2D,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -454,11 +462,11 @@ public class VrBrowserNavigationTest {
     private void webFullscreenToWebImpl(@Page int page, WebXrVrTestFramework framework)
             throws InterruptedException, TimeoutException {
         framework.loadUrlAndAwaitInitialization(getUrl(page), PAGE_LOAD_TIMEOUT_S);
-        enterFullscreenOrFail(framework.getFirstTabWebContents());
+        enterFullscreenOrFail(framework.getCurrentWebContents());
 
         navigateTo(page);
 
-        assertState(framework.getFirstTabWebContents(), page, PresentationMode.NON_PRESENTING,
+        assertState(framework.getCurrentWebContents(), page, PresentationMode.NON_PRESENTING,
                 FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -486,43 +494,83 @@ public class VrBrowserNavigationTest {
     }
 
     /**
-     * Tests navigation from a fullscreened WebVR to a WebVR page.
+     * Tests that the navigation buttons work only when they should, and are greyed out when not
+     * usable.
      */
     @Test
     @MediumTest
-    public void testNavigationButtons() throws IllegalArgumentException, InterruptedException {
+    @Feature({"Browser", "RenderTest"})
+    public void testNavigationButtons()
+            throws IllegalArgumentException, InterruptedException, IOException {
+        // TODO(https://crbug.com/930840): Remove this when the weird gradient behavior is fixed.
+        mRenderTestRule.setPixelDiffThreshold(2);
         Assert.assertFalse(
                 "Back button is enabled.", VrBrowserTransitionUtils.isBackButtonEnabled());
         Assert.assertFalse(
                 "Forward button is enabled.", VrBrowserTransitionUtils.isForwardButtonEnabled());
+        NativeUiUtils.clickElementAndWaitForUiQuiescence(
+                UserFriendlyElementName.OVERFLOW_MENU, new PointF());
+        RenderTestUtils.dumpAndCompare(NativeUiUtils.FRAME_BUFFER_SUFFIX_BROWSER_UI,
+                "navigation_buttons_both_disabled", mRenderTestRule);
+
         // Opening a new tab shouldn't enable the back button
-        mTestRule.loadUrlInNewTab(getUrl(Page.PAGE_2D), false, TabLaunchType.FROM_CHROME_UI);
+        mTestRule.loadUrlInNewTab("about:blank", false, TabLaunchType.FROM_CHROME_UI);
+        final int tabId = mTestRule.getActivity().getActivityTab().getId();
         Assert.assertFalse(
                 "Back button is enabled.", VrBrowserTransitionUtils.isBackButtonEnabled());
         Assert.assertFalse(
                 "Forward button is enabled.", VrBrowserTransitionUtils.isForwardButtonEnabled());
+        // Actually click on the back button and ensure it doesn't go back to the first tab.
+        NativeUiUtils.clickElement(UserFriendlyElementName.BACK_BUTTON, new PointF());
+        NativeUiUtils.clickElementAndWaitForUiQuiescence(
+                UserFriendlyElementName.OVERFLOW_MENU, new PointF());
+        RenderTestUtils.dumpAndCompare(NativeUiUtils.FRAME_BUFFER_SUFFIX_BROWSER_UI,
+                "navigation_buttons_both_disabled", mRenderTestRule);
+        Assert.assertEquals("Back button navigated to previous tab", tabId,
+                mTestRule.getActivity().getActivityTab().getId());
+
         // Navigating to a new page should enable the back button
-        mTestRule.loadUrl(getUrl(Page.PAGE_WEBVR));
+        mTestRule.loadUrl("chrome://version/");
         Assert.assertTrue(
                 "Back button is disabled.", VrBrowserTransitionUtils.isBackButtonEnabled());
         Assert.assertFalse(
                 "Forward button is enabled.", VrBrowserTransitionUtils.isForwardButtonEnabled());
-        // Navigating back should disable the back button and enable the forward button
-        VrBrowserTransitionUtils.navigateBack();
+        // Overflow menu should still be visible since navigation doesn't close it.
+        NativeUiUtils.waitForUiQuiescence();
+        RenderTestUtils.dumpAndCompare(NativeUiUtils.FRAME_BUFFER_SUFFIX_BROWSER_UI,
+                "navigation_buttons_back_enabled", mRenderTestRule);
+
+        // Navigating back should disable the back button and enable the forward button.
+        // We need to click twice - once to close the overflow menu, and once to actually click.
+        NativeUiUtils.clickElement(UserFriendlyElementName.BACK_BUTTON, new PointF());
+        NativeUiUtils.clickElement(UserFriendlyElementName.BACK_BUTTON, new PointF());
         ChromeTabUtils.waitForTabPageLoaded(
-                mTestRule.getActivity().getActivityTab(), getUrl(Page.PAGE_2D));
+                mTestRule.getActivity().getActivityTab(), "about:blank");
         Assert.assertFalse(
                 "Back button is enabled.", VrBrowserTransitionUtils.isBackButtonEnabled());
         Assert.assertTrue(
                 "Forward button is disabled.", VrBrowserTransitionUtils.isForwardButtonEnabled());
+        // Once again, click on the back button and ensure it doesn't go back to the first tab.
+        NativeUiUtils.clickElement(UserFriendlyElementName.BACK_BUTTON, new PointF());
+        NativeUiUtils.clickElementAndWaitForUiQuiescence(
+                UserFriendlyElementName.OVERFLOW_MENU, new PointF());
+        RenderTestUtils.dumpAndCompare(NativeUiUtils.FRAME_BUFFER_SUFFIX_BROWSER_UI,
+                "navigation_buttons_forward_enabled", mRenderTestRule);
+        Assert.assertEquals("Back button navigated to previous tab", tabId,
+                mTestRule.getActivity().getActivityTab().getId());
+
         // Navigating forward should disable the forward button and enable the back button
-        VrBrowserTransitionUtils.navigateForward();
+        NativeUiUtils.clickElement(UserFriendlyElementName.FORWARD_BUTTON, new PointF());
         ChromeTabUtils.waitForTabPageLoaded(
-                mTestRule.getActivity().getActivityTab(), getUrl(Page.PAGE_WEBVR));
+                mTestRule.getActivity().getActivityTab(), "chrome://version/");
         Assert.assertTrue(
                 "Back button is disabled.", VrBrowserTransitionUtils.isBackButtonEnabled());
         Assert.assertFalse(
                 "Forward button is enabled.", VrBrowserTransitionUtils.isForwardButtonEnabled());
+        NativeUiUtils.clickElementAndWaitForUiQuiescence(
+                UserFriendlyElementName.OVERFLOW_MENU, new PointF());
+        RenderTestUtils.dumpAndCompare(NativeUiUtils.FRAME_BUFFER_SUFFIX_BROWSER_UI,
+                "navigation_buttons_back_enabled", mRenderTestRule);
     }
 
     /**
@@ -581,7 +629,7 @@ public class VrBrowserNavigationTest {
             throws IllegalArgumentException, InterruptedException, TimeoutException {
         mVrBrowserTestFramework.loadUrlAndAwaitInitialization(
                 TEST_PAGE_2D_URL, PAGE_LOAD_TIMEOUT_S);
-        enterFullscreenOrFail(mVrBrowserTestFramework.getFirstTabWebContents());
+        enterFullscreenOrFail(mVrBrowserTestFramework.getCurrentWebContents());
 
         final Tab tab = mTestRule.getActivity().getActivityTab();
         ThreadUtils.runOnUiThreadBlocking(
@@ -593,7 +641,7 @@ public class VrBrowserNavigationTest {
         ChromeTabUtils.waitForTabPageLoaded(tab, TEST_PAGE_2D_URL);
         ChromeTabUtils.waitForInteractable(tab);
 
-        assertState(mVrBrowserTestFramework.getFirstTabWebContents(), Page.PAGE_2D,
+        assertState(mVrBrowserTestFramework.getCurrentWebContents(), Page.PAGE_2D,
                 PresentationMode.NON_PRESENTING, FullscreenMode.NON_FULLSCREENED);
     }
 
@@ -706,11 +754,7 @@ public class VrBrowserNavigationTest {
     @Test
     @MediumTest
     public void testUrlEntryTriggersNavigationIncognito() throws InterruptedException {
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            mTestRule.getActivity()
-                    .getTabCreator(true /* incognito */)
-                    .launchUrl("about:blank", TabLaunchType.FROM_LINK);
-        });
+        mVrBrowserTestFramework.openIncognitoTab("about:blank");
         testUrlEntryTriggersNavigationImpl();
     }
 
@@ -748,11 +792,7 @@ public class VrBrowserNavigationTest {
     @Test
     @MediumTest
     public void testSuggestionClickTriggersNavigationIncognito() throws InterruptedException {
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            mTestRule.getActivity()
-                    .getTabCreator(true /* incognito */)
-                    .launchUrl("about:blank", TabLaunchType.FROM_LINK);
-        });
+        mVrBrowserTestFramework.openIncognitoTab("about:blank");
         testSuggestionClickTriggersNavigationImpl();
     }
 

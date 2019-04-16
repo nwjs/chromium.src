@@ -479,7 +479,8 @@ void PasswordManager::ProvisionallySavePassword(
     return;
   }
 
-  bool should_block = ShouldBlockPasswordForSameOriginButDifferentScheme(form);
+  bool should_block =
+      ShouldBlockPasswordForSameOriginButDifferentScheme(form.origin);
   metrics_util::LogShouldBlockPasswordForSameOriginButDifferentScheme(
       should_block);
   if (should_block) {
@@ -670,7 +671,8 @@ void PasswordManager::ShowManualFallbackForSaving(
     const PasswordForm& password_form) {
   if (!client_->GetPasswordStore()->IsAbleToSavePasswords() ||
       !client_->IsSavingAndFillingEnabled(password_form.origin) ||
-      ShouldBlockPasswordForSameOriginButDifferentScheme(password_form) ||
+      ShouldBlockPasswordForSameOriginButDifferentScheme(
+          password_form.origin) ||
       !client_->GetStoreResultFilter()->ShouldSave(password_form))
     return;
 
@@ -900,8 +902,17 @@ NewPasswordFormManager* PasswordManager::ProvisionallySaveForm(
   // PasswordToSave in NewPasswordFormManager DCHECKs that the password is never
   // empty.
 
-  // TODO(https://crbug.com/831123): Add the
-  // ShouldBlockPasswordForSameOriginButDifferentScheme check.
+  const GURL& origin = submitted_form.origin;
+  bool should_block =
+      ShouldBlockPasswordForSameOriginButDifferentScheme(origin);
+  metrics_util::LogShouldBlockPasswordForSameOriginButDifferentScheme(
+      should_block);
+  if (should_block) {
+    RecordProvisionalSaveFailure(
+        PasswordManagerMetricsRecorder::SAVING_ON_HTTP_AFTER_HTTPS, origin,
+        logger.get());
+    return nullptr;
+  }
 
   NewPasswordFormManager* matched_manager =
       GetMatchedManager(driver, submitted_form);
@@ -930,6 +941,11 @@ NewPasswordFormManager* PasswordManager::ProvisionallySaveForm(
       manager->set_not_submitted();
   }
 
+  // Cache the user-visible URL (i.e., the one seen in the omnibox). Once the
+  // post-submit navigation concludes, we compare the landing URL against the
+  // cached and report the difference through UMA.
+  main_frame_url_ = client_->GetMainFrameURL();
+
   return matched_manager;
 }
 
@@ -957,6 +973,31 @@ void PasswordManager::NotifyStorePasswordCalled() {
   store_password_called_ = true;
   DropFormManagers();
 }
+
+#if defined(OS_IOS)
+void PasswordManager::PresaveGeneratedPassword(
+    PasswordManagerDriver* driver,
+    const FormData& form,
+    const base::string16& generated_password,
+    const base::string16& generation_element,
+    bool is_manually_triggered) {
+  // TODO(https://crbug.com/886583): Implement it.
+}
+
+void PasswordManager::UpdateGeneratedPasswordOnUserInput(
+    PasswordManagerDriver* driver,
+    const base::string16& form_identifier,
+    const base::string16& field_identifier,
+    const base::string16& field_value) {
+  // TODO(https://crbug.com/886583): Implement it.
+}
+
+void PasswordManager::OnPasswordNoLongerGenerated(
+    PasswordManagerDriver* driver) {
+  // TODO(https://crbug.com/886583): Implement it.
+}
+
+#endif
 
 void PasswordManager::ProvisionallySaveManager(
     const PasswordForm& form,
@@ -1006,12 +1047,10 @@ bool PasswordManager::IsAutomaticSavePromptAvailable() {
 }
 
 bool PasswordManager::ShouldBlockPasswordForSameOriginButDifferentScheme(
-    const PasswordForm& form) const {
+    const GURL& origin) const {
   const GURL& old_origin = main_frame_url_.GetOrigin();
-  const GURL& new_origin = form.origin.GetOrigin();
-  return old_origin.host_piece() == new_origin.host_piece() &&
-         old_origin.SchemeIsCryptographic() &&
-         !new_origin.SchemeIsCryptographic();
+  return old_origin.host_piece() == origin.host_piece() &&
+         old_origin.SchemeIsCryptographic() && !origin.SchemeIsCryptographic();
 }
 
 void PasswordManager::OnPasswordFormsRendered(
@@ -1159,10 +1198,10 @@ void PasswordManager::OnLoginSuccessful() {
   }
 
   if (ShouldPromptUserToSavePassword(*submitted_manager)) {
-    bool empty_password =
+    bool empty_username =
         submitted_manager->GetPendingCredentials().username_value.empty();
     UMA_HISTOGRAM_BOOLEAN("PasswordManager.EmptyUsernames.OfferedToSave",
-                          empty_password);
+                          empty_username);
     if (logger)
       logger->LogMessage(Logger::STRING_DECISION_ASK);
     bool update_password = submitted_manager->IsPasswordUpdate();
@@ -1181,13 +1220,11 @@ void PasswordManager::OnLoginSuccessful() {
           submitted_manager->GetPendingCredentials());
     }
 
-    if (submitted_manager->HasGeneratedPassword()) {
+    if (submitted_manager->HasGeneratedPassword())
       client_->AutomaticPasswordSave(MoveOwnedSubmittedManager());
-    } else {
-      provisional_save_manager_.reset();
-      owned_submitted_form_manager_.reset();
-    }
   }
+  provisional_save_manager_.reset();
+  owned_submitted_form_manager_.reset();
 }
 
 void PasswordManager::MaybeSavePasswordHash(

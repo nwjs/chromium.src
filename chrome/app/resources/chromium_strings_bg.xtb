@@ -80,7 +80,6 @@
 <translation id="3639635944603682591">Данните за сърфирането на този човек ще бъдат изтрити от устройството. За да ги възстановите, влезте в Chromium като <ph name="USER_EMAIL" />.</translation>
 <translation id="3713809861844741608">Отваряне на връзката в нов &amp;раздел на Chromium</translation>
 <translation id="3728336900324680424">Chromium ще осъществява достъп до хранилището ви в Диск, за да извежда предложения в адресната лента</translation>
-<translation id="3762167353400286894">Chromium OS се показва на този език</translation>
 <translation id="378917192836375108">Chromium ви позволява да кликнете върху телефонен номер в мрежата и да се обадите до него със Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
 <translation id="3852700440713538496">Закачване на Chromium към лентата на задачите</translation>
@@ -92,6 +91,7 @@
 <translation id="4050175100176540509">В последната версия са налице важни подобрения в сигурността и нови функции.</translation>
 <translation id="407254336480250557">Изберете <ph name="BEGIN_BOLD" />Chromium<ph name="END_BOLD" /> <ph name="SMALL_PRODUCT_LOGO" /></translation>
 <translation id="421369550622382712">Открийте отлични приложения, игри, разширения и теми за Chromium.</translation>
+<translation id="4216212958613226427">Този език служи за показване на ПИ на Chromium</translation>
 <translation id="4222580632002216401">Вече влязохте в Chromium! Синхронизирането е деактивирано от администратора ви.</translation>
 <translation id="4224199872375172890">Chromium е актуален.</translation>
 <translation id="4230135487732243613">Да се свържат ли данните ви в Chromium с този профил?</translation>
@@ -136,7 +136,7 @@
 <translation id="5680901439334282664">Влезте в Chromium</translation>
 <translation id="5698481217667032250">Показване на Chromium на този език</translation>
 <translation id="5712253116097046984">Администраторът ви моли да рестартирате Chromium OS, за да се приложи тази актуализация</translation>
-<translation id="5726838626470692954">Мениджърът ви трябва да ви премахне от Chromium и да ви добави отново.</translation>
+<translation id="5756484659843248772">Този език служи за показване на ПИ на Chromium OS</translation>
 <translation id="5768914737813585044">Показване на Chromium OS на този език</translation>
 <translation id="5796460469508169315">Chromium е почти готов.</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
@@ -180,12 +180,12 @@
 <translation id="6857782730669500492">Chromium – <ph name="PAGE_TITLE" /></translation>
 <translation id="6863361426438995919">Google Pay (копирано в Chromium)</translation>
 <translation id="6893813176749746474">Chromium е актуализиран, но не сте го използвали от поне 30 дни.</translation>
-<translation id="692832138936263906">Chromium може да разпознае изображенията на дадена страница и текста в тях, като ги изпрати до сървърите на Google, и така да направи съдържанието й по-разбираемо за вас.</translation>
 <translation id="6964305034639999644">Отваряне на връзката в прозорец в режим „инко&amp;гнито“ на Chromium</translation>
 <translation id="6970811910055250180">Устройството ви се актуализира...</translation>
 <translation id="6990124437352146030">Chromium се нуждае от разрешение за достъп до микрофона ви за този сайт</translation>
 <translation id="705851970750939768">Актуализиране на Chromium</translation>
 <translation id="7066436765290594559">Chromium OS не можа да синхронизира данните ви. Моля, актуализирайте пропуска си за синхронизиране.</translation>
+<translation id="7067091210845072982">Ако няма полезно описание за дадено изображение, Chromium ще се опита да предостави такова. За да бъдат създадени описания, съответните изображения се изпращат до Google.</translation>
 <translation id="7162152143154757523">Chromium може да предоставя по-интелигентна проверка на правописа, като изпраща до сървърите ни въвежданото от вас в браузъра, позволявайки ви да използвате същата технология за проверка на правописа, както при търсенето с Google.</translation>
 <translation id="7196312274710523067">Chromium не можа да се стартира. Опитайте отново.</translation>
 <translation id="7205698830395646142">Скриване в менюто на Chromium</translation>
@@ -227,9 +227,9 @@
 <translation id="7979877361127045932">Скриване в менюто на Chromium</translation>
 <translation id="8013436988911883588">След като Chromium получи достъп, уебсайтовете ще могат да искат достъп от вас.</translation>
 <translation id="8030318113982266900">Устройството ви се актуализира до канал: <ph name="CHANNEL_NAME" />...</translation>
-<translation id="8157153840442649507">Chromium се показва на този език</translation>
 <translation id="81770708095080097">Chromium блокира този файл, тъй като е опасен.</translation>
 <translation id="8222496066431494154">Инсталирайте Chromium на телефона си. Ще изпратим SMS на телефонния номер за възстановяване на профила ви: <ph name="PHONE_NUMBER" /></translation>
+<translation id="8248265253516264921">Ако няма полезно описание за дадено изображение, Chromium ще се опита да предостави такова. За да бъдат създадени описания, съответните изображения се изпращат до Google. По всяко време можете да изключите тази функция от настройките.</translation>
 <translation id="8269379391216269538">Помощ за подобряването на Chromium</translation>
 <translation id="8290862415967981663">Chromium блокира този файл, тъй като може да е опасен.</translation>
 <translation id="8330519371938183845">Влезте в профила си, за да синхронизирате и персонализирате Chromium на всичките си устройства</translation>
@@ -264,6 +264,7 @@
 <translation id="9089354809943900324">Chromium не е актуален</translation>
 <translation id="91086099826398415">Отваряне на връзката в нов &amp;раздел на Chromium</translation>
 <translation id="911206726377975832">Да се изтрият ли и данните от сърфирането?</translation>
+<translation id="9158494823179993217">Системният ви администратор е конфигурирал Chromium да отваря алтернативен браузър за достъп до <ph name="TARGET_URL_HOSTNAME" />.</translation>
 <translation id="918373042641772655">Прекратяването на връзката с/ъс <ph name="USERNAME" /> ще изчисти историята, отметките, настройките и другите данни в Chromium, съхранени на това устройство. Данните в профила ви в Google няма да бъдат изчистени и могат да се управляват в <ph name="GOOGLE_DASHBOARD_LINK" />Google Табло за управление<ph name="END_GOOGLE_DASHBOARD_LINK" />.</translation>
 <translation id="9190841055450128916">Chromium (входящ трафик за mDNS)</translation>
 <translation id="9197815481970649201">Вече влязохте в Chromium</translation>

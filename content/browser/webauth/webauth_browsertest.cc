@@ -6,6 +6,7 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
 #include "base/macros.h"
@@ -29,7 +30,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/public/test/test_utils.h"
 #include "content/shell/browser/shell.h"
-#include "content/test/did_commit_provisional_load_interceptor.h"
+#include "content/test/did_commit_navigation_interceptor.h"
 #include "device/base/features.h"
 #include "device/fido/fake_fido_discovery.h"
 #include "device/fido/fido_discovery_factory.h"
@@ -159,19 +160,20 @@ std::string BuildGetCallWithParameters(const GetParameters& parameters) {
 // Helper class that executes the given |closure| the very last moment before
 // the next navigation commits in a given WebContents.
 class ClosureExecutorBeforeNavigationCommit
-    : public DidCommitProvisionalLoadInterceptor {
+    : public DidCommitNavigationInterceptor {
  public:
   ClosureExecutorBeforeNavigationCommit(WebContents* web_contents,
                                         base::OnceClosure closure)
-      : DidCommitProvisionalLoadInterceptor(web_contents),
+      : DidCommitNavigationInterceptor(web_contents),
         closure_(std::move(closure)) {}
   ~ClosureExecutorBeforeNavigationCommit() override = default;
 
  protected:
-  bool WillDispatchDidCommitProvisionalLoad(
+  bool WillProcessDidCommitNavigation(
       RenderFrameHost* render_frame_host,
+      NavigationRequest* navigation_request,
       ::FrameHostMsg_DidCommitProvisionalLoad_Params* params,
-      mojom::DidCommitProvisionalLoadInterfaceParamsPtr& interface_params)
+      mojom::DidCommitProvisionalLoadInterfaceParamsPtr* interface_params)
       override {
     if (closure_)
       std::move(closure_).Run();
@@ -845,7 +847,7 @@ base::Optional<std::string> ExecuteScriptAndExtractPrefixedString(
     }
 
     base::JSONReader reader(base::JSON_ALLOW_TRAILING_COMMAS);
-    std::unique_ptr<base::Value> result = reader.ReadToValue(json);
+    std::unique_ptr<base::Value> result = reader.ReadToValueDeprecated(json);
     if (!result) {
       return base::nullopt;
     }

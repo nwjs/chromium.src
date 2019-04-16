@@ -20,7 +20,7 @@
 #include "base/task/post_task.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "content/browser/frame_host/render_frame_host_impl.h"
-#include "content/browser/service_worker/embedded_worker_registry.h"
+#include "content/browser/log_console_message.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/service_worker_consts.h"
 #include "content/browser/service_worker/service_worker_context_core_observer.h"
@@ -37,7 +37,9 @@
 #include "content/common/service_worker/service_worker_utils.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/console_message.h"
 #include "content/public/common/child_process_host.h"
+#include "content/public/common/url_utils.h"
 #include "ipc/ipc_message.h"
 #include "net/http/http_response_headers.h"
 #include "net/http/http_response_info.h"
@@ -294,7 +296,6 @@ ServiceWorkerContextCore::ServiceWorkerContextCore(
   storage_ = ServiceWorkerStorage::Create(
       user_data_directory, AsWeakPtr(), std::move(database_task_runner),
       quota_manager_proxy, special_storage_policy);
-  embedded_worker_registry_ = EmbeddedWorkerRegistry::Create(AsWeakPtr());
   job_coordinator_ = std::make_unique<ServiceWorkerJobCoordinator>(AsWeakPtr());
 }
 
@@ -308,15 +309,13 @@ ServiceWorkerContextCore::ServiceWorkerContextCore(
       was_service_worker_registered_(
           old_context->was_service_worker_registered_),
       observer_list_(old_context->observer_list_),
+      next_embedded_worker_id_(old_context->next_embedded_worker_id_),
       weak_factory_(this) {
   DCHECK(observer_list_);
 
   // These get a WeakPtr from |weak_factory_|, so must be set after
   // |weak_factory_| is initialized.
   storage_ = ServiceWorkerStorage::Create(AsWeakPtr(), old_context->storage());
-  embedded_worker_registry_ = EmbeddedWorkerRegistry::Create(
-      AsWeakPtr(),
-      old_context->embedded_worker_registry());
   job_coordinator_ = std::make_unique<ServiceWorkerJobCoordinator>(AsWeakPtr());
 }
 
@@ -538,6 +537,10 @@ void ServiceWorkerContextCore::DidGetRegistrationsForDeleteForOrigin(
   }
 }
 
+int ServiceWorkerContextCore::GetNextEmbeddedWorkerId() {
+  return next_embedded_worker_id_++;
+}
+
 ServiceWorkerContextCore::ProviderMap*
 ServiceWorkerContextCore::GetProviderMapForProcess(int process_id) {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
@@ -718,12 +721,11 @@ void ServiceWorkerContextCore::ClearAllServiceWorkersForTest(
 
 void ServiceWorkerContextCore::CheckHasServiceWorker(
     const GURL& url,
-    const GURL& other_url,
     ServiceWorkerContext::CheckHasServiceWorkerCallback callback) {
   storage()->FindRegistrationForDocument(
       url, base::BindOnce(&ServiceWorkerContextCore::
                               DidFindRegistrationForCheckHasServiceWorker,
-                          AsWeakPtr(), other_url, std::move(callback)));
+                          AsWeakPtr(), std::move(callback)));
 }
 
 void ServiceWorkerContextCore::UpdateVersionFailureCount(
@@ -834,15 +836,27 @@ void ServiceWorkerContextCore::OnErrorReported(
 void ServiceWorkerContextCore::OnReportConsoleMessage(
     ServiceWorkerVersion* version,
     int source_identifier,
-    int message_level,
+    blink::mojom::ConsoleMessageLevel message_level,
     const base::string16& message,
     int line_number,
     const GURL& source_url) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  // NOTE: This differs slightly from
+  // RenderFrameHostImpl::OnDidAddMessageToConsole, which also asks the
+  // content embedder whether to classify the message as a builtin component.
+  // This is called on the IO thread, though, so we can't easily get a
+  // BrowserContext and call ContentBrowserClient::IsBuiltinComponent().
+  const bool is_builtin_component = HasWebUIScheme(source_url);
+
+  LogConsoleMessage(ConsoleMessageLevelToLogSeverity(message_level), message,
+                    line_number, is_builtin_component, wrapper_->is_incognito(),
+                    base::UTF8ToUTF16(source_url.spec()));
+
   observer_list_->Notify(
       FROM_HERE, &ServiceWorkerContextCoreObserver::OnReportConsoleMessage,
       version->version_id(),
-      ServiceWorkerContextCoreObserver::ConsoleMessage(
-          source_identifier, message_level, message, line_number, source_url));
+      ConsoleMessage(source_identifier, message_level, message, line_number,
+                     source_url));
 }
 
 void ServiceWorkerContextCore::OnControlleeAdded(
@@ -873,16 +887,10 @@ ServiceWorkerProcessManager* ServiceWorkerContextCore::process_manager() {
 }
 
 void ServiceWorkerContextCore::DidFindRegistrationForCheckHasServiceWorker(
-    const GURL& other_url,
     ServiceWorkerContext::CheckHasServiceWorkerCallback callback,
     blink::ServiceWorkerStatusCode status,
     scoped_refptr<ServiceWorkerRegistration> registration) {
   if (status != blink::ServiceWorkerStatusCode::kOk) {
-    std::move(callback).Run(ServiceWorkerCapability::NO_SERVICE_WORKER);
-    return;
-  }
-
-  if (!ServiceWorkerUtils::ScopeMatches(registration->scope(), other_url)) {
     std::move(callback).Run(ServiceWorkerCapability::NO_SERVICE_WORKER);
     return;
   }

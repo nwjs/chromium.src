@@ -4,6 +4,7 @@
 
 #include "services/network/cors/cors_url_loader.h"
 
+#include "base/bind.h"
 #include "base/stl_util.h"
 #include "net/base/load_flags.h"
 #include "services/network/cors/preflight_controller.h"
@@ -56,6 +57,7 @@ CorsURLLoader::CorsURLLoader(
     mojom::URLLoaderFactory* network_loader_factory,
     const base::RepeatingCallback<void(int)>& request_finalizer,
     const OriginAccessList* origin_access_list,
+    const OriginAccessList* factory_bound_origin_access_list,
     PreflightController* preflight_controller)
     : binding_(this, std::move(loader_request)),
       routing_id_(routing_id),
@@ -69,6 +71,7 @@ CorsURLLoader::CorsURLLoader(
       request_finalizer_(request_finalizer),
       traffic_annotation_(traffic_annotation),
       origin_access_list_(origin_access_list),
+      factory_bound_origin_access_list_(factory_bound_origin_access_list),
       preflight_controller_(preflight_controller),
       weak_factory_(this) {
   binding_.set_connection_error_handler(base::BindOnce(
@@ -343,7 +346,11 @@ void CorsURLLoader::OnStartLoadingResponseBody(
 void CorsURLLoader::OnComplete(const URLLoaderCompletionStatus& status) {
   DCHECK(network_loader_);
   DCHECK(forwarding_client_);
-  DCHECK(!deferred_redirect_url_);
+
+  // |network_loader_| will call OnComplete at anytime when a problem happens
+  // inside the URLLoader, e.g. on URLLoader::OnConnectionError call. We need
+  // to expect it also happens even during redirect handling.
+  DCHECK(!deferred_redirect_url_ || status.error_code != net::OK);
 
   URLLoaderCompletionStatus modified_status(status);
   if (status.error_code == net::OK)
@@ -468,9 +475,19 @@ void CorsURLLoader::SetCorsFlagIfNeeded() {
   DCHECK(request_.request_initiator);
 
   // The source origin and destination URL pair may be in the allow list.
-  if (origin_access_list_->IsAllowed(*request_.request_initiator,
-                                     request_.url)) {
-    return;
+  switch (origin_access_list_->CheckAccessState(*request_.request_initiator,
+                                                request_.url)) {
+    case OriginAccessList::AccessState::kAllowed:
+      return;
+    case OriginAccessList::AccessState::kBlocked:
+      break;
+    case OriginAccessList::AccessState::kNotListed:
+      if (factory_bound_origin_access_list_->CheckAccessState(
+              *request_.request_initiator, request_.url) ==
+          OriginAccessList::AccessState::kAllowed) {
+        return;
+      }
+      break;
   }
 
   // When a request is initiated in a unique opaque origin (e.g., in a sandboxed
@@ -525,7 +542,8 @@ mojom::FetchResponseType CorsURLLoader::CalculateResponseTainting(
   if (request_mode == mojom::FetchRequestMode::kNoCors) {
     if (tainted_origin ||
         (!origin->IsSameOriginWith(url::Origin::Create(url)) &&
-         !origin_access_list->IsAllowed(*origin, url))) {
+         origin_access_list->CheckAccessState(*origin, url) !=
+             OriginAccessList::AccessState::kAllowed)) {
       return mojom::FetchResponseType::kOpaque;
     }
   }

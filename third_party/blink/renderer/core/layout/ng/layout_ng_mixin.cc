@@ -11,6 +11,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_location.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node_data.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_physical_line_box_fragment.h"
+#include "third_party/blink/renderer/core/layout/ng/layout_box_utils.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_break_token.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_constraint_space.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_layout_result.h"
@@ -67,9 +68,11 @@ void LayoutNGMixin<Base>::ClearNGInlineNodeData() {
 // cache evolves.
 template <typename Base>
 const NGPhysicalBoxFragment* LayoutNGMixin<Base>::CurrentFragment() const {
-  if (cached_result_)
-    return ToNGPhysicalBoxFragment(cached_result_->PhysicalFragment());
-  return nullptr;
+  const NGLayoutResult* cached_layout_result = Base::GetCachedLayoutResult();
+  if (!cached_layout_result)
+    return nullptr;
+
+  return ToNGPhysicalBoxFragment(cached_layout_result->PhysicalFragment());
 }
 
 template <typename Base>
@@ -81,7 +84,10 @@ void LayoutNGMixin<Base>::ComputeIntrinsicLogicalWidths(
     Base::ComputeIntrinsicLogicalWidths(min_logical_width, max_logical_width);
     return;
   }
-  MinMaxSizeInput input;
+
+  LayoutUnit available_logical_height =
+      LayoutBoxUtils::AvailableLogicalHeight(*this, Base::ContainingBlock());
+  MinMaxSizeInput input(available_logical_height);
   // This function returns content-box plus scrollbar.
   input.size_type = NGMinMaxSizeType::kContentBoxSize;
   MinMaxSize sizes =
@@ -241,7 +247,7 @@ LayoutUnit LayoutNGMixin<Base>::FirstLineBoxBaseline() const {
   if (Base::ChildrenInline()) {
     if (base::Optional<LayoutUnit> offset =
             FragmentBaseline(NGBaselineAlgorithmType::kFirstLine)) {
-      return offset.value();
+      return *offset;
     }
   }
   return Base::FirstLineBoxBaseline();
@@ -253,56 +259,46 @@ LayoutUnit LayoutNGMixin<Base>::InlineBlockBaseline(
   if (Base::ChildrenInline()) {
     if (base::Optional<LayoutUnit> offset =
             FragmentBaseline(NGBaselineAlgorithmType::kAtomicInline)) {
-      return offset.value();
+      return *offset;
     }
   }
   return Base::InlineBlockBaseline(line_direction);
 }
 
 template <typename Base>
-scoped_refptr<NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
+scoped_refptr<const NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
     const NGConstraintSpace& new_space,
     const NGBreakToken* break_token) {
   if (!RuntimeEnabledFeatures::LayoutNGFragmentCachingEnabled())
     return nullptr;
-  if (!cached_result_ || !Base::cached_constraint_space_ || break_token ||
-      (Base::NeedsLayout() && !NeedsRelativePositionedLayoutOnly()))
+
+  if (break_token)
     return nullptr;
-  const NGConstraintSpace& old_space = *Base::cached_constraint_space_;
-  // If we used to contain abspos items, we can't reuse the fragment, because
-  // we can't be sure that the list of items hasn't changed (as we bubble them
-  // up during layout). In the case of newly-added abspos items to this
-  // containing block, we will handle those by the NeedsLayout check above for
-  // now.
-  // TODO(layout-ng): Come up with a better solution for this
-  if (cached_result_->OutOfFlowPositionedDescendants().size())
+
+  if (Base::NeedsLayout() && !NeedsRelativePositionedLayoutOnly())
     return nullptr;
-  if (!new_space.MaySkipLayout(old_space))
+
+  const NGLayoutResult* cached_layout_result = Base::GetCachedLayoutResult();
+  if (!cached_layout_result)
     return nullptr;
 
   // If we have an orthogonal flow root descendant, we don't attempt to cache
   // our layout result. This is because the initial containing block size may
   // have changed, having a high likelihood of changing the size of the
   // orthogonal flow root.
-  if (cached_result_->HasOrthogonalFlowRoots())
+  if (cached_layout_result->HasOrthogonalFlowRoots())
     return nullptr;
 
-  if (!new_space.AreSizesEqual(old_space)) {
-    // We need to descend all the way down into BODY if we're in quirks mode,
-    // since it magically follows the viewport size.
-    if (NGBlockNode(this).IsQuirkyAndFillsViewport())
-      return nullptr;
+  if (!MaySkipLayout(NGBlockNode(this), *cached_layout_result, new_space))
+    return nullptr;
 
-    // If the available / percentage sizes have changed in a way that may affect
-    // layout, we cannot re-use the previous result.
-    if (SizeMayChange(Base::StyleRef(), new_space, old_space, *cached_result_))
-      return nullptr;
-  }
+  const NGConstraintSpace& old_space =
+      cached_layout_result->GetConstraintSpaceForCaching();
 
   // Check BFC block offset. Even if they don't match, there're some cases we
   // can still reuse the fragment.
   base::Optional<LayoutUnit> bfc_block_offset =
-      cached_result_->BfcBlockOffset();
+      cached_layout_result->BfcBlockOffset();
   if (new_space.BfcOffset().block_offset !=
       old_space.BfcOffset().block_offset) {
     // Earlier floats may affect this box if block offset changes.
@@ -316,7 +312,7 @@ scoped_refptr<NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
       return nullptr;
 
     if (bfc_block_offset.has_value()) {
-      bfc_block_offset = bfc_block_offset.value() -
+      bfc_block_offset = *bfc_block_offset -
                          old_space.BfcOffset().block_offset +
                          new_space.BfcOffset().block_offset;
     }
@@ -332,63 +328,37 @@ scoped_refptr<NGLayoutResult> LayoutNGMixin<Base>::CachedLayoutResult(
 
   // The checks above should be enough to bail if layout is incomplete, but
   // let's verify:
-  DCHECK(IsBlockLayoutComplete(old_space, *cached_result_));
-  return base::AdoptRef(new NGLayoutResult(*cached_result_, bfc_block_offset));
-}
-
-template <typename Base>
-void LayoutNGMixin<Base>::SetCachedLayoutResult(
-    const NGConstraintSpace& constraint_space,
-    const NGBreakToken* break_token,
-    const NGLayoutResult& layout_result) {
-  if (break_token || layout_result.Status() != NGLayoutResult::kSuccess) {
-    // We can't cache these yet
-    return;
-  }
-  if (constraint_space.IsIntermediateLayout())
-    return;
-
-  Base::cached_constraint_space_.reset(new NGConstraintSpace(constraint_space));
-  cached_result_ = &layout_result;
-}
-
-template <typename Base>
-void LayoutNGMixin<Base>::ClearCachedLayoutResult() {
-  cached_result_.reset();
-  Base::cached_constraint_space_.reset();
-}
-
-template <typename Base>
-scoped_refptr<const NGLayoutResult>
-LayoutNGMixin<Base>::CachedLayoutResultForTesting() {
-  return cached_result_;
+  DCHECK(IsBlockLayoutComplete(old_space, *cached_layout_result));
+  return base::AdoptRef(
+      new NGLayoutResult(*cached_layout_result, bfc_block_offset));
 }
 
 template <typename Base>
 bool LayoutNGMixin<Base>::AreCachedLinesValidFor(
-    const NGConstraintSpace& constraint_space) const {
-  if (!Base::cached_constraint_space_)
+    const NGConstraintSpace& new_space) const {
+  const NGLayoutResult* cached_layout_result = Base::GetCachedLayoutResult();
+  if (!cached_layout_result)
     return false;
-  const NGConstraintSpace& cached_constraint_space =
-      *Base::cached_constraint_space_;
-  DCHECK(cached_result_);
 
-  if (constraint_space.AvailableSize().inline_size !=
-      cached_constraint_space.AvailableSize().inline_size)
+  const NGConstraintSpace& old_space =
+      cached_layout_result->GetConstraintSpaceForCaching();
+
+  if (new_space.AvailableSize().inline_size !=
+      old_space.AvailableSize().inline_size)
     return false;
 
   // Floats in either cached or new constraint space prevents reusing cached
   // lines.
-  if (constraint_space.HasFloats() || cached_constraint_space.HasFloats())
+  if (new_space.HasFloats() || old_space.HasFloats())
     return false;
 
   // Any floats might need to move, causing lines to wrap differently, needing
   // re-layout.
-  if (!cached_result_->ExclusionSpace().IsEmpty())
+  if (!cached_layout_result->ExclusionSpace().IsEmpty())
     return false;
 
   // Propagating OOF needs re-layout.
-  if (!cached_result_->OutOfFlowPositionedDescendants().IsEmpty())
+  if (!cached_layout_result->OutOfFlowPositionedDescendants().IsEmpty())
     return false;
 
   return true;
@@ -397,8 +367,7 @@ bool LayoutNGMixin<Base>::AreCachedLinesValidFor(
 template <typename Base>
 void LayoutNGMixin<Base>::SetPaintFragment(
     const NGBlockBreakToken* break_token,
-    scoped_refptr<const NGPhysicalFragment> fragment,
-    NGPhysicalOffset offset) {
+    scoped_refptr<const NGPhysicalFragment> fragment) {
   DCHECK(!break_token || break_token->InputNode().GetLayoutBox() == this);
 
   scoped_refptr<NGPaintFragment>* current =
@@ -406,7 +375,7 @@ void LayoutNGMixin<Base>::SetPaintFragment(
   DCHECK(current);
   bool has_old = current->get();
   if (fragment) {
-    *current = NGPaintFragment::Create(std::move(fragment), offset, break_token,
+    *current = NGPaintFragment::Create(std::move(fragment), break_token,
                                        std::move(*current));
   } else {
     *current = nullptr;
@@ -416,23 +385,6 @@ void LayoutNGMixin<Base>::SetPaintFragment(
     // Painting layer needs repaint when a DisplayItemClient is destroyed.
     ObjectPaintInvalidator(*this).SlowSetPaintingLayerNeedsRepaint();
   }
-}
-
-template <typename Base>
-void LayoutNGMixin<Base>::UpdatePaintFragmentFromCachedLayoutResult(
-    const NGBlockBreakToken* break_token,
-    scoped_refptr<const NGPhysicalFragment> fragment,
-    NGPhysicalOffset fragment_offset) {
-  DCHECK(fragment);
-  DCHECK(fragment->GetLayoutObject() == this);
-  DCHECK(!break_token || break_token->InputNode().GetLayoutBox() == this);
-
-  scoped_refptr<NGPaintFragment>* current =
-      NGPaintFragment::Find(&paint_fragment_, break_token);
-  DCHECK(current);
-  DCHECK(*current);
-  (*current)->UpdateFromCachedLayoutResult(std::move(fragment),
-                                           fragment_offset);
 }
 
 template <typename Base>
@@ -513,37 +465,6 @@ PositionWithAffinity LayoutNGMixin<Base>::PositionForPoint(
   if (ng_position.IsNotNull())
     return ng_position;
   return Base::CreatePositionWithAffinity(0);
-}
-
-template <typename Base>
-void LayoutNGMixin<Base>::ComputeSelfHitTestRects(
-    Vector<LayoutRect>& rects,
-    const LayoutPoint& layer_offset) const {
-  // Deliberately skipping the LayoutBlockFlow override here. We need to check
-  // for visible overflow (and exit early if it's clipped) here anyway, and it's
-  // pointless to look for legacy line boxes if we're NG.
-  LayoutBlock::ComputeSelfHitTestRects(rects, layer_offset);
-
-  if (!Base::HasHorizontalLayoutOverflow() &&
-      !Base::HasVerticalLayoutOverflow())
-    return;
-
-  NGPaintFragment* block_fragment = PaintFragment();
-  if (!block_fragment)
-    return;
-  for (const NGPaintFragment* line = block_fragment->FirstLineBox(); line;
-       line = line->NextSibling()) {
-    DCHECK(line->PhysicalFragment().IsLineBox());
-    NGPhysicalOffset line_offset = line->Offset();
-    NGPhysicalSize size = line->Size();
-    LayoutRect rect(layer_offset.X() + line_offset.left,
-                    layer_offset.Y() + line_offset.top, size.width,
-                    size.height);
-    // It's common for this rect to be entirely contained in our box, so exclude
-    // that simple case.
-    if (!rect.IsEmpty() && (rects.IsEmpty() || !rects[0].Contains(rect)))
-      rects.push_back(rect);
-  }
 }
 
 template <typename Base>

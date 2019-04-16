@@ -67,16 +67,6 @@ bool FrameResourceFetcherProperties::IsLoadComplete() const {
   return document && document->LoadEventFinished();
 }
 
-bool FrameResourceFetcherProperties::ShouldBlockLoadingMainResource() const {
-  DocumentLoader* document_loader =
-      frame_or_imported_document_->GetDocumentLoader();
-  if (!document_loader)
-    return false;
-
-  FrameLoader& loader = frame_or_imported_document_->GetFrame().Loader();
-  return document_loader != loader.GetProvisionalDocumentLoader();
-}
-
 bool FrameResourceFetcherProperties::ShouldBlockLoadingSubResource() const {
   DocumentLoader* document_loader =
       frame_or_imported_document_->GetDocumentLoader();
@@ -85,6 +75,11 @@ bool FrameResourceFetcherProperties::ShouldBlockLoadingSubResource() const {
 
   FrameLoader& loader = frame_or_imported_document_->GetFrame().Loader();
   return document_loader != loader.GetDocumentLoader();
+}
+
+scheduler::FrameStatus FrameResourceFetcherProperties::GetFrameStatus() const {
+  return scheduler::GetFrameStatus(
+      frame_or_imported_document_->GetFrame().GetFrameScheduler());
 }
 
 const FetchClientSettingsObject&
@@ -105,7 +100,7 @@ FrameResourceFetcherProperties::CreateFetchClientSettingsObject(
   // Once PlzNavigate removes ResourceFetcher usage in navigations, we
   // might be able to remove this FetchClientSettingsObject at all.
   return *MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
-      KURL(),
+      KURL(), KURL(),
 
       // SecurityOrigin. This is actually used via
       // FetchContext::GetSecurityOrigin().
@@ -129,7 +124,10 @@ FrameResourceFetcherProperties::CreateFetchClientSettingsObject(
 
       // This is only for workers and this value is not (and isn't
       // expected to be) used.
-      AllowedByNosniff::MimeTypeCheck::kStrict);
+      AllowedByNosniff::MimeTypeCheck::kStrict,
+
+      // address space; Until the document gets available, return nullopt.
+      base::nullopt);
 }
 
 }  // namespace blink

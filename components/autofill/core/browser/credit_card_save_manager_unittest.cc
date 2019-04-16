@@ -117,7 +117,6 @@ class CreditCardSaveManagerTest : public testing::Test {
                         /*identity_manager=*/nullptr,
                         /*client_profile_validator=*/nullptr,
                         /*history_service=*/nullptr,
-                        /*cookie_manager_sevice=*/nullptr,
                         /*is_off_the_record=*/false);
     personal_data_.SetSyncServiceForTest(&sync_service_);
     autocomplete_history_manager_.Init(
@@ -183,7 +182,8 @@ class CreditCardSaveManagerTest : public testing::Test {
   void CreateTestCreditCardFormData(FormData* form,
                                     bool is_https,
                                     bool use_month_type,
-                                    bool split_names = false) {
+                                    bool split_names = false,
+                                    bool is_from_non_focusable_form = false) {
     form->name = ASCIIToUTF16("MyForm");
     if (is_https) {
       form->origin = GURL("https://myform.com/form.html");
@@ -214,6 +214,7 @@ class CreditCardSaveManagerTest : public testing::Test {
       form->fields.push_back(field);
     }
     test::CreateTestFormField("Card Number", "cardnumber", "", "text", &field);
+    field.is_focusable = !is_from_non_focusable_form;
     form->fields.push_back(field);
     if (use_month_type) {
       test::CreateTestFormField("Expiration Date", "ccmonth", "", "month",
@@ -754,6 +755,170 @@ TEST_F(CreditCardSaveManagerTest,
       "Autofill.SaveCardReachedPersonalDataManager.Local", 1);
   histogram_tester.ExpectTotalCount(
       "Autofill.SaveCardReachedPersonalDataManager.Server", 0);
+}
+
+// Tests metrics for supporting unfocused card form.
+TEST_F(CreditCardSaveManagerTest, UploadCreditCard_WithNonFocusableField) {
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kAutofillImportNonFocusableCreditCardForms);
+  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with non_focusable form field.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true,
+                               /*is_from_non_focusable_form=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
+  // Verify that the correct histogram entries were logged.
+  ExpectCardUploadDecision(histogram_tester, AutofillMetrics::UPLOAD_OFFERED);
+  ExpectCardUploadDecision(
+      histogram_tester,
+      AutofillMetrics::UPLOAD_OFFERED_FROM_NON_FOCUSABLE_FIELD);
+  // Verify that the correct UKM was logged.
+  ExpectCardUploadDecisionUkm(
+      AutofillMetrics::UPLOAD_OFFERED |
+      AutofillMetrics::UPLOAD_OFFERED_FROM_NON_FOCUSABLE_FIELD);
+}
+
+// Tests upload card save will still work as usual when supporting unfocused
+// card form experiment is off.
+TEST_F(CreditCardSaveManagerTest,
+       UploadCreditCard_WithNonFocusableField_ExpOff) {
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAutofillImportNonFocusableCreditCardForms);
+  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with non_focusable form field.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true,
+                               /*is_from_non_focusable_form=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
+}
+
+// Tests local card save will still work as usual when supporting unfocused card
+// form feature is already on.
+TEST_F(CreditCardSaveManagerTest, LocalCreditCard_WithNonFocusableField) {
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kAutofillImportNonFocusableCreditCardForms);
+  credit_card_save_manager_->SetCreditCardUploadEnabled(false);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with non_focusable form field.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true,
+                               /*is_from_non_focusable_form=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
+}
+
+// Tests local card save will still work as usual when supporting unfocused card
+// form experiment is off.
+TEST_F(CreditCardSaveManagerTest,
+       LocalCreditCard_WithNonFocusableField_ExpOff) {
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAutofillImportNonFocusableCreditCardForms);
+  credit_card_save_manager_->SetCreditCardUploadEnabled(false);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with non_focusable form field.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true,
+                               /*is_from_non_focusable_form=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_FALSE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
 }
 
 // Tests that a credit card inferred from a form with a credit card first and
@@ -2831,7 +2996,7 @@ TEST_F(CreditCardSaveManagerTest, DuplicateMaskedCreditCard_NoUpload) {
 }
 
 // This class is parametrized to allow running all the inheriting tests with and
-// without a specific feature enabled. See INSTANTIATE_TEST_CASE_P.
+// without a specific feature enabled. See INSTANTIATE_TEST_SUITE_P.
 class CreditCardSaveManagerFeatureParameterizedTest
     : public CreditCardSaveManagerTest,
       public ::testing::WithParamInterface<
@@ -3928,9 +4093,9 @@ TEST_P(CreditCardSaveManagerFeatureParameterizedTest,
 //    Feature disabled
 //  CreditCardSaveManagerFeatureParameterizedTest.NothingIfNothingFound/1:
 //    Feature enabled.
-INSTANTIATE_TEST_CASE_P(,  // Empty instatiation name.
-                        CreditCardSaveManagerFeatureParameterizedTest,
-                        ::testing::Values(false, true));
+INSTANTIATE_TEST_SUITE_P(,  // Empty instatiation name.
+                         CreditCardSaveManagerFeatureParameterizedTest,
+                         ::testing::Values(false, true));
 
 TEST_F(CreditCardSaveManagerTest,
        UploadCreditCard_DoNotAddAnyFlagStatesToRequestIfExperimentsOff) {
@@ -5230,6 +5395,173 @@ TEST_F(CreditCardSaveManagerTest, OnUserDidAcceptUpload_NotifiesPDM) {
 
   // Simulate that the user has accepted the upload from the prompt.
   UserHasAcceptedUpload({});
+}
+
+// Tests that 2 LocalCardMigrationStrikes are removed when cards are saved
+// locally.
+TEST_F(CreditCardSaveManagerTest,
+       LocalCreditCard_LocalCardMigrationStrikesRemovedOnLocalSave) {
+  scoped_feature_list_.InitWithFeatures(
+      // Enabled
+      {features::kAutofillCreditCardLocalCardMigration,
+       features::kAutofillLocalCardMigrationUsesStrikeSystemV2},
+      // Disabled
+      {});
+
+  LocalCardMigrationStrikeDatabase local_card_migration_strike_database =
+      LocalCardMigrationStrikeDatabase(strike_database_);
+
+  // Start with 3 strikes in |local_card_migration_strike_database|.
+  local_card_migration_strike_database.AddStrikes(3);
+  EXPECT_EQ(local_card_migration_strike_database.GetStrikes(), 3);
+
+  credit_card_save_manager_->SetCreditCardUploadEnabled(false);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with credit card first and last name
+  // fields.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
+
+  // 2 strikes should be removed when card was saved locally.
+  EXPECT_EQ(local_card_migration_strike_database.GetStrikes(), 1);
+}
+
+// Tests that no LocalCardMigrationStrikes get removed due to cards being
+// uploaded.
+TEST_F(CreditCardSaveManagerTest,
+       UploadCreditCard_NoLocalSaveMigrationStrikesRemovedOnUpload) {
+  scoped_feature_list_.InitWithFeatures(
+      // Enabled
+      {features::kAutofillCreditCardLocalCardMigration,
+       features::kAutofillLocalCardMigrationUsesStrikeSystemV2},
+      // Disabled
+      {});
+
+  LocalCardMigrationStrikeDatabase local_card_migration_strike_database =
+      LocalCardMigrationStrikeDatabase(strike_database_);
+
+  // Start with 3 strikes in |local_card_migration_strike_database|.
+  local_card_migration_strike_database.AddStrikes(3);
+  EXPECT_EQ(local_card_migration_strike_database.GetStrikes(), 3);
+
+  credit_card_save_manager_->SetCreditCardUploadEnabled(true);
+
+  // Create, fill and submit an address form in order to establish a recent
+  // profile which can be selected for the upload request.
+  FormData address_form;
+  test::CreateTestAddressFormData(&address_form);
+  FormsSeen(std::vector<FormData>(1, address_form));
+  ExpectUniqueFillableFormParsedUkm();
+
+  ManuallyFillAddressForm("Flo", "Master", "77401", "US", &address_form);
+  FormSubmitted(address_form);
+
+  // Set up our credit card form data with credit card first and last name
+  // fields.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, /*is_https=*/true,
+                               /*use_month_type=*/false, /*split_names=*/true);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo");
+  credit_card_form.fields[1].value = ASCIIToUTF16("Master");
+  credit_card_form.fields[2].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[4].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[5].value = ASCIIToUTF16("123");
+
+  base::HistogramTester histogram_tester;
+
+  FormSubmitted(credit_card_form);
+  EXPECT_FALSE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
+
+  // Strike count shouldn't change.
+  EXPECT_EQ(local_card_migration_strike_database.GetStrikes(), 3);
+}
+
+// Tests that if a card doesn't fall in any of the supported bin ranges, local
+// save is offered rather than upload save.
+TEST_F(CreditCardSaveManagerTest, UploadSaveNotOfferedForUnsupportedCard) {
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kAutofillDoNotUploadSaveUnsupportedCards);
+  std::vector<std::pair<int, int>> supported_card_bin_ranges{
+      std::make_pair(4111, 4113), std::make_pair(34, 34),
+      std::make_pair(300, 305)};
+  payments_client_->SetSupportedBINRanges(supported_card_bin_ranges);
+  // Set up our credit card form data.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, true, false);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo Master");
+  credit_card_form.fields[1].value = ASCIIToUTF16("5454545454545454");
+  credit_card_form.fields[2].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[4].value = ASCIIToUTF16("123");
+
+  // Since card isn't in any of the supported ranges, local save should be
+  // offered and upload save should not.
+  FormSubmitted(credit_card_form);
+  EXPECT_TRUE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_FALSE(credit_card_save_manager_->CreditCardWasUploaded());
+}
+
+// Tests that if a card falls in one of the supported bin ranges, upload save
+// is offered.
+TEST_F(CreditCardSaveManagerTest, UploadSaveOfferedForSupportedCard) {
+  scoped_feature_list_.InitAndEnableFeature(
+      features::kAutofillDoNotUploadSaveUnsupportedCards);
+  // Set supported BIN ranges.
+  std::vector<std::pair<int, int>> supported_card_bin_ranges{
+      std::make_pair(4111, 4113)};
+  payments_client_->SetSupportedBINRanges(supported_card_bin_ranges);
+
+  // Set up our credit card form data.
+  FormData credit_card_form;
+  CreateTestCreditCardFormData(&credit_card_form, true, false);
+  FormsSeen(std::vector<FormData>(1, credit_card_form));
+
+  // Edit the data, and submit.
+  credit_card_form.fields[0].value = ASCIIToUTF16("Flo Master");
+  credit_card_form.fields[1].value = ASCIIToUTF16("4111111111111111");
+  credit_card_form.fields[2].value = ASCIIToUTF16(NextMonth());
+  credit_card_form.fields[3].value = ASCIIToUTF16(NextYear());
+  credit_card_form.fields[4].value = ASCIIToUTF16("123");
+
+  // Since card is in one of the supported ranges(4111-4113), upload save should
+  // be offered.
+  FormSubmitted(credit_card_form);
+  EXPECT_FALSE(autofill_client_.ConfirmSaveCardLocallyWasCalled());
+  EXPECT_TRUE(credit_card_save_manager_->CreditCardWasUploaded());
 }
 
 }  // namespace autofill

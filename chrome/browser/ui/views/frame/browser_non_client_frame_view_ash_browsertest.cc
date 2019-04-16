@@ -19,10 +19,11 @@
 #include "ash/public/interfaces/shelf_test_api.test-mojom.h"
 #include "ash/public/interfaces/shell_test_api.test-mojom-test-utils.h"
 #include "ash/public/interfaces/window_pin_type.mojom.h"
-#include "ash/shell.h"                                   // mash-ok
-#include "ash/wm/overview/overview_controller.h"         // mash-ok
-#include "ash/wm/splitview/split_view_controller.h"      // mash-ok
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"   // mash-ok
+#include "ash/shell.h"                                  // mash-ok
+#include "ash/wm/overview/overview_controller.h"        // mash-ok
+#include "ash/wm/splitview/split_view_controller.h"     // mash-ok
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"  // mash-ok
+#include "base/bind_helpers.h"
 #include "base/run_loop.h"
 #include "base/scoped_observer.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -57,6 +58,7 @@
 #include "chrome/browser/ui/views/frame/immersive_mode_controller_ash.h"
 #include "chrome/browser/ui/views/fullscreen_control/fullscreen_control_host.h"
 #include "chrome/browser/ui/views/location_bar/content_setting_image_view.h"
+#include "chrome/browser/ui/views/location_bar/custom_tab_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_container_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
@@ -64,6 +66,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/extension_toolbar_menu_view.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/web_application_info.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -81,7 +84,6 @@
 #include "services/service_manager/public/cpp/connector.h"
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "ui/aura/client/aura_constants.h"
-#include "ui/aura/event_injector.h"
 #include "ui/aura/test/env_test_helper.h"
 #include "ui/aura/test/mus/change_completion_waiter.h"
 #include "ui/base/class_property.h"
@@ -266,15 +268,6 @@ class ImmersiveModeTester : public ImmersiveModeController::Observer {
   DISALLOW_COPY_AND_ASSIGN(ImmersiveModeTester);
 };
 
-// Update mouse location of aura::Env by injecting a mouse move event.
-// EventInjector is used so that the Window Service side code under mash sees
-// the updated mouse location as well.
-void UpdateMouseLocation(aura::Window* window, const gfx::Point& location) {
-  ui::MouseEvent event(ui::ET_MOUSE_MOVED, location, location,
-                       ui::EventTimeForNow(), ui::EF_NONE, 0);
-  aura::EventInjector().Inject(window->GetHost(), &event);
-}
-
 }  // namespace
 
 using views::Widget;
@@ -446,10 +439,6 @@ class ImmersiveModeBrowserViewTest
   // TopChromeMdParamTest<InProcessBrowserTest>:
   void PreRunTestOnMainThread() override {
     InProcessBrowserTest::PreRunTestOnMainThread();
-
-    // Move mouse cursor beyond immersive UI to avoid affecting tests.
-    UpdateMouseLocation(browser()->window()->GetNativeWindow(),
-                        gfx::Point(0, 100));
 
     BrowserView::SetDisableRevealerDelayForTesting(true);
 
@@ -1052,6 +1041,7 @@ IN_PROC_BROWSER_TEST_P(HostedAppNonClientFrameViewAshTest, TranslateIcon) {
   chrome::Find(app_browser_);
   browser_view_->ShowTranslateBubble(browser_view_->GetActiveWebContents(),
                                      translate::TRANSLATE_STEP_AFTER_TRANSLATE,
+                                     "en", "fr",
                                      translate::TranslateErrors::NONE, true);
 
   EXPECT_TRUE(translate_icon->visible());
@@ -1100,6 +1090,27 @@ IN_PROC_BROWSER_TEST_P(HostedAppNonClientFrameViewAshTest,
   EXPECT_FALSE(app_menu_button_->HasFocus());
   chrome::ExecuteCommand(app_browser_, IDC_FOCUS_NEXT_PANE);
   EXPECT_TRUE(app_menu_button_->HasFocus());
+}
+
+// Tests that the custom tab bar is focusable from the keyboard.
+IN_PROC_BROWSER_TEST_P(HostedAppNonClientFrameViewAshTest,
+                       CustomTabBarIsFocusable) {
+  SetUpHostedApp();
+
+  auto* browser_view = BrowserView::GetBrowserViewForBrowser(app_browser_);
+
+  const GURL kOutOfScopeURL("http://example.org/");
+  NavigateParams nav_params(app_browser_, kOutOfScopeURL,
+                            ui::PAGE_TRANSITION_LINK);
+  ui_test_utils::NavigateToURL(&nav_params);
+  auto* custom_tab_bar = browser_view->toolbar()->custom_tab_bar();
+
+  chrome::ExecuteCommand(app_browser_, IDC_FOCUS_NEXT_PANE);
+  ASSERT_TRUE(app_menu_button_->HasFocus());
+
+  EXPECT_FALSE(custom_tab_bar->close_button_for_testing()->HasFocus());
+  chrome::ExecuteCommand(app_browser_, IDC_FOCUS_NEXT_PANE);
+  EXPECT_TRUE(custom_tab_bar->close_button_for_testing()->HasFocus());
 }
 
 // Tests that the focus previous pane command focuses the app menu for web app
@@ -1519,11 +1530,11 @@ IN_PROC_BROWSER_TEST_P(HomeLauncherBrowserNonClientFrameViewAshTest,
   EXPECT_TRUE(frame_view->caption_button_container_->visible());
 }
 
-#define INSTANTIATE_TEST_CASE(name) \
-  INSTANTIATE_TEST_CASE_P(, name, ::testing::Values(false, true))
+#define INSTANTIATE_TEST_SUITE(name) \
+  INSTANTIATE_TEST_SUITE_P(, name, ::testing::Values(false, true))
 
-INSTANTIATE_TEST_CASE(BrowserNonClientFrameViewAshTest);
-INSTANTIATE_TEST_CASE(ImmersiveModeBrowserViewTest);
-INSTANTIATE_TEST_CASE(HostedAppNonClientFrameViewAshTest);
-INSTANTIATE_TEST_CASE(BrowserNonClientFrameViewAshBackButtonTest);
-INSTANTIATE_TEST_CASE(HomeLauncherBrowserNonClientFrameViewAshTest);
+INSTANTIATE_TEST_SUITE(BrowserNonClientFrameViewAshTest);
+INSTANTIATE_TEST_SUITE(ImmersiveModeBrowserViewTest);
+INSTANTIATE_TEST_SUITE(HostedAppNonClientFrameViewAshTest);
+INSTANTIATE_TEST_SUITE(BrowserNonClientFrameViewAshBackButtonTest);
+INSTANTIATE_TEST_SUITE(HomeLauncherBrowserNonClientFrameViewAshTest);

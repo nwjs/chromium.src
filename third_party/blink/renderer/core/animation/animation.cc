@@ -142,7 +142,7 @@ Animation::Animation(ExecutionContext* execution_context,
     }
     content_->Attach(this);
   }
-  probe::didCreateAnimation(timeline_->GetDocument(), sequence_number_);
+  probe::DidCreateAnimation(timeline_->GetDocument(), sequence_number_);
 }
 
 Animation::~Animation() {
@@ -865,7 +865,7 @@ void Animation::StartAnimationOnCompositor(
   base::Optional<double> start_time = base::nullopt;
   double time_offset = 0;
   if (start_time_) {
-    start_time = TimeTicksInSeconds(TimelineInternal()->ZeroTime()) +
+    start_time = TimelineInternal()->ZeroTime().since_origin().InSecondsF() +
                  start_time_.value();
     if (reversed)
       start_time = start_time.value() - (EffectEnd() / fabs(playback_rate_));
@@ -1222,7 +1222,7 @@ Animation::PlayStateUpdateScope::~PlayStateUpdateScope() {
   animation_->EndUpdatingState();
 
   if (old_play_state != new_play_state) {
-    probe::animationPlayStateChanged(
+    probe::AnimationPlayStateChanged(
         animation_->TimelineInternal()->GetDocument(), animation_,
         old_play_state, new_play_state);
   }

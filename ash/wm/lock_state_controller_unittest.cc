@@ -21,6 +21,7 @@
 #include "ash/wm/lock_state_controller_test_api.h"
 #include "ash/wm/session_state_animator.h"
 #include "ash/wm/test_session_state_animator.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/time/time.h"
@@ -107,7 +108,7 @@ class LockStateControllerTest : public PowerButtonTestBase {
     power_manager::BacklightBrightnessChange change;
     change.set_percent(percent);
     change.set_cause(cause);
-    power_manager_client_->SendScreenBrightnessChanged(change);
+    power_manager_client()->SendScreenBrightnessChanged(change);
   }
 
   void ExpectPreLockAnimationStarted() {

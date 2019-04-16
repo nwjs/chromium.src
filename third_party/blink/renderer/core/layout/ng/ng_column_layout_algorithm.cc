@@ -46,13 +46,16 @@ LayoutUnit ConstrainColumnBlockSize(LayoutUnit size,
   LayoutUnit extra = border_scrollbar_padding.BlockSum();
   size += extra;
 
+  NGBoxStrut border_padding =
+      ComputeBorders(space, node) + ComputePadding(space, node.Style());
+
   const ComputedStyle& style = node.Style();
-  LayoutUnit max = ResolveBlockLength(space, style, style.LogicalMaxHeight(),
-                                      size, LengthResolveType::kMaxSize,
-                                      LengthResolvePhase::kLayout);
-  LayoutUnit extent = ResolveBlockLength(space, style, style.LogicalHeight(),
-                                         size, LengthResolveType::kContentSize,
-                                         LengthResolvePhase::kLayout);
+  LayoutUnit max = ResolveBlockLength(
+      space, style, border_padding, style.LogicalMaxHeight(), size,
+      LengthResolveType::kMaxSize, LengthResolvePhase::kLayout);
+  LayoutUnit extent = ResolveBlockLength(
+      space, style, border_padding, style.LogicalHeight(), size,
+      LengthResolveType::kContentSize, LengthResolvePhase::kLayout);
   if (extent != NGSizeIndefinite) {
     // A specified height/width will just constrain the maximum length.
     max = std::min(max, extent);
@@ -73,14 +76,16 @@ NGColumnLayoutAlgorithm::NGColumnLayoutAlgorithm(
   container_builder_.SetIsNewFormattingContext(space.IsNewFormattingContext());
 }
 
-scoped_refptr<NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
+scoped_refptr<const NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
+  // TODO(layout-dev): Store some combination of border, scrollbar, padding on
+  // this class.
   NGBoxStrut borders = ComputeBorders(ConstraintSpace(), Node());
   NGBoxStrut scrollbars = Node().GetScrollbarSizes();
   NGBoxStrut padding = ComputePadding(ConstraintSpace(), Style()) +
                        ComputeIntrinsicPadding(ConstraintSpace(), Node());
   NGBoxStrut border_scrollbar_padding = borders + scrollbars + padding;
   NGLogicalSize border_box_size =
-      CalculateBorderBoxSize(ConstraintSpace(), Node());
+      CalculateBorderBoxSize(ConstraintSpace(), Node(), borders + padding);
   NGLogicalSize content_box_size =
       ShrinkAvailableSize(border_box_size, border_scrollbar_padding);
   NGLogicalSize column_size = CalculateColumnSize(content_box_size);
@@ -117,7 +122,7 @@ scoped_refptr<NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
       NGBlockLayoutAlgorithm child_algorithm(Node(), child_space,
                                              break_token.get());
       child_algorithm.SetBoxType(NGPhysicalFragment::kColumnBox);
-      scoped_refptr<NGLayoutResult> result = child_algorithm.Layout();
+      scoped_refptr<const NGLayoutResult> result = child_algorithm.Layout();
       const NGPhysicalBoxFragment* column =
           ToNGPhysicalBoxFragment(result->PhysicalFragment());
 
@@ -189,7 +194,7 @@ scoped_refptr<NGLayoutResult> NGColumnLayoutAlgorithm::Layout() {
   }
   container_builder_.SetInlineSize(border_box_size.inline_size);
   container_builder_.SetBlockSize(border_box_size.block_size);
-  container_builder_.SetBorders(ComputeBorders(ConstraintSpace(), Style()));
+  container_builder_.SetBorders(ComputeBorders(ConstraintSpace(), Node()));
   container_builder_.SetPadding(ComputePadding(ConstraintSpace(), Style()));
 
   return container_builder_.ToBoxFragment();
@@ -204,7 +209,7 @@ base::Optional<MinMaxSize> NGColumnLayoutAlgorithm::ComputeMinMaxSize(
   base::Optional<MinMaxSize> min_max_sizes =
       algorithm.ComputeMinMaxSize(child_input);
   DCHECK(min_max_sizes.has_value());
-  MinMaxSize sizes = min_max_sizes.value();
+  MinMaxSize sizes = *min_max_sizes;
 
   // If column-width is non-auto, pick the larger of that and intrinsic column
   // width.
@@ -260,7 +265,7 @@ LayoutUnit NGColumnLayoutAlgorithm::CalculateBalancedColumnBlockSize(
   // an ideal column block size.
   NGConstraintSpace space = CreateConstaintSpaceForBalancing(column_size);
   NGBlockLayoutAlgorithm balancing_algorithm(Node(), space);
-  scoped_refptr<NGLayoutResult> result = balancing_algorithm.Layout();
+  scoped_refptr<const NGLayoutResult> result = balancing_algorithm.Layout();
 
   // TODO(mstensho): This is where the fun begins. We need to examine the entire
   // fragment tree, not just the root.

@@ -22,8 +22,6 @@ class AccountTrackerService;
 
 namespace chromeos {
 
-class AccountMapperUtil;
-
 class ChromeOSOAuth2TokenServiceDelegate
     : public OAuth2TokenServiceDelegate,
       public AccountManager::Observer,
@@ -59,8 +57,8 @@ class ChromeOSOAuth2TokenServiceDelegate
   const net::BackoffEntry* BackoffEntry() const override;
 
   // |AccountManager::Observer| overrides.
-  void OnTokenUpserted(const AccountManager::AccountKey& account_key) override;
-  void OnAccountRemoved(const AccountManager::AccountKey& account_key) override;
+  void OnTokenUpserted(const AccountManager::Account& account) override;
+  void OnAccountRemoved(const AccountManager::Account& account) override;
 
   // |NetworkConnectionTracker::NetworkConnectionObserver| overrides.
   void OnConnectionChanged(network::mojom::ConnectionType type) override;
@@ -78,14 +76,14 @@ class ChromeOSOAuth2TokenServiceDelegate
   };
 
   // Callback handler for |AccountManager::GetAccounts|.
-  void GetAccountsCallback(
-      std::vector<AccountManager::AccountKey> account_keys);
+  void OnGetAccounts(const std::vector<AccountManager::Account>& accounts);
 
-  std::unique_ptr<AccountMapperUtil> account_mapper_util_;
+  // A non-owning pointer.
+  AccountTrackerService* const account_tracker_service_;
 
-  // A non-owning pointer to |AccountManager|. |AccountManager| is available
+  // A non-owning pointer. |AccountManager| is available
   // throughout the lifetime of a user session.
-  AccountManager* account_manager_;
+  AccountManager* const account_manager_;
 
   // A cache of AccountKeys.
   std::set<AccountManager::AccountKey> account_keys_;

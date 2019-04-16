@@ -19,6 +19,8 @@ source_set("translate") {
     "never_translate_infobar_controller.mm",
     "translate_accept_languages_factory.cc",
     "translate_accept_languages_factory.h",
+    "translate_infobar_controller.h",
+    "translate_infobar_controller.mm",
     "translate_infobar_delegate_observer_bridge.h",
     "translate_infobar_delegate_observer_bridge.mm",
     "translate_infobar_tags.h",
@@ -51,6 +53,7 @@ source_set("translate") {
     "//ios/chrome/browser",
     "//ios/chrome/browser/browser_state",
     "//ios/chrome/browser/infobars",
+    "//ios/chrome/browser/infobars:public",
     "//ios/chrome/browser/language",
     "//ios/chrome/browser/ui/infobars:infobars_ui",
     "//ios/chrome/browser/ui/translate:translate_ui",
@@ -77,36 +80,55 @@ source_set("unit_tests") {
     ":translate",
     "//base",
     "//base/test:test_support",
-    "//components/language/core/browser",
-    "//components/sync_preferences:test_support",
-    "//components/translate/core/browser",
-    "//components/translate/core/browser:unit_tests",
+    "//components/translate/core/browser:test_support",
     "//components/translate/ios/browser",
     "//ios/chrome/browser",
-    "//ios/chrome/browser/browser_state:test_support",
-    "//ios/chrome/browser/translate",
     "//ios/chrome/browser/web:test_support",
     "//ios/chrome/common",
     "//ios/public/provider/chrome/browser:test_support",
-    "//ios/web",
-    "//ios/web/public/test",
+    "//ios/web/public",
+    "//ios/web/public/test:util",
     "//skia",
-    "//testing/gmock:gmock",
+    "//testing/gmock",
     "//testing/gtest",
-    "//url",
+    "//url:url",
   ]
 }
 
-# Those tests do not use external URLs but fail if the network is unavailable
-# as they explicitly check whether the network is up or not; it is not possible
-# to safely instantiate a net::NetworkChangeNotifier::DisableForTest to disable
-# those checks as this in not thread-safe. See http://crbug.com/709131 for more
-# details.
-source_set("external_url_eg_tests") {
+source_set("eg_tests") {
   configs += [ "//build/config/compiler:enable_arc" ]
   testonly = true
   sources = [
     "translate_egtest.mm",
+  ]
+  deps = [
+    ":translate",
+    "//base",
+    "//base/test:test_support",
+    "//components/language/ios/browser",
+    "//components/strings",
+    "//components/translate/core/browser",
+    "//components/translate/core/common",
+    "//components/translate/ios/browser",
+    "//ios/chrome/browser/browser_state",
+    "//ios/chrome/browser/ui/translate:translate_ui",
+    "//ios/chrome/test/app:test_support",
+    "//ios/chrome/test/earl_grey:test_support",
+    "//ios/third_party/earl_grey:earl_grey+link",
+    "//ios/web:earl_grey_test_support",
+    "//ios/web/public/test",
+    "//ios/web/public/test/http_server",
+    "//net",
+    "//ui/base",
+  ]
+  libs = [ "XCTest.framework" ]
+}
+
+source_set("external_url_eg_tests") {
+  configs += [ "//build/config/compiler:enable_arc" ]
+  testonly = true
+  sources = [
+    "legacy_translate_infobar_egtest.mm",
   ]
   deps = [
     ":translate",

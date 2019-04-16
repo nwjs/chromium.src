@@ -273,17 +273,6 @@
       initial: false,
     },
 
-    // Limited use by features which behave differently depending on the input
-    // devices available.  For example, the pointer and hover media queries.
-    // Note that we need to be careful when basing behavior or UI on this -
-    // just because a device is present doesn't mean the user cares about it
-    // or uses it (i.e. Chromebook Pixel users generally don't want to give up
-    // screen real estate just because they happen to have a touchscreen).
-    {
-      name: "deviceSupportsTouch",
-      initial: false,
-    },
-
     // This value indicates the number of simultaneous multi-touch points supported
     // by the currently connected screen/digitizer that supports the most points.
     // From Pointer Events spec:
@@ -585,6 +574,7 @@
     {
       name: "forceAndroidOverlayScrollbar",
       initial: false,
+      invalidate: "ScrollbarLayout",
     },
 
     // Set the timeout seconds of the network-quiet timers in IdlenessDetector.
@@ -847,13 +837,6 @@
       type: "PassiveListenerDefault",
     },
 
-    // Some platforms have media subsystems which are too buggy to allow preloading
-    // of content by default. See http://crbug.com/612909 for details.
-    {
-      name: "forcePreloadNoneForMediaElements",
-      initial: false,
-    },
-
     {
       name: "hideScrollbars",
       initial: false,
@@ -902,30 +885,40 @@
     },
 
     //
-    // High contrast mode
+    // Dark mode
     //
     {
+      // TODO(crbug.com/938511): Rename this to "darkMode" (not "darkModeMode").
       name: "highContrastMode",
-      initial: "HighContrastMode::kOff",
-      type: "HighContrastMode",
+      initial: "DarkMode::kOff",
+      type: "DarkMode",
+      invalidate: "Paint",
     },
     {
+      // TODO(crbug.com/938511): Rename this to "darkModeGrayscale".
       name: "highContrastGrayscale",
       initial: false,
+      invalidate: "Paint",
     },
     {
+      // TODO(crbug.com/938511): Rename this to "darkModeContrast".
       name: "highContrastContrast",
       initial: 0,
       type: "double",
+      invalidate: "Paint",
     },
     {
+      // TODO(crbug.com/938511): Rename this to "darkModeImagePolicy".
       name: "highContrastImagePolicy",
-      initial: "HighContrastImagePolicy::kFilterAll",
-      type: "HighContrastImagePolicy",
+      initial: "DarkModeImagePolicy::kFilterAll",
+      type: "DarkModeImagePolicy",
+      invalidate: "Paint",
     },
     {
-      name: "mediaDownloadInProductHelpEnabled",
-      initial: false,
+      name: "darkModePagePolicy",
+      initial: "DarkModePagePolicy::kFilterByBackground",
+      type: "DarkModePagePolicy",
+      invalidate: "Paint",
     },
     {
       name: "navigatorPlatformOverride",
@@ -950,32 +943,32 @@
     //
     {
       name: "lazyFrameLoadingDistanceThresholdPxUnknown",
-      initial: 800,
+      initial: 6000,
       type: "int",
     },
     {
       name: "lazyFrameLoadingDistanceThresholdPxOffline",
-      initial: 800,
+      initial: 8000,
       type: "int",
     },
     {
       name: "lazyFrameLoadingDistanceThresholdPxSlow2G",
-      initial: 800,
+      initial: 8000,
       type: "int",
     },
     {
       name: "lazyFrameLoadingDistanceThresholdPx2G",
-      initial: 800,
+      initial: 6000,
       type: "int",
     },
     {
       name: "lazyFrameLoadingDistanceThresholdPx3G",
-      initial: 800,
+      initial: 5000,
       type: "int",
     },
     {
       name: "lazyFrameLoadingDistanceThresholdPx4G",
-      initial: 800,
+      initial: 4000,
       type: "int",
     },
 
@@ -984,32 +977,32 @@
     //
     {
       name: "lazyImageLoadingDistanceThresholdPxUnknown",
-      initial: 800,
+      initial: 5000,
       type: "int",
     },
     {
       name: "lazyImageLoadingDistanceThresholdPxOffline",
-      initial: 800,
+      initial: 8000,
       type: "int",
     },
     {
       name: "lazyImageLoadingDistanceThresholdPxSlow2G",
-      initial: 800,
+      initial: 8000,
       type: "int",
     },
     {
       name: "lazyImageLoadingDistanceThresholdPx2G",
-      initial: 800,
+      initial: 6000,
       type: "int",
     },
     {
       name: "lazyImageLoadingDistanceThresholdPx3G",
-      initial: 800,
+      initial: 4000,
       type: "int",
     },
     {
       name: "lazyImageLoadingDistanceThresholdPx4G",
-      initial: 800,
+      initial: 3000,
       type: "int",
     },
 

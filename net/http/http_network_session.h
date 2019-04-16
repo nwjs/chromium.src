@@ -26,7 +26,6 @@
 #include "net/base/host_mapping_rules.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/net_export.h"
-#include "net/dns/host_resolver.h"
 #include "net/http/http_auth_cache.h"
 #include "net/http/http_stream_factory.h"
 #include "net/net_buildflags.h"
@@ -35,6 +34,7 @@
 #include "net/socket/websocket_endpoint_lock_manager.h"
 #include "net/spdy/spdy_session_pool.h"
 #include "net/ssl/ssl_client_auth_cache.h"
+#include "net/ssl/ssl_client_session_cache.h"
 #include "net/third_party/quiche/src/spdy/core/spdy_protocol.h"
 
 namespace base {
@@ -59,7 +59,6 @@ class CTVerifier;
 class HostResolver;
 class HttpAuthHandlerFactory;
 class HttpNetworkSessionPeer;
-class HttpProxyClientSocketPool;
 class HttpResponseBodyDrainer;
 class HttpServerProperties;
 class NetLog;
@@ -75,8 +74,6 @@ class QuicCryptoClientStreamFactory;
 class ReportingService;
 #endif
 class SocketPerformanceWatcherFactory;
-class SOCKSClientSocketPool;
-class SSLClientSocketPool;
 class SSLConfigService;
 class TransportClientSocketPool;
 class TransportSecurityState;
@@ -177,6 +174,9 @@ class NET_EXPORT HttpNetworkSession {
     // Specifies the reduced ping timeout subsequent connections should use when
     // a connection was timed out with open streams.
     int quic_reduced_ping_timeout_seconds;
+    // Maximum time that a session can have no retransmittable packets on the
+    // wire.
+    int quic_retransmittable_on_wire_timeout_milliseconds;
     // Maximum time the session can be alive before crypto handshake is
     // finished.
     int quic_max_time_before_crypto_handshake_seconds;
@@ -192,11 +192,11 @@ class NET_EXPORT HttpNetworkSession {
     // If true, a new connection may be kicked off on an alternate network when
     // a connection fails on the default network before handshake is confirmed.
     bool quic_retry_on_alternate_network_before_handshake;
-    // If true, the quic stream factory may race connection from stale dns
-    // result with the original dns resolution
-    bool quic_race_stale_dns_on_connection;
-    // If true, the quic session may mark itself as GOAWAY on path degrading.
-    bool quic_go_away_on_path_degrading;
+    // If true, an idle session will be migrated within the idle migration
+    // period.
+    bool quic_migrate_idle_sessions;
+    // A session can be migrated if its idle time is within this period.
+    base::TimeDelta quic_idle_session_migration_period;
     // Maximum time the session could be on the non-default network before
     // migrates back to default network. Defaults to
     // kMaxTimeOnNonDefaultNetwork.
@@ -213,10 +213,13 @@ class NET_EXPORT HttpNetworkSession {
     // If true, allows QUIC to use alternative services with a different
     // hostname from the origin.
     bool quic_allow_remote_alt_svc;
+    // If true, the quic stream factory may race connection from stale dns
+    // result with the original dns resolution
+    bool quic_race_stale_dns_on_connection;
+    // If true, the quic session may mark itself as GOAWAY on path degrading.
+    bool quic_go_away_on_path_degrading;
     // If true, bidirectional streams over QUIC will be disabled.
     bool quic_disable_bidirectional_streams;
-    // If true, enable force HOL blocking.  For measurement purposes.
-    bool quic_force_hol_blocking;
     // If true, race cert verification with host resolution.
     bool quic_race_cert_verification;
     // If true, estimate the initial RTT for QUIC connections based on network.
@@ -292,17 +295,11 @@ class NET_EXPORT HttpNetworkSession {
   // Removes the drainer from the session. Does not dispose of it.
   void RemoveResponseDrainer(HttpResponseBodyDrainer* drainer);
 
-  TransportClientSocketPool* GetTransportSocketPool(SocketPoolType pool_type);
-  SSLClientSocketPool* GetSSLSocketPool(SocketPoolType pool_type);
-  SOCKSClientSocketPool* GetSocketPoolForSOCKSProxy(
-      SocketPoolType pool_type,
-      const ProxyServer& socks_proxy);
-  HttpProxyClientSocketPool* GetSocketPoolForHTTPLikeProxy(
-      SocketPoolType pool_type,
-      const ProxyServer& http_proxy);
-  SSLClientSocketPool* GetSocketPoolForSSLWithProxy(
-      SocketPoolType pool_type,
-      const ProxyServer& proxy_server);
+  // Returns the socket pool of the given type for use with the specified
+  // ProxyServer. Use ProxyServer::Direct() to get the pool for use with direct
+  // connections.
+  TransportClientSocketPool* GetSocketPool(SocketPoolType pool_type,
+                                           const ProxyServer& proxy_server);
 
   CertVerifier* cert_verifier() { return cert_verifier_; }
   ProxyResolutionService* proxy_resolution_service() {
@@ -326,6 +323,7 @@ class NET_EXPORT HttpNetworkSession {
   NetLog* net_log() {
     return net_log_;
   }
+  HostResolver* host_resolver() { return host_resolver_; }
 #if BUILDFLAG(ENABLE_REPORTING)
   ReportingService* reporting_service() const { return reporting_service_; }
   NetworkErrorLoggingService* network_error_logging_service() const {
@@ -375,6 +373,10 @@ class NET_EXPORT HttpNetworkSession {
   // Disable QUIC for new streams.
   void DisableQuic();
 
+  // Clear the SSL session cache.
+  void ClearSSLSessionCache();
+  void ClearSSLSessionCachePrivacyMode();
+
  private:
   friend class HttpNetworkSessionPeer;
 
@@ -388,6 +390,7 @@ class NET_EXPORT HttpNetworkSession {
   HttpServerProperties* const http_server_properties_;
   CertVerifier* const cert_verifier_;
   HttpAuthHandlerFactory* const http_auth_handler_factory_;
+  HostResolver* const host_resolver_;
 
 #if BUILDFLAG(ENABLE_REPORTING)
   ReportingService* const reporting_service_;
@@ -398,6 +401,8 @@ class NET_EXPORT HttpNetworkSession {
 
   HttpAuthCache http_auth_cache_;
   SSLClientAuthCache ssl_client_auth_cache_;
+  SSLClientSessionCache ssl_client_session_cache_;
+  SSLClientSessionCache ssl_client_session_cache_privacy_mode_;
   WebSocketEndpointLockManager websocket_endpoint_lock_manager_;
   std::unique_ptr<ClientSocketPoolManager> normal_socket_pool_manager_;
   std::unique_ptr<ClientSocketPoolManager> websocket_socket_pool_manager_;

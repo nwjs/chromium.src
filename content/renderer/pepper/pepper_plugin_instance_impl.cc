@@ -136,7 +136,6 @@
 // nogncheck because dependency on //printing is conditional upon
 // enable_basic_printing flags.
 #include "printing/metafile_skia.h"          // nogncheck
-#include "printing/metafile_skia_wrapper.h"  // nogncheck
 #endif
 
 #if defined(OS_CHROMEOS)
@@ -731,10 +730,8 @@ void PepperPluginInstanceImpl::Paint(cc::PaintCanvas* canvas,
 
 void PepperPluginInstanceImpl::InvalidateRect(const gfx::Rect& rect) {
   if (fullscreen_container_) {
-    if (rect.IsEmpty())
-      fullscreen_container_->Invalidate();
-    else
-      fullscreen_container_->InvalidateRect(rect);
+    // The fullscreen container uses a composited layer, which we invalidate
+    // directly below via SetNeedsDisplay().
   } else {
     if (!container_ || view_data_.rect.size.width == 0 ||
         view_data_.rect.size.height == 0)
@@ -1940,13 +1937,6 @@ bool PepperPluginInstanceImpl::SupportsPrintInterface() {
   return GetPreferredPrintOutputFormat(&format, params);
 }
 
-bool PepperPluginInstanceImpl::IsPrintScalingDisabled() {
-  DCHECK(plugin_print_interface_);
-  if (!plugin_print_interface_)
-    return false;
-  return plugin_print_interface_->IsScalingDisabled(pp_instance()) == PP_TRUE;
-}
-
 int PepperPluginInstanceImpl::PrintBegin(const WebPrintParams& print_params) {
   // Keep a reference on the stack. See NOTE above.
   scoped_refptr<PepperPluginInstanceImpl> ref(this);
@@ -1996,8 +1986,7 @@ void PepperPluginInstanceImpl::PrintPage(int page_number,
   DCHECK(plugin_print_interface_);
 
   // |canvas| should always have an associated metafile.
-  printing::MetafileSkia* metafile =
-      printing::MetafileSkiaWrapper::GetMetafileFromCanvas(canvas);
+  auto* metafile = canvas->GetPrintingMetafile();
   DCHECK(metafile);
 
   // |ranges_| should be empty IFF |metafile_| is not set.
@@ -3267,8 +3256,9 @@ void PepperPluginInstanceImpl::SetSizeAttributesForFullscreen() {
 
   blink::WebScreenInfo info = render_frame_->render_view()->GetScreenInfo();
   screen_size_for_fullscreen_ = gfx::Size(info.rect.width, info.rect.height);
-  std::string width = base::IntToString(screen_size_for_fullscreen_.width());
-  std::string height = base::IntToString(screen_size_for_fullscreen_.height());
+  std::string width = base::NumberToString(screen_size_for_fullscreen_.width());
+  std::string height =
+      base::NumberToString(screen_size_for_fullscreen_.height());
 
   WebElement element = container_->GetElement();
   element.SetAttribute(WebString::FromUTF8(kWidth), WebString::FromUTF8(width));

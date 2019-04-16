@@ -36,6 +36,7 @@ import org.chromium.chrome.browser.compositor.scene_layer.ToolbarSceneLayer;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManagementDelegate;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
+import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
@@ -89,9 +90,12 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
     // External Dependencies
     private TabModelSelector mTabModelSelector;
 
-    private TabModelObserver mTabModelObserver;
     private TabModelSelectorObserver mTabModelSelectorObserver;
     private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
+
+    // An observer for watching TabModelFilters changes events.
+    private TabModelObserver mTabModelFilterObserver;
+
     private ViewGroup mContentContainer;
 
     // External Observers
@@ -441,8 +445,9 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         selector.addObserver(mTabModelSelectorObserver);
         selector.setCloseAllTabsDelegate(this);
 
-        mTabModelObserver = createTabModelObserver();
-        for (TabModel model : selector.getModels()) model.addObserver(mTabModelObserver);
+        mTabModelFilterObserver = createTabModelObserver();
+        getTabModelSelector().getTabModelFilterProvider().addTabModelFilterObserver(
+                mTabModelFilterObserver);
     }
 
     /**
@@ -457,10 +462,9 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         if (mTabModelSelectorObserver != null) {
             getTabModelSelector().removeObserver(mTabModelSelectorObserver);
         }
-        if (mTabModelObserver != null) {
-            for (TabModel model : getTabModelSelector().getModels()) {
-                model.removeObserver(mTabModelObserver);
-            }
+        if (mTabModelFilterObserver != null) {
+            getTabModelSelector().getTabModelFilterProvider().removeTabModelFilterObserver(
+                    mTabModelFilterObserver);
         }
     }
 
@@ -645,7 +649,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         boolean isNtp = tab.getNativePage() instanceof NewTabPage;
         boolean isLocationBarShownInNtp =
                 isNtp ? ((NewTabPage) tab.getNativePage()).isLocationBarShownInNTP() : false;
-        boolean needsUpdate = layoutTab.initFromHost(tab.getBackgroundColor(), tab.shouldStall(),
+        boolean needsUpdate = layoutTab.initFromHost(tab.getBackgroundColor(), shouldStall(tab),
                 canUseLiveTexture, themeColor,
                 ColorUtils.getTextBoxColorForToolbarBackground(
                         mContext.getResources(), isLocationBarShownInNtp, themeColor),
@@ -653,6 +657,12 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         if (needsUpdate) requestUpdate();
 
         mHost.requestRender();
+    }
+
+    // Whether the tab is ready to display or it should be faded in as it loads.
+    private static boolean shouldStall(Tab tab) {
+        return (tab.isFrozen() || tab.needsReload())
+                && !NativePageFactory.isNativePageUrl(tab.getUrl(), tab.isIncognito());
     }
 
     @Override
@@ -897,7 +907,7 @@ public class LayoutManager implements LayoutUpdateHost, LayoutProvider,
         if (tab != null) mTabCache.put(tabId, tab);
     }
 
-    private int getOrientation() {
+    private @Orientation int getOrientation() {
         return mHost.getWidth() > mHost.getHeight() ? Orientation.LANDSCAPE : Orientation.PORTRAIT;
     }
 

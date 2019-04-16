@@ -18,9 +18,10 @@ import org.junit.runner.RunWith;
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwRenderProcess;
 import org.chromium.android_webview.AwRenderProcessGoneDetail;
-import org.chromium.base.ThreadUtils;
+import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Feature;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.common.ContentUrlConstants;
 
 import java.util.concurrent.CountDownLatch;
@@ -65,10 +66,8 @@ public class AwContentsClientOnRendererUnresponsiveTest {
         }
 
         void transientlyBlockBlinkThread(final AwContents awContents) {
-            ThreadUtils.runOnUiThread(() -> {
-                awContents.addJavascriptInterface(mBlocker, "blocker");
-                awContents.evaluateJavaScript("blocker.block();", null);
-            });
+            PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
+                    () -> { awContents.evaluateJavaScript("blocker.block();", null); });
         }
 
         void awaitRecovery() throws Exception {
@@ -78,6 +77,10 @@ public class AwContentsClientOnRendererUnresponsiveTest {
             mResponsiveCallbackHelper.waitForCallback(
                     0, 1, AwActivityTestRule.WAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS);
             Assert.assertEquals(1, mResponsiveCallbackHelper.getCallCount());
+        }
+
+        JSBlocker getBlocker() {
+            return mBlocker;
         }
 
         @Override
@@ -101,19 +104,15 @@ public class AwContentsClientOnRendererUnresponsiveTest {
 
         private CallbackHelper mUnresponsiveCallbackHelper;
         private CallbackHelper mTerminatedCallbackHelper;
-        private JSBlocker mBlocker;
 
         public RendererUnresponsiveTestAwContentsClient() {
             mUnresponsiveCallbackHelper = new CallbackHelper();
             mTerminatedCallbackHelper = new CallbackHelper();
-            mBlocker = new JSBlocker();
         }
 
         void permanentlyBlockBlinkThread(final AwContents awContents) {
-            ThreadUtils.runOnUiThread(() -> {
-                awContents.addJavascriptInterface(mBlocker, "blocker");
-                awContents.evaluateJavaScript("blocker.block();", null);
-            });
+            PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
+                    () -> { awContents.evaluateJavaScript("blocker.block();", null); });
         }
 
         void awaitRendererTermination() throws Exception {
@@ -143,9 +142,14 @@ public class AwContentsClientOnRendererUnresponsiveTest {
     }
 
     private void sendInputEvent(final AwContents awContents) {
-        ThreadUtils.runOnUiThread(() -> {
+        PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT, () -> {
             awContents.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER));
         });
+    }
+
+    private void addJsBlockerInterface(final AwContents awContents, final JSBlocker blocker) {
+        PostTask.runOrPostTask(UiThreadTaskTraits.DEFAULT,
+                () -> { awContents.addJavascriptInterface(blocker, "blocker"); });
     }
 
     // This test requires the ability to terminate the renderer in order to recover from a
@@ -162,6 +166,7 @@ public class AwContentsClientOnRendererUnresponsiveTest {
         final AwContents awContents = testView.getAwContents();
 
         AwActivityTestRule.enableJavaScriptOnUiThread(awContents);
+        addJsBlockerInterface(awContents, new JSBlocker());
         mActivityTestRule.loadUrlSync(awContents, contentsClient.getOnPageFinishedHelper(),
                 ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
 
@@ -183,6 +188,7 @@ public class AwContentsClientOnRendererUnresponsiveTest {
         final AwContents awContents = testView.getAwContents();
 
         AwActivityTestRule.enableJavaScriptOnUiThread(awContents);
+        addJsBlockerInterface(awContents, contentsClient.getBlocker());
         mActivityTestRule.loadUrlSync(awContents, contentsClient.getOnPageFinishedHelper(),
                 ContentUrlConstants.ABOUT_BLANK_DISPLAY_URL);
         contentsClient.transientlyBlockBlinkThread(awContents);

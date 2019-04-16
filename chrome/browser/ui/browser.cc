@@ -143,8 +143,6 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/permission_bubble/chooser_bubble_delegate.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
-#include "chrome/browser/ui/serial/serial_chooser.h"
-#include "chrome/browser/ui/serial/serial_chooser_controller.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/sync/browser_synced_window_delegate.h"
@@ -210,11 +208,12 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/profiling.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/webplugininfo.h"
+#include "content/public/common/window_container_type.mojom-shared.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
+#include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -315,6 +314,13 @@ void UnmuteIfMutedByExtension(content::WebContents* contents,
   }
 }
 
+// Returns whether a browser window can be created for the specified profile.
+bool CanCreateBrowserForProfile(Profile* profile) {
+  return IncognitoModePrefs::CanOpenBrowser(profile) &&
+         (!profile->IsGuestSession() || profile->IsOffTheRecord()) &&
+         profile->AllowsBrowserWindows();
+}
+
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -399,14 +405,22 @@ class Browser::InterstitialObserver : public content::WebContentsObserver {
 ///////////////////////////////////////////////////////////////////////////////
 // Browser, Constructors, Creation, Showing:
 
+// static
+Browser* Browser::Create(const CreateParams& params) {
+  if (!CanCreateBrowserForProfile(params.profile))
+    return nullptr;
+  return new Browser(params);
+}
+
 Browser::Browser(const CreateParams& params)
     : nw_menu_(nullptr), extension_registry_observer_(this),
       frameless_(params.frameless),
       alpha_enabled_(params.alpha_enabled),
       type_(params.type),
       profile_(params.profile),
-      window_(NULL),
-      tab_strip_model_delegate_(new chrome::BrowserTabStripModelDelegate(this)),
+      window_(nullptr),
+      tab_strip_model_delegate_(
+          std::make_unique<chrome::BrowserTabStripModelDelegate>(this)),
       tab_strip_model_(
           std::make_unique<TabStripModel>(tab_strip_model_delegate_.get(),
                                           params.profile)),
@@ -1072,6 +1086,7 @@ WebContents* Browser::OpenURL(const OpenURLParams& params) {
 void Browser::OnTabStripModelChanged(TabStripModel* tab_strip_model,
                                      const TabStripModelChange& change,
                                      const TabStripSelectionChange& selection) {
+  TRACE_EVENT0("ui", "Browser::OnTabStripModelChanged");
   switch (change.type()) {
     case TabStripModelChange::kInserted: {
       for (const auto& delta : change.deltas())
@@ -1187,11 +1202,12 @@ void Browser::SetFocusToLocationBar() {
   // Two differences between this and FocusLocationBar():
   // (1) This doesn't get recorded in user metrics, since it's called
   //     internally.
-  // (2) This checks whether the location bar can be focused, and if not, clears
-  //     the focus.  FocusLocationBar() is only reached when the location bar is
-  //     focusable, but this may be reached at other times, e.g. while in
-  //     fullscreen mode, where we need to leave focus in a consistent state.
-  window_->SetFocusToLocationBar();
+  // (2) This is called with |select_all| == false, because this is a renderer
+  //     initiated focus (this method is a WebContentsDelegate override).
+  //     We don't select-all for renderer initiated focuses, as the user may
+  //     currently be typing something while the tab finishes loading. We don't
+  //     want to clobber user input by selecting all while the user is typing.
+  window_->SetFocusToLocationBar(false);
 }
 
 content::KeyboardEventProcessingResult Browser::PreHandleKeyboardEvent(
@@ -1272,19 +1288,6 @@ std::unique_ptr<content::BluetoothChooser> Browser::RunBluetoothChooser(
   bluetooth_chooser_desktop->set_bubble(std::move(bubble_reference));
 
   return std::move(bluetooth_chooser_desktop);
-}
-
-std::unique_ptr<content::SerialChooser> Browser::RunSerialChooser(
-    content::RenderFrameHost* frame,
-    std::vector<blink::mojom::SerialPortFilterPtr> filters,
-    content::SerialChooser::Callback callback) {
-  auto chooser_controller = std::make_unique<SerialChooserController>(
-      frame, std::move(filters), std::move(callback));
-  auto chooser_bubble_delegate = std::make_unique<ChooserBubbleDelegate>(
-      frame, std::move(chooser_controller));
-  BubbleReference bubble_reference =
-      GetBubbleManager()->ShowBubble(std::move(chooser_bubble_delegate));
-  return std::make_unique<SerialChooser>(std::move(bubble_reference));
 }
 
 void Browser::PassiveInsecureContentFound(const GURL& resource_url) {
@@ -1501,7 +1504,7 @@ void Browser::AddNewContents(WebContents* source,
 
 void Browser::ActivateContents(WebContents* contents) {
   tab_strip_model_->ActivateTabAt(
-      tab_strip_model_->GetIndexOfWebContents(contents), false);
+      tab_strip_model_->GetIndexOfWebContents(contents));
   window_->Activate();
 }
 
@@ -1680,6 +1683,12 @@ void Browser::DidNavigateMainFramePostCommit(WebContents* web_contents) {
 content::JavaScriptDialogManager* Browser::GetJavaScriptDialogManager(
     WebContents* source) {
   return JavaScriptDialogTabHelper::FromWebContents(source);
+}
+
+bool Browser::GuestSaveFrame(content::WebContents* guest_web_contents) {
+  auto* guest_view =
+      extensions::MimeHandlerViewGuest::FromWebContents(guest_web_contents);
+  return guest_view && guest_view->PluginDoSave();
 }
 
 content::ColorChooser* Browser::OpenColorChooser(
@@ -2226,6 +2235,7 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
                                  WebContents* new_contents,
                                  int index,
                                  int reason) {
+  TRACE_EVENT0("ui", "Browser::OnActiveTabChanged");
 // Mac correctly sets the initial background color of new tabs to the theme
 // background color, so it does not need this block of code. Aura should
 // implement this as well.
@@ -2355,6 +2365,7 @@ void Browser::OnDevToolsAvailabilityChanged() {
 // Browser, UI update coalescing and handling (private):
 
 void Browser::UpdateToolbar(bool should_restore_state) {
+  TRACE_EVENT0("ui", "Browser::UpdateToolbar");
   window_->UpdateToolbar(should_restore_state ?
       tab_strip_model_->GetActiveWebContents() : NULL);
 }
@@ -2700,6 +2711,16 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
     if (SupportsLocationBar())
       features |= FEATURE_LOCATIONBAR;
   }
+
+  // Hosted apps should always support the toolbar, so the title/origin of the
+  // current page can be shown when browsing a url that is not inside the app.
+  // Note: Final determination of whether or not the toolbar is shown is made by
+  // the |HostedAppBrowserController|.
+  if (hosted_app_controller() &&
+      hosted_app_controller()->IsForExperimentalHostedAppBrowser()) {
+    features |= FEATURE_TOOLBAR;
+  }
+
   return !!(features & feature);
 }
 

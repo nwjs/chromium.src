@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/important_file_writer.h"
@@ -524,7 +525,8 @@ IndexedDBBackingStore::IndexedDBBackingStore(
       task_runner_(task_runner),
       db_(std::move(db)),
       active_blob_registry_(this),
-      committing_transaction_count_(0) {
+      committing_transaction_count_(0),
+      weak_factory_(this) {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
 }
 
@@ -1316,7 +1318,7 @@ class IndexedDBBackingStore::Transaction::ChainedBlobWriterImpl
       WriteDescriptorVec;
   static scoped_refptr<ChainedBlobWriterImpl> Create(
       int64_t database_id,
-      IndexedDBBackingStore* backing_store,
+      base::WeakPtr<IndexedDBBackingStore> backing_store,
       WriteDescriptorVec* blobs,
       scoped_refptr<IndexedDBBackingStore::BlobWriteCallback> callback) {
     auto writer = base::WrapRefCounted(new ChainedBlobWriterImpl(
@@ -1364,7 +1366,7 @@ class IndexedDBBackingStore::Transaction::ChainedBlobWriterImpl
  private:
   ChainedBlobWriterImpl(
       int64_t database_id,
-      IndexedDBBackingStore* backing_store,
+      base::WeakPtr<IndexedDBBackingStore> backing_store,
       scoped_refptr<IndexedDBBackingStore::BlobWriteCallback> callback)
       : waiting_for_callback_(false),
         database_id_(database_id),
@@ -1384,7 +1386,8 @@ class IndexedDBBackingStore::Transaction::ChainedBlobWriterImpl
       callback_->Run(BlobWriteResult::SUCCESS_ASYNC);
       return;
     } else {
-      if (!backing_store_->WriteBlobFile(database_id_, *iter_, this)) {
+      if (!backing_store_ ||
+          !backing_store_->WriteBlobFile(database_id_, *iter_, this)) {
         callback_->Run(BlobWriteResult::FAILURE_ASYNC);
         return;
       }
@@ -1397,7 +1400,7 @@ class IndexedDBBackingStore::Transaction::ChainedBlobWriterImpl
   WriteDescriptorVec blobs_;
   WriteDescriptorVec::const_iterator iter_;
   int64_t database_id_;
-  IndexedDBBackingStore* backing_store_;
+  base::WeakPtr<IndexedDBBackingStore> backing_store_;
   // Callback result is useless as call stack is no longer transaction's
   // operations queue. Errors are instead handled in
   // IndexedDBTransaction::BlobWriteComplete.
@@ -1454,10 +1457,10 @@ class LocalWriteClosure : public FileWriterDelegate::DelegateWriteCallback,
                                  std::unique_ptr<storage::BlobDataHandle> blob,
                                  const base::Time& last_modified) {
     DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-    std::unique_ptr<storage::FileStreamWriter> writer(
+    std::unique_ptr<storage::FileStreamWriter> writer =
         storage::FileStreamWriter::CreateForLocalFile(
             task_runner_.get(), file_path, 0,
-            storage::FileStreamWriter::CREATE_NEW_FILE));
+            storage::FileStreamWriter::CREATE_NEW_FILE);
     std::unique_ptr<FileWriterDelegate> delegate(
         std::make_unique<FileWriterDelegate>(
             std::move(writer), storage::FlushPolicy::FLUSH_ON_COMPLETION));
@@ -1525,9 +1528,13 @@ bool IndexedDBBackingStore::WriteBlobFile(
   if (!MakeIDBBlobDirectory(blob_path_, database_id, descriptor.key()))
     return false;
 
+  bool use_copy_file = descriptor.is_file() && !descriptor.file_path().empty();
+  UMA_HISTOGRAM_BOOLEAN("Storage.IndexedDB.WriteBlobFileViaCopy",
+                        use_copy_file);
+
   FilePath path = GetBlobFileName(database_id, descriptor.key());
 
-  if (descriptor.is_file() && !descriptor.file_path().empty()) {
+  if (use_copy_file) {
     if (!base::CopyFile(descriptor.file_path(), path))
       return false;
 
@@ -3139,7 +3146,7 @@ void IndexedDBBackingStore::Transaction::WriteNewBlobs(
   // Creating the writer will start it going asynchronously. The transaction
   // can be destructed before the callback is triggered.
   chained_blob_writer_ = ChainedBlobWriterImpl::Create(
-      database_id_, backing_store_, new_files_to_write,
+      database_id_, backing_store_->AsWeakPtr(), new_files_to_write,
       new BlobWriteCallbackWrapper(ptr_factory_.GetWeakPtr(), this, callback));
 }
 

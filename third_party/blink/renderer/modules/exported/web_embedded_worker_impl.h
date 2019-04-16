@@ -32,6 +32,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_EXPORTED_WEB_EMBEDDED_WORKER_IMPL_H_
 
 #include <memory>
+
+#include "base/macros.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
 #include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-blink.h"
@@ -46,6 +48,7 @@
 
 namespace blink {
 
+class FetchClientSettingsObjectSnapshot;
 class ServiceWorkerInstalledScriptsManager;
 class WorkerClassicScriptLoader;
 class WorkerThread;
@@ -53,8 +56,6 @@ class WorkerThread;
 class MODULES_EXPORT WebEmbeddedWorkerImpl final
     : public WebEmbeddedWorker,
       public WorkerShadowPage::Client {
-  WTF_MAKE_NONCOPYABLE(WebEmbeddedWorkerImpl);
-
  public:
   WebEmbeddedWorkerImpl(
       std::unique_ptr<WebServiceWorkerContextClient>,
@@ -89,6 +90,10 @@ class MODULES_EXPORT WebEmbeddedWorkerImpl final
 
   void OnScriptLoaderFinished();
   void StartWorkerThread();
+
+  // Creates an outside settings object from the worker shadow page for
+  // top-level worker script fetch.
+  FetchClientSettingsObjectSnapshot* CreateFetchClientSettingsObject();
 
   WebEmbeddedWorkerStartData worker_start_data_;
 
@@ -128,6 +133,8 @@ class MODULES_EXPORT WebEmbeddedWorkerImpl final
 
   service_manager::mojom::blink::InterfaceProviderPtrInfo
       interface_provider_info_;
+
+  DISALLOW_COPY_AND_ASSIGN(WebEmbeddedWorkerImpl);
 };
 
 }  // namespace blink

@@ -9,6 +9,37 @@
         text-decoration: none;
       }
 
+      .activity-message {
+        color: var(--md-loading-message-color);
+        font-size: 123%;  /* Should be 16px when 100% is 13px. */
+        font-weight: 500;
+        margin-top: 80px;
+        text-align: center;
+      }
+
+      .activity-subpage-header {
+        border-bottom: var(--cr-separator-line);
+        display: flex;
+        justify-content: flex-end;
+        padding: 8px 12px;
+      }
+
+      .activity-table-headings {
+        align-items: center;
+        display: flex;
+        flex-direction: row;
+        font-weight: 500;
+        margin-inline-end: auto;
+
+        /* Match separator height. */
+        min-height: calc(var(--cr-section-min-height) - var(--separator-gap));
+        padding: 0 var(--cr-section-padding);
+      }
+
+      .clear-activities-button {
+        margin: 0 8px;
+      }
+
       .page-container {
         height: 100%;
         overflow: overlay;

@@ -138,10 +138,23 @@ void HTMLLinkElement::ParseAttribute(
 }
 
 bool HTMLLinkElement::ShouldLoadLink() {
+  // Common case: We should load <link> on document that will be rendered.
+  if (!InActiveDocument()) {
+    // Handle rare cases.
+
+    if (!isConnected())
+      return false;
+
+    // Load:
+    // - <link> tags for stylesheets regardless of its document state
+    //   (TODO: document why this is the case. kouhei@ doesn't know.)
+    // - <link> tags on html import documents.
+    if (!rel_attribute_.IsStyleSheet() && !GetDocument().IsHTMLImport())
+      return false;
+  }
+
   const KURL& href = GetNonEmptyURLAttribute(kHrefAttr);
-  return (IsInDocumentTree() ||
-          (isConnected() && rel_attribute_.IsStyleSheet())) &&
-         !href.PotentiallyDanglingMarkup();
+  return !href.PotentiallyDanglingMarkup();
 }
 
 bool HTMLLinkElement::IsLinkCreatedByParser() {
@@ -175,7 +188,11 @@ LinkResource* HTMLLinkElement::LinkResourceToProcess() {
 
   if (!link_) {
     if (rel_attribute_.IsImport() &&
-        origin_trials::HTMLImportsEnabled(&GetDocument())) {
+        origin_trials::HTMLImportsEnabled(&GetDocument()) &&
+        // HTMLImportsOnlyChrome lets the document import only chrome resource.
+        (!RuntimeEnabledFeatures::HTMLImportsOnlyChromeEnabled() ||
+         (Href().Protocol() == "chrome" ||
+          Href().Protocol() == "chrome-extension"))) {
       link_ = LinkImport::Create(this);
     } else if (rel_attribute_.IsManifest()) {
       link_ = LinkManifest::Create(this);
@@ -228,7 +245,7 @@ Node::InsertionNotificationRequest HTMLLinkElement::InsertedInto(
   if (!ShouldLoadLink() && IsInShadowTree()) {
     String message = "HTML element <link> is ignored in shadow tree.";
     GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel, message));
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
     return kInsertionDone;
   }
 

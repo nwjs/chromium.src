@@ -159,8 +159,6 @@ jumbo_static_library("test_support") {
     "command_buffer/service/error_state_mock.h",
     "command_buffer/service/gles2_cmd_decoder_mock.cc",
     "command_buffer/service/gles2_cmd_decoder_mock.h",
-    "command_buffer/service/raster_decoder_mock.cc",
-    "command_buffer/service/raster_decoder_mock.h",
     "ipc/raster_in_process_context.cc",
     "ipc/raster_in_process_context.h",
     "ipc/service/gpu_memory_buffer_factory_test_template.h",
@@ -294,6 +292,7 @@ test("gl_tests") {
     sources += [ "command_buffer/service/shared_image_backing_factory_ahardwarebuffer_unittest.cc" ]
   } else if (is_mac) {
     libs += [ "IOSurface.framework" ]
+    sources += [ "command_buffer/service/shared_image_backing_factory_iosurface_unittest.cc" ]
   } else if (is_win) {
     deps += [
       "//ui/platform_window",
@@ -390,6 +389,7 @@ test("gpu_unittests") {
     "command_buffer/service/memory_program_cache_unittest.cc",
     "command_buffer/service/mocks.cc",
     "command_buffer/service/mocks.h",
+    "command_buffer/service/multi_draw_manager_unittest.cc",
     "command_buffer/service/passthrough_program_cache_unittest.cc",
     "command_buffer/service/path_manager_unittest.cc",
     "command_buffer/service/program_cache_unittest.cc",
@@ -693,6 +693,30 @@ if (is_linux) {
     ]
 
     defines = [ "GPU_FUZZER_USE_RASTER_DECODER" ]
+
+    deps = [
+      ":gles2",
+      ":gpu",
+      "//base",
+      "//base/third_party/dynamic_annotations",
+      "//ui/gfx/geometry",
+      "//ui/gl",
+      "//ui/gl:test_support",
+    ]
+
+    libfuzzer_options = [ "max_len=16384" ]
+  }
+
+  fuzzer_test("gpu_raster_passthrough_fuzzer") {
+    sources = [
+      "command_buffer/tests/fuzzer_main.cc",
+    ]
+
+    defines = [
+      "GPU_FUZZER_USE_ANGLE",
+      "GPU_FUZZER_USE_RASTER_DECODER",
+      "GPU_FUZZER_USE_PASSTHROUGH_CMD_DECODER",
+    ]
 
     deps = [
       ":gles2",

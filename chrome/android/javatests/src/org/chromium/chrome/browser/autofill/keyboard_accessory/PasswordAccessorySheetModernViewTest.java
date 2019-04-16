@@ -63,8 +63,9 @@ public class PasswordAccessorySheetModernViewTest {
                             mActivityTestRule.getActivity().findViewById(
                                     R.id.keyboard_accessory_sheet_stub)));
             accessorySheet.addTab(
-                    new KeyboardAccessoryData.Tab(null, null, R.layout.password_accessory_sheet,
-                            AccessoryTabType.ALL, new KeyboardAccessoryData.Tab.Listener() {
+                    new KeyboardAccessoryData.Tab("Passwords", null, null,
+                            R.layout.password_accessory_sheet, AccessoryTabType.ALL,
+                            new KeyboardAccessoryData.Tab.Listener() {
                                 @Override
                                 public void onTabCreated(ViewGroup view) {
                                     mView.set((RecyclerView) view);
@@ -124,9 +125,10 @@ public class PasswordAccessorySheetModernViewTest {
 
         CriteriaHelper.pollUiThread(Criteria.equals(1, () -> mView.get().getChildCount()));
 
-        assertThat(getNameSuggestion().getInnerTextView().getText(), is("Name Suggestion"));
-        assertThat(getPasswordSuggestion().getInnerTextView().getText(), is("Password Suggestion"));
-        assertThat(getPasswordSuggestion().getInnerTextView().getTransformationMethod(),
+        assertThat(getNameSuggestion().getPrimaryTextView().getText(), is("Name Suggestion"));
+        assertThat(
+                getPasswordSuggestion().getPrimaryTextView().getText(), is("Password Suggestion"));
+        assertThat(getPasswordSuggestion().getPrimaryTextView().getTransformationMethod(),
                 instanceOf(PasswordTransformationMethod.class));
 
         ThreadUtils.runOnUiThreadBlocking(getNameSuggestion()::performClick);

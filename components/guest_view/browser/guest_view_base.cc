@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -548,7 +549,7 @@ void GuestViewBase::WillAttach(WebContents* embedder_web_contents,
   WillAttachToEmbedder();
 
   if (content::GuestMode::IsCrossProcessFrameGuest(web_contents())) {
-    web_contents()->AttachToOuterWebContentsFrame(
+    owner_web_contents_->AttachInnerWebContents(
         base::WrapUnique<WebContents>(web_contents()), outer_contents_frame);
     // TODO(ekaramad): MimeHandlerViewGuest might not need this ACK
     // (https://crbug.com/659750).

@@ -7,6 +7,7 @@
 #include <memory>
 #include <tuple>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -33,7 +34,7 @@ const int kMaxFramesPerBufferDefault = 2500;
 
 const int kMaxDaysToKeepStatsDefault = 30;
 
-};  // namespace
+}  // namespace
 
 const char VideoDecodeStatsDBImpl::kMaxFramesPerBufferParamName[] =
     "db_frames_buffer_size";

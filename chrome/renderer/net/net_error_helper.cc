@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
@@ -15,6 +16,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram.h"
 #include "base/strings/strcat.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
@@ -22,7 +24,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/render_messages.h"
 #include "chrome/renderer/chrome_render_thread_observer.h"
-#include "chrome/renderer/ssl/ssl_certificate_error_page_controller.h"
+#include "chrome/renderer/security_interstitials/security_interstitial_page_controller.h"
 #include "chrome/renderer/supervised_user/supervised_user_error_page_controller.h"
 #include "components/error_page/common/error.h"
 #include "components/error_page/common/error_page_params.h"
@@ -84,9 +86,7 @@ namespace {
 // suggestions.  If it takes too long, just use the local error page.
 const int kNavigationCorrectionFetchTimeoutSec = 3;
 
-NetErrorHelperCore::PageType GetLoadingPageType(
-    blink::WebDocumentLoader* document_loader) {
-  GURL url = document_loader->GetUrl();
+NetErrorHelperCore::PageType GetLoadingPageType(const GURL& url) {
   if (!url.is_valid() || url.spec() != kUnreachableWebDataURL)
     return NetErrorHelperCore::NON_ERROR_PAGE;
   return NetErrorHelperCore::ERROR_PAGE;
@@ -105,10 +105,11 @@ OfflineContentOnNetErrorFeatureState GetOfflineContentOnNetErrorFeatureState() {
   const std::string alternate_ui_name = base::GetFieldTrialParamValueByFeature(
       features::kNewNetErrorPageUI,
       features::kNewNetErrorPageUIAlternateParameterName);
-  if (alternate_ui_name == features::kNewNetErrorPageUIAlternateContentList) {
-    return OfflineContentOnNetErrorFeatureState::kEnabledList;
+  if (alternate_ui_name ==
+      features::kNewNetErrorPageUIAlternateContentPreview) {
+    return OfflineContentOnNetErrorFeatureState::kEnabledSummary;
   }
-  return OfflineContentOnNetErrorFeatureState::kEnabledSummary;
+  return OfflineContentOnNetErrorFeatureState::kEnabledList;
 }
 #else   // OS_ANDROID
 OfflineContentOnNetErrorFeatureState GetOfflineContentOnNetErrorFeatureState() {
@@ -166,7 +167,7 @@ NetErrorHelper::NetErrorHelper(RenderFrame* render_frame)
     : RenderFrameObserver(render_frame),
       content::RenderFrameObserverTracker<NetErrorHelper>(render_frame),
       weak_controller_delegate_factory_(this),
-      weak_ssl_error_controller_delegate_factory_(this),
+      weak_security_interstitial_controller_delegate_factory_(this),
       weak_supervised_user_error_controller_delegate_factory_(this) {
   RenderThread::Get()->AddObserver(this);
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
@@ -306,11 +307,10 @@ void NetErrorHelper::Feedback() {
     supervised_user_interface_->Feedback();
 }
 
-void NetErrorHelper::DidStartProvisionalLoad(
-    blink::WebDocumentLoader* document_loader,
-    bool is_content_initiated) {
-  core_->OnStartLoad(GetFrameType(render_frame()),
-                     GetLoadingPageType(document_loader));
+void NetErrorHelper::DidStartNavigation(
+    const GURL& url,
+    base::Optional<blink::WebNavigationType> navigation_type) {
+  core_->OnStartLoad(GetFrameType(render_frame()), GetLoadingPageType(url));
 }
 
 void NetErrorHelper::DidCommitProvisionalLoad(bool is_same_document_navigation,
@@ -324,7 +324,7 @@ void NetErrorHelper::DidCommitProvisionalLoad(bool is_same_document_navigation,
   // error page, the controller has not yet been attached, so this won't affect
   // it.
   weak_controller_delegate_factory_.InvalidateWeakPtrs();
-  weak_ssl_error_controller_delegate_factory_.InvalidateWeakPtrs();
+  weak_security_interstitial_controller_delegate_factory_.InvalidateWeakPtrs();
   weak_supervised_user_error_controller_delegate_factory_.InvalidateWeakPtrs();
 
   core_->OnCommitLoad(GetFrameType(render_frame()),
@@ -390,7 +390,6 @@ void NetErrorHelper::GenerateLocalizedErrorPage(
     bool can_show_network_diagnostics_dialog,
     std::unique_ptr<ErrorPageParams> params,
     bool* reload_button_shown,
-    bool* show_saved_copy_button_shown,
     bool* show_cached_copy_button_shown,
     bool* download_button_shown,
     OfflineContentOnNetErrorFeatureState* offline_content_feature_state,
@@ -413,8 +412,6 @@ void NetErrorHelper::GenerateLocalizedErrorPage(
         *offline_content_feature_state, IsAutoFetchFeatureEnabled(),
         RenderThread::Get()->GetLocale(), std::move(params), &error_strings);
     *reload_button_shown = error_strings.Get("reloadButton", nullptr);
-    *show_saved_copy_button_shown =
-        error_strings.Get("showSavedCopyButton", nullptr);
     *show_cached_copy_button_shown =
         error_strings.Get("cacheButton", nullptr);
     *download_button_shown =
@@ -436,13 +433,10 @@ void NetErrorHelper::LoadErrorPage(const std::string& html,
                                  failed_url, true /* replace_current_item */);
 }
 
-void NetErrorHelper::EnablePageHelperFunctions(net::Error net_error) {
-  if (net::IsCertificateError(net_error)) {
-    SSLCertificateErrorPageController::Install(
-        render_frame(),
-        weak_ssl_error_controller_delegate_factory_.GetWeakPtr());
-    return;
-  }
+void NetErrorHelper::EnablePageHelperFunctions() {
+  SecurityInterstitialPageController::Install(
+      render_frame(),
+      weak_security_interstitial_controller_delegate_factory_.GetWeakPtr());
   NetErrorPageController::Install(
       render_frame(), weak_controller_delegate_factory_.GetWeakPtr());
 
@@ -557,17 +551,6 @@ void NetErrorHelper::ReloadPage(bool bypass_cache) {
   render_frame()->GetWebFrame()->StartReload(
       bypass_cache ? blink::WebFrameLoadType::kReloadBypassingCache
                    : blink::WebFrameLoadType::kReload);
-}
-
-void NetErrorHelper::LoadPageFromCache(const GURL& page_url) {
-  blink::WebLocalFrame* web_frame = render_frame()->GetWebFrame();
-  DCHECK_NE("POST",
-            web_frame->GetDocumentLoader()->GetRequest().HttpMethod().Ascii());
-
-  blink::WebURLRequest request(page_url);
-  request.SetCacheMode(blink::mojom::FetchCacheMode::kOnlyIfCached);
-  request.SetRequestorOrigin(blink::WebSecurityOrigin::Create(page_url));
-  web_frame->StartNavigation(request);
 }
 
 void NetErrorHelper::DiagnoseError(const GURL& page_url) {

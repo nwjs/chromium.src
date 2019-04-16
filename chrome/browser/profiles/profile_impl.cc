@@ -85,14 +85,13 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/signin/account_tracker_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/ssl/chrome_ssl_host_state_delegate.h"
 #include "chrome/browser/ssl/chrome_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/webui/prefs_internals_source.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -109,6 +108,8 @@
 #include "components/gcm_driver/gcm_profile_service.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/keyed_service/core/simple_dependency_manager.h"
+#include "components/keyed_service/core/simple_keyed_service_factory.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/language/core/common/locale_util.h"
 #include "components/metrics/metrics_service.h"
@@ -122,6 +123,7 @@
 #include "components/user_prefs/user_prefs.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/cors_origin_pattern_setter.h"
 #include "content/public/browser/dom_storage_context.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/permission_controller.h"
@@ -132,12 +134,15 @@
 #include "content/public/browser/url_data_source.h"
 #include "content/public/common/content_constants.h"
 #include "extensions/buildflags/buildflags.h"
+#include "google_apis/google_api_keys.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/identity/identity_service.h"
 #include "services/identity/public/cpp/identity_manager.h"
 #include "services/identity/public/mojom/constants.mojom.h"
+#include "services/image_annotation/image_annotation_service.h"
+#include "services/image_annotation/public/mojom/constants.mojom.h"
 #include "services/network/public/cpp/features.h"
 #include "services/preferences/public/cpp/in_process_service_factory.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
@@ -225,6 +230,7 @@
 using base::TimeDelta;
 using bookmarks::BookmarkModel;
 using content::BrowserThread;
+using content::CorsOriginPatternSetter;
 using content::DownloadManagerDelegate;
 
 namespace {
@@ -246,8 +252,16 @@ const char kReadmeText[] =
 const char kPrefExitTypeCrashed[] = "Crashed";
 const char kPrefExitTypeSessionEnded[] = "SessionEnded";
 
+// Returns the Chrome Google API key for the channel of this build.
+std::string APIKeyForChannel() {
+  if (chrome::GetChannel() == version_info::Channel::STABLE)
+    return google_apis::GetAPIKey();
+  return google_apis::GetNonStableAPIKey();
+}
+
 void CreateProfileReadme(const base::FilePath& profile_path) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   base::FilePath readme_path = profile_path.Append(chrome::kReadmeFilename);
   std::string product_name = l10n_util::GetStringUTF8(IDS_PRODUCT_NAME);
   std::string readme_text = base::StringPrintf(
@@ -281,7 +295,7 @@ void CreateProfileDirectory(base::SequencedTaskRunner* io_task_runner,
     base::PostTaskWithTraits(FROM_HERE,
                              {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
                               base::TaskShutdownBehavior::BLOCK_SHUTDOWN},
-                             base::Bind(&CreateProfileReadme, path));
+                             base::BindOnce(&CreateProfileReadme, path));
   }
 }
 
@@ -322,52 +336,6 @@ bool LocaleNotChanged(const std::string& pref_locale,
   return pref_locale == new_locale_converted;
 }
 #endif  // defined(OS_CHROMEOS)
-
-// A class used to make an asynchronous Mojo call with cloned patterns for each
-// StoragePartition iteration. |this| instance will be destructed when all
-// existing asynchronous Mojo calls made in SetLists() are done, and |closure|
-// will be invoked on destructing |this|.
-class CorsOriginPatternSetter
-    : public base::RefCounted<CorsOriginPatternSetter> {
- public:
-  CorsOriginPatternSetter(
-      const url::Origin& source_origin,
-      std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns,
-      std::vector<network::mojom::CorsOriginPatternPtr> block_patterns,
-      base::OnceClosure closure)
-      : source_origin_(source_origin),
-        allow_patterns_(std::move(allow_patterns)),
-        block_patterns_(std::move(block_patterns)),
-        closure_(std::move(closure)) {}
-
-  void SetLists(content::StoragePartition* partition) {
-    partition->GetNetworkContext()->SetCorsOriginAccessListsForOrigin(
-        source_origin_, ClonePatterns(allow_patterns_),
-        ClonePatterns(block_patterns_),
-        base::BindOnce([](scoped_refptr<CorsOriginPatternSetter> setter) {},
-                       base::RetainedRef(this)));
-  }
-
-  static std::vector<network::mojom::CorsOriginPatternPtr> ClonePatterns(
-      const std::vector<network::mojom::CorsOriginPatternPtr>& patterns) {
-    std::vector<network::mojom::CorsOriginPatternPtr> cloned_patterns;
-    cloned_patterns.reserve(patterns.size());
-    for (const auto& item : patterns)
-      cloned_patterns.push_back(item.Clone());
-    return cloned_patterns;
-  }
-
- private:
-  friend class base::RefCounted<CorsOriginPatternSetter>;
-
-  ~CorsOriginPatternSetter() { std::move(closure_).Run(); }
-
-  const url::Origin source_origin_;
-  const std::vector<network::mojom::CorsOriginPatternPtr> allow_patterns_;
-  const std::vector<network::mojom::CorsOriginPatternPtr> block_patterns_;
-
-  base::OnceClosure closure_;
-};
 
 }  // namespace
 
@@ -500,6 +468,7 @@ ProfileImpl::ProfileImpl(
       io_data_(this),
       last_session_exit_type_(EXIT_NORMAL),
       start_time_(base::Time::Now()),
+      key_(std::make_unique<SimpleFactoryKey>(GetPath())),
       delegate_(delegate),
       reporting_permissions_checker_factory_(this),
       shared_cors_origin_access_list_(
@@ -507,6 +476,9 @@ ProfileImpl::ProfileImpl(
   TRACE_EVENT0("browser,startup", "ProfileImpl::ctor")
   DCHECK(!path.empty()) << "Using an empty path will attempt to write "
                         << "profile files to the root directory!";
+
+  // TODO(hanxi): get |key_| from the startup data if it has already been
+  // created when this profile is created.
 
 #if defined(OS_CHROMEOS)
   if (!chromeos::ProfileHelper::IsSigninProfile(this) &&
@@ -578,6 +550,8 @@ ProfileImpl::ProfileImpl(
 #endif
     RegisterUserProfilePrefs(pref_registry_.get());
 
+  SimpleDependencyManager::GetInstance()->RegisterProfilePrefsForServices(
+      key_.get(), pref_registry_.get());
   BrowserContextDependencyManager::GetInstance()
       ->RegisterProfilePrefsForServices(this, pref_registry_.get());
 
@@ -733,17 +707,6 @@ void ProfileImpl::DoFinalInit() {
   dom_distiller::RegisterViewerSource(this);
 
 #if defined(OS_CHROMEOS)
-  // Finished profile initialization - let the UserManager know so it can
-  // mark the session as initialized. Need to do this before we restart below
-  // so we don't get in a weird state where we restart before the session is
-  // marked as initialized and so try to initialize it again.
-  if (!chromeos::ProfileHelper::IsSigninProfile(this) &&
-      !chromeos::ProfileHelper::IsLockScreenAppProfile(this)) {
-    chromeos::ProfileHelper* profile_helper = chromeos::ProfileHelper::Get();
-    user_manager::UserManager::Get()->OnProfileInitialized(
-        profile_helper->GetUserByProfile(this));
-  }
-
   MigrateSigninScopedDeviceId(this);
 
   if (chromeos::UserSessionManager::GetInstance()
@@ -825,6 +788,12 @@ ProfileImpl::~ProfileImpl() {
 
   BrowserContextDependencyManager::GetInstance()->DestroyBrowserContextServices(
       this);
+  // The SimpleDependencyManager should always be called after the
+  // BrowserContextDependencyManager. This is because the KeyedService instances
+  // in the BrowserContextDependencyManager's dependency graph can depend on the
+  // ones in the SimpleDependencyManager's graph.
+  SimpleDependencyManager::GetInstance()->DestroyKeyedServices(
+      GetSimpleFactoryKey());
 
   // This causes the Preferences file to be written to disk.
   if (prefs_loaded)
@@ -917,6 +886,16 @@ bool ProfileImpl::IsChild() const {
 
 bool ProfileImpl::IsLegacySupervised() const {
   return IsSupervised() && !IsChild();
+}
+
+bool ProfileImpl::AllowsBrowserWindows() const {
+#if defined(OS_CHROMEOS)
+  if (chromeos::ProfileHelper::IsSigninProfile(this) ||
+      chromeos::ProfileHelper::IsLockScreenAppProfile(this)) {
+    return false;
+  }
+#endif
+  return !IsSystemProfile();
 }
 
 ExtensionSpecialStoragePolicy* ProfileImpl::GetExtensionSpecialStoragePolicy() {
@@ -1265,15 +1244,18 @@ std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
     service_manager::mojom::ServiceRequest request) {
   if (service_name == identity::mojom::kServiceName) {
     return std::make_unique<identity::IdentityService>(
-        AccountTrackerServiceFactory::GetForProfile(this),
-        SigninManagerFactory::GetForProfile(this),
-        ProfileOAuth2TokenServiceFactory::GetForProfile(this),
-        std::move(request));
+        IdentityManagerFactory::GetForProfile(this),
+        AccountTrackerServiceFactory::GetForProfile(this), std::move(request));
   }
 
   if (service_name == prefs::mojom::kServiceName) {
     return InProcessPrefServiceFactoryFactory::GetInstanceForContext(this)
         ->CreatePrefService(std::move(request));
+  }
+
+  if (service_name == image_annotation::mojom::kServiceName) {
+    return std::make_unique<image_annotation::ImageAnnotationService>(
+        std::move(request), APIKeyForChannel(), GetURLLoaderFactory());
   }
 
 #if !defined(OS_ANDROID)
@@ -1317,8 +1299,7 @@ std::unique_ptr<service_manager::Service> ProfileImpl::HandleServiceRequest(
   if (service_name == chromeos::assistant::mojom::kServiceName) {
     return std::make_unique<chromeos::assistant::Service>(
         std::move(request), content::GetNetworkConnectionTracker(),
-        base::CreateSingleThreadTaskRunnerWithTraits(
-            {content::BrowserThread::IO}));
+        GetURLLoaderFactory()->Clone());
   }
 #endif  // BUILDFLAG(ENABLE_CROS_ASSISTANT)
 
@@ -1350,6 +1331,11 @@ bool ProfileImpl::IsSameProfile(Profile* profile) {
 
 base::Time ProfileImpl::GetStartTime() const {
   return start_time_;
+}
+
+SimpleFactoryKey* ProfileImpl::GetSimpleFactoryKey() const {
+  DCHECK(key_);
+  return key_.get();
 }
 
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)

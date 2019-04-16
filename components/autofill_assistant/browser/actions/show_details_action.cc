@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
 #include "components/autofill_assistant/browser/details.h"
@@ -16,8 +17,7 @@
 
 namespace autofill_assistant {
 
-ShowDetailsAction::ShowDetailsAction(const ActionProto& proto)
-    : Action(proto), weak_ptr_factory_(this) {
+ShowDetailsAction::ShowDetailsAction(const ActionProto& proto) : Action(proto) {
   DCHECK(proto_.has_show_details());
 }
 
@@ -25,76 +25,43 @@ ShowDetailsAction::~ShowDetailsAction() {}
 
 void ShowDetailsAction::InternalProcessAction(ActionDelegate* delegate,
                                               ProcessActionCallback callback) {
-  callback_ = std::move(callback);
+  std::unique_ptr<Details> details = nullptr;
+  bool details_valid = true;
 
-  if (!proto_.show_details().has_details()) {
-    delegate->ClearDetails();
-    OnActionProcessed(ACTION_APPLIED);
-    return;
+  switch (proto_.show_details().data_to_show_case()) {
+    case ShowDetailsProto::DataToShowCase::kDetails:
+      details = std::make_unique<Details>();
+      details_valid =
+          Details::UpdateFromProto(proto_.show_details(), details.get());
+      break;
+    case ShowDetailsProto::DataToShowCase::kContactDetails:
+      details = std::make_unique<Details>();
+      details_valid = Details::UpdateFromContactDetails(
+          proto_.show_details(), delegate->GetClientMemory(), details.get());
+      break;
+    case ShowDetailsProto::DataToShowCase::kShippingAddress:
+      details = std::make_unique<Details>();
+      details_valid = Details::UpdateFromShippingAddress(
+          proto_.show_details(), delegate->GetClientMemory(), details.get());
+      break;
+    case ShowDetailsProto::DataToShowCase::kCreditCard:
+      details = std::make_unique<Details>();
+      details_valid = Details::UpdateFromSelectedCreditCard(
+          proto_.show_details(), delegate->GetClientMemory(), details.get());
+      break;
+    case ShowDetailsProto::DataToShowCase::DATA_TO_SHOW_NOT_SET:
+      // Clear Details. Calling SetDetails with nullptr clears the details.
+      break;
   }
 
-  Details details;
-  details.proto = proto_.show_details().details();
-  details.changes = proto_.show_details().change_flags();
-  delegate->SetDetails(details);
-
-  if (!details.changes.user_approval_required()) {
-    OnActionProcessed(ACTION_APPLIED);
-    return;
-  }
-
-  // Ask for user approval.
-
-  std::string previous_status_message = delegate->GetStatusMessage();
-  delegate->SetStatusMessage(
-      l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DETAILS_DIFFER));
-
-  // Continue button.
-  auto chips = std::make_unique<std::vector<Chip>>();
-  chips->emplace_back();
-  chips->back().text =
-      l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_CONTINUE_BUTTON);
-  chips->back().type = Chip::Type::BUTTON_FILLED_BLUE;
-  chips->back().callback = base::BindOnce(
-      &ShowDetailsAction::OnUserResponse, weak_ptr_factory_.GetWeakPtr(),
-      base::Unretained(delegate), previous_status_message,
-      /* success= */ true);
-
-  // Go back button.
-  chips->emplace_back();
-  chips->back().text =
-      l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_DETAILS_DIFFER_GO_BACK);
-  chips->back().type = Chip::Type::BUTTON_TEXT;
-  chips->back().callback = base::BindOnce(
-      &ShowDetailsAction::OnUserResponse, weak_ptr_factory_.GetWeakPtr(),
-      base::Unretained(delegate), previous_status_message,
-      /* success= */ false);
-
-  delegate->Prompt(std::move(chips));
-}
-
-void ShowDetailsAction::OnUserResponse(
-    ActionDelegate* delegate,
-    const std::string& previous_status_message,
-    bool can_continue) {
-  if (!can_continue) {
-    delegate->Close();
-    OnActionProcessed(MANUAL_FALLBACK);
+  if (!details_valid) {
+    DVLOG(1) << "Failed to fill the details";
+    UpdateProcessedAction(OTHER_ACTION_STATUS);
   } else {
-    // Same details, without highlights.
-    Details details;
-    details.proto = proto_.show_details().details();
-    delegate->SetDetails(details);
-    // Restore status message
-    delegate->SetStatusMessage(previous_status_message);
-    OnActionProcessed(ACTION_APPLIED);
+    delegate->SetDetails(std::move(details));
+    UpdateProcessedAction(ACTION_APPLIED);
   }
-}
 
-void ShowDetailsAction::OnActionProcessed(ProcessedActionStatusProto status) {
-  DCHECK(callback_);
-
-  UpdateProcessedAction(status);
-  std::move(callback_).Run(std::move(processed_action_proto_));
+  std::move(callback).Run(std::move(processed_action_proto_));
 }
 }  // namespace autofill_assistant

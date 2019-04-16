@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/task/post_task.h"
@@ -244,7 +245,8 @@ IN_PROC_BROWSER_TEST_P(VideoCaptureBrowserTest, StartAndImmediatelyStop) {
 }
 
 // Flaky on MSAN. https://crbug.com/840294
-#if defined(MEMORY_SANITIZER)
+// Flaky on MacOS 10.12. https://crbug.com/938074
+#if defined(MEMORY_SANITIZER) || defined(MAC_OS_X_VERSION_10_12)
 #define MAYBE_ReceiveFramesFromFakeCaptureDevice \
   DISABLED_ReceiveFramesFromFakeCaptureDevice
 #else
@@ -334,12 +336,12 @@ IN_PROC_BROWSER_TEST_P(VideoCaptureBrowserTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        VideoCaptureBrowserTest,
-                        Combine(Values(0, 1, 2),             // DeviceIndex
-                                Values(gfx::Size(640, 480),  // Resolution
-                                       gfx::Size(1280, 720)),
-                                Bool(),    // ExerciseAcceleratedJpegDecoding
-                                Bool()));  // UseMojoService
+INSTANTIATE_TEST_SUITE_P(,
+                         VideoCaptureBrowserTest,
+                         Combine(Values(0, 1, 2),             // DeviceIndex
+                                 Values(gfx::Size(640, 480),  // Resolution
+                                        gfx::Size(1280, 720)),
+                                 Bool(),    // ExerciseAcceleratedJpegDecoding
+                                 Bool()));  // UseMojoService
 
 }  // namespace content

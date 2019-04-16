@@ -24,7 +24,6 @@
 #include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/synchronization/lock.h"
-#include "base/trace_event/process_memory_dump.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "crypto/ec_private_key.h"
@@ -273,7 +272,6 @@ class SSLClientSocketImpl::SSLContext {
                            base::LeakySingletonTraits<SSLContext>>::get();
   }
   SSL_CTX* ssl_ctx() { return ssl_ctx_.get(); }
-  SSLClientSessionCache* session_cache() { return &session_cache_; }
 
   SSLClientSocketImpl* GetClientSocketFromSSL(const SSL* ssl) {
     DCHECK(ssl);
@@ -298,7 +296,7 @@ class SSLClientSocketImpl::SSLContext {
  private:
   friend struct base::DefaultSingletonTraits<SSLContext>;
 
-  SSLContext() : session_cache_(SSLClientSessionCache::Config()) {
+  SSLContext() {
     crypto::EnsureOpenSSLInit();
     ssl_socket_data_index_ = SSL_get_ex_new_index(0, 0, 0, 0, 0);
     DCHECK_NE(ssl_socket_data_index_, -1);
@@ -329,6 +327,12 @@ class SSLClientSocketImpl::SSLContext {
         ssl_ctx_.get(), TLSEXT_cert_compression_brotli,
         nullptr /* compression not supported */, DecompressBrotliCert);
 #endif
+
+    if (base::FeatureList::IsEnabled(features::kPostQuantumCECPQ2)) {
+      static const int kCurves[] = {NID_CECPQ2, NID_X25519,
+                                    NID_X9_62_prime256v1, NID_secp384r1};
+      SSL_CTX_set1_curves(ssl_ctx_.get(), kCurves, base::size(kCurves));
+    }
   }
 
   static int ClientCertRequestCallback(SSL* ssl, void* arg) {
@@ -389,13 +393,6 @@ class SSLClientSocketImpl::SSLContext {
   bssl::UniquePtr<SSL_CTX> ssl_ctx_;
 
   std::unique_ptr<SSLKeyLogger> ssl_key_logger_;
-
-  // TODO(davidben): Use a separate cache per URLRequestContext.
-  // https://crbug.com/458365
-  //
-  // TODO(davidben): Sessions should be invalidated on fatal
-  // alerts. https://crbug.com/466352
-  SSLClientSessionCache session_cache_;
 };
 
 const SSL_PRIVATE_KEY_METHOD
@@ -405,15 +402,8 @@ const SSL_PRIVATE_KEY_METHOD
         &SSLClientSocketImpl::SSLContext::PrivateKeyCompleteCallback,
 };
 
-// static
-void SSLClientSocket::ClearSessionCache() {
-  SSLClientSocketImpl::SSLContext* context =
-      SSLClientSocketImpl::SSLContext::GetInstance();
-  context->session_cache()->Flush();
-}
-
 SSLClientSocketImpl::SSLClientSocketImpl(
-    std::unique_ptr<ClientSocketHandle> transport_socket,
+    std::unique_ptr<StreamSocket> stream_socket,
     const HostPortPair& host_and_port,
     const SSLConfig& ssl_config,
     const SSLClientSocketContext& context)
@@ -424,10 +414,10 @@ SSLClientSocketImpl::SSLClientSocketImpl(
       cert_verifier_(context.cert_verifier),
       cert_verification_result_(kCertVerifyPending),
       cert_transparency_verifier_(context.cert_transparency_verifier),
-      transport_(std::move(transport_socket)),
+      stream_socket_(std::move(stream_socket)),
       host_and_port_(host_and_port),
       ssl_config_(ssl_config),
-      ssl_session_cache_shard_(context.ssl_session_cache_shard),
+      ssl_client_session_cache_(context.ssl_client_session_cache),
       next_handshake_state_(STATE_NONE),
       in_confirm_handshake_(false),
       disconnected_(false),
@@ -438,7 +428,7 @@ SSLClientSocketImpl::SSLClientSocketImpl(
       policy_enforcer_(context.ct_policy_enforcer),
       pkp_bypassed_(false),
       is_fatal_cert_error_(false),
-      net_log_(transport_->socket()->NetLog()),
+      net_log_(stream_socket_->NetLog()),
       weak_factory_(this) {
   CHECK(cert_verifier_);
   CHECK(transport_security_state_);
@@ -525,7 +515,7 @@ void SSLClientSocketImpl::Disconnect() {
   user_write_buf_ = NULL;
   user_write_buf_len_ = 0;
 
-  transport_->socket()->Disconnect();
+  stream_socket_->Disconnect();
 }
 
 // ConfirmHandshake may only be called on a connected socket and, like other
@@ -561,7 +551,7 @@ bool SSLClientSocketImpl::IsConnected() const {
   if (user_read_buf_.get() || user_write_buf_.get())
     return true;
 
-  return transport_->socket()->IsConnected();
+  return stream_socket_->IsConnected();
 }
 
 bool SSLClientSocketImpl::IsConnectedAndIdle() const {
@@ -583,15 +573,15 @@ bool SSLClientSocketImpl::IsConnectedAndIdle() const {
   if (transport_adapter_->HasPendingReadData())
     return false;
 
-  return transport_->socket()->IsConnectedAndIdle();
+  return stream_socket_->IsConnectedAndIdle();
 }
 
 int SSLClientSocketImpl::GetPeerAddress(IPEndPoint* addressList) const {
-  return transport_->socket()->GetPeerAddress(addressList);
+  return stream_socket_->GetPeerAddress(addressList);
 }
 
 int SSLClientSocketImpl::GetLocalAddress(IPEndPoint* addressList) const {
-  return transport_->socket()->GetLocalAddress(addressList);
+  return stream_socket_->GetLocalAddress(addressList);
 }
 
 const NetLogWithSource& SSLClientSocketImpl::NetLog() const {
@@ -654,7 +644,7 @@ void SSLClientSocketImpl::GetConnectionAttempts(ConnectionAttempts* out) const {
 }
 
 int64_t SSLClientSocketImpl::GetTotalReceivedBytes() const {
-  return transport_->socket()->GetTotalReceivedBytes();
+  return stream_socket_->GetTotalReceivedBytes();
 }
 
 void SSLClientSocketImpl::DumpMemoryStats(SocketMemoryStats* stats) const {
@@ -700,13 +690,7 @@ void SSLClientSocketImpl::GetSSLCertRequestInfo(
 }
 
 void SSLClientSocketImpl::ApplySocketTag(const SocketTag& tag) {
-  return transport_->socket()->ApplySocketTag(tag);
-}
-
-// static
-void SSLClientSocketImpl::DumpSSLClientSessionMemoryStats(
-    base::trace_event::ProcessMemoryDump* pmd) {
-  SSLContext::GetInstance()->session_cache()->DumpMemoryStats(pmd);
+  return stream_socket_->ApplySocketTag(tag);
 }
 
 int SSLClientSocketImpl::Read(IOBuffer* buf,
@@ -735,7 +719,7 @@ int SSLClientSocketImpl::ReadIfReady(IOBuffer* buf,
 }
 
 int SSLClientSocketImpl::CancelReadIfReady() {
-  int result = transport_->socket()->CancelReadIfReady();
+  int result = stream_socket_->CancelReadIfReady();
   // Cancel |user_read_callback_|, because caller does not expect the callback
   // to be invoked after they have canceled the ReadIfReady.
   user_read_callback_.Reset();
@@ -765,11 +749,11 @@ int SSLClientSocketImpl::Write(
 }
 
 int SSLClientSocketImpl::SetReceiveBufferSize(int32_t size) {
-  return transport_->socket()->SetReceiveBufferSize(size);
+  return stream_socket_->SetReceiveBufferSize(size);
 }
 
 int SSLClientSocketImpl::SetSendBufferSize(int32_t size) {
-  return transport_->socket()->SetSendBufferSize(size);
+  return stream_socket_->SetSendBufferSize(size);
 }
 
 void SSLClientSocketImpl::OnReadReady() {
@@ -811,15 +795,15 @@ int SSLClientSocketImpl::Init() {
     return ERR_UNEXPECTED;
   }
 
-  if (!ssl_session_cache_shard_.empty()) {
+  if (IsCachingEnabled()) {
     bssl::UniquePtr<SSL_SESSION> session =
-        context->session_cache()->Lookup(GetSessionCacheKey());
+        ssl_client_session_cache_->Lookup(GetSessionCacheKey());
     if (session)
       SSL_set_session(ssl_.get(), session.get());
   }
 
   transport_adapter_.reset(
-      new SocketBIOAdapter(transport_->socket(), kDefaultOpenSSLBufferSize,
+      new SocketBIOAdapter(stream_socket_.get(), kDefaultOpenSSLBufferSize,
                            kDefaultOpenSSLBufferSize, this));
   BIO* transport_bio = transport_adapter_->bio();
 
@@ -984,9 +968,8 @@ int SSLClientSocketImpl::DoHandshakeComplete(int result) {
     return ERR_SSL_VERSION_INTERFERENCE;
   }
 
-  if (!ssl_session_cache_shard_.empty()) {
-    SSLContext::GetInstance()->session_cache()->ResetLookupCount(
-        GetSessionCacheKey());
+  if (IsCachingEnabled()) {
+    ssl_client_session_cache_->ResetLookupCount(GetSessionCacheKey());
   }
 
   const uint8_t* alpn_proto = NULL;
@@ -1606,7 +1589,8 @@ int SSLClientSocketImpl::ClientCertRequestCallback(SSL* ssl) {
         NetLogEventType::SSL_CLIENT_CERT_PROVIDED,
         NetLog::IntCallback(
             "cert_count",
-            1 + ssl_config_.client_cert->intermediate_buffers().size()));
+            base::checked_cast<int>(
+                1 + ssl_config_.client_cert->intermediate_buffers().size())));
     return 1;
   }
 #endif  // defined(OS_IOS)
@@ -1617,15 +1601,15 @@ int SSLClientSocketImpl::ClientCertRequestCallback(SSL* ssl) {
   return 1;
 }
 
-// Returns whether we took ownership of the pointer.
 int SSLClientSocketImpl::NewSessionCallback(SSL_SESSION* session) {
-  if (ssl_session_cache_shard_.empty())
+  if (!IsCachingEnabled())
     return 0;
 
-  // OpenSSL passes a reference to |session|.
-  SSLContext::GetInstance()->session_cache()->Insert(GetSessionCacheKey(),
-                                                     session);
-  return 0;
+  // OpenSSL optionally passes ownership of |session|. Returning one signals
+  // that this function has claimed it.
+  ssl_client_session_cache_->Insert(GetSessionCacheKey(),
+                                    bssl::UniquePtr<SSL_SESSION>(session));
+  return 1;
 }
 
 void SSLClientSocketImpl::AddCTInfoToSSLInfo(SSLInfo* ssl_info) const {
@@ -1633,14 +1617,7 @@ void SSLClientSocketImpl::AddCTInfoToSSLInfo(SSLInfo* ssl_info) const {
 }
 
 std::string SSLClientSocketImpl::GetSessionCacheKey() const {
-  // If there is no session cache shard configured, disable session
-  // caching. GetSessionCacheKey may not be called. When
-  // https://crbug.com/458365 is fixed, this check will not be needed.
-  DCHECK(!ssl_session_cache_shard_.empty());
-
   std::string result = host_and_port_.ToString();
-  result.push_back('/');
-  result.append(ssl_session_cache_shard_);
 
   result.push_back('/');
   result.push_back(ssl_config_.version_interference_probe ? '1' : '0');
@@ -1656,6 +1633,10 @@ bool SSLClientSocketImpl::IsRenegotiationAllowed() const {
       return true;
   }
   return false;
+}
+
+bool SSLClientSocketImpl::IsCachingEnabled() const {
+  return ssl_client_session_cache_ != nullptr;
 }
 
 ssl_private_key_result_t SSLClientSocketImpl::PrivateKeySignCallback(

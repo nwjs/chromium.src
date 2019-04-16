@@ -13,6 +13,7 @@
 #include "services/network/public/cpp/cors/cors_error_status.h"
 #include "services/network/public/cpp/cors/preflight_timing_info.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
+#include "services/network/public/mojom/url_loader.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -49,6 +50,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       mojom::URLLoaderFactory* network_loader_factory,
       const base::RepeatingCallback<void(int)>& request_finalizer,
       const OriginAccessList* origin_access_list,
+      const OriginAccessList* factory_bound_origin_access_list,
       PreflightController* preflight_controller);
 
   ~CorsURLLoader() override;
@@ -174,6 +176,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
 
   // Outlives |this|.
   const OriginAccessList* const origin_access_list_;
+  const OriginAccessList* const factory_bound_origin_access_list_;
   PreflightController* preflight_controller_;
 
   // Used to run asynchronous class instance bound callbacks safely.

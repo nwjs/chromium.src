@@ -365,9 +365,6 @@ without changes to the corresponding grd file. -->
                  compress="gzip" />
       <structure name="IDR_WEBUI_HTML_ICON"
                  file="html/icon.html" type="chrome_html" compress="gzip" />
-      <structure name="IDR_WEBUI_HTML_I18N_TEMPLATE"
-                 file="html/i18n_template.html" type="chrome_html"
-                 compress="gzip" />
       <structure name="IDR_WEBUI_HTML_LOAD_TIME_DATA"
                  file="html/load_time_data.html" type="chrome_html"
                  compress="gzip" />
@@ -388,9 +385,6 @@ without changes to the corresponding grd file. -->
                  file="js/cr.js" type="chrome_html" compress="gzip" />
       <structure name="IDR_WEBUI_JS_CR_EVENT_TARGET"
                  file="js/cr/event_target.js" type="chrome_html"
-                 compress="gzip" />
-      <structure name="IDR_WEBUI_JS_CR_LINK_CONTROLLER"
-                 file="js/cr/link_controller.js" type="chrome_html"
                  compress="gzip" />
       <structure name="IDR_WEBUI_JS_CR_UI"
                  file="js/cr/ui.js" type="chrome_html" compress="gzip" />
@@ -543,6 +537,12 @@ without changes to the corresponding grd file. -->
       <structure name="IDR_WEBUI_JS_WEBUI_RESOURCE_TEST"
                  file="js/webui_resource_test.js" type="chrome_html"
                  compress="gzip" />
+
+      <if expr="is_ios">
+        <structure name="IDR_WEBUI_JS_WEB_UI"
+                   file="js/ios/web_ui.js" type="chrome_html"
+                   compress="gzip" />
+      </if>
 
       <if expr="not is_android and not is_ios">
         <part file="cr_components/cr_components_resources.grdp" />

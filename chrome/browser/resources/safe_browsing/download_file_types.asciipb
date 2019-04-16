@@ -13,7 +13,7 @@ sampled_ping_probability: 0.01
 max_archived_binaries_to_report: 10
 default_file_type {
   uma_value: 18
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
   platform_settings {
     danger_level: NOT_DANGEROUS
     auto_open_hint: ALLOW_AUTO_OPEN
@@ -24,21 +24,81 @@ default_file_type {
 ## General cross-platform file types
 ##
 
-# Files that are not dangerous but for which we want to track via UMA.
+# Files that are not dangerous, and are popular enough that we'd like to
+# exclude them from download pings.
 file_types {
-  extension: "bin"
-  uma_value: 159
+  extension: "jpg"
+  uma_value: 322
   ping_setting: SAMPLED_PING
 }
 file_types {
-  # PDFs are opened internally, so they are considered safe.
-  extension: "pdf"
-  uma_value: 14
+  extension: "jpeg"
+  uma_value: 323
   ping_setting: SAMPLED_PING
 }
 file_types {
-  extension: "rtf"
-  uma_value: 244
+  extension: "mp3"
+  uma_value: 324
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "mp4"
+  uma_value: 325
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "png"
+  uma_value: 326
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "csv"
+  uma_value: 330
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "ica"
+  uma_value: 331
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "gif"
+  uma_value: 333
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "txt"
+  uma_value: 334
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "package"
+  uma_value: 335
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "tif"
+  uma_value: 336
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "webp"
+  uma_value: 338
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "mkv"
+  uma_value: 339
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "wav"
+  uma_value: 340
+  ping_setting: SAMPLED_PING
+}
+file_types {
+  extension: "mov"
+  uma_value: 341
   ping_setting: SAMPLED_PING
 }
 
@@ -124,6 +184,15 @@ file_types {
   uma_value: 176
   is_archive: true
   ping_setting: FULL_PING
+}
+file_types {
+  # On MacOS, BIN files are automatically extracted as ZIPs
+  # See: http://crbug/933637
+  extension: "bin"
+  uma_value: 159
+  is_archive: true
+  ping_setting: FULL_PING
+  inspection_type: ZIP
 }
 file_types {
   extension: "bz"
@@ -1270,88 +1339,182 @@ file_types {
   }
 }
 
-# OOXML MS Office files.  These can embed executables, but they don't
-# execute automatically when opened.  These are here to produce UMA metrics.
-# crbug.com/566110
+# Office Docs. These have been abused in the past through embedded
+# executables, so send a FULL_PING.
 file_types {
-  extension: "docx"
-  uma_value: 268
-  ping_setting: SAMPLED_PING
-}
-file_types {
-  extension: "docm"
-  uma_value: 269
-  ping_setting: SAMPLED_PING
-}
-file_types {
-  extension: "dott"
-  uma_value: 270
-  ping_setting: SAMPLED_PING
-}
-file_types {
-  extension: "dotm"
-  uma_value: 271
-  ping_setting: SAMPLED_PING
+  extension: "doc"
+  uma_value: 328
+  ping_setting: FULL_PING
 }
 file_types {
   extension: "docb"
   uma_value: 272
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "xlsx"
-  uma_value: 273
-  ping_setting: SAMPLED_PING
+  extension: "docm"
+  uma_value: 269
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "xlsm"
-  uma_value: 274
-  ping_setting: SAMPLED_PING
+  extension: "docx"
+  uma_value: 268
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "xltx"
-  uma_value: 275
-  ping_setting: SAMPLED_PING
+  extension: "dot"
+  uma_value: 342
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "xltm"
-  uma_value: 276
-  ping_setting: SAMPLED_PING
+  extension: "dotm"
+  uma_value: 271
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "pptx"
-  uma_value: 277
-  ping_setting: SAMPLED_PING
+  extension: "dott"
+  uma_value: 270
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "pptm"
-  uma_value: 278
-  ping_setting: SAMPLED_PING
+  extension: "dotx"
+  uma_value: 343
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "pdf"
+  uma_value: 14
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "pot"
+  uma_value: 352
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "potm"
+  uma_value: 353
+  ping_setting: FULL_PING
 }
 file_types {
   extension: "potx"
   uma_value: 279
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
 }
 file_types {
   extension: "ppam"
   uma_value: 280
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "pps"
+  uma_value: 355
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "ppsm"
+  uma_value: 354
+  ping_setting: FULL_PING
 }
 file_types {
   extension: "ppsx"
   uma_value: 281
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
 }
 file_types {
-  extension: "sldx"
-  uma_value: 282
-  ping_setting: SAMPLED_PING
+  extension: "ppt"
+  uma_value: 332
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "pptm"
+  uma_value: 278
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "pptx"
+  uma_value: 277
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "rtf"
+  uma_value: 244
+  ping_setting: FULL_PING
 }
 file_types {
   extension: "sldm"
   uma_value: 283
-  ping_setting: SAMPLED_PING
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "sldx"
+  uma_value: 282
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xla"
+  uma_value: 348
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlam"
+  uma_value: 349
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xldm"
+  uma_value: 347
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xll"
+  uma_value: 350
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlm"
+  uma_value: 346
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xls"
+  uma_value: 327
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlsb"
+  uma_value: 344
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlsm"
+  uma_value: 274
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlsx"
+  uma_value: 273
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlt"
+  uma_value: 345
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xltm"
+  uma_value: 276
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xltx"
+  uma_value: 275
+  ping_setting: FULL_PING
+}
+file_types {
+  extension: "xlw"
+  uma_value: 351
+  ping_setting: FULL_PING
 }
 
 # Extensions that will open in IE even when chrome is set as default browser.
@@ -2664,6 +2827,16 @@ file_types {
     auto_open_hint: DISALLOW_AUTO_OPEN
   }
   inspection_type: DMG
+}
+file_types {
+  extension: "mobileconfig"
+  uma_value: 356
+  ping_setting: FULL_PING
+  platform_settings {
+    platform: PLATFORM_MAC
+    danger_level: ALLOW_ON_USER_GESTURE
+    auto_open_hint: DISALLOW_AUTO_OPEN
+  }
 }
 file_types {
   extension: "ndif"

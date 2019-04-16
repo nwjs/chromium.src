@@ -20,7 +20,7 @@
  */
 function ThumbnailLoader(entry, opt_loaderType, opt_metadata, opt_mediaType,
     opt_loadTargets, opt_priority) {
-  var loadTargets = opt_loadTargets || [
+  const loadTargets = opt_loadTargets || [
     ThumbnailLoader.LoadTarget.CONTENT_METADATA,
     ThumbnailLoader.LoadTarget.EXTERNAL_METADATA,
     ThumbnailLoader.LoadTarget.FILE_ENTRY
@@ -65,9 +65,9 @@ function ThumbnailLoader(entry, opt_loaderType, opt_metadata, opt_mediaType,
   if (opt_metadata.external && opt_metadata.external.customIconUrl) {
     this.fallbackUrl_ = opt_metadata.external.customIconUrl;
   }
-  var mimeType = opt_metadata && opt_metadata.contentMimeType;
+  const mimeType = opt_metadata && opt_metadata.contentMimeType;
 
-  for (var i = 0; i < loadTargets.length; i++) {
+  for (let i = 0; i < loadTargets.length; i++) {
     switch (loadTargets[i]) {
       case ThumbnailLoader.LoadTarget.CONTENT_METADATA:
         if (opt_metadata.thumbnail && opt_metadata.thumbnail.url) {
@@ -196,11 +196,11 @@ ThumbnailLoader.prototype.load = function(
   this.canvasUpToDate_ = false;
   this.image_ = new Image();
   this.image_.setAttribute('alt', this.entry_.name);
-  this.image_.onload = function() {
+  this.image_.onload = () => {
     this.attachImage_(box, fillMode, autoFillThreshold, boxWidth, boxHeight);
     onSuccess(this.image_);
-  }.bind(this);
-  this.image_.onerror = function() {
+  };
+  this.image_.onerror = () => {
     if (this.fallbackUrl_) {
       this.thumbnailUrl_ = this.fallbackUrl_;
       this.fallbackUrl_ = null;
@@ -211,7 +211,7 @@ ThumbnailLoader.prototype.load = function(
     } else {
       box.setAttribute('generic-thumbnail', this.mediaType_);
     }
-  }.bind(this);
+  };
 
   if (this.image_.src) {
     console.warn('Thumbnail already loaded: ' + this.thumbnailUrl_);
@@ -219,8 +219,8 @@ ThumbnailLoader.prototype.load = function(
   }
 
   // TODO(mtomasz): Smarter calculation of the requested size.
-  var wasAttached = box.ownerDocument.contains(box);
-  var modificationTime = this.metadata_ &&
+  const wasAttached = box.ownerDocument.contains(box);
+  const modificationTime = this.metadata_ &&
                          this.metadata_.filesystem &&
                          this.metadata_.filesystem.modificationTime &&
                          this.metadata_.filesystem.modificationTime.getTime();
@@ -234,10 +234,10 @@ ThumbnailLoader.prototype.load = function(
         timestamp: modificationTime,
         orientation: this.transform_
       }),
-      this.image_, function() {},
-      function() {
+      this.image_, () => {},
+      () => {
         this.image_.onerror(new Event('load-error'));
-      }.bind(this));
+      });
 };
 
 /**
@@ -258,9 +258,9 @@ ThumbnailLoader.prototype.loadAsDataUrl = function(fillMode) {
   assert(fillMode === ThumbnailLoader.FillMode.FIT ||
       fillMode === ThumbnailLoader.FillMode.OVER_FILL);
 
-  return new Promise(function(resolve, reject) {
+  return new Promise((resolve, reject) => {
     // Load by using ImageLoaderClient.
-    var modificationTime = this.metadata_ &&
+    const modificationTime = this.metadata_ &&
                            this.metadata_.filesystem &&
                            this.metadata_.filesystem.modificationTime &&
                            this.metadata_.filesystem.modificationTime.getTime();
@@ -286,14 +286,14 @@ ThumbnailLoader.prototype.loadAsDataUrl = function(fillMode) {
       request.crop = true;
     }
 
-    ImageLoaderClient.getInstance().load(request, function(result) {
+    ImageLoaderClient.getInstance().load(request, result => {
       if (result.status === LoadImageResponseStatus.SUCCESS) {
         resolve(result);
       } else {
         reject(result);
       }
     });
-  }.bind(this));
+  });
 };
 
 /**
@@ -301,8 +301,8 @@ ThumbnailLoader.prototype.loadAsDataUrl = function(fillMode) {
  */
 ThumbnailLoader.prototype.cancel = function() {
   if (this.taskId_) {
-    this.image_.onload = function() {};
-    this.image_.onerror = function() {};
+    this.image_.onload = () => {};
+    this.image_.onerror = () => {};
     ImageLoaderClient.getInstance().cancel(this.taskId_);
     this.taskId_ = null;
   }
@@ -348,7 +348,7 @@ ThumbnailLoader.prototype.loadDetachedImage = function(callback) {
   this.image_.onerror = callback.bind(null, false);
 
   // TODO(mtomasz): Smarter calculation of the requested size.
-  var modificationTime = this.metadata_ &&
+  const modificationTime = this.metadata_ &&
                          this.metadata_.filesystem &&
                          this.metadata_.filesystem.modificationTime &&
                          this.metadata_.filesystem.modificationTime.getTime();
@@ -362,10 +362,10 @@ ThumbnailLoader.prototype.loadDetachedImage = function(callback) {
         timestamp: modificationTime,
         orientation: this.transform_
       }),
-      this.image_, function() {},
-      function() {
+      this.image_, () => {},
+      () => {
         this.image_.onerror(new Event('load-error'));
-      }.bind(this));
+      });
 };
 
 /**
@@ -387,7 +387,7 @@ ThumbnailLoader.prototype.renderMedia_ = function() {
   if (!this.canvasUpToDate_) {
     this.canvas_.width = this.image_.width;
     this.canvas_.height = this.image_.height;
-    var context = this.canvas_.getContext('2d');
+    const context = this.canvas_.getContext('2d');
     context.drawImage(this.image_, 0, 0);
     this.canvasUpToDate_ = true;
   }
@@ -411,7 +411,7 @@ ThumbnailLoader.prototype.attachImage_ = function(
   }
 
   this.renderMedia_();
-  var attachableMedia = this.loaderType_ === ThumbnailLoader.LoaderType.CANVAS ?
+  const attachableMedia = this.loaderType_ === ThumbnailLoader.LoaderType.CANVAS ?
       this.canvas_ : this.image_;
 
   ThumbnailLoader.centerImage_(
@@ -454,15 +454,14 @@ ThumbnailLoader.prototype.getImage = function() {
  * @param {number} boxHeight Container box's height.
  * @private
  */
-ThumbnailLoader.centerImage_ = function(
-    box, img, fillMode, autoFillThreshold, boxWidth, boxHeight) {
-  var imageWidth = img.width;
-  var imageHeight = img.height;
+ThumbnailLoader.centerImage_ = (box, img, fillMode, autoFillThreshold, boxWidth, boxHeight) => {
+  const imageWidth = img.width;
+  const imageHeight = img.height;
 
-  var fractionX;
-  var fractionY;
+  let fractionX;
+  let fractionY;
 
-  var fill;
+  let fill;
   switch (fillMode) {
     case ThumbnailLoader.FillMode.FILL:
     case ThumbnailLoader.FillMode.OVER_FILL:
@@ -472,13 +471,13 @@ ThumbnailLoader.centerImage_ = function(
       fill = false;
       break;
     case ThumbnailLoader.FillMode.AUTO:
-      var imageRatio = imageWidth / imageHeight;
-      var boxRatio = 1.0;
+      const imageRatio = imageWidth / imageHeight;
+      let boxRatio = 1.0;
       if (boxWidth && boxHeight) {
         boxRatio = boxWidth / boxHeight;
       }
       // Cropped area in percents.
-      var ratioFactor = boxRatio / imageRatio;
+      const ratioFactor = boxRatio / imageRatio;
       fill = (ratioFactor >= 1.0 - autoFillThreshold) &&
              (ratioFactor <= 1.0 + autoFillThreshold);
       break;
@@ -487,10 +486,10 @@ ThumbnailLoader.centerImage_ = function(
   if (boxWidth && boxHeight) {
     // When we know the box size we can position the image correctly even
     // in a non-square box.
-    var fitScaleX = boxWidth / imageWidth;
-    var fitScaleY = boxHeight / imageHeight;
+    const fitScaleX = boxWidth / imageWidth;
+    const fitScaleY = boxHeight / imageHeight;
 
-    var scale = fill ?
+    let scale = fill ?
         Math.max(fitScaleX, fitScaleY) :
         Math.min(fitScaleX, fitScaleY);
 

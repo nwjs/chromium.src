@@ -7,8 +7,6 @@ import("//build/config/features.gni")
 import("//build/config/jumbo.gni")
 import("//build/config/ui.gni")
 import("//components/vector_icons/vector_icons.gni")
-import("//services/catalog/public/tools/catalog.gni")
-import("//services/service_manager/public/service_manifest.gni")
 import("//testing/test.gni")
 import("//ui/base/ui_features.gni")
 import("//ui/ozone/ozone.gni")
@@ -28,6 +26,9 @@ aggregate_vector_icons("views_vector_icons") {
     "ic_close.icon",
     "info.icon",
     "launch.icon",
+    "linux_high_density.icon",
+    "linux_low_density.icon",
+    "linux_shutdown.icon",
     "menu_check.icon",
     "menu_drop_arrow.icon",
     "menu_radio_empty.icon",
@@ -114,6 +115,8 @@ jumbo_component("views") {
     "controls/button/toggle_button.h",
     "controls/combobox/combobox.h",
     "controls/combobox/combobox_listener.h",
+    "controls/editable_combobox/editable_combobox.h",
+    "controls/editable_combobox/editable_combobox_listener.h",
     "controls/focus_ring.h",
     "controls/focusable_border.h",
     "controls/image_view.h",
@@ -132,7 +135,6 @@ jumbo_component("views") {
     "controls/menu/menu_image_util.h",
     "controls/menu/menu_insertion_delegate_win.h",
     "controls/menu/menu_item_view.h",
-    "controls/menu/menu_listener.h",
     "controls/menu/menu_model_adapter.h",
     "controls/menu/menu_runner.h",
     "controls/menu/menu_runner_handler.h",
@@ -223,11 +225,11 @@ jumbo_component("views") {
     "style/typography.h",
     "style/typography_provider.h",
     "view.h",
+    "view_class_properties.h",
     "view_constants.h",
     "view_model.h",
     "view_model_utils.h",
     "view_observer.h",
-    "view_properties.h",
     "view_targeter.h",
     "view_targeter_delegate.h",
     "view_tracker.h",
@@ -306,6 +308,7 @@ jumbo_component("views") {
     "bubble/tooltip_icon.cc",
     "button_drag_utils.cc",
     "color_chooser/color_chooser_view.cc",
+    "context_menu_controller.cc",
     "controls/animated_image_view.cc",
     "controls/button/button.cc",
     "controls/button/checkbox.cc",
@@ -319,6 +322,7 @@ jumbo_component("views") {
     "controls/button/radio_button.cc",
     "controls/button/toggle_button.cc",
     "controls/combobox/combobox.cc",
+    "controls/editable_combobox/editable_combobox.cc",
     "controls/focus_ring.cc",
     "controls/focusable_border.cc",
     "controls/image_view.cc",
@@ -339,7 +343,6 @@ jumbo_component("views") {
     "controls/menu/menu_host_root_view.cc",
     "controls/menu/menu_image_util.cc",
     "controls/menu/menu_item_view.cc",
-    "controls/menu/menu_listener.cc",
     "controls/menu/menu_model_adapter.cc",
     "controls/menu/menu_runner.cc",
     "controls/menu/menu_runner_impl.cc",
@@ -420,10 +423,10 @@ jumbo_component("views") {
     "style/typography.cc",
     "style/typography_provider.cc",
     "view.cc",
+    "view_class_properties.cc",
     "view_constants.cc",
     "view_model.cc",
     "view_model_utils.cc",
-    "view_properties.cc",
     "view_targeter.cc",
     "view_targeter_delegate.cc",
     "view_tracker.cc",
@@ -559,6 +562,10 @@ jumbo_component("views") {
       "linux_ui/status_icon_linux.cc",
     ]
     sources += [ "widget/desktop_aura/desktop_window_tree_host_chromeos.cc" ]
+
+    # TODO(edinkadric): Add EditableCombobox support on ChromeOS.
+    public -= [ "controls/editable_combobox/editable_combobox.h" ]
+    sources -= [ "controls/editable_combobox/editable_combobox.cc" ]
   }
 
   if (is_win) {
@@ -570,7 +577,6 @@ jumbo_component("views") {
       "win/hwnd_util.h",
       "win/pen_event_processor.h",
       "win/scoped_fullscreen_visibility.h",
-      "win/windows_session_change_observer.h",
     ]
     sources += [
       "widget/widget_hwnd_utils.cc",
@@ -579,19 +585,22 @@ jumbo_component("views") {
       "win/hwnd_util_aurawin.cc",
       "win/pen_event_processor.cc",
       "win/scoped_fullscreen_visibility.cc",
-      "win/windows_session_change_observer.cc",
     ]
     libs = [
       "dwmapi.lib",
       "imm32.lib",
       "oleacc.lib",
-      "wtsapi32.lib",
+      "uiautomationcore.lib",
     ]
     ldflags = [ "/DELAYLOAD:user32.dll" ]
     deps += [
       "//third_party/iaccessible2",
       "//third_party/wtl",
     ]
+
+    # TODO(edinkadric): Add EditableCombobox support on Windows.
+    public -= [ "controls/editable_combobox/editable_combobox.h" ]
+    sources -= [ "controls/editable_combobox/editable_combobox.cc" ]
   }
 
   if (use_ozone) {
@@ -620,6 +629,7 @@ jumbo_component("views") {
       "accessibility/ax_root_obj_wrapper.h",
       "accessibility/ax_tree_source_views.h",
       "accessibility/ax_view_obj_wrapper.h",
+      "accessibility/ax_virtual_view_wrapper.h",
       "accessibility/ax_widget_obj_wrapper.h",
       "accessibility/ax_window_obj_wrapper.h",
       "controls/native/native_view_host_aura.h",
@@ -656,6 +666,7 @@ jumbo_component("views") {
       "accessibility/ax_root_obj_wrapper.cc",
       "accessibility/ax_tree_source_views.cc",
       "accessibility/ax_view_obj_wrapper.cc",
+      "accessibility/ax_virtual_view_wrapper.cc",
       "accessibility/ax_widget_obj_wrapper.cc",
       "accessibility/ax_window_obj_wrapper.cc",
       "controls/menu/display_change_listener_aura.cc",
@@ -916,12 +927,13 @@ jumbo_source_set("test_support") {
     ]
 
     deps += [
-      ":views_unittests_catalog_source",
-      "//services/catalog:lib",
-      "//services/service_manager/background:lib",
+      "//services/service_manager",
       "//services/service_manager/public/cpp",
       "//services/service_manager/public/mojom",
       "//services/ws/common",
+      "//services/ws/ime/test_ime_driver/public/cpp:manifest",
+      "//services/ws/public/mojom",
+      "//services/ws/test_ws:manifest",
       "//testing/gtest",
       "//ui/compositor:test_support",
       "//ui/gl:test_support",
@@ -930,7 +942,6 @@ jumbo_source_set("test_support") {
     ]
 
     data_deps = [
-      ":views_unittests_catalog",
       "//services/ws/ime/test_ime_driver",
       "//ui/resources:ui_test_pak_data",
     ]
@@ -1008,6 +1019,7 @@ test("views_unittests") {
     "controls/button/radio_button_unittest.cc",
     "controls/button/toggle_button_unittest.cc",
     "controls/combobox/combobox_unittest.cc",
+    "controls/editable_combobox/editable_combobox_unittest.cc",
     "controls/image_view_unittest.cc",
     "controls/label_unittest.cc",
     "controls/menu/menu_controller_unittest.cc",
@@ -1134,6 +1146,11 @@ test("views_unittests") {
     ]
   }
 
+  if (is_chromeos) {
+    # TODO(edinkadric): Add EditableCombobox support on ChromeOS.
+    sources -= [ "controls/editable_combobox/editable_combobox_unittest.cc" ]
+  }
+
   if (is_win) {
     public_deps = [
       "//build/win:default_exe_manifest",
@@ -1151,6 +1168,9 @@ test("views_unittests") {
       "accessibility/view_ax_platform_node_delegate_win_unittest.cc",
       "win/pen_event_processor_unittest.cc",
     ]
+
+    # TODO(edinkadric): Add EditableCombobox support on Windows.
+    sources -= [ "controls/editable_combobox/editable_combobox_unittest.cc" ]
   }
 
   if (has_native_accessibility) {
@@ -1163,6 +1183,7 @@ test("views_unittests") {
   if (is_mac) {
     # views_unittests not yet compiling on Mac. http://crbug.com/378134
     sources -= [ "controls/native/native_view_host_unittest.cc" ]
+
     public_deps = [
       "//ui/accelerated_widget_mac",
       "//ui/views_bridge_mac:views_bridge_mac",
@@ -1343,36 +1364,4 @@ test("views_perftests") {
     "//ui/resources:ui_test_pak_data",
     "//testing:run_perf_test",
   ]
-}
-
-if (enable_mus) {
-  service_manifest("unittests_manifest") {
-    name = "views_unittests"
-    source = "unittests_manifest.json"
-  }
-
-  service_manifest("interactive_ui_tests_manifest") {
-    name = "interactive_ui_tests"
-    source = "interactive_ui_tests_manifest.json"
-  }
-
-  catalog("views_unittests_catalog") {
-    testonly = true
-
-    embedded_services = [
-      ":unittests_manifest",
-      ":interactive_ui_tests_manifest",
-    ]
-
-    standalone_services = [
-      "//services/ws/test_ws:manifest",
-      "//services/ws/ime/test_ime_driver:manifest",
-    ]
-  }
-
-  catalog_cpp_source("views_unittests_catalog_source") {
-    testonly = true
-    catalog = ":views_unittests_catalog"
-    generated_function_name = "views::CreateViewsUnittestsCatalog"
-  }
 }

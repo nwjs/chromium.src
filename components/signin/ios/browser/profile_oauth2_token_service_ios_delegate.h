@@ -49,6 +49,10 @@ class ProfileOAuth2TokenServiceIOSDelegate : public OAuth2TokenServiceDelegate {
   // Subsequent calls to |RefreshTokenIsAvailable| will return |false|.
   void RevokeAllCredentials() override;
 
+  void AddAccountFromSystem(const std::string& account_id) override;
+
+  void ReloadAccountsFromSystem(const std::string& primary_account_id) override;
+
   // Reloads accounts from the provider. Fires |OnRefreshTokenAvailable| for
   // each new account. Fires |OnRefreshTokenRevoked| for each account that was
   // removed.

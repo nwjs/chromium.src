@@ -29,7 +29,6 @@
 #include "base/callback.h"
 #include "cc/input/browser_controls_state.h"
 #include "cc/input/event_listener_properties.h"
-#include "cc/input/layer_selection_bound.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/layers/layer.h"
 #include "cc/paint/paint_worklet_layer_painter.h"
@@ -45,12 +44,10 @@
 class SkBitmap;
 
 namespace cc {
-class AnimationHost;
 class PaintImage;
 }
 
 namespace gfx {
-class Size;
 class Vector2d;
 }  // namespace gfx
 
@@ -76,22 +73,7 @@ class WebLayerTreeView {
 
   virtual ~WebLayerTreeView() = default;
 
-  // Initialization and lifecycle --------------------------------------
-
-  // Sets the root of the tree. The root is set by way of the constructor.
-  virtual void SetRootLayer(scoped_refptr<cc::Layer>) {}
-  virtual void ClearRootLayer() {}
-
-  // TODO(loyso): This should use CompositorAnimationHost. crbug.com/584551
-  virtual cc::AnimationHost* CompositorAnimationHost() { return nullptr; }
-
   // View properties ---------------------------------------------------
-
-  // Viewport size is given in physical pixels.
-  virtual gfx::Size GetViewportSize() const = 0;
-
-  // Sets the background color for the viewport.
-  virtual void SetBackgroundColor(SkColor) {}
 
   // Sets the current page scale factor and minimum / maximum limits. Both
   // limits are initially 1 (no page scale allowed).
@@ -153,22 +135,14 @@ class WebLayerTreeView {
     return nullptr;
   }
 
-  struct ViewportLayers {
-    cc::ElementId overscroll_elasticity_element_id;
-    scoped_refptr<cc::Layer> page_scale;
-    scoped_refptr<cc::Layer> inner_viewport_container;
-    scoped_refptr<cc::Layer> outer_viewport_container;
-    scoped_refptr<cc::Layer> inner_viewport_scroll;
-    scoped_refptr<cc::Layer> outer_viewport_scroll;
-  };
+  // Start defering commits to the compositor, allowing document lifecycle
+  // updates without committing the layer tree. Commits are deferred
+  // until at most the given |timeout| has passed. If multiple calls are made
+  // when deferal is active then the initial timeout applies.
+  virtual void StartDeferringCommits(base::TimeDelta timeout) {}
 
-  // Identify key viewport layers to the compositor.
-  virtual void RegisterViewportLayers(const ViewportLayers& viewport_layers) {}
-  virtual void ClearViewportLayers() {}
-
-  // Used to update the active selection bounds.
-  virtual void RegisterSelection(const cc::LayerSelection&) {}
-  virtual void ClearSelection() {}
+  // Immediately stop deferring commits.
+  virtual void StopDeferringCommits() {}
 
   // Mutations are plumbed back to the layer tree via the mutator client.
   virtual void SetMutatorClient(std::unique_ptr<cc::LayerTreeMutator>) {}

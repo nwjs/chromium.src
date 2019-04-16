@@ -208,7 +208,6 @@ ThreadableLoader::ThreadableLoader(
       resource_fetcher_(resource_fetcher),
       resource_loader_options_(resource_loader_options),
       out_of_blink_cors_(RuntimeEnabledFeatures::OutOfBlinkCorsEnabled()),
-      is_using_data_consumer_handle_(false),
       async_(resource_loader_options.synchronous_policy ==
              kRequestAsynchronously),
       request_context_(mojom::RequestContextType::UNSPECIFIED),
@@ -280,7 +279,7 @@ void ThreadableLoader::Start(const ResourceRequest& request) {
   // Set the service worker mode to none if "bypass for network" in DevTools is
   // enabled.
   bool should_bypass_service_worker = false;
-  probe::shouldBypassServiceWorker(execution_context_,
+  probe::ShouldBypassServiceWorker(execution_context_,
                                    &should_bypass_service_worker);
   if (should_bypass_service_worker)
     new_request.SetSkipServiceWorker(true);
@@ -473,7 +472,7 @@ void ThreadableLoader::MakeCrossOriginAccessRequest(
   bool should_ignore_preflight_cache = false;
   // Prevent use of the CORS preflight cache when instructed by the DevTools
   // not to use caches.
-  probe::shouldForceCorsPreflight(execution_context_,
+  probe::ShouldForceCorsPreflight(execution_context_,
                                   &should_ignore_preflight_cache);
   if (should_ignore_preflight_cache ||
       !cors::CheckIfRequestCanSkipPreflight(
@@ -623,7 +622,7 @@ bool ThreadableLoader::RedirectReceived(
       ThreadableLoaderClient* client = client_;
       Clear();
       ConsoleMessage* message = ConsoleMessage::Create(
-          kNetworkMessageSource, kErrorMessageLevel,
+          kNetworkMessageSource, mojom::ConsoleMessageLevel::kError,
           "Failed to load resource: net::ERR_TOO_MANY_REDIRECTS",
           SourceLocation::Capture(original_url, 0, 0));
       execution_context_->AddConsoleMessage(message);
@@ -648,7 +647,7 @@ bool ThreadableLoader::RedirectReceived(
       return follow;
     }
 
-    probe::didReceiveCorsRedirectResponse(
+    probe::DidReceiveCorsRedirectResponse(
         execution_context_, resource->Identifier(),
         GetDocument() && GetDocument()->GetFrame()
             ? GetDocument()->GetFrame()->Loader().GetDocumentLoader()
@@ -731,8 +730,8 @@ void ThreadableLoader::RedirectBlocked() {
 }
 
 void ThreadableLoader::DataSent(Resource* resource,
-                                unsigned long long bytes_sent,
-                                unsigned long long total_bytes_to_be_sent) {
+                                uint64_t bytes_sent,
+                                uint64_t total_bytes_to_be_sent) {
   DCHECK(client_);
   DCHECK_EQ(resource, GetResource());
   DCHECK(async_);
@@ -742,7 +741,7 @@ void ThreadableLoader::DataSent(Resource* resource,
 }
 
 void ThreadableLoader::DataDownloaded(Resource* resource,
-                                      unsigned long long data_length) {
+                                      uint64_t data_length) {
   DCHECK(client_);
   DCHECK_EQ(resource, GetResource());
   DCHECK(actual_request_.IsNull());
@@ -815,23 +814,18 @@ void ThreadableLoader::ReportResponseReceived(
   if (!frame)
     return;
   DocumentLoader* loader = frame->Loader().GetDocumentLoader();
-  probe::didReceiveResourceResponse(probe::ToCoreProbeSink(execution_context_),
+  probe::DidReceiveResourceResponse(probe::ToCoreProbeSink(execution_context_),
                                     identifier, loader, response,
                                     GetResource());
   frame->Console().ReportResourceResponseReceived(loader, identifier, response);
 }
 
-void ThreadableLoader::ResponseReceived(
-    Resource* resource,
-    const ResourceResponse& response,
-    std::unique_ptr<WebDataConsumerHandle> handle) {
+void ThreadableLoader::ResponseReceived(Resource* resource,
+                                        const ResourceResponse& response) {
   DCHECK_EQ(resource, GetResource());
   DCHECK(client_);
 
   checker_.ResponseReceived();
-
-  if (handle)
-    is_using_data_consumer_handle_ = true;
 
   // TODO(toyoshim): Support OOR-CORS preflight and Service Worker case.
   // Note that CORS-preflight is usually handled in the Network Service side,
@@ -840,8 +834,7 @@ void ThreadableLoader::ResponseReceived(
   if (out_of_blink_cors_ && !response.WasFetchedViaServiceWorker()) {
     DCHECK(actual_request_.IsNull());
     fallback_request_for_service_worker_ = ResourceRequest();
-    client_->DidReceiveResponse(resource->Identifier(), response,
-                                std::move(handle));
+    client_->DidReceiveResponse(resource->Identifier(), response);
     return;
   }
 
@@ -879,8 +872,7 @@ void ThreadableLoader::ResponseReceived(
     }
 
     fallback_request_for_service_worker_ = ResourceRequest();
-    client_->DidReceiveResponse(resource->Identifier(), response,
-                                std::move(handle));
+    client_->DidReceiveResponse(resource->Identifier(), response);
     return;
   }
 
@@ -912,8 +904,13 @@ void ThreadableLoader::ResponseReceived(
   DCHECK_EQ(&response, &resource->GetResponse());
   resource->SetResponseType(response_tainting_);
   DCHECK_EQ(response.GetType(), response_tainting_);
-  client_->DidReceiveResponse(resource->Identifier(), response,
-                              std::move(handle));
+  client_->DidReceiveResponse(resource->Identifier(), response);
+}
+
+void ThreadableLoader::ResponseBodyReceived(Resource*, BytesConsumer& body) {
+  checker_.ResponseBodyReceived();
+
+  client_->DidStartLoadingResponseBody(body);
 }
 
 void ThreadableLoader::SetSerializedCachedMetadata(Resource*,
@@ -934,9 +931,6 @@ void ThreadableLoader::DataReceived(Resource* resource,
   DCHECK(client_);
 
   checker_.DataReceived();
-
-  if (is_using_data_consumer_handle_)
-    return;
 
   // Preflight data should be invisible to clients.
   if (!actual_request_.IsNull())
@@ -1036,7 +1030,8 @@ void ThreadableLoader::DispatchDidFail(const ResourceError& error) {
         *GetSecurityOrigin(), ResourceType::kRaw,
         resource_loader_options_.initiator_info.name);
     execution_context_->AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kErrorMessageLevel, std::move(message)));
+        kJSMessageSource, mojom::ConsoleMessageLevel::kError,
+        std::move(message)));
   }
   Resource* resource = GetResource();
   if (resource)

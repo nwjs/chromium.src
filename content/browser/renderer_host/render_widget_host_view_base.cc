@@ -145,14 +145,6 @@ gfx::Size RenderWidgetHostViewBase::GetCompositorViewportPixelSize() const {
                                 GetDeviceScaleFactor());
 }
 
-bool RenderWidgetHostViewBase::DoBrowserControlsShrinkRendererSize() const {
-  return false;
-}
-
-float RenderWidgetHostViewBase::GetTopControlsHeight() const {
-  return 0.f;
-}
-
 void RenderWidgetHostViewBase::SelectionBoundsChanged(
     const WidgetHostMsg_SelectionBounds_Params& params) {
 #if !defined(OS_ANDROID)
@@ -161,10 +153,6 @@ void RenderWidgetHostViewBase::SelectionBoundsChanged(
 #else
   NOTREACHED() << "Selection bounds should be routed through the compositor.";
 #endif
-}
-
-float RenderWidgetHostViewBase::GetBottomControlsHeight() const {
-  return 0.f;
 }
 
 int RenderWidgetHostViewBase::GetMouseWheelMinimumGranularity() const {
@@ -568,12 +556,6 @@ base::WeakPtr<RenderWidgetHostViewBase> RenderWidgetHostViewBase::GetWeakPtr() {
   return weak_factory_.GetWeakPtr();
 }
 
-std::unique_ptr<SyntheticGestureTarget>
-RenderWidgetHostViewBase::CreateSyntheticGestureTarget() {
-  return std::unique_ptr<SyntheticGestureTarget>(
-      new SyntheticGestureTargetBase(host()));
-}
-
 void RenderWidgetHostViewBase::FocusedNodeTouched(
     bool editable) {
   DVLOG(1) << "FocusedNodeTouched: " << editable;
@@ -721,11 +703,10 @@ gfx::PointF RenderWidgetHostViewBase::TransformRootPointToViewCoordSpace(
 bool RenderWidgetHostViewBase::TransformPointToLocalCoordSpace(
     const gfx::PointF& point,
     const viz::SurfaceId& original_surface,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) {
+    gfx::PointF* transformed_point) {
   if (use_viz_hit_test_) {
     return TransformPointToLocalCoordSpaceViz(point, original_surface,
-                                              transformed_point, source);
+                                              transformed_point);
   }
   return TransformPointToLocalCoordSpaceLegacy(point, original_surface,
                                                transformed_point);
@@ -742,8 +723,7 @@ bool RenderWidgetHostViewBase::TransformPointToLocalCoordSpaceLegacy(
 bool RenderWidgetHostViewBase::TransformPointToCoordSpaceForView(
     const gfx::PointF& point,
     RenderWidgetHostViewBase* target_view,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) {
+    gfx::PointF* transformed_point) {
   NOTREACHED();
   return true;
 }
@@ -918,8 +898,7 @@ bool RenderWidgetHostViewBase::TransformPointToTargetCoordSpace(
     RenderWidgetHostViewBase* original_view,
     RenderWidgetHostViewBase* target_view,
     const gfx::PointF& point,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) const {
+    gfx::PointF* transformed_point) const {
   DCHECK(use_viz_hit_test_);
   viz::FrameSinkId root_frame_sink_id = original_view->GetRootFrameSinkId();
   if (!root_frame_sink_id.is_valid())
@@ -969,9 +948,8 @@ bool RenderWidgetHostViewBase::TransformPointToTargetCoordSpace(
                               &transform_root_to_original);
   if (!transform_root_to_original.TransformPointReverse(&point_in_pixels))
     return false;
-  if (!query->TransformLocationForTarget(source, target_ancestors,
-                                         point_in_pixels.AsPointF(),
-                                         transformed_point)) {
+  if (!query->TransformLocationForTarget(
+          target_ancestors, point_in_pixels.AsPointF(), transformed_point)) {
     return false;
   }
   *transformed_point =
@@ -1040,8 +1018,7 @@ bool RenderWidgetHostViewBase::GetTransformToViewCoordSpace(
 bool RenderWidgetHostViewBase::TransformPointToLocalCoordSpaceViz(
     const gfx::PointF& point,
     const viz::SurfaceId& original_surface,
-    gfx::PointF* transformed_point,
-    viz::EventSource source) {
+    gfx::PointF* transformed_point) {
   DCHECK(use_viz_hit_test_);
   viz::FrameSinkId original_frame_sink_id = original_surface.frame_sink_id();
   viz::FrameSinkId target_frame_sink_id = GetFrameSinkId();
@@ -1058,7 +1035,7 @@ bool RenderWidgetHostViewBase::TransformPointToLocalCoordSpaceViz(
   return TransformPointToTargetCoordSpace(
       router->FindViewFromFrameSinkId(original_frame_sink_id),
       router->FindViewFromFrameSinkId(target_frame_sink_id), point,
-      transformed_point, source);
+      transformed_point);
 }
 
 }  // namespace content

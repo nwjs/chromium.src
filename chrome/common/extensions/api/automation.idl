@@ -285,6 +285,7 @@
 
   // All possible actions that can be performed on automation nodes.
   enum ActionType {
+    annotatePageImages,
     blur,
     clearAccessibilityFocus,
     customAction,
@@ -302,9 +303,9 @@
     scrollForward,
     scrollLeft,
     scrollRight,
+    scrollUp,
     scrollToMakeVisible,
     scrollToPoint,
-    scrollUp,
     setAccessibilityFocus,
     setScrollOffset,
     setSelection,
@@ -546,6 +547,11 @@
 
     // The source of the name.
     NameFromType? nameFrom;
+
+    // The image annotation for image nodes, which may be a human-readable
+    // string that is the contextualized annotation or a status string related
+    // to annotations.
+    DOMString? imageAnnotation;
 
     // The value for this node: for example the <code>value</code> attribute of
     // an <code>&lt;input&gt; element.
@@ -844,8 +850,11 @@
     // A data url with the contents of this object's image or thumbnail.
     DOMString? imageDataUrl;
 
-    // The language code for this subtree.
+    // The author-provided language code for this subtree.
     DOMString? language;
+
+    // The detected language code for this subtree.
+    DOMString? detectedLanguage;
 
     // Indicates the availability and type of interactive popup element
     // true - the popup is a menu

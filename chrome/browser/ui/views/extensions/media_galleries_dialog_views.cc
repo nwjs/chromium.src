@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -291,7 +292,7 @@ void MediaGalleriesDialogViews::ButtonPressed(views::Button* sender,
   }
 }
 
-void MediaGalleriesDialogViews::ShowContextMenuForView(
+void MediaGalleriesDialogViews::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::MenuSourceType source_type) {

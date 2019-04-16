@@ -236,9 +236,10 @@ class AX_EXPORT AXNode final {
   bool IsTable() const;
   int32_t GetTableColCount() const;
   int32_t GetTableRowCount() const;
-  int32_t GetTableAriaColCount() const;
-  int32_t GetTableAriaRowCount() const;
+  base::Optional<int32_t> GetTableAriaColCount() const;
+  base::Optional<int32_t> GetTableAriaRowCount() const;
   int32_t GetTableCellCount() const;
+  AXNode* GetTableCaption() const;
   AXNode* GetTableCellFromIndex(int32_t index) const;
   AXNode* GetTableCellFromCoords(int32_t row_index, int32_t col_index) const;
   void GetTableColHeaderNodeIds(int32_t col_index,

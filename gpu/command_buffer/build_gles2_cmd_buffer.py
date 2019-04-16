@@ -2526,6 +2526,60 @@ _FUNCTION_INFO = {
     'type': 'STRn',
     'expectation': False,
   },
+  'GetProgramInterfaceiv': {
+    'type': 'GETn',
+    'decoder_func': 'DoGetProgramInterfaceiv',
+    'result': ['SizedResult<GLint>'],
+    'unit_test': False,
+    'trace_level': 2,
+    'es31': True,
+  },
+  'GetProgramResourceiv': {
+    'type': 'Custom',
+    'data_transfer_methods': ['shm'],
+    'cmd_args':
+        'GLidProgram program, GLenum program_interface, GLuint index, '
+        'uint32_t props_bucket_id, GLint* params',
+    'result': ['SizedResult<GLint>'],
+    'unit_test': False,
+    'trace_level': 2,
+    'es31': True,
+  },
+  'GetProgramResourceIndex': {
+    'type': 'Custom',
+    'data_transfer_methods': ['shm'],
+    'cmd_args':
+        'GLidProgram program, GLenum program_interface, '
+        'uint32_t name_bucket_id, GLuint* index',
+    'result': ['GLuint'],
+    'error_return': 'GL_INVALID_INDEX',
+    'unit_test': False,
+    'trace_level': 2,
+    'es31': True,
+  },
+  'GetProgramResourceLocation': {
+    'type': 'Custom',
+    'data_transfer_methods': ['shm'],
+    'cmd_args':
+        'GLidProgram program, GLenum program_interface, '
+        'uint32_t name_bucket_id, GLint* location',
+    'result': ['GLint'],
+    'error_return': -1,
+    'unit_test': False,
+    'trace_level': 2,
+    'es31': True,
+  },
+  'GetProgramResourceName': {
+    'type': 'Custom',
+    'data_transfer_methods': ['shm'],
+    'cmd_args':
+        'GLidProgram program, GLenum program_interface, GLuint index, '
+        'uint32_t name_bucket_id, void* result',
+    'result': ['int32_t'],
+    'unit_test': False,
+    'trace_level': 2,
+    'es31': True,
+  },
   'GetRenderbufferParameteriv': {
     'type': 'GETn',
     'decoder_func': 'DoGetRenderbufferParameteriv',
@@ -3017,6 +3071,16 @@ _FUNCTION_INFO = {
     'extension_flag': 'chromium_framebuffer_multisample',
     'pepper_interface': 'FramebufferMultisample',
     'pepper_name': 'RenderbufferStorageMultisampleEXT',
+    'trace_level': 1,
+  },
+  'RenderbufferStorageMultisampleAdvancedAMD': {
+    'cmd_comment':
+        '// GL_AMD_framebuffer_multisample_advanced\n',
+    'decoder_func': 'DoRenderbufferStorageMultisampleAdvancedAMD',
+    'gl_test_func': 'glRenderbufferStorageMultisampleAdvancedAMD',
+    'unit_test': False,
+    'extension': 'amd_framebuffer_multisample_advanced',
+    'extension_flag': 'amd_framebuffer_multisample_advanced',
     'trace_level': 1,
   },
   'RenderbufferStorageMultisampleEXT': {
@@ -4236,6 +4300,11 @@ _FUNCTION_INFO = {
     'extension_flag': 'khr_parallel_shader_compile',
   },
   'CreateAndTexStorage2DSharedImageCHROMIUM': {
+    'type': 'NoCommand',
+    'extension': "CHROMIUM_shared_image",
+    'trace_level': 2,
+  },
+  'CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM': {
     'type': 'NoCommand',
     'extension': "CHROMIUM_shared_image",
     'trace_level': 2,

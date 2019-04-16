@@ -20,7 +20,7 @@ cr.define('downloads', function() {
       },
     },
 
-    /** @private {?mdDownloads.mojom.PageHandlerInterface} */
+    /** @private {?downloads.mojom.PageHandlerInterface} */
     mojoHandler_: null,
 
     /** @override */
@@ -69,12 +69,12 @@ cr.define('downloads', function() {
     },
 
     /**
-     * @param {!CustomEvent} event
+     * @param {!CustomEvent<string>} event
      * @private
      */
     onSearchChanged_: function(event) {
       const searchService = downloads.SearchService.getInstance();
-      if (searchService.search(/** @type {string} */ (event.detail))) {
+      if (searchService.search(event.detail)) {
         this.spinnerActive = searchService.isSearching();
       }
       this.updateClearAll_();

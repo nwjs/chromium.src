@@ -228,17 +228,14 @@ bool ChromotingInstance::Init(uint32_t argc,
   // Initialize TaskScheduler. TaskScheduler::StartWithDefaultParams() doesn't
   // work on NACL.
   base::TaskScheduler::Create("RemotingChromeApp");
-  constexpr int kBackgroundMaxThreads = 1;
-  constexpr int kBackgroundBlockingMaxThreads = 2;
-  constexpr int kForegroundMaxThreads = 1;
-  constexpr int kForegroundBlockingMaxThreads = 2;
+  // TODO(etiennep): Change this to 2 in future CL.
+  constexpr int kBackgroundMaxThreads = 3;
+  constexpr int kForegroundMaxThreads = 3;
   constexpr base::TimeDelta kSuggestedReclaimTime =
       base::TimeDelta::FromSeconds(30);
   base::TaskScheduler::GetInstance()->Start(
       {{kBackgroundMaxThreads, kSuggestedReclaimTime},
-       {kBackgroundBlockingMaxThreads, kSuggestedReclaimTime},
-       {kForegroundMaxThreads, kSuggestedReclaimTime},
-       {kForegroundBlockingMaxThreads, kSuggestedReclaimTime}});
+       {kForegroundMaxThreads, kSuggestedReclaimTime}});
 
   return true;
 }
@@ -249,7 +246,7 @@ void ChromotingInstance::HandleMessage(const pp::Var& message) {
     return;
   }
 
-  std::unique_ptr<base::Value> json = base::JSONReader::Read(
+  std::unique_ptr<base::Value> json = base::JSONReader::ReadDeprecated(
       message.AsString(), base::JSON_ALLOW_TRAILING_COMMAS);
   base::DictionaryValue* message_dict = nullptr;
   std::string method;
@@ -326,7 +323,7 @@ void ChromotingInstance::DidChangeView(const pp::View& view) {
   plugin_view_ = view;
   webrtc::DesktopSize size(
       webrtc::DesktopSize(view.GetRect().width(), view.GetRect().height()));
-  mouse_input_filter_.set_input_size(webrtc::DesktopRect::MakeSize(size));
+  mouse_input_filter_.set_input_size(size);
   touch_input_scaler_.set_input_size(size);
 
   if (video_renderer_)
@@ -503,7 +500,7 @@ void ChromotingInstance::SetDesktopSize(const webrtc::DesktopSize& size,
                                         const webrtc::DesktopVector& dpi) {
   DCHECK(!dpi.is_zero());
 
-  mouse_input_filter_.set_output_size(webrtc::DesktopRect::MakeSize(size));
+  mouse_input_filter_.set_output_size(size);
   touch_input_scaler_.set_output_size(size);
 
   std::unique_ptr<base::DictionaryValue> data(new base::DictionaryValue());
@@ -738,7 +735,7 @@ void ChromotingInstance::HandleConnect(const base::DictionaryValue& data) {
   if (!plugin_view_.is_null()) {
     webrtc::DesktopSize size(plugin_view_.GetRect().width(),
                              plugin_view_.GetRect().height());
-    mouse_input_filter_.set_input_size(webrtc::DesktopRect::MakeSize(size));
+    mouse_input_filter_.set_input_size(size);
     touch_input_scaler_.set_input_size(size);
   }
 

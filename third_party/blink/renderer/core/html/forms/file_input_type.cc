@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input_type_names.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/layout_file_upload_control.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/drag_data.h"
@@ -87,25 +88,20 @@ InputTypeView* FileInputType::CreateView() {
 
 template <typename ItemType, typename VectorType>
 VectorType CreateFilesFrom(const FormControlState& state,
-                           ItemType (*factory)(const String&,
-                                               const String&,
-                                               const String&)) {
+                           ItemType (*factory)(const FormControlState&,
+                                               wtf_size_t&)) {
   VectorType files;
   files.ReserveInitialCapacity(state.ValueSize() / 3);
-  for (wtf_size_t i = 0; i < state.ValueSize(); i += 3) {
-    const String& path = state[i];
-    const String& name = state[i + 1];
-    const String& relative_path = state[i + 2];
-    files.push_back(factory(path, name, relative_path));
+  for (wtf_size_t i = 0; i < state.ValueSize();) {
+    files.push_back(factory(state, i));
   }
   return files;
 }
 
 Vector<String> FileInputType::FilesFromFormControlState(
     const FormControlState& state) {
-  return CreateFilesFrom<String, Vector<String>>(
-      state,
-      [](const String& path, const String&, const String&) { return path; });
+  return CreateFilesFrom<String, Vector<String>>(state,
+                                                 &File::PathFromControlState);
 }
 
 const AtomicString& FileInputType::FormControlType() const {
@@ -117,14 +113,8 @@ FormControlState FileInputType::SaveFormControlState() const {
     return FormControlState();
   FormControlState state;
   unsigned num_files = file_list_->length();
-  for (unsigned i = 0; i < num_files; ++i) {
-    if (file_list_->item(i)->HasBackingFile()) {
-      state.Append(file_list_->item(i)->GetPath());
-      state.Append(file_list_->item(i)->name());
-      state.Append(file_list_->item(i)->webkitRelativePath());
-    }
-    // FIXME: handle Blob-backed File instances, see http://crbug.com/394948
-  }
+  for (unsigned i = 0; i < num_files; ++i)
+    file_list_->item(i)->AppendToControlState(state);
   return state;
 }
 
@@ -133,12 +123,7 @@ void FileInputType::RestoreFormControlState(const FormControlState& state) {
     return;
   HeapVector<Member<File>> file_vector =
       CreateFilesFrom<File*, HeapVector<Member<File>>>(
-          state, [](const String& path, const String& name,
-                    const String& relative_path) {
-            if (relative_path.IsEmpty())
-              return File::CreateForUserProvidedFile(path, name);
-            return File::CreateWithRelativePath(path, relative_path);
-          });
+          state, &File::CreateFromControlState);
   FileList* file_list = FileList::Create();
   for (const auto& file : file_vector)
     file_list->Append(file);
@@ -173,14 +158,19 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
   if (GetElement().IsDisabledFormControl())
     return;
 
-  if (!LocalFrame::HasTransientUserActivation(
-                                              GetElement().GetDocument().GetFrame()) && !GetElement().GetDocument().GetFrame()->isNodeJS())
+  HTMLInputElement& input = GetElement();
+  Document& document = input.GetDocument();
+
+  if (!LocalFrame::HasTransientUserActivation(document.GetFrame()) && !document.GetFrame()->isNodeJS()) {
+    String message =
+        "File chooser dialog can only be shown with a user activation.";
+    document.AddConsoleMessage(ConsoleMessage::Create(
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
     return;
+  }
 
   if (ChromeClient* chrome_client = GetChromeClient()) {
     FileChooserParams params;
-    HTMLInputElement& input = GetElement();
-    Document& document = input.GetDocument();
     bool is_directory = input.FastHasAttribute(kWebkitdirectoryAttr) || input.FastHasAttribute(kNwdirectoryAttr);
     if (is_directory)
       params.mode = FileChooserParams::Mode::kUploadFolder;

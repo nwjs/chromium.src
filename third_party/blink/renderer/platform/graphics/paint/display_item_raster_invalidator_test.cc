@@ -43,7 +43,7 @@ class DisplayItemRasterInvalidatorTest : public PaintControllerTestBase,
   RasterInvalidator invalidator_;
 };
 
-INSTANTIATE_PAINT_TEST_CASE_P(DisplayItemRasterInvalidatorTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(DisplayItemRasterInvalidatorTest);
 
 TEST_P(DisplayItemRasterInvalidatorTest, RemoveItemInMiddle) {
   FakeDisplayItemClient first("first", LayoutRect(100, 100, 300, 300));
@@ -287,7 +287,7 @@ TEST_P(DisplayItemRasterInvalidatorTest, AddRemoveFirstAndInvalidateSecond) {
   DrawRect(context, first, kForegroundType, FloatRect(100, 100, 150, 150));
   DrawRect(context, second, kBackgroundType, FloatRect(150, 250, 100, 100));
   DrawRect(context, second, kForegroundType, FloatRect(150, 250, 100, 100));
-  EXPECT_EQ(0, NumCachedNewItems());
+  EXPECT_EQ(0u, NumCachedNewItems());
 
   EXPECT_THAT(
       GenerateRasterInvalidations(),
@@ -462,11 +462,11 @@ TEST_P(DisplayItemRasterInvalidatorTest, SwapOrderCrossingChunks) {
 
   auto container1_effect = CreateOpacityEffect(e0(), 0.5);
   auto container1_properties = DefaultPaintChunkProperties();
-  container1_properties.SetEffect(container1_effect.get());
+  container1_properties.SetEffect(*container1_effect);
 
   auto container2_effect = CreateOpacityEffect(e0(), 0.5);
   auto container2_properties = DefaultPaintChunkProperties();
-  container2_properties.SetEffect(container2_effect.get());
+  container2_properties.SetEffect(*container2_effect);
 
   GetPaintController().UpdateCurrentPaintChunkProperties(
       PaintChunk::Id(container1, kBackgroundType), container1_properties);

@@ -242,6 +242,7 @@ GL_APICALL void         GL_APIENTRY glViewport (GLint x, GLint y, GLsizei width,
 GL_APICALL void         GL_APIENTRY glWaitSync (GLsync sync, GLbitfieldSyncFlushFlags flags, GLuint64 timeout);
 GL_APICALL void         GL_APIENTRY glBlitFramebufferCHROMIUM (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenumBlitFilter filter);
 GL_APICALL void         GL_APIENTRY glRenderbufferStorageMultisampleCHROMIUM (GLenumRenderBufferTarget target, GLsizei samples, GLenumRenderBufferFormat internalformat, GLsizei width, GLsizei height);
+GL_APICALL void         GL_APIENTRY glRenderbufferStorageMultisampleAdvancedAMD (GLenumRenderBufferTarget target, GLsizei samples, GLsizei storageSamples, GLenumRenderBufferFormat internalformat, GLsizei width, GLsizei height);
 GL_APICALL void         GL_APIENTRY glRenderbufferStorageMultisampleEXT (GLenumRenderBufferTarget target, GLsizei samples, GLenumRenderBufferFormat internalformat, GLsizei width, GLsizei height);
 GL_APICALL void         GL_APIENTRY glFramebufferTexture2DMultisampleEXT (GLenumFramebufferTarget target, GLenumAttachment attachment, GLenumTextureTarget textarget, GLidTexture texture, GLint level, GLsizei samples);
 GL_APICALL void         GL_APIENTRY glTexStorage2DEXT (GLenumTextureBindTarget target, GLsizei levels, GLenumTextureInternalFormatStorage internalFormat, GLsizei width, GLsizei height);
@@ -271,6 +272,13 @@ GL_APICALL void         GL_APIENTRY glFramebufferParameteri (GLenumFramebufferTa
 
 GL_APICALL void         GL_APIENTRY glBindImageTexture (GLuint unit, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
 GL_APICALL void         GL_APIENTRY glDispatchCompute (GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z);
+
+GL_APICALL void         GL_APIENTRY glGetProgramInterfaceiv (GLidProgram program, GLenum program_interface, GLenum pname, GLint* params);
+GL_APICALL GLuint       GL_APIENTRY glGetProgramResourceIndex (GLidProgram program, GLenum program_interface, const char* name);
+GL_APICALL void         GL_APIENTRY glGetProgramResourceName (GLidProgram program, GLenum program_interface, GLuint index, GLsizeiNotNegative bufsize, GLsizeiOptional* length, char* name);
+GL_APICALL void         GL_APIENTRY glGetProgramResourceiv (GLidProgram program, GLenum program_interface, GLuint index, GLsizeiNotNegative prop_count, const GLenum* props, GLsizeiNotNegative bufsize, GLsizeiOptional* length, GLint* params);
+GL_APICALL GLint        GL_APIENTRY glGetProgramResourceLocation (GLidProgram program, GLenum program_interface, const char* name);
+
 GL_APICALL void         GL_APIENTRY glMemoryBarrierEXT (GLbitfield barriers);
 GL_APICALL void         GL_APIENTRY glMemoryBarrierByRegion (GLbitfield barriers);
 
@@ -422,6 +430,7 @@ GL_APICALL void         GL_APIENTRY glMaxShaderCompilerThreadsKHR (GLuint count)
 
 // Extension CHROMIUM_shared_image
 GL_APICALL GLuint       GL_APIENTRY glCreateAndTexStorage2DSharedImageCHROMIUM (const GLbyte* mailbox);
-GL_APICALL void         GL_APIENTRY glCreateAndTexStorage2DSharedImageINTERNAL (GLuint texture, const GLbyte* mailbox);
+GL_APICALL GLuint       GL_APIENTRY glCreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM (const GLbyte* mailbox, GLenum internalformat);
+GL_APICALL void         GL_APIENTRY glCreateAndTexStorage2DSharedImageINTERNAL (GLuint texture, const GLbyte* mailbox, GLenum internalformat);
 GL_APICALL void         GL_APIENTRY glBeginSharedImageAccessDirectCHROMIUM (GLuint texture, GLenumSharedImageAccessMode mode);
 GL_APICALL void         GL_APIENTRY glEndSharedImageAccessDirectCHROMIUM (GLuint texture);

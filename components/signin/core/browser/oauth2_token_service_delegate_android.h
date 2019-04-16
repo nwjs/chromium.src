@@ -42,7 +42,9 @@ class OAuth2TokenServiceDelegateAndroid : public OAuth2TokenServiceDelegate {
   // Called by the TestingProfile class to disable account validation in
   // tests.  This prevents the token service from trying to look up system
   // accounts which requires special permission.
-  static void set_is_testing_profile() { is_testing_profile_ = true; }
+  static void set_disable_interaction_with_system_accounts() {
+    disable_interaction_with_system_accounts_ = true;
+  }
 
   // OAuth2TokenServiceDelegate overrides:
   bool RefreshTokenIsAvailable(const std::string& account_id) const override;
@@ -73,6 +75,8 @@ class OAuth2TokenServiceDelegateAndroid : public OAuth2TokenServiceDelegate {
   void RevokeAllCredentials() override;
 
   void LoadCredentials(const std::string& primary_account_id) override;
+
+  void ReloadAccountsFromSystem(const std::string& primary_account_id) override;
 
  protected:
   OAuth2AccessTokenFetcher* CreateAccessTokenFetcher(
@@ -105,10 +109,9 @@ class OAuth2TokenServiceDelegateAndroid : public OAuth2TokenServiceDelegate {
     RT_LOADED
   };
 
-  // Return whether |signed_in_id| is valid and we have access
-  // to all the tokens in |curr_ids|. If |force_notifications| is true,
-  // TokenAvailable notifications will be sent anyway, even if the account was
-  // already known.
+  // Return whether accounts are valid and we have access to all the tokens in
+  // |curr_ids|. If |force_notifications| is true, TokenAvailable notifications
+  // will be sent anyway, even if the account was already known.
   bool ValidateAccounts(const std::string& signed_in_id,
                         const std::vector<std::string>& prev_ids,
                         const std::vector<std::string>& curr_ids,
@@ -124,7 +127,7 @@ class OAuth2TokenServiceDelegateAndroid : public OAuth2TokenServiceDelegate {
   AccountTrackerService* account_tracker_service_;
   RefreshTokenLoadStatus fire_refresh_token_loaded_;
 
-  static bool is_testing_profile_;
+  static bool disable_interaction_with_system_accounts_;
 
   DISALLOW_COPY_AND_ASSIGN(OAuth2TokenServiceDelegateAndroid);
 };

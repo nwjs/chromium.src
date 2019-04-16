@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "content/public/common/service_names.mojom.h"
 #include "content/public/renderer/render_frame.h"
@@ -90,7 +91,10 @@ void GamepadControllerBindings::Install(
   if (bindings.IsEmpty())
     return;
   v8::Local<v8::Object> global = context->Global();
-  global->Set(gin::StringToV8(isolate, "gamepadController"), bindings.ToV8());
+  global
+      ->Set(context, gin::StringToV8(isolate, "gamepadController"),
+            bindings.ToV8())
+      .Check();
 }
 
 GamepadControllerBindings::GamepadControllerBindings(

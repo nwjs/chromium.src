@@ -79,7 +79,6 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/text/base64.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
-#include "third_party/blink/renderer/platform/wtf/time.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "v8/include/v8-inspector.h"
 
@@ -203,8 +202,7 @@ static bool HasTextContent(Resource* cached_resource) {
   return type == ResourceType::kCSSStyleSheet ||
          type == ResourceType::kXSLStyleSheet ||
          type == ResourceType::kScript || type == ResourceType::kRaw ||
-         type == ResourceType::kImportResource ||
-         type == ResourceType::kMainResource;
+         type == ResourceType::kImportResource;
 }
 
 static std::unique_ptr<TextResourceDecoder> CreateResourceTextDecoder(
@@ -430,8 +428,6 @@ InspectorPageAgent::ResourceType InspectorPageAgent::ToResourceType(
     case blink::ResourceType::kScript:
       return InspectorPageAgent::kScriptResource;
     case blink::ResourceType::kImportResource:
-    // Fall through.
-    case blink::ResourceType::kMainResource:
       return InspectorPageAgent::kDocumentResource;
     default:
       break;
@@ -530,7 +526,7 @@ void InspectorPageAgent::Restore() {
 
 Response InspectorPageAgent::enable() {
   enabled_.Set(true);
-  instrumenting_agents_->addInspectorPageAgent(this);
+  instrumenting_agents_->AddInspectorPageAgent(this);
   return Response::OK();
 }
 
@@ -538,7 +534,7 @@ Response InspectorPageAgent::disable() {
   agent_state_.ClearAllFields();
   script_to_evaluate_on_load_once_ = String();
   pending_script_to_evaluate_on_load_once_ = String();
-  instrumenting_agents_->removeInspectorPageAgent(this);
+  instrumenting_agents_->RemoveInspectorPageAgent(this);
   inspector_resource_content_loader_->Cancel(
       resource_content_loader_client_id_);
 
@@ -602,19 +598,20 @@ Response InspectorPageAgent::setLifecycleEventsEnabled(bool enabled) {
     TimeTicks commit_timestamp = timing.ResponseEnd();
     if (!commit_timestamp.is_null()) {
       LifecycleEvent(frame, loader, "commit",
-                     TimeTicksInSeconds(commit_timestamp));
+                     commit_timestamp.since_origin().InSecondsF());
     }
 
     TimeTicks domcontentloaded_timestamp =
         document->GetTiming().DomContentLoadedEventEnd();
     if (!domcontentloaded_timestamp.is_null()) {
       LifecycleEvent(frame, loader, "DOMContentLoaded",
-                     TimeTicksInSeconds(domcontentloaded_timestamp));
+                     domcontentloaded_timestamp.since_origin().InSecondsF());
     }
 
     TimeTicks load_timestamp = timing.LoadEventEnd();
     if (!load_timestamp.is_null()) {
-      LifecycleEvent(frame, loader, "load", TimeTicksInSeconds(load_timestamp));
+      LifecycleEvent(frame, loader, "load",
+                     load_timestamp.since_origin().InSecondsF());
     }
 
     IdlenessDetector* idleness_detector = frame->GetIdlenessDetector();
@@ -622,12 +619,12 @@ Response InspectorPageAgent::setLifecycleEventsEnabled(bool enabled) {
         idleness_detector->GetNetworkAlmostIdleTime();
     if (!network_almost_idle_timestamp.is_null()) {
       LifecycleEvent(frame, loader, "networkAlmostIdle",
-                     TimeTicksInSeconds(network_almost_idle_timestamp));
+                     network_almost_idle_timestamp.since_origin().InSecondsF());
     }
     TimeTicks network_idle_timestamp = idleness_detector->GetNetworkIdleTime();
     if (!network_idle_timestamp.is_null()) {
       LifecycleEvent(frame, loader, "networkIdle",
-                     TimeTicksInSeconds(network_idle_timestamp));
+                     network_idle_timestamp.since_origin().InSecondsF());
     }
   }
 
@@ -884,7 +881,7 @@ void InspectorPageAgent::DidClearDocumentOfWindowObject(LocalFrame* frame) {
   }
 }
 
-void InspectorPageAgent::DOMContentLoadedEventFired(LocalFrame* frame) {
+void InspectorPageAgent::DomContentLoadedEventFired(LocalFrame* frame) {
   double timestamp = CurrentTimeTicksInSeconds();
   if (frame == inspected_frames_->Root())
     GetFrontend()->domContentEventFired(timestamp);
@@ -1056,11 +1053,12 @@ InspectorPageAgent::BuildObjectForFrameTree(LocalFrame* frame) {
   std::unique_ptr<protocol::Array<protocol::Page::FrameTree>> children_array;
   for (Frame* child = frame->Tree().FirstChild(); child;
        child = child->Tree().NextSibling()) {
-    if (!child->IsLocalFrame())
+    auto* child_local_frame = DynamicTo<LocalFrame>(child);
+    if (!child_local_frame)
       continue;
     if (!children_array)
       children_array = protocol::Array<protocol::Page::FrameTree>::create();
-    children_array->addItem(BuildObjectForFrameTree(ToLocalFrame(child)));
+    children_array->addItem(BuildObjectForFrameTree(child_local_frame));
   }
   result->setChildFrames(std::move(children_array));
   return result;
@@ -1115,12 +1113,13 @@ InspectorPageAgent::BuildObjectForResourceTree(LocalFrame* frame) {
       children_array;
   for (Frame* child = frame->Tree().FirstChild(); child;
        child = child->Tree().NextSibling()) {
-    if (!child->IsLocalFrame())
+    auto* child_local_frame = DynamicTo<LocalFrame>(child);
+    if (!child_local_frame)
       continue;
     if (!children_array)
       children_array =
           protocol::Array<protocol::Page::FrameResourceTree>::create();
-    children_array->addItem(BuildObjectForResourceTree(ToLocalFrame(child)));
+    children_array->addItem(BuildObjectForResourceTree(child_local_frame));
   }
   result->setChildFrames(std::move(children_array));
   return result;

@@ -36,7 +36,7 @@ class NGBlockLayoutAlgorithmTest : public NGBaseLayoutAlgorithmTest {
   scoped_refptr<const NGPhysicalBoxFragment> RunBlockLayoutAlgorithm(
       const NGConstraintSpace& space,
       NGBlockNode node) {
-    scoped_refptr<NGLayoutResult> result =
+    scoped_refptr<const NGLayoutResult> result =
         NGBlockLayoutAlgorithm(node, space).Layout();
 
     return ToNGPhysicalBoxFragment(result->PhysicalFragment());
@@ -50,7 +50,8 @@ class NGBlockLayoutAlgorithmTest : public NGBaseLayoutAlgorithmTest {
         NGLogicalSize(LayoutUnit(), LayoutUnit()));
 
     NGBlockLayoutAlgorithm algorithm(node, space);
-    MinMaxSizeInput input;
+    MinMaxSizeInput input(
+        /* percentage_resolution_block_size */ (LayoutUnit()));
     auto min_max = algorithm.ComputeMinMaxSize(input);
     EXPECT_TRUE(min_max.has_value());
     return *min_max;
@@ -69,7 +70,8 @@ class NGBlockLayoutAlgorithmTest : public NGBaseLayoutAlgorithmTest {
     DCHECK(element->GetLayoutObject());
     scoped_refptr<ComputedStyle> mutable_style =
         ComputedStyle::Clone(element->GetLayoutObject()->StyleRef());
-    element->GetLayoutObject()->SetStyleInternal(mutable_style);
+    element->GetLayoutObject()->SetModifiedStyleOutsideStyleRecalc(
+        mutable_style, LayoutObject::ApplyStyleChanges::kNo);
     return mutable_style;
   }
 };
@@ -106,22 +108,22 @@ TEST_F(NGBlockLayoutAlgorithmTest, Caching) {
       ToLayoutBlockFlow(GetLayoutObjectByElementId("box"));
   NGBlockNode node(block_flow);
 
-  scoped_refptr<NGLayoutResult> result(node.Layout(space, nullptr));
+  scoped_refptr<const NGLayoutResult> result(node.Layout(space, nullptr));
   EXPECT_EQ(NGPhysicalSize(LayoutUnit(30), LayoutUnit(40)),
             result->PhysicalFragment()->Size());
 
-  // Test pointer-equal constraint space
+  // Test pointer-equal constraint space.
   result = block_flow->CachedLayoutResult(space, nullptr);
   EXPECT_NE(result.get(), nullptr);
 
-  // Test identical, but not pointer-equal, constraint space
+  // Test identical, but not pointer-equal, constraint space.
   space = ConstructBlockLayoutTestConstraintSpace(
       WritingMode::kHorizontalTb, TextDirection::kLtr,
       NGLogicalSize(LayoutUnit(100), LayoutUnit(100)));
   result = block_flow->CachedLayoutResult(space, nullptr);
   EXPECT_NE(result.get(), nullptr);
 
-  // Test different constraint space
+  // Test different constraint space.
   space = ConstructBlockLayoutTestConstraintSpace(
       WritingMode::kHorizontalTb, TextDirection::kLtr,
       NGLogicalSize(LayoutUnit(200), LayoutUnit(100)));
@@ -140,6 +142,148 @@ TEST_F(NGBlockLayoutAlgorithmTest, Caching) {
   block_flow->SetNeedsLayout("");
   result = block_flow->CachedLayoutResult(space, nullptr);
   EXPECT_EQ(result.get(), nullptr);
+}
+
+TEST_F(NGBlockLayoutAlgorithmTest, MinInlineSizeCaching) {
+  ScopedLayoutNGFragmentCachingForTest layout_ng_fragment_caching(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <div id="box" style="min-width:30%; width: 10px; height:40px;"></div>
+  )HTML");
+
+  NGConstraintSpace space = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(100), LayoutUnit(100)));
+
+  LayoutBlockFlow* block_flow =
+      ToLayoutBlockFlow(GetLayoutObjectByElementId("box"));
+  NGBlockNode node(block_flow);
+
+  scoped_refptr<const NGLayoutResult> result(node.Layout(space, nullptr));
+  EXPECT_EQ(NGPhysicalSize(LayoutUnit(30), LayoutUnit(40)),
+            result->PhysicalFragment()->Size());
+
+  // Test pointer-equal constraint space.
+  result = block_flow->CachedLayoutResult(space, nullptr);
+  EXPECT_NE(result.get(), nullptr);
+
+  // Test identical, but not pointer-equal, constraint space.
+  space = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(100), LayoutUnit(100)));
+  result = block_flow->CachedLayoutResult(space, nullptr);
+  EXPECT_NE(result.get(), nullptr);
+
+  // Test different constraint space.
+  space = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(100), LayoutUnit(200)));
+  result = block_flow->CachedLayoutResult(space, nullptr);
+  EXPECT_NE(result.get(), nullptr);
+
+  // Test a different constraint space that will actually result in a different
+  // size.
+  space = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(200), LayoutUnit(100)));
+  result = block_flow->CachedLayoutResult(space, nullptr);
+  EXPECT_EQ(result.get(), nullptr);
+}
+
+TEST_F(NGBlockLayoutAlgorithmTest, PercentageBlockSizeQuirkDescendantsCaching) {
+  ScopedLayoutNGFragmentCachingForTest layout_ng_fragment_caching(true);
+
+  // Quirks mode triggers the interesting parent-child %-resolution behaviour.
+  GetDocument().SetCompatibilityMode(Document::kQuirksMode);
+
+  SetBodyInnerHTML(R"HTML(
+    <div id="container" style="display: flow-root; width: 100px; height: 100px;">
+      <div id="box1"></div>
+      <div id="box2">
+        <div style="height: 20px;"></div>
+        <div style="height: 20px;"></div>
+      </div>
+      <div id="box3">
+        <div style="height: 20px;"></div>
+        <div style="height: 50%;"></div>
+      </div>
+      <div id="box4">
+        <div style="height: 20px;"></div>
+        <div style="display: flex;"></div>
+      </div>
+      <div id="box5">
+        <div style="height: 20px;"></div>
+        <div style="display: flex; height: 50%;"></div>
+      </div>
+      <div id="box6">
+        <div style="height: 20px;"></div>
+        <div style="display: table;"></div>
+      </div>
+      <div id="box7" style="position: relative;">
+        <div style="position: absolute; width: 10px; height: 100%;"></div>
+      </div>
+      <div id="box8">
+        <img />
+      </div>
+      <div id="box9">
+        <img style="height: 100%;" />
+      </div>
+    </div>
+  )HTML");
+
+  NGConstraintSpace space100 = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(100), LayoutUnit(100)));
+  NGConstraintSpace space200 = ConstructBlockLayoutTestConstraintSpace(
+      WritingMode::kHorizontalTb, TextDirection::kLtr,
+      NGLogicalSize(LayoutUnit(100), LayoutUnit(200)));
+
+  auto run_test = [&](auto id) -> scoped_refptr<const NGLayoutResult> {
+    // Grab the box under test.
+    LayoutBlockFlow* box = ToLayoutBlockFlow(GetLayoutObjectByElementId(id));
+
+    // Check that we have a cache hit with space100.
+    scoped_refptr<const NGLayoutResult> result =
+        box->CachedLayoutResult(space100, nullptr);
+    EXPECT_NE(result.get(), nullptr);
+
+    // Return the result of the cache with space200.
+    return box->CachedLayoutResult(space200, nullptr);
+  };
+
+  // Test 1: No descendants.
+  EXPECT_NE(run_test("box1"), nullptr);
+
+  // Test 2: No %-height descendants.
+  EXPECT_NE(run_test("box2"), nullptr);
+
+  // Test 3: A %-height descendant.
+  EXPECT_EQ(run_test("box3"), nullptr);
+
+  // Test 4: A flexbox (legacy descendant), which doesn't use the quirks mode
+  // behaviour.
+  EXPECT_NE(run_test("box4"), nullptr);
+
+  // Test 5: A flexbox (legacy descendant), which doesn't use the quirks mode
+  // behaviour, but is %-sized.
+  EXPECT_EQ(run_test("box5"), nullptr);
+
+  // Test 6: A table (legacy descendant), which does use the quirks mode
+  // behaviour.
+  // NOTE: This test may fail when tables are converted to LayoutNG.
+  EXPECT_EQ(run_test("box6"), nullptr);
+
+  // Test 7: An OOF positioned descentant which has a %-height, should not
+  // count as a percentage descendant.
+  EXPECT_NE(run_test("box7"), nullptr);
+
+  // Test 8: A replaced element (legacy descendant), shouldn't use the quirks
+  // mode behaviour.
+  EXPECT_NE(run_test("box8"), nullptr);
+
+  // Test 9: A replaced element (legacy descendant), shouldn't use the quirks
+  // mode behaviour, but is %-sized.
+  EXPECT_EQ(run_test("box9"), nullptr);
 }
 
 // Verifies that two children are laid out with the correct size and position.
@@ -413,13 +557,13 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsCase3) {
   };
 
   // height == auto
-  run_test(Length(kAuto));
+  run_test(Length::Auto());
   // Margins are collapsed with the result 200 = std::max(20, 200)
   // The fragment size 258 == body's margin 8 + child's height 50 + 200
   EXPECT_EQ(NGPhysicalSize(LayoutUnit(800), LayoutUnit(258)), fragment->Size());
 
   // height == fixed
-  run_test(Length(50, kFixed));
+  run_test(Length::Fixed(50));
   // Margins are not collapsed, so fragment still has margins == 20.
   // The fragment size 78 == body's margin 8 + child's height 50 + 20
   EXPECT_EQ(NGPhysicalSize(LayoutUnit(800), LayoutUnit(78)), fragment->Size());
@@ -467,7 +611,7 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsCase4) {
   };
 
   // with padding
-  run_test(Length(20, kFixed));
+  run_test(Length::Fixed(20));
   // 500 = child's height 50 + 2xmargin 400 + paddint-top 20 +
   // container's margin 30
   EXPECT_EQ(NGPhysicalSize(LayoutUnit(800), LayoutUnit(500)), fragment->Size());
@@ -477,7 +621,7 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsCase4) {
   EXPECT_EQ(LayoutUnit(220), child_offset.top);
 
   // without padding
-  run_test(Length(0, kFixed));
+  run_test(Length::Fixed(0));
   // 450 = 2xmax(body's margin 8, container's margin 30, child's margin 200) +
   //       child's height 50
   EXPECT_EQ(NGPhysicalSize(LayoutUnit(800), LayoutUnit(450)), fragment->Size());
@@ -775,11 +919,11 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsEmptyBlockWithClearance) {
 
   // Base case of no margins.
   run_test(
-      /* #zero-top margin-bottom */ Length(0, kFixed),
-      /* #zero-inner margin-top */ Length(0, kFixed),
-      /* #zero-inner margin-bottom */ Length(0, kFixed),
-      /* #zero margin-bottom */ Length(0, kFixed),
-      /* #inflow margin-top */ Length(0, kFixed));
+      /* #zero-top margin-bottom */ Length::Fixed(0),
+      /* #zero-inner margin-top */ Length::Fixed(0),
+      /* #zero-inner margin-bottom */ Length::Fixed(0),
+      /* #zero margin-bottom */ Length::Fixed(0),
+      /* #inflow margin-top */ Length::Fixed(0));
 
   // #zero, #abs, #inflow should all be positioned at the float.
   EXPECT_EQ(LayoutUnit(50), zero->Location().Y());
@@ -789,11 +933,11 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsEmptyBlockWithClearance) {
   // A margin strut which resolves to -50 (-70 + 20) adjusts the position of
   // #zero to the float clearance.
   run_test(
-      /* #zero-top margin-bottom */ Length(0, kFixed),
-      /* #zero-inner margin-top */ Length(-60, kFixed),
-      /* #zero-inner margin-bottom */ Length(20, kFixed),
-      /* #zero margin-bottom */ Length(-70, kFixed),
-      /* #inflow margin-top */ Length(50, kFixed));
+      /* #zero-top margin-bottom */ Length::Fixed(0),
+      /* #zero-inner margin-top */ Length::Fixed(-60),
+      /* #zero-inner margin-bottom */ Length::Fixed(20),
+      /* #zero margin-bottom */ Length::Fixed(-70),
+      /* #inflow margin-top */ Length::Fixed(50));
 
   // #zero is placed at the float, the margin strut is at:
   // 90 = (50 - (-60 + 20)).
@@ -813,11 +957,11 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsEmptyBlockWithClearance) {
   // NOTE: This case below has wildly different results on different browsers,
   // we may have to change the behaviour here in the future for web compat.
   run_test(
-      /* #zero-top margin-bottom */ Length(0, kFixed),
-      /* #zero-inner margin-top */ Length(70, kFixed),
-      /* #zero-inner margin-bottom */ Length(-10, kFixed),
-      /* #zero margin-bottom */ Length(-20, kFixed),
-      /* #inflow margin-top */ Length(80, kFixed));
+      /* #zero-top margin-bottom */ Length::Fixed(0),
+      /* #zero-inner margin-top */ Length::Fixed(70),
+      /* #zero-inner margin-bottom */ Length::Fixed(-10),
+      /* #zero margin-bottom */ Length::Fixed(-20),
+      /* #inflow margin-top */ Length::Fixed(80));
 
   // #zero is placed at 60 (-10 + 70).
   EXPECT_EQ(LayoutUnit(60), zero->Location().Y());
@@ -834,11 +978,11 @@ TEST_F(NGBlockLayoutAlgorithmTest, CollapsingMarginsEmptyBlockWithClearance) {
   // affected by clearance, it needs to have layout performed again, starting
   // with an empty margin strut.
   run_test(
-      /* #zero-top margin-bottom */ Length(30, kFixed),
-      /* #zero-inner margin-top */ Length(20, kFixed),
-      /* #zero-inner margin-bottom */ Length(-10, kFixed),
-      /* #zero margin-bottom */ Length(0, kFixed),
-      /* #inflow margin-top */ Length(25, kFixed));
+      /* #zero-top margin-bottom */ Length::Fixed(30),
+      /* #zero-inner margin-top */ Length::Fixed(20),
+      /* #zero-inner margin-bottom */ Length::Fixed(-10),
+      /* #zero margin-bottom */ Length::Fixed(0),
+      /* #inflow margin-top */ Length::Fixed(25));
 
   // #zero is placed at the float, the margin strut is at:
   // 40 = (50 - (-10 + 20)).
@@ -1099,26 +1243,6 @@ TEST_F(NGBlockLayoutAlgorithmTest, PositionFloatInsideEmptyBlocks) {
   EXPECT_THAT(left_float->OffsetLeft(), 88);
   // 30 = body_top_offset(collapsed margins result) + float's padding
   EXPECT_THAT(left_float->OffsetTop(), body_top_offset + 10);
-
-  // ** Legacy Floating objects **
-  Element* empty2 = GetDocument().getElementById("empty2");
-  auto& floating_objects =
-      const_cast<FloatingObjects*>(
-          ToLayoutBlockFlow(empty2->GetLayoutObject())->GetFloatingObjects())
-          ->MutableSet();
-  ASSERT_EQ(2UL, floating_objects.size());
-  auto left_floating_object = floating_objects.TakeFirst();
-  // 80 = float_inline_offset(25) + accumulative offset of empty blocks(35 + 20)
-  EXPECT_THAT(left_floating_object->X(), LayoutUnit(15));
-  // 10 = left float's margin
-  EXPECT_THAT(left_floating_object->Y(), LayoutUnit());
-
-  auto right_floating_object = floating_objects.TakeFirst();
-  // 150 = float_inline_offset(25) +
-  //       right float offset(125)
-  EXPECT_THAT(right_floating_object->X(), LayoutUnit(140));
-  // 15 = right float's margin
-  EXPECT_THAT(right_floating_object->Y(), LayoutUnit(0));
 }
 
 // Verifies that left/right floating and regular blocks can be positioned
@@ -1540,17 +1664,6 @@ TEST_F(NGBlockLayoutAlgorithmTest, PositionEmptyBlocksInNewBfc) {
       <div id="empty-block2"></div>
     </div>
   )HTML");
-  // #container is the new parent for our float because it's height != 0.
-  Element* container = GetDocument().getElementById("container");
-  auto& floating_objects =
-      const_cast<FloatingObjects*>(
-          ToLayoutBlockFlow(container->GetLayoutObject())->GetFloatingObjects())
-          ->MutableSet();
-  ASSERT_EQ(1UL, floating_objects.size());
-  auto floating_object = floating_objects.TakeFirst();
-  // left-float's margin = 15.
-  EXPECT_THAT(floating_object->X(), LayoutUnit());
-  EXPECT_THAT(floating_object->Y(), LayoutUnit());
 
   scoped_refptr<const NGPhysicalBoxFragment> html_fragment;
   std::tie(html_fragment, std::ignore) = RunBlockLayoutAlgorithmForElement(
@@ -2161,7 +2274,7 @@ TEST_F(NGBlockLayoutAlgorithmTest,
   };
 
   // #new-fc is small enough to fit on the same line with #float.
-  run_test(Length(80, kFixed));
+  run_test(Length::Fixed(80));
   // 100 = float's width, 0 = no margin collapsing
   EXPECT_THAT(new_fc_offset, NGPhysicalOffset(LayoutUnit(100), LayoutUnit(0)));
   // 8 = body's margins, 20 = new-fc's margin top(20) collapses with
@@ -2169,7 +2282,7 @@ TEST_F(NGBlockLayoutAlgorithmTest,
   EXPECT_THAT(body_offset, NGPhysicalOffset(LayoutUnit(8), LayoutUnit(20)));
 
   // #new-fc is too wide to be positioned on the same line with #float
-  run_test(Length(120, kFixed));
+  run_test(Length::Fixed(120));
   // 30 = #float's height
   EXPECT_THAT(new_fc_offset, NGPhysicalOffset(LayoutUnit(0), LayoutUnit(30)));
   // 8 = body's margins, no margin collapsing

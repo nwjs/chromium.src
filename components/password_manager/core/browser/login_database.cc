@@ -25,6 +25,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/autofill/core/common/password_form.h"
@@ -52,7 +53,7 @@ using autofill::PasswordForm;
 namespace password_manager {
 
 // The current version number of the login database schema.
-const int kCurrentVersionNumber = 21;
+const int kCurrentVersionNumber = 22;
 // The oldest version of the schema such that a legacy Chrome client using that
 // version can still read/write the current database.
 const int kCompatibleVersionNumber = 19;
@@ -374,6 +375,16 @@ void LogPasswordReuseMetrics(const std::vector<std::string>& signon_realms) {
   }
 }
 
+bool ClearAllSyncMetadata(sql::Database* db) {
+  sql::Statement s1(
+      db->GetCachedStatement(SQL_FROM_HERE, "DELETE FROM sync_model_metadata"));
+
+  sql::Statement s2(db->GetCachedStatement(
+      SQL_FROM_HERE, "DELETE FROM sync_entities_metadata"));
+
+  return s1.Run() && s2.Run();
+}
+
 // Seals the version of the given builders. This is method should be always used
 // to seal versions of all builder to make sure all builders are at the same
 // version.
@@ -488,6 +499,9 @@ void InitializeBuilders(SQLTableBuilders builders) {
   builders.sync_model_metadata->AddColumn("model_metadata", "VARCHAR NOT NULL");
   SealVersion(builders, /*expected_version=*/21u);
 
+  // Version 22. Changes in Sync metadata encryption.
+  SealVersion(builders, /*expected_version=*/22u);
+
   DCHECK_EQ(static_cast<size_t>(COLUMN_NUM), builders.logins->NumberOfColumns())
       << "Adjust LoginDatabaseTableColumns if you change column definitions "
          "here.";
@@ -524,6 +538,13 @@ bool MigrateLogins(unsigned current_version,
     reset_zero_click.Assign(db->GetCachedStatement(
         SQL_FROM_HERE, "UPDATE logins SET skip_zero_click = 1"));
     if (!reset_zero_click.Run())
+      return false;
+  }
+
+  // Sync Metadata tables have been introduced in version 21. It is enough to
+  // drop all data because Sync would populate the tables properly at startup.
+  if (current_version == 21) {
+    if (!ClearAllSyncMetadata(db))
       return false;
   }
 
@@ -1073,15 +1094,20 @@ bool LoginDatabase::RemoveLogin(const PasswordForm& form,
 
 bool LoginDatabase::RemoveLoginByPrimaryKey(int primary_key,
                                             PasswordStoreChangeList* changes) {
-  PrimaryKeyToFormMap key_to_form_map;
+  PasswordForm form;
   if (changes) {
     changes->clear();
     sql::Statement s1(db_.GetCachedStatement(
         SQL_FROM_HERE, "SELECT * FROM logins WHERE id = ?"));
     s1.BindInt(0, primary_key);
-    if (!StatementToForms(&s1, nullptr, &key_to_form_map)) {
+    if (!s1.Step()) {
       return false;
     }
+    int db_primary_key = -1;
+    EncryptionResult result = InitPasswordFormFromStatement(
+        s1, /*decrypt_and_fill_password_value=*/false, &db_primary_key, &form);
+    DCHECK_EQ(result, ENCRYPTION_RESULT_SUCCESS);
+    DCHECK_EQ(db_primary_key, primary_key);
   }
 
 #if defined(OS_IOS)
@@ -1095,8 +1121,8 @@ bool LoginDatabase::RemoveLoginByPrimaryKey(int primary_key,
     return false;
   }
   if (changes) {
-    changes->emplace_back(PasswordStoreChange::REMOVE,
-                          *key_to_form_map[primary_key], primary_key);
+    changes->emplace_back(PasswordStoreChange::REMOVE, std::move(form),
+                          primary_key);
   }
   return true;
 }
@@ -1189,11 +1215,11 @@ bool LoginDatabase::GetAutoSignInLogins(
   sql::Statement s(
       db_.GetCachedStatement(SQL_FROM_HERE, autosignin_statement_.c_str()));
   PrimaryKeyToFormMap key_to_form_map;
-  bool result = StatementToForms(&s, nullptr, &key_to_form_map);
+  FormRetrievalResult result = StatementToForms(&s, nullptr, &key_to_form_map);
   for (auto& pair : key_to_form_map) {
     forms->push_back(std::move(pair.second));
   }
-  return result;
+  return result == FormRetrievalResult::kSuccess;
 }
 
 bool LoginDatabase::DisableAutoSignInForOrigin(const GURL& origin) {
@@ -1207,17 +1233,20 @@ bool LoginDatabase::DisableAutoSignInForOrigin(const GURL& origin) {
 
 LoginDatabase::EncryptionResult LoginDatabase::InitPasswordFormFromStatement(
     const sql::Statement& s,
+    bool decrypt_and_fill_password_value,
     int* primary_key,
     PasswordForm* form) const {
   std::string encrypted_password;
   s.ColumnBlobAsString(COLUMN_PASSWORD_VALUE, &encrypted_password);
   base::string16 decrypted_password;
-  EncryptionResult encryption_result =
-      DecryptedString(encrypted_password, &decrypted_password);
-  if (encryption_result != ENCRYPTION_RESULT_SUCCESS) {
-    VLOG(0) << "Password decryption failed, encryption_result is "
-            << encryption_result;
-    return encryption_result;
+  if (decrypt_and_fill_password_value) {
+    EncryptionResult encryption_result =
+        DecryptedString(encrypted_password, &decrypted_password);
+    if (encryption_result != ENCRYPTION_RESULT_SUCCESS) {
+      VLOG(0) << "Password decryption failed, encryption_result is "
+              << encryption_result;
+      return encryption_result;
+    }
   }
 
   *primary_key = s.ColumnInt(COLUMN_ID);
@@ -1354,10 +1383,10 @@ bool LoginDatabase::GetLogins(
                               PSL_DOMAIN_MATCH_COUNT);
   }
   PrimaryKeyToFormMap key_to_form_map;
-  bool success = StatementToForms(
+  FormRetrievalResult result = StatementToForms(
       &s, should_PSL_matching_apply || should_federated_apply ? &form : nullptr,
       &key_to_form_map);
-  if (!success) {
+  if (result != FormRetrievalResult::kSuccess) {
     return false;
   }
   for (auto& pair : key_to_form_map) {
@@ -1394,7 +1423,7 @@ bool LoginDatabase::GetLoginsForSameOrganizationName(
   s.BindString(0, signon_realms_with_same_organization_name_regexp);
 
   PrimaryKeyToFormMap key_to_form_map;
-  bool success = StatementToForms(&s, nullptr, &key_to_form_map);
+  FormRetrievalResult result = StatementToForms(&s, nullptr, &key_to_form_map);
   for (auto& pair : key_to_form_map) {
     forms->push_back(std::move(pair.second));
   }
@@ -1409,7 +1438,7 @@ bool LoginDatabase::GetLoginsForSameOrganizationName(
     return candidate_form_organization_name != organization_name;
   });
 
-  return success;
+  return result == FormRetrievalResult::kSuccess;
 }
 
 bool LoginDatabase::GetLoginsCreatedBetween(
@@ -1424,7 +1453,8 @@ bool LoginDatabase::GetLoginsCreatedBetween(
   s.BindInt64(1, end.is_null() ? std::numeric_limits<int64_t>::max()
                                : end.ToInternalValue());
 
-  return StatementToForms(&s, nullptr, key_to_form_map);
+  return StatementToForms(&s, nullptr, key_to_form_map) ==
+         FormRetrievalResult::kSuccess;
 }
 
 bool LoginDatabase::GetLoginsSyncedBetween(
@@ -1440,10 +1470,12 @@ bool LoginDatabase::GetLoginsSyncedBetween(
               end.is_null() ? base::Time::Max().ToInternalValue()
                             : end.ToInternalValue());
 
-  return StatementToForms(&s, nullptr, key_to_form_map);
+  return StatementToForms(&s, nullptr, key_to_form_map) ==
+         FormRetrievalResult::kSuccess;
 }
 
-bool LoginDatabase::GetAllLogins(PrimaryKeyToFormMap* key_to_form_map) {
+FormRetrievalResult LoginDatabase::GetAllLogins(
+    PrimaryKeyToFormMap* key_to_form_map) {
   DCHECK(key_to_form_map);
   key_to_form_map->clear();
 
@@ -1476,7 +1508,8 @@ bool LoginDatabase::GetAllLoginsWithBlacklistSetting(
 
   PrimaryKeyToFormMap key_to_form_map;
 
-  if (!StatementToForms(&s, nullptr, &key_to_form_map)) {
+  if (StatementToForms(&s, nullptr, &key_to_form_map) !=
+      FormRetrievalResult::kSuccess) {
     return false;
   }
 
@@ -1568,6 +1601,23 @@ std::string LoginDatabase::GetEncryptedPassword(
   return encrypted_password;
 }
 
+std::unique_ptr<syncer::MetadataBatch> LoginDatabase::GetAllSyncMetadata() {
+  std::unique_ptr<syncer::MetadataBatch> metadata_batch =
+      GetAllSyncEntityMetadata();
+  if (metadata_batch == nullptr) {
+    return nullptr;
+  }
+
+  std::unique_ptr<sync_pb::ModelTypeState> model_type_state =
+      GetModelTypeState();
+  if (model_type_state == nullptr) {
+    return nullptr;
+  }
+
+  metadata_batch->SetModelTypeState(*model_type_state);
+  return metadata_batch;
+}
+
 bool LoginDatabase::UpdateSyncMetadata(
     syncer::ModelType model_type,
     const std::string& storage_key,
@@ -1581,13 +1631,20 @@ bool LoginDatabase::UpdateSyncMetadata(
     return false;
   }
 
+  std::string encrypted_metadata;
+  if (!OSCrypt::EncryptString(metadata.SerializeAsString(),
+                              &encrypted_metadata)) {
+    DLOG(ERROR) << "Cannot encrypt the sync metadata";
+    return false;
+  }
+
   sql::Statement s(
       db_.GetCachedStatement(SQL_FROM_HERE,
                              "INSERT OR REPLACE INTO sync_entities_metadata "
                              "(storage_key, metadata) VALUES(?, ?)"));
 
   s.BindInt(0, storage_key_int);
-  s.BindString(1, metadata.SerializeAsString());
+  s.BindString(1, encrypted_metadata);
 
   return s.Run();
 }
@@ -1663,25 +1720,7 @@ int LoginDatabase::GetPrimaryKey(const PasswordForm& form) const {
 }
 
 std::unique_ptr<syncer::MetadataBatch>
-LoginDatabase::GetAllSyncMetadataForTesting() {
-  std::unique_ptr<syncer::MetadataBatch> metadata_batch =
-      GetAllSyncEntityMetadataForTesting();
-  if (metadata_batch == nullptr) {
-    return nullptr;
-  }
-
-  std::unique_ptr<sync_pb::ModelTypeState> model_type_state =
-      GetModelTypeStateForTesting();
-  if (model_type_state == nullptr) {
-    return nullptr;
-  }
-
-  metadata_batch->SetModelTypeState(*model_type_state);
-  return metadata_batch;
-}
-
-std::unique_ptr<syncer::MetadataBatch>
-LoginDatabase::GetAllSyncEntityMetadataForTesting() {
+LoginDatabase::GetAllSyncEntityMetadata() {
   auto metadata_batch = std::make_unique<syncer::MetadataBatch>();
   sql::Statement s(db_.GetCachedStatement(SQL_FROM_HERE,
                                           "SELECT storage_key, metadata FROM "
@@ -1689,9 +1728,17 @@ LoginDatabase::GetAllSyncEntityMetadataForTesting() {
 
   while (s.Step()) {
     std::string storage_key = s.ColumnString(0);
-    std::string serialized_metadata = s.ColumnString(1);
+    std::string encrypted_serialized_metadata = s.ColumnString(1);
+    std::string decrypted_serialized_metadata;
+    if (!OSCrypt::DecryptString(encrypted_serialized_metadata,
+                                &decrypted_serialized_metadata)) {
+      DLOG(WARNING) << "Failed to decrypt PASSWORD model type "
+                       "sync_pb::EntityMetadata.";
+      return nullptr;
+    }
+
     sync_pb::EntityMetadata entity_metadata;
-    if (entity_metadata.ParseFromString(serialized_metadata)) {
+    if (entity_metadata.ParseFromString(decrypted_serialized_metadata)) {
       metadata_batch->AddMetadata(storage_key, entity_metadata);
     } else {
       DLOG(WARNING) << "Failed to deserialize PASSWORD model type "
@@ -1705,8 +1752,7 @@ LoginDatabase::GetAllSyncEntityMetadataForTesting() {
   return metadata_batch;
 }
 
-std::unique_ptr<sync_pb::ModelTypeState>
-LoginDatabase::GetModelTypeStateForTesting() {
+std::unique_ptr<sync_pb::ModelTypeState> LoginDatabase::GetModelTypeState() {
   auto state = std::make_unique<sync_pb::ModelTypeState>();
   sql::Statement s(db_.GetCachedStatement(
       SQL_FROM_HERE,
@@ -1726,7 +1772,7 @@ LoginDatabase::GetModelTypeStateForTesting() {
   return nullptr;
 }
 
-bool LoginDatabase::StatementToForms(
+FormRetrievalResult LoginDatabase::StatementToForms(
     sql::Statement* statement,
     const PasswordStore::FormDigest* matched_form,
     PrimaryKeyToFormMap* key_to_form_map) {
@@ -1738,10 +1784,11 @@ bool LoginDatabase::StatementToForms(
   while (statement->Step()) {
     auto new_form = std::make_unique<PasswordForm>();
     int primary_key = -1;
-    EncryptionResult result =
-        InitPasswordFormFromStatement(*statement, &primary_key, new_form.get());
+    EncryptionResult result = InitPasswordFormFromStatement(
+        *statement, /*decrypt_and_fill_password_value=*/true, &primary_key,
+        new_form.get());
     if (result == ENCRYPTION_RESULT_SERVICE_FAILURE)
-      return false;
+      return FormRetrievalResult::kEncrytionServiceFailure;
     if (result == ENCRYPTION_RESULT_ITEM_FAILURE) {
       if (IsUsingCleanupMechanism())
         forms_to_be_deleted.push_back(GetFormForRemoval(*statement));
@@ -1802,8 +1849,8 @@ bool LoginDatabase::StatementToForms(
 #endif
 
   if (!statement->Succeeded())
-    return false;
-  return true;
+    return FormRetrievalResult::kDbError;
+  return FormRetrievalResult::kSuccess;
 }
 
 void LoginDatabase::InitializeStatementStrings(const SQLTableBuilder& builder) {
@@ -1829,9 +1876,8 @@ void LoginDatabase::InitializeStatementStrings(const SQLTableBuilder& builder) {
                            all_column_names + ") VALUES " +
                            right_amount_of_placeholders;
   DCHECK(update_statement_.empty());
-  update_statement_ = "UPDATE OR REPLACE logins SET " +
-                      all_nonunique_key_column_names + " WHERE " +
-                      all_unique_key_column_names;
+  update_statement_ = "UPDATE logins SET " + all_nonunique_key_column_names +
+                      " WHERE " + all_unique_key_column_names;
   DCHECK(delete_statement_.empty());
   delete_statement_ = "DELETE FROM logins WHERE " + all_unique_key_column_names;
   DCHECK(delete_by_id_statement_.empty());

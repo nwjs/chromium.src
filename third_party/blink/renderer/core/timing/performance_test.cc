@@ -122,9 +122,10 @@ TEST_F(PerformanceTest, AddLongTaskTiming) {
   SubTaskAttribution::EntriesVector sub_task_attributions;
 
   // Add a long task entry, but no observer registered.
-  base_->AddLongTaskTiming(TimeTicksFromSeconds(1234),
-                           TimeTicksFromSeconds(5678), "same-origin",
-                           "www.foo.com/bar", "", "", sub_task_attributions);
+  base_->AddLongTaskTiming(
+      base::TimeTicks() + base::TimeDelta::FromSecondsD(1234),
+      base::TimeTicks() + base::TimeDelta::FromSecondsD(5678), "same-origin",
+      "www.foo.com/bar", "", "", sub_task_attributions);
   EXPECT_FALSE(base_->HasPerformanceObserverFor(PerformanceEntry::kLongTask));
   EXPECT_EQ(0, NumPerformanceEntriesInObserver());  // has no effect
 
@@ -138,9 +139,10 @@ TEST_F(PerformanceTest, AddLongTaskTiming) {
 
   EXPECT_TRUE(base_->HasPerformanceObserverFor(PerformanceEntry::kLongTask));
   // Add a long task entry
-  base_->AddLongTaskTiming(TimeTicksFromSeconds(1234),
-                           TimeTicksFromSeconds(5678), "same-origin",
-                           "www.foo.com/bar", "", "", sub_task_attributions);
+  base_->AddLongTaskTiming(
+      base::TimeTicks() + base::TimeDelta::FromSecondsD(1234),
+      base::TimeTicks() + base::TimeDelta::FromSecondsD(5678), "same-origin",
+      "www.foo.com/bar", "", "", sub_task_attributions);
   EXPECT_EQ(1, NumPerformanceEntriesInObserver());  // added an entry
 }
 

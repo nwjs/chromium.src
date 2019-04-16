@@ -214,7 +214,7 @@ Console.ConsoleViewMessage = class {
           else
             messageElement.textContent = Common.UIString('Console was cleared');
           messageElement.title =
-              Common.UIString('Clear all messages with ' + UI.shortcutRegistry.shortcutTitleForAction('console.clear'));
+              ls`Clear all messages with ${UI.shortcutRegistry.shortcutTitleForAction('console.clear')}`;
           break;
         case SDK.ConsoleMessage.MessageType.Dir: {
           const obj = this._message.parameters ? this._message.parameters[0] : undefined;
@@ -1205,10 +1205,8 @@ Console.ConsoleViewMessage = class {
       return this._element;
 
     this._element = createElement('div');
-    if (Runtime.experiments.isEnabled('consoleKeyboardNavigation')) {
-      this._element.tabIndex = -1;
-      this._element.addEventListener('keydown', this._onKeyDown.bind(this));
-    }
+    this._element.tabIndex = -1;
+    this._element.addEventListener('keydown', this._onKeyDown.bind(this));
     this.updateMessageElement();
     return this._element;
   }

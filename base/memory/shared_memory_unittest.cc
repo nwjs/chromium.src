@@ -416,7 +416,7 @@ TEST_P(SharedMemoryTest, GetReadOnlyHandle) {
   uintptr_t addr;
   EXPECT_NE(ZX_OK, zx::vmar::root_self()->map(
                        0, *zx::unowned_vmo(handle.GetHandle()), 0,
-                       contents.size(), ZX_VM_FLAG_PERM_WRITE, &addr))
+                       contents.size(), ZX_VM_PERM_WRITE, &addr))
       << "Shouldn't be able to map as writable.";
 
   zx::vmo duped_handle;
@@ -872,13 +872,13 @@ TEST_P(SharedMemoryTest, MappedId) {
 }
 #endif  // !(defined(OS_MACOSX) && !defined(OS_IOS)
 
-INSTANTIATE_TEST_CASE_P(Default,
-                        SharedMemoryTest,
-                        ::testing::Values(Mode::Default));
+INSTANTIATE_TEST_SUITE_P(Default,
+                         SharedMemoryTest,
+                         ::testing::Values(Mode::Default));
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
-INSTANTIATE_TEST_CASE_P(SkipDevShm,
-                        SharedMemoryTest,
-                        ::testing::Values(Mode::DisableDevShm));
+INSTANTIATE_TEST_SUITE_P(SkipDevShm,
+                         SharedMemoryTest,
+                         ::testing::Values(Mode::DisableDevShm));
 #endif  // defined(OS_LINUX) && !defined(OS_CHROMEOS)
 
 #if defined(OS_ANDROID)

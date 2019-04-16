@@ -533,9 +533,6 @@ bool OmniboxEditModel::CanPasteAndGo(const base::string16& text) const {
   if (!client_->IsPasteAndGoEnabled())
     return false;
 
-  if (text.length() > kMaxPasteAndGoTextLength)
-    return false;
-
   AutocompleteMatch match;
   ClassifyString(text, &match, nullptr);
   return match.destination_url.is_valid();
@@ -676,14 +673,7 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
   autocomplete_controller()->UpdateMatchDestinationURLWithQueryFormulationTime(
       elapsed_time_since_user_first_modified_omnibox, &match);
 
-  // TODO(orinj): This is being used to distinguish between button
-  // press and other (keyboard/click) acceptance of suggestion but
-  // if in-suggestion side button Pedals are liked/kept by UX & PM then
-  // the meaning should be clarified.  Instead of relying on SWITCH_TO_TAB,
-  // it may make sense to add a new disposition and change/move this code.
-  const bool button_pressed =
-      disposition == WindowOpenDisposition::SWITCH_TO_TAB;
-  if (match.pedal && match.pedal->ShouldExecute(button_pressed)) {
+  if (match.pedal) {
     {
       // This block resets omnibox to unedited state and closes popup, which
       // may not seem necessary in cases of navigation but makes sense for
@@ -835,8 +825,9 @@ void OmniboxEditModel::OpenMatch(AutocompleteMatch match,
   if (match.destination_url.is_valid()) {
     // This calls RevertAll again.
     base::AutoReset<bool> tmp(&in_revert_, true);
+
     controller_->OnAutocompleteAccept(
-        match.destination_url, disposition,
+        match.destination_url, match.post_content.get(), disposition,
         ui::PageTransitionFromInt(match.transition |
                                   ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
         match.type, match_selection_timestamp);
@@ -859,6 +850,8 @@ bool OmniboxEditModel::AcceptKeyword(
 
   is_keyword_hint_ = false;
   keyword_mode_entry_method_ = entry_method;
+  if (original_user_text_with_keyword_.empty())
+    original_user_text_with_keyword_ = user_text_;
   user_text_ = MaybeStripKeyword(user_text_);
 
   if (PopupIsOpen())
@@ -895,7 +888,8 @@ bool OmniboxEditModel::AcceptKeyword(
                                        match, save_original_selection, true);
   } else {
     const AutocompleteMatch& match = CurrentMatch(nullptr);
-    view_->OnTemporaryTextMaybeChanged(user_text_, match, false, true);
+    view_->OnTemporaryTextMaybeChanged(user_text_, match, !has_temporary_text_,
+                                       true);
   }
 
   base::RecordAction(base::UserMetricsAction("AcceptedKeywordHint"));
@@ -1135,7 +1129,19 @@ void OmniboxEditModel::OnUpOrDownKeyPressed(int count) {
   if (PopupIsOpen()) {
     // The popup is open, so the user should be able to interact with it
     // normally.
-    popup_model()->Move(count);
+
+    // If, as a result of the key press, we would select the first result, then
+    // we should revert the temporary text same as what pressing escape would
+    // have done. In the future, if the selection behavior becomes more involved
+    // (e.g. wrap around), then we should consider creating a helper method
+    // GetNewSelectionLine(int cont) to be compared with 0 here and to be reused
+    // in OmniboxPopupModel::Move.
+    if (has_temporary_text_ && count < 0 &&
+        (unsigned)-count >= popup_model()->selected_line()) {
+      RevertTemporaryText(true);
+    } else {
+      popup_model()->Move(count);
+    }
     return;
   }
 
@@ -1163,6 +1169,13 @@ void OmniboxEditModel::OnPopupDataChanged(
     GURL* destination_for_temporary_text_change,
     const base::string16& keyword,
     bool is_keyword_hint) {
+  if (!original_user_text_with_keyword_.empty() &&
+      !destination_for_temporary_text_change &&
+      (keyword.empty() || is_keyword_hint)) {
+    user_text_ = original_user_text_with_keyword_;
+    original_user_text_with_keyword_.clear();
+  }
+
   // The popup changed its data, the match in the controller is no longer valid.
   omnibox_controller_->InvalidateCurrentMatch();
 
@@ -1174,8 +1187,6 @@ void OmniboxEditModel::OnPopupDataChanged(
     keyword_ = keyword;
     is_keyword_hint_ = is_keyword_hint;
     if (!keyword_was_selected && is_keyword_selected()) {
-      // We just entered keyword mode, so remove the keyword from the input.
-      user_text_ = MaybeStripKeyword(user_text_);
       // Since we entered keyword mode, record the reason. Note that we
       // don't do this simply because the keyword changes, since the user
       // never left keyword mode.
@@ -1209,8 +1220,10 @@ void OmniboxEditModel::OnPopupDataChanged(
     // right answer here :(
 
     const AutocompleteMatch& match = CurrentMatch(nullptr);
-    view_->OnTemporaryTextMaybeChanged(MaybeStripKeyword(text), match,
-                                       save_original_selection, true);
+    view_->OnTemporaryTextMaybeChanged(
+        MaybeStripKeyword(text), match,
+        save_original_selection && original_user_text_with_keyword_.empty(),
+        true);
     return;
   }
 
@@ -1221,7 +1234,8 @@ void OmniboxEditModel::OnPopupDataChanged(
 
   const base::string16& user_text =
       user_input_in_progress_ ? user_text_ : view_->GetText();
-  if (keyword_state_changed && is_keyword_selected()) {
+  if (keyword_state_changed && is_keyword_selected() &&
+      inline_autocomplete_text_.empty()) {
     // If we reach here, the user most likely entered keyword mode by inserting
     // a space between a keyword name and a search string (as pressing space or
     // tab after the keyword name alone would have been be handled in
@@ -1237,19 +1251,9 @@ void OmniboxEditModel::OnPopupDataChanged(
     // temporary text back to a default match that's a keyword search, but in
     // that case the RevertTemporaryText() call below will reset the caret or
     // selection correctly so the caret positioning we do here won't matter.
-    view_->SetWindowTextAndCaretPos(user_text, 0, false, false);
+    view_->SetWindowTextAndCaretPos(user_text, 0, false, true);
   } else if (view_->OnInlineAutocompleteTextMaybeChanged(
                  user_text + inline_autocomplete_text_, user_text.length())) {
-    call_controller_onchanged = false;
-  }
-
-  // If |has_temporary_text_| is true, then we previously had a manual selection
-  // but now don't (or |destination_for_temporary_text_change| would have been
-  // non-null).  This can happen when deleting the selected item in the popup.
-  // In this case, we've already reverted the popup to the default match, so we
-  // need to revert ourselves as well.
-  if (has_temporary_text_) {
-    RevertTemporaryText(false);
     call_controller_onchanged = false;
   }
 
@@ -1389,6 +1393,16 @@ void OmniboxEditModel::OnCurrentMatchChanged() {
   match.GetKeywordUIState(service, &keyword, &is_keyword_hint);
   if (popup_model())
     popup_model()->OnResultChanged();
+
+  if (!is_keyword_selected() && !is_keyword_hint && !keyword.empty()) {
+    // We just entered keyword mode, so remove the keyword from the input.
+    // We don't call MaybeStripKeyword, as we haven't yet updated our internal
+    // state (keyword_ and is_keyword_hint_), and MaybeStripKeyword checks this.
+    user_text_ =
+        KeywordProvider::SplitReplacementStringFromInput(user_text_, false);
+    original_user_text_with_keyword_.clear();
+  }
+
   // OnPopupDataChanged() resets OmniboxController's |current_match_| early
   // on.  Therefore, copy match.inline_autocompletion to a temp to preserve
   // its value across the entire call.
@@ -1406,6 +1420,7 @@ bool OmniboxEditModel::PopupIsOpen() const {
 
 void OmniboxEditModel::InternalSetUserText(const base::string16& text) {
   user_text_ = text;
+  original_user_text_with_keyword_.clear();
   just_deleted_text_ = false;
   inline_autocomplete_text_.clear();
   view_->OnInlineAutocompleteTextCleared();
@@ -1473,7 +1488,9 @@ void OmniboxEditModel::RevertTemporaryText(bool revert_popup) {
 
   if (revert_popup && popup_model())
     popup_model()->ResetToDefaultMatch();
-  view_->OnRevertTemporaryText();
+
+  const AutocompleteMatch& match = CurrentMatch(nullptr);
+  view_->OnRevertTemporaryText(match.fill_into_edit, match);
 }
 
 bool OmniboxEditModel::MaybeAcceptKeywordBySpace(

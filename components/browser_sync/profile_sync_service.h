@@ -20,7 +20,6 @@
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
-#include "components/browser_sync/sync_user_settings_impl.h"
 #include "components/invalidation/public/identity_provider.h"
 #include "components/sync/base/experiments.h"
 #include "components/sync/base/model_type.h"
@@ -35,6 +34,7 @@
 #include "components/sync/driver/sync_service.h"
 #include "components/sync/driver/sync_service_crypto.h"
 #include "components/sync/driver/sync_stopped_reporter.h"
+#include "components/sync/driver/sync_user_settings_impl.h"
 #include "components/sync/engine/configure_reason.h"
 #include "components/sync/engine/events/protocol_event_observer.h"
 #include "components/sync/engine/net/network_time_update_callback.h"
@@ -42,7 +42,6 @@
 #include "components/sync/engine/sync_engine.h"
 #include "components/sync/engine/sync_engine_host.h"
 #include "components/sync/js/sync_js_controller.h"
-#include "components/version_info/version_info.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/identity/public/cpp/identity_manager.h"
@@ -185,9 +184,9 @@ class ProfileSyncService : public syncer::SyncService,
   int GetDisableReasons() const override;
   TransportState GetTransportState() const override;
   bool IsLocalSyncEnabled() const override;
-  AccountInfo GetAuthenticatedAccountInfo() const override;
+  CoreAccountInfo GetAuthenticatedAccountInfo() const override;
   bool IsAuthenticatedAccountPrimary() const override;
-  const GoogleServiceAuthError& GetAuthError() const override;
+  GoogleServiceAuthError GetAuthError() const override;
   std::unique_ptr<syncer::SyncSetupInProgressHandle> GetSetupInProgressHandle()
       override;
   bool IsSetupInProgress() const override;
@@ -204,8 +203,12 @@ class ProfileSyncService : public syncer::SyncService,
   void AddObserver(syncer::SyncServiceObserver* observer) override;
   void RemoveObserver(syncer::SyncServiceObserver* observer) override;
   bool HasObserver(const syncer::SyncServiceObserver* observer) const override;
-  bool IsPassphraseRequiredForDecryption() const override;
-  bool IsUsingSecondaryPassphrase() const override;
+  void AddPreferenceProvider(
+      syncer::SyncTypePreferenceProvider* provider) override;
+  void RemovePreferenceProvider(
+      syncer::SyncTypePreferenceProvider* provider) override;
+  bool HasPreferenceProvider(
+      syncer::SyncTypePreferenceProvider* provider) const override;
   syncer::UserShare* GetUserShare() const override;
   syncer::SyncTokenStatus GetSyncTokenStatus() const override;
   bool QueryDetailedSyncStatus(syncer::SyncStatus* result) const override;
@@ -226,16 +229,6 @@ class ProfileSyncService : public syncer::SyncService,
   base::WeakPtr<syncer::JsController> GetJsController() override;
   void GetAllNodes(const base::Callback<void(std::unique_ptr<base::ListValue>)>&
                        callback) override;
-
-  // Add a sync type preference provider. Each provider may only be added once.
-  void AddPreferenceProvider(syncer::SyncTypePreferenceProvider* provider);
-  // Remove a sync type preference provider. May only be called for providers
-  // that have been added. Providers must not remove themselves while being
-  // called back.
-  void RemovePreferenceProvider(syncer::SyncTypePreferenceProvider* provider);
-  // Check whether a given sync type preference provider has been added.
-  bool HasPreferenceProvider(
-      syncer::SyncTypePreferenceProvider* provider) const;
 
   // SyncEngineHost implementation.
   void OnEngineInitialized(
@@ -269,9 +262,10 @@ class ProfileSyncService : public syncer::SyncService,
       const syncer::DataTypeManager::ConfigureResult& result) override;
   void OnConfigureStart() override;
 
-  // DataTypeEncryptionHandler implementation.
-  bool IsPassphraseRequired() const override;
-  syncer::ModelTypeSet GetEncryptedDataTypes() const override;
+  // TODO(crbug.com/884159): Remove these; they should be queried via
+  // SyncUserSettings instead.
+  bool IsPassphraseRequired() const;
+  syncer::ModelTypeSet GetEncryptedDataTypes() const;
 
   // IdentityManager::Observer implementation.
   void OnAccountsInCookieUpdated(
@@ -288,22 +282,9 @@ class ProfileSyncService : public syncer::SyncService,
   bool HasCookieJarMismatch(
       const std::vector<gaia::ListedAccount>& cookie_jar_accounts);
 
-  // Reconfigures the data type manager with the latest enabled types.
-  // Note: Does not initialize the engine if it is not already initialized.
-  // If a Sync setup is currently in progress (i.e. a settings UI is open), then
-  // the reconfiguration will only happen if |bypass_setup_in_progress_check| is
-  // set to true.
-  void ReconfigureDatatypeManager(bool bypass_setup_in_progress_check);
-
   syncer::PassphraseRequiredReason passphrase_required_reason_for_test() const {
     return crypto_.passphrase_required_reason();
   }
-
-  // Returns whether sync is allowed to run based on command-line switches.
-  // Profile::IsSyncAllowed() is probably a better signal than this function.
-  // This function can be called from any thread, and the implementation doesn't
-  // assume it's running on the UI thread.
-  static bool IsSyncAllowedByFlag();
 
   // syncer::UnrecoverableErrorHandler implementation.
   void OnUnrecoverableError(const base::Location& from_here,
@@ -327,9 +308,7 @@ class ProfileSyncService : public syncer::SyncService,
   void OnSyncManagedPrefChange(bool is_sync_managed) override;
   void OnFirstSetupCompletePrefChange(bool is_first_setup_complete) override;
   void OnSyncRequestedPrefChange(bool is_sync_requested) override;
-  void OnPreferredDataTypesPrefChange(
-      bool sync_everything,
-      syncer::ModelTypeSet preferred_types) override;
+  void OnPreferredDataTypesPrefChange() override;
 
   // Returns true if the syncer is waiting for new datatypes to be encrypted.
   bool encryption_pending() const;
@@ -353,6 +332,9 @@ class ProfileSyncService : public syncer::SyncService,
   // killed in the near future.
   void FlushDirectory() const;
 
+  bool IsPassphrasePrompted() const;
+  void SetPassphrasePrompted(bool prompted);
+
   void SyncAllowedByPlatformChanged(bool allowed);
 
   // Sometimes we need to wait for tasks on the sync thread in tests.
@@ -361,10 +343,6 @@ class ProfileSyncService : public syncer::SyncService,
 
   // Some tests rely on injecting calls to the encryption observer.
   syncer::SyncEncryptionHandler::Observer* GetEncryptionObserverForTest();
-
-  // Calls sync engine to send ClearServerDataMessage to server. This is used
-  // to start accounts with a clean slate when performing end to end testing.
-  void ClearServerDataForTest(const base::Closure& callback);
 
   syncer::SyncClient* GetSyncClientForTest();
 
@@ -395,9 +373,6 @@ class ProfileSyncService : public syncer::SyncService,
 
   bool IsEngineAllowedToStart() const;
 
-  // Callback for StartupController.
-  bool ShouldStartEngine(bool bypass_first_setup_check) const;
-
   enum UnrecoverableErrorReason {
     ERROR_REASON_UNSET,
     ERROR_REASON_SYNCER,
@@ -409,6 +384,13 @@ class ProfileSyncService : public syncer::SyncService,
   };
 
   friend class TestProfileSyncService;
+
+  // Reconfigures the data type manager with the latest enabled types.
+  // Note: Does not initialize the engine if it is not already initialized.
+  // If a Sync setup is currently in progress (i.e. a settings UI is open), then
+  // the reconfiguration will only happen if |bypass_setup_in_progress_check| is
+  // set to true.
+  void ReconfigureDatatypeManager(bool bypass_setup_in_progress_check);
 
   // Helper to install and configure a data type manager.
   void ConfigureDataTypeManager(syncer::ConfigureReason reason);
@@ -474,22 +456,6 @@ class ProfileSyncService : public syncer::SyncService,
   // Estimates and records memory usage histograms per type.
   void RecordMemoryUsageHistograms();
 
-  // After user switches to custom passphrase encryption a set of steps needs to
-  // be performed:
-  //
-  // - Download all latest updates from server (catch up configure).
-  // - Clear user data on server.
-  // - Clear directory so that data is merged from model types and encrypted.
-  //
-  // SyncServiceCrypto::BeginConfigureCatchUpBeforeClear() and the following two
-  // functions perform these steps.
-
-  // Calls sync engine to send ClearServerDataMessage to server.
-  void ClearAndRestartSyncForPassphraseEncryption();
-
-  // Restarts sync clearing directory in the process.
-  void OnClearServerDataDone();
-
   // True if setup has been completed at least once and is not in progress.
   bool CanConfigureDataTypes(bool bypass_setup_in_progress_check) const;
 
@@ -510,7 +476,7 @@ class ProfileSyncService : public syncer::SyncService,
   // email address and sign-out upon error.
   identity::IdentityManager* const identity_manager_;
 
-  std::unique_ptr<SyncUserSettingsImpl> user_settings_;
+  std::unique_ptr<syncer::SyncUserSettingsImpl> user_settings_;
 
   // Handles tracking of the authenticated account and acquiring access tokens.
   // Only null after Shutdown().

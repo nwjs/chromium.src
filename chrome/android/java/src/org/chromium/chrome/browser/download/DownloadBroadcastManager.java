@@ -21,7 +21,6 @@ import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -34,6 +33,7 @@ import org.chromium.base.VisibleForTesting;
 import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.chrome.browser.ChromeApplication;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.download.DownloadNotificationUmaHelper.UmaDownloadResumption;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorNotificationBridgeUiFactory;
 import org.chromium.chrome.browser.init.BrowserParts;
@@ -313,7 +313,9 @@ public class DownloadBroadcastManager extends Service {
      * @return delegate for interactions with the entry
      */
     static DownloadServiceDelegate getServiceDelegate(ContentId id) {
-        if (LegacyHelpers.isLegacyDownload(id)) {
+        if (LegacyHelpers.isLegacyDownload(id)
+                && !ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.DOWNLOAD_OFFLINE_CONTENT_PROVIDER)) {
             return DownloadManagerService.getDownloadManagerService();
         }
         return OfflineContentAggregatorNotificationBridgeUiFactory.instance();
@@ -333,23 +335,25 @@ public class DownloadBroadcastManager extends Service {
         }
 
         long id = ids[0];
-        Uri uri = DownloadManagerDelegate.getContentUriFromDownloadManager(context, id);
-        if (uri == null) {
-            DownloadManagerService.openDownloadsPage(context);
-            return;
-        }
+        DownloadManagerBridge.queryDownloadResult(id, result -> {
+            if (result.contentUri == null) {
+                DownloadManagerService.openDownloadsPage(context);
+                return;
+            }
 
-        String downloadFilename = IntentUtils.safeGetStringExtra(
-                intent, DownloadNotificationService.EXTRA_DOWNLOAD_FILE_PATH);
-        boolean isSupportedMimeType = IntentUtils.safeGetBooleanExtra(
-                intent, DownloadNotificationService.EXTRA_IS_SUPPORTED_MIME_TYPE, false);
-        boolean isOffTheRecord = IntentUtils.safeGetBooleanExtra(
-                intent, DownloadNotificationService.EXTRA_IS_OFF_THE_RECORD, false);
-        String originalUrl = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_ORIGINATING_URI);
-        String referrer = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_REFERRER);
-        DownloadManagerService.openDownloadedContent(context, downloadFilename, isSupportedMimeType,
-                isOffTheRecord, contentId.id, id, originalUrl, referrer,
-                DownloadMetrics.DownloadOpenSource.NOTIFICATION);
+            String downloadFilename = IntentUtils.safeGetStringExtra(
+                    intent, DownloadNotificationService.EXTRA_DOWNLOAD_FILE_PATH);
+            boolean isSupportedMimeType = IntentUtils.safeGetBooleanExtra(
+                    intent, DownloadNotificationService.EXTRA_IS_SUPPORTED_MIME_TYPE, false);
+            boolean isOffTheRecord = IntentUtils.safeGetBooleanExtra(
+                    intent, DownloadNotificationService.EXTRA_IS_OFF_THE_RECORD, false);
+            String originalUrl =
+                    IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_ORIGINATING_URI);
+            String referrer = IntentUtils.safeGetStringExtra(intent, Intent.EXTRA_REFERRER);
+            DownloadManagerService.openDownloadedContent(context, downloadFilename,
+                    isSupportedMimeType, isOffTheRecord, contentId.id, id, originalUrl, referrer,
+                    DownloadMetrics.DownloadOpenSource.NOTIFICATION);
+        });
     }
 
     @Nullable

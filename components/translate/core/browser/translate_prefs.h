@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -138,9 +139,11 @@ class TranslatePrefs {
   static const char kPrefTranslateLastDeniedTimeForLanguage[];
   static const char kPrefTranslateTooOftenDeniedForLanguage[];
   static const char kPrefTranslateRecentTarget[];
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
   static const char kPrefTranslateAutoAlwaysCount[];
   static const char kPrefTranslateAutoNeverCount[];
+#endif
+#if defined(OS_ANDROID)
   static const char kPrefExplicitLanguageAskShown[];
 #endif
 
@@ -233,9 +236,6 @@ class TranslatePrefs {
   void RemoveLanguagePairFromWhitelist(const std::string& original_language,
                                        const std::string& target_language);
 
-  // Will return true if at least one language has been blacklisted.
-  bool HasBlockedLanguages() const;
-
   // Will return true if at least one site has been blacklisted.
   bool HasBlacklistedSites() const;
 
@@ -259,7 +259,7 @@ class TranslatePrefs {
   void IncrementTranslationAcceptedCount(const std::string& language);
   void ResetTranslationAcceptedCount(const std::string& language);
 
-#if defined(OS_ANDROID)
+#if defined(OS_ANDROID) || defined(OS_IOS)
   // These methods are used to track how many times the auto-always translation
   // has been triggered for a specific language.
   int GetTranslationAutoAlwaysCount(const std::string& language) const;
@@ -271,7 +271,9 @@ class TranslatePrefs {
   int GetTranslationAutoNeverCount(const std::string& language) const;
   void IncrementTranslationAutoNeverCount(const std::string& language);
   void ResetTranslationAutoNeverCount(const std::string& language);
+#endif
 
+#if defined(OS_ANDROID)
   // These methods are used to determine whether the explicit language ask
   // prompt was displayed to the user already.
   bool GetExplicitLanguageAskPromptShown() const;
@@ -319,6 +321,10 @@ class TranslatePrefs {
   // to a timestamp of the creation of this entry.
   void MigrateSitesBlacklist();
 
+  // Prevent empty blocked languages by resetting them to the default value.
+  // (crbug.com/902354)
+  void ResetEmptyBlockedLanguagesToDefaults();
+
   static void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
  private:
@@ -343,6 +349,9 @@ class TranslatePrefs {
   // Updates the language list of the language settings.
   void UpdateLanguageList(const std::vector<std::string>& languages);
 
+  // Will return true if at least one language has been blocked.
+  bool HasBlockedLanguages() const;
+
   // Merges two language sets to migrate to the language setting UI.
   static void CreateBlockedLanguages(
       std::vector<std::string>* blocked_languages,
@@ -352,12 +361,15 @@ class TranslatePrefs {
   void ClearBlockedLanguages();
   void ClearBlacklistedSites();
   void ClearWhitelistedLanguagePairs();
+
+  // |pref_id| is the name of a list pref.
   bool IsValueBlacklisted(const char* pref_id, const std::string& value) const;
   void BlacklistValue(const char* pref_id, const std::string& value);
   void RemoveValueFromBlacklist(const char* pref_id, const std::string& value);
   bool IsValueInList(const base::ListValue* list,
                      const std::string& value) const;
-  bool IsListEmpty(const char* pref_id) const;
+  size_t GetListSize(const char* pref_id) const;
+
   bool IsDictionaryEmpty(const char* pref_id) const;
   // Removes from the language list any language that isn't supported as an
   // Accept-Language (it's not in kAcceptLanguageList) if and only if there
@@ -382,6 +394,10 @@ class TranslatePrefs {
   // Retrieves the dictionary mapping the number of times translation has been
   // accepted for a language, creating it if necessary.
   base::DictionaryValue* GetTranslationAcceptedCountDictionary() const;
+
+  // Returns the languages that should be blocked by default as a
+  // base::(List)Value.
+  static base::Value GetDefaultBlockedLanguages();
 
   PrefService* prefs_;  // Weak.
 

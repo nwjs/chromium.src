@@ -207,7 +207,7 @@ void ValidateFileCallback(
       break;
   }
   offline_header.need_to_persist = true;
-  offline_header.id = base::Int64ToString(offline_id);
+  offline_header.id = base::NumberToString(offline_id);
 
   RunLoadUrlParamsCallbackAndroid(j_callback_obj, launch_url, offline_header);
 }
@@ -289,14 +289,6 @@ void PublishPageDone(
 }
 
 }  // namespace
-
-static jboolean JNI_OfflinePageBridge_IsOfflineBookmarksEnabled(JNIEnv* env) {
-  return offline_pages::IsOfflineBookmarksEnabled();
-}
-
-static jboolean JNI_OfflinePageBridge_IsPageSharingEnabled(JNIEnv* env) {
-  return offline_pages::IsOfflinePagesSharingEnabled();
-}
 
 static jboolean JNI_OfflinePageBridge_CanSavePage(
     JNIEnv* env,
@@ -1043,7 +1035,7 @@ void OfflinePageBridge::GetPageBySizeAndDigestDone(
             ? offline_pages::OfflinePageHeader::Reason::FILE_URL_INTENT
             : offline_pages::OfflinePageHeader::Reason::CONTENT_URL_INTENT;
     offline_header.need_to_persist = true;
-    offline_header.id = base::Int64ToString(offline_page->offline_id);
+    offline_header.id = base::NumberToString(offline_page->offline_id);
     offline_header.intent_url = intent_url;
   } else {
     // If the offline page can't be found, launch the intent URL.

@@ -1,21 +1,19 @@
 <link rel="import" href="chrome://resources/html/polymer.html">
 
-<link rel="import" href="app_item.html">
+<link rel="import" href="expandable_app_list.html">
 <link rel="import" href="shared_style.html">
 <link rel="import" href="store_client.html">
-<link rel="import" href="chrome://resources/html/icon.html">
-<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
 <link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button-light.html">
 
 <dom-module id="app-management-notifications-view">
   <template>
     <style include="app-management-shared-css">
-      cr-toggle {
-        margin-inline-end: 24px;
-      }
-
       paper-icon-button-light {
         margin-inline-start: 0;
+      }
+
+      app-management-permission-toggle {
+        margin-inline-end: 24px;
       }
 
       #notification-view-header {
@@ -26,46 +24,33 @@
       }
 
       #notification-title {
-        padding-start: 12px;
+        padding-inline-start: 12px;
       }
     </style>
-    <!-- TODO(ceciliani) Make this view a separate element to avoid duplicate
-    code with main view -->
+    <!-- TODO(crbug.com/906508): Implement display when there is no apps at
+    all  -->
     <div id="notification-view-header">
       <paper-icon-button-light class="icon-arrow-back">
         <button id="closeButton" on-click="onClickBackButton_"
-        aria-label="$i18n{back}">
+            aria-label="$i18n{back}">
           <paper-ripple class="circle"></paper-ripple>
         </button>
       </paper-icon-button-light>
       <div id="notification-title" class="page-title">$i18n{notifications}</div>
     </div>
-
-    <div class="card-container">
-      <template is="dom-repeat" items="[[displayedApps_]]">
-        <app-management-app-item app="[[item]]">
-          <cr-toggle slot="right-content"></cr-toggle>
+    <app-management-expandable-app-list
+        apps="[[appsList_]]"
+        collapsed-size="[[getCollapsedSize_(appsList_)]]">
+      <template is="dom-repeat" items="[[appsList_]]"
+                as="app" notify-dom-change>
+        <app-management-app-item app="[[app]]">
+          <app-management-permission-toggle slot="right-content"
+              app="[[app]]"
+              permission-type="CONTENT_SETTINGS_TYPE_NOTIFICATIONS">
+          </app-management-permission-toggle>
         </app-management-app-item>
       </template>
-
-      <iron-collapse opened="[[listExpanded_]]">
-        <template is="dom-repeat" items="[[collapsedApps_]]">
-          <app-management-app-item app="[[item]]">
-            <cr-toggle slot="right-content"></cr-toggle>
-          </app-management-app-item>
-        </template>
-      </iron-collapse>
-
-      <div class="expander-list-row" on-click="toggleListExpanded_">
-        <span>[[moreAppsString_(apps_.length,listExpanded_)]]</span>
-        <paper-icon-button-light class="expand-button">
-          <button>
-            <iron-icon icon="[[getCollapsedIcon_(listExpanded_)]]">
-            </iron-icon>
-          </button>
-        </paper-icon-button-light>
-      </div>
-    </div>
+    </app-management-expandable-app-list>
   </template>
  <script src="notifications_view.js"></script>
 </dom-module>

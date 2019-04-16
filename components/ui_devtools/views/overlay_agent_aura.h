@@ -53,7 +53,7 @@ class OverlayAgentAura : public OverlayAgent,
 
   // Overlay::Backend:
   protocol::Response setInspectMode(
-      const String& in_mode,
+      const protocol::String& in_mode,
       protocol::Maybe<protocol::Overlay::HighlightConfig> in_highlightConfig)
       override;
   protocol::Response highlightNode(
@@ -63,7 +63,7 @@ class OverlayAgentAura : public OverlayAgent,
 
   HighlightRectsConfiguration highlight_rect_config() const {
     return highlight_rect_config_;
-  };
+  }
 
   // Return the id of the UI element located at |event|'s root location.
   // The function first searches for the targeted window, then the targeted

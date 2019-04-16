@@ -58,22 +58,8 @@ AXObject* AccessibilityMediaControl::Create(
     case kMediaSlider:
       return AccessibilityMediaTimeline::Create(layout_object, ax_object_cache);
 
-    case kMediaControlsPanel:
-      return AXMediaControlsContainer::Create(layout_object, ax_object_cache);
-
     case kMediaSliderThumb:
-    case kMediaTextTrackList:
     case kMediaTimelineContainer:
-    case kMediaTrackSelectionCheckmark:
-    case kMediaCastOffButton:
-    case kMediaCastOnButton:
-    case kMediaOverlayCastOffButton:
-    case kMediaOverlayCastOnButton:
-    case kMediaOverflowButton:
-    case kMediaOverflowList:
-    case kMediaScrubbingMessage:
-    case kMediaDisplayCutoutFullscreenButton:
-    case kMediaAnimatedArrowContainer:
       return MakeGarbageCollected<AccessibilityMediaControl>(layout_object,
                                                              ax_object_cache);
     // Removed as a part of the a11y tree rewrite https://crbug/836549.
@@ -114,26 +100,9 @@ String AccessibilityMediaControl::TextAlternative(
     AXRelatedObjectVector* related_objects,
     NameSources* name_sources) const {
   switch (ControlType()) {
-    case kMediaCastOffButton:
-    case kMediaOverlayCastOffButton:
-      return QueryString(WebLocalizedString::kAXMediaCastOffButton);
-    case kMediaCastOnButton:
-    case kMediaOverlayCastOnButton:
-      return QueryString(WebLocalizedString::kAXMediaCastOnButton);
-    case kMediaOverflowButton:
-      return QueryString(WebLocalizedString::kAXMediaOverflowButton);
     case kMediaSliderThumb:
-    case kMediaTextTrackList:
     case kMediaTimelineContainer:
-    case kMediaTrackSelectionCheckmark:
-    case kMediaControlsPanel:
-    case kMediaOverflowList:
-    case kMediaScrubbingMessage:
-    case kMediaAnimatedArrowContainer:
       return QueryString(WebLocalizedString::kAXMediaDefault);
-    case kMediaDisplayCutoutFullscreenButton:
-      return QueryString(
-          WebLocalizedString::kAXMediaDisplayCutoutFullscreenButton);
     case kMediaSlider:
     // Removed as a part of the a11y tree rewrite https://crbug/836549.
     case kMediaIgnore:
@@ -150,25 +119,8 @@ String AccessibilityMediaControl::Description(
     ax::mojom::DescriptionFrom& description_from,
     AXObjectVector* description_objects) const {
   switch (ControlType()) {
-    case kMediaOverflowButton:
-      return QueryString(WebLocalizedString::kAXMediaOverflowButtonHelp);
-    // The following descriptions are repeats of their respective titles. When
-    // read by accessibility, we get the same thing said twice, with no value
-    // added. So instead, we just return an empty string.
-    case kMediaDisplayCutoutFullscreenButton:
-    case kMediaCastOffButton:
-    case kMediaOverlayCastOffButton:
-    case kMediaCastOnButton:
-    case kMediaOverlayCastOnButton:
-      return "";
     case kMediaSliderThumb:
-    case kMediaTextTrackList:
     case kMediaTimelineContainer:
-    case kMediaTrackSelectionCheckmark:
-    case kMediaControlsPanel:
-    case kMediaOverflowList:
-    case kMediaScrubbingMessage:
-    case kMediaAnimatedArrowContainer:
       return QueryString(WebLocalizedString::kAXMediaDefault);
     case kMediaSlider:
     // Removed as a part of the a11y tree rewrite https://crbug/836549.
@@ -193,24 +145,10 @@ bool AccessibilityMediaControl::ComputeAccessibilityIsIgnored(
 
 ax::mojom::Role AccessibilityMediaControl::RoleValue() const {
   switch (ControlType()) {
-    case kMediaOverlayCastOffButton:
-    case kMediaOverlayCastOnButton:
-    case kMediaOverflowButton:
-    case kMediaCastOnButton:
-    case kMediaCastOffButton:
-    case kMediaDisplayCutoutFullscreenButton:
-      return ax::mojom::Role::kButton;
-
     case kMediaTimelineContainer:
-    case kMediaTextTrackList:
-    case kMediaOverflowList:
       return ax::mojom::Role::kGroup;
 
-    case kMediaControlsPanel:
     case kMediaSliderThumb:
-    case kMediaTrackSelectionCheckmark:
-    case kMediaScrubbingMessage:
-    case kMediaAnimatedArrowContainer:
       return ax::mojom::Role::kUnknown;
 
     case kMediaSlider:
@@ -222,46 +160,6 @@ ax::mojom::Role AccessibilityMediaControl::RoleValue() const {
 
   NOTREACHED();
   return ax::mojom::Role::kUnknown;
-}
-
-//
-// AXMediaControlsContainer
-
-AXMediaControlsContainer::AXMediaControlsContainer(
-    LayoutObject* layout_object,
-    AXObjectCacheImpl& ax_object_cache)
-    : AccessibilityMediaControl(layout_object, ax_object_cache) {}
-
-AXObject* AXMediaControlsContainer::Create(LayoutObject* layout_object,
-                                           AXObjectCacheImpl& ax_object_cache) {
-  return MakeGarbageCollected<AXMediaControlsContainer>(layout_object,
-                                                        ax_object_cache);
-}
-
-String AXMediaControlsContainer::TextAlternative(
-    bool recursive,
-    bool in_aria_labelled_by_traversal,
-    AXObjectSet& visited,
-    ax::mojom::NameFrom& name_from,
-    AXRelatedObjectVector* related_objects,
-    NameSources* name_sources) const {
-  return QueryString(IsControllingVideoElement()
-                         ? WebLocalizedString::kAXMediaVideoElement
-                         : WebLocalizedString::kAXMediaAudioElement);
-}
-
-String AXMediaControlsContainer::Description(
-    ax::mojom::NameFrom name_from,
-    ax::mojom::DescriptionFrom& description_from,
-    AXObjectVector* description_objects) const {
-  return QueryString(IsControllingVideoElement()
-                         ? WebLocalizedString::kAXMediaVideoElementHelp
-                         : WebLocalizedString::kAXMediaAudioElementHelp);
-}
-
-bool AXMediaControlsContainer::ComputeAccessibilityIsIgnored(
-    IgnoredReasons* ignored_reasons) const {
-  return AccessibilityIsIgnoredByDefault(ignored_reasons);
 }
 
 //

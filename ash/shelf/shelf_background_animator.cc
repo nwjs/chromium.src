@@ -143,13 +143,12 @@ int ShelfBackgroundAnimator::GetBackgroundAlphaValue(
     ShelfBackgroundType background_type) const {
   switch (background_type) {
     case SHELF_BACKGROUND_DEFAULT:
+    case SHELF_BACKGROUND_OVERVIEW:
       return kShelfTranslucentAlpha;
     case SHELF_BACKGROUND_MAXIMIZED:
       return kShelfTranslucentMaximizedWindow;
     case SHELF_BACKGROUND_APP_LIST:
       return kShelfTranslucentOverAppList;
-    case SHELF_BACKGROUND_SPLIT_VIEW:
-      return ShelfBackgroundAnimator::kMaxAlpha;
     case SHELF_BACKGROUND_OOBE:
       return SK_AlphaTRANSPARENT;
     case SHELF_BACKGROUND_LOGIN:
@@ -226,10 +225,10 @@ void ShelfBackgroundAnimator::CreateAnimator(
       duration_ms = 500;
       break;
     case SHELF_BACKGROUND_MAXIMIZED:
-    case SHELF_BACKGROUND_SPLIT_VIEW:
     case SHELF_BACKGROUND_OOBE:
     case SHELF_BACKGROUND_LOGIN:
     case SHELF_BACKGROUND_LOGIN_NONBLURRED_WALLPAPER:
+    case SHELF_BACKGROUND_OVERVIEW:
       duration_ms = 250;
       break;
   }
@@ -267,13 +266,11 @@ void ShelfBackgroundAnimator::GetTargetValues(
   switch (background_type) {
     case SHELF_BACKGROUND_DEFAULT:
     case SHELF_BACKGROUND_APP_LIST:
+    case SHELF_BACKGROUND_OVERVIEW:
       shelf_target_color = darken_wallpaper(kShelfTranslucentColorDarkenAlpha);
       break;
     case SHELF_BACKGROUND_MAXIMIZED:
       shelf_target_color = darken_wallpaper(kShelfOpaqueColorDarkenAlpha);
-      break;
-    case SHELF_BACKGROUND_SPLIT_VIEW:
-      shelf_target_color = darken_wallpaper(ShelfBackgroundAnimator::kMaxAlpha);
       break;
     case SHELF_BACKGROUND_OOBE:
       shelf_target_color = SK_ColorTRANSPARENT;

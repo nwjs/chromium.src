@@ -9,11 +9,12 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/json/json_writer.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/multiprocess_test.h"
-#include "chrome/credential_provider/common/gcp_strings.h"
 #include "chrome/credential_provider/gaiacp/gaia_credential_provider_i.h"
 #include "chrome/credential_provider/gaiacp/scoped_lsa_policy.h"
+#include "chrome/credential_provider/test/gcp_fakes.h"
 #include "chrome/credential_provider/test/test_credential.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/multiprocess_func_list.h"
@@ -22,6 +23,7 @@ namespace credential_provider {
 
 namespace switches {
 
+constexpr char kDefaultExitCode[] = "default-exit-code";
 constexpr char kGlsUserEmail[] = "gls-user-email";
 constexpr char kStartGlsEventName[] = "start-gls-event-name";
 constexpr char kOverrideGaiaId[] = "override-gaia-id";
@@ -32,9 +34,8 @@ namespace testing {
 
 // Corresponding default email and username for tests that don't override them.
 const char kDefaultEmail[] = "foo@gmail.com";
+const char kDefaultGaiaId[] = "test-gaia-id";
 const wchar_t kDefaultUsername[] = L"foo";
-
-}  // namespace testing
 
 namespace {
 
@@ -59,9 +60,12 @@ MULTIPROCESS_TEST_MAIN(gls_main) {
     }
   }
 
+  int default_exit_code = kUiecSuccess;
+  EXPECT_TRUE(base::StringToInt(
+      command_line->GetSwitchValueASCII(switches::kDefaultExitCode),
+      &default_exit_code));
   std::string gls_email =
       command_line->GetSwitchValueASCII(switches::kGlsUserEmail);
-
   std::string gaia_id_override =
       command_line->GetSwitchValueASCII(switches::kOverrideGaiaId);
   std::string expected_gaia_id =
@@ -73,13 +77,13 @@ MULTIPROCESS_TEST_MAIN(gls_main) {
   } else {
     EXPECT_EQ(gls_email, std::string());
   }
-  constexpr char default_gaia_id[] = "1234567890";
   if (expected_gaia_id.empty())
-    expected_gaia_id = default_gaia_id;
+    expected_gaia_id = kDefaultGaiaId;
   base::DictionaryValue dict;
   if (!gaia_id_override.empty() && gaia_id_override != expected_gaia_id) {
     dict.SetInteger(kKeyExitCode, kUiecEMailMissmatch);
   } else {
+    dict.SetInteger(kKeyExitCode, static_cast<UiExitCodes>(default_exit_code));
     dict.SetString(kKeyEmail, expected_email);
     dict.SetString(kKeyFullname, "Full Name");
     dict.SetString(kKeyId, expected_gaia_id);
@@ -103,12 +107,12 @@ MULTIPROCESS_TEST_MAIN(gls_main) {
 }
 }  // namespace
 
-FakeGlsRunHelper::FakeGlsRunHelper() {
+FakeGlsRunHelper::FakeGlsRunHelper(FakeOSUserManager* fake_os_user_manager) {
   // Create the special gaia account used to run GLS and save its password.
 
   BSTR sid;
   DWORD error;
-  EXPECT_EQ(S_OK, fake_os_user_manager_.AddUser(
+  EXPECT_EQ(S_OK, fake_os_user_manager->AddUser(
                       kDefaultGaiaAccountName, L"password", L"fullname",
                       L"comment", true, &sid, &error));
 
@@ -119,13 +123,6 @@ FakeGlsRunHelper::FakeGlsRunHelper() {
 }
 
 FakeGlsRunHelper::~FakeGlsRunHelper() = default;
-
-void FakeGlsRunHelper::SetUp() {
-  // Make sure not to read random GCPW settings from the machine that is running
-  // the tests.
-  ASSERT_NO_FATAL_FAILURE(
-      registry_override_.OverrideRegistry(HKEY_LOCAL_MACHINE));
-}
 
 HRESULT FakeGlsRunHelper::StartLogonProcess(ICredentialProviderCredential* cred,
                                             bool succeeds) {
@@ -154,22 +151,24 @@ HRESULT FakeGlsRunHelper::StartLogonProcess(ICredentialProviderCredential* cred,
 HRESULT FakeGlsRunHelper::WaitForLogonProcess(
     ICredentialProviderCredential* cred) {
   CComPtr<testing::ITestCredential> test;
-  EXPECT_EQ(S_OK, cred->QueryInterface(__uuidof(testing::ITestCredential),
-                                       reinterpret_cast<void**>(&test)));
-  EXPECT_EQ(S_OK, test->WaitForGls());
-
-  return S_OK;
+  HRESULT hr = cred->QueryInterface(__uuidof(testing::ITestCredential),
+                                    reinterpret_cast<void**>(&test));
+  if (FAILED(hr))
+    return hr;
+  return test->WaitForGls();
 }
 
 HRESULT FakeGlsRunHelper::StartLogonProcessAndWait(
     ICredentialProviderCredential* cred) {
-  EXPECT_EQ(S_OK, StartLogonProcess(cred, /*succeeds=*/true));
-  EXPECT_EQ(S_OK, WaitForLogonProcess(cred));
-  return S_OK;
+  HRESULT hr = StartLogonProcess(cred, /*succeeds=*/true);
+  if (FAILED(hr))
+    return hr;
+  return WaitForLogonProcess(cred);
 }
 
 // static
 HRESULT FakeGlsRunHelper::GetFakeGlsCommandline(
+    UiExitCodes default_exit_code,
     const std::string& gls_email,
     const std::string& gaia_id_override,
     const base::string16& start_gls_event_name,
@@ -177,6 +176,8 @@ HRESULT FakeGlsRunHelper::GetFakeGlsCommandline(
   *command_line = base::GetMultiProcessTestChildBaseCommandLine();
   command_line->AppendSwitchASCII(::switches::kTestChildProcess, "gls_main");
   command_line->AppendSwitchASCII(switches::kGlsUserEmail, gls_email);
+  command_line->AppendSwitchNative(switches::kDefaultExitCode,
+                                   base::NumberToString16(default_exit_code));
 
   if (!gaia_id_override.empty()) {
     command_line->AppendSwitchASCII(switches::kOverrideGaiaId,
@@ -190,5 +191,7 @@ HRESULT FakeGlsRunHelper::GetFakeGlsCommandline(
 
   return S_OK;
 }
+
+}  // namespace testing
 
 }  // namespace credential_provider

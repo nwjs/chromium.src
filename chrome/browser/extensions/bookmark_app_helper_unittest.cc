@@ -4,6 +4,7 @@
 
 #include "chrome/browser/extensions/bookmark_app_helper.h"
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
@@ -385,10 +386,10 @@ TEST_P(BookmarkAppHelperExtensionServiceInstallableSiteTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(/* no prefix */,
-                        BookmarkAppHelperExtensionServiceInstallableSiteTest,
-                        ::testing::Values(ForInstallableSite::kNo,
-                                          ForInstallableSite::kYes));
+INSTANTIATE_TEST_SUITE_P(/* no prefix */,
+                         BookmarkAppHelperExtensionServiceInstallableSiteTest,
+                         ::testing::Values(ForInstallableSite::kNo,
+                                           ForInstallableSite::kYes));
 
 TEST_F(BookmarkAppHelperExtensionServiceTest,
        CreateBookmarkAppDefaultLauncherContainers) {
@@ -625,26 +626,6 @@ TEST_F(BookmarkAppHelperExtensionServiceTest, CreateAndUpdateBookmarkApp) {
                      .empty());
     EXPECT_TRUE(BookmarkAppIsLocallyInstalled(profile(), extension));
   }
-}
-
-TEST_F(BookmarkAppHelperTest, IsValidBookmarkAppUrl) {
-  EXPECT_TRUE(IsValidBookmarkAppUrl(GURL("https://chromium.org")));
-  EXPECT_TRUE(IsValidBookmarkAppUrl(GURL("https://www.chromium.org")));
-  EXPECT_TRUE(IsValidBookmarkAppUrl(
-      GURL("https://www.chromium.org/path/to/page.html")));
-  EXPECT_TRUE(IsValidBookmarkAppUrl(GURL("http://chromium.org")));
-  EXPECT_TRUE(IsValidBookmarkAppUrl(GURL("http://www.chromium.org")));
-  EXPECT_TRUE(
-      IsValidBookmarkAppUrl(GURL("http://www.chromium.org/path/to/page.html")));
-  EXPECT_TRUE(IsValidBookmarkAppUrl(
-      GURL("chrome-extension://oafaagfgbdpldilgjjfjocjglfbolmac")));
-
-  EXPECT_FALSE(IsValidBookmarkAppUrl(GURL("ftp://www.chromium.org")));
-  EXPECT_FALSE(IsValidBookmarkAppUrl(GURL("chrome://flags")));
-  EXPECT_FALSE(IsValidBookmarkAppUrl(GURL("about:blank")));
-  EXPECT_FALSE(IsValidBookmarkAppUrl(
-      GURL("file://mhjfbmdgcfjbbpaeojofohoefgiehjai")));
-  EXPECT_FALSE(IsValidBookmarkAppUrl(GURL("chrome://extensions")));
 }
 
 }  // namespace extensions

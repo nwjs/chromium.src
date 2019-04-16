@@ -6,9 +6,11 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/history/history_service_factory.h"
@@ -443,6 +445,8 @@ void CheckClientDownloadRequest::OnFileFeatureExtractionDone(
   signature_info_ = results.signature_info;
   image_headers_.reset(new ClientDownloadRequest_ImageHeaders());
   *image_headers_ = results.image_headers;
+  file_count_ = results.file_count;
+  directory_count_ = results.directory_count;
 
 #if defined(OS_MACOSX)
   if (!results.disk_image_signature.empty())
@@ -591,6 +595,11 @@ std::string CheckClientDownloadRequest::SanitizeUrl(const GURL& url) const {
 void CheckClientDownloadRequest::SendRequest() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
+  if (item_->GetState() == download::DownloadItem::CANCELLED) {
+    FinishRequest(DownloadCheckResult::UNKNOWN, REASON_DOWNLOAD_DESTROYED);
+    return;
+  }
+
   auto request = std::make_unique<ClientDownloadRequest>();
   auto population = is_extended_reporting_
                         ? ChromeUserPopulation::EXTENDED_REPORTING
@@ -693,13 +702,15 @@ void CheckClientDownloadRequest::SendRequest() {
     request->set_allocated_image_headers(image_headers_.release());
   if (!archived_binaries_.empty())
     request->mutable_archived_binary()->Swap(&archived_binaries_);
+  request->set_archive_file_count(file_count_);
+  request->set_archive_directory_count(directory_count_);
+  request->set_request_ap_verdicts(
+      base::FeatureList::IsEnabled(kUseAPDownloadProtection));
+
   if (!request->SerializeToString(&client_download_request_data_)) {
     FinishRequest(DownloadCheckResult::UNKNOWN, REASON_INVALID_REQUEST_PROTO);
     return;
   }
-
-  request->set_request_ap_verdicts(
-      base::FeatureList::IsEnabled(kUseAPDownloadProtection));
 
   // User can manually blacklist a sha256 via flag, for testing.
   // This is checked just before the request is sent, to verify the request
@@ -807,8 +818,7 @@ void CheckClientDownloadRequest::FinishRequest(
            << " verdict:" << reason << " result:" << static_cast<int>(result);
   UMA_HISTOGRAM_ENUMERATION("SBClientDownload.CheckDownloadStats", reason,
                             REASON_MAX);
-  if (reason != REASON_DOWNLOAD_DESTROYED)
-    callback_.Run(result);
+  callback_.Run(result);
   item_->RemoveObserver(this);
   service_->RequestFinished(this);
   // DownloadProtectionService::RequestFinished may delete us.

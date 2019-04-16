@@ -226,7 +226,7 @@ enum SourceRestriction {
   native_or_drive_source
 };
 
-enum CrostiniSharedPathsChangedEventType { share, unshare };
+enum CrostiniEventType { enable, disable, share, unshare };
 
 // A file task represents an action that the file manager can perform over the
 // currently selected files. See
@@ -558,7 +558,6 @@ dictionary Preferences {
   boolean cellularDisabled;
   boolean searchSuggestEnabled;
   boolean use24hourClock;
-  boolean allowRedeemOffers;
   DOMString timezone;
 };
 
@@ -601,6 +600,10 @@ dictionary SearchResult {
   // sub strings are highlighted with <b> element. Meta characters are escaped
   // like &lt;.
   DOMString highlightedBaseName;
+
+  // Whether the file is available while offline. May be unset if not
+  // applicable.
+  boolean? availableOffline;
 };
 
 dictionary DriveConnectionState {
@@ -658,10 +661,10 @@ dictionary LinuxPackageInfo {
   DOMString? description;
 };
 
-// Payload data for crostini shared paths changed event.
-dictionary CrostiniSharedPathsChangedEvent {
-  // Is the event raised for shared or unshared.
-  CrostiniSharedPathsChangedEventType eventType;
+// Payload data for crostini event.
+dictionary CrostiniEvent {
+  // Is the event raised for enable, disable, share, or unshare.
+  CrostiniEventType eventType;
 
   // Paths that have been shared or unshared.
   [instanceOf=Entry] object[] entries;
@@ -1150,10 +1153,6 @@ interface Functions {
   static void getRecentFiles(SourceRestriction restriction,
                              GetRecentFilesCallback callback);
 
-  // Returns true if crostini is enabled.
-  // |callback|
-  static void isCrostiniEnabled(BooleanCallback callback);
-
   // Starts and mounts crostini container.
   // |callback|
   static void mountCrostini(SimpleCallback callback);
@@ -1174,8 +1173,10 @@ interface Functions {
       [instanceof=Entry] object entry, SimpleCallback callback);
 
   // Returns list of paths shared with crostini container.
-  [nocompile]
-  static void getCrostiniSharedPaths(GetCrostiniSharedPathsCallback callback);
+  // |observeFirstForSession| If true, callback provides whether this is the
+  // first time this function has been called with observeFirstForSession true.
+  [nocompile] static void getCrostiniSharedPaths(
+      boolean observeFirstForSession, GetCrostiniSharedPathsCallback callback);
 
   // Requests information about a Linux package. |entry| is a .deb file.
   [nocompile]
@@ -1224,7 +1225,6 @@ interface Events {
 
   static void onAppsUpdated();
 
-  static void onCrostiniSharedPathsChanged(
-      CrostiniSharedPathsChangedEvent event);
+  static void onCrostiniChanged(CrostiniEvent event);
 };
 };

@@ -34,11 +34,18 @@ class ProgressReporter;
 
 namespace gpu {
 class DecoderContext;
+class ExternalVkImageBacking;
+class ExternalVkImageGlRepresentation;
 class ServiceDiscardableManager;
 class SharedImageBackingGLTexture;
 class SharedImageBackingFactoryGLTexture;
 class SharedImageBackingAHB;
 class SharedImageRepresentationGLTexture;
+class SharedImageRepresentationGLTextureAHB;
+class SharedImageRepresentationSkiaGLAHB;
+class SharedImageBackingIOSurface;
+class SharedImageRepresentationGLTextureIOSurface;
+class SharedImageRepresentationSkiaIOSurface;
 
 namespace gles2 {
 class GLStreamTextureImage;
@@ -364,9 +371,16 @@ class GPU_GLES2_EXPORT Texture final : public TextureBase {
  private:
   friend class MailboxManagerSync;
   friend class MailboxManagerTest;
+  friend class gpu::ExternalVkImageBacking;
+  friend class gpu::ExternalVkImageGlRepresentation;
   friend class gpu::SharedImageBackingGLTexture;
   friend class gpu::SharedImageBackingFactoryGLTexture;
   friend class gpu::SharedImageBackingAHB;
+  friend class gpu::SharedImageRepresentationGLTextureAHB;
+  friend class gpu::SharedImageRepresentationSkiaGLAHB;
+  friend class gpu::SharedImageBackingIOSurface;
+  friend class gpu::SharedImageRepresentationGLTextureIOSurface;
+  friend class gpu::SharedImageRepresentationSkiaIOSurface;
   friend class TextureDefinition;
   friend class TextureManager;
   friend class TextureRef;
@@ -935,15 +949,15 @@ class GPU_GLES2_EXPORT TextureManager
   bool ClearRenderableLevels(DecoderContext* decoder, TextureRef* ref);
 
   // Clear a specific level.
-  bool ClearTextureLevel(DecoderContext* decoder,
-                         TextureRef* ref,
-                         GLenum target,
-                         GLint level);
+  static bool ClearTextureLevel(DecoderContext* decoder,
+                                TextureRef* ref,
+                                GLenum target,
+                                GLint level);
 
-  bool ClearTextureLevel(DecoderContext* decoder,
-                         Texture* texture,
-                         GLenum target,
-                         GLint level);
+  static bool ClearTextureLevel(DecoderContext* decoder,
+                                Texture* texture,
+                                GLenum target,
+                                GLint level);
 
   // Creates a new texture info.
   TextureRef* CreateTexture(GLuint client_id, GLuint service_id);

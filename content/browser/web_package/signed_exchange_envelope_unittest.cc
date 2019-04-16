@@ -111,11 +111,11 @@ TEST_P(SignedExchangeEnvelopeTest, ParseGoldenFile) {
 TEST_P(SignedExchangeEnvelopeTest, ValidHeader) {
   auto header = GenerateHeaderAndParse(
       GetParam(), "https://test.example.org/test/", kSignatureString,
-      {{kStatusKey, "200"}, {"content-type", "text/html"}});
+      {{kStatusKey, "200"}, {"content-type", "text/html"}, {"digest", "foo"}});
   ASSERT_TRUE(header.has_value());
   EXPECT_EQ(header->request_url().url, GURL("https://test.example.org/test/"));
   EXPECT_EQ(header->response_code(), static_cast<net::HttpStatusCode>(200u));
-  EXPECT_EQ(header->response_headers().size(), 1u);
+  EXPECT_EQ(header->response_headers().size(), 2u);
 }
 
 TEST_P(SignedExchangeEnvelopeTest, InformationalResponseCode) {
@@ -226,6 +226,7 @@ TEST_P(SignedExchangeEnvelopeTest, CacheControlNoStoreInQuotedString) {
       {
           {kStatusKey, "200"},
           {"cache-control", "foo=\"300, no-store\""},
+          {"digest", "foo"},
       });
   ASSERT_TRUE(header.has_value());
 }
@@ -240,8 +241,8 @@ TEST_P(SignedExchangeEnvelopeTest, CacheControlParseError) {
   ASSERT_FALSE(header.has_value());
 }
 
-INSTANTIATE_TEST_CASE_P(SignedExchangeEnvelopeTests,
-                        SignedExchangeEnvelopeTest,
-                        ::testing::Values(SignedExchangeVersion::kB3));
+INSTANTIATE_TEST_SUITE_P(SignedExchangeEnvelopeTests,
+                         SignedExchangeEnvelopeTest,
+                         ::testing::Values(SignedExchangeVersion::kB3));
 
 }  // namespace content

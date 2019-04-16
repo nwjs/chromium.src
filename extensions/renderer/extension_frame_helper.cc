@@ -341,9 +341,8 @@ void ExtensionFrameHelper::ScheduleAtDocumentIdle(
   document_idle_callbacks_.push_back(callback);
 }
 
-void ExtensionFrameHelper::DidStartProvisionalLoad(
-    blink::WebDocumentLoader* document_loader,
-    bool is_content_initiated) {
+void ExtensionFrameHelper::ReadyToCommitNavigation(
+    blink::WebDocumentLoader* document_loader) {
   // New window created by chrome.app.window.create() must not start parsing the
   // document immediately. The chrome.app.window.create() callback (if any)
   // needs to be called prior to the new window's 'load' event. The parser will
@@ -419,40 +418,50 @@ bool ExtensionFrameHelper::OnMessageReceived(const IPC::Message& message) {
   return handled;
 }
 
-void ExtensionFrameHelper::OnExtensionValidateMessagePort(const PortId& id) {
+void ExtensionFrameHelper::OnExtensionValidateMessagePort(int worker_thread_id,
+                                                          const PortId& id) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   extension_dispatcher_->bindings_system()
       ->GetMessagingService()
-      ->ValidateMessagePort(extension_dispatcher_->script_context_set(), id,
-                            render_frame());
+      ->ValidateMessagePort(
+          extension_dispatcher_->script_context_set_iterator(), id,
+          render_frame());
 }
 
 void ExtensionFrameHelper::OnExtensionDispatchOnConnect(
+    int worker_thread_id,
     const PortId& target_port_id,
     const std::string& channel_name,
     const ExtensionMsg_TabConnectionInfo& source,
     const ExtensionMsg_ExternalConnectionInfo& info) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   extension_dispatcher_->bindings_system()
       ->GetMessagingService()
-      ->DispatchOnConnect(extension_dispatcher_->script_context_set(),
+      ->DispatchOnConnect(extension_dispatcher_->script_context_set_iterator(),
                           target_port_id, channel_name, source, info,
                           render_frame());
 }
 
-void ExtensionFrameHelper::OnExtensionDeliverMessage(const PortId& target_id,
+void ExtensionFrameHelper::OnExtensionDeliverMessage(int worker_thread_id,
+                                                     const PortId& target_id,
                                                      const Message& message) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   extension_dispatcher_->bindings_system()
       ->GetMessagingService()
-      ->DeliverMessage(extension_dispatcher_->script_context_set(), target_id,
-                       message, render_frame());
+      ->DeliverMessage(extension_dispatcher_->script_context_set_iterator(),
+                       target_id, message, render_frame());
 }
 
 void ExtensionFrameHelper::OnExtensionDispatchOnDisconnect(
+    int worker_thread_id,
     const PortId& id,
     const std::string& error_message) {
+  DCHECK_EQ(kMainThreadId, worker_thread_id);
   extension_dispatcher_->bindings_system()
       ->GetMessagingService()
-      ->DispatchOnDisconnect(extension_dispatcher_->script_context_set(), id,
-                             error_message, render_frame());
+      ->DispatchOnDisconnect(
+          extension_dispatcher_->script_context_set_iterator(), id,
+          error_message, render_frame());
 }
 
 void ExtensionFrameHelper::OnExtensionSetTabId(int tab_id) {

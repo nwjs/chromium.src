@@ -23,11 +23,11 @@ const service_manager::Manifest& GetContentRendererManifest() {
           .ExposeCapability(
               "browser",
               std::set<const char*>{
-                  "blink.mojom.AppCacheFrontend",
                   "blink.mojom.CodeCacheHost",
                   "blink.mojom.CrashMemoryMetricsReporter",
                   "blink.mojom.LeakDetector",
                   "blink.mojom.OomIntervention",
+                  "blink.mojom.SharedWorkerFactory",
                   "blink.mojom.WebDatabase",
                   "content.mojom.Child",
                   "content.mojom.ChildControl",
@@ -36,7 +36,6 @@ const service_manager::Manifest& GetContentRendererManifest() {
                   "content.mojom.FrameFactory",
                   "content.mojom.RenderWidgetWindowTreeClientFactory",
                   "content.mojom.ResourceUsageReporter",
-                  "content.mojom.SharedWorkerFactory",
                   "IPC.mojom.ChannelBootstrap",
                   "visitedlink.mojom.VisitedLinkNotificationSink",
                   "web_cache.mojom.WebCache",

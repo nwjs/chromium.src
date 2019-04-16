@@ -31,6 +31,7 @@
 #ifndef THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_WIDGET_CLIENT_H_
 #define THIRD_PARTY_BLINK_PUBLIC_WEB_WEB_WIDGET_CLIENT_H_
 
+#include "cc/input/layer_selection_bound.h"
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_drag_operation.h"
@@ -45,6 +46,10 @@
 #include "third_party/blink/public/web/web_text_direction.h"
 
 class SkBitmap;
+
+namespace cc {
+struct ViewportLayers;
+}
 
 namespace gfx {
 class Point;
@@ -64,8 +69,9 @@ class WebWidgetClient {
  public:
   virtual ~WebWidgetClient() = default;
 
-  // Called when a region of the WebWidget needs to be re-painted.
-  virtual void DidInvalidateRect(const WebRect&) {}
+  // Sets the root layer of the tree in the compositor. It may be null to remove
+  // the root layer in which case nothing would be shown by the compositor.
+  virtual void SetRootLayer(scoped_refptr<cc::Layer>) {}
 
   // Called to request a BeginMainFrame from the compositor. For tests with
   // single thread and no scheduler, the impl should schedule a task to run
@@ -78,6 +84,11 @@ class WebWidgetClient {
   virtual void SetShowDebugBorders(bool) {}
   virtual void SetShowScrollBottleneckRects(bool) {}
   virtual void SetShowHitTestBorders(bool) {}
+
+  // Sets the background color to be filled in as gutter behind/around the
+  // painted content. Non-composited WebViews need not implement this, as they
+  // paint into another widget which has a background color of its own.
+  virtual void SetBackgroundColor(SkColor color) {}
 
   // A notification callback for when the intrinsic sizing of the
   // widget changed. This is only called for SVG within a remote frame.
@@ -199,6 +210,15 @@ class WebWidgetClient {
 
   // Find in page zooms a rect in the main-frame renderer.
   virtual void ZoomToFindInPageRectInMainFrame(const blink::WebRect& rect) {}
+
+  // Identify key viewport layers to the compositor. Pass a default-constructed
+  // ViewportLayers to clear them.
+  virtual void RegisterViewportLayers(
+      const cc::ViewportLayers& viewport_layers) {}
+
+  // Used to update the active selection bounds. Pass a default-constructed
+  // LayerSelection to clear it.
+  virtual void RegisterSelection(const cc::LayerSelection&) {}
 };
 
 }  // namespace blink

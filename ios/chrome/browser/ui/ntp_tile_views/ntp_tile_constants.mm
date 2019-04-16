@@ -13,8 +13,6 @@
 #error "This file requires ARC support."
 #endif
 
-const CGSize kMostVisitedCellSize = {/*width=*/73, /*height=*/100};
-
 // Returns the title to use for a cell with |action|.
 NSString* TitleForCollectionShortcutType(NTPCollectionShortcutType type) {
   switch (type) {

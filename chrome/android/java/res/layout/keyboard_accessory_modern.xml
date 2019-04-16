@@ -5,7 +5,6 @@
 
 <org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryModernView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/keyboard_accessory"
     android:layout_gravity="start|bottom"
@@ -40,36 +39,33 @@
         <ImageView
             android:id="@+id/show_keyboard"
             android:layout_width="wrap_content"
-            android:layout_weight="0"
             android:layout_height="match_parent"
             android:paddingStart="@dimen/keyboard_accessory_bar_item_padding"
             android:paddingEnd="@dimen/keyboard_accessory_bar_item_padding"
-            android:paddingTop="@dimen/keyboard_accessory_padding"
-            android:paddingBottom="@dimen/keyboard_accessory_padding"
-            android:clickable="true"
-            android:focusable="true"
+            android:paddingTop="@dimen/keyboard_accessory_image_top_padding"
+            android:paddingBottom="@dimen/keyboard_accessory_image_top_padding"
             android:contentDescription="@string/keyboard_accessory_sheet_hide"
-            android:background="?attr/selectableItemBackground"/>
+            android:background="?attr/selectableItemBackground"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/sheet_title"
+            android:minHeight="48dp"
+            android:gravity="center_vertical|start"
+            android:textAppearance="@style/TextAppearance.BlackTitle1"
+            android:layout_height="wrap_content"
+            android:layout_width="match_parent"
+            android:background="?android:attr/selectableItemBackground"
+            android:visibility="gone"/>
 
         <android.support.v7.widget.RecyclerView
             android:id="@+id/bar_items_view"
-            android:layout_weight="1"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
-
-        <View
-            android:id="@+id/tabs_items_spacer"
-            android:layout_weight="1"
             android:layout_height="match_parent"
-            android:layout_width="match_parent"
-            android:background="@null" />
+            android:requiresFadingEdge="horizontal"
+            android:fadingEdgeLength="@dimen/keyboard_accessory_scroll_shadow_width"
+            android:clipToPadding="false"/>
 
-        <View
-            android:id="@+id/tabs_items_divider"
-            android:layout_weight="0"
-            style="@style/VerticalDivider" />
-
-        <include layout="@layout/keyboard_accessory_tabs" />
     </LinearLayout>
 
 </org.chromium.chrome.browser.autofill.keyboard_accessory.KeyboardAccessoryModernView>

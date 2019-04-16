@@ -34,7 +34,7 @@
 #include <memory>
 #include "third_party/blink/public/platform/web_source_buffer_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/typed_arrays/array_buffer_view_helpers.h"
 #include "third_party/blink/renderer/modules/event_target_modules.h"
 #include "third_party/blink/renderer/modules/mediasource/track_default_list.h"
@@ -89,11 +89,11 @@ class SourceBuffer final : public EventTargetWithInlineData,
   void setAppendWindowStart(double, ExceptionState&);
   double appendWindowEnd() const;
   void setAppendWindowEnd(double, ExceptionState&);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(updatestart, kUpdatestart);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(update, kUpdate);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(updateend, kUpdateend);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(abort, kAbort);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(updatestart, kUpdatestart)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(update, kUpdate)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(updateend, kUpdateend)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(abort, kAbort)
   TrackDefaultList* trackDefaults() const { return track_defaults_.Get(); }
   void setTrackDefaults(TrackDefaultList*, ExceptionState&);
 

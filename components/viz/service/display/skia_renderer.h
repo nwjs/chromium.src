@@ -12,7 +12,6 @@
 #include "components/viz/service/display/direct_renderer.h"
 #include "components/viz/service/display/sync_query_collection.h"
 #include "components/viz/service/viz_service_export.h"
-#include "gpu/vulkan/buildflags.h"
 #include "third_party/skia/include/core/SkPictureRecorder.h"
 #include "ui/latency/latency_info.h"
 
@@ -30,13 +29,15 @@ class SkiaOutputSurface;
 class SolidColorDrawQuad;
 class TextureDrawQuad;
 class TileDrawQuad;
-class VulkanContextProvider;
 class YUVVideoDrawQuad;
 
+// TODO(795132): SkColorSpace is only a subset comparing to gfx::ColorSpace.
+// Need to figure out support for color space that is not covered by
+// SkColorSpace.
 class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
  public:
   // Different draw modes that are supported by SkiaRenderer right now.
-  enum DrawMode { GL, DDL, VULKAN, SKPRECORD };
+  enum DrawMode { DDL, SKPRECORD };
 
   // TODO(penghuang): Remove skia_output_surface when DDL is used everywhere.
   SkiaRenderer(const RendererSettings* settings,
@@ -76,7 +77,8 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   bool FlippedFramebuffer() const override;
   void EnsureScissorTestEnabled() override;
   void EnsureScissorTestDisabled() override;
-  void CopyDrawnRenderPass(std::unique_ptr<CopyOutputRequest> request) override;
+  void CopyDrawnRenderPass(const copy_output::RenderPassGeometry& geometry,
+                           std::unique_ptr<CopyOutputRequest> request) override;
   void SetEnableDCLayers(bool enable) override;
   void DidChangeVisibility() override;
   void FinishDrawingQuadList() override;
@@ -91,7 +93,7 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   void ClearFramebuffer();
 
   void PrepareCanvasForDrawQuads(
-      const gfx::Transform& transform,
+      gfx::Transform contents_device_transform,
       const gfx::QuadF* draw_region,
       const gfx::Rect* scissor_rect,
       base::Optional<SkAutoCanvasRestore>* auto_canvas_restore);
@@ -104,8 +106,10 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
 
   void DrawSolidColorQuad(const SolidColorDrawQuad* quad, SkPaint* paint);
   void DrawTextureQuad(const TextureDrawQuad* quad, SkPaint* paint);
-  bool MustDrawBatchedTileQuadsBeforeQuad(const DrawQuad* new_quad,
-                                          const gfx::QuadF* draw_region);
+  bool MustDrawBatchedTileQuads(const DrawQuad* new_quad,
+                                const gfx::Transform& content_device_transform,
+                                bool apply_transform_and_scissor,
+                                const gfx::QuadF* draw_region);
   void AddTileQuadToBatch(const TileDrawQuad* quad,
                           const gfx::QuadF* draw_region);
   void DrawBatchedTileQuads();
@@ -117,20 +121,19 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   bool ShouldApplyBackgroundFilters(
       const RenderPassDrawQuad* quad,
       const cc::FilterOperations* backdrop_filters) const;
-  bool IsUsingVulkan() const;
   const TileDrawQuad* CanPassBeDrawnDirectly(const RenderPass* pass) override;
 
-  // Get corresponding GrContext in DrawMode::GL or DrawMode::VULKAN. Returns
-  // nullptr when there is no GrContext.
+  // Get corresponding GrContext. Returns nullptr when there is no GrContext.
+  // TODO(weiliangc): This currently only returns nullptr. If SKPRecord isn't
+  // going to use this later, it should be removed.
   GrContext* GetGrContext();
   bool is_using_ddl() const { return draw_mode_ == DrawMode::DDL; }
-  bool is_using_vulkan() const { return draw_mode_ == DrawMode::VULKAN; }
 
   // A map from RenderPass id to the texture used to draw the RenderPass from.
   struct RenderPassBacking {
     sk_sp<SkSurface> render_pass_surface;
     gfx::Size size;
-    bool mipmap;
+    bool generate_mipmap;
     gfx::ColorSpace color_space;
     ResourceFormat format;
 
@@ -141,10 +144,10 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
     RenderPassBacking(GrContext* gr_context,
                       const gpu::Capabilities& caps,
                       const gfx::Size& size,
-                      bool mipmap,
+                      bool generate_mipmap,
                       const gfx::ColorSpace& color_space);
     RenderPassBacking(const gfx::Size& size,
-                      bool mipmap,
+                      bool generate_mipmap,
                       const gfx::ColorSpace& color_space);
     ~RenderPassBacking();
     RenderPassBacking(RenderPassBacking&&);
@@ -170,16 +173,14 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   std::unique_ptr<SkCanvas> overdraw_canvas_;
   std::unique_ptr<SkNWayCanvas> nway_canvas_;
 
-  // Specific for GL.
-  ContextProvider* context_provider_ = nullptr;
-  base::Optional<SyncQueryCollection> sync_queries_;
+  // TODO(crbug.com/920344): Use partial swap for SkDDL.
   bool use_swap_with_bounds_ = false;
   gfx::Rect swap_buffer_rect_;
   std::vector<gfx::Rect> swap_content_bounds_;
 
   // State common to all tile quads in a batch
   struct BatchedTileState {
-    gfx::Transform transform;
+    gfx::Transform contents_device_transform;
     gfx::Rect scissor_rect;
     gfx::QuadF draw_region;
     SkBlendMode blend_mode;
@@ -189,11 +190,6 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   };
   BatchedTileState batched_tile_state_;
   std::vector<SkCanvas::ImageSetEntry> batched_tiles_;
-
-// Specific for Vulkan.
-#if BUILDFLAG(ENABLE_VULKAN)
-  VulkanContextProvider* vulkan_context_provider_ = nullptr;
-#endif
 
   // Specific for SkDDL.
   SkiaOutputSurface* const skia_output_surface_ = nullptr;
@@ -219,6 +215,8 @@ class VIZ_SERVICE_EXPORT SkiaRenderer : public DirectRenderer {
   sk_sp<SkPicture> root_picture_;
   sk_sp<SkPicture>* current_picture_;
   SkPictureRecorder* current_recorder_;
+  ContextProvider* context_provider_ = nullptr;
+  base::Optional<SyncQueryCollection> sync_queries_;
 
   DISALLOW_COPY_AND_ASSIGN(SkiaRenderer);
 };

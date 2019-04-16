@@ -42,7 +42,6 @@ import org.chromium.ui.KeyboardVisibilityDelegate;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.concurrent.TimeUnit;
 
 /**
  * The URL text entry view for the Omnibox.
@@ -60,14 +59,11 @@ public class UrlBar extends AutocompleteEditText {
             new CachedMetrics.ActionEvent("Omnibox.LongPress.Share");
 
     private static final CachedMetrics.TimesHistogramSample TIME_UNTIL_COPY =
-            new CachedMetrics.TimesHistogramSample(
-                    "Omnibox.TimeUntilFirst.Copy", TimeUnit.MILLISECONDS);
+            new CachedMetrics.TimesHistogramSample("Omnibox.TimeUntilFirst.Copy");
     private static final CachedMetrics.TimesHistogramSample TIME_UNTIL_CUT =
-            new CachedMetrics.TimesHistogramSample(
-                    "Omnibox.TimeUntilFirst.Cut", TimeUnit.MILLISECONDS);
+            new CachedMetrics.TimesHistogramSample("Omnibox.TimeUntilFirst.Cut");
     private static final CachedMetrics.TimesHistogramSample TIME_UNTIL_SHARE =
-            new CachedMetrics.TimesHistogramSample(
-                    "Omnibox.TimeUntilFirst.Share", TimeUnit.MILLISECONDS);
+            new CachedMetrics.TimesHistogramSample("Omnibox.TimeUntilFirst.Share");
 
     @IntDef({OmniboxAction.CUT, OmniboxAction.COPY, OmniboxAction.SHARE})
     @Retention(RetentionPolicy.SOURCE)
@@ -383,12 +379,12 @@ public class UrlBar extends AutocompleteEditText {
         // insertion point when an RTL user enters RTL text). Also render text normally when the
         // text field is empty (because then it displays an instruction that is not a URL).
         if (mFocused || length() == 0 || !mUrlBarDelegate.shouldForceLTR()) {
-            ApiCompatibilityUtils.setTextDirection(this, TEXT_DIRECTION_INHERIT);
+            setTextDirection(TEXT_DIRECTION_INHERIT);
         } else {
-            ApiCompatibilityUtils.setTextDirection(this, TEXT_DIRECTION_LTR);
+            setTextDirection(TEXT_DIRECTION_LTR);
         }
         // Always align to the same as the paragraph direction (LTR = left, RTL = right).
-        ApiCompatibilityUtils.setTextAlignment(this, TEXT_ALIGNMENT_TEXT_START);
+        setTextAlignment(TEXT_ALIGNMENT_TEXT_START);
     }
 
     @Override
@@ -721,7 +717,7 @@ public class UrlBar extends AutocompleteEditText {
         setSelection(0);
 
         float currentTextSize = getTextSize();
-        boolean currentIsRtl = ApiCompatibilityUtils.isLayoutRtl(this);
+        boolean currentIsRtl = getLayoutDirection() == LAYOUT_DIRECTION_RTL;
 
         int measuredWidth = getMeasuredWidth() - (getPaddingLeft() + getPaddingRight());
         if (scrollType == mPreviousScrollType && TextUtils.equals(text, mPreviousScrollText)
@@ -761,7 +757,7 @@ public class UrlBar extends AutocompleteEditText {
         Editable text = getText();
         float scrollPos = 0f;
         if (TextUtils.isEmpty(text)) {
-            if (ApiCompatibilityUtils.isLayoutRtl(this)
+            if (getLayoutDirection() == LAYOUT_DIRECTION_RTL
                     && BidiFormatter.getInstance().isRtl(getHint())) {
                 // Compared to below that uses getPrimaryHorizontal(1) due to 0 returning an
                 // invalid value, if the text is empty, getPrimaryHorizontal(0) returns the actual

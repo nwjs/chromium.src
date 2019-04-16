@@ -11,15 +11,15 @@ namespace media {
 
 namespace {
 // Keyframe period.
-const size_t kKFPeriod = 3000;
+constexpr size_t kKFPeriod = 3000;
 
 // Arbitrarily chosen bitrate window size for rate control, in ms.
-const int kCPBWindowSizeMs = 1500;
+constexpr int kCPBWindowSizeMs = 1500;
 
 // Based on WebRTC's defaults.
-const int kMinQP = 4;
-const int kMaxQP = 112;
-const int kDefaultQP = (3 * kMinQP + kMaxQP) / 4;
+constexpr int kMinQP = 4;
+constexpr int kMaxQP = 112;
+constexpr int kDefaultQP = (3 * kMinQP + kMaxQP) / 4;
 }  // namespace
 
 VP8Encoder::EncodeParams::EncodeParams()
@@ -147,7 +147,11 @@ void VP8Encoder::InitializeFrameHeader() {
   DCHECK(!visible_size_.IsEmpty());
   current_frame_hdr_.width = visible_size_.width();
   current_frame_hdr_.height = visible_size_.height();
-  current_frame_hdr_.quantization_hdr.y_ac_qi = current_params_.initial_qp;
+  // Since initial_qp is always kDefaultQP (=31), y_ac_qi should be 27
+  // (the table index for kDefaultQP, see rfc 14.1. table ac_qlookup)
+  DCHECK_EQ(current_params_.initial_qp, kDefaultQP);
+  constexpr uint8_t kDefaultQPACQIndex = 27;
+  current_frame_hdr_.quantization_hdr.y_ac_qi = kDefaultQPACQIndex;
   current_frame_hdr_.show_frame = true;
   // TODO(sprang): Make this dynamic. Value based on reference implementation
   // in libyami (https://github.com/intel/libyami).

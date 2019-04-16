@@ -21,6 +21,7 @@
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/constants.h"
 #include "gpu/command_buffer/common/context_creation_attribs.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/buffer_manager.h"
 #include "gpu/command_buffer/service/command_buffer_direct.h"
 #include "gpu/command_buffer/service/context_group.h"
@@ -34,6 +35,7 @@
 #include "gpu/command_buffer/service/raster_decoder.h"
 #include "gpu/command_buffer/service/service_discardable_manager.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
+#include "gpu/command_buffer/service/shared_image_factory.h"
 #include "gpu/command_buffer/service/shared_image_manager.h"
 #include "gpu/command_buffer/service/transfer_buffer_manager.h"
 #include "ui/gfx/geometry/size.h"
@@ -262,7 +264,8 @@ struct Config {
     GPU_DRIVER_BUG_WORKAROUNDS(GPU_OP)
 #undef GPU_OP
 
-#if defined(GPU_FUZZER_USE_PASSTHROUGH_CMD_DECODER)
+#if defined(GPU_FUZZER_USE_PASSTHROUGH_CMD_DECODER) && \
+    !defined(GPU_FUZZER_USE_RASTER_DECODER)
     gl_context_attribs.bind_generates_resource =
         attrib_helper.bind_generates_resource;
     gl_context_attribs.webgl_compatibility_context =
@@ -354,31 +357,59 @@ class CommandBufferSetup {
     gpu_feature_info.status_values[GPU_FEATURE_TYPE_OOP_RASTERIZATION] =
         kGpuFeatureStatusEnabled;
 #endif
-    scoped_refptr<gles2::FeatureInfo> feature_info =
-        new gles2::FeatureInfo(config_.workarounds, gpu_feature_info);
-    scoped_refptr<gles2::ContextGroup> context_group = new gles2::ContextGroup(
-        gpu_preferences_, true, &mailbox_manager_, nullptr /* memory_tracker */,
-        &translator_cache_, &completeness_cache_, feature_info,
-        config_.attrib_helper.bind_generates_resource, &image_manager_,
-        nullptr /* image_factory */, nullptr /* progress_reporter */,
-        gpu_feature_info, discardable_manager_.get(),
-        passthrough_discardable_manager_.get(), &shared_image_manager_);
-    command_buffer_.reset(
-        new CommandBufferDirect(context_group->transfer_buffer_manager()));
+    auto feature_info = base::MakeRefCounted<gles2::FeatureInfo>(
+        config_.workarounds, gpu_feature_info);
+    command_buffer_.reset(new CommandBufferDirect());
 
-#if defined(GPU_FUZZER_USE_RASTER_DECODER)
-    CHECK(feature_info->feature_flags().chromium_raster_transport);
     scoped_refptr<SharedContextState> context_state =
         base::MakeRefCounted<SharedContextState>(
             share_group_, surface_, context_,
             config_.workarounds.use_virtualized_gl_contexts, base::DoNothing());
     context_state->InitializeGrContext(config_.workarounds, nullptr);
     context_state->InitializeGL(gpu_preferences_, feature_info);
+
+    shared_image_manager_ = std::make_unique<SharedImageManager>();
+    shared_image_factory_ = std::make_unique<SharedImageFactory>(
+        gpu_preferences_, config_.workarounds, gpu_feature_info,
+        context_state.get(), &mailbox_manager_, shared_image_manager_.get(),
+        nullptr /* image_factory */, nullptr /* memory_tracker */);
+    for (uint32_t usage = SHARED_IMAGE_USAGE_GLES2;
+         usage <= SHARED_IMAGE_USAGE_RGB_EMULATION; usage <<= 1) {
+      Mailbox::Name name;
+      memset(name, 0, sizeof(name));
+      name[0] = usage;
+
+      // Mark this as a SharedImage mailbox.
+      constexpr size_t kSharedImageFlagIndex = GL_MAILBOX_SIZE_CHROMIUM - 1;
+      constexpr int8_t kSharedImageFlag = 0x1;
+      name[kSharedImageFlagIndex] |= kSharedImageFlag;
+
+      Mailbox mailbox;
+      mailbox.SetName(name);
+      shared_image_factory_->CreateSharedImage(
+          mailbox, viz::RGBA_8888, gfx::Size(256, 256),
+          gfx::ColorSpace::CreateSRGB(), usage);
+    }
+
+#if defined(GPU_FUZZER_USE_RASTER_DECODER)
+    CHECK(feature_info->feature_flags().chromium_raster_transport);
     auto* context = context_state->context();
     decoder_.reset(raster::RasterDecoder::Create(
         command_buffer_.get(), command_buffer_->service(), &outputter_,
-        context_group.get(), std::move(context_state)));
+        gpu_feature_info, gpu_preferences_, nullptr /* memory_tracker */,
+        shared_image_manager_.get(), std::move(context_state)));
 #else
+    // GLES2Decoder may Initialize feature_info differently than
+    // SharedContextState and should have its own.
+    auto decoder_feature_info = base::MakeRefCounted<gles2::FeatureInfo>(
+        config_.workarounds, gpu_feature_info);
+    scoped_refptr<gles2::ContextGroup> context_group = new gles2::ContextGroup(
+        gpu_preferences_, true, &mailbox_manager_, nullptr /* memory_tracker */,
+        &translator_cache_, &completeness_cache_, decoder_feature_info,
+        config_.attrib_helper.bind_generates_resource, &image_manager_,
+        nullptr /* image_factory */, nullptr /* progress_reporter */,
+        gpu_feature_info, discardable_manager_.get(),
+        passthrough_discardable_manager_.get(), shared_image_manager_.get());
     auto* context = context_.get();
     decoder_.reset(gles2::GLES2Decoder::Create(
         command_buffer_.get(), command_buffer_->service(), &outputter_,
@@ -397,7 +428,10 @@ class CommandBufferSetup {
     InitializeInitialCommandBuffer();
 
     decoder_->set_max_bucket_size(8 << 20);
+#if !defined(GPU_FUZZER_USE_RASTER_DECODER)
     context_group->buffer_manager()->set_max_buffer_size(8 << 20);
+#endif
+    decoder_initialized_ = true;
     return decoder_->MakeCurrent();
   }
 
@@ -416,10 +450,14 @@ class CommandBufferSetup {
       if (translator)
         translator->AddRef();
 #endif
-      context_lost =
-          decoder_->WasContextLost() || !decoder_->CheckResetStatus();
+      bool reset_status = decoder_initialized_ && decoder_->CheckResetStatus();
+      context_lost = decoder_->WasContextLost() || !reset_status;
+      shared_image_factory_->DestroyAllSharedImages(!context_lost);
       decoder_->Destroy(!context_lost);
       decoder_.reset();
+
+      shared_image_factory_.reset();
+      shared_image_manager_.reset();
     }
 
     if (context_) {
@@ -430,6 +468,7 @@ class CommandBufferSetup {
     }
 
     command_buffer_.reset();
+    decoder_initialized_ = false;
   }
 
   void RunCommandBuffer(const uint8_t* data, size_t size) {
@@ -538,7 +577,8 @@ class CommandBufferSetup {
   std::unique_ptr<ServiceDiscardableManager> discardable_manager_;
   std::unique_ptr<PassthroughDiscardableManager>
       passthrough_discardable_manager_;
-  SharedImageManager shared_image_manager_;
+  std::unique_ptr<SharedImageManager> shared_image_manager_;
+  std::unique_ptr<SharedImageFactory> shared_image_factory_;
 
   bool recreate_context_ = false;
   scoped_refptr<gl::GLSurface> surface_;
@@ -557,6 +597,8 @@ class CommandBufferSetup {
 
   scoped_refptr<Buffer> buffer_;
   int32_t buffer_id_ = 0;
+
+  bool decoder_initialized_ = false;
 };
 
 // Intentionally leaked because asan tries to exit cleanly after a crash, but

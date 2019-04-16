@@ -12,6 +12,7 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/optional.h"
+#include "base/strings/string_util.h"
 #include "content/browser/frame_host/navigation_entry_impl.h"
 #include "content/browser/initiator_csp_context.h"
 #include "content/browser/loader/navigation_url_loader_delegate.h"
@@ -118,6 +119,7 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // renderer-initiated navigations.
   static std::unique_ptr<NavigationRequest> CreateForCommit(
       FrameTreeNode* frame_tree_node,
+      RenderFrameHostImpl* render_frame_host,
       NavigationEntryImpl* entry,
       const FrameHostMsg_DidCommitProvisionalLoad_Params& params,
       bool is_renderer_initiated,
@@ -156,11 +158,15 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
     return dest_site_instance_.get();
   }
 
-  RestoreType restore_type() const { return restore_type_; };
+  RestoreType restore_type() const { return restore_type_; }
 
-  bool is_view_source() const { return is_view_source_; };
+  bool is_view_source() const { return is_view_source_; }
 
-  int bindings() const { return bindings_; };
+  int bindings() const { return bindings_; }
+
+  SiteInstanceImpl* starting_site_instance() const {
+    return starting_site_instance_.get();
+  }
 
   bool browser_initiated() const { return browser_initiated_ ; }
 
@@ -181,6 +187,20 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
 
   int net_error() { return net_error_; }
 
+  const std::string& GetMimeType() {
+    return response_ ? response_->head.mime_type : base::EmptyString();
+  }
+
+  // The RenderFrameHost that will commit the navigation or an error page.
+  // This is computed when the response is received, or when the navigation
+  // fails and error page should be displayed.
+  RenderFrameHostImpl* render_frame_host() const { return render_frame_host_; }
+
+  const network::ResourceResponse* response() { return response_.get(); }
+  const GlobalRequestID& request_id() const { return request_id_; }
+  bool is_download() const { return is_download_; }
+  const base::Optional<net::SSLInfo>& ssl_info() { return ssl_info_; }
+
   void SetWaitingForRendererResponse();
 
   // Creates a NavigationHandle. This should be called after any previous
@@ -189,13 +209,21 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // happens for renderer-initiated same-document navigations).
   void CreateNavigationHandle(bool is_for_commit);
 
-  // Returns ownership of the navigation handle.
-  std::unique_ptr<NavigationHandleImpl> TakeNavigationHandle();
-
   void set_on_start_checks_complete_closure_for_testing(
       const base::Closure& closure) {
     on_start_checks_complete_closure_ = closure;
   }
+
+  // Sets ID of the RenderProcessHost we expect the navigation to commit in.
+  // This is used to inform the RenderProcessHost to expect a navigation to the
+  // url we're navigating to.
+  void SetExpectedProcess(RenderProcessHost* expected_process);
+
+  // Updates the destination site URL for this navigation. This is called on
+  // redirects. |post_redirect_process| is the renderer process that should
+  // handle the navigation following the redirect if it can be handled by an
+  // existing RenderProcessHost. Otherwise, it should be null.
+  void UpdateSiteURL(RenderProcessHost* post_redirect_process);
 
   int nav_entry_id() const { return nav_entry_id_; }
 
@@ -224,6 +252,20 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // Lazily initializes and returns the mojo::NavigationClient interface used
   // for commit. Only used with PerNavigationMojoInterface enabled.
   mojom::NavigationClient* GetCommitNavigationClient();
+
+  void SetOriginPolicy(const std::string& policy);
+
+  void set_transition(ui::PageTransition transition) {
+    common_params_.transition = transition;
+  }
+
+  void set_has_user_gesture(bool has_user_gesture) {
+    common_params_.has_user_gesture = has_user_gesture;
+  }
+
+  // Ignores any interface disconnect that might happen to the
+  // navigation_client used to commit.
+  void IgnoreCommitInterfaceDisconnection();
 
  private:
   NavigationRequest(FrameTreeNode* frame_tree_node,
@@ -277,16 +319,14 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // NavigationHandle.
   void OnStartChecksComplete(NavigationThrottle::ThrottleCheckResult result);
   void OnRedirectChecksComplete(NavigationThrottle::ThrottleCheckResult result);
-  void OnFailureChecksComplete(RenderFrameHostImpl* render_frame_host,
-                               NavigationThrottle::ThrottleCheckResult result);
+  void OnFailureChecksComplete(NavigationThrottle::ThrottleCheckResult result);
   void OnWillProcessResponseChecksComplete(
       NavigationThrottle::ThrottleCheckResult result);
 
   // Called either by OnFailureChecksComplete() or OnRequestFailed() directly.
   // |error_page_content| contains the content of the error page (i.e. flattened
   // HTML, JS, CSS).
-  void CommitErrorPage(RenderFrameHostImpl* render_frame_host,
-                       const base::Optional<std::string>& error_page_content);
+  void CommitErrorPage(const base::Optional<std::string>& error_page_content);
 
   // Have a RenderFrameHost commit the navigation. The NavigationRequest will
   // be destroyed after this call.
@@ -368,7 +408,12 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // Only used with PerNavigationMojoInterface enabled.
   void IgnoreInterfaceDisconnection();
 
+  // Inform the RenderProcessHost to no longer expect a navigation.
+  void ResetExpectedProcess();
+
   FrameTreeNode* frame_tree_node_;
+
+  RenderFrameHostImpl* render_frame_host_ = nullptr;
 
   // Initialized on creation of the NavigationRequest. Sent to the renderer when
   // the navigation is ready to commit.
@@ -412,6 +457,8 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   int bindings_;
   int nav_entry_id_ = 0;
 
+  scoped_refptr<SiteInstanceImpl> starting_site_instance_;
+
   // Whether the navigation should be sent to a renderer a process. This is
   // true, except for 204/205 responses and downloads.
   bool response_should_be_rendered_;
@@ -436,13 +483,22 @@ class CONTENT_EXPORT NavigationRequest : public NavigationURLLoaderDelegate {
   // completed, these objects will be used to continue the navigation.
   scoped_refptr<network::ResourceResponse> response_;
   network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints_;
-  net::SSLInfo ssl_info_;
-  bool is_download_;
+  base::Optional<net::SSLInfo> ssl_info_;
+  bool is_download_ = false;
+  bool is_stream_ = false;
+  GlobalRequestID request_id_;
 
   // Holds information for the navigation while the WillFailRequest
   // checks are performed by the NavigationHandle.
   bool has_stale_copy_in_cache_;
   int net_error_;
+
+  // Identifies in which RenderProcessHost this navigation is expected to
+  // commit.
+  int expected_render_process_host_id_;
+
+  // The site URL of this navigation, as obtained from SiteInstance::GetSiteURL.
+  GURL site_url_;
 
   std::unique_ptr<InitiatorCSPContext> initiator_csp_context_;
 

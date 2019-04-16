@@ -29,7 +29,9 @@ public class DummyUiActivityTestCase {
     public static DisableAnimationsTestRule disableAnimationsRule = new DisableAnimationsTestRule();
 
     @Rule
-    public TestRule ruleChain = RuleChain.outerRule(mActivityTestRule).around(new TestDriverRule());
+    public TestRule ruleChain = RuleChain.outerRule(mActivityTestRule)
+                                        .around(new DisableNativeTestRule())
+                                        .around(new TestDriverRule());
 
     /**
      * TestRule to setup and tear down for each test.
@@ -57,7 +59,8 @@ public class DummyUiActivityTestCase {
     }
 
     // Override this to tear down after test.
-    public void tearDownTest() throws Exception {}
+    public void tearDownTest() throws Exception {
+    }
 
     public DummyUiActivity getActivity() {
         return mActivity;

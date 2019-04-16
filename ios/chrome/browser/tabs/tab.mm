@@ -42,7 +42,6 @@
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
 #import "ios/chrome/browser/download/download_manager_tab_helper.h"
-#include "ios/chrome/browser/experimental_flags.h"
 #import "ios/chrome/browser/find_in_page/find_in_page_controller.h"
 #include "ios/chrome/browser/history/history_service_factory.h"
 #include "ios/chrome/browser/history/history_tab_helper.h"
@@ -55,12 +54,12 @@
 #import "ios/chrome/browser/snapshots/snapshot_cache.h"
 #import "ios/chrome/browser/snapshots/snapshot_cache_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
+#include "ios/chrome/browser/system_flags.h"
 #import "ios/chrome/browser/tabs/legacy_tab_helper.h"
 #import "ios/chrome/browser/tabs/tab_dialog_delegate.h"
 #import "ios/chrome/browser/tabs/tab_helper_util.h"
 #import "ios/chrome/browser/tabs/tab_private.h"
 #include "ios/chrome/browser/translate/chrome_ios_translate_client.h"
-#import "ios/chrome/browser/u2f/u2f_controller.h"
 #import "ios/chrome/browser/ui/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/ui/commands/show_signin_command.h"
 #import "ios/chrome/browser/ui/open_in_controller.h"
@@ -83,7 +82,6 @@
 #include "ios/web/public/web_client.h"
 #import "ios/web/public/web_state/js/crw_js_injection_receiver.h"
 #import "ios/web/public/web_state/navigation_context.h"
-#import "ios/web/public/web_state/ui/crw_generic_content_view.h"
 #import "ios/web/public/web_state/web_state.h"
 #import "ios/web/public/web_state/web_state_observer_bridge.h"
 #include "ios/web/public/web_thread.h"
@@ -118,6 +116,7 @@ NSString* const kTabClosingCurrentDocumentNotificationForCrashReporting =
 NSString* const kTabUrlKey = @"url";
 
 @interface Tab ()<CRWWebStateObserver> {
+  // Browser state associated with this Tab.
   ios::ChromeBrowserState* _browserState;
 
   OpenInController* _openInController;
@@ -132,9 +131,6 @@ NSString* const kTabUrlKey = @"url";
   // Allows Tab to conform CRWWebStateDelegate protocol.
   std::unique_ptr<web::WebStateObserverBridge> _webStateObserver;
 
-  // Universal Second Factor (U2F) call controller.
-  U2FController* _secondFactorController;
-
 }
 
 // Returns the OpenInController for this tab.
@@ -147,7 +143,6 @@ NSString* const kTabUrlKey = @"url";
 
 @implementation Tab
 
-@synthesize browserState = _browserState;
 @synthesize overscrollActionsController = _overscrollActionsController;
 @synthesize overscrollActionsControllerDelegate =
     overscrollActionsControllerDelegate_;
@@ -187,17 +182,6 @@ NSString* const kTabUrlKey = @"url";
 
 #pragma mark - Properties
 
-- (NSString*)tabId {
-  if (!self.webState) {
-    // Tab can outlive WebState, in which case Tab is not valid anymore and
-    // tabId should be nil.
-    return nil;
-  }
-  TabIdTabHelper* tab_id_helper = TabIdTabHelper::FromWebState(self.webState);
-  DCHECK(tab_id_helper);
-  return tab_id_helper->tab_id();
-}
-
 - (web::WebState*)webState {
   return _webStateImpl;
 }
@@ -223,7 +207,7 @@ NSString* const kTabUrlKey = @"url";
   [_overscrollActionsController setStyle:style];
   [_overscrollActionsController
       setDelegate:overscrollActionsControllerDelegate];
-  [_overscrollActionsController setBrowserState:self.browserState];
+  [_overscrollActionsController setBrowserState:_browserState];
   overscrollActionsControllerDelegate_ = overscrollActionsControllerDelegate;
 }
 
@@ -243,10 +227,6 @@ NSString* const kTabUrlKey = @"url";
   [self.webController dismissModals];
 }
 
-- (web::NavigationManager*)navigationManager {
-  return self.webState ? self.webState->GetNavigationManager() : nullptr;
-}
-
 - (void)willUpdateSnapshot {
   [_overscrollActionsController clear];
 }
@@ -259,26 +239,6 @@ NSString* const kTabUrlKey = @"url";
                       object:self
                     userInfo:@{kTabUrlKey : urlString}];
   }
-}
-
-#pragma mark - Public API (relating to U2F)
-
-- (void)evaluateU2FResultFromURL:(const GURL&)URL {
-  DCHECK(_secondFactorController);
-  [_secondFactorController evaluateU2FResultFromU2FURL:URL
-                                              webState:self.webState];
-}
-
-- (GURL)XCallbackFromRequestURL:(const GURL&)requestURL
-                      originURL:(const GURL&)originURL {
-  // Create U2FController object lazily.
-  if (!_secondFactorController)
-    _secondFactorController = [[U2FController alloc] init];
-  return [_secondFactorController
-      XCallbackFromRequestURL:requestURL
-                    originURL:originURL
-                       tabURL:self.webState->GetLastCommittedURL()
-                        tabID:self.tabId];
 }
 
 #pragma mark - CRWWebStateObserver protocol

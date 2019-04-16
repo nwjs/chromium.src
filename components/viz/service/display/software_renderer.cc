@@ -25,7 +25,6 @@
 #include "skia/ext/opacity_filter_canvas.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "third_party/skia/include/core/SkColorSpaceXformCanvas.h"
 #include "third_party/skia/include/core/SkImageFilter.h"
 #include "third_party/skia/include/core/SkMatrix.h"
 #include "third_party/skia/include/core/SkPath.h"
@@ -46,14 +45,16 @@ class AnimatedImagesProvider : public cc::ImageProvider {
       : image_animation_map_(image_animation_map) {}
   ~AnimatedImagesProvider() override = default;
 
-  ScopedDecodedDrawImage GetDecodedDrawImage(
+  ImageProvider::ScopedResult GetRasterContent(
       const cc::DrawImage& draw_image) override {
+    // TODO(xidachen): Ensure this function works for paint worklet generated
+    // images.
     const auto& paint_image = draw_image.paint_image();
     auto it = image_animation_map_->find(paint_image.stable_id());
     size_t frame_index = it == image_animation_map_->end()
                              ? cc::PaintImage::kDefaultFrameIndex
                              : it->second;
-    return ScopedDecodedDrawImage(cc::DecodedDrawImage(
+    return ScopedResult(cc::DecodedDrawImage(
         paint_image.GetSkImageForFrame(
             frame_index, cc::PaintImage::kDefaultGeneratorClientId),
         SkSize::Make(0, 0), SkSize::Make(1.f, 1.f), draw_image.filter_quality(),
@@ -291,6 +292,15 @@ void SoftwareRenderer::DoDrawQuad(const DrawQuad* quad,
       DrawUnsupportedQuad(quad);
       NOTREACHED();
       break;
+    case DrawQuad::VIDEO_HOLE:
+      // VideoHoleDrawQuad should only be used by Cast, and should
+      // have been replaced by cast-specific OverlayProcessor before
+      // reach here. In non-cast build, an untrusted render could send such
+      // Quad and the quad would then reach here unexpectedly. Therefore
+      // we should skip NOTREACHED() so an untrusted render is not capable
+      // of causing a crash.
+      DrawUnsupportedQuad(quad);
+      break;
   }
 
   current_canvas_->resetMatrix();
@@ -329,12 +339,6 @@ void SoftwareRenderer::DrawPictureQuad(const PictureDrawQuad* quad) {
   TRACE_EVENT0("viz", "SoftwareRenderer::DrawPictureQuad");
 
   SkCanvas* raster_canvas = current_canvas_;
-
-  std::unique_ptr<SkCanvas> color_transform_canvas;
-  // TODO(enne): color transform needs to be replicated in gles2_cmd_decoder
-  color_transform_canvas = SkCreateColorSpaceXformCanvas(
-      current_canvas_, gfx::ColorSpace::CreateSRGB().ToSkColorSpace());
-  raster_canvas = color_transform_canvas.get();
 
   base::Optional<skia::OpacityFilterCanvas> opacity_canvas;
   if (needs_transparency || disable_image_filtering) {
@@ -541,26 +545,8 @@ void SoftwareRenderer::DrawUnsupportedQuad(const DrawQuad* quad) {
 }
 
 void SoftwareRenderer::CopyDrawnRenderPass(
+    const copy_output::RenderPassGeometry& geometry,
     std::unique_ptr<CopyOutputRequest> request) {
-  // Finalize the source subrect, as the entirety of the RenderPass's output
-  // optionally clamped to the requested copy area. Then, compute the result
-  // rect, which is the selection clamped to the maximum possible result bounds.
-  // If there will be zero pixels of output or the scaling ratio was not
-  // reasonable, do not proceed.
-  gfx::Rect output_rect = current_frame()->current_render_pass->output_rect;
-  if (request->has_area())
-    output_rect.Intersect(request->area());
-  const gfx::Rect result_bounds =
-      request->is_scaled() ? copy_output::ComputeResultRect(
-                                 gfx::Rect(output_rect.size()),
-                                 request->scale_from(), request->scale_to())
-                           : gfx::Rect(output_rect.size());
-  gfx::Rect result_rect = result_bounds;
-  if (request->has_result_selection())
-    result_rect.Intersect(request->result_selection());
-  if (result_rect.IsEmpty())
-    return;
-
   sk_sp<SkColorSpace> color_space =
       current_frame()->current_render_pass->color_space.ToSkColorSpace();
   DCHECK(color_space);
@@ -574,12 +560,13 @@ void SoftwareRenderer::CopyDrawnRenderPass(
     if (!current_canvas_->peekPixels(&render_pass_output))
       return;
     {
-      const gfx::Rect subrect = MoveFromDrawToWindowSpace(output_rect);
       render_pass_output =
           SkPixmap(render_pass_output.info()
-                       .makeWH(subrect.width(), subrect.height())
+                       .makeWH(geometry.sampling_bounds.width(),
+                               geometry.sampling_bounds.height())
                        .makeColorSpace(std::move(color_space)),
-                   render_pass_output.addr(subrect.x(), subrect.y()),
+                   render_pass_output.addr(geometry.sampling_bounds.x(),
+                                           geometry.sampling_bounds.y()),
                    render_pass_output.rowBytes());
     }
 
@@ -595,18 +582,17 @@ void SoftwareRenderer::CopyDrawnRenderPass(
         is_downscale_in_both_dimensions ? ImageOperations::RESIZE_BETTER
                                         : ImageOperations::RESIZE_BEST;
     bitmap = ImageOperations::Resize(
-        render_pass_output, method, result_bounds.width(),
-        result_bounds.height(),
-        SkIRect{result_rect.x(), result_rect.y(), result_rect.right(),
-                result_rect.bottom()});
+        render_pass_output, method, geometry.result_bounds.width(),
+        geometry.result_bounds.height(),
+        SkIRect{geometry.result_selection.x(), geometry.result_selection.y(),
+                geometry.result_selection.right(),
+                geometry.result_selection.bottom()});
   } else /* if (!request->is_scaled()) */ {
-    const gfx::Rect window_copy_rect =
-        MoveFromDrawToWindowSpace(result_rect + output_rect.OffsetFromOrigin());
-    bitmap.allocPixels(SkImageInfo::MakeN32Premul(window_copy_rect.width(),
-                                                  window_copy_rect.height(),
-                                                  std::move(color_space)));
-    if (!current_canvas_->readPixels(bitmap, window_copy_rect.x(),
-                                     window_copy_rect.y()))
+    bitmap.allocPixels(SkImageInfo::MakeN32Premul(
+        geometry.result_selection.width(), geometry.result_selection.height(),
+        std::move(color_space)));
+    if (!current_canvas_->readPixels(bitmap, geometry.readback_offset.x(),
+                                     geometry.readback_offset.y()))
       return;
   }
 
@@ -623,7 +609,7 @@ void SoftwareRenderer::CopyDrawnRenderPass(
   // Note: The CopyOutputSkBitmapResult automatically provides I420 format
   // conversion, if needed.
   request->SendResult(std::make_unique<CopyOutputSkBitmapResult>(
-      result_format, result_rect, bitmap));
+      result_format, geometry.result_selection, bitmap));
 }
 
 void SoftwareRenderer::SetEnableDCLayers(bool enable) {

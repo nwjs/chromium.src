@@ -9,16 +9,16 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/strings/string16.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/web_applications/components/app_registrar.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
-#include "extensions/browser/extension_prefs.h"
-#include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/uninstall_reason.h"
 
@@ -53,8 +53,11 @@ struct PendingBookmarkAppManager::TaskAndCallback {
   OnceInstallCallback callback;
 };
 
-PendingBookmarkAppManager::PendingBookmarkAppManager(Profile* profile)
+PendingBookmarkAppManager::PendingBookmarkAppManager(
+    Profile* profile,
+    web_app::AppRegistrar* registrar)
     : profile_(profile),
+      registrar_(registrar),
       extension_ids_map_(profile->GetPrefs()),
       web_contents_factory_(base::BindRepeating(&WebContentsCreateWrapper)),
       task_factory_(base::BindRepeating(&InstallationTaskCreateWrapper)),
@@ -130,6 +133,11 @@ std::vector<GURL> PendingBookmarkAppManager::GetInstalledAppUrls(
                                                        install_source);
 }
 
+base::Optional<std::string> PendingBookmarkAppManager::LookupAppId(
+    const GURL& url) const {
+  return extension_ids_map_.LookupExtensionId(url);
+}
+
 void PendingBookmarkAppManager::SetFactoriesForTesting(
     WebContentsFactory web_contents_factory,
     TaskFactory task_factory) {
@@ -144,12 +152,11 @@ void PendingBookmarkAppManager::SetTimerForTesting(
 
 base::Optional<bool> PendingBookmarkAppManager::IsExtensionPresentAndInstalled(
     const std::string& extension_id) {
-  if (ExtensionRegistry::Get(profile_)->GetExtensionById(
-          extension_id, ExtensionRegistry::EVERYTHING) != nullptr) {
+  if (registrar_->IsInstalled(extension_id)) {
     return base::Optional<bool>(true);
   }
-  if (ExtensionPrefs::Get(profile_)->IsExternalExtensionUninstalled(
-          extension_id)) {
+
+  if (registrar_->WasExternalAppUninstalledByUser(extension_id)) {
     return base::Optional<bool>(false);
   }
 
@@ -251,12 +258,9 @@ void PendingBookmarkAppManager::CurrentInstallationFinished(
       base::BindOnce(&PendingBookmarkAppManager::MaybeStartNextInstallation,
                      weak_ptr_factory_.GetWeakPtr()));
 
-  auto install_result_code = web_app::InstallResultCode::kFailedUnknownReason;
-  if (app_id) {
-    install_result_code = web_app::InstallResultCode::kSuccess;
-    const auto& info = current_task_and_callback_->task->app_info();
-    extension_ids_map_.Insert(info.url, app_id.value(), info.install_source);
-  }
+  auto install_result_code =
+      app_id ? web_app::InstallResultCode::kSuccess
+             : web_app::InstallResultCode::kFailedUnknownReason;
 
   std::unique_ptr<TaskAndCallback> task_and_callback;
   task_and_callback.swap(current_task_and_callback_);
@@ -281,7 +285,7 @@ void PendingBookmarkAppManager::DidFinishLoad(
   }
 
   Observe(nullptr);
-  current_task_and_callback_->task->InstallWebAppOrShortcutFromWebContents(
+  current_task_and_callback_->task->Install(
       web_contents_.get(),
       base::BindOnce(&PendingBookmarkAppManager::OnInstalled,
                      // Safe because the installation task will not run its

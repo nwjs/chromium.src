@@ -89,12 +89,12 @@
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/history_item.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/page/plugin_data.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_request.h"
 #include "third_party/blink/renderer/platform/exported/wrapped_resource_response.h"
 #include "third_party/blink/renderer/platform/histogram.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
-#include "third_party/blink/renderer/platform/plugins/plugin_data.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/text/cstring.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -118,10 +118,11 @@ Frame* ToCoreFrame(WebFrame* frame) {
 // parent or when the parent is a remote frame.
 LocalFrame* GetLocalParentFrame(WebLocalFrameImpl* frame) {
   WebFrame* parent = frame->Parent();
-  if (!parent || !parent->IsWebLocalFrame())
+  auto* parent_web_local_frame = DynamicTo<WebLocalFrameImpl>(parent);
+  if (!parent_web_local_frame)
     return nullptr;
 
-  return ToWebLocalFrameImpl(parent)->GetFrame();
+  return parent_web_local_frame->GetFrame();
 }
 
 // Returns whether the |local_frame| has been loaded using an MHTMLArchive. When
@@ -195,6 +196,11 @@ void LocalFrameClientImpl::Trace(blink::Visitor* visitor) {
 
 WebLocalFrameImpl* LocalFrameClientImpl::GetWebFrame() const {
   return web_frame_.Get();
+}
+
+WebContentCaptureClient* LocalFrameClientImpl::GetWebContentCaptureClient()
+    const {
+  return web_frame_->ContentCaptureClient();
 }
 
 void LocalFrameClientImpl::DidCreateNewDocument() {
@@ -715,12 +721,6 @@ void LocalFrameClientImpl::DidRunContentWithCertificateErrors() {
     web_frame_->Client()->DidRunContentWithCertificateErrors();
 }
 
-void LocalFrameClientImpl::ReportLegacySymantecCert(const KURL& url,
-                                                    bool did_fail) {
-  if (web_frame_->Client())
-    web_frame_->Client()->ReportLegacySymantecCert(url, did_fail);
-}
-
 void LocalFrameClientImpl::ReportLegacyTLSVersion(const KURL& url) {
   if (web_frame_->Client())
     web_frame_->Client()->ReportLegacyTLSVersion(url);
@@ -729,6 +729,11 @@ void LocalFrameClientImpl::ReportLegacyTLSVersion(const KURL& url) {
 void LocalFrameClientImpl::DidChangePerformanceTiming() {
   if (web_frame_->Client())
     web_frame_->Client()->DidChangePerformanceTiming();
+}
+
+void LocalFrameClientImpl::DidChangeCpuTiming(base::TimeDelta time) {
+  if (web_frame_->Client())
+    web_frame_->Client()->DidChangeCpuTiming(time);
 }
 
 void LocalFrameClientImpl::DidObserveLoadingBehavior(
@@ -771,6 +776,12 @@ void LocalFrameClientImpl::SelectorMatchChanged(
   }
 }
 
+void LocalFrameClientImpl::VisibilityChanged(
+    blink::mojom::FrameVisibility visibility) {
+  if (WebLocalFrameClient* client = web_frame_->Client())
+    client->VisibilityChanged(visibility);
+}
+
 DocumentLoader* LocalFrameClientImpl::CreateDocumentLoader(
     LocalFrame* frame,
     WebNavigationType navigation_type,
@@ -802,6 +813,13 @@ String LocalFrameClientImpl::UserAgent() {
   if (user_agent_.IsEmpty())
     user_agent_ = Platform::Current()->UserAgent();
   return user_agent_;
+}
+
+blink::UserAgentMetadata LocalFrameClientImpl::UserAgentMetadata() {
+  // TODO(mkwst): Support devtools override.
+  if (user_agent_metadata_.brand.empty())
+    user_agent_metadata_ = Platform::Current()->UserAgentMetadata();
+  return user_agent_metadata_;
 }
 
 String LocalFrameClientImpl::DoNotTrackValue() {
@@ -1091,6 +1109,30 @@ LocalFrameClientImpl::GetDocumentInterfaceBroker() {
   return document_interface_broker_.get();
 }
 
+void LocalFrameClientImpl::BindDocumentInterfaceBroker(
+    mojo::ScopedMessagePipeHandle js_handle) {
+  document_interface_broker_bindings_.AddBinding(
+      this, mojom::blink::DocumentInterfaceBrokerRequest(std::move(js_handle)));
+}
+
+mojo::ScopedMessagePipeHandle
+LocalFrameClientImpl::SetDocumentInterfaceBrokerForTesting(
+    mojo::ScopedMessagePipeHandle blink_handle) {
+  // Ensure all pending calls get dispatched before the implementation swap
+  document_interface_broker_bindings_.FlushForTesting();
+
+  mojom::blink::DocumentInterfaceBrokerPtr test_broker(
+      mojom::blink::DocumentInterfaceBrokerPtrInfo(
+          std::move(blink_handle),
+          mojom::blink::DocumentInterfaceBroker::Version_));
+
+  mojo::ScopedMessagePipeHandle real_handle =
+      document_interface_broker_.PassInterface().PassHandle();
+  document_interface_broker_ = std::move(test_broker);
+
+  return real_handle;
+}
+
 AssociatedInterfaceProvider*
 LocalFrameClientImpl::GetRemoteNavigationAssociatedInterfaces() {
   return web_frame_->Client()->GetRemoteNavigationAssociatedInterfaces();
@@ -1159,14 +1201,30 @@ bool LocalFrameClientImpl::IsPluginHandledExternally(
     HTMLPlugInElement& plugin_element,
     const KURL& resource_url,
     const String& suggesed_mime_type) {
+  if (!RuntimeEnabledFeatures::MimeHandlerViewInCrossProcessFrameEnabled())
+    return false;
   return web_frame_->Client()->IsPluginHandledExternally(
       &plugin_element, resource_url, suggesed_mime_type);
+}
+
+v8::Local<v8::Object> LocalFrameClientImpl::GetScriptableObject(
+    HTMLPlugInElement& plugin_element,
+    v8::Isolate* isolate) {
+  return web_frame_->Client()->GetScriptableObject(&plugin_element, isolate);
 }
 
 scoped_refptr<WebWorkerFetchContext>
 LocalFrameClientImpl::CreateWorkerFetchContext() {
   DCHECK(web_frame_->Client());
   return web_frame_->Client()->CreateWorkerFetchContext();
+}
+
+scoped_refptr<WebWorkerFetchContext>
+LocalFrameClientImpl::CreateWorkerFetchContextForPlzDedicatedWorker(
+    WebDedicatedWorkerHostFactoryClient* factory_client) {
+  DCHECK(web_frame_->Client());
+  return web_frame_->Client()->CreateWorkerFetchContextForPlzDedicatedWorker(
+      factory_client);
 }
 
 std::unique_ptr<WebContentSettingsClient>
@@ -1181,6 +1239,12 @@ void LocalFrameClientImpl::SetMouseCapture(bool capture) {
 
 bool LocalFrameClientImpl::UsePrintingLayout() const {
   return web_frame_->UsePrintingLayout();
+}
+
+const FeaturePolicy::FeatureState& LocalFrameClientImpl::GetOpenerFeatureState()
+    const {
+  DCHECK(web_frame_->GetFrame()->IsMainFrame());
+  return web_frame_->OpenerFeatureState();
 }
 
 STATIC_ASSERT_ENUM(DownloadCrossOriginRedirects::kFollow,

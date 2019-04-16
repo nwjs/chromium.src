@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <utility>
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
 #include "mojo/public/cpp/bindings/binding_set.h"
@@ -165,9 +166,9 @@ class BlobDataHandleTest : public testing::Test {
 
         base::RunLoop loop;
         Vector<uint8_t> received_bytes;
-        mojom::blink::BytesProviderPtr data(
+        mojom::blink::BytesProviderPtr actual_data(
             std::move(actual->get_bytes()->data));
-        data->RequestAsReply(base::BindOnce(
+        actual_data->RequestAsReply(base::BindOnce(
             [](base::Closure quit_closure, Vector<uint8_t>* bytes_out,
                const Vector<uint8_t>& bytes) {
               *bytes_out = bytes;

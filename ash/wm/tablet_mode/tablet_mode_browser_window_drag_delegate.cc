@@ -17,7 +17,6 @@
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/splitview/split_view_constants.h"
-#include "ash/wm/tablet_mode/tablet_mode_browser_window_drag_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_window_state.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/window.h"
@@ -159,7 +158,7 @@ class TabletModeBrowserWindowDragDelegate::WindowsHider
     shield_widget_ = CreateBackgroundWidget(
         root_window, ui::LAYER_SOLID_COLOR, SK_ColorTRANSPARENT, 0, 0,
         SK_ColorTRANSPARENT, /*initial_opacity*/ 1.f, /*parent=*/nullptr,
-        /*stack_on_top=*/true);
+        /*stack_on_top=*/true, /*accept_events=*/false);
     aura::Window* widget_window = shield_widget_->GetNativeWindow();
     const gfx::Rect bounds = widget_window->parent()->bounds();
     widget_window->SetBounds(bounds);
@@ -306,8 +305,7 @@ void TabletModeBrowserWindowDragDelegate::UpdateSourceWindow(
   aura::Window* source_window =
       dragged_window_->GetProperty(ash::kTabDraggingSourceWindowKey);
   if (!source_window || source_window == dragged_window_ ||
-      source_window == split_view_controller_->left_window() ||
-      source_window == split_view_controller_->right_window() ||
+      split_view_controller_->IsWindowInSplitView(source_window) ||
       source_window->GetProperty(ash::kIsShowingInOverviewKey)) {
     return;
   }

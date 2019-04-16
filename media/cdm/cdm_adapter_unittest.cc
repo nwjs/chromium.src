@@ -121,7 +121,7 @@ class CdmAdapterTestBase : public testing::Test,
   CdmAdapterTestBase() {
     base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
         switches::kOverrideEnabledCdmInterfaceVersion,
-        base::IntToString(GetCdmInterfaceVersion()));
+        base::NumberToString(GetCdmInterfaceVersion()));
   }
 
   ~CdmAdapterTestBase() override { CdmModule::ResetInstanceForTesting(); }
@@ -360,13 +360,13 @@ class CdmAdapterTestWithMockCdm : public CdmAdapterTestBase {
 
 // Instantiate test cases
 
-INSTANTIATE_TEST_CASE_P(CDM_9, CdmAdapterTestWithClearKeyCdm, Values(9));
-INSTANTIATE_TEST_CASE_P(CDM_10, CdmAdapterTestWithClearKeyCdm, Values(10));
-INSTANTIATE_TEST_CASE_P(CDM_11, CdmAdapterTestWithClearKeyCdm, Values(11));
+INSTANTIATE_TEST_SUITE_P(CDM_9, CdmAdapterTestWithClearKeyCdm, Values(9));
+INSTANTIATE_TEST_SUITE_P(CDM_10, CdmAdapterTestWithClearKeyCdm, Values(10));
+INSTANTIATE_TEST_SUITE_P(CDM_11, CdmAdapterTestWithClearKeyCdm, Values(11));
 
-INSTANTIATE_TEST_CASE_P(CDM_9, CdmAdapterTestWithMockCdm, Values(9));
-INSTANTIATE_TEST_CASE_P(CDM_10, CdmAdapterTestWithMockCdm, Values(10));
-INSTANTIATE_TEST_CASE_P(CDM_11, CdmAdapterTestWithMockCdm, Values(11));
+INSTANTIATE_TEST_SUITE_P(CDM_9, CdmAdapterTestWithMockCdm, Values(9));
+INSTANTIATE_TEST_SUITE_P(CDM_10, CdmAdapterTestWithMockCdm, Values(10));
+INSTANTIATE_TEST_SUITE_P(CDM_11, CdmAdapterTestWithMockCdm, Values(11));
 
 // CdmAdapterTestWithClearKeyCdm Tests
 

@@ -25,6 +25,7 @@
 #include "chromeos/dbus/power_manager_client.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
+#include "ui/aura/window_occlusion_tracker.h"
 #include "ui/events/devices/input_device_event_observer.h"
 #include "ui/gfx/geometry/vector3d_f.h"
 
@@ -139,6 +140,15 @@ class ASH_EXPORT TabletModeController
   void OnInputDeviceConfigurationChanged(uint8_t input_device_types) override;
   void OnDeviceListsComplete() override;
 
+  void increment_app_window_drag_count() { ++app_window_drag_count_; }
+  void increment_app_window_drag_in_splitview_count() {
+    ++app_window_drag_in_splitview_count_;
+  }
+  void increment_tab_drag_count() { ++tab_drag_count_; }
+  void increment_tab_drag_in_splitview_count() {
+    ++tab_drag_in_splitview_count_;
+  }
+
  private:
   friend class TabletModeControllerTestApi;
 
@@ -193,6 +203,9 @@ class ASH_EXPORT TabletModeController
 
   // mojom::TabletModeController:
   void SetClient(mojom::TabletModeClientPtr client) override;
+  void SetTabletModeEnabledForTesting(
+      bool enabled,
+      SetTabletModeEnabledForTestingCallback callback) override;
 
   // Checks whether we want to allow change the current ui mode to tablet mode
   // or clamshell mode. This returns false if the user set a flag for the
@@ -217,6 +230,13 @@ class ASH_EXPORT TabletModeController
   // Returns true if the current lid angle can be detected and is in tablet mode
   // angle range.
   bool LidAngleIsInTabletModeRange();
+
+  // Suspends |occlusion_tracker_pauser_| for the duration of
+  // kOcclusionTrackTimeout.
+  void SuspendOcclusionTracker();
+
+  // Resets |occlusion_tracker_pauser_|.
+  void ResetPauser();
 
   // The maximized window manager (if enabled).
   std::unique_ptr<TabletModeWindowManager> tablet_mode_window_manager_;
@@ -264,6 +284,19 @@ class ASH_EXPORT TabletModeController
   // not enter tablet mode if this is true.
   bool has_external_pointing_device_ = false;
 
+  // Counts the app window drag from top in tablet mode.
+  int app_window_drag_count_ = 0;
+
+  // Counts the app window drag from top when splitview is active.
+  int app_window_drag_in_splitview_count_ = 0;
+
+  // Counts of the tab drag from top in tablet mode, includes both non-source
+  // window and source window drag.
+  int tab_drag_count_ = 0;
+
+  // Counts of the tab drag from top when splitview is active.
+  int tab_drag_in_splitview_count_ = 0;
+
   // Tracks smoothed accelerometer data over time. This is done when the hinge
   // is approaching vertical to remove abrupt acceleration that can lead to
   // incorrect calculations of hinge angles.
@@ -283,6 +316,13 @@ class ASH_EXPORT TabletModeController
   base::RepeatingTimer record_lid_angle_timer_;
 
   ScopedSessionObserver scoped_session_observer_;
+
+  std::unique_ptr<aura::WindowOcclusionTracker::ScopedPause>
+      occlusion_tracker_pauser_;
+
+  // Starts when enter/exit tablet mode. Runs ResetPauser to reset the
+  // occlustion tracker.
+  base::OneShotTimer occlusion_tracker_reset_timer_;
 
   // Observer to observe the bluetooth devices.
   std::unique_ptr<BluetoothDevicesObserver> bluetooth_devices_observer_;

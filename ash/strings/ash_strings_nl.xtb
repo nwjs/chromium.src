@@ -14,6 +14,7 @@
 <translation id="1153356358378277386">Gekoppelde apparaten</translation>
 <translation id="1195412055398077112">overscan</translation>
 <translation id="119944043368869598">Alles wissen</translation>
+<translation id="123828989343052515">Nieuw bureau</translation>
 <translation id="1247372569136754018">Microfoon (intern)</translation>
 <translation id="1252999807265626933">Opladen via <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Wat voor weer is het?</translation>
@@ -38,6 +39,7 @@
 <translation id="1525508553941733066">SLUITEN</translation>
 <translation id="1537254971476575106">Volledig scherm vergroten</translation>
 <translation id="15373452373711364">Grote muisaanwijzer</translation>
+<translation id="1546492247443594934">Bureau 2</translation>
 <translation id="1550523713251050646">Klik voor meer opties</translation>
 <translation id="1570871743947603115">Bluetooth schakelen. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">Al je activiteit in deze sessie bekijken</translation>
@@ -73,6 +75,7 @@
 <translation id="2016340657076538683">Typ een bericht</translation>
 <translation id="2050339315714019657">Staand</translation>
 <translation id="2067602449040652523">Toetsenbordhelderheid</translation>
+<translation id="209965399369889474">Niet verbonden met netwerk</translation>
 <translation id="2127372758936585790">Laag-vermogen-lader</translation>
 <translation id="2135456203358955318">Gedockt vergrootglas</translation>
 <translation id="2144487987174258011">Start opnieuw op om Adobe Flash Player te updaten</translation>
@@ -129,6 +132,7 @@
 <translation id="2961963223658824723">Er is iets misgegaan. Probeer het over een paar seconden opnieuw.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2970920913501714344">Apps, extensies en thema's installeren</translation>
+<translation id="2977598380246111477">Volgend cijfer</translation>
 <translation id="2995447421581609334">Cast-apparaten weergeven.</translation>
 <translation id="2996462380875591307">'Gedockt vergrootglas' is ingeschakeld. Druk nogmaals op Ctrl+Zoeken+D om dit uit te schakelen.</translation>
 <translation id="3000461861112256445">Monogeluid</translation>
@@ -141,16 +145,19 @@
 <translation id="3087734570205094154">Onderaan</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Opnieuw starten om updates uit te voeren</translation>
+<translation id="3139942575505304791">Bureau 1</translation>
 <translation id="315116470104423982">Mobiele data</translation>
 <translation id="3151786313568798007">Stand</translation>
+<translation id="3152934361839663679">Je apparaat is verbonden met het maximum aantal beeldschermen. Daarom is een van de schermen losgekoppeld.</translation>
 <translation id="3153444934357957346">Je kunt maximaal <ph name="MULTI_PROFILE_USER_LIMIT" /> accounts hebben in Toegang tot meerdere accounts.</translation>
 <translation id="3154351730702813399">De apparaatbeheerder kan je browseactiviteit controleren.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Verbonden met een apparaat}other{Verbonden met # apparaten}}</translation>
-<translation id="32244657276328332">Niet verbonden met netwerk</translation>
+<translation id="3226991577105957773">+<ph name="COUNT" /> andere meldingen</translation>
 <translation id="3236488194889173876">Geen mobiel netwerk beschikbaar</translation>
 <translation id="3255483164551725916">Wat kun je doen?</translation>
 <translation id="3294437725009624529">Gast</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> kan later nog inloggen.</translation>
+<translation id="3321628682574733415">Onjuiste oudercode</translation>
 <translation id="332587331255250389">Vervang de batterij</translation>
 <translation id="3351879221545518001">Je cast momenteel een scherm.</translation>
 <translation id="3364721542077212959">Stylustools</translation>
@@ -195,6 +202,7 @@
 <translation id="4017989525502048489">Laserpen</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Uitgeschakeld voor een app}other{Uitgeschakeld voor # apps}}</translation>
 <translation id="4072264167173457037">Normaal signaal</translation>
+<translation id="4129129681837227511">Als je meldingen op je vergrendelingsscherm wilt zien, ontgrendel je het scherm om de instellingen te wijzigen</translation>
 <translation id="4146833061457621061">Speel muziek</translation>
 <translation id="4181841719683918333">Talen</translation>
 <translation id="4195877955194704651">Knop 'Automatische klikken'</translation>
@@ -227,6 +235,8 @@
 <translation id="4585337515783392668">Casten naar een onbekende ontvanger stopzetten</translation>
 <translation id="4628757576491864469">Apparaten</translation>
 <translation id="4659419629803378708">ChromeVox ingeschakeld</translation>
+<translation id="4696813013609194136">Apparaat ontgrendelen met oudercode</translation>
+<translation id="4731797938093519117">Toegang door ouders</translation>
 <translation id="4734965478015604180">Horizontaal</translation>
 <translation id="476166673298332917">De apparaatbeheerder kan je browseactiviteit controleren.</translation>
 <translation id="4774338217796918551">Kom morgen terug om <ph name="COME_BACK_TIME" />.</translation>
@@ -253,6 +263,7 @@
 <translation id="5207949376430453814">Tekstcursor markeren</translation>
 <translation id="5222676887888702881">Uitloggen</translation>
 <translation id="523505283826916779">Toegankelijkheidsinstellingen</translation>
+<translation id="5260676007519551770">Bureau 4</translation>
 <translation id="5283198616748585639">1 min toevoegen</translation>
 <translation id="5302048478445481009">Taal</translation>
 <translation id="5313326810920013265">Bluetooth-instellingen</translation>
@@ -262,6 +273,7 @@
 <translation id="5430931332414098647">Instant-tethering</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Alle beschikbare gebruikers zijn al aan deze sessie toegevoegd.</translation>
+<translation id="5465662442746197494">Heb je hulp nodig?</translation>
 <translation id="5496819745535887422">Je beheerder zet je apparaat terug naar een oudere versie. Alle gegevens worden verwijderd wanneer het apparaat opnieuw wordt opgestart.</translation>
 <translation id="553675580533261935">Sessie sluiten</translation>
 <translation id="5537725057119320332">Cast</translation>
@@ -330,12 +342,14 @@
 <translation id="6528179044667508675">Niet storen</translation>
 <translation id="6537270692134705506">Screenshot maken</translation>
 <translation id="6542521951477560771">Er wordt gecast naar <ph name="RECEIVER_NAME" /></translation>
+<translation id="6559976592393364813">Vraag het de beheerder</translation>
 <translation id="6574601967010742428">De beheerder van het apparaat kan je activiteit mogelijk bekijken.</translation>
 <translation id="6585808820553845416">Sessie loopt af over <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Zoeken+Shift+K</translation>
 <translation id="6650933572246256093">Bluetooth-apparaat '<ph name="DEVICE_NAME" />' wil toestemming om te koppelen. Voer de volgende toegangscode in op dat apparaat: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Wachtwoord</translation>
 <translation id="6665545700722362599">Kies of websites, apps en extensies mogen gebruikmaken van locatieservices of de microfoon, de camera of andere functies van het apparaat</translation>
+<translation id="6670153871843998651">Bureau 3</translation>
 <translation id="6691659475504239918">Zoeken+Shift+H</translation>
 <translation id="6696025732084565524">Je afneembare toetsenbord heeft een essentiële update nodig</translation>
 <translation id="6700713906295497288">IME-menuknop</translation>
@@ -376,6 +390,7 @@
 <translation id="7377169924702866686">Caps Lock is ingeschakeld.</translation>
 <translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" />s</translation>
 <translation id="7398254312354928459">Overgeschakeld naar andere netwerkverbinding</translation>
+<translation id="7405710164030118432">Geef je Family Link-toegangscode voor ouders op om het apparaat te ontgrendelen</translation>
 <translation id="742594950370306541">Camera is in gebruik.</translation>
 <translation id="743058460480092004">Camera en microfoon zijn in gebruik.</translation>
 <translation id="7497767806359279797">Taal en toetsenbord kiezen</translation>
@@ -451,7 +466,6 @@
 <translation id="8454013096329229812">Wifi is ingeschakeld.</translation>
 <translation id="847056008324733326">Instellingen voor weergaveschaal</translation>
 <translation id="8477270416194247200">Druk op Alt+Zoeken of Shift om te annuleren.</translation>
-<translation id="8484916590211895857"><ph name="NAME" />: Opnieuw verbinding maken...</translation>
 <translation id="8513108775083588393">Automatisch draaien</translation>
 <translation id="8517041960877371778">Je <ph name="DEVICE_TYPE" /> wordt mogelijk niet opgeladen terwijl deze is ingeschakeld.</translation>
 <translation id="8627191004499078455">Verbonden met <ph name="DEVICE_NAME" /></translation>
@@ -467,7 +481,6 @@
 <translation id="8735953464173050365">Toetsenbordinstellingen weergeven. <ph name="KEYBOARD_NAME" /> is geselecteerd</translation>
 <translation id="875593634123171288">VPN-instellingen weergeven</translation>
 <translation id="8814190375133053267">Wifi</translation>
-<translation id="8825534185036233643">Mirroring met meer dan twee displays wordt niet ondersteund.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Draaivergrendeling schakelen. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Zoeken+Esc</translation>

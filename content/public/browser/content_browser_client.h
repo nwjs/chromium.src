@@ -15,9 +15,11 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/optional.h"
 #include "base/task/task_scheduler/task_scheduler.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/public/browser/certificate_request_result_type.h"
@@ -30,10 +32,9 @@
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/previews_state.h"
-#include "content/public/common/renderer_preference_watcher.mojom.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/socket_permission_request.h"
-#include "content/public/common/window_container_type.mojom.h"
+#include "content/public/common/window_container_type.mojom-forward.h"
 #include "media/base/video_codecs.h"
 #include "media/cdm/cdm_proxy.h"
 #include "media/media_buildflags.h"
@@ -42,17 +43,20 @@
 #include "net/cookies/canonical_cookie.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/network/public/mojom/network_context.mojom.h"
-#include "services/network/public/mojom/websocket.mojom.h"
+#include "services/network/public/mojom/websocket.mojom-forward.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/cpp/manifest.h"
-#include "services/service_manager/public/mojom/service.mojom.h"
+#include "services/service_manager/public/mojom/service.mojom-forward.h"
 #include "services/service_manager/sandbox/sandbox_type.h"
 #include "storage/browser/fileapi/file_system_context.h"
 #include "storage/browser/quota/quota_manager.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
-#include "third_party/blink/public/platform/web_feature.mojom.h"
-#include "third_party/blink/public/web/window_features.mojom.h"
+#include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
+#include "third_party/blink/public/mojom/renderer_preference_watcher.mojom-forward.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-forward.h"
+#include "third_party/blink/public/web/window_features.mojom-forward.h"
+#include "ui/accessibility/ax_mode.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -75,6 +79,7 @@ class FilePath;
 
 namespace blink {
 namespace mojom {
+class RendererPreferences;
 class WebUsbService;
 }
 }  // namespace blink
@@ -149,7 +154,6 @@ class FileSystemBackend;
 }
 
 namespace content {
-
 enum class PermissionType;
 class AuthenticatorRequestClientDelegate;
 class BrowserChildProcessHost;
@@ -171,6 +175,7 @@ class RenderFrameHost;
 class RenderProcessHost;
 class RenderViewHost;
 class ResourceContext;
+class SerialDelegate;
 class ServiceManagerConnection;
 class SiteInstance;
 class SpeechRecognitionManagerDelegate;
@@ -187,7 +192,6 @@ enum class OriginPolicyErrorReason;
 struct MainFunctionParams;
 struct OpenURLParams;
 struct Referrer;
-struct RendererPreferences;
 struct WebPreferences;
 
 CONTENT_EXPORT void OverrideOnBindInterface(
@@ -233,6 +237,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // content layer to consider startup complete (for the sake of
   // PostAfterStartupTask()).
   virtual void SetBrowserStartupIsCompleteForTesting();
+
+  // Returns true if the embedder is in the process of shutting down, whether
+  // because of the user closing the browser or the OS is shutting down.
+  virtual bool IsShuttingDown();
 
   // If content creates the WebContentsView implementation, it will ask the
   // embedder to return an (optional) delegate to customize it. The view will
@@ -474,6 +482,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Note that for correctness, the same value should be consistently returned.
   virtual bool ShouldDisableSiteIsolation();
 
+  // Retrieves names of any additional site isolation modes from the embedder.
+  virtual std::vector<std::string> GetAdditionalSiteIsolationModes();
+
   // Indicates whether a file path should be accessible via file URL given a
   // request from a browser context which lives within |profile_path|.
   virtual bool IsFileAccessAllowed(const base::FilePath& path,
@@ -549,28 +560,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // from their closest ancestor frame.
   virtual void UpdateRendererPreferencesForWorker(
       BrowserContext* browser_context,
-      RendererPreferences* out_prefs);
-
-  // DEPRECATED, Please use the NavigationHandle to modify headers.
-  // See https://crbug.com/919432.
-  //
-  // Allow the embedder to return additional headers that should be sent when
-  // fetching |url| as well as add extra load flags.
-  virtual void NavigationRequestStarted(int frame_tree_node_id,
-                                        const GURL& url,
-                                        net::HttpRequestHeaders* extra_headers,
-                                        int* extra_load_flags) {}
-
-  // DEPRECATED. Please use the NavigationHandle to modify headers.
-  // See https://crbug.com/919432.
-  //
-  // Allow the embedder to modify headers for a redirect. If non-nullopt,
-  // |*modified_headers| is applied to the request headers after updating them
-  // for the redirect.
-  virtual void NavigationRequestRedirected(
-      int frame_tree_node_id,
-      const GURL& url,
-      net::HttpRequestHeaders* modified_headers) {}
+      blink::mojom::RendererPreferences* out_prefs);
 
   // Allow the embedder to control if the given cookie can be read.
   // This is called on the IO thread.
@@ -899,6 +889,20 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Creates a new DevToolsManagerDelegate. The caller owns the returned value.
   // It's valid to return nullptr.
   virtual DevToolsManagerDelegate* GetDevToolsManagerDelegate();
+
+  // Stores the new expiration time up until which events related to |service|
+  // can still be logged. |service| is the int value of the
+  // DevToolsBackgroundService enum. |expiration_time| can be null, denoting
+  // that nothing should be recorded any more.
+  virtual void UpdateDevToolsBackgroundServiceExpiration(
+      BrowserContext* browser_context,
+      int service,
+      base::Time expiration_time);
+
+  // Returns a mapping from a background service to the time up until which
+  // recording the background service's events is still allowed.
+  virtual base::flat_map<int, base::Time>
+  GetDevToolsBackgroundServiceExpirations(BrowserContext* browser_context);
 
   // Creates a new TracingDelegate. The caller owns the returned value.
   // It's valid to return nullptr.
@@ -1235,7 +1239,8 @@ class CONTENT_EXPORT ContentBrowserClient {
   virtual void WillCreateWebSocket(
       RenderFrameHost* frame,
       network::mojom::WebSocketRequest* request,
-      network::mojom::AuthenticationHandlerPtr* authentication_handler);
+      network::mojom::AuthenticationHandlerPtr* authentication_handler,
+      network::mojom::TrustedHeaderClientPtr* header_client);
 
   // Allows the embedder to returns a list of request interceptors that can
   // intercept a navigation request.
@@ -1243,8 +1248,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Always called on the IO thread and only when the Network Service is
   // enabled.
   virtual std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>
-  WillCreateURLLoaderRequestInterceptors(NavigationUIData* navigation_ui_data,
-                                         int frame_tree_node_id);
+  WillCreateURLLoaderRequestInterceptors(
+      content::NavigationUIData* navigation_ui_data,
+      int frame_tree_node_id,
+      const scoped_refptr<network::SharedURLLoaderFactory>&
+          network_loader_factory);
 
   // Called when the NetworkService, accessible through
   // content::GetNetworkService(), is created. Implementations should avoid
@@ -1322,6 +1330,11 @@ class CONTENT_EXPORT ContentBrowserClient {
       RenderFrameHost* render_frame_host,
       mojo::InterfaceRequest<blink::mojom::WebUsbService> request);
 
+#if !defined(OS_ANDROID)
+  // Allows the embedder to provide an implementation of the Serial API.
+  virtual SerialDelegate* GetSerialDelegate();
+#endif
+
   // Attempt to open the Payment Handler window inside its corresponding
   // PaymentRequest UI surface. Returns true if the ContentBrowserClient
   // implementation supports this operation (desktop Chrome) or false otherwise.
@@ -1364,16 +1377,34 @@ class CONTENT_EXPORT ContentBrowserClient {
       ResourceContext* resource_context);
 
   // Creates a LoginDelegate that asks the user for a username and password.
-  // Caller owns the returned pointer.
+  // |web_contents| should not be null when CreateLoginDelegate is called.
   // |first_auth_attempt| is needed by AwHttpAuthHandler constructor.
   // |auth_required_callback| is used to transfer auth credentials to
   // URLRequest::SetAuth(). The credentials parameter of the callback
   // is base::nullopt if the request should be cancelled; otherwise
-  // the credentials will be used to respond to the auth challenge. This
-  // callback should be called on the IO thread task runner.
-  virtual scoped_refptr<LoginDelegate> CreateLoginDelegate(
+  // the credentials will be used to respond to the auth challenge.
+  // This method is called on the UI thread. The callback must be
+  // called on the UI thread as well. If the LoginDelegate is destroyed
+  // before the callback, the request has been canceled and the callback
+  // should not be called.
+  //
+  // |auth_required_callback| may not be called reentrantly. If the request may
+  // be handled synchronously, CreateLoginDelegate must post the callback to a
+  // separate event loop iteration, taking care not to call it if the
+  // LoginDelegate is destroyed in the meantime.
+  //
+  // There is no guarantee that |web_contents| will outlive the
+  // LoginDelegate. The LoginDelegate implementation can use WebContentsObserver
+  // to be notified when the WebContents is destroyed.
+  //
+  // TODO(davidben): This should be guaranteed. It isn't due to asynchronous
+  // destruction between the network logic and the owning WebContents, but that
+  // should be hidden from the embedder. Ideally this method would be on
+  // WebContentsDelegate, where the lifetime ordering is more
+  // obvious. https://crbug.com/456255
+  virtual std::unique_ptr<LoginDelegate> CreateLoginDelegate(
       net::AuthChallengeInfo* auth_info,
-      content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+      WebContents* web_contents,
       const GlobalRequestID& request_id,
       bool is_request_for_main_frame,
       const GURL& url,
@@ -1411,18 +1442,16 @@ class CONTENT_EXPORT ContentBrowserClient {
   // This is called on the IO thread.
   virtual bool IsSafeRedirectTarget(const GURL& url, ResourceContext* context);
 
-  // Registers the watcher to observe updates in RendererPreferences. The
-  // watchers are for shared workers and service workers.
-  virtual void RegisterRendererPreferenceWatcherForWorkers(
+  // Registers the watcher to observe updates in RendererPreferences.
+  virtual void RegisterRendererPreferenceWatcher(
       BrowserContext* browser_context,
-      mojom::RendererPreferenceWatcherPtr watcher);
+      blink::mojom::RendererPreferenceWatcherPtr watcher);
 
   // Returns the HTML content of the error page for Origin Policy related
   // errors.
   virtual base::Optional<std::string> GetOriginPolicyErrorPage(
       OriginPolicyErrorReason error_reason,
-      const url::Origin& origin,
-      const GURL& url);
+      content::NavigationHandle* navigation_handle);
 
   // Returns true if it is OK to ignore errors for certificates specified by the
   // --ignore-certificate-errors-spki-list command line flag. The embedder may
@@ -1471,6 +1500,9 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns the user agent.  Content may cache this value.
   virtual std::string GetUserAgent() const;
 
+  // Returns user agent metadata. Content may cache this value.
+  virtual blink::UserAgentMetadata GetUserAgentMetadata() const;
+
   // Returns whether |origin| should be considered a integral component similar
   // to native code, and as such whether its log messages should be recorded.
   virtual bool IsBuiltinComponent(BrowserContext* browser_context,
@@ -1481,6 +1513,22 @@ class CONTENT_EXPORT ContentBrowserClient {
   // blacklist policies are applied there.
   virtual bool IsRendererDebugURLBlacklisted(const GURL& url,
                                              BrowserContext* context);
+
+  // Returns the default accessibility mode for the given browser context.
+  virtual ui::AXMode GetAXModeForBrowserContext(
+      BrowserContext* browser_context);
+
+#if defined(OS_ANDROID)
+  // Defines the heuristics we can use to enable wide color gamut (WCG).
+  enum class WideColorGamutHeuristic {
+    kUseDisplay,  // Use WCG if display supports it.
+    kUseWindow,   // Use WCG if window is WCG.
+    kNone,        // Never use WCG.
+  };
+
+  // Returns kNone by default.
+  virtual WideColorGamutHeuristic GetWideColorGamutHeuristic() const;
+#endif
 };
 
 }  // namespace content

@@ -62,9 +62,13 @@ class CORE_EXPORT DevToolsEmulator final
   // frame. Updates the transform for a viewport override.
   void MainFrameScrollOrScaleChanged();
 
-  // Returns a custom visible content rect if a viewport override is active.
-  // This ensures that all content inside the forced viewport is painted.
-  base::Optional<IntRect> VisibleContentRectForPainting() const;
+  // Rewrites the |visible_rect| to the area of the devtools custom viewport if
+  // it is enabled. Otherwise, leaves |visible_rect| unchanged. Takes as input
+  // the size of the viewport, which gives an upper bound on the size of the
+  // area that is visible. The |viewport_size| is physical pixels if
+  // UseZoomForDSF() is enabled, or DIP otherwise.
+  void OverrideVisibleRect(const IntSize& viewport_size,
+                           IntRect* visible_rect) const;
 
   // Returns the scale used to convert incoming input events while emulating
   // device metics.
@@ -88,7 +92,7 @@ class CORE_EXPORT DevToolsEmulator final
   WebDeviceEmulationParams emulation_params_;
 
   struct ViewportOverride {
-    WebFloatPoint position;
+    FloatPoint position;
     double scale;
     bool original_visual_viewport_masking;
   };
@@ -113,7 +117,6 @@ class CORE_EXPORT DevToolsEmulator final
 
   bool touch_event_emulation_enabled_;
   bool double_tap_to_zoom_enabled_;
-  bool original_device_supports_touch_;
   int original_max_touch_points_;
 
   bool embedder_script_enabled_;

@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/renderer/safe_browsing/features.h"
 #include "chrome/renderer/safe_browsing/phishing_classifier.h"
@@ -40,8 +41,7 @@ class MockPhishingClassifier : public PhishingClassifier {
 
   ~MockPhishingClassifier() override {}
 
-  MOCK_METHOD2(BeginClassification,
-               void(const base::string16*, const DoneCallback&));
+  MOCK_METHOD2(BeginClassification, void(const base::string16*, DoneCallback));
   MOCK_METHOD0(CancelPendingClassification, void());
 
  private:

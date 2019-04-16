@@ -98,10 +98,11 @@ cr.define('extensions', function() {
       detailViewItem_: Object,
 
       /**
-       * The id of the item for the activity log view subpage.
-       * See also errorPageItem_.
+       * The item that provides some information about the current extension
+       * for the activity log view subpage. See also errorPageItem_.
+       * @private {!chrome.developerPrivate.ExtensionInfo|undefined}
        */
-      activityLogItemId_: String,
+      activityLogItem_: Object,
 
       /** @private {!Array<!chrome.developerPrivate.ExtensionInfo>} */
       extensions_: Array,
@@ -284,14 +285,14 @@ cr.define('extensions', function() {
     },
 
     /**
-     * @param {!CustomEvent} event
+     * @param {!CustomEvent<string>} event
      * @private
      */
     onFilterChanged_: function(event) {
       if (this.currentPage_.page !== Page.LIST) {
         extensions.navigation.navigateTo({page: Page.LIST});
       }
-      this.filter = /** @type {string} */ (event.detail);
+      this.filter = event.detail;
     },
 
     /** @private */
@@ -458,7 +459,6 @@ cr.define('extensions', function() {
 
       const optionsDialog = this.$$('#options-dialog');
       if (optionsDialog && optionsDialog.open) {
-        optionsDialog.close();
         this.showOptionsDialog_ = false;
       }
 
@@ -487,7 +487,7 @@ cr.define('extensions', function() {
           return;
         }
 
-        this.activityLogItemId_ = assert(data.id);
+        this.activityLogItem_ = assert(data);
       }
 
       if (fromPage != toPage) {
@@ -535,6 +535,7 @@ cr.define('extensions', function() {
     /** @private */
     onOptionsDialogClose_: function() {
       this.showOptionsDialog_ = false;
+      this.$$('extensions-detail-view').focusOptionsButton();
     },
 
     /** @private */
@@ -543,7 +544,7 @@ cr.define('extensions', function() {
     },
 
     /**
-     * @param {!CustomEvent} e
+     * @param {!Event} e
      * @private
      */
     onViewExitStart_: function(e) {
@@ -552,7 +553,7 @@ cr.define('extensions', function() {
     },
 
     /**
-     * @param {!CustomEvent} e
+     * @param {!Event} e
      * @private
      */
     onViewExitFinish_: function(e) {
@@ -577,14 +578,14 @@ cr.define('extensions', function() {
     },
 
     /**
-     * @param {!CustomEvent} e
+     * @param {!CustomEvent<!Array<string>>} e
      * @private
      */
     onShowInstallWarnings_: function(e) {
       // Leverage Polymer data bindings instead of just assigning the
       // installWarnings on the dialog since the dialog hasn't been stamped
       // in the DOM yet.
-      this.installWarnings_ = /** @type{!Array<string>} */ (e.detail);
+      this.installWarnings_ = e.detail;
       this.showInstallWarningsDialog_ = true;
     },
 

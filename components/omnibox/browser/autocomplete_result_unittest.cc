@@ -85,7 +85,7 @@ class AutocompleteResultTest : public testing::Test {
  public:
   struct TestData {
     // Used to build a url for the AutocompleteMatch. The URL becomes
-    // "http://" + ('a' + |url_id|) (e.g. an ID of 2 yields "http://b").
+    // "http://" + ('a' + |url_id|) (e.g. an ID of 2 yields "http://c").
     int url_id;
 
     // ID of the provider.
@@ -166,7 +166,7 @@ void AutocompleteResultTest::PopulateAutocompleteMatch(
     const TestData& data,
     AutocompleteMatch* match) {
   match->provider = GetProvider(data.provider_id);
-  match->fill_into_edit = base::IntToString16(data.url_id);
+  match->fill_into_edit = base::NumberToString16(data.url_id);
   std::string url_id(1, data.url_id + 'a');
   match->destination_url = GURL("http://" + url_id);
   match->relevance = data.relevance;
@@ -1067,7 +1067,7 @@ TEST_F(AutocompleteResultTest, InlineTailPrefixes) {
           "a recording",
           "... a recording",
           {{0, ACMatchClassification::MATCH}},
-          {{0, ACMatchClassification::MATCH}},
+          {{0, ACMatchClassification::NONE}, {4, ACMatchClassification::MATCH}},
       },
   };
   ACMatches matches;
@@ -1123,4 +1123,134 @@ TEST_F(AutocompleteResultTest, ConvertsOpenTabsCorrectly) {
   EXPECT_TRUE(result.match_at(0)->has_tab_match);
   EXPECT_TRUE(result.match_at(1)->has_tab_match);
   EXPECT_FALSE(result.match_at(2)->has_tab_match);
+}
+
+TEST_F(AutocompleteResultTest, DocumentSuggestionsCanMergeButNotToDefault) {
+  // Types are populated below to avoid introducing a new test data creation
+  // process.
+  TestData data[] = {
+      {1, 4, 500, false},   // DOCUMENT result for url [1].
+      {1, 1, 1100, false},  // HISTORY result for url [1], higher priority.
+      {2, 4, 600, false},   // DOCUMENT result for [2].
+      {2, 1, 1200, true},   // HISTORY result for url [2], higher priority,
+                            // Can be default.
+      {3, 4, 1000, false},  // DOCUMENT result for [3], higher priority
+      {3, 1, 400, false},   // HISTORY result for url [3].
+  };
+  ACMatches matches;
+  PopulateAutocompleteMatches(data, base::size(data), &matches);
+  matches[0].type = AutocompleteMatchType::DOCUMENT_SUGGESTION;
+  matches[1].type = AutocompleteMatchType::HISTORY_URL;
+  matches[2].type = AutocompleteMatchType::DOCUMENT_SUGGESTION;
+  matches[3].type = AutocompleteMatchType::HISTORY_URL;
+  matches[4].type = AutocompleteMatchType::DOCUMENT_SUGGESTION;
+  matches[5].type = AutocompleteMatchType::HISTORY_URL;
+
+  AutocompleteInput input(base::ASCIIToUTF16("a"),
+                          metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  AutocompleteResult result;
+  result.AppendMatches(input, matches);
+  result.SortAndCull(input, template_url_service_.get());
+
+  // We expect three results:
+  // The document result for [1] may override the history result.
+  // The document result for [2] cannot override a potentially-default result.
+  // The document result for [3] is already higher-priority.
+  EXPECT_EQ(result.size(), 3u);
+
+  // First result should be the default with its original top-ranking score.
+  EXPECT_EQ(result.match_at(0)->relevance, 1200);
+  EXPECT_EQ(AutocompleteMatchType::HISTORY_URL, result.match_at(0)->type);
+  EXPECT_TRUE(result.match_at(0)->allowed_to_be_default_match);
+
+  // Second result should be a document result with elevated score.
+  // The second DOCUMENT result is deduped and effectively dropped.
+  EXPECT_EQ(result.match_at(1)->relevance, 1100);
+  EXPECT_EQ(AutocompleteMatchType::DOCUMENT_SUGGESTION,
+            result.match_at(1)->type);
+  EXPECT_FALSE(result.match_at(1)->allowed_to_be_default_match);
+
+  // Third result should be a document with original score. The history result
+  // it duped against is lower-priority.
+  EXPECT_EQ(result.match_at(2)->relevance, 1000);
+  EXPECT_EQ(AutocompleteMatchType::DOCUMENT_SUGGESTION,
+            result.match_at(2)->type);
+  EXPECT_FALSE(result.match_at(2)->allowed_to_be_default_match);
+}
+
+TEST_F(AutocompleteResultTest, PedalSuggestionsCantBeDefaultMatch) {
+  TestData data[] = {
+      {1, 1, 500, true},
+      {0, 1, 1100, true},
+  };
+
+  ACMatches matches;
+  PopulateAutocompleteMatches(data, base::size(data), &matches);
+  matches[0].contents = base::UTF8ToUTF16("clear chrome history");
+  matches[1].contents = base::UTF8ToUTF16("open incognito tab");
+
+  AutocompleteInput input(base::ASCIIToUTF16("a"),
+                          metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  AutocompleteResult result;
+  result.AppendMatches(input, matches);
+
+  FakeAutocompleteProviderClient client;
+  result.AppendDedicatedPedalMatches(&client, input);
+
+  // Two distinct Pedals should be appended.
+  EXPECT_EQ(result.size(), 4u);
+  EXPECT_NE(result.match_at(2)->pedal, nullptr);
+  EXPECT_NE(result.match_at(3)->pedal, nullptr);
+
+  // Neither should be allowed to be default match, even though they were both
+  // derived from suggestions where the field is set true.
+  EXPECT_TRUE(result.match_at(0)->allowed_to_be_default_match);
+  EXPECT_TRUE(result.match_at(1)->allowed_to_be_default_match);
+  EXPECT_FALSE(result.match_at(2)->allowed_to_be_default_match);
+  EXPECT_FALSE(result.match_at(3)->allowed_to_be_default_match);
+}
+
+TEST_F(AutocompleteResultTest, PedalSuggestionsRemainUnique) {
+  TestData data[] = {
+      {1, 1, 500, true},
+      {0, 1, 1100, true},
+      {2, 1, 1000, true},
+      {0, 1, 1200, true},
+  };
+
+  ACMatches matches;
+  PopulateAutocompleteMatches(data, base::size(data), &matches);
+  matches[0].contents = base::UTF8ToUTF16("clear chrome history");
+  matches[1].contents = base::UTF8ToUTF16("open incognito tab");
+  matches[2].contents = base::UTF8ToUTF16("clear chrome history");
+
+  AutocompleteInput input(base::ASCIIToUTF16("a"),
+                          metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  AutocompleteResult result;
+  result.AppendMatches(input, matches);
+
+  FakeAutocompleteProviderClient client;
+  result.AppendDedicatedPedalMatches(&client, input);
+
+  // Exactly 2 (not 3) unique Pedals should be added with relevance close to max
+  // of the triggering suggestions.
+  EXPECT_EQ(result.size(), 6u);
+  EXPECT_NE(result.match_at(4)->pedal, nullptr);
+  EXPECT_NE(result.match_at(5)->pedal, nullptr);
+  EXPECT_NE(result.match_at(4)->pedal, result.match_at(5)->pedal);
+  EXPECT_EQ(result.match_at(4)->relevance, 999);
+  EXPECT_EQ(result.match_at(5)->relevance, 1099);
+
+  // Now artificially modify existing suggestions and run again to ensure that
+  // no duplicates are added, but the existing Pedal suggestion is updated.
+  result.match_at(3)->contents = base::UTF8ToUTF16("open incognito tab");
+  result.AppendDedicatedPedalMatches(&client, input);
+  EXPECT_EQ(result.size(), 6u);
+  EXPECT_NE(result.match_at(4)->pedal, nullptr);
+  EXPECT_NE(result.match_at(5)->pedal, nullptr);
+  EXPECT_NE(result.match_at(4)->pedal, result.match_at(5)->pedal);
+  EXPECT_EQ(result.match_at(5)->relevance, 1199);
 }

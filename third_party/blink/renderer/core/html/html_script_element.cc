@@ -107,11 +107,10 @@ void HTMLScriptElement::ParseAttribute(
 
 Node::InsertionNotificationRequest HTMLScriptElement::InsertedInto(
     ContainerNode& insertion_point) {
-  mojom::ScriptType script_type = mojom::ScriptType::kClassic;
   if (insertion_point.isConnected() && HasSourceAttribute() &&
       !ScriptLoader::IsValidScriptTypeAndLanguage(
           TypeAttributeValue(), LanguageAttributeValue(),
-          ScriptLoader::kDisallowLegacyTypeInTypeAttribute, script_type)) {
+          ScriptLoader::kDisallowLegacyTypeInTypeAttribute)) {
     UseCounter::Count(GetDocument(),
                       WebFeature::kScriptElementWithInvalidTypeHasSrc);
   }
@@ -244,11 +243,10 @@ const AtomicString& HTMLScriptElement::GetNonceForElement() const {
 bool HTMLScriptElement::AllowInlineScriptForCSP(
     const AtomicString& nonce,
     const WTF::OrdinalNumber& context_line,
-    const String& script_content,
-    ContentSecurityPolicy::InlineType inline_type) {
-  return GetDocument().GetContentSecurityPolicy()->AllowInlineScript(
-      this, GetDocument().Url(), nonce, context_line, script_content,
-      inline_type);
+    const String& script_content) {
+  return GetDocument().GetContentSecurityPolicy()->AllowInline(
+      ContentSecurityPolicy::InlineType::kInlineScriptElement, this,
+      script_content, nonce, GetDocument().Url(), context_line);
 }
 
 Document& HTMLScriptElement::GetDocument() const {
@@ -269,12 +267,12 @@ void HTMLScriptElement::SetScriptElementForBinding(
     element.SetHTMLScriptElement(this);
 }
 
-Element* HTMLScriptElement::CloneWithoutAttributesAndChildren(
+Element& HTMLScriptElement::CloneWithoutAttributesAndChildren(
     Document& factory) const {
   CreateElementFlags flags =
       CreateElementFlags::ByCloneNode().SetAlreadyStarted(
           loader_->AlreadyStarted());
-  return factory.CreateElement(TagQName(), flags, IsValue());
+  return *factory.CreateElement(TagQName(), flags, IsValue());
 }
 
 void HTMLScriptElement::Trace(Visitor* visitor) {

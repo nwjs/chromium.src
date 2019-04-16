@@ -81,6 +81,7 @@ class LayerTreeHostClient {
   virtual void BeginMainFrameNotExpectedSoon() = 0;
   virtual void BeginMainFrameNotExpectedUntil(base::TimeTicks time) = 0;
   virtual void DidBeginMainFrame() = 0;
+  virtual void DidUpdateLayers() = 0;
 
   // Visual frame-based updates to the state of the LayerTreeHost are expected
   // to happen only in calls to LayerTreeHostClient::UpdateLayerTreeHost, which
@@ -91,11 +92,8 @@ class LayerTreeHostClient {
   // (Blink's notions of) style, layout, paint invalidation and compositing
   // state. (The "compositing state" will result in a mutated layer tree on the
   // LayerTreeHost via additional interface indirections which lead back to
-  // mutations on the LayerTreeHost.) The |record_main_frame_metrics| flag
-  // determines whether Blink will compute metrics related to main frame update
-  // time. If true, the caller must ensure that RecordEndOfFrameMetrics is
-  // called when this method returns and the total main frame time is known.
-  virtual void UpdateLayerTreeHost(bool record_main_frame_metrics) = 0;
+  // mutations on the LayerTreeHost.)
+  virtual void UpdateLayerTreeHost() = 0;
 
   // Notifies the client of viewport-related changes that occured in the
   // LayerTreeHost since the last commit. This typically includes things
@@ -129,8 +127,9 @@ class LayerTreeHostClient {
   virtual void DidPresentCompositorFrame(
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) = 0;
-  // Record UMA and UKM metrics that require the time from the start of
-  // BeginMainFrame to the Commit, or early out.
+  // Mark the frame start and end time for UMA and UKM metrics that require
+  // the time from the start of BeginMainFrame to the Commit, or early out.
+  virtual void RecordStartOfFrameMetrics() = 0;
   virtual void RecordEndOfFrameMetrics(base::TimeTicks frame_begin_time) = 0;
   virtual void DidGenerateLocalSurfaceIdAllocation(
       const viz::LocalSurfaceIdAllocation& allocation) = 0;

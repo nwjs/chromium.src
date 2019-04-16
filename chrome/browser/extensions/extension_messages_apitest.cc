@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/json/json_reader.h"
@@ -370,7 +371,7 @@ class ExternallyConnectableMessagingTest : public MessagingApiTest {
   }
 
   GURL GetURLForPath(const std::string& host, const std::string& path) {
-    std::string port = base::UintToString(embedded_test_server()->port());
+    std::string port = base::NumberToString(embedded_test_server()->port());
     GURL::Replacements replacements;
     replacements.SetHostStr(host);
     replacements.SetPortStr(port);
@@ -668,13 +669,13 @@ IN_PROC_BROWSER_TEST_P(ExternallyConnectableMessagingTest,
   ui_test_utils::NavigateToURL(browser(), google_com_url());
   // The extension requests the TLS channel ID, but it doesn't get it for a
   // site that can't connect to it, regardless of whether the page asks for it.
-  EXPECT_EQ(base::IntToString(NAMESPACE_NOT_DEFINED),
+  EXPECT_EQ(base::NumberToString(NAMESPACE_NOT_DEFINED),
             GetTlsChannelIdFromPortConnect(chromium_connectable.get(), false));
-  EXPECT_EQ(base::IntToString(NAMESPACE_NOT_DEFINED),
+  EXPECT_EQ(base::NumberToString(NAMESPACE_NOT_DEFINED),
             GetTlsChannelIdFromSendMessage(chromium_connectable.get(), true));
-  EXPECT_EQ(base::IntToString(NAMESPACE_NOT_DEFINED),
+  EXPECT_EQ(base::NumberToString(NAMESPACE_NOT_DEFINED),
             GetTlsChannelIdFromPortConnect(chromium_connectable.get(), false));
-  EXPECT_EQ(base::IntToString(NAMESPACE_NOT_DEFINED),
+  EXPECT_EQ(base::NumberToString(NAMESPACE_NOT_DEFINED),
             GetTlsChannelIdFromSendMessage(chromium_connectable.get(), true));
 }
 
@@ -1187,12 +1188,12 @@ IN_PROC_BROWSER_TEST_P(ExternallyConnectableMessagingTestNoChannelID,
   EXPECT_EQ(0u, tls_channel_id_from_send_message.size());
 }
 
-INSTANTIATE_TEST_CASE_P(NativeBindingsNoChannelID,
-                        ExternallyConnectableMessagingTestNoChannelID,
-                        ::testing::Values(NATIVE_BINDINGS));
-INSTANTIATE_TEST_CASE_P(JavaScriptBindingsNoChannelID,
-                        ExternallyConnectableMessagingTestNoChannelID,
-                        ::testing::Values(JAVASCRIPT_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(NativeBindingsNoChannelID,
+                         ExternallyConnectableMessagingTestNoChannelID,
+                         ::testing::Values(NATIVE_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(JavaScriptBindingsNoChannelID,
+                         ExternallyConnectableMessagingTestNoChannelID,
+                         ::testing::Values(JAVASCRIPT_BINDINGS));
 
 // Tests a web connectable extension that receives TLS channel id, but
 // immediately closes its background page upon receipt of a message.
@@ -1316,12 +1317,12 @@ IN_PROC_BROWSER_TEST_P(ExternallyConnectableMessagingTest,
 
 #endif  // !defined(OS_WIN) - http://crbug.com/350517.
 
-INSTANTIATE_TEST_CASE_P(NativeBindings,
-                        ExternallyConnectableMessagingTest,
-                        ::testing::Values(NATIVE_BINDINGS));
-INSTANTIATE_TEST_CASE_P(JavaScriptBindings,
-                        ExternallyConnectableMessagingTest,
-                        ::testing::Values(JAVASCRIPT_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(NativeBindings,
+                         ExternallyConnectableMessagingTest,
+                         ::testing::Values(NATIVE_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(JavaScriptBindings,
+                         ExternallyConnectableMessagingTest,
+                         ::testing::Values(JAVASCRIPT_BINDINGS));
 
 // Tests that messages sent in the unload handler of a window arrive.
 IN_PROC_BROWSER_TEST_P(MessagingApiTest, MessagingOnUnload) {
@@ -1365,13 +1366,13 @@ IN_PROC_BROWSER_TEST_P(MessagingApiTest, LargeMessages) {
   ASSERT_TRUE(RunExtensionTest("messaging/large_messages"));
 }
 
-INSTANTIATE_TEST_CASE_P(NativeBindings,
-                        MessagingApiTest,
-                        ::testing::Values(NATIVE_BINDINGS));
-INSTANTIATE_TEST_CASE_P(JavaScriptBindings,
-                        MessagingApiTest,
-                        ::testing::Values(JAVASCRIPT_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(NativeBindings,
+                         MessagingApiTest,
+                         ::testing::Values(NATIVE_BINDINGS));
+INSTANTIATE_TEST_SUITE_P(JavaScriptBindings,
+                         MessagingApiTest,
+                         ::testing::Values(JAVASCRIPT_BINDINGS));
 
 }  // namespace
 
-};  // namespace extensions
+}  // namespace extensions

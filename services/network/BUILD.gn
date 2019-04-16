@@ -6,7 +6,6 @@ import("//build/config/jumbo.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 import("//net/features.gni")
 import("//services/network/public/cpp/features.gni")
-import("//services/service_manager/public/service_manifest.gni")
 
 jumbo_component("network_service") {
   sources = [
@@ -18,6 +17,8 @@ jumbo_component("network_service") {
     "conditional_cache_deletion_helper.h",
     "cookie_manager.cc",
     "cookie_manager.h",
+    "cookie_managers_shared.cc",
+    "cookie_managers_shared.h",
     "cookie_settings.cc",
     "cookie_settings.h",
     "cors/cors_url_loader.cc",
@@ -269,6 +270,13 @@ jumbo_component("network_service") {
   if (is_chromecast) {
     defines += [ "IS_CHROMECAST" ]
   }
+
+  if (trial_comparison_cert_verifier_supported) {
+    sources += [
+      "trial_comparison_cert_verifier_mojo.cc",
+      "trial_comparison_cert_verifier_mojo.h",
+    ]
+  }
 }
 
 source_set("tests") {
@@ -394,6 +402,8 @@ jumbo_source_set("test_support") {
   sources = [
     "mojo_socket_test_util.cc",
     "mojo_socket_test_util.h",
+    "test/test_cookie_manager.cc",
+    "test/test_cookie_manager.h",
     "test/test_data_pipe_getter.cc",
     "test/test_data_pipe_getter.h",
     "test/test_network_connection_tracker.cc",
@@ -429,9 +439,4 @@ jumbo_source_set("test_support") {
     "//services/network:network_service",
     "//testing/gtest",
   ]
-}
-
-service_manifest("manifest") {
-  name = "network"
-  source = "manifest.json"
 }

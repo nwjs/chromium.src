@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "cc/input/scroll_snap_data.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
@@ -15,7 +16,7 @@ namespace blink {
 // Tests covering incremental updates of paint property trees.
 class PaintPropertyTreeUpdateTest : public PaintPropertyTreeBuilderTest {};
 
-INSTANTIATE_PAINT_TEST_CASE_P(PaintPropertyTreeUpdateTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(PaintPropertyTreeUpdateTest);
 
 TEST_P(PaintPropertyTreeUpdateTest,
        ThreadedScrollingDisabledMainThreadScrollReason) {
@@ -62,6 +63,10 @@ TEST_P(PaintPropertyTreeUpdateTest,
 
 TEST_P(PaintPropertyTreeUpdateTest,
        BackgroundAttachmentFixedMainThreadScrollReasonsWithNestedScrollers) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   SetBodyInnerHTML(R"HTML(
     <style>
       #overflowA {
@@ -145,6 +150,10 @@ TEST_P(PaintPropertyTreeUpdateTest,
 }
 
 TEST_P(PaintPropertyTreeUpdateTest, ParentFrameMainThreadScrollReasons) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   SetBodyInnerHTML(R"HTML(
     <style>
       body { margin: 0; }
@@ -181,6 +190,10 @@ TEST_P(PaintPropertyTreeUpdateTest, ParentFrameMainThreadScrollReasons) {
 }
 
 TEST_P(PaintPropertyTreeUpdateTest, ChildFrameMainThreadScrollReasons) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   SetBodyInnerHTML(R"HTML(
     <style>body { margin: 0; }</style>
     <iframe></iframe>
@@ -220,6 +233,10 @@ TEST_P(PaintPropertyTreeUpdateTest, ChildFrameMainThreadScrollReasons) {
 
 TEST_P(PaintPropertyTreeUpdateTest,
        BackgroundAttachmentFixedMainThreadScrollReasonsWithFixedScroller) {
+  // This test needs the |FastMobileScrolling| feature to be disabled
+  // although it is stable on Android.
+  ScopedFastMobileScrollingForTest fast_mobile_scrolling(false);
+
   SetBodyInnerHTML(R"HTML(
     <style>
       #overflowA {
@@ -1050,20 +1067,20 @@ TEST_P(PaintPropertyTreeUpdateTest, WillTransformChangeAboveFixed) {
   const auto* container = GetLayoutObjectByElementId("container");
   const auto* fixed = GetLayoutObjectByElementId("fixed");
   EXPECT_EQ(container->FirstFragment().PaintProperties()->Transform(),
-            fixed->FirstFragment().LocalBorderBoxProperties().Transform());
+            &fixed->FirstFragment().LocalBorderBoxProperties().Transform());
 
   ToElement(container->GetNode())
       ->setAttribute(html_names::kStyleAttr, "will-change: top");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(
-      GetLayoutView().FirstFragment().LocalBorderBoxProperties().Transform(),
-      fixed->FirstFragment().LocalBorderBoxProperties().Transform());
+      &GetLayoutView().FirstFragment().LocalBorderBoxProperties().Transform(),
+      &fixed->FirstFragment().LocalBorderBoxProperties().Transform());
 
   ToElement(container->GetNode())
       ->setAttribute(html_names::kStyleAttr, "will-change: transform");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(container->FirstFragment().PaintProperties()->Transform(),
-            fixed->FirstFragment().LocalBorderBoxProperties().Transform());
+            &fixed->FirstFragment().LocalBorderBoxProperties().Transform());
 }
 
 TEST_P(PaintPropertyTreeUpdateTest, CompositingReasonForAnimation) {
@@ -1321,9 +1338,10 @@ TEST_P(PaintPropertyTreeUpdateTest, EnsureSnapContainerData) {
 
   auto doc_snap_container_data = DocScroll()->GetSnapContainerData();
   ASSERT_TRUE(doc_snap_container_data);
-  EXPECT_EQ(doc_snap_container_data->scroll_snap_type().axis, SnapAxis::kBoth);
+  EXPECT_EQ(doc_snap_container_data->scroll_snap_type().axis,
+            cc::SnapAxis::kBoth);
   EXPECT_EQ(doc_snap_container_data->scroll_snap_type().strictness,
-            SnapStrictness::kProximity);
+            cc::SnapStrictness::kProximity);
   EXPECT_EQ(doc_snap_container_data->rect(), gfx::RectF(0, 0, 300, 300));
   EXPECT_EQ(doc_snap_container_data->size(), 1u);
   EXPECT_EQ(doc_snap_container_data->at(0).rect,
@@ -1384,8 +1402,9 @@ TEST_P(PaintPropertyTreeUpdateTest, ForwardReferencedSVGElementUpdate) {
             rect_properties->Transform()->Parent());
   EXPECT_EQ(TransformationMatrix().Translate(1, 0),
             GeometryMapper::SourceToDestinationProjection(
-                rect_properties->Transform(),
-                svg2_properties->PaintOffsetTranslation()));
+                *rect_properties->Transform(),
+                *svg2_properties->PaintOffsetTranslation())
+                .Matrix());
 
   // Change filter which forward references rect, and insert a transform
   // node above rect's transform.
@@ -1405,8 +1424,9 @@ TEST_P(PaintPropertyTreeUpdateTest, ForwardReferencedSVGElementUpdate) {
   // Ensure that GeometryMapper's cache is properly invalidated and updated.
   EXPECT_EQ(TransformationMatrix().Translate(3, 0),
             GeometryMapper::SourceToDestinationProjection(
-                rect_properties->Transform(),
-                svg2_properties->PaintOffsetTranslation()));
+                *rect_properties->Transform(),
+                *svg2_properties->PaintOffsetTranslation())
+                .Matrix());
 }
 
 TEST_P(PaintPropertyTreeUpdateTest, OverflowClipUpdateForImage) {
@@ -1556,6 +1576,47 @@ TEST_P(PaintPropertyTreeUpdateTest, ChangingClipPath) {
   content->removeAttribute(html_names::kClassAttr);
   UpdateAllLifecyclePhasesForTest();
   // Pass if no crash.
+}
+
+TEST_P(PaintPropertyTreeUpdateTest, SubpixelAccumulationAcrossIsolation) {
+  SetBodyInnerHTML(R"HTML(
+    <style>body { margin: 0 }</style>
+    <div id="parent" style="margin-left: 10.25px">
+      <div id="isolation" style="contain: paint">
+        <div id="child"><div>
+      </div>
+    </div>
+  )HTML");
+  auto* parent_element = GetDocument().getElementById("parent");
+  auto* parent = parent_element->GetLayoutObject();
+  auto* isolation_properties = PaintPropertiesForElement("isolation");
+  auto* child = GetLayoutObjectByElementId("child");
+  EXPECT_EQ(LayoutPoint(LayoutUnit(10.25), LayoutUnit()),
+            parent->FirstFragment().PaintOffset());
+  EXPECT_EQ(FloatSize(10, 0), isolation_properties->PaintOffsetTranslation()
+                                  ->Matrix()
+                                  .To2DTranslation());
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(LayoutPoint(), child->FirstFragment().PaintOffset());
+  } else {
+    EXPECT_EQ(LayoutPoint(LayoutUnit(0.25), LayoutUnit()),
+              child->FirstFragment().PaintOffset());
+  }
+
+  parent_element->setAttribute(html_names::kStyleAttr, "margin-left: 12.75px");
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(LayoutPoint(LayoutUnit(12.75), LayoutUnit()),
+            parent->FirstFragment().PaintOffset());
+  EXPECT_EQ(FloatSize(13, 0), isolation_properties->PaintOffsetTranslation()
+                                  ->Matrix()
+                                  .To2DTranslation());
+  if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
+    EXPECT_EQ(LayoutPoint(), child->FirstFragment().PaintOffset());
+  } else {
+    EXPECT_EQ(LayoutPoint(LayoutUnit(-0.25), LayoutUnit()),
+              child->FirstFragment().PaintOffset());
+  }
 }
 
 }  // namespace blink

@@ -26,11 +26,10 @@
 #include "components/version_info/version_info_values.h"
 
 namespace android_webview {
-namespace crash_reporter {
 
 namespace {
 
-class AwCrashReporterClient : public ::crash_reporter::CrashReporterClient {
+class AwCrashReporterClient : public crash_reporter::CrashReporterClient {
  public:
   AwCrashReporterClient() {}
 
@@ -77,7 +76,7 @@ class AwCrashReporterClient : public ::crash_reporter::CrashReporterClient {
       return 100;
     }
 
-    return 1;
+    return 100;
   }
 
   bool GetBrowserProcessType(std::string* ptype) override {
@@ -152,15 +151,15 @@ bool SafeToUseSignalHandler() {
 }
 #endif
 
+bool g_enabled;
+
 }  // namespace
 
 void EnableCrashReporter(const std::string& process_type) {
-  static bool enabled;
-  if (enabled) {
+  if (g_enabled) {
     NOTREACHED() << "EnableCrashReporter called more than once";
     return;
   }
-  enabled = true;
 
 #if defined(ARCH_CPU_X86_FAMILY)
   if (!SafeToUseSignalHandler()) {
@@ -170,13 +169,13 @@ void EnableCrashReporter(const std::string& process_type) {
 #endif
 
   AwCrashReporterClient* client = g_crash_reporter_client.Pointer();
-  ::crash_reporter::SetCrashReporterClient(client);
-  ::crash_reporter::InitializeCrashpad(process_type.empty(), process_type);
+  crash_reporter::SetCrashReporterClient(client);
+  crash_reporter::InitializeCrashpad(process_type.empty(), process_type);
+  g_enabled = true;
 }
 
-bool GetCrashDumpLocation(base::FilePath* crash_dir) {
-  return g_crash_reporter_client.Get().GetCrashDumpLocation(crash_dir);
+bool CrashReporterEnabled() {
+  return g_enabled;
 }
 
-}  // namespace crash_reporter
 }  // namespace android_webview

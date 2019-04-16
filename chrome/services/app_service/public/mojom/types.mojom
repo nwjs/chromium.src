@@ -4,6 +4,7 @@
 
 module apps.mojom;
 
+import "mojo/public/mojom/base/time.mojom";
 import "ui/gfx/image/mojo/image.mojom";
 
 // Information about an app. See chrome/services/app_service/README.md.
@@ -15,7 +16,12 @@ struct App {
 
   Readiness readiness;
   string? name;
+  string? short_name;
+  array<string> additional_search_terms;
   IconKey? icon_key;
+  mojo_base.mojom.Time? last_launch_time;
+  mojo_base.mojom.Time? install_time;
+
   // This vector must be treated atomically, if there is a permission
   // change, the publisher must send through the entire list of permissions.
   // Should contain no duplicate IDs.
@@ -26,10 +32,15 @@ struct App {
   // Whether the app was installed by sync, policy or as a default app.
   OptionalBool installed_internally;
 
+  // Whether the app is an extensions::Extensions where is_platform_app()
+  // returns true.
+  OptionalBool is_platform_app;
+
   // TODO(nigeltao): be more principled, instead of ad hoc show_in_xxx and
   // show_in_yyy fields?
   OptionalBool show_in_launcher;
   OptionalBool show_in_search;
+  OptionalBool show_in_management;
 
   // When adding new fields, also update the Merge method and other helpers in
   // chrome/services/app_service/public/cpp/app_update.*
@@ -73,18 +84,14 @@ enum OptionalBool {
   kTrue,
 };
 
-enum IconType {
-  kUnknown,
-  kArc,
-  kExtension,
-  kResource,
-};
-
 struct IconKey {
-  IconType icon_type;
-  // The semantics of u_key and s_key depend on the icon_type.
+  AppType app_type;
+  // The semantics of u_key and s_key depend on the app_type.
   uint64 u_key;
   string s_key;
+  // A bitmask of icon post-processing effects, such as desaturation to gray
+  // and rounding the corners.
+  uint32 icon_effects;
 };
 
 enum IconCompression {
@@ -97,6 +104,7 @@ struct IconValue {
   IconCompression icon_compression;
   gfx.mojom.ImageSkia? uncompressed;
   array<uint8>? compressed;
+  bool is_placeholder_icon;
 };
 
 enum LaunchSource {

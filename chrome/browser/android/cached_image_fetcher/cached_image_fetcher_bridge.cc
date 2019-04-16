@@ -9,15 +9,17 @@
 #include <utility>
 
 #include "base/android/callback_android.h"
+#include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "chrome/browser/cached_image_fetcher/cached_image_fetcher_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_android.h"
 #include "components/image_fetcher/core/cache/cached_image_fetcher_metrics_reporter.h"
 #include "components/image_fetcher/core/cache/image_cache.h"
-#include "components/image_fetcher/core/cached_image_fetcher.h"
 #include "components/image_fetcher/core/cached_image_fetcher_service.h"
+#include "components/image_fetcher/core/image_fetcher.h"
 #include "jni/CachedImageFetcherBridge_jni.h"
 #include "ui/gfx/android/java_bitmap.h"
 #include "ui/gfx/image/image.h"
@@ -35,6 +37,7 @@ namespace {
 const base::FilePath::CharType kPathPostfix[] =
     FILE_PATH_LITERAL("image_data_storage");
 
+// TODO(wylieb): Allow java clients to map to a traffic_annotation here.
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("cached_image_fetcher", R"(
         semantics {
@@ -62,21 +65,23 @@ jlong JNI_CachedImageFetcherBridge_Init(
     JNIEnv* j_env,
     const JavaParamRef<jobject>& j_profile) {
   Profile* profile = ProfileAndroid::FromProfileAndroid(j_profile);
+  SimpleFactoryKey* simple_factory_key = profile->GetSimpleFactoryKey();
   base::FilePath file_path =
-      CachedImageFetcherServiceFactory::GetCachePath(profile).Append(
-          kPathPostfix);
+      CachedImageFetcherServiceFactory::GetCachePath(simple_factory_key)
+          .Append(kPathPostfix);
 
   CachedImageFetcherService* cif_service =
-      CachedImageFetcherServiceFactory::GetForBrowserContext(profile);
+      CachedImageFetcherServiceFactory::GetForKey(simple_factory_key,
+                                                  profile->GetPrefs());
   CachedImageFetcherBridge* native_cif_bridge = new CachedImageFetcherBridge(
-      cif_service->CreateCachedImageFetcher(), file_path);
+      cif_service->GetCachedImageFetcher(), file_path);
   return reinterpret_cast<intptr_t>(native_cif_bridge);
 }
 
 CachedImageFetcherBridge::CachedImageFetcherBridge(
-    std::unique_ptr<CachedImageFetcher> cached_image_fetcher,
+    ImageFetcher* cached_image_fetcher,
     base::FilePath base_file_path)
-    : cached_image_fetcher_(std::move(cached_image_fetcher)),
+    : cached_image_fetcher_(cached_image_fetcher),
       base_file_path_(base_file_path),
       weak_ptr_factory_(this) {}
 
@@ -97,45 +102,102 @@ ScopedJavaLocalRef<jstring> CachedImageFetcherBridge::GetFilePath(
   return base::android::ConvertUTF8ToJavaString(j_env, file_path);
 }
 
+void CachedImageFetcherBridge::FetchImageData(
+    JNIEnv* j_env,
+    const JavaRef<jobject>& j_this,
+    const JavaRef<jstring>& j_url,
+    const JavaRef<jstring>& j_client_name,
+    const JavaRef<jobject>& j_callback) {
+  ScopedJavaGlobalRef<jobject> callback(j_callback);
+  std::string url = base::android::ConvertJavaStringToUTF8(j_url);
+  std::string client_name =
+      base::android::ConvertJavaStringToUTF8(j_client_name);
+
+  image_fetcher::ImageFetcherParams params(kTrafficAnnotation, client_name);
+
+  // We can skip transcoding here because this method is used in java as
+  // CachedImageFetcher.fetchGif, which decodes the data in a Java-only library.
+  params.set_skip_transcoding(true);
+
+  // TODO(wylieb): We checked disk in Java, so provide a way to tell
+  // CachedImageFetcher to skip checking disk in native.
+  cached_image_fetcher_->FetchImageData(
+      GURL(url),
+      base::BindOnce(&CachedImageFetcherBridge::OnImageDataFetched,
+                     weak_ptr_factory_.GetWeakPtr(), callback),
+      std::move(params));
+}
+
 void CachedImageFetcherBridge::FetchImage(JNIEnv* j_env,
                                           const JavaRef<jobject>& j_this,
                                           const JavaRef<jstring>& j_url,
-                                          const jint width_px,
-                                          const jint height_px,
+                                          const JavaRef<jstring>& j_client_name,
                                           const JavaRef<jobject>& j_callback) {
   ScopedJavaGlobalRef<jobject> callback(j_callback);
   std::string url = base::android::ConvertJavaStringToUTF8(j_url);
-  cached_image_fetcher_->SetDesiredImageFrameSize(
-      gfx::Size(width_px, height_px));
+  std::string client_name =
+      base::android::ConvertJavaStringToUTF8(j_client_name);
+
+  ImageFetcherParams params(kTrafficAnnotation, client_name);
+
   // TODO(wylieb): We checked disk in Java, so provide a way to tell
   // CachedImageFetcher to skip checking disk in native.
   cached_image_fetcher_->FetchImage(
-      url, GURL(url),
+      GURL(url),
       base::BindOnce(&CachedImageFetcherBridge::OnImageFetched,
                      weak_ptr_factory_.GetWeakPtr(), callback),
-      kTrafficAnnotation);
+      std::move(params));
 }
 
 void CachedImageFetcherBridge::ReportEvent(
     JNIEnv* j_env,
     const base::android::JavaRef<jobject>& j_this,
+    const base::android::JavaRef<jstring>& j_client_name,
     const jint j_event_id) {
+  std::string client_name =
+      base::android::ConvertJavaStringToUTF8(j_client_name);
   CachedImageFetcherEvent event =
       static_cast<CachedImageFetcherEvent>(j_event_id);
-  CachedImageFetcherMetricsReporter::ReportEvent(event);
+  CachedImageFetcherMetricsReporter::ReportEvent(client_name, event);
 }
 
 void CachedImageFetcherBridge::ReportCacheHitTime(
     JNIEnv* j_env,
     const base::android::JavaRef<jobject>& j_this,
+    const base::android::JavaRef<jstring>& j_client_name,
     const jlong start_time_millis) {
+  std::string client_name =
+      base::android::ConvertJavaStringToUTF8(j_client_name);
   base::Time start_time = base::Time::FromJavaTime(start_time_millis);
-  CachedImageFetcherMetricsReporter::ReportImageLoadFromCacheTime(start_time);
+  CachedImageFetcherMetricsReporter::ReportImageLoadFromCacheTimeJava(
+      client_name, start_time);
+}
+
+void CachedImageFetcherBridge::ReportTotalFetchTimeFromNative(
+    JNIEnv* j_env,
+    const base::android::JavaRef<jobject>& j_this,
+    const base::android::JavaRef<jstring>& j_client_name,
+    const jlong start_time_millis) {
+  std::string client_name =
+      base::android::ConvertJavaStringToUTF8(j_client_name);
+  base::Time start_time = base::Time::FromJavaTime(start_time_millis);
+  CachedImageFetcherMetricsReporter::ReportTotalFetchFromNativeTimeJava(
+      client_name, start_time);
+}
+
+void CachedImageFetcherBridge::OnImageDataFetched(
+    base::android::ScopedJavaGlobalRef<jobject> callback,
+    const std::string& image_data,
+    const RequestMetadata& request_metadata) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  ScopedJavaLocalRef<jbyteArray> j_bytes = base::android::ToJavaByteArray(
+      env, reinterpret_cast<const uint8_t*>(image_data.data()),
+      image_data.size());
+  RunObjectCallbackAndroid(callback, j_bytes);
 }
 
 void CachedImageFetcherBridge::OnImageFetched(
     base::android::ScopedJavaGlobalRef<jobject> callback,
-    const std::string& id,
     const gfx::Image& image,
     const RequestMetadata& request_metadata) {
   ScopedJavaLocalRef<jobject> j_bitmap;

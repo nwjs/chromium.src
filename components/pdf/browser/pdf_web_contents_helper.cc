@@ -6,9 +6,7 @@
 
 #include <utility>
 
-#include "base/bind.h"
 #include "base/memory/ptr_util.h"
-#include "base/strings/utf_string_conversions.h"
 #include "components/pdf/browser/pdf_web_contents_helper_client.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/common/referrer_type_converters.h"
@@ -83,6 +81,10 @@ void PDFWebContentsHelper::SelectionChanged(const gfx::PointF& left,
   DidScroll();
 }
 
+void PDFWebContentsHelper::SetPluginCanSave(bool can_save) {
+  client_->SetPluginCanSave(web_contents(), can_save);
+}
+
 void PDFWebContentsHelper::DidScroll() {
   if (!touch_selection_controller_client_manager_)
     InitTouchSelectionClientManager();
@@ -149,7 +151,7 @@ PDFWebContentsHelper::CreateDrawable() {
 
 void PDFWebContentsHelper::OnManagerWillDestroy(
     content::TouchSelectionControllerClientManager* manager) {
-  DCHECK(manager == touch_selection_controller_client_manager_);
+  DCHECK_EQ(touch_selection_controller_client_manager_, manager);
   manager->RemoveObserver(this);
   touch_selection_controller_client_manager_ = nullptr;
 }

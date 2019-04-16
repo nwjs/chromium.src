@@ -7,6 +7,7 @@
 #include "ash/media/media_notification_constants.h"
 #include "ash/media/media_notification_view.h"
 #include "ash/public/cpp/notification_utils.h"
+#include "base/bind.h"
 #include "base/strings/string16.h"
 #include "base/time/time.h"
 #include "services/media_session/public/mojom/constants.mojom.h"
@@ -37,11 +38,21 @@ MediaNotificationItem::MediaNotificationItem(
     : id_(id),
       media_controller_ptr_(std::move(controller)),
       session_info_(std::move(session_info)) {
-  // Bind an observer to the associated media session.
   if (media_controller_ptr_.is_bound()) {
+    // Bind an observer to the associated media controller.
     media_session::mojom::MediaControllerObserverPtr media_controller_observer;
     observer_binding_.Bind(mojo::MakeRequest(&media_controller_observer));
     media_controller_ptr_->AddObserver(std::move(media_controller_observer));
+
+    // TODO(https://crbug.com/931397): Use dip to calculate the size.
+    // Bind an observer to be notified when the artwork changes.
+    media_session::mojom::MediaControllerImageObserverPtr artwork_observer;
+    artwork_observer_binding_.Bind(mojo::MakeRequest(&artwork_observer));
+    media_controller_ptr_->ObserveImages(
+        media_session::mojom::MediaSessionImageType::kArtwork,
+        kMediaSessionNotificationArtworkMinSize,
+        kMediaSessionNotificationArtworkDesiredSize,
+        std::move(artwork_observer));
   }
 
   MaybeHideOrShowNotification();
@@ -78,16 +89,27 @@ void MediaNotificationItem::MediaSessionActionsChanged(
     view_->UpdateWithMediaActions(session_actions_);
 }
 
+void MediaNotificationItem::MediaControllerImageChanged(
+    media_session::mojom::MediaSessionImageType type,
+    const SkBitmap& bitmap) {
+  DCHECK_EQ(media_session::mojom::MediaSessionImageType::kArtwork, type);
+
+  session_artwork_ = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
+
+  if (view_)
+    view_->UpdateWithMediaArtwork(session_artwork_);
+}
+
 void MediaNotificationItem::SetView(MediaNotificationView* view) {
   DCHECK(view_ || view);
 
   view_ = view;
 
   if (view) {
-    DCHECK(!session_info_.is_null());
     view_->UpdateWithMediaSessionInfo(session_info_);
     view_->UpdateWithMediaMetadata(session_metadata_);
     view_->UpdateWithMediaActions(session_actions_);
+    view_->UpdateWithMediaArtwork(session_artwork_);
   }
 }
 
@@ -98,7 +120,7 @@ void MediaNotificationItem::FlushForTesting() {
 void MediaNotificationItem::MaybeHideOrShowNotification() {
   // If the |is_controllable| bit is set in MediaSessionInfo then we should show
   // a media notification.
-  if (!session_info_->is_controllable) {
+  if (!session_info_ || !session_info_->is_controllable) {
     HideNotification();
     return;
   }

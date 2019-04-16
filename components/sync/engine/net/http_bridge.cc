@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/bit_cast.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
@@ -171,7 +172,7 @@ void HttpBridge::SetURL(const char* url, int port) {
 #endif
   GURL temp(url);
   GURL::Replacements replacements;
-  std::string port_str = base::IntToString(port);
+  std::string port_str = base::NumberToString(port);
   replacements.SetPort(port_str.c_str(), url::Component(0, port_str.length()));
   url_for_request_ = temp.ReplaceComponents(replacements);
 }

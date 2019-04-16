@@ -22,6 +22,7 @@
 #include "base/task/task_traits.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_task_runner_handle.h"
+#include "base/timer/timer.h"
 #include "base/unguessable_token.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/download/download_manager_impl.h"
@@ -85,7 +86,6 @@
 #include "services/network/test/test_url_loader_client.h"
 #include "storage/browser/blob/shareable_file_reference.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/appcache/appcache.mojom.h"
 
 // TODO(eroman): Write unit tests for SafeBrowsing that exercise
@@ -170,7 +170,8 @@ class TestFilter : public TestFilterSpecifyingChild {
       : TestFilterSpecifyingChild(
             browser_context,
             ChildProcessHostImpl::GenerateChildProcessUniqueId()) {
-    ChildProcessSecurityPolicyImpl::GetInstance()->Add(child_id());
+    ChildProcessSecurityPolicyImpl::GetInstance()->Add(child_id(),
+                                                       browser_context);
   }
 
  protected:
@@ -656,19 +657,12 @@ class ResourceDispatcherHostTest : public testing::TestWithParam<TestMode> {
         auto_advance_(false) {
     switch (GetParam()) {
       case TestMode::kWithoutOutOfBlinkCors:
-        scoped_feature_list_.InitWithFeatures(
-            // Enabled features
-            {},
-            // Disabled features
-            {network::features::kOutOfBlinkCors});
+        scoped_feature_list_.InitAndDisableFeature(
+            network::features::kOutOfBlinkCors);
         break;
       case TestMode::kWithOutOfBlinkCors:
-        scoped_feature_list_.InitWithFeatures(
-            // Enabled features
-            {network::features::kOutOfBlinkCors,
-             blink::features::kServiceWorkerServicification},
-            // Disabled features
-            {});
+        scoped_feature_list_.InitAndEnableFeature(
+            network::features::kOutOfBlinkCors);
         break;
     }
     host_.SetLoaderDelegate(&loader_delegate_);
@@ -695,7 +689,8 @@ class ResourceDispatcherHostTest : public testing::TestWithParam<TestMode> {
 
   // testing::Test
   void SetUp() override {
-    ChildProcessSecurityPolicyImpl::GetInstance()->Add(0);
+    ChildProcessSecurityPolicyImpl::GetInstance()->Add(0,
+                                                       browser_context_.get());
     HandleScheme("test");
     scoped_refptr<SiteInstance> site_instance =
         SiteInstance::Create(browser_context_.get());
@@ -2549,12 +2544,12 @@ net::URLRequestJob* TestURLRequestJobFactory::MaybeInterceptResponse(
   return nullptr;
 }
 
-INSTANTIATE_TEST_CASE_P(WithoutOutOfBlinkCors,
-                        ResourceDispatcherHostTest,
-                        ::testing::Values(TestMode::kWithoutOutOfBlinkCors));
+INSTANTIATE_TEST_SUITE_P(WithoutOutOfBlinkCors,
+                         ResourceDispatcherHostTest,
+                         ::testing::Values(TestMode::kWithoutOutOfBlinkCors));
 
-INSTANTIATE_TEST_CASE_P(WithOutOfBlinkCors,
-                        ResourceDispatcherHostTest,
-                        ::testing::Values(TestMode::kWithOutOfBlinkCors));
+INSTANTIATE_TEST_SUITE_P(WithOutOfBlinkCors,
+                         ResourceDispatcherHostTest,
+                         ::testing::Values(TestMode::kWithOutOfBlinkCors));
 
 }  // namespace content

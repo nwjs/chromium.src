@@ -30,13 +30,13 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "components/autofill/core/common/password_form.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/password_manager/core/browser/password_list_sorter.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/sync/driver/sync_service.h"
 #include "components/undo/undo_operation.h"
 #include "content/public/browser/browser_thread.h"
 
@@ -313,8 +313,7 @@ void PasswordManagerPresenter::RequestShowPassword(
   DCHECK(!it->second.empty());
   const auto& form = *it->second[0];
   syncer::SyncService* sync_service = nullptr;
-  if (ProfileSyncServiceFactory::HasProfileSyncService(
-          password_view_->GetProfile())) {
+  if (ProfileSyncServiceFactory::HasSyncService(password_view_->GetProfile())) {
     sync_service =
         ProfileSyncServiceFactory::GetForProfile(password_view_->GetProfile());
   }

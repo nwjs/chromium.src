@@ -141,27 +141,27 @@ class NavigationManager {
 
   /**
    * Scrolls the current node in the direction indicated by |scrollAction|.
-   * @param {!MenuManager.Action} scrollAction
+   * @param {!SAConstants.MenuAction} scrollAction
    */
   scroll(scrollAction) {
     // Find the closest ancestor to the current node that is scrollable.
     let scrollNode = this.node_;
-    while (scrollNode && scrollNode.scrollX === undefined)
+    while (scrollNode && !scrollNode.scrollable)
       scrollNode = scrollNode.parent;
     if (!scrollNode)
       return;
 
-    if (scrollAction === MenuManager.Action.SCROLL_DOWN)
+    if (scrollAction === SAConstants.MenuAction.SCROLL_DOWN)
       scrollNode.scrollDown(() => {});
-    else if (scrollAction === MenuManager.Action.SCROLL_UP)
+    else if (scrollAction === SAConstants.MenuAction.SCROLL_UP)
       scrollNode.scrollUp(() => {});
-    else if (scrollAction === MenuManager.Action.SCROLL_LEFT)
+    else if (scrollAction === SAConstants.MenuAction.SCROLL_LEFT)
       scrollNode.scrollLeft(() => {});
-    else if (scrollAction === MenuManager.Action.SCROLL_RIGHT)
+    else if (scrollAction === SAConstants.MenuAction.SCROLL_RIGHT)
       scrollNode.scrollRight(() => {});
-    else if (scrollAction === MenuManager.Action.SCROLL_FORWARD)
+    else if (scrollAction === SAConstants.MenuAction.SCROLL_FORWARD)
       scrollNode.scrollForward(() => {});
-    else if (scrollAction === MenuManager.Action.SCROLL_BACKWARD)
+    else if (scrollAction === SAConstants.MenuAction.SCROLL_BACKWARD)
       scrollNode.scrollBackward(() => {});
     else
       console.log('Unrecognized scroll action: ', scrollAction);
@@ -213,6 +213,25 @@ class NavigationManager {
     }
 
     this.node_.doDefault();
+  }
+
+  /**
+   * Performs |action| on the current node, if an appropriate action exists.
+   * @param {!SAConstants.MenuAction} action
+   */
+  performActionOnCurrentNode(action) {
+    if (action in chrome.automation.ActionType)
+      this.node_.performStandardAction(
+          /** @type {chrome.automation.ActionType} */ (action));
+  }
+
+  /**
+   * Sets up the connection between the menuPanel and menuManager.
+   * @param {!PanelInterface} menuPanel
+   * @return {!MenuManager}
+   */
+  connectMenuPanel(menuPanel) {
+    return this.menuManager_.connectMenuPanel(menuPanel);
   }
 
   // ----------------------Private Methods---------------------
@@ -294,7 +313,12 @@ class NavigationManager {
     if (!removedByRWA && treeChange.target !== this.node_)
       return;
 
-    chrome.accessibilityPrivate.setFocusRing([]);
+    chrome.accessibilityPrivate.setFocusRings([{
+      id: SAConstants.PRIMARY_FOCUS,
+      rects: [],
+      type: chrome.accessibilityPrivate.FocusType.GLOW,
+      color: NavigationManager.Color.LEAF
+    }]);
 
     // Current node not invalid until after treeChange callback, so move to
     // valid node after callback. Delay added to prevent moving to another
@@ -383,7 +407,12 @@ class NavigationManager {
       color = NavigationManager.Color.LEAF;
 
     color = opt_color || color;
-    chrome.accessibilityPrivate.setFocusRing([this.node_.location], color);
+    chrome.accessibilityPrivate.setFocusRings([{
+      id: SAConstants.PRIMARY_FOCUS,
+      rects: [this.node_.location],
+      type: chrome.accessibilityPrivate.FocusType.GLOW,
+      color: color
+    }]);
   }
 
   /**

@@ -47,7 +47,7 @@ namespace blink {
 
 struct SameSizeAsInlineTextBox : public InlineBox {
   unsigned variables[1];
-  unsigned short variables2[2];
+  uint16_t variables2[2];
   void* pointers[2];
 };
 
@@ -315,7 +315,7 @@ void InlineTextBox::AttachLine() {
   GetLineLayoutItem().AttachTextBox(this);
 }
 
-void InlineTextBox::SetTruncation(unsigned truncation) {
+void InlineTextBox::SetTruncation(uint16_t truncation) {
   if (truncation == truncation_)
     return;
 

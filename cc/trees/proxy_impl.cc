@@ -10,6 +10,7 @@
 #include <string>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/traced_value.h"
 #include "cc/base/devtools_instrumentation.h"
@@ -172,10 +173,10 @@ void ProxyImpl::SetInputThrottledUntilCommitOnImpl(bool is_throttled) {
   RenewTreePriority();
 }
 
-void ProxyImpl::SetDeferMainFrameUpdateOnImpl(
-    bool defer_main_frame_update) const {
+void ProxyImpl::SetDeferBeginMainFrameOnImpl(
+    bool defer_begin_main_frame) const {
   DCHECK(IsImplThread());
-  scheduler_->SetDeferMainFrameUpdate(defer_main_frame_update);
+  scheduler_->SetDeferBeginMainFrame(defer_begin_main_frame);
 }
 
 void ProxyImpl::SetNeedsRedrawOnImpl(const gfx::Rect& damage_rect) {
@@ -512,6 +513,21 @@ void ProxyImpl::DidGenerateLocalSurfaceIdAllocationOnImplThread(
   MainThreadTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&ProxyMain::DidGenerateLocalSurfaceIdAllocation,
                                 proxy_main_weak_ptr_, allocation));
+}
+
+void ProxyImpl::NotifyAnimationWorkletStateChange(
+    AnimationWorkletMutationState state,
+    ElementListType element_list_type) {
+  DCHECK(IsImplThread());
+  Scheduler::AnimationWorkletState animation_worklet_state =
+      (state == AnimationWorkletMutationState::STARTED)
+          ? Scheduler::AnimationWorkletState::PROCESSING
+          : Scheduler::AnimationWorkletState::IDLE;
+  Scheduler::TreeType tree_type = (element_list_type == ElementListType::ACTIVE)
+                                      ? Scheduler::TreeType::ACTIVE
+                                      : Scheduler::TreeType::PENDING;
+  scheduler_->NotifyAnimationWorkletStateChange(animation_worklet_state,
+                                                tree_type);
 }
 
 bool ProxyImpl::WillBeginImplFrame(const viz::BeginFrameArgs& args) {

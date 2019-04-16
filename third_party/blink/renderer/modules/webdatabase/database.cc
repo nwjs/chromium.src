@@ -27,6 +27,7 @@
 
 #include <memory>
 
+#include "base/synchronization/waitable_event.h"
 #include "base/thread_annotations.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -52,7 +53,7 @@
 #include "third_party/blink/renderer/modules/webdatabase/storage_log.h"
 #include "third_party/blink/renderer/platform/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 // Registering "opened" databases with the DatabaseTracker
 // =======================================================
@@ -90,6 +91,8 @@ namespace {
 // Stores a cached version of each database, keyed by a unique integer obtained
 // by providing an origin-name pair.
 class DatabaseVersionCache {
+  USING_FAST_MALLOC(DatabaseVersionCache);
+
  public:
   Mutex& GetMutex() const LOCK_RETURNED(mutex_) { return mutex_; }
 
@@ -279,7 +282,7 @@ bool Database::OpenAndVerifyVersion(bool set_version_in_new_database,
                                     DatabaseError& error,
                                     String& error_message,
                                     V8DatabaseCallback* creation_callback) {
-  WaitableEvent event;
+  base::WaitableEvent event;
   if (!GetDatabaseContext()->DatabaseThreadAvailable())
     return false;
 
@@ -734,7 +737,7 @@ void Database::ResetAuthorizer() {
     database_authorizer_->Reset();
 }
 
-unsigned long long Database::MaximumSize() const {
+uint64_t Database::MaximumSize() const {
   return DatabaseTracker::Tracker().GetMaxSizeForDatabase(this);
 }
 
@@ -761,7 +764,7 @@ void Database::ReportSqliteError(int sqlite_error_code) {
 
 void Database::LogErrorMessage(const String& message) {
   GetExecutionContext()->AddConsoleMessage(ConsoleMessage::Create(
-      kStorageMessageSource, kErrorMessageLevel, message));
+      kStorageMessageSource, mojom::ConsoleMessageLevel::kError, message));
 }
 
 ExecutionContext* Database::GetExecutionContext() const {
@@ -842,18 +845,18 @@ void Database::RunTransaction(
   SQLTransactionBackend* transaction_backend =
       RunTransaction(transaction, read_only, change_version_data);
   if (!transaction_backend) {
-    SQLTransaction::OnErrorCallback* callback =
+    SQLTransaction::OnErrorCallback* transaction_error_callback =
         transaction->ReleaseErrorCallback();
 #if DCHECK_IS_ON()
-    DCHECK_EQ(callback, original_error_callback);
+    DCHECK_EQ(transaction_error_callback, original_error_callback);
 #endif
-    if (callback) {
+    if (transaction_error_callback) {
       std::unique_ptr<SQLErrorData> error = SQLErrorData::Create(
           SQLError::kUnknownErr, "database has been closed");
       GetDatabaseTaskRunner()->PostTask(
-          FROM_HERE,
-          WTF::Bind(&CallTransactionErrorCallback, WrapPersistent(callback),
-                    WTF::Passed(std::move(error))));
+          FROM_HERE, WTF::Bind(&CallTransactionErrorCallback,
+                               WrapPersistent(transaction_error_callback),
+                               WTF::Passed(std::move(error))));
     }
   }
 }
@@ -901,7 +904,7 @@ Vector<String> Database::TableNames() {
   // take strict turns in dealing with them. However, if the code changes,
   // this may not be true anymore.
   Vector<String> result;
-  WaitableEvent event;
+  base::WaitableEvent event;
   if (!GetDatabaseContext()->DatabaseThreadAvailable())
     return result;
 

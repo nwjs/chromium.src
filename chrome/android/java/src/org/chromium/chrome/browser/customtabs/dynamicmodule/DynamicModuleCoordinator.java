@@ -19,14 +19,15 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import org.chromium.base.Callback;
-import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.VisibleForTesting;
+import org.chromium.base.task.PostTask;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.browserservices.PostMessageHandler;
 import org.chromium.chrome.browser.customtabs.CloseButtonNavigator;
+import org.chromium.chrome.browser.customtabs.CloseButtonNavigator.PageCriteria;
 import org.chromium.chrome.browser.customtabs.CustomTabBottomBarDelegate;
 import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabTopBarDelegate;
@@ -44,7 +45,8 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.util.UrlUtilities;
 import org.chromium.content_public.browser.LoadUrlParams;
-import org.chromium.content_public.browser.NavigationHandleProxy;
+import org.chromium.content_public.browser.NavigationHandle;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 
 import java.lang.annotation.Retention;
@@ -70,6 +72,7 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     private final Lazy<CustomTabTopBarDelegate> mTopBarDelegate;
     private final Lazy<CustomTabBottomBarDelegate> mBottomBarDelegate;
     private final Lazy<ChromeFullscreenManager> mFullscreenManager;
+    private final Lazy<DynamicModuleToolbarController> mToolbarController;
 
     @Nullable
     private LoadModuleCallback mModuleCallback;
@@ -81,8 +84,8 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     @Nullable
     private PostMessageHandler mDynamicModulePostMessageHandler;
 
-    @Retention(RetentionPolicy.SOURCE)
     @IntDef({View.VISIBLE, View.INVISIBLE, View.GONE})
+    @Retention(RetentionPolicy.SOURCE)
     private @interface ToolbarVisibility {}
 
     // Default visibility of the Toolbar prior to any header customization.
@@ -107,49 +110,43 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
 
     private final EmptyTabObserver mHeaderVisibilityObserver = new EmptyTabObserver() {
         @Override
-        public void onDidFinishNavigation(Tab tab, String url, boolean isInMainFrame,
-                                          boolean isErrorPage, boolean hasCommitted,
-                                          boolean isSameDocument, boolean isFragmentNavigation,
-                                          @Nullable Integer pageTransition, int errorCode,
-                                          int httpStatusCode) {
-            if (!isInMainFrame || !hasCommitted) return;
-            maybeCustomizeCctHeader(url);
+        public void onDidFinishNavigation(Tab tab, NavigationHandle navigation) {
+            if (!navigation.isInMainFrame() || !navigation.hasCommitted()) return;
+            maybeCustomizeCctHeader(navigation.getUrl());
         }
     };
 
     // Update the request's header on module managed URLs.
     private final EmptyTabObserver mCustomRequestHeaderModifier = new EmptyTabObserver() {
         @Override
-        public void onDidStartNavigation(Tab tab, String url, boolean isInMainFrame,
-                boolean isSameDocument, long navigationHandleProxy) {
-            if (!isInMainFrame || isSameDocument) return;
-
-            updateCustomRequestHeader(url, navigationHandleProxy, false /* isRedirect */);
+        public void onDidStartNavigation(Tab tab, NavigationHandle navigation) {
+            updateCustomRequestHeader(navigation, /* isRedirect */ false);
         }
 
         @Override
-        public void onDidRedirectNavigation(
-                Tab tab, String url, boolean isInMainFrame, long navigationHandleProxy) {
-            if (!isInMainFrame) return;
-
-            updateCustomRequestHeader(url, navigationHandleProxy, true /* isRedirect */);
+        public void onDidRedirectNavigation(Tab tab, NavigationHandle navigation) {
+            updateCustomRequestHeader(navigation, /* is_redirect */ true);
         }
 
-        private void updateCustomRequestHeader(
-                String url, long navigationHandleProxy, boolean isRedirect) {
-            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.CCT_MODULE_CUSTOM_REQUEST_HEADER))
+        private void updateCustomRequestHeader(NavigationHandle navigation, boolean isRedirect) {
+            // Update an header only when the navigation emit a network request.²
+            if (!navigation.isInMainFrame() || navigation.isSameDocument()
+                    || navigation.isErrorPage()
+                    || !ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.CCT_MODULE_CUSTOM_REQUEST_HEADER)) {
                 return;
+            }
+
             try (TraceEvent e = TraceEvent.scoped(
                          "DynamicModuleCoordinator.updateCustomRequestHeader")) {
-                if (isModuleManagedUrl(url)) {
+                if (isModuleManagedUrl(navigation.getUrl())) {
                     String headerValue = mIntentDataProvider.getExtraModuleManagedUrlsHeaderValue();
                     if (headerValue != null) {
-                        NavigationHandleProxy.nativeSetRequestHeader(navigationHandleProxy,
+                        navigation.setRequestHeader(
                                 DynamicModuleConstants.MANAGED_URL_HEADER, headerValue);
                     }
                 } else if (isRedirect) {
-                    NavigationHandleProxy.nativeRemoveRequestHeader(
-                            navigationHandleProxy, DynamicModuleConstants.MANAGED_URL_HEADER);
+                    navigation.removeRequestHeader(DynamicModuleConstants.MANAGED_URL_HEADER);
                 }
             }
         }
@@ -158,6 +155,8 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     private final DynamicModuleNavigationEventObserver mModuleNavigationEventObserver =
             new DynamicModuleNavigationEventObserver();
     private final DynamicModulePageLoadObserver mPageLoadObserver;
+
+    private final PageCriteria mPageCriteria;
 
     @Inject
     public DynamicModuleCoordinator(CustomTabIntentDataProvider intentDataProvider,
@@ -168,6 +167,7 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
                                     Lazy<CustomTabTopBarDelegate> topBarDelegate,
                                     Lazy<CustomTabBottomBarDelegate> bottomBarDelegate,
                                     Lazy<ChromeFullscreenManager> fullscreenManager,
+                                    Lazy<DynamicModuleToolbarController> toolbarController,
                                     CustomTabsConnection connection, ChromeActivity activity,
                                     CustomTabActivityTabController tabController,
                                     DynamicModulePageLoadObserver pageLoadObserver) {
@@ -188,9 +188,10 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
         mTopBarDelegate = topBarDelegate;
         mBottomBarDelegate = bottomBarDelegate;
         mFullscreenManager = fullscreenManager;
+        mToolbarController = toolbarController;
 
-        closeButtonNavigator.setLandingPageCriteria(url ->
-                (isModuleLoading() || isModuleLoaded()) && isModuleManagedUrl(url));
+        mPageCriteria = url -> (isModuleLoading() || isModuleLoaded()) && isModuleManagedUrl(url);
+        closeButtonNavigator.setLandingPageCriteria(mPageCriteria);
 
         activityLifecycleDispatcher.register(this);
     }
@@ -222,8 +223,8 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
 
     private ModuleLoader getModuleLoader() {
         ComponentName componentName = mIntentDataProvider.getModuleComponentName();
-        int dexResourceId = mIntentDataProvider.getModuleDexResourceId();
-        return mConnection.getModuleLoader(componentName, dexResourceId);
+        String dexAssetName = mIntentDataProvider.getModuleDexAssetName();
+        return mConnection.getModuleLoader(componentName, dexAssetName);
     }
 
     /* package */ Context getActivityContext() {
@@ -307,8 +308,10 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     public boolean requestPostMessageChannel(Uri postMessageOrigin) {
         if (mDynamicModulePostMessageHandler == null) return false;
 
-        ThreadUtils.postOnUiThread(() ->
-                mDynamicModulePostMessageHandler.initializeWithPostMessageUri(postMessageOrigin));
+        PostTask.postTask(UiThreadTaskTraits.DEFAULT,
+                ()
+                        -> mDynamicModulePostMessageHandler.initializeWithPostMessageUri(
+                                postMessageOrigin));
         return true;
     }
 
@@ -337,6 +340,7 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     private class LoadModuleCallback implements Callback<ModuleEntryPoint> {
         @Override
         public void onResult(@Nullable ModuleEntryPoint entryPoint) {
+            mToolbarController.get().releaseAndroidControlsHidingToken();
             mDefaultToolbarVisibility = mActivity.getToolbarManager().getToolbarVisibility();
             mDefaultToolbarShadowVisibility =
                     mActivity.getToolbarManager().getToolbarShadowVisibility();
@@ -386,6 +390,10 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
 
     /* package */ boolean isModuleLoading() {
         return mModuleCallback != null;
+    }
+
+    /* package */ boolean hasModuleFailedToLoad() {
+        return mActivityDelegate == null;
     }
 
     private boolean isModuleManagedUrl(String url) {
@@ -448,9 +456,9 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
                 mIntentDataProvider.getSession());
     }
 
-    private View getProgressBarAnchorView(boolean isModuleManagedUrl) {
+    private View getProgressBarAnchorView(boolean showTopBar) {
         View anchorView = null;
-        if (isModuleManagedUrl) {
+        if (showTopBar) {
             View topBarContentView = mTopBarDelegate.get().getTopBarContentView();
             if (topBarContentView != null && topBarContentView.getVisibility() == View.VISIBLE) {
                 anchorView = topBarContentView;
@@ -462,19 +470,21 @@ public class DynamicModuleCoordinator implements NativeInitObserver, Destroyable
     }
 
     private void maybeCustomizeCctHeader(String url) {
-        if (!isModuleLoaded() && !isModuleLoading()) return;
+        // Since some of the tool bar default settings are not obtained until module loading is
+        // finished, we do not allow customization until then.
+        if (!isModuleLoaded() && !hasModuleFailedToLoad()) return;
 
-        boolean isModuleManagedUrl = isModuleManagedUrl(url);
-        mTopBarDelegate.get().showTopBarIfNecessary(isModuleManagedUrl);
+        boolean showTopBar = mPageCriteria.matches(url);
+        mTopBarDelegate.get().showTopBarIfNecessary(showTopBar);
         if (shouldHideCctHeaderOnModuleManagedUrls()) {
             mActivity.getToolbarManager().setToolbarVisibility(
-                    isModuleManagedUrl ? View.GONE : mDefaultToolbarVisibility);
+                    showTopBar ? View.GONE : mDefaultToolbarVisibility);
             mActivity.getToolbarManager().setToolbarShadowVisibility(
-                    isModuleManagedUrl ? View.GONE : mDefaultToolbarShadowVisibility);
+                    showTopBar ? View.GONE : mDefaultToolbarShadowVisibility);
             mFullscreenManager.get().setTopControlsHeight(
-                    isModuleManagedUrl ? getTopBarHeight() : mDefaultTopControlContainerHeight);
+                    showTopBar ? getTopBarHeight() : mDefaultTopControlContainerHeight);
             mActivity.getToolbarManager().setProgressBarAnchorView(
-                    getProgressBarAnchorView(isModuleManagedUrl));
+                    getProgressBarAnchorView(showTopBar));
         }
     }
 

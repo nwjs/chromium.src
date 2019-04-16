@@ -189,7 +189,7 @@ class WebURLResponse {
   BLINK_PLATFORM_EXPORT void SetRequestId(int);
 
   BLINK_PLATFORM_EXPORT int HttpStatusCode() const;
-  BLINK_PLATFORM_EXPORT void SetHTTPStatusCode(int);
+  BLINK_PLATFORM_EXPORT void SetHttpStatusCode(int);
 
   BLINK_PLATFORM_EXPORT WebString HttpStatusText() const;
   BLINK_PLATFORM_EXPORT void SetHTTPStatusText(const WebString&);
@@ -210,7 +210,6 @@ class WebURLResponse {
 
   BLINK_PLATFORM_EXPORT void SetHasMajorCertificateErrors(bool);
   BLINK_PLATFORM_EXPORT void SetCTPolicyCompliance(net::ct::CTPolicyCompliance);
-  BLINK_PLATFORM_EXPORT void SetIsLegacySymantecCert(bool);
   BLINK_PLATFORM_EXPORT void SetIsLegacyTLSVersion(bool);
 
   BLINK_PLATFORM_EXPORT void SetSecurityStyle(WebSecurityStyle);
@@ -274,8 +273,8 @@ class WebURLResponse {
   BLINK_PLATFORM_EXPORT void SetRemoteIPAddress(const WebString&);
 
   // Remote port number of the socket which fetched this resource.
-  BLINK_PLATFORM_EXPORT unsigned short RemotePort() const;
-  BLINK_PLATFORM_EXPORT void SetRemotePort(unsigned short);
+  BLINK_PLATFORM_EXPORT uint16_t RemotePort() const;
+  BLINK_PLATFORM_EXPORT void SetRemotePort(uint16_t);
 
   // ALPN negotiated protocol of the socket which fetched this resource.
   BLINK_PLATFORM_EXPORT WebString AlpnNegotiatedProtocol() const;

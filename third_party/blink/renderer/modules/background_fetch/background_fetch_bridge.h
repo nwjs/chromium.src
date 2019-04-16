@@ -6,6 +6,8 @@
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_BACKGROUND_FETCH_BACKGROUND_FETCH_BRIDGE_H_
 
 #include <memory>
+
+#include "base/macros.h"
 #include "third_party/blink/public/mojom/background_fetch/background_fetch.mojom-blink.h"
 #include "third_party/blink/renderer/modules/service_worker/service_worker_registration.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
@@ -25,7 +27,6 @@ class BackgroundFetchBridge final
     : public GarbageCollectedFinalized<BackgroundFetchBridge>,
       public Supplement<ServiceWorkerRegistration> {
   USING_GARBAGE_COLLECTED_MIXIN(BackgroundFetchBridge);
-  WTF_MAKE_NONCOPYABLE(BackgroundFetchBridge);
 
  public:
   static const char kSupplementName[];
@@ -63,14 +64,14 @@ class BackgroundFetchBridge final
   // Matches completed requests for the fetch associated with the |developer_id|
   // and |unique_id| and returns the {request, response} pairs based on the rest
   // of the arguments. If |filter_by_request| is true, only response(s) for
-  // |request_to_match| are returned. |cache_query_params|s are options for the
+  // |request_to_match| are returned. |cache_query_options|s are options for the
   // query to the cache storage. |match_all|, when true, returns all responses
   // from the result set, and when false, returns only the first one.
   void MatchRequests(
       const String& developer_id,
       const String& unique_id,
       mojom::blink::FetchAPIRequestPtr request_to_match,
-      mojom::blink::QueryParamsPtr cache_query_params,
+      mojom::blink::CacheQueryOptionsPtr cache_query_options,
       bool match_all,
       mojom::blink::BackgroundFetchService::MatchRequestsCallback callback);
 
@@ -119,6 +120,8 @@ class BackgroundFetchBridge final
       mojom::blink::BackgroundFetchRegistrationPtr registration_ptr);
 
   mojom::blink::BackgroundFetchServicePtr background_fetch_service_;
+
+  DISALLOW_COPY_AND_ASSIGN(BackgroundFetchBridge);
 };
 
 }  // namespace blink

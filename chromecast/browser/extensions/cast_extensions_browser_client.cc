@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/post_task.h"
 #include "build/build_config.h"
@@ -30,6 +31,7 @@
 #include "extensions/browser/updater/null_extension_cache.h"
 #include "extensions/browser/url_request_util.h"
 #include "extensions/common/features/feature_channel.h"
+#include "services/network/public/mojom/url_loader.mojom.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -117,7 +119,7 @@ CastExtensionsBrowserClient::MaybeCreateResourceBundleRequestJob(
 base::FilePath CastExtensionsBrowserClient::GetBundleResourcePath(
     const network::ResourceRequest& request,
     const base::FilePath& extension_resources_path,
-    int* resource_id) const {
+    ComponentExtensionResourceInfo* resource_info) const {
   return base::FilePath();
 }
 
@@ -125,7 +127,7 @@ void CastExtensionsBrowserClient::LoadResourceFromResourceBundle(
     const network::ResourceRequest& request,
     network::mojom::URLLoaderRequest loader,
     const base::FilePath& resource_relative_path,
-    int resource_id,
+    const ComponentExtensionResourceInfo& resource_info,
     const std::string& content_security_policy,
     network::mojom::URLLoaderClientPtr client,
     bool send_cors_header) {

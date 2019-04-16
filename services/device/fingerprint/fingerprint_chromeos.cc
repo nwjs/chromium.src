@@ -6,6 +6,7 @@
 
 #include <string.h>
 
+#include "base/bind.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "services/device/fingerprint/fingerprint.h"
@@ -114,11 +115,6 @@ void FingerprintChromeOS::OnCloseAuthSessionForEnroll(
   if (!result)
     return;
 
-  ScheduleStartEnroll(user_id, label);
-}
-
-void FingerprintChromeOS::ScheduleStartEnroll(const std::string& user_id,
-                                              const std::string& label) {
   GetBiodClient()->StartEnrollSession(
       user_id, label,
       base::Bind(&FingerprintChromeOS::OnStartEnrollSession,
@@ -165,7 +161,9 @@ void FingerprintChromeOS::StartAuthSession() {
         base::BindRepeating(&FingerprintChromeOS::OnCloseEnrollSessionForAuth,
                             weak_ptr_factory_.GetWeakPtr()));
   } else {
-    ScheduleStartAuth();
+    GetBiodClient()->StartAuthSession(
+        base::Bind(&FingerprintChromeOS::OnStartAuthSession,
+                   weak_ptr_factory_.GetWeakPtr()));
   }
 }
 
@@ -173,10 +171,6 @@ void FingerprintChromeOS::OnCloseEnrollSessionForAuth(bool result) {
   if (!result)
     return;
 
-  ScheduleStartAuth();
-}
-
-void FingerprintChromeOS::ScheduleStartAuth() {
   GetBiodClient()->StartAuthSession(
       base::Bind(&FingerprintChromeOS::OnStartAuthSession,
                  weak_ptr_factory_.GetWeakPtr()));

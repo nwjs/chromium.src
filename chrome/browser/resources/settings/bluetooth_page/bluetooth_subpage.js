@@ -148,6 +148,7 @@ Polymer({
   observers: [
     'adapterStateChanged_(adapterState.*)',
     'deviceListChanged_(deviceList_.*)',
+    'listUpdateFrequencyMsChanged_(listUpdateFrequencyMs)',
   ],
 
   /**
@@ -157,55 +158,13 @@ Polymer({
    */
   updateTimerId_: undefined,
 
-  /**
-   * Listener for chrome.bluetooth.onBluetoothDeviceChanged events.
-   * @type {?function(!chrome.bluetooth.Device)}
-   * @private
-   */
-  bluetoothDeviceUpdatedListener_: null,
-
-  /**
-   * Listener for chrome.bluetooth.onBluetoothDeviceAdded events.
-   * @type {?function(!chrome.bluetooth.Device)}
-   * @private
-   */
-  bluetoothDeviceAddedListener_: null,
-
-  /**
-   * Listener for chrome.bluetooth.onBluetoothDeviceRemoved events.
-   * @type {?function(!chrome.bluetooth.Device)}
-   * @private
-   */
-  bluetoothDeviceRemovedListener_: null,
-
-  /** @override */
-  attached: function() {
-    this.bluetoothDeviceUpdatedListener_ =
-        this.bluetoothDeviceUpdatedListener_ ||
-        this.onBluetoothDeviceUpdated_.bind(this);
-    this.bluetooth.onDeviceChanged.addListener(
-        this.bluetoothDeviceUpdatedListener_);
-
-    this.bluetoothDeviceAddedListener_ = this.bluetoothDeviceAddedListener_ ||
-        this.onBluetoothDeviceAdded_.bind(this);
-    this.bluetooth.onDeviceAdded.addListener(
-        this.bluetoothDeviceAddedListener_);
-
-    this.bluetoothDeviceRemovedListener_ =
-        this.bluetoothDeviceRemovedListener_ ||
-        this.onBluetoothDeviceRemoved_.bind(this);
-    this.bluetooth.onDeviceRemoved.addListener(
-        this.bluetoothDeviceRemovedListener_);
-  },
-
   /** @override */
   detached: function() {
-    this.bluetooth.onDeviceAdded.removeListener(
-        assert(this.bluetoothDeviceAddedListener_));
-    this.bluetooth.onDeviceChanged.removeListener(
-        assert(this.bluetoothDeviceUpdatedListener_));
-    this.bluetooth.onDeviceRemoved.removeListener(
-        assert(this.bluetoothDeviceRemovedListener_));
+    if (this.updateTimerId_ !== undefined) {
+      window.clearInterval(this.updateTimerId_);
+      this.updateTimerId_ = undefined;
+      this.deviceList_ = [];
+    }
   },
 
   /**
@@ -215,6 +174,7 @@ Polymer({
    */
   currentRouteChanged: function(route) {
     this.updateDiscovery_();
+    this.startOrStopRefreshingDeviceList_();
   },
 
   /** @private */
@@ -225,22 +185,72 @@ Polymer({
   /** @private */
   adapterStateChanged_: function() {
     this.updateDiscovery_();
-    this.updateDeviceList_();
+    this.startOrStopRefreshingDeviceList_();
   },
 
   /** @private */
   deviceListChanged_: function() {
     this.saveScroll(this.$.pairedDevices);
     this.saveScroll(this.$.unpairedDevices);
-    this.pairedDeviceList_ = this.deviceList_.filter(function(device) {
-      return !!device.paired || !!device.connecting;
-    });
-    this.unpairedDeviceList_ = this.deviceList_.filter(function(device) {
-      return !device.paired && !device.connecting;
-    });
+
+    // In Polymer 1, default values for |pairedDeviceList_| and
+    // |unpairedDeviceList_| might not have been set yet by the time
+    // |deviceList_| changes.
+    if (this.pairedDeviceList_ === undefined) {
+      this.pairedDeviceList_ = [];
+    }
+    if (this.unpairedDeviceList_ === undefined) {
+      this.unpairedDeviceList_ = [];
+    }
+
+    this.pairedDeviceList_ = this.getUpdatedDeviceList_(
+      this.pairedDeviceList_,
+      this.deviceList_.filter(d => d.paired || d.connecting));
+    this.unpairedDeviceList_ = this.getUpdatedDeviceList_(
+      this.unpairedDeviceList_,
+      this.deviceList_.filter(d => !(d.paired || d.connecting)));
+
+    this.$.pairedDevices.fire('iron-resize');
+    this.$.unpairedDevices.fire('iron-resize');
     this.updateScrollableContents();
     this.restoreScroll(this.$.unpairedDevices);
     this.restoreScroll(this.$.pairedDevices);
+  },
+
+  /**
+   * Returns a copy of |oldDeviceList| but:
+   *   - Using the corresponding device objects in |newDeviceList|
+   *   - Removing devices not in |newDeviceList|
+   *   - Adding device not in |oldDeviceList| but in |newDeviceList| to the
+   *     end of the list.
+   *
+   * @param {!Array<!chrome.bluetooth.Device>} oldDeviceList
+   * @param {!Array<!chrome.bluetooth.Device>} newDeviceList
+   * @return {!Array<!chrome.bluetooth.Device>}
+   * @private
+   */
+  getUpdatedDeviceList_: function(oldDeviceList, newDeviceList) {
+    const newDeviceMap = new Map(newDeviceList.map(d => [d.address, d]));
+    const updatedDeviceList = [];
+
+    // Add elements of |oldDeviceList| that are in |newDeviceList| to
+    // |updatedDeviceList|.
+    for (const oldDevice of oldDeviceList) {
+      const newDevice = newDeviceMap.get(oldDevice.address);
+      if (newDevice === undefined) {
+        continue;
+      }
+      updatedDeviceList.push(newDevice);
+      newDeviceMap.delete(newDevice.address);
+    }
+
+    // Add all elements of |newDeviceList| that are not in |oldDeviceList| to
+    // |updatedDeviceList|.
+    for (const newDevice of newDeviceMap.values()) {
+      updatedDeviceList.push(newDevice);
+    }
+
+    return updatedDeviceList;
   },
 
   /** @private */
@@ -266,62 +276,6 @@ Polymer({
       this.startDiscovery_();
     } else {
       this.stopDiscovery_();
-    }
-  },
-
-  /**
-   * If bluetooth is enabled, request the complete list of devices and update
-   * this.deviceList_.
-   * @private
-   */
-  updateDeviceList_: function() {
-    if (!this.adapterState || !this.adapterState.powered) {
-      this.deviceList_ = [];
-      return;
-    }
-    this.requestListUpdate_();
-  },
-
-  /**
-   * Process onDeviceChanged events.
-   * @param {!chrome.bluetooth.Device} device
-   * @private
-   */
-  onBluetoothDeviceUpdated_: function(device) {
-    const address = device.address;
-    if (this.dialogShown_ && this.pairingDevice_ &&
-        this.pairingDevice_.address == address) {
-      this.pairingDevice_ = device;
-    }
-    const index = this.deviceList_.findIndex(function(device) {
-      return device.address == address;
-    });
-    if (index >= 0) {
-      this.set('deviceList_.' + index, device);
-    }
-  },
-
-  /**
-   * Process bluetooth.onDeviceAdded events.
-   * @param {!chrome.bluetooth.Device} device
-   * @private
-   */
-  onBluetoothDeviceAdded_: function(device) {
-    this.requestListUpdate_();
-  },
-
-  /**
-   * Process bluetooth.onDeviceRemoved events.
-   * @param {!chrome.bluetooth.Device} device
-   * @private
-   */
-  onBluetoothDeviceRemoved_: function(device) {
-    const address = device.address;
-    const index = this.deviceList_.findIndex(function(device) {
-      return device.address == address;
-    });
-    if (index >= 0) {
-      this.splice('deviceList_', index, 1);
     }
   },
 
@@ -484,7 +438,6 @@ Polymer({
             'Error forgetting: ' + device.name + ': ' +
             chrome.runtime.lastError.message);
       }
-      this.updateDeviceList_();
     });
   },
 
@@ -511,45 +464,6 @@ Polymer({
   },
 
   /**
-   * Requests update for bluetooth list.
-   * @private
-   */
-  requestListUpdate_: function() {
-    if (this.deviceList_.length == 0) {
-      // Update immediately for the initial device list.
-      this.refreshBluetoothList_();
-      return;
-    }
-
-    // Return here because an update is already queued.
-    if (this.updateTimerId_ !== undefined) {
-      return;
-    }
-
-    // Call bluetooth.getDevices once per listUpdateFrequencyMs.
-    this.updateTimerId_ = window.setTimeout(() => {
-      if (settings.getCurrentRoute() != settings.routes.BLUETOOTH_DEVICES) {
-        this.stopListUpdate_();
-        return;
-      }
-
-      this.refreshBluetoothList_();
-      this.updateTimerId_ = undefined;
-    }, this.listUpdateFrequencyMs);
-  },
-
-  /**
-   * Stops update for bluetooth list.
-   * @private
-   */
-  stopListUpdate_: function() {
-    if (this.updateTimerId_ !== undefined) {
-      window.clearTimeout(this.updateTimerId_);
-      this.updateTimerId_ = undefined;
-    }
-  },
-
-  /**
    * Requests bluetooth device list from Chrome. Update deviceList_ once the
    * results are returned from chrome.
    * @private
@@ -563,4 +477,37 @@ Polymer({
       this.deviceList_ = devices;
     });
   },
+
+  /** @private */
+  startOrStopRefreshingDeviceList_: function() {
+    if (this.adapterState && this.adapterState.powered) {
+      if (this.updateTimerId_ !== undefined) {
+        return;
+      }
+
+      this.refreshBluetoothList_();
+      this.updateTimerId_ =
+        window.setInterval(this.refreshBluetoothList_.bind(this),
+                           this.listUpdateFrequencyMs);
+      return;
+    }
+    window.clearInterval(this.updateTimerId_);
+    this.updateTimerId_ = undefined;
+    this.deviceList_ = [];
+  },
+
+  /**
+   * Restarts the timer when the frequency changes, which happens
+   * during tests.
+   */
+  listUpdateFrequencyMsChanged_: function() {
+    if (this.updateTimerId_ === undefined) {
+      return;
+    }
+
+    window.clearInterval(this.updateTimerId_);
+    this.updateTimerId_ = undefined;
+
+    this.startOrStopRefreshingDeviceList_();
+  }
 });

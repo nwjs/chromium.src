@@ -18,6 +18,7 @@ InstalledServiceWorkerModuleScriptFetcher::
 void InstalledServiceWorkerModuleScriptFetcher::Fetch(
     FetchParameters& fetch_params,
     ResourceFetcher*,
+    const Modulator* modulator_for_built_in_modules,
     ModuleGraphLevel level,
     ModuleScriptFetcher::Client* client) {
   DCHECK(global_scope_->IsContextThread());
@@ -32,7 +33,7 @@ void InstalledServiceWorkerModuleScriptFetcher::Fetch(
   if (!script) {
     HeapVector<Member<ConsoleMessage>> error_messages;
     error_messages.push_back(ConsoleMessage::CreateForRequest(
-        kJSMessageSource, kErrorMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kError,
         "Failed to load the script unexpectedly",
         fetch_params.Url().GetString(), nullptr, 0));
     client->NotifyFetchFinished(base::nullopt, error_messages);
@@ -41,6 +42,7 @@ void InstalledServiceWorkerModuleScriptFetcher::Fetch(
 
   ModuleScriptCreationParams params(
       fetch_params.Url(), ParkableString(script->TakeSourceText().Impl()),
+      nullptr /* cache_handler */,
       fetch_params.GetResourceRequest().GetFetchCredentialsMode());
   client->NotifyFetchFinished(params, HeapVector<Member<ConsoleMessage>>());
 }

@@ -12,6 +12,14 @@
 let AnnotationTool;
 
 /**
+ * @typedef {{
+ *   canUndo: boolean,
+ *   canRedo: boolean,
+ * }}
+ */
+let UndoState;
+
+/**
  * Wraps the Ink component with an API that can be called
  * across an IFrame boundary.
  */
@@ -20,6 +28,20 @@ class InkAPI {
   constructor(embed) {
     this.embed_ = embed;
     this.brush_ = ink.BrushModel.getInstance(embed);
+    this.camera_ = null;
+  }
+
+  /** @param {function(!UndoState)} listener */
+  addUndoStateListener(listener) {
+    /** @param {!ink.UndoStateChangeEvent} e */
+    function wrapper(e) {
+      listener({
+        canUndo: e.getCanUndo(),
+        canRedo: e.getCanRedo(),
+      });
+    }
+
+    this.embed_.addEventListener(ink.UndoStateChangeEvent.EVENT_TYPE, wrapper);
   }
 
   /**
@@ -49,8 +71,12 @@ class InkAPI {
     return this.embed_.getPDFDestructive();
   }
 
-  setCamera(camera) {
+  async setCamera(camera) {
+    this.camera_ = camera;
     this.embed_.setCamera(camera);
+    // Wait for the next task to avoid a race where Ink drops the camera value
+    // when the canvas is rotated in low-latency mode.
+    setTimeout(() => this.embed_.setCamera(this.camera_), 0);
   }
 
   /** @param {AnnotationTool} tool */
@@ -58,7 +84,7 @@ class InkAPI {
     const shape = {
       eraser: 'MAGIC_ERASE',
       pen: 'INKPEN',
-      highlighter: 'HIGHLIGHTER',
+      highlighter: 'SMART_HIGHLIGHTER_TOOL',
     }[tool.tool];
     this.brush_.setShape(shape);
     if (tool.tool != 'eraser') {
@@ -87,8 +113,40 @@ class InkAPI {
   }
 
   dispatchPointerEvent(type, init) {
+    const engine = document.querySelector('#ink-engine');
+    const match = engine.style.transform.match(/(\d+)deg/);
+    const rotation = match ? Number(match[1]) : 0;
+    let offsetX = init.clientX;
+    let offsetY = init.clientY;
+    // If Ink's canvas has been re-orientated away from 0, we must transform
+    // the event's offsetX and offsetY to correspond with the rotation and
+    // offset applied.
+    if ([90, 180, 270].includes(rotation)) {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const matrix = new DOMMatrix();
+      matrix.translateSelf(width / 2, height / 2);
+      matrix.rotateSelf(0, 0, -rotation);
+      matrix.translateSelf(-width / 2, -height / 2);
+      const result = matrix.transformPoint({x: offsetX, y: offsetY});
+      offsetX = result.x - engine.offsetLeft;
+      offsetY = result.y - engine.offsetTop;
+    }
+
     const event = new PointerEvent(type, init);
-    document.querySelector('#ink-engine').dispatchEvent(event);
+    // Ink uses offsetX and offsetY, but we can only override them, not pass
+    // as part of the init.
+    Object.defineProperty(event, 'offsetX', {value: offsetX});
+    Object.defineProperty(event, 'offsetY', {value: offsetY});
+    engine.dispatchEvent(event);
+  }
+
+  undo() {
+    this.embed_.undo();
+  }
+
+  redo() {
+    this.embed_.redo();
   }
 }
 

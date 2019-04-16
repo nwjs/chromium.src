@@ -106,22 +106,16 @@ Main.Main = class {
   _initializeExperiments() {
     // Keep this sorted alphabetically: both keys and values.
     Runtime.experiments.register('applyCustomStylesheet', 'Allow custom UI themes');
+    Runtime.experiments.register('sourcesPrettyPrint', 'Automatically pretty print in the Sources Panel');
+    Runtime.experiments.register('backgroundServices', 'Background web platform feature events', true);
     Runtime.experiments.register('blackboxJSFramesOnTimeline', 'Blackbox JavaScript frames on Timeline', true);
-    Runtime.experiments.register('consoleBelowPrompt', 'Console eager evaluation');
-    Runtime.experiments.register('consoleKeyboardNavigation', 'Console keyboard navigation', true);
     Runtime.experiments.register('emptySourceMapAutoStepping', 'Empty sourcemap auto-stepping');
     Runtime.experiments.register('inputEventsOnTimelineOverview', 'Input events on Timeline overview', true);
+    Runtime.experiments.register('liveHeapProfile', 'Live heap profile', true);
     Runtime.experiments.register('nativeHeapProfiler', 'Native memory sampling heap profiler', true);
-    Runtime.experiments.register('networkSearch', 'Network search');
-    Runtime.experiments.register('oopifInlineDOM', 'OOPIF: inline DOM ', true);
-    Runtime.experiments.register('pinnedExpressions', 'Pinned expressions in Console', true);
     Runtime.experiments.register('protocolMonitor', 'Protocol Monitor');
     Runtime.experiments.register('samplingHeapProfilerTimeline', 'Sampling heap profiler timeline', true);
     Runtime.experiments.register('sourceDiff', 'Source diff');
-    Runtime.experiments.register('sourcesLogpoints', 'Sources: logpoints');
-    Runtime.experiments.register('sourcesPrettyPrint', 'Automatically pretty print in the Sources Panel');
-    Runtime.experiments.register(
-        'stepIntoAsync', 'Introduce separate step action, stepInto becomes powerful enough to go inside async call');
     Runtime.experiments.register('splitInDrawer', 'Split in drawer', true);
     Runtime.experiments.register('terminalInDrawer', 'Terminal in drawer', true);
 
@@ -130,29 +124,14 @@ Main.Main = class {
     Runtime.experiments.register('timelineFlowEvents', 'Timeline: flow events', true);
     Runtime.experiments.register('timelineInvalidationTracking', 'Timeline: invalidation tracking', true);
     Runtime.experiments.register('timelineShowAllEvents', 'Timeline: show all events', true);
-    Runtime.experiments.register('timelineTracingJSProfile', 'Timeline: tracing based JS profiler', true);
     Runtime.experiments.register('timelineV8RuntimeCallStats', 'Timeline: V8 Runtime Call Stats on Timeline', true);
     Runtime.experiments.register('timelineWebGL', 'Timeline: WebGL-based flamechart');
 
     Runtime.experiments.cleanUpStaleExperiments();
+    Runtime.experiments.setDefaultExperiments([]);
 
-    if (Host.isUnderTest()) {
-      const testPath = Runtime.queryParam('test');
-      // Enable experiments for testing.
-      if (testPath.indexOf('oopif/') !== -1)
-        Runtime.experiments.enableForTest('oopifInlineDOM');
-      if (testPath.indexOf('network/') !== -1)
-        Runtime.experiments.enableForTest('networkSearch');
-      if (testPath.indexOf('console/viewport-testing/') !== -1)
-        Runtime.experiments.enableForTest('consoleKeyboardNavigation');
-      if (testPath.indexOf('console/') !== -1)
-        Runtime.experiments.enableForTest('pinnedExpressions');
-    }
-
-    Runtime.experiments.setDefaultExperiments([
-      'stepIntoAsync', 'oopifInlineDOM', 'consoleBelowPrompt', 'timelineTracingJSProfile', 'pinnedExpressions',
-      'consoleKeyboardNavigation', 'sourcesLogpoints'
-    ]);
+    if (Host.isUnderTest() && Runtime.queryParam('test').includes('live-line-level-heap-profile.js'))
+      Runtime.experiments.enableForTest('liveHeapProfile');
   }
 
   /**
@@ -286,10 +265,8 @@ Main.Main = class {
     Main.Main.time('Main._lateInitialization');
     this._registerShortcuts();
     Extensions.extensionServer.initializeExtensions();
-    if (!Host.isUnderTest()) {
-      for (const extension of self.runtime.extensions('late-initialization'))
-        extension.instance().then(instance => (/** @type {!Common.Runnable} */ (instance)).run());
-    }
+    for (const extension of self.runtime.extensions('late-initialization'))
+      extension.instance().then(instance => (/** @type {!Common.Runnable} */ (instance)).run());
     Main.Main.timeEnd('Main._lateInitialization');
   }
 
@@ -515,6 +492,7 @@ Main.Main.MainMenuItem = class {
   _handleContextMenu(contextMenu) {
     if (Components.dockController.canDock()) {
       const dockItemElement = createElementWithClass('div', 'flex-centered flex-auto');
+      dockItemElement.tabIndex = -1;
       const titleElement = dockItemElement.createChild('span', 'flex-auto');
       titleElement.textContent = Common.UIString('Dock side');
       const toggleDockSideShorcuts = UI.shortcutRegistry.shortcutDescriptorsForAction('main.toggle-dock');
@@ -533,13 +511,13 @@ Main.Main.MainMenuItem = class {
       right.addEventListener(UI.ToolbarButton.Events.MouseDown, event => event.data.consume());
       left.addEventListener(UI.ToolbarButton.Events.MouseDown, event => event.data.consume());
       undock.addEventListener(
-          UI.ToolbarButton.Events.MouseUp, setDockSide.bind(null, Components.DockController.State.Undocked));
+          UI.ToolbarButton.Events.Click, setDockSide.bind(null, Components.DockController.State.Undocked));
       bottom.addEventListener(
-          UI.ToolbarButton.Events.MouseUp, setDockSide.bind(null, Components.DockController.State.DockedToBottom));
+          UI.ToolbarButton.Events.Click, setDockSide.bind(null, Components.DockController.State.DockedToBottom));
       right.addEventListener(
-          UI.ToolbarButton.Events.MouseUp, setDockSide.bind(null, Components.DockController.State.DockedToRight));
+          UI.ToolbarButton.Events.Click, setDockSide.bind(null, Components.DockController.State.DockedToRight));
       left.addEventListener(
-          UI.ToolbarButton.Events.MouseUp, setDockSide.bind(null, Components.DockController.State.DockedToLeft));
+          UI.ToolbarButton.Events.Click, setDockSide.bind(null, Components.DockController.State.DockedToLeft));
       undock.setToggled(Components.dockController.dockSide() === Components.DockController.State.Undocked);
       bottom.setToggled(Components.dockController.dockSide() === Components.DockController.State.DockedToBottom);
       right.setToggled(Components.dockController.dockSide() === Components.DockController.State.DockedToRight);
@@ -548,6 +526,22 @@ Main.Main.MainMenuItem = class {
       dockItemToolbar.appendToolbarItem(left);
       dockItemToolbar.appendToolbarItem(bottom);
       dockItemToolbar.appendToolbarItem(right);
+      dockItemElement.addEventListener('keydown', event => {
+        let dir = 0;
+        if (event.key === 'ArrowLeft')
+          dir = -1;
+        else if (event.key === 'ArrowRight')
+          dir = 1;
+        else
+          return;
+
+        const buttons = [undock, left, bottom, right];
+        let index = buttons.findIndex(button => button.element.hasFocus());
+        index = Number.constrain(index + dir, 0, buttons.length - 1);
+
+        buttons[index].element.focus();
+        event.consume(true);
+      });
       contextMenu.headerSection().appendCustomItem(dockItemElement);
     }
 

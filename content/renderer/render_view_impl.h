@@ -31,8 +31,6 @@
 #include "content/public/common/drop_data.h"
 #include "content/public/common/page_zoom.h"
 #include "content/public/common/referrer.h"
-#include "content/public/common/renderer_preference_watcher.mojom.h"
-#include "content/public/common/renderer_preferences.h"
 #include "content/public/common/web_preferences.h"
 #include "content/public/renderer/render_view.h"
 #include "content/renderer/render_frame_impl.h"
@@ -41,6 +39,9 @@
 #include "ipc/ipc_platform_file.h"
 #include "mojo/public/cpp/bindings/interface_ptr_set.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
+#include "third_party/blink/public/common/feature_policy/feature_policy.h"
+#include "third_party/blink/public/mojom/renderer_preference_watcher.mojom.h"
+#include "third_party/blink/public/mojom/renderer_preferences.mojom.h"
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/public/platform/web_scoped_virtual_time_pauser.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
@@ -149,7 +150,7 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
     return webkit_preferences_;
   }
 
-  const RendererPreferences& renderer_preferences() const {
+  const blink::mojom::RendererPreferences& renderer_preferences() const {
     return renderer_preferences_;
   }
 
@@ -211,24 +212,27 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
 
   void DidCommitProvisionalHistoryLoad();
 
-  // Registers a watcher to observe changes in the RendererPreferences.
+  // Registers a watcher to observe changes in the
+  // blink::mojom::RendererPreferences.
   void RegisterRendererPreferenceWatcherForWorker(
-      mojom::RendererPreferenceWatcherPtr watcher);
+      blink::mojom::RendererPreferenceWatcherPtr watcher);
 
   // IPC::Listener implementation (via RenderWidget inheritance).
   bool OnMessageReceived(const IPC::Message& msg) override;
 
   // blink::WebViewClient implementation --------------------------------------
 
-  blink::WebView* CreateView(blink::WebLocalFrame* creator,
-                             const blink::WebURLRequest& request,
-                             const blink::WebWindowFeatures& features,
-                             const blink::WebString& frame_name,
-                             blink::WebNavigationPolicy policy,
-                             bool suppress_opener,
-                             blink::WebSandboxFlags sandbox_flags,
-                             const blink::SessionStorageNamespaceId&
-                             session_storage_namespace_id, blink::WebString* manifest) override;
+  blink::WebView* CreateView(
+      blink::WebLocalFrame* creator,
+      const blink::WebURLRequest& request,
+      const blink::WebWindowFeatures& features,
+      const blink::WebString& frame_name,
+      blink::WebNavigationPolicy policy,
+      bool suppress_opener,
+      blink::WebSandboxFlags sandbox_flags,
+      const blink::FeaturePolicy::FeatureState& opener_feature_state,
+      const blink::SessionStorageNamespaceId& session_storage_namespace_id, blink::WebString* manifest)
+      override;
   blink::WebPagePopup* CreatePopup(blink::WebLocalFrame* creator) override;
   base::StringPiece GetSessionStorageNamespaceId() override;
   void PrintPage(blink::WebLocalFrame* frame) override;
@@ -252,14 +256,12 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   int HistoryForwardListCount() override;
   void ZoomLimitsChanged(double minimum_level, double maximum_level) override;
   void PageScaleFactorChanged() override;
-  virtual double zoomLevelToZoomFactor(double zoom_level) const;
-  virtual double zoomFactorToZoomLevel(double factor) const;
   void PageImportanceSignalsChanged() override;
   void DidAutoResize(const blink::WebSize& newSize) override;
-  blink::WebRect RootWindowRect() override;
   void DidFocus(blink::WebLocalFrame* calling_frame) override;
   blink::WebScreenInfo GetScreenInfo() override;
   bool CanHandleGestureEvent() override;
+  bool AllowPopupsDuringPageUnload() override;
 
 #if defined(OS_ANDROID)
   // Only used on Android since all other platforms implement
@@ -457,18 +459,17 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   void OnExitFullscreen();
   void OnSetHistoryOffsetAndLength(int history_offset, int history_length);
   void OnSetInitialFocus(bool reverse);
-  void OnSetRendererPrefs(const RendererPreferences& renderer_prefs);
+  void OnSetRendererPrefs(
+      const blink::mojom::RendererPreferences& renderer_prefs);
   void OnSetWebUIProperty(const std::string& name, const std::string& value);
   void OnSuppressDialogsUntilSwapOut();
   void OnUpdateTargetURLAck();
   void OnUpdateWebPreferences(const WebPreferences& prefs);
   void OnSetPageScale(float page_scale_factor);
   void OnAudioStateChanged(bool is_audio_playing);
-  void OnPausePageScheduledTasks(bool paused);
   void OnSetBackgroundOpaque(bool opaque);
 
   // Page message handlers -----------------------------------------------------
-  void OnUpdateWindowScreenRect(gfx::Rect window_screen_rect);
   void OnPageWasHidden();
   void OnPageWasShown();
   void OnUpdateScreenInfo(const ScreenInfo& screen_info);
@@ -524,6 +525,15 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // it in the same order in the .cc file as it was in the header.
   // ---------------------------------------------------------------------------
 
+  // This is the |render_widget_| for the main frame. Its lifetime is controlled
+  // via IPC messages to RenderWidget (see WidgetMsg_Close). RenderView
+  // holds a weak reference to this object and relies on
+  // RenderWidgetDelegate::DidCloseWidget() to avoid UaF.
+  //
+  // Instances of RenderWidget for child frame local roots, popups, and
+  // fullscreen widgets are never contained by this pointer. Child frame
+  // local roots are owned by a RenderFrame. The others are owned by the IPC
+  // system.
   RenderWidget* render_widget_;
 
   // Routing ID that allows us to communicate with the corresponding
@@ -538,10 +548,10 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // Settings ------------------------------------------------------------------
 
   WebPreferences webkit_preferences_;
-  RendererPreferences renderer_preferences_;
+  blink::mojom::RendererPreferences renderer_preferences_;
   // These are observing changes in |renderer_preferences_|. This is used for
   // keeping WorkerFetchContext in sync.
-  mojo::InterfacePtrSet<mojom::RendererPreferenceWatcher>
+  mojo::InterfacePtrSet<blink::mojom::RendererPreferenceWatcher>
       renderer_preference_watchers_;
 
   // Whether content state (such as form state, scroll position and page

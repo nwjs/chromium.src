@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/ui/settings/cells/settings_cells_constants.h"
 #import "ios/chrome/browser/ui/settings/settings_navigation_controller.h"
 #import "ios/chrome/browser/ui/table_view/chrome_table_view_styler.h"
+#include "ios/chrome/browser/ui/ui_feature_flags.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -25,7 +26,7 @@ namespace {
 // |estimatedSection{Header|Footer}Height|.
 const CGFloat kDefaultHeaderFooterHeight = 10;
 // Estimated height of the header/footer, used to speed the constraints.
-const CGFloat kEstimatedHeaderFooterHeight = 35;
+const CGFloat kEstimatedHeaderFooterHeight = 50;
 
 enum SavedBarButtomItemPositionEnum {
   kUndefinedBarButtonItemPosition,
@@ -110,10 +111,17 @@ NSString* const kSettingsToolbarDeleteButtonId =
 }
 
 - (void)viewDidLoad {
-  self.styler.tableViewBackgroundColor =
-      [UIColor groupTableViewBackgroundColor];
+  if (base::FeatureList::IsEnabled(kSettingsRefresh)) {
+    self.styler.tableViewBackgroundColor = UIColor.whiteColor;
+  } else {
+    self.styler.tableViewBackgroundColor =
+        [UIColor groupTableViewBackgroundColor];
+  }
   self.styler.tableViewSectionHeaderBlurEffect = nil;
   [super viewDidLoad];
+  if (base::FeatureList::IsEnabled(kSettingsRefresh)) {
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+  }
   self.styler.cellBackgroundColor = [UIColor whiteColor];
   self.styler.cellTitleColor = [UIColor blackColor];
   self.tableView.estimatedSectionHeaderHeight = kEstimatedHeaderFooterHeight;
@@ -143,6 +151,13 @@ NSString* const kSettingsToolbarDeleteButtonId =
   [super setEditing:editing animated:animated];
   if (!editing)
     [self.navigationController setToolbarHidden:YES animated:YES];
+}
+
+- (void)viewDidLayoutSubviews {
+  [super viewDidLayoutSubviews];
+  // TODO(crbug.com/931173): This is a workaround to fix the vertical alignment
+  // of the back button. Remove once the UIKit bug is fixed.
+  [self.navigationController.navigationBar setNeedsLayout];
 }
 
 #pragma mark - UITableViewDelegate

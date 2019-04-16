@@ -4,7 +4,8 @@
 
 #include "chromeos/components/drivefs/drivefs_search.h"
 
-#include "net/base/network_change_notifier.h"
+#include "base/bind.h"
+#include "services/network/public/cpp/network_connection_tracker.h"
 
 namespace drivefs {
 
@@ -20,8 +21,14 @@ bool IsCloudSharedWithMeQuery(const drivefs::mojom::QueryParametersPtr& query) {
 
 }  // namespace
 
-DriveFsSearch::DriveFsSearch(mojom::DriveFs* drivefs, const base::Clock* clock)
-    : drivefs_(drivefs), clock_(clock), weak_ptr_factory_(this) {}
+DriveFsSearch::DriveFsSearch(
+    mojom::DriveFs* drivefs,
+    network::NetworkConnectionTracker* network_connection_tracker,
+    const base::Clock* clock)
+    : drivefs_(drivefs),
+      network_connection_tracker_(network_connection_tracker),
+      clock_(clock),
+      weak_ptr_factory_(this) {}
 
 DriveFsSearch::~DriveFsSearch() = default;
 
@@ -40,7 +47,7 @@ mojom::QueryParameters::QuerySource DriveFsSearch::PerformSearch(
 
   drivefs::mojom::SearchQueryPtr search;
   drivefs::mojom::QueryParameters::QuerySource source = query->query_source;
-  if (net::NetworkChangeNotifier::IsOffline() &&
+  if (network_connection_tracker_->IsOffline() &&
       source != drivefs::mojom::QueryParameters::QuerySource::kLocalOnly) {
     // No point trying cloud query if we know we are offline.
     source = drivefs::mojom::QueryParameters::QuerySource::kLocalOnly;

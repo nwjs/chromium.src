@@ -22,10 +22,10 @@ extern const base::Feature kResourceLoadingHints;
 extern const base::Feature kLitePageServerPreviews;
 extern const base::Feature kAndroidOmniboxPreviewsBadge;
 extern const base::Feature kSlowPageTriggering;
-extern const base::Feature kPreviewsDisallowedOnReloads;
 extern const base::Feature kHTTPSServerPreviewsUsingURLLoader;
 extern const base::Feature kDataSaverLiteModeRebranding;
 extern const base::Feature kPreviewsReloadsAreSoftOptOuts;
+extern const base::Feature kPreviewsOnePlatformHints;
 
 }  // namespace features
 }  // namespace previews

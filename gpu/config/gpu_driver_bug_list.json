@@ -9,6 +9,11 @@
         "type": "android"
       },
       "gl_vendor": "Imagination.*",
+      "gl_type": "gles",
+      "gl_version": {
+        "op": "<",
+        "value": "3.0"
+      },
       "features": [
         "use_client_side_arrays_for_stream_buffers"
       ]
@@ -21,6 +26,11 @@
         "type": "android"
       },
       "gl_vendor": "ARM.*",
+      "gl_type": "gles",
+      "gl_version": {
+        "op": "<",
+        "value": "3.0"
+      },
       "features": [
         "use_client_side_arrays_for_stream_buffers"
       ]
@@ -1953,7 +1963,7 @@
     },
     {
       "id": 197,
-      "description": "adjust src/dst region if blitting pixels outside read framebuffer on Mac",
+      "description": "adjust src/dst region if blitting pixels outside framebuffer on Mac",
       "cr_bugs": [644740],
       "os": {
         "type": "macosx"
@@ -1964,7 +1974,7 @@
     },
     {
       "id": 198,
-      "description": "adjust src/dst region if blitting pixels outside read framebuffer on Linux Intel",
+      "description": "adjust src/dst region if blitting pixels outside framebuffer on Linux Intel",
       "cr_bugs": [664740],
       "os": {
         "type": "linux"
@@ -1976,7 +1986,7 @@
     },
     {
       "id": 199,
-      "description": "adjust src/dst region if blitting pixels outside read framebuffer on Linux AMD",
+      "description": "adjust src/dst region if blitting pixels outside framebuffer on Linux AMD",
       "cr_bugs": [664740],
       "os": {
         "type": "linux"
@@ -2645,15 +2655,16 @@
     },
     {
       "id": 254,
-      "description": "Limit MSAA samples to 4x on AMD Stoney",
-      "cr_bugs": [798936],
+      "description": "Limit MSAA quality samples to 4 and storage samples 2 on AMD Stoney",
+      "cr_bugs": [875471],
       "os": {
         "type" : "chromeos"
       },
       "vendor_id": "0x1002",
       "device_id": ["0x98e4"],
       "features": [
-        "max_msaa_sample_count_4"
+        "max_msaa_sample_count_4",
+        "use_eqaa_storage_samples_2"
       ]
     },
     {
@@ -3069,6 +3080,86 @@
       ]
     },
     {
+      "id": 287,
+      "description": "glCopyTexImage2D on Adreno fails if source is GL_RGB10_A2 and destination is not.",
+      "cr_bugs": [925986],
+      "os": {
+        "type": "android",
+        "version": {
+          "op": ">=",
+          "value": "5.0.0"
+        }
+      },
+      "gl_vendor": "Qualcomm.*",
+      "gl_renderer": ".*4\\d\\d",
+      "gl_renderer": "Adreno \\(TM\\) [345].*",
+      "features": [
+        "disable_copy_tex_image_2d_rgb10_a2_adreno"
+      ]
+    },
+    {
+      "id": 288,
+      "description": "glCopyTexImage2D on NVIDIA Tegra fails in certain cases if source is GL_RGB10_A2.",
+      "cr_bugs": [925986],
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "NVIDIA.*",
+      "gl_type": "gles",
+      "gl_version": {
+        "op": ">=",
+        "value": "3.0"
+      },
+      "features": [
+        "disable_copy_tex_image_2d_rgb10_a2_tegra"
+      ]
+    },
+    {
+      "id": 289,
+      "description": "Fake entry for testing command buffer init failures on ES 2.0",
+      "cr_bugs": [923134],
+      "test_group": 3,
+      "features": [
+        "disable_es3_gl_context_for_testing"
+      ]
+    },
+    {
+      "id": 290,
+      "description": "Round down glBindBufferRange size to a multiple of 4 on Qualcomm Adreno GPUs for uniform buffers",
+      "cr_bugs": [906743],
+      "os": {
+        "type": "android"
+      },
+      "gl_renderer": "Adreno \\(TM\\) .*",
+      "features": [
+        "round_down_uniform_bind_buffer_range_size"
+      ]
+    },
+    {
+      "id": 291,
+      "description": "adjust src/dst region if blitting pixels outside framebuffer on Linux NVIDIA",
+      "cr_bugs": [830046],
+      "os": {
+        "type": "linux"
+      },
+      "vendor_id": "0x10de",
+      "features": [
+        "adjust_src_dst_region_for_blitframebuffer"
+      ]
+    },
+    {
+      "id": 292,
+      "description": "adjust src/dst region if blitting pixels outside framebuffer on Android NVIDIA",
+      "cr_bugs": [830046],
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "NVIDIA.*",
+      "features": [
+        "adjust_src_dst_region_for_blitframebuffer"
+      ]
+    },
+    {
       "id": 293,
       "cr_bugs": [931527],
       "description": "Frequent crashes in glClear on Android N with driver 12.0.04rel0",
@@ -3101,6 +3192,71 @@
       ],
       "features": [
         "disable_direct_composition_layers"
+      ]
+    },
+    {
+      "id": 295,
+      "description": "Avoid waiting on a egl fence before swapping buffers and rely on implicit sync on Intel GPUs",
+      "cr_bugs": [938286],
+      "os": {
+        "type": "linux"
+      },
+      "gl_vendor": "Intel.*",
+      "features": [
+        "rely_on_implicit_sync_for_swap_buffers"
+      ]
+    },
+    {
+      "id": 296,
+      "description": "Avoid waiting on a egl fence before swapping buffers and rely on implicit sync on Broadcom GPUs",
+      "cr_bugs": [938286],
+      "os": {
+        "type": "linux"
+      },
+      "gl_vendor": "Broadcom.*",
+      "features": [
+        "rely_on_implicit_sync_for_swap_buffers"
+      ]
+    },
+    {
+      "id": 297,
+      "cr_bugs": [938678],
+      "description": "Needed to pass dEQP-EGL.functional.robustness.reset_context.shaders.infinite_loop.*",
+      "os": {
+        "type" : "chromeos"
+      },
+      "vendor_id": "0x1002",
+      "features": [
+        "exit_on_context_lost"
+      ]
+    },
+    {
+      "id": 298,
+      "cr_bugs": [941716],
+      "description": "AImageReader is very crashy on this driver version",
+      "os": {
+        "type" : "android"
+      },
+      "gl_vendor": "Qualcomm.*",
+      "driver_version": {
+        "op": "=",
+        "value": "269.0"
+      },
+      "features": [
+        "disable_aimagereader"
+      ]
+    },
+    {
+      "id": 299,
+      "description": "Context lost recovery often fails on PowerVR Rogue GE8* GPUs on Android.",
+      "cr_bugs": [942106],
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "Imagination.*",
+      "gl_renderer": "PowerVR Rogue GE8.*",
+      "features": [
+        "exit_on_context_lost"
       ]
     }
   ]

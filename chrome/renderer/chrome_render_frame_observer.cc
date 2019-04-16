@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
@@ -217,7 +218,7 @@ void ChromeRenderFrameObserver::RequestReloadImageForContextNode() {
   // TODO(dglazkov): This code is clearly in the wrong place. Need
   // to investigate what it is doing and fix (http://crbug.com/606164).
   WebNode context_node = frame->ContextMenuNode();
-  if (!context_node.IsNull() && context_node.IsElementNode()) {
+  if (!context_node.IsNull()) {
     frame->ReloadImage(context_node);
   }
 }
@@ -360,7 +361,8 @@ void ChromeRenderFrameObserver::DidCreateNewDocument() {
   blink::WebDocumentLoader* doc_loader =
       render_frame()->GetWebFrame()->GetDocumentLoader();
   DCHECK(doc_loader);
-  if (!doc_loader->IsArchive())
+
+  if (!doc_loader->HasBeenLoadedAsWebArchive())
     return;
 
   // Connect to Mojo service on browser to notify it of the page's archive
@@ -371,13 +373,13 @@ void ChromeRenderFrameObserver::DidCreateNewDocument() {
   DCHECK(mhtml_notifier);
   blink::WebArchiveInfo info = doc_loader->GetArchiveInfo();
 
-  mhtml_notifier->NotifyIsMhtmlPage(info.url, info.date);
+  mhtml_notifier->NotifyMhtmlPageLoadAttempted(info.load_result, info.url,
+                                               info.date);
 #endif
 }
 
-void ChromeRenderFrameObserver::DidStartProvisionalLoad(
-    WebDocumentLoader* document_loader,
-    bool is_content_initiated) {
+void ChromeRenderFrameObserver::ReadyToCommitNavigation(
+    WebDocumentLoader* document_loader) {
 #if 0
   // Let translate_helper do any preparatory work for loading a URL.
   if (!translate_helper_)

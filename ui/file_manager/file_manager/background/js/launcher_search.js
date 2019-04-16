@@ -50,10 +50,10 @@ function LauncherSearch() {
  * Handles onPreferencesChanged event.
  */
 LauncherSearch.prototype.onPreferencesChanged_ = function() {
-  chrome.fileManagerPrivate.getPreferences(function(preferences) {
+  chrome.fileManagerPrivate.getPreferences(preferences => {
     this.initializeEventListeners_(
         preferences.driveEnabled, preferences.searchSuggestEnabled);
-  }.bind(this));
+  });
 };
 
 /**
@@ -68,7 +68,7 @@ LauncherSearch.prototype.onPreferencesChanged_ = function() {
  */
 LauncherSearch.prototype.initializeEventListeners_ = function(
     isDriveEnabled, isSearchSuggestEnabled) {
-  var launcherSearchEnabled = isDriveEnabled && isSearchSuggestEnabled;
+  const launcherSearchEnabled = isDriveEnabled && isSearchSuggestEnabled;
 
   // If this.enabled_ === launcherSearchEnabled, we don't need to change
   // anything here.
@@ -154,8 +154,8 @@ LauncherSearch.prototype.onOpenResult_ = function(itemId) {
   // Request an instance of volume manager to ensure that all volumes are
   // initialized. webkitResolveLocalFileSystemURL in util.urlToEntry fails if
   // filesystem of the url is not initialized.
-  volumeManagerFactory.getInstance().then(function() {
-    util.urlToEntry(itemId).then(function(entry) {
+  volumeManagerFactory.getInstance().then(() => {
+    util.urlToEntry(itemId).then(entry => {
       if (entry.isDirectory) {
         // If it's directory, open the directory with file manager.
         launcher.launchFileManager(
@@ -168,9 +168,9 @@ LauncherSearch.prototype.onOpenResult_ = function(itemId) {
           return;
         }
         // If the file is not directory, try to execute default task.
-        chrome.fileManagerPrivate.getFileTasks([entry], function(tasks) {
+        chrome.fileManagerPrivate.getFileTasks([entry], tasks => {
           // Select default task.
-          var defaultTask = null;
+          let defaultTask = null;
           for (var i = 0; i < tasks.length; i++) {
             var task = tasks[i];
             if (task.isDefault) {
@@ -195,22 +195,22 @@ LauncherSearch.prototype.onOpenResult_ = function(itemId) {
           if (defaultTask) {
             // Execute default task.
             chrome.fileManagerPrivate.executeTask(
-                defaultTask.taskId, [entry], function(result) {
+                defaultTask.taskId, [entry], result => {
                   if (result === 'opened' || result === 'message_sent') {
                     return;
                   }
                   this.openFileManagerWithSelectionURL_(entry.toURL());
-                }.bind(this));
+                });
           } else {
             // If there is no default task for the url, open a file manager with
             // selecting it.
             // TODO(yawano): Add fallback to view-in-browser as file_tasks.js do
             this.openFileManagerWithSelectionURL_(entry.toURL());
           }
-        }.bind(this));
+        });
       }
-    }.bind(this));
-  }.bind(this));
+    });
+  });
 };
 
 /**
@@ -218,8 +218,7 @@ LauncherSearch.prototype.onOpenResult_ = function(itemId) {
  * @param {string} selectionURL A url to be selected.
  * @private
  */
-LauncherSearch.prototype.openFileManagerWithSelectionURL_ = function(
-    selectionURL) {
+LauncherSearch.prototype.openFileManagerWithSelectionURL_ = selectionURL => {
   launcher.launchFileManager(
       {selectionURL: selectionURL},
       undefined, /* App ID */
@@ -234,11 +233,16 @@ LauncherSearch.prototype.openFileManagerWithSelectionURL_ = function(
  * @return {!Promise<!Array<!Entry>>}
  * @private
  */
-LauncherSearch.prototype.queryDriveEntries_ = function(queryId, query, limit) {
-  var param = {query: query, types: 'ALL', maxResults: limit};
+LauncherSearch.prototype.queryDriveEntries_ = (queryId, query, limit) => {
+  const param = {query: query, types: 'ALL', maxResults: limit};
   return new Promise((resolve, reject) => {
-    chrome.fileManagerPrivate.searchDriveMetadata(param, function(results) {
-      resolve(results.map(result => result.entry));
+    chrome.fileManagerPrivate.searchDriveMetadata(param, results => {
+      chrome.fileManagerPrivate.getDriveConnectionState(connectionState => {
+        if (connectionState.type !== 'online') {
+          results = results.filter(result => result.availableOffline !== false);
+        }
+        resolve(results.map(result => result.entry));
+      });
     });
   });
 };
@@ -273,9 +277,9 @@ LauncherSearch.prototype.queryLocalEntries_ = function(queryId, query) {
  * @return {!Promise<!DirectoryEntry>}
  * @private
  */
-LauncherSearch.prototype.getDownloadsEntry_ = function() {
+LauncherSearch.prototype.getDownloadsEntry_ = () => {
   return volumeManagerFactory.getInstance().then((volumeManager) => {
-    var downloadsVolumeInfo = volumeManager.getCurrentProfileVolumeInfo(
+    const downloadsVolumeInfo = volumeManager.getCurrentProfileVolumeInfo(
         VolumeManagerCommon.VolumeType.DOWNLOADS);
     return downloadsVolumeInfo.resolveDisplayRoot();
   });
@@ -320,7 +324,7 @@ LauncherSearch.prototype.queryEntriesRecursively_ = function(
  * @return {!Array<!Entry>}
  * @private
  */
-LauncherSearch.prototype.chooseEntries_ = function(entries, query, limit) {
+LauncherSearch.prototype.chooseEntries_ = (entries, query, limit) => {
   query = query.toLowerCase();
   const scoreEntry = (entry) => {
     // Prefer entry which has the query string as a prefix.
@@ -341,22 +345,22 @@ LauncherSearch.prototype.chooseEntries_ = function(entries, query, limit) {
  * @return {!Object}
  * @private
  */
-LauncherSearch.prototype.createSearchResult_ = function(entry) {
+LauncherSearch.prototype.createSearchResult_ = entry => {
   // TODO(yawano): Use filetype_folder_shared.png for a shared
   //     folder.
   // TODO(yawano): Add archive launcher filetype icon.
-  var icon = FileType.getIcon(entry);
+  let icon = FileType.getIcon(entry);
   if (icon === 'UNKNOWN' || icon === 'archive') {
     icon = 'generic';
   }
 
-  var useHighDpiIcon = window.devicePixelRatio > 1.0;
-  var iconUrl = chrome.runtime.getURL(
+  const useHighDpiIcon = window.devicePixelRatio > 1.0;
+  const iconUrl = chrome.runtime.getURL(
       'foreground/images/launcher_filetypes/' + (useHighDpiIcon ? '2x/' : '') +
       'launcher_filetype_' + icon + '.png');
 
   // Hide extensions for hosted files.
-  var title = FileType.isHosted(entry) ?
+  const title = FileType.isHosted(entry) ?
       entry.name.substr(
           0, entry.name.length - FileType.getExtension(entry).length) :
       entry.name;

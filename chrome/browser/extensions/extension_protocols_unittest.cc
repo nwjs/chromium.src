@@ -332,12 +332,12 @@ class ExtensionProtocolsTestBase
 
     content::ResourceRequestInfo::AllocateForTesting(
         request.get(), resource_type,
-        /* resource_context */nullptr,
+        /* resource_context */ nullptr,
         /*render_process_id=*/-1,
         /*render_view_id=*/-1,
         /*render_frame_id=*/-1,
         /*is_main_frame=*/resource_type == content::RESOURCE_TYPE_MAIN_FRAME,
-        /*allow_download=*/true,
+        content::ResourceInterceptPolicy::kAllowAll,
         /*is_async=*/false, content::PREVIEWS_OFF,
         /*navigation_ui_data*/ nullptr);
     request->Start();
@@ -768,7 +768,7 @@ TEST_P(ExtensionProtocolsTest, MimeTypesForKnownFiles) {
       })";
   test_dir.WriteManifest(kManifest);
   std::unique_ptr<base::DictionaryValue> manifest =
-      base::DictionaryValue::From(base::test::ParseJson(kManifest));
+      base::DictionaryValue::From(base::test::ParseJsonDeprecated(kManifest));
   ASSERT_TRUE(manifest);
 
   test_dir.WriteFile(FILE_PATH_LITERAL("json_file.json"), "{}");
@@ -791,7 +791,9 @@ TEST_P(ExtensionProtocolsTest, MimeTypesForKnownFiles) {
     const char* file_name;
     const char* expected_mime_type;
   } test_cases[] = {
-      {"json_file.json", "application/json"}, {"js_file.js", "text/javascript"},
+      {"json_file.json", "application/json"},
+      {"js_file.js", "text/javascript"},
+      {"mem_file.mem", ""},
   };
 
   for (const auto& test_case : test_cases) {
@@ -837,12 +839,12 @@ TEST_P(ExtensionProtocolsTest, MAYBE_ExtensionRequestsNotAborted) {
   EXPECT_EQ(net::OK, DoRequestOrLoad(extension.get(), "background.js").result());
 }
 
-INSTANTIATE_TEST_CASE_P(Extensions,
-                        ExtensionProtocolsTest,
-                        ::testing::ValuesIn(kTestModes));
+INSTANTIATE_TEST_SUITE_P(Extensions,
+                         ExtensionProtocolsTest,
+                         ::testing::ValuesIn(kTestModes));
 
-INSTANTIATE_TEST_CASE_P(Extensions,
-                        ExtensionProtocolsIncognitoTest,
-                        ::testing::ValuesIn(kTestModes));
+INSTANTIATE_TEST_SUITE_P(Extensions,
+                         ExtensionProtocolsIncognitoTest,
+                         ::testing::ValuesIn(kTestModes));
 
 }  // namespace extensions

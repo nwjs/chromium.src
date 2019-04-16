@@ -4,8 +4,10 @@
 
 #include "chrome/renderer/content_settings_observer.h"
 
+#include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/common/client_hints.mojom.h"
@@ -27,7 +29,6 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_registry.h"
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_client_hints_type.h"
-#include "third_party/blink/public/platform/web_content_setting_callbacks.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_url.h"
 #include "third_party/blink/public/web/web_document.h"
@@ -47,7 +48,6 @@
 #include "extensions/renderer/renderer_extension_registry.h"
 #endif
 
-using blink::WebContentSettingCallbacks;
 using blink::WebDocument;
 using blink::WebFrame;
 using blink::WebSecurityOrigin;
@@ -250,9 +250,7 @@ void ContentSettingsObserver::OnContentSettingsRendererRequest(
   bindings_.AddBinding(this, std::move(request));
 }
 
-bool ContentSettingsObserver::AllowDatabase(const WebString& name,
-                                            const WebString& display_name,
-                                            unsigned estimated_size) {
+bool ContentSettingsObserver::AllowDatabase() {
   WebFrame* frame = render_frame()->GetWebFrame();
   if (IsUniqueFrame(frame))
     return false;
@@ -260,23 +258,22 @@ bool ContentSettingsObserver::AllowDatabase(const WebString& name,
   bool result = false;
   Send(new ChromeViewHostMsg_AllowDatabase(
       routing_id(), url::Origin(frame->GetSecurityOrigin()).GetURL(),
-      url::Origin(frame->Top()->GetSecurityOrigin()).GetURL(), name.Utf16(),
-      display_name.Utf16(), &result));
+      url::Origin(frame->Top()->GetSecurityOrigin()).GetURL(), &result));
   return result;
 }
 
 void ContentSettingsObserver::RequestFileSystemAccessAsync(
-    const WebContentSettingCallbacks& callbacks) {
+    base::OnceCallback<void(bool)> callback) {
   WebFrame* frame = render_frame()->GetWebFrame();
   if (IsUniqueFrame(frame)) {
-    WebContentSettingCallbacks permissionCallbacks(callbacks);
-    permissionCallbacks.DoDeny();
+    std::move(callback).Run(false);
     return;
   }
   ++current_request_id_;
-  bool inserted = permission_requests_
-                      .insert(std::make_pair(current_request_id_, callbacks))
-                      .second;
+  bool inserted =
+      permission_requests_
+          .insert(std::make_pair(current_request_id_, std::move(callback)))
+          .second;
 
   // Verify there are no duplicate insertions.
   DCHECK(inserted);
@@ -548,14 +545,10 @@ void ContentSettingsObserver::OnRequestFileSystemAccessAsyncResponse(
   if (it == permission_requests_.end())
     return;
 
-  WebContentSettingCallbacks callbacks = it->second;
+  base::OnceCallback<void(bool)> callback = std::move(it->second);
   permission_requests_.erase(it);
 
-  if (allowed) {
-    callbacks.DoAllow();
-    return;
-  }
-  callbacks.DoDeny();
+  std::move(callback).Run(allowed);
 }
 
 void ContentSettingsObserver::ClearBlockedContentSettings() {

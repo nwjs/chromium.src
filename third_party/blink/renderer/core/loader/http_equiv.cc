@@ -105,7 +105,7 @@ void HttpEquiv::Process(Document& document,
     document.ParseDNSPrefetchControlHeader(content);
   } else if (EqualIgnoringASCIICase(equiv, "x-frame-options")) {
     document.AddConsoleMessage(ConsoleMessage::Create(
-        kSecurityMessageSource, kErrorMessageLevel,
+        kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
         "X-Frame-Options may only be set via an HTTP header sent along with a "
         "document. It may not be set inside <meta>."));
   } else if (EqualIgnoringASCIICase(equiv, http_names::kAcceptCH)) {
@@ -182,9 +182,9 @@ void HttpEquiv::ProcessHttpEquivRefresh(Document& document,
                                         const AtomicString& content,
                                         Element* element) {
   UseCounter::Count(document, WebFeature::kMetaRefresh);
-  if (!document.GetContentSecurityPolicy()->AllowInlineScript(
-          element, NullURL(), "", OrdinalNumber(), "",
-          ContentSecurityPolicy::InlineType::kBlock,
+  if (!document.GetContentSecurityPolicy()->AllowInline(
+          ContentSecurityPolicy::InlineType::kInlineScriptElement, element,
+          "" /* content */, "" /* nonce */, NullURL(), OrdinalNumber(),
           SecurityViolationReportingPolicy::kSuppressReporting)) {
     UseCounter::Count(document,
                       WebFeature::kMetaRefreshWhenCSPBlocksInlineScript);
@@ -198,16 +198,16 @@ void HttpEquiv::ProcessHttpEquivSetCookie(Document& document,
                                           Element* element) {
   Deprecation::CountDeprecation(document, WebFeature::kMetaSetCookie);
 
-  if (!document.GetContentSecurityPolicy()->AllowInlineScript(
-          element, NullURL(), "", OrdinalNumber(), "",
-          ContentSecurityPolicy::InlineType::kBlock,
+  if (!document.GetContentSecurityPolicy()->AllowInline(
+          ContentSecurityPolicy::InlineType::kInlineScriptElement, element,
+          "" /* content */, "" /* nonce */, NullURL(), OrdinalNumber(),
           SecurityViolationReportingPolicy::kSuppressReporting)) {
     UseCounter::Count(document,
                       WebFeature::kMetaSetCookieWhenCSPBlocksInlineScript);
   }
 
   document.AddConsoleMessage(ConsoleMessage::Create(
-      kSecurityMessageSource, kErrorMessageLevel,
+      kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
       String::Format("Blocked setting the `%s` cookie from a `<meta>` tag.",
                      content.Utf8().data())));
 }

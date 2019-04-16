@@ -11,11 +11,13 @@
 
 @protocol ManualFillContentDelegate;
 @protocol ManualFillPasswordConsumer;
-@protocol PasswordListDelegate;
+@protocol PasswordListNavigator;
 
 namespace password_manager {
 class PasswordStore;
 }  // namespace password_manager
+
+class GURL;
 
 class WebStateList;
 
@@ -36,23 +38,25 @@ extern NSString* const SuggestPasswordAccessibilityIdentifier;
 @property(nonatomic, weak) id<ManualFillPasswordConsumer> consumer;
 // The delegate in charge of using the content selected by the user.
 @property(nonatomic, weak) id<ManualFillContentDelegate> contentDelegate;
-// The delegate in charge of navigation.
-@property(nonatomic, weak) id<PasswordListDelegate> navigationDelegate;
-// If YES disables filtering the fetched passwords with the active web state
-// url. Also activates an "All passwords" action if NO. Set this value before
+// The object in charge of navigation.
+@property(nonatomic, weak) id<PasswordListNavigator> navigator;
+// If YES  actions will be post to the consumer. Set this value before
 // setting the consumer, since just setting this won't trigger the consumer
-// methods.
-@property(nonatomic, assign) BOOL disableFilter;
+// callbacks. Defaults to NO.
+@property(nonatomic, assign, getter=isActionSectionEnabled)
+    BOOL actionSectionEnabled;
 
-// The designated initializer. |passwordStore| and |webStateList| must not be
-// nil.
-- (instancetype)initWithWebStateList:(WebStateList*)webStateList
-                       passwordStore:
-                           (scoped_refptr<password_manager::PasswordStore>)
-                               passwordStore NS_DESIGNATED_INITIALIZER;
+// The designated initializer. |passwordStore| must not be nil.
+- (instancetype)initWithPasswordStore:
+    (scoped_refptr<password_manager::PasswordStore>)passwordStore
+    NS_DESIGNATED_INITIALIZER;
 
 // Unavailable. Use |initWithWebStateList:passwordStore:|.
 - (instancetype)init NS_UNAVAILABLE;
+
+// Fetches passwords using |origin| as the filter. If origin is empty (invalid)
+// it will fetch all the passwords.
+- (void)fetchPasswordsForURL:(const GURL&)URL;
 
 @end
 

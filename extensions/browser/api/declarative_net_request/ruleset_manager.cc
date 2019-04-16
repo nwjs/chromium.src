@@ -8,6 +8,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/optional.h"
@@ -53,6 +54,7 @@ flat_rule::ElementType GetElementType(content::ResourceType type) {
     case content::RESOURCE_TYPE_LAST_TYPE:
     case content::RESOURCE_TYPE_PREFETCH:
     case content::RESOURCE_TYPE_SUB_RESOURCE:
+    case content::RESOURCE_TYPE_NAVIGATION_PRELOAD:
       return flat_rule::ElementType_OTHER;
     case content::RESOURCE_TYPE_MAIN_FRAME:
       return flat_rule::ElementType_MAIN_FRAME;
@@ -458,11 +460,10 @@ operator=(ExtensionRulesetData&& other) = default;
 
 bool RulesetManager::ExtensionRulesetData::operator<(
     const ExtensionRulesetData& other) const {
-  // Sort based on descending installation time, using extension id to break
+  // Sort based on *descending* installation time, using extension id to break
   // ties.
-  return (extension_install_time != other.extension_install_time)
-             ? (extension_install_time > other.extension_install_time)
-             : (extension_id < other.extension_id);
+  return std::tie(extension_install_time, extension_id) >
+         std::tie(other.extension_install_time, other.extension_id);
 }
 
 bool RulesetManager::ShouldEvaluateRequest(

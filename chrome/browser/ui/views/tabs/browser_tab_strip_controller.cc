@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/metrics/user_metrics.h"
@@ -237,8 +238,17 @@ bool BrowserTabStripController::IsTabPinned(int model_index) const {
   return model_->ContainsIndex(model_index) && model_->IsTabPinned(model_index);
 }
 
-void BrowserTabStripController::SelectTab(int model_index) {
-  model_->ActivateTabAt(model_index, true);
+void BrowserTabStripController::SelectTab(int model_index,
+                                          const ui::Event& event) {
+  TabStripModel::UserGestureDetails gesture_detail(
+      TabStripModel::GestureType::kOther, event.time_stamp());
+  TabStripModel::GestureType type = TabStripModel::GestureType::kOther;
+  if (event.type() == ui::ET_MOUSE_PRESSED)
+    type = TabStripModel::GestureType::kMouse;
+  else if (event.type() == ui::ET_GESTURE_TAP_DOWN)
+    type = TabStripModel::GestureType::kTouch;
+  gesture_detail.type = type;
+  model_->ActivateTabAt(model_index, gesture_detail);
 }
 
 void BrowserTabStripController::ExtendSelectionTo(int model_index) {
@@ -372,10 +382,6 @@ void BrowserTabStripController::StackedLayoutMaybeChanged() {
 
   g_browser_process->local_state()->SetBoolean(prefs::kTabStripStackedLayout,
                                                tabstrip_->stacked_layout());
-}
-
-bool BrowserTabStripController::IsSingleTabModeAvailable() {
-  return GetFrameView()->IsSingleTabModeAvailable();
 }
 
 void BrowserTabStripController::OnStartedDraggingTabs() {

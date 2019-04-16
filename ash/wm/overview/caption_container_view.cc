@@ -10,13 +10,13 @@
 #include "ash/wm/overview/overview_item.h"
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/overview/rounded_rect_view.h"
+#include "ash/wm/overview/scoped_overview_animation_settings.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_utils.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/layer.h"
-#include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/strings/grit/ui_strings.h"
@@ -60,10 +60,9 @@ constexpr SkColor kCloseButtonInkDropRippleHighlightColor =
 // The font delta of the overview window title.
 constexpr int kLabelFontDelta = 2;
 
-// Duration of the header and close button fade in/out when a drag is
-// started/finished on a window selector item;
-constexpr base::TimeDelta kDragAnimationDuration =
-    base::TimeDelta::FromMilliseconds(167);
+// Values of the backdrop.
+constexpr int kBackdropRoundingDp = 4;
+constexpr SkColor kBackdropColor = SkColorSetA(SK_ColorWHITE, 0x24);
 
 void AddChildWithLayer(views::View* parent, views::View* child) {
   child->SetPaintToLayer();
@@ -154,7 +153,7 @@ class CaptionContainerView::ShieldButton : public views::Button {
     if (listener()) {
       gfx::Point location(event.location());
       views::View::ConvertPointToScreen(this, &location);
-      listener()->HandlePressEvent(location);
+      listener()->HandlePressEvent(gfx::PointF(location));
       return true;
     }
     return views::Button::OnMousePressed(event);
@@ -164,7 +163,7 @@ class CaptionContainerView::ShieldButton : public views::Button {
     if (listener()) {
       gfx::Point location(event.location());
       views::View::ConvertPointToScreen(this, &location);
-      listener()->HandleDragEvent(location);
+      listener()->HandleDragEvent(gfx::PointF(location));
       return true;
     }
     return views::Button::OnMouseDragged(event);
@@ -174,7 +173,7 @@ class CaptionContainerView::ShieldButton : public views::Button {
     if (listener()) {
       gfx::Point location(event.location());
       views::View::ConvertPointToScreen(this, &location);
-      listener()->HandleReleaseEvent(location);
+      listener()->HandleReleaseEvent(gfx::PointF(location));
       return;
     }
     views::Button::OnMouseReleased(event);
@@ -187,8 +186,8 @@ class CaptionContainerView::ShieldButton : public views::Button {
     }
 
     if (listener()) {
-      gfx::Point location(event->location());
-      views::View::ConvertPointToScreen(this, &location);
+      const gfx::PointF location =
+          event->details().bounding_box_f().CenterPoint();
       switch (event->type()) {
         case ui::ET_GESTURE_TAP_DOWN:
           listener()->HandlePressEvent(location);
@@ -244,7 +243,11 @@ CaptionContainerView::CaptionContainerView(views::ButtonListener* listener,
           kHorizontalLabelPaddingDp));
   AddChildWithLayer(listener_button_, header_view_);
 
-  gfx::ImageSkia* icon = window->GetProperty(aura::client::kAppIconKey);
+  // Prefer kAppIconSmallKey (set by the client in Mash), then kAppIconKey and
+  // kWindowIconKey (set for client windows in classic Ash but not Mash).
+  gfx::ImageSkia* icon = window->GetProperty(aura::client::kAppIconSmallKey);
+  if (!icon || icon->size().IsEmpty())
+    icon = window->GetProperty(aura::client::kAppIconKey);
   if (!icon || icon->size().IsEmpty())
     icon = window->GetProperty(aura::client::kWindowIconKey);
   if (icon && !icon->size().IsEmpty()) {
@@ -310,14 +313,27 @@ void CaptionContainerView::SetHeaderVisibility(HeaderVisibility visibility) {
   AnimateLayerOpacity(header_view_->layer(), visible);
 }
 
+void CaptionContainerView::SetBackdropVisibility(bool visible) {
+  if (!backdrop_view_ && !visible)
+    return;
+
+  if (!backdrop_view_) {
+    backdrop_view_ = new RoundedRectView(kBackdropRoundingDp, kBackdropColor);
+    backdrop_view_->set_can_process_events_within_subtree(false);
+    AddChildWithLayer(this, backdrop_view_);
+    Layout();
+  }
+  backdrop_view_->SetVisible(visible);
+}
+
 void CaptionContainerView::SetCannotSnapLabelVisibility(bool visible) {
   if (!cannot_snap_container_ && !visible)
     return;
 
   DoSplitviewOpacityAnimation(GetCannotSnapContainer()->layer(),
                               visible
-                                  ? SPLITVIEW_ANIMATION_SELECTOR_ITEM_FADE_IN
-                                  : SPLITVIEW_ANIMATION_SELECTOR_ITEM_FADE_OUT);
+                                  ? SPLITVIEW_ANIMATION_OVERVIEW_ITEM_FADE_IN
+                                  : SPLITVIEW_ANIMATION_OVERVIEW_ITEM_FADE_OUT);
 }
 
 void CaptionContainerView::ResetListener() {
@@ -344,8 +360,11 @@ void CaptionContainerView::Layout() {
   listener_button_->SetBoundsRect(bounds);
 
   const int visible_height = close_button_->GetPreferredSize().height();
-  backdrop_bounds_ = bounds;
-  backdrop_bounds_.Inset(0, visible_height, 0, 0);
+  if (backdrop_view_) {
+    gfx::Rect backdrop_bounds = bounds;
+    backdrop_bounds.Inset(0, visible_height, 0, 0);
+    backdrop_view_->SetBoundsRect(backdrop_bounds);
+  }
 
   if (cannot_snap_container_) {
     gfx::Size label_size = cannot_snap_label_->CalculatePreferredSize();
@@ -382,20 +401,11 @@ void CaptionContainerView::AnimateLayerOpacity(ui::Layer* layer, bool visible) {
     return;
 
   layer->SetOpacity(1.f - target_opacity);
-  {
-    ui::LayerAnimator* animator = layer->GetAnimator();
-    ui::ScopedLayerAnimationSettings settings(animator);
-    settings.SetPreemptionStrategy(
-        ui::LayerAnimator::REPLACE_QUEUED_ANIMATIONS);
-    if (visible) {
-      animator->SchedulePauseForProperties(kDragAnimationDuration,
-                                           ui::LayerAnimationElement::OPACITY);
-    }
-    settings.SetTransitionDuration(kDragAnimationDuration);
-    settings.SetTweenType(visible ? gfx::Tween::LINEAR_OUT_SLOW_IN
-                                  : gfx::Tween::FAST_OUT_LINEAR_IN);
-    layer->SetOpacity(target_opacity);
-  }
+  ScopedOverviewAnimationSettings settings(
+      visible ? OVERVIEW_ANIMATION_OVERVIEW_TITLE_FADE_IN
+              : OVERVIEW_ANIMATION_OVERVIEW_TITLE_FADE_OUT,
+      layer->GetAnimator());
+  layer->SetOpacity(target_opacity);
 }
 
 }  // namespace ash

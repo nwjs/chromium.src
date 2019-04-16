@@ -60,6 +60,7 @@
 #include "third_party/blink/renderer/core/paint/paint_result.h"
 #include "third_party/blink/renderer/platform/graphics/compositing_reasons.h"
 #include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
+#include "third_party/blink/renderer/platform/graphics/scroll_types.h"
 #include "third_party/blink/renderer/platform/graphics/squashing_disallowed_reasons.h"
 #include "third_party/blink/renderer/platform/wtf/allocator.h"
 
@@ -231,6 +232,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
   // DisplayItemClient methods
   String DebugName() const final;
+  DOMNodeId OwnerNodeId() const final;
   LayoutRect VisualRect() const final;
 
   LayoutBoxModelObject& GetLayoutObject() const { return layout_object_; }
@@ -617,7 +619,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   // EffectPaintPropertyNode.
   void UpdateCompositorFilterOperationsForBackdropFilter(
       CompositorFilterOperations& operations,
-      gfx::RectF* backdrop_filter_bounds) const;
+      gfx::RRectF* backdrop_filter_bounds) const;
   CompositorFilterOperations CreateCompositorFilterOperationsForBackdropFilter()
       const;
 
@@ -647,7 +649,8 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   // coordinate system of the object with the filter. Filter bounds is the
   // reference box, offset by the object's location in the graphics layer.
   FloatRect FilterReferenceBox() const;
-  FloatRect BackdropFilterBounds() const;
+  FloatRect BackdropFilterReferenceBox() const;
+  gfx::RRectF BackdropFilterBounds(const FloatRect& reference_box) const;
 
   void UpdateFilterReferenceBox();
   void UpdateFilters(const ComputedStyle* old_style,
@@ -669,11 +672,6 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   bool ScrollsWithRespectTo(const PaintLayer*) const;
 
   bool IsAffectedByScrollOf(const PaintLayer* ancestor) const;
-
-  void AddLayerHitTestRects(LayerHitTestRects&, TouchAction) const;
-
-  // Compute rects only for this layer
-  void ComputeSelfHitTestRects(LayerHitTestRects&, TouchAction) const;
 
   // FIXME: This should probably return a ScrollableArea but a lot of internal
   // methods are mistakenly exposed.
@@ -762,6 +760,7 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
     const LayoutBoxModelObject* clipping_container = nullptr;
 
     bool is_under_video = false;
+    bool is_under_position_sticky = false;
   };
   void SetNeedsVisualOverflowRecalc();
   void SetNeedsCompositingInputsUpdate();

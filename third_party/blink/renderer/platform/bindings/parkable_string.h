@@ -14,6 +14,7 @@
 #include "base/macros.h"
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/threading.h"
@@ -51,6 +52,10 @@ class PLATFORM_EXPORT ParkableStringImpl final
 
   enum class ParkableState { kParkable, kNotParkable };
   enum class ParkingMode { kIfCompressedDataExists, kAlways };
+  enum class AgeOrParkResult {
+    kSuccessOrTransientFailure,
+    kNonTransientFailure
+  };
 
   // Not all parkable strings can actually be parked. If |parkable| is
   // kNotParkable, then one cannot call |Park()|, and the underlying StringImpl
@@ -72,11 +77,25 @@ class PLATFORM_EXPORT ParkableStringImpl final
   unsigned length() const { return length_; }
   unsigned CharactersSizeInBytes() const;
 
+  // Tries to either age or park a string:
+  //
+  // - If the string is already old, tries to park it.
+  // - Otherwise, tries to age it.
+  //
+  // The action doesn't necessarily succeed. either due to a temporary
+  // or potentially lasting condition.
+  //
+  // As parking may be synchronous, this can call back into
+  // ParkableStringManager.
+  AgeOrParkResult MaybeAgeOrParkString();
+
   // A parked string cannot be accessed until it has been |Unpark()|-ed.
   //
   // Parking may be synchronous, and will be if compressed data is already
   // available. If |mode| is |kIfCompressedDataExists|, then parking will always
   // be synchronous.
+  //
+  // Must not be called if |may_be_parked()| returns false.
   //
   // Returns true if the string is being parked or has been parked.
   bool Park(ParkingMode mode);
@@ -96,12 +115,29 @@ class PLATFORM_EXPORT ParkableStringImpl final
     return compressed_->size();
   }
 
+  // A string can either be "young" or "old". It starts young, and transitions
+  // are:
+  // Young -> Old: By calling |MaybeAgeOrParkString()|.
+  // Old -> Young: When the string is accessed, either by |Lock()|-ing it or
+  //               calling |ToString()|.
+  bool is_young() const { return is_young_; }
+
  private:
   enum class State;
+  enum class Status;
 
-  // Whether the string can be parked now. Must be called with |mutex_| held,
-  // and the return value is valid as long as the mutex is held.
+#if defined(ADDRESS_SANITIZER)
+  // See |CompressInBackground()|. Doesn't make the string young.
+  // May be called from any thread.
+  void LockWithoutMakingYoung();
+#endif  // defined(ADDRESS_SANITIZER)
+  // May be called from any thread. Must acquire |mutex_| first.
+  void MakeYoung();
+  // Whether the string is referenced or locked. Must be called with |mutex_|
+  // held, and the return value is valid as long as |mutex_| is held.
+  Status CurrentStatus() const;
   bool CanParkNow() const;
+  void ParkInternal(ParkingMode mode);
   void Unpark();
   // Called on the main thread after compression is done.
   // |params| is the same as the one passed to |CompressInBackground()|,
@@ -120,13 +156,14 @@ class PLATFORM_EXPORT ParkableStringImpl final
   State state_;
   String string_;
   std::unique_ptr<Vector<uint8_t>> compressed_;
+  bool is_young_ : 1;
 
-  const bool may_be_parked_;
-  const bool is_8bit_;
+  const bool may_be_parked_ : 1;
+  const bool is_8bit_ : 1;
   const unsigned length_;
 
 #if DCHECK_IS_ON()
-  const ThreadIdentifier owning_thread_;
+  const base::PlatformThreadId owning_thread_;
 #endif
 
   void AssertOnValidThread() const {
@@ -141,6 +178,8 @@ class PLATFORM_EXPORT ParkableStringImpl final
 };
 
 class PLATFORM_EXPORT ParkableString final {
+  DISALLOW_NEW();
+
  public:
   ParkableString() : impl_(nullptr) {}
   explicit ParkableString(scoped_refptr<StringImpl>&& impl);
@@ -168,7 +207,7 @@ class PLATFORM_EXPORT ParkableString final {
   // Returns an unparked version of the string.
   // The string is guaranteed to be valid for
   // max(lifetime of a copy of the returned reference, current thread task).
-  String ToString() const;
+  const String& ToString() const;
   wtf_size_t CharactersSizeInBytes() const;
 
   // Causes the string to be unparked. Note that the pointer must not be

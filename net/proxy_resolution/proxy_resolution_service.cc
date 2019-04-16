@@ -719,7 +719,8 @@ class ProxyResolutionService::PacFileDeciderPoller {
 
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&PacFileDeciderPoller::DoPoll, weak_factory_.GetWeakPtr()),
+        base::BindOnce(&PacFileDeciderPoller::DoPoll,
+                       weak_factory_.GetWeakPtr()),
         next_poll_delay_);
   }
 
@@ -766,7 +767,7 @@ class ProxyResolutionService::PacFileDeciderPoller {
       // the notification.
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE,
-          base::Bind(
+          base::BindOnce(
               &PacFileDeciderPoller::NotifyProxyResolutionServiceOfChange,
               weak_factory_.GetWeakPtr(), result, decider_->script_data(),
               decider_->effective_config()));

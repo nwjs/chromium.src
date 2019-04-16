@@ -63,27 +63,20 @@ class CORE_EXPORT PointerEventManager
                                          const WebMouseEvent&);
 
   WebInputEventResult DirectDispatchMousePointerEvent(
-      Node* target,
+      Element* target,
       const WebMouseEvent&,
       const AtomicString& event_type,
       const Vector<WebMouseEvent>& coalesced_events,
       const Vector<WebMouseEvent>& predicted_events,
       const String& canvas_node_id = String());
 
-  WebInputEventResult CreateAndDispatchPointerEvent(
-      Node* target,
-      const AtomicString& mouse_event_name,
-      const WebMouseEvent&,
-      const Vector<WebMouseEvent>& coalesced_events,
-      const Vector<WebMouseEvent>& predicted_events);
-
   // Resets the internal state of this object.
   void Clear();
 
   void ElementRemoved(Element*);
 
-  void SetPointerCapture(PointerId, Element*);
-  void ReleasePointerCapture(PointerId, Element*);
+  bool SetPointerCapture(PointerId, Element*);
+  bool ReleasePointerCapture(PointerId, Element*);
   void ReleaseMousePointerCapture();
 
   // See Element::hasPointerCapture(PointerId).
@@ -115,11 +108,6 @@ class CORE_EXPORT PointerEventManager
   WebInputEventResult FlushEvents();
 
  private:
-  typedef HeapHashMap<PointerId,
-                      Member<Element>,
-                      WTF::IntHash<PointerId>,
-                      WTF::UnsignedWithZeroKeyHashTraits<PointerId>>
-      PointerCapturingMap;
   class EventTargetAttributes {
     DISALLOW_NEW();
 
@@ -129,6 +117,16 @@ class CORE_EXPORT PointerEventManager
     EventTargetAttributes() : target(nullptr) {}
     EventTargetAttributes(Element* target) : target(target) {}
   };
+  // We use int64_t to cover the whole range for PointerId with no
+  // deleted hash value.
+  template <typename T>
+  using PointerIdKeyMap =
+      HeapHashMap<int64_t,
+                  T,
+                  WTF::IntHash<int64_t>,
+                  WTF::UnsignedWithZeroKeyHashTraits<int64_t>>;
+  using PointerCapturingMap = PointerIdKeyMap<Member<Element>>;
+  using ElementUnderPointerMap = PointerIdKeyMap<EventTargetAttributes>;
 
   class PointerEventBoundaryEventDispatcher : public BoundaryEventDispatcher {
    public:
@@ -164,6 +162,13 @@ class CORE_EXPORT PointerEventManager
   // in the scrolling case which scroll starts and pointerevents stop and
   // touchevents continue to fire).
   void HandlePointerInterruption(const WebPointerEvent&);
+
+  WebInputEventResult CreateAndDispatchPointerEvent(
+      Element* target,
+      const AtomicString& mouse_event_name,
+      const WebMouseEvent&,
+      const Vector<WebMouseEvent>& coalesced_events,
+      const Vector<WebMouseEvent>& predicted_events);
 
   // Returns PointerEventTarget for a WebTouchPoint, hit-testing as necessary.
   event_handling_util::PointerEventTarget ComputePointerEventTarget(
@@ -243,11 +248,6 @@ class CORE_EXPORT PointerEventManager
   // which might be different than m_nodeUnderMouse in EventHandler. That one
   // keeps track of any compatibility mouse event positions but this map for
   // the pointer with id=1 is only taking care of true mouse related events.
-  using ElementUnderPointerMap =
-      HeapHashMap<PointerId,
-                  EventTargetAttributes,
-                  WTF::IntHash<PointerId>,
-                  WTF::UnsignedWithZeroKeyHashTraits<PointerId>>;
   ElementUnderPointerMap element_under_pointer_;
 
   PointerCapturingMap pointer_capture_target_;

@@ -34,6 +34,7 @@
 #include <utility>
 
 #include "base/atomic_ref_count.h"
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/synchronization/waitable_event.h"
@@ -55,6 +56,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/hash_traits.h"
 #include "third_party/blink/renderer/platform/wtf/linked_hash_set.h"
 
@@ -112,6 +114,8 @@ static_assert(WTF::IsTraceable<HeapHashMap<int, IntWrapper>>::value,
               "HeapHashMap<int, IntWrapper> must be traceable.");
 
 class KeyWithCopyingMoveConstructor final {
+  DISALLOW_NEW();
+
  public:
   struct Hash final {
     STATIC_ONLY(Hash);
@@ -162,6 +166,8 @@ static_assert(sizeof(Persistent<IntWrapper>) <= sizeof(SameSizeAsPersistent),
               "Persistent handle should stay small");
 
 class ThreadMarker {
+  DISALLOW_NEW();
+
  public:
   ThreadMarker()
       : creating_thread_(reinterpret_cast<ThreadState*>(0)), num_(0) {}
@@ -360,6 +366,8 @@ struct HashTraits<blink::KeyWithCopyingMoveConstructor>
 namespace blink {
 
 class TestGCCollectGarbageScope {
+  STACK_ALLOCATED();
+
  public:
   explicit TestGCCollectGarbageScope(BlinkGC::StackState state) {
     DCHECK(ThreadState::Current()->CheckThread());
@@ -467,6 +475,8 @@ class HeapAllocatedArray : public GarbageCollected<HeapAllocatedArray> {
 };
 
 class OffHeapInt : public RefCounted<OffHeapInt> {
+  USING_FAST_MALLOC(OffHeapInt);
+
  public:
   static scoped_refptr<OffHeapInt> Create(int x) {
     return base::AdoptRef(new OffHeapInt(x));
@@ -829,8 +839,6 @@ class Bar : public GarbageCollectedFinalized<Bar> {
   int magic_;
 };
 
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(Bar);
-
 unsigned Bar::live_ = 0;
 
 class Baz : public GarbageCollected<Baz> {
@@ -872,8 +880,6 @@ class Foo : public Bar {
   bool points_to_foo_;
 };
 
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(Foo);
-
 class Bars : public Bar {
  public:
   static Bars* Create() { return MakeGarbageCollected<Bars>(); }
@@ -898,8 +904,6 @@ class Bars : public Bar {
   unsigned width_;
   Member<Bar> bars_[kWidth];
 };
-
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(Bars);
 
 class ConstructorAllocation : public GarbageCollected<ConstructorAllocation> {
  public:
@@ -1051,8 +1055,6 @@ class Weak : public Bar {
   Bar* weak_bar_;
 };
 
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(Weak);
-
 class WithWeakMember : public Bar {
  public:
   static WithWeakMember* Create(Bar* strong, Bar* weak) {
@@ -1074,8 +1076,6 @@ class WithWeakMember : public Bar {
   Member<Bar> strong_bar_;
   WeakMember<Bar> weak_bar_;
 };
-
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(WithWeakMember);
 
 class Observable : public GarbageCollectedFinalized<Observable> {
   USING_PRE_FINALIZER(Observable, WillFinalize);
@@ -1378,7 +1378,8 @@ class Mixin : public GarbageCollectedMixin {
 };
 
 class UseMixin : public SimpleObject, public Mixin {
-  USING_GARBAGE_COLLECTED_MIXIN(UseMixin)
+  USING_GARBAGE_COLLECTED_MIXIN(UseMixin);
+
  public:
   static UseMixin* Create() { return MakeGarbageCollected<UseMixin>(); }
 
@@ -1444,11 +1445,11 @@ class TerminatedArrayItem {
 
 }  // namespace blink
 
-WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::TerminatedArrayItem);
-WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::VectorObject);
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::TerminatedArrayItem)
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::VectorObject)
 WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(
-    blink::VectorObjectInheritedTrace);
-WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::VectorObjectNoTrace);
+    blink::VectorObjectInheritedTrace)
+WTF_ALLOW_MOVE_INIT_AND_COMPARE_WITH_MEM_FUNCTIONS(blink::VectorObjectNoTrace)
 
 namespace blink {
 
@@ -3374,6 +3375,8 @@ TEST(HeapTest, HeapWeakLinkedHashSet) {
 }
 
 class ThingWithDestructor {
+  DISALLOW_NEW();
+
  public:
   ThingWithDestructor() : x_(kEmptyValue) { live_things_with_destructor_++; }
 
@@ -4309,7 +4312,7 @@ int InlinedVectorObjectWithVtable::destructor_calls_ = 0;
 
 }  // namespace blink
 
-WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(blink::InlinedVectorObject);
+WTF_ALLOW_MOVE_AND_INIT_WITH_MEM_FUNCTIONS(blink::InlinedVectorObject)
 
 namespace blink {
 
@@ -5569,45 +5572,6 @@ TEST(HeapTest, NonNodeAllocatingNodeInDestructor) {
   NonNodeAllocatingNodeInDestructor::node_ = nullptr;
 }
 
-class TraceTypeEagerly1 : public GarbageCollected<TraceTypeEagerly1> {};
-class TraceTypeEagerly2 : public TraceTypeEagerly1 {};
-
-class TraceTypeNonEagerly1 {};
-WILL_NOT_BE_EAGERLY_TRACED_CLASS(TraceTypeNonEagerly1);
-class TraceTypeNonEagerly2 : public TraceTypeNonEagerly1 {};
-
-TEST(HeapTest, TraceTypesEagerly) {
-  static_assert(TraceEagerlyTrait<TraceTypeEagerly1>::value, "should be true");
-  static_assert(TraceEagerlyTrait<Member<TraceTypeEagerly1>>::value,
-                "should be true");
-  static_assert(TraceEagerlyTrait<WeakMember<TraceTypeEagerly1>>::value,
-                "should be true");
-  static_assert(TraceEagerlyTrait<HeapVector<Member<TraceTypeEagerly1>>>::value,
-                "should be true");
-  static_assert(
-      TraceEagerlyTrait<HeapVector<WeakMember<TraceTypeEagerly1>>>::value,
-      "should be true");
-  static_assert(
-      TraceEagerlyTrait<HeapHashSet<Member<TraceTypeEagerly1>>>::value,
-      "should be true");
-  static_assert(
-      TraceEagerlyTrait<HeapHashSet<Member<TraceTypeEagerly1>>>::value,
-      "should be true");
-  using HashMapIntToObj = HeapHashMap<int, Member<TraceTypeEagerly1>>;
-  static_assert(TraceEagerlyTrait<HashMapIntToObj>::value, "should be true");
-  using HashMapObjToInt = HeapHashMap<Member<TraceTypeEagerly1>, int>;
-  static_assert(TraceEagerlyTrait<HashMapObjToInt>::value, "should be true");
-
-  static_assert(TraceEagerlyTrait<TraceTypeEagerly2>::value, "should be true");
-  static_assert(TraceEagerlyTrait<Member<TraceTypeEagerly2>>::value,
-                "should be true");
-
-  static_assert(!TraceEagerlyTrait<TraceTypeNonEagerly1>::value,
-                "should be false");
-  static_assert(TraceEagerlyTrait<TraceTypeNonEagerly2>::value,
-                "should be true");
-}
-
 class DeepEagerly final : public GarbageCollected<DeepEagerly> {
  public:
   DeepEagerly(DeepEagerly* next) : next_(next) {}
@@ -5726,7 +5690,7 @@ class PartObjectWithRef {
 
 }  // namespace blink
 
-WTF_ALLOW_INIT_WITH_MEM_FUNCTIONS(blink::PartObjectWithRef);
+WTF_ALLOW_INIT_WITH_MEM_FUNCTIONS(blink::PartObjectWithRef)
 
 namespace blink {
 
@@ -5832,9 +5796,12 @@ enum GrowthDirection {
   kGrowsTowardsLower,
 };
 
-NOINLINE NO_SANITIZE_ADDRESS GrowthDirection StackGrowthDirection() {
+NOINLINE NO_SANITIZE_ADDRESS NO_SANITIZE_HWADDRESS GrowthDirection
+StackGrowthDirection() {
   // Disable ASan, otherwise its stack checking (use-after-return) will
-  // confuse the direction check.
+  // confuse the direction check. Similarly, HWASan will store a random value in
+  // the top byte of the address of each stack variable, causing the direction
+  // check to return the wrong answer half of the time.
   static char* previous = nullptr;
   char dummy;
   if (!previous) {

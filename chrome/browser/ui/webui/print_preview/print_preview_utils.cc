@@ -9,6 +9,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
+#include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/stl_util.h"
@@ -113,37 +115,38 @@ void SystemDialogDone(const base::Value& error) {
   // intentional no-op
 }
 
-std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
-    const base::DictionaryValue& cdd) {
-  auto validated_cdd =
-      base::DictionaryValue::From(base::Value::ToUniquePtrValue(cdd.Clone()));
-  const base::Value* caps = cdd.FindKey(kPrinter);
-  if (!caps || !caps->is_dict())
-    return validated_cdd;
-  validated_cdd->RemoveKey(kPrinter);
-  auto out_caps = std::make_unique<base::DictionaryValue>();
-  for (const auto& capability : caps->DictItems()) {
-    const auto& key = capability.first;
-    const base::Value& value = capability.second;
 
-    const base::Value* list = nullptr;
-    if (value.is_dict())
-      list = value.FindKeyOfType(kOptionKey, base::Value::Type::LIST);
-    else if (value.is_list())
-      list = &value;
+base::Value ValidateCddForPrintPreview(base::Value cdd) {
+  base::Value* caps =
+      cdd.FindKeyOfType(kPrinter, base::Value::Type::DICTIONARY);
+  if (!caps)
+    return cdd;
+
+  base::Value out_caps(base::Value::Type::DICTIONARY);
+  for (auto capability : caps->DictItems()) {
+    const auto& key = capability.first;
+    base::Value* value = &capability.second;
+
+    base::Value* list = nullptr;
+    if (value->is_dict())
+      list = value->FindKeyOfType(kOptionKey, base::Value::Type::LIST);
+    else if (value->is_list())
+      list = value;
+
     if (!list) {
-      out_caps->SetKey(key, value.Clone());
+      out_caps.SetKey(key, std::move(*value));
       continue;
     }
 
     bool is_vendor_capability = key == kVendorCapabilityKey;
-    base::Value out_list = printing::GetFilteredList(
-        list, is_vendor_capability ? printing::VendorCapabilityInvalid : printing::ValueIsNull);
-    if (out_list.GetList().empty())  // leave out empty lists.
+    base::EraseIf(list->GetList(),
+                  is_vendor_capability ? VendorCapabilityInvalid : ValueIsNull);
+    if (list->GetList().empty())  // leave out empty lists.
       continue;
+
     if (is_vendor_capability) {
       // Need to also filter the individual capability lists.
-      for (auto& vendor_option : out_list.GetList()) {
+      for (auto& vendor_option : list->GetList()) {
         const base::Value* option_type =
             vendor_option.FindKeyOfType(kTypeKey, base::Value::Type::STRING);
         if (option_type->GetString() != kSelectString)
@@ -151,22 +154,21 @@ std::unique_ptr<base::DictionaryValue> ValidateCddForPrintPreview(
 
         base::Value* options_dict = vendor_option.FindKeyOfType(
             kSelectCapKey, base::Value::Type::DICTIONARY);
-        const base::Value* options_list =
+        base::Value* options_list =
             options_dict->FindKeyOfType(kOptionKey, base::Value::Type::LIST);
-        options_dict->SetKey(kOptionKey,
-                             printing::GetFilteredList(options_list, printing::ValueIsNull));
+        base::EraseIf(options_list->GetList(), ValueIsNull);
       }
     }
-    if (value.is_dict()) {
+    if (value->is_dict()) {
       base::Value option_dict(base::Value::Type::DICTIONARY);
-      option_dict.SetKey(kOptionKey, std::move(out_list));
-      out_caps->SetKey(key, std::move(option_dict));
+      option_dict.SetKey(kOptionKey, std::move(*list));
+      out_caps.SetKey(key, std::move(option_dict));
     } else {
-      out_caps->SetKey(key, std::move(out_list));
+      out_caps.SetKey(key, std::move(*list));
     }
   }
-  validated_cdd->SetDictionary(kPrinter, std::move(out_caps));
-  return validated_cdd;
+  cdd.SetKey(kPrinter, std::move(out_caps));
+  return cdd;
 }
 
 void ConvertPrinterListForCallback(
@@ -207,9 +209,37 @@ void StartLocalPrint(base::Value job_settings,
     std::move(callback).Run(base::Value());
     callback = base::BindOnce(&printing::SystemDialogDone);
   }
-  print_view_manager->PrintForPrintPreview(std::move(job_settings), print_data,
-                                           preview_web_contents->GetMainFrame(),
-                                           std::move(callback));
+  print_view_manager->PrintForPrintPreview(
+      std::move(job_settings), std::move(print_data),
+      preview_web_contents->GetMainFrame(), std::move(callback));
+}
+
+bool ParseSettings(const base::Value& settings,
+                   std::string* out_destination_id,
+                   std::string* out_capabilities,
+                   gfx::Size* out_page_size,
+                   base::Value* out_ticket) {
+  const std::string* destination_id_opt =
+      settings.FindStringKey(kSettingDeviceName);
+  const std::string* ticket_opt = settings.FindStringKey(kSettingTicket);
+  const std::string* capabilities_opt =
+      settings.FindStringKey(kSettingCapabilities);
+  out_page_size->SetSize(settings.FindIntKey(kSettingPageWidth).value_or(0),
+                         settings.FindIntKey(kSettingPageHeight).value_or(0));
+  if (!destination_id_opt || !ticket_opt || !capabilities_opt ||
+      out_page_size->IsEmpty()) {
+    NOTREACHED();
+    return false;
+  }
+  base::Optional<base::Value> ticket_value =
+      base::JSONReader::Read(*ticket_opt);
+  if (!ticket_value)
+    return false;
+
+  *out_destination_id = *destination_id_opt;
+  *out_capabilities = *capabilities_opt;
+  *out_ticket = std::move(*ticket_value);
+  return true;
 }
 
 }  // namespace printing

@@ -14,6 +14,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/compositor/layer_animation_observer.h"
 #include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "ui/views/controls/button/button.h"
 
 namespace ui {
@@ -81,15 +82,15 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Returns the union of the original target bounds of all transformed windows
   // managed by |this| item, i.e. all regular (normal or panel transient
   // descendants of the window returned by GetWindow()).
-  gfx::Rect GetTargetBoundsInScreen() const;
+  gfx::RectF GetTargetBoundsInScreen() const;
 
   // Returns the transformed bound of |transform_window_|.
-  gfx::Rect GetTransformedBounds() const;
+  gfx::RectF GetTransformedBounds() const;
 
-  // Sets the bounds of this window selector item to |target_bounds| in the
+  // Sets the bounds of this overview item to |target_bounds| in the
   // |root_window_| root window. The bounds change will be animated as specified
   // by |animation_type|.
-  void SetBounds(const gfx::Rect& target_bounds,
+  void SetBounds(const gfx::RectF& target_bounds,
                  OverviewAnimationType animation_type);
 
   // Activates or deactivates selection depending on |selected|.
@@ -128,12 +129,6 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // |window_|'s bounds change.
   void UpdateWindowDimensionsType();
 
-  // Enable or disable the backdrop. If the window is not letter or pillar
-  // boxed, nothing will happen.
-  void EnableBackdropIfNeeded();
-  void DisableBackdrop();
-  void UpdateBackdropBounds();
-
   // TODO(minch): Do not actually scale up the item to get the bounds.
   // http://crbug.com/876567.
   // Returns the bounds of the selected item, which will be scaled up a little
@@ -144,13 +139,7 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Increases the bounds of the dragged item.
   void ScaleUpSelectedItem(OverviewAnimationType animation_type);
 
-  const gfx::Rect& target_bounds() const { return target_bounds_; }
-
-  // Stacks the |item_widget_| in the correct place. |item_widget_| may be
-  // initially stacked in the wrong place due to animation or if it is a
-  // minimized window, the overview minimized widget is not available on
-  // |item_widget_|'s creation.
-  void RestackItemWidget();
+  const gfx::RectF& target_bounds() const { return target_bounds_; }
 
   // Shift the window item up and then animates it to its original spot. Used
   // to transition from the home launcher.
@@ -168,11 +157,11 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   void UpdateItemContentViewForMinimizedWindow();
 
   // Handle the mouse/gesture event and facilitate dragging the item.
-  void HandlePressEvent(const gfx::Point& location_in_screen);
-  void HandleReleaseEvent(const gfx::Point& location_in_screen);
-  void HandleDragEvent(const gfx::Point& location_in_screen);
-  void HandleLongPressEvent(const gfx::Point& location_in_screen);
-  void HandleFlingStartEvent(const gfx::Point& location_in_screen,
+  void HandlePressEvent(const gfx::PointF& location_in_screen);
+  void HandleReleaseEvent(const gfx::PointF& location_in_screen);
+  void HandleDragEvent(const gfx::PointF& location_in_screen);
+  void HandleLongPressEvent(const gfx::PointF& location_in_screen);
+  void HandleFlingStartEvent(const gfx::PointF& location_in_screen,
                              float velocity_x,
                              float velocity_y);
   void ActivateDraggedWindow();
@@ -191,8 +180,8 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // the shadow is hidden.
   void SetShadowBounds(base::Optional<gfx::Rect> bounds_in_screen);
 
-  // Show or hide the mask and shadow on this window item.
-  void UpdateMaskAndShadow(bool show);
+  // Updates the mask and shadow on this overview window item.
+  void UpdateMaskAndShadow();
 
   // Called when the starting animation is completed, or called immediately
   // if there was no starting animation.
@@ -242,19 +231,21 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   bool animating_to_close() const { return animating_to_close_; }
   void set_animating_to_close(bool val) { animating_to_close_ = val; }
 
+  void set_disable_mask(bool disable) { disable_mask_ = disable; }
+
   float GetCloseButtonVisibilityForTesting() const;
   float GetTitlebarOpacityForTesting() const;
   gfx::Rect GetShadowBoundsForTesting();
 
  private:
   friend class OverviewSessionTest;
+  class WindowSurfaceCacheObserver;
   FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest,
                            OverviewUnsnappableIndicatorVisibility);
 
-  // Sets the bounds of this selector's items to |target_bounds| in
-  // |root_window_|. The bounds change will be animated as specified
-  // by |animation_type|.
-  void SetItemBounds(const gfx::Rect& target_bounds,
+  // Sets the bounds of this overview item to |target_bounds| in |root_window_|.
+  // The bounds change will be animated as specified by |animation_type|.
+  void SetItemBounds(const gfx::RectF& target_bounds,
                      OverviewAnimationType animation_type);
 
   // Creates the window label.
@@ -271,8 +262,6 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // Allows a test to directly set animation state.
   gfx::SlideAnimation* GetBackgroundViewAnimation();
 
-  aura::Window* GetOverviewWindowForMinimizedStateForTest();
-
   // Called before dragging. Scales up the window a little bit to indicate its
   // selection and stacks the window at the top of the Z order in order to keep
   // it visible while dragging around.
@@ -284,8 +273,8 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // The contained Window's wrapper.
   ScopedOverviewTransformWindow transform_window_;
 
-  // The target bounds this selector item is fit within.
-  gfx::Rect target_bounds_;
+  // The target bounds this overview item is fit within.
+  gfx::RectF target_bounds_;
 
   // True if running SetItemBounds. This prevents recursive calls resulting from
   // the bounds update when calling ::wm::RecreateWindowLayers to copy
@@ -300,11 +289,6 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // |caption_container_view_| as its contents view. The widget is backed by a
   // NOT_DRAWN layer since most of its surface is transparent.
   std::unique_ptr<views::Widget> item_widget_;
-
-  // A widget that is available if the window is letter or pillar boxed. It is
-  // stacked below |transform_window_|'s window. This is nullptr when the window
-  // is normal boxed.
-  std::unique_ptr<views::Widget> backdrop_widget_;
 
   // Container view that owns a Button view covering the |transform_window_|.
   // That button serves as an event shield to receive all events such as clicks
@@ -336,10 +320,19 @@ class ASH_EXPORT OverviewItem : public views::ButtonListener,
   // OverviewGrid::PositionWindows.
   bool animating_to_close_ = false;
 
+  // True if this overview item is currently being dragged around.
+  bool is_being_dragged_ = false;
+
+  // True to always disable mask regardless of the state.
+  bool disable_mask_ = false;
+
   // The shadow around the overview window. Shadows the original window, not
   // |item_widget_|. Done here instead of on the original window because of the
   // rounded edges mask applied on entering overview window.
   std::unique_ptr<ui::Shadow> shadow_;
+
+  // The observer to observe the window that has cached its render surface.
+  std::unique_ptr<WindowSurfaceCacheObserver> window_surface_cache_observers_;
 
   DISALLOW_COPY_AND_ASSIGN(OverviewItem);
 };

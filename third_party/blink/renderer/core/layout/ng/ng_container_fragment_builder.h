@@ -31,8 +31,8 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   STACK_ALLOCATED();
 
  public:
-  typedef Vector<scoped_refptr<const NGPhysicalFragment>, 16> ChildrenVector;
-  typedef Vector<NGLogicalOffset, 16> OffsetVector;
+  typedef Vector<scoped_refptr<const NGPhysicalFragment>, 4> ChildrenVector;
+  typedef Vector<NGLogicalOffset, 4> OffsetVector;
 
   LayoutUnit BfcLineOffset() const { return bfc_line_offset_; }
   NGContainerFragmentBuilder& SetBfcLineOffset(LayoutUnit bfc_line_offset) {
@@ -88,7 +88,7 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 
   // Returns offset for given child. DCHECK if child not found.
   // Warning: Do not call unless necessary.
-  NGLogicalOffset GetChildOffset(const LayoutObject* child);
+  NGLogicalOffset GetChildOffset(const LayoutObject* child) const;
 
   // Builder has non-trivial out-of-flow descendant methods.
   // These methods are building blocks for implementation of
@@ -149,6 +149,8 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   }
   bool IsPushedByFloats() const { return is_pushed_by_floats_; }
 
+  bool HasFloatingDescendants() const { return has_floating_descendants_; }
+
   NGContainerFragmentBuilder& ResetAdjoiningFloatTypes() {
     adjoining_floats_ = kFloatTypeNone;
     return *this;
@@ -158,6 +160,13 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
     return *this;
   }
   NGFloatTypes AdjoiningFloatTypes() const { return adjoining_floats_; }
+
+  NGContainerFragmentBuilder& SetHasBlockFragmentation() {
+    has_block_fragmentation_ = true;
+    return *this;
+  }
+
+  const NGConstraintSpace* ConstraintSpace() const { return space_; }
 
 #ifndef NDEBUG
   String ToString() const;
@@ -193,12 +202,15 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
 
   NGContainerFragmentBuilder(NGLayoutInputNode node,
                              scoped_refptr<const ComputedStyle> style,
+                             const NGConstraintSpace* space,
                              WritingMode writing_mode,
                              TextDirection direction)
       : NGFragmentBuilder(std::move(style), writing_mode, direction),
-        node_(node) {}
+        node_(node),
+        space_(space) {}
 
   NGLayoutInputNode node_;
+  const NGConstraintSpace* space_;
 
   LayoutUnit bfc_line_offset_;
   base::Optional<LayoutUnit> bfc_block_offset_;
@@ -227,9 +239,12 @@ class CORE_EXPORT NGContainerFragmentBuilder : public NGFragmentBuilder {
   bool has_last_resort_break_ = false;
 
   bool is_pushed_by_floats_ = false;
+  bool is_old_layout_root_ = false;
 
+  bool has_floating_descendants_ = false;
   bool has_orthogonal_flow_roots_ = false;
-  bool has_depends_on_percentage_block_size_child_ = false;
+  bool has_child_that_depends_on_percentage_block_size_ = false;
+  bool has_block_fragmentation_ = false;
 };
 
 }  // namespace blink

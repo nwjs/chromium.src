@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
@@ -242,8 +243,8 @@ TEST_F(ContentPasswordManagerDriverTest, NotInformAboutBlacklistedForm) {
   driver->FillPasswordForm(fill_data);
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        ContentPasswordManagerDriverTest,
-                        testing::Values(true, false));
+INSTANTIATE_TEST_SUITE_P(,
+                         ContentPasswordManagerDriverTest,
+                         testing::Values(true, false));
 
 }  // namespace password_manager

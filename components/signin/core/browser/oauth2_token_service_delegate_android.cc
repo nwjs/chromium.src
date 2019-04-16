@@ -8,10 +8,12 @@
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/bind.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
+#include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_info.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/oauth2_access_token_fetcher.h"
@@ -129,7 +131,8 @@ std::string AndroidAccessTokenFetcher::CombineScopes(
 
 }  // namespace
 
-bool OAuth2TokenServiceDelegateAndroid::is_testing_profile_ = false;
+bool OAuth2TokenServiceDelegateAndroid::
+    disable_interaction_with_system_accounts_ = false;
 
 OAuth2TokenServiceDelegateAndroid::OAuth2TokenServiceDelegateAndroid(
     AccountTrackerService* account_tracker_service)
@@ -158,7 +161,7 @@ OAuth2TokenServiceDelegateAndroid::OAuth2TokenServiceDelegateAndroid(
     Java_OAuth2TokenService_saveStoredAccounts(env, java_accounts);
   }
 
-  if (!is_testing_profile_) {
+  if (!disable_interaction_with_system_accounts_) {
     Java_OAuth2TokenService_validateAccounts(AttachCurrentThread(), java_ref_,
                                              JNI_TRUE);
   }
@@ -309,16 +312,17 @@ void OAuth2TokenServiceDelegateAndroid::ValidateAccounts(
 
   std::vector<std::string> refreshed_ids;
   std::vector<std::string> revoked_ids;
-  bool currently_signed_in =
+  bool keep_accounts =
       ValidateAccounts(signed_in_account_id, prev_ids, curr_ids, &refreshed_ids,
                        &revoked_ids, force_notifications);
 
   ScopedBatchChange batch(this);
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobjectArray> java_accounts;
-  if (currently_signed_in) {
+  if (keep_accounts) {
     java_accounts = base::android::ToJavaArrayOfStrings(env, curr_ids);
   } else {
+    DCHECK(!base::FeatureList::IsEnabled(signin::kMiceFeature));
     java_accounts =
         base::android::ToJavaArrayOfStrings(env, std::vector<std::string>());
   }
@@ -361,8 +365,9 @@ bool OAuth2TokenServiceDelegateAndroid::ValidateAccounts(
     std::vector<std::string>* refreshed_ids,
     std::vector<std::string>* revoked_ids,
     bool force_notifications) {
-  bool currently_signed_in = base::ContainsValue(curr_ids, signed_in_id);
-  if (currently_signed_in) {
+  bool keep_accounts = base::FeatureList::IsEnabled(signin::kMiceFeature) ||
+                       base::ContainsValue(curr_ids, signed_in_id);
+  if (keep_accounts) {
     // Revoke token for ids that have been removed from the device.
     for (const std::string& prev_id : prev_ids) {
       if (prev_id == signed_in_id)
@@ -375,7 +380,8 @@ bool OAuth2TokenServiceDelegateAndroid::ValidateAccounts(
     }
 
     // Refresh token for new ids or all ids if |force_notifications|.
-    if (force_notifications || !base::ContainsValue(prev_ids, signed_in_id)) {
+    if (!signed_in_id.empty() &&
+        (force_notifications || !base::ContainsValue(prev_ids, signed_in_id))) {
       // Always fire the primary signed in account first.
       DVLOG(1) << "OAuth2TokenServiceDelegateAndroid::ValidateAccounts:"
                << "refreshed=" << signed_in_id;
@@ -391,6 +397,7 @@ bool OAuth2TokenServiceDelegateAndroid::ValidateAccounts(
       }
     }
   } else {
+    // Revoke all ids.
     if (base::ContainsValue(prev_ids, signed_in_id)) {
       DVLOG(1) << "OAuth2TokenServiceDelegateAndroid::ValidateAccounts:"
                << "revoked=" << signed_in_id;
@@ -404,7 +411,7 @@ bool OAuth2TokenServiceDelegateAndroid::ValidateAccounts(
       revoked_ids->push_back(prev_id);
     }
   }
-  return currently_signed_in;
+  return keep_accounts;
 }
 
 void OAuth2TokenServiceDelegateAndroid::FireRefreshTokenAvailable(
@@ -478,7 +485,8 @@ void OAuth2TokenServiceDelegateAndroid::LoadCredentials(
     const std::string& primary_account_id) {
   DCHECK_EQ(LOAD_CREDENTIALS_NOT_STARTED, load_credentials_state());
   set_load_credentials_state(LOAD_CREDENTIALS_IN_PROGRESS);
-  if (primary_account_id.empty()) {
+  if (primary_account_id.empty() &&
+      !base::FeatureList::IsEnabled(signin::kMiceFeature)) {
     FireRefreshTokensLoaded();
     return;
   }
@@ -488,6 +496,13 @@ void OAuth2TokenServiceDelegateAndroid::LoadCredentials(
   } else if (fire_refresh_token_loaded_ == RT_LOAD_NOT_START) {
     fire_refresh_token_loaded_ = RT_WAIT_FOR_VALIDATION;
   }
+}
+
+void OAuth2TokenServiceDelegateAndroid::ReloadAccountsFromSystem(
+    const std::string& primary_account_id) {
+  // ValidateAccounts() effectively synchronizes the accounts in the Token
+  // Service with those present at the system level.
+  ValidateAccounts(primary_account_id, /*force_notifications=*/true);
 }
 
 std::string OAuth2TokenServiceDelegateAndroid::MapAccountIdToAccountName(

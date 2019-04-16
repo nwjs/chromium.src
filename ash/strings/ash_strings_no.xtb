@@ -14,6 +14,7 @@
 <translation id="1153356358378277386">Tilkoblede enheter</translation>
 <translation id="1195412055398077112">overscan</translation>
 <translation id="119944043368869598">Fjern alle</translation>
+<translation id="123828989343052515">Nytt arbeidsområde</translation>
 <translation id="1247372569136754018">Mikrofon (intern)</translation>
 <translation id="1252999807265626933">Lader fra <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Hvordan er været?</translation>
@@ -38,6 +39,7 @@
 <translation id="1525508553941733066">AVVIS</translation>
 <translation id="1537254971476575106">Lupe for hele skjermen</translation>
 <translation id="15373452373711364">Stor markør</translation>
+<translation id="1546492247443594934">Skrivebord 2</translation>
 <translation id="1550523713251050646">Klikk for å se flere alternativer</translation>
 <translation id="1570871743947603115">Slå av/på Bluetooth. <ph name="STATE_TEXT" /></translation>
 <translation id="1589090746204042747">se all aktiviteten din i denne økten</translation>
@@ -73,6 +75,7 @@
 <translation id="2016340657076538683">Skriv inn en melding</translation>
 <translation id="2050339315714019657">Stående</translation>
 <translation id="2067602449040652523">Lysstyrke på tastaturet</translation>
+<translation id="209965399369889474">Ikke koblet til nettverket</translation>
 <translation id="2127372758936585790">Lading med lav effekt</translation>
 <translation id="2135456203358955318">Dokket lupe</translation>
 <translation id="2144487987174258011">Start på nytt for å oppdatere Adobe Flash Player</translation>
@@ -129,6 +132,7 @@
 <translation id="2961963223658824723">Noe gikk galt. Prøv på nytt om noen sekunder.</translation>
 <translation id="2963773877003373896">mod3</translation>
 <translation id="2970920913501714344">installere apper, utvidelser og temaer</translation>
+<translation id="2977598380246111477">Neste nummer</translation>
 <translation id="2995447421581609334">Vis Cast-enheter.</translation>
 <translation id="2996462380875591307">Dokket lupe er slått på. Trykk på Ctrl + Søk + D igjen for å slå det av.</translation>
 <translation id="3000461861112256445">Monolyd</translation>
@@ -141,16 +145,19 @@
 <translation id="3087734570205094154">Bunn</translation>
 <translation id="3105990244222795498"><ph name="DEVICE_NAME" /> (Bluetooth)</translation>
 <translation id="3126069444801937830">Start på nytt for å oppdatere</translation>
+<translation id="3139942575505304791">Skrivebord 1</translation>
 <translation id="315116470104423982">Mobildata</translation>
 <translation id="3151786313568798007">Retning</translation>
+<translation id="3152934361839663679">Enheten din er tilkoblet det maksimale antallet skjermer, så en av dem har blitt koblet fra.</translation>
 <translation id="3153444934357957346">Du kan bare ha opptil <ph name="MULTI_PROFILE_USER_LIMIT" /> kontoer i multipålogging.</translation>
 <translation id="3154351730702813399">Enhetsadministratoren kan overvåke surfeaktiviteten din.</translation>
 <translation id="3202010236269062730">{NUM_DEVICES,plural, =1{Koblet til en enhet}other{Koblet til # enheter}}</translation>
-<translation id="32244657276328332">Ikke koblet til noe nettverk</translation>
+<translation id="3226991577105957773">+<ph name="COUNT" /> til</translation>
 <translation id="3236488194889173876">Ingen mobilnettverk er tilgjengelige</translation>
 <translation id="3255483164551725916">Hva kan du gjøre?</translation>
 <translation id="3294437725009624529">Gjest</translation>
 <translation id="3308453408813785101"><ph name="USER_EMAIL_ADDRESS" /> kan fortsatt logge på senere.</translation>
+<translation id="3321628682574733415">Feil kode for foreldertilgang</translation>
 <translation id="332587331255250389">Bytt ut batteriet</translation>
 <translation id="3351879221545518001">Du caster for øyeblikket skjermen.</translation>
 <translation id="3364721542077212959">Pekepennverktøy</translation>
@@ -195,6 +202,7 @@
 <translation id="4017989525502048489">Laserpeker</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Slått av for en app}other{Slått av for # apper}}</translation>
 <translation id="4072264167173457037">Middels sterkt signal</translation>
+<translation id="4129129681837227511">For å se varsler på låseskjermen, lås opp for å endre innstillingen</translation>
 <translation id="4146833061457621061">Spill av musikk</translation>
 <translation id="4181841719683918333">Språk</translation>
 <translation id="4195877955194704651">Automatisk klikk-knapp</translation>
@@ -227,6 +235,8 @@
 <translation id="4585337515783392668">Stopp casting på en ukjent mottaker</translation>
 <translation id="4628757576491864469">Enheter</translation>
 <translation id="4659419629803378708">ChromeVox er slått på</translation>
+<translation id="4696813013609194136">Lås opp enheten med foreldrekode</translation>
+<translation id="4731797938093519117">Foreldretilgang</translation>
 <translation id="4734965478015604180">Horisontal</translation>
 <translation id="476166673298332917">Enhetsadministratoren har tilgang til nettleseraktiviteten din.</translation>
 <translation id="4774338217796918551">Kom tilbake i morgen <ph name="COME_BACK_TIME" />.</translation>
@@ -253,6 +263,7 @@
 <translation id="5207949376430453814">Fremhev tekstinnsettingspunktet</translation>
 <translation id="5222676887888702881">Logg av</translation>
 <translation id="523505283826916779">Tilgjengelighetsinnstillinger</translation>
+<translation id="5260676007519551770">Skrivebord 4</translation>
 <translation id="5283198616748585639">Legg til 1 min</translation>
 <translation id="5302048478445481009">Språk</translation>
 <translation id="5313326810920013265">Bluetooth-innstillinger</translation>
@@ -262,6 +273,7 @@
 <translation id="5430931332414098647">Umiddelbar internettdeling</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="544691375626129091">Alle tilgjengelige brukere er allerede lagt til i denne økten.</translation>
+<translation id="5465662442746197494">Trenger du hjelp?</translation>
 <translation id="5496819745535887422">Administratoren din tilbakestiller enheten din til forrige versjon. Alle data blir slettet når enheten starter på nytt.</translation>
 <translation id="553675580533261935">Avslutning av økten</translation>
 <translation id="5537725057119320332">Cast</translation>
@@ -330,12 +342,14 @@
 <translation id="6528179044667508675">Ikke forstyrr</translation>
 <translation id="6537270692134705506">Ta skjermdump av skjermen</translation>
 <translation id="6542521951477560771">Caster til <ph name="RECEIVER_NAME" /></translation>
+<translation id="6559976592393364813">Spør administratoren</translation>
 <translation id="6574601967010742428">Enhetsadministratoren kan muligens overvåke aktiviteten din.</translation>
 <translation id="6585808820553845416">Økten slutter om <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Søk + Shift + K</translation>
 <translation id="6650933572246256093">Bluetooth-enheten «<ph name="DEVICE_NAME" />» ber om tillatelse til å koble til. Skriv inn denne tilgangskoden på den aktuelle enheten: <ph name="PASSKEY" /></translation>
 <translation id="6657585470893396449">Passord</translation>
 <translation id="6665545700722362599">gi nettsteder, apper og utvidelser tillatelse til å bruke posisjonstjenester, enhetens mikrofon, kamera eller andre funksjoner</translation>
+<translation id="6670153871843998651">Skrivebord 3</translation>
 <translation id="6691659475504239918">Søk + Shift + H</translation>
 <translation id="6696025732084565524">Det avtakbare tastaturet trenger en kritisk oppdatering</translation>
 <translation id="6700713906295497288">IME-menyknappen</translation>
@@ -376,6 +390,7 @@
 <translation id="7377169924702866686">Caps Lock er på.</translation>
 <translation id="7384299914270925461"><ph name="SIGN" /><ph name="MINUTES_REMAINING" />:<ph name="SECONDS_REMAINING" /> s</translation>
 <translation id="7398254312354928459">Byttet nettverkstilkobling</translation>
+<translation id="7405710164030118432">For å låse opp enheten, skriv inn koden din for foreldretilgang til Family Link</translation>
 <translation id="742594950370306541">Kameraet er i bruk.</translation>
 <translation id="743058460480092004">Kameraet og mikrofonen er i bruk.</translation>
 <translation id="7497767806359279797">Velg språk og tastatur</translation>
@@ -451,7 +466,6 @@
 <translation id="8454013096329229812">Wi-Fi er slått på.</translation>
 <translation id="847056008324733326">Innstillinger for visningsskala</translation>
 <translation id="8477270416194247200">Trykk på Alt + Søk eller Shift for å avbryte.</translation>
-<translation id="8484916590211895857"><ph name="NAME" />: Kobler til på nytt ...</translation>
 <translation id="8513108775083588393">Automatisk rotasjon</translation>
 <translation id="8517041960877371778">Det kan hende at din <ph name="DEVICE_TYPE" /> ikke lader når den er slått på.</translation>
 <translation id="8627191004499078455">Koblet til <ph name="DEVICE_NAME" /></translation>
@@ -467,7 +481,6 @@
 <translation id="8735953464173050365">Vis tastaturinnstillinger. <ph name="KEYBOARD_NAME" /> er valgt</translation>
 <translation id="875593634123171288">Vis innstillinger for VPN</translation>
 <translation id="8814190375133053267">Wi-Fi</translation>
-<translation id="8825534185036233643">Speiling med mer enn to skjermer støttes ikke.</translation>
 <translation id="8828714802988429505">90°</translation>
 <translation id="8843682306134542540">Slå av/på rotasjonslås. <ph name="STATE_TEXT" /></translation>
 <translation id="8850991929411075241">Søk+Esc</translation>

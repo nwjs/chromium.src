@@ -3,44 +3,66 @@
 // found in the LICENSE file.
 
 #include "services/identity/public/cpp/identity_manager.h"
+
+#include <memory>
+#include <utility>
+#include <vector>
+
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/message_loop/message_loop.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/test/bind_test_util.h"
 #include "build/build_config.h"
 #include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/account_tracker_service.h"
-#include "components/signin/core/browser/fake_gaia_cookie_manager_service.h"
 #include "components/signin/core/browser/fake_profile_oauth2_token_service.h"
-#include "components/signin/core/browser/fake_signin_manager.h"
+#include "components/signin/core/browser/list_accounts_test_utils.h"
+#include "components/signin/core/browser/signin_manager.h"
 #include "components/signin/core/browser/signin_switches.h"
+#include "components/signin/core/browser/test_image_decoder.h"
 #include "components/signin/core/browser/test_signin_client.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_token_service_delegate.h"
+#include "services/identity/public/cpp/accounts_cookie_mutator.h"
+#include "services/identity/public/cpp/accounts_cookie_mutator_impl.h"
 #include "services/identity/public/cpp/accounts_mutator.h"
+#include "services/identity/public/cpp/diagnostics_provider_impl.h"
+#include "services/identity/public/cpp/identity_manager.h"
 #include "services/identity/public/cpp/identity_test_utils.h"
 #include "services/identity/public/cpp/primary_account_mutator.h"
+#include "services/identity/public/cpp/test_identity_manager_observer.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_cookie_manager.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if defined(OS_ANDROID)
+#include "components/signin/core/browser/child_account_info_fetcher_android.h"
+#endif
 
 namespace identity {
 namespace {
 
-#if defined(OS_CHROMEOS)
-using SigninManagerForTest = FakeSigninManagerBase;
-#else
-using SigninManagerForTest = FakeSigninManager;
-#endif  // OS_CHROMEOS
-
+const char kTestConsumerId[] = "dummy_consumer";
+const char kTestConsumerId2[] = "dummy_consumer 2";
 const char kTestGaiaId[] = "dummyId";
 const char kTestGaiaId2[] = "dummyId2";
 const char kTestGaiaId3[] = "dummyId3";
 const char kTestEmail[] = "me@gmail.com";
 const char kTestEmail2[] = "me2@gmail.com";
 const char kTestEmail3[] = "me3@gmail.com";
+
+#if defined(OS_ANDROID)
+const char kTestHostedDomain[] = "example.com";
+const char kTestFullName[] = "full_name";
+const char kTestGivenName[] = "given_name";
+const char kTestLocale[] = "locale";
+const char kTestPictureUrl[] = "http://picture.example.com/picture.jpg";
+#endif
 
 #if defined(OS_CHROMEOS)
 const char kTestEmailWithPeriod[] = "m.e@gmail.com";
@@ -74,6 +96,12 @@ class CustomFakeProfileOAuth2TokenService
       EXPECT_EQ(expected_account_id_to_invalidate_, account_id);
       EXPECT_EQ(expected_scopes_to_invalidate_, scopes);
       EXPECT_EQ(expected_access_token_to_invalidate_, access_token);
+
+      // It should trigger OnAccessTokenRemovedFromCache from
+      // IdentityManager::DiagnosticsObserver.
+      for (auto& observer : GetDiagnicsObservers())
+        observer.OnAccessTokenRemoved(account_id, scopes);
+
       std::move(on_access_token_invalidated_callback_).Run();
     }
   }
@@ -113,24 +141,28 @@ class TestSigninManagerObserver : public SigninManagerBase::Observer {
     on_google_signed_out_callback_ = std::move(callback);
   }
 
-  const AccountInfo& primary_account_from_signin_callback() const {
+  const CoreAccountInfo& primary_account_from_signin_callback() const {
     return primary_account_from_signin_callback_;
   }
-  const AccountInfo& primary_account_from_signout_callback() const {
+  const CoreAccountInfo& primary_account_from_signout_callback() const {
     return primary_account_from_signout_callback_;
   }
 
  private:
   // SigninManager::Observer:
-  void GoogleSigninSucceeded(const AccountInfo& account_info) override {
-    ASSERT_TRUE(identity_manager_);
+  void GoogleSigninSucceeded(const AccountInfo&) override {
+    // Fetch the primary account from IdentityManager. The goal is to check
+    // that the account from IdentityManager has correct values even if other
+    // SigninManager::Observer are notified.
     primary_account_from_signin_callback_ =
         identity_manager_->GetPrimaryAccountInfo();
     if (on_google_signin_succeeded_callback_)
       std::move(on_google_signin_succeeded_callback_).Run();
   }
-  void GoogleSignedOut(const AccountInfo& account_info) override {
-    ASSERT_TRUE(identity_manager_);
+  void GoogleSignedOut(const AccountInfo&) override {
+    // Fetch the primary account from IdentityManager. The goal is to check
+    // that the account from IdentityManager has correct values even if other
+    // SigninManager::Observer are notified.
     primary_account_from_signout_callback_ =
         identity_manager_->GetPrimaryAccountInfo();
     if (on_google_signed_out_callback_)
@@ -142,8 +174,8 @@ class TestSigninManagerObserver : public SigninManagerBase::Observer {
   base::OnceClosure on_google_signin_succeeded_callback_;
   base::OnceClosure on_google_signin_failed_callback_;
   base::OnceClosure on_google_signed_out_callback_;
-  AccountInfo primary_account_from_signin_callback_;
-  AccountInfo primary_account_from_signout_callback_;
+  CoreAccountInfo primary_account_from_signin_callback_;
+  CoreAccountInfo primary_account_from_signout_callback_;
 };
 
 // Class that observes updates from ProfileOAuth2TokenService and and verifies
@@ -190,216 +222,6 @@ class TestTokenServiceObserver : public OAuth2TokenService::Observer,
   base::OnceClosure on_refresh_token_revoked_callback_;
 };
 
-class TestIdentityManagerObserver : IdentityManager::Observer {
- public:
-  explicit TestIdentityManagerObserver(IdentityManager* identity_manager)
-      : identity_manager_(identity_manager) {
-    identity_manager_->AddObserver(this);
-  }
-  ~TestIdentityManagerObserver() override {
-    identity_manager_->RemoveObserver(this);
-  }
-
-  void set_on_primary_account_set_callback(base::OnceClosure callback) {
-    on_primary_account_set_callback_ = std::move(callback);
-  }
-  void set_on_primary_account_cleared_callback(base::OnceClosure callback) {
-    on_primary_account_cleared_callback_ = std::move(callback);
-  }
-  void set_on_primary_account_signin_failed_callback(
-      base::OnceClosure callback) {
-    on_primary_account_signin_failed_callback_ = std::move(callback);
-  }
-
-  const AccountInfo& primary_account_from_set_callback() {
-    return primary_account_from_set_callback_;
-  }
-  const AccountInfo& primary_account_from_cleared_callback() {
-    return primary_account_from_cleared_callback_;
-  }
-
-  void set_on_refresh_token_updated_callback(base::OnceClosure callback) {
-    on_refresh_token_updated_callback_ = std::move(callback);
-  }
-  // This method uses a RepeatingCallback to simplify verification of multiple
-  // removed tokens.
-  void set_on_refresh_token_removed_callback(
-      base::RepeatingCallback<void(const std::string&)> callback) {
-    on_refresh_token_removed_callback_ = std::move(callback);
-  }
-  void set_on_error_state_of_refresh_token_updated_callback(
-      base::OnceClosure callback) {
-    on_error_state_of_refresh_token_updated_callback_ = std::move(callback);
-  }
-
-  void set_on_refresh_tokens_loaded_callback(base::OnceClosure callback) {
-    on_refresh_tokens_loaded_callback_ = std::move(callback);
-  }
-
-  const AccountInfo& account_from_refresh_token_updated_callback() {
-    return account_from_refresh_token_updated_callback_;
-  }
-  const std::string& account_from_refresh_token_removed_callback() {
-    return account_from_refresh_token_removed_callback_;
-  }
-  const AccountInfo&
-  account_from_error_state_of_refresh_token_updated_callback() {
-    return account_from_error_state_of_refresh_token_updated_callback_;
-  }
-  const GoogleServiceAuthError&
-  error_from_error_state_of_refresh_token_updated_callback() const {
-    return error_from_error_state_of_refresh_token_updated_callback_;
-  }
-
-  void set_on_accounts_in_cookie_updated_callback(base::OnceClosure callback) {
-    on_accounts_in_cookie_updated_callback_ = std::move(callback);
-  }
-
-  const AccountsInCookieJarInfo& accounts_info_from_cookie_change_callback() {
-    return accounts_info_from_cookie_change_callback_;
-  }
-
-  const std::string& account_from_add_account_to_cookie_completed_callback()
-      const {
-    return account_from_add_account_to_cookie_completed_callback_;
-  }
-
-  const GoogleServiceAuthError&
-  error_from_add_account_to_cookie_completed_callback() const {
-    return error_from_add_account_to_cookie_completed_callback_;
-  }
-
-  const GoogleServiceAuthError& error_from_signin_failed_callback() const {
-    return google_signin_failed_error_;
-  }
-
-  // Each element represents all the changes from an individual batch that has
-  // occurred, with the elements ordered from oldest to newest batch occurrence.
-  const std::vector<std::vector<std::string>>& batch_change_records() const {
-    return batch_change_records_;
-  }
-
-  const AccountInfo& account_from_account_updated_callback() {
-    return account_from_account_updated_callback_;
-  }
-
-  const AccountInfo& account_from_account_removed_with_info_callback() {
-    return account_from_account_removed_with_info_callback_;
-  }
-
-  bool was_called_account_removed_with_info_callback() {
-    return was_called_account_removed_with_info_callback_;
-  }
-
- private:
-  // IdentityManager::Observer:
-  void OnPrimaryAccountSet(const AccountInfo& primary_account_info) override {
-    primary_account_from_set_callback_ = primary_account_info;
-    if (on_primary_account_set_callback_)
-      std::move(on_primary_account_set_callback_).Run();
-  }
-  void OnPrimaryAccountCleared(
-      const AccountInfo& previous_primary_account_info) override {
-    primary_account_from_cleared_callback_ = previous_primary_account_info;
-    if (on_primary_account_cleared_callback_)
-      std::move(on_primary_account_cleared_callback_).Run();
-  }
-  void OnPrimaryAccountSigninFailed(
-      const GoogleServiceAuthError& error) override {
-    google_signin_failed_error_ = error;
-    if (on_primary_account_signin_failed_callback_)
-      std::move(on_primary_account_signin_failed_callback_).Run();
-  }
-  void OnRefreshTokenUpdatedForAccount(
-      const AccountInfo& account_info) override {
-    EXPECT_TRUE(is_inside_batch_);
-    batch_change_records_.rbegin()->emplace_back(account_info.account_id);
-    account_from_refresh_token_updated_callback_ = account_info;
-    if (on_refresh_token_updated_callback_)
-      std::move(on_refresh_token_updated_callback_).Run();
-  }
-  void OnRefreshTokenRemovedForAccount(const std::string& account_id) override {
-    EXPECT_TRUE(is_inside_batch_);
-    batch_change_records_.rbegin()->emplace_back(account_id);
-    account_from_refresh_token_removed_callback_ = account_id;
-    if (on_refresh_token_removed_callback_)
-      on_refresh_token_removed_callback_.Run(account_id);
-  }
-  void OnErrorStateOfRefreshTokenUpdatedForAccount(
-      const AccountInfo& account_info,
-      const GoogleServiceAuthError& error) override {
-    account_from_error_state_of_refresh_token_updated_callback_ = account_info;
-    error_from_error_state_of_refresh_token_updated_callback_ = error;
-    if (on_error_state_of_refresh_token_updated_callback_)
-      std::move(on_error_state_of_refresh_token_updated_callback_).Run();
-  }
-  void OnRefreshTokensLoaded() override {
-    if (on_refresh_tokens_loaded_callback_)
-      std::move(on_refresh_tokens_loaded_callback_).Run();
-  }
-  void OnAccountsInCookieUpdated(
-      const AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
-      const GoogleServiceAuthError& error) override {
-    accounts_info_from_cookie_change_callback_ = accounts_in_cookie_jar_info;
-    if (on_accounts_in_cookie_updated_callback_)
-      std::move(on_accounts_in_cookie_updated_callback_).Run();
-  }
-  void OnAddAccountToCookieCompleted(
-      const std::string& account_id,
-      const GoogleServiceAuthError& error) override {
-    account_from_add_account_to_cookie_completed_callback_ = account_id;
-    error_from_add_account_to_cookie_completed_callback_ = error;
-  }
-
-  void OnStartBatchOfRefreshTokenStateChanges() override {
-    EXPECT_FALSE(is_inside_batch_);
-    is_inside_batch_ = true;
-
-    // Start a new batch.
-    batch_change_records_.emplace_back(std::vector<std::string>());
-  }
-  void OnEndBatchOfRefreshTokenStateChanges() override {
-    EXPECT_TRUE(is_inside_batch_);
-    is_inside_batch_ = false;
-  }
-
-  void OnAccountUpdated(const AccountInfo& info) override {
-    account_from_account_updated_callback_ = info;
-  }
-
-  void OnAccountRemovedWithInfo(const AccountInfo& info) override {
-    was_called_account_removed_with_info_callback_ = true;
-    account_from_account_removed_with_info_callback_ = info;
-  }
-
-  IdentityManager* identity_manager_;
-  base::OnceClosure on_primary_account_set_callback_;
-  base::OnceClosure on_primary_account_cleared_callback_;
-  base::OnceClosure on_primary_account_signin_failed_callback_;
-  base::OnceClosure on_refresh_token_updated_callback_;
-  base::RepeatingCallback<void(const std::string&)>
-      on_refresh_token_removed_callback_;
-  base::OnceClosure on_error_state_of_refresh_token_updated_callback_;
-  base::OnceClosure on_refresh_tokens_loaded_callback_;
-  base::OnceClosure on_accounts_in_cookie_updated_callback_;
-  AccountInfo primary_account_from_set_callback_;
-  AccountInfo primary_account_from_cleared_callback_;
-  AccountInfo account_from_refresh_token_updated_callback_;
-  std::string account_from_refresh_token_removed_callback_;
-  AccountInfo account_from_error_state_of_refresh_token_updated_callback_;
-  AccountInfo account_from_account_updated_callback_;
-  AccountInfo account_from_account_removed_with_info_callback_;
-  GoogleServiceAuthError
-      error_from_error_state_of_refresh_token_updated_callback_;
-  AccountsInCookieJarInfo accounts_info_from_cookie_change_callback_;
-  std::string account_from_add_account_to_cookie_completed_callback_;
-  GoogleServiceAuthError error_from_add_account_to_cookie_completed_callback_;
-  GoogleServiceAuthError google_signin_failed_error_;
-  bool is_inside_batch_ = false;
-  bool was_called_account_removed_with_info_callback_ = false;
-  std::vector<std::vector<std::string>> batch_change_records_;
-};
-
 class TestIdentityManagerDiagnosticsObserver
     : IdentityManager::DiagnosticsObserver {
  public:
@@ -416,6 +238,11 @@ class TestIdentityManagerDiagnosticsObserver
     on_access_token_requested_callback_ = std::move(callback);
   }
 
+  void set_on_access_token_request_completed_callback(
+      base::OnceClosure callback) {
+    on_access_token_request_completed_callback_ = std::move(callback);
+  }
+
   const std::string& token_requestor_account_id() {
     return token_requestor_account_id_;
   }
@@ -424,6 +251,24 @@ class TestIdentityManagerDiagnosticsObserver
   }
   const identity::ScopeSet& token_requestor_scopes() {
     return token_requestor_scopes_;
+  }
+  const std::string& token_remover_account_id() {
+    return token_remover_account_id_;
+  }
+  const identity::ScopeSet& token_remover_scopes() {
+    return token_remover_scopes_;
+  }
+  const std::string& on_access_token_request_completed_account_id() {
+    return access_token_request_completed_account_id_;
+  }
+  const std::string& on_access_token_request_completed_consumer_id() {
+    return access_token_request_completed_consumer_id_;
+  }
+  const identity::ScopeSet& on_access_token_request_completed_scopes() {
+    return access_token_request_completed_scopes_;
+  }
+  const GoogleServiceAuthError& on_access_token_request_completed_error() {
+    return access_token_request_completed_error_;
   }
 
  private:
@@ -439,33 +284,78 @@ class TestIdentityManagerDiagnosticsObserver
       std::move(on_access_token_requested_callback_).Run();
   }
 
+  void OnAccessTokenRemovedFromCache(const std::string& account_id,
+                                     const ScopeSet& scopes) override {
+    token_remover_account_id_ = account_id;
+    token_remover_scopes_ = scopes;
+  }
+
+  void OnAccessTokenRequestCompleted(const std::string& account_id,
+                                     const std::string& consumer_id,
+                                     const ScopeSet& scopes,
+                                     GoogleServiceAuthError error,
+                                     base::Time expiration_time) override {
+    access_token_request_completed_account_id_ = account_id;
+    access_token_request_completed_consumer_id_ = consumer_id;
+    access_token_request_completed_scopes_ = scopes;
+    access_token_request_completed_error_ = error;
+
+    if (on_access_token_request_completed_callback_)
+      std::move(on_access_token_request_completed_callback_).Run();
+  }
+
   IdentityManager* identity_manager_;
   base::OnceClosure on_access_token_requested_callback_;
+  base::OnceClosure on_access_token_request_completed_callback_;
   std::string token_requestor_account_id_;
   std::string token_requestor_consumer_id_;
+  std::string token_remover_account_id_;
   identity::ScopeSet token_requestor_scopes_;
+  identity::ScopeSet token_remover_scopes_;
+  std::string access_token_request_completed_account_id_;
+  std::string access_token_request_completed_consumer_id_;
+  identity::ScopeSet access_token_request_completed_scopes_;
+  GoogleServiceAuthError access_token_request_completed_error_;
 };
 
 }  // namespace
 
 class IdentityManagerTest : public testing::Test {
- public:
+ protected:
   IdentityManagerTest()
       : signin_client_(&pref_service_),
         token_service_(&pref_service_),
-        gaia_cookie_manager_service_(&token_service_,
-                                     &signin_client_,
-                                     &test_url_loader_factory_) {
+        gaia_cookie_manager_service_(
+            &token_service_,
+            &signin_client_,
+            base::BindRepeating(
+                [](network::TestURLLoaderFactory* test_url_loader_factory)
+                    -> scoped_refptr<network::SharedURLLoaderFactory> {
+                  return test_url_loader_factory->GetSafeWeakWrapper();
+                },
+                test_url_loader_factory())) {
     AccountTrackerService::RegisterPrefs(pref_service_.registry());
+    AccountFetcherService::RegisterPrefs(pref_service_.registry());
     ProfileOAuth2TokenService::RegisterProfilePrefs(pref_service_.registry());
     SigninManagerBase::RegisterProfilePrefs(pref_service_.registry());
     SigninManagerBase::RegisterPrefs(pref_service_.registry());
 
     account_tracker_.Initialize(&pref_service_, base::FilePath());
+    account_fetcher_.Initialize(&signin_client_, &token_service_,
+                                &account_tracker_,
+                                std::make_unique<TestImageDecoder>());
 
     RecreateSigninAndIdentityManager(
         signin::AccountConsistencyMethod::kDisabled,
         SigninManagerSetup::kWithAuthenticatedAccout);
+  }
+
+  ~IdentityManagerTest() override {
+    signin_client_.Shutdown();
+    token_service_.Shutdown();
+    gaia_cookie_manager_service_.Shutdown();
+    account_tracker_.Shutdown();
+    account_fetcher_.Shutdown();
   }
 
   IdentityManager* identity_manager() { return identity_manager_.get(); }
@@ -477,11 +367,12 @@ class IdentityManagerTest : public testing::Test {
     return identity_manager_diagnostics_observer_.get();
   }
   AccountTrackerServiceForTest* account_tracker() { return &account_tracker_; }
-  SigninManagerForTest* signin_manager() { return signin_manager_.get(); }
+  AccountFetcherService* account_fetcher() { return &account_fetcher_; }
+  SigninManagerBase* signin_manager() { return signin_manager_.get(); }
   CustomFakeProfileOAuth2TokenService* token_service() {
     return &token_service_;
   }
-  FakeGaiaCookieManagerService* gaia_cookie_manager_service() {
+  GaiaCookieManagerService* gaia_cookie_manager_service() {
     return &gaia_cookie_manager_service_;
   }
 
@@ -514,10 +405,10 @@ class IdentityManagerTest : public testing::Test {
 #if defined(OS_CHROMEOS)
     DCHECK_EQ(account_consistency, signin::AccountConsistencyMethod::kDisabled)
         << "AccountConsistency is not used by SigninManagerBase";
-    signin_manager_ = std::make_unique<FakeSigninManagerBase>(
+    signin_manager_ = std::make_unique<SigninManagerBase>(
         &signin_client_, &token_service_, &account_tracker_);
 #else
-    signin_manager_ = std::make_unique<FakeSigninManager>(
+    signin_manager_ = std::make_unique<SigninManager>(
         &signin_client_, &token_service_, &account_tracker_,
         &gaia_cookie_manager_service_, account_consistency);
 #endif
@@ -550,8 +441,12 @@ class IdentityManagerTest : public testing::Test {
     identity_manager_.reset();
 
     identity_manager_.reset(new IdentityManager(
-        signin_manager_.get(), &token_service_, &account_tracker_,
-        &gaia_cookie_manager_service_, nullptr, nullptr));
+        signin_manager_.get(), &token_service_, &account_fetcher_,
+        &account_tracker_, &gaia_cookie_manager_service_, nullptr, nullptr,
+        std::make_unique<AccountsCookieMutatorImpl>(
+            &gaia_cookie_manager_service_),
+        std::make_unique<DiagnosticsProviderImpl>(
+            &token_service_, &gaia_cookie_manager_service_)));
     identity_manager_observer_.reset(
         new TestIdentityManagerObserver(identity_manager_.get()));
     identity_manager_diagnostics_observer_.reset(
@@ -569,15 +464,34 @@ class IdentityManagerTest : public testing::Test {
     consumer->OnMergeSessionFailure(error);
   }
 
+  void SimulateCookieDeletedByUser(
+      network::mojom::CookieChangeListener* listener,
+      const net::CanonicalCookie& cookie) {
+    listener->OnCookieChange(cookie,
+                             network::mojom::CookieChangeCause::EXPLICIT);
+  }
+
+  void SimulateOAuthMultiloginFinished(GaiaAuthConsumer* consumer,
+                                       const OAuthMultiloginResult& result) {
+    consumer->OnOAuthMultiloginFinished(result);
+  }
+
+  TestSigninClient* signin_client() { return &signin_client_; }
+
+  network::TestURLLoaderFactory* test_url_loader_factory() {
+    return &test_url_loader_factory_;
+  }
+
  private:
   base::MessageLoop message_loop_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   AccountTrackerServiceForTest account_tracker_;
+  AccountFetcherService account_fetcher_;
   TestSigninClient signin_client_;
   CustomFakeProfileOAuth2TokenService token_service_;
   network::TestURLLoaderFactory test_url_loader_factory_;
-  FakeGaiaCookieManagerService gaia_cookie_manager_service_;
-  std::unique_ptr<SigninManagerForTest> signin_manager_;
+  GaiaCookieManagerService gaia_cookie_manager_service_;
+  std::unique_ptr<SigninManagerBase> signin_manager_;
   std::unique_ptr<IdentityManager> identity_manager_;
   std::unique_ptr<TestIdentityManagerObserver> identity_manager_observer_;
   std::unique_ptr<TestIdentityManagerDiagnosticsObserver>
@@ -588,7 +502,7 @@ class IdentityManagerTest : public testing::Test {
 
 // Test that IdentityManager starts off with the information in SigninManager.
 TEST_F(IdentityManagerTest, PrimaryAccountInfoAtStartup) {
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   EXPECT_EQ(kTestGaiaId, primary_account_info.gaia);
   EXPECT_EQ(kTestEmail, primary_account_info.email);
@@ -600,19 +514,16 @@ TEST_F(IdentityManagerTest, PrimaryAccountInfoAtStartup) {
 // Test that the user signing in results in firing of the IdentityManager
 // observer callback and the IdentityManager's state being updated.
 TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSignin) {
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_set_callback(
-      run_loop.QuitClosure());
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
-  signin_manager()->SignIn(kTestGaiaId, kTestEmail, "password");
-  run_loop.Run();
+  SetPrimaryAccount(identity_manager(), kTestEmail);
 
-  AccountInfo primary_account_from_set_callback =
-      identity_manager_observer()->primary_account_from_set_callback();
+  CoreAccountInfo primary_account_from_set_callback =
+      identity_manager_observer()->PrimaryAccountFromSetCallback();
   EXPECT_EQ(kTestGaiaId, primary_account_from_set_callback.gaia);
   EXPECT_EQ(kTestEmail, primary_account_from_set_callback.email);
 
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   EXPECT_EQ(kTestGaiaId, primary_account_info.gaia);
   EXPECT_EQ(kTestEmail, primary_account_info.email);
@@ -625,29 +536,21 @@ TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSignin) {
 // Test that the user signing out results in firing of the IdentityManager
 // observer callback and the IdentityManager's state being updated.
 TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSigninAndSignout) {
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
   // First ensure that the user is signed in from the POV of the
   // IdentityManager.
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_set_callback(
-      run_loop.QuitClosure());
-  signin_manager()->SignIn(kTestGaiaId, kTestEmail, "password");
-  run_loop.Run();
+  SetPrimaryAccount(identity_manager(), kTestEmail);
 
   // Sign the user out and check that the IdentityManager responds
   // appropriately.
-  base::RunLoop run_loop2;
-  identity_manager_observer()->set_on_primary_account_cleared_callback(
-      run_loop2.QuitClosure());
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
-  signin_manager()->ForceSignOut();
-  run_loop2.Run();
-
-  AccountInfo primary_account_from_cleared_callback =
-      identity_manager_observer()->primary_account_from_cleared_callback();
+  CoreAccountInfo primary_account_from_cleared_callback =
+      identity_manager_observer()->PrimaryAccountFromClearedCallback();
   EXPECT_EQ(kTestGaiaId, primary_account_from_cleared_callback.gaia);
   EXPECT_EQ(kTestEmail, primary_account_from_cleared_callback.email);
 
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   EXPECT_EQ("", primary_account_info.gaia);
   EXPECT_EQ("", primary_account_info.email);
@@ -660,20 +563,17 @@ TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSigninAndSignout) {
 // Test that the primary account's ID remains tracked by the IdentityManager
 // after signing in even after having removed the account without signing out.
 TEST_F(IdentityManagerTest, PrimaryAccountInfoAfterSigninAndAccountRemoval) {
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
   // First ensure that the user is signed in from the POV of the
   // IdentityManager.
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_set_callback(
-      run_loop.QuitClosure());
-  signin_manager()->SignIn(kTestGaiaId, kTestEmail, "password");
-  run_loop.Run();
+  SetPrimaryAccount(identity_manager(), kTestEmail);
 
   // Remove the account from the AccountTrackerService and check that
   // the returned AccountInfo won't have a valid ID anymore, even if
   // the IdentityManager is still storing the primary account's ID.
   account_tracker()->RemoveAccount(kTestGaiaId);
 
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   EXPECT_EQ("", primary_account_info.gaia);
   EXPECT_EQ("", primary_account_info.email);
@@ -695,12 +595,7 @@ TEST_F(IdentityManagerTest, HasPrimaryAccount) {
 #if !defined(OS_CHROMEOS)
   // Signing out should cause IdentityManager to recognize that there is no
   // longer a primary account.
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_cleared_callback(
-      run_loop.QuitClosure());
-
-  signin_manager()->ForceSignOut();
-  run_loop.Run();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
   EXPECT_FALSE(identity_manager()->HasPrimaryAccount());
 #endif
 }
@@ -743,7 +638,7 @@ TEST_F(IdentityManagerTest, GetAccountsInteractionWithPrimaryAccount) {
 
 TEST_F(IdentityManagerTest,
        QueryingOfRefreshTokensInteractionWithPrimaryAccount) {
-  AccountInfo account_info = identity_manager()->GetPrimaryAccountInfo();
+  CoreAccountInfo account_info = identity_manager()->GetPrimaryAccountInfo();
   std::string account_id = account_info.account_id;
 
   // Should not have a refresh token for the primary account at initialization.
@@ -806,7 +701,7 @@ TEST_F(IdentityManagerTest, GetAccountsReflectsNonemptyInitialState) {
 
 TEST_F(IdentityManagerTest,
        QueryingOfRefreshTokensReflectsNonemptyInitialState) {
-  AccountInfo account_info = identity_manager()->GetPrimaryAccountInfo();
+  CoreAccountInfo account_info = identity_manager()->GetPrimaryAccountInfo();
   std::string account_id = account_info.account_id;
 
   EXPECT_FALSE(
@@ -1049,7 +944,7 @@ TEST_F(
 TEST_F(
     IdentityManagerTest,
     HasAccountWithRefreshTokenInteractionBetweenPrimaryAndSecondaryAccounts) {
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   std::string primary_account_id = primary_account_info.account_id;
 
@@ -1091,7 +986,7 @@ TEST_F(
 
 TEST_F(IdentityManagerTest,
        CallbackSentOnUpdateToErrorStateOfRefreshTokenForAccount) {
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   std::string primary_account_id = primary_account_info.account_id;
   SetRefreshTokenForPrimaryAccount(identity_manager());
@@ -1114,22 +1009,22 @@ TEST_F(IdentityManagerTest,
                                              account_deleted_error);
   EXPECT_EQ(account_id2,
             identity_manager_observer()
-                ->account_from_error_state_of_refresh_token_updated_callback()
+                ->AccountFromErrorStateOfRefreshTokenUpdatedCallback()
                 .account_id);
   EXPECT_EQ(account_deleted_error,
             identity_manager_observer()
-                ->error_from_error_state_of_refresh_token_updated_callback());
+                ->ErrorFromErrorStateOfRefreshTokenUpdatedCallback());
 
   // A transient error should not cause a callback.
   token_service()->UpdateAuthErrorForTesting(primary_account_id,
                                              transient_error);
   EXPECT_EQ(account_id2,
             identity_manager_observer()
-                ->account_from_error_state_of_refresh_token_updated_callback()
+                ->AccountFromErrorStateOfRefreshTokenUpdatedCallback()
                 .account_id);
   EXPECT_EQ(account_deleted_error,
             identity_manager_observer()
-                ->error_from_error_state_of_refresh_token_updated_callback());
+                ->ErrorFromErrorStateOfRefreshTokenUpdatedCallback());
 
   // Set a different persistent error for the primary account and check that
   // it's reflected.
@@ -1137,15 +1032,15 @@ TEST_F(IdentityManagerTest,
                                              account_disabled_error);
   EXPECT_EQ(primary_account_id,
             identity_manager_observer()
-                ->account_from_error_state_of_refresh_token_updated_callback()
+                ->AccountFromErrorStateOfRefreshTokenUpdatedCallback()
                 .account_id);
   EXPECT_EQ(account_disabled_error,
             identity_manager_observer()
-                ->error_from_error_state_of_refresh_token_updated_callback());
+                ->ErrorFromErrorStateOfRefreshTokenUpdatedCallback());
 }
 
 TEST_F(IdentityManagerTest, GetErrorStateOfRefreshTokenForAccount) {
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   std::string primary_account_id = primary_account_info.account_id;
 
@@ -1270,6 +1165,14 @@ TEST_F(IdentityManagerTest, RemoveAccessTokenFromCache) {
                                                  access_token);
 
   run_loop.Run();
+
+  // RemoveAccessTokenFromCache should lead to OnAccessTokenRemovedFromCache
+  // from IdentityManager::DiagnosticsObserver.
+  EXPECT_EQ(
+      account_id,
+      identity_manager_diagnostics_observer()->token_remover_account_id());
+  EXPECT_EQ(scopes,
+            identity_manager_diagnostics_observer()->token_remover_scopes());
 }
 
 TEST_F(IdentityManagerTest, CreateAccessTokenFetcher) {
@@ -1278,7 +1181,7 @@ TEST_F(IdentityManagerTest, CreateAccessTokenFetcher) {
       [](GoogleServiceAuthError error, AccessTokenInfo access_token_info) {});
   std::unique_ptr<AccessTokenFetcher> token_fetcher =
       identity_manager()->CreateAccessTokenFetcherForAccount(
-          identity_manager()->GetPrimaryAccountId(), "dummy_consumer", scopes,
+          identity_manager()->GetPrimaryAccountId(), kTestConsumerId, scopes,
           std::move(callback), AccessTokenFetcher::Mode::kImmediate);
   EXPECT_TRUE(token_fetcher);
 }
@@ -1305,7 +1208,7 @@ TEST_F(IdentityManagerTest,
           &test_url_loader_factory));
   std::unique_ptr<AccessTokenFetcher> token_fetcher =
       identity_manager()->CreateAccessTokenFetcherForAccount(
-          account_id, "dummy_consumer", test_shared_url_loader_factory, scopes,
+          account_id, kTestConsumerId, test_shared_url_loader_factory, scopes,
           std::move(callback), AccessTokenFetcher::Mode::kImmediate);
 
   run_loop.Run();
@@ -1323,7 +1226,7 @@ TEST_F(IdentityManagerTest,
       account_id,
       identity_manager_diagnostics_observer()->token_requestor_account_id());
   EXPECT_EQ(
-      "dummy_consumer",
+      kTestConsumerId,
       identity_manager_diagnostics_observer()->token_requestor_consumer_id());
 
   // Cancel the pending request in preparation to check that creating an
@@ -1346,7 +1249,7 @@ TEST_F(IdentityManagerTest,
   // No changes to the declared scopes and callback, we can reuse them.
   std::unique_ptr<AccessTokenFetcher> token_fetcher2 =
       identity_manager()->CreateAccessTokenFetcherForAccount(
-          account_id2, "dummy_consumer 2", scopes, std::move(callback),
+          account_id2, kTestConsumerId2, scopes, std::move(callback),
           AccessTokenFetcher::Mode::kImmediate);
 
   run_loop2.Run();
@@ -1367,7 +1270,7 @@ TEST_F(IdentityManagerTest,
       account_id2,
       identity_manager_diagnostics_observer()->token_requestor_account_id());
   EXPECT_EQ(
-      "dummy_consumer 2",
+      kTestConsumerId2,
       identity_manager_diagnostics_observer()->token_requestor_consumer_id());
 }
 
@@ -1385,7 +1288,7 @@ TEST_F(IdentityManagerTest, ObserveAccessTokenFetch) {
       [](GoogleServiceAuthError error, AccessTokenInfo access_token_info) {});
   std::unique_ptr<AccessTokenFetcher> token_fetcher =
       identity_manager()->CreateAccessTokenFetcherForAccount(
-          identity_manager()->GetPrimaryAccountId(), "dummy_consumer", scopes,
+          identity_manager()->GetPrimaryAccountId(), kTestConsumerId, scopes,
           std::move(callback), AccessTokenFetcher::Mode::kImmediate);
 
   run_loop.Run();
@@ -1394,22 +1297,117 @@ TEST_F(IdentityManagerTest, ObserveAccessTokenFetch) {
       account_id,
       identity_manager_diagnostics_observer()->token_requestor_account_id());
   EXPECT_EQ(
-      "dummy_consumer",
+      kTestConsumerId,
       identity_manager_diagnostics_observer()->token_requestor_consumer_id());
   EXPECT_EQ(scopes,
             identity_manager_diagnostics_observer()->token_requestor_scopes());
+}
+
+TEST_F(IdentityManagerTest,
+       ObserveAccessTokenRequestCompletionWithoutRefreshToken) {
+  base::RunLoop run_loop;
+  identity_manager_diagnostics_observer()
+      ->set_on_access_token_request_completed_callback(run_loop.QuitClosure());
+
+  std::set<std::string> scopes{"scope"};
+  AccessTokenFetcher::TokenCallback callback = base::BindOnce(
+      [](GoogleServiceAuthError error, AccessTokenInfo access_token_info) {});
+  // Account has no refresh token.
+  std::unique_ptr<AccessTokenFetcher> token_fetcher =
+      identity_manager()->CreateAccessTokenFetcherForAccount(
+          identity_manager()->GetPrimaryAccountId(), kTestConsumerId, scopes,
+          std::move(callback), AccessTokenFetcher::Mode::kImmediate);
+
+  run_loop.Run();
+
+  EXPECT_TRUE(token_fetcher);
+  EXPECT_EQ(GoogleServiceAuthError(GoogleServiceAuthError::USER_NOT_SIGNED_UP),
+            identity_manager_diagnostics_observer()
+                ->on_access_token_request_completed_error());
+}
+
+TEST_F(IdentityManagerTest,
+       ObserveAccessTokenRequestCompletionWithRefreshToken) {
+  base::RunLoop run_loop;
+  identity_manager_diagnostics_observer()
+      ->set_on_access_token_request_completed_callback(run_loop.QuitClosure());
+
+  signin_manager()->SetAuthenticatedAccountInfo(kTestGaiaId, kTestEmail);
+  std::string account_id = signin_manager()->GetAuthenticatedAccountId();
+  token_service()->UpdateCredentials(account_id, "refresh_token");
+  token_service()->set_auto_post_fetch_response_on_message_loop(true);
+
+  std::set<std::string> scopes{"scope"};
+  AccessTokenFetcher::TokenCallback callback = base::BindOnce(
+      [](GoogleServiceAuthError error, AccessTokenInfo access_token_info) {});
+  // This should result in a request for an access token without an error.
+  std::unique_ptr<AccessTokenFetcher> token_fetcher =
+      identity_manager()->CreateAccessTokenFetcherForAccount(
+          identity_manager()->GetPrimaryAccountId(), kTestConsumerId, scopes,
+          std::move(callback), AccessTokenFetcher::Mode::kImmediate);
+
+  run_loop.Run();
+
+  EXPECT_TRUE(token_fetcher);
+  EXPECT_EQ(account_id, identity_manager_diagnostics_observer()
+                            ->on_access_token_request_completed_account_id());
+  EXPECT_EQ(kTestConsumerId,
+            identity_manager_diagnostics_observer()
+                ->on_access_token_request_completed_consumer_id());
+  EXPECT_EQ(scopes, identity_manager_diagnostics_observer()
+                        ->on_access_token_request_completed_scopes());
+  EXPECT_EQ(GoogleServiceAuthError(GoogleServiceAuthError::NONE),
+            identity_manager_diagnostics_observer()
+                ->on_access_token_request_completed_error());
+}
+
+TEST_F(IdentityManagerTest,
+       ObserveAccessTokenRequestCompletionAfterRevokingRefreshToken) {
+  base::RunLoop run_loop;
+  identity_manager_diagnostics_observer()
+      ->set_on_access_token_request_completed_callback(run_loop.QuitClosure());
+
+  account_tracker()->SeedAccountInfo(kTestGaiaId2, kTestEmail2);
+  std::string account_id2 =
+      account_tracker()->FindAccountInfoByGaiaId(kTestGaiaId2).account_id;
+  token_service()->UpdateCredentials(account_id2, "refresh_token");
+
+  std::set<std::string> scopes{"scope"};
+  AccessTokenFetcher::TokenCallback callback = base::BindOnce(
+      [](GoogleServiceAuthError error, AccessTokenInfo access_token_info) {});
+  // This should result in a request for an access token.
+  std::unique_ptr<AccessTokenFetcher> token_fetcher =
+      identity_manager()->CreateAccessTokenFetcherForAccount(
+          account_id2, kTestConsumerId2, scopes, std::move(callback),
+          AccessTokenFetcher::Mode::kImmediate);
+
+  // Revoke the refresh token result cancelling access token request.
+  token_service()->RevokeCredentials(account_id2);
+
+  run_loop.Run();
+
+  EXPECT_TRUE(token_fetcher);
+  EXPECT_EQ(GoogleServiceAuthError(GoogleServiceAuthError::REQUEST_CANCELED),
+            identity_manager_diagnostics_observer()
+                ->on_access_token_request_completed_error());
+}
+
+TEST_F(IdentityManagerTest, GetAccountsCookieMutator) {
+  AccountsCookieMutator* mutator =
+      identity_manager()->GetAccountsCookieMutator();
+  EXPECT_TRUE(mutator);
 }
 
 // Tests that requesting a load of accounts results in the notification
 // firing that tokens were loaded.
 TEST_F(IdentityManagerTest, LegacyLoadCredentials) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_refresh_tokens_loaded_callback(
+  identity_manager_observer()->SetOnRefreshTokensLoadedCallback(
       run_loop.QuitClosure());
 
   // Load the accounts and ensure that we see the resulting notification that
   // they were loaded.
-  identity_manager()->LegacyLoadCredentials("");
+  identity_manager()->LegacyLoadCredentialsForSupervisedUser("");
   run_loop.Run();
 }
 
@@ -1436,11 +1434,25 @@ TEST_F(IdentityManagerTest, LegacySeedAccountInfo) {
   EXPECT_EQ(account_info.gaia, kTestGaiaId2);
 }
 
+#if defined(OS_IOS)
+TEST_F(IdentityManagerTest, ForceTriggerOnCookieChange) {
+  base::RunLoop run_loop;
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
+      run_loop.QuitClosure());
+
+  signin::SetListAccountsResponseNoAccounts(test_url_loader_factory());
+  // Forces the processing of OnCookieChange and it calls
+  // OnGaiaAccountsInCookieUpdated.
+  identity_manager()->ForceTriggerOnCookieChange();
+  run_loop.Run();
+}
+#endif
+
 #if !defined(OS_CHROMEOS)
 TEST_F(
     IdentityManagerTest,
     IdentityManagerGivesConsistentValuesFromSigninManagerObserverNotificationOfSignIn) {
-  signin_manager()->ForceSignOut();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
   base::RunLoop run_loop;
   TestSigninManagerObserver signin_manager_observer(signin_manager());
@@ -1455,10 +1467,12 @@ TEST_F(
   RecreateIdentityManager();
   signin_manager_observer.set_identity_manager(identity_manager());
 
-  signin_manager()->SignIn(kTestGaiaId, kTestEmail, "password");
+  SigninManager::FromSigninManagerBase(signin_manager())
+      ->OnExternalSigninCompleted(kTestEmail);
+
   run_loop.Run();
 
-  AccountInfo primary_account_from_signin_callback =
+  CoreAccountInfo primary_account_from_signin_callback =
       signin_manager_observer.primary_account_from_signin_callback();
   EXPECT_EQ(kTestGaiaId, primary_account_from_signin_callback.gaia);
   EXPECT_EQ(kTestEmail, primary_account_from_signin_callback.email);
@@ -1480,10 +1494,10 @@ TEST_F(
   RecreateIdentityManager();
   signin_manager_observer.set_identity_manager(identity_manager());
 
-  signin_manager()->ForceSignOut();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
   run_loop.Run();
 
-  AccountInfo primary_account_from_signout_callback =
+  CoreAccountInfo primary_account_from_signout_callback =
       signin_manager_observer.primary_account_from_signout_callback();
   EXPECT_EQ(std::string(), primary_account_from_signout_callback.gaia);
   EXPECT_EQ(std::string(), primary_account_from_signout_callback.email);
@@ -1500,7 +1514,7 @@ TEST_F(
 // IdentityManager correctly reflects the updated version. See crbug.com/842041
 // and crbug.com/842670 for further details.
 TEST_F(IdentityManagerTest, IdentityManagerReflectsUpdatedEmailAddress) {
-  AccountInfo primary_account_info =
+  CoreAccountInfo primary_account_info =
       identity_manager()->GetPrimaryAccountInfo();
   EXPECT_EQ(kTestGaiaId, primary_account_info.gaia);
   EXPECT_EQ(kTestEmail, primary_account_info.email);
@@ -1526,9 +1540,8 @@ TEST_F(IdentityManagerTest,
 
   SetRefreshTokenForPrimaryAccount(identity_manager());
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(kTestGaiaId, account_info.gaia);
   EXPECT_EQ(kTestEmail, account_info.email);
 }
@@ -1539,9 +1552,8 @@ TEST_F(IdentityManagerTest,
 
   SetInvalidRefreshTokenForPrimaryAccount(identity_manager());
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(kTestGaiaId, account_info.gaia);
   EXPECT_EQ(kTestEmail, account_info.email);
 }
@@ -1553,8 +1565,9 @@ TEST_F(IdentityManagerTest, CallbackSentOnPrimaryAccountRefreshTokenRemoval) {
 
   RemoveRefreshTokenForPrimaryAccount(identity_manager());
 
-  EXPECT_EQ(account_id, identity_manager_observer()
-                            ->account_from_refresh_token_removed_callback());
+  EXPECT_EQ(
+      account_id,
+      identity_manager_observer()->AccountIdFromRefreshTokenRemovedCallback());
 }
 
 TEST_F(IdentityManagerTest,
@@ -1563,9 +1576,8 @@ TEST_F(IdentityManagerTest,
       MakeAccountAvailable(identity_manager(), kTestEmail2);
   EXPECT_EQ(kTestEmail2, expected_account_info.email);
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(expected_account_info.account_id, account_info.account_id);
   EXPECT_EQ(expected_account_info.gaia, account_info.gaia);
   EXPECT_EQ(expected_account_info.email, account_info.email);
@@ -1580,9 +1592,8 @@ TEST_F(IdentityManagerTest,
   SetInvalidRefreshTokenForAccount(identity_manager(),
                                    expected_account_info.account_id);
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(expected_account_info.account_id, account_info.account_id);
   EXPECT_EQ(expected_account_info.gaia, account_info.gaia);
   EXPECT_EQ(expected_account_info.email, account_info.email);
@@ -1596,28 +1607,23 @@ TEST_F(IdentityManagerTest, CallbackSentOnSecondaryAccountRefreshTokenRemoval) {
   RemoveRefreshTokenForAccount(identity_manager(),
                                expected_account_info.account_id);
 
-  EXPECT_EQ(expected_account_info.account_id,
-            identity_manager_observer()
-                ->account_from_refresh_token_removed_callback());
+  EXPECT_EQ(
+      expected_account_info.account_id,
+      identity_manager_observer()->AccountIdFromRefreshTokenRemovedCallback());
 }
 
 #if !defined(OS_CHROMEOS)
 TEST_F(
     IdentityManagerTest,
     CallbackSentOnSecondaryAccountRefreshTokenUpdateWithValidTokenWhenNoPrimaryAccount) {
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_cleared_callback(
-      run_loop.QuitClosure());
-  signin_manager()->ForceSignOut();
-  run_loop.Run();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
   AccountInfo expected_account_info =
       MakeAccountAvailable(identity_manager(), kTestEmail2);
   EXPECT_EQ(kTestEmail2, expected_account_info.email);
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(expected_account_info.account_id, account_info.account_id);
   EXPECT_EQ(expected_account_info.gaia, account_info.gaia);
   EXPECT_EQ(expected_account_info.email, account_info.email);
@@ -1626,11 +1632,7 @@ TEST_F(
 TEST_F(
     IdentityManagerTest,
     CallbackSentOnSecondaryAccountRefreshTokenUpdateWithInvalidTokenWhenNoPrimaryAccount) {
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_cleared_callback(
-      run_loop.QuitClosure());
-  signin_manager()->ForceSignOut();
-  run_loop.Run();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
   AccountInfo expected_account_info =
       MakeAccountAvailable(identity_manager(), kTestEmail2);
@@ -1639,9 +1641,8 @@ TEST_F(
   SetInvalidRefreshTokenForAccount(identity_manager(),
                                    expected_account_info.account_id);
 
-  AccountInfo account_info =
-      identity_manager_observer()
-          ->account_from_refresh_token_updated_callback();
+  CoreAccountInfo account_info =
+      identity_manager_observer()->AccountFromRefreshTokenUpdatedCallback();
   EXPECT_EQ(expected_account_info.account_id, account_info.account_id);
   EXPECT_EQ(expected_account_info.gaia, account_info.gaia);
   EXPECT_EQ(expected_account_info.email, account_info.email);
@@ -1649,11 +1650,7 @@ TEST_F(
 
 TEST_F(IdentityManagerTest,
        CallbackSentOnSecondaryAccountRefreshTokenRemovalWhenNoPrimaryAccount) {
-  base::RunLoop run_loop;
-  identity_manager_observer()->set_on_primary_account_cleared_callback(
-      run_loop.QuitClosure());
-  signin_manager()->ForceSignOut();
-  run_loop.Run();
+  ClearPrimaryAccount(identity_manager(), ClearPrimaryAccountPolicy::DEFAULT);
 
   AccountInfo expected_account_info =
       MakeAccountAvailable(identity_manager(), kTestEmail2);
@@ -1662,9 +1659,9 @@ TEST_F(IdentityManagerTest,
   RemoveRefreshTokenForAccount(identity_manager(),
                                expected_account_info.account_id);
 
-  EXPECT_EQ(expected_account_info.account_id,
-            identity_manager_observer()
-                ->account_from_refresh_token_removed_callback());
+  EXPECT_EQ(
+      expected_account_info.account_id,
+      identity_manager_observer()->AccountIdFromRefreshTokenRemovedCallback());
 }
 #endif
 
@@ -1682,9 +1679,9 @@ TEST_F(IdentityManagerTest, CallbackSentOnRefreshTokenRemovalOfUnknownAccount) {
   token_service()->RevokeCredentials(dummy_account_id);
   run_loop.RunUntilIdle();
 
-  EXPECT_EQ(dummy_account_id,
-            identity_manager_observer()
-                ->account_from_refresh_token_removed_callback());
+  EXPECT_EQ(
+      dummy_account_id,
+      identity_manager_observer()->AccountIdFromRefreshTokenRemovedCallback());
 }
 
 TEST_F(
@@ -1750,7 +1747,7 @@ TEST_F(IdentityManagerTest, IdentityManagerGetsTokensLoadedEvent) {
   std::string account_id = signin_manager()->GetAuthenticatedAccountId();
 
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_refresh_tokens_loaded_callback(
+  identity_manager_observer()->SetOnRefreshTokensLoadedCallback(
       run_loop.QuitClosure());
 
   // Credentials are already loaded in SigninManager::Initialize()
@@ -1765,15 +1762,16 @@ TEST_F(IdentityManagerTest, IdentityManagerGetsTokensLoadedEvent) {
 TEST_F(IdentityManagerTest,
        CallbackSentOnUpdateToAccountsInCookieWithNoAccounts) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseNoAccounts();
+  signin::SetListAccountsResponseNoAccounts(test_url_loader_factory());
   gaia_cookie_manager_service()->TriggerListAccounts();
   run_loop.Run();
 
   const AccountsInCookieJarInfo& accounts_in_cookie_jar_info =
-      identity_manager_observer()->accounts_info_from_cookie_change_callback();
+      identity_manager_observer()
+          ->AccountsInfoFromAccountsInCookieUpdatedCallback();
   EXPECT_TRUE(accounts_in_cookie_jar_info.accounts_are_fresh);
   EXPECT_TRUE(accounts_in_cookie_jar_info.signed_in_accounts.empty());
 }
@@ -1781,16 +1779,17 @@ TEST_F(IdentityManagerTest,
 TEST_F(IdentityManagerTest,
        CallbackSentOnUpdateToAccountsInCookieWithOneAccount) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseOneAccount(kTestEmail,
-                                                                   kTestGaiaId);
+  signin::SetListAccountsResponseOneAccount(kTestEmail, kTestGaiaId,
+                                            test_url_loader_factory());
   gaia_cookie_manager_service()->TriggerListAccounts();
   run_loop.Run();
 
   const AccountsInCookieJarInfo& accounts_in_cookie_jar_info =
-      identity_manager_observer()->accounts_info_from_cookie_change_callback();
+      identity_manager_observer()
+          ->AccountsInfoFromAccountsInCookieUpdatedCallback();
   EXPECT_TRUE(accounts_in_cookie_jar_info.accounts_are_fresh);
   ASSERT_EQ(1u, accounts_in_cookie_jar_info.signed_in_accounts.size());
   ASSERT_TRUE(accounts_in_cookie_jar_info.signed_out_accounts.empty());
@@ -1807,16 +1806,18 @@ TEST_F(IdentityManagerTest,
 TEST_F(IdentityManagerTest,
        CallbackSentOnUpdateToAccountsInCookieWithTwoAccounts) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseTwoAccounts(
-      kTestEmail, kTestGaiaId, kTestEmail2, kTestGaiaId2);
+  signin::SetListAccountsResponseTwoAccounts(kTestEmail, kTestGaiaId,
+                                             kTestEmail2, kTestGaiaId2,
+                                             test_url_loader_factory());
   gaia_cookie_manager_service()->TriggerListAccounts();
   run_loop.Run();
 
   const AccountsInCookieJarInfo& accounts_in_cookie_jar_info =
-      identity_manager_observer()->accounts_info_from_cookie_change_callback();
+      identity_manager_observer()
+          ->AccountsInfoFromAccountsInCookieUpdatedCallback();
   EXPECT_TRUE(accounts_in_cookie_jar_info.accounts_are_fresh);
   ASSERT_EQ(2u, accounts_in_cookie_jar_info.signed_in_accounts.size());
   ASSERT_TRUE(accounts_in_cookie_jar_info.signed_out_accounts.empty());
@@ -1848,14 +1849,15 @@ TEST_F(IdentityManagerTest, CallbackSentOnUpdateToSignOutAccountsInCookie) {
 
   for (const auto& signed_out_status : signed_out_status_set) {
     base::RunLoop run_loop;
-    identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+    identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
         run_loop.QuitClosure());
 
-    gaia_cookie_manager_service()->SetListAccountsResponseWithParams(
+    signin::SetListAccountsResponseWithParams(
         {{kTestEmail, kTestGaiaId, true /* valid */,
           signed_out_status.account_1 /* signed_out */, true /* verified */},
          {kTestEmail2, kTestGaiaId2, true /* valid */,
-          signed_out_status.account_2 /* signed_out */, true /* verified */}});
+          signed_out_status.account_2 /* signed_out */, true /* verified */}},
+        test_url_loader_factory());
 
     gaia_cookie_manager_service()->TriggerListAccounts();
     run_loop.Run();
@@ -1864,7 +1866,7 @@ TEST_F(IdentityManagerTest, CallbackSentOnUpdateToSignOutAccountsInCookie) {
         signed_out_status.account_1 + signed_out_status.account_2;
     const AccountsInCookieJarInfo& accounts_in_cookie_jar_info =
         identity_manager_observer()
-            ->accounts_info_from_cookie_change_callback();
+            ->AccountsInfoFromAccountsInCookieUpdatedCallback();
     EXPECT_TRUE(accounts_in_cookie_jar_info.accounts_are_fresh);
     ASSERT_EQ(2 - accounts_signed_out,
               accounts_in_cookie_jar_info.signed_in_accounts.size());
@@ -1904,16 +1906,17 @@ TEST_F(IdentityManagerTest, CallbackSentOnUpdateToSignOutAccountsInCookie) {
 TEST_F(IdentityManagerTest,
        CallbackSentOnUpdateToAccountsInCookieWithStaleAccounts) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
   // Configure list accounts to return a permanent Gaia auth error.
-  gaia_cookie_manager_service()->SetListAccountsResponseWebLoginRequired();
+  signin::SetListAccountsResponseWebLoginRequired(test_url_loader_factory());
   gaia_cookie_manager_service()->TriggerListAccounts();
   run_loop.Run();
 
   const AccountsInCookieJarInfo& accounts_in_cookie_jar_info =
-      identity_manager_observer()->accounts_info_from_cookie_change_callback();
+      identity_manager_observer()
+          ->AccountsInfoFromAccountsInCookieUpdatedCallback();
   EXPECT_FALSE(accounts_in_cookie_jar_info.accounts_are_fresh);
   EXPECT_TRUE(accounts_in_cookie_jar_info.signed_in_accounts.empty());
   EXPECT_TRUE(accounts_in_cookie_jar_info.signed_out_accounts.empty());
@@ -1921,10 +1924,10 @@ TEST_F(IdentityManagerTest,
 
 TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithNoAccounts) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseNoAccounts();
+  signin::SetListAccountsResponseNoAccounts(test_url_loader_factory());
 
   // Do an initial call to GetAccountsInCookieJar(). This call should return no
   // accounts but should also trigger an internal update and eventual
@@ -1949,11 +1952,11 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithNoAccounts) {
 
 TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithOneAccount) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseOneAccount(kTestEmail,
-                                                                   kTestGaiaId);
+  signin::SetListAccountsResponseOneAccount(kTestEmail, kTestGaiaId,
+                                            test_url_loader_factory());
 
   // Do an initial call to GetAccountsInCookieJar(). This call should return no
   // accounts but should also trigger an internal update and eventual
@@ -1986,11 +1989,12 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithOneAccount) {
 
 TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithTwoAccounts) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_accounts_in_cookie_updated_callback(
+  identity_manager_observer()->SetOnAccountsInCookieUpdatedCallback(
       run_loop.QuitClosure());
 
-  gaia_cookie_manager_service()->SetListAccountsResponseTwoAccounts(
-      kTestEmail, kTestGaiaId, kTestEmail2, kTestGaiaId2);
+  signin::SetListAccountsResponseTwoAccounts(kTestEmail, kTestGaiaId,
+                                             kTestEmail2, kTestGaiaId2,
+                                             test_url_loader_factory());
 
   // Do an initial call to GetAccountsInCookieJar(). This call should return no
   // accounts but should also trigger an internal update and eventual
@@ -2033,32 +2037,228 @@ TEST_F(IdentityManagerTest, GetAccountsInCookieJarWithTwoAccounts) {
 
 TEST_F(IdentityManagerTest, CallbackSentOnSuccessfulAdditionOfAccountToCookie) {
   const char kTestAccountId[] = "account_id";
-  gaia_cookie_manager_service()->AddAccountToCookie(kTestAccountId,
-                                                    gaia::GaiaSource::kChrome);
+
+  std::string account_from_add_account_to_cookie_completed_callback;
+  GoogleServiceAuthError error_from_add_account_to_cookie_completed_callback;
+  auto completion_callback = base::BindLambdaForTesting(
+      [&](const std::string& account_id, const GoogleServiceAuthError& error) {
+        account_from_add_account_to_cookie_completed_callback = account_id;
+        error_from_add_account_to_cookie_completed_callback = error;
+      });
+
+  gaia_cookie_manager_service()->AddAccountToCookie(
+      kTestAccountId, gaia::GaiaSource::kChrome,
+      std::move(completion_callback));
   SimulateAdditionOfAccountToCookieSuccess(gaia_cookie_manager_service(),
                                            "token");
-  EXPECT_EQ(identity_manager_observer()
-                ->account_from_add_account_to_cookie_completed_callback(),
+  EXPECT_EQ(account_from_add_account_to_cookie_completed_callback,
             kTestAccountId);
-  EXPECT_EQ(identity_manager_observer()
-                ->error_from_add_account_to_cookie_completed_callback(),
+  EXPECT_EQ(error_from_add_account_to_cookie_completed_callback,
             GoogleServiceAuthError::AuthErrorNone());
 }
 
 TEST_F(IdentityManagerTest, CallbackSentOnFailureAdditionOfAccountToCookie) {
   const char kTestAccountId[] = "account_id";
-  gaia_cookie_manager_service()->AddAccountToCookie(kTestAccountId,
-                                                    gaia::GaiaSource::kChrome);
+
+  std::string account_from_add_account_to_cookie_completed_callback;
+  GoogleServiceAuthError error_from_add_account_to_cookie_completed_callback;
+  auto completion_callback = base::BindLambdaForTesting(
+      [&](const std::string& account_id, const GoogleServiceAuthError& error) {
+        account_from_add_account_to_cookie_completed_callback = account_id;
+        error_from_add_account_to_cookie_completed_callback = error;
+      });
+
+  gaia_cookie_manager_service()->AddAccountToCookie(
+      kTestAccountId, gaia::GaiaSource::kChrome,
+      std::move(completion_callback));
 
   GoogleServiceAuthError error(GoogleServiceAuthError::SERVICE_ERROR);
   SimulateAdditionOfAccountToCookieSuccessFailure(gaia_cookie_manager_service(),
                                                   error);
-  EXPECT_EQ(identity_manager_observer()
-                ->account_from_add_account_to_cookie_completed_callback(),
+
+  EXPECT_EQ(account_from_add_account_to_cookie_completed_callback,
             kTestAccountId);
-  EXPECT_EQ(identity_manager_observer()
-                ->error_from_add_account_to_cookie_completed_callback(),
-            error);
+  EXPECT_EQ(error_from_add_account_to_cookie_completed_callback, error);
+}
+
+TEST_F(IdentityManagerTest,
+       CallbackSentOnSetAccountsInCookieCompleted_Success) {
+  const char kTestAccountId[] = "account_id";
+  const char kTestAccountId2[] = "account_id2";
+  const std::vector<std::string> account_ids = {kTestAccountId,
+                                                kTestAccountId2};
+
+  GoogleServiceAuthError error_from_set_accounts_in_cookie_completed_callback;
+  auto completion_callback = base::BindLambdaForTesting(
+      [&error_from_set_accounts_in_cookie_completed_callback](
+          const GoogleServiceAuthError& error) {
+        error_from_set_accounts_in_cookie_completed_callback = error;
+      });
+
+  // Needed to insert request in the queue.
+  gaia_cookie_manager_service()->SetAccountsInCookie(
+      account_ids, gaia::GaiaSource::kChrome, std::move(completion_callback));
+
+  // Sample success cookie response.
+  std::string data =
+      R"()]}'
+      {
+        "status": "OK",
+        "cookies":[
+        {
+            "name":"SID",
+            "value":"vAlUe1",
+            "domain":".google.ru",
+            "path":"/",
+            "isSecure":true,
+            "isHttpOnly":false,
+            "priority":"HIGH",
+            "maxAge":63070000
+          }
+        ]
+      }
+    )";
+  OAuthMultiloginResult result(data);
+
+  SimulateOAuthMultiloginFinished(gaia_cookie_manager_service(), result);
+
+  EXPECT_EQ(error_from_set_accounts_in_cookie_completed_callback,
+            GoogleServiceAuthError::AuthErrorNone());
+}
+
+TEST_F(IdentityManagerTest,
+       CallbackSentOnSetAccountsInCookieCompleted_Failure) {
+  const char kTestAccountId[] = "account_id";
+  const char kTestAccountId2[] = "account_id2";
+  const std::vector<std::string> account_ids = {kTestAccountId,
+                                                kTestAccountId2};
+
+  GoogleServiceAuthError error_from_set_accounts_in_cookie_completed_callback;
+  auto completion_callback = base::BindLambdaForTesting(
+      [&error_from_set_accounts_in_cookie_completed_callback](
+          const GoogleServiceAuthError& error) {
+        error_from_set_accounts_in_cookie_completed_callback = error;
+      });
+
+  // Needed to insert request in the queue.
+  gaia_cookie_manager_service()->SetAccountsInCookie(
+      account_ids, gaia::GaiaSource::kChrome, std::move(completion_callback));
+
+  // Sample an erroneous response.
+  GoogleServiceAuthError error(GoogleServiceAuthError::SERVICE_ERROR);
+  OAuthMultiloginResult result(error);
+
+  SimulateOAuthMultiloginFinished(gaia_cookie_manager_service(), result);
+
+  EXPECT_EQ(error_from_set_accounts_in_cookie_completed_callback, error);
+}
+
+TEST_F(IdentityManagerTest, CallbackSentOnAccountsCookieDeletedByUserAction) {
+  const char kTestAccountId[] = "account_id";
+  const char kTestAccountId2[] = "account_id2";
+  const std::vector<std::string> account_ids = {kTestAccountId,
+                                                kTestAccountId2};
+
+  // Needed to insert request in the queue.
+  gaia_cookie_manager_service()->SetAccountsInCookie(
+      account_ids, gaia::GaiaSource::kChrome,
+      GaiaCookieManagerService::SetAccountsInCookieCompletedCallback());
+
+  // Sample success cookie response.
+  std::string data =
+      R"()]}'
+      {
+        "status": "OK",
+        "cookies":[
+        {
+            "name":"APISID",
+            "value":"vAlUe1",
+            "domain":".google.com",
+            "path":"/",
+            "isSecure":true,
+            "isHttpOnly":false,
+            "priority":"HIGH",
+            "maxAge":63070000
+          }
+        ]
+      }
+    )";
+  OAuthMultiloginResult result(data);
+
+  SimulateOAuthMultiloginFinished(gaia_cookie_manager_service(), result);
+  base::RunLoop().RunUntilIdle();
+
+  base::RunLoop run_loop;
+  identity_manager_observer()->SetOnCookieDeletedByUserCallback(
+      run_loop.QuitClosure());
+
+  const std::vector<net::CanonicalCookie>& cookies = result.cookies();
+  SimulateCookieDeletedByUser(gaia_cookie_manager_service(), cookies[0]);
+  run_loop.Run();
+}
+
+TEST_F(IdentityManagerTest, OnNetworkInitialized) {
+  const char kTestAccountId[] = "account_id";
+  const char kTestAccountId2[] = "account_id2";
+  const std::vector<std::string> account_ids = {kTestAccountId,
+                                                kTestAccountId2};
+
+  auto test_cookie_manager = std::make_unique<network::TestCookieManager>();
+  network::TestCookieManager* test_cookie_manager_ptr =
+      test_cookie_manager.get();
+  signin_client()->set_cookie_manager(std::move(test_cookie_manager));
+
+  identity_manager()->OnNetworkInitialized();
+
+  // Needed to insert request in the queue.
+  gaia_cookie_manager_service()->SetAccountsInCookie(
+      account_ids, gaia::GaiaSource::kChrome,
+      GaiaCookieManagerService::SetAccountsInCookieCompletedCallback());
+
+  // Sample success cookie response.
+  std::string data =
+      R"()]}'
+      {
+        "status": "OK",
+        "cookies":[
+        {
+            "name":"APISID",
+            "value":"vAlUe1",
+            "domain":".google.com",
+            "path":"/",
+            "isSecure":true,
+            "isHttpOnly":false,
+            "priority":"HIGH",
+            "maxAge":63070000
+          }
+        ]
+      }
+    )";
+  OAuthMultiloginResult result(data);
+
+  SimulateOAuthMultiloginFinished(gaia_cookie_manager_service(), result);
+  base::RunLoop().RunUntilIdle();
+
+  base::RunLoop run_loop;
+  identity_manager_observer()->SetOnCookieDeletedByUserCallback(
+      run_loop.QuitClosure());
+
+  const std::vector<net::CanonicalCookie>& cookies = result.cookies();
+
+  // Dispatch a known change of a known cookie instance *through the mojo
+  // pipe* in order to ensure the GCMS is listening to CookieManager changes.
+  //
+  // It is important the the cause of the change is known here (ie
+  // network::mojom::CookieChangeCause::EXPLICIT) so the test can block of the
+  // proper IdentityManager observer callback to be called (in this case
+  // OnAccountsCookieDeletedByUserAction).
+  //
+  // Note that this call differs from calling SimulateCookieDeletedByUser()
+  // directly in the sense that SimulateCookieDeletedByUser() does not go
+  // through any mojo pipe.
+  test_cookie_manager_ptr->DispatchCookieChange(
+      cookies[0], network::mojom::CookieChangeCause::EXPLICIT);
+  run_loop.Run();
 }
 
 TEST_F(IdentityManagerTest,
@@ -2067,11 +2267,11 @@ TEST_F(IdentityManagerTest,
   std::string account_id = signin_manager()->GetAuthenticatedAccountId();
   token_service()->UpdateCredentials(account_id, "refresh_token");
 
-  EXPECT_EQ(1ul, identity_manager_observer()->batch_change_records().size());
+  EXPECT_EQ(1ul, identity_manager_observer()->BatchChangeRecords().size());
   EXPECT_EQ(1ul,
-            identity_manager_observer()->batch_change_records().at(0).size());
+            identity_manager_observer()->BatchChangeRecords().at(0).size());
   EXPECT_EQ(account_id,
-            identity_manager_observer()->batch_change_records().at(0).at(0));
+            identity_manager_observer()->BatchChangeRecords().at(0).at(0));
 }
 
 // Checks that FindAccountInfoForAccountWithRefreshTokenByAccountId() returns
@@ -2153,7 +2353,7 @@ TEST_F(IdentityManagerTest, FindAccountInfoForAccountWithRefreshTokenByGaiaId) {
 // Checks that AreRefreshTokensLoaded() returns true after LoadCredentials.
 TEST_F(IdentityManagerTest, AreRefreshTokensLoaded) {
   base::RunLoop run_loop;
-  identity_manager_observer()->set_on_refresh_tokens_loaded_callback(
+  identity_manager_observer()->SetOnRefreshTokensLoadedCallback(
       run_loop.QuitClosure());
 
   // Credentials are already loaded in SigninManager::Initialize()
@@ -2191,13 +2391,12 @@ TEST_F(IdentityManagerTest, ObserveOnAccountUpdated) {
   account_tracker()->SetAccountInfoFromUserInfo(account_info.account_id,
                                                 &user_info);
 
-  EXPECT_EQ(account_info.account_id,
-            identity_manager_observer()
-                ->account_from_account_updated_callback()
-                .account_id);
-  EXPECT_EQ(account_info.email, identity_manager_observer()
-                                    ->account_from_account_updated_callback()
-                                    .email);
+  EXPECT_EQ(account_info.account_id, identity_manager_observer()
+                                         ->AccountFromAccountUpdatedCallback()
+                                         .account_id);
+  EXPECT_EQ(
+      account_info.email,
+      identity_manager_observer()->AccountFromAccountUpdatedCallback().email);
 }
 
 TEST_F(IdentityManagerTest, TestOnAccountRemovedWithInfoCallback) {
@@ -2209,17 +2408,17 @@ TEST_F(IdentityManagerTest, TestOnAccountRemovedWithInfoCallback) {
 
   // Check if OnAccountRemovedWithInfo is called after removing |account_info|
   // by RemoveAccount().
-  EXPECT_TRUE(identity_manager_observer()
-                  ->was_called_account_removed_with_info_callback());
+  EXPECT_TRUE(
+      identity_manager_observer()->WasCalledAccountRemovedWithInfoCallback());
 
   // Check if the passed AccountInfo is the same to the removing one.
   EXPECT_EQ(account_info.account_id,
             identity_manager_observer()
-                ->account_from_account_removed_with_info_callback()
+                ->AccountFromAccountRemovedWithInfoCallback()
                 .account_id);
   EXPECT_EQ(account_info.email,
             identity_manager_observer()
-                ->account_from_account_removed_with_info_callback()
+                ->AccountFromAccountRemovedWithInfoCallback()
                 .email);
 }
 
@@ -2236,5 +2435,91 @@ TEST_F(IdentityManagerTest, TestLegacyPickAccountIdForAccount) {
     EXPECT_TRUE(gaia::AreEmailsSame(account_id, kTestEmail));
   }
 }
+
+// Check that FindExtendedAccountInfoForAccount returns a valid account info
+// iff the account is known, has refresh token and all the extended information
+// is available.
+TEST_F(IdentityManagerTest, FindExtendedAccountInfoForAccount) {
+  CoreAccountInfo account_info;
+  account_info.email = kTestEmail;
+  account_info.gaia = kTestGaiaId;
+  account_info.account_id = identity_manager()->LegacyPickAccountIdForAccount(
+      kTestGaiaId, kTestEmail);
+
+  // FindExtendedAccountInfoForAccount() returns empty optional if the
+  // account_info is invalid.
+  EXPECT_FALSE(identity_manager()
+                   ->FindExtendedAccountInfoForAccount(CoreAccountInfo{})
+                   .has_value());
+
+  // FindExtendedAccountInfoForAccount() returns empty optional if the
+  // account_info is unknown.
+  EXPECT_FALSE(identity_manager()
+                   ->FindExtendedAccountInfoForAccount(account_info)
+                   .has_value());
+
+  // Insert the core account information in the AccountTrackerService.
+  const std::string account_id =
+      account_tracker()->SeedAccountInfo(kTestGaiaId, kTestEmail);
+  ASSERT_EQ(account_info.account_id, account_id);
+
+  // FindExtendedAccountInfoForAccount() returns empty optional if the account
+  // has no refresh token.
+  EXPECT_FALSE(identity_manager()
+                   ->FindExtendedAccountInfoForAccount(account_info)
+                   .has_value());
+
+  // Insert refresh token for account.
+  SetRefreshTokenForAccount(identity_manager(), account_info.account_id,
+                            "refresh-token");
+
+  // FindExtendedAccountInfoForAccount() returns extended account information if
+  // the account is known and has valid refresh token.
+  const base::Optional<AccountInfo> extended_account_info =
+      identity_manager()->FindExtendedAccountInfoForAccount(account_info);
+
+  ASSERT_TRUE(extended_account_info.has_value());
+  EXPECT_EQ(account_info.gaia, extended_account_info.value().gaia);
+  EXPECT_EQ(account_info.email, extended_account_info.value().email);
+  EXPECT_EQ(account_info.account_id, extended_account_info.value().account_id);
+}
+
+#if defined(OS_ANDROID)
+TEST_F(IdentityManagerTest, ForceRefreshOfExtendedAccountInfo) {
+  // The flow of this test results in an interaction with
+  // ChildAccountInfoFetcherAndroid, which requires initialization in order to
+  // avoid a crash.
+  ChildAccountInfoFetcherAndroid::InitializeForTests();
+
+  account_fetcher()->OnNetworkInitialized();
+  AccountInfo account_info =
+      MakeAccountAvailable(identity_manager(), kTestEmail2);
+
+  identity_manager()->ForceRefreshOfExtendedAccountInfo(
+      account_info.account_id);
+
+  base::DictionaryValue user_info;
+  user_info.SetString("id", account_info.account_id);
+  user_info.SetString("email", account_info.email);
+  user_info.SetString("hd", kTestHostedDomain);
+  user_info.SetString("name", kTestFullName);
+  user_info.SetString("given_name", kTestGivenName);
+  user_info.SetString("locale", kTestLocale);
+  user_info.SetString("picture", kTestPictureUrl);
+  account_tracker()->SetAccountInfoFromUserInfo(account_info.account_id,
+                                                &user_info);
+
+  const AccountInfo& refreshed_account_info =
+      identity_manager_observer()->AccountFromAccountUpdatedCallback();
+  EXPECT_EQ(account_info.account_id, refreshed_account_info.account_id);
+  EXPECT_EQ(account_info.email, refreshed_account_info.email);
+  EXPECT_EQ(account_info.gaia, refreshed_account_info.gaia);
+  EXPECT_EQ(kTestHostedDomain, refreshed_account_info.hosted_domain);
+  EXPECT_EQ(kTestFullName, refreshed_account_info.full_name);
+  EXPECT_EQ(kTestGivenName, refreshed_account_info.given_name);
+  EXPECT_EQ(kTestLocale, refreshed_account_info.locale);
+  EXPECT_EQ(kTestPictureUrl, refreshed_account_info.picture_url);
+}
+#endif
 
 }  // namespace identity

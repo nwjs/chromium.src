@@ -53,25 +53,15 @@ ScriptPromise HTMLPortalElement::activate(ScriptState* script_state) {
   ScriptPromise promise = resolver->Promise();
 
   if (portal_ptr_) {
-    portal_ptr_->Activate(WTF::Bind(
-        [](HTMLPortalElement* portal, ScriptPromiseResolver* resolver,
-           mojom::blink::PortalActivationStatus result) {
-          switch (result) {
-            case mojom::blink::PortalActivationStatus::kNotSupported:
-              resolver->Reject(
-                  DOMException::Create(DOMExceptionCode::kNotSupportedError,
-                                       "Portal activation is not supported."));
-              break;
-
-            case mojom::blink::PortalActivationStatus::kSuccess:
-              resolver->Resolve();
-              break;
-
-            default:
-              NOTREACHED();
-          }
-        },
-        WrapPersistent(this), WrapPersistent(resolver)));
+    // The HTMLPortalElement is bound as a persistent so that it won't get
+    // garbage collected while there is a pending callback. This is necessary
+    // because the HTMLPortalElement owns the mojo interface, so if it were
+    // garbage collected the callback would never be called and the promise
+    // would never be resolved.
+    portal_ptr_->Activate(
+        WTF::Bind([](HTMLPortalElement* portal,
+                     ScriptPromiseResolver* resolver) { resolver->Resolve(); },
+                  WrapPersistent(this), WrapPersistent(resolver)));
   } else {
     resolver->Reject(DOMException::Create(
         DOMExceptionCode::kInvalidStateError,
@@ -132,6 +122,13 @@ void HTMLPortalElement::ParseAttribute(
 LayoutObject* HTMLPortalElement::CreateLayoutObject(
     const ComputedStyle& style) {
   return new LayoutIFrame(this);
+}
+
+void HTMLPortalElement::AttachLayoutTree(AttachContext& context) {
+  HTMLFrameOwnerElement::AttachLayoutTree(context);
+
+  if (GetLayoutEmbeddedContent() && ContentFrame())
+    SetEmbeddedContentView(ContentFrame()->View());
 }
 
 }  // namespace blink

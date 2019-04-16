@@ -50,12 +50,7 @@ class MockWebMediaPlayer : public blink::WebMediaPlayer,
   void Seek(double seconds) override {}
   void SetRate(double) override {}
   void SetVolume(double) override {}
-  void EnterPictureInPicture(PipWindowOpenedCallback) override {}
-  void ExitPictureInPicture(PipWindowClosedCallback) override {}
-  void SetPictureInPictureCustomControls(
-      const std::vector<blink::PictureInPictureControlInfo>&) override {}
-  void RegisterPictureInPictureWindowResizeCallback(
-      PipWindowResizedCallback) override {}
+  void OnRequestPictureInPicture() override {}
   blink::WebTimeRanges Buffered() const override {
     return blink::WebTimeRanges();
   }
@@ -194,9 +189,9 @@ TEST_P(HTMLVideoElementCapturerSourceTest, GetFormatsAndStartAndStop) {
   Mock::VerifyAndClearExpectations(this);
 }
 
-INSTANTIATE_TEST_CASE_P(,
-                        HTMLVideoElementCapturerSourceTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(,
+                         HTMLVideoElementCapturerSourceTest,
+                         ::testing::Bool());
 
 // When a new source is created and started, it is stopped in the same task
 // when cross-origin data is detected. This test checks that no data is

@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/containers/span.h"
 #include "base/logging.h"
@@ -30,7 +31,6 @@
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
 #include "net/http/http_auth_controller.h"
-#include "net/http/http_proxy_client_socket_pool.h"
 #include "net/http/proxy_client_socket.h"
 #include "net/log/net_log_with_source.h"
 #include "net/socket/client_socket_factory.h"
@@ -39,9 +39,7 @@
 #include "net/socket/datagram_client_socket.h"
 #include "net/socket/socket_performance_watcher.h"
 #include "net/socket/socket_tag.h"
-#include "net/socket/socks_client_socket_pool.h"
 #include "net/socket/ssl_client_socket.h"
-#include "net/socket/ssl_client_socket_pool.h"
 #include "net/socket/transport_client_socket.h"
 #include "net/socket/transport_client_socket_pool.h"
 #include "net/ssl/ssl_config_service.h"
@@ -623,12 +621,12 @@ class MockClientSocketFactory : public ClientSocketFactory {
       NetLog* net_log,
       const NetLogSource& source) override;
   std::unique_ptr<SSLClientSocket> CreateSSLClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
       const SSLClientSocketContext& context) override;
   std::unique_ptr<ProxyClientSocket> CreateProxyClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
       const ProxyServer& proxy_server,
@@ -639,8 +637,6 @@ class MockClientSocketFactory : public ClientSocketFactory {
       ProxyDelegate* proxy_delegate,
       bool is_https_proxy,
       const NetworkTrafficAnnotationTag& traffic_annotation) override;
-  void ClearSSLSessionCache() override;
-
   const std::vector<uint16_t>& udp_client_socket_ports() const {
     return udp_client_socket_ports_;
   }
@@ -815,13 +811,12 @@ class MockTCPClientSocket : public MockClientSocket, public AsyncSocket {
 
 class MockProxyClientSocket : public AsyncSocket, public ProxyClientSocket {
  public:
-  MockProxyClientSocket(std::unique_ptr<ClientSocketHandle> transport_socket,
+  MockProxyClientSocket(std::unique_ptr<StreamSocket> socket,
                         HttpAuthController* auth_controller,
                         ProxyClientSocketDataProvider* data);
   ~MockProxyClientSocket() override;
   // ProxyClientSocket implementation.
   const HttpResponseInfo* GetConnectResponseInfo() const override;
-  std::unique_ptr<HttpStream> CreateConnectResponseStream() override;
   const scoped_refptr<HttpAuthController>& GetAuthController() const override;
   int RestartWithAuth(CompletionOnceCallback callback) override;
   bool IsUsingSpdy() const override;
@@ -870,7 +865,7 @@ class MockProxyClientSocket : public AsyncSocket, public ProxyClientSocket {
   void RunCallbackAsync(CompletionOnceCallback callback, int result);
 
   NetLogWithSource net_log_;
-  std::unique_ptr<ClientSocketHandle> transport_;
+  std::unique_ptr<StreamSocket> socket_;
   ProxyClientSocketDataProvider* data_;
   scoped_refptr<HttpAuthController> auth_controller_;
 
@@ -881,7 +876,7 @@ class MockProxyClientSocket : public AsyncSocket, public ProxyClientSocket {
 
 class MockSSLClientSocket : public AsyncSocket, public SSLClientSocket {
  public:
-  MockSSLClientSocket(std::unique_ptr<ClientSocketHandle> transport_socket,
+  MockSSLClientSocket(std::unique_ptr<StreamSocket> stream_socket,
                       const HostPortPair& host_and_port,
                       const SSLConfig& ssl_config,
                       SSLSocketDataProvider* socket);
@@ -950,7 +945,7 @@ class MockSSLClientSocket : public AsyncSocket, public SSLClientSocket {
 
   bool connected_ = false;
   NetLogWithSource net_log_;
-  std::unique_ptr<ClientSocketHandle> transport_;
+  std::unique_ptr<StreamSocket> stream_socket_;
   SSLSocketDataProvider* data_;
   // Address of the "remote" peer we're connected to.
   IPEndPoint peer_addr_;
@@ -1118,7 +1113,8 @@ class ClientSocketPoolTest {
     requests_.push_back(base::WrapUnique(request));
     int rv = request->handle()->Init(
         group_name, socket_params, priority, SocketTag(), respect_limits,
-        request->callback(), socket_pool, NetLogWithSource());
+        request->callback(), ClientSocketPool::ProxyAuthCallback(), socket_pool,
+        NetLogWithSource());
     if (rv != ERR_IO_PENDING)
       request_order_.push_back(request);
     return rv;
@@ -1222,6 +1218,7 @@ class MockTransportClientSocketPool : public TransportClientSocketPool {
                     RespectLimits respect_limits,
                     ClientSocketHandle* handle,
                     CompletionOnceCallback callback,
+                    const ProxyAuthCallback& on_auth_callback,
                     const NetLogWithSource& net_log) override;
   void SetPriority(const std::string& group_name,
                    ClientSocketHandle* handle,
@@ -1240,38 +1237,6 @@ class MockTransportClientSocketPool : public TransportClientSocketPool {
   int cancel_count_;
 
   DISALLOW_COPY_AND_ASSIGN(MockTransportClientSocketPool);
-};
-
-class MockSOCKSClientSocketPool : public SOCKSClientSocketPool {
- public:
-  MockSOCKSClientSocketPool(int max_sockets,
-                            int max_sockets_per_group,
-                            TransportClientSocketPool* transport_pool);
-
-  ~MockSOCKSClientSocketPool() override;
-
-  // SOCKSClientSocketPool implementation.
-  int RequestSocket(const std::string& group_name,
-                    const void* socket_params,
-                    RequestPriority priority,
-                    const SocketTag& socket_tag,
-                    RespectLimits respect_limits,
-                    ClientSocketHandle* handle,
-                    CompletionOnceCallback callback,
-                    const NetLogWithSource& net_log) override;
-  void SetPriority(const std::string& group_name,
-                   ClientSocketHandle* handle,
-                   RequestPriority priority) override;
-  void CancelRequest(const std::string& group_name,
-                     ClientSocketHandle* handle) override;
-  void ReleaseSocket(const std::string& group_name,
-                     std::unique_ptr<StreamSocket> socket,
-                     int id) override;
-
- private:
-  TransportClientSocketPool* const transport_pool_;
-
-  DISALLOW_COPY_AND_ASSIGN(MockSOCKSClientSocketPool);
 };
 
 // WrappedStreamSocket is a base class that wraps an existing StreamSocket,
@@ -1417,6 +1382,9 @@ int64_t CountReadBytes(base::span<const MockRead> reads);
 int64_t CountWriteBytes(base::span<const MockWrite> writes);
 
 #if defined(OS_ANDROID)
+// Returns whether the device supports calling GetTaggedBytes().
+bool CanGetTaggedBytes();
+
 // Query the system to find out how many bytes were received with tag
 // |expected_tag| for our UID.  Return the count of recieved bytes.
 uint64_t GetTaggedBytes(int32_t expected_tag);

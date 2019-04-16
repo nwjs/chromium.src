@@ -327,26 +327,36 @@ public class NotificationBuilder implements ChromeNotificationBuilder {
 
     @Override
     @SuppressWarnings("deprecation")
-    public Notification buildWithBigContentView(RemoteViews view) {
+    public ChromeNotification buildWithBigContentView(RemoteViews view) {
+        assert mMetadata != null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return mBuilder.setCustomBigContentView(view).build();
+            return new ChromeNotification(
+                    mBuilder.setCustomBigContentView(view).build(), mMetadata);
         } else {
             Notification notification = mBuilder.build();
             notification.bigContentView = view;
-            return notification;
+            return new ChromeNotification(notification, mMetadata);
         }
     }
 
     @Override
-    public Notification buildWithBigTextStyle(String bigText) {
+    public ChromeNotification buildWithBigTextStyle(String bigText) {
         Notification.BigTextStyle bigTextStyle = new Notification.BigTextStyle();
         bigTextStyle.setBuilder(mBuilder);
         bigTextStyle.bigText(bigText);
-        return bigTextStyle.build();
+
+        assert mMetadata != null;
+        return new ChromeNotification(bigTextStyle.build(), mMetadata);
     }
 
     @Override
     public Notification build() {
         return mBuilder.build();
+    }
+
+    @Override
+    public ChromeNotification buildChromeNotification() {
+        assert mMetadata != null;
+        return new ChromeNotification(build(), mMetadata);
     }
 }

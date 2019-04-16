@@ -93,7 +93,7 @@ OfflineAudioContext* OfflineAudioContext::Create(
       MakeGarbageCollected<OfflineAudioContext>(document, number_of_channels,
                                                 number_of_frames, sample_rate,
                                                 exception_state);
-  audio_context->PauseIfNeeded();
+  audio_context->UpdateStateIfNeeded();
 
 #if DEBUG_AUDIONODE_REFERENCES
   fprintf(stderr, "[%16p]: OfflineAudioContext::OfflineAudioContext()\n",
@@ -216,6 +216,8 @@ ScriptPromise OfflineAudioContext::startOfflineRendering(
   // Start rendering and return the promise.
   is_rendering_started_ = true;
   SetContextState(kRunning);
+  static_cast<OfflineAudioDestinationNode*>(destination())
+      ->SetDestinationBuffer(render_target);
   DestinationHandler().InitializeOfflineRenderThread(render_target);
   DestinationHandler().StartRendering();
 
@@ -262,9 +264,12 @@ ScriptPromise OfflineAudioContext::suspendContext(ScriptState* script_state,
     return promise;
   }
 
-  // Quantize (to the lower boundary) the suspend time by the render quantum.
+  // Find the sample frame and round up to the nearest render quantum
+  // boundary.  This assumes the render quantum is a power of two.
   size_t frame = when * sampleRate();
-  frame -= frame % DestinationHandler().RenderQuantumFrames();
+  frame = audio_utilities::kRenderQuantumFrames *
+          ((frame + audio_utilities::kRenderQuantumFrames - 1) /
+           audio_utilities::kRenderQuantumFrames);
 
   // The specified suspend time is in the past; reject the promise.
   if (frame < CurrentSampleFrame()) {
@@ -356,8 +361,9 @@ void OfflineAudioContext::FireCompletionEvent() {
 
   // Avoid firing the event if the document has already gone away.
   if (GetExecutionContext()) {
-    AudioBuffer* rendered_buffer = DestinationHandler().RenderTarget();
-
+    AudioBuffer* rendered_buffer =
+        static_cast<OfflineAudioDestinationNode*>(destination())
+            ->DestinationBuffer();
     DCHECK(rendered_buffer);
     if (!rendered_buffer)
       return;
@@ -378,8 +384,12 @@ void OfflineAudioContext::FireCompletionEvent() {
   PerformCleanupOnMainThread();
 }
 
-bool OfflineAudioContext::HandlePreOfflineRenderTasks() {
+bool OfflineAudioContext::HandlePreRenderTasks(
+    const AudioIOPosition* output_position,
+    const AudioIOCallbackMetric* metric) {
   DCHECK(IsAudioThread());
+  DCHECK_EQ(output_position, nullptr);
+  DCHECK_EQ(metric, nullptr);
 
   // OfflineGraphAutoLocker here locks the audio graph for this scope. Note
   // that this locker does not use tryLock() inside because the timing of
@@ -395,7 +405,7 @@ bool OfflineAudioContext::HandlePreOfflineRenderTasks() {
   return ShouldSuspend();
 }
 
-void OfflineAudioContext::HandlePostOfflineRenderTasks() {
+void OfflineAudioContext::HandlePostRenderTasks() {
   DCHECK(IsAudioThread());
 
   // OfflineGraphAutoLocker here locks the audio graph for the same reason

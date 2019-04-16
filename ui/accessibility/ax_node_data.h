@@ -14,7 +14,7 @@
 
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
-#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_export.h"
 #include "ui/accessibility/ax_relative_bounds.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -97,8 +97,8 @@ struct AX_EXPORT AXNodeData {
   //
   // Setting accessibility attributes.
   //
-  // Replaces an attribute if not present. This is safer than crashing via a
-  // DCHECK or doing nothing, because most likely that's what the caller would
+  // Replaces an attribute if present. This is safer than crashing via a DCHECK
+  // or doing nothing, because most likely replacing is what the caller would
   // have wanted or what existing code already assumes.
   //
 
@@ -173,6 +173,8 @@ struct AX_EXPORT AXNodeData {
   void SetRestriction(ax::mojom::Restriction restriction);
   ax::mojom::TextDirection GetTextDirection() const;
   void SetTextDirection(ax::mojom::TextDirection text_direction);
+  ax::mojom::ImageAnnotationStatus GetImageAnnotationStatus() const;
+  void SetImageAnnotationStatus(ax::mojom::ImageAnnotationStatus status);
 
   // Return a string representation of this data, for debugging.
   virtual std::string ToString() const;

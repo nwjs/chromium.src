@@ -51,6 +51,7 @@
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/signin/account_management_screen_helper.h"
+#include "ui/android/view_android.h"
 #else
 #include "chrome/browser/ui/browser_commands.h"
 #include "extensions/browser/guest_view/web_view/web_view_renderer_state.h"
@@ -167,6 +168,7 @@ void ProcessMirrorHeaderUIThread(
     ManageAccountsParams manage_accounts_params,
     const content::ResourceRequestInfo::WebContentsGetter&
         web_contents_getter) {
+#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   GAIAServiceType service_type = manage_accounts_params.service_type;
@@ -184,7 +186,7 @@ void ProcessMirrorHeaderUIThread(
   AccountReconcilor* account_reconcilor =
       AccountReconcilorFactory::GetForProfile(profile);
   account_reconcilor->OnReceivedManageAccountsResponse(service_type);
-#if !defined(OS_ANDROID)
+#if defined(OS_CHROMEOS)
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   if (browser) {
     BrowserWindow::AvatarBubbleMode bubble_mode;
@@ -204,7 +206,6 @@ void ProcessMirrorHeaderUIThread(
     signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
         account_reconcilor->GetState());
 
-#if defined(OS_CHROMEOS)
     if (chromeos::switches::IsAccountManagerEnabled()) {
       // Chrome OS Account Manager is available. The only allowed operations
       // are:
@@ -223,13 +224,8 @@ void ProcessMirrorHeaderUIThread(
     // consistency is enforced and adding/removing accounts is not allowed,
     // GAIA_SERVICE_TYPE_INCOGNITO may be allowed though.
     return;
-#endif
-
-    browser->window()->ShowAvatarBubbleFromAvatarButton(
-        bubble_mode, manage_accounts_params,
-        signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA, false);
   }
-#else   // defined(OS_ANDROID)
+#else   // !defined(OS_CHROMEOS)
   if (service_type == signin::GAIA_SERVICE_TYPE_INCOGNITO) {
     GURL url(manage_accounts_params.continue_url.empty()
                  ? chrome::kChromeUINativeNewTabURL
@@ -240,10 +236,12 @@ void ProcessMirrorHeaderUIThread(
   } else {
     signin_metrics::LogAccountReconcilorStateOnGaiaResponse(
         account_reconcilor->GetState());
-    AccountManagementScreenHelper::OpenAccountManagementScreen(profile,
+    auto* window = web_contents->GetNativeView()->GetWindowAndroid();
+    AccountManagementScreenHelper::OpenAccountManagementScreen(window,
                                                                service_type);
   }
-#endif  // !defined(OS_ANDROID)
+#endif  // defined(OS_CHROMEOS)
+#endif  // defined(OS_CHROMEOS) || defined(OS_ANDROID)
 }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -409,8 +407,8 @@ void ProcessDiceResponseHeaderIfExists(ResponseAdapter* response,
 
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},
-      base::Bind(ProcessDiceHeaderUIThread, base::Passed(std::move(params)),
-                 response->GetWebContentsGetter()));
+      base::BindOnce(ProcessDiceHeaderUIThread, std::move(params),
+                     response->GetWebContentsGetter()));
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -427,12 +425,12 @@ bool ChromeRequestAdapter::IsMainRequestContext(ProfileIOData* io_data) {
 
 content::ResourceRequestInfo::WebContentsGetter
 ChromeRequestAdapter::GetWebContentsGetter() const {
-  const auto* info = content::ResourceRequestInfo::ForRequest(request_);
+  auto* info = content::ResourceRequestInfo::ForRequest(request_);
   return info->GetWebContentsGetterForRequest();
 }
 
 content::ResourceType ChromeRequestAdapter::GetResourceType() const {
-  const auto* info = content::ResourceRequestInfo::ForRequest(request_);
+  auto* info = content::ResourceRequestInfo::ForRequest(request_);
   return info->GetResourceType();
 }
 
@@ -456,12 +454,12 @@ ResponseAdapter::~ResponseAdapter() = default;
 
 content::ResourceRequestInfo::WebContentsGetter
 ResponseAdapter::GetWebContentsGetter() const {
-  const auto* info = content::ResourceRequestInfo::ForRequest(request_);
+  auto* info = content::ResourceRequestInfo::ForRequest(request_);
   return info->GetWebContentsGetterForRequest();
 }
 
 bool ResponseAdapter::IsMainFrame() const {
-  const auto* info = content::ResourceRequestInfo::ForRequest(request_);
+  auto* info = content::ResourceRequestInfo::ForRequest(request_);
   return info && (info->GetResourceType() == content::RESOURCE_TYPE_MAIN_FRAME);
 }
 
@@ -523,8 +521,8 @@ void FixAccountConsistencyRequestHeader(ChromeRequestAdapter* request,
   // Dice header:
   bool dice_header_added = AppendOrRemoveDiceRequestHeader(
       request, redirect_url, account_id, io_data->IsSyncEnabled(),
-      io_data->SyncHasAuthError(), account_consistency,
-      io_data->GetCookieSettings(), io_data->GetSigninScopedDeviceId());
+      account_consistency, io_data->GetCookieSettings(),
+      io_data->GetSigninScopedDeviceId());
 
   // Block the AccountReconcilor while the Dice requests are in flight. This
   // allows the DiceReponseHandler to process the response before the reconcilor

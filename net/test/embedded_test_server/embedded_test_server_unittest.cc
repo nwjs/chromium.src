@@ -7,6 +7,8 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/message_loop/message_loop.h"
@@ -423,9 +425,9 @@ class InfiniteResponse : public BasicHttpResponse {
   void SendInfinite(const SendBytesCallback& send) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(send, "echo",
-                   base::Bind(&InfiniteResponse::SendInfinite,
-                              weak_ptr_factory_.GetWeakPtr(), send)));
+        base::BindOnce(send, "echo",
+                       base::Bind(&InfiniteResponse::SendInfinite,
+                                  weak_ptr_factory_.GetWeakPtr(), send)));
   }
 
   base::WeakPtrFactory<InfiniteResponse> weak_ptr_factory_;
@@ -493,10 +495,10 @@ TEST_P(EmbeddedTestServerTest, GetCertificate) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(EmbeddedTestServerTestInstantiation,
-                        EmbeddedTestServerTest,
-                        testing::Values(EmbeddedTestServer::TYPE_HTTP,
-                                        EmbeddedTestServer::TYPE_HTTPS));
+INSTANTIATE_TEST_SUITE_P(EmbeddedTestServerTestInstantiation,
+                         EmbeddedTestServerTest,
+                         testing::Values(EmbeddedTestServer::TYPE_HTTP,
+                                         EmbeddedTestServer::TYPE_HTTPS));
 
 // Below test exercises EmbeddedTestServer's ability to cope with the situation
 // where there is no MessageLoop available on the thread at EmbeddedTestServer
@@ -588,7 +590,7 @@ TEST_P(EmbeddedTestServerThreadingTest, RunTest) {
   base::PlatformThread::Join(thread_handle);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     EmbeddedTestServerThreadingTestInstantiation,
     EmbeddedTestServerThreadingTest,
     testing::Combine(testing::Bool(),

@@ -25,7 +25,7 @@ class StateController;
 namespace arc {
 class ArcServiceLauncher;
 class VoiceInteractionControllerClient;
-}
+}  // namespace arc
 
 #if BUILDFLAG(ENABLE_CROS_ASSISTANT)
 class AssistantClient;
@@ -34,6 +34,7 @@ class AssistantClient;
 namespace chromeos {
 
 class ArcKioskAppManager;
+class CrosUsbDetector;
 class DemoModeResourcesRemover;
 class DiagnosticsdBridge;
 class DiscoverManager;
@@ -46,6 +47,7 @@ class NetworkPrefStateObserver;
 class NetworkThrottlingObserver;
 class PowerMetricsReporter;
 class RendererFreezer;
+class SchedulerConfigurationManager;
 class ShutdownPolicyForwarder;
 class WakeOnWifiManager;
 
@@ -53,11 +55,10 @@ namespace default_app_order {
 class ExternalLoader;
 }
 
-
 namespace internal {
 class DBusServices;
 class SystemTokenCertDBInitializer;
-}
+}  // namespace internal
 
 namespace power {
 namespace ml {
@@ -69,6 +70,10 @@ namespace auto_screen_brightness {
 class Controller;
 }  // namespace auto_screen_brightness
 }  // namespace power
+
+namespace system {
+class DarkResumeController;
+}  // namespace system
 
 // ChromeBrowserMainParts implementation for chromeos specific code.
 // NOTE: Chromeos UI (Ash) support should be added to
@@ -107,9 +112,6 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   std::unique_ptr<NetworkThrottlingObserver> network_throttling_observer_;
   std::unique_ptr<NetworkChangeManagerClient> network_change_manager_client_;
 
-  // Indicates whether the DBus has been initialized before. It is possible that
-  // the DBus has been initialized in ChromeFeatureListCreator.
-  bool is_dbus_initialized_ = false;
   std::unique_ptr<internal::DBusServices> dbus_services_;
 
   std::unique_ptr<internal::SystemTokenCertDBInitializer>
@@ -156,6 +158,13 @@ class ChromeBrowserMainPartsChromeos : public ChromeBrowserMainPartsLinux {
   std::unique_ptr<crostini::CrosvmMetrics> crosvm_metrics_;
   std::unique_ptr<DiscoverManager> discover_manager_;
   std::unique_ptr<DiagnosticsdBridge> diagnosticsd_bridge_;
+  std::unique_ptr<SchedulerConfigurationManager>
+      scheduler_configuration_manager_;
+
+  std::unique_ptr<CrosUsbDetector> cros_usb_detector_;
+
+  std::unique_ptr<chromeos::system::DarkResumeController>
+      dark_resume_controller_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeBrowserMainPartsChromeos);
 };

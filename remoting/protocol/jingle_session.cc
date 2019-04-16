@@ -168,7 +168,7 @@ JingleSession::OrderedMessageQueue::OnIncomingMessage(
                  << next_incoming_ << " current= " << current;
   }
   return result;
-};
+}
 
 void JingleSession::OrderedMessageQueue::SetInitialId(const std::string& id) {
   int current = GetSequentialId(id);
@@ -230,9 +230,9 @@ void JingleSession::StartConnection(
 
   // Delay sending session-initiate message to ensure SessionPlugin can be
   // attached before the message.
-  base::ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
-      base::Bind(&JingleSession::SendSessionInitiateMessage,
-                 weak_factory_.GetWeakPtr()));
+  base::ThreadTaskRunnerHandle::Get()->PostTask(
+      FROM_HERE, base::BindOnce(&JingleSession::SendSessionInitiateMessage,
+                                weak_factory_.GetWeakPtr()));
 
   SetState(CONNECTING);
 }
@@ -818,7 +818,7 @@ void JingleSession::SendSessionInitiateMessage() {
 }
 
 std::string JingleSession::GetNextOutgoingId() {
-  return outgoing_id_prefix_ + "_" + base::IntToString(++next_outgoing_id_);
+  return outgoing_id_prefix_ + "_" + base::NumberToString(++next_outgoing_id_);
 }
 
 }  // namespace protocol

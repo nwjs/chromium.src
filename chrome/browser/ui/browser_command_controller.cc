@@ -8,9 +8,11 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/debugging_buildflags.h"
 #include "base/debug/profiler.h"
+#include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/stl_util.h"
@@ -42,6 +44,7 @@
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/inspect_ui.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/content_restriction.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -157,7 +160,8 @@ BrowserCommandController::BrowserCommandController(Browser* browser)
       TabRestoreServiceFactory::GetForProfile(profile());
   if (tab_restore_service) {
     tab_restore_service->AddObserver(this);
-    TabRestoreServiceChanged(tab_restore_service);
+    if (!tab_restore_service->IsLoaded())
+      tab_restore_service->LoadTabsFromLastSession();
   }
 }
 
@@ -283,12 +287,16 @@ bool BrowserCommandController::IsCommandEnabled(int id) const {
   return command_updater_.IsCommandEnabled(id);
 }
 
-bool BrowserCommandController::ExecuteCommand(int id) {
-  return ExecuteCommandWithDisposition(id, WindowOpenDisposition::CURRENT_TAB);
+bool BrowserCommandController::ExecuteCommand(int id,
+                                              base::TimeTicks time_stamp) {
+  return ExecuteCommandWithDisposition(id, WindowOpenDisposition::CURRENT_TAB,
+                                       time_stamp);
 }
 
 bool BrowserCommandController::ExecuteCommandWithDisposition(
-    int id, WindowOpenDisposition disposition) {
+    int id,
+    WindowOpenDisposition disposition,
+    base::TimeTicks time_stamp) {
   // Doesn't go through the command_updater_ to avoid dealing with having a
   // naming collision for ExecuteCommandWithDisposition (both
   // CommandUpdaterDelegate and CommandUpdater declare this function so we
@@ -370,11 +378,13 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
       break;
     case IDC_SELECT_NEXT_TAB:
       base::RecordAction(base::UserMetricsAction("Accel_SelectNextTab"));
-      SelectNextTab(browser_);
+      SelectNextTab(browser_,
+                    {TabStripModel::GestureType::kKeyboard, time_stamp});
       break;
     case IDC_SELECT_PREVIOUS_TAB:
       base::RecordAction(base::UserMetricsAction("Accel_SelectPreviousTab"));
-      SelectPreviousTab(browser_);
+      SelectPreviousTab(browser_,
+                        {TabStripModel::GestureType::kKeyboard, time_stamp});
       break;
     case IDC_MOVE_TAB_NEXT:
       MoveTabNext(browser_);
@@ -391,17 +401,20 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_SELECT_TAB_6:
     case IDC_SELECT_TAB_7:
       base::RecordAction(base::UserMetricsAction("Accel_SelectNumberedTab"));
-      SelectNumberedTab(browser_, id - IDC_SELECT_TAB_0);
+      SelectNumberedTab(browser_, id - IDC_SELECT_TAB_0,
+                        {TabStripModel::GestureType::kKeyboard, time_stamp});
       break;
     case IDC_SELECT_LAST_TAB:
       base::RecordAction(base::UserMetricsAction("Accel_SelectNumberedTab"));
-      SelectLastTab(browser_);
+      SelectLastTab(browser_,
+                    {TabStripModel::GestureType::kKeyboard, time_stamp});
       break;
     case IDC_DUPLICATE_TAB:
       DuplicateTab(browser_);
       break;
     case IDC_RESTORE_TAB:
       RestoreTab(browser_);
+      browser_->window()->OnTabRestored(IDC_RESTORE_TAB);
       break;
     case IDC_SHOW_AS_TAB:
       ConvertPopupToTabbedBrowser(browser_);
@@ -666,10 +679,12 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_SHOW_BETA_FORUM:
       ShowBetaForum(browser_);
       break;
+#if !defined(OS_CHROMEOS)
     case IDC_SHOW_SIGNIN:
       ShowBrowserSigninOrSettings(
           browser_, signin_metrics::AccessPoint::ACCESS_POINT_MENU);
       break;
+#endif
     case IDC_DISTILL_PAGE:
       DistillCurrentPage(browser_);
       break;
@@ -682,10 +697,14 @@ bool BrowserCommandController::ExecuteCommandWithDisposition(
     case IDC_WINDOW_PIN_TAB:
       PinTab(browser_);
       break;
-    case IDC_MANAGED_UI_HELP:
-      ShowSingletonTab(browser_, GURL(kManagedUiLearnMoreUrl));
+    case IDC_SHOW_MANAGEMENT_PAGE: {
+      bool link_to_management_page = base::FeatureList::IsEnabled(
+          features::kLinkManagedNoticeToChromeUIManagementURL);
+      ShowSingletonTab(browser_,
+                       GURL(link_to_management_page ? kChromeUIManagementURL
+                                                    : kManagedUiLearnMoreUrl));
       break;
-
+    }
     // Hosted App commands
     case IDC_COPY_URL:
       CopyURL(browser_);
@@ -1203,7 +1222,7 @@ void BrowserCommandController::UpdateCommandsForFullscreenMode() {
   command_updater_.UpdateCommandEnabled(IDC_VIEW_PASSWORDS, show_main_ui);
   command_updater_.UpdateCommandEnabled(IDC_ABOUT, show_main_ui);
   command_updater_.UpdateCommandEnabled(IDC_SHOW_APP_MENU, show_main_ui);
-  command_updater_.UpdateCommandEnabled(IDC_MANAGED_UI_HELP, true);
+  command_updater_.UpdateCommandEnabled(IDC_SHOW_MANAGEMENT_PAGE, true);
 
   if (base::debug::IsProfilingSupported())
     command_updater_.UpdateCommandEnabled(IDC_PROFILING_ENABLED, show_main_ui);

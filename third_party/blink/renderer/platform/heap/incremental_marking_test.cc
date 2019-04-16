@@ -5,6 +5,7 @@
 #include <initializer_list>
 #include <vector>
 
+#include "base/bind.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/heap.h"
@@ -37,7 +38,7 @@ class BackingVisitor : public Visitor {
     header->Unmark();
     GCInfoTable::Get()
         .GCInfoFromIndex(header->GcInfoIndex())
-        ->trace_(this, header->Payload());
+        ->trace(this, header->Payload());
   }
 
   void Visit(void* obj, TraceDescriptor desc) final {
@@ -71,8 +72,6 @@ class BackingVisitor : public Visitor {
                                     void* callback_data) final {}
   void RegisterWeakCallback(void* closure, WeakCallback) final {}
   void Visit(const TraceWrapperV8Reference<v8::Value>&) final {}
-  void Visit(DOMWrapperMap<ScriptWrappable>*,
-             const ScriptWrappable* key) final {}
   void VisitWithWrappers(void*, TraceDescriptor) final {}
 
  private:

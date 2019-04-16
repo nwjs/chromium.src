@@ -262,15 +262,6 @@ void FeatureInfo::Initialize(ContextType context_type,
   disallowed_features_ = disallowed_features;
   context_type_ = context_type;
   is_passthrough_cmd_decoder_ = is_passthrough_cmd_decoder;
-  switch (context_type) {
-    case CONTEXT_TYPE_WEBGL1:
-    case CONTEXT_TYPE_OPENGLES2:
-      break;
-    default:
-      // https://crbug.com/826509
-      workarounds_.use_client_side_arrays_for_stream_buffers = false;
-      break;
-  }
   InitializeFeatures();
   initialized_ = true;
 }
@@ -332,6 +323,13 @@ void FeatureInfo::EnableCHROMIUMTextureStorageImage() {
   if (!feature_flags_.chromium_texture_storage_image) {
     feature_flags_.chromium_texture_storage_image = true;
     AddExtensionString("GL_CHROMIUM_texture_storage_image");
+  }
+}
+
+void FeatureInfo::EnableEXTFloatBlend() {
+  if (!feature_flags_.ext_float_blend) {
+    AddExtensionString("GL_EXT_float_blend");
+    feature_flags_.ext_float_blend = true;
   }
 }
 
@@ -1562,6 +1560,16 @@ void FeatureInfo::InitializeFeatures() {
       AddExtensionString("GL_WEBGL_multi_draw_instanced");
     }
   }
+
+  if (gfx::HasExtension(extensions, "GL_NV_internalformat_sample_query")) {
+    feature_flags_.nv_internalformat_sample_query = true;
+  }
+
+  if (gfx::HasExtension(extensions,
+                        "GL_AMD_framebuffer_multisample_advanced")) {
+    feature_flags_.amd_framebuffer_multisample_advanced = true;
+    AddExtensionString("GL_AMD_framebuffer_multisample_advanced");
+  }
 }
 
 void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
@@ -1662,6 +1670,14 @@ void FeatureInfo::InitializeFloatAndHalfFloatFeatures(
     feature_flags_.chromium_color_buffer_float_rgba = true;
     if (!disallowed_features_.chromium_color_buffer_float_rgba) {
       EnableCHROMIUMColorBufferFloatRGBA();
+    }
+  }
+
+  // Assume all desktop (!gl_version_info_->is_es) supports float blend
+  if (!gl_version_info_->is_es ||
+      gfx::HasExtension(extensions, "GL_EXT_float_blend")) {
+    if (!disallowed_features_.ext_float_blend) {
+      EnableEXTFloatBlend();
     }
   }
 

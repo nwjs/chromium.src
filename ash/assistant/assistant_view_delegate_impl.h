@@ -5,6 +5,8 @@
 #ifndef ASH_ASSISTANT_ASSISTANT_VIEW_DELEGATE_IMPL_H_
 #define ASH_ASSISTANT_ASSISTANT_VIEW_DELEGATE_IMPL_H_
 
+#include <string>
+
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "base/macros.h"
 
@@ -23,41 +25,48 @@ class AssistantViewDelegateImpl : public AssistantViewDelegate {
   // AssistantViewDelegate:
   const AssistantCacheModel* GetCacheModel() const override;
   const AssistantInteractionModel* GetInteractionModel() const override;
+  const AssistantNotificationModel* GetNotificationModel() const override;
   const AssistantUiModel* GetUiModel() const override;
+  void AddObserver(AssistantViewDelegateObserver* observer) override;
+  void RemoveObserver(AssistantViewDelegateObserver* observer) override;
   void AddCacheModelObserver(AssistantCacheModelObserver* observer) override;
   void RemoveCacheModelObserver(AssistantCacheModelObserver* observer) override;
   void AddInteractionModelObserver(
       AssistantInteractionModelObserver* observer) override;
   void RemoveInteractionModelObserver(
       AssistantInteractionModelObserver* observer) override;
+  void AddNotificationModelObserver(
+      AssistantNotificationModelObserver* observer) override;
+  void RemoveNotificationModelObserver(
+      AssistantNotificationModelObserver* observer) override;
   void AddUiModelObserver(AssistantUiModelObserver* observer) override;
   void RemoveUiModelObserver(AssistantUiModelObserver* observer) override;
-  void AddViewDelegateObserver(
-      AssistantViewDelegateObserver* observer) override;
-  void RemoveViewDelegateObserver(
-      AssistantViewDelegateObserver* observer) override;
   void AddVoiceInteractionControllerObserver(
       DefaultVoiceInteractionObserver* observer) override;
   void RemoveVoiceInteractionControllerObserver(
       DefaultVoiceInteractionObserver* observer) override;
   CaptionBarDelegate* GetCaptionBarDelegate() override;
-  std::vector<DialogPlateObserver*> GetDialogPlateObservers() override;
-  AssistantMiniViewDelegate* GetMiniViewDelegate() override;
-  AssistantOptInDelegate* GetOptInDelegate() override;
   void DownloadImage(
       const GURL& url,
       mojom::AssistantImageDownloader::DownloadCallback callback) override;
-  wm::CursorManager* GetCursorManager() override;
+  mojom::ConsentStatus GetConsentStatus() const override;
+  ::wm::CursorManager* GetCursorManager() override;
   void GetNavigableContentsFactoryForView(
       content::mojom::NavigableContentsFactoryRequest request) override;
   aura::Window* GetRootWindowForNewWindows() override;
+  bool IsLaunchWithMicOpen() const override;
   bool IsTabletMode() const override;
+  void OnDialogPlateButtonPressed(AssistantButtonId id) override;
+  void OnDialogPlateContentsCommitted(const std::string& text) override;
+  void OnMiniViewPressed() override;
+  void OnNotificationButtonPressed(const std::string& notification_id,
+                                   int notification_button_index) override;
+  void OnOptInButtonPressed() override;
   void OnSuggestionChipPressed(const AssistantSuggestion* suggestion) override;
   void OpenUrlFromView(const GURL& url) override;
-  bool VoiceInteractionControllerSetupCompleted() const override;
 
  private:
-  AssistantController* assistant_controller_;
+  AssistantController* const assistant_controller_;
   base::ObserverList<AssistantViewDelegateObserver> view_delegate_observers_;
 
   DISALLOW_COPY_AND_ASSIGN(AssistantViewDelegateImpl);

@@ -84,6 +84,7 @@
 #include "chrome/browser/metrics/thread_watcher.h"
 #include "chrome/browser/nacl_host/nacl_browser_delegate_impl.h"
 #include "chrome/browser/performance_monitor/process_monitor.h"
+#include "chrome/browser/performance_monitor/system_monitor.h"
 #include "chrome/browser/plugins/plugin_prefs.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/prefs/chrome_command_line_pref_store.h"
@@ -101,6 +102,7 @@
 #include "chrome/browser/shell_integration.h"
 #include "chrome/browser/tracing/background_tracing_field_trial.h"
 #include "chrome/browser/tracing/navigation_tracing.h"
+#include "chrome/browser/tracing/trace_event_system_stats_monitor.h"
 #include "chrome/browser/translate/translate_service.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -141,7 +143,6 @@
 #include "components/metrics/call_stack_profile_metrics_provider.h"
 #include "components/metrics/call_stack_profile_params.h"
 #include "components/metrics/expired_histogram_util.h"
-#include "components/metrics/legacy_call_stack_profile_builder.h"
 #include "components/metrics/metrics_reporting_default_state.h"
 #include "components/metrics/metrics_service.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
@@ -220,6 +221,7 @@
 #include "chrome/browser/chromeos/settings/stats_reporting_controller.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/settings/cros_settings_names.h"
+#include "components/arc/metrics/stability_metrics_manager.h"
 #endif  // defined(OS_CHROMEOS)
 
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
@@ -317,7 +319,6 @@
 #endif  // BUILDFLAG(ENABLE_WIDEVINE_CDM_COMPONENT)
 
 #if defined(USE_AURA)
-#include "services/service_manager/runner/common/client_util.h"
 #include "ui/aura/env.h"
 #endif
 
@@ -674,6 +675,9 @@ void ChromeBrowserMainParts::SetupMetrics() {
       variations::SyntheticTrialsActiveGroupIdProvider::GetInstance());
   // Now that field trials have been created, initializes metrics recording.
   metrics->InitializeMetricsRecordingState();
+
+  chrome_feature_list_creator_->browser_field_trials()
+      ->RegisterSyntheticTrials();
 }
 
 void ChromeBrowserMainParts::StartMetricsRecording() {
@@ -853,6 +857,13 @@ void ChromeBrowserMainParts::PostMainMessageLoopStart() {
 
   heap_profiler_controller_->StartIfEnabled();
 
+  system_monitor_ = performance_monitor::SystemMonitor::Create();
+
+  // TODO(sebmarchand): Allow this to be created earlier if startup tracing is
+  // enabled.
+  trace_event_system_stats_monitor_ =
+      std::make_unique<tracing::TraceEventSystemStatsMonitor>();
+
   // device_event_log must be initialized after the message loop. Calls to
   // {DEVICE}_LOG prior to here will only be logged with VLOG. Some
   // platforms (e.g. chromeos) may have already initialized this.
@@ -1010,6 +1021,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 #if defined(OS_CHROMEOS)
   chromeos::CrosSettings::Initialize(local_state);
   chromeos::StatsReportingController::Initialize(local_state);
+  arc::StabilityMetricsManager::Initialize(local_state);
 #endif  // defined(OS_CHROMEOS)
 
   {
@@ -1033,15 +1045,9 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
 #endif  // !defined(OS_ANDROID)
 
 #if defined(OS_WIN)
-  // This is needed to enable ETW exporting when requested in about:flags.
-  // Normally, we enable it in ContentMainRunnerImpl::Initialize when the flag
-  // is present on the command line but flags in about:flags are converted only
-  // after this function runs. Note that this starts exporting later which
-  // affects tracing the browser startup. Also, this is only relevant for the
-  // browser process, as other processes will get all the flags on their command
-  // line regardless of the origin (command line or about:flags).
-  if (parsed_command_line().HasSwitch(switches::kTraceExportEventsToETW))
-    base::trace_event::TraceEventETWExport::EnableETWExport();
+  // This is needed to enable ETW exporting. This is only relevant for the
+  // browser process, as other processes enable it separately.
+  base::trace_event::TraceEventETWExport::EnableETWExport();
 #endif  // OS_WIN
 
   // Reset the command line in the crash report details, since we may have
@@ -1190,13 +1196,6 @@ void ChromeBrowserMainParts::ServiceManagerConnectionStarted(
 }
 
 void ChromeBrowserMainParts::PreMainMessageLoopRun() {
-#if defined(USE_AURA)
-  if (content::ServiceManagerConnection::GetForProcess() &&
-      service_manager::ServiceManagerIsRemote()) {
-    content::ServiceManagerConnection::GetForProcess()->
-        SetConnectionLostClosure(base::Bind(&chrome::SessionEnding));
-  }
-#endif
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PreMainMessageLoopRun");
 
   result_code_ = PreMainMessageLoopRunImpl();
@@ -1616,8 +1615,8 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   if (NetworkProfileBubble::ShouldCheckNetworkProfile(profile_)) {
     base::PostTaskWithTraits(
         FROM_HERE, {base::MayBlock()},
-        base::Bind(&NetworkProfileBubble::CheckNetworkProfile,
-                   profile_->GetPath()));
+        base::BindOnce(&NetworkProfileBubble::CheckNetworkProfile,
+                       profile_->GetPath()));
   }
 #endif  // defined(OS_WIN)
 
@@ -1671,7 +1670,7 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
       base::debug::BeingDebugged());
 
   language_usage_metrics::LanguageUsageMetrics::RecordAcceptLanguages(
-      profile_->GetPrefs()->GetString(prefs::kAcceptLanguages));
+      profile_->GetPrefs()->GetString(language::prefs::kAcceptLanguages));
   language_usage_metrics::LanguageUsageMetrics::RecordApplicationLanguage(
       browser_process_->GetApplicationLocale());
 
@@ -1924,11 +1923,6 @@ void ChromeBrowserMainParts::PostMainMessageLoopRun() {
 #endif  // defined(OS_ANDROID)
 }
 
-void ChromeBrowserMainParts::PreShutdown() {
-  metrics::LegacyCallStackProfileBuilder::SetProcessMilestone(
-      metrics::LegacyCallStackProfileBuilder::SHUTDOWN_START);
-}
-
 void ChromeBrowserMainParts::PostDestroyThreads() {
 #if defined(OS_ANDROID)
   // On Android, there is no quit/exit. So the browser's main message loop will
@@ -1970,6 +1964,7 @@ void ChromeBrowserMainParts::PostDestroyThreads() {
   CHECK(metrics::MetricsService::UmaMetricsProperlyShutdown());
 
 #if defined(OS_CHROMEOS)
+  arc::StabilityMetricsManager::Shutdown();
   chromeos::StatsReportingController::Shutdown();
   chromeos::CrosSettings::Shutdown();
 #endif  // defined(OS_CHROMEOS)

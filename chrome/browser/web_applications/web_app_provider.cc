@@ -16,6 +16,7 @@
 #include "chrome/browser/web_applications/components/web_app_audio_focus_id_map.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/browser/web_applications/components/web_app_helpers.h"
+#include "chrome/browser/web_applications/extensions/bookmark_app_registrar.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_tab_helper.h"
 #include "chrome/browser/web_applications/extensions/bookmark_app_util.h"
 #include "chrome/browser/web_applications/extensions/pending_bookmark_app_manager.h"
@@ -55,11 +56,16 @@ WebAppProvider* WebAppProvider::GetForWebContents(
   return WebAppProvider::Get(profile);
 }
 
-WebAppProvider::WebAppProvider(Profile* profile) : profile_(profile) {}
+WebAppProvider::WebAppProvider(Profile* profile) : profile_(profile) {
+  DCHECK(AreWebAppsEnabled(profile_));
+  // WebApp System must have only one instance in original profile.
+  // Exclude secondary off-the-record profiles.
+  DCHECK(!profile_->IsOffTheRecord());
+}
 
 WebAppProvider::~WebAppProvider() = default;
 
-void WebAppProvider::CreateSubsystems() {
+void WebAppProvider::Init() {
   audio_focus_id_map_ = std::make_unique<WebAppAudioFocusIdMap>();
 
   if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions))
@@ -68,62 +74,61 @@ void WebAppProvider::CreateSubsystems() {
     CreateBookmarkAppsSubsystems(profile_);
 }
 
-void WebAppProvider::Init() {
+void WebAppProvider::StartRegistry() {
   notification_registrar_.Add(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
                               content::Source<Profile>(profile_));
 
-  if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
-    if (AllowWebAppInstallation(profile_)) {
-      registrar_->Init(base::BindOnce(&WebAppProvider::OnRegistryReady,
-                                      weak_ptr_factory_.GetWeakPtr()));
-    }
-  } else {
-    system_web_app_manager_->Init();
-
-    web_app::ScanForExternalWebApps(
-        profile_, base::BindOnce(&WebAppProvider::OnScanForExternalWebApps,
-                                 weak_ptr_factory_.GetWeakPtr()));
-
-    extensions::ExtensionSystem::Get(profile_)->ready().Post(
-        FROM_HERE, base::BindRepeating(&WebAppProvider::OnRegistryReady,
-                                       weak_ptr_factory_.GetWeakPtr()));
-  }
+  registrar_->Init(base::BindOnce(&WebAppProvider::OnRegistryReady,
+                                  weak_ptr_factory_.GetWeakPtr()));
 }
 
 void WebAppProvider::CreateWebAppsSubsystems(Profile* profile) {
-  if (!AllowWebAppInstallation(profile))
-    return;
-
   database_factory_ = std::make_unique<WebAppDatabaseFactory>(profile);
   database_ = std::make_unique<WebAppDatabase>(database_factory_.get());
-  registrar_ = std::make_unique<WebAppRegistrar>(database_.get());
+  auto web_app_registrar = std::make_unique<WebAppRegistrar>(database_.get());
   icon_manager_ = std::make_unique<WebAppIconManager>(
       profile, std::make_unique<FileUtilsWrapper>());
 
   auto install_finalizer = std::make_unique<WebAppInstallFinalizer>(
-      registrar_.get(), icon_manager_.get());
+      web_app_registrar.get(), icon_manager_.get());
   install_manager_ = std::make_unique<WebAppInstallManager>(
       profile, std::move(install_finalizer));
+
+  registrar_ = std::move(web_app_registrar);
 }
 
 void WebAppProvider::CreateBookmarkAppsSubsystems(Profile* profile) {
+  auto bookmark_app_registrar =
+      std::make_unique<extensions::BookmarkAppRegistrar>(profile);
+
   install_manager_ = std::make_unique<extensions::BookmarkAppInstallManager>();
 
   pending_app_manager_ =
-      std::make_unique<extensions::PendingBookmarkAppManager>(profile);
+      std::make_unique<extensions::PendingBookmarkAppManager>(
+          profile, bookmark_app_registrar.get());
 
-  if (WebAppPolicyManager::ShouldEnableForProfile(profile)) {
-    web_app_policy_manager_ = std::make_unique<WebAppPolicyManager>(
-        profile, pending_app_manager_.get());
-  }
+  web_app_policy_manager_ = std::make_unique<WebAppPolicyManager>(
+      profile, pending_app_manager_.get());
 
   system_web_app_manager_ = std::make_unique<SystemWebAppManager>(
       profile, pending_app_manager_.get());
+
+  registrar_ = std::move(bookmark_app_registrar);
 }
 
 void WebAppProvider::OnRegistryReady() {
   DCHECK(!registry_is_ready_);
   registry_is_ready_ = true;
+
+  if (!base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
+    web_app_policy_manager_->Start();
+    system_web_app_manager_->Start();
+
+    // Start ExternalWebApps subsystem:
+    ScanForExternalWebApps(
+        profile_, base::BindOnce(&WebAppProvider::OnScanForExternalWebApps,
+                                 weak_ptr_factory_.GetWeakPtr()));
+  }
 
   if (registry_ready_callback_)
     std::move(registry_ready_callback_).Run();
@@ -143,54 +148,21 @@ WebAppTabHelperBase* WebAppProvider::CreateTabHelper(
   if (!provider)
     return nullptr;
 
-  if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions))
-    WebAppTabHelper::CreateForWebContents(web_contents);
-  else
-    extensions::BookmarkAppTabHelper::CreateForWebContents(web_contents);
-
   WebAppTabHelperBase* tab_helper =
       WebAppTabHelperBase::FromWebContents(web_contents);
-  tab_helper->SetAudioFocusIdMap(provider->audio_focus_id_map_.get());
+  // Do nothing if already exists.
+  if (tab_helper)
+    return tab_helper;
 
+  if (base::FeatureList::IsEnabled(features::kDesktopPWAsWithoutExtensions)) {
+    tab_helper = WebAppTabHelper::CreateForWebContents(web_contents);
+  } else {
+    tab_helper =
+        extensions::BookmarkAppTabHelper::CreateForWebContents(web_contents);
+  }
+
+  tab_helper->Init(provider->audio_focus_id_map_.get());
   return tab_helper;
-}
-
-// static
-bool WebAppProvider::CanInstallWebApp(content::WebContents* web_contents) {
-  auto* provider = WebAppProvider::GetForWebContents(web_contents);
-  if (!provider || !provider->install_manager_)
-    return false;
-  return provider->install_manager_->CanInstallWebApp(web_contents);
-}
-
-// static
-void WebAppProvider::InstallWebApp(content::WebContents* web_contents,
-                                   bool force_shortcut_app) {
-  auto* provider = WebAppProvider::GetForWebContents(web_contents);
-  if (!provider || !provider->install_manager_)
-    return;
-  provider->install_manager_->InstallWebApp(web_contents, force_shortcut_app,
-                                            base::DoNothing());
-}
-
-void WebAppProvider::Reset() {
-  // TODO(loyso): Make it independent to the order of destruction via using two
-  // end-to-end passes:
-  // 1) Do Reset() for each subsystem to nullify pointers (detach subsystems).
-  // 2) Destroy subsystems.
-
-  // PendingAppManager is used by WebAppPolicyManager and therefore should be
-  // deleted after it.
-  web_app_policy_manager_.reset();
-  system_web_app_manager_.reset();
-  pending_app_manager_.reset();
-
-  install_manager_.reset();
-  icon_manager_.reset();
-  registrar_.reset();
-  database_.reset();
-  database_factory_.reset();
-  audio_focus_id_map_.reset();
 }
 
 void WebAppProvider::Observe(int type,
@@ -221,6 +193,26 @@ int WebAppProvider::CountUserInstalledApps() const {
     return 0;
 
   return extensions::CountUserInstalledBookmarkApps(profile_);
+}
+
+void WebAppProvider::Reset() {
+  // TODO(loyso): Make it independent to the order of destruction via using two
+  // end-to-end passes:
+  // 1) Do Reset() for each subsystem to nullify pointers (detach subsystems).
+  // 2) Destroy subsystems.
+
+  // PendingAppManager is used by WebAppPolicyManager and therefore should be
+  // deleted after it.
+  web_app_policy_manager_.reset();
+  system_web_app_manager_.reset();
+  pending_app_manager_.reset();
+
+  install_manager_.reset();
+  icon_manager_.reset();
+  registrar_.reset();
+  database_.reset();
+  database_factory_.reset();
+  audio_focus_id_map_.reset();
 }
 
 void WebAppProvider::OnScanForExternalWebApps(

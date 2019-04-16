@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "services/tracing/public/cpp/traced_process_impl.h"
 #include "services/tracing/public/mojom/constants.mojom.h"
 
@@ -38,13 +39,25 @@ void BaseAgent::Disconnect() {
 }
 
 void BaseAgent::StartTracing(const std::string& config,
-                             base::TimeTicks coordinator_time) {}
+                             base::TimeTicks coordinator_time,
+                             Agent::StartTracingCallback callback) {
+  std::move(callback).Run(true /* success */);
+}
 
 void BaseAgent::StopAndFlush(tracing::mojom::RecorderPtr recorder) {}
 
 void BaseAgent::RequestBufferStatus(
     Agent::RequestBufferStatusCallback callback) {
   std::move(callback).Run(0 /* capacity */, 0 /* count */);
+}
+
+void BaseAgent::WaitForTracingEnabled(
+    Agent::WaitForTracingEnabledCallback callback) {
+  std::move(callback).Run();
+}
+
+bool BaseAgent::IsBoundForTesting() const {
+  return binding_.is_bound();
 }
 
 }  // namespace tracing

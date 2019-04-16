@@ -55,7 +55,7 @@ void OffscreenCanvasRenderingContext2D::commit() {
   // TODO(fserb): consolidate this with PushFrame
   SkIRect damage_rect(dirty_rect_for_commit_);
   dirty_rect_for_commit_.setEmpty();
-  Host()->Commit(ProduceFrame(), damage_rect);
+  Host()->Commit(ProduceCanvasResource(), damage_rect);
 }
 
 // BaseRenderingContext2D implementation
@@ -95,11 +95,11 @@ void OffscreenCanvasRenderingContext2D::Reset() {
 }
 
 scoped_refptr<CanvasResource>
-OffscreenCanvasRenderingContext2D::ProduceFrame() {
+OffscreenCanvasRenderingContext2D::ProduceCanvasResource() {
   if (!CanCreateCanvas2dResourceProvider())
     return nullptr;
   scoped_refptr<CanvasResource> frame =
-      GetCanvasResourceProvider()->ProduceFrame();
+      GetCanvasResourceProvider()->ProduceCanvasResource();
   if (!frame)
     return nullptr;
 
@@ -112,7 +112,7 @@ void OffscreenCanvasRenderingContext2D::PushFrame() {
     return;
 
   SkIRect damage_rect(dirty_rect_for_commit_);
-  Host()->PushFrame(ProduceFrame(), damage_rect);
+  Host()->PushFrame(ProduceCanvasResource(), damage_rect);
   dirty_rect_for_commit_.setEmpty();
 }
 
@@ -432,15 +432,13 @@ void OffscreenCanvasRenderingContext2D::DrawTextInternal(
       break;
   }
 
-  // The slop built in to this mask rect matches the heuristic used in
-  // FontCGWin.cpp for GDI text.
   TextRunPaintInfo text_run_paint_info(text_run);
-  text_run_paint_info.bounds =
-      FloatRect(location.X() - font_metrics.Height() / 2,
-                location.Y() - font_metrics.Ascent() - font_metrics.LineGap(),
-                width + font_metrics.Height(), font_metrics.LineSpacing());
+  FloatRect bounds(
+      location.X() - font_metrics.Height() / 2,
+      location.Y() - font_metrics.Ascent() - font_metrics.LineGap(),
+      width + font_metrics.Height(), font_metrics.LineSpacing());
   if (paint_type == CanvasRenderingContext2DState::kStrokePaintType)
-    InflateStrokeRect(text_run_paint_info.bounds);
+    InflateStrokeRect(bounds);
 
   int save_count = c->getSaveCount();
   if (use_max_width) {
@@ -462,7 +460,7 @@ void OffscreenCanvasRenderingContext2D::DrawTextInternal(
       },
       [](const SkIRect& rect)  // overdraw test lambda
       { return false; },
-      text_run_paint_info.bounds, paint_type);
+      bounds, paint_type);
   c->restoreToCount(save_count);
   ValidateStateStack();
 }

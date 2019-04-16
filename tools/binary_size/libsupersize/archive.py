@@ -819,6 +819,38 @@ def _ResolveThinArchivePaths(raw_symbols, thin_archives):
         symbol.object_path = ar.CreateThinObjectPath(archive_path, subpath)
 
 
+def _DeduceObjectPathForSwitchTables(raw_symbols, object_paths_by_name):
+  strip_num_suffix_regexp = re.compile(r'\s+\(\.\d+\)$')
+  num_switch_tables = 0
+  num_unassigned = 0
+  num_deduced = 0
+  num_arbitrations = 0
+  for s in raw_symbols:
+    if s.full_name.startswith('Switch table for '):
+      num_switch_tables += 1
+      # Strip 'Switch table for ' prefix.
+      name = s.full_name[17:]
+      # Strip, e.g., ' (.123)' suffix.
+      name = re.sub(strip_num_suffix_regexp, '', name)
+      object_paths = object_paths_by_name.get(name, None)
+      if not s.object_path:
+        if object_paths is None:
+          num_unassigned += 1
+        else:
+          num_deduced += 1
+          # If ambiguity arises, arbitrate by taking the first.
+          s.object_path = object_paths[0]
+          if len(object_paths) > 1:
+            num_arbitrations += 1
+      else:
+        assert object_paths and s.object_path in object_paths
+  if num_switch_tables > 0:
+    logging.info(
+        'Found %d switch tables: Deduced %d object paths with ' +
+        '%d arbitrations. %d remain unassigned.', num_switch_tables,
+        num_deduced, num_arbitrations, num_unassigned)
+
+
 def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
                   outdir_context=None, linker_name=None):
   """Adds ELF section sizes and symbols."""
@@ -846,7 +878,7 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
 
   logging.info('Parsing Linker Map')
   with _OpenMaybeGz(map_path) as map_file:
-    section_sizes, raw_symbols = (
+    section_sizes, raw_symbols, linker_map_extras = (
         linker_map_parser.MapFileParser().Parse(linker_name, map_file))
 
     if outdir_context and outdir_context.thin_archives:
@@ -901,6 +933,7 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
           'Fetched path information for %d symbols from %d files',
           len(object_paths_by_name),
           len(outdir_context.elf_object_paths) + len(missed_object_paths))
+      _DeduceObjectPathForSwitchTables(raw_symbols, object_paths_by_name)
       # For aliases, this provides path information where there wasn't any.
       logging.info('Creating aliases for symbols shared by multiple paths')
       raw_symbols = _AssignNmAliasPathsAndCreatePathAliases(
@@ -925,7 +958,7 @@ def _ParseElfInfo(map_path, elf_path, tool_prefix, track_string_literals,
             # is fast enough since len(merge_string_syms) < 10.
             raw_symbols[idx:idx + 1] = literal_syms
 
-  return section_sizes, raw_symbols, object_paths_by_name
+  return section_sizes, raw_symbols, object_paths_by_name, linker_map_extras
 
 
 def _ComputePakFileSymbols(
@@ -1282,9 +1315,14 @@ def CreateSectionSizesAndSymbols(
         source_mapper=source_mapper,
         thin_archives=thin_archives)
 
-  section_sizes, raw_symbols, object_paths_by_name = _ParseElfInfo(
-      map_path, elf_path, tool_prefix, track_string_literals,
-      outdir_context=outdir_context, linker_name=linker_name)
+  (section_sizes, raw_symbols, object_paths_by_name,
+   linker_map_extras) = _ParseElfInfo(
+       map_path,
+       elf_path,
+       tool_prefix,
+       track_string_literals,
+       outdir_context=outdir_context,
+       linker_name=linker_name)
   elf_overhead_size = _CalculateElfOverhead(section_sizes, elf_path)
 
   pak_symbols_by_id = None
@@ -1322,6 +1360,7 @@ def CreateSectionSizesAndSymbols(
     raw_symbols.extend(pak_raw_symbols)
 
   _ExtractSourcePathsAndNormalizeObjectPaths(raw_symbols, source_mapper)
+  linker_map_parser.DeduceObjectPathsFromThinMap(raw_symbols, linker_map_extras)
   _PopulateComponents(raw_symbols, knobs)
   logging.info('Converting excessive aliases into shared-path symbols')
   _CompactLargeAliasesIntoSharedSymbols(raw_symbols, knobs)

@@ -37,6 +37,7 @@
 #include "net/cert/known_roots.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_store.h"
+#include "net/cookies/cookie_util.h"
 #include "net/filter/brotli_source_stream.h"
 #include "net/filter/filter_source_stream.h"
 #include "net/filter/gzip_source_stream.h"
@@ -362,6 +363,7 @@ URLRequestHttpJob::URLRequestHttpJob(
     NetworkDelegate* network_delegate,
     const HttpUserAgentSettings* http_user_agent_settings)
     : URLRequestJob(request, network_delegate),
+      num_cookie_lines_left_(0),
       priority_(DEFAULT_PRIORITY),
       response_info_(nullptr),
       proxy_auth_state_(AUTH_STATE_DONT_NEED_AUTH),
@@ -473,6 +475,7 @@ void URLRequestHttpJob::NotifyBeforeSendHeadersCallback(
 
 void URLRequestHttpJob::NotifyHeadersComplete() {
   DCHECK(!response_info_);
+  DCHECK_EQ(0, num_cookie_lines_left_);
 
   response_info_ = transaction_->GetResponseInfo();
 
@@ -486,6 +489,10 @@ void URLRequestHttpJob::NotifyHeadersComplete() {
   // The ordering of these calls is not important.
   ProcessStrictTransportSecurityHeader();
   ProcessExpectCTHeader();
+
+  // Clear |cs_status_list_| after any processing in case
+  // SaveCookiesAndNotifyHeadersComplete is called again.
+  cs_status_list_.clear();
 
   // The HTTP transaction may be restarted several times for the purposes
   // of sending authorization information. Each time it restarts, we get
@@ -559,9 +566,9 @@ void URLRequestHttpJob::MaybeStartTransactionInternal(int result) {
     // Don't call back synchronously to the delegate.
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&URLRequestHttpJob::NotifyStartError,
-                   weak_factory_.GetWeakPtr(),
-                   URLRequestStatus(URLRequestStatus::FAILED, result)));
+        base::BindOnce(&URLRequestHttpJob::NotifyStartError,
+                       weak_factory_.GetWeakPtr(),
+                       URLRequestStatus(URLRequestStatus::FAILED, result)));
   }
 }
 
@@ -637,8 +644,8 @@ void URLRequestHttpJob::StartTransactionInternal() {
   // The transaction started synchronously, but we need to notify the
   // URLRequest delegate via the message loop.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(&URLRequestHttpJob::OnStartCompleted,
-                            weak_factory_.GetWeakPtr(), rv));
+      FROM_HERE, base::BindOnce(&URLRequestHttpJob::OnStartCompleted,
+                                weak_factory_.GetWeakPtr(), rv));
 }
 
 void URLRequestHttpJob::AddExtraHeaders() {
@@ -691,46 +698,10 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
   if (cookie_store && !(request_info_.load_flags & LOAD_DO_NOT_SEND_COOKIES)) {
     CookieOptions options;
     options.set_include_httponly();
-
-    // Set SameSiteCookieMode according to the rules laid out in
-    // https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site:
-    //
-    // * Include both "strict" and "lax" same-site cookies if the request's
-    //   |url|, |initiator|, and |site_for_cookies| all have the same
-    //   registrable domain. Note: this also covers the case of a request
-    //   without an initiator (only happens for browser-initiated main frame
-    //   navigations).
-    //
-    // * Include only "lax" same-site cookies if the request's |URL| and
-    //   |site_for_cookies| have the same registrable domain, _and_ the
-    //   request's |method| is "safe" ("GET" or "HEAD").
-    //
-    //   Note that this will generally be the case only for cross-site requests
-    //   which target a top-level browsing context.
-    //
-    // * Include both "strict" and "lax" same-site cookies if the request is
-    //   tagged with a flag allowing it.
-    //   Note that this can be the case for requests initiated by extensions,
-    //   which need to behave as though they are made by the document itself,
-    //   but appear like cross-site ones.
-    //
-    // * Otherwise, do not include same-site cookies.
-    if (registry_controlled_domains::SameDomainOrHost(
-            request_->url(), request_->site_for_cookies(),
-            registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
-      if (!request_->initiator() ||
-          registry_controlled_domains::SameDomainOrHost(
-              request_->url(), request_->initiator().value().GetURL(),
-              registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES) ||
-          request_->attach_same_site_cookies()) {
-        options.set_same_site_cookie_mode(
-            CookieOptions::SameSiteCookieMode::INCLUDE_STRICT_AND_LAX);
-      } else if (HttpUtil::IsMethodSafe(request_->method())) {
-        options.set_same_site_cookie_mode(
-            CookieOptions::SameSiteCookieMode::INCLUDE_LAX);
-      }
-    }
-
+    options.set_same_site_cookie_context(
+        net::cookie_util::ComputeSameSiteContextForRequest(
+            request_->method(), request_->url(), request_->site_for_cookies(),
+            request_->initiator(), request_->attach_same_site_cookies()));
     cookie_store->GetCookieListWithOptionsAsync(
         request_->url(), options,
         base::Bind(&URLRequestHttpJob::SetCookieHeaderAndStart,
@@ -740,7 +711,9 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
   }
 }
 
-void URLRequestHttpJob::SetCookieHeaderAndStart(const CookieList& cookie_list) {
+void URLRequestHttpJob::SetCookieHeaderAndStart(
+    const CookieList& cookie_list,
+    const CookieStatusList& excluded_list) {
   if (!cookie_list.empty() && CanGetCookies(cookie_list)) {
     LogCookieUMA(cookie_list, *request_, request_info_);
 
@@ -756,6 +729,9 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(const CookieList& cookie_list) {
 }
 
 void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
+  DCHECK(cs_status_list_.empty());
+  DCHECK_EQ(0, num_cookie_lines_left_);
+
   // End of the call started in OnStartCompleted.
   OnCallToDelegateComplete();
 
@@ -767,34 +743,82 @@ void URLRequestHttpJob::SaveCookiesAndNotifyHeadersComplete(int result) {
     return;
   }
 
+  if ((request_info_.load_flags & LOAD_DO_NOT_SAVE_COOKIES) ||
+      !request_->context()->cookie_store()) {
+    NotifyHeadersComplete();
+    return;
+  }
+
   base::Time response_date;
   if (!GetResponseHeaders()->GetDateValue(&response_date))
     response_date = base::Time();
 
-  if (!(request_info_.load_flags & LOAD_DO_NOT_SAVE_COOKIES) &&
-      request_->context()->cookie_store()) {
-    CookieOptions options;
-    options.set_include_httponly();
-    options.set_server_time(response_date);
+  CookieOptions options;
+  options.set_include_httponly();
+  options.set_server_time(response_date);
 
-    // Set all cookies, without waiting for them to be set. Any subsequent read
-    // will see the combined result of all cookie operation.
-    const base::StringPiece name("Set-Cookie");
-    std::string cookie_line;
-    size_t iter = 0;
-    HttpResponseHeaders* headers = GetResponseHeaders();
-    while (headers->EnumerateHeader(&iter, name, &cookie_line)) {
-      std::unique_ptr<CanonicalCookie> cookie = net::CanonicalCookie::Create(
-          request_->url(), cookie_line, base::Time::Now(), options);
-      if (!cookie || !CanSetCookie(*cookie, &options))
-        continue;
-      request_->context()->cookie_store()->SetCookieWithOptionsAsync(
-          request_->url(), cookie_line, options,
-          CookieStore::SetCookiesCallback());
+  // Set all cookies, without waiting for them to be set. Any subsequent read
+  // will see the combined result of all cookie operation.
+  const base::StringPiece name("Set-Cookie");
+  std::string cookie_string;
+  size_t iter = 0;
+  HttpResponseHeaders* headers = GetResponseHeaders();
+
+  // NotifyHeadersComplete needs to be called once and only once after the
+  // list has been fully processed, and it can either be called in the
+  // callback or after the loop is called, depending on how the last element
+  // was handled. |num_cookie_lines_left_| keeps track of how many async
+  // callbacks are currently out (starting from 1 to make sure the loop runs all
+  // the way through before trying to exit). If there are any callbacks still
+  // waiting when the loop ends, then NotifyHeadersComplete will be called when
+  // it reaches 0 in the callback itself.
+  num_cookie_lines_left_ = 1;
+  while (headers->EnumerateHeader(&iter, name, &cookie_string)) {
+    CanonicalCookie::CookieInclusionStatus returned_status;
+
+    num_cookie_lines_left_++;
+
+    std::unique_ptr<CanonicalCookie> cookie = net::CanonicalCookie::Create(
+        request_->url(), cookie_string, base::Time::Now(), options,
+        &returned_status);
+
+    if (returned_status != CanonicalCookie::CookieInclusionStatus::INCLUDE) {
+      OnSetCookieResult(std::move(cookie_string), returned_status);
+      continue;
     }
-  }
 
-  NotifyHeadersComplete();
+    if (!CanSetCookie(*cookie, &options)) {
+      OnSetCookieResult(
+          std::move(cookie_string),
+          CanonicalCookie::CookieInclusionStatus::EXCLUDE_THIRD_PARTY_POLICY);
+      continue;
+    }
+
+    request_->context()->cookie_store()->SetCookieWithOptionsAsync(
+        request_->url(), cookie_string, options,
+        base::BindOnce(&URLRequestHttpJob::OnSetCookieResult,
+                       weak_factory_.GetWeakPtr(), cookie_string));
+  }
+  // Removing the 1 that |num_cookie_lines_left| started with, signifing that
+  // loop has been exited.
+  num_cookie_lines_left_--;
+
+  if (num_cookie_lines_left_ == 0)
+    NotifyHeadersComplete();
+}
+
+void URLRequestHttpJob::OnSetCookieResult(
+    std::string cookie_string,
+    CanonicalCookie::CookieInclusionStatus status) {
+  if (status != CanonicalCookie::CookieInclusionStatus::INCLUDE)
+    cs_status_list_.emplace_back(std::move(cookie_string), status);
+
+  num_cookie_lines_left_--;
+
+  // If all the cookie lines have been handled, |cs_status_list_| now reflects
+  // the result of all Set-Cookie lines, and the request can be continued.
+  if (num_cookie_lines_left_ == 0)
+    NotifyHeadersComplete();
 }
 
 void URLRequestHttpJob::ProcessStrictTransportSecurityHeader() {
@@ -883,13 +907,13 @@ void URLRequestHttpJob::OnStartCompleted(int result) {
       OnCallToDelegate(NetLogEventType::NETWORK_DELEGATE_HEADERS_RECEIVED);
       allowed_unsafe_redirect_url_ = GURL();
       // The NetworkDelegate must watch for OnRequestDestroyed and not modify
-      // any of the arguments or invoke the callback after it's called. Not
-      // using a WeakPtr here because it's not enough, the consumer has to watch
-      // for destruction regardless, due to the pointer parameters.
+      // any of the arguments after it's called.
+      // TODO(mattm): change the API to remove the out-params and take the
+      // results as params of the callback.
       int error = network_delegate()->NotifyHeadersReceived(
           request_,
           base::BindOnce(&URLRequestHttpJob::OnHeadersReceivedCallback,
-                         base::Unretained(this)),
+                         weak_factory_.GetWeakPtr()),
           headers.get(), &override_response_headers_,
           &allowed_unsafe_redirect_url_);
       if (error != OK) {
@@ -1032,7 +1056,8 @@ void URLRequestHttpJob::GetLoadTimingInfo(
     load_timing_info->receive_headers_end = receive_headers_end_;
 }
 
-bool URLRequestHttpJob::GetRemoteEndpoint(IPEndPoint* endpoint) const {
+bool URLRequestHttpJob::GetTransactionRemoteEndpoint(
+    IPEndPoint* endpoint) const {
   if (!transaction_)
     return false;
 
@@ -1231,8 +1256,8 @@ void URLRequestHttpJob::CancelAuth() {
   // We have to do this via InvokeLater to avoid "recursing" the consumer.
   //
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(&URLRequestHttpJob::OnStartCompleted,
-                            weak_factory_.GetWeakPtr(), OK));
+      FROM_HERE, base::BindOnce(&URLRequestHttpJob::OnStartCompleted,
+                                weak_factory_.GetWeakPtr(), OK));
 }
 
 void URLRequestHttpJob::ContinueWithCertificate(
@@ -1255,8 +1280,8 @@ void URLRequestHttpJob::ContinueWithCertificate(
   // The transaction started synchronously, but we need to notify the
   // URLRequest delegate via the message loop.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(&URLRequestHttpJob::OnStartCompleted,
-                            weak_factory_.GetWeakPtr(), rv));
+      FROM_HERE, base::BindOnce(&URLRequestHttpJob::OnStartCompleted,
+                                weak_factory_.GetWeakPtr(), rv));
 }
 
 void URLRequestHttpJob::ContinueDespiteLastError() {
@@ -1278,8 +1303,8 @@ void URLRequestHttpJob::ContinueDespiteLastError() {
   // The transaction started synchronously, but we need to notify the
   // URLRequest delegate via the message loop.
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE, base::Bind(&URLRequestHttpJob::OnStartCompleted,
-                            weak_factory_.GetWeakPtr(), rv));
+      FROM_HERE, base::BindOnce(&URLRequestHttpJob::OnStartCompleted,
+                                weak_factory_.GetWeakPtr(), rv));
 }
 
 bool URLRequestHttpJob::ShouldFixMismatchedContentLength(int rv) const {
@@ -1378,8 +1403,8 @@ void URLRequestHttpJob::DoneReadingRedirectResponse() {
   DoneWithRequest(FINISHED);
 }
 
-HostPortPair URLRequestHttpJob::GetSocketAddress() const {
-  return response_info_ ? response_info_->socket_address : HostPortPair();
+IPEndPoint URLRequestHttpJob::GetResponseRemoteEndpoint() const {
+  return response_info_ ? response_info_->remote_endpoint : IPEndPoint();
 }
 
 void URLRequestHttpJob::RecordTimer() {

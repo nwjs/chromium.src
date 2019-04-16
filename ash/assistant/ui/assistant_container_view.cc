@@ -5,11 +5,14 @@
 #include "ash/assistant/ui/assistant_container_view.h"
 
 #include <algorithm>
+#include <set>
+#include <vector>
 
 #include "ash/assistant/model/assistant_ui_model.h"
 #include "ash/assistant/ui/assistant_container_view_animator.h"
 #include "ash/assistant/ui/assistant_main_view.h"
 #include "ash/assistant/ui/assistant_mini_view.h"
+#include "ash/assistant/ui/assistant_overlay.h"
 #include "ash/assistant/ui/assistant_ui_constants.h"
 #include "ash/assistant/ui/assistant_view_delegate.h"
 #include "ash/assistant/ui/assistant_web_view.h"
@@ -34,8 +37,85 @@ namespace {
 // Appearance.
 constexpr SkColor kBackgroundColor = SK_ColorWHITE;
 
-// Window properties.
-DEFINE_UI_CLASS_PROPERTY_KEY(bool, kOnlyAllowMouseClickEvents, false);
+// AssistantContainerClientView ------------------------------------------------
+
+// AssistantContainerClientView is the client view for AssistantContainerView
+// which provides support for adding overlays to the Assistant view hierarchy.
+// Because overlays are added to the AssistantContainerView client view, they
+// paint to a higher level in the layer tree than do direct children of
+// AssistantContainerView. This allows AssistantMainView, for example, to
+// pseudo-parent overlays that draw over top of Assistant cards.
+class AssistantContainerClientView : public views::ClientView,
+                                     public views::ViewObserver {
+ public:
+  AssistantContainerClientView(views::Widget* widget,
+                               views::View* contents_view)
+      : views::ClientView(widget, contents_view) {}
+
+  ~AssistantContainerClientView() override = default;
+
+  // views::ClientView:
+  const char* GetClassName() const override {
+    return "AssistantContainerClientView";
+  }
+
+  void Layout() override {
+    views::ClientView::Layout();
+    for (AssistantOverlay* overlay : overlays_)
+      Layout(overlay);
+  }
+
+  // views::ViewObserver:
+  void OnViewIsDeleting(views::View* view) override {
+    view->RemoveObserver(this);
+
+    // We need to keep |overlays_| in sync with the view hierarchy.
+    auto it = overlays_.find(static_cast<AssistantOverlay*>(view));
+    DCHECK(it != overlays_.end());
+    overlays_.erase(it);
+  }
+
+  void OnViewPreferredSizeChanged(views::View* view) override {
+    Layout(static_cast<AssistantOverlay*>(view));
+    SchedulePaint();
+  }
+
+  void AddOverlays(std::vector<AssistantOverlay*> overlays) {
+    for (AssistantOverlay* overlay : overlays) {
+      overlays_.insert(overlay);
+      overlay->AddObserver(this);
+      AddChildView(overlay);
+    }
+  }
+
+ private:
+  void Layout(AssistantOverlay* overlay) {
+    AssistantOverlay::LayoutParams layout_params = overlay->GetLayoutParams();
+    gfx::Size preferred_size = overlay->GetPreferredSize();
+
+    int left = layout_params.margins.left();
+    int top = layout_params.margins.top();
+    int width = std::min(preferred_size.width(), this->width());
+    int height = preferred_size.height();
+
+    // Gravity::kBottom.
+    using Gravity = AssistantOverlay::LayoutParams::Gravity;
+    if ((layout_params.gravity & Gravity::kBottom) != 0)
+      top = this->height() - height - layout_params.margins.bottom();
+
+    // Gravity::kCenterHorizontal.
+    if ((layout_params.gravity & Gravity::kCenterHorizontal) != 0) {
+      width = std::min(width, this->width() - layout_params.margins.width());
+      left = (this->width() - width) / 2;
+    }
+
+    overlay->SetBounds(left, top, width, height);
+  }
+
+  std::set<AssistantOverlay*> overlays_;
+
+  DISALLOW_COPY_AND_ASSIGN(AssistantContainerClientView);
+};
 
 // AssistantContainerEventTargeter ---------------------------------------------
 
@@ -47,7 +127,7 @@ class AssistantContainerEventTargeter : public aura::WindowTargeter {
   // aura::WindowTargeter:
   bool SubtreeShouldBeExploredForEvent(aura::Window* window,
                                        const ui::LocatedEvent& event) override {
-    if (window->GetProperty(kOnlyAllowMouseClickEvents)) {
+    if (window->GetProperty(assistant::ui::kOnlyAllowMouseClickEvents)) {
       if (event.type() != ui::ET_MOUSE_PRESSED &&
           event.type() != ui::ET_MOUSE_RELEASED) {
         return false;
@@ -190,11 +270,6 @@ AssistantContainerView::~AssistantContainerView() {
   delegate_->RemoveUiModelObserver(this);
 }
 
-// static
-void AssistantContainerView::OnlyAllowMouseClickEvents(aura::Window* window) {
-  window->SetProperty(kOnlyAllowMouseClickEvents, true);
-}
-
 const char* AssistantContainerView::GetClassName() const {
   return "AssistantContainerView";
 }
@@ -251,6 +326,14 @@ void AssistantContainerView::OnBeforeBubbleWidgetInit(
   params->keep_on_top = true;
 }
 
+views::ClientView* AssistantContainerView::CreateClientView(
+    views::Widget* widget) {
+  AssistantContainerClientView* client_view =
+      new AssistantContainerClientView(widget, GetContentsView());
+  client_view->AddOverlays(assistant_main_view_->GetOverlays());
+  return client_view;
+}
+
 void AssistantContainerView::Init() {
   SetLayoutManager(std::make_unique<AssistantContainerLayout>(delegate_));
 
@@ -265,8 +348,6 @@ void AssistantContainerView::Init() {
 
   // Mini view.
   assistant_mini_view_ = new AssistantMiniView(delegate_);
-  assistant_mini_view_->set_mini_view_delegate(
-      delegate_->GetMiniViewDelegate());
   AddChildView(assistant_mini_view_);
 
   // Web view.
@@ -293,6 +374,9 @@ void AssistantContainerView::RequestFocus() {
     case AssistantUiMode::kWebUi:
       if (assistant_web_view_)
         assistant_web_view_->RequestFocus();
+      break;
+    case AssistantUiMode::kLauncherEmbeddedUi:
+      NOTREACHED();
       break;
   }
 }
@@ -323,6 +407,9 @@ void AssistantContainerView::OnUiModeChanged(AssistantUiMode ui_mode) {
     case AssistantUiMode::kWebUi:
       assistant_web_view_->SetVisible(true);
       break;
+    case AssistantUiMode::kLauncherEmbeddedUi:
+      NOTREACHED();
+      break;
   }
 
   PreferredSizeChanged();
@@ -352,6 +439,9 @@ views::View* AssistantContainerView::FindFirstFocusableView() {
     case AssistantUiMode::kMiniUi:
     case AssistantUiMode::kWebUi:
       // Default views::FocusSearch behavior is acceptable.
+      return nullptr;
+    case AssistantUiMode::kLauncherEmbeddedUi:
+      NOTREACHED();
       return nullptr;
   }
 }

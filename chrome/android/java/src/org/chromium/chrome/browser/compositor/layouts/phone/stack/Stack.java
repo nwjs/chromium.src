@@ -213,7 +213,7 @@ public abstract class Stack implements ChromeAnimation.Animatable {
     private int mReferenceOrderIndex = -1;
 
     // Orientation Variables
-    protected int mCurrentMode = Orientation.PORTRAIT;
+    protected @Orientation int mCurrentMode = Orientation.PORTRAIT;
 
     // Animation Variables
     protected @OverviewAnimationType int mOverviewAnimationType = OverviewAnimationType.NONE;
@@ -303,6 +303,13 @@ public abstract class Stack implements ChromeAnimation.Animatable {
      * The scale the tabs should be currently shown at (may change based on how many are open).
      */
     public abstract float getScaleAmount();
+
+    /**
+     * @return The index of the currently centered tab. If we're not currently snapped to a tab
+     *         (e.g. we're in the process of animating a scroll or the user is currently dragging),
+     *         returns the index of the tab closest to the center.
+     */
+    public abstract int getCenteredTabIndex();
 
     /*
      * Main Interaction Methods for the rest of the application
@@ -1165,7 +1172,7 @@ public abstract class Stack implements ChromeAnimation.Animatable {
      * @param height      The new height of the layout.
      * @param orientation The new orientation of the layout.
      */
-    public void notifySizeChanged(float width, float height, int orientation) {
+    public void notifySizeChanged(float width, float height, @Orientation int orientation) {
         updateCurrentMode(orientation);
 
         // Changing the orientation can change which side of the tab we want to show the close
@@ -1941,7 +1948,7 @@ public abstract class Stack implements ChromeAnimation.Animatable {
         return 1.f - Math.abs(t);
     }
 
-    protected void updateCurrentMode(int orientation) {
+    protected void updateCurrentMode(@Orientation int orientation) {
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID)) {
             mCurrentMode = Orientation.LANDSCAPE;
         } else {

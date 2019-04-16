@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/callback_forward.h"
 #include "base/containers/flat_set.h"
 #include "base/gtest_prod_util.h"
@@ -53,7 +54,6 @@
 #include "mojo/public/cpp/system/invitation.h"
 #include "services/network/public/mojom/mdns_responder.mojom.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "services/resource_coordinator/public/cpp/process_resource_coordinator.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "services/service_manager/public/mojom/service.mojom.h"
 #include "services/viz/public/interfaces/compositing/compositing_mode_watcher.mojom.h"
@@ -73,7 +73,7 @@
 
 namespace base {
 class CommandLine;
-class SharedPersistentMemoryAllocator;
+class PersistentMemoryAllocator;
 }
 
 namespace viz {
@@ -187,6 +187,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void RemovePriorityClient(PriorityClient* priority_client) override;
 #if defined(OS_ANDROID)
   ChildProcessImportance GetEffectiveImportance() override;
+  void DumpProcessStack() override;
 #endif
   void SetSuddenTerminationAllowed(bool enabled) override;
   bool SuddenTerminationAllowed() override;
@@ -209,7 +210,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void BindInterface(const std::string& interface_name,
                      mojo::ScopedMessagePipeHandle interface_pipe) override;
   const service_manager::Identity& GetChildIdentity() override;
-  std::unique_ptr<base::SharedPersistentMemoryAllocator> TakeMetricsAllocator()
+  std::unique_ptr<base::PersistentMemoryAllocator> TakeMetricsAllocator()
       override;
   const base::TimeTicks& GetInitTimeForNavigationMetrics() override;
   bool IsProcessBackgrounded() override;
@@ -222,8 +223,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void PurgeAndSuspend() override;
   void Resume() override;
   mojom::Renderer* GetRendererInterface() override;
-  resource_coordinator::ProcessResourceCoordinator*
-  GetProcessResourceCoordinator() override;
   void CreateURLLoaderFactory(
       const base::Optional<url::Origin>& origin,
       network::mojom::TrustedURLLoaderHeaderClientPtrInfo header_client,
@@ -491,6 +490,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // destroyed (see |cleanup_corb_exception_for_plugin_upon_destruction_|).
   static void AddCorbExceptionForPlugin(int process_id);
 
+  using IpcSendWatcher = base::RepeatingCallback<void(const IPC::Message& msg)>;
+  void SetIpcSendWatcherForTesting(IpcSendWatcher watcher) {
+    ipc_send_watcher_for_testing_ = std::move(watcher);
+  }
+
  protected:
   // A proxy for our IPC::Channel that lives on the IO thread.
   std::unique_ptr<IPC::ChannelProxy> channel_;
@@ -592,6 +596,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // appropriate. Should be called after any of the involved data members
   // change.
   void UpdateProcessPriority();
+
+  // Called if the backgrounded or visibility state of the process changes.
+  void SendProcessStateToRenderer();
 
   // Creates a PersistentMemoryAllocator and shares it with the renderer
   // process for it to store histograms from that process. The allocator is
@@ -868,9 +875,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   std::unique_ptr<PermissionServiceContext> permission_service_context_;
 
   // The memory allocator, if any, in which the renderer will write its metrics.
-  std::unique_ptr<base::SharedPersistentMemoryAllocator> metrics_allocator_;
+  std::unique_ptr<base::PersistentMemoryAllocator> metrics_allocator_;
 
-  std::unique_ptr<IndexedDBDispatcherHost, BrowserThread::DeleteOnIOThread>
+  std::unique_ptr<IndexedDBDispatcherHost, base::OnTaskRunnerDeleter>
       indexed_db_factory_;
 
   std::unique_ptr<ServiceWorkerDispatcherHost, BrowserThread::DeleteOnIOThread>
@@ -906,9 +913,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // not be backgrounded.
   int foreground_service_worker_count_ = 0;
 
-  resource_coordinator::ProcessResourceCoordinator
-      process_resource_coordinator_;
-
   // A WeakPtrFactory which is reset every time Cleanup() runs. Used to vend
   // WeakPtrs which are invalidated any time the RPHI is recycled.
   std::unique_ptr<base::WeakPtrFactory<RenderProcessHostImpl>>
@@ -926,6 +930,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // If the RenderProcessHost is being shutdown via Shutdown(), this records the
   // exit code.
   int shutdown_exit_code_;
+
+  IpcSendWatcher ipc_send_watcher_for_testing_;
 
   base::WeakPtrFactory<RenderProcessHostImpl> weak_factory_;
 

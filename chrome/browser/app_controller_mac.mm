@@ -94,7 +94,6 @@
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/handoff/handoff_manager.h"
 #include "components/handoff/handoff_utility.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
@@ -181,7 +180,8 @@ void RecordLastRunAppBundlePath() {
   // real, user-visible app bundle directory. (The alternatives give either the
   // framework's path or the initial app's path, which may be an app mode shim
   // or a unit test.)
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   base::FilePath app_bundle_path =
       chrome::GetVersionedDirectory().DirName().DirName().DirName();
@@ -782,7 +782,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   base::PostTaskWithTraits(FROM_HERE,
                            {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
                             base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
-                           base::Bind(&RecordLastRunAppBundlePath));
+                           base::BindOnce(&RecordLastRunAppBundlePath));
 
   // Makes "Services" menu items available.
   [self registerServicesMenuTypesTo:[notify object]];
@@ -1658,8 +1658,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 }
 
 - (BOOL)application:(NSApplication*)application
-    willContinueUserActivityWithType:(NSString*)userActivityType
-    API_AVAILABLE(macos(10.10)) {
+    willContinueUserActivityWithType:(NSString*)userActivityType {
   return [userActivityType isEqualToString:NSUserActivityTypeBrowsingWeb];
 }
 
@@ -1672,7 +1671,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
       restorationHandler:
           (void (^)(NSArray<id<NSUserActivityRestoring>>*))restorationHandler
 #endif
-    API_AVAILABLE(macos(10.10)) {
+{
   if (![userActivity.activityType
           isEqualToString:NSUserActivityTypeBrowsingWeb]) {
     return NO;
@@ -1708,14 +1707,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 }
 
 - (void)passURLToHandoffManager:(const GURL&)handoffURL {
-  if (@available(macOS 10.10, *)) {
-    [handoffManager_ updateActiveURL:handoffURL];
-  } else {
-    // Only ends up being called in 10.10+, i.e. if shouldUseHandoff returns
-    // true. Some tests override shouldUseHandoff to always return true, but
-    // then they also override this function to do something else.
-    NOTREACHED();
-  }
+  [handoffManager_ updateActiveURL:handoffURL];
 }
 
 - (void)updateHandoffManager:(content::WebContents*)webContents {

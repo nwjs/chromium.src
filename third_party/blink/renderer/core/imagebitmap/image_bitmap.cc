@@ -8,6 +8,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/numerics/checked_math.h"
 #include "base/single_thread_task_runner.h"
+#include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
@@ -17,8 +18,8 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/image-decoders/image_decoder.h"
-#include "third_party/blink/renderer/platform/scheduler/public/background_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
+#include "third_party/blink/renderer/platform/scheduler/public/worker_pool.h"
 #include "third_party/blink/renderer/platform/wtf/saturated_arithmetic.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
@@ -823,11 +824,16 @@ void ImageBitmap::UpdateImageBitmapMemoryUsage() {
   // but this is breaking some tests due to the repaint of the image.
   int bytes_per_pixel = 4;
 
-  base::CheckedNumeric<int32_t> memory_usage_checked = bytes_per_pixel;
-  memory_usage_checked *= image_->width();
-  memory_usage_checked *= image_->height();
-  int32_t new_memory_usage =
-      memory_usage_checked.ValueOrDefault(std::numeric_limits<int32_t>::max());
+  int32_t new_memory_usage = 0;
+
+  if (image_) {
+    base::CheckedNumeric<int32_t> memory_usage_checked = bytes_per_pixel;
+    memory_usage_checked *= image_->width();
+    memory_usage_checked *= image_->height();
+    new_memory_usage = memory_usage_checked.ValueOrDefault(
+        std::numeric_limits<int32_t>::max());
+  }
+
   v8::Isolate::GetCurrent()->AdjustAmountOfExternalAllocatedMemory(
       new_memory_usage - memory_usage_);
   memory_usage_ = new_memory_usage;
@@ -971,8 +977,8 @@ ScriptPromise ImageBitmap::CreateAsync(ImageElementBase* image,
       ParseOptions(options, crop_rect, image->BitmapSourceSize());
   if (DstBufferSizeHasOverflow(parsed_options)) {
     resolver->Reject(
-        ScriptValue(resolver->GetScriptState(),
-                    v8::Null(resolver->GetScriptState()->GetIsolate())));
+        DOMException::Create(DOMExceptionCode::kInvalidStateError,
+                             "The ImageBitmap could not be allocated."));
     return promise;
   }
 
@@ -990,8 +996,8 @@ ScriptPromise ImageBitmap::CreateAsync(ImageElementBase* image,
       resolver->Resolve(bitmap);
     } else {
       resolver->Reject(
-          ScriptValue(resolver->GetScriptState(),
-                      v8::Null(resolver->GetScriptState()->GetIsolate())));
+          DOMException::Create(DOMExceptionCode::kInvalidStateError,
+                               "The ImageBitmap could not be allocated."));
     }
     return promise;
   }
@@ -1004,7 +1010,7 @@ ScriptPromise ImageBitmap::CreateAsync(ImageElementBase* image,
                                      draw_dst_rect, parsed_options.flip_y);
   std::unique_ptr<ParsedOptions> passed_parsed_options =
       std::make_unique<ParsedOptions>(parsed_options);
-  background_scheduler::PostOnBackgroundThread(
+  worker_pool::PostTask(
       FROM_HERE,
       CrossThreadBind(&RasterizeImageOnBackgroundThread,
                       WrapCrossThreadPersistent(resolver),

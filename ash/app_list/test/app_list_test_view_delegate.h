@@ -35,6 +35,7 @@ class AppListTestViewDelegate : public AppListViewDelegate,
 
   int dismiss_count() const { return dismiss_count_; }
   int open_search_result_count() const { return open_search_result_count_; }
+  int open_assistant_ui_count() const { return open_assistant_ui_count_; }
   std::map<size_t, int>& open_search_result_counts() {
     return open_search_result_counts_;
   }
@@ -58,7 +59,14 @@ class AppListTestViewDelegate : public AppListViewDelegate,
   SearchModel* GetSearchModel() override;
   void StartAssistant() override {}
   void StartSearch(const base::string16& raw_query) override {}
-  void OpenSearchResult(const std::string& result_id, int event_flags) override;
+  void OpenSearchResult(const std::string& result_id,
+                        int event_flags,
+                        ash::mojom::AppListLaunchedFrom launched_from,
+                        ash::mojom::AppListLaunchType launch_type,
+                        int suggestion_index) override;
+  void LogResultLaunchHistogram(
+      app_list::SearchResultLaunchLocation launch_location,
+      int suggestion_index) override {}
   void InvokeSearchResultAction(const std::string& result_id,
                                 int action_index,
                                 int event_flags) override {}
@@ -87,6 +95,10 @@ class AppListTestViewDelegate : public AppListViewDelegate,
   bool CanProcessEventsOnApplistViews() override;
   void GetNavigableContentsFactory(
       content::mojom::NavigableContentsFactoryRequest request) override;
+  ash::AssistantViewDelegate* GetAssistantViewDelegate() override;
+  void OnSearchResultVisibilityChanged(const std::string& id,
+                                       bool visibility) override;
+  bool IsAssistantAllowedAndEnabled() const override;
 
   // Do a bulk replacement of the items in the model.
   void ReplaceTestModel(int item_count);
@@ -102,6 +114,7 @@ class AppListTestViewDelegate : public AppListViewDelegate,
 
   int dismiss_count_ = 0;
   int open_search_result_count_ = 0;
+  int open_assistant_ui_count_ = 0;
   int next_profile_app_count_ = 0;
   int show_wallpaper_context_menu_count_ = 0;
   std::map<size_t, int> open_search_result_counts_;

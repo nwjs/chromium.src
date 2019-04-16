@@ -31,7 +31,6 @@
 
 #include "third_party/blink/renderer/core/html/forms/text_field_input_type.h"
 
-#include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
@@ -154,7 +153,7 @@ void TextFieldInputType::SetValue(const String& sanitized_value,
                                   TextControlSetValueSelection selection) {
   // We don't use InputType::setValue.  TextFieldInputType dispatches events
   // different way from InputType::setValue.
-  if (event_behavior == kDispatchNoEvent)
+  if (event_behavior == TextFieldEventBehavior::kDispatchNoEvent)
     GetElement().SetNonAttributeValue(sanitized_value);
   else
     GetElement().SetNonAttributeValueByUserEdit(sanitized_value);
@@ -174,7 +173,7 @@ void TextFieldInputType::SetValue(const String& sanitized_value,
   }
 
   switch (event_behavior) {
-    case kDispatchChangeEvent:
+    case TextFieldEventBehavior::kDispatchChangeEvent:
       // If the user is still editing this field, dispatch an input event rather
       // than a change event.  The change event will be dispatched when editing
       // finishes.
@@ -184,13 +183,13 @@ void TextFieldInputType::SetValue(const String& sanitized_value,
         GetElement().DispatchFormControlChangeEvent();
       break;
 
-    case kDispatchInputAndChangeEvent: {
+    case TextFieldEventBehavior::kDispatchInputAndChangeEvent: {
       GetElement().DispatchInputEvent();
       GetElement().DispatchFormControlChangeEvent();
       break;
     }
 
-    case kDispatchNoEvent:
+    case TextFieldEventBehavior::kDispatchNoEvent:
       break;
   }
 }
@@ -370,20 +369,17 @@ void TextFieldInputType::AttributeChanged() {
   UpdateView();
 }
 
-void TextFieldInputType::DisabledOrReadonlyAttributeChanged(
-    const QualifiedName& attr) {
+void TextFieldInputType::DisabledOrReadonlyAttributeChanged() {
   if (SpinButtonElement* spin_button = GetSpinButtonElement())
     spin_button->ReleaseCapture();
-  GetElement().InnerEditorElement()->SetNeedsStyleRecalc(
-      kLocalStyleChange, StyleChangeReasonForTracing::FromAttribute(attr));
 }
 
 void TextFieldInputType::DisabledAttributeChanged() {
-  DisabledOrReadonlyAttributeChanged(kDisabledAttr);
+  DisabledOrReadonlyAttributeChanged();
 }
 
 void TextFieldInputType::ReadonlyAttributeChanged() {
-  DisabledOrReadonlyAttributeChanged(kReadonlyAttr);
+  DisabledOrReadonlyAttributeChanged();
 }
 
 bool TextFieldInputType::SupportsReadOnly() const {

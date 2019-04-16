@@ -217,6 +217,7 @@ class AppWindow : public content::WebContentsDelegate,
 
     bool show_in_taskbar;
     bool new_instance;
+    bool skip_block_parser;
 
     Position position;
 
@@ -428,6 +429,7 @@ class AppWindow : public content::WebContentsDelegate,
   friend class PlatformAppBrowserTest;
 
   // content::WebContentsDelegate implementation.
+  void ActivateContents(content::WebContents* contents) override;
   void LoadingStateChanged(content::WebContents* source,
                            bool to_different_document) override;
   content::JavaScriptDialogManager* GetJavaScriptDialogManager(
@@ -474,7 +476,6 @@ class AppWindow : public content::WebContentsDelegate,
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;
-  void ActivateContents(content::WebContents* contents) override;
   bool HandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;

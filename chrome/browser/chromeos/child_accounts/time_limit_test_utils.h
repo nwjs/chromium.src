@@ -4,14 +4,15 @@
 //
 // Helper functions to create and modify Usage Time Limit policies.
 
-#ifndef CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_HELPER_H_
-#define CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_HELPER_H_
+#ifndef CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_UTILS_H_
+#define CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_UTILS_H_
 
 #include <memory>
 #include <string>
 
 #include "base/time/time.h"
 #include "base/values.h"
+#include "chrome/browser/chromeos/child_accounts/time_limit_override.h"
 
 namespace chromeos {
 namespace time_limit_test_utils {
@@ -24,10 +25,6 @@ extern const char kThursday[];
 extern const char kFriday[];
 extern const char kSaturday[];
 extern const char kSunday[];
-
-// Override actions that should be used to create the Time Limit policy.
-extern const char kLock[];
-extern const char kUnlock[];
 
 // Parses a string time to a base::Time object, see
 // |base::Time::FromUTCString| for compatible input formats.
@@ -76,8 +73,15 @@ void AddTimeWindowLimit(base::DictionaryValue* policy,
 
 // Adds a time limit override dictionary to the provided Time Limit policy.
 void AddOverride(base::DictionaryValue* policy,
-                 std::string action,
+                 usage_time_limit::TimeLimitOverride::Action action,
                  base::Time created_at);
+
+// Adds a time limit override with duration dictionary to the provided
+// Time Limit policy.
+void AddOverrideWithDuration(base::DictionaryValue* policy,
+                             usage_time_limit::TimeLimitOverride::Action action,
+                             base::Time created_at,
+                             base::TimeDelta duration);
 
 // Converts the Time Limit policy to a string.
 std::string PolicyToString(const base::DictionaryValue* policy);
@@ -85,4 +89,4 @@ std::string PolicyToString(const base::DictionaryValue* policy);
 }  // namespace time_limit_test_utils
 }  // namespace chromeos
 
-#endif  // CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_HELPER_H_
+#endif  // CHROME_BROWSER_CHROMEOS_CHILD_ACCOUNTS_TIME_LIMIT_TEST_UTILS_H_

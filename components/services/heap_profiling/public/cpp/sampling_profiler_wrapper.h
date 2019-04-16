@@ -5,12 +5,14 @@
 #ifndef COMPONENTS_SERVICES_HEAP_PROFILING_PUBLIC_CPP_SAMPLING_PROFILER_WRAPPER_H_
 #define COMPONENTS_SERVICES_HEAP_PROFILING_PUBLIC_CPP_SAMPLING_PROFILER_WRAPPER_H_
 
+#include <vector>
+
 #include "base/sampling_heap_profiler/poisson_allocation_sampler.h"
-#include "components/services/heap_profiling/public/cpp/sender_pipe.h"
-#include "components/services/heap_profiling/public/cpp/stream.h"
 #include "components/services/heap_profiling/public/mojom/heap_profiling_client.mojom.h"
 
 namespace heap_profiling {
+
+class SenderPipe;
 
 // Initializes the TLS slot globally. This will be called early in Chrome's
 // lifecycle to prevent re-entrancy from occurring while trying to set up the
@@ -30,9 +32,6 @@ bool SetOnInitAllocatorShimCallbackForTesting(
 class SamplingProfilerWrapper
     : private base::PoissonAllocationSampler::SamplesObserver {
  public:
-  SamplingProfilerWrapper();
-  ~SamplingProfilerWrapper() override;
-
   void StartProfiling(SenderPipe* sender_pipe,
                       mojom::ProfilingParamsPtr params);
   void StopProfiling();
@@ -44,6 +43,8 @@ class SamplingProfilerWrapper
   // logging process so it knows when this operation is complete.
   static void FlushPipe(uint32_t barrier_id);
 
+  mojom::HeapProfilePtr RetrieveHeapProfile();
+
  private:
   // base::PoissonAllocationSampler::SamplesObserver
   void SampleAdded(void* address,
@@ -52,6 +53,8 @@ class SamplingProfilerWrapper
                    base::PoissonAllocationSampler::AllocatorType,
                    const char* context) override;
   void SampleRemoved(void* address) override;
+
+  bool stream_samples_ = false;
 };
 
 }  // namespace heap_profiling

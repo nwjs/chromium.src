@@ -13,7 +13,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "services/identity/public/cpp/identity_manager.h"
 
-struct AccountInfo;
+struct CoreAccountInfo;
 class PrefRegistrySimple;
 class PrefService;
 
@@ -55,19 +55,9 @@ class AccountInvestigator : public KeyedService,
   void Shutdown() override;
 
   // identity::IdentityManager::Observer:
-  void OnAddAccountToCookieCompleted(
-      const std::string& account_id,
-      const GoogleServiceAuthError& error) override;
   void OnAccountsInCookieUpdated(
       const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;
-
-  // Internal implementation of OnAccountsInCookieUpdated. It is public given
-  // that it is called directly by unittests.
-  void OnGaiaAccountsInCookieUpdated(
-      const std::vector<gaia::ListedAccount>& signed_in_accounts,
-      const std::vector<gaia::ListedAccount>& signed_out_accounts,
-      const GoogleServiceAuthError& error);
 
  private:
   friend class AccountInvestigatorTest;
@@ -88,7 +78,7 @@ class AccountInvestigator : public KeyedService,
   // potentially signed into Chrome account, to the various account(s) in the
   // given cookie jar.
   static signin_metrics::AccountRelation DiscernRelation(
-      const AccountInfo& info,
+      const CoreAccountInfo& info,
       const std::vector<gaia::ListedAccount>& signed_in_accounts,
       const std::vector<gaia::ListedAccount>& signed_out_accounts);
 

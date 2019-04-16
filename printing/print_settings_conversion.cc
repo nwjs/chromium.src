@@ -33,13 +33,13 @@ void GetCustomMarginsFromJobSettings(const base::Value& settings,
     return;
   }
   page_size_margins->top =
-      custom_margins->FindKey(kSettingMarginTop)->GetDouble();
+      custom_margins->FindIntKey(kSettingMarginTop).value_or(0);
   page_size_margins->bottom =
-      custom_margins->FindKey(kSettingMarginBottom)->GetDouble();
+      custom_margins->FindIntKey(kSettingMarginBottom).value_or(0);
   page_size_margins->left =
-      custom_margins->FindKey(kSettingMarginLeft)->GetDouble();
+      custom_margins->FindIntKey(kSettingMarginLeft).value_or(0);
   page_size_margins->right =
-      custom_margins->FindKey(kSettingMarginRight)->GetDouble();
+      custom_margins->FindIntKey(kSettingMarginRight).value_or(0);
 }
 
 void SetMarginsToJobSettings(const std::string& json_path,
@@ -208,6 +208,18 @@ bool PrintSettingsFromJobSettings(const base::Value& job_settings,
     settings->set_print_text_with_gdi(is_modifiable.value());
 #endif
   }
+
+#if defined(OS_CHROMEOS)
+  bool send_user_info =
+      job_settings.FindBoolKey(kSettingSendUserInfo).value_or(false);
+  settings->set_send_user_info(send_user_info);
+  if (send_user_info) {
+    const std::string* username = job_settings.FindStringKey(kSettingUsername);
+    if (username)
+      settings->set_username(*username);
+  }
+#endif
+
   return true;
 }
 

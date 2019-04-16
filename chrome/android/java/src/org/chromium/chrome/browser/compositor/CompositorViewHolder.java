@@ -688,19 +688,19 @@ public class CompositorViewHolder extends FrameLayout
     @Override
     public void onBottomControlsHeightChanged(int bottomControlsHeight) {
         if (mTabVisible == null) return;
-        mTabVisible.setBottomControlsHeight(bottomControlsHeight);
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
                 viewportSize.y);
+        onViewportChanged();
     }
 
     @Override
     public void onTopControlsHeightChanged(int topControlsHeight, boolean controlsResizeView) {
         if (mTabVisible == null) return;
-        mTabVisible.setTopControlsHeight(topControlsHeight, controlsResizeView);
         Point viewportSize = getViewportSize();
         setSize(mTabVisible.getWebContents(), mTabVisible.getContentView(), viewportSize.x,
                 viewportSize.y);
+        onViewportChanged();
     }
 
     @Override
@@ -1076,8 +1076,6 @@ public class CompositorViewHolder extends FrameLayout
                     webContents, mCompositorView.getWidth(), mCompositorView.getHeight());
         }
         if (tab.getView() == null) return;
-        tab.setTopControlsHeight(getTopControlsHeightPixels(), controlsResizeView());
-        tab.setBottomControlsHeight(getBottomControlsHeightPixels());
 
         // TextView with compound drawables in the NTP gets a wrong width when measure/layout is
         // performed in the unattached state. Delay the layout till #onLayoutChange().

@@ -83,7 +83,8 @@ void WebContentsDelegate::CanDownload(
   callback.Run(true);
 }
 
-bool WebContentsDelegate::HandleContextMenu(const ContextMenuParams& params) {
+bool WebContentsDelegate::HandleContextMenu(RenderFrameHost* render_frame_host,
+                                            const ContextMenuParams& params) {
   return false;
 }
 
@@ -140,14 +141,6 @@ JavaScriptDialogManager* WebContentsDelegate::GetJavaScriptDialogManager(
 std::unique_ptr<BluetoothChooser> WebContentsDelegate::RunBluetoothChooser(
     RenderFrameHost* frame,
     const BluetoothChooser::EventHandler& event_handler) {
-  return nullptr;
-}
-
-std::unique_ptr<SerialChooser> WebContentsDelegate::RunSerialChooser(
-    RenderFrameHost* frame,
-    std::vector<blink::mojom::SerialPortFilterPtr> filters,
-    SerialChooser::Callback callback) {
-  std::move(callback).Run(nullptr);
   return nullptr;
 }
 
@@ -250,6 +243,10 @@ gfx::Size WebContentsDelegate::GetSizeForNewRenderView(
 }
 
 bool WebContentsDelegate::IsNeverVisible(WebContents* web_contents) {
+  return false;
+}
+
+bool WebContentsDelegate::GuestSaveFrame(WebContents* guest_web_contents) {
   return false;
 }
 

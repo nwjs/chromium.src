@@ -43,7 +43,7 @@ const LASER_TEXTURE_DATA = new Uint8Array([
 0xcc, 0xcc, 0xcc, 0x05, 0xbf, 0xbf, 0xbf, 0x04, 0xff, 0xff, 0xff, 0x02, 0xff, 0xff, 0xff, 0x01,
 ]);
 
-const LASER_LENGTH = 1.0;
+const LASER_LENGTH = 10.0;
 const LASER_DIAMETER = 0.01;
 const LASER_FADE_END = 0.535;
 const LASER_FADE_POINT = 0.5335;
@@ -277,7 +277,7 @@ export class InputRenderer extends Node {
     }
     this._activeLasers = (this._activeLasers + 1) % this._maxInputElements;
 
-    laser.matrix = targetRay.transformMatrix;
+    laser.matrix = targetRay.matrix;
     laser.visible = true;
   }
 

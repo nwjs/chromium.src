@@ -27,7 +27,6 @@ class DataTypeController;
 class DataTypeDebugInfoListener;
 class DataTypeEncryptionHandler;
 class DataTypeManagerObserver;
-class SyncClient;
 struct DataTypeConfigurationStats;
 
 // List of data types grouped by priority and ordered from high priority to
@@ -38,7 +37,6 @@ class DataTypeManagerImpl : public DataTypeManager,
                             public ModelAssociationManagerDelegate {
  public:
   DataTypeManagerImpl(
-      SyncClient* sync_client,
       ModelTypeSet initial_types,
       const WeakHandle<DataTypeDebugInfoListener>& debug_info_listener,
       const DataTypeController::TypeMap* controllers,
@@ -143,6 +141,11 @@ class DataTypeManagerImpl : public DataTypeManager,
   // DataTypeController::ReadyForStart().
   void UpdateUnreadyTypeErrors(const ModelTypeSet& desired_types);
 
+  // Update unready state for |type|, such that data_type_status_table_ matches
+  // DataTypeController::ReadyForStart(). Returns true if there was an actual
+  // change.
+  bool UpdateUnreadyTypeError(ModelType type);
+
   // Post a task to reconfigure when no downloading or association are running.
   void ProcessReconfigure();
 
@@ -185,7 +188,6 @@ class DataTypeManagerImpl : public DataTypeManager,
   // Adds or removes |type| from |downloaded_types_| based on |downloaded|.
   void SetTypeDownloaded(ModelType type, bool downloaded);
 
-  SyncClient* sync_client_;
   ModelTypeConfigurer* configurer_;
 
   // Map of all data type controllers that are available for sync.
@@ -268,9 +270,6 @@ class DataTypeManagerImpl : public DataTypeManager,
 
   // Association and time stats of data type configuration.
   std::vector<DataTypeConfigurationStats> configuration_stats_;
-
-  // True iff we are in the process of catching up datatypes.
-  bool catch_up_in_progress_;
 
   // Configuration process is started when ModelAssociationManager notifies
   // DataTypeManager that all types are ready for configure.

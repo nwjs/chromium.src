@@ -463,7 +463,7 @@ void MCSClient::ResetStateAndBuildLoginRequest(
     // Ensure that the custom heartbeat interval is communicated to the server.
     mcs_proto::Setting* setting = request->add_setting();
     setting->set_name(kHeartbeatIntervalSettingName);
-    setting->set_value(base::IntToString(
+    setting->set_value(base::NumberToString(
         heartbeat_manager_.GetClientHeartbeatIntervalMs()));
   }
 
@@ -550,9 +550,8 @@ void MCSClient::MaybeSendMessage() {
         base::Bind(&MCSClient::OnGCMUpdateFinished,
                    weak_ptr_factory_.GetWeakPtr()));
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE,
-            base::Bind(&MCSClient::MaybeSendMessage,
-                       weak_ptr_factory_.GetWeakPtr()));
+        FROM_HERE, base::BindOnce(&MCSClient::MaybeSendMessage,
+                                  weak_ptr_factory_.GetWeakPtr()));
     return;
   }
   DVLOG(1) << "Pending output message found, sending.";
@@ -724,15 +723,14 @@ void MCSClient::HandlePacketFromWire(
 
       // Pass the login response on up.
       base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::Bind(message_received_callback_,
-                                MCSMessage(tag, std::move(protobuf))));
+          FROM_HERE, base::BindOnce(message_received_callback_,
+                                    MCSMessage(tag, std::move(protobuf))));
 
       // If there are pending messages, attempt to send one.
       if (!to_send_.empty()) {
         base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE,
-            base::Bind(&MCSClient::MaybeSendMessage,
-                       weak_ptr_factory_.GetWeakPtr()));
+            FROM_HERE, base::BindOnce(&MCSClient::MaybeSendMessage,
+                                      weak_ptr_factory_.GetWeakPtr()));
       }
 
       heartbeat_manager_.Start(
@@ -794,8 +792,8 @@ void MCSClient::HandlePacketFromWire(
 
       DCHECK(protobuf.get());
       base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::Bind(message_received_callback_,
-                                MCSMessage(tag, std::move(protobuf))));
+          FROM_HERE, base::BindOnce(message_received_callback_,
+                                    MCSMessage(tag, std::move(protobuf))));
       return;
     }
     default:
@@ -901,9 +899,8 @@ void MCSClient::HandleSelectiveAck(const PersistentIdList& id_list) {
     to_resend_.pop_back();
   }
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE,
-      base::Bind(&MCSClient::MaybeSendMessage,
-                 weak_ptr_factory_.GetWeakPtr()));
+      FROM_HERE, base::BindOnce(&MCSClient::MaybeSendMessage,
+                                weak_ptr_factory_.GetWeakPtr()));
 }
 
 void MCSClient::HandleServerConfirmedReceipt(StreamId device_stream_id) {
@@ -927,7 +924,7 @@ void MCSClient::HandleServerConfirmedReceipt(StreamId device_stream_id) {
 }
 
 MCSClient::PersistentId MCSClient::GetNextPersistentId() {
-  return base::Int64ToString(base::TimeTicks::Now().ToInternalValue());
+  return base::NumberToString(base::TimeTicks::Now().ToInternalValue());
 }
 
 void MCSClient::OnConnectionResetByHeartbeat(

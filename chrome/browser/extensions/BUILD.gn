@@ -302,10 +302,14 @@ jumbo_static_library("extensions") {
     "api/resources_private/resources_private_api.h",
     "api/runtime/chrome_runtime_api_delegate.cc",
     "api/runtime/chrome_runtime_api_delegate.h",
-    "api/safe_browsing_private/safe_browsing_private_event_router.cc",
-    "api/safe_browsing_private/safe_browsing_private_event_router.h",
-    "api/safe_browsing_private/safe_browsing_private_event_router_factory.cc",
-    "api/safe_browsing_private/safe_browsing_private_event_router_factory.h",
+    #"api/safe_browsing_private/safe_browsing_private_api.cc",
+    #"api/safe_browsing_private/safe_browsing_private_api.h",
+    #"api/safe_browsing_private/safe_browsing_private_event_router.cc",
+    #"api/safe_browsing_private/safe_browsing_private_event_router.h",
+    #"api/safe_browsing_private/safe_browsing_private_event_router_factory.cc",
+    #"api/safe_browsing_private/safe_browsing_private_event_router_factory.h",
+    #"api/safe_browsing_private/safe_browsing_util.cc",
+    #"api/safe_browsing_private/safe_browsing_util.h",
     "api/sessions/session_id.cc",
     "api/sessions/session_id.h",
     "api/sessions/sessions_api.cc",
@@ -417,6 +421,8 @@ jumbo_static_library("extensions") {
     #"blacklist_state_fetcher.h",
     "bookmark_app_experimental_navigation_throttle.cc",
     "bookmark_app_experimental_navigation_throttle.h",
+    "bookmark_app_extension_util.cc",
+    "bookmark_app_extension_util.h",
     "bookmark_app_helper.cc",
     "bookmark_app_helper.h",
     "bookmark_app_navigation_throttle.cc",
@@ -609,8 +615,8 @@ jumbo_static_library("extensions") {
     "external_provider_impl.h",
     "external_registry_loader_win.cc",
     "external_registry_loader_win.h",
-    "forced_extensions/installation_failures.cc",
-    "forced_extensions/installation_failures.h",
+    "forced_extensions/installation_reporter.cc",
+    "forced_extensions/installation_reporter.h",
     "forced_extensions/installation_tracker.cc",
     "forced_extensions/installation_tracker.h",
     "global_shortcut_listener.cc",
@@ -743,9 +749,13 @@ jumbo_static_library("extensions") {
   ]
   defines = []
 
-  # TODO(loyso): Remove this circular dependency. http://crbug.com/876576.
-  allow_circular_includes_from =
-      [ "//chrome/browser/web_applications/extensions" ]
+  allow_circular_includes_from = [
+    # TODO(loyso): Remove this circular dependency. http://crbug.com/876576.
+    "//chrome/browser/web_applications/extensions",
+
+    # TODO(crbug/925153): Remove this circular dependency.
+    #"//chrome/browser/safe_browsing",
+  ]
 
   # Since browser and browser_extensions actually depend on each other,
   # we must omit the dependency from browser_extensions to browser.
@@ -868,6 +878,7 @@ jumbo_static_library("extensions") {
     "//services/network/public/mojom",
     "//services/service_manager/public/cpp",
     "//services/service_manager/public/mojom",
+    "//services/video_capture/public/mojom:constants",
     "//skia",
     "//sql",
     "//storage/browser",
@@ -880,6 +891,7 @@ jumbo_static_library("extensions") {
     "//third_party/libaddressinput:util",
     "//third_party/re2",
     "//third_party/sqlite",
+    "//third_party/zlib/google:compression_utils",
     "//third_party/zlib/google:zip",
     "//ui/accessibility:ax_enums_mojo",
     "//ui/base",
@@ -954,8 +966,8 @@ jumbo_static_library("extensions") {
       configs += [ "//build/config/linux/dbus" ]
     }
     deps += [
-      "//ash",
       "//ash/public/cpp",
+      "//chrome/browser/resources/chromeos/camera:chrome_camera_app",
       "//chromeos/attestation",
       "//chromeos/components/proximity_auth",
       "//chromeos/cryptohome",
@@ -973,10 +985,10 @@ jumbo_static_library("extensions") {
       "//components/constrained_window",
       "//components/drive",
       "//components/user_manager",
+      "//media/capture/video/chromeos/mojo:cros_camera",
       "//remoting/base",
       "//remoting/host",
       "//remoting/host/it2me:chrome_os_host",
-      "//services/video_capture/public/mojom:constants",
       "//third_party/protobuf:protobuf_lite",
       "//ui/chromeos",
       "//ui/chromeos/events",

@@ -75,6 +75,7 @@ content::WebContents* WebView::GetWebContents() {
 }
 
 void WebView::SetWebContents(content::WebContents* replacement) {
+  TRACE_EVENT0("views", "WebView::SetWebContents");
   if (replacement == web_contents())
     return;
   SetCrashedOverlayView(nullptr);
@@ -352,6 +353,7 @@ void WebView::ResizeDueToAutoResize(content::WebContents* source,
 // WebView, private:
 
 void WebView::AttachWebContents() {
+  TRACE_EVENT0("views", "WebView::AttachWebContents");
   // Prevents attachment if the WebView isn't already in a Widget, or it's
   // already attached.
   if (!GetWidget() || !web_contents())
@@ -379,6 +381,7 @@ void WebView::AttachWebContents() {
 }
 
 void WebView::DetachWebContents() {
+  TRACE_EVENT0("views", "WebView::DetachWebContents");
   if (web_contents()) {
     holder_->Detach();
   }

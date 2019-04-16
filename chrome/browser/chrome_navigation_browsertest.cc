@@ -5,6 +5,7 @@
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar/back_forward_menu_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -33,6 +35,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -48,6 +51,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/features.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom-shared.h"
 
 class ChromeNavigationBrowserTest : public InProcessBrowserTest {
  public:
@@ -434,7 +438,7 @@ class ChromeNavigationPortMappedBrowserTest : public InProcessBrowserTest {
     // the |embedded_test_server| uses. It is required to test with potentially
     // malformed URLs.
     std::string port =
-        base::IntToString(embedded_test_server()->host_port_pair().port());
+        base::NumberToString(embedded_test_server()->host_port_pair().port());
     command_line->AppendSwitchASCII(
         "host-resolver-rules",
         "MAP * 127.0.0.1:" + port + ", EXCLUDE 127.0.0.1*");
@@ -993,11 +997,8 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   EXPECT_EQ(1, browser()->tab_strip_model()->count());
 }
 
-// TODO(http://crbug.com/632514): This test currently expects opener downloads
-// go through and UMA is logged, but when the linked bug is resolved the
-// download should be disallowed.
 IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
-                       OpenerNavigation_DownloadPolicy) {
+                       OpenerNavigation_DownloadPolicy_Disallowed) {
   browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
                                                false);
   ui_test_utils::NavigateToURL(
@@ -1025,17 +1026,70 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
   EXPECT_NE(popup, opener);
   WaitForLoadStop(popup);
+
+  content::ConsoleObserverDelegate console_observer(
+      opener,
+      "Navigating a cross-origin opener to a download (*) is deprecated*");
+  opener->SetDelegate(&console_observer);
+  EXPECT_TRUE(content::ExecuteScript(
+      popup,
+      "window.opener.location ='data:html/text;base64,'+btoa('payload');"));
+
+  console_observer.Wait();
+  histograms.ExpectBucketCount(
+      "Blink.UseCounter.Features",
+      blink::mojom::WebFeature::kOpenerNavigationDownloadCrossOrigin, 1);
+
+  // Ensure that no download happened.
+  std::vector<download::DownloadItem*> download_items;
+  content::DownloadManager* manager =
+      content::BrowserContext::GetDownloadManager(browser()->profile());
+  manager->GetAllDownloads(&download_items);
+  EXPECT_TRUE(download_items.empty());
+}
+
+// Opener navigations from a same-origin popup should be allowed.
+IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
+                       OpenerNavigation_DownloadPolicy_Allowed) {
+  browser()->profile()->GetPrefs()->SetBoolean(prefs::kPromptForDownload,
+                                               false);
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("a.com", "/title1.html"));
+
+  // Open a popup.
+  bool opened = false;
+  content::WebContents* opener =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  const char* kScriptFormat =
+      "window.domAutomationController.send(!!window.open('%s'));";
+  GURL popup_url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  content::TestNavigationObserver popup_waiter(nullptr, 1);
+  popup_waiter.StartWatchingNewWebContents();
+  EXPECT_TRUE(content::ExecuteScriptAndExtractBool(
+      opener, base::StringPrintf(kScriptFormat, popup_url.spec().c_str()),
+      &opened));
+  EXPECT_TRUE(opened);
+  popup_waiter.Wait();
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+
+  // Using the popup, navigate its opener to a download.
+  base::HistogramTester histograms;
+  content::WebContents* popup =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  EXPECT_NE(popup, opener);
+  WaitForLoadStop(popup);
+
   content::DownloadTestObserverInProgress observer(
       content::BrowserContext::GetDownloadManager(browser()->profile()),
       1 /* wait_count */);
-  EXPECT_TRUE(content::ExecuteScriptWithoutUserGesture(
+  EXPECT_TRUE(content::ExecuteScript(
       popup,
       "window.opener.location ='data:html/text;base64,'+btoa('payload');"));
   observer.WaitForFinished();
+
   histograms.ExpectBucketCount(
       "Blink.UseCounter.Features",
-      blink::mojom::WebFeature::kOpenerNavigationDownloadCrossOriginNoGesture,
-      1);
+      blink::mojom::WebFeature::kOpenerNavigationDownloadCrossOrigin, 0);
 
   // Delete any pending download.
   std::vector<download::DownloadItem*> download_items;
@@ -1106,16 +1160,15 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
   ui_test_utils::NavigateToURL(browser(), skippable_url);
 
   GURL redirected_url(embedded_test_server()->GetURL("/title2.html"));
-  {
-    // Navigate to a new document from the renderer without a user gesture.
-    content::WebContents* main_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
-    content::TestNavigationObserver observer(main_contents);
-    EXPECT_TRUE(ExecuteScriptWithoutUserGesture(
-        main_contents, "location = '" + redirected_url.spec() + "';"));
-    observer.Wait();
-    EXPECT_EQ(redirected_url, main_contents->GetLastCommittedURL());
-  }
+
+  // Navigate to a new document from the renderer without a user gesture.
+  content::WebContents* main_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::TestNavigationObserver observer(main_contents);
+  EXPECT_TRUE(ExecuteScriptWithoutUserGesture(
+      main_contents, "location = '" + redirected_url.spec() + "';"));
+  observer.Wait();
+  EXPECT_EQ(redirected_url, main_contents->GetLastCommittedURL());
 
   // Verify UKM.
   using Entry = ukm::builders::HistoryManipulationIntervention;
@@ -1123,6 +1176,17 @@ IN_PROC_BROWSER_TEST_F(ChromeNavigationBrowserTest,
       test_ukm_recorder_->GetEntriesByName(Entry::kEntryName);
   EXPECT_EQ(1u, ukm_entries.size());
   test_ukm_recorder_->ExpectEntrySourceHasUrl(ukm_entries[0], skippable_url);
+
+  // Verify the metric where user tries to go specifically to a skippable entry
+  // using long press.
+  base::HistogramTester histogram;
+  std::unique_ptr<BackForwardMenuModel> back_model(
+      std::make_unique<BackForwardMenuModel>(
+          browser(), BackForwardMenuModel::ModelType::kBackward));
+  back_model->set_test_web_contents(main_contents);
+  back_model->ActivatedAt(0);
+  histogram.ExpectBucketCount(
+      "Navigation.BackForward.NavigatingToEntryMarkedToBeSkipped", true, 1);
 }
 
 // Same as above except the navigation is cross-site.
@@ -1336,4 +1400,72 @@ IN_PROC_BROWSER_TEST_F(HistoryManipulationInterventionBrowserTest,
   chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
   content::WaitForLoadStop(main_contents);
   ASSERT_EQ(GURL("about:blank"), main_contents->GetLastCommittedURL());
+}
+
+// This test class turns on the mode where sites where the user enters a
+// password are dynamically added to the list of sites requiring a dedicated
+// process.  It also disables strict site isolation so that the effects of
+// password isolation can be observed.
+class SiteIsolationForPasswordSitesBrowserTest
+    : public ChromeNavigationBrowserTest {
+ protected:
+  void SetUp() override {
+    feature_list_.InitWithFeatures({features::kSiteIsolationForPasswordSites},
+                                   {features::kSitePerProcess});
+    ChromeNavigationBrowserTest::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Verifies that a site gets process-isolated after a password is typed on a
+// page from that site.
+IN_PROC_BROWSER_TEST_F(SiteIsolationForPasswordSitesBrowserTest,
+                       SiteIsIsolatedAfterEnteringPassword) {
+  // This test requires dynamic isolated origins to be enabled.
+  if (!content::SiteIsolationPolicy::AreDynamicIsolatedOriginsEnabled())
+    return;
+
+  GURL url(embedded_test_server()->GetURL("sub.foo.com",
+                                          "/password/password_form.html"));
+  ui_test_utils::NavigateToURL(browser(), url);
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  // foo.com should not be isolated to start with. Verify that a cross-site
+  // iframe does not become an OOPIF.
+  std::string kAppendIframe = R"(
+      var i = document.createElement('iframe');
+      i.id = 'child';
+      document.body.appendChild(i);)";
+  EXPECT_TRUE(ExecJs(contents, kAppendIframe));
+  GURL bar_url(embedded_test_server()->GetURL("bar.com", "/title1.html"));
+  EXPECT_TRUE(NavigateIframeToURL(contents, "child", bar_url));
+  content::RenderFrameHost* child = ChildFrameAt(contents->GetMainFrame(), 0);
+  EXPECT_FALSE(child->IsCrossProcessSubframe());
+
+  // Fill a form and submit through a <input type="submit"> button.
+  content::TestNavigationObserver observer(contents);
+  std::string kFillAndSubmit =
+      "document.getElementById('username_field').value = 'temp';"
+      "document.getElementById('password_field').value = 'random';"
+      "document.getElementById('input_submit_button').click()";
+  EXPECT_TRUE(content::ExecJs(contents, kFillAndSubmit));
+  observer.Wait();
+
+  // Open a fresh tab (forcing a new BrowsingInstance), navigate to foo.com,
+  // and verify that a cross-site iframe now becomes an OOPIF.
+  AddBlankTabAndShow(browser());
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+  content::WebContents* new_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  EXPECT_NE(new_contents, contents);
+
+  ui_test_utils::NavigateToURL(browser(), url);
+  EXPECT_TRUE(ExecJs(new_contents, kAppendIframe));
+  EXPECT_TRUE(NavigateIframeToURL(new_contents, "child", bar_url));
+  content::RenderFrameHost* new_child =
+      ChildFrameAt(new_contents->GetMainFrame(), 0);
+  EXPECT_TRUE(new_child->IsCrossProcessSubframe());
 }

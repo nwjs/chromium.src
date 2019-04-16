@@ -8,6 +8,7 @@
 
 #include <algorithm>
 
+#include "base/bind.h"
 #include "base/containers/circular_deque.h"
 #include "base/files/file_util.h"
 #include "base/guid.h"
@@ -140,7 +141,7 @@ class DownloadsEventsListener : public content::NotificationObserver {
         : profile_(profile),
           event_name_(event_name),
           json_args_(json_args),
-          args_(base::JSONReader::Read(json_args).release()),
+          args_(base::JSONReader::ReadDeprecated(json_args).release()),
           caught_(caught) {}
 
     const base::Time& caught() { return caught_; }
@@ -931,9 +932,9 @@ IN_PROC_BROWSER_TEST_F(DownloadExtensionTest,
 
   scoped_refptr<DownloadsOpenFunction> scoped_open(new DownloadsOpenFunction());
   scoped_open->set_user_gesture(true);
-  base::ListValue list_value;
-  list_value.GetList().emplace_back(static_cast<int>(download_item->GetId()));
-  scoped_open->SetArgs(&list_value);
+  base::Value args_list(base::Value::Type::LIST);
+  args_list.GetList().emplace_back(static_cast<int>(download_item->GetId()));
+  scoped_open->SetArgs(std::move(args_list));
   scoped_open->set_browser_context(current_browser()->profile());
   scoped_open->set_extension(extension());
   DownloadsOpenFunction::OnPromptCreatedCallback callback =

@@ -67,12 +67,13 @@
 #include "third_party/blink/renderer/platform/bindings/v8_private_property.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/scheduler/public/cooperative_scheduling_manager.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_violation_reporting_policy.h"
-#include "third_party/blink/renderer/platform/wtf/address_sanitizer.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
+#include "third_party/blink/renderer/platform/wtf/sanitizers.h"
 #include "third_party/blink/renderer/platform/wtf/stack_util.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/typed_arrays/array_buffer_contents.h"
@@ -139,9 +140,9 @@ size_t NearHeapLimitCallbackOnMainThread(void* data,
   Document* document = nullptr;
   int pages = 0;
   for (Page* page : Page::OrdinaryPages()) {
-    if (page->MainFrame()->IsLocalFrame()) {
+    if (auto* main_local_frame = DynamicTo<LocalFrame>(page->MainFrame())) {
       ++pages;
-      document = ToLocalFrame(page->MainFrame())->GetDocument();
+      document = main_local_frame->GetDocument();
     }
   }
   ukm::UkmRecorder* ukm_recorder = nullptr;
@@ -199,21 +200,21 @@ static String ExtractMessageForConsole(v8::Isolate* isolate,
 }
 
 namespace {
-MessageLevel MessageLevelFromNonFatalErrorLevel(int error_level) {
-  MessageLevel level = kErrorMessageLevel;
+mojom::ConsoleMessageLevel MessageLevelFromNonFatalErrorLevel(int error_level) {
+  mojom::ConsoleMessageLevel level = mojom::ConsoleMessageLevel::kError;
   switch (error_level) {
     case v8::Isolate::kMessageDebug:
-      level = kVerboseMessageLevel;
+      level = mojom::ConsoleMessageLevel::kVerbose;
       break;
     case v8::Isolate::kMessageLog:
     case v8::Isolate::kMessageInfo:
-      level = kInfoMessageLevel;
+      level = mojom::ConsoleMessageLevel::kInfo;
       break;
     case v8::Isolate::kMessageWarning:
-      level = kWarningMessageLevel;
+      level = mojom::ConsoleMessageLevel::kWarning;
       break;
     case v8::Isolate::kMessageError:
-      level = kInfoMessageLevel;
+      level = mojom::ConsoleMessageLevel::kInfo;
       break;
     default:
       NOTREACHED();
@@ -594,7 +595,7 @@ static v8::MaybeLocal<v8::Promise> HostImportModuleDynamically(
   return v8::Local<v8::Promise>::Cast(promise.V8Value());
 }
 
-// https://html.spec.whatwg.org/#hostgetimportmetaproperties
+// https://html.spec.whatwg.org/C/#hostgetimportmetaproperties
 static void HostGetImportMetaProperties(v8::Local<v8::Context> context,
                                         v8::Local<v8::Module> module,
                                         v8::Local<v8::Object> meta) {
@@ -770,7 +771,7 @@ void V8Initializer::InitializeMainThread(const intptr_t* reference_table) {
 
   if (v8::HeapProfiler* profiler = isolate->GetHeapProfiler()) {
     profiler->AddBuildEmbedderGraphCallback(
-        &V8EmbedderGraphBuilder::BuildEmbedderGraphCallback, nullptr);
+        &EmbedderGraphBuilder::BuildEmbedderGraphCallback, nullptr);
   }
 
   V8PerIsolateData::From(isolate)->SetThreadDebugger(

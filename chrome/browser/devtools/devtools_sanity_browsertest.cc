@@ -22,6 +22,7 @@
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/test/scoped_feature_list.h"
@@ -270,7 +271,7 @@ class SitePerProcessDevToolsSanityTest : public DevToolsSanityTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     DevToolsSanityTest::SetUpCommandLine(command_line);
     content::IsolateAllSitesForTesting(command_line);
-  };
+  }
 
   void SetUpOnMainThread() override {
     DevToolsSanityTest::SetUpOnMainThread();
@@ -2258,6 +2259,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, TestOpenInNewTabFilter) {
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, LoadNetworkResourceForFrontend) {
+  base::FilePath root_dir;
+  CHECK(base::PathService::Get(base::DIR_SOURCE_ROOT, &root_dir));
+  std::string file_url =
+      "file://" +
+      root_dir.AppendASCII("content/test/data/devtools/navigation.html")
+          .NormalizePathSeparatorsTo('/')
+          .AsUTF8Unsafe();
+
   embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -2266,7 +2275,8 @@ IN_PROC_BROWSER_TEST_F(DevToolsSanityTest, LoadNetworkResourceForFrontend) {
                                embedded_test_server()->GetURL("/hello.html"));
   window_ =
       DevToolsWindowTesting::OpenDevToolsWindowSync(GetInspectedTab(), false);
-  RunTestMethod("testLoadResourceForFrontend", url.spec().c_str());
+  RunTestMethod("testLoadResourceForFrontend", url.spec().c_str(),
+                file_url.c_str());
   DevToolsWindowTesting::CloseDevToolsWindowSync(window_);
 }
 

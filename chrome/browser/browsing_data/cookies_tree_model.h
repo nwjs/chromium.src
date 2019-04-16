@@ -108,14 +108,11 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
     DetailedInfo& Init(NodeType type);
     DetailedInfo& InitHost(const GURL& origin);
     DetailedInfo& InitCookie(const net::CanonicalCookie* cookie);
-    DetailedInfo& InitDatabase(
-        const BrowsingDataDatabaseHelper::DatabaseInfo* database_info);
+    DetailedInfo& InitDatabase(const content::StorageUsageInfo* usage_info);
     DetailedInfo& InitLocalStorage(
-        const BrowsingDataLocalStorageHelper::LocalStorageInfo*
-            local_storage_info);
+        const content::StorageUsageInfo* local_storage_info);
     DetailedInfo& InitSessionStorage(
-        const BrowsingDataLocalStorageHelper::LocalStorageInfo*
-            session_storage_info);
+        const content::StorageUsageInfo* session_storage_info);
     DetailedInfo& InitAppCache(const GURL& origin,
                                const blink::mojom::AppCacheInfo* appcache_info);
     DetailedInfo& InitIndexedDB(const content::StorageUsageInfo* usage_info);
@@ -137,13 +134,9 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
     NodeType node_type;
     url::Origin origin;
     const net::CanonicalCookie* cookie = nullptr;
-    const BrowsingDataDatabaseHelper::DatabaseInfo* database_info = nullptr;
-    const BrowsingDataLocalStorageHelper::LocalStorageInfo* local_storage_info =
-        nullptr;
-    const BrowsingDataLocalStorageHelper::LocalStorageInfo*
-        session_storage_info = nullptr;
     const blink::mojom::AppCacheInfo* appcache_info = nullptr;
-    // Used for IndexedDB, Service Worker, and Cache Storage node types.
+    // Used for Database (WebSQL), IndexedDB, Service Worker, and Cache
+    // Storage node types.
     const content::StorageUsageInfo* usage_info = nullptr;
     const BrowsingDataFileSystemHelper::FileSystemInfo* file_system_info =
         nullptr;
@@ -163,6 +156,10 @@ class CookieTreeNode : public ui::TreeNode<CookieTreeNode> {
   // Recursively traverse the child nodes of this node and collect the storage
   // size data.
   virtual int64_t InclusiveSize() const;
+
+  // Recursively traverse the child nodes and calculate the number of nodes of
+  // type CookieTreeCookieNode.
+  virtual int NumberOfCookies() const;
 
   // Delete backend storage for this node, and any children nodes. (E.g. delete
   // the cookie from CookieMonster, clear the database, and so forth.)
@@ -375,9 +372,7 @@ class CookiesTreeModel : public ui::TreeNodeModel<CookieTreeNode> {
   void SetBatchExpectation(int batches_expected, bool reset);
 
   // Create CookiesTreeModel by profile info.
-  static std::unique_ptr<CookiesTreeModel> CreateForProfile(
-      Profile* profile,
-      bool omit_cookies = false);
+  static std::unique_ptr<CookiesTreeModel> CreateForProfile(Profile* profile);
 
  private:
   enum CookieIconIndex { COOKIE = 0, DATABASE = 1 };

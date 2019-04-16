@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/scoped_observer.h"
 #include "base/stl_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
@@ -1453,7 +1454,14 @@ TEST_F(DeveloperPrivateApiUnitTest, RemoveHostPermission) {
   EXPECT_FALSE(modifier.HasGrantedHostPermission(kMapsGoogleCom));
 }
 
-TEST_F(DeveloperPrivateApiUnitTest, UpdateHostAccess) {
+// This test is flaky on chromeos.
+// https://crbug.com/937355
+#if defined(OS_CHROMEOS)
+#define MAYBE_UpdateHostAccess DISABLED_UpdateHostAccess
+#else
+#define MAYBE_UpdateHostAccess UpdateHostAccess
+#endif
+TEST_F(DeveloperPrivateApiUnitTest, MAYBE_UpdateHostAccess) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndEnableFeature(
       extensions_features::kRuntimeHostPermissions);
@@ -1643,8 +1651,8 @@ TEST_F(DeveloperPrivateApiUnitTest,
 
   URLPatternSet hosts({URLPattern(Extension::kValidHostPermissionSchemes,
                                   "https://example.com/*")});
-  PermissionSet permissions(APIPermissionSet(), ManifestPermissionSet(), hosts,
-                            hosts);
+  PermissionSet permissions(APIPermissionSet(), ManifestPermissionSet(),
+                            hosts.Clone(), hosts.Clone());
   permissions_test_util::GrantRuntimePermissionsAndWaitForCompletion(
       profile(), *extension, permissions);
 

@@ -134,7 +134,7 @@ const WebFeature kNoWebFeature = static_cast<WebFeature>(0);
 
 }  // anonymous namespace
 
-DEFINE_ELEMENT_FACTORY_WITH_TAGNAME(HTMLElement);
+DEFINE_ELEMENT_FACTORY_WITH_TAGNAME(HTMLElement)
 
 String HTMLElement::DebugNodeName() const {
   if (GetDocument().IsHTMLDocument()) {
@@ -359,6 +359,8 @@ AttributeTriggers* HTMLElement::TriggersForAttributeName(
       {kOnanimationstartAttr, kNoWebFeature, event_type_names::kAnimationstart,
        nullptr},
       {kOnauxclickAttr, kNoWebFeature, event_type_names::kAuxclick, nullptr},
+      {kOnbeforeactivateAttr, kNoWebFeature, event_type_names::kBeforeactivate,
+       nullptr},
       {kOnbeforecopyAttr, kNoWebFeature, event_type_names::kBeforecopy,
        nullptr},
       {kOnbeforecutAttr, kNoWebFeature, event_type_names::kBeforecut, nullptr},
@@ -1008,7 +1010,7 @@ void HTMLElement::ChildrenChanged(const ChildrenChange& change) {
 
 bool HTMLElement::HasDirectionAuto() const {
   // <bdi> defaults to dir="auto"
-  // https://html.spec.whatwg.org/multipage/semantics.html#the-bdi-element
+  // https://html.spec.whatwg.org/C/#the-bdi-element
   const AtomicString& direction = FastGetAttribute(kDirAttr);
   return (IsHTMLBDIElement(*this) && direction == g_null_atom) ||
          DeprecatedEqualIgnoringCase(direction, "auto");
@@ -1458,6 +1460,12 @@ void HTMLElement::OnXMLLangAttrChanged(
 
 ElementInternals* HTMLElement::attachInternals(
     ExceptionState& exception_state) {
+  if (IsValue()) {
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kNotSupportedError,
+        "Unable to attach ElementInternals to a customized built-in element.");
+    return nullptr;
+  }
   CustomElementRegistry* registry = CustomElement::Registry(*this);
   auto* definition =
       registry ? registry->DefinitionForName(localName()) : nullptr;
@@ -1467,15 +1475,9 @@ ElementInternals* HTMLElement::attachInternals(
         "Unable to attach ElementInternals to non-custom elements.");
     return nullptr;
   }
-  if (!definition->Descriptor().IsAutonomous()) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
-        "Unable to attach ElementInternals to a customized built-in element.");
-    return nullptr;
-  }
   if (definition->DisableInternals()) {
     exception_state.ThrowDOMException(
-        DOMExceptionCode::kInvalidStateError,
+        DOMExceptionCode::kNotSupportedError,
         "ElementInternals is disabled by disabledFeature static field.");
     return nullptr;
   }
@@ -1496,7 +1498,7 @@ bool HTMLElement::IsFormAssociatedCustomElement() const {
 
 bool HTMLElement::SupportsFocus() const {
   return Element::SupportsFocus() && !IsDisabledFormControl();
-};
+}
 
 bool HTMLElement::IsDisabledFormControl() const {
   if (!IsFormAssociatedCustomElement())
@@ -1529,6 +1531,12 @@ bool HTMLElement::IsValidElement() {
 
 bool HTMLElement::IsLabelable() const {
   return IsFormAssociatedCustomElement();
+}
+
+void HTMLElement::FinishParsingChildren() {
+  Element::FinishParsingChildren();
+  if (IsFormAssociatedCustomElement())
+    EnsureElementInternals().TakeStateAndRestore();
 }
 
 }  // namespace blink

@@ -70,14 +70,14 @@ extern const char kEnableAutofillSaveCreditCardUsesStrikeSystemV2Description[];
 extern const char kEnableSyncUSSBookmarksName[];
 extern const char kEnableSyncUSSBookmarksDescription[];
 
+extern const char kEnableSyncUSSPasswordsName[];
+extern const char kEnableSyncUSSPasswordsDescription[];
+
 extern const char kSyncPseudoUSSFaviconsName[];
 extern const char kSyncPseudoUSSFaviconsDescription[];
 
 extern const char kSyncPseudoUSSHistoryDeleteDirectivesName[];
 extern const char kSyncPseudoUSSHistoryDeleteDirectivesDescription[];
-
-extern const char kSyncPseudoUSSPasswordsName[];
-extern const char kSyncPseudoUSSPasswordsDescription[];
 
 extern const char kSyncPseudoUSSPreferencesName[];
 extern const char kSyncPseudoUSSPreferencesDescription[];
@@ -92,11 +92,6 @@ extern const char kSyncPseudoUSSSupervisedUsersDescription[];
 // sandbox servers.
 extern const char kSyncSandboxName[];
 extern const char kSyncSandboxDescription[];
-
-// Title and description for the flag to control if Chrome Sync can start up in
-// standalone transport mode.
-extern const char kSyncStandaloneTransportName[];
-extern const char kSyncStandaloneTransportDescription[];
 
 // Title and description for the flag to control if Chrome Sync (in standalone
 // transport mode) supports non-primary accounts.
@@ -115,6 +110,11 @@ extern const char kAppLauncherRefreshDescription[];
 // Title and description for the flag to control the dynamic autofill.
 extern const char kAutofillDynamicFormsName[];
 extern const char kAutofillDynamicFormsDescription[];
+
+// Title and description for the flag to control saving FULL_SERVER_CARDS upon
+// success of credit card upload.
+extern const char kAutofillNoLocalSaveOnUploadSuccessName[];
+extern const char kAutofillNoLocalSaveOnUploadSuccessDescription[];
 
 // Title and description for the flag to control the dynamic autofill.
 extern const char kAutofillPrefilledFieldsName[];
@@ -233,10 +233,6 @@ extern const char kInfobarUIRebootDescription[];
 extern const char kInProductHelpDemoModeName[];
 extern const char kInProductHelpDemoModeDescription[];
 
-// Title and description for the flag to enable ITunes links store kit handling.
-extern const char kITunesUrlsStoreKitHandlingName[];
-extern const char kITunesUrlsStoreKitHandlingDescription[];
-
 // Title, description, and options for the MarkHttpAs setting that controls
 // display of omnibox warnings about non-secure pages.
 extern const char kMarkHttpAsName[];
@@ -258,6 +254,11 @@ extern const char kNewPasswordFormParsingForSavingDescription[];
 // Title and description for the flag to enable non-modal JavaScript dialogs.
 extern const char kNonModalDialogsName[];
 extern const char kNonModalDialogsDescription[];
+
+// Title and description for the flag to display offline pages directly in the
+// web view.
+extern const char kOfflineVersionWithoutNativeContentName[];
+extern const char kOfflineVersionWithoutNativeContentDescription[];
 
 // Title and description for the flag to show most visited sites and collection
 // shortcuts in the omnibox popup instead of ZeroSuggest.
@@ -301,6 +302,10 @@ extern const char kIgnoresViewportScaleLimitsDescription[];
 extern const char kSearchIconToggleName[];
 extern const char kSearchIconToggleDescription[];
 
+// Title and description for the flag to send UMA data over cellular.
+extern const char kSendUmaOverCellularName[];
+extern const char kSendUmaOverCellularDescription[];
+
 // Title and description for the flag to toggle the flag for the settings UI
 // Refresh.
 extern const char kSettingsRefreshName[];
@@ -320,11 +325,6 @@ extern const char kShowAutofillTypePredictionsDescription[];
 // implementation.
 extern const char kToolbarContainerName[];
 extern const char kToolbarContainerDescription[];
-
-// Title and description for the flag to use UIViewController for Sad Tab UI
-// presentation.
-extern const char kPresentSadTabInViewControllerName[];
-extern const char kPresentSadTabInViewControllerDescription[];
 
 // Title and description for the flag to use |-drawViewHierarchy:| for taking
 // snapshots.
@@ -353,13 +353,28 @@ extern const char kUsdzPreviewDescription[];
 extern const char kUseDdljsonApiName[];
 extern const char kUseDdljsonApiDescription[];
 
+// Title and description for the flag to use the Clear browsing data API from
+// web.
+extern const char kWebClearBrowsingDataName[];
+extern const char kWebClearBrowsingDataDescription[];
+
 // Title and description for the flag to enable web frame messaging.
 extern const char kWebFrameMessagingName[];
 extern const char kWebFrameMessagingDescription[];
 
+// Title and description for the flag to store pending item in NavigationContext
+// after context is created.
+extern const char kStorePendingItemInContextName[];
+extern const char kStorePendingItemInContextDescription[];
+
 // Title and description for the flag to enable text accessibility in webpages.
 extern const char kWebPageTextAccessibilityName[];
 extern const char kWebPageTextAccessibilityDescription[];
+
+// Title and description for the flag to have the WKWebView handling the WebUI
+// pages.
+extern const char kWebUISchemeHandlingName[];
+extern const char kWebUISchemeHandlingDescription[];
 
 // Title and description for the flag to enable WKHTTPSystemCookieStore usage
 // for main context URL requests.

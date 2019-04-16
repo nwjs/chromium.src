@@ -330,7 +330,7 @@ void Widget::Init(const InitParams& in_params) {
 
   widget_delegate_ = params.delegate ?
       params.delegate : new DefaultWidgetDelegate(this);
-  widget_delegate_->set_can_activate(can_activate);
+  widget_delegate_->SetCanActivate(can_activate);
 
   // Henceforth, ensure the delegate outlives the Widget.
   widget_delegate_->can_delete_this_ = false;
@@ -673,7 +673,8 @@ void Widget::ShowInactive() {
 }
 
 void Widget::Activate() {
-  native_widget_->Activate();
+  if (CanActivate())
+    native_widget_->Activate();
 }
 
 void Widget::Deactivate() {
@@ -732,6 +733,12 @@ void Widget::SetFullscreen(bool fullscreen) {
 
 bool Widget::IsFullscreen() const {
   return native_widget_->IsFullscreen();
+}
+
+void Widget::SetCanAppearInExistingFullscreenSpaces(
+    bool can_appear_in_existing_fullscreen_spaces) {
+  native_widget_->SetCanAppearInExistingFullscreenSpaces(
+      can_appear_in_existing_fullscreen_spaces);
 }
 
 void Widget::SetOpacity(float opacity) {
@@ -810,6 +817,9 @@ void Widget::RunShellDrag(View* view,
   dragged_view_ = view;
   OnDragWillStart();
 
+  for (WidgetObserver& observer : observers_)
+    observer.OnWidgetDragWillStart(this);
+
   WidgetDeletionObserver widget_deletion_observer(this);
   native_widget_->RunShellDrag(view, data, location, operation, source);
 
@@ -824,6 +834,9 @@ void Widget::RunShellDrag(View* view,
     view->OnDragDone();
   }
   OnDragComplete();
+
+  for (WidgetObserver& observer : observers_)
+    observer.OnWidgetDragComplete(this);
 }
 
 void Widget::SchedulePaintInRect(const gfx::Rect& rect) {
@@ -1033,6 +1046,11 @@ void Widget::OnSizeConstraintsChanged() {
 
 void Widget::OnOwnerClosing() {}
 
+void Widget::OnCanActivateChanged() {
+  if (native_widget_)
+    native_widget_->OnCanActivateChanged();
+}
+
 std::string Widget::GetName() const {
   return native_widget_->GetName();
 }
@@ -1049,7 +1067,9 @@ bool Widget::IsDialogBox() const {
 }
 
 bool Widget::CanActivate() const {
-  return widget_delegate_->CanActivate();
+  // This may be called after OnNativeWidgetDestroyed(), which sets
+  // |widget_delegate_| to null.
+  return widget_delegate_ && widget_delegate_->CanActivate();
 }
 
 bool Widget::IsAlwaysRenderAsActive() const {
@@ -1135,7 +1155,7 @@ void Widget::OnNativeWidgetDestroyed() {
     observer.OnWidgetDestroyed(this);
   widget_delegate_->can_delete_this_ = true;
   widget_delegate_->DeleteDelegate();
-  widget_delegate_ = NULL;
+  widget_delegate_ = nullptr;
   native_widget_destroyed_ = true;
 }
 

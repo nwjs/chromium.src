@@ -10,20 +10,17 @@
 #include "base/strings/sys_string_conversions.h"
 #include "components/password_manager/core/browser/password_store.h"
 #import "ios/chrome/browser/autofill/manual_fill/passwords_fetcher.h"
-#include "ios/chrome/browser/experimental_flags.h"
+#include "ios/chrome/browser/passwords/password_manager_features.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/action_cell.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/credential.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/credential_password_form.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_content_delegate.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/manual_fill_password_cell.h"
 #import "ios/chrome/browser/ui/autofill/manual_fill/password_consumer.h"
-#import "ios/chrome/browser/ui/autofill/manual_fill/password_list_delegate.h"
+#import "ios/chrome/browser/ui/autofill/manual_fill/password_list_navigator.h"
 #import "ios/chrome/browser/ui/list_model/list_model.h"
 #import "ios/chrome/browser/ui/table_view/table_view_model.h"
-#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #include "ios/chrome/grit/ios_strings.h"
-#import "ios/web/public/web_state/web_state.h"
-#include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "url/gurl.h"
 
@@ -55,8 +52,11 @@ BOOL AreCredentialsAtIndexesConnected(
       isEqualToString:credentials[secondIndex].host];
 }
 
-@interface ManualFillPasswordMediator ()<ManualFillContentDelegate,
-                                         PasswordFetcherDelegate>
+@interface ManualFillPasswordMediator () <ManualFillContentDelegate,
+                                          PasswordFetcherDelegate> {
+  // The interface for getting and manipulating a user's saved passwords.
+  scoped_refptr<password_manager::PasswordStore> _passwordStore;
+}
 
 // The |WebStateList| containing the active web state. Used to filter the list
 // of credentials based on the active web state.
@@ -69,10 +69,6 @@ BOOL AreCredentialsAtIndexesConnected(
 // reuse the mediator.
 @property(nonatomic, strong) NSArray<ManualFillCredential*>* credentials;
 
-// If the filter is disabled, the "Show All Passwords" button is not included
-// in the model.
-@property(nonatomic, assign, readonly) BOOL isAllPasswordButtonEnabled;
-
 // YES if the password fetcher has completed at least one fetch.
 @property(nonatomic, assign) BOOL passwordFetcherDidFetch;
 
@@ -80,19 +76,22 @@ BOOL AreCredentialsAtIndexesConnected(
 
 @implementation ManualFillPasswordMediator
 
-- (instancetype)initWithWebStateList:(WebStateList*)webStateList
-                       passwordStore:
-                           (scoped_refptr<password_manager::PasswordStore>)
-                               passwordStore {
+- (instancetype)initWithPasswordStore:
+    (scoped_refptr<password_manager::PasswordStore>)passwordStore {
   self = [super init];
   if (self) {
     _credentials = @[];
-    _webStateList = webStateList;
-    _passwordFetcher =
-        [[PasswordFetcher alloc] initWithPasswordStore:passwordStore
-                                              delegate:self];
+    _passwordStore = passwordStore;
   }
   return self;
+}
+
+- (void)fetchPasswordsForURL:(const GURL&)URL {
+  self.credentials = @[];
+  self.passwordFetcher =
+      [[PasswordFetcher alloc] initWithPasswordStore:_passwordStore
+                                            delegate:self
+                                                 URL:URL];
 }
 
 #pragma mark - PasswordFetcherDelegate
@@ -152,31 +151,7 @@ BOOL AreCredentialsAtIndexesConnected(
   if (!self.consumer) {
     return;
   }
-  if (self.disableFilter) {
-    auto credentials = [self createItemsForCredentials:self.credentials];
-    [self.consumer presentCredentials:credentials];
-    return;
-  }
-  web::WebState* currentWebState = self.webStateList->GetActiveWebState();
-  if (!currentWebState) {
-    return;
-  }
-  GURL visibleURL = currentWebState->GetVisibleURL();
-  std::string site_name =
-      net::registry_controlled_domains::GetDomainAndRegistry(
-          visibleURL.host(),
-          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
-  // Sometimes the site_name can be empty. i.e. if the host is an IP address.
-  if (site_name.empty()) {
-    site_name = visibleURL.host();
-  }
-  NSString* siteName = base::SysUTF8ToNSString(site_name);
-
-  NSPredicate* predicate =
-      [NSPredicate predicateWithFormat:@"siteName = %@", siteName];
-  NSArray* filteredCredentials =
-      [self.credentials filteredArrayUsingPredicate:predicate];
-  auto credentials = [self createItemsForCredentials:filteredCredentials];
+  auto credentials = [self createItemsForCredentials:self.credentials];
   [self.consumer presentCredentials:credentials];
 }
 
@@ -205,12 +180,12 @@ BOOL AreCredentialsAtIndexesConnected(
   if (!self.consumer) {
     return;
   }
-  if (self.isAllPasswordButtonEnabled) {
+  if (self.isActionSectionEnabled) {
     NSMutableArray<ManualFillActionItem*>* actions =
         [[NSMutableArray alloc] init];
     __weak __typeof(self) weakSelf = self;
 
-    if (experimental_flags::IsAutomaticPasswordGenerationEnabled() &&
+    if (features::IsAutomaticPasswordGenerationEnabled() &&
         [self.contentDelegate canUserInjectInPasswordField:YES
                                              requiresHTTPS:YES]) {
       NSString* generatePasswordTitleString =
@@ -220,7 +195,7 @@ BOOL AreCredentialsAtIndexesConnected(
                  action:^{
                    base::RecordAction(base::UserMetricsAction(
                        "ManualFallback_Password_OpenSuggestPassword"));
-                   [self generateAndOfferPassword];
+                   [weakSelf generateAndOfferPassword];
                  }];
       generatePasswordItem.accessibilityIdentifier =
           manual_fill::SuggestPasswordAccessibilityIdentifier;
@@ -236,7 +211,7 @@ BOOL AreCredentialsAtIndexesConnected(
                  action:^{
                    base::RecordAction(base::UserMetricsAction(
                        "ManualFallback_Password_OpenOtherPassword"));
-                   [weakSelf.navigationDelegate openAllPasswordsList];
+                   [weakSelf.navigator openAllPasswordsList];
                  }];
       otherPasswordsItem.accessibilityIdentifier =
           manual_fill::OtherPasswordsAccessibilityIdentifier;
@@ -250,22 +225,14 @@ BOOL AreCredentialsAtIndexesConnected(
                action:^{
                  base::RecordAction(base::UserMetricsAction(
                      "ManualFallback_Password_OpenManagePassword"));
-                 [weakSelf.navigationDelegate openPasswordSettings];
+                 [weakSelf.navigator openPasswordSettings];
                }];
     managePasswordsItem.accessibilityIdentifier =
         manual_fill::ManagePasswordsAccessibilityIdentifier;
     [actions addObject:managePasswordsItem];
 
     [self.consumer presentActions:actions];
-  } else {
-    [self.consumer presentActions:@[]];
   }
-}
-
-#pragma mark - Getters
-
-- (BOOL)isAllPasswordButtonEnabled {
-  return !self.disableFilter;
 }
 
 #pragma mark - Setters
@@ -289,7 +256,7 @@ BOOL AreCredentialsAtIndexesConnected(
 - (void)userDidPickContent:(NSString*)content
              passwordField:(BOOL)passwordField
              requiresHTTPS:(BOOL)requiresHTTPS {
-  [self.navigationDelegate dismissPresentedViewController];
+  [self.navigator dismissPresentedViewController];
   [self.contentDelegate userDidPickContent:content
                              passwordField:passwordField
                              requiresHTTPS:requiresHTTPS];

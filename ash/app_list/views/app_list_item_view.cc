@@ -13,8 +13,8 @@
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/app_list/views/apps_grid_view.h"
 #include "ash/public/cpp/app_list/app_list_config.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/app_list_switches.h"
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -476,9 +476,10 @@ void AppListItemView::OnContextMenuModelReceived(
   apps_grid_view_->SetSelectedView(this);
 }
 
-void AppListItemView::ShowContextMenuForView(views::View* source,
-                                             const gfx::Point& point,
-                                             ui::MenuSourceType source_type) {
+void AppListItemView::ShowContextMenuForViewImpl(
+    views::View* source,
+    const gfx::Point& point,
+    ui::MenuSourceType source_type) {
   if (context_menu_ && context_menu_->IsShowingMenu())
     return;
   // Prevent multiple requests for context menus before the current request
@@ -517,8 +518,9 @@ void AppListItemView::PaintButtonContents(gfx::Canvas* canvas) {
   if (apps_grid_view_->IsSelectedView(this)) {
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
-    flags.setColor(apps_grid_view_->is_in_folder() ? kFolderGridSelectedColor
-                                                   : kGridSelectedColor);
+    flags.setColor(apps_grid_view_->is_in_folder()
+                       ? kFolderGridSelectedColor
+                       : AppListConfig::instance().grid_selected_color());
     flags.setStyle(cc::PaintFlags::kFill_Style);
     gfx::Rect selection_highlight_bounds = GetContentsBounds();
     AdaptBoundsForSelectionHighlight(&selection_highlight_bounds);

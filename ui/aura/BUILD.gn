@@ -161,12 +161,7 @@ jumbo_component("aura") {
     "window_tree_host_platform.cc",
   ]
 
-  # aura_interactive_ui_tests needs access to native_window_occlusion_tracker.h.
-  friend = [
-    ":aura_interactive_ui_tests",
-    ":aura_unittests",
-    ":test_support",
-  ]
+  friend = [ ":*" ]
 
   defines = [ "AURA_IMPLEMENTATION" ]
 
@@ -224,6 +219,10 @@ jumbo_component("aura") {
       "//ipc",
       "//ui/platform_window/win",
     ]
+  }
+
+  if (is_win) {
+    libs = [ "wtsapi32.lib" ]
   }
 
   if (use_ozone) {
@@ -376,6 +375,7 @@ executable("demo") {
     "//ui/events",
     "//ui/gfx",
     "//ui/gfx/geometry",
+    "//ui/gl",
     "//ui/gl/init",
   ]
 
@@ -389,6 +389,7 @@ test("aura_unittests") {
     "../compositor_extra/shadow_unittest.cc",
     "gestures/gesture_recognizer_unittest.cc",
     "mouse_location_manager_unittest.cc",
+    "mus/client_side_window_move_handler_unittest.cc",
     "mus/drag_drop_controller_mus_unittest.cc",
     "mus/focus_synchronizer_unittest.cc",
     "mus/gesture_synchronizer_unittest.cc",

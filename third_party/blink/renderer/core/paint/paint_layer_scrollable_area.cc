@@ -46,11 +46,14 @@
 
 #include "base/numerics/checked_math.h"
 #include "base/single_thread_task_runner.h"
+#include "cc/input/main_thread_scrolling_reason.h"
+#include "cc/input/snap_selection_strategy.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/animation/scroll_timeline.h"
+#include "third_party/blink/renderer/core/content_capture/content_capture_manager.h"
 #include "third_party/blink/renderer/core/css/pseudo_style_request.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -91,12 +94,12 @@
 #include "third_party/blink/renderer/core/paint/find_paint_offset_and_visual_rect_needing_update.h"
 #include "third_party/blink/renderer/core/paint/paint_invalidator.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_fragment.h"
+#include "third_party/blink/renderer/core/scroll/scroll_alignment.h"
 #include "third_party/blink/renderer/core/scroll/scroll_animator_base.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
 #include "third_party/blink/renderer/core/scroll/smooth_scroll_sequencer.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_alignment.h"
 
 namespace blink {
 
@@ -319,7 +322,13 @@ IntRect PaintLayerScrollableArea::PaintLayerScrollableArea::CornerRect(
     // FIXME: This isn't right. We need to know the thickness of custom
     // scrollbars even when they don't exist in order to set the resizer square
     // size properly.
-    horizontal_thickness = GetPageScrollbarTheme().ScrollbarThickness();
+    horizontal_thickness =
+        GetLayoutBox()
+            ->GetDocument()
+            .GetPage()
+            ->GetChromeClient()
+            .WindowToViewportScalar(
+                GetPageScrollbarTheme().ScrollbarThickness());
     vertical_thickness = horizontal_thickness;
   } else if (VerticalScrollbar() && !HorizontalScrollbar()) {
     horizontal_thickness = VerticalScrollbar()->ScrollbarThickness();
@@ -496,7 +505,10 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
       ShowOverlayScrollbars();
     GetScrollAnchor()->Clear();
   }
-
+  if (ContentCaptureManager* manager =
+          frame_view->GetFrame().LocalFrameRoot().GetContentCaptureManager()) {
+    manager->OnScrollPositionChanged();
+  }
   if (AXObjectCache* cache =
           GetLayoutBox()->GetDocument().ExistingAXObjectCache())
     cache->HandleScrollPositionChanged(GetLayoutBox());
@@ -2051,9 +2063,9 @@ LayoutRect PaintLayerScrollableArea::ScrollIntoView(
   }
 
   FloatPoint end_point = ScrollOffsetToPosition(new_scroll_offset);
-  std::unique_ptr<SnapSelectionStrategy> strategy =
-      SnapSelectionStrategy::CreateForEndPosition(gfx::ScrollOffset(end_point),
-                                                  true, true);
+  std::unique_ptr<cc::SnapSelectionStrategy> strategy =
+      cc::SnapSelectionStrategy::CreateForEndPosition(
+          gfx::ScrollOffset(end_point), true, true);
   end_point = GetLayoutBox()
                   ->GetDocument()
                   .GetSnapCoordinator()
@@ -2278,21 +2290,21 @@ bool PaintLayerScrollableArea::ComputeNeedsCompositedScrolling(
       !background_supports_lcd_text) {
     if (layer->CompositesWithOpacity()) {
       non_composited_main_thread_scrolling_reasons_ |=
-          MainThreadScrollingReason::kHasOpacityAndLCDText;
+          cc::MainThreadScrollingReason::kHasOpacityAndLCDText;
     }
     if (layer->CompositesWithTransform()) {
       non_composited_main_thread_scrolling_reasons_ |=
-          MainThreadScrollingReason::kHasTransformAndLCDText;
+          cc::MainThreadScrollingReason::kHasTransformAndLCDText;
     }
     if (!layer->BackgroundIsKnownToBeOpaqueInRect(
             ToLayoutBox(layer->GetLayoutObject()).PhysicalPaddingBoxRect(),
             true)) {
       non_composited_main_thread_scrolling_reasons_ |=
-          MainThreadScrollingReason::kBackgroundNotOpaqueInRectAndLCDText;
+          cc::MainThreadScrollingReason::kBackgroundNotOpaqueInRectAndLCDText;
     }
     if (!layer->GetLayoutObject().StyleRef().IsStackingContext()) {
       non_composited_main_thread_scrolling_reasons_ |=
-          MainThreadScrollingReason::kIsNotStackingContextAndLCDText;
+          cc::MainThreadScrollingReason::kIsNotStackingContextAndLCDText;
     }
 
     needs_composited_scrolling = false;
@@ -2301,12 +2313,12 @@ bool PaintLayerScrollableArea::ComputeNeedsCompositedScrolling(
   if (layer->GetLayoutObject().HasClip() ||
       layer->HasDescendantWithClipPath() || !!layer->ClipPathAncestor()) {
     non_composited_main_thread_scrolling_reasons_ |=
-        MainThreadScrollingReason::kHasClipRelatedProperty;
+        cc::MainThreadScrollingReason::kHasClipRelatedProperty;
     needs_composited_scrolling = false;
   }
 
   DCHECK(!(non_composited_main_thread_scrolling_reasons_ &
-           ~MainThreadScrollingReason::kNonCompositedReasons));
+           ~cc::MainThreadScrollingReason::kNonCompositedReasons));
   return needs_composited_scrolling;
 }
 
@@ -2348,7 +2360,7 @@ void PaintLayerScrollableArea::ResetRebuildScrollbarLayerFlags() {
   rebuild_vertical_scrollbar_layer_ = false;
 }
 
-CompositorAnimationHost* PaintLayerScrollableArea::GetCompositorAnimationHost()
+cc::AnimationHost* PaintLayerScrollableArea::GetCompositorAnimationHost()
     const {
   return layer_->GetLayoutObject().GetFrameView()->GetCompositorAnimationHost();
 }
@@ -2880,6 +2892,13 @@ PaintLayerScrollableArea::ScrollingBackgroundDisplayItemClient::DebugName()
     const {
   return "Scrolling background of " +
          scrollable_area_->GetLayoutBox()->DebugName();
+}
+
+DOMNodeId
+PaintLayerScrollableArea::ScrollingBackgroundDisplayItemClient::OwnerNodeId()
+    const {
+  return static_cast<const DisplayItemClient*>(scrollable_area_->GetLayoutBox())
+      ->OwnerNodeId();
 }
 
 bool PaintLayerScrollableArea::ScrollingBackgroundDisplayItemClient::

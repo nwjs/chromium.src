@@ -17,6 +17,7 @@
 #include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/service/surfaces/referenced_surface_tracker.h"
+#include "components/viz/service/surfaces/surface_allocation_group.h"
 #include "components/viz/service/surfaces/surface_client.h"
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "components/viz/service/viz_service_export.h"
@@ -26,6 +27,7 @@ namespace viz {
 
 Surface::Surface(const SurfaceInfo& surface_info,
                  SurfaceManager* surface_manager,
+                 SurfaceAllocationGroup* allocation_group,
                  base::WeakPtr<SurfaceClient> surface_client,
                  bool needs_sync_tokens,
                  bool block_activation_on_parent)
@@ -33,10 +35,12 @@ Surface::Surface(const SurfaceInfo& surface_info,
       surface_manager_(surface_manager),
       surface_client_(std::move(surface_client)),
       needs_sync_tokens_(needs_sync_tokens),
-      block_activation_on_parent_(block_activation_on_parent) {
+      block_activation_on_parent_(block_activation_on_parent),
+      allocation_group_(allocation_group) {
   TRACE_EVENT_ASYNC_BEGIN1(TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"),
                            "Surface", this, "surface_info",
                            surface_info.ToString());
+  allocation_group_->RegisterSurface(this);
 }
 
 Surface::~Surface() {
@@ -59,6 +63,7 @@ Surface::~Surface() {
   TRACE_EVENT_ASYNC_END1(TRACE_DISABLED_BY_DEFAULT("viz.surface_lifetime"),
                          "Surface", this, "surface_info",
                          surface_info_.ToString());
+  allocation_group_->UnregisterSurface(this);
 }
 
 void Surface::SetDependencyDeadline(
@@ -297,27 +302,45 @@ void Surface::NotifySurfaceIdAvailable(const SurfaceId& surface_id) {
   if (it == frame_sink_id_dependencies_.end())
     return;
 
-  if (surface_id.local_surface_id().parent_sequence_number() >=
-          it->second.parent_sequence_number &&
-      surface_id.local_surface_id().child_sequence_number() >=
-          it->second.child_sequence_number) {
+  if (surface_id.local_surface_id().parent_sequence_number() >
+          it->second.parent_sequence_number ||
+      surface_id.local_surface_id().child_sequence_number() >
+          it->second.child_sequence_number ||
+      (surface_id.local_surface_id().parent_sequence_number() ==
+           it->second.parent_sequence_number &&
+       surface_id.local_surface_id().child_sequence_number() ==
+           it->second.child_sequence_number)) {
     frame_sink_id_dependencies_.erase(it);
     surface_manager_->SurfaceDependenciesChanged(this, {},
                                                  {surface_id.frame_sink_id()});
   }
 
-  // LocalSurfaceIds of a given FrameSinkId are monotonically increasing in time
-  // so if LocalSurfaceId j arrives then all LocalSurfaceIds i<j will never
-  // arrive and so we just drop these invalid activation dependencies here.
   // TODO(fsamuel): This is a linear scan which is probably fine today because
   // a given surface has a small number of dependencies. We might need to
   // revisit this in the future if the number of dependencies grows
   // significantly.
-  base::EraseIf(
-      activation_dependencies_, [surface_id](const SurfaceId& dependency) {
-        return dependency.frame_sink_id() == surface_id.frame_sink_id() &&
-               dependency.local_surface_id() <= surface_id.local_surface_id();
-      });
+  auto delete_fn = [surface_id](const SurfaceId& dependency) {
+    if (dependency.frame_sink_id() != surface_id.frame_sink_id())
+      return false;
+    // The dependency will never get satisfied if the child is already using a
+    // larger parent or child sequence number, so drop the dependency in that
+    // case.
+    if (dependency.local_surface_id().parent_sequence_number() <
+            surface_id.local_surface_id().parent_sequence_number() ||
+        dependency.local_surface_id().child_sequence_number() <
+            surface_id.local_surface_id().child_sequence_number()) {
+      return true;
+    }
+    // For the dependency to get satisfied, both parent and child sequence
+    // numbers of the activated SurfaceId must be equal to those of the
+    // dependency.
+    return dependency.local_surface_id().parent_sequence_number() ==
+               surface_id.local_surface_id().parent_sequence_number() &&
+           dependency.local_surface_id().child_sequence_number() ==
+               surface_id.local_surface_id().child_sequence_number();
+  };
+
+  base::EraseIf(activation_dependencies_, delete_fn);
 
   // We cannot activate this CompositorFrame if there are still missing
   // activation dependencies or this surface is blocked on its parent arriving
@@ -647,8 +670,11 @@ void Surface::SendAckToClient() {
 }
 
 void Surface::MarkAsDrawn() {
-  if (active_frame_data_)
-    active_frame_data_->frame_drawn = true;
+  if (!active_frame_data_)
+    return;
+  active_frame_data_->frame_drawn = true;
+  if (surface_client_)
+    surface_client_->OnSurfaceDrawn(this);
 }
 
 void Surface::NotifyAggregatedDamage(const gfx::Rect& damage_rect,

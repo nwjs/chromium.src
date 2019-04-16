@@ -9,6 +9,8 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/message_loop/message_loop_current.h"
@@ -371,10 +373,10 @@ class ContentSubresourceFilterThrottleManagerTest
   DISALLOW_COPY_AND_ASSIGN(ContentSubresourceFilterThrottleManagerTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        ContentSubresourceFilterThrottleManagerTest,
-                        ::testing::Values(WILL_START_REQUEST,
-                                          WILL_PROCESS_RESPONSE));
+INSTANTIATE_TEST_SUITE_P(,
+                         ContentSubresourceFilterThrottleManagerTest,
+                         ::testing::Values(WILL_START_REQUEST,
+                                           WILL_PROCESS_RESPONSE));
 
 TEST_P(ContentSubresourceFilterThrottleManagerTest,
        ActivateMainFrameAndFilterSubframeNavigation) {

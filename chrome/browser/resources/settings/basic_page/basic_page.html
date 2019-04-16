@@ -19,7 +19,9 @@
 <link rel="import" href="../android_apps_page/android_apps_browser_proxy.html">
 <link rel="import" href="../android_apps_page/android_apps_page.html">
 <link rel="import" href="../bluetooth_page/bluetooth_page.html">
+<link rel="import" href="../kiosk_next_shell_page/kiosk_next_shell_page.html">
 <link rel="import" href="../crostini_page/crostini_page.html">
+<link rel="import" href="../kiosk_next_shell_page/kiosk_next_shell_page.html">
 <link rel="import" href="../device_page/device_page.html">
 <link rel="import" href="../internet_page/internet_page.html">
 <link rel="import" href="../multidevice_page/multidevice_page.html">
@@ -194,6 +196,14 @@
                 android-apps-info="[[androidAppsInfo]]"
                 have-play-store-app="[[havePlayStoreApp]]">
             </settings-android-apps-page>
+          </settings-section>
+        </template>
+        <template is="dom-if" if="[[showKioskNextShell]]" restamp>
+          <settings-section
+              page-title="$i18n{kioskNextShellPageTitle}"
+              section="kiosk-next-shell">
+            <settings-kiosk-next-shell-page prefs="{{prefs}}">
+            </settings-kiosk-next-shell-page>
           </settings-section>
         </template>
         <template is="dom-if" if="[[showCrostini]]" restamp>

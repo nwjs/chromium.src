@@ -15,7 +15,6 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/ref_counted.h"
 #include "base/message_loop/message_loop_current.h"
-#include "base/message_loop/message_loop_impl.h"
 #include "base/message_loop/message_pump_for_io.h"
 #include "base/pending_task.h"
 #include "base/posix/eintr_wrapper.h"
@@ -46,6 +45,7 @@
 #include "base/process/memory.h"
 #include "base/strings/string16.h"
 #include "base/win/current_module.h"
+#include "base/win/message_window.h"
 #include "base/win/scoped_handle.h"
 #endif
 
@@ -586,18 +586,15 @@ void RunTest_WaitForIO() {
 // that message loops work properly in all configurations.  Of course, in some
 // cases, a unit test may only be for a particular type of loop.
 
-struct TestType {
-  MessageLoop::Type pump_type;
-  MessageLoop::BackendType backend_type;
-};
-
-class MessageLoopTypedTest : public ::testing::TestWithParam<TestType> {
+class MessageLoopTypedTest
+    : public ::testing::TestWithParam<MessageLoop::Type> {
  public:
   MessageLoopTypedTest() = default;
   ~MessageLoopTypedTest() = default;
 
-  static std::string PumpTypeToString(MessageLoop::Type pump_type) {
-    switch (pump_type) {
+  static std::string ParamInfoToString(
+      ::testing::TestParamInfo<MessageLoop::Type> param_info) {
+    switch (param_info.param) {
       case MessageLoop::TYPE_DEFAULT:
         return "default_pump";
       case MessageLoop::TYPE_IO:
@@ -614,26 +611,8 @@ class MessageLoopTypedTest : public ::testing::TestWithParam<TestType> {
     return "";
   }
 
-  static std::string BackendTypeToString(
-      MessageLoop::BackendType backend_type) {
-    switch (backend_type) {
-      case MessageLoop::BackendType::MESSAGE_LOOP_IMPL:
-        return "backend_MessageLoopImpl";
-      case MessageLoop::BackendType::SEQUENCE_MANAGER:
-        return "backend_SequenceManager";
-    }
-  }
-
-  static std::string ParamInfoToString(
-      ::testing::TestParamInfo<TestType> param_info) {
-    return PumpTypeToString(param_info.param.pump_type) + "_" +
-           BackendTypeToString(param_info.param.backend_type);
-  }
-
   std::unique_ptr<MessageLoop> CreateMessageLoop() {
-    auto message_loop = base::WrapUnique(new MessageLoop(
-        GetParam().pump_type, MessageLoop::MessagePumpFactoryCallback(),
-        GetParam().backend_type));
+    auto message_loop = base::WrapUnique(new MessageLoop(GetParam(), nullptr));
     message_loop->BindToCurrentThread();
     return message_loop;
   }
@@ -1564,22 +1543,12 @@ TEST_P(MessageLoopTypedTest, IsIdleForTestingNonNestableTask) {
   EXPECT_TRUE(loop->IsIdleForTesting());
 }
 
-INSTANTIATE_TEST_CASE_P(
-    ,
-    MessageLoopTypedTest,
-    ::testing::Values(TestType{MessageLoop::TYPE_DEFAULT,
-                               MessageLoop::BackendType::MESSAGE_LOOP_IMPL},
-                      TestType{MessageLoop::TYPE_DEFAULT,
-                               MessageLoop::BackendType::SEQUENCE_MANAGER},
-                      TestType{MessageLoop::TYPE_UI,
-                               MessageLoop::BackendType::MESSAGE_LOOP_IMPL},
-                      TestType{MessageLoop::TYPE_UI,
-                               MessageLoop::BackendType::SEQUENCE_MANAGER},
-                      TestType{MessageLoop::TYPE_IO,
-                               MessageLoop::BackendType::MESSAGE_LOOP_IMPL},
-                      TestType{MessageLoop::TYPE_IO,
-                               MessageLoop::BackendType::SEQUENCE_MANAGER}),
-    MessageLoopTypedTest::ParamInfoToString);
+INSTANTIATE_TEST_SUITE_P(,
+                         MessageLoopTypedTest,
+                         ::testing::Values(MessageLoop::TYPE_DEFAULT,
+                                           MessageLoop::TYPE_UI,
+                                           MessageLoop::TYPE_IO),
+                         MessageLoopTypedTest::ParamInfoToString);
 
 #if defined(OS_WIN)
 
@@ -1676,6 +1645,86 @@ TEST_F(MessageLoopTest, PostDelayedTask_SharedTimer_SubPump) {
   RunLoop().RunUntilIdle();
 
   EXPECT_TRUE(run_time.is_null());
+}
+
+namespace {
+
+// When this fires (per the associated WM_TIMER firing), it posts an
+// application task to quit the native loop.
+bool QuitOnSystemTimer(UINT message,
+                       WPARAM wparam,
+                       LPARAM lparam,
+                       LRESULT* result) {
+  if (message == static_cast<UINT>(WM_TIMER)) {
+    ThreadTaskRunnerHandle::Get()->PostTask(FROM_HERE,
+                                            BindOnce(&::PostQuitMessage, 0));
+  }
+  return true;
+}
+
+// When this fires (per the associated WM_TIMER firing), it posts a delayed
+// application task to quit the native loop.
+bool DelayedQuitOnSystemTimer(UINT message,
+                              WPARAM wparam,
+                              LPARAM lparam,
+                              LRESULT* result) {
+  if (message == static_cast<UINT>(WM_TIMER)) {
+    ThreadTaskRunnerHandle::Get()->PostDelayedTask(
+        FROM_HERE, BindOnce(&::PostQuitMessage, 0),
+        TimeDelta::FromMilliseconds(10));
+  }
+  return true;
+}
+
+}  // namespace
+
+// This is a regression test for
+// https://crrev.com/c/1455266/9/base/message_loop/message_pump_win.cc#125
+// See below for the delayed task version.
+TEST_F(MessageLoopTest, PostImmediateTaskFromSystemPump) {
+  MessageLoop message_loop(MessageLoop::TYPE_UI);
+
+  RunLoop run_loop;
+
+  // A native message window to generate a system message which invokes
+  // QuitOnSystemTimer() when the native timer fires.
+  win::MessageWindow local_message_window;
+  local_message_window.Create(BindRepeating(&QuitOnSystemTimer));
+  ASSERT_TRUE(::SetTimer(local_message_window.hwnd(), 0, 20, nullptr));
+
+  // The first task will enter a native message loop. This test then verifies
+  // that the pump is able to run an immediate application task after the native
+  // pump went idle.
+  message_loop.task_runner()->PostTask(
+      FROM_HERE, BindOnce(&SubPumpFunc, run_loop.QuitClosure()));
+
+  // Test success is determined by not hanging in this Run() call.
+  run_loop.Run();
+}
+
+// This is a regression test for
+// https://crrev.com/c/1455266/9/base/message_loop/message_pump_win.cc#125 This
+// is the delayed task equivalent of the above PostImmediateTaskFromSystemPump
+// test.
+TEST_F(MessageLoopTest, PostDelayedTaskFromSystemPump) {
+  MessageLoop message_loop(MessageLoop::TYPE_UI);
+
+  RunLoop run_loop;
+
+  // A native message window to generate a system message which invokes
+  // DelayedQuitOnSystemTimer() when the native timer fires.
+  win::MessageWindow local_message_window;
+  local_message_window.Create(BindRepeating(&DelayedQuitOnSystemTimer));
+  ASSERT_TRUE(::SetTimer(local_message_window.hwnd(), 0, 20, nullptr));
+
+  // The first task will enter a native message loop. This test then verifies
+  // that the pump is able to run a delayed application task after the native
+  // pump went idle.
+  message_loop.task_runner()->PostTask(
+      FROM_HERE, BindOnce(&SubPumpFunc, run_loop.QuitClosure()));
+
+  // Test success is determined by not hanging in this Run() call.
+  run_loop.Run();
 }
 
 TEST_F(MessageLoopTest, WmQuitIsVisibleToSubPump) {
@@ -2182,8 +2231,8 @@ TEST_F(MessageLoopTest, DeleteUnboundLoop) {
   // It should be possible to delete an unbound message loop on a thread which
   // already has another active loop. This happens when thread creation fails.
   MessageLoop loop;
-  std::unique_ptr<MessageLoop> unbound_loop(MessageLoop::CreateUnbound(
-      MessageLoop::TYPE_DEFAULT, MessageLoop::MessagePumpFactoryCallback()));
+  std::unique_ptr<MessageLoop> unbound_loop(
+      MessageLoop::CreateUnbound(MessageLoop::TYPE_DEFAULT));
   unbound_loop.reset();
   EXPECT_TRUE(loop.IsBoundToCurrentThread());
   EXPECT_EQ(loop.task_runner(), ThreadTaskRunnerHandle::Get());

@@ -9,7 +9,9 @@
 
 #include "base/command_line.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_task_environment.h"
+#include "build/build_config.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/prefs/pref_member.h"
 #include "components/signin/core/browser/account_consistency_method.h"
@@ -68,8 +70,7 @@ class SigninHeaderHelperTest : public testing::Test {
         &request_adapter, GURL(), account_id, account_consistency_,
         cookie_settings_.get(), PROFILE_MODE_DEFAULT);
     AppendOrRemoveDiceRequestHeader(&request_adapter, GURL(), account_id,
-                                    sync_enabled_, sync_has_auth_error_,
-                                    account_consistency_,
+                                    sync_enabled_, account_consistency_,
                                     cookie_settings_.get(), device_id_);
     return url_request;
   }
@@ -115,7 +116,6 @@ class SigninHeaderHelperTest : public testing::Test {
   base::test::ScopedTaskEnvironment task_environment_;
 
   bool sync_enabled_ = false;
-  bool sync_has_auth_error_ = false;
   std::string device_id_ = kTestDeviceId;
   AccountConsistencyMethod account_consistency_ =
       AccountConsistencyMethod::kDisabled;
@@ -141,9 +141,26 @@ TEST_F(SigninHeaderHelperTest, TestMirrorRequestNoAccountIdChromeOS) {
 // Tests that no Mirror request is returned when the user is not signed in (no
 // account id), for non Chrome OS platforms.
 TEST_F(SigninHeaderHelperTest, TestNoMirrorRequestNoAccountId) {
+#if defined(OS_ANDROID)
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(kMiceFeature);
+#endif
   account_consistency_ = AccountConsistencyMethod::kMirror;
   CheckMirrorHeaderRequest(GURL("https://docs.google.com"), "", "");
   CheckMirrorCookieRequest(GURL("https://docs.google.com"), "", "");
+}
+#endif
+
+#if defined(OS_ANDROID)
+// Tests that Mirror request is returned on Android with Mice.
+TEST_F(SigninHeaderHelperTest, TestMirrorRequestNoAccountIdMice) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kMiceFeature);
+  account_consistency_ = AccountConsistencyMethod::kMirror;
+  CheckMirrorHeaderRequest(GURL("https://docs.google.com"), "",
+                           "mode=0,enable_account_consistency=true");
+  CheckMirrorCookieRequest(GURL("https://docs.google.com"), "",
+                           "mode=0:enable_account_consistency=true");
 }
 #endif
 

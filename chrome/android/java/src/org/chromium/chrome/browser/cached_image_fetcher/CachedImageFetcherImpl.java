@@ -8,17 +8,23 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
 import org.chromium.base.Callback;
+import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.chrome.browser.profiles.Profile;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+
+import jp.tomorrowkey.android.gifplayer.BaseGifImage;
 
 /**
  * Implementation that uses a disk cache.
  */
 public class CachedImageFetcherImpl implements CachedImageFetcher {
+    private static final String TAG = "CachedImageFetcher";
     private static CachedImageFetcherImpl sInstance;
 
     public static CachedImageFetcherImpl getInstance() {
@@ -54,8 +60,8 @@ public class CachedImageFetcherImpl implements CachedImageFetcher {
     }
 
     @Override
-    public void reportEvent(@CachedImageFetcherEvent int eventId) {
-        mCachedImageFetcherBridge.reportEvent(eventId);
+    public void reportEvent(String clientName, @CachedImageFetcherEvent int eventId) {
+        mCachedImageFetcherBridge.reportEvent(clientName, eventId);
     }
 
     @Override
@@ -64,13 +70,42 @@ public class CachedImageFetcherImpl implements CachedImageFetcher {
     }
 
     @Override
-    public void fetchImage(String url, int width, int height, Callback<Bitmap> callback) {
-        fetchImageImpl(url, width, height, callback);
+    public void fetchGif(String url, String clientName, Callback<BaseGifImage> callback) {
+        long startTimeMillis = System.currentTimeMillis();
+        String filePath = mCachedImageFetcherBridge.getFilePath(url);
+        new AsyncTask<BaseGifImage>() {
+            @Override
+            protected BaseGifImage doInBackground() {
+                return tryToLoadGifFromDisk(filePath);
+            }
+
+            @Override
+            protected void onPostExecute(BaseGifImage gif) {
+                if (gif != null) {
+                    callback.onResult(gif);
+                    reportEvent(clientName, CachedImageFetcherEvent.JAVA_DISK_CACHE_HIT);
+                    mCachedImageFetcherBridge.reportCacheHitTime(clientName, startTimeMillis);
+                } else {
+                    mCachedImageFetcherBridge.fetchGif(
+                            url, clientName, (BaseGifImage gifFromNative) -> {
+                                callback.onResult(gifFromNative);
+                                mCachedImageFetcherBridge.reportTotalFetchTimeFromNative(
+                                        clientName, startTimeMillis);
+                            });
+                }
+            }
+        }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
     @Override
-    public void fetchImage(String url, Callback<Bitmap> callback) {
-        fetchImageImpl(url, 0, 0, callback);
+    public void fetchImage(
+            String url, String clientName, int width, int height, Callback<Bitmap> callback) {
+        fetchImageImpl(url, clientName, width, height, callback);
+    }
+
+    @Override
+    public void fetchImage(String url, String clientName, Callback<Bitmap> callback) {
+        fetchImageImpl(url, clientName, 0, 0, callback);
     }
 
     /**
@@ -83,9 +118,11 @@ public class CachedImageFetcherImpl implements CachedImageFetcher {
      * @param callback The function which will be called when the image is ready.
      */
     @VisibleForTesting
-    void fetchImageImpl(String url, int width, int height, Callback<Bitmap> callback) {
+    void fetchImageImpl(
+            String url, String clientName, int width, int height, Callback<Bitmap> callback) {
         long startTimeMillis = System.currentTimeMillis();
         String filePath = mCachedImageFetcherBridge.getFilePath(url);
+        // TODO(wylieb): Transition to new way of doing async tasks in this file.
         new AsyncTask<Bitmap>() {
             @Override
             protected Bitmap doInBackground() {
@@ -96,10 +133,15 @@ public class CachedImageFetcherImpl implements CachedImageFetcher {
             protected void onPostExecute(Bitmap bitmap) {
                 if (bitmap != null) {
                     callback.onResult(bitmap);
-                    reportEvent(CachedImageFetcherEvent.JAVA_DISK_CACHE_HIT);
-                    mCachedImageFetcherBridge.reportCacheHitTime(startTimeMillis);
+                    reportEvent(clientName, CachedImageFetcherEvent.JAVA_DISK_CACHE_HIT);
+                    mCachedImageFetcherBridge.reportCacheHitTime(clientName, startTimeMillis);
                 } else {
-                    mCachedImageFetcherBridge.fetchImage(url, width, height, callback);
+                    mCachedImageFetcherBridge.fetchImage(
+                            url, clientName, (Bitmap bitmapFromNative) -> {
+                                callback.onResult(bitmapFromNative);
+                                mCachedImageFetcherBridge.reportTotalFetchTimeFromNative(
+                                        clientName, startTimeMillis);
+                            });
                 }
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -111,6 +153,23 @@ public class CachedImageFetcherImpl implements CachedImageFetcher {
         if (new File(filePath).exists()) {
             return BitmapFactory.decodeFile(filePath, null);
         } else {
+            return null;
+        }
+    }
+
+    @VisibleForTesting
+    BaseGifImage tryToLoadGifFromDisk(String filePath) {
+        try {
+            File file = new File(filePath);
+            byte[] fileBytes = new byte[(int) file.length()];
+            FileInputStream ios = new FileInputStream(filePath);
+
+            int bytesRead = ios.read(fileBytes);
+            if (bytesRead != fileBytes.length) return null;
+
+            return new BaseGifImage(fileBytes);
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to read: %s", filePath, e);
             return null;
         }
     }

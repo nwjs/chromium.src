@@ -35,9 +35,12 @@
 #include "base/memory/ptr_util.h"
 #include "base/run_loop.h"
 #include "base/test/scoped_task_environment.h"
+#include "chromeos/dbus/fake_power_manager_client.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/user_names.h"
 #include "mojo/public/cpp/bindings/map.h"
+#include "services/ws/public/cpp/input_devices/input_device_client.h"
+#include "services/ws/public/cpp/input_devices/input_device_client_test_api.h"
 #include "services/ws/public/cpp/property_type_converters.h"
 #include "services/ws/public/mojom/window_manager.mojom.h"
 #include "services/ws/public/mojom/window_tree_constants.mojom.h"
@@ -186,6 +189,10 @@ void AshTestBase::TearDown() {
   // Some tests set an internal display id,
   // reset it here, so other tests will continue in a clean environment.
   display::Display::SetInternalDisplayId(display::kInvalidDisplayId);
+
+  // Tests can add devices, so reset the lists for future tests.
+  ws::InputDeviceClientTestApi().SetTouchscreenDevices({});
+  ws::InputDeviceClientTestApi().SetKeyboardDevices({});
 }
 
 // static
@@ -493,6 +500,10 @@ void AshTestBase::DisableIME() {
 
 display::DisplayManager* AshTestBase::display_manager() {
   return Shell::Get()->display_manager();
+}
+
+chromeos::FakePowerManagerClient* AshTestBase::power_manager_client() const {
+  return chromeos::FakePowerManagerClient::Get();
 }
 
 bool AshTestBase::TestIfMouseWarpsAt(ui::test::EventGenerator* event_generator,

@@ -50,8 +50,10 @@ GetCookieListCallback::GetCookieListCallback(base::Thread* run_in_thread)
 
 GetCookieListCallback::~GetCookieListCallback() = default;
 
-void GetCookieListCallback::Run(const CookieList& cookies) {
+void GetCookieListCallback::Run(const CookieList& cookies,
+                                const CookieStatusList& excluded_cookies) {
   cookies_ = cookies;
+  excluded_cookies_ = excluded_cookies;
   CallbackEpilogue();
 }
 

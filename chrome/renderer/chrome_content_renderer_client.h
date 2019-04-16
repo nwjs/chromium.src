@@ -100,8 +100,10 @@ class ChromeContentRendererClient
   bool MaybeCreateMimeHandlerView(content::RenderFrame* render_frame,
                                   const blink::WebElement& plugin_element,
                                   const GURL& original_url,
-                                  const std::string& mime_type,
-                                  int32_t instance_id_to_use) override;
+                                  const std::string& mime_type) override;
+  v8::Local<v8::Object> GetScriptableObject(
+      const blink::WebElement& plugin_element,
+      v8::Isolate* isolate) override;
   bool OverrideCreatePlugin(content::RenderFrame* render_frame,
                             const blink::WebPluginParams& params,
                             blink::WebPlugin** plugin) override;
@@ -208,9 +210,6 @@ class ChromeContentRendererClient
   GURL OverrideFlashEmbedWithHTML(const GURL& url) override;
   std::unique_ptr<base::TaskScheduler::InitParams> GetTaskSchedulerInitParams()
       override;
-  bool OverrideLegacySymantecCertConsoleMessage(
-      const GURL& url,
-      std::string* console_messsage) override;
   void CreateRendererService(
       service_manager::mojom::ServiceRequest service_request) override;
   std::unique_ptr<content::URLLoaderThrottleProvider>
@@ -270,8 +269,7 @@ class ChromeContentRendererClient
 #if BUILDFLAG(ENABLE_NACL)
   // Determines if a NaCl app is allowed, and modifies params to pass the app's
   // permissions to the trusted NaCl plugin.
-  static bool IsNaClAllowed(const GURL& manifest_url,
-                            const GURL& app_url,
+  static bool IsNaClAllowed(const GURL& app_url,
                             bool is_nacl_unrestricted,
                             const extensions::Extension* extension,
                             blink::WebPluginParams* params);

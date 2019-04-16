@@ -24,13 +24,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-enum EffectiveConnectionType {
-    "slow-2g",
-    "2g",
-    "3g",
-    "4g"
-};
-
 [
     DoNotCheckConstants
 ] interface Internals {
@@ -155,7 +148,7 @@ enum EffectiveConnectionType {
 
     unsigned long mediaKeysCount();
     unsigned long mediaKeySessionCount();
-    unsigned long pausableObjectCount(Document document);
+    unsigned long contextLifecycleStateObserverObjectCount(Document document);
     unsigned long wheelEventHandlerCount(Document document);
     unsigned long scrollEventHandlerCount(Document document);
     unsigned long touchStartOrMoveEventHandlerCount(Document document);
@@ -331,11 +324,6 @@ enum EffectiveConnectionType {
     // attribute returns the currently interested element on the page.
     readonly attribute Element? interestedElement;
 
-    // These functions are for testing NetInfo. You must call clearNetworkConnectionInfoOverride() at the end.
-    [RaisesException] void setNetworkConnectionInfoOverride(boolean onLine, DOMString type, EffectiveConnectionType effective_type, unsigned long http_rtt_msec, double downlink_max_mbps);
-    void setSaveDataEnabled(boolean enabled);
-    void clearNetworkConnectionInfoOverride();
-
     // This function is for testing HitRegions on Canvas2D.
     unsigned long countHitRegions(CanvasRenderingContext2D context);
 
@@ -424,7 +412,20 @@ enum EffectiveConnectionType {
     // to be generated.
     void DisableIntersectionObserverThrottleDelay();
 
+    // Reports whether an iframe's browsing context runs in a separate process
+    bool isSiteIsolated(HTMLIFrameElement iframe);
+
+    // Reports whether a parent document is propagating occlusion information
+    // down to a child frame, for the purpose of servicing IntersectionObserver
+    // instances that track visibility.
+    bool isTrackingOcclusionForIFrame(HTMLIFrameElement iframe);
+
     // Declare that the given |name| is in use by the embedder via the custom
     // element mechanism.
     [RaisesException] void addEmbedderCustomElementName(DOMString name);
+
+    // https://html.spec.whatwg.org/C/#resolve-a-module-specifier
+    // Throws TypeError on error.
+    // Used for testing Import Maps https://github.com/domenic/import-maps
+    [RaisesException] DOMString resolveModuleSpecifier(DOMString specifier, DOMString base_url, Document document);
 };

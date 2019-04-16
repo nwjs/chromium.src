@@ -44,7 +44,7 @@
 #include "third_party/blink/renderer/platform/heap/marking_visitor.h"
 #include "third_party/blink/renderer/platform/heap/page_memory.h"
 #include "third_party/blink/renderer/platform/heap/page_pool.h"
-#include "third_party/blink/renderer/platform/heap/thread_state.h"
+#include "third_party/blink/renderer/platform/heap/thread_state_scopes.h"
 #include "third_party/blink/renderer/platform/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/web_memory_allocator_dump.h"
@@ -632,7 +632,7 @@ void ThreadHeap::WriteBarrier(void* value) {
   marking_worklist_->Push(
       WorklistTaskId::MainThread,
       {header->Payload(),
-       GCInfoTable::Get().GCInfoFromIndex(header->GcInfoIndex())->trace_});
+       GCInfoTable::Get().GCInfoFromIndex(header->GcInfoIndex())->trace});
 }
 
 ThreadHeap* ThreadHeap::main_thread_heap_ = nullptr;

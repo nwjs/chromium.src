@@ -36,7 +36,8 @@ base::FilePath GetDirectoryInTmpTemplate(const base::FilePath& user_data_dir) {
 void DeleteSocketFiles(const base::FilePath& directory_in_tmp,
                        const base::FilePath& symlink_path,
                        const base::FilePath& version_path) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   // Delete in reverse order of creation.
   if (!version_path.empty())
@@ -66,7 +67,8 @@ void AppShimHostManager::Init() {
 }
 
 AppShimHostManager::~AppShimHostManager() {
-  acceptor_.reset();
+  base::CreateSingleThreadTaskRunnerWithTraits({content::BrowserThread::IO})
+      ->DeleteSoon(FROM_HERE, std::move(acceptor_));
 
   // The AppShimHostManager is only initialized if the Chrome process
   // successfully took the singleton lock. If it was not initialized, do not
@@ -91,7 +93,8 @@ AppShimHostManager::~AppShimHostManager() {
 }
 
 void AppShimHostManager::InitOnBackgroundThread() {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   base::FilePath user_data_dir;
   if (!base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir))
     return;
@@ -141,7 +144,7 @@ void AppShimHostManager::InitOnBackgroundThread() {
 
   base::CreateSingleThreadTaskRunnerWithTraits({content::BrowserThread::IO})
       ->PostTask(FROM_HERE,
-                 base::Bind(&AppShimHostManager::ListenOnIOThread, this));
+                 base::BindOnce(&AppShimHostManager::ListenOnIOThread, this));
 }
 
 void AppShimHostManager::ListenOnIOThread() {
@@ -149,7 +152,7 @@ void AppShimHostManager::ListenOnIOThread() {
   if (!acceptor_->Listen()) {
     base::CreateSingleThreadTaskRunnerWithTraits({content::BrowserThread::UI})
         ->PostTask(FROM_HERE,
-                   base::Bind(&AppShimHostManager::OnListenError, this));
+                   base::BindOnce(&AppShimHostManager::OnListenError, this));
   }
 }
 

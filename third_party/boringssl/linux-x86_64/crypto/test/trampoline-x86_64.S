@@ -18,13 +18,16 @@
 
 
 
+
+
 .type	abi_test_trampoline, @function
 .globl	abi_test_trampoline
 .hidden abi_test_trampoline
 .align	16
 abi_test_trampoline:
-.Labi_test_trampoline_begin:
+.Labi_test_trampoline_seh_begin:
 .cfi_startproc	
+
 
 
 
@@ -35,26 +38,27 @@ abi_test_trampoline:
 
 	subq	$120,%rsp
 .cfi_adjust_cfa_offset	120
-.Labi_test_trampoline_prolog_alloc:
+.Labi_test_trampoline_seh_prolog_alloc:
+	movq	%r8,48(%rsp)
 	movq	%rbx,64(%rsp)
 .cfi_offset	rbx, -64
-.Labi_test_trampoline_prolog_rbx:
+.Labi_test_trampoline_seh_prolog_rbx:
 	movq	%rbp,72(%rsp)
 .cfi_offset	rbp, -56
-.Labi_test_trampoline_prolog_rbp:
+.Labi_test_trampoline_seh_prolog_rbp:
 	movq	%r12,80(%rsp)
 .cfi_offset	r12, -48
-.Labi_test_trampoline_prolog_r12:
+.Labi_test_trampoline_seh_prolog_r12:
 	movq	%r13,88(%rsp)
 .cfi_offset	r13, -40
-.Labi_test_trampoline_prolog_r13:
+.Labi_test_trampoline_seh_prolog_r13:
 	movq	%r14,96(%rsp)
 .cfi_offset	r14, -32
-.Labi_test_trampoline_prolog_r14:
+.Labi_test_trampoline_seh_prolog_r14:
 	movq	%r15,104(%rsp)
 .cfi_offset	r15, -24
-.Labi_test_trampoline_prolog_r15:
-.Labi_test_trampoline_prolog_end:
+.Labi_test_trampoline_seh_prolog_r15:
+.Labi_test_trampoline_seh_prolog_end:
 	movq	0(%rsi),%rbx
 	movq	8(%rsi),%rbp
 	movq	16(%rsi),%r12
@@ -62,8 +66,8 @@ abi_test_trampoline:
 	movq	32(%rsi),%r14
 	movq	40(%rsi),%r15
 
-	movq	%rdi,40(%rsp)
-	movq	%rsi,48(%rsp)
+	movq	%rdi,32(%rsp)
+	movq	%rsi,40(%rsp)
 
 
 
@@ -71,33 +75,34 @@ abi_test_trampoline:
 	movq	%rdx,%r10
 	movq	%rcx,%r11
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%rdi
 	addq	$8,%r10
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%rsi
 	addq	$8,%r10
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%rdx
 	addq	$8,%r10
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%rcx
 	addq	$8,%r10
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%r8
 	addq	$8,%r10
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
 	movq	(%r10),%r9
 	addq	$8,%r10
 	leaq	0(%rsp),%rax
 .Largs_loop:
 	decq	%r11
-	js	.Lcall
+	js	.Largs_done
+
 
 
 
@@ -112,12 +117,47 @@ abi_test_trampoline:
 	addq	$8,%rax
 	jmp	.Largs_loop
 
-.Lcall:
-	movq	40(%rsp),%rax
+.Largs_done:
+	movq	32(%rsp),%rax
+	movq	48(%rsp),%r10
+	testq	%r10,%r10
+	jz	.Lno_unwind
+
+
+	pushfq
+	orq	$0x100,0(%rsp)
+	popfq
+
+
+
+	nop
+.globl	abi_test_unwind_start
+.hidden abi_test_unwind_start
+abi_test_unwind_start:
+
+	call	*%rax
+.globl	abi_test_unwind_return
+.hidden abi_test_unwind_return
+abi_test_unwind_return:
+
+
+
+
+	pushfq
+	andq	$-0x101,0(%rsp)
+	popfq
+.globl	abi_test_unwind_stop
+.hidden abi_test_unwind_stop
+abi_test_unwind_stop:
+
+	jmp	.Lcall_done
+
+.Lno_unwind:
 	call	*%rax
 
+.Lcall_done:
 
-	movq	48(%rsp),%rsi
+	movq	40(%rsp),%rsi
 	movq	%rbx,0(%rsi)
 	movq	%rbp,8(%rsi)
 	movq	%r12,16(%rsi)
@@ -142,7 +182,7 @@ abi_test_trampoline:
 
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.Labi_test_trampoline_end:
+.Labi_test_trampoline_seh_end:
 .size	abi_test_trampoline,.-abi_test_trampoline
 .type	abi_test_clobber_rax, @function
 .globl	abi_test_clobber_rax
@@ -392,4 +432,86 @@ abi_test_clobber_xmm15:
 	pxor	%xmm15,%xmm15
 	.byte	0xf3,0xc3
 .size	abi_test_clobber_xmm15,.-abi_test_clobber_xmm15
+
+
+
+.type	abi_test_bad_unwind_wrong_register, @function
+.globl	abi_test_bad_unwind_wrong_register
+.hidden abi_test_bad_unwind_wrong_register
+.align	16
+abi_test_bad_unwind_wrong_register:
+.cfi_startproc	
+.Labi_test_bad_unwind_wrong_register_seh_begin:
+	pushq	%r12
+.cfi_adjust_cfa_offset	8
+.cfi_offset	%r13,-16
+.Labi_test_bad_unwind_wrong_register_seh_push_r13:
+
+
+
+	nop
+	popq	%r12
+.cfi_adjust_cfa_offset	-8
+.cfi_restore	%r12
+	.byte	0xf3,0xc3
+.Labi_test_bad_unwind_wrong_register_seh_end:
+.cfi_endproc	
+.size	abi_test_bad_unwind_wrong_register,.-abi_test_bad_unwind_wrong_register
+
+
+
+
+.type	abi_test_bad_unwind_temporary, @function
+.globl	abi_test_bad_unwind_temporary
+.hidden abi_test_bad_unwind_temporary
+.align	16
+abi_test_bad_unwind_temporary:
+.cfi_startproc	
+.Labi_test_bad_unwind_temporary_seh_begin:
+	pushq	%r12
+.cfi_adjust_cfa_offset	8
+.cfi_offset	%r12,-16
+.Labi_test_bad_unwind_temporary_seh_push_r12:
+
+	movq	%r12,%rax
+	incq	%rax
+	movq	%rax,(%rsp)
+
+
+
+	movq	%r12,(%rsp)
+
+
+	popq	%r12
+.cfi_adjust_cfa_offset	-8
+.cfi_restore	%r12
+	.byte	0xf3,0xc3
+.Labi_test_bad_unwind_temporary_seh_end:
+.cfi_endproc	
+.size	abi_test_bad_unwind_temporary,.-abi_test_bad_unwind_temporary
+
+
+
+
+.type	abi_test_set_direction_flag, @function
+.globl	abi_test_get_and_clear_direction_flag
+.hidden abi_test_get_and_clear_direction_flag
+abi_test_get_and_clear_direction_flag:
+	pushfq
+	popq	%rax
+	andq	$0x400,%rax
+	shrq	$10,%rax
+	cld
+	.byte	0xf3,0xc3
+.size	abi_test_get_and_clear_direction_flag,.-abi_test_get_and_clear_direction_flag
+
+
+
+.type	abi_test_set_direction_flag, @function
+.globl	abi_test_set_direction_flag
+.hidden abi_test_set_direction_flag
+abi_test_set_direction_flag:
+	std
+	.byte	0xf3,0xc3
+.size	abi_test_set_direction_flag,.-abi_test_set_direction_flag
 #endif

@@ -208,6 +208,11 @@ NSString* const kDesktopMediaPickerTitleId = @"title";
     [self createAudioCheckboxAtOrigin:origin];
     origin.y += NSHeight([audioShareCheckbox_ frame]) +
                 kDesktopMediaPickerControlSpacing;
+    if (params.approve_audio_by_default) {
+      [audioShareCheckbox_ setState:NSOnState];
+    } else {
+      [audioShareCheckbox_ setState:NSOffState];
+    }
   }
 
   [self createActionButtonsAtOrigin:origin];
@@ -360,7 +365,6 @@ NSString* const kDesktopMediaPickerTitleId = @"title";
   [audioShareCheckbox_ setFrameOrigin:origin];
   [audioShareCheckbox_ setAutoresizingMask:NSViewMaxXMargin | NSViewMinYMargin];
   [audioShareCheckbox_ setButtonType:NSSwitchButton];
-  [audioShareCheckbox_ setState:NSOnState];
   [audioShareCheckbox_
       setTitle:l10n_util::GetNSString(IDS_DESKTOP_MEDIA_PICKER_AUDIO_SHARE)];
   [audioShareCheckbox_ sizeToFit];
@@ -500,7 +504,7 @@ NSString* const kDesktopMediaPickerTitleId = @"title";
   // Notify the |callback_| asynchronously because it may release the
   // controller.
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
-                           base::Bind(doneCallback_, sourceID));
+                           base::BindOnce(doneCallback_, sourceID));
   doneCallback_.Reset();
 }
 

@@ -37,20 +37,25 @@ public class PageViewObserver {
     private final TabObserver mTabObserver;
     private final EventTracker mEventTracker;
     private final TokenTracker mTokenTracker;
+    private final SuspensionTracker mSuspensionTracker;
 
     private Tab mCurrentTab;
     private String mLastFqdn;
 
     public PageViewObserver(Activity activity, TabModelSelector tabModelSelector,
-            EventTracker eventTracker, TokenTracker tokenTracker) {
+            EventTracker eventTracker, TokenTracker tokenTracker,
+            SuspensionTracker suspensionTracker) {
         mActivity = activity;
         mTabModelSelector = tabModelSelector;
         mEventTracker = eventTracker;
         mTokenTracker = tokenTracker;
+        mSuspensionTracker = suspensionTracker;
         mTabObserver = new EmptyTabObserver() {
             @Override
             public void onShown(Tab tab, @TabSelectionType int type) {
-                updateUrl(tab.getUrl());
+                if (!tab.isLoading() && !tab.isBeingRestored()) {
+                    updateUrl(tab.getUrl());
+                }
             }
 
             @Override
@@ -73,7 +78,9 @@ public class PageViewObserver {
                 if (tab == mCurrentTab) return;
 
                 switchObserverToTab(tab);
-                updateUrl(tab.getUrl());
+                if (mCurrentTab != null) {
+                    updateUrl(mCurrentTab.getUrl());
+                }
             }
 
             @Override
@@ -98,20 +105,44 @@ public class PageViewObserver {
         switchObserverToTab(tabModelSelector.getCurrentTab());
     }
 
+    /** Notify PageViewObserver that {@code fqdn} was just suspended or un-suspended. */
+    public void notifySiteSuspensionChanged(String fqdn, boolean isSuspended) {
+        if (mLastFqdn != null && mLastFqdn.equals(fqdn)) {
+            if (isSuspended) {
+                SuspendedTab.from(mCurrentTab).show(fqdn);
+                return;
+            }
+
+            SuspendedTab suspendedTab = SuspendedTab.get(mCurrentTab);
+            if (suspendedTab != null && !isSuspended && suspendedTab.getFqdn().equals(fqdn)) {
+                suspendedTab.removeIfPresent();
+                mCurrentTab.reload();
+            }
+        }
+    }
+
     private void updateUrl(String newUrl) {
         String newFqdn = newUrl == null ? "" : Uri.parse(newUrl).getHost();
-        if (mLastFqdn != null && mLastFqdn.equals(newFqdn)) return;
+        boolean didSuspend = false;
+        boolean sameDomain = mLastFqdn != null && mLastFqdn.equals(newFqdn);
+
+        if (newFqdn != null && mSuspensionTracker.isWebsiteSuspended(newFqdn)) {
+            SuspendedTab.from(mCurrentTab).show(newFqdn);
+            didSuspend = true;
+        }
+
+        if (sameDomain) return;
 
         if (mLastFqdn != null) {
             mEventTracker.addWebsiteEvent(new WebsiteEvent(
                     System.currentTimeMillis(), mLastFqdn, WebsiteEvent.EventType.STOP));
             reportToPlatformIfDomainIsTracked("reportUsageStop", mLastFqdn);
-            mLastFqdn = null;
         }
 
-        if (!URLUtil.isHttpUrl(newUrl) && !URLUtil.isHttpsUrl(newUrl)) return;
-
         mLastFqdn = newFqdn;
+
+        if (!URLUtil.isHttpUrl(newUrl) && !URLUtil.isHttpsUrl(newUrl) || didSuspend) return;
+
         mEventTracker.addWebsiteEvent(new WebsiteEvent(
                 System.currentTimeMillis(), mLastFqdn, WebsiteEvent.EventType.START));
         reportToPlatformIfDomainIsTracked("reportUsageStart", mLastFqdn);
@@ -122,6 +153,11 @@ public class PageViewObserver {
             mCurrentTab.removeObserver(mTabObserver);
         }
 
+        if (tab != null && tab.isIncognito()) {
+            mCurrentTab = null;
+            return;
+        }
+
         mCurrentTab = tab;
         if (mCurrentTab != null) {
             mCurrentTab.addObserver(mTabObserver);
@@ -129,18 +165,19 @@ public class PageViewObserver {
     }
 
     private void reportToPlatformIfDomainIsTracked(String reportMethodName, String fqdn) {
-        String token = mTokenTracker.getTokenForFqdn(fqdn);
-        if (token == null) return;
+        mTokenTracker.getTokenForFqdn(fqdn).then((token) -> {
+            if (token == null) return;
 
-        try {
-            UsageStatsManager instance =
-                    (UsageStatsManager) mActivity.getSystemService(Context.USAGE_STATS_SERVICE);
-            Method reportMethod = UsageStatsManager.class.getDeclaredMethod(
-                    reportMethodName, Activity.class, String.class);
+            try {
+                UsageStatsManager instance =
+                        (UsageStatsManager) mActivity.getSystemService(Context.USAGE_STATS_SERVICE);
+                Method reportMethod = UsageStatsManager.class.getDeclaredMethod(
+                        reportMethodName, Activity.class, String.class);
 
-            reportMethod.invoke(instance, mActivity, token);
-        } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
-            Log.e(TAG, "Failed to report to platform API", e);
-        }
+                reportMethod.invoke(instance, mActivity, token);
+            } catch (InvocationTargetException | NoSuchMethodException | IllegalAccessException e) {
+                Log.e(TAG, "Failed to report to platform API", e);
+            }
+        });
     }
 }

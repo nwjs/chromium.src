@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
+
 #include "base/stl_util.h"
 #include "components/cbor/reader.h"
 #include "components/cbor/values.h"
@@ -86,10 +88,12 @@ constexpr uint8_t kTestAuthenticatorGetInfoResponseWithDuplicateVersion[] = {
     0xA6,
     // Key(01) - versions
     0x01,
-    // Array(02)
-    0x82,
-    // "U2F_V2"
-    0x66, 0x55, 0x32, 0x46, 0x5F, 0x56, 0x32,
+    // Array(03)
+    0x83,
+    // "U2F_V9"
+    0x66, 0x55, 0x32, 0x46, 0x5F, 0x56, 0x39,
+    // "U2F_V9"
+    0x66, 0x55, 0x32, 0x46, 0x5F, 0x56, 0x39,
     // "U2F_V2"
     0x66, 0x55, 0x32, 0x46, 0x5F, 0x56, 0x32,
     // Key(02) - extensions
@@ -572,22 +576,42 @@ TEST(CTAPResponseTest, TestReadGetInfoResponse) {
       base::ContainsKey(get_info_response->versions(), ProtocolVersion::kCtap));
   EXPECT_TRUE(
       base::ContainsKey(get_info_response->versions(), ProtocolVersion::kU2f));
-  EXPECT_TRUE(get_info_response->options().is_platform_device());
-  EXPECT_TRUE(get_info_response->options().supports_resident_key());
-  EXPECT_TRUE(get_info_response->options().user_presence_required());
+  EXPECT_TRUE(get_info_response->options().is_platform_device);
+  EXPECT_TRUE(get_info_response->options().supports_resident_key);
+  EXPECT_TRUE(get_info_response->options().supports_user_presence);
   EXPECT_EQ(AuthenticatorSupportedOptions::UserVerificationAvailability::
                 kSupportedAndConfigured,
-            get_info_response->options().user_verification_availability());
+            get_info_response->options().user_verification_availability);
   EXPECT_EQ(AuthenticatorSupportedOptions::ClientPinAvailability::
                 kSupportedButPinNotSet,
-            get_info_response->options().client_pin_availability());
+            get_info_response->options().client_pin_availability);
+}
+
+TEST(CTAPResponseTest, TestReadGetInfoResponseWithDuplicateVersion) {
+  uint8_t
+      get_info[sizeof(kTestAuthenticatorGetInfoResponseWithDuplicateVersion)];
+  memcpy(get_info, kTestAuthenticatorGetInfoResponseWithDuplicateVersion,
+         sizeof(get_info));
+  // Should fail to parse with duplicate versions.
+  EXPECT_FALSE(ReadCTAPGetInfoResponse(get_info));
+
+  // Find the first of the duplicate versions and change it to a different
+  // value. That should be sufficient to make the data parsable.
+  static const char kU2Fv9[] = "U2F_V9";
+  uint8_t* first_version =
+      std::search(get_info, get_info + sizeof(get_info), kU2Fv9, kU2Fv9 + 6);
+  ASSERT_TRUE(first_version);
+  memcpy(first_version, "U2F_V3", 6);
+  base::Optional<AuthenticatorGetInfoResponse> response =
+      ReadCTAPGetInfoResponse(get_info);
+  ASSERT_TRUE(response);
+  EXPECT_EQ(1u, response->versions().size());
+  EXPECT_TRUE(response->versions().contains(ProtocolVersion::kU2f));
 }
 
 TEST(CTAPResponseTest, TestReadGetInfoResponseWithIncorrectFormat) {
   EXPECT_FALSE(
       ReadCTAPGetInfoResponse(kTestAuthenticatorGetInfoResponseWithNoVersion));
-  EXPECT_FALSE(ReadCTAPGetInfoResponse(
-      kTestAuthenticatorGetInfoResponseWithDuplicateVersion));
   EXPECT_FALSE(ReadCTAPGetInfoResponse(
       kTestAuthenticatorGetInfoResponseWithIncorrectAaguid));
 }
@@ -597,14 +621,12 @@ TEST(CTAPResponseTest, TestSerializeGetInfoResponse) {
       {ProtocolVersion::kCtap, ProtocolVersion::kU2f}, kTestDeviceAaguid);
   response.SetExtensions({"uvm", "hmac-secret"});
   AuthenticatorSupportedOptions options;
-  options.SetSupportsResidentKey(true);
-  options.SetIsPlatformDevice(true);
-  options.SetClientPinAvailability(
-      AuthenticatorSupportedOptions::ClientPinAvailability::
-          kSupportedButPinNotSet);
-  options.SetUserVerificationAvailability(
-      AuthenticatorSupportedOptions::UserVerificationAvailability::
-          kSupportedAndConfigured);
+  options.supports_resident_key = true;
+  options.is_platform_device = true;
+  options.client_pin_availability = AuthenticatorSupportedOptions::
+      ClientPinAvailability::kSupportedButPinNotSet;
+  options.user_verification_availability = AuthenticatorSupportedOptions::
+      UserVerificationAvailability::kSupportedAndConfigured;
   response.SetOptions(std::move(options));
   response.SetMaxMsgSize(1200);
   response.SetPinProtocols({1});

@@ -159,6 +159,7 @@ class ExtensionDownloader {
   static const char kUpdateInteractivityBackground[];
 
  private:
+  friend class ExtensionDownloaderTest;
   friend class ExtensionUpdaterTest;
 
   // These counters are bumped as extensions are added to be fetched. They
@@ -283,10 +284,20 @@ class ExtensionDownloader {
   // Handles the result of a crx fetch.
   void OnExtensionLoadComplete(base::FilePath crx_path);
 
+  // Invokes OnExtensionDownloadStageChanged() on the |delegate_| for each
+  // extension in the set, with |stage| as the current stage. Make a copy of
+  // arguments because there is no guarantee that callback won't indirectly
+  // change source of IDs.
+  void NotifyExtensionsDownloadStageChanged(
+      std::set<std::string> extension_ids,
+      ExtensionDownloaderDelegate::Stage stage);
+
   // Invokes OnExtensionDownloadFailed() on the |delegate_| for each extension
-  // in the set, with |error| as the reason for failure.
-  void NotifyExtensionsDownloadFailed(const std::set<std::string>& id_set,
-                                      const std::set<int>& request_ids,
+  // in the set, with |error| as the reason for failure. Make a copy of
+  // arguments because there is no guarantee that callback won't indirectly
+  // change source of IDs.
+  void NotifyExtensionsDownloadFailed(std::set<std::string> id_set,
+                                      std::set<int> request_ids,
                                       ExtensionDownloaderDelegate::Error error);
 
   // Send a notification that an update was found for |id| that we'll

@@ -201,9 +201,6 @@ if (is_android || is_chromeos) {
     # Required for Android M+ due to SELinux policies (stronger sandboxing).
     disable_incremental_isolated_processes = false
 
-    # Speeds up incremental compiles by compiling only changed files.
-    enable_incremental_javac = false
-
     # Build incremental targets whenever possible.
     # Ex. with this arg set to true, the chrome_public_apk target result in
     # chrome_public_apk_incremental being built.
@@ -228,6 +225,16 @@ if (is_android || is_chromeos) {
 
     # Checks that proguard flags have not changed (!is_java_debug only).
     check_android_configuration = false
+
+    # Enables instantiation of 64-bit browser targets.
+    enable_64_bit_browser = true
+
+    # Enable the chrome build for devices without touchscreens.
+    notouch_build = false
+
+    # Move Trichrome assets to the shared library APK. This will be removed
+    # once P builds are no longer supported. https://crbug.com/943637
+    trichrome_shared_assets = android_sdk_release == "q"
   }
 
   assert(!(check_android_configuration && is_java_debug),
@@ -249,11 +256,9 @@ if (is_android || is_chromeos) {
     use_hashed_jni_names = !is_java_debug
   }
 
-  # Neither of these should ever be used for release builds since they are
-  # somewhat experimental and dx --incremental is known to not produce
-  # byte-for-byte identical output.
+  # This should not be used for release builds since dx --incremental is known
+  # to not produce byte-for-byte identical output.
   assert(!(enable_incremental_dx && !is_java_debug))
-  assert(!(enable_incremental_javac && !is_java_debug))
 
   # Path to where selected build variables are written to.
   android_build_vars = "$root_build_dir/build_vars.txt"

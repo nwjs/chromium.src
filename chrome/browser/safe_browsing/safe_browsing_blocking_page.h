@@ -74,7 +74,7 @@ class SafeBrowsingBlockingPage : public BaseBlockingPage {
   }
 
   // InterstitialPageDelegate method:
-  void OverrideRendererPrefs(content::RendererPreferences* prefs) override;
+  void OverrideRendererPrefs(blink::mojom::RendererPreferences* prefs) override;
   content::InterstitialPageDelegate::TypeID GetTypeForTesting() const override;
 
  protected:

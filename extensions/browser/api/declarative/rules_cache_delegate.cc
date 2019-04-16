@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/task/post_task.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -145,7 +146,7 @@ void RulesCacheDelegate::CheckIfReady() {
 
   base::PostTaskWithTraits(
       FROM_HERE, {rules_registry_thread_},
-      base::Bind(&RulesRegistry::MarkReady, registry_, storage_init_time_));
+      base::BindOnce(&RulesRegistry::MarkReady, registry_, storage_init_time_));
   notified_registry_ = true;
 }
 
@@ -212,8 +213,8 @@ void RulesCacheDelegate::ReadFromStorageCallback(
   DCHECK_EQ(Type::kPersistent, type_);
   base::PostTaskWithTraits(
       FROM_HERE, {rules_registry_thread_},
-      base::Bind(&RulesRegistry::DeserializeAndAddRules, registry_,
-                 extension_id, base::Passed(&value)));
+      base::BindOnce(&RulesRegistry::DeserializeAndAddRules, registry_,
+                     extension_id, std::move(value)));
 
   waiting_for_extensions_.erase(extension_id);
 

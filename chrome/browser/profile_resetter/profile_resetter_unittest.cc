@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -28,6 +29,7 @@
 #include "chrome/browser/profile_resetter/profile_reset_report.pb.h"
 #include "chrome/browser/profile_resetter/profile_resetter_test_base.h"
 #include "chrome/browser/profile_resetter/resettable_settings_snapshot.h"
+#include "chrome/browser/search/instant_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -319,6 +321,14 @@ void ShortcutHandler::Delete() {
 }
 #endif  // defined(OS_WIN)
 
+// MockInstantService
+class MockInstantService : public InstantService {
+ public:
+  explicit MockInstantService(Profile* profile) : InstantService(profile) {}
+  ~MockInstantService() override = default;
+
+  MOCK_METHOD0(ResetToDefault, void());
+};
 
 // helper functions -----------------------------------------------------------
 
@@ -971,9 +981,8 @@ TEST_F(ProfileResetterTest, GetReadableFeedback) {
   EXPECT_CALL(capture, OnUpdatedList());
   ResettableSettingsSnapshot snapshot(profile());
   snapshot.RequestShortcuts(base::Bind(&FeedbackCapture::SetFeedback,
-                                       base::Unretained(&capture),
-                                       profile(),
-                                       base::ConstRef(snapshot)));
+                                       base::Unretained(&capture), profile(),
+                                       std::cref(snapshot)));
   // Let it enumerate shortcuts on a blockable task runner.
   content::RunAllTasksUntilIdle();
   EXPECT_TRUE(snapshot.shortcuts_determined());
@@ -1016,6 +1025,14 @@ TEST_F(ProfileResetterTest, DestroySnapshotFast) {
   // Running remaining tasks shouldn't trigger the callback to be called as
   // |deleted_snapshot| was deleted before it could run.
   base::RunLoop().RunUntilIdle();
+}
+
+TEST_F(ProfileResetterTest, ResetNTPCustomizationsTest) {
+  MockInstantService mock_ntp_service(profile());
+  resetter_->ntp_service_ = &mock_ntp_service;
+
+  EXPECT_CALL(mock_ntp_service, ResetToDefault());
+  ResetAndWait(ProfileResetter::NTP_CUSTOMIZATIONS);
 }
 
 }  // namespace

@@ -2,9 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <utility>
+
 #include "cc/tiles/paint_worklet_image_cache.h"
 
 #include "cc/paint/draw_image.h"
+#include "cc/raster/paint_worklet_image_provider.h"
 #include "cc/test/skia_common.h"
 #include "cc/test/test_paint_worklet_input.h"
 #include "cc/test/test_paint_worklet_layer_painter.h"
@@ -50,7 +53,7 @@ scoped_refptr<TileTask> GetTaskForPaintWorkletImage(
   return cache->GetTaskForPaintWorkletImage(draw_image);
 }
 
-void TestPaintRecord(PaintRecord* record) {
+void TestPaintRecord(const PaintRecord* record) {
   EXPECT_EQ(record->total_op_count(), 1u);
 
   // GetOpAtForTesting check whether the type is the same as DrawImageOp or not.
@@ -65,12 +68,52 @@ TEST(PaintWorkletImageCacheTest, GetTaskForImage) {
   scoped_refptr<TileTask> task =
       GetTaskForPaintWorkletImage(paint_image, &cache);
   EXPECT_TRUE(task);
+  PaintWorkletImageProvider provider(&cache);
 
   TestTileTaskRunner::ProcessTask(task.get());
 
-  PaintRecord* record =
-      cache.GetPaintRecordForTest(paint_image.paint_worklet_input());
-  TestPaintRecord(record);
+  {
+    ImageProvider::ScopedResult result =
+        provider.GetPaintRecordResult(paint_image.paint_worklet_input());
+    EXPECT_TRUE(result.paint_record());
+    TestPaintRecord(result.paint_record());
+
+    base::flat_map<PaintWorkletInput*,
+                   PaintWorkletImageCache::PaintWorkletImageCacheValue>
+        records = cache.GetRecordsForTest();
+    // Test the ref count.
+    EXPECT_EQ(records[paint_image.paint_worklet_input()].used_ref_count, 1u);
+  }
+  base::flat_map<PaintWorkletInput*,
+                 PaintWorkletImageCache::PaintWorkletImageCacheValue>
+      records = cache.GetRecordsForTest();
+  // Test the ref count, which should have been decremented when the result
+  // goes out of the scope.
+  EXPECT_EQ(records[paint_image.paint_worklet_input()].used_ref_count, 0u);
+
+  {
+    ImageProvider::ScopedResult result =
+        provider.GetPaintRecordResult(paint_image.paint_worklet_input());
+
+    base::flat_map<PaintWorkletInput*,
+                   PaintWorkletImageCache::PaintWorkletImageCacheValue>
+        records = cache.GetRecordsForTest();
+    // Test the ref count.
+    EXPECT_EQ(records[paint_image.paint_worklet_input()].used_ref_count, 1u);
+
+    ImageProvider::ScopedResult moved_result = std::move(result);
+
+    EXPECT_FALSE(result);
+
+    EXPECT_TRUE(moved_result.paint_record());
+    TestPaintRecord(moved_result.paint_record());
+
+    // Once moved, the ref count from |result| should have been transferred to
+    // |moved_result|, so there should be only one un-ref when they both go out
+    // of scope.
+    EXPECT_EQ(records[paint_image.paint_worklet_input()].used_ref_count, 1u);
+  }
+  EXPECT_EQ(records[paint_image.paint_worklet_input()].used_ref_count, 0u);
 }
 
 TEST(PaintWorkletImageCacheTest, MultipleRecordsInCache) {
@@ -87,17 +130,60 @@ TEST(PaintWorkletImageCacheTest, MultipleRecordsInCache) {
   TestTileTaskRunner::ProcessTask(task1.get());
   TestTileTaskRunner::ProcessTask(task2.get());
 
-  base::flat_map<PaintWorkletInput*, sk_sp<PaintRecord>> records =
-      cache.GetRecordsForTest();
+  base::flat_map<PaintWorkletInput*,
+                 PaintWorkletImageCache::PaintWorkletImageCacheValue>
+      records = cache.GetRecordsForTest();
   EXPECT_EQ(records.size(), 2u);
 
-  PaintRecord* record1 = records[paint_image1.paint_worklet_input()].get();
+  cache.SetNumOfFramesToPurgeCacheEntryForTest(2u);
+  PaintRecord* record1 =
+      records[paint_image1.paint_worklet_input()].record.get();
   EXPECT_TRUE(record1);
+  // Test the |num_of_frames_not_accessed| for this cache entry.
+  EXPECT_EQ(
+      records[paint_image1.paint_worklet_input()].num_of_frames_not_accessed,
+      0u);
   TestPaintRecord(record1);
 
-  PaintRecord* record2 = records[paint_image2.paint_worklet_input()].get();
+  PaintRecord* record2 =
+      records[paint_image2.paint_worklet_input()].record.get();
   EXPECT_TRUE(record2);
+  // Test the |num_of_frames_not_accessed| for this cache entry.
+  EXPECT_EQ(
+      records[paint_image2.paint_worklet_input()].num_of_frames_not_accessed,
+      0u);
   TestPaintRecord(record2);
+
+  // NotifyDidPrepareTiles is called by TileManager::PrepareTiles() which is
+  // called at each new impl frame. Here we test that a paint record with
+  // |num_of_frames_not_accessed| >= 2 is purged from the cache.
+  cache.NotifyDidPrepareTiles();
+  records = cache.GetRecordsForTest();
+  EXPECT_EQ(
+      records[paint_image1.paint_worklet_input()].num_of_frames_not_accessed,
+      1u);
+  EXPECT_EQ(
+      records[paint_image2.paint_worklet_input()].num_of_frames_not_accessed,
+      1u);
+
+  std::pair<PaintRecord*, base::OnceCallback<void()>> pair =
+      cache.GetPaintRecordAndRef(paint_image1.paint_worklet_input());
+  // Run the callback to decrement the ref count.
+  std::move(pair.second).Run();
+  records = cache.GetRecordsForTest();
+  EXPECT_EQ(
+      records[paint_image1.paint_worklet_input()].num_of_frames_not_accessed,
+      0u);
+
+  cache.NotifyDidPrepareTiles();
+  cache.NotifyDidPrepareTiles();
+  records = cache.GetRecordsForTest();
+  // The cache entry for paint_image2 should have been purged because it was
+  // never accessed/updated in the last 2 frames.
+  EXPECT_EQ(records.size(), 1u);
+  EXPECT_EQ(
+      records[paint_image1.paint_worklet_input()].num_of_frames_not_accessed,
+      2u);
 }
 
 }  // namespace

@@ -100,6 +100,9 @@ class BrowserFrame : public views::Widget,
   // Called when BrowserView creates all it's child views.
   void OnBrowserViewInitViewsComplete();
 
+  // Returns whether this window should be themed with the user's theme or not.
+  bool ShouldUseTheme() const;
+
   // views::Widget:
   views::internal::RootView* CreateRootView() override;
   views::NonClientFrameView* CreateNonClientFrameView() override;
@@ -111,9 +114,9 @@ class BrowserFrame : public views::Widget,
   void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override;
 
   // views::ContextMenuController:
-  void ShowContextMenuForView(views::View* source,
-                              const gfx::Point& p,
-                              ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(views::View* source,
+                                  const gfx::Point& p,
+                                  ui::MenuSourceType source_type) override;
 
   // Returns the menu model. BrowserFrame owns the returned model.
   // Note that in multi user mode this will upon each call create a new model.
@@ -131,9 +134,6 @@ class BrowserFrame : public views::Widget,
  private:
   // Callback for MenuRunner.
   void OnMenuClosed();
-
-  // Returns whether this window should be themed with the user's theme or not.
-  bool ShouldUseTheme() const;
 
   bool frameless_;
 

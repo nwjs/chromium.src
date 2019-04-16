@@ -10,6 +10,7 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/system/system_monitor.h"
 #include "device/udev_linux/udev.h"
@@ -41,7 +42,7 @@ DeviceMonitorLinux::DeviceMonitorLinux(
     : io_task_runner_(io_task_runner) {
   io_task_runner_->PostTask(
       FROM_HERE,
-      base::Bind(&DeviceMonitorLinux::Initialize, base::Unretained(this)));
+      base::BindOnce(&DeviceMonitorLinux::Initialize, base::Unretained(this)));
 }
 
 DeviceMonitorLinux::~DeviceMonitorLinux() = default;

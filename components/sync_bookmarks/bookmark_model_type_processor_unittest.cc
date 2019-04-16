@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/bind_helpers.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/mock_callback.h"
@@ -14,7 +15,6 @@
 #include "components/bookmarks/test/test_bookmark_client.h"
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/sync/base/unique_position.h"
-#include "components/sync/driver/fake_sync_client.h"
 #include "components/sync/model/data_type_activation_request.h"
 #include "components/undo/bookmark_undo_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -258,8 +258,9 @@ TEST_F(BookmarkModelTypeProcessorTest, ShouldUpdateModelAfterRemoteUpdate) {
   EXPECT_THAT(bookmark_node->url(), Eq(GURL(kNewUrl)));
 }
 
-TEST_F(BookmarkModelTypeProcessorTest,
-       ShouldScheduleSaveAfterRemoteUpdateWithOnlyMetadataChange) {
+TEST_F(
+    BookmarkModelTypeProcessorTest,
+    ShouldScheduleSaveAfterRemoteUpdateWithOnlyMetadataChangeAndReflections) {
   const std::string kNodeId = "node_id";
   const std::string kTitle = "title";
   const std::string kUrl = "http://www.url.com";
@@ -444,7 +445,6 @@ TEST_F(BookmarkModelTypeProcessorTest,
   sync_pb::ModelTypeState model_type_state(CreateDummyModelTypeState());
   model_type_state.set_encryption_key_name(kEncryptionKeyName);
 
-  EXPECT_CALL(*schedule_save_closure(), Run());
   // Push empty updates list to the processor together with the updated model
   // type state.
   processor()->OnUpdateReceived(model_type_state,

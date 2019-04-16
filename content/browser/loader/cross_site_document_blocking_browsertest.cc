@@ -6,6 +6,8 @@
 #include <string>
 #include <utility>
 
+#include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/macros.h"
@@ -36,6 +38,7 @@
 #include "content/public/test/url_loader_interceptor.h"
 #include "content/shell/browser/shell.h"
 #include "content/test/test_content_browser_client.h"
+#include "mojo/public/cpp/system/data_pipe.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
@@ -245,7 +248,11 @@ class RequestInterceptor {
     test_client_ptr_info_ = test_client_.CreateInterfacePtr().PassInterface();
   }
 
-  ~RequestInterceptor() { WaitForCleanUpOnIOThread(); }
+  ~RequestInterceptor() {
+    WaitForCleanUpOnIOThread(
+        network::ResourceResponseHead(), "",
+        network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
+  }
 
   // Waits until a request gets intercepted and completed.
   void WaitForRequestCompletion() {
@@ -255,23 +262,14 @@ class RequestInterceptor {
 
     // Read the intercepted response body into |body_|.
     if (test_client_.completion_status().error_code == net::OK) {
-      char buffer[128];
-      while (true) {
-        uint32_t num_bytes = sizeof(buffer);
-        auto result = test_client_.response_body().ReadData(
-            buffer, &num_bytes, MOJO_READ_DATA_FLAG_NONE);
-        if (result != MOJO_RESULT_OK)
-          break;
-
-        if (num_bytes == 0)
-          break;
-
-        body_ += std::string(buffer, num_bytes);
-      }
+      base::RunLoop run_loop;
+      ReadBody(run_loop.QuitClosure());
+      run_loop.Run();
     }
 
     // Wait until IO cleanup completes.
-    WaitForCleanUpOnIOThread();
+    WaitForCleanUpOnIOThread(test_client_.response_head(), body_,
+                             test_client_.completion_status());
 
     // Mark the request as completed (for DCHECK purposes).
     request_completed_ = true;
@@ -321,6 +319,46 @@ class RequestInterceptor {
   }
 
  private:
+  void ReadBody(base::OnceClosure completion_callback) {
+    char buffer[128];
+    uint32_t num_bytes = sizeof(buffer);
+    MojoResult result = test_client_.response_body().ReadData(
+        buffer, &num_bytes, MOJO_READ_DATA_FLAG_NONE);
+
+    bool got_all_data = false;
+    switch (result) {
+      case MOJO_RESULT_OK:
+        if (num_bytes != 0) {
+          body_ += std::string(buffer, num_bytes);
+          got_all_data = false;
+        } else {
+          got_all_data = true;
+        }
+        break;
+      case MOJO_RESULT_SHOULD_WAIT:
+        // There is no data to be read or discarded (and the producer is still
+        // open).
+        got_all_data = false;
+        break;
+      case MOJO_RESULT_FAILED_PRECONDITION:
+        // The data pipe producer handle has been closed.
+        got_all_data = true;
+        break;
+      default:
+        CHECK(false) << "Unexpected mojo error: " << result;
+        got_all_data = true;
+        break;
+    }
+
+    if (!got_all_data) {
+      base::PostTask(FROM_HERE, base::BindOnce(&RequestInterceptor::ReadBody,
+                                               base::Unretained(this),
+                                               std::move(completion_callback)));
+    } else {
+      std::move(completion_callback).Run();
+    }
+  }
+
   bool InterceptorCallback(URLLoaderInterceptor::RequestParams* params) {
     DCHECK_CURRENTLY_ON(BrowserThread::IO);
     DCHECK(params);
@@ -349,7 +387,9 @@ class RequestInterceptor {
     return false;
   }
 
-  void WaitForCleanUpOnIOThread() {
+  void WaitForCleanUpOnIOThread(network::ResourceResponseHead response_head,
+                                std::string response_body,
+                                network::URLLoaderCompletionStatus status) {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
     if (io_cleanup_done_)
@@ -359,20 +399,36 @@ class RequestInterceptor {
     base::PostTaskWithTraitsAndReply(
         FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&RequestInterceptor::CleanUpOnIOThread,
-                       base::Unretained(this)),
+                       base::Unretained(this), response_head, response_body,
+                       status),
         run_loop.QuitClosure());
     run_loop.Run();
 
     io_cleanup_done_ = true;
   }
 
-  void CleanUpOnIOThread() {
+  void CleanUpOnIOThread(network::ResourceResponseHead response_head,
+                         std::string response_body,
+                         network::URLLoaderCompletionStatus status) {
     DCHECK_CURRENTLY_ON(BrowserThread::IO);
+    if (!request_intercepted_)
+      return;
 
     // Tell the |original_client_| that the request has completed (and that it
     // can release its URLLoaderClient.
-    original_client_->OnComplete(
-        network::URLLoaderCompletionStatus(net::ERR_NOT_IMPLEMENTED));
+    if (status.error_code == net::OK) {
+      original_client_->OnReceiveResponse(response_head);
+
+      mojo::DataPipe empty_data_pipe(response_body.size() + 1);
+      original_client_->OnStartLoadingResponseBody(
+          std::move(empty_data_pipe.consumer_handle));
+
+      uint32_t num_bytes = response_body.size();
+      EXPECT_EQ(MOJO_RESULT_OK, empty_data_pipe.producer_handle->WriteData(
+                                    response_body.data(), &num_bytes,
+                                    MOJO_WRITE_DATA_FLAG_ALL_OR_NONE));
+    }
+    original_client_->OnComplete(status);
 
     // Reset all temporary mojo bindings.
     original_client_.reset();
@@ -735,7 +791,101 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, BlockHeaders) {
   EXPECT_EQ(0u, interceptor.response_head().content_length);
 }
 
-IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, AppCache) {
+// TODO(lukasza): https://crbug.com/154571: Enable this test on Android once
+// SharedWorkers are also enabled on Android.
+#if !defined(OS_ANDROID)
+IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, SharedWorker) {
+  embedded_test_server()->StartAcceptingConnections();
+
+  // Prepare to intercept the network request at the IPC layer.
+  // This has to be done before the SharedWorkerHost is created.
+  GURL bar_url("http://bar.com/site_isolation/nosniff.json");
+  RequestInterceptor interceptor(bar_url);
+
+  // Navigate to the test page.
+  GURL foo_url("http://foo.com/title1.html");
+  EXPECT_TRUE(NavigateToURL(shell(), foo_url));
+
+  // Start a shared worker and wait until it says that it is ready.
+  const char kWorkerScriptTemplate[] = R"(
+      onconnect = function(e) {
+        const port = e.ports[0];
+
+        port.addEventListener('message', function(e) {
+          url = e.data;
+          fetch(url, {mode: 'no-cors'})
+              .then(_ => port.postMessage('FETCH SUCCEEDED'))
+              .catch(e => port.postMessage('FETCH ERROR: ' + e));
+        });
+
+        port.start();
+        port.postMessage('WORKER READY');
+      };
+  )";
+  std::string worker_script;
+  base::Base64Encode(JsReplace(kWorkerScriptTemplate, bar_url), &worker_script);
+  const char kWorkerStartTemplate[] = R"(
+      new Promise(function (resolve, reject) {
+          const worker_url = 'data:application/javascript;base64,' + $1;
+          window.myWorker = new SharedWorker(worker_url);
+          window.myWorkerMessageHandler = resolve;
+          window.myWorker.port.onmessage = function(e) {
+              window.myWorkerMessageHandler(e.data);
+          };
+      });
+  )";
+  EXPECT_EQ("WORKER READY",
+            EvalJs(shell(), JsReplace(kWorkerStartTemplate, worker_script)));
+
+  // Make sure that base::HistogramTester below starts with a clean slate.
+  FetchHistogramsFromChildProcesses();
+  base::HistogramTester histograms;
+
+  // Ask the shared worker to perform a cross-origin fetch.
+  const char kFetchStartTemplate[] = R"(
+      const fetch_url = $1;
+      window.myWorkerMessageHandler = function(data) {
+          window.myWorkerResult = data;
+      }
+      window.myWorker.port.postMessage(fetch_url);
+  )";
+  EXPECT_TRUE(ExecJs(shell(), JsReplace(kFetchStartTemplate, bar_url)));
+
+  // Verify the intercepted request (intercepting requests from SharedWorkers is
+  // only possible when NetworkService is enabled).
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
+    interceptor.WaitForRequestCompletion();
+    interceptor.Verify(kShouldBeBlockedWithoutSniffing |
+                       kShouldLogContentLengthUma);
+  }
+
+  // Wait for fetch result (really needed only without NetworkService, if no
+  // interceptor.WaitForRequestCompletion was called above).
+  const char kFetchWait[] = R"(
+      new Promise(function (resolve, reject) {
+          if (window.myWorkerResult) {
+            resolve(window.myWorkerResult);
+            return;
+          }
+          window.myWorkerMessageHandler = resolve;
+      });
+  )";
+  EXPECT_EQ("FETCH SUCCEEDED", EvalJs(shell(), kFetchWait));
+
+  // Verify that the response completed successfully, was blocked and was logged
+  // as having initially a non-empty body.
+  InspectHistograms(histograms, kShouldBeBlockedWithoutSniffing, "nosniff.json",
+                    RESOURCE_TYPE_XHR);
+}
+#endif  // !defined(OS_ANDROID)
+
+// Tests what happens in a page covered by AppCache (where the AppCache manifest
+// doesn't cover any cross-origin resources).  In particular, requests from the
+// web page that get proxied by the AppCache to the network (falling back to the
+// network because they are not covered by the AppCache manifest) should still
+// be subject to CORB.
+IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
+                       AppCache_NetworkFallback) {
   embedded_test_server()->StartAcceptingConnections();
 
   // Prepare to intercept the network request at the IPC layer.
@@ -800,6 +950,38 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, AppCache) {
   }
 }
 
+// Tests what happens in a page covered by AppCache, where the AppCache manifest
+// covers cross-origin resources.  In this case the cross-origin resource
+// requests will be triggered by AppCache-manifest-processing code (rather than
+// triggered directly by the web page / renderer process as in
+// AppCache_NetworkFallback).  Such manifest-triggered requests need to be
+// subject to CORB.
+//
+// This is a regression test for https://crbug.com/927471.
+IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, AppCache_InManifest) {
+  embedded_test_server()->StartAcceptingConnections();
+
+  // Load the AppCached page and wait until the AppCache is populated (this will
+  // include the cross-origin
+  // http://cross-origin.com/site_isolation/nosniff.json from
+  // site_isolation/appcached_cross_origin_resource.manifest.
+  base::HistogramTester histograms;
+  GURL main_url = embedded_test_server()->GetURL(
+      "/site_isolation/appcached_cross_origin_resource.html");
+  EXPECT_TRUE(NavigateToURL(shell(), main_url));
+  base::string16 expected_title = base::ASCIIToUTF16("AppCache updated");
+  content::TitleWatcher title_watcher(shell()->web_contents(), expected_title);
+  EXPECT_EQ(expected_title, title_watcher.WaitAndGetTitle());
+
+  // Verify that the request for nosniff.json was covered by CORB.
+  FetchHistogramsFromChildProcesses();
+  EXPECT_EQ(1, histograms.GetBucketCount(
+                   "SiteIsolation.XSD.Browser.Action",
+                   static_cast<int>(Action::kBlockedWithoutSniffing)));
+}
+
+// Tests that renderer will be terminated if it asks AppCache to initiate a
+// request with an invalid |request_initiator|.
 IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
                        AppCache_InitiatorEnforcement) {
   embedded_test_server()->StartAcceptingConnections();
@@ -1112,19 +1294,11 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
     // |request_initiator| is same-origin (foo.com), and so the fetch should not
     // be blocked by CORB.
     interceptor.Verify(CorbExpectations::kShouldBeAllowedWithoutSniffing);
-
-    // OTOH, the fetching context (i.e. the context that fetch_nosniff_json.js
-    // exectues under) is cross-origin (bar.com) so CORB should result in a
-    // fetch error.
     std::string fetch_result;
     EXPECT_TRUE(msg_queue.WaitForMessage(&fetch_result));
-    EXPECT_EQ("\"ERROR: TypeError: Failed to fetch\"", fetch_result);
+    EXPECT_THAT(fetch_result, ::testing::HasSubstr("BODY: runMe"));
 
     if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-      // The main purpose of the test is not verifying the incorrect behavior
-      // above, but making sure that the UMA that records the incorrect behavior
-      // is logged.  Hopefully the incorrect behavior will rarely occur in
-      // practice.
       FetchHistogramsFromChildProcesses();
 
       // ExecuteScriptAsync covers 3 fetches:
@@ -1202,13 +1376,9 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
     // |request_initiator| is same-origin (foo.com), and so the fetch should not
     // be blocked by CORB.
     interceptor.Verify(CorbExpectations::kShouldBeAllowedWithoutSniffing);
-
-    // OTOH, the fetching context (i.e. the context that html_import3.html
-    // exectues under) is cross-origin (bar.com) so CORB should result in a
-    // fetch error.
     std::string fetch_result;
     EXPECT_TRUE(msg_queue.WaitForMessage(&fetch_result));
-    EXPECT_EQ("\"ERROR: TypeError: Failed to fetch\"", fetch_result);
+    EXPECT_THAT(fetch_result, ::testing::HasSubstr("BODY: runMe"));
 
     if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
       // The main purpose of the test is not verifying the incorrect behavior
@@ -1231,13 +1401,13 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
   }
 }
 
-INSTANTIATE_TEST_CASE_P(WithoutOutOfBlinkCors,
-                        CrossSiteDocumentBlockingTest,
-                        ::testing::Values(TestMode::kWithoutOutOfBlinkCors));
+INSTANTIATE_TEST_SUITE_P(WithoutOutOfBlinkCors,
+                         CrossSiteDocumentBlockingTest,
+                         ::testing::Values(TestMode::kWithoutOutOfBlinkCors));
 
-INSTANTIATE_TEST_CASE_P(WithOutOfBlinkCors,
-                        CrossSiteDocumentBlockingTest,
-                        ::testing::Values(TestMode::kWithOutOfBlinkCors));
+INSTANTIATE_TEST_SUITE_P(WithOutOfBlinkCors,
+                         CrossSiteDocumentBlockingTest,
+                         ::testing::Values(TestMode::kWithOutOfBlinkCors));
 
 // This test class sets up a service worker that can be used to try to respond
 // to same-origin requests with cross-origin responses.
@@ -1270,7 +1440,8 @@ class CrossSiteDocumentBlockingServiceWorkerTest : public ContentBrowserTest {
     // (the second server should have a different hostname because of the call
     // to SetSSLConfig with CERT_COMMON_NAME_IS_DOMAIN argument).
     ASSERT_FALSE(SiteInstanceImpl::IsSameWebSite(
-        shell()->web_contents()->GetBrowserContext(), IsolationContext(),
+        shell()->web_contents()->GetBrowserContext(),
+        IsolationContext(shell()->web_contents()->GetBrowserContext()),
         GetURLOnServiceWorkerServer("/"), GetURLOnCrossOriginServer("/"),
         true /* should_use_effective_urls */));
   }

@@ -6,6 +6,7 @@
 
 #include "base/command_line.h"
 #include "base/test/scoped_task_environment.h"
+#include "services/ws/public/mojom/window_tree_constants.mojom.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
 #include "ui/views/test/views_test_base.h"
@@ -29,6 +30,10 @@ std::vector<ws::mojom::WsDisplayPtr> ConvertDisplayToWsDisplays(
 using ScreenMusTest = ViewsTestWithDesktopNativeWidget;
 
 TEST_F(ScreenMusTest, PrimaryChangedToExisting) {
+  // ScreenMus is only used in multi-process Mash.
+  if (features::IsSingleProcessMash())
+    return;
+
   ScreenMus* screen = static_cast<ScreenMus*>(display::Screen::GetScreen());
   std::vector<display::Display> displays = screen->GetAllDisplays();
   ASSERT_FALSE(displays.empty());
@@ -44,6 +49,9 @@ TEST_F(ScreenMusTest, PrimaryChangedToExisting) {
 }
 
 TEST_F(ScreenMusTest, AddAndUpdate) {
+  if (features::IsSingleProcessMash())
+    return;
+
   ScreenMus* screen = static_cast<ScreenMus*>(display::Screen::GetScreen());
   std::vector<display::Display> displays = screen->GetAllDisplays();
   ASSERT_FALSE(displays.empty());
@@ -70,6 +78,9 @@ TEST_F(ScreenMusTest, AddAndUpdate) {
 }
 
 TEST_F(ScreenMusTest, SetDisplayForNewWindows) {
+  if (features::IsSingleProcessMash())
+    return;
+
   ScreenMus* screen = static_cast<ScreenMus*>(display::Screen::GetScreen());
 
   // Set up 2 displays with display 1 as the display for new windows.

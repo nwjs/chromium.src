@@ -174,7 +174,8 @@ void ForceLogicalHeight(LayoutObject& layout_object, const Length& height) {
   scoped_refptr<ComputedStyle> new_style =
       ComputedStyle::Clone(layout_object.StyleRef());
   new_style->SetLogicalHeight(height);
-  layout_object.SetStyleInternal(std::move(new_style));
+  layout_object.SetModifiedStyleOutsideStyleRecalc(
+      std::move(new_style), LayoutObject::ApplyStyleChanges::kNo);
 }
 
 }  // namespace
@@ -204,7 +205,7 @@ bool LayoutListItem::PrepareForBlockDirectionAlign(
         marker_parent = nullptr;
       }
     } else if (line_box_parent) {
-      ForceLogicalHeight(*marker_parent, Length(0, kFixed));
+      ForceLogicalHeight(*marker_parent, Length::Fixed(0));
     }
   }
 
@@ -215,7 +216,7 @@ bool LayoutListItem::PrepareForBlockDirectionAlign(
       // Create marker_container and set its LogicalHeight to 0px.
       LayoutBlock* marker_container = CreateAnonymousBlock();
       if (line_box_parent)
-        ForceLogicalHeight(*marker_container, Length(0, kFixed));
+        ForceLogicalHeight(*marker_container, Length::Fixed(0));
       marker_container->AddChild(marker_,
                                  FirstNonMarkerChild(marker_container));
       AddChild(marker_container, before_child);

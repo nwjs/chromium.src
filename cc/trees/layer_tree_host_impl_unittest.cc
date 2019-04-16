@@ -12,6 +12,7 @@
 
 #include "base/base_switches.h"
 #include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/memory/memory_pressure_listener.h"
@@ -75,7 +76,9 @@
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
+#include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "components/viz/service/display/gl_renderer.h"
+#include "components/viz/service/display/skia_output_surface.h"
 #include "components/viz/test/begin_frame_args_test.h"
 #include "components/viz/test/fake_output_surface.h"
 #include "components/viz/test/test_layer_tree_frame_sink.h"
@@ -193,11 +196,14 @@ class LayerTreeHostImplTest : public testing::Test,
     requested_animation_delay_ = delay;
   }
   void DidActivateSyncTree() override {
-    // Make sure the active tree always has a valid LocalSurfaceId.
-    host_impl_->active_tree()->SetLocalSurfaceIdAllocationFromParent(
-        viz::LocalSurfaceIdAllocation(
-            viz::LocalSurfaceId(1, base::UnguessableToken::Deserialize(2u, 3u)),
-            base::TimeTicks::Now()));
+    if (set_local_surface_id_on_activate_) {
+      // Make sure the active tree always has a valid LocalSurfaceId.
+      host_impl_->active_tree()->SetLocalSurfaceIdAllocationFromParent(
+          viz::LocalSurfaceIdAllocation(
+              viz::LocalSurfaceId(1,
+                                  base::UnguessableToken::Deserialize(2u, 3u)),
+              base::TimeTicks::Now()));
+    }
   }
   void WillPrepareTiles() override {}
   void DidPrepareTiles() override {}
@@ -225,7 +231,12 @@ class LayerTreeHostImplTest : public testing::Test,
       std::vector<LayerTreeHost::PresentationTimeCallback> callbacks,
       const gfx::PresentationFeedback& feedback) override {}
   void DidGenerateLocalSurfaceIdAllocationOnImplThread(
-      const viz::LocalSurfaceIdAllocation& allocation) override {}
+      const viz::LocalSurfaceIdAllocation& allocation) override {
+    last_generated_local_surface_id_ = allocation;
+    did_generate_local_surface_id_ = true;
+  }
+  void NotifyAnimationWorkletStateChange(AnimationWorkletMutationState state,
+                                         ElementListType tree_type) override {}
 
   void set_reduce_memory_result(bool reduce_memory_result) {
     reduce_memory_result_ = reduce_memory_result;
@@ -792,6 +803,9 @@ class LayerTreeHostImplTest : public testing::Test,
   viz::RenderPassList last_on_draw_render_passes_;
   scoped_refptr<AnimationTimeline> timeline_;
   std::unique_ptr<base::Thread> image_worker_;
+  viz::LocalSurfaceIdAllocation last_generated_local_surface_id_;
+  bool did_generate_local_surface_id_ = false;
+  bool set_local_surface_id_on_activate_ = true;
 };
 
 class CommitToPendingTreeLayerTreeHostImplTest : public LayerTreeHostImplTest {
@@ -894,6 +908,52 @@ TEST_F(LayerTreeHostImplTest, NotifyIfCanDrawChanged) {
   on_can_draw_state_changed_called_ = false;
 
   host_impl_->active_tree()->SetDeviceViewportSize(gfx::Size(100, 100));
+  EXPECT_TRUE(host_impl_->CanDraw());
+  EXPECT_TRUE(on_can_draw_state_changed_called_);
+  on_can_draw_state_changed_called_ = false;
+
+  viz::ParentLocalSurfaceIdAllocator parent_allocator;
+  parent_allocator.GenerateId();
+  const uint32_t child_sequence_number1 =
+      host_impl_->GenerateChildSurfaceSequenceNumberSync();
+  EXPECT_NE(child_sequence_number1, viz::kInitialChildSequenceNumber);
+  EXPECT_FALSE(host_impl_->CanDraw());
+  EXPECT_TRUE(on_can_draw_state_changed_called_);
+  on_can_draw_state_changed_called_ = false;
+
+  host_impl_->active_tree()->SetLocalSurfaceIdAllocationFromParent(
+      parent_allocator.GetCurrentLocalSurfaceIdAllocation());
+  EXPECT_TRUE(host_impl_->CanDraw());
+  EXPECT_TRUE(on_can_draw_state_changed_called_);
+  on_can_draw_state_changed_called_ = false;
+
+  // Without this SetLocalSurfaceIdAllocationFromParent() is called from
+  // DidActivateSyncTree().
+  set_local_surface_id_on_activate_ = false;
+  // Necessary to set LocalSurfaceIdAllocation in
+  // |LayerTreeHostImpl::child_local_surface_id_allocator_|.
+  host_impl_->ActivateSyncTree();
+
+  const uint32_t child_sequence_number2 =
+      host_impl_->GenerateChildSurfaceSequenceNumberSync();
+  EXPECT_NE(child_sequence_number2, child_sequence_number1);
+  EXPECT_FALSE(host_impl_->CanDraw());
+  EXPECT_TRUE(on_can_draw_state_changed_called_);
+  on_can_draw_state_changed_called_ = false;
+
+  host_impl_->active_tree()->SetLocalSurfaceIdAllocationFromParent(
+      parent_allocator.GetCurrentLocalSurfaceIdAllocation());
+  EXPECT_FALSE(host_impl_->CanDraw());
+  EXPECT_FALSE(on_can_draw_state_changed_called_);
+
+  auto id_from_parent =
+      parent_allocator.GetCurrentLocalSurfaceIdAllocation().local_surface_id();
+  host_impl_->active_tree()->SetLocalSurfaceIdAllocationFromParent(
+      viz::LocalSurfaceIdAllocation(
+          viz::LocalSurfaceId(id_from_parent.parent_sequence_number(),
+                              child_sequence_number2,
+                              id_from_parent.embed_token()),
+          base::TimeTicks::Now()));
   EXPECT_TRUE(host_impl_->CanDraw());
   EXPECT_TRUE(on_can_draw_state_changed_called_);
   on_can_draw_state_changed_called_ = false;
@@ -5091,20 +5151,21 @@ class MissingTextureAnimatingLayer : public DidDrawCheckLayer {
 };
 
 struct PrepareToDrawSuccessTestCase {
+  explicit PrepareToDrawSuccessTestCase(DrawResult result)
+      : expected_result(result) {}
+
   struct State {
     bool has_missing_tile = false;
     bool has_incomplete_tile = false;
     bool is_animating = false;
     bool has_copy_request = false;
   };
+
   bool high_res_required = false;
   State layer_before;
   State layer_between;
   State layer_after;
   DrawResult expected_result;
-
-  explicit PrepareToDrawSuccessTestCase(DrawResult result)
-      : expected_result(result) {}
 };
 
 static void CreateLayerFromState(
@@ -10048,6 +10109,12 @@ class FrameSinkClient : public viz::TestLayerTreeFrameSinkClient {
       scoped_refptr<viz::ContextProvider> display_context_provider)
       : display_context_provider_(std::move(display_context_provider)) {}
 
+  std::unique_ptr<viz::SkiaOutputSurface> CreateDisplaySkiaOutputSurface()
+      override {
+    NOTIMPLEMENTED();
+    return nullptr;
+  }
+
   std::unique_ptr<viz::OutputSurface> CreateDisplayOutputSurface(
       scoped_refptr<viz::ContextProvider> compositor_context_provider)
       override {
@@ -11712,9 +11779,24 @@ TEST_F(LayerTreeHostImplTest, ScrollAnimated) {
   viz::BeginFrameArgs begin_frame_args =
       viz::CreateBeginFrameArgsForTesting(BEGINFRAME_FROM_HERE, 0, 1);
 
-  EXPECT_EQ(
-      InputHandler::SCROLL_ON_IMPL_THREAD,
-      host_impl_->ScrollAnimated(gfx::Point(), gfx::Vector2d(0, 50)).thread);
+  {
+    // Creating the animation should set 'needs redraw'. This is required
+    // for LatencyInfo's to be propagated along with the CompositorFrame
+    int set_needs_commit_count = 0;
+    int set_needs_redraw_count = 0;
+    int forward_to_main_count = 0;
+    std::unique_ptr<SimpleSwapPromiseMonitor> swap_promise_monitor(
+        new SimpleSwapPromiseMonitor(
+            nullptr, host_impl_.get(), &set_needs_commit_count,
+            &set_needs_redraw_count, &forward_to_main_count));
+    EXPECT_EQ(
+        InputHandler::SCROLL_ON_IMPL_THREAD,
+        host_impl_->ScrollAnimated(gfx::Point(), gfx::Vector2d(0, 50)).thread);
+
+    EXPECT_EQ(0, set_needs_commit_count);
+    EXPECT_EQ(1, set_needs_redraw_count);
+    EXPECT_EQ(0, forward_to_main_count);
+  }
 
   LayerImpl* scrolling_layer = host_impl_->OuterViewportScrollLayer();
   EXPECT_EQ(scrolling_layer->scroll_tree_index(),
@@ -11739,10 +11821,26 @@ TEST_F(LayerTreeHostImplTest, ScrollAnimated) {
   float y = scrolling_layer->CurrentScrollOffset().y();
   EXPECT_TRUE(y > 1 && y < 49);
 
-  // Update target.
-  EXPECT_EQ(
-      InputHandler::SCROLL_ON_IMPL_THREAD,
-      host_impl_->ScrollAnimated(gfx::Point(), gfx::Vector2d(0, 50)).thread);
+  {
+    // Updating the animation should set 'needs redraw'. This is required
+    // for LatencyInfo's to be propagated along with the CompositorFrame
+    int set_needs_commit_count = 0;
+    int set_needs_redraw_count = 0;
+    int forward_to_main_count = 0;
+    std::unique_ptr<SimpleSwapPromiseMonitor> swap_promise_monitor(
+        new SimpleSwapPromiseMonitor(
+            nullptr, host_impl_.get(), &set_needs_commit_count,
+            &set_needs_redraw_count, &forward_to_main_count));
+    // Update target.
+    EXPECT_EQ(
+        InputHandler::SCROLL_ON_IMPL_THREAD,
+        host_impl_->ScrollAnimated(gfx::Point(), gfx::Vector2d(0, 50)).thread);
+
+    EXPECT_EQ(0, set_needs_commit_count);
+    EXPECT_EQ(1, set_needs_redraw_count);
+    EXPECT_EQ(0, forward_to_main_count);
+  }
+
   host_impl_->DidFinishImplFrame();
 
   begin_frame_args.frame_time =
@@ -13532,12 +13630,11 @@ TEST_F(LayerTreeHostImplTest, RasterColorSpace) {
   LayerTreeSettings settings = DefaultSettings();
   CreateHostImpl(settings, CreateLayerTreeFrameSink());
   // The default raster color space should be sRGB.
-  EXPECT_EQ(host_impl_->GetRasterColorSpace().color_space,
-            gfx::ColorSpace::CreateSRGB());
+  EXPECT_EQ(host_impl_->GetRasterColorSpace(), gfx::ColorSpace::CreateSRGB());
   // The raster color space should update with tree activation.
   host_impl_->active_tree()->SetRasterColorSpace(
       2, gfx::ColorSpace::CreateDisplayP3D65());
-  EXPECT_EQ(host_impl_->GetRasterColorSpace().color_space,
+  EXPECT_EQ(host_impl_->GetRasterColorSpace(),
             gfx::ColorSpace::CreateDisplayP3D65());
 }
 
@@ -13545,12 +13642,10 @@ TEST_F(LayerTreeHostImplTest, RasterColorSpaceSoftware) {
   LayerTreeSettings settings = DefaultSettings();
   CreateHostImpl(settings, FakeLayerTreeFrameSink::CreateSoftware());
   // Software composited resources should always use sRGB as their color space.
-  EXPECT_EQ(host_impl_->GetRasterColorSpace().color_space,
-            gfx::ColorSpace::CreateSRGB());
+  EXPECT_EQ(host_impl_->GetRasterColorSpace(), gfx::ColorSpace::CreateSRGB());
   host_impl_->active_tree()->SetRasterColorSpace(
       2, gfx::ColorSpace::CreateDisplayP3D65());
-  EXPECT_EQ(host_impl_->GetRasterColorSpace().color_space,
-            gfx::ColorSpace::CreateSRGB());
+  EXPECT_EQ(host_impl_->GetRasterColorSpace(), gfx::ColorSpace::CreateSRGB());
 }
 
 TEST_F(LayerTreeHostImplTest, UpdatedTilingsForNonDrawingLayers) {

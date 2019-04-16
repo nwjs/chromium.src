@@ -114,6 +114,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
 
   uint32_t GetRenderFrameId() const;
   uint32_t GetProcessId() const;
+  uint32_t GetResourceType() const;
 
   const net::HttpRequestHeaders& custom_proxy_pre_cache_headers() const {
     return custom_proxy_pre_cache_headers_;
@@ -155,10 +156,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
     DISALLOW_COPY_AND_ASSIGN(UnownedPointer);
   };
 
-  static void OnFilesForUploadOpened(base::WeakPtr<URLLoader> self,
-                                     const ResourceRequest& request,
-                                     int error_code,
-                                     std::vector<base::File> opened_files);
+  class FileOpenerForUpload;
+  friend class FileOpenerForUpload;
+
   void OpenFilesForUpload(const ResourceRequest& request);
   void SetUpUpload(const ResourceRequest& request,
                    int error_code,
@@ -320,6 +320,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) URLLoader
   base::Optional<base::UnguessableToken> fetch_window_id_;
 
   mojom::TrustedHeaderClientPtr header_client_;
+
+  std::unique_ptr<FileOpenerForUpload> file_opener_for_upload_;
 
   base::WeakPtrFactory<URLLoader> weak_ptr_factory_;
 

@@ -66,7 +66,7 @@ static void EnsureAtkObjectHasAttributeWithValue(
 
     if (0 == strcmp(attribute_name, attribute->name)) {
       // Ensure that we only see this attribute once.
-      ASSERT_FALSE(saw_attribute);
+      ASSERT_FALSE(saw_attribute) << attribute_name;
 
       EXPECT_STREQ(attribute_value, attribute->value);
       saw_attribute = true;
@@ -86,7 +86,7 @@ static void EnsureAtkObjectDoesNotHaveAttribute(
   AtkAttributeSet* current = attributes;
   while (current) {
     AtkAttribute* attribute = static_cast<AtkAttribute*>(current->data);
-    ASSERT_NE(0, strcmp(attribute_name, attribute->name));
+    ASSERT_STRNE(attribute_name, attribute->name) << attribute_name;
     current = current->next;
   }
   atk_attribute_set_free(attributes);
@@ -575,10 +575,9 @@ TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkObjectBoolAttributes) {
   g_object_unref(root_atk_object);
 }
 
-TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkObjectIntAttributes) {
+TEST_F(AXPlatformNodeAuraLinuxTest, DISABLED_TestAtkObjectIntAttributes) {
   AXNodeData root_data;
   root_data.id = 1;
-
   Init(root_data);
 
   AXNode* root_node = GetRootNode();
@@ -916,8 +915,8 @@ TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextCharacterGranularity) {
   };
 
   verify_text_at_offset("d", 2, 2, 3);
-  verify_text_at_offset("A", -1, 0, 1);
-  verify_text_at_offset("", 42342, 39, 39);
+  verify_text_at_offset(nullptr, -1, -1, -1);
+  verify_text_at_offset(nullptr, 42342, -1, -1);
   verify_text_at_offset("\xE2\x98\xBA", 23, 23, 24);
   verify_text_at_offset(" ", 24, 24, 25);
 
@@ -930,7 +929,7 @@ TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextCharacterGranularity) {
   };
 
   verify_text_after_offset("d", 1, 2, 3);
-  verify_text_after_offset("", 42342, 39, 39);
+  verify_text_after_offset(nullptr, 42342, -1, -1);
   verify_text_after_offset("\xE2\x98\xBA", 22, 23, 24);
   verify_text_after_offset(" ", 23, 24, 25);
 
@@ -946,12 +945,259 @@ TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextCharacterGranularity) {
   };
 
   verify_text_before_offset("d", 3, 2, 3);
-  verify_text_before_offset("", 42342, 39, 39);
+  verify_text_before_offset(nullptr, 42342, -1, -1);
   verify_text_before_offset("\xE2\x98\xBA", 24, 23, 24);
   verify_text_before_offset(" ", 25, 24, 25);
-
-  // This boundary condition is enforced by ATK for some reason.
   verify_text_after_offset(nullptr, -1, 0, 0);
+
+  g_object_unref(root_obj);
+}
+
+struct GetTextSegmentTest {
+  int offset;
+  const char* content;
+  int start_offset;
+  int end_offset;
+};
+
+TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextWordGranularity) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kTextField;
+  root.AddStringAttribute(ax::mojom::StringAttribute::kValue,
+                          "A decently long string.");
+  Init(root);
+
+  AtkObject* root_obj(GetRootAtkObject());
+  ASSERT_TRUE(ATK_IS_OBJECT(root_obj));
+  g_object_ref(root_obj);
+
+  ASSERT_TRUE(ATK_IS_TEXT(root_obj));
+  AtkText* atk_text = ATK_TEXT(root_obj);
+
+  static GetTextSegmentTest tests[] = {{0, "A ", 0, 2},
+                                       {2, "decently ", 2, 11},
+                                       {-1, nullptr, -1, -1},
+                                       {1000, nullptr, -1, -1}};
+
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    testing::Message message;
+    message << "While checking at index " << tests[i].offset << " for \'"
+            << tests[i].content << "\' at " << tests[i].start_offset << '-'
+            << tests[i].end_offset << '.';
+    SCOPED_TRACE(message);
+
+    int start_offset = -1, end_offset = -1;
+    char* content = atk_text_get_text_at_offset(atk_text, tests[i].offset,
+                                                ATK_TEXT_BOUNDARY_WORD_START,
+                                                &start_offset, &end_offset);
+    ASSERT_STREQ(content, tests[i].content) << "with test index=" << i;
+    ASSERT_EQ(start_offset, tests[i].start_offset) << "with test index=" << i;
+    ASSERT_EQ(end_offset, tests[i].end_offset) << "with test index=" << i;
+    g_free(content);
+  }
+
+#if ATK_CHECK_VERSION(2, 10, 0)
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    testing::Message message;
+    message << "While checking at index " << tests[i].offset << " for \'"
+            << tests[i].content << "\' at " << tests[i].start_offset << '-'
+            << tests[i].end_offset << '.';
+    SCOPED_TRACE(message);
+
+    int start_offset = -1, end_offset = -1;
+    char* content = atk_text_get_string_at_offset(atk_text, tests[i].offset,
+                                                  ATK_TEXT_GRANULARITY_WORD,
+                                                  &start_offset, &end_offset);
+    ASSERT_STREQ(content, tests[i].content) << "with test index=" << i;
+    ASSERT_EQ(start_offset, tests[i].start_offset) << "with test index=" << i;
+    ASSERT_EQ(end_offset, tests[i].end_offset) << "with test index=" << i;
+    g_free(content);
+  }
+#endif
+
+  g_object_unref(root_obj);
+}
+
+TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextSentenceGranularity) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kTextField;
+  root.AddStringAttribute(ax::mojom::StringAttribute::kValue,
+                          "A short sentence. Another sentence.     A third...");
+  Init(root);
+
+  AtkObject* root_obj(GetRootAtkObject());
+  ASSERT_TRUE(ATK_IS_OBJECT(root_obj));
+  g_object_ref(root_obj);
+
+  ASSERT_TRUE(ATK_IS_TEXT(root_obj));
+  AtkText* atk_text = ATK_TEXT(root_obj);
+
+  static GetTextSegmentTest tests[] = {
+      {0, "A short sentence. ", 0, 18},
+      {20, "Another sentence.     ", 18, 40},
+      {37, "Another sentence.     ", 18, 40},
+      {49, "A third...", 40, 50},
+      {-1, nullptr, -1, -1},
+      {-1000, nullptr, -1, -1},
+      {1000, nullptr, -1, -1},
+  };
+
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    testing::Message message;
+    message << "While checking at index " << tests[i].offset << " for \'"
+            << tests[i].content << "\' at " << tests[i].start_offset << '-'
+            << tests[i].end_offset << '.';
+    SCOPED_TRACE(message);
+
+    int start_offset = -1, end_offset = -1;
+    char* content = atk_text_get_text_at_offset(
+        atk_text, tests[i].offset, ATK_TEXT_BOUNDARY_SENTENCE_START,
+        &start_offset, &end_offset);
+    ASSERT_STREQ(content, tests[i].content);
+    ASSERT_EQ(start_offset, tests[i].start_offset);
+    ASSERT_EQ(end_offset, tests[i].end_offset);
+    g_free(content);
+  }
+
+#if ATK_CHECK_VERSION(2, 10, 0)
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    testing::Message message;
+    message << "While checking at index " << tests[i].offset << " for \'"
+            << tests[i].content << "\' at " << tests[i].start_offset << '-'
+            << tests[i].end_offset << '.';
+    SCOPED_TRACE(message);
+
+    int start_offset = -1, end_offset = -1;
+    char* content = atk_text_get_string_at_offset(atk_text, tests[i].offset,
+                                                  ATK_TEXT_GRANULARITY_SENTENCE,
+                                                  &start_offset, &end_offset);
+    ASSERT_STREQ(content, tests[i].content);
+    ASSERT_EQ(start_offset, tests[i].start_offset);
+    ASSERT_EQ(end_offset, tests[i].end_offset);
+    g_free(content);
+  }
+#endif
+
+  g_object_unref(root_obj);
+}
+
+#if ATK_CHECK_VERSION(2, 10, 0)
+TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextParagraphGranularity) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kTextField;
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kValue,
+      "A short paragraph. \nAnother paragraph.\nA third...");
+  Init(root);
+
+  AtkObject* root_obj(GetRootAtkObject());
+  ASSERT_TRUE(ATK_IS_OBJECT(root_obj));
+  g_object_ref(root_obj);
+
+  ASSERT_TRUE(ATK_IS_TEXT(root_obj));
+  AtkText* atk_text = ATK_TEXT(root_obj);
+
+  static GetTextSegmentTest tests[] = {
+      {0, "A short paragraph. ", 0, 19},
+      {25, "Another paragraph.", 20, 38},
+      {-1, nullptr, -1, -1},
+      {12345, nullptr, -1, -1},
+  };
+
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    int start_offset = -1, end_offset = -1;
+    char* content = atk_text_get_string_at_offset(
+        atk_text, tests[i].offset, ATK_TEXT_GRANULARITY_PARAGRAPH,
+        &start_offset, &end_offset);
+    ASSERT_STREQ(content, tests[i].content) << "with test index=" << i;
+    ASSERT_EQ(start_offset, tests[i].start_offset) << "with test index=" << i;
+    ASSERT_EQ(end_offset, tests[i].end_offset) << "with test index=" << i;
+    g_free(content);
+  }
+#endif
+
+  g_object_unref(root_obj);
+}
+
+TEST_F(AXPlatformNodeAuraLinuxTest, TestAtkTextWithNonBMPCharacters) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kTextField;
+
+  // The playing card emoji in this string should be considered a single
+  // character offset for all AtkText API calls.
+  static const char root_text[] =
+      "\xF0\x9F\x83\x8f a decently long \xF0\x9F\x83\x8f string "
+      "\xF0\x9F\x83\x8f.";
+  root.AddStringAttribute(ax::mojom::StringAttribute::kValue, root_text);
+  Init(root);
+
+  AtkObject* root_obj(GetRootAtkObject());
+  ASSERT_TRUE(ATK_IS_OBJECT(root_obj));
+  g_object_ref(root_obj);
+
+  ASSERT_TRUE(ATK_IS_TEXT(root_obj));
+  AtkText* atk_text = ATK_TEXT(root_obj);
+
+  int root_text_length = g_utf8_strlen(root_text, -1);
+  ASSERT_EQ(atk_text_get_character_count(atk_text), root_text_length);
+
+  for (int i = 0; i < root_text_length; i++) {
+    testing::Message message;
+    message << "Checking character at offset " << i;
+    SCOPED_TRACE(message);
+
+    gunichar character = atk_text_get_character_at_offset(atk_text, i);
+    gunichar expected_character =
+        g_utf8_get_char_validated(g_utf8_offset_to_pointer(root_text, i), -1);
+    ASSERT_EQ(character, expected_character);
+
+    int start_offset = -1, end_offset = -1;
+    char* char_string = atk_text_get_text_at_offset(
+        atk_text, i, ATK_TEXT_BOUNDARY_CHAR, &start_offset, &end_offset);
+    character = g_utf8_get_char_validated(char_string, -1);
+    ASSERT_EQ(character, expected_character);
+    ASSERT_EQ(start_offset, i);
+    ASSERT_EQ(end_offset, i + 1);
+    g_free(char_string);
+
+#if ATK_CHECK_VERSION(2, 10, 0)
+    start_offset = -1;
+    end_offset = -1;
+    char_string = atk_text_get_string_at_offset(
+        atk_text, i, ATK_TEXT_GRANULARITY_CHAR, &start_offset, &end_offset);
+
+    character = g_utf8_get_char_validated(char_string, -1);
+    ASSERT_EQ(character, expected_character);
+    ASSERT_EQ(start_offset, i);
+    ASSERT_EQ(end_offset, i + 1);
+    g_free(char_string);
+#endif
+  }
+
+  static GetTextSegmentTest tests[] = {{0, "\xF0\x9F\x83\x8f ", 0, 2},
+                                       {6, "decently ", 4, 13}};
+
+  for (unsigned i = 0; i < G_N_ELEMENTS(tests); i++) {
+    int start_offset = -1, end_offset = -1;
+    char* word = atk_text_get_text_at_offset(atk_text, tests[i].offset,
+                                             ATK_TEXT_BOUNDARY_WORD_START,
+                                             &start_offset, &end_offset);
+    testing::Message message;
+    message << "Checking test with index=" << i << " and expected text=\'"
+            << tests[i].content << "\' at " << tests[1].start_offset << '-'
+            << tests[1].end_offset << '.';
+    SCOPED_TRACE(message);
+
+    ASSERT_STREQ(word, tests[i].content);
+    ASSERT_EQ(start_offset, tests[i].start_offset);
+    ASSERT_EQ(end_offset, tests[i].end_offset);
+
+    g_free(word);
+  }
 
   g_object_unref(root_obj);
 }

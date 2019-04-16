@@ -10,7 +10,6 @@
 // <include src="gaia_input.js">
 // <include src="gaia_password_changed.js">
 // <include src="hd-iron-icon.js">
-// <include src="html-echo.js">
 // <include src="offline_gaia.js">
 // <include src="saml_confirm_password.js">
 // <include src="saml_interstitial.js">
@@ -25,13 +24,11 @@
 // <include src="oobe_buttons.js">
 // <include src="oobe_change_picture.js">
 // <include src="oobe_dialog.js">
-// <include src="oobe_enrollment.js">
 // <include src="arc_terms_of_service.js">
 // <include src="oobe_reset.js">
 // <include src="oobe_reset_confirmation_overlay.js">
 // <include src="encryption_migration.js">
 // <include src="oobe_supervision_transition.js">
-// <include src="enrollment_license_card.js">
 // <include src="sync_consent.js">
 // <include src="fingerprint_setup.js">
 // <include src="recommend_apps.js">

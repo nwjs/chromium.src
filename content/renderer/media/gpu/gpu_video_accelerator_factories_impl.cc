@@ -209,8 +209,7 @@ bool GpuVideoAcceleratorFactoriesImpl::IsDecoderConfigSupported(
 std::unique_ptr<media::VideoDecoder>
 GpuVideoAcceleratorFactoriesImpl::CreateVideoDecoder(
     media::MediaLog* media_log,
-    const media::RequestOverlayInfoCB& request_overlay_info_cb,
-    const gfx::ColorSpace& target_color_space) {
+    const media::RequestOverlayInfoCB& request_overlay_info_cb) {
   DCHECK(video_accelerator_enabled_);
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(interface_factory_.is_bound());
@@ -223,12 +222,12 @@ GpuVideoAcceleratorFactoriesImpl::CreateVideoDecoder(
     interface_factory_->CreateVideoDecoder(mojo::MakeRequest(&video_decoder));
     return std::make_unique<media::MojoVideoDecoder>(
         task_runner_, this, media_log, std::move(video_decoder),
-        request_overlay_info_cb, target_color_space);
+        request_overlay_info_cb, rendering_color_space_);
   }
 #endif  // BUILDFLAG(ENABLE_MOJO_VIDEO_DECODER)
 
   return std::make_unique<media::GpuVideoDecoder>(
-      this, request_overlay_info_cb, target_color_space, media_log);
+      this, request_overlay_info_cb, rendering_color_space_, media_log);
 }
 
 std::unique_ptr<media::VideoDecodeAccelerator>
@@ -371,7 +370,7 @@ bool GpuVideoAcceleratorFactoriesImpl::ShouldUseGpuMemoryBuffersForVideoFrames(
 unsigned GpuVideoAcceleratorFactoriesImpl::ImageTextureTarget(
     gfx::BufferFormat format) {
   DCHECK(context_provider_);
-  return gpu::GetBufferTextureTarget(gfx::BufferUsage::GPU_READ_CPU_READ_WRITE,
+  return gpu::GetBufferTextureTarget(gfx::BufferUsage::SCANOUT_CPU_READ_WRITE,
                                      format,
                                      context_provider_->ContextCapabilities());
 }
@@ -440,6 +439,17 @@ GpuVideoAcceleratorFactoriesImpl::VideoFrameOutputFormat(
 
 gpu::gles2::GLES2Interface* GpuVideoAcceleratorFactoriesImpl::ContextGL() {
   return CheckContextLost() ? nullptr : context_provider_->ContextGL();
+}
+
+gpu::SharedImageInterface*
+GpuVideoAcceleratorFactoriesImpl::SharedImageInterface() {
+  return CheckContextLost() ? nullptr
+                            : context_provider_->SharedImageInterface();
+}
+
+gpu::GpuMemoryBufferManager*
+GpuVideoAcceleratorFactoriesImpl::GpuMemoryBufferManager() {
+  return gpu_memory_buffer_manager_;
 }
 
 std::unique_ptr<base::SharedMemory>

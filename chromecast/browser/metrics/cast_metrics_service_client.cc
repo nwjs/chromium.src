@@ -4,6 +4,7 @@
 
 #include "chromecast/browser/metrics/cast_metrics_service_client.h"
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/guid.h"
 #include "base/i18n/rtl.h"
@@ -201,7 +202,7 @@ std::string CastMetricsServiceClient::GetVersionString() {
   std::string version_string(PRODUCT_VERSION);
 
   version_string.append("-K");
-  version_string.append(base::IntToString(build_number));
+  version_string.append(base::NumberToString(build_number));
 
   const ::metrics::SystemProfileProto::Channel channel = GetChannel();
   CHECK(!CAST_IS_DEBUG_BUILD() ||
@@ -226,21 +227,21 @@ void CastMetricsServiceClient::CollectFinalMetricsForLog(
       base::TimeDelta::FromSeconds(kMetricsFetchTimeoutSeconds));
 }
 
-std::string CastMetricsServiceClient::GetMetricsServerUrl() {
+GURL CastMetricsServiceClient::GetMetricsServerUrl() {
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kOverrideMetricsUploadUrl)) {
-    return command_line->GetSwitchValueASCII(
-        switches::kOverrideMetricsUploadUrl);
+    return GURL(
+        command_line->GetSwitchValueASCII(switches::kOverrideMetricsUploadUrl));
   }
   // Note: This uses the old metrics service URL because some server-side
   // provisioning is needed to support the extra Cast traffic on the new URL.
-  return ::metrics::kOldMetricsServerUrl;
+  return GURL(::metrics::kOldMetricsServerUrl);
 }
 
 std::unique_ptr<::metrics::MetricsLogUploader>
 CastMetricsServiceClient::CreateUploader(
-    base::StringPiece server_url,
-    base::StringPiece insecure_server_url,
+    const GURL& server_url,
+    const GURL& insecure_server_url,
     base::StringPiece mime_type,
     ::metrics::MetricsLogUploader::MetricServiceType service_type,
     const ::metrics::MetricsLogUploader::UploadCallback& on_upload_complete) {

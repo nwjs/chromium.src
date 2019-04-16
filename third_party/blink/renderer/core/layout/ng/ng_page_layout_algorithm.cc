@@ -23,13 +23,13 @@ NGPageLayoutAlgorithm::NGPageLayoutAlgorithm(NGBlockNode node,
   container_builder_.SetIsNewFormattingContext(space.IsNewFormattingContext());
 }
 
-scoped_refptr<NGLayoutResult> NGPageLayoutAlgorithm::Layout() {
+scoped_refptr<const NGLayoutResult> NGPageLayoutAlgorithm::Layout() {
   NGBoxStrut borders = ComputeBorders(ConstraintSpace(), Node());
   NGBoxStrut scrollbars = Node().GetScrollbarSizes();
   NGBoxStrut padding = ComputePadding(ConstraintSpace(), Style());
   NGBoxStrut border_scrollbar_padding = borders + scrollbars + padding;
   NGLogicalSize border_box_size =
-      CalculateBorderBoxSize(ConstraintSpace(), Node());
+      CalculateBorderBoxSize(ConstraintSpace(), Node(), borders + padding);
   NGLogicalSize content_box_size =
       ShrinkAvailableSize(border_box_size, border_scrollbar_padding);
   NGLogicalSize page_size = content_box_size;
@@ -53,7 +53,7 @@ scoped_refptr<NGLayoutResult> NGPageLayoutAlgorithm::Layout() {
     // Lay out one page. Each page will become a fragment.
     NGBlockLayoutAlgorithm child_algorithm(Node(), child_space,
                                            break_token.get());
-    scoped_refptr<NGLayoutResult> result = child_algorithm.Layout();
+    scoped_refptr<const NGLayoutResult> result = child_algorithm.Layout();
     const NGPhysicalBoxFragment* page =
         ToNGPhysicalBoxFragment(result->PhysicalFragment());
 
@@ -72,9 +72,9 @@ scoped_refptr<NGLayoutResult> NGPageLayoutAlgorithm::Layout() {
 
   // Recompute the block-axis size now that we know our content size.
   border_box_size.block_size = ComputeBlockSizeForFragment(
-      ConstraintSpace(), Style(), intrinsic_block_size);
+      ConstraintSpace(), Style(), borders + padding, intrinsic_block_size);
   container_builder_.SetBlockSize(border_box_size.block_size);
-  container_builder_.SetBorders(ComputeBorders(ConstraintSpace(), Style()));
+  container_builder_.SetBorders(ComputeBorders(ConstraintSpace(), Node()));
   container_builder_.SetPadding(ComputePadding(ConstraintSpace(), Style()));
 
   NGOutOfFlowLayoutPart(&container_builder_, Node().IsAbsoluteContainer(),

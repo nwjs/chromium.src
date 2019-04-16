@@ -8,6 +8,7 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/path_service.h"
 #include "base/stl_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
@@ -159,9 +160,9 @@ IN_PROC_BROWSER_TEST_P(BrowserEncodingTest, TestEncodingAliasMapping) {
                 GetEncoding());
 }
 
-INSTANTIATE_TEST_CASE_P(EncodingAliases,
-                        BrowserEncodingTest,
-                        testing::ValuesIn(kEncodingTestDatas));
+INSTANTIATE_TEST_SUITE_P(EncodingAliases,
+                         BrowserEncodingTest,
+                         testing::ValuesIn(kEncodingTestDatas));
 
 // The following encodings are excluded from the auto-detection test because
 // it's a known issue that the current encoding detector does not detect them:

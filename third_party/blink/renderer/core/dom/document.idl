@@ -18,8 +18,6 @@
  * Boston, MA 02110-1301, USA.
  */
 
-[Custom] callback CustomElementConstructor = Element ();
-
 // https://html.spec.whatwg.org/C/#the-document-object
 enum DocumentReadyState { "loading", "interactive", "complete" };
 
@@ -87,7 +85,7 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     [RaisesException=Setter, MeasureAs=DocumentXMLStandalone] attribute boolean xmlStandalone;
 
     // HTML
-    // https://html.spec.whatwg.org/#the-document-object
+    // https://html.spec.whatwg.org/C/#the-document-object
 
     // resource metadata management
 
@@ -143,7 +141,7 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     [LenientThis] attribute EventHandler onreadystatechange;
 
     // HTML obsolete features
-    // https://html.spec.whatwg.org/#Document-partial
+    // https://html.spec.whatwg.org/C/#Document-partial
 
     [Measure] readonly attribute HTMLCollection anchors;
     [Measure] readonly attribute HTMLCollection applets;
@@ -190,8 +188,8 @@ typedef (HTMLScriptElement or SVGScriptElement) HTMLOrSVGScriptElement;
     [MeasureAs=DocumentCaretRangeFromPoint] Range caretRangeFromPoint([DefaultValue=Undefined] optional long x, [DefaultValue=Undefined] optional long y);
 
 
-    // https://wicg.github.io/feature-policy/#the-policy-object
-    [OriginTrialEnabled=FeaturePolicyJavaScriptInterface] readonly attribute FeaturePolicy featurePolicy;
+    // https://w3c.github.io/webappsec-feature-policy/#the-policy-object
+    [RuntimeEnabled=FeaturePolicyJavaScriptInterface] readonly attribute FeaturePolicy featurePolicy;
 
     // Deprecated prefixed page visibility API.
     // TODO(davidben): This is a property so attaching a deprecation warning results in false positives when outputting

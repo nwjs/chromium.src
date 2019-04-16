@@ -4,6 +4,8 @@
 
 #include "ash/app_list/app_list_metrics.h"
 
+#include <algorithm>
+
 #include "ash/app_list/model/app_list_model.h"
 #include "ash/app_list/model/search/search_model.h"
 #include "ash/app_list/model/search/search_result.h"
@@ -27,6 +29,16 @@ int CalculateAnimationSmoothness(int actual_frames,
   return smoothness;
 }
 
+// These constants affect logging, and  should not be changed without
+// deprecating the following UMA histograms:
+//  - Apps.AppListTileClickIndexAndQueryLength
+//  - Apps.AppListResultClickIndexAndQueryLength
+constexpr int kMaxLoggedQueryLength = 10;
+constexpr int kMaxLoggedSuggestionIndex = 6;
+constexpr int kMaxLoggedHistogramValue =
+    (kMaxLoggedSuggestionIndex + 1) * kMaxLoggedQueryLength +
+    kMaxLoggedSuggestionIndex;
+
 }  // namespace
 
 // The UMA histogram that logs smoothness of folder show/hide animation.
@@ -36,6 +48,10 @@ constexpr char kFolderShowHideAnimationSmoothness[] =
 // The UMA histogram that logs smoothness of pagination animation.
 constexpr char kPaginationTransitionAnimationSmoothness[] =
     "Apps.PaginationTransition.AnimationSmoothness";
+constexpr char kPaginationTransitionAnimationSmoothnessInTablet[] =
+    "Apps.PaginationTransition.AnimationSmoothness.TabletMode";
+constexpr char kPaginationTransitionAnimationSmoothnessInClamshell[] =
+    "Apps.PaginationTransition.AnimationSmoothness.ClamshellMode";
 
 // The UMA histogram that logs which state search results are opened from.
 constexpr char kAppListSearchResultOpenSourceHistogram[] =
@@ -71,11 +87,19 @@ void RecordFolderShowHideAnimationSmoothness(int actual_frames,
 
 void RecordPaginationAnimationSmoothness(int actual_frames,
                                          int ideal_duration_ms,
-                                         float refresh_rate) {
+                                         float refresh_rate,
+                                         bool is_tablet_mode) {
   const int smoothness = CalculateAnimationSmoothness(
       actual_frames, ideal_duration_ms, refresh_rate);
   UMA_HISTOGRAM_PERCENTAGE(kPaginationTransitionAnimationSmoothness,
                            smoothness);
+  if (is_tablet_mode) {
+    UMA_HISTOGRAM_PERCENTAGE(kPaginationTransitionAnimationSmoothnessInTablet,
+                             smoothness);
+  } else {
+    UMA_HISTOGRAM_PERCENTAGE(
+        kPaginationTransitionAnimationSmoothnessInClamshell, smoothness);
+  }
 }
 
 APP_LIST_EXPORT void RecordSearchResultOpenSource(
@@ -98,6 +122,29 @@ APP_LIST_EXPORT void RecordSearchResultOpenSource(
   UMA_HISTOGRAM_ENUMERATION(
       kAppListSearchResultOpenSourceHistogram, source,
       ApplistSearchResultOpenedSource::kMaxApplistSearchResultOpenedSource);
+}
+
+void RecordSearchLaunchIndexAndQueryLength(
+    SearchResultLaunchLocation launch_location,
+    int query_length,
+    int suggestion_index) {
+  if (suggestion_index < 0) {
+    LOG(ERROR) << "Received invalid suggestion index.";
+    return;
+  }
+
+  query_length = std::min(query_length, kMaxLoggedQueryLength);
+  suggestion_index = std::min(suggestion_index, kMaxLoggedSuggestionIndex);
+  const int logged_value =
+      (kMaxLoggedSuggestionIndex + 1) * query_length + suggestion_index;
+
+  if (launch_location == SearchResultLaunchLocation::kResultList) {
+    UMA_HISTOGRAM_EXACT_LINEAR(kAppListResultLaunchIndexAndQueryLength,
+                               logged_value, kMaxLoggedHistogramValue);
+  } else if (launch_location == SearchResultLaunchLocation::kTileList) {
+    UMA_HISTOGRAM_EXACT_LINEAR(kAppListTileLaunchIndexAndQueryLength,
+                               logged_value, kMaxLoggedHistogramValue);
+  }
 }
 
 void RecordZeroStateSearchResultUserActionHistogram(

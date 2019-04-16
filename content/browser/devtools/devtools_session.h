@@ -6,6 +6,8 @@
 #define CONTENT_BROWSER_DEVTOOLS_DEVTOOLS_SESSION_H_
 
 #include <map>
+#include <string>
+#include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
@@ -56,7 +58,6 @@ class DevToolsSession : public protocol::FrontendChannel,
                      std::unique_ptr<protocol::DevToolsDomainHandler>>;
   HandlersMap& handlers() { return handlers_; }
 
-  static bool IsRuntimeResumeCommand(base::Value* value);
   DevToolsSession* AttachChildSession(const std::string& session_id,
                                       DevToolsAgentHostImpl* agent_host,
                                       DevToolsAgentHostClient* client);
@@ -69,11 +70,11 @@ class DevToolsSession : public protocol::FrontendChannel,
   void DispatchProtocolMessageToAgent(int call_id,
                                       const std::string& method,
                                       const std::string& message);
-  void HandleCommand(std::unique_ptr<base::DictionaryValue> parsed_message,
+  void HandleCommand(std::unique_ptr<protocol::DictionaryValue> value,
                      const std::string& message);
   bool DispatchProtocolMessageInternal(
       const std::string& message,
-      std::unique_ptr<base::DictionaryValue> parsed_message);
+      std::unique_ptr<protocol::DictionaryValue> value);
 
   // protocol::FrontendChannel implementation.
   void sendProtocolResponse(
@@ -88,11 +89,11 @@ class DevToolsSession : public protocol::FrontendChannel,
 
   // blink::mojom::DevToolsSessionHost implementation.
   void DispatchProtocolResponse(
-      const std::string& message,
+      blink::mojom::DevToolsMessagePtr message,
       int call_id,
       blink::mojom::DevToolsSessionStatePtr updates) override;
   void DispatchProtocolNotification(
-      const std::string& message,
+      blink::mojom::DevToolsMessagePtr message,
       blink::mojom::DevToolsSessionStatePtr updates) override;
 
   // DevToolsExternalAgentProxy implementation.

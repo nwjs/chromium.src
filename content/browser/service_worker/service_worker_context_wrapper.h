@@ -108,6 +108,8 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   // ServiceWorkerContextCoreObserver implementation:
   void OnRegistrationCompleted(int64_t registration_id,
                                const GURL& scope) override;
+  void OnReportConsoleMessage(int64_t version_id,
+                              const ConsoleMessage& message) override;
   void OnNoControllees(int64_t version_id, const GURL& scope) override;
   void OnVersionStateChanged(int64_t version_id,
                              const GURL& scope,
@@ -133,7 +135,6 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   void DeleteForOrigin(const GURL& origin, ResultCallback callback) override;
   void PerformStorageCleanup(base::OnceClosure callback) override;
   void CheckHasServiceWorker(const GURL& url,
-                             const GURL& other_url,
                              CheckHasServiceWorkerCallback callback) override;
   void ClearAllServiceWorkersForTest(base::OnceClosure callback) override;
   void StartWorkerForScope(const GURL& scope,
@@ -266,6 +267,9 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   void GetUserDataForAllRegistrationsByKeyPrefix(
       const std::string& key_prefix,
       GetUserDataForAllRegistrationsCallback callback);
+  void ClearUserDataForAllRegistrationsByKeyPrefix(
+      const std::string& key_prefix,
+      StatusCallback callback);
 
   // This function can be called from any thread, but the callback will always
   // be called on the UI thread.
@@ -288,11 +292,12 @@ class CONTENT_EXPORT ServiceWorkerContextWrapper
   // connect to the host. The host stays alive as long as this info stays alive
   // (namely, as long as |out_provider_info->host_ptr_info| stays alive).
   //
+  // Returns null if context() is null.
+  //
   // Must be called on the IO thread.
   base::WeakPtr<ServiceWorkerProviderHost> PreCreateHostForSharedWorker(
       int process_id,
-      blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr*
-          out_provider_info);
+      blink::mojom::ServiceWorkerProviderInfoForWorkerPtr* out_provider_info);
 
  private:
   friend class BackgroundSyncManagerTest;

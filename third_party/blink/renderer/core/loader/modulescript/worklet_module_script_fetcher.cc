@@ -15,6 +15,7 @@ WorkletModuleScriptFetcher::WorkletModuleScriptFetcher(
 void WorkletModuleScriptFetcher::Fetch(
     FetchParameters& fetch_params,
     ResourceFetcher* fetch_client_settings_object_fetcher,
+    const Modulator* modulator_for_built_in_modules,
     ModuleGraphLevel level,
     ModuleScriptFetcher::Client* client) {
   if (module_responses_map_->GetEntry(
@@ -47,7 +48,7 @@ void WorkletModuleScriptFetcher::NotifyFinished(Resource* resource) {
   if (WasModuleLoadSuccessful(script_resource, &error_messages)) {
     params.emplace(
         script_resource->GetResponse().CurrentRequestUrl(),
-        script_resource->SourceText(),
+        script_resource->SourceText(), script_resource->CacheHandler(),
         script_resource->GetResourceRequest().GetFetchCredentialsMode());
   }
 

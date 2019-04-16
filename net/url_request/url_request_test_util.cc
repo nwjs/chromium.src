@@ -94,7 +94,7 @@ void TestURLRequestContext::Init() {
   }
   if (!http_auth_handler_factory()) {
     context_storage_.set_http_auth_handler_factory(
-        HttpAuthHandlerFactory::CreateDefault(host_resolver()));
+        HttpAuthHandlerFactory::CreateDefault());
   }
   if (!http_server_properties()) {
     context_storage_.set_http_server_properties(
@@ -131,6 +131,7 @@ void TestURLRequestContext::Init() {
     session_context.ct_policy_enforcer = ct_policy_enforcer();
     session_context.transport_security_state = transport_security_state();
     session_context.proxy_resolution_service = proxy_resolution_service();
+    session_context.proxy_delegate = proxy_delegate();
     session_context.ssl_config_service = ssl_config_service();
     session_context.http_auth_handler_factory = http_auth_handler_factory();
     session_context.http_server_properties = http_server_properties();

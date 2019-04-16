@@ -10,6 +10,7 @@
  *   ABOUT_ABOUT: (undefined|!settings.Route),
  *   ACCESSIBILITY: (undefined|!settings.Route),
  *   ACCOUNTS: (undefined|!settings.Route),
+ *   ACCOUNT_MANAGER: (undefined|!settings.Route),
  *   ADVANCED: (undefined|!settings.Route),
  *   ADDRESSES: (undefined|!settings.Route),
  *   ANDROID_APPS: (undefined|!settings.Route),
@@ -263,7 +264,10 @@ cr.define('settings', function() {
     r.SEARCH = r.BASIC.createSection('/search', 'search');
     r.SEARCH_ENGINES = r.SEARCH.createChild('/searchEngines');
     // <if expr="chromeos">
-    r.GOOGLE_ASSISTANT = r.SEARCH.createChild('/googleAssistant');
+    if (loadTimeData.valueExists('assistantEnabled') &&
+        loadTimeData.getBoolean('assistantEnabled')) {
+      r.GOOGLE_ASSISTANT = r.SEARCH.createChild('/googleAssistant');
+    }
 
     r.ANDROID_APPS = r.BASIC.createSection('/androidApps', 'androidApps');
     r.ANDROID_APPS_DETAILS = r.ANDROID_APPS.createChild('/androidApps/details');
@@ -527,7 +531,7 @@ cr.define('settings', function() {
           Object.keys(this.routes_)
               .find((key) => this.routes_[key].path == canonicalPath);
 
-      return !!matchingKey ? this.routes_[matchingKey] : null;
+      return matchingKey ? this.routes_[matchingKey] : null;
     }
 
     /**

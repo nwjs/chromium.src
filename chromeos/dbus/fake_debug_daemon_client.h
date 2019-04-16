@@ -52,7 +52,7 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakeDebugDaemonClient
   void GetPerfOutput(base::TimeDelta duration,
                      const std::vector<std::string>& perf_args,
                      int file_descriptor,
-                     VoidDBusMethodCallback callback) override;
+                     DBusMethodCallback<uint64_t> callback) override;
   void GetScrubbedLogs(const GetLogsCallback& callback) override;
   void GetScrubbedBigLogs(const GetLogsCallback& callback) override;
   void GetAllLogs(const GetLogsCallback& callback) override;
@@ -90,21 +90,28 @@ class COMPONENT_EXPORT(CHROMEOS_DBUS) FakeDebugDaemonClient
   void StartConcierge(ConciergeCallback callback) override;
   void StopConcierge(ConciergeCallback callback) override;
   void SetRlzPingSent(SetRlzPingSentCallback callback) override;
+  void SetSchedulerConfiguration(const std::string& config_name,
+                                 VoidDBusMethodCallback callback) override;
 
   // Sets debugging features mask for testing.
-  virtual void SetDebuggingFeaturesStatus(int featues_mask);
+  virtual void SetDebuggingFeaturesStatus(int features_mask);
 
   // Changes the behavior of WaitForServiceToBeAvailable(). This method runs
   // pending callbacks if is_available is true.
   void SetServiceIsAvailable(bool is_available);
 
+  const std::string& scheduler_configuration_name() const {
+    return scheduler_configuration_name_;
+  }
+
  private:
-  int featues_mask_;
+  int features_mask_;
 
   bool service_is_available_;
   std::vector<WaitForServiceToBeAvailableCallback>
       pending_wait_for_service_to_be_available_callbacks_;
   std::set<std::string> printers_;
+  std::string scheduler_configuration_name_;
 
   DISALLOW_COPY_AND_ASSIGN(FakeDebugDaemonClient);
 };

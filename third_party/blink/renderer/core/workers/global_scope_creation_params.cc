@@ -5,8 +5,9 @@
 #include "third_party/blink/renderer/core/workers/global_scope_creation_params.h"
 
 #include <memory>
+#include "base/feature_list.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/network/content_security_policy_parsers.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
@@ -15,6 +16,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     const KURL& script_url,
     mojom::ScriptType script_type,
     OffMainThreadWorkerScriptFetchOption off_main_thread_fetch_option,
+    const String& global_scope_name,
     const String& user_agent,
     scoped_refptr<WebWorkerFetchContext> web_worker_fetch_context,
     const Vector<CSPHeaderAndType>& content_security_policy_parsed_headers,
@@ -37,6 +39,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     : script_url(script_url.Copy()),
       script_type(script_type),
       off_main_thread_fetch_option(off_main_thread_fetch_option),
+      global_scope_name(global_scope_name.IsolatedCopy()),
       nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       web_worker_fetch_context(std::move(web_worker_fetch_context)),
@@ -63,7 +66,11 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     case mojom::ScriptType::kClassic:
       if (this->off_main_thread_fetch_option ==
           OffMainThreadWorkerScriptFetchOption::kEnabled) {
-        DCHECK(RuntimeEnabledFeatures::OffMainThreadWorkerScriptFetchEnabled());
+        DCHECK(base::FeatureList::IsEnabled(
+                   features::kOffMainThreadDedicatedWorkerScriptFetch) ||
+               base::FeatureList::IsEnabled(
+                   features::kOffMainThreadServiceWorkerScriptFetch) ||
+               features::IsOffMainThreadSharedWorkerScriptFetchEnabled());
       }
       break;
     case mojom::ScriptType::kModule:

@@ -40,9 +40,10 @@ class CORE_EXPORT NGInlineNode : public NGLayoutInputNode {
     return GetDocument().InLineHeightQuirksMode();
   }
 
-  scoped_refptr<NGLayoutResult> Layout(const NGConstraintSpace&,
-                                       const NGBreakToken*,
-                                       NGInlineChildLayoutContext* context);
+  scoped_refptr<const NGLayoutResult> Layout(
+      const NGConstraintSpace&,
+      const NGBreakToken*,
+      NGInlineChildLayoutContext* context);
 
   // Prepare to reuse fragments. Returns false if reuse is not possible.
   bool PrepareReuseFragments(const NGConstraintSpace&);
@@ -75,19 +76,10 @@ class CORE_EXPORT NGInlineNode : public NGLayoutInputNode {
   // This funciton must be called with clean layout.
   const NGOffsetMapping* ComputeOffsetMappingIfNeeded();
 
-  // Get |NGOffsetMapping| for the |layout_block_flow|. If |layout_block_flow|
-  // is LayoutNG and it is already laid out, this function is the same as
-  // |ComputeOffsetMappingIfNeeded|. |storage| is not used in this case, and can
-  // be null.
-  //
-  // Otherwise, this function computes |NGOffsetMapping| and store in |storage|
-  // as well as returning the pointer. The caller is responsible for keeping
-  // |storage| for the life cycle of the returned |NGOffsetMapping|.
-  // TODO(yosin): We should get rid of |storage| parameter, since it is no
-  // longer used.
+  // Get |NGOffsetMapping| for the |layout_block_flow|. |layout_block_flow|
+  // should be laid out. This function works for both new and legacy layout.
   static const NGOffsetMapping* GetOffsetMapping(
-      LayoutBlockFlow* layout_block_flow,
-      std::unique_ptr<NGOffsetMapping>* storage);
+      LayoutBlockFlow* layout_block_flow);
 
   bool IsBidiEnabled() const { return Data().is_bidi_enabled_; }
   TextDirection BaseDirection() const { return Data().BaseDirection(); }
@@ -143,11 +135,6 @@ class CORE_EXPORT NGInlineNode : public NGLayoutInputNode {
 
   static void ComputeOffsetMapping(LayoutBlockFlow* layout_block_flow,
                                    NGInlineNodeData* data);
-
-  // This function shares bidi segmentation code between inline layout algorithm
-  // and |NGCaretNavigator| building, which may run on legacy layout.
-  // TODO(layout-dev): Merge with |SegmentBidiRuns| when we remove legacy layout
-  static void SegmentBidiRunsInternal(NGInlineNodeData*, const ComputedStyle&);
 
   friend class NGLineBreakerTest;
   friend class NGInlineNodeLegacy;

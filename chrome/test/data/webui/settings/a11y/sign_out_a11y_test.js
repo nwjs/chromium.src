@@ -86,7 +86,9 @@ AccessibilityTest.define('SettingsA11ySignOut', {
             if (this.peoplePage.diceEnabled_) {
               const syncAccountControl =
                   this.peoplePage.$$('settings-sync-account-control');
+              syncAccountControl.unifiedConsentEnabled = true;
               syncAccountControl.syncStatus = {
+                setupInProgress: false,
                 signedIn: true,
                 signedInUsername: 'bar@bar.com',
                 statusAction: settings.StatusAction.NO_ACTION,

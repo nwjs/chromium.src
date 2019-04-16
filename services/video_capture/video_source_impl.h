@@ -12,6 +12,8 @@
 #include "mojo/public/cpp/bindings/binding_set.h"
 #include "services/video_capture/broadcasting_receiver.h"
 #include "services/video_capture/device_factory_media_to_mojo_adapter.h"
+#include "services/video_capture/public/mojom/device.mojom.h"
+#include "services/video_capture/public/mojom/video_source.mojom.h"
 #include "services/video_capture/public/mojom/video_source_provider.mojom.h"
 
 namespace video_capture {
@@ -40,14 +42,18 @@ class VideoSourceImpl : public mojom::VideoSource {
     kNotStarted,
     kStartingAsynchronously,
     kStarted,
+    kStoppingAsynchronously
   };
 
   void OnClientDisconnected();
+  void StartDeviceWithSettings(
+      const media::VideoCaptureParams& requested_settings);
   void OnCreateDeviceResponse(mojom::DeviceAccessResultCode result_code);
   void OnPushSubscriptionClosedOrDisconnectedOrDiscarded(
       PushVideoStreamSubscriptionImpl* subscription,
       base::OnceClosure done_cb);
-  void StopDevice();
+  void StopDeviceAsynchronously();
+  void OnStopDeviceComplete();
 
   mojom::DeviceFactory* const device_factory_;
   const std::string device_id_;
@@ -63,6 +69,9 @@ class VideoSourceImpl : public mojom::VideoSource {
   DeviceStatus device_status_;
   mojom::DevicePtr device_;
   media::VideoCaptureParams device_start_settings_;
+  bool restart_device_once_when_stop_complete_;
+
+  SEQUENCE_CHECKER(sequence_checker_);
 
   base::WeakPtrFactory<VideoSourceImpl> weak_factory_;
 

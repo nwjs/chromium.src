@@ -6,13 +6,23 @@
 #define CHROME_CREDENTIAL_PROVIDER_TEST_GCP_FAKES_H_
 
 #include <map>
+#include <memory>
+#include <string>
+#include <vector>
 
 #include "base/strings/string16.h"
 #include "base/win/scoped_handle.h"
+#include "chrome/credential_provider/gaiacp/associated_user_validator.h"
+#include "chrome/credential_provider/gaiacp/internet_availability_checker.h"
 #include "chrome/credential_provider/gaiacp/os_process_manager.h"
 #include "chrome/credential_provider/gaiacp/os_user_manager.h"
 #include "chrome/credential_provider/gaiacp/scoped_lsa_policy.h"
 #include "chrome/credential_provider/gaiacp/scoped_user_profile.h"
+#include "chrome/credential_provider/gaiacp/win_http_url_fetcher.h"
+
+namespace base {
+class WaitableEvent;
+}
 
 namespace credential_provider {
 
@@ -54,24 +64,36 @@ class FakeOSUserManager : public OSUserManager {
                   bool add_to_users_group,
                   BSTR* sid,
                   DWORD* error) override;
-  HRESULT ChangeUserPassword(const wchar_t* username,
+  HRESULT ChangeUserPassword(const wchar_t* domain,
+                             const wchar_t* username,
                              const wchar_t* password,
                              const wchar_t* old_password) override;
-  HRESULT IsWindowsPasswordValid(const wchar_t* username,
+  HRESULT IsWindowsPasswordValid(const wchar_t* domain,
+                                 const wchar_t* username,
                                  const wchar_t* password) override;
 
-  HRESULT CreateLogonToken(const wchar_t* username,
+  HRESULT CreateLogonToken(const wchar_t* domain,
+                           const wchar_t* username,
                            const wchar_t* password,
                            bool interactive,
                            base::win::ScopedHandle* token) override;
-  HRESULT GetUserSID(const wchar_t* username, PSID* sid) override;
+  HRESULT GetUserSID(const wchar_t* domain,
+                     const wchar_t* username,
+                     PSID* sid) override;
   HRESULT FindUserBySID(const wchar_t* sid,
                         wchar_t* username,
-                        DWORD length) override;
+                        DWORD username_size,
+                        wchar_t* domain,
+                        DWORD domain_size) override;
   HRESULT RemoveUser(const wchar_t* username, const wchar_t* password) override;
 
+  HRESULT GetUserFullname(const wchar_t* domain,
+                          const wchar_t* username,
+                          base::string16* fullname) override;
+
   struct UserInfo {
-    UserInfo(const wchar_t* password,
+    UserInfo(const wchar_t* domain,
+             const wchar_t* password,
              const wchar_t* fullname,
              const wchar_t* comment,
              const wchar_t* sid);
@@ -81,6 +103,7 @@ class FakeOSUserManager : public OSUserManager {
 
     bool operator==(const UserInfo& other) const;
 
+    base::string16 domain;
     base::string16 password;
     base::string16 fullname;
     base::string16 comment;
@@ -90,6 +113,21 @@ class FakeOSUserManager : public OSUserManager {
 
   // Creates a new unique sid.  Free returned sid with FreeSid().
   HRESULT CreateNewSID(PSID* sid);
+
+  // Creates a fake user with the given |username|, |password|, |fullname|,
+  // |comment|. If |gaia_id| is non-empty, also associates the user with
+  // the given gaia id. If |email| is non-empty, sets the email to use for
+  // reauth to be this one.
+  // |sid| is allocated and filled with the SID of the new user.
+  HRESULT CreateTestOSUser(const base::string16& username,
+                           const base::string16& password,
+                           const base::string16& fullname,
+                           const base::string16& comment,
+                           const base::string16& gaia_id,
+                           const base::string16& email,
+                           BSTR* sid);
+
+  size_t GetUserCount() const { return username_to_info_.size(); }
 
  private:
   OSUserManager* original_manager_;
@@ -131,6 +169,7 @@ class FakeScopedLsaPolicy : public ScopedLsaPolicy {
                               wchar_t* value,
                               size_t length) override;
   HRESULT AddAccountRights(PSID sid, const wchar_t* right) override;
+  HRESULT RemoveAccountRights(PSID sid, const wchar_t* right) override;
   HRESULT RemoveAccount(PSID sid) override;
 
  private:
@@ -156,6 +195,7 @@ class FakeScopedUserProfileFactory {
 
  private:
   std::unique_ptr<ScopedUserProfile> Create(const base::string16& sid,
+                                            const base::string16& domain,
                                             const base::string16& username,
                                             const base::string16& password);
 
@@ -163,15 +203,116 @@ class FakeScopedUserProfileFactory {
 };
 
 class FakeScopedUserProfile : public ScopedUserProfile {
+ public:
+  HRESULT SaveAccountInfo(const base::DictionaryValue& properties) override;
+
  private:
   friend class FakeScopedUserProfileFactory;
 
   FakeScopedUserProfile(const base::string16& sid,
+                        const base::string16& domain,
                         const base::string16& username,
                         const base::string16& password);
   ~FakeScopedUserProfile() override;
+
+  bool is_valid_ = false;
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
+// A scoped FakeWinHttpUrlFetcher factory.  Installs itself when constructed
+// and removes itself when deleted.
+class FakeWinHttpUrlFetcherFactory {
+ public:
+  FakeWinHttpUrlFetcherFactory();
+  ~FakeWinHttpUrlFetcherFactory();
+
+  void SetFakeResponse(
+      const GURL& url,
+      const WinHttpUrlFetcher::Headers& headers,
+      const std::string& response,
+      HANDLE send_response_event_handle = INVALID_HANDLE_VALUE);
+  size_t requests_created() const { return requests_created_; }
+
+ private:
+  std::unique_ptr<WinHttpUrlFetcher> Create(const GURL& url);
+
+  WinHttpUrlFetcher::CreatorCallback original_creator_;
+
+  struct Response {
+    Response();
+    Response(const Response& rhs);
+    Response(const WinHttpUrlFetcher::Headers& new_headers,
+             const std::string& new_response,
+             HANDLE new_send_response_event_handle);
+    ~Response();
+    WinHttpUrlFetcher::Headers headers;
+    std::string response;
+    HANDLE send_response_event_handle;
+  };
+
+  std::map<GURL, Response> fake_responses_;
+  size_t requests_created_ = 0;
+};
+
+class FakeWinHttpUrlFetcher : public WinHttpUrlFetcher {
+ public:
+  explicit FakeWinHttpUrlFetcher(const GURL& url);
+  ~FakeWinHttpUrlFetcher() override;
+
+  using WinHttpUrlFetcher::Headers;
+
+  const Headers& response_headers() const { return response_headers_; }
+
+  // WinHttpUrlFetcher
+  bool IsValid() const override;
+  HRESULT Fetch(std::vector<char>* response) override;
+  HRESULT Close() override;
+
+ private:
+  friend FakeWinHttpUrlFetcherFactory;
+
+  Headers response_headers_;
+  std::string response_;
+  HANDLE send_response_event_handle_;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+class FakeAssociatedUserValidator : public AssociatedUserValidator {
+ public:
+  FakeAssociatedUserValidator();
+  explicit FakeAssociatedUserValidator(base::TimeDelta validation_timeout);
+  ~FakeAssociatedUserValidator() override;
+
+  // Returns whether the user should be locked out of sign in (only used in
+  // tests).
+  bool IsUserAccessBlocked(const base::string16& sid) const;
+
+ private:
+  AssociatedUserValidator* original_validator_ = nullptr;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+class FakeInternetAvailabilityChecker : public InternetAvailabilityChecker {
+ public:
+  enum HasInternetConnectionCheckType { kHicForceYes, kHicForceNo };
+
+  FakeInternetAvailabilityChecker(
+      HasInternetConnectionCheckType has_internet_connection = kHicForceYes);
+  ~FakeInternetAvailabilityChecker() override;
+
+  bool HasInternetConnection() override;
+
+ private:
+  InternetAvailabilityChecker* original_checker_ = nullptr;
+
+  // Used during tests to force the credential provider to believe if an
+  // internet connection is possible or not.  In production the value is
+  // always set to HIC_CHECK_ALWAYS to perform a real check at runtime.
+  HasInternetConnectionCheckType has_internet_connection_ = kHicForceYes;
+};
 }  // namespace credential_provider
 
 #endif  // CHROME_CREDENTIAL_PROVIDER_TEST_GCP_FAKES_H_

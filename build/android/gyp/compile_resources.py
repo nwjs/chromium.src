@@ -104,6 +104,14 @@ def _ParseArgs(args):
            'non-final and have their package ID changed at runtime in R.java. '
            'Implies and overrides --shared-resources.')
 
+  input_opts.add_argument(
+      '--shared-resources-whitelist-locales',
+      default='[]',
+      help='Optional GN-list of locales. If provided, all strings corresponding'
+      ' to this locale list will be kept in the final output for the '
+      'resources identified through --shared-resources-whitelist, even '
+      'if --locale-whitelist is being used.')
+
   input_opts.add_argument('--proto-format', action='store_true',
                           help='Compile resources to protocol buffer format.')
 
@@ -189,6 +197,8 @@ def _ParseArgs(args):
   resource_utils.HandleCommonOptions(options)
 
   options.locale_whitelist = build_utils.ParseGnList(options.locale_whitelist)
+  options.shared_resources_whitelist_locales = build_utils.ParseGnList(
+      options.shared_resources_whitelist_locales)
   options.resource_blacklist_exceptions = build_utils.ParseGnList(
       options.resource_blacklist_exceptions)
 
@@ -328,7 +338,7 @@ def _ToAndroidLocales(locale_whitelist, support_zh_hk):
     support_zh_hk: True if we need to support zh-HK by duplicating
       the zh-TW strings.
   Returns:
-    A list of matching Android config locale qualifier names.
+    A set of matching Android config locale qualifier names.
   """
   ret = set()
   for locale in locale_whitelist:
@@ -347,7 +357,7 @@ def _ToAndroidLocales(locale_whitelist, support_zh_hk):
     assert not any('HK' in l for l in locale_whitelist), (
         'Remove special logic if zh-HK is now supported (crbug.com/780847).')
     ret.add('zh-rHK')
-  return sorted(ret)
+  return set(ret)
 
 
 def _MoveImagesToNonMdpiFolders(res_root):
@@ -526,8 +536,7 @@ def _ResourceNameFromPath(path):
 
 
 def _CreateKeepPredicate(resource_dirs, resource_blacklist_regex,
-                         resource_blacklist_exceptions,
-                         android_locale_whitelist):
+                         resource_blacklist_exceptions):
   """Return a predicate lambda to determine which resource files to keep.
 
   Args:
@@ -537,15 +546,12 @@ def _CreateKeepPredicate(resource_dirs, resource_blacklist_regex,
       in |resource_blacklist_exceptions|.
     resource_blacklist_exceptions: A list of glob patterns corresponding
       to exceptions to the |resource_blacklist_regex|.
-    android_locale_whitelist: An optional whitelist of Android locale names.
-      If set, any localized string resources that is not in this whitelist
-      will be removed.
   Returns:
     A lambda that takes a path, and returns true if the corresponding file
     must be kept.
   """
   naive_predicate = lambda path: os.path.basename(path)[0] != '.'
-  if resource_blacklist_regex == '' and not android_locale_whitelist:
+  if resource_blacklist_regex == '':
     # Do not extract dotfiles (e.g. ".gitkeep"). aapt ignores them anyways.
     return naive_predicate
 
@@ -566,26 +572,13 @@ def _CreateKeepPredicate(resource_dirs, resource_blacklist_regex,
       if re.search(r'[/-]drawable[/-]', path) and naive_predicate(path):
         non_filtered_drawables.add(_ResourceNameFromPath(path))
 
-  # NOTE: Defined as a function because when using a lambda definition,
-  # 'git cl format' will expand everything on a very long line that is
-  # much larger than the column limit.
+  # NOTE: Defined as a function, instead of a lambda to avoid the
+  # auto-formatter to put this on a very long line that overflows.
   def drawable_predicate(path):
     return (naive_predicate(path)
             or _ResourceNameFromPath(path) not in non_filtered_drawables)
 
-  if not android_locale_whitelist:
-    return drawable_predicate
-
-  # A simple predicate that removes localized strings .xml files that are
-  # not part of |android_locale_whitelist|.
-  android_locale_whitelist = set(android_locale_whitelist)
-
-  def is_bad_locale(path):
-    """Return true iff |path| is a resource for a non-whitelisted locale."""
-    locale = resource_utils.FindLocaleInStringResourceFilePath(path)
-    return locale and locale not in android_locale_whitelist
-
-  return lambda path: drawable_predicate(path) and not is_bad_locale(path)
+  return drawable_predicate
 
 
 def _ConvertToWebP(webp_binary, png_files):
@@ -657,6 +650,71 @@ def _CreateResourceInfoFile(
     info_file.writelines(sorted(lines))
 
 
+def _RemoveUnwantedLocalizedStrings(dep_subdirs, options):
+  """Remove localized strings that should not go into the final output.
+
+  Args:
+    dep_subdirs: List of resource dependency directories.
+    options: Command-line options namespace.
+  """
+  if (not options.locale_whitelist
+      and not options.shared_resources_whitelist_locales):
+    # Keep everything, there is nothing to do.
+    return
+
+  # Collect locale and file paths from the existing subdirs.
+  # The following variable maps Android locale names to
+  # sets of corresponding xml file paths.
+  locale_to_files_map = collections.defaultdict(set)
+  for directory in dep_subdirs:
+    for f in _IterFiles(directory):
+      locale = resource_utils.FindLocaleInStringResourceFilePath(f)
+      if locale:
+        locale_to_files_map[locale].add(f)
+
+  all_locales = set(locale_to_files_map)
+
+  # Set A: wanted locales, either all of them or the
+  # list provided by --locale-whitelist.
+  wanted_locales = all_locales
+  if options.locale_whitelist:
+    wanted_locales = _ToAndroidLocales(options.locale_whitelist,
+                                       options.support_zh_hk)
+
+  # Set B: shared resources locales, which is either set A
+  # or the list provided by --shared-resources-whitelist-locales
+  shared_resources_locales = wanted_locales
+  shared_names_whitelist = set()
+  if options.shared_resources_whitelist_locales:
+    shared_names_whitelist = set(
+        resource_utils.GetRTxtStringResourceNames(
+            options.shared_resources_whitelist))
+
+    shared_resources_locales = _ToAndroidLocales(
+        options.shared_resources_whitelist_locales, options.support_zh_hk)
+
+  # Remove any file that belongs to a locale not covered by
+  # either A or B.
+  removable_locales = (all_locales - wanted_locales - shared_resources_locales)
+  for locale in removable_locales:
+    for path in locale_to_files_map[locale]:
+      os.remove(path)
+
+  # For any locale in B but not in A, only keep the shared
+  # resource strings in each file.
+  for locale in shared_resources_locales - wanted_locales:
+    for path in locale_to_files_map[locale]:
+      resource_utils.FilterAndroidResourceStringsXml(
+          path, lambda x: x in shared_names_whitelist)
+
+  # For any locale in A but not in B, only keep the strings
+  # that are _not_ from shared resources in the file.
+  for locale in wanted_locales - shared_resources_locales:
+    for path in locale_to_files_map[locale]:
+      resource_utils.FilterAndroidResourceStringsXml(
+          path, lambda x: x not in shared_names_whitelist)
+
+
 def _PackageApk(options, dep_subdirs, temp_dir, gen_dir, r_txt_path):
   """Compile resources with aapt2 and generate intermediate .ap_ file.
 
@@ -674,13 +732,14 @@ def _PackageApk(options, dep_subdirs, temp_dir, gen_dir, r_txt_path):
   renamed_paths.update(_DuplicateZhResources(dep_subdirs))
   renamed_paths.update(_RenameLocaleResourceDirs(dep_subdirs))
 
+  _RemoveUnwantedLocalizedStrings(dep_subdirs, options)
+
   # Create a function that selects which resource files should be packaged
   # into the final output. Any file that does not pass the predicate will
   # be removed below.
-  keep_predicate = _CreateKeepPredicate(
-      dep_subdirs, options.resource_blacklist_regex,
-      options.resource_blacklist_exceptions,
-      _ToAndroidLocales(options.locale_whitelist, options.support_zh_hk))
+  keep_predicate = _CreateKeepPredicate(dep_subdirs,
+                                        options.resource_blacklist_regex,
+                                        options.resource_blacklist_exceptions)
   png_paths = []
   for directory in dep_subdirs:
     for f in _IterFiles(directory):
@@ -701,8 +760,6 @@ def _PackageApk(options, dep_subdirs, temp_dir, gen_dir, r_txt_path):
   else:
     unoptimized_apk_path = options.apk_path
   link_command = _CreateLinkApkArgs(options)
-  link_command += ['-o', unoptimized_apk_path]
-  link_command += ['--output-text-symbols', r_txt_path]
   # TODO(digit): Is this below actually required for R.txt generation?
   link_command += ['--java', gen_dir]
 
@@ -715,22 +772,28 @@ def _PackageApk(options, dep_subdirs, temp_dir, gen_dir, r_txt_path):
 
   # Creates a .zip with AndroidManifest.xml, resources.arsc, res/*
   # Also creates R.txt
-  build_utils.CheckOutput(
-      link_command, print_stdout=False, print_stderr=False)
+  with build_utils.AtomicOutput(unoptimized_apk_path) as unoptimized, \
+      build_utils.AtomicOutput(r_txt_path) as r_txt:
+    link_command += ['-o', unoptimized.name]
+    link_command += ['--output-text-symbols', r_txt.name]
+    build_utils.CheckOutput(
+        link_command, print_stdout=False, print_stderr=False)
 
-  if options.optimize_resources:
-    _OptimizeApk(options, temp_dir, unoptimized_apk_path, r_txt_path)
+    if options.optimize_resources:
+      with build_utils.AtomicOutput(options.apk_path) as optimized:
+        _OptimizeApk(optimized.name, options, temp_dir, unoptimized.name,
+                     r_txt.name)
 
   _CreateResourceInfoFile(
       renamed_paths, options.apk_info_path, options.dependencies_res_zips)
 
 
-def _OptimizeApk(options, temp_dir, unoptimized_apk_path, r_txt_path):
+def _OptimizeApk(output, options, temp_dir, unoptimized_apk_path, r_txt_path):
   """Optimize intermediate .ap_ file with aapt2.
 
   Args:
-    options: The command-line options tuple. E.g. the generated apk
-      will be written to |options.apk_path|.
+    output: Path to write to.
+    options: The command-line options.
     temp_dir: A temporary directory.
     unoptimized_apk_path: path of the apk to optimize.
     r_txt_path: path to the R.txt file of the unoptimized apk.
@@ -754,7 +817,7 @@ def _OptimizeApk(options, temp_dir, unoptimized_apk_path, r_txt_path):
       'optimize',
       '--enable-resource-obfuscation',
       '-o',
-      options.apk_path,
+      output,
       '--resources-config-path',
       gen_config_path,
       unoptimized_apk_path,
@@ -805,7 +868,17 @@ def _WriteFinalRTxtFile(options, aapt_r_txt_path):
   return r_txt_file
 
 
-def _OnStaleMd5(options, debug_temp_resources_dir):
+def main(args):
+  args = build_utils.ExpandFileArgs(args)
+  options = _ParseArgs(args)
+
+  debug_temp_resources_dir = os.environ.get(_ENV_DEBUG_VARIABLE)
+  if debug_temp_resources_dir:
+    debug_temp_resources_dir = os.path.join(debug_temp_resources_dir,
+                                            os.path.basename(options.apk_path))
+    build_utils.DeleteDirectory(debug_temp_resources_dir)
+    build_utils.MakeDirectory(debug_temp_resources_dir)
+
   with resource_utils.BuildContext(debug_temp_resources_dir) as build:
     dep_subdirs = resource_utils.ExtractDeps(options.dependencies_res_zips,
                                              build.deps_dir)
@@ -848,71 +921,12 @@ def _OnStaleMd5(options, debug_temp_resources_dir):
         raise Exception('Invalid package ID 0x%x (expected 0x%x)' %
                         (package_id, expected_id))
 
-
-def main(args):
-  args = build_utils.ExpandFileArgs(args)
-  options = _ParseArgs(args)
-
-  # Order of these must match order specified in GN so that the correct one
-  # appears first in the depfile.
-  possible_output_paths = [
-      options.apk_path,
-      options.apk_path + '.info',
-      options.r_text_out,
-      options.srcjar_out,
-      options.proguard_file,
-      options.proguard_file_main_dex,
-      options.unoptimized_resources_path,
-  ]
-  output_paths = [x for x in possible_output_paths if x]
-
-  # List python deps in input_strings rather than input_paths since the contents
-  # of them does not change what gets written to the depsfile.
-  input_strings = options.extra_res_packages + [
-      options.shared_resources,
-      options.resource_blacklist_regex,
-      options.resource_blacklist_exceptions,
-      str(options.debuggable),
-      str(options.png_to_webp),
-      str(options.support_zh_hk),
-      str(options.no_xml_namespaces),
-      str(options.optimize_resources),
-  ]
-
-  input_strings.extend(_CreateLinkApkArgs(options))
-
-  debug_temp_resources_dir = os.environ.get(_ENV_DEBUG_VARIABLE)
-  if debug_temp_resources_dir:
-    debug_temp_resources_dir = os.path.join(debug_temp_resources_dir,
-                                            os.path.basename(options.apk_path))
-    build_utils.DeleteDirectory(debug_temp_resources_dir)
-    build_utils.MakeDirectory(debug_temp_resources_dir)
-
-
-  possible_input_paths = [
-      options.aapt_path,
-      options.aapt2_path,
-      options.android_manifest,
-      options.shared_resources_whitelist,
-      options.resources_config_path,
-  ]
-  possible_input_paths += options.include_resources
-  input_paths = [x for x in possible_input_paths if x]
-  input_paths.extend(options.dependencies_res_zips)
-  input_paths.extend(options.extra_r_text_files)
-
-  if options.webp_binary:
-    input_paths.append(options.webp_binary)
-
-  build_utils.CallAndWriteDepfileIfStale(
-      lambda: _OnStaleMd5(options, debug_temp_resources_dir),
-      options,
-      input_paths=input_paths,
-      input_strings=input_strings,
-      output_paths=output_paths,
-      force=bool(debug_temp_resources_dir),
-      depfile_deps=options.dependencies_res_zips + options.extra_r_text_files,
-      add_pydeps=False)
+  if options.depfile:
+    build_utils.WriteDepfile(
+        options.depfile,
+        options.apk_path,
+        inputs=options.dependencies_res_zips + options.extra_r_text_files,
+        add_pydeps=False)
 
 
 if __name__ == '__main__':

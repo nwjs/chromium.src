@@ -30,8 +30,8 @@ if (is_android) {
       ":crazy_linker_test_dl_wrappers_recursive",
       ":crazy_linker_test_dl_wrappers_valid_handles",
       ":crazy_linker_test_dl_wrappers_with_system_handle",
+      ":crazy_linker_test_jni_hooks",
       ":crazy_linker_test_load_library",
-      ":crazy_linker_test_load_library_callbacks",
       ":crazy_linker_test_load_library_depends",
       ":crazy_linker_test_load_library_with_gnu_hash_table",
       ":crazy_linker_test_load_library_with_relr_relocations",
@@ -100,6 +100,8 @@ if (is_android) {
         "src/src/crazy_linker_shared_library.h",
         "src/src/crazy_linker_system.cpp",
         "src/src/crazy_linker_system.h",
+        "src/src/crazy_linker_system_android.cpp",
+        "src/src/crazy_linker_system_android.h",
         "src/src/crazy_linker_system_linker.cpp",
         "src/src/crazy_linker_system_linker.h",
         "src/src/crazy_linker_thread_data.cpp",
@@ -162,6 +164,7 @@ if (is_android) {
       "src/src/crazy_linker_line_reader_unittest.cpp",
       "src/src/crazy_linker_pointer_set_unittest.cpp",
       "src/src/crazy_linker_proc_maps_unittest.cpp",
+      "src/src/crazy_linker_rdebug_unittest.cpp",
       "src/src/crazy_linker_relr_relocations_unittest.cpp",
       "src/src/crazy_linker_search_path_list_unittest.cpp",
       "src/src/crazy_linker_system_unittest.cpp",
@@ -331,6 +334,12 @@ if (is_android) {
     libs = [ "dl" ]
   }
 
+  crazy_linker_test_library("crazy_linker_tests_libjni_lib") {
+    sources = [
+      "src/tests/jni_lib.cpp",
+    ]
+  }
+
   # Integration tests are provided as standalone executables for now.
 
   executable("crazy_linker_bench_load_library") {
@@ -339,6 +348,18 @@ if (is_android) {
     ]
     data_deps = [
       ":crazy_linker_tests_libfoo",
+    ]
+    deps = [
+      ":android_crazy_linker",
+    ]
+  }
+
+  executable("crazy_linker_test_jni_hooks") {
+    sources = [
+      "src/tests/test_jni_hooks.cpp",
+    ]
+    data_deps = [
+      ":crazy_linker_tests_libjni_lib",
     ]
     deps = [
       ":android_crazy_linker",
@@ -375,19 +396,6 @@ if (is_android) {
     sources = [
       "src/tests/test_load_library_depends.cpp",
     ]
-    data_deps = [
-      ":crazy_linker_tests_libbar",
-    ]
-    deps = [
-      ":android_crazy_linker",
-    ]
-  }
-
-  executable("crazy_linker_test_load_library_callbacks") {
-    sources = [
-      "src/tests/test_load_library_callbacks.cpp",
-    ]
-    include_dirs = [ "src/src" ]  # Needed for crazy_linker_util_threads.h
     data_deps = [
       ":crazy_linker_tests_libbar",
     ]
@@ -537,7 +545,7 @@ if (is_android) {
 # cd $CHROMIUM_SRC_DIR
 # mkdir out/Fuzz
 # gn gen out/Fuzz '--args=use_libfuzzer=true is_asan=true is_debug=false'
-# gn out/Fuzz android_crazy_linker_zip_fuzzer
+# ninja -C out/Fuzz android_crazy_linker_zip_fuzzer
 # out/Fuzz/android_crazy_linker_zip_fuzzer out/Release/apks
 #
 fuzzer_test("android_crazy_linker_zip_fuzzer") {

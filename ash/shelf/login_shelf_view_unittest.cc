@@ -28,6 +28,7 @@
 #include "ash/tray_action/test_tray_action_client.h"
 #include "ash/tray_action/tray_action.h"
 #include "ash/wm/lock_state_controller.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "chromeos/constants/chromeos_switches.h"
@@ -522,7 +523,7 @@ TEST_F(LoginShelfViewTest, ShouldUpdateUiAfterShutdownButtonStatusChange) {
 
 TEST_F(LoginShelfViewTest, ParentAccessButtonVisibility) {
   // Parent access button should only be visible on lock screen.
-  Shell::Get()->login_screen_controller()->SetShowParentAccess(true);
+  Shell::Get()->login_screen_controller()->SetShowParentAccessButton(true);
 
   NotifySessionStateChanged(SessionState::LOGIN_PRIMARY);
   EXPECT_TRUE(ShowsShelfButtons({LoginShelfView::kShutdown,
@@ -553,12 +554,12 @@ TEST_F(LoginShelfViewTest, ParentAccessButtonVisibilityChangeOnLockScreen) {
   EXPECT_TRUE(
       ShowsShelfButtons({LoginShelfView::kShutdown, LoginShelfView::kSignOut}));
 
-  Shell::Get()->login_screen_controller()->SetShowParentAccess(true);
+  Shell::Get()->login_screen_controller()->SetShowParentAccessButton(true);
   EXPECT_TRUE(
       ShowsShelfButtons({LoginShelfView::kShutdown, LoginShelfView::kSignOut,
                          LoginShelfView::kParentAccess}));
 
-  Shell::Get()->login_screen_controller()->SetShowParentAccess(false);
+  Shell::Get()->login_screen_controller()->SetShowParentAccessButton(false);
   EXPECT_TRUE(
       ShowsShelfButtons({LoginShelfView::kShutdown, LoginShelfView::kSignOut}));
 }

@@ -25,15 +25,19 @@
 #include "media/cdm/cdm_type_conversion.h"
 #include "media/cdm/library_cdm/cdm_host_proxy.h"
 #include "media/media_buildflags.h"
-#include "third_party/libaom/av1_buildflags.h"
+#include "third_party/libaom/libaom_buildflags.h"
 #include "third_party/libyuv/include/libyuv/planar_functions.h"
 
 #if BUILDFLAG(ENABLE_LIBVPX)
 #include "media/filters/vpx_video_decoder.h"
 #endif
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_LIBAOM_DECODER)
 #include "media/filters/aom_video_decoder.h"
+#endif
+
+#if BUILDFLAG(ENABLE_DAV1D_DECODER)
+#include "media/filters/dav1d_video_decoder.h"
 #endif
 
 #if BUILDFLAG(ENABLE_FFMPEG)
@@ -300,7 +304,10 @@ std::unique_ptr<CdmVideoDecoder> CreateVideoDecoder(
     video_decoder.reset(new VpxVideoDecoder());
 #endif
 
-#if BUILDFLAG(ENABLE_AV1_DECODER)
+#if BUILDFLAG(ENABLE_DAV1D_DECODER)
+  if (config.codec == cdm::kCodecAv1)
+    video_decoder.reset(new Dav1dVideoDecoder(null_media_log.get()));
+#elif BUILDFLAG(ENABLE_LIBAOM_DECODER)
   if (config.codec == cdm::kCodecAv1)
     video_decoder.reset(new AomVideoDecoder(null_media_log.get()));
 #endif

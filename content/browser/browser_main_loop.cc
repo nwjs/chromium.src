@@ -139,14 +139,13 @@
 #include "services/resource_coordinator/public/cpp/memory_instrumentation/client_process_impl.h"
 #include "services/resource_coordinator/public/mojom/memory_instrumentation/memory_instrumentation.mojom.h"
 #include "services/resource_coordinator/public/mojom/service_constants.mojom.h"
-#include "services/service_manager/runner/common/client_util.h"
 #include "services/service_manager/zygote/common/zygote_buildflags.h"
 #include "skia/ext/event_tracer_impl.h"
 #include "skia/ext/skia_memory_dump_provider.h"
 #include "sql/sql_memory_dump_provider.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/display/display_switches.h"
+#include "ui/display/display_features.h"
 #include "ui/gfx/font_render_params.h"
 #include "ui/gfx/switches.h"
 
@@ -168,7 +167,6 @@
 #include "content/browser/android/launcher_thread.h"
 #include "content/browser/android/scoped_surface_request_manager.h"
 #include "content/browser/android/tracing_controller_android.h"
-#include "content/browser/media/android/browser_media_player_manager.h"
 #include "content/browser/screen_orientation/screen_orientation_delegate_android.h"
 #include "media/base/android/media_drm_bridge_client.h"
 #include "ui/android/screen_android.h"
@@ -182,6 +180,7 @@
 #include "content/browser/renderer_host/browser_compositor_view_mac.h"
 #include "content/browser/theme_helper_mac.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
+#include "ui/base/now_playing/remote_command_center_delegate.h"
 #endif
 
 #if defined(OS_WIN)
@@ -190,6 +189,7 @@
 #include <shellapi.h>
 
 #include "base/memory/memory_pressure_monitor_win.h"
+#include "content/browser/renderer_host/dwrite_font_lookup_table_builder_win.h"
 #include "net/base/winsock_init.h"
 #include "services/service_manager/sandbox/win/sandbox_win.h"
 #include "ui/display/win/screen_win.h"
@@ -618,7 +618,7 @@ int BrowserMainLoop::EarlyInitialization() {
       return pre_early_init_error_code;
   }
 
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS) || defined(USE_OZONE)
   // Up the priority of the UI thread unless it was already high (since recent
   // versions of Android (O+) do this automatically).
   if (base::PlatformThread::GetCurrentThreadPriority() <
@@ -682,10 +682,7 @@ void BrowserMainLoop::MainMessageLoopStart() {
   // PostMainMessageLoopStart() below.
 
   TRACE_EVENT0("startup", "BrowserMainLoop::MainMessageLoopStart");
-
-  if (!base::MessageLoopCurrentForUI::IsSet())
-    main_message_loop_ = std::make_unique<base::MessageLoopForUI>();
-
+  DCHECK(base::MessageLoopCurrentForUI::IsSet());
   InitializeMainThread();
 }
 
@@ -733,12 +730,6 @@ void BrowserMainLoop::PostMainMessageLoopStart() {
   }
 
   {
-    system_stats_monitor_.reset(
-        new base::trace_event::TraceEventSystemStatsMonitor(
-            base::ThreadTaskRunnerHandle::Get()));
-  }
-
-  {
     base::SetRecordActionTaskRunner(
         base::CreateSingleThreadTaskRunnerWithTraits({BrowserThread::UI}));
   }
@@ -760,7 +751,7 @@ void BrowserMainLoop::PostMainMessageLoopStart() {
 #if defined(OS_ANDROID)
   {
     TRACE_EVENT0("startup",
-                 "BrowserMainLoop::Subsystem:BrowserMediaPlayerManager");
+                 "BrowserMainLoop::Subsystem:ScopedSurfaceRequestManager");
     if (UsingInProcessGpu()) {
       gpu::ScopedSurfaceRequestConduit::SetInstance(
           ScopedSurfaceRequestManager::GetInstance());
@@ -800,7 +791,10 @@ void BrowserMainLoop::PostMainMessageLoopStart() {
       skia::SkiaMemoryDumpProvider::GetInstance(), "Skia", nullptr);
   base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
       sql::SqlMemoryDumpProvider::GetInstance(), "Sql", nullptr);
+#if !defined(OS_CHROMEOS)
+  // Chrome Remote Desktop needs TransitionalURLLoaderFactoryOwner on ChromeOS.
   network::TransitionalURLLoaderFactoryOwner::DisallowUsageInProcess();
+#endif
 }
 
 int BrowserMainLoop::PreCreateThreads() {
@@ -870,8 +864,6 @@ int BrowserMainLoop::PreCreateThreads() {
 }
 
 void BrowserMainLoop::PreShutdown() {
-  parts_->PreShutdown();
-
   ui::Clipboard::OnPreShutdownForCurrentThread();
 }
 
@@ -973,8 +965,11 @@ int BrowserMainLoop::PostCreateThreads() {
 
 int BrowserMainLoop::PreMainMessageLoopRun() {
 #if defined(OS_ANDROID)
+  bool use_display_wide_color_gamut =
+      GetContentClient()->browser()->GetWideColorGamutHeuristic() ==
+      ContentBrowserClient::WideColorGamutHeuristic::kUseDisplay;
   // Let screen instance be overridable by parts.
-  ui::SetScreenAndroid();
+  ui::SetScreenAndroid(use_display_wide_color_gamut);
 #endif
 
   if (parts_) {
@@ -1043,8 +1038,6 @@ void BrowserMainLoop::ShutdownThreadsAndCleanUp() {
 
   if (RenderProcessHost::run_renderer_in_process())
     RenderProcessHostImpl::ShutDownInProcessRenderer();
-
-  system_stats_monitor_.reset();
 
   // Cancel pending requests and prevent new requests.
   if (resource_dispatcher_host_) {
@@ -1276,7 +1269,7 @@ int BrowserMainLoop::BrowserThreadsStarted() {
     compositing_mode_reporter_impl_ =
         std::make_unique<viz::CompositingModeReporterImpl>();
 
-    if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor)) {
+    if (features::IsVizDisplayCompositorEnabled()) {
       auto transport_factory = std::make_unique<VizProcessTransportFactory>(
           BrowserGpuChannelHostFactory::instance(), GetResizeTaskRunner(),
           compositing_mode_reporter_impl_.get());
@@ -1336,7 +1329,7 @@ int BrowserMainLoop::BrowserThreadsStarted() {
   }
 
 #if defined(OS_WIN)
-  if (base::FeatureList::IsEnabled(features::kHighDynamicRange))
+  if (base::FeatureList::IsEnabled(display::features::kHighDynamicRange))
     HDRProxy::Initialize();
   system_message_window_.reset(new media::SystemMessageWindowWin);
 #elif defined(OS_LINUX) && defined(USE_UDEV)
@@ -1450,9 +1443,18 @@ int BrowserMainLoop::BrowserThreadsStarted() {
           switches::kDisableGpuProcessForDX12VulkanInfoCollection)) {
     GpuDataManagerImpl::GetInstance()->RequestGpuSupportedRuntimeVersion();
   }
+
+  if (base::FeatureList::IsEnabled(features::kFontSrcLocalMatching)) {
+    content::DWriteFontLookupTableBuilder::GetInstance()
+        ->ScheduleBuildFontUniqueNameTable();
+  }
 #endif
 
   if (MediaKeysListenerManager::IsMediaKeysListenerManagerEnabled()) {
+#if defined(OS_MACOSX)
+    remote_command_center_delegate_ =
+        now_playing::RemoteCommandCenterDelegate::Create();
+#endif
     media_keys_listener_manager_ =
         std::make_unique<MediaKeysListenerManagerImpl>(
             content::ServiceManagerConnection::GetForProcess()->GetConnector());

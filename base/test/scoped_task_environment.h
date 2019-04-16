@@ -5,6 +5,8 @@
 #ifndef BASE_TEST_SCOPED_TASK_ENVIRONMENT_H_
 #define BASE_TEST_SCOPED_TASK_ENVIRONMENT_H_
 
+#include <memory>
+
 #include "base/compiler_specific.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
@@ -64,6 +66,14 @@ namespace test {
 // Design and future improvements documented in
 // https://docs.google.com/document/d/1QabRo8c7D9LsYY3cEcaPQbOCLo8Tu-6VLykYXyl3Pkk/edit
 class ScopedTaskEnvironment {
+ protected:
+  // This enables a two-phase initialization for sub classes such as
+  // content::TestBrowserThreadBundle which need to provide the default task
+  // queue because they instantiate a scheduler on the same thread. Subclasses
+  // using this trait must invoke DeferredInitFromSubclass() before running the
+  // task environment.
+  struct SubclassCreatesDefaultTaskRunner {};
+
  public:
   enum class MainThreadType {
     // The main thread doesn't pump system messages.
@@ -100,11 +110,12 @@ class ScopedTaskEnvironment {
   };
 
   enum class NowSource {
-    // base::TimeTicks::Now is real time.
+    // base::Time::Now() and base::TimeTicks::Now() are real time.
     REAL_TIME,
 
-    // base::TimeTicks::Now is driven from the main thread's MOCK_TIME. This
-    // may alter the order of delayed and non-delayed tasks on other threads.
+    // base::Time::Now() and base::TimeTicks::Now() are driven from the main
+    // thread's MOCK_TIME. This may alter the order of delayed and non-delayed
+    // tasks on other threads.
     //
     // Warning some platform APIs are still real time, and don't interact with
     // MOCK_TIME as expected, e.g.:
@@ -120,6 +131,7 @@ class ScopedTaskEnvironment {
     ValidTrait(MainThreadType);
     ValidTrait(ExecutionMode);
     ValidTrait(NowSource);
+    ValidTrait(SubclassCreatesDefaultTaskRunner);
   };
 
   // Constructor accepts zero or more traits which customize the testing
@@ -134,33 +146,19 @@ class ScopedTaskEnvironment {
             trait_helpers::GetEnum<ExecutionMode, ExecutionMode::ASYNC>(
                 args...),
             trait_helpers::GetEnum<NowSource, NowSource::REAL_TIME>(args...),
+            trait_helpers::HasTrait<SubclassCreatesDefaultTaskRunner>(args...),
             trait_helpers::NotATraitTag()) {}
 
   // Waits until no undelayed TaskScheduler tasks remain. Then, unregisters the
   // TaskScheduler and the (Thread|Sequenced)TaskRunnerHandle.
   virtual ~ScopedTaskEnvironment();
 
-  class LifetimeObserver {
-   public:
-    virtual ~LifetimeObserver() = default;
-
-    virtual void OnScopedTaskEnvironmentCreated(
-        MainThreadType main_thread_type,
-        scoped_refptr<SingleThreadTaskRunner> task_runner) = 0;
-    virtual void OnScopedTaskEnvironmentDestroyed() = 0;
-  };
-
-  // Set a thread-local observer which will get notifications when
-  // a new ScopedTaskEnvironment is created or destroyed.
-  // This is needed due to peculiarities of Blink initialisation
-  // (Blink is per-test suite and ScopedTaskEnvironment is per-test).
-  static void SetLifetimeObserver(LifetimeObserver* lifetime_observer);
-
   // Returns a TaskRunner that schedules tasks on the main thread.
   scoped_refptr<base::SingleThreadTaskRunner> GetMainThreadTaskRunner();
 
-  // Returns whether the main thread's TaskRunner has pending tasks.
-  bool MainThreadHasPendingTask() const;
+  // Returns whether the main thread's TaskRunner has pending tasks. This will
+  // always return true if called right after RunUntilIdle.
+  bool MainThreadIsIdle() const;
 
   // Runs tasks until both the (Thread|Sequenced)TaskRunnerHandle and the
   // TaskScheduler's non-delayed queues are empty.
@@ -196,13 +194,19 @@ class ScopedTaskEnvironment {
   base::TimeTicks NowTicks() const;
 
   // Only valid for instances with a MOCK_TIME MainThreadType.
-  // Returns the number of pending tasks of the main thread's TaskRunner.
+  // Returns the number of pending tasks (delayed and non-delayed) of the main
+  // thread's TaskRunner.
   size_t GetPendingMainThreadTaskCount() const;
 
   // Only valid for instances with a MOCK_TIME MainThreadType.
-  // Returns the delay until the next delayed pending task of the main thread's
-  // TaskRunner.
+  // Returns the delay until the next pending task of the main thread's
+  // TaskRunner if there is one, otherwise it returns TimeDelta::Max().
   TimeDelta NextMainThreadPendingTaskDelay() const;
+
+  // Only valid for instances with a MOCK_TIME MainThreadType.
+  // Returns true iff the next task is delayed. Returns false if the next task
+  // is immediate or if there is no next task.
+  bool NextTaskIsDelayed() const;
 
  protected:
   explicit ScopedTaskEnvironment(ScopedTaskEnvironment&& other);
@@ -215,6 +219,14 @@ class ScopedTaskEnvironment {
     return execution_control_mode_;
   }
 
+  // Returns the TimeDomain driving this ScopedTaskEnvironment.
+  sequence_manager::TimeDomain* GetTimeDomain() const;
+
+  sequence_manager::SequenceManager* sequence_manager() const;
+
+  void DeferredInitFromSubclass(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner);
+
   // Derived classes may need to control when the sequence manager goes away.
   void NotifyDestructionObserversAndReleaseSequenceManager();
 
@@ -222,22 +234,25 @@ class ScopedTaskEnvironment {
   class MockTimeDomain;
   class TestTaskTracker;
 
+  void CompleteInitialization();
+
   // The template constructor has to be in the header but it delegates to this
   // constructor to initialize all other members out-of-line.
   ScopedTaskEnvironment(MainThreadType main_thread_type,
                         ExecutionMode execution_control_mode,
                         NowSource now_source,
+                        bool subclass_creates_default_taskrunner,
                         trait_helpers::NotATraitTag tag);
-
-  scoped_refptr<sequence_manager::TaskQueue> CreateDefaultTaskQueue();
 
   const MainThreadType main_thread_type_;
   const ExecutionMode execution_control_mode_;
+  const bool subclass_creates_default_taskrunner_;
 
-  std::unique_ptr<MockTimeDomain> mock_time_domain_;
   std::unique_ptr<sequence_manager::SequenceManager> sequence_manager_;
+  std::unique_ptr<MockTimeDomain> mock_time_domain_;
 
   scoped_refptr<sequence_manager::TaskQueue> task_queue_;
+  scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 
   // Only set for instances with a MOCK_TIME MainThreadType.
   std::unique_ptr<Clock> mock_clock_;

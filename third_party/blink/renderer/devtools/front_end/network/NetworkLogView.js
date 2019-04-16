@@ -116,6 +116,7 @@ Network.NetworkLogView = class extends UI.VBox {
     this._dataURLFilterUI = new UI.CheckboxFilterUI(
         'hide-data-url', Common.UIString('Hide data URLs'), true, this._networkHideDataURLSetting);
     this._dataURLFilterUI.addEventListener(UI.FilterUI.Events.FilterChanged, this._filterChanged.bind(this), this);
+    this._dataURLFilterUI.element().title = ls`Hides data: and blob: URLs`;
     filterBar.addFilter(this._dataURLFilterUI);
 
     const filterItems =
@@ -251,6 +252,22 @@ Network.NetworkLogView = class extends UI.VBox {
    */
   static _fromCacheRequestFilter(request) {
     return request.cached();
+  }
+
+  /**
+   * @param {!SDK.NetworkRequest} request
+   * @return {boolean}
+   */
+  static _interceptedByServiceWorkerFilter(request) {
+    return request.fetchedViaServiceWorker;
+  }
+
+  /**
+   * @param {!SDK.NetworkRequest} request
+   * @return {boolean}
+   */
+  static _initiatedByServiceWorkerFilter(request) {
+    return request.initiatedByServiceWorker();
   }
 
   /**
@@ -573,6 +590,10 @@ Network.NetworkLogView = class extends UI.VBox {
     this._suggestionBuilder.addItem(Network.NetworkLogView.FilterType.Is, Network.NetworkLogView.IsFilterType.Running);
     this._suggestionBuilder.addItem(
         Network.NetworkLogView.FilterType.Is, Network.NetworkLogView.IsFilterType.FromCache);
+    this._suggestionBuilder.addItem(
+        Network.NetworkLogView.FilterType.Is, Network.NetworkLogView.IsFilterType.ServiceWorkerIntercepted);
+    this._suggestionBuilder.addItem(
+        Network.NetworkLogView.FilterType.Is, Network.NetworkLogView.IsFilterType.ServiceWorkerInitiated);
     this._suggestionBuilder.addItem(Network.NetworkLogView.FilterType.LargerThan, '100');
     this._suggestionBuilder.addItem(Network.NetworkLogView.FilterType.LargerThan, '10k');
     this._suggestionBuilder.addItem(Network.NetworkLogView.FilterType.LargerThan, '1M');
@@ -618,6 +639,10 @@ Network.NetworkLogView = class extends UI.VBox {
         hintText.appendChild(UI.formatLocalized('Record (%s) to display network activity.', [recordNode]));
       }
     }
+    hintText.createChild('br');
+    hintText.appendChild(UI.XLink.create(
+        'https://developers.google.com/web/tools/chrome-devtools/network/?utm_source=devtools&utm_campaign=2019Q1',
+        'Learn more'));
   }
 
   _hideRecordingHint() {
@@ -1351,7 +1376,7 @@ Network.NetworkLogView = class extends UI.VBox {
     const categoryName = request.resourceType().category().title;
     if (!this._resourceCategoryFilterUI.accept(categoryName))
       return false;
-    if (this._dataURLFilterUI.checked() && request.parsedURL.isDataURL())
+    if (this._dataURLFilterUI.checked() && (request.parsedURL.isDataURL() || request.parsedURL.isBlobURL()))
       return false;
     if (request.statusText === 'Service Worker Fallback Required')
       return false;
@@ -1403,6 +1428,10 @@ Network.NetworkLogView = class extends UI.VBox {
           return Network.NetworkLogView._runningRequestFilter;
         if (value.toLowerCase() === Network.NetworkLogView.IsFilterType.FromCache)
           return Network.NetworkLogView._fromCacheRequestFilter;
+        if (value.toLowerCase() === Network.NetworkLogView.IsFilterType.ServiceWorkerIntercepted)
+          return Network.NetworkLogView._interceptedByServiceWorkerFilter;
+        if (value.toLowerCase() === Network.NetworkLogView.IsFilterType.ServiceWorkerInitiated)
+          return Network.NetworkLogView._initiatedByServiceWorkerFilter;
         break;
 
       case Network.NetworkLogView.FilterType.LargerThan:
@@ -1673,14 +1702,14 @@ Network.NetworkLogView = class extends UI.VBox {
         return code < 16 ? '\\u0' + code.toString(16) : '\\u' + code.toString(16);
       }
 
-      if (/[\u0000-\u001f\u007f-\u009f]|\'/.test(str)) {
+      if (/[\u0000-\u001f\u007f-\u009f!]|\'/.test(str)) {
         // Use ANSI-C quoting syntax.
         return '$\'' +
             str.replace(/\\/g, '\\\\')
                 .replace(/\'/g, '\\\'')
                 .replace(/\n/g, '\\n')
                 .replace(/\r/g, '\\r')
-                .replace(/[\u0000-\u001f\u007f-\u009f]/g, escapeCharacter) +
+                .replace(/[\u0000-\u001f\u007f-\u009f!]/g, escapeCharacter) +
             '\'';
       } else {
         // Use single quote syntax.
@@ -1858,7 +1887,9 @@ Network.NetworkLogView.MixedContentFilterValues = {
 /** @enum {string} */
 Network.NetworkLogView.IsFilterType = {
   Running: 'running',
-  FromCache: 'from-cache'
+  FromCache: 'from-cache',
+  ServiceWorkerIntercepted: 'service-worker-intercepted',
+  ServiceWorkerInitiated: 'service-worker-initiated'
 };
 
 /** @type {!Array<string>} */

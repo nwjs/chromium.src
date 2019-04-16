@@ -25,7 +25,7 @@ class PaintLayerTest : public PaintTestConfigurations, public RenderingTest {
   }
 };
 
-INSTANTIATE_PAINT_TEST_CASE_P(PaintLayerTest);
+INSTANTIATE_PAINT_TEST_SUITE_P(PaintLayerTest);
 
 TEST_P(PaintLayerTest, ChildWithoutPaintLayer) {
   SetBodyInnerHTML(
@@ -1792,6 +1792,30 @@ TEST_P(PaintLayerTest, HitTestFirstLetterInBeforePseudoElement) {
   EXPECT_EQ(target, result.InnerNode());
   EXPECT_EQ(container->GetPseudoElement(kPseudoIdFirstLetter),
             result.InnerPossiblyPseudoNode());
+}
+
+TEST_P(PaintLayerTest, HitTestFloatInsideInlineBoxContainer) {
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body { margin: 0; }
+      #container { font: 10px/10px Ahem; width: 70px; }
+      #inline-container { border: 1px solid black; }
+      #target { float: right; }
+    </style>
+    <div id='container'>
+      <span id='inline-container'>
+        <a href='#' id='target'>bar</a>
+        foo
+      </span>
+    </div>
+  )HTML");
+  Node* target = GetDocument().getElementById("target")->firstChild();
+  HitTestRequest request(HitTestRequest::kReadOnly | HitTestRequest::kActive);
+  HitTestLocation location(LayoutPoint(55, 5));  // At the center of "bar"
+  HitTestResult result(request, location);
+  GetDocument().GetLayoutView()->HitTest(location, result);
+  EXPECT_EQ(target, result.InnerNode());
 }
 
 TEST_P(PaintLayerTest, HitTestFirstLetterPseudoElementDisplayContents) {

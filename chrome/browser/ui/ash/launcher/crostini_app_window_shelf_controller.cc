@@ -6,6 +6,7 @@
 #include <string>
 #include <utility>
 
+#include "ash/public/cpp/app_types.h"
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
@@ -21,6 +22,7 @@
 #include "chrome/browser/ui/ash/launcher/chrome_launcher_controller.h"
 #include "chrome/browser/ui/ash/launcher/shelf_spinner_controller.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_window_manager_client.h"
+#include "chrome/browser/ui/ash/session_controller_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -226,12 +228,12 @@ void CrostiniAppWindowShelfController::OnWindowVisibilityChanging(
     owner()->GetShelfSpinnerController()->CloseCrostiniSpinners();
   }
 
-  RegisterAppWindow(window, shelf_app_id);
-
   // Prevent Crostini window from showing up after user switch.
   MultiUserWindowManagerClient::GetInstance()->SetWindowOwner(
       window,
-      user_manager::UserManager::Get()->GetActiveUser()->GetAccountId());
+      user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId());
+
+  RegisterAppWindow(window, shelf_app_id);
 
   // Move the Crostini app window to the right display if necessary.
   int64_t display_id = crostini_app_display_.GetDisplayIdForAppId(shelf_app_id);
@@ -252,11 +254,20 @@ void CrostiniAppWindowShelfController::OnWindowVisibilityChanging(
 void CrostiniAppWindowShelfController::RegisterAppWindow(
     aura::Window* window,
     const std::string& shelf_app_id) {
+  window->SetProperty(aura::client::kAppType,
+                      static_cast<int>(ash::AppType::CROSTINI_APP));
   const ash::ShelfID shelf_id(shelf_app_id);
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
   aura_window_to_app_window_[window] =
       std::make_unique<AppWindowBase>(shelf_id, widget);
   AppWindowBase* app_window = aura_window_to_app_window_[window].get();
+
+  // Only add an app to the shelf if it's associated with the currently active
+  // user (which should always be the primary user at this time).
+  if (SessionControllerClient::IsMultiProfileAvailable() &&
+      user_manager::UserManager::Get()->GetActiveUser()->GetAccountId() !=
+          MultiUserWindowManagerClient::GetInstance()->GetWindowOwner(window))
+    return;
   AddToShelf(window, app_window);
 }
 

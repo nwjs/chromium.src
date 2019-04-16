@@ -16,7 +16,7 @@ cr.define('extensions', function() {
     properties: {
       /**
        * The underlying ExtensionInfo for the details being displayed.
-       * @type {chrome.developerPrivate.ExtensionInfo}
+       * @type {!chrome.developerPrivate.ExtensionInfo}
        */
       data: Object,
 
@@ -45,6 +45,14 @@ cr.define('extensions', function() {
 
     listeners: {
       'view-enter-start': 'onViewEnterStart_',
+    },
+
+    /**
+     * Focuses the extensions options button. This should be used after the
+     * dialog closes.
+     */
+    focusOptionsButton: function() {
+      this.$$('#extensions-options').focus();
     },
 
     /**
@@ -113,6 +121,16 @@ cr.define('extensions', function() {
      */
     isEnableToggleEnabled_: function() {
       return extensions.userCanChangeEnablement(this.data);
+    },
+
+    /**
+     * Returns true if the extension is in the terminated state.
+     * @return {boolean}
+     * @private
+     */
+    isTerminated_: function() {
+      return this.data.state ==
+          chrome.developerPrivate.ExtensionState.TERMINATED;
     },
 
     /**

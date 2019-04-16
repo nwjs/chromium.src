@@ -5,6 +5,7 @@
 #include "components/exo/keyboard.h"
 
 #include "ash/public/cpp/app_types.h"
+#include "base/bind.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "components/exo/keyboard_delegate.h"
 #include "components/exo/keyboard_device_configuration_delegate.h"
@@ -115,7 +116,10 @@ bool ConsumedByIme(Surface* focus, const ui::KeyEvent* event) {
 
 bool IsVirtualKeyboardEnabled() {
   return keyboard::GetAccessibilityKeyboardEnabled() ||
-         keyboard::GetTouchKeyboardEnabled();
+         keyboard::GetTouchKeyboardEnabled() ||
+         (keyboard::KeyboardController::HasInstance() &&
+          keyboard::KeyboardController::Get()->IsEnableFlagSet(
+              keyboard::mojom::KeyboardEnableFlag::kCommandLineEnabled));
 }
 
 bool IsReservedAccelerator(const ui::KeyEvent* event) {

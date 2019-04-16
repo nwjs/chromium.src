@@ -74,6 +74,7 @@
 #include "third_party/blink/renderer/modules/accessibility/ax_list_box.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_list_box_option.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_media_controls.h"
+#include "third_party/blink/renderer/modules/accessibility/ax_media_element.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_menu_list.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_menu_list_option.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_menu_list_popup.h"
@@ -101,7 +102,7 @@ AXObjectCacheImpl::AXObjectCacheImpl(Document& document)
       document_(document),
       modification_count_(0),
       validation_message_axid_(0),
-      relation_cache_(new AXRelationCache(this)),
+      relation_cache_(std::make_unique<AXRelationCache>(this)),
       notification_post_timer_(
           document.GetTaskRunner(TaskType::kInternalDefault),
           this,
@@ -237,12 +238,30 @@ AXObject* AXObjectCacheImpl::Get(const Node* node) {
   AXID node_id = node_object_mapping_.at(node);
   DCHECK(!HashTraits<AXID>::IsDeletedValue(node_id));
 
-  if (layout_object && node_id && !layout_id) {
-    // This can happen if an AXNodeObject is created for a node that's not
-    // laid out, but later something changes and it gets a layoutObject (like if
-    // it's reparented).
+  if (layout_object && node_id && !layout_id && !IsMenuListOption(node) &&
+      !IsHTMLAreaElement(node)) {
+    // This can happen if an AXNodeObject is created for a node that's not laid
+    // out, but later something changes and it gets a layoutObject (like if it's
+    // reparented). It's also possible the layout object changed.
+    // In any case, reuse the ax_id since the node didn't change.
     Remove(node_id);
-    return nullptr;
+
+    // Note that this codepath can be reached when |layout_object| is about to
+    // be destroyed.
+
+    // This potentially misses root LayoutObject re-creation, but we have no way
+    // of knowing whether the |layout_object| in those cases is still valid.
+    if (!layout_object->Parent())
+      return nullptr;
+
+    layout_object_mapping_.Set(layout_object, node_id);
+    AXObject* new_obj = CreateFromRenderer(layout_object);
+    ids_in_use_.insert(node_id);
+    new_obj->SetAXObjectID(node_id);
+    objects_.Set(node_id, new_obj);
+    new_obj->Init();
+    new_obj->SetLastKnownIsIgnoredValue(new_obj->AccessibilityIsIgnored());
+    return new_obj;
   }
 
   if (layout_id)
@@ -313,6 +332,10 @@ AXObject* AXObjectCacheImpl::CreateFromRenderer(LayoutObject* layout_object) {
        (IsHTMLUListElement(node) || IsHTMLOListElement(node) ||
         IsHTMLDListElement(node))))
     return AXList::Create(layout_object, *this);
+
+  // media element
+  if (node && node->IsMediaElement())
+    return AccessibilityMediaElement::Create(layout_object, *this);
 
   // media controls
   // TODO(836549): Remove for the rest of the controls.
@@ -427,6 +450,12 @@ AXObject* AXObjectCacheImpl::GetOrCreate(LayoutObject* layout_object) {
   if (AXObject* obj = Get(layout_object))
     return obj;
 
+  // Area elements are never created based on layout objects (see |Get|), so we
+  // really should never get here.
+  Node* node = layout_object->GetNode();
+  if (node && (IsMenuListOption(node) || IsHTMLAreaElement(node)))
+    return nullptr;
+
   AXObject* new_obj = CreateFromRenderer(layout_object);
 
   // Will crash later if we have two objects for the same layoutObject.
@@ -437,8 +466,10 @@ AXObject* AXObjectCacheImpl::GetOrCreate(LayoutObject* layout_object) {
   layout_object_mapping_.Set(layout_object, axid);
   new_obj->Init();
   new_obj->SetLastKnownIsIgnoredValue(new_obj->AccessibilityIsIgnored());
-  if (layout_object->GetNode())
-    MaybeNewRelationTarget(layout_object->GetNode(), new_obj);
+  if (node) {
+    node_object_mapping_.Set(node, axid);
+    MaybeNewRelationTarget(node, new_obj);
+  }
 
   return new_obj;
 }
@@ -573,10 +604,8 @@ void AXObjectCacheImpl::Remove(Node* node) {
   Remove(ax_id);
   node_object_mapping_.erase(node);
 
-  if (node->GetLayoutObject()) {
+  if (node->GetLayoutObject())
     Remove(node->GetLayoutObject());
-    return;
-  }
 }
 
 void AXObjectCacheImpl::Remove(AbstractInlineTextBox* inline_text_box) {
@@ -701,7 +730,9 @@ void AXObjectCacheImpl::FocusableChanged(Element* element) {
     ChildrenChanged(element->parentNode());
   } else {
     // Refresh the focusable state on the exposed object.
-    MarkAXObjectDirty(obj, false);
+    // TODO(accessibility) find out why using MarkAXObjectDirty(obj, false)
+    // regresses Slack performance, see https://crbug.com/936944.
+    PostNotification(obj, ax::mojom::Event::kValueChanged);
   }
 }
 
@@ -938,6 +969,14 @@ void AXObjectCacheImpl::RadiobuttonRemovedFromGroup(
   ToAXRadioInput(first_obj)->RequestUpdateToNextNode(true);
 }
 
+void AXObjectCacheImpl::ImageLoaded(LayoutObject* layout_object) {
+  AXObject* obj = Get(layout_object);
+  if (!obj)
+    return;
+
+  MarkAXObjectDirty(obj, false);
+}
+
 void AXObjectCacheImpl::HandleLayoutComplete(LayoutObject* layout_object) {
   if (!layout_object)
     return;
@@ -1140,37 +1179,52 @@ AXObject* AXObjectCacheImpl::GetOrCreateValidationMessageObject() {
     // Cache the validation message container for reuse.
     validation_message_axid_ = GetOrCreateAXID(message_ax_object);
     message_ax_object->Init();
+    // Validation message alert object is a child of the document, as not all
+    // form controls can have a child. Also, there are form controls such as
+    // listbox that technically can have children, but they are probably not
+    // expected to have alerts within AT client code.
+    ChildrenChanged(document_);
   }
   return message_ax_object;
 }
 
-AXObject* AXObjectCacheImpl::ValidationMessageObjectIfVisible() {
+AXObject* AXObjectCacheImpl::ValidationMessageObjectIfInvalid() {
   Element* focused_element = document_->FocusedElement();
-  if (!focused_element)
-    return nullptr;
-  ListedElement* form_control = ListedElement::From(*focused_element);
-  if (!form_control || !form_control->IsValidationMessageVisible())
-    return nullptr;
+  if (focused_element) {
+    ListedElement* form_control = ListedElement::From(*focused_element);
+    if (form_control && !form_control->IsNotCandidateOrValid()) {
+      // These must both be true:
+      // * Focused control is currently invalid.
+      // * Validation message was previously created but hidden
+      // from timeout or currently visible.
+      bool was_validation_message_already_created = validation_message_axid_;
+      if (was_validation_message_already_created ||
+          form_control->IsValidationMessageVisible()) {
+        AXObject* focused_object = FocusedObject();
+        if (focused_object) {
+          // Return as long as the focused form control isn't overriding with a
+          // different message via aria-errormessage.
+          bool override_native_validation_message =
+              focused_object->GetAOMPropertyOrARIAAttribute(
+                  AOMRelationProperty::kErrorMessage);
+          if (!override_native_validation_message) {
+            AXObject* message = GetOrCreateValidationMessageObject();
+            if (message && !was_validation_message_already_created)
+              ChildrenChanged(document_);
+            return message;
+          }
+        }
+      }
+    }
+  }
 
-  AXObject* focused_object = this->FocusedObject();
-  DCHECK(focused_object);
-
-  // Return as long as the focused form control isn't overriding with a
-  // different message via aria-errormessage.
-  bool override_native_validation_message =
-      focused_object->GetAOMPropertyOrARIAAttribute(
-          AOMRelationProperty::kErrorMessage);
-  if (override_native_validation_message)
-    return nullptr;
-
-  return GetOrCreateValidationMessageObject();
+  // No focused, invalid form control.
+  RemoveValidationMessageObject();
+  return nullptr;
 }
 
-// Native validation error popup for focused form control in current document.
-void AXObjectCacheImpl::HandleValidationMessageVisibilityChanged(
-    const Element* form_control) {
-  AXObject* message_ax_object = ValidationMessageObjectIfVisible();
-  if (!message_ax_object && validation_message_axid_) {
+void AXObjectCacheImpl::RemoveValidationMessageObject() {
+  if (validation_message_axid_) {
     // Remove when it becomes hidden, so that a new object is created the next
     // time the message becomes visible. It's not possible to reuse the same
     // alert, because the event generator will not generate an alert event if
@@ -1178,16 +1232,20 @@ void AXObjectCacheImpl::HandleValidationMessageVisibilityChanged(
     // user submits the form when an alert is already visible.
     Remove(validation_message_axid_);
     validation_message_axid_ = 0;
+    ChildrenChanged(document_);
   }
+}
 
-  // Form control will now have an error message relation to message container.
+// Native validation error popup for focused form control in current document.
+void AXObjectCacheImpl::HandleValidationMessageVisibilityChanged(
+    const Element* form_control) {
+  AXObject* message_ax_object = ValidationMessageObjectIfInvalid();
+  if (message_ax_object)
+    MarkAXObjectDirty(message_ax_object, false);  // May be invisible now.
+
+  // If the form control is invalid, it will now have an error message relation
+  // to the message container.
   MarkElementDirty(form_control, false);
-
-  // Validation message alert object is a child of the document, as not all form
-  // controls can have a child. Also, there are form controls such as listbox
-  // that technically can have children, but they are probably not expected to
-  // have alerts within AT client code.
-  ChildrenChanged(document_);
 }
 
 void AXObjectCacheImpl::LabelChanged(Element* element) {
@@ -1309,6 +1367,8 @@ void AXObjectCacheImpl::MarkElementDirty(const Element* element, bool subtree) {
 
 void AXObjectCacheImpl::HandleFocusedUIElementChanged(Node* old_focused_node,
                                                       Node* new_focused_node) {
+  RemoveValidationMessageObject();
+
   if (!new_focused_node)
     return;
 
@@ -1416,6 +1476,10 @@ void AXObjectCacheImpl::HandleScrolledToAnchor(const Node* anchor_node) {
   if (obj->AccessibilityIsIgnored())
     obj = obj->ParentObjectUnignored();
   PostPlatformNotification(obj, ax::mojom::Event::kScrolledToAnchor);
+}
+
+void AXObjectCacheImpl::HandleFrameRectsChanged(Document& document) {
+  MarkAXObjectDirty(Get(&document), false);
 }
 
 void AXObjectCacheImpl::HandleScrollPositionChanged(

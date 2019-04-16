@@ -5,8 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_EDITING_FINDER_FIND_BUFFER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EDITING_FINDER_FIND_BUFFER_H_
 
-#include "third_party/blink/public/mojom/frame/find_in_page.mojom-blink.h"
-#include "third_party/blink/renderer/core/editing/finder/find_buffer.h"
+#include "third_party/blink/renderer/core/display_lock/display_lock_context.h"
+#include "third_party/blink/renderer/core/editing/finder/find_options.h"
 #include "third_party/blink/renderer/core/editing/iterators/text_searcher_icu.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_node.h"
 
@@ -23,13 +23,26 @@ class CORE_EXPORT FindBuffer {
   STACK_ALLOCATED();
 
  public:
-  FindBuffer(const PositionInFlatTree& start_position);
+  explicit FindBuffer(const EphemeralRangeInFlatTree& range);
+
+  static EphemeralRangeInFlatTree FindMatchInRange(
+      const EphemeralRangeInFlatTree& range,
+      String search_text,
+      const FindOptions);
 
   // A match result, containing the starting position of the match and
   // the length of the match.
   struct BufferMatchResult {
     const unsigned start;
     const unsigned length;
+
+    bool operator==(const BufferMatchResult& other) const {
+      return start == other.start && length == other.length;
+    }
+
+    bool operator!=(const BufferMatchResult& other) const {
+      return !operator==(other);
+    }
   };
 
   // All match results for this buffer. We can iterate through the
@@ -40,13 +53,13 @@ class CORE_EXPORT FindBuffer {
 
     Results(const Vector<UChar>& buffer,
             String search_text,
-            const mojom::blink::FindOptions& options);
+            const blink::FindOptions options);
 
     class CORE_EXPORT Iterator
         : public std::iterator<std::forward_iterator_tag, BufferMatchResult> {
      public:
       Iterator() = default;
-      Iterator(TextSearcherICU* text_searcher);
+      Iterator(TextSearcherICU* text_searcher, String search_text_);
 
       bool operator==(const Iterator& other) {
         return has_match_ == other.has_match_;
@@ -70,18 +83,23 @@ class CORE_EXPORT FindBuffer {
 
     Iterator end() const;
 
+    bool IsEmpty();
+
+    BufferMatchResult front();
+
+    BufferMatchResult back();
+
     unsigned CountForTesting();
 
    private:
-    bool empty_result_ = false;
     String search_text_;
     TextSearcherICU text_searcher_;
+    bool empty_result_ = false;
   };
 
   // Finds all the match for |search_text| in |buffer_|.
-  std::unique_ptr<Results> FindMatches(
-      const WebString& search_text,
-      const mojom::blink::FindOptions& options) const;
+  std::unique_ptr<Results> FindMatches(const WebString& search_text,
+                                       const blink::FindOptions options) const;
 
   // Gets a flat tree range corresponding to text in the [start_index,
   // end_index) of |buffer|.
@@ -95,12 +113,25 @@ class CORE_EXPORT FindBuffer {
   }
 
  private:
-  // Collects text for one LayoutBlockFlow located at or after |start_node|
-  // to |buffer_|, might be stopped without finishing one full LayoutBlockFlow
-  // if we encountered another LayoutBLockFlow. Saves the next starting node
-  // after the block (first node in another LayoutBlockFlow) to
-  // |node_after_block_|.
-  void CollectTextUntilBlockBoundary(Node& start_node);
+  // Collects text for one LayoutBlockFlow located within |range| to |buffer_|,
+  // might be stopped without finishing one full LayoutBlockFlow  if we
+  // encountered another LayoutBLockFlow, or if the end of |range| is
+  // surpassed. Saves the next starting node after the block (first node in
+  // another LayoutBlockFlow or after |end_position|) to |node_after_block_|.
+  void CollectTextUntilBlockBoundary(const EphemeralRangeInFlatTree& range);
+
+  // Adds the ScopedForcedUpdate of |element|'s DisplayLockContext (if it's
+  // there) to |scoped_forced_update_list_|. Returns true if we added a
+  // ScopedForceUpdate.
+  bool PushScopedForcedUpdateIfNeeded(const Element& element);
+
+  // Collects all ScopedForceUpdates of any activatable-locked element
+  // within the range of [start_node, search_range_end_node] or
+  // [start_node, node_after_block) whichever is smaller, to
+  // |scoped_forced_update_list_|.
+  void CollectScopedForcedUpdates(Node& start_node,
+                                  const Node* search_range_end_node,
+                                  const Node* node_after_block);
 
   class CORE_EXPORT InvisibleLayoutScope {
     STACK_ALLOCATED();
@@ -153,12 +184,16 @@ class CORE_EXPORT FindBuffer {
 
   PositionInFlatTree PositionAtEndOfCharacterAtIndex(unsigned index) const;
 
-  void AddTextToBuffer(const Text& text_node, LayoutBlockFlow& block_flow);
+  // Adds text in |text_node| that are located within |range| to |buffer_|.
+  void AddTextToBuffer(const Text& text_node,
+                       LayoutBlockFlow& block_flow,
+                       const EphemeralRangeInFlatTree& range);
 
   InvisibleLayoutScope invisible_layout_scope_;
   Member<Node> node_after_block_;
   Vector<UChar> buffer_;
   Vector<BufferNodeMapping> buffer_node_mappings_;
+  Vector<DisplayLockContext::ScopedForcedUpdate> scoped_forced_update_list_;
 
   // For legacy layout, we need to save a unique_ptr of the NGOffsetMapping
   // because nobody owns it. In LayoutNG, the NGOffsetMapping is owned by

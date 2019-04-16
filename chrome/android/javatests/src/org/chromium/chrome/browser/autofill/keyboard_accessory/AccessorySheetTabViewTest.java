@@ -68,7 +68,7 @@ public class AccessorySheetTabViewTest {
                             mActivityTestRule.getActivity().findViewById(
                                     R.id.keyboard_accessory_sheet_stub)));
             accessorySheet.addTab(new KeyboardAccessoryData.Tab(
-                    null, null, layout, AccessoryTabType.ALL, listener));
+                    "Passwords", null, null, layout, AccessoryTabType.ALL, listener));
             accessorySheet.setHeight(
                     mActivityTestRule.getActivity().getResources().getDimensionPixelSize(
                             R.dimen.keyboard_accessory_sheet_height));
@@ -129,7 +129,6 @@ public class AccessorySheetTabViewTest {
         final AtomicReference<Boolean> clicked = new AtomicReference<>(false);
         assertThat(mView.get().getChildCount(), is(0));
 
-        ManualFillingTestHelper.createTestCredentials();
         ThreadUtils.runOnUiThreadBlocking(() -> {
             mModel.add(new AccessorySheetDataPiece(
                     new KeyboardAccessoryData.FooterCommand(

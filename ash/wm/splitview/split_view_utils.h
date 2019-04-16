@@ -27,24 +27,22 @@ enum SplitviewAnimationType {
   // to drag a selector item.
   SPLITVIEW_ANIMATION_HIGHLIGHT_FADE_IN,
   SPLITVIEW_ANIMATION_HIGHLIGHT_FADE_OUT,
-  // Used to fade in and out the other highlight. There are normally two
-  // highlights, one on each side. When entering a state with a preview
-  // highlight, one highlight is the preview highlight, and the other highlight
-  // is the other highlight.
-  SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_FADE_IN,
+  // Used to fade out the other highlight. There are normally two highlights,
+  // one on each side. When entering a state with a preview highlight, one
+  // highlight is the preview highlight, and the other highlight is the other
+  // highlight.
   SPLITVIEW_ANIMATION_OTHER_HIGHLIGHT_FADE_OUT,
-  // Used to fade in and out the preview area highlight which indicate the
-  // bounds of
-  // the window that is about to get snapped.
+  // Used to fade in and out the preview area highlight which indicates the
+  // bounds of the window that is about to get snapped.
   SPLITVIEW_ANIMATION_PREVIEW_AREA_FADE_IN,
   SPLITVIEW_ANIMATION_PREVIEW_AREA_FADE_OUT,
-  // Used to fade in and out the label on the selector item which warns users
-  // the item cannot be snapped. The label appears on the selector item after
+  // Used to fade in and out the label on the overview item which warns users
+  // the item cannot be snapped. The label appears on the overview item after
   // another window has been snapped.
-  SPLITVIEW_ANIMATION_SELECTOR_ITEM_FADE_IN,
-  SPLITVIEW_ANIMATION_SELECTOR_ITEM_FADE_OUT,
+  SPLITVIEW_ANIMATION_OVERVIEW_ITEM_FADE_IN,
+  SPLITVIEW_ANIMATION_OVERVIEW_ITEM_FADE_OUT,
   // Used to fade in and out the labels which appear on either side of overview
-  // mode when a selector item is selected. They indicate where to drag the
+  // mode when a overview item is selected. They indicate where to drag the
   // selector item if it is snappable, or if an item cannot be snapped.
   SPLITVIEW_ANIMATION_TEXT_FADE_IN,
   SPLITVIEW_ANIMATION_TEXT_FADE_OUT,

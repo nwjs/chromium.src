@@ -61,7 +61,7 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   // setBuffer() is called on the main thread. This is the buffer we use for
   // playback.
   void SetBuffer(AudioBuffer*, ExceptionState&);
-  AudioBuffer* Buffer() { return buffer_.Get(); }
+  SharedAudioBuffer* Buffer() { return shared_buffer_.get(); }
 
   // numberOfChannels() returns the number of output channels.  This value
   // equals the number of channels from the buffer.  If a new buffer is set with
@@ -95,7 +95,7 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   // If we are no longer playing, propogate silence ahead to downstream nodes.
   bool PropagatesSilence() const override;
 
-  void HandleStoppableSourceNode();
+  void HandleStoppableSourceNode() override;
 
  private:
   AudioBufferSourceHandler(AudioNode&,
@@ -108,10 +108,25 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
                    bool is_duration_given,
                    ExceptionState&);
 
-  // Returns true on success.
-  bool RenderFromBuffer(AudioBus*,
+  // Render audio directly from the buffer to the audio bus. Returns true on
+  // success, i.e., audio was written to the output bus because all the internal
+  // checks passed.
+  //
+  //   output_bus -
+  //     AudioBus where the rendered audio goes.
+  //   destination_frame_offset -
+  //     Index into the output bus where the first frame should be written.
+  //   number_of_frames -
+  //     Maximum number of frames to process; this can be less that a render
+  //     quantum.
+  //   start_time_offset -
+  //     Actual start time relative to the |destination_frame_offset|.  This
+  //     should be the \sart_time_offset| value returned by
+  //     |UpdateSchedulingInfo|.
+  bool RenderFromBuffer(AudioBus* output_bus,
                         unsigned destination_frame_offset,
-                        uint32_t number_of_frames);
+                        uint32_t number_of_frames,
+                        double start_time_offset);
 
   // Render silence starting from "index" frame in AudioBus.
   inline bool RenderSilenceAndFinishIfNotLooping(AudioBus*,
@@ -119,13 +134,11 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
                                                  uint32_t frames_to_process);
 
   // Clamps grain parameters to the duration of the given AudioBuffer.
-  void ClampGrainParameters(const AudioBuffer*);
+  void ClampGrainParameters(const SharedAudioBuffer*);
 
-  // m_buffer holds the sample data which this node outputs.
-  // This Persistent doesn't make a reference cycle including
-  // AudioBufferSourceNode.
-  // It is cross-thread, as it will be accessed by the audio and main threads.
-  CrossThreadPersistent<AudioBuffer> buffer_;
+  // Sample data for the outputs of this node. The shared buffer can safely be
+  // accessed from the audio thread.
+  std::unique_ptr<SharedAudioBuffer> shared_buffer_;
 
   // Pointers for the buffer and destination.
   std::unique_ptr<const float* []> source_channels_;
@@ -175,14 +188,6 @@ class AudioBufferSourceHandler final : public AudioScheduledSourceHandler {
   // The minimum playbackRate value ever used for this source.
   double min_playback_rate_;
 
-  // |min_playback_rate_| may be updated by the audio thread
-  // while the main thread checks if the node is in a stoppable
-  // state, hence access needs to be atomic.
-  //
-  // TODO: when the codebase adopts std::atomic<>, use it for
-  // |min_playback_rate_|.
-  Mutex min_playback_rate_mutex_;
-
   // True if the |buffer| attribute has ever been set to a non-null
   // value.  Defaults to false.
   bool buffer_has_been_set_;
@@ -222,6 +227,7 @@ class AudioBufferSourceNode final : public AudioScheduledSourceNode {
  private:
   Member<AudioParam> playback_rate_;
   Member<AudioParam> detune_;
+  Member<AudioBuffer> buffer_;
 };
 
 }  // namespace blink

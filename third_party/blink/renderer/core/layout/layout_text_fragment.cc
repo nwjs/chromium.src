@@ -42,7 +42,9 @@ LayoutTextFragment::LayoutTextFragment(Node* node,
       fragment_length_(length),
       is_remaining_text_layout_object_(false),
       content_string_(str),
-      first_letter_pseudo_element_(nullptr) {}
+      first_letter_pseudo_element_(nullptr) {
+  is_text_fragment_ = true;
+}
 
 LayoutTextFragment::~LayoutTextFragment() {
   DCHECK(!first_letter_pseudo_element_);
@@ -202,12 +204,18 @@ void LayoutTextFragment::UpdateHitTestResult(HitTestResult& result,
 }
 
 Position LayoutTextFragment::PositionForCaretOffset(unsigned offset) const {
-  DCHECK_LE(offset, FragmentLength());
+  // TODO(layout-dev): Make the following DCHECK always enabled after we
+  // properly support 'text-transform' changing text length.
+#if DCHECK_IS_ON()
+  if (StyleRef().TextTransform() == ETextTransform::kNone)
+    DCHECK_LE(offset, FragmentLength());
+#endif
   const Text* node = AssociatedTextNode();
   if (!node)
     return Position();
-  // TODO(layout-dev): Support offset change due to text-transform.
-  return Position(node, Start() + offset);
+  // TODO(layout-dev): Properly support offset change due to text-transform.
+  const unsigned clamped_offset = std::min(offset, FragmentLength());
+  return Position(node, Start() + clamped_offset);
 }
 
 base::Optional<unsigned> LayoutTextFragment::CaretOffsetForPosition(

@@ -7,6 +7,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "components/sync/base/sync_prefs.h"
 #include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "components/sync/engine/cycle/sync_cycle_snapshot.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 
@@ -29,8 +30,8 @@ UploadState GetUploadToGoogleState(const SyncService* sync_service,
   // encrypted, but not necessarily with a custom passphrase. On the other hand,
   // some data types are never encrypted (e.g. DEVICE_INFO), even if the
   // "encrypt everything" setting is enabled.
-  if (sync_service->GetEncryptedDataTypes().Has(type) &&
-      sync_service->IsUsingSecondaryPassphrase()) {
+  if (sync_service->GetUserSettings()->GetEncryptedDataTypes().Has(type) &&
+      sync_service->GetUserSettings()->IsUsingSecondaryPassphrase()) {
     return UploadState::NOT_ACTIVE;
   }
 
@@ -44,7 +45,6 @@ UploadState GetUploadToGoogleState(const SyncService* sync_service,
     case SyncService::TransportState::DISABLED:
       return UploadState::NOT_ACTIVE;
 
-    case SyncService::TransportState::WAITING_FOR_START_REQUEST:
     case SyncService::TransportState::START_DEFERRED:
     case SyncService::TransportState::INITIALIZING:
     case SyncService::TransportState::PENDING_DESIRED_CONFIGURATION:

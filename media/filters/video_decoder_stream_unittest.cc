@@ -44,7 +44,7 @@ const int kNumConfigs = 4;
 const int kNumBuffersInOneConfig = 5;
 
 static std::string GetDecoderName(int i) {
-  return std::string("VideoDecoder") + base::IntToString(i);
+  return std::string("VideoDecoder") + base::NumberToString(i);
 }
 
 struct VideoDecoderStreamTestParams {
@@ -307,8 +307,13 @@ class VideoDecoderStreamTest
     DCHECK(pending_read_);
     frame_read_ = frame;
     last_read_status_ = status;
-    if (frame.get() &&
+    if (frame &&
         !frame->metadata()->IsTrue(VideoFrameMetadata::END_OF_STREAM)) {
+      base::TimeDelta metadata_frame_duration;
+      EXPECT_TRUE(frame->metadata()->GetTimeDelta(
+          VideoFrameMetadata::FRAME_DURATION, &metadata_frame_duration));
+      EXPECT_EQ(metadata_frame_duration, demuxer_stream_->duration());
+
       num_decoded_frames_++;
     }
     pending_read_ = false;
@@ -496,7 +501,7 @@ class VideoDecoderStreamTest
   DISALLOW_COPY_AND_ASSIGN(VideoDecoderStreamTest);
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     Clear,
     VideoDecoderStreamTest,
     ::testing::Values(VideoDecoderStreamTestParams(false, false, false, 0, 1),
@@ -505,19 +510,19 @@ INSTANTIATE_TEST_CASE_P(
                       VideoDecoderStreamTestParams(false, false, true, 0, 1),
                       VideoDecoderStreamTestParams(false, false, true, 3, 1)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     EncryptedWithDecryptor,
     VideoDecoderStreamTest,
     ::testing::Values(VideoDecoderStreamTestParams(true, true, false, 7, 1),
                       VideoDecoderStreamTestParams(true, true, true, 7, 1)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     EncryptedWithoutDecryptor,
     VideoDecoderStreamTest,
     ::testing::Values(VideoDecoderStreamTestParams(true, false, false, 7, 1),
                       VideoDecoderStreamTestParams(true, false, true, 7, 1)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     Clear_Parallel,
     VideoDecoderStreamTest,
     ::testing::Values(VideoDecoderStreamTestParams(false, false, false, 0, 3),

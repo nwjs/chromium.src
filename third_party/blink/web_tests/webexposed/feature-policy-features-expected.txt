@@ -12,6 +12,7 @@ font-display-late-swap
 fullscreen
 geolocation
 gyroscope
+hid
 layout-animations
 lazyload
 legacy-image-formats
@@ -21,6 +22,7 @@ midi
 oversized-images
 payment
 picture-in-picture
+serial
 speaker
 sync-script
 sync-xhr

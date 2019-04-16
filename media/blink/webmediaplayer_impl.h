@@ -47,11 +47,6 @@
 #include "third_party/blink/public/platform/web_surface_layer_bridge.h"
 #include "url/gurl.h"
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-// Delete this file when WMPI_CAST is no longer needed.
-#include "media/blink/webmediaplayer_cast_android.h"
-#endif
-
 namespace blink {
 class WebLocalFrame;
 class WebMediaPlayerClient;
@@ -125,14 +120,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void Seek(double seconds) override;
   void SetRate(double rate) override;
   void SetVolume(double volume) override;
-  void EnterPictureInPicture(
-      blink::WebMediaPlayer::PipWindowOpenedCallback callback) override;
-  void ExitPictureInPicture(
-      blink::WebMediaPlayer::PipWindowClosedCallback callback) override;
-  void SetPictureInPictureCustomControls(
-      const std::vector<blink::PictureInPictureControlInfo>&) override;
-  void RegisterPictureInPictureWindowResizeCallback(
-      blink::WebMediaPlayer::PipWindowResizedCallback callback) override;
+  void OnRequestPictureInPicture() override;
   void SetSinkId(
       const blink::WebString& sink_id,
       std::unique_ptr<blink::WebSetSinkIdCallbacks> web_callback) override;
@@ -234,39 +222,25 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void OnIdleTimeout() override;
   void OnPlay() override;
   void OnPause() override;
+  void OnMuted(bool muted) override;
   void OnSeekForward(double seconds) override;
   void OnSeekBackward(double seconds) override;
   void OnVolumeMultiplierUpdate(double multiplier) override;
   void OnBecamePersistentVideo(bool value) override;
   void OnPictureInPictureModeEnded() override;
-  void OnPictureInPictureControlClicked(const std::string& control_id) override;
 
   // Callback for when bytes are received by |chunk_demuxer_| or the UrlData
   // being loaded.
   void OnBytesReceived(uint64_t data_length);
 
   void RequestRemotePlaybackDisabled(bool disabled) override;
-#if defined(OS_ANDROID)  // WMPI_CAST
+
+#if defined(OS_ANDROID)
   // TODO(https://crbug.com/839651): Rename Flinging[Started/Stopped] to
   // RemotePlayback[Started/Stopped] once the other RemotePlayback methods have
   // been removed
-  bool IsRemote() const override;
-  void RequestRemotePlayback() override;
-  void RequestRemotePlaybackControl() override;
-  void RequestRemotePlaybackStop() override;
   void FlingingStarted() override;
   void FlingingStopped() override;
-
-  void SetMediaPlayerManager(
-      RendererMediaPlayerManagerInterface* media_player_manager);
-  void OnRemotePlaybackEnded();
-  void OnDisconnectedFromRemoteDevice(double t);
-  void SuspendForRemote();
-  void DisplayCastFrameAfterSuspend(const scoped_refptr<VideoFrame>& new_frame,
-                                    PipelineStatus status);
-  gfx::Size GetCanvasSize() const;
-  void SetDeviceScaleFactor(float scale_factor);
-  void SetUseFallbackPath(bool use_fallback_path);
 #endif
 
   // MediaObserverClient implementation.
@@ -283,18 +257,15 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // paused; see UpdatePlayState_ComputePlayState() for the exact details.
   void ForceStaleStateForTesting(ReadyState target_state) override;
   bool IsSuspendedForTesting() override;
-
   bool DidLazyLoad() const override;
   void OnBecameVisible() override;
   bool IsOpaque() const override;
+  int GetDelegateId() override;
+  base::Optional<viz::SurfaceId> GetSurfaceId() override;
 
   bool IsBackgroundMediaSuspendEnabled() const {
     return is_background_suspend_enabled_;
   }
-
-  // Called from WebMediaPlayerCast.
-  // TODO(hubbe): WMPI_CAST make private.
-  void OnPipelineSeeked(bool time_updated);
 
   // Distinct states that |delegate_| can be in. (Public for testing.)
   enum class DelegateState {
@@ -337,6 +308,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void OnPipelineSuspended();
   void OnBeforePipelineResume();
   void OnPipelineResumed();
+  void OnPipelineSeeked(bool time_updated);
   void OnDemuxerOpened();
 
   // Pipeline::Client overrides.
@@ -424,7 +396,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   //
   // This method should be called any time its dependent values change. These
   // are:
-  //   - isRemote(), is_flinging_,
+  //   - is_flinging_,
   //   - hasVideo(),
   //   - delegate_->IsHidden(),
   //   - network_state_, ready_state_,
@@ -435,8 +407,7 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void UpdatePlayState();
 
   // Methods internal to UpdatePlayState().
-  PlayState UpdatePlayState_ComputePlayState(bool is_remote,
-                                             bool is_flinging,
+  PlayState UpdatePlayState_ComputePlayState(bool is_flinging,
                                              bool can_auto_suspend,
                                              bool is_suspended,
                                              bool is_backgrounded);
@@ -600,11 +571,6 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   void ActivateSurfaceLayerForVideo();
 
   void SendBytesReceivedUpdate();
-
-  // Returns whether the Picture-in-Picture window should contain a play/pause
-  // button. It will return false if video is "live", in other words if duration
-  // is equals to Infinity.
-  bool ShouldShowPlayPauseButtonInPictureInPictureWindow() const;
 
   blink::WebLocalFrame* const frame_;
 
@@ -771,10 +737,6 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   // IsRemote().
   bool is_flinging_ = false;
 
-#if defined(OS_ANDROID)  // WMPI_CAST
-  WebMediaPlayerCast cast_impl_;
-#endif
-
   // The last volume received by setVolume() and the last volume multiplier from
   // OnVolumeMultiplierUpdate().  The multiplier is typical 1.0, but may be less
   // if the WebMediaPlayerDelegate has requested a volume reduction (ducking)
@@ -813,11 +775,9 @@ class MEDIA_BLINK_EXPORT WebMediaPlayerImpl
   GURL loaded_url_;
 
   // NOTE: |using_media_player_renderer_| is set based on the usage of a
-  // MediaResource::Type::URL in StartPipeline(). This currently works because
-  // the MediaPlayerRendererClient factory is the only factory that returns that
-  // Type, but this may no longer be accurate when we remove |cast_impl_| and
-  // WebMediaPlayerCast. This flag should be renamed/updated accordingly when
-  // removing |cast_impl_|.
+  // MediaResource::Type::URL in StartPipeline(). This works because
+  // MediaPlayerRendererClientFactory is the only factory that uses
+  // MediaResource::Type::URL for now.
   bool using_media_player_renderer_ = false;
 
   // Set whenever the demuxer encounters an HLS file.

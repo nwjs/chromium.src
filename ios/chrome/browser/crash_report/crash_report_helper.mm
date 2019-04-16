@@ -146,7 +146,9 @@ const int kNumberOfURLsToSend = 1;
     return;
   NSString* url = [notification.userInfo objectForKey:kTabUrlKey];
   DCHECK(url);
-  [self recordURL:url forTabId:tab.tabId pending:NO];
+  [self recordURL:url
+         forTabId:TabIdTabHelper::FromWebState(tab.webState)->tab_id()
+          pending:NO];
 }
 
 - (void)urlChangeExpected:(NSNotification*)notification {
@@ -156,7 +158,9 @@ const int kNumberOfURLsToSend = 1;
     return;
   NSString* url = [notification.userInfo objectForKey:kTabUrlKey];
   DCHECK(url);
-  [self recordURL:url forTabId:tab.tabId pending:YES];
+  [self recordURL:url
+         forTabId:TabIdTabHelper::FromWebState(tab.webState)->tab_id()
+          pending:YES];
 }
 
 - (void)removeTabId:(NSString*)tabId {
@@ -203,14 +207,14 @@ const int kNumberOfURLsToSend = 1;
 - (void)tabModel:(TabModel*)model
     didRemoveTab:(Tab*)tab
          atIndex:(NSUInteger)index {
-  [self removeTabId:tab.tabId];
+  [self removeTabId:TabIdTabHelper::FromWebState(tab.webState)->tab_id()];
 }
 
 - (void)tabModel:(TabModel*)model
     didReplaceTab:(Tab*)oldTab
           withTab:(Tab*)newTab
           atIndex:(NSUInteger)index {
-  [self removeTabId:oldTab.tabId];
+  [self removeTabId:TabIdTabHelper::FromWebState(oldTab.webState)->tab_id()];
 }
 
 - (void)tabModel:(TabModel*)model
@@ -222,7 +226,7 @@ const int kNumberOfURLsToSend = 1;
   const GURL& URL = pendingItem ? pendingItem->GetURL()
                                 : newTab.webState->GetLastCommittedURL();
   [self recordURL:base::SysUTF8ToNSString(URL.spec())
-         forTabId:newTab.tabId
+         forTabId:TabIdTabHelper::FromWebState(newTab.webState)->tab_id()
           pending:pendingItem ? YES : NO];
 }
 
@@ -261,7 +265,10 @@ const int kNumberOfURLsToSend = 1;
 
 - (void)closingDocument:(NSNotification*)notification {
   Tab* tab = notification.object;
-  [self closingDocumentInTab:[tab tabId]];
+  NSString* tabID = nil;
+  if (tab.webState)
+    tabID = TabIdTabHelper::FromWebState(tab.webState)->tab_id();
+  [self closingDocumentInTab:tabID];
 }
 
 - (void)closingDocumentInTab:(NSString*)tabId {
@@ -296,13 +303,16 @@ const int kNumberOfURLsToSend = 1;
 
 - (void)showingExportableDocument:(NSNotification*)notification {
   Tab* tab = notification.object;
-  NSString* oldMime = (NSString*)[self getTabInfo:@"mime" forTab:[tab tabId]];
+  NSString* tabID = nil;
+  if (tab.webState)
+    tabID = TabIdTabHelper::FromWebState(tab.webState)->tab_id();
+  NSString* oldMime = (NSString*)[self getTabInfo:@"mime" forTab:tabID];
   if ([oldMime isEqualToString:@"application/pdf"])
     return;
 
   std::string mime = [tab webState]->GetContentsMimeType();
   NSString* nsMime = base::SysUTF8ToNSString(mime);
-  [self setTabInfo:@"mime" withValue:nsMime forTab:[tab tabId]];
+  [self setTabInfo:@"mime" withValue:nsMime forTab:tabID];
   breakpad_helper::SetCurrentTabIsPDF(true);
 }
 
@@ -314,14 +324,14 @@ const int kNumberOfURLsToSend = 1;
 - (void)tabModel:(TabModel*)model
     didRemoveTab:(Tab*)tab
          atIndex:(NSUInteger)index {
-  [self removeTabId:tab.tabId];
+  [self removeTabId:TabIdTabHelper::FromWebState(tab.webState)->tab_id()];
 }
 
 - (void)tabModel:(TabModel*)model
     didReplaceTab:(Tab*)oldTab
           withTab:(Tab*)newTab
           atIndex:(NSUInteger)index {
-  [self removeTabId:oldTab.tabId];
+  [self removeTabId:TabIdTabHelper::FromWebState(oldTab.webState)->tab_id()];
 }
 
 @end

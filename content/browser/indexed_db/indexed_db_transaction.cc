@@ -119,6 +119,8 @@ IndexedDBTransaction::IndexedDBTransaction(
   IDB_ASYNC_TRACE_BEGIN("IndexedDBTransaction::lifetime", this);
   callbacks_ = connection_->callbacks();
   database_ = connection_->database();
+  if (database_)
+    database_->TransactionCreated();
 
   diagnostics_.tasks_scheduled = 0;
   diagnostics_.tasks_completed = 0;
@@ -220,13 +222,22 @@ void IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
 
   preemptive_task_queue_.clear();
   pending_preemptive_events_ = 0;
-  task_queue_.clear();
 
   // Backing store resources (held via cursors) must be released
   // before script callbacks are fired, as the script callbacks may
   // release references and allow the backing store itself to be
   // released, and order is critical.
-  CloseOpenCursors();
+  CloseOpenCursorBindings();
+
+  // Open cursors have to be deleted before we clear the task queue.
+  // If we clear the task queue and closures exist in it that refer
+  // to callbacks associated with the cursor mojo bindings, the callback
+  // deletion will fail due to a mojo assert.  |CloseOpenCursorBindings()|
+  // above will clear the binding, which also deletes the owned
+  // |IndexedDBCursor| objects.  After that, we can safely clear the
+  // task queue.
+  task_queue_.clear();
+
   transaction_->Reset();
 
   // Transactions must also be marked as completed before the
@@ -237,7 +248,7 @@ void IndexedDBTransaction::Abort(const IndexedDBDatabaseError& error) {
   if (callbacks_.get())
     callbacks_->OnAbort(*this, error);
 
-  database_->TransactionFinished(this, false);
+  database_->TransactionFinished(mode_, false);
 
   // RemoveTransaction will delete |this|.
   // Note: During force-close situations, the connection can be destroyed during
@@ -460,7 +471,7 @@ leveldb::Status IndexedDBTransaction::CommitPhaseTwo() {
     if (!pending_observers_.empty() && connection_)
       connection_->ActivatePendingObservers(std::move(pending_observers_));
 
-    database_->TransactionFinished(this, true);
+    database_->TransactionFinished(mode_, true);
     // RemoveTransaction will delete |this|.
     connection_->RemoveTransaction(id_);
     return s;
@@ -479,7 +490,7 @@ leveldb::Status IndexedDBTransaction::CommitPhaseTwo() {
                                  "Internal error committing transaction.");
     }
     callbacks_->OnAbort(*this, error);
-    database_->TransactionFinished(this, false);
+    database_->TransactionFinished(mode_, false);
   }
   return s;
 }
@@ -562,6 +573,14 @@ void IndexedDBTransaction::Timeout() {
   Abort(IndexedDBDatabaseError(
       blink::kWebIDBDatabaseExceptionTimeoutError,
       base::ASCIIToUTF16("Transaction timed out due to inactivity.")));
+}
+
+void IndexedDBTransaction::CloseOpenCursorBindings() {
+  IDB_TRACE1("IndexedDBTransaction::CloseOpenCursorBindings", "txn.id", id());
+  std::vector<IndexedDBCursor*> cursor_ptrs(open_cursors_.begin(),
+                                            open_cursors_.end());
+  for (auto* cursor_ptr : cursor_ptrs)
+    cursor_ptr->RemoveBinding();
 }
 
 void IndexedDBTransaction::CloseOpenCursors() {

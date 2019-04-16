@@ -224,8 +224,10 @@ function sendReport() {
   feedbackInfo.email = $('user-email-drop-down').value;
 
   let useSystemInfo = false;
+  let useHistograms = false;
   if ($('sys-info-checkbox') != null && $('sys-info-checkbox').checked) {
-    useSystemInfo = true;
+    // Send histograms along with system info.
+    useSystemInfo = useHistograms = true;
   }
 
   // <if expr="chromeos">
@@ -249,6 +251,8 @@ function sendReport() {
     feedbackInfo.traceId = null;
   }
   // </if>
+
+  feedbackInfo.sendHistograms = useHistograms;
 
   // If the user doesn't want to send the screenshot.
   if (!$('screenshot-checkbox').checked) {
@@ -385,9 +389,10 @@ function initialize() {
             chrome.feedbackPrivate.logSrtPromptResult(SrtPromptResult.CLOSED);
           }
         });
-      } else if (
-          feedbackInfo.flow ==
-          chrome.feedbackPrivate.FeedbackFlow.GOOGLE_INTERNAL) {
+      } else if (feedbackInfo.includeBluetoothLogs) {
+        assert(
+            feedbackInfo.flow ==
+            chrome.feedbackPrivate.FeedbackFlow.GOOGLE_INTERNAL);
         $('description-text')
             .addEventListener('input', checkForBluetoothKeywords);
         $('srt-prompt').hidden = true;
@@ -533,6 +538,14 @@ function initialize() {
           };
         }
 
+        const histogramUrlElement = $('histograms-url');
+        if (histogramUrlElement) {
+          // Opens a new window showing the histogram metrics.
+          setupLinkHandlers(
+              histogramUrlElement, 'chrome://histograms',
+              true /* useAppWindow */);
+        }
+
         const legalHelpPageUrlElement = $('legal-help-page-url');
         if (legalHelpPageUrlElement) {
           setupLinkHandlers(
@@ -570,6 +583,27 @@ function initialize() {
                 });
 
             bluetoothLogsInfoLinkElement.onauxclick = function(e) {
+              e.preventDefault();
+            };
+          };
+        }
+
+        const assistantLogsInfoLinkElement = $('assistant-logs-info-link');
+        if (assistantLogsInfoLinkElement) {
+          assistantLogsInfoLinkElement.onclick = function(e) {
+            e.preventDefault();
+
+            chrome.app.window.create(
+                '/html/assistant_logs_info.html',
+                {width: 400, height: 120, resizable: false, frame: 'none'},
+                function(appWindow) {
+                  appWindow.contentWindow.onload = function() {
+                    i18nTemplate.process(
+                        appWindow.contentWindow.document, loadTimeData);
+                  };
+                });
+
+            assistantLogsInfoLinkElement.onauxclick = function(e) {
               e.preventDefault();
             };
           };

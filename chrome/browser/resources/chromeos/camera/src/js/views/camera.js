@@ -79,18 +79,10 @@ cca.views.Camera = function(model) {
   this.recordTime_ = new cca.views.camera.RecordTime();
 
   /**
-   * Button for going to the gallery.
-   * @type {cca.views.camera.GalleryButton}
+   * @type {string}
    * @private
    */
-  this.galleryButton_ = new cca.views.camera.GalleryButton(model);
-
-  /**
-   * Button for taking photos and recording videos.
-   * @type {HTMLButtonElement}
-   * @private
-   */
-  this.shutterButton_ = document.querySelector('#shutter');
+  this.facingMode_ = '';
 
   /**
    * @type {boolean}
@@ -112,22 +104,15 @@ cca.views.Camera = function(model) {
   this.started_ = null;
 
   /**
-   * Promise for the current timer ticks.
-   * @type {Promise}
+   * Promise for play sound delay.
+   * @type {?Promise}
    * @private
    */
-  this.ticks_ = null;
-
-  /**
-   * Timeout for a take of photo or recording.
-   * @type {?number}
-   * @private
-   */
-  this.takeTimeout_ = null;
+  this.deferred_capture_ = null;
 
   /**
    * Promise for the current take of photo or recording.
-   * @type {Promise<Blob>}
+   * @type {?Promise}
    * @private
    */
   this.take_ = null;
@@ -135,8 +120,22 @@ cca.views.Camera = function(model) {
   // End of properties, seal the object.
   Object.seal(this);
 
-  this.shutterButton_.addEventListener('click',
-      this.onShutterButtonClicked_.bind(this));
+  document.querySelectorAll('#start-takephoto, #start-recordvideo')
+      .forEach((btn) => btn.addEventListener('click', () => this.beginTake_()));
+
+  document.querySelectorAll('#stop-takephoto, #stop-recordvideo')
+      .forEach((btn) => btn.addEventListener('click', () => this.endTake_()));
+
+  // Monitor the states to stop camera when locked/minimized.
+  chrome.idle.onStateChanged.addListener((newState) => {
+    this.locked_ = (newState == 'locked');
+    if (this.locked_) {
+      this.stop_();
+    }
+  });
+  chrome.app.window.current().onMinimized.addListener(() => this.stop_());
+
+  this.start_();
 };
 
 /**
@@ -148,87 +147,94 @@ cca.views.Camera.RECORD_MIMETYPE = 'video/x-matroska;codecs=avc1';
 
 cca.views.Camera.prototype = {
   __proto__: cca.views.View.prototype,
-  get capturing() {
-    return document.body.classList.contains('capturing');
-  },
-  get taking() {
-    return document.body.classList.contains('taking');
-  },
   get recordMode() {
-    return document.body.classList.contains('record-mode');
+    return cca.state.get('record-mode');
   },
-  get galleryButton() {
-    return this.galleryButton_;
-  },
-};
-
-/**
- * Prepares the view.
- */
-cca.views.Camera.prototype.prepare = function() {
-  // Monitor the states to stop camera when locked/minimized.
-  chrome.idle.onStateChanged.addListener((newState) => {
-    this.locked_ = (newState == 'locked');
-    if (this.locked_) {
-      this.stop_();
-    }
-  });
-  chrome.app.window.current().onMinimized.addListener(() => this.stop_());
-
-  // Start the camera after preparing the options (device ids).
-  this.options_.prepare();
-  this.start_();
 };
 
 /**
  * @override
  */
 cca.views.Camera.prototype.focus = function() {
-  this.shutterButton_.focus();
+  // Avoid focusing invisible shutters.
+  document.querySelectorAll('.shutter')
+      .forEach((btn) => btn.offsetParent && btn.focus());
 };
 
-/**
- * Handles clicking on the shutter button.
- * @param {Event} event Mouse event
- * @private
- */
-cca.views.Camera.prototype.onShutterButtonClicked_ = function(event) {
-  if (!this.capturing) {
-    return;
-  }
-  if (this.taking) {
-    // End the prior ongoing take if any; a new take shouldn't be started
-    // until the prior one is ended.
-    this.endTake_();
-    return;
-  }
-  try {
-    if (this.recordMode) {
-      this.prepareMediaRecorder_();
-    } else {
-      this.prepareImageCapture_();
-    }
-    this.beginTake_();
-  } catch (e) {
-    console.error(e);
-    cca.toast.show(this.recordMode ?
-        'errorMsgRecordStartFailed' : 'errorMsgTakePhotoFailed');
-  }
-};
 
 /**
- * Updates the shutter button's label for taking/record-mode state changes.
+ * Begins to take photo or recording with the current options, e.g. timer.
  * @private
  */
-cca.views.Camera.prototype.updateShutterLabel_ = function() {
-  var label;
-  if (this.recordMode) {
-    label = this.taking ? 'recordVideoStopButton' : 'recordVideoStartButton';
-  } else {
-    label = (this.taking && this.ticks_) ?
-        'takePhotoCancelButton' : 'takePhotoButton';
+cca.views.Camera.prototype.beginTake_ = function() {
+  if (!cca.state.get('streaming') || cca.state.get('taking')) {
+    return;
   }
-  this.shutterButton_.setAttribute('aria-label', chrome.i18n.getMessage(label));
+
+  cca.state.set('taking', true);
+  this.focus();  // Refocus the visible shutter button for ChromeVox.
+  this.take_ =
+      cca.views.camera.timertick.start()
+          .then(() => {
+            // Play a sound before starting to record and delay the take to
+            // avoid the sound being recorded if necessary.
+            this.deferred_capture_ =
+                this.recordMode ? cca.sound.play('#sound-rec-start') : null;
+            return this.deferred_capture_ &&
+                this.deferred_capture_.finally(
+                    () => this.deferred_capture_ = null);
+          })
+          .then(() => {
+            if (this.recordMode) {
+              try {
+                this.prepareMediaRecorder_();
+              } catch (e) {
+                cca.toast.show('error_msg_record_start_failed');
+                throw e;
+              }
+              // Take of recording will be ended by another shutter click.
+              return this.createRecordingBlob_().catch((e) => {
+                cca.toast.show('error_msg_empty_recording');
+                throw e;
+              });
+            } else {
+              try {
+                this.prepareImageCapture_();
+              } catch (e) {
+                cca.toast.show('error_msg_take_photo_failed');
+                throw e;
+              }
+              return this.createPhotoBlob_().catch((e) => {
+                cca.toast.show('error_msg_take_photo_failed');
+                throw e;
+              });
+            }
+          })
+          .then((blob) => {
+            if (blob) {
+              // Play a sound and save the result after a successful take.
+              cca.metrics.log(
+                  cca.metrics.Type.CAPTURE, this.facingMode_, blob.mins);
+              var recordMode = this.recordMode;
+              cca.sound.play(recordMode ? '#sound-rec-end' : '#sound-shutter');
+              return this.model_.savePicture(blob, recordMode)
+                  .catch((e) => {
+                    cca.toast.show('error_msg_save_file_failed');
+                    throw e;
+                  });
+            }
+          })
+          .catch((e) => {
+            if (e && e.message == 'cancel') {
+              return;
+            }
+            console.error(e);
+          })
+          .finally(() => {
+            this.take_ = null;
+            cca.state.set('taking', false);
+            this.focus();  // Refocus the visible shutter button for ChromeVox.
+          });
 };
 
 /**
@@ -250,74 +256,20 @@ cca.views.Camera.prototype.handlingKey = function(key) {
 };
 
 /**
- * Begins to take photo or recording with the current options, e.g. timer.
- * @private
- */
-cca.views.Camera.prototype.beginTake_ = function() {
-  document.body.classList.add('taking');
-  this.ticks_ = this.options_.timerTicks();
-  this.updateShutterLabel_();
-
-  Promise.resolve(this.ticks_).then(() => {
-    // Play a sound before starting to record and delay the take to avoid the
-    // sound being recorded if necessary.
-    var delay = (this.recordMode && this.options_.playSound(
-        cca.views.camera.Options.Sound.RECORDSTART)) ? 250 : 0;
-    this.takeTimeout_ = setTimeout(() => {
-      if (this.recordMode) {
-        // Take of recording will be ended by another shutter click.
-        this.take_ = this.createRecordingBlob_().catch((error) => {
-          cca.toast.show('errorMsgEmptyRecording');
-          throw error;
-        });
-      } else {
-        this.take_ = this.createPhotoBlob_().catch((error) => {
-          cca.toast.show('errorMsgTakePhotoFailed');
-          throw error;
-        });
-        this.endTake_();
-      }
-    }, delay);
-  }).catch(() => {});
-};
-
-/**
  * Ends the current take (or clears scheduled further takes if any.)
  * @return {!Promise} Promise for the operation.
  * @private
  */
 cca.views.Camera.prototype.endTake_ = function() {
-  if (this.ticks_) {
-    this.ticks_.cancel();
-    this.ticks_ = null;
-  }
-  if (this.takeTimeout_) {
-    clearTimeout(this.takeTimeout_);
-    this.takeTimeout_ = null;
+  cca.views.camera.timertick.cancel();
+  if (this.deferred_capture_ && this.deferred_capture_.cancel) {
+    this.deferred_capture_.cancel();
   }
   if (this.mediaRecorder_ && this.mediaRecorder_.state == 'recording') {
     this.mediaRecorder_.stop();
   }
 
-  return Promise.resolve(this.take_).then((blob) => {
-    if (blob && !blob.handled) {
-      // Play a sound and save the result after a successful take.
-      blob.handled = true;
-      var recordMode = this.recordMode;
-      this.options_.playSound(recordMode ?
-          cca.views.camera.Options.Sound.RECORDEND :
-          cca.views.camera.Options.Sound.SHUTTER);
-      return this.model_.savePicture(blob, recordMode).catch((error) => {
-        cca.toast.show('errorMsgSaveFileFailed');
-        throw error;
-      });
-    }
-  }).catch(console.error).finally(() => {
-    // Re-enable UI controls after finishing the take.
-    this.take_ = null;
-    document.body.classList.remove('taking');
-    this.updateShutterLabel_();
-  });
+  return Promise.resolve(this.take_);
 };
 
 /**
@@ -337,10 +289,10 @@ cca.views.Camera.prototype.createRecordingBlob_ = function() {
     var onstop = (event) => {
       this.mediaRecorder_.removeEventListener('dataavailable', ondataavailable);
       this.mediaRecorder_.removeEventListener('stop', onstop);
-      this.recordTime_.stop();
 
       var recordedBlob = new Blob(
           recordedChunks, {type: cca.views.Camera.RECORD_MIMETYPE});
+      recordedBlob.mins = this.recordTime_.stop();
       recordedChunks = [];
       if (recordedBlob.size) {
         resolve(recordedBlob);
@@ -361,7 +313,7 @@ cca.views.Camera.prototype.createRecordingBlob_ = function() {
     };
     enableAudio(true);
     this.mediaRecorder_.start();
-    enableAudio(document.body.classList.contains('mic'));
+    enableAudio(cca.state.get('mic'));
     this.recordTime_.start();
   });
 };
@@ -466,18 +418,15 @@ cca.views.Camera.prototype.constraintsCandidates_ = function() {
  * @private
  */
 cca.views.Camera.prototype.stop_ = function() {
-  // Update shutter label as record-mode might be toggled before reaching here.
-  this.updateShutterLabel_();
   // Wait for ongoing 'start' and 'take' done before restarting camera.
   return Promise.all([
     this.started_,
-    Promise.resolve(!this.taking || this.endTake_()),
+    Promise.resolve(!cca.state.get('taking') || this.endTake_()),
   ]).finally(() => {
     this.preview_.stop();
     this.mediaRecorder_ = null;
     this.imageCapture_ = null;
     this.photoCapabilities_ = null;
-    document.body.classList.remove('capturing');
     this.start_();
     return this.started_;
   });
@@ -498,8 +447,8 @@ cca.views.Camera.prototype.start_ = function() {
       var constraints = candidates[index];
       return navigator.mediaDevices.getUserMedia(constraints).then(
           this.preview_.start.bind(this.preview_)).then(() => {
-        this.options_.updateValues(constraints, this.preview_.stream);
-        document.body.classList.add('capturing');
+        this.facingMode_ = this.options_.updateValues(
+            constraints, this.preview_.stream);
         cca.nav.close('warning', 'no-camera');
       }).catch((error) => {
         console.error(error);

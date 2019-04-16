@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/profiler.h"
 #include "base/files/file_path.h"
@@ -44,6 +45,7 @@
 #include "gpu/config/gpu_driver_bug_workaround_type.h"
 #include "gpu/ipc/common/gpu_messages.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
+#include "third_party/blink/public/platform/web_layer_tree_view.h"
 #include "third_party/blink/public/platform/web_mouse_event.h"
 #include "third_party/blink/public/web/blink.h"
 #include "third_party/blink/public/web/web_image_cache.h"
@@ -105,7 +107,8 @@ class SkPictureSerializer {
       // with
       // --no-sandbox command-line flag. Get rid of this limitation.
       // CRBUG: 139640.
-      std::string filename = "layer_" + base::IntToString(layer_id_++) + ".skp";
+      std::string filename =
+          "layer_" + base::NumberToString(layer_id_++) + ".skp";
       std::string filepath = dirpath_.AppendASCII(filename).MaybeAsASCII();
       DCHECK(!filepath.empty());
       SkFILEWStream file(filepath.c_str());
@@ -263,7 +266,7 @@ void OnMicroBenchmarkCompleted(CallbackAndContext* callback_and_context,
   }
 }
 
-void OnSyntheticGestureCompleted(CallbackAndContext* callback_and_context) {
+void RunCallbackHelper(CallbackAndContext* callback_and_context) {
   v8::Isolate* isolate = callback_and_context->isolate();
   v8::HandleScope scope(isolate);
   v8::Local<v8::Context> context = callback_and_context->GetContext();
@@ -274,6 +277,30 @@ void OnSyntheticGestureCompleted(CallbackAndContext* callback_and_context) {
     frame->CallFunctionEvenIfScriptDisabled(callback, v8::Object::New(isolate),
                                             0, nullptr);
   }
+}
+
+void OnSyntheticGestureCompleted(CallbackAndContext* callback_and_context) {
+  RunCallbackHelper(callback_and_context);
+}
+
+bool ThrowIfPointOutOfBounds(GpuBenchmarkingContext* context,
+                             gin::Arguments* args,
+                             const gfx::Point& point,
+                             const std::string& message) {
+  gfx::Rect rect = context->render_view_impl()->GetWidget()->ViewRect();
+  rect -= rect.OffsetFromOrigin();
+
+  // If the bounds are not available here, as is the case with an OOPIF,
+  // for now, we will forgo the renderer-side bounds check.
+  if (rect.IsEmpty())
+    return false;
+
+  if (!rect.Contains(point)) {
+    args->ThrowTypeError(message);
+    return true;
+  }
+
+  return false;
 }
 
 bool BeginSmoothScroll(GpuBenchmarkingContext* context,
@@ -291,10 +318,8 @@ bool BeginSmoothScroll(GpuBenchmarkingContext* context,
                        bool precise_scrolling_deltas,
                        bool scroll_by_page,
                        bool cursor_visible) {
-  gfx::Rect rect = context->render_view_impl()->GetWidget()->ViewRect();
-  rect -= rect.OffsetFromOrigin();
-  if (!rect.Contains(start_x, start_y)) {
-    args->ThrowTypeError("Start point not in bounds");
+  if (ThrowIfPointOutOfBounds(context, args, gfx::Point(start_x, start_y),
+                              "Start point not in bounds")) {
     return false;
   }
 
@@ -391,12 +416,11 @@ bool BeginSmoothDrag(GpuBenchmarkingContext* context,
                      v8::Local<v8::Function> callback,
                      int gesture_source_type,
                      float speed_in_pixels_s) {
-  gfx::Rect rect = context->render_view_impl()->GetWidget()->ViewRect();
-  rect -= rect.OffsetFromOrigin();
-  if (!rect.Contains(start_x, start_y)) {
-    args->ThrowTypeError("Start point not in bounds");
+  if (ThrowIfPointOutOfBounds(context, args, gfx::Point(start_x, start_y),
+                              "Start point not in bounds")) {
     return false;
   }
+
   scoped_refptr<CallbackAndContext> callback_and_context =
       new CallbackAndContext(args->isolate(), callback,
                              context->web_frame()->MainWorldScriptContext());
@@ -472,6 +496,12 @@ static void PrintDocumentTofile(v8::Isolate* isolate,
   }
 }
 
+void OnSwapCompletedHelper(CallbackAndContext* callback_and_context,
+                           blink::WebLayerTreeView::SwapResult,
+                           base::TimeTicks) {
+  RunCallbackHelper(callback_and_context);
+}
+
 // This function is only used for correctness testing of this experimental
 // feature; no need for it in release builds.
 // Also note:  You must execute Chrome with `--no-sandbox` and
@@ -513,8 +543,7 @@ void GpuBenchmarking::Install(RenderFrameImpl* frame) {
   if (controller.IsEmpty())
     return;
 
-  v8::Local<v8::Object> chrome =
-      GetOrCreateChromeObject(isolate, context->Global());
+  v8::Local<v8::Object> chrome = GetOrCreateChromeObject(isolate, context);
   chrome->Set(gin::StringToV8(isolate, "gpuBenchmarking"), controller.ToV8());
 }
 
@@ -542,9 +571,16 @@ gin::ObjectTemplateBuilder GpuBenchmarking::GetObjectTemplateBuilder(
       .SetMethod("printPagesToSkPictures",
                  &GpuBenchmarking::PrintPagesToSkPictures)
       .SetMethod("printPagesToXPS", &GpuBenchmarking::PrintPagesToXPS)
-      .SetValue("DEFAULT_INPUT", 0)
-      .SetValue("TOUCH_INPUT", 1)
-      .SetValue("MOUSE_INPUT", 2)
+      .SetValue("DEFAULT_INPUT",
+                static_cast<int>(SyntheticGestureParams::DEFAULT_INPUT))
+      .SetValue("TOUCH_INPUT",
+                static_cast<int>(SyntheticGestureParams::TOUCH_INPUT))
+      .SetValue("MOUSE_INPUT",
+                static_cast<int>(SyntheticGestureParams::MOUSE_INPUT))
+      .SetValue("TOUCHPAD_INPUT",
+                static_cast<int>(SyntheticGestureParams::TOUCHPAD_INPUT))
+      .SetValue("PEN_INPUT",
+                static_cast<int>(SyntheticGestureParams::PEN_INPUT))
       .SetMethod("gestureSourceTypeSupported",
                  &GpuBenchmarking::GestureSourceTypeSupported)
       .SetMethod("smoothScrollBy", &GpuBenchmarking::SmoothScrollBy)
@@ -574,7 +610,9 @@ gin::ObjectTemplateBuilder GpuBenchmarking::GetObjectTemplateBuilder(
                  &GpuBenchmarking::GetGpuDriverBugWorkarounds)
       .SetMethod("startProfiling", &GpuBenchmarking::StartProfiling)
       .SetMethod("stopProfiling", &GpuBenchmarking::StopProfiling)
-      .SetMethod("freeze", &GpuBenchmarking::Freeze);
+      .SetMethod("freeze", &GpuBenchmarking::Freeze)
+      .SetMethod("addSwapCompletionEventListener",
+                 &GpuBenchmarking::AddSwapCompletionEventListener);
 }
 
 void GpuBenchmarking::SetNeedsDisplayOnAllLayers() {
@@ -791,10 +829,8 @@ bool GpuBenchmarking::ScrollBounce(gin::Arguments* args) {
     return false;
   }
 
-  gfx::Rect rect = context.render_view_impl()->GetWidget()->ViewRect();
-  rect -= rect.OffsetFromOrigin();
-  if (!rect.Contains(start_x, start_y)) {
-    args->ThrowTypeError("Start point not in bounds");
+  if (ThrowIfPointOutOfBounds(&context, args, gfx::Point(start_x, start_y),
+                              "Start point not in bounds")) {
     return false;
   }
 
@@ -857,10 +893,8 @@ bool GpuBenchmarking::PinchBy(gin::Arguments* args) {
     return false;
   }
 
-  gfx::Rect rect = context.render_view_impl()->GetWidget()->ViewRect();
-  rect -= rect.OffsetFromOrigin();
-  if (!rect.Contains(anchor_x, anchor_y)) {
-    args->ThrowTypeError("Anchor point not in bounds");
+  if (ThrowIfPointOutOfBounds(&context, args, gfx::Point(anchor_x, anchor_y),
+                              "Anchor point not in bounds")) {
     return false;
   }
 
@@ -985,10 +1019,9 @@ bool GpuBenchmarking::Tap(gin::Arguments* args) {
     return false;
   }
 
-  gfx::Rect rect = context.render_view_impl()->GetWidget()->ViewRect();
-  rect -= rect.OffsetFromOrigin();
-  if (!rect.Contains(position_x, position_y)) {
-    args->ThrowTypeError("Start point not in bounds");
+  if (ThrowIfPointOutOfBounds(&context, args,
+                              gfx::Point(position_x, position_y),
+                              "Start point not in bounds")) {
     return false;
   }
 
@@ -1191,6 +1224,27 @@ void GpuBenchmarking::Freeze() {
   context.web_view()->SetIsHidden(/*hidden=*/true,
                                   /*is_initial_state=*/false);
   context.web_view()->SetPageFrozen(true);
+}
+
+bool GpuBenchmarking::AddSwapCompletionEventListener(gin::Arguments* args) {
+  v8::Local<v8::Function> callback;
+  if (!GetArg(args, &callback))
+    return false;
+  if (!render_frame_)
+    return false;
+  LayerTreeView* layer_tree_view =
+      render_frame_->GetLocalRootRenderWidget()->layer_tree_view();
+  if (!layer_tree_view)
+    return false;
+  GpuBenchmarkingContext context;
+  if (!context.Init(true))
+    return false;
+
+  auto callback_and_context = base::MakeRefCounted<CallbackAndContext>(
+      args->isolate(), callback, context.web_frame()->MainWorldScriptContext());
+  layer_tree_view->NotifySwapTime(base::BindOnce(
+      &OnSwapCompletedHelper, base::RetainedRef(callback_and_context)));
+  return true;
 }
 
 }  // namespace content

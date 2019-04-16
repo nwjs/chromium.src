@@ -45,9 +45,9 @@
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_property_names.h"
-#include "third_party/blink/renderer/core/dom/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/dom/events/event_target.h"
+#include "third_party/blink/renderer/core/execution_context/context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation_client.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation_delegate.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -145,8 +145,8 @@ class CORE_EXPORT Animation final : public EventTargetWithInlineData,
   bool Limited() const { return Limited(CurrentTimeInternal()); }
   bool FinishedInternal() const { return finished_; }
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(finish, kFinish);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(cancel, kCancel);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(finish, kFinish)
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(cancel, kCancel)
 
   const AtomicString& InterfaceName() const override;
   ExecutionContext* GetExecutionContext() const override;

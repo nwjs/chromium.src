@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -245,13 +246,15 @@ void ClearBrowsingDataHandler::HandleClearBrowsingData(
         checked_other_types);
   }
 
-  // If Sync is running, prevent it from being paused during the operation.
-  // However, if Sync is in error, clearing cookies should pause it.
   std::unique_ptr<AccountReconcilor::ScopedSyncedDataDeletion>
       scoped_data_deletion;
-  sync_ui_util::MessageType sync_status = sync_ui_util::GetStatus(
-      profile_, sync_service_, IdentityManagerFactory::GetForProfile(profile_));
-  if (sync_status == sync_ui_util::SYNCED) {
+
+  // If Sync is running, prevent it from being paused during the operation.
+  // However, if Sync is in error, clearing cookies should pause it.
+  if (!profile_->IsGuestSession() &&
+      sync_ui_util::GetStatus(profile_) == sync_ui_util::SYNCED) {
+    // Settings can not be opened in incognito windows.
+    DCHECK(!profile_->IsOffTheRecord());
     scoped_data_deletion = AccountReconcilorFactory::GetForProfile(profile_)
                                ->GetScopedSyncDataDeletion();
   }

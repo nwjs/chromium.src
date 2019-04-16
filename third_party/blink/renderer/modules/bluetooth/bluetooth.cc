@@ -166,7 +166,7 @@ ScriptPromise Bluetooth::requestDevice(ScriptState* script_state,
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID) && !defined(OS_MACOSX) && \
     !defined(OS_WIN)
   context->AddConsoleMessage(ConsoleMessage::Create(
-      kJSMessageSource, kInfoMessageLevel,
+      kJSMessageSource, mojom::ConsoleMessageLevel::kInfo,
       "Web Bluetooth is experimental on this platform. See "
       "https://github.com/WebBluetoothCG/web-bluetooth/blob/gh-pages/"
       "implementation-status.md"));
@@ -286,7 +286,7 @@ ScriptPromise Bluetooth::requestLEScan(ScriptState* script_state,
   // Remind developers when they are using Web Bluetooth on unsupported
   // platforms.
   context->AddConsoleMessage(ConsoleMessage::Create(
-      kJSMessageSource, kInfoMessageLevel,
+      kJSMessageSource, mojom::ConsoleMessageLevel::kInfo,
       "Web Bluetooth Scanning is experimental on this platform. See "
       "https://github.com/WebBluetoothCG/web-bluetooth/blob/gh-pages/"
       "implementation-status.md"));
@@ -331,8 +331,10 @@ ScriptPromise Bluetooth::requestLEScan(ScriptState* script_state,
   ScriptPromise promise = resolver->Promise();
 
   mojom::blink::WebBluetoothScanClientAssociatedPtrInfo client;
-  mojo::BindingId id =
-      client_bindings_.AddBinding(this, mojo::MakeRequest(&client));
+  // See https://bit.ly/2S0zRAS for task types.
+  mojo::BindingId id = client_bindings_.AddBinding(
+      this, mojo::MakeRequest(&client),
+      context->GetTaskRunner(TaskType::kMiscPlatformAPI));
 
   service_->RequestScanningStart(
       std::move(client), std::move(scan_options),
@@ -369,7 +371,7 @@ void Bluetooth::ScanEvent(mojom::blink::WebBluetoothScanResultPtr result) {
   if (result->tx_power_is_set)
     tx_power = result->tx_power;
 
-  base::Optional<int16_t> appearance;
+  base::Optional<uint16_t> appearance;
   if (result->appearance_is_set)
     appearance = result->appearance;
 

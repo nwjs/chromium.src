@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/css/style_sheet_contents.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
+#include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/node_computed_style.h"
 #include "third_party/blink/renderer/core/dom/processing_instruction.h"
@@ -115,7 +116,7 @@ TreeScopeStyleSheetCollection& StyleEngine::EnsureStyleSheetCollectionFor(
   if (result.is_new_entry) {
     result.stored_value->value =
         MakeGarbageCollected<ShadowTreeStyleSheetCollection>(
-            ToShadowRoot(tree_scope));
+            To<ShadowRoot>(tree_scope));
   }
   return *result.stored_value->value.Get();
 }
@@ -243,6 +244,7 @@ void StyleEngine::RemovePendingSheet(Node& style_sheet_candidate_node,
 }
 
 void StyleEngine::SetNeedsActiveStyleUpdate(TreeScope& tree_scope) {
+  DCHECK(tree_scope.RootNode().isConnected());
   if (GetDocument().IsActive() || !IsMaster())
     MarkTreeScopeDirty(tree_scope);
 }
@@ -270,8 +272,10 @@ void StyleEngine::RemoveStyleSheetCandidateNode(
   if (!shadow_root)
     shadow_root = insertion_point.ContainingShadowRoot();
 
+  static_assert(std::is_base_of<TreeScope, ShadowRoot>::value,
+                "The ShadowRoot must be subclass of TreeScope.");
   TreeScope& tree_scope =
-      shadow_root ? *ToTreeScope(shadow_root) : GetDocument();
+      shadow_root ? static_cast<TreeScope&>(*shadow_root) : GetDocument();
   TreeScopeStyleSheetCollection* collection =
       StyleSheetCollectionFor(tree_scope);
   // After detaching document, collection could be null. In the case,
@@ -313,6 +317,9 @@ void StyleEngine::AdoptedStyleSheetsWillChange(
   for (unsigned i = index; i < new_sheets_count; ++i) {
     new_sheets[i]->AddedAdoptedToTreeScope(tree_scope);
   }
+
+  if (!tree_scope.RootNode().isConnected())
+    return;
 
   if (new_sheets_count) {
     EnsureStyleSheetCollectionFor(tree_scope);
@@ -362,8 +369,8 @@ void StyleEngine::MediaQueryAffectingValueChanged(
     UnorderedTreeScopeSet& tree_scopes) {
   for (TreeScope* tree_scope : tree_scopes) {
     DCHECK(tree_scope != document_);
-    ShadowTreeStyleSheetCollection* collection =
-        ToShadowTreeStyleSheetCollection(StyleSheetCollectionFor(*tree_scope));
+    auto* collection = To<ShadowTreeStyleSheetCollection>(
+        StyleSheetCollectionFor(*tree_scope));
     DCHECK(collection);
     if (collection->MediaQueryAffectingValueChanged())
       SetNeedsActiveStyleUpdate(*tree_scope);
@@ -405,8 +412,8 @@ void StyleEngine::UpdateActiveStyleSheetsInShadow(
     TreeScope* tree_scope,
     UnorderedTreeScopeSet& tree_scopes_removed) {
   DCHECK_NE(tree_scope, document_);
-  ShadowTreeStyleSheetCollection* collection =
-      ToShadowTreeStyleSheetCollection(StyleSheetCollectionFor(*tree_scope));
+  auto* collection =
+      To<ShadowTreeStyleSheetCollection>(StyleSheetCollectionFor(*tree_scope));
   DCHECK(collection);
   collection->UpdateActiveStyleSheets(*this);
   if (!collection->HasStyleSheetCandidateNodes() &&
@@ -461,7 +468,7 @@ void StyleEngine::UpdateActiveStyleSheets() {
       active_tree_scopes_.erase(tree_scope);
   }
 
-  probe::activeStyleSheetsUpdated(document_);
+  probe::ActiveStyleSheetsUpdated(document_);
 
   dirty_tree_scopes_.clear();
   document_scope_dirty_ = false;
@@ -790,7 +797,7 @@ void StyleEngine::FontsNeedUpdate(FontSelector*) {
   GetDocument().SetNeedsStyleRecalc(
       kSubtreeStyleChange,
       StyleChangeReasonForTracing::Create(style_change_reason::kFonts));
-  probe::fontsUpdated(document_, nullptr, String(), nullptr);
+  probe::FontsUpdated(document_, nullptr, String(), nullptr);
 }
 
 void StyleEngine::SetFontSelector(CSSFontSelector* font_selector) {
@@ -1111,10 +1118,11 @@ void StyleEngine::ScheduleTypeRuleSetInvalidations(
   pending_invalidations_.ScheduleInvalidationSetsForNode(invalidation_lists,
                                                          node);
 
-  if (!node.IsShadowRoot())
+  auto* shadow_root = DynamicTo<ShadowRoot>(node);
+  if (!shadow_root)
     return;
 
-  Element& host = ToShadowRoot(node).host();
+  Element& host = shadow_root->host();
   if (host.NeedsStyleRecalc())
     return;
 
@@ -1177,8 +1185,8 @@ void StyleEngine::ScheduleInvalidationsForRuleSets(
   ScheduleTypeRuleSetInvalidations(tree_scope.RootNode(), rule_sets);
 
   bool invalidate_slotted = false;
-  if (tree_scope.RootNode().IsShadowRoot()) {
-    Element& host = ToShadowRoot(tree_scope.RootNode()).host();
+  if (auto* shadow_root = DynamicTo<ShadowRoot>(&tree_scope.RootNode())) {
+    Element& host = shadow_root->host();
     ScheduleRuleSetInvalidationsForElement(host, rule_sets);
     if (host.GetStyleChangeType() >= kSubtreeStyleChange)
       return;
@@ -1536,7 +1544,7 @@ bool StyleEngine::MediaQueryAffectedByDeviceChange() {
 
 bool StyleEngine::UpdateRemUnits(const ComputedStyle* old_root_style,
                                  const ComputedStyle* new_root_style) {
-  if (!UsesRemUnits())
+  if (!new_root_style || !UsesRemUnits())
     return false;
   if (!old_root_style ||
       old_root_style->FontSize() != new_root_style->FontSize()) {
@@ -1572,6 +1580,30 @@ void StyleEngine::MarkForWhitespaceReattachment() {
   for (auto element : whitespace_reattach_set_) {
     if (element->NeedsReattachLayoutTree() || !element->GetLayoutObject())
       continue;
+    if (RuntimeEnabledFeatures::DisplayLockingEnabled() &&
+        GetDocument().LockedDisplayLockCount() > 0) {
+      // This element might be located inside a display locked subtree, so we
+      // might mark it for ReattachLayoutTree later on instead.
+      // TODO(crbug.com/924550): Once we figure out a more efficient way to
+      // determine whether we're inside a locked subtree or not, change this.
+      bool is_in_locked_subtree = false;
+      for (const Node& ancestor :
+           FlatTreeTraversal::InclusiveAncestorsOf(*element)) {
+        if (!ancestor.IsElementNode())
+          continue;
+        if (auto* context = ToElement(ancestor).GetDisplayLockContext()) {
+          if (!context->IsLocked())
+            continue;
+          is_in_locked_subtree = true;
+          context->AddToWhitespaceReattachSet(*element);
+          break;
+        }
+      }
+      if (is_in_locked_subtree)
+        continue;
+      DCHECK(!element->NeedsStyleRecalc());
+      DCHECK(!element->ChildNeedsStyleRecalc());
+    }
     if (Node* first_child = LayoutTreeBuilderTraversal::FirstChild(*element))
       first_child->MarkAncestorsWithChildNeedsReattachLayoutTree();
   }
@@ -1699,12 +1731,13 @@ scoped_refptr<StyleInitialData> StyleEngine::MaybeCreateAndGetInitialData() {
   return initial_data_;
 }
 
-void StyleEngine::RecalcStyle(StyleRecalcChange change) {
+void StyleEngine::RecalcStyle(const StyleRecalcChange change) {
   DCHECK(GetDocument().documentElement());
-  DCHECK(GetDocument().ChildNeedsStyleRecalc() || change == kForce);
+  DCHECK(GetDocument().ChildNeedsStyleRecalc() || change.RecalcDescendants());
 
   Element& root_element = style_recalc_root_.RootElement();
-  if (change == kForce || &root_element == GetDocument().documentElement()) {
+  if (change.RecalcChildren() ||
+      &root_element == GetDocument().documentElement()) {
     GetDocument().documentElement()->RecalcStyle(change);
   } else {
     Element* parent = root_element.ParentOrShadowHostElement();
@@ -1760,7 +1793,6 @@ void StyleEngine::UpdateStyleRecalcRoot(ContainerNode* ancestor,
     // LazyReattachIfAttached() from HTMLSlotElement::DetachLayoutTree(). We
     // probably want to get rid of LazyReattachIfAttached() altogether and call
     // DetachLayoutTree on assigned nodes instead.
-    DCHECK_EQ(dirty_node->GetStyleChangeType(), kNeedsReattachStyleChange);
     return;
   }
   style_recalc_root_.Update(ancestor, dirty_node);

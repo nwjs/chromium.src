@@ -16,6 +16,7 @@
 #include "base/linux_util.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/time/default_clock.h"
@@ -106,23 +107,9 @@ EasyUnlockServiceRegular::EasyUnlockServiceRegular(
     multidevice_setup::MultiDeviceSetupClient* multidevice_setup_client)
     : EasyUnlockService(profile, secure_channel_client),
       lock_screen_last_shown_timestamp_(base::TimeTicks::Now()),
-      deferring_device_load_(false),
       notification_controller_(std::move(notification_controller)),
       device_sync_client_(device_sync_client),
-      multidevice_setup_client_(multidevice_setup_client),
-      shown_pairing_changed_notification_(false),
-      weak_ptr_factory_(this) {
-  // If |device_sync_client_| is not ready yet, wait for it to call back on
-  // OnReady().
-  if (device_sync_client_->is_ready())
-    OnReady();
-
-  device_sync_client_->AddObserver(this);
-
-  OnFeatureStatesChanged(multidevice_setup_client_->GetFeatureStates());
-
-  multidevice_setup_client_->AddObserver(this);
-}
+      multidevice_setup_client_(multidevice_setup_client) {}
 
 EasyUnlockServiceRegular::~EasyUnlockServiceRegular() = default;
 
@@ -274,16 +261,13 @@ AccountId EasyUnlockServiceRegular::GetAccountId() const {
   // |profile| has to be a signed-in profile with IdentityManager already
   // created. Otherwise, just crash to collect stack.
   DCHECK(identity_manager);
-  const AccountInfo account_info = identity_manager->GetPrimaryAccountInfo();
+  const CoreAccountInfo account_info =
+      identity_manager->GetPrimaryAccountInfo();
   // A regular signed-in (i.e., non-login) profile should always have an email.
   // TODO(crbug.com/857494): Enable this DCHECK once all browser tests create
   // correctly signed in profiles.
   // DCHECK(!account_info.email.empty());
-  return account_info.email.empty()
-             ? EmptyAccountId()
-             : AccountId::FromUserEmailGaiaId(
-                   gaia::CanonicalizeEmail(account_info.email),
-                   account_info.gaia);
+  return AccountIdFromAccountInfo(account_info);
 }
 
 void EasyUnlockServiceRegular::SetHardlockAfterKeyOperation(
@@ -349,6 +333,17 @@ void EasyUnlockServiceRegular::RecordPasswordLoginEvent(
 }
 
 void EasyUnlockServiceRegular::InitializeInternal() {
+  // If |device_sync_client_| is not ready yet, wait for it to call back on
+  // OnReady().
+  if (device_sync_client_->is_ready())
+    OnReady();
+
+  device_sync_client_->AddObserver(this);
+
+  OnFeatureStatesChanged(multidevice_setup_client_->GetFeatureStates());
+
+  multidevice_setup_client_->AddObserver(this);
+
   proximity_auth::ScreenlockBridge::Get()->AddObserver(this);
 
   pref_manager_.reset(new proximity_auth::ProximityAuthProfilePrefManager(

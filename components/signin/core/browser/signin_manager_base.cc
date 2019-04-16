@@ -51,8 +51,7 @@ void SigninManagerBase::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(prefs::kGoogleServicesUserAccountId,
                                std::string());
   registry->RegisterBooleanPref(prefs::kAutologinEnabled, true);
-  registry->RegisterListPref(prefs::kReverseAutologinRejectedEmailList,
-                             std::make_unique<base::ListValue>());
+  registry->RegisterListPref(prefs::kReverseAutologinRejectedEmailList);
   registry->RegisterBooleanPref(prefs::kSigninAllowed, true);
   registry->RegisterInt64Pref(prefs::kSignedInTime,
                               base::Time().ToInternalValue());
@@ -228,15 +227,6 @@ void SigninManagerBase::ClearAuthenticatedAccountId() {
 
 bool SigninManagerBase::IsAuthenticated() const {
   return !authenticated_account_id_.empty();
-}
-
-bool SigninManagerBase::AuthInProgress() const {
-  // SigninManagerBase never kicks off auth processes itself.
-  return false;
-}
-
-void SigninManagerBase::Shutdown() {
-  on_shutdown_callback_list_.Notify();
 }
 
 void SigninManagerBase::AddObserver(Observer* observer) {

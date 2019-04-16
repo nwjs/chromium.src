@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.preferences.developer.DeveloperPreferences;
 import org.chromium.chrome.browser.search_engines.TemplateUrl;
 import org.chromium.chrome.browser.search_engines.TemplateUrlService;
 import org.chromium.chrome.browser.signin.SigninManager;
+import org.chromium.chrome.browser.sync.ProfileSyncService;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 
 import java.util.HashMap;
@@ -35,7 +36,8 @@ import java.util.Map;
  * The main settings screen, shown when the user first opens Settings.
  */
 public class MainPreferences extends PreferenceFragment
-        implements SigninManager.SignInStateObserver, TemplateUrlService.LoadListener {
+        implements TemplateUrlService.LoadListener, ProfileSyncService.SyncStateChangedListener,
+                   SigninManager.SignInStateObserver {
     public static final String PREF_ACCOUNT_SECTION = "account_section";
     public static final String PREF_SIGN_IN = "sign_in";
     public static final String PREF_SYNC_AND_SERVICES = "sync_and_services";
@@ -43,6 +45,7 @@ public class MainPreferences extends PreferenceFragment
     public static final String PREF_SAVED_PASSWORDS = "saved_passwords";
     public static final String PREF_CONTEXTUAL_SUGGESTIONS = "contextual_suggestions";
     public static final String PREF_HOMEPAGE = "homepage";
+    public static final String PREF_NIGHT_MODE = "night_mode";
     public static final String PREF_DATA_REDUCTION = "data_reduction";
     public static final String PREF_NOTIFICATIONS = "notifications";
     public static final String PREF_LANGUAGES = "languages";
@@ -83,6 +86,10 @@ public class MainPreferences extends PreferenceFragment
             SigninManager.get().addSignInStateObserver(this);
             mSignInPreference.registerForUpdates();
         }
+        ProfileSyncService syncService = ProfileSyncService.get();
+        if (syncService != null) {
+            syncService.addSyncStateChangedListener(this);
+        }
     }
 
     @Override
@@ -91,6 +98,10 @@ public class MainPreferences extends PreferenceFragment
         if (SigninManager.get().isSigninSupported()) {
             SigninManager.get().removeSignInStateObserver(this);
             mSignInPreference.unregisterForUpdates();
+        }
+        ProfileSyncService syncService = ProfileSyncService.get();
+        if (syncService != null) {
+            syncService.removeSyncStateChangedListener(this);
         }
     }
 
@@ -193,6 +204,7 @@ public class MainPreferences extends PreferenceFragment
             removePreferenceIfPresent(PREF_SIGN_IN);
         }
 
+        updateSyncAndServicesPreference();
         updateSearchEnginePreference();
 
         if (HomepageManager.shouldShowHomepageSetting()) {
@@ -215,6 +227,12 @@ public class MainPreferences extends PreferenceFragment
             removePreferenceIfPresent(PREF_CONTEXTUAL_SUGGESTIONS);
         }
 
+        if (FeatureUtilities.isNightModeAvailable()) {
+            addPreferenceIfAbsent(PREF_NIGHT_MODE);
+        } else {
+            removePreferenceIfPresent(PREF_NIGHT_MODE);
+        }
+
         if (DeveloperPreferences.shouldShowDeveloperPreferences()) {
             addPreferenceIfAbsent(PREF_DEVELOPER);
         } else {
@@ -235,6 +253,15 @@ public class MainPreferences extends PreferenceFragment
     private void removePreferenceIfPresent(String key) {
         Preference preference = getPreferenceScreen().findPreference(key);
         if (preference != null) getPreferenceScreen().removePreference(preference);
+    }
+
+    private void updateSyncAndServicesPreference() {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.UNIFIED_CONSENT)) return;
+
+        ChromeBasePreference syncAndServices =
+                (ChromeBasePreference) findPreference(PREF_SYNC_AND_SERVICES);
+        syncAndServices.setIcon(SyncPreferenceUtils.getSyncStatusIcon(getActivity()));
+        syncAndServices.setSummary(SyncPreferenceUtils.getSyncStatusSummary(getActivity()));
     }
 
     private void updateSearchEnginePreference() {
@@ -295,6 +322,11 @@ public class MainPreferences extends PreferenceFragment
     public void onTemplateUrlServiceLoaded() {
         TemplateUrlService.getInstance().unregisterLoadListener(this);
         updateSearchEnginePreference();
+    }
+
+    @Override
+    public void syncStateChanged() {
+        updateSyncAndServicesPreference();
     }
 
     @VisibleForTesting

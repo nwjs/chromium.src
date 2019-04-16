@@ -36,7 +36,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/worker_or_worklet_script_controller.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
-#include "third_party/blink/renderer/core/inspector/thread_debugger.h"
+#include "third_party/blink/renderer/core/inspector/worker_thread_debugger.h"
 #include "third_party/blink/renderer/core/messaging/post_message_options.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
@@ -52,12 +52,10 @@
 namespace blink {
 
 DedicatedWorkerGlobalScope::DedicatedWorkerGlobalScope(
-    const String& name,
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     DedicatedWorkerThread* thread,
     base::TimeTicks time_origin)
-    : WorkerGlobalScope(std::move(creation_params), thread, time_origin),
-      name_(name) {}
+    : WorkerGlobalScope(std::move(creation_params), thread, time_origin) {}
 
 DedicatedWorkerGlobalScope::~DedicatedWorkerGlobalScope() = default;
 
@@ -65,10 +63,10 @@ const AtomicString& DedicatedWorkerGlobalScope::InterfaceName() const {
   return event_target_names::kDedicatedWorkerGlobalScope;
 }
 
-// https://html.spec.whatwg.org/multipage/workers.html#worker-processing-model
+// https://html.spec.whatwg.org/C/#worker-processing-model
 void DedicatedWorkerGlobalScope::ImportModuleScript(
     const KURL& module_url_record,
-    FetchClientSettingsObjectSnapshot* outside_settings_object,
+    const FetchClientSettingsObjectSnapshot& outside_settings_object,
     network::mojom::FetchCredentialsMode credentials_mode) {
   // Step 12: "Let destination be "sharedworker" if is shared is true, and
   // "worker" otherwise."
@@ -86,7 +84,7 @@ void DedicatedWorkerGlobalScope::ImportModuleScript(
 }
 
 const String DedicatedWorkerGlobalScope::name() const {
-  return name_;
+  return Name();
 }
 
 void DedicatedWorkerGlobalScope::postMessage(ScriptState* script_state,
@@ -119,7 +117,8 @@ void DedicatedWorkerGlobalScope::postMessage(ScriptState* script_state,
       exception_state);
   if (exception_state.HadException())
     return;
-  ThreadDebugger* debugger = ThreadDebugger::From(script_state->GetIsolate());
+  WorkerThreadDebugger* debugger =
+      WorkerThreadDebugger::From(script_state->GetIsolate());
   transferable_message.sender_stack_trace_id =
       debugger->StoreCurrentStackTrace("postMessage");
   if (GetThread())

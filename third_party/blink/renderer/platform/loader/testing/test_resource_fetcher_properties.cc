@@ -21,11 +21,13 @@ TestResourceFetcherProperties::TestResourceFetcherProperties(
     : TestResourceFetcherProperties(
           *MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
               KURL(),
+              KURL(),
               std::move(origin),
               network::mojom::ReferrerPolicy::kDefault,
               String(),
               HttpsState::kNone,
-              AllowedByNosniff::MimeTypeCheck::kStrict)) {}
+              AllowedByNosniff::MimeTypeCheck::kStrict,
+              mojom::IPAddressSpace::kPublic)) {}
 
 TestResourceFetcherProperties::TestResourceFetcherProperties(
     const FetchClientSettingsObject& fetch_client_settings_object)

@@ -7,7 +7,6 @@
 
 #include "base/optional.h"
 #include "services/network/public/mojom/referrer_policy.mojom-shared.h"
-#include "third_party/blink/public/mojom/net/ip_address_space.mojom-blink.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -30,8 +29,7 @@ class WebSocketHandshakeThrottle;
 // Frame. This class provides basic default implementation for some methods.
 class CORE_EXPORT BaseFetchContext : public FetchContext {
  public:
-  void AddAdditionalRequestHeaders(ResourceRequest&,
-                                   FetchResourceType) override;
+  void AddAdditionalRequestHeaders(ResourceRequest&) override;
   base::Optional<ResourceRequestBlockedReason> CanRequest(
       ResourceType,
       const ResourceRequest&,
@@ -49,6 +47,10 @@ class CORE_EXPORT BaseFetchContext : public FetchContext {
   void Trace(blink::Visitor*) override;
 
   virtual KURL GetSiteForCookies() const = 0;
+
+  // Returns the origin of the top frame in the document.
+  virtual scoped_refptr<const SecurityOrigin> GetTopFrameOrigin() const = 0;
+
   virtual SubresourceFilter* GetSubresourceFilter() const = 0;
   virtual PreviewsResourceLoadingHints* GetPreviewsResourceLoadingHints()
       const = 0;
@@ -56,9 +58,8 @@ class CORE_EXPORT BaseFetchContext : public FetchContext {
   virtual std::unique_ptr<WebSocketHandshakeThrottle>
   CreateWebSocketHandshakeThrottle() = 0;
 
-  bool IsAdResource(const KURL&,
-                    ResourceType,
-                    mojom::RequestContextType) const override;
+  bool CalculateIfAdSubresource(const ResourceRequest& resource_request,
+                                ResourceType type) override;
 
  protected:
   BaseFetchContext() = default;
@@ -86,7 +87,6 @@ class CORE_EXPORT BaseFetchContext : public FetchContext {
                                                          const KURL&) const = 0;
   virtual const KURL& Url() const = 0;
   virtual const SecurityOrigin* GetParentSecurityOrigin() const = 0;
-  virtual base::Optional<mojom::IPAddressSpace> GetAddressSpace() const = 0;
   virtual const ContentSecurityPolicy* GetContentSecurityPolicy() const = 0;
 
   // TODO(yhirano): Remove this.

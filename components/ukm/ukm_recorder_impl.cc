@@ -21,6 +21,7 @@
 #include "services/metrics/public/cpp/ukm_decode.h"
 #include "services/metrics/public/cpp/ukm_source.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
+#include "services/metrics/public/mojom/ukm_interface.mojom.h"
 #include "third_party/metrics_proto/ukm/entry.pb.h"
 #include "third_party/metrics_proto/ukm/report.pb.h"
 #include "third_party/metrics_proto/ukm/source.pb.h"
@@ -204,7 +205,7 @@ void UkmRecorderImpl::CreateFallbackSamplingTrial(
 
   // Everybody (100%) should have a sampling configuration.
   std::map<std::string, std::string> params = {
-      {"_default_sampling", base::IntToString(default_sampling)}};
+      {"_default_sampling", base::NumberToString(default_sampling)}};
   variations::AssociateVariationParams(trial->trial_name(), sampled_group,
                                        params);
   trial->AppendGroup(sampled_group, 100);
@@ -321,9 +322,8 @@ void UkmRecorderImpl::StoreRecordingsInReport(Report* report) {
 
     serialized_source_type_counts[GetSourceIdType(kv.first)]++;
   }
+
   for (const auto& event_and_aggregate : recordings_.event_aggregations) {
-    if (event_and_aggregate.second.metrics.empty())
-      continue;
     const EventAggregate& event_aggregate = event_and_aggregate.second;
     Aggregate* proto_aggregate = report->add_aggregates();
     proto_aggregate->set_source_id(0);  // Across all sources.
@@ -664,11 +664,15 @@ void UkmRecorderImpl::LoadExperimentSamplingInfo() {
     default_sampling_rate_ = 1;
 }
 
+int UkmRecorderImpl::RandInt(int begin, int end) {
+  return base::RandInt(begin, end);
+}
+
 bool UkmRecorderImpl::IsSampledIn(int sampling_rate) {
   // A sampling rate of 0 is "never"; everything else is 1-in-N but skip
   // the RandInt() call if N==1.
   return sampling_rate > 0 &&
-         (sampling_rate == 1 || base::RandInt(1, sampling_rate) == 1);
+         (sampling_rate == 1 || RandInt(1, sampling_rate) == 1);
 }
 
 void UkmRecorderImpl::StoreWhitelistedEntries() {

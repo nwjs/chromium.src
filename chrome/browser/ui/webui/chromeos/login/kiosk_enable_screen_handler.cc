@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
@@ -24,8 +25,10 @@ const char kJsScreenPath[] = "login.KioskEnableScreen";
 
 namespace chromeos {
 
-KioskEnableScreenHandler::KioskEnableScreenHandler()
-    : BaseScreenHandler(kScreenId), weak_ptr_factory_(this) {
+KioskEnableScreenHandler::KioskEnableScreenHandler(
+    JSCallsContainer* js_calls_container)
+    : BaseScreenHandler(kScreenId, js_calls_container),
+      weak_ptr_factory_(this) {
   set_call_js_prefix(kJsScreenPath);
 }
 

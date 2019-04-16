@@ -105,6 +105,15 @@ std::vector<std::string> PopulateExpectedPolicy(
     bool unknown) {
   std::vector<std::string> expected_policy;
 
+  // Populate expected policy name.
+  expected_policy.push_back(name);
+
+  // Populate expected policy value.
+  expected_policy.push_back(value);
+
+  // Populate expected source name.
+  expected_policy.push_back(source);
+
   // Populate expected scope.
   if (policy_map_entry) {
     expected_policy.push_back(l10n_util::GetStringUTF8(
@@ -124,26 +133,15 @@ std::vector<std::string> PopulateExpectedPolicy(
   } else {
     expected_policy.push_back(std::string());
   }
-  // Populate expected source name.
-  expected_policy.push_back(source);
-
-  // Populate expected policy name.
-  expected_policy.push_back(name);
-
-  // Populate expected policy value.
-  expected_policy.push_back(value);
 
   // Populate expected status.
   if (unknown)
-    expected_policy.push_back(l10n_util::GetStringUTF8(IDS_POLICY_UNKNOWN));
-  else if (policy_map_entry)
-    expected_policy.push_back(l10n_util::GetStringUTF8(IDS_POLICY_OK));
-  else
+    expected_policy.push_back(
+        l10n_util::GetStringUTF8(IDS_POLICY_HEADER_WARNING));
+  else if (!policy_map_entry)
     expected_policy.push_back(l10n_util::GetStringUTF8(IDS_POLICY_UNSET));
-
-  // Populate expected expanded policy value.
-  expected_policy.push_back(value);
-
+  else
+    expected_policy.push_back(l10n_util::GetStringUTF8(IDS_POLICY_OK));
   return expected_policy;
 }
 
@@ -271,27 +269,19 @@ void PolicyUITest::VerifyPolicies(
 
   // Retrieve the text contents of the policy table cells for all policies.
   const std::string javascript =
-      "var entries = document.querySelectorAll("
-      "    'section.policy-table-section > * > tbody');"
+      "var entries = document.getElementById('policy-ui')"
+      "  .querySelectorAll('.policy-table');"
       "var policies = [];"
       "for (var i = 0; i < entries.length; ++i) {"
-      "  var items = "
-      "entries[i].querySelectorAll('tr:not(.expanded-status-container) > td');"
-      "  var values = [];"
+      "  var items = entries[i].querySelectorAll('.policy.row');"
       "  for (var j = 0; j < items.length; ++j) {"
-      "    var item = items[j];"
-      "    var children = item.getElementsByTagName('div');"
-      "    if (children.length == 1)"
-      "      item = children[0];"
-      "    children = item.getElementsByTagName('span');"
-      "    if (children.length == 1)"
-      "      item = children[0];"
-      "    children = item.getElementsByClassName('name-link');"
-      "    if (children.length == 1)"
-      "      item = children[0];"
-      "    values.push(item.textContent);"
+      "    var children = items[j].querySelectorAll('div');"
+      "    var values = [];"
+      "    for(var k = 0; k < children.length - 1; ++k) {"
+      "      values.push(children[k].textContent.trim());"
+      "    }"
+      "    policies.push(values);"
       "  }"
-      "  policies.push(values);"
       "}"
       "domAutomationController.send(JSON.stringify(policies));";
   content::WebContents* contents =
@@ -299,7 +289,8 @@ void PolicyUITest::VerifyPolicies(
   std::string json;
   ASSERT_TRUE(content::ExecuteScriptAndExtractString(contents, javascript,
                                                      &json));
-  std::unique_ptr<base::Value> value_ptr = base::JSONReader::Read(json);
+  std::unique_ptr<base::Value> value_ptr =
+      base::JSONReader::ReadDeprecated(json);
   const base::ListValue* actual_policies = NULL;
   ASSERT_TRUE(value_ptr.get());
   ASSERT_TRUE(value_ptr->GetAsList(&actual_policies));
@@ -314,7 +305,8 @@ void PolicyUITest::VerifyPolicies(
     for (size_t j = 0; j < expected_policy.size(); ++j) {
       std::string value;
       ASSERT_TRUE(actual_policy->GetString(j, &value));
-      EXPECT_EQ(expected_policy[j], value);
+      if (expected_policy[j] != value)
+        EXPECT_EQ(expected_policy[j], value);
     }
   }
 }
@@ -329,7 +321,7 @@ void PolicyUITest::VerifyExportingPolicies(
 
   // Click on 'save policies' button.
   const std::string javascript =
-      "document.getElementById(\"export-policies\").click()";
+      "document.getElementById('export-policies').click()";
 
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -343,7 +335,7 @@ void PolicyUITest::VerifyExportingPolicies(
       base::ReadFileToString(export_policies_test_file_path, &file_contents));
 
   std::unique_ptr<base::Value> value_ptr =
-      base::JSONReader::Read(file_contents);
+      base::JSONReader::ReadDeprecated(file_contents);
 
   // Check that the file contains a valid dictionary.
   EXPECT_TRUE(value_ptr.get());
@@ -396,6 +388,10 @@ IN_PROC_BROWSER_TEST_F(PolicyUITest, WritePoliciesToJSONFile) {
   // such policies.
   expected_values.SetDictionary("extensionPolicies",
                                 std::make_unique<base::DictionaryValue>());
+#if defined(OS_CHROMEOS)
+  expected_values.SetDictionary("deviceLocalAccountPolicies",
+                                std::make_unique<base::DictionaryValue>());
+#endif  // defined(OS_CHROMEOS)
 
   provider_.UpdateChromePolicy(values);
 

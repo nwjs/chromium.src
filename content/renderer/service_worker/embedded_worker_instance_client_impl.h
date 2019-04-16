@@ -7,12 +7,11 @@
 
 #include <memory>
 
-#include "base/containers/id_map.h"
-#include "base/single_thread_task_runner.h"
 #include "content/child/child_thread_impl.h"
-#include "content/common/service_worker/embedded_worker.mojom.h"
+#include "content/common/content_export.h"
 #include "mojo/public/cpp/bindings/binding.h"
 #include "third_party/blink/public/common/privacy_preferences.h"
+#include "third_party/blink/public/mojom/service_worker/embedded_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_installed_scripts_manager.mojom.h"
 #include "third_party/blink/public/mojom/worker/worker_content_settings_proxy.mojom.h"
 
@@ -26,25 +25,15 @@ namespace content {
 
 class ServiceWorkerContextClient;
 
-// This class exposes interfaces of WebEmbeddedWorker to the browser process.
-// Unless otherwise noted, all methods should be called on the main thread.
 // EmbeddedWorkerInstanceClientImpl is created in order to start a service
-// worker, and lives as long as the service worker is running.
+// worker. The browser processes sends a Mojo request that creates an instance
+// of this class. The instance deletes itself when the service worker stops.  If
+// the Mojo connection to the browser breaks first, the instance waits for the
+// service worker to stop and then deletes itself.
 //
-// This class deletes itself when the worker stops (or if start failed). The
-// ownership graph is a cycle like this:
-// EmbeddedWorkerInstanceClientImpl -(owns)-> WorkerWrapper -(owns)->
-// WebEmbeddedWorkerImpl -(owns)-> ServiceWorkerContextClient -(owns)->
-// EmbeddedWorkerInstanceClientImpl. Therefore, an instance can delete itself by
-// releasing its WorkerWrapper.
-//
-// Since starting/stopping service workers is initiated by the browser process,
-// the browser process effectively controls the lifetime of this class.
-//
-// TODO(shimazu): Let EmbeddedWorkerInstanceClientImpl own itself instead of
-// the big reference cycle.
-class EmbeddedWorkerInstanceClientImpl
-    : public mojom::EmbeddedWorkerInstanceClient {
+// All methods are called on the main thread.
+class CONTENT_EXPORT EmbeddedWorkerInstanceClientImpl
+    : public blink::mojom::EmbeddedWorkerInstanceClient {
  public:
   // Enum for UMA to record when StartWorker is received.
   enum class StartWorkerHistogramEnum {
@@ -58,26 +47,25 @@ class EmbeddedWorkerInstanceClientImpl
   // documentation.
   // TODO(shimazu): Create a service worker's execution context by this method
   // instead of just creating an instance of EmbeddedWorkerInstanceClient.
-  static void Create(
-      scoped_refptr<base::SingleThreadTaskRunner> io_thread_runner,
-      mojom::EmbeddedWorkerInstanceClientRequest request);
+  static void Create(blink::mojom::EmbeddedWorkerInstanceClientRequest request);
 
   ~EmbeddedWorkerInstanceClientImpl() override;
 
-  // Called from ServiceWorkerContextClient.
+  // Destroys |this|. Called from ServiceWorkerContextClient.
   void WorkerContextDestroyed();
 
-  // mojom::EmbeddedWorkerInstanceClient implementation (partially exposed to
-  // public)
+  // blink::mojom::EmbeddedWorkerInstanceClient implementation (partially
+  // exposed to public)
   void StopWorker() override;
 
  private:
-  EmbeddedWorkerInstanceClientImpl(
-      scoped_refptr<base::SingleThreadTaskRunner> io_thread_runner,
-      mojom::EmbeddedWorkerInstanceClientRequest request);
+  friend class ServiceWorkerContextClientTest;
 
-  // mojom::EmbeddedWorkerInstanceClient implementation
-  void StartWorker(mojom::EmbeddedWorkerStartParamsPtr params) override;
+  explicit EmbeddedWorkerInstanceClientImpl(
+      blink::mojom::EmbeddedWorkerInstanceClientRequest request);
+
+  // blink::mojom::EmbeddedWorkerInstanceClient implementation
+  void StartWorker(blink::mojom::EmbeddedWorkerStartParamsPtr params) override;
   void ResumeAfterDownload() override;
   void AddMessageToConsole(blink::mojom::ConsoleMessageLevel level,
                            const std::string& message) override;
@@ -89,22 +77,16 @@ class EmbeddedWorkerInstanceClientImpl
   void OnError();
 
   std::unique_ptr<blink::WebEmbeddedWorker> StartWorkerContext(
-      mojom::EmbeddedWorkerStartParamsPtr params,
+      blink::mojom::EmbeddedWorkerStartParamsPtr params,
       std::unique_ptr<ServiceWorkerContextClient> context_client,
       blink::mojom::CacheStoragePtrInfo cache_storage,
       service_manager::mojom::InterfaceProviderPtrInfo interface_provider,
       blink::PrivacyPreferences privacy_preferences);
 
-  mojo::Binding<mojom::EmbeddedWorkerInstanceClient> binding_;
-
-  // This is valid before StartWorker is called. After that, this object
-  // will be passed to ServiceWorkerContextClient.
-  std::unique_ptr<EmbeddedWorkerInstanceClientImpl> temporal_self_;
+  mojo::Binding<blink::mojom::EmbeddedWorkerInstanceClient> binding_;
 
   // nullptr means the worker is not running.
   std::unique_ptr<blink::WebEmbeddedWorker> worker_;
-
-  scoped_refptr<base::SingleThreadTaskRunner> io_thread_runner_;
 
   DISALLOW_COPY_AND_ASSIGN(EmbeddedWorkerInstanceClientImpl);
 };

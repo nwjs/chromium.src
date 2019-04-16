@@ -9,6 +9,7 @@
 #include <map>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
@@ -24,6 +25,7 @@
 #include "components/autofill/core/browser/webdata/autofill_table.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/sync/driver/sync_driver_switches.h"
+#include "components/sync/protocol/model_type_state.pb.h"
 
 using autofill::AutofillMetadata;
 using autofill::AutofillProfile;
@@ -94,7 +96,7 @@ bool ListsMatch(int profile_a,
     list_a_map.erase(item->server_id());
   }
 
-  if (list_a_map.size()) {
+  if (!list_a_map.empty()) {
     DVLOG(1) << "Entries present in profile " << profile_a
              << " but not in profile" << profile_b << ".";
     return false;
@@ -107,11 +109,11 @@ void LogLists(const std::vector<Item*>& list_a,
               const std::vector<Item*>& list_b) {
   int x = 0;
   for (Item* item : list_a) {
-    LOG(WARNING) << "A#" << x++ << " " << *item;
+    DVLOG(1) << "A#" << x++ << " " << *item;
   }
   x = 0;
   for (Item* item : list_b) {
-    LOG(WARNING) << "B#" << x++ << " " << *item;
+    DVLOG(1) << "B#" << x++ << " " << *item;
   }
 }
 
@@ -133,7 +135,7 @@ bool WalletDataAndMetadataMatchAndAddressesHaveConverted(
   // Check that all server profiles have converted to local ones.
   for (AutofillProfile* profile : server_profiles_a) {
     if (!profile->has_converted()) {
-      LOG(WARNING) << "Not all profiles are converted";
+      DVLOG(1) << "Not all profiles are converted";
       LogLists(server_profiles_a, server_profiles_b);
       return false;
     }
@@ -196,6 +198,16 @@ void GetServerAddressesMetadataOnDBSequence(
   DCHECK(wds->GetDBTaskRunner()->RunsTasksInCurrentSequence());
   AutofillTable::FromWebDatabase(wds->GetDatabase())
       ->GetServerAddressesMetadata(addresses_metadata);
+}
+
+void GetWalletDataModelTypeStateOnDBSequence(
+    AutofillWebDataService* wds,
+    sync_pb::ModelTypeState* model_type_state) {
+  DCHECK(wds->GetDBTaskRunner()->RunsTasksInCurrentSequence());
+  syncer::MetadataBatch metadata_batch;
+  AutofillTable::FromWebDatabase(wds->GetDatabase())
+      ->GetAllSyncMetadata(syncer::AUTOFILL_WALLET_DATA, &metadata_batch);
+  *model_type_state = metadata_batch.GetModelTypeState();
 }
 
 }  // namespace
@@ -283,6 +295,16 @@ void GetServerAddressesMetadata(
       base::BindOnce(&GetServerAddressesMetadataOnDBSequence,
                      base::Unretained(wds.get()), addresses_metadata));
   WaitForCurrentTasksToComplete(wds->GetDBTaskRunner());
+}
+
+sync_pb::ModelTypeState GetWalletDataModelTypeState(int profile) {
+  sync_pb::ModelTypeState result;
+  scoped_refptr<AutofillWebDataService> wds = GetProfileWebDataService(profile);
+  wds->GetDBTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&GetWalletDataModelTypeStateOnDBSequence,
+                                base::Unretained(wds.get()), &result));
+  WaitForCurrentTasksToComplete(wds->GetDBTaskRunner());
+  return result;
 }
 
 void UnmaskServerCard(int profile,

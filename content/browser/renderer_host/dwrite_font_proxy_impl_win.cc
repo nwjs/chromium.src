@@ -25,6 +25,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
 #include "base/time/time.h"
+#include "content/browser/renderer_host/dwrite_font_file_util_win.h"
+#include "content/browser/renderer_host/dwrite_font_uma_logging_win.h"
+#include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "third_party/blink/public/common/font_unique_name_lookup/font_unique_name_table.pb.h"
@@ -38,74 +41,10 @@ namespace mswr = Microsoft::WRL;
 
 namespace content {
 
+using namespace dwrite_font_uma_logging;
+using namespace dwrite_font_file_util;
+
 namespace {
-
-// This enum is used to define the buckets for an enumerated UMA histogram.
-// Hence,
-//   (a) existing enumerated constants should never be deleted or reordered, and
-//   (b) new constants should only be appended at the end of the enumeration.
-enum DirectWriteFontLoaderType {
-  FILE_SYSTEM_FONT_DIR = 0,
-  FILE_OUTSIDE_SANDBOX = 1,
-  OTHER_LOADER = 2,
-  FONT_WITH_MISSING_REQUIRED_STYLES = 3,
-
-  FONT_LOADER_TYPE_MAX_VALUE
-};
-
-// This enum is used to define the buckets for an enumerated UMA histogram.
-// Hence,
-//   (a) existing enumerated constants should never be deleted or reordered, and
-//   (b) new constants should only be appended at the end of the enumeration.
-enum MessageFilterError {
-  LAST_RESORT_FONT_GET_FONT_FAILED = 0,
-  LAST_RESORT_FONT_ADD_FILES_FAILED = 1,
-  LAST_RESORT_FONT_GET_FAMILY_FAILED = 2,
-  ERROR_NO_COLLECTION = 3,
-  MAP_CHARACTERS_NO_FAMILY = 4,
-  ADD_FILES_FOR_FONT_CREATE_FACE_FAILED = 5,
-  ADD_FILES_FOR_FONT_GET_FILE_COUNT_FAILED = 6,
-  ADD_FILES_FOR_FONT_GET_FILES_FAILED = 7,
-  ADD_FILES_FOR_FONT_GET_LOADER_FAILED = 8,
-  ADD_FILES_FOR_FONT_QI_FAILED = 9,
-  ADD_LOCAL_FILE_GET_REFERENCE_KEY_FAILED = 10,
-  ADD_LOCAL_FILE_GET_PATH_LENGTH_FAILED = 11,
-  ADD_LOCAL_FILE_GET_PATH_FAILED = 12,
-  GET_FILE_COUNT_INVALID_NUMBER_OF_FILES = 13,
-
-  MESSAGE_FILTER_ERROR_MAX_VALUE
-};
-
-void LogLoaderType(DirectWriteFontLoaderType loader_type) {
-  UMA_HISTOGRAM_ENUMERATION("DirectWrite.Fonts.Proxy.LoaderType", loader_type,
-                            FONT_LOADER_TYPE_MAX_VALUE);
-}
-
-void LogLastResortFontCount(size_t count) {
-  UMA_HISTOGRAM_COUNTS_100("DirectWrite.Fonts.Proxy.LastResortFontCount",
-                           count);
-}
-
-void LogLastResortFontFileCount(size_t count) {
-  UMA_HISTOGRAM_COUNTS_100("DirectWrite.Fonts.Proxy.LastResortFontFileCount",
-                           count);
-}
-
-void LogMessageFilterError(MessageFilterError error) {
-  UMA_HISTOGRAM_ENUMERATION("DirectWrite.Fonts.Proxy.MessageFilterError", error,
-                            MESSAGE_FILTER_ERROR_MAX_VALUE);
-}
-
-base::string16 GetWindowsFontsPath() {
-  std::vector<base::char16> font_path_chars;
-  // SHGetSpecialFolderPath requires at least MAX_PATH characters.
-  font_path_chars.resize(MAX_PATH);
-  BOOL result = SHGetSpecialFolderPath(nullptr /* hwndOwner - reserved */,
-                                       font_path_chars.data(), CSIDL_FONTS,
-                                       FALSE /* fCreate */);
-  DCHECK(result);
-  return base::i18n::FoldCase(font_path_chars.data());
-}
 
 // These are the fonts that Blink tries to load in getLastResortFallbackFont,
 // and will crash if none can be loaded.
@@ -163,7 +102,8 @@ bool CheckRequiredStylesPresent(IDWriteFontCollection* collection,
         // Not really a loader type, but good to have telemetry on how often
         // fonts like these are encountered, and the data can be compared with
         // the other loader types.
-        LogLoaderType(FONT_WITH_MISSING_REQUIRED_STYLES);
+        LogLoaderType(
+            DirectWriteFontLoaderType::FONT_WITH_MISSING_REQUIRED_STYLES);
         return false;
       }
       break;
@@ -172,185 +112,10 @@ bool CheckRequiredStylesPresent(IDWriteFontCollection* collection,
   return true;
 }
 
-bool FontFilePathAndTtcIndex(IDWriteFont* font,
-                             base::string16& file_path,
-                             uint32_t& ttc_index) {
-  mswr::ComPtr<IDWriteFontFace> font_face;
-  HRESULT hr;
-  hr = font->CreateFontFace(&font_face);
-  if (FAILED(hr)) {
-    base::UmaHistogramSparse("DirectWrite.Fonts.Proxy.CreateFontFaceResult",
-                             hr);
-    LogMessageFilterError(ADD_FILES_FOR_FONT_CREATE_FACE_FAILED);
-    return false;
-  }
-
-  UINT32 file_count;
-  hr = font_face->GetFiles(&file_count, nullptr);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_FILES_FOR_FONT_GET_FILE_COUNT_FAILED);
-    return false;
-  }
-
-  // We've learned from the DirectWrite team at MS that the number of font files
-  // retrieved per IDWriteFontFile can only ever be 1. Other font formats such
-  // as Type 1, which represent one font in multiple files, are currently not
-  // supported in the API (as of December 2018, Windows 10). In Chrome we do not
-  // plan to support Type 1 fonts, or generally other font formats different
-  // from OpenType, hence no need to loop over file_count or retrieve multiple
-  // files.
-  DCHECK_EQ(file_count, 1u);
-  if (file_count > 1) {
-    LogMessageFilterError(GET_FILE_COUNT_INVALID_NUMBER_OF_FILES);
-    return false;
-  }
-
-  mswr::ComPtr<IDWriteFontFile> font_file;
-  hr = font_face->GetFiles(&file_count, &font_file);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_FILES_FOR_FONT_GET_FILES_FAILED);
-    return false;
-  }
-
-  mswr::ComPtr<IDWriteFontFileLoader> loader;
-  hr = font_file->GetLoader(&loader);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_FILES_FOR_FONT_GET_LOADER_FAILED);
-    return false;
-  }
-
-  mswr::ComPtr<IDWriteLocalFontFileLoader> local_loader;
-  hr = loader.CopyTo(local_loader.GetAddressOf());  // QueryInterface.
-
-  if (hr == E_NOINTERFACE) {
-    // We could get here if the system font collection contains fonts that
-    // are backed by something other than files in the system fonts folder.
-    // I don't think that is actually possible, so for now we'll just
-    // ignore it (result will be that we'll be unable to match any styles
-    // for this font, forcing blink/skia to fall back to whatever font is
-    // next). If we get telemetry indicating that this case actually
-    // happens, we can implement this by exposing the loader via ipc. That
-    // will likely be by loading the font data into shared memory, although
-    // we could proxy the stream reads directly instead.
-    LogLoaderType(OTHER_LOADER);
-    DCHECK(false);
-    return false;
-  } else if (FAILED(hr)) {
-    LogMessageFilterError(ADD_FILES_FOR_FONT_QI_FAILED);
-    return false;
-  }
-
-  const void* key;
-  UINT32 key_size;
-  hr = font_file->GetReferenceKey(&key, &key_size);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_LOCAL_FILE_GET_REFERENCE_KEY_FAILED);
-    return false;
-  }
-
-  UINT32 path_length = 0;
-  hr = local_loader->GetFilePathLengthFromKey(key, key_size, &path_length);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_LOCAL_FILE_GET_PATH_LENGTH_FAILED);
-    return false;
-  }
-  base::string16 retrieve_file_path;
-  retrieve_file_path.resize(
-      ++path_length);  // Reserve space for the null terminator.
-  hr = local_loader->GetFilePathFromKey(key, key_size, &retrieve_file_path[0],
-                                        path_length);
-  if (FAILED(hr)) {
-    LogMessageFilterError(ADD_LOCAL_FILE_GET_PATH_FAILED);
-    return false;
-  }
-  // No need for the null-terminator in base::string16.
-  retrieve_file_path.resize(--path_length);
-
-  uint32_t retrieve_ttc_index = font_face->GetIndex();
-  if (FAILED(hr)) {
-    return false;
-  }
-
-  file_path = retrieve_file_path;
-  ttc_index = retrieve_ttc_index;
-
-  return true;
-}
-
-bool AddFilesForFont(IDWriteFont* font,
-                     const base::string16& windows_fonts_path,
-                     std::set<base::string16>* path_set,
-                     std::set<base::string16>* custom_font_path_set,
-                     uint32_t* ttc_index) {
-  base::string16 file_path;
-  if (!FontFilePathAndTtcIndex(font, file_path, *ttc_index)) {
-    return false;
-  }
-
-  base::string16 file_path_folded = base::i18n::FoldCase(file_path);
-
-  if (!file_path_folded.size())
-    return false;
-
-  if (!base::StartsWith(file_path_folded, windows_fonts_path,
-                        base::CompareCase::SENSITIVE)) {
-    LogLoaderType(FILE_OUTSIDE_SANDBOX);
-    custom_font_path_set->insert(file_path);
-  } else {
-    LogLoaderType(FILE_SYSTEM_FONT_DIR);
-    path_set->insert(file_path);
-  }
-  return true;
-}
-
-// The unresponsive renderer timeout is 30 seconds (kDefaultCommitTimeout). As a
-// starting point, let's set the max time for indexing fonts to a third of that,
-// 10 seconds and record a UMA histogram for how long indexing usually
-// takes. Once we have UMA data, we can look into reducing this timeout. This
-// timeout is meant to cover pathological cases of font indexing where a Windows
-// installation has an unusually large collection of fonts. In practice,
-// building the unique font name table should not take longer than tens of
-// milliseconds (~26 ms on a developer machine, Windows 10, default fonts).
-const base::TimeDelta kFontIndexingTimeout = base::TimeDelta::FromSeconds(10);
-
-const base::TimeDelta kIndexingSlowDownForTesting =
-    base::TimeDelta::FromMilliseconds(1200);
-
-bool extract_case_folded_localized_strings(
-    IDWriteLocalizedStrings* dwrite_localized_strings,
-    std::vector<std::string>* localized_strings) {
-  if (!dwrite_localized_strings->GetCount())
-    return false;
-
-  localized_strings->clear();
-  localized_strings->reserve(dwrite_localized_strings->GetCount());
-  for (UINT32 j = 0; j < dwrite_localized_strings->GetCount(); ++j) {
-    UINT32 length;
-    HRESULT hr = dwrite_localized_strings->GetStringLength(j, &length);
-    if (FAILED(hr))
-      continue;
-    std::wstring localized_name;
-    localized_name.resize(length + 1);
-    hr = dwrite_localized_strings->GetString(j, &localized_name[0], length + 1);
-    if (FAILED(hr)) {
-      continue;
-    }
-    localized_name.resize(length);
-    // The documentation for the API call does not specify an encoding but the
-    // results are wchar_t and FireFox considers them UTF-16, as seen here:
-    // https://dxr.mozilla.org/mozilla-central/source/gfx/thebes/gfxDWriteFontList.cpp#90
-    // so we'll assume that.
-    localized_strings->push_back(base::UTF16ToUTF8(
-        base::i18n::FoldCase(base::string16(localized_name))));
-  }
-  return true;
-}
-
 }  // namespace
 
 DWriteFontProxyImpl::DWriteFontProxyImpl()
-    : windows_fonts_path_(GetWindowsFontsPath()),
-      slow_down_indexing_for_testing_(false) {}
+    : windows_fonts_path_(GetWindowsFontsPath()) {}
 
 DWriteFontProxyImpl::~DWriteFontProxyImpl() = default;
 
@@ -366,14 +131,10 @@ void DWriteFontProxyImpl::SetWindowsFontsPathForTesting(base::string16 path) {
   windows_fonts_path_.swap(path);
 }
 
-void DWriteFontProxyImpl::SetSlowDownIndexingForTesting(bool slow_down) {
-  slow_down_indexing_for_testing_ = slow_down;
-}
-
 void DWriteFontProxyImpl::FindFamily(const base::string16& family_name,
                                      FindFamilyCallback callback) {
   InitializeDirectWrite();
-  TRACE_EVENT0("dwrite", "FontProxyHost::OnFindFamily");
+  TRACE_EVENT0("dwrite,fonts", "FontProxyHost::OnFindFamily");
   UINT32 family_index = UINT32_MAX;
   if (collection_) {
     BOOL exists = FALSE;
@@ -390,20 +151,20 @@ void DWriteFontProxyImpl::FindFamily(const base::string16& family_name,
 
 void DWriteFontProxyImpl::GetFamilyCount(GetFamilyCountCallback callback) {
   InitializeDirectWrite();
-  TRACE_EVENT0("dwrite", "FontProxyHost::OnGetFamilyCount");
+  TRACE_EVENT0("dwrite,fonts", "FontProxyHost::OnGetFamilyCount");
   std::move(callback).Run(collection_ ? collection_->GetFontFamilyCount() : 0);
 }
 
 void DWriteFontProxyImpl::GetFamilyNames(UINT32 family_index,
                                          GetFamilyNamesCallback callback) {
   InitializeDirectWrite();
-  TRACE_EVENT0("dwrite", "FontProxyHost::OnGetFamilyNames");
+  TRACE_EVENT0("dwrite,fonts", "FontProxyHost::OnGetFamilyNames");
   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), std::vector<blink::mojom::DWriteStringPairPtr>());
   if (!collection_)
     return;
 
-  TRACE_EVENT0("dwrite", "FontProxyHost::DoGetFamilyNames");
+  TRACE_EVENT0("dwrite,fonts", "FontProxyHost::DoGetFamilyNames");
 
   mswr::ComPtr<IDWriteFontFamily> family;
   HRESULT hr = collection_->GetFontFamily(family_index, &family);
@@ -458,7 +219,7 @@ void DWriteFontProxyImpl::GetFamilyNames(UINT32 family_index,
 void DWriteFontProxyImpl::GetFontFiles(uint32_t family_index,
                                        GetFontFilesCallback callback) {
   InitializeDirectWrite();
-  TRACE_EVENT0("dwrite", "FontProxyHost::OnGetFontFiles");
+  TRACE_EVENT0("dwrite,fonts", "FontProxyHost::OnGetFontFiles");
   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), std::vector<base::FilePath>(),
       std::vector<base::File>());
@@ -469,7 +230,8 @@ void DWriteFontProxyImpl::GetFontFiles(uint32_t family_index,
   HRESULT hr = collection_->GetFontFamily(family_index, &family);
   if (FAILED(hr)) {
     if (IsLastResortFallbackFont(family_index))
-      LogMessageFilterError(LAST_RESORT_FONT_GET_FAMILY_FAILED);
+      LogMessageFilterError(
+          MessageFilterError::LAST_RESORT_FONT_GET_FAMILY_FAILED);
     return;
   }
 
@@ -485,7 +247,8 @@ void DWriteFontProxyImpl::GetFontFiles(uint32_t family_index,
     hr = family->GetFont(font_index, &font);
     if (FAILED(hr)) {
       if (IsLastResortFallbackFont(family_index))
-        LogMessageFilterError(LAST_RESORT_FONT_GET_FONT_FAILED);
+        LogMessageFilterError(
+            MessageFilterError::LAST_RESORT_FONT_GET_FONT_FAILED);
       return;
     }
 
@@ -493,7 +256,8 @@ void DWriteFontProxyImpl::GetFontFiles(uint32_t family_index,
     if (!AddFilesForFont(font.Get(), windows_fonts_path_, &path_set,
                          &custom_font_path_set, &dummy_ttc_index)) {
       if (IsLastResortFallbackFont(family_index))
-        LogMessageFilterError(LAST_RESORT_FONT_ADD_FILES_FAILED);
+        LogMessageFilterError(
+            MessageFilterError::LAST_RESORT_FONT_ADD_FILES_FAILED);
     }
   }
 
@@ -623,174 +387,26 @@ void DWriteFontProxyImpl::MapCharacters(
   }
 
   // Could not find a matching family
-  LogMessageFilterError(MAP_CHARACTERS_NO_FAMILY);
+  LogMessageFilterError(MessageFilterError::MAP_CHARACTERS_NO_FAMILY);
   DCHECK_EQ(result->family_index, UINT32_MAX);
   DCHECK_GT(result->mapped_length, 0u);
 }
 
-bool DWriteFontProxyImpl::IsFontUniqueNameTableValid() {
-  return font_unique_name_table_memory_.IsValid() &&
-         font_unique_name_table_memory_.mapping.size();
-}
-
-bool DWriteFontProxyImpl::EnsureFontUniqueNameTable() {
-  if (IsFontUniqueNameTableValid())
-    return true;
-
-  base::TimeTicks time_ticks = base::TimeTicks::Now();
-
-  blink::FontUniqueNameTable font_unique_name_table;
-
-  bool timed_out = false;
-
-  // The stored_for_platform_version_identifier proto field is used for
-  // persisting the table to disk and identifiying whether and update to the
-  // table is needed when loading it back. This functionality is not used on
-  // Windows, hence setting it to the empty string is sufficient.
-  font_unique_name_table.set_stored_for_platform_version_identifier("");
-
-  for (UINT32 family_index = 0;
-       family_index < collection_->GetFontFamilyCount(); ++family_index) {
-    if (base::TimeTicks::Now() - time_ticks > kFontIndexingTimeout) {
-      timed_out = true;
-      break;
-    }
-
-    mswr::ComPtr<IDWriteFontFamily> family;
-    HRESULT hr = collection_->GetFontFamily(family_index, &family);
-    if (FAILED(hr))
-      return false;
-    UINT32 font_count = family->GetFontCount();
-
-    for (UINT32 font_index = 0; font_index < font_count; ++font_index) {
-      mswr::ComPtr<IDWriteFont> font;
-      hr = family->GetFont(font_index, &font);
-      if (FAILED(hr)) {
-        if (IsLastResortFallbackFont(family_index))
-          LogMessageFilterError(LAST_RESORT_FONT_GET_FONT_FAILED);
-        return false;
-      }
-
-      if (font->GetSimulations() != DWRITE_FONT_SIMULATIONS_NONE)
-        continue;
-
-      std::set<base::string16> path_set;
-      std::set<base::string16> custom_font_path_set;
-      uint32_t ttc_index = 0;
-      if (!AddFilesForFont(font.Get(), windows_fonts_path_, &path_set,
-                           &custom_font_path_set, &ttc_index)) {
-        if (IsLastResortFallbackFont(family_index))
-          LogMessageFilterError(LAST_RESORT_FONT_ADD_FILES_FAILED);
-
-        // It's possible to not be able to retrieve a font file for a font that
-        // is in the system font collection, see https://crbug.com/922183. If we
-        // were not able to retrieve a file for a registered font, we do not
-        // need to add it to the map.
-        continue;
-      }
-
-      // After having received clarification from Microsoft, the API is designed
-      // for allowing multiple files to be returned, if MS was to support a file
-      // format like Type1 fonts with this API, but for now only ever returns 1
-      // font file as only TrueType / OpenType fonts are supported.
-      CHECK_EQ(path_set.size() + custom_font_path_set.size(), 1u);
-      // If this font is placed in a custom font path location, we pass it to
-      // Blink, and we'll track with UMA there if such a font path is matched
-      // and used. If this happens more than very rarely, we will need to add an
-      // out-of-process loading mechanism for loading those uniquely matched
-      // font files.
-      base::FilePath file_path(path_set.size() ? *path_set.begin()
-                                               : *custom_font_path_set.begin());
-      CHECK(!file_path.empty());
-
-      // Add file entry to map.
-      blink::FontUniqueNameTable_UniqueFont* added_unique_font =
-          font_unique_name_table.add_fonts();
-      added_unique_font->set_file_path(file_path.AsUTF8Unsafe());
-      added_unique_font->set_ttc_index(ttc_index);
-
-      int added_font_index = font_unique_name_table.fonts_size() - 1;
-
-      auto extract_and_append_names =
-          [&font_unique_name_table, &hr, &font, &added_font_index](
-              DWRITE_INFORMATIONAL_STRING_ID font_info_string_id) {
-            // Now get names, and make them point to the added font.
-            IDWriteLocalizedStrings* font_id_keyed_names;
-            BOOL has_id_keyed_names;
-            hr = font->GetInformationalStrings(
-                font_info_string_id, &font_id_keyed_names, &has_id_keyed_names);
-            if (FAILED(hr) || !has_id_keyed_names)
-              return;
-
-            std::vector<std::string> extracted_names;
-            extract_case_folded_localized_strings(font_id_keyed_names,
-                                                  &extracted_names);
-            for (auto& extracted_name : extracted_names) {
-              blink::FontUniqueNameTable_UniqueNameToFontMapping* name_mapping =
-                  font_unique_name_table.add_name_map();
-              name_mapping->set_font_name(extracted_name);
-              name_mapping->set_font_index(added_font_index);
-            }
-          };
-
-      extract_and_append_names(DWRITE_INFORMATIONAL_STRING_POSTSCRIPT_NAME);
-      extract_and_append_names(DWRITE_INFORMATIONAL_STRING_FULL_NAME);
-    }
-
-    if (UNLIKELY(slow_down_indexing_for_testing_))
-      base::PlatformThread::Sleep(kIndexingSlowDownForTesting);
-  }
-
-  if (timed_out) {
-    LOG(ERROR) << "Creating unique font lookup table timed out, emptying "
-                  "partial table.";
-    font_unique_name_table.clear_fonts();
-    font_unique_name_table.clear_name_map();
-  }
-
-  // Sort names for using binary search on this proto in FontTableMatcher.
-  std::sort(font_unique_name_table.mutable_name_map()->begin(),
-            font_unique_name_table.mutable_name_map()->end(),
-            [](const blink::FontUniqueNameTable_UniqueNameToFontMapping& a,
-               const blink::FontUniqueNameTable_UniqueNameToFontMapping& b) {
-              return a.font_name() < b.font_name();
-            });
-
-  font_unique_name_table_memory_ = base::ReadOnlySharedMemoryRegion::Create(
-      font_unique_name_table.ByteSizeLong());
-  if (!IsFontUniqueNameTableValid())
-    return false;
-
-  if (!font_unique_name_table.SerializeToArray(
-          font_unique_name_table_memory_.mapping.memory(),
-          font_unique_name_table_memory_.mapping.size())) {
-    font_unique_name_table_memory_ = base::MappedReadOnlyRegion();
-    return false;
-  }
-
-  UMA_HISTOGRAM_TIMES("DirectWrite.Fonts.Proxy.LookupTableBuildTime",
-                      base::TimeTicks::Now() - time_ticks);
-  // The size is usually tens of kilobytes, ~50kb on a standard Windows 10
-  // installation, 1MB should be a more than high enough upper limit.
-  UMA_HISTOGRAM_CUSTOM_COUNTS(
-      "DirectWrite.Fonts.Proxy.LookupTableSize",
-      font_unique_name_table_memory_.mapping.size() / 1024, 1, 1000, 50);
-
-  return true;
-}
-
 void DWriteFontProxyImpl::GetUniqueNameLookupTable(
     GetUniqueNameLookupTableCallback callback) {
+  DCHECK(base::FeatureList::IsEnabled(features::kFontSrcLocalMatching));
   InitializeDirectWrite();
   callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), base::ReadOnlySharedMemoryRegion());
-  if (!collection_)
+
+  // ScheduleBuildFontUniqueNameTable() is called early in browser startup
+  // before EnsureFontUniqueNameTable() can be called. See
+  // BrowserMainLoop::BrowserThreadsStarted().
+  if (!DWriteFontLookupTableBuilder::GetInstance()->EnsureFontUniqueNameTable())
     return;
 
-  if (!EnsureFontUniqueNameTable())
-    return;
-
-  std::move(callback).Run(font_unique_name_table_memory_.region.Duplicate());
+  std::move(callback).Run(
+      DWriteFontLookupTableBuilder::GetInstance()->DuplicateMemoryRegion());
 }
 
 void DWriteFontProxyImpl::InitializeDirectWrite() {
@@ -816,7 +432,7 @@ void DWriteFontProxyImpl::InitializeDirectWrite() {
   if (!collection_) {
     base::UmaHistogramSparse(
         "DirectWrite.Fonts.Proxy.GetSystemFontCollectionResult", hr);
-    LogMessageFilterError(ERROR_NO_COLLECTION);
+    LogMessageFilterError(MessageFilterError::ERROR_NO_COLLECTION);
     return;
   }
 

@@ -133,11 +133,6 @@ CSSValue* ConsumeSteps(CSSParserTokenRange& range) {
       StepsTimingFunction::StepPosition::END;
   if (css_property_parser_helpers::ConsumeCommaIncludingWhitespace(args)) {
     switch (args.ConsumeIncludingWhitespace().Id()) {
-      case CSSValueMiddle:
-        if (!RuntimeEnabledFeatures::WebAnimationsAPIEnabled())
-          return nullptr;
-        position = StepsTimingFunction::StepPosition::MIDDLE;
-        break;
       case CSSValueStart:
         position = StepsTimingFunction::StepPosition::START;
         break;
@@ -542,8 +537,7 @@ CSSValue* ConsumeAnimationTimingFunction(CSSParserTokenRange& range) {
   CSSValueID id = range.Peek().Id();
   if (id == CSSValueEase || id == CSSValueLinear || id == CSSValueEaseIn ||
       id == CSSValueEaseOut || id == CSSValueEaseInOut ||
-      id == CSSValueStepStart || id == CSSValueStepEnd ||
-      id == CSSValueStepMiddle)
+      id == CSSValueStepStart || id == CSSValueStepEnd)
     return css_property_parser_helpers::ConsumeIdent(range);
 
   CSSValueID function = range.Peek().FunctionId();
@@ -597,7 +591,7 @@ bool ConsumeAnimationShorthand(
     for (unsigned i = 0; i < longhand_count; ++i) {
       if (!parsed_longhand[i]) {
         longhands[i]->Append(
-            *ToLonghand(shorthand.properties()[i])->InitialValue());
+            *To<Longhand>(shorthand.properties()[i])->InitialValue());
       }
       parsed_longhand[i] = false;
     }
@@ -2162,9 +2156,7 @@ CSSValue* ConsumePath(CSSParserTokenRange& range) {
 
   if (function_args.Peek().GetType() != kStringToken)
     return nullptr;
-  String path_string =
-      function_args.ConsumeIncludingWhitespace().Value().ToString();
-
+  StringView path_string = function_args.ConsumeIncludingWhitespace().Value();
   std::unique_ptr<SVGPathByteStream> byte_stream = SVGPathByteStream::Create();
   if (BuildByteStreamFromString(path_string, *byte_stream) !=
           SVGParseStatus::kNoError ||

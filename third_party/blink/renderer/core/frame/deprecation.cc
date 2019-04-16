@@ -6,8 +6,8 @@
 
 #include "services/service_manager/public/cpp/connector.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
+#include "third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
-#include "third_party/blink/public/platform/reporting.mojom-blink.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/deprecation_report_body.h"
@@ -56,6 +56,9 @@ enum Milestone {
   kM71,
   kM72,
   kM73,
+  kM74,
+  kM75,
+  kM76,
 };
 
 // Returns estimated milestone dates as human-readable strings.
@@ -94,6 +97,12 @@ const char* MilestoneString(Milestone milestone) {
       return "M72, around January 2019";
     case kM73:
       return "M73, around March 2019";
+    case kM74:
+      return "M74, around April 2019";
+    case kM75:
+      return "M75, around June 2019";
+    case kM76:
+      return "M76, around July 2019";
   }
 
   NOTREACHED();
@@ -137,10 +146,34 @@ double MilestoneDate(Milestone milestone) {
       return 1548734400000;  // January 29, 2019.
     case kM73:
       return 1552363200000;  // March 12, 2019.
+    case kM74:
+      return 1555992000000;  // April 23, 2019.
+    case kM75:
+      return 1559620800000;  // June 4, 2019.
+    case kM76:
+      return 1564459200000;  // Jul 30, 2019.
   }
 
   NOTREACHED();
   return 0;
+}
+
+String GetDeviceSensorDeprecationMessage(const char* event_name,
+                                         const char* status_url) {
+  static constexpr char kConcreteMessage[] =
+      "The `%s` event is deprecated on insecure origins and will be removed in "
+      "%s. Event handlers can still be registered but are no longer invoked "
+      "since %s. See %s for more details.";
+  static constexpr char kGenericMessage[] =
+      "The `%s` event is deprecated on insecure origins and will be removed. "
+      "See %s for more details.";
+
+  if (blink::RuntimeEnabledFeatures::
+          RestrictDeviceSensorEventsToSecureContextsEnabled()) {
+    return String::Format(kConcreteMessage, event_name, MilestoneString(kM76),
+                          MilestoneString(kM74), status_url);
+  }
+  return String::Format(kGenericMessage, event_name, status_url);
 }
 
 struct DeprecationInfo {
@@ -271,25 +304,22 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
 
     // Powerful features on insecure origins (https://goo.gl/rStTGz)
     case WebFeature::kDeviceMotionInsecureOrigin:
-      return {"DeviceMotionInsecureOrigin", kUnknown,
-              "The devicemotion event is deprecated on insecure origins, and "
-              "support will be removed in the future. You should consider "
-              "switching your application to a secure origin, such as HTTPS. "
-              "See https://goo.gl/rStTGz for more details."};
+      return {"DeviceMotionInsecureOrigin", kM76,
+              GetDeviceSensorDeprecationMessage(
+                  "devicemotion",
+                  "https://www.chromestatus.com/feature/5688035094036480")};
 
     case WebFeature::kDeviceOrientationInsecureOrigin:
-      return {"DeviceOrientationInsecureOrigin", kUnknown,
-              "The deviceorientation event is deprecated on insecure origins, "
-              "and support will be removed in the future. You should consider "
-              "switching your application to a secure origin, such as HTTPS. "
-              "See https://goo.gl/rStTGz for more details."};
+      return {"DeviceOrientationInsecureOrigin", kM76,
+              GetDeviceSensorDeprecationMessage(
+                  "deviceorientation",
+                  "https://www.chromestatus.com/feature/5468407470227456")};
 
     case WebFeature::kDeviceOrientationAbsoluteInsecureOrigin:
-      return {"DeviceOrientationAbsoluteInsecureOrigin", kUnknown,
-              "The deviceorientationabsolute event is deprecated on insecure "
-              "origins, and support will be removed in the future. You should "
-              "consider switching your application to a secure origin, such as "
-              "HTTPS. See https://goo.gl/rStTGz for more details."};
+      return {"DeviceOrientationAbsoluteInsecureOrigin", kM76,
+              GetDeviceSensorDeprecationMessage(
+                  "deviceorientationabsolute",
+                  "https://www.chromestatus.com/feature/5468407470227456")};
 
     case WebFeature::kGeolocationInsecureOrigin:
     case WebFeature::kGeolocationInsecureOriginIframe:
@@ -439,12 +469,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
               "\"supportedNetworks\" field",
               kM64, "5725727580225536")};
 
-    case WebFeature::kDeprecatedTimingFunctionStepMiddle:
-      return {
-          "DeprecatedTimingFunctionStepMiddle", kM62,
-          WillBeRemoved("The step timing function with step position 'middle'",
-                        kM62, "5189363944128512")};
-
     case WebFeature::kHTMLImports:
       return {"DeprecatedHTMLImports", kM73,
               ReplacedWillBeRemoved("HTML Imports", "ES modules", kM73,
@@ -565,6 +589,68 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   "https://webrtc.org/web-apis/chrome/unified-plan/.",
                   MilestoneString(kM72))};
 
+    case WebFeature::kNoSysexWebMIDIWithoutPermission:
+      return {"NoSysexWebMIDIWithoutPermission", kM75,
+              String::Format(
+                  "Web MIDI will ask a permission to use even if the sysex is "
+                  "not specified in the MIDIOptions since %s. See "
+                  "https://www.chromestatus.com/feature/5138066234671104 for "
+                  "more details.",
+                  MilestoneString(kM75))};
+
+    case WebFeature::kNoSysexWebMIDIOnInsecureOrigin:
+      return {"NoSysexWebMIDIOnInsecureOrigin", kM75,
+              String::Format(
+                  "Web MIDI will be deprecated on insecure origins since %s. "
+                  "You should consider switching your application to a secure "
+                  "origin, such as HTTPS. See "
+                  "https://www.chromestatus.com/feature/5138066234671104 for "
+                  "more details.",
+                  MilestoneString(kM75))};
+
+    case WebFeature::kCustomCursorIntersectsViewport:
+      return {
+          "CustomCursorIntersectsViewport", kM75,
+          WillBeRemoved(
+              "Custom cursors with size greater than 32x32 DIP intersecting "
+              "native UI",
+              kM75, "5825971391299584")};
+
+#define REMOVE_APPEARANCE_KEYWORD_M75(id, keyword)                 \
+  case WebFeature::kCSSValueAppearance##id:                        \
+    return {"CSSValueAppearance" #id, kM75,                        \
+            WillBeRemoved("The keyword '" keyword                  \
+                          "' for -webkit-appearance CSS property", \
+                          kM75, "5075579829223424")}
+
+      REMOVE_APPEARANCE_KEYWORD_M75(ButtonBevel, "button-bevel");
+      REMOVE_APPEARANCE_KEYWORD_M75(Caret, "caret");
+      REMOVE_APPEARANCE_KEYWORD_M75(Listitem, "listitem");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaControlsBackground,
+                                    "media-controls-background");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaControlsFullscreenBackground,
+                                    "media-controls-fullscreen-background");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaCurrentTimeDisplay,
+                                    "media-current-time-display");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaEnterFullscreenButton,
+                                    "media-enter-fullscreen-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaExitFullscreenButton,
+                                    "media-exit-fullscreen-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaMuteButton, "media-mute-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaOverlayPlayButton,
+                                    "media-overlay-play-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaPlayButton, "media-play-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaTimeRemainingDisplay,
+                                    "media-time-remaining-display");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaToggleClosedCaptionsButton,
+                                    "media-toggle-closed-captions-button");
+      REMOVE_APPEARANCE_KEYWORD_M75(MediaVolumeSliderContainer,
+                                    "media-volume-slider-container");
+      REMOVE_APPEARANCE_KEYWORD_M75(MenulistTextfield, "menulist-textfield");
+      REMOVE_APPEARANCE_KEYWORD_M75(MenulistText, "menulist-text");
+      REMOVE_APPEARANCE_KEYWORD_M75(ProgressBarValue, "progress-bar-value");
+#undef REMOVE_APPEARANCE_KEYWORD_M75
+
     // Features that aren't deprecated don't have a deprecation message.
     default:
       return {"NotDeprecated", kUnknown, ""};
@@ -625,8 +711,9 @@ void Deprecation::WarnOnDeprecatedProperties(
   String message = DeprecationMessage(unresolved_property);
   if (!message.IsEmpty()) {
     page->GetDeprecation().Suppress(unresolved_property);
-    ConsoleMessage* console_message = ConsoleMessage::Create(
-        kDeprecationMessageSource, kWarningMessageLevel, message);
+    ConsoleMessage* console_message =
+        ConsoleMessage::Create(kDeprecationMessageSource,
+                               mojom::ConsoleMessageLevel::kWarning, message);
     frame->Console().AddMessage(console_message);
   }
 }
@@ -709,7 +796,8 @@ void Deprecation::GenerateReport(const LocalFrame* frame, WebFeature feature) {
   // Send the deprecation message to the console as a warning.
   DCHECK(!info.message.IsEmpty());
   ConsoleMessage* console_message = ConsoleMessage::Create(
-      kDeprecationMessageSource, kWarningMessageLevel, info.message);
+      kDeprecationMessageSource, mojom::ConsoleMessageLevel::kWarning,
+      info.message);
   frame->Console().AddMessage(console_message);
 
   if (!frame || !frame->Client())

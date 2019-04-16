@@ -38,13 +38,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     <!--script src='https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js'></script-->
     <script src='js/webxr-polyfill.js'></script>
 
-    <!--This script patches up around implementation differences in past browser versions
-        so that the samples can always be written against the most recent spec changes.
-        It won't be necessary after the API has been officially shipped for a bit.-->
-    <script src='js/webxr-version-shim.js'></script>
-
-    <script src='js/cottontail/build/cottontail.js'></script>
-
     <style>
       #scene-select {
         position: absolute;
@@ -86,6 +79,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       import {CubeSeaNode} from './js/cottontail/src/nodes/cube-sea.js';
       import {Gltf2Node} from './js/cottontail/src/nodes/gltf2.js';
 
+      import {mat4, vec3} from './js/cottontail/src/math/gl-matrix.js';
+
       const IDENTITY_MATRIX = new Float32Array([1, 0, 0, 0,
                                                 0, 1, 0, 0,
                                                 0, 0, 1, 0,
@@ -105,9 +100,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function setScene(newScene) {
         scene = newScene;
         scene.standingStats(true);
-        scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
+        scene.addNode(new SkyboxNode({url: '../media/textures/milky-way-4k.png'}));
 
-        let stereo = new Gltf2Node({url: 'media/gltf/stereo/stereo.gltf'});
+        let stereo = new Gltf2Node({url: '../media/gltf/stereo/stereo.gltf'});
         stereo.selectable = true;
         boxNodes.push(stereo);
         scene.addNode(stereo);
@@ -140,9 +135,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         addBox(-0.7, 0.7, -1.0);
         addBox(0.7, 0.7, -1.0);*/
 
-        let button = new ButtonNode(new UrlTexture('media/textures/play-button.png'), () => {
+        let button = new ButtonNode(new UrlTexture('../media/textures/play-button.png'), () => {
           // Do something?
-          button.iconTexture = new UrlTexture('media/textures/pause-button.png');
+          button.iconTexture = new UrlTexture('../media/textures/pause-button.png');
           console.log("Button clicked");
         });
         scene.addNode(button);
@@ -289,7 +284,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             scene.addNode(new CubeSeaNode());
             break;
           default:
-            scene.addNode(new Gltf2Node({url: `media/gltf/${sceneSelect.value}/${sceneSelect.value}.gltf`}));
+            scene.addNode(new Gltf2Node({url: `../media/gltf/${sceneSelect.value}/${sceneSelect.value}.gltf`}));
             break;
         }
         setScene(scene);

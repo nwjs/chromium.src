@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.contextualsearch;
 
 import android.support.annotation.IntDef;
+import android.text.format.DateUtils;
 import android.util.Pair;
 
 import org.chromium.base.metrics.RecordHistogram;
@@ -19,7 +20,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Centralizes UMA data collection for Contextual Search. All calls must be made from the UI thread.
@@ -28,7 +28,6 @@ public class ContextualSearchUma {
     // Constants to use for the original selection gesture
     private static final boolean LONG_PRESS = false;
     private static final boolean TAP = true;
-    private static final int MILLIS_IN_A_DAY = 1000 * 60 * 60 * 24;
 
     // Constants used to log UMA "enum" histograms about the Contextual Search's preference state.
     @IntDef({Preference.UNINITIALIZED, Preference.ENABLED, Preference.DISABLED})
@@ -340,14 +339,14 @@ public class ContextualSearchUma {
      * Key used in maps from {state, reason} to state entry (exit) logging code.
      */
     static class StateChangeKey {
-        final PanelState mState;
+        final @PanelState int mState;
         final @StateChangeReason int mReason;
         final int mHashCode;
 
-        StateChangeKey(PanelState state, @StateChangeReason int reason) {
+        StateChangeKey(@PanelState int state, @StateChangeReason int reason) {
             mState = state;
             mReason = reason;
-            mHashCode = 31 * state.hashCode() + reason;
+            mHashCode = 31 * state + reason;
         }
 
         @Override
@@ -355,7 +354,7 @@ public class ContextualSearchUma {
             if (!(obj instanceof StateChangeKey)) return false;
             if (obj == this) return true;
             StateChangeKey other = (StateChangeKey) obj;
-            return mState.equals(other.mState) && mReason == other.mReason;
+            return mState == other.mState && mReason == other.mReason;
         }
 
         @Override
@@ -714,14 +713,13 @@ public class ContextualSearchUma {
      */
     public static void logDuration(boolean wereResultsSeen, boolean isChained, long durationMs) {
         if (wereResultsSeen) {
-            RecordHistogram.recordTimesHistogram("Search.ContextualSearchDurationSeen",
-                    durationMs, TimeUnit.MILLISECONDS);
+            RecordHistogram.recordTimesHistogram("Search.ContextualSearchDurationSeen", durationMs);
         } else if (isChained) {
-            RecordHistogram.recordTimesHistogram("Search.ContextualSearchDurationUnseenChained",
-                    durationMs, TimeUnit.MILLISECONDS);
+            RecordHistogram.recordTimesHistogram(
+                    "Search.ContextualSearchDurationUnseenChained", durationMs);
         } else {
-            RecordHistogram.recordTimesHistogram("Search.ContextualSearchDurationUnseen",
-                    durationMs, TimeUnit.MILLISECONDS);
+            RecordHistogram.recordTimesHistogram(
+                    "Search.ContextualSearchDurationUnseen", durationMs);
         }
     }
 
@@ -731,7 +729,7 @@ public class ContextualSearchUma {
      */
     public static void logSearchTermResolutionDuration(long durationMs) {
         RecordHistogram.recordMediumTimesHistogram(
-                "Search.ContextualSearchResolutionDuration", durationMs, TimeUnit.MILLISECONDS);
+                "Search.ContextualSearchResolutionDuration", durationMs);
     }
 
     /**
@@ -743,8 +741,7 @@ public class ContextualSearchUma {
     public static void logPrefetchedSearchNavigatedDuration(long durationMs, boolean didResolve) {
         String histogramName = didResolve ? "Search.ContextualSearchResolvedSearchDuration"
                                           : "Search.ContextualSearchLiteralSearchDuration";
-        RecordHistogram.recordMediumTimesHistogram(
-                histogramName, durationMs, TimeUnit.MILLISECONDS);
+        RecordHistogram.recordMediumTimesHistogram(histogramName, durationMs);
     }
 
     /**
@@ -753,7 +750,7 @@ public class ContextualSearchUma {
      */
     public static void logPanelOpenDuration(long durationMs) {
         RecordHistogram.recordMediumTimesHistogram(
-                "Search.ContextualSearchPanelOpenDuration", durationMs, TimeUnit.MILLISECONDS);
+                "Search.ContextualSearchPanelOpenDuration", durationMs);
     }
 
     /**
@@ -790,11 +787,11 @@ public class ContextualSearchUma {
      * @param durationMs The duration to record.
      */
     public static void logPanelViewDurationAction(long durationMs) {
-        if (durationMs < 1000) {
+        if (durationMs < DateUtils.SECOND_IN_MILLIS) {
             RecordUserAction.record("ContextualSearch.ViewLessThanOneSecond");
-        } else if (durationMs < 3000) {
+        } else if (durationMs < DateUtils.SECOND_IN_MILLIS * 3) {
             RecordUserAction.record("ContextualSearch.ViewOneToThreeSeconds");
-        } else if (durationMs < 10000) {
+        } else if (durationMs < DateUtils.SECOND_IN_MILLIS * 10) {
             RecordUserAction.record("ContextualSearch.ViewThreeToTenSeconds");
         } else {
             RecordUserAction.record("ContextualSearch.ViewMoreThanTenSeconds");
@@ -874,8 +871,7 @@ public class ContextualSearchUma {
     public static void logBarOverlapPeekDuration(boolean wasBarOverlap, long panelPeekDurationMs) {
         String histogram = wasBarOverlap ? "Search.ContextualSearchBarOverlap.PeekDuration"
                                          : "Search.ContextualSearchBarNoOverlap.PeekDuration";
-        RecordHistogram.recordMediumTimesHistogram(
-                histogram, panelPeekDurationMs, TimeUnit.MILLISECONDS);
+        RecordHistogram.recordMediumTimesHistogram(histogram, panelPeekDurationMs);
     }
 
     /**
@@ -1156,28 +1152,28 @@ public class ContextualSearchUma {
      * @param reason The reason for the state transition.
      */
     public static void logFirstStateEntry(
-            PanelState fromState, PanelState toState, @StateChangeReason int reason) {
+            @PanelState int fromState, @PanelState int toState, @StateChangeReason int reason) {
         int code;
         switch (toState) {
-            case CLOSED:
+            case PanelState.CLOSED:
                 code = getStateChangeCode(
                         fromState, reason, ENTER_CLOSED_STATE_CHANGE_CODES, EnterClosedFrom.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Search.ContextualSearchEnterClosed", code, EnterClosedFrom.NUM_ENTRIES);
                 break;
-            case PEEKED:
+            case PanelState.PEEKED:
                 code = getStateChangeCode(
                         fromState, reason, ENTER_PEEKED_STATE_CHANGE_CODES, EnterPeekedFrom.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Search.ContextualSearchEnterPeeked", code, EnterPeekedFrom.NUM_ENTRIES);
                 break;
-            case EXPANDED:
+            case PanelState.EXPANDED:
                 code = getStateChangeCode(fromState, reason, ENTER_EXPANDED_STATE_CHANGE_CODES,
                         EnterExpandedFrom.OTHER);
                 RecordHistogram.recordEnumeratedHistogram("Search.ContextualSearchEnterExpanded",
                         code, EnterExpandedFrom.NUM_ENTRIES);
                 break;
-            case MAXIMIZED:
+            case PanelState.MAXIMIZED:
                 code = getStateChangeCode(fromState, reason, ENTER_MAXIMIZED_STATE_CHANGE_CODES,
                         EnterMaximizedFrom.OTHER);
                 RecordHistogram.recordEnumeratedHistogram("Search.ContextualSearchEnterMaximized",
@@ -1193,9 +1189,10 @@ public class ContextualSearchUma {
      * @param toState The state to transition to.
      * @param reason The reason for the state transition.
      */
-    public static void logPanelStateUserAction(PanelState toState, @StateChangeReason int reason) {
+    public static void logPanelStateUserAction(
+            @PanelState int toState, @StateChangeReason int reason) {
         switch (toState) {
-            case CLOSED:
+            case PanelState.CLOSED:
                 if (reason == StateChangeReason.BACK_PRESS) {
                     RecordUserAction.record("ContextualSearch.BackPressClose");
                 } else if (reason == StateChangeReason.CLOSE_BUTTON) {
@@ -1216,7 +1213,7 @@ public class ContextualSearchUma {
                     RecordUserAction.record("ContextualSearch.UncommonClose");
                 }
                 break;
-            case PEEKED:
+            case PanelState.PEEKED:
                 if (reason == StateChangeReason.TEXT_SELECT_TAP) {
                     RecordUserAction.record("ContextualSearch.TapPeek");
                 } else if (reason == StateChangeReason.SWIPE || reason == StateChangeReason.FLING) {
@@ -1225,14 +1222,14 @@ public class ContextualSearchUma {
                     RecordUserAction.record("ContextualSearch.LongpressPeek");
                 }
                 break;
-            case EXPANDED:
+            case PanelState.EXPANDED:
                 if (reason == StateChangeReason.SWIPE || reason == StateChangeReason.FLING) {
                     RecordUserAction.record("ContextualSearch.SwipeOrFlingExpand");
                 } else if (reason == StateChangeReason.SEARCH_BAR_TAP) {
                     RecordUserAction.record("ContextualSearch.SearchBarTapExpand");
                 }
                 break;
-            case MAXIMIZED:
+            case PanelState.MAXIMIZED:
                 if (reason == StateChangeReason.SWIPE || reason == StateChangeReason.FLING) {
                     RecordUserAction.record("ContextualSearch.SwipeOrFlingMaximize");
                 } else if (reason == StateChangeReason.SERP_NAVIGATION) {
@@ -1251,29 +1248,29 @@ public class ContextualSearchUma {
      * @param reason The reason for the state transition.
      */
     public static void logFirstStateExit(
-            PanelState fromState, PanelState toState, @StateChangeReason int reason) {
+            @PanelState int fromState, @PanelState int toState, @StateChangeReason int reason) {
         int code;
         switch (fromState) {
-            case UNDEFINED:
-            case CLOSED:
+            case PanelState.UNDEFINED:
+            case PanelState.CLOSED:
                 code = getStateChangeCode(
                         toState, reason, EXIT_CLOSED_TO_STATE_CHANGE_CODES, ExitClosedTo.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Search.ContextualSearchExitClosed", code, ExitClosedTo.NUM_ENTRIES);
                 break;
-            case PEEKED:
+            case PanelState.PEEKED:
                 code = getStateChangeCode(
                         toState, reason, EXIT_PEEKED_TO_STATE_CHANGE_CODES, ExitPeekedTo.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Search.ContextualSearchExitPeeked", code, ExitPeekedTo.NUM_ENTRIES);
                 break;
-            case EXPANDED:
+            case PanelState.EXPANDED:
                 code = getStateChangeCode(
                         toState, reason, EXIT_EXPANDED_TO_STATE_CHANGE_CODES, ExitExpandedTo.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
                         "Search.ContextualSearchExitExpanded", code, ExitExpandedTo.NUM_ENTRIES);
                 break;
-            case MAXIMIZED:
+            case PanelState.MAXIMIZED:
                 code = getStateChangeCode(toState, reason, EXIT_MAXIMIZED_TO_STATE_CHANGE_CODES,
                         ExitMaximizedTo.OTHER);
                 RecordHistogram.recordEnumeratedHistogram(
@@ -1314,7 +1311,7 @@ public class ContextualSearchUma {
      * @param durationMs The duration to log, in milliseconds.
      */
     public static void logOutcomesTimestamp(long durationMs) {
-        int durationInDays = (int) (durationMs / MILLIS_IN_A_DAY);
+        int durationInDays = (int) (durationMs / DateUtils.DAY_IN_MILLIS);
         RecordHistogram.recordCount100Histogram(
                 "Search.ContextualSearch.OutcomesDuration", durationInDays);
     }
@@ -1547,7 +1544,7 @@ public class ContextualSearchUma {
      * @param defaultCode The code to return if the given values are not found in the map.
      * @return The code to write into an enum histogram, based on the given map.
      */
-    private static int getStateChangeCode(PanelState state, @StateChangeReason int reason,
+    private static int getStateChangeCode(@PanelState int state, @StateChangeReason int reason,
             Map<StateChangeKey, Integer> stateChangeCodes, int defaultCode) {
         Integer code = stateChangeCodes.get(new StateChangeKey(state, reason));
         return code != null ? code : defaultCode;

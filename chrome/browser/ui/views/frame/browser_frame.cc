@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/leak_annotations.h"
 #include "base/i18n/rtl.h"
@@ -171,6 +172,20 @@ void BrowserFrame::OnBrowserViewInitViewsComplete() {
   browser_frame_view_->OnBrowserViewInitViewsComplete();
 }
 
+bool BrowserFrame::ShouldUseTheme() const {
+  // Main browser windows are always themed.
+  if (browser_view_->IsBrowserTypeNormal())
+    return true;
+
+  // The system GTK theme should always be respected if the user has opted to
+  // use it.
+  if (IsUsingGtkTheme(browser_view_->browser()->profile()))
+    return true;
+
+  // Other window types (popups, hosted apps) on non-GTK use the default theme.
+  return false;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserFrame, views::Widget overrides:
 
@@ -224,9 +239,9 @@ void BrowserFrame::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
   browser_view_->NativeThemeUpdated(observed_theme);
 }
 
-void BrowserFrame::ShowContextMenuForView(views::View* source,
-                                          const gfx::Point& p,
-                                          ui::MenuSourceType source_type) {
+void BrowserFrame::ShowContextMenuForViewImpl(views::View* source,
+                                              const gfx::Point& p,
+                                              ui::MenuSourceType source_type) {
   if (chrome::IsRunningInForcedAppMode())
     return;
 
@@ -269,20 +284,6 @@ ui::MenuModel* BrowserFrame::GetSystemMenuModel() {
 
 void BrowserFrame::OnMenuClosed() {
   menu_runner_.reset();
-}
-
-bool BrowserFrame::ShouldUseTheme() const {
-  // Main browser windows are always themed.
-  if (browser_view_->IsBrowserTypeNormal())
-    return true;
-
-  // The system GTK theme should always be respected if the user has opted to
-  // use it.
-  if (IsUsingGtkTheme(browser_view_->browser()->profile()))
-    return true;
-
-  // Other window types (popups, hosted apps) on non-GTK use the default theme.
-  return false;
 }
 
 void BrowserFrame::OnTouchUiChanged() {

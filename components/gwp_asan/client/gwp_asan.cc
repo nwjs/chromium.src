@@ -4,12 +4,15 @@
 
 #include "components/gwp_asan/client/gwp_asan.h"
 
+#include <algorithm>
+#include <limits>
+
 #include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/numerics/safe_conversions.h"
+#include "base/numerics/safe_math.h"
 #include "base/rand_util.h"
 #include "base/strings/stringprintf.h"
 #include "components/gwp_asan/client/guarded_page_allocator.h"
@@ -20,27 +23,46 @@ namespace gwp_asan {
 namespace internal {
 namespace {
 
+constexpr int kDefaultMaxAllocations = 7;
+constexpr int kDefaultTotalPages = 30;
+constexpr int kDefaultAllocationSamplingFrequency = 1000;
+constexpr double kDefaultProcessSamplingProbability = 1.0;
+constexpr int kDefaultIncreasedMemoryMultiplier = 4;
+
 const base::Feature kGwpAsan{"GwpAsanMalloc",
                              base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::FeatureParam<int> kMaxAllocationsParam{&kGwpAsan, "MaxAllocations",
-                                                   6};
+                                                   kDefaultMaxAllocations};
 
-const base::FeatureParam<int> kTotalPagesParam{&kGwpAsan, "TotalPages", 20};
+const base::FeatureParam<int> kTotalPagesParam{&kGwpAsan, "TotalPages",
+                                               kDefaultTotalPages};
 
 const base::FeatureParam<int> kAllocationSamplingParam{
-    &kGwpAsan, "AllocationSamplingFrequency", 1000};
+    &kGwpAsan, "AllocationSamplingFrequency",
+    kDefaultAllocationSamplingFrequency};
 
 const base::FeatureParam<double> kProcessSamplingParam{
-    &kGwpAsan, "ProcessSamplingProbability", 1.0};
+    &kGwpAsan, "ProcessSamplingProbability",
+    kDefaultProcessSamplingProbability};
 
-bool EnableForMalloc() {
+// The multiplier to increase MaxAllocations/TotalPages in scenarios where we
+// want to perform additional testing (e.g. on canary/dev builds or in the
+// browser process.) The multiplier increase is cumulative when multiple
+// conditions apply.
+const base::FeatureParam<int> kIncreasedMemoryMultiplierParam{
+    &kGwpAsan, "IncreasedMemoryMultiplier", kDefaultIncreasedMemoryMultiplier};
+
+bool EnableForMalloc(bool is_canary_dev, bool is_browser_process) {
   if (!base::FeatureList::IsEnabled(kGwpAsan))
     return false;
 
+  static_assert(AllocatorState::kGpaMaxPages <= std::numeric_limits<int>::max(),
+                "kGpaMaxPages out of range");
+  constexpr int kMaxPages = static_cast<int>(AllocatorState::kGpaMaxPages);
+
   int total_pages = kTotalPagesParam.Get();
-  if (total_pages < 1 ||
-      total_pages > base::checked_cast<int>(AllocatorState::kGpaMaxPages)) {
+  if (total_pages < 1 || total_pages > kMaxPages) {
     DLOG(ERROR) << "GWP-ASan TotalPages is out-of-range: " << total_pages;
     return false;
   }
@@ -67,6 +89,33 @@ bool EnableForMalloc() {
     return false;
   }
 
+  base::CheckedNumeric<int> multiplier = 1;
+  if (is_canary_dev)
+    multiplier += kIncreasedMemoryMultiplierParam.Get();
+  if (is_browser_process)
+    multiplier += kIncreasedMemoryMultiplierParam.Get();
+
+  if (!multiplier.IsValid() || multiplier.ValueOrDie() < 1 ||
+      multiplier.ValueOrDie() > kMaxPages) {
+    DLOG(ERROR) << "GWP-ASan IncreaseMemoryMultiplier is out-of-range";
+    return false;
+  }
+
+  base::CheckedNumeric<int> total_pages_mult = total_pages;
+  total_pages_mult *= multiplier.ValueOrDie();
+  base::CheckedNumeric<int> max_allocations_mult = max_allocations;
+  max_allocations_mult *= multiplier.ValueOrDie();
+
+  if (!total_pages_mult.IsValid() || !max_allocations_mult.IsValid()) {
+    DLOG(ERROR) << "GWP-ASan multiplier caused out-of-range multiply: "
+                << multiplier.ValueOrDie();
+    return false;
+  }
+
+  total_pages = std::min<int>(total_pages_mult.ValueOrDie(), kMaxPages);
+  max_allocations =
+      std::min<int>(max_allocations_mult.ValueOrDie(), total_pages);
+
   if (base::RandDouble() >= process_sampling_probability)
     return false;
 
@@ -77,8 +126,9 @@ bool EnableForMalloc() {
 }  // namespace
 }  // namespace internal
 
-void EnableForMalloc() {
-  static bool init_once = internal::EnableForMalloc();
+void EnableForMalloc(bool is_canary_dev, bool is_browser_process) {
+  static bool init_once =
+      internal::EnableForMalloc(is_canary_dev, is_browser_process);
   ignore_result(init_once);
 }
 

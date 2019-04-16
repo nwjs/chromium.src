@@ -52,10 +52,6 @@ constexpr float kPreCloseScale = 0.02f;
 
 constexpr int kShadowElevation = 16;
 
-// Values of the backdrop.
-constexpr int kBackdropRoundingDp = 4;
-constexpr SkColor kBackdropColor = SkColorSetARGB(0x24, 0xFF, 0xFF, 0xFF);
-
 // The amount of translation an item animates by when it is closed by using
 // swipe to close.
 constexpr int kSwipeToCloseCloseTranslationDp = 96;
@@ -64,17 +60,43 @@ constexpr int kSwipeToCloseCloseTranslationDp = 96;
 // |kPreDragScale| to indicate its selection.
 constexpr float kDragWindowScale = 0.04f;
 
-std::unique_ptr<views::Widget> CreateBackdropWidget(aura::Window* parent) {
-  auto widget = CreateBackgroundWidget(
-      /*root_window=*/nullptr, ui::LAYER_TEXTURED, kBackdropColor,
-      /*border_thickness=*/0, kBackdropRoundingDp, kBackdropColor,
-      /*initial_opacity=*/1.f, parent,
-      /*stack_on_top=*/false);
-  widget->GetNativeWindow()->SetName("OverviewBackdrop");
-  return widget;
-}
-
 }  // namespace
+
+// The class to cache render surface to the specified window's layer.
+class OverviewItem::WindowSurfaceCacheObserver : public aura::WindowObserver {
+ public:
+  explicit WindowSurfaceCacheObserver(aura::Window* window) {
+    StartObserving(window);
+  }
+
+  ~WindowSurfaceCacheObserver() override { StopObserving(); }
+
+  void StartObserving(aura::Window* window) {
+    // If we're already observing a window, stop observing it first.
+    StopObserving();
+
+    window_ = window;
+    window_->AddObserver(this);
+    for (auto* window : wm::GetTransientTreeIterator(window_))
+      window->layer()->AddCacheRenderSurfaceRequest();
+  }
+
+  // aura::WindowObserver:
+  void OnWindowDestroying(aura::Window* window) override { StopObserving(); }
+
+ private:
+  void StopObserving() {
+    if (window_) {
+      for (auto* window : wm::GetTransientTreeIterator(window_))
+        window->layer()->RemoveCacheRenderSurfaceRequest();
+      window_->RemoveObserver(this);
+      window_ = nullptr;
+    }
+  }
+
+  aura::Window* window_ = nullptr;
+  DISALLOW_COPY_AND_ASSIGN(WindowSurfaceCacheObserver);
+};
 
 OverviewItem::OverviewItem(aura::Window* window,
                            OverviewSession* overview_session,
@@ -114,9 +136,7 @@ bool OverviewItem::Contains(const aura::Window* target) const {
 void OverviewItem::RestoreWindow(bool reset_transform) {
   caption_container_view_->ResetListener();
   transform_window_.RestoreWindow(
-      reset_transform,
-      overview_session_->enter_exit_overview_type() ==
-          OverviewSession::EnterExitOverviewType::kWindowsMinimized);
+      reset_transform, overview_session_->enter_exit_overview_type());
 }
 
 void OverviewItem::EnsureVisible() {
@@ -124,23 +144,6 @@ void OverviewItem::EnsureVisible() {
 }
 
 void OverviewItem::Shutdown() {
-  if (transform_window_.GetTopInset()) {
-    // Activating a window (even when it is the window that was active before
-    // overview) results in stacking it at the top. Maintain the label window
-    // stacking position above the item to make the header transformation more
-    // gradual upon exiting the overview mode.
-    aura::Window* widget_window = item_widget_->GetNativeWindow();
-
-    // |widget_window| was originally created in the same container as the
-    // |transform_window_| but when closing overview the |transform_window_|
-    // could have been reparented if a drag was active. Only change stacking
-    // if the windows still belong to the same container.
-    if (widget_window->parent() == transform_window_.window()->parent()) {
-      widget_window->parent()->StackChildAbove(widget_window,
-                                               transform_window_.window());
-    }
-  }
-
   // On swiping from the shelf, the caller handles the animation via calls to
   // UpdateYAndOpacity, so do not additional fade out or slide animation to the
   // window.
@@ -156,24 +159,29 @@ void OverviewItem::Shutdown() {
 
 void OverviewItem::PrepareForOverview() {
   transform_window_.PrepareForOverview();
-  RestackItemWidget();
+  aura::Window* widget_window = item_widget_->GetNativeWindow();
+  widget_window->parent()->StackChildBelow(widget_window,
+                                           GetWindowForStacking());
 }
 
 void OverviewItem::SlideWindowIn() {
   // |transform_window_|'s |minimized_widget| is non null because this only gets
   // called if we see the home launcher on enter (all windows are minimized).
   DCHECK(transform_window_.minimized_widget());
-  // The |item_widget_| will be shown when animation ends.
+  // The |item_widget_| and mask and shadow will be shown when animation ends.
+  // Update the mask after starting the animation since starting the animation
+  // lets the controller know we are in starting animation.
   FadeInWidgetAndMaybeSlideOnEnter(transform_window_.minimized_widget(),
                                    OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER,
                                    /*slide=*/true);
+  UpdateMaskAndShadow();
 }
 
 void OverviewItem::UpdateYPositionAndOpacity(
     int new_grid_y,
     float opacity,
     OverviewSession::UpdateAnimationSettingsCallback callback) {
-  // Animate the window selector widget and the window itself.
+  // Animate |item_widget_| and the window itself.
   // TODO(sammiequon): Investigate if we can combine with
   // FadeInWidgetAndMaybeSlideOnEnter. Also when animating we should remove
   // shadow and rounded corners.
@@ -218,21 +226,21 @@ void OverviewItem::UpdateItemContentViewForMinimizedWindow() {
 }
 
 float OverviewItem::GetItemScale(const gfx::Size& size) {
-  gfx::Size inset_size(size.width(), size.height() - 2 * kWindowMargin);
+  gfx::SizeF inset_size(size.width(), size.height() - 2 * kWindowMargin);
   return ScopedOverviewTransformWindow::GetItemScale(
       GetTargetBoundsInScreen().size(), inset_size,
       transform_window_.GetTopInset(), kHeaderHeightDp);
 }
 
-gfx::Rect OverviewItem::GetTargetBoundsInScreen() const {
+gfx::RectF OverviewItem::GetTargetBoundsInScreen() const {
   return ::ash::GetTargetBoundsInScreen(transform_window_.GetOverviewWindow());
 }
 
-gfx::Rect OverviewItem::GetTransformedBounds() const {
+gfx::RectF OverviewItem::GetTransformedBounds() const {
   return transform_window_.GetTransformedBounds();
 }
 
-void OverviewItem::SetBounds(const gfx::Rect& target_bounds,
+void OverviewItem::SetBounds(const gfx::RectF& target_bounds,
                              OverviewAnimationType animation_type) {
   if (in_bounds_update_)
     return;
@@ -251,7 +259,7 @@ void OverviewItem::SetBounds(const gfx::Rect& target_bounds,
   const bool is_first_update = target_bounds_.IsEmpty();
   target_bounds_ = target_bounds;
 
-  gfx::Rect inset_bounds(target_bounds);
+  gfx::RectF inset_bounds(target_bounds);
   inset_bounds.Inset(kWindowMargin, kWindowMargin);
 
   // Do not animate if entering when the window is minimized, as it will be
@@ -270,14 +278,8 @@ void OverviewItem::SetBounds(const gfx::Rect& target_bounds,
   // animations, manually set the shadow. Shadow relies on both the window
   // transform and |item_widget_|'s new bounds so set it after SetItemBounds
   // and UpdateHeaderLayout. Do not apply the shadow for drop target.
-  if (new_animation_type == OVERVIEW_ANIMATION_NONE) {
-    SetShadowBounds(
-        overview_grid_->IsDropTargetWindow(GetWindow())
-            ? base::nullopt
-            : base::make_optional(transform_window_.GetTransformedBounds()));
-  }
-
-  UpdateBackdropBounds();
+  if (new_animation_type == OVERVIEW_ANIMATION_NONE)
+    UpdateMaskAndShadow();
 }
 
 void OverviewItem::SendAccessibleSelectionEvent() {
@@ -299,7 +301,7 @@ void OverviewItem::AnimateAndCloseWindow(bool up) {
   auto animate_window = [this](aura::Window* window,
                                const gfx::Transform& transform, bool observe) {
     ScopedOverviewAnimationSettings settings(
-        OVERVIEW_ANIMATION_CLOSE_SELECTOR_ITEM, window);
+        OVERVIEW_ANIMATION_CLOSE_OVERVIEW_ITEM, window);
     gfx::Transform original_transform = window->transform();
     original_transform.ConcatTransform(transform);
     window->SetTransform(original_transform);
@@ -307,28 +309,30 @@ void OverviewItem::AnimateAndCloseWindow(bool up) {
       settings.AddObserver(this);
   };
 
-  AnimateOpacity(0.0, OVERVIEW_ANIMATION_CLOSE_SELECTOR_ITEM);
+  AnimateOpacity(0.0, OVERVIEW_ANIMATION_CLOSE_OVERVIEW_ITEM);
   animate_window(item_widget_->GetNativeWindow(), transform, false);
   animate_window(GetWindowForStacking(), transform, true);
 }
 
 void OverviewItem::CloseWindow() {
-  gfx::Rect inset_bounds(target_bounds_);
+  gfx::RectF inset_bounds(target_bounds_);
   inset_bounds.Inset(target_bounds_.width() * kPreCloseScale,
                      target_bounds_.height() * kPreCloseScale);
   // Scale down both the window and label.
-  SetBounds(inset_bounds, OVERVIEW_ANIMATION_CLOSING_SELECTOR_ITEM);
+  SetBounds(inset_bounds, OVERVIEW_ANIMATION_CLOSING_OVERVIEW_ITEM);
   // First animate opacity to an intermediate value concurrently with the
   // scaling animation.
-  AnimateOpacity(kClosingItemOpacity, OVERVIEW_ANIMATION_CLOSING_SELECTOR_ITEM);
+  AnimateOpacity(kClosingItemOpacity, OVERVIEW_ANIMATION_CLOSING_OVERVIEW_ITEM);
 
   // Fade out the window and the label, effectively hiding them.
-  AnimateOpacity(0.0, OVERVIEW_ANIMATION_CLOSE_SELECTOR_ITEM);
+  AnimateOpacity(0.0, OVERVIEW_ANIMATION_CLOSE_OVERVIEW_ITEM);
   transform_window_.Close();
 }
 
 void OverviewItem::OnMinimizedStateChanged() {
   transform_window_.UpdateMirrorWindowForMinimizedState();
+  if (window_surface_cache_observers_)
+    window_surface_cache_observers_->StartObserving(GetWindowForStacking());
 }
 
 void OverviewItem::UpdateCannotSnapWarningVisibility() {
@@ -348,15 +352,33 @@ void OverviewItem::UpdateCannotSnapWarningVisibility() {
 }
 
 void OverviewItem::OnSelectorItemDragStarted(OverviewItem* item) {
+  is_being_dragged_ = (item == this);
+  // Disable mask and shadow for the dragged overview item during dragging.
+  if (is_being_dragged_)
+    UpdateMaskAndShadow();
+
   caption_container_view_->SetHeaderVisibility(
-      item == this
+      is_being_dragged_
           ? CaptionContainerView::HeaderVisibility::kInvisible
           : CaptionContainerView::HeaderVisibility::kCloseButtonInvisibleOnly);
+
+  // Start caching render surface during overview window dragging.
+  window_surface_cache_observers_ =
+      std::make_unique<WindowSurfaceCacheObserver>(GetWindowForStacking());
 }
 
 void OverviewItem::OnSelectorItemDragEnded() {
+  // Re-show mask and shadow for the dragged overview item after drag ends.
+  if (is_being_dragged_) {
+    is_being_dragged_ = false;
+    UpdateMaskAndShadow();
+  }
+
   caption_container_view_->SetHeaderVisibility(
       CaptionContainerView::HeaderVisibility::kVisible);
+
+  // Stop caching render surface after overview window dragging.
+  window_surface_cache_observers_.reset();
 }
 
 ScopedOverviewTransformWindow::GridWindowFillMode
@@ -365,72 +387,29 @@ OverviewItem::GetWindowDimensionsType() const {
 }
 
 void OverviewItem::UpdateWindowDimensionsType() {
-  // TODO(oshima|sammiequan|xdai): Use EnableBackdropIfNeeded.
   transform_window_.UpdateWindowDimensionsType();
-  if (GetWindowDimensionsType() ==
-      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal) {
-    // Delete the backdrop widget, if it exists for normal windows.
-    if (backdrop_widget_)
-      backdrop_widget_.reset();
-  } else {
-    // Create the backdrop widget if needed.
-    if (!backdrop_widget_) {
-      backdrop_widget_ =
-          CreateBackdropWidget(transform_window_.window()->parent());
-    }
-  }
-}
-
-void OverviewItem::EnableBackdropIfNeeded() {
-  if (GetWindowDimensionsType() ==
-      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal) {
-    DisableBackdrop();
-    return;
-  }
-  if (!backdrop_widget_) {
-    backdrop_widget_ =
-        CreateBackdropWidget(transform_window_.window()->parent());
-  }
-  UpdateBackdropBounds();
-}
-
-void OverviewItem::DisableBackdrop() {
-  if (backdrop_widget_)
-    backdrop_widget_->Hide();
-}
-
-void OverviewItem::UpdateBackdropBounds() {
-  if (!backdrop_widget_)
-    return;
-
-  gfx::Rect backdrop_bounds = caption_container_view_->backdrop_bounds();
-  ::wm::ConvertRectToScreen(item_widget_->GetNativeWindow(), &backdrop_bounds);
-  backdrop_widget_->SetBounds(backdrop_bounds);
-  backdrop_widget_->Show();
+  const bool show_backdrop =
+      GetWindowDimensionsType() !=
+      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
+  caption_container_view_->SetBackdropVisibility(show_backdrop);
 }
 
 gfx::Rect OverviewItem::GetBoundsOfSelectedItem() {
-  gfx::Rect original_bounds = target_bounds();
+  gfx::RectF original_bounds = target_bounds();
   ScaleUpSelectedItem(OVERVIEW_ANIMATION_NONE);
-  gfx::Rect selected_bounds = transform_window_.GetTransformedBounds();
+  gfx::RectF selected_bounds = transform_window_.GetTransformedBounds();
   SetBounds(original_bounds, OVERVIEW_ANIMATION_NONE);
-  return selected_bounds;
+  return gfx::ToEnclosedRect(selected_bounds);
 }
 
 void OverviewItem::ScaleUpSelectedItem(OverviewAnimationType animation_type) {
-  gfx::Rect scaled_bounds(target_bounds());
+  gfx::RectF scaled_bounds = target_bounds();
   scaled_bounds.Inset(-scaled_bounds.width() * kDragWindowScale,
                       -scaled_bounds.height() * kDragWindowScale);
   SetBounds(scaled_bounds, animation_type);
 }
 
-void OverviewItem::RestackItemWidget() {
-  aura::Window* widget_window = item_widget_->GetNativeWindow();
-  widget_window->parent()->StackChildAbove(widget_window,
-                                           GetWindowForStacking());
-}
-
-void OverviewItem::HandlePressEvent(const gfx::Point& location_in_screen) {
+void OverviewItem::HandlePressEvent(const gfx::PointF& location_in_screen) {
   // We allow switching finger while dragging, but do not allow dragging two or
   // more items.
   if (overview_session_->window_drag_controller() &&
@@ -442,28 +421,29 @@ void OverviewItem::HandlePressEvent(const gfx::Point& location_in_screen) {
   overview_session_->InitiateDrag(this, location_in_screen);
 }
 
-void OverviewItem::HandleReleaseEvent(const gfx::Point& location_in_screen) {
+void OverviewItem::HandleReleaseEvent(const gfx::PointF& location_in_screen) {
   if (!IsDragItem())
     return;
+
   overview_grid_->SetSelectionWidgetVisibility(true);
   overview_session_->CompleteDrag(this, location_in_screen);
 }
 
-void OverviewItem::HandleDragEvent(const gfx::Point& location_in_screen) {
+void OverviewItem::HandleDragEvent(const gfx::PointF& location_in_screen) {
   if (!IsDragItem())
     return;
 
   overview_session_->Drag(this, location_in_screen);
 }
 
-void OverviewItem::HandleLongPressEvent(const gfx::Point& location_in_screen) {
+void OverviewItem::HandleLongPressEvent(const gfx::PointF& location_in_screen) {
   if (!ShouldAllowSplitView())
     return;
 
   overview_session_->StartSplitViewDragMode(location_in_screen);
 }
 
-void OverviewItem::HandleFlingStartEvent(const gfx::Point& location_in_screen,
+void OverviewItem::HandleFlingStartEvent(const gfx::PointF& location_in_screen,
                                          float velocity_x,
                                          float velocity_y) {
   overview_session_->Fling(this, location_in_screen, velocity_x, velocity_y);
@@ -508,27 +488,27 @@ void OverviewItem::OnDragAnimationCompleted() {
         Shell::Get()->split_view_controller()->GetDefaultSnappedWindow();
     if (snapped_window->parent() == parent_window &&
         dragged_window->parent() == parent_window) {
-      parent_window->StackChildBelow(dragged_widget_window, snapped_window);
-      parent_window->StackChildBelow(dragged_window, dragged_widget_window);
+      parent_window->StackChildBelow(dragged_window, snapped_window);
+      parent_window->StackChildBelow(dragged_widget_window, dragged_window);
     }
   }
 
-  // Then find the window which was stacked right above this selector item's
-  // window before dragging and stack this selector item's window below it.
-  const std::vector<std::unique_ptr<OverviewItem>>& selector_items =
+  // Then find the window which was stacked right above this overview item's
+  // window before dragging and stack this overview item's window below it.
+  const std::vector<std::unique_ptr<OverviewItem>>& overview_items =
       overview_grid_->window_list();
   aura::Window* stacking_target = nullptr;
-  for (size_t index = 0; index < selector_items.size(); index++) {
+  for (size_t index = 0; index < overview_items.size(); index++) {
     if (index > 0) {
-      aura::Window* window = selector_items[index - 1].get()->GetWindow();
+      aura::Window* window = overview_items[index - 1].get()->GetWindow();
       if (window->parent() == parent_window &&
           dragged_window->parent() == parent_window) {
         stacking_target = window;
       }
     }
-    if (selector_items[index].get() == this && stacking_target) {
-      parent_window->StackChildBelow(dragged_widget_window, stacking_target);
-      parent_window->StackChildBelow(dragged_window, dragged_widget_window);
+    if (overview_items[index].get() == this && stacking_target) {
+      parent_window->StackChildBelow(dragged_window, stacking_target);
+      parent_window->StackChildBelow(dragged_widget_window, dragged_window);
       break;
     }
   }
@@ -557,18 +537,40 @@ void OverviewItem::SetShadowBounds(base::Optional<gfx::Rect> bounds_in_screen) {
   shadow_->SetContentBounds(bounds_in_item);
 }
 
-void OverviewItem::UpdateMaskAndShadow(bool show) {
-  transform_window_.UpdateMask(show);
+void OverviewItem::UpdateMaskAndShadow() {
+  // Do not show mask and shadow if:
+  // 1) overview is shutting down or
+  // 2) this overview item is in an overview grid that contains more than 10
+  //    windows. In this case don't apply rounded corner mask because it can
+  //    push the compositor memory usage to the limit. TODO(oshima): Remove
+  //    this once new rounded corner impl is available. (crbug.com/903486)
+  // 3) we're currently in entering overview animation or
+  // 4) this overview item is being dragged or
+  // 5) this overview item is the drop target window or
+  // 6) this overview item is in animation.
+  bool should_show = true;
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  if (disable_mask_ || !overview_controller ||
+      !overview_controller->IsSelecting() ||
+      overview_grid_->window_list().size() > 10 ||
+      overview_controller->IsInStartAnimation() || is_being_dragged_ ||
+      overview_grid_->IsDropTargetWindow(GetWindow()) ||
+      transform_window_.GetOverviewWindow()
+          ->layer()
+          ->GetAnimator()
+          ->is_animating()) {
+    should_show = false;
+  }
 
-  // Do not apply the shadow for the drop target in overview.
-  if (!show || overview_grid_->IsDropTargetWindow(GetWindow())) {
+  if (!should_show) {
+    transform_window_.UpdateMask(false);
     SetShadowBounds(base::nullopt);
-    DisableBackdrop();
     return;
   }
 
-  SetShadowBounds(transform_window_.GetTransformedBounds());
-  EnableBackdropIfNeeded();
+  transform_window_.UpdateMask(true);
+  SetShadowBounds(
+      gfx::ToEnclosedRect(transform_window_.GetTransformedBounds()));
 }
 
 void OverviewItem::OnStartingAnimationComplete() {
@@ -576,7 +578,10 @@ void OverviewItem::OnStartingAnimationComplete() {
   FadeInWidgetAndMaybeSlideOnEnter(
       item_widget_.get(), OVERVIEW_ANIMATION_ENTER_OVERVIEW_MODE_FADE_IN,
       /*slide=*/false);
-  EnableBackdropIfNeeded();
+  const bool show_backdrop =
+      GetWindowDimensionsType() !=
+      ScopedOverviewTransformWindow::GridWindowFillMode::kNormal;
+  caption_container_view_->SetBackdropVisibility(show_backdrop);
 }
 
 void OverviewItem::SetOpacity(float opacity) {
@@ -590,7 +595,7 @@ float OverviewItem::GetOpacity() {
 
 OverviewAnimationType OverviewItem::GetExitOverviewAnimationType() {
   return should_animate_when_exiting_
-             ? OVERVIEW_ANIMATION_LAY_OUT_SELECTOR_ITEMS_ON_EXIT
+             ? OVERVIEW_ANIMATION_LAYOUT_OVERVIEW_ITEMS_ON_EXIT
              : OVERVIEW_ANIMATION_NONE;
 }
 
@@ -635,6 +640,11 @@ void OverviewItem::OnWindowBoundsChanged(aura::Window* window,
 void OverviewItem::OnWindowDestroying(aura::Window* window) {
   window->RemoveObserver(this);
   transform_window_.OnWindowDestroyed();
+
+  if (is_being_dragged_) {
+    Shell::Get()->overview_controller()->UnpauseOcclusionTracker(
+        kOcclusionPauseDurationForDragMs);
+  }
 }
 
 void OverviewItem::OnWindowTitleChanged(aura::Window* window) {
@@ -662,30 +672,42 @@ gfx::Rect OverviewItem::GetShadowBoundsForTesting() {
   return shadow_->content_bounds();
 }
 
-void OverviewItem::SetItemBounds(const gfx::Rect& target_bounds,
+void OverviewItem::SetItemBounds(const gfx::RectF& target_bounds,
                                  OverviewAnimationType animation_type) {
   aura::Window* window = GetWindow();
   DCHECK(root_window_ == window->GetRootWindow());
-  gfx::Rect screen_rect = GetTargetBoundsInScreen();
+  gfx::RectF screen_rect = gfx::RectF(GetTargetBoundsInScreen());
 
   // Avoid division by zero by ensuring screen bounds is not empty.
-  gfx::Size screen_size(screen_rect.size());
-  screen_size.SetToMax(gfx::Size(1, 1));
+  gfx::SizeF screen_size(screen_rect.size());
+  screen_size.SetToMax(gfx::SizeF(1.f, 1.f));
   screen_rect.set_size(screen_size);
 
   const int top_view_inset = transform_window_.GetTopInset();
-  gfx::Rect selector_item_bounds =
+  gfx::RectF overview_item_bounds =
       transform_window_.ShrinkRectToFitPreservingAspectRatio(
           screen_rect, target_bounds, top_view_inset, kHeaderHeightDp);
   // Do not set transform for drop target, set bounds instead.
   if (overview_grid_->IsDropTargetWindow(window)) {
-    window->layer()->SetBounds(selector_item_bounds);
+    window->layer()->SetBounds(gfx::ToEnclosedRect(overview_item_bounds));
     transform_window_.GetOverviewWindow()->SetTransform(gfx::Transform());
     return;
   }
 
+  // Stop the current fade in animation if we shouldn't be animating.
+  if (wm::GetWindowState(window)->IsMinimized() &&
+      animation_type == OVERVIEW_ANIMATION_NONE) {
+    views::Widget* minimized_widget = transform_window_.minimized_widget();
+    if (minimized_widget) {
+      minimized_widget->GetNativeWindow()
+          ->layer()
+          ->GetAnimator()
+          ->StopAnimating();
+    }
+  }
+
   gfx::Transform transform = ScopedOverviewTransformWindow::GetTransformForRect(
-      screen_rect, selector_item_bounds);
+      screen_rect, overview_item_bounds);
   ScopedOverviewTransformWindow::ScopedAnimationSettings animation_settings;
   transform_window_.BeginScopedAnimation(animation_type, &animation_settings);
   SetTransform(transform_window_.GetOverviewWindow(), transform);
@@ -708,8 +730,7 @@ void OverviewItem::CreateWindowLabel() {
   item_widget_->set_focus_on_creation(false);
   item_widget_->Init(params_label);
   aura::Window* widget_window = item_widget_->GetNativeWindow();
-  // Stack the widget above the transform window so that it can block events.
-  widget_window->parent()->StackChildAbove(widget_window,
+  widget_window->parent()->StackChildBelow(widget_window,
                                            transform_window_.window());
 
   shadow_ = std::make_unique<ui::Shadow>();
@@ -725,10 +746,10 @@ void OverviewItem::CreateWindowLabel() {
 }
 
 void OverviewItem::UpdateHeaderLayout(OverviewAnimationType animation_type) {
-  gfx::Rect transformed_window_bounds =
+  gfx::RectF transformed_window_bounds =
       transform_window_.overview_bounds().value_or(
           transform_window_.GetTransformedBounds());
-  ::wm::ConvertRectFromScreen(root_window_, &transformed_window_bounds);
+  ::wm::TranslateRectFromScreen(root_window_, &transformed_window_bounds);
 
   gfx::Rect label_rect(kHeaderHeightDp, kHeaderHeightDp);
   label_rect.set_width(transformed_window_bounds.width());
@@ -742,7 +763,7 @@ void OverviewItem::UpdateHeaderLayout(OverviewAnimationType animation_type) {
 
   // Create a start animation observer if this is an enter overview layout
   // animation.
-  if (animation_type == OVERVIEW_ANIMATION_LAY_OUT_SELECTOR_ITEMS_ON_ENTER) {
+  if (animation_type == OVERVIEW_ANIMATION_LAYOUT_OVERVIEW_ITEMS_ON_ENTER) {
     auto start_observer = std::make_unique<StartAnimationObserver>();
     animation_settings.AddObserver(start_observer.get());
     Shell::Get()->overview_controller()->AddStartAnimationObserver(
@@ -756,8 +777,8 @@ void OverviewItem::UpdateHeaderLayout(OverviewAnimationType animation_type) {
   label_rect.Inset(-kOverviewMargin, -kOverviewMargin);
   widget_window->SetBounds(label_rect);
   gfx::Transform label_transform;
-  label_transform.Translate(transformed_window_bounds.x(),
-                            transformed_window_bounds.y());
+  label_transform.Translate(gfx::ToRoundedInt(transformed_window_bounds.x()),
+                            gfx::ToRoundedInt(transformed_window_bounds.y()));
   widget_window->SetTransform(label_transform);
 }
 
@@ -776,10 +797,6 @@ void OverviewItem::AnimateOpacity(float opacity,
   widget_window->layer()->SetOpacity(header_opacity);
 }
 
-aura::Window* OverviewItem::GetOverviewWindowForMinimizedStateForTest() {
-  return transform_window_.GetOverviewWindowForMinimizedState();
-}
-
 void OverviewItem::StartDrag() {
   overview_grid_->SetSelectionWidgetVisibility(false);
 
@@ -794,8 +811,8 @@ void OverviewItem::StartDrag() {
   if (widget_window && widget_window->parent() == window->parent()) {
     // TODO(xdai): This might not work if there is an always on top window.
     // See crbug.com/733760.
-    widget_window->parent()->StackChildAtTop(widget_window);
-    widget_window->parent()->StackChildBelow(window, widget_window);
+    widget_window->parent()->StackChildAtTop(window);
+    widget_window->parent()->StackChildBelow(widget_window, window);
   }
 }
 

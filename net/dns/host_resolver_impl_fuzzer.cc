@@ -17,20 +17,16 @@
 #include "net/base/address_list.h"
 #include "net/base/net_errors.h"
 #include "net/base/request_priority.h"
-#include "net/dns/fuzzed_host_resolver.h"
+#include "net/dns/fuzzed_context_host_resolver.h"
 #include "net/dns/host_resolver.h"
 #include "net/log/net_log_with_source.h"
 #include "net/log/test_net_log.h"
+#include "net/net_buildflags.h"
 
 namespace {
 
 const char* kHostNames[] = {"foo", "foo.com",   "a.foo.com",
                             "bar", "localhost", "localhost6"};
-
-net::AddressFamily kAddressFamilies[] = {
-    net::ADDRESS_FAMILY_UNSPECIFIED, net::ADDRESS_FAMILY_IPV4,
-    net::ADDRESS_FAMILY_IPV6,
-};
 
 class DnsRequest {
  public:
@@ -133,19 +129,6 @@ class DnsRequest {
 
   // Starts the DNS request, using a fuzzed set of parameters.
   int Start() {
-    // Cache-only resolve still uses old HostResolver API.
-    if (data_provider_->ConsumeBool()) {
-      const char* hostname = data_provider_->PickValueInArray(kHostNames);
-      net::HostResolver::RequestInfo info(net::HostPortPair(hostname, 80));
-      info.set_address_family(
-          data_provider_->PickValueInArray(kAddressFamilies));
-      if (data_provider_->ConsumeBool())
-        info.set_host_resolver_flags(net::HOST_RESOLVER_CANONNAME);
-
-      return host_resolver_->ResolveFromCache(info, &address_list_,
-                                              net::NetLogWithSource());
-    }
-
     net::HostResolver::ResolveHostParameters parameters;
     parameters.dns_query_type =
         data_provider_->PickValueInArray(net::kDnsQueryTypes);
@@ -162,7 +145,10 @@ class DnsRequest {
     }
 #endif  // !BUILDFLAG(ENABLE_MDNS)
 
-    parameters.allow_cached_response = data_provider_->ConsumeBool();
+    parameters.cache_usage =
+        data_provider_->ConsumeBool()
+            ? net::HostResolver::ResolveHostParameters::CacheUsage::ALLOWED
+            : net::HostResolver::ResolveHostParameters::CacheUsage::DISALLOWED;
     parameters.include_canonical_name = data_provider_->ConsumeBool();
 
     const char* hostname = data_provider_->PickValueInArray(kHostNames);
@@ -212,7 +198,6 @@ class DnsRequest {
 //     * Out of order completion, particularly for the platform resolver path.
 //     * Simulate network changes, including both enabling and disabling the
 //     async resolver while lookups are active as a result of the change.
-// TODO(crbug.com/846423): Add coverage of non-address queries.
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   {
     base::FuzzedDataProvider data_provider(data, size);
@@ -222,7 +207,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     options.max_concurrent_resolves =
         data_provider.ConsumeIntegralInRange(1, 8);
     options.enable_caching = data_provider.ConsumeBool();
-    net::FuzzedHostResolver host_resolver(options, &net_log, &data_provider);
+    net::FuzzedContextHostResolver host_resolver(options, &net_log,
+                                                 &data_provider);
     host_resolver.SetDnsClientEnabled(data_provider.ConsumeBool());
 
     std::vector<std::unique_ptr<DnsRequest>> dns_requests;

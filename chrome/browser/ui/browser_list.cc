@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "base/auto_reset.h"
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/browser_process.h"
@@ -316,9 +317,10 @@ int BrowserList::GetIncognitoSessionsActiveForProfile(Profile* profile) {
   BrowserList* list = BrowserList::GetInstance();
   return std::count_if(list->begin(), list->end(), [profile](Browser* browser) {
     return browser->profile()->IsSameProfile(profile) &&
-           browser->profile()->IsOffTheRecord();
+           browser->profile()->IsOffTheRecord() && !browser->is_devtools();
   });
 }
+
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserList, private:
 

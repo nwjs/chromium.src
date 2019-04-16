@@ -18,12 +18,40 @@
 }
 
 #edit-bg {
-  border-radius: 8px;
+  align-items: center;
+  border-radius: 500px;
   bottom: 16px;
-  height: 28px;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  min-width: 32px;
   position: fixed;
   right: 16px;
-  width: 28px;
+  width: fit-content;
+}
+
+#edit-bg.ep-enhanced {
+  background-color: rgb(255, 255, 255);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 1px 2px rgba(0, 0, 0, 0.23);
+  cursor: pointer;
+}
+
+#edit-bg:hover,
+#edit-bg:active {
+  background-color: rgba(255, 255, 255, .1);
+}
+
+#edit-bg:hover.ep-enhanced {
+  background-color: rgb(var( --GB050-rgb));
+}
+
+
+html[darkmode=true] #edit-bg.ep-enhanced {
+  background-color: rgb(41, 42, 45);
+}
+
+html[darkmode=true] #edit-bg:hover.ep-enhanced {
+  background-color: rgb(50, 51, 54);
 }
 
 html[dir=rtl] #edit-bg {
@@ -31,37 +59,46 @@ html[dir=rtl] #edit-bg {
   right: auto;
 }
 
-#edit-bg:hover {
-  background-color: rgba(var(--GG900-rgb), .1);
+.non-google-page #edit-bg {
+  display: none;
 }
 
-#edit-bg:active {
-  background-color: rgba(var(--GG900-rgb), .16);
-}
-
-.non-white-bg #edit-bg:hover {
-  background-color: rgba(255, 255, 255, .1);
-}
-
-.non-white-bg #edit-bg:active {
-  background-color: rgba(255, 255, 255, .16);
-}
-
-.using-mouse-nav .bg-option:focus {
-  outline: none;
-}
-
-#edit-bg-gear {
-  background: url(../../../../ui/webui/resources/images/icon_settings.svg) no-repeat center;
-  background-size: 16px 16px;
+#edit-bg-icon {
+  -webkit-mask-image: url(icons/icon_pencil.svg);
+  -webkit-mask-position-x: center;
+  -webkit-mask-position-y: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 16px;
+  background-color: rgb(255, 255, 255);
   cursor: pointer;
-  height: 100%;
-  width: 100%;
+  height: 16px;
+  margin-inline-start: 0;
+  width: 16px;
 }
 
-.non-white-bg #edit-bg-gear {
-  background: url(../../../../ui/webui/resources/images/icon_settings_white.svg) no-repeat center;
-  background-size: 16px 16px;
+.ep-enhanced #edit-bg-icon {
+  background-color: rgb(var(--GB600-rgb));
+  margin-inline-start: 12px;
+}
+
+html[darkmode=true] .ep-enhanced #edit-bg-icon {
+  background-color: rgb(var(--GB300-rgb));
+}
+
+#edit-bg-text {
+  display: none;
+}
+
+.ep-enhanced #edit-bg-text {
+  color: rgb(var(--GB600-rgb));
+  display: inline;
+  font-size: 14px;
+  padding-inline-end: 12px;
+  padding-inline-start: 8px;
+}
+
+html[darkmode=true] .ep-enhanced #edit-bg-text {
+  color: rgb(var(--GB300-rgb));
 }
 
 #edit-bg-dialog::backdrop {
@@ -100,7 +137,6 @@ html[dir=rtl] #edit-bg-dialog {
 
 #edit-bg-title {
   color: rgb(var(--GG900-rgb));
-  font-family: 'Roboto', arial, sans-serif;
   font-size: 15px;
   height: 30px;
   padding: 16px 0 0 16px;
@@ -114,9 +150,12 @@ html[darkmode=true] #edit-bg-title {
   color: rgb(var(--GG200-rgb));
 }
 
+.using-mouse-nav .bg-option:focus {
+  outline: none;
+}
+
 .bg-option {
   color: rgb(var(--GG800-rgb));
-  font-family: 'Roboto', arial, sans-serif;
   font-size: 13px;
   height: 40px;
   line-height: 40px;
@@ -163,10 +202,6 @@ html[darkmode=true] .bg-option.bg-option-disabled {
 
 .bg-option.bg-option-disabled:hover {
   background-color: transparent;
-}
-
-#edit-bg-google-photos .bg-option-img {
-  background: url(icons/photos.svg) no-repeat center;
 }
 
 #edit-bg-default-wallpapers .bg-option-img {
@@ -218,13 +253,9 @@ html[darkmode=true] #edit-bg-divider {
   bottom: 0;
   box-shadow: 0 1px 3px 0 rgba(var(--GG800-rgb), 0.3),
       0 4px 8px 3px rgba(var(--GG800-rgb), 0.15);
-  font-family: 'Roboto', arial, sans-serif;
   height: 400px;
-  left: 0;
-  margin: auto;
   padding: 0 0 0 0;
-  position: absolute;
-  right: 0;
+  position: fixed;
   top: 0;
   /* Suitable for 3 columns of tiles on all platforms, accounting for larger
    * scrollbar width on Windows.*/
@@ -604,7 +635,6 @@ html[dir=rtl] .plus-icon {
   border-radius: 8px;
   bottom: 16px;
   color: white;
-  font-family: 'Roboto', arial, sans-serif;
   font-weight: 500;
   left: 16px;
   padding: 8px 8px 8px 8px;

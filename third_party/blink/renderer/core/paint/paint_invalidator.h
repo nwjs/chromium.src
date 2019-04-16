@@ -9,11 +9,11 @@
 #include "third_party/blink/renderer/core/paint/paint_property_tree_builder.h"
 #include "third_party/blink/renderer/platform/geometry/layout_rect.h"
 #include "third_party/blink/renderer/platform/graphics/paint_invalidation_reason.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
-class NGPaintFragment;
 class PrePaintTreeWalk;
 
 struct CORE_EXPORT PaintInvalidatorContext {
@@ -137,6 +137,8 @@ struct CORE_EXPORT PaintInvalidatorContext {
 };
 
 class PaintInvalidator {
+  DISALLOW_NEW();
+
  public:
   // Returns true if the object is invalidated.
   bool InvalidatePaint(const LayoutObject&,
@@ -164,11 +166,6 @@ class PaintInvalidator {
 
   ALWAYS_INLINE LayoutRect ComputeVisualRect(const LayoutObject&,
                                              const PaintInvalidatorContext&);
-  ALWAYS_INLINE LayoutRect
-  MapFragmentLocalRectToVisualRect(const LayoutRect&,
-                                   const LayoutObject&,
-                                   const NGPaintFragment&,
-                                   const PaintInvalidatorContext&);
   ALWAYS_INLINE void UpdatePaintingLayer(const LayoutObject&,
                                          PaintInvalidatorContext&);
   ALWAYS_INLINE void UpdatePaintInvalidationContainer(const LayoutObject&,

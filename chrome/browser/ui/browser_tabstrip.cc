@@ -62,7 +62,7 @@ void AddWebContents(Browser* browser,
   int height = 0; int width = 0;
   int x = 0; int y = 0;
   if (!manifest.empty()) {
-    std::unique_ptr<base::Value> val = base::JSONReader().ReadToValue(manifest);
+    std::unique_ptr<base::Value> val = base::JSONReader().ReadToValueDeprecated(manifest);
     if (val && val->is_dict()) {
       std::unique_ptr<base::DictionaryValue> mnfst;
       mnfst.reset(static_cast<base::DictionaryValue*>(val.release()));

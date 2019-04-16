@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/single_thread_task_runner.h"
@@ -21,13 +22,14 @@
 #include "chrome/browser/chromeos/login/signin/oauth2_login_manager_factory.h"
 #include "chrome/browser/chromeos/login/signin_specifics.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
+#include "chrome/browser/chromeos/login/test/fake_gaia_mixin.h"
+#include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/login/test/oobe_base_test.h"
 #include "chrome/browser/chromeos/login/ui/login_display_host.h"
 #include "chrome/browser/chromeos/login/wizard_controller.h"
 #include "chrome/browser/extensions/chrome_extension_test_notification_observer.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/signin/profile_oauth2_token_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/javascript_dialogs/javascript_dialog_tab_helper.h"
@@ -41,7 +43,6 @@
 #include "components/account_id/account_id.h"
 #include "components/browser_sync/browser_sync_switches.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/account_tracker_service.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -51,7 +52,6 @@
 #include "extensions/browser/process_manager.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
-#include "google_apis/gaia/oauth2_token_service_delegate.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_store.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -59,6 +59,7 @@
 #include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_context_getter.h"
 #include "services/identity/public/cpp/identity_manager.h"
+#include "services/identity/public/cpp/identity_test_utils.h"
 
 using net::test_server::BasicHttpResponse;
 using net::test_server::HttpRequest;
@@ -229,7 +230,8 @@ class RequestDeferrer {
 
 class OAuth2Test : public OobeBaseTest {
  protected:
-  OAuth2Test() {}
+  OAuth2Test() = default;
+  ~OAuth2Test() override = default;
 
   // OobeBaseTest overrides.
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -258,15 +260,17 @@ class OAuth2Test : public OobeBaseTest {
     params.id_token = is_under_advanced_protection
                           ? kTestIdTokenAdvancedProtectionEnabled
                           : kTestIdTokenAdvancedProtectionDisabled;
-    fake_gaia_->SetMergeSessionParams(params);
-    SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId, kTestRefreshToken);
+    fake_gaia_.fake_gaia()->SetMergeSessionParams(params);
+    fake_gaia_.SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId,
+                                     kTestRefreshToken);
   }
 
   void SetupGaiaServerForUnexpiredAccount() {
     FakeGaia::MergeSessionParams params;
     params.email = kTestEmail;
-    fake_gaia_->SetMergeSessionParams(params);
-    SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId, kTestRefreshToken);
+    fake_gaia_.fake_gaia()->SetMergeSessionParams(params);
+    fake_gaia_.SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId,
+                                     kTestRefreshToken);
   }
 
   void SetupGaiaServerForExpiredAccount() {
@@ -274,8 +278,9 @@ class OAuth2Test : public OobeBaseTest {
     params.gaia_uber_token = kTestGaiaUberToken;
     params.session_sid_cookie = kTestSession2SIDCookie;
     params.session_lsid_cookie = kTestSession2LSIDCookie;
-    fake_gaia_->SetMergeSessionParams(params);
-    SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId, kTestRefreshToken);
+    fake_gaia_.fake_gaia()->SetMergeSessionParams(params);
+    fake_gaia_.SetupFakeGaiaForLogin(kTestEmail, kTestGaiaId,
+                                     kTestRefreshToken);
   }
 
   void LoginAsExistingUser() {
@@ -446,6 +451,8 @@ class OAuth2Test : public OobeBaseTest {
     request_deferers_[path] = request_deferer;
   }
 
+  FakeGaiaMixin fake_gaia_{&mixin_host_, embedded_test_server()};
+
  private:
   std::map<std::string, RequestDeferrer*> request_deferers_;
 
@@ -486,7 +493,9 @@ class CookieReader : public base::RefCountedThreadSafe<CookieReader> {
         base::BindOnce(&CookieReader::OnGetAllCookiesOnUIThread, this));
   }
 
-  void OnGetAllCookiesOnUIThread(const net::CookieList& cookies) {
+  void OnGetAllCookiesOnUIThread(
+      const net::CookieList& cookies,
+      const net::CookieStatusList& excluded_cookies) {
     cookie_list_ = cookies;
     base::PostTaskWithTraits(
         FROM_HERE, {content::BrowserThread::UI},
@@ -652,7 +661,7 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, TerminateOnBadMergeSessionAfterOnlineAuth) {
   params.auth_code = kTestAuthCode;
   params.refresh_token = kTestRefreshToken;
   params.access_token = kTestAuthLoginAccessToken;
-  fake_gaia_->SetMergeSessionParams(params);
+  fake_gaia_.fake_gaia()->SetMergeSessionParams(params);
 
   // Simulate an online sign-in.
   LoginDisplayHost::default_host()
@@ -737,8 +746,9 @@ IN_PROC_BROWSER_TEST_F(OAuth2Test, SetInvalidTokenStatus) {
   ASSERT_NE(OAuth2LoginManager::SESSION_RESTORE_DONE, login_manager->state());
 
   // Generate an auth error.
-  ProfileOAuth2TokenServiceFactory::GetForProfile(profile())->UpdateCredentials(
-      kTestEmail, OAuth2TokenServiceDelegate::kInvalidRefreshToken);
+  identity::SetInvalidRefreshTokenForAccount(
+      IdentityManagerFactory::GetInstance()->GetForProfile(profile()),
+      kTestEmail);
 
   // Let go /ListAccounts request.
   list_accounts_request_deferer.UnblockRequest();
@@ -1226,8 +1236,8 @@ IN_PROC_BROWSER_TEST_P(MergeSessionTimeoutTest, XHRMergeTimeout) {
       OAuth2LoginManager::SessionRestoreState::SESSION_RESTORE_FAILED);
 }
 
-INSTANTIATE_TEST_CASE_P(, MergeSessionTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, MergeSessionTest, testing::Bool());
 
-INSTANTIATE_TEST_CASE_P(, MergeSessionTimeoutTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(, MergeSessionTimeoutTest, testing::Bool());
 
 }  // namespace chromeos

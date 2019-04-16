@@ -62,6 +62,10 @@ class CiceroneClientImpl : public CiceroneClient {
     return is_lxd_container_created_signal_connected_;
   }
 
+  bool IsLxdContainerDeletedSignalConnected() override {
+    return is_lxd_container_deleted_signal_connected_;
+  }
+
   bool IsLxdContainerDownloadingSignalConnected() override {
     return is_lxd_container_downloading_signal_connected_;
   }
@@ -72,6 +76,14 @@ class CiceroneClientImpl : public CiceroneClient {
 
   bool IsLxdContainerStartingSignalConnected() override {
     return is_lxd_container_starting_signal_connected_;
+  }
+
+  bool IsExportLxdContainerProgressSignalConnected() override {
+    return is_export_lxd_container_progress_signal_connected_;
+  }
+
+  bool IsImportLxdContainerProgressSignalConnected() override {
+    return is_import_lxd_container_progress_signal_connected_;
   }
 
   void LaunchContainerApplication(
@@ -215,6 +227,28 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void DeleteLxdContainer(
+      const vm_tools::cicerone::DeleteLxdContainerRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::DeleteLxdContainerResponse>
+          callback) override {
+    dbus::MethodCall method_call(vm_tools::cicerone::kVmCiceroneInterface,
+                                 vm_tools::cicerone::kDeleteLxdContainerMethod);
+    dbus::MessageWriter writer(&method_call);
+
+    if (!writer.AppendProtoAsArrayOfBytes(request)) {
+      LOG(ERROR) << "Failed to encode DeleteLxdContainerRequest protobuf";
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(callback), base::nullopt));
+      return;
+    }
+
+    cicerone_proxy_->CallMethod(
+        &method_call, kDefaultTimeout.InMilliseconds(),
+        base::BindOnce(&CiceroneClientImpl::OnDBusProtoResponse<
+                           vm_tools::cicerone::DeleteLxdContainerResponse>,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
   void StartLxdContainer(
       const vm_tools::cicerone::StartLxdContainerRequest& request,
       DBusMethodCallback<vm_tools::cicerone::StartLxdContainerResponse>
@@ -304,6 +338,50 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void ExportLxdContainer(
+      const vm_tools::cicerone::ExportLxdContainerRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::ExportLxdContainerResponse>
+          callback) override {
+    dbus::MethodCall method_call(vm_tools::cicerone::kVmCiceroneInterface,
+                                 vm_tools::cicerone::kExportLxdContainerMethod);
+    dbus::MessageWriter writer(&method_call);
+
+    if (!writer.AppendProtoAsArrayOfBytes(request)) {
+      LOG(ERROR) << "Failed to encode ExportLxdContainerRequest protobuf";
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(callback), base::nullopt));
+      return;
+    }
+
+    cicerone_proxy_->CallMethod(
+        &method_call, kDefaultTimeout.InMilliseconds(),
+        base::BindOnce(&CiceroneClientImpl::OnDBusProtoResponse<
+                           vm_tools::cicerone::ExportLxdContainerResponse>,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
+  void ImportLxdContainer(
+      const vm_tools::cicerone::ImportLxdContainerRequest& request,
+      DBusMethodCallback<vm_tools::cicerone::ImportLxdContainerResponse>
+          callback) override {
+    dbus::MethodCall method_call(vm_tools::cicerone::kVmCiceroneInterface,
+                                 vm_tools::cicerone::kImportLxdContainerMethod);
+    dbus::MessageWriter writer(&method_call);
+
+    if (!writer.AppendProtoAsArrayOfBytes(request)) {
+      LOG(ERROR) << "Failed to encode ImportLxdContainerRequest protobuf";
+      base::ThreadTaskRunnerHandle::Get()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(callback), base::nullopt));
+      return;
+    }
+
+    cicerone_proxy_->CallMethod(
+        &method_call, kDefaultTimeout.InMilliseconds(),
+        base::BindOnce(&CiceroneClientImpl::OnDBusProtoResponse<
+                           vm_tools::cicerone::ImportLxdContainerResponse>,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
   void WaitForServiceToBeAvailable(
       dbus::ObjectProxy::WaitForServiceToBeAvailableCallback callback)
       override {
@@ -358,6 +436,13 @@ class CiceroneClientImpl : public CiceroneClient {
                        weak_ptr_factory_.GetWeakPtr()));
     cicerone_proxy_->ConnectToSignal(
         vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kLxdContainerDeletedSignal,
+        base::BindRepeating(&CiceroneClientImpl::OnLxdContainerDeletedSignal,
+                            weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    cicerone_proxy_->ConnectToSignal(
+        vm_tools::cicerone::kVmCiceroneInterface,
         vm_tools::cicerone::kLxdContainerDownloadingSignal,
         base::BindRepeating(
             &CiceroneClientImpl::OnLxdContainerDownloadingSignal,
@@ -376,6 +461,22 @@ class CiceroneClientImpl : public CiceroneClient {
         vm_tools::cicerone::kLxdContainerStartingSignal,
         base::BindRepeating(&CiceroneClientImpl::OnLxdContainerStartingSignal,
                             weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    cicerone_proxy_->ConnectToSignal(
+        vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kExportLxdContainerProgressSignal,
+        base::BindRepeating(
+            &CiceroneClientImpl::OnExportLxdContainerProgressSignal,
+            weak_ptr_factory_.GetWeakPtr()),
+        base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
+                       weak_ptr_factory_.GetWeakPtr()));
+    cicerone_proxy_->ConnectToSignal(
+        vm_tools::cicerone::kVmCiceroneInterface,
+        vm_tools::cicerone::kImportLxdContainerProgressSignal,
+        base::BindRepeating(
+            &CiceroneClientImpl::OnImportLxdContainerProgressSignal,
+            weak_ptr_factory_.GetWeakPtr()),
         base::BindOnce(&CiceroneClientImpl::OnSignalConnected,
                        weak_ptr_factory_.GetWeakPtr()));
   }
@@ -458,6 +559,18 @@ class CiceroneClientImpl : public CiceroneClient {
     }
   }
 
+  void OnLxdContainerDeletedSignal(dbus::Signal* signal) {
+    vm_tools::cicerone::LxdContainerDeletedSignal proto;
+    dbus::MessageReader reader(signal);
+    if (!reader.PopArrayOfBytesAsProto(&proto)) {
+      LOG(ERROR) << "Failed to parse proto from DBus Signal";
+      return;
+    }
+    for (auto& observer : observer_list_) {
+      observer.OnLxdContainerDeleted(proto);
+    }
+  }
+
   void OnLxdContainerDownloadingSignal(dbus::Signal* signal) {
     vm_tools::cicerone::LxdContainerDownloadingSignal proto;
     dbus::MessageReader reader(signal);
@@ -494,6 +607,30 @@ class CiceroneClientImpl : public CiceroneClient {
     }
   }
 
+  void OnExportLxdContainerProgressSignal(dbus::Signal* signal) {
+    vm_tools::cicerone::ExportLxdContainerProgressSignal proto;
+    dbus::MessageReader reader(signal);
+    if (!reader.PopArrayOfBytesAsProto(&proto)) {
+      LOG(ERROR) << "Failed to parse proto from DBus Signal";
+      return;
+    }
+    for (auto& observer : observer_list_) {
+      observer.OnExportLxdContainerProgress(proto);
+    }
+  }
+
+  void OnImportLxdContainerProgressSignal(dbus::Signal* signal) {
+    vm_tools::cicerone::ImportLxdContainerProgressSignal proto;
+    dbus::MessageReader reader(signal);
+    if (!reader.PopArrayOfBytesAsProto(&proto)) {
+      LOG(ERROR) << "Failed to parse proto from DBus Signal";
+      return;
+    }
+    for (auto& observer : observer_list_) {
+      observer.OnImportLxdContainerProgress(proto);
+    }
+  }
+
   void OnSignalConnected(const std::string& interface_name,
                          const std::string& signal_name,
                          bool is_connected) {
@@ -514,6 +651,8 @@ class CiceroneClientImpl : public CiceroneClient {
       is_uninstall_package_progress_signal_connected_ = is_connected;
     } else if (signal_name == vm_tools::cicerone::kLxdContainerCreatedSignal) {
       is_lxd_container_created_signal_connected_ = is_connected;
+    } else if (signal_name == vm_tools::cicerone::kLxdContainerDeletedSignal) {
+      is_lxd_container_deleted_signal_connected_ = is_connected;
     } else if (signal_name ==
                vm_tools::cicerone::kLxdContainerDownloadingSignal) {
       is_lxd_container_downloading_signal_connected_ = is_connected;
@@ -521,6 +660,12 @@ class CiceroneClientImpl : public CiceroneClient {
       is_tremplin_started_signal_connected_ = is_connected;
     } else if (signal_name == vm_tools::cicerone::kLxdContainerStartingSignal) {
       is_lxd_container_starting_signal_connected_ = is_connected;
+    } else if (signal_name ==
+               vm_tools::cicerone::kExportLxdContainerProgressSignal) {
+      is_export_lxd_container_progress_signal_connected_ = is_connected;
+    } else if (signal_name ==
+               vm_tools::cicerone::kImportLxdContainerProgressSignal) {
+      is_import_lxd_container_progress_signal_connected_ = is_connected;
     } else {
       NOTREACHED();
     }
@@ -535,9 +680,12 @@ class CiceroneClientImpl : public CiceroneClient {
   bool is_install_linux_package_progress_signal_connected_ = false;
   bool is_uninstall_package_progress_signal_connected_ = false;
   bool is_lxd_container_created_signal_connected_ = false;
+  bool is_lxd_container_deleted_signal_connected_ = false;
   bool is_lxd_container_downloading_signal_connected_ = false;
   bool is_tremplin_started_signal_connected_ = false;
   bool is_lxd_container_starting_signal_connected_ = false;
+  bool is_export_lxd_container_progress_signal_connected_ = false;
+  bool is_import_lxd_container_progress_signal_connected_ = false;
 
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.

@@ -23,13 +23,14 @@ class VRUiBrowserInterface;
 
 class VR_EXPORT VRBrowserRendererThreadWin {
  public:
-  VRBrowserRendererThreadWin();
+  explicit VRBrowserRendererThreadWin(
+      device::mojom::XRCompositorHost* compositor);
   ~VRBrowserRendererThreadWin();
 
-  void StartOverlay(device::mojom::XRCompositorHost* host);
-  void StopOverlay();
   void SetVRDisplayInfo(device::mojom::VRDisplayInfoPtr display_info);
   void SetLocationInfo(GURL gurl);
+
+  // The below function(s) affect(s) whether UI is drawn or not.
   void SetVisibleExternalPromptNotification(
       ExternalPromptNotificationType prompt);
 
@@ -37,16 +38,29 @@ class VR_EXPORT VRBrowserRendererThreadWin {
   BrowserRenderer* GetBrowserRendererForTesting();
 
  private:
-  void CleanUp();
+  class DrawState {
+   public:
+    // State changing methods.
+    bool SetPrompt(ExternalPromptNotificationType prompt) {
+      auto old = prompt_;
+      prompt_ = prompt;
+      return prompt_ != old;
+    }
+
+    // State querying methods.
+    bool ShouldDrawUI();
+    bool ShouldDrawWebXR();
+
+   private:
+    ExternalPromptNotificationType prompt_ =
+        ExternalPromptNotificationType::kPromptNone;
+  };
+
   void OnPose(device::mojom::XRFrameDataPtr data);
   void SubmitResult(bool success);
   void SubmitFrame(device::mojom::XRFrameDataPtr data);
-  // If there is fullscreen UI in-headset, we won't composite WebXR content or
-  // render WebXR Overlays. We can even avoid giving out poses to avoid spending
-  // resources drawing things that won't be shown.
-  // When we return false, we tell the Ui to DrawWebVR. When we return true, we
-  // tell the Ui to DrawUI.
-  bool ShouldPauseWebXrAndDrawUI();
+  void StartOverlay();
+  void StopOverlay();
 
   // We need to do some initialization of GraphicsDelegateWin before
   // browser_renderer_, so we first store it in a unique_ptr, then transition
@@ -60,8 +74,12 @@ class VR_EXPORT VRBrowserRendererThreadWin {
   GraphicsDelegateWin* graphics_ = nullptr;
   SchedulerDelegateWin* scheduler_ = nullptr;
   BrowserUiInterface* ui_ = nullptr;
-  ExternalPromptNotificationType current_external_prompt_notification_type_ =
-      ExternalPromptNotificationType::kPromptNone;
+
+  // Owned by vr_ui_host:
+  device::mojom::XRCompositorHost* compositor_;
+
+  GURL gurl_;
+  DrawState draw_state_;
 
   device::mojom::ImmersiveOverlayPtr overlay_;
   device::mojom::VRDisplayInfoPtr display_info_;

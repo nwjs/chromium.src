@@ -69,14 +69,25 @@ AX_EXPORT bool IsRowContainer(const ax::mojom::Role role);
 // can hold set_size values.
 AX_EXPORT bool IsSetLike(const ax::mojom::Role role);
 
+// Returns true if the provided role belongs to a non-interactive list.
+AX_EXPORT bool IsStaticList(const ax::mojom::Role role);
+
+// Returns true if the provided role belongs to a table or grid column, and the
+// table is not used for layout purposes.
+AX_EXPORT bool IsTableColumn(ax::mojom::Role role);
+
 // Returns true if the provided role belongs to a table header.
 AX_EXPORT bool IsTableHeader(ax::mojom::Role role);
 
 // Returns true if the provided role belongs to a table, a grid or a treegrid.
 AX_EXPORT bool IsTableLike(const ax::mojom::Role role);
 
-// Returns true if the provided role belongs to a table or grid row.
+// Returns true if the provided role belongs to a table or grid row, and the
+// table is not used for layout purposes.
 AX_EXPORT bool IsTableRow(ax::mojom::Role role);
+
+// Returns true if it's a text or line break node.
+AX_EXPORT bool IsTextOrLineBreak(ax::mojom::Role role);
 
 // Returns true if the provided role supports expand/collapse.
 AX_EXPORT bool SupportsExpandCollapse(const ax::mojom::Role role);
@@ -91,8 +102,8 @@ AX_EXPORT bool SupportsToggle(const ax::mojom::Role role);
 // Automation.
 AX_EXPORT bool IsUIASelectable(const ax::mojom::Role role);
 
-AX_EXPORT bool IsStaticList(const ax::mojom::Role role);
-
+// Returns true if the node should be read only by default
+AX_EXPORT bool ShouldHaveReadonlyStateByDefault(const ax::mojom::Role role);
 }  // namespace ui
 
 #endif  // UI_ACCESSIBILITY_AX_ROLE_PROPERTIES_H_

@@ -4,20 +4,82 @@
 
 #include "chrome/browser/page_load_metrics/observers/ukm_page_load_metrics_observer.h"
 
+#include <cmath>
 #include <memory>
+#include <vector>
 
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/engagement/site_engagement_service.h"
+#include "chrome/browser/page_load_metrics/observers/largest_contentful_paint_handler.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_util.h"
+#include "chrome/browser/prerender/prerender_final_status.h"
+#include "chrome/browser/prerender/prerender_manager.h"
+#include "chrome/browser/prerender/prerender_manager_factory.h"
+#include "chrome/browser/prerender/prerender_origin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/metrics/net/network_metrics_provider.h"
+#include "components/offline_pages/buildflags/buildflags.h"
+#include "content/public/browser/web_contents.h"
 #include "net/base/load_timing_info.h"
 #include "net/http/http_response_headers.h"
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "services/network/public/cpp/network_quality_tracker.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/metrics_proto/system_profile.pb.h"
+
+#if BUILDFLAG(ENABLE_OFFLINE_PAGES)
+#include "chrome/browser/offline_pages/offline_page_tab_helper.h"
+#endif
+
+namespace {
+
+const char kOfflinePreviewsMimeType[] = "multipart/related";
+
+enum class HttpProtocolScheme { kHttp11, kHttp2, kQuic };
+
+base::Optional<HttpProtocolScheme> ConvertConnectionInfoToHttpProtocolScheme(
+    base::Optional<net::HttpResponseInfo::ConnectionInfo> connection_info) {
+  if (!connection_info)
+    return base::nullopt;
+
+  switch (connection_info.value()) {
+    case net::HttpResponseInfo::CONNECTION_INFO_UNKNOWN:
+    case net::HttpResponseInfo::CONNECTION_INFO_DEPRECATED_SPDY2:
+    case net::HttpResponseInfo::CONNECTION_INFO_DEPRECATED_SPDY3:
+    case net::HttpResponseInfo::CONNECTION_INFO_DEPRECATED_HTTP2_14:
+    case net::HttpResponseInfo::CONNECTION_INFO_DEPRECATED_HTTP2_15:
+    case net::HttpResponseInfo::CONNECTION_INFO_HTTP0_9:
+    case net::HttpResponseInfo::CONNECTION_INFO_HTTP1_0:
+    case net::HttpResponseInfo::NUM_OF_CONNECTION_INFOS:
+      return base::nullopt;
+    case net::HttpResponseInfo::CONNECTION_INFO_HTTP1_1:
+      return HttpProtocolScheme::kHttp11;
+    case net::HttpResponseInfo::CONNECTION_INFO_HTTP2:
+      return HttpProtocolScheme::kHttp2;
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_UNKNOWN_VERSION:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_32:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_33:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_34:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_35:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_36:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_37:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_38:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_39:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_40:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_41:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_42:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_43:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_44:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_45:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_46:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_47:
+    case net::HttpResponseInfo::CONNECTION_INFO_QUIC_99:
+      return HttpProtocolScheme::kQuic;
+  }
+}
+
+}  // namespace
 
 // static
 std::unique_ptr<page_load_metrics::PageLoadMetricsObserver>
@@ -31,7 +93,8 @@ UkmPageLoadMetricsObserver::CreateIfNeeded() {
 
 UkmPageLoadMetricsObserver::UkmPageLoadMetricsObserver(
     network::NetworkQualityTracker* network_quality_tracker)
-    : network_quality_tracker_(network_quality_tracker) {
+    : network_quality_tracker_(network_quality_tracker),
+      largest_contentful_paint_handler_() {
   DCHECK(network_quality_tracker_);
 }
 
@@ -45,6 +108,8 @@ UkmPageLoadMetricsObserver::ObservePolicy UkmPageLoadMetricsObserver::OnStart(
     was_hidden_ = true;
     return CONTINUE_OBSERVING;
   }
+
+  browser_context_ = navigation_handle->GetWebContents()->GetBrowserContext();
 
   // When OnStart is invoked, we don't yet know whether we're observing a web
   // page load, vs another kind of load (e.g. a download or a PDF). Thus,
@@ -70,9 +135,26 @@ UkmPageLoadMetricsObserver::OnRedirect(
   return CONTINUE_OBSERVING;
 }
 
+UkmPageLoadMetricsObserver::ObservePolicy
+UkmPageLoadMetricsObserver::ShouldObserveMimeType(
+    const std::string& mime_type) const {
+  if (PageLoadMetricsObserver::ShouldObserveMimeType(mime_type) ==
+          CONTINUE_OBSERVING ||
+      mime_type == kOfflinePreviewsMimeType) {
+    return CONTINUE_OBSERVING;
+  }
+  return STOP_OBSERVING;
+}
+
 UkmPageLoadMetricsObserver::ObservePolicy UkmPageLoadMetricsObserver::OnCommit(
     content::NavigationHandle* navigation_handle,
     ukm::SourceId source_id) {
+  if (navigation_handle->GetWebContents()->GetContentsMimeType() ==
+      kOfflinePreviewsMimeType) {
+    if (!IsOfflinePreview(navigation_handle->GetWebContents()))
+      return STOP_OBSERVING;
+  }
+  connection_info_ = navigation_handle->GetConnectionInfo();
   const net::HttpResponseHeaders* response_headers =
       navigation_handle->GetResponseHeaders();
   if (response_headers)
@@ -80,7 +162,10 @@ UkmPageLoadMetricsObserver::ObservePolicy UkmPageLoadMetricsObserver::OnCommit(
   // The PageTransition for the navigation may be updated on commit.
   page_transition_ = navigation_handle->GetPageTransition();
   was_cached_ = navigation_handle->WasResponseCached();
+  is_signed_exchange_inner_response_ =
+      navigation_handle->IsSignedExchangeInnerResponse();
   navigation_start_ = navigation_handle->NavigationStart();
+  RecordNoStatePrefetchMetrics(navigation_handle, source_id);
   return CONTINUE_OBSERVING;
 }
 
@@ -161,16 +246,13 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
     const page_load_metrics::mojom::PageLoadTiming& timing,
     const page_load_metrics::PageLoadExtraInfo& info) {
   ukm::builders::PageLoad builder(info.source_id);
-  bool is_user_initiated_navigation =
-      // All browser initiated page loads are user-initiated.
-      info.user_initiated_info.browser_initiated ||
 
-      // Renderer-initiated navigations are user-initiated if there is an
-      // associated input timestamp.
-      timing.input_to_navigation_start;
+  base::Optional<int64_t> rounded_site_engagement_score =
+      GetRoundedSiteEngagementScore(info);
+  if (rounded_site_engagement_score) {
+    builder.SetSiteEngagementScore(rounded_site_engagement_score.value());
+  }
 
-  builder.SetExperimental_Navigation_UserInitiated(
-      is_user_initiated_navigation);
   if (timing.input_to_navigation_start) {
     builder.SetExperimental_InputToNavigationStart(
         timing.input_to_navigation_start.value().InMilliseconds());
@@ -226,14 +308,22 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   }
   base::Optional<base::TimeDelta> largest_content_paint_time;
   uint64_t largest_content_paint_size;
-  AssignTimeAndSizeForLargestContentfulPaint(largest_content_paint_time,
-                                             largest_content_paint_size,
-                                             timing.paint_timing);
-  if (largest_content_paint_size > 0 &&
+  PageLoadMetricsObserver::LargestContentType largest_content_type;
+  if (AssignTimeAndSizeForLargestContentfulPaint(
+          timing.paint_timing, &largest_content_paint_time,
+          &largest_content_paint_size, &largest_content_type) &&
       WasStartedInForegroundOptionalEventInForeground(
           largest_content_paint_time, info)) {
     builder.SetExperimental_PaintTiming_NavigationToLargestContentPaint(
         largest_content_paint_time.value().InMilliseconds());
+  }
+  const page_load_metrics::TimingInfo& paint =
+      largest_contentful_paint_handler_.MergeMainFrameAndSubframes();
+  if (!paint.IsEmpty() &&
+      WasStartedInForegroundOptionalEventInForeground(paint.Time(), info)) {
+    builder
+        .SetExperimental_PaintTiming_NavigationToLargestContentPaintAllFrames(
+            paint.Time().value().InMilliseconds());
   }
   if (timing.interactive_timing->interactive) {
     base::TimeDelta time_to_interactive =
@@ -248,26 +338,26 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
   if (timing.interactive_timing->first_input_delay) {
     base::TimeDelta first_input_delay =
         timing.interactive_timing->first_input_delay.value();
-    builder.SetInteractiveTiming_FirstInputDelay2(
+    builder.SetInteractiveTiming_FirstInputDelay3(
         first_input_delay.InMilliseconds());
   }
   if (timing.interactive_timing->first_input_timestamp) {
     base::TimeDelta first_input_timestamp =
         timing.interactive_timing->first_input_timestamp.value();
-    builder.SetInteractiveTiming_FirstInputTimestamp2(
+    builder.SetInteractiveTiming_FirstInputTimestamp3(
         first_input_timestamp.InMilliseconds());
   }
 
   if (timing.interactive_timing->longest_input_delay) {
     base::TimeDelta longest_input_delay =
         timing.interactive_timing->longest_input_delay.value();
-    builder.SetInteractiveTiming_LongestInputDelay2(
+    builder.SetInteractiveTiming_LongestInputDelay3(
         longest_input_delay.InMilliseconds());
   }
   if (timing.interactive_timing->longest_input_timestamp) {
     base::TimeDelta longest_input_timestamp =
         timing.interactive_timing->longest_input_timestamp.value();
-    builder.SetInteractiveTiming_LongestInputTimestamp2(
+    builder.SetInteractiveTiming_LongestInputTimestamp3(
         longest_input_timestamp.InMilliseconds());
   }
 
@@ -293,6 +383,17 @@ void UkmPageLoadMetricsObserver::RecordPageLoadExtraInfoMetrics(
     builder.SetPageTiming_ForegroundDuration(
         foreground_duration.value().InMilliseconds());
   }
+
+  bool is_user_initiated_navigation =
+      // All browser initiated page loads are user-initiated.
+      info.user_initiated_info.browser_initiated ||
+
+      // Renderer-initiated navigations are user-initiated if there is an
+      // associated input event.
+      info.user_initiated_info.user_input_event;
+
+  builder.SetExperimental_Navigation_UserInitiated(
+      is_user_initiated_navigation);
 
   // Convert to the EffectiveConnectionType as used in SystemProfileProto
   // before persisting the metric.
@@ -328,6 +429,9 @@ void UkmPageLoadMetricsObserver::RecordPageLoadExtraInfoMetrics(
       static_cast<int64_t>(info.page_end_reason));
   if (info.did_commit && was_cached_) {
     builder.SetWasCached(1);
+  }
+  if (info.did_commit && is_signed_exchange_inner_response_) {
+    builder.SetIsSignedExchangeInnerResponse(1);
   }
   builder.Record(ukm::UkmRecorder::Get());
 }
@@ -392,6 +496,13 @@ void UkmPageLoadMetricsObserver::ReportMainResourceTimingMetrics(
         navigation_start_to_request_start.InMilliseconds());
   }
 
+  base::Optional<HttpProtocolScheme> protocol_scheme =
+      ConvertConnectionInfoToHttpProtocolScheme(connection_info_);
+  if (protocol_scheme.has_value()) {
+    builder->SetMainFrameResource_HttpProtocolScheme(
+        static_cast<int>(protocol_scheme.value()));
+  }
+
   if (main_frame_request_redirect_count_ > 0) {
     builder->SetMainFrameResource_RedirectCount(
         main_frame_request_redirect_count_);
@@ -400,11 +511,6 @@ void UkmPageLoadMetricsObserver::ReportMainResourceTimingMetrics(
 
 void UkmPageLoadMetricsObserver::ReportLayoutStability(
     const page_load_metrics::PageLoadExtraInfo& info) {
-  // Avoid reporting when the feature is disabled. This ensures that a report
-  // with score == 0 only occurs for a page that was actually jank-free.
-  if (!base::FeatureList::IsEnabled(blink::features::kJankTracking))
-    return;
-
   // Report (jank_score * 100) as an int in the range [0, 1000].
   float jank_score = info.main_frame_render_data.layout_jank_score;
   int64_t ukm_value =
@@ -418,4 +524,87 @@ void UkmPageLoadMetricsObserver::ReportLayoutStability(
       static_cast<int>(roundf(std::min(jank_score, 10.0f) * 10.0f));
   UMA_HISTOGRAM_COUNTS_100("PageLoad.Experimental.LayoutStability.JankScore",
                            uma_value);
+}
+
+base::Optional<int64_t>
+UkmPageLoadMetricsObserver::GetRoundedSiteEngagementScore(
+    const page_load_metrics::PageLoadExtraInfo& info) const {
+  if (!browser_context_)
+    return base::nullopt;
+
+  Profile* profile = Profile::FromBrowserContext(browser_context_);
+  SiteEngagementService* engagement_service =
+      SiteEngagementService::Get(profile);
+
+  // UKM privacy requires the engagement score be rounded to nearest
+  // value of 10.
+  int64_t rounded_document_engagement_score =
+      static_cast<int>(
+          std::roundf(engagement_service->GetScore(info.url) / 10.0)) *
+      10;
+
+  DCHECK(rounded_document_engagement_score >= 0 &&
+         rounded_document_engagement_score <=
+             engagement_service->GetMaxPoints());
+
+  return rounded_document_engagement_score;
+}
+
+void UkmPageLoadMetricsObserver::OnTimingUpdate(
+    content::RenderFrameHost* subframe_rfh,
+    const page_load_metrics::mojom::PageLoadTiming& timing,
+    const page_load_metrics::PageLoadExtraInfo& extra_info) {
+  largest_contentful_paint_handler_.RecordTiming(timing.paint_timing,
+                                                 subframe_rfh);
+}
+
+void UkmPageLoadMetricsObserver::RecordNoStatePrefetchMetrics(
+    content::NavigationHandle* navigation_handle,
+    ukm::SourceId source_id) {
+  prerender::PrerenderManager* const prerender_manager =
+      prerender::PrerenderManagerFactory::GetForBrowserContext(
+          navigation_handle->GetWebContents()->GetBrowserContext());
+  if (!prerender_manager)
+    return;
+
+  const std::vector<GURL>& redirects = navigation_handle->GetRedirectChain();
+
+  base::TimeDelta prefetch_age;
+  prerender::FinalStatus final_status;
+  prerender::Origin prefetch_origin;
+
+  bool nostate_prefetch_entry_found = prerender_manager->GetPrefetchInformation(
+      navigation_handle->GetURL(), &prefetch_age, &final_status,
+      &prefetch_origin);
+
+  // Try the URLs from the redirect chain.
+  if (!nostate_prefetch_entry_found) {
+    for (const auto& url : redirects) {
+      nostate_prefetch_entry_found = prerender_manager->GetPrefetchInformation(
+          url, &prefetch_age, &final_status, &prefetch_origin);
+      if (nostate_prefetch_entry_found)
+        break;
+    }
+  }
+
+  if (!nostate_prefetch_entry_found)
+    return;
+
+  ukm::builders::NoStatePrefetch builder(source_id);
+  builder.SetPrefetchedRecently_PrefetchAge(
+      ukm::GetExponentialBucketMinForUserTiming(prefetch_age.InMilliseconds()));
+  builder.SetPrefetchedRecently_FinalStatus(final_status);
+  builder.SetPrefetchedRecently_Origin(prefetch_origin);
+  builder.Record(ukm::UkmRecorder::Get());
+}
+
+bool UkmPageLoadMetricsObserver::IsOfflinePreview(
+    content::WebContents* web_contents) const {
+#if BUILDFLAG(ENABLE_OFFLINE_PAGES)
+  offline_pages::OfflinePageTabHelper* tab_helper =
+      offline_pages::OfflinePageTabHelper::FromWebContents(web_contents);
+  return tab_helper && tab_helper->GetOfflinePreviewItem();
+#else
+  return false;
+#endif
 }

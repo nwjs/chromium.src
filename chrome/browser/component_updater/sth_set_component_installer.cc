@@ -88,7 +88,7 @@ void LoadSTHsFromDisk(
     std::string json_sth;
     {
       base::ScopedBlockingCall scoped_blocking_call(
-          base::BlockingType::MAY_BLOCK);
+          FROM_HERE, base::BlockingType::MAY_BLOCK);
       if (!base::ReadFileToString(sth_file_path, &json_sth)) {
         DVLOG(1) << "Failed reading from " << sth_file_path.value();
         continue;
@@ -100,8 +100,8 @@ void LoadSTHsFromDisk(
     int error_code = 0;
     std::string error_message;
     std::unique_ptr<base::Value> parsed_json =
-        base::JSONReader::ReadAndReturnError(json_sth, base::JSON_PARSE_RFC,
-                                             &error_code, &error_message);
+        base::JSONReader::ReadAndReturnErrorDeprecated(
+            json_sth, base::JSON_PARSE_RFC, &error_code, &error_message);
 
     if (!parsed_json || error_code != base::JSONReader::JSON_NO_ERROR) {
       DVLOG(1) << "STH loading failed: " << error_message << " for log: "

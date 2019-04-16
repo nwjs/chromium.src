@@ -5,15 +5,15 @@
 cr.define('downloads', function() {
   class BrowserProxy {
     constructor() {
-      /** @type {mdDownloads.mojom.PageCallbackRouter} */
-      this.callbackRouter = new mdDownloads.mojom.PageCallbackRouter();
+      /** @type {downloads.mojom.PageCallbackRouter} */
+      this.callbackRouter = new downloads.mojom.PageCallbackRouter();
 
-      /** @type {mdDownloads.mojom.PageHandlerProxy} */
-      this.handler = new mdDownloads.mojom.PageHandlerProxy();
+      /** @type {downloads.mojom.PageHandlerProxy} */
+      this.handler = new downloads.mojom.PageHandlerProxy();
 
-      const factory = mdDownloads.mojom.PageHandlerFactory.getProxy();
+      const factory = downloads.mojom.PageHandlerFactory.getProxy();
       factory.createPageHandler(
-          this.callbackRouter.createProxy(), this.handler.createRequest());
+          this.callbackRouter.createProxy(), this.handler.$.createRequest());
     }
   }
 

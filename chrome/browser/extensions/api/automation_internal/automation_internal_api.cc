@@ -9,6 +9,7 @@
 #include <memory>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/macros.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_number_conversions.h"
@@ -57,8 +58,7 @@ namespace extensions {
 namespace {
 
 const char kCannotRequestAutomationOnPage[] =
-    "Cannot request automation tree on url \"*\". "
-    "Extension manifest must request permission to access this host.";
+    "Failed request of automation on a page";
 const char kRendererDestroyed[] = "The tab was closed.";
 const char kNoDocument[] = "No document.";
 const char kNodeDestroyed[] =
@@ -265,8 +265,8 @@ AutomationInternalEnableTabFunction::Run() {
             NULL, /* browser out param*/
             NULL, /* tab_strip out param */
             &contents, NULL /* tab_index out param */)) {
-      return RespondNow(
-          Error(tabs_constants::kTabNotFoundError, base::IntToString(tab_id)));
+      return RespondNow(Error(tabs_constants::kTabNotFoundError,
+                              base::NumberToString(tab_id)));
     }
   } else {
     contents = ChromeExtensionFunctionDetails(this)
@@ -282,8 +282,7 @@ AutomationInternalEnableTabFunction::Run() {
     return RespondNow(Error("Could not enable accessibility for active tab"));
 
   if (!CanRequestAutomation(extension(), automation_info, contents)) {
-    return RespondNow(
-        Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
+    return RespondNow(Error(kCannotRequestAutomationOnPage));
   }
 
   AutomationWebContentsObserver::CreateForWebContents(contents);
@@ -479,6 +478,7 @@ AutomationInternalPerformActionFunction::ConvertToAXActionData(
       action->end_index = get_text_location_params.end_index;
       break;
     }
+    case api::automation::ACTION_TYPE_ANNOTATEPAGEIMAGES:
     case api::automation::ACTION_TYPE_NONE:
       break;
   }
@@ -506,8 +506,7 @@ AutomationInternalPerformActionFunction::Run() {
       content::WebContents* contents =
           content::WebContents::FromRenderFrameHost(rfh);
       if (!CanRequestAutomation(extension(), automation_info, contents)) {
-        return RespondNow(
-            Error(kCannotRequestAutomationOnPage, contents->GetURL().spec()));
+        return RespondNow(Error(kCannotRequestAutomationOnPage));
       }
 
       // Handle internal actions.

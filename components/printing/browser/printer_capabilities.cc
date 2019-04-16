@@ -15,7 +15,9 @@
 #include "base/threading/scoped_blocking_call.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "build/buildflag.h"
 #include "components/crash/core/common/crash_keys.h"
+#include "components/printing/browser/printing_buildflags.h"
 #include "components/printing/common/cloud_print_cdd_conversion.h"
 #include "printing/backend/print_backend.h"
 #include "printing/backend/print_backend_consts.h"
@@ -28,11 +30,27 @@
 #include "ui/base/l10n/l10n_util.h"
 #endif
 
+#if BUILDFLAG(PRINT_MEDIA_L10N_ENABLED)
+#include "components/printing/browser/print_media_l10n.h"
+#endif
+
 namespace printing {
 
 const char kPrinter[] = "printer";
 
 namespace {
+
+#if BUILDFLAG(PRINT_MEDIA_L10N_ENABLED)
+// Iterate on the Papers of a given printer |info| and set the
+// display_name members, localizing where possible.
+void PopulateAllPaperDisplayNames(PrinterSemanticCapsAndDefaults* info) {
+  info->default_paper.display_name =
+      LocalizePaperDisplayName(info->default_paper.vendor_id);
+  for (PrinterSemanticCapsAndDefaults::Paper& paper : info->papers) {
+    paper.display_name = LocalizePaperDisplayName(paper.vendor_id);
+  }
+}
+#endif  // BUILDFLAG(PRINT_MEDIA_L10N_ENABLED)
 
 // Returns a dictionary representing printer capabilities as CDD.  Returns
 // an empty dictionary if a dictionary could not be generated.
@@ -40,7 +58,8 @@ base::Value GetPrinterCapabilitiesOnBlockingPoolThread(
     const std::string& device_name,
     const PrinterSemanticCapsAndDefaults::Papers& additional_papers,
     scoped_refptr<PrintBackend> print_backend) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
   DCHECK(!device_name.empty());
   scoped_refptr<PrintBackend> backend =
       print_backend ? print_backend
@@ -61,6 +80,9 @@ base::Value GetPrinterCapabilitiesOnBlockingPoolThread(
     return base::Value(base::Value::Type::DICTIONARY);
   }
 
+#if BUILDFLAG(PRINT_MEDIA_L10N_ENABLED)
+  PopulateAllPaperDisplayNames(&info);
+#endif
   info.papers.insert(info.papers.end(), additional_papers.begin(),
                      additional_papers.end());
   return cloud_print::PrinterSemanticCapsAndDefaultsToCdd(info);
@@ -114,7 +136,8 @@ base::Value GetSettingsOnBlockingPool(
     const PrinterBasicInfo& basic_info,
     const PrinterSemanticCapsAndDefaults::Papers& additional_papers,
     scoped_refptr<PrintBackend> print_backend) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   const auto printer_name_description =
       GetPrinterNameAndDescription(basic_info);

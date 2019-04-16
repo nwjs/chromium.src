@@ -25,14 +25,6 @@ cr.define('header_test', function() {
       // whether to show the enterprise managed icon, and pages, copies, and
       // duplex to compute the number of sheets of paper.
       const settings = {
-        color: {
-          value: true, /* color */
-          unavailableValue: false,
-          valid: true,
-          available: true,
-          setByPolicy: false,
-          key: 'isColorEnabled',
-        },
         copies: {
           value: '1',
           unavailableValue: '1',
@@ -48,14 +40,6 @@ cr.define('header_test', function() {
           available: true,
           setByPolicy: false,
           key: 'isDuplexEnabled',
-        },
-        headerFooter: {
-          value: true,
-          unavailableValue: false,
-          valid: true,
-          available: true,
-          setByPolicy: false,
-          key: 'isHeaderFooterEnabled',
         },
         pages: {
           value: [1],
@@ -73,10 +57,10 @@ cr.define('header_test', function() {
       header.destination = new print_preview.Destination(
           'FooDevice', print_preview.DestinationType.GOOGLE,
           print_preview.DestinationOrigin.COOKIES, 'FooName',
-          true /* isRecent */,
           print_preview.DestinationConnectionStatus.ONLINE);
       header.errorMessage = '';
       header.state = print_preview_new.State.READY;
+      header.managed = false;
       document.body.appendChild(header);
     });
 
@@ -87,7 +71,7 @@ cr.define('header_test', function() {
               print_preview.Destination.GooglePromotedId.SAVE_AS_PDF,
               print_preview.DestinationType.LOCAL,
               print_preview.DestinationOrigin.LOCAL,
-              loadTimeData.getString('printToPDF'), false,
+              loadTimeData.getString('printToPDF'),
               print_preview.DestinationConnectionStatus.ONLINE));
     }
 
@@ -187,13 +171,9 @@ cr.define('header_test', function() {
 
     // Tests that enterprise badge shows up if any setting is managed.
     test(assert(TestNames.EnterprisePolicy), function() {
-      ['color', 'duplex', 'headerFooter'].forEach(settingName => {
-        assertTrue(header.$$('iron-icon').hidden);
-        header.set(`settings.${settingName}.available`, true);
-        header.set(`settings.${settingName}.setByPolicy`, true);
-        assertFalse(header.$$('iron-icon').hidden);
-        header.set(`settings.${settingName}.setByPolicy`, false);
-      });
+      assertTrue(header.$$('iron-icon').hidden);
+      header.managed = true;
+      assertFalse(header.$$('iron-icon').hidden);
     });
   });
 

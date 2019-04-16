@@ -18,7 +18,6 @@
 #include "net/third_party/quic/core/crypto/crypto_handshake_message.h"
 #include "net/third_party/quic/core/crypto/crypto_utils.h"
 #include "net/third_party/quic/core/crypto/curve25519_key_exchange.h"
-#include "net/third_party/quic/core/crypto/ephemeral_key_source.h"
 #include "net/third_party/quic/core/crypto/key_exchange.h"
 #include "net/third_party/quic/core/crypto/p256_key_exchange.h"
 #include "net/third_party/quic/core/crypto/proof_source.h"
@@ -512,13 +511,11 @@ void QuicCryptoServerConfig::ValidateClientHello(
   QuicReferenceCountedPointer<Config> primary_config;
   {
     QuicReaderMutexLock locked(&configs_lock_);
-
     if (!primary_config_.get()) {
       result->error_code = QUIC_CRYPTO_INTERNAL_ERROR;
       result->error_details = "No configurations loaded";
     } else {
-      if (!next_config_promotion_time_.IsZero() &&
-          next_config_promotion_time_.IsAfter(now)) {
+      if (IsNextConfigReady(now)) {
         configs_lock_.ReaderUnlock();
         configs_lock_.WriterLock();
         SelectNewPrimaryConfig(now);
@@ -683,6 +680,7 @@ class QuicCryptoServerConfig::ProcessClientHelloAfterGetProofCallback
           validate_chlo_result,
       QuicConnectionId connection_id,
       const QuicSocketAddress& client_address,
+      ParsedQuicVersion version,
       const ParsedQuicVersionVector& supported_versions,
       const QuicClock* clock,
       QuicRandom* rand,
@@ -699,6 +697,7 @@ class QuicCryptoServerConfig::ProcessClientHelloAfterGetProofCallback
         validate_chlo_result_(std::move(validate_chlo_result)),
         connection_id_(connection_id),
         client_address_(client_address),
+        version_(version),
         supported_versions_(supported_versions),
         clock_(clock),
         rand_(rand),
@@ -712,7 +711,7 @@ class QuicCryptoServerConfig::ProcessClientHelloAfterGetProofCallback
     config_->ProcessClientHelloAfterCalculateSharedKeys(
         !ok, std::move(proof_source_details_), key_exchange_factory_,
         std::move(out_), public_value_, *validate_chlo_result_, connection_id_,
-        client_address_, supported_versions_, clock_, rand_, params_,
+        client_address_, version_, supported_versions_, clock_, rand_, params_,
         signed_config_, requested_config_, primary_config_,
         std::move(done_cb_));
   }
@@ -727,6 +726,7 @@ class QuicCryptoServerConfig::ProcessClientHelloAfterGetProofCallback
       validate_chlo_result_;
   QuicConnectionId connection_id_;
   const QuicSocketAddress client_address_;
+  ParsedQuicVersion version_;
   const ParsedQuicVersionVector supported_versions_;
   const QuicClock* clock_;
   QuicRandom* rand_;
@@ -785,8 +785,7 @@ void QuicCryptoServerConfig::ProcessClientHello(
     if (!primary_config_) {
       no_primary_config = true;
     } else {
-      if (!next_config_promotion_time_.IsZero() &&
-          next_config_promotion_time_.IsAfter(now)) {
+      if (IsNextConfigReady(now)) {
         configs_lock_.ReaderUnlock();
         configs_lock_.WriterLock();
         SelectNewPrimaryConfig(now);
@@ -872,15 +871,11 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterGetProof(
     const QuicReferenceCountedPointer<Config>& requested_config,
     const QuicReferenceCountedPointer<Config>& primary_config,
     std::unique_ptr<ProcessClientHelloResultCallback> done_cb) const {
-  if (connection_id.length() != kQuicDefaultConnectionIdLength) {
-    QUIC_BUG << "ProcessClientHelloAfterGetProof called with connection ID "
-             << connection_id << " of unsupported length "
-             << connection_id.length();
-  }
-  if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_SERVER)) {
-    connection_id = QuicConnectionIdFromUInt64(
-        QuicEndian::HostToNet64(QuicConnectionIdToUInt64(connection_id)));
-  }
+  QUIC_BUG_IF(!QuicUtils::IsConnectionIdValidForVersion(
+      connection_id, version.transport_version))
+      << "ProcessClientHelloAfterGetProof: attempted to use connection ID "
+      << connection_id << " which is invalid with version "
+      << QuicVersionToString(version.transport_version);
   ProcessClientHelloHelper helper(&done_cb);
 
   if (found_error) {
@@ -973,8 +968,8 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterGetProof(
   auto cb = QuicMakeUnique<ProcessClientHelloAfterGetProofCallback>(
       this, std::move(proof_source_details), key_exchange->GetFactory(),
       std::move(out), public_value, validate_chlo_result, connection_id,
-      client_address, supported_versions, clock, rand, params, signed_config,
-      requested_config, primary_config, std::move(done_cb));
+      client_address, version, supported_versions, clock, rand, params,
+      signed_config, requested_config, primary_config, std::move(done_cb));
   key_exchange->CalculateSharedKey(
       public_value, &params->initial_premaster_secret, std::move(cb));
 }
@@ -988,6 +983,7 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
     const ValidateClientHelloResultCallback::Result& validate_chlo_result,
     QuicConnectionId connection_id,
     const QuicSocketAddress& client_address,
+    ParsedQuicVersion version,
     const ParsedQuicVersionVector& supported_versions,
     const QuicClock* clock,
     QuicRandom* rand,
@@ -996,12 +992,12 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
     const QuicReferenceCountedPointer<Config>& requested_config,
     const QuicReferenceCountedPointer<Config>& primary_config,
     std::unique_ptr<ProcessClientHelloResultCallback> done_cb) const {
-  if (connection_id.length() != kQuicDefaultConnectionIdLength) {
-    QUIC_BUG << "ProcessClientHelloAfterCalculateSharedKeys called with "
-                "connection ID "
-             << connection_id << " of unsupported length "
-             << connection_id.length();
-  }
+  QUIC_BUG_IF(!QuicUtils::IsConnectionIdValidForVersion(
+      connection_id, version.transport_version))
+      << "ProcessClientHelloAfterCalculateSharedKeys:"
+         " attempted to use connection ID "
+      << connection_id << " which is invalid with version "
+      << QuicVersionToString(version.transport_version);
   ProcessClientHelloHelper helper(&done_cb);
 
   if (found_error) {
@@ -1015,29 +1011,15 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
   auto out_diversification_nonce = QuicMakeUnique<DiversificationNonce>();
 
   if (!info.sni.empty()) {
-    std::unique_ptr<char[]> sni_tmp(new char[info.sni.length() + 1]);
-    memcpy(sni_tmp.get(), info.sni.data(), info.sni.length());
-    sni_tmp[info.sni.length()] = 0;
-    params->sni = QuicHostnameUtils::NormalizeHostname(sni_tmp.get());
+    params->sni = QuicHostnameUtils::NormalizeHostname(info.sni);
   }
 
   QuicString hkdf_suffix;
   const QuicData& client_hello_serialized = client_hello.GetSerialized();
-  if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_SERVER)) {
-    // connection_id is already passed in in network byte order.
-    const uint64_t connection_id64_net =
-        QuicConnectionIdToUInt64(connection_id);
-    hkdf_suffix.reserve(sizeof(connection_id64_net) +
-                        client_hello_serialized.length() +
-                        requested_config->serialized.size());
-    hkdf_suffix.append(reinterpret_cast<const char*>(&connection_id64_net),
-                       sizeof(connection_id64_net));
-  } else {
     hkdf_suffix.reserve(connection_id.length() +
                         client_hello_serialized.length() +
                         requested_config->serialized.size());
     hkdf_suffix.append(connection_id.data(), connection_id.length());
-  }
   hkdf_suffix.append(client_hello_serialized.data(),
                      client_hello_serialized.length());
   hkdf_suffix.append(requested_config->serialized);
@@ -1060,15 +1042,7 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
     QuicString hkdf_input;
     hkdf_input.append(QuicCryptoConfig::kCETVLabel,
                       strlen(QuicCryptoConfig::kCETVLabel) + 1);
-    if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_SERVER)) {
-      // connection_id is already passed in in network byte order.
-      const uint64_t connection_id64_net =
-          QuicConnectionIdToUInt64(connection_id);
-      hkdf_input.append(reinterpret_cast<const char*>(&connection_id64_net),
-                        sizeof(connection_id64_net));
-    } else {
-      hkdf_input.append(connection_id.data(), connection_id.length());
-    }
+    hkdf_input.append(connection_id.data(), connection_id.length());
     hkdf_input.append(client_hello_copy_serialized.data(),
                       client_hello_copy_serialized.length());
     hkdf_input.append(requested_config->serialized);
@@ -1087,9 +1061,8 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
     char plaintext[kMaxPacketSize];
     size_t plaintext_length = 0;
     const bool success = crypters.decrypter->DecryptPacket(
-        QUIC_VERSION_35, 0 /* packet number */,
-        QuicStringPiece() /* associated data */, cetv_ciphertext, plaintext,
-        &plaintext_length, kMaxPacketSize);
+        0 /* packet number */, QuicStringPiece() /* associated data */,
+        cetv_ciphertext, plaintext, &plaintext_length, kMaxPacketSize);
     if (!success) {
       helper.Fail(QUIC_INVALID_CRYPTO_MESSAGE_PARAMETER,
                   "CETV decryption failure");
@@ -1136,30 +1109,14 @@ void QuicCryptoServerConfig::ProcessClientHelloAfterCalculateSharedKeys(
   }
 
   QuicString forward_secure_public_value;
-  if (GetQuicRestartFlag(quic_no_ephemeral_key_source)) {
-    if (ephemeral_key_source_) {
-      QUIC_BUG << "quic_no_ephemeral_key_source flag is on, but "
-                  "ephemeral_key_source is present";
-    } else {
-      QUIC_RESTART_FLAG_COUNT(quic_no_ephemeral_key_source);
-    }
-  }
-  if (ephemeral_key_source_) {
-    params->forward_secure_premaster_secret =
-        ephemeral_key_source_->CalculateForwardSecureKey(
-            key_exchange_factory, rand, clock->ApproximateNow(), public_value,
-            &forward_secure_public_value);
-  } else {
-    std::unique_ptr<KeyExchange> forward_secure_key_exchange =
-        key_exchange_factory.Create(rand);
-    forward_secure_public_value =
-        QuicString(forward_secure_key_exchange->public_value());
-    if (!forward_secure_key_exchange->CalculateSharedKey(
-            public_value, &params->forward_secure_premaster_secret)) {
-      helper.Fail(QUIC_INVALID_CRYPTO_MESSAGE_PARAMETER,
-                  "Invalid public value");
-      return;
-    }
+  std::unique_ptr<KeyExchange> forward_secure_key_exchange =
+      key_exchange_factory.Create(rand);
+  forward_secure_public_value =
+      QuicString(forward_secure_key_exchange->public_value());
+  if (!forward_secure_key_exchange->CalculateSharedKey(
+          public_value, &params->forward_secure_premaster_secret)) {
+    helper.Fail(QUIC_INVALID_CRYPTO_MESSAGE_PARAMETER, "Invalid public value");
+    return;
   }
 
   QuicString forward_secure_hkdf_input;
@@ -1632,23 +1589,17 @@ void QuicCryptoServerConfig::BuildRejection(
                   << "with server-designated connection ID "
                   << server_designated_connection_id;
     out->set_tag(kSREJ);
-    if (!QuicConnectionIdSupportsVariableLength(Perspective::IS_SERVER)) {
-      out->SetValue(kRCID, QuicEndian::HostToNet64(QuicConnectionIdToUInt64(
-                               server_designated_connection_id)));
-    } else {
-      if (server_designated_connection_id.length() !=
-              kQuicDefaultConnectionIdLength &&
-          version < QUIC_VERSION_99) {
-        QUIC_BUG << "Tried to send connection ID "
-                 << server_designated_connection_id << " of bad length "
-                 << server_designated_connection_id.length() << " with version "
+      if (!QuicUtils::IsConnectionIdValidForVersion(
+              server_designated_connection_id, version)) {
+        QUIC_BUG << "Tried to send server designated connection ID "
+                 << server_designated_connection_id
+                 << " which is invalid with version "
                  << QuicVersionToString(version);
         return;
       }
       out->SetStringPiece(
           kRCID, QuicStringPiece(server_designated_connection_id.data(),
                                  server_designated_connection_id.length()));
-    }
   } else {
     out->set_tag(kREJ);
   }
@@ -1888,11 +1839,6 @@ QuicCryptoServerConfig::ParseConfigProtobuf(
   return config;
 }
 
-void QuicCryptoServerConfig::SetEphemeralKeySource(
-    std::unique_ptr<EphemeralKeySource> ephemeral_key_source) {
-  ephemeral_key_source_ = std::move(ephemeral_key_source);
-}
-
 void QuicCryptoServerConfig::set_replay_protection(bool on) {
   replay_protection_ = on;
 }
@@ -2099,6 +2045,16 @@ bool QuicCryptoServerConfig::ClientDemandsX509Proof(
     }
   }
   return false;
+}
+
+bool QuicCryptoServerConfig::IsNextConfigReady(QuicWallTime now) const {
+  if (GetQuicReloadableFlag(quic_fix_config_rotation)) {
+    QUIC_RELOADABLE_FLAG_COUNT(quic_fix_config_rotation);
+    return !next_config_promotion_time_.IsZero() &&
+           !next_config_promotion_time_.IsAfter(now);
+  }
+  return !next_config_promotion_time_.IsZero() &&
+         next_config_promotion_time_.IsAfter(now);
 }
 
 QuicCryptoServerConfig::Config::Config()

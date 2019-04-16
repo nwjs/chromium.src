@@ -7,8 +7,8 @@
 
 #include "third_party/blink/public/platform/web_input_event.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
-#include "third_party/blink/renderer/platform/scroll/scroll_types.h"
 
 namespace blink {
 
@@ -18,6 +18,8 @@ class PaintLayer;
 class LayoutRect;
 class TextPaintTimingDetector;
 class ImagePaintTimingDetector;
+class PropertyTreeState;
+class Image;
 
 // PaintTimingDetector contains some of paint metric detectors,
 // providing common infrastructure for these detectors.
@@ -30,16 +32,34 @@ class CORE_EXPORT PaintTimingDetector
     : public GarbageCollected<PaintTimingDetector> {
  public:
   PaintTimingDetector(LocalFrameView*);
-  void NotifyObjectPrePaint(const LayoutObject& object,
-                            const PaintLayer& painting_layer);
+
+  // TODO(crbug/936124): the detector no longer need to look for background
+  // images in each layer.
+  // Notify the paint of background image.
+  static void NotifyBackgroundImagePaint(
+      const Node* node,
+      Image* image,
+      const PropertyTreeState& current_paint_chunk_properties);
+  static void NotifyImagePaint(
+      const Node* node,
+      const PropertyTreeState& current_paint_chunk_properties);
+  static void NotifyImagePaint(
+      const LayoutObject& object,
+      const PropertyTreeState& current_paint_chunk_properties);
+
+  static void NotifyTextPaint(const Node* node, const PropertyTreeState&);
+  static void NotifyTextPaint(const LayoutObject& object,
+                              const PropertyTreeState&);
   void NotifyNodeRemoved(const LayoutObject& object);
-  void NotifyPrePaintFinished();
+  void NotifyPaintFinished();
   void NotifyInputEvent(WebInputEvent::Type);
   bool NeedToNotifyInputOrScroll();
   void NotifyScroll(ScrollType scroll_type);
   void DidChangePerformanceTiming();
   uint64_t CalculateVisualSize(const LayoutRect& invalidated_rect,
                                const PaintLayer& painting_layer) const;
+  uint64_t CalculateVisualSize(const LayoutRect& invalidated_rect,
+                               const PropertyTreeState&) const;
   void Dispose();
 
   TextPaintTimingDetector& GetTextPaintTimingDetector() {

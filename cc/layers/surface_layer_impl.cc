@@ -43,7 +43,8 @@ void SurfaceLayerImpl::SetRange(const viz::SurfaceRange& surface_range,
     return;
   }
 
-  if (surface_range_.end() != surface_range.end()) {
+  if (surface_range_.end() != surface_range.end() &&
+      surface_range.end().local_surface_id().is_valid()) {
     TRACE_EVENT_WITH_FLOW2(
         TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
         "LocalSurfaceId.Embed.Flow",
@@ -54,7 +55,8 @@ void SurfaceLayerImpl::SetRange(const viz::SurfaceRange& surface_range,
   }
 
   if (surface_range.start() &&
-      surface_range_.start() != surface_range.start()) {
+      surface_range_.start() != surface_range.start() &&
+      surface_range.start()->local_surface_id().is_valid()) {
     TRACE_EVENT_WITH_FLOW2(
         TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"),
         "LocalSurfaceId.Submission.Flow",
@@ -148,6 +150,11 @@ void SurfaceLayerImpl::AppendQuads(viz::RenderPass* render_pass,
 
 bool SurfaceLayerImpl::is_surface_layer() const {
   return true;
+}
+
+gfx::Rect SurfaceLayerImpl::GetEnclosingRectInTargetSpace() const {
+  return GetScaledEnclosingRectInTargetSpace(
+      layer_tree_impl()->device_scale_factor());
 }
 
 viz::SurfaceDrawQuad* SurfaceLayerImpl::CreateSurfaceDrawQuad(

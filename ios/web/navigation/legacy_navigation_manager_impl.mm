@@ -14,6 +14,7 @@
 #import "ios/web/navigation/navigation_item_impl.h"
 #import "ios/web/navigation/navigation_item_impl_list.h"
 #import "ios/web/navigation/navigation_manager_delegate.h"
+#include "ios/web/public/features.h"
 #import "ios/web/public/navigation_item.h"
 #include "ios/web/public/reload_type.h"
 #import "ios/web/public/web_client.h"
@@ -109,6 +110,18 @@ void LegacyNavigationManagerImpl::CommitPendingItem() {
   [session_controller_ commitPendingItem];
 }
 
+void LegacyNavigationManagerImpl::CommitPendingItem(
+    std::unique_ptr<NavigationItemImpl> item) {
+  // TODO(crbug.com/665189): NavigationManager::GetPendingItemIndex returns
+  // incorrect value, so CRWSessionController.pendingItemIndex is used instead.
+  if (web::features::StorePendingItemInContext() &&
+      session_controller_.pendingItemIndex == -1) {
+    [session_controller_ commitPendingItem:std::move(item)];
+  } else {
+    CommitPendingItem();
+  }
+}
+
 BrowserState* LegacyNavigationManagerImpl::GetBrowserState() const {
   return browser_state_;
 }
@@ -145,15 +158,7 @@ int LegacyNavigationManagerImpl::GetIndexOfItem(
 }
 
 int LegacyNavigationManagerImpl::GetPendingItemIndex() const {
-  if (GetPendingItem()) {
-    if ([session_controller_ pendingItemIndex] != -1) {
-      return [session_controller_ pendingItemIndex];
-    }
-    // TODO(crbug.com/665189): understand why last committed item index is
-    // returned here.
-    return GetLastCommittedItemIndex();
-  }
-  return -1;
+  return [session_controller_ pendingItemIndex];
 }
 
 int LegacyNavigationManagerImpl::
@@ -207,6 +212,9 @@ void LegacyNavigationManagerImpl::Restore(
     int last_committed_item_index,
     std::vector<std::unique_ptr<NavigationItem>> items) {
   WillRestore(items.size());
+  for (size_t index = 0; index < items.size(); ++index) {
+    RewriteItemURLIfNecessary(items[index].get());
+  }
 
   DCHECK(GetItemCount() == 0 && !GetPendingItem());
   DCHECK_LT(last_committed_item_index, static_cast<int>(items.size()));
@@ -318,7 +326,7 @@ void LegacyNavigationManagerImpl::FinishGoToIndex(int index,
   } else {
     [session_controller_ discardNonCommittedItems];
     [session_controller_ setPendingItemIndex:index];
-    delegate_->LoadCurrentItem();
+    delegate_->LoadCurrentItem(type);
   }
 }
 
@@ -345,7 +353,7 @@ bool LegacyNavigationManagerImpl::IsRestoreSessionInProgress() const {
 }
 
 void LegacyNavigationManagerImpl::SetPendingItemIndex(int index) {
-  NOTREACHED();
+  session_controller_.pendingItemIndex = index;
 }
 
 }  // namespace web

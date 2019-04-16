@@ -23,6 +23,9 @@ namespace content {
 // A value to be used to indicate that there is no char index available.
 const int kInvalidCharIndex = -1;
 
+// A value to be used to indicate that there is no length available.
+const int kInvalidLength = -1;
+
 //
 // VoiceData
 //
@@ -105,9 +108,18 @@ void TtsControllerImpl::SpeakOrEnqueue(TtsUtterance* utterance) {
 }
 
 void TtsControllerImpl::Stop() {
+  Stop(GURL());
+}
+
+void TtsControllerImpl::Stop(const GURL& source_url) {
   base::RecordAction(base::UserMetricsAction("TextToSpeech.Stop"));
 
   paused_ = false;
+
+  if (!source_url.is_empty() && current_utterance_ &&
+      current_utterance_->GetSrcUrl().GetOrigin() != source_url.GetOrigin())
+    return;
+
   if (current_utterance_ && !current_utterance_->GetEngineId().empty()) {
     if (GetTtsControllerDelegate()->GetTtsEngineDelegate())
       GetTtsControllerDelegate()->GetTtsEngineDelegate()->Stop(
@@ -119,7 +131,7 @@ void TtsControllerImpl::Stop() {
 
   if (current_utterance_)
     current_utterance_->OnTtsEvent(TTS_EVENT_INTERRUPTED, kInvalidCharIndex,
-                                   std::string());
+                                   kInvalidLength, std::string());
   FinishCurrentUtterance();
   ClearUtteranceQueue(true);  // Send events.
 }
@@ -157,6 +169,7 @@ void TtsControllerImpl::Resume() {
 void TtsControllerImpl::OnTtsEvent(int utterance_id,
                                    TtsEventType event_type,
                                    int char_index,
+                                   int length,
                                    const std::string& error_message) {
   // We may sometimes receive completion callbacks "late", after we've
   // already finished the utterance (for example because another utterance
@@ -205,7 +218,7 @@ void TtsControllerImpl::OnTtsEvent(int utterance_id,
   UMA_HISTOGRAM_ENUMERATION("TextToSpeech.Event", metric,
                             UMATextToSpeechEvent::COUNT);
 
-  current_utterance_->OnTtsEvent(event_type, char_index, error_message);
+  current_utterance_->OnTtsEvent(event_type, char_index, length, error_message);
   if (current_utterance_->IsFinished()) {
     FinishCurrentUtterance();
     SpeakNextUtterance();
@@ -390,7 +403,7 @@ void TtsControllerImpl::SpeakNow(TtsUtterance* utterance) {
     }
 
     if (!success) {
-      utterance->OnTtsEvent(TTS_EVENT_ERROR, kInvalidCharIndex,
+      utterance->OnTtsEvent(TTS_EVENT_ERROR, kInvalidCharIndex, kInvalidLength,
                             GetTtsPlatform()->GetError());
       delete utterance;
       return;
@@ -404,7 +417,7 @@ void TtsControllerImpl::ClearUtteranceQueue(bool send_events) {
     utterance_queue_.pop();
     if (send_events)
       utterance->OnTtsEvent(TTS_EVENT_CANCELLED, kInvalidCharIndex,
-                            std::string());
+                            kInvalidLength, std::string());
     else
       utterance->Finish();
     delete utterance;
@@ -415,7 +428,7 @@ void TtsControllerImpl::FinishCurrentUtterance() {
   if (current_utterance_) {
     if (!current_utterance_->IsFinished())
       current_utterance_->OnTtsEvent(TTS_EVENT_INTERRUPTED, kInvalidCharIndex,
-                                     std::string());
+                                     kInvalidLength, std::string());
     delete current_utterance_;
     current_utterance_ = nullptr;
   }

@@ -24,6 +24,7 @@
 #include "components/optimization_guide/hints_component_info.h"
 #include "components/optimization_guide/optimization_guide_service.h"
 #include "components/optimization_guide/proto/hints.pb.h"
+#include "components/previews/content/previews_top_host_provider.h"
 #include "components/previews/content/previews_user_data.h"
 #include "components/previews/core/bloom_filter.h"
 #include "components/previews/core/previews_experiments.h"
@@ -66,6 +67,17 @@ class TestOptimizationGuideService
   bool remove_observer_called_;
 };
 
+// A test class implementation for unit testing previews_optimization_guide.
+class TestPreviewsTopHostProvider : public PreviewsTopHostProvider {
+ public:
+  TestPreviewsTopHostProvider() {}
+  ~TestPreviewsTopHostProvider() override {}
+
+  std::vector<std::string> GetTopHosts(size_t max_sites) const override {
+    return std::vector<std::string>();
+  }
+};
+
 class PreviewsOptimizationGuideTest : public testing::Test {
  public:
   PreviewsOptimizationGuideTest() {}
@@ -105,7 +117,9 @@ class PreviewsOptimizationGuideTest : public testing::Test {
             scoped_task_environment_.GetMainThreadTaskRunner());
     guide_ = std::make_unique<PreviewsOptimizationGuide>(
         optimization_guide_service_.get(),
-        scoped_task_environment_.GetMainThreadTaskRunner(), temp_dir());
+        scoped_task_environment_.GetMainThreadTaskRunner(), temp_dir(),
+        previews_top_host_provider_.get());
+
     // Add observer is called after the HintCache is fully initialized,
     // indicating that the PreviewsOptimizationGuide is ready to process hints.
     while (!optimization_guide_service_->AddObserverCalled()) {
@@ -177,6 +191,7 @@ class PreviewsOptimizationGuideTest : public testing::Test {
 
   std::unique_ptr<PreviewsOptimizationGuide> guide_;
   std::unique_ptr<TestOptimizationGuideService> optimization_guide_service_;
+  std::unique_ptr<TestPreviewsTopHostProvider> previews_top_host_provider_;
 
   // Flag set when the OnLoadOptimizationHints callback runs. This indicates
   // that MaybeLoadOptimizationHints() has completed its processing.
@@ -360,9 +375,12 @@ TEST_F(PreviewsOptimizationGuideTest, IsWhitelistedWithoutHints) {
 
 TEST_F(PreviewsOptimizationGuideTest,
        ProcessHintsForNoScriptPageHintsPopulatedCorrectly) {
-  optimization_guide::proto::Configuration config;
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
 
   // Configure somedomain.org with 2 page patterns, different ECT thresholds.
+  optimization_guide::proto::Configuration config;
   optimization_guide::proto::Hint* hint1 = config.add_hints();
   hint1->set_key("somedomain.org");
   hint1->set_key_representation(optimization_guide::proto::HOST_SUFFIX);
@@ -421,6 +439,10 @@ TEST_F(PreviewsOptimizationGuideTest,
 
 TEST_F(PreviewsOptimizationGuideTest,
        ProcessHintsWithValidCommandLineOverride) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
+
   optimization_guide::proto::Configuration config;
   optimization_guide::proto::Hint* hint = config.add_hints();
   hint->set_key("somedomain.org");
@@ -452,6 +474,10 @@ TEST_F(PreviewsOptimizationGuideTest,
 
 TEST_F(PreviewsOptimizationGuideTest,
        ProcessHintsWithValidCommandLineOverrideAndPreexistingData) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
+
   InitializeFixedCountResourceLoadingHints();
 
   EXPECT_TRUE(guide()->MaybeLoadOptimizationHints(
@@ -612,7 +638,8 @@ TEST_F(
     PreviewsOptimizationGuideTest,
     ProcessHintsWhitelistForNoScriptAndResourceLoadingHintsPopulatedCorrectly) {
   base::test::ScopedFeatureList scoped_list;
-  scoped_list.InitAndEnableFeature(features::kResourceLoadingHints);
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
 
   // Add first hint.
   optimization_guide::proto::Configuration config;
@@ -744,12 +771,12 @@ void PreviewsOptimizationGuideTest::DoExperimentFlagTest(
     base::Optional<std::string> experiment_name,
     bool expect_enabled) {
   base::test::ScopedFeatureList scoped_list;
-  scoped_list.InitAndEnableFeature(features::kResourceLoadingHints);
-
-  optimization_guide::proto::Configuration config;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
 
   // Create a hint with two optimizations. One may be marked experimental
   // depending on test configuration. The other is never marked experimental.
+  optimization_guide::proto::Configuration config;
   optimization_guide::proto::Hint* hint1 = config.add_hints();
   hint1->set_key("facebook.com");
   hint1->set_key_representation(optimization_guide::proto::HOST_SUFFIX);
@@ -764,8 +791,6 @@ void PreviewsOptimizationGuideTest::DoExperimentFlagTest(
   optimization1->set_optimization_type(optimization_guide::proto::NOSCRIPT);
 
   // RESOURCE_LOADING is not marked experimental.
-  optimization_guide::proto::PageHint* page_hint2 = hint1->add_page_hints();
-  page_hint2->set_page_pattern("*");
   optimization_guide::proto::Optimization* optimization2 =
       page_hint1->add_whitelisted_optimizations();
   optimization2->set_optimization_type(
@@ -798,9 +823,10 @@ void PreviewsOptimizationGuideTest::DoExperimentFlagTest(
 
   // RESOURCE_LOADING_HINTS for facebook should always be enabled.
   ect_threshold = net::EFFECTIVE_CONNECTION_TYPE_UNKNOWN;
-  EXPECT_TRUE(MaybeLoadOptimizationHintsAndCheckIsWhitelisted(
-      &user_data, GURL("https://m.facebook.com"),
-      PreviewsType::RESOURCE_LOADING_HINTS, &ect_threshold));
+  EXPECT_EQ(!expect_enabled,
+            MaybeLoadOptimizationHintsAndCheckIsWhitelisted(
+                &user_data, GURL("https://m.facebook.com"),
+                PreviewsType::RESOURCE_LOADING_HINTS, &ect_threshold));
   EXPECT_EQ(net::EFFECTIVE_CONNECTION_TYPE_2G, ect_threshold);
   // Twitter's NOSCRIPT should always be enabled; RESOURCE_LOADING_HINTS is not
   // configured and should be disabled.
@@ -914,6 +940,9 @@ TEST_F(PreviewsOptimizationGuideTest,
 }
 
 TEST_F(PreviewsOptimizationGuideTest, ProcessHintsWithExistingSentinel) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
   base::HistogramTester histogram_tester;
 
   // Create valid config.
@@ -957,6 +986,9 @@ TEST_F(PreviewsOptimizationGuideTest, ProcessHintsWithExistingSentinel) {
 }
 
 TEST_F(PreviewsOptimizationGuideTest, ProcessHintsWithInvalidSentinelFile) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
   base::HistogramTester histogram_tester;
 
   // Create valid config.
@@ -1000,6 +1032,9 @@ TEST_F(PreviewsOptimizationGuideTest, ProcessHintsWithInvalidSentinelFile) {
 }
 
 TEST_F(PreviewsOptimizationGuideTest, SkipHintProcessingForSameConfigVersion) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
   base::HistogramTester histogram_tester;
 
   optimization_guide::proto::Configuration config1;
@@ -1054,6 +1089,9 @@ TEST_F(PreviewsOptimizationGuideTest, SkipHintProcessingForSameConfigVersion) {
 
 TEST_F(PreviewsOptimizationGuideTest,
        SkipHintProcessingForEarlierConfigVersion) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
   base::HistogramTester histogram_tester;
 
   optimization_guide::proto::Configuration config1;
@@ -1108,6 +1146,9 @@ TEST_F(PreviewsOptimizationGuideTest,
 
 TEST_F(PreviewsOptimizationGuideTest, ProcessMultipleNewConfigs) {
   base::HistogramTester histogram_tester;
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {features::kNoScriptPreviews, features::kResourceLoadingHints}, {});
 
   optimization_guide::proto::Configuration config1;
   optimization_guide::proto::Hint* hint1 = config1.add_hints();

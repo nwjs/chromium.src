@@ -8,6 +8,7 @@
 
 #include <map>
 
+#include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
@@ -38,7 +39,7 @@ void CatastrophicErrorHandler(bool* catastrophic_error_handler_was_called) {
 // Create a dirty EntryKernel with an ID derived from |id| + |id_suffix|.
 std::unique_ptr<EntryKernel> CreateEntry(int id, const std::string& id_suffix) {
   std::unique_ptr<EntryKernel> entry(new EntryKernel());
-  std::string id_string = base::Int64ToString(id) + id_suffix;
+  std::string id_string = base::NumberToString(id) + id_suffix;
   entry->put(ID, Id::CreateFromClientString(id_string));
   entry->put(META_HANDLE, id);
   entry->mark_dirty(nullptr);
@@ -65,8 +66,9 @@ class MigrationTest : public testing::TestWithParam<int> {
     JournalIndex delete_journals;
     MetahandleSet metahandles_to_purge;
     Directory::KernelLoadInfo kernel_load_info;
-    return dbs->Load(&tmp_handles_map, &delete_journals, &metahandles_to_purge,
-                     &kernel_load_info) == OPENED;
+    DirOpenResult result = dbs->Load(&tmp_handles_map, &delete_journals,
+                                     &metahandles_to_purge, &kernel_load_info);
+    return result == OPENED_NEW || result == OPENED_EXISTING;
   }
 
   void SetUpCorruptedRootDatabase(sql::Database* connection);
@@ -3958,8 +3960,8 @@ TEST_P(MigrationTest, ToCurrentVersion) {
 
   {
     OnDiskDirectoryBackingStore dbs(GetUsername(), GetDatabasePath());
-    ASSERT_EQ(OPENED, dbs.Load(&handles_map, &delete_journals,
-                               &metahandles_to_purge, &dir_info));
+    ASSERT_EQ(OPENED_EXISTING, dbs.Load(&handles_map, &delete_journals,
+                                        &metahandles_to_purge, &dir_info));
     if (!metahandles_to_purge.empty())
       dbs.DeleteEntries(DirectoryBackingStore::METAS_TABLE,
                         metahandles_to_purge);
@@ -4224,8 +4226,9 @@ TEST_P(MigrationTest, ToCurrentVersion) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(DirectoryBackingStore, MigrationTest,
-                        testing::Range(67, kCurrentDBVersion + 1));
+INSTANTIATE_TEST_SUITE_P(DirectoryBackingStore,
+                         MigrationTest,
+                         testing::Range(67, kCurrentDBVersion + 1));
 
 TEST_F(DirectoryBackingStoreTest, ModelTypeIds) {
   ModelTypeSet protocol_types = ProtocolTypes();
@@ -4398,7 +4401,7 @@ TEST_F(DirectoryBackingStoreTest, IncreaseDatabasePageSizeFrom4KTo32K) {
 
   DirOpenResult open_result = dbs.Load(
       &handles_map, &delete_journals, &metahandles_to_purge, &kernel_load_info);
-  EXPECT_EQ(open_result, OPENED);
+  EXPECT_EQ(open_result, OPENED_EXISTING);
 
   // Set up database's page size to 4096
   EXPECT_TRUE(dbs.db_->Execute("PRAGMA page_size=4096;"));

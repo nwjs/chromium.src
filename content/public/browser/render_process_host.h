@@ -24,10 +24,10 @@
 #include "ipc/ipc_channel_proxy.h"
 #include "ipc/ipc_sender.h"
 #include "media/media_buildflags.h"
-#include "services/network/public/mojom/network_context.mojom.h"
-#include "services/network/public/mojom/url_loader_factory.mojom.h"
-#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom.h"
-#include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom.h"
+#include "services/network/public/mojom/network_context.mojom-forward.h"
+#include "services/network/public/mojom/url_loader_factory.mojom-forward.h"
+#include "third_party/blink/public/mojom/cache_storage/cache_storage.mojom-forward.h"
+#include "third_party/blink/public/mojom/indexeddb/indexeddb.mojom-forward.h"
 #include "ui/gfx/native_widget_types.h"
 
 #if defined(OS_ANDROID)
@@ -37,7 +37,7 @@
 class GURL;
 
 namespace base {
-class SharedPersistentMemoryAllocator;
+class PersistentMemoryAllocator;
 class TimeDelta;
 class Token;
 }
@@ -46,8 +46,8 @@ namespace service_manager {
 class Identity;
 }
 
-namespace resource_coordinator {
-class ProcessResourceCoordinator;
+namespace url {
+class Origin;
 }
 
 namespace content {
@@ -276,6 +276,9 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
 #if defined(OS_ANDROID)
   // Return the highest importance of all widgets in this process.
   virtual ChildProcessImportance GetEffectiveImportance() = 0;
+
+  // Dumps the stack of this render process without crashing it.
+  virtual void DumpProcessStack() = 0;
 #endif
 
   // Sets a flag indicating that the process can be abnormally terminated.
@@ -341,7 +344,7 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // between the Renderer and the Browser, the allocator is created when the
   // process is created and later retrieved by the SubprocessMetricsProvider
   // for management.
-  virtual std::unique_ptr<base::SharedPersistentMemoryAllocator>
+  virtual std::unique_ptr<base::PersistentMemoryAllocator>
   TakeMetricsAllocator() = 0;
 
   // PlzNavigate
@@ -408,10 +411,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Sender,
   // internal use only, and is only exposed here to support
   // MockRenderProcessHost usage in tests.
   virtual mojom::Renderer* GetRendererInterface() = 0;
-
-  // Acquires the interface to the Global Resource Coordinator for this process.
-  virtual resource_coordinator::ProcessResourceCoordinator*
-  GetProcessResourceCoordinator() = 0;
 
   // Create an URLLoaderFactory that can be used by |origin| being hosted in
   // |this| process.

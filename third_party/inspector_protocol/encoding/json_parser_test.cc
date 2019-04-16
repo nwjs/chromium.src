@@ -12,7 +12,7 @@
 #include "linux_dev_platform.h"
 
 namespace inspector_protocol {
-class Log : public JsonParserHandler {
+class Log : public JSONParserHandler {
  public:
   void HandleObjectBegin() override { log_ << "object begin\n"; }
 
@@ -22,10 +22,16 @@ class Log : public JsonParserHandler {
 
   void HandleArrayEnd() override { log_ << "array end\n"; }
 
-  void HandleString16(std::vector<uint16_t> chars) override {
+  void HandleString8(span<uint8_t> chars) override {
+    base::StringPiece foo(reinterpret_cast<const char*>(chars.data()),
+                          chars.size());
+    log_ << "string8: " << foo << "\n";
+  }
+
+  void HandleString16(span<uint16_t> chars) override {
     base::StringPiece16 foo(reinterpret_cast<const base::char16*>(chars.data()),
                             chars.size());
-    log_ << "string: " << base::UTF16ToUTF8(foo) << "\n";
+    log_ << "string16: " << base::UTF16ToUTF8(foo) << "\n";
   }
 
   void HandleBinary(std::vector<uint8_t> bytes) override {
@@ -62,36 +68,51 @@ class JsonParserTest : public ::testing::Test {
 
 TEST_F(JsonParserTest, SimpleDictionary) {
   std::string json = "{\"foo\": 42}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "int: 42\n"
+      "object end\n",
+      log_.str());
+}
+
+TEST_F(JsonParserTest, Whitespace) {
+  std::string json = "\n  {\n\"msg\"\n: \v\"Hello, world.\"\t\r}\t";
+  ParseJSONChars(
+      GetLinuxDevPlatform(),
+      span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
+      &log_);
+  EXPECT_TRUE(log_.status().ok());
+  EXPECT_EQ(
+      "object begin\n"
+      "string16: msg\n"
+      "string16: Hello, world.\n"
       "object end\n",
       log_.str());
 }
 
 TEST_F(JsonParserTest, NestedDictionary) {
   std::string json = "{\"foo\": {\"bar\": {\"baz\": 1}, \"bar2\": 2}}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "object begin\n"
-      "string: bar\n"
+      "string16: bar\n"
       "object begin\n"
-      "string: baz\n"
+      "string16: baz\n"
       "int: 1\n"
       "object end\n"
-      "string: bar2\n"
+      "string16: bar2\n"
       "int: 2\n"
       "object end\n"
       "object end\n",
@@ -100,16 +121,16 @@ TEST_F(JsonParserTest, NestedDictionary) {
 
 TEST_F(JsonParserTest, Doubles) {
   std::string json = "{\"foo\": 3.1415, \"bar\": 31415e-4}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "double: 3.1415\n"
-      "string: bar\n"
+      "string16: bar\n"
       "double: 3.1415\n"
       "object end\n",
       log_.str());
@@ -118,15 +139,15 @@ TEST_F(JsonParserTest, Doubles) {
 TEST_F(JsonParserTest, Unicode) {
   // Globe character. 0xF0 0x9F 0x8C 0x8E in utf8, 0xD83C 0xDF0E in utf16.
   std::string json = "{\"msg\": \"Hello, \\uD83C\\uDF0E.\"}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: msg\n"
-      "string: Hello, 🌎.\n"
+      "string16: msg\n"
+      "string16: Hello, 🌎.\n"
       "object end\n",
       log_.str());
 }
@@ -138,15 +159,15 @@ TEST_F(JsonParserTest, Unicode_ParseUtf16) {
   // We provide the moon with json escape, but the earth as utf16 input.
   // Either way they arrive as utf8 (after decoding in log_.str()).
   base::string16 json = base::UTF8ToUTF16("{\"space\": \"🌎 \\uD83C\\uDF19.\"}");
-  parseJSONChars(GetLinuxDevPlatform(),
+  ParseJSONChars(GetLinuxDevPlatform(),
                  span<uint16_t>(reinterpret_cast<const uint16_t*>(json.data()),
                                 json.size()),
                  &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: space\n"
-      "string: 🌎 🌙.\n"
+      "string16: space\n"
+      "string16: 🌎 🌙.\n"
       "object end\n",
       log_.str());
 }
@@ -167,21 +188,21 @@ TEST_F(JsonParserTest, Unicode_ParseUtf8) {
       "\"3 byte\":\"屋\","
       "\"4 byte\":\"🌎\""
       "}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: escapes\n"
-      "string: 🌙\n"
-      "string: 2 byte\n"
-      "string: гласность\n"
-      "string: 3 byte\n"
-      "string: 屋\n"
-      "string: 4 byte\n"
-      "string: 🌎\n"
+      "string16: escapes\n"
+      "string16: 🌙\n"
+      "string16: 2 byte\n"
+      "string16: гласность\n"
+      "string16: 3 byte\n"
+      "string16: 屋\n"
+      "string16: 4 byte\n"
+      "string16: 🌎\n"
       "object end\n",
       log_.str());
 }
@@ -191,7 +212,7 @@ TEST_F(JsonParserTest, UnprocessedInputRemainsError) {
   std::string json = "{\"foo\": 3.1415} junk";
   int64_t junk_idx = json.find("junk");
   EXPECT_GT(junk_idx, 0);
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -212,18 +233,18 @@ TEST_F(JsonParserTest, StackLimitExceededError) {
   // kStackLimit is 1000 (see json_parser.cc). First let's
   // try with a small nested example.
   std::string json_3 = MakeNestedJson(3);
-  parseJSONChars(GetLinuxDevPlatform(),
+  ParseJSONChars(GetLinuxDevPlatform(),
                  span<uint8_t>(reinterpret_cast<const uint8_t*>(json_3.data()),
                                json_3.size()),
                  &log_);
   EXPECT_TRUE(log_.status().ok());
   EXPECT_EQ(
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "object begin\n"
-      "string: foo\n"
+      "string16: foo\n"
       "int: 42\n"
       "object end\n"
       "object end\n"
@@ -233,7 +254,7 @@ TEST_F(JsonParserTest, StackLimitExceededError) {
   // Now with kStackLimit (1000).
   log_ = Log();
   std::string json_limit = MakeNestedJson(1000);
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json_limit.data()),
                     json_limit.size()),
@@ -242,27 +263,29 @@ TEST_F(JsonParserTest, StackLimitExceededError) {
   // Now with kStackLimit + 1 (1001) - it exceeds in the innermost instance.
   log_ = Log();
   std::string exceeded = MakeNestedJson(1001);
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(exceeded.data()),
                     exceeded.size()),
       &log_);
   EXPECT_EQ(Error::JSON_PARSER_STACK_LIMIT_EXCEEDED, log_.status().error);
-  EXPECT_EQ(int64_t(strlen("{\"foo\":") * 1001), log_.status().pos);
+  EXPECT_EQ(static_cast<std::ptrdiff_t>(strlen("{\"foo\":") * 1001),
+            log_.status().pos);
   // Now way past the limit. Still, the point of exceeding is 1001.
   log_ = Log();
   std::string far_out = MakeNestedJson(10000);
-  parseJSONChars(GetLinuxDevPlatform(),
+  ParseJSONChars(GetLinuxDevPlatform(),
                  span<uint8_t>(reinterpret_cast<const uint8_t*>(far_out.data()),
                                far_out.size()),
                  &log_);
   EXPECT_EQ(Error::JSON_PARSER_STACK_LIMIT_EXCEEDED, log_.status().error);
-  EXPECT_EQ(int64_t(strlen("{\"foo\":") * 1001), log_.status().pos);
+  EXPECT_EQ(static_cast<std::ptrdiff_t>(strlen("{\"foo\":") * 1001),
+            log_.status().pos);
 }
 
 TEST_F(JsonParserTest, NoInputError) {
   std::string json = "";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -273,7 +296,7 @@ TEST_F(JsonParserTest, NoInputError) {
 
 TEST_F(JsonParserTest, InvalidTokenError) {
   std::string json = "|";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -285,7 +308,7 @@ TEST_F(JsonParserTest, InvalidTokenError) {
 TEST_F(JsonParserTest, InvalidNumberError) {
   // Mantissa exceeds max (the constant used here is int64_t max).
   std::string json = "1E9223372036854775807";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -297,7 +320,7 @@ TEST_F(JsonParserTest, InvalidNumberError) {
 TEST_F(JsonParserTest, InvalidStringError) {
   // \x22 is an unsupported escape sequence
   std::string json = "\"foo\\x22\"";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -308,7 +331,7 @@ TEST_F(JsonParserTest, InvalidStringError) {
 
 TEST_F(JsonParserTest, UnexpectedArrayEndError) {
   std::string json = "[1,2,]";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -319,7 +342,7 @@ TEST_F(JsonParserTest, UnexpectedArrayEndError) {
 
 TEST_F(JsonParserTest, CommaOrArrayEndExpectedError) {
   std::string json = "[1,2 2";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -332,7 +355,7 @@ TEST_F(JsonParserTest, CommaOrArrayEndExpectedError) {
 TEST_F(JsonParserTest, StringLiteralExpectedError) {
   // There's an error because the key bar, a string, is not terminated.
   std::string json = "{\"foo\": 3.1415, \"bar: 31415e-4}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -343,7 +366,7 @@ TEST_F(JsonParserTest, StringLiteralExpectedError) {
 
 TEST_F(JsonParserTest, ColonExpectedError) {
   std::string json = "{\"foo\", 42}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -354,7 +377,7 @@ TEST_F(JsonParserTest, ColonExpectedError) {
 
 TEST_F(JsonParserTest, UnexpectedObjectEndError) {
   std::string json = "{\"foo\": 42, }";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -366,7 +389,7 @@ TEST_F(JsonParserTest, UnexpectedObjectEndError) {
 TEST_F(JsonParserTest, CommaOrObjectEndExpectedError) {
   // The second separator should be a comma.
   std::string json = "{\"foo\": 3.1415: \"bar\": 0}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);
@@ -378,7 +401,7 @@ TEST_F(JsonParserTest, CommaOrObjectEndExpectedError) {
 
 TEST_F(JsonParserTest, ValueExpectedError) {
   std::string json = "}";
-  parseJSONChars(
+  ParseJSONChars(
       GetLinuxDevPlatform(),
       span<uint8_t>(reinterpret_cast<const uint8_t*>(json.data()), json.size()),
       &log_);

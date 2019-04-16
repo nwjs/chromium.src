@@ -66,7 +66,7 @@ class CORE_EXPORT HTMLInputElement
 
   bool HasPendingActivity() const final;
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange, kWebkitspeechchange);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange, kWebkitspeechchange)
 
   bool ShouldAutocomplete() const final;
 
@@ -116,7 +116,9 @@ class CORE_EXPORT HTMLInputElement
   bool HasBeenPasswordField() const;
 
   bool checked() const;
-  void setChecked(bool, TextFieldEventBehavior = kDispatchNoEvent);
+  void setChecked(
+      bool,
+      TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent);
   void DispatchChangeEventIfNeeded();
   void DispatchInputAndChangeEventIfNeeded();
 
@@ -135,13 +137,15 @@ class CORE_EXPORT HTMLInputElement
   void setType(const AtomicString&);
 
   String value() const override;
-  void setValue(const String&,
-                ExceptionState&,
-                TextFieldEventBehavior = kDispatchNoEvent);
-  void setValue(const String&,
-                TextFieldEventBehavior = kDispatchNoEvent,
-                TextControlSetValueSelection =
-                    TextControlSetValueSelection::kSetSelectionToEnd) override;
+  void setValue(
+      const String&,
+      ExceptionState&,
+      TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent);
+  void setValue(
+      const String&,
+      TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent,
+      TextControlSetValueSelection =
+          TextControlSetValueSelection::kSetSelectionToEnd) override;
   void SetValueForUser(const String&);
   // Update the value, and clear hasDirtyValue() flag.
   void SetNonDirtyValue(const String&);
@@ -163,9 +167,10 @@ class CORE_EXPORT HTMLInputElement
   void setValueAsDate(double, bool is_null, ExceptionState&);
 
   double valueAsNumber() const;
-  void setValueAsNumber(double,
-                        ExceptionState&,
-                        TextFieldEventBehavior = kDispatchNoEvent);
+  void setValueAsNumber(
+      double,
+      ExceptionState&,
+      TextFieldEventBehavior = TextFieldEventBehavior::kDispatchNoEvent);
 
   String ValueOrDefaultLabel() const;
 
@@ -408,17 +413,17 @@ class CORE_EXPORT HTMLInputElement
   void AddToRadioButtonGroup();
   void RemoveFromRadioButtonGroup();
   scoped_refptr<ComputedStyle> CustomStyleForLayoutObject() override;
-  void DidRecalcStyle(StyleRecalcChange) override;
+  void DidRecalcStyle(const StyleRecalcChange) override;
 
   AtomicString name_;
   // The value string in |value| value mode.
   String non_attribute_value_;
   unsigned size_;
-  // https://html.spec.whatwg.org/multipage/forms.html#concept-input-value-dirty-flag
+  // https://html.spec.whatwg.org/C/#concept-input-value-dirty-flag
   unsigned has_dirty_value_ : 1;
-  // https://html.spec.whatwg.org/multipage/forms.html#concept-fe-checked
+  // https://html.spec.whatwg.org/C/#concept-fe-checked
   unsigned is_checked_ : 1;
-  // https://html.spec.whatwg.org/multipage/forms.html#concept-input-checked-dirty-flag
+  // https://html.spec.whatwg.org/C/#concept-input-checked-dirty-flag
   unsigned dirty_checkedness_ : 1;
   unsigned is_indeterminate_ : 1;
   unsigned is_activated_submit_ : 1;

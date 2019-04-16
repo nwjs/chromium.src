@@ -34,6 +34,7 @@
 #include "libassistant/shared/internal_api/assistant_manager_delegate.h"
 #include "libassistant/shared/internal_api/assistant_manager_internal.h"
 #include "libassistant/shared/public/media_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
@@ -69,6 +70,10 @@ constexpr base::Feature kChromeOSAssistantDogfood{
 constexpr char kServersideDogfoodExperimentId[] = "20347368";
 constexpr char kServersideOpenAppExperimentId[] = "39651593";
 
+// The screen context query is locale independent. That is the same query
+// applies to all locales.
+constexpr char kScreenContextQuery[] = "screen context";
+
 constexpr float kDefaultSliderStep = 0.1f;
 
 bool IsScreenContextAllowed(ash::AssistantStateBase* assistant_state) {
@@ -99,14 +104,18 @@ AssistantManagerServiceImpl::AssistantManagerServiceImpl(
     service_manager::Connector* connector,
     device::mojom::BatteryMonitorPtr battery_monitor,
     Service* service,
-    network::NetworkConnectionTracker* network_connection_tracker)
+    network::NetworkConnectionTracker* network_connection_tracker,
+    std::unique_ptr<network::SharedURLLoaderFactoryInfo>
+        url_loader_factory_info)
     : media_session_(std::make_unique<AssistantMediaSession>(connector)),
       action_module_(std::make_unique<action::CrosActionModule>(
           this,
-          base::FeatureList::IsEnabled(
-              assistant::features::kAssistantAppSupport))),
-      chromium_api_delegate_(service->io_task_runner()),
-      display_connection_(std::make_unique<CrosDisplayConnection>(this)),
+          assistant::features::IsAppSupportEnabled(),
+          assistant::features::IsRoutinesEnabled())),
+      chromium_api_delegate_(std::move(url_loader_factory_info)),
+      display_connection_(std::make_unique<CrosDisplayConnection>(
+          this,
+          assistant::features::IsFeedbackUiEnabled())),
       assistant_settings_manager_(
           std::make_unique<AssistantSettingsManagerImpl>(service, this)),
       service_(service),
@@ -115,7 +124,8 @@ AssistantManagerServiceImpl::AssistantManagerServiceImpl(
   background_thread_.Start();
   platform_api_ = std::make_unique<PlatformApiImpl>(
       connector, media_session_.get(), std::move(battery_monitor),
-      background_thread_.task_runner(), network_connection_tracker);
+      service_->main_task_runner(), background_thread_.task_runner(),
+      network_connection_tracker);
   connector->BindInterface(ash::mojom::kServiceName,
                            &ash_message_center_controller_);
 }
@@ -124,9 +134,10 @@ AssistantManagerServiceImpl::~AssistantManagerServiceImpl() {
   background_thread_.Stop();
 }
 
-void AssistantManagerServiceImpl::Start(const std::string& access_token,
-                                        bool enable_hotword,
-                                        base::OnceClosure post_init_callback) {
+void AssistantManagerServiceImpl::Start(
+    const base::Optional<std::string>& access_token,
+    bool enable_hotword,
+    base::OnceClosure post_init_callback) {
   DCHECK(!assistant_manager_);
   DCHECK_EQ(state_, State::STOPPED);
 
@@ -135,14 +146,14 @@ void AssistantManagerServiceImpl::Start(const std::string& access_token,
 
   started_time_ = base::TimeTicks::Now();
 
-  platform_api_->OnHotwordEnabled(enable_hotword);
+  EnableHotword(enable_hotword);
 
   // LibAssistant creation will make file IO and sync wait. Post the creation to
   // background thread to avoid DCHECK.
   background_thread_.task_runner()->PostTaskAndReply(
       FROM_HERE,
       base::BindOnce(&AssistantManagerServiceImpl::StartAssistantInternal,
-                     base::Unretained(this), access_token, enable_hotword),
+                     base::Unretained(this), access_token),
       base::BindOnce(&AssistantManagerServiceImpl::PostInitAssistant,
                      weak_factory_.GetWeakPtr(),
                      std::move(post_init_callback)));
@@ -154,6 +165,12 @@ void AssistantManagerServiceImpl::Stop() {
 
   state_ = State::STOPPED;
 
+  // When user disables the feature, we also deletes all data.
+  if (!service_->assistant_state()->settings_enabled().value() &&
+      assistant_manager_) {
+    assistant_manager_->ResetAllDataAndShutdown();
+  }
+
   assistant_manager_internal_ = nullptr;
   assistant_manager_.reset(nullptr);
 }
@@ -164,6 +181,11 @@ AssistantManagerService::State AssistantManagerServiceImpl::GetState() const {
 
 void AssistantManagerServiceImpl::SetAccessToken(
     const std::string& access_token) {
+  if (!assistant_manager_)
+    return;
+
+  DCHECK(!access_token.empty());
+
   VLOG(1) << "Set access token.";
   // Push the |access_token| we got as an argument into AssistantManager before
   // starting to ensure that all server requests will be authenticated once
@@ -193,6 +215,12 @@ void AssistantManagerServiceImpl::RegisterFallbackMediaHandler() {
 
 void AssistantManagerServiceImpl::EnableListening(bool enable) {
   assistant_manager_->EnableListening(enable);
+  EnableHotword(enable &&
+                service_->assistant_state()->hotword_enabled().value_or(false));
+}
+
+void AssistantManagerServiceImpl::EnableHotword(bool enable) {
+  platform_api_->OnHotwordEnabled(enable);
 }
 
 AssistantSettingsManager*
@@ -277,6 +305,8 @@ void AssistantManagerServiceImpl::StartTextInteraction(const std::string& query,
   if (base::FeatureList::IsEnabled(
           assistant::features::kEnableTextQueriesWithClientDiscourseContext) &&
       assistant_extra_ && assistant_tree_) {
+    // We don't send the screenshot, because the backend only needs the
+    // view hierarchy to resolve contextual queries such as "Who is he?".
     assistant_manager_internal_->SendTextQueryWithClientDiscourseContext(
         query,
         CreateContextProto(
@@ -727,13 +757,12 @@ void AssistantManagerServiceImpl::OnCommunicationError(int error_code) {
 }
 
 void AssistantManagerServiceImpl::StartAssistantInternal(
-    const std::string& access_token,
-    bool enable_hotword) {
+    const base::Optional<std::string>& access_token) {
   DCHECK(background_thread_.task_runner()->BelongsToCurrentThread());
 
   base::AutoLock lock(new_assistant_manager_lock_);
   new_assistant_manager_.reset(assistant_client::AssistantManager::Create(
-      platform_api_.get(), CreateLibAssistantConfig(!enable_hotword)));
+      platform_api_.get(), CreateLibAssistantConfig()));
   auto* assistant_manager_internal =
       UnwrapAssistantManagerInternal(new_assistant_manager_.get());
 
@@ -753,8 +782,10 @@ void AssistantManagerServiceImpl::StartAssistantInternal(
   if (server_experiment_ids.size() > 0)
     assistant_manager_internal->AddExtraExperimentIds(server_experiment_ids);
 
-  new_assistant_manager_->SetAuthTokens(
-      {std::pair<std::string, std::string>(kUserID, access_token)});
+  if (!service_->is_signed_out_mode()) {
+    new_assistant_manager_->SetAuthTokens(
+        {std::pair<std::string, std::string>(kUserID, access_token.value())});
+  }
   new_assistant_manager_->Start();
 }
 
@@ -790,8 +821,10 @@ void AssistantManagerServiceImpl::PostInitAssistant(
   std::move(post_init_callback).Run();
   assistant_settings_manager_->UpdateServerDeviceSettings();
 
-  if (base::FeatureList::IsEnabled(assistant::features::kAssistantVoiceMatch))
+  if (base::FeatureList::IsEnabled(assistant::features::kAssistantVoiceMatch) &&
+      service_->assistant_state()->hotword_enabled().value()) {
     assistant_settings_manager_->SyncSpeakerIdEnrollmentStatus();
+  }
 }
 
 void AssistantManagerServiceImpl::HandleOpenAndroidAppResponse(
@@ -872,6 +905,14 @@ void AssistantManagerServiceImpl::UpdateInternalOptions(
   SetAssistantOptions(internal_options, user_agent,
                       service_->assistant_state()->locale().value(),
                       spoken_feedback_enabled_);
+
+  internal_options->SetClientControlEnabled(
+      assistant::features::IsRoutinesEnabled());
+
+  if (service_->is_signed_out_mode()) {
+    internal_options->SetUserCredentialMode(
+        assistant_client::InternalOptions::UserCredentialMode::SIGNED_OUT);
+  }
 
   if (base::FeatureList::IsEnabled(assistant::features::kAssistantVoiceMatch) &&
       assistant_settings_manager_->speaker_id_enrollment_done()) {
@@ -1123,6 +1164,19 @@ void AssistantManagerServiceImpl::SendScreenContextRequest(
     ax::mojom::AssistantExtra* assistant_extra,
     ui::AssistantTree* assistant_tree,
     const std::vector<uint8_t>& assistant_screenshot) {
+  if (assistant::features::IsScreenContextQueryEnabled()) {
+    assistant_client::VoicelessOptions options;
+    options.is_user_initiated = true;
+
+    assistant_manager_internal_->SendTextQueryWithClientDiscourseContext(
+        kScreenContextQuery,
+        CreateContextProto(
+            AssistantBundle{assistant_extra_.get(), assistant_tree_.get()},
+            assistant_screenshot),
+        options);
+    return;
+  }
+
   std::vector<std::string> context_protos;
 
   // Screen context can have the assistant_extra and assistant_tree set to
@@ -1188,7 +1242,7 @@ void AssistantManagerServiceImpl::SendAssistantFeedback(
     mojom::AssistantFeedbackPtr assistant_feedback) {
   const std::string interaction = CreateSendFeedbackInteraction(
       assistant_feedback->assistant_debug_info_allowed,
-      assistant_feedback->description);
+      assistant_feedback->description, assistant_feedback->screenshot_png);
   assistant_client::VoicelessOptions voiceless_options;
 
   voiceless_options.is_user_initiated = false;

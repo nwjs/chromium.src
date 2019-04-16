@@ -20,7 +20,6 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/signin/signin_error_controller_factory.h"
 #include "chrome/browser/signin/signin_global_error_factory.h"
-#include "chrome/browser/signin/signin_manager_factory.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/common/pref_names.h"
@@ -82,11 +81,11 @@ class SigninGlobalErrorTest : public testing::Test {
   void SetAuthError(GoogleServiceAuthError::State state) {
     identity::IdentityTestEnvironment* identity_test_env =
         identity_test_env_profile_adaptor_->identity_test_env();
-    AccountInfo primary_account_info =
-        identity_test_env->identity_manager()->GetPrimaryAccountInfo();
+    std::string primary_account_id =
+        identity_test_env->identity_manager()->GetPrimaryAccountId();
 
     identity::UpdatePersistentErrorOfRefreshTokenForAccount(
-        identity_test_env->identity_manager(), primary_account_info.account_id,
+        identity_test_env->identity_manager(), primary_account_id,
         GoogleServiceAuthError(state));
   }
 

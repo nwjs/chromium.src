@@ -49,6 +49,7 @@ class WebPlugin;
 class WebPrescientNetworking;
 class WebSpeechSynthesizer;
 class WebSpeechSynthesizerClient;
+class WebMediaStreamRendererFactory;
 class WebThemeEngine;
 class WebURL;
 class WebURLRequest;
@@ -63,7 +64,6 @@ class KeySystemProperties;
 
 namespace content {
 class BrowserPluginDelegate;
-class MediaStreamRendererFactory;
 class RenderFrame;
 class RenderView;
 struct WebPluginInfo;
@@ -102,16 +102,21 @@ class CONTENT_EXPORT ContentRendererClient {
       RenderFrame* embedder_frame,
       const blink::WebElement& plugin_element,
       const GURL& original_url,
-      const std::string& original_mime_type,
-      int32_t instance_id_to_use);
+      const std::string& original_mime_type);
 
-  // Allows the embedder to override creating a plugin. If it returns true, then
-  // |plugin| will contain the created plugin, although it could be NULL. If it
-  // returns false, the content layer will create the plugin.
-  virtual bool OverrideCreatePlugin(
-      RenderFrame* render_frame,
-      const blink::WebPluginParams& params,
-      blink::WebPlugin** plugin);
+  // Returns a scriptable object which implements custom javascript API for the
+  // given element. This is used for MimeHandlerView in providing API such as
+  // |postMessage| for <embed> and <object>.
+  virtual v8::Local<v8::Object> GetScriptableObject(
+      const blink::WebElement& plugin_element,
+      v8::Isolate* isolate);
+
+  // Allows the embedder to override creating a plugin. If it returns true,
+  // then |plugin| will contain the created plugin, although it could be
+  // NULL. If it returns false, the content layer will create the plugin.
+  virtual bool OverrideCreatePlugin(RenderFrame* render_frame,
+                                    const blink::WebPluginParams& params,
+                                    blink::WebPlugin** plugin);
 
   // Creates a replacement plugin that is shown when the plugin at |file_path|
   // couldn't be loaded. This allows the embedder to show a custom placeholder.
@@ -147,6 +152,7 @@ class CONTENT_EXPORT ContentRendererClient {
   // Note that |error_html| may be not written to in certain cases
   // (lack of information on the error code) so the caller should take care to
   // initialize it with a safe default before the call.
+  // TODO(dgozman): |ignoring_cache| is always false in these two methods.
   virtual void PrepareErrorPage(content::RenderFrame* render_frame,
                                 const blink::WebURLError& error,
                                 const std::string& http_method,
@@ -268,8 +274,8 @@ class CONTENT_EXPORT ContentRendererClient {
   // language.
   virtual bool IsOriginIsolatedPepperPlugin(const base::FilePath& plugin_path);
 
-  // Allows an embedder to provide a MediaStreamRendererFactory.
-  virtual std::unique_ptr<MediaStreamRendererFactory>
+  // Allows an embedder to provide a blink::WebMediaStreamRendererFactory.
+  virtual std::unique_ptr<blink::WebMediaStreamRendererFactory>
   CreateMediaStreamRendererFactory();
 
   // Allows embedder to register the key system(s) it supports by populating
@@ -400,16 +406,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // Whether the renderer allows idle media players to be automatically
   // suspended after a period of inactivity.
   virtual bool IsIdleMediaSuspendEnabled();
-
-  // Called when a resource at |url| is loaded using an otherwise-valid legacy
-  // Symantec certificate that will be distrusted in future. Allows the embedder
-  // to override the message that is added to the console to inform developers
-  // that their certificate will be distrusted in future. If the method returns
-  // true, then |*console_message| will be printed to the console; otherwise a
-  // generic mesage will be used.
-  virtual bool OverrideLegacySymantecCertConsoleMessage(
-      const GURL& url,
-      std::string* console_messsage);
 
   // Returns true to suppress the warning for deprecated TLS versions.
   //

@@ -25,6 +25,7 @@
 #include "base/task/post_task.h"
 #include "base/task_runner_util.h"
 #include "base/timer/elapsed_timer.h"
+#include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "base/version.h"
 #include "build/build_config.h"
@@ -502,11 +503,11 @@ bool VariationsService::DoFetchFromURL(const GURL& url, bool is_http_retry) {
 
   safe_seed_manager_.RecordFetchStarted();
 
-  // Normally, there shouldn't be a |pending_request_| when this fires. However
-  // it's not impossible - for example if Chrome was paused (e.g. in a debugger
-  // or if the machine was suspended) and OnURLFetchComplete() hasn't had a
-  // chance to run yet from the previous request. In this case, don't start a
-  // new request and just let the previous one finish.
+  // Normally, there shouldn't be a |pending_seed_request_| when this fires.
+  // However it's not impossible - for example if Chrome was paused (e.g. in a
+  // debugger or if the machine was suspended) and OnURLFetchComplete() hasn't
+  // had a chance to run yet from the previous request. In this case, don't
+  // start a new request and just let the previous one finish.
   if (pending_seed_request_)
     return false;
 
@@ -692,6 +693,7 @@ void VariationsService::OnSimpleLoaderRedirect(
 void VariationsService::OnSimpleLoaderCompleteOrRedirect(
     std::unique_ptr<std::string> response_body,
     bool was_redirect) {
+  TRACE_EVENT0("browser", "VariationsService::OnSimpleLoaderCompleteOrRedirect");
   const bool is_first_request = !initial_request_completed_;
   initial_request_completed_ = true;
 
@@ -916,6 +918,10 @@ bool VariationsService::SetupFieldTrials(
 
 void VariationsService::OverrideCachedUIStrings() {
   field_trial_creator_.OverrideCachedUIStrings();
+}
+
+void VariationsService::CancelCurrentRequestForTesting() {
+  pending_seed_request_.reset();
 }
 
 std::string VariationsService::GetStoredPermanentCountry() {

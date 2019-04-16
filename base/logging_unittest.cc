@@ -7,6 +7,7 @@
 #include "base/callback.h"
 #include "base/compiler_specific.h"
 #include "base/macros.h"
+#include "base/sanitizer_buildflags.h"
 #include "base/strings/string_piece.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -465,7 +466,7 @@ void CrashChildMain(int death_location) {
   // Should never reach this point.
   const uintptr_t failed = 0;
   HANDLE_EINTR(write(g_child_crash_pipe, &failed, sizeof(uintptr_t)));
-};
+}
 
 void SpawnChildAndCrash(int death_location, uintptr_t* child_crash_addr) {
   int pipefd[2];
@@ -829,7 +830,8 @@ TEST_F(LoggingTest, LogPrefix) {
   log_string_ptr = nullptr;
 }
 
-#if !defined(ADDRESS_SANITIZER) && !defined(MEMORY_SANITIZER)
+#if !defined(ADDRESS_SANITIZER) && !defined(MEMORY_SANITIZER) && \
+    !BUILDFLAG(IS_HWASAN)
 // Since we scan potentially uninitialized portions of the stack, we can't run
 // this test under any sanitizer that checks for uninitialized reads.
 TEST_F(LoggingTest, LogMessageMarkersOnStack) {

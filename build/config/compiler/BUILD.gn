@@ -9,6 +9,7 @@ import("//build/config/chromecast_build.gni")
 import("//build/config/clang/clang.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/coverage/coverage.gni")
+import("//build/config/dcheck_always_on.gni")
 import("//build/config/host_byteorder.gni")
 import("//build/config/sanitizers/sanitizers.gni")
 import("//build/config/ui.gni")
@@ -92,13 +93,16 @@ declare_args() {
   # the needed gcov profiling data.
   auto_profile_path = ""
 
-  # Optimize symbol files for maximizing goma cache hit rate. This is on by
-  # default for Android, and when goma is enabled on Linux and Windows.
-  # But setting this to true may make it harder to debug binaries on Linux.
-  # See below reference for detail.
+  # Use relative paths for debug info. This is important to make the build
+  # results independent of the checkout and build directory names, which
+  # in turn is important for goma compile hit rate.
+  # Setting this to true may make it harder to debug binaries on Linux, see
   # https://chromium.googlesource.com/chromium/src/+/master/docs/linux_debugging.md#Source-level-debug-with-fdebug_compilation_dir
+  # So only enable this on linux if use_goma.  Elsewhere, there are no
+  # drawbacks to using it, so always enable it there.
   strip_absolute_paths_from_debug_symbols =
-      is_android || is_nacl || (use_goma && (is_linux || (is_win && use_lld)))
+      is_android || is_fuchsia || is_nacl || (is_win && use_lld) ||
+      (use_goma && is_linux)
 
   # Allow projects that wish to stay on C++11 to override Chromium's default.
   use_cxx11 = false
@@ -212,7 +216,6 @@ config("compiler") {
   ldflags = []
   defines = []
   configs = []
-  inputs = []
 
   # System-specific flags. If your compiler flags apply to one of the
   # categories here, add it to the associated file to keep this shared config
@@ -240,6 +243,7 @@ config("compiler") {
     ":clang_revision",
     ":compiler_cpu_abi",
     ":compiler_codegen",
+    ":compiler_deterministic",
   ]
 
   # In general, Windows is totally different, but all the other builds share
@@ -289,26 +293,6 @@ config("compiler") {
     if (is_clang) {
       # Don't look for includes in %INCLUDE%.
       cflags += [ "/X" ]
-    }
-  }
-
-  # Eliminate build metadata (__DATE__, __TIME__ and __TIMESTAMP__) for
-  # deterministic build.  See https://crbug.com/314403
-  if (!is_official_build) {
-    if (is_win && !is_clang) {
-      cflags += [
-        "/wd4117",  # Trying to define or undefine a predefined macro.
-        "/D__DATE__=",
-        "/D__TIME__=",
-        "/D__TIMESTAMP__=",
-      ]
-    } else {
-      cflags += [
-        "-Wno-builtin-macro-redefined",
-        "-D__DATE__=",
-        "-D__TIME__=",
-        "-D__TIMESTAMP__=",
-      ]
     }
   }
 
@@ -388,9 +372,12 @@ config("compiler") {
 
     ldflags += [
       "-Wl,-z,noexecstack",
-      "-Wl,-z,now",
       "-Wl,-z,relro",
     ]
+
+    if (!is_component_build) {
+      ldflags += [ "-Wl,-z,now" ]
+    }
 
     # Compiler instrumentation can introduce dependencies in DSOs to symbols in
     # the executable they are loaded into, so they are unresolved at link-time.
@@ -520,45 +507,6 @@ config("compiler") {
   # Windows developers rely on it (crbug.com/636109) so only do this on Windows.
   if (msvc_use_absolute_paths && is_clang && is_win) {
     cflags += [ "-fdiagnostics-absolute-paths" ]
-  }
-
-  # Makes builds independent of absolute file path.
-  if (symbol_level != 0 && is_clang && strip_absolute_paths_from_debug_symbols) {
-    # If debug option is given, clang includes $cwd in debug info by default.
-    # For such build, this flag generates reproducible obj files even we use
-    # different build directory like "out/feature_a" and "out/feature_b" if
-    # we build same files with same compile flag.
-    # Other paths are already given in relative, no need to normalize them.
-    cflags += [
-      "-Xclang",
-      "-fdebug-compilation-dir",
-      "-Xclang",
-      ".",
-    ]
-
-    if (is_win && use_lld) {
-      if (symbol_level == 2 || (is_clang && using_sanitizer)) {
-        # Absolutize source file path for PDB. Pass the real build directory
-        # if the pdb contains source-level debug information.
-        ldflags += [ "/PDBSourcePath:" + rebase_path(root_build_dir) ]
-      } else {
-        # On Windows, (non-sanitizier) symbol_level 1 builds don't contain
-        # debug information in obj files; the linker just creates enough
-        # debug info at link time to produce symbolized stacks (without line
-        # numbers). In that case, there's no downside in using a fake fixed
-        # base directory for paths in the pdb. This makes the pdb output
-        # fully deterministic and independent of the build directory.
-        assert(symbol_level == 1 && !(is_clang && using_sanitizer))
-        ldflags += [ "/PDBSourcePath:o:\fake\prefix" ]
-      }
-    }
-  }
-
-  # Tells the compiler not to use absolute paths when passing the default
-  # paths to the tools it invokes. We don't want this because we don't
-  # really need it and it can mess up the goma cache entries.
-  if (is_clang && !is_nacl) {
-    cflags += [ "-no-canonical-prefixes" ]
   }
 
   # C11/C++11 compiler flags setup.
@@ -1097,6 +1045,7 @@ config("compiler_cpu_abi") {
 config("compiler_codegen") {
   configs = []
   cflags = []
+  ldflags = []
 
   if (is_nacl) {
     configs += [ "//build/config/nacl:compiler_codegen" ]
@@ -1109,26 +1058,92 @@ config("compiler_codegen") {
           "-momit-leaf-frame-pointer",
         ]
       }
-    } else if (current_cpu == "arm") {
-      if (is_android && !is_clang) {
-        # Clang doesn't support these flags.
-        cflags += [
-          # The tree-sra optimization (scalar replacement for
-          # aggregates enabling subsequent optimizations) leads to
-          # invalid code generation when using the Android NDK's
-          # compiler (r5-r7). This can be verified using
-          # webkit_unit_tests' WTF.Checked_int8_t test.
-          "-fno-tree-sra",
+    }
+  }
 
-          # The following option is disabled to improve binary
-          # size and performance in gcc 4.9.
-          "-fno-caller-saves",
-        ]
+  if (current_cpu == "arm64" && is_android) {
+    # On arm64 disable outlining for Android. See crbug.com/931297 for more
+    # information.
+    cflags += [ "-mno-outline" ]
+
+    # This can be removed once https://bugs.llvm.org/show_bug.cgi?id=40348
+    # has been resolved, and -mno-outline is obeyed by the linker during
+    # ThinLTO.
+    ldflags += [ "-Wl,-mllvm,-enable-machine-outliner=never" ]
+  }
+
+  asmflags = cflags
+}
+
+# This provides options that make the build deterministic, so that the same
+# revision produces the same output, independent of the name of the build
+# directory and of the computer the build is done on.
+# The relative path from build dir to source dir makes it into the build
+# outputs, so it's recommended that you use a build dir two levels deep
+# (e.g. "out/Release") so that you get the same "../.." path as all the bots
+# in your build outputs.
+config("compiler_deterministic") {
+  cflags = []
+  ldflags = []
+
+  # Eliminate build metadata (__DATE__, __TIME__ and __TIMESTAMP__) for
+  # deterministic build.  See https://crbug.com/314403
+  if (!is_official_build) {
+    if (is_win && !is_clang) {
+      cflags += [
+        "/wd4117",  # Trying to define or undefine a predefined macro.
+        "/D__DATE__=",
+        "/D__TIME__=",
+        "/D__TIMESTAMP__=",
+      ]
+    } else {
+      cflags += [
+        "-Wno-builtin-macro-redefined",
+        "-D__DATE__=",
+        "-D__TIME__=",
+        "-D__TIMESTAMP__=",
+      ]
+    }
+  }
+
+  # Makes builds independent of absolute file path.
+  if (symbol_level != 0 && is_clang && strip_absolute_paths_from_debug_symbols) {
+    # If debug option is given, clang includes $cwd in debug info by default.
+    # For such build, this flag generates reproducible obj files even we use
+    # different build directory like "out/feature_a" and "out/feature_b" if
+    # we build same files with same compile flag.
+    # Other paths are already given in relative, no need to normalize them.
+    cflags += [
+      "-Xclang",
+      "-fdebug-compilation-dir",
+      "-Xclang",
+      ".",
+    ]
+
+    if (is_win && use_lld) {
+      if (symbol_level == 2 || (is_clang && using_sanitizer)) {
+        # Absolutize source file path for PDB. Pass the real build directory
+        # if the pdb contains source-level debug information.
+        ldflags += [ "/PDBSourcePath:" + rebase_path(root_build_dir) ]
+      } else {
+        # On Windows, (non-sanitizier) symbol_level 1 builds don't contain
+        # debug information in obj files; the linker just creates enough
+        # debug info at link time to produce symbolized stacks (without line
+        # numbers). In that case, there's no downside in using a fake fixed
+        # base directory for paths in the pdb. This makes the pdb output
+        # fully deterministic and independent of the build directory.
+        assert(symbol_level == 1 && !(is_clang && using_sanitizer))
+        ldflags += [ "/PDBSourcePath:o:\fake\prefix" ]
       }
     }
   }
 
-  asmflags = cflags
+  # Tells the compiler not to use absolute paths when passing the default
+  # paths to the tools it invokes. We don't want this because we don't
+  # really need it and it can mess up the goma cache entries.
+  if (is_clang && !is_nacl) {
+    cflags += [ "-no-canonical-prefixes" ]
+  }
 }
 
 config("clang_revision") {
@@ -1163,10 +1178,6 @@ config("compiler_arm_thumb") {
   if (current_cpu == "arm" && arm_use_thumb && is_posix &&
       !(is_mac || is_ios || is_nacl)) {
     cflags = [ "-mthumb" ]
-    if (is_android && !is_clang) {
-      # Clang doesn't support this option.
-      cflags += [ "-mthumb-interwork" ]
-    }
   }
 }
 
@@ -1200,16 +1211,18 @@ config("assembler_debug_dir") {
 # target wants the option regardless, put it in the compiler config.
 
 config("runtime_library") {
-  defines = []
   configs = []
 
-  # TODO(crbug.com/830987): Come up with a better name for is POSIX + Fuchsia
-  # configuration.
-  #
   # The order of this config is important: it must appear before
   # android:runtime_library.  This is to ensure libc++ appears before
   # libandroid_support in the -isystem include order.  Otherwise, there will be
   # build errors related to symbols declared in math.h.
+  if (use_custom_libcxx) {
+    configs += [ "//build/config/c++:runtime_library" ]
+  }
+
+  # TODO(crbug.com/830987): Come up with a better name for is POSIX + Fuchsia
+  # configuration.
   if (is_posix || is_fuchsia) {
     configs += [ "//build/config/posix:runtime_library" ]
   }
@@ -1230,7 +1243,7 @@ config("runtime_library") {
   }
 
   if (is_component_build) {
-    defines += [ "COMPONENT_BUILD" ]
+    defines = [ "COMPONENT_BUILD" ]
   }
 }
 
@@ -1551,16 +1564,9 @@ config("chromium_code") {
       "__STDC_FORMAT_MACROS",
     ]
 
-    if (!is_debug && !using_sanitizer &&
-        (!is_linux || !is_clang || is_official_build) &&
-        current_cpu != "s390x" && current_cpu != "s390" &&
-        current_cpu != "ppc64" && current_cpu != "ppc64" &&
+    if (!is_debug && !using_sanitizer && current_cpu != "s390x" &&
+        current_cpu != "s390" && current_cpu != "ppc64" &&
         current_cpu != "mips" && current_cpu != "mips64") {
-      # _FORTIFY_SOURCE isn't really supported by Clang now, see
-      # http://llvm.org/bugs/show_bug.cgi?id=16821.
-      # It seems to work fine with Ubuntu 12 headers though, so use it in
-      # official builds.
-      #
       # Non-chromium code is not guaranteed to compile cleanly with
       # _FORTIFY_SOURCE. Also, fortified build may fail when optimizations are
       # disabled, so only do that for Release build.
@@ -1584,6 +1590,13 @@ config("chromium_code") {
       # https://clang.llvm.org/docs/ThreadSafetyAnalysis.html
       "-Wthread-safety",
     ]
+
+    # TODO(thakis): Enable this for more platforms, https://crbug.com/926235
+    # Fuchsia: https://crbug.com/935588
+    has_dchecks = is_debug || dcheck_always_on
+    if (has_dchecks && !is_fuchsia) {
+      cflags += [ "-Wextra-semi" ]
+    }
   }
 
   configs = [ ":default_warnings" ]

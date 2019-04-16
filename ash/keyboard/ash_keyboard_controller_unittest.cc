@@ -12,6 +12,7 @@
 #include "ash/shell.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/ash_test_helper.h"
+#include "base/bind.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
 #include "base/test/scoped_task_environment.h"
@@ -160,7 +161,7 @@ class TestClient {
 
 class TestContainerBehavior : public keyboard::ContainerBehavior {
  public:
-  TestContainerBehavior() : keyboard::ContainerBehavior(nullptr){};
+  TestContainerBehavior() : keyboard::ContainerBehavior(nullptr) {}
   ~TestContainerBehavior() override = default;
 
   // keyboard::ContainerBehavior

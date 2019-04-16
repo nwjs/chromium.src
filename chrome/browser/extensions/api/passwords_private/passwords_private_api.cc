@@ -10,15 +10,16 @@
 #include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/values.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/profile_sync_service_factory.h"
 #include "chrome/common/extensions/api/passwords_private.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/password_manager/core/browser/manage_passwords_referrer.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
+#include "components/sync/driver/sync_service.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_function_registry.h"
 
@@ -44,6 +45,30 @@ PasswordsPrivateRecordPasswordsPageAccessInSettingsFunction::Run() {
         "PasswordManager.ManagePasswordsReferrerSignedInAndSyncing",
         password_manager::ManagePasswordsReferrer::kChromeSettings);
   }
+  return RespondNow(NoArguments());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PasswordsPrivateChangeSavedPasswordFunction
+
+PasswordsPrivateChangeSavedPasswordFunction::
+    ~PasswordsPrivateChangeSavedPasswordFunction() {}
+
+ExtensionFunction::ResponseAction
+PasswordsPrivateChangeSavedPasswordFunction::Run() {
+  std::unique_ptr<api::passwords_private::ChangeSavedPassword::Params>
+      parameters =
+          api::passwords_private::ChangeSavedPassword::Params::Create(*args_);
+  EXTENSION_FUNCTION_VALIDATE(parameters.get());
+
+  PasswordsPrivateDelegateFactory::GetForBrowserContext(browser_context(),
+                                                        true /* create */)
+      ->ChangeSavedPassword(
+          parameters->id, base::UTF8ToUTF16(parameters->new_username),
+          parameters->new_password ? base::make_optional(base::UTF8ToUTF16(
+                                         *parameters->new_password))
+                                   : base::nullopt);
+
   return RespondNow(NoArguments());
 }
 
@@ -163,8 +188,8 @@ void PasswordsPrivateGetSavedPasswordListFunction::GetList() {
   PasswordsPrivateDelegate* delegate =
       PasswordsPrivateDelegateFactory::GetForBrowserContext(browser_context(),
                                                             true /* create */);
-  delegate->GetSavedPasswordsList(
-      base::Bind(&PasswordsPrivateGetSavedPasswordListFunction::GotList, this));
+  delegate->GetSavedPasswordsList(base::BindOnce(
+      &PasswordsPrivateGetSavedPasswordListFunction::GotList, this));
 }
 
 void PasswordsPrivateGetSavedPasswordListFunction::GotList(

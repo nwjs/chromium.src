@@ -245,6 +245,8 @@
 #define glBlitFramebufferCHROMIUM GLES2_GET_FUN(BlitFramebufferCHROMIUM)
 #define glRenderbufferStorageMultisampleCHROMIUM \
   GLES2_GET_FUN(RenderbufferStorageMultisampleCHROMIUM)
+#define glRenderbufferStorageMultisampleAdvancedAMD \
+  GLES2_GET_FUN(RenderbufferStorageMultisampleAdvancedAMD)
 #define glRenderbufferStorageMultisampleEXT \
   GLES2_GET_FUN(RenderbufferStorageMultisampleEXT)
 #define glFramebufferTexture2DMultisampleEXT \
@@ -275,6 +277,11 @@
 #define glFramebufferParameteri GLES2_GET_FUN(FramebufferParameteri)
 #define glBindImageTexture GLES2_GET_FUN(BindImageTexture)
 #define glDispatchCompute GLES2_GET_FUN(DispatchCompute)
+#define glGetProgramInterfaceiv GLES2_GET_FUN(GetProgramInterfaceiv)
+#define glGetProgramResourceIndex GLES2_GET_FUN(GetProgramResourceIndex)
+#define glGetProgramResourceName GLES2_GET_FUN(GetProgramResourceName)
+#define glGetProgramResourceiv GLES2_GET_FUN(GetProgramResourceiv)
+#define glGetProgramResourceLocation GLES2_GET_FUN(GetProgramResourceLocation)
 #define glMemoryBarrierEXT GLES2_GET_FUN(MemoryBarrierEXT)
 #define glMemoryBarrierByRegion GLES2_GET_FUN(MemoryBarrierByRegion)
 #define glSwapBuffers GLES2_GET_FUN(SwapBuffers)
@@ -416,6 +423,8 @@
 #define glMaxShaderCompilerThreadsKHR GLES2_GET_FUN(MaxShaderCompilerThreadsKHR)
 #define glCreateAndTexStorage2DSharedImageCHROMIUM \
   GLES2_GET_FUN(CreateAndTexStorage2DSharedImageCHROMIUM)
+#define glCreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM \
+  GLES2_GET_FUN(CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM)
 #define glBeginSharedImageAccessDirectCHROMIUM \
   GLES2_GET_FUN(BeginSharedImageAccessDirectCHROMIUM)
 #define glEndSharedImageAccessDirectCHROMIUM \

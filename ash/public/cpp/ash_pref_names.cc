@@ -81,6 +81,10 @@ const char kAccessibilityDictationEnabled[] = "settings.a11y.dictation";
 // regardless of the state of a11y features.
 const char kShouldAlwaysShowAccessibilityMenu[] = "settings.a11y.enable_menu";
 
+// A boolean pref that stores whether the Kiosk Next Shell is enabled. When it
+// is, we start it after sign in.
+const char kKioskNextShellEnabled[] = "ash.kiosk_next_shell.enabled";
+
 // A boolean pref storing the enabled status of the Docked Magnifier feature.
 const char kDockedMagnifierEnabled[] = "ash.docked_magnifier.enabled";
 // A double pref storing the scale value of the Docked Magnifier feature by
@@ -182,6 +186,12 @@ const char kNightLightScheduleType[] = "ash.night_light.schedule_type";
 // See ash::TimeOfDayTime.
 const char kNightLightCustomStartTime[] = "ash.night_light.custom_start_time";
 const char kNightLightCustomEndTime[] = "ash.night_light.custom_end_time";
+
+// Double prefs storing the most recent valid geoposition, which is only used
+// when the device lacks connectivity and we're unable to retrieve a valid
+// geoposition to calculate the sunset / sunrise times.
+const char kNightLightCachedLatitude[] = "ash.night_light.cached_latitude";
+const char kNightLightCachedLongitude[] = "ash.night_light.cached_longitude";
 
 // Whether the Chrome OS lock screen is allowed.
 const char kAllowScreenLock[] = "allow_screen_lock";
@@ -333,6 +343,9 @@ const char kDetachableBaseDevices[] = "ash.detachable_base.devices";
 // Integer pref storing the number of Assistant warmer welcome triggered times.
 const char kAssistantNumWarmerWelcomeTriggered[] =
     "ash.assistant.num_warmer_welcome_triggered";
+
+// Whether the user is allowed to disconnect and configure VPN connections.
+const char kVpnConfigAllowed[] = "vpn_config_allowed";
 
 // NOTE: New prefs should start with the "ash." prefix. Existing prefs moved
 // into this file should not be renamed, since they may be synced.

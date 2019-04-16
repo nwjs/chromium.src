@@ -53,9 +53,32 @@ Polymer({
     },
 
     /**
+     * Whether annotation mode can be entered. This would be false if for
+     * example the PDF is encrypted or password protected. Note, this is
+     * true regardless of whether the feature flag is enabled.
+     */
+    annotationAvailable: {
+      type: Boolean,
+      value: true,
+    },
+
+    canUndoAnnotation: {
+      type: Boolean,
+      value: false,
+    },
+
+    canRedoAnnotation: {
+      type: Boolean,
+      value: false,
+    },
+
+    /**
      * Whether the PDF Annotations feature is enabled.
      */
-    pdfAnnotationsEnabled: Boolean,
+    pdfAnnotationsEnabled: {
+      type: Boolean,
+      value: false,
+    },
 
     strings: Object,
   },
@@ -72,8 +95,7 @@ Polymer({
       this.$.pageselector.classList.toggle('invisible', !loaded);
       this.$.buttons.classList.toggle('invisible', !loaded);
       this.$.progress.style.opacity = loaded ? 0 : 1;
-      this.$['annotations-bar'].classList.toggle(
-          'invisible', !(loaded && this.annotationMode));
+      this.$['annotations-bar'].hidden = !loaded || !this.annotationMode;
     }
   },
 
@@ -163,12 +185,25 @@ Polymer({
     this.fire('print');
   },
 
+  undo: function() {
+    this.fire('undo');
+  },
+
+  redo: function() {
+    this.fire('redo');
+  },
+
   toggleAnnotation: function() {
     this.annotationMode = !this.annotationMode;
     if (this.annotationMode) {
       // Select pen tool when entering annotation mode.
       this.updateAnnotationTool_(this.$.pen);
     }
+    this.dispatchEvent(new CustomEvent('annotation-mode-toggled', {
+      detail: {
+        value: this.annotationMode,
+      },
+    }));
   },
 
   /** @param {Event} e */
@@ -193,6 +228,10 @@ Polymer({
       selectedColor: null,
     };
     element.attributeStyleMap.set('--pen-tip-fill', options.selectedColor);
+    element.attributeStyleMap.set(
+        '--pen-tip-border',
+        options.selectedColor == '#000000' ? 'currentcolor' :
+                                             options.selectedColor);
     this.annotationTool = {
       tool: tool,
       size: options.selectedSize,

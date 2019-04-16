@@ -88,6 +88,10 @@ bool SchedulerWorker::Start(
 }
 
 void SchedulerWorker::WakeUp() {
+  // Signalling an event can deschedule the current thread. Since being
+  // descheduled while holding a lock is undesirable (https://crbug.com/890978),
+  // assert that no lock is held by the current thread.
+  SchedulerLock::AssertNoLockHeldOnCurrentThread();
   // Calling WakeUp() after Cleanup() or Join() is wrong because the
   // SchedulerWorker cannot run more tasks.
   DCHECK(!join_called_for_testing_.IsSet());
@@ -336,11 +340,7 @@ void SchedulerWorker::RunWorker() {
     sequence =
         task_tracker_->RunAndPopNextTask(std::move(sequence), delegate_.get());
 
-    delegate_->DidRunTask();
-
-    // Re-enqueue |sequence| if allowed by RunNextTask().
-    if (sequence)
-      delegate_->ReEnqueueSequence(std::move(sequence));
+    delegate_->DidRunTask(std::move(sequence));
 
     // Calling WakeUp() guarantees that this SchedulerWorker will run Tasks from
     // Sequences returned by the GetWork() method of |delegate_| until it

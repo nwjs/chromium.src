@@ -23,7 +23,6 @@ class NGLayoutResult;
 class NGPaintFragment;
 class NGPhysicalFragment;
 struct NGInlineNodeData;
-struct NGPhysicalOffset;
 
 // This mixin holds code shared between LayoutNG subclasses of
 // LayoutBlockFlow.
@@ -56,32 +55,18 @@ class LayoutNGMixin : public Base {
 
   PositionWithAffinity PositionForPoint(const LayoutPoint&) const final;
 
-  void ComputeSelfHitTestRects(Vector<LayoutRect>&,
-                               const LayoutPoint& layer_offset) const override;
-
   // Returns the last layout result for this block flow with the given
   // constraint space and break token, or null if it is not up-to-date or
   // otherwise unavailable.
-  scoped_refptr<NGLayoutResult> CachedLayoutResult(const NGConstraintSpace&,
-                                                   const NGBreakToken*) final;
+  scoped_refptr<const NGLayoutResult> CachedLayoutResult(
+      const NGConstraintSpace&,
+      const NGBreakToken*) final;
 
-  void SetCachedLayoutResult(const NGConstraintSpace&,
-                             const NGBreakToken*,
-                             const NGLayoutResult&) final;
-  void ClearCachedLayoutResult() final;
   bool AreCachedLinesValidFor(const NGConstraintSpace&) const final;
-
-  // For testing only.
-  scoped_refptr<const NGLayoutResult> CachedLayoutResultForTesting() final;
 
   NGPaintFragment* PaintFragment() const final { return paint_fragment_.get(); }
   void SetPaintFragment(const NGBlockBreakToken*,
-                        scoped_refptr<const NGPhysicalFragment>,
-                        NGPhysicalOffset) final;
-  void UpdatePaintFragmentFromCachedLayoutResult(
-      const NGBlockBreakToken*,
-      scoped_refptr<const NGPhysicalFragment>,
-      NGPhysicalOffset) final;
+                        scoped_refptr<const NGPhysicalFragment>) final;
 
  protected:
   bool IsOfType(LayoutObject::LayoutObjectType) const override;
@@ -107,8 +92,6 @@ class LayoutNGMixin : public Base {
                                   MarkingBehavior marking_behavior) final;
 
   std::unique_ptr<NGInlineNodeData> ng_inline_node_data_;
-
-  scoped_refptr<const NGLayoutResult> cached_result_;
   scoped_refptr<NGPaintFragment> paint_fragment_;
 
   friend class NGBaseLayoutAlgorithmTest;

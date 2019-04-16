@@ -36,7 +36,6 @@ ScriptTracker::ScriptTracker(ScriptExecutorDelegate* delegate,
                              ScriptTracker::Listener* listener)
     : delegate_(delegate),
       listener_(listener),
-      reported_runnable_scripts_(false),
       weak_ptr_factory_(this) {
   DCHECK(delegate_);
   DCHECK(listener_);
@@ -73,6 +72,7 @@ void ScriptTracker::CheckScripts(const base::TimeDelta& max_duration) {
 
   DCHECK(pending_runnable_scripts_.empty());
 
+  GURL url = delegate_->GetCurrentURL();
   batch_element_checker_ =
       delegate_->GetWebController()->CreateBatchElementChecker();
   for (const auto& entry : available_scripts_) {
@@ -81,17 +81,19 @@ void ScriptTracker::CheckScripts(const base::TimeDelta& max_duration) {
       continue;
 
     script->precondition->Check(
-        delegate_->GetWebController()->GetUrl(), batch_element_checker_.get(),
-        delegate_->GetParameters(), scripts_state_,
+        url, batch_element_checker_.get(), delegate_->GetParameters(),
+        scripts_state_,
         base::BindOnce(&ScriptTracker::OnPreconditionCheck,
                        weak_ptr_factory_.GetWeakPtr(), script));
   }
   if (batch_element_checker_->all_found() &&
-      pending_runnable_scripts_.empty() && reported_runnable_scripts_) {
+      pending_runnable_scripts_.empty() && !available_scripts_.empty()) {
+    DVLOG(1) << __func__ << ": No runnable scripts for " << url << " out of "
+             << available_scripts_.size() << " available.";
     // There are no runnable scripts, even though we haven't checked the DOM
     // yet. Report it all immediately.
     UpdateRunnableScriptsIfNecessary();
-    listener_->OnNoRunnableScriptsAnymore();
+    listener_->OnNoRunnableScripts();
     OnCheckDone();
     return;
   }
@@ -108,8 +110,8 @@ void ScriptTracker::CheckScripts(const base::TimeDelta& max_duration) {
 void ScriptTracker::ExecuteScript(const std::string& script_path,
                                   ScriptExecutor::RunScriptCallback callback) {
   if (running()) {
-    DLOG(ERROR) << "Do not expect executing the script (" << script_path
-                << " when there is a script running.";
+    DVLOG(1) << "Do not expect executing the script (" << script_path
+             << " when there is a script running.";
     ScriptExecutor::Result result;
     result.success = false;
     std::move(callback).Run(result);
@@ -170,7 +172,7 @@ base::Value ScriptTracker::GetDebugContext() const {
     script_js.SetKey("path", base::Value(entry.path));
     script_js.SetKey("initial_prompt", base::Value(entry.initial_prompt));
     script_js.SetKey("autostart", base::Value(entry.autostart));
-    script_js.SetKey("highlight", base::Value(entry.highlight));
+    script_js.SetKey("chip_type", base::Value(entry.chip_type));
     runnable_scripts_js.push_back(std::move(script_js));
   }
   dict.SetKey("runnable-scripts", base::Value(runnable_scripts_js));
@@ -204,7 +206,6 @@ void ScriptTracker::UpdateRunnableScriptsIfNecessary() {
     runnable_scripts_.push_back(script->handle);
   }
 
-  reported_runnable_scripts_ = true;
   listener_->OnRunnableScriptsChanged(runnable_scripts_);
 }
 

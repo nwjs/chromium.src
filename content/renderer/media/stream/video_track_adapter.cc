@@ -122,23 +122,25 @@ class VideoTrackAdapter::VideoFrameResolutionAdapter
     : public base::RefCountedThreadSafe<VideoFrameResolutionAdapter> {
  public:
   struct VideoTrackCallbacks {
-    VideoCaptureDeliverFrameCB frame_callback;
-    VideoTrackSettingsCallback settings_callback;
-    VideoTrackFormatCallback format_callback;
+    blink::VideoCaptureDeliverFrameCB frame_callback;
+    blink::VideoTrackSettingsCallback settings_callback;
+    blink::VideoTrackFormatCallback format_callback;
   };
   // Setting |max_frame_rate| to 0.0, means that no frame rate limitation
   // will be done.
   VideoFrameResolutionAdapter(
       scoped_refptr<base::SingleThreadTaskRunner> render_message_loop,
-      const VideoTrackAdapterSettings& settings);
+      const VideoTrackAdapterSettings& settings,
+      base::RepeatingCallback<void(media::VideoCaptureFrameDropReason)>
+          frame_dropped_cb);
 
   // Add |frame_callback| to receive video frames on the IO-thread and
   // |settings_callback| to set track settings on the main thread.
   // |frame_callback| will however be released on the main render thread.
   void AddCallbacks(const MediaStreamVideoTrack* track,
-                    VideoCaptureDeliverFrameCB frame_callback,
-                    VideoTrackSettingsCallback settings_callback,
-                    VideoTrackFormatCallback format_callback);
+                    blink::VideoCaptureDeliverFrameCB frame_callback,
+                    blink::VideoTrackSettingsCallback settings_callback,
+                    blink::VideoTrackFormatCallback format_callback);
 
   // Removes the callbacks associated with |track| if |track| has been added. It
   // is ok to call RemoveCallbacks() even if |track| has not been added.
@@ -170,26 +172,34 @@ class VideoTrackAdapter::VideoFrameResolutionAdapter
                       const base::TimeTicks& estimated_capture_time);
 
   // Returns |true| if the input frame rate is higher that the requested max
-  // frame rate and |frame| should be dropped.
+  // frame rate and |frame| should be dropped. If it returns true, |reason| is
+  // assigned to indicate the particular reason for the decision.
   bool MaybeDropFrame(const scoped_refptr<media::VideoFrame>& frame,
-                      float source_frame_rate);
+                      float source_frame_rate,
+                      media::VideoCaptureFrameDropReason* reason);
 
   // Updates track settings if either frame width, height or frame rate have
   // changed since last update.
   void MaybeUpdateTrackSettings(
-      const VideoTrackSettingsCallback& settings_callback,
+      const blink::VideoTrackSettingsCallback& settings_callback,
       const scoped_refptr<media::VideoFrame>& frame);
 
   // Updates computed source format for all tracks if either frame width, height
   // or frame rate have changed since last update.
   void MaybeUpdateTracksFormat(const scoped_refptr<media::VideoFrame>& frame);
 
+  void PostFrameDroppedToMainTaskRunner(
+      media::VideoCaptureFrameDropReason reason);
+
   // Bound to the IO-thread.
   THREAD_CHECKER(io_thread_checker_);
 
-  // The task runner where we will release VideoCaptureDeliverFrameCB
+  // The task runner where we will release blink::VideoCaptureDeliverFrameCB
   // registered in AddCallbacks.
   const scoped_refptr<base::SingleThreadTaskRunner> renderer_task_runner_;
+
+  base::RepeatingCallback<void(media::VideoCaptureFrameDropReason)>
+      frame_dropped_cb_;
 
   VideoTrackAdapterSettings settings_;
   double frame_rate_;
@@ -206,8 +216,11 @@ class VideoTrackAdapter::VideoFrameResolutionAdapter
 
 VideoTrackAdapter::VideoFrameResolutionAdapter::VideoFrameResolutionAdapter(
     scoped_refptr<base::SingleThreadTaskRunner> render_message_loop,
-    const VideoTrackAdapterSettings& settings)
+    const VideoTrackAdapterSettings& settings,
+    base::RepeatingCallback<void(media::VideoCaptureFrameDropReason)>
+        frame_dropped_cb)
     : renderer_task_runner_(render_message_loop),
+      frame_dropped_cb_(std::move(frame_dropped_cb)),
       settings_(settings),
       frame_rate_(MediaStreamVideoSource::kDefaultFrameRate),
       last_time_stamp_(base::TimeDelta::Max()),
@@ -239,9 +252,9 @@ VideoFrameResolutionAdapter::~VideoFrameResolutionAdapter() {
 
 void VideoTrackAdapter::VideoFrameResolutionAdapter::AddCallbacks(
     const MediaStreamVideoTrack* track,
-    VideoCaptureDeliverFrameCB frame_callback,
-    VideoTrackSettingsCallback settings_callback,
-    VideoTrackFormatCallback format_callback) {
+    blink::VideoCaptureDeliverFrameCB frame_callback,
+    blink::VideoTrackSettingsCallback settings_callback,
+    blink::VideoTrackFormatCallback format_callback) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
   callbacks_.insert({track,
                      {std::move(frame_callback), std::move(settings_callback),
@@ -276,6 +289,8 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DeliverFrame(
 
   if (!frame) {
     DLOG(ERROR) << "Incoming frame is not valid.";
+    PostFrameDroppedToMainTaskRunner(
+        media::VideoCaptureFrameDropReason::kResolutionAdapterFrameIsNotValid);
     return;
   }
 
@@ -289,8 +304,11 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DeliverFrame(
     frame_rate = MediaStreamVideoSource::kUnknownFrameRate;
   }
 
-  if (MaybeDropFrame(frame, frame_rate))
+  auto frame_drop_reason = media::VideoCaptureFrameDropReason::kNone;
+  if (MaybeDropFrame(frame, frame_rate, &frame_drop_reason)) {
+    PostFrameDroppedToMainTaskRunner(frame_drop_reason);
     return;
+  }
 
   // TODO(perkj): Allow cropping / scaling of textures once
   // https://crbug/362521 is fixed.
@@ -313,8 +331,12 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DeliverFrame(
 
     video_frame = media::VideoFrame::WrapVideoFrame(
         frame, frame->format(), region_in_frame, desired_size);
-    if (!video_frame)
+    if (!video_frame) {
+      PostFrameDroppedToMainTaskRunner(
+          media::VideoCaptureFrameDropReason::
+              kResolutionAdapterWrappingFrameForCroppingFailed);
       return;
+    }
     video_frame->AddDestructionObserver(
         base::BindOnce(&TrackReleaseOriginalFrame, frame));
 
@@ -342,6 +364,10 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DoDeliverFrame(
     const scoped_refptr<media::VideoFrame>& frame,
     const base::TimeTicks& estimated_capture_time) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
+  if (callbacks_.empty()) {
+    PostFrameDroppedToMainTaskRunner(
+        media::VideoCaptureFrameDropReason::kResolutionAdapterHasNoCallbacks);
+  }
   for (const auto& callback : callbacks_) {
     MaybeUpdateTrackSettings(callback.second.settings_callback, frame);
     callback.second.frame_callback.Run(frame, estimated_capture_time);
@@ -350,7 +376,8 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::DoDeliverFrame(
 
 bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
     const scoped_refptr<media::VideoFrame>& frame,
-    float source_frame_rate) {
+    float source_frame_rate,
+    media::VideoCaptureFrameDropReason* reason) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
 
   // Do not drop frames if max frame rate hasn't been specified or the source
@@ -384,6 +411,8 @@ bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
     // actual camera.
     DVLOG(3) << "Drop frame since delta time since previous frame is "
              << delta_ms << "ms.";
+    *reason = media::VideoCaptureFrameDropReason::
+        kResolutionAdapterTimestampTooCloseToPrevious;
     return true;
   }
   last_time_stamp_ = frame->timestamp();
@@ -404,11 +433,13 @@ bool VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeDropFrame(
     return false;
   }
   DVLOG(3) << "Drop frame. Input frame_rate_ " << frame_rate_ << ".";
+  *reason = media::VideoCaptureFrameDropReason::
+      kResolutionAdapterFrameRateIsHigherThanRequested;
   return true;
 }
 
 void VideoTrackAdapter::VideoFrameResolutionAdapter::MaybeUpdateTrackSettings(
-    const VideoTrackSettingsCallback& settings_callback,
+    const blink::VideoTrackSettingsCallback& settings_callback,
     const scoped_refptr<media::VideoFrame>& frame) {
   DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
   ComputeFrameRate(frame->timestamp(), &track_settings_.frame_rate,
@@ -439,6 +470,13 @@ void VideoTrackAdapter::VideoFrameResolutionAdapter::ResetFrameRate() {
   for (const auto& callback : callbacks_) {
     callback.second.settings_callback.Run(track_settings_.frame_size, 0.0);
   }
+}
+
+void VideoTrackAdapter::VideoFrameResolutionAdapter::
+    PostFrameDroppedToMainTaskRunner(
+        media::VideoCaptureFrameDropReason reason) {
+  renderer_task_runner_->PostTask(FROM_HERE,
+                                  base::BindOnce(frame_dropped_cb_, reason));
 }
 
 VideoTrackAdapterSettings::VideoTrackAdapterSettings()
@@ -485,9 +523,12 @@ bool VideoTrackAdapterSettings::operator==(
 }
 
 VideoTrackAdapter::VideoTrackAdapter(
-    scoped_refptr<base::SingleThreadTaskRunner> io_task_runner)
+    scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
+    base::RepeatingCallback<void(media::VideoCaptureFrameDropReason)>
+        frame_dropped_cb)
     : io_task_runner_(io_task_runner),
       renderer_task_runner_(base::ThreadTaskRunnerHandle::Get()),
+      frame_dropped_cb_(std::move(frame_dropped_cb)),
       monitoring_frame_rate_(false),
       muted_state_(false),
       frame_counter_(0),
@@ -499,11 +540,12 @@ VideoTrackAdapter::~VideoTrackAdapter() {
   DCHECK(adapters_.empty());
 }
 
-void VideoTrackAdapter::AddTrack(const MediaStreamVideoTrack* track,
-                                 VideoCaptureDeliverFrameCB frame_callback,
-                                 VideoTrackSettingsCallback settings_callback,
-                                 VideoTrackFormatCallback format_callback,
-                                 const VideoTrackAdapterSettings& settings) {
+void VideoTrackAdapter::AddTrack(
+    const MediaStreamVideoTrack* track,
+    blink::VideoCaptureDeliverFrameCB frame_callback,
+    blink::VideoTrackSettingsCallback settings_callback,
+    blink::VideoTrackFormatCallback format_callback,
+    const VideoTrackAdapterSettings& settings) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   io_task_runner_->PostTask(
@@ -515,9 +557,9 @@ void VideoTrackAdapter::AddTrack(const MediaStreamVideoTrack* track,
 
 void VideoTrackAdapter::AddTrackOnIO(
     const MediaStreamVideoTrack* track,
-    VideoCaptureDeliverFrameCB frame_callback,
-    VideoTrackSettingsCallback settings_callback,
-    VideoTrackFormatCallback format_callback,
+    blink::VideoCaptureDeliverFrameCB frame_callback,
+    blink::VideoTrackSettingsCallback settings_callback,
+    blink::VideoTrackFormatCallback format_callback,
     const VideoTrackAdapterSettings& settings) {
   DCHECK(io_task_runner_->BelongsToCurrentThread());
   scoped_refptr<VideoFrameResolutionAdapter> adapter;
@@ -528,7 +570,8 @@ void VideoTrackAdapter::AddTrackOnIO(
     }
   }
   if (!adapter.get()) {
-    adapter = new VideoFrameResolutionAdapter(renderer_task_runner_, settings);
+    adapter = new VideoFrameResolutionAdapter(renderer_task_runner_, settings,
+                                              frame_dropped_cb_);
     adapters_.push_back(adapter);
   }
 
@@ -697,11 +740,13 @@ void VideoTrackAdapter::ReconfigureTrackOnIO(
   // Remove the track.
   for (auto it = adapters_.begin(); it != adapters_.end(); ++it) {
     track_callbacks = (*it)->RemoveAndGetCallbacks(track);
+    if (track_callbacks.frame_callback.is_null())
+      continue;
     if ((*it)->IsEmpty()) {
       DCHECK(!track_callbacks.frame_callback.is_null());
       adapters_.erase(it);
-      break;
     }
+    break;
   }
 
   // If the track was found, re-add it with new settings.
@@ -725,6 +770,13 @@ void VideoTrackAdapter::DeliverFrameOnIO(
       frame->natural_size().width() == source_frame_size_->height() &&
       frame->natural_size().height() == source_frame_size_->width()) {
     is_device_rotated = true;
+  }
+  if (adapters_.empty()) {
+    renderer_task_runner_->PostTask(
+        FROM_HERE,
+        base::BindOnce(frame_dropped_cb_,
+                       media::VideoCaptureFrameDropReason::
+                           kVideoTrackAdapterHasNoResolutionAdapters));
   }
   for (const auto& adapter : adapters_)
     adapter->DeliverFrame(frame, estimated_capture_time, is_device_rotated);

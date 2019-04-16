@@ -10,11 +10,9 @@
 
 namespace offline_pages {
 
-extern const base::Feature kOfflineBookmarksFeature;
 extern const base::Feature kOffliningRecentPagesFeature;
 extern const base::Feature kOfflinePagesSvelteConcurrentLoadingFeature;
 extern const base::Feature kOfflinePagesCTFeature;
-extern const base::Feature kOfflinePagesSharingFeature;
 extern const base::Feature kOfflinePagesLivePageSharingFeature;
 extern const base::Feature kBackgroundLoaderForDownloadsFeature;
 extern const base::Feature kPrefetchingOfflinePagesFeature;
@@ -35,17 +33,11 @@ extern const base::Feature kOnTheFlyMhtmlHashComputationFeature;
 // pages.
 extern const char kPrefetchingOfflinePagesExperimentsOption[];
 
-// Returns true if saving bookmarked pages for offline viewing is enabled.
-bool IsOfflineBookmarksEnabled();
-
 // Returns true if offlining of recent pages (aka 'Last N pages') is enabled.
 bool IsOffliningRecentPagesEnabled();
 
 // Returns true if offline CT features are enabled.  See crbug.com/620421.
 bool IsOfflinePagesCTEnabled();
-
-// Returns true if offline page sharing is enabled.
-bool IsOfflinePagesSharingEnabled();
 
 // Returns true if live page sharing of offline page is enabled.
 bool IsOfflinePagesLivePageSharingEnabled();

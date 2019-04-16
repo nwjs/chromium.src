@@ -4,6 +4,10 @@
 
 #include "chrome/browser/media/router/providers/cast/cast_activity_manager.h"
 
+#include <memory>
+#include <vector>
+
+#include "base/bind.h"
 #include "chrome/browser/media/router/data_decoder_util.h"
 #include "chrome/common/media_router/discovery/media_sink_service_base.h"
 #include "chrome/common/media_router/providers/cast/cast_media_source.h"
@@ -109,6 +113,13 @@ void CastSessionClient::HandleParsedClientMessage(
     return;
   }
 
+  if (cast_message->type != CastInternalMessage::Type::kAppMessage &&
+      cast_message->type != CastInternalMessage::Type::kV2Message) {
+    DVLOG(2) << "Unhandled message type: "
+             << static_cast<int>(cast_message->type);
+    return;
+  }
+
   if (cast_message->session_id() != activity_->session_id()) {
     DVLOG(2) << "Session ID mismatch: expected: "
              << activity_->session_id().value_or("<missing>")
@@ -116,22 +127,15 @@ void CastSessionClient::HandleParsedClientMessage(
     return;
   }
 
-  if (cast_message->type == CastInternalMessage::Type::kAppMessage) {
-    if (cast_message->client_id != client_id_)
-      return;
-
+  if (cast_message->type == CastInternalMessage::Type::kAppMessage &&
+      activity_->SendAppMessageToReceiver(*cast_message) ==
+          cast_channel::Result::kOk) {
     // Send an ACK message back to SDK client to indicate it is handled.
-    if (activity_->SendAppMessageToReceiver(*cast_message) ==
-        cast_channel::Result::kOk) {
-      DCHECK(cast_message->sequence_number);
-      SendMessageToClient(CreateAppMessageAck(cast_message->client_id,
-                                              *cast_message->sequence_number));
-    }
+    DCHECK(cast_message->sequence_number);
+    SendMessageToClient(CreateAppMessageAck(cast_message->client_id,
+                                            *cast_message->sequence_number));
   } else if (cast_message->type == CastInternalMessage::Type::kV2Message) {
     HandleV2ProtocolMessage(*cast_message);
-  } else {
-    DVLOG(2) << "Unhandled message type: "
-             << static_cast<int>(cast_message->type);
   }
 }
 
@@ -201,20 +205,6 @@ void CastSessionClient::TerminateConnection() {
   connection_binding_.Close();
 }
 
-CastActivityRecord::CastActivityRecord(
-    const MediaRoute& route,
-    const std::string& app_id,
-    MediaSinkServiceBase* media_sink_service,
-    cast_channel::CastMessageHandler* message_handler,
-    CastSessionTracker* session_tracker,
-    DataDecoder* data_decoder)
-    : route_(route),
-      app_id_(app_id),
-      media_sink_service_(media_sink_service),
-      message_handler_(message_handler),
-      session_tracker_(session_tracker),
-      data_decoder_(data_decoder) {}
-
 CastActivityRecord::~CastActivityRecord() {}
 
 mojom::RoutePresentationConnectionPtr CastActivityRecord::AddClient(
@@ -283,6 +273,21 @@ void CastActivityRecord::SendSetVolumeRequestToReceiver(
       cast_message.client_id, std::move(callback));
 }
 
+void CastActivityRecord::SendStopSessionMessageToReceiver(
+    const base::Optional<std::string>& client_id,
+    mojom::MediaRouteProvider::TerminateRouteCallback callback) {
+  const std::string& sink_id = route_.media_sink_id();
+  const MediaSinkInternal* sink = media_sink_service_->GetSinkById(sink_id);
+  DCHECK(sink);
+  DCHECK(session_id_);
+
+  message_handler_->StopSession(
+      sink->cast_data().cast_channel_id, *session_id_, client_id,
+      base::BindOnce(&CastActivityManager::HandleStopSessionResponse,
+                     activity_manager_->GetWeakPtr(), route_.media_route_id(),
+                     std::move(callback)));
+}
+
 void CastActivityRecord::SendMessageToClient(
     const std::string& client_id,
     blink::mojom::PresentationConnectionMessagePtr message) {
@@ -304,6 +309,22 @@ void CastActivityRecord::TerminatePresentationConnections() {
   for (auto& client : connected_clients_)
     client.second->TerminateConnection();
 }
+
+CastActivityRecord::CastActivityRecord(
+    const MediaRoute& route,
+    const std::string& app_id,
+    MediaSinkServiceBase* media_sink_service,
+    cast_channel::CastMessageHandler* message_handler,
+    CastSessionTracker* session_tracker,
+    DataDecoder* data_decoder,
+    CastActivityManager* owner)
+    : route_(route),
+      app_id_(app_id),
+      media_sink_service_(media_sink_service),
+      message_handler_(message_handler),
+      session_tracker_(session_tracker),
+      data_decoder_(data_decoder),
+      activity_manager_(owner) {}
 
 CastSession* CastActivityRecord::GetSession() {
   DCHECK(session_id_);
@@ -411,8 +432,7 @@ void CastActivityManager::LaunchSession(
         existing_route_id,
         base::BindOnce(
             &CastActivityManager::LaunchSessionAfterTerminatingExisting,
-            weak_ptr_factory_.GetWeakPtr(), existing_route_id,
-            std::move(params)));
+            GetWeakPtr(), existing_route_id, std::move(params)));
   }
 }
 
@@ -430,19 +450,17 @@ void CastActivityManager::DoLaunchSession(DoLaunchSessionParams params) {
            << ", sink ID = " << sink.sink().id() << ", app ID = " << app_id
            << ", origin = " << params.origin << ", tab ID = " << params.tab_id;
 
-  auto activity = std::make_unique<CastActivityRecord>(
+  std::unique_ptr<CastActivityRecord> activity(new CastActivityRecord(
       route, app_id, media_sink_service_, message_handler_, session_tracker_,
-      data_decoder_.get());
+      data_decoder_.get(), this));
   auto* activity_ptr = activity.get();
   activities_.emplace(route_id, std::move(activity));
   NotifyAllOnRoutesUpdated();
-
   base::TimeDelta launch_timeout = cast_source.launch_timeout();
   message_handler_->LaunchSession(
       sink.cast_data().cast_channel_id, app_id, launch_timeout,
       base::BindOnce(&CastActivityManager::HandleLaunchSessionResponse,
-                     weak_ptr_factory_.GetWeakPtr(), route_id, sink,
-                     cast_source));
+                     GetWeakPtr(), route_id, sink, cast_source));
 
   mojom::RoutePresentationConnectionPtr presentation_connection;
   const std::string& client_id = cast_source.client_id();
@@ -520,22 +538,16 @@ void CastActivityManager::TerminateSession(
   }
 
   const MediaSinkInternal* sink = media_sink_service_->GetSinkByRoute(route);
-  if (!sink) {
-    RemoveActivity(activity_it);
-    std::move(callback).Run(base::nullopt, RouteRequestResult::OK);
-    return;
-  }
+  CHECK(sink);
 
   for (auto& client : activity->connected_clients()) {
     client.second->SendMessageToClient(
         CreateReceiverActionStopMessage(client.first, *sink, hash_token_));
   }
 
-  message_handler_->StopSession(
-      sink->cast_data().cast_channel_id, *session_id,
-      base::BindOnce(&CastActivityManager::HandleStopSessionResponse,
-                     weak_ptr_factory_.GetWeakPtr(), route_id,
-                     std::move(callback)));
+  activity->SendStopSessionMessageToReceiver(
+      base::nullopt,  // TODO(jrw): Get the real client ID.
+      std::move(callback));
 }
 
 CastActivityManager::ActivityMap::iterator
@@ -673,9 +685,9 @@ void CastActivityManager::AddNonLocalActivityRecord(
   MediaRoute route(route_id, source, sink_id, /* description */ std::string(),
                    /* is_local */ false, /* for_display */ true);
 
-  auto record = std::make_unique<CastActivityRecord>(
+  std::unique_ptr<CastActivityRecord> record(new CastActivityRecord(
       route, app_id, media_sink_service_, message_handler_, session_tracker_,
-      data_decoder_.get());
+      data_decoder_.get(), this));
   record->SetOrUpdateSession(session, sink, hash_token_);
   activities_.emplace(route_id, std::move(record));
 }
@@ -743,13 +755,12 @@ void CastActivityManager::HandleLaunchSessionResponse(
     DVLOG(2) << "Sending new_session message for route " << route_id
              << ", client_id: " << client_id;
     activity_it->second->SendMessageToClient(
-        client_id, CreateNewSessionMessage(*session, cast_source.client_id(),
-                                           sink, hash_token_));
+        client_id,
+        CreateNewSessionMessage(*session, client_id, sink, hash_token_));
 
-    // TODO(imcheng): Query media status.
+    // TODO(jrw): Query media status.
     message_handler_->EnsureConnection(sink.cast_data().cast_channel_id,
-                                       cast_source.client_id(),
-                                       session->transport_id());
+                                       client_id, session->transport_id());
   }
 
   activity_it->second->SetOrUpdateSession(*session, sink, hash_token_);
@@ -761,6 +772,8 @@ void CastActivityManager::HandleStopSessionResponse(
     mojom::MediaRouteProvider::TerminateRouteCallback callback,
     cast_channel::Result result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  VLOG(2) << __func__ << ": " << route_id;
+
   auto activity_it = activities_.find(route_id);
   if (activity_it == activities_.end()) {
     // The activity could've been removed via RECEIVER_STATUS message.
@@ -788,6 +801,10 @@ void CastActivityManager::SendFailedToCastIssue(
   media_router_->OnIssue(info);
 }
 
+base::WeakPtr<CastActivityManager> CastActivityManager::GetWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
+}
+
 CastActivityManager::DoLaunchSessionParams::DoLaunchSessionParams(
     const MediaRoute& route,
     const CastMediaSource& cast_source,
@@ -803,7 +820,7 @@ CastActivityManager::DoLaunchSessionParams::DoLaunchSessionParams(
       callback(std::move(callback)) {}
 
 CastActivityManager::DoLaunchSessionParams::DoLaunchSessionParams(
-    DoLaunchSessionParams&& other) noexcept = default;
+    DoLaunchSessionParams&& other) = default;
 
 CastActivityManager::DoLaunchSessionParams::~DoLaunchSessionParams() = default;
 

@@ -95,38 +95,6 @@ class FailingProxyResolverFactory : public ProxyResolverFactory {
   }
 };
 
-class FailingHostResolver : public MockHostResolverBase {
- public:
-  FailingHostResolver() : MockHostResolverBase(false /*use_caching*/) {}
-  ~FailingHostResolver() override = default;
-
-  int Resolve(const RequestInfo& info,
-              RequestPriority priority,
-              AddressList* addresses,
-              CompletionOnceCallback callback,
-              std::unique_ptr<Request>* out_req,
-              const NetLogWithSource& net_log) override {
-    return ERR_NAME_NOT_RESOLVED;
-  }
-};
-
-// TODO(xunjieli): This should just use HangingHostResolver from
-// mock_host_resolver.h
-class HangingResolver : public MockHostResolverBase {
- public:
-  HangingResolver() : MockHostResolverBase(false /*use_caching*/) {}
-  ~HangingResolver() override = default;
-
-  int Resolve(const RequestInfo& info,
-              RequestPriority priority,
-              AddressList* addresses,
-              CompletionOnceCallback callback,
-              std::unique_ptr<Request>* out_req,
-              const NetLogWithSource& net_log) override {
-    return ERR_IO_PENDING;
-  }
-};
-
 // A mock HttpServerProperties that always returns false for IsInitialized().
 class MockHttpServerProperties : public HttpServerPropertiesImpl {
  public:
@@ -499,7 +467,7 @@ class JobControllerReconsiderProxyAfterErrorTest
   HttpStreamFactory::JobFactory default_job_factory_;
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     JobControllerReconsiderProxyAfterErrorTest,
     ::testing::Combine(::testing::Bool(),
@@ -1740,7 +1708,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, HostResolutionHang) {
   session_deps_.host_resolver->ResolveAllPending();
 
   // Task to resume main job in 15 microseconds should be posted.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(base::TimeDelta::FromMicroseconds(14));
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(1);
@@ -1806,7 +1774,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, DelayedTCP) {
   EXPECT_FALSE(JobControllerPeer::main_job_is_resumed(job_controller_));
 
   // Task to resume main job in 15us should be posted.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(base::TimeDelta::FromMicroseconds(14));
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(1);
@@ -1832,7 +1800,8 @@ TEST_F(HttpStreamFactoryJobControllerTest, ResumeMainJobLaterCanceled) {
   session_deps_.proxy_resolution_service = std::move(proxy_resolution_service);
 
   // Using hanging resolver will cause the alternative job to hang indefinitely.
-  session_deps_.host_resolver = std::make_unique<HangingResolver>();
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
 
   HttpRequestInfo request_info;
   request_info.method = "GET";
@@ -1944,7 +1913,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, DelayedTCPWithLargeSrtt) {
   EXPECT_FALSE(JobControllerPeer::main_job_is_resumed(job_controller_));
 
   // Task to resume main job in 3 seconds should be posted.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(kMaxDelayTimeForMainJob - base::TimeDelta::FromMicroseconds(1));
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(1);
@@ -2004,7 +1973,7 @@ TEST_F(HttpStreamFactoryJobControllerTest,
   EXPECT_FALSE(JobControllerPeer::main_job_is_resumed(job_controller_));
 
   // Task to resume main job in 15us should be posted.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
 
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(base::TimeDelta::FromMicroseconds(1));
@@ -2021,7 +1990,7 @@ TEST_F(HttpStreamFactoryJobControllerTest,
 
   // Verify there is another task to resume main job with delay but should
   // not call Resume() on the main job as main job has been resumed.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(base::TimeDelta::FromMicroseconds(15));
 
@@ -2032,7 +2001,8 @@ TEST_F(HttpStreamFactoryJobControllerTest,
 // scheme is HTTPS.
 TEST_F(HttpStreamFactoryJobControllerTest, HttpsURL) {
   // Using hanging resolver will cause the alternative job to hang indefinitely.
-  session_deps_.host_resolver = std::make_unique<HangingResolver>();
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
 
   HttpRequestInfo request_info;
   request_info.method = "GET";
@@ -2055,7 +2025,8 @@ TEST_F(HttpStreamFactoryJobControllerTest, HttpsURL) {
 // does not fetch the resource through a proxy.
 TEST_F(HttpStreamFactoryJobControllerTest, HttpURLWithNoProxy) {
   // Using hanging resolver will cause the alternative job to hang indefinitely.
-  session_deps_.host_resolver = std::make_unique<HangingResolver>();
+  session_deps_.alternate_host_resolver =
+      std::make_unique<HangingHostResolver>();
 
   HttpRequestInfo request_info;
   request_info.method = "GET";
@@ -2123,7 +2094,7 @@ TEST_F(HttpStreamFactoryJobControllerTest, DelayedTCPAlternativeProxy) {
   EXPECT_FALSE(JobControllerPeer::main_job_is_resumed(job_controller_));
 
   // Task to resume main job in 15us should be posted.
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_NE(0u, GetPendingMainThreadTaskCount());
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(0);
   FastForwardBy(base::TimeDelta::FromMicroseconds(14));
   EXPECT_CALL(*job_factory_.main_job(), Resume()).Times(1);
@@ -2481,7 +2452,7 @@ TEST_F(JobControllerLimitMultipleH2Requests, MultipleRequestsFirstRequestHang) {
     EXPECT_CALL(*request_delegates[i].get(), OnStreamReadyImpl(_, _, _));
   }
 
-  EXPECT_TRUE(MainThreadHasPendingTask());
+  EXPECT_GT(GetPendingMainThreadTaskCount(), 0u);
   FastForwardBy(base::TimeDelta::FromMilliseconds(
       HttpStreamFactory::Job::kHTTP2ThrottleMs));
   base::RunLoop().RunUntilIdle();
@@ -2723,7 +2694,7 @@ class HttpStreamFactoryJobControllerMisdirectedRequestRetry
     : public HttpStreamFactoryJobControllerTest,
       public ::testing::WithParamInterface<::testing::tuple<bool, bool>> {};
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     HttpStreamFactoryJobControllerMisdirectedRequestRetry,
     ::testing::Combine(::testing::Bool(), ::testing::Bool()));
@@ -2814,7 +2785,7 @@ class HttpStreamFactoryJobControllerPreconnectTest
   HttpRequestInfo request_info_;
 };
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     /* no prefix */,
     HttpStreamFactoryJobControllerPreconnectTest,
     ::testing::Bool());

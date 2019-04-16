@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser;
 
 import android.app.Notification;
+import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -50,9 +51,11 @@ import org.chromium.chrome.browser.signin.GoogleActivityController;
 import org.chromium.chrome.browser.survey.SurveyController;
 import org.chromium.chrome.browser.tab.AuthenticatorNavigationInterceptor;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.usage_stats.DigitalWellbeingClient;
 import org.chromium.chrome.browser.webapps.GooglePlayWebApkInstallDelegate;
 import org.chromium.chrome.browser.webauth.Fido2ApiHandler;
 import org.chromium.chrome.browser.widget.FeatureHighlightProvider;
+import org.chromium.components.download.DownloadCollectionBridge;
 import org.chromium.components.signin.AccountManagerDelegate;
 import org.chromium.components.signin.SystemAccountManagerDelegate;
 import org.chromium.policy.AppRestrictionsProvider;
@@ -270,6 +273,22 @@ public abstract class AppHooks {
     }
 
     /**
+     * Upgrades a service from background to foreground after calling
+     * {@link #startForegroundService(Intent)}.
+     * @param service The service to be foreground.
+     * @param id The notification id.
+     * @param notification The notification attached to the foreground service.
+     * @param foregroundServiceType The type of foreground service. Must be a subset of the
+     *                              foreground service types defined in AndroidManifest.xml.
+     *                              Use 0 if no foregroundServiceType attribute is defined.
+     */
+    public void startForeground(
+            Service service, int id, Notification notification, int foregroundServiceType) {
+        // TODO(xingliu): Add appropriate foregroundServiceType to manifest when we have new sdk.
+        service.startForeground(id, notification);
+    }
+
+    /**
      * @return A callback that will be run each time an offline page is saved in the custom tabs
      * namespace.
      */
@@ -331,6 +350,20 @@ public abstract class AppHooks {
      */
     public FeatureHighlightProvider createFeatureHighlightProvider() {
         return new FeatureHighlightProvider();
+    }
+
+    /**
+     * @return A new {@link DownloadCollectionBridge} instance.
+     */
+    public DownloadCollectionBridge getDownloadCollectionBridge() {
+        return DownloadCollectionBridge.getDownloadCollectionBridge();
+    }
+
+    /**
+     * @return A new {@link DigitalWellbeingClient} instance.
+     */
+    public DigitalWellbeingClient createDigitalWellbeingClient() {
+        return new DigitalWellbeingClient();
     }
 
     /**

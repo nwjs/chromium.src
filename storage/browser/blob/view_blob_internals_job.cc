@@ -225,11 +225,11 @@ void ViewBlobInternalsJob::GenerateHTMLForBlobData(
     const BlobEntry& blob_data,
     const std::string& content_type,
     const std::string& content_disposition,
-    int refcount,
+    size_t refcount,
     std::string* out) {
   StartHTMLList(out);
 
-  AddHTMLListItem(kRefcount, base::IntToString(refcount), out);
+  AddHTMLListItem(kRefcount, base::NumberToString(refcount), out);
   AddHTMLListItem(kStatus, StatusToString(blob_data.status()), out);
   if (!content_type.empty())
     AddHTMLListItem(kContentType, content_type, out);

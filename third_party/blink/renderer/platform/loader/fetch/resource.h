@@ -44,7 +44,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_status.h"
 #include "third_party/blink/renderer/platform/loader/fetch/text_resource_decoder_options.h"
 #include "third_party/blink/renderer/platform/loader/subresource_integrity.h"
-#include "third_party/blink/renderer/platform/memory_coordinator.h"
+#include "third_party/blink/renderer/platform/memory_pressure_listener.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/shared_buffer.h"
@@ -65,13 +65,14 @@ class ResourceFetcher;
 class ResourceFinishObserver;
 class ResourceTimingInfo;
 class ResourceLoader;
+class ResponseBodyLoaderDrainableInterface;
 class SecurityOrigin;
 
 // |ResourceType| enum values are used in UMAs, so do not change the values of
 // existing types. When adding a new type, append it at the end.
 enum class ResourceType : uint8_t {
-  kMainResource,
-  kImage,
+  // We do not have kMainResource anymore, which used to have zero value.
+  kImage = 1,
   kCSSStyleSheet,
   kScript,
   kFont,
@@ -93,9 +94,8 @@ enum class ResourceType : uint8_t {
 // requested data has arrived. This class also does the actual communication
 // with the loader to obtain the resource from the network.
 class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
-                                 public MemoryCoordinatorClient {
+                                 public MemoryPressureListener {
   USING_GARBAGE_COLLECTED_MIXIN(Resource);
-  WTF_MAKE_NONCOPYABLE(Resource);
 
  public:
   // An enum representing whether a resource match with another resource.
@@ -233,6 +233,9 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   size_t DecodedSize() const { return decoded_size_; }
   size_t OverheadSize() const { return overhead_size_; }
+  size_t CodeCacheSize() const {
+    return (cache_handler_) ? cache_handler_->GetCodeCacheSize() : 0;
+  }
 
   bool IsLoaded() const { return status_ > ResourceStatus::kPending; }
 
@@ -262,8 +265,9 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   // been made to not follow it.
   virtual void WillNotFollowRedirect() {}
 
-  virtual void ResponseReceived(const ResourceResponse&,
-                                std::unique_ptr<WebDataConsumerHandle>);
+  virtual void ResponseReceived(const ResourceResponse&);
+  virtual void ResponseBodyReceived(
+      ResponseBodyLoaderDrainableInterface& body_loader) {}
   void SetResponse(const ResourceResponse&);
   const ResourceResponse& GetResponse() const { return response_; }
 
@@ -338,12 +342,12 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   // https://fetch.spec.whatwg.org/#concept-request-origin
   const scoped_refptr<const SecurityOrigin>& GetOrigin() const;
 
-  virtual void DidSendData(unsigned long long /* bytesSent */,
-                           unsigned long long /* totalBytesToBeSent */) {}
-  virtual void DidDownloadData(unsigned long long) {}
+  virtual void DidSendData(uint64_t /* bytesSent */,
+                           uint64_t /* totalBytesToBeSent */) {}
+  virtual void DidDownloadData(uint64_t) {}
   virtual void DidDownloadToBlob(scoped_refptr<BlobDataHandle>) {}
 
-  TimeTicks LoadFinishTime() const { return load_finish_time_; }
+  TimeTicks LoadResponseEnd() const { return load_response_end_; }
 
   void SetEncodedDataLength(int64_t value) {
     response_.SetEncodedDataLength(value);
@@ -416,14 +420,6 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   WebScopedVirtualTimePauser& VirtualTimePauser() {
     return virtual_time_pauser_;
-  }
-
-  // See WebURLLoaderClient.
-  base::OnceClosure TakeContinueNavigationRequestCallback() {
-    return std::move(continue_navigation_request_callback_);
-  }
-  void SetContinueNavigationRequestCallback(base::OnceClosure closure) {
-    continue_navigation_request_callback_ = std::move(closure);
   }
 
  protected:
@@ -522,7 +518,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   String ReasonNotDeletable() const;
 
-  // MemoryCoordinatorClient overrides:
+  // MemoryPressureListener overrides:
   void OnPurgeMemory() override;
 
   void CheckResourceIntegrity();
@@ -535,7 +531,7 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
 
   base::Optional<ResourceError> error_;
 
-  TimeTicks load_finish_time_;
+  TimeTicks load_response_end_;
 
   unsigned long identifier_;
 
@@ -584,7 +580,8 @@ class PLATFORM_EXPORT Resource : public GarbageCollectedFinalized<Resource>,
   scoped_refptr<SharedBuffer> data_;
 
   WebScopedVirtualTimePauser virtual_time_pauser_;
-  base::OnceClosure continue_navigation_request_callback_;
+
+  DISALLOW_COPY_AND_ASSIGN(Resource);
 };
 
 class ResourceFactory {
@@ -627,7 +624,7 @@ class NonTextResourceFactory : public ResourceFactory {
 #define DEFINE_RESOURCE_TYPE_CASTS(typeName)                          \
   DEFINE_TYPE_CASTS(typeName##Resource, Resource, resource,           \
                     resource->GetType() == ResourceType::k##typeName, \
-                    resource.GetType() == ResourceType::k##typeName);
+                    resource.GetType() == ResourceType::k##typeName)
 
 }  // namespace blink
 

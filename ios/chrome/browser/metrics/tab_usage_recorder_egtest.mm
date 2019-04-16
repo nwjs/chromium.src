@@ -127,7 +127,8 @@ void CloseTabAtIndexAndSync(NSUInteger i) {
 }
 
 // Tests that the recorder actual recorde tab state.
-- (void)testTabSwitchRecorder {
+// TODO(crbug.com/934228) The test is flaky.
+- (void)DISABLED_testTabSwitchRecorder {
   web::test::SetUpFileBasedHttpServer();
   chrome_test_util::HistogramTester histogramTester;
   ResetTabUsageRecorder();
@@ -238,7 +239,8 @@ void CloseTabAtIndexAndSync(NSUInteger i) {
 
 // Tests that tabs reloaded on cold start are reported as
 // EVICTED_DUE_TO_COLD_START.
-- (void)testColdLaunchReloadCount {
+// TODO(crbug.com/934228) The test is disabled due to flakiness.
+- (void)DISABLED_testColdLaunchReloadCount {
   web::test::SetUpFileBasedHttpServer();
   chrome_test_util::HistogramTester histogramTester;
   ResetTabUsageRecorder();
@@ -287,7 +289,8 @@ void CloseTabAtIndexAndSync(NSUInteger i) {
 }
 
 // Tests that tabs reloads after backgrounding and eviction.
-- (void)testBackgroundingReloadCount {
+// TODO(crbug.com/934228) The test is flaky.
+- (void)DISABLED_testBackgroundingReloadCount {
   web::test::SetUpFileBasedHttpServer();
   chrome_test_util::HistogramTester histogramTester;
   ResetTabUsageRecorder();
@@ -330,7 +333,8 @@ void CloseTabAtIndexAndSync(NSUInteger i) {
 
 // Verify correct recording of metrics when the reloading of an evicted tab
 // succeeds.
-- (void)testEvictedTabReloadSuccess {
+// TODO(crbug.com/934228) The test is flaky.
+- (void)DISABLED_testEvictedTabReloadSuccess {
   web::test::SetUpFileBasedHttpServer();
   chrome_test_util::HistogramTester histogramTester;
   FailureBlock failureBlock = ^(NSString* error) {

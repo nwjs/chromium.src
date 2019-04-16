@@ -6,6 +6,7 @@
 #include <list>
 #include <map>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial.h"
 #include "base/strings/utf_string_conversions.h"
@@ -40,6 +41,10 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/network/public/cpp/features.h"
 #include "url/gurl.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "extensions/common/extension_features.h"
+#endif
 
 using content::NavigationController;
 using content::OpenURLParams;
@@ -1370,7 +1375,8 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
   // Cancel auth dialog for www.b.com and wait for the interstitial to detach.
   LoginHandler* handler = *observer.handlers().begin();
   content::RunTaskAndWaitForInterstitialDetach(
-      contents, base::BindOnce(&LoginHandler::CancelAuth, handler));
+      contents,
+      base::BindOnce(&LoginHandler::CancelAuth, base::Unretained(handler)));
   EXPECT_EQ("www.b.com", contents->GetVisibleURL().host());
   EXPECT_FALSE(contents->ShowingInterstitialPage());
 }
@@ -1429,7 +1435,8 @@ IN_PROC_BROWSER_TEST_F(
     // the correct origin.
     LoginHandler* handler = *observer.handlers().begin();
     content::RunTaskAndWaitForInterstitialDetach(
-        contents, base::BindOnce(&LoginHandler::CancelAuth, handler));
+        contents,
+        base::BindOnce(&LoginHandler::CancelAuth, base::Unretained(handler)));
 
     EXPECT_EQ("127.0.0.1", contents->GetVisibleURL().host());
     EXPECT_FALSE(contents->ShowingInterstitialPage());
@@ -1487,7 +1494,8 @@ IN_PROC_BROWSER_TEST_F(LoginPromptBrowserTest,
     // Cancel the auth prompt. This commits the navigation.
     LoginHandler* handler = *observer.handlers().begin();
     content::RunTaskAndWaitForInterstitialDetach(
-        contents, base::BindOnce(&LoginHandler::CancelAuth, handler));
+        contents,
+        base::BindOnce(&LoginHandler::CancelAuth, base::Unretained(handler)));
     EXPECT_EQ("127.0.0.1", contents->GetVisibleURL().host());
     EXPECT_FALSE(contents->ShowingInterstitialPage());
     EXPECT_EQ(auth_url, contents->GetLastCommittedURL());

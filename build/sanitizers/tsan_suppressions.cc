@@ -31,6 +31,10 @@ char kTSanDefaultSuppressions[] =
     // Races in libevent, http://crbug.com/23244.
     "race:libevent/event.c\n"
 
+    // Data race caused by swapping out the network change notifier with a mock
+    // [test-only]. http://crbug.com/927330.
+    "race:content/browser/net_info_browsertest.cc\n"
+
     // http://crbug.com/84094.
     "race:sqlite3StatusSet\n"
     "race:pcache1EnforceMaxPage\n"
@@ -253,9 +257,6 @@ char kTSanDefaultSuppressions[] =
 
     // http://crbug.com/797998
     "race:content::SandboxIPCHandler::HandleLocaltime\n"
-
-    // http://crbug.com/910524
-    "race:base::subtle::ScopedTimeClockOverrides::ScopedTimeClockOverrides\n"
 
     // End of suppressions.
     ;  // Please keep this semicolon.

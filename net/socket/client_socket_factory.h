@@ -18,7 +18,6 @@
 namespace net {
 
 class AddressList;
-class ClientSocketHandle;
 class DatagramClientSocket;
 class HostPortPair;
 class NetLog;
@@ -50,17 +49,16 @@ class NET_EXPORT ClientSocketFactory {
       NetLog* net_log,
       const NetLogSource& source) = 0;
 
-  // It is allowed to pass in a |transport_socket| that is not obtained from a
-  // socket pool. The caller could create a ClientSocketHandle directly and call
-  // set_socket() on it to set a valid StreamSocket instance.
+  // It is allowed to pass in a StreamSocket that is not obtained from a
+  // socket pool. The caller could create a StreamSocket directly.
   virtual std::unique_ptr<SSLClientSocket> CreateSSLClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const HostPortPair& host_and_port,
       const SSLConfig& ssl_config,
       const SSLClientSocketContext& context) = 0;
 
   virtual std::unique_ptr<ProxyClientSocket> CreateProxyClientSocket(
-      std::unique_ptr<ClientSocketHandle> transport_socket,
+      std::unique_ptr<StreamSocket> stream_socket,
       const std::string& user_agent,
       const HostPortPair& endpoint,
       const ProxyServer& proxy_server,
@@ -71,9 +69,6 @@ class NET_EXPORT ClientSocketFactory {
       ProxyDelegate* proxy_delegate,
       bool is_https_proxy,
       const NetworkTrafficAnnotationTag& traffic_annotation) = 0;
-
-  // Clears cache used for SSL session resumption.
-  virtual void ClearSSLSessionCache() = 0;
 
   // Returns the default ClientSocketFactory.
   static ClientSocketFactory* GetDefaultFactory();

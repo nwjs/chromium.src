@@ -48,7 +48,7 @@ class DynamicImportTreeClient final : public ModuleTreeClient {
 
 // Implements steps 2.[5-8] of
 // <specdef
-// href="https://html.spec.whatwg.org/#hostimportmoduledynamically(referencingscriptormodule,-specifier,-promisecapability)">
+// href="https://html.spec.whatwg.org/C/#hostimportmoduledynamically(referencingscriptormodule,-specifier,-promisecapability)">
 void DynamicImportTreeClient::NotifyModuleTreeLoadFinished(
     ModuleScript* module_script) {
   // [nospec] Abort the steps if the browsing context is discarded.
@@ -163,7 +163,7 @@ void DynamicModuleResolver::Trace(blink::Visitor* visitor) {
 }
 
 // <specdef
-// href="https://html.spec.whatwg.org/#hostimportmoduledynamically(referencingscriptormodule,-specifier,-promisecapability)">
+// href="https://html.spec.whatwg.org/C/#hostimportmoduledynamically(referencingscriptormodule,-specifier,-promisecapability)">
 void DynamicModuleResolver::ResolveDynamically(
     const String& specifier,
     const KURL& referrer_resource_url,
@@ -172,6 +172,14 @@ void DynamicModuleResolver::ResolveDynamically(
   DCHECK(modulator_->GetScriptState()->GetIsolate()->InContext())
       << "ResolveDynamically should be called from V8 callback, within a valid "
          "context.";
+
+  // https://github.com/WICG/import-maps/blob/master/spec.md#when-import-maps-can-be-encountered
+  // Strictly, the flag should be cleared at
+  // #internal-module-script-graph-fetching-procedure, i.e. in ModuleTreeLinker,
+  // but due to https://crbug.com/928435 https://crbug.com/928564 we also clears
+  // the flag here, as import maps can be accessed earlier than specced below
+  // (in ResolveModuleSpecifier()) and we need to clear the flag before that.
+  modulator_->ClearIsAcquiringImportMaps();
 
   // <spec step="1">Let referencing script be
   // referencingScriptOrModule.[[HostDefined]].</spec>
@@ -222,15 +230,22 @@ void DynamicModuleResolver::ResolveDynamically(
   // <spec step="2.3">Let options be the descendant script fetch options for
   // referencing script's fetch options.</spec>
   //
-  // <spec href="https://html.spec.whatwg.org/#descendant-script-fetch-options">
-  // For any given script fetch options options, the descendant script fetch
-  // options are a new script fetch options whose items all have the same
-  // values, except for the integrity metadata, which is instead the empty
-  // string.</spec>
+  // <spec
+  // href="https://html.spec.whatwg.org/C/#descendant-script-fetch-options"> For
+  // any given script fetch options options, the descendant script fetch options
+  // are a new script fetch options whose items all have the same values, except
+  // for the integrity metadata, which is instead the empty string.</spec>
+  // TODO(domfarolino): It has not yet been decided how a script's "importance"
+  // should affect its dynamic imports. There is discussion at
+  // https://github.com/whatwg/html/issues/3670, but for now there is no effect,
+  // and dynamic imports get kImportanceAuto. If this changes,
+  // ReferrerScriptInfo will need a mojom::FetchImportanceMode member, that must
+  // be properly set.
   ScriptFetchOptions options(referrer_info.Nonce(), IntegrityMetadataSet(),
                              String(), referrer_info.ParserState(),
                              referrer_info.CredentialsMode(),
-                             referrer_info.GetReferrerPolicy());
+                             referrer_info.GetReferrerPolicy(),
+                             mojom::FetchImportanceMode::kImportanceAuto);
 
   // <spec step="2.4">Fetch a module script graph given url, referencing
   // script's settings object, "script", and options. Wait until the algorithm

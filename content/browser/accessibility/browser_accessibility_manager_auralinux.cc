@@ -4,6 +4,7 @@
 
 #include "content/browser/accessibility/browser_accessibility_manager_auralinux.h"
 
+#include <atk/atk.h>
 #include <vector>
 
 #include "content/browser/accessibility/browser_accessibility_auralinux.h"
@@ -34,12 +35,10 @@ BrowserAccessibilityManagerAuraLinux::BrowserAccessibilityManagerAuraLinux(
   Initialize(initial_tree);
 }
 
-BrowserAccessibilityManagerAuraLinux::~BrowserAccessibilityManagerAuraLinux() {
-}
+BrowserAccessibilityManagerAuraLinux::~BrowserAccessibilityManagerAuraLinux() {}
 
 // static
-ui::AXTreeUpdate
-    BrowserAccessibilityManagerAuraLinux::GetEmptyDocument() {
+ui::AXTreeUpdate BrowserAccessibilityManagerAuraLinux::GetEmptyDocument() {
   ui::AXNodeData empty_document;
   empty_document.id = 0;
   empty_document.role = ax::mojom::Role::kRootWebArea;
@@ -131,6 +130,9 @@ void BrowserAccessibilityManagerAuraLinux::FireGeneratedEvent(
     case ui::AXEventGenerator::Event::LOAD_START:
       FireLoadingEvent(node, true);
       break;
+    case ui::AXEventGenerator::Event::SELECTED_CHILDREN_CHANGED:
+      FireEvent(node, ax::mojom::Event::kSelectedChildrenChanged);
+      break;
     case ui::AXEventGenerator::Event::MENU_ITEM_SELECTED:
     case ui::AXEventGenerator::Event::SELECTED_CHANGED:
       FireSelectedEvent(node);
@@ -144,12 +146,53 @@ void BrowserAccessibilityManagerAuraLinux::FireGeneratedEvent(
   }
 }
 
+static AtkObject* GetParentFrameIfToplevelDocument(AtkObject* object) {
+  while (object) {
+    if (atk_object_get_role(object) == ATK_ROLE_DOCUMENT_WEB)
+      return nullptr;
+    if (atk_object_get_role(object) == ATK_ROLE_FRAME)
+      return object;
+    object = atk_object_get_parent(object);
+  }
+  return nullptr;
+}
+
+static void EstablishEmbeddedRelationship(AtkObject* document_object) {
+  if (!document_object)
+    return;
+
+  AtkObject* window =
+      GetParentFrameIfToplevelDocument(atk_object_get_parent(document_object));
+  if (!window)
+    return;
+
+  ui::AXPlatformNodeAuraLinux* window_platform_node =
+      static_cast<ui::AXPlatformNodeAuraLinux*>(
+          ui::AXPlatformNode::FromNativeViewAccessible(window));
+  ui::AXPlatformNodeAuraLinux* document_platform_node =
+      static_cast<ui::AXPlatformNodeAuraLinux*>(
+          ui::AXPlatformNode::FromNativeViewAccessible(document_object));
+  if (!window_platform_node || !document_platform_node)
+    return;
+
+  window_platform_node->SetEmbeddedDocument(document_object);
+  document_platform_node->SetEmbeddingWindow(window);
+}
+
 void BrowserAccessibilityManagerAuraLinux::OnAtomicUpdateFinished(
     ui::AXTree* tree,
     bool root_changed,
     const std::vector<ui::AXTreeObserver::Change>& changes) {
   BrowserAccessibilityManager::OnAtomicUpdateFinished(tree, root_changed,
                                                       changes);
+
+  // Ideally we would like to do this only when `root_changed` is true, but it
+  // seems that our parent ATK frame can switch between multiple
+  // BrowserAccessibilityManagers with no way to detect that here. Instead
+  // whenever an update happens we reestablish the relationship to our parent
+  // frame.
+  if (GetRoot() && GetRoot()->IsNative() && IsRootTree())
+    EstablishEmbeddedRelationship(GetRoot()->GetNativeViewAccessible());
 
   // This is the second step in what will be a three step process mirroring that
   // used in BrowserAccessibilityManagerWin.

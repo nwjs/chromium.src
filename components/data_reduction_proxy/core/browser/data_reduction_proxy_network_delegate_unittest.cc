@@ -13,6 +13,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/metrics/field_trial.h"
@@ -48,9 +49,6 @@
 #include "components/data_reduction_proxy/core/common/lofi_decider.h"
 #include "components/data_reduction_proxy/proto/client_config.pb.h"
 #include "components/data_reduction_proxy/proto/data_store.pb.h"
-#include "components/previews/core/previews_experiments.h"
-#include "components/previews/core/previews_features.h"
-#include "components/previews/core/test_previews_decider.h"
 #include "net/base/host_port_pair.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
@@ -744,9 +742,6 @@ TEST_F(DataReductionProxyNetworkDelegateTest, LoFiTransitions) {
       data_reduction_proxy_info.UseNamedProxy(proxy);
     }
 
-    // Needed as a parameter, but functionality is not tested.
-    previews::TestPreviewsDecider test_previews_decider(true);
-
     {
       // Main frame loaded. Lo-Fi should be used.
       net::HttpRequestHeaders headers;
@@ -1052,11 +1047,6 @@ TEST_F(DataReductionProxyNetworkDelegateTest, RedirectRequestDataCleared) {
 TEST_F(DataReductionProxyNetworkDelegateTest, NetHistograms) {
   Init(USE_INSECURE_PROXY);
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {previews::features::kPreviews,
-       features::kDataReductionProxyDecidesTransform},
-      {});
-
   base::HistogramTester histogram_tester;
 
   std::string response_headers =
@@ -1065,7 +1055,7 @@ TEST_F(DataReductionProxyNetworkDelegateTest, NetHistograms) {
       "Expires: Mon, 24 Nov 2014 12:45:26 GMT\r\n"
       "Via: 1.1 Chrome-Compression-Proxy\r\n"
       "Chrome-Proxy: ofcl=" +
-      base::Int64ToString(kOriginalContentLength) + "\r\n\r\n";
+      base::NumberToString(kOriginalContentLength) + "\r\n\r\n";
 
   std::unique_ptr<net::URLRequest> fake_request(FetchURLRequest(
       GURL(kTestURL), nullptr, response_headers, kResponseContentLength, 0));
@@ -1110,7 +1100,7 @@ TEST_F(DataReductionProxyNetworkDelegateTest, NetVideoHistograms) {
       "Content-Type: video/mp4\r\n"
       "Via: 1.1 Chrome-Compression-Proxy\r\n"
       "Chrome-Proxy: ofcl=" +
-      base::Int64ToString(kOriginalContentLength) + "\r\n\r\n";
+      base::NumberToString(kOriginalContentLength) + "\r\n\r\n";
 
   FetchURLRequest(GURL(kTestURL), nullptr, video_response_headers,
                   kResponseContentLength, 0);
@@ -1289,8 +1279,9 @@ TEST_F(DataReductionProxyNetworkDelegateTest, DetailedNetHistograms) {
 
     if (test.proxy_config == USE_INSECURE_PROXY) {
       via_header = "Via: 1.1 Chrome-Compression-Proxy\r\n";
-      ocl_header = "Chrome-Proxy: ofcl=" +
-                   base::Int64ToString(kOriginalContentLength) + "\r\n";
+      ocl_header =
+          "Chrome-Proxy: ofcl=" + base::NumberToString(kOriginalContentLength) +
+          "\r\n";
     }
     if (test.is_video) {
       // Check video

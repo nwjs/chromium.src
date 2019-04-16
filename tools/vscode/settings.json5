@@ -11,10 +11,13 @@
   "editor.detectIndentation": false,
   // Add a line at 80 characters.
   "editor.rulers": [80],
-  // Trim tailing whitespace on save.
-  "files.trimTrailingWhitespace": true,
   // Forces LF instead of "auto" which uses CRLF on Windows.
   "files.eol": "\n",
+  // Trim tailing whitespace on save.
+  "files.trimTrailingWhitespace": true,
+  // Insert trimmed final new line.
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
 
   "files.associations": {
     // Adds xml syntax highlighting for grd files.
@@ -45,19 +48,19 @@
   "annotator.annotationColumnWidth": "24em",
 
   // C++ clang format settings.
-  "C_Cpp.clang_format_path": "${workspaceRoot}/third_party/depot_tools/clang-format",
+  "C_Cpp.clang_format_path": "${workspaceFolder}/third_party/depot_tools/clang-format",
   "C_Cpp.clang_format_sortIncludes": true,
   "C_Cpp.clang_format_formatOnSave": true,
 
   // YouCompleteMe
   "ycmd.path": "<full_path_to_your_home>/.ycmd", // Please replace this path
-  "ycmd.global_extra_config": "${workspaceRoot}/tools/vim/chromium.ycm_extra_conf.py",
+  "ycmd.global_extra_config": "${workspaceFolder}/tools/vim/chromium.ycm_extra_conf.py",
   "ycmd.confirm_extra_conf": false,
 
   // Optional: Highlight current line at the left of the editor.
   // "editor.renderLineHighlight": "gutter",
   // Optional: Don't automatically add closing brackets. It gets in the way.
-  // "editor.autoClosingBrackets": false,
+  // "editor.autoClosingBrackets": "never",
   // Optional: Enable a tiny 30k feet view of your doc.
   // "editor.minimap.enabled": true,
   // "editor.minimap.maxColumn": 80,
@@ -70,4 +73,3 @@
   // Optional: Same for files opened from quick open (Ctrl+P).
   //"workbench.editor.enablePreviewFromQuickOpen": false,
 }
-

@@ -16,6 +16,10 @@ namespace browser_switcher {
 class BrowserSwitcherPrefs;
 class ParsedXml;
 
+// Pre-processes the URL rule and modifies it in-place if needed, to avoid
+// having to convert uppercase/lowercase for every rule at every navigation.
+void CanonicalizeRule(std::string* rule);
+
 // Interface that decides whether a navigation should trigger a browser
 // switch.
 class BrowserSwitcherSitelist {
@@ -34,6 +38,9 @@ class BrowserSwitcherSitelist {
   // policies. This XML file is in the same format as an IEEM sitelist.
   // Consumes the object, and performs no copy.
   virtual void SetExternalSitelist(ParsedXml&& sitelist) = 0;
+
+  virtual const RuleSet* GetIeemSitelist() const = 0;
+  virtual const RuleSet* GetExternalSitelist() const = 0;
 };
 
 // Manages the sitelist configured by the administrator for
@@ -48,6 +55,8 @@ class BrowserSwitcherSitelistImpl : public BrowserSwitcherSitelist {
   bool ShouldSwitch(const GURL& url) const override;
   void SetIeemSitelist(ParsedXml&& sitelist) override;
   void SetExternalSitelist(ParsedXml&& sitelist) override;
+  const RuleSet* GetIeemSitelist() const override;
+  const RuleSet* GetExternalSitelist() const override;
 
  private:
   // Returns true if there are any rules configured.

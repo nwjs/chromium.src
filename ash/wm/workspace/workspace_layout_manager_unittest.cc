@@ -29,6 +29,7 @@
 #include "ash/test/ash_test_base.h"
 #include "ash/wallpaper/wallpaper_controller_test_api.h"
 #include "ash/window_factory.h"
+#include "ash/wm/always_on_top_controller.h"
 #include "ash/wm/fullscreen_window_finder.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
@@ -38,9 +39,11 @@
 #include "ash/wm/window_state.h"
 #include "ash/wm/window_util.h"
 #include "ash/wm/wm_event.h"
+#include "ash/wm/workspace/backdrop_controller.h"
 #include "ash/wm/workspace/backdrop_delegate.h"
 #include "ash/wm/workspace/workspace_window_resizer.h"
 #include "ash/wm/workspace_controller_test_api.h"
+#include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "chromeos/audio/chromeos_sounds.h"
@@ -862,6 +865,35 @@ TEST_F(WorkspaceLayoutManagerSoloTest, FullscreenSuspendsAlwaysOnTop) {
   EXPECT_EQ(nullptr, wm::GetWindowForFullscreenMode(fullscreen_window.get()));
 }
 
+TEST_F(WorkspaceLayoutManagerSoloTest,
+       FullscreenDoesNotSuspendAlwaysOnTopForPip) {
+  gfx::Rect bounds(100, 100, 200, 200);
+  std::unique_ptr<aura::Window> fullscreen_window(
+      CreateTestWindowInShellWithBounds(bounds));
+  std::unique_ptr<aura::Window> pip_window(
+      CreateTestWindowInShellWithBounds(bounds));
+
+  wm::WindowState* window_state = wm::GetWindowState(pip_window.get());
+  const wm::WMEvent enter_pip(wm::WM_EVENT_PIP);
+  window_state->OnWMEvent(&enter_pip);
+  pip_window->SetProperty(aura::client::kAlwaysOnTopKey, true);
+  EXPECT_TRUE(window_state->IsPip());
+  EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+
+  // Making a window fullscreen temporarily suspends always on top state, but
+  // should not do so for PIP.
+  fullscreen_window->SetProperty(aura::client::kShowStateKey,
+                                 ui::SHOW_STATE_FULLSCREEN);
+  EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+  EXPECT_NE(nullptr, wm::GetWindowForFullscreenMode(fullscreen_window.get()));
+
+  // Making fullscreen window normal does not affect PIP.
+  fullscreen_window->SetProperty(aura::client::kShowStateKey,
+                                 ui::SHOW_STATE_NORMAL);
+  EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+  EXPECT_EQ(nullptr, wm::GetWindowForFullscreenMode(fullscreen_window.get()));
+}
+
 // Similary, pinned window causes always_on_top_ windows to stack below.
 TEST_F(WorkspaceLayoutManagerSoloTest, PinnedSuspendsAlwaysOnTop) {
   gfx::Rect bounds(100, 100, 200, 200);
@@ -897,6 +929,45 @@ TEST_F(WorkspaceLayoutManagerSoloTest, PinnedSuspendsAlwaysOnTop) {
       always_on_top_window2->GetProperty(aura::client::kAlwaysOnTopKey));
   EXPECT_TRUE(
       always_on_top_window3->GetProperty(aura::client::kAlwaysOnTopKey));
+}
+
+TEST_F(WorkspaceLayoutManagerSoloTest, PinnedDoesNotSuspendAlwaysOnTopForPip) {
+  gfx::Rect bounds(100, 100, 200, 200);
+  std::unique_ptr<aura::Window> pinned_window(
+      CreateTestWindowInShellWithBounds(bounds));
+  std::unique_ptr<aura::Window> pip_window(
+      CreateTestWindowInShellWithBounds(bounds));
+  {
+    wm::WindowState* window_state = wm::GetWindowState(pip_window.get());
+    const wm::WMEvent enter_pip(wm::WM_EVENT_PIP);
+    window_state->OnWMEvent(&enter_pip);
+    pip_window->SetProperty(aura::client::kAlwaysOnTopKey, true);
+    EXPECT_TRUE(window_state->IsPip());
+    EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+  }
+
+  // Making a window pinned temporarily suspends always on top state, except
+  // for PIP.
+  const bool trusted = false;
+  wm::PinWindow(pinned_window.get(), trusted);
+  EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+
+  // Adding a new PIP window should still end up always on top.
+  std::unique_ptr<aura::Window> pip_window2(
+      CreateTestWindowInShellWithBounds(bounds));
+  {
+    wm::WindowState* window_state = wm::GetWindowState(pip_window2.get());
+    const wm::WMEvent enter_pip(wm::WM_EVENT_PIP);
+    window_state->OnWMEvent(&enter_pip);
+    pip_window2->SetProperty(aura::client::kAlwaysOnTopKey, true);
+    EXPECT_TRUE(window_state->IsPip());
+    EXPECT_TRUE(pip_window2->GetProperty(aura::client::kAlwaysOnTopKey));
+  }
+
+  // Making pinned window normal should not affect existing PIP windows.
+  wm::GetWindowState(pinned_window.get())->Restore();
+  EXPECT_TRUE(pip_window->GetProperty(aura::client::kAlwaysOnTopKey));
+  EXPECT_TRUE(pip_window2->GetProperty(aura::client::kAlwaysOnTopKey));
 }
 
 // Tests fullscreen window size during root window resize.
@@ -1973,6 +2044,34 @@ TEST_F(WorkspaceLayoutManagerSystemUiAreaTest,
       keyboard::mojom::ContainerType::kFullWidth, base::nullopt,
       base::DoNothing());
   EXPECT_GE(test_state()->num_system_ui_area_changes(), 1);
+}
+
+
+TEST_F(WorkspaceLayoutManagerBackdropTest,
+       BackdropWindowIsNotReparentedFromAlwaysOnTopContainer) {
+  WorkspaceController* wc = ShellTestApi(Shell::Get()).workspace_controller();
+  WorkspaceControllerTestApi test_helper(wc);
+  RootWindowController* controller = Shell::GetPrimaryRootWindowController();
+  AlwaysOnTopController* always_on_top_controller =
+      controller->always_on_top_controller();
+
+  std::unique_ptr<aura::Window> always_on_top_window(
+      CreateTestWindowInShellWithBounds(gfx::Rect(1, 2, 3, 4)));
+  always_on_top_window->Show();
+  always_on_top_window->SetProperty(aura::client::kAlwaysOnTopKey, true);
+
+  aura::Window* always_on_top_container =
+  always_on_top_controller->GetContainer(always_on_top_window.get());
+  ShowTopWindowBackdropForContainer(always_on_top_container, true);
+  // AlwaysOnTopContainer has |always_on_top_window| and a backdrop window
+  // at this moment.
+  ASSERT_EQ(always_on_top_container->children().size(), 2U);
+
+  always_on_top_window->SetProperty(aura::client::kAlwaysOnTopKey, false);
+  // Make sure the backdrop window stays in AlwaysOnTopContainer even after
+  // |always_on_top_window| moves to the default container.
+  ASSERT_EQ(always_on_top_container->children().size(), 1U);
+  EXPECT_EQ(always_on_top_container->children()[0]->GetName(), "Backdrop");
 }
 
 }  // namespace ash

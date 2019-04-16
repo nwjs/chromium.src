@@ -7,7 +7,6 @@ import("//build/config/ui.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//media/media_options.gni")
 import("//printing/buildflags/buildflags.gni")
-import("//services/service_manager/public/service_manifest.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
 import("//third_party/protobuf/proto_library.gni")
 import("//ui/ozone/ozone.gni")
@@ -28,6 +27,7 @@ source_set("chromeos") {
     "//chrome/app/resources:platform_locale_settings",
     "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/app/theme:theme_resources",
+    "//chrome/browser/chromeos/power/ml:user_activity_ukm_logger_helpers",
     "//chromeos/dbus:cicerone_proto",
     "//chromeos/dbus:concierge_proto",
     "//chromeos/dbus:power_manager_proto",
@@ -58,7 +58,6 @@ source_set("chromeos") {
     "//chrome/app:command_ids",
     "//chrome/browser/apps/platform_apps",
     "//chrome/browser/apps/platform_apps/api",
-    "//chrome/browser/chromeos/power/ml:user_activity_ukm_logger_helpers",
     "//chrome/browser/chromeos/power/ml/smart_dim",
     "//chrome/browser/devtools",
     "//chrome/browser/extensions",
@@ -94,7 +93,10 @@ source_set("chromeos") {
     "//chromeos/dbus:media_perception_proto",
     "//chromeos/dbus:metrics_event_proto",
     "//chromeos/dbus:oobe_config_proto",
+    "//chromeos/dbus:plugin_vm_service_proto",
+    "//chromeos/dbus/constants",
     "//chromeos/dbus/services:services",
+    "//chromeos/dbus/system_clock",
     "//chromeos/disks",
     "//chromeos/geolocation",
     "//chromeos/login/auth",
@@ -194,9 +196,6 @@ source_set("chromeos") {
     "//gpu",
     "//gpu/ipc/host",
     "//gpu/ipc/service",
-
-    # TODO(jamescook): Eliminate use of Launchable interface.
-    "//mash/public/mojom",
     "//media",
     "//media/mojo/interfaces",
     "//mojo/public/cpp/platform",
@@ -213,7 +212,6 @@ source_set("chromeos") {
     "//services/preferences/public/mojom",
     "//services/resource_coordinator/public/cpp:resource_coordinator_cpp",
     "//services/service_manager/public/cpp",
-    "//services/service_manager/runner/common",
     "//services/ws/public/cpp",
     "//services/ws/public/cpp/input_devices",
     "//skia",
@@ -297,10 +295,10 @@ source_set("chromeos") {
     "accessibility/switch_access_panel.h",
     "account_manager/account_manager_migrator.cc",
     "account_manager/account_manager_migrator.h",
+    "account_manager/account_manager_util.cc",
+    "account_manager/account_manager_util.h",
     "account_manager/account_migration_runner.cc",
     "account_manager/account_migration_runner.h",
-    "account_mapper_util.cc",
-    "account_mapper_util.h",
     "android_sms/android_sms_app_manager.cc",
     "android_sms/android_sms_app_manager.h",
     "android_sms/android_sms_app_manager_impl.cc",
@@ -512,8 +510,8 @@ source_set("chromeos") {
     "arc/input_method_manager/input_connection_impl.h",
     "arc/intent_helper/arc_external_protocol_dialog.cc",
     "arc/intent_helper/arc_external_protocol_dialog.h",
-    "arc/intent_helper/arc_navigation_throttle.cc",
-    "arc/intent_helper/arc_navigation_throttle.h",
+    "arc/intent_helper/arc_intent_picker_app_fetcher.cc",
+    "arc/intent_helper/arc_intent_picker_app_fetcher.h",
     "arc/intent_helper/arc_settings_service.cc",
     "arc/intent_helper/arc_settings_service.h",
     "arc/intent_helper/intent_picker_controller.cc",
@@ -583,6 +581,8 @@ source_set("chromeos") {
     "arc/voice_interaction/voice_interaction_controller_client.h",
     "arc/wallpaper/arc_wallpaper_service.cc",
     "arc/wallpaper/arc_wallpaper_service.h",
+    "assistant/assistant_util.cc",
+    "assistant/assistant_util.h",
     "attestation/attestation_ca_client.cc",
     "attestation/attestation_ca_client.h",
     "attestation/attestation_policy_observer.cc",
@@ -620,6 +620,8 @@ source_set("chromeos") {
     "certificate_provider/sign_requests.h",
     "certificate_provider/thread_safe_certificate_map.cc",
     "certificate_provider/thread_safe_certificate_map.h",
+    "child_accounts/child_policy_observer.cc",
+    "child_accounts/child_policy_observer.h",
     "child_accounts/consumer_status_reporting_service.cc",
     "child_accounts/consumer_status_reporting_service.h",
     "child_accounts/consumer_status_reporting_service_factory.cc",
@@ -628,20 +630,36 @@ source_set("chromeos") {
     "child_accounts/event_based_status_reporting_service.h",
     "child_accounts/event_based_status_reporting_service_factory.cc",
     "child_accounts/event_based_status_reporting_service_factory.h",
+    "child_accounts/parent_access_code/authenticator.cc",
+    "child_accounts/parent_access_code/authenticator.h",
+    "child_accounts/parent_access_code/config_source.cc",
+    "child_accounts/parent_access_code/config_source.h",
+    "child_accounts/parent_access_code/parent_access_service.cc",
+    "child_accounts/parent_access_code/parent_access_service.h",
+    "child_accounts/parent_access_code/policy_config_source.cc",
+    "child_accounts/parent_access_code/policy_config_source.h",
     "child_accounts/screen_time_controller.cc",
     "child_accounts/screen_time_controller.h",
     "child_accounts/screen_time_controller_factory.cc",
     "child_accounts/screen_time_controller_factory.h",
     "child_accounts/time_limit_notifier.cc",
     "child_accounts/time_limit_notifier.h",
+    "child_accounts/time_limit_override.cc",
+    "child_accounts/time_limit_override.h",
     "child_accounts/usage_time_limit_processor.cc",
     "child_accounts/usage_time_limit_processor.h",
+    "child_accounts/usage_time_state_notifier.cc",
+    "child_accounts/usage_time_state_notifier.h",
     "chrome_browser_main_chromeos.cc",
     "chrome_browser_main_chromeos.h",
     "chrome_content_browser_client_chromeos_part.cc",
     "chrome_content_browser_client_chromeos_part.h",
     "chrome_service_name.cc",
     "chrome_service_name.h",
+    "crostini/crostini_export_import.cc",
+    "crostini/crostini_export_import.h",
+    "crostini/crostini_export_import_notification.cc",
+    "crostini/crostini_export_import_notification.h",
     "crostini/crostini_manager.cc",
     "crostini/crostini_manager.h",
     "crostini/crostini_manager_factory.cc",
@@ -675,6 +693,10 @@ source_set("chromeos") {
     "crostini/crosvm_metrics.h",
     "crostini/crosvm_process_list.cc",
     "crostini/crosvm_process_list.h",
+    "cryptauth/client_app_metadata_provider_service.cc",
+    "cryptauth/client_app_metadata_provider_service.h",
+    "cryptauth/client_app_metadata_provider_service_factory.cc",
+    "cryptauth/client_app_metadata_provider_service_factory.h",
     "cryptauth/cryptauth_device_id_provider_impl.cc",
     "cryptauth/cryptauth_device_id_provider_impl.h",
     "cryptauth/gcm_device_info_provider_impl.cc",
@@ -697,6 +719,8 @@ source_set("chromeos") {
     "dbus/kiosk_info_service_provider.h",
     "dbus/metrics_event_service_provider.cc",
     "dbus/metrics_event_service_provider.h",
+    "dbus/plugin_vm_service_provider.cc",
+    "dbus/plugin_vm_service_provider.h",
     "dbus/proxy_resolution_service_provider.cc",
     "dbus/proxy_resolution_service_provider.h",
     "dbus/screen_lock_service_provider.cc",
@@ -709,6 +733,8 @@ source_set("chromeos") {
     "device_sync/device_sync_client_factory.h",
     "diagnosticsd/diagnosticsd_bridge.cc",
     "diagnosticsd/diagnosticsd_bridge.h",
+    "diagnosticsd/diagnosticsd_messaging.cc",
+    "diagnosticsd/diagnosticsd_messaging.h",
     "diagnosticsd/diagnosticsd_web_request_service.cc",
     "diagnosticsd/diagnosticsd_web_request_service.h",
     "diagnosticsd/mojo_utils.cc",
@@ -946,8 +972,8 @@ source_set("chromeos") {
     "fileapi/mtp_watcher_manager.h",
     "fileapi/recent_arc_media_source.cc",
     "fileapi/recent_arc_media_source.h",
-    "fileapi/recent_download_source.cc",
-    "fileapi/recent_download_source.h",
+    "fileapi/recent_disk_source.cc",
+    "fileapi/recent_disk_source.h",
     "fileapi/recent_drive_source.cc",
     "fileapi/recent_drive_source.h",
     "fileapi/recent_file.cc",
@@ -1008,8 +1034,6 @@ source_set("chromeos") {
     "input_method/input_method_syncer.h",
     "language_preferences.cc",
     "language_preferences.h",
-    "launchable.cc",
-    "launchable.h",
     "launcher_search_provider/error_reporter.cc",
     "launcher_search_provider/error_reporter.h",
     "launcher_search_provider/launcher_search_provider_service.cc",
@@ -1137,8 +1161,6 @@ source_set("chromeos") {
     "login/lock/screen_locker.h",
     "login/lock/views_screen_locker.cc",
     "login/lock/views_screen_locker.h",
-    "login/lock/webui_screen_locker.cc",
-    "login/lock/webui_screen_locker.h",
     "login/lock_screen_utils.cc",
     "login/lock_screen_utils.h",
     "login/login_auth_recorder.cc",
@@ -1255,8 +1277,6 @@ source_set("chromeos") {
     "login/screens/reset_screen.cc",
     "login/screens/reset_screen.h",
     "login/screens/reset_view.h",
-    "login/screens/screen_exit_code.cc",
-    "login/screens/screen_exit_code.h",
     "login/screens/supervision_transition_screen.cc",
     "login/screens/supervision_transition_screen.h",
     "login/screens/supervision_transition_screen_view.h",
@@ -1350,10 +1370,6 @@ source_set("chromeos") {
     "login/ui/login_web_dialog.h",
     "login/ui/oobe_ui_dialog_delegate.cc",
     "login/ui/oobe_ui_dialog_delegate.h",
-    "login/ui/preloaded_web_view.cc",
-    "login/ui/preloaded_web_view.h",
-    "login/ui/preloaded_web_view_factory.cc",
-    "login/ui/preloaded_web_view_factory.h",
     "login/ui/simple_web_view_dialog.cc",
     "login/ui/simple_web_view_dialog.h",
     "login/ui/user_adding_screen.cc",
@@ -1461,6 +1477,10 @@ source_set("chromeos") {
     "platform_keys/platform_keys_service_factory.h",
     "plugin_vm/plugin_vm_image_download_client.cc",
     "plugin_vm/plugin_vm_image_download_client.h",
+    "plugin_vm/plugin_vm_image_manager.cc",
+    "plugin_vm/plugin_vm_image_manager.h",
+    "plugin_vm/plugin_vm_image_manager_factory.cc",
+    "plugin_vm/plugin_vm_image_manager_factory.h",
     "plugin_vm/plugin_vm_pref_names.cc",
     "plugin_vm/plugin_vm_pref_names.h",
     "plugin_vm/plugin_vm_util.cc",
@@ -1550,6 +1570,8 @@ source_set("chromeos") {
     "policy/device_policy_remover.h",
     "policy/device_status_collector.cc",
     "policy/device_status_collector.h",
+    "policy/device_wallpaper_image_handler.cc",
+    "policy/device_wallpaper_image_handler.h",
     "policy/display_resolution_handler.cc",
     "policy/display_resolution_handler.h",
     "policy/display_rotation_default_handler.cc",
@@ -1670,10 +1692,17 @@ source_set("chromeos") {
     "power/auto_screen_brightness/fake_als_reader.h",
     "power/auto_screen_brightness/fake_brightness_monitor.cc",
     "power/auto_screen_brightness/fake_brightness_monitor.h",
+    "power/auto_screen_brightness/fake_model_config_loader.cc",
+    "power/auto_screen_brightness/fake_model_config_loader.h",
     "power/auto_screen_brightness/gaussian_trainer.cc",
     "power/auto_screen_brightness/gaussian_trainer.h",
     "power/auto_screen_brightness/metrics_reporter.cc",
     "power/auto_screen_brightness/metrics_reporter.h",
+    "power/auto_screen_brightness/model_config.cc",
+    "power/auto_screen_brightness/model_config.h",
+    "power/auto_screen_brightness/model_config_loader.h",
+    "power/auto_screen_brightness/model_config_loader_impl.cc",
+    "power/auto_screen_brightness/model_config_loader_impl.h",
     "power/auto_screen_brightness/modeller.h",
     "power/auto_screen_brightness/modeller_impl.cc",
     "power/auto_screen_brightness/modeller_impl.h",
@@ -1781,6 +1810,8 @@ source_set("chromeos") {
     "reset/metrics.h",
     "resource_reporter/resource_reporter.cc",
     "resource_reporter/resource_reporter.h",
+    "scheduler_configuration_manager.cc",
+    "scheduler_configuration_manager.h",
     "secure_channel/secure_channel_client_provider.cc",
     "secure_channel/secure_channel_client_provider.h",
     "session_length_limiter.cc",
@@ -1922,6 +1953,8 @@ source_set("chromeos") {
     "ui/request_pin_view.h",
     "ui/screen_capture_notification_ui_chromeos.cc",
     "ui/screen_capture_notification_ui_chromeos.h",
+    "usb/cros_usb_detector.cc",
+    "usb/cros_usb_detector.h",
     "virtual_machines/virtual_machines_util.cc",
     "virtual_machines/virtual_machines_util.h",
 
@@ -2017,6 +2050,7 @@ copy("dbus_service_files") {
     "dbus/org.chromium.KioskAppService.conf",
     "dbus/org.chromium.MetricsEventService.conf",
     "dbus/org.chromium.NetworkProxyService.conf",
+    "dbus/org.chromium.PluginVmService.conf",
     "dbus/org.chromium.ScreenLockService.conf",
     "dbus/org.chromium.VirtualFileRequestService.conf",
     "dbus/org.chromium.VmApplicationsService.conf",
@@ -2044,6 +2078,8 @@ static_library("test_support") {
   testonly = true
 
   sources = [
+    "accessibility/test_accessibility_focus_ring_controller.cc",
+    "accessibility/test_accessibility_focus_ring_controller.h",
     "android_sms/fake_android_sms_app_manager.cc",
     "android_sms/fake_android_sms_app_manager.h",
     "android_sms/fake_android_sms_app_setup_controller.cc",
@@ -2082,8 +2118,9 @@ static_library("test_support") {
     "login/screens/mock_update_screen.h",
     "login/screens/mock_welcome_screen.cc",
     "login/screens/mock_welcome_screen.h",
-    "login/test/test_condition_waiter.cc",
     "login/test/test_condition_waiter.h",
+    "login/test/test_predicate_waiter.cc",
+    "login/test/test_predicate_waiter.h",
     "scoped_set_running_on_chromeos_for_testing.cc",
     "scoped_set_running_on_chromeos_for_testing.h",
     "settings/scoped_testing_cros_settings.cc",
@@ -2171,7 +2208,7 @@ source_set("unit_tests") {
     "arc/input_method_manager/test_input_method_manager_bridge.cc",
     "arc/input_method_manager/test_input_method_manager_bridge.h",
     "arc/intent_helper/arc_external_protocol_dialog_unittest.cc",
-    "arc/intent_helper/arc_navigation_throttle_unittest.cc",
+    "arc/intent_helper/arc_intent_picker_app_fetcher_unittest.cc",
     "arc/intent_helper/arc_settings_service_unittest.cc",
     "arc/intent_helper/open_with_menu_unittest.cc",
     "arc/kiosk/arc_kiosk_bridge_unittest.cc",
@@ -2186,6 +2223,7 @@ source_set("unit_tests") {
     "arc/voice_interaction/fake_voice_interaction_controller.cc",
     "arc/voice_interaction/voice_interaction_controller_client_unittest.cc",
     "arc/wallpaper/arc_wallpaper_service_unittest.cc",
+    "assistant/assistant_util_unittest.cc",
     "attestation/attestation_ca_client_unittest.cc",
     "attestation/attestation_policy_observer_unittest.cc",
     "attestation/enrollment_policy_observer_unittest.cc",
@@ -2196,17 +2234,28 @@ source_set("unit_tests") {
     "base/file_flusher_unittest.cc",
     "certificate_provider/certificate_provider_service_unittest.cc",
     "child_accounts/event_based_status_reporting_service_unittest.cc",
+    "child_accounts/parent_access_code/authenticator_unittest.cc",
+    "child_accounts/parent_access_code/parent_access_service_unittest.cc",
+    "child_accounts/parent_access_code/test_utils.cc",
+    "child_accounts/parent_access_code/test_utils.h",
     "child_accounts/time_limit_notifier_unittest.cc",
     "child_accounts/time_limit_test_utils.cc",
     "child_accounts/usage_time_limit_processor_unittest.cc",
+    "child_accounts/usage_time_state_notifier_unittest.cc",
+    "crostini/crostini_export_import_unittest.cc",
     "crostini/crostini_manager_unittest.cc",
+    "crostini/crostini_package_service_unittest.cc",
     "crostini/crostini_share_path_unittest.cc",
     "crostini/crosvm_metrics_unittest.cc",
     "crostini/crosvm_process_list_unittest.cc",
+    "cryptauth/client_app_metadata_provider_service_unittest.cc",
     "customization/customization_document_unittest.cc",
     "dbus/proxy_resolution_service_provider_unittest.cc",
     "diagnosticsd/diagnosticsd_bridge_unittest.cc",
+    "diagnosticsd/diagnosticsd_messaging_unittest.cc",
     "diagnosticsd/diagnosticsd_web_request_service_unittest.cc",
+    "diagnosticsd/testing_diagnosticsd_bridge.cc",
+    "diagnosticsd/testing_diagnosticsd_bridge.h",
     "drive/download_handler_unittest.cc",
     "drive/drive_file_stream_reader_unittest.cc",
     "drive/drive_integration_service_unittest.cc",
@@ -2289,7 +2338,7 @@ source_set("unit_tests") {
     "fileapi/file_access_permissions_unittest.cc",
     "fileapi/file_system_backend_unittest.cc",
     "fileapi/recent_arc_media_source_unittest.cc",
-    "fileapi/recent_download_source_unittest.cc",
+    "fileapi/recent_disk_source_unittest.cc",
     "fileapi/recent_model_unittest.cc",
     "fileapi/test/fake_recent_source.cc",
     "hats/hats_finch_helper_unittest.cc",
@@ -2319,6 +2368,7 @@ source_set("unit_tests") {
     "login/error_screens_histogram_helper_unittest.cc",
     "login/existing_user_controller_auto_login_unittest.cc",
     "login/hwid_checker_unittest.cc",
+    "login/lock/screen_locker_unittest.cc",
     "login/profile_auth_data_unittest.cc",
     "login/quick_unlock/fingerprint_storage_unittest.cc",
     "login/quick_unlock/pin_storage_prefs_unittest.cc",
@@ -2343,6 +2393,7 @@ source_set("unit_tests") {
     "note_taking_helper_unittest.cc",
     "oauth2_token_service_delegate_unittest.cc",
     "ownership/owner_settings_service_chromeos_unittest.cc",
+    "plugin_vm/plugin_vm_image_manager_unittest.cc",
     "policy/active_directory_policy_manager_unittest.cc",
     "policy/affiliated_cloud_policy_invalidator_unittest.cc",
     "policy/affiliated_invalidation_service_provider_impl_unittest.cc",
@@ -2401,6 +2452,7 @@ source_set("unit_tests") {
     "power/auto_screen_brightness/brightness_monitor_impl_unittest.cc",
     "power/auto_screen_brightness/gaussian_trainer_unittest.cc",
     "power/auto_screen_brightness/metrics_reporter_unittest.cc",
+    "power/auto_screen_brightness/model_config_loader_impl_unittest.cc",
     "power/auto_screen_brightness/modeller_impl_unittest.cc",
     "power/auto_screen_brightness/monotone_cubic_spline_unittest.cc",
     "power/cpu_data_collector_unittest.cc",
@@ -2431,6 +2483,7 @@ source_set("unit_tests") {
     "printing/zeroconf_printer_detector_unittest.cc",
     "proxy_config_service_impl_unittest.cc",
     "resource_reporter/resource_reporter_unittest.cc",
+    "scheduler_configuration_manager_unittest.cc",
     "session_length_limiter_unittest.cc",
     "settings/cros_settings_unittest.cc",
     "settings/device_oauth2_token_service_unittest.cc",
@@ -2552,6 +2605,7 @@ source_set("unit_tests") {
     "//chromeos/services/multidevice_setup/public/cpp:prefs",
     "//chromeos/services/multidevice_setup/public/cpp:test_support",
     "//chromeos/services/secure_channel/public/cpp/client:test_support",
+    "//components/download/public/background_service/test:test_support",
     "//components/drive",
     "//components/drive:drive_chromeos",
     "//components/drive:test_support",
@@ -2617,9 +2671,18 @@ proto_library("device_configuration_proto") {
   generate_python = false
 }
 
-service_manifest("ash_pref_connector_manifest") {
-  name = "ash_pref_connector"
-  source = "prefs/ash_pref_connector_manifest.json"
+source_set("ash_pref_connector_manifest") {
+  sources = [
+    "prefs/ash_pref_connector_manifest.cc",
+    "prefs/ash_pref_connector_manifest.h",
+  ]
+
+  deps = [
+    "//ash/public/cpp",
+    "//base",
+    "//services/preferences/public/mojom",
+    "//services/service_manager/public/cpp",
+  ]
 }
 
 device_policy_remover_path = "$target_gen_dir/device_policy_remover.cc"
@@ -2628,8 +2691,22 @@ action("device_policy_remover_generate") {
   script = "policy/tools/generate_device_policy_remover.py"
   descriptor_pool_path = "//third_party/protobuf/python"
   symbol_database_path = "$root_build_dir/pyproto"
-  chrome_device_policy_pb2_path =
+
+  # This is provided by //components/policy/proto listed in public_deps.
+  # The containing directory is in a separate variable because that's what
+  # the script expects as an argument.
+  chrome_device_policy_pb2_dir =
       "$root_build_dir/pyproto/components/policy/proto"
+  chrome_device_policy_pb2_path =
+      "$chrome_device_policy_pb2_dir/chrome_device_policy_pb2.py"
+
+  sources = [
+    # It's important to explicitly list which files provided by this action's
+    # dependencies are actually used by this action, because the action is not
+    # automatically re-run on changes in one of the public_deps. See
+    # https://crbug.com/933359 for more information.
+    chrome_device_policy_pb2_path,
+  ]
 
   outputs = [
     device_policy_remover_path,
@@ -2642,7 +2719,7 @@ action("device_policy_remover_generate") {
     # directories for PATH variable to compile generated file
     rebase_path(descriptor_pool_path, root_build_dir),
     rebase_path(symbol_database_path, root_build_dir),
-    rebase_path(chrome_device_policy_pb2_path, root_build_dir),
+    rebase_path(chrome_device_policy_pb2_dir, root_build_dir),
   ]
 
   public_deps = [

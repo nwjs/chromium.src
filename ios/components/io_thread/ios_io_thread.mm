@@ -213,8 +213,8 @@ void IOSIOThread::ChangedToOnTheRecord() {
   DCHECK_CURRENTLY_ON(web::WebThread::UI);
   base::PostTaskWithTraits(
       FROM_HERE, {web::WebThread::IO},
-      base::Bind(&IOSIOThread::ChangedToOnTheRecordOnIOThread,
-                 base::Unretained(this)));
+      base::BindOnce(&IOSIOThread::ChangedToOnTheRecordOnIOThread,
+                     base::Unretained(this)));
 }
 
 net::URLRequestContextGetter* IOSIOThread::system_url_request_context_getter() {
@@ -322,8 +322,7 @@ void IOSIOThread::CreateDefaultAuthHandlerFactory() {
       std::make_unique<net::HttpAuthPreferences>();
   globals_->http_auth_handler_factory =
       net::HttpAuthHandlerRegistryFactory::Create(
-          globals_->host_resolver.get(), globals_->http_auth_preferences.get(),
-          supported_schemes);
+          globals_->http_auth_preferences.get(), supported_schemes);
 }
 
 void IOSIOThread::ClearHostCache() {

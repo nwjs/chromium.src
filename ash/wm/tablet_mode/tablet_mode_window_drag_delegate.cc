@@ -7,6 +7,9 @@
 #include "ash/root_window_controller.h"
 #include "ash/shelf/shelf_layout_manager.h"
 #include "ash/shell.h"
+#include "ash/system/overview/overview_button_tray.h"
+#include "ash/system/status_area_widget.h"
+#include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
 #include "ash/wm/overview/overview_item.h"
@@ -17,7 +20,14 @@
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_drag_indicators.h"
 #include "ash/wm/splitview/split_view_utils.h"
+#include "ash/wm/tablet_mode/tablet_mode_controller.h"
+#include "ash/wm/tablet_mode/tablet_mode_window_drag_metrics.h"
 #include "ash/wm/window_transient_descendant_iterator.h"
+#include "ash/wm/window_util.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
+#include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/transform_util.h"
 #include "ui/wm/core/coordinate_conversion.h"
@@ -30,6 +40,19 @@ namespace {
 // drag indicators and preview window when dragging a window into splitscreen in
 // tablet mode.
 constexpr float kIndicatorsThresholdRatio = 0.1;
+
+// Duration of a drag that it will be considered as an intended drag.
+constexpr base::TimeDelta kIsWindowMovedTimeoutMs =
+    base::TimeDelta::FromMilliseconds(300);
+
+constexpr char kSwipeDownDragWindowHistogram[] =
+    "Ash.SwipeDownDrag.Window.PresentationTime.TabletMode";
+constexpr char kSwipeDownDragWindowMaxLatencyHistogram[] =
+    "Ash.SwipeDownDrag.Window.PresentationTime.MaxLatency.TabletMode";
+constexpr char kSwipeDownDragTabHistogram[] =
+    "Ash.SwipeDownDrag.Tab.PresentationTime.TabletMode";
+constexpr char kSwipeDownDragTabMaxLatencyHistogram[] =
+    "Ash.SwipeDownDrag.Tab.PresentationTime.MaxLatency.TabletMode";
 
 // Returns the overview session if overview mode is active, otherwise returns
 // nullptr.
@@ -86,8 +109,24 @@ void TabletModeWindowDragDelegate::StartWindowDrag(
   DCHECK(!occlusion_excluder_);
   occlusion_excluder_.emplace(dragged_window);
 
+  DCHECK(!presentation_time_recorder_);
+  presentation_time_recorder_.reset();
+  if (wm::IsDraggingTabs(dragged_window)) {
+    presentation_time_recorder_ =
+        std::make_unique<PresentationTimeHistogramRecorder>(
+            dragged_window->layer()->GetCompositor(),
+            kSwipeDownDragTabHistogram, kSwipeDownDragTabMaxLatencyHistogram);
+  } else {
+    presentation_time_recorder_ =
+        std::make_unique<PresentationTimeHistogramRecorder>(
+            dragged_window->layer()->GetCompositor(),
+            kSwipeDownDragWindowHistogram,
+            kSwipeDownDragWindowMaxLatencyHistogram);
+  }
+
   dragged_window_ = dragged_window;
   initial_location_in_screen_ = location_in_screen;
+  drag_start_deadline_ = base::Time::Now() + kIsWindowMovedTimeoutMs;
 
   PrepareWindowDrag(location_in_screen);
 
@@ -104,11 +143,18 @@ void TabletModeWindowDragDelegate::StartWindowDrag(
   OverviewController* controller = Shell::Get()->overview_controller();
   bool was_overview_open = controller->IsSelecting();
 
+  const bool was_splitview_active =
+      split_view_controller_->IsSplitViewModeActive();
   // If the dragged window is one of the snapped windows, SplitViewController
   // might open overview in the dragged window side of the screen.
   split_view_controller_->OnWindowDragStarted(dragged_window_);
-
   if (ShouldOpenOverviewWhenDragStarts() && !controller->IsSelecting()) {
+    OverviewButtonTray* overview_button_tray =
+        RootWindowController::ForWindow(dragged_window_)
+            ->GetStatusAreaWidget()
+            ->overview_button_tray();
+    DCHECK(overview_button_tray);
+    overview_button_tray->SnapRippleToActivated();
     controller->ToggleOverview(
         OverviewSession::EnterExitOverviewType::kWindowDragged);
   }
@@ -128,22 +174,43 @@ void TabletModeWindowDragDelegate::StartWindowDrag(
   original_shadow_elevation_ =
       ::wm::GetShadowElevationConvertDefault(dragged_window_);
   ::wm::SetShadowElevation(dragged_window_, ::wm::kShadowElevationActiveWindow);
+
+  Shell* shell = Shell::Get();
+  TabletModeController* tablet_mode_controller =
+      shell->tablet_mode_controller();
+  if (wm::IsDraggingTabs(dragged_window_)) {
+    tablet_mode_controller->increment_tab_drag_count();
+    if (was_splitview_active)
+      tablet_mode_controller->increment_tab_drag_in_splitview_count();
+
+    // For tab drag, we only open the overview behind if the dragged window is
+    // the source window.
+    if (ShouldOpenOverviewWhenDragStarts())
+      RecordTabDragTypeHistogram(TabDragType::kDragSourceWindow);
+    else
+      RecordTabDragTypeHistogram(TabDragType::kDragTabOutOfWindow);
+  } else {
+    tablet_mode_controller->increment_app_window_drag_count();
+    if (was_splitview_active)
+      tablet_mode_controller->increment_app_window_drag_in_splitview_count();
+  }
+  if (controller->IsSelecting()) {
+    UMA_HISTOGRAM_COUNTS_100(
+        "Tablet.WindowDrag.OpenedWindowsNumber",
+        shell->mru_window_tracker()->BuildMruWindowList().size());
+    base::RecordAction(
+        base::UserMetricsAction("Tablet.WindowDrag.OpenedOverview"));
+  }
 }
 
 void TabletModeWindowDragDelegate::ContinueWindowDrag(
     const gfx::Point& location_in_screen,
     UpdateDraggedWindowType type,
     const gfx::Rect& target_bounds) {
-  if (!did_move_) {
-    const gfx::Rect work_area_bounds =
-        display::Screen::GetScreen()
-            ->GetDisplayNearestWindow(dragged_window_)
-            .work_area();
-    if (location_in_screen.y() >=
-        GetIndicatorsVerticalThreshold(work_area_bounds)) {
-      did_move_ = true;
-    }
-  }
+  UpdateIsWindowConsideredMoved(location_in_screen.y());
+
+  if (presentation_time_recorder_)
+    presentation_time_recorder_->RequestNext();
 
   if (type == UpdateDraggedWindowType::UPDATE_BOUNDS) {
     // UPDATE_BOUNDS is used when dragging tab(s) out of a browser window.
@@ -190,7 +257,8 @@ void TabletModeWindowDragDelegate::EndWindowDrag(
 
   // The window might merge into an overview window or become a new window item
   // in overview mode.
-  if (GetOverviewSession()) {
+  OverviewSession* overview_session = GetOverviewSession();
+  if (overview_session) {
     GetOverviewSession()->OnWindowDragEnded(
         dragged_window_, location_in_screen,
         ShouldDropWindowIntoOverview(snap_position, location_in_screen));
@@ -205,9 +273,25 @@ void TabletModeWindowDragDelegate::EndWindowDrag(
 
   // For child class to do its special handling if any.
   EndedWindowDrag(location_in_screen);
+
+  if (!wm::IsDraggingTabs(dragged_window_)) {
+    if (split_view_controller_->IsWindowInSplitView(dragged_window_)) {
+      RecordAppDragEndWindowStateHistogram(
+          AppWindowDragEndWindowState::kDraggedIntoSplitView);
+    } else if (overview_session &&
+               overview_session->IsWindowInOverview(dragged_window_)) {
+      RecordAppDragEndWindowStateHistogram(
+          AppWindowDragEndWindowState::kDraggedIntoOverview);
+    } else {
+      RecordAppDragEndWindowStateHistogram(
+          AppWindowDragEndWindowState::kBackToMaximizedOrFullscreen);
+    }
+  }
+
+  presentation_time_recorder_.reset();
   occlusion_excluder_.reset();
   dragged_window_ = nullptr;
-  did_move_ = false;
+  is_window_considered_moved_ = false;
 }
 
 void TabletModeWindowDragDelegate::FlingOrSwipe(ui::GestureEvent* event) {
@@ -240,16 +324,10 @@ IndicatorState TabletModeWindowDragDelegate::GetIndicatorState(
   if (split_view_controller_->IsSplitViewModeActive())
     return IndicatorState::kNone;
 
-  // If the event location hasn't passed the indicator vertical threshold, do
-  // not show the drag indicators.
-  const gfx::Rect work_area_bounds =
-      display::Screen::GetScreen()
-          ->GetDisplayNearestWindow(dragged_window_)
-          .work_area();
-  if (!did_move_ && location_in_screen.y() <
-                        GetIndicatorsVerticalThreshold(work_area_bounds)) {
+  // Do not show the drag indicators if the window hasn't been considered as
+  // moved.
+  if (!is_window_considered_moved_)
     return IndicatorState::kNone;
-  }
 
   // No top drag indicator if in portrait screen orientation.
   if (IsCurrentScreenOrientationLandscape())
@@ -293,16 +371,13 @@ SplitViewController::SnapPosition TabletModeWindowDragDelegate::GetSnapPosition(
     }
   }
 
-  // Otherwise, the user has to drag pass the indicator vertical threshold to
-  // snap the window.
+  // Do not snap the window if it hasn't be considered as moved.
+  if (!is_window_considered_moved_)
+    return SplitViewController::NONE;
+
   gfx::Rect work_area_bounds = display::Screen::GetScreen()
                                    ->GetDisplayNearestWindow(dragged_window_)
                                    .work_area();
-  if (!did_move_ && location_in_screen.y() <
-                        GetIndicatorsVerticalThreshold(work_area_bounds)) {
-    return SplitViewController::NONE;
-  }
-
   // Check to see if the current event location |location_in_screen|is within
   // the drag indicators bounds.
   if (is_landscape) {
@@ -443,6 +518,23 @@ bool TabletModeWindowDragDelegate::ShouldFlingIntoOverview(
   // Consider only the velocity_y if splitview is not active and preview area is
   // not shown.
   return event->details().velocity_y() > kFlingToOverviewThreshold;
+}
+
+void TabletModeWindowDragDelegate::UpdateIsWindowConsideredMoved(
+    int y_location_in_screen) {
+  if (is_window_considered_moved_)
+    return;
+
+  if (base::Time::Now() < drag_start_deadline_)
+    return;
+
+  DCHECK(dragged_window_);
+  const gfx::Rect work_area_bounds =
+      display::Screen::GetScreen()
+          ->GetDisplayNearestWindow(dragged_window_)
+          .work_area();
+  is_window_considered_moved_ =
+      y_location_in_screen >= GetIndicatorsVerticalThreshold(work_area_bounds);
 }
 
 }  // namespace ash

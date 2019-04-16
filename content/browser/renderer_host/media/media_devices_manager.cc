@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <functional>
 #include <string>
 
 #include "base/bind.h"
@@ -152,7 +153,7 @@ std::string GuessVideoGroupID(const blink::WebMediaDeviceInfoArray& audio_infos,
              const blink::WebMediaDeviceInfo& audio_info) {
             return audio_info.label.find(video_label) != std::string::npos;
           },
-          base::ConstRef(video_label));
+          std::cref(video_label));
 
   const bool video_has_usb_model = LabelHasUSBModel(video_info.label);
   std::string video_usb_model = video_has_usb_model
@@ -167,7 +168,7 @@ std::string GuessVideoGroupID(const blink::WebMediaDeviceInfoArray& audio_infos,
                              GetUSBModelFromLabel(audio_info.label)
                        : false;
           },
-          video_has_usb_model, base::ConstRef(video_usb_model));
+          video_has_usb_model, std::cref(video_usb_model));
 
   for (auto* callback :
        {&video_label_is_included_in_audio_label, &usb_model_matches}) {
@@ -524,8 +525,8 @@ void MediaDevicesManager::StartMonitoring() {
 #if defined(OS_MACOSX)
   base::PostTaskWithTraits(
       FROM_HERE, {BrowserThread::UI},
-      base::Bind(&MediaDevicesManager::StartMonitoringOnUIThread,
-                 base::Unretained(this)));
+      base::BindOnce(&MediaDevicesManager::StartMonitoringOnUIThread,
+                     base::Unretained(this)));
 #endif
 }
 
@@ -887,16 +888,13 @@ void MediaDevicesManager::ProcessRequests() {
                    false /* ignore_group_id */);
   }
 
-  requests_.erase(
-      std::remove_if(requests_.begin(), requests_.end(),
-                     [this](EnumerationRequest& request) {
-                       if (IsEnumerationRequestReady(request)) {
-                         std::move(request.callback).Run(current_snapshot_);
-                         return true;
-                       }
-                       return false;
-                     }),
-      requests_.end());
+  base::EraseIf(requests_, [this](EnumerationRequest& request) {
+    if (IsEnumerationRequestReady(request)) {
+      std::move(request.callback).Run(current_snapshot_);
+      return true;
+    }
+    return false;
+  });
 }
 
 bool MediaDevicesManager::IsEnumerationRequestReady(

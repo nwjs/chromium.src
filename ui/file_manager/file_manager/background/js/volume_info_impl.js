@@ -253,7 +253,7 @@ VolumeInfoImpl.prototype = /** @struct */ {
  * @param {string} url The filesystem URL
  * @return {!Promise<Entry>}
  */
-VolumeInfoImpl.resolveFileSystemUrl_ = function(url) {
+VolumeInfoImpl.resolveFileSystemUrl_ = url => {
   return new Promise(window.webkitResolveLocalFileSystemURL.bind(null, url));
 };
 
@@ -320,7 +320,7 @@ VolumeInfoImpl.prototype.resolveDisplayRootImpl_ = function() {
     }
   }
   // For Drive, we need to resolve.
-  var displayRootURL = this.fileSystem_.root.toURL() + 'root';
+  const displayRootURL = this.fileSystem_.root.toURL() + 'root';
   return Promise
       .all([
         VolumeInfoImpl.resolveFileSystemUrl_(displayRootURL),
@@ -332,13 +332,6 @@ VolumeInfoImpl.prototype.resolveDisplayRootImpl_ = function() {
         this.displayRoot_ = displayRoot;
         return displayRoot;
       });
-};
-
-/**
- * Restarts the process of resolving the display root for this volume.
- */
-VolumeInfoImpl.prototype.restartResolveDisplayRootForTest = function() {
-  this.displayRootPromise_ = this.resolveDisplayRootImpl_();
 };
 
 /**

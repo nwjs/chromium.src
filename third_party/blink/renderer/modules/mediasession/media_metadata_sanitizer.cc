@@ -41,7 +41,7 @@ bool CheckMediaImageSrcSanity(const KURL& src, ExecutionContext* context) {
   if (!src.ProtocolIs(url::kHttpScheme) && !src.ProtocolIs(url::kHttpsScheme) &&
       !src.ProtocolIs(url::kDataScheme) && !src.ProtocolIs(url::kBlobScheme)) {
     context->AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
         "MediaImage src can only be of http/https/data/blob scheme: " +
             src.GetString()));
     return false;
@@ -50,7 +50,7 @@ bool CheckMediaImageSrcSanity(const KURL& src, ExecutionContext* context) {
   DCHECK(src.GetString().Is8Bit());
   if (src.GetString().length() > url::kMaxURLChars) {
     context->AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, kWarningMessageLevel,
+        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
         "MediaImage src exceeds maximum URL length: " + src.GetString()));
     return false;
   }
@@ -76,7 +76,7 @@ media_session::mojom::blink::MediaImagePtr SanitizeMediaImageAndConvertToMojo(
     mojo_image->sizes.push_back(web_size);
     if (mojo_image->sizes.size() == kMaxNumberOfImageSizes) {
       context->AddConsoleMessage(ConsoleMessage::Create(
-          kJSMessageSource, kWarningMessageLevel,
+          kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
           "The number of MediaImage sizes exceeds the upper limit. "
           "All remaining MediaImage will be ignored"));
       break;
@@ -87,21 +87,18 @@ media_session::mojom::blink::MediaImagePtr SanitizeMediaImageAndConvertToMojo(
 
 }  // anonymous namespace
 
-media_session::mojom::blink::MediaMetadataPtr
+blink::mojom::blink::SpecMediaMetadataPtr
 MediaMetadataSanitizer::SanitizeAndConvertToMojo(const MediaMetadata* metadata,
                                                  ExecutionContext* context) {
-  media_session::mojom::blink::MediaMetadataPtr mojo_metadata;
   if (!metadata)
-    return mojo_metadata;
+    return blink::mojom::blink::SpecMediaMetadataPtr();
 
-  mojo_metadata = media_session::mojom::blink::MediaMetadata::New();
+  blink::mojom::blink::SpecMediaMetadataPtr mojo_metadata(
+      blink::mojom::blink::SpecMediaMetadata::New());
 
   mojo_metadata->title = metadata->title().Left(kMaxStringLength);
   mojo_metadata->artist = metadata->artist().Left(kMaxStringLength);
   mojo_metadata->album = metadata->album().Left(kMaxStringLength);
-
-  // |source_title_| is populated by content::MediaSessionImpl.
-  mojo_metadata->source_title = g_empty_string16_bit;
 
   for (const MediaImage* image : metadata->artwork()) {
     media_session::mojom::blink::MediaImagePtr mojo_image =
@@ -110,7 +107,7 @@ MediaMetadataSanitizer::SanitizeAndConvertToMojo(const MediaMetadata* metadata,
       mojo_metadata->artwork.push_back(std::move(mojo_image));
     if (mojo_metadata->artwork.size() == kMaxNumberOfMediaImages) {
       context->AddConsoleMessage(ConsoleMessage::Create(
-          kJSMessageSource, kWarningMessageLevel,
+          kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
           "The number of MediaImage sizes exceeds the upper limit. "
           "All remaining MediaImage will be ignored"));
       break;

@@ -4,6 +4,7 @@
 
 #include "ui/android/delegated_frame_host_android.h"
 #include "base/android/build_info.h"
+#include "base/bind_helpers.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "cc/layers/layer.h"
@@ -59,6 +60,7 @@ class MockWindowAndroidCompositor : public WindowAndroidCompositor {
                CompositorLock*(CompositorLockClient*, base::TimeDelta));
   MOCK_CONST_METHOD0(IsDrawingFirstVisibleFrame, bool());
   MOCK_METHOD1(SetVSyncPaused, void(bool));
+  MOCK_METHOD1(OnUpdateRefreshRate, void(float));
 
   // Helpers for move-only types:
   void RequestCopyOfOutputOnRootLayer(

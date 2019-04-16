@@ -11,6 +11,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -40,12 +41,10 @@
 #include "components/arc/arc_features.h"
 #include "components/arc/arc_prefs.h"
 #include "components/arc/arc_util.h"
-#include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
-#include "third_party/icu/source/common/unicode/locid.h"
 
 namespace arc {
 
@@ -85,7 +84,8 @@ base::LazyInstance<std::set<AccountId>>::DestructorAtExit
 // Returns whether ARC can run on the filesystem mounted at |path|.
 // This function should run only on threads where IO operations are allowed.
 bool IsArcCompatibleFilesystem(const base::FilePath& path) {
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   // If it can be verified it is not on ecryptfs, then it is ok.
   struct statfs statfs_buf;
@@ -387,10 +387,18 @@ bool SetArcPlayStoreEnabledForProfile(Profile* profile, bool enabled) {
     // |arc_session_manager| can be nullptr in unit_tests.
     if (!arc_session_manager)
       return false;
-    if (enabled)
+    if (enabled) {
       arc_session_manager->RequestEnable();
-    else
+    } else {
+      // Before calling RequestDisable here we cache enable_requested because
+      // RequestArcDataRemoval was refactored outside of RequestDisable where
+      // it was called only in case enable_requested was true (RequestDisable
+      // sets enable_requested to false).
+      const bool enable_requested = arc_session_manager->enable_requested();
       arc_session_manager->RequestDisable();
+      if (enable_requested)
+        arc_session_manager->RequestArcDataRemoval();
+    }
     return true;
   }
   profile->GetPrefs()->SetBoolean(prefs::kArcEnabled, enabled);
@@ -580,55 +588,6 @@ void UpdateArcFileSystemCompatibilityPrefIfNeeded(
       base::BindOnce(&IsArcCompatibleFilesystem, profile_path),
       base::BindOnce(&StoreCompatibilityCheckResult, account_id,
                      std::move(callback)));
-}
-
-ash::mojom::AssistantAllowedState IsAssistantAllowedForProfile(
-    const Profile* profile) {
-  if (!chromeos::switches::IsAssistantEnabled()) {
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_FLAG;
-  }
-
-  if (!chromeos::ProfileHelper::IsPrimaryProfile(profile))
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_NONPRIMARY_USER;
-
-  if (profile->IsOffTheRecord())
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_INCOGNITO;
-
-  if (profile->IsLegacySupervised())
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_SUPERVISED_USER;
-
-  if (profile->IsChild())
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_CHILD_USER;
-
-  if (chromeos::DemoSession::IsDeviceInDemoMode())
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_DEMO_MODE;
-
-  if (user_manager::UserManager::Get()->IsLoggedInAsPublicAccount())
-    return ash::mojom::AssistantAllowedState::DISALLOWED_BY_PUBLIC_SESSION;
-
-  const std::string kAllowedLocales[] = {ULOC_US, ULOC_UK, ULOC_CANADA,
-                                         ULOC_CANADA_FRENCH};
-
-  const PrefService* prefs = profile->GetPrefs();
-  std::string pref_locale =
-      prefs->GetString(language::prefs::kApplicationLocale);
-  // Also accept runtime locale which maybe an approximation of user's pref
-  // locale.
-  const std::string kRuntimeLocale = icu::Locale::getDefault().getName();
-  if (!pref_locale.empty()) {
-    base::ReplaceChars(pref_locale, "-", "_", &pref_locale);
-    bool disallowed = !base::ContainsValue(kAllowedLocales, pref_locale) &&
-                      !base::ContainsValue(kAllowedLocales, kRuntimeLocale);
-
-    if (disallowed && base::CommandLine::ForCurrentProcess()
-                              ->GetSwitchValueASCII(
-                                  chromeos::switches::kVoiceInteractionLocales)
-                              .find(pref_locale) == std::string::npos) {
-      return ash::mojom::AssistantAllowedState::DISALLOWED_BY_LOCALE;
-    }
-  }
-
-  return ash::mojom::AssistantAllowedState::ALLOWED;
 }
 
 ArcSupervisionTransition GetSupervisionTransition(const Profile* profile) {

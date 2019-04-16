@@ -12,9 +12,10 @@
 #include "ash/app_list/views/app_list_main_view.h"
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/app_list/views/contents_view.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/app_list_switches.h"
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "ui/aura/client/focus_client.h"
@@ -27,7 +28,6 @@
 #include "ui/display/types/display_constants.h"
 #include "ui/gfx/geometry/vector2d_conversions.h"
 #include "ui/gfx/presentation_feedback.h"
-#include "ui/keyboard/keyboard_controller.h"
 #include "ui/views/widget/widget.h"
 
 namespace app_list {
@@ -57,19 +57,6 @@ void UpdateOverviewSettings(ui::AnimationMetricsReporter* reporter,
   settings->SetAnimationMetricsReporter(reporter);
 }
 
-class StateAnimationMetricsReporter : public ui::AnimationMetricsReporter {
- public:
-  StateAnimationMetricsReporter() = default;
-  ~StateAnimationMetricsReporter() override = default;
-
-  void Report(int value) override {
-    UMA_HISTOGRAM_PERCENTAGE("Apps.StateTransition.AnimationSmoothness", value);
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(StateAnimationMetricsReporter);
-};
-
 // Callback from the compositor when it presented a valid frame. Used to
 // record UMA of input latency.
 void DidPresentCompositorFrame(base::TimeTicks event_time_stamp,
@@ -90,11 +77,37 @@ void DidPresentCompositorFrame(base::TimeTicks event_time_stamp,
 
 }  // namespace
 
+class AppListPresenterImpl::OverviewAnimationMetricsReporter
+    : public ui::AnimationMetricsReporter {
+ public:
+  OverviewAnimationMetricsReporter() = default;
+  ~OverviewAnimationMetricsReporter() override = default;
+
+  void Start(bool enter) {
+    enter_ = enter;
+  }
+
+  void Report(int value) override {
+    if (enter_) {
+      UMA_HISTOGRAM_PERCENTAGE(
+          "Apps.StateTransition.AnimationSmoothness.EnterOverview", value);
+    } else {
+      UMA_HISTOGRAM_PERCENTAGE(
+          "Apps.StateTransition.AnimationSmoothness.ExitOverview", value);
+    }
+  }
+
+ private:
+  bool enter_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(OverviewAnimationMetricsReporter);
+};
+
 AppListPresenterImpl::AppListPresenterImpl(
     std::unique_ptr<AppListPresenterDelegate> delegate)
     : delegate_(std::move(delegate)),
-      state_animation_metrics_reporter_(
-          std::make_unique<StateAnimationMetricsReporter>()) {
+      overview_animation_metrics_reporter_(
+          std::make_unique<OverviewAnimationMetricsReporter>()) {
   DCHECK(delegate_);
   delegate_->SetPresenter(this);
 }
@@ -183,12 +196,26 @@ bool AppListPresenterImpl::CloseOpenedPage() {
 
 ash::ShelfAction AppListPresenterImpl::ToggleAppList(
     int64_t display_id,
+    app_list::AppListShowSource show_source,
     base::TimeTicks event_time_stamp) {
+  bool request_fullscreen = show_source == kSearchKeyFullscreen ||
+                            show_source == kShelfButtonFullscreen;
   if (IsVisible()) {
+    if (request_fullscreen) {
+      if (view_->app_list_state() == AppListViewState::PEEKING) {
+        view_->SetState(AppListViewState::FULLSCREEN_ALL_APPS);
+        return ash::SHELF_ACTION_APP_LIST_SHOWN;
+      } else if (view_->app_list_state() == AppListViewState::HALF) {
+        view_->SetState(AppListViewState::FULLSCREEN_SEARCH);
+        return ash::SHELF_ACTION_APP_LIST_SHOWN;
+      }
+    }
     Dismiss(event_time_stamp);
     return ash::SHELF_ACTION_APP_LIST_DISMISSED;
   }
   Show(display_id, event_time_stamp);
+  if (request_fullscreen)
+    view_->SetState(AppListViewState::FULLSCREEN_ALL_APPS);
   return ash::SHELF_ACTION_APP_LIST_SHOWN;
 }
 
@@ -261,12 +288,36 @@ void AppListPresenterImpl::ScheduleOverviewModeAnimation(bool start,
     UpdateYPositionAndOpacityForHomeLauncher(
         start ? 0 : kOverviewAnimationYOffset, start ? 1.f : 0.f,
         base::NullCallback());
+
+    overview_animation_metrics_reporter_->Start(start);
   }
   UpdateYPositionAndOpacityForHomeLauncher(
       start ? kOverviewAnimationYOffset : 0, start ? 0.f : 1.f,
       animate ? base::BindRepeating(&UpdateOverviewSettings,
-                                    state_animation_metrics_reporter_.get())
+                                    overview_animation_metrics_reporter_.get())
               : base::NullCallback());
+}
+
+void AppListPresenterImpl::ShowEmbeddedAssistantUI(bool show) {
+  if (view_)
+    view_->app_list_main_view()->contents_view()->ShowEmbeddedAssistantUI(show);
+}
+
+bool AppListPresenterImpl::IsShowingEmbeddedAssistantUI() const {
+  if (view_) {
+    return view_->app_list_main_view()
+        ->contents_view()
+        ->IsShowingEmbeddedAssistantUI();
+  }
+
+  return false;
+}
+
+void AppListPresenterImpl::SetExpandArrowViewVisibility(bool show) {
+  if (view_) {
+    view_->app_list_main_view()->contents_view()->SetExpandArrowViewVisibility(
+        show);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -325,7 +376,7 @@ void AppListPresenterImpl::ScheduleAnimation() {
     ui::ScopedLayerAnimationSettings animation(layer->GetAnimator());
     animation.SetTransitionDuration(animation_duration);
     animation.SetAnimationMetricsReporter(
-        state_animation_metrics_reporter_.get());
+        view_->GetStateTransitionMetricsReporter());
     animation.AddObserver(this);
 
     layer->SetTransform(gfx::Transform());
@@ -375,12 +426,6 @@ void AppListPresenterImpl::OnWindowFocused(aura::Window* gained_focus,
         (!gained_focus || !applist_container->Contains(gained_focus)) &&
         !switches::ShouldNotDismissOnBlur() && !delegate_->IsTabletMode()) {
       Dismiss(base::TimeTicks());
-    }
-    if (applist_container->Contains(gained_focus) &&
-        keyboard::KeyboardController::HasInstance()) {
-      auto* const keyboard_controller = keyboard::KeyboardController::Get();
-      if (keyboard_controller->IsKeyboardVisible())
-        keyboard_controller->HideKeyboardImplicitlyBySystem();
     }
   }
 }

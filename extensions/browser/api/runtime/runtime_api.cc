@@ -10,6 +10,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/logging.h"
@@ -233,8 +234,8 @@ void RuntimeAPI::OnExtensionLoaded(content::BrowserContext* browser_context,
   // Dispatch the onInstalled event with reason "chrome_update".
   base::ThreadTaskRunnerHandle::Get()->PostTask(
       FROM_HERE,
-      base::Bind(&RuntimeEventRouter::DispatchOnInstalledEvent,
-                 browser_context_, extension->id(), base::Version(), true, nw_skip));
+      base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
+                     browser_context_, extension->id(), base::Version(), true, nw_skip));
 }
 
 void RuntimeAPI::OnExtensionUninstalled(
@@ -594,9 +595,9 @@ void RuntimeAPI::OnExtensionInstalledAndLoaded(
     const base::Version& previous_version) {
   bool nw_skip = (extension->id() == nw::GetMainExtensionId() && !first_run::IsChromeFirstRun());
   base::ThreadTaskRunnerHandle::Get()->PostTask(
-      FROM_HERE,
-      base::Bind(&RuntimeEventRouter::DispatchOnInstalledEvent,
-                 browser_context_, extension->id(), previous_version, false, nw_skip));
+      FROM_HERE, base::BindOnce(&RuntimeEventRouter::DispatchOnInstalledEvent,
+                                browser_context_, extension->id(),
+                                previous_version, false, nw_skip));
 }
 
 ExtensionFunction::ResponseAction RuntimeGetBackgroundPageFunction::Run() {
@@ -699,7 +700,8 @@ ExtensionFunction::ResponseAction RuntimeRestartAfterDelayFunction::Run() {
   int seconds = params->seconds;
 
   if (seconds <= 0 && seconds != -1)
-    return RespondNow(Error(kErrorInvalidArgument, base::IntToString(seconds)));
+    return RespondNow(
+        Error(kErrorInvalidArgument, base::NumberToString(seconds)));
 
   RuntimeAPI::RestartAfterDelayStatus request_status =
       RuntimeAPI::GetFactoryInstance()

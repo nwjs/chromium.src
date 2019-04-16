@@ -284,6 +284,9 @@
   "RemoteAccessHostAllowUiAccessForRemoteAssistance": {
   },
 
+  "RemoteAccessHostAllowFileTransfer": {
+  },
+
   "PrintingEnabled": {
     "os": ["win", "linux", "mac", "chromeos"],
     "test_policy": { "PrintingEnabled": false },
@@ -324,6 +327,14 @@
     ]
   },
 
+  "PrintingAllowedPinModes": {
+    "os": ["chromeos"],
+    "test_policy": { "PrintingAllowedPinModes": "secure" },
+    "pref_mappings": [
+      { "pref": "printing.allowed_pin_modes" }
+    ]
+  },
+
   "PrintingAllowedPageSizes": {
     "os": ["chromeos"],
     "test_policy": { "PrintingAllowedPageSizes": [{"WidthUm": 210000, "HeightUm": 297000}] },
@@ -345,6 +356,14 @@
     "test_policy": { "PrintingDuplexDefault": "long-edge" },
     "pref_mappings": [
       { "pref": "printing.duplex_default" }
+    ]
+  },
+
+  "PrintingPinDefault": {
+    "os": ["chromeos"],
+    "test_policy": { "PrintingPinDefault": "secure" },
+    "pref_mappings": [
+      { "pref": "printing.pin_default" }
     ]
   },
 
@@ -909,6 +928,16 @@
     "test_policy": { "AuthNegotiateDelegateWhitelist": "localhost" },
     "pref_mappings": [
       { "pref": "auth.negotiate_delegate_whitelist",
+        "local_state": true
+      }
+    ]
+  },
+
+  "AuthNegotiateDelegateByKdcPolicy": {
+    "os": ["linux", "mac", "chromeos"],
+    "test_policy": { "AuthNegotiateDelegateByKdcPolicy": true },
+    "pref_mappings": [
+      { "pref": "auth.negotiate_delegate_by_kdc_policy",
         "local_state": true
       }
     ]
@@ -2612,6 +2641,12 @@
     ]
   },
 
+  "AllowPopupsDuringPageUnload": {
+    "os": ["win", "linux", "mac", "chromeos", "android"],
+    "test_policy": { "AllowPopupsDuringPageUnload": true },
+    "pref_mappings": [{ "pref": "allow_popups_during_page_unload" }]
+  },
+
   "----- Chrome OS policies ------------------------------------------------": {},
 
   "ChromeOsLockOnIdleSuspend": {
@@ -3315,6 +3350,16 @@
     ]
   },
 
+  "SchedulerConfiguration": {
+    "os": ["chromeos"],
+    "test_policy": { "SchedulerConfiguration": "performance" },
+    "pref_mappings": [
+      { "pref": "chromeos.scheduler_configuration",
+        "local_state": true
+      }
+    ]
+  },
+
   "CloudPolicyOverridesMachinePolicy": {
     "os": ["win", "linux", "mac"],
     "test_policy": { "CloudPolicyOverridesMachinePolicy": false },
@@ -3456,6 +3501,12 @@
     "pref_mappings": [
       { "pref": "plugin_vm.image" }
     ]
+  },
+
+  "VoiceInteractionHotwordEnabled": {
+    "os": ["chromeos"],
+    "test_policy": { "VoiceInteractionHotwordEnabled": true },
+    "pref_mappings": [{ "pref": "settings.voice_interaction.hotword.enabled" }]
   },
 
   "----- Chrome OS device policies ---------------------------------------": {},
@@ -4053,6 +4104,14 @@
     ]
   },
 
+  "CrostiniExportImportUIAllowed": {
+    "os": ["chromeos"],
+    "test_policy": { "CrostiniExportImportUIAllowed": false },
+    "pref_mappings": [
+      { "pref": "crostini.user_export_import_ui_allowed_by_policy" }
+    ]
+  },
+
   "DeviceSamlLoginAuthenticationType": {
   },
 
@@ -4187,8 +4246,36 @@
     "pref_mappings": [{ "pref": "child_user.parent_access_code.config" }]
   },
 
+  "CertificateManagementAllowed": {
+    "os": ["chromeos"],
+    "test_policy": { "CertificateManagementAllowed": 2 },
+    "pref_mappings": [{ "pref": "certificate_management_allowed" }]
+  },
+
+  "VoiceInteractionContextEnabled": {
+    "os": ["chromeos"],
+    "test_policy": { "VoiceInteractionContextEnabled": true },
+    "pref_mappings": [{ "pref": "settings.voice_interaction.context.enabled" }]
+  },
+
+  "DeviceRebootOnUserSignout": {
+    "os": ["chromeos"],
+    "test_policy": {
+      "DeviceRebootOnUserSignout": 0
+    },
+    "pref_mappings": [
+      { "pref": "cros.device.reboot_on_user_signout"}
+    ]
+  },
+
   "ForceNetworkInProcess": {
     "note": "This policy is used directly through the policy service instead of through a pref."
+  },
+
+  "DeviceWilcoDtcAllowed": {
+    "os": ["chromeos"],
+    "test_policy": { "DeviceWilcoDtcAllowed": true },
+    "pref_mappings": [{ "pref": "cros.device.wilco_dtc_allowed" }]
   },
 
   "----- Chrome Frame policies -------------------------------------------": {},
@@ -4325,6 +4412,23 @@
     ]
   },
 
+  "BrowserSwitcherChromePath": {
+    "os": ["win"],
+    "test_policy": { "BrowserSwitcherChromePath": "chrome.exe" },
+    "pref_mappings": [
+      { "pref": "browser_switcher.chrome_path" }
+    ]
+  },
+
+  "BrowserSwitcherChromeParameters": {
+    "os": ["win"],
+    "test_policy": { "BrowserSwitcherChromeParameters": ["--force-dark-mode"] },
+    "pref_mappings": [
+      { "pref": "browser_switcher.chrome_parameters" }
+    ]
+  },
+
+
   "BrowserSwitcherUrlList": {
     "os": ["win", "linux", "mac"],
     "test_policy": {
@@ -4365,6 +4469,16 @@
     ]
   },
 
+  "BrowserSwitcherDelay": {
+    "os": ["win", "linux", "mac"],
+    "test_policy": {
+      "BrowserSwitcherDelay": 10000
+    },
+    "pref_mappings": [
+      { "pref": "browser_switcher.delay" }
+    ]
+  },
+
   "BrowserSwitcherEnabled": {
     "os": ["win", "linux", "mac"],
     "test_policy": {
@@ -4372,6 +4486,16 @@
     },
     "pref_mappings": [
       { "pref": "browser_switcher.enabled" }
+    ]
+  },
+
+  "BrowserSwitcherKeepLastChromeTab": {
+    "os": ["win", "linux", "mac"],
+    "test_policy": {
+      "BrowserSwitcherKeepLastChromeTab": false
+    },
+    "pref_mappings": [
+      { "pref": "browser_switcher.keep_last_tab" }
     ]
   }
 }

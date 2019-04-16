@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 
 #include "ui/native_theme/caption_style.h"
-
 #include "base/json/json_reader.h"
 #include "base/values.h"
+#include "build/build_config.h"
 
 namespace ui {
 
@@ -16,7 +16,7 @@ CaptionStyle::~CaptionStyle() = default;
 // static
 CaptionStyle CaptionStyle::FromSpec(const std::string& spec) {
   CaptionStyle style;
-  std::unique_ptr<base::Value> dict = base::JSONReader::Read(spec);
+  std::unique_ptr<base::Value> dict = base::JSONReader::ReadDeprecated(spec);
 
   if (!dict || !dict->is_dict())
     return style;
@@ -28,5 +28,11 @@ CaptionStyle CaptionStyle::FromSpec(const std::string& spec) {
 
   return style;
 }
+
+#if !defined(OS_WIN)
+CaptionStyle CaptionStyle::FromSystemSettings() {
+  return CaptionStyle();
+}
+#endif
 
 }  // namespace ui

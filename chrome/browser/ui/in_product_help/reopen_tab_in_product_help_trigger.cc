@@ -33,7 +33,7 @@ base::Optional<base::TimeDelta> GetTimeoutFromFieldTrialParam(
   std::string str = base::GetFieldTrialParamValueByFeature(
       feature_engagement::kIPHReopenTabFeature, name);
   int timeout_seconds = 0;
-  if (str.size() > 0) {
+  if (!str.empty()) {
     base::StringToInt(str, &timeout_seconds);
     DCHECK_GT(timeout_seconds, 0);
     return base::TimeDelta::FromSeconds(timeout_seconds);
@@ -83,20 +83,24 @@ void ReopenTabInProductHelpTrigger::ActiveTabClosed(
 }
 
 void ReopenTabInProductHelpTrigger::NewTabOpened() {
-  if (trigger_state_ != ACTIVE_TAB_CLOSED)
-    return;
-
   const base::TimeDelta elapsed_time = clock_->NowTicks() - time_of_last_step_;
 
-  if (elapsed_time < new_tab_opened_timeout_) {
+  if (trigger_state_ == ACTIVE_TAB_CLOSED &&
+      elapsed_time < new_tab_opened_timeout_) {
     tracker_->NotifyEvent(feature_engagement::events::kReopenTabConditionsMet);
-    if (tracker_->ShouldTriggerHelpUI(
-            feature_engagement::kIPHReopenTabFeature)) {
-      DCHECK(cb_);
-      cb_.Run();
-    }
   } else {
     ResetTriggerState();
+  }
+
+  // Make sure ShouldTriggerHelpUI is always called when a new tab is
+  // opened. This makes testing the UI easier when the feature engagement demo
+  // mode is enabled (in which the first call always returns true). Making the
+  // call not conditional on our triggering conditions means the UI can be
+  // triggered more easily and consistently. In production, this will always
+  // return false anyway since we didn't call NotifyEvent().
+  if (tracker_->ShouldTriggerHelpUI(feature_engagement::kIPHReopenTabFeature)) {
+    DCHECK(cb_);
+    cb_.Run();
   }
 }
 

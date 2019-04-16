@@ -4,6 +4,7 @@
 
 #include "chrome/browser/supervised_user/child_accounts/permission_request_creator_apiary.h"
 
+#include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/json/json_reader.h"
@@ -293,7 +294,7 @@ void PermissionRequestCreatorApiary::OnSimpleLoaderComplete(
   if (response_body)
     body = std::move(*response_body);
 
-  std::unique_ptr<base::Value> value = base::JSONReader::Read(body);
+  std::unique_ptr<base::Value> value = base::JSONReader::ReadDeprecated(body);
   base::DictionaryValue* dict = NULL;
   if (!value || !value->GetAsDictionary(&dict)) {
     LOG(WARNING) << "Invalid top-level dictionary";

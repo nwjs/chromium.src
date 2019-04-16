@@ -4,6 +4,7 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -43,6 +44,32 @@ class WindowDeactivedWaiter : public views::WidgetObserver {
 
  private:
   BrowserView* const window_;
+  base::RunLoop run_loop_;
+};
+
+// Helper to wait until the hover card widget is visible.
+class HoverCardVisibleWaiter : public views::WidgetObserver {
+ public:
+  explicit HoverCardVisibleWaiter(Widget* hover_card)
+      : hover_card_(hover_card) {
+    hover_card_->AddObserver(this);
+  }
+  ~HoverCardVisibleWaiter() override { hover_card_->RemoveObserver(this); }
+
+  void Wait() {
+    if (hover_card_->IsVisible())
+      return;
+    run_loop_.Run();
+  }
+
+  // WidgetObserver overrides:
+  void OnWidgetVisibilityChanged(Widget* widget, bool visible) override {
+    if (visible)
+      run_loop_.Quit();
+  }
+
+ private:
+  Widget* const hover_card_;
   base::RunLoop run_loop_;
 };
 
@@ -109,6 +136,10 @@ class TabHoverCardBubbleViewBrowserTest : public DialogBrowserTest {
     ui::MouseEvent hover_event(ui::ET_MOUSE_ENTERED, gfx::Point(), gfx::Point(),
                                base::TimeTicks(), ui::EF_NONE, 0);
     tab->OnMouseEntered(hover_event);
+    TabHoverCardBubbleView* hover_card = GetHoverCard(tab_strip);
+    Widget* widget = GetHoverCardWidget(hover_card);
+    HoverCardVisibleWaiter waiter(widget);
+    waiter.Wait();
   }
 
  private:
@@ -117,8 +148,14 @@ class TabHoverCardBubbleViewBrowserTest : public DialogBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+// Fails on win7 (dbg): http://crbug.com/932402.
+#if defined(OS_WIN) && !defined(NDEBUG)
+#define MAYBE_InvokeUi_tab_hover_card DISABLED_InvokeUi_tab_hover_card
+#else
+#define MAYBE_InvokeUi_tab_hover_card InvokeUi_tab_hover_card
+#endif
 IN_PROC_BROWSER_TEST_F(TabHoverCardBubbleViewBrowserTest,
-                       InvokeUi_tab_hover_card) {
+                       MAYBE_InvokeUi_tab_hover_card) {
   ShowAndVerifyUi();
 }
 

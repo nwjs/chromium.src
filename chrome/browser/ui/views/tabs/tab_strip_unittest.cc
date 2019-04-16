@@ -6,7 +6,9 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/macros.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
@@ -28,6 +30,7 @@
 #include "ui/gfx/skia_util.h"
 #include "ui/views/accessibility/ax_event_manager.h"
 #include "ui/views/accessibility/ax_event_observer.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/view.h"
 #include "ui/views/view_targeter.h"
@@ -219,10 +222,31 @@ class TabStripTest : public ChromeViewsTestBase,
     tab_strip_->StoppedDraggingTab(tab, &is_first_tab);
   }
 
+  // Makes sure that all tabs have the correct AX indices.
+  void VerifyTabIndices() {
+    for (int i = 0; i < tab_strip_->tab_count(); ++i) {
+      ui::AXNodeData ax_node_data;
+      tab_strip_->tab_at(i)->GetViewAccessibility().GetAccessibleNodeData(
+          &ax_node_data);
+      EXPECT_EQ(i + 1, ax_node_data.GetIntAttribute(
+                           ax::mojom::IntAttribute::kPosInSet));
+      EXPECT_EQ(
+          tab_strip_->tab_count(),
+          ax_node_data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+    }
+  }
+
   // Owned by TabStrip.
   FakeBaseTabStripController* controller_ = nullptr;
   TabStrip* tab_strip_ = nullptr;
   std::unique_ptr<views::Widget> widget_;
+
+  ui::MouseEvent dummy_event_ = ui::MouseEvent(ui::ET_MOUSE_PRESSED,
+                                               gfx::PointF(),
+                                               gfx::PointF(),
+                                               base::TimeTicks::Now(),
+                                               0,
+                                               0);
 
  private:
   ui::test::MaterialDesignControllerTestAPI test_api_;
@@ -256,6 +280,22 @@ TEST_P(TabStripTest, AccessibilityEvents) {
   tab_strip_->RemoveTabAt(nullptr, 1, true);
   EXPECT_EQ(2, observer.add_count());
   EXPECT_EQ(1, observer.remove_count());
+}
+
+TEST_P(TabStripTest, AccessibilityData) {
+  // When adding tabs, indexes should be set.
+  tab_strip_->AddTabAt(0, TabRendererData(), false);
+  tab_strip_->AddTabAt(1, TabRendererData(), true);
+  VerifyTabIndices();
+
+  tab_strip_->AddTabAt(0, TabRendererData(), false);
+  VerifyTabIndices();
+
+  tab_strip_->RemoveTabAt(nullptr, 1, false);
+  VerifyTabIndices();
+
+  tab_strip_->MoveTab(1, 0, TabRendererData());
+  VerifyTabIndices();
 }
 
 TEST_P(TabStripTest, IsValidModelIndex) {
@@ -481,7 +521,7 @@ TEST_P(TabStripTest, TabCloseButtonVisibilityWhenStacked) {
   // After switching tabs, the previously-active tab should have its
   // tab close button hidden and the newly-active tab should show
   // its tab close button.
-  tab_strip_->SelectTab(tab2);
+  tab_strip_->SelectTab(tab2, dummy_event_);
   ASSERT_FALSE(tab1->IsActive());
   ASSERT_TRUE(tab2->IsActive());
   EXPECT_FALSE(tab0->showing_close_button_);
@@ -566,7 +606,7 @@ TEST_P(TabStripTest, TabCloseButtonVisibilityWhenNotStacked) {
   // After switching tabs, the previously-active tab should have its
   // tab close button hidden and the newly-active tab should show
   // its tab close button.
-  tab_strip_->SelectTab(tab2);
+  tab_strip_->SelectTab(tab2, dummy_event_);
   ASSERT_FALSE(tab4->IsActive());
   ASSERT_TRUE(tab2->IsActive());
   EXPECT_FALSE(tab0->showing_close_button_);
@@ -751,7 +791,7 @@ TEST_P(TabStripTest, ActiveTabWidthWhenTabsAreTiny) {
 
   // During mouse-based tab closure, the active tab should remain at least as
   // wide as it's minium width.
-  controller_->SelectTab(0);
+  controller_->SelectTab(0, dummy_event_);
   for (const int min_active_width = TabStyle::GetMinimumActiveWidth();
        tab_strip_->tab_count();) {
     const int active_index = controller_->GetActiveIndex();
@@ -776,7 +816,7 @@ TEST_P(TabStripTest, InactiveTabWidthWhenTabsAreTiny) {
 
   // During mouse-based tab closure, inactive tabs shouldn't shrink
   // so that users can close tabs continuously without moving mouse.
-  controller_->SelectTab(0);
+  controller_->SelectTab(0, dummy_event_);
   for (int old_inactive_width = current_inactive_width();
        tab_strip_->tab_count(); old_inactive_width = current_inactive_width()) {
     tab_strip_->CloseTab(tab_strip_->tab_at(controller_->GetActiveIndex()),
@@ -812,7 +852,7 @@ TEST_P(TabStripTest, ResetBoundsForDraggedTabs) {
 
   // Change the ideal bounds of the tabs mid-animation by selecting a
   // different tab.
-  controller_->SelectTab(0);
+  controller_->SelectTab(0, dummy_event_);
 
   // Once the animation completes, the dragged tab should have animated to
   // the new ideal bounds (computed with this as an inactive tab) rather
@@ -839,9 +879,9 @@ TEST_P(TabStripTest, TabNeedsAttentionBlocked) {
   tab1->SetData(data);
 
   EXPECT_FALSE(IsShowingAttentionIndicator(tab1));
-  controller_->SelectTab(0);
+  controller_->SelectTab(0, dummy_event_);
   EXPECT_TRUE(IsShowingAttentionIndicator(tab1));
-  controller_->SelectTab(1);
+  controller_->SelectTab(1, dummy_event_);
   EXPECT_FALSE(IsShowingAttentionIndicator(tab1));
 }
 
@@ -855,9 +895,9 @@ TEST_P(TabStripTest, TabNeedsAttentionGeneric) {
   tab1->SetTabNeedsAttention(true);
 
   EXPECT_TRUE(IsShowingAttentionIndicator(tab1));
-  controller_->SelectTab(0);
+  controller_->SelectTab(0, dummy_event_);
   EXPECT_TRUE(IsShowingAttentionIndicator(tab1));
-  controller_->SelectTab(1);
+  controller_->SelectTab(1, dummy_event_);
   EXPECT_TRUE(IsShowingAttentionIndicator(tab1));
 }
 
@@ -894,4 +934,50 @@ TEST_P(TabStripTest, EventsOnClosingTab) {
   EXPECT_EQ(first_tab, tab_strip_->GetEventHandlerForPoint(tab_center));
 }
 
-INSTANTIATE_TEST_CASE_P(, TabStripTest, ::testing::Values(false, true));
+// Switch selected tabs on horizontal scroll events.
+TEST_P(TabStripTest, HorizontalScroll) {
+  tab_strip_->SetBounds(0, 0, 200, 20);
+
+  for (int i = 0; i < 3; i++)
+    controller_->AddTab(i, true /* is_active */);
+
+  Tab* tab = tab_strip_->tab_at(0);
+  gfx::Point tab_center = tab->bounds().CenterPoint();
+
+  for (int i = 0; i < tab_strip_->tab_count(); ++i) {
+    ui::MouseWheelEvent wheel_event(
+        gfx::Vector2d(ui::MouseWheelEvent::kWheelDelta, 0), tab_center,
+        tab_center, ui::EventTimeForNow(), 0, 0);
+    tab_strip_->OnMouseWheel(wheel_event);
+    EXPECT_EQ(i, controller_->GetActiveIndex());
+  }
+
+  controller_->SelectTab(0, dummy_event_);
+  for (int i = tab_strip_->tab_count() - 1; i >= 0; --i) {
+    ui::MouseWheelEvent wheel_event(
+        gfx::Vector2d(-ui::MouseWheelEvent::kWheelDelta, 0), tab_center,
+        tab_center, ui::EventTimeForNow(), 0, 0);
+    tab_strip_->OnMouseWheel(wheel_event);
+    EXPECT_EQ(i, controller_->GetActiveIndex());
+  }
+
+  // When offset is smaller than kWheelDelta, we don't scroll immediately.
+  // We wait offset until accumulated offset gets bigger than kWheelDelta.
+  const int small_offset = ui::MouseWheelEvent::kWheelDelta / 3;
+  int next_accumulated_offset = small_offset;
+  while (next_accumulated_offset < ui::MouseWheelEvent::kWheelDelta) {
+    ui::MouseWheelEvent wheel_event(gfx::Vector2d(small_offset, 0), tab_center,
+                                    tab_center, ui::EventTimeForNow(), 0, 0);
+    tab_strip_->OnMouseWheel(wheel_event);
+
+    EXPECT_EQ(0, controller_->GetActiveIndex());
+    next_accumulated_offset += small_offset;
+  }
+
+  ui::MouseWheelEvent wheel_event(gfx::Vector2d(small_offset, 0), tab_center,
+                                  tab_center, ui::EventTimeForNow(), 0, 0);
+  tab_strip_->OnMouseWheel(wheel_event);
+  EXPECT_EQ(1, controller_->GetActiveIndex());
+}
+
+INSTANTIATE_TEST_SUITE_P(, TabStripTest, ::testing::Values(false, true));

@@ -4,13 +4,14 @@
 
 #include "cc/paint/record_paint_canvas.h"
 
+#include <utility>
+
 #include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_image_builder.h"
 #include "cc/paint/paint_record.h"
 #include "cc/paint/paint_recorder.h"
 #include "cc/paint/skottie_wrapper.h"
 #include "third_party/skia/include/core/SkAnnotation.h"
-#include "third_party/skia/include/core/SkMetaData.h"
 #include "third_party/skia/include/utils/SkNWayCanvas.h"
 
 namespace cc {
@@ -22,12 +23,6 @@ RecordPaintCanvas::RecordPaintCanvas(DisplayItemList* list,
 }
 
 RecordPaintCanvas::~RecordPaintCanvas() = default;
-
-SkMetaData& RecordPaintCanvas::getMetaData() {
-  // This could just be SkMetaData owned by RecordPaintCanvas, but since
-  // SkCanvas already has one, we might as well use it directly.
-  return GetCanvas()->getMetaData();
-}
 
 SkImageInfo RecordPaintCanvas::imageInfo() const {
   return GetCanvas()->imageInfo();
@@ -273,6 +268,14 @@ void RecordPaintCanvas::drawTextBlob(sk_sp<SkTextBlob> blob,
                                      SkScalar y,
                                      const PaintFlags& flags) {
   list_->push<DrawTextBlobOp>(std::move(blob), x, y, flags);
+}
+
+void RecordPaintCanvas::drawTextBlob(sk_sp<SkTextBlob> blob,
+                                     SkScalar x,
+                                     SkScalar y,
+                                     const PaintFlags& flags,
+                                     const NodeHolder& holder) {
+  list_->push<DrawTextBlobOp>(std::move(blob), x, y, flags, holder);
 }
 
 void RecordPaintCanvas::drawPicture(sk_sp<const PaintRecord> record) {

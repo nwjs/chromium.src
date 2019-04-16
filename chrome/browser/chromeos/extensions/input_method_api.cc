@@ -31,9 +31,10 @@
 #include "chrome/common/extensions/api/input_method_private.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/constants/chromeos_switches.h"
-#include "components/browser_sync/profile_sync_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/sync/driver/sync_service.h"
+#include "components/sync/driver/sync_user_settings.h"
 #include "extensions/browser/extension_function_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "ui/base/ime/chromeos/extension_ime_util.h"
@@ -90,10 +91,9 @@ InputMethodPrivateGetInputMethodConfigFunction::Run() {
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           chromeos::switches::kDisablePhysicalKeyboardAutocorrect));
   output->SetBoolean("isImeMenuActivated",
-                     base::FeatureList::IsEnabled(features::kOptInImeMenu) &&
-                         Profile::FromBrowserContext(browser_context())
-                             ->GetPrefs()
-                             ->GetBoolean(prefs::kLanguageImeMenuActivated));
+                     Profile::FromBrowserContext(browser_context())
+                         ->GetPrefs()
+                         ->GetBoolean(prefs::kLanguageImeMenuActivated));
   return RespondNow(OneArgument(std::move(output)));
 #endif
 }
@@ -219,13 +219,12 @@ InputMethodPrivateGetEncryptSyncEnabledFunction::Run() {
 #if !defined(OS_CHROMEOS)
   EXTENSION_FUNCTION_VALIDATE(false);
 #else
-  browser_sync::ProfileSyncService* profile_sync_service =
-      ProfileSyncServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(browser_context()));
-  if (!profile_sync_service)
+  syncer::SyncService* sync_service = ProfileSyncServiceFactory::GetForProfile(
+      Profile::FromBrowserContext(browser_context()));
+  if (!sync_service)
     return RespondNow(Error("Sync service is not ready for current profile."));
   std::unique_ptr<base::Value> ret(new base::Value(
-      profile_sync_service->GetUserSettings()->IsEncryptEverythingEnabled()));
+      sync_service->GetUserSettings()->IsEncryptEverythingEnabled()));
   return RespondNow(OneArgument(std::move(ret)));
 #endif
 }
@@ -253,26 +252,11 @@ InputMethodPrivateShowInputViewFunction::Run() {
 #else
   auto* keyboard_client = ChromeKeyboardControllerClient::Get();
   if (!keyboard_client->is_keyboard_enabled()) {
-    keyboard_client->ShowKeyboard();
-    return RespondNow(NoArguments());
+    return RespondNow(Error(kErrorFailToShowInputView));
   }
 
-  // Temporarily enable the onscreen keyboard if there is no keyboard enabled.
-  // This will be cleared when the keybaord is hidden.
-  keyboard_client->SetEnableFlag(
-      keyboard::mojom::KeyboardEnableFlag::kTemporarilyEnabled);
-  keyboard_client->GetKeyboardEnabled(base::BindOnce(
-      &InputMethodPrivateShowInputViewFunction::OnGetIsEnabled, this));
-  return RespondLater();
-}
-
-void InputMethodPrivateShowInputViewFunction::OnGetIsEnabled(bool enabled) {
-  if (!enabled) {
-    Respond(Error(kErrorFailToShowInputView));
-    return;
-  }
-  ChromeKeyboardControllerClient::Get()->ShowKeyboard();
-  Respond(NoArguments());
+  keyboard_client->ShowKeyboard();
+  return RespondNow(NoArguments());
 #endif
 }
 

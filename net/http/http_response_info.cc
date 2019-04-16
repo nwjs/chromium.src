@@ -229,7 +229,13 @@ bool HttpResponseInfo::InitFromPickle(const base::Pickle& pickle,
   uint16_t socket_address_port;
   if (!iter.ReadUInt16(&socket_address_port))
     return false;
-  socket_address = HostPortPair(socket_address_host, socket_address_port);
+
+  IPAddress ip_address;
+  if (ip_address.AssignFromIPLiteral(socket_address_host)) {
+    remote_endpoint = IPEndPoint(ip_address, socket_address_port);
+  } else if (ParseURLHostnameToAddress(socket_address_host, &ip_address)) {
+    remote_endpoint = IPEndPoint(ip_address, socket_address_port);
+  }
 
   // Read protocol-version.
   if (flags & RESPONSE_INFO_HAS_ALPN_NEGOTIATED_PROTOCOL) {
@@ -364,8 +370,8 @@ void HttpResponseInfo::Persist(base::Pickle* pickle,
   if (vary_data.is_valid())
     vary_data.Persist(pickle);
 
-  pickle->WriteString(socket_address.host());
-  pickle->WriteUInt16(socket_address.port());
+  pickle->WriteString(remote_endpoint.ToStringWithoutPort());
+  pickle->WriteUInt16(remote_endpoint.port());
 
   if (was_alpn_negotiated)
     pickle->WriteString(alpn_negotiated_protocol);
@@ -413,6 +419,7 @@ bool HttpResponseInfo::DidUseQuic() const {
     case CONNECTION_INFO_QUIC_44:
     case CONNECTION_INFO_QUIC_45:
     case CONNECTION_INFO_QUIC_46:
+    case CONNECTION_INFO_QUIC_47:
     case CONNECTION_INFO_QUIC_99:
       return true;
     case NUM_OF_CONNECTION_INFOS:
@@ -476,6 +483,8 @@ std::string HttpResponseInfo::ConnectionInfoToString(
       return "http/2+quic/45";
     case CONNECTION_INFO_QUIC_46:
       return "http/2+quic/46";
+    case CONNECTION_INFO_QUIC_47:
+      return "http/2+quic/47";
     case CONNECTION_INFO_QUIC_99:
       return "http/2+quic/99";
     case CONNECTION_INFO_HTTP0_9:

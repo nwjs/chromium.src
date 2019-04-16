@@ -7,8 +7,10 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/post_task.h"
 #include "content/public/browser/browser_task_traits.h"
@@ -18,7 +20,9 @@
 #include "extensions/browser/extension_navigation_ui_data.h"
 #include "extensions/common/manifest_handlers/web_accessible_resources_info.h"
 #include "net/http/http_util.h"
+#include "services/network/public/cpp/features.h"
 #include "third_party/blink/public/platform/resource_request_blocked_reason.h"
+#include "url/origin.h"
 
 namespace extensions {
 
@@ -35,6 +39,7 @@ WebRequestProxyingURLLoaderFactory::InProgressRequest::InProgressRequest(
     network::mojom::URLLoaderClientPtr client)
     : factory_(factory),
       request_(request),
+      original_initiator_(request.request_initiator),
       is_download_(is_download),
       request_id_(request_id),
       network_service_request_id_(network_service_request_id),
@@ -78,11 +83,16 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::Restart() {
   request_completed_ = false;
   // Derive a new WebRequestInfo value any time |Restart()| is called, because
   // the details in |request_| may have changed e.g. if we've been redirected.
+  // |request_initiator| can be modified on redirects, but we keep the original
+  // for |initiator| in the event. See also
+  // https://developer.chrome.com/extensions/webRequest#event-onBeforeRequest.
+  network::ResourceRequest request_for_info = request_;
+  request_for_info.request_initiator = original_initiator_;
   info_.emplace(
       request_id_, factory_->render_process_id_, request_.render_frame_id,
       factory_->navigation_ui_data_ ? factory_->navigation_ui_data_->DeepCopy()
                                     : nullptr,
-      routing_id_, factory_->resource_context_, request_, is_download_,
+      routing_id_, factory_->resource_context_, request_for_info, is_download_,
       !(options_ & network::mojom::kURLLoadOptionSynchronous));
 
   current_request_uses_header_client_ =
@@ -186,11 +196,16 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
 
 void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnReceiveResponse(
     const network::ResourceResponseHead& head) {
-  current_response_ = head;
   on_receive_response_received_ = true;
   if (current_request_uses_header_client_) {
+    // Use the headers we got from OnHeadersReceived as that'll contain
+    // Set-Cookie if it existed.
+    auto saved_headers = current_response_.headers;
+    current_response_ = head;
+    current_response_.headers = saved_headers;
     ContinueToResponseStarted(net::OK);
   } else {
+    current_response_ = head;
     HandleResponseOrRedirectHeaders(
         base::BindRepeating(&InProgressRequest::ContinueToResponseStarted,
                             weak_factory_.GetWeakPtr()));
@@ -207,10 +222,15 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnReceiveRedirect(
     return;
   }
 
-  current_response_ = head;
   if (current_request_uses_header_client_) {
+    // Use the headers we got from OnHeadersReceived as that'll contain
+    // Set-Cookie if it existed.
+    auto saved_headers = current_response_.headers;
+    current_response_ = head;
+    current_response_.headers = saved_headers;
     ContinueToBeforeRedirect(redirect_info, net::OK);
   } else {
+    current_response_ = head;
     HandleResponseOrRedirectHeaders(
         base::BindRepeating(&InProgressRequest::ContinueToBeforeRedirect,
                             weak_factory_.GetWeakPtr(), redirect_info));
@@ -269,11 +289,17 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::HandleAuthRequest(
     WebRequestAPI::AuthRequestCallback callback) {
   DCHECK(!auth_credentials_);
 
+  // If |current_request_uses_header_client_| is true, |current_response_|
+  // should already hold the correct set of response headers (including
+  // Set-Cookie). So we don't use |response_headers| since it won't have the
+  // Set-Cookie headers.
+  if (!current_request_uses_header_client_) {
+    network::ResourceResponseHead head;
+    head.headers = response_headers;
+    current_response_ = head;
+  }
   // We first need to simulate |onHeadersReceived| for the response headers
   // which indicated a need to authenticate.
-  network::ResourceResponseHead head;
-  head.headers = response_headers;
-  current_response_ = head;
   HandleResponseOrRedirectHeaders(base::BindRepeating(base::BindRepeating(
       &InProgressRequest::ContinueAuthRequest, weak_factory_.GetWeakPtr(),
       base::RetainedRef(auth_info), base::Passed(&callback))));
@@ -342,19 +368,37 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
       "Location: %s\n"
       "Non-Authoritative-Reason: WebRequest API\n\n",
       kInternalRedirectStatusCode, redirect_url_.spec().c_str());
-  std::string http_origin;
-  if (request_.headers.GetHeader("Origin", &http_origin)) {
+
+  if (base::FeatureList::IsEnabled(network::features::kOutOfBlinkCors)) {
+    // Cross-origin requests need to modify the Origin header to 'null'. Since
+    // CorsURLLoader sets |request_initiator| to the Origin request header in
+    // NetworkService, we need to modify |request_initiator| here to craft the
+    // Origin header indirectly.
+    // Following checks implement the step 10 of "4.4. HTTP-redirect fetch",
+    // https://fetch.spec.whatwg.org/#http-redirect-fetch
+    if (request_.request_initiator &&
+        (!url::Origin::Create(redirect_url_)
+              .IsSameOriginWith(url::Origin::Create(request_.url)) &&
+         !request_.request_initiator->IsSameOriginWith(
+             url::Origin::Create(request_.url)))) {
+      // Reset the initiator to pretend tainted origin flag of the spec is set.
+      request_.request_initiator = url::Origin();
+    }
+  } else {
     // If this redirect is used in a cross-origin request, add CORS headers to
-    // make sure that the redirect gets through. Note that the destination URL
-    // is still subject to the usual CORS policy, i.e. the resource will only
-    // be available to web pages if the server serves the response with the
-    // required CORS response headers.
-    // Matches the behavior in url_request_redirect_job.cc.
-    headers += base::StringPrintf(
-        "\n"
-        "Access-Control-Allow-Origin: %s\n"
-        "Access-Control-Allow-Credentials: true",
-        http_origin.c_str());
+    // make sure that the redirect gets through the Blink CORS. Note that the
+    // destination URL is still subject to the usual CORS policy, i.e. the
+    // resource will only be available to web pages if the server serves the
+    // response with the required CORS response headers. Matches the behavior in
+    // url_request_redirect_job.cc.
+    std::string http_origin;
+    if (request_.headers.GetHeader("Origin", &http_origin)) {
+      headers += base::StringPrintf(
+          "\n"
+          "Access-Control-Allow-Origin: %s\n"
+          "Access-Control-Allow-Credentials: true",
+          http_origin.c_str());
+    }
   }
   head.headers = base::MakeRefCounted<net::HttpResponseHeaders>(
       net::HttpUtil::AssembleRawHeaders(headers.c_str(), headers.length()));
@@ -544,6 +588,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
       return;
   }
 
+  auth_credentials_ = base::nullopt;
   base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
                            std::move(completion));
 }
@@ -557,8 +602,15 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::
 
   DCHECK(on_headers_received_callback_);
   base::Optional<std::string> headers;
-  if (override_headers_)
+  if (override_headers_) {
     headers = override_headers_->raw_headers();
+    if (current_request_uses_header_client_) {
+      // Make sure to update current_response_,  since when OnReceiveResponse
+      // is called we will not use its headers as it might be missing the
+      // Set-Cookie line (as that gets stripped over IPC).
+      current_response_.headers = override_headers_;
+    }
+  }
   std::move(on_headers_received_callback_).Run(net::OK, headers, redirect_url_);
   override_headers_ = nullptr;
 

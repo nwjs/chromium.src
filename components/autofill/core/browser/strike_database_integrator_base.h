@@ -24,29 +24,33 @@ class StrikeDatabaseIntegratorBase {
 
   // Returns whether or not strike count for |id| has reached the strike limit
   // set by GetMaxStrikesLimit().
-  bool IsMaxStrikesLimitReached(const std::string id = kSharedId);
+  bool IsMaxStrikesLimitReached(const std::string& id = kSharedId);
 
   // Increments in-memory cache and updates underlying ProtoDatabase.
-  int AddStrike(const std::string id = kSharedId);
+  int AddStrike(const std::string& id = kSharedId);
 
   // Increases in-memory cache by |strikes_increase| and updates underlying
   // ProtoDatabase.
-  int AddStrikes(int strikes_increase, const std::string id = kSharedId);
+  int AddStrikes(int strikes_increase, const std::string& id = kSharedId);
 
   // Removes an in-memory cache strike, updates last_update_timestamp, and
   // updates underlying ProtoDatabase.
-  int RemoveStrike(const std::string id = kSharedId);
+  int RemoveStrike(const std::string& id = kSharedId);
 
   // Removes |strikes_decrease| in-memory cache strikes, updates
   // |last_update_timestamp|, and updates underlying ProtoDatabase.
-  int RemoveStrikes(int strikes_decrease, const std::string id = kSharedId);
+  int RemoveStrikes(int strikes_decrease, const std::string& id = kSharedId);
 
   // Returns strike count from in-memory cache.
-  int GetStrikes(const std::string id = kSharedId);
+  int GetStrikes(const std::string& id = kSharedId);
 
   // Removes all database entries from in-memory cache and underlying
   // ProtoDatabase.
-  void ClearStrikes(const std::string id = kSharedId);
+  void ClearStrikes(const std::string& id = kSharedId);
+
+  // Removes all database entries from in-memory cache and underlying
+  // ProtoDatabase for the whole project.
+  void ClearAllStrikes();
 
  protected:
   // Removes all strikes in which it has been longer than GetExpiryTimeMicros()
@@ -56,14 +60,15 @@ class StrikeDatabaseIntegratorBase {
  private:
   FRIEND_TEST_ALL_PREFIXES(ChromeBrowsingDataRemoverDelegateTest,
                            StrikeDatabaseEmptyOnAutofillRemoveEverything);
-  FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
-                           GetKeyForCreditCardSaveTest);
-  FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
-                           GetIdForCreditCardSaveTest);
-  FRIEND_TEST_ALL_PREFIXES(CreditCardSaveStrikeDatabaseTest,
+  FRIEND_TEST_ALL_PREFIXES(StrikeDatabaseIntegratorTestStrikeDatabaseTest,
                            RemoveExpiredStrikesTest);
-  FRIEND_TEST_ALL_PREFIXES(LocalCardMigrationStrikeDatabaseTest,
-                           RemoveExpiredStrikesTest);
+  FRIEND_TEST_ALL_PREFIXES(StrikeDatabaseIntegratorTestStrikeDatabaseTest,
+                           GetKeyForStrikeDatabaseIntegratorUniqueIdTest);
+  FRIEND_TEST_ALL_PREFIXES(StrikeDatabaseIntegratorTestStrikeDatabaseTest,
+                           RemoveExpiredStrikesUniqueIdTest);
+  FRIEND_TEST_ALL_PREFIXES(StrikeDatabaseIntegratorTestStrikeDatabaseTest,
+                           RemoveExpiredStrikesTestLogsUMA);
+  friend class SaveCardInfobarEGTestHelper;
   friend class StrikeDatabaseTest;
   friend class StrikeDatabaseTester;
 
@@ -79,7 +84,7 @@ class StrikeDatabaseIntegratorBase {
   }
 
   // Generates key based on project-specific string identifier.
-  std::string GetKey(const std::string id);
+  std::string GetKey(const std::string& id);
 
   // Returns a prefix unique to each project, which will be used to create
   // database key.

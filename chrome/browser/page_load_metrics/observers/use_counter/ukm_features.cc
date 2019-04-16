@@ -97,8 +97,9 @@ UseCounterPageLoadMetricsObserver::GetAllowedUkmFeatures() {
           WebFeature::kDownloadInAdFrameWithoutUserGesture,
           WebFeature::kOpenWebDatabase,
           WebFeature::kV8MediaCapabilities_DecodingInfo_Method,
-          WebFeature::kOpenerNavigationDownloadCrossOriginNoGesture,
+          WebFeature::kOpenerNavigationDownloadCrossOrigin,
           WebFeature::kLinkRelPrerender,
+          WebFeature::kAdClickNavigation,
       }));
   return *opt_in_features;
 }

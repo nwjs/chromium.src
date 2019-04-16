@@ -7,6 +7,7 @@
 #include "ash/shelf/ink_drop_button_listener.h"
 #include "ash/shelf/shelf_constants.h"
 #include "ash/shelf/shelf_view.h"
+#include "ash/system/tray/tray_popup_utils.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/views/animation/ink_drop_impl.h"
 
@@ -20,6 +21,7 @@ ShelfButton::ShelfButton(ShelfView* shelf_view)
   set_ink_drop_visible_opacity(kShelfInkDropVisibleOpacity);
   SetFocusBehavior(FocusBehavior::ACCESSIBLE_ONLY);
   SetInkDropMode(InkDropMode::ON_NO_GESTURE_HANDLER);
+  SetFocusPainter(TrayPopupUtils::CreateFocusPainter());
 }
 
 ShelfButton::~ShelfButton() = default;
@@ -52,6 +54,12 @@ bool ShelfButton::OnMouseDragged(const ui::MouseEvent& event) {
   return true;
 }
 
+void ShelfButton::AboutToRequestFocusFromTabTraversal(bool reverse) {
+  shelf_view_->OnShelfButtonAboutToRequestFocusFromTabTraversal(this, reverse);
+}
+
+// Do not remove this function to avoid unnecessary ChromeVox announcement
+// triggered by Button::GetAccessibleNodeData. (See https://crbug.com/932200)
 void ShelfButton::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kButton;
   node_data->SetName(GetAccessibleName());
@@ -87,6 +95,10 @@ std::unique_ptr<views::InkDrop> ShelfButton::CreateInkDrop() {
       Button::CreateDefaultInkDropImpl();
   ink_drop->SetShowHighlightOnHover(false);
   return std::move(ink_drop);
+}
+
+const char* ShelfButton::GetClassName() const {
+  return "ash/ShelfButton";
 }
 
 }  // namespace ash

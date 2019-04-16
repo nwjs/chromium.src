@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_theme.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/canvas.h"
@@ -164,9 +165,8 @@ void OmniboxTextView::ApplyTextColor(OmniboxPart part) {
 }
 
 const base::string16& OmniboxTextView::text() const {
-  static const base::string16 kEmptyString;
   if (!render_text_)
-    return kEmptyString;
+    return base::EmptyString16();
   return render_text_->text();
 }
 

@@ -12,18 +12,19 @@
 #import "ios/chrome/browser/ui/icons/chrome_icon.h"
 #import "ios/chrome/browser/ui/keyboard/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/ui/material_components/utils.h"
-#import "ios/chrome/browser/ui/settings/accounts_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/autofill_credit_card_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/autofill_profile_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/google_services_settings_coordinator.h"
-#import "ios/chrome/browser/ui/settings/google_services_settings_view_controller.h"
+#import "ios/chrome/browser/ui/settings/autofill/autofill_credit_card_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/autofill/autofill_profile_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/google_services/google_services_settings_coordinator.h"
+#import "ios/chrome/browser/ui/settings/google_services/google_services_settings_view_controller.h"
 #import "ios/chrome/browser/ui/settings/import_data_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/passwords_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/password/passwords_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_root_collection_view_controller.h"
 #import "ios/chrome/browser/ui/settings/settings_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/settings_utils.h"
-#import "ios/chrome/browser/ui/settings/sync_encryption_passphrase_table_view_controller.h"
-#import "ios/chrome/browser/ui/settings/sync_settings_collection_view_controller.h"
+#import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/sync/sync_settings_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/utils/settings_utils.h"
+#include "ios/chrome/browser/ui/ui_feature_flags.h"
 #include "ios/chrome/browser/ui/util/ui_util.h"
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui_util/constraints_ui_util.h"
@@ -35,6 +36,8 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
+
+NSString* const kSettingsDoneButtonId = @"kSettingsDoneButtonId";
 
 @interface SettingsNavigationController () <
     GoogleServicesSettingsCoordinatorDelegate>
@@ -92,8 +95,8 @@ newAccountsController:(ios::ChromeBrowserState*)browserState
      newSyncController:(ios::ChromeBrowserState*)browserState
 allowSwitchSyncAccount:(BOOL)allowSwitchSyncAccount
               delegate:(id<SettingsNavigationControllerDelegate>)delegate {
-  SyncSettingsCollectionViewController* controller =
-      [[SyncSettingsCollectionViewController alloc]
+  SyncSettingsTableViewController* controller =
+      [[SyncSettingsTableViewController alloc]
             initWithBrowserState:browserState
           allowSwitchSyncAccount:allowSwitchSyncAccount];
   controller.dispatcher = [delegate dispatcherForSettings];
@@ -245,6 +248,9 @@ initWithRootViewController:(UIViewController*)rootViewController
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+  if (base::FeatureList::IsEnabled(kSettingsRefresh)) {
+    self.navigationBar.backgroundColor = UIColor.whiteColor;
+  }
   self.navigationBar.prefersLargeTitles = YES;
   self.navigationBar.accessibilityIdentifier = @"SettingNavigationBar";
 }
@@ -393,8 +399,8 @@ initWithRootViewController:(UIViewController*)rootViewController
 // TODO(crbug.com/779791) : Do not pass |baseViewController| through dispatcher.
 - (void)showSyncSettingsFromViewController:
     (UIViewController*)baseViewController {
-  SyncSettingsCollectionViewController* controller =
-      [[SyncSettingsCollectionViewController alloc]
+  SyncSettingsTableViewController* controller =
+      [[SyncSettingsTableViewController alloc]
             initWithBrowserState:mainBrowserState_
           allowSwitchSyncAccount:YES];
   controller.dispatcher = [delegate_ dispatcherForSettings];

@@ -6,11 +6,14 @@
 
 #include <string>
 
+#include "base/bind.h"
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time_to_iso8601.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
@@ -21,8 +24,8 @@
 #include "chrome/browser/chromeos/login/oobe_screen.h"
 #include "chrome/browser/chromeos/login/screens/demo_setup_screen.h"
 #include "chrome/browser/chromeos/login/screens/network_screen.h"
-#include "chrome/browser/chromeos/login/screens/screen_exit_code.h"
 #include "chrome/browser/chromeos/login/startup_utils.h"
+#include "chrome/browser/chromeos/login/test/enrollment_helper_mixin.h"
 #include "chrome/browser/chromeos/login/test/js_checker.h"
 #include "chrome/browser/chromeos/login/test/oobe_screen_waiter.h"
 #include "chrome/browser/chromeos/login/test/test_condition_waiter.h"
@@ -46,8 +49,6 @@
 #include "ui/base/l10n/l10n_util.h"
 
 using chromeos::test::DemoModeSetupResult;
-using chromeos::test::MockDemoModeOfflineEnrollmentHelperCreator;
-using chromeos::test::MockDemoModeOnlineEnrollmentHelperCreator;
 using chromeos::test::SetupDummyOfflinePolicyDir;
 
 namespace chromeos {
@@ -127,13 +128,7 @@ std::string ScreenToContentQuery(OobeScreen screen) {
 
 // Waits for js condition to be fulfilled.
 void WaitForJsCondition(const std::string& js_condition) {
-  return test::TestConditionWaiter(base::BindRepeating(
-                                       [](const std::string& js_condition) {
-                                         return test::OobeJS().GetBool(
-                                             js_condition);
-                                       },
-                                       js_condition))
-      .Wait();
+  test::OobeJS().CreateWaiter(js_condition)->Wait();
 }
 
 }  // namespace
@@ -148,6 +143,8 @@ class DemoSetupTest : public LoginManagerTest {
   // LoginTestManager:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     LoginManagerTest::SetUpCommandLine(command_line);
+    scoped_feature_list_.InitAndEnableFeature(
+        chromeos::switches::kSupportCountryCustomizationInDemoMode);
     command_line->AppendSwitchASCII(switches::kArcAvailability,
                                     "officially-supported");
     ASSERT_TRUE(arc::IsArcAvailable());
@@ -326,9 +323,11 @@ class DemoSetupTest : public LoginManagerTest {
 
   void SkipToErrorDialog() {
     // Simulate online setup error.
-    EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-        &MockDemoModeOnlineEnrollmentHelperCreator<
-            DemoModeSetupResult::ERROR_DEFAULT>);
+    enrollment_helper_.ExpectEnrollmentMode(
+        policy::EnrollmentConfig::MODE_ATTESTATION);
+    enrollment_helper_.ExpectAttestationEnrollmentError(
+        policy::EnrollmentStatus::ForRegistrationError(
+            policy::DeviceManagementStatus::DM_STATUS_TEMPORARY_UNAVAILABLE));
 
     // Enrollment type is set in the part of the flow that is skipped, That is
     // why we need to set it here.
@@ -430,6 +429,9 @@ class DemoSetupTest : public LoginManagerTest {
     test::ExecuteOobeJS(query);
   }
 
+ protected:
+  test::EnrollmentHelperMixin enrollment_helper_{&mixin_host_};
+
  private:
   void DisableConfirmationDialogAnimations() {
     test::ExecuteOobeJS(
@@ -439,6 +441,7 @@ class DemoSetupTest : public LoginManagerTest {
   // TODO(agawronska): Maybe create a separate test fixture for offline setup.
   base::ScopedTempDir fake_demo_resources_dir_;
   policy::MockCloudPolicyStore mock_policy_store_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 
   DISALLOW_COPY_AND_ASSIGN(DemoSetupTest);
 };
@@ -503,8 +506,9 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, DoNotInvokeWithNonConsecutiveTaps) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowSuccess) {
   // Simulate successful online setup.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOnlineEnrollmentHelperCreator<DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectEnrollmentMode(
+      policy::EnrollmentConfig::MODE_ATTESTATION);
+  enrollment_helper_.ExpectAttestationEnrollmentSuccess();
   SimulateNetworkConnected();
 
   InvokeDemoModeWithAccelerator();
@@ -543,6 +547,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowSuccess) {
   OobeScreenWaiter(OobeScreen::SCREEN_OOBE_UPDATE).Wait();
 
   OobeScreenWaiter(OobeScreen::SCREEN_OOBE_DEMO_SETUP).Wait();
+  EXPECT_TRUE(DemoSetupController::GetSubOrganizationEmail().empty());
   // TODO(agawronska): Progress dialog transition is async - extra work is
   // needed to be able to check it reliably.
 
@@ -551,11 +556,99 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowSuccess) {
   EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
 }
 
+IN_PROC_BROWSER_TEST_F(DemoSetupTest,
+                       OnlineSetupFlowSuccessWithCountryCustomization) {
+  // Simulate successful online setup.
+  enrollment_helper_.ExpectEnrollmentMode(
+      policy::EnrollmentConfig::MODE_ATTESTATION);
+  enrollment_helper_.ExpectAttestationEnrollmentSuccess();
+  SimulateNetworkConnected();
+
+  InvokeDemoModeWithAccelerator();
+  ClickOkOnConfirmationDialog();
+
+  OobeScreenWaiter(OobeScreen::SCREEN_OOBE_DEMO_PREFERENCES).Wait();
+  EXPECT_TRUE(IsScreenShown(OobeScreen::SCREEN_OOBE_DEMO_PREFERENCES));
+
+  // Verify the country names are displayed correctly. Regression test for
+  // potential country code changes.
+  const base::flat_map<std::string, std::string> kCountryCodeToNameMap(
+      {{"us", "United States"},
+       {"be", "Belgium"},
+       {"ca", "Canada"},
+       {"dk", "Denmark"},
+       {"fi", "Finland"},
+       {"fr", "France"},
+       {"ie", "Ireland"},
+       {"lu", "Luxembourg"},
+       {"nl", "Netherlands"},
+       {"no", "Norway"},
+       {"se", "Sweden"},
+       {"gb", "United Kingdom"}});
+  for (const std::string country_code : DemoSession::kSupportedCountries) {
+    const auto it = kCountryCodeToNameMap.find(country_code);
+    ASSERT_NE(kCountryCodeToNameMap.end(), it);
+    const std::string query = base::StrCat(
+        {ScreenToContentQuery(OobeScreen::SCREEN_OOBE_DEMO_PREFERENCES),
+         ".$$('oobe-dialog').querySelector('#countrySelect').$$('option[value="
+         "\"",
+         country_code, "\"]').innerHTML"});
+    EXPECT_EQ(it->second, test::OobeJS().GetString(query));
+  }
+
+  // Select France as the Demo Mode country.
+  const std::string select_country = base::StrCat(
+      {ScreenToContentQuery(OobeScreen::SCREEN_OOBE_DEMO_PREFERENCES),
+       ".$$('oobe-dialog').querySelector('#countrySelect').onSelected_('fr')"
+       ";"});
+  test::ExecuteOobeJSAsync(select_country);
+
+  ClickOobeButton(OobeScreen::SCREEN_OOBE_DEMO_PREFERENCES, OobeButton::kText,
+                  JSExecution::kAsync);
+
+  OobeScreenWaiter(OobeScreen::SCREEN_OOBE_NETWORK).Wait();
+  EXPECT_TRUE(IsScreenShown(OobeScreen::SCREEN_OOBE_NETWORK));
+  EXPECT_TRUE(IsScreenDialogElementEnabled(OobeScreen::SCREEN_OOBE_NETWORK,
+                                           DemoSetupDialog::kNetwork,
+                                           ButtonToTag(OobeButton::kNext)));
+
+  ClickOobeButton(OobeScreen::SCREEN_OOBE_NETWORK, OobeButton::kNext,
+                  JSExecution::kAsync);
+
+  OobeScreenWaiter(OobeScreen::SCREEN_OOBE_EULA).Wait();
+  EXPECT_TRUE(IsScreenShown(OobeScreen::SCREEN_OOBE_EULA));
+
+  ClickScreenDialogButton(OobeScreen::SCREEN_OOBE_EULA, DemoSetupDialog::kEula,
+                          OobeButton::kText, JSExecution::kAsync);
+
+  OobeScreenWaiter(OobeScreen::SCREEN_ARC_TERMS_OF_SERVICE).Wait();
+  EXPECT_TRUE(IsScreenShown(OobeScreen::SCREEN_ARC_TERMS_OF_SERVICE));
+
+  SetPlayStoreTermsForTesting();
+  ClickOobeButtonWithSelector(OobeScreen::SCREEN_ARC_TERMS_OF_SERVICE,
+                              "#arc-tos-next-button", JSExecution::kSync);
+  ClickOobeButtonWithSelector(OobeScreen::SCREEN_ARC_TERMS_OF_SERVICE,
+                              "#arc-tos-accept-button", JSExecution::kAsync);
+
+  OobeScreenWaiter(OobeScreen::SCREEN_OOBE_UPDATE).Wait();
+
+  OobeScreenWaiter(OobeScreen::SCREEN_OOBE_DEMO_SETUP).Wait();
+  // Verify the email corresponds to France.
+  EXPECT_EQ("admin-fr@cros-demo-mode.com",
+            DemoSetupController::GetSubOrganizationEmail());
+
+  OobeScreenWaiter(OobeScreen::SCREEN_GAIA_SIGNIN).Wait();
+  EXPECT_TRUE(StartupUtils::IsOobeCompleted());
+  EXPECT_TRUE(StartupUtils::IsDeviceRegistered());
+}
+
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorDefault) {
   // Simulate online setup failure.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOnlineEnrollmentHelperCreator<
-          DemoModeSetupResult::ERROR_DEFAULT>);
+  enrollment_helper_.ExpectEnrollmentMode(
+      policy::EnrollmentConfig::MODE_ATTESTATION);
+  enrollment_helper_.ExpectAttestationEnrollmentError(
+      policy::EnrollmentStatus::ForRegistrationError(
+          policy::DeviceManagementStatus::DM_STATUS_TEMPORARY_UNAVAILABLE));
   SimulateNetworkConnected();
 
   InvokeDemoModeWithAccelerator();
@@ -617,9 +710,11 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorDefault) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorPowerwashRequired) {
   // Simulate online setup failure that requires powerwash.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOnlineEnrollmentHelperCreator<
-          DemoModeSetupResult::ERROR_POWERWASH_REQUIRED>);
+  enrollment_helper_.ExpectEnrollmentMode(
+      policy::EnrollmentConfig::MODE_ATTESTATION);
+  enrollment_helper_.ExpectAttestationEnrollmentError(
+      policy::EnrollmentStatus::ForLockError(
+          chromeos::InstallAttributes::LOCK_ALREADY_LOCKED));
   SimulateNetworkConnected();
 
   InvokeDemoModeWithAccelerator();
@@ -680,8 +775,8 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowErrorPowerwashRequired) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OnlineSetupFlowCrosComponentFailure) {
   // Simulate failure to load demo resources CrOS component.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOnlineEnrollmentHelperCreator<DemoModeSetupResult::SUCCESS>);
+  // There is no enrollment attempt, as process fails earlier.
+  enrollment_helper_.ExpectNoEnrollment();
   SimulateNetworkConnected();
 
   InvokeDemoModeWithAccelerator();
@@ -761,9 +856,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineDemoModeUnavailable) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineSetupFlowSuccess) {
   // Simulate offline setup success.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectOfflineEnrollmentSuccess();
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -815,9 +908,9 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineSetupFlowSuccess) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineSetupFlowErrorDefault) {
   // Simulate offline setup failure.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::ERROR_DEFAULT>);
+  enrollment_helper_.ExpectOfflineEnrollmentError(
+      policy::EnrollmentStatus::ForStatus(
+          policy::EnrollmentStatus::OFFLINE_POLICY_DECODING_FAILED));
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -882,9 +975,9 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineSetupFlowErrorDefault) {
 
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, OfflineSetupFlowErrorPowerwashRequired) {
   // Simulate offline setup failure.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::ERROR_POWERWASH_REQUIRED>);
+  enrollment_helper_.ExpectOfflineEnrollmentError(
+      policy::EnrollmentStatus::ForLockError(
+          chromeos::InstallAttributes::LOCK_READBACK_ERROR));
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -1022,9 +1115,12 @@ IN_PROC_BROWSER_TEST_F(DemoSetupTest, BackOnErrorScreen) {
 IN_PROC_BROWSER_TEST_F(DemoSetupTest, RetryOnErrorScreen) {
   SkipToErrorDialog();
 
+  // We need to create another mock after showing error dialog.
+  enrollment_helper_.ResetMock();
   // Simulate successful online setup on retry.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOnlineEnrollmentHelperCreator<DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectEnrollmentMode(
+      policy::EnrollmentConfig::MODE_ATTESTATION);
+  enrollment_helper_.ExpectAttestationEnrollmentSuccess();
   ClickScreenDialogButtonWithSelector(OobeScreen::SCREEN_OOBE_DEMO_SETUP,
                                       DemoSetupDialog::kError, "#retryButton",
                                       JSExecution::kAsync);
@@ -1109,9 +1205,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupFRETest, DeviceFromFactory) {
   // "block_devmode" flags do not exist in VPD.
 
   // Simulate offline setup success.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectOfflineEnrollmentSuccess();
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -1146,9 +1240,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupFRETest, NonEnterpriseDevice) {
   statistics_provider_.SetMachineStatistic(system::kBlockDevModeKey, "0");
 
   // Simulate offline setup success.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectOfflineEnrollmentSuccess();
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -1184,9 +1276,7 @@ IN_PROC_BROWSER_TEST_F(DemoSetupFRETest, LegacyDemoModeDevice) {
   statistics_provider_.SetMachineStatistic(system::kBlockDevModeKey, "0");
 
   // Simulate offline setup success.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::SUCCESS>);
+  enrollment_helper_.ExpectOfflineEnrollmentSuccess();
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();
@@ -1219,10 +1309,8 @@ IN_PROC_BROWSER_TEST_F(DemoSetupFRETest, DeviceWithFRE) {
   statistics_provider_.SetMachineStatistic(system::kCheckEnrollmentKey, "1");
   statistics_provider_.SetMachineStatistic(system::kBlockDevModeKey, "1");
 
-  // Simulate offline setup success.
-  EnterpriseEnrollmentHelper::SetupEnrollmentHelperMock(
-      &MockDemoModeOfflineEnrollmentHelperCreator<
-          DemoModeSetupResult::SUCCESS>);
+  // Expect no enrollment to take place due to error.
+  enrollment_helper_.ExpectNoEnrollment();
   SimulateNetworkDisconnected();
 
   InvokeDemoModeWithAccelerator();

@@ -12,7 +12,6 @@
 #include "ash/app_list/app_list_view_delegate.h"
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/app_list/views/search_result_base_view.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
 #include "base/bind.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -29,9 +28,9 @@
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/aura/window.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/background.h"
-#include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 
 namespace app_list {
@@ -41,6 +40,10 @@ namespace {
 constexpr char kSearchAnswerHasResult[] = "SearchAnswer-HasResult";
 constexpr char kSearchAnswerIssuedQuery[] = "SearchAnswer-IssuedQuery";
 constexpr char kSearchAnswerTitle[] = "SearchAnswer-Title";
+
+// Selection color for answer card (3% black).
+constexpr SkColor kAnswerCardSelectedColor =
+    SkColorSetARGB(0x08, 0x00, 0x00, 0x00);
 
 // Exclude the card native view from event handling.
 void ExcludeCardFromEventHandling(gfx::NativeView card_native_view) {
@@ -107,13 +110,7 @@ class SearchResultAnswerCardView::AnswerCardResultView
                        AppListViewDelegate* view_delegate)
       : container_(container), view_delegate_(view_delegate) {
     SetFocusBehavior(FocusBehavior::ALWAYS);
-    // Center the card horizontally in the container. Padding is set on the
-    // server.
-    auto answer_container_layout =
-        std::make_unique<views::BoxLayout>(views::BoxLayout::kHorizontal);
-    answer_container_layout->set_main_axis_alignment(
-        views::BoxLayout::MAIN_AXIS_ALIGNMENT_START);
-    SetLayoutManager(std::move(answer_container_layout));
+    SetLayoutManager(std::make_unique<views::FillLayout>());
 
     view_delegate_->GetNavigableContentsFactory(
         mojo::MakeRequest(&contents_factory_));
@@ -125,6 +122,8 @@ class SearchResultAnswerCardView::AnswerCardResultView
     params->background_color = SK_ColorTRANSPARENT;
     contents_ = std::make_unique<content::NavigableContents>(
         contents_factory_.get(), std::move(params));
+    if (features::IsUsingWindowService())
+      contents_->ForceUseWindowService();
     contents_->AddObserver(this);
   }
 
@@ -194,7 +193,6 @@ class SearchResultAnswerCardView::AnswerCardResultView
 
   void OnFocus() override {
     ScrollRectToVisible(GetLocalBounds());
-    NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);
     SetBackgroundHighlighted(true);
   }
 
@@ -225,7 +223,11 @@ class SearchResultAnswerCardView::AnswerCardResultView
     if (result()) {
       RecordSearchResultOpenSource(result(), view_delegate_->GetModel(),
                                    view_delegate_->GetSearchModel());
-      view_delegate_->OpenSearchResult(result()->id(), event.flags());
+      view_delegate_->OpenSearchResult(
+          result()->id(), event.flags(),
+          ash::mojom::AppListLaunchedFrom::kLaunchedFromSearchBox,
+          ash::mojom::AppListLaunchType::kSearchResult,
+          -1 /* suggestion_index */);
     }
   }
 
@@ -319,13 +321,15 @@ class SearchResultAnswerCardView::AnswerCardResultView
 
 SearchResultAnswerCardView::SearchResultAnswerCardView(
     AppListViewDelegate* view_delegate)
-    : search_answer_container_view_(
+    : SearchResultContainerView(view_delegate),
+      search_answer_container_view_(
           new AnswerCardResultView(this, view_delegate)) {
   AddChildView(search_answer_container_view_);
+  AddObservedResultView(search_answer_container_view_);
   SetLayoutManager(std::make_unique<views::FillLayout>());
 }
 
-SearchResultAnswerCardView::~SearchResultAnswerCardView() {}
+SearchResultAnswerCardView::~SearchResultAnswerCardView() = default;
 
 const char* SearchResultAnswerCardView::GetClassName() const {
   return "SearchResultAnswerCardView";

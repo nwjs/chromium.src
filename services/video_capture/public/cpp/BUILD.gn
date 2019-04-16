@@ -4,8 +4,6 @@
 
 source_set("cpp") {
   sources = [
-    "device_to_feedback_observer_adapter.cc",
-    "device_to_feedback_observer_adapter.h",
     "receiver_media_to_mojo_adapter.cc",
     "receiver_media_to_mojo_adapter.h",
   ]
@@ -23,6 +21,22 @@ source_set("cpp") {
   deps = [
     "//mojo/public/cpp/bindings:bindings",
   ]
+}
+
+source_set("manifest") {
+  sources = [
+    "manifest.cc",
+    "manifest.h",
+  ]
+  deps = [
+    "//base",
+    "//services/service_manager/public/cpp",
+    "//services/video_capture/public/mojom",
+    "//services/video_capture/public/mojom:constants",
+  ]
+  if (is_chromeos) {
+    deps += [ "//media/capture/video/chromeos/mojo:cros_camera" ]
+  }
 }
 
 source_set("mocks") {

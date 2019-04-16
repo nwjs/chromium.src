@@ -81,7 +81,6 @@ class MockHostResolverBase
       public base::SupportsWeakPtr<MockHostResolverBase> {
  private:
   class RequestImpl;
-  class LegacyRequestImpl;
   class MdnsListenerImpl;
 
  public:
@@ -117,27 +116,21 @@ class MockHostResolverBase
       const NetLogWithSource& net_log,
       const base::Optional<ResolveHostParameters>& optional_parameters)
       override;
-  int Resolve(const RequestInfo& info,
-              RequestPriority priority,
-              AddressList* addresses,
-              CompletionOnceCallback callback,
-              std::unique_ptr<Request>* request,
-              const NetLogWithSource& net_log) override;
-  int ResolveFromCache(const RequestInfo& info,
-                       AddressList* addresses,
-                       const NetLogWithSource& net_log) override;
-  int ResolveStaleFromCache(const RequestInfo& info,
-                            AddressList* addresses,
-                            HostCache::EntryStaleness* stale_info,
-                            const NetLogWithSource& source_net_log) override;
   std::unique_ptr<MdnsListener> CreateMdnsListener(
       const HostPortPair& host,
       DnsQueryType query_type) override;
   HostCache* GetHostCache() override;
   bool HasCached(base::StringPiece hostname,
                  HostCache::Entry::Source* source_out,
-                 HostCache::EntryStaleness* stale_out) const override;
+                 HostCache::EntryStaleness* stale_out,
+                 bool* secure_out) const override;
   void SetDnsConfigOverrides(const DnsConfigOverrides& overrides) override {}
+
+  // Preloads the cache with what would currently be the result of a request
+  // with the given parameters. Returns the net error of the cached result.
+  int LoadIntoCache(
+      const HostPortPair& host,
+      const base::Optional<ResolveHostParameters>& optional_parameters);
 
   // Returns true if there are pending requests that can be resolved by invoking
   // ResolveAllPending().
@@ -152,6 +145,10 @@ class MockHostResolverBase
   // for async resolution, starting with 1. IDs are not reused. Once a request
   // completes, it is destroyed, and can no longer be accessed.
 
+  // Returns the ID of the most recently started still-active request. Zero if
+  // no requests are currently active.
+  size_t last_id();
+
   // Resolve request stored in |requests_|. Pass rv to callback.
   void ResolveNow(size_t id);
 
@@ -164,6 +161,10 @@ class MockHostResolverBase
   // Returns the priority of the request with the given id.
   RequestPriority request_priority(size_t id);
 
+  // Like ResolveNow, but doesn't take an ID. DCHECKs if there's more than one
+  // pending request.
+  void ResolveOnlyRequestNow();
+
   // The number of times that Resolve() has been called.
   size_t num_resolve() const {
     return num_resolve_;
@@ -173,6 +174,9 @@ class MockHostResolverBase
   size_t num_resolve_from_cache() const {
     return num_resolve_from_cache_;
   }
+
+  // The number of times resolve was attempted non-locally.
+  size_t num_non_local_resolves() const { return num_non_local_resolves_; }
 
   // Returns the RequestPriority of the last call to Resolve() (or
   // DEFAULT_PRIORITY if Resolve() hasn't been called yet).
@@ -200,11 +204,16 @@ class MockHostResolverBase
     tick_clock_ = tick_clock;
   }
 
- protected:
-  explicit MockHostResolverBase(bool use_caching);
-
  private:
+  friend class MockHostResolver;
+  friend class MockCachingHostResolver;
+
   typedef std::map<size_t, RequestImpl*> RequestMap;
+
+  // If > 0, |cache_invalidation_num| is the number of times a cached entry can
+  // be read before it invalidates itself. Useful to force cache expiration
+  // scenarios.
+  explicit MockHostResolverBase(bool use_caching, int cache_invalidation_num);
 
   // Handle resolution for |request|. Expected to be called only the RequestImpl
   // object itself.
@@ -217,9 +226,9 @@ class MockHostResolverBase
       DnsQueryType dns_query_type,
       HostResolverFlags flags,
       HostResolverSource source,
-      bool allow_cache,
+      HostResolver::ResolveHostParameters::CacheUsage cache_usage,
       AddressList* addresses,
-      HostCache::EntryStaleness* stale_info = nullptr);
+      base::Optional<HostCache::EntryStaleness>* stale_info);
   // Resolve via |proc_|.
   int ResolveProc(const HostPortPair& host,
                   AddressFamily requested_address_family,
@@ -237,6 +246,9 @@ class MockHostResolverBase
       rules_map_;
   std::unique_ptr<HostCache> cache_;
 
+  const int initial_cache_invalidation_num_;
+  std::map<HostCache::Key, int> cache_invalidation_nums_;
+
   // Maintain non-owning pointers to outstanding requests and listeners to allow
   // completing/notifying them. The objects are owned by callers, and should be
   // removed from |this| on destruction by calling DetachRequest() or
@@ -247,6 +259,7 @@ class MockHostResolverBase
 
   size_t num_resolve_;
   size_t num_resolve_from_cache_;
+  size_t num_non_local_resolves_;
 
   const base::TickClock* tick_clock_;
 
@@ -257,7 +270,9 @@ class MockHostResolverBase
 
 class MockHostResolver : public MockHostResolverBase {
  public:
-  MockHostResolver() : MockHostResolverBase(false /*use_caching*/) {}
+  MockHostResolver()
+      : MockHostResolverBase(false /*use_caching*/,
+                             0 /* cache_invalidation_num */) {}
   ~MockHostResolver() override {}
 };
 
@@ -268,7 +283,11 @@ class MockHostResolver : public MockHostResolverBase {
 // operation mode in case that is what you needed from the caching version).
 class MockCachingHostResolver : public MockHostResolverBase {
  public:
-  MockCachingHostResolver() : MockHostResolverBase(true /*use_caching*/) {}
+  // If > 0, |cache_invalidation_num| is the number of times a cached entry can
+  // be read before it invalidates itself. Useful to force cache expiration
+  // scenarios.
+  explicit MockCachingHostResolver(int cache_invalidation_num = 0)
+      : MockHostResolverBase(true /*use_caching*/, cache_invalidation_num) {}
   ~MockCachingHostResolver() override {}
 };
 
@@ -382,7 +401,9 @@ class RuleBasedHostResolverProc : public HostResolverProc {
 // Create rules that map all requests to localhost.
 RuleBasedHostResolverProc* CreateCatchAllHostResolverProc();
 
-// HangingHostResolver never completes its |Resolve| request.
+// HangingHostResolver never completes its |Resolve| request. As LOCAL_ONLY
+// requests are not allowed to complete asynchronously, they will always result
+// in |ERR_DNS_CACHE_MISS|.
 class HangingHostResolver : public HostResolver {
  public:
   HangingHostResolver();
@@ -392,22 +413,10 @@ class HangingHostResolver : public HostResolver {
       const NetLogWithSource& net_log,
       const base::Optional<ResolveHostParameters>& optional_parameters)
       override;
-  int Resolve(const RequestInfo& info,
-              RequestPriority priority,
-              AddressList* addresses,
-              CompletionOnceCallback callback,
-              std::unique_ptr<Request>* out_req,
-              const NetLogWithSource& net_log) override;
-  int ResolveFromCache(const RequestInfo& info,
-                       AddressList* addresses,
-                       const NetLogWithSource& net_log) override;
-  int ResolveStaleFromCache(const RequestInfo& info,
-                            AddressList* addresses,
-                            HostCache::EntryStaleness* stale_info,
-                            const NetLogWithSource& source_net_log) override;
   bool HasCached(base::StringPiece hostname,
                  HostCache::Entry::Source* source_out,
-                 HostCache::EntryStaleness* stale_out) const override;
+                 HostCache::EntryStaleness* stale_out,
+                 bool* secure_out) const override;
 
   // Use to detect cancellations since there's otherwise no externally-visible
   // differentiation between a cancelled and a hung task.

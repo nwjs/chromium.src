@@ -12,8 +12,8 @@
 #include "ash/assistant/model/assistant_query_history.h"
 #include "ash/assistant/model/assistant_ui_model_observer.h"
 #include "ash/assistant/ui/dialog_plate/action_view.h"
+#include "base/component_export.h"
 #include "base/macros.h"
-#include "base/observer_list.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
 #include "ui/views/view.h"
@@ -32,20 +32,6 @@ class ActionView;
 enum class AssistantButtonId;
 class AssistantViewDelegate;
 
-// DialogPlateObserver ---------------------------------------------------------
-
-class DialogPlateObserver : public base::CheckedObserver {
- public:
-  // Invoked when the dialog plate button identified by |id| is pressed.
-  virtual void OnDialogPlateButtonPressed(AssistantButtonId id) {}
-
-  // Invoked on dialog plate contents committed event.
-  virtual void OnDialogPlateContentsCommitted(const std::string& text) {}
-
- protected:
-  ~DialogPlateObserver() override = default;
-};
-
 // DialogPlate -----------------------------------------------------------------
 
 // DialogPlate is the child of AssistantMainView concerned with providing the
@@ -53,18 +39,15 @@ class DialogPlateObserver : public base::CheckedObserver {
 // provides a textfield for use with the keyboard input modality, and an
 // ActionView which serves to either commit a text query, or toggle voice
 // interaction as appropriate for the user's current input modality.
-class DialogPlate : public views::View,
-                    public views::TextfieldController,
-                    public AssistantInteractionModelObserver,
-                    public AssistantUiModelObserver,
-                    public views::ButtonListener {
+class COMPONENT_EXPORT(ASSISTANT_UI) DialogPlate
+    : public views::View,
+      public views::TextfieldController,
+      public AssistantInteractionModelObserver,
+      public AssistantUiModelObserver,
+      public views::ButtonListener {
  public:
   explicit DialogPlate(AssistantViewDelegate* delegate);
   ~DialogPlate() override;
-
-  // Adds/removes the specified |observer|.
-  void AddObserver(DialogPlateObserver* observer);
-  void RemoveObserver(DialogPlateObserver* observer);
 
   // views::View:
   const char* GetClassName() const override;
@@ -118,8 +101,6 @@ class DialogPlate : public views::View,
 
   std::unique_ptr<ui::CallbackLayerAnimationObserver> animation_observer_;
   std::unique_ptr<AssistantQueryHistory::Iterator> query_history_iterator_;
-
-  base::ObserverList<DialogPlateObserver> observers_;
 
   DISALLOW_COPY_AND_ASSIGN(DialogPlate);
 };

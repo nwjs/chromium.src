@@ -2,12 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-config("earl_grey_support_config") {
-  include_dirs = [ "." ]
-  visibility = [ ":earl_grey_support" ]
-}
-
 source_set("earl_grey_support") {
+  defines = [ "CHROME_EARL_GREY_1" ]
   configs += [ "//build/config/compiler:enable_arc" ]
   testonly = true
 
@@ -18,17 +14,15 @@ source_set("earl_grey_support") {
 
   sources = [
     "disabled_test_macros.h",
+    "earl_grey_app.h",
+    "earl_grey_test.h",
     "matchers.h",
     "matchers.mm",
   ]
-
-  defines = [ "CHROME_EARL_GREY_1" ]
-
-  public_configs = [ ":earl_grey_support_config" ]
-  configs += [ ":earl_grey_support_config" ]
 }
 
 source_set("eg_app_support+eg2") {
+  defines = [ "CHROME_EARL_GREY_2" ]
   configs += [ "//build/config/compiler:enable_arc" ]
   testonly = true
 
@@ -38,13 +32,22 @@ source_set("eg_app_support+eg2") {
   ]
 
   sources = [
-    "disabled_test_macros.h",
+    "earl_grey_app.h",
     "matchers.h",
     "matchers.mm",
   ]
+}
 
-  defines = [ "CHROME_EARL_GREY_2" ]
+source_set("eg_test_support+eg2") {
+  configs += [ "//build/config/compiler:enable_arc" ]
+  testonly = true
 
-  public_configs = [ ":earl_grey_support_config" ]
-  configs += [ ":earl_grey_support_config" ]
+  sources = [
+    "disabled_test_macros.h",
+    "earl_grey_test.h",
+  ]
+
+  deps = [
+    "//ios/third_party/earl_grey2:test_lib",
+  ]
 }

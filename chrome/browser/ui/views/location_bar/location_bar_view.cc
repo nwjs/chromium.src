@@ -9,6 +9,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/field_trial_params.h"
@@ -55,15 +56,16 @@
 #include "chrome/browser/ui/views/page_action/page_action_icon_container_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_icon_views.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/chromium_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/omnibox/browser/location_bar_model.h"
-#include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_popup_model.h"
 #include "components/omnibox/browser/omnibox_popup_view.h"
 #include "components/omnibox/browser/vector_icons.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -118,6 +120,10 @@ namespace {
 // killswitch for this behavior.
 base::Feature kOmniboxShowFullUrlOnKeyboardShortcut{
     "OmniboxShowFullUrlOnKeyboardShortcut", base::FEATURE_ENABLED_BY_DEFAULT};
+
+int IncrementalMinimumWidth(const views::View* view) {
+  return (view && view->visible()) ? view->GetMinimumSize().width() : 0;
+}
 
 }  // namespace
 
@@ -219,6 +225,8 @@ void LocationBarView::Init() {
     params.types_enabled.push_back(PageActionIconType::kFind);
     params.types_enabled.push_back(PageActionIconType::kTranslate);
     params.types_enabled.push_back(PageActionIconType::kZoom);
+    if (base::FeatureList::IsEnabled(features::kDesktopPWAsOmniboxInstall))
+      params.types_enabled.push_back(PageActionIconType::kPwaInstall);
   }
   params.icon_size = GetLayoutConstant(LOCATION_BAR_ICON_SIZE);
   params.icon_color = icon_color;
@@ -234,21 +242,17 @@ void LocationBarView::Init() {
     save_credit_card_icon_view_ = new autofill::SaveCardIconView(
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(save_credit_card_icon_view_);
-  }
 #if 0
-  if (browser_) {
     local_card_migration_icon_view_ = new autofill::LocalCardMigrationIconView(
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(local_card_migration_icon_view_);
-  }
 #endif
 
 #if defined(OS_CHROMEOS)
-  if (browser_)
     page_action_icons_.push_back(intent_picker_view_ =
                                      new IntentPickerView(browser_, this));
 #endif
-  if (browser_) {
+
     page_action_icons_.push_back(
         star_view_ = new StarView(command_updater(), browser_, this));
   }
@@ -334,12 +338,16 @@ void LocationBarView::SelectAll() {
 ////////////////////////////////////////////////////////////////////////////////
 // LocationBarView, public LocationBar implementation:
 
-void LocationBarView::FocusLocation() {
+void LocationBarView::FocusLocation(bool select_all) {
   const bool omnibox_already_focused = omnibox_view_->HasFocus();
 
   omnibox_view_->SetFocus();
+
   if (omnibox_already_focused)
     omnibox_view()->model()->ClearKeyword();
+
+  if (!select_all)
+    return;
 
   omnibox_view_->SelectAll(true);
 
@@ -368,46 +376,57 @@ void LocationBarView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   node_data->role = ax::mojom::Role::kGroup;
 }
 
-gfx::Size LocationBarView::CalculatePreferredSize() const {
-  // Compute minimum height.
-  gfx::Size min_size(0, GetLayoutConstant(LOCATION_BAR_HEIGHT));
-
+gfx::Size LocationBarView::GetMinimumSize() const {
+  const int height = GetLayoutConstant(LOCATION_BAR_HEIGHT);
   if (!IsInitialized())
-    return min_size;
+    return gfx::Size(0, height);
 
-  // Compute width of omnibox-leading content.
-  int leading_width = 0;
-  if (ShouldShowKeywordBubble()) {
-    // The selected keyword view can collapse completely.
-  } else if (location_icon_view_->ShouldShowText()) {
-    leading_width = location_icon_view_->GetMinimumLabelTextWidth();
-  } else {
-    leading_width = GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING) +
-                    location_icon_view_->GetMinimumSize().width();
-  }
+  const int inset_width = GetInsets().width();
+  const int padding = GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING);
+  const int leading_width = GetMinimumLeadingWidth();
+  const int omnibox_width = omnibox_view_->GetMinimumSize().width();
+  const int trailing_width = GetMinimumTrailingWidth();
 
-  // Compute width of omnibox-trailing content.
-  int trailing_width =
-      IncrementalMinimumWidth(page_action_icon_container_view_);
-  if (star_view_)
-    trailing_width += IncrementalMinimumWidth(star_view_);
-  if (save_credit_card_icon_view_)
-    trailing_width += IncrementalMinimumWidth(save_credit_card_icon_view_);
-  if (local_card_migration_icon_view_)
-    trailing_width += IncrementalMinimumWidth(local_card_migration_icon_view_);
-#if defined(OS_CHROMEOS)
-  if (intent_picker_view_)
-    trailing_width += IncrementalMinimumWidth(intent_picker_view_);
-#endif  // defined(OS_CHROMEOS)
-  for (auto i = content_setting_views_.begin();
-       i != content_setting_views_.end(); ++i) {
-    trailing_width += IncrementalMinimumWidth((*i));
-  }
+  // The minimum width of the location bar is defined to be the greater of the
+  // minimum width of the location text field and the space required for the
+  // other child views. This ensures that the location bar can shrink
+  // significantly when the browser window is small and the toolbar is crowded
+  // but also keeps the minimum size relatively stable when the number and size
+  // of location bar child views changes (i.e. when there are multiple status
+  // indicators and a large security chip vs. just the location text).
+  int alt_width = leading_width + padding + trailing_width;
+  int width = inset_width + std::max(omnibox_width, alt_width);
 
-  min_size.set_width(leading_width + omnibox_view_->GetMinimumSize().width() +
-                     2 * GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING) -
-                     omnibox_view_->GetInsets().width() + trailing_width);
-  return min_size;
+  return gfx::Size(width, height);
+}
+
+gfx::Size LocationBarView::CalculatePreferredSize() const {
+  const int height = GetLayoutConstant(LOCATION_BAR_HEIGHT);
+  if (!IsInitialized())
+    return gfx::Size(0, height);
+
+  const int inset_width = GetInsets().width();
+  const int padding = GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING);
+  const int leading_width = GetMinimumLeadingWidth();
+  const int omnibox_width = omnibox_view_->GetMinimumSize().width();
+  const int trailing_width = GetMinimumTrailingWidth();
+
+  // The preferred size (unlike the minimum size) of the location bar is roughly
+  // the combined size of all child views including the omnibox/location field.
+  // While the location bar can scale down to its minimum size, it will continue
+  // to displace lower-priority views such as visible extensions if it cannot
+  // achieve its preferred size.
+  //
+  // It might be useful to track the preferred size of the location bar to see
+  // how much visual clutter users are experiencing on a regular basis,
+  // especially as we add more indicators to the bar.
+  int width = inset_width + omnibox_width;
+  if (leading_width > 0)
+    width += leading_width + padding;
+  if (trailing_width > 0)
+    width += trailing_width + padding;
+
+  return gfx::Size(width, height);
 }
 
 void LocationBarView::Layout() {
@@ -418,7 +437,6 @@ void LocationBarView::Layout() {
   keyword_hint_view_->SetVisible(false);
 
   const int edge_padding = GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING);
-  int leading_edit_item_padding = edge_padding;
 
   // The text should be indented only if these are all true:
   //  - The popup is open.
@@ -446,7 +464,7 @@ void LocationBarView::Layout() {
   // We have an odd indent value because this is what matches the odd text
   // indent value in OmniboxMatchCellView.
   constexpr int kTextJogIndentDp = 11;
-  leading_edit_item_padding = should_indent ? kTextJogIndentDp : 0;
+  int leading_edit_item_padding = should_indent ? kTextJogIndentDp : 0;
 
   // We always subtract the left padding of the OmniboxView itself to allow for
   // an extended I-beam click target without affecting actual layout.
@@ -707,7 +725,7 @@ int LocationBarView::GetAvailableTextHeight() {
 // static
 int LocationBarView::GetAvailableDecorationTextHeight() {
   const int bubble_padding =
-      GetLayoutConstant(LOCATION_BAR_BUBBLE_VERTICAL_PADDING) +
+      GetLayoutConstant(LOCATION_BAR_CHILD_INTERIOR_PADDING) +
       GetLayoutConstant(LOCATION_BAR_BUBBLE_FONT_VERTICAL_PADDING);
   return std::max(
       0, LocationBarView::GetAvailableTextHeight() - (bubble_padding * 2));
@@ -716,8 +734,33 @@ int LocationBarView::GetAvailableDecorationTextHeight() {
 ////////////////////////////////////////////////////////////////////////////////
 // LocationBarView, private:
 
-int LocationBarView::IncrementalMinimumWidth(views::View* view) const {
-  return view->visible() ? view->GetMinimumSize().width() : 0;
+int LocationBarView::GetMinimumLeadingWidth() const {
+  // If the keyword bubble is showing, the view can collapse completely.
+  if (ShouldShowKeywordBubble())
+    return 0;
+
+  if (location_icon_view_->ShouldShowText())
+    return location_icon_view_->GetMinimumLabelTextWidth();
+
+  return GetLayoutConstant(LOCATION_BAR_ELEMENT_PADDING) +
+         location_icon_view_->GetMinimumSize().width();
+}
+
+int LocationBarView::GetMinimumTrailingWidth() const {
+  int trailing_width =
+      IncrementalMinimumWidth(page_action_icon_container_view_) +
+      IncrementalMinimumWidth(star_view_) +
+      IncrementalMinimumWidth(save_credit_card_icon_view_) +
+      IncrementalMinimumWidth(local_card_migration_icon_view_);
+
+#if defined(OS_CHROMEOS)
+  trailing_width += IncrementalMinimumWidth(intent_picker_view_);
+#endif  // defined(OS_CHROMEOS)
+
+  for (auto* content_setting_view : content_setting_views_)
+    trailing_width += IncrementalMinimumWidth(content_setting_view);
+
+  return trailing_width;
 }
 
 SkColor LocationBarView::GetBorderColor() const {
@@ -879,8 +922,8 @@ OmniboxPopupView* LocationBarView::GetOmniboxPopupView() {
 
 OmniboxTint LocationBarView::GetTint() {
   ThemeService* theme_service = ThemeServiceFactory::GetForProfile(profile());
+  bool is_dark_mode = GetNativeTheme()->SystemDarkModeEnabled();
   if (theme_service->UsingDefaultTheme()) {
-    bool is_dark_mode = GetNativeTheme()->SystemDarkModeEnabled();
     return profile()->GetProfileType() == Profile::INCOGNITO_PROFILE ||
                    is_dark_mode
                ? OmniboxTint::DARK
@@ -892,8 +935,7 @@ OmniboxTint LocationBarView::GetTint() {
       theme_service->UsingSystemTheme())
     return OmniboxTint::NATIVE;
 
-  // TODO(tapted): Infer a tint from theme colors?
-  return OmniboxTint::LIGHT;
+  return is_dark_mode ? OmniboxTint::DARK : OmniboxTint::LIGHT;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1149,7 +1191,7 @@ void LocationBarView::OnOmniboxHovered(bool is_hovering) {
 // LocationBarView, private DropdownBarHostDelegate implementation:
 
 void LocationBarView::FocusAndSelectAll() {
-  FocusLocation();
+  FocusLocation(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

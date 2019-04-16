@@ -7,6 +7,7 @@
 
 #include "base/callback.h"
 #include "base/logging.h"
+#include "third_party/blink/public/common/messaging/transferable_message.h"
 
 namespace content {
 
@@ -63,7 +64,6 @@ void FakeServiceWorkerContext::PerformStorageCleanup(
 }
 void FakeServiceWorkerContext::CheckHasServiceWorker(
     const GURL& url,
-    const GURL& other_url,
     CheckHasServiceWorkerCallback callback) {
   NOTREACHED();
 }

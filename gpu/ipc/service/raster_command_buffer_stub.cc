@@ -114,30 +114,19 @@ gpu::ContextResult RasterCommandBufferStub::Initialize(
     }
   }
 
-  gpu::GpuMemoryBufferFactory* gmb_factory =
-      manager->gpu_memory_buffer_factory();
-  context_group_ = base::MakeRefCounted<gles2::ContextGroup>(
-      manager->gpu_preferences(), gles2::PassthroughCommandDecoderSupported(),
-      manager->mailbox_manager(), CreateMemoryTracker(init_params),
-      manager->shader_translator_cache(),
-      manager->framebuffer_completeness_cache(),
-      shared_context_state->feature_info(),
-      init_params.attribs.bind_generates_resource, channel_->image_manager(),
-      gmb_factory ? gmb_factory->AsImageFactory() : nullptr,
-      /*progress_reporter=*/manager->watchdog(), manager->gpu_feature_info(),
-      manager->discardable_manager(),
-      manager->passthrough_discardable_manager(),
-      manager->shared_image_manager());
-
   surface_ = shared_context_state->surface();
   share_group_ = shared_context_state->share_group();
   use_virtualized_gl_context_ =
       shared_context_state->use_virtualized_gl_contexts();
 
-  command_buffer_ = std::make_unique<CommandBufferService>(
-      this, context_group_->transfer_buffer_manager());
+  memory_tracker_ = CreateMemoryTracker(init_params);
+
+  command_buffer_ =
+      std::make_unique<CommandBufferService>(this, memory_tracker_.get());
   std::unique_ptr<raster::RasterDecoder> decoder(raster::RasterDecoder::Create(
-      this, command_buffer_.get(), manager->outputter(), context_group_.get(),
+      this, command_buffer_.get(), manager->outputter(),
+      manager->gpu_feature_info(), manager->gpu_preferences(),
+      memory_tracker_.get(), manager->shared_image_manager(),
       shared_context_state));
 
   sync_point_client_state_ =
@@ -153,11 +142,6 @@ gpu::ContextResult RasterCommandBufferStub::Initialize(
     LOG(ERROR) << "ContextResult::kTransientFailure: "
                   "Failed to make context current.";
     return gpu::ContextResult::kTransientFailure;
-  }
-
-  if (!context_group_->has_program_cache() &&
-      !context_group_->feature_info()->workarounds().disable_program_cache) {
-    context_group_->set_program_cache(manager->program_cache());
   }
 
   // Initialize the decoder with either the view or pbuffer GLContext.
@@ -193,13 +177,12 @@ gpu::ContextResult RasterCommandBufferStub::Initialize(
   return gpu::ContextResult::kSuccess;
 }
 
-// RasterInterface clients should not manipulate the front buffer.
-void RasterCommandBufferStub::OnTakeFrontBuffer(const Mailbox& mailbox) {
-  NOTREACHED();
+MemoryTracker* RasterCommandBufferStub::GetMemoryTracker() const {
+  return memory_tracker_.get();
 }
-void RasterCommandBufferStub::OnReturnFrontBuffer(const Mailbox& mailbox,
-                                                  bool is_lost) {
-  NOTREACHED();
+
+bool RasterCommandBufferStub::HandleMessage(const IPC::Message& message) {
+  return false;
 }
 
 void RasterCommandBufferStub::OnSwapBuffers(uint64_t swap_id, uint32_t flags) {}

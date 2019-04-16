@@ -45,6 +45,7 @@ class CONTENT_EXPORT WebGraphicsContext3DProviderImpl
   gpu::gles2::GLES2Interface* ContextGL() override;
   gpu::webgpu::WebGPUInterface* WebGPUInterface() override;
   GrContext* GetGrContext() override;
+  gpu::SharedImageInterface* GetSharedImageInterface() const override;
   const gpu::Capabilities& GetCapabilities() const override;
   const gpu::GpuFeatureInfo& GetGpuFeatureInfo() const override;
   viz::GLHelper* GetGLHelper() override;
@@ -54,6 +55,7 @@ class CONTENT_EXPORT WebGraphicsContext3DProviderImpl
   cc::ImageDecodeCache* ImageDecodeCache(
       SkColorType color_type,
       sk_sp<SkColorSpace> color_space) override;
+  gpu::SharedImageInterface* SharedImageInterface() override;
 
   ws::ContextProviderCommandBuffer* context_provider() const {
     return provider_.get();

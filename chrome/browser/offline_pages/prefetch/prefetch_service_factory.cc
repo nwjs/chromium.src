@@ -47,7 +47,9 @@ PrefetchServiceFactory::PrefetchServiceFactory()
           BrowserContextDependencyManager::GetInstance()) {
   DependsOn(DownloadServiceFactory::GetInstance());
   DependsOn(OfflinePageModelFactory::GetInstance());
-  DependsOn(image_fetcher::CachedImageFetcherServiceFactory::GetInstance());
+  // TODO(hanxi): add
+  // DependsOn(image_fetcher::CachedImageFetcherServiceFactory::GetInstance());
+  // when the PrefetchServiceFactory becomes a SimpleKeyedServiceFactory.
 }
 
 // static
@@ -99,16 +101,17 @@ KeyedService* PrefetchServiceFactory::BuildServiceInstanceFor(
   std::unique_ptr<SuggestedArticlesObserver> suggested_articles_observer;
   std::unique_ptr<ThumbnailFetcherImpl> thumbnail_fetcher;
   // Conditional components for Feed. Not created when using Zine.
-  std::unique_ptr<image_fetcher::ImageFetcher> thumbnail_image_fetcher;
+  image_fetcher::ImageFetcher* thumbnail_image_fetcher = nullptr;
   if (!feed_enabled) {
     suggested_articles_observer = std::make_unique<SuggestedArticlesObserver>();
     thumbnail_fetcher = std::make_unique<ThumbnailFetcherImpl>();
   } else {
+    SimpleFactoryKey* simple_factory_key = profile->GetSimpleFactoryKey();
     image_fetcher::CachedImageFetcherService* image_fetcher_service =
-        image_fetcher::CachedImageFetcherServiceFactory::GetForBrowserContext(
-            context);
+        image_fetcher::CachedImageFetcherServiceFactory::GetForKey(
+            simple_factory_key, profile->GetPrefs());
     DCHECK(image_fetcher_service);
-    thumbnail_image_fetcher = image_fetcher_service->CreateCachedImageFetcher();
+    thumbnail_image_fetcher = image_fetcher_service->GetCachedImageFetcher();
   }
 
   auto prefetch_downloader = std::make_unique<PrefetchDownloaderImpl>(
@@ -128,7 +131,7 @@ KeyedService* PrefetchServiceFactory::BuildServiceInstanceFor(
       std::move(prefetch_store), std::move(suggested_articles_observer),
       std::move(prefetch_downloader), std::move(prefetch_importer),
       std::move(prefetch_background_task_handler), std::move(thumbnail_fetcher),
-      std::move(thumbnail_image_fetcher));
+      thumbnail_image_fetcher);
 }
 
 }  // namespace offline_pages

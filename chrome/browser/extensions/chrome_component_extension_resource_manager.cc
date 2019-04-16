@@ -30,7 +30,7 @@ namespace extensions {
 
 ChromeComponentExtensionResourceManager::
 ChromeComponentExtensionResourceManager() {
-  static const GritResourceMap kExtraComponentExtensionResources[] = {
+  static const GzippedGritResourceMap kExtraComponentExtensionResources[] = {
 #if defined(OS_CHROMEOS)
     {"web_store/webstore_icon_128.png", IDR_WEBSTORE_APP_ICON_128},
     {"web_store/webstore_icon_16.png", IDR_WEBSTORE_APP_ICON_16},
@@ -43,7 +43,9 @@ ChromeComponentExtensionResourceManager() {
     {"chrome_app/chrome_app_icon_32.png", IDR_CHROME_APP_ICON_32},
     {"chrome_app/chrome_app_icon_192.png", IDR_CHROME_APP_ICON_192},
     {"pdf/ink/ink_lib_binary.js", IDR_INK_LIB_BINARY_JS},
-    {"pdf/ink/glcore_base.wasm", IDR_INK_GLCORE_BASE_WASM},
+    {"pdf/ink/pthread-main.js", IDR_INK_PTHREAD_MAIN_JS},
+    {"pdf/ink/glcore_base.js.mem", IDR_INK_GLCORE_BASE_JS_MEM, true},
+    {"pdf/ink/glcore_base.wasm", IDR_INK_GLCORE_BASE_WASM, true},
     {"pdf/ink/glcore_wasm_bootstrap_compiled.js",
      IDR_INK_GLCORE_WASM_BOOTSTRAP_COMPILED_JS},
 #endif
@@ -56,7 +58,7 @@ ChromeComponentExtensionResourceManager() {
                               base::size(kExtraComponentExtensionResources));
 #if defined(OS_CHROMEOS)
   size_t file_manager_resource_size;
-  const GritResourceMap* file_manager_resources =
+  const GzippedGritResourceMap* file_manager_resources =
       file_manager::GetFileManagerResources(&file_manager_resource_size);
   AddComponentResourceEntries(
       file_manager_resources,
@@ -73,7 +75,7 @@ ChromeComponentExtensionResourceManager() {
   }
 
   size_t keyboard_resource_size;
-  const GritResourceMap* keyboard_resources =
+  const GzippedGritResourceMap* keyboard_resources =
       keyboard::GetKeyboardExtensionResources(&keyboard_resource_size);
   AddComponentResourceEntries(
       keyboard_resources,
@@ -87,7 +89,7 @@ ChromeComponentExtensionResourceManager::
 bool ChromeComponentExtensionResourceManager::IsComponentExtensionResource(
     const base::FilePath& extension_path,
     const base::FilePath& resource_path,
-    int* resource_id) const {
+    ComponentExtensionResourceInfo* resource_info) const {
   base::FilePath directory_path = extension_path;
   base::FilePath resources_dir;
   base::FilePath relative_path;
@@ -100,11 +102,13 @@ bool ChromeComponentExtensionResourceManager::IsComponentExtensionResource(
   relative_path = relative_path.Append(resource_path);
   relative_path = relative_path.NormalizePathSeparators();
 
-  auto entry = path_to_resource_id_.find(relative_path);
-  if (entry != path_to_resource_id_.end())
-    *resource_id = entry->second;
+  auto entry = path_to_resource_info_.find(relative_path);
+  if (entry != path_to_resource_info_.end()) {
+    *resource_info = entry->second;
+    return true;
+  }
 
-  return entry != path_to_resource_id_.end();
+  return false;
 }
 
 const ui::TemplateReplacements*
@@ -118,16 +122,16 @@ ChromeComponentExtensionResourceManager::GetTemplateReplacementsForExtension(
 }
 
 void ChromeComponentExtensionResourceManager::AddComponentResourceEntries(
-    const GritResourceMap* entries,
+    const GzippedGritResourceMap* entries,
     size_t size) {
   for (size_t i = 0; i < size; ++i) {
     base::FilePath resource_path = base::FilePath().AppendASCII(
         entries[i].name);
     resource_path = resource_path.NormalizePathSeparators();
 
-    DCHECK(path_to_resource_id_.find(resource_path) ==
-        path_to_resource_id_.end());
-    path_to_resource_id_[resource_path] = entries[i].value;
+    DCHECK(!base::ContainsKey(path_to_resource_info_, resource_path));
+    path_to_resource_info_[resource_path] = {entries[i].value,
+                                             entries[i].gzipped};
   }
 }
 

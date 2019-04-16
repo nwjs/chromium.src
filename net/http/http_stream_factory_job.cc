@@ -30,10 +30,10 @@
 #include "net/http/http_basic_stream.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_proxy_client_socket.h"
-#include "net/http/http_proxy_client_socket_pool.h"
 #include "net/http/http_request_info.h"
 #include "net/http/http_server_properties.h"
 #include "net/http/http_stream_factory.h"
+#include "net/http/proxy_connect_redirect_http_stream.h"
 #include "net/http/proxy_fallback.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_capture_mode.h"
@@ -43,11 +43,8 @@
 #include "net/quic/bidirectional_stream_quic_impl.h"
 #include "net/quic/quic_http_stream.h"
 #include "net/socket/client_socket_handle.h"
-#include "net/socket/client_socket_pool.h"
 #include "net/socket/client_socket_pool_manager.h"
-#include "net/socket/socks_client_socket_pool.h"
 #include "net/socket/ssl_client_socket.h"
-#include "net/socket/ssl_client_socket_pool.h"
 #include "net/socket/stream_socket.h"
 #include "net/spdy/bidirectional_stream_spdy_impl.h"
 #include "net/spdy/http2_push_promise_index.h"
@@ -313,9 +310,9 @@ int HttpStreamFactory::Job::Preconnect(int num_streams) {
 
 int HttpStreamFactory::Job::RestartTunnelWithProxyAuth() {
   DCHECK(establishing_tunnel_);
-  next_state_ = STATE_RESTART_TUNNEL_AUTH;
-  stream_.reset();
-  RunLoop(OK);
+  DCHECK(restart_with_auth_callback_);
+
+  std::move(restart_with_auth_callback_).Run();
   return ERR_IO_PENDING;
 }
 
@@ -516,8 +513,13 @@ void HttpStreamFactory::Job::OnCertificateErrorCallback(
 
 void HttpStreamFactory::Job::OnNeedsProxyAuthCallback(
     const HttpResponseInfo& response,
-    HttpAuthController* auth_controller) {
+    HttpAuthController* auth_controller,
+    base::OnceClosure restart_with_auth_callback) {
   DCHECK_NE(job_type_, PRECONNECT);
+  DCHECK(establishing_tunnel_);
+  DCHECK(!restart_with_auth_callback_);
+
+  restart_with_auth_callback_ = std::move(restart_with_auth_callback);
 
   delegate_->OnNeedsProxyAuth(this, response, server_ssl_config_, proxy_info_,
                               auth_controller);
@@ -586,8 +588,9 @@ void HttpStreamFactory::Job::RunLoop(int result) {
 
   if (job_type_ == PRECONNECT) {
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(&HttpStreamFactory::Job::OnPreconnectsComplete,
-                              ptr_factory_.GetWeakPtr()));
+        FROM_HERE,
+        base::BindOnce(&HttpStreamFactory::Job::OnPreconnectsComplete,
+                       ptr_factory_.GetWeakPtr()));
     return;
   }
 
@@ -599,40 +602,16 @@ void HttpStreamFactory::Job::RunLoop(int result) {
     next_state_ = STATE_WAITING_USER_ACTION;
     base::ThreadTaskRunnerHandle::Get()->PostTask(
         FROM_HERE,
-        base::Bind(&HttpStreamFactory::Job::OnCertificateErrorCallback,
-                   ptr_factory_.GetWeakPtr(), result, ssl_info));
+        base::BindOnce(&HttpStreamFactory::Job::OnCertificateErrorCallback,
+                       ptr_factory_.GetWeakPtr(), result, ssl_info));
     return;
   }
 
   switch (result) {
-    case ERR_PROXY_AUTH_REQUESTED: {
-      UMA_HISTOGRAM_BOOLEAN("Net.ProxyAuthRequested.HasConnection",
-                            connection_.get() != NULL);
-      if (!connection_.get()) {
-        base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE,
-            base::Bind(&Job::OnStreamFailedCallback, ptr_factory_.GetWeakPtr(),
-                       ERR_PROXY_AUTH_REQUESTED_WITH_NO_CONNECTION));
-        return;
-      }
-      CHECK(connection_->socket());
-      CHECK(establishing_tunnel_);
-
-      next_state_ = STATE_WAITING_USER_ACTION;
-      ProxyClientSocket* proxy_socket =
-          static_cast<ProxyClientSocket*>(connection_->socket());
-      base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE,
-          base::Bind(&Job::OnNeedsProxyAuthCallback, ptr_factory_.GetWeakPtr(),
-                     *proxy_socket->GetConnectResponseInfo(),
-                     base::RetainedRef(proxy_socket->GetAuthController())));
-      return;
-    }
-
     case ERR_SSL_CLIENT_AUTH_CERT_NEEDED:
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE,
-          base::Bind(
+          base::BindOnce(
               &Job::OnNeedsClientAuthCallback, ptr_factory_.GetWeakPtr(),
               base::RetainedRef(
                   connection_->ssl_error_response_info().cert_request_info)));
@@ -640,18 +619,27 @@ void HttpStreamFactory::Job::RunLoop(int result) {
 
     case ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT: {
       DCHECK(connection_.get());
-      DCHECK(connection_->socket());
       DCHECK(establishing_tunnel_);
 
+      LoadTimingInfo load_timing_info;
+      bool have_load_timing_info = connection_->GetLoadTimingInfo(
+          connection_->is_reused(), &load_timing_info);
+
+      std::unique_ptr<StreamSocket> socket =
+          connection_->release_pending_http_proxy_socket();
+      DCHECK(socket);
+
+      connection_.reset();
       ProxyClientSocket* proxy_socket =
-          static_cast<ProxyClientSocket*>(connection_->socket());
+          static_cast<ProxyClientSocket*>(socket.get());
       base::ThreadTaskRunnerHandle::Get()->PostTask(
           FROM_HERE,
           base::BindOnce(
               &Job::OnHttpsProxyTunnelResponseRedirectCallback,
               ptr_factory_.GetWeakPtr(),
               *proxy_socket->GetConnectResponseInfo(),
-              base::Passed(proxy_socket->CreateConnectResponseStream())));
+              std::make_unique<ProxyConnectRedirectHttpStream>(
+                  have_load_timing_info ? &load_timing_info : nullptr)));
       return;
     }
 
@@ -659,36 +647,37 @@ void HttpStreamFactory::Job::RunLoop(int result) {
       next_state_ = STATE_DONE;
       if (new_spdy_session_.get()) {
         base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE, base::Bind(&Job::OnNewSpdySessionReadyCallback,
-                                  ptr_factory_.GetWeakPtr()));
+            FROM_HERE, base::BindOnce(&Job::OnNewSpdySessionReadyCallback,
+                                      ptr_factory_.GetWeakPtr()));
       } else if (is_websocket_) {
         DCHECK(websocket_stream_);
         base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE, base::Bind(&Job::OnWebSocketHandshakeStreamReadyCallback,
-                                  ptr_factory_.GetWeakPtr()));
+            FROM_HERE,
+            base::BindOnce(&Job::OnWebSocketHandshakeStreamReadyCallback,
+                           ptr_factory_.GetWeakPtr()));
       } else if (stream_type_ == HttpStreamRequest::BIDIRECTIONAL_STREAM) {
         if (!bidirectional_stream_impl_) {
           base::ThreadTaskRunnerHandle::Get()->PostTask(
-              FROM_HERE, base::Bind(&Job::OnStreamFailedCallback,
-                                    ptr_factory_.GetWeakPtr(), ERR_FAILED));
+              FROM_HERE, base::BindOnce(&Job::OnStreamFailedCallback,
+                                        ptr_factory_.GetWeakPtr(), ERR_FAILED));
         } else {
           base::ThreadTaskRunnerHandle::Get()->PostTask(
               FROM_HERE,
-              base::Bind(&Job::OnBidirectionalStreamImplReadyCallback,
-                         ptr_factory_.GetWeakPtr()));
+              base::BindOnce(&Job::OnBidirectionalStreamImplReadyCallback,
+                             ptr_factory_.GetWeakPtr()));
         }
       } else {
         DCHECK(stream_.get());
         base::ThreadTaskRunnerHandle::Get()->PostTask(
-            FROM_HERE,
-            base::Bind(&Job::OnStreamReadyCallback, ptr_factory_.GetWeakPtr()));
+            FROM_HERE, base::BindOnce(&Job::OnStreamReadyCallback,
+                                      ptr_factory_.GetWeakPtr()));
       }
       return;
 
     default:
       base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::Bind(&Job::OnStreamFailedCallback,
-                                ptr_factory_.GetWeakPtr(), result));
+          FROM_HERE, base::BindOnce(&Job::OnStreamFailedCallback,
+                                    ptr_factory_.GetWeakPtr(), result));
       return;
   }
 }
@@ -724,13 +713,6 @@ int HttpStreamFactory::Job::DoLoop(int result) {
         break;
       case STATE_WAITING_USER_ACTION:
         rv = DoWaitingUserAction(rv);
-        break;
-      case STATE_RESTART_TUNNEL_AUTH:
-        DCHECK_EQ(OK, rv);
-        rv = DoRestartTunnelAuth();
-        break;
-      case STATE_RESTART_TUNNEL_AUTH_COMPLETE:
-        rv = DoRestartTunnelAuthComplete(rv);
         break;
       case STATE_CREATE_STREAM:
         DCHECK_EQ(OK, rv);
@@ -892,7 +874,7 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
       GURL::Replacements replacements;
       replacements.SetSchemeStr(url::kHttpsScheme);
       replacements.SetHostStr(destination.host());
-      const std::string new_port = base::UintToString(destination.port());
+      const std::string new_port = base::NumberToString(destination.port());
       replacements.SetPortStr(new_port);
       replacements.ClearUsername();
       replacements.ClearPassword();
@@ -986,6 +968,10 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
                        spdy_session_key_, enable_ip_based_pooling_,
                        try_websocket_over_http2_)
           : OnHostResolutionCallback();
+
+  ClientSocketPool::ProxyAuthCallback proxy_auth_callback =
+      base::BindRepeating(&HttpStreamFactory::Job::OnNeedsProxyAuthCallback,
+                          base::Unretained(this));
   if (is_websocket_) {
     DCHECK(request_info_.socket_tag == SocketTag());
     SSLConfig websocket_server_ssl_config = server_ssl_config_;
@@ -995,7 +981,7 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
         request_info_.load_flags, priority_, session_, proxy_info_,
         websocket_server_ssl_config, proxy_ssl_config_,
         request_info_.privacy_mode, net_log_, connection_.get(),
-        resolution_callback, io_callback_);
+        resolution_callback, io_callback_, proxy_auth_callback);
   }
 
   return InitSocketHandleForHttpRequest(
@@ -1003,7 +989,7 @@ int HttpStreamFactory::Job::DoInitConnectionImpl() {
       request_info_.load_flags, priority_, session_, proxy_info_, quic_version_,
       server_ssl_config_, proxy_ssl_config_, request_info_.privacy_mode,
       request_info_.socket_tag, net_log_, connection_.get(),
-      resolution_callback, io_callback_);
+      resolution_callback, io_callback_, proxy_auth_callback);
 }
 
 void HttpStreamFactory::Job::OnQuicHostResolution(int result) {
@@ -1089,16 +1075,8 @@ int HttpStreamFactory::Job::DoInitConnectionComplete(int result) {
     }
   }
 
-  if (result == ERR_PROXY_AUTH_REQUESTED ||
-      result == ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT) {
+  if (result == ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT) {
     DCHECK(!ssl_started);
-    // Other state (i.e. |using_ssl_|) suggests that |connection_| will have an
-    // SSL socket, but there was an error before that could happen.  This
-    // puts the in progress HttpProxy socket into |connection_| in order to
-    // complete the auth (or read the response body).  The tunnel restart code
-    // is careful to remove it before returning control to the rest of this
-    // class.
-    connection_ = connection_->release_pending_http_proxy_connection();
     return result;
   }
 
@@ -1276,7 +1254,7 @@ int HttpStreamFactory::Job::DoCreateStream() {
       !spdy_session_direct_ && proxy_info_.proxy_server().is_trusted_proxy();
 
   base::WeakPtr<SpdySession> spdy_session =
-      session_->spdy_session_pool()->CreateAvailableSessionFromSocket(
+      session_->spdy_session_pool()->CreateAvailableSessionFromSocketHandle(
           spdy_session_key_, is_trusted_proxy, std::move(connection_),
           net_log_);
 
@@ -1312,35 +1290,6 @@ int HttpStreamFactory::Job::DoCreateStreamComplete(int result) {
   session_->proxy_resolution_service()->ReportSuccess(proxy_info_);
   next_state_ = STATE_NONE;
   return OK;
-}
-
-int HttpStreamFactory::Job::DoRestartTunnelAuth() {
-  next_state_ = STATE_RESTART_TUNNEL_AUTH_COMPLETE;
-  ProxyClientSocket* proxy_socket =
-      static_cast<ProxyClientSocket*>(connection_->socket());
-  return proxy_socket->RestartWithAuth(io_callback_);
-}
-
-int HttpStreamFactory::Job::DoRestartTunnelAuthComplete(int result) {
-  if (result == ERR_PROXY_AUTH_REQUESTED)
-    return result;
-
-  if (result == OK || result == ERR_SPDY_SESSION_ALREADY_EXISTS) {
-    // Now that we've got the HttpProxyClientSocket connected.  We have
-    // to release it as an idle socket into the pool and start the connection
-    // process from the beginning.  Trying to pass it in with the
-    // SSLSocketParams might cause a deadlock since params are dispatched
-    // interchangeably.  This request won't necessarily get this http proxy
-    // socket, but there will be forward progress.
-    //
-    // Alernatively, if there's an existing H2 session that can be reused,
-    // also go back to the init connection state to reuse it.
-    establishing_tunnel_ = false;
-    ReturnToStateInitConnection(false /* do not close connection */);
-    return OK;
-  }
-
-  return ReconsiderProxyAfterError(result);
 }
 
 void HttpStreamFactory::Job::ReturnToStateInitConnection(

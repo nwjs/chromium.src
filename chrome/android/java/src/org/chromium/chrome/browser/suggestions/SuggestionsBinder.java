@@ -30,7 +30,7 @@ import org.chromium.base.Promise;
 import org.chromium.base.SysUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.compositor.layouts.ChromeAnimation;
+import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.download.ui.DownloadFilter;
 import org.chromium.chrome.browser.ntp.cards.NewTabPageViewHolder;
@@ -108,7 +108,7 @@ public class SuggestionsBinder {
         }
 
         mSmallThumbnailCornerRadius = mCardContainerView.getResources().getDimensionPixelSize(
-                R.dimen.snippets_thumbnail_small_corner_radius);
+                R.dimen.default_card_corner_radius);
     }
 
     public void updateViewInformation(SnippetArticle suggestion) {
@@ -238,7 +238,7 @@ public class SuggestionsBinder {
                     new ColorDrawable(mSuggestion.getThumbnailDominantColor() != null
                                     ? mSuggestion.getThumbnailDominantColor()
                                     : ApiCompatibilityUtils.getColor(mThumbnailView.getResources(),
-                                              R.color.thumbnail_placeholder_on_white_bg));
+                                            R.color.thumbnail_placeholder_on_primary_bg));
             mThumbnailView.setImageDrawable(colorDrawable);
         } else {
             mThumbnailView.setImageResource(R.drawable.ic_snippet_thumbnail_placeholder);
@@ -318,8 +318,7 @@ public class SuggestionsBinder {
 
     private void setFaviconOnView(Drawable drawable, int faviconSizePx) {
         drawable.setBounds(0, 0, faviconSizePx, faviconSizePx);
-        ApiCompatibilityUtils.setCompoundDrawablesRelative(
-                mPublisherTextView, drawable, null, null, null);
+        mPublisherTextView.setCompoundDrawablesRelative(drawable, null, null, null);
         mPublisherTextView.setVisibility(View.VISIBLE);
     }
 
@@ -336,9 +335,8 @@ public class SuggestionsBinder {
         mThumbnailView.setScaleType(ImageView.ScaleType.CENTER_CROP);
         mThumbnailView.setBackground(null);
         if (!mIsContextual) ApiCompatibilityUtils.setImageTintList(mThumbnailView, null);
-        int duration = (int) (FADE_IN_ANIMATION_TIME_MS
-                * ChromeAnimation.Animation.getAnimationMultiplier());
-        if (duration == 0) {
+        int duration = FADE_IN_ANIMATION_TIME_MS;
+        if (CompositorAnimationHandler.isInTestingMode()) {
             mThumbnailView.setImageDrawable(thumbnail);
             return;
         }

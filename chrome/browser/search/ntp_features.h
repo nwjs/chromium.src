@@ -14,11 +14,13 @@ namespace features {
 
 extern const base::Feature kDoodlesOnLocalNtp;
 extern const base::Feature kPromosOnLocalNtp;
+extern const base::Feature kRemoveNtpFakebox;
 extern const base::Feature kSearchSuggestionsOnLocalNtp;
 extern const base::Feature kUseGoogleLocalNtp;
 
 extern const base::Feature kFakeboxSearchIconOnNtp;
 extern const base::Feature kUseAlternateFakeboxOnNtp;
+extern const base::Feature kHideShortcutsOnNtp;
 
 // Returns whether the Google search style fakebox is enabled.
 bool IsUseAlternateFakeboxOnNtpEnabled();

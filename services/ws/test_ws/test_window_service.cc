@@ -88,6 +88,7 @@ void TestWindowService::InitForOutOfProcess() {
 }
 
 std::unique_ptr<aura::Window> TestWindowService::NewTopLevel(
+    TopLevelProxyWindow* top_level_proxy_window,
     aura::PropertyConverter* property_converter,
     const base::flat_map<std::string, std::vector<uint8_t>>& properties) {
   std::unique_ptr<aura::Window> top_level = std::make_unique<aura::Window>(
@@ -112,6 +113,7 @@ std::unique_ptr<aura::Window> TestWindowService::NewTopLevel(
 void TestWindowService::RunWindowMoveLoop(aura::Window* window,
                                           mojom::MoveLoopSource source,
                                           const gfx::Point& cursor,
+                                          int window_component,
                                           DoneCallback callback) {
   window_move_done_callback_ = std::move(callback);
 }

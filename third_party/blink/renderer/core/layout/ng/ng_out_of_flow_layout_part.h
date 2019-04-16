@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/layout/ng/ng_absolute_utils.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
+#include "third_party/blink/renderer/platform/wtf/hash_set.h"
 
 namespace blink {
 
@@ -54,7 +55,7 @@ class CORE_EXPORT NGOutOfFlowLayoutPart {
   // will get laid out; any additional ones will be stored as out-of-flow
   // descendants in the builder for use via
   // LayoutResult::OutOfFlowPositionedDescendants.
-  void Run(LayoutBox* only_layout = nullptr);
+  void Run(const LayoutBox* only_layout = nullptr);
 
  private:
   // Information needed to position descendant within a containing block.
@@ -92,17 +93,23 @@ class CORE_EXPORT NGOutOfFlowLayoutPart {
   ContainingBlockInfo GetContainingBlockInfo(
       const NGOutOfFlowPositionedDescendant&) const;
 
-  void ComputeInlineContainingBlocks(Vector<NGOutOfFlowPositionedDescendant>);
+  void ComputeInlineContainingBlocks(
+      const Vector<NGOutOfFlowPositionedDescendant>&);
 
-  scoped_refptr<NGLayoutResult> LayoutDescendant(
+  void LayoutDescendantCandidates(
+      const Vector<NGOutOfFlowPositionedDescendant>& descendant_candidates,
+      const LayoutBox* only_layout,
+      HashSet<const LayoutObject*>* placed_objects);
+
+  scoped_refptr<const NGLayoutResult> LayoutDescendant(
       const NGOutOfFlowPositionedDescendant&,
-      NGLogicalOffset* offset,
-      LayoutBox* only_layout);
+      const LayoutBox* only_layout,
+      NGLogicalOffset* offset);
 
   bool IsContainingBlockForDescendant(
       const NGOutOfFlowPositionedDescendant& descendant);
 
-  scoped_refptr<NGLayoutResult> GenerateFragment(
+  scoped_refptr<const NGLayoutResult> GenerateFragment(
       NGBlockNode node,
       const ContainingBlockInfo&,
       const base::Optional<LayoutUnit>& block_estimate,

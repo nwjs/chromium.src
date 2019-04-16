@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "base/base_switches.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind_test_util.h"
 #include "chrome/browser/net/prediction_options.h"
@@ -33,6 +34,15 @@ const char kPrefetchPage[] = "/prerender/simple_prefetch.html";
 const char kRedirectPrefetchPage[] = "/redirect_prefetch.html";
 const char kRedirectPrefetchUrl[] = "/redirect";
 const char kRedirectedPrefetchUrl[] = "/redirected";
+
+bool HasVariationsHeader(
+    const net::test_server::HttpRequest::HeaderMap& headers) {
+  for (const auto& pair : headers) {
+    if (variations::IsVariationsHeader(pair.first))
+      return true;
+  }
+  return false;
+}
 
 class MockNetworkChangeNotifierWIFI : public NetworkChangeNotifier {
  public:
@@ -180,23 +190,20 @@ IN_PROC_BROWSER_TEST_F(PrefetchBrowserTest, RedirectedPrefetch) {
             requests[0].headers["Host"]);
   EXPECT_EQ(kRedirectPrefetchPage, requests[0].relative_url);
   // The navigation request to Google host must have X-Client-Data header.
-  EXPECT_TRUE(requests[0].headers.find(variations::kClientDataHeader) !=
-              requests[0].headers.end());
+  EXPECT_TRUE(HasVariationsHeader(requests[0].headers));
 
   EXPECT_EQ(base::StringPrintf("www.google.com:%u", https_server.port()),
             requests[1].headers["Host"]);
   EXPECT_EQ(kRedirectPrefetchUrl, requests[1].relative_url);
   // The prefetch request to Google host must have X-Client-Data header.
-  EXPECT_TRUE(requests[1].headers.find(variations::kClientDataHeader) !=
-              requests[1].headers.end());
+  EXPECT_TRUE(HasVariationsHeader(requests[1].headers));
 
   EXPECT_EQ(base::StringPrintf("example.com:%u", https_server.port()),
             requests[2].headers["Host"]);
   EXPECT_EQ(kRedirectedPrefetchUrl, requests[2].relative_url);
   // The redirected prefetch request to non-Google host must not have
   // X-Client-Data header.
-  EXPECT_TRUE(requests[2].headers.find(variations::kClientDataHeader) ==
-              requests[2].headers.end());
+  EXPECT_FALSE(HasVariationsHeader(requests[2].headers));
 }
 
 }  // namespace

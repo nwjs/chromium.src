@@ -28,6 +28,7 @@ using WeightType = size_t;
 // One training example == group of feature values, plus the desired target.
 struct COMPONENT_EXPORT(LEARNING_COMMON) LabelledExample {
   LabelledExample();
+  LabelledExample(FeatureVector feature_vector, TargetValue target);
   LabelledExample(std::initializer_list<FeatureValue> init_list,
                   TargetValue target);
   LabelledExample(const LabelledExample& rhs);
@@ -40,7 +41,7 @@ struct COMPONENT_EXPORT(LEARNING_COMMON) LabelledExample {
   bool operator<(const LabelledExample& rhs) const;
 
   LabelledExample& operator=(const LabelledExample& rhs);
-  LabelledExample& operator=(LabelledExample&& rhs);
+  LabelledExample& operator=(LabelledExample&& rhs) noexcept;
 
   // Observed feature values.
   // Note that to interpret these values, you probably need to have the
@@ -65,6 +66,7 @@ class COMPONENT_EXPORT(LEARNING_COMMON) TrainingData {
   TrainingData(const TrainingData& rhs);
   TrainingData(TrainingData&& rhs);
 
+  TrainingData& operator=(const TrainingData& rhs);
   TrainingData& operator=(TrainingData&& rhs);
 
   ~TrainingData();

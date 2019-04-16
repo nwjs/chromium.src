@@ -8,6 +8,7 @@
 #include "third_party/blink/public/mojom/service_worker/service_worker_object.mojom-shared.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
+#include "third_party/blink/renderer/platform/scheduler/public/frame_status.h"
 
 namespace blink {
 
@@ -66,11 +67,12 @@ class PLATFORM_EXPORT ResourceFetcherProperties
   // Returns whether the main resource for this global context is loaded.
   virtual bool IsLoadComplete() const = 0;
 
-  // Returns whether we should disallow a main resource loading.
-  virtual bool ShouldBlockLoadingMainResource() const = 0;
-
   // Returns whether we should disallow a sub resource loading.
   virtual bool ShouldBlockLoadingSubResource() const = 0;
+
+  // Returns the scheduling status of the associated frame. Returns |kNone|
+  // if there is no such a frame.
+  virtual scheduler::FrameStatus GetFrameStatus() const = 0;
 };
 
 }  // namespace blink

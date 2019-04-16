@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/metrics/histogram_macros.h"
@@ -144,7 +145,7 @@ class WebUsbNotificationDelegate : public TabStripModelObserver,
     if (tab_to_activate) {
       TabStripModel* tab_strip_model = browser->tab_strip_model();
       tab_strip_model->ActivateTabAt(
-          tab_strip_model->GetIndexOfWebContents(tab_to_activate), false);
+          tab_strip_model->GetIndexOfWebContents(tab_to_activate));
       browser->window()->Activate();
       return;
     }

@@ -20,13 +20,6 @@ class NSString;
 
 namespace app_mode {
 
-// These are keys for an Apple Event ping that the app shim process sends to
-// Chrome to get confirmation that Chrome is alive. The main Chrome process
-// doesn't need to register any handlers for them -- the event is just sent for
-// the empty reply that's automatically returned by the system.
-const AEEventClass kAEChromeAppClass = 'cApp';
-const AEEventID kAEChromeAppPing = 'ping';
-
 // The IPC socket used to communicate between app shims and Chrome will be
 // created under a temporary directory with this name.
 extern const char kAppShimSocketShortName[];
@@ -118,6 +111,10 @@ extern NSString* const kCrAppModeProfileNameKey;
 // When the Chrome browser is run, it stores its location in the defaults
 // system using this key.
 extern NSString* const kLastRunAppBundlePathPrefsKey;
+
+// The key for the major and minor version of an app.
+extern NSString* const kCrAppModeMajorVersionKey;
+extern NSString* const kCrAppModeMinorVersionKey;
 
 // Placeholders used in the app mode loader bundle' Info.plist:
 extern NSString* const kShortcutIdPlaceholder; // Extension shortcut ID.

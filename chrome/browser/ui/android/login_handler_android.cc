@@ -10,6 +10,7 @@
 #include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/ui/android/chrome_http_auth_handler.h"
 #include "chrome/browser/ui/android/view_android_helper.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
@@ -22,16 +23,24 @@
 using content::BrowserThread;
 using net::AuthChallengeInfo;
 
+namespace {
+
 class LoginHandlerAndroid : public LoginHandler {
  public:
-  LoginHandlerAndroid(
-      net::AuthChallengeInfo* auth_info,
-      content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
-      LoginAuthRequiredCallback auth_required_callback)
+  LoginHandlerAndroid(net::AuthChallengeInfo* auth_info,
+                      content::WebContents* web_contents,
+                      LoginAuthRequiredCallback auth_required_callback)
       : LoginHandler(auth_info,
-                     web_contents_getter,
+                     web_contents,
                      std::move(auth_required_callback)) {}
 
+  ~LoginHandlerAndroid() override {
+    // LoginHandler cannot call CloseDialog because the subclass will already
+    // have been destructed.
+    CloseDialog();
+  }
+
+ protected:
   // LoginHandler methods:
   void BuildViewImpl(const base::string16& authority,
                      const base::string16& explanation,
@@ -39,37 +48,33 @@ class LoginHandlerAndroid : public LoginHandler {
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
     // Get pointer to TabAndroid
-    content::WebContents* web_contents = GetWebContentsForLogin();
-    CHECK(web_contents);
-    ViewAndroidHelper* view_helper = ViewAndroidHelper::FromWebContents(
-        web_contents);
+    CHECK(web_contents());
+    ViewAndroidHelper* view_helper =
+        ViewAndroidHelper::FromWebContents(web_contents());
 
     if (vr::VrTabHelper::IsUiSuppressedInVr(
-            web_contents, vr::UiSuppressedElement::kHttpAuth)) {
+            web_contents(), vr::UiSuppressedElement::kHttpAuth)) {
       CancelAuth();
       return;
     }
 
+    TabAndroid* tab = TabAndroid::FromWebContents(web_contents());
     // Notify WindowAndroid that HTTP authentication is required.
-    if (view_helper->GetViewAndroid() &&
+    if (tab && view_helper->GetViewAndroid() &&
         view_helper->GetViewAndroid()->GetWindowAndroid()) {
       chrome_http_auth_handler_.reset(
           new ChromeHttpAuthHandler(authority, explanation, login_model_data));
       chrome_http_auth_handler_->Init();
       chrome_http_auth_handler_->SetObserver(this);
       chrome_http_auth_handler_->ShowDialog(
+          tab->GetJavaObject(),
           view_helper->GetViewAndroid()->GetWindowAndroid()->GetJavaObject());
-
-      NotifyAuthNeeded();
     } else {
       CancelAuth();
       LOG(WARNING) << "HTTP Authentication failed because TabAndroid is "
           "missing";
     }
   }
-
- protected:
-  ~LoginHandlerAndroid() override {}
 
   void CloseDialog() override {
     if (chrome_http_auth_handler_)
@@ -80,11 +85,13 @@ class LoginHandlerAndroid : public LoginHandler {
   std::unique_ptr<ChromeHttpAuthHandler> chrome_http_auth_handler_;
 };
 
+}  // namespace
+
 // static
-scoped_refptr<LoginHandler> LoginHandler::Create(
+std::unique_ptr<LoginHandler> LoginHandler::Create(
     net::AuthChallengeInfo* auth_info,
-    content::ResourceRequestInfo::WebContentsGetter web_contents_getter,
+    content::WebContents* web_contents,
     LoginAuthRequiredCallback auth_required_callback) {
-  return base::MakeRefCounted<LoginHandlerAndroid>(
-      auth_info, web_contents_getter, std::move(auth_required_callback));
+  return std::make_unique<LoginHandlerAndroid>(
+      auth_info, web_contents, std::move(auth_required_callback));
 }

@@ -4,6 +4,7 @@
 
 #include "components/offline_pages/core/prefetch/prefetch_request_fetcher.h"
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "components/offline_pages/core/prefetch/prefetch_server_urls.h"
@@ -32,23 +33,27 @@ std::unique_ptr<PrefetchRequestFetcher> PrefetchRequestFetcher::CreateForGet(
     const GURL& url,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     FinishedCallback callback) {
-  return base::WrapUnique(new PrefetchRequestFetcher(
-      url, std::string(), url_loader_factory, std::move(callback)));
+  return base::WrapUnique(
+      new PrefetchRequestFetcher(url, std::string(), std::string(),
+                                 url_loader_factory, std::move(callback)));
 }
 
 // static
 std::unique_ptr<PrefetchRequestFetcher> PrefetchRequestFetcher::CreateForPost(
     const GURL& url,
     const std::string& message,
+    const std::string& testing_header_value,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     FinishedCallback callback) {
-  return base::WrapUnique(new PrefetchRequestFetcher(
-      url, message, url_loader_factory, std::move(callback)));
+  return base::WrapUnique(
+      new PrefetchRequestFetcher(url, message, testing_header_value,
+                                 url_loader_factory, std::move(callback)));
 }
 
 PrefetchRequestFetcher::PrefetchRequestFetcher(
     const GURL& url,
     const std::string& message,
+    const std::string& testing_header_value,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     FinishedCallback callback)
     : url_loader_factory_(url_loader_factory), callback_(std::move(callback)) {
@@ -83,6 +88,10 @@ PrefetchRequestFetcher::PrefetchRequestFetcher(
   std::string experiment_header = PrefetchExperimentHeader();
   if (!experiment_header.empty())
     resource_request->headers.AddHeaderFromString(experiment_header);
+
+  if (!testing_header_value.empty())
+    resource_request->headers.SetHeader(kPrefetchTestingHeaderName,
+                                        testing_header_value);
 
   if (message.empty())
     resource_request->headers.SetHeader(net::HttpRequestHeaders::kContentType,

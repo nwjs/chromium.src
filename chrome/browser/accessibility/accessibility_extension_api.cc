@@ -82,47 +82,49 @@ AccessibilityPrivateSetNativeAccessibilityEnabledFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction
-AccessibilityPrivateSetFocusRingFunction::Run() {
+AccessibilityPrivateSetFocusRingsFunction::Run() {
 #if defined(OS_CHROMEOS)
 
-  std::unique_ptr<extensions::api::accessibility_private::SetFocusRing::Params>
-      params(
-          extensions::api::accessibility_private::SetFocusRing::Params::Create(
-              *args_));
+  std::unique_ptr<accessibility_private::SetFocusRings::Params> params(
+      accessibility_private::SetFocusRings::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params);
 
-  std::vector<gfx::Rect> rects;
-  for (const extensions::api::accessibility_private::ScreenRect& rect :
-       params->rects) {
-    rects.push_back(gfx::Rect(rect.left, rect.top, rect.width, rect.height));
-  }
-
   auto* accessibility_manager = chromeos::AccessibilityManager::Get();
-  if (params->color) {
+
+  for (const accessibility_private::FocusRingInfo& focus_ring :
+       params->focus_rings) {
+    // Convert the given rects into gfx::Rect objects.
+    std::vector<gfx::Rect> rects;
+    for (const accessibility_private::ScreenRect& rect : focus_ring.rects) {
+      rects.push_back(gfx::Rect(rect.left, rect.top, rect.width, rect.height));
+    }
+
+    const std::string id = accessibility_manager->GetFocusRingId(
+        extension_id(), focus_ring.id ? *(focus_ring.id) : "");
+
     SkColor color;
-    if (!extensions::image_util::ParseHexColorString(*(params->color), &color))
+    if (!extensions::image_util::ParseHexColorString(focus_ring.color, &color))
       return RespondNow(Error("Could not parse hex color"));
-    accessibility_manager->SetFocusRingColor(color, extension_id());
-  } else {
-    accessibility_manager->ResetFocusRingColor(extension_id());
-  }
+    accessibility_manager->SetFocusRingColor(color, id);
 
-  // Move the visible focus ring to cover all of these rects.
-  accessibility_manager->SetFocusRing(
-      rects, ash::mojom::FocusRingBehavior::PERSIST_FOCUS_RING, extension_id());
+    // Move the visible focus ring to cover all of these rects.
+    accessibility_manager->SetFocusRing(
+        rects, ash::mojom::FocusRingBehavior::PERSIST_FOCUS_RING, id);
 
-  // Also update the touch exploration controller so that synthesized
-  // touch events are anchored within the focused object.
-  if (!rects.empty()) {
-    chromeos::AccessibilityManager* manager =
-        chromeos::AccessibilityManager::Get();
-    manager->SetTouchAccessibilityAnchorPoint(rects[0].CenterPoint());
+    // Also update the touch exploration controller so that synthesized
+    // touch events are anchored within the focused object.
+    // NOTE: The final anchor point will be determined by the first rect of the
+    // final focus ring.
+    if (!rects.empty()) {
+      accessibility_manager->SetTouchAccessibilityAnchorPoint(
+          rects[0].CenterPoint());
+    }
   }
 
   return RespondNow(NoArguments());
-#endif  // defined(OS_CHROMEOS)
-
+#else
   return RespondNow(Error(kErrorNotSupported));
+#endif  // defined(OS_CHROMEOS)
 }
 
 ExtensionFunction::ResponseAction
@@ -394,15 +396,32 @@ AccessibilityPrivateSetSwitchAccessMenuStateFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
   bool show_menu = params->show;
 
+  int item_count = params->item_count;
+
+  int padding = 40;
+  int item_width = 88;
+  int item_height = 60;
+  // TODO(anastasi): This should be a preference that the user can change.
+  int max_cols = 3;
+
+  // The number of rows is the number of items divided by the max columns,
+  // rounded down.
+  int rows = 1 + (item_count - 1) / max_cols;
+  int cols = rows == 1 ? item_count : max_cols;
+  int width = padding + (item_width * cols);
+  int height = padding + (item_height * rows);
+
   extensions::api::accessibility_private::ScreenRect elem =
       std::move(params->element_bounds);
 
   gfx::Rect element_bounds(elem.left, elem.top, elem.width, elem.height);
 
-  if (show_menu)
-    chromeos::AccessibilityManager::Get()->ShowSwitchAccessMenu(element_bounds);
-  else
+  if (show_menu) {
+    chromeos::AccessibilityManager::Get()->ShowSwitchAccessMenu(element_bounds,
+                                                                width, height);
+  } else {
     chromeos::AccessibilityManager::Get()->HideSwitchAccessMenu();
+  }
 
   return RespondNow(NoArguments());
 }

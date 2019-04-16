@@ -197,8 +197,8 @@ bool ResourceMultiBufferDataProvider::WillFollowRedirect(
 }
 
 void ResourceMultiBufferDataProvider::DidSendData(
-    unsigned long long bytes_sent,
-    unsigned long long total_bytes_to_be_sent) {
+    uint64_t bytes_sent,
+    uint64_t total_bytes_to_be_sent) {
   NOTIMPLEMENTED();
 }
 
@@ -331,6 +331,18 @@ void ResourceMultiBufferDataProvider::DidReceiveResponse(
   destination_url_data->set_is_cors_cross_origin(
       network::cors::IsCorsCrossOriginResponseType(response_type));
 
+  // Only used for metrics.
+  {
+    WebString access_control =
+        response.HttpHeaderField("Access-Control-Allow-Origin");
+    if (!access_control.IsEmpty() && !access_control.Equals("null")) {
+      // Note: When |access_control| is not *, we should verify that it matches
+      // the requesting origin. Instead we just assume that it matches, which is
+      // probably accurate enough for metrics.
+      destination_url_data->set_has_access_control();
+    }
+  }
+
   if (destination_url_data != url_data_) {
     // At this point, we've encountered a redirect, or found a better url data
     // instance for the data that we're about to download.
@@ -421,8 +433,7 @@ void ResourceMultiBufferDataProvider::DidReceiveData(const char* data,
   // Beware, this object might be deleted here.
 }
 
-void ResourceMultiBufferDataProvider::DidDownloadData(
-    unsigned long long dataLength) {
+void ResourceMultiBufferDataProvider::DidDownloadData(uint64_t dataLength) {
   NOTIMPLEMENTED();
 }
 
@@ -452,8 +463,8 @@ void ResourceMultiBufferDataProvider::DidFinishLoading() {
       retries_++;
       base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
           FROM_HERE,
-          base::Bind(&ResourceMultiBufferDataProvider::Start,
-                     weak_factory_.GetWeakPtr()),
+          base::BindOnce(&ResourceMultiBufferDataProvider::Start,
+                         weak_factory_.GetWeakPtr()),
           base::TimeDelta::FromMilliseconds(kLoaderPartialRetryDelayMs));
       return;
     } else {
@@ -484,8 +495,8 @@ void ResourceMultiBufferDataProvider::DidFail(const WebURLError& error) {
     retries_++;
     base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
         FROM_HERE,
-        base::Bind(&ResourceMultiBufferDataProvider::Start,
-                   weak_factory_.GetWeakPtr()),
+        base::BindOnce(&ResourceMultiBufferDataProvider::Start,
+                       weak_factory_.GetWeakPtr()),
         base::TimeDelta::FromMilliseconds(
             kLoaderFailedRetryDelayMs + kAdditionalDelayPerRetryMs * retries_));
   } else {

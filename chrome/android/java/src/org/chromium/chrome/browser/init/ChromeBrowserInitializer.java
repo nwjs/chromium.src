@@ -27,6 +27,8 @@ import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.library_loader.ProcessInitException;
 import org.chromium.base.memory.MemoryPressureUma;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.base.task.PostTask;
+import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeLocalizationUtils;
@@ -178,7 +180,7 @@ public class ChromeBrowserInitializer {
             preInflationStartup();
             parts.preInflationStartup();
         }
-        if (parts.isActivityFinishing()) return;
+        if (parts.isActivityFinishingOrDestroyed()) return;
         preInflationStartupDone();
         parts.setContentViewAndLoadLibrary(() -> this.onInflationComplete(parts));
     }
@@ -190,7 +192,7 @@ public class ChromeBrowserInitializer {
      * @param parts The {@link BrowserParts} that has finished layout inflation
      */
     private void onInflationComplete(final BrowserParts parts) {
-        if (parts.isActivityFinishing()) return;
+        if (parts.isActivityFinishingOrDestroyed()) return;
         postInflationStartup();
         parts.postInflationStartup();
     }
@@ -214,16 +216,11 @@ public class ChromeBrowserInitializer {
      */
     private void warmUpSharedPrefs() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            new AsyncTask<Void>() {
-                @Override
-                protected Void doInBackground() {
-                    DocumentTabModelImpl.warmUpSharedPrefs(mApplication);
-                    ActivityAssigner.warmUpSharedPrefs(mApplication);
-                    DownloadManagerService.warmUpSharedPrefs();
-                    return null;
-                }
-            }
-                    .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            PostTask.postTask(TaskTraits.BEST_EFFORT_MAY_BLOCK, () -> {
+                DocumentTabModelImpl.warmUpSharedPrefs(mApplication);
+                ActivityAssigner.warmUpSharedPrefs(mApplication);
+                DownloadManagerService.warmUpSharedPrefs();
+            });
         } else {
             DocumentTabModelImpl.warmUpSharedPrefs(mApplication);
             ActivityAssigner.warmUpSharedPrefs(mApplication);
@@ -242,12 +239,14 @@ public class ChromeBrowserInitializer {
         ChromeStrictMode.configureStrictMode();
         ChromeWebApkHost.init();
 
+        // Time this call takes in background from test devices:
+        // - Pixel 2: ~10 ms
+        // - Nokia 1 (Android Go): 20-200 ms
         warmUpSharedPrefs();
 
         DeviceUtils.addDeviceSpecificUserAgentSwitch();
         ApplicationStatus.registerStateListenerForAllActivities(
                 createActivityStateListener());
-        mApplication.initDefaultNightMode();
 
         mPreInflationStartupComplete = true;
     }
@@ -307,19 +306,19 @@ public class ChromeBrowserInitializer {
         });
 
         tasks.add(() -> {
-            if (delegate.isActivityDestroyed()) return;
+            if (delegate.isActivityFinishingOrDestroyed()) return;
             delegate.initializeCompositor();
         });
 
         tasks.add(() -> {
-            if (delegate.isActivityDestroyed()) return;
+            if (delegate.isActivityFinishingOrDestroyed()) return;
             delegate.initializeState();
         });
 
         if (!mNativeInitializationComplete) tasks.add(this::onFinishNativeInitialization);
 
         tasks.add(() -> {
-            if (delegate.isActivityDestroyed()) return;
+            if (delegate.isActivityFinishingOrDestroyed()) return;
             delegate.finishNativeInitialization();
         });
 

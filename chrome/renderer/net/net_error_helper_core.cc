@@ -275,7 +275,8 @@ base::string16 FormatURLForDisplay(const GURL& url, bool is_rtl) {
 std::unique_ptr<NavigationCorrectionResponse> ParseNavigationCorrectionResponse(
     const std::string raw_response) {
   // TODO(mmenke):  Open source related protocol buffers and use them directly.
-  std::unique_ptr<base::Value> parsed = base::JSONReader::Read(raw_response);
+  std::unique_ptr<base::Value> parsed =
+      base::JSONReader::ReadDeprecated(raw_response);
   std::unique_ptr<NavigationCorrectionResponse> response(
       new NavigationCorrectionResponse());
   base::JSONValueConverter<NavigationCorrectionResponse> converter;
@@ -426,7 +427,6 @@ struct NetErrorHelperCore::ErrorPageInfo {
         needs_dns_updates(false),
         needs_load_navigation_corrections(false),
         reload_button_in_page(false),
-        show_saved_copy_button_in_page(false),
         show_cached_copy_button_in_page(false),
         download_button_in_page(false),
         is_finished_loading(false),
@@ -464,7 +464,6 @@ struct NetErrorHelperCore::ErrorPageInfo {
 
   // Track if specific buttons are included in an error page, for statistics.
   bool reload_button_in_page;
-  bool show_saved_copy_button_in_page;
   bool show_cached_copy_button_in_page;
   bool download_button_in_page;
 
@@ -511,6 +510,8 @@ bool NetErrorHelperCore::IsReloadableError(
          // Do not trigger for blacklisted URLs.
          // https://crbug.com/803839
          info.error.reason() != net::ERR_BLOCKED_BY_ADMINISTRATOR &&
+         // Do not trigger for requests that were blocked by the browser itself.
+         info.error.reason() != net::ERR_BLOCKED_BY_CLIENT &&
          !info.was_failed_post &&
          // Don't auto-reload non-http/https schemas.
          // https://crbug.com/471713
@@ -636,12 +637,8 @@ void NetErrorHelperCore::OnCommitLoad(FrameType frame_type, const GURL& url) {
       navigation_from_button_ != NO_BUTTON &&
       committed_error_page_info_->error.url() ==
           pending_error_page_info_->error.url()) {
-    DCHECK(navigation_from_button_ == RELOAD_BUTTON ||
-           navigation_from_button_ == SHOW_SAVED_COPY_BUTTON);
-    RecordEvent(
-        navigation_from_button_ == RELOAD_BUTTON
-            ? error_page::NETWORK_ERROR_PAGE_RELOAD_BUTTON_ERROR
-            : error_page::NETWORK_ERROR_PAGE_SHOW_SAVED_COPY_BUTTON_ERROR);
+    DCHECK(navigation_from_button_ == RELOAD_BUTTON);
+    RecordEvent(error_page::NETWORK_ERROR_PAGE_RELOAD_BUTTON_ERROR);
   }
   navigation_from_button_ = NO_BUTTON;
 
@@ -673,15 +670,8 @@ void NetErrorHelperCore::OnFinishLoad(FrameType frame_type) {
   if (committed_error_page_info_->reload_button_in_page) {
     RecordEvent(error_page::NETWORK_ERROR_PAGE_RELOAD_BUTTON_SHOWN);
   }
-  if (committed_error_page_info_->show_saved_copy_button_in_page) {
-    RecordEvent(error_page::NETWORK_ERROR_PAGE_SHOW_SAVED_COPY_BUTTON_SHOWN);
-  }
   if (committed_error_page_info_->download_button_in_page) {
     RecordEvent(error_page::NETWORK_ERROR_PAGE_DOWNLOAD_BUTTON_SHOWN);
-  }
-  if (committed_error_page_info_->reload_button_in_page &&
-      committed_error_page_info_->show_saved_copy_button_in_page) {
-    RecordEvent(error_page::NETWORK_ERROR_PAGE_BOTH_BUTTONS_SHOWN);
   }
   if (committed_error_page_info_->show_cached_copy_button_in_page) {
     RecordEvent(error_page::NETWORK_ERROR_PAGE_CACHED_COPY_BUTTON_SHOWN);
@@ -690,8 +680,7 @@ void NetErrorHelperCore::OnFinishLoad(FrameType frame_type) {
   delegate_->SetIsShowingDownloadButton(
       committed_error_page_info_->download_button_in_page);
 
-  delegate_->EnablePageHelperFunctions(
-      static_cast<net::Error>(committed_error_page_info_->error.reason()));
+  delegate_->EnablePageHelperFunctions();
 
 #if defined(OS_ANDROID)
   if (committed_error_page_info_->offline_content_feature_state ==
@@ -754,7 +743,6 @@ void NetErrorHelperCore::PrepareErrorPage(FrameType frame_type,
   } else {
     // These values do not matter, as error pages in iframes hide the buttons.
     bool reload_button_in_page;
-    bool show_saved_copy_button_in_page;
     bool show_cached_copy_button_in_page;
     bool download_button_in_page;
     OfflineContentOnNetErrorFeatureState offline_content_feature_state;
@@ -763,9 +751,9 @@ void NetErrorHelperCore::PrepareErrorPage(FrameType frame_type,
       delegate_->GenerateLocalizedErrorPage(
           error, is_failed_post,
           false /* No diagnostics dialogs allowed for subframes. */, nullptr,
-          &reload_button_in_page, &show_saved_copy_button_in_page,
-          &show_cached_copy_button_in_page, &download_button_in_page,
-          &offline_content_feature_state, &auto_fetch_allowed, error_html);
+          &reload_button_in_page, &show_cached_copy_button_in_page,
+          &download_button_in_page, &offline_content_feature_state,
+          &auto_fetch_allowed, error_html);
     }
   }
 }
@@ -839,7 +827,6 @@ void NetErrorHelperCore::PrepareErrorPageForMainFrame(
         error, pending_error_page_info->was_failed_post,
         can_show_network_diagnostics_dialog_, nullptr,
         &pending_error_page_info->reload_button_in_page,
-        &pending_error_page_info->show_saved_copy_button_in_page,
         &pending_error_page_info->show_cached_copy_button_in_page,
         &pending_error_page_info->download_button_in_page,
         &pending_error_page_info->offline_content_feature_state,
@@ -902,7 +889,6 @@ void NetErrorHelperCore::OnNavigationCorrectionsFetched(
         pending_error_page_info_->was_failed_post,
         can_show_network_diagnostics_dialog_, std::move(params),
         &pending_error_page_info_->reload_button_in_page,
-        &pending_error_page_info_->show_saved_copy_button_in_page,
         &pending_error_page_info_->show_cached_copy_button_in_page,
         &pending_error_page_info_->download_button_in_page,
         &pending_error_page_info_->offline_content_feature_state,
@@ -1047,22 +1033,8 @@ void NetErrorHelperCore::ExecuteButtonPress(Button button) {
   switch (button) {
     case RELOAD_BUTTON:
       RecordEvent(error_page::NETWORK_ERROR_PAGE_RELOAD_BUTTON_CLICKED);
-      if (committed_error_page_info_->show_saved_copy_button_in_page) {
-        RecordEvent(error_page::NETWORK_ERROR_PAGE_BOTH_BUTTONS_RELOAD_CLICKED);
-      }
       navigation_from_button_ = RELOAD_BUTTON;
       Reload(false);
-      return;
-    case SHOW_SAVED_COPY_BUTTON:
-      RecordEvent(
-          error_page::NETWORK_ERROR_PAGE_SHOW_SAVED_COPY_BUTTON_CLICKED);
-      navigation_from_button_ = SHOW_SAVED_COPY_BUTTON;
-      if (committed_error_page_info_->reload_button_in_page) {
-        RecordEvent(
-            error_page::
-                NETWORK_ERROR_PAGE_BOTH_BUTTONS_SHOWN_SAVED_COPY_CLICKED);
-      }
-      delegate_->LoadPageFromCache(committed_error_page_info_->error.url());
       return;
     case MORE_BUTTON:
       // Visual effects on page are handled in Javascript code.

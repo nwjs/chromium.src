@@ -21,7 +21,7 @@
 
 namespace blink {
 
-class LayoutBox;
+class LayoutBlock;
 class NGConstraintSpaceBuilder;
 
 enum NGFragmentationType {
@@ -37,7 +37,7 @@ enum NGFragmentationType {
 //
 // This enum is used for communicating to *direct* children of table cells,
 // which layout phase the table cell is in.
-enum NGTableCellChildLayoutPhase {
+enum class NGTableCellChildLayoutPhase {
   kNotTableCellChild,  // The node isn't a table cell child.
   kMeasure,  // The node is a table cell child, in the "measure" phase.
   kLayout    // The node is a table cell child, in the "layout" phase.
@@ -136,7 +136,7 @@ class CORE_EXPORT NGConstraintSpace final {
   // Creates NGConstraintSpace representing LayoutObject's containing block.
   // This should live on NGBlockNode or another layout bridge and probably take
   // a root NGConstraintSpace.
-  static NGConstraintSpace CreateFromLayoutObject(const LayoutBox&);
+  static NGConstraintSpace CreateFromLayoutObject(const LayoutBlock&);
 
   const NGExclusionSpace& ExclusionSpace() const { return exclusion_space_; }
 
@@ -199,22 +199,7 @@ class CORE_EXPORT NGConstraintSpace final {
   }
 
   LayoutUnit ReplacedPercentageResolutionInlineSize() const {
-    switch (static_cast<NGPercentageStorage>(
-        bitfields_.replaced_percentage_inline_storage)) {
-      case kSameAsAvailable:
-        return available_size_.inline_size;
-      case kZero:
-        return LayoutUnit();
-      case kIndefinite:
-        return NGSizeIndefinite;
-      case kRareDataPercentage:
-        DCHECK(HasRareData());
-        return rare_data_->replaced_percentage_resolution_size.inline_size;
-      default:
-        NOTREACHED();
-    }
-
-    return available_size_.inline_size;
+    return PercentageResolutionInlineSize();
   }
 
   LayoutUnit ReplacedPercentageResolutionBlockSize() const {
@@ -228,7 +213,7 @@ class CORE_EXPORT NGConstraintSpace final {
         return NGSizeIndefinite;
       case kRareDataPercentage:
         DCHECK(HasRareData());
-        return rare_data_->replaced_percentage_resolution_size.block_size;
+        return rare_data_->replaced_percentage_resolution_block_size;
       default:
         NOTREACHED();
     }
@@ -488,18 +473,11 @@ class CORE_EXPORT NGConstraintSpace final {
             other.rare_data_->percentage_resolution_size.block_size)
       return false;
 
-    if (bitfields_.replaced_percentage_inline_storage == kRareDataPercentage &&
-        other.bitfields_.replaced_percentage_inline_storage ==
-            kRareDataPercentage &&
-        rare_data_->replaced_percentage_resolution_size.inline_size !=
-            other.rare_data_->replaced_percentage_resolution_size.inline_size)
-      return false;
-
     if (bitfields_.replaced_percentage_block_storage == kRareDataPercentage &&
         other.bitfields_.replaced_percentage_block_storage ==
             kRareDataPercentage &&
-        rare_data_->replaced_percentage_resolution_size.block_size !=
-            other.rare_data_->replaced_percentage_resolution_size.block_size)
+        rare_data_->replaced_percentage_resolution_block_size !=
+            other.rare_data_->replaced_percentage_resolution_block_size)
       return false;
 
     return true;
@@ -539,7 +517,7 @@ class CORE_EXPORT NGConstraintSpace final {
     ~RareData() = default;
 
     NGLogicalSize percentage_resolution_size;
-    NGLogicalSize replaced_percentage_resolution_size;
+    LayoutUnit replaced_percentage_resolution_block_size;
 
     NGBfcOffset bfc_offset;
     NGMarginStrut margin_strut;
@@ -577,8 +555,8 @@ class CORE_EXPORT NGConstraintSpace final {
     Bitfields() : Bitfields(WritingMode::kHorizontalTb) {}
 
     explicit Bitfields(WritingMode writing_mode)
-        : table_cell_child_layout_phase(
-              static_cast<unsigned>(kNotTableCellChild)),
+        : table_cell_child_layout_phase(static_cast<unsigned>(
+              NGTableCellChildLayoutPhase::kNotTableCellChild)),
           adjoining_floats(static_cast<unsigned>(kFloatTypeNone)),
           writing_mode(static_cast<unsigned>(writing_mode)),
           direction(static_cast<unsigned>(TextDirection::kLtr)),

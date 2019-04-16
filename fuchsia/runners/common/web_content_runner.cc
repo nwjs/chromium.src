@@ -5,15 +5,18 @@
 #include "fuchsia/runners/common/web_content_runner.h"
 
 #include <fuchsia/sys/cpp/fidl.h>
+#include <lib/fdio/util.h>
 #include <lib/fidl/cpp/binding_set.h>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/files/file.h"
-#include "base/fuchsia/component_context.h"
 #include "base/fuchsia/file_utils.h"
 #include "base/fuchsia/fuchsia_logging.h"
 #include "base/fuchsia/scoped_service_binding.h"
 #include "base/fuchsia/service_directory.h"
+#include "base/fuchsia/service_directory_client.h"
+#include "base/fuchsia/startup_context.h"
 #include "base/logging.h"
 #include "fuchsia/runners/common/web_component.h"
 #include "url/gurl.h"
@@ -21,20 +24,21 @@
 // static
 chromium::web::ContextPtr WebContentRunner::CreateDefaultWebContext() {
   auto web_context_provider =
-      base::fuchsia::ComponentContext::GetDefault()
+      base::fuchsia::ServiceDirectoryClient::ForCurrentProcess()
           ->ConnectToService<chromium::web::ContextProvider>();
 
-  chromium::web::CreateContextParams create_params;
+  chromium::web::CreateContextParams2 create_params;
 
   // Clone /svc to the context.
-  create_params.service_directory =
-      zx::channel(base::fuchsia::GetHandleFromFile(
-          base::File(base::FilePath("/svc"),
-                     base::File::FLAG_OPEN | base::File::FLAG_READ)));
+  fidl::InterfaceHandle<fuchsia::io::Directory> directory;
+  zx_status_t result = fdio_service_connect(
+      "/svc", directory.NewRequest().TakeChannel().release());
+  ZX_CHECK(result == ZX_OK, result) << "Failed to open /svc";
+  create_params.set_service_directory(std::move(directory));
 
   chromium::web::ContextPtr web_context;
-  web_context_provider->Create(std::move(create_params),
-                               web_context.NewRequest());
+  web_context_provider->Create2(std::move(create_params),
+                                web_context.NewRequest());
   web_context.set_error_handler([](zx_status_t status) {
     // If the browser instance died, then exit everything and do not attempt
     // to recover. appmgr will relaunch the runner when it is needed again.
@@ -72,9 +76,12 @@ void WebContentRunner::StartComponent(
     return;
   }
 
-  RegisterComponent(WebComponent::ForUrlRequest(this, std::move(url),
-                                                std::move(startup_info),
-                                                std::move(controller_request)));
+  std::unique_ptr<WebComponent> component = std::make_unique<WebComponent>(
+      this,
+      std::make_unique<base::fuchsia::StartupContext>(std::move(startup_info)),
+      std::move(controller_request));
+  component->LoadUrl(url);
+  RegisterComponent(std::move(component));
 }
 
 void WebContentRunner::GetWebComponentForTest(
@@ -98,9 +105,7 @@ void WebContentRunner::RegisterComponent(
   if (web_component_test_callback_) {
     std::move(web_component_test_callback_).Run(component.get());
   }
-  if (component) {
-    components_.insert(std::move(component));
-  }
+  components_.insert(std::move(component));
 }
 
 void WebContentRunner::RunOnIdleClosureIfValid() {

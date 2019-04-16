@@ -48,8 +48,8 @@ class AccessibilityActionBrowserTest : public ContentBrowserTest {
     std::string mimetype;
     std::string charset;
     std::string png_data;
-    ASSERT_TRUE(net::DataURL::Parse(GURL(image_data_url),
-                                    &mimetype, &charset, &png_data));
+    ASSERT_TRUE(net::DataURL::Parse(GURL(image_data_url), &mimetype, &charset,
+                                    &png_data));
     ASSERT_EQ("image/png", mimetype);
     ASSERT_TRUE(gfx::PNGCodec::Decode(
         reinterpret_cast<const unsigned char*>(png_data.data()),
@@ -87,10 +87,11 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, FocusAction) {
   AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                          ui::kAXModeComplete,
                                          ax::mojom::Event::kLoadComplete);
-  GURL url("data:text/html,"
-           "<button>One</button>"
-           "<button>Two</button>"
-           "<button>Three</button>");
+  GURL url(
+      "data:text/html,"
+      "<button>One</button>"
+      "<button>Two</button>"
+      "<button>Three</button>");
   NavigateToURL(shell(), url);
   waiter.WaitForNotification();
 
@@ -113,8 +114,9 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
   AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                          ui::kAXModeComplete,
                                          ax::mojom::Event::kLoadComplete);
-  GURL url("data:text/html,"
-           "<input type=range min=2 value=8 max=10 step=2>");
+  GURL url(
+      "data:text/html,"
+      "<input type=range min=2 value=8 max=10 step=2>");
   NavigateToURL(shell(), url);
   waiter.WaitForNotification();
 
@@ -201,23 +203,24 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, CanvasGetImage) {
   AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                          ui::kAXModeComplete,
                                          ax::mojom::Event::kLoadComplete);
-  GURL url("data:text/html,"
-           "<body>"
-           "<canvas aria-label='canvas' id='c' width='4' height='2'></canvas>"
-           "<script>\n"
-           "  var c = document.getElementById('c').getContext('2d');\n"
-           "  c.beginPath();\n"
-           "  c.moveTo(0, 0.5);\n"
-           "  c.lineTo(4, 0.5);\n"
-           "  c.strokeStyle = '%23ff0000';\n"
-           "  c.stroke();\n"
-           "  c.beginPath();\n"
-           "  c.moveTo(0, 1.5);\n"
-           "  c.lineTo(4, 1.5);\n"
-           "  c.strokeStyle = '%230000ff';\n"
-           "  c.stroke();\n"
-           "</script>"
-           "</body>");
+  GURL url(
+      "data:text/html,"
+      "<body>"
+      "<canvas aria-label='canvas' id='c' width='4' height='2'></canvas>"
+      "<script>\n"
+      "  var c = document.getElementById('c').getContext('2d');\n"
+      "  c.beginPath();\n"
+      "  c.moveTo(0, 0.5);\n"
+      "  c.lineTo(4, 0.5);\n"
+      "  c.strokeStyle = '%23ff0000';\n"
+      "  c.stroke();\n"
+      "  c.beginPath();\n"
+      "  c.moveTo(0, 1.5);\n"
+      "  c.lineTo(4, 1.5);\n"
+      "  c.strokeStyle = '%230000ff';\n"
+      "  c.stroke();\n"
+      "</script>"
+      "</body>");
 
   NavigateToURL(shell(), url);
   waiter.WaitForNotification();
@@ -251,17 +254,18 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, CanvasGetImageScale) {
   AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                          ui::kAXModeComplete,
                                          ax::mojom::Event::kLoadComplete);
-  GURL url("data:text/html,"
-           "<body>"
-           "<canvas aria-label='canvas' id='c' width='40' height='20'></canvas>"
-           "<script>\n"
-           "  var c = document.getElementById('c').getContext('2d');\n"
-           "  c.fillStyle = '%2300ff00';\n"
-           "  c.fillRect(0, 0, 40, 10);\n"
-           "  c.fillStyle = '%23ff00ff';\n"
-           "  c.fillRect(0, 10, 40, 10);\n"
-           "</script>"
-           "</body>");
+  GURL url(
+      "data:text/html,"
+      "<body>"
+      "<canvas aria-label='canvas' id='c' width='40' height='20'></canvas>"
+      "<script>\n"
+      "  var c = document.getElementById('c').getContext('2d');\n"
+      "  c.fillStyle = '%2300ff00';\n"
+      "  c.fillRect(0, 0, 40, 10);\n"
+      "  c.fillStyle = '%23ff00ff';\n"
+      "  c.fillRect(0, 10, 40, 10);\n"
+      "</script>"
+      "</body>");
 
   NavigateToURL(shell(), url);
   waiter.WaitForNotification();
@@ -295,11 +299,12 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, ImgElementGetImage) {
   AccessibilityNotificationWaiter waiter(shell()->web_contents(),
                                          ui::kAXModeComplete,
                                          ax::mojom::Event::kLoadComplete);
-  GURL url("data:text/html,"
-           "<body>"
-           "<img src='data:image/gif;base64,R0lGODdhAgADAKEDAAAA//"
-           "8AAAD/AP///ywAAAAAAgADAAACBEwkAAUAOw=='>"
-           "</body>");
+  GURL url(
+      "data:text/html,"
+      "<body>"
+      "<img src='data:image/gif;base64,R0lGODdhAgADAKEDAAAA//"
+      "8AAAD/AP///ywAAAAAAgADAAACBEwkAAUAOw=='>"
+      "</body>");
 
   NavigateToURL(shell(), url);
   waiter.WaitForNotification();
@@ -460,6 +465,42 @@ IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest,
       ui::AXBoundaryBehavior::CrossBoundary);
   EXPECT_EQ(5, end_of_line_1->text_offset());
 #endif
+}
+
+IN_PROC_BROWSER_TEST_F(AccessibilityActionBrowserTest, ShowContextMenu) {
+  NavigateToURL(shell(), GURL(url::kAboutBlankURL));
+
+  AccessibilityNotificationWaiter waiter(shell()->web_contents(),
+                                         ui::kAXModeComplete,
+                                         ax::mojom::Event::kLoadComplete);
+  GURL url(
+      "data:text/html,"
+      "<a href='about:blank'>1</a>"
+      "<a href='about:blank'>2</a>");
+
+  NavigateToURL(shell(), url);
+  waiter.WaitForNotification();
+
+  BrowserAccessibility* target_node = FindNode(ax::mojom::Role::kLink, "2");
+  EXPECT_NE(target_node, nullptr);
+
+  // Register a ContextMenuFilter in the render process to wait for the
+  // ShowContextMenu event to be raised.
+  content::RenderProcessHost* render_process_host =
+      shell()->web_contents()->GetMainFrame()->GetProcess();
+  auto context_menu_filter = base::MakeRefCounted<ContextMenuFilter>();
+  render_process_host->AddFilter(context_menu_filter.get());
+
+  // Raise the ShowContextMenu event from the second link.
+  ui::AXActionData context_menu_action;
+  context_menu_action.action = ax::mojom::Action::kShowContextMenu;
+  target_node->AccessibilityPerformAction(context_menu_action);
+  context_menu_filter->Wait();
+
+  ContextMenuParams context_menu_params = context_menu_filter->get_params();
+  EXPECT_EQ(base::ASCIIToUTF16("2"), context_menu_params.link_text);
+  EXPECT_EQ(ui::MenuSourceType::MENU_SOURCE_NONE,
+            context_menu_params.source_type);
 }
 
 }  // namespace content

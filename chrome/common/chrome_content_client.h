@@ -85,6 +85,9 @@ class ChromeContentClient : public content::ContentClient {
 
   void AddAdditionalSchemes(Schemes* schemes) override;
   base::string16 GetLocalizedString(int message_id) const override;
+  base::string16 GetLocalizedString(
+      int message_id,
+      const base::string16& replacement) const override;
   base::StringPiece GetDataResource(
       int resource_id,
       ui::ScaleFactor scale_factor) const override;
@@ -94,7 +97,8 @@ class ChromeContentClient : public content::ContentClient {
   base::DictionaryValue GetNetLogConstants() const override;
   std::string GetProcessTypeNameInEnglish(int type) override;
 
-  bool AllowScriptExtensionForServiceWorker(const GURL& script_url) override;
+  bool AllowScriptExtensionForServiceWorker(
+      const url::Origin& script_origin) override;
 
   blink::OriginTrialPolicy* GetOriginTrialPolicy() override;
 

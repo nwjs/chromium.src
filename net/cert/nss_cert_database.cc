@@ -110,6 +110,15 @@ void NSSCertDatabase::ListCertsInSlot(ListCertsCallback callback,
 crypto::ScopedPK11Slot NSSCertDatabase::GetSystemSlot() const {
   return crypto::ScopedPK11Slot();
 }
+
+bool NSSCertDatabase::IsCertificateOnSystemSlot(CERTCertificate* cert) const {
+  crypto::ScopedPK11Slot system_slot = GetSystemSlot();
+  if (!system_slot)
+    return false;
+
+  return PK11_FindCertInSlot(system_slot.get(), cert, nullptr) !=
+         CK_INVALID_HANDLE;
+}
 #endif
 
 crypto::ScopedPK11Slot NSSCertDatabase::GetPublicSlot() const {
@@ -418,7 +427,8 @@ ScopedCERTCertificateList NSSCertDatabase::ListCertsImpl(
   // hooks (such as smart card UI). To ensure threads are not starved or
   // deadlocked, the base::ScopedBlockingCall below increments the thread pool
   // capacity if this method takes too much time to run.
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   ScopedCERTCertificateList certs;
   CERTCertList* cert_list = nullptr;
@@ -453,7 +463,8 @@ bool NSSCertDatabase::DeleteCertAndKeyImpl(CERTCertificate* cert) {
   // hooks (such as smart card UI). To ensure threads are not starved or
   // deadlocked, the base::ScopedBlockingCall below increments the thread pool
   // capacity if this method takes too much time to run.
-  base::ScopedBlockingCall scoped_blocking_call(base::BlockingType::MAY_BLOCK);
+  base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
+                                                base::BlockingType::MAY_BLOCK);
 
   // For some reason, PK11_DeleteTokenCertAndKey only calls
   // SEC_DeletePermCertificate if the private key is found.  So, we check

@@ -10,6 +10,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/macros.h"
@@ -3055,7 +3056,7 @@ TEST_F(RenderWidgetHostViewAuraTest, ReturnedResources) {
 TEST_F(RenderWidgetHostViewAuraTest, TwoOutputSurfaces) {
   // TODO(jonross): Delete this test once Viz launches as it will be obsolete.
   // https://crbug.com/844469
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor) ||
+  if (features::IsVizDisplayCompositorEnabled() ||
       features::IsMultiProcessMash()) {
     return;
   }
@@ -3424,7 +3425,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
        CompositorFrameSinkChange) {
   // TODO(jonross): Delete this test once Viz launches as it will be obsolete.
   // https://crbug.com/844469
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor) ||
+  if (features::IsVizDisplayCompositorEnabled() ||
       features::IsMultiProcessMash()) {
     return;
   }
@@ -3690,7 +3691,7 @@ TEST_F(RenderWidgetHostViewAuraTest, SourceEventTypeExistsInLatencyInfo) {
 TEST_F(RenderWidgetHostViewAuraTest, ForwardsBeginFrameAcks) {
   // TODO(jonross): Delete this test once Viz launches as it will be obsolete.
   // https://crbug.com/844469
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor) ||
+  if (features::IsVizDisplayCompositorEnabled() ||
       features::IsMultiProcessMash()) {
     return;
   }
@@ -5306,13 +5307,16 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncHandled) {
   view_->InitAsChild(nullptr);
   view_->Show();
   bool async_callback_run = false;
-  bool async_callback_result = false;
+  bool async_callback_handled_result = false;
+  bool async_callback_stopped_propagation_result = false;
   ui::KeyEvent key_event1(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE);
   ui::KeyEvent::KeyDispatcherApi(&key_event1)
-      .set_async_callback(base::BindLambdaForTesting([&](bool handled) {
-        async_callback_result = handled;
-        async_callback_run = true;
-      }));
+      .set_async_callback(base::BindLambdaForTesting(
+          [&](bool handled, bool stopped_propagation) {
+            async_callback_handled_result = handled;
+            async_callback_stopped_propagation_result = stopped_propagation;
+            async_callback_run = true;
+          }));
   view_->OnKeyEvent(&key_event1);
   // Normally event should be handled.
   EXPECT_TRUE(key_event1.handled());
@@ -5329,20 +5333,25 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncHandled) {
   EXPECT_EQ("RawKeyDown", GetMessageNames(events));
   events[0]->ToEvent()->CallCallback(INPUT_EVENT_ACK_STATE_CONSUMED);
   EXPECT_TRUE(async_callback_run);
-  EXPECT_TRUE(async_callback_result);
+  EXPECT_TRUE(async_callback_handled_result);
+  // |async_callback_stopped_propagation_result| should always be false.
+  EXPECT_FALSE(async_callback_stopped_propagation_result);
 }
 
 TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncUnhandled) {
   view_->InitAsChild(nullptr);
   view_->Show();
   bool async_callback_run = false;
-  bool async_callback_result = false;
+  bool async_callback_handled_result = false;
+  bool async_callback_stopped_propagation_result = false;
   ui::KeyEvent key_event1(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE);
   ui::KeyEvent::KeyDispatcherApi(&key_event1)
-      .set_async_callback(base::BindLambdaForTesting([&](bool handled) {
-        async_callback_result = handled;
-        async_callback_run = true;
-      }));
+      .set_async_callback(base::BindLambdaForTesting(
+          [&](bool handled, bool stopped_propagation) {
+            async_callback_handled_result = handled;
+            async_callback_stopped_propagation_result = stopped_propagation;
+            async_callback_run = true;
+          }));
   view_->OnKeyEvent(&key_event1);
   // Normally event should be handled.
   EXPECT_TRUE(key_event1.handled());
@@ -5359,20 +5368,25 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncUnhandled) {
   EXPECT_EQ("RawKeyDown", GetMessageNames(events));
   events[0]->ToEvent()->CallCallback(INPUT_EVENT_ACK_STATE_NOT_CONSUMED);
   EXPECT_TRUE(async_callback_run);
-  EXPECT_FALSE(async_callback_result);
+  EXPECT_FALSE(async_callback_handled_result);
+  // |async_callback_stopped_propagation_result| should always be false.
+  EXPECT_FALSE(async_callback_stopped_propagation_result);
 }
 
 TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncNotifiedWhenRouterChanges) {
   view_->InitAsChild(nullptr);
   view_->Show();
   bool async_callback_run = false;
-  bool async_callback_result = false;
+  bool async_callback_handled_result = false;
+  bool async_callback_stopped_propagation_result = false;
   ui::KeyEvent key_event1(ui::ET_KEY_PRESSED, ui::VKEY_A, ui::EF_NONE);
   ui::KeyEvent::KeyDispatcherApi(&key_event1)
-      .set_async_callback(base::BindLambdaForTesting([&](bool handled) {
-        async_callback_result = handled;
-        async_callback_run = true;
-      }));
+      .set_async_callback(base::BindLambdaForTesting(
+          [&](bool handled, bool stopped_propagation) {
+            async_callback_handled_result = handled;
+            async_callback_stopped_propagation_result = stopped_propagation;
+            async_callback_run = true;
+          }));
   view_->OnKeyEvent(&key_event1);
   // Normally event should be handled.
   EXPECT_TRUE(key_event1.handled());
@@ -5383,7 +5397,9 @@ TEST_F(RenderWidgetHostViewAuraTest, KeyEventAsyncNotifiedWhenRouterChanges) {
   // RendererExited() should result in running the callback.
   widget_host_->RendererExited(base::TERMINATION_STATUS_PROCESS_CRASHED, -1);
   EXPECT_TRUE(async_callback_run);
-  EXPECT_FALSE(async_callback_result);
+  EXPECT_FALSE(async_callback_handled_result);
+  // |async_callback_stopped_propagation_result| should always be false.
+  EXPECT_FALSE(async_callback_stopped_propagation_result);
 
   // RendererExited() results in destroying the view.
   view_ = nullptr;
@@ -5636,9 +5652,9 @@ class TouchpadRenderWidgetHostViewAuraTest
   DISALLOW_COPY_AND_ASSIGN(TouchpadRenderWidgetHostViewAuraTest);
 };
 
-INSTANTIATE_TEST_CASE_P(,
-                        TouchpadRenderWidgetHostViewAuraTest,
-                        testing::Bool());
+INSTANTIATE_TEST_SUITE_P(,
+                         TouchpadRenderWidgetHostViewAuraTest,
+                         testing::Bool());
 
 // Test that we elide touchpad pinch gesture steams consisting of only begin
 // and end events.
@@ -5721,7 +5737,7 @@ TEST_F(RenderWidgetHostViewAuraTest, GestureTapFromStylusHasPointerType) {
 TEST_F(RenderWidgetHostViewAuraTest, HitTestRegionListSubmitted) {
   // TODO(jonross): Delete this test once Viz launches as it will be obsolete.
   // https://crbug.com/844469
-  if (base::FeatureList::IsEnabled(features::kVizDisplayCompositor) ||
+  if (features::IsVizDisplayCompositorEnabled() ||
       features::IsMultiProcessMash()) {
     return;
   }
@@ -6648,7 +6664,7 @@ class RenderWidgetHostViewAuraInputMethodTest
       public ui::InputMethodObserver {
  public:
   RenderWidgetHostViewAuraInputMethodTest() = default;
-  ~RenderWidgetHostViewAuraInputMethodTest() override{};
+  ~RenderWidgetHostViewAuraInputMethodTest() override {}
   void SetUp() override {
     input_method_ = new ui::MockInputMethod(nullptr);
     // transfers ownership.
@@ -6756,7 +6772,7 @@ class RenderWidgetHostViewAuraKeyboardTest
     : public RenderWidgetHostViewAuraTest {
  public:
   RenderWidgetHostViewAuraKeyboardTest() = default;
-  ~RenderWidgetHostViewAuraKeyboardTest() override{};
+  ~RenderWidgetHostViewAuraKeyboardTest() override {}
   void SetUp() override {
     input_method_ = new RenderWidgetHostViewAuraKeyboardMockInputMethod();
     // transfers ownership.

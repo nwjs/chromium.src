@@ -1,4 +1,4 @@
-// Copyright 2018 The Chhomium OS Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -37,6 +37,13 @@ cca.views.camera.RecordTime = function() {
    */
   this.tickTimeout_ = null;
 
+  /**
+   * Tick count of elapsed recording time.
+   * @type {number}
+   * @private
+   */
+  this.ticks_ = 0;
+
   // End of properties, seal the object.
   Object.seal(this);
 };
@@ -67,22 +74,26 @@ cca.views.camera.RecordTime.prototype.start = function() {
   this.update_(0);
   this.recordTime_.hidden = false;
 
-  var ticks = 0;
+  this.ticks_ = 0;
   this.tickTimeout_ = setInterval(() => {
-    ticks++;
-    this.update_(ticks);
+    this.ticks_++;
+    this.update_(this.ticks_);
   }, 1000);
 };
 
 /**
  * Stops counting and showing the elapsed recording time.
+ * @return {number} Recorded time in 1 minute buckets.
  */
 cca.views.camera.RecordTime.prototype.stop = function() {
-  cca.toast.speak('statusMsgRecordingStopped');
+  cca.toast.speak('status_msg_recording_stopped');
   if (this.tickTimeout_) {
     clearInterval(this.tickTimeout_);
     this.tickTimeout_ = null;
   }
+  var mins = Math.ceil(this.ticks_ / 60);
+  this.ticks_ = 0;
   this.recordTime_.hidden = true;
   this.update_(0);
+  return mins;
 };

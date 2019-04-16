@@ -7,11 +7,14 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "base/bind_helpers.h"
 #include "base/json/json_reader.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/simple_test_clock.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/browsing_data/browsing_data_flash_lso_helper.h"
 #include "chrome/browser/browsing_data/mock_browsing_data_cookie_helper.h"
 #include "chrome/browser/browsing_data/mock_browsing_data_local_storage_helper.h"
@@ -177,6 +180,7 @@ class SiteSettingsHandlerTest : public testing::Test {
   }
 
   TestingProfile* profile() { return &profile_; }
+  TestingProfile* incognito_profile() { return incognito_profile_; }
   content::TestWebUI* web_ui() { return &web_ui_; }
   SiteSettingsHandler* handler() { return &handler_; }
 
@@ -376,7 +380,7 @@ class SiteSettingsHandlerTest : public testing::Test {
     incognito_profile_ = TestingProfile::Builder().BuildIncognito(&profile_);
   }
 
-  void DestroyIncognitoProfile() {
+  virtual void DestroyIncognitoProfile() {
     content::NotificationService::current()->Notify(
         chrome::NOTIFICATION_PROFILE_DESTROYED,
         content::Source<Profile>(static_cast<Profile*>(incognito_profile_)),
@@ -416,10 +420,10 @@ class SiteSettingsHandlerTest : public testing::Test {
         std::move(container), profile()->GetExtensionSpecialStoragePolicy());
 
     mock_browsing_data_local_storage_helper->AddLocalStorageForOrigin(
-        GURL("https://www.example.com/"), 2);
+        url::Origin::Create(GURL("https://www.example.com/")), 2);
 
     mock_browsing_data_local_storage_helper->AddLocalStorageForOrigin(
-        GURL("https://www.google.com/"), 5);
+        url::Origin::Create(GURL("https://www.google.com/")), 5);
     mock_browsing_data_local_storage_helper->Notify();
 
     mock_browsing_data_cookie_helper->AddCookieSamples(
@@ -491,7 +495,13 @@ TEST_F(SiteSettingsHandlerTest, GetAndSetDefault) {
                   site_settings::SiteSettingSource::kDefault, 3U);
 }
 
-TEST_F(SiteSettingsHandlerTest, GetAllSites) {
+// Flaky on CrOS and Linux. https://crbug.com/930481
+#if defined(OS_CHROMEOS) || defined(OS_LINUX)
+#define MAYBE_GetAllSites DISABLED_GetAllSites
+#else
+#define MAYBE_GetAllSites GetAllSites
+#endif
+TEST_F(SiteSettingsHandlerTest, MAYBE_GetAllSites) {
   base::ListValue get_all_sites_args;
   get_all_sites_args.AppendString(kCallbackId);
   base::Value category_list(base::Value::Type::LIST);
@@ -768,7 +778,7 @@ TEST_F(SiteSettingsHandlerTest, OnStorageFetched) {
             origin_info->FindKey("origin")->GetString());
   EXPECT_EQ(0, origin_info->FindKey("engagement")->GetDouble());
   EXPECT_EQ(0, origin_info->FindKey("usage")->GetDouble());
-  EXPECT_EQ(0, origin_info->FindKey("numCookies")->GetDouble());
+  EXPECT_EQ(1, origin_info->FindKey("numCookies")->GetDouble());
 }
 
 TEST_F(SiteSettingsHandlerTest, Origins) {
@@ -1510,13 +1520,42 @@ class SiteSettingsHandlerChooserExceptionTest : public SiteSettingsHandlerTest {
                                            *user_granted_device_info_);
 
     // Add the policy granted permissions for testing.
-    auto policy_value = base::JSONReader::Read(kUsbPolicySetting);
+    auto policy_value = base::JSONReader::ReadDeprecated(kUsbPolicySetting);
     DCHECK(policy_value);
     profile()->GetPrefs()->Set(prefs::kManagedWebUsbAllowDevicesForUrls,
                                *policy_value);
 
     // Add the observer for permission changes.
     chooser_context->ChooserContextBase::AddObserver(&observer_);
+  }
+
+  void SetUpOffTheRecordUsbChooserContext() {
+    off_the_record_device_ = device_manager_.CreateAndAddDevice(
+        6353, 8765, "Google", "Contraption", "A9B8C7");
+
+    CreateIncognitoProfile();
+    auto* chooser_context =
+        UsbChooserContextFactory::GetForProfile(incognito_profile());
+    device::mojom::UsbDeviceManagerPtr device_manager_ptr;
+    device_manager_.AddBinding(mojo::MakeRequest(&device_manager_ptr));
+    chooser_context->SetDeviceManagerForTesting(std::move(device_manager_ptr));
+    chooser_context->GetDevices(
+        base::DoNothing::Once<std::vector<device::mojom::UsbDeviceInfoPtr>>());
+    base::RunLoop().RunUntilIdle();
+
+    chooser_context->GrantDevicePermission(kChromiumOrigin, kAndroidOrigin,
+                                           *off_the_record_device_);
+
+    // Add the observer for permission changes.
+    chooser_context->ChooserContextBase::AddObserver(&observer_);
+  }
+
+  void DestroyIncognitoProfile() override {
+    auto* chooser_context =
+        UsbChooserContextFactory::GetForProfile(incognito_profile());
+    chooser_context->ChooserContextBase::RemoveObserver(&observer_);
+
+    SiteSettingsHandlerTest::DestroyIncognitoProfile();
   }
 
   // Call SiteSettingsHandler::HandleGetChooserExceptionList for |chooser_type|
@@ -1592,8 +1631,9 @@ class SiteSettingsHandlerChooserExceptionTest : public SiteSettingsHandlerTest {
     return false;
   }
 
-  device::mojom::UsbDeviceInfoPtr persistent_device_info_;
   device::mojom::UsbDeviceInfoPtr ephemeral_device_info_;
+  device::mojom::UsbDeviceInfoPtr off_the_record_device_;
+  device::mojom::UsbDeviceInfoPtr persistent_device_info_;
   device::mojom::UsbDeviceInfoPtr user_granted_device_info_;
 
   MockPermissionObserver observer_;
@@ -1611,6 +1651,42 @@ TEST_F(SiteSettingsHandlerChooserExceptionTest,
   const base::Value& exceptions = GetChooserExceptionListFromWebUiCallData(
       kUsbChooserGroupName, /*expected_total_calls=*/1u);
   EXPECT_EQ(exceptions.GetList().size(), 5u);
+}
+
+TEST_F(SiteSettingsHandlerChooserExceptionTest,
+       HandleGetChooserExceptionListForUsbOffTheRecord) {
+  const std::string kUsbChooserGroupName =
+      site_settings::ContentSettingsTypeToGroupName(
+          CONTENT_SETTINGS_TYPE_USB_CHOOSER_DATA);
+  SetUpOffTheRecordUsbChooserContext();
+  web_ui()->ClearTrackedCalls();
+
+  // The objects returned by GetChooserExceptionListFromProfile should also
+  // include the incognito permissions. The two extra objects represent the
+  // "Widget" device and the policy permission for "Unknown product 0x162E from
+  // Google Inc.". The policy granted permission shows up here because the off
+  // the record profile does not have a user granted permission for the
+  // |persistent_device_info_|, so it cannot use the name of that device.
+  {
+    const base::Value& exceptions = GetChooserExceptionListFromWebUiCallData(
+        kUsbChooserGroupName, /*expected_total_calls=*/1u);
+    EXPECT_EQ(exceptions.GetList().size(), 7u);
+    for (const auto& exception : exceptions.GetList()) {
+      LOG(INFO) << exception.FindKey(site_settings::kDisplayName)->GetString();
+    }
+  }
+
+  // Destroy the off the record profile and check that the objects returned do
+  // not include incognito permissions anymore. The destruction of the profile
+  // causes the "onIncognitoStatusChanged" WebUIListener callback to fire.
+  DestroyIncognitoProfile();
+  EXPECT_EQ(web_ui()->call_data().size(), 2u);
+
+  {
+    const base::Value& exceptions = GetChooserExceptionListFromWebUiCallData(
+        kUsbChooserGroupName, /*expected_total_calls=*/3u);
+    EXPECT_EQ(exceptions.GetList().size(), 5u);
+  }
 }
 
 TEST_F(SiteSettingsHandlerChooserExceptionTest,

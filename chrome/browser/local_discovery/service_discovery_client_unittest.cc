@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include "base/bind.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
@@ -261,6 +262,26 @@ TEST_F(ServiceDiscoveryTest, DiscoverNewServices) {
   std::unique_ptr<ServiceWatcher> watcher(
       service_discovery_client_.CreateServiceWatcher("_privet._tcp.local",
                                                      delegate.GetCallback()));
+
+  watcher->Start();
+
+  EXPECT_CALL(socket_factory_, OnSendTo(_)).Times(2);
+
+  watcher->DiscoverNewServices();
+
+  EXPECT_CALL(socket_factory_, OnSendTo(_)).Times(2);
+
+  RunFor(base::TimeDelta::FromSeconds(2));
+}
+
+// Test that we can query the network with a service name that includes
+// characters beyond those explicitly allowed in DNS such as spaces and parens.
+TEST_F(ServiceDiscoveryTest, DiscoverNewServicesUnrestricted) {
+  StrictMock<MockServiceWatcherClient> delegate;
+
+  std::unique_ptr<ServiceWatcher> watcher =
+      service_discovery_client_.CreateServiceWatcher(
+          "foo bar(A1B2)_ipp._tcp.local", delegate.GetCallback());
 
   watcher->Start();
 

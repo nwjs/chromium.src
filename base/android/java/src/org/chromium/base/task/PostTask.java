@@ -87,12 +87,33 @@ public class PostTask {
     }
 
     /**
+     * This function executes the task immediately if the current thread is the
+     * same as the one corresponding to the SingleThreadTaskRunner, otherwise it
+     * posts it.
+     *
+     * It should be executed only for tasks with traits corresponding to
+     * executors backed by a SingleThreadTaskRunner, like UiThreadTaskTraits.
+     *
+     * Use this only for trivial tasks as it ignores task priorities.
+     *
+     * @param taskTraits The TaskTraits that describe the desired TaskRunner.
+     * @param task The task to be run with the specified traits.
+     */
+    public static void runOrPostTask(TaskTraits taskTraits, Runnable task) {
+        if (getTaskExecutorForTraits(taskTraits).canRunTaskImmediately(taskTraits)) {
+            task.run();
+        } else {
+            postTask(taskTraits, task);
+        }
+    }
+
+    /**
      * Registers a TaskExecutor, this must be called before any other usages of this API.
      *
      * @param extensionId The id associated with the TaskExecutor.
      * @param taskExecutor The TaskExecutor to be registered. Must not equal zero.
      */
-    public static void registerTaskExecutor(byte extensionId, TaskExecutor taskExecutor) {
+    public static void registerTaskExecutor(int extensionId, TaskExecutor taskExecutor) {
         synchronized (sLock) {
             assert extensionId != 0;
             assert extensionId <= TaskTraits.MAX_EXTENSION_ID;

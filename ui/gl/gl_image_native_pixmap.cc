@@ -150,7 +150,7 @@ GLImageNativePixmap::GLImageNativePixmap(const gfx::Size& size,
 
 GLImageNativePixmap::~GLImageNativePixmap() {}
 
-bool GLImageNativePixmap::Initialize(gfx::NativePixmap* pixmap) {
+bool GLImageNativePixmap::Initialize(scoped_refptr<gfx::NativePixmap> pixmap) {
   DCHECK(!pixmap_);
   if (GetInternalFormatFromFormat(format_) == GL_NONE) {
     LOG(ERROR) << "Unsupported format: " << gfx::BufferFormatToString(format_);
@@ -181,8 +181,7 @@ bool GLImageNativePixmap::Initialize(gfx::NativePixmap* pixmap) {
 
       size_t pixmap_plane = attrs_plane;
 
-      attrs.push_back(pixmap->GetDmaBufFd(
-          pixmap_plane < pixmap->GetDmaBufFdCount() ? pixmap_plane : 0));
+      attrs.push_back(pixmap->GetDmaBufFd(pixmap_plane));
       attrs.push_back(EGL_DMA_BUF_PLANE0_OFFSET_EXT + attrs_plane * 3);
       attrs.push_back(pixmap->GetDmaBufOffset(pixmap_plane));
       attrs.push_back(EGL_DMA_BUF_PLANE0_PITCH_EXT + attrs_plane * 3);

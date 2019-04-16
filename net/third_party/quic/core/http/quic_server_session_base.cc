@@ -30,8 +30,7 @@ QuicServerSessionBase::QuicServerSessionBase(
       helper_(helper),
       bandwidth_resumption_enabled_(false),
       bandwidth_estimate_sent_to_client_(QuicBandwidth::Zero()),
-      last_scup_time_(QuicTime::Zero()),
-      last_scup_packet_number_(0) {}
+      last_scup_time_(QuicTime::Zero()) {}
 
 QuicServerSessionBase::~QuicServerSessionBase() {}
 
@@ -55,11 +54,6 @@ void QuicServerSessionBase::OnConfigNegotiated() {
       ContainsQuicTag(config()->ReceivedConnectionOptions(), kBWMX);
   bandwidth_resumption_enabled_ =
       last_bandwidth_resumption || max_bandwidth_resumption;
-
-  if (connection()->transport_version() < QUIC_VERSION_35) {
-    set_server_push_enabled(
-        ContainsQuicTag(config()->ReceivedConnectionOptions(), kSPSH));
-  }
 
   // If the client has provided a bandwidth estimate from the same serving
   // region as this server, then decide whether to use the data for bandwidth
@@ -112,9 +106,15 @@ void QuicServerSessionBase::OnCongestionWindowChange(QuicTime now) {
   int64_t srtt_ms =
       sent_packet_manager.GetRttStats()->smoothed_rtt().ToMilliseconds();
   int64_t now_ms = (now - last_scup_time_).ToMilliseconds();
-  int64_t packets_since_last_scup =
-      connection()->sent_packet_manager().GetLargestSentPacket() -
-      last_scup_packet_number_;
+  int64_t packets_since_last_scup = 0;
+  const QuicPacketNumber largest_sent_packet =
+      connection()->sent_packet_manager().GetLargestSentPacket();
+  if (largest_sent_packet.IsInitialized()) {
+    packets_since_last_scup =
+        last_scup_packet_number_.IsInitialized()
+            ? largest_sent_packet - last_scup_packet_number_
+            : largest_sent_packet.ToUint64();
+  }
   if (now_ms < (kMinIntervalBetweenServerConfigUpdatesRTTs * srtt_ms) ||
       now_ms < kMinIntervalBetweenServerConfigUpdatesMs ||
       packets_since_last_scup < kMinPacketsBetweenServerConfigUpdates) {

@@ -27,6 +27,7 @@ TestWindowServiceDelegate::TakeDragLoopCallback() {
 }
 
 std::unique_ptr<aura::Window> TestWindowServiceDelegate::NewTopLevel(
+    TopLevelProxyWindow* top_level_proxy_window,
     aura::PropertyConverter* property_converter,
     const base::flat_map<std::string, std::vector<uint8_t>>& properties) {
   std::unique_ptr<aura::Window> window =
@@ -50,6 +51,7 @@ void TestWindowServiceDelegate::OnUnhandledKeyEvent(
 void TestWindowServiceDelegate::RunWindowMoveLoop(aura::Window* window,
                                                   mojom::MoveLoopSource source,
                                                   const gfx::Point& cursor,
+                                                  int window_component,
                                                   DoneCallback callback) {
   move_loop_callback_ = std::move(callback);
 }

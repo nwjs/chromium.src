@@ -29,6 +29,7 @@
 
 #include "cc/input/overscroll_behavior.h"
 #include "cc/layers/picture_layer.h"
+#include "third_party/blink/renderer/core/accessibility/apply_dark_mode.h"
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -318,7 +319,8 @@ void CompositedLayerMapping::UpdateBackdropFilters() {
     return;
   CompositorFilterOperations backdrop_filters =
       OwningLayer().CreateCompositorFilterOperationsForBackdropFilter();
-  gfx::RectF filter_bounds = OwningLayer().BackdropFilterBounds();
+  gfx::RRectF filter_bounds = OwningLayer().BackdropFilterBounds(
+      OwningLayer().BackdropFilterReferenceBox());
   graphics_layer_->SetBackdropFilters(backdrop_filters, filter_bounds);
 }
 
@@ -514,10 +516,11 @@ void CompositedLayerMapping::UpdateCompositedBounds() {
 
 GraphicsLayer* CompositedLayerMapping::FrameContentsGraphicsLayer() const {
   Node* node = GetLayoutObject().GetNode();
-  if (!node->IsFrameOwnerElement())
+  auto* frame_owner = DynamicTo<HTMLFrameOwnerElement>(node);
+  if (!frame_owner)
     return nullptr;
 
-  Document* document = ToHTMLFrameOwnerElement(node)->contentDocument();
+  Document* document = frame_owner->contentDocument();
   if (!document)
     return nullptr;
 
@@ -854,28 +857,28 @@ bool CompositedLayerMapping::UpdateGraphicsLayerConfiguration(
   if (WebPluginContainerImpl* plugin = GetPluginContainer(layout_object)) {
     graphics_layer_->SetContentsToCcLayer(
         plugin->CcLayer(), plugin->PreventContentsOpaqueChangesToCcLayer());
-  } else if (layout_object.GetNode() &&
-             layout_object.GetNode()->IsFrameOwnerElement() &&
-             ToHTMLFrameOwnerElement(layout_object.GetNode())->ContentFrame()) {
-    Frame* frame =
-        ToHTMLFrameOwnerElement(layout_object.GetNode())->ContentFrame();
-    if (frame->IsRemoteFrame()) {
-      RemoteFrame* remote = ToRemoteFrame(frame);
-      cc::Layer* layer = remote->GetCcLayer();
+  } else {
+    auto* frame_owner =
+        DynamicTo<HTMLFrameOwnerElement>(layout_object.GetNode());
+    if (frame_owner && frame_owner->ContentFrame()) {
+      Frame* frame = frame_owner->ContentFrame();
+      if (auto* remote = DynamicTo<RemoteFrame>(frame)) {
+        cc::Layer* layer = remote->GetCcLayer();
+        graphics_layer_->SetContentsToCcLayer(
+            layer, remote->WebLayerHasFixedContentsOpaque());
+      }
+    } else if (layout_object.IsVideo()) {
+      HTMLMediaElement* media_element =
+          ToHTMLMediaElement(layout_object.GetNode());
       graphics_layer_->SetContentsToCcLayer(
-          layer, remote->WebLayerHasFixedContentsOpaque());
+          media_element->CcLayer(),
+          /*prevent_contents_opaque_changes=*/true);
+    } else if (layout_object.IsCanvas()) {
+      graphics_layer_->SetContentsToCcLayer(
+          ToHTMLCanvasElement(layout_object.GetNode())->ContentsCcLayer(),
+          /*prevent_contents_opaque_changes=*/false);
+      layer_config_changed = true;
     }
-  } else if (layout_object.IsVideo()) {
-    HTMLMediaElement* media_element =
-        ToHTMLMediaElement(layout_object.GetNode());
-    graphics_layer_->SetContentsToCcLayer(
-        media_element->CcLayer(),
-        /*prevent_contents_opaque_changes=*/true);
-  } else if (layout_object.IsCanvas()) {
-    graphics_layer_->SetContentsToCcLayer(
-        ToHTMLCanvasElement(layout_object.GetNode())->ContentsCcLayer(),
-        /*prevent_contents_opaque_changes=*/false);
-    layer_config_changed = true;
   }
   if (layout_object.IsLayoutEmbeddedContent()) {
     if (PaintLayerCompositor::AttachFrameContentLayersToIframeLayer(
@@ -1020,7 +1023,6 @@ void CompositedLayerMapping::UpdateSquashingLayerGeometry(
     const PaintLayer* compositing_container,
     const IntPoint& snapped_offset_from_composited_ancestor,
     Vector<GraphicsLayerPaintInfo>& layers,
-    LayoutPoint* offset_from_transformed_ancestor,
     Vector<PaintLayer*>& layers_needing_paint_invalidation) {
   if (!squashing_layer_)
     return;
@@ -1142,11 +1144,6 @@ void CompositedLayerMapping::UpdateSquashingLayerGeometry(
     GetLayoutObject().SetNeedsPaintPropertyUpdate();
   }
 
-  *offset_from_transformed_ancestor =
-      compositing_container_offset_from_transformed_ancestor;
-  offset_from_transformed_ancestor->Move(
-      squash_layer_origin_in_compositing_container_space);
-
   for (wtf_size_t i = 0; i < layers.size(); ++i) {
     LocalClipRectForSquashedLayer(owning_layer_, layers, layers[i]);
   }
@@ -1209,7 +1206,6 @@ void CompositedLayerMapping::UpdateGraphicsLayerGeometry(
   UpdateSquashingLayerGeometry(
       graphics_layer_parent_location, compositing_container,
       snapped_offset_from_composited_ancestor, squashed_layers_,
-      &squashing_layer_offset_from_transformed_ancestor_,
       layers_needing_paint_invalidation);
 
   UpdateChildTransformLayerGeometry();
@@ -1926,10 +1922,8 @@ void CompositedLayerMapping::UpdateDrawsContentAndPaintsHitTest() {
   // paints content, regardless of whether the descendant content is a hit test)
   // but an exhaustive check of descendants that paint hit tests would be too
   // expensive.
-  bool paints_hit_test =
-      has_painted_content ||
-      (RuntimeEnabledFeatures::PaintTouchActionRectsEnabled() &&
-       GetLayoutObject().HasEffectiveWhitelistedTouchAction());
+  bool paints_hit_test = has_painted_content ||
+                         GetLayoutObject().HasEffectiveWhitelistedTouchAction();
   graphics_layer_->SetPaintsHitTest(paints_hit_test);
 
   if (scrolling_layer_) {
@@ -3026,12 +3020,13 @@ void CompositedLayerMapping::SetContentsNeedDisplay() {
 }
 
 void CompositedLayerMapping::SetNeedsCheckRasterInvalidation() {
-  ApplyToGraphicsLayers(this,
-                        [](GraphicsLayer* graphics_layer) {
-                          if (graphics_layer->DrawsContent())
-                            graphics_layer->SetNeedsCheckRasterInvalidation();
-                        },
-                        kApplyToAllGraphicsLayers);
+  ApplyToGraphicsLayers(
+      this,
+      [](GraphicsLayer* graphics_layer) {
+        if (graphics_layer->DrawsContent())
+          graphics_layer->SetNeedsCheckRasterInvalidation();
+      },
+      kApplyToAllGraphicsLayers);
 }
 
 const GraphicsLayerPaintInfo* CompositedLayerMapping::ContainingSquashedLayer(
@@ -3135,12 +3130,7 @@ void CompositedLayerMapping::DoPaintTask(
   context.SetDeviceScaleFactor(device_scale_factor);
 
   Settings* settings = GetLayoutObject().GetFrame()->GetSettings();
-  HighContrastSettings high_contrast_settings;
-  high_contrast_settings.mode = settings->GetHighContrastMode();
-  high_contrast_settings.grayscale = settings->GetHighContrastGrayscale();
-  high_contrast_settings.contrast = settings->GetHighContrastContrast();
-  high_contrast_settings.image_policy = settings->GetHighContrastImagePolicy();
-  context.SetHighContrast(high_contrast_settings);
+  context.SetDarkMode(BuildDarkModeSettings(*settings, GetLayoutObject()));
 
   if (paint_info.paint_layer->GetCompositingState() !=
       kPaintsIntoGroupedBacking) {
@@ -3426,9 +3416,12 @@ void CompositedLayerMapping::PaintContents(
   } else if (IsScrollableAreaLayer(graphics_layer)) {
     PaintScrollableArea(graphics_layer, context, interest_rect);
   }
-  probe::didPaint(owning_layer_.GetLayoutObject().GetFrame(),
-                  graphics_layer->CcLayer(), context,
-                  LayoutRect(interest_rect));
+
+  if (!RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled()) {
+    probe::DidPaint(owning_layer_.GetLayoutObject().GetFrame(),
+                    graphics_layer->CcLayer(), LayoutRect(interest_rect));
+  }
+
 #if DCHECK_IS_ON()
   if (Page* page = GetLayoutObject().GetFrame()->GetPage())
     page->SetIsPainting(false);

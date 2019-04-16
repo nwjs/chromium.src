@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/logging.h"
 #include "base/macros.h"
@@ -33,8 +34,12 @@
 #include "chrome/browser/page_load_metrics/page_load_metrics_test_waiter.h"
 #include "chrome/browser/page_load_metrics/page_load_tracker.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
+#include "chrome/browser/prerender/prerender_handle.h"
 #include "chrome/browser/prerender/prerender_histograms.h"
+#include "chrome/browser/prerender/prerender_manager.h"
+#include "chrome/browser/prerender/prerender_manager_factory.h"
 #include "chrome/browser/prerender/prerender_origin.h"
+#include "chrome/browser/prerender/prerender_test_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
@@ -81,13 +86,15 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/use_counter/css_property_id.mojom.h"
-#include "third_party/blink/public/platform/web_feature.mojom.h"
+#include "third_party/blink/public/mojom/web_feature/web_feature.mojom.h"
+#include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
 using page_load_metrics::PageLoadMetricsTestWaiter;
 using TimingField = page_load_metrics::PageLoadMetricsTestWaiter::TimingField;
 using WebFeature = blink::mojom::WebFeature;
 using testing::UnorderedElementsAre;
+using NoStatePrefetch = ukm::builders::NoStatePrefetch;
 
 namespace {
 
@@ -180,6 +187,41 @@ class PageLoadMetricsBrowserTest : public InProcessBrowserTest {
     return std::make_unique<PageLoadMetricsTestWaiter>(web_contents);
   }
 
+  // Triggers nostate prefetch of |url|.
+  void TriggerNoStatePrefetch(const GURL& url) {
+    prerender::PrerenderManager* prerender_manager =
+        prerender::PrerenderManagerFactory::GetForBrowserContext(
+            browser()->profile());
+    ASSERT_TRUE(prerender_manager);
+
+    prerender::test_utils::TestPrerenderContentsFactory*
+        prerender_contents_factory =
+            new prerender::test_utils::TestPrerenderContentsFactory();
+    prerender_manager->SetPrerenderContentsFactoryForTest(
+        prerender_contents_factory);
+
+    content::SessionStorageNamespace* storage_namespace =
+        browser()
+            ->tab_strip_model()
+            ->GetActiveWebContents()
+            ->GetController()
+            .GetDefaultSessionStorageNamespace();
+    ASSERT_TRUE(storage_namespace);
+
+    std::unique_ptr<prerender::test_utils::TestPrerender> test_prerender =
+        prerender_contents_factory->ExpectPrerenderContents(
+            prerender::FINAL_STATUS_NOSTATE_PREFETCH_FINISHED);
+
+    std::unique_ptr<prerender::PrerenderHandle> prerender_handle =
+        prerender_manager->AddPrerenderFromOmnibox(url, storage_namespace,
+                                                   gfx::Size(640, 480));
+    ASSERT_EQ(prerender_handle->contents(), test_prerender->contents());
+
+    // The final status may be either  FINAL_STATUS_NOSTATE_PREFETCH_FINISHED or
+    // FINAL_STATUS_RECENTLY_VISITED.
+    test_prerender->contents()->set_skip_final_checks(true);
+  }
+
   base::test::ScopedFeatureList scoped_feature_list_;
   base::HistogramTester histogram_tester_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
@@ -256,6 +298,54 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, NewPage) {
     EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
         kv.second.get(),
         PageLoad::kMainFrameResource_NavigationStartToRequestStartName));
+    EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
+        kv.second.get(), PageLoad::kMainFrameResource_HttpProtocolSchemeName));
+    EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
+        kv.second.get(), PageLoad::kSiteEngagementScoreName));
+  }
+
+  const auto& nostate_prefetch_entries =
+      test_ukm_recorder_->GetMergedEntriesByName(NoStatePrefetch::kEntryName);
+  EXPECT_EQ(0u, nostate_prefetch_entries.size());
+
+  // Verify that NoPageLoadMetricsRecorded returns false when PageLoad metrics
+  // have been recorded.
+  EXPECT_FALSE(NoPageLoadMetricsRecorded());
+}
+
+// Triggers nostate prefetch, and verifies that the UKM metrics related to
+// nostate prefetch are recorded correctly.
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, NoStatePrefetchMetrics) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  GURL url = embedded_test_server()->GetURL("/title1.html");
+
+  TriggerNoStatePrefetch(url);
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  waiter->AddPageExpectation(TimingField::kFirstPaint);
+  ui_test_utils::NavigateToURL(browser(), url);
+  waiter->Wait();
+
+  // Force navigation to another page, which should force logging of histograms
+  // persisted at the end of the page load lifetime.
+  NavigateToUntrackedUrl();
+  histogram_tester_.ExpectTotalCount(internal::kHistogramPageLoadTotalBytes, 1);
+  histogram_tester_.ExpectTotalCount(
+      internal::kHistogramPageTimingForegroundDuration, 1);
+
+  const auto& entries =
+      test_ukm_recorder_->GetMergedEntriesByName(NoStatePrefetch::kEntryName);
+  EXPECT_EQ(1u, entries.size());
+  for (const auto& kv : entries) {
+    test_ukm_recorder_->ExpectEntrySourceHasUrl(kv.second.get(), url);
+    // UKM metrics related to attempted nostate prefetch should be recorded.
+    EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
+        kv.second.get(), NoStatePrefetch::kPrefetchedRecently_FinalStatusName));
+    EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
+        kv.second.get(), NoStatePrefetch::kPrefetchedRecently_OriginName));
+    EXPECT_TRUE(test_ukm_recorder_->EntryHasMetric(
+        kv.second.get(), NoStatePrefetch::kPrefetchedRecently_PrefetchAgeName));
   }
 
   // Verify that NoPageLoadMetricsRecorded returns false when PageLoad metrics
@@ -1805,7 +1895,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestorePageLoadMetricsBrowserTest,
   ASSERT_TRUE(tab_strip);
   ASSERT_EQ(2, tab_strip->count());
   ASSERT_EQ(0, tab_strip->active_index());
-  tab_strip->ActivateTabAt(1, true);
+  tab_strip->ActivateTabAt(1, {TabStripModel::GestureType::kOther});
 
   session_restore_paint_waiter.WaitForForegroundTabs(1);
 
@@ -2161,4 +2251,28 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
   histogram_tester_.ExpectTotalCount(internal::kHistogramInputToFirstPaint, 1);
   histogram_tester_.ExpectTotalCount(
       internal::kHistogramInputToFirstContentfulPaint, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, FirstInputFromScroll) {
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  content::SetupCrossSiteRedirector(embedded_test_server());
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  auto waiter = CreatePageLoadMetricsTestWaiter();
+  waiter->AddPageExpectation(TimingField::kLoadEvent);
+  waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+  ui_test_utils::NavigateToURL(
+      browser(),
+      embedded_test_server()->GetURL("/page_load_metrics/scroll.html"));
+  waiter->Wait();
+
+  content::SimulateGestureScrollSequence(
+      browser()->tab_strip_model()->GetActiveWebContents(),
+      gfx::Point(100, 100), gfx::Vector2dF(0, 15));
+  NavigateToUntrackedUrl();
+
+  // First Input Delay should not be reported from a scroll!
+  histogram_tester_.ExpectTotalCount(internal::kHistogramFirstInputDelay, 0);
+  histogram_tester_.ExpectTotalCount(internal::kHistogramFirstInputTimestamp,
+                                     0);
 }

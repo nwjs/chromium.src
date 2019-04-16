@@ -48,6 +48,7 @@ class TestWebState : public WebState {
   SessionCertificatePolicyCache* GetSessionCertificatePolicyCache() override;
   CRWSessionStorage* BuildSessionStorage() override;
   CRWJSInjectionReceiver* GetJSInjectionReceiver() const override;
+  void LoadData(NSData* data, NSString* mime_type, const GURL& url) override;
   void ExecuteJavaScript(const base::string16& javascript) override;
   void ExecuteJavaScript(const base::string16& javascript,
                          JavaScriptResultCallback callback) override;
@@ -64,8 +65,6 @@ class TestWebState : public WebState {
   const GURL& GetVisibleURL() const override;
   const GURL& GetLastCommittedURL() const override;
   GURL GetCurrentURL(URLVerificationTrustLevel* trust_level) const override;
-  void ShowTransientContentView(CRWContentView* content_view) override;
-  void ClearTransientContentView();
   void AddScriptCommandCallback(const ScriptCommandCallback& callback,
                                 const std::string& command_prefix) override {}
   void RemoveScriptCommandCallback(const std::string& command_prefix) override {
@@ -107,7 +106,6 @@ class TestWebState : public WebState {
   void RemoveWebFrame(std::string frame_id);
 
   // Getters for test data.
-  CRWContentView* GetTransientContentView();
   // Uses |policy_deciders| to return whether the navigation corresponding to
   // |request| should be allowed. Defaults to true.
   bool ShouldAllowRequest(
@@ -117,6 +115,7 @@ class TestWebState : public WebState {
   // |response| should be allowed. Defaults to true.
   bool ShouldAllowResponse(NSURLResponse* response, bool for_main_frame);
   base::string16 GetLastExecutedJavascript() const;
+  NSData* GetLastLoadedData() const;
 
   // Notifier for tests.
   void OnPageLoaded(PageLoadCompletionStatus load_completion_status);
@@ -135,7 +134,6 @@ class TestWebState : public WebState {
   bool is_crashed_;
   bool is_evicted_;
   bool has_opener_;
-  CRWContentView* transient_content_view_;
   GURL url_;
   base::string16 title_;
   base::string16 last_executed_javascript_;
@@ -145,6 +143,7 @@ class TestWebState : public WebState {
   std::unique_ptr<NavigationManager> navigation_manager_;
   UIView* view_;
   CRWWebViewProxyType web_view_proxy_;
+  NSData* last_loaded_data_;
 
   // A list of observers notified when page state changes. Weak references.
   base::ObserverList<WebStateObserver, true>::Unchecked observers_;

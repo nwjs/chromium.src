@@ -17,10 +17,7 @@
 
 namespace blink {
 
-template <typename T>
-class DOMWrapperMap;
 class HeapObjectHeader;
-class ScriptWrappable;
 class ScriptWrappableVisitor;
 template <typename T>
 class TraceWrapperV8Reference;
@@ -65,10 +62,6 @@ class PLATFORM_EXPORT ScriptWrappableMarkingVisitor
   static void WriteBarrier(v8::Isolate*,
                            const TraceWrapperV8Reference<v8::Value>&);
 
-  static void WriteBarrier(v8::Isolate*,
-                           DOMWrapperMap<ScriptWrappable>*,
-                           ScriptWrappable* key);
-
   explicit ScriptWrappableMarkingVisitor(ThreadState* thread_state)
       : ScriptWrappableVisitor(thread_state) {}
   ~ScriptWrappableMarkingVisitor() override;
@@ -86,12 +79,11 @@ class PLATFORM_EXPORT ScriptWrappableMarkingVisitor
   void TraceEpilogue() override;
   void EnterFinalPause(EmbedderStackState) override;
   bool IsTracingDone() override;
+  bool IsRootForNonTracingGC(const v8::TracedGlobal<v8::Value>&) override;
 
   // ScriptWrappableVisitor interface.
   void Visit(const TraceWrapperV8Reference<v8::Value>&) override;
   void VisitWithWrappers(void*, TraceDescriptor) override;
-  void Visit(DOMWrapperMap<ScriptWrappable>*,
-             const ScriptWrappable* key) override;
   void VisitBackingStoreStrongly(void* object,
                                  void** object_slot,
                                  TraceDescriptor desc) override;
@@ -101,6 +93,8 @@ class PLATFORM_EXPORT ScriptWrappableMarkingVisitor
 
  private:
   class MarkingDequeItem {
+    DISALLOW_NEW();
+
    public:
     explicit MarkingDequeItem(const TraceDescriptor& descriptor)
         : raw_object_pointer_(descriptor.base_object_payload),

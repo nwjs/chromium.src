@@ -12,18 +12,23 @@ if (!is_android) {
       ":api_listener",
       ":app",
       ":app_item",
+      ":arc_permission_view",
       ":browser_proxy",
       ":chrome_app_permission_view",
       ":constants",
+      ":dom_switch",
+      ":expandable_app_list",
       ":fake_page_handler",
       ":main_view",
       ":metadata_view",
       ":notifications_view",
       ":permission_item",
+      ":permission_toggle",
       ":permission_view_header",
       ":pwa_permission_view",
       ":reducers",
       ":router",
+      ":search_view",
       ":store",
       ":store_client",
       ":types",
@@ -33,7 +38,7 @@ if (!is_android) {
 
   js_library("actions") {
     deps = [
-      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_externs",
+      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_library_for_compile",
       "//ui/webui/resources/js:cr",
     ]
   }
@@ -50,8 +55,10 @@ if (!is_android) {
   js_library("app") {
     deps = [
       ":actions",
+      ":arc_permission_view",
       ":browser_proxy",
       ":constants",
+      ":dom_switch",
       ":main_view",
       ":metadata_view",
       ":pwa_permission_view",
@@ -60,7 +67,7 @@ if (!is_android) {
       ":store_client",
       ":types",
       ":util",
-      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_externs",
+      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_library_for_compile",
     ]
   }
 
@@ -72,10 +79,21 @@ if (!is_android) {
     ]
   }
 
+  js_library("arc_permission_view") {
+    deps = [
+      ":constants",
+      ":fake_page_handler",
+      ":metadata_view",
+      ":permission_item",
+      ":permission_view_header",
+      ":store_client",
+    ]
+  }
+
   js_library("browser_proxy") {
     deps = [
       ":fake_page_handler",
-      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_externs",
+      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_library_for_compile",
       "//ui/webui/resources/js:cr",
     ]
   }
@@ -92,12 +110,24 @@ if (!is_android) {
   js_library("constants") {
   }
 
+  js_library("dom_switch") {
+  }
+
+  js_library("expandable_app_list") {
+    deps = [
+      ":app_item",
+      ":constants",
+      ":store_client",
+      "//third_party/polymer/v1_0/components-chromium/iron-collapse:iron-collapse-extracted",
+    ]
+  }
+
   js_library("fake_page_handler") {
     deps = [
       ":constants",
       ":types",
       ":util",
-      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_externs",
+      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_library_for_compile",
       "//ui/webui/resources/js:cr",
     ]
   }
@@ -117,6 +147,7 @@ if (!is_android) {
       ":browser_proxy",
       ":constants",
       ":fake_page_handler",
+      ":store_client",
       ":types",
     ]
   }
@@ -124,13 +155,25 @@ if (!is_android) {
   js_library("notifications_view") {
     deps = [
       ":app_item",
+      ":constants",
       ":fake_page_handler",
+      ":store_client",
+      ":util",
     ]
   }
 
   js_library("permission_item") {
     deps = [
       ":fake_page_handler",
+      ":permission_toggle",
+      ":store_client",
+      ":util",
+    ]
+  }
+
+  js_library("permission_toggle") {
+    deps = [
+      ":util",
     ]
   }
 
@@ -155,6 +198,7 @@ if (!is_android) {
   js_library("reducers") {
     deps = [
       ":types",
+      ":util",
       "//ui/webui/resources/js:cr",
     ]
   }
@@ -164,6 +208,14 @@ if (!is_android) {
       ":actions",
       ":constants",
       ":store_client",
+    ]
+  }
+
+  js_library("search_view") {
+    deps = [
+      ":app_item",
+      ":store_client",
+      "//ui/webui/resources/js:load_time_data",
     ]
   }
 
@@ -188,7 +240,7 @@ if (!is_android) {
 
   js_library("types") {
     deps = [
-      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_externs",
+      "//chrome/browser/ui/webui/app_management:mojo_bindings_js_library_for_compile",
     ]
   }
 

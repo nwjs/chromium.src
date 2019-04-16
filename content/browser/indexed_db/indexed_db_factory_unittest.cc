@@ -475,13 +475,14 @@ class LookingForQuotaErrorMockCallbacks : public IndexedDBCallbacks {
 };
 
 TEST_F(IndexedDBFactoryTest, QuotaErrorOnDiskFull) {
-  auto callbacks = base::MakeRefCounted<LookingForQuotaErrorMockCallbacks>();
-  auto dummy_database_callbacks =
-      base::MakeRefCounted<IndexedDBDatabaseCallbacks>(nullptr, nullptr);
-
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
+        auto callbacks =
+            base::MakeRefCounted<LookingForQuotaErrorMockCallbacks>();
+        auto dummy_database_callbacks =
+            base::MakeRefCounted<IndexedDBDatabaseCallbacks>(
+                nullptr, nullptr, context()->TaskRunner());
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         auto factory = base::MakeRefCounted<DiskFullFactory>(context());
         const base::string16 name(ASCIIToUTF16("name"));
@@ -497,12 +498,13 @@ TEST_F(IndexedDBFactoryTest, QuotaErrorOnDiskFull) {
 }
 
 TEST_F(IndexedDBFactoryTest, BackingStoreReleasedOnForcedClose) {
-  auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
-  auto db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
         auto factory = base::MakeRefCounted<MockIDBFactory>(context());
+        auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
+        auto db_callbacks =
+            base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
 
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         const int64_t transaction_id = 1;
@@ -527,13 +529,13 @@ TEST_F(IndexedDBFactoryTest, BackingStoreReleasedOnForcedClose) {
 }
 
 TEST_F(IndexedDBFactoryTest, BackingStoreReleaseDelayedOnClose) {
-  auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
-  auto db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
-
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
         auto factory = base::MakeRefCounted<MockIDBFactory>(context());
+        auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
+        auto db_callbacks =
+            base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
 
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         const int64_t transaction_id = 1;
@@ -570,13 +572,12 @@ TEST_F(IndexedDBFactoryTest, BackingStoreReleaseDelayedOnClose) {
 }
 
 TEST_F(IndexedDBFactoryTest, DeleteDatabaseClosesBackingStore) {
-  auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>(
-      /*expect_connection=*/false);
-
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
         auto factory = base::MakeRefCounted<MockIDBFactory>(context());
+        auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>(
+            /*expect_connection=*/false);
 
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         EXPECT_FALSE(factory->IsBackingStoreOpen(origin));
@@ -600,13 +601,12 @@ TEST_F(IndexedDBFactoryTest, DeleteDatabaseClosesBackingStore) {
 }
 
 TEST_F(IndexedDBFactoryTest, GetDatabaseNamesClosesBackingStore) {
-  auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>(
-      /*expect_connection=*/false);
-
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
         auto factory = base::MakeRefCounted<MockIDBFactory>(context());
+        auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>(
+            /*expect_connection=*/false);
 
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         EXPECT_FALSE(factory->IsBackingStoreOpen(origin));
@@ -628,13 +628,13 @@ TEST_F(IndexedDBFactoryTest, GetDatabaseNamesClosesBackingStore) {
 }
 
 TEST_F(IndexedDBFactoryTest, ForceCloseReleasesBackingStore) {
-  auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
-  auto db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
-
   base::RunLoop loop;
   context()->TaskRunner()->PostTask(
       FROM_HERE, base::BindLambdaForTesting([&]() {
         auto factory = base::MakeRefCounted<MockIDBFactory>(context());
+        auto callbacks = base::MakeRefCounted<MockIndexedDBCallbacks>();
+        auto db_callbacks =
+            base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
 
         const Origin origin = Origin::Create(GURL("http://localhost:81"));
         const int64_t transaction_id = 1;
@@ -716,18 +716,21 @@ TEST_F(IndexedDBFactoryTest, DatabaseFailedOpen) {
 
   // Created and used on IDB sequence.
   scoped_refptr<MockIDBFactory> factory;
-
-  // Created on IO thread, used on IDB sequence.
-  auto upgrade_callbacks = base::MakeRefCounted<UpgradeNeededCallbacks>();
-  auto db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
-  auto failed_open_callbacks = base::MakeRefCounted<ErrorCallbacks>();
-  auto db_callbacks2 = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
+  scoped_refptr<UpgradeNeededCallbacks> upgrade_callbacks;
+  scoped_refptr<MockIndexedDBDatabaseCallbacks> db_callbacks;
+  scoped_refptr<MockIndexedDBDatabaseCallbacks> db_callbacks2;
+  scoped_refptr<ErrorCallbacks> failed_open_callbacks;
 
   {
     base::RunLoop loop;
     context()->TaskRunner()->PostTask(
         FROM_HERE, base::BindLambdaForTesting([&]() {
           factory = base::MakeRefCounted<MockIDBFactory>(context());
+          upgrade_callbacks = base::MakeRefCounted<UpgradeNeededCallbacks>();
+          db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
+          failed_open_callbacks = base::MakeRefCounted<ErrorCallbacks>();
+          db_callbacks2 =
+              base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
           // Open at version 2.
           const int64_t db_version = 2;
           factory->Open(db_name,
@@ -771,6 +774,12 @@ TEST_F(IndexedDBFactoryTest, DatabaseFailedOpen) {
           // Terminate all pending-close timers.
           factory->ForceClose(origin, /*delete_in_memory_store=*/false);
           loop.Quit();
+
+          // These need to be deleted on the IDB task runner.
+          upgrade_callbacks.reset();
+          db_callbacks.reset();
+          db_callbacks2.reset();
+          failed_open_callbacks.reset();
         }));
     loop.Run();
   }
@@ -813,19 +822,19 @@ TEST_F(IndexedDBFactoryTest, DataFormatVersion) {
 
     // Created and used on IDB sequence.
     scoped_refptr<MockIDBFactory> factory;
-
-    // Created on IO thread, used on IDB sequence.
-    auto callbacks = base::MakeRefCounted<DataLossCallbacks>();
+    scoped_refptr<DataLossCallbacks> callbacks;
 
     const int64_t transaction_id = 1;
     blink::mojom::IDBDataLoss result;
-    auto db_callbacks = base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
 
     {
       base::RunLoop loop;
       context()->TaskRunner()->PostTask(
           FROM_HERE, base::BindLambdaForTesting([&]() {
             factory = base::MakeRefCounted<MockIDBFactory>(context());
+            callbacks = base::MakeRefCounted<DataLossCallbacks>();
+            auto db_callbacks =
+                base::MakeRefCounted<MockIndexedDBDatabaseCallbacks>();
             factory->Open(ASCIIToUTF16("test_db"),
                           std::make_unique<IndexedDBPendingConnection>(
                               callbacks, db_callbacks, /*child_process_id=*/0,
@@ -847,7 +856,18 @@ TEST_F(IndexedDBFactoryTest, DataFormatVersion) {
             factory->ForceClose(origin, /*delete_in_memory_store=*/false);
             result = callbacks->data_loss();
             loop.Quit();
+            callbacks.reset();
           }));
+      loop.Run();
+    }
+    {
+      base::RunLoop loop;
+      context()->TaskRunner()->PostTask(FROM_HERE,
+                                        base::BindLambdaForTesting([&]() {
+                                          callbacks.reset();
+                                          factory.reset();
+                                          loop.Quit();
+                                        }));
       loop.Run();
     }
     return result;

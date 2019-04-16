@@ -33,7 +33,6 @@
 #include "components/viz/service/surfaces/surface.h"
 #include "components/viz/service/surfaces/surface_manager.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
-#include "gpu/vulkan/buildflags.h"
 #include "services/viz/public/interfaces/compositing/compositor_frame_sink.mojom.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/geometry/rect_conversions.h"
@@ -150,7 +149,8 @@ Display::~Display() {
 }
 
 void Display::Initialize(DisplayClient* client,
-                         SurfaceManager* surface_manager) {
+                         SurfaceManager* surface_manager,
+                         bool enable_shared_images) {
   DCHECK(client);
   DCHECK(surface_manager);
   client_ = client;
@@ -162,7 +162,7 @@ void Display::Initialize(DisplayClient* client,
   if (output_surface_->software_device())
     output_surface_->software_device()->BindToClient(this);
 
-  InitializeRenderer();
+  InitializeRenderer(enable_shared_images);
 
   // This depends on assumptions that Display::Initialize will happen on the
   // same callstack as the ContextProvider being created/initialized or else
@@ -274,40 +274,34 @@ void Display::SetOutputIsSecure(bool secure) {
   }
 }
 
-void Display::InitializeRenderer() {
+void Display::InitializeRenderer(bool enable_shared_images) {
   auto mode = output_surface_->context_provider() || skia_output_surface_
                   ? DisplayResourceProvider::kGpu
                   : DisplayResourceProvider::kSoftware;
   resource_provider_ = std::make_unique<DisplayResourceProvider>(
-      mode, output_surface_->context_provider(), bitmap_manager_);
-
-  if (settings_.use_skia_renderer && mode == DisplayResourceProvider::kGpu) {
+      mode, output_surface_->context_provider(), bitmap_manager_,
+      enable_shared_images);
+  const bool use_skia_renderer =
+      settings_.use_skia_renderer || settings_.use_skia_renderer_non_ddl;
+  if (use_skia_renderer && mode == DisplayResourceProvider::kGpu) {
     // Default to use DDL if skia_output_surface is not null.
     if (skia_output_surface_) {
       renderer_ = std::make_unique<SkiaRenderer>(
           &settings_, output_surface_.get(), resource_provider_.get(),
           skia_output_surface_, SkiaRenderer::DrawMode::DDL);
     } else {
-      // GPU compositing with GL.
+      // GPU compositing with GL to an SKP.
       DCHECK(output_surface_);
       DCHECK(output_surface_->context_provider());
-      SkiaRenderer::DrawMode mode = settings_.record_sk_picture
-                                        ? SkiaRenderer::DrawMode::SKPRECORD
-                                        : SkiaRenderer::DrawMode::GL;
+      DCHECK(settings_.record_sk_picture);
       renderer_ = std::make_unique<SkiaRenderer>(
           &settings_, output_surface_.get(), resource_provider_.get(),
-          nullptr /* skia_output_surface */, mode);
+          nullptr /* skia_output_surface */, SkiaRenderer::DrawMode::SKPRECORD);
     }
   } else if (output_surface_->context_provider()) {
     renderer_ = std::make_unique<GLRenderer>(&settings_, output_surface_.get(),
                                              resource_provider_.get(),
                                              current_task_runner_);
-#if BUILDFLAG(ENABLE_VULKAN)
-  } else if (output_surface_->vulkan_context_provider()) {
-    renderer_ = std::make_unique<SkiaRenderer>(
-        &settings_, output_surface_.get(), resource_provider_.get(),
-        nullptr /* skia_output_surface */, SkiaRenderer::DrawMode::VULKAN);
-#endif
   } else {
     auto renderer = std::make_unique<SoftwareRenderer>(
         &settings_, output_surface_.get(), resource_provider_.get());
@@ -427,13 +421,11 @@ bool Display::DrawAndSwap() {
     TRACE_EVENT_ASYNC_STEP_INTO0("viz,benchmark",
                                  "Graphics.Pipeline.DrawAndSwap",
                                  swapped_trace_id_, "Draw");
-    if (settings_.enable_draw_occlusion) {
-      base::ElapsedTimer draw_occlusion_timer;
-      RemoveOverdrawQuads(&frame);
-      UMA_HISTOGRAM_COUNTS_1000(
-          "Compositing.Display.Draw.Occlusion.Calculation.Time",
-          draw_occlusion_timer.Elapsed().InMicroseconds());
-    }
+    base::ElapsedTimer draw_occlusion_timer;
+    RemoveOverdrawQuads(&frame);
+    UMA_HISTOGRAM_COUNTS_1000(
+        "Compositing.Display.Draw.Occlusion.Calculation.Time",
+        draw_occlusion_timer.Elapsed().InMicroseconds());
 
     bool disable_image_filtering =
         frame.metadata.is_resourceless_software_draw_with_scroll_or_animation;
@@ -564,7 +556,10 @@ void Display::DidSwapWithSize(const gfx::Size& pixel_size) {
 
 void Display::DidReceivePresentationFeedback(
     const gfx::PresentationFeedback& feedback) {
-  DCHECK(!pending_presented_callbacks_.empty());
+  if (pending_presented_callbacks_.empty()) {
+    DLOG(ERROR) << "Received unexpected PresentationFeedback";
+    return;
+  }
   ++last_presented_trace_id_;
   TRACE_EVENT_ASYNC_END_WITH_TIMESTAMP0(
       "viz,benchmark", "Graphics.Pipeline.DrawAndSwap",

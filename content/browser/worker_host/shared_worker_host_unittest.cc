@@ -29,7 +29,6 @@
 #include "services/network/public/cpp/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
-#include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 #include "url/origin.h"
 
 using blink::MessagePortChannel;
@@ -72,9 +71,8 @@ class SharedWorkerHostTest : public testing::Test {
   }
 
   void StartWorker(SharedWorkerHost* host,
-                   mojom::SharedWorkerFactoryPtr factory) {
-    blink::mojom::ServiceWorkerProviderInfoForSharedWorkerPtr provider_info =
-        nullptr;
+                   blink::mojom::SharedWorkerFactoryPtr factory) {
+    blink::mojom::ServiceWorkerProviderInfoForWorkerPtr provider_info = nullptr;
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory;
     blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params;
@@ -82,11 +80,10 @@ class SharedWorkerHostTest : public testing::Test {
         subresource_loader_factories;
     base::Optional<SubresourceLoaderParams> subresource_loader_params;
 
-    // Set up various mocks based on NetworkService/S13nServiceWorker
-    // configuration. See the comment on SharedWorkerHost::Start() for details.
+    // Set up various mocks based on NetworkService configuration. See the
+    // comment on SharedWorkerHost::Start() for details.
     if (base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-      provider_info =
-          blink::mojom::ServiceWorkerProviderInfoForSharedWorker::New();
+      provider_info = blink::mojom::ServiceWorkerProviderInfoForWorker::New();
       ServiceWorkerProviderHost::PreCreateForSharedWorker(
           helper_->context()->AsWeakPtr(), mock_render_process_host_.GetID(),
           &provider_info);
@@ -103,9 +100,8 @@ class SharedWorkerHostTest : public testing::Test {
 
       subresource_loader_params->appcache_loader_factory_info =
           loader_factory_ptr.PassInterface();
-    } else if (blink::ServiceWorkerUtils::IsServicificationEnabled()) {
-      provider_info =
-          blink::mojom::ServiceWorkerProviderInfoForSharedWorker::New();
+    } else {
+      provider_info = blink::mojom::ServiceWorkerProviderInfoForWorker::New();
       ServiceWorkerProviderHost::PreCreateForSharedWorker(
           helper_->context()->AsWeakPtr(), mock_render_process_host_.GetID(),
           &provider_info);
@@ -129,7 +125,8 @@ class SharedWorkerHostTest : public testing::Test {
                 std::move(main_script_loader_factory),
                 std::move(main_script_load_params),
                 std::move(subresource_loader_factories),
-                std::move(subresource_loader_params));
+                nullptr /* controller */,
+                nullptr /* controller_service_worker_object_host */);
   }
 
   MessagePortChannel AddClient(SharedWorkerHost* host,
@@ -157,7 +154,7 @@ TEST_F(SharedWorkerHostTest, Normal) {
   base::WeakPtr<SharedWorkerHost> host = CreateHost();
 
   // Start the worker.
-  mojom::SharedWorkerFactoryPtr factory;
+  blink::mojom::SharedWorkerFactoryPtr factory;
   MockSharedWorkerFactory factory_impl(mojo::MakeRequest(&factory));
   StartWorker(host.get(), std::move(factory));
 
@@ -253,7 +250,7 @@ TEST_F(SharedWorkerHostTest, TerminateAfterStarting) {
   base::WeakPtr<SharedWorkerHost> host = CreateHost();
 
   // Create the factory.
-  mojom::SharedWorkerFactoryPtr factory;
+  blink::mojom::SharedWorkerFactoryPtr factory;
   MockSharedWorkerFactory factory_impl(mojo::MakeRequest(&factory));
   // Start the worker.
   StartWorker(host.get(), std::move(factory));
@@ -296,7 +293,7 @@ TEST_F(SharedWorkerHostTest, OnContextClosed) {
   base::WeakPtr<SharedWorkerHost> host = CreateHost();
 
   // Start the worker.
-  mojom::SharedWorkerFactoryPtr factory;
+  blink::mojom::SharedWorkerFactoryPtr factory;
   MockSharedWorkerFactory factory_impl(mojo::MakeRequest(&factory));
   StartWorker(host.get(), std::move(factory));
 

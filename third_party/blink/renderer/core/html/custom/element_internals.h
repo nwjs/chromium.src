@@ -43,7 +43,7 @@ class ElementInternals : public ScriptWrappable, public ListedElement {
   String ValidationMessageForBinding(ExceptionState& exception_state);
   bool checkValidity(ExceptionState& exception_state);
   bool reportValidity(ExceptionState& exception_state);
-  LabelsNodeList* labels();
+  LabelsNodeList* labels(ExceptionState& exception_state);
 
  private:
   bool IsTargetFormAssociated() const;
@@ -67,6 +67,10 @@ class ElementInternals : public ScriptWrappable, public ListedElement {
   String validationMessage() const override;
   String ValidationSubMessage() const override;
   void DisabledStateMightBeChanged() override;
+  bool ClassSupportsStateRestore() const override;
+  bool ShouldSaveAndRestoreFormControlState() const override;
+  FormControlState SaveFormControlState() const override;
+  void RestoreFormControlState(const FormControlState& state) override;
 
   Member<HTMLElement> target_;
 

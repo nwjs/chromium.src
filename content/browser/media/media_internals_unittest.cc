@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "content/browser/media/session/media_session_impl.h"
+#include "content/public/common/service_manager_connection.h"
 #include "content/public/test/test_browser_thread_bundle.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_service_manager_context.h"
@@ -27,6 +28,7 @@
 #include "services/media_session/public/cpp/features.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
 #include "services/media_session/public/mojom/constants.mojom.h"
+#include "services/service_manager/public/cpp/connector.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace {
@@ -64,8 +66,9 @@ class MediaInternalsTestBase {
     std::string utf8_update = base::UTF16ToUTF8(update);
     const std::string::size_type first_brace = utf8_update.find('{');
     const std::string::size_type last_brace = utf8_update.rfind('}');
-    std::unique_ptr<base::Value> output_value = base::JSONReader::Read(
-        utf8_update.substr(first_brace, last_brace - first_brace + 1));
+    std::unique_ptr<base::Value> output_value =
+        base::JSONReader::ReadDeprecated(
+            utf8_update.substr(first_brace, last_brace - first_brace + 1));
     CHECK(output_value);
 
     base::DictionaryValue* output_dict = nullptr;
@@ -255,7 +258,15 @@ class MediaInternalsAudioLogTest
   const content::TestBrowserThreadBundle thread_bundle_;
 };
 
-TEST_P(MediaInternalsAudioLogTest, AudioLogCreateStartStopErrorClose) {
+#if defined(OS_LINUX) || defined(OS_FUCHSIA) || defined(OS_ANDROID)
+#define MAYBE_AudioLogCreateStartStopErrorClose \
+  DISABLED_AudioLogCreateStartStopErrorClose
+#else
+#define MAYBE_AudioLogCreateStartStopErrorClose \
+  AudioLogCreateStartStopErrorClose
+#endif
+
+TEST_P(MediaInternalsAudioLogTest, MAYBE_AudioLogCreateStartStopErrorClose) {
   audio_log_->OnCreated(test_params_, kTestDeviceID);
   base::RunLoop().RunUntilIdle();
 
@@ -304,7 +315,7 @@ TEST_P(MediaInternalsAudioLogTest, AudioLogCreateClose) {
   ExpectStatus("closed");
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     MediaInternalsAudioLogTest,
     MediaInternalsAudioLogTest,
     testing::Values(media::AudioLogFactory::AUDIO_INPUT_CONTROLLER,

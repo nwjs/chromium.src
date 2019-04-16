@@ -33,7 +33,6 @@
 #include "third_party/blink/renderer/platform/loader/testing/web_url_loader_factory_with_mock.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
-#include "third_party/blink/renderer/platform/waitable_event.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -60,24 +59,16 @@ class MockThreadableLoaderClient final
 
  public:
   MockThreadableLoaderClient() = default;
-  MOCK_METHOD2(DidSendData, void(unsigned long long, unsigned long long));
-  MOCK_METHOD3(DidReceiveResponseMock,
-               void(unsigned long,
-                    const ResourceResponse&,
-                    WebDataConsumerHandle*));
-  void DidReceiveResponse(
-      unsigned long identifier,
-      const ResourceResponse& response,
-      std::unique_ptr<WebDataConsumerHandle> handle) override {
-    DidReceiveResponseMock(identifier, response, handle.get());
-  }
+  MOCK_METHOD2(DidSendData, void(uint64_t, uint64_t));
+  MOCK_METHOD2(DidReceiveResponse,
+               void(unsigned long, const ResourceResponse&));
   MOCK_METHOD2(DidReceiveData, void(const char*, unsigned));
   MOCK_METHOD2(DidReceiveCachedMetadata, void(const char*, int));
   MOCK_METHOD1(DidFinishLoading, void(unsigned long));
   MOCK_METHOD1(DidFail, void(const ResourceError&));
   MOCK_METHOD0(DidFailRedirectCheck, void());
   MOCK_METHOD1(DidReceiveResourceTiming, void(const ResourceTimingInfo&));
-  MOCK_METHOD1(DidDownloadData, void(unsigned long long));
+  MOCK_METHOD1(DidDownloadData, void(uint64_t));
 };
 
 bool IsCancellation(const ResourceError& error) {
@@ -128,7 +119,7 @@ void SetUpRedirectURL() {
 
   WebURLResponse response;
   response.SetCurrentRequestUrl(url);
-  response.SetHTTPStatusCode(301);
+  response.SetHttpStatusCode(301);
   response.SetLoadTiming(timing);
   response.AddHTTPHeaderField("Location", SuccessURL().GetString());
   response.AddHTTPHeaderField("Access-Control-Allow-Origin", "http://fake.url");
@@ -145,7 +136,7 @@ void SetUpRedirectLoopURL() {
 
   WebURLResponse response;
   response.SetCurrentRequestUrl(url);
-  response.SetHTTPStatusCode(301);
+  response.SetHttpStatusCode(301);
   response.SetLoadTiming(timing);
   response.AddHTTPHeaderField("Location", RedirectLoopURL().GetString());
   response.AddHTTPHeaderField("Access-Control-Allow-Origin", "http://fake.url");
@@ -302,7 +293,7 @@ TEST_F(ThreadableLoaderTest, CancelInDidReceiveResponse) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _))
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _))
       .WillOnce(InvokeWithoutArgs(this, &ThreadableLoaderTest::CancelLoader));
   EXPECT_CALL(*Client(), DidFail(Truly(IsCancellation)));
 
@@ -318,7 +309,7 @@ TEST_F(ThreadableLoaderTest, CancelAndClearInDidReceiveResponse) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _))
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _))
       .WillOnce(
           InvokeWithoutArgs(this, &ThreadableLoaderTest::CancelAndClearLoader));
   EXPECT_CALL(*Client(), DidFail(Truly(IsCancellation)));
@@ -335,7 +326,7 @@ TEST_F(ThreadableLoaderTest, CancelInDidReceiveData) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(_, _))
       .WillOnce(InvokeWithoutArgs(this, &ThreadableLoaderTest::CancelLoader));
   EXPECT_CALL(*Client(), DidFail(Truly(IsCancellation)));
@@ -352,7 +343,7 @@ TEST_F(ThreadableLoaderTest, CancelAndClearInDidReceiveData) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(_, _))
       .WillOnce(
           InvokeWithoutArgs(this, &ThreadableLoaderTest::CancelAndClearLoader));
@@ -370,7 +361,7 @@ TEST_F(ThreadableLoaderTest, DidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(StrEq("fox"), 4));
   // We expect didReceiveResourceTiming() calls in ThreadableLoader.
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
@@ -388,7 +379,7 @@ TEST_F(ThreadableLoaderTest, CancelInDidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(_, _));
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
   EXPECT_CALL(*Client(), DidFinishLoading(_))
@@ -406,7 +397,7 @@ TEST_F(ThreadableLoaderTest, ClearInDidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(_, _));
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
   EXPECT_CALL(*Client(), DidFinishLoading(_))
@@ -534,7 +525,7 @@ TEST_F(ThreadableLoaderTest, RedirectDidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(StrEq("fox"), 4));
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
   EXPECT_CALL(*Client(), DidFinishLoading(_));
@@ -551,7 +542,7 @@ TEST_F(ThreadableLoaderTest, CancelInRedirectDidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(StrEq("fox"), 4));
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
   EXPECT_CALL(*Client(), DidFinishLoading(_))
@@ -569,7 +560,7 @@ TEST_F(ThreadableLoaderTest, ClearInRedirectDidFinishLoading) {
   CallCheckpoint(1);
 
   EXPECT_CALL(GetCheckpoint(), Call(2));
-  EXPECT_CALL(*Client(), DidReceiveResponseMock(_, _, _));
+  EXPECT_CALL(*Client(), DidReceiveResponse(_, _));
   EXPECT_CALL(*Client(), DidReceiveData(StrEq("fox"), 4));
   EXPECT_CALL(*Client(), DidReceiveResourceTiming(_));
   EXPECT_CALL(*Client(), DidFinishLoading(_))

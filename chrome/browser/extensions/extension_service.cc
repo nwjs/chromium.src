@@ -13,6 +13,7 @@
 #include <set>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/debug/alias.h"
 #include "base/debug/dump_without_crashing.h"
@@ -48,7 +49,7 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/external_install_manager.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
-#include "chrome/browser/extensions/forced_extensions/installation_failures.h"
+#include "chrome/browser/extensions/forced_extensions/installation_reporter.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/installed_loader.h"
 #include "chrome/browser/extensions/pending_extension_manager.h"
@@ -222,9 +223,9 @@ bool ExtensionService::OnExternalExtensionUpdateUrlFound(
             info.extension_id) &&
         current == Manifest::GetHigherPriorityLocation(
                        current, info.download_location)) {
-      InstallationFailures::ReportFailure(
+      InstallationReporter::ReportFailure(
           profile_, info.extension_id,
-          InstallationFailures::Reason::ALREADY_INSTALLED);
+          InstallationReporter::FailureReason::ALREADY_INSTALLED);
       return false;
     }
     // Otherwise, overwrite the current installation.
@@ -234,10 +235,15 @@ bool ExtensionService::OnExternalExtensionUpdateUrlFound(
   // be added, then there is already a pending record from a higher-priority
   // install source.  In this case, signal that this extension will not be
   // installed by returning false.
+  InstallationReporter::ReportInstallationStage(
+      profile_, info.extension_id, InstallationReporter::Stage::PENDING);
   if (!pending_extension_manager()->AddFromExternalUpdateUrl(
           info.extension_id, info.install_parameter, info.update_url,
           info.download_location, info.creation_flags,
           info.mark_acknowledged)) {
+    InstallationReporter::ReportFailure(
+        profile_, info.extension_id,
+        InstallationReporter::FailureReason::PENDING_ADD_FAILED);
     return false;
   }
 

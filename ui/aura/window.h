@@ -454,6 +454,10 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   Env* env() { return env_; }
   const Env* env() const { return env_; }
 
+  // Notifies observers of the state of a resize loop.
+  void NotifyResizeLoopStarted();
+  void NotifyResizeLoopEnded();
+
 #if DCHECK_IS_ON()
   // If passed a non-null value then a non-null aura::Env must be supplied to
   // the constructor. |error_string| is the string supplied to the DCHECK
@@ -579,8 +583,8 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   EventTarget* GetParentTarget() override;
   std::unique_ptr<ui::EventTargetIterator> GetChildIterator() const override;
   ui::EventTargeter* GetEventTargeter() override;
-  void ConvertEventToTarget(ui::EventTarget* target,
-                            ui::LocatedEvent* event) override;
+  void ConvertEventToTarget(const ui::EventTarget* target,
+                            ui::LocatedEvent* event) const override;
   gfx::PointF GetScreenLocationF(const ui::LocatedEvent& event) const override;
 
   // Updates the layer name based on the window's name and id.
@@ -653,6 +657,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
 
   // Whether layer is initialized as non-opaque. Defaults to false.
   bool transparent_;
+
+  // Whether it's in a process of CleanupGestureState() or not.
+  bool cleaning_up_gesture_state_ = false;
 
   std::unique_ptr<LayoutManager> layout_manager_;
   std::unique_ptr<WindowTargeter> targeter_;

@@ -12,6 +12,8 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
+#include "base/bind_helpers.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
 #include "base/test/scoped_feature_list.h"
@@ -39,6 +41,7 @@
 #include "components/viz/test/test_shared_bitmap_manager.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/context_support.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkMatrix.h"
@@ -227,7 +230,7 @@ class GLRendererShaderPixelTest : public cc::GLRendererPixelTest {
 
   void TestColorShaders() {
     const size_t kNumTransferFns = 7;
-    SkColorSpaceTransferFn transfer_fns[kNumTransferFns] = {
+    skcms_TransferFunction transfer_fns[kNumTransferFns] = {
         // The identity.
         {1.f, 1.f, 0.f, 1.f, 0.f, 0.f, 0.f},
         // The identity, with an if statement.
@@ -399,9 +402,9 @@ TEST_P(PrecisionShaderPixelTest, ShadersCompile) {
   TestShadersWithPrecision(GetParam());
 }
 
-INSTANTIATE_TEST_CASE_P(PrecisionShadersCompile,
-                        PrecisionShaderPixelTest,
-                        ::testing::ValuesIn(kPrecisionList));
+INSTANTIATE_TEST_SUITE_P(PrecisionShadersCompile,
+                         PrecisionShaderPixelTest,
+                         ::testing::ValuesIn(kPrecisionList));
 
 class PrecisionBlendShaderPixelTest
     : public GLRendererShaderPixelTest,
@@ -413,7 +416,7 @@ TEST_P(PrecisionBlendShaderPixelTest, ShadersCompile) {
                                    std::get<1>(GetParam()));
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     PrecisionBlendShadersCompile,
     PrecisionBlendShaderPixelTest,
     ::testing::Combine(::testing::ValuesIn(kPrecisionList),
@@ -429,10 +432,10 @@ TEST_P(PrecisionSamplerShaderPixelTest, ShadersCompile) {
                                      std::get<1>(GetParam()));
 }
 
-INSTANTIATE_TEST_CASE_P(PrecisionSamplerShadersCompile,
-                        PrecisionSamplerShaderPixelTest,
-                        ::testing::Combine(::testing::ValuesIn(kPrecisionList),
-                                           ::testing::ValuesIn(kSamplerList)));
+INSTANTIATE_TEST_SUITE_P(PrecisionSamplerShadersCompile,
+                         PrecisionSamplerShaderPixelTest,
+                         ::testing::Combine(::testing::ValuesIn(kPrecisionList),
+                                            ::testing::ValuesIn(kSamplerList)));
 
 class MaskShaderPixelTest
     : public GLRendererShaderPixelTest,
@@ -444,12 +447,12 @@ TEST_P(MaskShaderPixelTest, ShadersCompile) {
                        std::get<2>(GetParam()), std::get<3>(GetParam()));
 }
 
-INSTANTIATE_TEST_CASE_P(MaskShadersCompile,
-                        MaskShaderPixelTest,
-                        ::testing::Combine(::testing::ValuesIn(kPrecisionList),
-                                           ::testing::ValuesIn(kSamplerList),
-                                           ::testing::ValuesIn(kBlendModeList),
-                                           ::testing::Bool()));
+INSTANTIATE_TEST_SUITE_P(MaskShadersCompile,
+                         MaskShaderPixelTest,
+                         ::testing::Combine(::testing::ValuesIn(kPrecisionList),
+                                            ::testing::ValuesIn(kSamplerList),
+                                            ::testing::ValuesIn(kBlendModeList),
+                                            ::testing::Bool()));
 
 #endif
 
@@ -2046,12 +2049,6 @@ class MockOutputSurface : public OutputSurface {
   MOCK_METHOD0(GetFramebufferCopyTextureFormat, GLenum());
   MOCK_METHOD1(SwapBuffers_, void(OutputSurfaceFrame& frame));  // NOLINT
   void SwapBuffers(OutputSurfaceFrame frame) override { SwapBuffers_(frame); }
-#if BUILDFLAG(ENABLE_VULKAN)
-  gpu::VulkanSurface* GetVulkanSurface() override {
-    NOTREACHED();
-    return nullptr;
-  }
-#endif
   MOCK_CONST_METHOD0(GetOverlayCandidateValidator,
                      OverlayCandidateValidator*());
   MOCK_CONST_METHOD0(IsDisplayedAsOverlayPlane, bool());
@@ -2223,8 +2220,9 @@ TEST_F(GLRendererTest, DontOverlayWithCopyRequests) {
   std::vector<ResourceId> resource_ids_to_transfer;
   resource_ids_to_transfer.push_back(resource_id);
   std::vector<TransferableResource> list;
-  child_resource_provider->PrepareSendToParent(resource_ids_to_transfer, &list,
-                                               child_context_provider.get());
+  child_resource_provider->PrepareSendToParent(
+      resource_ids_to_transfer, &list,
+      static_cast<RasterContextProvider*>(child_context_provider.get()));
   parent_resource_provider->ReceiveFromChild(child_id, list);
 
   // In DisplayResourceProvider's namespace, use the mapped resource id.
@@ -2435,8 +2433,9 @@ TEST_F(GLRendererTest, OverlaySyncTokensAreProcessed) {
   std::vector<ResourceId> resource_ids_to_transfer;
   resource_ids_to_transfer.push_back(resource_id);
   std::vector<TransferableResource> list;
-  child_resource_provider->PrepareSendToParent(resource_ids_to_transfer, &list,
-                                               child_context_provider.get());
+  child_resource_provider->PrepareSendToParent(
+      resource_ids_to_transfer, &list,
+      static_cast<RasterContextProvider*>(child_context_provider.get()));
   parent_resource_provider->ReceiveFromChild(child_id, list);
 
   // In DisplayResourceProvider's namespace, use the mapped resource id.
@@ -2821,8 +2820,9 @@ TEST_F(GLRendererTest, DCLayerOverlaySwitch) {
   std::vector<ResourceId> resource_ids_to_transfer;
   resource_ids_to_transfer.push_back(resource_id);
   std::vector<TransferableResource> list;
-  child_resource_provider->PrepareSendToParent(resource_ids_to_transfer, &list,
-                                               child_context_provider.get());
+  child_resource_provider->PrepareSendToParent(
+      resource_ids_to_transfer, &list,
+      static_cast<RasterContextProvider*>(child_context_provider.get()));
   parent_resource_provider->ReceiveFromChild(child_id, list);
   // In DisplayResourceProvider's namespace, use the mapped resource id.
   std::unordered_map<ResourceId, ResourceId> resource_map =

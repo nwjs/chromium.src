@@ -5,7 +5,7 @@
 #include <fuchsia/fonts/cpp/fidl.h>
 #include <lib/fidl/cpp/binding.h>
 
-#include "base/fuchsia/component_context.h"
+#include "base/fuchsia/service_directory_client.h"
 #include "base/path_service.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkFontMgr.h"
@@ -19,7 +19,7 @@ class FuchsiaFontManagerTest : public testing::Test {
  public:
   FuchsiaFontManagerTest() {
     font_manager_ = SkFontMgr_New_Fuchsia(
-        base::fuchsia::ComponentContext::GetDefault()
+        base::fuchsia::ServiceDirectoryClient::ForCurrentProcess()
             ->ConnectToServiceSync<fuchsia::fonts::Provider>());
   }
 
@@ -28,7 +28,10 @@ class FuchsiaFontManagerTest : public testing::Test {
 };
 
 // Verify that SkTypeface objects are cached.
-TEST_F(FuchsiaFontManagerTest, Caching) {
+// TODO(https://crbug.com/931333): Currently font provider returns the same
+// font for sans and serif when used with the default font config. Update this
+// test to use the fonts //third_party/test_fonts.
+TEST_F(FuchsiaFontManagerTest, DISABLED_Caching) {
   sk_sp<SkTypeface> sans(
       font_manager_->matchFamilyStyle("sans", SkFontStyle()));
   EXPECT_TRUE(sans);

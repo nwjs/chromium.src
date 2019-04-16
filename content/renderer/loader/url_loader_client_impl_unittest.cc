@@ -69,8 +69,7 @@ class URLLoaderClientImplTest : public ::testing::TestWithParam<bool>,
                                           &request_peer_context_),
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(this),
         std::vector<std::unique_ptr<URLLoaderThrottle>>(),
-        nullptr /* navigation_response_override_params */,
-        nullptr /* continue_navigation_function */);
+        nullptr /* navigation_response_override_params */);
     request_peer_context_.request_id = request_id_;
 
     base::RunLoop().RunUntilIdle();
@@ -115,9 +114,9 @@ class URLLoaderClientImplTest : public ::testing::TestWithParam<bool>,
   network::mojom::URLLoaderClientPtr url_loader_client_;
 };
 
-INSTANTIATE_TEST_CASE_P(URLLoaderClientImplTestP,
-                        URLLoaderClientImplTest,
-                        ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(URLLoaderClientImplTestP,
+                         URLLoaderClientImplTest,
+                         ::testing::Bool());
 
 TEST_P(URLLoaderClientImplTest, OnReceiveResponse) {
   network::ResourceResponseHead response_head;

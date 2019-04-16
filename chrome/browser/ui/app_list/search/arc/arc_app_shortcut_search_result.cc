@@ -9,13 +9,13 @@
 
 #include "ash/public/cpp/app_list/app_list_config.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
+#include "base/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/chromeos/arc/icon_decode_request.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_utils.h"
-#include "chrome/browser/ui/app_list/search/search_util.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 
@@ -36,6 +36,7 @@ ArcAppShortcutSearchResult::ArcAppShortcutSearchResult(
   set_id(kAppShortcutSearchPrefix + GetAppId() + "/" + data_->shortcut_id);
   SetDisplayType(ash::SearchResultDisplayType::kTile);
   SetAccessibleName(ComputeAccessibleName());
+  SetResultType(ash::SearchResultType::kArcAppShortcut);
 
   const int icon_dimension =
       app_list::AppListConfig::instance().search_tile_icon_dimension();
@@ -55,9 +56,12 @@ ArcAppShortcutSearchResult::ArcAppShortcutSearchResult(
 ArcAppShortcutSearchResult::~ArcAppShortcutSearchResult() = default;
 
 void ArcAppShortcutSearchResult::Open(int event_flags) {
-  RecordHistogram(PLAY_STORE_APP_SHORTCUT);
   arc::LaunchAppShortcutItem(profile_, GetAppId(), data_->shortcut_id,
                              list_controller_->GetAppListDisplayId());
+}
+
+SearchResultType ArcAppShortcutSearchResult::GetSearchResultType() const {
+  return PLAY_STORE_APP_SHORTCUT;
 }
 
 void ArcAppShortcutSearchResult::OnAppImageUpdated(

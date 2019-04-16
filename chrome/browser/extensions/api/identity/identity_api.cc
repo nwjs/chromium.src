@@ -165,7 +165,7 @@ bool IdentityAPI::AreExtensionsRestrictedToPrimaryAccount() {
 }
 
 void IdentityAPI::OnRefreshTokenUpdatedForAccount(
-    const AccountInfo& account_info) {
+    const CoreAccountInfo& account_info) {
   // Refresh tokens are sometimes made available in contexts where
   // AccountTrackerService is not tracking the account in question (one example
   // is SupervisedUserService::InitSync()). Bail out in these cases.
@@ -175,7 +175,8 @@ void IdentityAPI::OnRefreshTokenUpdatedForAccount(
   FireOnAccountSignInChanged(account_info.gaia, true);
 }
 
-void IdentityAPI::OnAccountRemovedWithInfo(const AccountInfo& account_info) {
+void IdentityAPI::OnExtendedAccountInfoRemoved(
+    const AccountInfo& account_info) {
   DCHECK(!account_info.gaia.empty());
   FireOnAccountSignInChanged(account_info.gaia, false);
 }

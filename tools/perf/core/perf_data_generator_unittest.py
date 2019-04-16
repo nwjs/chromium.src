@@ -72,13 +72,13 @@ class PerfDataGeneratorTest(unittest.TestCase):
     expected_generated_test = {
         'override_compile_targets': ['angle_perftest'],
         'isolate_name': 'angle_perftest',
-        'args': ['--gtest-benchmark-name', 'angle_perftest',
-                 '--non-telemetry=true', '--migrated-test=true'],
+        'args': ['--gtest-benchmark-name', 'angle_perftest'],
         'trigger_script': {
           'args': [
             '--multiple-dimension-script-verbose',
             'True'
           ],
+          'requires_simultaneous_shard_dispatch': True,
           'script': '//testing/trigger_scripts/perf_device_trigger.py'
         },
         'merge': {
@@ -90,7 +90,6 @@ class PerfDataGeneratorTest(unittest.TestCase):
           'expiration': 7200,
           'io_timeout': 1800,
           'hard_timeout': 36000,
-          'upload_test_results': True,
           'dimension_sets': [[{'os': 'SkyNet', 'pool': 'T-RIP'}]],
           'shards': 1
         },
@@ -121,7 +120,8 @@ class PerfDataGeneratorTest(unittest.TestCase):
         'override_compile_targets': ['performance_test_suite'],
         'isolate_name': 'performance_test_suite',
         'args': ['-v', '--browser=android-webview', '--upload-results',
-                 '--webview-embedder-apk=../../out/Release/apks/SystemWebViewShell.apk',
+                 '--webview-embedder-apk=../../out/Release'
+                 '/apks/SystemWebViewShell.apk',
                  '--run-ref-build',
                  '--test-shard-map-filename=shard_map.json'],
         'trigger_script': {
@@ -129,6 +129,7 @@ class PerfDataGeneratorTest(unittest.TestCase):
             '--multiple-dimension-script-verbose',
             'True'
           ],
+          'requires_simultaneous_shard_dispatch': True,
           'script': '//testing/trigger_scripts/perf_device_trigger.py'
         },
         'merge': {
@@ -140,7 +141,6 @@ class PerfDataGeneratorTest(unittest.TestCase):
           'expiration': 7200,
           'io_timeout': 1800,
           'hard_timeout': 36000,
-          'upload_test_results': True,
           'dimension_sets': [[{'os': 'SkyNet', 'pool': 'T-RIP'}]],
           'shards': 26
         },
@@ -178,6 +178,7 @@ class PerfDataGeneratorTest(unittest.TestCase):
             '--multiple-dimension-script-verbose',
             'True'
           ],
+          'requires_simultaneous_shard_dispatch': True,
           'script': '//testing/trigger_scripts/perf_device_trigger.py'
         },
         'merge': {
@@ -189,7 +190,6 @@ class PerfDataGeneratorTest(unittest.TestCase):
           'expiration': 7200,
           'io_timeout': 1800,
           'hard_timeout': 36000,
-          'upload_test_results': True,
           'dimension_sets': [[{'os': 'SkyNet', 'pool': 'T-RIP'}]],
           'shards': 26
         },

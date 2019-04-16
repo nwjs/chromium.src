@@ -18,27 +18,22 @@
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "net/base/completion_callback.h"
+#include "net/base/host_port_pair.h"
 #include "net/base/io_buffer.h"
 #include "net/cert/cert_verifier.h"
 #include "net/cert/cert_verify_result.h"
 #include "net/cert/ct_verify_result.h"
 #include "net/log/net_log_with_source.h"
-#include "net/socket/client_socket_handle.h"
 #include "net/socket/next_proto.h"
 #include "net/socket/socket_bio_adapter.h"
 #include "net/socket/ssl_client_socket.h"
+#include "net/socket/stream_socket.h"
 #include "net/ssl/openssl_ssl_util.h"
 #include "net/ssl/ssl_client_cert_type.h"
 #include "net/ssl/ssl_config.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "third_party/boringssl/src/include/openssl/base.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
-
-namespace base {
-namespace trace_event {
-class ProcessMemoryDump;
-}
-}
 
 namespace crypto {
 class OpenSSLErrStackTracer;
@@ -55,20 +50,17 @@ class SSLKeyLogger;
 class SSLClientSocketImpl : public SSLClientSocket,
                             public SocketBIOAdapter::Delegate {
  public:
-  // Takes ownership of the transport_socket, which may already be connected.
+  // Takes ownership of |stream_socket|, which may already be connected.
   // The given hostname will be compared with the name(s) in the server's
-  // certificate during the SSL handshake.  ssl_config specifies the SSL
+  // certificate during the SSL handshake.  |ssl_config| specifies the SSL
   // settings.
-  SSLClientSocketImpl(std::unique_ptr<ClientSocketHandle> transport_socket,
+  SSLClientSocketImpl(std::unique_ptr<StreamSocket> stream_socket,
                       const HostPortPair& host_and_port,
                       const SSLConfig& ssl_config,
                       const SSLClientSocketContext& context);
   ~SSLClientSocketImpl() override;
 
   const HostPortPair& host_and_port() const { return host_and_port_; }
-  const std::string& ssl_session_cache_shard() const {
-    return ssl_session_cache_shard_;
-  }
 
   // Log SSL key material to |logger|. Must be called before any
   // SSLClientSockets are created.
@@ -103,10 +95,6 @@ class SSLClientSocketImpl : public SSLClientSocket,
       SSLCertRequestInfo* cert_request_info) const override;
 
   void ApplySocketTag(const SocketTag& tag) override;
-
-  // Dumps memory allocation stats. |pmd| is the browser process memory dump.
-  static void DumpSSLClientSessionMemoryStats(
-      base::trace_event::ProcessMemoryDump* pmd);
 
   // Socket implementation.
   int Read(IOBuffer* buf,
@@ -176,12 +164,14 @@ class SSLClientSocketImpl : public SSLClientSocket,
   // the |ssl_info|.signed_certificate_timestamps list.
   void AddCTInfoToSSLInfo(SSLInfo* ssl_info) const;
 
-  // Returns a unique key string for the SSL session cache for this socket. This
-  // must not be called if |ssl_session_cache_shard_| is empty.
+  // Returns a unique key string for the SSL session cache for this socket.
   std::string GetSessionCacheKey() const;
 
   // Returns true if renegotiations are allowed.
   bool IsRenegotiationAllowed() const;
+
+  // Returns true when we should be using the ssl_client_session_cache_
+  bool IsCachingEnabled() const;
 
   // Callbacks for operations with the private key.
   ssl_private_key_result_t PrivateKeySignCallback(uint8_t* out,
@@ -268,14 +258,12 @@ class SSLClientSocketImpl : public SSLClientSocket,
   // OpenSSL stuff
   bssl::UniquePtr<SSL> ssl_;
 
-  std::unique_ptr<ClientSocketHandle> transport_;
+  std::unique_ptr<StreamSocket> stream_socket_;
   std::unique_ptr<SocketBIOAdapter> transport_adapter_;
   const HostPortPair host_and_port_;
   SSLConfig ssl_config_;
-  // ssl_session_cache_shard_ is an opaque string that partitions the SSL
-  // session cache. i.e. sessions created with one value will not attempt to
-  // resume on the socket with a different value.
-  const std::string ssl_session_cache_shard_;
+  // ssl_client_session_cache_ is a non-owning pointer to session cache
+  SSLClientSessionCache* ssl_client_session_cache_;
 
   enum State {
     STATE_NONE,

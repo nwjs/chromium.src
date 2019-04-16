@@ -235,9 +235,9 @@ void ElementRuleCollector::CollectMatchingRules(
   if (SelectorChecker::MatchesFocusPseudoClass(element))
     CollectMatchingRulesForList(match_request.rule_set->FocusPseudoClassRules(),
                                 cascade_order, match_request);
-  if (SelectorChecker::MatchesSpatialNavigationFocusPseudoClass(element)) {
+  if (SelectorChecker::MatchesSpatialNavigationInterestPseudoClass(element)) {
     CollectMatchingRulesForList(
-        match_request.rule_set->SpatialNavigationFocusPseudoClassRules(),
+        match_request.rule_set->SpatialNavigationInterestPseudoClassRules(),
         cascade_order, match_request);
   }
   AtomicString element_name = matching_ua_rules_
@@ -274,13 +274,10 @@ CSSRule* ElementRuleCollector::FindStyleRule(CSSRuleCollection* css_rules,
   CSSRule* result = nullptr;
   for (unsigned i = 0; i < css_rules->length() && !result; ++i) {
     CSSRule* css_rule = css_rules->item(i);
-    CSSRule::Type css_rule_type = css_rule->type();
-    if (css_rule_type == CSSRule::kStyleRule) {
-      CSSStyleRule* css_style_rule = ToCSSStyleRule(css_rule);
+    if (auto* css_style_rule = DynamicTo<CSSStyleRule>(css_rule)) {
       if (css_style_rule->GetStyleRule() == style_rule)
         result = css_rule;
-    } else if (css_rule_type == CSSRule::kImportRule) {
-      CSSImportRule* css_import_rule = ToCSSImportRule(css_rule);
+    } else if (auto* css_import_rule = DynamicTo<CSSImportRule>(css_rule)) {
       result = FindStyleRule(css_import_rule->styleSheet(), style_rule);
     } else {
       result = FindStyleRule(css_rule->cssRules(), style_rule);

@@ -60,6 +60,7 @@ GpuChannelManager::GpuChannelManager(
     scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
     Scheduler* scheduler,
     SyncPointManager* sync_point_manager,
+    SharedImageManager* shared_image_manager,
     GpuMemoryBufferFactory* gpu_memory_buffer_factory,
     const GpuFeatureInfo& gpu_feature_info,
     GpuProcessActivityFlags activity_flags,
@@ -77,6 +78,7 @@ GpuChannelManager::GpuChannelManager(
       mailbox_manager_(gles2::CreateMailboxManager(gpu_preferences)),
       scheduler_(scheduler),
       sync_point_manager_(sync_point_manager),
+      shared_image_manager_(shared_image_manager),
       shader_translator_cache_(gpu_preferences_),
       default_offscreen_surface_(std::move(default_offscreen_surface)),
       gpu_memory_buffer_factory_(gpu_memory_buffer_factory),
@@ -97,8 +99,7 @@ GpuChannelManager::GpuChannelManager(
        gpu::kGpuFeatureStatusEnabled) ||
       features::IsUsingSkiaRenderer();
   const bool disable_disk_cache =
-      gpu_preferences_.disable_gpu_shader_disk_cache ||
-      gpu_driver_bug_workarounds_.disable_program_disk_cache;
+      gpu_preferences_.disable_gpu_shader_disk_cache;
   if (enable_gr_shader_cache && !disable_disk_cache)
     gr_shader_cache_.emplace(gpu_preferences.gpu_program_cache_size, this);
 }

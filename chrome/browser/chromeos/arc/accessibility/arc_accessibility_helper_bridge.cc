@@ -9,10 +9,12 @@
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/system/message_center/arc/arc_notification_surface.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/memory/singleton.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/app_list/arc/arc_app_list_prefs_factory.h"
+#include "chrome/common/extensions/api/accessibility_private.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/arc/arc_bridge_service.h"
 #include "components/arc/arc_browser_context_keyed_service_factory_base.h"
@@ -256,12 +258,11 @@ void ArcAccessibilityHelperBridge::OnAccessibilityEvent(
   arc::mojom::AccessibilityFilterType filter_type =
       GetFilterTypeForProfile(profile_);
 
-  if (filter_type == arc::mojom::AccessibilityFilterType::OFF)
-    return;
+  DCHECK(
+      filter_type !=
+      arc::mojom::AccessibilityFilterType::WHITELISTED_PACKAGE_NAME_DEPRECATED);
 
-  if (filter_type == arc::mojom::AccessibilityFilterType::ALL ||
-      filter_type ==
-          arc::mojom::AccessibilityFilterType::WHITELISTED_PACKAGE_NAME) {
+  if (filter_type == arc::mojom::AccessibilityFilterType::ALL) {
     if (event_data->node_data.empty())
       return;
 
@@ -291,6 +292,21 @@ void ArcAccessibilityHelperBridge::OnAccessibilityEvent(
       }
 
       tree_source = input_method_tree_.get();
+    } else if (event_data->event_type ==
+                   arc::mojom::AccessibilityEventType::ANNOUNCEMENT &&
+               event_data->eventText.has_value()) {
+      extensions::EventRouter* event_router =
+          extensions::EventRouter::Get(profile_);
+      std::unique_ptr<base::ListValue> event_args(
+          extensions::api::accessibility_private::OnAnnounceForAccessibility::
+              Create(*(event_data->eventText)));
+      std::unique_ptr<extensions::Event> event(new extensions::Event(
+          extensions::events::
+              ACCESSIBILITY_PRIVATE_ON_ANNOUNCE_FOR_ACCESSIBILITY,
+          extensions::api::accessibility_private::OnAnnounceForAccessibility::
+              kEventName,
+          std::move(event_args)));
+      event_router->BroadcastEvent(std::move(event));
     } else {
       if (event_data->task_id == kNoTaskId)
         return;
@@ -341,9 +357,7 @@ void ArcAccessibilityHelperBridge::OnAccessibilityEvent(
               ax::mojom::Event::kTextSelectionChanged, true);
         }
       }
-    } else if (!is_notification_event &&
-               event_data->event_type ==
-                   arc::mojom::AccessibilityEventType::WINDOW_STATE_CHANGED) {
+    } else if (!is_notification_event) {
       UpdateWindowProperties(GetActiveWindow());
     }
 
@@ -627,9 +641,7 @@ void ArcAccessibilityHelperBridge::UpdateFilterType() {
     instance->SetFilter(filter_type);
 
   bool add_activation_observer =
-      filter_type == arc::mojom::AccessibilityFilterType::ALL ||
-      filter_type ==
-          arc::mojom::AccessibilityFilterType::WHITELISTED_PACKAGE_NAME;
+      filter_type == arc::mojom::AccessibilityFilterType::ALL;
   if (add_activation_observer == activation_observer_added_)
     return;
 

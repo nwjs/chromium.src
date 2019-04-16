@@ -129,10 +129,6 @@ void AndroidTelemetryService::OnDownloadCreated(
     return;
   }
 
-  if (item->GetMimeType() != kApkMimeType) {
-    return;
-  }
-
   if (!CanSendPing(item)) {
     return;
   }
@@ -165,13 +161,9 @@ void AndroidTelemetryService::OnDownloadUpdated(download::DownloadItem* item) {
 }
 
 bool AndroidTelemetryService::CanSendPing(download::DownloadItem* item) {
-  content::WebContents* web_contents =
-      content::DownloadItemUtils::GetWebContents(item);
-  if (!web_contents) {
-    // TODO(vakh): This can happen sometimes when a download resumes on a
-    // browser re-launch. Identify this case and document it better.
-    RecordApkDownloadTelemetryOutcome(
-        ApkDownloadTelemetryOutcome::NOT_SENT_MISSING_WEB_CONTENTS);
+  if (item->GetMimeType() != kApkMimeType) {
+    // This case is not recorded since we are not interested here in finding out
+    // how often people download non-APK files.
     return false;
   }
 
@@ -181,7 +173,7 @@ bool AndroidTelemetryService::CanSendPing(download::DownloadItem* item) {
     return false;
   }
 
-  if (web_contents->GetBrowserContext()->IsOffTheRecord()) {
+  if (profile_->IsOffTheRecord()) {
     RecordApkDownloadTelemetryOutcome(
         ApkDownloadTelemetryOutcome::NOT_SENT_INCOGNITO);
     return false;
@@ -247,8 +239,19 @@ void AndroidTelemetryService::FillReferrerChain(
 }
 
 void AndroidTelemetryService::MaybeCaptureSafetyNetId() {
-  // NO-OP on M73.
-  return;
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  DCHECK(sb_service_->database_manager());
+  if (!safety_net_id_on_ui_thread_.empty() ||
+      !sb_service_->database_manager()->IsSupported()) {
+    return;
+  }
+
+  base::PostTaskWithTraitsAndReplyWithResult(
+      FROM_HERE, {content::BrowserThread::IO},
+      base::BindOnce(&SafeBrowsingDatabaseManager::GetSafetyNetId,
+                     sb_service_->database_manager()),
+      base::BindOnce(&AndroidTelemetryService::SetSafetyNetIdOnUIThread,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void AndroidTelemetryService::MaybeSendApkDownloadReport(

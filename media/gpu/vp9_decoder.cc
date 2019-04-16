@@ -261,9 +261,13 @@ gfx::Size VP9Decoder::GetPicSize() const {
 }
 
 size_t VP9Decoder::GetRequiredNumOfPictures() const {
-  // kMaxVideoFrames to keep higher level media pipeline populated, +2 for the
-  // pictures being parsed and decoded currently.
-  return limits::kMaxVideoFrames + kVp9NumRefFrames + 2;
+  constexpr size_t kPicsInPipeline = limits::kMaxVideoFrames + 1;
+  return kPicsInPipeline + GetNumReferenceFrames();
+}
+
+size_t VP9Decoder::GetNumReferenceFrames() const {
+  // Maximum number of reference frames
+  return kVp9NumRefFrames;
 }
 
 }  // namespace media

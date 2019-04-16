@@ -54,7 +54,6 @@
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image_factory.h"
 #include "gpu/command_buffer/service/sync_point_manager.h"
-#include "gpu/command_buffer/service/transfer_buffer_manager.h"
 #include "gpu/command_buffer/service/webgpu_decoder.h"
 #include "gpu/config/gpu_crash_keys.h"
 #include "gpu/config/gpu_feature_info.h"
@@ -389,10 +388,6 @@ gpu::ContextResult InProcessCommandBuffer::InitializeOnGpuThread(
     return gpu::ContextResult::kTransientFailure;
   }
 
-  // TODO(crbug.com/832243): This could use the TransferBufferManager owned by
-  // |context_group_| instead.
-  transfer_buffer_manager_ = std::make_unique<TransferBufferManager>(nullptr);
-
   GpuDriverBugWorkarounds workarounds(
       task_executor_->gpu_feature_info().enabled_gpu_driver_bug_workarounds);
 
@@ -448,7 +443,7 @@ gpu::ContextResult InProcessCommandBuffer::InitializeOnGpuThread(
                                                                         : "0");
 
   command_buffer_ = std::make_unique<CommandBufferService>(
-      this, transfer_buffer_manager_.get());
+      this, context_group_->memory_tracker());
 
   if (!surface_) {
     if (params.is_offscreen) {
@@ -604,7 +599,9 @@ gpu::ContextResult InProcessCommandBuffer::InitializeOnGpuThread(
 
       decoder_.reset(raster::RasterDecoder::Create(
           this, command_buffer_.get(), task_executor_->outputter(),
-          context_group_.get(), context_state_));
+          task_executor_->gpu_feature_info(), task_executor_->gpu_preferences(),
+          context_group_->memory_tracker(),
+          task_executor_->shared_image_manager(), context_state_));
     } else {
       decoder_.reset(gles2::GLES2Decoder::Create(this, command_buffer_.get(),
                                                  task_executor_->outputter(),
@@ -679,6 +676,9 @@ gpu::ContextResult InProcessCommandBuffer::InitializeOnGpuThread(
 
   image_factory_ = params.image_factory;
 
+  if (gpu_channel_manager_delegate_)
+    gpu_channel_manager_delegate_->DidCreateContextSuccessfully();
+
   return gpu::ContextResult::kSuccess;
 }
 
@@ -726,7 +726,6 @@ bool InProcessCommandBuffer::DestroyOnGpuThread() {
     decoder_.reset();
   }
   command_buffer_.reset();
-  transfer_buffer_manager_.reset();
   surface_ = nullptr;
 
   context_ = nullptr;
@@ -1196,6 +1195,14 @@ void InProcessCommandBuffer::ScheduleGrContextCleanup() {
     gr_cache_controller_->ScheduleGrContextCleanup();
 }
 
+void InProcessCommandBuffer::HandleReturnData(base::span<const uint8_t> data) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
+  std::vector<uint8_t> vec(data.data(), data.data() + data.size());
+  PostOrRunClientCallback(base::BindOnce(
+      &InProcessCommandBuffer::HandleReturnDataOnOriginThread,
+      client_thread_weak_ptr_factory_.GetWeakPtr(), std::move(vec)));
+}
+
 void InProcessCommandBuffer::PostOrRunClientCallback(
     base::OnceClosure callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(gpu_sequence_checker_);
@@ -1551,6 +1558,14 @@ void InProcessCommandBuffer::BufferPresentedOnOriginThread(
       ShouldUpdateVsyncParams(feedback)) {
     update_vsync_parameters_completion_callback_.Run(feedback.timestamp,
                                                      feedback.interval);
+  }
+}
+
+void InProcessCommandBuffer::HandleReturnDataOnOriginThread(
+    std::vector<uint8_t> data) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(client_sequence_checker_);
+  if (gpu_control_client_) {
+    gpu_control_client_->OnGpuControlReturnData(data);
   }
 }
 

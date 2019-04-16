@@ -10,10 +10,11 @@
 
 #include "ash/animation/animation_change_type.h"
 #include "ash/app_list/app_list_controller_impl.h"
-#include "ash/app_list/home_launcher_gesture_handler.h"
+#include "ash/app_list/app_list_metrics.h"
 #include "ash/app_list/model/app_list_view_state.h"
 #include "ash/app_list/views/app_list_view.h"
-#include "ash/public/cpp/app_list/app_list_constants.h"
+#include "ash/home_screen/home_launcher_gesture_handler.h"
+#include "ash/home_screen/home_screen_controller.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/root_window_controller.h"
@@ -179,7 +180,12 @@ ShelfLayoutManager::ShelfLayoutManager(ShelfWidget* shelf_widget, Shelf* shelf)
   DCHECK(shelf_widget_);
   DCHECK(shelf_);
   Shell::Get()->AddShellObserver(this);
+  Shell::Get()->overview_controller()->AddObserver(this);
   Shell::Get()->app_list_controller()->AddObserver(this);
+  Shell::Get()
+      ->home_screen_controller()
+      ->home_launcher_gesture_handler()
+      ->AddObserver(this);
   Shell::Get()->lock_state_controller()->AddObserver(this);
   Shell::Get()->activation_client()->AddObserver(this);
   Shell::Get()->locale_update_controller()->AddObserver(this);
@@ -200,10 +206,18 @@ ShelfLayoutManager::~ShelfLayoutManager() {
   Shell::Get()->locale_update_controller()->RemoveObserver(this);
   Shell::Get()->RemoveShellObserver(this);
   Shell::Get()->lock_state_controller()->RemoveObserver(this);
-  // AppListController is destroyed early when Shell is being destroyed, it may
-  // not exist.
+  // The following are destroyed early when Shell is being destroyed so they
+  // may not exist.
+  if (Shell::Get()->home_screen_controller()) {
+    Shell::Get()
+        ->home_screen_controller()
+        ->home_launcher_gesture_handler()
+        ->RemoveObserver(this);
+  }
   if (Shell::Get()->app_list_controller())
     Shell::Get()->app_list_controller()->RemoveObserver(this);
+  if (Shell::Get()->overview_controller())
+    Shell::Get()->overview_controller()->RemoveObserver(this);
 }
 
 void ShelfLayoutManager::PrepareForShutdown() {
@@ -328,9 +342,7 @@ void ShelfLayoutManager::UpdateAutoHideState() {
             shelf_widget_->GetWindowBoundsInScreen().Contains(
                 display::Screen::GetScreen()->GetCursorScreenPoint());
       }
-      auto_hide_timer_.Start(
-          FROM_HERE, base::TimeDelta::FromMilliseconds(kAutoHideDelayMS), this,
-          &ShelfLayoutManager::UpdateAutoHideStateNow);
+      StartAutoHideTimer();
     }
   } else {
     StopAutoHideTimer();
@@ -352,10 +364,22 @@ void ShelfLayoutManager::UpdateAutoHideForMouseEvent(ui::MouseEvent* event,
     return;
 
   if (event->type() == ui::ET_MOUSE_PRESSED ||
-      (event->type() == ui::ET_MOUSE_MOVED &&
-       GetVisibleShelfBounds().Contains(
-           display::Screen::GetScreen()->GetCursorScreenPoint()))) {
-    UpdateAutoHideState();
+      event->type() == ui::ET_MOUSE_MOVED) {
+    if (GetVisibleShelfBounds().Contains(
+            display::Screen::GetScreen()->GetCursorScreenPoint())) {
+      UpdateAutoHideState();
+      last_seen_mouse_position_was_over_shelf_ = true;
+    } else {
+      // The event happened outside the shelf's bounds. If it's a click, hide
+      // the shelf immediately. If it's a mouse-out, hide after a delay (but
+      // only if it really is a mouse-out, meaning the mouse actually exited the
+      // shelf bounds as opposed to having been outside all along).
+      if (event->type() == ui::ET_MOUSE_PRESSED)
+        UpdateAutoHideState();
+      else if (last_seen_mouse_position_was_over_shelf_)
+        StartAutoHideTimer();
+      last_seen_mouse_position_was_over_shelf_ = false;
+    }
   }
 }
 
@@ -478,14 +502,16 @@ ShelfBackgroundType ShelfLayoutManager::GetShelfBackgroundType() const {
       return SHELF_BACKGROUND_DEFAULT;
   }
 
-  if (state_.visibility_state != SHELF_AUTO_HIDE &&
-      state_.window_state == wm::WORKSPACE_WINDOW_STATE_MAXIMIZED) {
+  if (Shell::Get()->IsSplitViewModeActive() ||
+      (state_.visibility_state != SHELF_AUTO_HIDE &&
+       state_.window_state == wm::WORKSPACE_WINDOW_STATE_MAXIMIZED)) {
     return SHELF_BACKGROUND_MAXIMIZED;
   }
 
-  // If split view mode is active, make the shelf fully opapue.
-  if (Shell::Get()->IsSplitViewModeActive())
-    return SHELF_BACKGROUND_SPLIT_VIEW;
+  if (Shell::Get()->overview_controller() &&
+      Shell::Get()->overview_controller()->IsSelecting()) {
+    return SHELF_BACKGROUND_OVERVIEW;
+  }
 
   return SHELF_BACKGROUND_DEFAULT;
 }
@@ -544,7 +570,13 @@ void ShelfLayoutManager::OnPinnedStateChanged(aura::Window* pinned_window) {
   UpdateVisibilityState();
 }
 
+void ShelfLayoutManager::OnSplitViewModeStarted() {
+  MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
+}
 
+void ShelfLayoutManager::OnSplitViewModeEnded() {
+  MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
+}
 
 void ShelfLayoutManager::OnOverviewModeStartingAnimationComplete(
     bool canceled) {
@@ -554,14 +586,6 @@ void ShelfLayoutManager::OnOverviewModeStartingAnimationComplete(
 
 void ShelfLayoutManager::OnOverviewModeEndingAnimationComplete(bool canceled) {
   UpdateVisibilityState();
-  MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
-}
-
-void ShelfLayoutManager::OnSplitViewModeStarted() {
-  MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
-}
-
-void ShelfLayoutManager::OnSplitViewModeEnded() {
   MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
 }
 
@@ -602,6 +626,7 @@ void ShelfLayoutManager::OnHomeLauncherAnimationComplete(bool shown,
     return;
 
   is_home_launcher_shown_ = shown;
+  is_home_launcher_target_position_shown_ = false;
   MaybeUpdateShelfBackground(AnimationChangeType::IMMEDIATE);
 }
 
@@ -1044,6 +1069,12 @@ void ShelfLayoutManager::UpdateAutoHideStateNow() {
   StopAutoHideTimer();
 }
 
+void ShelfLayoutManager::StartAutoHideTimer() {
+  auto_hide_timer_.Start(FROM_HERE,
+                         base::TimeDelta::FromMilliseconds(kAutoHideDelayMS),
+                         this, &ShelfLayoutManager::UpdateAutoHideStateNow);
+}
+
 void ShelfLayoutManager::StopAutoHideTimer() {
   auto_hide_timer_.Stop();
   mouse_over_shelf_when_auto_hide_timer_started_ = false;
@@ -1168,7 +1199,7 @@ ShelfAutoHideState ShelfLayoutManager::CalculateAutoHideState(
 
   gfx::Point cursor_position_in_screen =
       display::Screen::GetScreen()->GetCursorScreenPoint();
-  // Cursor is invisible in talbet mode and plug in an external mouse in tablet
+  // Cursor is invisible in tablet mode and plug in an external mouse in tablet
   // mode will switch to clamshell mode.
   if (shelf_region.Contains(cursor_position_in_screen) &&
       !IsTabletModeEnabled()) {
@@ -1256,13 +1287,6 @@ bool ShelfLayoutManager::IsShelfAutoHideForFullscreenMaximized() const {
 }
 
 bool ShelfLayoutManager::ShouldHomeGestureHandleEvent(float scroll_y) const {
-  HomeLauncherGestureHandler* home_launcher_handler =
-      Shell::Get()->app_list_controller()->home_launcher_gesture_handler();
-
-  // If there is no |home_launcher_handler|, return early.
-  if (!home_launcher_handler)
-    return false;
-
   // If the shelf is not visible, home gesture shouldn't trigger.
   if (!IsVisible())
     return false;
@@ -1299,7 +1323,7 @@ bool ShelfLayoutManager::StartGestureDrag(
     GestureDragStatus previous_drag_status = gesture_drag_status_;
     gesture_drag_status_ = GESTURE_DRAG_APPLIST_IN_PROGRESS;
     HomeLauncherGestureHandler* home_launcher_handler =
-        Shell::Get()->app_list_controller()->home_launcher_gesture_handler();
+        Shell::Get()->home_screen_controller()->home_launcher_gesture_handler();
     if (home_launcher_handler->OnPressEvent(
             HomeLauncherGestureHandler::Mode::kSlideUpToShow,
             gesture_in_screen.location())) {
@@ -1330,7 +1354,7 @@ void ShelfLayoutManager::UpdateGestureDrag(
     const ui::GestureEvent& gesture_in_screen) {
   if (ShouldHomeGestureHandleEvent(gesture_in_screen.details().scroll_y())) {
     HomeLauncherGestureHandler* home_launcher_handler =
-        Shell::Get()->app_list_controller()->home_launcher_gesture_handler();
+        Shell::Get()->home_screen_controller()->home_launcher_gesture_handler();
     if (home_launcher_handler->OnScrollEvent(
             gesture_in_screen.location(),
             gesture_in_screen.details().scroll_y())) {
@@ -1394,58 +1418,32 @@ void ShelfLayoutManager::CompleteAppListDrag(
     return;
 
   HomeLauncherGestureHandler* home_launcher_handler =
-      Shell::Get()->app_list_controller()->home_launcher_gesture_handler();
-  if (home_launcher_handler &&
-      home_launcher_handler->OnReleaseEvent(gesture_in_screen.location())) {
+      Shell::Get()->home_screen_controller()->home_launcher_gesture_handler();
+  DCHECK(home_launcher_handler);
+  if (home_launcher_handler->OnReleaseEvent(gesture_in_screen.location())) {
     gesture_drag_status_ = GESTURE_DRAG_NONE;
     return;
   }
 
   using app_list::AppListViewState;
-  AppListViewState app_list_state = AppListViewState::PEEKING;
-  if (gesture_in_screen.type() == ui::ET_SCROLL_FLING_START &&
-      fabs(gesture_in_screen.details().velocity_y()) >
-          kAppListDragVelocityThreshold) {
-    // If the scroll sequence terminates with a fling, show the fullscreen app
-    // list if the fling was fast enough and in the correct direction, otherwise
-    // close it.
-    app_list_state = gesture_in_screen.details().velocity_y() < 0
-                         ? AppListViewState::FULLSCREEN_ALL_APPS
-                         : AppListViewState::CLOSED;
-  } else {
-    // Snap the app list to corresponding state according to the snapping
-    // thresholds.
-    if (IsTabletModeEnabled()) {
-      app_list_state = launcher_above_shelf_bottom_amount_ >
-                               kAppListDragSnapToFullscreenThreshold
-                           ? AppListViewState::FULLSCREEN_ALL_APPS
-                           : AppListViewState::CLOSED;
-    } else {
-      if (launcher_above_shelf_bottom_amount_ <=
-          kAppListDragSnapToClosedThreshold)
-        app_list_state = AppListViewState::CLOSED;
-      else if (launcher_above_shelf_bottom_amount_ <=
-               kAppListDragSnapToPeekingThreshold)
-        app_list_state = AppListViewState::PEEKING;
-      else
-        app_list_state = AppListViewState::FULLSCREEN_ALL_APPS;
-    }
-  }
+  AppListViewState app_list_state =
+      Shell::Get()->app_list_controller()->CalculateStateAfterShelfDrag(
+          gesture_in_screen, launcher_above_shelf_bottom_amount_);
 
   // Keep auto-hide shelf visible if failed to open the app list.
   base::Optional<Shelf::ScopedAutoHideLock> auto_hide_lock;
   if (app_list_state == AppListViewState::CLOSED)
     auto_hide_lock.emplace(shelf_);
   Shell::Get()->app_list_controller()->EndDragFromShelf(app_list_state);
-
   gesture_drag_status_ = GESTURE_DRAG_NONE;
 }
 
 void ShelfLayoutManager::CancelGestureDrag() {
   if (gesture_drag_status_ == GESTURE_DRAG_APPLIST_IN_PROGRESS) {
     HomeLauncherGestureHandler* home_launcher_handler =
-        Shell::Get()->app_list_controller()->home_launcher_gesture_handler();
-    if (home_launcher_handler && home_launcher_handler->IsDragInProgress())
+        Shell::Get()->home_screen_controller()->home_launcher_gesture_handler();
+    DCHECK(home_launcher_handler);
+    if (home_launcher_handler->IsDragInProgress())
       home_launcher_handler->Cancel();
     else
       Shell::Get()->app_list_controller()->DismissAppList();

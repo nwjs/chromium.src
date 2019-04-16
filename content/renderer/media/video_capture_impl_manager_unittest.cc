@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <array>
+#include <string>
 
 #include "base/bind.h"
 #include "base/callback.h"
@@ -94,6 +95,10 @@ class MockVideoCaptureImpl : public VideoCaptureImpl,
                              GetDeviceFormatsInUseCallback) override {
     NOTREACHED();
   }
+
+  MOCK_METHOD2(OnFrameDropped,
+               void(int32_t, media::VideoCaptureFrameDropReason));
+  MOCK_METHOD2(OnLog, void(int32_t, const std::string&));
 
   PauseResumeCallback* const pause_callback_;
   const base::Closure destruct_callback_;
@@ -188,10 +193,11 @@ class VideoCaptureImplManagerTest : public ::testing::Test,
   MOCK_METHOD1(OnPaused, void(media::VideoCaptureSessionId id));
   MOCK_METHOD1(OnResumed, void(media::VideoCaptureSessionId id));
 
-  void OnStateUpdate(media::VideoCaptureSessionId id, VideoCaptureState state) {
-    if (state == VIDEO_CAPTURE_STATE_STARTED)
+  void OnStateUpdate(media::VideoCaptureSessionId id,
+                     blink::VideoCaptureState state) {
+    if (state == blink::VIDEO_CAPTURE_STATE_STARTED)
       OnStarted(id);
-    else if (state == VIDEO_CAPTURE_STATE_STOPPED)
+    else if (state == blink::VIDEO_CAPTURE_STATE_STOPPED)
       OnStopped(id);
     else
       NOTREACHED();

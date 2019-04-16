@@ -20,6 +20,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.task.PostTask;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
@@ -28,6 +29,7 @@ import org.chromium.content.browser.input.ChromiumBaseInputConnection;
 import org.chromium.content.browser.input.ImeTestUtils;
 import org.chromium.content.browser.selection.SelectionPopupControllerImpl;
 import org.chromium.content_public.browser.SelectionClient;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.content_public.browser.test.util.Criteria;
@@ -84,7 +86,8 @@ public class ContentTextSelectionTest {
                 result = new SelectionClient.Result();
             }
 
-            ThreadUtils.postOnUiThread(() -> mResultCallback.onClassified(result));
+            PostTask.postTask(
+                    UiThreadTaskTraits.DEFAULT, () -> mResultCallback.onClassified(result));
             return true;
         }
 
@@ -539,7 +542,7 @@ public class ContentTextSelectionTest {
         Assert.assertTrue(mSelectionPopupController.isActionModeValid());
         selectActionBarCut();
         waitForSelectActionBarVisible(false);
-        Assert.assertFalse(mSelectionPopupController.hasSelection());
+        Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
         waitForClipboardContents("SampleInputText");
         Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
     }
@@ -572,7 +575,7 @@ public class ContentTextSelectionTest {
         Assert.assertTrue(mSelectionPopupController.isActionModeValid());
         selectActionBarCut();
         waitForSelectActionBarVisible(false);
-        Assert.assertFalse(mSelectionPopupController.hasSelection());
+        Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
         waitForClipboardContents("SampleTextArea");
         Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
     }
@@ -697,7 +700,7 @@ public class ContentTextSelectionTest {
         Assert.assertTrue(mSelectionPopupController.isActionModeValid());
         selectActionBarPaste();
         waitForSelectActionBarVisible(false);
-        Assert.assertFalse(mSelectionPopupController.hasSelection());
+        Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
 
         // Ensure the new text matches the pasted text.
         DOMUtils.longPressNode(mWebContents, "input_text");
@@ -724,7 +727,7 @@ public class ContentTextSelectionTest {
         Assert.assertTrue(mSelectionPopupController.isActionModeValid());
         selectActionBarPaste();
         waitForSelectActionBarVisible(false);
-        Assert.assertFalse(mSelectionPopupController.hasSelection());
+        Assert.assertEquals(mSelectionPopupController.getSelectedText(), "");
 
         // Ensure the new text matches the pasted text. Note that we can't
         // actually compare strings as password field selections only provide

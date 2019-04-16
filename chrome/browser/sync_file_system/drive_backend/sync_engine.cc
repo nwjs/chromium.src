@@ -709,12 +709,13 @@ void SyncEngine::OnPrimaryAccountSigninFailed(
                      "Failed to sign in.");
 }
 
-void SyncEngine::OnPrimaryAccountSet(const AccountInfo& primary_account_info) {
+void SyncEngine::OnPrimaryAccountSet(
+    const CoreAccountInfo& primary_account_info) {
   Initialize();
 }
 
 void SyncEngine::OnPrimaryAccountCleared(
-    const AccountInfo& previous_primary_account_info) {
+    const CoreAccountInfo& previous_primary_account_info) {
   Reset();
   UpdateServiceState(REMOTE_SERVICE_AUTHENTICATION_REQUIRED,
                      "User signed out.");

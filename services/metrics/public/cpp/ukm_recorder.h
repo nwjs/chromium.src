@@ -14,7 +14,7 @@
 #include "services/metrics/public/cpp/metrics_export.h"
 #include "services/metrics/public/cpp/ukm_source.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
-#include "services/metrics/public/mojom/ukm_interface.mojom.h"
+#include "services/metrics/public/mojom/ukm_interface.mojom-forward.h"
 #include "url/gurl.h"
 
 class BackgroundFetchDelegateImpl;
@@ -95,7 +95,7 @@ class METRICS_EXPORT UkmRecorder {
   virtual void AddEntry(mojom::UkmEntryPtr entry) = 0;
 
   // Disables sampling for testing purposes.
-  virtual void DisableSamplingForTesting(){};
+  virtual void DisableSamplingForTesting() {}
 
  protected:
   // Type-safe wrappers for Update<X> functions.

@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/process/process_handle.h"
@@ -66,7 +67,7 @@ MockRenderProcessHost::MockRenderProcessHost(BrowserContext* browser_context)
       weak_ptr_factory_(this) {
   // Child process security operations can't be unit tested unless we add
   // ourselves as an existing child process.
-  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID());
+  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID(), browser_context);
 
   RenderProcessHostImpl::RegisterHost(GetID(), this);
 }
@@ -305,6 +306,8 @@ ChildProcessImportance MockRenderProcessHost::GetEffectiveImportance() {
   NOTIMPLEMENTED();
   return ChildProcessImportance::NORMAL;
 }
+
+void MockRenderProcessHost::DumpProcessStack() {}
 #endif
 
 void MockRenderProcessHost::SetSuddenTerminationAllowed(bool allowed) {
@@ -346,7 +349,7 @@ const service_manager::Identity& MockRenderProcessHost::GetChildIdentity() {
   return child_identity_;
 }
 
-std::unique_ptr<base::SharedPersistentMemoryAllocator>
+std::unique_ptr<base::PersistentMemoryAllocator>
 MockRenderProcessHost::TakeMetricsAllocator() {
   return nullptr;
 }
@@ -403,21 +406,6 @@ mojom::Renderer* MockRenderProcessHost::GetRendererInterface() {
     mojo::MakeRequestAssociatedWithDedicatedPipe(renderer_interface_.get());
   }
   return renderer_interface_->get();
-}
-
-resource_coordinator::ProcessResourceCoordinator*
-MockRenderProcessHost::GetProcessResourceCoordinator() {
-  if (!process_resource_coordinator_) {
-    content::ServiceManagerConnection* connection =
-        content::ServiceManagerConnection::GetForProcess();
-    // Tests may not set up a connection.
-    service_manager::Connector* connector =
-        connection ? connection->GetConnector() : nullptr;
-    process_resource_coordinator_ =
-        std::make_unique<resource_coordinator::ProcessResourceCoordinator>(
-            connector);
-  }
-  return process_resource_coordinator_.get();
 }
 
 void MockRenderProcessHost::CreateURLLoaderFactory(

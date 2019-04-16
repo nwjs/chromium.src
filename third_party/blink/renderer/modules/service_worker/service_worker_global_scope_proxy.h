@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "base/macros.h"
+#include "base/threading/thread_checker.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
 #include "third_party/blink/renderer/core/workers/worker_reporting_proxy.h"
@@ -151,13 +152,17 @@ class ServiceWorkerGlobalScopeProxy final
                        std::unique_ptr<SourceLocation>,
                        int exception_id) override;
   void ReportConsoleMessage(MessageSource,
-                            MessageLevel,
+                            mojom::ConsoleMessageLevel,
                             const String& message,
                             SourceLocation*) override;
+  void WillInitializeWorkerContext() override;
   void DidCreateWorkerGlobalScope(WorkerOrWorkletGlobalScope*) override;
   void DidInitializeWorkerContext() override;
-  void DidLoadInstalledScript() override;
-  void DidFailToLoadInstalledClassicScript() override;
+  void DidFailToInitializeWorkerContext() override;
+  void DidLoadClassicScript() override;
+  void DidFailToLoadClassicScript() override;
+  void DidFetchScript() override;
+  void DidFailToFetchClassicScript() override;
   void DidFailToFetchModuleScript() override;
   void WillEvaluateClassicScript(size_t script_size,
                                  size_t cached_metadata_size) override;
@@ -205,6 +210,8 @@ class ServiceWorkerGlobalScopeProxy final
   WebServiceWorkerContextClient* client_;
 
   CrossThreadPersistent<ServiceWorkerGlobalScope> worker_global_scope_;
+
+  THREAD_CHECKER(worker_thread_checker_);
 
   DISALLOW_COPY_AND_ASSIGN(ServiceWorkerGlobalScopeProxy);
 };

@@ -31,6 +31,7 @@
 #include "base/memory/ptr_util.h"
 #include "build/build_config.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme.h"
+#include "third_party/blink/renderer/platform/graphics/dark_mode_settings.h"
 
 namespace blink {
 
@@ -104,6 +105,19 @@ void Settings::SetMockScrollbarsEnabled(bool flag) {
 
 bool Settings::MockScrollbarsEnabled() {
   return ScrollbarTheme::MockScrollbarsEnabled();
+}
+
+void Settings::SetForceDarkModeEnabled(bool enabled) {
+  if (force_dark_mode_ == enabled)
+    return;
+  force_dark_mode_ = enabled;
+
+  if (force_dark_mode_) {
+    SetHighContrastMode(DarkMode::kInvertLightness);
+    SetHighContrastImagePolicy(DarkModeImagePolicy::kFilterSmart);
+  } else {
+    SetHighContrastMode(DarkMode::kOff);
+  }
 }
 
 }  // namespace blink

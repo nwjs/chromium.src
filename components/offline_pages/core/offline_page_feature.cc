@@ -20,17 +20,11 @@ const char kOfflinePagesUseTestingSnapshotDelay[] =
 
 namespace offline_pages {
 
-const base::Feature kOfflineBookmarksFeature{"OfflineBookmarks",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kOffliningRecentPagesFeature{
     "OfflineRecentPages", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kOfflinePagesCTFeature{"OfflinePagesCT",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
-
-const base::Feature kOfflinePagesSharingFeature{
-    "OfflinePagesSharing", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kOfflinePagesLivePageSharingFeature{
     "OfflinePagesLivePageSharing", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -82,10 +76,6 @@ const base::Feature kOnTheFlyMhtmlHashComputationFeature{
 
 const char kPrefetchingOfflinePagesExperimentsOption[] = "exp";
 
-bool IsOfflineBookmarksEnabled() {
-  return base::FeatureList::IsEnabled(kOfflineBookmarksFeature);
-}
-
 bool IsOffliningRecentPagesEnabled() {
   return base::FeatureList::IsEnabled(kOffliningRecentPagesFeature);
 }
@@ -97,10 +87,6 @@ bool IsOfflinePagesSvelteConcurrentLoadingEnabled() {
 
 bool IsOfflinePagesCTEnabled() {
   return base::FeatureList::IsEnabled(kOfflinePagesCTFeature);
-}
-
-bool IsOfflinePagesSharingEnabled() {
-  return base::FeatureList::IsEnabled(kOfflinePagesSharingFeature);
 }
 
 bool IsOfflinePagesLivePageSharingEnabled() {

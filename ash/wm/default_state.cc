@@ -380,7 +380,7 @@ bool DefaultState::SetMaximizedOrFullscreenBounds(WindowState* window_state) {
   }
   if (window_state->IsFullscreen() || window_state->IsPinned()) {
     window_state->SetBoundsDirect(
-        screen_util::GetDisplayBoundsInParent(window_state->window()));
+        screen_util::GetFullscreenWindowBoundsInParent(window_state->window()));
     return true;
   }
   return false;
@@ -389,7 +389,8 @@ bool DefaultState::SetMaximizedOrFullscreenBounds(WindowState* window_state) {
 // static
 void DefaultState::SetBounds(WindowState* window_state,
                              const SetBoundsEvent* event) {
-  if (window_state->is_dragged() || window_state->allow_set_bounds_direct()) {
+  if (!event->animate() &&
+      (window_state->is_dragged() || window_state->allow_set_bounds_direct())) {
     // TODO(oshima|varkha): Is this still needed? crbug.com/485612.
     window_state->SetBoundsDirect(event->requested_bounds());
   } else if (!SetMaximizedOrFullscreenBounds(window_state)) {
@@ -552,7 +553,7 @@ void DefaultState::UpdateBoundsFromState(
     case mojom::WindowStateType::FULLSCREEN:
     case mojom::WindowStateType::PINNED:
     case mojom::WindowStateType::TRUSTED_PINNED:
-      bounds_in_parent = screen_util::GetDisplayBoundsInParent(window);
+      bounds_in_parent = screen_util::GetFullscreenWindowBoundsInParent(window);
       break;
 
     case mojom::WindowStateType::MINIMIZED:

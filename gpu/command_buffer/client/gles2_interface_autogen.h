@@ -596,6 +596,12 @@ virtual void RenderbufferStorageMultisampleCHROMIUM(GLenum target,
                                                     GLenum internalformat,
                                                     GLsizei width,
                                                     GLsizei height) = 0;
+virtual void RenderbufferStorageMultisampleAdvancedAMD(GLenum target,
+                                                       GLsizei samples,
+                                                       GLsizei storageSamples,
+                                                       GLenum internalformat,
+                                                       GLsizei width,
+                                                       GLsizei height) = 0;
 virtual void RenderbufferStorageMultisampleEXT(GLenum target,
                                                GLsizei samples,
                                                GLenum internalformat,
@@ -650,6 +656,30 @@ virtual void BindImageTexture(GLuint unit,
 virtual void DispatchCompute(GLuint num_groups_x,
                              GLuint num_groups_y,
                              GLuint num_groups_z) = 0;
+virtual void GetProgramInterfaceiv(GLuint program,
+                                   GLenum program_interface,
+                                   GLenum pname,
+                                   GLint* params) = 0;
+virtual GLuint GetProgramResourceIndex(GLuint program,
+                                       GLenum program_interface,
+                                       const char* name) = 0;
+virtual void GetProgramResourceName(GLuint program,
+                                    GLenum program_interface,
+                                    GLuint index,
+                                    GLsizei bufsize,
+                                    GLsizei* length,
+                                    char* name) = 0;
+virtual void GetProgramResourceiv(GLuint program,
+                                  GLenum program_interface,
+                                  GLuint index,
+                                  GLsizei prop_count,
+                                  const GLenum* props,
+                                  GLsizei bufsize,
+                                  GLsizei* length,
+                                  GLint* params) = 0;
+virtual GLint GetProgramResourceLocation(GLuint program,
+                                         GLenum program_interface,
+                                         const char* name) = 0;
 virtual void MemoryBarrierEXT(GLbitfield barriers) = 0;
 virtual void MemoryBarrierByRegion(GLbitfield barriers) = 0;
 virtual void SwapBuffers(GLuint64 swap_id, GLbitfield flags = 0) = 0;
@@ -990,6 +1020,9 @@ virtual void FramebufferTextureMultiviewLayeredANGLE(GLenum target,
 virtual void MaxShaderCompilerThreadsKHR(GLuint count) = 0;
 virtual GLuint CreateAndTexStorage2DSharedImageCHROMIUM(
     const GLbyte* mailbox) = 0;
+virtual GLuint CreateAndTexStorage2DSharedImageWithInternalFormatCHROMIUM(
+    const GLbyte* mailbox,
+    GLenum internalformat) = 0;
 virtual void BeginSharedImageAccessDirectCHROMIUM(GLuint texture,
                                                   GLenum mode) = 0;
 virtual void EndSharedImageAccessDirectCHROMIUM(GLuint texture) = 0;

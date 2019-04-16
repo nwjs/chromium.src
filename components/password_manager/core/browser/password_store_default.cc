@@ -8,6 +8,7 @@
 #include <set>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/logging.h"
 #include "base/stl_util.h"
 #include "components/password_manager/core/browser/password_store_change.h"
@@ -238,9 +239,12 @@ bool PasswordStoreDefault::CommitTransaction() {
   return false;
 }
 
-bool PasswordStoreDefault::ReadAllLogins(PrimaryKeyToFormMap* key_to_form_map) {
+FormRetrievalResult PasswordStoreDefault::ReadAllLogins(
+    PrimaryKeyToFormMap* key_to_form_map) {
   DCHECK(background_task_runner()->RunsTasksInCurrentSequence());
-  return login_db_ && login_db_->GetAllLogins(key_to_form_map);
+  if (!login_db_)
+    return FormRetrievalResult::kDbError;
+  return login_db_->GetAllLogins(key_to_form_map);
 }
 
 PasswordStoreChangeList PasswordStoreDefault::RemoveLoginByPrimaryKeySync(
@@ -253,7 +257,7 @@ PasswordStoreChangeList PasswordStoreDefault::RemoveLoginByPrimaryKeySync(
   return PasswordStoreChangeList();
 }
 
-syncer::SyncMetadataStore* PasswordStoreDefault::GetMetadataStore() {
+PasswordStoreSync::MetadataStore* PasswordStoreDefault::GetMetadataStore() {
   return login_db_.get();
 }
 

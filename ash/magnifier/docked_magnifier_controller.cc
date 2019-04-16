@@ -18,6 +18,7 @@
 #include "ash/shell.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/splitview/split_view_controller.h"
+#include "base/bind.h"
 #include "base/numerics/ranges.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -407,7 +408,7 @@ void DockedMagnifierController::OnDisplayConfigurationChanged() {
     separator_layer_->SetBounds(
         SeparatorBoundsFromViewportBounds(viewport_bounds));
     SetViewportHeightInWorkArea(current_source_root_window_,
-                                separator_layer_->bounds().bottom());
+                                GetTotalMagnifierHeight());
 
     // Resolution changes, screen rotation, etc. can reset the host to confine
     // the mouse cursor inside the root window. We want to make sure the cursor
@@ -434,6 +435,13 @@ void DockedMagnifierController::SetFullscreenMagnifierEnabled(bool enabled) {
     active_user_pref_service_->SetBoolean(
         prefs::kAccessibilityScreenMagnifierEnabled, enabled);
   }
+}
+
+int DockedMagnifierController::GetTotalMagnifierHeight() const {
+  if (separator_layer_)
+    return separator_layer_->bounds().bottom();
+
+  return 0;
 }
 
 const views::Widget* DockedMagnifierController::GetViewportWidgetForTesting()
@@ -572,10 +580,9 @@ void DockedMagnifierController::OnEnabledPrefChanged() {
     auto* split_view_controller = shell->split_view_controller();
     if (split_view_controller->IsSplitViewModeActive()) {
       // In this case, we're in a single-split-view mode, i.e. a window is
-      // snapped to one side of the split view, while the other side has the
-      // window selector active.
-      // We need to exit split view as well as exiting overview mode, otherwise
-      // we'll be in an invalid state.
+      // snapped to one side of the split view, while the other side has
+      // overview active. We need to exit split view as well as exiting overview
+      // mode, otherwise we'll be in an invalid state.
       split_view_controller->EndSplitView(
           SplitViewController::EndReason::kNormal);
     }
@@ -692,7 +699,7 @@ void DockedMagnifierController::CreateMagnifierViewport() {
   //    contain the viewport and the separator is allocated at the top of the
   //    screen.
   SetViewportHeightInWorkArea(current_source_root_window_,
-                              separator_layer_->bounds().bottom());
+                              GetTotalMagnifierHeight());
 
   // 6- Confine the mouse cursor within the remaining part of the display.
   ConfineMouseCursorOutsideViewport();

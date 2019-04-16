@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/i18n/case_conversion.h"
 #include "base/logging.h"
@@ -115,7 +116,7 @@ void AppendSuggestionIfMatching(
             : autofill::Suggestion::SUBSTRING_MATCH;
     suggestion.custom_icon = custom_icon;
     // The UI code will pick up an icon from the resources based on the string.
-    suggestion.icon = base::ASCIIToUTF16("globeIcon");
+    suggestion.icon = "globeIcon";
     suggestions->push_back(suggestion);
   }
 }

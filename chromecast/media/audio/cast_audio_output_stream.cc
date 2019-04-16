@@ -5,6 +5,7 @@
 #include "chromecast/media/audio/cast_audio_output_stream.h"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -54,8 +55,6 @@ const int64_t kInvalidTimestamp = std::numeric_limits<int64_t>::min();
 constexpr base::TimeDelta kFadeTime = base::TimeDelta::FromMilliseconds(5);
 constexpr base::TimeDelta kMixerStartThreshold =
     base::TimeDelta::FromMilliseconds(60);
-constexpr base::TimeDelta kMixerBufferSizeInTime =
-    base::TimeDelta::FromMilliseconds(25);
 }  // namespace
 
 namespace chromecast {
@@ -82,9 +81,15 @@ mixer_service::MixerStreamParams::ContentType ConvertContentType(
   }
 }
 
-bool IsValidDeviceId(const std::string& device_id) {
-  return ::media::AudioDeviceDescription::IsCommunicationsDevice(device_id) ||
-         device_id == ::media::AudioDeviceDescription::kDefaultDeviceId;
+bool IsValidDeviceId(CastAudioManager* manager, const std::string& device_id) {
+  ::media::AudioDeviceNames valid_names;
+  manager->GetAudioOutputDeviceNames(&valid_names);
+  for (const auto& v : valid_names) {
+    if (v.unique_id == device_id) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace
@@ -154,7 +159,6 @@ CastAudioOutputStream::CmaWrapper::CmaWrapper(
   DETACH_FROM_THREAD(media_thread_checker_);
   DCHECK(audio_task_runner_);
   DCHECK(cma_backend_factory_);
-  DCHECK(IsValidDeviceId(device_id));
 
   // Set the default state.
   push_in_progress_ = false;
@@ -175,7 +179,8 @@ void CastAudioOutputStream::CmaWrapper::Initialize(
 
   MediaPipelineDeviceParams::AudioStreamType stream_type =
       MediaPipelineDeviceParams::kAudioStreamSoundEffects;
-  if (audio_params_.effects() & ::media::AudioParameters::MULTIZONE) {
+  if (audio_params_.effects() & ::media::AudioParameters::MULTIZONE ||
+      device_id_ != ::media::AudioDeviceDescription::kDefaultDeviceId) {
     stream_type = MediaPipelineDeviceParams::kAudioStreamNormal;
   }
 
@@ -425,7 +430,6 @@ CastAudioOutputStream::MixerServiceWrapper::MixerServiceWrapper(
       io_thread_("CastAudioOutputStream IO") {
   DCHECK(mixer_service_connection_factory_);
   DETACH_FROM_THREAD(io_thread_checker_);
-  DCHECK(IsValidDeviceId(device_id));
 
   base::Thread::Options options;
   options.message_loop_type = base::MessageLoop::TYPE_IO;
@@ -442,8 +446,17 @@ void CastAudioOutputStream::MixerServiceWrapper::Start(
   media::mixer_service::MixerStreamParams params;
   params.set_content_type(ConvertContentType(GetContentType(device_id_)));
   params.set_device_id(device_id_);
-  params.set_stream_type(
-      media::mixer_service::MixerStreamParams::STREAM_TYPE_SFX);
+  // We use the default device ID for sound effects (eg volume boop), so mark
+  // those as SFX streams so they are treated correctly. Other device ID
+  // streams should act like normal (non-sound-effects) streams for redirection
+  // and other features.
+  if (device_id_ == ::media::AudioDeviceDescription::kDefaultDeviceId) {
+    params.set_stream_type(
+        media::mixer_service::MixerStreamParams::STREAM_TYPE_SFX);
+  } else {
+    params.set_stream_type(
+        media::mixer_service::MixerStreamParams::STREAM_TYPE_DEFAULT);
+  }
   params.set_sample_format(
       media::mixer_service::MixerStreamParams::SAMPLE_FORMAT_FLOAT_P);
   params.set_sample_rate(audio_params_.sample_rate());
@@ -452,10 +465,7 @@ void CastAudioOutputStream::MixerServiceWrapper::Start(
       kMixerStartThreshold, audio_params_.sample_rate());
   params.set_start_threshold_frames(start_threshold_frames);
 
-  int32_t fill_size_frames = ::media::AudioTimestampHelper::TimeToFrames(
-      kMixerBufferSizeInTime, audio_params_.sample_rate());
-
-  params.set_fill_size_frames(fill_size_frames);
+  params.set_fill_size_frames(audio_params_.frames_per_buffer());
   params.set_use_fader(true);
   params.set_fade_frames(::media::AudioTimestampHelper::TimeToFrames(
       kFadeTime, audio_params_.sample_rate()));
@@ -539,12 +549,12 @@ CastAudioOutputStream::CastAudioOutputStream(
       audio_manager_(audio_manager),
       connector_(connector),
       audio_params_(audio_params),
-      device_id_(::media::AudioDeviceDescription::IsCommunicationsDevice(
-                     device_id_or_group_id)
-                     ? ::media::AudioDeviceDescription::kCommunicationsDeviceId
+      device_id_(IsValidDeviceId(audio_manager, device_id_or_group_id)
+                     ? device_id_or_group_id
                      : ::media::AudioDeviceDescription::kDefaultDeviceId),
-      group_id_(IsValidDeviceId(device_id_or_group_id) ? ""
-                                                       : device_id_or_group_id),
+      group_id_(IsValidDeviceId(audio_manager, device_id_or_group_id)
+                    ? ""
+                    : device_id_or_group_id),
       mixer_service_connection_factory_(mixer_service_connection_factory),
       audio_weak_factory_(this) {
   DCHECK(audio_manager_);

@@ -8,6 +8,7 @@
 
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/html/html_marquee_element.h"
+#include "third_party/blink/renderer/core/layout/box_layout_extra_input.h"
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_fieldset.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
@@ -38,6 +39,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
+#include "third_party/blink/renderer/platform/wtf/allocator.h"
 
 namespace blink {
 
@@ -49,72 +51,75 @@ inline LayoutMultiColumnFlowThread* GetFlowThread(const LayoutBox& box) {
   return ToLayoutBlockFlow(box).MultiColumnFlowThread();
 }
 
-#define WITH_ALGORITHM(ret, func, argdecl, args)                             \
-  ret func##WithAlgorithm(NGBlockNode node, const NGConstraintSpace& space,  \
-                          const NGBreakToken* break_token, argdecl) {        \
-    const auto* token = ToNGBlockBreakToken(break_token);                    \
-    const ComputedStyle& style = node.Style();                               \
-    if (node.GetLayoutBox()->IsLayoutNGFlexibleBox())                        \
-      return NGFlexLayoutAlgorithm(node, space, token).func args;            \
-    if (node.GetLayoutBox()->IsLayoutNGFieldset())                           \
-      return NGFieldsetLayoutAlgorithm(node, space, token).func args;        \
-    /* If there's a legacy layout box, we can only do block fragmentation if \
-     * we would have done block fragmentation with the legacy engine.        \
-     * Otherwise writing data back into the legacy tree will fail. Look for  \
-     * the flow thread. */                                                   \
-    if (GetFlowThread(*node.GetLayoutBox())) {                               \
-      if (style.IsOverflowPaged())                                           \
-        return NGPageLayoutAlgorithm(node, space, token).func args;          \
-      if (style.SpecifiesColumns())                                          \
-        return NGColumnLayoutAlgorithm(node, space, token).func args;        \
-      NOTREACHED();                                                          \
-    }                                                                        \
-    return NGBlockLayoutAlgorithm(node, space, token).func args;             \
-  }
+// Parameters to pass when creating a layout algorithm for a block node.
+struct NGLayoutAlgorithmParams {
+  STACK_ALLOCATED();
 
-WITH_ALGORITHM(scoped_refptr<NGLayoutResult>, Layout, void*, ())
-WITH_ALGORITHM(base::Optional<MinMaxSize>,
-               ComputeMinMaxSize,
-               MinMaxSizeInput input,
-               (input))
+ public:
+  NGLayoutAlgorithmParams(NGBlockNode node,
+                          const NGConstraintSpace& space,
+                          const NGBlockBreakToken* break_token = nullptr)
+      : node(node), space(space), break_token(break_token) {}
 
-#undef WITH_ALGORITHM
+  NGBlockNode node;
+  const NGConstraintSpace& space;
+  const NGBlockBreakToken* break_token;
+};
 
-bool IsFloatFragment(const NGPhysicalFragment& fragment) {
-  const LayoutObject* layout_object = fragment.GetLayoutObject();
-  return layout_object && layout_object->IsFloating() && fragment.IsBox();
+// The entire purpose of this function is to avoid allocating space on the stack
+// for all layout algorithms for each node we lay out. Therefore it must not be
+// inline.
+template <typename Algorithm, typename Callback>
+NOINLINE void CreateAlgorithmAndRun(const NGLayoutAlgorithmParams& params,
+                                    const Callback& callback) {
+  Algorithm algorithm(params.node, params.space, params.break_token);
+  callback(&algorithm);
 }
 
-// Creates a blink::FloatingObject (if needed), and populates it with the
-// position information needed by the existing layout tree.
-void CopyFloatChildFragmentPosition(LayoutBox* floating_box,
-                                    const NGPhysicalOffset offset,
-                                    bool has_flipped_x_axis) {
-  DCHECK(floating_box->IsFloating());
+inline void DetermineAlgorithmAndRun(
+    const NGLayoutAlgorithmParams& params,
+    const std::function<void(NGLayoutAlgorithmOperations*)>& callback) {
+  const ComputedStyle& style = params.node.Style();
+  const LayoutBox& box = *params.node.GetLayoutBox();
+  if (box.IsLayoutNGFlexibleBox()) {
+    CreateAlgorithmAndRun<NGFlexLayoutAlgorithm>(params, callback);
+  } else if (box.IsLayoutNGFieldset()) {
+    CreateAlgorithmAndRun<NGFieldsetLayoutAlgorithm>(params, callback);
+    // If there's a legacy layout box, we can only do block fragmentation if
+    // we would have done block fragmentation with the legacy engine.
+    // Otherwise writing data back into the legacy tree will fail. Look for
+    // the flow thread.
+  } else if (GetFlowThread(box)) {
+    if (style.IsOverflowPaged())
+      CreateAlgorithmAndRun<NGPageLayoutAlgorithm>(params, callback);
+    else if (style.SpecifiesColumns())
+      CreateAlgorithmAndRun<NGColumnLayoutAlgorithm>(params, callback);
+    else
+      NOTREACHED();
+  } else {
+    CreateAlgorithmAndRun<NGBlockLayoutAlgorithm>(params, callback);
+  }
+}
 
-  LayoutBlock* containing_block = floating_box->ContainingBlock();
-  DCHECK(containing_block);
+inline scoped_refptr<const NGLayoutResult> LayoutWithAlgorithm(
+    const NGLayoutAlgorithmParams& params) {
+  scoped_refptr<const NGLayoutResult> result;
+  DetermineAlgorithmAndRun(params,
+                           [&result](NGLayoutAlgorithmOperations* algorithm) {
+                             result = algorithm->Layout();
+                           });
+  return result;
+}
 
-  // Floats need an associated FloatingObject for painting.
-  FloatingObject* floating_object =
-      ToLayoutBlockFlow(containing_block)->InsertFloatingObject(*floating_box);
-  floating_object->SetShouldPaint(!floating_box->HasSelfPaintingLayer());
-  LayoutUnit horizontal_margin_edge_offset = offset.left;
-  if (has_flipped_x_axis)
-    horizontal_margin_edge_offset -= floating_box->MarginRight();
-  else
-    horizontal_margin_edge_offset -= floating_box->MarginLeft();
-  floating_object->SetX(horizontal_margin_edge_offset);
-  floating_object->SetY(offset.top - floating_box->MarginTop());
-#if DCHECK_IS_ON()
-  // Being "placed" is a legacy thing. Make sure the flags remain unset in NG.
-  DCHECK(!floating_object->IsPlaced());
-  DCHECK(!floating_object->IsInPlacedTree());
-
-  // Set this flag to tell the float machinery that it's safe to read out
-  // position data.
-  floating_object->SetHasGeometry();
-#endif
+inline base::Optional<MinMaxSize> ComputeMinMaxSizeWithAlgorithm(
+    const NGLayoutAlgorithmParams& params,
+    const MinMaxSizeInput& input) {
+  base::Optional<MinMaxSize> minmax;
+  DetermineAlgorithmAndRun(
+      params, [&minmax, &input](NGLayoutAlgorithmOperations* algorithm) {
+        minmax = algorithm->ComputeMinMaxSize(input);
+      });
+  return minmax;
 }
 
 void UpdateLegacyMultiColumnFlowThread(
@@ -172,45 +177,35 @@ NGConstraintSpaceBuilder CreateConstraintSpaceBuilderForMinMax(
                                   node.Style().GetWritingMode(),
                                   node.CreatesNewFormattingContext())
       .SetTextDirection(node.Style().Direction())
-      .SetIsIntermediateLayout(true)
-      .SetFloatsBfcBlockOffset(LayoutUnit());
+      .SetIsIntermediateLayout(true);
 }
 
 LayoutUnit CalculateAvailableInlineSizeForLegacy(
     const LayoutBox& box,
     const NGConstraintSpace& space) {
-  if (box.StyleRef().LogicalWidth().IsPercent()) {
-    if (box.ShouldComputeSizeAsReplaced())
-      return space.ReplacedPercentageResolutionInlineSize();
+  if (box.ShouldComputeSizeAsReplaced())
+    return space.ReplacedPercentageResolutionInlineSize();
 
-    return space.PercentageResolutionInlineSize();
-  }
-
-  return space.AvailableSize().inline_size;
+  return space.PercentageResolutionInlineSize();
 }
 
 LayoutUnit CalculateAvailableBlockSizeForLegacy(
     const LayoutBox& box,
     const NGConstraintSpace& space) {
-  if (box.StyleRef().LogicalHeight().IsPercent()) {
-    if (box.ShouldComputeSizeAsReplaced())
-      return space.ReplacedPercentageResolutionBlockSize();
+  if (box.ShouldComputeSizeAsReplaced())
+    return space.ReplacedPercentageResolutionBlockSize();
 
-    return space.PercentageResolutionBlockSize();
-  }
-
-  return space.AvailableSize().block_size;
+  return space.PercentageResolutionBlockSize();
 }
 
 }  // namespace
 
-scoped_refptr<NGLayoutResult> NGBlockNode::Layout(
+scoped_refptr<const NGLayoutResult> NGBlockNode::Layout(
     const NGConstraintSpace& constraint_space,
     const NGBreakToken* break_token) {
   // Use the old layout code and synthesize a fragment.
-  if (!CanUseNewLayout()) {
+  if (!CanUseNewLayout())
     return RunOldLayout(constraint_space);
-  }
 
   LayoutBlockFlow* block_flow =
       box_->IsLayoutNGMixin() ? ToLayoutBlockFlow(box_) : nullptr;
@@ -221,7 +216,7 @@ scoped_refptr<NGLayoutResult> NGBlockNode::Layout(
   if (block_flow && !first_child)
     block_flow->ClearNGInlineNodeData();
 
-  scoped_refptr<NGLayoutResult> layout_result;
+  scoped_refptr<const NGLayoutResult> layout_result;
   if (block_flow) {
     layout_result =
         block_flow->CachedLayoutResult(constraint_space, break_token);
@@ -230,27 +225,7 @@ scoped_refptr<NGLayoutResult> NGBlockNode::Layout(
       // !constraint_space.IsIntermediateLayout() block below.
       UpdateShapeOutsideInfoIfNeeded(
           *layout_result, constraint_space.PercentageResolutionInlineSize());
-      // We may need paint invalidation even if we can reuse layout, as our
-      // paint offset/visual rect may have changed due to relative
-      // positioning changes. Otherwise we fail fast/css/
-      // fast/css/relative-positioned-block-with-inline-ancestor-and-parent
-      // -dynamic.html
-      // TODO(layoutng): See if we can optimize this. When we natively
-      // support relative positioning in NG we can probably remove this,
-      box_->SetSubtreeShouldCheckForPaintInvalidation();
 
-      // We have to re-set the cached result here, because it is used for
-      // LayoutNGMixin::CurrentFragment and therefore has to be up-to-date.
-      // In particular, that fragment would have an incorrect offset if we
-      // don't re-set the result here.
-      block_flow->SetCachedLayoutResult(constraint_space, break_token,
-                                        *layout_result);
-      if (!constraint_space.IsIntermediateLayout() && first_child &&
-          first_child.IsInline()) {
-        block_flow->UpdatePaintFragmentFromCachedLayoutResult(
-            ToNGBlockBreakToken(break_token), layout_result->PhysicalFragment(),
-            layout_result->Offset());
-      }
       return layout_result;
     }
   }
@@ -276,8 +251,10 @@ scoped_refptr<NGLayoutResult> NGBlockNode::Layout(
   PrepareForLayout();
 
   NGBoxStrut old_scrollbars = GetScrollbarSizes();
-  layout_result = LayoutWithAlgorithm(*this, constraint_space, break_token,
-                                      /* ignored */ nullptr);
+
+  NGLayoutAlgorithmParams params(*this, constraint_space,
+                                 ToNGBlockBreakToken(break_token));
+  layout_result = LayoutWithAlgorithm(params);
 
   FinishLayout(block_flow, constraint_space, break_token, layout_result);
   if (old_scrollbars != GetScrollbarSizes()) {
@@ -297,8 +274,7 @@ scoped_refptr<NGLayoutResult> NGBlockNode::Layout(
     box_->SetNeedsLayout(layout_invalidation_reason::kScrollbarChanged,
                          kMarkOnlyThis);
 
-    layout_result = LayoutWithAlgorithm(*this, constraint_space, break_token,
-                                        /* ignored */ nullptr);
+    layout_result = LayoutWithAlgorithm(params);
     FinishLayout(block_flow, constraint_space, break_token, layout_result);
   }
 
@@ -328,22 +304,24 @@ void NGBlockNode::PrepareForLayout() {
     }
   }
 
+  // TODO(layoutng) Can UpdateMarkerTextIfNeeded call be moved
+  // somewhere else? List items need up-to-date markers before layout.
   if (IsListItem())
     ToLayoutNGListItem(box_)->UpdateMarkerTextIfNeeded();
 }
 
-void NGBlockNode::FinishLayout(LayoutBlockFlow* block_flow,
-                               const NGConstraintSpace& constraint_space,
-                               const NGBreakToken* break_token,
-                               scoped_refptr<NGLayoutResult> layout_result) {
+void NGBlockNode::FinishLayout(
+    LayoutBlockFlow* block_flow,
+    const NGConstraintSpace& constraint_space,
+    const NGBreakToken* break_token,
+    scoped_refptr<const NGLayoutResult> layout_result) {
   if (!IsBlockLayoutComplete(constraint_space, *layout_result))
     return;
 
   DCHECK(layout_result->PhysicalFragment());
 
   if (block_flow) {
-    block_flow->SetCachedLayoutResult(constraint_space, break_token,
-                                      *layout_result);
+    block_flow->SetCachedLayoutResult(*layout_result, break_token);
     NGLayoutInputNode first_child = FirstChild();
     bool has_inline_children = first_child && first_child.IsInline();
     if (has_inline_children || box_->IsLayoutNGFieldset()) {
@@ -355,13 +333,11 @@ void NGBlockNode::FinishLayout(LayoutBlockFlow* block_flow,
       }
 
       block_flow->SetPaintFragment(ToNGBlockBreakToken(break_token),
-                                   layout_result->PhysicalFragment(),
-                                   layout_result->Offset());
+                                   layout_result->PhysicalFragment());
     } else {
       // We still need to clear paint fragments in case it had inline children,
       // and thus had NGPaintFragment.
-      block_flow->SetPaintFragment(ToNGBlockBreakToken(break_token), nullptr,
-                                   NGPhysicalOffset());
+      block_flow->SetPaintFragment(ToNGBlockBreakToken(break_token), nullptr);
     }
   }
 
@@ -372,6 +348,11 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
     WritingMode container_writing_mode,
     const MinMaxSizeInput& input,
     const NGConstraintSpace* constraint_space) {
+  // TODO(layoutng) Can UpdateMarkerTextIfNeeded call be moved
+  // somewhere else? List items need up-to-date markers before layout.
+  if (IsListItem())
+    ToLayoutNGListItem(box_)->UpdateMarkerTextIfNeeded();
+
   bool is_orthogonal_flow_root =
       !IsParallelWritingMode(container_writing_mode, Style().GetWritingMode());
 
@@ -380,7 +361,7 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
   // if we're outside of layout, we can't do that. This can happen on Mac.
   if ((!CanUseNewLayout() && !is_orthogonal_flow_root) ||
       (is_orthogonal_flow_root && !box_->GetFrameView()->IsInPerformLayout())) {
-    return ComputeMinMaxSizeFromLegacy(input.size_type);
+    return ComputeMinMaxSizeFromLegacy(input);
   }
 
   NGConstraintSpace zero_constraint_space =
@@ -395,7 +376,8 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
   }
 
   if (is_orthogonal_flow_root || !CanUseNewLayout()) {
-    scoped_refptr<NGLayoutResult> layout_result = Layout(*constraint_space);
+    scoped_refptr<const NGLayoutResult> layout_result =
+        Layout(*constraint_space);
     DCHECK_EQ(layout_result->Status(), NGLayoutResult::kSuccess);
     NGBoxFragment fragment(
         container_writing_mode,
@@ -411,9 +393,9 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
     return sizes;
   }
 
-  base::Optional<MinMaxSize> maybe_sizes =
-      ComputeMinMaxSizeWithAlgorithm(*this, *constraint_space,
-                                     /* break token */ nullptr, input);
+  base::Optional<MinMaxSize> maybe_sizes = ComputeMinMaxSizeWithAlgorithm(
+      NGLayoutAlgorithmParams(*this, *constraint_space), input);
+
   if (maybe_sizes.has_value()) {
     if (UNLIKELY(IsHTMLMarqueeElement(box_->GetNode()) &&
                  ToHTMLMarqueeElement(box_->GetNode())->IsHorizontal()))
@@ -424,11 +406,12 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
   if (!box_->GetFrameView()->IsInPerformLayout()) {
     // We can't synthesize these using Layout() if we're not in PerformLayout.
     // This situation can happen on mac. Fall back to legacy instead.
-    return ComputeMinMaxSizeFromLegacy(input.size_type);
+    return ComputeMinMaxSizeFromLegacy(input);
   }
 
   // Have to synthesize this value.
-  scoped_refptr<NGLayoutResult> layout_result = Layout(zero_constraint_space);
+  scoped_refptr<const NGLayoutResult> layout_result =
+      Layout(zero_constraint_space);
   NGBoxFragment min_fragment(
       container_writing_mode,
       TextDirection::kLtr,  // irrelevant here
@@ -459,17 +442,28 @@ MinMaxSize NGBlockNode::ComputeMinMaxSize(
 }
 
 MinMaxSize NGBlockNode::ComputeMinMaxSizeFromLegacy(
-    NGMinMaxSizeType type) const {
+    const MinMaxSizeInput& input) const {
+  bool needs_size_reset = false;
+  if (!box_->HasOverrideContainingBlockContentLogicalHeight()) {
+    box_->SetOverrideContainingBlockContentLogicalHeight(
+        input.percentage_resolution_block_size);
+    needs_size_reset = true;
+  }
+
   MinMaxSize sizes;
   // ComputeIntrinsicLogicalWidths returns content-box + scrollbar.
   box_->ComputeIntrinsicLogicalWidths(sizes.min_size, sizes.max_size);
-  if (type == NGMinMaxSizeType::kContentBoxSize) {
+  if (input.size_type == NGMinMaxSizeType::kContentBoxSize) {
     sizes -= LayoutUnit(box_->ScrollbarLogicalWidth());
     DCHECK_GE(sizes.min_size, LayoutUnit());
     DCHECK_GE(sizes.max_size, LayoutUnit());
   } else {
     sizes += box_->BorderAndPaddingLogicalWidth();
   }
+
+  if (needs_size_reset)
+    box_->ClearOverrideContainingBlockContentSize();
+
   return sizes;
 }
 
@@ -586,10 +580,16 @@ void NGBlockNode::CopyFragmentDataToLayoutBox(
     intrinsic_content_logical_height -= border_scrollbar_padding.BlockSum();
   box_->SetLogicalHeight(logical_height);
   box_->SetIntrinsicContentLogicalHeight(intrinsic_content_logical_height);
+
   // TODO(mstensho): This should always be done by the parent algorithm, since
   // we may have auto margins, which only the parent is able to resolve. Remove
   // the following line when all layout modes do this properly.
-  box_->SetMargin(ComputePhysicalMargins(constraint_space, Style()));
+  if (box_->IsTableCell()) {
+    // Table-cell margins compute to zero.
+    box_->SetMargin(NGPhysicalBoxStrut());
+  } else {
+    box_->SetMargin(ComputePhysicalMargins(constraint_space, Style()));
+  }
 
   LayoutMultiColumnFlowThread* flow_thread = GetFlowThread(*box_);
   if (UNLIKELY(flow_thread)) {
@@ -618,8 +618,10 @@ void NGBlockNode::CopyFragmentDataToLayoutBox(
       intrinsic_block_size +=
           PreviouslyUsedBlockSpace(constraint_space, physical_fragment);
     }
-    if (UNLIKELY(block->HasPositionedObjects()))
-      block->LayoutPositionedObjects(/* relayout_children */ false);
+
+#if DCHECK_IS_ON()
+    block->CheckPositionedObjectsNeedLayout();
+#endif
 
     if (UNLIKELY(flow_thread)) {
       UpdateLegacyMultiColumnFlowThread(*this, flow_thread, constraint_space,
@@ -648,8 +650,6 @@ void NGBlockNode::PlaceChildrenInLayoutBox(
     const NGPhysicalOffset& offset_from_start) {
   LayoutBox* rendered_legend = nullptr;
   for (const auto& child_fragment : physical_fragment.Children()) {
-    auto* child_object = child_fragment->GetLayoutObject();
-
     // Skip any line-boxes we have as children, this is handled within
     // NGInlineNode at the moment.
     if (!child_fragment->IsBox() && !child_fragment->IsRenderedLegend())
@@ -661,10 +661,6 @@ void NGBlockNode::PlaceChildrenInLayoutBox(
         rendered_legend = ToLayoutBox(box_fragment.GetLayoutObject());
       CopyChildFragmentPosition(box_fragment, child_fragment.Offset(),
                                 offset_from_start);
-    }
-    if (child_object->IsLayoutBlockFlow()) {
-      ToLayoutBlockFlow(child_object)->AddVisualOverflowFromFloats();
-      ToLayoutBlockFlow(child_object)->AddLayoutOverflowFromFloats();
     }
   }
 
@@ -739,11 +735,6 @@ void NGBlockNode::CopyChildFragmentPosition(
   }
   layout_box->SetLocation(LayoutPoint(
       horizontal_offset, fragment_offset.top + additional_offset.top));
-
-  if (IsFloatFragment(fragment)) {
-    CopyFloatChildFragmentPosition(
-        layout_box, fragment_offset + additional_offset, has_flipped_x_axis);
-  }
 }
 
 // For inline children, NG painters handles fragments directly, but there are
@@ -770,11 +761,6 @@ void NGBlockNode::CopyFragmentDataToLayoutBoxForInlineChildren(
                                       maybe_flipped_offset.left;
         }
         layout_box.SetLocation(maybe_flipped_offset.ToLayoutPoint());
-
-        if (IsFloatFragment(*child)) {
-          CopyFloatChildFragmentPosition(&layout_box, maybe_flipped_offset,
-                                         initial_container_is_flipped);
-        }
       }
 
       // Legacy compatibility. This flag is used in paint layer for
@@ -799,6 +785,12 @@ void NGBlockNode::CopyFragmentDataToLayoutBoxForInlineChildren(
   }
 }
 
+bool NGBlockNode::ChildrenInline() const {
+  if (const auto* block = ToLayoutBlockFlowOrNull(box_))
+    return AreNGBlockFlowChildrenInline(block);
+  return false;
+}
+
 bool NGBlockNode::IsInlineLevel() const {
   return GetLayoutBox()->IsInline();
 }
@@ -816,7 +808,7 @@ bool NGBlockNode::UseLogicalBottomMarginEdgeForInlineBlockBaseline() const {
              ->UseLogicalBottomMarginEdgeForInlineBlockBaseline();
 }
 
-scoped_refptr<NGLayoutResult> NGBlockNode::LayoutAtomicInline(
+scoped_refptr<const NGLayoutResult> NGBlockNode::LayoutAtomicInline(
     const NGConstraintSpace& parent_constraint_space,
     const ComputedStyle& parent_style,
     FontBaseline baseline_type,
@@ -844,7 +836,7 @@ scoped_refptr<NGLayoutResult> NGBlockNode::LayoutAtomicInline(
               parent_constraint_space.ReplacedPercentageResolutionSize())
           .SetTextDirection(Style().Direction())
           .ToConstraintSpace();
-  scoped_refptr<NGLayoutResult> result = Layout(constraint_space);
+  scoped_refptr<const NGLayoutResult> result = Layout(constraint_space);
   // TODO(kojii): Investigate why ClearNeedsLayout() isn't called automatically
   // when it's being laid out.
   if (!constraint_space.IsIntermediateLayout())
@@ -852,7 +844,7 @@ scoped_refptr<NGLayoutResult> NGBlockNode::LayoutAtomicInline(
   return result;
 }
 
-scoped_refptr<NGLayoutResult> NGBlockNode::RunOldLayout(
+scoped_refptr<const NGLayoutResult> NGBlockNode::RunOldLayout(
     const NGConstraintSpace& constraint_space) {
   // This is an exit-point from LayoutNG to the legacy engine. This means that
   // we need to be at a formatting context boundary, since NG and legacy don't
@@ -860,81 +852,69 @@ scoped_refptr<NGLayoutResult> NGBlockNode::RunOldLayout(
   DCHECK(!box_->IsLayoutBlock() ||
          ToLayoutBlock(box_)->CreatesNewFormattingContext());
 
-  WritingMode writing_mode = Style().GetWritingMode();
-  LayoutBlock* block = box_->IsLayoutBlock() ? ToLayoutBlock(box_) : nullptr;
-  const NGConstraintSpace* old_space =
-      block ? block->CachedConstraintSpace() : nullptr;
-  if (!old_space || box_->NeedsLayout() || *old_space != constraint_space) {
-    LayoutUnit inline_size =
+  scoped_refptr<const NGLayoutResult> layout_result =
+      box_->GetCachedLayoutResult();
+
+  // We need to force a layout on the child if the constraint space given will
+  // change the layout.
+  bool needs_force_relayout =
+      layout_result && !MaySkipLayout(*this, *layout_result, constraint_space);
+
+  if (box_->NeedsLayout() || !layout_result || needs_force_relayout) {
+    BoxLayoutExtraInput input(*box_);
+    input.containing_block_content_inline_size =
         CalculateAvailableInlineSizeForLegacy(*box_, constraint_space);
-    LayoutUnit block_size =
+    input.containing_block_content_block_size =
         CalculateAvailableBlockSizeForLegacy(*box_, constraint_space);
 
-    LayoutObject* containing_block = box_->ContainingBlock();
-    bool parallel_writing_mode;
-    if (!containing_block) {
-      parallel_writing_mode = true;
-    } else {
-      parallel_writing_mode = IsParallelWritingMode(
-          containing_block->StyleRef().GetWritingMode(), writing_mode);
+    WritingMode writing_mode = Style().GetWritingMode();
+    if (LayoutObject* containing_block = box_->ContainingBlock()) {
+      if (!IsParallelWritingMode(containing_block->StyleRef().GetWritingMode(),
+                                 writing_mode)) {
+        // The sizes should be in the containing block writing mode.
+        std::swap(input.containing_block_content_block_size,
+                  input.containing_block_content_inline_size);
+      }
     }
-    if (parallel_writing_mode) {
-      box_->SetOverrideContainingBlockContentLogicalWidth(inline_size);
-      box_->SetOverrideContainingBlockContentLogicalHeight(block_size);
-    } else {
-      // OverrideContainingBlock should be in containing block writing mode.
-      box_->SetOverrideContainingBlockContentLogicalWidth(block_size);
-      box_->SetOverrideContainingBlockContentLogicalHeight(inline_size);
-    }
+    input.available_inline_size = constraint_space.AvailableSize().inline_size;
 
-    if (constraint_space.IsFixedSizeInline()) {
-      box_->SetOverrideLogicalWidth(
-          constraint_space.AvailableSize().inline_size);
-    } else {
-      box_->ClearOverrideLogicalWidth();
-    }
-    if (constraint_space.IsFixedSizeBlock()) {
-      box_->SetOverrideLogicalHeight(
-          constraint_space.AvailableSize().block_size);
-    } else {
-      box_->ClearOverrideLogicalHeight();
-    }
+    if (constraint_space.IsFixedSizeInline())
+      input.override_inline_size = constraint_space.AvailableSize().inline_size;
+    if (constraint_space.IsFixedSizeBlock())
+      input.override_block_size = constraint_space.AvailableSize().block_size;
     box_->ComputeAndSetBlockDirectionMargins(box_->ContainingBlock());
 
     // Using |LayoutObject::LayoutIfNeeded| save us a little bit of overhead,
     // compared to |LayoutObject::ForceChildLayout|.
     DCHECK(!box_->IsLayoutNGMixin());
-    if (box_->NeedsLayout())
+    if (box_->NeedsLayout() && !needs_force_relayout)
       box_->LayoutIfNeeded();
     else
       box_->ForceChildLayout();
 
-    // Reset the containing block size override size, now that we're done with
-    // subtree layout. Min/max calculation that depends on the block size of the
-    // container (e.g. objects with intrinsic ratio and percentage block size)
-    // in a subsequent layout pass might otherwise become wrong.
-    box_->ClearOverrideContainingBlockContentSize();
-    if (block)
-      block->SetCachedConstraintSpace(constraint_space);
+    // Synthesize a new layout result.
+    NGLogicalSize box_size(box_->LogicalWidth(), box_->LogicalHeight());
+    // TODO(kojii): Implement use_first_line_style.
+    NGBoxFragmentBuilder builder(*this, box_->Style(), &constraint_space,
+                                 writing_mode, box_->StyleRef().Direction());
+    builder.SetIsNewFormattingContext(
+        constraint_space.IsNewFormattingContext());
+    builder.SetIsOldLayoutRoot();
+    builder.SetInlineSize(box_size.inline_size);
+    builder.SetBlockSize(box_size.block_size);
+    NGBoxStrut borders(box_->BorderStart(), box_->BorderEnd(),
+                       box_->BorderBefore(), box_->BorderAfter());
+    builder.SetBorders(borders);
+    NGBoxStrut padding(box_->PaddingStart(), box_->PaddingEnd(),
+                       box_->PaddingBefore(), box_->PaddingAfter());
+    builder.SetPadding(padding);
+
+    CopyBaselinesFromOldLayout(constraint_space, &builder);
+    layout_result = builder.ToBoxFragment();
+
+    box_->SetCachedLayoutResult(*layout_result, /* break_token */ nullptr);
   }
-  NGLogicalSize box_size(box_->LogicalWidth(), box_->LogicalHeight());
-  // TODO(kojii): Implement use_first_line_style.
-  NGBoxFragmentBuilder builder(*this, box_->Style(), writing_mode,
-                               box_->StyleRef().Direction());
-  builder.SetIsNewFormattingContext(constraint_space.IsNewFormattingContext());
-  builder.SetIsOldLayoutRoot();
-  builder.SetInlineSize(box_size.inline_size);
-  builder.SetBlockSize(box_size.block_size);
-  NGBoxStrut borders(box_->BorderStart(), box_->BorderEnd(),
-                     box_->BorderBefore(), box_->BorderAfter());
-  builder.SetBorders(borders);
-  NGBoxStrut padding(box_->PaddingStart(), box_->PaddingEnd(),
-                     box_->PaddingBefore(), box_->PaddingAfter());
-  builder.SetPadding(padding);
 
-  CopyBaselinesFromOldLayout(constraint_space, &builder);
-
-  scoped_refptr<NGLayoutResult> layout_result = builder.ToBoxFragment();
   UpdateShapeOutsideInfoIfNeeded(
       *layout_result, constraint_space.PercentageResolutionInlineSize());
 

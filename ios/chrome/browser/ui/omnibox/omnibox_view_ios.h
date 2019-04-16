@@ -20,7 +20,6 @@ class GURL;
 class WebOmniboxEditController;
 struct AutocompleteMatch;
 @class AutocompleteTextFieldDelegate;
-@class OmniboxClearButtonBridge;
 @class OmniboxTextFieldIOS;
 @class OmniboxTextFieldPasteDelegate;
 @protocol OmniboxFocuser;
@@ -44,7 +43,7 @@ class OmniboxViewIOS : public OmniboxView,
 
   void SetPopupProvider(OmniboxPopupProvider* provider) {
     popup_provider_ = provider;
-  };
+  }
 
   // Returns a color representing |security_level|, adjusted based on whether
   // the browser is in Incognito mode.
@@ -88,11 +87,10 @@ class OmniboxViewIOS : public OmniboxView,
   void SetFocus() override {}
   void ApplyCaretVisibility() override {}
   void OnInlineAutocompleteTextCleared() override {}
-  void OnRevertTemporaryText() override {}
+  void OnRevertTemporaryText(const base::string16& display_text,
+                             const AutocompleteMatch& match) override {}
   gfx::NativeView GetNativeView() const override;
   gfx::NativeView GetRelativeWindowForPopup() const override;
-  int GetTextWidth() const override;
-  int GetWidth() const override;
 
   // AutocompleteTextFieldDelegate methods
   void OnDidBeginEditing();
@@ -152,19 +150,12 @@ class OmniboxViewIOS : public OmniboxView,
   void EmphasizeURLComponents() override;
 
  private:
-  // Creates the clear text UIButton to be used as a right view of |field_|.
-  void CreateClearTextIcon(bool is_incognito);
-
-  // Updates the view to show the appropriate button (e.g. clear text or voice
-  // search) on the right side of |field_|.
-  void UpdateRightDecorations();
+  void SetEmphasis(bool emphasize, const gfx::Range& range) override {}
+  void UpdateSchemeStyle(const gfx::Range& scheme_range) override {}
 
   // Calculates text attributes according to |display_text| and
   // returns them in an autoreleased object.
   NSAttributedString* ApplyTextAttributes(const base::string16& text);
-
-  void SetEmphasis(bool emphasize, const gfx::Range& range) override;
-  void UpdateSchemeStyle(const gfx::Range& scheme_range) override;
 
   // Removes the query refinement chip from the omnibox.
   void RemoveQueryRefinementChip();
@@ -180,9 +171,6 @@ class OmniboxViewIOS : public OmniboxView,
   ios::ChromeBrowserState* browser_state_;
 
   OmniboxTextFieldIOS* field_;
-  __strong UIButton* clear_text_button_;
-
-  __strong OmniboxClearButtonBridge* clear_button_bridge_;
 
   OmniboxTextFieldPasteDelegate* paste_delegate_;
   WebOmniboxEditController* controller_;  // weak, owns us

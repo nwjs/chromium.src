@@ -12,6 +12,7 @@
 #include "base/callback_forward.h"
 #include "components/autofill_assistant/browser/batch_element_checker.h"
 #include "components/autofill_assistant/browser/details.h"
+#include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/selector.h"
 #include "components/autofill_assistant/browser/ui_controller.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
@@ -30,7 +31,6 @@ class WebContents;
 
 namespace autofill_assistant {
 class ClientMemory;
-struct PaymentInformation;
 
 // Action delegate called when processing actions.
 class ActionDelegate {
@@ -83,7 +83,12 @@ class ActionDelegate {
   // scripts, even though we're in the middle of a script. This includes
   // allowing access to the touchable elements set previously, in the same
   // script.
-  virtual void Prompt(std::unique_ptr<std::vector<Chip>> chips) = 0;
+  //
+  // |on_terminate| is called if the prompt is terminated, by Autofill Assistant
+  // shutting down. The action should return immediately with client error
+  // USER_ABORTED_ACTION.
+  virtual void Prompt(std::unique_ptr<std::vector<Chip>> chips,
+                      base::OnceCallback<void()> on_terminate) = 0;
 
   // Remove all chips from the UI.
   virtual void CancelPrompt() = 0;
@@ -91,10 +96,7 @@ class ActionDelegate {
   // Asks the user to provide the data used by UseAddressAction and
   // UseCreditCardAction.
   virtual void GetPaymentInformation(
-      payments::mojom::PaymentOptionsPtr payment_options,
-      base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
-      const std::string& title,
-      const std::vector<std::string>& supported_basic_card_networks) = 0;
+      std::unique_ptr<PaymentRequestOptions> options) = 0;
 
   using GetFullCardCallback =
       base::OnceCallback<void(std::unique_ptr<autofill::CreditCard> card,
@@ -178,10 +180,6 @@ class ActionDelegate {
   // state.
   virtual void Restart() = 0;
 
-  // Stop the current script, shutdown autofill assistant and show |message| if
-  // it is not empty or a default message otherwise.
-  virtual void StopCurrentScriptAndShutdown(const std::string& message) = 0;
-
   // Return the current ClientMemory.
   virtual ClientMemory* GetClientMemory() = 0;
 
@@ -191,17 +189,21 @@ class ActionDelegate {
   // Get associated web contents.
   virtual content::WebContents* GetWebContents() = 0;
 
-  // Clears contextual information.
-  virtual void ClearDetails() = 0;
-
   // Sets or updates contextual information.
-  virtual void SetDetails(const Details& details) = 0;
+  // Passing nullptr clears the contextual information.
+  virtual void SetDetails(std::unique_ptr<Details> details) = 0;
+
+  // Clears the info box.
+  virtual void ClearInfoBox() = 0;
+
+  // Sets or updates info box.
+  virtual void SetInfoBox(const InfoBox& infoBox) = 0;
 
   // Show the progress bar and set it at |progress|%.
-  virtual void ShowProgressBar(int progress) = 0;
+  virtual void SetProgress(int progress) = 0;
 
-  // Hide the progress bar.
-  virtual void HideProgressBar() = 0;
+  // Shows the progress bar when |visible| is true. Hides it when false.
+  virtual void SetProgressVisible(bool visible) = 0;
 
  protected:
   ActionDelegate() = default;

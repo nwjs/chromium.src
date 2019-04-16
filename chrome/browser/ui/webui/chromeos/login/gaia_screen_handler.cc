@@ -285,11 +285,12 @@ struct GaiaScreenHandler::GaiaContext {
 GaiaScreenHandler::GaiaContext::GaiaContext() {}
 
 GaiaScreenHandler::GaiaScreenHandler(
+    JSCallsContainer* js_calls_container,
     CoreOobeView* core_oobe_view,
     const scoped_refptr<NetworkStateInformer>& network_state_informer,
     ActiveDirectoryPasswordChangeScreenHandler*
         active_directory_password_change_screen_handler)
-    : BaseScreenHandler(kScreenId),
+    : BaseScreenHandler(kScreenId, js_calls_container),
       network_state_informer_(network_state_informer),
       core_oobe_view_(core_oobe_view),
       active_directory_password_change_screen_handler_(
@@ -376,8 +377,7 @@ void GaiaScreenHandler::LoadGaiaWithPartition(
       net::CookieOptions()));
 
   partition->GetCookieManagerForBrowserProcess()->SetCanonicalCookie(
-      *cc.get(), true /* secure_source */, true /* modify_http_only */,
-      std::move(callback));
+      *cc.get(), "https", true /* modify_http_only */, std::move(callback));
 }
 
 void GaiaScreenHandler::OnSetCookieForLoadGaiaWithPartition(
@@ -583,6 +583,10 @@ void GaiaScreenHandler::DeclareLocalizedValues(
 }
 
 void GaiaScreenHandler::Initialize() {
+  initialized_ = true;
+
+  if (show_when_ready_)
+    ShowGaiaScreenIfReady();
 }
 
 void GaiaScreenHandler::RegisterMessages() {
@@ -1084,7 +1088,7 @@ void GaiaScreenHandler::ShowGaiaAsync(
     const base::Optional<AccountId>& account_id) {
   if (account_id)
     populated_email_ = account_id->GetUserEmail();
-  show_when_dns_and_cookies_cleared_ = true;
+  show_when_ready_ = true;
   if (gaia_silent_load_ && populated_email_.empty()) {
     dns_cleared_ = true;
     cookies_cleared_ = true;
@@ -1118,13 +1122,12 @@ void GaiaScreenHandler::ShowSigninScreenForTest(const std::string& username,
 }
 
 void GaiaScreenHandler::CancelShowGaiaAsync() {
-  show_when_dns_and_cookies_cleared_ = false;
+  show_when_ready_ = false;
 }
 
 void GaiaScreenHandler::ShowGaiaScreenIfReady() {
-  if (!dns_cleared_ || !cookies_cleared_ ||
-      !show_when_dns_and_cookies_cleared_ ||
-      !LoginDisplayHost::default_host()) {
+  if (!dns_cleared_ || !cookies_cleared_ || !initialized_ ||
+      !show_when_ready_ || !LoginDisplayHost::default_host()) {
     return;
   }
 

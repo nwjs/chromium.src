@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/metrics/field_trial_params.h"
@@ -444,8 +445,8 @@ SuggestionsServiceImpl::CreateSuggestionsRequest(
   // Add Chrome experiment state to the request headers.
   // TODO: We should call AppendVariationHeaders with explicit
   // variations::SignedIn::kNo If the access_token is empty
-  variations::AppendVariationHeadersUnknownSignedIn(
-      url, variations::InIncognito::kNo, &resource_request->headers);
+  variations::AppendVariationsHeaderUnknownSignedIn(
+      url, variations::InIncognito::kNo, resource_request.get());
   if (!access_token.empty()) {
     resource_request->headers.SetHeader(
         "Authorization", base::StrCat({"Bearer ", access_token}));

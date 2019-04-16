@@ -18,6 +18,7 @@
 #include "chrome/browser/extensions/chrome_extension_function.h"
 #include "chromeos/services/assistant/public/mojom/assistant.mojom.h"
 #include "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom.h"
+#include "chromeos/services/machine_learning/public/mojom/model.mojom.h"
 #include "extensions/browser/browser_context_keyed_api_factory.h"
 #include "services/ws/public/mojom/window_server_test.mojom.h"
 #include "ui/message_center/public/cpp/notification_types.h"
@@ -219,6 +220,16 @@ class AutotestPrivateGetPlayStoreStateFunction
   ResponseAction Run() override;
 };
 
+class AutotestPrivateGetArcStateFunction : public UIThreadExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.getArcState",
+                             AUTOTESTPRIVATE_GETARCSTATE)
+
+ private:
+  ~AutotestPrivateGetArcStateFunction() override;
+  ResponseAction Run() override;
+};
+
 class AutotestPrivateSetPlayStoreEnabledFunction
     : public UIThreadExtensionFunction {
  public:
@@ -258,6 +269,7 @@ class AutotestPrivateIsAppShownFunction : public UIThreadExtensionFunction {
   ResponseAction Run() override;
 };
 
+// Deprecated, use GetArcState instead.
 class AutotestPrivateIsArcProvisionedFunction
     : public UIThreadExtensionFunction {
  public:
@@ -445,6 +457,7 @@ class AutotestPrivateSetAssistantEnabledFunction
   base::OneShotTimer timeout_timer_;
 };
 
+// Send text query to Assistant and return response.
 class AutotestPrivateSendAssistantTextQueryFunction
     : public UIThreadExtensionFunction,
       public chromeos::assistant::mojom::AssistantInteractionSubscriber {
@@ -491,6 +504,18 @@ class AutotestPrivateSendAssistantTextQueryFunction
       assistant_interaction_subscriber_binding_;
   base::OneShotTimer timeout_timer_;
   std::unique_ptr<base::DictionaryValue> result_;
+};
+
+// Set user pref value in the pref tree.
+class AutotestPrivateSetWhitelistedPrefFunction
+    : public UIThreadExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.setWhitelistedPref",
+                             AUTOTESTPRIVATE_SETWHITELISTEDPREF)
+
+ private:
+  ~AutotestPrivateSetWhitelistedPrefFunction() override;
+  ResponseAction Run() override;
 };
 
 // Enable/disable a Crostini app's "scaled" property.
@@ -557,6 +582,30 @@ class AutotestPrivateGetPrimaryDisplayScaleFactorFunction
                              AUTOTESTPRIVATE_GETPRIMARYDISPLAYSCALEFACTOR)
  private:
   ~AutotestPrivateGetPrimaryDisplayScaleFactorFunction() override;
+  ResponseAction Run() override;
+};
+
+// Returns if tablet mode is enabled.
+class AutotestPrivateIsTabletModeEnabledFunction
+    : public UIThreadExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.isTabletModeEnabled",
+                             AUTOTESTPRIVATE_ISTABLETMODEENABLED)
+ private:
+  ~AutotestPrivateIsTabletModeEnabledFunction() override;
+  ResponseAction Run() override;
+};
+
+// Enables/Disables tablet mode.
+class AutotestPrivateSetTabletModeEnabledFunction
+    : public UIThreadExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("autotestPrivate.setTabletModeEnabled",
+                             AUTOTESTPRIVATE_SETTABLETMODEENABLED)
+
+ private:
+  void OnSetTabletModeEnabled(bool enabled);
+  ~AutotestPrivateSetTabletModeEnabledFunction() override;
   ResponseAction Run() override;
 };
 

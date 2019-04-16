@@ -110,21 +110,26 @@ RESOURCES = \
 	src/images/settings_timer_duration.svg \
 	src/images/spinner.svg \
 	src/js/background.js \
+	src/js/gallerybutton.js \
+	src/js/google-analytics-bundle.js \
 	src/js/main.js \
+	src/js/metrics.js \
 	src/js/models/gallery.js \
 	src/js/models/file_system.js \
 	src/js/nav.js \
 	src/js/scrollbar.js \
+	src/js/sound.js \
+	src/js/state.js \
 	src/js/toast.js \
 	src/js/tooltip.js \
 	src/js/util.js \
 	src/js/views/browser.js \
 	src/js/views/camera.js \
-	src/js/views/camera/gallerybutton.js \
 	src/js/views/camera/layout.js \
 	src/js/views/camera/options.js \
 	src/js/views/camera/preview.js \
 	src/js/views/camera/recordtime.js \
+	src/js/views/camera/timertick.js \
 	src/js/views/dialog.js \
 	src/js/views/gallery_base.js \
 	src/js/views/settings.js \

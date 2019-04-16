@@ -27,13 +27,9 @@ class PasswordStoreSigninNotifierImpl
   void SubscribeToSigninEvents(PasswordStore* store) override;
   void UnsubscribeFromSigninEvents() override;
 
-  // SigninManagerBase::Observer implementations.
-  void OnPrimaryAccountSetWithPassword(const AccountInfo& account_info,
-                                       const std::string& password) override;
-  void OnPrimaryAccountCleared(const AccountInfo& account_info) override;
-
   // IdentityManager::Observer implementations.
-  void OnAccountRemovedWithInfo(const AccountInfo& info) override;
+  void OnPrimaryAccountCleared(const CoreAccountInfo& account_info) override;
+  void OnExtendedAccountInfoRemoved(const AccountInfo& info) override;
 
  private:
   Profile* const profile_;

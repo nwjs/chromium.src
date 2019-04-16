@@ -17,6 +17,7 @@
 #include "content/browser/frame_host/cross_process_frame_connector.h"
 #include "content/browser/frame_host/frame_tree.h"
 #include "content/browser/frame_host/frame_tree_node.h"
+#include "content/browser/frame_host/ipc_utils.h"
 #include "content/browser/frame_host/navigator.h"
 #include "content/browser/frame_host/render_frame_host_delegate.h"
 #include "content/browser/renderer_host/render_view_host_impl.h"
@@ -214,6 +215,12 @@ bool RenderFrameProxyHost::InitRenderFrameProxy() {
 
   set_render_frame_proxy_created(true);
 
+  // If this proxy was created for a frame that hasn't yet finished loading,
+  // let the renderer know so it can also mark the proxy as loading. See
+  // https://crbug.com/916137.
+  if (frame_tree_node_->IsLoading())
+    Send(new FrameMsg_DidStartLoading(routing_id_));
+
   // For subframes, initialize the proxy's FrameOwnerProperties only if they
   // differ from default values.
   bool should_send_properties =
@@ -269,37 +276,31 @@ void RenderFrameProxyHost::OnDetach() {
     return;
   }
 
-  // This message should only be received for subframes.  Note that we can't
-  // restrict it to just the current SiteInstances of the ancestors of this
-  // frame, because another frame in the tree may be able to detach this frame
-  // by navigating its parent.
-  if (frame_tree_node_->IsMainFrame()) {
-    bad_message::ReceivedBadMessage(GetProcess(), bad_message::RFPH_DETACH);
+  // For a main frame with no outer delegate, no further work is needed. In this
+  // case, detach can only be triggered by closing the entire RenderViewHost.
+  // Instead, this cleanup relies on the destructors of RenderFrameHost and
+  // RenderFrameProxyHost decrementing the refcounts of their associated
+  // RenderViewHost. When the refcount hits 0, the corresponding renderer object
+  // is cleaned up. Since WebContents destruction will also destroy
+  // RenderFrameHost/RenderFrameProxyHost objects in FrameTree, this eventually
+  // results in all the associated RenderViewHosts being closed.
+  if (frame_tree_node_->IsMainFrame())
     return;
-  }
 
+  // Otherwise, a remote child frame has been removed from the frame tree.
+  // Make sure that this action is mirrored to all the other renderers, so
+  // the frame tree remains consistent.
   frame_tree_node_->current_frame_host()->DetachFromProxy();
 }
 
 void RenderFrameProxyHost::OnOpenURL(
     const FrameHostMsg_OpenURL_Params& params) {
-  GURL validated_url(params.url);
-  GetProcess()->FilterURL(false, &validated_url);
-
-  mojo::ScopedMessagePipeHandle blob_url_token_handle(params.blob_url_token);
-  blink::mojom::BlobURLTokenPtr blob_url_token(
-      blink::mojom::BlobURLTokenPtrInfo(std::move(blob_url_token_handle),
-                                        blink::mojom::BlobURLToken::Version_));
+  // Verify and unpack IPC payload.
+  GURL validated_url;
   scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory;
-  if (blob_url_token) {
-    if (!params.url.SchemeIsBlob()) {
-      bad_message::ReceivedBadMessage(
-          GetProcess(), bad_message::RFPH_BLOB_URL_TOKEN_FOR_NON_BLOB_URL);
-      return;
-    }
-    blob_url_loader_factory =
-        ChromeBlobStorageContext::URLLoaderFactoryForToken(
-            GetSiteInstance()->GetBrowserContext(), std::move(blob_url_token));
+  if (!VerifyOpenURLParams(GetSiteInstance(), params, &validated_url,
+                           &blob_url_loader_factory)) {
+    return;
   }
 
   RenderFrameHostImpl* current_rfh = frame_tree_node_->current_frame_host();
@@ -313,15 +314,6 @@ void RenderFrameProxyHost::OnOpenURL(
   // RenderFrameHost.
   if (!site_instance_->IsRelatedSiteInstance(current_rfh->GetSiteInstance()))
     return;
-
-  // Verify if the request originator (*not* |current_rfh|) has access to the
-  // contents of the POST body.
-  if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanReadRequestBody(
-          GetSiteInstance(), params.resource_request_body)) {
-    bad_message::ReceivedBadMessage(GetProcess(),
-                                    bad_message::RFPH_ILLEGAL_UPLOAD_PARAMS);
-    return;
-  }
 
   // Since this navigation targeted a specific RenderFrameProxy, it should stay
   // in the current tab.

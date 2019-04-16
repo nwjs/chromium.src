@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium OS Authors. All rights reserved.
+// Copyright 2018 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -332,12 +332,8 @@ cca.models.FileSystem.createThumbnail_ = function(isVideo, url) {
   const thumbnailWidth = 480;
   var element = document.createElement(isVideo ? 'video' : 'img');
   return new Promise((resolve, reject) => {
-    if (isVideo) {
-      element.onloadeddata = resolve;
-    } else {
-      element.onload = resolve;
-    }
-    element.onerror = reject;
+    element.addEventListener(isVideo ? 'canplay' : 'load', resolve);
+    element.addEventListener('error', reject);
     element.src = url;
   }).then(() => {
     var canvas = document.createElement('canvas');

@@ -189,8 +189,6 @@ static_library("common") {
     "stack_sampling_configuration.h",
     "thread_profiler.cc",
     "thread_profiler.h",
-    "trace_event_args_whitelist.cc",
-    "trace_event_args_whitelist.h",
     "tts_messages.h",
     "tts_utterance_request.cc",
     "tts_utterance_request.h",
@@ -724,6 +722,8 @@ mojom("mojo_bindings") {
     "renderer_configuration.mojom",
   ]
 
+  deps = []
+
   if (is_android) {
     sources += [ "sandbox_status_extension_android.mojom" ]
   }
@@ -738,6 +738,7 @@ mojom("mojo_bindings") {
 
   if (enable_offline_pages) {
     sources += [ "mhtml_page_notifier.mojom" ]
+    deps += [ "//third_party/blink/public/mojom:mojom_mhtml_load_result" ]
   }
 
   public_deps = [
@@ -784,7 +785,8 @@ mojom("page_load_metrics_mojom") {
 
   public_deps = [
     "//mojo/public/mojom/base",
-    "//third_party/blink/public:web_feature_mojo_bindings",
+    "//third_party/blink/public/mojom:web_feature_mojo_bindings",
+    "//url/mojom:url_mojom_origin",
   ]
 }
 
@@ -795,7 +797,7 @@ mojom("client_hints_mojom") {
 
   public_deps = [
     "//mojo/public/mojom/base",
-    "//third_party/blink/public:web_client_hints_types_mojo_bindings",
+    "//third_party/blink/public/mojom:web_client_hints_types_mojo_bindings",
     "//url/mojom:url_mojom_origin",
   ]
 }

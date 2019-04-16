@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/callback_helpers.h"
 #include "base/compiler_specific.h"
 #include "base/containers/queue.h"
@@ -58,6 +59,7 @@
 #include "net/socket/stream_socket.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_cipher_suite_names.h"
+#include "net/ssl/ssl_client_session_cache.h"
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_info.h"
 #include "net/ssl/ssl_private_key.h"
@@ -132,8 +134,8 @@ class FakeDataChannel {
       write_called_after_close_ = true;
       write_callback_ = std::move(callback);
       base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::Bind(&FakeDataChannel::DoWriteCallback,
-                                weak_factory_.GetWeakPtr()));
+          FROM_HERE, base::BindOnce(&FakeDataChannel::DoWriteCallback,
+                                    weak_factory_.GetWeakPtr()));
       return ERR_IO_PENDING;
     }
     // This function returns synchronously, so make a copy of the buffer.
@@ -141,8 +143,8 @@ class FakeDataChannel {
         base::MakeRefCounted<StringIOBuffer>(std::string(buf->data(), buf_len)),
         buf_len));
     base::ThreadTaskRunnerHandle::Get()->PostTask(
-        FROM_HERE, base::Bind(&FakeDataChannel::DoReadCallback,
-                              weak_factory_.GetWeakPtr()));
+        FROM_HERE, base::BindOnce(&FakeDataChannel::DoReadCallback,
+                                  weak_factory_.GetWeakPtr()));
     return buf_len;
   }
 
@@ -154,8 +156,8 @@ class FakeDataChannel {
     closed_ = true;
     if (!read_callback_.is_null()) {
       base::ThreadTaskRunnerHandle::Get()->PostTask(
-          FROM_HERE, base::Bind(&FakeDataChannel::DoReadCallback,
-                                weak_factory_.GetWeakPtr()));
+          FROM_HERE, base::BindOnce(&FakeDataChannel::DoReadCallback,
+                                    weak_factory_.GetWeakPtr()));
     }
   }
 
@@ -360,7 +362,9 @@ class SSLServerSocketTest : public PlatformTest,
         client_cert_verifier_(new MockClientCertVerifier()),
         transport_security_state_(new TransportSecurityState),
         ct_verifier_(new DoNothingCTVerifier),
-        ct_policy_enforcer_(new MockCTPolicyEnforcer) {}
+        ct_policy_enforcer_(new MockCTPolicyEnforcer),
+        ssl_client_session_cache_(
+            new SSLClientSessionCache(SSLClientSessionCache::Config())) {}
 
   void SetUp() override {
     PlatformTest::SetUp();
@@ -413,21 +417,16 @@ class SSLServerSocketTest : public PlatformTest,
     server_socket_.reset();
     channel_1_.reset(new FakeDataChannel());
     channel_2_.reset(new FakeDataChannel());
-    std::unique_ptr<ClientSocketHandle> client_connection(
-        new ClientSocketHandle);
-    client_connection->SetSocket(std::unique_ptr<StreamSocket>(
-        new FakeSocket(channel_1_.get(), channel_2_.get())));
-    std::unique_ptr<StreamSocket> server_socket(
-        new FakeSocket(channel_2_.get(), channel_1_.get()));
+    std::unique_ptr<StreamSocket> client_connection =
+        std::make_unique<FakeSocket>(channel_1_.get(), channel_2_.get());
+    std::unique_ptr<StreamSocket> server_socket =
+        std::make_unique<FakeSocket>(channel_2_.get(), channel_1_.get());
 
     HostPortPair host_and_pair("unittest", 0);
-    SSLClientSocketContext context;
-    context.cert_verifier = cert_verifier_.get();
-    context.transport_security_state = transport_security_state_.get();
-    context.cert_transparency_verifier = ct_verifier_.get();
-    context.ct_policy_enforcer = ct_policy_enforcer_.get();
-    // Set a dummy session cache shard to enable session caching.
-    context.ssl_session_cache_shard = "shard";
+    SSLClientSocketContext context(
+        cert_verifier_.get(), nullptr, transport_security_state_.get(),
+        ct_verifier_.get(), ct_policy_enforcer_.get(),
+        ssl_client_session_cache_.get());
 
     client_socket_ = socket_factory_->CreateSSLClientSocket(
         std::move(client_connection), host_and_pair, client_ssl_config_,
@@ -525,6 +524,7 @@ class SSLServerSocketTest : public PlatformTest,
   std::unique_ptr<TransportSecurityState> transport_security_state_;
   std::unique_ptr<DoNothingCTVerifier> ct_verifier_;
   std::unique_ptr<MockCTPolicyEnforcer> ct_policy_enforcer_;
+  std::unique_ptr<SSLClientSessionCache> ssl_client_session_cache_;
   std::unique_ptr<SSLServerContext> server_context_;
   std::unique_ptr<crypto::RSAPrivateKey> server_private_key_;
   scoped_refptr<SSLPrivateKey> server_ssl_private_key_;

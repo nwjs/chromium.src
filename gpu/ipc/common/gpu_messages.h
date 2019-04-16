@@ -112,6 +112,7 @@ IPC_STRUCT_BEGIN(GpuChannelMsg_ScheduleImageDecode_Params)
   IPC_STRUCT_MEMBER(uint32_t, transfer_cache_entry_id)
   IPC_STRUCT_MEMBER(int32_t, discardable_handle_shm_id)
   IPC_STRUCT_MEMBER(uint32_t, discardable_handle_shm_offset)
+  IPC_STRUCT_MEMBER(uint64_t, discardable_handle_release_count)
   IPC_STRUCT_MEMBER(gfx::ColorSpace, target_color_space)
   IPC_STRUCT_MEMBER(bool, needs_mips)
 IPC_STRUCT_END()
@@ -165,7 +166,7 @@ IPC_MESSAGE_ROUTED1(GpuChannelMsg_RegisterSharedImageUploadBuffer,
 IPC_MESSAGE_ROUTED2(
     GpuChannelMsg_ScheduleImageDecode,
     GpuChannelMsg_ScheduleImageDecode_Params /* decode_params */,
-    uint64_t /* release_count */)
+    uint64_t /* decode_release_count */)
 
 // Crash the GPU process in similar way to how chrome://gpucrash does.
 // This is only supported in testing environments, and is otherwise ignored.
@@ -310,5 +311,11 @@ IPC_MESSAGE_ROUTED1(GpuCommandBufferMsg_GetGpuFenceHandle,
 IPC_MESSAGE_ROUTED2(GpuCommandBufferMsg_GetGpuFenceHandleComplete,
                     uint32_t /* gpu_fence_id */,
                     gfx::GpuFenceHandle)
+
+// Returns a block of data from the GPU process to the renderer.
+// This contains server->client messages produced by dawn_wire and is used to
+// remote WebGPU.
+IPC_MESSAGE_ROUTED1(GpuCommandBufferMsg_ReturnData,
+                    std::vector<uint8_t> /* data */)
 
 #endif  // GPU_IPC_COMMON_GPU_MESSAGES_H_

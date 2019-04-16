@@ -134,7 +134,7 @@ DownloadPrefs::DownloadPrefs(Profile* profile) : profile_(profile) {
     base::FilePath migrated;
     if (!current.empty() &&
         file_manager::util::MigratePathFromOldFormat(
-            profile_, current, &migrated)) {
+            profile_, GetDefaultDownloadDirectory(), current, &migrated)) {
       prefs->SetFilePath(path_pref[i], migrated);
 
       // In M73 migrate /home/chronos/u-<hash>/Downloads to
@@ -310,7 +310,7 @@ DownloadPrefs* DownloadPrefs::FromBrowserContext(
 
 bool DownloadPrefs::IsFromTrustedSource(const download::DownloadItem& item) {
   if (!trusted_sources_manager_)
-    trusted_sources_manager_.reset(TrustedSourcesManager::Create());
+    trusted_sources_manager_ = TrustedSourcesManager::Create();
   return trusted_sources_manager_->IsFromTrustedSource(item.GetURL());
 }
 

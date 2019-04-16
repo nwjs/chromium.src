@@ -64,12 +64,24 @@ class APP_LIST_EXPORT SearchResultView
   // Computes the button's spoken feedback name.
   base::string16 ComputeAccessibleName() const;
 
+  // Gets the index of this result in the |SearchResultListView|.
+  int get_index_in_search_result_list_view() const {
+    return index_in_search_result_list_view_;
+  }
+
+  // Stores the index of this result in the |SearchResultListView|.
+  void set_index_in_search_result_list_view(size_t index) {
+    index_in_search_result_list_view_ = index;
+  }
+
   void set_is_last_result(bool is_last) { is_last_result_ = is_last; }
 
   // AppListMenuModelAdapter::Delegate overrides:
   void ExecuteCommand(int command_id, int event_flags) override;
 
   bool selected() const { return selected_; }
+
+  void SetDisplayIcon(const gfx::ImageSkia& source);
 
  private:
   friend class app_list::test::SearchResultListViewTest;
@@ -96,6 +108,8 @@ class APP_LIST_EXPORT SearchResultView
   void OnBlur() override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
+  void GetAccessibleNodeData(ui::AXNodeData* node_data) override;
+  void VisibilityChanged(View* starting_from, bool is_visible) override;
 
   // ui::EventHandler overrides:
   void OnGestureEvent(ui::GestureEvent* event) override;
@@ -104,11 +118,11 @@ class APP_LIST_EXPORT SearchResultView
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
 
   // views::ContextMenuController overrides:
-  void ShowContextMenuForView(views::View* source,
-                              const gfx::Point& point,
-                              ui::MenuSourceType source_type) override;
+  void ShowContextMenuForViewImpl(views::View* source,
+                                  const gfx::Point& point,
+                                  ui::MenuSourceType source_type) override;
 
-  // Bound by ShowContextMenuForView().
+  // Bound by ShowContextMenuForViewImpl().
   void OnGetContextMenu(views::View* source,
                         const gfx::Point& point,
                         ui::MenuSourceType source_type,
@@ -135,8 +149,10 @@ class APP_LIST_EXPORT SearchResultView
 
   AppListViewDelegate* view_delegate_;
 
-  views::ImageView* icon_;        // Owned by views hierarchy.
-  views::ImageView* badge_icon_;  // Owned by views hierarchy.
+  views::ImageView* icon_;  // Owned by views hierarchy.
+  // If a |display_icon_| is set, we will show |display_icon_|, not |icon_|.
+  views::ImageView* display_icon_;  // Owned by views hierarchy.
+  views::ImageView* badge_icon_;    // Owned by views hierarchy.
   std::unique_ptr<gfx::RenderText> title_text_;
   std::unique_ptr<gfx::RenderText> details_text_;
   SearchResultActionsView* actions_view_;  // Owned by the views hierarchy.
@@ -148,6 +164,10 @@ class APP_LIST_EXPORT SearchResultView
   bool selected_ = false;
   // Whether the removal confirmation dialog is invoked by long press touch.
   bool confirm_remove_by_long_press_ = false;
+
+  // The index of this item in the search_result_tile_item_list_view, only
+  // used for logging.
+  int index_in_search_result_list_view_ = -1;
 
   base::WeakPtrFactory<SearchResultView> weak_ptr_factory_;
 

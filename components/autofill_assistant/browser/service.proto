@@ -55,6 +55,22 @@ message ScriptParameterProto {
 // Response of the list of supported scripts.
 message SupportsScriptResponseProto {
   repeated SupportedScriptProto scripts = 1;
+
+  // Defines what should happen if no scripts in [scripts] becomes runnable,
+  // because of preconditions.
+  optional ScriptTimeoutError script_timeout_error = 2;
+}
+
+message ScriptTimeoutError {
+  // Wait for that long before considering that scripts preconditions have timed
+  // out and executing the script specified in script_path.
+  //
+  // The script might be called more than once if the script terminates
+  // successfully and again still nothing is found after timeout_ms.
+  optional int32 timeout_ms = 1;
+
+  // The script to execute when the error happens.
+  optional string script_path = 2;
 }
 
 // Supported script.
@@ -80,11 +96,12 @@ message SupportedScriptProto {
     // priority 1.
     optional int32 priority = 5;
 
-    // Whether the script should be highlighted.
-    optional bool highlight = 7;
+    // Describes the chip to be shown. The name of the chip is set by the
+    // name field.
+    optional ChipType chip_type = 10;
 
-    // When set to true this script can be run in 'autostart mode'. Script won't
-    // be shown.
+    // When set to true this script can be run in 'autostart mode'. Chip won't
+    // be shown; name and chip_type are ignored.
     optional bool autostart = 8;
 
     // When set to true this script will be run from WaitForDom actions with
@@ -92,6 +109,42 @@ message SupportedScriptProto {
     optional bool interrupt = 9;
   }
   optional PresentationProto presentation = 2;
+}
+
+enum ChipType {
+  UNKNOWN_CHIP_TYPE = 0;
+
+  // Chip is a highlighted (blue) action chip.
+  HIGHLIGHTED_ACTION = 1;
+
+  // Chip is a suggestion.
+  SUGGESTION = 2;
+
+  // Chip is a normal action chip.
+  NORMAL_ACTION = 3;
+
+  // A cancel chip, which closes AA in a way that allows the user to undo.
+  //
+  // The action associated with the chip is only executed after enough time has
+  // passed that undo is not possible.
+  //
+  // The presence of this chip inhibit the addition of an implicit close or
+  // cancel button.
+  CANCEL_ACTION = 4;
+
+  // A close chip, which closes AA immediately.
+  //
+  // The presence of this chip inhibit the addition of an implicit close or
+  // cancel button. Otherwise, buttons of this type work and look like a
+  // NORMAL_ACTION.
+  CLOSE_ACTION = 5;
+
+  // Chip is a highlighted (blue) action chip.
+  //
+  // The presence of this chip inhibit the addition of an implicit close or
+  // cancel button. Otherwise, buttons of this type work and look like a
+  // HIGHLIGHTED_ACTION.
+  DONE_ACTION = 6;
 }
 
 enum ScriptStatusProto {
@@ -266,6 +319,7 @@ message ActionProto {
     StopProto stop = 35;
     GetPaymentInformationProto get_payment_information = 36;
     SetAttributeProto set_attribute = 37;
+    ShowInfoBoxProto show_info_box = 39;
   }
 
   // Set to true to make the client remove any contextual information if the
@@ -333,6 +387,23 @@ enum ProcessedActionStatusProto {
   // affect any action. It is a signal that the action or script ran in an
   // abnormal situation and its outcome cannot be trusted.
   USER_ABORTED_ACTION = 8;
+
+  // The Autofill Action failed to get the full card information.
+  //
+  // Possible causes:
+  // - the user filled in the wrong CVC number.
+  // - the card has expired
+  GET_FULL_CARD_FAILED = 9;
+
+  // The action did not have what it needs. This is generally a bug in the
+  // script.
+  //
+  // This is currently returned by the autofill action, when it could not find
+  // the credit card or the address it needs in the client memory. This is
+  // usually the sign that the Get Payment Information action was not run or
+  // failed.
+  //
+  PRECONDITION_FAILED = 10;
 }
 
 // The pseudo type values come from
@@ -423,14 +494,6 @@ message ElementAreaProto {
   repeated Rectangle rectangles = 1;
 }
 
-message AutofillStrings {
-  optional string fill_manually = 1;
-
-  optional string fill_form = 2;
-
-  optional string check_form = 3;
-}
-
 // Fill a form with an address if there is, otherwise fail this action.
 message UseAddressProto {
   // Message used to indicate what form fields should be filled with what
@@ -474,8 +537,6 @@ message UseAddressProto {
 
   // An optional list of fields that should be filled by this action.
   repeated RequiredField required_fields = 6;
-
-  optional AutofillStrings strings = 8;
 }
 
 // Fill a form with a credit card if there is, otherwise fail this action.
@@ -486,8 +547,6 @@ message UseCreditCardProto {
 
   // A reference to the card number field in the form that should be filled.
   optional ElementReferenceProto form_field_element = 3;
-
-  optional AutofillStrings strings = 8;
 }
 
 // Ask Chrome to wait for an element in the DOM. This can be used to only
@@ -515,9 +574,6 @@ message UploadDomProto {
 
 // Shows the progress bar.
 message ShowProgressBarProto {
-  // Specifies whether the progress is done and should be removed.
-  optional bool done = 2;
-
   // Message to show on the progress bar while loading.
   optional string message = 3;
 
@@ -525,6 +581,9 @@ message ShowProgressBarProto {
   // will be capped to 100, values below 0 will be capped to 0 by the client.
   // NOTE: Setting |progress| to 100 is an equivalent of setting |done| to true.
   optional int32 progress = 6;
+
+  // Hide the progress bar in the UI.
+  optional bool hide = 7;
 }
 
 // Contain all arguments to perform a highlight element action.
@@ -545,28 +604,33 @@ message PromptProto {
   // Display this message to the user.
   optional string message = 1;
 
-  // A choice that is made either directly by clicking on a chip or button, or
+  // A choice that is made either directly by clicking on a chip or chip, or
   // implicitly by making a change on the website that is then detected by
   // looking for the existence of an element.
   //
   // One of these protos must is transmitted as-is back to the server as part of
   // ProcessedActionProto.
   message Choice {
-    // Localized text message to display. Not required if element_exists is set.
+    // Localized text message to display. Not required if
+    // auto_select_if_element_exists is set.
     optional string name = 2;
 
-    // If set, the choice should be highlighted. Ignored unless name is set.
-    optional bool highlight = 3;
+    // Describes the chip to be shown. The name of the chip is set by the
+    // name field.
+    optional ChipType chip_type = 7;
 
-    // Optionally auto-select this choice if the given element exist.
-    optional ElementReferenceProto element_exists = 4;
+    // Auto-select this choice if the given element exist.
+    optional ElementReferenceProto auto_select_if_element_exists = 4;
+
+    // The chip is only visible if all the given element exists.
+    repeated ElementReferenceProto show_only_if_element_exists = 6;
+
+    // The chip is only visible if all the form values match.
+    repeated FormValueMatchProto show_only_if_form_value_matches = 8;
 
     // Server payload originally sent by the server. This should
     // be transmitted as-is by the client without interpreting.
     optional bytes server_payload = 5;
-
-    // The chip is only visible if the given element exists.
-    optional ElementReferenceProto show_only_if_element_exists = 6;
   }
   repeated Choice choices = 4;
 }
@@ -606,7 +670,13 @@ message GetPaymentInformationProto {
 message ResetProto {}
 
 // Stop Autofill Assistant.
-message StopProto {}
+message StopProto {
+  // If true, close the Chrome Custom Tab, in addition to shutting down Autofill
+  // Assistant.
+  optional bool close_cct = 2;
+
+  reserved 1;  // stop_action_type
+}
 
 message DateProto {
   optional int64 year = 1;
@@ -634,41 +704,71 @@ message DateTimeProto {
   optional TimeProto time = 2;
 }
 
-message DetailsChanges {
-  // Whether the changes require user approval.
+message DetailsChangesProto {
+  // Whether the changes require user approval. This de-emphasize
+  // non-highlighted fields.
   optional bool user_approval_required = 1;
 
   // Whether the title should be highlighted.
   optional bool highlight_title = 2;
 
-  // Whether the date should be highlighted.
-  optional bool highlight_date = 3;
+  // Whether the first description line should be highlighted.
+  optional bool highlight_line1 = 3;
+
+  // Whether the second description line should be highlighted.
+  optional bool highlight_line2 = 4;
 }
 
 message DetailsProto {
   optional string title = 1;
 
-  optional string url = 2;
+  oneof image {
+    string image_url = 2;
+    // When set to true shows placeholder in place of an image.
+    bool show_image_placeholder = 10;
+  }
 
-  optional DateTimeProto datetime = 3;
-
-  optional string description = 4;
-
-  // Mid that comes from Knowledge Graph. Uniquely identify the object that this
-  // proto describes.
-  optional string m_id = 5;
-
-  // Price label containing the total amount and the currency to pay, formatted
+  // Optional label to provide additional price information.
+  optional string total_price_label = 9;
+  // The price containing the total amount and the currency to pay, formatted
   // in the client's locale (e.g., $123.00).
   optional string total_price = 6;
+
+  optional string description_line_1 = 7;
+  optional string description_line_2 = 8;
+
+  // Deprecated, but currently still necessary and supported. We can get rid of
+  // these fields when the backend starts setting description_line_1 and 2.
+  optional DateTimeProto datetime = 3;
+  optional string description = 4;
+
+  // Asks the UI to show animated placeholders for missing fields.
+  // The placeholder will be shown on effectively missing:
+  // * title
+  // * image
+  // * description line (1 or 2)
+  // TODO(crbug.com/806868): Make the fields for displaying placeholders
+  // configurable by the server.
+  optional bool animate_placeholders = 11;
+
+  // Deprecated, no longer supported.
+  reserved 5;
 }
 
 // Show contextual information.
 message ShowDetailsProto {
-  optional DetailsProto details = 1;
+  oneof data_to_show {
+    DetailsProto details = 1;
+    // Shows full name and email address.
+    string contact_details = 3;
+    bool credit_card = 4;
+    // Shows full name and address.
+    string shipping_address = 5;
+  }
 
   // Flags indicating which parts of the details (if any) have changed.
-  optional DetailsChanges change_flags = 2;
+  // This field is taken into account only if |details| is filled.
+  optional DetailsChangesProto change_flags = 2;
 }
 
 // Set the value of an form element.
@@ -704,4 +804,19 @@ message SetAttributeProto {
 
   // The value to set.
   optional string value = 3;
+}
+
+message InfoBoxProto {
+  // Optional path to an image. Ok tick used if not set.
+  optional string image_path = 1;
+
+  // The explanation to show in the box. Not setting this field will clear an
+  // existing info box.
+  optional string explanation = 2;
+}
+
+// Shows an info box with informational content. The info box content is cleared
+// when |info_box| is not set.
+message ShowInfoBoxProto {
+  optional InfoBoxProto info_box = 1;
 }

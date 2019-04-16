@@ -51,7 +51,7 @@ Alexis La Goutte <alexis.lagoutte@gmail.com>
 Alexis Menard <alexis.menard@intel.com>
 Alfredo Hernandez <ahernandez.miralles@gmail.com>
 Ali Vathi <ali.akbar@gmail.com>
-Allan Sandfeld Jensen <allan.jensen@theqtcompany.com>
+Allan Sandfeld Jensen <allan.jensen@qt.io>
 Alper Çakan <alpercakan98@gmail.com>
 Ambarish Rapte <ambarish.r@samsung.com>
 Amey Jahagirdar <jahagird@amazon.com>
@@ -72,6 +72,7 @@ Andrei Parvu <parvu@adobe.com>
 Andrew Boyarshin <andrew.boyarshin@gmail.com>
 Andrew Brampton <me@bramp.net>
 Andrew Hung <andrhung@amazon.com>
+Andrew Jorgensen <ajorgens@amazon.com>
 Andrew MacPherson <andrew.macpherson@soundtrap.com>
 Andrew Tulloch <andrew@tullo.ch>
 Anish Patankar <anish.p@samsung.com>
@@ -114,6 +115,7 @@ Ben Coe <bencoe@gmail.com>
 Ben Fiola <benfiola@gmail.com>
 Ben Karel <eschew@gmail.com>
 Ben Noordhuis <ben@strongloop.com>
+Benedek Heilig <benecene@gmail.com>
 Benjamin Dupont <bedupont@cisco.com>
 Benjamin Jemlich <pcgod99@gmail.com>
 Bernard Cafarelli <voyageur@gentoo.org>
@@ -137,6 +139,7 @@ Bruno de Oliveira Abinader <brunoabinader@gmail.com>
 Bruno Roy <brusi_roy@hotmail.com>
 Bryan Donlan <bdonlan@gmail.com>
 Bryce Thomas <bryct@amazon.com>
+Burton <burton@typewritten.net>
 Byounghoon Yoon <bill.2714@kakaocorp.com>
 Byoungkwon Ko <codeimpl@gmail.com>
 Byungwoo Lee <bw80.lee@samsung.com>
@@ -199,6 +202,7 @@ Daniel Waxweiler <daniel.waxweiler@gmail.com>
 Dániel Bátyai <dbatyai@inf.u-szeged.hu>
 Dániel Vince <vinced@inf.u-szeged.hu>
 Darshini KN <kn.darshini@samsung.com>
+Dave Barker <kzar@kzar.co.uk>
 David Benjamin <davidben@mit.edu>
 David Davidovic <david@davidovic.io>
 David Erceg <erceg.david@gmail.com>
@@ -213,6 +217,7 @@ Debashish Samantaray <d.samantaray@samsung.com>
 Debug Wang <debugwang@tencent.com>
 Deepak Dilip Borade <deepak.db@samsung.com>
 Deepak Mittal <deepak.m1@samsung.com>
+Deepak Sharma <deepak.sharma@amd.com>
 Deepak Singla <deepak.s@samsung.com>
 Deokjin Kim <deokjin81.kim@samsung.com>
 Derek Halman <d.halman@gmail.com>
@@ -437,6 +442,7 @@ Jongheon Kim <sapzape@gmail.com>
 JongKwon Lee <jongkwon.lee@navercorp.com>
 Jongsoo Lee <leejongsoo@gmail.com>
 Joone Hur <joone.hur@intel.com>
+Joonghun Park <pjh0718@gmail.com>
 Jorge Villatoro <jorge@tomatocannon.com>
 Joseph Gentle <josephg@gmail.com>
 Joseph Lolak <joseph.lolak@samsung.com>
@@ -749,6 +755,7 @@ Romain Pokrzywka <romain.pokrzywka@gmail.com>
 Rosen Dash <nqk836@motorola.com>
 Rosen Dash <rosen.dash@gmail.com>
 ruben <chromium@hybridsource.org>
+Ruben Bridgewater <ruben@bridgewater.de>
 Ruben Terrazas <rubentopo@gmail.com>
 Rufus Hamade <rufus.hamade@imgtec.com>
 Ruiyi Luo <luoruiyi2008@gmail.com>
@@ -761,6 +768,7 @@ Saikrishna Arcot <saiarcot895@gmail.com>
 Salvatore Iovene <salvatore.iovene@intel.com>
 Sam Larison <qufighter@gmail.com>
 Sam McDonald <sam@sammcd.com>
+Samuel Attard <samuel.r.attard@gmail.com>
 Sanggi Hong <sanggi.hong11@gmail.com>
 Sanghee Lee <sanghee.lee1992@gmail.com>
 Sanghyun Park <sh919.park@samsung.com>
@@ -803,6 +811,7 @@ ShankarGanesh K <blr.bmlab@gmail.com>
 Shanmuga Pandi M <shanmuga.m@samsung.com>
 Shaobo Yan <shaobo.yan@intel.com>
 Shashi Kumar <sk.kumar@samsung.com>
+Shawn Anastasio <shawnanastasio@gmail.com>
 Shen Yu <shenyu.tcv@gmail.com>
 Sherry Mou <wenjinm@amazon.com>
 Shez Baig <sbaig1@bloomberg.net>
@@ -875,6 +884,7 @@ Thiago Farina <thiago.farina@gmail.com>
 Thiago Marcos P. Santos <thiago.santos@intel.com>
 Thomas Butter <tbutter@gmail.com>
 Thomas Conti <tomc@amazon.com>
+Thomas White <im.toms.inbox@gmail.com>
 Tiago Vignatti <tiago.vignatti@intel.com>
 Tibor Dusnoki <tibor.dusnoki.91@gmail.com>
 Tim Ansell <mithro@mithis.com>
@@ -894,6 +904,7 @@ U. Artie Eoff <ullysses.a.eoff@intel.com>
 Umar Hansa <umar.hansa@gmail.com>
 Upendra Gowda <upendrag.gowda@gmail.com>
 Uzair Jaleel <uzair.jaleel@samsung.com>
+Vadim Gorbachev <bmsdave@gmail.com>
 Vaibhav Agrawal <vaibhav1.a@samsung.com>
 Valentin Ilie <valentin.ilie@intel.com>
 Vamshikrishna Yellenki <vamshi@motorola.com>
@@ -1027,9 +1038,11 @@ NIKE, Inc. <*@nike.com>
 NVIDIA Corporation <*@nvidia.com>
 Opera Software ASA <*@opera.com>
 Optical Tone Ltd <*@opticaltone.com>
+Pengutronix e.K. <*@pengutronix.de>
 Rakuten Kobo Inc. <*@kobo.com>
 Rakuten Kobo Inc. <*@rakuten.com>
 Seznam.cz, a.s. <*@firma.seznam.cz>
+Slack Technologies Inc. <*@slack-corp.com>
 Spotify AB <*@spotify.com>
 Tableau Software <*@tableau.com>
 TeamSpeak Systems GmbH <*@teamspeak.com>

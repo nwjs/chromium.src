@@ -120,6 +120,21 @@ struct TextInputState {
   int32 text_input_flags;  // A bitfield of ui::TextInputFlags.
 };
 
+// Cached input context information so that RemoteTextInputClient could support
+// synchronous getters.
+struct TextInputClientData {
+  gfx.mojom.Range? text_range;
+  mojo_base.mojom.String16? text;
+  bool has_composition_text;
+  gfx.mojom.Range? composition_text_range;
+  gfx.mojom.Range? editable_selection_range;
+  // Contains a boolean indicating the enabled state of each of the
+  // ui::TextEditCommands, where the index is the command. For example,
+  // edit_command_enabled[TextCommand::DELETE_BACKWARD] gives the enabled
+  // state of TextCommand::DELETE_BACKWARD.
+  array<bool>? edit_command_enabled;
+};
+
 // Represents how a text client gets focused. Corresponds to
 // ui::TextInputClient::FocusReason.
 enum FocusReason {
@@ -137,6 +152,9 @@ struct SessionDetails {
 
   // Caret bounds of the text input client.
   gfx.mojom.Rect caret_bounds;
+
+  // Data of the text input client.
+  TextInputClientData data;
 
   // How the text input client was focused.
   FocusReason focus_reason;
@@ -176,6 +194,9 @@ interface InputMethod {
   // Mus translates it to global coordinates and sends it to IME app.
   OnCaretBoundsChanged(gfx.mojom.Rect caret_bounds);
 
+  // Update the cached text input client data.
+  OnTextInputClientDataChanged(TextInputClientData data);
+
   // Called to process a key event. The callback function will be called to
   // notify the client if the event was handled or not. A handled event may
   // generate zero or more composition events which will be sent to the client
@@ -214,12 +235,37 @@ interface TextInputClient {
   // for more details.
   InsertChar(ui.mojom.Event event);
 
-  // Dispatch a key event skipping IME. Returns true if event was consumed.
-  DispatchKeyEventPostIME(ui.mojom.Event event) => (bool stopped_propagation);
+  // Dispatch a key event after minimal processing by the IME. The results of
+  // the callback indicated whether the event was handled, and whether any
+  // further processing should be performed. That is, if |stopped_propagation|
+  // is true, IME does no further processing.
+  DispatchKeyEventPostIME(ui.mojom.Event event) => (
+      bool handled,
+      bool stopped_propagation);
 
   // Ensure the caret is not in |rect|.  |rect| is in dip screen coordinates
   // and may extend beyond the bounds of this TextInputClient.
   EnsureCaretNotInRect(gfx.mojom.Rect rect);
+
+  // Selects the given UTF-16 based character range. Current composition text
+  // will be confirmed before selecting the range.
+  SetEditableSelectionRange(gfx.mojom.Range range);
+
+  // Deletes contents in the given UTF-16 based character range. Current
+  // composition text will be confirmed before deleting the range.
+  DeleteRange(gfx.mojom.Range range);
+
+  // Called whenever current keyboard layout or input method is changed.
+  OnInputMethodChanged();
+
+  // Called whenever the user requests to change the text direction and layout
+  // alignment of the current text box.
+  ChangeTextDirectionAndLayoutAlignment(
+      mojo_base.mojom.TextDirection direction);
+
+  // Deletes the current selection plus the specified number of characters
+  // before and after the selection or caret.
+  ExtendSelectionAndDelete(uint32 before, uint32 after);
 
   // TODO(moshayedi): Add functions corresponding to ui::TextInputClient for:
   // - Input context information

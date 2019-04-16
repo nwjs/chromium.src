@@ -8,6 +8,7 @@
 #include "ash/assistant/assistant_controller.h"
 #include "ash/assistant/assistant_controller_observer.h"
 #include "ash/assistant/assistant_interaction_controller.h"
+#include "ash/assistant/assistant_notification_controller.h"
 #include "ash/shell.h"
 #include "ash/voice_interaction/voice_interaction_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
@@ -29,14 +30,30 @@ AssistantViewDelegateImpl::GetInteractionModel() const {
   return assistant_controller_->interaction_controller()->model();
 }
 
+const AssistantNotificationModel*
+AssistantViewDelegateImpl::GetNotificationModel() const {
+  return assistant_controller_->notification_controller()->model();
+}
+
 const AssistantUiModel* AssistantViewDelegateImpl::GetUiModel() const {
   return assistant_controller_->ui_controller()->model();
+}
+
+void AssistantViewDelegateImpl::AddObserver(
+    AssistantViewDelegateObserver* observer) {
+  view_delegate_observers_.AddObserver(observer);
+}
+
+void AssistantViewDelegateImpl::RemoveObserver(
+    AssistantViewDelegateObserver* observer) {
+  view_delegate_observers_.RemoveObserver(observer);
 }
 
 void AssistantViewDelegateImpl::AddCacheModelObserver(
     AssistantCacheModelObserver* observer) {
   assistant_controller_->cache_controller()->AddModelObserver(observer);
 }
+
 void AssistantViewDelegateImpl::RemoveCacheModelObserver(
     AssistantCacheModelObserver* observer) {
   assistant_controller_->cache_controller()->RemoveModelObserver(observer);
@@ -46,9 +63,21 @@ void AssistantViewDelegateImpl::AddInteractionModelObserver(
     AssistantInteractionModelObserver* observer) {
   assistant_controller_->interaction_controller()->AddModelObserver(observer);
 }
+
 void AssistantViewDelegateImpl::RemoveInteractionModelObserver(
     AssistantInteractionModelObserver* observer) {
   assistant_controller_->interaction_controller()->RemoveModelObserver(
+      observer);
+}
+
+void AssistantViewDelegateImpl::AddNotificationModelObserver(
+    AssistantNotificationModelObserver* observer) {
+  assistant_controller_->notification_controller()->AddModelObserver(observer);
+}
+
+void AssistantViewDelegateImpl::RemoveNotificationModelObserver(
+    AssistantNotificationModelObserver* observer) {
+  assistant_controller_->notification_controller()->RemoveModelObserver(
       observer);
 }
 
@@ -56,24 +85,17 @@ void AssistantViewDelegateImpl::AddUiModelObserver(
     AssistantUiModelObserver* observer) {
   assistant_controller_->ui_controller()->AddModelObserver(observer);
 }
+
 void AssistantViewDelegateImpl::RemoveUiModelObserver(
     AssistantUiModelObserver* observer) {
   assistant_controller_->ui_controller()->RemoveModelObserver(observer);
-}
-
-void AssistantViewDelegateImpl::AddViewDelegateObserver(
-    AssistantViewDelegateObserver* observer) {
-  view_delegate_observers_.AddObserver(observer);
-}
-void AssistantViewDelegateImpl::RemoveViewDelegateObserver(
-    AssistantViewDelegateObserver* observer) {
-  view_delegate_observers_.RemoveObserver(observer);
 }
 
 void AssistantViewDelegateImpl::AddVoiceInteractionControllerObserver(
     DefaultVoiceInteractionObserver* observer) {
   Shell::Get()->voice_interaction_controller()->AddLocalObserver(observer);
 }
+
 void AssistantViewDelegateImpl::RemoveVoiceInteractionControllerObserver(
     DefaultVoiceInteractionObserver* observer) {
   Shell::Get()->voice_interaction_controller()->RemoveLocalObserver(observer);
@@ -83,27 +105,20 @@ CaptionBarDelegate* AssistantViewDelegateImpl::GetCaptionBarDelegate() {
   return assistant_controller_->ui_controller();
 }
 
-std::vector<DialogPlateObserver*>
-AssistantViewDelegateImpl::GetDialogPlateObservers() {
-  return {assistant_controller_->interaction_controller(),
-          assistant_controller_->ui_controller()};
-}
-
-AssistantMiniViewDelegate* AssistantViewDelegateImpl::GetMiniViewDelegate() {
-  return assistant_controller_->ui_controller();
-}
-
-AssistantOptInDelegate* AssistantViewDelegateImpl::GetOptInDelegate() {
-  return assistant_controller_->setup_controller();
-}
-
 void AssistantViewDelegateImpl::DownloadImage(
     const GURL& url,
     mojom::AssistantImageDownloader::DownloadCallback callback) {
   assistant_controller_->DownloadImage(url, std::move(callback));
 }
 
-wm::CursorManager* AssistantViewDelegateImpl::GetCursorManager() {
+mojom::ConsentStatus AssistantViewDelegateImpl::GetConsentStatus() const {
+  return Shell::Get()
+      ->voice_interaction_controller()
+      ->consent_status()
+      .value_or(mojom::ConsentStatus::kUnknown);
+}
+
+::wm::CursorManager* AssistantViewDelegateImpl::GetCursorManager() {
   return Shell::Get()->cursor_manager();
 }
 
@@ -116,16 +131,49 @@ aura::Window* AssistantViewDelegateImpl::GetRootWindowForNewWindows() {
   return Shell::Get()->GetRootWindowForNewWindows();
 }
 
+bool AssistantViewDelegateImpl::IsLaunchWithMicOpen() const {
+  return Shell::Get()->voice_interaction_controller()->launch_with_mic_open();
+}
+
 bool AssistantViewDelegateImpl::IsTabletMode() const {
   return Shell::Get()
       ->tablet_mode_controller()
       ->IsTabletModeWindowManagerEnabled();
 }
 
+void AssistantViewDelegateImpl::OnDialogPlateButtonPressed(
+    AssistantButtonId id) {
+  for (auto& observer : view_delegate_observers_)
+    observer.OnDialogPlateButtonPressed(id);
+}
+
+void AssistantViewDelegateImpl::OnDialogPlateContentsCommitted(
+    const std::string& text) {
+  for (auto& observer : view_delegate_observers_)
+    observer.OnDialogPlateContentsCommitted(text);
+}
+
+void AssistantViewDelegateImpl::OnMiniViewPressed() {
+  for (auto& observer : view_delegate_observers_)
+    observer.OnMiniViewPressed();
+}
+
+void AssistantViewDelegateImpl::OnNotificationButtonPressed(
+    const std::string& notification_id,
+    int notification_button_index) {
+  assistant_controller_->notification_controller()->OnNotificationClicked(
+      notification_id, notification_button_index, /*reply=*/base::nullopt);
+}
+
+void AssistantViewDelegateImpl::OnOptInButtonPressed() {
+  for (auto& observer : view_delegate_observers_)
+    observer.OnOptInButtonPressed();
+}
+
 void AssistantViewDelegateImpl::OnSuggestionChipPressed(
     const AssistantSuggestion* suggestion) {
-  assistant_controller_->interaction_controller()->OnSuggestionChipPressed(
-      suggestion);
+  for (AssistantViewDelegateObserver& observer : view_delegate_observers_)
+    observer.OnSuggestionChipPressed(suggestion);
 }
 
 void AssistantViewDelegateImpl::OpenUrlFromView(const GURL& url) {
@@ -137,14 +185,6 @@ void AssistantViewDelegateImpl::NotifyDeepLinkReceived(
     const std::map<std::string, std::string>& params) {
   for (AssistantViewDelegateObserver& observer : view_delegate_observers_)
     observer.OnDeepLinkReceived(type, params);
-}
-
-bool AssistantViewDelegateImpl::VoiceInteractionControllerSetupCompleted()
-    const {
-  return Shell::Get()
-      ->voice_interaction_controller()
-      ->setup_completed()
-      .value_or(false);
 }
 
 }  // namespace ash

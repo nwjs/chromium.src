@@ -54,7 +54,9 @@ class MockActionDelegate : public ActionDelegate {
                void(const Selector& selector,
                     base::OnceCallback<void(bool)> callback));
 
-  MOCK_METHOD1(Prompt, void(std::unique_ptr<std::vector<Chip>> chips));
+  MOCK_METHOD2(Prompt,
+               void(std::unique_ptr<std::vector<Chip>> chips,
+                    base::OnceCallback<void()> on_terminate));
   MOCK_METHOD0(CancelPrompt, void());
 
   void FillAddressForm(const autofill::AutofillProfile* profile,
@@ -93,13 +95,8 @@ class MockActionDelegate : public ActionDelegate {
                void(const Selector& selector,
                     base::OnceCallback<void(bool)> callback));
 
-  MOCK_METHOD4(
-      GetPaymentInformation,
-      void(payments::mojom::PaymentOptionsPtr payment_options,
-           base::OnceCallback<void(std::unique_ptr<PaymentInformation>)>
-               callback,
-           const std::string& title,
-           const std::vector<std::string>& supported_basic_card_networks));
+  MOCK_METHOD1(GetPaymentInformation,
+               void(std::unique_ptr<PaymentRequestOptions> options));
 
   MOCK_METHOD1(GetFullCard, void(GetFullCardCallback callback));
 
@@ -136,11 +133,12 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD0(GetClientMemory, ClientMemory*());
   MOCK_METHOD0(GetPersonalDataManager, autofill::PersonalDataManager*());
   MOCK_METHOD0(GetWebContents, content::WebContents*());
-  MOCK_METHOD1(StopCurrentScriptAndShutdown, void(const std::string& message));
-  MOCK_METHOD1(SetDetails, void(const Details& details));
-  MOCK_METHOD0(ClearDetails, void());
-  MOCK_METHOD1(ShowProgressBar, void(int progress));
-  MOCK_METHOD0(HideProgressBar, void());
+  MOCK_METHOD1(SetDetails, void(std::unique_ptr<Details> details));
+  MOCK_METHOD1(SetInfoBox, void(const InfoBox& info_box));
+  MOCK_METHOD0(ClearInfoBox, void());
+  MOCK_METHOD1(SetProgress, void(int progress));
+  MOCK_METHOD1(SetProgressVisible, void(bool visible));
+  MOCK_METHOD1(SetChips, void(std::unique_ptr<std::vector<Chip>> chips));
 };
 
 }  // namespace autofill_assistant

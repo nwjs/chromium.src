@@ -57,6 +57,7 @@
 #include "ash/wm/window_util.h"
 #include "ash/wm/workspace/workspace_layout_manager.h"
 #include "ash/wm/workspace_controller.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -199,6 +200,7 @@ void ReparentAllWindows(aura::Window* src, aura::Window* dst) {
   const int kContainerIdsToMove[] = {
       kShellWindowId_DefaultContainer,
       kShellWindowId_AlwaysOnTopContainer,
+      kShellWindowId_PipContainer,
       kShellWindowId_SystemModalContainer,
       kShellWindowId_LockSystemModalContainer,
       kShellWindowId_UnparentedControlContainer,
@@ -773,9 +775,11 @@ void RootWindowController::InitLayoutManagers() {
 
   aura::Window* always_on_top_container =
       GetContainer(kShellWindowId_AlwaysOnTopContainer);
+  aura::Window* pip_container = GetContainer(kShellWindowId_PipContainer);
   DCHECK(always_on_top_container);
-  always_on_top_controller_ =
-      std::make_unique<AlwaysOnTopController>(always_on_top_container);
+  DCHECK(pip_container);
+  always_on_top_controller_ = std::make_unique<AlwaysOnTopController>(
+      always_on_top_container, pip_container);
 
   wm::WmSnapToPixelLayoutManager::InstallOnContainers(root);
 
@@ -862,6 +866,12 @@ void RootWindowController::CreateContainers() {
                       non_lock_screen_containers);
   wm::SetSnapsChildrenToPhysicalPixelBoundary(app_list_container);
   app_list_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
+
+  aura::Window* pip_container = CreateContainer(
+      kShellWindowId_PipContainer, "PipContainer", non_lock_screen_containers);
+  ::wm::SetChildWindowVisibilityChangesAnimated(pip_container);
+  wm::SetSnapsChildrenToPhysicalPixelBoundary(pip_container);
+  pip_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
 
   aura::Window* arc_ime_parent_container = CreateContainer(
       kShellWindowId_ArcImeWindowParentContainer, "ArcImeWindowParentContainer",
@@ -999,6 +1009,9 @@ void RootWindowController::CreateContainers() {
       CreateContainer(kShellWindowId_MouseCursorContainer,
                       "MouseCursorContainer", screen_rotation_container);
   mouse_cursor_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
+
+  CreateContainer(kShellWindowId_AlwaysOnTopWallpaperContainer,
+                  "AlwaysOnTopWallpaperContainer", screen_rotation_container);
 
   CreateContainer(kShellWindowId_PowerButtonAnimationContainer,
                   "PowerButtonAnimationContainer", screen_rotation_container);

@@ -30,12 +30,14 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_AUDIO_AUDIO_DESTINATION_H_
 
 #include <memory>
+
 #include "base/memory/scoped_refptr.h"
 #include "base/single_thread_task_runner.h"
 #include "third_party/blink/public/platform/web_audio_device.h"
 #include "third_party/blink/public/platform/web_vector.h"
 #include "third_party/blink/renderer/platform/audio/audio_bus.h"
 #include "third_party/blink/renderer/platform/audio/audio_io_callback.h"
+#include "third_party/blink/renderer/platform/audio/media_multi_channel_resampler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
@@ -59,18 +61,19 @@ class PLATFORM_EXPORT AudioDestination
     : public ThreadSafeRefCounted<AudioDestination>,
       public WebAudioDevice::RenderCallback {
   USING_FAST_MALLOC(AudioDestination);
-  WTF_MAKE_NONCOPYABLE(AudioDestination);
 
  public:
   AudioDestination(AudioIOCallback&,
                    unsigned number_of_output_channels,
-                   const WebAudioLatencyHint&);
+                   const WebAudioLatencyHint&,
+                   base::Optional<float> context_sample_rate);
   ~AudioDestination() override;
 
   static scoped_refptr<AudioDestination> Create(
       AudioIOCallback&,
       unsigned number_of_output_channels,
-      const WebAudioLatencyHint&);
+      const WebAudioLatencyHint&,
+      base::Optional<float> context_sample_rate);
 
   // The actual render function (WebAudioDevice::RenderCallback) isochronously
   // invoked by the media renderer. This is never called after Stop() is called.
@@ -102,8 +105,8 @@ class PLATFORM_EXPORT AudioDestination
   uint32_t CallbackBufferSize() const;
   bool IsPlaying();
 
-  // TODO(hongchan): this should not be called by the rendering thread.
-  double SampleRate() const { return web_audio_device_->SampleRate(); }
+  // This is the context sample rate, not the device one.
+  double SampleRate() const { return context_sample_rate_; }
 
   // Returns the audio buffer size in frames used by the underlying audio
   // hardware.
@@ -114,6 +117,9 @@ class PLATFORM_EXPORT AudioDestination
   static uint32_t MaxChannelCount();
 
  private:
+  // Provide input to the resampler (if used).
+  void ProvideResamplerInput(int resampler_frame_delay, AudioBus* dest);
+
   enum class PlayState { kStopped, kPlaying, kPaused };
 
   // Check if the buffer size chosen by the WebAudioDevice is too large.
@@ -154,6 +160,20 @@ class PLATFORM_EXPORT AudioDestination
 
   // Accessed by rendering thread.
   size_t frames_elapsed_;
+
+  // The sample rate used for rendering the Web Audio graph.
+  float context_sample_rate_;
+
+  // Used for resampling if the Web Audio sample rate differs from the platform
+  // one.
+  std::unique_ptr<MediaMultiChannelResampler> resampler_;
+  std::unique_ptr<media::AudioBus> resampler_bus_;
+
+  // Required for RequestRender and also in the resampling callback (if used).
+  AudioIOPosition output_position_;
+  AudioIOCallbackMetric metric_;
+
+  DISALLOW_COPY_AND_ASSIGN(AudioDestination);
 };
 
 }  // namespace blink

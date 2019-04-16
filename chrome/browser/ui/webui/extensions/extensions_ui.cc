@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -186,7 +187,19 @@ content::WebUIDataSource* CreateMdExtensionsSource(Profile* profile,
     {"accessibilityErrorMultiLine",
      IDS_MD_EXTENSIONS_ACCESSIBILITY_ERROR_MULTI_LINE},
     {"activityLogPageHeading", IDS_MD_EXTENSIONS_ACTIVITY_LOG_PAGE_HEADING},
+    {"activityLogTypeColumn", IDS_MD_EXTENSIONS_ACTIVITY_LOG_TYPE_COLUMN},
+    {"activityLogNameColumn", IDS_MD_EXTENSIONS_ACTIVITY_LOG_NAME_COLUMN},
+    {"activityLogCountColumn", IDS_MD_EXTENSIONS_ACTIVITY_LOG_COUNT_COLUMN},
+    {"activityLogTimeColumn", IDS_MD_EXTENSIONS_ACTIVITY_LOG_TIME_COLUMN},
     {"activityLogSearchLabel", IDS_MD_EXTENSIONS_ACTIVITY_LOG_SEARCH_LABEL},
+    {"activityLogHistoryTabHeading",
+     IDS_MD_EXTENSIONS_ACTIVITY_LOG_HISTORY_TAB_HEADING},
+    {"activityLogStreamTabHeading",
+     IDS_MD_EXTENSIONS_ACTIVITY_LOG_STREAM_TAB_HEADING},
+    {"startActivityStream", IDS_MD_EXTENSIONS_START_ACTIVITY_STREAM},
+    {"stopActivityStream", IDS_MD_EXTENSIONS_STOP_ACTIVITY_STREAM},
+    {"emptyStreamStarted", IDS_MD_EXTENSIONS_EMPTY_STREAM_STARTED},
+    {"emptyStreamStopped", IDS_MD_EXTENSIONS_EMPTY_STREAM_STOPPED},
     {"appIcon", IDS_MD_EXTENSIONS_APP_ICON},
     {"extensionIcon", IDS_MD_EXTENSIONS_EXTENSION_ICON},
     {"extensionA11yAssociation", IDS_MD_EXTENSIONS_EXTENSION_A11Y_ASSOCIATION},

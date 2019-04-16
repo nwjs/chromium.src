@@ -46,8 +46,7 @@ class CORE_EXPORT SharedWorkerGlobalScope final : public WorkerGlobalScope {
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  SharedWorkerGlobalScope(const String& name,
-                          std::unique_ptr<GlobalScopeCreationParams>,
+  SharedWorkerGlobalScope(std::unique_ptr<GlobalScopeCreationParams>,
                           SharedWorkerThread*,
                           base::TimeTicks time_origin);
   ~SharedWorkerGlobalScope() override;
@@ -60,12 +59,12 @@ class CORE_EXPORT SharedWorkerGlobalScope final : public WorkerGlobalScope {
   // WorkerGlobalScope
   void ImportModuleScript(
       const KURL& module_url_record,
-      FetchClientSettingsObjectSnapshot* outside_settings_object,
+      const FetchClientSettingsObjectSnapshot& outside_settings_object,
       network::mojom::FetchCredentialsMode) override;
 
-  // Setters/Getters for attributes in SharedWorkerGlobalScope.idl
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(connect, kConnect);
-  String name() const { return name_; }
+  // shared_worker_global_scope.idl
+  const String name() const;
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(connect, kConnect)
 
   void Connect(MessagePortChannel channel);
 
@@ -74,8 +73,6 @@ class CORE_EXPORT SharedWorkerGlobalScope final : public WorkerGlobalScope {
  private:
   void ExceptionThrown(ErrorEvent*) override;
   mojom::RequestContextType GetDestinationForMainScript() override;
-
-  const String name_;
 };
 
 template <>

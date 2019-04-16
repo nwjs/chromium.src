@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "base/base64.h"
+#include "base/bind.h"
 #include "base/files/file_util.h"
 #include "base/macros.h"
 #include "base/strings/string_number_conversions.h"
@@ -63,7 +64,7 @@ class ImageClipboardCopyManager : public ImageDecoder::ImageRequest {
 
   void StartDecoding() {
     base::ScopedBlockingCall scoped_blocking_call(
-        base::BlockingType::WILL_BLOCK);
+        FROM_HERE, base::BlockingType::WILL_BLOCK);
 
     // Re-check the filesize since the file may be modified after downloaded.
     int64_t filesize;
@@ -130,7 +131,7 @@ GURL DownloadCommands::GetLearnMoreURLForInterruptedDownload() const {
       learn_more_url, g_browser_process->GetApplicationLocale());
   return net::AppendQueryParameter(
       learn_more_url, "ctx",
-      base::IntToString(static_cast<int>(model_->download()->GetLastReason())));
+      base::NumberToString(model_->download()->GetLastReason()));
 }
 
 bool DownloadCommands::IsCommandEnabled(Command command) const {

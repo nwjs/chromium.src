@@ -184,7 +184,7 @@ const GpuFeatureData GetGpuFeatureData(
        SafeGetFeatureStatus(gpu_feature_info,
                             gpu::GPU_FEATURE_TYPE_ANDROID_SURFACE_CONTROL),
 #if defined(OS_ANDROID)
-       !base::FeatureList::IsEnabled(features::kAndroidSurfaceControl),
+       !features::IsAndroidSurfaceControlEnabled(),
 #else
        false,
 #endif
@@ -203,7 +203,7 @@ const GpuFeatureData GetGpuFeatureData(
        "WebGL2 has been disabled via blacklist or the command line.", false,
        true},
       {"viz_display_compositor", gpu::kGpuFeatureStatusEnabled,
-       !base::FeatureList::IsEnabled(features::kVizDisplayCompositor),
+       !features::IsVizDisplayCompositorEnabled(),
        "Viz service display compositor is not enabled by default.", false,
        false},
       {"skia_renderer", gpu::kGpuFeatureStatusEnabled,

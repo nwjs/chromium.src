@@ -27,6 +27,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_MEDIA_CONTROLS_MEDIA_CONTROLS_IMPL_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_MEDIA_CONTROLS_MEDIA_CONTROLS_IMPL_H_
 
+#include "base/macros.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect_read_only.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/html/media/media_controls.h"
@@ -64,8 +65,8 @@ class MediaControlScrubbingMessageElement;
 class MediaControlTextTrackListElement;
 class MediaControlTimelineElement;
 class MediaControlToggleClosedCaptionsButtonElement;
+class MediaControlVolumeControlContainerElement;
 class MediaControlVolumeSliderElement;
-class MediaDownloadInProductHelpManager;
 class ShadowRoot;
 class TextTrack;
 
@@ -74,7 +75,6 @@ class TextTrack;
 class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
                                                public MediaControls {
   USING_GARBAGE_COLLECTED_MIXIN(MediaControlsImpl);
-  WTF_MAKE_NONCOPYABLE(MediaControlsImpl);
 
  public:
   static MediaControlsImpl* Create(HTMLMediaElement&, ShadowRoot&);
@@ -157,11 +157,8 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   void UpdateCurrentTimeDisplay();
 
   // Methods used for Download In-product help.
-  const MediaControlDownloadButtonElement& DownloadButton() const;
   const MediaControlOverflowMenuButtonElement& OverflowButton() const;
   MediaControlOverflowMenuButtonElement& OverflowButton();
-  void DidDismissDownloadInProductHelp();
-  MediaDownloadInProductHelpManager* DownloadInProductHelp();
 
   // Accessors for UI elements.
   const MediaControlCurrentTimeDisplayElement& CurrentTimeDisplay() const;
@@ -282,9 +279,6 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
 
   bool ShouldOpenVolumeSlider() const;
   bool ShouldCloseVolumeSlider() const;
-  void ShowVolumeControlHoverBackground();
-  void HideVolumeControlHoverBackground();
-  void SetVolumeControlContainerIsWanted(bool) const;
 
   void ElementSizeChangedTimerFired(TimerBase*);
 
@@ -370,6 +364,7 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   Member<MediaControlRemainingTimeDisplayElement> duration_display_;
   Member<MediaControlMuteButtonElement> mute_button_;
   Member<MediaControlVolumeSliderElement> volume_slider_;
+  Member<MediaControlVolumeControlContainerElement> volume_control_container_;
   Member<MediaControlToggleClosedCaptionsButtonElement>
       toggle_closed_captions_button_;
   Member<MediaControlTextTrackListElement> text_track_list_;
@@ -399,8 +394,6 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   bool is_paused_for_scrubbing_ : 1;
   bool is_scrubbing_ = false;
 
-  Member<HTMLDivElement> volume_control_container_;
-
   // Watches the video element for resize and updates media controls as
   // necessary.
   Member<ResizeObserver> resize_observer_;
@@ -413,8 +406,6 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   IntSize size_;
 
   bool keep_showing_until_timer_fires_ : 1;
-
-  Member<MediaDownloadInProductHelpManager> download_iph_manager_;
 
   bool is_acting_as_audio_controls_ = false;
 
@@ -433,6 +424,8 @@ class MODULES_EXPORT MediaControlsImpl final : public HTMLDivElement,
   TaskRunnerTimer<MediaControlsImpl> volume_slider_wanted_timer_;
 
   bool is_test_mode_ = false;
+
+  DISALLOW_COPY_AND_ASSIGN(MediaControlsImpl);
 };
 
 DEFINE_ELEMENT_TYPE_CASTS(MediaControlsImpl, IsMediaControls());
