@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -43,7 +44,8 @@ public class TabListCoordinator implements Destroyable {
         int NUM_ENTRIES = 2;
     }
 
-    private static final int GRID_LAYOUT_SPAN_COUNT = 2;
+    static final int GRID_LAYOUT_SPAN_COUNT_PORTRAIT = 2;
+    static final int GRID_LAYOUT_SPAN_COUNT_LANDSCAPE = 3;
     private final SimpleRecyclerViewMcpBase mModelChangeProcessor;
     private final TabListMediator mMediator;
     private final TabListRecyclerView mRecyclerView;
@@ -103,7 +105,11 @@ public class TabListCoordinator implements Destroyable {
         mRecyclerView.setAdapter(adapter);
 
         if (mMode == TabListMode.GRID) {
-            mRecyclerView.setLayoutManager(new GridLayoutManager(context, GRID_LAYOUT_SPAN_COUNT));
+            mRecyclerView.setLayoutManager(new GridLayoutManager(context,
+                    context.getResources().getConfiguration().orientation
+                                    == Configuration.ORIENTATION_PORTRAIT
+                            ? GRID_LAYOUT_SPAN_COUNT_PORTRAIT
+                            : GRID_LAYOUT_SPAN_COUNT_LANDSCAPE));
         } else if (mMode == TabListMode.STRIP) {
             mRecyclerView.setLayoutManager(
                     new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
@@ -122,6 +128,8 @@ public class TabListCoordinator implements Destroyable {
             ItemTouchHelper touchHelper = new ItemTouchHelper(mMediator.getItemTouchHelperCallback(
                     context.getResources().getDimension(R.dimen.swipe_to_dismiss_threshold)));
             touchHelper.attachToRecyclerView(mRecyclerView);
+            mMediator.registerOrientationListener(
+                    (GridLayoutManager) mRecyclerView.getLayoutManager());
         }
     }
 

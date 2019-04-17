@@ -32753,6 +32753,7 @@ from previous Chrome versions.
   <int value="19629326" label="OmniboxExperimentalKeywordMode:enabled"/>
   <int value="19815558" label="EnableSettingsShortcutSearch:disabled"/>
   <int value="23556595" label="MarkHttpAs:enabled"/>
+  <int value="26875005" label="disable-explicit-dma-fences"/>
   <int value="27507364" label="apps-keep-chrome-alive"/>
   <int value="29212695" label="OfflineIndicator:enabled"/>
   <int value="31848187" label="ViewsTaskManager:disabled"/>
@@ -52811,9 +52812,6 @@ would be helpful to identify which type is being sent.
   <int value="4" label="Download page resumed"/>
   <int value="5" label="Download page canceled"/>
   <int value="6" label="Content suggestion settings"/>
-  <int value="7" label="Web app action share"/>
-  <int value="8" label="Web app action open in Chrome"/>
-  <int value="9" label="Offline content suggestion settings"/>
 </enum>
 
 <enum name="SystemNotificationType">

@@ -756,8 +756,9 @@ void WebRequestAPI::MaybeProxyWebSocket(
   auto authentication_request = mojo::MakeRequest(auth_handler);
 
   network::mojom::TrustedHeaderClientRequest header_client_request;
-  if (ExtensionWebRequestEventRouter::GetInstance()->HasAnyExtraHeadersListener(
-          frame->GetProcess()->GetBrowserContext())) {
+  if (ExtensionWebRequestEventRouter::GetInstance()
+          ->HasAnyExtraHeadersListenerOnUI(
+              frame->GetProcess()->GetBrowserContext())) {
     header_client_request = mojo::MakeRequest(header_client);
   }
 
@@ -851,6 +852,20 @@ struct ExtensionWebRequestEventRouter::BlockedRequest {
   // The callback to call when we get a response from all event handlers.
   net::CompletionOnceCallback callback;
 
+  // The callback to invoke for onBeforeSendHeaders. If
+  // |before_send_headers_callback.is_null()| is false, |callback| must be NULL.
+  // Only valid for OnBeforeSendHeaders.
+  BeforeSendHeadersCallback before_send_headers_callback;
+
+  // The callback to invoke for auth. If |auth_callback.is_null()| is false,
+  // |callback| must be NULL.
+  // Only valid for OnAuthRequired.
+  net::NetworkDelegate::AuthCallback auth_callback;
+
+  // If non-empty, this contains the auth credentials that may be filled in.
+  // Only valid for OnAuthRequired.
+  net::AuthCredentials* auth_credentials = nullptr;
+
   // If non-empty, this contains the new URL that the request will redirect to.
   // Only valid for OnBeforeRequest and OnHeadersReceived.
   GURL* new_url = nullptr;
@@ -866,15 +881,6 @@ struct ExtensionWebRequestEventRouter::BlockedRequest {
   // Location where to override response headers. Only valid for
   // OnHeadersReceived.
   scoped_refptr<net::HttpResponseHeaders>* override_response_headers = nullptr;
-
-  // If non-empty, this contains the auth credentials that may be filled in.
-  // Only valid for OnAuthRequired.
-  net::AuthCredentials* auth_credentials = nullptr;
-
-  // The callback to invoke for auth. If |auth_callback.is_null()| is false,
-  // |callback| must be NULL.
-  // Only valid for OnAuthRequired.
-  net::NetworkDelegate::AuthCallback auth_callback;
 
   // Time the request was paused. Used for logging purposes.
   base::Time blocking_time;
@@ -1089,7 +1095,7 @@ int ExtensionWebRequestEventRouter::OnBeforeSendHeaders(
     void* browser_context,
     const InfoMap* extension_info_map,
     const WebRequestInfo* request,
-    net::CompletionOnceCallback callback,
+    BeforeSendHeadersCallback callback,
     net::HttpRequestHeaders* headers) {
   if (ShouldHideEvent(browser_context, extension_info_map, *request))
     return net::OK;
@@ -1127,7 +1133,7 @@ int ExtensionWebRequestEventRouter::OnBeforeSendHeaders(
   blocked_request.event = kOnBeforeSendHeaders;
   blocked_request.is_incognito |= IsIncognitoBrowserContext(browser_context);
   blocked_request.request = request;
-  blocked_request.callback = std::move(callback);
+  blocked_request.before_send_headers_callback = std::move(callback);
   blocked_request.request_headers = headers;
 
   if (blocked_request.num_handlers_blocking == 0) {
@@ -1654,8 +1660,18 @@ bool ExtensionWebRequestEventRouter::AddEventListener(
 
   listeners_[browser_context][event_name].push_back(std::move(listener));
 
-  if (extra_info_spec & ExtraInfoSpec::EXTRA_HEADERS)
+  if (extra_info_spec & ExtraInfoSpec::EXTRA_HEADERS) {
+    bool had_previously = extra_headers_listener_count_[browser_context] > 0;
     extra_headers_listener_count_[browser_context]++;
+
+    if (!had_previously) {
+      base::PostTaskWithTraits(
+          FROM_HERE, {BrowserThread::UI},
+          base::BindOnce(
+              &ExtensionWebRequestEventRouter::UpdateExtraHeadersListenerOnUI,
+              base::Unretained(this), browser_context, true));
+    }
+  }
 
   return true;
 }
@@ -1714,6 +1730,15 @@ void ExtensionWebRequestEventRouter::RemoveEventListener(
         extra_headers_listener_count_[listener->id.browser_context]--;
         DCHECK_GE(extra_headers_listener_count_[listener->id.browser_context],
                   0);
+
+        if (extra_headers_listener_count_[listener->id.browser_context] == 0) {
+          base::PostTaskWithTraits(
+              FROM_HERE, {BrowserThread::UI},
+              base::BindOnce(&ExtensionWebRequestEventRouter::
+                                 UpdateExtraHeadersListenerOnUI,
+                             base::Unretained(this),
+                             listener->id.browser_context, false));
+        }
       }
 
       listeners.erase(it);
@@ -1785,6 +1810,7 @@ bool ExtensionWebRequestEventRouter::HasExtraHeadersListenerForRequest(
 
 bool ExtensionWebRequestEventRouter::HasAnyExtraHeadersListener(
     void* browser_context) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   if (HasAnyExtraHeadersListenerImpl(browser_context))
     return true;
 
@@ -1795,9 +1821,40 @@ bool ExtensionWebRequestEventRouter::HasAnyExtraHeadersListener(
   return false;
 }
 
+bool ExtensionWebRequestEventRouter::HasAnyExtraHeadersListenerOnUI(
+    content::BrowserContext* browser_context) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (browser_contexts_with_extra_headers_.find(browser_context) !=
+      browser_contexts_with_extra_headers_.end())
+    return true;
+
+  if (browser_context->IsOffTheRecord()) {
+    auto* original_browser_context =
+        ExtensionsBrowserClient::Get()->GetOriginalContext(browser_context);
+    if (browser_contexts_with_extra_headers_.find(original_browser_context) !=
+        browser_contexts_with_extra_headers_.end())
+      return true;
+  }
+
+  return false;
+}
+
 bool ExtensionWebRequestEventRouter::HasAnyExtraHeadersListenerImpl(
     void* browser_context) {
   return extra_headers_listener_count_[browser_context] > 0;
+}
+
+void ExtensionWebRequestEventRouter::UpdateExtraHeadersListenerOnUI(
+    void* browser_context,
+    bool has_extra_headers_listeners) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  auto* browser_context_ptr =
+      static_cast<content::BrowserContext*>(browser_context);
+  if (has_extra_headers_listeners) {
+    browser_contexts_with_extra_headers_.insert(browser_context_ptr);
+  } else {
+    browser_contexts_with_extra_headers_.erase(browser_context_ptr);
+  }
 }
 
 bool ExtensionWebRequestEventRouter::IsPageLoad(
@@ -2205,6 +2262,9 @@ int ExtensionWebRequestEventRouter::ExecuteDeltas(void* browser_context,
   bool request_headers_modified = false;
   bool response_headers_modified = false;
   bool credentials_set = false;
+  // The set of request headers which were removed or set to new values.
+  std::set<std::string> request_headers_removed;
+  std::set<std::string> request_headers_set;
 
   deltas.sort(&helpers::InDecreasingExtensionInstallationTimeOrder);
 
@@ -2219,11 +2279,12 @@ int ExtensionWebRequestEventRouter::ExecuteDeltas(void* browser_context,
         request->url, blocked_request.response_deltas, blocked_request.new_url,
         &ignored_actions, request->logger.get());
   } else if (blocked_request.event == kOnBeforeSendHeaders) {
-    CHECK(!blocked_request.callback.is_null());
+    CHECK(!blocked_request.before_send_headers_callback.is_null());
     helpers::MergeOnBeforeSendHeadersResponses(
         request->url, blocked_request.response_deltas,
         blocked_request.request_headers, &ignored_actions,
-        request->logger.get(), &request_headers_modified);
+        request->logger.get(), &request_headers_removed, &request_headers_set,
+        &request_headers_modified);
   } else if (blocked_request.event == kOnHeadersReceived) {
     CHECK(!blocked_request.callback.is_null());
     helpers::MergeOnHeadersReceivedResponses(
@@ -2283,6 +2344,13 @@ int ExtensionWebRequestEventRouter::ExecuteDeltas(void* browser_context,
     blocked_requests_.erase(request->id);
     if (call_callback)
       std::move(callback).Run(rv);
+  } else if (!blocked_request.before_send_headers_callback.is_null()) {
+    auto callback = std::move(blocked_request.before_send_headers_callback);
+    // Ensure that request is removed before callback because the callback
+    // might trigger the next event.
+    blocked_requests_.erase(request->id);
+    if (call_callback)
+      std::move(callback).Run(request_headers_removed, request_headers_set, rv);
   } else if (!blocked_request.auth_callback.is_null()) {
     net::NetworkDelegate::AuthRequiredResponse response;
     if (canceled)
