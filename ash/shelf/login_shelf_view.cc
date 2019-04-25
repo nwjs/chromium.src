@@ -566,7 +566,8 @@ void LoginShelfView::OnUsersChanged(
 }
 
 void LoginShelfView::OnLocaleChanged() {
-  for (views::View* child : children()) {
+  for (int i = 0; i < child_count(); ++i) {
+    views::View* child = child_at(i);
     if (child->GetClassName() == kLoginShelfButtonClassName) {
       auto* button = static_cast<LoginShelfButton*>(child);
       button->SetText(l10n_util::GetStringUTF16(button->text_resource_id()));
