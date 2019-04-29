@@ -197,10 +197,11 @@ public abstract class RequestGenerator {
     public int getNumGoogleAccountsOnDevice() {
         // RequestGenerator may be invoked from JobService or AlarmManager (through OmahaService),
         // so have to make sure AccountManagerFacade instance is initialized.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> ProcessInitializationHandler.getInstance().initializePreNative());
         int numAccounts = 0;
         try {
+            // TODO(waffles@chromium.org): Ideally, this should be asynchronous.
+            ThreadUtils.runOnUiThreadBlocking(
+                    () -> ProcessInitializationHandler.getInstance().initializePreNative());
             numAccounts = AccountManagerFacade.get().getGoogleAccounts().size();
         } catch (Exception e) {
             Log.e(TAG, "Can't get number of accounts.", e);
