@@ -4915,8 +4915,7 @@ TEST_F(NetworkContextTest,
     network_context->CreateWebSocket(
         mojo::MakeRequest(&web_socket), network::mojom::kBrowserProcessId,
         1 /* render_frame_id */, url::Origin::Create(ws_server.GetURL("/")),
-        network::mojom::kWebSocketOptionNone, std::move(auth_handler),
-        std::move(header_client_ptr));
+        std::move(auth_handler), std::move(header_client_ptr));
 
     TestWebSocketClient client;
     web_socket->AddChannelRequest(
@@ -4983,8 +4982,7 @@ TEST_F(NetworkContextTest,
     network_context->CreateWebSocket(
         mojo::MakeRequest(&web_socket), network::mojom::kBrowserProcessId,
         1 /* render_frame_id */, url::Origin::Create(ws_server.GetURL("/")),
-        network::mojom::kWebSocketOptionNone, std::move(auth_handler),
-        std::move(header_client_ptr));
+        std::move(auth_handler), std::move(header_client_ptr));
 
     TestWebSocketClient client;
     web_socket->AddChannelRequest(
