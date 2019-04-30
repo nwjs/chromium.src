@@ -19,6 +19,7 @@ extern const base::Feature kDataReductionProxyEnabledWithNetworkService;
 extern const base::Feature kDataSaverUseOnDeviceSafeBrowsing;
 extern const base::Feature kDataReductionProxyBlockOnBadGatewayResponse;
 extern const base::Feature kDataReductionProxyPopulatePreviewsPageIDToPingback;
+extern const base::Feature kDataReductionProxyDisableProxyFailedWarmup;
 
 }  // namespace features
 }  // namespace data_reduction_proxy
