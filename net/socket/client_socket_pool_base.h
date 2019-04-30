@@ -37,6 +37,7 @@
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
+#include "base/optional.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "net/base/address_list.h"
@@ -342,6 +343,25 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
    public:
     using JobList = std::list<std::unique_ptr<ConnectJob>>;
 
+    struct BoundRequest {
+      BoundRequest();
+      BoundRequest(std::unique_ptr<ConnectJob> connect_job,
+                   std::unique_ptr<Request> request);
+      BoundRequest(BoundRequest&& other);
+      BoundRequest& operator=(BoundRequest&& other);
+      ~BoundRequest();
+
+      std::unique_ptr<ConnectJob> connect_job;
+      std::unique_ptr<Request> request;
+
+      // It's not safe to fail a request in a |CancelAllRequestsWithError| call
+      // while it's waiting on user input, as the request may have raw pointers
+      // to objects owned by |connect_job| that it could racily write to after
+      // |connect_job| is destroyed. Instead, just track an error in that case,
+      // and fail the request once the ConnectJob completes.
+      int pending_error;
+    };
+
     Group(const std::string& group_name,
           ClientSocketPoolBaseHelper* client_socket_pool_base_helper);
     ~Group() override;
@@ -443,13 +463,10 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     // callback, returns nullptr.
     const Request* BindRequestToConnectJob(ConnectJob* connect_job);
 
-    // Finds the request, if any, bound to |connect_job|, and returns it.
-    // Destroys the ConnectJob bound to the request, if there was one. The
-    // pending error if written to |pending_error|. If there is no pending
-    // error, |pending_error| is set to OK.
-    std::unique_ptr<Request> FindAndRemoveBoundRequestForConnectJob(
-        ConnectJob* connect_job,
-        int* pending_error);
+    // Finds the request, if any, bound to |connect_job|, and returns the
+    // BoundRequest or base::nullopt if there was none.
+    base::Optional<BoundRequest> FindAndRemoveBoundRequestForConnectJob(
+        ConnectJob* connect_job);
 
     // Finds the bound request, if any, corresponding to |client_socket_handle|
     // and returns it. Destroys the ConnectJob bound to the request, if there
@@ -480,25 +497,6 @@ class NET_EXPORT_PRIVATE ClientSocketPoolBaseHelper
     }
 
    private:
-    struct BoundRequest {
-      BoundRequest();
-      BoundRequest(std::unique_ptr<ConnectJob> connect_job,
-                   std::unique_ptr<Request> request);
-      BoundRequest(BoundRequest&& other);
-      BoundRequest& operator=(BoundRequest&& other);
-      ~BoundRequest();
-
-      std::unique_ptr<ConnectJob> connect_job;
-      std::unique_ptr<Request> request;
-
-      // It's not safe to fail a request in a |CancelAllRequestsWithError| call
-      // while it's waiting on user input, as the request may have raw pointers
-      // to objects owned by |connect_job| that it could racily write to after
-      // |connect_job| is destroyed. Instead, just track an error in that case,
-      // and fail the request once the ConnectJob completes.
-      int pending_error;
-    };
-
     // Returns the iterator's unbound request after removing it from
     // the queue. Expects the Group to pass SanityCheck() when called.
     std::unique_ptr<Request> RemoveUnboundRequest(
