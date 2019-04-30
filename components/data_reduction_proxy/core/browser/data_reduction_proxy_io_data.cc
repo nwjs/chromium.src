@@ -409,6 +409,7 @@ DataReductionProxyIOData::CreateCustomProxyConfig(
 
   request_options_->AddRequestHeader(&config->post_cache_headers,
                                      base::nullopt);
+  config->can_use_proxy_on_http_url_redirect_cycles = false;
   return config;
 }
 
