@@ -1075,26 +1075,28 @@ void ClientSocketPoolBaseHelper::OnConnectJobComplete(Group* group,
   //
   // TODO(mmenke) this logic resembles the case where the job is assigned to a
   // request below. Look into merging the logic.
-  int pending_result;
-  std::unique_ptr<Request> request =
-      group->FindAndRemoveBoundRequestForConnectJob(job, &pending_result);
-  if (request) {
+  base::Optional<Group::BoundRequest> bound_request =
+      group->FindAndRemoveBoundRequestForConnectJob(job);
+  if (bound_request) {
     --connecting_socket_count_;
     bool handed_out_socket = false;
-    if (pending_result != OK) {
-      result = pending_result;
+    if (bound_request->pending_error != OK) {
+      result = bound_request->pending_error;
     } else {
+      job->GetAdditionalErrorState(bound_request->request->handle());
       if (socket) {
         handed_out_socket = true;
         HandOutSocket(std::move(socket), ClientSocketHandle::UNUSED,
-                      connect_timing, request->handle(), base::TimeDelta(),
-                      group, request->net_log());
+                      connect_timing, bound_request->request->handle(),
+                      base::TimeDelta(), group,
+                      bound_request->request->net_log());
       }
     }
-    request->net_log().EndEventWithNetErrorCode(NetLogEventType::SOCKET_POOL,
-                                                result);
-    InvokeUserCallbackLater(request->handle(), request->release_callback(),
-                            result, request->socket_tag());
+    bound_request->request->net_log().EndEventWithNetErrorCode(
+        NetLogEventType::SOCKET_POOL, result);
+    InvokeUserCallbackLater(bound_request->request->handle(),
+                            bound_request->request->release_callback(), result,
+                            bound_request->request->socket_tag());
     if (!handed_out_socket) {
       OnAvailableSocketSlot(group->group_name(), group);
       CheckForStalledSocketGroups();
@@ -1107,7 +1109,7 @@ void ClientSocketPoolBaseHelper::OnConnectJobComplete(Group* group,
 
   if (result == OK) {
     DCHECK(socket.get());
-    request = group->PopNextUnboundRequest();
+    std::unique_ptr<Request> request = group->PopNextUnboundRequest();
     RemoveConnectJob(job, group);
     if (request) {
       LogBoundConnectJobToRequest(job_log.source(), *request);
@@ -1583,20 +1585,18 @@ ClientSocketPoolBaseHelper::Group::BindRequestToConnectJob(
   return request;
 }
 
-std::unique_ptr<ClientSocketPoolBaseHelper::Request>
+base::Optional<ClientSocketPoolBaseHelper::Group::BoundRequest>
 ClientSocketPoolBaseHelper::Group::FindAndRemoveBoundRequestForConnectJob(
-    ConnectJob* connect_job,
-    int* pending_error) {
+    ConnectJob* connect_job) {
   for (auto bound_pair = bound_requests_.begin();
        bound_pair != bound_requests_.end(); ++bound_pair) {
     if (bound_pair->connect_job.get() != connect_job)
       continue;
-    std::unique_ptr<Request> request = std::move(bound_pair->request);
-    *pending_error = bound_pair->pending_error;
+    BoundRequest ret = std::move(*bound_pair);
     bound_requests_.erase(bound_pair);
-    return request;
+    return std::move(ret);
   }
-  return nullptr;
+  return base::nullopt;
 }
 
 std::unique_ptr<ClientSocketPoolBaseHelper::Request>

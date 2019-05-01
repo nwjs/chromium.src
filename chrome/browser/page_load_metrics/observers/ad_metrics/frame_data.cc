@@ -5,6 +5,7 @@
 #include "chrome/browser/page_load_metrics/observers/ad_metrics/frame_data.h"
 
 #include <algorithm>
+#include <limits>
 #include <string>
 
 #include "chrome/browser/page_load_metrics/observers/ad_metrics/ads_page_load_metrics_observer.h"
@@ -141,7 +142,9 @@ void FrameData::SetDisplayState(bool is_display_none) {
 
 void FrameData::UpdateFrameVisibility() {
   visibility_ =
-      !is_display_none_ && frame_size_.GetArea() >= kMinimumVisibleFrameArea
+      !is_display_none_ &&
+              frame_size_.GetCheckedArea().ValueOrDefault(
+                  std::numeric_limits<int>::max()) >= kMinimumVisibleFrameArea
           ? FrameVisibility::kVisible
           : FrameVisibility::kNonVisible;
 }
