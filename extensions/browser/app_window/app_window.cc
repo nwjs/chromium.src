@@ -68,6 +68,9 @@
 #include "extensions/browser/pref_names.h"
 #endif
 
+
+using blink::mojom::ConsoleMessageLevel;
+
 #if defined(OS_MACOSX)
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "extensions/browser/process_manager.h"
@@ -89,7 +92,6 @@
 
 
 using content::BrowserContext;
-using content::ConsoleMessageLevel;
 using content::WebContents;
 using web_modal::WebContentsModalDialogHost;
 using web_modal::WebContentsModalDialogManager;

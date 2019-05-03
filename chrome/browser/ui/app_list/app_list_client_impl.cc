@@ -181,6 +181,8 @@ void AppListClientImpl::SearchResultContextMenuItemSelected(
 
 void AppListClientImpl::ViewClosing() {
   display_id_ = display::kInvalidDisplayId;
+  if (search_controller_)
+    search_controller_->ViewClosing();
 }
 
 void AppListClientImpl::ViewShown(int64_t display_id) {
@@ -310,10 +312,10 @@ void AppListClientImpl::OnPageBreakItemDeleted(int profile_id,
 }
 
 void AppListClientImpl::GetNavigableContentsFactory(
-    content::mojom::NavigableContentsFactoryRequest request) {
+    mojo::PendingReceiver<content::mojom::NavigableContentsFactory> receiver) {
   if (profile_) {
-    content::BrowserContext::GetConnectorFor(profile_)->BindInterface(
-        content::mojom::kServiceName, std::move(request));
+    content::BrowserContext::GetConnectorFor(profile_)->Connect(
+        content::mojom::kServiceName, std::move(receiver));
   }
 }
 
@@ -406,7 +408,7 @@ void AppListClientImpl::SetUpSearchUI() {
       app_list::CreateSearchController(profile_, current_model_updater_, this);
 }
 
-app_list::SearchController* AppListClientImpl::GetSearchControllerForTest() {
+app_list::SearchController* AppListClientImpl::search_controller() {
   return search_controller_.get();
 }
 

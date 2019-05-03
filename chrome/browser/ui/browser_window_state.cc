@@ -4,8 +4,6 @@
 
 #include "chrome/browser/ui/browser_window_state.h"
 
-#include "content/nw/src/nw_base.h"
-
 #include <stddef.h>
 
 #include <utility>
@@ -78,8 +76,8 @@ class WindowPlacementPrefUpdate : public DictionaryPrefUpdate {
 
 std::string GetWindowName(const Browser* browser) {
   if (browser->app_name().empty()) {
-    return browser->is_type_popup() ?
-        prefs::kBrowserWindowPlacementPopup : prefs::kBrowserWindowPlacement;
+    return browser->is_type_popup() ? prefs::kBrowserWindowPlacementPopup
+                                    : prefs::kBrowserWindowPlacement;
   }
   return browser->app_name();
 }
@@ -116,7 +114,8 @@ bool ShouldSaveWindowPlacement(const Browser* browser) {
   // Only save the window placement of popups if the window is from a trusted
   // source (v1 app, devtools, or system window).
   return (browser->type() == Browser::TYPE_TABBED) ||
-    ((browser->type() == Browser::TYPE_POPUP) && browser->is_trusted_source());
+         ((browser->type() == Browser::TYPE_POPUP) &&
+          browser->is_trusted_source());
 }
 
 bool SavedBoundsAreContentBounds(const Browser* browser) {
@@ -152,38 +151,15 @@ void GetSavedWindowBoundsAndShowState(const Browser* browser,
   DCHECK(browser);
   DCHECK(bounds);
   DCHECK(show_state);
-  gfx::Rect manifest_bounds;
   *bounds = browser->override_bounds();
-  manifest_bounds = *bounds;
-  if (bounds->IsEmpty()) {
-    nw::Package* package = nw::package();
-    if (package && package->window()) {
-      int width = 0, height = 0;
-      package->window()->GetInteger("width", &width);
-      package->window()->GetInteger("height", &height);
-      bounds->set_width(width);
-      bounds->set_height(height);
-    }
-  }
-  WindowSizer::GetBrowserWindowBoundsAndShowState(browser->app_name(),
-                                                  *bounds,
-                                                  browser,
-                                                  bounds,
-                                                  show_state);
+  WindowSizer::GetBrowserWindowBoundsAndShowState(browser->app_name(), *bounds,
+                                                  browser, bounds, show_state);
 
   const base::CommandLine& parsed_command_line =
       *base::CommandLine::ForCurrentProcess();
 
   internal::UpdateWindowBoundsAndShowStateFromCommandLine(parsed_command_line,
                                                           bounds, show_state);
-  if (manifest_bounds.height())
-    bounds->set_height(manifest_bounds.height());
-  if (manifest_bounds.width())
-    bounds->set_width(manifest_bounds.width());
-  if (manifest_bounds.x())
-    bounds->set_x(manifest_bounds.x());
-  if (manifest_bounds.y())
-    bounds->set_y(manifest_bounds.y());
 }
 
 namespace internal {

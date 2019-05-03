@@ -17,7 +17,7 @@ void V8FileList::ConstructorCustom(const v8::FunctionCallbackInfo<v8::Value>& ar
     }
   }
 
-  FileList* impl = FileList::Create();
+  FileList* impl = MakeGarbageCollected<FileList>();
   V8SetReturnValue(args, impl);
 }
 

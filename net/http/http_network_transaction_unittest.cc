@@ -27,6 +27,7 @@
 #include "base/stl_util.h"
 #include "base/strings/string_piece.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_task_environment.h"
@@ -61,6 +62,7 @@
 #include "net/http/http_basic_stream.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_network_session_peer.h"
+#include "net/http/http_proxy_connect_job.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_info.h"
 #include "net/http/http_server_properties_impl.h"
@@ -82,6 +84,7 @@
 #include "net/socket/client_socket_factory.h"
 #include "net/socket/client_socket_pool.h"
 #include "net/socket/client_socket_pool_manager.h"
+#include "net/socket/connect_job.h"
 #include "net/socket/connection_attempts.h"
 #include "net/socket/mock_client_socket_pool_manager.h"
 #include "net/socket/next_proto.h"
@@ -92,8 +95,6 @@
 #include "net/spdy/spdy_session.h"
 #include "net/spdy/spdy_session_pool.h"
 #include "net/spdy/spdy_test_util_common.h"
-#include "net/ssl/client_cert_identity_test_util.h"
-#include "net/ssl/default_channel_id_store.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_config_service.h"
 #include "net/ssl/ssl_info.h"
@@ -104,6 +105,7 @@
 #include "net/test/test_with_scoped_task_environment.h"
 #include "net/third_party/quiche/src/spdy/core/spdy_framer.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "net/url_request/static_http_user_agent_settings.h"
 #include "net/websockets/websocket_handshake_stream_base.h"
 #include "net/websockets/websocket_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -375,6 +377,22 @@ class HttpNetworkTransactionTest : public PlatformTest,
             base::test::ScopedTaskEnvironment::MainThreadType::IO_MOCK_TIME,
             base::test::ScopedTaskEnvironment::NowSource::
                 MAIN_THREAD_MOCK_TIME),
+        dummy_connect_job_params_(
+            nullptr /* client_socket_factory */,
+            nullptr /* host_resolver */,
+            nullptr /* http_auth_cache */,
+            nullptr /* http_auth_handler_factory */,
+            nullptr /* spdy_session_pool */,
+            nullptr /* quic_supported_versions */,
+            nullptr /* quic_stream_factory */,
+            nullptr /* proxy_delegate */,
+            nullptr /* http_user_agent_settings */,
+            SSLClientSocketContext(),
+            SSLClientSocketContext(),
+            nullptr /* socket_performance_watcher_factory */,
+            nullptr /* network_quality_estimator */,
+            nullptr /* net_log */,
+            nullptr /* websocket_endpoint_lock_manager */),
         ssl_(ASYNC, OK),
         old_max_group_sockets_(ClientSocketPoolManager::max_sockets_per_group(
             HttpNetworkSession::NORMAL_SOCKET_POOL)),
@@ -550,6 +568,8 @@ class HttpNetworkTransactionTest : public PlatformTest,
 
   void CheckErrorIsPassedBack(int error, IoMode mode);
 
+  const CommonConnectJobParams dummy_connect_job_params_;
+
   // These clocks are defined here, even though they're only used in the
   // Reporting tests below, since they need to be destroyed after
   // |session_deps_|.
@@ -639,21 +659,25 @@ std::string MockGetHostName() {
 }
 #endif  // defined(NTLM_PORTABLE)
 
-template<typename ParentPool>
-class CaptureGroupNameSocketPool : public ParentPool {
+class CaptureGroupIdTransportSocketPool : public TransportClientSocketPool {
  public:
-  CaptureGroupNameSocketPool(HostResolver* host_resolver,
-                             CertVerifier* cert_verifier);
+  explicit CaptureGroupIdTransportSocketPool(
+      const CommonConnectJobParams* common_connect_job_params)
+      : TransportClientSocketPool(0,
+                                  0,
+                                  base::TimeDelta(),
+                                  common_connect_job_params,
+                                  nullptr /* ssl_config_service */) {}
 
-  const std::string last_group_name_received() const {
-    return last_group_name_;
+  const ClientSocketPool::GroupId& last_group_id_received() const {
+    return last_group_id_;
   }
 
   bool socket_requested() const { return socket_requested_; }
 
   int RequestSocket(
-      const std::string& group_name,
-      const void* socket_params,
+      const ClientSocketPool::GroupId& group_id,
+      scoped_refptr<ClientSocketPool::SocketParams> socket_params,
       RequestPriority priority,
       const SocketTag& socket_tag,
       ClientSocketPool::RespectLimits respect_limits,
@@ -661,61 +685,39 @@ class CaptureGroupNameSocketPool : public ParentPool {
       CompletionOnceCallback callback,
       const ClientSocketPool::ProxyAuthCallback& proxy_auth_callback,
       const NetLogWithSource& net_log) override {
-    last_group_name_ = group_name;
+    last_group_id_ = group_id;
     socket_requested_ = true;
     return ERR_IO_PENDING;
   }
-  void CancelRequest(const std::string& group_name,
+  void CancelRequest(const ClientSocketPool::GroupId& group_id,
                      ClientSocketHandle* handle) override {}
-  void ReleaseSocket(const std::string& group_name,
+  void ReleaseSocket(const ClientSocketPool::GroupId& group_id,
                      std::unique_ptr<StreamSocket> socket,
-                     int id) override {}
+                     int64_t generation) override {}
   void CloseIdleSockets() override {}
-  void CloseIdleSocketsInGroup(const std::string& group_name) override {}
+  void CloseIdleSocketsInGroup(
+      const ClientSocketPool::GroupId& group_id) override {}
   int IdleSocketCount() const override { return 0; }
-  size_t IdleSocketCountInGroup(const std::string& group_name) const override {
+  size_t IdleSocketCountInGroup(
+      const ClientSocketPool::GroupId& group_id) const override {
     return 0;
   }
-  LoadState GetLoadState(const std::string& group_name,
+  LoadState GetLoadState(const ClientSocketPool::GroupId& group_id,
                          const ClientSocketHandle* handle) const override {
     return LOAD_STATE_IDLE;
   }
 
  private:
-  std::string last_group_name_;
+  ClientSocketPool::GroupId last_group_id_;
   bool socket_requested_ = false;
 };
-
-typedef CaptureGroupNameSocketPool<TransportClientSocketPool>
-CaptureGroupNameTransportSocketPool;
-
-template <typename ParentPool>
-CaptureGroupNameSocketPool<ParentPool>::CaptureGroupNameSocketPool(
-    HostResolver* host_resolver,
-    CertVerifier* /* cert_verifier */)
-    : ParentPool(0,
-                 0,
-                 base::TimeDelta(),
-                 NULL,
-                 host_resolver,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL,
-                 NULL) {}
 
 //-----------------------------------------------------------------------------
 
 // Helper functions for validating that AuthChallengeInfo's are correctly
 // configured for common cases.
-bool CheckBasicServerAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckBasicServerAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_FALSE(auth_challenge->is_proxy);
@@ -725,17 +727,8 @@ bool CheckBasicServerAuth(const AuthChallengeInfo* auth_challenge) {
   return true;
 }
 
-bool CheckBasicSecureServerAuth(const AuthChallengeInfo* auth_challenge) {
-  if (!auth_challenge)
-    return false;
-  EXPECT_FALSE(auth_challenge->is_proxy);
-  EXPECT_EQ("https://www.example.org", auth_challenge->challenger.Serialize());
-  EXPECT_EQ("MyRealm1", auth_challenge->realm);
-  EXPECT_EQ(kBasicAuthScheme, auth_challenge->scheme);
-  return true;
-}
-
-bool CheckBasicProxyAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckBasicProxyAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_TRUE(auth_challenge->is_proxy);
@@ -745,7 +738,8 @@ bool CheckBasicProxyAuth(const AuthChallengeInfo* auth_challenge) {
   return true;
 }
 
-bool CheckBasicSecureProxyAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckBasicSecureProxyAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_TRUE(auth_challenge->is_proxy);
@@ -755,7 +749,8 @@ bool CheckBasicSecureProxyAuth(const AuthChallengeInfo* auth_challenge) {
   return true;
 }
 
-bool CheckDigestServerAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckDigestServerAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_FALSE(auth_challenge->is_proxy);
@@ -766,7 +761,8 @@ bool CheckDigestServerAuth(const AuthChallengeInfo* auth_challenge) {
 }
 
 #if defined(NTLM_PORTABLE)
-bool CheckNTLMServerAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckNTLMServerAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_FALSE(auth_challenge->is_proxy);
@@ -776,7 +772,8 @@ bool CheckNTLMServerAuth(const AuthChallengeInfo* auth_challenge) {
   return true;
 }
 
-bool CheckNTLMProxyAuth(const AuthChallengeInfo* auth_challenge) {
+bool CheckNTLMProxyAuth(
+    const base::Optional<AuthChallengeInfo>& auth_challenge) {
   if (!auth_challenge)
     return false;
   EXPECT_TRUE(auth_challenge->is_proxy);
@@ -1773,7 +1770,7 @@ void HttpNetworkTransactionTest::PreconnectErrorResendRequestTest(
   spdy::SpdySerializedFrame spdy_request(spdy_util_.ConstructSpdyGet(
       request.url.spec().c_str(), 1, DEFAULT_PRIORITY));
   spdy::SpdySerializedFrame spdy_response(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame spdy_data(
       spdy_util_.ConstructSpdyDataFrame(1, "hello", true));
 
@@ -1958,17 +1955,17 @@ TEST_F(HttpNetworkTransactionTest, RetryTwiceOnIOError) {
 
 TEST_F(HttpNetworkTransactionTest, KeepAliveConnectionNotConnectedOnWrite) {
   MockWrite write_failure(ASYNC, ERR_SOCKET_NOT_CONNECTED);
-  KeepAliveConnectionResendRequestTest(&write_failure, NULL);
+  KeepAliveConnectionResendRequestTest(&write_failure, nullptr);
 }
 
 TEST_F(HttpNetworkTransactionTest, KeepAliveConnectionReset) {
   MockRead read_failure(ASYNC, ERR_CONNECTION_RESET);
-  KeepAliveConnectionResendRequestTest(NULL, &read_failure);
+  KeepAliveConnectionResendRequestTest(nullptr, &read_failure);
 }
 
 TEST_F(HttpNetworkTransactionTest, KeepAliveConnectionEOF) {
   MockRead read_failure(SYNCHRONOUS, OK);  // EOF
-  KeepAliveConnectionResendRequestTest(NULL, &read_failure);
+  KeepAliveConnectionResendRequestTest(nullptr, &read_failure);
 }
 
 // Make sure that on a 408 response (Request Timeout), the request is retried,
@@ -1979,27 +1976,27 @@ TEST_F(HttpNetworkTransactionTest, KeepAlive408) {
                         "Connection: Keep-Alive\r\n"
                         "Content-Length: 6\r\n\r\n"
                         "Pickle");
-  KeepAliveConnectionResendRequestTest(NULL, &read_failure);
+  KeepAliveConnectionResendRequestTest(nullptr, &read_failure);
 }
 
 TEST_F(HttpNetworkTransactionTest, PreconnectErrorNotConnectedOnWrite) {
   MockWrite write_failure(ASYNC, ERR_SOCKET_NOT_CONNECTED);
-  PreconnectErrorResendRequestTest(&write_failure, NULL, false);
+  PreconnectErrorResendRequestTest(&write_failure, nullptr, false);
 }
 
 TEST_F(HttpNetworkTransactionTest, PreconnectErrorReset) {
   MockRead read_failure(ASYNC, ERR_CONNECTION_RESET);
-  PreconnectErrorResendRequestTest(NULL, &read_failure, false);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, false);
 }
 
 TEST_F(HttpNetworkTransactionTest, PreconnectErrorEOF) {
   MockRead read_failure(SYNCHRONOUS, OK);  // EOF
-  PreconnectErrorResendRequestTest(NULL, &read_failure, false);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, false);
 }
 
 TEST_F(HttpNetworkTransactionTest, PreconnectErrorAsyncEOF) {
   MockRead read_failure(ASYNC, OK);  // EOF
-  PreconnectErrorResendRequestTest(NULL, &read_failure, false);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, false);
 }
 
 // Make sure that on a 408 response (Request Timeout), the request is retried,
@@ -2010,28 +2007,28 @@ TEST_F(HttpNetworkTransactionTest, RetryOnIdle408) {
                         "Connection: Keep-Alive\r\n"
                         "Content-Length: 6\r\n\r\n"
                         "Pickle");
-  KeepAliveConnectionResendRequestTest(NULL, &read_failure);
-  PreconnectErrorResendRequestTest(NULL, &read_failure, false);
+  KeepAliveConnectionResendRequestTest(nullptr, &read_failure);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, false);
 }
 
 TEST_F(HttpNetworkTransactionTest, SpdyPreconnectErrorNotConnectedOnWrite) {
   MockWrite write_failure(ASYNC, ERR_SOCKET_NOT_CONNECTED);
-  PreconnectErrorResendRequestTest(&write_failure, NULL, true);
+  PreconnectErrorResendRequestTest(&write_failure, nullptr, true);
 }
 
 TEST_F(HttpNetworkTransactionTest, SpdyPreconnectErrorReset) {
   MockRead read_failure(ASYNC, ERR_CONNECTION_RESET);
-  PreconnectErrorResendRequestTest(NULL, &read_failure, true);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, true);
 }
 
 TEST_F(HttpNetworkTransactionTest, SpdyPreconnectErrorEOF) {
   MockRead read_failure(SYNCHRONOUS, OK);  // EOF
-  PreconnectErrorResendRequestTest(NULL, &read_failure, true);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, true);
 }
 
 TEST_F(HttpNetworkTransactionTest, SpdyPreconnectErrorAsyncEOF) {
   MockRead read_failure(ASYNC, OK);  // EOF
-  PreconnectErrorResendRequestTest(NULL, &read_failure, true);
+  PreconnectErrorResendRequestTest(nullptr, &read_failure, true);
 }
 
 TEST_F(HttpNetworkTransactionTest, NonKeepAliveConnectionReset) {
@@ -2673,7 +2670,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuth) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -2699,7 +2696,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuth) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(100, response->headers->GetContentLength());
 }
 
@@ -2778,7 +2775,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthWithAddressChange) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   IPEndPoint endpoint;
   EXPECT_TRUE(trans.GetRemoteEndpoint(&endpoint));
@@ -2809,7 +2806,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthWithAddressChange) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(100, response->headers->GetContentLength());
 
   EXPECT_TRUE(trans.GetRemoteEndpoint(&endpoint));
@@ -2872,7 +2869,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthForever) {
     EXPECT_THAT(rv, IsOk());
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
     data_restarts.push_back(std::make_unique<StaticSocketDataProvider>(
         data_reads, data_writes_restart));
@@ -2930,7 +2927,7 @@ TEST_F(HttpNetworkTransactionTest, DoNotSendAuth) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 }
 
 // Test the request-challenge-retry sequence for basic auth, over a keep-alive
@@ -2995,7 +2992,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAlive) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
     TestCompletionCallback callback2;
 
@@ -3014,7 +3011,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAlive) {
 
     response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(5, response->headers->GetContentLength());
 
     std::string response_data;
@@ -3084,7 +3081,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveNoBody) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -3096,7 +3093,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveNoBody) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(5, response->headers->GetContentLength());
 }
 
@@ -3165,7 +3162,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveLargeBody) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -3177,7 +3174,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveLargeBody) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(5, response->headers->GetContentLength());
 }
 
@@ -3251,7 +3248,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveImpatientServer) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -3263,7 +3260,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthKeepAliveImpatientServer) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(5, response->headers->GetContentLength());
 }
 
@@ -3358,7 +3355,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 0) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   LoadTimingInfo load_timing_info;
   // CONNECT requests and responses are handled at the connect job level, so
@@ -3383,7 +3380,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp10) {
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
   TestLoadTimingNotReusedWithPac(load_timing_info,
@@ -3483,7 +3480,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   LoadTimingInfo load_timing_info;
   // CONNECT requests and responses are handled at the connect job level, so
@@ -3508,7 +3505,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyNoKeepAliveHttp11) {
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
   TestLoadTimingNotReusedWithPac(load_timing_info,
@@ -3607,7 +3604,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
     EXPECT_EQ(407, response->headers->response_code());
     EXPECT_EQ(10, response->headers->GetContentLength());
     EXPECT_TRUE(HttpVersion(1, 0) == response->headers->GetHttpVersion());
-    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
     TestCompletionCallback callback2;
 
@@ -3623,7 +3620,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp10) {
     EXPECT_EQ(407, response->headers->response_code());
     EXPECT_EQ(10, response->headers->GetContentLength());
     EXPECT_TRUE(HttpVersion(1, 0) == response->headers->GetHttpVersion());
-    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
     // Flush the idle socket before the NetLog and HttpNetworkTransaction go
     // out of scope.
@@ -3718,7 +3715,8 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp11) {
     EXPECT_EQ(407, response->headers->response_code());
     EXPECT_EQ(10, response->headers->GetContentLength());
     EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
+    EXPECT_FALSE(response->did_use_http_auth);
 
     TestCompletionCallback callback2;
 
@@ -3734,7 +3732,8 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHttp11) {
     EXPECT_EQ(407, response->headers->response_code());
     EXPECT_EQ(10, response->headers->GetContentLength());
     EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
+    EXPECT_TRUE(response->did_use_http_auth);
 
     // Flush the idle socket before the NetLog and HttpNetworkTransaction go
     // out of scope.
@@ -3841,7 +3840,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveExtraData) {
   EXPECT_TRUE(response->headers->IsKeepAlive());
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   LoadTimingInfo load_timing_info;
   // CONNECT requests and responses are handled at the connect job level, so
@@ -3860,7 +3859,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveExtraData) {
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
   TestLoadTimingNotReusedWithPac(load_timing_info,
@@ -3946,7 +3945,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyKeepAliveHangupDuringBody) {
   ASSERT_TRUE(response->headers);
   EXPECT_TRUE(response->headers->IsKeepAlive());
   EXPECT_EQ(407, response->headers->response_code());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   rv = trans.RestartWithAuth(AuthCredentials(kFoo, kBar), callback.callback());
   EXPECT_THAT(callback.GetResult(rv), IsOk());
@@ -4276,7 +4275,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
   EXPECT_TRUE(trans->IsReadyToRestartForAuth());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   LoadTimingInfo load_timing_info;
   // CONNECT requests and responses are handled at the connect job level, so
@@ -4294,7 +4293,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
   TestLoadTimingNotReusedWithPac(load_timing_info,
@@ -4396,7 +4395,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
   EXPECT_TRUE(trans->IsReadyToRestartForAuth());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   LoadTimingInfo load_timing_info;
   // CONNECT requests and responses are handled at the connect job level, so
@@ -4415,7 +4414,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
   TestLoadTimingNotReusedWithPac(load_timing_info,
@@ -4511,7 +4510,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
   EXPECT_TRUE(trans->IsReadyToRestartForAuth());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   LoadTimingInfo load_timing_info;
   EXPECT_FALSE(trans->GetLoadTimingInfo(&load_timing_info));
@@ -4740,7 +4739,7 @@ TEST_F(HttpNetworkTransactionTest,
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
   EXPECT_TRUE(trans->IsReadyToRestartForAuth());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   LoadTimingInfo load_timing_info;
   EXPECT_FALSE(trans->GetLoadTimingInfo(&load_timing_info));
@@ -4752,7 +4751,7 @@ TEST_F(HttpNetworkTransactionTest,
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_FALSE(trans->IsReadyToRestartForAuth());
-  EXPECT_TRUE(response->auth_challenge);
+  EXPECT_TRUE(response->auth_challenge.has_value());
 
   trans.reset();
   session->CloseAllConnections();
@@ -4862,7 +4861,7 @@ TEST_F(HttpNetworkTransactionTest, NonPermanentGenerateAuthTokenError) {
   // ambient credentials.
   EXPECT_EQ(401, response->headers->response_code());
   EXPECT_TRUE(trans->IsReadyToRestartForAuth());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   rv = trans->RestartWithAuth(AuthCredentials(), callback.callback());
   EXPECT_THAT(callback.GetResult(rv), IsOk());
@@ -4875,7 +4874,7 @@ TEST_F(HttpNetworkTransactionTest, NonPermanentGenerateAuthTokenError) {
   // to respond to the challenge.
   EXPECT_EQ(401, response->headers->response_code());
   EXPECT_FALSE(trans->IsReadyToRestartForAuth());
-  EXPECT_TRUE(response->auth_challenge);
+  EXPECT_TRUE(response->auth_challenge.has_value());
 
   rv = trans->RestartWithAuth(AuthCredentials(), callback.callback());
   EXPECT_THAT(callback.GetResult(rv), IsOk());
@@ -5431,7 +5430,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxyGet) {
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 }
 
 // Test a SPDY get through an HTTPS Proxy.
@@ -5516,7 +5515,8 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyGetWithSessionRace) {
       spdy_util_.ConstructSpdyGet("http://www.example.org/", 1, LOWEST));
   MockWrite spdy_writes[] = {CreateMockWrite(req, 0)};
 
-  spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy_reads[] = {
       CreateMockRead(resp, 1), CreateMockRead(data, 2), MockRead(ASYNC, 0, 3),
@@ -5609,7 +5609,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyGetWithProxyAuth) {
   spdy::SpdySerializedFrame body_authentication(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   spdy::SpdySerializedFrame resp_data(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame body_data(
       spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead spdy_reads[] = {
@@ -5643,7 +5643,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyGetWithProxyAuth) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(response->was_fetched_via_spdy);
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -5659,7 +5659,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyGetWithProxyAuth) {
   ASSERT_TRUE(response_restart->headers);
   EXPECT_EQ(200, response_restart->headers->response_code());
   // The password prompt info should not be set.
-  EXPECT_FALSE(response_restart->auth_challenge);
+  EXPECT_FALSE(response_restart->auth_challenge.has_value());
 }
 
 // Test a SPDY CONNECT through an HTTPS Proxy to an HTTPS (non-SPDY) Server.
@@ -5681,7 +5681,8 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyConnectHttps) {
 
   // CONNECT to www.example.org:443 via SPDY
   spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   // fetch https://www.example.org/ via HTTP
 
   const char get[] =
@@ -5691,7 +5692,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyConnectHttps) {
   spdy::SpdySerializedFrame wrapped_get(
       spdy_util_.ConstructSpdyDataFrame(1, get, false));
   spdy::SpdySerializedFrame conn_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   const char resp[] = "HTTP/1.1 200 OK\r\n"
       "Content-Length: 10\r\n\r\n";
   spdy::SpdySerializedFrame wrapped_get_resp(
@@ -5766,7 +5767,8 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyConnectSpdy) {
 
   // CONNECT to www.example.org:443 via SPDY
   spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   // fetch https://www.example.org/ via SPDY
   const char kMyUrl[] = "https://www.example.org/";
   spdy::SpdySerializedFrame get(
@@ -5774,9 +5776,9 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyConnectSpdy) {
   spdy::SpdySerializedFrame wrapped_get(
       spdy_util_.ConstructWrappedSpdyFrame(get, 1));
   spdy::SpdySerializedFrame conn_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame get_resp(
-      spdy_util_wrapped.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_wrapped.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame wrapped_get_resp(
       spdy_util_.ConstructWrappedSpdyFrame(get_resp, 1));
   spdy::SpdySerializedFrame body(
@@ -5857,7 +5859,8 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyConnectFailure) {
 
   // CONNECT to www.example.org:443 via SPDY
   spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame get(
       spdy_util_.ConstructSpdyRstStream(1, spdy::ERROR_CODE_CANCEL));
 
@@ -5917,14 +5920,14 @@ TEST_F(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
   const char kMyUrl[] = "https://www.example.org/";
   spdy::SpdySerializedFrame get(spdy_util_.ConstructSpdyGet(kMyUrl, 1, LOWEST));
   spdy::SpdySerializedFrame get_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body(spdy_util_.ConstructSpdyDataFrame(1, true));
 
   spdy_util_.UpdateWithStreamDestruction(1);
   spdy::SpdySerializedFrame get2(
       spdy_util_.ConstructSpdyGet(kMyUrl, 3, LOWEST));
   spdy::SpdySerializedFrame get_resp2(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame body2(spdy_util_.ConstructSpdyDataFrame(3, true));
 
   MockWrite auth_challenge_writes[] = {
@@ -5994,7 +5997,7 @@ TEST_F(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   // Run second request until an auth challenge is observed.
   HttpRequestInfo request2;
@@ -6010,7 +6013,7 @@ TEST_F(HttpNetworkTransactionTest, ProxiedH2SessionAppearsDuringAuth) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   // Now provide credentials for the first request, and wait for it to complete.
   rv = trans1.RestartWithAuth(AuthCredentials(kFoo, kBar), callback.callback());
@@ -6063,9 +6066,10 @@ TEST_F(HttpNetworkTransactionTest,
 
   // CONNECT to www.example.org:443 via SPDY.
   spdy::SpdySerializedFrame connect1(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame conn_resp1(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
 
   // Fetch https://www.example.org/ via HTTP.
   const char get1[] =
@@ -6088,10 +6092,11 @@ TEST_F(HttpNetworkTransactionTest,
   connect2_block[spdy::kHttp2MethodHeader] = "CONNECT";
   connect2_block[spdy::kHttp2AuthorityHeader] = "mail.example.org:443";
   spdy::SpdySerializedFrame connect2(spdy_util_.ConstructSpdyHeaders(
-      3, std::move(connect2_block), LOWEST, false));
+      3, std::move(connect2_block), HttpProxyConnectJob::kH2QuicTunnelPriority,
+      false));
 
   spdy::SpdySerializedFrame conn_resp2(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
 
   // Fetch https://mail.example.org/ via HTTP.
   const char get2[] =
@@ -6199,9 +6204,10 @@ TEST_F(HttpNetworkTransactionTest,
 
   // CONNECT to www.example.org:443 via SPDY.
   spdy::SpdySerializedFrame connect1(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame conn_resp1(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
 
   // Fetch https://www.example.org/ via HTTP.
   const char get1[] =
@@ -6329,7 +6335,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyLoadTimingTwoHttpRequests) {
   spdy::SpdySerializedFrame get1(
       spdy_util_.ConstructSpdyHeaders(1, std::move(headers), LOWEST, true));
   spdy::SpdySerializedFrame get_resp1(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(
       spdy_util_.ConstructSpdyDataFrame(1, "1", true));
   spdy_util_.UpdateWithStreamDestruction(1);
@@ -6340,7 +6346,7 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxySpdyLoadTimingTwoHttpRequests) {
   spdy::SpdySerializedFrame get2(
       spdy_util_.ConstructSpdyHeaders(3, std::move(headers2), LOWEST, true));
   spdy::SpdySerializedFrame get_resp2(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame body2(
       spdy_util_.ConstructSpdyDataFrame(3, "22", true));
 
@@ -6424,16 +6430,17 @@ TEST_F(HttpNetworkTransactionTest, SpdyProxyIsolation1) {
   SpdyTestUtil spdy_util1;
   // CONNECT to www.example.org:443 via HTTP/2.
   spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   // fetch https://www.example.org/ via HTTP/2.
   const char kMyUrl[] = "https://www.example.org/";
   spdy::SpdySerializedFrame get(spdy_util1.ConstructSpdyGet(kMyUrl, 1, LOWEST));
   spdy::SpdySerializedFrame wrapped_get(
       spdy_util_.ConstructWrappedSpdyFrame(get, 1));
   spdy::SpdySerializedFrame conn_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame get_resp(
-      spdy_util1.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util1.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame wrapped_get_resp(
       spdy_util_.ConstructWrappedSpdyFrame(get_resp, 1));
   spdy::SpdySerializedFrame body(spdy_util1.ConstructSpdyDataFrame(1, true));
@@ -6574,7 +6581,8 @@ TEST_F(HttpNetworkTransactionTest, SpdyProxyIsolation2) {
   SpdyTestUtil spdy_util2;
   // CONNECT to www.example.org:443 via HTTP/2.
   spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
-      nullptr, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   // fetch https://www.example.org/ via HTTP/2.
   const char kMyUrl[] = "https://www.example.org/";
   spdy::SpdySerializedFrame get(spdy_util2.ConstructSpdyGet(kMyUrl, 1, LOWEST));
@@ -6739,7 +6747,8 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxyAuthRetry) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge));
+  EXPECT_FALSE(response->did_use_http_auth);
 
   TestCompletionCallback callback2;
 
@@ -6761,9 +6770,10 @@ TEST_F(HttpNetworkTransactionTest, HttpsProxyAuthRetry) {
   EXPECT_EQ(200, response->headers->response_code());
   EXPECT_EQ(100, response->headers->GetContentLength());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
+  EXPECT_TRUE(response->did_use_http_auth);
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 }
 
 void HttpNetworkTransactionTest::ConnectStatusHelperWithExpectedStatus(
@@ -7076,7 +7086,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyThenServer) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicProxyAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -7088,7 +7098,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyThenServer) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback3;
 
@@ -7100,7 +7110,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthProxyThenServer) {
   EXPECT_THAT(rv, IsOk());
 
   response = trans.GetResponseInfo();
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(100, response->headers->GetContentLength());
 }
 
@@ -7229,7 +7239,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -7245,7 +7255,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   TestCompletionCallback callback3;
 
@@ -7257,7 +7267,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(14, response->headers->GetContentLength());
 
   std::string response_data;
@@ -7436,7 +7446,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -7459,7 +7469,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback4;
 
@@ -7484,7 +7494,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMAuthV2WrongThenRightPassword) {
   EXPECT_THAT(rv, IsOk());
 
   response = trans.GetResponseInfo();
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(14, response->headers->GetContentLength());
 
   std::string response_data;
@@ -7623,7 +7633,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckNTLMServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -7639,7 +7649,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   TestCompletionCallback callback3;
 
@@ -7651,7 +7661,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMOverHttp2) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(14, response->headers->GetContentLength());
 
   std::string response_data;
@@ -7779,7 +7789,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
   EXPECT_FALSE(trans.IsReadyToRestartForAuth());
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckNTLMProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckNTLMProxyAuth(response->auth_challenge));
 
   // Configure credentials. The proxy responds with the challenge message.
   rv = callback.GetResult(trans.RestartWithAuth(
@@ -7789,7 +7799,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
   EXPECT_TRUE(trans.IsReadyToRestartForAuth());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   // Restart once more. The tunnel will be established and the the SSL handshake
   // will reset. The TLS 1.3 version interference probe will then kick in and
@@ -7801,7 +7811,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
   EXPECT_TRUE(trans.IsReadyToRestartForAuth());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   // The proxy responds with the NTLM challenge message.
   rv = callback.GetResult(
@@ -7810,7 +7820,7 @@ TEST_F(HttpNetworkTransactionTest, NTLMProxyTLSHandshakeReset) {
   EXPECT_TRUE(trans.IsReadyToRestartForAuth());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   // Send the NTLM authenticate message. The tunnel is established and the
   // handshake resets again. We should not retry again.
@@ -8559,7 +8569,7 @@ TEST_F(HttpNetworkTransactionTest, AuthIdentityInURL) {
   ASSERT_TRUE(response);
 
   // There is no challenge info, since the identity in URL worked.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_EQ(100, response->headers->GetContentLength());
 
@@ -8656,7 +8666,7 @@ TEST_F(HttpNetworkTransactionTest, WrongAuthIdentityInURL) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback3;
   rv = trans.RestartWithAuth(AuthCredentials(kFoo, kBar), callback3.callback());
@@ -8669,7 +8679,7 @@ TEST_F(HttpNetworkTransactionTest, WrongAuthIdentityInURL) {
   ASSERT_TRUE(response);
 
   // There is no challenge info, since the identity worked.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   EXPECT_EQ(100, response->headers->GetContentLength());
 
@@ -8737,7 +8747,7 @@ TEST_F(HttpNetworkTransactionTest, AuthIdentityInURLSuppressed) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback3;
   rv = trans.RestartWithAuth(AuthCredentials(kFoo, kBar), callback3.callback());
@@ -8750,7 +8760,7 @@ TEST_F(HttpNetworkTransactionTest, AuthIdentityInURLSuppressed) {
   ASSERT_TRUE(response);
 
   // There is no challenge info, since the identity worked.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(100, response->headers->GetContentLength());
 
   // Empty the current queue.
@@ -8816,7 +8826,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
     TestCompletionCallback callback2;
 
@@ -8829,7 +8839,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(100, response->headers->GetContentLength());
   }
 
@@ -8914,7 +8924,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(100, response->headers->GetContentLength());
   }
 
@@ -8962,7 +8972,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
 
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(100, response->headers->GetContentLength());
   }
 
@@ -9032,7 +9042,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(100, response->headers->GetContentLength());
   }
 
@@ -9122,7 +9132,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
     TestCompletionCallback callback3;
 
@@ -9135,7 +9145,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthCacheAndPreauth) {
 
     response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
     EXPECT_EQ(100, response->headers->GetContentLength());
   }
 }
@@ -9208,7 +9218,7 @@ TEST_F(HttpNetworkTransactionTest, DigestPreAuthNonceCount) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_TRUE(CheckDigestServerAuth(response->auth_challenge.get()));
+    EXPECT_TRUE(CheckDigestServerAuth(response->auth_challenge));
 
     TestCompletionCallback callback2;
 
@@ -9221,7 +9231,7 @@ TEST_F(HttpNetworkTransactionTest, DigestPreAuthNonceCount) {
 
     response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
   }
 
   // ------------------------------------------------------------------------
@@ -9271,7 +9281,7 @@ TEST_F(HttpNetworkTransactionTest, DigestPreAuthNonceCount) {
 
     const HttpResponseInfo* response = trans.GetResponseInfo();
     ASSERT_TRUE(response);
-    EXPECT_FALSE(response->auth_challenge);
+    EXPECT_FALSE(response->auth_challenge.has_value());
   }
 }
 
@@ -9288,7 +9298,7 @@ TEST_F(HttpNetworkTransactionTest, ResetStateForRestart) {
 
   // Setup state in response_
   HttpResponseInfo* response = &trans.response_;
-  response->auth_challenge = new AuthChallengeInfo();
+  response->auth_challenge = base::nullopt;
   response->ssl_info.cert_status = static_cast<CertStatus>(-1);  // Nonsensical.
   response->response_time = base::Time::Now();
   response->was_cached = true;  // (Wouldn't ever actually be true...)
@@ -9310,7 +9320,7 @@ TEST_F(HttpNetworkTransactionTest, ResetStateForRestart) {
   EXPECT_FALSE(trans.read_buf_);
   EXPECT_EQ(0, trans.read_buf_len_);
   EXPECT_TRUE(trans.request_headers_.IsEmpty());
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_FALSE(response->headers);
   EXPECT_FALSE(response->was_cached);
   EXPECT_EQ(0U, response->ssl_info.cert_status);
@@ -9515,7 +9525,7 @@ TEST_F(HttpNetworkTransactionTest, HTTPSViaHttpsProxy) {
                                  CONNECT_TIMING_HAS_SSL_TIMES);
 }
 
-// Test that an HTTPS Proxy can redirect a CONNECT request for main frames.
+// Test that an HTTPS Proxy cannot redirect a CONNECT request for main frames.
 TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
   session_deps_.proxy_resolution_service =
       ProxyResolutionService::CreateFixedFromPacResult(
@@ -9523,7 +9533,6 @@ TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
   TestNetLog net_log;
   session_deps_.net_log = &net_log;
 
-  base::TimeTicks start_time = base::TimeTicks::Now();
   const base::TimeDelta kTimeIncrement = base::TimeDelta::FromSeconds(4);
   session_deps_.host_resolver->set_ondemand_mode(true);
 
@@ -9579,43 +9588,7 @@ TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaHttpsProxy) {
   data.Resume();
 
   rv = callback.WaitForResult();
-  EXPECT_THAT(rv, IsOk());
-  const HttpResponseInfo* response = trans.GetResponseInfo();
-
-  ASSERT_TRUE(response);
-
-  EXPECT_EQ(302, response->headers->response_code());
-  std::string url;
-  EXPECT_TRUE(response->headers->IsRedirect(&url));
-  EXPECT_EQ("http://login.example.com/", url);
-
-  LoadTimingInfo load_timing_info;
-  EXPECT_TRUE(trans.GetLoadTimingInfo(&load_timing_info));
-
-  EXPECT_FALSE(load_timing_info.socket_reused);
-  EXPECT_NE(NetLogSource::kInvalidId, load_timing_info.socket_log_id);
-
-  // In the case of redirects from proxies, just as with all responses from
-  // proxies, DNS and SSL times reflect timing to look up the destination's
-  // name, and negotiate an SSL connection to it (Neither of which are done in
-  // this case), which the DNS and SSL times for the proxy are all included in
-  // connect_start / connect_end. See
-  // HttpNetworkTransaction::OnHttpsProxyTunnelResponseRedirect
-
-  EXPECT_TRUE(load_timing_info.connect_timing.dns_start.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.dns_end.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.ssl_start.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.ssl_end.is_null());
-
-  EXPECT_EQ(start_time, load_timing_info.proxy_resolve_start);
-  EXPECT_EQ(start_time, load_timing_info.proxy_resolve_end);
-  EXPECT_EQ(start_time, load_timing_info.connect_timing.connect_start);
-  EXPECT_EQ(start_time + 3 * kTimeIncrement,
-            load_timing_info.connect_timing.connect_end);
-
-  EXPECT_TRUE(load_timing_info.send_start.is_null());
-  EXPECT_TRUE(load_timing_info.send_end.is_null());
-  EXPECT_TRUE(load_timing_info.receive_headers_end.is_null());
+  EXPECT_THAT(rv, IsError(ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT));
 }
 
 // Test that an HTTPS Proxy cannot redirect a CONNECT request for subresources.
@@ -9722,7 +9695,7 @@ TEST_F(HttpNetworkTransactionTest,
       HttpNetworkTransaction::kMainFrameByAutoDetectedProxy, 1);
 }
 
-// Test an HTTPS (SPDY) Proxy's ability to redirect a CONNECT request for main
+// Tests that an HTTPS (SPDY) Proxy's cannot redirect a CONNECT request for main
 // frames.
 TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
   base::HistogramTester histograms;
@@ -9731,7 +9704,6 @@ TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
   TestNetLog net_log;
   session_deps_.net_log = &net_log;
 
-  base::TimeTicks start_time = base::TimeTicks::Now();
   const base::TimeDelta kTimeIncrement = base::TimeDelta::FromSeconds(4);
   session_deps_.host_resolver->set_ondemand_mode(true);
 
@@ -9743,7 +9715,8 @@ TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
   spdy::SpdySerializedFrame conn(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame goaway(
       spdy_util_.ConstructSpdyRstStream(1, spdy::ERROR_CODE_CANCEL));
   MockWrite data_writes[] = {
@@ -9792,45 +9765,7 @@ TEST_F(HttpNetworkTransactionTest, RedirectOfHttpsConnectViaSpdyProxy) {
   FastForwardBy(kTimeIncrement);
   data.Resume();
   rv = callback.WaitForResult();
-  EXPECT_THAT(rv, IsOk());
-  const HttpResponseInfo* response = trans.GetResponseInfo();
-
-  ASSERT_TRUE(response);
-
-  EXPECT_EQ(302, response->headers->response_code());
-  std::string url;
-  EXPECT_TRUE(response->headers->IsRedirect(&url));
-  EXPECT_EQ("http://login.example.com/", url);
-
-  LoadTimingInfo load_timing_info;
-  EXPECT_TRUE(trans.GetLoadTimingInfo(&load_timing_info));
-
-  EXPECT_FALSE(load_timing_info.socket_reused);
-  EXPECT_NE(NetLogSource::kInvalidId, load_timing_info.socket_log_id);
-
-  // No proxy resolution times, since there's no PAC script.
-  EXPECT_TRUE(load_timing_info.proxy_resolve_start.is_null());
-  EXPECT_TRUE(load_timing_info.proxy_resolve_end.is_null());
-
-  // In the case of redirects from proxies, just as with all responses from
-  // proxies, DNS and SSL times reflect timing to look up the destination's
-  // name, and negotiate an SSL connection to it (Neither of which are done in
-  // this case), which the DNS and SSL times for the proxy are all included in
-  // connect_start / connect_end. See
-  // HttpNetworkTransaction::OnHttpsProxyTunnelResponseRedirect.
-
-  EXPECT_TRUE(load_timing_info.connect_timing.dns_start.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.dns_end.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.ssl_start.is_null());
-  EXPECT_TRUE(load_timing_info.connect_timing.ssl_end.is_null());
-
-  EXPECT_EQ(start_time, load_timing_info.connect_timing.connect_start);
-  EXPECT_EQ(start_time + 3 * kTimeIncrement,
-            load_timing_info.connect_timing.connect_end);
-
-  EXPECT_TRUE(load_timing_info.send_start.is_null());
-  EXPECT_TRUE(load_timing_info.send_end.is_null());
-  EXPECT_TRUE(load_timing_info.receive_headers_end.is_null());
+  EXPECT_THAT(rv, IsError(ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT));
 
   histograms.ExpectUniqueSample(
       "Net.Proxy.RedirectDuringConnect",
@@ -9893,7 +9828,8 @@ TEST_F(HttpNetworkTransactionTest, ErrorResponseToHttpsConnectViaSpdyProxy) {
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
   spdy::SpdySerializedFrame conn(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame rst(
       spdy_util_.ConstructSpdyRstStream(1, spdy::ERROR_CODE_CANCEL));
   MockWrite data_writes[] = {
@@ -9955,7 +9891,8 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
 
   // Since we have proxy, should try to establish tunnel.
   spdy::SpdySerializedFrame req(spdy_util_.ConstructSpdyConnect(
-      NULL, 0, 1, LOWEST, HostPortPair("www.example.org", 443)));
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      HostPortPair("www.example.org", 443)));
   spdy::SpdySerializedFrame rst(
       spdy_util_.ConstructSpdyRstStream(1, spdy::ERROR_CODE_CANCEL));
   spdy_util_.UpdateWithStreamDestruction(1);
@@ -9966,7 +9903,8 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
       "proxy-authorization", "Basic Zm9vOmJhcg==",
   };
   spdy::SpdySerializedFrame connect2(spdy_util_.ConstructSpdyConnect(
-      kAuthCredentials, base::size(kAuthCredentials) / 2, 3, LOWEST,
+      kAuthCredentials, base::size(kAuthCredentials) / 2, 3,
+      HttpProxyConnectJob::kH2QuicTunnelPriority,
       HostPortPair("www.example.org", 443)));
   // fetch https://www.example.org/ via HTTP
   const char get[] =
@@ -9991,7 +9929,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
       kAuthStatus, kAuthChallenge, base::size(kAuthChallenge) / 2, 1));
 
   spdy::SpdySerializedFrame conn_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   const char resp[] = "HTTP/1.1 200 OK\r\n"
       "Content-Length: 5\r\n\r\n";
 
@@ -10042,8 +9980,8 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
   ASSERT_TRUE(response->headers);
   EXPECT_EQ(407, response->headers->response_code());
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
-  EXPECT_TRUE(response->auth_challenge);
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(response->auth_challenge.has_value());
+  EXPECT_TRUE(CheckBasicSecureProxyAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -10063,7 +10001,7 @@ TEST_F(HttpNetworkTransactionTest, BasicAuthSpdyProxy) {
   EXPECT_TRUE(HttpVersion(1, 1) == response->headers->GetHttpVersion());
 
   // The password prompt info should not be set.
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 
   LoadTimingInfo load_timing_info;
   EXPECT_TRUE(trans->GetLoadTimingInfo(&load_timing_info));
@@ -10116,10 +10054,10 @@ TEST_F(HttpNetworkTransactionTest, CrossOriginSPDYProxyPush) {
   };
 
   spdy::SpdySerializedFrame stream2_syn(spdy_util_.ConstructSpdyPush(
-      NULL, 0, 2, 1, "http://www.another-origin.com/foo.dat"));
+      nullptr, 0, 2, 1, "http://www.another-origin.com/foo.dat"));
 
   spdy::SpdySerializedFrame stream1_reply(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
 
   spdy::SpdySerializedFrame stream1_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
@@ -10233,13 +10171,13 @@ TEST_F(HttpNetworkTransactionTest, CrossOriginProxyPushCorrectness) {
   };
 
   spdy::SpdySerializedFrame stream1_reply(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
 
   spdy::SpdySerializedFrame stream1_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
 
   spdy::SpdySerializedFrame stream2_syn(spdy_util_.ConstructSpdyPush(
-      NULL, 0, 2, 1, "https://www.another-origin.com/foo.dat"));
+      nullptr, 0, 2, 1, "https://www.another-origin.com/foo.dat"));
 
   MockRead spdy_reads[] = {
       CreateMockRead(stream1_reply, 1, ASYNC),
@@ -10493,43 +10431,73 @@ TEST_F(HttpNetworkTransactionTest, BuildRequest_UserAgent) {
 }
 
 TEST_F(HttpNetworkTransactionTest, BuildRequest_UserAgentOverTunnel) {
-  HttpRequestInfo request;
-  request.method = "GET";
-  request.url = GURL("https://www.example.org/");
-  request.extra_headers.SetHeader(HttpRequestHeaders::kUserAgent,
-                                  "Chromium Ultra Awesome X Edition");
-  request.traffic_annotation =
-      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+  // Test user agent values, used both for the request header of the original
+  // request, and the value returned by the HttpUserAgentSettings. nullptr means
+  // no request header / no HttpUserAgentSettings object.
+  const char* kTestUserAgents[] = {nullptr, "", "Foopy"};
 
-  session_deps_.proxy_resolution_service = ProxyResolutionService::CreateFixed(
-      "myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
-  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
-  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+  for (const char* setting_user_agent : kTestUserAgents) {
+    if (!setting_user_agent) {
+      session_deps_.http_user_agent_settings.reset();
+    } else {
+      session_deps_.http_user_agent_settings =
+          std::make_unique<StaticHttpUserAgentSettings>(
+              std::string() /* accept-language */, setting_user_agent);
+    }
+    session_deps_.proxy_resolution_service =
+        ProxyResolutionService::CreateFixed("myproxy:70",
+                                            TRAFFIC_ANNOTATION_FOR_TESTS);
+    std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+    for (const char* request_user_agent : kTestUserAgents) {
+      HttpRequestInfo request;
+      request.method = "GET";
+      request.url = GURL("https://www.example.org/");
+      if (request_user_agent) {
+        request.extra_headers.SetHeader(HttpRequestHeaders::kUserAgent,
+                                        request_user_agent);
+      }
+      request.traffic_annotation =
+          net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
-  MockWrite data_writes[] = {
-      MockWrite("CONNECT www.example.org:443 HTTP/1.1\r\n"
-                "Host: www.example.org:443\r\n"
-                "Proxy-Connection: keep-alive\r\n"
-                "User-Agent: Chromium Ultra Awesome X Edition\r\n\r\n"),
-  };
-  MockRead data_reads[] = {
-    // Return an error, so the transaction stops here (this test isn't
-    // interested in the rest).
-    MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"),
-    MockRead("Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"),
-    MockRead("Proxy-Connection: close\r\n\r\n"),
-  };
+      HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
 
-  StaticSocketDataProvider data(data_reads, data_writes);
-  session_deps_.socket_factory->AddSocketDataProvider(&data);
+      std::string expected_request;
+      if (!setting_user_agent || strlen(setting_user_agent) == 0) {
+        expected_request =
+            "CONNECT www.example.org:443 HTTP/1.1\r\n"
+            "Host: www.example.org:443\r\n"
+            "Proxy-Connection: keep-alive\r\n\r\n";
+      } else {
+        expected_request = base::StringPrintf(
+            "CONNECT www.example.org:443 HTTP/1.1\r\n"
+            "Host: www.example.org:443\r\n"
+            "Proxy-Connection: keep-alive\r\n"
+            "User-Agent: %s\r\n\r\n",
+            setting_user_agent);
+      }
+      MockWrite data_writes[] = {
+          MockWrite(expected_request.c_str()),
+      };
+      MockRead data_reads[] = {
+          // Return an error, so the transaction stops here (this test isn't
+          // interested in the rest).
+          MockRead("HTTP/1.1 407 Proxy Authentication Required\r\n"),
+          MockRead("Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n"),
+          MockRead("Proxy-Connection: close\r\n\r\n"),
+      };
 
-  TestCompletionCallback callback;
+      StaticSocketDataProvider data(data_reads, data_writes);
+      session_deps_.socket_factory->AddSocketDataProvider(&data);
 
-  int rv = trans.Start(&request, callback.callback(), NetLogWithSource());
-  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+      TestCompletionCallback callback;
 
-  rv = callback.WaitForResult();
-  EXPECT_THAT(rv, IsOk());
+      int rv = trans.Start(&request, callback.callback(), NetLogWithSource());
+      EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+      rv = callback.WaitForResult();
+      EXPECT_THAT(rv, IsOk());
+    }
+  }
 }
 
 TEST_F(HttpNetworkTransactionTest, BuildRequest_Referer) {
@@ -11168,16 +11136,16 @@ TEST_F(HttpNetworkTransactionTest, SOCKS5_SSL_GET) {
 
 namespace {
 
-// Tests that for connection endpoints the group names are correctly set.
+// Tests that for connection endpoints the group ids are correctly set.
 
-struct GroupNameTest {
+struct GroupIdTest {
   std::string proxy_server;
   std::string url;
-  std::string expected_group_name;
+  ClientSocketPool::GroupId expected_group_id;
   bool ssl;
 };
 
-std::unique_ptr<HttpNetworkSession> SetupSessionForGroupNameTests(
+std::unique_ptr<HttpNetworkSession> SetupSessionForGroupIdTests(
     SpdySessionDependencies* session_deps_) {
   std::unique_ptr<HttpNetworkSession> session(CreateSession(session_deps_));
 
@@ -11192,8 +11160,8 @@ std::unique_ptr<HttpNetworkSession> SetupSessionForGroupNameTests(
   return session;
 }
 
-int GroupNameTransactionHelper(const std::string& url,
-                               HttpNetworkSession* session) {
+int GroupIdTransactionHelper(const std::string& url,
+                             HttpNetworkSession* session) {
   HttpRequestInfo request;
   request.method = "GET";
   request.url = GURL(url);
@@ -11210,39 +11178,49 @@ int GroupNameTransactionHelper(const std::string& url,
 
 }  // namespace
 
-TEST_F(HttpNetworkTransactionTest, GroupNameForDirectConnections) {
-  const GroupNameTest tests[] = {
+TEST_F(HttpNetworkTransactionTest, GroupIdForDirectConnections) {
+  const GroupIdTest tests[] = {
       {
-       "",  // unused
-       "http://www.example.org/direct",
-       "www.example.org:80",
-       false,
+          "",  // unused
+          "http://www.example.org/direct",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 80),
+                                    ClientSocketPool::SocketType::kHttp,
+                                    false /* privacy_mode */),
+          false,
       },
       {
-       "",  // unused
-       "http://[2001:1418:13:1::25]/direct",
-       "[2001:1418:13:1::25]:80",
-       false,
+          "",  // unused
+          "http://[2001:1418:13:1::25]/direct",
+          ClientSocketPool::GroupId(HostPortPair("2001:1418:13:1::25", 80),
+                                    ClientSocketPool::SocketType::kHttp,
+                                    false /* privacy_mode */),
+          false,
       },
 
       // SSL Tests
       {
-       "",  // unused
-       "https://www.example.org/direct_ssl",
-       "ssl/www.example.org:443",
-       true,
+          "",  // unused
+          "https://www.example.org/direct_ssl",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
       {
-       "",  // unused
-       "https://[2001:1418:13:1::25]/direct",
-       "ssl/[2001:1418:13:1::25]:443",
-       true,
+          "",  // unused
+          "https://[2001:1418:13:1::25]/direct",
+          ClientSocketPool::GroupId(HostPortPair("2001:1418:13:1::25", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
       {
-       "",  // unused
-       "https://host.with.alternate/direct",
-       "ssl/host.with.alternate:443",
-       true,
+          "",  // unused
+          "https://host.with.alternate/direct",
+          ClientSocketPool::GroupId(HostPortPair("host.with.alternate", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
   };
 
@@ -11251,45 +11229,61 @@ TEST_F(HttpNetworkTransactionTest, GroupNameForDirectConnections) {
         ProxyResolutionService::CreateFixed(tests[i].proxy_server,
                                             TRAFFIC_ANNOTATION_FOR_TESTS);
     std::unique_ptr<HttpNetworkSession> session(
-        SetupSessionForGroupNameTests(&session_deps_));
+        SetupSessionForGroupIdTests(&session_deps_));
 
     HttpNetworkSessionPeer peer(session.get());
-    CaptureGroupNameTransportSocketPool* transport_conn_pool =
-        new CaptureGroupNameTransportSocketPool(nullptr, nullptr);
+    CaptureGroupIdTransportSocketPool* transport_conn_pool =
+        new CaptureGroupIdTransportSocketPool(&dummy_connect_job_params_);
     auto mock_pool_manager = std::make_unique<MockClientSocketPoolManager>();
     mock_pool_manager->SetSocketPool(ProxyServer::Direct(),
                                      base::WrapUnique(transport_conn_pool));
     peer.SetClientSocketPoolManager(std::move(mock_pool_manager));
 
     EXPECT_EQ(ERR_IO_PENDING,
-              GroupNameTransactionHelper(tests[i].url, session.get()));
-    EXPECT_EQ(tests[i].expected_group_name,
-              transport_conn_pool->last_group_name_received());
+              GroupIdTransactionHelper(tests[i].url, session.get()));
+    EXPECT_EQ(tests[i].expected_group_id,
+              transport_conn_pool->last_group_id_received());
     EXPECT_TRUE(transport_conn_pool->socket_requested());
   }
 }
 
-TEST_F(HttpNetworkTransactionTest, GroupNameForHTTPProxyConnections) {
-  const GroupNameTest tests[] = {
+TEST_F(HttpNetworkTransactionTest, GroupIdForHTTPProxyConnections) {
+  const GroupIdTest tests[] = {
       {
-          "http_proxy", "http://www.example.org/http_proxy_normal",
-          "http_proxy/www.example.org:80", false,
+          "http_proxy",
+          "http://www.example.org/http_proxy_normal",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 80),
+                                    ClientSocketPool::SocketType::kHttp,
+                                    false /* privacy_mode */),
+          false,
       },
 
       // SSL Tests
       {
-          "http_proxy", "https://www.example.org/http_connect_ssl",
-          "http_proxy/ssl/www.example.org:443", true,
+          "http_proxy",
+          "https://www.example.org/http_connect_ssl",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
 
       {
-          "http_proxy", "https://host.with.alternate/direct",
-          "http_proxy/ssl/host.with.alternate:443", true,
+          "http_proxy",
+          "https://host.with.alternate/direct",
+          ClientSocketPool::GroupId(HostPortPair("host.with.alternate", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
 
       {
-          "http_proxy", "ftp://ftp.google.com/http_proxy_normal",
-          "http_proxy/ftp/ftp.google.com:21", false,
+          "http_proxy",
+          "ftp://ftp.google.com/http_proxy_normal",
+          ClientSocketPool::GroupId(HostPortPair("ftp.google.com", 21),
+                                    ClientSocketPool::SocketType::kFtp,
+                                    false /* privacy_mode */),
+          false,
       },
   };
 
@@ -11298,60 +11292,70 @@ TEST_F(HttpNetworkTransactionTest, GroupNameForHTTPProxyConnections) {
         ProxyResolutionService::CreateFixed(tests[i].proxy_server,
                                             TRAFFIC_ANNOTATION_FOR_TESTS);
     std::unique_ptr<HttpNetworkSession> session(
-        SetupSessionForGroupNameTests(&session_deps_));
+        SetupSessionForGroupIdTests(&session_deps_));
 
     HttpNetworkSessionPeer peer(session.get());
 
     ProxyServer proxy_server(ProxyServer::SCHEME_HTTP,
                              HostPortPair("http_proxy", 80));
-    CaptureGroupNameTransportSocketPool* http_proxy_pool =
-        new CaptureGroupNameTransportSocketPool(NULL, NULL);
+    CaptureGroupIdTransportSocketPool* http_proxy_pool =
+        new CaptureGroupIdTransportSocketPool(&dummy_connect_job_params_);
     auto mock_pool_manager = std::make_unique<MockClientSocketPoolManager>();
     mock_pool_manager->SetSocketPool(proxy_server,
                                      base::WrapUnique(http_proxy_pool));
     peer.SetClientSocketPoolManager(std::move(mock_pool_manager));
 
     EXPECT_EQ(ERR_IO_PENDING,
-              GroupNameTransactionHelper(tests[i].url, session.get()));
-    EXPECT_EQ(tests[i].expected_group_name,
-              http_proxy_pool->last_group_name_received());
+              GroupIdTransactionHelper(tests[i].url, session.get()));
+    EXPECT_EQ(tests[i].expected_group_id,
+              http_proxy_pool->last_group_id_received());
   }
 }
 
-TEST_F(HttpNetworkTransactionTest, GroupNameForSOCKSConnections) {
-  const GroupNameTest tests[] = {
+TEST_F(HttpNetworkTransactionTest, GroupIdForSOCKSConnections) {
+  const GroupIdTest tests[] = {
       {
-       "socks4://socks_proxy:1080",
-       "http://www.example.org/socks4_direct",
-       "socks4/www.example.org:80",
-       false,
+          "socks4://socks_proxy:1080",
+          "http://www.example.org/socks4_direct",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 80),
+                                    ClientSocketPool::SocketType::kHttp,
+                                    false /* privacy_mode */),
+          false,
       },
       {
-       "socks5://socks_proxy:1080",
-       "http://www.example.org/socks5_direct",
-       "socks5/www.example.org:80",
-       false,
+          "socks5://socks_proxy:1080",
+          "http://www.example.org/socks5_direct",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 80),
+                                    ClientSocketPool::SocketType::kHttp,
+                                    false /* privacy_mode */),
+          false,
       },
 
       // SSL Tests
       {
-       "socks4://socks_proxy:1080",
-       "https://www.example.org/socks4_ssl",
-       "socks4/ssl/www.example.org:443",
-       true,
+          "socks4://socks_proxy:1080",
+          "https://www.example.org/socks4_ssl",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
       {
-       "socks5://socks_proxy:1080",
-       "https://www.example.org/socks5_ssl",
-       "socks5/ssl/www.example.org:443",
-       true,
+          "socks5://socks_proxy:1080",
+          "https://www.example.org/socks5_ssl",
+          ClientSocketPool::GroupId(HostPortPair("www.example.org", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
 
       {
-       "socks4://socks_proxy:1080",
-       "https://host.with.alternate/direct",
-       "socks4/ssl/host.with.alternate:443",
-       true,
+          "socks4://socks_proxy:1080",
+          "https://host.with.alternate/direct",
+          ClientSocketPool::GroupId(HostPortPair("host.with.alternate", 443),
+                                    ClientSocketPool::SocketType::kSsl,
+                                    false /* privacy_mode */),
+          true,
       },
   };
 
@@ -11360,15 +11364,15 @@ TEST_F(HttpNetworkTransactionTest, GroupNameForSOCKSConnections) {
         ProxyResolutionService::CreateFixed(tests[i].proxy_server,
                                             TRAFFIC_ANNOTATION_FOR_TESTS);
     std::unique_ptr<HttpNetworkSession> session(
-        SetupSessionForGroupNameTests(&session_deps_));
+        SetupSessionForGroupIdTests(&session_deps_));
 
     HttpNetworkSessionPeer peer(session.get());
 
     ProxyServer proxy_server(
         ProxyServer::FromURI(tests[i].proxy_server, ProxyServer::SCHEME_HTTP));
     ASSERT_TRUE(proxy_server.is_valid());
-    CaptureGroupNameTransportSocketPool* socks_conn_pool =
-        new CaptureGroupNameTransportSocketPool(NULL, NULL);
+    CaptureGroupIdTransportSocketPool* socks_conn_pool =
+        new CaptureGroupIdTransportSocketPool(&dummy_connect_job_params_);
     auto mock_pool_manager = std::make_unique<MockClientSocketPoolManager>();
     mock_pool_manager->SetSocketPool(proxy_server,
                                      base::WrapUnique(socks_conn_pool));
@@ -11377,9 +11381,9 @@ TEST_F(HttpNetworkTransactionTest, GroupNameForSOCKSConnections) {
     HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
 
     EXPECT_EQ(ERR_IO_PENDING,
-              GroupNameTransactionHelper(tests[i].url, session.get()));
-    EXPECT_EQ(tests[i].expected_group_name,
-              socks_conn_pool->last_group_name_received());
+              GroupIdTransactionHelper(tests[i].url, session.get()));
+    EXPECT_EQ(tests[i].expected_group_id,
+              socks_conn_pool->last_group_id_received());
   }
 }
 
@@ -11407,49 +11411,6 @@ TEST_F(HttpNetworkTransactionTest, ReconsiderProxyAfterFailedConnection) {
 
   rv = callback.WaitForResult();
   EXPECT_THAT(rv, IsError(ERR_PROXY_CONNECTION_FAILED));
-}
-
-// LOAD_BYPASS_CACHE should trigger the host cache bypass.
-TEST_F(HttpNetworkTransactionTest, BypassHostCacheOnRefresh) {
-  // Issue a request, asking to bypass the cache(s).
-  HttpRequestInfo request_info;
-  request_info.method = "GET";
-  request_info.load_flags = LOAD_BYPASS_CACHE;
-  request_info.url = GURL("http://www.example.org/");
-  request_info.traffic_annotation =
-      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
-
-  // Select a host resolver that does caching.
-  session_deps_.host_resolver = std::make_unique<MockCachingHostResolver>();
-
-  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
-  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
-
-  // Warm up the host cache so it has an entry for "www.example.org".
-  int rv = session_deps_.host_resolver->LoadIntoCache(
-      HostPortPair("www.example.org", 80), base::nullopt);
-  EXPECT_THAT(rv, IsOk());
-
-  // Inject a failure the next time that "www.example.org" is resolved. This way
-  // we can tell if the next lookup hit the cache, or the "network".
-  // (cache --> success, "network" --> failure).
-  session_deps_.host_resolver->rules()->AddSimulatedFailure("www.example.org");
-
-  // Connect up a mock socket which will fail with ERR_UNEXPECTED during the
-  // first read -- this won't be reached as the host resolution will fail first.
-  MockRead data_reads[] = { MockRead(SYNCHRONOUS, ERR_UNEXPECTED) };
-  StaticSocketDataProvider data(data_reads, base::span<MockWrite>());
-  session_deps_.socket_factory->AddSocketDataProvider(&data);
-
-  // Run the request.
-  TestCompletionCallback callback;
-  rv = trans.Start(&request_info, callback.callback(), NetLogWithSource());
-  ASSERT_THAT(rv, IsError(ERR_IO_PENDING));
-  rv = callback.WaitForResult();
-
-  // If we bypassed the cache, we would have gotten a failure while resolving
-  // "www.example.org".
-  EXPECT_THAT(rv, IsError(ERR_NAME_NOT_RESOLVED));
 }
 
 // Make sure we can handle an error when writing the request.
@@ -11587,7 +11548,7 @@ TEST_F(HttpNetworkTransactionTest, DrainResetOK) {
 
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge.get()));
+  EXPECT_TRUE(CheckBasicServerAuth(response->auth_challenge));
 
   TestCompletionCallback callback2;
 
@@ -11599,7 +11560,7 @@ TEST_F(HttpNetworkTransactionTest, DrainResetOK) {
 
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(100, response->headers->GetContentLength());
 }
 
@@ -11916,7 +11877,7 @@ TEST_F(HttpNetworkTransactionTest, ChangeAuthRealms) {
   EXPECT_THAT(rv, IsOk());
   const HttpResponseInfo* response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  const AuthChallengeInfo* challenge = response->auth_challenge.get();
+  base::Optional<AuthChallengeInfo> challenge = response->auth_challenge;
   ASSERT_TRUE(challenge);
   EXPECT_FALSE(challenge->is_proxy);
   EXPECT_EQ("http://www.example.org", challenge->challenger.Serialize());
@@ -11934,7 +11895,7 @@ TEST_F(HttpNetworkTransactionTest, ChangeAuthRealms) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  challenge = response->auth_challenge.get();
+  challenge = response->auth_challenge;
   ASSERT_TRUE(challenge);
   EXPECT_FALSE(challenge->is_proxy);
   EXPECT_EQ("http://www.example.org", challenge->challenger.Serialize());
@@ -11953,7 +11914,7 @@ TEST_F(HttpNetworkTransactionTest, ChangeAuthRealms) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  challenge = response->auth_challenge.get();
+  challenge = response->auth_challenge;
   ASSERT_TRUE(challenge);
   EXPECT_FALSE(challenge->is_proxy);
   EXPECT_EQ("http://www.example.org", challenge->challenger.Serialize());
@@ -11969,7 +11930,7 @@ TEST_F(HttpNetworkTransactionTest, ChangeAuthRealms) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
 }
 
 // Regression test for https://crbug.com/754395.
@@ -12874,7 +12835,8 @@ TEST_F(HttpNetworkTransactionTest, UseAlternateProtocolForNpnSpdy) {
       spdy_util_.ConstructSpdyGet("https://www.example.org/", 1, LOWEST));
   MockWrite spdy_writes[] = {CreateMockWrite(req, 0)};
 
-  spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy_reads[] = {
       CreateMockRead(resp, 1), CreateMockRead(data, 2), MockRead(ASYNC, 0, 3),
@@ -12974,9 +12936,11 @@ TEST_F(HttpNetworkTransactionTest, AlternateProtocolWithSpdyLateBinding) {
   MockWrite spdy_writes[] = {
       CreateMockWrite(req1, 0), CreateMockWrite(req2, 1),
   };
-  spdy::SpdySerializedFrame resp1(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp1(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data1(spdy_util_.ConstructSpdyDataFrame(1, true));
-  spdy::SpdySerializedFrame resp2(spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+  spdy::SpdySerializedFrame resp2(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame data2(spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead spdy_reads[] = {
       CreateMockRead(resp1, 2), CreateMockRead(data1, 3),
@@ -13260,7 +13224,8 @@ TEST_F(HttpNetworkTransactionTest, UseAlternativeServiceForTunneledNpnSpdy) {
 
   const char kCONNECTResponse[] = "HTTP/1.1 200 Connected\r\n\r\n";
 
-  spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy_reads[] = {
       MockRead(ASYNC, 1, kCONNECTResponse), CreateMockRead(resp, 3),
@@ -13355,7 +13320,8 @@ TEST_F(HttpNetworkTransactionTest,
       spdy_util_.ConstructSpdyGet("https://www.example.org/", 1, LOWEST));
   MockWrite spdy_writes[] = {CreateMockWrite(req, 0)};
 
-  spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy_reads[] = {
       CreateMockRead(resp, 1), CreateMockRead(data, 2), MockRead(ASYNC, 0, 3),
@@ -13505,15 +13471,17 @@ TEST_F(HttpNetworkTransactionTest, GenerateAuthToken) {
   // and TestRound's created with the default constructor should not be used.
   struct TestRound {
     TestRound()
-        : expected_rv(ERR_UNEXPECTED), extra_write(NULL), extra_read(NULL) {}
+        : expected_rv(ERR_UNEXPECTED),
+          extra_write(nullptr),
+          extra_read(nullptr) {}
     TestRound(const MockWrite& write_arg,
               const MockRead& read_arg,
               int expected_rv_arg)
         : write(write_arg),
           read(read_arg),
           expected_rv(expected_rv_arg),
-          extra_write(NULL),
-          extra_read(NULL) {}
+          extra_write(nullptr),
+          extra_read(nullptr) {}
     TestRound(const MockWrite& write_arg, const MockRead& read_arg,
               int expected_rv_arg, const MockWrite* extra_write_arg,
               const MockRead* extra_read_arg)
@@ -14337,9 +14305,9 @@ TEST_F(HttpNetworkTransactionTest, GenerateAuthToken) {
         continue;
       }
       if (round + 1 < test_config.num_auth_rounds) {
-        EXPECT_TRUE(response->auth_challenge);
+        EXPECT_TRUE(response->auth_challenge.has_value());
       } else {
-        EXPECT_FALSE(response->auth_challenge);
+        EXPECT_FALSE(response->auth_challenge.has_value());
         EXPECT_FALSE(trans.IsReadyToRestartForAuth());
       }
     }
@@ -14367,7 +14335,7 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   auth_factory->AddMockHandler(auth_handler, HttpAuth::AUTH_SERVER);
 
   int rv = OK;
-  const HttpResponseInfo* response = NULL;
+  const HttpResponseInfo* response = nullptr;
   HttpRequestInfo request;
   request.method = "GET";
   request.url = origin;
@@ -14380,21 +14348,13 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   // to validate that the TCP socket is not released to the pool between
   // each round of multi-round authentication.
   HttpNetworkSessionPeer session_peer(session.get());
+  CommonConnectJobParams common_connect_job_params(
+      session->CreateCommonConnectJobParams());
   TransportClientSocketPool* transport_pool = new TransportClientSocketPool(
       50,                                // Max sockets for pool
       1,                                 // Max sockets per group
       base::TimeDelta::FromSeconds(10),  // unused_idle_socket_timeout
-      session_deps_.socket_factory.get(), session_deps_.host_resolver.get(),
-      nullptr /* proxy_delegate */, session_deps_.cert_verifier.get(),
-      session_deps_.channel_id_service.get(),
-      session_deps_.transport_security_state.get(),
-      session_deps_.cert_transparency_verifier.get(),
-      session_deps_.ct_policy_enforcer.get(),
-      nullptr /* ssl_client_session_cache */,
-      nullptr /* ssl_client_session_cache_privacy_mode */,
-      session_deps_.ssl_config_service.get(),
-      nullptr /* socket_performance_watcher_factory */,
-      nullptr /* network_quality_estimator */, session_deps_.net_log);
+      &common_connect_job_params, session_deps_.ssl_config_service.get());
   auto mock_pool_manager = std::make_unique<MockClientSocketPoolManager>();
   mock_pool_manager->SetSocketPool(ProxyServer::Direct(),
                                    base::WrapUnique(transport_pool));
@@ -14452,7 +14412,9 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   StaticSocketDataProvider data_provider(reads, writes);
   session_deps_.socket_factory->AddSocketDataProvider(&data_provider);
 
-  const char kSocketGroup[] = "www.example.com:80";
+  const ClientSocketPool::GroupId kSocketGroup(
+      HostPortPair("www.example.com", 80), ClientSocketPool::SocketType::kHttp,
+      false /* privacy_mode */);
 
   // First round of authentication.
   auth_handler->SetGenerateExpectation(false, OK);
@@ -14462,7 +14424,7 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_TRUE(response->auth_challenge);
+  EXPECT_TRUE(response->auth_challenge.has_value());
   EXPECT_EQ(0u, transport_pool->IdleSocketCountInGroup(kSocketGroup));
   EXPECT_EQ(HttpAuthHandlerMock::State::WAIT_FOR_GENERATE_AUTH_TOKEN,
             auth_handler->state());
@@ -14487,7 +14449,7 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(0u, transport_pool->IdleSocketCountInGroup(kSocketGroup));
   EXPECT_EQ(HttpAuthHandlerMock::State::WAIT_FOR_GENERATE_AUTH_TOKEN,
             auth_handler->state());
@@ -14500,7 +14462,7 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(0u, transport_pool->IdleSocketCountInGroup(kSocketGroup));
   EXPECT_EQ(HttpAuthHandlerMock::State::WAIT_FOR_GENERATE_AUTH_TOKEN,
             auth_handler->state());
@@ -14513,7 +14475,7 @@ TEST_F(HttpNetworkTransactionTest, MultiRoundAuth) {
   EXPECT_THAT(rv, IsOk());
   response = trans.GetResponseInfo();
   ASSERT_TRUE(response);
-  EXPECT_FALSE(response->auth_challenge);
+  EXPECT_FALSE(response->auth_challenge.has_value());
   EXPECT_EQ(0u, transport_pool->IdleSocketCountInGroup(kSocketGroup));
 
   // In WAIT_FOR_CHALLENGE, although in reality the auth handler is done. A real
@@ -15045,7 +15007,8 @@ TEST_F(HttpNetworkTransactionTest, PreconnectWithExistingSpdySession) {
       spdy_util_.ConstructSpdyGet("https://www.example.org", 1, LOWEST));
   MockWrite spdy_writes[] = {CreateMockWrite(req, 0)};
 
-  spdy::SpdySerializedFrame resp(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame data(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy_reads[] = {
       CreateMockRead(resp, 1), CreateMockRead(data, 2), MockRead(ASYNC, 0, 3),
@@ -15206,7 +15169,7 @@ TEST_F(HttpNetworkTransactionTest, ClientAuthCertCache_Direct_NoFalseStart) {
   // of SSLClientCertCache, NULL is just as meaningful as a real
   // certificate, so this is the same as supply a
   // legitimate-but-unacceptable certificate.
-  rv = trans.RestartWithCertificate(NULL, NULL, callback.callback());
+  rv = trans.RestartWithCertificate(nullptr, nullptr, callback.callback());
   ASSERT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Ensure the certificate was added to the client auth cache before
@@ -15324,7 +15287,7 @@ TEST_F(HttpNetworkTransactionTest, ClientAuthCertCache_Direct_FalseStart) {
   // of SSLClientCertCache, NULL is just as meaningful as a real
   // certificate, so this is the same as supply a
   // legitimate-but-unacceptable certificate.
-  rv = trans.RestartWithCertificate(NULL, NULL, callback.callback());
+  rv = trans.RestartWithCertificate(nullptr, nullptr, callback.callback());
   ASSERT_THAT(rv, IsError(ERR_IO_PENDING));
 
   // Ensure the certificate was added to the client auth cache before
@@ -15421,7 +15384,7 @@ TEST_F(HttpNetworkTransactionTest, ClientAuthCertCache_Proxy_Fail) {
     // of SSLClientCertCache, NULL is just as meaningful as a real
     // certificate, so this is the same as supply a
     // legitimate-but-unacceptable certificate.
-    rv = trans.RestartWithCertificate(NULL, NULL, callback.callback());
+    rv = trans.RestartWithCertificate(nullptr, nullptr, callback.callback());
     ASSERT_THAT(rv, IsError(ERR_IO_PENDING));
 
     // Ensure the certificate was added to the client auth cache before
@@ -15469,11 +15432,11 @@ TEST_F(HttpNetworkTransactionTest, UseIPConnectionPooling) {
       CreateMockWrite(host1_req, 0), CreateMockWrite(host2_req, 3),
   };
   spdy::SpdySerializedFrame host1_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame host1_resp_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   spdy::SpdySerializedFrame host2_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame host2_resp_body(
       spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead spdy_reads[] = {
@@ -15552,11 +15515,11 @@ TEST_F(HttpNetworkTransactionTest, UseIPConnectionPoolingAfterResolution) {
       CreateMockWrite(host1_req, 0), CreateMockWrite(host2_req, 3),
   };
   spdy::SpdySerializedFrame host1_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame host1_resp_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   spdy::SpdySerializedFrame host2_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame host2_resp_body(
       spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead spdy_reads[] = {
@@ -15881,11 +15844,11 @@ TEST_F(HttpNetworkTransactionTest,
       CreateMockWrite(host1_req, 0), CreateMockWrite(host2_req, 3),
   };
   spdy::SpdySerializedFrame host1_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame host1_resp_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   spdy::SpdySerializedFrame host2_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame host2_resp_body(
       spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead spdy_reads[] = {
@@ -15960,7 +15923,8 @@ TEST_F(HttpNetworkTransactionTest, DoNotUseSpdySessionForHttp) {
       CreateMockWrite(req1, 0),
   };
 
-  spdy::SpdySerializedFrame resp1(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp1(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead reads1[] = {CreateMockRead(resp1, 1), CreateMockRead(body1, 2),
                        MockRead(SYNCHRONOUS, ERR_IO_PENDING, 3)};
@@ -16308,8 +16272,9 @@ TEST_F(HttpNetworkTransactionTest, DoNotUseSpdySessionForHttpOverTunnel) {
 
   // SPDY GET for HTTPS URL (through CONNECT tunnel)
   const HostPortPair host_port_pair("www.example.org", 8080);
-  spdy::SpdySerializedFrame connect(
-      spdy_util_.ConstructSpdyConnect(NULL, 0, 1, LOWEST, host_port_pair));
+  spdy::SpdySerializedFrame connect(spdy_util_.ConstructSpdyConnect(
+      nullptr, 0, 1, HttpProxyConnectJob::kH2QuicTunnelPriority,
+      host_port_pair));
   spdy::SpdySerializedFrame req1(
       spdy_util_wrapped.ConstructSpdyGet(https_url.c_str(), 1, LOWEST));
   spdy::SpdySerializedFrame wrapped_req1(
@@ -16339,7 +16304,8 @@ TEST_F(HttpNetworkTransactionTest, DoNotUseSpdySessionForHttpOverTunnel) {
       spdy_util_wrapped.ConstructWrappedSpdyFrame(resp1, 1));
   spdy::SpdySerializedFrame wrapped_body1(
       spdy_util_wrapped.ConstructWrappedSpdyFrame(body1, 1));
-  spdy::SpdySerializedFrame resp2(spdy_util_.ConstructSpdyGetReply(NULL, 0, 3));
+  spdy::SpdySerializedFrame resp2(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 3));
   spdy::SpdySerializedFrame body2(spdy_util_.ConstructSpdyDataFrame(3, true));
   MockRead reads1[] = {
       CreateMockRead(conn_resp, 1),
@@ -16444,7 +16410,8 @@ TEST_F(HttpNetworkTransactionTest, DoNotUseSpdySessionIfCertDoesNotMatch) {
       CreateMockWrite(req1, 0),
   };
 
-  spdy::SpdySerializedFrame resp1(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp1(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body1(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead reads1[] = {
       MockRead(ASYNC, ERR_IO_PENDING, 1), CreateMockRead(resp1, 2),
@@ -16467,7 +16434,7 @@ TEST_F(HttpNetworkTransactionTest, DoNotUseSpdySessionIfCertDoesNotMatch) {
   };
 
   spdy::SpdySerializedFrame resp2(
-      spdy_util_secure.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_secure.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body2(
       spdy_util_secure.ConstructSpdyDataFrame(1, true));
   MockRead reads2[] = {CreateMockRead(resp2, 1), CreateMockRead(body2, 2),
@@ -16566,7 +16533,8 @@ TEST_F(HttpNetworkTransactionTest, ErrorSocketNotConnected) {
       CreateMockWrite(req2, 0),
   };
 
-  spdy::SpdySerializedFrame resp2(spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+  spdy::SpdySerializedFrame resp2(
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame body2(spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead reads2[] = {
       CreateMockRead(resp2, 1), CreateMockRead(body2, 2),
@@ -16642,7 +16610,7 @@ TEST_F(HttpNetworkTransactionTest, CloseIdleSpdySessionToOpenNewOne) {
       CreateMockWrite(host1_req, 0),
   };
   spdy::SpdySerializedFrame host1_resp(
-      spdy_util_.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame host1_resp_body(
       spdy_util_.ConstructSpdyDataFrame(1, true));
   MockRead spdy1_reads[] = {
@@ -16662,7 +16630,7 @@ TEST_F(HttpNetworkTransactionTest, CloseIdleSpdySessionToOpenNewOne) {
       CreateMockWrite(host2_req, 0),
   };
   spdy::SpdySerializedFrame host2_resp(
-      spdy_util_2.ConstructSpdyGetReply(NULL, 0, 1));
+      spdy_util_2.ConstructSpdyGetReply(nullptr, 0, 1));
   spdy::SpdySerializedFrame host2_resp_body(
       spdy_util_2.ConstructSpdyDataFrame(1, true));
   MockRead spdy2_reads[] = {
@@ -17935,6 +17903,39 @@ TEST_F(HttpNetworkTransactionTest, ProxyHeadersNotSentOverWsTunnel) {
 
   trans.reset();
   session->CloseAllConnections();
+}
+
+// WebSockets over QUIC is not supported, including over QUIC proxies.
+TEST_F(HttpNetworkTransactionTest, WebSocketNotSentOverQuicProxy) {
+  for (bool secure : {true, false}) {
+    SCOPED_TRACE(secure);
+    session_deps_.proxy_resolution_service =
+        ProxyResolutionService::CreateFixedFromPacResult(
+            "QUIC myproxy.org:443", TRAFFIC_ANNOTATION_FOR_TESTS);
+    session_deps_.enable_quic = true;
+
+    HttpRequestInfo request;
+    request.url =
+        GURL(secure ? "ws://www.example.org/" : "wss://www.example.org/");
+    AddWebSocketHeaders(&request.extra_headers);
+    request.traffic_annotation =
+        net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+    TestWebSocketHandshakeStreamCreateHelper
+        websocket_handshake_stream_create_helper;
+
+    std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+    HttpNetworkTransaction trans(LOW, session.get());
+    trans.SetWebSocketHandshakeStreamCreateHelper(
+        &websocket_handshake_stream_create_helper);
+
+    TestCompletionCallback callback;
+    int rv = trans.Start(&request, callback.callback(), NetLogWithSource());
+    EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+    rv = callback.WaitForResult();
+    EXPECT_THAT(rv, IsError(ERR_NO_SUPPORTED_PROXIES));
+  }
 }
 
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
@@ -19563,488 +19564,396 @@ TEST_F(HttpNetworkTransactionNetworkErrorLoggingTest, ReportElapsedTime) {
 
 #endif  // BUILDFLAG(ENABLE_REPORTING)
 
-// Test the proxy and origin server each requesting both TLS client certificates
-// and HTTP auth. This is a regression test for https://crbug.com/946406.
-TEST_F(HttpNetworkTransactionTest, AuthEverything) {
-  // Note these hosts must match the CheckBasic*Auth() functions.
-  session_deps_.proxy_resolution_service = ProxyResolutionService::CreateFixed(
-      "https://myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
-
-  auto cert_request_info_proxy = base::MakeRefCounted<SSLCertRequestInfo>();
-  cert_request_info_proxy->host_and_port = HostPortPair("myproxy", 70);
-
-  std::unique_ptr<FakeClientCertIdentity> identity_proxy =
-      FakeClientCertIdentity::CreateFromCertAndKeyFiles(
-          GetTestCertsDirectory(), "client_1.pem", "client_1.pk8");
-  ASSERT_TRUE(identity_proxy);
-
-  auto cert_request_info_origin = base::MakeRefCounted<SSLCertRequestInfo>();
-  cert_request_info_origin->host_and_port =
-      HostPortPair("www.example.org", 443);
-
-  std::unique_ptr<FakeClientCertIdentity> identity_origin =
-      FakeClientCertIdentity::CreateFromCertAndKeyFiles(
-          GetTestCertsDirectory(), "client_2.pem", "client_2.pk8");
-  ASSERT_TRUE(identity_origin);
-
+TEST_F(HttpNetworkTransactionTest, AlwaysFailRequestToCache) {
   HttpRequestInfo request;
   request.method = "GET";
-  request.url = GURL("https://www.example.org/");
-  request.traffic_annotation =
-      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+  request.url = GURL("http://example.org/");
 
-  // First, the client connects to the proxy, which requests a client
-  // certificate.
-  SSLSocketDataProvider ssl_proxy1(ASYNC, ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
-  ssl_proxy1.cert_request_info = cert_request_info_proxy.get();
-  ssl_proxy1.expected_send_client_cert = false;
-  StaticSocketDataProvider data1;
-  session_deps_.socket_factory->AddSocketDataProvider(&data1);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy1);
-
-  // The client responds with a certificate on a new connection. The handshake
-  // succeeds.
-  SSLSocketDataProvider ssl_proxy2(ASYNC, OK);
-  ssl_proxy2.expected_send_client_cert = true;
-  ssl_proxy2.expected_client_cert = identity_proxy->certificate();
-  // The client attempts an HTTP CONNECT, but the proxy requests basic auth.
-  std::vector<MockWrite> mock_writes2;
-  std::vector<MockRead> mock_reads2;
-  mock_writes2.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
-  mock_reads2.emplace_back(
-      "HTTP/1.1 407 Proxy Authentication Required\r\n"
-      "Content-Length: 0\r\n"
-      "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n\r\n");
-  // The client retries with credentials.
-  mock_writes2.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads2.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  // The origin requests client certificates.
-  SSLSocketDataProvider ssl_origin2(ASYNC, ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
-  ssl_origin2.cert_request_info = cert_request_info_origin.get();
-  StaticSocketDataProvider data2(mock_reads2, mock_writes2);
-  session_deps_.socket_factory->AddSocketDataProvider(&data2);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy2);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin2);
-
-  // The client responds to the origin client certificate request on a new
-  // connection.
-  SSLSocketDataProvider ssl_proxy3(ASYNC, OK);
-  ssl_proxy3.expected_send_client_cert = true;
-  ssl_proxy3.expected_client_cert = identity_proxy->certificate();
-  std::vector<MockWrite> mock_writes3;
-  std::vector<MockRead> mock_reads3;
-  mock_writes3.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads3.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  SSLSocketDataProvider ssl_origin3(ASYNC, OK);
-  ssl_origin3.expected_send_client_cert = true;
-  ssl_origin3.expected_client_cert = identity_origin->certificate();
-  // The client sends the origin HTTP request, which results in another HTTP
-  // auth request.
-  mock_writes3.emplace_back(
-      "GET / HTTP/1.1\r\n"
-      "Host: www.example.org\r\n"
-      "Connection: keep-alive\r\n\r\n");
-  mock_reads3.emplace_back(
-      "HTTP/1.1 401 Unauthorized\r\n"
-      "WWW-Authenticate: Basic realm=\"MyRealm1\"\r\n"
-      "Content-Length: 0\r\n\r\n");
-  // The client retries with credentials, and the request finally succeeds.
-  mock_writes3.emplace_back(
-      "GET / HTTP/1.1\r\n"
-      "Host: www.example.org\r\n"
-      "Connection: keep-alive\r\n"
-      // Authenticate as user:pass.
-      "Authorization: Basic dXNlcjpwYXNz\r\n\r\n");
-  mock_reads3.emplace_back(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Length: 0\r\n\r\n");
-  StaticSocketDataProvider data3(mock_reads3, mock_writes3);
-  session_deps_.socket_factory->AddSocketDataProvider(&data3);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy3);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin3);
+  request.load_flags = LOAD_ONLY_FROM_CACHE;
 
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+  HttpNetworkTransaction trans(DEFAULT_PRIORITY, session.get());
+  TestCompletionCallback callback1;
+  int rv = trans.Start(&request, callback1.callback(), NetLogWithSource());
 
-  // Start the request.
-  TestCompletionCallback callback;
-  auto trans =
-      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
-  int rv = callback.GetResult(
-      trans->Start(&request, callback.callback(), NetLogWithSource()));
-
-  // Handle the proxy client certificate challenge.
-  ASSERT_THAT(rv, IsError(ERR_SSL_CLIENT_AUTH_CERT_NEEDED));
-  SSLCertRequestInfo* cert_request_info =
-      trans->GetResponseInfo()->cert_request_info.get();
-  ASSERT_TRUE(cert_request_info);
-  EXPECT_TRUE(cert_request_info->is_proxy);
-  EXPECT_EQ(cert_request_info->host_and_port,
-            cert_request_info_proxy->host_and_port);
-  rv = callback.GetResult(trans->RestartWithCertificate(
-      identity_proxy->certificate(), identity_proxy->ssl_private_key(),
-      callback.callback()));
-
-  // Handle the proxy HTTP auth challenge.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(407, trans->GetResponseInfo()->headers->response_code());
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(
-      trans->GetResponseInfo()->auth_challenge.get()));
-  rv = callback.GetResult(trans->RestartWithAuth(
-      AuthCredentials(ASCIIToUTF16("proxyuser"), ASCIIToUTF16("proxypass")),
-      callback.callback()));
-
-  // Handle the origin client certificate challenge.
-  ASSERT_THAT(rv, IsError(ERR_SSL_CLIENT_AUTH_CERT_NEEDED));
-  cert_request_info = trans->GetResponseInfo()->cert_request_info.get();
-  ASSERT_TRUE(cert_request_info);
-  EXPECT_FALSE(cert_request_info->is_proxy);
-  EXPECT_EQ(cert_request_info->host_and_port,
-            cert_request_info_origin->host_and_port);
-  rv = callback.GetResult(trans->RestartWithCertificate(
-      identity_origin->certificate(), identity_origin->ssl_private_key(),
-      callback.callback()));
-
-  // Handle the origin HTTP auth challenge.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(401, trans->GetResponseInfo()->headers->response_code());
-  EXPECT_TRUE(CheckBasicSecureServerAuth(
-      trans->GetResponseInfo()->auth_challenge.get()));
-  rv = callback.GetResult(trans->RestartWithAuth(
-      AuthCredentials(ASCIIToUTF16("user"), ASCIIToUTF16("pass")),
-      callback.callback()));
-
-  // The request completes.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(200, trans->GetResponseInfo()->headers->response_code());
+  EXPECT_THAT(rv, IsError(ERR_CACHE_MISS));
 }
 
-// Test the proxy and origin server each requesting both TLS client certificates
-// and HTTP auth and each HTTP auth closing the connection. This is a regression
-// test for https://crbug.com/946406.
-TEST_F(HttpNetworkTransactionTest, AuthEverythingWithConnectClose) {
-  // Note these hosts must match the CheckBasic*Auth() functions.
-  session_deps_.proxy_resolution_service = ProxyResolutionService::CreateFixed(
-      "https://myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
-
-  auto cert_request_info_proxy = base::MakeRefCounted<SSLCertRequestInfo>();
-  cert_request_info_proxy->host_and_port = HostPortPair("myproxy", 70);
-
-  std::unique_ptr<FakeClientCertIdentity> identity_proxy =
-      FakeClientCertIdentity::CreateFromCertAndKeyFiles(
-          GetTestCertsDirectory(), "client_1.pem", "client_1.pk8");
-  ASSERT_TRUE(identity_proxy);
-
-  auto cert_request_info_origin = base::MakeRefCounted<SSLCertRequestInfo>();
-  cert_request_info_origin->host_and_port =
-      HostPortPair("www.example.org", 443);
-
-  std::unique_ptr<FakeClientCertIdentity> identity_origin =
-      FakeClientCertIdentity::CreateFromCertAndKeyFiles(
-          GetTestCertsDirectory(), "client_2.pem", "client_2.pk8");
-  ASSERT_TRUE(identity_origin);
-
+TEST_F(HttpNetworkTransactionTest, ZeroRTTDoesntConfirm) {
   HttpRequestInfo request;
   request.method = "GET";
   request.url = GURL("https://www.example.org/");
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
-  // First, the client connects to the proxy, which requests a client
-  // certificate.
-  SSLSocketDataProvider ssl_proxy1(ASYNC, ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
-  ssl_proxy1.cert_request_info = cert_request_info_proxy.get();
-  ssl_proxy1.expected_send_client_cert = false;
-  StaticSocketDataProvider data1;
-  session_deps_.socket_factory->AddSocketDataProvider(&data1);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy1);
+  MockWrite data_writes[] = {
+      MockWrite("GET / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n\r\n"),
+  };
 
-  // The client responds with a certificate on a new connection. The handshake
-  // succeeds.
-  SSLSocketDataProvider ssl_proxy2(ASYNC, OK);
-  ssl_proxy2.expected_send_client_cert = true;
-  ssl_proxy2.expected_client_cert = identity_proxy->certificate();
-  // The client attempts an HTTP CONNECT, but the proxy requests basic auth.
-  std::vector<MockWrite> mock_writes2;
-  std::vector<MockRead> mock_reads2;
-  mock_writes2.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
-  mock_reads2.emplace_back(
-      "HTTP/1.1 407 Proxy Authentication Required\r\n"
-      "Content-Length: 0\r\n"
-      "Proxy-Connection: close\r\n"
-      "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n\r\n");
-  StaticSocketDataProvider data2(mock_reads2, mock_writes2);
-  session_deps_.socket_factory->AddSocketDataProvider(&data2);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy2);
-
-  // The client retries with credentials on a new connection.
-  SSLSocketDataProvider ssl_proxy3(ASYNC, OK);
-  ssl_proxy3.expected_send_client_cert = true;
-  ssl_proxy3.expected_client_cert = identity_proxy->certificate();
-  std::vector<MockWrite> mock_writes3;
-  std::vector<MockRead> mock_reads3;
-  mock_writes3.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads3.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  // The origin requests client certificates.
-  SSLSocketDataProvider ssl_origin3(ASYNC, ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
-  ssl_origin3.cert_request_info = cert_request_info_origin.get();
-  StaticSocketDataProvider data3(mock_reads3, mock_writes3);
-  session_deps_.socket_factory->AddSocketDataProvider(&data3);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy3);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin3);
-
-  // The client responds to the origin client certificate request on a new
+  // The proxy responds to the connect with a 407, using a persistent
   // connection.
-  SSLSocketDataProvider ssl_proxy4(ASYNC, OK);
-  ssl_proxy4.expected_send_client_cert = true;
-  ssl_proxy4.expected_client_cert = identity_proxy->certificate();
-  std::vector<MockWrite> mock_writes4;
-  std::vector<MockRead> mock_reads4;
-  mock_writes4.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads4.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  SSLSocketDataProvider ssl_origin4(ASYNC, OK);
-  ssl_origin4.expected_send_client_cert = true;
-  ssl_origin4.expected_client_cert = identity_origin->certificate();
-  // The client sends the origin HTTP request, which results in another HTTP
-  // auth request and closed connection.
-  mock_writes4.emplace_back(
-      "GET / HTTP/1.1\r\n"
-      "Host: www.example.org\r\n"
-      "Connection: keep-alive\r\n\r\n");
-  mock_reads4.emplace_back(
-      "HTTP/1.1 401 Unauthorized\r\n"
-      "WWW-Authenticate: Basic realm=\"MyRealm1\"\r\n"
-      "Connection: close\r\n"
-      "Content-Length: 0\r\n\r\n");
-  StaticSocketDataProvider data4(mock_reads4, mock_writes4);
-  session_deps_.socket_factory->AddSocketDataProvider(&data4);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy4);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin4);
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
 
-  // The client retries with credentials on a new connection, and the request
-  // finally succeeds.
-  SSLSocketDataProvider ssl_proxy5(ASYNC, OK);
-  ssl_proxy5.expected_send_client_cert = true;
-  ssl_proxy5.expected_client_cert = identity_proxy->certificate();
-  std::vector<MockWrite> mock_writes5;
-  std::vector<MockRead> mock_reads5;
-  mock_writes5.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads5.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  SSLSocketDataProvider ssl_origin5(ASYNC, OK);
-  ssl_origin5.expected_send_client_cert = true;
-  ssl_origin5.expected_client_cert = identity_origin->certificate();
-  mock_writes5.emplace_back(
-      "GET / HTTP/1.1\r\n"
-      "Host: www.example.org\r\n"
-      "Connection: keep-alive\r\n"
-      // Authenticate as user:pass.
-      "Authorization: Basic dXNlcjpwYXNz\r\n\r\n");
-  mock_reads5.emplace_back(
-      "HTTP/1.1 200 OK\r\n"
-      "Connection: close\r\n"
-      "Content-Length: 0\r\n\r\n");
-  StaticSocketDataProvider data5(mock_reads5, mock_writes5);
-  session_deps_.socket_factory->AddSocketDataProvider(&data5);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy5);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin5);
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(SYNCHRONOUS, OK);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
 
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
-  // Start the request.
   TestCompletionCallback callback;
   auto trans =
       std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
-  int rv = callback.GetResult(
-      trans->Start(&request, callback.callback(), NetLogWithSource()));
 
-  // Handle the proxy client certificate challenge.
-  ASSERT_THAT(rv, IsError(ERR_SSL_CLIENT_AUTH_CERT_NEEDED));
-  SSLCertRequestInfo* cert_request_info =
-      trans->GetResponseInfo()->cert_request_info.get();
-  ASSERT_TRUE(cert_request_info);
-  EXPECT_TRUE(cert_request_info->is_proxy);
-  EXPECT_EQ(cert_request_info->host_and_port,
-            cert_request_info_proxy->host_and_port);
-  rv = callback.GetResult(trans->RestartWithCertificate(
-      identity_proxy->certificate(), identity_proxy->ssl_private_key(),
-      callback.callback()));
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
-  // Handle the proxy HTTP auth challenge.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(407, trans->GetResponseInfo()->headers->response_code());
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(
-      trans->GetResponseInfo()->auth_challenge.get()));
-  rv = callback.GetResult(trans->RestartWithAuth(
-      AuthCredentials(ASCIIToUTF16("proxyuser"), ASCIIToUTF16("proxypass")),
-      callback.callback()));
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
 
-  // Handle the origin client certificate challenge.
-  ASSERT_THAT(rv, IsError(ERR_SSL_CLIENT_AUTH_CERT_NEEDED));
-  cert_request_info = trans->GetResponseInfo()->cert_request_info.get();
-  ASSERT_TRUE(cert_request_info);
-  EXPECT_FALSE(cert_request_info->is_proxy);
-  EXPECT_EQ(cert_request_info->host_and_port,
-            cert_request_info_origin->host_and_port);
-  rv = callback.GetResult(trans->RestartWithCertificate(
-      identity_origin->certificate(), identity_origin->ssl_private_key(),
-      callback.callback()));
+  const HttpResponseInfo* response = trans->GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ(200, response->headers->response_code());
+  EXPECT_EQ(1, response->headers->GetContentLength());
 
-  // Handle the origin HTTP auth challenge.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(401, trans->GetResponseInfo()->headers->response_code());
-  EXPECT_TRUE(CheckBasicSecureServerAuth(
-      trans->GetResponseInfo()->auth_challenge.get()));
-  rv = callback.GetResult(trans->RestartWithAuth(
-      AuthCredentials(ASCIIToUTF16("user"), ASCIIToUTF16("pass")),
-      callback.callback()));
+  // Check that ConfirmHandshake wasn't called.
+  ASSERT_FALSE(ssl.ConfirmDataConsumed());
+  ASSERT_TRUE(ssl.WriteBeforeConfirm());
 
-  // The request completes.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(200, trans->GetResponseInfo()->headers->response_code());
+  trans.reset();
+
+  session->CloseAllConnections();
 }
 
-// Test the proxy requesting HTTP auth and the server requesting TLS client
-// certificates. This is a regression test for https://crbug.com/946406.
-TEST_F(HttpNetworkTransactionTest, ProxyHTTPAndServerTLSAuth) {
-  // Note these hosts must match the CheckBasic*Auth() functions.
-  session_deps_.proxy_resolution_service = ProxyResolutionService::CreateFixed(
-      "https://myproxy:70", TRAFFIC_ANNOTATION_FOR_TESTS);
-
-  auto cert_request_info_origin = base::MakeRefCounted<SSLCertRequestInfo>();
-  cert_request_info_origin->host_and_port =
-      HostPortPair("www.example.org", 443);
-
-  std::unique_ptr<FakeClientCertIdentity> identity_origin =
-      FakeClientCertIdentity::CreateFromCertAndKeyFiles(
-          GetTestCertsDirectory(), "client_2.pem", "client_2.pk8");
-  ASSERT_TRUE(identity_origin);
-
+TEST_F(HttpNetworkTransactionTest, ZeroRTTSyncConfirmSyncWrite) {
   HttpRequestInfo request;
-  request.method = "GET";
+  request.method = "POST";
   request.url = GURL("https://www.example.org/");
   request.traffic_annotation =
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
 
-  // The client connects to the proxy. The handshake succeeds.
-  SSLSocketDataProvider ssl_proxy1(ASYNC, OK);
-  // The client attempts an HTTP CONNECT, but the proxy requests basic auth.
-  std::vector<MockWrite> mock_writes1;
-  std::vector<MockRead> mock_reads1;
-  mock_writes1.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n\r\n");
-  mock_reads1.emplace_back(
-      "HTTP/1.1 407 Proxy Authentication Required\r\n"
-      "Content-Length: 0\r\n"
-      "Proxy-Authenticate: Basic realm=\"MyRealm1\"\r\n\r\n");
-  // The client retries with credentials, and the request finally succeeds.
-  mock_writes1.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads1.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  // The origin requests client certificates.
-  SSLSocketDataProvider ssl_origin1(ASYNC, ERR_SSL_CLIENT_AUTH_CERT_NEEDED);
-  ssl_origin1.cert_request_info = cert_request_info_origin.get();
-  StaticSocketDataProvider data1(mock_reads1, mock_writes1);
-  session_deps_.socket_factory->AddSocketDataProvider(&data1);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy1);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin1);
+  MockWrite data_writes[] = {
+      MockWrite(SYNCHRONOUS,
+                "POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
 
-  // The client responds to the origin client certificate request on a new
+  // The proxy responds to the connect with a 407, using a persistent
   // connection.
-  SSLSocketDataProvider ssl_proxy2(ASYNC, OK);
-  std::vector<MockWrite> mock_writes2;
-  std::vector<MockRead> mock_reads2;
-  mock_writes2.emplace_back(
-      "CONNECT www.example.org:443 HTTP/1.1\r\n"
-      "Host: www.example.org:443\r\n"
-      "Proxy-Connection: keep-alive\r\n"
-      // Authenticate as proxyuser:proxypass.
-      "Proxy-Authorization: Basic cHJveHl1c2VyOnByb3h5cGFzcw==\r\n\r\n");
-  mock_reads2.emplace_back("HTTP/1.1 200 Connection Established\r\n\r\n");
-  SSLSocketDataProvider ssl_origin2(ASYNC, OK);
-  ssl_origin2.expected_send_client_cert = true;
-  ssl_origin2.expected_client_cert = identity_origin->certificate();
-  // The client sends the origin HTTP request, which succeeds.
-  mock_writes2.emplace_back(
-      "GET / HTTP/1.1\r\n"
-      "Host: www.example.org\r\n"
-      "Connection: keep-alive\r\n\r\n");
-  mock_reads2.emplace_back(
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Length: 0\r\n\r\n");
-  StaticSocketDataProvider data2(mock_reads2, mock_writes2);
-  session_deps_.socket_factory->AddSocketDataProvider(&data2);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_proxy2);
-  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl_origin2);
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(SYNCHRONOUS, OK);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
 
   std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
 
-  // Start the request.
   TestCompletionCallback callback;
   auto trans =
       std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
-  int rv = callback.GetResult(
-      trans->Start(&request, callback.callback(), NetLogWithSource()));
 
-  // Handle the proxy HTTP auth challenge.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(407, trans->GetResponseInfo()->headers->response_code());
-  EXPECT_TRUE(CheckBasicSecureProxyAuth(
-      trans->GetResponseInfo()->auth_challenge.get()));
-  rv = callback.GetResult(trans->RestartWithAuth(
-      AuthCredentials(ASCIIToUTF16("proxyuser"), ASCIIToUTF16("proxypass")),
-      callback.callback()));
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
 
-  // Handle the origin client certificate challenge.
-  ASSERT_THAT(rv, IsError(ERR_SSL_CLIENT_AUTH_CERT_NEEDED));
-  SSLCertRequestInfo* cert_request_info =
-      trans->GetResponseInfo()->cert_request_info.get();
-  ASSERT_TRUE(cert_request_info);
-  EXPECT_FALSE(cert_request_info->is_proxy);
-  EXPECT_EQ(cert_request_info->host_and_port,
-            cert_request_info_origin->host_and_port);
-  rv = callback.GetResult(trans->RestartWithCertificate(
-      identity_origin->certificate(), identity_origin->ssl_private_key(),
-      callback.callback()));
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
 
-  // The request completes.
-  ASSERT_THAT(rv, IsOk());
-  EXPECT_EQ(200, trans->GetResponseInfo()->headers->response_code());
+  const HttpResponseInfo* response = trans->GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ(200, response->headers->response_code());
+  EXPECT_EQ(1, response->headers->GetContentLength());
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
+}
+
+TEST_F(HttpNetworkTransactionTest, ZeroRTTSyncConfirmAsyncWrite) {
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  MockWrite data_writes[] = {
+      MockWrite(ASYNC,
+                "POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
+
+  // The proxy responds to the connect with a 407, using a persistent
+  // connection.
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(SYNCHRONOUS, OK);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  TestCompletionCallback callback;
+  auto trans =
+      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans->GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ(200, response->headers->response_code());
+  EXPECT_EQ(1, response->headers->GetContentLength());
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
+}
+
+TEST_F(HttpNetworkTransactionTest, ZeroRTTAsyncConfirmSyncWrite) {
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  MockWrite data_writes[] = {
+      MockWrite(SYNCHRONOUS,
+                "POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
+
+  // The proxy responds to the connect with a 407, using a persistent
+  // connection.
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(ASYNC, OK);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  TestCompletionCallback callback;
+  auto trans =
+      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans->GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ(200, response->headers->response_code());
+  EXPECT_EQ(1, response->headers->GetContentLength());
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
+}
+
+TEST_F(HttpNetworkTransactionTest, ZeroRTTAsyncConfirmAsyncWrite) {
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  MockWrite data_writes[] = {
+      MockWrite(ASYNC,
+                "POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
+
+  // The proxy responds to the connect with a 407, using a persistent
+  // connection.
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(ASYNC, OK);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  TestCompletionCallback callback;
+  auto trans =
+      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsOk());
+
+  const HttpResponseInfo* response = trans->GetResponseInfo();
+  ASSERT_TRUE(response);
+  ASSERT_TRUE(response->headers);
+  EXPECT_EQ(200, response->headers->response_code());
+  EXPECT_EQ(1, response->headers->GetContentLength());
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
+}
+
+TEST_F(HttpNetworkTransactionTest, ZeroRTTConfirmErrorSync) {
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  MockWrite data_writes[] = {
+      MockWrite("POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
+
+  // The proxy responds to the connect with a 407, using a persistent
+  // connection.
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(SYNCHRONOUS, ERR_SSL_PROTOCOL_ERROR);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  TestCompletionCallback callback;
+  auto trans =
+      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsError(ERR_SSL_PROTOCOL_ERROR));
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
+}
+
+TEST_F(HttpNetworkTransactionTest, ZeroRTTConfirmErrorAsync) {
+  HttpRequestInfo request;
+  request.method = "POST";
+  request.url = GURL("https://www.example.org/");
+  request.traffic_annotation =
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  MockWrite data_writes[] = {
+      MockWrite("POST / HTTP/1.1\r\n"
+                "Host: www.example.org\r\n"
+                "Connection: keep-alive\r\n"
+                "Content-Length: 0\r\n\r\n"),
+  };
+
+  // The proxy responds to the connect with a 407, using a persistent
+  // connection.
+  MockRead data_reads[] = {
+      MockRead("HTTP/1.1 200 OK\r\n"),
+      MockRead("Content-Length: 1\r\n\r\n"),
+      MockRead(SYNCHRONOUS, "1"),
+  };
+
+  StaticSocketDataProvider data(data_reads, data_writes);
+  session_deps_.socket_factory->AddSocketDataProvider(&data);
+  SSLSocketDataProvider ssl(SYNCHRONOUS, OK);
+  ssl.confirm = MockConfirm(ASYNC, ERR_SSL_PROTOCOL_ERROR);
+  session_deps_.enable_early_data = true;
+  session_deps_.socket_factory->AddSSLSocketDataProvider(&ssl);
+
+  std::unique_ptr<HttpNetworkSession> session(CreateSession(&session_deps_));
+
+  TestCompletionCallback callback;
+  auto trans =
+      std::make_unique<HttpNetworkTransaction>(DEFAULT_PRIORITY, session.get());
+
+  int rv = trans->Start(&request, callback.callback(), NetLogWithSource());
+  EXPECT_THAT(rv, IsError(ERR_IO_PENDING));
+
+  rv = callback.WaitForResult();
+  EXPECT_THAT(rv, IsError(ERR_SSL_PROTOCOL_ERROR));
+
+  // Check that the Write didn't get called before ConfirmHandshake completed.
+  ASSERT_FALSE(ssl.WriteBeforeConfirm());
+
+  trans.reset();
+
+  session->CloseAllConnections();
 }
 
 }  // namespace net

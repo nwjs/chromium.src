@@ -27,9 +27,6 @@ class SharedURLLoaderFactory;
 
 struct OneGoogleBarData;
 
-// TODO(treib): This class uses cookies for authentication. After "Dice" account
-// consistency launches, we should switch to using OAuth2 instead.
-// See https://crbug.com/751534.
 class OneGoogleBarLoaderImpl : public OneGoogleBarLoader {
  public:
   OneGoogleBarLoaderImpl(
@@ -59,7 +56,7 @@ class OneGoogleBarLoaderImpl : public OneGoogleBarLoader {
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   GoogleURLTracker* google_url_tracker_;
   const std::string application_locale_;
-  //const bool account_consistency_mirror_required_;
+  const bool account_consistency_mirror_required_;
 
   std::vector<OneGoogleCallback> callbacks_;
   std::unique_ptr<AuthenticatedURLLoader> pending_request_;

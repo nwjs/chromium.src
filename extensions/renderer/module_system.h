@@ -150,7 +150,7 @@ class ModuleSystem : public ObjectBackedNativeHandler {
   // code to set up various hooks.
   // TODO(devlin): We can get rid of this once we convert all our custom
   // bindings.
-  void OnNativeBindingCreated(const std::string& api_name,
+  v8::Local<v8::Value> OnNativeBindingCreated(const std::string& api_name,
                               v8::Local<v8::Value> api_bridge_value);
 
   void SetGetInternalAPIHook(v8::Local<v8::FunctionTemplate> get_internal_api);
@@ -267,10 +267,6 @@ class ModuleSystem : public ObjectBackedNativeHandler {
 
   // The set of modules that we've attempted to load.
   std::set<std::string> loaded_modules_;
-
-  // Whether to lazily initialize native handlers on first access. We do this
-  // when native bindings are enabled.
-  bool lazily_initialize_handlers_;
 
   DISALLOW_COPY_AND_ASSIGN(ModuleSystem);
 };

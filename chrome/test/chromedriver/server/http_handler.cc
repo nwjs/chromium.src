@@ -704,11 +704,10 @@ HttpHandler::HttpHandler(
                                                        kSessionStorage),
                                    false /*w3c_standard_command*/)),
 
-      // No W3C equivalent.
+      // Non-standard command but supported in the foreseeable future.
       CommandMapping(
           kPost, "session/:sessionId/log",
-          WrapToCommand("GetLog", base::BindRepeating(&ExecuteGetLog),
-                        false /*w3c_standard_command*/)),
+          WrapToCommand("GetLog", base::BindRepeating(&ExecuteGetLog))),
 
       // No W3C equivalent.
       CommandMapping(
@@ -1060,6 +1059,9 @@ HttpHandler::PrepareStandardResponse(
     case kInvalidSelector:
       response.reset(new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
       break;
+    case kInvalidSessionId:
+      response.reset(new net::HttpServerResponseInfo(net::HTTP_NOT_FOUND));
+      break;
     case kJavaScriptError:
       response.reset(
           new net::HttpServerResponseInfo(net::HTTP_INTERNAL_SERVER_ERROR));
@@ -1127,7 +1129,6 @@ HttpHandler::PrepareStandardResponse(
     case kNoSuchExecutionContext:
       response.reset(new net::HttpServerResponseInfo(net::HTTP_BAD_REQUEST));
       break;
-    case kInvalidSessionId:
     case kChromeNotReachable:
     case kDisconnected:
     case kForbidden:
@@ -1142,24 +1143,10 @@ HttpHandler::PrepareStandardResponse(
 
   base::DictionaryValue body_params;
   if (status.IsError()){
-    // Separates status default message from additional details.
-    std::string error;
-    std::string message(status.message());
-    std::string::size_type separator = message.find_first_of(":\n");
-    if (separator == std::string::npos) {
-      error = message;
-      message.clear();
-    } else {
-      error = message.substr(0, separator);
-      separator++;
-      while (separator < message.length() && message[separator] == ' ')
-        separator++;
-      message = message.substr(separator);
-    }
     std::unique_ptr<base::DictionaryValue> inner_params(
         new base::DictionaryValue());
-    inner_params->SetString("error", error);
-    inner_params->SetString("message", message);
+    inner_params->SetString("error", StatusCodeToString(status.code()));
+    inner_params->SetString("message", status.message());
     inner_params->SetString("stacktrace", status.stack_trace());
     body_params.SetDictionary("value", std::move(inner_params));
   } else {

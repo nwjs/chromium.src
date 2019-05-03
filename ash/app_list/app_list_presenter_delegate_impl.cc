@@ -85,9 +85,8 @@ void AppListPresenterDelegateImpl::Init(app_list::AppListView* view,
   const bool is_tablet_mode = IsTabletMode();
   aura::Window* parent_window =
       RootWindowController::ForWindow(root_window)
-          ->GetContainer(is_tablet_mode
-                             ? kShellWindowId_AppListTabletModeContainer
-                             : kShellWindowId_AppListContainer);
+          ->GetContainer(is_tablet_mode ? kShellWindowId_HomeScreenContainer
+                                        : kShellWindowId_AppListContainer);
   params.parent = parent_window;
   params.initial_apps_page = current_apps_page;
   params.is_tablet_mode = is_tablet_mode;
@@ -113,6 +112,7 @@ void AppListPresenterDelegateImpl::OnClosing() {
   DCHECK(is_visible_);
   DCHECK(view_);
   is_visible_ = false;
+  Shell::Get()->RemovePreTargetHandler(this);
   controller_->ViewClosing();
 }
 
@@ -231,7 +231,7 @@ void AppListPresenterDelegateImpl::ProcessLocatedEvent(
   }
 
   aura::Window* window = view_->GetWidget()->GetNativeView()->parent();
-  if (!window->Contains(target) && !presenter_->CloseOpenedPage() &&
+  if (!window->Contains(target) && !presenter_->HandleCloseOpenFolder() &&
       !app_list::switches::ShouldNotDismissOnBlur() && !IsTabletMode()) {
     const aura::Window* status_window =
         shelf->shelf_widget()->status_area_widget()->GetNativeWindow();

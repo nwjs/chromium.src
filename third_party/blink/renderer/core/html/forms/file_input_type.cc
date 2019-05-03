@@ -70,7 +70,7 @@ Vector<String> CollectAcceptTypes(const HTMLInputElement& input) {
 inline FileInputType::FileInputType(HTMLInputElement& element)
     : InputType(element),
       KeyboardClickableInputTypeView(element),
-      file_list_(FileList::Create()) {}
+      file_list_(MakeGarbageCollected<FileList>()) {}
 
 InputType* FileInputType::Create(HTMLInputElement& element) {
   return MakeGarbageCollected<FileInputType>(element);
@@ -124,7 +124,7 @@ void FileInputType::RestoreFormControlState(const FormControlState& state) {
   HeapVector<Member<File>> file_vector =
       CreateFilesFrom<File*, HeapVector<Member<File>>>(
           state, &File::CreateFromControlState);
-  FileList* file_list = FileList::Create();
+  auto* file_list = MakeGarbageCollected<FileList>();
   for (const auto& file : file_vector)
     file_list->Append(file);
   SetFilesAndDispatchEvents(file_list);
@@ -164,8 +164,9 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
   if (!LocalFrame::HasTransientUserActivation(document.GetFrame()) && !document.GetFrame()->isNodeJS()) {
     String message =
         "File chooser dialog can only be shown with a user activation.";
-    document.AddConsoleMessage(ConsoleMessage::Create(
-        kJSMessageSource, mojom::ConsoleMessageLevel::kWarning, message));
+    document.AddConsoleMessage(
+        ConsoleMessage::Create(mojom::ConsoleMessageSource::kJavaScript,
+                               mojom::ConsoleMessageLevel::kWarning, message));
     return;
   }
 
@@ -188,10 +189,10 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
     params.initial_path = base::FilePath::FromUTF8Unsafe(input.nwworkingdir().GetString().Utf8().data());
     if (input.FastHasAttribute(kNwsaveasAttr))
       params.mode = FileChooserParams::Mode::kSave;
-    params.default_file_name = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
+    params.initial_value = base::FilePath::FromUTF8Unsafe(input.nwsaveas().Utf8().data());
     params.extract_directory = input.FastHasAttribute(kWebkitdirectoryAttr);
     if (params.selected_files.size() > 0)
-      params.default_file_name = params.selected_files[0];
+      params.initial_value = params.selected_files[0];
     if (input.FastHasAttribute(kNwdirectorydescAttr))
       params.title = input.FastGetAttribute(kNwdirectorydescAttr);
 
@@ -205,7 +206,8 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
   event.SetDefaultHandled();
 }
 
-LayoutObject* FileInputType::CreateLayoutObject(const ComputedStyle&) const {
+LayoutObject* FileInputType::CreateLayoutObject(const ComputedStyle&,
+                                                LegacyLayout) const {
   return new LayoutFileUploadControl(&GetElement());
 }
 
@@ -267,7 +269,7 @@ void FileInputType::SetValue(const String&,
 
 FileList* FileInputType::CreateFileList(const FileChooserFileInfoList& files,
                                         const base::FilePath& base_dir) {
-  FileList* file_list(FileList::Create());
+  auto* file_list(MakeGarbageCollected<FileList>());
   wtf_size_t size = files.size();
 
   // If a directory is being selected, the UI allows a directory to be chosen

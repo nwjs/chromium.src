@@ -96,8 +96,6 @@ class CONTENT_EXPORT WebContentsDelegate {
  public:
   WebContentsDelegate();
 
-  void set_tmp_manifest(const std::string& manifest) {manifest_ = manifest; }
-  const std::string& tmp_manifest() { return manifest_; }
   // Opens a new URL inside the passed in WebContents (if source is 0 open
   // in the current front-most tab), unless |disposition| indicates the url
   // should be opened in a new tab or window.
@@ -245,7 +243,7 @@ class CONTENT_EXPORT WebContentsDelegate {
   // Invoking the |callback| synchronously is OK.
   virtual void CanDownload(const GURL& url,
                            const std::string& request_method,
-                           const base::Callback<void(bool)>& callback);
+                           base::OnceCallback<void(bool)> callback);
 
   // Returns true if the context menu operation was handled by the delegate.
   virtual bool HandleContextMenu(RenderFrameHost* render_frame_host,
@@ -523,14 +521,14 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual void SetOverlayMode(bool use_overlay_mode) {}
 #endif
 
-  // Requests permission to access the PPAPI broker. The delegate should return
-  // true and call the passed in |callback| with the result, or return false
+  // Requests permission to access the PPAPI broker. The delegate must either
+  // call the passed in |callback| with the result, or call it with false
   // to indicate that it does not support asking for permission.
-  virtual bool RequestPpapiBrokerPermission(
+  virtual void RequestPpapiBrokerPermission(
       WebContents* web_contents,
       const GURL& url,
       const base::FilePath& plugin_path,
-      const base::Callback<void(bool)>& callback);
+      base::OnceCallback<void(bool)> callback);
 
   // Returns the size for the new render view created for the pending entry in
   // |web_contents|; if there's no size, returns an empty size.
@@ -651,8 +649,6 @@ class CONTENT_EXPORT WebContentsDelegate {
 
  protected:
   virtual ~WebContentsDelegate();
-
-  std::string manifest_;
 
  private:
   friend class WebContentsImpl;

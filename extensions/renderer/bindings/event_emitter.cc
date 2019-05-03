@@ -46,6 +46,7 @@ gin::ObjectTemplateBuilder EventEmitter::GetObjectTemplateBuilder(
       // by our custom bindings and exposed on the public event object. :(
       // TODO(devlin): Once we convert all custom bindings that use these,
       // they can be removed.
+      .SetMethod("dispatchNW", &EventEmitter::DispatchNW)
       .SetMethod("dispatch", &EventEmitter::Dispatch);
 }
 
@@ -133,6 +134,30 @@ bool EventEmitter::HasListener(v8::Local<v8::Function> listener) {
 
 bool EventEmitter::HasListeners() {
   return listeners_->GetNumListeners() != 0;
+}
+
+void EventEmitter::DispatchNW(gin::Arguments* arguments) {
+  if (!valid_)
+    return;
+
+  if (listeners_->GetNumListeners() == 0)
+    return;
+
+  v8::Isolate* isolate = arguments->isolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  std::vector<v8::Local<v8::Value>> v8_args;
+  v8::Local<v8::Object> filter;
+  if (!arguments->PeekNext().IsEmpty() && !arguments->GetNext(&filter)) {
+    arguments->ThrowTypeError("Invalid invocation");
+    return;
+  }
+  arguments->GetRemaining(&v8_args);
+  EventFilteringInfo event_filtering_info;
+  event_filtering_info.instance_id = filter->Get(context, gin::StringToSymbol(isolate, "instanceId")).ToLocalChecked().As<v8::Int32>()->Value();
+  // Since this is directly from JS, we know it should be safe to call
+  // synchronously and use the return result, so we don't use Fire().
+  arguments->Return(DispatchSync(context, &v8_args, &event_filtering_info));
 }
 
 void EventEmitter::Dispatch(gin::Arguments* arguments) {

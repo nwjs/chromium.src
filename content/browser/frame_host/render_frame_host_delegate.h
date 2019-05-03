@@ -372,7 +372,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
                                  int main_frame_widget_route_id,
                                  WindowOpenDisposition disposition,
                                  const gfx::Rect& initial_rect,
-                                 bool user_gesture, std::string manifest) {}
+                                 bool user_gesture) {}
 
   // Notifies that mixed content was displayed or ran.
   virtual void DidDisplayInsecureContent() {}

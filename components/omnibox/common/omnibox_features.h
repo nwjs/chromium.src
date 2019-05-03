@@ -15,6 +15,7 @@ extern const base::Feature kHideSteadyStateUrlTrivialSubdomains;
 extern const base::Feature kHideSteadyStateUrlPathQueryAndRef;
 extern const base::Feature kOneClickUnelide;
 extern const base::Feature kSimplifyHttpsIndicator;
+extern const base::Feature kOmniboxLocalEntitySuggestions;
 extern const base::Feature kOmniboxRichEntitySuggestions;
 extern const base::Feature kOmniboxNewAnswerLayout;
 extern const base::Feature kOmniboxReverseAnswers;
@@ -23,7 +24,7 @@ extern const base::Feature kOmniboxTabSwitchSuggestions;
 extern const base::Feature kOmniboxReverseTabSwitchLogic;
 extern const base::Feature kExperimentalKeywordMode;
 extern const base::Feature kOmniboxPedalSuggestions;
-extern const base::Feature kOmniboxContextMenuForSuggestions;
+extern const base::Feature kOmniboxSuggestionTransparencyOptions;
 extern const base::Feature kEnableClipboardProviderTextSuggestions;
 extern const base::Feature kEnableClipboardProviderImageSuggestions;
 extern const base::Feature kSearchProviderWarmUpOnFocus;
@@ -47,6 +48,7 @@ extern const base::Feature kDocumentProvider;
 extern const base::Feature kDedupeGoogleDriveURLs;
 extern const base::Feature kOmniboxPopupShortcutIconsInZeroState;
 extern const base::Feature kOmniboxMaterialDesignWeatherIcons;
+extern const base::Feature kZeroSuggestionsOnNTP;
 
 }  // namespace omnibox
 

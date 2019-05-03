@@ -216,11 +216,12 @@ const AtomicString& HTMLFormControlElement::autocapitalize() const {
 static bool ShouldAutofocusOnAttach(const HTMLFormControlElement* element) {
   if (!element->IsAutofocusable())
     return false;
-  if (element->GetDocument().IsSandboxed(kSandboxAutomaticFeatures)) {
+  if (element->GetDocument().IsSandboxed(WebSandboxFlags::kAutomaticFeatures)) {
     // FIXME: This message should be moved off the console once a solution to
     // https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
     element->GetDocument().AddConsoleMessage(ConsoleMessage::Create(
-        kSecurityMessageSource, mojom::ConsoleMessageLevel::kError,
+        mojom::ConsoleMessageSource::kSecurity,
+        mojom::ConsoleMessageLevel::kError,
         "Blocked autofocusing on a form control because the form's frame is "
         "sandboxed and the 'allow-scripts' permission is not set."));
     return false;

@@ -48,7 +48,6 @@
 #include "services/network/public/cpp/network_switches.h"
 #include "services/network/test/test_url_loader_client.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "third_party/blink/public/common/service_worker/service_worker_utils.h"
 
 namespace content {
 
@@ -199,11 +198,13 @@ void InspectHistograms(
 
   // Determine if the bucket for the resource type (XHR) was incremented.
   if (0 != (expectations & kShouldBeBlocked) && !is_restricted_uma_expected) {
-    EXPECT_THAT(histograms.GetAllSamples(base + ".Blocked"),
-                testing::ElementsAre(base::Bucket(resource_type, 1)))
+    EXPECT_THAT(
+        histograms.GetAllSamples(base + ".Blocked"),
+        testing::ElementsAre(base::Bucket(static_cast<int>(resource_type), 1)))
         << "The wrong Blocked bucket was incremented.";
-    EXPECT_THAT(histograms.GetAllSamples(base + ".Blocked." + bucket),
-                testing::ElementsAre(base::Bucket(resource_type, 1)))
+    EXPECT_THAT(
+        histograms.GetAllSamples(base + ".Blocked." + bucket),
+        testing::ElementsAre(base::Bucket(static_cast<int>(resource_type), 1)))
         << "The wrong Blocked bucket was incremented.";
   }
 
@@ -520,7 +521,7 @@ class CrossSiteDocumentBlockingTestBase : public ContentBrowserTest {
     interceptor.WaitForRequestCompletion();
 
     // Verify...
-    InspectHistograms(histograms, expectations, resource, RESOURCE_TYPE_IMAGE);
+    InspectHistograms(histograms, expectations, resource, ResourceType::kImage);
     interceptor.Verify(expectations);
   }
 
@@ -681,7 +682,7 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, BlockFetches) {
     // Verify results of the fetch.
     EXPECT_FALSE(was_blocked);
     InspectHistograms(histograms, kShouldBeAllowedWithoutSniffing, resource,
-                      RESOURCE_TYPE_XHR);
+                      ResourceType::kXhr);
   }
 }
 
@@ -875,7 +876,7 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, SharedWorker) {
   // Verify that the response completed successfully, was blocked and was logged
   // as having initially a non-empty body.
   InspectHistograms(histograms, kShouldBeBlockedWithoutSniffing, "nosniff.json",
-                    RESOURCE_TYPE_XHR);
+                    ResourceType::kXhr);
 }
 #endif  // !defined(OS_ANDROID)
 
@@ -896,8 +897,7 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
   // Set up a separate http server, to allow sanity-checking that AppCache
   // serves files despite the fact that the original server is down.
   net::EmbeddedTestServer app_cache_content_server;
-  app_cache_content_server.AddDefaultHandlers(
-      base::FilePath(FILE_PATH_LITERAL("content/test/data")));
+  app_cache_content_server.AddDefaultHandlers(GetTestDataFilePath());
   ASSERT_TRUE(app_cache_content_server.Start());
 
   // Load the main page twice. The second navigation should have AppCache
@@ -944,7 +944,7 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest,
     // Verify...
     bool special_request_initiator_origin_lock_check_for_appcache = true;
     InspectHistograms(histograms, kShouldBeBlockedWithoutSniffing,
-                      "nosniff.json", RESOURCE_TYPE_IMAGE,
+                      "nosniff.json", ResourceType::kImage,
                       special_request_initiator_origin_lock_check_for_appcache);
     interceptor.Verify(kShouldBeBlockedWithoutSniffing);
   }
@@ -1114,7 +1114,7 @@ IN_PROC_BROWSER_TEST_P(CrossSiteDocumentBlockingTest, PrefetchIsNotImpacted) {
                                          &answer));
   EXPECT_EQ(123, answer);
   InspectHistograms(histograms, kShouldBeBlockedWithoutSniffing, "x.html",
-                    RESOURCE_TYPE_PREFETCH);
+                    ResourceType::kPrefetch);
 
   // Finish the HTTP response - this should store the response in the cache.
   response.Done();
@@ -1427,11 +1427,11 @@ class CrossSiteDocumentBlockingServiceWorkerTest : public ContentBrowserTest {
     SetupCrossSiteRedirector(embedded_test_server());
 
     service_worker_https_server_.ServeFilesFromSourceDirectory(
-        "content/test/data");
+        GetTestDataFilePath());
     ASSERT_TRUE(service_worker_https_server_.Start());
 
     cross_origin_https_server_.ServeFilesFromSourceDirectory(
-        "content/test/data");
+        GetTestDataFilePath());
     cross_origin_https_server_.SetSSLConfig(
         net::EmbeddedTestServer::CERT_COMMON_NAME_IS_DOMAIN);
     ASSERT_TRUE(cross_origin_https_server_.Start());
@@ -1440,7 +1440,6 @@ class CrossSiteDocumentBlockingServiceWorkerTest : public ContentBrowserTest {
     // (the second server should have a different hostname because of the call
     // to SetSSLConfig with CERT_COMMON_NAME_IS_DOMAIN argument).
     ASSERT_FALSE(SiteInstanceImpl::IsSameWebSite(
-        shell()->web_contents()->GetBrowserContext(),
         IsolationContext(shell()->web_contents()->GetBrowserContext()),
         GetURLOnServiceWorkerServer("/"), GetURLOnCrossOriginServer("/"),
         true /* should_use_effective_urls */));
@@ -1501,56 +1500,6 @@ class CrossSiteDocumentBlockingServiceWorkerTest : public ContentBrowserTest {
   DISALLOW_COPY_AND_ASSIGN(CrossSiteDocumentBlockingServiceWorkerTest);
 };
 
-// Issue a cross-origin request that will be handled entirely within a service
-// worker (without reaching the network - the cross-origin response will be
-// "faked" within the same-origin service worker, because the service worker
-// used by the test recognizes the "data_from_service_worker" suffix in the
-// URL).  This testcase is designed to hit the case in
-// CrossSiteDocumentResourceHandler::ShouldBlockBasedOnHeaders where
-// |response_type_via_service_worker| is equal to |kDefault|.  See also
-// https://crbug.com/803672.
-//
-// TODO(lukasza): https://crbug.com/715640: This test might become invalid
-// after servicification of service workers.
-IN_PROC_BROWSER_TEST_F(CrossSiteDocumentBlockingServiceWorkerTest, NoNetwork) {
-  // Skip this test when servicification of service workers (S13nServiceWorker)
-  // is enabled because the browser process doesn't see the request or response
-  // when the request is handled entirely within the service worker.
-  if (blink::ServiceWorkerUtils::IsServicificationEnabled() ||
-      base::FeatureList::IsEnabled(network::features::kNetworkService)) {
-    return;
-  }
-
-  SetUpServiceWorker();
-
-  // Make sure that base::HistogramTester below starts with a clean slate.
-  FetchHistogramsFromChildProcesses();
-
-  base::HistogramTester histograms;
-  std::string response;
-  std::string script = R"(
-      // Any cross-origin URL ending with .../data_from_service_worker can be
-      // used here - it will be intercepted by the service worker and will never
-      // go to the network.
-      fetch('https://bar.com/data_from_service_worker')
-          .then(response => response.text())
-          .then(responseText => {
-              domAutomationController.send(responseText);
-          })
-          .catch(error => {
-              var errorMessage = 'error: ' + error;
-              console.log(errorMessage);
-              domAutomationController.send(errorMessage);
-          }); )";
-  EXPECT_TRUE(ExecuteScriptAndExtractString(shell(), script, &response));
-
-  // Verify that CORB didn't block the response (since it was "faked" within the
-  // service worker and didn't cross any security boundaries).
-  EXPECT_EQ("Response created by service worker", response);
-  InspectHistograms(histograms, kShouldBeAllowedWithoutSniffing, "blah.html",
-                    RESOURCE_TYPE_XHR);
-}
-
 IN_PROC_BROWSER_TEST_F(CrossSiteDocumentBlockingServiceWorkerTest,
                        NetworkToServiceWorkerResponse) {
   SetUpServiceWorker();
@@ -1589,7 +1538,7 @@ IN_PROC_BROWSER_TEST_F(CrossSiteDocumentBlockingServiceWorkerTest,
   // Verify that CORB blocked the response from the network (from
   // |cross_origin_https_server_|) to the service worker.
   InspectHistograms(histograms, kShouldBeBlockedWithoutSniffing, "network.txt",
-                    RESOURCE_TYPE_XHR);
+                    ResourceType::kXhr);
 
   // Verify that the service worker replied with an expected error.
   // Replying with an error means that CORB is only active once (for the

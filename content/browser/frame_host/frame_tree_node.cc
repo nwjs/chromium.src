@@ -563,10 +563,8 @@ bool FrameTreeNode::NotifyUserActivation() {
   }
   replication_state_.has_received_user_gesture = true;
 
-  // TODO(mustaq): The following block relaxes UAv2 a bit to make it slightly
-  // closer to the old (v1) model, to address a Hangout regression.  We will
-  // remove this after implementing a mechanism to delegate activation to
-  // subframes (https://crbug.com/728334)
+  // See the "Same-origin Visibility" section in |UserActivationState| class
+  // doc.
   if (base::FeatureList::IsEnabled(features::kUserActivationV2) &&
       base::FeatureList::IsEnabled(
           features::kUserActivationSameOriginVisibility)) {
@@ -659,6 +657,18 @@ void FrameTreeNode::UpdateFramePolicyHeaders(
   // Notify any proxies if the policies have been changed.
   if (changed)
     render_manager()->OnDidSetFramePolicyHeaders();
+}
+
+void FrameTreeNode::TransferUserActivationFrom(
+    RenderFrameHostImpl* source_rfh) {
+  user_activation_state_.TransferFrom(
+      source_rfh->frame_tree_node()->user_activation_state_);
+
+  // Notify proxies in non-source and non-target renderer processes to
+  // transfer the activation state from the source proxy to the target
+  // so the user activation state of those proxies matches the source
+  // renderer and the target renderer (which are separately updated).
+  render_manager_.TransferUserActivationFrom(source_rfh);
 }
 
 void FrameTreeNode::PruneChildFrameNavigationEntries(

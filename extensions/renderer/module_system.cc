@@ -6,7 +6,6 @@
 
 #include "base/bind.h"
 #include "base/command_line.h"
-#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -17,7 +16,6 @@
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_view.h"
 #include "extensions/common/extension.h"
-#include "extensions/common/extension_features.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/renderer/console.h"
 #include "extensions/renderer/safe_builtins.h"
@@ -63,7 +61,7 @@ void Fatal(ScriptContext* context, const std::string& message) {
 
   ExtensionsClient* client = ExtensionsClient::Get();
   if (client->ShouldSuppressFatalErrors()) {
-    console::AddMessage(context, content::CONSOLE_MESSAGE_LEVEL_ERROR,
+    console::AddMessage(context, blink::mojom::ConsoleMessageLevel::kError,
                         full_message);
     client->RecordDidSuppressFatalError();
   } else {
@@ -74,8 +72,8 @@ void Fatal(ScriptContext* context, const std::string& message) {
 void Warn(v8::Isolate* isolate, const std::string& message) {
   ScriptContext* script_context =
       ScriptContextSet::GetContextByV8Context(isolate->GetCurrentContext());
-  console::AddMessage(script_context, content::CONSOLE_MESSAGE_LEVEL_WARNING,
-                      message);
+  console::AddMessage(script_context,
+                      blink::mojom::ConsoleMessageLevel::kWarning, message);
 }
 
 // Default exception handler which logs the exception.
@@ -170,9 +168,7 @@ ModuleSystem::ModuleSystem(ScriptContext* context, const SourceMap* source_map)
       context_(context),
       source_map_(source_map),
       natives_enabled_(0),
-      exception_handler_(new DefaultExceptionHandler(context)),
-      lazily_initialize_handlers_(base::FeatureList::IsEnabled(
-          extensions_features::kNativeCrxBindings)) {
+      exception_handler_(new DefaultExceptionHandler(context)) {
   v8::Local<v8::Object> global(context->v8_context()->Global());
   v8::Isolate* isolate = context->isolate();
   SetPrivate(global, kModulesField, v8::Object::New(isolate));
@@ -354,9 +350,6 @@ void ModuleSystem::RegisterNativeHandler(
     const std::string& name,
     std::unique_ptr<NativeHandler> native_handler) {
   ClobberExistingNativeHandler(name);
-  if (!lazily_initialize_handlers_)
-    native_handler->Initialize();
-
   native_handler_map_[name] = std::move(native_handler);
 }
 
@@ -538,11 +531,11 @@ void ModuleSystem::SetNativeLazyField(v8::Local<v8::Object> object,
                &ModuleSystem::NativeLazyFieldGetter);
 }
 
-void ModuleSystem::OnNativeBindingCreated(
+v8::Local<v8::Value> ModuleSystem::OnNativeBindingCreated(
     const std::string& api_name,
     v8::Local<v8::Value> api_bridge_value) {
   DCHECK(!get_internal_api_.IsEmpty());
-  v8::HandleScope scope(GetIsolate());
+  v8::EscapableHandleScope scope(GetIsolate());
   if (source_map_->Contains(api_name)) {
     // We need to load the custom bindings and store them in our modules.
     // Storing them is important so that calls through CallModuleMethod() route
@@ -552,7 +545,7 @@ void ModuleSystem::OnNativeBindingCreated(
                     &modules) ||
         !modules->IsObject()) {
       NOTREACHED();
-      return;
+      return v8::Undefined(GetIsolate());
     }
 
     NativesEnabledScope enabled(this);
@@ -560,7 +553,9 @@ void ModuleSystem::OnNativeBindingCreated(
         LoadModuleWithNativeAPIBridge(api_name, api_bridge_value);
     SetPrivateProperty(context()->v8_context(), modules.As<v8::Object>(),
                        gin::StringToSymbol(GetIsolate(), api_name), exports);
+    return scope.Escape(exports);
   }
+  return v8::Undefined(GetIsolate());
 }
 
 void ModuleSystem::SetGetInternalAPIHook(
@@ -622,7 +617,7 @@ v8::MaybeLocal<v8::Object> ModuleSystem::RequireNativeFromString(
     return v8::MaybeLocal<v8::Object>();
   }
 
-  if (lazily_initialize_handlers_ && !i->second->IsInitialized())
+  if (!i->second->IsInitialized())
     i->second->Initialize();
 
   return i->second->NewInstance();

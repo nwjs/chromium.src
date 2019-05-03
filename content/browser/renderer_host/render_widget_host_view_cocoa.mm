@@ -498,7 +498,10 @@ void ExtractUnderlines(NSAttributedString* string,
   // Traverse the superview hierarchy as the hitTest will return the frontmost
   // view, such as an NSTextView, while nonWebContentView may be specified by
   // its parent view.
+  BOOL hitSelf = NO;
   while (view) {
+    if (view == self)
+      hitSelf = YES;
     if ([view respondsToSelector:nonWebContentViewSelector] &&
         [view performSelector:nonWebContentViewSelector]) {
       // The cursor is over a nonWebContentView - ignore this mouse event.
@@ -518,7 +521,10 @@ void ExtractUnderlines(NSAttributedString* string,
     }
     view = [view superview];
   }
-  return NO;
+  // Ignore events which don't hit test to this subtree (and hit, for example,
+  // an overlapping view instead). As discussed above, the mouse may go outside
+  // the bounds of the view and keep sending events during a drag.
+  return !hitSelf && !hasOpenMouseDown_;
 }
 
 - (void)mouseEvent:(NSEvent*)theEvent {
@@ -571,6 +577,7 @@ void ExtractUnderlines(NSAttributedString* string,
       clientHelper_->ForwardMouseEvent(exitEvent);
     }
     mouseEventWasIgnored_ = YES;
+    [self updateCursor:nil];
     return;
   }
 
@@ -635,6 +642,7 @@ void ExtractUnderlines(NSAttributedString* string,
   if (!send_touch) {
     WebMouseEvent event =
         WebMouseEventBuilder::Build(theEvent, self, pointerType_);
+    last_mouse_screen_position_ = event.PositionInScreen();
     clientHelper_->RouteOrProcessMouseEvent(event);
   } else {
     WebTouchEvent event = WebTouchEventBuilder::Build(theEvent, self);
@@ -662,6 +670,26 @@ void ExtractUnderlines(NSAttributedString* string,
 - (void)unlockKeyboard {
   keyboardLockActive_ = false;
   lockedKeys_.reset();
+}
+
+- (void)setCursorLocked:(BOOL)locked {
+  mouse_locked_ = locked;
+  if (mouse_locked_) {
+    CGAssociateMouseAndMouseCursorPosition(NO);
+    NSRect bound = [self bounds];
+    bound = [[self window] convertRectToScreen:bound];
+    mouse_locked_screen_position_ = last_mouse_screen_position_;
+    CGDisplayMoveCursorToPoint(CGMainDisplayID(),
+                               NSMakePoint(NSMidX(bound), NSMidY(bound)));
+    [NSCursor hide];
+  } else {
+    // Unlock position of mouse cursor and unhide it.
+    CGAssociateMouseAndMouseCursorPosition(YES);
+    CGDisplayMoveCursorToPoint(CGMainDisplayID(),
+                               NSMakePoint(mouse_locked_screen_position_.x(),
+                                           mouse_locked_screen_position_.y()));
+    [NSCursor unhide];
+  }
 }
 
 // CommandDispatcherTarget implementation:
@@ -996,8 +1024,7 @@ void ExtractUnderlines(NSAttributedString* string,
       [event type] == NSEventTypeEndGesture) {
     WebGestureEvent endEvent(WebGestureEventBuilder::Build(event, self));
     endEvent.SetType(WebInputEvent::kGesturePinchEnd);
-    endEvent.SetSourceDevice(
-        blink::WebGestureDevice::kWebGestureDeviceTouchpad);
+    endEvent.SetSourceDevice(blink::WebGestureDevice::kTouchpad);
     endEvent.SetNeedsWheelEvent(true);
     clientHelper_->GestureEnd(endEvent);
   }
@@ -1408,6 +1435,10 @@ void ExtractUnderlines(NSAttributedString* string,
   return client_;
 }
 
+- (void)setAccessibilityParentElement:(id)accessibilityParent {
+  accessibilityParent_.reset(accessibilityParent, base::scoped_policy::RETAIN);
+}
+
 // TODO(crbug.com/921109): Migrate from the NSObject accessibility API to the
 // NSAccessibility API, then remove this suppression.
 #pragma clang diagnostic push
@@ -1438,6 +1469,9 @@ void ExtractUnderlines(NSAttributedString* string,
        [attribute isEqualToString:NSAccessibilityContentsAttribute]) &&
       root_element) {
     return [NSArray arrayWithObjects:root_element, nil];
+  } else if ([attribute isEqualToString:NSAccessibilityParentAttribute] &&
+             accessibilityParent_) {
+    return accessibilityParent_;
   } else if ([attribute isEqualToString:NSAccessibilityRoleAttribute]) {
     return NSAccessibilityScrollAreaRole;
   }

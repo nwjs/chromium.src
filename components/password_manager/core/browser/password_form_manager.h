@@ -116,7 +116,6 @@ class PasswordFormManager : public PasswordFormManagerInterface,
   bool IsPendingCredentialsPublicSuffixMatch() const override;
   bool IsPendingCredentialsOriginExtension() const;
   bool IsPossibleChangePasswordFormWithoutUsername() const override;
-  bool RetryPasswordFormPasswordUpdate() const override;
   bool IsPasswordUpdate() const override;
   std::vector<base::WeakPtr<PasswordManagerDriver>> GetDrivers() const override;
   const autofill::PasswordForm* GetSubmittedForm() const override;
@@ -171,6 +170,9 @@ class PasswordFormManager : public PasswordFormManagerInterface,
   void MarkGenerationAvailable();
 
   const autofill::PasswordForm& observed_form() const { return observed_form_; }
+  const autofill::PasswordForm* preferred_match() const {
+    return preferred_match_;
+  }
 
   FormSaver* form_saver() { return form_saver_.get(); }
 
@@ -204,7 +206,6 @@ class PasswordFormManager : public PasswordFormManagerInterface,
       const override;
   bool IsBlacklisted() const override;
   bool IsPasswordOverridden() const override;
-  const autofill::PasswordForm* GetPreferredMatch() const override;
 
   void Save() override;
   void Update(const autofill::PasswordForm& credentials_to_update) override;
@@ -219,9 +220,7 @@ class PasswordFormManager : public PasswordFormManagerInterface,
 
  protected:
   // FormFetcher::Consumer:
-  void ProcessMatches(
-      const std::vector<const autofill::PasswordForm*>& non_federated,
-      size_t filtered_count) override;
+  void OnFetchCompleted() override;
 
  private:
   // Through |driver|, supply the associated frame with appropriate information
@@ -236,9 +235,6 @@ class PasswordFormManager : public PasswordFormManagerInterface,
   // has opted to 'Save Password'. The previously preferred login from
   // |best_matches_| will be reset.
   void SaveAsNewLogin();
-
-  // Returns true iff |form| is a non-blacklisted match for |observed_form_|.
-  bool IsMatch(const autofill::PasswordForm& form) const;
 
   // Helper for Save in the case there is at least one match for the pending
   // credentials. This sends needed signals to the autofill server, and also

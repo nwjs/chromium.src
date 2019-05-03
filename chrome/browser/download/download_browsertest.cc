@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
@@ -384,11 +385,6 @@ void SetHiddenDownloadCallback(DownloadItem* item,
 }
 #endif
 
-// Callback for HistoryObserver; used in DownloadHistoryCheck
-bool HasDataAndName(const history::DownloadRow& row) {
-  return row.received_bytes > 0 && !row.target_path.empty();
-}
-
 }  // namespace
 
 DownloadTestObserverNotInProgress::DownloadTestObserverNotInProgress(
@@ -428,15 +424,8 @@ class HistoryObserver : public DownloadHistory::Observer {
       service->GetDownloadHistory()->RemoveObserver(this);
   }
 
-  void SetFilterCallback(const FilterCallback& callback) {
-    callback_ = callback;
-  }
-
   void OnDownloadStored(download::DownloadItem* item,
                         const history::DownloadRow& info) override {
-    if (!callback_.is_null() && (!callback_.Run(info)))
-        return;
-
     seen_stored_ = true;
     if (waiting_)
       base::RunLoop::QuitCurrentWhenIdleDeprecated();
@@ -460,7 +449,6 @@ class HistoryObserver : public DownloadHistory::Observer {
   Profile* profile_;
   bool waiting_ = false;
   bool seen_stored_ = false;
-  FilterCallback callback_;
 
   DISALLOW_COPY_AND_ASSIGN(HistoryObserver);
 };
@@ -1936,7 +1924,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
       TestFileErrorInjector::Create(DownloadManagerForBrowser(browser())));
   TestFileErrorInjector::FileErrorInfo error_info = {
       TestFileErrorInjector::FILE_OPERATION_STREAM_COMPLETE, 0,
-      download::DOWNLOAD_INTERRUPT_REASON_NETWORK_FAILED};
+      download::DOWNLOAD_INTERRUPT_REASON_SERVER_BAD_CONTENT};
   error_info.stream_offset = 0;
   error_info.stream_bytes_written = 1024;
   injector->InjectError(error_info);
@@ -1951,36 +1939,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
   // Download the url and wait until the object has been stored.
   base::Time start(base::Time::Now());
   HistoryObserver observer(browser()->profile());
-  observer.SetFilterCallback(base::Bind(&HasDataAndName));
   ui_test_utils::NavigateToURL(browser(), redirect_url);
-  observer.WaitForStored();
-
-  // Get the details on what was stored into the history.
-  std::unique_ptr<std::vector<history::DownloadRow>> downloads_in_database;
-  ASSERT_TRUE(DownloadsHistoryDataCollector(
-      browser()->profile()).WaitForDownloadInfo(&downloads_in_database));
-  ASSERT_EQ(1u, downloads_in_database->size());
-
-  // Confirm history storage is what you expect for a partially completed
-  // slow download job.
-  history::DownloadRow& row(downloads_in_database->at(0));
-  EXPECT_EQ(DestinationFile(browser(), file), row.target_path);
-  EXPECT_EQ(FILE_PATH_LITERAL("Unconfirmed"),
-            row.current_path.BaseName().value().substr(0, 11));
-  EXPECT_EQ(FILE_PATH_LITERAL(".crdownload"), row.current_path.Extension());
-  ASSERT_EQ(2u, row.url_chain.size());
-  EXPECT_EQ(redirect_url.spec(), row.url_chain[0].spec());
-  EXPECT_EQ(download_url.spec(), row.url_chain[1].spec());
-  EXPECT_EQ(history::DownloadDangerType::MAYBE_DANGEROUS_CONTENT,
-            row.danger_type);
-  EXPECT_LE(start, row.start_time);
-  EXPECT_EQ(content::SlowDownloadHttpResponse::kFirstDownloadSize,
-            row.received_bytes);
-  EXPECT_EQ(content::SlowDownloadHttpResponse::kFirstDownloadSize +
-                content::SlowDownloadHttpResponse::kSecondDownloadSize,
-            row.total_bytes);
-  EXPECT_EQ(history::DownloadState::IN_PROGRESS, row.state);
-  EXPECT_FALSE(row.opened);
 
   // Finish the download.  We're ok relying on the history to be flushed
   // at this point as our queries will be behind the history updates
@@ -2001,6 +1960,9 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
   base::Time end(base::Time::Now());
 
   // Get what was stored in the history.
+  observer.WaitForStored();
+  // Get the details on what was stored into the history.
+  std::unique_ptr<std::vector<history::DownloadRow>> downloads_in_database;
   ASSERT_TRUE(DownloadsHistoryDataCollector(
       browser()->profile()).WaitForDownloadInfo(&downloads_in_database));
   ASSERT_EQ(1u, downloads_in_database->size());
@@ -2024,7 +1986,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_DownloadHistoryCheck) {
             row1.total_bytes);
   EXPECT_EQ(history::DownloadState::INTERRUPTED, row1.state);
   EXPECT_EQ(history::ToHistoryDownloadInterruptReason(
-                download::DOWNLOAD_INTERRUPT_REASON_NETWORK_FAILED),
+                download::DOWNLOAD_INTERRUPT_REASON_SERVER_BAD_CONTENT),
             row1.interrupt_reason);
   EXPECT_FALSE(row1.opened);
 }
@@ -2042,48 +2004,35 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadHistoryDangerCheck) {
       embedded_test_server()->GetURL("/downloads/dangerous/dangerous.swf");
 
   // Download the url and wait until the object has been stored.
-  std::unique_ptr<content::DownloadTestObserver> download_observer(
-      new content::DownloadTestObserverTerminal(
+  auto completion_observer =
+      std::make_unique<content::DownloadTestObserverTerminal>(
           DownloadManagerForBrowser(browser()), 1,
-          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_IGNORE));
+          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_IGNORE);
+  auto dangerous_observer =
+      std::make_unique<content::DownloadTestObserverTerminal>(
+          DownloadManagerForBrowser(browser()), 1,
+          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_QUIT);
   base::Time start(base::Time::Now());
   HistoryObserver observer(browser()->profile());
-  observer.SetFilterCallback(base::Bind(&HasDataAndName));
   ui_test_utils::NavigateToURL(browser(), download_url);
-  observer.WaitForStored();
 
-  // Get the details on what was stored into the history.
+  // Validate the download and wait for it to finish.
+  std::vector<DownloadItem*> downloads;
+  dangerous_observer->WaitForFinished();
+  DownloadManagerForBrowser(browser())->GetAllDownloads(&downloads);
+  ASSERT_EQ(1u, downloads.size());
+  downloads[0]->ValidateDangerousDownload();
+  completion_observer->WaitForFinished();
+  EXPECT_EQ(1u, completion_observer->NumDangerousDownloadsSeen());
+
+  // Get history details and confirm it's what you expect.
+  observer.WaitForStored();
   std::unique_ptr<std::vector<history::DownloadRow>> downloads_in_database;
   ASSERT_TRUE(DownloadsHistoryDataCollector(
       browser()->profile()).WaitForDownloadInfo(&downloads_in_database));
   ASSERT_EQ(1u, downloads_in_database->size());
-
-  // Confirm history storage is what you expect for an unvalidated
-  // dangerous file.
-  base::FilePath file(FILE_PATH_LITERAL("downloads/dangerous/dangerous.swf"));
-  history::DownloadRow& row(downloads_in_database->at(0));
-  EXPECT_EQ(DestinationFile(browser(), file), row.target_path);
-  EXPECT_NE(DownloadTargetDeterminer::GetCrDownloadPath(
-                DestinationFile(browser(), file)),
-            row.current_path);
-  EXPECT_EQ(history::DownloadDangerType::DANGEROUS_FILE, row.danger_type);
-  EXPECT_LE(start, row.start_time);
-  EXPECT_EQ(history::DownloadState::IN_PROGRESS, row.state);
-  EXPECT_FALSE(row.opened);
-
-  // Validate the download and wait for it to finish.
-  std::vector<DownloadItem*> downloads;
-  DownloadManagerForBrowser(browser())->GetAllDownloads(&downloads);
-  ASSERT_EQ(1u, downloads.size());
-  downloads[0]->ValidateDangerousDownload();
-  download_observer->WaitForFinished();
-
-  // Get history details and confirm it's what you expect.
-  downloads_in_database->clear();
-  ASSERT_TRUE(DownloadsHistoryDataCollector(
-      browser()->profile()).WaitForDownloadInfo(&downloads_in_database));
-  ASSERT_EQ(1u, downloads_in_database->size());
   history::DownloadRow& row1(downloads_in_database->at(0));
+  base::FilePath file(FILE_PATH_LITERAL("downloads/dangerous/dangerous.swf"));
   EXPECT_EQ(DestinationFile(browser(), file), row1.target_path);
   EXPECT_EQ(DestinationFile(browser(), file), row1.current_path);
   EXPECT_EQ(history::DownloadDangerType::USER_VALIDATED, row1.danger_type);
@@ -2569,6 +2518,69 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaGet) {
   ASSERT_EQ(url, download_items[1]->GetOriginalUrl());
 }
 
+// Times out often on debug ChromeOS because test is slow.
+#if defined(OS_CHROMEOS) && !defined(NDEBUG)
+#define MAYBE_SaveLargeImage DISABLED_SaveLargeImage
+#else
+#define MAYBE_SaveLargeImage SaveLargeImage
+#endif
+// Tests saving an image from a data URL that's bigger than url::kMaxURLChars.
+IN_PROC_BROWSER_TEST_F(DownloadTest, MAYBE_SaveLargeImage) {
+  embedded_test_server()->ServeFilesFromDirectory(GetTestDataDirectory());
+  ASSERT_TRUE(embedded_test_server()->Start());
+  EnableFileChooser(true);
+
+  GURL url = embedded_test_server()->GetURL("/empty.html");
+  ui_test_utils::NavigateToURL(browser(), url);
+
+  base::FilePath data_file = ui_test_utils::GetTestFilePath(
+      base::FilePath().AppendASCII("downloads"),
+      base::FilePath().AppendASCII("large_image.png"));
+  std::string png_data, data_url;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    CHECK(base::ReadFileToString(data_file, &png_data));
+  }
+
+  base::Base64Encode(png_data, &data_url);
+  data_url.insert(0, "data:image/png;base64,");
+
+  ASSERT_GE(data_url.size(), url::kMaxURLChars);
+
+  // Try to download a large image via a context menu.
+  std::unique_ptr<content::DownloadTestObserver> waiter_context_menu(
+      new content::DownloadTestObserverTerminal(
+          DownloadManagerForBrowser(browser()), 1,
+          content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_FAIL));
+  content::ContextMenuParams context_menu_params;
+  context_menu_params.media_type = blink::WebContextMenuData::kMediaTypeImage;
+  context_menu_params.src_url = GURL(data_url);
+  context_menu_params.page_url = url;
+  TestRenderViewContextMenu menu(
+      browser()->tab_strip_model()->GetActiveWebContents()->GetMainFrame(),
+      context_menu_params);
+  menu.Init();
+  menu.ExecuteCommand(IDC_CONTENT_CONTEXT_SAVEIMAGEAS, 0);
+  waiter_context_menu->WaitForFinished();
+  EXPECT_EQ(
+      1u, waiter_context_menu->NumDownloadsSeenInState(DownloadItem::COMPLETE));
+  CheckDownloadStates(1, DownloadItem::COMPLETE);
+
+  // Validate that the correct file was downloaded via the context menu.
+  std::vector<DownloadItem*> download_items;
+  GetDownloads(browser(), &download_items);
+  EXPECT_TRUE(DidShowFileChooser());
+  ASSERT_EQ(1u, download_items.size());
+
+  std::string downloaded_data;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    CHECK(base::ReadFileToString(download_items[0]->GetFullPath(),
+                                 &downloaded_data));
+  }
+  ASSERT_EQ(downloaded_data, png_data);
+}
+
 // A EmbeddedTestServer::HandleRequestCallback function that checks for requests
 // with query string ?allow-post-only, and returns a 404 response if the method
 // is not POST.
@@ -2615,7 +2627,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, SavePageNonHTMLViaPost) {
   content::RenderFrameHost* render_frame_host = web_contents->GetMainFrame();
   ASSERT_TRUE(render_frame_host != NULL);
   render_frame_host->ExecuteJavaScriptForTests(
-      base::ASCIIToUTF16("SubmitForm()"));
+      base::ASCIIToUTF16("SubmitForm()"), base::NullCallback());
   observer.Wait();
   EXPECT_EQ(jpeg_url, web_contents->GetURL());
 
@@ -3613,8 +3625,8 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, CrossOriginDownloadNavigatesIframe) {
   base::string16 failed_title(base::UTF8ToUTF16("Loaded as main frame"));
   content::TitleWatcher title_watcher(web_contents, expected_title);
   title_watcher.AlsoWaitForTitle(failed_title);
-  render_frame_host->ExecuteJavaScriptForTests(
-      base::ASCIIToUTF16("runTest();"));
+  render_frame_host->ExecuteJavaScriptForTests(base::ASCIIToUTF16("runTest();"),
+                                               base::NullCallback());
   ASSERT_EQ(expected_title, title_watcher.WaitAndGetTitle());
 
   // Also verify that there's no download.

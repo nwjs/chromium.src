@@ -46,6 +46,7 @@ void HTMLCanvasPainter::PaintReplaced(const PaintInfo& paint_info,
           gfx::Vector2dF(pixel_snapped_rect.X(), pixel_snapped_rect.Y()));
       layer->SetBounds(gfx::Size(pixel_snapped_rect.Size()));
       layer->SetIsDrawable(true);
+      layer->SetHitTestable(true);
       RecordForeignLayer(context, DisplayItem::kForeignLayerCanvas, layer);
       return;
     }
@@ -58,9 +59,7 @@ void HTMLCanvasPainter::PaintReplaced(const PaintInfo& paint_info,
   DrawingRecorder recorder(context, layout_html_canvas_, paint_info.phase);
   ScopedInterpolationQuality interpolation_quality_scope(
       context, InterpolationQualityForCanvas(layout_html_canvas_.StyleRef()));
-  canvas->Paint(
-      context, paint_rect,
-      paint_info.GetGlobalPaintFlags() == kGlobalPaintFlattenCompositingLayers);
+  canvas->Paint(context, paint_rect);
 }
 
 }  // namespace blink

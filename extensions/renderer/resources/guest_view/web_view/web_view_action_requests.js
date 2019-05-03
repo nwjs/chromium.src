@@ -8,9 +8,7 @@
 var logging = requireNative('logging');
 var MessagingNatives = requireNative('messaging_natives');
 var WebViewConstants = require('webViewConstants').WebViewConstants;
-var WebViewInternal = getInternalApi ?
-    getInternalApi('webViewInternal') :
-    require('webViewInternal').WebViewInternal;
+var WebViewInternal = getInternalApi('webViewInternal');
 
 var PERMISSION_TYPES = ['media',
                         'geolocation',
@@ -140,14 +138,13 @@ Dialog.prototype.getInterfaceObject = function() {
     ok: $Function.bind(function(user_input) {
       this.validateCall();
       user_input = user_input || '';
-      //NWJS: zero instance id is allowed in NW.
-      //CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog ok');
+      CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog ok');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'allow', user_input);
     }, this),
     cancel: $Function.bind(function() {
       this.validateCall();
-      //CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog cancel');
+      CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog cancel');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'deny');
     }, this)

@@ -4,19 +4,22 @@
 
 #include "extensions/renderer/native_extension_bindings_system.h"
 
+#include "extensions/common/manifest_constants.h"
+
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/timer/elapsed_timer.h"
 #include "components/crx_file/id_util.h"
-#include "content/public/common/console_message_level.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/event_filtering_info.h"
 #include "extensions/common/extension_api.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/common/features/feature_provider.h"
+#include "extensions/common/manifest_constants.h"
+#include "extensions/common/manifest_handlers/externally_connectable.h"
 #include "extensions/renderer/api_activity_logger.h"
 #include "extensions/renderer/bindings/api_binding_bridge.h"
 #include "extensions/renderer/bindings/api_binding_hooks.h"
@@ -26,13 +29,13 @@
 #include "extensions/renderer/console.h"
 #include "extensions/renderer/content_setting.h"
 #include "extensions/renderer/declarative_content_hooks_delegate.h"
-#include "extensions/renderer/easy_unlock_proximity_required_stub.h"
 #include "extensions/renderer/extension_frame_helper.h"
 #include "extensions/renderer/extension_js_runner.h"
 #include "extensions/renderer/get_script_context.h"
 #include "extensions/renderer/i18n_hooks_delegate.h"
 #include "extensions/renderer/ipc_message_sender.h"
 #include "extensions/renderer/module_system.h"
+#include "extensions/renderer/renderer_extension_registry.h"
 #include "extensions/renderer/runtime_hooks_delegate.h"
 #include "extensions/renderer/script_context.h"
 #include "extensions/renderer/storage_area.h"
@@ -40,6 +43,7 @@
 #include "gin/converter.h"
 #include "gin/handle.h"
 #include "gin/per_context_data.h"
+#include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_local_frame.h"
@@ -50,7 +54,7 @@ namespace extensions {
 namespace {
 
 const char kBindingsSystemPerContextKey[] = "extension_bindings_system";
-
+bool is_creating_hidden_binding = false;
 // Returns true if the given |api| is a "prefixed" api of the |root_api|; that
 // is, if the api begins with the root.
 // For example, 'app.runtime' is a prefixed api of 'app'.
@@ -86,6 +90,7 @@ struct BindingsSystemPerContextData : public base::SupportsUserData::Data {
   ~BindingsSystemPerContextData() override {}
 
   v8::Global<v8::Object> api_object;
+  v8::Global<v8::Object> hidden_apis;
   v8::Global<v8::Object> internal_apis;
   base::WeakPtr<NativeExtensionBindingsSystem> bindings_system;
 };
@@ -95,7 +100,7 @@ struct BindingsSystemPerContextData : public base::SupportsUserData::Data {
 // If a 'chrome' property exists but isn't an object, returns an empty Local.
 // If no 'chrome' property exists (or is undefined), creates a new
 // object, assigns it to Global().chrome, and returns it.
-v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context) {
+v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context, const char* name = nullptr, bool hidden = false) {
   // Ensure that the creation context for any new chrome object is |context|.
   v8::Context::Scope context_scope(context);
 
@@ -106,7 +111,8 @@ v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context) {
   // On the one hand, anyone writing that code is probably asking for trouble.
   // On the other, it'd be nice to avoid. I wonder if we can?
   v8::Local<v8::String> chrome_string =
-      gin::StringToSymbol(context->GetIsolate(), "chrome");
+    gin::StringToSymbol(context->GetIsolate(), name ? name : "chrome");
+  if (!hidden) {
   v8::Local<v8::Value> chrome_value;
   if (!context->Global()->Get(context, chrome_string).ToLocal(&chrome_value))
     return v8::Local<v8::Object>();
@@ -136,6 +142,26 @@ v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context) {
   }
 
   return chrome_object;
+  } else { //hidden
+    // MUST MATCH Private() in module_system.cc
+    v8::Local<v8::Object> global(context->Global());
+    v8::Local<v8::Value> privates;
+    ScriptContext* script_context = GetScriptContextFromV8ContextChecked(context);
+    if (!script_context->module_system()->GetPrivate(global, "privates", &privates) || !privates->IsObject()) {
+      privates = v8::Object::New(context->GetIsolate());
+      script_context->module_system()->SetPrivate(global, "privates", privates);
+    }
+    v8::Local<v8::Object> priv_obj = v8::Local<v8::Object>::Cast(privates);
+    v8::Local<v8::Value> chrome(priv_obj->Get(chrome_string));
+    if (chrome->IsUndefined()) {
+      chrome = v8::Object::New(context->GetIsolate());
+      v8::Local<v8::String> hidden_key(
+                                       v8::String::NewFromUtf8(context->GetIsolate(), "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
+      chrome->ToObject(context).ToLocalChecked()->Set(hidden_key, v8::Boolean::New(context->GetIsolate(), true));
+      priv_obj->Set(chrome_string, chrome);
+    }
+    return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
+  } //hidden
 }
 
 BindingsSystemPerContextData* GetBindingsDataFromContext(
@@ -166,7 +192,7 @@ void AddConsoleError(v8::Local<v8::Context> context, const std::string& error) {
   // messaging binding tear down exhibited by
   // MessagingApiTest.MessagingBackgroundOnly.
   // console::AddMessage() can handle a null script context.
-  console::AddMessage(script_context, content::CONSOLE_MESSAGE_LEVEL_ERROR,
+  console::AddMessage(script_context, blink::mojom::ConsoleMessageLevel::kError,
                       error);
 }
 
@@ -182,6 +208,10 @@ const base::DictionaryValue& GetAPISchema(const std::string& api_name) {
 // |context|.
 bool IsAPIFeatureAvailable(v8::Local<v8::Context> context,
                            const std::string& name) {
+  if (is_creating_hidden_binding)
+    if (name.rfind("app.window", 0) == 0 || name.rfind("runtime", 0) == 0 ||
+        name.rfind("nw.Window", 0) == 0)
+    return true;
   ScriptContext* script_context = GetScriptContextFromV8ContextChecked(context);
   return script_context->GetAvailability(name).is_available();
 }
@@ -202,9 +232,20 @@ v8::Local<v8::Object> CreateRootBinding(v8::Local<v8::Context> context,
                            script_context->GetExtensionID(),
                            script_context->GetContextTypeDescription()));
   v8::Local<v8::Value> native_api_bridge = bridge_handle.ToV8();
-  script_context->module_system()->OnNativeBindingCreated(name,
+  v8::Local<v8::Value> exports =
+    script_context->module_system()->OnNativeBindingCreated(name,
                                                           native_api_bridge);
-
+  if (exports->IsObject()) {
+    v8::Local<v8::String> binding_name = gin::StringToSymbol(context->GetIsolate(), "binding");
+    v8::Local<v8::Object> exports_obj;
+    if (exports->ToObject(context).ToLocal(&exports_obj)) {
+      if (exports_obj->HasRealNamedProperty(context, binding_name).FromJust()) {
+        v8::Local<v8::Value> binding = exports_obj->GetRealNamedProperty(context, binding_name).ToLocalChecked();
+        DCHECK(binding->IsObject());
+        return binding.As<v8::Object>();
+      }
+    }
+  }
   return binding_object;
 }
 
@@ -227,11 +268,12 @@ v8::Local<v8::Object> CreateFullBinding(
     ScriptContext* script_context,
     APIBindingsSystem* bindings_system,
     const FeatureProvider* api_feature_provider,
-    const std::string& root_name) {
+    const std::string& root_name, bool hidden = false) {
   const FeatureMap& features = api_feature_provider->GetAllFeatures();
   auto lower = features.lower_bound(root_name);
   DCHECK(lower != features.end());
 
+  is_creating_hidden_binding = hidden;
   // Some bindings have a prefixed name, like app.runtime, where 'app' and
   // 'app.runtime' are, in fact, separate APIs. It's also possible for a
   // context to have access to 'app.runtime', but not to 'app'. For this, we
@@ -241,7 +283,8 @@ v8::Local<v8::Object> CreateFullBinding(
   if (lower->first == root_name) {
     const Feature* feature = lower->second.get();
     if (script_context->IsAnyFeatureAvailableToContext(
-            *feature, CheckAliasStatus::NOT_ALLOWED)) {
+        *feature, CheckAliasStatus::NOT_ALLOWED) ||
+        (hidden && (root_name == "app.window" || root_name == "runtime" || root_name == "nw.Window"))) {
       // If this feature is an alias for a different API, use the other binding
       // as the basis for the API contents.
       const std::string& source_name =
@@ -284,6 +327,8 @@ v8::Local<v8::Object> CreateFullBinding(
   // entered.
   for (auto iter = lower; iter != features.end() && iter->first < upper;
        ++iter) {
+    //if (iter->first.substr(0, 3) == "nw." && !nodejs_enabled)
+    //  continue;
     if (iter->second->IsInternal())
       continue;
 
@@ -303,7 +348,7 @@ v8::Local<v8::Object> CreateFullBinding(
 
     v8::Local<v8::Object> nested_binding =
         CreateFullBinding(context, script_context, bindings_system,
-                          api_feature_provider, binding_name.as_string());
+                          api_feature_provider, binding_name.as_string(), hidden);
     // It's possible that we don't create a binding if no features or
     // prefixed features are available to the context.
     if (nested_binding.IsEmpty())
@@ -323,10 +368,13 @@ v8::Local<v8::Object> CreateFullBinding(
         gin::StringToSymbol(context->GetIsolate(), accessor_name);
     v8::Maybe<bool> success =
         root_binding->CreateDataProperty(context, nested_name, nested_binding);
-    if (!success.IsJust() || !success.FromJust())
+    if (!success.IsJust() || !success.FromJust()) {
+      is_creating_hidden_binding = false;
       return v8::Local<v8::Object>();
+    }
   }
 
+  is_creating_hidden_binding = false;
   return root_binding;
 }
 
@@ -337,6 +385,96 @@ std::string GetContextOwner(v8::Local<v8::Context> context) {
   CHECK(id_is_valid || script_context->url().is_valid());
   return id_is_valid ? extension_id : script_context->url().spec();
 }
+
+// Returns true if any portion of the runtime API is available to the given
+// |context|. This is different than just checking features because runtime's
+// availability depends on the installed extensions and the active URL (in the
+// case of extensions communicating with external websites).
+bool IsRuntimeAvailableToContext(ScriptContext* context) {
+  // TODO(devlin): This doesn't seem thread-safe with ServiceWorkers?
+  for (const auto& extension :
+       *RendererExtensionRegistry::Get()->GetMainThreadExtensionSet()) {
+    ExternallyConnectableInfo* info = static_cast<ExternallyConnectableInfo*>(
+        extension->GetManifestData(manifest_keys::kExternallyConnectable));
+    if (info && info->matches.MatchesURL(context->url()))
+      return true;
+  }
+  return false;
+}
+
+// Logs the amount of time taken to update the bindings for a given context
+// (i.e., UpdateBindingsForContext()).
+void LogUpdateBindingsForContextTime(Feature::Context context_type,
+                                     base::TimeDelta elapsed) {
+  constexpr int kHistogramBucketCount = 50;
+  static const int kTenSecondsInMicroseconds = 10000000;
+  switch (context_type) {
+    case Feature::UNSPECIFIED_CONTEXT:
+      break;
+    case Feature::WEB_PAGE_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime.WebPageContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::BLESSED_WEB_PAGE_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "BlessedWebPageContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::SERVICE_WORKER_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "ServiceWorkerContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::BLESSED_EXTENSION_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "BlessedExtensionContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::LOCK_SCREEN_EXTENSION_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "LockScreenExtensionContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::UNBLESSED_EXTENSION_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "UnblessedExtensionContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::CONTENT_SCRIPT_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime."
+          "ContentScriptContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+      break;
+    case Feature::WEBUI_CONTEXT:
+      UMA_HISTOGRAM_CUSTOM_COUNTS(
+          "Extensions.Bindings.UpdateBindingsForContextTime.WebUIContext",
+          elapsed.InMicroseconds(), 1, kTenSecondsInMicroseconds,
+          kHistogramBucketCount);
+  }
+}
+
+// The APIs that could potentially be available to webpage-like contexts.
+// This is the list of possible features; most web pages will not have access
+// to these APIs.
+// Note: `runtime` is not included here, since it's handled specially above.
+const char* const kWebAvailableFeatures[] = {
+    "app",
+    "dashboardPrivate",
+};
 
 }  // namespace
 
@@ -363,9 +501,6 @@ NativeExtensionBindingsSystem::NativeExtensionBindingsSystem(
       weak_factory_(this) {
   api_system_.RegisterCustomType("storage.StorageArea",
                                  base::Bind(&StorageArea::CreateStorageArea));
-  api_system_.RegisterCustomType(
-      "preferencesPrivate.EasyUnlockProximityRequired",
-      base::Bind(&EasyUnlockProximityRequiredStub::Create));
   api_system_.RegisterCustomType("types.ChromeSetting",
                                  base::Bind(&ChromeSetting::Create));
   api_system_.RegisterCustomType("contentSettings.ContentSetting",
@@ -433,7 +568,9 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
   v8::Isolate* isolate = context->isolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> v8_context = context->v8_context();
-  v8::Local<v8::Object> chrome = GetOrCreateChrome(v8_context);
+  v8::Local<v8::Object> chrome = GetOrCreateChrome(v8_context, nullptr);
+  v8::Local<v8::Object> chrome_hidden = GetOrCreateChrome(v8_context, nullptr, true);
+  v8::Local<v8::Object> nw_obj;
   if (chrome.IsEmpty())
     return;
 
@@ -448,7 +585,42 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     return success.IsJust() && success.FromJust();
   };
 
+  auto set_accessor_hidden = [chrome_hidden, isolate,
+    v8_context](base::StringPiece accessor_name) {
+    v8::Local<v8::String> api_name =
+      gin::StringToSymbol(isolate, accessor_name);
+    v8::Maybe<bool> success = chrome_hidden->SetLazyDataProperty(
+      v8_context, api_name, &BindingAccessorHidden, api_name);
+    return success.IsJust() && success.FromJust();
+  };
+
+  bool nodejs_enabled = false;
+  if (context->extension()) {
+    nodejs_enabled = context->extension()->is_nwjs_app();
+    context->extension()->manifest()->GetBoolean(manifest_keys::kNWJSEnableNode, &nodejs_enabled);
+  }
+
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool hidden_nw = true;
+  if (nodejs_enabled &&
+    (context->context_type() == Feature::BLESSED_EXTENSION_CONTEXT ||
+      context->context_type() == Feature::BLESSED_WEB_PAGE_CONTEXT ||
+     command_line.HasSwitch("nwjs-guest-nw")))
+    hidden_nw = false;
+  nw_obj = GetOrCreateChrome(v8_context, "nw", hidden_nw);
+
+  auto set_accessor_nw = [nw_obj, isolate,
+                          v8_context, hidden_nw](base::StringPiece accessor_name) {
+    v8::Local<v8::String> api_name =
+        gin::StringToSymbol(isolate, accessor_name);
+    v8::Local<v8::String> api_full_name =
+      gin::StringToSymbol(isolate, std::string("nw.") + std::string(accessor_name));
+    v8::Maybe<bool> success = nw_obj->SetLazyDataProperty(
+       v8_context, api_name, hidden_nw ? &BindingAccessorHidden : &BindingAccessor, api_full_name);
+    return success.IsJust() && success.FromJust();
+  };
   bool is_webpage = false;
+
   switch (context->context_type()) {
     case Feature::UNSPECIFIED_CONTEXT:
     case Feature::WEB_PAGE_CONTEXT:
@@ -486,6 +658,10 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     // Runtime is special (see IsRuntimeAvailableToContext()).
     if (IsRuntimeAvailableToContext(context) && !set_accessor("runtime"))
       LOG(ERROR) << "Failed to create API on Chrome object.";
+    
+    set_accessor_hidden("app");
+    set_accessor_hidden("runtime");
+    set_accessor_nw("Window");
 
     LogUpdateBindingsForContextTime(context->context_type(), timer.Elapsed());
     return;
@@ -513,6 +689,19 @@ void NativeExtensionBindingsSystem::UpdateBindingsForContext(
     // as if we need to remove any existing APIs?
     base::StringPiece accessor_name =
         GetFirstDifferentAPIName(feature, base::StringPiece());
+    if (accessor_name.substr(0, 3) == "nw." && nw_obj.IsEmpty())
+      continue;
+    if (feature.substr(0, 3) == "nw.") {
+      if (hidden_nw && feature != "nw.Window")
+        continue;
+      std::string api_name = feature.substr(3);
+      accessor_name = api_name;
+      if (!set_accessor_nw(accessor_name)) {
+        LOG(ERROR) << "Failed to create API on NW object.";
+        return;
+      }
+      continue;
+    }
     last_accessor = accessor_name;
     if (!set_accessor(accessor_name)) {
       LOG(ERROR) << "Failed to create API on Chrome object.";
@@ -564,10 +753,6 @@ IPCMessageSender* NativeExtensionBindingsSystem::GetIPCMessageSender() {
   return ipc_message_sender_.get();
 }
 
-RendererMessagingService* NativeExtensionBindingsSystem::GetMessagingService() {
-  return &messaging_service_;
-}
-
 void NativeExtensionBindingsSystem::OnExtensionPermissionsUpdated(
     const ExtensionId& id) {
   feature_cache_.InvalidateExtension(id);
@@ -604,22 +789,51 @@ void NativeExtensionBindingsSystem::BindingAccessor(
   if (!binding.IsEmpty())
     info.GetReturnValue().Set(binding);
 }
+void NativeExtensionBindingsSystem::BindingAccessorHidden(
+    v8::Local<v8::Name> name,
+    const v8::PropertyCallbackInfo<v8::Value>& info) {
+  v8::Isolate* isolate = info.GetIsolate();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = info.Holder()->CreationContext();
+
+  // Force binding creation in the owning context (even if another context is
+  // calling in). This is also important to ensure that objects created through
+  // the initialization process are all instantiated for the owning context.
+  // See https://crbug.com/819968.
+  v8::Context::Scope context_scope(context);
+
+  // We use info.Data() to store a real name here instead of using the provided
+  // one to handle any weirdness from the caller (non-existent strings, etc).
+  v8::Local<v8::String> api_name = info.Data().As<v8::String>();
+  v8::Local<v8::Object> binding = GetAPIHelper(context, api_name, true);
+  if (!binding.IsEmpty())
+    info.GetReturnValue().Set(binding);
+}
 
 // static
 v8::Local<v8::Object> NativeExtensionBindingsSystem::GetAPIHelper(
     v8::Local<v8::Context> context,
-    v8::Local<v8::String> api_name) {
+    v8::Local<v8::String> api_name, bool hidden) {
   BindingsSystemPerContextData* data = GetBindingsDataFromContext(context);
   if (!data)
     return v8::Local<v8::Object>();
 
   v8::Isolate* isolate = context->GetIsolate();
   v8::Local<v8::Object> apis;
+  if (hidden) {
+  if (data->hidden_apis.IsEmpty()) {
+    apis = v8::Object::New(isolate);
+    data->hidden_apis = v8::Global<v8::Object>(isolate, apis);
+  } else {
+    apis = data->hidden_apis.Get(isolate);
+  }
+  } else { //hidden
   if (data->api_object.IsEmpty()) {
     apis = v8::Object::New(isolate);
     data->api_object = v8::Global<v8::Object>(isolate, apis);
   } else {
     apis = data->api_object.Get(isolate);
+  }
   }
 
   v8::Maybe<bool> has_property = apis->HasRealNamedProperty(context, api_name);
@@ -641,7 +855,7 @@ v8::Local<v8::Object> NativeExtensionBindingsSystem::GetAPIHelper(
   base::ElapsedTimer timer;
   v8::Local<v8::Object> root_binding = CreateFullBinding(
       context, script_context, &data->bindings_system->api_system_,
-      FeatureProvider::GetAPIFeatures(), api_name_string);
+      FeatureProvider::GetAPIFeatures(), api_name_string, hidden);
   if (root_binding.IsEmpty())
     return v8::Local<v8::Object>();
 
@@ -707,6 +921,7 @@ void NativeExtensionBindingsSystem::GetInternalAPI(
   std::string api_name = gin::V8ToString(isolate, info[0]);
   const Feature* feature = FeatureProvider::GetAPIFeature(api_name);
   ScriptContext* script_context = GetScriptContextFromV8ContextChecked(context);
+  if (api_name != "nw.Window")
   if (!feature ||
       !script_context->IsAnyFeatureAvailableToContext(
           *feature, CheckAliasStatus::NOT_ALLOWED)) {
@@ -714,7 +929,7 @@ void NativeExtensionBindingsSystem::GetInternalAPI(
     return;
   }
 
-  CHECK(feature->IsInternal());
+  //CHECK(feature->IsInternal());
 
   // We don't need to go through CreateFullBinding here because internal APIs
   // are always acquired through getInternalBinding and specified by full name,
@@ -756,12 +971,13 @@ void NativeExtensionBindingsSystem::SendRequest(
   params->has_callback = request->has_callback;
   params->user_gesture = request->has_user_gesture;
   // The IPC sender will update these members, if appropriate.
-  params->worker_thread_id = -1;
+  params->worker_thread_id = kMainThreadId;
   params->service_worker_version_id =
       blink::mojom::kInvalidServiceWorkerVersionId;
 
   ipc_message_sender_->SendRequestIPC(script_context, std::move(params),
-                                      request->thread);
+                                      request->thread, request->sync, request->success,
+                                      request->response, request->error);
 }
 
 bool NativeExtensionBindingsSystem::GetUserActivationState(

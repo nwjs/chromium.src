@@ -10,6 +10,7 @@
 #include "base/values.h"
 #include "content/public/common/content_features.h"
 #include "content/public/renderer/v8_value_converter.h"
+#include "extensions/renderer/bindings/api_binding_util.h"
 #include "extensions/renderer/bindings/api_response_validator.h"
 #include "extensions/renderer/bindings/exception_handler.h"
 #include "extensions/renderer/bindings/js_runner.h"
@@ -120,7 +121,11 @@ int APIRequestHandler::StartRequest(v8::Local<v8::Context> context,
                                     std::unique_ptr<base::ListValue> arguments,
                                     v8::Local<v8::Function> callback,
                                     v8::Local<v8::Function> custom_callback,
-                                    binding::RequestThread thread) {
+                                    binding::RequestThread thread,
+                                    bool sync,
+                                    bool* success,
+                                    base::ListValue* response,
+                                    std::string* error) {
   auto request = std::make_unique<Request>();
 
   // The request id is primarily used in the renderer to associate an API
@@ -165,6 +170,7 @@ int APIRequestHandler::StartRequest(v8::Local<v8::Context> context,
         blink::WebUserGestureIndicator::CurrentUserGestureToken();
     request->has_callback = true;
   }
+  if (!sync)
   pending_requests_.emplace(request_id,
                             PendingRequest(isolate, context, method, callback,
                                            callback_args, user_gesture_token));
@@ -175,6 +181,12 @@ int APIRequestHandler::StartRequest(v8::Local<v8::Context> context,
   request->thread = thread;
 
   last_sent_request_id_ = request_id;
+  request->sync = sync;
+  if (sync) {
+    request->response = response;
+    request->success = success;
+    request->error = error;
+  }
   send_request_.Run(std::move(request), context);
   return request_id;
 }
@@ -301,6 +313,12 @@ void APIRequestHandler::CompleteRequestImpl(int request_id,
   JSRunner::Get(context)->RunJSFunction(pending_request.callback->Get(isolate),
                                         context, full_args.size(),
                                         full_args.data());
+
+  // Since arbitrary JS has ran, the context may have been invalidated. If it
+  // was, bail.
+  if (!binding::IsContextValid(context))
+    return;
+
   if (try_catch.HasCaught()) {
     v8::Local<v8::Message> v8_message = try_catch.Message();
     base::Optional<std::string> message;

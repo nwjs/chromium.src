@@ -396,8 +396,6 @@ bool MockRenderProcessHost::IsKeepAliveRefCountDisabled() {
   return false;
 }
 
-void MockRenderProcessHost::PurgeAndSuspend() {}
-
 void MockRenderProcessHost::Resume() {}
 
 mojom::Renderer* MockRenderProcessHost::GetRendererInterface() {
@@ -467,10 +465,6 @@ void MockRenderProcessHost::EnableAudioDebugRecordings(
 }
 
 void MockRenderProcessHost::DisableAudioDebugRecordings() {}
-
-void MockRenderProcessHost::SetEchoCanceller3(
-    bool enable,
-    base::OnceCallback<void(bool, const std::string&)> callback) {}
 
 RenderProcessHost::WebRtcStopRtpDumpCallback
 MockRenderProcessHost::StartRtpDump(

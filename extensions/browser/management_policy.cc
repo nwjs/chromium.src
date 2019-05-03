@@ -65,6 +65,12 @@ bool ManagementPolicy::Provider::MustRemainInstalled(
   return false;
 }
 
+bool ManagementPolicy::Provider::ShouldForceUninstall(
+    const Extension* extension,
+    base::string16* error) const {
+  return false;
+}
+
 void ManagementPolicy::RegisterProvider(Provider* provider) {
   providers_.insert(provider);
 }
@@ -143,6 +149,12 @@ bool ManagementPolicy::MustRemainInstalled(const Extension* extension,
                                            base::string16* error) const {
   return ApplyToProviderList(
       &Provider::MustRemainInstalled, "Removing", false, extension, error);
+}
+
+bool ManagementPolicy::ShouldForceUninstall(const Extension* extension,
+                                            base::string16* error) const {
+  return ApplyToProviderList(&Provider::ShouldForceUninstall, "Uninstalling",
+                             false, extension, error);
 }
 
 void ManagementPolicy::UnregisterAllProviders() {

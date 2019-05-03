@@ -191,16 +191,6 @@ class VisualViewportPaintPropertyTreeBuilder {
   static void Update(VisualViewport&, PaintPropertyTreeBuilderContext&);
 };
 
-// Used to report whether paint properties have changed, and if so, whether
-// it was only due to animations. The order is important - it must go from
-// no change to full change.
-enum class PaintPropertyChangedState {
-  kUnchanged,
-  kChangedOnlyDueToAnimations,
-  kChanged,
-  kAddedOrRemoved,
-};
-
 // Creates paint property tree nodes for non-local effects in the layout tree.
 // Non-local effects include but are not limited to: overflow clip, transform,
 // fixed-pos, animation, mask, filters, etc. It expects to be invoked for each
@@ -220,12 +210,12 @@ class PaintPropertyTreeBuilder {
   // paint offset translation) and ensure the context is up to date. Also
   // handles updating the object's paintOffset.
   // Returns whether any paint property of the object has changed.
-  PaintPropertyChangedState UpdateForSelf();
+  PaintPropertyChangeType UpdateForSelf();
 
   // Update the paint properties that affect children of this object (e.g.,
   // scroll offset transform) and ensure the context is up to date.
   // Returns whether any paint property of the object has changed.
-  PaintPropertyChangedState UpdateForChildren();
+  PaintPropertyChangeType UpdateForChildren();
 
  private:
   ALWAYS_INLINE void InitFragmentPaintProperties(
@@ -234,6 +224,7 @@ class PaintPropertyTreeBuilder {
       const LayoutPoint& pagination_offset = LayoutPoint(),
       LayoutUnit logical_top_in_flow_thread = LayoutUnit());
   ALWAYS_INLINE void InitSingleFragmentFromParent(bool needs_paint_properties);
+  ALWAYS_INLINE bool ObjectTypeMightNeedMultipleFragmentData() const;
   ALWAYS_INLINE bool ObjectTypeMightNeedPaintProperties() const;
   ALWAYS_INLINE void UpdateCompositedLayerPaginationOffset();
   ALWAYS_INLINE PaintPropertyTreeBuilderFragmentContext

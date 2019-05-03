@@ -470,7 +470,12 @@ RenderWidgetTargetResult RenderWidgetHostInputEventRouter::FindMouseEventTarget(
   bool needs_transform_point = true;
   bool latched_target = true;
   bool should_verify_result = false;
-  if (root_view->IsMouseLocked()) {
+  // Allow devtools to route events into the root view based on the
+  // browser-side inspector overlay state.
+  if (route_to_root_for_devtools_)
+    target = root_view;
+
+  if (!target && root_view->IsMouseLocked()) {
     target = root_view->host()->delegate()->GetMouseLockWidget()->GetView();
   }
 
@@ -736,19 +741,24 @@ void RenderWidgetHostInputEventRouter::RouteGestureEvent(
   }
 
   switch (event->SourceDevice()) {
-    case blink::kWebGestureDeviceUninitialized:
-    case blink::kWebGestureDeviceCount:
+    case blink::WebGestureDevice::kUninitialized:
       NOTREACHED() << "Uninitialized device type is not allowed";
       break;
-    case blink::kWebGestureDeviceSyntheticAutoscroll:
+    case blink::WebGestureDevice::kSyntheticAutoscroll:
       NOTREACHED() << "Only target_viewport synthetic autoscrolls are "
                       "currently supported";
       break;
-    case blink::kWebGestureDeviceTouchpad:
+    case blink::WebGestureDevice::kTouchpad:
       RouteTouchpadGestureEvent(root_view, event, latency);
       break;
-    case blink::kWebGestureDeviceTouchscreen:
+    case blink::WebGestureDevice::kTouchscreen:
       RouteTouchscreenGestureEvent(root_view, event, latency);
+      break;
+    case blink::WebGestureDevice::kScrollbar:
+      NOTREACHED()
+          << "This gesture source is only ever generated inside the renderer "
+             "and is designated for compositor threaded scrollbar scrolling. "
+             "We should never see it in the browser.";
       break;
   };
 }
@@ -1173,7 +1183,7 @@ bool RenderWidgetHostInputEventRouter::BubbleScrollEvent(
   }
 
   const bool touchscreen_bubble_to_root =
-      event.SourceDevice() == blink::kWebGestureDeviceTouchscreen &&
+      event.SourceDevice() == blink::WebGestureDevice::kTouchscreen &&
       !bubbling_gesture_scroll_target_->IsRenderWidgetHostViewChildFrame();
   if (touchscreen_bubble_to_root) {
     if (event.GetType() == blink::WebInputEvent::kGestureScrollBegin) {
@@ -1199,7 +1209,7 @@ bool RenderWidgetHostInputEventRouter::BubbleScrollEvent(
     bubbling_gesture_scroll_origin_ = nullptr;
     bubbling_gesture_scroll_target_ = nullptr;
     bubbling_gesture_scroll_source_device_ =
-        blink::kWebGestureDeviceUninitialized;
+        blink::WebGestureDevice::kUninitialized;
   }
   return true;
 }
@@ -1208,7 +1218,7 @@ void RenderWidgetHostInputEventRouter::SendGestureScrollBegin(
     RenderWidgetHostViewBase* view,
     const blink::WebGestureEvent& event) {
   DCHECK_EQ(blink::WebInputEvent::kGesturePinchBegin, event.GetType());
-  DCHECK_EQ(blink::kWebGestureDeviceTouchscreen, event.SourceDevice());
+  DCHECK_EQ(blink::WebGestureDevice::kTouchscreen, event.SourceDevice());
   blink::WebGestureEvent scroll_begin(event);
   scroll_begin.SetType(blink::WebInputEvent::kGestureScrollBegin);
   scroll_begin.data.scroll_begin.delta_x_hint = 0;
@@ -1235,7 +1245,7 @@ void RenderWidgetHostInputEventRouter::SendGestureScrollEnd(
           event.data.scroll_begin.delta_hint_units;
       break;
     case blink::WebInputEvent::kGesturePinchEnd:
-      DCHECK_EQ(blink::kWebGestureDeviceTouchscreen, event.SourceDevice());
+      DCHECK_EQ(blink::WebGestureDevice::kTouchscreen, event.SourceDevice());
       scroll_end.data.scroll_end.inertial_phase =
           blink::WebGestureEvent::kUnknownMomentumPhase;
       scroll_end.data.scroll_end.delta_units =
@@ -1286,7 +1296,7 @@ void RenderWidgetHostInputEventRouter::CancelScrollBubbling() {
 
   const bool touchscreen_bubble_to_root =
       bubbling_gesture_scroll_source_device_ ==
-          blink::kWebGestureDeviceTouchscreen &&
+          blink::WebGestureDevice::kTouchscreen &&
       !bubbling_gesture_scroll_target_->IsRenderWidgetHostViewChildFrame();
   if (touchscreen_bubble_to_root)
     touchscreen_pinch_state_.DidStopBubblingToRoot();
@@ -1298,7 +1308,7 @@ void RenderWidgetHostInputEventRouter::CancelScrollBubbling() {
   bubbling_gesture_scroll_origin_ = nullptr;
   bubbling_gesture_scroll_target_ = nullptr;
   bubbling_gesture_scroll_source_device_ =
-      blink::kWebGestureDeviceUninitialized;
+      blink::WebGestureDevice::kUninitialized;
 }
 
 void RenderWidgetHostInputEventRouter::CancelScrollBubblingIfConflicting(
@@ -1421,16 +1431,18 @@ bool RenderWidgetHostInputEventRouter::ViewMapIsEmpty() const {
 namespace {
 
 bool IsPinchCurrentlyAllowedInTarget(RenderWidgetHostViewBase* target) {
-  base::Optional<cc::TouchAction> target_allowed_touch_action(
+  base::Optional<cc::TouchAction> target_active_touch_action(
       cc::kTouchActionNone);
   if (target) {
-    target_allowed_touch_action =
+    target_active_touch_action =
         (static_cast<RenderWidgetHostImpl*>(target->GetRenderWidgetHost()))
             ->input_router()
-            ->AllowedTouchAction();
+            ->ActiveTouchAction();
   }
-  DCHECK(target_allowed_touch_action.has_value());
-  return (target_allowed_touch_action.value() &
+  // This function is called on GesturePinchBegin, by which time there should
+  // be an active touch action assessed for the target.
+  DCHECK(target_active_touch_action.has_value());
+  return (target_active_touch_action.value() &
           cc::TouchAction::kTouchActionPinchZoom);
 }
 
@@ -1608,7 +1620,7 @@ void RenderWidgetHostInputEventRouter::RouteTouchscreenGestureEvent(
     RenderWidgetHostViewBase* root_view,
     const blink::WebGestureEvent* event,
     const ui::LatencyInfo& latency) {
-  DCHECK_EQ(blink::kWebGestureDeviceTouchscreen, event->SourceDevice());
+  DCHECK_EQ(blink::WebGestureDevice::kTouchscreen, event->SourceDevice());
   event_targeter_->FindTargetAndDispatch(root_view, *event, latency);
 }
 
@@ -1632,7 +1644,7 @@ void RenderWidgetHostInputEventRouter::RouteTouchpadGestureEvent(
     RenderWidgetHostViewBase* root_view,
     const blink::WebGestureEvent* event,
     const ui::LatencyInfo& latency) {
-  DCHECK_EQ(blink::kWebGestureDeviceTouchpad, event->SourceDevice());
+  DCHECK_EQ(blink::WebGestureDevice::kTouchpad, event->SourceDevice());
   event_targeter_->FindTargetAndDispatch(root_view, *event, latency);
 }
 
@@ -1774,12 +1786,10 @@ RenderWidgetHostInputEventRouter::FindTargetSynchronously(
   }
   if (blink::WebInputEvent::IsGestureEventType(event.GetType())) {
     auto gesture_event = static_cast<const blink::WebGestureEvent&>(event);
-    if (gesture_event.SourceDevice() ==
-        blink::WebGestureDevice::kWebGestureDeviceTouchscreen) {
+    if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchscreen) {
       return FindTouchscreenGestureEventTarget(root_view, gesture_event);
     }
-    if (gesture_event.SourceDevice() ==
-        blink::WebGestureDevice::kWebGestureDeviceTouchpad) {
+    if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchpad) {
       return FindTouchpadGestureEventTarget(root_view, gesture_event);
     }
   }
@@ -1828,14 +1838,12 @@ void RenderWidgetHostInputEventRouter::DispatchEventToTarget(
   }
   if (blink::WebInputEvent::IsGestureEventType(event.GetType())) {
     auto gesture_event = static_cast<const blink::WebGestureEvent&>(event);
-    if (gesture_event.SourceDevice() ==
-        blink::WebGestureDevice::kWebGestureDeviceTouchscreen) {
+    if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchscreen) {
       DispatchTouchscreenGestureEvent(root_view, target, gesture_event, latency,
                                       target_location);
       return;
     }
-    if (gesture_event.SourceDevice() ==
-        blink::WebGestureDevice::kWebGestureDeviceTouchpad) {
+    if (gesture_event.SourceDevice() == blink::WebGestureDevice::kTouchpad) {
       DispatchTouchpadGestureEvent(root_view, target, gesture_event, latency,
                                    target_location);
       return;

@@ -157,7 +157,7 @@ OmniboxPopupContentsView::OmniboxPopupContentsView(
   for (size_t i = 0; i < AutocompleteResult::GetMaxMatches(); ++i) {
     OmniboxResultView* result_view = new OmniboxResultView(this, i);
     result_view->SetVisible(false);
-    AddChildViewAt(result_view, static_cast<int>(i));
+    AddChildView(result_view);
   }
 }
 
@@ -385,7 +385,7 @@ void OmniboxPopupContentsView::OnGestureEvent(ui::GestureEvent* event) {
 // OmniboxPopupContentsView, private:
 
 gfx::Rect OmniboxPopupContentsView::GetTargetBounds() {
-  DCHECK_GE(static_cast<size_t>(child_count()), model_->result().size());
+  DCHECK_GE(children().size(), model_->result().size());
   int popup_height = 0;
   for (size_t i = 0; i < model_->result().size(); ++i)
     popup_height += child_at(i)->GetPreferredSize().height();
@@ -439,10 +439,10 @@ size_t OmniboxPopupContentsView::GetIndexForPoint(const gfx::Point& point) {
   if (!HitTestPoint(point))
     return OmniboxPopupModel::kNoMatch;
 
-  int nb_match = model_->result().size();
-  DCHECK(nb_match <= child_count());
-  for (int i = 0; i < nb_match; ++i) {
-    views::View* child = child_at(i);
+  size_t nb_match = model_->result().size();
+  DCHECK_LE(nb_match, children().size());
+  for (size_t i = 0; i < nb_match; ++i) {
+    views::View* child = children()[i];
     gfx::Point point_in_child_coords(point);
     View::ConvertPointToTarget(this, child, &point_in_child_coords);
     if (child->visible() && child->HitTestPoint(point_in_child_coords))

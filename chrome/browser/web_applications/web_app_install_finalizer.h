@@ -27,6 +27,7 @@ class WebAppInstallFinalizer final : public InstallFinalizer {
 
   // InstallFinalizer:
   void FinalizeInstall(const WebApplicationInfo& web_app_info,
+                       const FinalizeOptions& options,
                        InstallFinalizedCallback callback) override;
   bool CanCreateOsShortcuts() const override;
   void CreateOsShortcuts(const AppId& app_id,

@@ -10,6 +10,12 @@
 namespace blink {
 namespace features {
 
+// Enable intervention for download that was initiated from or occurred in an ad
+// frame without user activation.
+const base::Feature kBlockingDownloadsInAdFrameWithoutUserActivation{
+    "BlockingDownloadsInAdFrameWithoutUserActivation",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable defer commits a bit to avoid flash.
 const base::Feature kAvoidFlashBetweenNavigation{
     "AvoidFlashBetweenNavigation", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -30,9 +36,22 @@ const base::Feature kEnableGpuRasterizationViewportRestriction{
 const base::Feature kScriptStreaming{"ScriptStreaming",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
+// Enables user level memory pressure signal generation on Android.
+const base::Feature kUserLevelMemoryPressureSignal{
+    "UserLevelMemoryPressureSignal", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Enable FCP++ by experiment. See https://crbug.com/869924
 const base::Feature kFirstContentfulPaintPlusPlus{
     "FirstContentfulPaintPlusPlus", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Perform memory purges after freezing only if all pages are frozen.
+const base::Feature kFreezePurgeMemoryAllPagesFrozen{
+    "FreezePurgeMemoryAllPagesFrozen", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Controls whether or not the font cache is invalidated when a critical memory
+// pressure signal is sent.
+const base::Feature kInvalidateFontCacheOnPurge{
+    "InvalidateFontCacheOnPurge", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enables the experimental sweep-line algorithm for tracking "jank" from
 // layout objects changing their visual location between animation frames.
@@ -42,7 +61,7 @@ const base::Feature kJankTrackingSweepLine{"JankTrackingSweepLine",
 // Enable a new compositing mode called BlinkGenPropertyTrees where Blink
 // generates the compositor property trees. See: https://crbug.com/836884.
 const base::Feature kBlinkGenPropertyTrees{"BlinkGenPropertyTrees",
-                                           base::FEATURE_DISABLED_BY_DEFAULT};
+                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable LayoutNG.
 const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_DISABLED_BY_DEFAULT};
@@ -97,9 +116,20 @@ const base::Feature kPreviewsResourceLoadingHintsSpecificResourceTypes{
     "PreviewsResourceLoadingHintsSpecificResourceTypes",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Purge memory when freezing only if the renderer is backgrounded.
-const base::Feature kPurgeMemoryOnlyForBackgroundedProcesses{
-    "FreezePurgeMemoryBackgroundedOnly", base::FEATURE_DISABLED_BY_DEFAULT};
+// Perform a memory purge after a renderer is backgrounded. Formerly labelled as
+// the "PurgeAndSuspend" experiment.
+//
+// TODO(adityakeerthi): Disabled by default on Mac and Android for historical
+// reasons. Consider enabling by default if experiment results are positive.
+// https://crbug.com/926186
+const base::Feature kPurgeRendererMemoryWhenBackgrounded {
+  "PurgeRendererMemoryWhenBackgrounded",
+#if defined(OS_MACOSX) || defined(OS_ANDROID)
+      base::FEATURE_DISABLED_BY_DEFAULT
+#else
+      base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+};
 
 // Enable Implicit Root Scroller. https://crbug.com/903260.
 const base::Feature kImplicitRootScroller{"ImplicitRootScroller",
@@ -124,12 +154,6 @@ const base::Feature kRTCUnifiedPlanByDefault{"RTCUnifiedPlanByDefault",
 const base::Feature kRTCOfferExtmapAllowMixed{
     "RTCOfferExtmapAllowMixed", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enables to load the response body through Mojo data pipe passed by
-// WebURLLoaderClient::DidStartLoadingResponseBody() instead of
-// WebURLLoaderClient::DidReceiveData().
-const base::Feature kResourceLoadViaDataPipe{"ResourceLoadViaDataPipe",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
-
 const base::Feature kServiceWorkerImportedScriptUpdateCheck{
     "ServiceWorkerImportedScriptUpdateCheck",
     base::FEATURE_DISABLED_BY_DEFAULT};
@@ -141,6 +165,11 @@ const base::Feature kServiceWorkerParallelSideDataReading{
 const base::Feature kServiceWorkerAggressiveCodeCache{
     "ServiceWorkerAggressiveCodeCache", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Experiment of the delay from navigation to starting an update of a service
+// worker's script.
+const base::Feature kServiceWorkerUpdateDelay{
+    "ServiceWorkerUpdateDelay", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Freeze scheduler task queues in background after allowed grace time.
 // "stop" is a legacy name.
 const base::Feature kStopInBackground {
@@ -151,6 +180,11 @@ const base::Feature kStopInBackground {
       base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 };
+
+// Freeze scheduler task queues in background on network idle.
+// This feature only works if stop-in-background is enabled.
+const base::Feature kFreezeBackgroundTabOnNetworkIdle{
+    "freeze-background-tab-on-network-idle", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Freeze non-timer task queues in background, after allowed grace time.
 // "stop" is a legacy name.

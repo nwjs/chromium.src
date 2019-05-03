@@ -84,8 +84,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
   USING_FAST_MALLOC(GraphicsLayer);
 
  public:
-  static std::unique_ptr<GraphicsLayer> Create(GraphicsLayerClient&);
-
+  explicit GraphicsLayer(GraphicsLayerClient&);
   ~GraphicsLayer() override;
 
   GraphicsLayerClient& Client() const { return client_; }
@@ -195,10 +194,8 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
   bool IsRootForIsolatedGroup() const;
   void SetIsRootForIsolatedGroup(bool);
 
-  void SetHitTestableWithoutDrawsContent(bool);
-  bool GetHitTestableWithoutDrawsContent() const {
-    return hit_testable_without_draws_content_;
-  }
+  void SetHitTestable(bool);
+  bool GetHitTestable() const { return hit_testable_; }
 
   void SetFilters(CompositorFilterOperations);
   void SetBackdropFilters(CompositorFilterOperations, const gfx::RRectF&);
@@ -277,7 +274,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
 
   // DisplayItemClient methods
   String DebugName() const final { return client_.DebugName(this); }
-  LayoutRect VisualRect() const override;
+  IntRect VisualRect() const override;
 
   void SetHasWillChangeTransformHint(bool);
 
@@ -323,8 +320,6 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
 
  protected:
   String DebugName(cc::Layer*) const;
-
-  explicit GraphicsLayer(GraphicsLayerClient&);
 
  private:
   friend class CompositedLayerMappingTest;
@@ -379,7 +374,7 @@ class PLATFORM_EXPORT GraphicsLayer : public cc::LayerClient,
   bool draws_content_ : 1;
   bool paints_hit_test_ : 1;
   bool contents_visible_ : 1;
-  bool hit_testable_without_draws_content_ : 1;
+  bool hit_testable_ : 1;
   bool needs_check_raster_invalidation_ : 1;
 
   bool has_scroll_parent_ : 1;

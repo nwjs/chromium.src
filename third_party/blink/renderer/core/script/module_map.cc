@@ -22,10 +22,6 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   USING_GARBAGE_COLLECTED_MIXIN(ModuleMap::Entry);
 
  public:
-  static Entry* Create(ModuleMap* map) {
-    return MakeGarbageCollected<Entry>(map);
-  }
-
   explicit Entry(ModuleMap*);
   ~Entry() override {}
 
@@ -35,7 +31,7 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   // Notify fetched |m_moduleScript| to the client asynchronously.
   void AddClient(SingleModuleClient*);
 
-  // This is only to be used from ScriptModuleResolver implementations.
+  // This is only to be used from ModuleRecordResolver implementations.
   ModuleScript* GetModuleScript() const;
 
  private:
@@ -46,7 +42,7 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   // Implements ModuleScriptLoaderClient
   void NotifyNewSingleModuleFinished(ModuleScript*) override;
 
-  TraceWrapperMember<ModuleScript> module_script_;
+  Member<ModuleScript> module_script_;
   Member<ModuleMap> map_;
 
   // Correspond to the HTML spec: "fetching" state.
@@ -61,8 +57,8 @@ ModuleMap::Entry::Entry(ModuleMap* map) : map_(map) {
 
 void ModuleMap::AddToMap(const KURL& url, ModuleScript* script) {
   MapImpl::AddResult result = map_.insert(url, nullptr);
-  TraceWrapperMember<Entry>& entry = result.stored_value->value;
-  entry = Entry::Create(this);
+  Member<Entry>& entry = result.stored_value->value;
+  entry = MakeGarbageCollected<Entry>(this);
   entry->module_script_ = script;
   entry->is_fetching_ = false;
 }
@@ -110,7 +106,7 @@ ModuleScript* ModuleMap::Entry::GetModuleScript() const {
 
 ModuleMap::ModuleMap(Modulator* modulator)
     : modulator_(modulator),
-      loader_registry_(ModuleScriptLoaderRegistry::Create()) {
+      loader_registry_(MakeGarbageCollected<ModuleScriptLoaderRegistry>()) {
   DCHECK(modulator);
 }
 
@@ -136,9 +132,9 @@ void ModuleMap::FetchSingleModuleScript(
   // entry's value changes, then queue a task on the networking task source to
   // proceed with running the following steps.</spec>
   MapImpl::AddResult result = map_.insert(request.Url(), nullptr);
-  TraceWrapperMember<Entry>& entry = result.stored_value->value;
+  Member<Entry>& entry = result.stored_value->value;
   if (result.is_new_entry) {
-    entry = Entry::Create(this);
+    entry = MakeGarbageCollected<Entry>(this);
 
     // Steps 4-9 loads a new single module script.
     // Delegates to ModuleScriptLoader via Modulator.

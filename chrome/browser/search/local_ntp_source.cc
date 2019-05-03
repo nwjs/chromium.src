@@ -86,6 +86,9 @@ using search_provider_logos::LogoService;
 
 namespace {
 
+// Language code used to check features run in English in the US.
+const char kEnUSLanguageCode[] = "en-US";
+
 // Signifies a locally constructed resource, i.e. not from grit/.
 const int kLocalResource = -1;
 
@@ -219,6 +222,8 @@ std::unique_ptr<base::DictionaryValue> GetTranslatedStrings(bool is_google) {
               IDS_NTP_CUSTOM_BG_CUSTOMIZE_NTP_LABEL);
     AddString(translated_strings.get(), "backLabel",
               IDS_NTP_CUSTOM_BG_BACK_LABEL);
+    AddString(translated_strings.get(), "selectedLabel",
+              IDS_NTP_CUSTOM_BG_IMAGE_SELECTED);
 
     // Custom Links
     AddString(translated_strings.get(), "addLinkTitle",
@@ -295,6 +300,8 @@ std::unique_ptr<base::DictionaryValue> GetTranslatedStrings(bool is_google) {
     AddString(translated_strings.get(), "waiting", IDS_NEW_TAB_VOICE_WAITING);
     AddString(translated_strings.get(), "otherError",
               IDS_NEW_TAB_VOICE_OTHER_ERROR);
+    AddString(translated_strings.get(), "voiceCloseTooltip",
+              IDS_NEW_TAB_VOICE_CLOSE_TOOLTIP);
   }
 
   return translated_strings;
@@ -835,8 +842,6 @@ void LocalNtpSource::StartDataRequest(
       return;
     }
 
-    // TODO(crbug/909931): There's no need to fetch the promo on each load,
-    // we can sometimes use cached data.
     promo_requests_.emplace_back(base::TimeTicks::Now(), callback);
     promo_service_->Refresh();
 
@@ -849,11 +854,20 @@ void LocalNtpSource::StartDataRequest(
       return;
     }
 
+    // Currently Vasco search suggestions are only available for en-US
+    // users. If this restriction is expanded or removed in the future this
+    // check must be changed.
+    if (one_google_bar_service_->language_code() != kEnUSLanguageCode) {
+      std::string no_suggestions =
+          "var searchSuggestions = {suggestionsHtml: ''}";
+      callback.Run(base::RefCountedString::TakeString(&no_suggestions));
+      return;
+    }
+
     MaybeServeSearchSuggestions(callback);
 
     search_suggest_requests_.emplace_back(base::TimeTicks::Now());
     search_suggest_service_->Refresh();
-
     return;
   }
 
@@ -1041,7 +1055,7 @@ void LocalNtpSource::OnCollectionInfoAvailable() {
     return;
 
   std::string js_errors =
-      "var coll_errors = " +
+      "var collErrors = " +
       GetErrorDict(ntp_background_service_->collection_error_info());
 
   scoped_refptr<base::RefCountedString> result;
@@ -1079,7 +1093,7 @@ void LocalNtpSource::OnCollectionImagesAvailable() {
     return;
 
   std::string js_errors =
-      "var coll_img_errors = " +
+      "var collImgErrors = " +
       GetErrorDict(ntp_background_service_->collection_images_error_info());
 
   scoped_refptr<base::RefCountedString> result;
@@ -1087,7 +1101,7 @@ void LocalNtpSource::OnCollectionImagesAvailable() {
   base::JSONWriter::Write(ConvertCollectionImageToDict(
                               ntp_background_service_->collection_images()),
                           &js);
-  js = "var coll_img = " + js + "; " + js_errors;
+  js = "var collImg = " + js + "; " + js_errors;
   result = base::RefCountedString::TakeString(&js);
 
   base::TimeTicks now = base::TimeTicks::Now();
@@ -1194,7 +1208,7 @@ void LocalNtpSource::MaybeServeSearchSuggestions(
   scoped_refptr<base::RefCountedString> result;
   std::string js;
   base::JSONWriter::Write(*ConvertSearchSuggestDataToDict(data), &js);
-  js = "var search_suggestions  = " + js + ";";
+  js = "var searchSuggestions  = " + js + ";";
   result = base::RefCountedString::TakeString(&js);
   callback.Run(result);
 }
@@ -1241,17 +1255,20 @@ void LocalNtpSource::ServePromo(const base::Optional<PromoData>& data) {
   base::JSONWriter::Write(*ConvertPromoDataToDict(data), &js);
   js = "var promo = " + js + ";";
   result = base::RefCountedString::TakeString(&js);
-
   base::TimeTicks now = base::TimeTicks::Now();
   for (const auto& request : promo_requests_) {
     request.callback.Run(result);
     base::TimeDelta delta = now - request.start_time;
-    UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency", delta);
-    if (result) {
-      UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency.Success",
-                                 delta);
+    UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2", delta);
+    if (promo_service_->promo_status() == PromoService::Status::OK_WITH_PROMO) {
+      UMA_HISTOGRAM_MEDIUM_TIMES(
+          "NewTabPage.Promos.RequestLatency2.SuccessWithPromo", delta);
+    } else if (promo_service_->promo_status() ==
+               PromoService::Status::OK_WITHOUT_PROMO) {
+      UMA_HISTOGRAM_MEDIUM_TIMES(
+          "NewTabPage.Promos.RequestLatency2.SuccessWithoutPromo", delta);
     } else {
-      UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency.Failure",
+      UMA_HISTOGRAM_MEDIUM_TIMES("NewTabPage.Promos.RequestLatency2.Failure",
                                  delta);
     }
   }

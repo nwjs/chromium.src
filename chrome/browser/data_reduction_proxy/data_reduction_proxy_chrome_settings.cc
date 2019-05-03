@@ -38,6 +38,7 @@
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_features.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
+#include "components/data_reduction_proxy/core/common/data_reduction_proxy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/previews/content/previews_ui_service.h"
@@ -189,7 +190,6 @@ DataReductionProxyChromeSettings::MigrateDataReductionProxyOffProxyPrefsHelper(
 
 DataReductionProxyChromeSettings::DataReductionProxyChromeSettings()
     : data_reduction_proxy::DataReductionProxySettings(),
-      data_reduction_proxy_enabled_pref_name_(prefs::kDataSaverEnabled),
       profile_(nullptr) {}
 
 DataReductionProxyChromeSettings::~DataReductionProxyChromeSettings() {}
@@ -241,8 +241,7 @@ void DataReductionProxyChromeSettings::InitDataReductionProxySettings(
           ui_task_runner, io_data->io_task_runner(), db_task_runner,
           commit_delay);
   data_reduction_proxy::DataReductionProxySettings::
-      InitDataReductionProxySettings(data_reduction_proxy_enabled_pref_name_,
-                                     profile_prefs, io_data,
+      InitDataReductionProxySettings(profile_prefs, io_data,
                                      std::move(service));
   io_data->SetDataReductionProxyService(
       data_reduction_proxy_service()->GetWeakPtr());

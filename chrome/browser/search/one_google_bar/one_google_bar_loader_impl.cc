@@ -99,6 +99,12 @@ base::Optional<OneGoogleBarData> JsonToOGBData(const base::Value& value) {
     return base::nullopt;
   }
 
+  const base::Value* language = nullptr;
+  std::string language_code;
+  if (update->Get("language_code", &language)) {
+    language_code = language->GetString();
+  }
+
   const base::DictionaryValue* one_google_bar = nullptr;
   if (!update->GetDictionary("ogb", &one_google_bar)) {
     DVLOG(1) << "Parse error: no ogb";
@@ -106,6 +112,7 @@ base::Optional<OneGoogleBarData> JsonToOGBData(const base::Value& value) {
   }
 
   OneGoogleBarData result;
+  result.language_code = language_code;
 
   if (!safe_html::GetHtml(*one_google_bar, "html", &result.bar_html)) {
     DVLOG(1) << "Parse error: no html";
@@ -261,14 +268,13 @@ OneGoogleBarLoaderImpl::OneGoogleBarLoaderImpl(
     : url_loader_factory_(url_loader_factory),
       google_url_tracker_(google_url_tracker),
       application_locale_(application_locale),
-      //      account_consistency_mirror_required_(account_consistency_mirror_required),
+      account_consistency_mirror_required_(account_consistency_mirror_required),
       weak_ptr_factory_(this) {}
 
 OneGoogleBarLoaderImpl::~OneGoogleBarLoaderImpl() = default;
 
 void OneGoogleBarLoaderImpl::Load(OneGoogleCallback callback) {
   callbacks_.push_back(std::move(callback));
-#if 0
 
   // Note: If there is an ongoing request, abandon it. It's possible that
   // something has changed in the meantime (e.g. signin state) that would make
@@ -278,7 +284,6 @@ void OneGoogleBarLoaderImpl::Load(OneGoogleCallback callback) {
       base::BindOnce(&OneGoogleBarLoaderImpl::LoadDone,
                      base::Unretained(this)));
   pending_request_->Start();
-#endif
 }
 
 GURL OneGoogleBarLoaderImpl::GetLoadURLForTesting() const {

@@ -71,13 +71,15 @@ class AndroidSmsAppSetupControllerImpl : public AndroidSmsAppSetupController {
                  const GURL& migrated_to_app_url,
                  SuccessCallback callback) override;
 
-  void OnSetRememberDeviceByDefaultCookieResult(const GURL& app_url,
-                                                const GURL& install_url,
-                                                SuccessCallback callback,
-                                                bool succeeded);
-  void OnSetMigrationCookieResult(const GURL& app_url,
-                                  SuccessCallback callback,
-                                  bool succeeded);
+  void OnSetRememberDeviceByDefaultCookieResult(
+      const GURL& app_url,
+      const GURL& install_url,
+      SuccessCallback callback,
+      net::CanonicalCookie::CookieInclusionStatus status);
+  void OnSetMigrationCookieResult(
+      const GURL& app_url,
+      SuccessCallback callback,
+      net::CanonicalCookie::CookieInclusionStatus status);
 
   void OnAppInstallResult(SuccessCallback callback,
                           const GURL& app_url,

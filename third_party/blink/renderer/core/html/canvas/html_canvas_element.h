@@ -43,7 +43,6 @@
 #include "third_party/blink/renderer/core/imagebitmap/image_bitmap_source.h"
 #include "third_party/blink/renderer/core/page/page_visibility_observer.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_typed_array.h"
-#include "third_party/blink/renderer/platform/bindings/script_wrappable_visitor.h"
 #include "third_party/blink/renderer/platform/geometry/float_rect.h"
 #include "third_party/blink/renderer/platform/geometry/int_size.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_host.h"
@@ -76,13 +75,13 @@ class IntSize;
 
 #if defined(SUPPORT_WEBGL2_COMPUTE_CONTEXT)
 class
-    CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContextOrXRPresentationContext;
-typedef CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContextOrXRPresentationContext
+    CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContextOrXRPresentationContextOrGPUCanvasContext;
+typedef CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrWebGL2ComputeRenderingContextOrImageBitmapRenderingContextOrXRPresentationContextOrGPUCanvasContext
     RenderingContext;
 #else
 class
-    CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContextOrXRPresentationContext;
-typedef CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContextOrXRPresentationContext
+    CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContextOrXRPresentationContextOrGPUCanvasContext;
+typedef CanvasRenderingContext2DOrWebGLRenderingContextOrWebGL2RenderingContextOrImageBitmapRenderingContextOrXRPresentationContextOrGPUCanvasContext
     RenderingContext;
 #endif
 
@@ -158,9 +157,7 @@ class CORE_EXPORT HTMLCanvasElement final
   void DidDraw(const FloatRect&) override;
   void DidDraw() override;
 
-  void Paint(GraphicsContext&,
-             const LayoutRect&,
-             bool flatten_composited_layers);
+  void Paint(GraphicsContext&, const LayoutRect&);
 
   void DisableDeferral(DisableDeferralReason);
 
@@ -324,8 +321,6 @@ class CORE_EXPORT HTMLCanvasElement final
  private:
   void Dispose();
 
-  void PaintInternal(GraphicsContext&, const LayoutRect&);
-
   using ContextFactoryVector =
       Vector<std::unique_ptr<CanvasRenderingContextFactory>>;
   static ContextFactoryVector& RenderingContextFactories();
@@ -338,7 +333,7 @@ class CORE_EXPORT HTMLCanvasElement final
   bool ShouldAccelerate(AccelerationCriteria) const;
 
   void ParseAttribute(const AttributeModificationParams&) override;
-  LayoutObject* CreateLayoutObject(const ComputedStyle&) override;
+  LayoutObject* CreateLayoutObject(const ComputedStyle&, LegacyLayout) override;
   bool AreAuthorShadowsAllowed() const override { return false; }
 
   void Reset();
@@ -369,7 +364,7 @@ class CORE_EXPORT HTMLCanvasElement final
 
   IntSize size_;
 
-  TraceWrapperMember<CanvasRenderingContext> context_;
+  Member<CanvasRenderingContext> context_;
   // Used only for WebGL currently.
   bool context_creation_was_blocked_;
 

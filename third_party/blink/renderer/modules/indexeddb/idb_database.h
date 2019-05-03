@@ -45,7 +45,6 @@
 #include "third_party/blink/renderer/modules/indexeddb/web_idb_database_callbacks.h"
 #include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
-#include "third_party/blink/renderer/platform/bindings/trace_wrapper_member.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 
 namespace blink {
@@ -64,11 +63,6 @@ class MODULES_EXPORT IDBDatabase final
   DEFINE_WRAPPERTYPEINFO();
 
  public:
-  static IDBDatabase* Create(ExecutionContext*,
-                             std::unique_ptr<WebIDBDatabase>,
-                             IDBDatabaseCallbacks*,
-                             v8::Isolate*);
-
   IDBDatabase(ExecutionContext*,
               std::unique_ptr<WebIDBDatabase>,
               IDBDatabaseCallbacks*,
@@ -190,7 +184,7 @@ class MODULES_EXPORT IDBDatabase final
   std::unique_ptr<WebIDBDatabase> backend_;
   Member<IDBTransaction> version_change_transaction_;
   HeapHashMap<int64_t, Member<IDBTransaction>> transactions_;
-  HeapHashMap<int32_t, TraceWrapperMember<IDBObserver>> observers_;
+  HeapHashMap<int32_t, Member<IDBObserver>> observers_;
 
   bool close_pending_ = false;
 

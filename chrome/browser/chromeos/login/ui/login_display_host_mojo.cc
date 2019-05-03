@@ -91,12 +91,6 @@ void LoginDisplayHostMojo::ShowWhitelistCheckFailedError() {
   dialog_->Show();
 }
 
-void LoginDisplayHostMojo::ShowUnrecoverableCrypthomeErrorDialog() {
-  DCHECK(GetOobeUI());
-  GetOobeUI()->signin_screen_handler()->ShowUnrecoverableCrypthomeErrorDialog();
-  dialog_->Show();
-}
-
 void LoginDisplayHostMojo::ShowErrorScreen(LoginDisplay::SigninError error_id) {
   DCHECK(GetOobeUI());
   GetOobeUI()->signin_screen_handler()->ShowErrorScreen(error_id);
@@ -244,12 +238,12 @@ void LoginDisplayHostMojo::OnStartSignInScreen(
 
   user_selection_screen_->InitEasyUnlock();
 
-  kiosk_updater_.SendKioskApps();
-
   system_info_updater_->StartRequest();
 
   // Update status of add user button in the shelf.
   UpdateAddUserButtonStatus();
+
+  OnStartSignInScreenCommon();
 }
 
 void LoginDisplayHostMojo::OnPreferencesChanged() {
@@ -279,17 +273,7 @@ void LoginDisplayHostMojo::ShowGaiaDialog(
   if (users_.empty())
     can_close_dialog_ = false;
 
-  if (prefilled_account) {
-    // Make sure gaia displays |account| if requested.
-    if (!login_display_->IsSigninInProgress())
-      GetOobeUI()->GetGaiaScreenView()->ShowGaiaAsync(prefilled_account);
-    LoadWallpaper(*prefilled_account);
-  } else {
-    if (GetOobeUI()->current_screen() != OobeScreen::SCREEN_GAIA_SIGNIN) {
-      GetOobeUI()->GetGaiaScreenView()->ShowGaiaAsync(base::nullopt);
-    }
-    LoadSigninWallpaper();
-  }
+  ShowGaiaDialogCommon(prefilled_account);
 
   dialog_->Show();
 }
@@ -463,6 +447,12 @@ void LoginDisplayHostMojo::OnAuthSuccess(const UserContext& user_context) {
     pending_auth_state_.reset();
   }
 }
+
+void LoginDisplayHostMojo::OnPasswordChangeDetected() {}
+
+void LoginDisplayHostMojo::OnOldEncryptionDetected(
+    const UserContext& user_context,
+    bool has_incomplete_migration) {}
 
 void LoginDisplayHostMojo::LoadOobeDialog() {
   if (dialog_)

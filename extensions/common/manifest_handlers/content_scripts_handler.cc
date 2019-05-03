@@ -132,7 +132,7 @@ std::unique_ptr<UserScript> LoadUserScriptFromDictionary(
   if (in_main_world != nullptr) {
     if (!in_main_world->is_bool()) {
       *error = ErrorUtils::FormatErrorMessageUTF16(
-          errors::kInvalidInMainWorld, base::IntToString(definition_index));
+          errors::kInvalidInMainWorld, base::NumberToString(definition_index));
       return nullptr;
     }
     result->set_in_main_world(in_main_world->GetBool());

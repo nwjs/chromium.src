@@ -117,7 +117,6 @@ ModelLoader::~ModelLoader() {
 }
 
 void ModelLoader::StartFetch() {
-#if 0
   // Start fetching the model either from the cache or possibly from the
   // network if the model isn't in the cache.
 
@@ -164,7 +163,6 @@ void ModelLoader::StartFetch() {
       url_loader_factory_.get(),
       base::BindOnce(&ModelLoader::OnURLLoaderComplete,
                      base::Unretained(this)));
-#endif
 }
 
 void ModelLoader::OnURLLoaderComplete(

@@ -98,7 +98,7 @@ ui::ModalType WidgetDelegate::GetModalType() const {
   return ui::MODAL_TYPE_NONE;
 }
 
-ax::mojom::Role WidgetDelegate::GetAccessibleWindowRole() const {
+ax::mojom::Role WidgetDelegate::GetAccessibleWindowRole() {
   return ax::mojom::Role::kWindow;
 }
 
@@ -189,11 +189,11 @@ ClientView* WidgetDelegate::CreateClientView(Widget* widget) {
 }
 
 NonClientFrameView* WidgetDelegate::CreateNonClientFrameView(Widget* widget) {
-  return NULL;
+  return nullptr;
 }
 
 View* WidgetDelegate::CreateOverlayView() {
-  return NULL;
+  return nullptr;
 }
 
 bool WidgetDelegate::WillProcessWorkAreaChange() const {
@@ -229,8 +229,7 @@ WidgetDelegateView::WidgetDelegateView() {
   set_owned_by_client();
 }
 
-WidgetDelegateView::~WidgetDelegateView() {
-}
+WidgetDelegateView::~WidgetDelegateView() = default;
 
 void WidgetDelegateView::DeleteDelegate() {
   delete this;

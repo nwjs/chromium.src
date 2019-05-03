@@ -5,38 +5,49 @@
 package org.chromium.chrome.browser.explore_sites;
 
 import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.matcher.ViewMatchers.isAssignableFrom;
+import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
 
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.instanceOf;
 
 import android.annotation.TargetApi;
 import android.os.Build;
 import android.os.SystemClock;
+import android.support.test.InstrumentationRegistry;
+import android.support.test.espresso.UiController;
+import android.support.test.espresso.ViewAction;
 import android.support.test.espresso.contrib.RecyclerViewActions;
 import android.support.test.filters.SmallTest;
+import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.view.ViewGroup;
+import android.view.View;
 
+import org.hamcrest.Matcher;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.RenderTestRule;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.content_public.browser.test.util.Criteria;
 import org.chromium.content_public.browser.test.util.CriteriaHelper;
+import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.util.ArrayList;
 
@@ -50,6 +61,34 @@ import java.util.ArrayList;
 @Features.EnableFeatures(ChromeFeatureList.EXPLORE_SITES)
 public class ExploreSitesPageTest {
     // clang-format on
+
+    private static final class ScrollToPositionWithOffsetViewAction implements ViewAction {
+        private final int mPosition;
+        private final int mOffset;
+
+        private ScrollToPositionWithOffsetViewAction(int position, int offset) {
+            this.mPosition = position;
+            mOffset = offset;
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public Matcher<View> getConstraints() {
+            return allOf(isAssignableFrom(RecyclerView.class), isDisplayed());
+        }
+
+        @Override
+        public String getDescription() {
+            return "scroll RecyclerView to mPosition: " + mPosition;
+        }
+
+        @Override
+        public void perform(UiController uiController, View view) {
+            RecyclerView recyclerView = (RecyclerView) view;
+            ((LinearLayoutManager) recyclerView.getLayoutManager())
+                    .scrollToPositionWithOffset(mPosition, mOffset);
+        }
+    }
 
     ArrayList<ExploreSitesCategory> getTestingCatalog() {
         final ArrayList<ExploreSitesCategory> categoryList = new ArrayList<>();
@@ -71,14 +110,15 @@ public class ExploreSitesPageTest {
     }
 
     @Rule
-    public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
+    public ChromeActivityTestRule<ChromeActivity> mActivityTestRule =
+            new ChromeActivityTestRule<>(ChromeActivity.class);
 
     @Rule
     public RenderTestRule mRenderTestRule =
             new RenderTestRule("chrome/test/data/android/render_tests");
 
     private Tab mTab;
-    private ViewGroup mRecyclerView;
+    private RecyclerView mRecyclerView;
     private ExploreSitesPage mEsp;
 
     @Before
@@ -100,19 +140,32 @@ public class ExploreSitesPageTest {
         ExploreSitesBridge.setCatalogForTesting(null);
     }
 
+    private int getFirstVisiblePosition() {
+        return ((LinearLayoutManager) mRecyclerView.getLayoutManager())
+                .findFirstCompletelyVisibleItemPosition();
+    }
+
+    private void scrollToPosition(int scrollPosition) {
+        onView(instanceOf(RecyclerView.class))
+                .perform(new ScrollToPositionWithOffsetViewAction(scrollPosition, 0));
+    }
+
     @Test
     @SmallTest
     @Feature({"ExploreSites", "RenderTest"})
     public void testScrolledLayout_withBack() throws Exception {
-        onView(instanceOf(RecyclerView.class)).perform(RecyclerViewActions.scrollToPosition(2));
+        scrollToPosition(2);
 
         mRenderTestRule.render(mRecyclerView, "recycler_layout");
+        final int scrollPosition = getFirstVisiblePosition();
         // TODO(https://crbug.com/938519): Remove this sleep in favor of actually waiting for the
         // scroll bar to disappear.
         SystemClock.sleep(3000);
         mActivityTestRule.loadUrl("about:blank");
-        ThreadUtils.runOnUiThreadBlocking(() -> mActivityTestRule.getActivity().onBackPressed());
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> mActivityTestRule.getActivity().onBackPressed());
         mRenderTestRule.render(mRecyclerView, "recycler_layout_back");
+        Assert.assertEquals(scrollPosition, getFirstVisiblePosition());
     }
 
     @Test
@@ -135,6 +188,72 @@ public class ExploreSitesPageTest {
         mEsp = (ExploreSitesPage) mTab.getNativePage();
         mRecyclerView = mEsp.getView().findViewById(R.id.explore_sites_category_recycler);
         mRenderTestRule.render(mRecyclerView, "scrolled_to_category_2");
+        // We expect that the first visible position is actually 1 (not 2) since the first category
+        // in the catalog is not added to the adapter at all due to insufficient sites.
+        Assert.assertEquals(1, getFirstVisiblePosition());
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"ExploreSites", "RenderTest"})
+    public void testFocusRetention_WithBack() throws Exception {
+        Assume.assumeTrue(FeatureUtilities.isNoTouchModeEnabled());
+
+        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+
+        final int defaultScrollPosition = mEsp.initialScrollPositionForTests();
+        Assert.assertEquals(defaultScrollPosition, getFocusedCategoryPosition());
+        Assert.assertEquals(0, getFocusedTileIndex());
+
+        // Change the focus from default so that we can verify it stays the same after navigation.
+        focusDifferentCard();
+
+        int focusedCategory = getFocusedCategoryPosition();
+        int focusedTile = getFocusedTileIndex();
+        Assert.assertNotEquals(defaultScrollPosition, focusedCategory);
+        Assert.assertNotEquals(0, focusedTile);
+
+        mRenderTestRule.render(mRecyclerView, "recycler_layout_focus");
+
+        mActivityTestRule.loadUrl("about:blank");
+
+        navigateBackToESP();
+
+        mRenderTestRule.render(mRecyclerView, "recycler_layout_focus_back");
+        Assert.assertEquals(focusedCategory, getFocusedCategoryPosition());
+        Assert.assertEquals(focusedTile, getFocusedTileIndex());
+    }
+
+    private void focusDifferentCard() {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            ExploreSitesCategoryCardView cardView = null;
+            for (int i = 0; i < mRecyclerView.getChildCount(); i++) {
+                cardView = (ExploreSitesCategoryCardView) mRecyclerView.getChildAt(i);
+                if (!cardView.hasFocus()) {
+                    cardView.getTileViewAt(2).requestFocus();
+                    break;
+                }
+            }
+        });
+    }
+
+    private void navigateBackToESP() {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> mActivityTestRule.getActivity().onBackPressed());
+        waitForEspLoaded(mTab);
+        mEsp = (ExploreSitesPage) mTab.getNativePage();
+        mRecyclerView = mEsp.getView().findViewById(R.id.explore_sites_category_recycler);
+    }
+
+    private int getFocusedCategoryPosition() {
+        View focusedView = mRecyclerView.getFocusedChild();
+        return mRecyclerView.getLayoutManager().getPosition(focusedView);
+    }
+
+    private int getFocusedTileIndex() {
+        ExploreSitesCategoryCardView focusedView =
+                (ExploreSitesCategoryCardView) mRecyclerView.getFocusedChild();
+        return focusedView.getFocusedTileIndex(-1);
     }
 
     @TargetApi(Build.VERSION_CODES.LOLLIPOP)

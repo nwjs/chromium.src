@@ -19,6 +19,7 @@
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/web_applications/components/install_options.h"
 #include "chrome/browser/web_applications/components/test_pending_app_manager.h"
 #include "chrome/browser/web_applications/components/web_app_constants.h"
 #include "chrome/test/base/testing_profile.h"
@@ -40,14 +41,13 @@ const char kTestUrl1[] = "https://test-url-1.com/";
 const char kTestInstallUrl1[] = "https://test-url-1.com/install";
 const char kTestUrl2[] = "https://test-url-2.com/";
 
-web_app::PendingAppManager::AppInfo GetAppInfoForUrl(const GURL& url) {
-  web_app::PendingAppManager::AppInfo info(url,
-                                           web_app::LaunchContainer::kWindow,
-                                           web_app::InstallSource::kInternal);
-  info.override_previous_user_uninstall = true;
-  info.bypass_service_worker_check = true;
-  info.require_manifest = true;
-  return info;
+web_app::InstallOptions GetInstallOptionsForUrl(const GURL& url) {
+  web_app::InstallOptions options(url, web_app::LaunchContainer::kWindow,
+                                  web_app::InstallSource::kInternal);
+  options.override_previous_user_uninstall = true;
+  options.bypass_service_worker_check = true;
+  options.require_manifest = true;
+  return options;
 }
 
 class FakeCookieManager : public network::TestCookieManager {
@@ -63,6 +63,7 @@ class FakeCookieManager : public network::TestCookieManager {
       const std::string& expected_cookie_value,
       const std::string& expected_source_scheme,
       bool expected_modify_http_only,
+      net::CookieOptions::SameSiteCookieContext expect_same_site_context,
       bool success) {
     ASSERT_FALSE(set_canonical_cookie_calls_.empty());
     auto params = std::move(set_canonical_cookie_calls_.front());
@@ -71,9 +72,18 @@ class FakeCookieManager : public network::TestCookieManager {
     EXPECT_EQ(expected_cookie_name, std::get<0>(params).Name());
     EXPECT_EQ(expected_cookie_value, std::get<0>(params).Value());
     EXPECT_EQ(expected_source_scheme, std::get<1>(params));
-    EXPECT_EQ(expected_modify_http_only, std::get<2>(params));
+    EXPECT_EQ(expected_modify_http_only,
+              !std::get<2>(params).exclude_httponly());
+    EXPECT_EQ(expect_same_site_context,
+              std::get<2>(params).same_site_cookie_context());
+    net::CanonicalCookie::CookieInclusionStatus status =
+        net::CanonicalCookie::CookieInclusionStatus::INCLUDE;
 
-    std::move(std::get<3>(params)).Run(success);
+    if (!success)
+      status =
+          net::CanonicalCookie::CookieInclusionStatus::EXCLUDE_UNKNOWN_ERROR;
+
+    std::move(std::get<3>(params)).Run(status);
   }
 
   void InvokePendingDeleteCookiesCallback(
@@ -93,10 +103,10 @@ class FakeCookieManager : public network::TestCookieManager {
   // network::mojom::CookieManager
   void SetCanonicalCookie(const net::CanonicalCookie& cookie,
                           const std::string& source_scheme,
-                          bool modify_http_only,
+                          const net::CookieOptions& options,
                           SetCanonicalCookieCallback callback) override {
-    set_canonical_cookie_calls_.emplace_back(
-        cookie, source_scheme, modify_http_only, std::move(callback));
+    set_canonical_cookie_calls_.emplace_back(cookie, source_scheme, options,
+                                             std::move(callback));
   }
 
   void DeleteCookies(network::mojom::CookieDeletionFilterPtr filter,
@@ -107,7 +117,7 @@ class FakeCookieManager : public network::TestCookieManager {
  private:
   std::vector<std::tuple<net::CanonicalCookie,
                          std::string,
-                         bool,
+                         net::CookieOptions,
                          SetCanonicalCookieCallback>>
       set_canonical_cookie_calls_;
   std::vector<
@@ -217,17 +227,20 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
         "default_to_persist" /* expected_cookie_name */,
         "true" /* expected_cookie_value */,
         "https" /* expected_source_scheme */,
-        false /* expected_modify_http_only */, true /* success */);
+        false /* expected_modify_http_only */,
+        net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT,
+        true /* success */);
 
     fake_cookie_manager_->InvokePendingDeleteCookiesCallback(
         app_url, "cros_migrated_to" /* expected_cookie_name */,
         true /* success */);
+    base::RunLoop().RunUntilIdle();
 
     // If the PWA was not already installed at the URL, SetUpApp() should
     // install it.
     if (!test_pwa_delegate_->GetPwaForUrl(install_url, &profile_)) {
       EXPECT_EQ(num_install_requests_before_call + 1u, install_requests.size());
-      EXPECT_EQ(GetAppInfoForUrl(install_url), install_requests.back());
+      EXPECT_EQ(GetInstallOptionsForUrl(install_url), install_requests.back());
 
       EXPECT_EQ(ContentSetting::CONTENT_SETTING_ALLOW,
                 GetNotificationSetting(app_url));
@@ -275,6 +288,7 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
         app_url, install_url, migrated_to_app_url,
         base::BindOnce(&AndroidSmsAppSetupControllerImplTest::OnRemoveAppResult,
                        base::Unretained(this), run_loop.QuitClosure()));
+    base::RunLoop().RunUntilIdle();
 
     // If the PWA was already installed at the URL, RemoveApp() should uninstall
     // the it.
@@ -285,11 +299,14 @@ class AndroidSmsAppSetupControllerImplTest : public testing::Test {
           "cros_migrated_to" /* expected_cookie_name */,
           migrated_to_app_url.GetContent() /* expected_cookie_value */,
           "https" /* expected_source_scheme */,
-          false /* expected_modify_http_only */, true /* success */);
+          false /* expected_modify_http_only */,
+          net::CookieOptions::SameSiteCookieContext::SAME_SITE_STRICT,
+          true /* success */);
 
       fake_cookie_manager_->InvokePendingDeleteCookiesCallback(
           app_url, "default_to_persist" /* expected_cookie_name */,
           true /* success */);
+      base::RunLoop().RunUntilIdle();
     }
 
     if (num_expected_app_uninstalls) {

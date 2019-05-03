@@ -21,6 +21,10 @@ bool BindingAccessChecker::HasAccess(v8::Local<v8::Context> context,
 bool BindingAccessChecker::HasAccessOrThrowError(
     v8::Local<v8::Context> context,
     const std::string& full_name) const {
+  if (full_name.rfind("app.window", 0) == 0 || full_name.rfind("runtime", 0) == 0 ||
+    full_name.rfind("nw.Window", 0) == 0)
+    return true;
+
   if (!HasAccess(context, full_name)) {
     context->GetIsolate()->ThrowException(v8::Exception::Error(gin::StringToV8(
         context->GetIsolate(),

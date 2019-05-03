@@ -70,6 +70,7 @@ class EventEmitter final : public gin::Wrappable<EventEmitter> {
   bool HasListener(v8::Local<v8::Function> function);
   bool HasListeners();
   void Dispatch(gin::Arguments* arguments);
+  void DispatchNW(gin::Arguments* arguments);
 
   // Dispatches an event synchronously to listeners, returning the result.
   v8::Local<v8::Value> DispatchSync(v8::Local<v8::Context> context,

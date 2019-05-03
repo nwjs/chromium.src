@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/macros.h"
+#include "base/values.h"
 #include "gin/wrappable.h"
 #include "v8/include/v8.h"
 
@@ -41,11 +42,22 @@ class APIBindingJSUtil final : public gin::Wrappable<APIBindingJSUtil> {
  private:
   // A handler to initiate an API request through the APIRequestHandler. A
   // replacement for custom bindings that utilize require('sendRequest').
+  void SendRequestSync(gin::Arguments* arguments,
+                   const std::string& name,
+                   const std::vector<v8::Local<v8::Value>>& request_args,
+                   v8::Local<v8::Value> options);
   void SendRequest(gin::Arguments* arguments,
                    const std::string& name,
                    const std::vector<v8::Local<v8::Value>>& request_args,
-                   v8::Local<v8::Value> schemas_unused,
                    v8::Local<v8::Value> options);
+  void SendRequestHelper(gin::Arguments* arguments,
+                   const std::string& name,
+                   const std::vector<v8::Local<v8::Value>>& request_args,
+                   v8::Local<v8::Value> options,
+                   bool sync = false,
+                   bool* success = nullptr,
+                   base::ListValue* response = nullptr,
+                   std::string* error = nullptr);
 
   // A handler to register an argument massager for a specific event.
   // Replacement for event_bindings.registerArgumentMassager.
@@ -55,11 +67,8 @@ class APIBindingJSUtil final : public gin::Wrappable<APIBindingJSUtil> {
 
   // A handler to allow custom bindings to create custom extension API event
   // objects (e.g. foo.onBar).
-  // TODO(devlin): Currently, we ignore schema. We may want to take it into
-  // account.
   void CreateCustomEvent(gin::Arguments* arguments,
                          v8::Local<v8::Value> v8_event_name,
-                         v8::Local<v8::Value> unused_schema,
                          bool supports_filters,
                          bool supports_lazy_listeners);
 

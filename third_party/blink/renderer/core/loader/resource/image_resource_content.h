@@ -28,6 +28,7 @@ class ImageResourceObserver;
 class ResourceError;
 class ResourceFetcher;
 class ResourceResponse;
+class SecurityContext;
 
 // ImageResourceContent is a container that holds fetch result of
 // an ImageResource in a decoded form.
@@ -73,7 +74,7 @@ class CORE_EXPORT ImageResourceContent final
   // object size resolved using a default object size of 300x150.
   // TODO(fs): Make SVGImages return proper intrinsic width/height.
   IntSize IntrinsicSize(
-      RespectImageOrientationEnum should_respect_image_orientation);
+      RespectImageOrientationEnum should_respect_image_orientation) const;
 
   void UpdateImageAnimationPolicy();
 
@@ -174,11 +175,10 @@ class CORE_EXPORT ImageResourceContent final
     return is_refetchable_data_from_disk_cache_;
   }
 
-  // Optimized image policies: These methods are used to determine whether the
+  // Optimized image policies: This method is used to determine whether the
   // image resource violates any of the image policies in effect on the current
   // page.
-  bool IsAcceptableContentType();
-  bool IsAcceptableCompressionRatio();
+  bool IsAcceptableCompressionRatio(const SecurityContext& context);
 
   void LoadDeferredImage(ResourceFetcher* fetcher);
 

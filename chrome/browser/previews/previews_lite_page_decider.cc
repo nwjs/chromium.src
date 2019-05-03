@@ -38,6 +38,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "net/base/net_errors.h"
+#include "services/network/public/cpp/features.h"
 
 namespace {
 const char kUserNeedsNotification[] =
@@ -191,7 +192,8 @@ PreviewsLitePageDecider::MaybeCreateThrottleFor(
   if (!handle->IsInMainFrame())
     return nullptr;
 
-  if (base::FeatureList::IsEnabled(
+  if (base::FeatureList::IsEnabled(network::features::kNetworkService) &&
+      base::FeatureList::IsEnabled(
           previews::features::kHTTPSServerPreviewsUsingURLLoader)) {
     return nullptr;
   }
@@ -221,22 +223,6 @@ PreviewsLitePageDecider::MaybeCreateThrottleFor(
   }
 
   return nullptr;
-}
-
-// static
-uint64_t PreviewsLitePageDecider::GeneratePageIdForWebContents(
-    content::WebContents* web_contents) {
-  return PreviewsLitePageDecider::GeneratePageIdForProfile(
-      Profile::FromBrowserContext(web_contents->GetBrowserContext()));
-}
-
-// static
-uint64_t PreviewsLitePageDecider::GeneratePageIdForProfile(Profile* profile) {
-  PreviewsService* previews_service =
-      PreviewsServiceFactory::GetForProfile(profile);
-  return previews_service
-             ? previews_service->previews_lite_page_decider()->GeneratePageID()
-             : 0;
 }
 
 void PreviewsLitePageDecider::OnProxyRequestHeadersChanged(

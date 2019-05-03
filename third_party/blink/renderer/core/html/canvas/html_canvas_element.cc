@@ -71,7 +71,6 @@
 #include "third_party/blink/renderer/core/layout/hit_test_canvas_result.h"
 #include "third_party/blink/renderer/core/layout/layout_html_canvas.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
@@ -185,12 +184,12 @@ void HTMLCanvasElement::ParseAttribute(
   HTMLElement::ParseAttribute(params);
 }
 
-LayoutObject* HTMLCanvasElement::CreateLayoutObject(
-    const ComputedStyle& style) {
+LayoutObject* HTMLCanvasElement::CreateLayoutObject(const ComputedStyle& style,
+                                                    LegacyLayout legacy) {
   LocalFrame* frame = GetDocument().GetFrame();
   if (frame && GetDocument().CanExecuteScripts(kNotAboutToExecuteScript))
     return new LayoutHTMLCanvas(this);
-  return HTMLElement::CreateLayoutObject(style);
+  return HTMLElement::CreateLayoutObject(style, legacy);
 }
 
 Node::InsertionNotificationRequest HTMLCanvasElement::InsertedInto(
@@ -273,7 +272,7 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
   // Unknown type.
   if (context_type == CanvasRenderingContext::kContextTypeUnknown ||
       (context_type == CanvasRenderingContext::kContextXRPresent &&
-       !origin_trials::WebXREnabled(&GetDocument()))) {
+       !RuntimeEnabledFeatures::WebXREnabled(&GetDocument()))) {
     return nullptr;
   }
 
@@ -321,8 +320,7 @@ CanvasRenderingContext* HTMLCanvasElement::GetCanvasRenderingContextInternal(
     DidDraw();
   }
 
-  if (context_->CreationAttributes().low_latency &&
-      origin_trials::LowLatencyCanvasEnabled(&GetDocument())) {
+  if (context_->CreationAttributes().desynchronized) {
     CreateLayer();
     SetNeedsUnbufferedInputEvents(true);
     frame_dispatcher_ = std::make_unique<CanvasResourceDispatcher>(
@@ -695,11 +693,7 @@ SkFilterQuality HTMLCanvasElement::FilterQuality() const {
              : kLow_SkFilterQuality;
 }
 
-// In some instances we don't actually want to paint to the parent layer
-// We still might want to set filter quality and MarkFirstContentfulPaint though
-void HTMLCanvasElement::Paint(GraphicsContext& context,
-                              const LayoutRect& r,
-                              bool flatten_composited_layers) {
+void HTMLCanvasElement::Paint(GraphicsContext& context, const LayoutRect& r) {
   if (context_creation_was_blocked_ ||
       (context_ && context_->isContextLost())) {
     float device_scale_factor =
@@ -733,12 +727,8 @@ void HTMLCanvasElement::Paint(GraphicsContext& context,
   if (HasResourceProvider() && !canvas_is_clear_)
     PaintTiming::From(GetDocument()).MarkFirstContentfulPaint();
 
-  // If the canvas is gpu composited, it has another way of getting to screen
-  if (!PaintsIntoCanvasBuffer()) {
-    // For click-and-drag or printing we still want to draw
-    if (!(flatten_composited_layers || GetDocument().Printing()))
-      return;
-  }
+  if (!PaintsIntoCanvasBuffer() && !GetDocument().Printing())
+    return;
 
   if (PlaceholderFrame()) {
     DCHECK(GetDocument().Printing());
@@ -749,11 +739,6 @@ void HTMLCanvasElement::Paint(GraphicsContext& context,
     return;
   }
 
-  PaintInternal(context, r);
-}
-
-void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
-                                      const LayoutRect& r) {
   context_->PaintRenderingResultsToCanvas(kFrontBuffer);
   if (HasResourceProvider()) {
     if (!context.ContextDisabled()) {
@@ -1403,7 +1388,7 @@ HitTestCanvasResult* HTMLCanvasElement::GetControlAndIdIfHitRegionExists(
     const LayoutPoint& location) {
   if (Is2d())
     return context_->GetControlAndIdIfHitRegionExists(location);
-  return HitTestCanvasResult::Create(String(), nullptr);
+  return MakeGarbageCollected<HitTestCanvasResult>(String(), nullptr);
 }
 
 String HTMLCanvasElement::GetIdFromControl(const Element* element) {

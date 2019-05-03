@@ -78,7 +78,6 @@ UiControllerAndroid::UiControllerAndroid(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& jactivity)
     : overlay_delegate_(this),
-      header_delegate_(this),
       payment_request_delegate_(this),
       weak_ptr_factory_(this) {
   java_object_ = Java_AutofillAssistantUiController_create(
@@ -90,10 +89,6 @@ UiControllerAndroid::UiControllerAndroid(
   // Register overlay_delegate_ as delegate for the overlay.
   Java_AssistantOverlayModel_setDelegate(env, GetOverlayModel(),
                                          overlay_delegate_.GetJavaObject());
-
-  // Register header_delegate_ as delegate for clicks on header buttons.
-  Java_AssistantHeaderModel_setDelegate(env, GetHeaderModel(),
-                                        header_delegate_.GetJavaObject());
 
   // Register payment_request_delegate_ as delegate for the payment request UI.
   Java_AssistantPaymentRequestModel_setDelegate(
@@ -109,7 +104,6 @@ void UiControllerAndroid::Attach(content::WebContents* web_contents,
 
   client_ = client;
   ui_delegate_ = ui_delegate;
-  captured_debug_context_.clear();
 
   JNIEnv* env = AttachCurrentThread();
   auto java_web_contents = web_contents->GetJavaWebContents();
@@ -136,7 +130,7 @@ void UiControllerAndroid::Attach(content::WebContents* web_contents,
 
     OnStateChanged(ui_delegate->GetState());
   }
-  Java_AssistantModel_setVisible(env, GetModel(), true);
+  SetVisible(true);
 }
 
 UiControllerAndroid::~UiControllerAndroid() {
@@ -157,21 +151,28 @@ UiControllerAndroid::GetHeaderModel() {
 }
 
 void UiControllerAndroid::OnStateChanged(AutofillAssistantState new_state) {
-  UpdateActions();
+  if (!Java_AssistantModel_getVisible(AttachCurrentThread(), GetModel())) {
+    // Leave the UI alone as long as it's invisible. Missed state changes will
+    // be recovered by SetVisible(true).
+    return;
+  }
+  SetupForState();
+}
 
-  switch (new_state) {
+void UiControllerAndroid::SetupForState() {
+  UpdateActions();
+  AutofillAssistantState state = ui_delegate_->GetState();
+  switch (state) {
     case AutofillAssistantState::STARTING:
       SetOverlayState(OverlayState::FULL);
       AllowShowingSoftKeyboard(false);
       SetSpinPoodle(true);
-      SetAllowSwipingSheet(true);
       return;
 
     case AutofillAssistantState::RUNNING:
       SetOverlayState(OverlayState::FULL);
       AllowShowingSoftKeyboard(false);
       SetSpinPoodle(true);
-      SetAllowSwipingSheet(true);
       return;
 
     case AutofillAssistantState::AUTOSTART_FALLBACK_PROMPT:
@@ -188,7 +189,6 @@ void UiControllerAndroid::OnStateChanged(AutofillAssistantState new_state) {
       AllowShowingSoftKeyboard(true);
       SetSpinPoodle(false);
 
-      SetAllowSwipingSheet(ui_delegate_->GetPaymentRequestOptions() == nullptr);
       // user interaction is needed.
       ExpandBottomSheet();
       return;
@@ -197,14 +197,12 @@ void UiControllerAndroid::OnStateChanged(AutofillAssistantState new_state) {
       SetOverlayState(OverlayState::FULL);
       AllowShowingSoftKeyboard(true);
       SetSpinPoodle(true);
-      SetAllowSwipingSheet(true);
       return;
 
     case AutofillAssistantState::STOPPED:
       SetOverlayState(OverlayState::HIDDEN);
       AllowShowingSoftKeyboard(true);
       SetSpinPoodle(false);
-      SetAllowSwipingSheet(true);
 
       // make sure user sees the error message.
       ExpandBottomSheet();
@@ -212,12 +210,10 @@ void UiControllerAndroid::OnStateChanged(AutofillAssistantState new_state) {
 
     case AutofillAssistantState::INACTIVE:
       // TODO(crbug.com/806868): Add support for switching back to the inactive
-      // state, which is the initial state. We never enter it, so there should
-      // never be a call OnStateChanged(INACTIVE)
-      NOTREACHED() << "Switching to the inactive state is not supported.";
+      // state, which is the initial state.
       return;
   }
-  NOTREACHED() << "Unknown state: " << static_cast<int>(new_state);
+  NOTREACHED() << "Unknown state: " << static_cast<int>(state);
 }
 
 void UiControllerAndroid::OnStatusMessageChanged(const std::string& message) {
@@ -254,18 +250,6 @@ void UiControllerAndroid::SetSpinPoodle(bool enabled) {
                                           GetHeaderModel(), enabled);
 }
 
-void UiControllerAndroid::SetAllowSwipingSheet(bool allow) {
-  Java_AssistantModel_setAllowSwipingSheet(AttachCurrentThread(), GetModel(),
-                                           allow);
-}
-
-void UiControllerAndroid::OnFeedbackButtonClicked() {
-  JNIEnv* env = AttachCurrentThread();
-  Java_AutofillAssistantUiController_showFeedback(
-      env, java_object_,
-      base::android::ConvertUTF8ToJavaString(env, GetDebugContext()));
-}
-
 void UiControllerAndroid::Shutdown(Metrics::DropOutReason reason) {
   client_->Shutdown(reason);
 }
@@ -279,7 +263,7 @@ void UiControllerAndroid::ShowSnackbar(const std::string& message,
     std::move(action).Run();
     return;
   }
-  Java_AssistantModel_setVisible(env, jmodel, false);
+  SetVisible(false);
   snackbar_action_ = std::move(action);
   Java_AutofillAssistantUiController_showSnackbar(
       env, java_object_, base::android::ConvertUTF8ToJavaString(env, message));
@@ -295,21 +279,31 @@ void UiControllerAndroid::SnackbarResult(
     return;
   }
   if (undo) {
-    Java_AssistantModel_setVisible(env, GetModel(), true);
+    SetVisible(true);
     return;
   }
   std::move(action).Run();
 }
 
-std::string UiControllerAndroid::GetDebugContext() {
-  if (captured_debug_context_.empty() && ui_delegate_) {
-    return ui_delegate_->GetDebugContext();
-  }
-  return captured_debug_context_;
-}
-
 void UiControllerAndroid::DestroySelf() {
   client_->DestroyUI();
+}
+
+void UiControllerAndroid::SetVisible(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jobject>& jcaller,
+    jboolean visible) {
+  SetVisible(visible);
+}
+
+void UiControllerAndroid::SetVisible(bool visible) {
+  Java_AssistantModel_setVisible(AttachCurrentThread(), GetModel(), visible);
+  if (visible) {
+    // Recover possibly state changes missed by OnStateChanged()
+    SetupForState();
+  } else {
+    SetOverlayState(OverlayState::HIDDEN);
+  }
 }
 
 // Suggestions and actions carousels related methods.
@@ -317,25 +311,24 @@ void UiControllerAndroid::DestroySelf() {
 void UiControllerAndroid::OnSuggestionsChanged(
     const std::vector<Chip>& suggestions) {
   JNIEnv* env = AttachCurrentThread();
-  std::vector<std::string> texts;
-  for (const auto& suggestion : suggestions) {
-    texts.emplace_back(suggestion.text);
+  std::vector<int> icons(suggestions.size());
+  std::vector<std::string> texts(suggestions.size());
+  bool disabled[suggestions.size()];
+  for (size_t i = 0; i < suggestions.size(); i++) {
+    icons[i] = suggestions[i].icon;
+    texts[i] = suggestions[i].text;
+    disabled[i] = suggestions[i].disabled;
   }
   Java_AutofillAssistantUiController_setSuggestions(
-      env, java_object_, base::android::ToJavaArrayOfStrings(env, texts));
+      env, java_object_, base::android::ToJavaIntArray(env, icons),
+      base::android::ToJavaArrayOfStrings(env, texts),
+      base::android::ToJavaBooleanArray(env, disabled, suggestions.size()));
 }
 
 void UiControllerAndroid::UpdateActions() {
   DCHECK(ui_delegate_);
 
   JNIEnv* env = AttachCurrentThread();
-
-  // TODO(crbug.com/806868): Remove this case once payment request reuses the
-  // carousel.
-  if (ui_delegate_->GetPaymentRequestOptions()) {
-    Java_AutofillAssistantUiController_clearActions(env, java_object_);
-    return;
-  }
 
   bool has_close_or_cancel = false;
   auto chips = Java_AutofillAssistantUiController_createChipList(env);
@@ -344,34 +337,35 @@ void UiControllerAndroid::UpdateActions() {
   for (int i = 0; i < action_count; i++) {
     const auto& action = actions[i];
     auto text = base::android::ConvertUTF8ToJavaString(env, action.text);
+    int icon = action.icon;
     switch (action.type) {
       case HIGHLIGHTED_ACTION:
         Java_AutofillAssistantUiController_addHighlightedActionButton(
-            env, java_object_, chips, text, i);
+            env, java_object_, chips, icon, text, i, action.disabled);
         break;
 
       case NORMAL_ACTION:
-        Java_AutofillAssistantUiController_addActionButton(env, java_object_,
-                                                           chips, text, i);
+        Java_AutofillAssistantUiController_addActionButton(
+            env, java_object_, chips, icon, text, i, action.disabled);
         break;
 
       case CANCEL_ACTION:
         // A Cancel button sneaks in an UNDO snackbar before executing the
         // action, while a close button behaves like a normal button.
-        Java_AutofillAssistantUiController_addCancelButton(env, java_object_,
-                                                           chips, text, i);
+        Java_AutofillAssistantUiController_addCancelButton(
+            env, java_object_, chips, icon, text, i, action.disabled);
         has_close_or_cancel = true;
         break;
 
       case CLOSE_ACTION:
-        Java_AutofillAssistantUiController_addActionButton(env, java_object_,
-                                                           chips, text, i);
+        Java_AutofillAssistantUiController_addActionButton(
+            env, java_object_, chips, icon, text, i, action.disabled);
         has_close_or_cancel = true;
         break;
 
       case DONE_ACTION:
         Java_AutofillAssistantUiController_addHighlightedActionButton(
-            env, java_object_, chips, text, i);
+            env, java_object_, chips, icon, text, i, action.disabled);
         has_close_or_cancel = true;
         break;
 
@@ -387,15 +381,14 @@ void UiControllerAndroid::UpdateActions() {
   if (!has_close_or_cancel) {
     if (ui_delegate_->GetState() == AutofillAssistantState::STOPPED) {
       Java_AutofillAssistantUiController_addCloseButton(
-          env, java_object_, chips,
-          base::android::ConvertUTF8ToJavaString(
-              env, l10n_util::GetStringUTF8(IDS_CLOSE)));
-    } else {
+          env, java_object_, chips, ICON_CLEAR,
+          base::android::ConvertUTF8ToJavaString(env, ""),
+          /* disabled= */ false);
+    } else if (ui_delegate_->GetState() != AutofillAssistantState::INACTIVE) {
       Java_AutofillAssistantUiController_addCancelButton(
-          env, java_object_, chips,
-          base::android::ConvertUTF8ToJavaString(
-              env, l10n_util::GetStringUTF8(IDS_CANCEL)),
-          -1);
+          env, java_object_, chips, ICON_CLEAR,
+          base::android::ConvertUTF8ToJavaString(env, ""), -1,
+          /* disabled= */ false);
     }
   }
 
@@ -500,9 +493,10 @@ void UiControllerAndroid::OnUserInteractionInsideTouchableArea() {
 
 void UiControllerAndroid::ShowOnboarding(
     JNIEnv* env,
+    const base::android::JavaParamRef<jstring>& jexperiment_ids,
     const base::android::JavaParamRef<jobject>& on_accept) {
-  Java_AutofillAssistantUiController_onShowOnboarding(env, java_object_,
-                                                      on_accept);
+  Java_AutofillAssistantUiController_onShowOnboarding(
+      env, java_object_, jexperiment_ids, on_accept);
 }
 
 void UiControllerAndroid::WillShutdown(Metrics::DropOutReason reason) {
@@ -514,7 +508,6 @@ void UiControllerAndroid::WillShutdown(Metrics::DropOutReason reason) {
   // Capture the debug context, for including into a feedback possibly sent
   // later, after the delegate has been possibly destroyed.
   DCHECK(ui_delegate_);
-  captured_debug_context_ = ui_delegate_->GetDebugContext();
   AutofillAssistantState final_state = ui_delegate_->GetState();
   ui_delegate_ = nullptr;
 
@@ -539,16 +532,36 @@ UiControllerAndroid::GetPaymentRequestModel() {
                                                     GetModel());
 }
 
-void UiControllerAndroid::OnGetPaymentInformation(
-    std::unique_ptr<PaymentInformation> payment_info) {
-  ui_delegate_->SetPaymentInformation(std::move(payment_info));
+void UiControllerAndroid::OnShippingAddressChanged(
+    std::unique_ptr<autofill::AutofillProfile> address) {
+  ui_delegate_->SetShippingAddress(std::move(address));
+}
+
+void UiControllerAndroid::OnBillingAddressChanged(
+    std::unique_ptr<autofill::AutofillProfile> address) {
+  ui_delegate_->SetBillingAddress(std::move(address));
+}
+
+void UiControllerAndroid::OnContactInfoChanged(std::string name,
+                                               std::string phone,
+                                               std::string email) {
+  ui_delegate_->SetContactInfo(name, phone, email);
+}
+
+void UiControllerAndroid::OnCreditCardChanged(
+    std::unique_ptr<autofill::CreditCard> card) {
+  ui_delegate_->SetCreditCard(std::move(card));
+}
+
+void UiControllerAndroid::OnTermsAndConditionsChanged(
+    TermsAndConditionsState state) {
+  ui_delegate_->SetTermsAndConditions(state);
 }
 
 void UiControllerAndroid::OnPaymentRequestChanged(
     const PaymentRequestOptions* payment_options) {
   JNIEnv* env = AttachCurrentThread();
   auto jmodel = GetPaymentRequestModel();
-  UpdateActions();
   if (!payment_options) {
     Java_AssistantPaymentRequestModel_clearOptions(env, jmodel);
     return;
@@ -557,8 +570,9 @@ void UiControllerAndroid::OnPaymentRequestChanged(
       env, jmodel,
       base::android::ConvertUTF8ToJavaString(env,
                                              client_->GetAccountEmailAddress()),
-      payment_options->request_shipping, payment_options->request_payer_name,
-      payment_options->request_payer_phone,
+      payment_options->request_shipping,
+      payment_options->request_payment_method,
+      payment_options->request_payer_name, payment_options->request_payer_phone,
       payment_options->request_payer_email,
       base::android::ToJavaArrayOfStrings(
           env, payment_options->supported_basic_card_networks));
@@ -585,6 +599,15 @@ void UiControllerAndroid::OnDetailsChanged(const Details* details) {
   auto jdetails = Java_AssistantDetails_create(
       env, base::android::ConvertUTF8ToJavaString(env, proto.title()),
       base::android::ConvertUTF8ToJavaString(env, proto.image_url()),
+      proto.image_clickthrough_data().allow_clickthrough(),
+      base::android::ConvertUTF8ToJavaString(
+          env, proto.image_clickthrough_data().description()),
+      base::android::ConvertUTF8ToJavaString(
+          env, proto.image_clickthrough_data().positive_text()),
+      base::android::ConvertUTF8ToJavaString(
+          env, proto.image_clickthrough_data().negative_text()),
+      base::android::ConvertUTF8ToJavaString(
+          env, proto.image_clickthrough_data().clickthrough_url()),
       proto.show_image_placeholder(),
       base::android::ConvertUTF8ToJavaString(env, proto.total_price_label()),
       base::android::ConvertUTF8ToJavaString(env, proto.total_price()),
@@ -594,9 +617,10 @@ void UiControllerAndroid::OnDetailsChanged(const Details* details) {
       proto.datetime().time().minute(), proto.datetime().time().second(),
       base::android::ConvertUTF8ToJavaString(env, proto.description_line_1()),
       base::android::ConvertUTF8ToJavaString(env, proto.description_line_2()),
+      base::android::ConvertUTF8ToJavaString(env, proto.description_line_3()),
       changes.user_approval_required(), changes.highlight_title(),
       changes.highlight_line1(), changes.highlight_line2(),
-      proto.animate_placeholders());
+      changes.highlight_line3(), proto.animate_placeholders());
   Java_AssistantDetailsModel_setDetails(env, jmodel, jdetails);
 }
 

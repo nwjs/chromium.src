@@ -61,7 +61,7 @@ void DeviceOrientationController::DidAddEventListener(
                         WebFeature::kDeviceOrientationSecureOrigin);
     } else {
       Deprecation::CountDeprecation(
-          frame, WebFeature::kDeviceOrientationInsecureOrigin);
+          GetDocument(), WebFeature::kDeviceOrientationInsecureOrigin);
       HostsUsingFeatures::CountAnyWorld(
           GetDocument(),
           HostsUsingFeatures::Feature::kDeviceOrientationInsecureHost);
@@ -180,8 +180,8 @@ void DeviceOrientationController::LogToConsolePolicyFeaturesDisabled(
       "features.md#sensor-features",
       event_name.Ascii().data());
   ConsoleMessage* console_message = ConsoleMessage::Create(
-      kJSMessageSource, mojom::ConsoleMessageLevel::kWarning,
-      std::move(message));
+      mojom::ConsoleMessageSource::kJavaScript,
+      mojom::ConsoleMessageLevel::kWarning, std::move(message));
   frame->Console().AddMessage(console_message);
 }
 

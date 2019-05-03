@@ -8,6 +8,7 @@
 #include "base/bind_helpers.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/one_shot_event.h"
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/post_task.h"
@@ -28,7 +29,6 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/extension_set.h"
-#include "extensions/common/one_shot_event.h"
 
 using extensions::Extension;
 
@@ -84,8 +84,8 @@ AppShortcutManager::AppShortcutManager(Profile* profile)
   // UpdateShortcutsForAllAppsIfNeeded.
   extensions::ExtensionSystem::Get(profile)->ready().Post(
       FROM_HERE,
-      base::Bind(&AppShortcutManager::UpdateShortcutsForAllAppsIfNeeded,
-                 weak_ptr_factory_.GetWeakPtr()));
+      base::BindOnce(&AppShortcutManager::UpdateShortcutsForAllAppsIfNeeded,
+                     weak_ptr_factory_.GetWeakPtr()));
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
   // profile_manager might be NULL in testing environments.

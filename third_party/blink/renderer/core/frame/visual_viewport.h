@@ -95,10 +95,6 @@ class CORE_EXPORT VisualViewport final
   USING_GARBAGE_COLLECTED_MIXIN(VisualViewport);
 
  public:
-  static VisualViewport* Create(Page& host) {
-    return MakeGarbageCollected<VisualViewport>(host);
-  }
-
   explicit VisualViewport(Page&);
   ~VisualViewport() override;
 
@@ -136,11 +132,6 @@ class CORE_EXPORT VisualViewport final
   // +/- zooming).
   FloatRect VisibleRect(IncludeScrollbarsInRect = kExcludeScrollbars) const;
 
-  // Similar to VisibleRect but this returns the rect relative to the main
-  // document's top-left corner.
-  FloatRect VisibleRectInDocument(
-      IncludeScrollbarsInRect = kExcludeScrollbars) const;
-
   // Resets the viewport to initial state.
   void Reset();
 
@@ -149,14 +140,13 @@ class CORE_EXPORT VisualViewport final
   void MainFrameDidChangeSize();
 
   // Sets scale and location in one operation, preventing intermediate clamping.
-  void SetScaleAndLocation(float scale, const FloatPoint& location);
+  void SetScaleAndLocation(float scale,
+                           bool is_pinch_gesture_active,
+                           const FloatPoint& location);
+
   void SetScale(float);
   float Scale() const { return scale_; }
-
-  // Update scale factor, magnifying or minifying by magnifyDelta, centered
-  // around the point specified by anchor in window coordinates. Returns false
-  // if page scale factor is left unchanged.
-  bool MagnifyScaleAroundAnchor(float magnify_delta, const FloatPoint& anchor);
+  bool IsPinchGestureActive() const { return is_pinch_gesture_active_; }
 
   // Convert the given rect in the main LocalFrameView's coordinates into a rect
   // in the viewport. The given and returned rects are in CSS pixels, meaning
@@ -195,7 +185,8 @@ class CORE_EXPORT VisualViewport final
   ChromeClient* GetChromeClient() const override;
   void SetScrollOffset(const ScrollOffset&,
                        ScrollType,
-                       ScrollBehavior = kScrollBehaviorInstant) override;
+                       ScrollBehavior,
+                       ScrollCallback on_finish) override;
   bool IsThrottled() const override {
     // VisualViewport is always in the main frame, so the frame does not get
     // throttled.
@@ -280,10 +271,11 @@ class CORE_EXPORT VisualViewport final
   bool NeedsPaintPropertyUpdate() const { return needs_paint_property_update_; }
 
  private:
-  bool DidSetScaleOrLocation(float scale, const FloatPoint& location);
+  bool DidSetScaleOrLocation(float scale,
+                             bool is_pinch_gesture_active,
+                             const FloatPoint& location);
 
-
-  void UpdateStyleAndLayoutIgnorePendingStylesheets() const;
+  void UpdateStyleAndLayout() const;
 
   void EnqueueScrollEvent();
   void EnqueueResizeEvent();
@@ -358,6 +350,7 @@ class CORE_EXPORT VisualViewport final
   // Offset of the visual viewport from the main frame's origin, in CSS pixels.
   ScrollOffset offset_;
   float scale_;
+  bool is_pinch_gesture_active_;
 
   // The Blink viewport size. This is effectively the size of the rect Blink is
   // rendering into and includes space consumed by scrollbars. While it will

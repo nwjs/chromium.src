@@ -363,7 +363,7 @@ void NativeAppWindowViews::Layout() {
 }
 
 void NativeAppWindowViews::ViewHierarchyChanged(
-    const ViewHierarchyChangedDetails& details) {
+    const views::ViewHierarchyChangedDetails& details) {
   if (details.is_add && details.child == this) {
 #if defined(OS_LINUX) || defined(OS_WIN)
     const extensions::Extension* extension = app_window_->GetExtension();

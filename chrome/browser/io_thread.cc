@@ -32,7 +32,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/data_use_measurement/chrome_data_use_ascriber.h"
 #include "chrome/browser/net/chrome_network_delegate.h"
-#include "chrome/browser/net/failing_url_request_interceptor.h"
 #include "chrome/browser/net/proxy_service_factory.h"
 #include "chrome/common/chrome_content_client.h"
 #include "chrome/common/chrome_features.h"
@@ -62,9 +61,6 @@
 #include "net/cert/cert_verify_proc.h"
 #include "net/cert/ct_log_verifier.h"
 #include "net/cert/multi_threaded_cert_verifier.h"
-#include "net/dns/host_cache.h"
-#include "net/dns/host_resolver.h"
-#include "net/dns/mapped_host_resolver.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties_impl.h"
 #include "net/http/http_transaction_factory.h"
@@ -145,29 +141,6 @@ void ObserveKeychainEvents() {
   net::CertDatabase::GetInstance()->StartListeningForKeychainEvents();
 }
 #endif
-
-std::unique_ptr<net::HostResolver> CreateGlobalHostResolver(
-    net::NetLog* net_log) {
-  TRACE_EVENT0("startup", "IOThread::CreateGlobalHostResolver");
-
-  std::unique_ptr<net::HostResolver> global_host_resolver =
-      net::HostResolver::CreateSystemResolver(net::HostResolver::Options(),
-                                              net_log);
-
-  // If hostname remappings were specified on the command-line, layer these
-  // rules on top of the real host resolver. This allows forwarding all requests
-  // through a designated test server.
-  const base::CommandLine& command_line =
-      *base::CommandLine::ForCurrentProcess();
-  if (!command_line.HasSwitch(network::switches::kHostResolverRules))
-    return global_host_resolver;
-
-  auto remapped_resolver = std::make_unique<net::MappedHostResolver>(
-      std::move(global_host_resolver));
-  remapped_resolver->SetRulesFromString(
-      command_line.GetSwitchValueASCII(network::switches::kHostResolverRules));
-  return std::move(remapped_resolver);
-}
 
 }  // namespace
 
@@ -260,9 +233,12 @@ net_log::ChromeNetLog* IOThread::net_log() {
 
 net::URLRequestContextGetter* IOThread::system_url_request_context_getter() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  if (!system_url_request_context_getter_.get()) {
+  if (!base::FeatureList::IsEnabled(network::features::kNetworkService) &&
+      !system_url_request_context_getter_.get()) {
     system_url_request_context_getter_ =
         base::MakeRefCounted<SystemURLRequestContextGetter>(this);
+  } else {
+    NOTREACHED();
   }
   return system_url_request_context_getter_.get();
 }
@@ -308,7 +284,8 @@ void IOThread::CleanUp() {
 
   system_url_request_context_getter_ = nullptr;
 
-  globals_->system_request_context->proxy_resolution_service()->OnShutdown();
+  if (globals_->system_request_context)
+    globals_->system_request_context->proxy_resolution_service()->OnShutdown();
 
   // Release objects that the net::URLRequestContext could have been pointing
   // to.
@@ -319,7 +296,7 @@ void IOThread::CleanUp() {
   base::debug::LeakTracker<SystemURLRequestContextGetter>::CheckForLeaks();
 
   if (net_log_)
-    net_log_->ShutDownBeforeTaskScheduler();
+    net_log_->ShutDownBeforeThreadPool();
 }
 
 // static
@@ -352,23 +329,6 @@ void IOThread::ConstructSystemRequestContext() {
             std::make_unique<net::NetworkQualityEstimatorParams>(
                 std::map<std::string, std::string>()),
             net_log_);
-    net::URLRequestContextBuilder builder;
-    std::vector<std::unique_ptr<net::URLRequestInterceptor>>
-        url_request_interceptors;
-    url_request_interceptors.emplace_back(
-        std::make_unique<FailingURLRequestInterceptor>());
-    builder.SetInterceptors(std::move(url_request_interceptors));
-    builder.set_network_quality_estimator(
-        globals_->deprecated_network_quality_estimator.get());
-    builder.SetCertVerifier(
-        std::make_unique<WrappedCertVerifierForIOThreadTesting>());
-    builder.set_proxy_resolution_service(
-        net::ProxyResolutionService::CreateDirect());
-    globals_->system_request_context_owner =
-        network::URLRequestContextOwner(nullptr, builder.Build());
-    globals_->system_request_context =
-        globals_->system_request_context_owner.url_request_context.get();
-    network_context_params_.reset();
   } else {
     std::unique_ptr<network::URLRequestContextBuilderMojo> builder =
         std::make_unique<network::URLRequestContextBuilderMojo>();
@@ -404,10 +364,13 @@ void IOThread::ConstructSystemRequestContext() {
     if (!is_quic_allowed_on_init_)
       globals_->quic_disabled = true;
 
-    network::NetworkService* network_service = content::GetNetworkServiceImpl();
-    network_service->SetHostResolver(CreateGlobalHostResolver(net_log_));
+    // File support is needed for PAC scripts that use file URLs.
+    // TODO(crbug.com/839566): remove file support for all cases.
+    // TODO(mmenke): once this code is deleted there won't be any more consumers
+    // of net::URLRequestFileJo and that class can be deleted.
+    builder->set_file_enabled(true);
 
-    // These must be done after the SetHostResolver call.
+    network::NetworkService* network_service = content::GetNetworkServiceImpl();
     network_service->SetUpHttpAuth(std::move(http_auth_static_params_));
     network_service->ConfigureHttpAuthPrefs(
         std::move(http_auth_dynamic_params_));

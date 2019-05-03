@@ -267,7 +267,7 @@ void LogoServiceImpl::GetLogo(LogoCallbacks callbacks) {
     base_url = doodle_url.GetOrigin();
   }
 
-  if (true) { //!logo_url.is_valid() && !doodle_url.is_valid()) {
+  if (!logo_url.is_valid() && !doodle_url.is_valid()) {
     RunCallbacksWithDisabled(std::move(callbacks));
     return;
   }

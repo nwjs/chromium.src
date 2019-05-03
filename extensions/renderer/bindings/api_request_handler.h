@@ -36,6 +36,11 @@ class APIRequestHandler {
     Request();
     ~Request();
 
+    bool sync = false;
+    bool* success = nullptr;
+    std::string* error = nullptr;
+    base::ListValue* response = nullptr;
+    
     int request_id = -1;
     std::string method_name;
     bool has_callback = false;
@@ -68,7 +73,11 @@ class APIRequestHandler {
                    std::unique_ptr<base::ListValue> arguments,
                    v8::Local<v8::Function> callback,
                    v8::Local<v8::Function> custom_callback,
-                   binding::RequestThread thread);
+                   binding::RequestThread thread,
+                   bool sync = false,
+                   bool* success = nullptr,
+                   base::ListValue* response = nullptr,
+                   std::string* error = nullptr);
 
   // Adds a pending request for the request handler to manage (and complete via
   // CompleteRequest). This is used by renderer-side implementations that

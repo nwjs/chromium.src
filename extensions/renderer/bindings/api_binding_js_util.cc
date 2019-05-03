@@ -39,6 +39,7 @@ gin::ObjectTemplateBuilder APIBindingJSUtil::GetObjectTemplateBuilder(
     v8::Isolate* isolate) {
   return Wrappable<APIBindingJSUtil>::GetObjectTemplateBuilder(isolate)
       .SetMethod("sendRequest", &APIBindingJSUtil::SendRequest)
+      .SetMethod("sendRequestSync", &APIBindingJSUtil::SendRequestSync)
       .SetMethod("registerEventArgumentMassager",
                  &APIBindingJSUtil::RegisterEventArgumentMassager)
       .SetMethod("createCustomEvent", &APIBindingJSUtil::CreateCustomEvent)
@@ -58,12 +59,40 @@ gin::ObjectTemplateBuilder APIBindingJSUtil::GetObjectTemplateBuilder(
       .SetMethod("addCustomSignature", &APIBindingJSUtil::AddCustomSignature);
 }
 
+void APIBindingJSUtil::SendRequestSync(
+    gin::Arguments* arguments,
+    const std::string& name,
+    const std::vector<v8::Local<v8::Value>>& request_args,
+    v8::Local<v8::Value> options) {
+  v8::Isolate* isolate = arguments->isolate();
+  v8::HandleScope handle_scope(isolate);
+  bool success;
+  base::ListValue response;
+  std::string error;
+  SendRequestHelper(arguments, name, request_args, options, true, &success, &response, &error);
+  if (!success) {
+    isolate->ThrowException(v8::Exception::Error(gin::StringToV8(isolate, error)));
+    return;
+  }
+  std::unique_ptr<content::V8ValueConverter> converter(content::V8ValueConverter::Create());
+  v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
+  arguments->Return(converter->ToV8Value(&response, context));
+}
+
 void APIBindingJSUtil::SendRequest(
     gin::Arguments* arguments,
     const std::string& name,
     const std::vector<v8::Local<v8::Value>>& request_args,
-    v8::Local<v8::Value> schemas_unused,
     v8::Local<v8::Value> options) {
+  SendRequestHelper(arguments, name, request_args, options);
+}
+
+void APIBindingJSUtil::SendRequestHelper(
+    gin::Arguments* arguments,
+    const std::string& name,
+    const std::vector<v8::Local<v8::Value>>& request_args,
+    v8::Local<v8::Value> options,
+    bool sync, bool* success, base::ListValue* response, std::string* error) {
   v8::Isolate* isolate = arguments->isolate();
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
@@ -105,7 +134,7 @@ void APIBindingJSUtil::SendRequest(
       context, request_args, &converted_arguments, &callback));
 
   request_handler_->StartRequest(context, name, std::move(converted_arguments),
-                                 callback, custom_callback, thread);
+                                 callback, custom_callback, thread, sync, success, response, error);
 }
 
 void APIBindingJSUtil::RegisterEventArgumentMassager(
@@ -121,7 +150,6 @@ void APIBindingJSUtil::RegisterEventArgumentMassager(
 
 void APIBindingJSUtil::CreateCustomEvent(gin::Arguments* arguments,
                                          v8::Local<v8::Value> v8_event_name,
-                                         v8::Local<v8::Value> unused_schema,
                                          bool supports_filters,
                                          bool supports_lazy_listeners) {
   v8::Isolate* isolate = arguments->isolate();

@@ -5,7 +5,6 @@
 import("//build/config/chrome_build.gni")
 import("//build/config/compiler/compiler.gni")
 import("//build/config/compiler/pgo/pgo.gni")
-import("//build/config/coverage/coverage.gni")
 import("//build/config/features.gni")
 import("//build/config/linux/pangocairo/pangocairo.gni")
 import("//build/config/locales.gni")
@@ -329,9 +328,7 @@ if (!is_android && !is_mac) {
         data_deps += [ "//mojo/core:shared_library" ]
       }
 
-      # We skip building mojo for ARC in a coverage build because we lack clang
-      # runtime profiling libraries for Android. crbug.com/865376
-      if (is_chromeos && !use_clang_coverage) {
+      if (is_chromeos) {
         data_deps += [ "//mojo/core:shared_libraries_for_arc" ]
       }
 
@@ -835,8 +832,8 @@ if (is_win || (is_linux && !is_component_build)) {
   }
 
   compile_entitlements("entitlements") {
-    entitlements_templates = [ "app/entitlements.plist" ]
-    output_name = "$target_gen_dir/entitlements.plist"
+    entitlements_templates = [ "app/app-entitlements.plist" ]
+    output_name = "$target_gen_dir/app-entitlements.plist"
     substitutions = [
       "CHROMIUM_BUNDLE_ID=$chrome_mac_bundle_id",
       "CHROMIUM_TEAM_ID=$chrome_mac_team_id",
@@ -1303,7 +1300,6 @@ if (is_win || (is_linux && !is_component_build)) {
       ":packed_resources",
       ":swiftshader_library",
       ":widevine_cdm_library",
-      "//chrome/app/nibs:chrome_xibs",
       "//chrome/browser/resources/media/mei_preload:component_bundle",
     ]
 
@@ -1654,7 +1650,6 @@ group("extra_resources") {
     "//chrome/browser/resources:invalidations_resources",
     "//chrome/browser/resources:net_internals_resources",
     "//chrome/browser/resources:quota_internals_resources",
-    "//chrome/browser/resources:translate_internals_resources",
     "//chrome/browser/resources:webapks_ui_resources",
   ]
 
@@ -1668,6 +1663,8 @@ group("extra_resources") {
 
   if (is_chromeos) {
     public_deps += [
+      "//chrome/browser/resources:os_settings_resources",
+      "//chrome/browser/resources/chromeos:cellular_setup_resources",
       "//chrome/browser/resources/chromeos:multidevice_setup_resources",
       "//chrome/browser/resources/chromeos/chromevox",
       "//chrome/browser/resources/chromeos/select_to_speak:build",

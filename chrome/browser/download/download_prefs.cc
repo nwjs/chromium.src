@@ -279,11 +279,6 @@ base::FilePath DownloadPrefs::GetDefaultDownloadDirectoryForProfile() const {
 }
 
 // static
-void DownloadPrefs::ReinitializeDefaultDownloadDirectoryForTesting() {
-  GetDefaultDownloadDirectorySingleton().Initialize();
-}
-
-// static
 const base::FilePath& DownloadPrefs::GetDefaultDownloadDirectory() {
   return GetDefaultDownloadDirectorySingleton().path();
 }
@@ -436,6 +431,10 @@ void DownloadPrefs::ResetAutoOpen() {
   SaveAutoOpenState();
 }
 
+void DownloadPrefs::SkipSanitizeDownloadTargetPathForTesting() {
+  skip_sanitize_download_target_path_for_testing_ = true;
+}
+
 void DownloadPrefs::SaveAutoOpenState() {
   std::string extensions;
   for (auto it = auto_open_.begin(); it != auto_open_.end(); ++it) {
@@ -456,6 +455,9 @@ void DownloadPrefs::SaveAutoOpenState() {
 base::FilePath DownloadPrefs::SanitizeDownloadTargetPath(
     const base::FilePath& path) const {
 #if defined(OS_CHROMEOS)
+  if (skip_sanitize_download_target_path_for_testing_)
+    return path;
+
   base::FilePath migrated_drive_path;
   // Managed prefs may force a legacy Drive path as the download path. Ensure
   // the path is valid when DriveFS is enabled.

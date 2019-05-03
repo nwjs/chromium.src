@@ -680,8 +680,7 @@ Element* FindFocusableElementDescendingDownIntoFrameDocument(
     auto* container_local_frame = DynamicTo<LocalFrame>(owner.ContentFrame());
     if (!container_local_frame)
       break;
-    container_local_frame->GetDocument()
-        ->UpdateStyleAndLayoutIgnorePendingStylesheets();
+    container_local_frame->GetDocument()->UpdateStyleAndLayout();
     ScopedFocusNavigation scope =
         ScopedFocusNavigation::OwnedByIFrame(owner, owner_map);
     Element* found_element =
@@ -766,10 +765,6 @@ FocusController::FocusController(Page* page)
       is_focused_(false),
       is_changing_focused_frame_(false),
       is_emulating_focus_(false) {}
-
-FocusController* FocusController::Create(Page* page) {
-  return MakeGarbageCollected<FocusController>(page);
-}
 
 void FocusController::SetFocusedFrame(Frame* frame, bool notify_embedder) {
   DCHECK(!frame || frame->GetPage() == page_);
@@ -1018,7 +1013,7 @@ bool FocusController::AdvanceFocusInDocumentOrder(
   if (!current && !initial_focus)
     current = document->SequentialFocusNavigationStartingPoint(type);
 
-  document->UpdateStyleAndLayoutIgnorePendingStylesheets();
+  document->UpdateStyleAndLayout();
   ScopedFocusNavigation scope =
       current ? ScopedFocusNavigation::CreateFor(*current, owner_map)
               : ScopedFocusNavigation::CreateForDocument(*document, owner_map);
@@ -1047,9 +1042,9 @@ bool FocusController::AdvanceFocusInDocumentOrder(
     }
 
     // Chrome doesn't want focus, so we should wrap focus.
-    ScopedFocusNavigation scope = ScopedFocusNavigation::CreateForDocument(
+    ScopedFocusNavigation doc_scope = ScopedFocusNavigation::CreateForDocument(
         *To<LocalFrame>(page_->MainFrame())->GetDocument(), owner_map);
-    element = FindFocusableElementRecursively(type, scope, owner_map);
+    element = FindFocusableElementRecursively(type, doc_scope, owner_map);
     element = FindFocusableElementDescendingDownIntoFrameDocument(type, element,
                                                                   owner_map);
 
@@ -1127,7 +1122,7 @@ Element* FocusController::NextFocusableElementInForm(Element* element,
   // from current element in terms of tabindex, then it's signalling CPU load.
   // Will nvestigate further for a proper solution later.
   static const int kFocusTraversalThreshold = 50;
-  element->GetDocument().UpdateStyleAndLayoutIgnorePendingStylesheets();
+  element->GetDocument().UpdateStyleAndLayout();
   if (!element->IsHTMLElement())
     return nullptr;
 
@@ -1187,7 +1182,7 @@ Element* FocusController::FindFocusableElementAfter(Element& element,
                                                     WebFocusType type) {
   if (type != kWebFocusTypeForward && type != kWebFocusTypeBackward)
     return nullptr;
-  element.GetDocument().UpdateStyleAndLayoutIgnorePendingStylesheets();
+  element.GetDocument().UpdateStyleAndLayout();
 
   OwnerMap owner_map;
   return FindFocusableElement(type, element, owner_map);

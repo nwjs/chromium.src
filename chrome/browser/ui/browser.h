@@ -52,6 +52,7 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
+// #include "chrome/browser/ui/web_app_browser_controller.h"
 
 #if !defined(OS_ANDROID)
 #include "components/zoom/zoom_observer.h"
@@ -88,10 +89,10 @@ class SessionStorageNamespace;
 
 namespace extensions {
 class BrowserExtensionWindowController;
-class HostedAppBrowserController;
+
 class Extension;
 class ExtensionRegistry;
-}
+}  // namespace extensions
 
 namespace gfx {
 class Image;
@@ -111,6 +112,7 @@ namespace nw {
 namespace viz {
 class SurfaceId;
 }
+class WebAppBrowserController;
 
 class Browser : public TabStripModelObserver,
                 public content::WebContentsDelegate,
@@ -177,7 +179,6 @@ class Browser : public TabStripModelObserver,
 
   struct CreateParams {
     explicit CreateParams(Profile* profile, bool user_gesture);
-    explicit CreateParams(Profile* profile, bool user_gesture, const gfx::Rect& bounds);
     CreateParams(Type type, Profile* profile, bool user_gesture);
     CreateParams(Type type,
                  Profile* profile,
@@ -220,6 +221,8 @@ class Browser : public TabStripModelObserver,
     ui::WindowShowState initial_show_state = ui::SHOW_STATE_DEFAULT;
 
     bool is_session_restore = false;
+
+    bool is_focus_mode = false;
 
     // Whether this browser was created by a user gesture. We track this
     // specifically for the multi-user case in chromeos where we can place
@@ -293,18 +296,16 @@ class Browser : public TabStripModelObserver,
   gfx::Image icon_override() const { return icon_override_; }
 
   // Return true if the initial window bounds have been overridden.
-  bool bounds_overridden() const {
-    return !override_bounds_.IsEmpty();
-  }
+  bool bounds_overridden() const { return !override_bounds_.IsEmpty(); }
   // Set indicator that this browser is being created via session restore.
   // This is used on the Mac (only) to determine animation style when the
   // browser window is shown.
   void set_is_session_restore(bool is_session_restore) {
     is_session_restore_ = is_session_restore;
   }
-  bool is_session_restore() const {
-    return is_session_restore_;
-  }
+  bool is_session_restore() const { return is_session_restore_; }
+
+  bool is_focus_mode() const { return is_focus_mode_; }
 
   // Accessors ////////////////////////////////////////////////////////////////
 
@@ -341,7 +342,7 @@ class Browser : public TabStripModelObserver,
   }
   const SessionID& session_id() const { return session_id_; }
   BrowserContentSettingBubbleModelDelegate*
-      content_setting_bubble_model_delegate() {
+  content_setting_bubble_model_delegate() {
     return content_setting_bubble_model_delegate_.get();
   }
   BrowserLiveTabContext* live_tab_context() { return live_tab_context_.get(); }
@@ -351,11 +352,11 @@ class Browser : public TabStripModelObserver,
   BrowserInstantController* instant_controller() {
     return instant_controller_.get();
   }
-  const extensions::HostedAppBrowserController* hosted_app_controller() const {
-    return hosted_app_controller_.get();
+  const WebAppBrowserController* web_app_controller() const {
+    return web_app_controller_.get();
   }
-  extensions::HostedAppBrowserController* hosted_app_controller() {
-    return hosted_app_controller_.get();
+  WebAppBrowserController* web_app_controller() {
+    return web_app_controller_.get();
   }
 
 #if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
@@ -788,13 +789,11 @@ class Browser : public TabStripModelObserver,
                                   blink::MediaStreamType type) override;
   std::string GetDefaultMediaDeviceID(content::WebContents* web_contents,
                                       blink::MediaStreamType type) override;
-  bool RequestPpapiBrokerPermission(
+  void RequestPpapiBrokerPermission(
       content::WebContents* web_contents,
       const GURL& url,
       const base::FilePath& plugin_path,
-      const base::Callback<void(bool)>& callback) override;
-  gfx::Size GetSizeForNewRenderView(
-      content::WebContents* web_contents) const override;
+      base::OnceCallback<void(bool)> callback) override;
 
 #if BUILDFLAG(ENABLE_PRINTING)
   void PrintCrossProcessSubframe(
@@ -881,8 +880,7 @@ class Browser : public TabStripModelObserver,
   //   updates), then scheduled_updates_ is updated for the |source| and update
   //   pair and a task is scheduled (assuming it isn't running already)
   //   that invokes ProcessPendingUIUpdates.
-  void ScheduleUIUpdate(content::WebContents* source,
-                        unsigned changed_flags);
+  void ScheduleUIUpdate(content::WebContents* source, unsigned changed_flags);
 
   // Processes all pending updates to the UI that have been scheduled by
   // ScheduleUIUpdate in scheduled_updates_.
@@ -971,6 +969,8 @@ class Browser : public TabStripModelObserver,
   // BrowserWindow if necessary.
   void UpdateBookmarkBarState(BookmarkBarStateChangeReason reason);
 
+  bool ShouldShowBookmarkBar() const;
+
   bool ShouldHideUIForFullscreen() const;
 
   // Indicates if we have called BrowserList::NotifyBrowserCloseStarted for the
@@ -1033,6 +1033,9 @@ class Browser : public TabStripModelObserver,
   // a popup window). Also used to determine which app windows to save and
   // restore on Chrome OS.
   bool is_trusted_source_;
+
+  // Whether this browser was created for focus mode. See https://crbug/932814.
+  const bool is_focus_mode_;
 
   // Unique identifier of this browser for session restore. This id is only
   // unique within the current session, and is not guaranteed to be unique
@@ -1116,8 +1119,7 @@ class Browser : public TabStripModelObserver,
   // Helper which handles bookmark app specific browser configuration.
   // This must be initialized before |command_controller_| to ensure the correct
   // set of commands are enabled.
-  std::unique_ptr<extensions::HostedAppBrowserController>
-      hosted_app_controller_;
+  std::unique_ptr<WebAppBrowserController> web_app_controller_;
 
   BookmarkBar::State bookmark_bar_state_;
 

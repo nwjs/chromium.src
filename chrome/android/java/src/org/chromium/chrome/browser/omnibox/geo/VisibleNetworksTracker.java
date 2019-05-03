@@ -27,7 +27,7 @@ class VisibleNetworksTracker {
     private static long sVisibleNetworksTime = Long.MAX_VALUE;
 
     @Nullable
-    private static AsyncTask<Void> sOngoingRefresh;
+    private static AsyncTask<VisibleNetworks> sOngoingRefresh;
 
     private static VisibleNetworks sVisibleNetworksForTesting;
     private static boolean sUseVisibleNetworksForTesting;
@@ -47,7 +47,8 @@ class VisibleNetworksTracker {
         try {
             // Include only the connected cell/wifi to minimize latency and compute the simplest
             // visible networks possible.
-            visibleNetworks = PlatformNetworksManager.computeConnectedNetworks(context);
+            visibleNetworks = PlatformNetworksManager.computeVisibleNetworks(
+                    context, false /* includeAllVisibleNotConnectedNetworks */);
         } catch (Exception e) {
             Log.e(TAG, "Failed to get the visible networks. Error: ", e.toString());
         }
@@ -66,25 +67,24 @@ class VisibleNetworksTracker {
         if (isValidCachedVisibleNetworks() || sOngoingRefresh != null) {
             return;
         }
-
-        // TODO(crbug.com/955560): Cleanup this section to avoid wrapping a function that now
-        // accepts a callback in an AsyncTask.
-        sOngoingRefresh = new AsyncTask<Void>() {
+        sOngoingRefresh = new AsyncTask<VisibleNetworks>() {
             @Override
-            protected Void doInBackground() {
+            protected VisibleNetworks doInBackground() {
+                VisibleNetworks visibleNetworks = null;
                 try {
                     // Include all visible wifis and cells.
-                    PlatformNetworksManager.computeVisibleNetworks(
-                            context, VisibleNetworksTracker::setCachedVisibleNetworks);
+                    visibleNetworks = PlatformNetworksManager.computeVisibleNetworks(
+                            context, true /* includeAllVisibleNotConnectedNetworks */);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to get the visible networks. Error: ", e.toString());
                 }
-                return null;
+                return visibleNetworks;
             }
 
             @Override
-            protected void onPostExecute(Void v) {
+            protected void onPostExecute(VisibleNetworks visibleNetworks) {
                 sOngoingRefresh = null;
+                setCachedVisibleNetworks(visibleNetworks);
             }
         };
         sOngoingRefresh.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);

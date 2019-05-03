@@ -30,7 +30,6 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.chrome.browser.AppHooks;
-import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeLocalizationUtils;
 import org.chromium.chrome.browser.ChromeStrictMode;
 import org.chromium.chrome.browser.ChromeSwitches;
@@ -46,6 +45,7 @@ import org.chromium.components.minidump_uploader.CrashFileManager;
 import org.chromium.content_public.browser.BrowserStartupController;
 import org.chromium.content_public.browser.DeviceUtils;
 import org.chromium.content_public.browser.SpeechRecognition;
+import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.net.NetworkChangeNotifier;
 import org.chromium.policy.CombinedPolicyProvider;
 import org.chromium.ui.resources.ResourceExtractor;
@@ -64,7 +64,6 @@ public class ChromeBrowserInitializer {
     private static final String TAG = "BrowserInitializer";
     private static ChromeBrowserInitializer sChromeBrowserInitializer;
     private static BrowserStartupController sBrowserStartupController;
-    private final ChromeApplication mApplication;
     private final Locale mInitialLocale = Locale.getDefault();
     private List<Runnable> mTasksToRunWithNative;
 
@@ -106,10 +105,6 @@ public class ChromeBrowserInitializer {
      */
     public static ChromeBrowserInitializer getInstance(Context context) {
         return getInstance();
-    }
-
-    private ChromeBrowserInitializer() {
-        mApplication = (ChromeApplication) ContextUtils.getApplicationContext();
     }
 
     /**
@@ -217,13 +212,13 @@ public class ChromeBrowserInitializer {
     private void warmUpSharedPrefs() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             PostTask.postTask(TaskTraits.BEST_EFFORT_MAY_BLOCK, () -> {
-                DocumentTabModelImpl.warmUpSharedPrefs(mApplication);
-                ActivityAssigner.warmUpSharedPrefs(mApplication);
+                DocumentTabModelImpl.warmUpSharedPrefs();
+                ActivityAssigner.warmUpSharedPrefs();
                 DownloadManagerService.warmUpSharedPrefs();
             });
         } else {
-            DocumentTabModelImpl.warmUpSharedPrefs(mApplication);
-            ActivityAssigner.warmUpSharedPrefs(mApplication);
+            DocumentTabModelImpl.warmUpSharedPrefs();
+            ActivityAssigner.warmUpSharedPrefs();
             DownloadManagerService.warmUpSharedPrefs();
         }
     }
@@ -258,6 +253,7 @@ public class ChromeBrowserInitializer {
         // Check to see if we need to extract any new resources from the APK. This could
         // be on first run when we need to extract all the .pak files we need, or after
         // the user has switched locale, in which case we want new locale resources.
+        ResourceExtractor.get().setResultTraits(UiThreadTaskTraits.BOOTSTRAP);
         ResourceExtractor.get().startExtractingResources(LocaleUtils.toLanguage(
                 ChromeLocalizationUtils.getUiLocaleStringForCompressedPak()));
 
@@ -366,7 +362,7 @@ public class ChromeBrowserInitializer {
             StrictMode.setThreadPolicy(oldPolicy);
             LibraryLoader.getInstance().asyncPrefetchLibrariesToMemory();
             getBrowserStartupController().startBrowserProcessesSync(false);
-            GoogleServicesManager.get(mApplication);
+            GoogleServicesManager.get();
         } finally {
             TraceEvent.end("ChromeBrowserInitializer.startChromeBrowserProcessesSync");
         }
@@ -399,7 +395,7 @@ public class ChromeBrowserInitializer {
         // before starting the browser process.
         AppHooks.get().registerPolicyProviders(CombinedPolicyProvider.get());
 
-        SpeechRecognition.initialize(mApplication);
+        SpeechRecognition.initialize();
     }
 
     private void onFinishNativeInitialization() {

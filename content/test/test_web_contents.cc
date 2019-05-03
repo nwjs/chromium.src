@@ -83,11 +83,17 @@ TestWebContents::~TestWebContents() {
 }
 
 TestRenderFrameHost* TestWebContents::GetMainFrame() {
-  return static_cast<TestRenderFrameHost*>(WebContentsImpl::GetMainFrame());
+  auto* instance = WebContentsImpl::GetMainFrame();
+  DCHECK(instance->IsTestRenderFrameHost())
+      << "You may want to instantiate RenderViewHostTestEnabler.";
+  return static_cast<TestRenderFrameHost*>(instance);
 }
 
 TestRenderViewHost* TestWebContents::GetRenderViewHost() {
-  return static_cast<TestRenderViewHost*>(WebContentsImpl::GetRenderViewHost());
+  auto* instance = WebContentsImpl::GetRenderViewHost();
+  DCHECK(instance->IsTestRenderViewHost())
+      << "You may want to instantiate RenderViewHostTestEnabler.";
+  return static_cast<TestRenderViewHost*>(instance);
 }
 
 TestRenderFrameHost* TestWebContents::GetPendingMainFrame() {
@@ -399,7 +405,7 @@ void TestWebContents::ShowCreatedWindow(int process_id,
                                         int route_id,
                                         WindowOpenDisposition disposition,
                                         const gfx::Rect& initial_rect,
-                                        bool user_gesture, std::string) {
+                                        bool user_gesture) {
 }
 
 void TestWebContents::ShowCreatedWidget(int process_id,

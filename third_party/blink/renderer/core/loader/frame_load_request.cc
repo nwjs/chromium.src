@@ -6,6 +6,7 @@
 
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/platform/web_url_request.h"
+#include "third_party/blink/renderer/core/events/current_input_event.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
@@ -38,7 +39,6 @@ FrameLoadRequest::FrameLoadRequest(
       frame_name_(frame_name),
       client_redirect_(ClientRedirectPolicy::kNotClientRedirect),
       should_send_referrer_(kMaybeSendReferrer),
-      should_set_opener_(kMaybeSetOpener),
       should_check_main_world_content_security_policy_(
           should_check_main_world_content_security_policy) {
   // These flags are passed to a service worker which controls the page.
@@ -48,6 +48,9 @@ FrameLoadRequest::FrameLoadRequest(
       network::mojom::FetchCredentialsMode::kInclude);
   resource_request_.SetFetchRedirectMode(
       network::mojom::FetchRedirectMode::kManual);
+
+  if (const WebInputEvent* input_event = CurrentInputEvent::Get())
+    SetInputStartTime(input_event->TimeStamp());
 
   if (origin_document) {
     DCHECK(!resource_request_.RequestorOrigin());

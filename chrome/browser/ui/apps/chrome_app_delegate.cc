@@ -315,7 +315,7 @@ void ChromeAppDelegate::AddNewContents(
                     ? disposition
                     : WindowOpenDisposition::NEW_FOREGROUND_TAB;
   chrome::AddWebContents(displayer.browser(), NULL, std::move(new_contents),
-                         disposition, initial_rect, std::string());
+                         disposition, initial_rect);
 }
 
 content::ColorChooser* ChromeAppDelegate::ShowColorChooser(

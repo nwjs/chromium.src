@@ -54,6 +54,7 @@
 <translation id="1319608975892113573">మునుపటి బ్లాక్‌కోట్ లేదు.</translation>
 <translation id="1321576897702511272">ChromeVox సహాయాన్ని దాచండి</translation>
 <translation id="1325946044405407859">లేత సింధూర రంగు</translation>
+<translation id="1331634987653814322">బ్రెయిలీ సెట్టింగ్‌లు</translation>
 <translation id="1331702245475014624"><ph name="TOTAL" />లో <ph name="INDEX" /></translation>
 <translation id="1334095593597963605">అక్షరం మరియు పదం అనుకరణ</translation>
 <translation id="1334570596456017464">సబ్‌స్క్రిప్ట్</translation>
@@ -98,6 +99,7 @@
 <translation id="1616111909442424068">గోధుమ రంగు</translation>
 <translation id="1618597272655350600">ప్రస్తుత స్థానం యొక్క పూర్తి వివరణను తెలియజేస్తుంది</translation>
 <translation id="1627222324347828322">పిశాచ తెలుపు రంగు</translation>
+<translation id="1630688379087270943">ఇటాలిక్‌తో సూచిస్తుంది:</translation>
 <translation id="1639634871799530612">{COUNT,plural, =1{గురుతర గుర్తు}other{# గురుతర గుర్తులు}}</translation>
 <translation id="1653266918374749391">మునుపటి స్థాయి 3 శీర్షిక</translation>
 <translation id="1657616855184033958">ఈవెంట్ ప్రసార ఫిల్టర్‌లను చూపించు</translation>
@@ -319,6 +321,7 @@
 <translation id="3286390186030710347">స్లయిడర్</translation>
 <translation id="3299925995433437805">తర్వాత సందర్శించిన లింక్ ఏదీ లేదు.</translation>
 <translation id="3300348286427369683">రిచ్ టెక్స్ట్ మద్దతు. ChromeVox ఇప్పుడు దాటవేత ఆదేశాలు, బ్రెయిలీ కర్సర్ రూటింగ్, ఎంపిక మరియు మరిన్నింటితో సహా రిచ్ టెక్స్ట్ ఫీల్డ్‌లకు మద్దతిస్తుంది.</translation>
+<translation id="3304756947457041303">రిచ్ టెక్స్ట్ అనుకూలీకరణ సూచిక</translation>
 <translation id="3307886118343381874">పట్టిక చివరకు వెళ్లండి</translation>
 <translation id="3311969765485641742">హెచ్చరికలను సమీక్షించడానికి Alt+Shift+A నొక్కండి</translation>
 <translation id="3312997241656799641">తర్వాత సందర్శించిన లింక్</translation>
@@ -405,6 +408,7 @@
 <translation id="3930498801443296724">పుల్‌కోట్</translation>
 <translation id="3936394396199829062">లావెండర్ ఎరుపు</translation>
 <translation id="3941269780691800708">మౌస్ కింద ఉన్న వచనాన్ని చదవచ్చు.</translation>
+<translation id="394953087167197343">తప్పును సూచిస్తుంది:</translation>
 <translation id="3962990492275676168">ప్రస్తుత స్థానం నుండి చదవడం ప్రారంభించండి</translation>
 <translation id="3970951409746498040">ఇసుక గోధుమ రంగు</translation>
 <translation id="3989324057180830702">tgl btn</translation>
@@ -451,6 +455,7 @@
 <translation id="42164919740161077">బూడిద నీలి రంగు</translation>
 <translation id="4218529045364428769">{COUNT,plural, =1{అడ్డగీత}other{# అడ్డగీతలు}}</translation>
 <translation id="421884353938374759">రంగు ఎంపిక</translation>
+<translation id="4221071177874897997">బోల్డ్‌తో సూచిస్తుంది:</translation>
 <translation id="4229646983878045487">తేదీ సమయం</translation>
 <translation id="4230834257931120629">లేత మేఘవర్ణపు బూడిద రంగు</translation>
 <translation id="4231102694147661229">డెవలపర్ ఎంపికలను ప్రారంభించు</translation>
@@ -548,6 +553,7 @@
 <translation id="489907760999452556">అంతర్గత లింక్</translation>
 <translation id="4915087353619183190">తెలుసుకునే మోడ్ ప్రారంభించబడుతోంది. కనుక qwerty కీని గానీ, రిఫ్రెష్ చేయదగిన బ్రెయిలీ కీని గానీ లేదంటే, టచ్ సంజ్ఞలను గానీ నొక్కి అదెలా పని చేస్తుందో తెలుసుకోవచ్చు. w అక్షరాన్ని, కంట్రోల్ కీని కలిపి నొక్కడం లేదా ఎస్కేప్ కీని నొక్కడం గానీ చేస్తే దాని నుండి నిష్క్రమించవచ్చు.</translation>
 <translation id="492295894462528572">ముందుమాట</translation>
+<translation id="4943781537993885772">ప్రదర్శన శైలి</translation>
 <translation id="495170559598752135">చర్యలు</translation>
 <translation id="4953585991029886728">వచనాన్ని సవరించండి</translation>
 <translation id="4954534434583049121">మునుపటి బ్లాక్ కోట్</translation>
@@ -646,6 +652,7 @@
 <translation id="5574412348552378458">ChromeVox తెలుసుకునే మోడ్</translation>
 <translation id="5583640892426849032">Backspace</translation>
 <translation id="5585044216466955529">వచనం, ఇమెయిల్ నమోదును సవరించండి</translation>
+<translation id="5586942249556966598">ఏమి చేయవద్దు</translation>
 <translation id="5597170376237141345">తదుపరి చెక్‌బాక్స్</translation>
 <translation id="5597933780944041114">తరువాత శీర్షిక లేదు.</translation>
 <translation id="5598905979683743333"><ph name="NAME" />, రేడియో బటన్ ఎంపిక తీసివేయబడింది</translation>
@@ -713,6 +720,7 @@
 <translation id="6006050241733874051">ఫారమ్</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{బ్యాక్‌స్లాష్ గుర్తు}other{# బ్యాక్‌స్లాష్ గుర్తులు}}</translation>
 <translation id="6017514345406065928">ఆకుపచ్చ</translation>
+<translation id="6021969570711251331">ఇంటర్‌లీవ్</translation>
 <translation id="6034000775414344507">లేత బూడిద రంగు</translation>
 <translation id="6037602951055904232">ముందుకు ప్యాన్ చేయండి</translation>
 <translation id="6042826534790431634">యాక్టివేట్ చేయడం కోసం శోధన+స్పేస్ నొక్కండి.</translation>
@@ -750,6 +758,7 @@
 <translation id="6348869651006731065">కాంతిహీనమైన బూడిద రంగు</translation>
 <translation id="6350358010104919766">{COUNT,plural, =1{బుల్లెట్}other{# బుల్లెట్‌లు}}</translation>
 <translation id="6355910664415701303">మునుపటి జాబితా అంశం లేదు.</translation>
+<translation id="6360318852623800555">రిచ్ టెక్స్ట్ లక్షణాలు</translation>
 <translation id="6364795331201459219">h6</translation>
 <translation id="6368143427468974988">మునుపటి శీర్షిక</translation>
 <translation id="6376999910001533545">ముదురు ఎరుపు రంగు</translation>
@@ -763,6 +772,7 @@
 <translation id="6438968337250688271"><ph name="NAME" />, మెను</translation>
 <translation id="6444046323172968959">హెచ్చరిక డైలాగ్</translation>
 <translation id="6452403590345320472">విషయ పట్టిక</translation>
+<translation id="6454456397828627257">పక్కపక్కన</translation>
 <translation id="6459511626086141404">సమతల కీమ్యాప్</translation>
 <translation id="6468049171101508116">తర్వాతి బటన్</translation>
 <translation id="646954774886932461">సూచిక</translation>
@@ -924,6 +934,7 @@ Chrome బ్రౌజర్ మెనూను తెరవడానికి, 
 <translation id="762020119231868829">ప్రస్తుతం ప్లే అవుతున్న అన్ని మీడియా విడ్జెట్‌లను పాజ్ చేస్తుంది</translation>
 <translation id="7625690649919402823">తరువాత పట్టిక</translation>
 <translation id="7628927569678398026"><ph name="LOCALE" /> (<ph name="VARIANT" />), గ్రేడ్ <ph name="GRADE" /></translation>
+<translation id="763535765081585392">కింది గీతను సూచిస్తుంది:</translation>
 <translation id="7639968568612851608">ముదురు బూడిద రంగు</translation>
 <translation id="7641134354185483015">మునుపటి స్థాయి 3 శీర్షిక లేదు.</translation>
 <translation id="7659376057562985921"><ph name="VALUE" />, <ph name="NAME" />, వచన పెట్టె</translation>
@@ -1159,6 +1170,7 @@ Chrome బ్రౌజర్ మెనూను తెరవడానికి, 
 <translation id="8943175951035496220">కుడివైపు సెల్ లేదు.</translation>
 <translation id="8943282376843390568">నిమ్మపండు రంగు</translation>
 <translation id="8946628535652548639">అడ్డు వరుస<ph name="TABLECELLROWINDEX" />నిలువు వరుస<ph name="TABLECELLCOLUMNINDEX" /></translation>
+<translation id="8957142051395645063">ప్రకటించు</translation>
 <translation id="8978496506222343566">tltip</translation>
 <translation id="8986362086234534611">మరిచిపోయారా</translation>
 <translation id="900114243503212879">ఫైల్</translation>

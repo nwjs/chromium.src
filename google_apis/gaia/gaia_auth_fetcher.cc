@@ -45,7 +45,7 @@ namespace {
 const int kLoadFlagsIgnoreCookies = net::LOAD_DO_NOT_SEND_COOKIES |
                                     net::LOAD_DO_NOT_SAVE_COOKIES;
 
-//const size_t kMaxMessageSize = 1024 * 1024;  // 1MB
+const size_t kMaxMessageSize = 1024 * 1024;  // 1MB
 
 std::unique_ptr<const GaiaAuthConsumer::ClientOAuthResult>
 ExtractOAuth2TokenPairResponse(const std::string& data) {
@@ -259,7 +259,6 @@ void GaiaAuthFetcher::CreateAndStartGaiaFetcher(
     const GURL& gaia_gurl,
     int load_flags,
     const net::NetworkTrafficAnnotationTag& traffic_annotation) {
-#if 0
   DCHECK(!fetch_pending_) << "Tried to fetch two things at once!";
 
   auto resource_request = std::make_unique<network::ResourceRequest>();
@@ -316,7 +315,6 @@ void GaiaAuthFetcher::CreateAndStartGaiaFetcher(
       base::BindOnce(&GaiaAuthFetcher::OnURLLoadComplete,
                      base::Unretained(this)),
       kMaxMessageSize);
-#endif
 }
 
 // static

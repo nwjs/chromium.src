@@ -10,7 +10,6 @@
 #include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/themes/theme_properties.h"
-#include "chrome/browser/ui/extensions/hosted_app_browser_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -21,6 +20,7 @@
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/web_app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/strings/grit/components_strings.h"
@@ -184,8 +184,8 @@ void OpaqueBrowserFrameView::InitViews() {
   window_title_->set_id(VIEW_ID_WINDOW_TITLE);
   AddChildView(window_title_);
 
-  extensions::HostedAppBrowserController* controller =
-      browser_view()->browser()->hosted_app_controller();
+  WebAppBrowserController* controller =
+      browser_view()->browser()->web_app_controller();
   if (controller && controller->ShouldShowHostedAppButtonContainer()) {
     set_hosted_app_button_container(new HostedAppButtonContainer(
         frame(), browser_view(), GetCaptionColor(kActive),
@@ -197,12 +197,13 @@ void OpaqueBrowserFrameView::InitViews() {
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, BrowserNonClientFrameView implementation:
 
-gfx::Rect OpaqueBrowserFrameView::GetBoundsForTabStrip(
+gfx::Rect OpaqueBrowserFrameView::GetBoundsForTabStripRegion(
     const views::View* tabstrip) const {
   if (!tabstrip)
     return gfx::Rect();
 
-  return layout_->GetBoundsForTabStrip(tabstrip->GetPreferredSize(), width());
+  return layout_->GetBoundsForTabStripRegion(tabstrip->GetPreferredSize(),
+                                             width());
 }
 
 int OpaqueBrowserFrameView::GetTopInset(bool restored) const {
@@ -379,7 +380,7 @@ void OpaqueBrowserFrameView::ButtonPressed(views::Button* sender,
   }
 }
 
-void OpaqueBrowserFrameView::OnMenuButtonClicked(views::MenuButton* source,
+void OpaqueBrowserFrameView::OnMenuButtonClicked(views::Button* source,
                                                  const gfx::Point& point,
                                                  const ui::Event* event) {
 #if defined(OS_LINUX)
@@ -387,7 +388,8 @@ void OpaqueBrowserFrameView::OnMenuButtonClicked(views::MenuButton* source,
                                 views::MenuRunner::HAS_MNEMONICS);
   menu_runner.RunMenuAt(browser_view()->GetWidget(), window_icon_,
                         window_icon_->GetBoundsInScreen(),
-                        views::MENU_ANCHOR_TOPLEFT, ui::MENU_SOURCE_MOUSE);
+                        views::MenuAnchorPosition::kTopLeft,
+                        ui::MENU_SOURCE_MOUSE);
 #endif
 }
 
@@ -490,9 +492,10 @@ int OpaqueBrowserFrameView::GetTopAreaHeight() const {
   const int non_client_top_height = layout_->NonClientTopHeight(false);
   if (!browser_view()->IsTabStripVisible())
     return non_client_top_height;
-  return std::max(non_client_top_height,
-                  GetBoundsForTabStrip(browser_view()->tabstrip()).bottom() -
-                      GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP));
+  return std::max(
+      non_client_top_height,
+      GetBoundsForTabStripRegion(browser_view()->tabstrip()).bottom() -
+          GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP));
 }
 
 bool OpaqueBrowserFrameView::UseCustomFrame() const {
@@ -613,7 +616,7 @@ views::Button* OpaqueBrowserFrameView::CreateImageButton(int normal_image_id,
     // (&processed_bg_image) to create a local copy, so it's safe for this
     // to be locally scoped.
     button->SetBackgroundImage(
-        tp->GetColor(ThemeProperties::COLOR_BUTTON_BACKGROUND),
+        tp->GetColor(ThemeProperties::COLOR_CONTROL_BUTTON_BACKGROUND),
         (processed_bg_image.isNull() ? nullptr : &processed_bg_image),
         tp->GetImageSkiaNamed(mask_image_id));
   }
