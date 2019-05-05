@@ -150,6 +150,50 @@ string16 QuoteForCommandLineToArgvW(const string16& arg,
 
   return out;
 }
+#else
+// see the similar code in base/command_line.cc
+std::string QuoteForCommandLineToArgv(const std::string& arg) {
+  std::string quotable_chars(" \\\"");
+  if (arg.find_first_of(quotable_chars) == std::string::npos) {
+    // No quoting necessary.
+    return arg;
+  }
+
+  std::string out;
+  out.push_back('"');
+  for (size_t i = 0; i < arg.size(); ++i) {
+    if (arg[i] == '\\') {
+      // Find the extent of this run of backslashes.
+      size_t start = i, end = start + 1;
+      for (; end < arg.size() && arg[end] == '\\'; ++end) {}
+      size_t backslash_count = end - start;
+
+      // Backslashes are escapes only if the run is followed by a
+      // double quote.
+      // Since we also will end the string with a double quote, we
+      // escape for
+      // either a double quote or the end of the string.
+      if (end == arg.size() || arg[end] == '"') {
+        // To quote, we need to output 2x as many backslashes.
+        backslash_count *= 2;
+      }
+      for (size_t j = 0; j < backslash_count; ++j)
+        out.push_back('\\');
+
+      // Advance i to one before the end to balance i++ in loop.
+      i = end - 1;
+    } else if (arg[i] == '"') {
+      out.push_back('\\');
+      out.push_back('"');
+    } else {
+      out.push_back(arg[i]);
+    }
+  }
+  out.push_back('"');
+
+  return out;
+}
+
 #endif
 
 }  // namespace
@@ -545,6 +589,8 @@ CommandLine::StringType CommandLine::GetCommandLineStringInternal(
   StringType string(argv_[0]);
 #if defined(OS_WIN)
   string = QuoteForCommandLineToArgvW(string, quote_placeholders);
+#else
+  string = QuoteForCommandLineToArgv(string);
 #endif
   StringType params(GetArgumentsStringInternal(quote_placeholders));
   if (!params.empty()) {
@@ -572,12 +618,17 @@ CommandLine::StringType CommandLine::GetArgumentsStringInternal(
 #if defined(OS_WIN)
         switch_value =
             QuoteForCommandLineToArgvW(switch_value, quote_placeholders);
+#else
+        switch_value =
+          QuoteForCommandLineToArgv(switch_value);
 #endif
         params.append(kSwitchValueSeparator + switch_value);
       }
     } else {
 #if defined(OS_WIN)
       arg = QuoteForCommandLineToArgvW(arg, quote_placeholders);
+#else
+      arg = QuoteForCommandLineToArgv(arg);
 #endif
       params.append(arg);
     }
