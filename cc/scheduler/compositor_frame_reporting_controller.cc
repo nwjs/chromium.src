@@ -31,8 +31,10 @@ void CompositorFrameReportingController::WillBeginImplFrame() {
 
 void CompositorFrameReportingController::WillBeginMainFrame() {
   DCHECK(reporters_[PipelineStage::kBeginImplFrame]);
+#if 0
   DCHECK_NE(reporters_[PipelineStage::kBeginMainFrame],
             reporters_[PipelineStage::kBeginImplFrame]);
+#endif
   reporters_[PipelineStage::kBeginImplFrame]->StartStage(
       "SendBeginMainFrameToCommit");
   AdvanceReporterStage(PipelineStage::kBeginImplFrame,
