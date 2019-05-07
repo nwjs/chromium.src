@@ -636,6 +636,10 @@
 #include "third_party/blink/public/mojom/media_controls/touchless/media_controls.mojom.h"
 #endif
 
+#if defined(ENABLE_SPATIAL_NAVIGATION_HOST)
+#include "third_party/blink/public/mojom/page/spatial_navigation.mojom.h"
+#endif
+
 using base::FileDescriptor;
 using content::BrowserThread;
 using content::BrowserURLHandler;
@@ -1156,6 +1160,7 @@ void ChromeContentBrowserClient::RegisterProfilePrefs(
   // used for mapping the command-line flags).
   registry->RegisterStringPref(prefs::kIsolateOrigins, std::string());
   registry->RegisterBooleanPref(prefs::kSitePerProcess, false);
+  registry->RegisterListPref(prefs::kUserTriggeredIsolatedOrigins);
   registry->RegisterDictionaryPref(
       prefs::kDevToolsBackgroundServicesExpirationDict);
   registry->RegisterBooleanPref(prefs::kSignedHTTPExchangeEnabled, true);
@@ -1934,6 +1939,19 @@ ChromeContentBrowserClient::GetAdditionalSiteIsolationModes() {
     return {"Isolate Password Sites"};
   else
     return {};
+}
+
+void ChromeContentBrowserClient::PersistIsolatedOrigin(
+    content::BrowserContext* context,
+    const url::Origin& origin) {
+  DCHECK(!context->IsOffTheRecord());
+  Profile* profile = Profile::FromBrowserContext(context);
+  ListPrefUpdate update(profile->GetPrefs(),
+                        prefs::kUserTriggeredIsolatedOrigins);
+  base::ListValue* list = update.Get();
+  base::Value value(origin.Serialize());
+  if (!base::ContainsValue(list->GetList(), value))
+    list->GetList().push_back(std::move(value));
 }
 
 bool ChromeContentBrowserClient::IsFileAccessAllowed(
@@ -4633,6 +4651,10 @@ void ChromeContentBrowserClient::InitWebContextInterfaces() {
 #if defined(OS_ANDROID)
   frame_interfaces_parameterized_->AddInterface(base::Bind(
       &ForwardToJavaWebContentsRegistry<blink::mojom::ShareService>));
+#if defined(ENABLE_SPATIAL_NAVIGATION_HOST)
+  frame_interfaces_parameterized_->AddInterface(base::Bind(
+      &ForwardToJavaWebContentsRegistry<blink::mojom::SpatialNavigationHost>));
+#endif
 #endif
 
 #if !defined(OS_ANDROID)
@@ -5054,6 +5076,9 @@ ChromeContentBrowserClient::WillCreateURLLoaderRequestInterceptors(
   }
 #endif
 
+  ChromeNavigationUIData* chrome_navigation_ui_data =
+      static_cast<ChromeNavigationUIData*>(navigation_ui_data);
+
   // TODO(ryansturm): Once this is on the UI thread, stop passing
   // |network_loader_factory| and have interceptors create one themselves.
   // https://crbug.com/931786
@@ -5062,7 +5087,9 @@ ChromeContentBrowserClient::WillCreateURLLoaderRequestInterceptors(
           previews::features::kHTTPSServerPreviewsUsingURLLoader)) {
     interceptors.push_back(
         std::make_unique<previews::PreviewsLitePageURLLoaderInterceptor>(
-            network_loader_factory, frame_tree_node_id));
+            network_loader_factory,
+            chrome_navigation_ui_data->data_reduction_proxy_page_id(),
+            frame_tree_node_id));
   }
 
   return interceptors;

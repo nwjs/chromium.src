@@ -44,11 +44,6 @@ void FilterOutPrinters(std::vector<Printer>* printers,
   printers->resize(new_end - printers->begin());
 }
 
-// Return true if this is a USB printer.
-bool IsUsbPrinter(const Printer& printer) {
-  return printer.GetProtocol() == Printer::kUsb;
-}
-
 class CupsPrintersManagerImpl : public CupsPrintersManager,
                                 public SyncedPrintersManager::Observer {
  public:
@@ -197,7 +192,7 @@ class CupsPrintersManagerImpl : public CupsPrintersManager,
   // Note this is linear in the number of printers.  If the number of printers
   // gets so large that a linear search is prohibative, we'll have to rethink
   // more than just this function.
-  std::unique_ptr<Printer> GetPrinter(const std::string& id) const override {
+  base::Optional<Printer> GetPrinter(const std::string& id) const override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_);
     if (!native_printers_allowed_.GetValue()) {
       LOG(WARNING) << "UserNativePrintersAllowed is disabled - only searching "
@@ -208,11 +203,11 @@ class CupsPrintersManagerImpl : public CupsPrintersManager,
     for (const auto& printer_list : printers_) {
       for (const auto& printer : printer_list) {
         if (printer.id() == id) {
-          return std::make_unique<Printer>(printer);
+          return printer;
         }
       }
     }
-    return std::unique_ptr<Printer>();
+    return base::nullopt;
   }
 
   // SyncedPrintersManager::Observer implementation
@@ -256,13 +251,13 @@ class CupsPrintersManagerImpl : public CupsPrintersManager,
   }
 
  private:
-  std::unique_ptr<Printer> GetEnterprisePrinter(const std::string& id) const {
+  base::Optional<Printer> GetEnterprisePrinter(const std::string& id) const {
     for (const auto& printer : printers_[kEnterprise]) {
       if (printer.id() == id) {
-        return std::make_unique<Printer>(printer);
+        return printer;
       }
     }
-    return nullptr;
+    return base::nullopt;
   }
 
   // Notify observers on the given classes the the relevant lists have changed.
@@ -313,11 +308,11 @@ class CupsPrintersManagerImpl : public CupsPrintersManager,
     // separately from other IPP printers.  Eventually we may want to shift
     // this to be split by autodetected/not autodetected instead of USB/other
     // IPP.
-    if (IsUsbPrinter(printer)) {
+    if (printer.IsUsbProtocol()) {
       // Get the associated detection record if one exists.
       const auto* detected = FindDetectedPrinter(printer.id());
-      // We should have the full DetectedPrinter.  We
-      // can't log the printer if we don't have it.
+      // We should have the full DetectedPrinter.  We can't log the printer if
+      // we don't have it.
       if (!detected) {
         LOG(WARNING) << "Failed to find USB printer " << printer.id()
                      << " for installation event logging";
@@ -425,7 +420,7 @@ class CupsPrintersManagerImpl : public CupsPrintersManager,
   // abandoned.
   void RecordSetupAbandoned(const Printer& printer) override {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_);
-    if (IsUsbPrinter(printer)) {
+    if (printer.IsUsbProtocol()) {
       const auto* detected = FindDetectedPrinter(printer.id());
       if (!detected) {
         LOG(WARNING) << "Failed to find USB printer " << printer.id()

@@ -11,6 +11,7 @@
 #include "build/buildflag.h"
 #include "chrome/common/buildflags.h"
 #include "components/feature_engagement/buildflags.h"
+#include "components/nacl/common/buildflags.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
 #include "ppapi/buildflags/buildflags.h"
@@ -92,6 +93,9 @@ extern const char kAutofillCacheQueryResponsesDescription[];
 
 extern const char kAutofillEnableCompanyNameName[];
 extern const char kAutofillEnableCompanyNameDescription[];
+
+extern const char kAutofillRejectCompanyBirthyearName[];
+extern const char kAutofillRejectCompanyBirthyearDescription[];
 
 extern const char kAutofillEnableLocalCardMigrationForNonSyncUserName[];
 extern const char kAutofillEnableLocalCardMigrationForNonSyncUserDescription[];
@@ -1018,6 +1022,9 @@ extern const char kSaveasMenuLabelExperimentDescription[];
 
 extern const char kScrollableTabStripName[];
 extern const char kScrollableTabStripDescription[];
+
+extern const char kSendTabToSelfBroadcastName[];
+extern const char kSendTabToSelfBroadcastDescription[];
 
 extern const char kSendTabToSelfName[];
 extern const char kSendTabToSelfDescription[];
@@ -2140,6 +2147,11 @@ extern const char kXRSandboxDescription[];
 #endif  // ENABLE_ISOLATED_XR_SERVICE
 
 #endif  // ENABLE_VR
+
+#if BUILDFLAG(ENABLE_NACL)
+extern const char kNaclName[];
+extern const char kNaclDescription[];
+#endif  // ENABLE_NACL
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 

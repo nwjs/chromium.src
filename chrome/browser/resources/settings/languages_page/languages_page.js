@@ -69,6 +69,12 @@ Polymer({
      */
     detailLanguage_: Object,
 
+    /** @private */
+    hideSpellCheckLanguages_: {
+      type: Boolean,
+      value: false,
+    },
+
     /**
      * Whether the language settings list is opened.
      * @private
@@ -544,6 +550,16 @@ Polymer({
       this.notifyPath(`spellCheckLanguages_.${i}.spellCheckEnabled`);
       this.notifyPath(
           `spellCheckLanguages_.${i}.downloadDictionaryFailureCount`);
+    }
+
+    this.hideSpellCheckLanguages_ = this.spellCheckLanguages_.length === 1 &&
+        !!this.spellCheckLanguages_[0].spellCheckEnabled &&
+        !!this.getPref('browser.enable_spellchecking').value;
+
+    if (this.spellCheckLanguages_.length === 0) {
+      // If there are no supported spell check languages, automatically turn
+      // off spell check to indicate no spell check will happen.
+      this.setPrefValue('browser.enable_spellchecking', false);
     }
   },
 

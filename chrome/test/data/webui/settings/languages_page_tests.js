@@ -626,6 +626,43 @@ cr.define('languages_page_tests', function() {
             spellCheckLanguagesCount);
       });
 
+      test('only 1 supported language does not show list', () => {
+        if (cr.isMac) {
+          return;
+        }
+
+        const list = languagesPage.$.spellCheckLanguagesList;
+        assertFalse(list.hidden);
+
+        // Update supported languages to just 1
+        languageHelper.setPrefValue('intl.accept_languages', 'en-US');
+        if (cr.isChromeOS) {
+          languageHelper.setPrefValue(
+              'settings.language.preferred_languages', 'en-US');
+        }
+        assertTrue(list.hidden);
+      });
+
+      test('no supported languages', () => {
+        if (cr.isMac) {
+          return;
+        }
+
+        assertFalse(languagesPage.$.enableSpellcheckingToggle.disabled);
+        assertTrue(
+            languageHelper.getPref('browser.enable_spellchecking').value);
+
+        // Empty out supported languages
+        languageHelper.setPrefValue('intl.accept_languages', '');
+        if (cr.isChromeOS) {
+          languageHelper.setPrefValue(
+              'settings.language.preferred_languages', '');
+        }
+        assertTrue(languagesPage.$.enableSpellcheckingToggle.disabled);
+        assertFalse(
+            languageHelper.getPref('browser.enable_spellchecking').value);
+      });
+
       test('error handling', function() {
         if (cr.isMac) {
           return;

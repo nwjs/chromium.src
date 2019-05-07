@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.touchless;
 
+import android.content.Context;
 import android.support.v4.view.ViewCompat;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -24,13 +25,13 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.suggestions.SuggestionsDependencyFactory;
 import org.chromium.chrome.browser.suggestions.SuggestionsEventReporter;
 import org.chromium.chrome.browser.suggestions.SuggestionsNavigationDelegate;
-import org.chromium.chrome.browser.suggestions.SuggestionsRecyclerView;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegate;
 import org.chromium.chrome.browser.suggestions.SuggestionsUiDelegateImpl;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.widget.displaystyle.UiConfig;
 import org.chromium.chrome.touchless.R;
+import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /**
@@ -44,6 +45,8 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 public class TouchlessNewTabPage extends BasicNativePage {
     private static final String TAG = "TouchlessNewTabPage";
 
+    private Context mContext;
+    private ModalDialogManager mModalDialogManager;
     private String mTitle;
     private int mBackgroundColor;
 
@@ -52,9 +55,9 @@ public class TouchlessNewTabPage extends BasicNativePage {
 
     private FrameLayout mView;
     private TouchlessNewTabPageTopLayout mRecyclerTopmostView;
-    private SuggestionsRecyclerView mRecyclerView;
+    private TouchlessRecyclerView mRecyclerView;
     private Tab mTab;
-    private ContextMenuManager mContextMenuManager;
+    private TouchlessContextMenuManager mContextMenuManager;
     private SiteSuggestionsCoordinator mSiteSuggestionsCoordinator;
 
     public TouchlessNewTabPage(ChromeActivity activity, NativePageHost host) {
@@ -65,6 +68,8 @@ public class TouchlessNewTabPage extends BasicNativePage {
     protected void initialize(ChromeActivity activity, NativePageHost nativePageHost) {
         TraceEvent.begin(TAG);
 
+        mContext = activity;
+        mModalDialogManager = activity.getModalDialogManager();
         mTab = activity.getActivityTab();
         Profile profile = mTab.getProfile();
 
@@ -83,12 +88,13 @@ public class TouchlessNewTabPage extends BasicNativePage {
 
         OpenLastTabView openLastTabButton =
                 mRecyclerTopmostView.findViewById(R.id.open_last_tab_button);
-        mOpenLastTabCoordinator =
-                new OpenLastTabCoordinator(activity, profile, nativePageHost, openLastTabButton);
+        mOpenLastTabCoordinator = new OpenLastTabCoordinator(activity, profile, nativePageHost,
+                openLastTabButton, mRecyclerView.getTouchlessLayoutManager());
 
         // TODO(dewittj): Initialize the tile suggestions coordinator here.
 
-        initializeContentSuggestions(activity, nativePageHost);
+        initializeContentSuggestions(
+                activity, nativePageHost, mRecyclerView.getTouchlessLayoutManager());
 
         NewTabPageUma.recordIsUserOnline();
         NewTabPageUma.recordLoadType(activity);
@@ -99,8 +105,8 @@ public class TouchlessNewTabPage extends BasicNativePage {
      * TODO(dewittj): This uses SuggestionsRecyclerView and NewTabPageAdapter in a legacy manner
      * that does not properly support modern MVC code architecture.
      */
-    private void initializeContentSuggestions(
-            ChromeActivity activity, NativePageHost nativePageHost) {
+    private void initializeContentSuggestions(ChromeActivity activity,
+            NativePageHost nativePageHost, TouchlessLayoutManager layoutManager) {
         long constructedTimeNs = System.nanoTime();
 
         NewTabPageUma.trackTimeToFirstDraw(mRecyclerView, constructedTimeNs);
@@ -121,22 +127,26 @@ public class TouchlessNewTabPage extends BasicNativePage {
         // Don't store a direct reference to the activity, because it might change later if the tab
         // is reparented.
         Runnable closeContextMenuCallback = () -> mTab.getActivity().closeContextMenu();
-        mContextMenuManager = new ContextMenuManager(suggestionsUiDelegate.getNavigationDelegate(),
-                mRecyclerView::setTouchEnabled, closeContextMenuCallback,
-                NewTabPage.CONTEXT_MENU_USER_ACTION_PREFIX);
+        mContextMenuManager = new TouchlessContextMenuManager(
+                suggestionsUiDelegate.getNavigationDelegate(), mRecyclerView::setTouchEnabled,
+                closeContextMenuCallback, NewTabPage.CONTEXT_MENU_USER_ACTION_PREFIX);
         mTab.getWindowAndroid().addContextMenuCloseListener(mContextMenuManager);
 
         UiConfig uiConfig = new UiConfig(mRecyclerView);
-        mRecyclerView.init(uiConfig, mContextMenuManager);
+        mRecyclerView.init(uiConfig, closeContextMenuCallback);
 
         // Infinite scrolling view for site suggestions.
         mSiteSuggestionsCoordinator = new SiteSuggestionsCoordinator(mRecyclerTopmostView, profile,
-                navigationDelegate, mContextMenuManager, suggestionsUiDelegate.getImageFetcher());
+                navigationDelegate, mContextMenuManager, suggestionsUiDelegate.getImageFetcher(),
+                layoutManager);
 
         NewTabPageAdapter newTabPageAdapter = new TouchlessNewTabPageAdapter(suggestionsUiDelegate,
                 mRecyclerTopmostView, uiConfig,
                 SuggestionsDependencyFactory.getInstance().getOfflinePageBridge(profile),
-                mContextMenuManager, mMediator.getModel());
+                mContextMenuManager, mMediator.getModel(),
+                mOpenLastTabCoordinator.getFocusableComponent(),
+                mSiteSuggestionsCoordinator.getFocusableComponent(),
+                layoutManager.createCallbackToSetViewToFocus());
 
         PropertyModelChangeProcessor.create(
                 mMediator.getModel(), mRecyclerView, ContentSuggestionsViewBinder::bind);
@@ -180,5 +190,14 @@ public class TouchlessNewTabPage extends BasicNativePage {
         mOpenLastTabCoordinator.destroy();
 
         super.destroy();
+    }
+
+    public void showContextMenu() {
+        View focusedView = getView().findFocus();
+        if (focusedView == null) return;
+        ContextMenuManager.Delegate delegate =
+                ContextMenuManager.getDelegateFromFocusedView(focusedView);
+        if (delegate == null) return;
+        mContextMenuManager.showTouchlessContextMenu(mModalDialogManager, mContext, delegate);
     }
 }

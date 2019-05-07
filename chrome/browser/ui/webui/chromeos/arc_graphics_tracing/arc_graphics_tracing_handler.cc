@@ -37,10 +37,12 @@
 #include "components/exo/wm_helper.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/tracing_controller.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/codec/png_codec.h"
+#include "ui/views/widget/widget.h"
 
 namespace chromeos {
 
@@ -194,6 +196,16 @@ std::pair<base::Value, std::string> BuildGraphicsModel(
   return std::make_pair(std::move(*model), "Tracing model is ready");
 }
 
+std::pair<base::Value, std::string> LoadGraphicsModel(
+    const std::string& json_text) {
+  arc::ArcTracingGraphicsModel graphics_model;
+  if (!graphics_model.LoadFromJson(json_text))
+    return std::make_pair(base::Value(), "Failed to load tracing model");
+
+  std::unique_ptr<base::DictionaryValue> model = graphics_model.Serialize();
+  return std::make_pair(std::move(*model), "Tracing model is loaded");
+}
+
 }  // namespace
 
 ArcGraphicsTracingHandler::ArcGraphicsTracingHandler()
@@ -226,6 +238,10 @@ void ArcGraphicsTracingHandler::RegisterMessages() {
       "setStopOnJank",
       base::BindRepeating(&ArcGraphicsTracingHandler::HandleSetStopOnJank,
                           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "loadFromText",
+      base::BindRepeating(&ArcGraphicsTracingHandler::HandleLoadFromText,
+                          base::Unretained(this)));
 }
 
 void ArcGraphicsTracingHandler::OnWindowActivated(ActivationReason reason,
@@ -233,6 +249,9 @@ void ArcGraphicsTracingHandler::OnWindowActivated(ActivationReason reason,
                                                   aura::Window* lost_active) {
   // Handle ARC current active window if any.
   DiscardActiveArcWindow();
+
+  if (!gained_active)
+    return;
 
   active_task_id_ = arc::GetWindowTaskId(gained_active);
   if (active_task_id_ <= 0)
@@ -263,8 +282,10 @@ void ArcGraphicsTracingHandler::OnCommit(exo::Surface* surface) {
 
 void ArcGraphicsTracingHandler::OnJankDetected(const base::Time& timestamp) {
   VLOG(1) << "Jank detected " << timestamp;
-  if (tracing_active_ && stop_on_jank_)
+  if (tracing_active_ && stop_on_jank_) {
     StopTracing();
+    Activate();
+  }
 }
 
 void ArcGraphicsTracingHandler::OnWindowPropertyChanged(aura::Window* window,
@@ -288,10 +309,12 @@ void ArcGraphicsTracingHandler::OnKeyEvent(ui::KeyEvent* event) {
       !event->IsControlDown() || !event->IsShiftDown()) {
     return;
   }
-  if (tracing_active_)
+  if (tracing_active_) {
     StopTracing();
-  else
+    Activate();
+  } else {
     StartTracing();
+  }
 }
 
 void ArcGraphicsTracingHandler::UpdateActiveArcWindowInfo() {
@@ -331,6 +354,23 @@ void ArcGraphicsTracingHandler::DiscardActiveArcWindow() {
   arc_active_window_->RemoveObserver(this);
   jank_detector_.reset();
   arc_active_window_ = nullptr;
+}
+
+void ArcGraphicsTracingHandler::Activate() {
+  aura::Window* const window =
+      web_ui()->GetWebContents()->GetTopLevelNativeWindow();
+  if (!window) {
+    LOG(ERROR) << "Failed to activate, no top level window.";
+    return;
+  }
+
+  views::Widget* const widget = views::Widget::GetWidgetForNativeWindow(window);
+  if (!widget) {
+    LOG(ERROR) << "Failed to activate, no widget for top level window.";
+    return;
+  }
+
+  widget->Activate();
 }
 
 void ArcGraphicsTracingHandler::StartTracing() {
@@ -428,6 +468,22 @@ void ArcGraphicsTracingHandler::HandleSetStopOnJank(
     return;
   }
   stop_on_jank_ = args->GetList()[0].GetBool();
+}
+
+void ArcGraphicsTracingHandler::HandleLoadFromText(
+    const base::ListValue* args) {
+  DCHECK_EQ(1U, args->GetSize());
+  if (!args->GetList()[0].is_string()) {
+    LOG(ERROR) << "Invalid input";
+    return;
+  }
+
+  base::PostTaskWithTraitsAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
+      base::BindOnce(&LoadGraphicsModel,
+                     std::move(args->GetList()[0].GetString())),
+      base::BindOnce(&ArcGraphicsTracingHandler::OnGraphicsModelReady,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 }  // namespace chromeos

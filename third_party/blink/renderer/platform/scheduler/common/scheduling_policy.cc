@@ -13,6 +13,7 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kWebSocket:
     case Feature::kWebRTC:
     case Feature::kDedicatedWorkerOrWorklet:
+    case Feature::kOutstandingNetworkRequest:
       return false;
     case Feature::kMainResourceHasCacheControlNoStore:
     case Feature::kMainResourceHasCacheControlNoCache:
@@ -26,10 +27,8 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kResumeEventListener:
     case Feature::kContainsPlugins:
     case Feature::kDocumentLoaded:
+    case Feature::kServiceWorkerControlledPage:
       return true;
-    case Feature::kCount:
-      NOTREACHED();
-      return false;
   }
 }
 

@@ -4283,6 +4283,10 @@ crbug.com/888470 virtual/outofblink-cors/external/wpt/referrer-policy/css-integr
 crbug.com/888470 virtual/omt-worker-fetch/external/wpt/referrer-policy/css-integration/child-css/internal-import-stylesheet.html [ Failure ]
 crbug.com/888470 virtual/omt-worker-fetch/external/wpt/referrer-policy/css-integration/child-css/processing-instruction.html [ Failure ]
 
+# This behavior (popups during unload) is being reverted on trunk; this test is
+# expected to fail when this change is merged back to earlier branches.
+crbug.com/936080 external/wpt/html/browsers/the-window-object/apis-for-creating-and-navigating-browsing-contexts-by-name/no_window_open_when_term_nesting_level_nonzero.window.html [ Failure ]
+
 # This test times out on debug builds, see https://crbug.com/755810
 crbug.com/626703 [ Debug ] external/wpt/html/semantics/tabular-data/processing-model-1/span-limits.html [ Skip ]
 
@@ -5839,8 +5843,6 @@ crbug.com/920979 virtual/webrtc-wpt-plan-b/external/wpt/webrtc/RTCTrackEvent-fir
 # WebRTC codec tests - software H.264 not present on webkit bot family
 crbug.com/840659 external/wpt/webrtc/protocol/video-codecs.https.html [ Pass Failure ]
 crbug.com/840659 virtual/webrtc-wpt-plan-b/external/wpt/webrtc/protocol/video-codecs.https.html [ Pass Failure ]
-# WebRTC IceTransport flaky test
-crbug.com/944036 external/wpt/webrtc/RTCPeerConnection-iceConnectionState.https.html [ Pass Failure ]
 
 # Sheriff 2019-01-11
 crbug.com/921038 virtual/origin-trials-runtimeflags-disabled/http/tests/origin_trials/webexposed/legacy-performance-memory-counters-enabled.html [ Skip ]

@@ -365,6 +365,15 @@ are declared in tools/grit/grit_rule.gni.
         <message name="IDS_CONTENT_CONTEXT_INSPECTELEMENT" desc="The name of the Inspect Element command in the content area context menu">
           I&amp;nspect
         </message>
+        <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_DIALOG_TITLE" desc="The title of a dialog that asks whether to integrate the accessibility image labeling service of Google to Chrome.">
+          Get image descriptions from Google?
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_ENABLE" desc="The button text that allows integrating the accessibility labels service of Google. This should use the same verb as IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND.">
+          Yes, I'm in
+        </message>
+        <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_DISABLE" desc="The button text that disallows integrating the accessibility labels service of Google.">
+          No thanks
+        </message>
         <if expr="not use_titlecase">
           <message name="IDS_CONTENT_CONTEXT_BACK" desc="The name of the Back command in the content area context menu">
             &amp;Back
@@ -534,7 +543,7 @@ are declared in tools/grit/grit_rule.gni.
           <message name="IDS_CONTENT_CONTEXT_ADD_TO_DICTIONARY" desc="The name of the Add to dictionary command in the content area context menu">
             &amp;Add to dictionary
           </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION" desc="The context-menu item that asks whether to integrate the accessibility image labeling service of Google to Chrome. This text is also used as the title of a bubble which confirms it.">
+          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION" desc="The context-menu item that asks whether to integrate the accessibility image labeling service of Google to Chrome.">
             Get image descriptions from Google
           </message>
           <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND" desc="The context-menu sub-item that asks whether to integrate the accessibility image labeling service of Google to Chrome always.">
@@ -542,12 +551,6 @@ are declared in tools/grit/grit_rule.gni.
           </message>
           <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND_ONCE" desc="The context-menu sub-item that asks whether to integrate the accessibility image labeling service of Google to Chrome, for a single use.">
             Just once
-          </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_ENABLE" desc="The button text that allows integrating the accessibility labels service of Google. This should use the same verb as IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND.">
-            Yes, I'm in
-          </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_DISABLE" desc="The button text that disallows integrating the accessibility labels service of Google.">
-            No thanks
           </message>
           <message name="IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE" desc="The context-menu item that asks whether to integrate the spelling service of Google to Chrome.">
             Use enhanced spell check
@@ -770,7 +773,7 @@ are declared in tools/grit/grit_rule.gni.
           <message name="IDS_CONTENT_CONTEXT_ADD_TO_DICTIONARY" desc="In Title Case: The name of the Add to dictionary command in the content area context menu">
             &amp;Add to Dictionary
           </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION" desc="The context-menu item that asks whether to integrate the accessibility image labeling service of Google to Chrome. This text is also used as the title of a bubble which confirms it.">
+          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_MENU_OPTION" desc="The context-menu item that asks whether to integrate the accessibility image labeling service of Google to Chrome.">
             Get Image Descriptions from Google
           </message>
           <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND" desc="The context-menu sub-item that asks whether to integrate the accessibility image labeling service of Google to Chrome always.">
@@ -778,12 +781,6 @@ are declared in tools/grit/grit_rule.gni.
           </message>
           <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND_ONCE" desc="The context-menu sub-item that asks whether to integrate the accessibility image labeling service of Google to Chrome, for a single use.">
             Just Once
-          </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_ENABLE" desc="The button text that allows integrating the accessibility labels service of Google. This should use the same verb as IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_SEND.">
-            Yes, I'm In
-          </message>
-          <message name="IDS_CONTENT_CONTEXT_ACCESSIBILITY_LABELS_BUBBLE_DISABLE" desc="The button text that disallows integrating the accessibility labels service of Google.">
-            No Thanks
           </message>
           <message name="IDS_CONTENT_CONTEXT_SPELLING_ASK_GOOGLE" desc="In Title Case: The context-menu item that asks whether to integrate the spelling service of Google to Chrome.">
             Use Enhanced Spell Check
@@ -1190,6 +1187,10 @@ are declared in tools/grit/grit_rule.gni.
       <!-- Keywords -->
       <message name="IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR" desc="The separator between a result in the autocomplete popup and its description.">
         ''' - '''
+      </message>
+      <message name="IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR_ALTERNATE"
+               desc="An experimental separator used in the autocomplete popup instead of IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR if an experimental flag is on.">
+        ''' | '''
       </message>
       <if expr="not use_titlecase">
         <message name="IDS_EDIT_SEARCH_ENGINES"
@@ -4909,6 +4910,9 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MD" desc="The text displayed in the fakebox (on the New Tab page) when it is empty, Google is the default search engine, and the Material Design UI is enabled.">
         Search Google or type a URL
       </message>
+      <message name="IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_SHORT" desc="The text displayed in the fakebox (on the New Tab page) when it is empty, Google is the default search engine, and short hint text is enabled.">
+        Search Google
+      </message>
       <message name="IDS_NTP_CUSTOM_LINKS_ADD_SHORTCUT_TOOLTIP" desc="The tooltip for adding a custom link shortcut. (On the New Tab Page)">
         Add shortcut
       </message>
@@ -8324,8 +8328,14 @@ Please help our engineers fix this problem. Tell us what happened right before y
       <message name="IDS_SENSORS_ALLOWED_TOOLTIP" desc="Location bar icon tooltip text when a page is allowed to use device's sensors.">
         This site is using motion or light sensors.
       </message>
+      <message name="IDS_MOTION_SENSORS_ALLOWED_TOOLTIP" desc="Location bar icon tooltip text when a page is allowed to use device's motion sensors (accelerometer, gyroscope, magnetometer).">
+        This site is using motion sensors.
+      </message>
       <message name="IDS_SENSORS_BLOCKED_TOOLTIP" desc="Location bar icon tooltip text when a page is blocked from using device's sensors.">
         This site has been blocked from using motion and light sensors.
+      </message>
+      <message name="IDS_MOTION_SENSORS_BLOCKED_TOOLTIP" desc="Location bar icon tooltip text when a page is blocked from using device's sensors (accelerometer, gyroscope, magnetometer).">
+        This site has been blocked from using motion sensors.
       </message>
       <message name="IDS_BLOCKED_SENSORS_UNBLOCK" desc="Radio button choice to unblock a site from using device's sensors, displayed in bubble when blocked indicator icon is clicked.">
         Always allow <ph name="HOST">$1<ex>mail.google.com</ex></ph> to access sensors
@@ -8342,8 +8352,14 @@ Please help our engineers fix this problem. Tell us what happened right before y
       <message name="IDS_ALLOWED_SENSORS_MESSAGE" desc="Message for the page action when access to sensors was allowed">
         This site is accessing your motion or light sensors.
       </message>
+      <message name="IDS_ALLOWED_MOTION_SENSORS_MESSAGE" desc="Message for the page action when access to motion sensors (accelerometer, gyroscope, magnetometer) was allowed.">
+        This site is accessing your motion sensors.
+      </message>
       <message name="IDS_BLOCKED_SENSORS_MESSAGE" desc="Message for the page action when access to sensors was blocked">
         This site has been blocked from accessing your motion or light sensors.
+      </message>
+      <message name="IDS_BLOCKED_MOTION_SENSORS_MESSAGE" desc="Message for the page action when access to motion sensors (accelerometer, gyroscope, magnetometer) was blocked.">
+        This site has been blocked from accessing your motion sensors.
       </message>
       <message name="IDS_ALLOWED_SENSORS_NO_ACTION" desc="Radio button choice to keep allowing a site to use device's sensors, displayed in bubble when location bar is clicked.">
         Continue allowing sensor access

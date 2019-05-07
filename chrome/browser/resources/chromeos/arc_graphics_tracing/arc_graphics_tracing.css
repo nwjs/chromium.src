@@ -3,7 +3,7 @@
  * found in the LICENSE file. */
 
 #arc-detailed-view-overlay {
-  background-color: rgb(255, 255, 192);
+  background-color: rgb(255, 255, 255);
   border: 1px solid #aaa;
   display: none;
   margin: 0;
@@ -44,6 +44,10 @@
   display: block;
 }
 
+#arc-graphics-tracing-control-buttons {
+  float: right;
+}
+
 .arc-cpu-view-title {
   border-bottom: 1px solid #888;
   font-size: 14px;
@@ -51,8 +55,11 @@
 }
 
 .arc-events-band {
+  border-color: #aaa;
+  border-style: solid;
+  border-width: 1px;
   display: block;
-  margin: 0;
+  padding: 2px;
 }
 
 .arc-events-cpu-detailed-band {
@@ -87,6 +94,10 @@
   font-weight: bold;
   margin-inline-end: 4px;
   padding-top: 4px;
+}
+
+.arc-no-mouse-events {
+  pointer-events: none;
 }
 
 .hidden.arc-events-band-title::before {

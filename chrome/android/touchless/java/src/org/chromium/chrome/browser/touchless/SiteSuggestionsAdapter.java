@@ -4,14 +4,19 @@
 
 package org.chromium.chrome.browser.touchless;
 
+import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.ASYNC_FOCUS_DELEGATE;
 import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.CURRENT_INDEX_KEY;
+import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.INITIAL_INDEX_KEY;
 import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.ITEM_COUNT_KEY;
+import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.ON_FOCUS_CALLBACK;
+import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.REMOVAL_KEY;
+import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.SHOULD_FOCUS_VIEW;
 import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.SUGGESTIONS_KEY;
 
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.support.graphics.drawable.VectorDrawableCompat;
-import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.view.ContextMenu;
 import android.view.View;
 import android.widget.TextView;
@@ -32,7 +37,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * Recycler view adapter for Touchless Suggestions carousel.
+ * Recycler view adapter and view binder for Touchless Suggestions carousel.
  *
  * Allows for an almost-infinite side-scrolling carousel with snapping focus in the center if
  * there are 2 or more items; does not scroll if there is 1 or fewer items.
@@ -54,7 +59,7 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
             implements ContextMenuManager.Delegate, View.OnCreateContextMenuListener {
         private PropertyModel mSuggestion;
 
-        public SiteSuggestionInteractionDelegate(PropertyModel model) {
+        SiteSuggestionInteractionDelegate(PropertyModel model) {
             mSuggestion = model;
         }
 
@@ -72,7 +77,10 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
 
         @Override
         public void removeItem() {
-            // TODO(chili): Show a toast with message.
+            // Notify about removal.
+            mModel.set(REMOVAL_KEY, mSuggestion);
+            // Force-trigger rebind of current_index to update text.
+            onPropertyChanged(mModel, CURRENT_INDEX_KEY);
         }
 
         @Override
@@ -81,9 +89,13 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
         }
 
         @Override
+        public String getContextMenuTitle() {
+            return mSuggestion.get(SiteSuggestionModel.TITLE_KEY);
+        }
+
+        @Override
         public boolean isItemSupported(int menuItemId) {
-            // TODO(chili): add context menu items.
-            return false;
+            return menuItemId == ContextMenuManager.ContextMenuItemId.REMOVE;
         }
 
         @Override
@@ -94,8 +106,10 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
     private RoundedIconGenerator mIconGenerator;
     private SuggestionsNavigationDelegate mNavDelegate;
     private ContextMenuManager mContextMenuManager;
-    private LinearLayoutManager mLayoutManager;
+    private SiteSuggestionsLayoutManager mLayoutManager;
     private TextView mTitleView;
+
+    private final RecyclerView mRecyclerView;
 
     /**
      * @param model the main property model coming from {@link SiteSuggestionsCoordinator}.
@@ -107,13 +121,15 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
      */
     SiteSuggestionsAdapter(PropertyModel model, RoundedIconGenerator iconGenerator,
             SuggestionsNavigationDelegate navigationDelegate, ContextMenuManager contextMenuManager,
-            LinearLayoutManager layoutManager, TextView titleView) {
+            SiteSuggestionsLayoutManager layoutManager, TextView titleView,
+            RecyclerView recyclerView) {
         mModel = model;
         mIconGenerator = iconGenerator;
         mNavDelegate = navigationDelegate;
         mContextMenuManager = contextMenuManager;
         mLayoutManager = layoutManager;
         mTitleView = titleView;
+        mRecyclerView = recyclerView;
 
         mModel.get(SUGGESTIONS_KEY).addObserver(this);
         mModel.addObserver(this);
@@ -142,6 +158,9 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
         tile.setOnFocusChangeListener((View v, boolean hasFocus) -> {
             if (hasFocus) {
                 mModel.set(CURRENT_INDEX_KEY, position);
+                if (mModel.get(ON_FOCUS_CALLBACK) != null) {
+                    mModel.get(ON_FOCUS_CALLBACK).run();
+                }
             }
         });
 
@@ -167,14 +186,15 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
                 tile.updateIcon(item.get(SiteSuggestionModel.ICON_KEY),
                         item.get(SiteSuggestionModel.TITLE_KEY));
 
-                tile.setOnClickListener((View v)
-                                                -> mNavDelegate.navigateToSuggestionUrl(
-                                                        WindowOpenDisposition.CURRENT_TAB,
-                                                        item.get(SiteSuggestionModel.URL_KEY)));
-
                 SiteSuggestionInteractionDelegate interactionDelegate =
                         new SiteSuggestionInteractionDelegate(item);
+
+                tile.setOnClickListener(
+                        (View v)
+                                -> interactionDelegate.openItem(WindowOpenDisposition.CURRENT_TAB));
+
                 tile.setOnCreateContextMenuListener(interactionDelegate);
+                ContextMenuManager.registerViewForTouchlessContextMenu(tile, interactionDelegate);
             }
         }
     }
@@ -183,10 +203,9 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
     public void onPropertyChanged(
             PropertyObservable<PropertyKey> source, @Nullable PropertyKey propertyKey) {
         if (propertyKey == CURRENT_INDEX_KEY) {
-            // When the current index changes, we want to scroll to position and update the title.
+            // When the current index changes, we want to update the title.
             int position = mModel.get(CURRENT_INDEX_KEY);
             int itemCount = mModel.get(ITEM_COUNT_KEY);
-            mLayoutManager.scrollToPosition(position);
             if (itemCount == 1 || position % itemCount == 0) {
                 mTitleView.setText(R.string.ntp_all_apps);
             } else {
@@ -194,6 +213,12 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
                                            .get(position % itemCount - 1)
                                            .get(SiteSuggestionModel.TITLE_KEY));
             }
+        } else if (propertyKey == SHOULD_FOCUS_VIEW && mModel.get(SHOULD_FOCUS_VIEW)
+                && mModel.get(ASYNC_FOCUS_DELEGATE) != null) {
+            mModel.get(ASYNC_FOCUS_DELEGATE).onResult(mRecyclerView);
+            mModel.set(SHOULD_FOCUS_VIEW, false);
+        } else if (propertyKey == INITIAL_INDEX_KEY) {
+            mLayoutManager.scrollToPosition(mModel.get(INITIAL_INDEX_KEY));
         }
     }
 
@@ -204,9 +229,14 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
             // we would change from non-scrolling to infinite-scrolling.
             super.notifyItemRangeInserted(1, Integer.MAX_VALUE - 1);
         } else {
-            // Otherwise we are already infinite-scrolling, so just tell recyclerview
-            // that everything changed.
-            super.notifyItemRangeChanged(0, Integer.MAX_VALUE, null);
+            // Otherwise, rebind the visible spectrum.
+            // Account for edge conditions so we don't crash in the impossible case.
+            int start = mLayoutManager.findFirstVisibleItemPosition();
+            int itemCount = mModel.get(ITEM_COUNT_KEY);
+            int newCount = Integer.MAX_VALUE - 1 - start >= (itemCount * 2)
+                    ? itemCount * 2
+                    : Integer.MAX_VALUE - 1 - start;
+            super.notifyItemRangeChanged(start, newCount, null);
         }
     }
 
@@ -217,41 +247,33 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
             // back to non-scrolling. Notify Recyclerview to remove everything.
             super.notifyItemRangeRemoved(1, Integer.MAX_VALUE - 1);
         } else {
-            // Otherwise we are already infinite-scrolling, so just tell recyclerview that
-            // everything has changed.
-            super.notifyItemRangeChanged(0, Integer.MAX_VALUE, null);
+            // Otherwise, rebind the visible spectrum.
+            // Account for edge conditions so we don't crash in the impossible case.
+            int start = mLayoutManager.findFirstVisibleItemPosition();
+            int itemCount = mModel.get(ITEM_COUNT_KEY);
+            int newCount = Integer.MAX_VALUE - 1 - start >= (itemCount * 2)
+                    ? itemCount * 2
+                    : Integer.MAX_VALUE - 1 - start;
+            super.notifyItemRangeChanged(start, newCount, null);
         }
     }
 
     @Override
     public void notifyItemRangeChanged(int index, int count, @Nullable PropertyKey payload) {
-        if (count > 1) {
-            // If more than 1 item was changed, then assume everything was changed. This should
-            // only happen if we are infinite-scrolling.
-            super.notifyItemRangeChanged(0, Integer.MAX_VALUE, payload);
-        } else if (mModel.get(SUGGESTIONS_KEY).size() == 0) {
+        if (mModel.get(SUGGESTIONS_KEY).size() == 0) {
             // If itemCount is 1, then notify super.
             // This should only happen if "All apps" icon has changed in some way and we aren't
             // infinite-scrolling.
             super.notifyItemRangeChanged(index, count, payload);
         } else {
-            // Otherwise, count = 1 and we have an infinite list. We will only notify that items
-            // near the currently visible area has changed.
-            // beginIndex at the layoutManager's firstVisibleItemPosition, with buffer.
-            int beginIndex =
-                    mLayoutManager.findFirstVisibleItemPosition() - mModel.get(ITEM_COUNT_KEY);
-            // endIndex at the lastVisibleItemPosition, with buffer.
-            int endIndex =
-                    mLayoutManager.findLastVisibleItemPosition() + mModel.get(ITEM_COUNT_KEY);
-            // Find elements between begin and end such that (i % itemCount) - 1 == index.
-            // Subtract 1 because itemRangeChanged is called from the listObserver which does not
-            // have "All apps". However, i is calculated from layoutManager, which includes "All
-            // apps"
-            for (int i = beginIndex; i < endIndex; i++) {
-                if (i % mModel.get(ITEM_COUNT_KEY) - 1 == index) {
-                    super.notifyItemRangeChanged(i, 1, payload);
-                }
-            }
+            // Otherwise, rebind the visible spectrum.
+            // Account for edge conditions so we don't crash in the impossible case.
+            int start = mLayoutManager.findFirstVisibleItemPosition();
+            int itemCount = mModel.get(ITEM_COUNT_KEY);
+            int newCount = Integer.MAX_VALUE - 1 - start >= (itemCount * 2)
+                    ? itemCount * 2
+                    : Integer.MAX_VALUE - 1 - start;
+            super.notifyItemRangeChanged(start, newCount, payload);
         }
     }
 }

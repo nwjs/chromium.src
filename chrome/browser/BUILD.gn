@@ -2872,8 +2872,8 @@ jumbo_split_static_library("browser") {
       "first_run/first_run_internal_mac.mm",
       "first_run/first_run_internal_win.cc",
       "first_run/upgrade_util.h",
-      "first_run/upgrade_util_mac.cc",
       "first_run/upgrade_util_mac.h",
+      "first_run/upgrade_util_mac.mm",
       "first_run/upgrade_util_win.cc",
       "first_run/upgrade_util_win.h",
       "font_family_cache.cc",
@@ -4950,6 +4950,7 @@ jumbo_split_static_library("browser") {
 config("notouch_config") {
   defines = [
     "BROWSER_MEDIA_CONTROLS_MENU",
+    "ENABLE_SPATIAL_NAVIGATION_HOST",
     "INCOGNITO_DEFAULT_DISABLED",
   ]
 }

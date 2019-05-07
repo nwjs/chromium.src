@@ -319,6 +319,9 @@ CHAR-LIMIT guidelines:
       <message name="IDS_NOTIFICATION_CATEGORY_VR" desc="Label for notifications in VR, within a list of notification categories. [CHAR-LIMIT=32]">
         Virtual Reality
       </message>
+      <message name="IDS_NOTIFICATION_CATEGORY_UPDATES" desc="Label for update notifications, within a list of notification categories. [CHAR-LIMIT=32]">
+       Updates
+      </message>
 
       <!-- Sign-in, sync and personalization preferences -->
       <message name="IDS_PREFS_SECTION_ACCOUNT" desc="Title for the group of account-related entries in Settings. [CHAR-LIMIT=32]">
@@ -728,16 +731,16 @@ CHAR-LIMIT guidelines:
         Use a prediction service to show related queries and popular websites as you type in the address bar
       </message>
       <message name="IDS_SAFE_BROWSING_SCOUT_REPORTING_TITLE" desc="Title for checkbox that controls reporting data to detect bad apps/sites. Please ensure ‘Safe Browsing’ in this message matches the ‘Safe Browsing’ settings title.">
-        Help improve Safe Browsing
+        Help improve Chrome security
       </message>
       <message name="IDS_SAFE_BROWSING_SCOUT_REPORTING_SUMMARY" desc="Body text for Chrome setting under 'Help Improve Safe Browsing'. This feature sends small amounts of data to Google about potentially-dangerous pages to help Safe Browsing improve Chrome's protection against malware and phishing.">
-        Sends some system information and page content to Google
+        To detect dangerous apps and sites, Chrome sends URLs of some pages you visit, limited system information, and some page content to Google
       </message>
       <message name="IDS_SAFE_BROWSING_TITLE" desc="Title for safe browsing.">
-        Safe Browsing
+        Safe Browsing (protects you and your device from dangerous sites)
       </message>
       <message name="IDS_SAFE_BROWSING_SUMMARY" desc="Summary for safe browsing.">
-        Protects you and your device from dangerous sites
+        Sends URLs of some pages you visit to Google, when your security is at risk
       </message>
       <message name="IDS_NETWORK_PREDICTIONS_TITLE" desc="Title of a setting in Chrome settings. Followed by a body that describes the setting. If setting is turned on, Chrome will download certain pages to the user’s phone automatically for offline reading. 'predictions' convey the idea that Chrome is using predictive models to figure out pages likely of interest to the user.">
         Use page predictions
@@ -945,6 +948,9 @@ Your Google account may have other forms of browsing history like searches and a
       <message name="IDS_SENSORS_PERMISSION_TITLE" desc="Title of the permission to use device's sensors [CHAR-LIMIT=32]">
         Motion or light sensors
       </message>
+      <message name="IDS_MOTION_SENSORS_PERMISSION_TITLE" desc="Title of the permission to use device's motion sensors (accelerometer, gyroscope, magnetometer) [CHAR-LIMIT=32]">
+        Motion sensors
+      </message>
       <message name="IDS_SOUND_PERMISSION_TITLE" desc="Title of the permission to play sound [CHAR-LIMIT=32]">
         Sound
       </message>
@@ -1090,10 +1096,16 @@ Your Google account may have other forms of browsing history like searches and a
         Block sites from playing protected content
       </message>
       <message name="IDS_WEBSITE_SETTINGS_CATEGORY_SENSORS_ALLOWED" desc="Summary text explaining that sites are allowed to use device's sensors and that it is the recommended setting.">
-        Allow sites to access your sensors (recommended)
+        Allow sites to access sensors (recommended)
+      </message>
+      <message name="IDS_WEBSITE_SETTINGS_CATEGORY_MOTION_SENSORS_ALLOWED" desc="Label text shown in settings; explaining that the current toggle state will allow websites to access the device's motion sensors (accelerometer, gyroscope, magnetometer).">
+        Allow sites to access motion sensors (recommended)
       </message>
       <message name="IDS_WEBSITE_SETTINGS_CATEGORY_SENSORS_BLOCKED" desc="Summary text explaining that access to sensors is being blocked on some sites.">
-        Block sites from accessing your sensors
+        Block sites from accessing sensors
+      </message>
+      <message name="IDS_WEBSITE_SETTINGS_CATEGORY_MOTION_SENSORS_BLOCKED" desc="Label text shown in settings; explaining that the current toggle state will prevent websites from accessing the device's motion sensors (accelerometer, gyroscope, magnetometer).">
+        Block sites from accessing motion sensors
       </message>
       <message name="IDS_WEBSITE_SETTINGS_CATEGORY_SOUND_ALLOWED" desc="Summary text explaining that sites are allowed to play sound and that it is the recommended setting.">
         Allow sites to play sound (recommended)
@@ -2035,11 +2047,23 @@ To change this setting, <ph name="BEGIN_LINK">&lt;resetlink&gt;</ph>reset sync<p
       </message>
 
       <!-- Update Notification-->
-      <message name="IDS_UPDATE_NOTIFICATION_TITLE" desc="Title of update notification to remind user to update Chrome.">
+      <message name="IDS_UPDATE_NOTIFICATION_TITLE_DEFAULT" desc="Default title of update notification to remind user to update Chrome.">
         Update Chrome
       </message>
-      <message name="IDS_UPDATE_NOTIFICATION_TEXT_BODY" desc="Text showing in the update notification body, kindly telling user to update to the latest version of Chrome.">
-        You are on an outdated version of Chrome. Open Chrome to update for a safer browsing experience.
+      <message name="IDS_UPDATE_NOTIFICATION_TEXT_BODY_DEFAULT" desc="Default text showing in the update notification body, kindly telling user to update to the latest version of Chrome.">
+        For the best browsing experience, open to update Chrome
+      </message>
+      <message name="IDS_UPDATE_NOTIFICATION_TITLE_EXPERIMENTAL_UPDATE_CHROME" desc="Experimental version A title of update notification to remind user to update Chrome.">
+        Update Chrome
+      </message>
+      <message name="IDS_UPDATE_NOTIFICATION_TEXT_BODY_EXPERIMENTAL_UPDATE_CHROME" desc="Experimental version A text showing in the update notification body, kindly telling user to update to the latest version of Chrome.">
+        To see the web in your language, get the latest version of Chrome
+      </message>
+      <message name="IDS_UPDATE_NOTIFICATION_TITLE_EXPERIMENTAL_TRANSLATE_THE_WEB" desc="Experimental version B title of update notification to remind user to update Chrome.">
+        Translate the Web
+      </message>
+      <message name="IDS_UPDATE_NOTIFICATION_TEXT_BODY_EXPERIMENTAL_TRANSLATE_THE_WEB" desc="Experimental version B text showing in the update notification body, kindly telling user to update to the latest version of Chrome.">
+        Update to get your language in the latest version of Chrome
       </message>
 
       <!-- TranslateInfoBar -->

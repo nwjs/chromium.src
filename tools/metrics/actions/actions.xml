@@ -11488,6 +11488,18 @@ should be able to be added at any place in this file.
   <description>The Help and Feedback dialog is shown.</description>
 </action>
 
+<action name="MobileHistoryPage_EntryLinkOpenNewIncognitoTab">
+  <owner>sczs@chromium.org</owner>
+  <owner>rohitrao@chromium.org</owner>
+  <description>User opened a History entry in a new Incognito Tab.</description>
+</action>
+
+<action name="MobileHistoryPage_EntryLinkOpenNewTab">
+  <owner>sczs@chromium.org</owner>
+  <owner>rohitrao@chromium.org</owner>
+  <description>User opened a History entry in a new Tab.</description>
+</action>
+
 <action name="MobileMenuAddToBookmarks">
   <owner>aurimas@chromium.org</owner>
   <description>
@@ -12212,6 +12224,14 @@ should be able to be added at any place in this file.
   <description>
     A VIEW intent was received by the tabbed mode activity from Chrome. This is
     only recorded for intent types that are also allowed from external apps.
+  </description>
+</action>
+
+<action name="MobileRecentTabManagerOpenAllTabsFromOtherDevice">
+  <owner>sczs@chromium.org</owner>
+  <owner>edchin@chromium.org</owner>
+  <description>
+    The user has selected to Open all tabs from other device in Recent Tabs.
   </description>
 </action>
 

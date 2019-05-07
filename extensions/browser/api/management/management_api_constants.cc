@@ -53,7 +53,9 @@ const char kInstallReplacementWebAppInvalidWebAppError[] =
     "Web app is not a valid installable web app.";
 const char kInstallReplacementWebAppInvalidContextError[] =
     "Web apps can't be installed in the current user profile.";
+const char kInstallReplacementWebAppNotFromWebstoreError[] =
+    "Only extensions from the web store can install replacement web apps.";
 const char kGestureNeededForInstallReplacementWebAppError[] =
-    "chrome.management.installWebApp requires a user gesture.";
+    "chrome.management.installReplacementWebApp requires a user gesture.";
 
 }  // namespace extension_management_api_constants

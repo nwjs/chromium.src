@@ -32,14 +32,17 @@
 #include "chrome/browser/previews/previews_service_factory.h"
 #include "chrome/browser/previews/previews_ui_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/renderer_host/chrome_navigation_ui_data.h"
 #include "components/base32/base32.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/cookie_settings_base.h"
 #include "components/data_reduction_proxy/core/browser/data_reduction_proxy_request_options.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_headers.h"
+#include "components/data_reduction_proxy/core/common/data_reduction_proxy_params.h"
 #include "components/data_reduction_proxy/core/common/data_reduction_proxy_switches.h"
 #include "components/previews/core/previews_experiments.h"
 #include "components/previews/core/previews_lite_page_redirect.h"
+#include "components/variations/variations_associated_data.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -332,8 +335,9 @@ bool PreviewsLitePageNavigationThrottle::IsEligibleForPreview() const {
 GURL PreviewsLitePageNavigationThrottle::GetPreviewsURLForURL(
     const GURL& original_url) {
   DCHECK(original_url.is_valid());
-  std::string experiment_id =
-      previews::params::LitePageRedirectPreviewExperiment();
+  std::string experiment_id = variations::GetVariationParamValue(
+      data_reduction_proxy::params::GetServerExperimentsFieldTrialName(),
+      data_reduction_proxy::kExperimentsOption);
 
   // Allow the command line to override any variations-provided experiment.
   std::string cmd_line_experiment =
@@ -737,7 +741,16 @@ PreviewsLitePageNavigationThrottle::GetOrCreateServerLitePageInfo(
   info->original_navigation_start = navigation_handle->NavigationStart();
   if (session_id.has_value())
     info->drp_session_key = session_id.value();
-  info->page_id = manager->GeneratePageID();
+
+  const ChromeNavigationUIData* chrome_navigation_ui_data =
+      static_cast<const ChromeNavigationUIData*>(
+          navigation_handle->GetNavigationUIData());
+  info->page_id = chrome_navigation_ui_data->data_reduction_proxy_page_id();
+  // The page id may not be set in some corner cases (like forward navigation),
+  // so make sure it gets set here.
+  if (info->page_id == 0U)
+    info->page_id = manager->GeneratePageID();
+
   return info;
 }
 

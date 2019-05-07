@@ -4,7 +4,7 @@
      found in the LICENSE file. -->
 <resources>
     <dimen name="touchless_new_tab_view_top_margin">12dp</dimen>
-    <dimen name="touchless_new_tab_view_padding_horizontal">12dp</dimen>
+    <dimen name="touchless_new_tab_view_padding_horizontal">8dp</dimen>
 
     <dimen name="notouch_tooltip_padding">8dp</dimen>
     <dimen name="notouch_tooltip_margin_bottom">16dp</dimen>
@@ -27,6 +27,15 @@
 
     <!-- Most likely carousel dimensions. -->
     <dimen name="most_likely_tile_focus_stroke_width">2dp</dimen>
-    <dimen name="most_likely_tile_horizontal_spacer">6dp</dimen>
     <dimen name="most_likely_carousel_edge_spacer">8dp</dimen>
+    <dimen name="most_likely_tile_size">40dp</dimen>
+    <!-- Desired 24dp, but the edge spacer is also in effect. 8 + 16 = 24 -->
+    <dimen name="above_the_fold_bottom_margin">16dp</dimen>
+    <dimen name="most_likely_quantized_icon_size_large">24dp</dimen>
+    <dimen name="most_likely_quantized_icon_size_small">18dp</dimen>
+    <!-- 6dp chosen so that the icon is large in the inner 3 positions and small in
+         the outer two positions. -->
+    <dimen name="most_likely_quantized_icon_margin">6dp</dimen>
+
+
 </resources>

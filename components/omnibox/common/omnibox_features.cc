@@ -127,6 +127,18 @@ const base::Feature kOmniboxPedalSuggestions{"OmniboxPedalSuggestions",
 const base::Feature kOmniboxSuggestionTransparencyOptions{
     "OmniboxSuggestionTransparencyOptions", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Feature that shows UI cues to differentiate Search History matches from
+// other search suggestions provided by the default search provider. This
+// feature is a narrow subset of kOmniboxSuggestionTransparencyOptions.
+const base::Feature kOmniboxUICuesForSearchHistoryMatches{
+    "OmniboxUICuesForSearchHistoryMatches", base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Feature that shows an alternate separator before the description of
+// omnibox matches. In English, this changes the separator from '-' to '|'.
+const base::Feature kOmniboxAlternateMatchDescriptionSeparator{
+    "OmniboxAlternateMatchDescriptionSeparator",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Feature to enable clipboard provider to suggest copied text.
 const base::Feature kEnableClipboardProviderTextSuggestions{
     "OmniboxEnableClipboardProviderTextSuggestions",
@@ -201,6 +213,12 @@ const base::Feature kUIExperimentSwapTitleAndUrl{
 const base::Feature kUIExperimentVerticalMargin{
     "OmniboxUIExperimentVerticalMargin", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Feature used to limit the vertical margin UI experiment to non-touch
+// devices only. Has no effect if kUIExperimentVerticalMargin is not enabled.
+const base::Feature kUIExperimentVerticalMarginLimitToNonTouchOnly{
+    "OmniboxUIExperimentVerticalMarginLimitToNonTouchOnly",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Feature used to color "blue" the generic search icon and search terms.
 // Technically, this makes the search icon and search terms match the color of
 // Omnibox link text, which is blue by convention.
@@ -254,6 +272,14 @@ const base::Feature kUIExperimentBoldUserTextOnSearchSuggestions{
 // Feature used to unbold suggestion text.
 const base::Feature kUIExperimentUnboldSuggestionText{
     "OmniboxUIExperimentUnboldSuggestionText",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Shows the "Search Google or type a URL" omnibox placeholder even when the
+// caret (text edit cursor) is showing / when focused. views::Textfield works
+// this way, as does <input placeholder="">. Omnibox and the NTP's "fakebox"
+// are exceptions in this regard and this experiment makes this more consistent.
+const base::Feature kUIExperimentShowPlaceholderWhenCaretShowing{
+    "OmniboxUIExperimentShowPlaceholderWhenCaretShowing",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Feature used to enable speculatively starting a service worker associated

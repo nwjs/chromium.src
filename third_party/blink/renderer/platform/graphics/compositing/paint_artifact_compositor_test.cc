@@ -178,13 +178,13 @@ class PaintArtifactCompositorTest : public testing::Test,
       const auto* scroll_node = scroll_offset.ScrollNode();
       scoped_refptr<cc::Layer> layer = cc::Layer::Create();
       auto rect = scroll_node->ContainerRect();
-      layer->SetOffsetToTransformParent(gfx::Vector2dF(rect.X(), rect.Y()));
       layer->SetScrollable(gfx::Size(rect.Size()));
       layer->SetBounds(gfx::Size(rect.Size()));
       layer->SetElementId(scroll_node->GetCompositorElementId());
       layer->set_did_scroll_callback(
           paint_artifact_compositor_->scroll_callback_);
-      artifact.Chunk(scroll_offset, clip, effect).ForeignLayer(layer);
+      artifact.Chunk(scroll_offset, clip, effect)
+          .ForeignLayer(layer, FloatPoint(rect.Location()));
       return;
     }
     // Scroll hit test layers are marked as scrollable for hit testing but are
@@ -412,7 +412,7 @@ TEST_P(PaintArtifactCompositorTest, TransformCombining) {
                       FloatPoint3D(10, 10, 0), CompositingReason::k3DTransform);
   auto transform2 =
       CreateTransform(*transform1, TransformationMatrix().Translate(5, 5),
-                      FloatPoint3D(), CompositingReason::k3DTransform);
+                      FloatPoint3D(), CompositingReason::kWillChangeTransform);
 
   TestPaintArtifact artifact;
   artifact.Chunk(*transform1, c0(), e0())
@@ -591,7 +591,7 @@ TEST_P(PaintArtifactCompositorTest, SortingContextID) {
   TransformPaintPropertyNode::State transform2_3_state;
   transform2_3_state.rendering_context_id = 1;
   transform2_3_state.direct_compositing_reasons =
-      CompositingReason::k3DTransform;
+      CompositingReason::kWillChangeTransform;
   auto transform2 = TransformPaintPropertyNode::Create(
       *transform1, std::move(transform2_3_state));
   // Extends the 3D rendering context of transform2.
@@ -600,7 +600,8 @@ TEST_P(PaintArtifactCompositorTest, SortingContextID) {
   // Establishes a 3D rendering context distinct from transform2.
   TransformPaintPropertyNode::State transform4_state;
   transform4_state.rendering_context_id = 2;
-  transform4_state.direct_compositing_reasons = CompositingReason::k3DTransform;
+  transform4_state.direct_compositing_reasons =
+      CompositingReason::kWillChangeTransform;
   auto transform4 = TransformPaintPropertyNode::Create(
       *transform2, std::move(transform4_state));
 
@@ -914,12 +915,11 @@ TEST_P(PaintArtifactCompositorTest, SiblingClipsWithAlias) {
 TEST_P(PaintArtifactCompositorTest, ForeignLayerPassesThrough) {
   scoped_refptr<cc::Layer> layer = cc::Layer::Create();
   layer->SetIsDrawable(true);
-  layer->SetOffsetToTransformParent(gfx::Vector2dF(50, 60));
   layer->SetBounds(gfx::Size(400, 300));
 
   TestPaintArtifact test_artifact;
   test_artifact.Chunk().RectDrawing(FloatRect(0, 0, 100, 100), Color::kWhite);
-  test_artifact.Chunk().ForeignLayer(layer);
+  test_artifact.Chunk().ForeignLayer(layer, FloatPoint(50, 60));
   test_artifact.Chunk().RectDrawing(FloatRect(0, 0, 100, 100), Color::kGray);
 
   auto artifact = test_artifact.Build();
@@ -1098,7 +1098,7 @@ TEST_P(PaintArtifactCompositorTest, TransformUnderScrollNode) {
 
   auto transform =
       CreateTransform(*scroll_translation, TransformationMatrix(),
-                      FloatPoint3D(), CompositingReason::k3DTransform);
+                      FloatPoint3D(), CompositingReason::kWillChangeTransform);
 
   TestPaintArtifact artifact;
   artifact.Chunk(*scroll_translation, c0(), e0())
@@ -2645,7 +2645,9 @@ TEST_P(PaintArtifactCompositorTest, SynthesizedClipIsNotDrawable) {
   // One content layer, no clip mask (because layer doesn't draw content).
   ASSERT_EQ(1u, RootLayer()->children().size());
   ASSERT_EQ(1u, ContentLayerCount());
-  ASSERT_EQ(0u, SynthesizedClipLayerCount());
+  ASSERT_EQ(1u, SynthesizedClipLayerCount());
+  // There is a synthesized clip", but it has no layer backing.
+  ASSERT_EQ(nullptr, SynthesizedClipLayerAt(0));
 
   const cc::Layer* content0 = RootLayer()->children()[0].get();
 
@@ -2662,6 +2664,52 @@ TEST_P(PaintArtifactCompositorTest, SynthesizedClipIsNotDrawable) {
       *GetPropertyTrees().effect_tree.Node(mask_isolation_0_id);
   ASSERT_EQ(e0_id, mask_isolation_0.parent_id);
   EXPECT_EQ(SkBlendMode::kSrcOver, mask_isolation_0.blend_mode);
+}
+
+TEST_P(PaintArtifactCompositorTest, ReuseSyntheticClip) {
+  // This tests the simplist case that a single layer needs to be clipped
+  // by a single composited rounded clip.
+  FloatSize corner(5, 5);
+  FloatRoundedRect rrect(FloatRect(50, 50, 300, 200), corner, corner, corner,
+                         corner);
+  auto c1 = CreateClip(c0(), t0(), rrect);
+  auto c2 = CreateClip(c0(), t0(), rrect);
+
+  TestPaintArtifact artifact;
+  artifact.Chunk(t0(), *c1, e0())
+      .RectDrawing(FloatRect(0, 0, 0, 0), Color::kBlack);
+  Update(artifact.Build());
+
+  const cc::Layer* content0 = RootLayer()->children()[0].get();
+
+  uint64_t old_stable_id = GetPropertyTrees()
+                               .effect_tree.Node(content0->effect_tree_index())
+                               ->stable_id;
+
+  TestPaintArtifact repeated_artifact;
+  repeated_artifact.Chunk(t0(), *c1, e0())
+      .RectDrawing(FloatRect(0, 0, 0, 0), Color::kBlack);
+  Update(repeated_artifact.Build());
+  const cc::Layer* content1 = RootLayer()->children()[0].get();
+
+  // Check that stable ids are reused across updates.
+  EXPECT_EQ(GetPropertyTrees()
+                .effect_tree.Node(content1->effect_tree_index())
+                ->stable_id,
+            old_stable_id);
+
+  TestPaintArtifact changed_artifact;
+  changed_artifact.Chunk(t0(), *c2, e0())
+      .RectDrawing(FloatRect(0, 0, 0, 0), Color::kBlack);
+  Update(changed_artifact.Build());
+  const cc::Layer* content2 = RootLayer()->children()[0].get();
+
+  // The new artifact changed the clip node to c2, so the synthetic clip should
+  // not be reused.
+  EXPECT_NE(GetPropertyTrees()
+                .effect_tree.Node(content2->effect_tree_index())
+                ->stable_id,
+            old_stable_id);
 }
 
 TEST_P(PaintArtifactCompositorTest,
@@ -3442,11 +3490,34 @@ TEST_P(PaintArtifactCompositorTest, OpacityRenderSurfaces) {
   // render surface.
   EXPECT_OPACITY(effect_ids[4], 0.4f, kHasRenderSurface);
 
-  // Though all children of effect |e| have render surfaces and |e| doesn't
-  // control any compositing layer, we still give it a render surface for
-  // simplicity of the algorithm.
+  // |e| has render surface because it has 3 child render surfaces.
   EXPECT_OPACITY(effect_tree.Node(effect_ids[4])->parent_id, 0.1f,
                  kHasRenderSurface);
+}
+
+TEST_P(PaintArtifactCompositorTest, OpacityRenderSurfacesWithFilterChildren) {
+  auto opacity = CreateOpacityEffect(e0(), 0.1f);
+  CompositorFilterOperations filter;
+  filter.AppendBlurFilter(5);
+  auto filter1 = CreateFilterEffect(*opacity, filter, FloatPoint(),
+                                    CompositingReason::kActiveFilterAnimation);
+  auto filter2 = CreateFilterEffect(*opacity, filter, FloatPoint(),
+                                    CompositingReason::kActiveFilterAnimation);
+
+  FloatRect r(150, 150, 100, 100);
+  Update(TestPaintArtifact()
+             .Chunk(t0(), c0(), *filter1)
+             .RectDrawing(r, Color::kWhite)
+             .Chunk(t0(), c0(), *filter2)
+             .RectDrawing(r, Color::kWhite)
+             .Build());
+  ASSERT_EQ(2u, ContentLayerCount());
+  auto filter_id1 = ContentLayerAt(0)->effect_tree_index();
+  auto filter_id2 = ContentLayerAt(1)->effect_tree_index();
+  EXPECT_OPACITY(filter_id1, 1.f, kHasRenderSurface);
+  EXPECT_OPACITY(filter_id2, 1.f, kHasRenderSurface);
+  EXPECT_OPACITY(GetPropertyTrees().effect_tree.Node(filter_id1)->parent_id,
+                 0.1f, kHasRenderSurface);
 }
 
 TEST_P(PaintArtifactCompositorTest, OpacityAnimationRenderSurfaces) {

@@ -38,7 +38,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "win, linux64, mac64, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -131,11 +131,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '847d55be4e6273fc3cd9c0b30c7bfc8a2d6575b7',
+  'skia_revision': '68046cd7be837bd31bc8f0e821a2f82a02dda9cf',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '409e6bfbf85dec035f466389332ec21df7ceef94',
+  'v8_revision': '80a924da485b51d65e6de66e3005ccc1abd475fc',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -712,7 +712,7 @@ deps = {
     Var('chromium_git') + '/angle/angle.git' + '@' +  Var('angle_revision'),
 
   'src/third_party/dav1d/libdav1d':
-    Var('chromium_git') + '/external/github.com/videolan/dav1d.git' + '@' + '589e96a1f2cff8e803c79eec48509fa4a792f1d9',
+    Var('chromium_git') + '/external/github.com/videolan/dav1d.git' + '@' + 'f8cac8c56b3e8afec0e356b297c373a352746a1b',
 
   'src/third_party/dawn':
     Var('dawn_git') + '/dawn.git' + '@' +  Var('dawn_revision'),
@@ -825,7 +825,7 @@ deps = {
 
   # For Linux and Chromium OS.
   'src/third_party/cros_system_api': {
-      'url': Var('chromium_git') + '/chromiumos/platform2/system_api.git' + '@' + 'a2b1d754558c4e0b6dab30866bdb60e80b1c8795',
+      'url': Var('chromium_git') + '/chromiumos/platform2/system_api.git' + '@' + '3a78fde2f31448ec30a807f8cba7c6cf7059b9d1',
       'condition': 'checkout_linux',
   },
 
@@ -1359,7 +1359,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + '3f6583d3fee4ab71866ade794504a20eb6f63f88',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '852bffb6063aa36814c89a58390581e59643f1fb',
+    Var('webrtc_git') + '/src.git' + '@' + 'b0e95263138a8e0b16a814923f58a5ea50f29ae4',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1400,7 +1400,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@3153e6eaf9c0e3958c339d8018d2dae6311d7787',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@45d7a5ad15444cd9047fcb338ca3d0ebca92f01d',
     'condition': 'checkout_src_internal',
   },
 

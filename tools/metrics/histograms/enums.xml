@@ -1173,6 +1173,23 @@ Unknown properties are collapsed to zero. -->
   <int value="7" label="Has waived has moderate has strong"/>
 </enum>
 
+<enum name="Android.Download.Rename.Dialog.Action">
+  <int value="0" label="RenameDialogConfirm"/>
+  <int value="1" label="RenameDialogCancel"/>
+  <int value="2" label="RenameDialogOther"/>
+  <int value="3" label="RenameExtensionDialogConfirm"/>
+  <int value="4" label="RenameExtensionDialogCancel"/>
+  <int value="5" label="RenameExtensionDialogOther"/>
+</enum>
+
+<enum name="Android.Download.Rename.Result">
+  <int value="0" label="Success"/>
+  <int value="1" label="FailureNameConflict"/>
+  <int value="2" label="FailureNameTooLong"/>
+  <int value="3" label="FailureNameInvalid"/>
+  <int value="4" label="FailureUnavailable"/>
+</enum>
+
 <enum name="Android.DownloadManager.List.Section.Menu.Actions">
   <int value="0" label="START_SELECTING"/>
   <int value="1" label="SHARE_ALL"/>
@@ -11860,6 +11877,7 @@ Called by update_net_error_codes.py.-->
   <int value="3" label="Texture is not a decoder resource"/>
   <int value="4" label="Texture is a shared resource"/>
   <int value="5" label="Transform is incompatible with overlays"/>
+  <int value="6" label="Texture array has one element"/>
 </enum>
 
 <enum name="DefaultBrowserAsyncAttemptResult">
@@ -19853,6 +19871,12 @@ Called by update_net_error_codes.py.-->
   </int>
 </enum>
 
+<enum name="FaviconAvailabilityStatus">
+  <int value="0" label="Favicon available locally"/>
+  <int value="1" label="Favicon available via sync"/>
+  <int value="2" label="Favicon not available"/>
+</enum>
+
 <enum name="FaviconDownloadStatus">
   <int value="0" label="SUCCEEDED">Download succeeded.</int>
   <int value="1" label="FAILED">Download failed.</int>
@@ -22936,6 +22960,13 @@ Called by update_net_error_codes.py.-->
   <int value="47" label="UnoptimizedLosslessImagesStrict"/>
   <int value="48" label="LoadingFrameDefaultEager"/>
   <int value="49" label="DownloadsWithoutUserActivation"/>
+</enum>
+
+<enum name="FeaturePolicyImageCompressionFormat">
+  <int value="0" label="IgnoredFormat"/>
+  <int value="1" label="LossyFormat"/>
+  <int value="2" label="LosslessFormat"/>
+  <int value="3" label="WebPAnimationFormat"/>
 </enum>
 
 <enum name="FeedbackSource">
@@ -32165,6 +32196,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="-2142665444" label="ScrollableTabStrip:disabled"/>
   <int value="-2141661938" label="AnimatedAppMenuIcon:enabled"/>
   <int value="-2141247271" label="AndroidOmniboxPreviewsBadge:enabled"/>
+  <int value="-2138883960" label="AutofillRejectCompanyBirthyearName:disabled"/>
   <int value="-2134333982" label="ShowArcFilesApp:enabled"/>
   <int value="-2134244069" label="HttpFormWarning:enabled"/>
   <int value="-2133892372" label="ResamplingInputEvents:disabled"/>
@@ -32950,6 +32982,7 @@ from previous Chrome versions.
   <int value="-1015006759" label="ImportantSitesInCBD:disabled"/>
   <int value="-1014936248" label="SyncUSSBookmarks:enabled"/>
   <int value="-1014649471" label="committed-interstitials"/>
+  <int value="-1011390415" label="AutofillRejectCompanyBirthyear:enabled"/>
   <int value="-1010588306" label="SlideTopChromeWithPageScrolls:disabled"/>
   <int value="-1008511612" label="EnableCustomMacPaperSizes:disabled"/>
   <int value="-1001837588" label="EnableAppReinstallZeroState:enabled"/>
@@ -33048,6 +33081,7 @@ from previous Chrome versions.
   <int value="-847216521" label="ChromeDuplex:enabled"/>
   <int value="-844537521" label="HttpFormWarning:disabled"/>
   <int value="-844381918" label="ArcNativeBridgeExperiment:disabled"/>
+  <int value="-843496368" label="AutofillRejectCompanyBirthyear:disabled"/>
   <int value="-842438090" label="enable-md-feedback"/>
   <int value="-839664591" label="enable-web-authentication-testing-api"/>
   <int value="-836123854" label="wallet-service-use-sandbox"/>
@@ -33228,6 +33262,7 @@ from previous Chrome versions.
   <int value="-547301855" label="SyncPseudoUSSSupervisedUsers:enabled"/>
   <int value="-541611402" label="OfflinePagesPrefetching:enabled"/>
   <int value="-540150399" label="TapVisualizerApp:enabled"/>
+  <int value="-539105193" label="SendTabToSelfBroadcast:disabled"/>
   <int value="-536289234" label="ssl-interstitial-v2-colorful"/>
   <int value="-536230323" label="SingleClickAutofill:disabled"/>
   <int value="-535662704" label="BundledConnectionHelp:enabled"/>
@@ -33368,6 +33403,7 @@ from previous Chrome versions.
   <int value="-334873793" label="MediaSessionNotification:enabled"/>
   <int value="-329727402" label="disable-files-quick-view"/>
   <int value="-328361990" label="enable-experimental-extension-apis"/>
+  <int value="-327272022" label="AutofillRejectCompanyBirthyearName:enabled"/>
   <int value="-326083626" label="AppBanners:disabled"/>
   <int value="-323964300" label="ArcVpn:enabled"/>
   <int value="-323831744" label="token-binding:enabled"/>
@@ -33798,6 +33834,7 @@ from previous Chrome versions.
   <int value="379326303" label="enable-add-to-shelf"/>
   <int value="379428799" label="security-chip-animation"/>
   <int value="380372760" label="V8Orinoco:disabled"/>
+  <int value="381538377" label="SendTabToSelfBroadcast:enabled"/>
   <int value="385969127" label="disable-win32k-lockdown"/>
   <int value="386138870" label="DesktopPWAsOmniboxInstall:enabled"/>
   <int value="387178525" label="VideoFullscreenOrientationLock:enabled"/>
@@ -38295,6 +38332,9 @@ Called by update_use_counter_css.py.-->
       label="An origin was preconnected to when tab was foregrounded"/>
   <int value="6"
       label="An origin was preconnected to when app was foregrounded"/>
+  <int value="7"
+      label="An origin was preconnected to when the user kept the tab in the
+             foreground until the previous preconnect expired."/>
 </enum>
 
 <enum name="NavigationScheme">
@@ -42366,6 +42406,26 @@ Called by update_net_trust_anchors.py.-->
   <int value="2" label="Chrome on Mac"/>
 </enum>
 
+<enum name="OSXOtherInstancesCheckResult">
+  <int value="0" label="Old-style update"/>
+  <int value="1" label="No other instances at start"/>
+  <int value="2" label="User did not authorize"/>
+  <int value="3" label="Initial ExecuteAndWait failed"/>
+  <int value="4" label="Secondary ExecuteAndWait failed"/>
+  <int value="5" label="Showed no dialogs, no instances exist at exit"/>
+  <int value="6" label="Showed no dialogs, instances exist at exit"/>
+  <int value="7"
+      label="Showed the 'other user' dialog, no instances exist at exit"/>
+  <int value="8"
+      label="Showed the 'other user' dialog, instances exist at exit"/>
+  <int value="9"
+      label="Showed the 'this user' dialog, no instances exist at exit"/>
+  <int value="10"
+      label="Showed the 'this user' dialog, instances exist at exit"/>
+  <int value="11" label="Showed both dialogs, no instances exist at exit"/>
+  <int value="12" label="Showed both dialogs, instances exist at exit"/>
+</enum>
+
 <enum name="OSXScreensHaveSeparateSpaces">
   <int value="0" label="CANNOT_HAVE_SEPARATE_SPACES">
     The &quot;Screens Have Separate Spaces&quot; option is unavailable.
@@ -42957,6 +43017,14 @@ Called by update_net_trust_anchors.py.-->
 <enum name="PassiveForcedListenerResultType">
   <int value="0" label="PreventDefaultNotCalled"/>
   <int value="1" label="DocumentLevelTouchPreventDefaultCalled"/>
+</enum>
+
+<enum name="PasswordApplySyncChangesState">
+  <int value="0" label="Apply OK"/>
+  <int value="1" label="Apply ADD failed"/>
+  <int value="2" label="Apply UPDATE failed"/>
+  <int value="3" label="Apply Delete failed"/>
+  <int value="4" label="Apply metadata changed failed"/>
 </enum>
 
 <enum name="PasswordBubbleDisplayDisposition">
@@ -54107,6 +54175,7 @@ would be helpful to identify which type is being sent.
   <int value="13" label="Sites shown in Trusted Web Activities"/>
   <int value="14" label="Offline Pages"/>
   <int value="15" label="Send Tab To Self"/>
+  <int value="16" label="Updates"/>
 </enum>
 
 <enum name="TabBackgroundLoadStatus">
@@ -56135,6 +56204,11 @@ Full version information for the fingerprint enum values:
   <int value="6" label="Query Events"/>
   <int value="7" label="Clear All History"/>
   <int value="8" label="Clear Range of History"/>
+</enum>
+
+<enum name="UsbPrinterSetupSource">
+  <int value="0" label="Settings"/>
+  <int value="1" label="Print Preview"/>
 </enum>
 
 <enum name="UsedInDraw">

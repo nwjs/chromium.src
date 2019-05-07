@@ -68,6 +68,8 @@
 #include "components/flags_ui/flags_ui_switches.h"
 #include "components/invalidation/impl/invalidation_switches.h"
 #include "components/language/core/common/language_experiments.h"
+#include "components/nacl/common/buildflags.h"
+#include "components/nacl/common/nacl_switches.h"
 #include "components/network_session_configurator/common/network_features.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/ntp_snippets/contextual/contextual_suggestions_features.h"
@@ -1098,6 +1100,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAndroidSurfaceControlDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(features::kAndroidSurfaceControl)},
 #endif  // OS_ANDROID
+#if BUILDFLAG(ENABLE_NACL)
+    {"enable-nacl", flag_descriptions::kNaclName,
+     flag_descriptions::kNaclDescription, kOsAll,
+     SINGLE_VALUE_TYPE(switches::kEnableNaCl)},
+#endif  // ENABLE_NACL
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     {"extension-apis", flag_descriptions::kExperimentalExtensionApisName,
      flag_descriptions::kExperimentalExtensionApisDescription, kOsDesktop,
@@ -3086,6 +3093,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kAutofillProfileServerValidationDescription, kOsAll,
      FEATURE_VALUE_TYPE(autofill::features::kAutofillProfileServerValidation)},
 
+    {"autofill-reject-company-birthyear",
+     flag_descriptions::kAutofillRejectCompanyBirthyearName,
+     flag_descriptions::kAutofillRejectCompanyBirthyearDescription, kOsAll,
+     FEATURE_VALUE_TYPE(autofill::features::kAutofillRejectCompanyBirthyear)},
+
     {"autofill-restrict-formless-form-extraction",
      flag_descriptions::kAutofillRestrictUnownedFieldsToFormlessCheckoutName,
      flag_descriptions::
@@ -3961,6 +3973,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kMacSystemMediaPermissionsInfoUiDescription, kOsMac,
      FEATURE_VALUE_TYPE(features::kMacSystemMediaPermissionsInfoUi)},
 #endif  // defined(OS_MACOSX)
+
+    {"enable-send-tab-to-self-broadcast",
+     flag_descriptions::kSendTabToSelfBroadcastName,
+     flag_descriptions::kSendTabToSelfBroadcastDescription, kOsAll,
+     FEATURE_VALUE_TYPE(send_tab_to_self::kSendTabToSelfBroadcast)},
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

@@ -252,6 +252,11 @@
     "expiry_milestone": 77
   },
   {
+    "name": "autofill-reject-company-birthyear",
+    "owners": [ "parastoog" ],
+    "expiry_milestone": 79
+  },
+  {
     "name": "autofill-restrict-formless-form-extraction",
     "owners": [ "rogerm" ],
     "expiry_milestone": 76
@@ -1320,6 +1325,11 @@
     "expiry_milestone": 76
   },
   {
+     "name": "enable-nacl",
+     "owners": [ "dschuff", "native-client-dev@googlegroups.com" ],
+     "expiry_milestone": 87
+  },
+  {
     "name": "enable-native-controls",
     "owners": [ "chrome-media-ux@google.com" ],
     "expiry_milestone": 75
@@ -1557,6 +1567,11 @@
     "name": "enable-send-tab-to-self",
     "owners": [ "//components/send_tab_to_self/OWNERS" ],
     "expiry_milestone": 77
+  },
+  {
+    "name": "enable-send-tab-to-self-broadcast",
+    "owners": [ "//components/send_tab_to_self/OWNERS" ],
+    "expiry_milestone": 76
   },
   {
     "name": "enable-send-tab-to-self-show-sending-ui",

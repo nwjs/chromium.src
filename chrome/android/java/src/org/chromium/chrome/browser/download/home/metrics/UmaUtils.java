@@ -14,6 +14,7 @@ import org.chromium.chrome.browser.download.home.filter.Filters.FilterType;
 import org.chromium.chrome.download.R;
 import org.chromium.components.offline_items_collection.OfflineItem;
 import org.chromium.components.offline_items_collection.OfflineItemFilter;
+import org.chromium.components.offline_items_collection.RenameResult;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -64,6 +65,24 @@ public class UmaUtils {
         int MENU_SHARE_ALL = 1;
         int MENU_DELETE_ALL = 2;
         int NUM_ENTRIES = 3;
+    }
+
+    // Please treat this list as append only and keep it in sync with
+    // Android.Download.Rename.Dialog.Action in enums.xml.
+    @IntDef({RenameDialogAction.RENAME_DIALOG_CONFIRM, RenameDialogAction.RENAME_DIALOG_CANCEL,
+            RenameDialogAction.RENAME_DIALOG_OTHER,
+            RenameDialogAction.RENAME_EXTENSION_DIALOG_CONFIRM,
+            RenameDialogAction.RENAME_EXTENSION_DIALOG_CANCEL,
+            RenameDialogAction.RENAME_EXTENSION_DIALOG_OTHER})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface RenameDialogAction {
+        int RENAME_DIALOG_CONFIRM = 0;
+        int RENAME_DIALOG_CANCEL = 1;
+        int RENAME_DIALOG_OTHER = 2;
+        int RENAME_EXTENSION_DIALOG_CONFIRM = 3;
+        int RENAME_EXTENSION_DIALOG_CANCEL = 4;
+        int RENAME_EXTENSION_DIALOG_OTHER = 5;
+        int NUM_ENTRIES = 6;
     }
 
     /**
@@ -267,5 +286,23 @@ public class UmaUtils {
     public static void recordChipStats(int numEnabledChips) {
         RecordHistogram.recordCustomCountHistogram(
                 "Android.DownloadManager.Chips.Enabled", numEnabledChips, 1, 10, 10);
+    }
+
+    /**
+     * Called to record metrics for the given rename action.
+     * @param action The given rename action.
+     */
+    public static void recordRenameAction(@RenameDialogAction int action) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.Download.Rename.Dialog.Action", action, RenameDialogAction.NUM_ENTRIES);
+    }
+
+    /**
+     * Called to record metrics for the given rename result.
+     * @param result The given rename result.
+     */
+    public static void recordRenameResult(@RenameResult int result) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.Download.Rename.Result", result, RenameResult.MAX_VALUE);
     }
 }

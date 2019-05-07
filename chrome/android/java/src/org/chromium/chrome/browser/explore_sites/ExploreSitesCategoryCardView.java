@@ -114,9 +114,15 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
             // should reset the tile indexes for views we keep.
             updateTileViews(mCategory);
         }
+
         @Override
         public String getUrl() {
             return mSiteUrl;
+        }
+
+        @Override
+        public String getContextMenuTitle() {
+            return null;
         }
 
         @Override
@@ -157,6 +163,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
                                 model.get(ExploreSitesSite.TILE_INDEX_KEY));
                 view.setOnClickListener(interactionDelegate);
                 view.setOnCreateContextMenuListener(interactionDelegate);
+                ContextMenuManager.registerViewForTouchlessContextMenu(view, interactionDelegate);
                 view.setOnFocusChangeListener(interactionDelegate);
             }
         }

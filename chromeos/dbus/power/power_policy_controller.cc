@@ -107,35 +107,30 @@ void AdjustDelaysForBacklightsForcedOff(
     delays->set_idle_warning_ms(warn_ms);
 }
 
-power_manager::PowerManagementPolicy::PeakShiftDayConfig::WeekDay
-GetProtoWeekDay(PowerPolicyController::WeekDay week_day) {
-  switch (week_day) {
-    case PowerPolicyController::WeekDay::WEEK_DAY_MONDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::MONDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_TUESDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::TUESDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_WEDNESDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::
-          WEDNESDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_THURSDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::THURSDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_FRIDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::FRIDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_SATURDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::SATURDAY;
-    case PowerPolicyController::WeekDay::WEEK_DAY_SUNDAY:
-      return power_manager::PowerManagementPolicy::PeakShiftDayConfig::SUNDAY;
+// Saves appropriate value to |week_day| and returns true if there is mapping
+// between week day string and enum value.
+bool GetWeekDayFromString(
+    const std::string& week_day_str,
+    power_manager::PowerManagementPolicy::WeekDay* week_day) {
+  DCHECK(week_day);
+  if (week_day_str == "MONDAY") {
+    *week_day = power_manager::PowerManagementPolicy::MONDAY;
+  } else if (week_day_str == "TUESDAY") {
+    *week_day = power_manager::PowerManagementPolicy::TUESDAY;
+  } else if (week_day_str == "WEDNESDAY") {
+    *week_day = power_manager::PowerManagementPolicy::WEDNESDAY;
+  } else if (week_day_str == "THURSDAY") {
+    *week_day = power_manager::PowerManagementPolicy::THURSDAY;
+  } else if (week_day_str == "FRIDAY") {
+    *week_day = power_manager::PowerManagementPolicy::FRIDAY;
+  } else if (week_day_str == "SATURDAY") {
+    *week_day = power_manager::PowerManagementPolicy::SATURDAY;
+  } else if (week_day_str == "SUNDAY") {
+    *week_day = power_manager::PowerManagementPolicy::SUNDAY;
+  } else {
+    return false;
   }
-}
-
-std::unique_ptr<
-    power_manager::PowerManagementPolicy::PeakShiftDayConfig::DayTime>
-GetProtoDayTime(const PowerPolicyController::DayTime& day_time) {
-  auto proto = std::make_unique<
-      power_manager::PowerManagementPolicy::PeakShiftDayConfig::DayTime>();
-  proto->set_hour(day_time.hour);
-  proto->set_minute(day_time.minute);
-  return proto;
+  return true;
 }
 
 }  // namespace
@@ -145,6 +140,141 @@ PowerPolicyController::PrefValues::~PrefValues() = default;
 
 const int PowerPolicyController::kScreenLockAfterOffDelayMs = 10000;  // 10 sec.
 const char PowerPolicyController::kPrefsReason[] = "Prefs";
+
+// static
+bool PowerPolicyController::GetPeakShiftDayConfigs(
+    const base::DictionaryValue& value,
+    std::vector<PeakShiftDayConfig>* configs_out) {
+  DCHECK(configs_out);
+  configs_out->clear();
+
+  const base::Value* entries =
+      value.FindKeyOfType({"entries"}, base::Value::Type::LIST);
+  if (!entries) {
+    return false;
+  }
+
+  for (const base::Value& item : entries->GetList()) {
+    const base::Value* week_day_value =
+        item.FindKeyOfType({"day"}, base::Value::Type::STRING);
+    const base::Value* start_time_hour =
+        item.FindPathOfType({"start_time", "hour"}, base::Value::Type::INTEGER);
+    const base::Value* start_time_minute = item.FindPathOfType(
+        {"start_time", "minute"}, base::Value::Type::INTEGER);
+    const base::Value* end_time_hour =
+        item.FindPathOfType({"end_time", "hour"}, base::Value::Type::INTEGER);
+    const base::Value* end_time_minute =
+        item.FindPathOfType({"end_time", "minute"}, base::Value::Type::INTEGER);
+    const base::Value* charge_start_time_hour = item.FindPathOfType(
+        {"charge_start_time", "hour"}, base::Value::Type::INTEGER);
+    const base::Value* charge_start_time_minute = item.FindPathOfType(
+        {"charge_start_time", "minute"}, base::Value::Type::INTEGER);
+
+    power_manager::PowerManagementPolicy::WeekDay week_day_enum;
+    if (!week_day_value ||
+        !GetWeekDayFromString(week_day_value->GetString(), &week_day_enum) ||
+        !start_time_hour || !start_time_minute || !end_time_hour ||
+        !end_time_minute || !charge_start_time_hour ||
+        !charge_start_time_minute) {
+      return false;
+    }
+
+    PeakShiftDayConfig config;
+    config.set_day(week_day_enum);
+    config.mutable_start_time()->set_hour(start_time_hour->GetInt());
+    config.mutable_start_time()->set_minute(start_time_minute->GetInt());
+    config.mutable_end_time()->set_hour(end_time_hour->GetInt());
+    config.mutable_end_time()->set_minute(end_time_minute->GetInt());
+    config.mutable_charge_start_time()->set_hour(
+        charge_start_time_hour->GetInt());
+    config.mutable_charge_start_time()->set_minute(
+        charge_start_time_minute->GetInt());
+
+    configs_out->push_back(std::move(config));
+  }
+
+  return true;
+}
+
+// static
+bool PowerPolicyController::GetAdvancedBatteryChargeModeDayConfigs(
+    const base::DictionaryValue& value,
+    std::vector<AdvancedBatteryChargeModeDayConfig>* configs_out) {
+  DCHECK(configs_out);
+  configs_out->clear();
+
+  const base::Value* entries =
+      value.FindKeyOfType({"entries"}, base::Value::Type::LIST);
+  if (!entries) {
+    return false;
+  }
+
+  for (const base::Value& item : entries->GetList()) {
+    const base::Value* week_day_value =
+        item.FindKeyOfType({"day"}, base::Value::Type::STRING);
+    const base::Value* charge_start_time_hour = item.FindPathOfType(
+        {"charge_start_time", "hour"}, base::Value::Type::INTEGER);
+    const base::Value* charge_start_time_minute = item.FindPathOfType(
+        {"charge_start_time", "minute"}, base::Value::Type::INTEGER);
+    const base::Value* charge_end_time_hour = item.FindPathOfType(
+        {"charge_end_time", "hour"}, base::Value::Type::INTEGER);
+    const base::Value* charge_end_time_minute = item.FindPathOfType(
+        {"charge_end_time", "minute"}, base::Value::Type::INTEGER);
+
+    power_manager::PowerManagementPolicy::WeekDay week_day_enum;
+    if (!week_day_value ||
+        !GetWeekDayFromString(week_day_value->GetString(), &week_day_enum) ||
+        !charge_start_time_hour || !charge_start_time_minute ||
+        !charge_end_time_hour || !charge_end_time_minute) {
+      return false;
+    }
+
+    AdvancedBatteryChargeModeDayConfig config;
+    config.set_day(week_day_enum);
+    config.mutable_charge_start_time()->set_hour(
+        charge_start_time_hour->GetInt());
+    config.mutable_charge_start_time()->set_minute(
+        charge_start_time_minute->GetInt());
+    config.mutable_charge_end_time()->set_hour(charge_end_time_hour->GetInt());
+    config.mutable_charge_end_time()->set_minute(
+        charge_end_time_minute->GetInt());
+
+    configs_out->push_back(std::move(config));
+  }
+
+  return true;
+}
+
+// static
+bool PowerPolicyController::GetBatteryChargeModeFromInteger(
+    int mode,
+    power_manager::PowerManagementPolicy::BatteryChargeMode::Mode* mode_out) {
+  DCHECK(mode_out);
+  switch (mode) {
+    case 1:
+      *mode_out =
+          power_manager::PowerManagementPolicy::BatteryChargeMode::STANDARD;
+      return true;
+    case 2:
+      *mode_out = power_manager::PowerManagementPolicy::BatteryChargeMode::
+          EXPRESS_CHARGE;
+      return true;
+    case 3:
+      *mode_out = power_manager::PowerManagementPolicy::BatteryChargeMode::
+          PRIMARILY_AC_USE;
+      return true;
+    case 4:
+      *mode_out =
+          power_manager::PowerManagementPolicy::BatteryChargeMode::ADAPTIVE;
+      return true;
+    case 5:
+      *mode_out =
+          power_manager::PowerManagementPolicy::BatteryChargeMode::CUSTOM;
+      return true;
+    default:
+      return false;
+  }
+}
 
 // static
 std::string PowerPolicyController::GetPolicyDebugString(
@@ -196,8 +326,29 @@ std::string PowerPolicyController::GetPolicyDebugString(
 
   str += GetPeakShiftPolicyDebugString(policy);
 
+  str += GetAdvancedBatteryChargeModePolicyDebugString(policy);
+
+  if (policy.has_battery_charge_mode()) {
+    if (policy.battery_charge_mode().has_mode()) {
+      StringAppendF(&str, "battery_charge_mode=%d ",
+                    policy.battery_charge_mode().mode());
+    }
+    if (policy.battery_charge_mode().has_custom_charge_start()) {
+      StringAppendF(&str, "custom_charge_start=%d ",
+                    policy.battery_charge_mode().custom_charge_start());
+    }
+    if (policy.battery_charge_mode().has_custom_charge_stop()) {
+      StringAppendF(&str, "custom_charge_stop=%d ",
+                    policy.battery_charge_mode().custom_charge_stop());
+    }
+  }
+
   if (policy.has_boot_on_ac()) {
     StringAppendF(&str, "boot_on_ac=%d ", policy.boot_on_ac());
+  }
+
+  if (policy.has_usb_power_share()) {
+    StringAppendF(&str, "usb_power_share=%d ", policy.usb_power_share());
   }
 
   if (policy.has_reason())
@@ -214,21 +365,43 @@ std::string PowerPolicyController::GetPeakShiftPolicyDebugString(
     StringAppendF(&str, "peak_shift_battery_threshold=%d ",
                   policy.peak_shift_battery_percent_threshold());
   }
-  if (policy.peak_shift_day_configs_size()) {
-    StringAppendF(&str, "peak_shift_day_configuration=[");
-    for (auto config : policy.peak_shift_day_configs()) {
-      StringAppendF(&str,
-                    "{day=%d start_time=%d:%02d end_time=%d:%02d "
-                    "charge_start_time=%d:%02d} ",
-                    config.day(), config.start_time().hour(),
-                    config.start_time().minute(), config.end_time().hour(),
-                    config.end_time().minute(),
-                    config.charge_start_time().hour(),
-                    config.charge_start_time().minute());
-    }
-    StringAppendF(&str, "] ");
+  if (policy.peak_shift_day_configs_size() == 0) {
+    return str;
   }
+
+  std::vector<std::string> list;
+  for (auto config : policy.peak_shift_day_configs()) {
+    list.push_back(base::StringPrintf(
+        "{day=%d start_time=%d:%02d end_time=%d:%02d "
+        "charge_start_time=%d:%02d}",
+        config.day(), config.start_time().hour(), config.start_time().minute(),
+        config.end_time().hour(), config.end_time().minute(),
+        config.charge_start_time().hour(),
+        config.charge_start_time().minute()));
+  }
+  StringAppendF(&str, "peak_shift_day_config=[%s] ",
+                base::JoinString(list, " ").c_str());
   return str;
+}
+
+// static
+std::string
+PowerPolicyController::GetAdvancedBatteryChargeModePolicyDebugString(
+    const power_manager::PowerManagementPolicy& policy) {
+  if (policy.advanced_battery_charge_mode_day_configs_size() == 0) {
+    return "";
+  }
+
+  std::vector<std::string> list;
+  for (auto config : policy.advanced_battery_charge_mode_day_configs()) {
+    list.push_back(base::StringPrintf(
+        "{day=%d charge_start_time=%d:%02d charge_end_time=%d:%02d}",
+        config.day(), config.charge_start_time().hour(),
+        config.charge_start_time().minute(), config.charge_end_time().hour(),
+        config.charge_end_time().minute()));
+  }
+  return base::StringPrintf("advanced_battery_charge_mode_day_config=[%s] ",
+                            base::JoinString(list, " ").c_str());
 }
 
 // static
@@ -326,21 +499,28 @@ void PowerPolicyController::ApplyPrefs(const PrefValues& values) {
   if (values.peak_shift_enabled) {
     prefs_policy_.set_peak_shift_battery_percent_threshold(
         values.peak_shift_battery_threshold);
-    for (const PeakShiftDayConfiguration& values_config :
-         values.peak_shift_day_configurations) {
-      power_manager::PowerManagementPolicy::PeakShiftDayConfig* proto_config =
-          prefs_policy_.add_peak_shift_day_configs();
-      proto_config->set_day(GetProtoWeekDay(values_config.day));
-      proto_config->set_allocated_start_time(
-          GetProtoDayTime(values_config.start_time).release());
-      proto_config->set_allocated_end_time(
-          GetProtoDayTime(values_config.end_time).release());
-      proto_config->set_allocated_charge_start_time(
-          GetProtoDayTime(values_config.charge_start_time).release());
-    }
+    *prefs_policy_.mutable_peak_shift_day_configs() = {
+        values.peak_shift_day_configs.begin(),
+        values.peak_shift_day_configs.end()};
+  }
+
+  if (values.advanced_battery_charge_mode_enabled) {
+    *prefs_policy_.mutable_advanced_battery_charge_mode_day_configs() = {
+        values.advanced_battery_charge_mode_day_configs.begin(),
+        values.advanced_battery_charge_mode_day_configs.end()};
+  }
+
+  auto* battery_charge_mode = prefs_policy_.mutable_battery_charge_mode();
+  battery_charge_mode->set_mode(values.battery_charge_mode);
+  if (values.battery_charge_mode ==
+      power_manager::PowerManagementPolicy::BatteryChargeMode::CUSTOM) {
+    battery_charge_mode->set_custom_charge_start(values.custom_charge_start);
+    battery_charge_mode->set_custom_charge_stop(values.custom_charge_stop);
   }
 
   prefs_policy_.set_boot_on_ac(values.boot_on_ac);
+
+  prefs_policy_.set_usb_power_share(values.usb_power_share);
 
   prefs_were_set_ = true;
   SendCurrentPolicy();

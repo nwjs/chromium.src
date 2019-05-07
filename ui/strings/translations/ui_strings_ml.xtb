@@ -78,7 +78,7 @@
 <translation id="3600969208114796418"><ph name="SAVEAS_EXTENSION_TYPE" /> ഫയൽ</translation>
 <translation id="3608915363409716668"><ph name="MAXIMUM_VALUE" />+</translation>
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” തിരയുക</translation>
-<translation id="364720409959344976">അപ്‌ലോഡുചെയ്യുന്നതിന് ഫോൾഡർ തിരഞ്ഞെടുക്കുക</translation>
+<translation id="364720409959344976">അപ്‌ലോഡ് ചെയ്യുന്നതിന് ഫോൾഡർ തിരഞ്ഞെടുക്കുക</translation>
 <translation id="3660179305079774227">മുകളിലേക്കുള്ള അമ്പടയാളം</translation>
 <translation id="3740362395218339114"><ph name="QUANTITY" /> GB/s</translation>
 <translation id="3757388668994797779"><ph name="QUANTITY" /> GB</translation>
@@ -182,7 +182,7 @@
 <translation id="8106081041558092062">{HOURS,plural, =1{ഒരു മണിക്കൂര്‍ മുമ്പ്}other{# മണിക്കൂർ മുമ്പ്}}</translation>
 <translation id="8131263257437993507">{SECONDS,plural, =1{ഒരു സെക്കൻഡ് ശേഷിക്കുന്നു}other{# സെക്കൻഡ് ശേഷിക്കുന്നു}}</translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, സ്വയമേവ പൂർത്തിയാക്കുക</translation>
-<translation id="815598010540052116">താഴേക്ക് സ്ക്രോള്‍ചെയ്യൂ</translation>
+<translation id="815598010540052116">താഴേക്ക് സ്ക്രോള്‍ ചെയ്യൂ</translation>
 <translation id="8170087467028567933">ഈ നിർദ്ദേശം നീക്കം ചെയ്യുന്നത്, നിങ്ങളുടെ എല്ലാ ഉപകരണങ്ങളിലെയും അക്കൗണ്ടിൽ നിന്ന് ഇത് മറയ്ക്കും.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">താഴെയുള്ള പേജുകള്‍</translation>

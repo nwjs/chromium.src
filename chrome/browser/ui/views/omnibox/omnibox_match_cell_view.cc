@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "base/macros.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/optional.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_theme.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_contents_view.h"
@@ -69,14 +70,16 @@ gfx::Insets GetMarginInsets(int text_height, bool is_two_line) {
   int vertical_margin =
       is_two_line ? kTwoLineRowMarginHeight : kOneLineRowMarginHeight;
 
-  if (base::FeatureList::IsEnabled(omnibox::kUIExperimentVerticalMargin)) {
+  base::Optional<int> vertical_margin_override =
+      OmniboxFieldTrial::GetSuggestionVerticalMarginFieldTrialOverride();
+  if (vertical_margin_override) {
     // If the vertical margin experiment is on, we purposely set both the
     // one-line and two-line suggestions to have the same vertical margin.
     //
     // There is no vertical margin value we could set to make the new answer
     // style look anything similar to the pre-Refresh style, but setting them to
     // be the same looks reasonable, and is a sane place to start experimenting.
-    vertical_margin = OmniboxFieldTrial::GetSuggestionVerticalMargin();
+    vertical_margin = vertical_margin_override.value();
   }
 
   return gfx::Insets(vertical_margin, kMarginLeft, vertical_margin,
@@ -202,8 +205,11 @@ OmniboxMatchCellView::OmniboxMatchCellView(OmniboxResultView* result_view) {
   answer_image_view_->SetHorizontalAlignment(views::ImageView::CENTER);
   answer_image_view_->SetVerticalAlignment(views::ImageView::CENTER);
 
-  const base::string16& separator =
-      l10n_util::GetStringUTF16(IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR);
+  const base::string16 separator = l10n_util::GetStringUTF16(
+      base::FeatureList::IsEnabled(
+          omnibox::kOmniboxAlternateMatchDescriptionSeparator)
+          ? IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR_ALTERNATE
+          : IDS_AUTOCOMPLETE_MATCH_DESCRIPTION_SEPARATOR);
   separator_view_->SetText(separator);
 }
 

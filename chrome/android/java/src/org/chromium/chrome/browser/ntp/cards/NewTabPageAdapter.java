@@ -40,13 +40,13 @@ import java.util.Set;
  */
 public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder>
         implements ListObservable.ListObserver<PartialBindCallback> {
-    private final SuggestionsUiDelegate mUiDelegate;
-    private final ContextMenuManager mContextMenuManager;
-    private final OfflinePageBridge mOfflinePageBridge;
+    protected final SuggestionsUiDelegate mUiDelegate;
+    protected final ContextMenuManager mContextMenuManager;
+    protected final OfflinePageBridge mOfflinePageBridge;
 
-    private final @Nullable View mAboveTheFoldView;
-    private final UiConfig mUiConfig;
-    private SuggestionsRecyclerView mRecyclerView;
+    protected final @Nullable View mAboveTheFoldView;
+    protected final UiConfig mUiConfig;
+    protected SuggestionsRecyclerView mRecyclerView;
 
     private final InnerNode<NewTabPageViewHolder, PartialBindCallback> mRoot;
 
