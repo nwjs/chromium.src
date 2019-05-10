@@ -989,8 +989,21 @@ base::Value TranslatePrefs::GetDefaultBlockedLanguages() {
     language::ToTranslateLanguageSynonym(&language);
     if (std::find(language_values.GetList().begin(),
                   language_values.GetList().end(),
-                  base::Value(language)) == language_values.GetList().end())
+                  base::Value(language)) == language_values.GetList().end()) {
       language_values.GetList().emplace_back(language);
+
+      // crbug.com/958348: The default value for Accept-Language *should* be the
+      // same as the one for Fluent Languages. However, Accept-Language contains
+      // English (and more) in addition to the local language in most locales
+      // due to historical reasons. Exiting early from this loop is a temporary
+      // fix that allows Fluent Languages to be at least populated with the UI
+      // language while still allowing Translate to trigger on other languages,
+      // most importantly English.
+      // Once the change to remove English from Accept-Language defaults lands,
+      // this break should be removed to enable the Fluent Language List and the
+      // Accept-Language list to be initialized to the same values.
+      break;
+    }
   }
   return std::move(language_values);
 }
