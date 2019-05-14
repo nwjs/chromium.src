@@ -1499,6 +1499,16 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
       LocalFrame::HasTransientUserActivation(GetFrame()));
   GetFrame()->MaybeLogAdClickNavigation();
 
+  NavigationPolicy policy = frame_request.GetNavigationPolicy();
+  if (frame_request.FrameName() == "_blank")
+    policy = kNavigationPolicyNewWindow;
+
+  WebString manifest;
+  GetFrame()->Client()->willHandleNavigationPolicy(frame_request.GetResourceRequest(), &policy, &manifest);
+  if (policy == kNavigationPolicyIgnore)
+    return nullptr;
+  frame_request.SetManifest(manifest);
+
   FrameTree::FindResult result =
       GetFrame()->Tree().FindOrCreateFrameForNavigation(frame_request);
   if (!result.frame)
