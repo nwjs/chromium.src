@@ -13,8 +13,8 @@
 namespace network {
 namespace {
 
-// The maximum size of the cache that contains the GURLs that should use
-// alternate proxy list.
+// The maximum size of the two caches that contain the GURLs for which special
+// handling is required.
 constexpr size_t kMaxCacheSize = 15;
 
 // The maximum number of previous configs to keep.
@@ -86,6 +86,24 @@ void MergeRequestHeaders(net::HttpRequestHeaders* out,
   }
 }
 
+bool IsURLBlockedForCustomProxy(const net::URLRequest& request) {
+  auto* url_loader = URLLoader::ForRequest(request);
+  if (url_loader && url_loader->GetProcessId() == 0 &&
+      static_cast<SpecialRoutingIDs>(url_loader->GetRenderFrameId()) ==
+          MSG_ROUTING_NONE) {
+    // The request is not initiated by navigation or renderer. Block the request
+    // from going through custom proxy. This is a temporary solution to fix the
+    // bypassed downloads when using the custom proxy. See crbug.com/953166.
+    // TODO(957215): Implement a better solution in download manager and remove
+    // this codepath
+    return true;
+  }
+  // If the last entry occurs earlier in the |url_chain|, then very likely there
+  // is a redirect cycle.
+  return std::find(request.url_chain().rbegin() + 1, request.url_chain().rend(),
+                   request.url_chain().back()) != request.url_chain().rend();
+}
+
 }  // namespace
 
 NetworkServiceProxyDelegate::NetworkServiceProxyDelegate(
@@ -105,6 +123,15 @@ void NetworkServiceProxyDelegate::OnBeforeStartTransaction(
     net::HttpRequestHeaders* headers) {
   if (!MayProxyURL(request->url()))
     return;
+
+  if (!proxy_config_->can_use_proxy_on_http_url_redirect_cycles &&
+      MayHaveProxiedURL(request->url()) &&
+      request->url().SchemeIs(url::kHttpScheme) &&
+      IsURLBlockedForCustomProxy(*request)) {
+    redirect_loop_cache_.push_front(request->url());
+    if (previous_proxy_configs_.size() > kMaxCacheSize)
+      redirect_loop_cache_.pop_back();
+  }
 
   MergeRequestHeaders(headers, proxy_config_->pre_cache_headers);
 
@@ -151,6 +178,12 @@ void NetworkServiceProxyDelegate::OnResolveProxy(
     const net::ProxyRetryInfoMap& proxy_retry_info,
     net::ProxyInfo* result) {
   if (!EligibleForProxy(*result, url, method))
+    return;
+
+  // Check if using custom proxy for |url| can result in redirect loops.
+  std::deque<GURL>::const_iterator it =
+      std::find(redirect_loop_cache_.begin(), redirect_loop_cache_.end(), url);
+  if (it != redirect_loop_cache_.end())
     return;
 
   net::ProxyInfo proxy_info;

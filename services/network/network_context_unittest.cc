@@ -129,6 +129,9 @@ namespace {
 const GURL kURL("http://foo.com");
 const GURL kOtherURL("http://other.com");
 constexpr char kMockHost[] = "mock.host";
+constexpr char kCustomProxyResponse[] = "CustomProxyResponse";
+constexpr int kProcessId = 11;
+constexpr int kRouteId = 12;
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
 void StoreBool(bool* result, const base::Closure& callback, bool value) {
@@ -174,6 +177,31 @@ void SetDefaultContentSetting(ContentSetting setting,
 
 std::unique_ptr<TestURLLoaderClient> FetchRequest(
     const ResourceRequest& request,
+    NetworkContext* network_context,
+    int process_id = mojom::kBrowserProcessId) {
+  mojom::URLLoaderFactoryPtr loader_factory;
+  auto params = mojom::URLLoaderFactoryParams::New();
+  params->process_id = process_id;
+  params->is_corb_enabled = false;
+  network_context->CreateURLLoaderFactory(mojo::MakeRequest(&loader_factory),
+                                          std::move(params));
+
+  auto client = std::make_unique<TestURLLoaderClient>();
+  mojom::URLLoaderPtr loader;
+  loader_factory->CreateLoaderAndStart(
+      mojo::MakeRequest(&loader), 0 /* routing_id */, 0 /* request_id */,
+      0 /* options */, request, client->CreateInterfacePtr(),
+      net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
+
+  client->RunUntilComplete();
+  return client;
+}
+
+// Creates a URLLoaderPtr and fetches |request| after going through
+// |redirect_counts| redirects.
+std::unique_ptr<TestURLLoaderClient> FetchRedirectedRequest(
+    size_t redirect_counts,
+    const ResourceRequest& request,
     NetworkContext* network_context) {
   mojom::URLLoaderFactoryPtr loader_factory;
   auto params = mojom::URLLoaderFactoryParams::New();
@@ -189,8 +217,56 @@ std::unique_ptr<TestURLLoaderClient> FetchRequest(
       0 /* options */, request, client->CreateInterfacePtr(),
       net::MutableNetworkTrafficAnnotationTag(TRAFFIC_ANNOTATION_FOR_TESTS));
 
+  while (redirect_counts > 0) {
+    client->RunUntilRedirectReceived();
+    loader->FollowRedirect({}, {}, base::nullopt);
+    client->ClearHasReceivedRedirect();
+    --redirect_counts;
+  }
+
   client->RunUntilComplete();
   return client;
+}
+
+// Returns a response that redirects to the next URL in |redirect_cycle|.
+std::unique_ptr<net::test_server::HttpResponse>
+RedirectThroughCycleProxyResponse(
+    const std::vector<GURL>& redirect_cycle,
+    const net::test_server::HttpRequest& request) {
+  DCHECK_LE(1u, redirect_cycle.size());
+
+  // Compute the requested URL from the "Host" header. It's not possible
+  // to use the request URL directly since that contains the hostname of the
+  // proxy server.
+  const GURL kOriginUrl(
+      base::StrCat({"http://", request.headers.find("Host")->second +
+                                   request.GetURL().path()}));
+
+  auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+
+  GURL redirect_location;
+  // Compute |redirect_location| by first finding kOriginUrl in
+  // |redirect_cycle|.
+  for (size_t i = 0; i < redirect_cycle.size(); ++i) {
+    if (redirect_cycle[i] == kOriginUrl) {
+      // Set |redirect_location| to the next URL in |redirect_cycle|.
+      redirect_location = redirect_cycle[(i + 1) % redirect_cycle.size()];
+      break;
+    }
+  }
+  DCHECK(redirect_location.is_valid());
+
+  response->AddCustomHeader("Location", redirect_location.spec());
+  response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+  response->set_content_type("text/plain");
+  return std::move(response);
+}
+
+std::unique_ptr<net::test_server::HttpResponse> CustomProxyResponse(
+    const net::test_server::HttpRequest& request) {
+  auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+  response->set_content(kCustomProxyResponse);
+  return std::move(response);
 }
 
 // ProxyLookupClient that drives proxy lookups and can wait for the responses to
@@ -4915,8 +4991,7 @@ TEST_F(NetworkContextTest,
     network_context->CreateWebSocket(
         mojo::MakeRequest(&web_socket), network::mojom::kBrowserProcessId,
         1 /* render_frame_id */, url::Origin::Create(ws_server.GetURL("/")),
-        network::mojom::kWebSocketOptionNone, std::move(auth_handler),
-        std::move(header_client_ptr));
+        std::move(auth_handler), std::move(header_client_ptr));
 
     TestWebSocketClient client;
     web_socket->AddChannelRequest(
@@ -4983,8 +5058,7 @@ TEST_F(NetworkContextTest,
     network_context->CreateWebSocket(
         mojo::MakeRequest(&web_socket), network::mojom::kBrowserProcessId,
         1 /* render_frame_id */, url::Origin::Create(ws_server.GetURL("/")),
-        network::mojom::kWebSocketOptionNone, std::move(auth_handler),
-        std::move(header_client_ptr));
+        std::move(auth_handler), std::move(header_client_ptr));
 
     TestWebSocketClient client;
     web_socket->AddChannelRequest(
@@ -5076,6 +5150,7 @@ TEST_F(NetworkContextMockHostTest, CustomProxyAddsHeaders) {
                                                     "post_bar_value");
   request.url = GetURLWithMockHost(
       test_server, "/echoheader?pre_foo&post_foo&pre_bar&post_bar");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5086,6 +5161,103 @@ TEST_F(NetworkContextMockHostTest, CustomProxyAddsHeaders) {
                                         "pre_bar_value", "pre_foo_value"},
                                        "\n"));
   EXPECT_EQ(client->response_head().proxy_server, proxy_server);
+}
+
+// Tests that if using a custom proxy results in redirect loop, then
+// the proxy is bypassed, and the request is fetched directly.
+TEST_F(NetworkContextMockHostTest, CanUseProxyOnHttpSelfRedirect) {
+  net::EmbeddedTestServer test_server;
+  net::test_server::RegisterDefaultHandlers(&test_server);
+  ASSERT_TRUE(test_server.Start());
+
+  const GURL kUrl = GetURLWithMockHost(test_server, "/echo");
+
+  net::EmbeddedTestServer proxy_test_server;
+  // |redirect_cycle| has length 1 implying that fetching kUrl will result in
+  // redirect to kUrl.
+  const std::vector<GURL> kRedirectCycle({kUrl});
+
+  proxy_test_server.RegisterRequestHandler(
+      base::BindRepeating(&RedirectThroughCycleProxyResponse, kRedirectCycle));
+
+  ASSERT_TRUE(proxy_test_server.Start());
+
+  mojom::CustomProxyConfigClientPtr proxy_config_client;
+  mojom::NetworkContextParamsPtr context_params = CreateContextParams();
+  context_params->custom_proxy_config_client_request =
+      mojo::MakeRequest(&proxy_config_client);
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+  auto config = mojom::CustomProxyConfig::New();
+  net::ProxyServer proxy_server = ConvertToProxyServer(proxy_test_server);
+  config->rules.ParseFromString("http=" + proxy_server.ToURI());
+  // Set |can_use_proxy_on_http_url_redirect_cycles| to false.
+  // This allows proxy delegate to bypass custom proxies if there
+  // is a redirect loop.
+  config->can_use_proxy_on_http_url_redirect_cycles = false;
+  proxy_config_client->OnCustomProxyConfigUpdated(std::move(config));
+  scoped_task_environment_.RunUntilIdle();
+
+  ResourceRequest request;
+  request.url = kUrl;
+  request.render_frame_id = kRouteId;
+  std::unique_ptr<TestURLLoaderClient> client = FetchRedirectedRequest(
+      kRedirectCycle.size(), request, network_context.get());
+  scoped_task_environment_.RunUntilIdle();
+  std::string response;
+  EXPECT_TRUE(
+      mojo::BlockingCopyToString(client->response_body_release(), &response));
+  EXPECT_EQ("Echo", response);
+}
+
+// Tests that if using a custom proxy results in a long redirect loop, then
+// the proxy is bypassed, and the request is fetched directly.
+TEST_F(NetworkContextMockHostTest, CanUseProxyOnHttpRedirectCycles) {
+  net::EmbeddedTestServer test_server;
+  net::test_server::RegisterDefaultHandlers(&test_server);
+  ASSERT_TRUE(test_server.Start());
+
+  const GURL kUrl1 = GetURLWithMockHost(test_server, "/echo");
+  const GURL kUrl2 = GetURLWithMockHost(test_server, "/2/echo");
+  const GURL kUrl3 = GetURLWithMockHost(test_server, "/3/echo");
+
+  // Create a redirect cycle of length 3. Note that fetching kUrl3 will cause
+  // redirect back to kUrl1.
+  const std::vector<GURL> kRedirectCycle({kUrl1, kUrl2, kUrl3});
+
+  net::EmbeddedTestServer proxy_test_server;
+
+  proxy_test_server.RegisterRequestHandler(
+      base::BindRepeating(&RedirectThroughCycleProxyResponse, kRedirectCycle));
+
+  ASSERT_TRUE(proxy_test_server.Start());
+
+  mojom::CustomProxyConfigClientPtr proxy_config_client;
+  mojom::NetworkContextParamsPtr context_params = CreateContextParams();
+  context_params->custom_proxy_config_client_request =
+      mojo::MakeRequest(&proxy_config_client);
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+  auto config = mojom::CustomProxyConfig::New();
+  net::ProxyServer proxy_server = ConvertToProxyServer(proxy_test_server);
+  config->rules.ParseFromString("http=" + proxy_server.ToURI());
+  // Set |can_use_proxy_on_http_url_redirect_cycles| to false.
+  // This allows proxy delegate to bypass custom proxies if there
+  // is a redirect loop.
+  config->can_use_proxy_on_http_url_redirect_cycles = false;
+  proxy_config_client->OnCustomProxyConfigUpdated(std::move(config));
+  scoped_task_environment_.RunUntilIdle();
+
+  ResourceRequest request;
+  request.url = kUrl1;
+  request.render_frame_id = kRouteId;
+  std::unique_ptr<TestURLLoaderClient> client = FetchRedirectedRequest(
+      kRedirectCycle.size(), request, network_context.get());
+  scoped_task_environment_.RunUntilIdle();
+  std::string response;
+  EXPECT_TRUE(
+      mojo::BlockingCopyToString(client->response_body_release(), &response));
+  EXPECT_EQ("Echo", response);
 }
 
 TEST_F(NetworkContextMockHostTest, CustomProxyHeadersAreMerged) {
@@ -5117,6 +5289,7 @@ TEST_F(NetworkContextMockHostTest, CustomProxyHeadersAreMerged) {
   request.custom_proxy_post_cache_headers.SetHeader("bar",
                                                     "bar_next_key=value4");
   request.url = GetURLWithMockHost(test_server, "/echoheader?foo&bar");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5155,6 +5328,7 @@ TEST_F(NetworkContextMockHostTest, CustomProxyConfigHeadersAddedBeforeCache) {
 
   ResourceRequest request;
   request.url = GetURLWithMockHost(test_server, "/echoheadercache?foo&bar");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5216,6 +5390,7 @@ TEST_F(NetworkContextMockHostTest, CustomProxyRequestHeadersAddedBeforeCache) {
   request.url = GetURLWithMockHost(test_server, "/echoheadercache?foo&bar");
   request.custom_proxy_pre_cache_headers.SetHeader("foo", "foo_value");
   request.custom_proxy_post_cache_headers.SetHeader("bar", "bar_value");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5272,6 +5447,7 @@ TEST_F(NetworkContextMockHostTest,
   request.custom_proxy_post_cache_headers.SetHeader("post_bar", "bad");
   request.url = GetURLWithMockHost(
       test_server, "/echoheader?pre_foo&post_foo&pre_bar&post_bar");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5316,6 +5492,7 @@ TEST_F(NetworkContextMockHostTest,
   request.custom_proxy_post_cache_headers.SetHeader("post_bar", "bad");
   request.url = GetURLWithMockHost(
       test_server, "/echoheader?pre_foo&post_foo&pre_bar&post_bar");
+  request.render_frame_id = kRouteId;
   std::unique_ptr<TestURLLoaderClient> client =
       FetchRequest(request, network_context.get());
   std::string response;
@@ -5364,6 +5541,71 @@ TEST_F(NetworkContextMockHostTest, CustomProxyUsesAlternateProxyList) {
   EXPECT_EQ(response, "Echo");
   EXPECT_EQ(client->response_head().proxy_server,
             ConvertToProxyServer(proxy_test_server));
+}
+
+// Verifies that custom proxy is used only for requests with process id and
+// render frame id.
+TEST_F(NetworkContextMockHostTest,
+       UseCustomProxyForNavigationAndRenderFrameRequest) {
+  net::EmbeddedTestServer test_server;
+  net::test_server::RegisterDefaultHandlers(&test_server);
+  ASSERT_TRUE(test_server.Start());
+
+  net::EmbeddedTestServer proxy_test_server;
+  proxy_test_server.RegisterRequestHandler(
+      base::BindRepeating(&CustomProxyResponse));
+  ASSERT_TRUE(proxy_test_server.Start());
+
+  struct TestCase {
+    int process_id;
+    int render_frame_id;
+    bool expected_custom_proxy_used;
+  };
+  const TestCase test_cases[] = {
+      // When process id and renderer id are invalid, custom proxy is not used.
+      {0, MSG_ROUTING_NONE, false},
+
+      {kProcessId, kRouteId, true},
+      {0, kRouteId, true},
+      {kProcessId, MSG_ROUTING_NONE, true},
+
+      // render_frame_id = MSG_ROUTING_CONTROL provides a temporary way to use
+      // the custom proxy for specific requests.
+      {0, MSG_ROUTING_CONTROL, true},
+  };
+
+  for (const TestCase& test_case : test_cases) {
+    mojom::CustomProxyConfigClientPtr proxy_config_client;
+    mojom::NetworkContextParamsPtr context_params = CreateContextParams();
+    context_params->custom_proxy_config_client_request =
+        mojo::MakeRequest(&proxy_config_client);
+    std::unique_ptr<NetworkContext> network_context =
+        CreateContextWithParams(std::move(context_params));
+    auto config = mojom::CustomProxyConfig::New();
+    net::ProxyServer proxy_server = ConvertToProxyServer(proxy_test_server);
+    config->rules.ParseFromString("http=" + proxy_server.ToURI());
+    // Set |can_use_proxy_on_http_url_redirect_cycles| to false.
+    // This allows proxy delegate to bypass custom proxies if disable cache load
+    // flag is set.
+    config->can_use_proxy_on_http_url_redirect_cycles = false;
+    proxy_config_client->OnCustomProxyConfigUpdated(std::move(config));
+    scoped_task_environment_.RunUntilIdle();
+
+    ResourceRequest request;
+    request.url = GetURLWithMockHost(test_server, "/echo");
+    request.render_frame_id = test_case.render_frame_id;
+    std::unique_ptr<TestURLLoaderClient> client =
+        FetchRequest(request, network_context.get(), test_case.process_id);
+    scoped_task_environment_.RunUntilIdle();
+    std::string response;
+    EXPECT_TRUE(
+        mojo::BlockingCopyToString(client->response_body_release(), &response));
+
+    if (test_case.expected_custom_proxy_used)
+      EXPECT_EQ(kCustomProxyResponse, response);
+    else
+      EXPECT_EQ("Echo", response);
+  }
 }
 
 TEST_F(NetworkContextTest, MaximumCount) {
