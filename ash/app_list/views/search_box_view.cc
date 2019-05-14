@@ -193,7 +193,7 @@ void SearchBoxView::UpdateSearchBoxBorder() {
 void SearchBoxView::OnPaintBackground(gfx::Canvas* canvas) {
   // Paints the focus ring if the search box is focused.
   if (search_box()->HasFocus() && !is_search_box_active() &&
-      !is_tablet_mode()) {
+      view_delegate_->KeyboardTraversalEngaged()) {
     gfx::Rect bounds = GetContentsBounds();
     bounds.Inset(-kSearchBoxFocusRingPadding, -kSearchBoxFocusRingPadding);
     cc::PaintFlags flags;
@@ -254,6 +254,13 @@ void SearchBoxView::RecordSearchBoxActivationHistogram(
   }
 
   UMA_HISTOGRAM_ENUMERATION("Apps.AppListSearchBoxActivated", activation_type);
+  if (is_tablet_mode()) {
+    UMA_HISTOGRAM_ENUMERATION("Apps.AppListSearchBoxActivated.TabletMode",
+                              activation_type);
+  } else {
+    UMA_HISTOGRAM_ENUMERATION("Apps.AppListSearchBoxActivated.ClamshellMode",
+                              activation_type);
+  }
 }
 
 void SearchBoxView::OnKeyEvent(ui::KeyEvent* event) {

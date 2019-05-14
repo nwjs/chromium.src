@@ -56,7 +56,7 @@ class OneGoogleBarLoaderImpl : public OneGoogleBarLoader {
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   GoogleURLTracker* google_url_tracker_;
   const std::string application_locale_;
-  const bool account_consistency_mirror_required_;
+  //const bool account_consistency_mirror_required_;
 
   std::vector<OneGoogleCallback> callbacks_;
   std::unique_ptr<AuthenticatedURLLoader> pending_request_;

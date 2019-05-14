@@ -194,11 +194,11 @@ class CONTENT_EXPORT RenderViewImpl : public blink::WebViewClient,
   // A popup widget opened by this view needs to be shown.
   void ShowCreatedPopupWidget(RenderWidget* popup_widget,
                               blink::WebNavigationPolicy policy,
-                              const gfx::Rect& initial_rect);
+                              const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
   // A RenderWidgetFullscreen widget opened by this view needs to be shown.
   void ShowCreatedFullscreenWidget(RenderWidget* fullscreen_widget,
                                    blink::WebNavigationPolicy policy,
-                                   const gfx::Rect& initial_rect);
+                                   const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
 
   // Returns the length of the session history of this RenderView. Note that
   // this only coincides with the actual length of the session history if this

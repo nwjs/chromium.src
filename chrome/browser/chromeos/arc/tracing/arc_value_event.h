@@ -20,6 +20,10 @@ struct ArcValueEvent {
     kSwapRead,
     kSwapWrite,
     kSwapWait,
+    kGemObjects,
+    kGemSize,
+    kGpuFreq,
+    kCpuTemp,
   };
 
   ArcValueEvent(int64_t timestamp, Type type, int value);
@@ -34,6 +38,10 @@ struct ArcValueEvent {
    * kSwapRead - number of sectors.
    * kSwapWrite - number of sectors.
    * kSwapWait - milliseconds.
+   * kGemObjects - number of objects
+   * kGemSize - kb
+   * kGpuFreq - mhz
+   * kCpuTemp - celsius * 1000
    */
   int value;
 };

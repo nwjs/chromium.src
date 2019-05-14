@@ -270,6 +270,30 @@ void Controller::SelectChip(std::vector<Chip>* chips, int chip_index) {
   std::move(callback).Run();
 }
 
+void Controller::SetResizeViewport(bool resize_viewport) {
+  if (resize_viewport == resize_viewport_)
+    return;
+
+  resize_viewport_ = resize_viewport;
+  GetUiController()->OnResizeViewportChanged(resize_viewport);
+}
+
+void Controller::SetPeekMode(ConfigureBottomSheetProto::PeekMode peek_mode) {
+  if (peek_mode == peek_mode_)
+    return;
+
+  peek_mode_ = peek_mode;
+  GetUiController()->OnPeekModeChanged(peek_mode);
+}
+
+bool Controller::GetResizeViewport() {
+  return resize_viewport_;
+}
+
+ConfigureBottomSheetProto::PeekMode Controller::GetPeekMode() {
+  return peek_mode_;
+}
+
 void Controller::ReportNavigationStateChanged() {
   // Listeners are called in the same order they were added.
   for (auto* listener : listeners_) {
@@ -791,7 +815,8 @@ void Controller::OnRunnableScriptsChanged(
   // Update the set of scripts in the UI.
   auto chips = std::make_unique<std::vector<Chip>>();
   for (const auto& script : runnable_scripts) {
-    if (!script.autostart && !script.name.empty()) {
+    if (!script.autostart &&
+        (!script.name.empty() || script.chip_icon != ChipIcon::NO_ICON)) {
       chips->emplace_back();
       chips->back().text = script.name;
       chips->back().type = script.chip_type;

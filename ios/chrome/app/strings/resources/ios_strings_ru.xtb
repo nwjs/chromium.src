@@ -78,7 +78,7 @@
 <translation id="2068952045031577364">За прошлую неделю</translation>
 <translation id="2074131957428911366">Вы всегда можете выбрать, что синхронизировать, в <ph name="BEGIN_LINK" />настройках<ph name="END_LINK" />.</translation>
 <translation id="2079545284768500474">Отмена</translation>
-<translation id="209018056901015185">Полная версия</translation>
+<translation id="209018056901015185">Версия для ПК</translation>
 <translation id="2096012225669085171">Синхронизация и персонализация данных на всех устройствах.</translation>
 <translation id="2103075008456228677">Открыть history.google.com</translation>
 <translation id="2116625576999540962">Перемещено закладок: <ph name="NUMBER_OF_SELECTED_BOOKMARKS" /></translation>
@@ -98,6 +98,7 @@
 <translation id="2320166752086256636">Скрыть клавиатуру</translation>
 <translation id="2339560363438331454">Синхронизация сервисов Google</translation>
 <translation id="2351097562818989364">Настройки перевода сброшены</translation>
+<translation id="2359043044084662842">Перевести</translation>
 <translation id="2359808026110333948">Продолжить</translation>
 <translation id="2360196772093551345">Мобильная версия</translation>
 <translation id="2381405137052800939">Основные</translation>
@@ -127,6 +128,7 @@
 <translation id="2800683595868705743">Закрыть переключатель вкладок</translation>
 <translation id="2830972654601096923">Управление адресами</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
+<translation id="2840687315230832938">Синхронизация не настроена</translation>
 <translation id="2843803966603263712">Сбросить настройки перевода</translation>
 <translation id="2858204748079866344">Чтобы обеспечить конфиденциальность ваших данных, мы просим вас ввести пароль вручную.</translation>
 <translation id="285960592395650245">Повторить скачивание</translation>
@@ -291,6 +293,7 @@
 <translation id="5659593005791499971">Электронная почта</translation>
 <translation id="5669528293118408608">www</translation>
 <translation id="567881659373499783">Версия <ph name="PRODUCT_VERSION" /></translation>
+<translation id="5711039611392265845">Остальные настройки конфиденциальности, безопасности и сбора данных вы можете найти в разделе <ph name="BEGIN_LINK" />Синхронизация сервисов Google<ph name="END_LINK" />.</translation>
 <translation id="5728700505257787410">Не удалось войти в аккаунт.</translation>
 <translation id="5737974891429562743">Данные для входа в аккаунт устарели. Чтобы начать синхронизацию, обновите их.</translation>
 <translation id="5738887413654608789">Вы сможете узнавать о сайтах, связанных с объектами вокруг вас.</translation>
@@ -377,12 +380,11 @@
 <translation id="6797885426782475225">Голосовой поиск</translation>
 <translation id="6807889908376551050">Показать все…</translation>
 <translation id="681368974849482173">Сохранено</translation>
-<translation id="6851516051005285358">Полная версия</translation>
+<translation id="6851516051005285358">Версия для ПК</translation>
 <translation id="6896758677409633944">Копировать</translation>
 <translation id="6903907808598579934">Включить</translation>
 <translation id="6914583639806229067">Поиск по скопированному изображению</translation>
 <translation id="6914783257214138813">Ваши пароли будут видны всем, у кого есть доступ к файлу экспорта.</translation>
-<translation id="692898627499215142">Первоначальная настройка синхронизации не завершена. Чтобы начать синхронизацию, включите эту функцию в настройках.</translation>
 <translation id="6944369514868857500">Сменить аккаунт</translation>
 <translation id="6945221475159498467">Выбрать</translation>
 <translation id="6973630695168034713">Папки</translation>
@@ -410,6 +412,7 @@
 <translation id="7280856130494094142">Чтобы включить синхронизацию, введите кодовую фразу</translation>
 <translation id="7285236536143823449">ОК</translation>
 <translation id="7291368939935408496">Подготовка паролей…</translation>
+<translation id="7293171162284876153">Чтобы начать синхронизацию, нажмите "Синхронизировать данные Chrome".</translation>
 <translation id="7336264872878993241">Скачивается: <ph name="PERCENT" />%</translation>
 <translation id="7346909386216857016">ОК</translation>
 <translation id="7348502496356775519">Закладка</translation>
@@ -478,7 +481,7 @@
 <translation id="850600235656508448">Открыть в режиме инкогнито</translation>
 <translation id="8517375800490286174">Лицензии открытого ПО</translation>
 <translation id="8524799873541103884"><ph name="INCOGNITO" />, вкладки между <ph name="FIRST_VISIBLE_TAB" /> и <ph name="LAST_VISIBLE_TAB" />, всего <ph name="NUMBER_OF_OPEN_TABS" /></translation>
-<translation id="8529767659511976195">Новое</translation>
+<translation id="8529767659511976195">Новинка</translation>
 <translation id="8532105204136943229">Год</translation>
 <translation id="8534481786647257214">Опубликовано в Google+.</translation>
 <translation id="8548878600947630424">Найти на странице…</translation>

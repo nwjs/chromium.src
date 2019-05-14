@@ -1393,6 +1393,9 @@ const FeatureEntry kFeatureEntries[] = {
     {"enable-request-tablet-site", flag_descriptions::kRequestTabletSiteName,
      flag_descriptions::kRequestTabletSiteDescription, kOsCrOS,
      SINGLE_VALUE_TYPE(chromeos::switches::kEnableRequestTabletSite)},
+    {"force-use-chrome-camera", flag_descriptions::kForceUseChromeCameraName,
+     flag_descriptions::kForceUseChromeCameraDescription, kOsCrOS,
+     SINGLE_VALUE_TYPE(chromeos::switches::kForceUseChromeCamera)},
 #endif  // OS_CHROMEOS
     {"debug-packed-apps", flag_descriptions::kDebugPackedAppName,
      flag_descriptions::kDebugPackedAppDescription, kOsDesktop,
@@ -3978,6 +3981,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kSendTabToSelfBroadcastName,
      flag_descriptions::kSendTabToSelfBroadcastDescription, kOsAll,
      FEATURE_VALUE_TYPE(send_tab_to_self::kSendTabToSelfBroadcast)},
+
+    {"allow-popups-during-page-unload",
+     flag_descriptions::kAllowPopupsDuringPageUnloadName,
+     flag_descriptions::kAllowPopupsDuringPageUnloadDescription, kOsAll,
+     SINGLE_VALUE_TYPE(switches::kAllowPopupsDuringPageUnload)},
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

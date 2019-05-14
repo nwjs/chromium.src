@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -184,7 +185,7 @@ void ScrollingCoordinator::UpdateAfterPaint(LocalFrameView* frame_view) {
 
     SetShouldHandleScrollGestureOnMainThreadRegion(
         main_thread_scrolling_region,
-        frame_view->LayoutViewport()->LayerForScrolling());
+        frame_view->GetScrollableArea()->LayerForScrolling());
 
     // Fixed regions will be stored on the visual viewport's scroll layer. This
     // is because a region for an area that's fixed to the layout viewport
@@ -214,6 +215,8 @@ void ScrollingCoordinator::UpdateAfterPaint(LocalFrameView* frame_view) {
       // TODO(pdr): This also takes over scroll animations if main thread
       // reasons are present. This needs to be implemented for
       // BlinkGenPropertyTrees.
+      // TODO(bokan): Does this work for scrollers other than FrameViews? If
+      // not, this will need to account for root scrollers.
       SetShouldUpdateScrollLayerPositionOnMainThread(
           frame, frame_view->GetMainThreadScrollingReasons());
 
@@ -716,6 +719,11 @@ void ScrollingCoordinator::SetShouldUpdateScrollLayerPositionOnMainThread(
   GraphicsLayer* visual_viewport_layer = visual_viewport.ScrollLayer();
   cc::Layer* visual_viewport_scroll_layer =
       GraphicsLayerToCcLayer(visual_viewport_layer);
+  // TODO(bokan): It would probably make more sense to use the root scroller's
+  // layer here, but this code is only ever executed in !BGPT mode. With BGPT
+  // the MainThreadScrollingReasons are already stored on individual
+  // ScrollNodes. The CompositorAnimation hand-off should probably be
+  // generalized to work on non-FrameView scrollers though.
   ScrollableArea* scrollable_area = frame->View()->LayoutViewport();
   GraphicsLayer* layer = scrollable_area->LayerForScrolling();
   if (cc::Layer* scroll_layer = GraphicsLayerToCcLayer(layer)) {
@@ -815,10 +823,23 @@ bool ScrollingCoordinator::CoordinatesScrollingForFrameView(
 
 namespace {
 
-bool ScrollsWithFrame(const LocalFrame& frame, LayoutObject* object) {
+bool ScrollsWithRootFrame(LayoutObject* object) {
   DCHECK(object);
-  DCHECK(object->EnclosingLayer());
+  DCHECK(object->GetFrame());
 
+  const LocalFrame& frame = *object->GetFrame();
+
+  // If we're in an iframe document, we need to determine if the containing
+  // <iframe> element scrolls with the root frame.
+  if (&frame != &frame.LocalFrameRoot()) {
+    DCHECK(frame.GetDocument());
+    DCHECK(frame.GetDocument()->LocalOwner());
+    DCHECK(frame.GetDocument()->LocalOwner()->GetLayoutObject());
+    return ScrollsWithRootFrame(
+        frame.GetDocument()->LocalOwner()->GetLayoutObject());
+  }
+
+  DCHECK(object->EnclosingLayer());
   if (object->EnclosingLayer()->AncestorScrollingLayer() ==
       frame.ContentLayoutObject()->Layer())
     return true;
@@ -847,6 +868,8 @@ void ScrollingCoordinator::ComputeShouldHandleScrollGestureOnMainThreadRegion(
     return;
   }
 
+  LocalFrameView* local_root_view = frame->LocalFrameRoot().View();
+
   if (const LocalFrameView::ScrollableAreaSet* scrollable_areas =
           frame_view->ScrollableAreas()) {
     for (const ScrollableArea* scrollable_area : *scrollable_areas) {
@@ -854,12 +877,12 @@ void ScrollingCoordinator::ComputeShouldHandleScrollGestureOnMainThreadRegion(
       if (scrollable_area->UsesCompositedScrolling())
         continue;
 
-      Region* region = ScrollsWithFrame(*frame, scrollable_area->GetLayoutBox())
-                           ? scrolling_region
-                           : fixed_region;
-
-      IntRect box = scrollable_area->ScrollableAreaBoundingBox();
-      region->Unite(box);
+      if (ScrollsWithRootFrame(scrollable_area->GetLayoutBox())) {
+        scrolling_region->Unite(scrollable_area->ScrollableAreaBoundingBox());
+      } else {
+        fixed_region->Unite(local_root_view->DocumentToFrame(
+            scrollable_area->ScrollableAreaBoundingBox()));
+      }
     }
   }
 
@@ -873,20 +896,22 @@ void ScrollingCoordinator::ComputeShouldHandleScrollGestureOnMainThreadRegion(
       PaintLayerScrollableArea* scrollable_area =
           box->Layer()->GetScrollableArea();
 
-      Region* region = ScrollsWithFrame(*frame, scrollable_area->GetLayoutBox())
-                           ? scrolling_region
-                           : fixed_region;
+      IntRect bounds_in_frame = box->AbsoluteBoundingBoxRect();
+      IntRect corner_in_frame =
+          scrollable_area->ResizerCornerRect(bounds_in_frame, kResizerForTouch);
 
-      IntRect bounds = box->AbsoluteBoundingBoxRect();
-      // Get the corner in local coords.
-      IntRect corner =
-          scrollable_area->ResizerCornerRect(bounds, kResizerForTouch);
-      // Map corner to top-frame coords.
-      corner = scrollable_area->GetLayoutBox()
-                   ->LocalToAbsoluteQuad(FloatRect(corner),
-                                         kTraverseDocumentBoundaries)
-                   .EnclosingBoundingBox();
-      region->Unite(corner);
+      IntRect corner_in_root_frame =
+          scrollable_area->GetLayoutBox()
+              ->LocalToAbsoluteQuad(FloatRect(corner_in_frame),
+                                    kTraverseDocumentBoundaries)
+              .EnclosingBoundingBox();
+
+      if (ScrollsWithRootFrame(scrollable_area->GetLayoutBox())) {
+        scrolling_region->Unite(
+            local_root_view->FrameToDocument(corner_in_root_frame));
+      } else {
+        fixed_region->Unite(corner_in_root_frame);
+      }
     }
   }
 
@@ -897,13 +922,13 @@ void ScrollingCoordinator::ComputeShouldHandleScrollGestureOnMainThreadRegion(
     if (!element->GetLayoutObject())
       continue;
 
-    Region* region = ScrollsWithFrame(*frame, element->GetLayoutObject())
-                         ? scrolling_region
-                         : fixed_region;
-
     if (plugin->WantsWheelEvents()) {
       IntRect box = frame_view->ConvertToRootFrame(plugin->FrameRect());
-      region->Unite(box);
+      if (ScrollsWithRootFrame(element->GetLayoutObject())) {
+        scrolling_region->Unite(local_root_view->FrameToDocument(box));
+      } else {
+        fixed_region->Unite(box);
+      }
     }
   }
 
@@ -911,13 +936,8 @@ void ScrollingCoordinator::ComputeShouldHandleScrollGestureOnMainThreadRegion(
   for (Frame* sub_frame = tree.FirstChild(); sub_frame;
        sub_frame = sub_frame->Tree().NextSibling()) {
     if (auto* sub_local_frame = DynamicTo<LocalFrame>(sub_frame)) {
-      // We always use the scrolling_region in subframes because the returned
-      // regions will be relative to the local root frame. Inside an iframe,
-      // there's no way to fix an element to an ancestor frame. i.e. A fixed
-      // region inside the iframe will still translate when the root frame
-      // scrolls; it's only fixed with repsect to its own frame.
       ComputeShouldHandleScrollGestureOnMainThreadRegion(
-          sub_local_frame, scrolling_region, scrolling_region);
+          sub_local_frame, scrolling_region, fixed_region);
     }
   }
 }
@@ -981,6 +1001,8 @@ void ScrollingCoordinator::FrameViewRootLayerDidChange(
 bool ScrollingCoordinator::FrameScrollerIsDirty(
     LocalFrameView* frame_view) const {
   DCHECK(frame_view);
+  // TODO(bokan): This should probably be checking the root scroller in the
+  // FrameView, rather than the frame_view.
   if (frame_view->FrameIsScrollableDidChange())
     return true;
 

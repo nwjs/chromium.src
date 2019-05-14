@@ -10,6 +10,7 @@
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/node.h"
+#include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/events/web_input_event_conversion.h"
@@ -81,8 +82,8 @@ static void ConsiderForBestCandidate(SpatialNavigationDirection direction,
        candidate.rect_in_root_frame.IsEmpty()))
     return;
 
-  // Ignore off-screen focusables that are not exposed after one "scroll step"
-  // in the direction.
+  // Ignore off-screen focusables, if there's nothing in the direction we'll
+  // scroll until they come on-screen.
   if (candidate.is_offscreen)
     return;
 
@@ -117,12 +118,14 @@ static void ConsiderForBestCandidate(SpatialNavigationDirection direction,
             .HitTestResultAtLocation(
                 location, HitTestRequest::kReadOnly | HitTestRequest::kActive |
                               HitTestRequest::kIgnoreClipping);
-    if (candidate.visible_node->contains(result.InnerNode())) {
+    if (candidate.visible_node->ContainsIncludingHostElements(
+            *result.InnerNode())) {
       *best_candidate = candidate;
       *best_distance = distance;
       return;
     }
-    if (best_candidate->visible_node->contains(result.InnerNode()))
+    if (best_candidate->visible_node->ContainsIncludingHostElements(
+            *result.InnerNode()))
       return;
   }
 
@@ -155,10 +158,10 @@ bool SpatialNavigationController::HandleArrowKeyboardEvent(
   // event. This prevents double-handling actions for things like search box
   // suggestions.
   if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
-    LocalFrame* frame =
-        DynamicTo<LocalFrame>(page_->GetFocusController().FocusedOrMainFrame());
-    if (frame->Selection().SelectionHasFocus())
-      return true;
+    if (Element* focused = GetFocusedElement()) {
+      if (HasEditableStyle(*focused) || focused->IsTextControl())
+        return true;
+    }
   }
 
   return Advance(direction);
@@ -174,14 +177,17 @@ bool SpatialNavigationController::HandleEnterKeyboardEvent(
     return false;
 
   if (event->type() == event_type_names::kKeydown) {
+    interest_element->SetActive(true);
+  } else if (event->type() == event_type_names::kKeyup) {
+    interest_element->SetActive(false);
     if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
       interest_element->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
                                           kWebFocusTypeSpatialNavigation,
                                           nullptr));
+      // We need enter to activate links, etc. The click should be after the
+      // focus in case the site transfers focus upon clicking.
+      interest_element->DispatchSimulatedClick(event);
     }
-    interest_element->SetActive(true);
-  } else if (event->type() == event_type_names::kKeyup) {
-    interest_element->SetActive(false);
   }
 
   return true;
@@ -344,8 +350,7 @@ bool SpatialNavigationController::AdvanceWithinContainer(
 
 Node* SpatialNavigationController::StartingNode() {
   if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
-    if (interest_element_ && interest_element_->isConnected() &&
-        interest_element_->GetDocument().GetFrame()) {
+    if (interest_element_ && IsValidCandidate(interest_element_)) {
       // If an iframe is interested, start the search from its document node.
       // This matches the behavior in the focus case below where focusing a
       // frame means the focused document doesn't have a focused element and so
@@ -452,7 +457,23 @@ void SpatialNavigationController::DispatchMouseMoveAt(Element* element) {
 
 bool SpatialNavigationController::IsValidCandidate(
     const Element* element) const {
-  return element && element->IsKeyboardFocusable();
+  if (!element || !element->isConnected() || !element->GetLayoutObject())
+    return false;
+
+  LocalFrame* frame = element->GetDocument().GetFrame();
+  if (!frame)
+    return false;
+
+  // If the author installed a click handler on the main document or body, we
+  // almost certainly don't want to actually interest it. Doing so leads to
+  // issues since the document/body will likely contain most of the other
+  // content on the page.
+  if (frame->IsMainFrame()) {
+    if (IsHTMLHtmlElement(element) || IsHTMLBodyElement(element))
+      return false;
+  }
+
+  return element->IsKeyboardFocusable();
 }
 
 Element* SpatialNavigationController::GetFocusedElement() const {

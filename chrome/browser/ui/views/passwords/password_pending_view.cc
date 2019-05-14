@@ -176,7 +176,7 @@ std::unique_ptr<views::ToggleImageButton> CreatePasswordViewButton(
 std::unique_ptr<views::EditableCombobox> CreatePasswordEditableCombobox(
     const autofill::PasswordForm& form,
     bool are_passwords_revealed) {
-  DCHECK(form.federation_origin.opaque());
+  DCHECK(!form.IsFederatedCredential());
   const std::vector<base::string16> passwords =
       form.all_possible_passwords.empty()
           ? std::vector<base::string16>(/*n=*/1, form.password_value)
@@ -212,7 +212,7 @@ PasswordPendingView::PasswordPendingView(content::WebContents* web_contents,
          model()->state() ==
              password_manager::ui::PENDING_PASSWORD_UPDATE_STATE);
   const autofill::PasswordForm& password_form = model()->pending_password();
-  if (!password_form.federation_origin.opaque()) {
+  if (password_form.IsFederatedCredential()) {
     // The credential to be saved doesn't contain password but just the identity
     // provider (e.g. "Sign in with Google"). Thus, the layout is different.
     SetLayoutManager(std::make_unique<views::FillLayout>());
@@ -357,6 +357,7 @@ base::string16 PasswordPendingView::GetDialogButtonLabel(
 
 bool PasswordPendingView::IsDialogButtonEnabled(ui::DialogButton button) const {
   return button != ui::DIALOG_BUTTON_OK ||
+         model()->pending_password().IsFederatedCredential() ||
          !model()->pending_password().password_value.empty();
 }
 
@@ -388,12 +389,16 @@ void PasswordPendingView::TogglePasswordVisibility() {
 }
 
 void PasswordPendingView::UpdateUsernameAndPasswordInModel() {
-  DCHECK(username_dropdown_ && password_dropdown_);
+  if (!username_dropdown_ && !password_dropdown_)
+    return;
   base::string16 new_username = model()->pending_password().username_value;
   base::string16 new_password = model()->pending_password().password_value;
-  new_username = username_dropdown_->GetText();
-  base::TrimString(new_username, base::ASCIIToUTF16(" "), &new_username);
-  new_password = password_dropdown_->GetText();
+  if (username_dropdown_) {
+    new_username = username_dropdown_->GetText();
+    base::TrimString(new_username, base::ASCIIToUTF16(" "), &new_username);
+  }
+  if (password_dropdown_)
+    new_password = password_dropdown_->GetText();
   model()->OnCredentialEdited(std::move(new_username), std::move(new_password));
 }
 

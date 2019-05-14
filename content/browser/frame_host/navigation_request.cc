@@ -1793,6 +1793,8 @@ void NavigationRequest::OnWillProcessResponseChecksComplete(
       resource_request->request_initiator = common_params_.initiator_origin;
       resource_request->referrer = common_params_.referrer.url;
       resource_request->has_user_gesture = common_params_.has_user_gesture;
+      resource_request->fetch_request_mode =
+          network::mojom::FetchRequestMode::kNavigate;
 
       BrowserContext* browser_context =
           frame_tree_node_->navigator()->GetController()->GetBrowserContext();

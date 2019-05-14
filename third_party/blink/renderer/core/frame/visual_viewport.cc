@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/scroll/scrollbar_theme_overlay.h"
 #include "third_party/blink/renderer/platform/geometry/double_rect.h"
 #include "third_party/blink/renderer/platform/geometry/float_size.h"
+#include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_layer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/clip_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
@@ -106,13 +107,13 @@ ScrollPaintPropertyNode* VisualViewport::GetScrollNode() const {
   return scroll_node_.get();
 }
 
-void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
+PaintPropertyChangeType VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     PaintPropertyTreeBuilderFragmentContext& context) {
+  PaintPropertyChangeType change = PaintPropertyChangeType::kUnchanged;
   if (!needs_paint_property_update_)
-    return;
+    return change;
 
   needs_paint_property_update_ = false;
-  SetPaintArtifactCompositorNeedsUpdate();
 
   auto* transform_parent = context.current.transform;
   auto* scroll_parent = context.current.scroll;
@@ -129,16 +130,19 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
         GetChromeClient()->GetDeviceEmulationTransform();
     if (!device_emulation_transform.IsIdentity()) {
       TransformPaintPropertyNode::State state{device_emulation_transform};
+      state.in_subtree_of_page_scale = false;
       if (!device_emulation_transform_node_) {
         device_emulation_transform_node_ = TransformPaintPropertyNode::Create(
             *transform_parent, std::move(state));
+        change = PaintPropertyChangeType::kNodeAddedOrRemoved;
       } else {
-        device_emulation_transform_node_->Update(*transform_parent,
-                                                 std::move(state));
+        change = std::max(change, device_emulation_transform_node_->Update(
+                                      *transform_parent, std::move(state)));
       }
       transform_parent = device_emulation_transform_node_.get();
-    } else {
+    } else if (device_emulation_transform_node_) {
       device_emulation_transform_node_ = nullptr;
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     }
   }
 
@@ -149,7 +153,10 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
   }
 
   {
+    DCHECK(!transform_parent->IsInSubtreeOfPageScale());
+
     TransformPaintPropertyNode::State state;
+    state.in_subtree_of_page_scale = false;
     state.compositor_element_id = GetCompositorOverscrollElasticityElementId();
     // TODO(crbug.com/877794) Should create overscroll elasticity transform node
     // based on settings.
@@ -157,23 +164,46 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
       overscroll_elasticity_transform_node_ =
           TransformPaintPropertyNode::Create(*transform_parent,
                                              std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      overscroll_elasticity_transform_node_->Update(*transform_parent,
-                                                    std::move(state));
+      change = std::max(change, overscroll_elasticity_transform_node_->Update(
+                                    *transform_parent, std::move(state)));
     }
   }
 
   {
     TransformPaintPropertyNode::State state{
         TransformationMatrix().Scale(Scale())};
+    state.in_subtree_of_page_scale = false;
     state.compositor_element_id = GetCompositorElementId();
 
     if (!scale_transform_node_) {
       scale_transform_node_ = TransformPaintPropertyNode::Create(
           *overscroll_elasticity_transform_node_.get(), std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      scale_transform_node_->Update(
+      auto effective_change_type = scale_transform_node_->Update(
           *overscroll_elasticity_transform_node_.get(), std::move(state));
+      // As an optimization, attempt to directly update the compositor
+      // scale translation node and return kChangedOnlyCompositedValues which
+      // avoids an expensive PaintArtifactCompositor update.
+      // TODO(crbug.com/953322): We need to implement this optimization for
+      // CompositeAfterPaint as well.
+      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
+          effective_change_type ==
+              PaintPropertyChangeType::kChangedOnlySimpleValues) {
+        if (auto* paint_artifact_compositor = GetPaintArtifactCompositor()) {
+          bool updated =
+              paint_artifact_compositor->DirectlyUpdatePageScaleTransform(
+                  *scale_transform_node_);
+          if (updated) {
+            effective_change_type =
+                PaintPropertyChangeType::kChangedOnlyCompositedValues;
+            scale_transform_node_->CompositorSimpleValuesUpdated();
+          }
+        }
+      }
+      change = std::max(change, effective_change_type);
     }
   }
 
@@ -204,8 +234,10 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     if (!scroll_node_) {
       scroll_node_ =
           ScrollPaintPropertyNode::Create(*scroll_parent, std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      scroll_node_->Update(*scroll_parent, std::move(state));
+      change = std::max(change,
+                        scroll_node_->Update(*scroll_parent, std::move(state)));
     }
   }
 
@@ -217,9 +249,29 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     if (!translation_transform_node_) {
       translation_transform_node_ = TransformPaintPropertyNode::Create(
           *scale_transform_node_, std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      translation_transform_node_->Update(*scale_transform_node_,
-                                          std::move(state));
+      auto effective_change_type = translation_transform_node_->Update(
+          *scale_transform_node_, std::move(state));
+      // As an optimization, attempt to directly update the compositor
+      // translation node and return kChangedOnlyCompositedValues which avoids
+      // an expensive PaintArtifactCompositor update.
+      // TODO(crbug.com/953322): We need to implement this optimization for
+      // CompositeAfterPaint as well.
+      if (!RuntimeEnabledFeatures::CompositeAfterPaintEnabled() &&
+          effective_change_type ==
+              PaintPropertyChangeType::kChangedOnlySimpleValues) {
+        if (auto* paint_artifact_compositor = GetPaintArtifactCompositor()) {
+          bool updated =
+              paint_artifact_compositor->DirectlyUpdateScrollOffsetTransform(
+                  *translation_transform_node_);
+          if (updated) {
+            effective_change_type =
+                PaintPropertyChangeType::kChangedOnlyCompositedValues;
+            translation_transform_node_->CompositorSimpleValuesUpdated();
+          }
+        }
+      }
     }
   }
 
@@ -241,9 +293,10 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     if (!horizontal_scrollbar_effect_node_) {
       horizontal_scrollbar_effect_node_ =
           EffectPaintPropertyNode::Create(*effect_parent, std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      horizontal_scrollbar_effect_node_->Update(*effect_parent,
-                                                std::move(state));
+      change = std::max(change, horizontal_scrollbar_effect_node_->Update(
+                                    *effect_parent, std::move(state)));
     }
 
     overlay_scrollbar_horizontal_->SetLayerState(
@@ -263,8 +316,10 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
     if (!vertical_scrollbar_effect_node_) {
       vertical_scrollbar_effect_node_ =
           EffectPaintPropertyNode::Create(*effect_parent, std::move(state));
+      change = PaintPropertyChangeType::kNodeAddedOrRemoved;
     } else {
-      vertical_scrollbar_effect_node_->Update(*effect_parent, std::move(state));
+      change = std::max(change, vertical_scrollbar_effect_node_->Update(
+                                    *effect_parent, std::move(state)));
     }
 
     overlay_scrollbar_vertical_->SetLayerState(
@@ -272,6 +327,8 @@ void VisualViewport::UpdatePaintPropertyNodesIfNeeded(
                           *vertical_scrollbar_effect_node_),
         ScrollbarOffset(ScrollbarOrientation::kVerticalScrollbar));
   }
+
+  return change;
 }
 
 VisualViewport::~VisualViewport() {
@@ -1102,6 +1159,12 @@ void VisualViewport::SetOverlayScrollbarsHidden(bool hidden) {
 void VisualViewport::SetPaintArtifactCompositorNeedsUpdate() const {
   if (MainFrame() && MainFrame()->View())
     MainFrame()->View()->SetPaintArtifactCompositorNeedsUpdate();
+}
+
+PaintArtifactCompositor* VisualViewport::GetPaintArtifactCompositor() const {
+  if (MainFrame() && MainFrame()->View())
+    return MainFrame()->View()->GetPaintArtifactCompositor();
+  return nullptr;
 }
 
 String VisualViewport::DebugName(const GraphicsLayer* graphics_layer) const {

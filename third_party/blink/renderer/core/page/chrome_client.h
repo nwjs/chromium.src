@@ -163,7 +163,7 @@ class CORE_EXPORT ChromeClient
                      WebSandboxFlags,
                      const FeaturePolicy::FeatureState&,
                      const SessionStorageNamespaceId&, WebString* manifest = nullptr);
-  virtual void Show(NavigationPolicy) = 0;
+  virtual void Show(NavigationPolicy, WebString* manifest = nullptr) = 0;
 
   // All the parameters should be in viewport space. That is, if an event
   // scrolls by 10 px, but due to a 2X page scale we apply a 5px scroll to the

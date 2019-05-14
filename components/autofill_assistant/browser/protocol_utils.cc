@@ -10,6 +10,7 @@
 #include "base/logging.h"
 #include "components/autofill_assistant/browser/actions/autofill_action.h"
 #include "components/autofill_assistant/browser/actions/click_action.h"
+#include "components/autofill_assistant/browser/actions/configure_bottom_sheet_action.h"
 #include "components/autofill_assistant/browser/actions/expect_navigation_action.h"
 #include "components/autofill_assistant/browser/actions/focus_element_action.h"
 #include "components/autofill_assistant/browser/actions/get_payment_information_action.h"
@@ -96,9 +97,9 @@ void ProtocolUtils::AddScript(const SupportedScriptProto& script_proto,
   script->priority = presentation.priority();
 
   if (script->handle.path.empty() || !script->precondition ||
-      (script->handle.name.empty() && !script->handle.interrupt)) {
-    LOG(ERROR) << "Ignored invalid or incomplete script '"
-               << script->handle.path << "'";
+      (script->handle.name.empty() &&
+       script->handle.chip_icon == ChipIcon::NO_ICON &&
+       !script->handle.interrupt)) {
     return;
   }
   scripts->emplace_back(std::move(script));
@@ -268,6 +269,10 @@ bool ProtocolUtils::ParseActions(const std::string& response,
       }
       case ActionProto::ActionInfoCase::kWaitForNavigation: {
         client_action = std::make_unique<WaitForNavigationAction>(action);
+        break;
+      }
+      case ActionProto::ActionInfoCase::kConfigureBottomSheet: {
+        client_action = std::make_unique<ConfigureBottomSheetAction>(action);
         break;
       }
       case ActionProto::ActionInfoCase::ACTION_INFO_NOT_SET: {

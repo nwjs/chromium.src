@@ -154,7 +154,7 @@ class CONTENT_EXPORT RenderWidget
   using ShowCallback =
       base::OnceCallback<void(RenderWidget* widget_to_show,
                               blink::WebNavigationPolicy policy,
-                              const gfx::Rect& initial_rect)>;
+                              const gfx::Rect& initial_rect, blink::WebString* manifest)>;
 
   // Time-To-First-Active-Paint(TTFAP) type
   enum {
@@ -397,7 +397,7 @@ class CONTENT_EXPORT RenderWidget
   void AutoscrollFling(const blink::WebFloatSize& velocity) override;
   void AutoscrollEnd() override;
   void ClosePopupWidgetSoon() override;
-  void Show(blink::WebNavigationPolicy) override;
+  void Show(blink::WebNavigationPolicy, blink::WebString* manifest = nullptr) override;
   blink::WebRect WindowRect() override;
   blink::WebRect ViewRect() override;
   void SetToolTipText(const blink::WebString& text,

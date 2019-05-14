@@ -299,10 +299,10 @@ void ChromeClientImpl::SetOverscrollBehavior(
   client->SetOverscrollBehavior(overscroll_behavior);
 }
 
-void ChromeClientImpl::Show(NavigationPolicy navigation_policy) {
+void ChromeClientImpl::Show(NavigationPolicy navigation_policy, WebString* manifest) {
   if (web_view_->WidgetClient()) {
     web_view_->WidgetClient()->Show(
-        static_cast<WebNavigationPolicy>(navigation_policy));
+        static_cast<WebNavigationPolicy>(navigation_policy), manifest);
   }
 }
 

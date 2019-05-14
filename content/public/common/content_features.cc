@@ -479,6 +479,11 @@ const base::Feature kSignedHTTPExchangePingValidity{
 const base::Feature kSpareRendererForSitePerProcess{
     "SpareRendererForSitePerProcess", base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Enables StaleWhileRevalidate support.
+// https://www.chromestatus.com/features/5050913014153216
+const base::Feature kStaleWhileRevalidate{"StaleWhileRevalidate",
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Dispatch touch events to "SyntheticGestureController" for events from
 // Devtool Protocol Input.dispatchTouchEvent to simulate touch events close to
 // real OS events.
@@ -495,18 +500,6 @@ const base::Feature kTimerThrottlingForHiddenFrames{
 // event’s ACK is not canceled.
 const base::Feature kTouchpadAsyncPinchEvents{"TouchpadAsyncPinchEvents",
                                               base::FEATURE_ENABLED_BY_DEFAULT};
-
-// Skips the browser touch event filter, ensuring that events that reach the
-// queue and would otherwise be filtered out will instead be passed onto the
-// renderer compositor process as long as the page hasn't timed out. Which event
-// types will be always forwarded is controlled by the "type" FeatureParam,
-// which can be either "discrete" (default) or "all".
-const base::Feature kSkipBrowserTouchFilter{"SkipBrowserTouchFilter",
-                                            base::FEATURE_DISABLED_BY_DEFAULT};
-
-const char kSkipBrowserTouchFilterTypeParamName[] = "type";
-const char kSkipBrowserTouchFilterTypeParamValueDiscrete[] = "discrete";
-const char kSkipBrowserTouchFilterTypeParamValueAll[] = "all";
 
 // Allows developers transfer user activation state to any target window in the
 // frame tree.

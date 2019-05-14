@@ -47,6 +47,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/screen.h"
+#include "ui/views/controls/textfield/textfield.h"
 #include "ui/wm/public/activation_client.h"
 
 namespace ash {
@@ -544,10 +545,7 @@ void AppListControllerImpl::OnOverviewModeStarting() {
 }
 
 void AppListControllerImpl::OnTabletModeStarted() {
-  if (presenter_.GetTargetVisibility()) {
-    DCHECK(IsVisible());
-    presenter_.GetView()->OnTabletModeChanged(true);
-  }
+  presenter_.OnTabletModeChanged(true);
 
   // Show the app list if the tablet mode starts.
   Shell::Get()->home_screen_controller()->Show();
@@ -563,8 +561,7 @@ void AppListControllerImpl::OnTabletModeEnded() {
                     ->HasVisibleWindow()) {
     dismiss_animation_disabler.emplace(presenter());
   }
-  if (IsVisible())
-    presenter_.GetView()->OnTabletModeChanged(false);
+  presenter_.OnTabletModeChanged(false);
 
   // Dismiss the app list if the tablet mode ends.
   DismissAppList();
@@ -714,6 +711,26 @@ void AppListControllerImpl::Back() {
   presenter_.GetView()->Back();
 }
 
+void AppListControllerImpl::SetKeyboardTraversalMode(bool engaged) {
+  if (keyboard_traversal_engaged_ == engaged)
+    return;
+
+  keyboard_traversal_engaged_ = engaged;
+
+  views::View* focused_view =
+      presenter_.GetView()->GetFocusManager()->GetFocusedView();
+
+  if (!focused_view)
+    return;
+
+  // When the search box has focus, it is actually the textfield that has focus.
+  // As such, the |SearchBoxView| must be told to repaint directly.
+  if (focused_view == presenter_.GetView()->search_box_view()->search_box())
+    presenter_.GetView()->search_box_view()->SchedulePaint();
+  else
+    focused_view->SchedulePaint();
+}
+
 ash::ShelfAction AppListControllerImpl::OnAppListButtonPressed(
     int64_t display_id,
     app_list::AppListShowSource show_source,
@@ -774,11 +791,13 @@ void AppListControllerImpl::SetStateTransitionAnimationCallback(
 }
 
 void AppListControllerImpl::RecordShelfAppLaunched(
-    base::Optional<mojom::AppListViewState> recorded_app_list_view_state) {
+    base::Optional<mojom::AppListViewState> recorded_app_list_view_state,
+    base::Optional<bool> recorded_home_launcher_shown) {
   app_list::RecordAppListAppLaunched(
       mojom::AppListLaunchedFrom::kLaunchedFromShelf,
       recorded_app_list_view_state.value_or(GetAppListViewState()),
-      IsTabletMode(), presenter_.home_launcher_shown());
+      IsTabletMode(),
+      recorded_home_launcher_shown.value_or(presenter_.home_launcher_shown()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -841,6 +860,13 @@ void AppListControllerImpl::OpenSearchResult(
 
     UMA_HISTOGRAM_COUNTS_100(app_list::kSearchQueryLength,
                              last_raw_query_.size());
+    if (IsTabletMode()) {
+      UMA_HISTOGRAM_COUNTS_100(app_list::kSearchQueryLengthInTablet,
+                               last_raw_query_.size());
+    } else {
+      UMA_HISTOGRAM_COUNTS_100(app_list::kSearchQueryLengthInClamshell,
+                               last_raw_query_.size());
+    }
 
     if (result->distance_from_origin() >= 0) {
       UMA_HISTOGRAM_COUNTS_100(app_list::kSearchResultDistanceFromOrigin,
@@ -859,7 +885,7 @@ void AppListControllerImpl::OpenSearchResult(
            "search results (ie. search results in the search result page) not "
            "chips.";
     app_list::RecordSearchResultOpenTypeHistogram(
-        app_list::ASSISTANT_OMNIBOX_RESULT);
+        app_list::ASSISTANT_OMNIBOX_RESULT, IsTabletMode());
     Shell::Get()->assistant_controller()->ui_controller()->ShowUi(
         AssistantEntryPoint::kLauncherSearchResult);
     Shell::Get()->assistant_controller()->OpenUrl(
@@ -926,6 +952,9 @@ void AppListControllerImpl::ViewShown(int64_t display_id) {
   UpdateAssistantVisibility();
   if (client_)
     client_->ViewShown(display_id);
+
+  // Ensure search box starts fresh with no ring each time it opens.
+  keyboard_traversal_engaged_ = false;
 }
 
 void AppListControllerImpl::ViewClosing() {
@@ -1017,6 +1046,10 @@ bool AppListControllerImpl::ProcessHomeLauncherGesture(
 
   NOTREACHED();
   return false;
+}
+
+bool AppListControllerImpl::KeyboardTraversalEngaged() {
+  return keyboard_traversal_engaged_;
 }
 
 bool AppListControllerImpl::CanProcessEventsOnApplistViews() {

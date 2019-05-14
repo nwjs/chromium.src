@@ -2939,7 +2939,7 @@ void WebContentsImpl::ShowCreatedWindow(int process_id,
                                         int main_frame_widget_route_id,
                                         WindowOpenDisposition disposition,
                                         const gfx::Rect& initial_rect,
-                                        bool user_gesture) {
+                                        bool user_gesture, std::string manifest) {
   // This method is the renderer requesting an existing top level window to
   // show a new top level window that the renderer created. Each top level
   // window is associated with a WebContents. In this case it was created
@@ -2970,8 +2970,10 @@ void WebContentsImpl::ShowCreatedWindow(int process_id,
 
     base::WeakPtr<WebContentsImpl> weak_created =
         created->weak_factory_.GetWeakPtr();
+    delegate->set_tmp_manifest(manifest);
     delegate->AddNewContents(this, std::move(owned_created), disposition,
                              initial_rect, user_gesture, nullptr);
+    delegate->set_tmp_manifest(std::string());
     // The delegate may delete |created| during AddNewContents().
     if (!weak_created)
       return;

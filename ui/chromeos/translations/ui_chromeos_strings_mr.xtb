@@ -28,7 +28,7 @@
 <translation id="1243314992276662751">अपलोड करा</translation>
 <translation id="1249250836236328755">शैली</translation>
 <translation id="1278813325885878377">हंगेरियन क्वर्टी कीबोर्ड</translation>
-<translation id="1297922636971898492">Google ड्राइव्ह आत्ता उपलब्ध नाही. Google ड्राइव्ह एकदा परत आल्यानंतर अपलोड करणे स्वयंचलितपणे रीस्टार्ट होईल.</translation>
+<translation id="1297922636971898492">Google ड्राइव्ह आत्ता उपलब्ध नाही. Google ड्राइव्ह एकदा परत आल्यानंतर अपलोड करणे आपोआप रीस्टार्ट होईल.</translation>
 <translation id="1307931752636661898">Linux फायली पाहू शकत नाही</translation>
 <translation id="1310751437842832374">लिप्यंतरण (mausam → ନମସ୍ତେ)</translation>
 <translation id="1337036551624197047">झेक कीबोर्ड</translation>
@@ -37,7 +37,7 @@
 <translation id="1351692861129622852"><ph name="FILE_COUNT" /> फायली इंपोर्ट करीत आहे...</translation>
 <translation id="1352103415082130575">थाई कीबोर्ड (Pattachote)</translation>
 <translation id="1358032944105037487">जपानी कीबोर्ड</translation>
-<translation id="1358735829858566124">फाईल किंवा निर्देशिका वापरण्यायोग्य नाही.</translation>
+<translation id="1358735829858566124">फाइल किंवा डिरेक्टरी वापरण्यायोग्य नाही.</translation>
 <translation id="1363028406613469049">ट्रॅक</translation>
 <translation id="1378727793141957596">Google ड्राइव्ह मध्ये तुमचे स्वागत आहे!</translation>
 <translation id="1383876407941801731">शोधा</translation>
@@ -168,7 +168,7 @@
 <translation id="2963783323012015985">तुर्कीश कीबोर्ड</translation>
 <translation id="2966459079597787514">स्वीडिश कीबोर्ड</translation>
 <translation id="2984337792991268709">आज <ph name="TODAY_DAYTIME" /></translation>
-<translation id="2994669386200004489"><ph name="FILE_NAME" /> चा बॅकअप घेऊ शकलो नाही</translation>
+<translation id="2994669386200004489"><ph name="FILE_NAME" /> चा बॅकअप घेता आला नाही</translation>
 <translation id="3003633581067744647">थंबनेल व्ह्यू वर स्विच करा</translation>
 <translation id="3007214526293698309">गुणोत्तराचे निराकरण करा</translation>
 <translation id="303198083543495566">भूगोल</translation>
@@ -404,7 +404,7 @@
 <translation id="5752453871435543420">Chrome OS क्लाउड बॅकअप</translation>
 <translation id="5756666464756035725">हंगेरियन क्वर्टी कीबोर्ड</translation>
 <translation id="5771585441665576801">लिप्यंतरण (geia → γεια)</translation>
-<translation id="57838592816432529">निःशब्द करा</translation>
+<translation id="57838592816432529">म्यूट करा</translation>
 <translation id="5788127256798019331">Play फायली</translation>
 <translation id="5790193330357274855">कझाक</translation>
 <translation id="5817397429773072584">पारंपारिक चीनी</translation>
@@ -467,7 +467,7 @@
 <translation id="6556866813142980365">पुन्हा करा</translation>
 <translation id="6558280019477628686">एक एरर आली. काही आयटम हटवता आले नाहीत.</translation>
 <translation id="656398493051028875">"<ph name="FILENAME" />" हटवत आहे...</translation>
-<translation id="6581162200855843583">Google ड्राइव्ह दुवा</translation>
+<translation id="6581162200855843583">Google ड्राइव्ह लिंक</translation>
 <translation id="6607272825297743757">फाईल माहिती</translation>
 <translation id="6629841649550503054"><ph name="BEGIN_LINK" />Google ड्राइव्ह!<ph name="END_LINK" /> वर सर्व बॅकअप घेतला</translation>
 <translation id="6643016212128521049">साफ करा</translation>
@@ -506,6 +506,7 @@
 <translation id="6979158407327259162">Google ड्राइव्ह</translation>
 <translation id="6990081529015358884">तुमची जागा समाप्त झाली आहे</translation>
 <translation id="6998711733709403587"><ph name="SELCTED_FOLDERS_COUNT" /> फोल्डर निवडली</translation>
+<translation id="7012943028104619157"><ph name="ROOT_TITLE" /> (<ph name="ROOT_SUMMARY" />)</translation>
 <translation id="7014174261166285193">स्थापना अयशस्वी.</translation>
 <translation id="7040138676081995583">यासह उघडा...</translation>
 <translation id="7100897339030255923"><ph name="COUNT" /> आयटम निवडले</translation>
@@ -627,7 +628,7 @@
 <translation id="8329978297633540474">साधा मजकूर</translation>
 <translation id="8336153091935557858">काल <ph name="YESTERDAY_DAYTIME" /></translation>
 <translation id="8336579025507394412">आइसलँडिक कीबोर्ड</translation>
-<translation id="8342318071240498787">समान नावाची एखादी फाइल किंवा निर्देशिका आधीपासूनच विद्यमान आहे.</translation>
+<translation id="8342318071240498787">समान नावाची एखादी फाइल किंवा डिरेक्टरी आधीपासूनच अस्तित्वात आहे.</translation>
 <translation id="8391950649760071442">लिप्यंतरण (emandi → ఏమండీ)</translation>
 <translation id="8395901698320285466">परिमाण</translation>
 <translation id="8400874747056634633">प्लग इन VM शेअर करत आहे व्यवस्थापित करा</translation>
@@ -689,7 +690,7 @@
 <translation id="9219103736887031265">इमेज</translation>
 <translation id="9219908252191632183">लुनार</translation>
 <translation id="939736085109172342">नवीन फोल्‍डर</translation>
-<translation id="942954117721265519">या निर्देशिकेमध्ये कोणत्याही इमेज नाहीत.</translation>
+<translation id="942954117721265519">या डिरेक्टरीमध्ये कोणत्याही इमेज नाहीत.</translation>
 <translation id="943972244133411984">ने सुधारित केली</translation>
 <translation id="945522503751344254">अभिप्राय पाठवा</translation>
 <translation id="981121421437150478">ऑफलाइन</translation>

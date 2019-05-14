@@ -42,8 +42,11 @@ void AddedPrinter(int32_t status) {
 }
 
 // Callback used for testing CupsRemovePrinter().
-void RemovedPrinter(bool* expected, bool result) {
-  EXPECT_EQ(*expected, result);
+void RemovedPrinter(base::OnceClosure quit_closure,
+                    bool* expected,
+                    bool result) {
+  *expected = result;
+  std::move(quit_closure).Run();
 }
 
 class FakePrinterConfigurer : public PrinterConfigurer {
@@ -97,7 +100,11 @@ class FakePpdProvider : public PpdProvider {
 
 class CupsPrintersHandlerTest : public testing::Test {
  public:
-  CupsPrintersHandlerTest() = default;
+  CupsPrintersHandlerTest()
+      : thread_bundle_(content::TestBrowserThreadBundle::REAL_IO_THREAD),
+        profile_(),
+        web_ui_(),
+        printers_handler_() {}
   ~CupsPrintersHandlerTest() override = default;
 
   void SetUp() override {
@@ -135,11 +142,14 @@ TEST_F(CupsPrintersHandlerTest, RemoveCorrectPrinter) {
 
   // We expect this printer removal to fail since the printer should have
   // already been removed by the previous call to 'removeCupsPrinter'.
-  bool expected = false;
-  client->CupsRemovePrinter("testprinter1",
-                            base::BindRepeating(&RemovedPrinter, &expected),
-                            base::DoNothing());
-  thread_bundle_.RunUntilIdle();
+  base::RunLoop run_loop;
+  bool expected = true;
+  client->CupsRemovePrinter(
+      "testprinter1",
+      base::BindRepeating(&RemovedPrinter, run_loop.QuitClosure(), &expected),
+      base::DoNothing());
+  run_loop.Run();
+  EXPECT_FALSE(expected);
 }
 
 }  // namespace settings.

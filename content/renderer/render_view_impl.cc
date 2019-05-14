@@ -1243,7 +1243,7 @@ void RenderViewImpl::OnAudioStateChanged(bool is_audio_playing) {
 
 void RenderViewImpl::ShowCreatedPopupWidget(RenderWidget* popup_widget,
                                             WebNavigationPolicy policy,
-                                            const gfx::Rect& initial_rect) {
+                                            const gfx::Rect& initial_rect, blink::WebString* manifest) {
   Send(new ViewHostMsg_ShowWidget(GetRoutingID(), popup_widget->routing_id(),
                                   initial_rect));
 }
@@ -1251,7 +1251,7 @@ void RenderViewImpl::ShowCreatedPopupWidget(RenderWidget* popup_widget,
 void RenderViewImpl::ShowCreatedFullscreenWidget(
     RenderWidget* fullscreen_widget,
     WebNavigationPolicy policy,
-    const gfx::Rect& initial_rect) {
+    const gfx::Rect& initial_rect, blink::WebString* manifest) {
   Send(new ViewHostMsg_ShowFullscreenWidget(GetRoutingID(),
                                             fullscreen_widget->routing_id()));
 }
@@ -2003,16 +2003,6 @@ void RenderViewImpl::OnSetRendererPrefs(
     }
   }
 #endif  // BUILDFLAG(USE_DEFAULT_RENDER_THEME)
-
-#if defined(OS_ANDROID)
-  if (renderer_prefs.use_custom_colors)
-    blink::SetFocusRingColor(renderer_prefs.focus_ring_color);
-
-  blink::SetMinimumStrokeWidthForFocusRing(
-      renderer_prefs.minimum_stroke_width_for_focus_ring);
-
-  blink::SetIsFocusRingOutset(renderer_prefs.is_focus_ring_outset);
-#endif
 
   if (webview() &&
       old_accept_languages != renderer_preferences_.accept_languages) {

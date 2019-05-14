@@ -1727,6 +1727,25 @@ Unknown properties are collapsed to zero. -->
   <int value="4" label="Undos Dismissed (Action) (Deprecated)"/>
 </enum>
 
+<enum name="AndroidWebViewClientSafeBrowsingThreatType">
+  <int value="0" label="SAFE_BROWSING_THREAT_UNKNOWN">
+    The resource was blocked for a reason other than the ones provided here.
+  </int>
+  <int value="1" label="SAFE_BROWSING_THREAT_MALWARE">
+    The resource was blocked because it contains malware.
+  </int>
+  <int value="2" label="SAFE_BROWSING_THREAT_PHISHING">
+    The resource was blocked because it contains deceptive content.
+  </int>
+  <int value="3" label="SAFE_BROWSING_THREAT_UNWANTED_SOFTWARE">
+    The resource was blocked because it contains unwanted software.
+  </int>
+  <int value="4" label="SAFE_BROWSING_THREAT_BILLING">
+    The resource was blocked because it may trick the user into a billing
+    agreement.
+  </int>
+</enum>
+
 <enum name="AndroidWebViewVariationsEnableState">
   <int value="0" label="DEFAULT_ENABLED"/>
   <int value="1" label="CONTROL_DISABLED"/>
@@ -11205,6 +11224,18 @@ Called by update_net_error_codes.py.-->
   <int value="1" label="Pattern"/>
   <int value="2" label="Disconnect"/>
   <int value="3" label="SSID"/>
+</enum>
+
+<enum name="DarkThemeEnabledReason">
+  <int value="0" label="User preference is set to force dark theme."/>
+  <int value="1" label="Power save mode is on."/>
+  <int value="2" label="Other."/>
+</enum>
+
+<enum name="DarkThemePreferences">
+  <int value="0" label="System default"/>
+  <int value="1" label="Light theme"/>
+  <int value="2" label="Dark theme"/>
 </enum>
 
 <enum name="DataChannelCounters">
@@ -34132,6 +34163,7 @@ from previous Chrome versions.
   <int value="846951416" label="CopylessPaste:enabled"/>
   <int value="848324390" label="enable-lock-screen-apps"/>
   <int value="849980462" label="RemoveNtpFakebox:disabled"/>
+  <int value="850779988" label="allow-popups-during-page-unload"/>
   <int value="851085848" label="enable-settings-window"/>
   <int value="852313529" label="RTCUnifiedPlanByDefault:disabled"/>
   <int value="854730848" label="disable-app-info-dialog-mac"/>
@@ -34150,6 +34182,7 @@ from previous Chrome versions.
   <int value="879992337" label="disable-pull-to-refresh-effect"/>
   <int value="880510010" label="enable-permissions-bubbles"/>
   <int value="884106779" label="supervised-user-safesites"/>
+  <int value="885357190" label="force-use-chrome-camera"/>
   <int value="885971656" label="EnablePlayStoreAppSearch:enabled"/>
   <int value="886907524" label="autoplay-policy"/>
   <int value="887011602" label="enable-spelling-auto-correct"/>
@@ -36500,6 +36533,14 @@ Called by update_use_counter_css.py.-->
   <int value="1" label="Low confidence."/>
   <int value="2" label="High confidence."/>
   <int value="3" label="Low and High confidence."/>
+</enum>
+
+<enum name="MdnsResponderServiceError">
+  <int value="0" label="Fail to start manager"/>
+  <int value="1" label="Fail to create responder"/>
+  <int value="2" label="Fatal socket handler error"/>
+  <int value="3" label="Invalid IP to register name"/>
+  <int value="4" label="Conflicting name resolution"/>
 </enum>
 
 <enum name="MediaCommand">
@@ -40837,7 +40878,7 @@ Called by update_net_trust_anchors.py.-->
 
 <enum name="NTPSearchSuggestionsRequestStatus">
   <int value="0" label="Unknown Error"/>
-  <int value="1" label="Sent"/>
+  <int value="1" label="ReceivedResponse"/>
   <int value="2" label="SignedOut"/>
   <int value="3" label="OptedOut"/>
   <int value="4" label="ImpressionCap"/>
@@ -42455,6 +42496,12 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="TMPDIR"/>
   <int value="5" label="/tmp"/>
   <int value="6" label="/tmp, different volume"/>
+</enum>
+
+<enum name="OSXStartupUpdateState">
+  <int value="0" label="Update key not set"/>
+  <int value="1" label="Update key set, staged copy present"/>
+  <int value="2" label="Update key set, staged copy not present"/>
 </enum>
 
 <enum name="OtherPossibleUsernamesUsage">

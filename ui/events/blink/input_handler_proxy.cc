@@ -13,6 +13,7 @@
 #include "base/command_line.h"
 #include "base/location.h"
 #include "base/logging.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/single_thread_task_runner.h"
 #include "base/threading/thread_task_runner_handle.h"
@@ -182,6 +183,24 @@ InputHandlerProxy::InputHandlerProxy(cc::InputHandler* input_handler,
   compositor_event_queue_ = std::make_unique<CompositorThreadEventQueue>();
   scroll_predictor_ = std::make_unique<ScrollPredictor>(
       base::FeatureList::IsEnabled(features::kResamplingScrollEvents));
+
+  if (base::FeatureList::IsEnabled(features::kSkipTouchEventFilter) &&
+      GetFieldTrialParamValueByFeature(
+          features::kSkipTouchEventFilter,
+          features::kSkipTouchEventFilterFilteringProcessParamName) ==
+          features::
+              kSkipTouchEventFilterFilteringProcessParamValueBrowserAndRenderer) {
+    // Skipping filtering for touch events on renderer process is enabled.
+    // Always skip filtering discrete events.
+    skip_touch_filter_discrete_ = true;
+    if (GetFieldTrialParamValueByFeature(
+            features::kSkipTouchEventFilter,
+            features::kSkipTouchEventFilterTypeParamName) ==
+        features::kSkipTouchEventFilterTypeParamValueAll) {
+      // The experiment config also specifies to skip touchmove events.
+      skip_touch_filter_all_ = true;
+    }
+  }
 }
 
 InputHandlerProxy::~InputHandlerProxy() {}
@@ -887,6 +906,14 @@ InputHandlerProxy::EventDisposition InputHandlerProxy::HitTestTouchEvent(
         break;
     }
   }
+
+  // Depending on which arm of the SkipTouchEventFilter experiment we're on, we
+  // may need to simulate a passive listener instead of dropping touch events.
+  if (result == DROP_EVENT &&
+      (skip_touch_filter_all_ ||
+       (skip_touch_filter_discrete_ &&
+        touch_event.GetType() == WebInputEvent::kTouchStart)))
+    result = DID_HANDLE_NON_BLOCKING;
 
   // Merge |touch_result_| and |result| so the result has the highest
   // priority value according to the sequence; (DROP_EVENT,

@@ -380,6 +380,7 @@ void CommandLine::InitFromArgv(const StringVector& argv) {
     }
   }
 #endif
+
 #if defined(OS_WIN)
   int argc = argv.size();
   argv0_ = new char*[argc + 1];
@@ -391,6 +392,7 @@ void CommandLine::InitFromArgv(const StringVector& argv) {
   argv0_[argc] = NULL;
   argc0_ = argc;
 #endif
+
   argv_ = StringVector(1);
   switches_.clear();
   begin_args_ = 1;

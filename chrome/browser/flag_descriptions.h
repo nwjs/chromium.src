@@ -49,6 +49,9 @@ extern const char kAcceleratedVideoDecodeDescription[];
 extern const char kAllowInsecureLocalhostName[];
 extern const char kAllowInsecureLocalhostDescription[];
 
+extern const char kAllowPopupsDuringPageUnloadName[];
+extern const char kAllowPopupsDuringPageUnloadDescription[];
+
 extern const char kAllowSignedHTTPExchangeCertsWithoutExtensionName[];
 extern const char kAllowSignedHTTPExchangeCertsWithoutExtensionDescription[];
 
@@ -1929,6 +1932,9 @@ extern const char kFirstRunUiTransitionsDescription[];
 
 extern const char kForceEnableStylusToolsName[];
 extern const char kForceEnableStylusToolsDescription[];
+
+extern const char kForceUseChromeCameraName[];
+extern const char kForceUseChromeCameraDescription[];
 
 extern const char kFsNosymfollowName[];
 extern const char kFsNosymfollowDescription[];

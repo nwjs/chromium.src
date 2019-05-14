@@ -127,6 +127,7 @@
 <translation id="2800683595868705743">தாவல் மாற்றியிலிருந்து வெளியேறு</translation>
 <translation id="2830972654601096923">முகவரிகளை நிர்வகி...</translation>
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
+<translation id="2840687315230832938">ஆரம்ப ஒத்திசைவு அமைவு செய்து முடிக்கப்படவில்லை</translation>
 <translation id="2843803966603263712">மொழியாக்க அமைப்புகளை மீட்டமை</translation>
 <translation id="2858204748079866344">உங்கள் தனியுரிமையைப் பாதுகாக்க, Chrome இந்தப் புலத்தில் உங்கள் கடவுச்சொல்லைத் தானாக நிரப்பாது.</translation>
 <translation id="285960592395650245">மீண்டும் பதிவிறக்கு</translation>
@@ -291,6 +292,7 @@
 <translation id="5659593005791499971">மின்னஞ்சல்</translation>
 <translation id="5669528293118408608">www</translation>
 <translation id="567881659373499783">பதிப்பு <ph name="PRODUCT_VERSION" /></translation>
+<translation id="5711039611392265845">தனியுரிமை, பாதுகாப்பு, தரவுச் சேகரிப்பு ஆகியவற்றுடன் தொடர்புடைய மேலும் பல அமைப்புகளுக்கு <ph name="BEGIN_LINK" />ஒத்திசைவும் Google சேவைகளும்<ph name="END_LINK" /> என்பதைப் பார்க்கவும்.</translation>
 <translation id="5728700505257787410">மன்னிக்கவும், உங்கள் கணக்கில் உள்நுழைவதில் பிழை.</translation>
 <translation id="5737974891429562743">கணக்கு உள்நுழைவு விவரங்கள் காலாவதியாகிவிட்டன. ஒத்திசைவைத் தொடங்க, புதுப்பிக்கவும்.</translation>
 <translation id="5738887413654608789">இதன் மூலம், உங்களைச் சுற்றியுள்ளவற்றின் அடிப்படையில் தொடர்புடைய இணையப் பக்கங்களைக் கண்டறியலாம்.</translation>
@@ -300,7 +302,7 @@
 <translation id="5857090052475505287">புதிய கோப்புறை</translation>
 <translation id="5857770089550859117">ஒத்திசைவைத் தொடங்க, கடவுச்சொற்றொடர் தேவை.</translation>
 <translation id="5860033963881614850">ஆஃப்</translation>
-<translation id="5865733239029070421">பயன்பாட்டுப் புள்ளிவிவரங்களையும் சிதைவு அறிக்கைகளையும் தானாகவே Googleக்கு அனுப்பும்</translation>
+<translation id="5865733239029070421">பயன்பாட்டுப் புள்ளிவிவரங்களையும் சிதைவு அறிக்கைகளையும் தானாகவே Googleளுக்கு அனுப்பும்</translation>
 <translation id="5869029295770560994">சரி, புரிந்தது</translation>
 <translation id="5871497086027727873">1 உருப்படி நகர்த்தப்பட்டது</translation>
 <translation id="5897956970858271241">நகலெடுத்த இணைப்பிற்குச் செல்</translation>
@@ -407,6 +409,7 @@
 <translation id="7280856130494094142">ஒத்திசைக்க கடவுச்சொற்றொடரை உள்ளிடவும்</translation>
 <translation id="7285236536143823449">ஏற்கிறேன்</translation>
 <translation id="7291368939935408496">கடவுச்சொற்கள் தயாராகின்றன...</translation>
+<translation id="7293171162284876153">ஒத்திசைவைத் தொடங்க "உங்கள் Chrome தரவை ஒத்திசையுங்கள்" என்பதை இயக்கவும்.</translation>
 <translation id="7336264872878993241"><ph name="PERCENT" /> சதவீதம் பதிவிறக்கப்பட்டது</translation>
 <translation id="7346909386216857016">சரி, புரிந்தது</translation>
 <translation id="7348502496356775519">புத்தகக்குறி</translation>

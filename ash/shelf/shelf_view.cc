@@ -731,6 +731,8 @@ void ShelfView::ButtonPressed(views::Button* sender,
   if (Shell::Get()->app_list_controller()) {
     recorded_app_list_view_state_ =
         Shell::Get()->app_list_controller()->GetAppListViewState();
+    recorded_home_launcher_shown_ =
+        Shell::Get()->app_list_controller()->presenter()->home_launcher_shown();
   }
 
   // Run AfterItemSelected directly if the item has no delegate (ie. in tests).
@@ -2342,7 +2344,7 @@ void ShelfView::AfterItemSelected(
        action == SHELF_ACTION_WINDOW_ACTIVATED) &&
       Shell::Get()->app_list_controller()) {
     Shell::Get()->app_list_controller()->RecordShelfAppLaunched(
-        recorded_app_list_view_state_);
+        recorded_app_list_view_state_, recorded_home_launcher_shown_);
   }
 
   // The app list handles its own ink drop effect state changes.
@@ -2451,7 +2453,8 @@ void ShelfView::ShowMenu(std::unique_ptr<ui::SimpleMenuModel> menu_model,
   shelf_menu_model_adapter_ = std::make_unique<ShelfMenuModelAdapter>(
       item ? item->id.app_id : std::string(), std::move(menu_model), source,
       source_type,
-      base::BindOnce(&ShelfView::OnMenuClosed, base::Unretained(this), source));
+      base::BindOnce(&ShelfView::OnMenuClosed, base::Unretained(this), source),
+      IsTabletModeEnabled());
   shelf_menu_model_adapter_->Run(
       GetMenuAnchorRect(*source, click_point, context_menu),
       shelf_->IsHorizontalAlignment() ? views::MenuAnchorPosition::kBubbleAbove
