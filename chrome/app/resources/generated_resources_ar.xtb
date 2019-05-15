@@ -1882,7 +1882,7 @@
 <translation id="3785071023202624850">{NUM_TABS,plural, =1{كتم صوت علامة تبويب واحدة}zero{كتم صوت علامات التبويب}two{كتم صوت علامتيِّ التبويب}few{كتم صوت علامات التبويب}many{كتم صوت علامات التبويب}other{كتم صوت علامات التبويب}}</translation>
 <translation id="3785308913036335955">إظهار اختصار التطبيقات</translation>
 <translation id="3785727820640310185">كلمات المرور المحفوظة لهذا الموقع</translation>
-<translation id="3786301125658655746">أنت غير متصل</translation>
+<translation id="3786301125658655746">أنت غير متصل بالإنترنت.</translation>
 <translation id="3788401245189148511">يمكنه:</translation>
 <translation id="3789841737615482174">تثبيت</translation>
 <translation id="379082410132524484">انتهت صلاحية بطاقتك</translation>
@@ -2101,6 +2101,7 @@
 <translation id="409579654357498729">إضافة إلى الطباعة السحابية</translation>
 <translation id="4096508467498758490">إيقاف إضافات وضع مطور البرامج</translation>
 <translation id="4096824249111507322">يتم حاليًا تحضيرالوحدة الآمنة، يُرجى الانتظار (قد يستغرق ذلك بضع دقائق)...</translation>
+<translation id="4097560579602855702">‏البحث في Google</translation>
 <translation id="4099060993766194518">هل تريد استعادة محرك البحث التلقائي؟</translation>
 <translation id="4099874310852108874">حدث خطأ في الشبكة.</translation>
 <translation id="4100733287846229632">المساحة على الجهاز منخفضة للغاية</translation>
@@ -2202,7 +2203,7 @@
 <translation id="4275830172053184480">إعادة تشغيل جهازك</translation>
 <translation id="4278101229438943600">المساعد جاهز</translation>
 <translation id="4278390842282768270">مسموح</translation>
-<translation id="4281844954008187215">شروط الخدمة</translation>
+<translation id="4281844954008187215">بنود الخدمة</translation>
 <translation id="4282196459431406533">‏Smart Lock قيد التشغيل</translation>
 <translation id="4285418559658561636">تحديث كلمة المرور</translation>
 <translation id="4285498937028063278">إزالة تثبيت</translation>
@@ -3248,7 +3249,7 @@
 <translation id="5858490737742085133">Terminal</translation>
 <translation id="585979798156957858">‏مفتاح Meta الخارجي</translation>
 <translation id="5860033963881614850">غير مفعّل</translation>
-<translation id="5860491529813859533">تشغيل</translation>
+<translation id="5860491529813859533">تفعيل</translation>
 <translation id="5860494867054883682">جارٍ تحديث جهازك إلى قناة <ph name="CHANNEL_NAME" /> (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="5862109781435984885">عرض أدوات قلم الشاشة في الرف</translation>
 <translation id="5863445608433396414">تفعيل ميزات تصحيح الأخطاء</translation>

@@ -93,7 +93,7 @@ Per ulteriori informazioni sui contesti sicuri, visita il sito https://www.w3.or
       Se questa norma viene impostata, l'utente potrà scegliere soltanto uno dei metodi di immissione specificati al suo interno. Se la norma non viene impostata o viene impostato un elenco vuoto, l'utente potrà selezionare tutti i metodi di immissione supportati. Se il metodo di immissione corrente non è consentito da questa norma, verrà sostituito dal layout della tastiera hardware (se consentito) o dalla prima voce valida di questo elenco. Tutti i metodi di immissione non validi o non supportati di questo elenco verranno ignorati.</translation>
 <translation id="1138294736309071213">Questa norma è attiva soltanto in modalità retail.
 
-      Consente di stabilire il periodo di tempo che deve trascorrere prima della visualizzazione dello screensaver nella schermata di accesso dei dispositivi in modalità retail.
+      Consente di stabilire il periodo di tempo che deve trascorrere prima della visualizzazione del salvaschermo nella schermata di accesso dei dispositivi in modalità retail.
 
       Il valore della norma deve essere specificato in millisecondi.</translation>
 <translation id="1141767714195601945">Questa norma consente di gestire i parametri della riga di comando di Chrome da Internet Explorer.
@@ -825,7 +825,7 @@ Se attivi o disattivi questa impostazione, gli utenti non potranno cambiarla o i
 Se questa norma non viene impostata, l'utente potrà scegliere se utilizzare o meno la funzione proxy di compressione dei dati.</translation>
 <translation id="257788512393330403">Richiedi inserimento della password ogni sei ore</translation>
 <translation id="2587719089023392205">Imposta <ph name="PRODUCT_NAME" /> come browser predefinito</translation>
-<translation id="2592091433672667839">Durata inattività prima della visualizzazione dello screensaver nella schermata di accesso in modalità retail</translation>
+<translation id="2592091433672667839">Durata inattività prima della visualizzazione del salvaschermo nella schermata di accesso in modalità retail</translation>
 <translation id="2592162121850992309">Se questa norma è impostata su true o non è impostata, verrà attivata l'accelerazione hardware a meno che una determinata funzione della GPU non sia stata inserita nella lista nera.
 
       Se la norma è impostata su false, l'accelerazione hardware verrà disattivata.</translation>
@@ -1097,7 +1097,7 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
       Se questa norma è impostata su false, l'ottimizzazione WPAD viene disattivata, aumentando così i tempi di attesa da parte di <ph name="PRODUCT_NAME" /> dei server WPAD basati su DNS. Se questa norma non è impostata oppure se è attiva, l'ottimizzazione WPAD è abilitata.
 
       Indipendentemente da se o come questa norma è impostata, l'utente non può modificare l'impostazione di ottimizzazione di WPAD.</translation>
-<translation id="3072045631333522102">Screensaver da utilizzare nella schermata di accesso in modalità retail</translation>
+<translation id="3072045631333522102">Salvaschermo da utilizzare nella schermata di accesso in modalità retail</translation>
 <translation id="3072847235228302527">Imposta i Termini di servizio di un account locale del dispositivo</translation>
 <translation id="3077183141551274418">Abilita o disabilita i cicli di vita delle schede</translation>
 <translation id="3086995894968271156">Consente di configurare Cast Receiver in <ph name="PRODUCT_NAME" />.</translation>
@@ -3331,7 +3331,7 @@ Se questa norma non viene impostata, <ph name="PRODUCT_NAME" /> utilizzerà il v
       Se viene impostata su CopyCaCerts, per le app ARC saranno disponibili tutti i certificati CA installati su ONC con <ph name="WEB_TRUSTED_BIT" />.</translation>
 <translation id="7882585827992171421">Questa norma è attiva soltanto in modalità retail.
 
-      Consente di stabilire l'ID dell'estensione da utilizzare come screensaver nella schermata di accesso. L'estensione deve far parte dell'AppPack configurato per il dominio tramite la norma DeviceAppPack.</translation>
+      Consente di stabilire l'ID dell'estensione da utilizzare come salvaschermo nella schermata di accesso. L'estensione deve far parte dell'AppPack configurato per il dominio tramite la norma DeviceAppPack.</translation>
 <translation id="7882857838942884046">Se Google Sync viene disattivato, le funzioni di backup e ripristino di Android non funzionano correttamente.</translation>
 <translation id="7882890448959833986">Elimina l'avviso di sistema operativo non supportato</translation>
 <translation id="7902255855035461275">I pattern di questo elenco verranno confrontati con
