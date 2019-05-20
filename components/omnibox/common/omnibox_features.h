@@ -24,6 +24,7 @@ extern const base::Feature kOmniboxReverseTabSwitchLogic;
 extern const base::Feature kExperimentalKeywordMode;
 extern const base::Feature kOmniboxPedalSuggestions;
 extern const base::Feature kOmniboxContextMenuForSuggestions;
+extern const base::Feature kOmniboxPreserveDefaultMatchScore;
 extern const base::Feature kEnableClipboardProviderTextSuggestions;
 extern const base::Feature kEnableClipboardProviderImageSuggestions;
 extern const base::Feature kSearchProviderWarmUpOnFocus;

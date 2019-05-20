@@ -379,6 +379,9 @@ EmphasizeTitlesCondition GetEmphasizeTitlesConditionForInput(
 // ---------------------------------------------------------
 // For UI experiments.
 
+// Returns whether preserve default match score is enabled.
+bool IsPreserveDefaultMatchScoreEnabled();
+
 // Returns true if the rich entities flag is enabled.
 bool IsRichEntitySuggestionsEnabled();
 
