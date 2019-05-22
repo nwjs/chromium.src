@@ -667,7 +667,7 @@
 <translation id="197288927597451399">Manter</translation>
 <translation id="1974043046396539880">Pontos de distribuição de lista de certificados revogados</translation>
 <translation id="1974060860693918893">Avançado</translation>
-<translation id="1974821797477522211">Conectar-se à rede</translation>
+<translation id="1974821797477522211">Conectar à rede</translation>
 <translation id="197560921582345123">Pode editar</translation>
 <translation id="1975841812214822307">Remover...</translation>
 <translation id="1976150099241323601">Faça login no dispositivo seguro</translation>
@@ -1940,7 +1940,7 @@
 <translation id="3855676282923585394">Importar favoritos e configurações...</translation>
 <translation id="3856800405688283469">Selecionar fuso horário</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
-<translation id="3857807444929313943">Levante e toque novamente</translation>
+<translation id="3857807444929313943">Tire o dedo e toque novamente</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sincronização pausada</translation>
 <translation id="3861241522664181545">Página pausada.</translation>
 <translation id="3862134173397075045">Bem-vindo à experiência de transmissão no Chrome!</translation>
@@ -2106,6 +2106,7 @@
 <translation id="409579654357498729">Adicionar ao Google Cloud Print</translation>
 <translation id="4096508467498758490">Desativar extensões no modo de desenvolvedor</translation>
 <translation id="4096824249111507322">O módulo de segurança está sendo preparado. Aguarde. Esse processo pode demorar alguns minutos…</translation>
+<translation id="4097560579602855702">Pesquisar no Google</translation>
 <translation id="4099060993766194518">Restaurar mecanismo de pesquisa padrão?</translation>
 <translation id="4099874310852108874">Ocorreu um erro de rede.</translation>
 <translation id="4100733287846229632">Espaço em disco do dispositivo criticamente baixo</translation>
@@ -2870,7 +2871,7 @@
 <translation id="5302048478445481009">Idioma</translation>
 <translation id="5305688511332277257">Nenhum instalado</translation>
 <translation id="5307030433605830021">Fonte incompatível</translation>
-<translation id="5308380583665731573">Conectar-se</translation>
+<translation id="5308380583665731573">Conectar</translation>
 <translation id="5311304534597152726">Login como</translation>
 <translation id="5315873049536339193">Identidade</translation>
 <translation id="5317780077021120954">Salvar</translation>
@@ -3692,7 +3693,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6499143127267478107">Resolvendo host no script de proxy...</translation>
 <translation id="6499681088828539489">Bloquear proxies para redes compartilhadas</translation>
 <translation id="6503077044568424649">Mais visitados</translation>
-<translation id="6504611359718185067">Conectar-se à Internet para adicionar uma impressora</translation>
+<translation id="6504611359718185067">Conectar à Internet para adicionar uma impressora</translation>
 <translation id="6506374932220792071">Assinatura X9.62 ECDSA com SHA-256</translation>
 <translation id="6508248480704296122">Relacionado a <ph name="NAME_PH" /></translation>
 <translation id="6508261954199872201">Aplicativo: <ph name="APP_NAME" /></translation>
@@ -4172,7 +4173,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7235716375204803342">Buscando atividades…</translation>
 <translation id="7238585580608191973">Assinatura digital SHA-256</translation>
 <translation id="7240120331469437312">Nome alternativo do requerente do certificado</translation>
-<translation id="7240339475467890413">Conectar-se a um novo ponto de acesso?</translation>
+<translation id="7240339475467890413">Conectar a um novo ponto de acesso?</translation>
 <translation id="7241389281993241388">Faça login no <ph name="TOKEN_NAME" /> para importar o certificado do cliente.</translation>
 <translation id="7241443820034350811">Se sua chave de segurança não estiver na lista, pressione o botão dela por pelo menos cinco segundos.</translation>
 <translation id="7243632151880336635">Limpar e sair</translation>
@@ -4313,7 +4314,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="746216226901520237">Na próxima vez, o smartphone desbloqueará o <ph name="DEVICE_TYPE" />. É possível desativar o Smart Lock nas configurações.</translation>
 <translation id="7463006580194749499">Adicionar pessoa</translation>
 <translation id="7465778193084373987">URL da revogação do certificado do Netscape</translation>
-<translation id="7469894403370665791">Conectar-se automaticamente a esta rede</translation>
+<translation id="7469894403370665791">Conectar automaticamente a esta rede</translation>
 <translation id="747114903913869239">Erro: Não foi possível decodificar a extensão</translation>
 <translation id="7473891865547856676">Não, obrigado</translation>
 <translation id="747459581954555080">Restaurar todas</translation>
@@ -4377,7 +4378,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
     tentar criar um usuário supervisionado novamente.</translation>
 <translation id="756445078718366910">Abrir janela do navegador</translation>
 <translation id="7564847347806291057">Encerrar processo</translation>
-<translation id="7566118625369982896">Gerenciar links do app do Play</translation>
+<translation id="7566118625369982896">Gerenciar links do app Play</translation>
 <translation id="756809126120519699">Dados do Chrome apagados</translation>
 <translation id="7568790562536448087">Atualização</translation>
 <translation id="7571643774869182231">Armazenamento insuficiente para a atualização</translation>
@@ -5444,7 +5445,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="9124003689441359348">As senhas salvas aparecerão aqui</translation>
 <translation id="912419004897138677">Codec</translation>
 <translation id="9125466540846359910"><ph name="LICENSE_TYPE" /> (<ph name="LICENSE_COUNT" /> rest.)</translation>
-<translation id="9128870381267983090">Conectar-se à rede</translation>
+<translation id="9128870381267983090">Conectar à rede</translation>
 <translation id="9130015405878219958">Modo inválido inserido.</translation>
 <translation id="9130775360844693113">Membros de '<ph name="DESTINATION_NAME" />' terão acesso a esses itens.</translation>
 <translation id="9131487537093447019">Enviar mensagens para e receber mensagens de dispositivos Bluetooth.</translation>
@@ -5501,7 +5502,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="930268624053534560">Timestamps detalhados</translation>
 <translation id="932327136139879170">Início</translation>
 <translation id="932508678520956232">Não foi possível iniciar a impressão.</translation>
-<translation id="93343527085570547">Acesse a <ph name="BEGIN_LINK1" />página de Ajuda Jurídica<ph name="END_LINK1" /> para solicitar alterações de conteúdo por motivos legais. Algumas informações da conta e do sistema podem ser enviadas ao Google. Usaremos as informações fornecidas para resolver problemas técnicos e melhorar nossos serviços, de acordo com nossa <ph name="BEGIN_LINK2" />Política de Privacidade<ph name="END_LINK2" /> e nossos <ph name="BEGIN_LINK3" />Termos de Serviço<ph name="END_LINK3" />.</translation>
+<translation id="93343527085570547">Acesse a <ph name="BEGIN_LINK1" />página de Ajuda Jurídica<ph name="END_LINK1" /> para solicitar alterações de conteúdo por motivos legais. Algumas informações podem ser enviadas ao Google, e elas serão usadas para resolver problemas técnicos e melhorar nossos serviços, de acordo com nossa <ph name="BEGIN_LINK2" />Política de Privacidade<ph name="END_LINK2" /> e nossos <ph name="BEGIN_LINK3" />Termos de Serviço<ph name="END_LINK3" />.</translation>
 <translation id="93393615658292258">Somente senha</translation>
 <translation id="934503638756687833">Itens que não estão listados aqui também serão removidos, se necessário. Saiba mais sobre a &lt;a href="<ph name="URL" />"&gt;proteção contra softwares indesejados&lt;/a&gt; no artigo sobre privacidade do Chrome.</translation>
 <translation id="935490618240037774">Seus favoritos, histórico, senhas e outras configurações serão sincronizados com sua Conta do Google para que seja possível usá-los em todos os seus dispositivos.</translation>

@@ -1234,7 +1234,7 @@ Jika kebijakan ini tidak disetel, setelan kebijakan berarti diaktifkan, lihat de
 
       Jika kebijakan dikonfigurasi, kebijakan dapat disetel ke salah satu nilai berikut: "tls1", "tls1.1", atau "tls1.2". Jika disetel, <ph name="PRODUCT_NAME" /> tidak akan menggunakan versi SSL/TLS yang lebih rendah daripada versi yang ditentukan. Nilai yang tidak dikenal akan diabaikan.</translation>
 <translation id="34160070798637152">Mengontrol konfigurasi jaringan tingkat perangkat.</translation>
-<translation id="3417418267404583991">Jika kebijakan ini disetel ke true atau tidak dikonfigurasi, <ph name="PRODUCT_OS_NAME" /> akan mengaktifkan masuk sebagai tamu. Login sebagai tamu adalah sesi pengguna anonim dan tidak memerlukan sandi.
+<translation id="3417418267404583991">Jika kebijakan ini disetel ke true atau tidak dikonfigurasi, <ph name="PRODUCT_OS_NAME" /> akan mengaktifkan login sebagai tamu. Login sebagai tamu adalah sesi pengguna anonim dan tidak memerlukan sandi.
 
       Jika kebijakan ini disetel ke false, <ph name="PRODUCT_OS_NAME" /> tidak akan mengizinkan dimulainya sesi tamu.</translation>
 <translation id="3418871497193485241">Menerapkan Mode Terbatas minimum di YouTube dan mencegah pengguna agar tidak
@@ -2424,9 +2424,9 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
 
       Jika Anda menonaktifkan setelan ini atau tidak menyetel suatu nilai, SafeSearch di Google Penelusuran tidak akan diterapkan.</translation>
 <translation id="5946082169633555022">Saluran beta</translation>
-<translation id="5950205771952201658">Mengingat pemeriksaan pembatalan online kegagalan-lunak tidak memberikan manfaat keamanan yang efektif, pemeriksaan tersebut dinonaktifkan secara default di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru. Dengan menyetel kebijakan ini ke true, perilaku sebelumnya akan dipulihkan dan akan dilakukan pemeriksaan OCSP/CRL online.
+<translation id="5950205771952201658">Mengingat pemeriksaan pencabutan online kegagalan-lunak tidak memberikan manfaat keamanan yang efektif, pemeriksaan tersebut dinonaktifkan secara default di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru. Dengan menyetel kebijakan ini ke true, perilaku sebelumnya akan dipulihkan dan akan dilakukan pemeriksaan OCSP/CRL online.
 
-      Jika kebijakan tidak disetel, atau disetel ke false, <ph name="PRODUCT_NAME" /> tidak akan melakukan pemeriksaan pembatalan online di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru.</translation>
+      Jika kebijakan tidak disetel, atau disetel ke false, <ph name="PRODUCT_NAME" /> tidak akan melakukan pemeriksaan pencabutan online di <ph name="PRODUCT_NAME" /> versi 19 dan yang lebih baru.</translation>
 <translation id="5966615072639944554">Ekstensi yang diizinkan untuk menggunakan API pengesahan jarak jauh</translation>
 <translation id="5983708779415553259">Perilaku default untuk situs tidak ada dalam paket konten mana pun</translation>
 <translation id="5997543603646547632">Menggunakan 24 jam sebagai default</translation>
@@ -3528,7 +3528,7 @@ Cara yang disarankan untuk mengonfigurasi kebijakan di Windows adalah melalui GP
           Jika kebijakan ini tidak ditetapkan, tidak ada aplikasi atau ekstensi yang otomatis diinstal dan pengguna dapat meng-uninstal aplikasi atau ekstensi apa pun di <ph name="PRODUCT_NAME" />.
 
           Perlu diperhatikan bahwa kebijakan ini tidak berlaku untuk mode penyamaran.</translation>
-<translation id="8274603902181597201">Me-wipe direktori beranda ecryptfs pengguna dan memulai direktori beranda yang dienkripsi ext4.</translation>
+<translation id="8274603902181597201">Menghapus total direktori beranda ecryptfs pengguna dan memulai direktori beranda yang dienkripsi ext4.</translation>
 <translation id="8285435910062771358">Lup layar penuh diaktifkan</translation>
 <translation id="8288199156259560552">Mengaktifkan Layanan Lokasi Google Android</translation>
 <translation id="8292322992383748446">Melaporkan statistik hardware untuk komponen SoC.

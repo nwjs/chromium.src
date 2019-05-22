@@ -420,7 +420,7 @@ Jeśli chcesz dostosować wyszukiwane hasło, naciśnij je i przytrzymaj, by je
 <translation id="4116038641877404294">Pobierz strony, by przeglądać je w trybie offline</translation>
 <translation id="4149994727733219643">Uproszczony widok stron internetowych</translation>
 <translation id="4159800535322890630">Blokuj witrynom dostęp do czujników</translation>
-<translation id="4165986682804962316">Ustawienia witryny</translation>
+<translation id="4165986682804962316">Ustawienia witryn</translation>
 <translation id="4170011742729630528">Usługa jest niedostępna. Spróbuj ponownie później.</translation>
 <translation id="4179980317383591987">Wykorzystano <ph name="AMOUNT" /></translation>
 <translation id="4181841719683918333">Języki</translation>
@@ -997,7 +997,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="8261506727792406068">Usuń</translation>
 <translation id="8266862848225348053">Miejsce zapisywania pobranych plików</translation>
 <translation id="8274165955039650276">Zobacz pobrane</translation>
-<translation id="8283853025636624853">Synchronizowanie z kontem <ph name="SYNC_ACCOUNT_USER_NAME" /></translation>
+<translation id="8283853025636624853">Synchronizacja z kontem <ph name="SYNC_ACCOUNT_USER_NAME" /></translation>
 <translation id="8310344678080805313">Karty standardowe</translation>
 <translation id="8313455859591948645">Zmiana strony startowej</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> i więcej stron</translation>

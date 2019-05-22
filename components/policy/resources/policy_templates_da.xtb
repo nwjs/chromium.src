@@ -3535,7 +3535,7 @@ Hvis du aktiverer denne indstilling eller ikke konfigurerer en værdi, forbliver
 
       Hvis denne politik er indstillet, bruger loginskærmen den angivne streng i den billedbaserede loginvælger for den tilsvarende enhedslokale konto.
 
-      Hvis politikken ikke er indstillet, bruger <ph name="PRODUCT_OS_NAME" /> den enhedslokale kontos e-mailkonto-id som det viste navn på loginskærmen.
+      Hvis politikken ikke er indstillet, bruger <ph name="PRODUCT_OS_NAME" /> den enhedslokale kontos mailkonto-id som det viste navn på loginskærmen.
 
       Denne politik ignoreres for almindelige brugerkonti.</translation>
 <translation id="8259375588339409826">Både Chromium og Google Chrome understøtter den samme række politikker. Bemærk, at dette dokument kan indeholde politikker, der ikke er udgivet (dvs. angivelsen af "understøttes på" henviser til en ikke-udgivet version af <ph name="PRODUCT_NAME" />), som kan ændres eller fjernes uden varsel, og for hvilke ingen garantier stilles, herunder garantier vedrørende deres sikkerheds- og privatlivsegenskaber.

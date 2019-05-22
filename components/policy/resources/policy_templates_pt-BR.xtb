@@ -515,7 +515,7 @@ Cada item da lista da política é uma string que contém um código de extensã
 <translation id="1960840544413786116">Se os certificados emitidos pelas âncoras de confiança locais que estão sem a extensão subjectAlternativeName devem ser permitidos</translation>
 <translation id="1962273523772270623">Permite a coleta de logs de eventos WebRTC dos serviços do Google</translation>
 <translation id="1964634611280150550">Modo de navegação anônima desativado</translation>
-<translation id="1964802606569741174">Esta política não tem nenhum efeito sobre o app do YouTube para Android. Se o modo de segurança do YouTube precisar ser aplicado, a instalação desse app será bloqueada.</translation>
+<translation id="1964802606569741174">Esta política não tem nenhum efeito sobre o app YouTube para Android. Se o modo de segurança do YouTube precisar ser aplicado, a instalação desse app será bloqueada.</translation>
 <translation id="1969212217917526199">Modifica as políticas sobre versões de depuração do host de acesso remoto.
 
           O valor é analisado como um dicionário JSON de nome de política para mapeamentos de valor de política.</translation>
@@ -1907,7 +1907,7 @@ Se você desativar esta configuração ou deixá-la sem definição, todas as p�
           Se você ativar esta configuração, o <ph name="PRODUCT_NAME" /> ignorará todas as opções relacionadas a proxy especificadas na linha de comando.
 
           Deixar esta política sem definição permitirá que os usuários escolham as configurações de proxy por conta própria.</translation>
-<translation id="4816674326202173458">Permitir que o usuário empresarial seja ao mesmo tempo primário e secundário (comportamento padrão para usuários não gerenciados)</translation>
+<translation id="4816674326202173458">Permitir que o usuário corporativo seja ao mesmo tempo primário e secundário (comportamento padrão para usuários não gerenciados)</translation>
 <translation id="4826326557828204741">Ação a ser executada quando o tempo de inatividade for atingido durante execução com bateria</translation>
 <translation id="4832852360828533362">Relatórios de usuário e do dispositivo</translation>
 <translation id="4834526953114077364">Os usuários menos utilizados ​​recentemente que não se conectaram nos últimos três meses serão removidos até que haja espaço livre suficiente</translation>
@@ -3188,7 +3188,7 @@ Essas políticas são ignoradas se a Área de trabalho remota do Google Chrome n
 <translation id="7519251620064708155">Permitir a geração de chaves nesses sites</translation>
 <translation id="7529100000224450960">Permite que você defina uma lista de padrões de URL que especificam sites com permissão para exibir pop-ups. Se esta política for deixada sem definição, o valor padrão global será utilizado para todos os sites a partir da política "DefaultPopupsSetting", caso esta tenha sido definida, ou a partir das configurações pessoais do usuário, caso não tenha sido definida.</translation>
 <translation id="7529144158022474049">Fator de dispersão de atualizações automáticas</translation>
-<translation id="7534199150025803530">Esta política não tem nenhum efeito sobre o app do Google Drive para Android. Para impedir o uso do Google Drive por conexões celulares, bloqueie a instalação do app do Google Drive para Android.</translation>
+<translation id="7534199150025803530">Esta política não tem nenhum efeito sobre o app Google Drive para Android. Para impedir o uso do Google Drive por conexões celulares, bloqueie a instalação do app Google Drive para Android.</translation>
 <translation id="7540622499178214923">Concede permissão ao controlador de telemetria e diagnósticos wilco</translation>
 <translation id="7547549430720182663">Mesclar</translation>
 <translation id="7553535237300701827">Quando esta política está definida, o fluxo de autenticação de login acontece em uma das seguintes formas, dependendo do valor da configuração:
@@ -3487,7 +3487,7 @@ Esses favoritos são colocados em uma pasta que não pode ser modificada pelo us
 <translation id="8140204717286305802">Informa ao servidor a lista de interfaces de rede com os respectivos tipos e endereços de hardware.
 
       Se a política estiver definida como "False", a lista de interfaces não será informada.</translation>
-<translation id="8141795997560411818">Esta política não impede que os usuários usem o app do Google Drive para Android. Para impedir o acesso ao Google Drive, bloqueie também a instalação do app do Google Drive para Android.</translation>
+<translation id="8141795997560411818">Esta política não impede que os usuários usem o app Google Drive para Android. Para impedir o acesso ao Google Drive, bloqueie também a instalação do app Google Drive para Android.</translation>
 <translation id="8142894094385450823">Definir as localidades recomendadas para uma sessão gerenciada</translation>
 <translation id="8146727383888924340">Permitir que os usuários resgatem ofertas pelo Registro do Chrome OS</translation>
 <translation id="8148785525797916822">Remove o aviso que é exibido quando o <ph name="PRODUCT_NAME" /> é executado em um computador ou sistema operacional com o qual não é mais compatível.</translation>
@@ -3522,7 +3522,7 @@ Esses favoritos são colocados em uma pasta que não pode ser modificada pelo us
       Esta política é limitada a 1.000 entradas. Entradas subsequentes serão ignoradas.
 
       Se esta política não for definida, não haverá exceções para a lista de proibições na política "URLBlacklist".</translation>
-<translation id="8176035528522326671">Permitir que o usuário empresarial seja o usuário principal de diversos perfis (comportamento padrão para usuários gerenciados por empresa)</translation>
+<translation id="8176035528522326671">Permitir que o usuário corporativo seja o usuário principal de diversos perfis (comportamento padrão para usuários gerenciados por empresa)</translation>
 <translation id="8214600119442850823">Configura o gerenciador de senhas.</translation>
 <translation id="8217516105848565518">O uso desta política foi suspenso. Use RemoteAccessHostDomainList.</translation>
 <translation id="8244525275280476362">Atraso máximo de busca após a invalidação de uma política</translation>

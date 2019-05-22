@@ -695,7 +695,7 @@
 <translation id="6140912465461743537">Страна/регион</translation>
 <translation id="614940544461990577">Попробуйте сделать следующее:</translation>
 <translation id="6154478581116148741">Чтобы экспортировать пароли с этого устройства, включите блокировку экрана в настройках.</translation>
-<translation id="6159335304067198720">Сжатие данных: <ph name="PERCENT" /></translation>
+<translation id="6159335304067198720">Сэкономлено: <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Подробнее...</translation>
 <translation id="6177111841848151710">Закрыт доступ для текущей поисковой системы</translation>
 <translation id="6177390657002841081">Включить режим экономии трафика</translation>
@@ -705,7 +705,7 @@
 <translation id="6192792657125177640">Исключения</translation>
 <translation id="6196640612572343990">Блокировать сторонние файлы cookie</translation>
 <translation id="6206551242102657620">Подключение защищено. Информация о сайте</translation>
-<translation id="6210748933810148297">Не <ph name="EMAIL" />?</translation>
+<translation id="6210748933810148297"><ph name="EMAIL" /> не ваш аккаунт?</translation>
 <translation id="6216432067784365534"><ph name="NAME_OF_LIST_ITEM" />: параметры</translation>
 <translation id="6221633008163990886">Чтобы экспортировать пароли, разблокируйте экран</translation>
 <translation id="6232535412751077445">Если вы запретите отслеживание, в запросы браузера будет включена специальная команда. Сайты могут интерпретировать ее и отвечать на нее по-разному.

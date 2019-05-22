@@ -152,7 +152,7 @@
 
       Si la política no s'estableix o s'estableix en "false", els sistemes de xifratge RC4 de TLS no s'activaran. En cas contrari, es pot establir en "true" per conservar la compatibilitat amb un servidor obsolet. Es tracta d'una mesura temporal i el servidor s'ha de tornar a configurar.</translation>
 <translation id="1297182715641689552">Fes servir un script de servidor intermediari .pac</translation>
-<translation id="1304973015437969093">Identificadors de les extensions i de les aplicacions i URL de les actualitzacions que s'instal·laran en silenci</translation>
+<translation id="1304973015437969093">Identificadors de les extensions i de les aplicacions i URL de les actualitzacions que s'instal·laran silenciosament</translation>
 <translation id="1307454923744766368">Orígens o patrons de nom d'amfitrió en què no s'han d'aplicar les restriccions sobre orígens no segurs</translation>
 <translation id="1312799700549720683">Controla la configuració de la pantalla.</translation>
 <translation id="131353325527891113">Mostra els noms d'usuari a la pantalla d'inici de sessió</translation>
@@ -471,7 +471,7 @@
 <translation id="2006530844219044261">Gestió de l'alimentació</translation>
 <translation id="2014757022750736514">Controla el comportament de la pantalla d'inici de sessió, en què els usuaris inicien la sessió als seus comptes. Les opcions de configuració et permeten controlar qui pot iniciar la sessió, quin tipus de comptes s'admeten i quins mètodes d'autenticació s'han d'utilitzar, així com les opcions d'accessibilitat general, el mètode d'introducció de text i la configuració regional.</translation>
 <translation id="201557587962247231">Freqüència amb què s'envien càrregues per informar sobre l'estat del dispositiu</translation>
-<translation id="2017301949684549118">URL per a aplicacions web que s'instal·laran en segon pla.</translation>
+<translation id="2017301949684549118">URL per a aplicacions web que s'instal·laran silenciosament.</translation>
 <translation id="2018836497795982119">Especifica el període en mil·lisegons per al qual se sol·licita informació sobre polítiques relatives a l'usuari al servei de gestió de dispositius.
 
       Si aquesta política s'estableix, el valor predeterminat de tres hores se substituirà per un dels valors vàlids, que es troben en un interval d'1.800.000 (30 minuts) a 86.400.000 mil·lisegons (un dia). Els valors que no es trobin dins d'aquest interval s'ajustaran al límit corresponent. Si la plataforma admet notificacions sobre polítiques, el retard d'actualització s'establirà en 24 hores, ja que es preveu que aquestes notificacions forcin una actualització automàtica cada vegada que canviï la política.
@@ -479,7 +479,7 @@
       Si aquesta política no s'estableix, <ph name="PRODUCT_NAME" /> utilitzarà el valor predeterminat de tres hores.
 
       Tingues en compte que, si la plataforma admet notificacions sobre polítiques, el retard d'actualització s'establirà en 24 hores (i s'ignoraran tots els valors predeterminats i el valor d'aquesta política), ja que es preveu que aquestes notificacions forcin una actualització automàtica cada vegada que canviï la política. Per tant, serà innecessari fer actualitzacions més freqüents.</translation>
-<translation id="2024149678078029009">Aquesta política controla l'ordre que cal utilitzar per obrir URL a <ph name="PRODUCT_NAME" /> quan es canvia des d'Internet Explorer.
+<translation id="2024149678078029009">Aquesta política controla l'ordre que cal utilitzar per obrir els URL a <ph name="PRODUCT_NAME" /> quan es canvia des d'Internet Explorer.
 
       Si el complement Compatibilitat amb navegadors antics d'Internet Explorer no està instal·lat, aquesta política no té cap efecte.
 
@@ -1533,7 +1533,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
      Si aquesta política no es defineix, es podran veure tots els comptes de Google del dispositiu a <ph name="PRODUCT_NAME" />.</translation>
 <translation id="436581050240847513">Informe de les interfícies de xarxa del dispositiu</translation>
-<translation id="4372704773119750918">No permetis que l'usuari empresarial formi part dels perfils múltiples (com a usuari principal o secundari)</translation>
+<translation id="4372704773119750918">No permetis que l'usuari d'empresa formi part dels perfils múltiples (com a usuari principal o secundari)</translation>
 <translation id="4377599627073874279">Permet que tots els llocs mostrin totes les imatges</translation>
 <translation id="437791893267799639">La política no està definida; no permetis la migració de dades i ARC</translation>
 <translation id="4389073105055031853">Permet que els usuaris gestionin tots els certificats</translation>
@@ -1574,7 +1574,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="4483649828988077221">Desactiva l'actualització automàtica</translation>
 <translation id="4485425108474077672">Configura l'URL de la pàgina Pestanya nova</translation>
 <translation id="4492287494009043413">Desactivació de les captures de pantalla</translation>
-<translation id="4494132853995232608">Comandament de telemetria i diagnòstic de Wilco</translation>
+<translation id="4494132853995232608">DTC de Wilco</translation>
 <translation id="449423975179525290">Configura les polítiques relacionades amb <ph name="PLUGIN_VM_NAME" />.</translation>
 <translation id="450537894712826981">Defineix la mida de memòria cau que <ph name="PRODUCT_NAME" /> utilitzarà per emmagatzemar fitxers multimèdia de la memòria cau al disc.
 
@@ -1710,7 +1710,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
           Si actives aquesta opció de configuració, <ph name="PRODUCT_NAME" /> ignora totes les opcions relacionades amb el servidor intermediari que s'han especificat des de la línia d'ordres.
 
           Si deixes aquesta política sense establir, els usuaris poden triar pel seu compte la configuració del servidor intermediari.</translation>
-<translation id="4816674326202173458">Permet que un usuari empresarial sigui principal i secundari (comportament predeterminat per a usuaris no gestionats)</translation>
+<translation id="4816674326202173458">Permet que un usuari d'empresa sigui principal i secundari (comportament predeterminat per a usuaris no gestionats)</translation>
 <translation id="4826326557828204741">Acció que s'ha d'emprendre quan s'està inactiu mentre s'utilitza la bateria</translation>
 <translation id="4832852360828533362">Informes d'usuaris i de dispositius</translation>
 <translation id="4834526953114077364">Els usuaris utilitzats fa més temps i que no s'hagin utilitzat per iniciar la sessió en els últims tres mesos s'eliminen fins que hi hagi prou espai lliure.</translation>
@@ -2821,7 +2821,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="7339315111520512972">Obliga a executar el codi de xarxa cal procés del navegador</translation>
 <translation id="7340034977315324840">Informa del temps d'activitat dels dispositius</translation>
 <translation id="7343497214039883642">Fitxer de configuració de la impressora d'empresa per a dispositius</translation>
-<translation id="7349338075015720646">Especifica una llista de llocs web que s'instal·len en segon pla, sense la interacció de l'usuari, i que l'usuari no pot desinstal·lar ni desactivar.
+<translation id="7349338075015720646">Especifica una llista de llocs web que s'instal·len silenciosament, sense la interacció de l'usuari, i que l'usuari no pot desinstal·lar ni desactivar.
 
       Cada element de la llista de la política és un objecte amb dos membres: "url" i "launch_container". "url" ha de ser l'URL de l'aplicació web que cal instal·lar i "launch_container" ha de ser "window" (finestra) o "tab" (pestanya) per indicar com s'obrirà l'aplicació web un cop instal·lada. Si "launch_container" s'omet, l'aplicació s'obrirà en una finestra si Chrome la considera una aplicació web progressiva i s'obrirà en una pestanya en cas contrari.</translation>
 <translation id="735902178936442460">Aquesta política controla si cal proporcionar informació que es pugui utilitzar per identificar ordinadors, com ara el nom de l'ordinador i les adreces de la xarxa.
@@ -3155,7 +3155,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       Aquesta política està limitada a 1.000 entrades; les entrades següents s'ignoraran.
 
       Si no es defineix aquesta política, no es faran excepcions a la llista negra de la política "URLBlacklist".</translation>
-<translation id="8176035528522326671">Permet que un usuari empresarial només sigui un usuari multiperfil principal (comportament predeterminat per a usuaris gestionats per l'empresa)</translation>
+<translation id="8176035528522326671">Permet que un usuari d'empresa només sigui un usuari multiperfil principal (comportament predeterminat per a usuaris gestionats per l'empresa)</translation>
 <translation id="8214600119442850823">Configura el gestor de contrasenyes.</translation>
 <translation id="8244525275280476362">Retard màxim en l'obtenció després de la invalidació d'una política</translation>
 <translation id="8256688113167012935">Controla el nom del compte que <ph name="PRODUCT_OS_NAME" /> mostra a la pantalla d'inici de sessió per al compte local del dispositiu corresponent.
@@ -3172,7 +3172,7 @@ La finalitat exclusiva d'aquestes polítiques és configurar instàncies de <ph 
 No cal que configuris aquestes opcions manualment. Pots baixar plantilles fàcils d'utilitzar per a Windows, Mac i Linux de la pàgina <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
 
 La manera recomanada de configurar la política a Windows és amb GPO, tot i que encara s'admet proporcionar la política mitjançant el registre per a instàncies de Windows vinculades a un domini de <ph name="MS_AD_NAME" />.</translation>
-<translation id="8264653492961233132">Especifica una llista d'aplicacions i d'extensions que s'instal·len en segon pla,
+<translation id="8264653492961233132">Especifica una llista d'aplicacions i d'extensions que s'instal·len silenciosament,
           sense la interacció de l'usuari, i que l'usuari no pot
           desinstal·lar ni desactivar. Tots els permisos que les
           aplicacions o les extensions sol·liciten es concedeixen de manera implícita, sense cap interacció de l'usuari,

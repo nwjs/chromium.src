@@ -38,7 +38,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "win, android, linux64, mac64, win64",
+  "buildspec_platforms": "win, linux64, mac64, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -1298,7 +1298,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + 'a0f51b2e123f39c9ff12e621b0b47dd28dd64424',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '741f9a0679bc70682b056004f8421879352d1a8d',
+    Var('webrtc_git') + '/src.git' + '@' + 'cc1b32545db7823b85f5a83a92ed5f85970492c9',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1339,7 +1339,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@46bfc31e1e097dec5d4fe9aa2a40ef0ab894c162',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@151bfa60c2068e7d2f3eea47728e906002ea9401',
     'condition': 'checkout_src_internal',
   },
 

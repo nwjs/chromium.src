@@ -2104,6 +2104,7 @@
 <translation id="409579654357498729">Tambahkan ke Cloud Print</translation>
 <translation id="4096508467498758490">Nonaktifkan ekstensi mode pengembang</translation>
 <translation id="4096824249111507322">Modul aman sedang disiapkan, harap tunggu (proses ini mungkin membutuhkan beberapa menit)...</translation>
+<translation id="4097560579602855702">Telusuri Google</translation>
 <translation id="4099060993766194518">Pulihkan mesin telusur default?</translation>
 <translation id="4099874310852108874">Terjadi error jaringan.</translation>
 <translation id="4100733287846229632">Ruang perangkat hampir habis</translation>
@@ -2574,7 +2575,7 @@
 <translation id="4876895919560854374">Kunci dan buka kunci layar</translation>
 <translation id="4877276003880815204">Periksa Elemen</translation>
 <translation id="4879491255372875719">Otomatis (default)</translation>
-<translation id="4880214202172289027">Penggeser suara</translation>
+<translation id="4880214202172289027">Pengatur volume</translation>
 <translation id="4880328057631981605">Nama titik akses</translation>
 <translation id="4880520557730313061">Perbaikan Otomatis</translation>
 <translation id="4880827082731008257">Telusuri histori</translation>
@@ -3777,7 +3778,7 @@
 <translation id="6639554308659482635">Memori SQLite</translation>
 <translation id="6641138807883536517">Sandi modul aman yang dibuat secara acak tidak tersedia. Hal ini normal setelah menjalankan Powerwash.</translation>
 <translation id="6643016212128521049">Hapus</translation>
-<translation id="6644512095122093795">Tawarkan untuk menyimpan sandi</translation>
+<translation id="6644512095122093795">Tawarkan penyimpanan sandi</translation>
 <translation id="6644846457769259194">Memperbarui perangkat (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="6645437135153136856">Perangkat Google Cloud Print yang dipilih tidak didukung lagi. <ph name="BR" /> Coba siapkan printer di setelan sistem komputer.</translation>
 <translation id="6647228709620733774">URL Kebijakan Otoritas Sertifikasi Netscape</translation>
@@ -4564,7 +4565,7 @@
       <ph name="LIST_ITEM" />Menyetel sandi login dev dan root system ke nilai kustom agar Anda dapat secara manual melakukan SSH ke perangkat
     <ph name="END_LIST" />
     <ph name="BR" />
-    Setelah diaktifkan, sebagian besar fitur debug akan tetap aktif setelah melakukan powerwash atau wipe data di perangkat yang dikelola oleh perusahaan.  Untuk menonaktifkan semua fitur debug sepenuhnya, selesaikan proses pemulihan Chrome OS (https://support.google.com/chromebook/answer/1080595).
+    Setelah diaktifkan, sebagian besar fitur debug akan tetap aktif setelah melakukan powerwash atau penghapusan total data di perangkat yang dikelola oleh perusahaan.  Untuk menonaktifkan semua fitur debug sepenuhnya, selesaikan proses pemulihan Chrome OS (https://support.google.com/chromebook/answer/1080595).
     <ph name="BR" />
     <ph name="BR" />
     Untuk informasi selengkapnya tentang fitur debug, lihat:<ph name="BR" />
@@ -4801,7 +4802,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8141725884565838206">Kelola sandi Anda</translation>
 <translation id="8142441511840089262">Klik dua kali</translation>
 <translation id="8143442547342702591">Aplikasi tidak valid</translation>
-<translation id="8146177459103116374">Jika Anda telah terdaftar di perangkat ini, Anda dapat <ph name="LINK2_START" />masuk sebagai pengguna yang ada<ph name="LINK2_END" />.</translation>
+<translation id="8146177459103116374">Jika Anda telah terdaftar di perangkat ini, Anda dapat <ph name="LINK2_START" />login sebagai pengguna yang ada<ph name="LINK2_END" />.</translation>
 <translation id="8146793085009540321">Proses masuk gagal. Hubungi administrator Anda atau coba lagi.</translation>
 <translation id="8151638057146502721">Konfigurasi</translation>
 <translation id="8152091997436726702">Waktu pendaftaran printer telah habis. Untuk mendaftarkan printer, Anda harus mengonfirmasi pendaftaran di printer tersebut.</translation>
@@ -4995,7 +4996,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8461329675984532579">Nama penyedia rumah</translation>
 <translation id="84613761564611563">Antarmuka konfigurasi jaringan diminta, harap tunggu...</translation>
 <translation id="8461914792118322307">Proxy</translation>
-<translation id="8463215747450521436">Pengguna yang diawasi ini dapat dihapus atau dinonaktifkan oleh pengelola. Hubungi pengelola jika Anda ingin terus masuk sebagai pengguna ini.</translation>
+<translation id="8463215747450521436">Pengguna yang diawasi ini dapat dihapus atau dinonaktifkan oleh pengelola. Hubungi pengelola jika Anda ingin terus login sebagai pengguna ini.</translation>
 <translation id="846374874681391779">Kotak download</translation>
 <translation id="8463955938112983119"><ph name="PLUGIN_NAME" /> dinonaktifkan.</translation>
 <translation id="8464132254133862871">Akun pengguna ini tidak layak mendapatkan layanan.</translation>
