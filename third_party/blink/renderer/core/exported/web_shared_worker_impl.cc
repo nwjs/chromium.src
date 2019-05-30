@@ -32,6 +32,17 @@
 
 #include <memory>
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom-blink.h"
@@ -225,7 +236,7 @@ void WebSharedWorkerImpl::ConnectTaskOnWorkerThread(
   scope->Connect(std::move(channel));
 }
 
-void WebSharedWorkerImpl::StartWorkerContext(
+void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& root_path,
     const WebURL& script_request_url,
     const WebString& name,
     const WebString& content_security_policy,
@@ -238,6 +249,8 @@ void WebSharedWorkerImpl::StartWorkerContext(
     mojo::ScopedMessagePipeHandle interface_provider) {
   DCHECK(IsMainThread());
   script_request_url_ = script_request_url;
+  nodejs_ = nodejs;
+  root_path_ = root_path;
   name_ = name;
   creation_address_space_ = creation_address_space;
   // Chrome doesn't use interface versioning.
@@ -317,6 +330,10 @@ void WebSharedWorkerImpl::ContinueStartWorkerContext() {
   // (e.g. GrantUniversalAccess) that can be overriden in regular documents
   // via WebPreference by embedders. (crbug.com/254993)
   Document* document = shadow_page_->GetDocument();
+  std::string main_script = root_path_.AsUTF8Unsafe();
+  if (g_web_worker_start_thread_fn && nodejs_) {
+    (*g_web_worker_start_thread_fn)(nullptr, (void*)main_script_loader_->Url().GetPath().Utf8().data(), &main_script, &nodejs_);
+  }
 
   // Creates 'outside settings' used in the "Processing model" algorithm in the
   // HTML spec:
@@ -348,7 +365,7 @@ void WebSharedWorkerImpl::ContinueStartWorkerContext() {
     // worker script fetch on the worker thread.
     // TODO(nhiroki): Currently |address_space| and |origin_trial_tokens| are
     // not updated after worker script fetch. Update them.
-    auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+    auto creation_params = std::make_unique<GlobalScopeCreationParams>(nodejs_, main_script,
         script_request_url_, script_type,
         OffMainThreadWorkerScriptFetchOption::kEnabled, name_,
         document->UserAgent(), std::move(web_worker_fetch_context),
@@ -382,7 +399,7 @@ void WebSharedWorkerImpl::ContinueStartWorkerContext() {
   ContentSecurityPolicy* content_security_policy =
       main_script_loader_->GetContentSecurityPolicy();
 
-  auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+  auto creation_params = std::make_unique<GlobalScopeCreationParams>(nodejs_, main_script,
       script_response_url, script_type,
       OffMainThreadWorkerScriptFetchOption::kDisabled, name_,
       document->UserAgent(), std::move(web_worker_fetch_context),

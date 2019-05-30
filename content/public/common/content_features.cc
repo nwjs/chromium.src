@@ -7,6 +7,9 @@
 
 namespace features {
 
+const base::Feature kNWNewWin{
+    "nw2", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // All features in alphabetical order.
 
 // Enables the allowActivationDelegation attribute on iframes.
@@ -454,7 +457,7 @@ const base::Feature kSignedHTTPExchange{"SignedHTTPExchange",
 // spare renderer process around for the most recently requested BrowserContext.
 // This feature is only consulted in site-per-process mode.
 const base::Feature kSpareRendererForSitePerProcess{
-    "SpareRendererForSitePerProcess", base::FEATURE_ENABLED_BY_DEFAULT};
+    "SpareRendererForSitePerProcess", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Dispatch touch events to "SyntheticGestureController" for events from
 // Devtool Protocol Input.dispatchTouchEvent to simulate touch events close to

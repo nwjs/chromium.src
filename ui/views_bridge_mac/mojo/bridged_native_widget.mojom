@@ -160,6 +160,8 @@ interface BridgedNativeWidget {
 
   // Miniaturize or deminiaturize the window.
   SetMiniaturized(bool miniaturized);
+  SetMaximized(bool maximized);
+  [Sync] IsMaximized() => (bool maximized);
 
   // Called by NativeWidgetMac when the window size constraints change.
   SetSizeConstraints(gfx.mojom.Size min_size,

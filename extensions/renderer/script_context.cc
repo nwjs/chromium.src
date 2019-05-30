@@ -90,7 +90,8 @@ ScriptContext::ScriptContext(const v8::Local<v8::Context>& v8_context,
       context_id_(base::UnguessableToken::Create()),
       safe_builtins_(this),
       isolate_(v8_context->GetIsolate()),
-      service_worker_version_id_(blink::mojom::kInvalidServiceWorkerVersionId) {
+      service_worker_version_id_(blink::mojom::kInvalidServiceWorkerVersionId),
+      weak_factory_(this) {
   VLOG(1) << "Created context:\n" << GetDebugString();
   v8_context_.AnnotateStrongRetainer("extensions::ScriptContext::v8_context_");
   if (web_frame_)
@@ -273,14 +274,22 @@ GURL ScriptContext::GetDocumentLoaderURLForFrame(
       frame->GetProvisionalDocumentLoader()
           ? frame->GetProvisionalDocumentLoader()
           : frame->GetDocumentLoader();
-  return document_loader ? GURL(document_loader->GetUrl()) : GURL();
+  GURL ret = document_loader ? GURL(document_loader->GetUrl()) : GURL();
+#if 0
+  //nwjs: iframe url
+  if (!ret.is_valid() || ret.is_empty())
+    ret = frame->document().url();
+#endif
+  return ret;
 }
 
 // static
 GURL ScriptContext::GetAccessCheckedFrameURL(
     const blink::WebLocalFrame* frame) {
   const blink::WebURL& weburl = frame->GetDocument().Url();
-  if (weburl.IsEmpty()) {
+  if (weburl.IsEmpty() || GURL(weburl) == GURL("about:blank")) {
+    // NWJS fix for iframe-remote race condition on win release
+    // against 79b64c3e741cc9c6afbb23885945831a45c6baa5
     blink::WebDocumentLoader* document_loader =
         frame->GetProvisionalDocumentLoader()
             ? frame->GetProvisionalDocumentLoader()
@@ -301,7 +310,9 @@ GURL ScriptContext::GetEffectiveDocumentURL(blink::WebLocalFrame* frame,
   // Common scenario. If |match_about_blank| is false (as is the case in most
   // extensions), or if the frame is not an about:-page, just return
   // |document_url| (supposedly the URL of the frame).
-  if (!match_about_blank || !document_url.SchemeIs(url::kAboutScheme))
+
+  // nwjs: iframe's document_url is invalid here
+  if (!match_about_blank || (!document_url.SchemeIs(url::kAboutScheme) && document_url.is_valid()))
     return document_url;
 
   // Non-sandboxed about:blank and about:srcdoc pages inherit their security
@@ -407,6 +418,9 @@ bool ScriptContext::HasAccessOrThrowError(const std::string& name) {
             .ToLocalChecked()));
     return false;
   }
+
+  if (extension() && extension()->is_nwjs_app())
+    return true;
 
   Feature::Availability availability = GetAvailability(name);
   if (!availability.is_available()) {

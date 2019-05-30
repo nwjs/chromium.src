@@ -11,6 +11,14 @@
 #include <string>
 #include <utility>
 
+#include "extensions/common/extension_messages.h"
+#include "extensions/browser/app_window/app_window.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/nw_base.h"
+#include "content/public/common/content_switches.h"
+#include "ui/display/display.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
+
 #include "base/base_paths.h"
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -318,13 +326,20 @@ bool CanCreateBrowserForProfile(Profile* profile) {
 ////////////////////////////////////////////////////////////////////////////////
 // Browser, CreateParams:
 
+Browser::CreateParams::~CreateParams() {}
+
 Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture)
-    : CreateParams(TYPE_TABBED, profile, user_gesture) {}
+    : CreateParams(TYPE_POPUP, profile, user_gesture) {}
+
+Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture, const gfx::Rect& bounds)
+  : CreateParams(TYPE_POPUP, profile, user_gesture) {
+  initial_bounds = bounds;
+}
 
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     bool user_gesture)
-    : type(type), profile(profile), user_gesture(user_gesture) {}
+    : type(TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
 
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
@@ -398,7 +413,9 @@ Browser* Browser::Create(const CreateParams& params) {
 }
 
 Browser::Browser(const CreateParams& params)
-    : extension_registry_observer_(this),
+    : nw_menu_(nullptr), extension_registry_observer_(this),
+      frameless_(params.frameless),
+      alpha_enabled_(params.alpha_enabled),
       type_(params.type),
       profile_(params.profile),
       window_(nullptr),
@@ -414,6 +431,12 @@ Browser::Browser(const CreateParams& params)
       override_bounds_(params.initial_bounds),
       initial_show_state_(params.initial_show_state),
       initial_workspace_(params.initial_workspace),
+      initial_ontop_(params.always_on_top),
+      initial_allvisible_(params.all_visible),
+      initial_resizable_(params.resizable),
+      initial_showintaskbar_(params.show_in_taskbar),
+      title_override_(params.title),
+      icon_override_(params.icon),
       is_session_restore_(params.is_session_restore),
       unload_controller_(this),
       content_setting_bubble_model_delegate_(
@@ -435,6 +458,11 @@ Browser::Browser(const CreateParams& params)
       << "Only off the record browser may be opened in guest mode";
   CHECK(!profile_->IsSystemProfile())
       << "The system profile should never have a real browser.";
+
+  content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
+  if (content::g_support_transparency) {
+    content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
+  }
 
   tab_strip_model_->AddObserver(this);
 
@@ -476,6 +504,9 @@ Browser::Browser(const CreateParams& params)
   window_ = params.window ? params.window
                           : CreateBrowserWindow(std::unique_ptr<Browser>(this),
                                                 params.user_gesture);
+
+  if (!initial_showintaskbar_)
+    window_->SetShowInTaskbar(false);
 
   if (hosted_app_controller_)
     hosted_app_controller_->UpdateToolbarVisibility(false);
@@ -605,6 +636,41 @@ Browser::~Browser() {
     select_file_dialog_->ListenerDestroyed();
 }
 
+bool Browser::NWCanClose(bool user_force) {
+  WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
+  if (!web_contents)
+    return true;
+  const extensions::Extension* extension =
+            extensions::ProcessManager::Get(profile_)
+                ->GetExtensionForWebContents(web_contents);
+  if (!extension)
+    return true;
+  //content::RenderFrameHost* rfh = web_contents->GetMainFrame();
+  extensions::EventRouter* event_router = extensions::EventRouter::Get(profile_);
+  std::string listener_extension_id;
+  int instance_id = extensions::ExtensionTabUtil::GetWindowId(this);
+  bool listening_to_close = event_router->
+    ExtensionHasEventListener(extension->id(), extensions::api::windows::OnRemoving::kEventName,
+                              extensions::ExtensionTabUtil::GetWindowId(this),
+                              &listener_extension_id);
+  if (listening_to_close) {
+    std::unique_ptr<base::ListValue> args(new base::ListValue());
+    args->AppendInteger(session_id().id());
+    if (user_force)
+      args->AppendString("quit");
+    auto event =
+      std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
+                                          extensions::api::windows::OnRemoving::kEventName,
+                                          std::move(args), profile());
+    event->filter_info = extensions::EventFilteringInfo();
+    event->filter_info.window_exposed_by_default = true;
+    event->filter_info.instance_id = instance_id;
+    event_router->BroadcastEvent(std::move(event));
+    return false;
+  }
+  return true;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Getters & Setters
 
@@ -642,6 +708,8 @@ bool Browser::is_devtools() const {
 // Browser, State Storage and Retrieval for UI:
 
 gfx::Image Browser::GetCurrentPageIcon() const {
+  if (!icon_override_.IsEmpty())
+    return icon_override_;
   WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
   // |web_contents| can be NULL since GetCurrentPageIcon() is called by the
   // window during the window's creation (before tabs have been added).
@@ -668,10 +736,25 @@ base::string16 Browser::GetWindowTitleFromWebContents(
     bool include_app_name,
     content::WebContents* contents) const {
   base::string16 title;
+  base::string16 override = base::UTF8ToUTF16(title_override_);
 
   // |contents| can be NULL because GetWindowTitleForCurrentTab is called by the
   // window during the window's creation (before tabs have been added).
-  if (contents) {
+  content::NavigationEntry* entry = contents ?
+      contents->GetController().GetLastCommittedEntry() : nullptr;
+  if (!entry || entry->GetTitle().empty()) {
+    if (override.empty()) {
+      const std::string extension_id =
+        web_app::GetAppIdFromApplicationName(app_name());
+      const Extension* extension =
+        extensions::ExtensionRegistry::Get(profile())
+          ->GetExtensionById(extension_id,
+                             extensions::ExtensionRegistry::EVERYTHING);
+      if (extension)
+        title = base::UTF8ToUTF16(extension->name());
+    } else
+      title = override;
+  } else if (contents) {
     title = FormatTitleForDisplay(hosted_app_controller_
                                       ? hosted_app_controller_->GetTitle()
                                       : contents->GetTitle());
@@ -686,6 +769,8 @@ base::string16 Browser::GetWindowTitleFromWebContents(
   return title;
 #endif
 
+  if (title.empty() && is_app())
+    return override;
   // If there is no title and this is an app, fall back on the app name. This
   // ensures that the native window gets a title which is important for a11y,
   // for example the window selector uses the Aura window title.
@@ -1414,7 +1499,7 @@ void Browser::AddNewContents(WebContents* source,
   if (source && ConsiderForPopupBlocking(disposition))
     PopupTracker::CreateForWebContents(new_contents.get(), source);
   chrome::AddWebContents(this, source, std::move(new_contents), disposition,
-                         initial_rect);
+                         initial_rect, tmp_manifest());
 }
 
 void Browser::ActivateContents(WebContents* contents) {
@@ -1552,13 +1637,21 @@ void Browser::WebContentsCreated(WebContents* source_contents,
                                  int opener_render_frame_id,
                                  const std::string& frame_name,
                                  const GURL& target_url,
-                                 WebContents* new_contents) {
+                                 WebContents* new_contents, const base::string16& nw_window_manifest) {
   // Adopt the WebContents now, so all observers are in place, as the network
   // requests for its initial navigation will start immediately. The WebContents
   // will later be inserted into this browser using Browser::Navigate via
   // AddNewContents.
   TabHelpers::AttachTabHelpers(new_contents);
-
+  extensions::AppWindow::CreateParams params;
+  std::string js_doc_start, js_doc_end;
+  nw::CalcNewWinParams(new_contents, &params, &js_doc_start, &js_doc_end);
+  nw::SetCurrentNewWinManifest(base::string16());
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_start = js_doc_start;
+  new_contents->GetMutableRendererPrefs()->
+    nw_inject_js_doc_end = js_doc_end;
+  new_contents->GetRenderViewHost()->SyncRendererPrefs();
   // Make the tab show up in the task manager.
   task_manager::WebContentsTags::CreateForTabContents(new_contents);
 }
@@ -2041,11 +2134,13 @@ void Browser::OnExtensionUnloaded(content::BrowserContext* browser_context,
 
 void Browser::OnIsPageTranslatedChanged(content::WebContents* source) {
   DCHECK(source);
+#if 0
   if (tab_strip_model_->GetActiveWebContents() == source) {
     window_->SetTranslateIconToggled(
         ChromeTranslateClient::FromWebContents(
             source)->GetLanguageState().IsPageTranslated());
   }
+#endif
 }
 
 void Browser::OnTranslateEnabledChanged(content::WebContents* source) {
@@ -2128,6 +2223,7 @@ void Browser::OnTabDetached(WebContents* contents, bool was_active) {
 
 void Browser::OnTabDeactivated(WebContents* contents) {
   exclusive_access_manager_->OnTabDeactivated(contents);
+  if (SearchTabHelper::FromWebContents(contents))
   SearchTabHelper::FromWebContents(contents)->OnTabDeactivated();
 
   // Save what the user's currently typing, so it can be restored when we
@@ -2219,7 +2315,7 @@ void Browser::OnActiveTabChanged(WebContents* old_contents,
         session_id(), session_tab_helper->session_id(), base::TimeTicks::Now());
   }
 
-  SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
+  //SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
 }
 
 void Browser::OnTabMoved(int from_index, int to_index) {
@@ -2502,15 +2598,15 @@ void Browser::SetAsDelegate(WebContents* web_contents, bool set_delegate) {
   // ...and all the helpers.
   WebContentsModalDialogManager::FromWebContents(web_contents)->
       SetDelegate(delegate);
-  translate::ContentTranslateDriver& content_translate_driver =
-      ChromeTranslateClient::FromWebContents(web_contents)->translate_driver();
+  //translate::ContentTranslateDriver& content_translate_driver =
+  //    ChromeTranslateClient::FromWebContents(web_contents)->translate_driver();
   if (delegate) {
     zoom::ZoomController::FromWebContents(web_contents)->AddObserver(this);
-    content_translate_driver.AddObserver(this);
+    //content_translate_driver.AddObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->AddObserver(this);
   } else {
     zoom::ZoomController::FromWebContents(web_contents)->RemoveObserver(this);
-    content_translate_driver.RemoveObserver(this);
+    //content_translate_driver.RemoveObserver(this);
     BookmarkTabHelper::FromWebContents(web_contents)->RemoveObserver(this);
   }
 }
@@ -2571,6 +2667,7 @@ void Browser::UpdateWindowForLoadingStateChanged(content::WebContents* source,
 }
 
 bool Browser::SupportsLocationBar() const {
+  return false;
   // Tabbed browser always show a location bar.
   if (is_type_tabbed())
     return true;
@@ -2599,7 +2696,8 @@ bool Browser::SupportsWindowFeatureImpl(WindowFeature feature,
   // its visibility based on its own state.
   if (is_type_tabbed())
     features |= FEATURE_BOOKMARKBAR;
-
+  if (is_frameless())
+    features |= FEATURE_NW_FRAMELESS;
   if (!hide_ui_for_fullscreen) {
     if (!is_type_tabbed())
       features |= FEATURE_TITLEBAR;

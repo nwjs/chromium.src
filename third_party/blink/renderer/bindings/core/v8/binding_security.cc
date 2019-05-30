@@ -391,6 +391,10 @@ bool BindingSecurity::ShouldAllowWrapperCreationOrThrowException(
   if (wrapper_type_info->Equals(V8Location::GetWrapperTypeInfo()))
     return true;
 
+  v8::Isolate* isolate = creation_context->GetIsolate();
+  if (isolate->GetCurrentContext()->GetAlignedPointerFromEmbedderData(50) == (void*)0x08110800)
+    return true;
+
   ExceptionState exception_state(accessing_context->GetIsolate(),
                                  ExceptionState::kConstructionContext,
                                  wrapper_type_info->interface_name);

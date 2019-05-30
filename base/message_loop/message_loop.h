@@ -22,6 +22,8 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 
+#include "base/message_loop/message_pump_uv.h"
+
 namespace base {
 
 namespace internal {
@@ -109,6 +111,9 @@ class BASE_EXPORT MessageLoopBase {
   // TYPE_CUSTOM
   //   MessagePump was supplied to constructor.
   //
+  // TYPE_NODE
+  //   For integration with NodeJS/libuv in the renderer thread
+
   enum Type {
     TYPE_DEFAULT,
     TYPE_UI,
@@ -116,7 +121,8 @@ class BASE_EXPORT MessageLoopBase {
     TYPE_IO,
 #if defined(OS_ANDROID)
     TYPE_JAVA,
-#endif  // defined(OS_ANDROID)
+#endif // defined(OS_ANDROID)
+    TYPE_NODE
   };
 
   // Returns true if this loop is |type|. This allows subclasses (especially
@@ -226,6 +232,7 @@ class BASE_EXPORT MessageLoop {
 #if defined(OS_ANDROID)
   static constexpr Type TYPE_JAVA = Type::TYPE_JAVA;
 #endif  // defined(OS_ANDROID)
+  static constexpr Type TYPE_NODE = Type::TYPE_NODE;
 
   // Normally, it is not necessary to instantiate a MessageLoop.  Instead, it
   // is typical to make use of the current thread's MessageLoop instance.
@@ -434,6 +441,45 @@ class BASE_EXPORT MessageLoopForIO : public MessageLoop {
 // data that you need should be stored on the MessageLoop's pump_ instance.
 static_assert(sizeof(MessageLoop) == sizeof(MessageLoopForIO),
               "MessageLoopForIO should not have extra member variables");
+
+#if !defined(OS_MACOSX)
+
+//-----------------------------------------------------------------------------
+// MessageLoopForUV extends MessageLoop with methods that are particular to a
+// MessageLoop instantiated with TYPE_NODE.
+//
+// This class is typically used like so:
+//   MessageLoopForUV::current()->...call some method...
+//
+
+class BASE_EXPORT MessageLoopForUV : public MessageLoop {
+ public:
+
+  MessageLoopForUV() : MessageLoop(TYPE_NODE) {
+  }
+
+#if 0
+  // Returns the MessageLoopForUV of the current thread.
+  static MessageLoopForUV* current() {
+    MessageLoop* loop = MessageLoopCurrent::Get();
+    //DCHECK_EQ(MessageLoop::TYPE_NODE, loop->type());
+    return static_cast<MessageLoopForUV*>(loop);
+  }
+#endif
+
+  base::MessagePumpUV* pump_uv() {
+    return static_cast<base::MessagePumpUV*>(pump_);
+  }
+
+};
+
+// Do not add any member variables to MessageLoopForUV!  This is important b/c
+// MessageLoopForUV is often allocated via MessageLoop(TYPE_IO).  Any extra
+// data that you need should be stored on the MessageLoop's pump_ instance.
+static_assert(sizeof(MessageLoop) == sizeof(MessageLoopForUV),
+              "MessageLoopForUV should not have extra member variables");
+
+#endif
 
 }  // namespace base
 

@@ -194,6 +194,7 @@ class CONTENT_EXPORT RenderFrameImpl
       public blink::WebFrameSerializerClient,
       service_manager::mojom::InterfaceProvider {
  public:
+  bool skip_blocking_parser_;
   // Creates a new RenderFrame as the main frame of |render_view|.
   static RenderFrameImpl* CreateMainFrame(
       RenderViewImpl* render_view,
@@ -369,7 +370,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void ShowCreatedWindow(bool opened_by_user_gesture,
                          RenderWidget* render_widget_to_show,
                          blink::WebNavigationPolicy policy,
-                         const gfx::Rect& initial_rect);
+                         const gfx::Rect& initial_rect, blink::WebString* manifest = nullptr);
 
   // Called when this frame's widget is focused.
   void RenderWidgetSetFocus(bool enable);
@@ -535,7 +536,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void CancelBlockedRequests() override;
   void OnPortalActivated() override;
   void SetLifecycleState(blink::mojom::FrameLifecycleState state) override;
-
+  void SetSkipBlockingParser(bool) override;
 #if defined(OS_ANDROID)
   void ExtractSmartClipData(
       const gfx::Rect& rect,
@@ -853,6 +854,12 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::WebVector<char>& data,
       blink::WebFrameSerializerClient::FrameSerializationStatus status)
       override;
+  void willHandleNavigationPolicy(
+                                          blink::WebFrame*,
+                                          const blink::WebURLRequest&,
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL,
+                                          bool new_win = true) override;
 
   // Binds to the fullscreen service in the browser.
   void BindFullscreen(

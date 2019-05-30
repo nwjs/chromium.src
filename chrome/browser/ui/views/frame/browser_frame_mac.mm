@@ -4,6 +4,8 @@
 
 #import "chrome/browser/ui/views/frame/browser_frame_mac.h"
 
+#include "ui/display/display.h"
+
 #import "base/mac/foundation_util.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_shim/app_shim_host_mac.h"
@@ -307,6 +309,8 @@ void BrowserFrameMac::PopulateCreateWindowParams(
       params->window_title_hidden = true;
   } else {
     params->window_class = views_bridge_mac::mojom::WindowClass::kDefault;
+    if (widget_params.remove_standard_frame)
+      params->style_mask = NSBorderlessWindowMask;
   }
   params->animation_enabled = true;
 }

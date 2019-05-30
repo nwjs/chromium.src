@@ -296,3 +296,5 @@ vs-chromium-project.txt
 
 # Ignore IntelliJ files.
 .idea/
+/content/nw
+

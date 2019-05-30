@@ -9,6 +9,8 @@
 #include "base/command_line.h"
 #include "base/debug/crash_logging.h"
 #include "base/macros.h"
+#include "content/nw/src/nw_content.h"
+#include "extensions/common/constants.h"
 #include "content/browser/browsing_instance.h"
 #include "content/browser/child_process_security_policy_impl.h"
 #include "content/browser/frame_host/debug_urls.h"
@@ -175,7 +177,7 @@ RenderProcessHost* SiteInstanceImpl::GetProcess() {
     bool should_use_process_per_site =
         has_site_ &&
         RenderProcessHost::ShouldUseProcessPerSite(browser_context, site_);
-    if (should_use_process_per_site) {
+    if (should_use_process_per_site && nw::PinningRenderer()) {
       process_reuse_policy_ = ProcessReusePolicy::PROCESS_PER_SITE;
     } else if (process_reuse_policy_ == ProcessReusePolicy::PROCESS_PER_SITE) {
       process_reuse_policy_ = ProcessReusePolicy::DEFAULT;
@@ -273,9 +275,9 @@ bool SiteInstanceImpl::HasRelatedSiteInstance(const GURL& url) {
 }
 
 scoped_refptr<SiteInstance> SiteInstanceImpl::GetRelatedSiteInstance(
-    const GURL& url) {
+                             const GURL& url, bool allow_default_instance) {
   return browsing_instance_->GetSiteInstanceForURL(
-      url, /* allow_default_instance */ true);
+      url, allow_default_instance);
 }
 
 bool SiteInstanceImpl::IsRelatedSiteInstance(const SiteInstance* instance) {
@@ -535,7 +537,7 @@ GURL SiteInstanceImpl::GetSiteForURL(const BrowserOrResourceContext& context,
   // situation where site URL of file://localhost/ would mismatch Blink's origin
   // (which ignores the hostname in this case - see https://crbug.com/776160).
   if (!origin.host().empty() && origin.scheme() != url::kFileScheme) {
-    GURL site_url(GetSiteForOrigin(origin));
+    GURL site_url(GetSiteForOrigin(origin, real_url));
 
     // Isolated origins should use the full origin as their site URL. A
     // subdomain of an isolated origin should also use that isolated origin's
@@ -617,11 +619,15 @@ GURL SiteInstanceImpl::GetSiteForURL(const BrowserOrResourceContext& context,
 }
 
 // static
-GURL SiteInstanceImpl::GetSiteForOrigin(const url::Origin& origin) {
+GURL SiteInstanceImpl::GetSiteForOrigin(const url::Origin& origin, const GURL& real_url) {
   // Only keep the scheme and registered domain of |origin|.
   std::string domain = net::registry_controlled_domains::GetDomainAndRegistry(
       origin.host(),
       net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+  //NWJS: chrome-extension://test.foo.com was changed to foo.com
+  //without this
+  if (!real_url.is_empty() && real_url.SchemeIs("chrome-extension"))
+    domain = origin.host();
   std::string site = origin.scheme();
   site += url::kStandardSchemeSeparator;
   site += domain.empty() ? origin.host() : domain;
@@ -648,9 +654,11 @@ bool SiteInstanceImpl::DoesSiteRequireDedicatedProcess(
     const GURL& url) {
   DCHECK(browser_context);
 
+#if 0
   // If --site-per-process is enabled, site isolation is enabled everywhere.
   if (SiteIsolationPolicy::UseDedicatedProcessesForAllSites())
     return true;
+#endif
 
   // Always require a dedicated process for isolated origins.
   GURL site_url =

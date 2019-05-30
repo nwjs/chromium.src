@@ -134,6 +134,7 @@ PageActionIconContainerView* GetAnchorViewForBrowser(Browser* browser) {
   return GetAnchorViewForBrowser(browser, is_fullscreen);
 }
 
+#if 0
 ImmersiveModeController* GetImmersiveModeControllerForBrowser(
     Browser* browser) {
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
@@ -165,6 +166,7 @@ void ParentToBrowser(Browser* browser,
                      content::WebContents* web_contents) {
   ParentToViewsBrowser(browser, zoom_bubble, anchor_view, web_contents);
 }
+#endif
 
 // Find the extension that initiated the zoom change, if any.
 const extensions::ExtensionZoomRequestClient* GetExtensionZoomRequestClient(
@@ -184,6 +186,7 @@ ZoomBubbleView* ZoomBubbleView::zoom_bubble_ = nullptr;
 void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
                                 const gfx::Point& anchor_point,
                                 DisplayReason reason) {
+#if 0
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   // |web_contents| could have been unloaded if a tab gets closed and a mouse
   // event arrives before the zoom icon gets hidden.
@@ -223,6 +226,7 @@ void ZoomBubbleView::ShowBubble(content::WebContents* web_contents,
   // disappears after a short timeout.
   zoom_bubble_->ShowForReason(reason, /* allow_refocus_alert */ false);
   zoom_bubble_->UpdateZoomIconVisibility();
+#endif
 }
 
 // static

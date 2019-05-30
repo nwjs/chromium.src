@@ -122,6 +122,7 @@ vars = {
   'boringssl_git': 'https://boringssl.googlesource.com',
   'chromium_git': 'https://chromium.googlesource.com',
   'dawn_git': 'https://dawn.googlesource.com',
+  'nwjs_git': 'https://github.com/nwjs',
   'pdfium_git': 'https://pdfium.googlesource.com',
   'quiche_git': 'https://quiche.googlesource.com',
   'skia_git': 'https://skia.googlesource.com',
@@ -527,6 +528,9 @@ deps = {
   'src/third_party/spirv-cross/spirv-cross':
     Var('chromium_git') + '/external/github.com/KhronosGroup/SPIRV-Cross.git@' +
         Var('spirv_cross_revision'),
+
+  'src/tools/gyp':
+    Var('chromium_git') + '/external/gyp.git' + '@' + 'd61a9397e668fa9843c4aa7da9e79460fe590bfb',
 
   'src/third_party/spirv-headers/src':
     Var('chromium_git') + '/external/github.com/KhronosGroup/SPIRV-Headers.git@' +
@@ -1331,8 +1335,8 @@ deps = {
   'src/tools/swarming_client':
     Var('chromium_git') + '/infra/luci/client-py.git' + '@' +  Var('swarming_revision'),
 
-  'src/v8':
-    Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+  #'src/v8':
+  #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
     'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@151bfa60c2068e7d2f3eea47728e906002ea9401',
@@ -2522,7 +2526,15 @@ hooks = [
                 '--no_auth',
                 '--bucket', 'chromium-nodejs/8.9.1',
                 '-s', 'src/third_party/node/linux/node-linux-x64.tar.gz.sha1',
-    ],
+                ],
+  },
+  {
+    'name': 'nw_patch',
+    'pattern': '.',
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py'
+      ],
   },
   {
     'name': 'node_mac',

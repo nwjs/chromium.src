@@ -312,6 +312,7 @@ void V4UpdateProtocolManager::IssueUpdateRequest() {
     return;
   }
 
+#if 0
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("safe_browsing_v4_update", R"(
         semantics {
@@ -354,7 +355,7 @@ void V4UpdateProtocolManager::IssueUpdateRequest() {
                      base::Unretained(this)));
 
   request_ = std::move(loader);
-
+#endif
   // Begin the update request timeout.
   timeout_timer_.Start(FROM_HERE,
                        TimeDelta::FromSeconds(kV4TimerUpdateWaitSecMax), this,

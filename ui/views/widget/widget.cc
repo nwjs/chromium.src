@@ -170,6 +170,7 @@ Widget::Widget()
       is_secondary_widget_(true),
       frame_type_(FRAME_TYPE_DEFAULT),
       always_render_as_active_(false),
+      force_closing_(false),
       saved_show_state_(ui::SHOW_STATE_DEFAULT),
       focus_on_creation_(true),
       is_top_level_(false),
@@ -572,13 +573,18 @@ void Widget::SetShape(std::unique_ptr<ShapeRects> shape) {
   native_widget_->SetShape(std::move(shape));
 }
 
-void Widget::CloseWithReason(ClosedReason closed_reason) {
+void Widget::CloseWithReason(ClosedReason closed_reason, bool force) {
   if (widget_closed_) {
     // It appears we can hit this code path if you close a modal dialog then
     // close the last browser before the destructor is hit, which triggers
     // invoking Close again.
     return;
   }
+
+  if (!force && !force_closing_ && !NWCanClose())
+    return;
+  if (force)
+    force_closing_ = true; //for reentering this function after force close
 
   if (non_client_view_ && !non_client_view_->CanClose())
     return;
@@ -607,8 +613,8 @@ void Widget::CloseWithReason(ClosedReason closed_reason) {
   native_widget_->Close();
 }
 
-void Widget::Close() {
-  CloseWithReason(ClosedReason::kUnspecified);
+void Widget::Close(bool force) {
+  CloseWithReason(ClosedReason::kUnspecified, force);
 }
 
 void Widget::CloseNow() {
@@ -1074,6 +1080,10 @@ bool Widget::IsNativeWidgetInitialized() const {
   return native_widget_initialized_;
 }
 
+bool Widget::NWCanClose(bool user_force) const {
+  return widget_delegate_->NWCanClose(user_force);
+}
+
 bool Widget::OnNativeWidgetActivationChanged(bool active) {
   if (g_disable_activation_change_handling_)
     return false;
@@ -1172,6 +1182,8 @@ void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
 
   NotifyCaretBoundsChanged(GetInputMethod());
   SaveWindowPlacementIfInitialized();
+
+  widget_delegate_->OnWidgetResize();
 
   for (WidgetObserver& observer : observers_)
     observer.OnWidgetBoundsChanged(this, GetWindowBoundsInScreen());

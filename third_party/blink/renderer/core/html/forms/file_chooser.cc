@@ -106,6 +106,7 @@ void FileChooser::EnumerateChosenDirectory() {
 }
 
 void FileChooser::DidChooseFiles(mojom::blink::FileChooserResultPtr result) {
+  bool canceled = false;
   // TODO(tkent): If |result| is nullptr, we should not clear the
   // already-selected files in <input type=file> like other browsers.
   FileChooserFileInfoList files;
@@ -131,14 +132,16 @@ void FileChooser::DidChooseFiles(mojom::blink::FileChooserResultPtr result) {
     }
     if (!was_changed) {
       DidCloseChooser();
-      return;
+      canceled = true;
     }
   }
 
   if (client_) {
     client_->FilesChosen(std::move(files),
-                         result ? result->base_directory : base::FilePath());
+                         result ? result->base_directory : base::FilePath(), canceled);
   }
+  if (canceled)
+    return;
   DidCloseChooser();
 }
 

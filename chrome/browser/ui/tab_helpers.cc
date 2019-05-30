@@ -205,7 +205,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
           subresource_filter::kSafeBrowsingSubresourceFilter)) {
     ChromeSubresourceFilterClient::CreateForWebContents(web_contents);
   }
-  ChromeTranslateClient::CreateForWebContents(web_contents);
+  //ChromeTranslateClient::CreateForWebContents(web_contents);
   ClientHintsObserver::CreateForWebContents(web_contents);
   ConnectionHelpTabHelper::CreateForWebContents(web_contents);
   CoreTabHelper::CreateForWebContents(web_contents);
@@ -244,10 +244,12 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   PreviewsUITabHelper::CreateForWebContents(web_contents);
   RecentlyAudibleHelper::CreateForWebContents(web_contents);
   ResourceLoadingHintsWebContentsObserver::CreateForWebContents(web_contents);
+#if 0
   safe_browsing::SafeBrowsingNavigationObserver::MaybeCreateForWebContents(
       web_contents);
   safe_browsing::TriggerCreator::MaybeCreateTriggersForWebContents(
       profile, web_contents);
+#endif
   SearchEngineTabHelper::CreateForWebContents(web_contents);
   SecurityStateTabHelper::CreateForWebContents(web_contents);
   if (SiteEngagementService::IsEnabled())
@@ -297,8 +299,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
       web_contents, std::make_unique<ChromePDFWebContentsHelperClient>());
   PluginObserver::CreateForWebContents(web_contents);
   SadTabHelper::CreateForWebContents(web_contents);
+#if 0
   safe_browsing::SafeBrowsingTabObserver::CreateForWebContents(web_contents);
   SearchTabHelper::CreateForWebContents(web_contents);
+#endif
   TabDialogs::CreateForWebContents(web_contents);
   web_modal::WebContentsModalDialogManager::CreateForWebContents(web_contents);
 

@@ -1647,6 +1647,9 @@ bool LocalFrame::HasTransientUserActivation(LocalFrame* frame,
                                             bool check_if_main_thread) {
   bool available;
 
+  if (frame && frame->isNodeJS())
+    return true;
+
   if (RuntimeEnabledFeatures::UserActivationV2Enabled()) {
     available = frame ? frame->HasTransientUserActivation() : false;
   } else {
@@ -1695,6 +1698,8 @@ void LocalFrame::NotifyUserActivation() {
 }
 
 bool LocalFrame::HasTransientUserActivation() {
+  if (isNodeJS())
+    return true;
   return user_activation_state_.IsActive();
 }
 

@@ -176,7 +176,7 @@ function forwardApiMethods(
       } else if (internalApi && internalApi[m]) {
         containerElementType.prototype[m] = createInternalApiHandler(m);
       } else {
-        logging.DCHECK(false, m + ' has no implementation.');
+        //logging.DCHECK(false, m + ' has no implementation.');
       }
     }
   }

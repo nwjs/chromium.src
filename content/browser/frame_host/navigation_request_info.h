@@ -38,7 +38,7 @@ struct CONTENT_EXPORT NavigationRequestInfo {
                         std::unique_ptr<network::SharedURLLoaderFactoryInfo>
                             blob_url_loader_factory,
                         const base::UnguessableToken& devtools_navigation_token,
-                        const base::UnguessableToken& devtools_frame_token);
+                        const base::UnguessableToken& devtools_frame_token, bool nw_trust = false);
   NavigationRequestInfo(const NavigationRequestInfo& other);
   ~NavigationRequestInfo();
 
@@ -80,6 +80,8 @@ struct CONTENT_EXPORT NavigationRequestInfo {
   const base::UnguessableToken devtools_navigation_token;
 
   const base::UnguessableToken devtools_frame_token;
+
+  bool nw_trusted;
 };
 
 }  // namespace content

@@ -85,6 +85,7 @@ struct CreateViewParams {
 
   // Set this to true when creating a RenderView inside a portal.
   bool inside_portal;
+  bool skip_blocking_parser;
 };
 
 struct CreateFrameWidgetParams {

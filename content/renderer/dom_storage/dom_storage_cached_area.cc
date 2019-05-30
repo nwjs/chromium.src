@@ -56,10 +56,11 @@ bool DOMStorageCachedArea::SetItem(int connection_id,
                                    const GURL& page_url) {
   // A quick check to reject obviously overbudget items to avoid
   // the priming the cache.
+#if 0
   if ((key.length() + value.length()) * sizeof(base::char16) >
       kPerStorageAreaQuota)
     return false;
-
+#endif
   PrimeIfNeeded(connection_id);
   base::NullableString16 old_value;
 #if !defined(OS_ANDROID)

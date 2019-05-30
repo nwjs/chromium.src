@@ -864,7 +864,7 @@ void SearchProvider::ApplyCalculatedNavigationRelevance(
 std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
     const TemplateURL* template_url,
     const AutocompleteInput& input) {
-  if (!template_url || template_url->suggestions_url().empty())
+  if (true || !template_url || template_url->suggestions_url().empty())
     return nullptr;
 
   // Setting SuggestUrl the same as SearchUrl is a typical misconfiguration.

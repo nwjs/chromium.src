@@ -156,6 +156,7 @@ void DispatchOnDOMContentLoaded(content::WebContents* web_contents,
   details.tab_id = ExtensionTabUtil::GetTabId(web_contents);
   details.url = url.spec();
   details.process_id = frame_host->GetProcess()->GetID();
+  details.routing_id = frame_host->GetRoutingID();
   details.frame_id = ExtensionApiFrameIdMap::GetFrameId(frame_host);
   details.parent_frame_id =
       ExtensionApiFrameIdMap::GetParentFrameId(frame_host);

@@ -61,6 +61,9 @@
 #include "third_party/blink/renderer/platform/bindings/v8_private_property.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 
+
+#include "third_party/blink/renderer/bindings/core/v8/v8_html_frame_element.h"
+
 namespace blink {
 
 void V8Window::LocationAttributeGetterCustom(
@@ -136,11 +139,46 @@ void V8Window::EventAttributeGetterCustom(
   V8SetReturnValue(info, js_event);
 }
 
+void V8Window::ParentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+  LocalFrame* frame = imp->GetFrame();
+  if (frame && frame->isNwFakeTop()) {
+    V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
+    return;
+  }
+  V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
+}
+
+void V8Window::TopAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+  LocalFrame* frame = imp->GetFrame();
+  if (frame) {
+    for (LocalFrame* f = frame; f; ) {
+      if (f->isNwFakeTop()) {
+        V8SetReturnValue(info, ToV8(f->GetDocument()->domWindow(), info.Holder(), info.GetIsolate()));
+        return;
+      }
+      Frame* fr = f->Tree().Parent();
+      if (!fr || !fr->IsLocalFrame())
+        break;
+      f = DynamicTo<LocalFrame>(fr);
+    }
+  }
+  V8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
+}
+
 void V8Window::FrameElementAttributeGetterCustom(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   LocalDOMWindow* impl = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
   Element* frameElement = impl->frameElement();
 
+  LocalFrame* frame = impl->GetFrame();
+  if (frame && frame->isNwFakeTop()) {
+    V8SetReturnValueNull(info);
+    return;
+  }
   if (!BindingSecurity::ShouldAllowAccessTo(
           CurrentDOMWindow(info.GetIsolate()), frameElement,
           BindingSecurity::ErrorReportOption::kDoNotReport)) {

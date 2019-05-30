@@ -232,6 +232,9 @@ int BrowserNonClientFrameViewMac::NonClientHitTest(const gfx::Point& point) {
   // BrowserView::NonClientHitTest will return HTNOWHERE for points that hit
   // the native title bar. On Mac, we need to explicitly return HTCAPTION for
   // those points.
+  SkRegion* draggable_region = browser_view()->GetDraggableRegion();
+  if (draggable_region && draggable_region->contains(point.x(), point.y()))
+    return HTCAPTION;
   const int component = frame()->client_view()->NonClientHitTest(point);
   return (component == HTNOWHERE && bounds().Contains(point)) ? HTCAPTION
                                                               : component;

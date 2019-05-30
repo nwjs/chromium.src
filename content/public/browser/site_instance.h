@@ -121,7 +121,7 @@ class CONTENT_EXPORT SiteInstance : public base::RefCounted<SiteInstance> {
   // that a BrowsingInstance only has one SiteInstance per site, so that pages
   // in a BrowsingInstance have the ability to script each other.
   virtual scoped_refptr<SiteInstance> GetRelatedSiteInstance(
-      const GURL& url) = 0;
+                                                             const GURL& url, bool allow_default_instance = true) = 0;
 
   // Returns whether the given SiteInstance is in the same BrowsingInstance as
   // this one.  If so, JavaScript interactions that are permitted across

@@ -44,6 +44,10 @@
 using views_bridge_mac::mojom::VisibilityTransition;
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_force_cpu_draw;
+}
+
 namespace {
 constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
 }  // namespace
@@ -157,6 +161,17 @@ using NSViewComparatorValue = id;
 #else
 using NSViewComparatorValue = __kindof NSView*;
 #endif
+
+bool NSWindowIsMaximized(NSWindow* window) {
+  // -[NSWindow isZoomed] only works if the zoom button is enabled.
+  if ([[window standardWindowButton:NSWindowZoomButton] isEnabled])
+    return [window isZoomed];
+  
+  // We don't attempt to distinguish between a window that has been explicitly
+  // maximized versus one that has just been dragged by the user to fill the
+  // screen. This is the same behavior as -[NSWindow isZoomed] above.
+  return NSEqualRects([window frame], [[window screen] visibleFrame]);
+}
 
 // Returns true if the content_view is reparented.
 bool PositionWindowInNativeViewParent(NSView* content_view) {
@@ -417,6 +432,12 @@ void BridgedNativeWidgetImpl::InitWindow(
 
   [[NSNotificationCenter defaultCenter]
       addObserver:window_delegate_
+         selector:@selector(onWindowWillStartLiveResize:)
+             name:NSWindowWillStartLiveResizeNotification
+           object:nil];
+
+  [[NSNotificationCenter defaultCenter]
+      addObserver:window_delegate_
          selector:@selector(onSystemControlTintChanged:)
              name:NSControlTintDidChangeNotification
            object:nil];
@@ -470,8 +491,8 @@ void BridgedNativeWidgetImpl::SetBounds(const gfx::Rect& new_bounds,
 
   // A contentRect with zero width or height is a banned practice in ChromeMac,
   // due to unpredictable OSX treatment.
-  DCHECK(!clamped_content_size.IsEmpty())
-      << "Zero-sized windows not supported on Mac";
+  //DCHECK(!clamped_content_size.IsEmpty())
+  //    << "Zero-sized windows not supported on Mac";
 
   if (!window_visible_ && IsWindowModalSheet()) {
     // Window-Modal dialogs (i.e. sheets) are positioned by Cocoa when shown for
@@ -499,7 +520,7 @@ void BridgedNativeWidgetImpl::SetSizeAndCenter(
     const gfx::Size& content_size,
     const gfx::Size& minimum_content_size) {
   gfx::Rect new_window_bounds = gfx::ScreenRectFromNSRect([window_ frame]);
-  new_window_bounds.set_size(GetWindowSizeForClientSize(window_, content_size));
+  new_window_bounds.set_size(content_size); //GetWindowSizeForClientSize(window_, content_size));
   SetBounds(new_window_bounds, minimum_content_size);
 
   // Note that this is not the precise center of screen, but it is the standard
@@ -550,7 +571,16 @@ void BridgedNativeWidgetImpl::CreateContentView(uint64_t ns_view_id,
   [compositor_view setWantsLayer:YES];
   [bridged_view_ addSubview:compositor_view];
 
+  if (content::g_force_cpu_draw) {
+    [compositor_view setLayer:nil];
+    [compositor_view setWantsLayer:NO];
+    //DisplayCALayerTree flipped_layer_
+    CALayer* flipped_layer = background_layer.sublayers[0];
+    [bridged_view_ setForceCPUDrawLayer:flipped_layer];
+    [flipped_layer setGeometryFlipped:NO];
+  } else
   [bridged_view_ setWantsLayer:YES];
+
   [window_ setContentView:bridged_view_];
 }
 
@@ -919,6 +949,12 @@ void BridgedNativeWidgetImpl::OnPositionChanged() {
   UpdateWindowGeometry();
 }
 
+void BridgedNativeWidgetImpl::OnWindowWillStartLiveResize() {
+  if (!NSWindowIsMaximized(window_) && !in_fullscreen_transition_) {
+    bounds_before_maximize_ = [window_ frame];
+  }
+}
+
 void BridgedNativeWidgetImpl::OnVisibilityChanged() {
   const bool window_visible = [window_ isVisible];
   if (window_visible_ == window_visible)
@@ -1154,6 +1190,30 @@ void BridgedNativeWidgetImpl::SetCanAppearInExistingFullscreenSpaces(
   window.collectionBehavior = collectionBehavior;
 }
 
+bool BridgedNativeWidgetImpl::IsMaximized(bool* maximized) {
+  *maximized = NSWindowIsMaximized(window_);
+  return true;
+}
+
+void BridgedNativeWidgetImpl::IsMaximized(IsMaximizedCallback callback) {
+  bool maximized = false;
+  IsMaximized(&maximized);
+  std::move(callback).Run(maximized);
+}
+
+void BridgedNativeWidgetImpl::SetMaximized(bool maximized) {
+  if (!maximized) {
+    if (NSWindowIsMaximized(window_))
+      [window_ setFrame:bounds_before_maximize_ display:YES animate:YES];
+    return;
+  }
+  if (!NSWindowIsMaximized(window_))
+    [window_ setFrame:[[window_ screen] visibleFrame] display:YES animate:YES];
+  
+  if ([window_ isMiniaturized])
+    [window_ deminiaturize:nil];
+}
+
 void BridgedNativeWidgetImpl::SetMiniaturized(bool miniaturized) {
   if (miniaturized) {
     // Calling performMiniaturize: will momentarily highlight the button, but
@@ -1190,6 +1250,11 @@ void BridgedNativeWidgetImpl::SetCALayerParams(
   // Update the DisplayCALayerTree with the most recent CALayerParams, to make
   // the content display on-screen.
   display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
+
+  if (content::g_force_cpu_draw) {
+    // this is to tell the NSView that the CALayer content has been updated
+    [bridged_view_ setNeedsDisplay:YES];
+  }
 
   if (ca_transaction_sync_suppressed_)
     ca_transaction_sync_suppressed_ = false;

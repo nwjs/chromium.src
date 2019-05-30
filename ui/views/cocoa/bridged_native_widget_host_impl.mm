@@ -497,6 +497,12 @@ void BridgedNativeWidgetHostImpl::SetFullscreen(bool fullscreen) {
   bridge()->SetFullscreen(target_fullscreen_state_);
 }
 
+bool BridgedNativeWidgetHostImpl::IsMaximized() const {
+  bool maximized = false;
+  bridge()->IsMaximized(&maximized);
+  return maximized && !is_miniaturized_;
+}
+
 void BridgedNativeWidgetHostImpl::SetRootView(views::View* root_view) {
   root_view_ = root_view;
   if (root_view_) {
@@ -1114,6 +1120,10 @@ bool BridgedNativeWidgetHostImpl::GetAlwaysRenderWindowAsKey(
 
 bool BridgedNativeWidgetHostImpl::GetCanWindowClose(bool* can_window_close) {
   *can_window_close = true;
+  if (root_view_ && !root_view_->GetWidget()->NWCanClose()) {
+    *can_window_close = false;
+    return true;
+  }
   views::NonClientView* non_client_view =
       root_view_ ? root_view_->GetWidget()->non_client_view() : nullptr;
   if (non_client_view)

@@ -282,9 +282,13 @@ void FullscreenControlHost::OnPopupTimeout(
 }
 
 bool FullscreenControlHost::IsExitUiNeeded() {
+#if 1
+  return false;
+#else
   return browser_view_->IsFullscreen() &&
          browser_view_->CanUserExitFullscreen() &&
          browser_view_->ShouldHideUIForFullscreen();
+#endif
 }
 
 float FullscreenControlHost::CalculateCursorBufferHeight() const {

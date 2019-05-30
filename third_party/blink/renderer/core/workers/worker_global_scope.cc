@@ -176,6 +176,27 @@ void WorkerGlobalScope::importScripts(
   ImportScriptsInternal(string_urls, exception_state);
 }
 
+ScriptValue WorkerGlobalScope::importNWBin(ScriptState* state, DOMArrayBuffer* buffer) {
+  v8::Isolate* isolate = state->GetIsolate();
+  v8::HandleScope handle_scope(isolate);
+  uint8_t *data = static_cast<uint8_t*>(buffer->Data());
+  int64_t length = buffer->ByteLength();
+  v8::Handle<v8::String> source_string = v8::String::NewFromUtf8(isolate, "", v8::NewStringType::kNormal).ToLocalChecked();
+  v8::ScriptCompiler::CachedData* cache;
+  cache = new v8::ScriptCompiler::CachedData(
+                                             data, (int)length, v8::ScriptCompiler::CachedData::BufferNotOwned);
+  v8::ScriptCompiler::Source source(source_string, cache);
+  v8::Local<v8::UnboundScript> script;
+  script = v8::ScriptCompiler::CompileUnboundScript(
+                                                    isolate, &source, v8::ScriptCompiler::kConsumeCodeCache).ToLocalChecked();
+  CHECK(!cache->rejected);
+  v8::Local<v8::Value> result;
+  v8::Context::Scope cscope (state->GetContext());
+  v8::FixSourceNWBin(isolate, script);
+  ignore_result(script->BindToCurrentContext()->Run(state->GetContext()).ToLocal(&result));
+  return ScriptValue::From(state, result);
+}
+
 // Implementation of the "import scripts into worker global scope" algorithm:
 // https://html.spec.whatwg.org/C/#import-scripts-into-worker-global-scope
 void WorkerGlobalScope::ImportScriptsInternal(const Vector<String>& urls,

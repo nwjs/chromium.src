@@ -7317,7 +7317,7 @@ class TestNewWindowWebViewClient
                       bool,
                       WebSandboxFlags,
                       const FeaturePolicy::FeatureState&,
-                      const SessionStorageNamespaceId&) override {
+                      const SessionStorageNamespaceId&, WebString*) override {
     EXPECT_TRUE(false);
     return nullptr;
   }

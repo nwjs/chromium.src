@@ -15,7 +15,7 @@ class Browser;
 // shutdown.
 class BrowserCloseManager : public base::RefCounted<BrowserCloseManager> {
  public:
-  BrowserCloseManager();
+  BrowserCloseManager(bool force = false, bool user_force = false);
 
   // Starts closing all browser windows.
   void StartClosingBrowsers();
@@ -57,6 +57,8 @@ class BrowserCloseManager : public base::RefCounted<BrowserCloseManager> {
   // The browser for which we are waiting for a callback to
   // OnBrowserReportCloseable.
   Browser* current_browser_;
+  bool force_ = false;
+  bool user_force_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(BrowserCloseManager);
 };

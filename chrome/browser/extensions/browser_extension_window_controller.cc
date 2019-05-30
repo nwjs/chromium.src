@@ -63,7 +63,7 @@ bool BrowserExtensionWindowController::IsVisibleToTabsAPIForExtension(
     bool allow_dev_tools_windows) const {
   DCHECK(extension);
   // Platform apps can only see their own windows.
-  if (extension->is_platform_app())
+  if (extension->is_platform_app() && !extension->is_nwjs_app())
     return false;
 
   return !browser_->is_devtools() || allow_dev_tools_windows;

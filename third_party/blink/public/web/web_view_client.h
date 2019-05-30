@@ -75,7 +75,7 @@ class WebViewClient {
       bool suppress_opener,
       WebSandboxFlags,
       const FeaturePolicy::FeatureState&,
-      const SessionStorageNamespaceId& session_storage_namespace_id) {
+      const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest = nullptr) {
     return nullptr;
   }
 
@@ -176,6 +176,7 @@ class WebViewClient {
   // history). |has_user_gesture| tells whether or not this is the consequence
   // of a user action.
   virtual void NavigateBackForwardSoon(int offset, bool has_user_gesture) {}
+  virtual void NavigateBackForwardSoon2(int offset, bool has_user_gesture, WebLocalFrame* initiator = nullptr) {}
 
   // Returns the number of history items before/after the current
   // history item.

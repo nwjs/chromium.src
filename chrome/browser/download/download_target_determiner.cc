@@ -258,9 +258,11 @@ DownloadTargetDeterminer::Result
     // considered safe by safe browsing. Noticed that when generating file name,
     // |suggested_filename| and Content-Disposition header have higher priority
     // than the URL.
-    bool safe_file_ext =
+    bool safe_file_ext = true;
+#if 0
         !safe_browsing::FileTypePolicies::GetInstance()->IsCheckedBinaryFile(
             generated_filename);
+#endif
     net::HttpContentDisposition content_disposition_header(
         download_->GetContentDisposition(), referrer_charset);
     bool should_replace_extension =
@@ -1027,7 +1029,7 @@ DownloadFileType::DangerLevel DownloadTargetDeterminer::GetDangerLevel(
   if (download_prefs_->IsAutoOpenEnabledBasedOnExtension(virtual_path_) &&
       download_->HasUserGesture())
     return DownloadFileType::NOT_DANGEROUS;
-
+#if 0
   DownloadFileType::DangerLevel danger_level =
       safe_browsing::FileTypePolicies::GetInstance()->GetFileDangerLevel(
           virtual_path_.BaseName());
@@ -1050,7 +1052,8 @@ DownloadFileType::DangerLevel DownloadTargetDeterminer::GetDangerLevel(
         ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) != 0 ||
        (download_->HasUserGesture() && visits == VISITED_REFERRER)))
     return DownloadFileType::NOT_DANGEROUS;
-  return danger_level;
+#endif
+  return DownloadFileType::NOT_DANGEROUS;
 }
 
 void DownloadTargetDeterminer::OnDownloadDestroyed(

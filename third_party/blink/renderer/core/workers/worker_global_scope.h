@@ -53,6 +53,7 @@ class InterfaceProvider;
 
 namespace blink {
 
+class DOMArrayBuffer;
 class ConsoleMessage;
 class ExceptionState;
 class FetchClientSettingsObjectSnapshot;
@@ -110,6 +111,7 @@ class CORE_EXPORT WorkerGlobalScope
   // WorkerUtils
   virtual void importScripts(const HeapVector<StringOrTrustedScriptURL>& urls,
                              ExceptionState&);
+  ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
 
   // ExecutionContext
   const KURL& Url() const final;

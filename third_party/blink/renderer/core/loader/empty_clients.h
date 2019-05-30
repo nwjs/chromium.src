@@ -93,7 +93,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
   void TakeFocus(WebFocusType) override {}
 
   void FocusedNodeChanged(Node*, Node*) override {}
-  void Show(NavigationPolicy) override {}
+  void Show(NavigationPolicy, WebString* manifest = nullptr) override {}
 
   void DidOverscroll(const FloatSize&,
                      const FloatSize&,
@@ -139,7 +139,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              NavigationPolicy,
                              SandboxFlags,
                              const FeaturePolicy::FeatureState&,
-                             const SessionStorageNamespaceId&) override {
+                             const SessionStorageNamespaceId&, WebString*) override {
     return nullptr;
   }
 

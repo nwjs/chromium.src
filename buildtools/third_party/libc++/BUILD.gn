@@ -21,7 +21,11 @@ config("config") {
 if (libcxx_is_shared) {
   _libcxx_target_type = "shared_library"
 } else {
-  _libcxx_target_type = "source_set"
+  if (is_linux) {
+    _libcxx_target_type = "static_library"
+  } else {
+    _libcxx_target_type = "source_set"
+  }
 }
 target(_libcxx_target_type, "libc++") {
   if (libcxx_is_shared) {

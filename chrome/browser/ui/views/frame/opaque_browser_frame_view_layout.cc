@@ -94,10 +94,19 @@ gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForTabStrip(
                    tabstrip_preferred_size.height());
 }
 
+gfx::Size OpaqueBrowserFrameViewLayout::GetMaximumSize(
+         const views::View* host) const {
+  return GetMinimumSizeHelper(host, true);
+}
 gfx::Size OpaqueBrowserFrameViewLayout::GetMinimumSize(
-    const views::View* host) const {
-  // Ensure that we can fit the main browser view.
-  gfx::Size min_size = delegate_->GetBrowserViewMinimumSize();
+         const views::View* host) const {
+  return GetMinimumSizeHelper(host, false);
+}
+gfx::Size OpaqueBrowserFrameViewLayout::GetMinimumSizeHelper(
+         const views::View* host, bool max) const {
+  gfx::Size min_size = max? delegate_->GetBrowserViewMaximumSize() : delegate_->GetBrowserViewMinimumSize();
+  if (max && min_size.IsEmpty())
+    return min_size;
 
   // Ensure that we can, at minimum, hold our window controls and a tab strip.
   int top_width = minimum_size_for_buttons_;

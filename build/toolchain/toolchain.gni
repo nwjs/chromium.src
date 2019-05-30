@@ -56,6 +56,22 @@ declare_args() {
 assert(!use_xcode_clang || target_os == "ios",
        "Using Xcode's clang is only supported in iOS builds")
 
+# Subdirectory within root_out_dir for shared library files.
+# TODO(agrieve): GYP sets this to "lib" for Linux & Android, but this won't work
+#     in GN until support for loadable_module() is added.
+#     See: https://codereview.chromium.org/1236503002/
+if (is_linux) {
+  shlib_subdir = "lib"
+} else {
+  shlib_subdir = "."
+}
+
+# Root out dir for shared library files.
+root_shlib_dir = root_out_dir
+if (shlib_subdir != ".") {
+  root_shlib_dir += "/$shlib_subdir"
+}
+
 # Extension for shared library files (including leading dot).
 if (is_mac || is_ios) {
   shlib_extension = ".dylib"
@@ -78,12 +94,6 @@ if (is_posix || is_fuchsia) {
   shlib_prefix = ""
 }
 
-# Directory for shared library files.
-if (is_fuchsia) {
-  shlib_subdir = "/lib"
-} else {
-  shlib_subdir = ""
-}
 
 # While other "tool"s in a toolchain are specific to the target of that
 # toolchain, the "stamp" and "copy" tools are really generic to the host;

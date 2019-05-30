@@ -4,7 +4,7 @@
 
 import("//build/config/c++/c++.gni")
 
-source_set("libc++abi") {
+static_library("libc++abi") {
   visibility = [
     "//buildtools/third_party/libc++",
     "//build/config:executable_deps",

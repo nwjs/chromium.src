@@ -143,7 +143,7 @@ class COMPONENT_EXPORT(BASE_CLIPBOARD) Clipboard : public base::ThreadChecker {
   // Resets the clipboard last modified time to Time::Time().
   virtual void ClearLastModifiedTime();
 
- protected:
+ public:
   static Clipboard* Create();
 
   Clipboard() {}

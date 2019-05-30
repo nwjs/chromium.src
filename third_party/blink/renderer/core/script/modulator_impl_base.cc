@@ -83,6 +83,10 @@ void ModulatorImplBase::BuiltInModuleUseCount(
   }
 }
 
+void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
+  map_->AddToMap(url, script);
+}
+
 // <specdef label="fetch-a-module-script-tree"
 // href="https://html.spec.whatwg.org/C/#fetch-a-module-script-tree">
 // <specdef label="fetch-a-module-worker-script-tree"

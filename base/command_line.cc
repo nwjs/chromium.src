@@ -150,38 +150,133 @@ string16 QuoteForCommandLineToArgvW(const string16& arg,
 
   return out;
 }
+#else
+// see the similar code in base/command_line.cc
+std::string QuoteForCommandLineToArgv(const std::string& arg) {
+  std::string quotable_chars(" \\\"");
+  if (arg.find_first_of(quotable_chars) == std::string::npos) {
+    // No quoting necessary.
+    return arg;
+  }
+
+  std::string out;
+  out.push_back('"');
+  for (size_t i = 0; i < arg.size(); ++i) {
+    if (arg[i] == '\\') {
+      // Find the extent of this run of backslashes.
+      size_t start = i, end = start + 1;
+      for (; end < arg.size() && arg[end] == '\\'; ++end) {}
+      size_t backslash_count = end - start;
+
+      // Backslashes are escapes only if the run is followed by a
+      // double quote.
+      // Since we also will end the string with a double quote, we
+      // escape for
+      // either a double quote or the end of the string.
+      if (end == arg.size() || arg[end] == '"') {
+        // To quote, we need to output 2x as many backslashes.
+        backslash_count *= 2;
+      }
+      for (size_t j = 0; j < backslash_count; ++j)
+        out.push_back('\\');
+
+      // Advance i to one before the end to balance i++ in loop.
+      i = end - 1;
+    } else if (arg[i] == '"') {
+      out.push_back('\\');
+      out.push_back('"');
+    } else {
+      out.push_back(arg[i]);
+    }
+  }
+  out.push_back('"');
+
+  return out;
+}
+
 #endif
 
 }  // namespace
 
 CommandLine::CommandLine(NoProgram no_program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
 }
 
 CommandLine::CommandLine(const FilePath& program)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   SetProgram(program);
 }
 
 CommandLine::CommandLine(int argc, const CommandLine::CharType* const* argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argc, argv);
 }
 
 CommandLine::CommandLine(const StringVector& argv)
     : argv_(1),
-      begin_args_(1) {
+      begin_args_(1),
+      argc0_(0), argv0_(NULL) {
   InitFromArgv(argv);
 }
 
-CommandLine::CommandLine(const CommandLine& other) = default;
+CommandLine::CommandLine(const CommandLine& other)
+    : argv_(other.argv_),
+      original_argv_(other.original_argv_),
+      switches_(other.switches_),
+      begin_args_(other.begin_args_),
+      argc0_(other.argc0_), argv0_(nullptr) {
 
-CommandLine& CommandLine::operator=(const CommandLine& other) = default;
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
+}
 
-CommandLine::~CommandLine() = default;
+CommandLine& CommandLine::operator=(const CommandLine& other) {
+  argv_ = other.argv_;
+  original_argv_ = other.original_argv_;
+  switches_ = other.switches_;
+  begin_args_ = other.begin_args_;
+#if defined(OS_WIN)
+  if (other.argv0_) {
+    argc0_ = other.argc0_;
+    argv0_ = new char*[argc0_ + 1];
+    for (int i = 0; i < argc0_; ++i) {
+      argv0_[i] = new char[strlen(other.argv0_[i]) + 1];
+      strcpy(argv0_[i], other.argv0_[i]);
+    }
+    argv0_[argc0_] = NULL;
+  }
+#else
+  argv0_ = other.argv0_;
+#endif
+  return *this;
+}
+
+CommandLine::~CommandLine() {
+#if defined(OS_WIN)
+  if (!argv0_)
+    return;
+  for (int i = 0; i < argc0_; i++) {
+    delete[] argv0_[i];
+  }
+  delete[] argv0_;
+#endif
+}
 
 #if defined(OS_WIN)
 // static
@@ -257,12 +352,45 @@ CommandLine CommandLine::FromString(StringPiece16 command_line) {
 void CommandLine::InitFromArgv(int argc,
                                const CommandLine::CharType* const* argv) {
   StringVector new_argv;
+  argc0_ = argc;
+#if !defined(OS_WIN)
+  argv0_ = (char**)argv;
+#else
+  argv0_ = new char*[argc + 1];
+  for (int i = 0; i < argc; ++i) {
+    std::string str(base::WideToUTF8(argv[i]));
+    argv0_[i] = new char[str.length() + 1];
+    strcpy(argv0_[i], str.c_str());
+  }
+  argv0_[argc] = NULL;
+#endif
   for (int i = 0; i < argc; ++i)
     new_argv.push_back(argv[i]);
   InitFromArgv(new_argv);
 }
 
 void CommandLine::InitFromArgv(const StringVector& argv) {
+#if !defined(OS_MACOSX)
+  original_argv_ = argv;
+#else
+  for (size_t index = 0; index < argv.size(); ++index) {
+    if (argv[index].compare(0, strlen("--psn_"), "--psn_") != 0 &&
+        argv[index].compare(0, strlen("-psn_"), "-psn_") != 0) {
+      original_argv_.push_back(argv[index]);
+    }
+  }
+#endif
+#if defined(OS_WIN)
+  int argc = argv.size();
+  argv0_ = new char*[argc + 1];
+  for (int i = 0; i < argc; ++i) {
+    std::string str(base::UTF16ToUTF8(argv[i]));
+    argv0_[i] = new char[str.length() + 1];
+    strcpy(argv0_[i], str.c_str());
+  }
+  argv0_[argc] = NULL;
+  argc0_ = argc;
+#endif
   argv_ = StringVector(1);
   switches_.clear();
   begin_args_ = 1;
@@ -406,6 +534,12 @@ void CommandLine::AppendArgNative(const CommandLine::StringType& value) {
   argv_.push_back(value);
 }
 
+#if defined(OS_MACOSX)
+void CommandLine::FixOrigArgv4Finder(const CommandLine::StringType& value) {
+  original_argv_.push_back(value);
+}
+#endif
+
 void CommandLine::AppendArguments(const CommandLine& other,
                                   bool include_program) {
   if (include_program)
@@ -455,6 +589,8 @@ CommandLine::StringType CommandLine::GetCommandLineStringInternal(
   StringType string(argv_[0]);
 #if defined(OS_WIN)
   string = QuoteForCommandLineToArgvW(string, quote_placeholders);
+#else
+  string = QuoteForCommandLineToArgv(string);
 #endif
   StringType params(GetArgumentsStringInternal(quote_placeholders));
   if (!params.empty()) {
@@ -482,12 +618,17 @@ CommandLine::StringType CommandLine::GetArgumentsStringInternal(
 #if defined(OS_WIN)
         switch_value =
             QuoteForCommandLineToArgvW(switch_value, quote_placeholders);
+#else
+        switch_value =
+          QuoteForCommandLineToArgv(switch_value);
 #endif
         params.append(kSwitchValueSeparator + switch_value);
       }
     } else {
 #if defined(OS_WIN)
       arg = QuoteForCommandLineToArgvW(arg, quote_placeholders);
+#else
+      arg = QuoteForCommandLineToArgv(arg);
 #endif
       params.append(arg);
     }

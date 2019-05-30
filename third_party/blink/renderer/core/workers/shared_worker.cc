@@ -32,6 +32,8 @@
 #include "third_party/blink/renderer/core/workers/shared_worker.h"
 
 #include "third_party/blink/public/common/blob/blob_utils.h"
+#include "base/command_line.h"
+
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
@@ -85,6 +87,8 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
                                             MakeRequest(&blob_url_token));
   }
 
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool isNodeJS = document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
   // |name| should not be null according to the HTML spec, but the current impl
   // wrongly allows it when |name| is omitted. See TODO comment in
   // shared_worker.idl.
@@ -96,7 +100,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   SharedWorkerClientHolder::From(*document)->Connect(
       worker, std::move(remote_port), script_url, std::move(blob_url_token),
-      worker_name);
+      worker_name, isNodeJS);
 
   return worker;
 }

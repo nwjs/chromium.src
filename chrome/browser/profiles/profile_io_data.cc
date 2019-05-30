@@ -4,6 +4,8 @@
 
 #include "chrome/browser/profiles/profile_io_data.h"
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include <stddef.h>
 
 #include <string>
@@ -976,7 +978,7 @@ void ProfileIOData::Init(
             std::make_unique<net::MultiThreadedCertVerifier>(
                 verify_proc.get()));
       }
-#elif BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+#elif 0 //BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
       auto& trial_params = profile_params_->main_network_context_params
                                ->trial_comparison_cert_verifier_params;
       if (trial_params) {
@@ -988,6 +990,9 @@ void ProfileIOData::Init(
                 net::CertVerifyProc::CreateDefault(),
                 net::CreateCertVerifyProcBuiltin()));
       }
+#else
+    cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
+    ((nw::PolicyCertVerifier*)cert_verifier.get())->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
       if (!cert_verifier) {
         cert_verifier = std::make_unique<net::CachingCertVerifier>(

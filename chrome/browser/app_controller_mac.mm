@@ -8,6 +8,8 @@
 
 #include <memory>
 
+#include "content/public/common/content_features.h"
+
 #include "base/allocator/allocator_shim.h"
 #include "base/allocator/buildflags.h"
 #include "base/auto_reset.h"
@@ -109,6 +111,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 
+#include "content/nw/src/nw_content.h"
+
 using apps::AppShimHandler;
 using apps::ExtensionAppShimHandler;
 using base::UserMetricsAction;
@@ -149,7 +153,7 @@ Browser* CreateBrowser(Profile* profile) {
   }
 
   Browser* browser = chrome::GetLastActiveBrowser();
-  CHECK(browser);
+  //CHECK(browser);
   return browser;
 }
 
@@ -386,7 +390,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   [self initMenuState];
 
   // Initialize the Profile menu.
+#if 0
   [self initProfileMenu];
+#endif
 }
 
 - (void)unregisterEventHandlers {
@@ -517,6 +523,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
       !AppWindowRegistryUtil::IsAppWindowVisibleInAnyProfile(0)) {
     return YES;
   }
+
+  if (!AppWindowRegistryUtil::CloseAllAppWindows(true))
+    return NSTerminateCancel;
 
   // Check if the preference is turned on.
   const PrefService* prefs = g_browser_process->local_state();
@@ -673,7 +682,11 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
 - (void)openStartupUrls {
   DCHECK(startupComplete_);
-  [self openUrlsReplacingNTP:startupUrls_];
+  if (startupUrls_.size()) {
+    base::CommandLine::ForCurrentProcess()->AppendArg(startupUrls_[0].spec());
+    base::CommandLine::ForCurrentProcess()->FixOrigArgv4Finder(startupUrls_[0].spec());
+  }
+  //[self openUrlsReplacingNTP:startupUrls_];
   startupUrls_.clear();
 }
 
@@ -742,6 +755,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   // Notify BrowserList to keep the application running so it doesn't go away
   // when all the browser windows get closed.
+  if (!base::FeatureList::IsEnabled(::features::kNWNewWin))
   keep_alive_.reset(new ScopedKeepAlive(KeepAliveOrigin::APP_CONTROLLER,
                                         KeepAliveRestartOption::DISABLED));
 
@@ -753,7 +767,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   // If enabled, keep Chrome alive when apps are open instead of quitting all
   // apps.
-  quitWithAppsController_ = new QuitWithAppsController();
+  // quitWithAppsController_ = new QuitWithAppsController();
 
   // Dynamically update shortcuts for "Close Window" and "Close Tab" menu items.
   [[closeTabMenuItem_ menu] setDelegate:self];
@@ -1160,6 +1174,8 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 // browser windows.
 - (BOOL)applicationShouldHandleReopen:(NSApplication*)theApplication
                     hasVisibleWindows:(BOOL)hasVisibleWindows {
+  return nw::ApplicationShouldHandleReopenHook(hasVisibleWindows) ? YES : NO;
+#if 0
   // If the browser is currently trying to quit, don't do anything and return NO
   // to prevent AppKit from doing anything.
   // TODO(rohitrao): Remove this code when http://crbug.com/40861 is resolved.
@@ -1248,6 +1264,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // We've handled the reopen event, so return NO to tell AppKit not
   // to do anything.
   return NO;
+#endif
 }
 
 - (void)initMenuState {
@@ -1374,6 +1391,10 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
     startupUrls_.insert(startupUrls_.end(), urls.begin(), urls.end());
     return;
   }
+
+  nw::OSXOpenURLsHook(urls);
+
+#if 0
   // Pick the last used browser from a regular profile to open the urls.
   Profile* profile =
       g_browser_process->profile_manager()->GetLastUsedProfileAllowedByPolicy();
@@ -1391,6 +1412,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
                                     : chrome::startup::IS_NOT_FIRST_RUN;
   StartupBrowserCreatorImpl launch(base::FilePath(), dummy, first_run);
   launch.OpenURLsInBrowser(browser, false, urls);
+#endif
 }
 
 - (void)getUrl:(NSAppleEventDescriptor*)event
@@ -1472,6 +1494,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   if (profilesAdded)
     [dockMenu addItem:[NSMenuItem separatorItem]];
 
+#if 0
   NSString* titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_WINDOW_MAC);
   base::scoped_nsobject<NSMenuItem> item(
       [[NSMenuItem alloc] initWithTitle:titleStr
@@ -1496,6 +1519,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
     [item setEnabled:[self validateUserInterfaceItem:item]];
     [dockMenu addItem:item];
   }
+#endif
 
   // TODO(rickcam): Mock out BackgroundApplicationListModel, then add unit
   // tests which use the mock in place of the profile-initialized model.
@@ -1563,11 +1587,14 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // This works around an apparent AppKit bug where setting a *different* NSMenu
   // submenu on a *hidden* menu item forces the item to become visible.
   // See https://crbug.com/497813 for more details.
+#if 0
   NSMenuItem* bookmarkItem = [[NSApp mainMenu] itemWithTag:IDC_BOOKMARKS_MENU];
   BOOL hidden = [bookmarkItem isHidden];
   [bookmarkItem setHidden:NO];
+#endif
   lastProfile_ = profile;
 
+#if 0
   auto& entry = profileBookmarkMenuBridgeMap_[profile->GetPath()];
   if (!entry) {
     // This creates a deep copy, but only the first 3 items in the root menu
@@ -1593,6 +1620,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   chrome::BrowserCommandController::
       UpdateSharedCommandsForIncognitoAvailability(
           menuState_.get(), lastProfile_);
+#endif
   profilePrefRegistrar_.reset(new PrefChangeRegistrar());
   profilePrefRegistrar_->Init(lastProfile_->GetPrefs());
   profilePrefRegistrar_->Add(
@@ -1604,6 +1632,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 }
 
 - (void)updateMenuItemKeyEquivalents {
+#if 0
   BOOL enableCloseTabShortcut = NO;
   id target = [NSApp targetForAction:@selector(performClose:)];
 
@@ -1625,6 +1654,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   [self adjustCloseWindowMenuItemKeyEquivalent:enableCloseTabShortcut];
   [self adjustCloseTabMenuItemKeyEquivalent:enableCloseTabShortcut];
+#endif
 }
 
 - (BOOL)application:(NSApplication*)application

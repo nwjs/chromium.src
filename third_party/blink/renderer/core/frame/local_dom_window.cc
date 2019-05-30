@@ -1452,10 +1452,10 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   // In those cases, we schedule a location change right now and return early.
   Frame* target_frame = nullptr;
   if (EqualIgnoringASCIICase(target, "_top")) {
-    target_frame = &GetFrame()->Tree().Top();
+    target_frame = GetFrame()->isNwFakeTop() ? GetFrame() : &GetFrame()->Tree().Top();
   } else if (EqualIgnoringASCIICase(target, "_parent")) {
     if (Frame* parent = GetFrame()->Tree().Parent())
-      target_frame = parent;
+      target_frame = GetFrame()->isNwFakeTop() ? GetFrame() : parent;
     else
       target_frame = GetFrame();
   }

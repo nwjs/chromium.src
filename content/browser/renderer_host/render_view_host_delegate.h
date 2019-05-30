@@ -60,6 +60,7 @@ class WebContents;
 //  listener here to serve that need.
 class CONTENT_EXPORT RenderViewHostDelegate {
  public:
+  RenderViewHostDelegate();
   // Returns the current delegate associated with a feature. May return NULL if
   // there is no corresponding delegate.
   virtual RenderViewHostDelegateView* GetDelegateView();
@@ -153,6 +154,8 @@ class CONTENT_EXPORT RenderViewHostDelegate {
   // create the SessionStorageNamespace on the fly.
   virtual SessionStorageNamespace* GetSessionStorageNamespace(
       SiteInstance* instance);
+  virtual bool GetSkipBlockingParser();
+  virtual void SetSkipBlockingParser(bool);
 
   // Returns a copy of the map of all session storage namespaces related
   // to this view.
@@ -200,6 +203,8 @@ class CONTENT_EXPORT RenderViewHostDelegate {
 
  protected:
   virtual ~RenderViewHostDelegate() {}
+ private:
+  bool skip_blocking_parser_;
 };
 
 }  // namespace content

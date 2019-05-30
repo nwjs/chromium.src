@@ -278,6 +278,9 @@ SessionsGetDevicesFunction::CreateWindowModel(
 
   api::windows::WindowState state = api::windows::WINDOW_STATE_NONE;
   switch (window.show_state) {
+    case ui::SHOW_STATE_HIDDEN:
+      state = api::windows::WINDOW_STATE_HIDDEN;
+      break;
     case ui::SHOW_STATE_NORMAL:
       state = api::windows::WINDOW_STATE_NORMAL;
       break;

@@ -249,11 +249,7 @@ void NotificationPlatformBridgeMac::Display(
     [builder setIcon:notification.icon().ToNSImage()];
   }
 
-  [builder
-      setShowSettingsButton:(notification_type !=
-                                 NotificationHandler::Type::EXTENSION &&
-                             notification_type !=
-                                 NotificationHandler::Type::SEND_TAB_TO_SELF)];
+  [builder setShowSettingsButton:(false)];
   std::vector<message_center::ButtonInfo> buttons = notification.buttons();
   if (!buttons.empty()) {
     DCHECK_LE(buttons.size(), blink::kWebNotificationMaxActions);

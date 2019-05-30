@@ -37,8 +37,23 @@ function createAnonymousEvent() {
 var Bounds = function(boundsKey) {
   privates(this).boundsKey_ = boundsKey;
 };
+
+var try_hidden = function (view) {
+  if (view.chrome.app.window)
+    return view;
+  return privates(view);
+};
+
+var try_nw = function (view) {
+  if (view.nw)
+    return view;
+  return privates(view);
+};
+
 Object.defineProperty(Bounds.prototype, 'left', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].left;
   },
   set: function(left) {
@@ -48,6 +63,8 @@ Object.defineProperty(Bounds.prototype, 'left', {
 });
 Object.defineProperty(Bounds.prototype, 'top', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].top;
   },
   set: function(top) {
@@ -57,6 +74,8 @@ Object.defineProperty(Bounds.prototype, 'top', {
 });
 Object.defineProperty(Bounds.prototype, 'width', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].width;
   },
   set: function(width) {
@@ -66,6 +85,8 @@ Object.defineProperty(Bounds.prototype, 'width', {
 });
 Object.defineProperty(Bounds.prototype, 'height', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].height;
   },
   set: function(height) {
@@ -75,36 +96,52 @@ Object.defineProperty(Bounds.prototype, 'height', {
 });
 Object.defineProperty(Bounds.prototype, 'minWidth', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].minWidth;
   },
   set: function(minWidth) {
+    if (!privates(this)) //NWJS#6553
+      return;
     updateSizeConstraints(privates(this).boundsKey_, { minWidth: minWidth });
   },
   enumerable: true
 });
 Object.defineProperty(Bounds.prototype, 'maxWidth', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].maxWidth;
   },
   set: function(maxWidth) {
+    if (!privates(this)) //NWJS#6553
+      return;
     updateSizeConstraints(privates(this).boundsKey_, { maxWidth: maxWidth });
   },
   enumerable: true
 });
 Object.defineProperty(Bounds.prototype, 'minHeight', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].minHeight;
   },
   set: function(minHeight) {
+    if (!privates(this)) //NWJS#6553
+      return;
     updateSizeConstraints(privates(this).boundsKey_, { minHeight: minHeight });
   },
   enumerable: true
 });
 Object.defineProperty(Bounds.prototype, 'maxHeight', {
   get: function() {
+    if (!privates(this)) //NWJS#6553
+      return 0;
     return appWindowData[privates(this).boundsKey_].maxHeight;
   },
   set: function(maxHeight) {
+    if (!privates(this)) //NWJS#6553
+      return;
     updateSizeConstraints(privates(this).boundsKey_, { maxHeight: maxHeight });
   },
   enumerable: true
@@ -146,7 +183,7 @@ appWindow.registerCustomHook(function(bindingsAPI) {
     if (windowParams.existingWindow) {
       // Not creating a new window, but activating an existing one, so trigger
       // callback with existing window and don't do anything else.
-      let windowResult = view ? view.chrome.app.window.current() : undefined;
+      let windowResult = view ? try_hidden(view).chrome.app.window.current() : undefined;
       maybeCallback(windowResult);
       return;
     }
@@ -160,7 +197,7 @@ appWindow.registerCustomHook(function(bindingsAPI) {
             ' The chrome.app.window.create callback will be called, but ' +
             'there will be no object provided for the sandboxed window.';
       }
-      console.warn(sandbox_window_message);
+      //console.warn(sandbox_window_message);
       maybeCallback(undefined);
       return;
     }
@@ -168,20 +205,27 @@ appWindow.registerCustomHook(function(bindingsAPI) {
     // Handle error pages.
     // TODO(arthursonzogni): Figure out why view.chrome.app is defined for error
     // pages and stop doing it.
-    if (!view.chrome.app.window) {
+    if (!try_hidden(view).chrome.app.window) {
       maybeCallback(undefined);
       return;
     }
 
     // Initialize appWindowData in the newly created JS context
-    view.chrome.app.window.initializeAppWindow(windowParams);
+    try_hidden(view).chrome.app.window.initializeAppWindow(windowParams);
 
     var willCallback = renderFrameObserverNatives.OnDocumentElementCreated(
-        windowParams.frameId, function(success) {
-          let windowResult = success ? view.chrome.app.window.current()
-                                     : undefined;
-          maybeCallback(windowResult);
-        });
+      windowParams.frameId, function(success) {
+        if (success) {
+          var appwin = try_hidden(view).chrome.app.window.current();
+          if (!appwin) {
+            try_hidden(view).chrome.app.window.initializeAppWindow(windowParams);
+            appwin = try_hidden(view).chrome.app.window.current();
+          }
+        }
+        let windowResult = success ? appwin
+                : undefined;
+        maybeCallback(windowResult);
+      });
     appWindowNatives.ResumeParser(windowParams.frameId);
     if (!willCallback)
       maybeCallback(undefined);
@@ -189,8 +233,6 @@ appWindow.registerCustomHook(function(bindingsAPI) {
 
   apiFunctions.setHandleRequest('current', function() {
     if (!currentAppWindow) {
-      console.error('The JavaScript context calling ' +
-                    'chrome.app.window.current() has no associated AppWindow.');
       return null;
     }
     return currentAppWindow;
@@ -199,7 +241,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
   apiFunctions.setHandleRequest('getAll', function() {
     var views = runtimeNatives.GetExtensionViews(-1, -1, 'APP_WINDOW');
     return $Array.map(views, function(win) {
-      return win.chrome.app.window.current();
+      if (try_nw(win).nw) //check for undefined case in NWJS#5528
+        try_nw(win).nw.Window.get(); //construct the window object for NWJS#5294
+      return try_hidden(win).chrome.app.window.current();
     });
   });
 
@@ -253,6 +297,9 @@ appWindow.registerCustomHook(function(bindingsAPI) {
     };
     AppWindow.prototype.isFullscreen = function() {
       return appWindowData.fullscreen;
+    };
+    AppWindow.prototype.isResizable = function() {
+      return appWindowData.resizable;
     };
     AppWindow.prototype.isMinimized = function() {
       return appWindowData.minimized;
@@ -315,6 +362,7 @@ appWindow.registerCustomHook(function(bindingsAPI) {
       minimized: params.minimized,
       maximized: params.maximized,
       alwaysOnTop: params.alwaysOnTop,
+      resizable: params.resizable,
       hasFrameColor: params.hasFrameColor,
       activeFrameColor: params.activeFrameColor,
       inactiveFrameColor: params.inactiveFrameColor,
@@ -329,6 +377,18 @@ function boundsEqual(bounds1, bounds2) {
     return false;
   return (bounds1.left == bounds2.left && bounds1.top == bounds2.top &&
           bounds1.width == bounds2.width && bounds1.height == bounds2.height);
+}
+
+function sizeEqual(bounds1, bounds2) {
+  if (!bounds1 || !bounds2)
+    return false;
+  return (bounds1.width == bounds2.width && bounds1.height == bounds2.height);
+}
+
+function posEqual(bounds1, bounds2) {
+  if (!bounds1 || !bounds2)
+    return false;
+  return (bounds1.left == bounds2.left && bounds1.top == bounds2.top);
 }
 
 function dispatchEventIfExists(target, name) {
@@ -351,8 +411,20 @@ function updateAppWindowProperties(update) {
 
   var currentWindow = currentAppWindow;
 
-  if (!boundsEqual(oldData.innerBounds, update.innerBounds))
+  if (!boundsEqual(oldData.innerBounds, update.innerBounds)) {
     dispatchEventIfExists(currentWindow, "onBoundsChanged");
+    if (!sizeEqual(oldData.innerBounds, update.innerBounds))
+      dispatchEventIfExists(currentWindow, "onResized");
+    if (!posEqual(oldData.innerBounds, update.innerBounds))
+      dispatchEventIfExists(currentWindow, "onMoved");
+  }
+
+  // NW fix: fire onRestored earlier than fullscreen/minimize/maximize
+  // events. See nwjs/nw.js#5388.
+  if ((oldData.fullscreen && !update.fullscreen) ||
+      (oldData.minimized && !update.minimized) ||
+      (oldData.maximized && !update.maximized))
+    dispatchEventIfExists(currentWindow, "onRestored");
 
   if (!oldData.fullscreen && update.fullscreen)
     dispatchEventIfExists(currentWindow, "onFullscreened");
@@ -360,11 +432,6 @@ function updateAppWindowProperties(update) {
     dispatchEventIfExists(currentWindow, "onMinimized");
   if (!oldData.maximized && update.maximized)
     dispatchEventIfExists(currentWindow, "onMaximized");
-
-  if ((oldData.fullscreen && !update.fullscreen) ||
-      (oldData.minimized && !update.minimized) ||
-      (oldData.maximized && !update.maximized))
-    dispatchEventIfExists(currentWindow, "onRestored");
 
   if (oldData.alphaEnabled !== update.alphaEnabled)
     dispatchEventIfExists(currentWindow, "onAlphaEnabledChanged");

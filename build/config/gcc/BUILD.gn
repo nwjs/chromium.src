@@ -65,10 +65,15 @@ config("symbol_visibility_default") {
 config("rpath_for_built_shared_libraries") {
   if (!is_android) {
     # Note: Android doesn't support rpath.
+    if (shlib_subdir != ".") {
+      rpath_link = "${shlib_subdir}/"
+    } else {
+      rpath_link = "."
+    }
     if (current_toolchain != default_toolchain || gcc_target_rpath == "") {
       ldflags = [
         # Want to pass "\$". GN will re-escape as required for ninja.
-        "-Wl,-rpath=\$ORIGIN",
+        "-Wl,-rpath=\$ORIGIN/${rpath_link}",
       ]
     } else {
       ldflags = [ "-Wl,-rpath=${gcc_target_rpath}" ]
@@ -112,5 +117,5 @@ config("executable_config") {
 
 # Settings for shared libraries.
 config("shared_library_config") {
-  configs = executable_and_shared_library_configs_
+  #configs = executable_and_shared_library_configs_
 }

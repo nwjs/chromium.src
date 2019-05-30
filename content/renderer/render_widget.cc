@@ -9,6 +9,8 @@
 #include <memory>
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/auto_reset.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
@@ -164,6 +166,15 @@ using blink::WebTouchEvent;
 using blink::WebTouchPoint;
 using blink::WebVector;
 using blink::WebWidget;
+
+namespace nw {
+typedef bool (*RenderWidgetWasHiddenHookFn)(content::RenderWidget*);
+#if defined(COMPONENT_BUILD)
+CONTENT_EXPORT RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#else
+RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#endif
+}
 
 namespace content {
 
@@ -914,6 +925,8 @@ void RenderWidget::OnDisableDeviceEmulation() {
 }
 
 void RenderWidget::OnWasHidden() {
+  if (nw::gRenderWidgetWasHiddenHook && nw::gRenderWidgetWasHiddenHook(this))
+    return;
   // A frozen main frame widget will never be hidden since that would require it
   // to be shown first. It must be thawed before changing visibility.
   DCHECK(!is_frozen_);
@@ -1702,7 +1715,7 @@ void RenderWidget::AutoscrollEnd() {
 // This method provides us with the information about how to display the newly
 // created RenderWidget (i.e., as a blocked popup or as a new tab).
 //
-void RenderWidget::Show(WebNavigationPolicy policy) {
+void RenderWidget::Show(WebNavigationPolicy policy, WebString* manifest) {
   if (!show_callback_) {
     if (delegate()) {
       // When SupportsMultipleWindows is disabled, popups are reusing
@@ -1719,7 +1732,7 @@ void RenderWidget::Show(WebNavigationPolicy policy) {
   DCHECK(routing_id_ != MSG_ROUTING_NONE);
 
   // The opener is responsible for actually showing this widget.
-  std::move(show_callback_).Run(this, policy, initial_rect_);
+  std::move(show_callback_).Run(this, policy, initial_rect_, manifest);
 
   // NOTE: initial_rect_ may still have its default values at this point, but
   // that's okay.  It'll be ignored if as_popup is false, or the browser

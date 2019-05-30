@@ -35,6 +35,8 @@ const char kDecodedMessageCatalogsFilename[] = "DECODED_MESSAGE_CATALOGS";
 
 const char kGeneratedBackgroundPageFilename[] =
     "_generated_background_page.html";
+const char kNWJSDefaultAppJS[] =
+    "nwjs/default.js";
 
 const char kModulesDir[] = "_modules";
 
@@ -90,6 +92,8 @@ const int kMainThreadId = 0;
 const char kMimeTypeJpeg[] = "image/jpeg";
 const char kMimeTypePng[] = "image/png";
 
+const base::FilePath::CharType kNWJSManifestFilename[] =
+    FILE_PATH_LITERAL("package.json");
 }  // namespace extensions
 
 namespace extension_misc {

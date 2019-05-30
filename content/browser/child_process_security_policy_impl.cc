@@ -135,7 +135,7 @@ base::debug::CrashKeyString* GetRequestedOriginCrashKey() {
 class ChildProcessSecurityPolicyImpl::SecurityState {
  public:
   explicit SecurityState(BrowserContext* browser_context)
-      : enabled_bindings_(0),
+    : grant_all_(false), enabled_bindings_(0),
         can_read_raw_cookies_(false),
         can_send_midi_sysex_(false),
         browser_context_(browser_context),
@@ -170,6 +170,10 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
 
   void GrantCommitScheme(const std::string& scheme) {
     scheme_map_[scheme] = CommitRequestPolicy::kCommitAndRequest;
+  }
+
+  void GrantAll() {
+    grant_all_ = true;
   }
 
   void GrantRequestScheme(const std::string& scheme) {
@@ -252,6 +256,8 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   bool CanCommitURL(const GURL& url) {
     DCHECK(!url.SchemeIsBlob() && !url.SchemeIsFileSystem())
         << "inner_url extraction should be done already.";
+    if (grant_all_)
+      return true;
     // Having permission to a scheme implies permission to all of its URLs.
     auto scheme_judgment = scheme_map_.find(url.scheme());
     if (scheme_judgment != scheme_map_.end() &&
@@ -298,6 +304,8 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
     if (file.IsContentUri())
       return HasPermissionsForContentUri(file, permissions);
 #endif
+    if (grant_all_)
+      return true;
     if (!permissions || file.empty() || !file.IsAbsolute())
       return false;
     base::FilePath current_path = file.StripTrailingSeparators();
@@ -409,6 +417,8 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   // granted. There is no provision for revoking.
   SchemeMap scheme_map_;
 
+  bool grant_all_;
+
   // The map of URL origins to commit/request policies the child process has
   // been granted. There is no provision for revoking.
   OriginMap origin_map_;
@@ -517,7 +527,7 @@ ChildProcessSecurityPolicyImpl::ChildProcessSecurityPolicyImpl() {
   // IsWebSafeScheme(), and then eliminate the next two lines.
   RegisterWebSafeScheme(url::kBlobScheme);
   RegisterWebSafeScheme(url::kFileSystemScheme);
-
+  //RegisterWebSafeScheme("chrome-devtools");
   // We know about the following pseudo schemes and treat them specially.
   RegisterPseudoScheme(url::kAboutScheme);
   RegisterPseudoScheme(url::kJavaScriptScheme);
@@ -700,6 +710,15 @@ void ChildProcessSecurityPolicyImpl::GrantRequestSpecificFileURL(
     if (net::FileURLToFilePath(url, &path))
       state->second->GrantRequestOfSpecificFile(path);
   }
+}
+
+void ChildProcessSecurityPolicyImpl::GrantAll(int child_id) {
+  base::AutoLock lock(lock_);
+  SecurityStateMap::iterator state = security_state_.find(child_id);
+  if (state == security_state_.end())
+    return;
+
+  state->second->GrantAll();
 }
 
 void ChildProcessSecurityPolicyImpl::GrantReadFile(int child_id,

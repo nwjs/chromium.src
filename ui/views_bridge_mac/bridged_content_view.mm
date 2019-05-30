@@ -163,6 +163,7 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
 
 @synthesize bridge = bridge_;
 @synthesize drawMenuBackgroundForBlur = drawMenuBackgroundForBlur_;
+@synthesize forceCPUDrawLayer = forceCPUDrawLayer_;
 
 - (instancetype)initWithBridge:(views::BridgedNativeWidgetImpl*)bridge
                         bounds:(gfx::Rect)bounds {
@@ -272,6 +273,17 @@ ui::TextEditCommand GetTextEditCommandForMenuAction(SEL action) {
   if (isDraggableBackground)
     return nil;
   return [super hitTest:point];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    //get the flipped layer from forceCPUDrawLayer_ and do renderInContext
+    [forceCPUDrawLayer_ renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)processCapturedMouseEvent:(NSEvent*)theEvent {

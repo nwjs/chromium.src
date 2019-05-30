@@ -129,6 +129,10 @@ base::FilePath PlatformCrashpadInitialization(
 
       // Is there a way to recover if this fails?
       CrashReporterClient* crash_reporter_client = GetCrashReporterClient();
+      const char* product_name = "";
+      const char* version = "";
+
+      crash_reporter_client->GetProductNameAndVersion(&product_name, &version);
       crash_reporter_client->GetCrashDumpLocation(&database_path);
       crash_reporter_client->GetCrashMetricsLocation(&metrics_path);
 
@@ -139,6 +143,11 @@ base::FilePath PlatformCrashpadInitialization(
 #else
       std::string url;
 #endif
+
+      std::map<std::string, std::string> process_annotations;
+      process_annotations["prod"] = product_name;
+      process_annotations["ver"] = version;
+      process_annotations["plat"] = std::string("OS X");
 
       std::vector<std::string> arguments;
 
@@ -160,9 +169,10 @@ base::FilePath PlatformCrashpadInitialization(
             "--reset-own-crash-exception-port-to-system-default");
       }
 
+      
       bool result = GetCrashpadClient().StartHandler(
           handler_path, database_path, metrics_path, url,
-          GetProcessSimpleAnnotations(), arguments, true, false);
+          process_annotations, arguments, true, false);
 
       // If this is an initial client that's not the browser process, it's
       // important to sever the connection to any existing handler. If

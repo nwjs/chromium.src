@@ -22,6 +22,7 @@
 #include "extensions/browser/extension_protocols.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/url_request_util.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/file_util.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "mojo/public/cpp/system/file_data_pipe_producer.h"
@@ -344,6 +345,30 @@ net::URLRequestJob* MaybeCreateURLRequestResourceBundleJob(
     const base::FilePath& directory_path,
     const std::string& content_security_policy,
     bool send_cors_header) {
+
+  std::string path = request->url().path();
+  if (path.size() > 1 &&
+      (path.substr(1) == extensions::kNWJSDefaultAppJS ||
+       path.substr(1) == "nwjs/newwin.js")) {
+    base::FilePath relative_path;
+    base::FilePath request_path =
+    extensions::file_util::ExtensionURLToRelativeFilePath(request->url());
+    ComponentExtensionResourceInfo resource_info;
+    if (ExtensionsBrowserClient::Get()
+        ->GetComponentExtensionResourceManager()
+        ->IsComponentExtensionResource(
+                                     directory_path, request_path, &resource_info)) {
+      relative_path = relative_path.Append(request_path);
+      relative_path = relative_path.NormalizePathSeparators();
+      return new URLRequestResourceBundleJob(request,
+                                             network_delegate,
+                                             relative_path,
+                                             resource_info,
+                                             content_security_policy,
+                                             send_cors_header);
+    }
+  }
+
   base::FilePath resources_path;
   base::FilePath relative_path;
   // Try to load extension resources from chrome resource file if
@@ -378,6 +403,23 @@ base::FilePath GetBundleResourcePath(
   *resource_info = {};
   // |chrome_resources_path| corresponds to src/chrome/browser/resources in
   // source tree.
+  std::string path = request.url.path();
+  if (path.size() > 1 &&
+      (path.substr(1) == extensions::kNWJSDefaultAppJS ||
+       path.substr(1) == "nwjs/newwin.js")) {
+    base::FilePath relative_path;
+    base::FilePath request_path =
+      extensions::file_util::ExtensionURLToRelativeFilePath(request.url);
+    if (ExtensionsBrowserClient::Get()
+        ->GetComponentExtensionResourceManager()
+        ->IsComponentExtensionResource(
+                     extension_resources_path, request_path, resource_info)) {
+      relative_path = relative_path.Append(request_path);
+      relative_path = relative_path.NormalizePathSeparators();
+      return relative_path;
+    } else
+      return base::FilePath();
+  }
   base::FilePath chrome_resources_path;
   if (!base::PathService::Get(chrome::DIR_RESOURCES, &chrome_resources_path))
     return base::FilePath();

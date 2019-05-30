@@ -43,7 +43,7 @@ LayoutWorkletGlobalScopeProxy::LayoutWorkletGlobalScopeProxy(
   ProvideContentSettingsClientToWorker(
       worker_clients, frame->Client()->CreateWorkerContentSettingsClient());
 
-  auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+  auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       document->Url(), mojom::ScriptType::kModule,
       OffMainThreadWorkerScriptFetchOption::kEnabled, global_scope_name,
       document->UserAgent(), frame->Client()->CreateWorkerFetchContext(),

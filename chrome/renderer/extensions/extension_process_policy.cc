@@ -33,6 +33,9 @@ bool CrossesExtensionProcessBoundary(const ExtensionSet& extensions,
   const extensions::Extension* new_url_extension =
       GetNonBookmarkAppExtension(extensions, new_url);
 
+  if (old_url_extension && old_url_extension->is_nwjs_app())
+    return false;
+
   // If there are no extensions associated with either url, we check if the new
   // url points to an extension origin. If it does, fork - extension
   // installation should not be a factor.

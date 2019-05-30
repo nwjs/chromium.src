@@ -224,6 +224,8 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
         resource_(extension_id, directory_path, relative_path),
         content_security_policy_(content_security_policy),
         send_cors_header_(send_cors_header),
+        can_start_(false),
+        started_(false),
         weak_factory_(this) {
     if (follow_symlinks_anywhere) {
       resource_.set_follow_symlinks_anywhere();
@@ -299,8 +301,10 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
                                -result);
     if (result > 0) {
       bytes_read_ += result;
+#if 0
       if (verify_job_.get())
         verify_job_->BytesRead(result, buffer->data());
+#endif
     }
   }
 
@@ -310,8 +314,23 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
       verify_job_->DoneReading();
   }
 
- private:
+  void CanStart() {
+    can_start_ = true;
+    if (!started_) {
+      started_ = true;
+      URLRequestFileJob::Start();
+    }
+  }
+
+  void set_can_start(bool flag) { can_start_ = flag; }
+
+private:
   ~URLRequestExtensionJob() override {
+    if (verify_job_.get()) {
+      // there is a change that the job is cancelled before the verify
+      // job is complete
+      verify_job_->SetSuccessCallback(ContentVerifyJob::SuccessCallback());
+    }
     UMA_HISTOGRAM_COUNTS_1M("ExtensionUrlRequest.TotalKbRead",
                             bytes_read_ / 1024);
     UMA_HISTOGRAM_COUNTS_1M("ExtensionUrlRequest.SeekPosition", seek_position_);
@@ -340,7 +359,10 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
     if (found_mime_type)
       response_info_.headers->AddHeader("Content-Type: " + mime_type);
 
-    URLRequestFileJob::Start();
+    if (can_start_) {
+      started_ = true;
+      URLRequestFileJob::Start();
+    }
   }
 
   bool GetMimeType(std::string* mime_type) const override {
@@ -354,9 +376,14 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
     // application/javascript). See https://crbug.com/797712. Using an accurate
     // mime type is necessary at least for modules, which enforce strict mime
     // type requirements.
-    return net::GetWellKnownMimeTypeFromExtension(
+    bool ret = net::GetWellKnownMimeTypeFromExtension(
         file_extension.substr(1),  // Trim leading '.'
         mime_type);
+    if (!ret)
+      ret = net::GetMimeTypeFromExtension(
+        file_extension.substr(1),  // Trim leading '.'
+        mime_type);
+    return ret;
   }
 
   scoped_refptr<ContentVerifyJob> verify_job_;
@@ -374,6 +401,7 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
   extensions::ExtensionResource resource_;
   std::string content_security_policy_;
   bool send_cors_header_;
+  bool can_start_, started_;
   base::WeakPtrFactory<URLRequestExtensionJob> weak_factory_;
 };
 
@@ -407,7 +435,7 @@ bool AllowExtensionResourceLoad(const GURL& url,
                                 const ExtensionSet& extensions,
                                 const ProcessMap& process_map) {
   const bool is_main_frame = resource_type == content::RESOURCE_TYPE_MAIN_FRAME;
-  if (is_incognito &&
+  if (is_incognito && !extension->is_nwjs_app() &&
       !ExtensionCanLoadInIncognito(is_main_frame, extension,
                                    extension_enabled_in_incognito)) {
     return false;
@@ -665,10 +693,19 @@ ExtensionProtocolHandler::MaybeCreateJob(
       verify_job->Start(verifier);
   }
 
-  return new URLRequestExtensionJob(
+  ContentVerifyJob* verify_job_ptr = verify_job.get();
+  URLRequestExtensionJob* job = new URLRequestExtensionJob(
       request, network_delegate, extension_id, directory_path, relative_path,
       content_security_policy, send_cors_header, follow_symlinks_anywhere,
       std::move(verify_job));
+
+  if (verify_job_ptr) {
+    verify_job_ptr->SetSuccessCallback(base::Bind(&URLRequestExtensionJob::CanStart, base::Unretained(job)));
+    verify_job_ptr->Start(verifier);
+  } else {
+    job->set_can_start(true);
+  }
+  return job;
 }
 
 bool ExtensionProtocolHandler::IsSafeRedirectTarget(

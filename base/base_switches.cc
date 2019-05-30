@@ -139,4 +139,5 @@ const char kEnableReachedCodeProfiler[] = "enable-reached-code-profiler";
 const char kOrderfileMemoryOptimization[] = "orderfile-memory-optimization";
 #endif
 
+const char kNWJS[] = "nwjs";
 }  // namespace switches

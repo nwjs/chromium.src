@@ -831,12 +831,14 @@ void ChromePasswordManagerClient::AnnotateNavigationEntry(
 }
 
 std::string ChromePasswordManagerClient::GetPageLanguage() const {
+#if 0
   // TODO(crbug.com/912597): iOS vs other platforms extracts language from
   // the top level frame vs whatever frame directly holds the form.
   auto* translate_manager =
       ChromeTranslateClient::GetManagerFromWebContents(web_contents());
   if (translate_manager)
     return translate_manager->GetLanguageState().original_language();
+#endif
   return std::string();
 }
 

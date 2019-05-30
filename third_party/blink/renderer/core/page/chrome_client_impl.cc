@@ -254,7 +254,7 @@ Page* ChromeClientImpl::CreateWindowDelegate(
     NavigationPolicy navigation_policy,
     SandboxFlags sandbox_flags,
     const FeaturePolicy::FeatureState& opener_feature_state,
-    const SessionStorageNamespaceId& session_storage_namespace_id) {
+    const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest) {
   if (!web_view_->Client())
     return nullptr;
 
@@ -272,7 +272,7 @@ Page* ChromeClientImpl::CreateWindowDelegate(
           static_cast<WebNavigationPolicy>(navigation_policy),
           r.GetShouldSetOpener() == kNeverSetOpener,
           static_cast<WebSandboxFlags>(sandbox_flags), opener_feature_state,
-          session_storage_namespace_id));
+          session_storage_namespace_id, manifest));
   if (!new_view)
     return nullptr;
   return new_view->GetPage();
@@ -291,10 +291,10 @@ void ChromeClientImpl::DidOverscroll(const FloatSize& overscroll_delta,
       velocity_in_viewport, behavior);
 }
 
-void ChromeClientImpl::Show(NavigationPolicy navigation_policy) {
+void ChromeClientImpl::Show(NavigationPolicy navigation_policy, WebString* manifest) {
   if (web_view_->WidgetClient()) {
     web_view_->WidgetClient()->Show(
-        static_cast<WebNavigationPolicy>(navigation_policy));
+        static_cast<WebNavigationPolicy>(navigation_policy), manifest);
   }
 }
 

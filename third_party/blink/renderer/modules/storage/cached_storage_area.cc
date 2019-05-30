@@ -15,6 +15,8 @@
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 #include "third_party/blink/renderer/platform/wtf/text/utf8.h"
 
+BLINK_EXPORT int g_nw_dom_storage_quota = 10485760;
+
 namespace blink {
 
 namespace {
@@ -103,10 +105,11 @@ bool CachedStorageArea::SetItem(const String& key,
 
   // A quick check to reject obviously overbudget items to avoid priming the
   // cache.
+#if 0
   if ((key.length() + value.length()) * 2 >
       mojom::blink::StorageArea::kPerStorageAreaQuota)
     return false;
-
+#endif
   EnsureLoaded();
   String old_value;
   if (!map_->SetItem(key, value, &old_value))
@@ -193,8 +196,7 @@ void CachedStorageArea::Clear(Source* source) {
   }
   // No need to prime the cache in this case.
   Reset();
-  map_ = std::make_unique<StorageAreaMap>(
-      mojom::blink::StorageArea::kPerStorageAreaQuota);
+  map_ = std::make_unique<StorageAreaMap>(g_nw_dom_storage_quota);
   ignore_all_mutations_ = true;
 
   KURL page_url = source->GetPageUrl();
@@ -322,8 +324,7 @@ void CachedStorageArea::AllDeleted(const String& source) {
   }
   if (map_ && !from_local_area && !ignore_all_mutations_) {
     auto old = std::move(map_);
-    map_ = std::make_unique<StorageAreaMap>(
-        mojom::blink::StorageArea::kPerStorageAreaQuota);
+    map_ = std::make_unique<StorageAreaMap>(g_nw_dom_storage_quota);
 
     // We have to retain local additions which happened after this clear
     // operation from another process.
@@ -441,8 +442,7 @@ void CachedStorageArea::EnsureLoaded() {
   const FormatOption key_format = GetKeyFormat();
   const FormatOption value_format = GetValueFormat();
 
-  map_ = std::make_unique<StorageAreaMap>(
-      mojom::blink::StorageArea::kPerStorageAreaQuota);
+  map_ = std::make_unique<StorageAreaMap>(g_nw_dom_storage_quota);
   for (const auto& item : data) {
     map_->SetItemIgnoringQuota(Uint8VectorToString(item->key, key_format),
                                Uint8VectorToString(item->value, value_format));

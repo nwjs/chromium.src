@@ -60,6 +60,9 @@ class CORE_EXPORT FrameOwner : public GarbageCollectedMixin {
   // child frame is occluded or has visual effects applied.
   virtual void SetNeedsOcclusionTracking(bool) = 0;
 
+  virtual AtomicString nwuseragent() const = 0;
+  virtual bool nwfaketop() const = 0;
+
   // Returns the 'name' content attribute value of the browsing context
   // container.
   // https://html.spec.whatwg.org/C/#browsing-context-container
@@ -106,6 +109,8 @@ class CORE_EXPORT DummyFrameOwner final
   AtomicString BrowsingContextContainerName() const override {
     return AtomicString();
   }
+  AtomicString nwuseragent() const override { return AtomicString(); }
+  bool nwfaketop() const override { return false; }
   ScrollbarMode ScrollingMode() const override { return kScrollbarAuto; }
   int MarginWidth() const override { return -1; }
   int MarginHeight() const override { return -1; }

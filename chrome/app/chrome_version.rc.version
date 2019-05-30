@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <verrsrc.h>
+#include "../../content/nw/src/nw_version.h"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -10,9 +11,9 @@
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
- PRODUCTVERSION @MAJOR@,@MINOR@,@BUILD@,@PATCH@
  FILEFLAGSMASK 0x17L
+ FILEVERSION NW_MAJOR_VERSION,NW_MINOR_VERSION,NW_PATCH_VERSION
+ PRODUCTVERSION NW_MAJOR_VERSION,NW_MINOR_VERSION,NW_PATCH_VERSION
 #ifdef _DEBUG
  FILEFLAGS 0x1L
 #else
@@ -28,16 +29,15 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "@COMPANY_FULLNAME@"
             VALUE "FileDescription", "@PRODUCT_FULLNAME@"
-            VALUE "FileVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
+            VALUE "FileVersion", NW_VERSION_STRING
             VALUE "InternalName", "@INTERNAL_NAME@"
             VALUE "LegalCopyright", "@COPYRIGHT@"
             VALUE "OriginalFilename", "@ORIGINAL_FILENAME@"
             VALUE "ProductName", "@PRODUCT_FULLNAME@"
-            VALUE "ProductVersion", "@MAJOR@.@MINOR@.@BUILD@.@PATCH@"
+            VALUE "ProductVersion", NW_VERSION_STRING
             VALUE "CompanyShortName", "@COMPANY_SHORTNAME@"
             VALUE "ProductShortName", "@PRODUCT_SHORTNAME@"
             VALUE "LastChange", "@LASTCHANGE@"
-            VALUE "Official Build", "@OFFICIAL_BUILD@"
         END
     END
     BLOCK "VarFileInfo"

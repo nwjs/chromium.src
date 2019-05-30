@@ -373,6 +373,9 @@ bool InterstitialPageImpl::OnMessageReceived(
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
 
+  if (!handled) {
+    handled = static_cast<WebContentsImpl*>(web_contents_)->OnMessageReceived(render_frame_host, message);
+  }
   return handled;
 }
 
@@ -819,7 +822,7 @@ void InterstitialPageImpl::ShowCreatedWindow(int process_id,
                                              int main_frame_widget_route_id,
                                              WindowOpenDisposition disposition,
                                              const gfx::Rect& initial_rect,
-                                             bool user_gesture) {
+                                             bool user_gesture, std::string) {
   NOTREACHED() << "InterstitialPage does not support showing popups.";
 }
 

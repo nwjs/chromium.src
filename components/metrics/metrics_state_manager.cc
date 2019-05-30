@@ -195,11 +195,13 @@ void MetricsStateManager::ForceClientIdCreation() {
   // so the command-line check wouldn't be needed here.
   // Currently, kForceEnableMetricsReporting is used by Java UkmTest and
   // kMetricsRecordingOnly is used by Chromedriver tests.
+#if 0
   DCHECK(enabled_state_provider_->IsConsentGiven() ||
          base::CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kForceEnableMetricsReporting) ||
          base::CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kMetricsRecordingOnly));
+#endif
   {
     std::string client_id_from_prefs =
         local_state_->GetString(prefs::kMetricsClientID);

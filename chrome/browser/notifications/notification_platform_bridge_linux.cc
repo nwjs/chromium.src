@@ -630,6 +630,7 @@ class NotificationPlatformBridgeLinuxImpl
       // instead makes the entire notification clickable.
       actions.push_back(kDefaultButtonId);
       actions.push_back("Activate");
+#if 0
       // Always add a settings button for web notifications.
       if (notification_type != NotificationHandler::Type::EXTENSION &&
           notification_type != NotificationHandler::Type::SEND_TAB_TO_SELF) {
@@ -637,6 +638,7 @@ class NotificationPlatformBridgeLinuxImpl
         actions.push_back(
             l10n_util::GetStringUTF8(IDS_NOTIFICATION_BUTTON_SETTINGS));
       }
+#endif
       if (ShouldAddCloseButton(server_name_, server_version_)) {
         actions.push_back(kCloseButtonId);
         actions.push_back(

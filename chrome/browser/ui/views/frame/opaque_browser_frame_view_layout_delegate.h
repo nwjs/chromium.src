@@ -36,6 +36,7 @@ class OpaqueBrowserFrameViewLayoutDelegate {
   // Returns the browser's minimum view size. Used because we need to calculate
   // the minimum size for the entire non-client area.
   virtual gfx::Size GetBrowserViewMinimumSize() const = 0;
+  virtual gfx::Size GetBrowserViewMaximumSize() const = 0;
 
   // Whether we should show the (minimize,maximize,close) buttons. This can
   // depend on the current state of the window (e.g., whether it is maximized).

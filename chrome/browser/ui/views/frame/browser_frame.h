@@ -46,7 +46,7 @@ class BrowserFrame : public views::Widget,
                      public views::ContextMenuController,
                      public ui::MaterialDesignControllerObserver {
  public:
-  explicit BrowserFrame(BrowserView* browser_view);
+  explicit BrowserFrame(BrowserView* browser_view, bool frameless = false);
   ~BrowserFrame() override;
 
   // Initialize the frame (creates the underlying native window).
@@ -126,6 +126,7 @@ class BrowserFrame : public views::Widget,
     return native_browser_frame_;
   }
 
+  bool frameless() { return frameless_; }
  protected:
   // ui::MaterialDesignControllerObserver:
   void OnTouchUiChanged() override;
@@ -133,6 +134,8 @@ class BrowserFrame : public views::Widget,
  private:
   // Callback for MenuRunner.
   void OnMenuClosed();
+
+  bool frameless_;
 
   NativeBrowserFrame* native_browser_frame_;
 

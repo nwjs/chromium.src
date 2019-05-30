@@ -65,8 +65,8 @@ WebViewActionRequest.prototype.defaultAction = function() {
   }
 
   this.actionTaken = true;
-  CrashIfInvalidInstanceId(
-      this.guestInstanceId, 'WebViewActionRequest.defaultAction');
+  //CrashIfInvalidInstanceId(
+  //    this.guestInstanceId, 'WebViewActionRequest.defaultAction');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'default',
                                 '', $Function.bind(function(allowed) {
     if (allowed) {
@@ -140,13 +140,14 @@ Dialog.prototype.getInterfaceObject = function() {
     ok: $Function.bind(function(user_input) {
       this.validateCall();
       user_input = user_input || '';
-      CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog ok');
+      //NWJS: zero instance id is allowed in NW.
+      //CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog ok');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'allow', user_input);
     }, this),
     cancel: $Function.bind(function() {
       this.validateCall();
-      CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog cancel');
+      //CrashIfInvalidInstanceId(this.guestInstanceId, 'Dialog cancel');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'deny');
     }, this)
@@ -211,7 +212,7 @@ NewWindow.prototype.getInterfaceObject = function() {
       // then we will fail and it will be treated as if the new window
       // was rejected. The permission API plumbing is used here to clean
       // up the state created for the new window if attaching fails.
-      CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow attach');
+      //CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow attach');
       WebViewInternal.setPermission(this.guestInstanceId, this.requestId,
                                     attached ? 'allow' : 'deny');
     }, this),
@@ -222,7 +223,7 @@ NewWindow.prototype.getInterfaceObject = function() {
         // guestInstanceId.
         return;
       }
-      CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow discard');
+      //CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow discard');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'deny');
     }, this)
@@ -253,13 +254,13 @@ PermissionRequest.prototype.__proto__ = WebViewActionRequest.prototype;
 
 PermissionRequest.prototype.allow = function() {
   this.validateCall();
-  CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.allow');
+  //CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.allow');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'allow');
 };
 
 PermissionRequest.prototype.deny = function() {
   this.validateCall();
-  CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.deny');
+  //CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.deny');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'deny');
 };
 

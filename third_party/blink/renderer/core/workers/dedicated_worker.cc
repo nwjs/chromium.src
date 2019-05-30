@@ -6,6 +6,19 @@
 
 #include <utility>
 #include "base/feature_list.h"
+
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) CORE_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
@@ -421,10 +434,18 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
     network::mojom::ReferrerPolicy referrer_policy) {
   base::UnguessableToken parent_devtools_token;
   std::unique_ptr<WorkerSettings> settings;
+  bool isNodeJS = false;
+  std::string main_script;
   if (auto* document = DynamicTo<Document>(GetExecutionContext())) {
     if (document->GetFrame())
       parent_devtools_token = document->GetFrame()->GetDevToolsFrameToken();
     settings = std::make_unique<WorkerSettings>(document->GetSettings());
+    const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+
+    isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
+    if (g_web_worker_start_thread_fn) {
+      (*g_web_worker_start_thread_fn)(document->GetFrame(), (void*)script_url.GetPath().Utf8().data(), &main_script, &isNodeJS);
+    }
   } else {
     WorkerGlobalScope* worker_global_scope =
         To<WorkerGlobalScope>(GetExecutionContext());
@@ -437,7 +458,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
                                       ? mojom::ScriptType::kClassic
                                       : mojom::ScriptType::kModule;
 
-  return std::make_unique<GlobalScopeCreationParams>(
+  return std::make_unique<GlobalScopeCreationParams>(isNodeJS, main_script,
       script_url, script_type, off_main_thread_fetch_option, options_->name(),
       GetExecutionContext()->UserAgent(), CreateWebWorkerFetchContext(),
       GetExecutionContext()->GetContentSecurityPolicy()->Headers(),

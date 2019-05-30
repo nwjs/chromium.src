@@ -15,15 +15,15 @@
 
 namespace extensions {
 
-PermissionSet::PermissionSet() {}
+PermissionSet::PermissionSet(): allow_all_override_(false) {}
 PermissionSet::PermissionSet(APIPermissionSet apis,
                              ManifestPermissionSet manifest_permissions,
                              URLPatternSet explicit_hosts,
-                             URLPatternSet scriptable_hosts)
+                             URLPatternSet scriptable_hosts, bool allow_all)
     : apis_(std::move(apis)),
       manifest_permissions_(std::move(manifest_permissions)),
       explicit_hosts_(std::move(explicit_hosts)),
-      scriptable_hosts_(std::move(scriptable_hosts)) {
+      scriptable_hosts_(std::move(scriptable_hosts)), allow_all_override_(allow_all) {
   // For explicit hosts, we require the path to be "/*". This is a little
   // tricky, since URLPatternSets are backed by a std::set<>, where the
   // elements are immutable (because they themselves are the keys). In order to
@@ -165,15 +165,21 @@ bool PermissionSet::IsEmpty() const {
 }
 
 bool PermissionSet::HasAPIPermission(
-    APIPermission::ID id) const {
+                                     APIPermission::ID id,
+                                     bool ignore_override) const {
+  if (allow_all_override_ && !ignore_override)
+    return true;
   return apis().find(id) != apis().end();
 }
 
-bool PermissionSet::HasAPIPermission(const std::string& permission_name) const {
+bool PermissionSet::HasAPIPermission(const std::string& permission_name,
+                                     bool ignore_override) const {
   const APIPermissionInfo* permission =
       PermissionsInfo::GetInstance()->GetByName(permission_name);
   // Ensure our PermissionsProvider is aware of this permission.
   CHECK(permission) << permission_name;
+  if (allow_all_override_ && !ignore_override)
+    return true;
   return (permission && apis_.count(permission->id()));
 }
 

@@ -121,6 +121,7 @@ void DedicatedWorkerGlobalScope::postMessage(ScriptState* script_state,
       WorkerThreadDebugger::From(script_state->GetIsolate());
   transferable_message.sender_stack_trace_id =
       debugger->StoreCurrentStackTrace("postMessage");
+  if (GetThread())
   WorkerObjectProxy().PostMessageToWorkerObject(
       std::move(transferable_message));
 }

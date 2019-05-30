@@ -66,6 +66,8 @@
 #include "chrome/test/chromedriver/keycode_text_conversion.h"
 #endif
 
+#include "base/strings/string_number_conversions.h"
+
 namespace {
 
 // TODO(eseckler): Remove --ignore-certificate-errors for newer Chrome versions
@@ -74,6 +76,7 @@ const char* const kCommonSwitches[] = {
     "disable-popup-blocking", "enable-automation", "ignore-certificate-errors",
 };
 
+#if 0
 const char* const kDesktopSwitches[] = {
     "disable-hang-monitor",
     "disable-prompt-on-repost",
@@ -95,6 +98,7 @@ const char* const kDesktopSwitches[] = {
     // See crbug.com/911943 for detail.
     "enable-blink-features=ShadowDOMV0",
 };
+#endif
 
 const char* const kAndroidSwitches[] = {
     "disable-fre", "enable-remote-debugging",
@@ -147,8 +151,10 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
 
   for (auto* common_switch : kCommonSwitches)
     switches.SetUnparsedSwitch(common_switch);
+#if 0 //FIXME if enabled, chromedriver cannot find chrome on windows
   for (auto* desktop_switch : kDesktopSwitches)
     switches.SetUnparsedSwitch(desktop_switch);
+#endif
   for (const auto& excluded_switch : capabilities.exclude_switches) {
     switches.RemoveSwitch(excluded_switch);
   }
@@ -169,7 +175,7 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
       return Status(kInvalidArgument, "user data dir can not be empty");
     *user_data_dir = base::FilePath(userDataDir);
   } else {
-    command.AppendArg("data:,");
+    //command.AppendArg("data:,");
     if (!user_data_dir_temp_dir->CreateUniqueTempDir())
       return Status(kUnknownError, "cannot create temp dir for user data dir");
     switches.SetSwitch("user-data-dir",
@@ -199,6 +205,10 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
       return status;
   }
   switches.AppendToCommandLine(&command);
+
+  for (size_t i = 0; i < capabilities.arguments.size(); i++)
+    command.AppendArg(capabilities.arguments[i]);
+
   *prepared_command = command;
   return Status(kOk);
 }
@@ -223,8 +233,13 @@ Status WaitForDevToolsAndCheckVersion(
     window_types.reset(new std::set<WebViewInfo::Type>());
   }
 
-  std::unique_ptr<DevToolsHttpClient> client;
   base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  if (cmd_line->HasSwitch("launch-timeout")) {
+    std::string s_timeout = cmd_line->GetSwitchValueASCII("launch-timeout");
+    base::StringToInt(s_timeout, &wait_time);
+  }
+
+  std::unique_ptr<DevToolsHttpClient> client;
   if (cmd_line->HasSwitch("devtools-replay")) {
     base::CommandLine::StringType log_path =
         cmd_line->GetSwitchValueNative("devtools-replay");
@@ -287,7 +302,10 @@ Status WaitForDevToolsAndCheckVersion(
     WebViewsInfo views_info;
     client->GetWebViewsInfo(&views_info);
     for (size_t i = 0; i < views_info.GetSize(); ++i) {
-      if (views_info.Get(i).type == WebViewInfo::kPage) {
+      if (views_info.Get(i).type == WebViewInfo::kPage ||
+          views_info.Get(i).type == WebViewInfo::kApp
+          || (views_info.Get(i).type == WebViewInfo::kOther &&
+              !base::StartsWith(views_info.Get(i).url, "chrome-extension://", base::CompareCase::SENSITIVE))) { //node-remote page
         *user_client = std::move(client);
         return Status(kOk);
       }

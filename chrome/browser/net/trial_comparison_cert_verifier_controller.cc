@@ -95,6 +95,7 @@ void TrialComparisonCertVerifierController::SendTrialReport(
     bool disable_symantec_enforcement,
     const net::CertVerifyResult& primary_result,
     const net::CertVerifyResult& trial_result) {
+#if 0
   if (!IsAllowed() ||
       base::GetFieldTrialParamByFeatureAsBool(
           features::kCertDualVerificationTrialFeature, "uma_only", false)) {
@@ -115,6 +116,7 @@ void TrialComparisonCertVerifierController::SendTrialReport(
 
   CertificateReportingServiceFactory::GetForBrowserContext(profile_)->Send(
       serialized_report);
+#endif
 }
 
 // static

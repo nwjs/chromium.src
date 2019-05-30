@@ -249,7 +249,9 @@ IPC_STRUCT_TRAITS_BEGIN(content::FrameOwnerProperties)
   IPC_STRUCT_TRAITS_MEMBER(margin_width)
   IPC_STRUCT_TRAITS_MEMBER(margin_height)
   IPC_STRUCT_TRAITS_MEMBER(allow_fullscreen)
+  IPC_STRUCT_TRAITS_MEMBER(nwfaketop)
   IPC_STRUCT_TRAITS_MEMBER(allow_payment_request)
+  IPC_STRUCT_TRAITS_MEMBER(nwuseragent)
   IPC_STRUCT_TRAITS_MEMBER(is_display_none)
   IPC_STRUCT_TRAITS_MEMBER(required_csp)
 IPC_STRUCT_TRAITS_END()
@@ -770,11 +772,11 @@ IPC_STRUCT_END()
 // be shown on the screen. This message is routed to the preexisting frame that
 // opened the window, and |pending_widget_routing_id| corresponds to the
 // widget routing id from the CreateNewWindow reply.
-IPC_MESSAGE_ROUTED4(FrameHostMsg_ShowCreatedWindow,
+IPC_MESSAGE_ROUTED5(FrameHostMsg_ShowCreatedWindow,
                     int /* pending_widget_routing_id */,
                     WindowOpenDisposition /* disposition */,
                     gfx::Rect /* initial_rect */,
-                    bool /* opened_by_user_gesture */)
+                    bool /* opened_by_user_gesture */, std::string)
 
 #if BUILDFLAG(ENABLE_PLUGINS)
 IPC_STRUCT_TRAITS_BEGIN(content::PepperRendererInstanceData)

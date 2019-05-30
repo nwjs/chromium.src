@@ -42,7 +42,9 @@ class ExtensionNavigationUIData {
   bool is_web_view() const { return is_web_view_; }
   int web_view_instance_id() const { return web_view_instance_id_; }
   int web_view_rules_registry_id() const { return web_view_rules_registry_id_; }
-
+  int web_view_embedder_process_id() const {
+    return web_view_embedder_process_id_;
+  }
  private:
   ExtensionNavigationUIData(content::WebContents* web_contents,
                             int tab_id,
@@ -55,6 +57,7 @@ class ExtensionNavigationUIData {
   // These are only valid iff is_web_view_.
   int web_view_instance_id_;
   int web_view_rules_registry_id_;
+  int web_view_embedder_process_id_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionNavigationUIData);
 };

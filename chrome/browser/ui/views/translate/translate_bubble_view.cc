@@ -92,6 +92,7 @@ views::Widget* TranslateBubbleView::ShowBubble(
     const std::string& target_language,
     translate::TranslateErrors::Type error_type,
     DisplayReason reason) {
+#if 0
   if (translate_bubble_view_) {
     // When the user reads the advanced setting panel, the bubble should not be
     // changed because they are focusing on the bubble.
@@ -133,6 +134,8 @@ views::Widget* TranslateBubbleView::ShowBubble(
   view->ShowForReason(reason);
   translate::ReportUiAction(translate::BUBBLE_SHOWN);
   return bubble_widget;
+#endif
+  return nullptr;
 }
 
 // static

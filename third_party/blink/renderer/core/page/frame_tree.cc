@@ -185,11 +185,19 @@ Frame* FrameTree::Find(const AtomicString& name) const {
       EqualIgnoringASCIICase(name, "_current") || name.IsEmpty())
     return this_frame_;
 
-  if (EqualIgnoringASCIICase(name, "_top"))
+  if (EqualIgnoringASCIICase(name, "_top")) {
+    for (const LocalFrame* f = DynamicTo<LocalFrame>(this_frame_.Get()); f; f = DynamicTo<LocalFrame>(f->Tree().Parent())) {
+      if (f->isNwFakeTop())
+        return const_cast<LocalFrame*>(f);
+    }
     return &Top();
+  }
 
-  if (EqualIgnoringASCIICase(name, "_parent"))
+  if (EqualIgnoringASCIICase(name, "_parent")) {
+    if (this_frame_->isNwFakeTop())
+      return this_frame_.Get();
     return Parent() ? Parent() : this_frame_.Get();
+  }
 
   // Since "_blank" should never be any frame's name, the following just amounts
   // to an optimization.

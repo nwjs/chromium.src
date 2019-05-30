@@ -132,6 +132,7 @@ void TranslateInternalsHandler::OnTranslateEvent(
 }
 
 void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue* args) {
+#if 0
   Profile* profile = Profile::FromWebUI(web_ui());
   PrefService* prefs = profile->GetOriginalProfile()->GetPrefs();
   std::unique_ptr<translate::TranslatePrefs> translate_prefs(
@@ -165,6 +166,7 @@ void TranslateInternalsHandler::OnRemovePrefItem(const base::ListValue* args) {
   }
 
   SendPrefsToJs();
+#endif
 }
 
 void TranslateInternalsHandler::OnSetRecentTargetLanguage(
