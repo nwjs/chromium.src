@@ -43,6 +43,7 @@
 #include "services/resource_coordinator/public/mojom/coordination_unit.mojom-blink.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/frame/document_interface_broker.mojom-blink.h"
 #include "third_party/blink/public/mojom/insecure_input/insecure_input_service.mojom-blink.h"
 #include "third_party/blink/public/mojom/net/ip_address_space.mojom-blink.h"
@@ -287,6 +288,7 @@
 #include "third_party/blink/renderer/platform/network/http_parsers.h"
 #include "third_party/blink/renderer/platform/network/network_state_notifier.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/scheduler/public/dummy_schedulers.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_or_worker_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
@@ -3535,7 +3537,7 @@ bool Document::CheckCompletedInternal() {
         SchedulingPolicy::Feature::kDocumentLoaded,
         {SchedulingPolicy::RecordMetricsForBackForwardCache()});
 
-    AnchorElementMetrics::MaybeReportViewportMetricsOnLoad(*this);
+    AnchorElementMetrics::NotifyOnLoad(*this);
 
     // If this is a document associated with a resource loading hints based
     // preview, then record the resource loading hints UKM now that the load is
@@ -6275,7 +6277,17 @@ void Document::ApplyFeaturePolicy(const ParsedFeaturePolicy& declared_policy) {
     opener_feature_state = &frame_->OpenerFeatureState();
   }
 
-  InitializeFeaturePolicy(declared_policy, GetOwnerContainerPolicy(),
+  auto container_policy = GetOwnerContainerPolicy();
+  if (RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled() &&
+      frame_ && frame_->Tree().Parent() &&
+      IsSandboxed(WebSandboxFlags::kNavigation)) {
+    // Enforcing the policy for sandbox frames (for context see
+    // https://crbug.com/954349).
+    DisallowFeatureIfNotPresent(
+        mojom::FeaturePolicyFeature::kFocusWithoutUserActivation,
+        container_policy);
+  }
+  InitializeFeaturePolicy(declared_policy, container_policy,
                           GetParentFeaturePolicy(), opener_feature_state);
 
   // At this point, the document will not have been installed in the frame's
@@ -7556,7 +7568,10 @@ FrameOrWorkerScheduler* Document::GetScheduler() {
   // cases, though, there isn't a good candidate (most commonly when either the
   // passed-in document or ContextDocument() used to be attached to a Frame but
   // has since been detached).
-  return nullptr;
+  if (!detached_scheduler_) {
+    detached_scheduler_ = scheduler::CreateDummyFrameScheduler();
+  }
+  return detached_scheduler_.get();
 }
 
 scoped_refptr<base::SingleThreadTaskRunner> Document::GetTaskRunner(
@@ -7741,6 +7756,32 @@ bool Document::IsLazyLoadPolicyEnforced() const {
   return RuntimeEnabledFeatures::ExperimentalProductivityFeaturesEnabled() &&
          !GetFeaturePolicy()->IsFeatureEnabled(
              mojom::FeaturePolicyFeature::kLazyLoad);
+}
+
+bool Document::IsFocusAllowed() const {
+  if (!frame_ || frame_->IsMainFrame() ||
+      LocalFrame::HasTransientUserActivation(frame_)) {
+    // 'autofocus' runs Element::focus asynchronously at which point the
+    // document might not have a frame (see https://crbug.com/960224).
+    return true;
+  }
+
+  WebFeature uma_type;
+  bool sandboxed = IsSandboxed(WebSandboxFlags::kNavigation);
+  bool ad = frame_->IsAdSubframe();
+  if (sandboxed) {
+    uma_type = ad ? WebFeature::kFocusWithoutUserActivationSandboxedAdFrame
+                  : WebFeature::kFocusWithoutUserActivationSandboxedNotAdFrame;
+  } else {
+    uma_type =
+        ad ? WebFeature::kFocusWithoutUserActivationNotSandboxedAdFrame
+           : WebFeature::kFocusWithoutUserActivationNotSandboxedNotAdFrame;
+  }
+  UseCounter::Count(*this, uma_type);
+  if (!RuntimeEnabledFeatures::BlockingFocusWithoutUserActivationEnabled())
+    return true;
+  return IsFeatureEnabled(
+      mojom::FeaturePolicyFeature::kFocusWithoutUserActivation);
 }
 
 LazyLoadImageObserver& Document::EnsureLazyLoadImageObserver() {

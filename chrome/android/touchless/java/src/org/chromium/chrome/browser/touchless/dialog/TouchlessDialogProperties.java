@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.touchless.dialog;
 
 import android.graphics.drawable.Drawable;
 import android.support.annotation.IntDef;
+import android.support.annotation.StringRes;
 import android.view.View.OnClickListener;
 
 import org.chromium.ui.modaldialog.ModalDialogProperties;
@@ -47,6 +48,10 @@ public class TouchlessDialogProperties {
         public static final WritableObjectPropertyKey<String> TEXT =
                 new WritableObjectPropertyKey<>();
 
+        /** Whether this item can be clicked more than one time. */
+        public static final WritableBooleanPropertyKey MULTI_CLICKABLE =
+                new WritableBooleanPropertyKey();
+
         /** The action to be performed when the item is selected. */
         public static final WritableObjectPropertyKey<OnClickListener> CLICK_LISTENER =
                 new WritableObjectPropertyKey<>();
@@ -55,17 +60,17 @@ public class TouchlessDialogProperties {
         public static final WritableBooleanPropertyKey FOCUS_LISTENER_SET =
                 new WritableBooleanPropertyKey();
 
-        public static final PropertyKey[] ALL_KEYS = {ICON, TEXT, CLICK_LISTENER,
-                FOCUS_LISTENER_SET};
+        public static final PropertyKey[] ALL_KEYS = {
+                ICON, TEXT, MULTI_CLICKABLE, CLICK_LISTENER, FOCUS_LISTENER_SET};
     }
 
     /**
      * Struct-like class for holding the Names for the dialog actions.
      */
     public static class ActionNames {
-        public String cancel;
-        public String select;
-        public String alt;
+        public @StringRes int cancel;
+        public @StringRes int select;
+        public @StringRes int alt;
     }
 
     /**
@@ -89,18 +94,27 @@ public class TouchlessDialogProperties {
     public static final WritableObjectPropertyKey<OnClickListener> CANCEL_ACTION =
             new WritableObjectPropertyKey<>();
 
+    /** True if the action is handled externally to the dialog */
+    public static final WritableBooleanPropertyKey IS_CANCEL_ACTION_EXTERNAL =
+            new WritableBooleanPropertyKey();
+
     /** What will happen when alternative action is triggered. */
     public static final WritableObjectPropertyKey<OnClickListener> ALT_ACTION =
             new WritableObjectPropertyKey<>();
 
+    /** True if the action is handled externally to the dialog */
+    public static final WritableBooleanPropertyKey IS_ALT_ACTION_EXTERNAL =
+            new WritableBooleanPropertyKey();
+
     /** The priority for this set of properties. */
     public static final WritableIntPropertyKey PRIORITY = new WritableIntPropertyKey();
 
-    public static final PropertyKey[] MINIMAL_DIALOG_KEYS = {
-            ModalDialogProperties.TITLE, ACTION_NAMES, CANCEL_ACTION, ALT_ACTION, PRIORITY};
+    public static final PropertyKey[] MINIMAL_DIALOG_KEYS = {ModalDialogProperties.TITLE,
+            ACTION_NAMES, CANCEL_ACTION, IS_CANCEL_ACTION_EXTERNAL, ALT_ACTION,
+            IS_ALT_ACTION_EXTERNAL, PRIORITY};
 
-    public static final PropertyKey[] ALL_DIALOG_KEYS =
-            PropertyModel.concatKeys(ModalDialogProperties.ALL_KEYS,
-                    new PropertyKey[] {ACTION_NAMES, CANCEL_ACTION, ALT_ACTION, PRIORITY,
-                            IS_FULLSCREEN, LIST_MODELS});
+    public static final PropertyKey[] ALL_DIALOG_KEYS = PropertyModel.concatKeys(
+            ModalDialogProperties.ALL_KEYS,
+            new PropertyKey[] {ACTION_NAMES, CANCEL_ACTION, IS_CANCEL_ACTION_EXTERNAL, ALT_ACTION,
+                    IS_ALT_ACTION_EXTERNAL, PRIORITY, IS_FULLSCREEN, LIST_MODELS});
 }

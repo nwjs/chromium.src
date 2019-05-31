@@ -55,7 +55,7 @@
 
       Nếu chính sách này được đặt, màn hình đăng nhập sẽ luôn được hiển thị bằng ngôn ngữ được cung cấp theo giá trị đầu tiên của chính sách (chính sách được định nghĩa là danh sách về khả năng tương thích chuyển tiếp).  Nếu chính sách này chưa được đặt hoặc được đặt thành danh sách trống, màn hình đăng nhập sẽ được hiển thị bằng ngôn ngữ của phiên người dùng cuối cùng.  Nếu chính sách này được đặt thành giá trị không phải là ngôn ngữ hợp lệ, màn hình đăng nhập sẽ được hiển thị bằng ngôn ngữ dự phòng (hiện tại là en-US).</translation>
 <translation id="1052499923181221200">Chính sách này không có hiệu lực trừ khi chính sách SamlInSessionPasswordChangeEnabled là true.
-      Nếu chính sách đó là true và chính sách này được đặt thành 14 chẳng hạn, thì điều đó có nghĩa là người dùng SAML sẽ nhận được thông báo trước 14 ngày rằng mật khẩu của họ sắp hết hạn vào một ngày nhất định.
+      Nếu chính sách đó là true và chính sách này được đặt thành 14 chẳng hạn, thì điều đó có nghĩa là người dùng SAML sẽ nhận được thông báo trước 14 ngày rằng mật khẩu của họ sẽ hết hạn vào một ngày nhất định.
       Sau đó, họ có thể giải quyết ngay vấn đề này bằng cách đổi mật khẩu ngay trong phiên đăng nhập và cập nhật mật khẩu trước khi hết hạn.
       Tuy nhiên, các thông báo này sẽ chỉ hiển thị nếu nhà cung cấp danh tính SAML gửi thông tin hết hạn mật khẩu tới thiết bị trong quy trình đăng nhập SAML.
       Nếu bạn đặt chính sách này thành 0, thì người dùng sẽ không nhận được thông báo trước. Họ sẽ chỉ nhận được thông báo khi mật khẩu đã hết hạn.
@@ -323,15 +323,15 @@
 <translation id="1502843533062797703">Cho phép chặn phần mềm bên thứ ba thêm mã thực thi</translation>
 <translation id="1504431521196476721">Chứng thực từ xa</translation>
 <translation id="1507382822467487898">
-          Định cấu hình địa chỉ MAC (kiểm soát truy cập nội dung đa phương tiện) sẽ được sử dụng khi kết nối đế sạc với thiết bị.
+          Định cấu hình địa chỉ MAC (điều khiển truy cập phương tiện) sẽ được sử dụng khi kết nối đế sạc với thiết bị.
 
-          Khi kết nối đế sạc với một số kiểu thiết bị, địa chỉ MAC cho đế sạc chỉ định của thiết bị sẽ được dùng để xác định thiết bị trên Ethernet theo mặc định. Chính sách này cho phép quản trị viên thay đổi nguồn của địa chỉ MAC khi được gắn vào đế sạc.
+          Khi kết nối đế sạc với một số kiểu thiết bị, địa chỉ MAC chỉ định cho đế sạc của thiết bị sẽ được dùng để xác định thiết bị trên Ethernet theo mặc định. Chính sách này cho phép quản trị viên thay đổi nguồn của địa chỉ MAC khi được gắn vào đế sạc.
 
-          Nếu bạn chọn 'DeviceDockMacAddress' hoặc không đặt chính sách này, thì địa chỉ MAC cho đế sạc chỉ định của thiết bị sẽ được sử dụng.
+          Nếu bạn chọn 'DeviceDockMacAddress' hoặc không đặt chính sách này, thì địa chỉ MAC chỉ định cho đế sạc của thiết bị sẽ được sử dụng.
 
-          Nếu bạn chọn 'DeviceNicMacAddress', thì địa chỉ NIC (bộ điều khiển giao diện mạng) MAC của thiết bị sẽ được sử dụng.
+          Nếu bạn chọn 'DeviceNicMacAddress', thì địa chỉ MAC trên NIC (bộ điều khiển giao diện mạng) của thiết bị sẽ được sử dụng.
 
-          Nếu bạn chọn 'DockNicMacAddress', thì địa chỉ NIC MAC của đế sạc sẽ được sử dụng.
+          Nếu bạn chọn 'DockNicMacAddress', thì địa chỉ MAC trên NIC của đế sạc sẽ được sử dụng.
 
           Người dùng không thể thay đổi tùy chọn cài đặt này.</translation>
 <translation id="1507957856411744193">Nếu bạn đặt chính sách này thành true, thì <ph name="PRODUCT_NAME" /> sẽ kết nối với Thiết bị truyền trên tất cả các địa chỉ IP, chứ không chỉ các địa chỉ riêng RFC1918/RFC4913.
@@ -1203,15 +1203,15 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3072045631333522102">Trình bảo vệ màn hình được sử dụng trên màn hình đăng nhập ở chế độ bán lẻ</translation>
 <translation id="3072847235228302527">Đặt Điều khoản dịch vụ cho một tài khoản cục bộ trên thiết bị</translation>
 <translation id="3077183141551274418">Bật hoặc tắt tính năng chu kỳ sử dụng tab</translation>
-<translation id="3079417254871857650">Chỉ định hành động cần thực hiện khi thư mục gốc của người dùng được tạo bằng loại mã hóa ecryptfs.
+<translation id="3079417254871857650">Chỉ định hành động cần được thực hiện khi thư mục gốc của người dùng được tạo bằng loại mã hóa ecryptfs.
 
-      Nếu bạn đặt chính sách này thành 'DisallowArc', thì các ứng dụng Android sẽ tắt đối với người dùng và quá trình di chuyển từ loại mã hóa ecryptfs sang ext4 sẽ không diễn ra. Các ứng dụng Android sẽ vẫn chạy trong trường hợp thư mục gốc đã được mã hóa ext4.
+      Nếu bạn đặt chính sách này thành 'DisallowArc', thì người dùng sẽ không thể sử dụng được các ứng dụng Android và quá trình di chuyển từ loại mã hóa ecryptfs sang ext4 sẽ không diễn ra. Các ứng dụng Android sẽ vẫn chạy trong trường hợp thư mục gốc đã được mã hóa ext4.
 
       Nếu bạn đặt chính sách này thành 'Migrate', thì các thư mục gốc đã mã hóa ecryptfs sẽ tự động di chuyển sang loại mã hóa ext4 khi đăng nhập mà không cần xin phép người dùng.
 
-      Nếu bạn đặt chính sách này thành 'Wipe', thì các thư mục gốc đã mã hóa ecryptfs sẽ bị xóa khi đăng nhập. Thay vào đó, các thư mục gốc mới đã mã hóa ext4 sẽ được tạo. Cảnh báo: Thao tác này sẽ xóa dữ liệu trên máy của người dùng.
+      Nếu bạn đặt chính sách này thành 'Wipe', thì các thư mục gốc đã mã hóa ecryptfs sẽ bị xóa khi đăng nhập và các thư mục gốc mới đã mã hóa ext4 sẽ được tạo. Cảnh báo: Thao tác này sẽ xóa dữ liệu trên máy của người dùng.
 
-      Nếu bạn đặt chính sách này thành 'MinimalMigrate', thì các thư mục gốc đã mã hóa ecryptfs sẽ bị xóa khi đăng nhập. Thay vào đó, các thư mục gốc mới đã mã hóa ext4 sẽ được tạo. Tuy nhiên, hệ thống sẽ cố bảo toàn mã thông báo đăng nhập để người dùng không phải đăng nhập lại. Cảnh báo: Thao tác này sẽ xóa dữ liệu trên máy của người dùng.
+      Nếu bạn đặt chính sách này thành 'MinimalMigrate', thì các thư mục gốc đã mã hóa ecryptfs sẽ bị xóa khi đăng nhập và các thư mục gốc mới đã mã hóa ext4 sẽ được tạo. Tuy nhiên, hệ thống sẽ cố bảo toàn mã đăng nhập để người dùng không phải đăng nhập lại. Cảnh báo: Thao tác này sẽ xóa dữ liệu trên máy của người dùng.
 
       Nếu bạn đặt chính sách này thành một tùy chọn không được hỗ trợ nữa ('AskUser' hoặc 'AskForEcryptfsArcUsers'), thì chính sách này sẽ được xử lý như thể bạn đã chọn 'Migrate'.
 
@@ -1248,7 +1248,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
           Nếu bạn tắt tùy chọn cài đặt này, <ph name="PRODUCT_NAME" />sẽ chỉ sử dụng các máy chủ Nhắn tin gốc được cài đặt ở cấp hệ thống.
 
           Nếu bạn không đặt tùy chọn cài đặt này, <ph name="PRODUCT_NAME" /> sẽ cho phép sử dụng các máy chủ Nhắn tin gốc ở cấp người dùng.</translation>
-<translation id="3177802893484440532">Cần phải kiểm tra OCSP/CRL trực tuyến đối với điểm kết nối tin cậy cục bộ</translation>
+<translation id="3177802893484440532">Cần phải kiểm tra OCSP/CRL trực tuyến đối với neo tin cậy cục bộ</translation>
 <translation id="3185009703220253572">kể từ phiên bản <ph name="SINCE_VERSION" /></translation>
 <translation id="3187220842205194486">Các ứng dụng Android không thể truy cập vào khóa công ty. Chính sách này không ảnh hưởng đến các ứng dụng đó.</translation>
 <translation id="3205825995289802549">Mở tối đa cửa sổ trình duyệt đầu tiên trong lần chạy đầu tiên</translation>
@@ -1284,9 +1284,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Nếu cài đặt này được bật hoặc không được định cấu hình, người dùng có thể bật proxy máy in máy chủ ảo bằng cách xác thực bằng tài khoản Google của họ.
 
       Nếu cài đặt này được bật, người dùng không thể bật proxy và máy sẽ không được phép chia sẻ máy in với <ph name="CLOUD_PRINT_NAME" />.</translation>
-<translation id="3312206664202507568">Bật một trang tại chrome://password-change cho phép người dùng SAML đổi mật khẩu SAML ngay trong phiên đăng nhập. Điều này đảm bảo rằng mật khẩu SAML và mật khẩu màn hình khóa của thiết bị luôn đồng bộ.
+<translation id="3312206664202507568">Cho phép một trang tại chrome://password-change cho phép người dùng SAML đổi mật khẩu SAML ngay trong phiên đăng nhập. Điều này đảm bảo rằng mật khẩu SAML và mật khẩu màn hình khóa của thiết bị luôn đồng bộ.
 
-      Chính sách này cũng cho phép các thông báo cảnh báo người dùng SAML khi mật khẩu SAML sắp hết hạn để họ có thể giải quyết vấn đề này ngay lập tức bằng cách đổi mật khẩu ngay trong phiên đăng nhập.
+      Chính sách này cũng cho phép các thông báo cảnh báo người dùng SAML khi mật khẩu SAML của họ sắp hết hạn để họ có thể giải quyết vấn đề này ngay lập tức bằng cách đổi mật khẩu ngay trong phiên đăng nhập.
       Tuy nhiên, các thông báo này sẽ chỉ hiển thị nếu nhà cung cấp danh tính SAML gửi thông tin hết hạn mật khẩu tới thiết bị trong quy trình đăng nhập SAML.
 
       Nếu bạn đặt chính sách này, thì người dùng sẽ không thể thay đổi hoặc ghi đè chính sách.</translation>
@@ -1455,7 +1455,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
         Tính năng đăng ký chính sách đám mây trong phạm vi máy sử dụng chính sách này trên máy tính để bàn. Sổ đăng ký hoặc GPO trên Windows, plist trên máy Mac và tệp chính sách JSON trên Linux có thể đặt chính sách này.</translation>
 <translation id="3660562134618097814">Chuyển cookie SAML IdP trong khi đăng nhập</translation>
-<translation id="3668151900457104753">Gỡ cài đặt các tiện ích trong danh sách cấm</translation>
 <translation id="3701121231485832347">Kiểm soát các tùy chọn cài đặt dành riêng cho các thiết bị <ph name="PRODUCT_OS_NAME" /> do <ph name="MS_AD_NAME" /> quản lý.</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Trường một dòng không dùng nữa và sẽ bị xóa trong tương lai. Hãy bắt đầu sử dụng hộp văn bản nhiều dòng bên dưới.)</translation>
 <translation id="3709266154059827597">Định cấu hình danh sách đen cài đặt tiện ích</translation>
@@ -1538,15 +1537,15 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="382476126209906314">Định cấu hình tiền tố TalkGadget cho máy chủ truy cập từ xa</translation>
 <translation id="3824972131618513497">Kiểm soát các tùy chọn cài đặt liên quan đến quản lý nguồn và khởi động lại.</translation>
 <translation id="3826475866868158882">Đã bật Dịch vụ vị trí của Google</translation>
-<translation id="3831054243924627613">Chính sách này kiểm soát trạng thái ban đầu của dịch vụ sao lưu và khôi phục trên Android.
+<translation id="3831054243924627613">Chính sách này kiểm soát trạng thái ban đầu của dịch vụ sao lưu và khôi phục của Android.
 
-      Khi bạn không định cấu hình chính sách này hoặc đặt chính sách thành <ph name="BR_DISABLED" />, dịch vụ sao lưu và khôi phục trên Android sẽ tắt lúc ban đầu.
+      Khi bạn không định cấu hình chính sách này hoặc đặt chính sách thành <ph name="BR_DISABLED" />, dịch vụ sao lưu và khôi phục của Android sẽ tắt ngay từ đầu.
 
-      Khi bạn đặt chính sách này thành <ph name="BR_ENABLED" />, dịch vụ sao lưu và khôi phục trên Android sẽ bật lúc ban đầu.
+      Khi bạn đặt chính sách này thành <ph name="BR_ENABLED" />, dịch vụ sao lưu và khôi phục của Android sẽ bật ngay từ đầu.
 
-      Khi bạn đặt chính sách này thành <ph name="BR_UNDER_USER_CONTROL" />, người dùng sẽ được yêu cầu chọn xem có sử dụng dịch vụ sao lưu và khôi phục trên Android hay không. Nếu người dùng bật dịch vụ sao lưu và khôi phục, thì dữ liệu ứng dụng Android sẽ được tải lên máy chủ sao lưu của Android và được khôi phục từ các máy chủ đó khi cài đặt lại ứng dụng cho các ứng dụng tương thích.
+      Khi bạn đặt chính sách này thành <ph name="BR_UNDER_USER_CONTROL" />, người dùng sẽ được yêu cầu chọn xem có sử dụng dịch vụ sao lưu và khôi phục của Android hay không. Nếu người dùng bật dịch vụ sao lưu và khôi phục, thì dữ liệu ứng dụng Android sẽ được tải lên máy chủ sao lưu của Android và được khôi phục từ các máy chủ đó khi cài đặt lại các ứng dụng tương thích.
 
-      Xin lưu ý rằng chính sách này chỉ kiểm soát trạng thái của dịch vụ sao lưu và khôi phục trên Android trong quá trình thiết lập ban đầu. Sau đó, người dùng có thể mở phần cài đặt của Android rồi bật/tắt dịch vụ sao lưu và khôi phục trên Android.</translation>
+      Xin lưu ý rằng chính sách này chỉ kiểm soát trạng thái của dịch vụ sao lưu và khôi phục của Android trong quá trình thiết lập ban đầu. Sau đó, người dùng có thể mở phần cài đặt của Android rồi bật/tắt dịch vụ sao lưu và khôi phục của Android.</translation>
 <translation id="3831376478177535007">Khi bạn bật cài đặt này, <ph name="PRODUCT_NAME" /> sẽ cho phép tin cậy các chứng chỉ do hoạt động của Cơ sở hạ tầng khóa công khai (PKI) cũ của Symantec Corporation phát hành nếu các chứng chỉ xác thực thành công và liên kết với một chứng chỉ CA được công nhận.
 
       Lưu ý rằng chính sách này phụ thuộc vào việc hệ điều hành vẫn công nhận các chứng chỉ từ hạ tầng cũ của Symantec. Nếu bản cập nhật hệ điều hành thay đổi cách xử lý các chứng chỉ đó của hệ điều hành, thì chính sách này sẽ không còn hiệu lực nữa.  Ngoài ra, chính sách này có vai trò là giải pháp tạm thời để cho các doanh nghiệp có thêm thời gian di chuyển đổi chứng chỉ Symantec cũ. Chính sách này sẽ bị loại bỏ vào đúng hoặc khoảng ngày 01 tháng 01 năm 2019.
@@ -1869,7 +1868,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       Lưu ý rằng chính sách chứa ID ứng dụng không nhất thiết có nghĩa là người dùng sẽ có thể bật ứng dụng làm ứng dụng ghi chú trên màn hình khóa - ví dụ: trên Chrome 61, tập hợp các ứng dụng hiện có bị nền tảng hạn chế thêm.
 
       Nếu không đặt chính sách thì sẽ không có hạn chế nào được chính sách áp dụng cho tập hợp các ứng dụng mà người dùng có thể bật trên màn hình khóa.</translation>
-<translation id="4313767483634435271">Địa chỉ MAC cho đế sạc chỉ định của thiết bị</translation>
+<translation id="4313767483634435271">Địa chỉ MAC chỉ định cho đế sạc của thiết bị</translation>
 <translation id="4322842393287974810">Cho phép ứng dụng kiosk tự động khởi chạy với độ trễ bằng không kiểm soát phiên bản <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Thêm một nút đăng xuất vào khay hệ thống</translation>
 <translation id="4332177773549877617">Ghi lại các sự kiện cho lượt cài đặt ứng dụng Android</translation>
@@ -2424,7 +2423,7 @@ Không giống như <ph name="URL_LIST_POLICY_NAME" />, các quy tắc áp dụn
       Nếu các quy tắc mâu thuẫn với nhau thì <ph name="PRODUCT_NAME" /> sử dụng quy tắc cụ thể nhất.</translation>
 <translation id="5475361623548884387">Bật tính năng in</translation>
 <translation id="547601067149622666">Không cho phép quảng cáo trên các trang web chứa quảng cáo xâm nhập</translation>
-<translation id="5483065054530244863">Cho phép các chứng chỉ đã ký SHA-1 do điểm kết nối tin cậy cục bộ cấp</translation>
+<translation id="5483065054530244863">Cho phép các chứng chỉ SHA-1 có chữ ký do neo tin cậy cục bộ phát hành</translation>
 <translation id="5483777239978559943">Chính sách này không còn dùng nữa. Vui lòng sử dụng <ph name="DEFAULT_PLUGINS_SETTING_POLICY_NAME" /> để kiểm soát tính sẵn có của plugin Flash và <ph name="ALWAYS_OPEN_PDF_EXTERNALLY_POLICY_NAME" /> để kiểm soát xem có phải dùng trình xem PDF tích hợp để mở tệp PDF hay không.
 
       Chỉ định danh sách các plugin mà người dùng có thể bật hoặc tắt trong <ph name="PRODUCT_NAME" />.
@@ -2591,7 +2590,7 @@ Không giống như <ph name="URL_LIST_POLICY_NAME" />, các quy tắc áp dụn
 <translation id="5765780083710877561">Mô tả:</translation>
 <translation id="5770738360657678870">Kênh nhà phát triển (có thể không ổn định)</translation>
 <translation id="5774856474228476867">URL tìm kiếm nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
-<translation id="5775235485119094648">Sạc pin khi thiết bị nằm trong phạm vi cố định.</translation>
+<translation id="5775235485119094648">Sạc pin khi thiết bị ở trong phạm vi cố định.</translation>
 <translation id="5776485039795852974">Hỏi mỗi lần trang web muốn hiển thị thông báo trên màn hình</translation>
 <translation id="5781412041848781654">Chỉ định thư viện GSSAPI nào được sử dụng để xác thực HTTP. Bạn có thể chỉ đặt tên thư viện hoặc đường dẫn đầy đủ.
 
@@ -2704,7 +2703,7 @@ Không giống như <ph name="URL_LIST_POLICY_NAME" />, các quy tắc áp dụn
 <translation id="5950205771952201658">Vì các kiểm tra lỗi phần mềm, thu hồi trực tuyến không mang lại lợi ích bảo mật hiệu quả nên chúng bị tắt theo mặc định trong <ph name="PRODUCT_NAME" /> phiên bản 19 trở lên. Bằng cách đặt chính sách này thành true, hoạt động trước đó được khôi phục và các kiểm tra OCSP/CRL trực tuyến sẽ được thực hiện.
 
       Nếu chính sách không được đặt hoặc được đặt thành false, khi đó <ph name="PRODUCT_NAME" /> sẽ không thực hiện các kiểm tra thu hồi trực tuyến trong <ph name="PRODUCT_NAME" /> 19 và cao hơn.</translation>
-<translation id="5961137303188584693">Địa chỉ NIC MAC tích hợp sẵn của thiết bị</translation>
+<translation id="5961137303188584693">Địa chỉ MAC trên NIC tích hợp của thiết bị</translation>
 <translation id="5966615072639944554">Tiện ích được phép sử dụng API chứng thực từ xa</translation>
 <translation id="5983708779415553259">Thao tác mặc định cho trang web không nằm trong bất kỳ gói nội dung nào</translation>
 <translation id="5997543603646547632">Sử dụng đồng hồ 24 giờ theo mặc định</translation>
@@ -2798,9 +2797,9 @@ Không giống như <ph name="URL_LIST_POLICY_NAME" />, các quy tắc áp dụn
 <translation id="6133088669883929098">Cho phép tất cả các trang web sử dụng tạo khóa</translation>
 <translation id="6136537398661737682">Chính sách này kiểm soát trạng thái ban đầu của Dịch vụ vị trí của Google.
 
-      Khi bạn không định cấu hình chính sách này hoặc đặt chính sách thành <ph name="GLS_DISABLED" />, Dịch vụ vị trí của Google sẽ tắt lúc ban đầu.
+      Khi bạn không định cấu hình chính sách này hoặc đặt chính sách thành <ph name="GLS_DISABLED" />, Dịch vụ vị trí của Google sẽ tắt ngay từ đầu.
 
-      Khi bạn đặt chính sách này thành <ph name="GLS_ENABLED" />, Dịch vụ vị trí của Google sẽ bật lúc ban đầu.
+      Khi bạn đặt chính sách này thành <ph name="GLS_ENABLED" />, Dịch vụ vị trí của Google sẽ bật ngay từ đầu.
 
       Khi bạn đặt chính sách này thành <ph name="GLS_UNDER_USER_CONTROL" />, người dùng sẽ được yêu cầu chọn có sử dụng Dịch vụ vị trí của Google hay không. Điều này sẽ cho phép các ứng dụng Android dùng dịch vụ này để truy vấn vị trí thiết bị, đồng thời cho phép gửi dữ liệu vị trí ẩn danh tới Google.
 
@@ -2882,7 +2881,7 @@ Không giống như <ph name="URL_LIST_POLICY_NAME" />, các quy tắc áp dụn
      Nếu tắt, dữ liệu biểu mẫu tự động điền sẽ không được nhập.
 
       Nếu chính sách này không được đặt, người dùng có thể được hỏi có nhập hay không hoặc quá trình nhập có thể diễn ra tự động.</translation>
-<translation id="6221175752766085998">Cho phép các chứng chỉ cấp bởi điểm kết nối tin cậy cục bộ không có tiện ích subjectAlternativeName</translation>
+<translation id="6221175752766085998">Cho phép các chứng chỉ do các neo tin cậy cục bộ phát hành mà không có tiện ích subjectAlternativeName</translation>
 <translation id="6224304369267200483">URL/miền đã tự động cho phép chứng thực Khóa bảo mật trực tiếp</translation>
 <translation id="6233173491898450179">Đặt thư mục tải xuống</translation>
 <translation id="6244210204546589761">Các URL sẽ mở khi khởi động</translation>
@@ -3117,7 +3116,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
       Chuỗi này có thể chứa các biến ${ASSET_ID}, ${SERIAL_NUM}, ${MAC_ADDR}, ${MACHINE_NAME} mà sẽ được thay thế bằng các giá trị trên thiết bị trước khi sử dụng làm tên máy chủ. Giá trị thay thế thu được sẽ là tên máy chủ hợp lệ (theo RFC 1035, mục 3.1).
 
       Nếu bạn không đặt chính sách này hoặc giá trị sau khi thay thế không phải là tên máy chủ hợp lệ thì tên máy chủ sẽ không được đặt trong yêu cầu DHCP. </translation>
-<translation id="6833988859168635883">Khởi động, Trang chủ và trang Tab mới</translation>
+<translation id="6833988859168635883">Trang Khởi động, Trang chủ và trang Tab mới</translation>
 <translation id="6835883744948188639">Nên hiển thị lời nhắc định kỳ cho người dùng cho biết cần chạy lại</translation>
 <translation id="6837480141980366278">Kiểm soát xem ứng dụng DNS tích hợp có được dùng trong <ph name="PRODUCT_NAME" /> hay không.
 
@@ -3318,15 +3317,15 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
       Nếu bạn bật hoặc tắt cài đặt này, người dùng không thể thay đổi hoặc ghi đè cài đặt này.
 
       Nếu không đặt chính sách này, người dùng có thể chọn liệu họ có muốn được yêu cầu cung cấp mật khẩu để mở khóa thiết bị hay không.</translation>
-<translation id="7107148737865880402">Bật chính sách quản lý nguồn cho tính năng sạc pin qua USB.
+<translation id="7107148737865880402">Bật chính sách quản lý điện chia sẻ điện qua USB.
 
-          Một số thiết bị có cổng USB đặc trưng được đánh dấu bằng biểu tượng pin hoặc tia chớp. Có thể dùng cổng USB này để sạc các thiết bị như điện thoại di động sử dụng pin hệ thống. Chính sách này ảnh hưởng đến hoạt động sạc của cổng này khi hệ thống ở chế độ ngủ và tắt. Chính sách này không ảnh hưởng đến các cổng USB khác và hoạt động sạc khi hệ thống ở chế độ bật.
+          Một số thiết bị có cổng USB đặc trưng được đánh dấu bằng biểu tượng pin hoặc tia chớp, mà có thể dùng để sạc các thiết bị như điện thoại di động bằng cách sử dụng pin của hệ thống. Chính sách này ảnh hưởng đến hoạt động sạc của cổng này khi hệ thống ở chế độ ngủ và tắt. Chính sách này không ảnh hưởng đến các cổng USB khác và hoạt động sạc khi hệ thống ở chế độ thức giấc.
 
-          Khi ở chế độ bật, cổng USB sẽ luôn cấp nguồn điện.
+          Khi ở chế độ thức giấc, cổng USB sẽ luôn cấp điện.
 
-          Khi ở chế độ ngủ, nếu bạn đặt chính sách này thành true, thì nguồn điện sẽ được cấp cho cổng USB khi thiết bị được cắm vào bộ sạc cắm tường hoặc khi mức pin &gt; 50%. Nếu không, nguồn điện sẽ không được cấp.
+          Khi ở chế độ ngủ, nếu bạn đặt chính sách này thành true, thì điện sẽ được cấp cho cổng USB khi thiết bị được cắm vào bộ sạc cắm tường hoặc khi mức pin &gt; 50%. Nếu không, điện sẽ không được cấp.
 
-          Khi ở chế độ tắt, nếu bạn đặt chính sách này thành true, thì nguồn điện sẽ được cấp cho cổng USB khi thiết bị được cắm vào bộ sạc cắm tường. Nếu không, nguồn điện sẽ không được cấp.
+          Khi ở chế độ tắt, nếu bạn đặt chính sách này thành true, thì điện sẽ được cấp cho cổng USB khi thiết bị được cắm vào bộ sạc cắm tường. Nếu không, điện sẽ không được cấp.
 
           Nếu bạn không đặt chính sách này, thì chính sách sẽ bật và người dùng không thể tắt được.</translation>
 <translation id="7115494316187648452">Xác định xem liệu có khởi động quá trình <ph name="PRODUCT_NAME" /> khi đăng nhập hệ điều hành và tiếp tục chạy khi cửa sổ trình duyệt cuối cùng đóng hay không, để cho phép các ứng dụng nền và phiên duyệt web hiện tại vẫn hiện hoạt, bao gồm bất kỳ cookie phiên nào. Quá trình nền hiển thị một biểu tượng trong khay hệ thống và luôn có thể được đóng từ đó.
@@ -3457,7 +3456,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
 
           Chính sách này chỉ được áp dụng nếu chính sách 'DefaultSearchProviderEnabled' được bật.</translation>
 <translation id="7302043767260300182">Độ trễ khóa màn hình khi chạy trên nguồn AC</translation>
-<translation id="7305262223970835999">Cho phép người dùng SAML đổi mật khẩu của một trang ngay trong phiên đăng nhập.</translation>
+<translation id="7305262223970835999">Cho phép một trang để người dùng SAML có thể đổi mật khẩu ngay trong phiên đăng nhập.</translation>
 <translation id="7311458740754205918">Nếu giá trị này được đặt thành true hoặc không được đặt, trang Tab mới có thể hiển thị đề xuất nội dung dựa trên lịch sử duyệt web, sở thích hoặc vị trí của người dùng.
 
       Nếu giá trị này được đặt thành false, các đề xuất nội dung được tạo tự động sẽ không hiển thị trên trang Tab mới.</translation>
@@ -3906,7 +3905,7 @@ Nếu bạn không đặt chính sách này thì người dùng sẽ có thể t
 <translation id="8176035528522326671">Cho phép người dùng doanh nghiệp trở thành người dùng chính duy nhất có nhiều hồ sơ (Hành vi mặc định cho người dùng do doanh nghiệp quản lý)</translation>
 <translation id="8214600119442850823">Định cấu hình trình quản lý mật khẩu.</translation>
 <translation id="8217516105848565518">Chính sách này không còn dùng nữa. Thay vào đó, hãy sử dụng RemoteAccessHostDomainList.</translation>
-<translation id="8244171102276095471">Bật bộ mã hóa RC4 trong TLS</translation>
+<translation id="8244171102276095471">Bật bộ mật mã RC4 trong TLS</translation>
 <translation id="8244525275280476362">Độ trễ tìm nạp tối đa sau khi hủy hiệu lực chính sách</translation>
 <translation id="8256688113167012935">Kiểm soát tên tài khoản <ph name="PRODUCT_OS_NAME" /> hiển thị trên màn hình đăng nhập cho tài khoản trong thiết bị tương ứng.
 
@@ -4295,11 +4294,6 @@ Bạn nên định cấu hình chính sách trên Windows qua GPO, mặc dù vi�
       Chính sách này chỉ ảnh hưởng đến người dùng đã xác thực bằng Ngôn ngữ đánh dấu xác nhận bảo mật (SAML).
 
       Bạn nên chỉ định giá trị tính bằng giây cho chính sách này.</translation>
-<translation id="9018338365267278833">Thao tác này sẽ xóa các tiện ích xuất hiện trong <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> hoặc các tiện ích xuất hiện trong <ph name="EXTENSION_SETTINGS_POLICY_NAME" /> có chế độ cài đặt được đặt thành chặn, đồng thời cũng xóa hoàn toàn dữ liệu người dùng trên thiết bị.  Hãy tham khảo chính sách quyền riêng tư của tiện ích hoặc chính sách lưu giữ dữ liệu để hiểu rõ những điều có thể xảy ra với dữ liệu người dùng không được lưu trữ trên thiết bị.
-
-      Khi bạn đặt chính sách này thành bật, thì những tiện ích thuộc các danh sách nêu trên (nếu đã cài đặt trên một máy) sẽ bị xóa hoàn toàn khỏi máy đó (bao gồm cả dữ liệu người dùng trên thiết bị).
-
-      Khi bạn không đặt hoặc đặt chính sách này thành tắt, thì những tiện ích thuộc các danh sách nêu trên (nếu đã cài đặt trên một máy và có trong danh sách cấm <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" />) sẽ bị tắt trên máy và không bị gỡ cài đặt.</translation>
 <translation id="9027787254195333560">Chính sách này cho phép bạn định cấu hình hình đại diện cho người dùng trên màn hình đăng nhập. Bạn đặt chính sách này bằng cách chỉ định URL mà từ đó <ph name="PRODUCT_OS_NAME" /> có thể tải xuống hình đại diện và một hàm băm mật mã dùng để xác minh tính toàn vẹn của tài nguyên đã tải xuống. Ảnh phải ở định dạng JPEG, kích thước ảnh không được vượt quá 512 kB. URL phải truy cập được mà không cần xác thực.
 
       Hình đại diện được tải xuống và lưu vào bộ nhớ đệm. Hình nền sẽ được tải xuống lại bất cứ khi nào URL hoặc hàm băm thay đổi.

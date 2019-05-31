@@ -14,6 +14,10 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kWebRTC:
     case Feature::kDedicatedWorkerOrWorklet:
     case Feature::kOutstandingNetworkRequest:
+    case Feature::kOutstandingIndexedDBTransaction:
+    case Feature::kHasScriptableFramesInMultipleTabs:
+    case Feature::kBroadcastChannel:
+    case Feature::kIndexedDBConnection:
       return false;
     case Feature::kMainResourceHasCacheControlNoStore:
     case Feature::kMainResourceHasCacheControlNoCache:
@@ -28,6 +32,13 @@ bool SchedulingPolicy::IsFeatureSticky(SchedulingPolicy::Feature feature) {
     case Feature::kContainsPlugins:
     case Feature::kDocumentLoaded:
     case Feature::kServiceWorkerControlledPage:
+    case Feature::kRequestedGeolocationPermission:
+    case Feature::kRequestedNotificationsPermission:
+    case Feature::kRequestedMIDIPermission:
+    case Feature::kRequestedAudioCapturePermission:
+    case Feature::kRequestedVideoCapturePermission:
+    case Feature::kRequestedSensorsPermission:
+    case Feature::kRequestedBackgroundWorkPermission:
       return true;
   }
 }

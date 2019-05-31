@@ -54,7 +54,6 @@
 <translation id="1319608975892113573">മുൻ ബ്ലോക്ക്ക്വോട്ട് ഒന്നുമില്ല.</translation>
 <translation id="1321576897702511272">ChromeVox സഹായം മറയ്ക്കുക</translation>
 <translation id="1325946044405407859">തവിട്ടുനിറം</translation>
-<translation id="1331634987653814322">ബ്രെയ്‌ലി ക്രമീകരണം</translation>
 <translation id="1331702245475014624"><ph name="INDEX" /> / <ph name="TOTAL" /></translation>
 <translation id="1334095593597963605">പ്രതീക, പദ എക്കോ</translation>
 <translation id="1334570596456017464">സബ്‌സ്‌ക്രി‌പ്‌റ്റ്</translation>
@@ -266,7 +265,7 @@
 <translation id="2968634799764242930">കടൽപച്ച</translation>
 <translation id="296951647852255825">{COUNT,plural, =1{ടാബ്}other{# ടാബുകൾ}}</translation>
 <translation id="2972078295414139404">സന്ദർശിച്ച മുമ്പത്തെ ലിങ്കൊന്നുമില്ല.</translation>
-<translation id="2972205263822847197">ഉപകരണ നുറുങ്ങ്</translation>
+<translation id="2972205263822847197">ഉപകരണ സൂചന</translation>
 <translation id="297825089465017871">രണ്ട് വിരലുകൾ ഉപയോഗിച്ച് ഇടത്തോട്ട് സ്വൈപ്പ് ചെയ്യുക</translation>
 <translation id="2998131015536248178">മുമ്പത്തെ പ്രതീകം</translation>
 <translation id="2999559350546931576">പിച്ച് കുറയ്ക്കുക</translation>
@@ -556,7 +555,6 @@
 <translation id="489907760999452556">ആന്തരിക ലിങ്ക്</translation>
 <translation id="4915087353619183190">'അറിയുക മോഡ്' ആരംഭിക്കുന്നു. ഇതിന്‍റെ പ്രവർത്തനം പഠിക്കാൻ ക്വെട്ടി കീയോ പുതുക്കിയെടുക്കാനാവുന്ന ബ്രെയ്‌ലി കീയോ അമർത്തുകയോ വിരൽ ഉപയോഗിച്ച് സ്‌പർശിക്കുകയോ ചെയ്യുക. പുറത്ത് കടക്കാൻ കൺട്രോൾ, w എന്നീ കീകൾ ഒരുമിച്ച് അമർത്തുകയോ എസ്‌കേപ്പ് കീ അമർത്തുകയോ ചെയ്യുക.</translation>
 <translation id="492295894462528572">മുഖവുര</translation>
-<translation id="4943781537993885772">ഡിസ്‌പ്ലേ സ്‌റ്റൈൽ</translation>
 <translation id="495170559598752135">പ്രവര്‍ത്തനങ്ങള്‍</translation>
 <translation id="4953585991029886728">വാചകം എഡിറ്റുചെയ്യുക</translation>
 <translation id="4954534434583049121">മുൻ ബ്ലോക്ക് ഉദ്ധരണി</translation>
@@ -655,7 +653,7 @@
 <translation id="5562645715554321347">hdnggrp</translation>
 <translation id="5574412348552378458">ChromeVox "അറിയുക" മോഡ്</translation>
 <translation id="5583640892426849032">ബാക്ക്‌സ്പെയ്‌സ്</translation>
-<translation id="5585044216466955529">വാചകം എഡിറ്റുചെയ്യുക, ഇമെയിൽ എൻട്രി</translation>
+<translation id="5585044216466955529">വാചകം എഡിറ്റ് ചെയ്യുക, ഇമെയിൽ എൻട്രി</translation>
 <translation id="5586942249556966598">ഒന്നും ചെയ്യരുത്</translation>
 <translation id="5597170376237141345">അടുത്ത ചെക്ക്ബോക്സ്</translation>
 <translation id="5597933780944041114">അടുത്ത ശീർഷകം ഒന്നുമില്ല.</translation>
@@ -724,7 +722,6 @@
 <translation id="6006050241733874051">ഫോം</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{ബാക്ക്‌സ്ലാഷ്}other{# ബാക്ക്‌സ്ലാഷുകൾ}}</translation>
 <translation id="6017514345406065928">പച്ച</translation>
-<translation id="6021969570711251331">ഇടകലർന്നിരിക്കുന്നു</translation>
 <translation id="6034000775414344507">ഇളം ചാരനിറം</translation>
 <translation id="6037602951055904232">മുന്നിലേക്ക് പാൻ ചെയ്യുക</translation>
 <translation id="6042826534790431634">സജീവമാക്കാൻ തിരയൽ+സ്‌പെയ്‌സ് അമർത്തുക.</translation>
@@ -776,7 +773,6 @@
 <translation id="6438968337250688271"><ph name="NAME" />, മെനു</translation>
 <translation id="6444046323172968959">മുന്നറിയിപ്പ് ഡയലോഗ്</translation>
 <translation id="6452403590345320472">ഉള്ളടക്ക പട്ടിക</translation>
-<translation id="6454456397828627257">വശങ്ങളിലായി</translation>
 <translation id="6459511626086141404">ഫ്ലാറ്റ് കീമാപ്പ്</translation>
 <translation id="6468049171101508116">അടുത്ത ബട്ടൺ</translation>
 <translation id="646954774886932461">സൂചിക</translation>

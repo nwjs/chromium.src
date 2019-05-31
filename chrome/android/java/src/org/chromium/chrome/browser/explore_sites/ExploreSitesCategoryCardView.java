@@ -39,6 +39,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
     private static final int MAX_TILE_COUNT = 8;
     private static final int MAX_ROWS = 2;
 
+    private final ExploreSitesSiteViewBinder mSiteViewBinder;
     private TextView mTitleView;
     private TileGridLayout mTileView;
     private RoundedIconGenerator mIconGenerator;
@@ -70,13 +71,13 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
         mTileViewLayout = tileResource;
     }
 
-    private class CategoryCardInteractionDelegate
+    protected class CategoryCardInteractionDelegate
             implements ContextMenuManager.Delegate, OnClickListener, OnCreateContextMenuListener,
                        OnFocusChangeListener {
         private String mSiteUrl;
         private int mTileIndex;
 
-        CategoryCardInteractionDelegate(String siteUrl, int tileIndex) {
+        public CategoryCardInteractionDelegate(String siteUrl, int tileIndex) {
             mSiteUrl = siteUrl;
             mTileIndex = tileIndex;
         }
@@ -147,11 +148,16 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
         }
     }
 
+    protected CategoryCardInteractionDelegate createInteractionDelegate(PropertyModel model) {
+        return new CategoryCardInteractionDelegate(
+                model.get(ExploreSitesSite.URL_KEY), model.get(ExploreSitesSite.TILE_INDEX_KEY));
+    }
+
     // We use the MVC paradigm for the site tiles inside the category card.  We don't use the MVC
     // paradigm for the category card view itself since it is mismatched to the needs of the
     // recycler view that we use for category cards.  The controller for MVC is actually here, the
     // bind code inside the view class.
-    private class ExploreSitesSiteViewBinder
+    protected class ExploreSitesSiteViewBinder
             implements PropertyModelChangeProcessor
                                .ViewBinder<PropertyModel, ExploreSitesTileView, PropertyKey> {
         @Override
@@ -164,8 +170,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
             } else if (key == ExploreSitesSite.URL_KEY) {
                 // Attach click handlers.
                 CategoryCardInteractionDelegate interactionDelegate =
-                        new CategoryCardInteractionDelegate(model.get(ExploreSitesSite.URL_KEY),
-                                model.get(ExploreSitesSite.TILE_INDEX_KEY));
+                        createInteractionDelegate(model);
                 view.setOnClickListener(interactionDelegate);
                 view.setOnCreateContextMenuListener(interactionDelegate);
                 ContextMenuManager.registerViewForTouchlessContextMenu(view, interactionDelegate);
@@ -177,6 +182,7 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
     public ExploreSitesCategoryCardView(Context context, AttributeSet attrs) {
         super(context, attrs);
         mModelChangeProcessors = new ArrayList<>(MAX_TILE_COUNT);
+        mSiteViewBinder = new ExploreSitesSiteViewBinder();
     }
 
     @Override
@@ -249,8 +255,8 @@ public class ExploreSitesCategoryCardView extends LinearLayout {
 
             siteModel.set(ExploreSitesSite.TILE_INDEX_KEY, tileIndex);
 
-            mModelChangeProcessors.add(PropertyModelChangeProcessor.create(
-                    siteModel, tileView, new ExploreSitesSiteViewBinder()));
+            mModelChangeProcessors.add(
+                    PropertyModelChangeProcessor.create(siteModel, tileView, mSiteViewBinder));
 
             // Fetch icon if not present already.
             if (siteModel.get(ExploreSitesSite.ICON_KEY) == null) {

@@ -1221,9 +1221,6 @@ void NotificationViewMD::UpdateViewForExpandedState(bool expanded) {
 }
 
 void NotificationViewMD::ToggleInlineSettings(const ui::Event& event) {
-  if (!weak_ptr_factory_.GetWeakPtr() || !settings_row_)
-    return;
-
   bool inline_settings_visible = !settings_row_->visible();
   bool disable_notification =
       settings_row_->visible() && block_all_button_->checked();
@@ -1237,12 +1234,15 @@ void NotificationViewMD::ToggleInlineSettings(const ui::Event& event) {
   dont_block_button_->SetChecked(true);
 
   SetSettingMode(inline_settings_visible);
-  SetExpanded(!inline_settings_visible);
 
-  // Check |this| is valid before continuing, because SetExpanded() might
-  // cause |this| to be deleted.
-  if (!weak_ptr_factory_.GetWeakPtr())
-    return;
+  // Grab a weak pointer before calling SetExpanded() as it might cause |this|
+  // to be deleted.
+  {
+    auto weak_ptr = weak_ptr_factory_.GetWeakPtr();
+    SetExpanded(!inline_settings_visible);
+    if (!weak_ptr)
+      return;
+  }
 
   PreferredSizeChanged();
 

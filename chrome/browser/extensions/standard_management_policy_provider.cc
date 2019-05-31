@@ -121,8 +121,10 @@ bool StandardManagementPolicyProvider::UserMayLoad(
 
   ExtensionManagement::InstallationMode installation_mode =
       settings_->GetInstallationMode(extension);
-  if (installation_mode == ExtensionManagement::INSTALLATION_BLOCKED)
+  if (installation_mode == ExtensionManagement::INSTALLATION_BLOCKED ||
+      installation_mode == ExtensionManagement::INSTALLATION_REMOVED) {
     return ReturnLoadError(extension, error);
+  }
 
   return true;
 }
@@ -203,12 +205,10 @@ bool StandardManagementPolicyProvider::MustRemainInstalled(
 bool StandardManagementPolicyProvider::ShouldForceUninstall(
     const Extension* extension,
     base::string16* error) const {
-  if (!settings_->ShouldUninstallPolicyBlacklistedExtensions())
-    return false;
   if (UserMayLoad(extension, error))
     return false;
   if (settings_->GetInstallationMode(extension) ==
-      ExtensionManagement::INSTALLATION_BLOCKED) {
+      ExtensionManagement::INSTALLATION_REMOVED) {
     return true;
   }
   return false;

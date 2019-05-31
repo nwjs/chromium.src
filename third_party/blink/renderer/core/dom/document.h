@@ -1463,6 +1463,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool IsVerticalScrollEnforced() const { return is_vertical_scroll_enforced_; }
   bool IsLazyLoadPolicyEnforced() const;
+  bool IsFocusAllowed() const;
 
   void SendViolationReport(
       mojom::blink::CSPViolationParamsPtr violation_params) override;
@@ -2015,6 +2016,15 @@ class CORE_EXPORT Document : public ContainerNode,
   // necessary.
   Member<BeforeUnloadEventListener>
       mime_handler_view_before_unload_event_listener_;
+
+  // A dummy scheduler to return when the document is detached.
+  // All operations on it result in no-op, but due to this it's safe to
+  // use the returned value of GetScheduler() without additional checks.
+  // A task posted to a task runner obtained from one of its task runners
+  // will be forwarded to the default task runner.
+  // TODO(altimin): We should be able to remove it after we complete
+  // frame:document lifetime refactoring.
+  std::unique_ptr<FrameOrWorkerScheduler> detached_scheduler_;
 };
 
 extern template class CORE_EXTERN_TEMPLATE_EXPORT Supplement<Document>;

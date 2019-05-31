@@ -19,8 +19,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.touchless.TouchlessModelCoordinator;
 import org.chromium.chrome.browser.touchless.dialog.TouchlessDialogProperties.DialogListItemProperties;
 import org.chromium.chrome.browser.touchless.dialog.TouchlessDialogProperties.ListItemType;
 import org.chromium.chrome.touchless.R;
@@ -39,6 +39,7 @@ import java.util.ArrayList;
 public class TouchlessDialogPresenter extends Presenter {
     /** An activity to attach dialogs to. */
     private final ChromeActivity mActivity;
+    private final TouchlessModelCoordinator mModelCoordinator;
 
     /** The dialog this class abstracts. */
     private Dialog mDialog;
@@ -47,8 +48,10 @@ public class TouchlessDialogPresenter extends Presenter {
     private PropertyModelChangeProcessor<PropertyModel, Pair<ViewGroup, ModelListAdapter>,
             PropertyKey> mModelChangeProcessor;
 
-    public TouchlessDialogPresenter(ChromeActivity activity) {
+    public TouchlessDialogPresenter(
+            ChromeActivity activity, TouchlessModelCoordinator modelCoordinator) {
         mActivity = activity;
+        mModelCoordinator = modelCoordinator;
     }
 
     @Override
@@ -74,20 +77,19 @@ public class TouchlessDialogPresenter extends Presenter {
 
         mDialog.setOnCancelListener(dialogInterface
                 -> dismissCurrentDialog(DialogDismissalCause.NAVIGATE_BACK_OR_TOUCH_OUTSIDE));
-        mDialog.setOnShowListener(dialog
-                -> AppHooks.get().getTouchlessUiControllerForActivity(mActivity).addModelToQueue(
-                        model));
-        mDialog.setOnDismissListener(dialog
-                -> AppHooks.get()
-                           .getTouchlessUiControllerForActivity(mActivity)
-                           .removeModelFromQueue(model));
+        mDialog.setOnShowListener(dialog -> {
+            if (mModelCoordinator != null) mModelCoordinator.addModelToQueue(model);
+        });
+        mDialog.setOnDismissListener(dialog -> {
+            if (mModelCoordinator != null) mModelCoordinator.removeModelFromQueue(model);
+        });
         // Cancel on touch outside should be disabled by default. The ModelChangeProcessor wouldn't
         // notify change if the property is not set during initialization.
         mDialog.setCanceledOnTouchOutside(false);
-        mDialog.setOnKeyListener(
-                (dialog, keyCode, event)
-                        -> AppHooks.get().getTouchlessUiControllerForActivity(mActivity).onKeyEvent(
-                                event));
+        mDialog.setOnKeyListener((dialog, keyCode, event) -> {
+            return mModelCoordinator != null ? (mModelCoordinator.onKeyEvent(event) == null)
+                                             : false;
+        });
         ViewGroup dialogView = (ViewGroup) LayoutInflater.from(mDialog.getContext())
                 .inflate(R.layout.touchless_dialog_view, null);
         ModelListAdapter adapter = new ModelListAdapter(mActivity);
@@ -151,6 +153,10 @@ public class TouchlessDialogPresenter extends Presenter {
             TextView textView = dialogView.findViewById(R.id.touchless_dialog_description);
             textView.setText(model.get(ModalDialogProperties.MESSAGE));
             textView.setVisibility(View.VISIBLE);
+        } else if (ModalDialogProperties.CUSTOM_VIEW == propertyKey) {
+            ViewGroup customGroup = dialogView.findViewById(R.id.custom);
+            customGroup.addView(model.get(ModalDialogProperties.CUSTOM_VIEW));
+            customGroup.setVisibility(View.VISIBLE);
         } else if (TouchlessDialogProperties.LIST_MODELS == propertyKey) {
             ListView listView = dialogView.findViewById(R.id.touchless_dialog_option_list);
             PropertyModel[] models = model.get(TouchlessDialogProperties.LIST_MODELS);
@@ -180,7 +186,20 @@ public class TouchlessDialogPresenter extends Presenter {
         } else if (DialogListItemProperties.TEXT == propertyKey) {
             textView.setText(model.get(DialogListItemProperties.TEXT));
         } else if (DialogListItemProperties.CLICK_LISTENER == propertyKey) {
-            view.setOnClickListener(model.get(DialogListItemProperties.CLICK_LISTENER));
+            if (!(model.get(DialogListItemProperties.CLICK_LISTENER)
+                                instanceof ClickThrottlingListener)) {
+                ClickThrottlingListener listener = new ClickThrottlingListener(
+                        model.get(DialogListItemProperties.CLICK_LISTENER));
+                listener.setIsMultiClickable(model.get(DialogListItemProperties.MULTI_CLICKABLE));
+                model.set(DialogListItemProperties.CLICK_LISTENER, listener);
+                view.setOnClickListener(listener);
+            }
+        } else if (DialogListItemProperties.MULTI_CLICKABLE == propertyKey) {
+            View.OnClickListener listener = model.get(DialogListItemProperties.CLICK_LISTENER);
+            if (listener instanceof ClickThrottlingListener) {
+                ((ClickThrottlingListener) listener)
+                        .setIsMultiClickable(model.get(DialogListItemProperties.MULTI_CLICKABLE));
+            }
         } else if (DialogListItemProperties.FOCUS_LISTENER_SET == propertyKey) {
             if (model.get(DialogListItemProperties.FOCUS_LISTENER_SET)) {
                 view.setOnFocusChangeListener((v, hasFocus) -> {
@@ -198,6 +217,34 @@ public class TouchlessDialogPresenter extends Presenter {
                     }
                 });
             }
+        }
+    }
+
+    /**
+     * This OnClickListener implementation ensures that
+     * {@link DialogListItemProperties.CLICK_LISTENER} is only called once for models with
+     * {@link DialogListItemProperties.MULTI_CLICKABLE} set to false.
+     */
+    private static class ClickThrottlingListener implements View.OnClickListener {
+        private View.OnClickListener mOnClickListener;
+        private boolean mWasClicked;
+        private boolean mIsMultiClickable;
+
+        private ClickThrottlingListener(View.OnClickListener onClickListener) {
+            mOnClickListener = onClickListener;
+        }
+
+        private void setIsMultiClickable(boolean isMultiClickable) {
+            mIsMultiClickable = isMultiClickable;
+        }
+
+        @Override
+        public void onClick(View view) {
+            if (mOnClickListener == null) return;
+            if (!mIsMultiClickable && mWasClicked) return;
+
+            mOnClickListener.onClick(view);
+            mWasClicked = true;
         }
     }
 }

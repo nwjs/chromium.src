@@ -133,7 +133,7 @@
 <translation id="1960290143419248813">Selles Androidi versioonis ei toetata enam Chrome'i värskendusi</translation>
 <translation id="1966710179511230534">Värskendage oma sisselogimisandmeid.</translation>
 <translation id="1974060860693918893">Täpsemad</translation>
-<translation id="1984705450038014246">Sünkroonige oma Chrome'i andmed</translation>
+<translation id="1984705450038014246">Chrome'i andmete sünkroonimine</translation>
 <translation id="1984937141057606926">Lubatud, välja arvatud kolmanda osapoole küpsised</translation>
 <translation id="1986685561493779662">Nimi on juba olemas</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> – nupp <ph name="LINK_NAME" /></translation>
@@ -559,6 +559,7 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5073204694187207510">Peida täisekraani ruudustik</translation>
 <translation id="5082793167783849073">Looge rühm, et lehti kiiresti võrrelda. Alustamiseks puudutage pikalt linki.</translation>
 <translation id="5087580092889165836">Lisa kaart</translation>
+<translation id="5098406615395468004">Lehele Minu rakendused lisamine</translation>
 <translation id="5100237604440890931">Ahendatud – laiendamiseks klõpsake.</translation>
 <translation id="510275257476243843">Jäänud on 1 tund</translation>
 <translation id="5123685120097942451">Inkognito vaheleht</translation>
@@ -595,7 +596,7 @@ Seade muutmiseks <ph name="BEGIN_LINK" />lähtestage sünkroonimine<ph name="END
 <translation id="5368958499335451666">{OPEN_TABS,plural, =1{<ph name="OPEN_TABS_ONE" /> avatud vaheleht, puudutage vahelehtede vahetamiseks}other{<ph name="OPEN_TABS_MANY" /> avatud vahelehte, puudutage vahelehtede vahetamiseks}}</translation>
 <translation id="5391532827096253100">Teie ühendus selle saidiga ei ole turvaline. Saidi teave</translation>
 <translation id="5400569084694353794">Seda rakendust kasutades nõustute Chrome'i <ph name="BEGIN_LINK1" />teenusetingimuste<ph name="END_LINK1" /> ja <ph name="BEGIN_LINK2" />privaatsusteatisega<ph name="END_LINK2" />.</translation>
-<translation id="5403644198645076998">Luba ainult teatud saidid</translation>
+<translation id="5403644198645076998">Luba ainult kindlad saidid</translation>
 <translation id="5414836363063783498">Kinnitamine ...</translation>
 <translation id="5423934151118863508">Teie enim külastatud lehed ilmuvad siin</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB saadaval</translation>
@@ -989,6 +990,7 @@ Näiteks võivad mõned veebisaidid taotlusele reageerida nii, et näitavad teil
 <translation id="806745655614357130">Hoia minu andmed eraldi</translation>
 <translation id="8068648041423924542">Sertifikaati ei saa valida.</translation>
 <translation id="8073388330009372546">Ava pilt uuel vahelehel</translation>
+<translation id="8076492880354921740">Vahelehed</translation>
 <translation id="8084114998886531721">Salvestatud parool</translation>
 <translation id="8087000398470557479">See sisu pärineb domeenilt <ph name="DOMAIN_NAME" /> ja seda pakub Google.</translation>
 <translation id="8103578431304235997">Inkognito vaheleht</translation>

@@ -4,10 +4,10 @@
 
 package org.chromium.chrome.browser.touchless;
 
-import android.content.Context;
 import android.view.View;
 
 import org.chromium.chrome.browser.ChromeActivity;
+import org.chromium.chrome.browser.explore_sites.CategoryCardViewHolderFactory;
 import org.chromium.chrome.browser.explore_sites.ExploreSitesPage;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
 import org.chromium.chrome.browser.native_page.NativePageHost;
@@ -18,23 +18,29 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
  * A variant of {@see ExploreSitesPage} that handles touchless context menus.
  */
 public class TouchlessExploreSitesPage extends ExploreSitesPage {
+    private final ModalDialogManager mModalDialogManager;
+    private ChromeActivity mActivity;
     private TouchlessContextMenuManager mTouchlessContextMenuManager;
-    private Context mContext;
-    private ModalDialogManager mModalDialogManager;
 
     /**
      * Create a new instance of the explore sites page.
      */
     public TouchlessExploreSitesPage(ChromeActivity activity, NativePageHost host) {
         super(activity, host);
-        mContext = activity;
         mModalDialogManager = activity.getModalDialogManager();
+    }
+
+    @Override
+    protected void initialize(ChromeActivity activity, final NativePageHost host) {
+        mActivity = activity;
+        super.initialize(activity, host);
     }
 
     @Override
     protected ContextMenuManager createContextMenuManager(NativePageNavigationDelegate navDelegate,
             Runnable closeContextMenuCallback, String contextMenuUserActionPrefix) {
-        mTouchlessContextMenuManager = new TouchlessContextMenuManager(navDelegate,
+        mTouchlessContextMenuManager = new TouchlessContextMenuManager(mActivity,
+                mActivity.getModalDialogManager(), navDelegate,
                 (enabled) -> {}, closeContextMenuCallback, contextMenuUserActionPrefix);
         return mTouchlessContextMenuManager;
     }
@@ -46,7 +52,11 @@ public class TouchlessExploreSitesPage extends ExploreSitesPage {
         ContextMenuManager.Delegate delegate =
                 ContextMenuManager.getDelegateFromFocusedView(focusedView);
         if (delegate == null) return;
-        mTouchlessContextMenuManager.showTouchlessContextMenu(
-                mModalDialogManager, mContext, delegate);
+        mTouchlessContextMenuManager.showTouchlessContextMenu(mModalDialogManager, delegate);
+    }
+
+    @Override
+    protected CategoryCardViewHolderFactory createCategoryCardViewHolderFactory() {
+        return new TouchlessCategoryCardViewHolderFactory();
     }
 }

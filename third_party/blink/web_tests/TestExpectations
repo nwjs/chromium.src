@@ -1578,6 +1578,7 @@ crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/css
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/css-flexbox-row-reverse-wrap-reverse.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/css-flexbox-row-wrap-reverse.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-align-items-center.html [ Failure ]
+crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-aspect-ratio-img-column-004.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-basis-010.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-direction-with-element-insert.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-direction.html [ Failure ]
@@ -6316,3 +6317,6 @@ crbug.com/954297 [ Linux Win ] http/tests/devtools/oopif/oopif-presentation-cons
 crbug.com/954297 [ Linux Win ] virtual/nobinary-for-devtools/http/tests/devtools/oopif/oopif-presentation-console-messages.js [ Pass Crash Timeout ]
 crbug.com/953994 [ Linux Win ] http/tests/security/svg-image-with-cached-remote-image.html [ Pass Crash ]
 crbug.com/953994 [ Linux Win ] virtual/outofblink-cors/http/tests/security/svg-image-with-cached-remote-image.html [ Pass Crash ]
+
+# This test might need to be removed.
+crbug.com/954349 fast/forms/autofocus-in-sandbox-with-allow-scripts.html [ Timeout ]

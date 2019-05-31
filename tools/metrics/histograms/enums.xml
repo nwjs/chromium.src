@@ -1746,6 +1746,19 @@ Unknown properties are collapsed to zero. -->
   </int>
 </enum>
 
+<enum name="AndroidWebViewSslErrorType">
+  <int value="0" label="SSL_NOTYETVALID">The certificate is not yet valid.</int>
+  <int value="1" label="SSL_EXPIRED">The certificate has expired.</int>
+  <int value="2" label="SSL_IDMISMATCH">Hostname mismatch.</int>
+  <int value="3" label="SSL_UNTRUSTED">
+    The certificate authority is not trusted.
+  </int>
+  <int value="4" label="SSL_DATE_INVALID">
+    The date of the certificate is invalid.
+  </int>
+  <int value="5" label="SSL_INVALID">A generic error occurred.</int>
+</enum>
+
 <enum name="AndroidWebViewVariationsEnableState">
   <int value="0" label="DEFAULT_ENABLED"/>
   <int value="1" label="CONTROL_DISABLED"/>
@@ -9870,6 +9883,25 @@ Called by update_net_error_codes.py.-->
   <int value="3" label="Hash Mismatch"/>
 </enum>
 
+<enum name="CorsCompletionStatus">
+  <summary>The completion status of CorsURLLoader request.</summary>
+  <int value="0"
+      label="A request finished successfully when CORS flag was not set"/>
+  <int value="1" label="A request failed when CORS flag was not set"/>
+  <int value="2"
+      label="A request finished successfully when CORS flag was set"/>
+  <int value="3" label="A request failed when CORS flag was set"/>
+  <int value="4" label="A request was blocked by CORS checks"/>
+</enum>
+
+<enum name="CorsPreflightCacheResult">
+  <summary>The CORS preflight cache query result.</summary>
+  <int value="0" label="Cache hit, and the entry allowed to make a request"/>
+  <int value="1" label="Cache hit, but the entry blocked to make a request"/>
+  <int value="2" label="Cache missed"/>
+  <int value="3" label="Cache hit, but the entry was stale"/>
+</enum>
+
 <enum name="Cr50BoardIdFlags">
   <int value="-1" label="Unprogrammed (0xffffffff)"/>
   <int value="127" label="Legacy pre-pvt (0x7f)"/>
@@ -16648,7 +16680,6 @@ Called by update_net_error_codes.py.-->
   <int value="543" label="DeviceQuickFixBuildToken"/>
   <int value="544" label="ExtensionInstallListsMergeEnabled"/>
   <int value="545" label="SamlInSessionPasswordChangeEnabled"/>
-  <int value="546" label="UninstallBlacklistedExtensions"/>
   <int value="547" label="DeviceDockMacAddressSource"/>
   <int value="548" label="DeviceAdvancedBatteryChargeModeEnabled"/>
   <int value="549" label="DeviceAdvancedBatteryChargeModeDayConfig"/>
@@ -19961,6 +19992,18 @@ Called by update_net_error_codes.py.-->
   <int value="4" label="Failed"/>
 </enum>
 
+<enum name="FeatureModuleAvailabilityStatus">
+  <int value="0" label="Requested">
+    Feature module has been requested but is not installed yet.
+  </int>
+  <int value="1" label="Installed Requested">
+    Feature module is installed after being requested.
+  </int>
+  <int value="2" label="Installed Unrequested">
+    Feature module is installed but has not been requested previously.
+  </int>
+</enum>
+
 <enum name="FeatureModuleInstallStatus">
   <int value="0" label="Success"/>
   <int value="1" label="Failure"/>
@@ -22933,6 +22976,15 @@ Called by update_net_error_codes.py.-->
   <int value="2868" label="V8RTCQuicTransport_ReadyToSendDatagram_Method"/>
   <int value="2869" label="V8RTCQuicTransport_SendDatagram_Method"/>
   <int value="2870" label="V8RTCQuicTransport_ReceiveDatagrams_Method"/>
+  <int value="2871"
+      label="V8RTCRtpReceiver_JitterBufferDelayHint_AttributeGetter"/>
+  <int value="2872"
+      label="V8RTCRtpReceiver_JitterBufferDelayHint_AttributeSetter"/>
+  <int value="2882" label="FocusWithoutUserActivationNotSandboxedNotAdFrame"/>
+  <int value="2883" label="FocusWithoutUserActivationNotSandboxedAdFrame"/>
+  <int value="2884" label="FocusWithoutUserActivationSandboxedNotAdFrame"/>
+  <int value="2885" label="FocusWithoutUserActivationSandboxedAdFrame"/>
+  <int value="2888" label="MediaCapabilitiesDecodingInfoWithKeySystemConfig"/>
 </enum>
 
 <enum name="FeaturePolicyFeature">
@@ -22991,6 +23043,7 @@ Called by update_net_error_codes.py.-->
   <int value="47" label="UnoptimizedLosslessImagesStrict"/>
   <int value="48" label="LoadingFrameDefaultEager"/>
   <int value="49" label="DownloadsWithoutUserActivation"/>
+  <int value="52" label="FocusWithoutUserActivation"/>
 </enum>
 
 <enum name="FeaturePolicyImageCompressionFormat">
@@ -29108,6 +29161,14 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="4" label="Script"/>
 </enum>
 
+<enum name="InlineUpdateAvailability">
+  <int value="0" label="Untracked (Not Known to UMA)"/>
+  <int value="1" label="Unknown"/>
+  <int value="2" label="Update Not Available"/>
+  <int value="3" label="Update Available"/>
+  <int value="4" label="Developer Triggered Update In Progress"/>
+</enum>
+
 <enum name="InlineUpdateCallFailure">
   <int value="0" label="StartUpdate Failed"/>
   <int value="1" label="StartUpdate Exception"/>
@@ -29126,6 +29187,19 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="7" label="Error - Download Not Present"/>
   <int value="8" label="Error - Internal Error"/>
   <int value="9" label="Error - Untracked (Not Known to UMA)"/>
+</enum>
+
+<enum name="InlineUpdateInstallStatus">
+  <int value="0" label="Untracked (Not Known to UMA)"/>
+  <int value="1" label="Unknown"/>
+  <int value="2" label="Requires UI Intent"/>
+  <int value="3" label="Pending"/>
+  <int value="4" label="Downloading"/>
+  <int value="5" label="Downloaded"/>
+  <int value="6" label="Installing"/>
+  <int value="7" label="Installed"/>
+  <int value="8" label="Failed"/>
+  <int value="9" label="Canceled"/>
 </enum>
 
 <enum name="InputMethodCategory">
@@ -32295,6 +32369,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="-2048927838" label="AutoplayWhitelistSettings:enabled"/>
   <int value="-2048732429" label="enable-alternative-services"/>
   <int value="-2048679945" label="NTPOfflinePageDownloadSuggestions:disabled"/>
+  <int value="-2048395454" label="ChromeDuetLabeled:disabled"/>
   <int value="-2047832738" label="enable-system-timezone-automatic-detection"/>
   <int value="-2047822258" label="enable-avfoundation"/>
   <int value="-2047190657" label="SyncUserConsentSeparateType:enabled"/>
@@ -33047,6 +33122,7 @@ from previous Chrome versions.
   <int value="-966290456" label="WebAuthenticationCtap2:enabled"/>
   <int value="-965842218" label="MultiDeviceApi:disabled"/>
   <int value="-964676765" label="enable-accelerated-mjpeg-decode"/>
+  <int value="-962030536" label="ChromeDuetLabeled:enabled"/>
   <int value="-957200826" label="enable-spdy-proxy-auth"/>
   <int value="-956696029" label="scheduler-configuration"/>
   <int value="-951394314" label="top-chrome-md"/>
@@ -41088,6 +41164,7 @@ Called by update_net_trust_anchors.py.-->
   <int value="3" label="Translate"/>
   <int value="4" label="News"/>
   <int value="5" label="Chrome Web Store"/>
+  <int value="6" label="Search"/>
 </enum>
 
 <enum name="NuxLandingPageInteractions">
@@ -51420,6 +51497,11 @@ Called by update_net_trust_anchors.py.-->
   </int>
 </enum>
 
+<enum name="SiteIsolationIsDedicatedProcess">
+  <int value="0" label="Process is not dedicated to a single site"/>
+  <int value="1" label="Process is dedicated to a single site"/>
+</enum>
+
 <enum name="SiteIsolationMimeType">
   <int value="0" label="HTML"/>
   <int value="1" label="XML"/>
@@ -55795,6 +55877,7 @@ Full version information for the fingerprint enum values:
 
 <enum name="UpdateEngineDownloadErrorCode">
   <int value="0" label="Download Error"/>
+  <int value="99" label="libcurl HTTP request internal error"/>
   <int value="100" label="Input Malformed (Internal Error)"/>
   <int value="101" label="Unknown HTTP Status (not 200-599)"/>
   <int value="400" label="Bad Request (HTTP Status 400)"/>
@@ -58855,6 +58938,13 @@ Full version information for the fingerprint enum values:
   <int value="75" label="setWebviewClient"/>
   <int value="76" label="showFindDialog"/>
   <int value="77" label="stopLoading"/>
+</enum>
+
+<enum name="WebViewCallbackType">
+  <int value="0" label="onReceivedLoginRequest"/>
+  <int value="1" label="onReceivedClientCertRequest"/>
+  <int value="2" label="onReceivedHttpAuthRequest"/>
+  <int value="3" label="onDownloadStart"/>
 </enum>
 
 <enum name="WebViewClientErrorCode">

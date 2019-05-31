@@ -29,6 +29,7 @@ import android.support.annotation.Nullable;
 import android.util.DisplayMetrics;
 import android.util.Pair;
 import android.util.TypedValue;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -148,6 +149,7 @@ import org.chromium.chrome.browser.tasks.JourneyManager;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.toolbar.top.Toolbar;
 import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
+import org.chromium.chrome.browser.touchless.TouchlessUiCoordinator;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
@@ -356,6 +358,11 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         sAppMenuHandlerFactory = factory;
     }
 
+    /**
+     * Coordinates Touchless UI across ChromeActivity-derived classes.
+     */
+    private TouchlessUiCoordinator mTouchlessUiCoordinator;
+
     @Override
     protected ActivityWindowAndroid createWindowAndroid() {
         return new ChromeWindow(this);
@@ -375,6 +382,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
         // number of objects that will ultimately be owned by the RootUiCoordinator. This is not
         // a recommended pattern.
         RootUiCoordinator.create(this);
+
+        // See comments on #getTouchlessUiCoordinator for why we're doing this here.
+        getTouchlessUiCoordinator();
 
         VrModuleProvider.getDelegate().doPreInflationStartup(this, getSavedInstanceState());
 
@@ -501,6 +511,10 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
             initializeTabModels();
             initializeToolbar();
+            if (FeatureUtilities.isNoTouchModeEnabled() && getToolbarManager() != null) {
+                getToolbarManager().getToolbar().disableMenuButton();
+            }
+
             if (!isFinishing() && getFullscreenManager() != null) {
                 getFullscreenManager().initialize(
                         (ControlContainer) findViewById(R.id.control_container),
@@ -1398,6 +1412,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     @Override
     public SnackbarManager getSnackbarManager() {
+        if (getTouchlessUiCoordinator() != null) {
+            return getTouchlessUiCoordinator().getSnackbarManager();
+        }
         boolean useBottomSheetContainer = mBottomSheetController != null
                 && mBottomSheetController.getBottomSheet().isSheetOpen()
                 && !mBottomSheetController.getBottomSheet().isClosing();
@@ -1407,6 +1424,9 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
 
     @Override
     protected ModalDialogManager createModalDialogManager() {
+        if (getTouchlessUiCoordinator() != null) {
+            return getTouchlessUiCoordinator().createModalDialogManager();
+        }
         return new ModalDialogManager(
                 new AppModalPresenter(this), ModalDialogManager.ModalDialogType.APP);
     }
@@ -1575,6 +1595,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     @CallSuper
     public boolean shouldShowAppMenu() {
+        if (FeatureUtilities.isNoTouchModeEnabled()) return false;
         if (isActivityFinishingOrDestroyed()) return false;
 
         @ActivityState
@@ -2161,6 +2182,7 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
             PreferencesLauncher.launchSettingsPage(this, null);
             RecordUserAction.record("MobileMenuSettings");
         } else if (id == R.id.show_menu) {
+            if (FeatureUtilities.isNoTouchModeEnabled()) return false;
             showAppMenuForKeyboardEvent();
         } else if (id == R.id.find_in_page_id) {
             if (mFindToolbarManager == null) return false;
@@ -2637,6 +2659,31 @@ public abstract class ChromeActivity<C extends ChromeActivityComponent>
      */
     protected PageViewTimer createPageViewTimer() {
         return new PageViewTimer(mTabModelSelector);
+    }
+
+    /**
+     * TODO(mthiesse): Figure out a way to clean this up. The problem is that the
+     * TouchlessUiCoordinator has an implementation of the ModalDialogManager, which is created in
+     * AsyncInitializationActivity#onCreateInternal, before any ChromeActivity init functions are
+     * called, and making AsyncInitializationActivity aware of the TouchlessUiCoordinator would be
+     * wrong. Hence, we create the UiCoordinator as soon as somebody tries to use it, but we also
+     * need to make sure it gets initialized early on regardless of whether somebody tries to use it
+     * as it monitors Lifecycles, etc.
+     */
+    private TouchlessUiCoordinator getTouchlessUiCoordinator() {
+        if (mTouchlessUiCoordinator == null && FeatureUtilities.isNoTouchModeEnabled()) {
+            mTouchlessUiCoordinator = AppHooks.get().createTouchlessUiCoordinator(this);
+        }
+        return mTouchlessUiCoordinator;
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        KeyEvent toPropagate = getTouchlessUiCoordinator() != null
+                ? getTouchlessUiCoordinator().processKeyEvent(event)
+                : event;
+
+        return toPropagate == null || super.dispatchKeyEvent(toPropagate);
     }
 
     /** Returns {@link BottomSheetController}, if present. */

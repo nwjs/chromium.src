@@ -5,7 +5,10 @@
 #include "chrome/browser/offline_pages/offline_page_model_factory.h"
 
 #include <utility>
+#include <vector>
 
+#include "base/android/build_info.h"
+#include "base/android/path_utils.h"
 #include "base/files/file_path.h"
 #include "base/memory/singleton.h"
 #include "base/path_service.h"

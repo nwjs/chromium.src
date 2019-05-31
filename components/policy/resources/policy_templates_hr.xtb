@@ -1419,7 +1419,6 @@
 
         To pravilo upotrebljava prijava za pravilo u oblaku strojnog opsega na radnoj površini i može ga postaviti Registry ili GPO u sustavu Windows, plist na Macu i JSON datoteka pravila na Linuxu.</translation>
 <translation id="3660562134618097814">Prenesi kolačiće SAML IdP-a tijekom prijave</translation>
-<translation id="3668151900457104753">Deinstaliraj proširenja na popisu nedopuštenih</translation>
 <translation id="3701121231485832347">Upravlja postavkama specifičnima za uređaje <ph name="PRODUCT_OS_NAME" /> kojima upravlja <ph name="MS_AD_NAME" />.</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Polje s jednim retkom obustavljeno je i uklonit će se. Počnite upotrebljavati tekstni okvir s više redaka u nastavku.)</translation>
 <translation id="3709266154059827597">Konfiguriraj crnu listu instalacije proširenja</translation>
@@ -1646,7 +1645,7 @@
 
           Svaka stavka pravila niz je koji sadrži ID proširenja i URL za "ažuriranje" odvojene točkom sa zarezom (<ph name="SEMICOLON" />). ID proširenja niz je od 32 slova koji se primjerice može pronaći na <ph name="CHROME_EXTENSIONS_LINK" /> u načinu rada razvojnog programera. URL za "ažuriranje", ako se navede, treba usmjeravati na XML dokument manifesta ažuriranja kako je opisano u dokumentu <ph name="LINK_TO_EXTENSION_DOC1" />. Prema zadanim postavkama, upotrebljava se URL za ažuriranje Chrome web-trgovine (koji je trenutačno "https://clients2.google.com/service/update2/crx"). URL za "ažuriranje" postavljen u ovom pravilu upotrebljava se samo za prvo instaliranje, dok će se za daljnja ažuriranja proširenja upotrebljavati URL ažuriranja naveden u manifestu proširenja. Napominjemo i to da je eksplicitno navođenje URL-a za "ažuriranje" bilo obavezno u verzijama preglednika <ph name="PRODUCT_NAME" /> zaključno s verzijom 67.
 
-          Na primjer, <ph name="EXTENSION_POLICY_EXAMPLE" /> instalira proširenje s ID-om <ph name="EXTENSION_ID_SAMPLE" /> sa standardnog URL-a za "ažuriranje" Chrome web-trgovine. Više informacija o hostingu proširenja potražite ovdje: <ph name="LINK_TO_EXTENSION_DOC2" />.
+          Na primjer, <ph name="EXTENSION_POLICY_EXAMPLE" /> instalira proširenje s ID-jem <ph name="EXTENSION_ID_SAMPLE" /> sa standardnog URL-a za "ažuriranje" Chrome web-trgovine. Više informacija o hostingu proširenja potražite ovdje: <ph name="LINK_TO_EXTENSION_DOC2" />.
 
           Ako se to pravilo ne postavi, aplikacije ili proširenja neće se instalirati automatski i korisnik može deinstalirati bilo koju aplikaciju ili proširenje u pregledniku <ph name="PRODUCT_NAME" />.
 
@@ -2484,7 +2483,7 @@ otvorene kartice. Zato će se neke kartice možda i dalje ponašati u skladu s p
 
           Ako se postavka ne konfigurira, neće se primjenjivati ograničenja u vezi s prihvatljivim vrstama proširenja/aplikacija.
 
-          Upotreba više ID-ova odvojenih zarezima prije verzije 75 nije podržana i preskočit će se. Ostatak pravila i dalje će se primjenjivati.</translation>
+          Upotreba više ID-jeva odvojenih zarezima prije verzije 75 nije podržana i preskočit će se. Ostatak pravila i dalje će se primjenjivati.</translation>
 <translation id="5645779841392247734">Dopusti kolačiće na ovim web-lokacijama</translation>
 <translation id="5689430183304951538">Veličina stranice zadanog ispisa</translation>
 <translation id="5693469654327063861">Dopusti premještanje podataka</translation>
@@ -2733,7 +2732,7 @@ otvorene kartice. Zato će se neke kartice možda i dalje ponašati u skladu s p
 
       Napominjemo da to pravilo određuje stanje Googleovih usluga lokacije samo tijekom početnog postavljanja. Korisnik može kasnije u postavkama Androida uključiti ili isključiti Googleove usluge lokacije.
 
-      Napominjemo da će se to pravilo zanemariti ako se <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> postavi na <ph name="BLOCK_GEOLOCATION_SETTING" />, a Googleove usluge lokacije uvijek će biti onemogućene.</translation>
+      Napominjemo da će se to pravilo zanemariti, a Googleove usluge lokacije onemogućiti ako se <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> postavi na <ph name="BLOCK_GEOLOCATION_SETTING" />.</translation>
 <translation id="6141402445226505817">Uvijek upotrebljavaj približno otkrivanje vremenske zone</translation>
 <translation id="6145799962557135888">Omogućuje postavljanje popisa uzoraka URL-ova koji određuju web-lokacije koje ne smiju pokretati JavaScript. Ako to pravilo nije postavljeno, upotrebljavat će se globalna zadana vrijednost za sve web-lokacije iz pravila "DefaultJavaScriptSetting", ako je postavljeno, odnosno iz osobne konfiguracije korisnika, ako nije.</translation>
 <translation id="614662973812186053">To pravilo kontrolira i prikupljanje podataka o upotrebi i dijagnostici na Androidu.</translation>
@@ -4174,11 +4173,6 @@ za preglednike imaju isti raspored.
       To pravilo utječe samo na korisnike koji se autentificiraju pomoću SAML-a.
 
       Vrijednost pravila navodi se u sekundama.</translation>
-<translation id="9018338365267278833">Time će se ukloniti proširenja navedena na popisu <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> ili proširenja navedena u pravilu <ph name="EXTENSION_SETTINGS_POLICY_NAME" /> za koje je način instalacije postavljen na blocked i s njima će se nepovratno ukloniti lokalni korisnički podaci.  U pravilima o privatnosti proširenja ili pravilima zadržavanja podataka možete saznati više o tome što se može dogoditi s korisničkim podacima koji nisu pohranjeni lokalno.
-
-      Ako se pravilo postavi na enabled, proširenja koja su obuhvaćena prethodnim popisima (ako su već instalirana na uređaju) potpuno će se ukloniti s uređaja (uključujući lokalne korisničke podatke).
-
-      Ako se pravilo postavi na disabled ili se ne postavi, proširenja obuhvaćena prethodnim popisima (ako su već instalirana na uređaju i navedena na popisu nedopuštenih <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" />) neće se deinstalirati, već onemogućiti na uređaju.</translation>
 <translation id="9027787254195333560">To pravilo omogućuje vam da konfigurirate sliku avatara koji predstavlja korisnika na zaslonu za prijavu. Pravilo se postavlja tako da se navede URL s kojeg <ph name="PRODUCT_OS_NAME" /> može preuzeti sliku avatara i kriptografsko hashiranje kojim se potvrđuje integritet preuzimanja. Slika mora biti u JPEG formatu i ne smije biti veća od 512 KB. URL-u se mora moći pristupiti bez autentifikacije.
 
       Slika avatara preuzima se i sprema u predmemoriju. Ponovo će se preuzeti svaki put kada se URL ili hashiranje promijene.

@@ -20,6 +20,10 @@
 <div id="third" tabindex="0">Third</div>
 
 <script>
+  if (accessibilityController) {
+    accessibilityController.reset();
+  }
+
   var resultMap = [
     ["Down", "first"],
     ["Down", "second"],
@@ -34,11 +38,11 @@
   let second = document.getElementById("second")
   let third = document.getElementById("third")
 
-  first.addEventListener("onfocus", no_focus_test.unreached_func(
+  first.addEventListener("focus", no_focus_test.unreached_func(
       "Focusless SpatNav should not cause focus event on 'first'"));
-  second.addEventListener("onfocus", no_focus_test.unreached_func(
+  second.addEventListener("focus", no_focus_test.unreached_func(
       "Focusless SpatNav should not cause focus event on 'second'"));
-  third.addEventListener("onfocus", no_focus_test.unreached_func(
+  third.addEventListener("focus", no_focus_test.unreached_func(
       "Focusless SpatNav should not cause focus event on 'third'"));
 
   let postAssertsFunc = no_focus_test.step_func_done(() => {

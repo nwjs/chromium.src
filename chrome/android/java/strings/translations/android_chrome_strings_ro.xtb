@@ -133,7 +133,7 @@
 <translation id="1960290143419248813">Actualizările Chrome nu mai sunt acceptate pentru această versiune de Android</translation>
 <translation id="1966710179511230534">Actualizați detaliile de conectare.</translation>
 <translation id="1974060860693918893">Avansate</translation>
-<translation id="1984705450038014246">Sincronizează datele Chrome</translation>
+<translation id="1984705450038014246">Sincronizează datele din Chrome</translation>
 <translation id="1984937141057606926">Permise, cu excepția celor terță parte</translation>
 <translation id="1986685561493779662">Numele există deja</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> Butonul <ph name="LINK_NAME" /></translation>
@@ -559,6 +559,7 @@ Pentru a modifica această setare, <ph name="BEGIN_LINK" />resetează sincroniza
 <translation id="5073204694187207510">Ascunde grila pe ecran complet</translation>
 <translation id="5082793167783849073">Compară rapid paginile făcând un grup. Pentru a începe, atinge lung un link.</translation>
 <translation id="5087580092889165836">Adaugă un card</translation>
+<translation id="5098406615395468004">Adaugă în aplicațiile mele</translation>
 <translation id="5100237604440890931">Afișare restrânsă – dă clic pentru a extinde.</translation>
 <translation id="510275257476243843">1 oră rămasă</translation>
 <translation id="5123685120097942451">Filă incognito</translation>
@@ -989,6 +990,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="806745655614357130">Păstrează datele separat</translation>
 <translation id="8068648041423924542">Certificatul nu poate fi selectat.</translation>
 <translation id="8073388330009372546">Vezi imaginea în filă nouă</translation>
+<translation id="8076492880354921740">File</translation>
 <translation id="8084114998886531721">Parola a fost salvată</translation>
 <translation id="8087000398470557479">Acest conținut provine de pe <ph name="DOMAIN_NAME" />, oferit de Google.</translation>
 <translation id="8103578431304235997">Filă incognito</translation>
@@ -1020,7 +1022,7 @@ De exemplu, unele site-uri pot răspunde la această solicitare afișând anunț
 <translation id="8310344678080805313">File standard</translation>
 <translation id="8313455859591948645">Editează pagina de pornire</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> și alte site-uri</translation>
-<translation id="8327155640814342956">Pentru o experiență de navigare mai bună, deschide Chrome actualizat</translation>
+<translation id="8327155640814342956">Pentru o experiență de navigare mai bună, deschide pentru a actualiza Chrome</translation>
 <translation id="8339163506404995330">Paginile în <ph name="LANGUAGE" /> nu vor fi traduse</translation>
 <translation id="8349013245300336738">Sortează după volumul de date folosite</translation>
 <translation id="8372893542064058268">Permite sincronizarea în fundal pentru un anumit site.</translation>

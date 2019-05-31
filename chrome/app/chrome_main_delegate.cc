@@ -912,19 +912,25 @@ void ChromeMainDelegate::PreSandboxStartup() {
   }
 
 #if defined(OS_MACOSX)
-  // On the Mac, the child executable lives at a predefined location within
-  // the app bundle's versioned directory.
   std::string product_string;
+  std::string helperProcessExecutablePath = chrome::kHelperProcessExecutablePath;
   if (nw::package()->root()->GetString("product_string", &product_string)) {
     std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
-                          chrome::GetVersionedDirectory().
-                          Append(helperProcessExecutablePath));
-  }else{
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
-                        chrome::GetVersionedDirectory().
-                        Append(chrome::kHelperProcessExecutablePath));
   }
+#if BUILDFLAG(NEW_MAC_BUNDLE_STRUCTURE)
+  base::FilePath child_exe_path =
+      chrome::GetFrameworkBundlePath()
+          .Append("Helpers")
+          .Append(helperProcessExecutablePath);
+#else
+  base::FilePath child_exe_path = chrome::GetVersionedDirectory().Append(
+      helperProcessExecutablePath);
+#endif
+
+  // On the Mac, the child executable lives at a predefined location within
+  // the app bundle's versioned directory.
+  base::PathService::Override(content::CHILD_PROCESS_EXE, child_exe_path);
+
   InitMacCrashReporter(command_line, process_type);
   SetUpInstallerPreferences(command_line);
 #endif

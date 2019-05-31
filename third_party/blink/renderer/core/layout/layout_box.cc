@@ -3743,7 +3743,13 @@ LayoutUnit LayoutBox::ComputePercentageLogicalHeight(
           &cb, &skipped_auto_height_containing_block);
 
   DCHECK(cb);
-  cb->AddPercentHeightDescendant(const_cast<LayoutBox*>(this));
+
+  // If the container of the descendant is a replaced element (a VIDEO, for
+  // instance), |cb| (which uses ContainingBlock()) may actually not be in the
+  // containing block chain for the descendant.
+  const LayoutObject* container = Container();
+  if (!container->IsLayoutReplaced())
+    cb->AddPercentHeightDescendant(const_cast<LayoutBox*>(this));
 
   if (available_height == -1)
     return available_height;
@@ -5284,6 +5290,13 @@ bool LayoutBox::ShrinkToAvoidFloats() const {
     if (containing_block->IsLayoutNGMixin())
       return false;
   }
+
+  // Legends are taken out of the normal flow, and are laid out at the very
+  // start of the fieldset, and are therefore not affected by floats (that may
+  // appear earlier in the DOM).
+  if (IsRenderedLegend())
+    return false;
+
   return true;
 }
 

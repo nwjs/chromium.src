@@ -132,8 +132,16 @@ const base::Feature kPurgeRendererMemoryWhenBackgrounded {
 };
 
 // Enable Implicit Root Scroller. https://crbug.com/903260.
-const base::Feature kImplicitRootScroller{"ImplicitRootScroller",
-                                          base::FEATURE_ENABLED_BY_DEFAULT};
+// TODO(bokan): Temporarily disabled on desktop platforms to address issues
+// with non-overlay scrollbars. https://crbug.com/948059.
+const base::Feature kImplicitRootScroller {
+  "ImplicitRootScroller",
+#if defined(OS_ANDROID)
+      base::FEATURE_ENABLED_BY_DEFAULT
+#else
+      base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+};
 
 // Enables usage of getDisplayMedia() that allows capture of web content, see
 // https://crbug.com/865060.
@@ -250,6 +258,11 @@ const base::Feature kWebFontsCacheAwareTimeoutAdaption {
       base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 };
+
+// Enabled to block programmatic focus in subframes when not triggered by user
+// activation (see htpps://crbug.com/954349).
+const base::Feature kBlockingFocusWithoutUserActivation{
+    "BlockingFocusWithoutUserActivation", base::FEATURE_DISABLED_BY_DEFAULT};
 
 bool IsOffMainThreadSharedWorkerScriptFetchEnabled() {
   // Off-the-main-thread shared worker script fetch depends on PlzSharedWorker

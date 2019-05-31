@@ -12,6 +12,7 @@
 #include "base/command_line.h"
 #include "base/files/scoped_file.h"
 #include "base/logging.h"
+#include "base/metrics/user_metrics.h"
 #include "base/stl_util.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -1261,10 +1262,12 @@ int EventRewriterChromeOS::RewriteModifierClick(
       IsFromTouchpadDevice(mouse_event)) {
     *flags &= ~kAltLeftButton;
     *flags |= ui::EF_RIGHT_MOUSE_BUTTON;
-    if (mouse_event.type() == ui::ET_MOUSE_PRESSED)
+    if (mouse_event.type() == ui::ET_MOUSE_PRESSED) {
       pressed_device_ids_.insert(mouse_event.source_device_id());
-    else
+      base::RecordAction(base::UserMetricsAction("AltClickMappedToRightClick"));
+    } else {
       pressed_device_ids_.erase(mouse_event.source_device_id());
+    }
     return ui::EF_RIGHT_MOUSE_BUTTON;
   }
   return ui::EF_NONE;
@@ -1493,17 +1496,22 @@ bool EventRewriterChromeOS::RewriteTopRowKeysForLayoutWilco(
       {{ui::EF_NONE, ui::VKEY_ZOOM},
        {ui::EF_NONE, ui::DomCode::ZOOM_TOGGLE, ui::DomKey::ZOOM_TOGGLE,
         ui::VKEY_MEDIA_LAUNCH_APP2}},
+      // Next keyboard layout IME is through space + control + shift
+      {{ui::EF_NONE, ui::VKEY_MODECHANGE},
+       {ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomCode::KEYBOARD_LAYOUT_SELECT, ui::DomKey::MODE_CHANGE,
+        ui::VKEY_SPACE}},
   };
 
-  // Key codes KEY_SCALE and KEY_SWITCHVIDEOMODE have a Dom code but no VKEY
-  // value assigned. They're mapped to VKEY values here so that
-  // KEY_SCALE == "show all windows" and KEY_SWITCHVIDEOMODE == "display
-  // toggle int/ext".
+  // Some key codes have a Dom code but no VKEY value assigned. They're mapped
+  // to VKEY values here.
   if (state->key_code == ui::VKEY_UNKNOWN) {
     if (state->code == ui::DomCode::SHOW_ALL_WINDOWS) {
+      // Show all windows is through VKEY_MEDIA_LAUNCH_APP1.
       state->key_code = ui::VKEY_MEDIA_LAUNCH_APP1;
       state->key = ui::DomKey::F4;
     } else if (state->code == ui::DomCode::DISPLAY_TOGGLE_INT_EXT) {
+      // Display toggle is through control + VKEY_MEDIA_LAUNCH_APP2.
       state->flags |= ui::EF_CONTROL_DOWN;
       state->key_code = ui::VKEY_MEDIA_LAUNCH_APP2;
       state->key = ui::DomKey::F12;
@@ -1514,10 +1522,9 @@ bool EventRewriterChromeOS::RewriteTopRowKeysForLayoutWilco(
   incoming_without_command.flags &= ~ui::EF_COMMAND_DOWN;
 
   // Map certain action keys to the right VKey and modifier.
-  if (RewriteWithKeyboardRemappings(kActionToActionKeys,
-                                    base::size(kActionToActionKeys),
-                                    incoming_without_command, state)) {
-  }
+  RewriteWithKeyboardRemappings(kActionToActionKeys,
+                                base::size(kActionToActionKeys),
+                                incoming_without_command, state);
 
   if ((state->key_code >= ui::VKEY_F1) && (state->key_code <= ui::VKEY_F12)) {
     // Incoming key code is a Fn key. Check if it needs to be mapped back to its

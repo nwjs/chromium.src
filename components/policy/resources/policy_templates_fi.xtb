@@ -1264,7 +1264,7 @@ Jos tämä asetus on käytössä tai sitä ei ole määritetty, käyttäjät voi
 Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta käyttöön eikä kone voi jakaa tulostimiaan palvelussa <ph name="CLOUD_PRINT_NAME" />.</translation>
 <translation id="3312206664202507568">Ottaa osoitteessa chrome://password-change käyttöön sivun, jossa SAML-käyttäjät voivat vaihtaa SAML-salasanansa käyttökerran aikana, mikä varmistaa sen, että SAML-salasana ja laitteen lukitusnäyttö pysyvät synkronoituina.
 
-      Tämä käytäntö ottaa myös käyttöön ilmoitukset, jotka varoittavat SAML-käyttäjiä, kun heidän SAML-salasanansa ovat vanhentumassa, jotta välittömästi vaihtaa salasanan käyttökerran aikana.
+      Tämä käytäntö ottaa myös käyttöön ilmoitukset, jotka varoittavat SAML-käyttäjiä, kun heidän SAML-salasanansa ovat vanhentumassa, jotta he voivat välittömästi vaihtaa salasanan käyttökerran aikana.
       Nämä ilmoitukset näytetään vain, jos SAML-tunnistustietojen tarjoaja lähettää salasanan vanhentumistiedot laitteelle SAML-kirjautumisprosessin aikana.
 
       Jos tämä käytäntö on määritetty, käyttäjä ei voi muuttaa tai ohittaa sitä.</translation>
@@ -1432,7 +1432,6 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 
         Tätä käytännön arvoa käytetään laitteen laajuisessa pöytäkoneen rekisteröimisessä pilvikäytäntöön. Arvon voi asettaa Windowsissa rekisteri tai ryhmäkäytäntöobjekti, Macissa plist ja Linuxissa JSON-käytäntötiedosto.</translation>
 <translation id="3660562134618097814">SAML-tunnistuspalvelun evästeiden siirto kirjautumisen aikana</translation>
-<translation id="3668151900457104753">Poista mustalla listalla olevat laajennukset</translation>
 <translation id="3701121231485832347">Määrittää sellaisten laitteiden (<ph name="PRODUCT_OS_NAME" />) asetukset, joita <ph name="MS_AD_NAME" /> ylläpitää</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Yksirivinen kenttä on poistettu käytöstä ja poistetaan pian kokonaan. Siirry käyttämään alla olevaa monirivistä tekstiruutua.)</translation>
 <translation id="3709266154059827597">Määritä, mitä laajennuksia ei saa asentaa</translation>
@@ -2498,7 +2497,7 @@ Jos käytäntöä ei määritetä, käyttäjät voivat valita, tuleeko hylly pii
 
           Jos tätä asetusta ei ole määritetty, kaiken tyyppisiä sovelluksia ja laajennuksia voi asentaa.
 
-          Ennen versiota 75 useiden pilkuilla erotettuja laajennustunnuksia käyttöä ei tueta ja se ohitetaan. Käytännön muita osia sovelletaan jatkossakin.</translation>
+          Ennen versiota 75 useiden pilkuilla erotettujen laajennustunnusten käyttöä ei tueta ja se ohitetaan. Käytännön muita osia sovelletaan jatkossakin.</translation>
 <translation id="5645779841392247734">Salli evästeet näissä sivustoissa</translation>
 <translation id="5689430183304951538">Tulostuksen oletussivukoko</translation>
 <translation id="5693469654327063861">Salli tietojen siirtäminen</translation>
@@ -4199,11 +4198,6 @@ Jos tämän käytännön arvoksi on määritetty Tosi, käyttäjän on suoritett
       Tämä käytäntö koskee vain SAML-todennusta käyttäviä käyttäjiä.
 
       Määritä käytännön arvo sekunteina.</translation>
-<translation id="9018338365267278833">Tämä poistaa kohteessa <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> tai <ph name="EXTENSION_SETTINGS_POLICY_NAME" /> näkyvät laajennukset, joiden asennustilaksi on määritetty estetty ja tyhjentää samalla paikallisen käyttäjädatan.  Lue laajennusten tietosuojakäytäntö tai datansäilytyskäytäntö ymmärtääksesi, mitä sellaiselle käyttäjädatalle saattaa tapahtua, jota ei ole tallennettu paikallisesti.
-
-      Kun käytännön arvoksi on määritetty käytössä, yllä mainittuihin luetteloihin kuuluvat laajennukset (jos ne on jo asennettu laitteelle) poistetaan laitteelta kokonaan (myös paikallinen käyttäjädata).
-
-      Kun käytännön arvoksi on määritetty ei käytössä tai käytäntöä ei ole määritetty, yllä mainittuihin luetteloihin kuuluvat laajennukset (jos ne on jo asennettu laitteelle ja ovat mustalla listalla <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" />) poistetaan käytöstä laitteella eikä poisteta.</translation>
 <translation id="9027787254195333560">Tämän käytännön avulla voit määrittää käyttäjän avatar-kuvan, joka näkyy kirjautumisnäytöllä. Määritä tämän käytännön arvoksi URL-osoite, josta <ph name="PRODUCT_OS_NAME" /> voi ladata avatarin, ja salauksen hajautusarvo, jonka avulla tarkistetaan latauksen eheys. Kuvan on oltava JPEG-muodossa, ja sen sallittu enimmäiskoko on 512 kt. Pääsy URL-osoitteeseen ei saa edellyttää todennusta.
 
       Avatar ladataan ja tallennetaan välimuistiin. Se ladataan uudelleen aina, kun URL-osoite tai hajautusarvo muuttuu.

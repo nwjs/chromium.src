@@ -61,10 +61,9 @@ const char* const kScrollIntoViewScript =
     R"(function(node) {
     const rect = node.getBoundingClientRect();
     if (rect.height < window.innerHeight) {
-      window.scrollBy({top: rect.top - window.innerHeight * 0.25,
-        behavior: 'smooth'});
+      window.scrollBy({top: rect.top - window.innerHeight * 0.25});
     } else {
-      window.scrollBy({top: rect.top, behavior: 'smooth'});
+      window.scrollBy({top: rect.top});
     }
     node.scrollIntoViewIfNeeded();
   })";
@@ -971,7 +970,7 @@ void WebController::ClickOrTapElement(
       runtime::CallFunctionOnParams::Builder()
           .SetObjectId(element_object_id)
           .SetArguments(std::move(argument))
-          .SetFunctionDeclaration(std::string(kScrollIntoViewScript))
+          .SetFunctionDeclaration(std::string(kScrollIntoViewIfNeededScript))
           .SetReturnByValue(true)
           .Build(),
       base::BindOnce(&WebController::OnScrollIntoView,

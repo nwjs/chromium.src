@@ -64,11 +64,14 @@ class ExtensionManagement : public KeyedService {
   //                        and cannot be disabled.
   // * INSTALLATION_RECOMMENDED: Extension will be installed automatically but
   //                             can be disabled.
+  // * INSTALLATION_REMOVED:  Extension cannot be installed and will be
+  //                          automatically removed.
   enum InstallationMode {
     INSTALLATION_ALLOWED = 0,
     INSTALLATION_BLOCKED,
     INSTALLATION_FORCED,
     INSTALLATION_RECOMMENDED,
+    INSTALLATION_REMOVED,
   };
 
   explicit ExtensionManagement(Profile* profile);
@@ -168,10 +171,6 @@ class ExtensionManagement : public KeyedService {
   // required version is returned.
   bool CheckMinimumVersion(const Extension* extension,
                            std::string* required_version) const;
-
-  // Returns true if there is a policy setting that explicitly uninstalls
-  // blacklisted extensions that are installed
-  bool ShouldUninstallPolicyBlacklistedExtensions() const;
 
  private:
   using SettingsIdMap =

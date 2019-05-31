@@ -312,8 +312,7 @@ public class MediaDrmBridge {
             Log.d(TAG, "Not provisioned during openSession()");
 
             if (!sMediaCryptoDeferrer.isProvisioning()) {
-                startProvisioning();
-                return true;
+                return startProvisioning();
             }
 
             // Cannot provision. Defer MediaCrypto creation and try again later.
@@ -456,10 +455,12 @@ public class MediaDrmBridge {
         }
 
         if (!securityLevel.isEmpty() && !mediaDrmBridge.setSecurityLevel(securityLevel)) {
+            mediaDrmBridge.release();
             return null;
         }
 
         if (!securityOrigin.isEmpty() && !mediaDrmBridge.setOrigin(securityOrigin)) {
+            mediaDrmBridge.release();
             return null;
         }
 
@@ -468,6 +469,7 @@ public class MediaDrmBridge {
         // process, in which case MediaCrypto will be created after provision
         // is finished.
         if (requiresMediaCrypto && !mediaDrmBridge.createMediaCrypto()) {
+            // No need to call release() as createMediaCrypto() does if it fails.
             return null;
         }
 
@@ -520,7 +522,14 @@ public class MediaDrmBridge {
         assert mMediaDrm != null;
         assert !securityLevel.isEmpty();
 
-        String currentSecurityLevel = mMediaDrm.getPropertyString(SECURITY_LEVEL);
+        String currentSecurityLevel;
+        try {
+            currentSecurityLevel = mMediaDrm.getPropertyString(SECURITY_LEVEL);
+        } catch (java.lang.IllegalStateException e) {
+            Log.e(TAG, "Failed to get current security level", e);
+            return false;
+        }
+
         Log.i(TAG, "Security level: current %s, new %s", currentSecurityLevel, securityLevel);
         if (securityLevel.equals(currentSecurityLevel)) {
             // No need to set the same security level again. This is not just
@@ -607,7 +616,10 @@ public class MediaDrmBridge {
             nativeOnProvisioningComplete(mNativeMediaDrmBridge, true);
 
         } catch (android.media.NotProvisionedException e) {
-            startProvisioning();
+            if (!startProvisioning()) {
+                // Indicate that provisioning failed.
+                nativeOnProvisioningComplete(mNativeMediaDrmBridge, false);
+            }
         }
     }
 
@@ -1122,7 +1134,11 @@ public class MediaDrmBridge {
     }
 
     /**
-     * Return the security level of this DRM object.
+     * Return the security level of this DRM object. In case of failure this
+     * returns the empty string, which is treated by the native side as
+     * "DEFAULT".
+     * TODO(jrummell): Revisit this in the future if the security level gets
+     * used for more things.
      */
     @CalledByNative
     private String getSecurityLevel() {
@@ -1130,25 +1146,48 @@ public class MediaDrmBridge {
             Log.e(TAG, "getSecurityLevel(): MediaDrm is null or security level is not supported.");
             return "";
         }
-        return mMediaDrm.getPropertyString(SECURITY_LEVEL);
+
+        try {
+            return mMediaDrm.getPropertyString(SECURITY_LEVEL);
+        } catch (java.lang.IllegalStateException e) {
+            Log.e(TAG, "Failed to get current security level", e);
+            return "";
+        }
     }
 
-    private void startProvisioning() {
+    /**
+     * Start provisioning. Returns true if a provisioning request can be
+     * generated and has been forwarded to C++ code for handling, false
+     * otherwise.
+     */
+    private boolean startProvisioning() {
         Log.d(TAG, "startProvisioning");
         assert !mProvisioningPending;
         mProvisioningPending = true;
         assert mMediaDrm != null;
 
         if (!isNativeMediaDrmBridgeValid()) {
-            return;
+            return false;
         }
 
         if (mRequiresMediaCrypto) {
             sMediaCryptoDeferrer.onProvisionStarted();
         }
 
-        MediaDrm.ProvisionRequest request = mMediaDrm.getProvisionRequest();
+        // getProvisionRequest() may fail with android.media.MediaDrm.MediaDrmStateException or
+        // android.media.MediaDrmResetException, both of which extend IllegalStateException. As
+        // these specific exceptions are only available in API 21 and 23 respectively, using the
+        // base exception so that this will work for all API versions.
+        MediaDrm.ProvisionRequest request;
+        try {
+            request = mMediaDrm.getProvisionRequest();
+        } catch (java.lang.IllegalStateException e) {
+            Log.e(TAG, "Failed to get provisioning request", e);
+            return false;
+        }
+
         nativeOnProvisionRequest(mNativeMediaDrmBridge, request.getDefaultUrl(), request.getData());
+        return true;
     }
 
     /**

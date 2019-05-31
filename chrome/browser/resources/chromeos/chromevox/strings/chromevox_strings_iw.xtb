@@ -54,7 +54,6 @@
 <translation id="1319608975892113573">‏אין blockquote קודם.</translation>
 <translation id="1321576897702511272">‏הסתר עזרה של ChromeVox</translation>
 <translation id="1325946044405407859">חום צהבהב</translation>
-<translation id="1331634987653814322">הגדרות ברייל</translation>
 <translation id="1331702245475014624"><ph name="INDEX" /> מתוך <ph name="TOTAL" /></translation>
 <translation id="1334095593597963605">הד תו ומילה</translation>
 <translation id="1334570596456017464">כתב תחתי</translation>
@@ -214,7 +213,7 @@
 <translation id="2626530649491650971">clickable</translation>
 <translation id="2628764385451019380">אין תיבה משולבת קודמת.</translation>
 <translation id="2637227747952042642">Math</translation>
-<translation id="2638785836053527382">ההורדה נמשכת <ph name="FILE_NAME" /></translation>
+<translation id="2638785836053527382">ההורדה של <ph name="FILE_NAME" /> נמשכת</translation>
 <translation id="2639750663247012216">‏מקש צירוף של ChromeVox</translation>
 <translation id="2644542693584024604">misspelled</translation>
 <translation id="2661530546602071611">הודעה</translation>
@@ -557,7 +556,6 @@
 <translation id="489907760999452556">קישור פנימי</translation>
 <translation id="4915087353619183190">‏הפעלה של מצב למידה. הקשה על מקש במקלדת qwerty, מקש ברייל בתצוגה הניתנת לרענון או ביצוע תנועת מגע יציגו את הפעולה המבוצעת. כדי לצאת יש להקיש על Control יחד עם W, או על מקש Esc.</translation>
 <translation id="492295894462528572">פתח דבר</translation>
-<translation id="4943781537993885772">סגנון תצוגה</translation>
 <translation id="495170559598752135">פעולות</translation>
 <translation id="4953585991029886728">ערוך טקסט</translation>
 <translation id="4954534434583049121">‏Blockquote הקודם</translation>
@@ -725,7 +723,6 @@
 <translation id="6006050241733874051">טופס</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{קו נטוי שמאלי}two{# סימני קו נטוי שמאלי}many{# סימני קו נטוי שמאלי}other{# סימני קו נטוי שמאלי}}</translation>
 <translation id="6017514345406065928">ירוק</translation>
-<translation id="6021969570711251331">משולב</translation>
 <translation id="6034000775414344507">אפור בהיר</translation>
 <translation id="6037602951055904232">הזז קדימה</translation>
 <translation id="6042826534790431634">כדי להפעיל, יש להקיש על המקשים חיפוש+רווח.</translation>
@@ -777,7 +774,6 @@
 <translation id="6438968337250688271"><ph name="NAME" />, תפריט</translation>
 <translation id="6444046323172968959">תיבת דו-שיח של התראה</translation>
 <translation id="6452403590345320472">תוכן העניינים</translation>
-<translation id="6454456397828627257">זה לצד זה</translation>
 <translation id="6459511626086141404">מפת מפתחות שטוחה</translation>
 <translation id="6468049171101508116">הלחצן הבא</translation>
 <translation id="646954774886932461">אינדקס</translation>
@@ -806,7 +802,7 @@
 <translation id="667999046851023355">מסמך</translation>
 <translation id="6688209025607531203">התראה שלא מוצגת בחלון קופץ</translation>
 <translation id="6689672606256159458">סלמון כהה</translation>
-<translation id="669617842401078250">ההורדה הושהתה <ph name="FILE_NAME" /></translation>
+<translation id="669617842401078250">ההורדה של <ph name="FILE_NAME" /> הושהתה</translation>
 <translation id="6696967141280706829">הקדמה</translation>
 <translation id="6697092096875747123">התיבה המשולבת הקודמת</translation>
 <translation id="6702609185760332517">{COUNT,plural, =1{סימן קריאה}two{# סימני קריאה}many{# סימני קריאה}other{# סימני קריאה}}</translation>
@@ -960,7 +956,7 @@
         <ph name="LINE_THROUGH_STRING" />
         <ph name="FONT_FAMILY_STRING" /></translation>
 <translation id="7701196182766842984">autolst</translation>
-<translation id="7763537600611320912">ההורדה התחילה <ph name="FILE_NAME" /></translation>
+<translation id="7763537600611320912">ההורדה של <ph name="FILE_NAME" /> התחילה</translation>
 <translation id="7770823902658038748"><ph name="VALUE" />, <ph name="NAME" />, תיבת טקסט של סיסמה</translation>
 <translation id="7776293189010177726">‏פתיחת תפריטי ChromeVox</translation>
 <translation id="7800558923657349506">אפילוג</translation>
@@ -1085,7 +1081,7 @@
 <translation id="8096975275316362544">מנטה בהיר</translation>
 <translation id="8098587210054821856">אפור תכלת</translation>
 <translation id="8110647606445335195">‏אין ציוני דרך מסוג ARIA.</translation>
-<translation id="812886159861361726">ההורדה נפסקה <ph name="FILE_NAME" /></translation>
+<translation id="812886159861361726">ההורדה של <ph name="FILE_NAME" /> נפסקה</translation>
 <translation id="8138880386467279117">מגע</translation>
 <translation id="8153880621934657047">לא בתוך טבלה.</translation>
 <translation id="817440585505441544">{COUNT,plural, =1{קו תחתון}two{# סימני קו תחתון}many{# סימני קו תחתון}other{# סימני קו תחתון}}</translation>
@@ -1155,7 +1151,7 @@
 <translation id="8743786158317878347">היכנס לתוכן מובנה, כמו טבלאות</translation>
 <translation id="8747966237988593539">רשימה לפי סדר</translation>
 <translation id="8749988712346667988">כסף</translation>
-<translation id="875769700429317857">ההורדה הושלמה <ph name="FILE_NAME" /></translation>
+<translation id="875769700429317857">ההורדה של <ph name="FILE_NAME" /> הושלמה</translation>
 <translation id="8759334257841767240">אין קישור הבא.</translation>
 <translation id="8767968232364267681">הכותרת הבאה של רמה 4</translation>
 <translation id="8770473310765924354">צא מתוכן מובנה, כמו טבלאות</translation>

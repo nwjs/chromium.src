@@ -219,6 +219,9 @@ NetworkService::NetworkService(
   DCHECK(!g_network_service);
   g_network_service = this;
 
+  metrics_trigger_timer_.Start(FROM_HERE, base::TimeDelta::FromMinutes(5), this,
+                               &NetworkService::ReportMetrics);
+
   // In testing environments, |service_request| may not be provided.
   if (service_request.is_pending())
     service_binding_.Bind(std::move(service_request));
@@ -797,6 +800,17 @@ void NetworkService::AckUpdateLoadInfo() {
   DCHECK(waiting_on_load_state_ack_);
   waiting_on_load_state_ack_ = false;
   MaybeStartUpdateLoadInfoTimer();
+}
+
+void NetworkService::ReportMetrics() {
+  size_t cache_size = 0;
+  size_t loader_count = 0;
+  for (auto* context : network_contexts_) {
+    cache_size += context->ReportAndGatherCorsPreflightCacheSizeMetric();
+    loader_count += context->GatherActiveLoaderCount();
+  }
+  UMA_HISTOGRAM_COUNTS_10000("Net.Cors.PreflightCacheTotalEntries", cache_size);
+  UMA_HISTOGRAM_COUNTS_1000("Net.Cors.ActiveLoaderCount", loader_count);
 }
 
 void NetworkService::Bind(mojom::NetworkServiceRequest request) {

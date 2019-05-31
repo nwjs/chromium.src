@@ -54,7 +54,6 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="1319608975892113573">Không có khung trích dẫn trước nào.</translation>
 <translation id="1321576897702511272">Ẩn trợ giúp của ChromeVox</translation>
 <translation id="1325946044405407859">Màu nâu vàng</translation>
-<translation id="1331634987653814322">Cài đặt chữ nổi</translation>
 <translation id="1331702245475014624"><ph name="INDEX" /> / <ph name="TOTAL" /></translation>
 <translation id="1334095593597963605">nói ký tự và từ</translation>
 <translation id="1334570596456017464">Chỉ số dưới</translation>
@@ -557,7 +556,6 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="489907760999452556">Liên kết bên trong</translation>
 <translation id="4915087353619183190">Đang bắt đầu Chế độ học. Bạn có thể nhấn một phím trên bàn phím qwerty, phím chữ nổi có thể làm mới hoặc sử dụng cử chỉ chạm để tìm hiểu chức năng của chế độ này. Bạn cũng có thể nhấn tổ hợp phím Control và w hoặc phím Escape để thoát.</translation>
 <translation id="492295894462528572">Lời tựa</translation>
-<translation id="4943781537993885772">Kiểu hiển thị</translation>
 <translation id="495170559598752135">Tác vụ</translation>
 <translation id="4953585991029886728">Chỉnh sửa văn bản</translation>
 <translation id="4954534434583049121">Khối trích dẫn trước</translation>
@@ -623,7 +621,7 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="5349770431644471053">Liên kết ngược</translation>
 <translation id="536031132345979795">Lùi lại đoạn trước đó trong khi tiếp tục đọc</translation>
 <translation id="5368000168321181111">Tắt kết nối tai nghe</translation>
-<translation id="5368505757342402527">Đã tải được <ph name="PROGRESS" />% của <ph name="FILE_NAME" /> xuống. Còn khoảng <ph name="TIME" /> <ph name="UNITS" /> nữa.</translation>
+<translation id="5368505757342402527">Đã tải <ph name="FILE_NAME" /> được <ph name="PROGRESS" />%. Còn khoảng <ph name="TIME" /> <ph name="UNITS" /> nữa.</translation>
 <translation id="5374320867641260420">Không có nút tiếp theo nào.</translation>
 <translation id="5376407118396657359">Nhấn tổ hợp phím Tìm kiếm+Ctrl+Alt cùng với các mũi tên để di chuyển theo ô.</translation>
 <translation id="5382299583965267720">Không có tiêu đề cấp 1 tiếp theo nào.</translation>
@@ -725,7 +723,6 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="6006050241733874051">Biểu mẫu</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{dấu gạch chéo ngược}other{# dấu gạch chéo ngược}}</translation>
 <translation id="6017514345406065928">Xanh lục</translation>
-<translation id="6021969570711251331">Đan xen</translation>
 <translation id="6034000775414344507">Xám nhạt</translation>
 <translation id="6037602951055904232">Xoay về phía trước</translation>
 <translation id="6042826534790431634">Nhấn tổ hợp phím Tìm kiếm+Dấu cách để kích hoạt.</translation>
@@ -777,7 +774,6 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="6438968337250688271"><ph name="NAME" />, menu</translation>
 <translation id="6444046323172968959">Hộp thoại thông báo</translation>
 <translation id="6452403590345320472">Mục lục</translation>
-<translation id="6454456397828627257">Cạnh nhau</translation>
 <translation id="6459511626086141404">Sơ đồ bàn phím phẳng</translation>
 <translation id="6468049171101508116">Nút tiếp theo</translation>
 <translation id="646954774886932461">Chú dẫn</translation>
@@ -806,7 +802,7 @@ Nếu bạn đã đọc xong hướng dẫn, hãy sử dụng ChromeVox để đ
 <translation id="667999046851023355">Tài liệu</translation>
 <translation id="6688209025607531203">Thông báo phi thể thức</translation>
 <translation id="6689672606256159458">Màu hồng cam đậm</translation>
-<translation id="669617842401078250">Đã tạm dừng quá trình tải <ph name="FILE_NAME" /> xuống</translation>
+<translation id="669617842401078250">Đã tạm dừng tải <ph name="FILE_NAME" /> xuống</translation>
 <translation id="6696967141280706829">Lời nói đầu</translation>
 <translation id="6697092096875747123">Hộp kết hợp trước</translation>
 <translation id="6702609185760332517">{COUNT,plural, =1{dấu chấm than}other{# dấu chấm than}}</translation>

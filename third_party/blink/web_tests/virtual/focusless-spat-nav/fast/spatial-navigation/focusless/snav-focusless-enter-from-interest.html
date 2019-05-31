@@ -9,6 +9,10 @@
 <a id="link" href="#active">Activate</a>
 
 <script>
+  if (accessibilityController) {
+    accessibilityController.reset();
+  }
+
   // This test checks that pressing enter over an unfocused but interested
   // element will activate it.
   let link = document.getElementById("link");

@@ -13,6 +13,7 @@ import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.R
 import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.SHOULD_FOCUS_VIEW;
 import static org.chromium.chrome.browser.touchless.SiteSuggestionsCoordinator.SUGGESTIONS_KEY;
 
+import android.graphics.Bitmap;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.support.graphics.drawable.VectorDrawableCompat;
@@ -56,7 +57,7 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
     }
 
     private class SiteSuggestionInteractionDelegate
-            implements ContextMenuManager.Delegate, View.OnCreateContextMenuListener {
+            implements TouchlessContextMenuManager.Delegate, View.OnCreateContextMenuListener {
         private PropertyModel mSuggestion;
 
         SiteSuggestionInteractionDelegate(PropertyModel model) {
@@ -95,11 +96,22 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
 
         @Override
         public boolean isItemSupported(int menuItemId) {
-            return menuItemId == ContextMenuManager.ContextMenuItemId.REMOVE;
+            return menuItemId == ContextMenuManager.ContextMenuItemId.REMOVE
+                    || menuItemId == ContextMenuManager.ContextMenuItemId.ADD_TO_MY_APPS;
         }
 
         @Override
         public void onContextMenuCreated() {}
+
+        @Override
+        public String getTitle() {
+            return mSuggestion.get(SiteSuggestionModel.TITLE_KEY);
+        }
+
+        @Override
+        public Bitmap getIconBitmap() {
+            return mSuggestion.get(SiteSuggestionModel.ICON_KEY);
+        }
     }
 
     private PropertyModel mModel;
@@ -133,6 +145,9 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
 
         mModel.get(SUGGESTIONS_KEY).addObserver(this);
         mModel.addObserver(this);
+
+        // Initialize the titleView text.
+        onPropertyChanged(mModel, CURRENT_INDEX_KEY);
     }
 
     @Override
@@ -166,7 +181,7 @@ class SiteSuggestionsAdapter extends ForwardingListObservable<PropertyKey>
 
         if (holder.getItemViewType() == ViewType.ALL_APPS_TYPE) {
             tile.setIconDrawable(VectorDrawableCompat.create(tile.getResources(),
-                    R.drawable.ic_apps_black_24dp, tile.getContext().getTheme()));
+                    R.drawable.ic_apps_blue_24dp, tile.getContext().getTheme()));
             // If explore sites, clicks navigate to the Explore URL.
             tile.setOnClickListener(
                     (view)

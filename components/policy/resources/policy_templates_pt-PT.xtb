@@ -772,7 +772,7 @@
 
           Se esta política não for definida e for suportada no dispositivo, o modo de carregamento padrão da bateria é aplicado e não pode ser alterado pelo utilizador.
 
-          Nota: <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_NAME" /> substitui esta política, se a anterior for especificada.</translation>
+          Nota: <ph name="DEVICE_ADVANCED_BATTERY_CHARGE_MODE_ENABLED_NAME" /> substitui esta política se a anterior for especificada.</translation>
 <translation id="237494535617297575">Permite definir uma lista de padrões de URL que especificam os Web sites autorizados a apresentar notificações. Se esta política não for definida, será utilizado o valor global predefinido para todos os Web sites, seja a partir da política "DefaultNotificationsSetting", caso esteja definida, ou a partir da configuração pessoal do utilizador.</translation>
 <translation id="2386362615870139244">Permitir bloqueios de ativação do ecrã</translation>
 <translation id="2411817661175306360">O aviso de proteção por palavra-passe está desativado.</translation>
@@ -1198,7 +1198,7 @@
 
       Se definir esta política como uma opção que deixou de ser suportada ("AskUser" ou "AskForEcryptfsArcUsers"), então esta é processada como se tivesse selecionado "Migrate".
 
-      Esta politica não se aplica aos utilizadores de quiosque. Se esta política não for definida, o dispositivo apresentará um comportamento semelhante a "DisallowArc".</translation>
+      Esta política não se aplica aos utilizadores de quiosque. Se esta política não for definida, o dispositivo apresentará um comportamento semelhante a "DisallowArc".</translation>
 <translation id="3086995894968271156">Configura o Recetor do Cast no <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3088796212846734853">Permite definir uma lista de padrões de URL que especificam os sites autorizados a apresentar imagens.
 
@@ -1434,7 +1434,6 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 
         Esta política é utilizada pela inscrição de políticas de nuvem num âmbito automático em computadores e pode ser definida pela Base de dados de registo ou GPO no Windows, pelo plist no Mac e pelo ficheiro da política JSON no Linux.</translation>
 <translation id="3660562134618097814">Transferir cookies SAML IdP durante o início de sessão</translation>
-<translation id="3668151900457104753">Desinstale extensões que estão na lista negra</translation>
 <translation id="3701121231485832347">Controla definições específicas para dispositivos <ph name="PRODUCT_OS_NAME" /> geridos por <ph name="MS_AD_NAME" />.</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (O campo de uma única linha foi descontinuado e será removido no futuro. Comece a utilizar a caixa de texto multilinha abaixo.)</translation>
 <translation id="3709266154059827597">Configurar lista negra de instalação de extensões</translation>
@@ -1519,9 +1518,9 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="3826475866868158882">Serviços de localização da Google ativados.</translation>
 <translation id="3831054243924627613">Esta política controla o estado inicial do serviço de cópia de segurança e restauro do Android.
 
-      Quando esta política não está configurada ou está <ph name="BR_DISABLED" />, o serviço de cópia de segurança e restauro do Android está inicialmente desativado.
+      Quando esta política não está configurada ou está <ph name="BR_DISABLED" />, o serviço de cópia de segurança e restauro do Android encontra-se inicialmente desativado.
 
-      Quando esta política está definida como <ph name="BR_ENABLED" />, o serviço de cópia de segurança e restauro do Android está inicialmente ativado.
+      Quando esta política está definida como <ph name="BR_ENABLED" />, o serviço de cópia de segurança e restauro do Android encontra-se inicialmente ativado.
 
       Quando esta política está definida como <ph name="BR_UNDER_USER_CONTROL" />, é perguntado ao utilizador se pretende utilizar o serviço de cópia de segurança e restauro do Android. Se o utilizador ativar o serviço de cópia de segurança e restauro, os dados de aplicações para Android são carregados para os servidores de cópia de segurança do Android e restaurados a partir dos mesmos após a reinstalação de aplicações compatíveis.
 
@@ -1609,7 +1608,7 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="3915395663995367577">URL para um ficheiro .pac de proxy</translation>
 <translation id="3920892052017026701">Defina o início de carregamento da bateria personalizado em percentagem.
 
-          A bateria começa a carregar quando a carga da bateria atinge o valor do início de carregamento personalizado.
+          A bateria começa a ser carregada quando a carga da bateria atinge o valor do início de carregamento personalizado.
 
           O valor DeviceBatteryChargeCustomStartCharging tem de ser inferior ao valor DeviceBatteryChargeCustomStopCharging.
 
@@ -3163,7 +3162,7 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
       Se esta política não for definida ou estiver definida como verdadeira, o modelo de escurecimento inteligente será ativado para poder prolongar o tempo que precede o escurecimento do ecrã. Se estiver definida como falsa, o modelo de escurecimento inteligente não irá influenciar o escurecimento do ecrã.</translation>
 <translation id="6967394885063085697">Ative a política de gestão de energia do modo de carregamento da bateria avançado.
 
-          O modo de carregamento da bateria avançado permite que o utilizador maximize o estado da bateria. No modo de carregamento avançado o sistema utiliza um algoritmo de carregamento padrão e outras técnicas durante as horas de inatividade para maximizar o estado da bateria. Durante as horas de atividade, é utilizado o carregamento rápido. Este carregamento rápido permite carregar a bateria mais rapidamente e, consequentemente, esta fica totalmente carregada mais cedo. Em cada dia, o horário durante o qual o sistema é utilizado mais intensamente é especificado pela hora de início e pela duração.
+          O modo de carregamento da bateria avançado permite que o utilizador maximize o estado da bateria. No modo de carregamento avançado, o sistema utiliza um algoritmo de carregamento padrão e outras técnicas durante as horas de inatividade para maximizar o estado da bateria. Durante as horas de atividade, é utilizado o carregamento rápido. Este carregamento rápido permite carregar a bateria mais rapidamente e, consequentemente, esta fica totalmente carregada mais cedo. Em cada dia, o horário durante o qual o sistema é utilizado mais intensamente é especificado pela hora de início e pela duração.
 
           Se esta política for definida como verdadeira e DeviceAdvancedBatteryChargeModeDayConfig estiver definido, então o modo de carregamento avançado da bateria estará sempre ativado, se for suportado pelo dispositivo.
 
@@ -3243,9 +3242,9 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 
           Quando o sistema está ativo, a porta USB fornece sempre energia.
 
-          Quando o sistema está suspenso, se esta política estiver definida como verdadeira, é fornecida energia à porta USB quando o dispositivo estiver ligado à tomada ou se o nível de bateria for &gt; 50%. De outro modo, não é fornecida energia.
+          Quando o sistema está suspenso, se esta política estiver definida como verdadeira, é fornecida energia à porta USB quando o dispositivo estiver ligado à tomada ou se o nível de bateria for superior a 50%. De outro modo, não é fornecida energia.
 
-          Quando o sistema está desligado, se esta política estiver definida como verdadeira, então é fornecida energia à porta USB quando o dispositivo estiver ligado à tomada. De outro modo, não é fornecida energia.
+          Quando o sistema está desligado, se esta política estiver definida como verdadeira, então será fornecida energia à porta USB quando o dispositivo estiver ligado à tomada. De outro modo, não é fornecida energia.
 
           Se esta política não for definida, então estará ativa e não poderá ser desativada pelo utilizador.</translation>
 <translation id="7115494316187648452">Determina se um processo do <ph name="PRODUCT_NAME" /> é iniciado ao iniciar sessão no SO e continua a ser executado quando a última janela do navegador é fechada, permitindo que as aplicações em segundo plano e a sessão de navegação atual permaneçam ativas, incluindo todos os cookies de sessão. O processo em segundo plano apresenta um ícone no tabuleiro do sistema e pode sempre ser fechado a partir daí.
@@ -4200,11 +4199,6 @@ A forma recomendada para configurar a política no Windows é através do GPO, e
       Esta política apenas afeta os utilizadores que efetuaram a autenticação através de SAML.
 
       O valor da política deve ser especificado em segundos.</translation>
-<translation id="9018338365267278833">Esta política remove as extensões que são apresentadas na <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> ou na <ph name="EXTENSION_SETTINGS_POLICY_NAME" /> que tiverem o modo de instalação definido como bloqueado e vai remover completamente os dados do utilizador locais através da mesma.  Consulte a política de privacidade ou a política de retenção de dados das extensões para compreender o que pode acontecer com os dados do utilizador que não estiverem armazenados localmente.
-
-      Quando a política está definida como ativada, as extensões que se enquadrarem nas listas mencionadas anteriormente (se já estiverem instaladas numa máquina) são removidas completamente dessa máquina (incluindo os dados do utilizador locais).
-
-      Quando a política está definida como desativada ou não está definida, as extensões que se enquadrarem nas listas mencionadas anteriormente (se já estiverem instaladas numa máquina e existirem na lista negra <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" />) são desativadas na máquina e não são desinstaladas.</translation>
 <translation id="9027787254195333560">Esta política permite-lhe configurar a imagem do avatar que representa o utilizador no ecrã de início de sessão. A política é definida ao especificar o URL a partir do qual o <ph name="PRODUCT_OS_NAME" /> pode transferir a imagem do avatar e um hash criptográfico utilizado para validar a integridade da transferência. A imagem tem de estar no formato JPEG e o tamanho não pode exceder 512 kB. O URL tem de ser acessível sem qualquer autenticação.
 
       A imagem do avatar é transferida e colocada em cache. Será transferida novamente sempre que o URL ou o hash forem alterados.

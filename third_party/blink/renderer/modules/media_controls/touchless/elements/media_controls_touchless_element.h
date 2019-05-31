@@ -27,12 +27,13 @@ class MediaControlsTouchlessElement
   void Trace(blink::Visitor* visitor) override;
 
   void MakeOpaque(bool /** True if control should hide after timer fired */);
-  void MakeTransparent();
+  void MakeTransparent(bool = false /** True if hide immediately */);
 
   // Non-touch media event listener observer implementation.
   void OnFocusIn() override {}
   void OnTimeUpdate() override {}
   void OnDurationChange() override {}
+  void OnSeeking() override {}
   void OnLoadingProgress() override {}
   void OnPlay() override {}
   void OnPause() override {}

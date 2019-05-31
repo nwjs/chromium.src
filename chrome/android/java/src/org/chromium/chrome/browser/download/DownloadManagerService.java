@@ -143,6 +143,9 @@ public class DownloadManagerService
 
     private final Handler mHandler;
 
+    // The first download that is triggered in background mode.
+    private String mFirstBackgroundDownloadId;
+
     /** Generic interface for notifying external UI components about downloads and their states. */
     public interface DownloadObserver extends DownloadSharedPreferenceHelper.Observer {
         /** Called in response to {@link DownloadManagerService#getAllDownloads(boolean)}. */
@@ -1157,6 +1160,8 @@ public class DownloadManagerService
      * @return Whether the file would be openable by the browser.
      */
     public static boolean isSupportedMimeType(String mimeType) {
+        // In NoTouch mode we don't support opening downloaded files in-browser.
+        if (FeatureUtilities.isNoTouchModeEnabled()) return false;
         return nativeIsSupportedMimeType(mimeType);
     }
 
@@ -1967,6 +1972,11 @@ public class DownloadManagerService
         DownloadNotificationUmaHelper.recordBackgroundDownloadHistogram(
                 UmaBackgroundDownload.STARTED);
         sBackgroundDownloadIds.add(downloadGuid);
+        if (mFirstBackgroundDownloadId == null) {
+            mFirstBackgroundDownloadId = downloadGuid;
+            DownloadNotificationUmaHelper.recordFirstBackgroundDownloadHistogram(
+                    UmaBackgroundDownload.STARTED);
+        }
     }
 
     /**
@@ -1978,6 +1988,9 @@ public class DownloadManagerService
             @UmaBackgroundDownload int event, String downloadGuid) {
         if (sBackgroundDownloadIds.remove(downloadGuid)) {
             DownloadNotificationUmaHelper.recordBackgroundDownloadHistogram(event);
+        }
+        if (downloadGuid.equals(mFirstBackgroundDownloadId)) {
+            DownloadNotificationUmaHelper.recordFirstBackgroundDownloadHistogram(event);
         }
     }
 

@@ -155,6 +155,25 @@ bool CheckStudyVersion(const Study::Filter& filter,
   return true;
 }
 
+bool CheckStudyOSVersion(const Study::Filter& filter,
+                         const base::Version& version) {
+  if (filter.has_min_os_version()) {
+    if (!version.IsValid() ||
+        version.CompareToWildcardString(filter.min_os_version()) < 0) {
+      return false;
+    }
+  }
+
+  if (filter.has_max_os_version()) {
+    if (!version.IsValid() ||
+        version.CompareToWildcardString(filter.max_os_version()) > 0) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool CheckStudyCountry(const Study::Filter& filter,
                        const std::string& country) {
   // Empty country and exclude_country matches all.
@@ -252,6 +271,12 @@ bool ShouldAddStudy(const Study& study,
                                 client_state.is_low_end_device)) {
       DVLOG(1) << "Filtered out study " << study.name()
                << " due to is_low_end_device.";
+      return false;
+    }
+
+    if (!CheckStudyOSVersion(study.filter(), client_state.os_version)) {
+      DVLOG(1) << "Filtered out study " << study.name()
+               << " due to os_version.";
       return false;
     }
 

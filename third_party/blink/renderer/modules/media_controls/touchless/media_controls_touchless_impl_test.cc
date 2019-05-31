@@ -8,19 +8,26 @@
 
 #include "build/build_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/media_controls/touchless/media_controls.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/css_property_value_set.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
+#include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
+#include "third_party/blink/renderer/core/html/media/html_media_element_controls_list.h"
 #include "third_party/blink/renderer/core/html/media/html_media_test_helper.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/html/time_ranges.h"
+#include "third_party/blink/renderer/core/html/track/text_track.h"
+#include "third_party/blink/renderer/core/html/track/text_track_list.h"
+#include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/modules/media_controls/touchless/test_media_controls_menu_host.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/testing/empty_web_media_player.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
@@ -29,14 +36,27 @@ namespace blink {
 
 namespace {
 
+const char kTextTracksOffString[] = "Off";
+
+class LocalePlatformSupport : public TestingPlatformSupport {
+ public:
+  WebString QueryLocalizedString(WebLocalizedString::Name name) override {
+    if (name == WebLocalizedString::kTextTracksOff)
+      return kTextTracksOffString;
+    return TestingPlatformSupport::QueryLocalizedString(name);
+  }
+};
+
 class MockWebMediaPlayerForTouchlessImpl : public EmptyWebMediaPlayer {
  public:
   WebTimeRanges Seekable() const override { return seekable_; }
   bool HasVideo() const override { return true; }
+  bool HasAudio() const override { return has_audio_; }
   WebTimeRanges Buffered() const override { return buffered_; }
 
   WebTimeRanges buffered_;
   WebTimeRanges seekable_;
+  bool has_audio_ = false;
 };
 
 class MockChromeClientForTouchlessImpl : public EmptyChromeClient {
@@ -48,6 +68,14 @@ class MockChromeClientForTouchlessImpl : public EmptyChromeClient {
     WebScreenInfo screen_info;
     screen_info.orientation_type = orientation_;
     return screen_info;
+  }
+
+  void EnterFullscreen(LocalFrame& frame, const FullscreenOptions*) final {
+    Fullscreen::DidEnterFullscreen(*frame.GetDocument());
+  }
+
+  void ExitFullscreen(LocalFrame& frame) final {
+    Fullscreen::DidExitFullscreen(*frame.GetDocument());
   }
 
   void SetOrientation(WebScreenOrientationType orientation_type) {
@@ -64,6 +92,7 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
 
   void InitializePage() {
     Page::PageClients clients;
+
     FillWithEmptyClients(clients);
     chrome_client_ = MakeGarbageCollected<MockChromeClientForTouchlessImpl>();
     clients.chrome_client = chrome_client_;
@@ -76,6 +105,11 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
         ToHTMLVideoElement(*GetDocument().QuerySelector("video"));
     media_controls_ =
         static_cast<MediaControlsTouchlessImpl*>(video.GetMediaControls());
+
+    test_media_controls_host_ = std::make_unique<TestMediaControlsMenuHost>();
+
+    media_controls_->SetMediaControlsMenuHostForTesting(
+        test_media_controls_host_->CreateMediaControlsMenuHostPtr());
   }
 
   MediaControlsTouchlessImpl& MediaControls() { return *media_controls_; }
@@ -84,6 +118,10 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
   MockWebMediaPlayerForTouchlessImpl* WebMediaPlayer() {
     return static_cast<MockWebMediaPlayerForTouchlessImpl*>(
         MediaElement().GetWebMediaPlayer());
+  }
+
+  TestMenuHostArgList& GetMenuHostArgList() {
+    return test_media_controls_host_->GetMenuHostArgList();
   }
 
   void SimulateKeydownEvent(Element& element, int key_code) {
@@ -109,8 +147,19 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
   }
 
   bool IsControlsVisible(Element* element) {
-    return !element->classList().contains("transparent");
+    return !element->classList().contains("transparent") &&
+           !element->classList().contains("transparent-immediate");
   }
+
+  bool IsElementDisplayed(Element* element) {
+    if (!element->InlineStyle())
+      return true;
+
+    return element->InlineStyle()->GetPropertyValue(CSSPropertyID::kDisplay) !=
+           "none";
+  }
+
+  void SetHasAudio(bool has_audio) { WebMediaPlayer()->has_audio_ = has_audio; }
 
   Element* GetControlByShadowPseudoId(const char* shadow_pseudo_id) {
     for (Element& element : ElementTraversal::DescendantsOf(MediaControls())) {
@@ -122,6 +171,17 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
 
   void SetScreenOrientation(WebScreenOrientationType orientation_type) {
     chrome_client_->SetOrientation(orientation_type);
+  }
+
+  void SetMenuResponse(mojom::blink::MenuItem menu_item, int track_index = -1) {
+    test_media_controls_host_->SetMenuResponse(menu_item, track_index);
+  }
+
+  void SetMenuResponseAndShowMenu(mojom::blink::MenuItem menu_item,
+                                  int track_index = -1) {
+    SetMenuResponse(menu_item, track_index);
+    MediaControls().ShowContextMenu();
+    MediaControls().MenuHostFlushForTesting();
   }
 
   void CheckControlKeys(int seek_forward_key,
@@ -151,6 +211,7 @@ class MediaControlsTouchlessImplTest : public PageTestBase {
  private:
   Persistent<MediaControlsTouchlessImpl> media_controls_;
   Persistent<MockChromeClientForTouchlessImpl> chrome_client_;
+  std::unique_ptr<TestMediaControlsMenuHost> test_media_controls_host_;
 };
 
 class MediaControlsTouchlessImplTestWithMockScheduler
@@ -273,6 +334,14 @@ TEST_F(MediaControlsTouchlessImplTest, ProgressBar) {
   EXPECT_DOUBLE_EQ(buffered / duration, loaded_bar_width / timeline_width);
   EXPECT_DOUBLE_EQ(current_time / buffered,
                    progress_bar_width / loaded_bar_width);
+
+  // Seek event should trigger a UI update as well.
+  SetBufferedRange(0);
+  MediaElement().setCurrentTime(0);
+  MediaElement().DispatchEvent(*Event::Create(event_type_names::kSeeking));
+
+  EXPECT_DOUBLE_EQ(progress_bar->getBoundingClientRect()->width(), 0);
+  EXPECT_DOUBLE_EQ(loaded_bar->getBoundingClientRect()->width(), 0);
 }
 
 TEST_F(MediaControlsTouchlessImplTest, TimeDisplay) {
@@ -313,6 +382,71 @@ TEST_F(MediaControlsTouchlessImplTest, VolumeDisplayTest) {
 
   EXPECT_NEAR(volume + volume_delta,
               volume_bar_height / volume_bar_background_height, error);
+}
+
+TEST_F(MediaControlsTouchlessImplTest, ContextMenuMojomTest) {
+  ScopedTestingPlatformSupport<LocalePlatformSupport> support;
+
+  MediaControls().MediaElement().SetSrc("https://example.com/foo.mp4");
+  std::unique_ptr<UserGestureIndicator> user_gesture_scope =
+      LocalFrame::NotifyUserActivation(GetDocument().GetFrame(),
+                                       UserGestureToken::kNewGesture);
+  test::RunPendingTasks();
+
+  KeyboardEventInit* keyboard_event_init = KeyboardEventInit::Create();
+  keyboard_event_init->setKey("SoftRight");
+  Event* keyboard_event =
+      MakeGarbageCollected<KeyboardEvent>("keydown", keyboard_event_init);
+
+  // Test fullscreen function.
+  SetMenuResponse(mojom::blink::MenuItem::FULLSCREEN);
+  MediaElement().DispatchEvent(*keyboard_event);
+  MediaControls().MenuHostFlushForTesting();
+  test::RunPendingTasks();
+
+  TestMenuHostArgList& arg_list = GetMenuHostArgList();
+  EXPECT_EQ((int)arg_list.menu_items.size(), 2);
+  EXPECT_EQ(arg_list.menu_items[0], mojom::blink::MenuItem::FULLSCREEN);
+  EXPECT_EQ(arg_list.menu_items[1], mojom::blink::MenuItem::DOWNLOAD);
+  EXPECT_FALSE(arg_list.video_state->is_fullscreen);
+  EXPECT_TRUE(MediaElement().IsFullscreen());
+
+  SetMenuResponseAndShowMenu(mojom::blink::MenuItem::FULLSCREEN);
+  test::RunPendingTasks();
+
+  EXPECT_TRUE(arg_list.video_state->is_fullscreen);
+  EXPECT_FALSE(MediaElement().IsFullscreen());
+
+  // Disable download and fullscreen, and show mute option.
+  MediaElement().ControlsListInternal()->Add("nofullscreen");
+  MediaElement().GetDocument().GetSettings()->SetHideDownloadUI(true);
+  SetHasAudio(true);
+
+  SetMenuResponseAndShowMenu(mojom::blink::MenuItem::MUTE);
+
+  EXPECT_EQ((int)arg_list.menu_items.size(), 1);
+  EXPECT_EQ(arg_list.menu_items[0], mojom::blink::MenuItem::MUTE);
+  EXPECT_FALSE(arg_list.video_state->is_muted);
+  EXPECT_TRUE(MediaElement().muted());
+
+  SetMenuResponseAndShowMenu(mojom::blink::MenuItem::MUTE);
+
+  EXPECT_TRUE(arg_list.video_state->is_muted);
+  EXPECT_FALSE(MediaElement().muted());
+
+  // Disable mute option and show text track option.
+  SetHasAudio(false);
+  TextTrack* track = MediaElement().addTextTrack("subtitles", "english", "en",
+                                                 ASSERT_NO_EXCEPTION);
+  SetMenuResponseAndShowMenu(mojom::blink::MenuItem::CAPTIONS, 0);
+
+  EXPECT_EQ((int)arg_list.menu_items.size(), 1);
+  EXPECT_EQ(arg_list.menu_items[0], mojom::blink::MenuItem::CAPTIONS);
+  EXPECT_EQ(arg_list.text_tracks[1]->label, "english");
+  EXPECT_EQ(track->mode(), TextTrack::ShowingKeyword());
+
+  SetMenuResponseAndShowMenu(mojom::blink::MenuItem::CAPTIONS, -1);
+  EXPECT_NE(track->mode(), TextTrack::ShowingKeyword());
 }
 
 TEST_F(MediaControlsTouchlessImplTestWithMockScheduler,
@@ -356,6 +490,7 @@ TEST_F(MediaControlsTouchlessImplTestWithMockScheduler,
 
   // Bottom container starts opaque since video is paused.
   EXPECT_TRUE(IsControlsVisible(bottom_container));
+  EXPECT_TRUE(IsElementDisplayed(bottom_container));
 
   MediaElement().Play();
   platform()->RunForPeriodSeconds(3);
@@ -381,6 +516,11 @@ TEST_F(MediaControlsTouchlessImplTestWithMockScheduler,
   // Hide after 3 seconds
   platform()->RunForPeriodSeconds(3);
   EXPECT_FALSE(IsControlsVisible(bottom_container));
+
+  // Display should be none after hide transition ends.
+  bottom_container->DispatchEvent(
+      *Event::Create(event_type_names::kTransitionend));
+  EXPECT_FALSE(IsElementDisplayed(bottom_container));
 
   // Bottom container should show after pressing right/left arrow.
   SimulateKeydownEvent(MediaElement(), VK_RIGHT);

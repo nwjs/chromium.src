@@ -12,6 +12,10 @@
 </form>
 
 <script>
+  if (accessibilityController) {
+    accessibilityController.reset();
+  }
+
   function fail() {
     assert_false(true, "Form should not have been submitted.");
   }

@@ -20,6 +20,10 @@
 <div id="third" tabindex="0">Third</div>
 
 <script>
+  if (accessibilityController) {
+    accessibilityController.reset();
+  }
+
   // This test checks that focusless mode allows entering focus into an element
   // with the enter key and exiting it with the escape key.
   let first = document.getElementById("first");

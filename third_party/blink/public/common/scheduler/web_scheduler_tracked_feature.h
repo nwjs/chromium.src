@@ -35,7 +35,33 @@ enum class WebSchedulerTrackedFeature {
   // We need to track them too.
   kServiceWorkerControlledPage = 16,
 
-  kMaxValue = kServiceWorkerControlledPage
+  kOutstandingIndexedDBTransaction = 17,
+
+  // Whether there are other pages which can potentially synchronously script
+  // the current one (e.g. due to window.open being used).
+  // This is a conservative estimation which doesn't take into account the
+  // origin, so it may be true if the related page is cross-origin.
+  // Recorded only for the main frame.
+  kHasScriptableFramesInMultipleTabs = 18,
+
+  // Whether the page tried to request a permission regardless of the outcome.
+  // TODO(altimin): Track this more accurately depending on the data.
+  // See permission.mojom for more details.
+  kRequestedGeolocationPermission = 19,
+  kRequestedNotificationsPermission = 20,
+  kRequestedMIDIPermission = 21,
+  kRequestedAudioCapturePermission = 22,
+  kRequestedVideoCapturePermission = 23,
+  kRequestedSensorsPermission = 24,
+  // This covers all background-related permissions, including background sync,
+  // background fetch and others.
+  kRequestedBackgroundWorkPermission = 26,
+
+  kBroadcastChannel = 27,
+
+  kIndexedDBConnection = 28,
+
+  kMaxValue = kIndexedDBConnection
 };
 
 }  // namespace scheduler

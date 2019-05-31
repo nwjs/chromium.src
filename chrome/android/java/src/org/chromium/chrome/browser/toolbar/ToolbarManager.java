@@ -62,6 +62,7 @@ import org.chromium.chrome.browser.net.spdyproxy.DataReductionProxySettings;
 import org.chromium.chrome.browser.ntp.IncognitoNewTabPage;
 import org.chromium.chrome.browser.ntp.NewTabPage;
 import org.chromium.chrome.browser.offlinepages.OfflinePageBridge;
+import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
 import org.chromium.chrome.browser.omnibox.LocationBar;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
@@ -636,7 +637,8 @@ public class ToolbarManager
 
                 OfflinePageBridge bridge = OfflinePageBridge.getForProfile(tab.getProfile());
                 if (bridge == null
-                        || !bridge.isShowingDownloadButtonInErrorPage(tab.getWebContents())) {
+                        || !bridge.isShowingDownloadButtonInErrorPage(tab.getWebContents())
+                        || !OfflinePageUtils.isEnabled()) {
                     return;
                 }
 
@@ -784,8 +786,10 @@ public class ToolbarManager
         mBottomControlsCoordinator.setBottomControlsVisible(mIsBottomToolbarVisible);
         mToolbar.onBottomToolbarVisibilityChanged(mIsBottomToolbarVisible);
 
-        Toast.setGlobalExtraYOffset(
-                mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_toolbar_height));
+        Toast.setGlobalExtraYOffset(mActivity.getResources().getDimensionPixelSize(
+                FeatureUtilities.isLabeledBottomToolbarEnabled()
+                        ? R.dimen.labeled_bottom_toolbar_height
+                        : R.dimen.bottom_toolbar_height));
     }
 
     /** Record that homepage button was used for IPH reasons */

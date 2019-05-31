@@ -10,13 +10,10 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.view.KeyEvent;
 import android.view.ViewGroup;
 
 import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.chrome.R;
-import org.chromium.chrome.browser.AppHooks;
 import org.chromium.chrome.browser.ChromeActivity;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
 import org.chromium.chrome.browser.IntentHandler;
@@ -30,16 +27,10 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tab.TabState;
-import org.chromium.chrome.browser.touchless.dialog.TouchlessDialogPresenter;
-import org.chromium.chrome.browser.touchless.ui.iph.KeyFunctionsIPHCoordinator;
-import org.chromium.chrome.browser.touchless.ui.progressbar.ProgressBarCoordinator;
-import org.chromium.chrome.browser.touchless.ui.progressbar.ProgressBarView;
-import org.chromium.chrome.browser.touchless.ui.tooltip.TooltipView;
+import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.ui.base.PageTransition;
-import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 
 /**
  * An Activity used to display WebContents on devices that don't support touch.
@@ -54,16 +45,7 @@ public class NoTouchActivity extends SingleTabActivity {
     // Time at which an intent was received and handled.
     private long mIntentHandlingTimeMs;
 
-    private KeyFunctionsIPHCoordinator mKeyFunctionsIPHCoordinator;
-    private ProgressBarCoordinator mProgressBarCoordinator;
-    private TooltipView mTooltipView;
-    private ProgressBarView mProgressBarView;
-
-    /** The class that enables zooming for all websites and handles touchless zooming. */
-    private TouchlessZoomHelper mTouchlessZoomHelper;
-
-    /** The class that controls the UI for touchless devices. */
-    private TouchlessUiController mUiController;
+    private TouchlessUiCoordinator mUiCoordinator;
 
     /** The class that finishes this activity after a timeout. */
     private ChromeInactivityTracker mInactivityTracker;
@@ -139,8 +121,6 @@ public class NoTouchActivity extends SingleTabActivity {
 
         getFullscreenManager().setTab(getActivityTab());
 
-        mUiController = AppHooks.get().createTouchlessUiController(this);
-        AppHooks.get().attachTouchlessMenuCoordinator(this);
         super.finishNativeInitialization();
     }
 
@@ -148,19 +128,13 @@ public class NoTouchActivity extends SingleTabActivity {
     public void initializeState() {
         mInactivityTracker = new ChromeInactivityTracker(
                 LAST_BACKGROUNDED_TIME_MS_PREF, this.getLifecycleDispatcher());
-        boolean launchNtpDueToInactivity = shouldForceNTPDueToInactivity();
+        boolean launchNtpDueToInactivity = shouldForceNTPDueToInactivity(null);
 
         // SingleTabActivity#initializeState creates a tab based on #getSavedInstanceState(), so if
         // we need to clear it due to inactivity, we should do it before calling
         // super#initializeState.
         if (launchNtpDueToInactivity) resetSavedInstanceState();
         super.initializeState();
-
-        mKeyFunctionsIPHCoordinator =
-                new KeyFunctionsIPHCoordinator(mTooltipView, getActivityTabProvider());
-        mProgressBarCoordinator =
-                new ProgressBarCoordinator(mProgressBarView, getActivityTabProvider());
-        mTouchlessZoomHelper = new TouchlessZoomHelper(getActivityTabProvider());
 
         // By this point if we were going to restore a URL from savedInstanceState we would already
         // have done so.
@@ -183,7 +157,11 @@ public class NoTouchActivity extends SingleTabActivity {
         resetSavedInstanceState();
     }
 
-    private boolean shouldForceNTPDueToInactivity() {
+    private boolean shouldForceNTPDueToInactivity(Intent intent) {
+        if (intent != null) {
+            String intentData = intent.getDataString();
+            if (intentData != null && !intentData.isEmpty()) return false;
+        }
         if (mInactivityTracker == null) return false;
         if (mTabObserver == null) return false;
 
@@ -203,7 +181,7 @@ public class NoTouchActivity extends SingleTabActivity {
 
     @Override
     public void onNewIntentWithNative(Intent intent) {
-        if (shouldForceNTPDueToInactivity()) {
+        if (shouldForceNTPDueToInactivity(intent)) {
             if (!mIntentHandler.shouldIgnoreIntent(intent)) {
                 if (!NTP_URL.equals(getActivityTab().getUrl())) {
                     intent.setData(Uri.parse(NTP_URL));
@@ -225,11 +203,6 @@ public class NoTouchActivity extends SingleTabActivity {
 
     @Override
     protected void initializeToolbar() {}
-
-    @Override
-    public ModalDialogManager createModalDialogManager() {
-        return new ModalDialogManager(new TouchlessDialogPresenter(this), ModalDialogType.APP);
-    }
 
     @Override
     protected ChromeFullscreenManager createFullscreenManager() {
@@ -266,22 +239,8 @@ public class NoTouchActivity extends SingleTabActivity {
     }
 
     @Override
-    protected void doLayoutInflation() {
-        super.doLayoutInflation();
-        ViewGroup coordinatorLayout = (ViewGroup) findViewById(R.id.coordinator);
-        mTooltipView = new TooltipView(this);
-        mProgressBarView = new ProgressBarView(this);
-        coordinatorLayout.addView(mTooltipView);
-        coordinatorLayout.addView(mProgressBarView);
-    }
-
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        if (mProgressBarCoordinator != null) mProgressBarCoordinator.onKeyEvent();
-
-        boolean consumedEvent = mUiController != null ? mUiController.onKeyEvent(event) : false;
-
-        return consumedEvent || super.dispatchKeyEvent(event);
+    public void performPreInflationStartup() {
+        super.performPreInflationStartup();
     }
 
     @Override
@@ -298,21 +257,7 @@ public class NoTouchActivity extends SingleTabActivity {
     }
 
     @Override
-    protected void onDestroyInternal() {
-        super.onDestroyInternal();
-        if (mKeyFunctionsIPHCoordinator != null) mKeyFunctionsIPHCoordinator.destroy();
-        if (mProgressBarCoordinator != null) mProgressBarCoordinator.destroy();
-        if (mTouchlessZoomHelper != null) mTouchlessZoomHelper.destroy();
-        if (mUiController != null) {
-            mUiController.destroy();
-            mUiController = null;
-        }
-    }
-
-    /**
-     * @return A UI controller implementation.
-     */
-    public TouchlessUiController getTouchlessUiController() {
-        return mUiController;
+    protected TabDelegate createTabDelegate(boolean incognito) {
+        return new TouchlessTabDelegate(incognito);
     }
 }

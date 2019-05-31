@@ -54,7 +54,6 @@ Kai peržiūrėsite visą mokymo programą, naudodami „ChromeVox“ pereikite 
 <translation id="1319608975892113573">Nėra ankstesnės įtraukos.</translation>
 <translation id="1321576897702511272">Slėpti „ChromeVox“ pagalbą</translation>
 <translation id="1325946044405407859">Gelsvai ruda spalva</translation>
-<translation id="1331634987653814322">Brailio rašmenų nustatymai</translation>
 <translation id="1331702245475014624"><ph name="INDEX" /> iš <ph name="TOTAL" /></translation>
 <translation id="1334095593597963605">simbolio ir žodžio aidas</translation>
 <translation id="1334570596456017464">Apatinis indeksas</translation>
@@ -442,7 +441,7 @@ Kai peržiūrėsite visą mokymo programą, naudodami „ChromeVox“ pereikite 
 <translation id="4148180433151187540">{COUNT,plural, =1{uždaromasis riestinis skliaustas}one{# uždaromasis riestinis skliaustas}few{# uždaromieji riestiniai skliaustas}many{# right braces}other{# uždaromųjų riestinių skliaustų}}</translation>
 <translation id="4158704014418536539">Skirti didžiąsias ir mažąsias raides.</translation>
 <translation id="4159784952369912983">Violetinė</translation>
-<translation id="4161104397932142764">{COUNT,plural, =1{sekundė}one{sekundės}few{sekundės}many{sekundės}other{sekundės}}</translation>
+<translation id="4161104397932142764">{COUNT,plural, =1{sekundė}one{sekundė}few{sekundės}many{sekundės}other{sekundžių}}</translation>
 <translation id="4161663686871496107">„ChromeVox“ ekrano skaitymas balsu parengtas</translation>
 <translation id="4173994908659439270">Nėra kito redaguotino teksto lauko.</translation>
 <translation id="4176463684765177261">Neleista</translation>
@@ -557,7 +556,6 @@ Kai peržiūrėsite visą mokymo programą, naudodami „ChromeVox“ pereikite 
 <translation id="489907760999452556">Vidinė nuoroda</translation>
 <translation id="4915087353619183190">Paleidžiamas mokomasis režimas. Paspauskite QWERTY klavišą, atnaujinamą Brailio rašto klavišą arba liečiamąjį gestą, kad sužinotumėte, kaip tai veikia. Paspauskite „Control“ ir w arba „Escape“, kad išeitumėte.</translation>
 <translation id="492295894462528572">Pratarmė</translation>
-<translation id="4943781537993885772">Rodymo stilius</translation>
 <translation id="495170559598752135">Veiksmai</translation>
 <translation id="4953585991029886728">Redaguoti tekstą</translation>
 <translation id="4954534434583049121">Ankstesnė įtrauka</translation>
@@ -725,7 +723,6 @@ Kai peržiūrėsite visą mokymo programą, naudodami „ChromeVox“ pereikite 
 <translation id="6006050241733874051">Forma</translation>
 <translation id="6006064078185310784">{COUNT,plural, =1{kairinis brūkšnys}one{# kairinis brūkšnys}few{# kairiniai brūkšniai}many{# backslashes}other{# kairinių brūkšnių}}</translation>
 <translation id="6017514345406065928">Žalia</translation>
-<translation id="6021969570711251331">Intarpuojama</translation>
 <translation id="6034000775414344507">Šviesiai pilka</translation>
 <translation id="6037602951055904232">Stumti pirmyn</translation>
 <translation id="6042826534790431634">Kad suaktyvintumėte, paspauskite paieškos ir tarpo klavišus.</translation>
@@ -777,7 +774,6 @@ Kai peržiūrėsite visą mokymo programą, naudodami „ChromeVox“ pereikite 
 <translation id="6438968337250688271"><ph name="NAME" />, meniu</translation>
 <translation id="6444046323172968959">Įspėjimo dialogo langas</translation>
 <translation id="6452403590345320472">Turinys</translation>
-<translation id="6454456397828627257">Šalia</translation>
 <translation id="6459511626086141404">Plokščiasis klavišų žemėlapis</translation>
 <translation id="6468049171101508116">Kitas mygtukas</translation>
 <translation id="646954774886932461">Rodyklė</translation>
@@ -945,7 +941,7 @@ Jei norite atidaryti „Chrome“ naršyklės meniu, paspauskite „Alt“ ir F.
 <translation id="7641134354185483015">Nėra ankstesnės 3 lygio antraštės.</translation>
 <translation id="7659376057562985921"><ph name="VALUE" />, <ph name="NAME" />, teksto laukelis</translation>
 <translation id="7663318257180412551">2 antraštė</translation>
-<translation id="7668307052366682650">{COUNT,plural, =1{valanda}one{valandos}few{valandos}many{valandos}other{valandos}}</translation>
+<translation id="7668307052366682650">{COUNT,plural, =1{valanda}one{valanda}few{valandos}many{valandos}other{valandų}}</translation>
 <translation id="7674576868851035240">Kita nuoroda</translation>
 <translation id="7674768236845044097">žymėjimas</translation>
 <translation id="7684431668231950609">Teksto redagavimas, URL įrašas</translation>

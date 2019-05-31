@@ -547,11 +547,9 @@ LayoutUnit LayoutFlexibleBox::MainAxisExtentForChild(
   return IsHorizontalFlow() ? child.Size().Width() : child.Size().Height();
 }
 
-LayoutUnit LayoutFlexibleBox::MainAxisContentExtentForChildIncludingScrollbar(
+LayoutUnit LayoutFlexibleBox::MainAxisContentExtentForChild(
     const LayoutBox& child) const {
-  return IsHorizontalFlow()
-             ? child.ContentWidth() + child.VerticalScrollbarWidth()
-             : child.ContentHeight() + child.HorizontalScrollbarHeight();
+  return IsHorizontalFlow() ? child.ContentWidth() : child.ContentHeight();
 }
 
 LayoutUnit LayoutFlexibleBox::CrossAxisExtent() const {
@@ -827,8 +825,6 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
     LayoutBox& child,
     LayoutUnit main_axis_border_scrollbar_padding,
     ChildLayoutType child_layout_type) {
-  child.ClearOverrideSize();
-
   if (child.IsImage() || child.IsVideo() || child.IsCanvas())
     UseCounter::Count(GetDocument(), WebFeature::kAspectRatioFlexItem);
 
@@ -837,6 +833,14 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
     return std::max(LayoutUnit(), ComputeMainAxisExtentForChild(
                                       child, kMainOrPreferredSize, flex_basis,
                                       main_axis_border_scrollbar_padding));
+  }
+
+  if (UseChildAspectRatio(child)) {
+    const Length& cross_size_length = IsHorizontalFlow()
+                                          ? child.StyleRef().Height()
+                                          : child.StyleRef().Width();
+    return ComputeMainSizeFromAspectRatioUsing(child, cross_size_length) -
+           main_axis_border_scrollbar_padding;
   }
 
   // The flex basis is indefinite (=auto), so we need to compute the actual
@@ -854,13 +858,8 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
     if (child_layout_type == kNeverLayout)
       return LayoutUnit();
 
-    UpdateBlockChildDirtyBitsBeforeLayout(child_layout_type == kForceLayout,
-                                          child);
-    if (child.NeedsLayout() || child_layout_type == kForceLayout ||
-        !intrinsic_size_along_main_axis_.Contains(&child)) {
-      child.ForceLayout();
-      CacheChildMainSize(child);
-    }
+    DCHECK(!child.NeedsLayout());
+    DCHECK(intrinsic_size_along_main_axis_.Contains(&child));
     main_axis_extent = intrinsic_size_along_main_axis_.at(&child);
   }
   DCHECK_GE(main_axis_extent - main_axis_border_scrollbar_padding, LayoutUnit())
@@ -1179,7 +1178,10 @@ void LayoutFlexibleBox::ConstructAndAppendFlexItem(
     FlexLayoutAlgorithm* algorithm,
     LayoutBox& child,
     ChildLayoutType layout_type) {
-  if (layout_type != kNeverLayout && ChildHasIntrinsicMainAxisSize(child)) {
+  if (layout_type != kNeverLayout)
+    child.ClearOverrideSize();
+  if (layout_type != kNeverLayout &&
+      ChildHasIntrinsicMainAxisSize(*algorithm, child)) {
     // If this condition is true, then ComputeMainAxisExtentForChild will call
     // child.IntrinsicContentLogicalHeight() and
     // child.ScrollbarLogicalHeight(), so if the child has intrinsic
@@ -1189,12 +1191,11 @@ void LayoutFlexibleBox::ConstructAndAppendFlexItem(
     // that don't need layout, if there's a chance that the logical width of
     // the flex container has changed (because that may affect the intrinsic
     // height of the child).
-    if (child.NeedsLayout() ||
-        (IsColumnFlow() && layout_type == kForceLayout)) {
-      child.ClearOverrideSize();
+    UpdateBlockChildDirtyBitsBeforeLayout(layout_type == kForceLayout, child);
+    if (child.NeedsLayout() || layout_type == kForceLayout ||
+        !intrinsic_size_along_main_axis_.Contains(&child)) {
       child.ForceLayout();
       CacheChildMainSize(child);
-      layout_type = kLayoutIfNeeded;
     }
   }
 
@@ -1203,11 +1204,12 @@ void LayoutFlexibleBox::ConstructAndAppendFlexItem(
           ? child.BorderAndPaddingWidth() + child.VerticalScrollbarWidth()
           : child.BorderAndPaddingHeight() + child.HorizontalScrollbarHeight();
 
+  LayoutUnit child_inner_flex_base_size = ComputeInnerFlexBaseSizeForChild(
+      child, border_scrollbar_padding, layout_type);
+
   MinMaxSize sizes = ComputeMinAndMaxSizesForChild(*algorithm, child,
                                                    border_scrollbar_padding);
 
-  LayoutUnit child_inner_flex_base_size = ComputeInnerFlexBaseSizeForChild(
-      child, border_scrollbar_padding, layout_type);
   LayoutUnit margin =
       IsHorizontalFlow() ? child.MarginWidth() : child.MarginHeight();
   algorithm->emplace_back(&child, child_inner_flex_base_size, sizes,
@@ -1388,9 +1390,10 @@ bool LayoutFlexibleBox::NeedToStretchChildLogicalHeight(
 }
 
 bool LayoutFlexibleBox::ChildHasIntrinsicMainAxisSize(
+    const FlexLayoutAlgorithm& algorithm,
     const LayoutBox& child) const {
   bool result = false;
-  if (IsHorizontalFlow() != child.StyleRef().IsHorizontalWritingMode()) {
+  if (!MainAxisIsInlineAxis(child) && !child.ShouldApplySizeContainment()) {
     Length child_flex_basis = FlexBasisForChild(child);
     const Length& child_min_size = IsHorizontalFlow()
                                        ? child.StyleRef().MinWidth()
@@ -1398,9 +1401,12 @@ bool LayoutFlexibleBox::ChildHasIntrinsicMainAxisSize(
     const Length& child_max_size = IsHorizontalFlow()
                                        ? child.StyleRef().MaxWidth()
                                        : child.StyleRef().MaxHeight();
-    if (child_flex_basis.IsIntrinsic() || child_min_size.IsIntrinsicOrAuto() ||
-        child_max_size.IsIntrinsic())
+    if (!MainAxisLengthIsDefinite(child, child_flex_basis) ||
+        child_min_size.IsIntrinsic() || child_max_size.IsIntrinsic()) {
       result = true;
+    } else if (algorithm.ShouldApplyMinSizeAutoForChild(child)) {
+      result = true;
+    }
   }
   return result;
 }
@@ -1425,11 +1431,9 @@ void LayoutFlexibleBox::LayoutLineItems(FlexLine* current_line,
     child->SetShouldCheckForPaintInvalidation();
 
     SetOverrideMainAxisContentSizeForChild(flex_item);
-    // The flexed content size and the override size include the scrollbar
-    // width, so we need to compare to the size including the scrollbar.
     if (flex_item.flexed_content_size !=
-        MainAxisContentExtentForChildIncludingScrollbar(*child)) {
-      child->SetChildNeedsLayout(kMarkOnlyThis);
+        MainAxisContentExtentForChild(*child)) {
+      child->SetSelfNeedsLayoutForAvailableSpace(true);
     } else {
       // To avoid double applying margin changes in
       // updateAutoMarginsInCrossAxis, we reset the margins here.

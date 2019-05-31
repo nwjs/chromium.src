@@ -559,6 +559,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 <translation id="5073204694187207510">Sembunyikan grid skrin penuh</translation>
 <translation id="5082793167783849073">Bandingkan halaman dengan pantas dengan membuat kumpulan. Untuk bermula, sentuh &amp; tahan pautan.</translation>
 <translation id="5087580092889165836">Tambah kad</translation>
+<translation id="5098406615395468004">Tambahkan pada apl saya</translation>
 <translation id="5100237604440890931">Diruntuhkan - klik untuk mengembangkan.</translation>
 <translation id="510275257476243843">1 jam lagi</translation>
 <translation id="5123685120097942451">Tab Inkognito</translation>
@@ -931,7 +932,7 @@ Sebagai contoh, sesetengah tapak web mungkin memberi respons kepada permintaan i
 <translation id="7649070708921625228">Bantuan</translation>
 <translation id="7658239707568436148">Batal</translation>
 <translation id="7665369617277396874">Tambah akaun</translation>
-<translation id="766587987807204883">Artikel dipaparkan di sini, yang boleh anda baca walaupun semasa anda di luar talian</translation>
+<translation id="766587987807204883">Artikel dipaparkan di sini, yang boleh anda baca walaupun semasa anda luar talian</translation>
 <translation id="7682724950699840886">Cuba petua berikut: pastikan ruang pada peranti anda mencukupi, cuba eksport sekali lagi.</translation>
 <translation id="7698359219371678927">Buat e-mel dalam <ph name="APP_NAME" /></translation>
 <translation id="7704317875155739195">Autolengkap carian dan URL</translation>
@@ -989,6 +990,7 @@ Sebagai contoh, sesetengah tapak web mungkin memberi respons kepada permintaan i
 <translation id="806745655614357130">Biarkan data saya diasingkan</translation>
 <translation id="8068648041423924542">Tidak dapat memilih sijil.</translation>
 <translation id="8073388330009372546">Buka imej dalam tab baharu</translation>
+<translation id="8076492880354921740">Tab</translation>
 <translation id="8084114998886531721">Kata laluan disimpan</translation>
 <translation id="8087000398470557479">Kandungan ini adalah daripada <ph name="DOMAIN_NAME" />, disampaikan oleh Google.</translation>
 <translation id="8103578431304235997">Tab Inkognito</translation>

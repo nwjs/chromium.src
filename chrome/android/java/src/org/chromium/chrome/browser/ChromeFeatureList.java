@@ -161,6 +161,7 @@ public abstract class ChromeFeatureList {
     public static final String ADJUST_WEBAPK_INSTALLATION_SPACE = "AdjustWebApkInstallationSpace";
     public static final String ANDROID_NIGHT_MODE = "AndroidNightMode";
     public static final String ANDROID_NIGHT_MODE_CCT = "AndroidNightModeCCT";
+    public static final String ANDROID_NIGHT_MODE_FOR_Q = "AndroidNightModeForQ";
     public static final String ANDROID_PAY_INTEGRATION_V1 = "AndroidPayIntegrationV1";
     public static final String ANDROID_PAY_INTEGRATION_V2 = "AndroidPayIntegrationV2";
     public static final String ANDROID_PAYMENT_APPS = "AndroidPaymentApps";
@@ -193,6 +194,7 @@ public abstract class ChromeFeatureList {
     public static final String CHROME_DUET = "ChromeDuet";
     public static final String CHROME_DUET_ADAPTIVE = "ChromeDuetAdaptive";
     public static final String DONT_AUTO_HIDE_BROWSER_CONTROLS = "DontAutoHideBrowserControls";
+    public static final String CHROME_DUET_LABELED = "ChromeDuetLabeled";
     public static final String CHROME_SMART_SELECTION = "ChromeSmartSelection";
     public static final String CLEAR_OLD_BROWSING_DATA = "ClearOldBrowsingData";
     public static final String COMMAND_LINE_ON_NON_ROOTED = "CommandLineOnNonRooted";

@@ -18,6 +18,10 @@
   mockSnavService.callback = notCalled;
 
   promise_test(async () => {
+    if (accessibilityController) {
+      accessibilityController.reset();
+    }
+
     let first = document.getElementById("first");
     let second = document.getElementById("second");
 
@@ -33,7 +37,7 @@
                       first,
                       "'first' should not yet be focused.");
     assert_false(mockSnavService.canExitFocus,
-                "Should be able to exit focus.");
+                 "Nothing focused, should not be able to exit focus.");
     assert_true(mockSnavService.canSelectElement,
                 "Should be able to select element.");
     assert_false(mockSnavService.hasNextFormElement,

@@ -135,9 +135,9 @@ public abstract class InfoBar implements InfoBarView {
         }
 
         ActionNames names = new ActionNames();
-        names.cancel = mContext.getResources().getString(R.string.cancel);
-        names.select = mContext.getResources().getString(R.string.select);
-        names.alt = "";
+        names.cancel = R.string.cancel;
+        names.select = R.string.select;
+        names.alt = 0;
         PropertyModel model =
                 new PropertyModel.Builder(TouchlessDialogProperties.ALL_DIALOG_KEYS)
                         .with(TouchlessDialogProperties.IS_FULLSCREEN, false)
@@ -146,7 +146,8 @@ public abstract class InfoBar implements InfoBarView {
                         .with(TouchlessDialogProperties.CANCEL_ACTION,
                                 view -> onCloseButtonClicked())
                         .with(TouchlessDialogProperties.ALT_ACTION, null)
-                        .with(ModalDialogProperties.TITLE, mMessage.toString())
+                        .with(ModalDialogProperties.TITLE,
+                                mMessage != null ? mMessage.toString() : "")
                         .with(ModalDialogProperties.TITLE_ICON, icon)
                         .with(ModalDialogProperties.CONTROLLER,
                                 new ModalDialogProperties.Controller() {
@@ -293,6 +294,13 @@ public abstract class InfoBar implements InfoBarView {
 
     void setInfoBarContainer(InfoBarContainer container) {
         mContainer = container;
+    }
+
+    /**
+     * @return Whether or not this InfoBar is already dismissed (i.e. closed).
+     */
+    boolean isDismissed() {
+        return mIsDismissed;
     }
 
     @Override

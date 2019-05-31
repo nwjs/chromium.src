@@ -91,6 +91,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kAllowRemoteContextForNotifications,
     &kAndroidNightMode,
     &kAndroidNightModeCCT,
+    &kAndroidNightModeForQ,
     &kAndroidPayIntegrationV1,
     &kAndroidPayIntegrationV2,
     &kAndroidPaymentApps,
@@ -115,6 +116,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kChromeDuetFeature,
     &kChromeDuetAdaptive,
     &kDontAutoHideBrowserControls,
+    &kChromeDuetLabeled,
     &kChromeSmartSelection,
     &kCommandLineOnNonRooted,
     &kContentSuggestionsScrollToLoad,
@@ -235,6 +237,9 @@ const base::Feature kAndroidNightMode{"AndroidNightMode",
 const base::Feature kAndroidNightModeCCT{"AndroidNightModeCCT",
                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
+const base::Feature kAndroidNightModeForQ{"AndroidNightModeForQ",
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
+
 // TODO(rouslan): Remove this.
 const base::Feature kAndroidPayIntegrationV1{"AndroidPayIntegrationV1",
                                              base::FEATURE_ENABLED_BY_DEFAULT};
@@ -322,6 +327,9 @@ const base::Feature kChromeDuetAdaptive{"ChromeDuetAdaptive",
 
 const base::Feature kDontAutoHideBrowserControls{
     "DontAutoHideBrowserControls", base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kChromeDuetLabeled{"ChromeDuetLabeled",
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kChromeSmartSelection{"ChromeSmartSelection",
                                           base::FEATURE_ENABLED_BY_DEFAULT};

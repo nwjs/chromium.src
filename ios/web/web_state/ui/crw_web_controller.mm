@@ -2011,10 +2011,14 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
 
     // Disable |allowsBackForwardNavigationGestures| during restore. Otherwise,
     // WebKit will trigger a snapshot for each (blank) page, and quickly
-    // overload system memory.
+    // overload system memory.  Also disables the scroll proxy during session
+    // restoration.
     if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
         self.navigationManagerImpl->IsRestoreSessionInProgress()) {
       _webView.allowsBackForwardNavigationGestures = NO;
+      if (base::FeatureList::IsEnabled(
+              web::features::kDisconnectScrollProxyDuringRestore))
+        [_containerView disconnectScrollProxy];
     }
 
     WKNavigation* navigation = nil;
@@ -2223,13 +2227,20 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
   if (_loadPhase == web::PAGE_LOADED)
     return;
 
-  // Restore allowsBackForwardNavigationGestures once restoration is complete.
+  // Restore allowsBackForwardNavigationGestures and the scroll proxy once
+  // restoration is complete.
   if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
       !self.navigationManagerImpl->IsRestoreSessionInProgress()) {
     if (_webView.allowsBackForwardNavigationGestures !=
-        _allowsBackForwardNavigationGestures)
+        _allowsBackForwardNavigationGestures) {
       _webView.allowsBackForwardNavigationGestures =
           _allowsBackForwardNavigationGestures;
+    }
+
+    if (base::FeatureList::IsEnabled(
+            web::features::kDisconnectScrollProxyDuringRestore)) {
+      [_containerView reconnectScrollProxy];
+    }
   }
 
   BOOL success = !context || !context->GetError();
@@ -3849,6 +3860,13 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
       [[CRWWebViewContentView alloc] initWithWebView:self.webView
                                           scrollView:self.webScrollView];
   [_containerView displayWebViewContentView:webViewContentView];
+
+  if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
+      self.navigationManagerImpl->IsRestoreSessionInProgress() &&
+      base::FeatureList::IsEnabled(
+          web::features::kDisconnectScrollProxyDuringRestore)) {
+    [_containerView disconnectScrollProxy];
+  }
 }
 
 - (void)removeWebView {
@@ -4927,13 +4945,14 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     }
 
     if (!IsWKInternalUrl(currentWKItemURL) && currentWKItemURL == webViewURL &&
-        currentWKItemURL != context->GetUrl()) {
+        currentWKItemURL != context->GetUrl() &&
+        item == self.navigationManagerImpl->GetLastCommittedItem() &&
+        item->GetURL().GetOrigin() == currentWKItemURL.GetOrigin()) {
       // WKWebView sometimes changes URL on the same navigation, likely due to
-      // location.replace() in onload handler that only changes page fragment.
-      // It's safe to update |item| and |context| URL because they are both
-      // associated to WKNavigation*, which is a stable ID for the navigation.
-      // See https://crbug.com/869540 for a real-world case.
-      DCHECK(item->GetURL().EqualsIgnoringRef(currentWKItemURL));
+      // location.replace() or history.replaceState in onload handler that does
+      // not change the origin. It's safe to update |item| and |context| URL
+      // because they are both associated to WKNavigation*, which is a stable ID
+      // for the navigation. See https://crbug.com/869540 for a real-world case.
       item->SetURL(currentWKItemURL);
       context->SetUrl(currentWKItemURL);
     }
@@ -5462,6 +5481,7 @@ typedef void (^ViewportStateCompletion)(const web::PageViewportState*);
     web::NavigationContextImpl* context =
         [self contextForPendingMainFrameNavigationWithURL:responseURL];
     context->SetIsDownload(true);
+    context->ReleaseItem();
     // Navigation callbacks can only be called for the main frame.
     self.webStateImpl->OnNavigationFinished(context);
     transition = context->GetPageTransition();

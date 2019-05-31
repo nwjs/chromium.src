@@ -109,7 +109,10 @@
   if (self.stopDone) {
     return;
   }
-  if (self.authService->IsAuthenticated()) {
+  // Sync changes should only be commited if the user is authenticated and
+  // there is no sign-in progress.
+  if (self.authService->IsAuthenticated() &&
+      !self.signinInteractionCoordinator) {
     SyncSetupService* syncSetupService =
         SyncSetupServiceFactory::GetForBrowserState(self.browserState);
     if (self.mode == GoogleServicesSettingsModeSettings &&
@@ -120,6 +123,13 @@
       syncSetupService->SetSyncEnabled(false);
     }
     syncSetupService->CommitSyncChanges();
+  }
+  if (self.signinInteractionCoordinator) {
+    [self.signinInteractionCoordinator cancel];
+    // |self.signinInteractionCoordinator| is set to nil by
+    // the completion block called by -[GoogleServicesSettingsCoordinator
+    // signInInteractionCoordinatorDidComplete]
+    DCHECK(!self.signinInteractionCoordinator);
   }
   self.stopDone = YES;
 }

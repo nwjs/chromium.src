@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_queue.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
+#include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
@@ -3862,10 +3863,8 @@ void HTMLMediaElement::SetCcLayer(cc::Layer* cc_layer) {
   if (cc_layer == cc_layer_)
     return;
 
-  // If either of the layers is null we need to enable or disable compositing.
-  // This is done by triggering a style recalc.
-  if (!cc_layer_ || !cc_layer)
-    SetNeedsCompositingUpdate();
+  // We need to update the GraphicsLayer when the cc layer changes.
+  SetNeedsCompositingUpdate();
 
   if (cc_layer_)
     GraphicsLayer::UnregisterContentsLayer(cc_layer_);
@@ -4063,6 +4062,22 @@ void HTMLMediaElement::OnRemovedFromDocumentTimerFired(TimerBase*) {
     return;
 
   PauseInternal();
+}
+
+void HTMLMediaElement::DefaultEventHandler(Event& event) {
+  if (event.IsKeyboardEvent() && event.type() == event_type_names::kKeyup &&
+      ShouldShowControls()) {
+    // TODO(bokan): Cleanup magic numbers once https://crbug.com/949766 lands.
+    const int key =
+        static_cast<int>(ToKeyboardEvent(event).KeyEvent()->dom_key);
+    if (key == 0x00200310) {
+      // We need to handle the event here rather than in
+      // MediaControlsTouchlessImpl because it is not sent to JS.
+      GetMediaControls()->ShowContextMenu();
+      event.SetDefaultHandled();
+    }
+  }
+  HTMLElement::DefaultEventHandler(event);
 }
 
 void HTMLMediaElement::AudioSourceProviderImpl::Wrap(

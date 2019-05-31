@@ -43,10 +43,11 @@ class MODULES_EXPORT MediaControlsTouchlessImpl final
   void OnControlsListUpdated() override {}
   void OnTrackElementFailedToLoad() override {}
   void NetworkStateChanged() override {}
-  LayoutObject* PanelLayoutObject() override { return nullptr; }
-  LayoutObject* TimelineLayoutObject() override { return nullptr; }
-  LayoutObject* ButtonPanelLayoutObject() override { return nullptr; }
-  LayoutObject* ContainerLayoutObject() override { return nullptr; }
+  LayoutObject* PanelLayoutObject() override;
+  LayoutObject* TimelineLayoutObject() override;
+  LayoutObject* ButtonPanelLayoutObject() override;
+  LayoutObject* ContainerLayoutObject() override;
+  void ShowContextMenu() override;
   void SetTestMode(bool) override {}
   HTMLDivElement* PanelElement() override { return nullptr; }
   void OnMediaControlsEnabledChange() override {}
@@ -55,6 +56,7 @@ class MODULES_EXPORT MediaControlsTouchlessImpl final
   void OnFocusIn() override;
   void OnTimeUpdate() override {}
   void OnDurationChange() override {}
+  void OnSeeking() override {}
   void OnLoadingProgress() override {}
   void OnPlay() override;
   void OnPause() override;
@@ -67,6 +69,11 @@ class MODULES_EXPORT MediaControlsTouchlessImpl final
   void OnKeyUp(KeyboardEvent* event) override {}
 
   MediaControlsTouchlessMediaEventListener& MediaEventListener() const;
+
+  // Test functions
+  void SetMediaControlsMenuHostForTesting(
+      mojom::blink::MediaControlsMenuHostPtr);
+  void MenuHostFlushForTesting();
 
   void Trace(blink::Visitor*) override;
 
@@ -87,13 +94,14 @@ class MODULES_EXPORT MediaControlsTouchlessImpl final
   void MaybeJump(int);
   void MaybeChangeVolume(double);
 
+  void Download();
+
   // Node
   bool IsMediaControls() const override { return true; }
 
   void EnsureMediaControlsMenuHost();
   mojom::blink::VideoStatePtr GetVideoState();
   WTF::Vector<mojom::blink::TextTrackMetadataPtr> GetTextTracks();
-  void ShowContextMenu();
   void OnMediaMenuResult(mojom::blink::MenuResponsePtr);
   void OnMediaControlsMenuHostConnectionError();
 

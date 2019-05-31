@@ -328,7 +328,9 @@ void HeadlessShell::PollReadyState() {
 
 void HeadlessShell::OnReadyState(
     std::unique_ptr<runtime::EvaluateResult> result) {
-  if (result->GetResult()->GetValue()->is_string()) {
+  // |result| can be nullptr if HeadlessDevToolsClientImpl::DispatchMessageReply
+  // sees an error.
+  if (result && result->GetResult()->GetValue()->is_string()) {
     std::stringstream stream(result->GetResult()->GetValue()->GetString());
     std::string ready_state;
     std::string url;
