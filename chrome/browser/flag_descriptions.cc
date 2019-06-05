@@ -1379,6 +1379,12 @@ const char kOmniboxDisplayTitleForCurrentUrlDescription[] =
     "the current page is provided as the first suggestion without a title. "
     "Enabling this flag causes the title to be displayed.";
 
+const char kOmniboxGroupSuggestionsBySearchVsUrlName[] =
+    "Omnibox Group Suggestions By Search vs URL";
+const char kOmniboxGroupSuggestionsBySearchVsUrlDescription[] =
+    "Group suggestions by major type, search then navigation, except for "
+    "the default match which must be first.";
+
 const char kOmniboxLocalEntitySuggestionsName[] =
     "Omnibox Local Entity Suggestions";
 const char kOmniboxLocalEntitySuggestionsDescription[] =
@@ -1456,6 +1462,11 @@ const char kOmniboxUIMaxAutocompleteMatchesName[] =
 const char kOmniboxUIMaxAutocompleteMatchesDescription[] =
     "Changes the maximum number of autocomplete matches displayed in the "
     "Omnibox UI.";
+
+const char kOmniboxMaxURLMatchesName[] = "Omnibox Max URL Matches";
+const char kOmniboxMaxURLMatchesDescription[] =
+    "The maximum number of URL matches to show, unless there are no "
+    "replacements.";
 
 const char kOmniboxUIShowSuffixOnAllSearchSuggestionsName[] =
     "Omnibox UI Show Suffix On All Search Suggestions";

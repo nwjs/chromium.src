@@ -844,6 +844,9 @@ extern const char kOfflineAutoReloadVisibleOnlyDescription[];
 extern const char kOmniboxDisplayTitleForCurrentUrlName[];
 extern const char kOmniboxDisplayTitleForCurrentUrlDescription[];
 
+extern const char kOmniboxGroupSuggestionsBySearchVsUrlName[];
+extern const char kOmniboxGroupSuggestionsBySearchVsUrlDescription[];
+
 extern const char kOmniboxLocalEntitySuggestionsName[];
 extern const char kOmniboxLocalEntitySuggestionsDescription[];
 
@@ -885,6 +888,9 @@ extern const char kOmniboxUIOneClickUnelideDescription[];
 
 extern const char kOmniboxUIMaxAutocompleteMatchesName[];
 extern const char kOmniboxUIMaxAutocompleteMatchesDescription[];
+
+extern const char kOmniboxMaxURLMatchesName[];
+extern const char kOmniboxMaxURLMatchesDescription[];
 
 extern const char kOmniboxUIShowSuffixOnAllSearchSuggestionsName[];
 extern const char kOmniboxUIShowSuffixOnAllSearchSuggestionsDescription[];

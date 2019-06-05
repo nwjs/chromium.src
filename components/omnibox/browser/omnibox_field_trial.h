@@ -377,6 +377,12 @@ int KeywordScoreForSufficientlyCompleteMatch();
 EmphasizeTitlesCondition GetEmphasizeTitlesConditionForInput(
     const AutocompleteInput& input);
 
+// Returns the maximum number of URL matches that should be allowed within
+// the Omnibox if there are search-type matches available to replace them.
+// If the capping feature is not enabled, or the parameter cannot be
+// parsed, it returns 0.
+size_t GetMaxURLMatches();
+
 // ---------------------------------------------------------
 // For UI experiments.
 
@@ -414,6 +420,14 @@ base::Optional<int> GetSuggestionVerticalMarginFieldTrialOverride();
 // assortment of keyword mode experiments.
 bool IsExperimentalKeywordModeEnabled();
 
+// Returns whether the group suggestions by type feature is enabled,
+// which "bunches" search suggestions (except for the default match).
+bool IsGroupSuggestionsBySearchVsUrlFeatureEnabled();
+
+// Returns whether the feature to limit the number of shown URL matches
+// is enabled.
+bool IsMaxURLMatchesFeatureEnabled();
+
 // ---------------------------------------------------------
 // Clipboard URL suggestions:
 
@@ -450,6 +464,9 @@ extern const char kKeywordRequiresPrefixMatchRule[];
 extern const char kKeywordScoreForSufficientlyCompleteMatchRule[];
 extern const char kHQPAllowDupMatchesForScoringRule[];
 extern const char kEmphasizeTitlesRule[];
+
+// Parameter name used by the Omnibox match capping experiment.
+extern const char kOmniboxMaxURLMatchesParam[];
 
 // Parameter names used by the HUP new scoring experiments.
 extern const char kHUPNewScoringTypedCountRelevanceCapParam[];

@@ -2463,9 +2463,19 @@
     "expiry_milestone": 76
   },
   {
+    "name": "omnibox-group-suggestions-by-search-vs-url",
+    "owners": [ "krb", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 80
+  },
+  {
     "name": "omnibox-material-design-weather-icons",
     "owners": [ "manukh", "chromium-omnibox-team" ],
     "expiry_milestone": 76
+  },
+  {
+    "name": "omnibox-max-url-matches",
+    "owners": [ "krb", "chromium-omnibox-team" ],
+    "expiry_milestone": 80
   },
   {
     "name": "omnibox-new-answer-layout",
