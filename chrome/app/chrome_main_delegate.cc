@@ -915,7 +915,7 @@ void ChromeMainDelegate::PreSandboxStartup() {
   std::string product_string;
   std::string helperProcessExecutablePath = chrome::kHelperProcessExecutablePath;
   if (nw::package()->root()->GetString("product_string", &product_string)) {
-    std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
+    helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
   }
 #if BUILDFLAG(NEW_MAC_BUNDLE_STRUCTURE)
   base::FilePath child_exe_path =
