@@ -457,7 +457,7 @@ void FrameLoader::DidFinishNavigation() {
   // progress.
   DCHECK((document_loader_ && document_loader_->SentDidFinishLoad()) ||
          !HasProvisionalNavigation());
-  if (!document_loader_ || !document_loader_->SentDidFinishLoad() ||
+  if ((document_loader_ && !document_loader_->SentDidFinishLoad()) ||
       HasProvisionalNavigation()) {
     return;
   }

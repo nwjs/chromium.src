@@ -39,6 +39,7 @@ import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.blink_public.platform.WebDisplayMode;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.webapps.WebApkInfo;
 import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.chrome.browser.webapps.WebappAuthenticator;
@@ -274,7 +275,12 @@ public class ShortcutHelper {
      */
     private static void showAddedToHomescreenToast(final String title) {
         Context applicationContext = ContextUtils.getApplicationContext();
-        String toastText = applicationContext.getString(R.string.added_to_homescreen, title);
+        String toastText;
+        if (FeatureUtilities.isNoTouchModeEnabled()) {
+            toastText = applicationContext.getString(R.string.added_to_apps, title);
+        } else {
+            toastText = applicationContext.getString(R.string.added_to_homescreen, title);
+        }
         showToast(toastText);
     }
 
@@ -696,7 +702,7 @@ public class ShortcutHelper {
     }
 
     private static boolean shouldShowToastWhenAddingShortcut() {
-        return !isRequestPinShortcutSupported();
+        return !isRequestPinShortcutSupported() || FeatureUtilities.isNoTouchModeEnabled();
     }
 
     private static boolean isRequestPinShortcutSupported() {

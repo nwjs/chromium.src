@@ -1261,7 +1261,8 @@ void RenderFrameHostImpl::ExecuteJavaScript(const base::string16& javascript,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK(CanExecuteJavaScript());
 
-  GetNavigationControl()->JavaScriptExecuteRequest(javascript,
+  const bool wants_result = !callback.is_null();
+  GetNavigationControl()->JavaScriptExecuteRequest(javascript, wants_result,
                                                    std::move(callback));
 }
 
@@ -1273,8 +1274,9 @@ void RenderFrameHostImpl::ExecuteJavaScriptInIsolatedWorld(
   DCHECK_GT(world_id, ISOLATED_WORLD_ID_GLOBAL);
   DCHECK_LE(world_id, ISOLATED_WORLD_ID_MAX);
 
+  const bool wants_result = !callback.is_null();
   GetNavigationControl()->JavaScriptExecuteRequestInIsolatedWorld(
-      javascript, world_id, std::move(callback));
+      javascript, wants_result, world_id, std::move(callback));
 }
 
 void RenderFrameHostImpl::ExecuteJavaScriptForTests(
@@ -1283,8 +1285,9 @@ void RenderFrameHostImpl::ExecuteJavaScriptForTests(
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   const bool has_user_gesture = false;
+  const bool wants_result = !callback.is_null();
   GetNavigationControl()->JavaScriptExecuteRequestForTests(
-      javascript, has_user_gesture, std::move(callback));
+      javascript, wants_result, has_user_gesture, std::move(callback));
 }
 
 void RenderFrameHostImpl::ExecuteJavaScriptWithUserGestureForTests(
@@ -1293,7 +1296,7 @@ void RenderFrameHostImpl::ExecuteJavaScriptWithUserGestureForTests(
 
   const bool has_user_gesture = true;
   GetNavigationControl()->JavaScriptExecuteRequestForTests(
-      javascript, has_user_gesture, base::NullCallback());
+      javascript, false, has_user_gesture, base::NullCallback());
 }
 
 void RenderFrameHostImpl::CopyImageAt(int x, int y) {
@@ -1763,12 +1766,12 @@ bool RenderFrameHostImpl::CreateRenderFrame(int previous_routing_id,
   return true;
 }
 
-void RenderFrameHostImpl::DeleteRenderFrame() {
+void RenderFrameHostImpl::DeleteRenderFrame(FrameDeleteIntention intent) {
   if (!is_active())
     return;
 
   if (render_frame_created_) {
-    Send(new FrameMsg_Delete(routing_id_));
+    Send(new FrameMsg_Delete(routing_id_, intent));
 
     // If this subframe has an unload handler (and isn't speculative), ensure
     // that it has a chance to execute by delaying process cleanup. This will
@@ -2036,7 +2039,8 @@ void RenderFrameHostImpl::RemoveChild(FrameTreeNode* child) {
       // observers are notified of its deletion.
       std::unique_ptr<FrameTreeNode> node_to_delete(std::move(*iter));
       children_.erase(iter);
-      node_to_delete->current_frame_host()->DeleteRenderFrame();
+      node_to_delete->current_frame_host()->DeleteRenderFrame(
+          FrameDeleteIntention::kNotMainFrame);
       // Speculative RenderFrameHosts are deleted by the FrameTreeNode's
       // RenderFrameHostManager's destructor. RenderFrameProxyHosts send
       // FrameMsg_Delete automatically in the destructor.
@@ -2059,7 +2063,8 @@ void RenderFrameHostImpl::ResetChildren() {
   // this RenderFrameHostImpl to detach the current frame's children, rather
   // than messaging each child's current frame host...
   for (auto& child : children)
-    child->current_frame_host()->DeleteRenderFrame();
+    child->current_frame_host()->DeleteRenderFrame(
+        FrameDeleteIntention::kNotMainFrame);
 }
 
 void RenderFrameHostImpl::SetLastCommittedUrl(const GURL& url) {
@@ -2386,7 +2391,7 @@ void RenderFrameHostImpl::DetachFromProxy() {
     return;
 
   // Start pending deletion on this frame and its children.
-  DeleteRenderFrame();
+  DeleteRenderFrame(FrameDeleteIntention::kNotMainFrame);
   StartPendingDeletionOnSubtree();
   // Some children with no unload handler may be eligible for immediate
   // deletion. Cut the dead branches now. This is a performance optimization.
@@ -4485,7 +4490,7 @@ void RenderFrameHostImpl::StartPendingDeletionOnSubtree() {
           local_ancestor = rfh;
       }
 
-      local_ancestor->DeleteRenderFrame();
+      local_ancestor->DeleteRenderFrame(FrameDeleteIntention::kNotMainFrame);
       if (local_ancestor != child) {
         child->unload_state_ =
             child->GetSuddenTerminationDisablerState(blink::kUnloadHandler)

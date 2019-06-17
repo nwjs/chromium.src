@@ -34,6 +34,7 @@
 #include "content/common/buildflags.h"
 #include "content/common/download/mhtml_file_writer.mojom.h"
 #include "content/common/frame.mojom.h"
+#include "content/common/frame_delete_intention.h"
 #include "content/common/frame_message_enums.h"
 #include "content/common/host_zoom.mojom.h"
 #include "content/common/media/renderer_audio_input_stream_factory.mojom.h"
@@ -638,13 +639,16 @@ class CONTENT_EXPORT RenderFrameImpl
 
   void JavaScriptExecuteRequest(
       const base::string16& javascript,
+      bool wants_result,
       JavaScriptExecuteRequestCallback callback) override;
   void JavaScriptExecuteRequestForTests(
       const base::string16& javascript,
+      bool wants_result,
       bool has_user_gesture,
       JavaScriptExecuteRequestForTestsCallback callback) override;
   void JavaScriptExecuteRequestInIsolatedWorld(
       const base::string16& javascript,
+      bool wants_result,
       int32_t world_id,
       JavaScriptExecuteRequestInIsolatedWorldCallback callback) override;
   void OnPortalActivated(const base::UnguessableToken& portal_token,
@@ -1037,6 +1041,7 @@ class CONTENT_EXPORT RenderFrameImpl
    public:
     JavaScriptIsolatedWorldRequest(
         base::WeakPtr<RenderFrameImpl> render_frame_impl,
+        bool wants_result,
         JavaScriptExecuteRequestInIsolatedWorldCallback callback);
     void Completed(
         const blink::WebVector<v8::Local<v8::Value>>& result) override;
@@ -1045,6 +1050,7 @@ class CONTENT_EXPORT RenderFrameImpl
     ~JavaScriptIsolatedWorldRequest() override;
 
     base::WeakPtr<RenderFrameImpl> render_frame_impl_;
+    bool wants_result_;
     JavaScriptExecuteRequestInIsolatedWorldCallback callback_;
 
     DISALLOW_COPY_AND_ASSIGN(JavaScriptIsolatedWorldRequest);
@@ -1119,7 +1125,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void OnSwapOut(int proxy_routing_id,
                  bool is_loading,
                  const FrameReplicationState& replicated_frame_state);
-  void OnDeleteFrame();
+  void OnDeleteFrame(FrameDeleteIntention intent);
   void OnStop();
   void OnCollapse(bool collapse);
   void OnShowContextMenu(const gfx::Point& location);
