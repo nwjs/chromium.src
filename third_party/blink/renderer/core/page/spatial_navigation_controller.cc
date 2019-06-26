@@ -17,6 +17,8 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
@@ -160,10 +162,18 @@ bool SpatialNavigationController::HandleEnterKeyboardEvent(
     return false;
 
   if (event->type() == event_type_names::kKeydown) {
+    enter_key_down_seen_ = true;
     interest_element->SetActive(true);
+  } else if (event->type() == event_type_names::kKeypress) {
+    enter_key_press_seen_ = true;
   } else if (event->type() == event_type_names::kKeyup) {
     interest_element->SetActive(false);
-    if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled()) {
+
+    // Ensure that the enter key has not already been handled by something else,
+    // or we can end up clicking elements multiple times. Some elements already
+    // convert the Enter key into click on down and press (and up) events.
+    if (RuntimeEnabledFeatures::FocuslessSpatialNavigationEnabled() &&
+        enter_key_down_seen_ && enter_key_press_seen_) {
       interest_element->focus(FocusParams(SelectionBehaviorOnFocus::kReset,
                                           kWebFocusTypeSpatialNavigation,
                                           nullptr));
@@ -173,6 +183,24 @@ bool SpatialNavigationController::HandleEnterKeyboardEvent(
     }
   }
 
+  return true;
+}
+
+void SpatialNavigationController::ResetEnterKeyState() {
+  enter_key_down_seen_ = false;
+  enter_key_press_seen_ = false;
+}
+
+bool SpatialNavigationController::HandleImeSubmitKeyboardEvent(
+    KeyboardEvent* event) {
+  DCHECK(page_->GetSettings().GetSpatialNavigationEnabled());
+
+  if (!IsHTMLFormControlElement(GetFocusedElement()))
+    return false;
+
+  HTMLFormControlElement* element =
+      ToHTMLFormControlElement(GetFocusedElement());
+  element->formOwner()->SubmitImplicitly(*event, true);
   return true;
 }
 
@@ -516,6 +544,7 @@ void SpatialNavigationController::UpdateSpatialNavigationState(
   bool change = false;
   change |= UpdateCanExitFocus(element);
   change |= UpdateCanSelectInterestedElement(element);
+  change |= UpdateIsFormFocused(element);
   change |= UpdateHasNextFormElement(element);
   change |= UpdateHasDefaultVideoControls(element);
   if (change)
@@ -557,6 +586,15 @@ bool SpatialNavigationController::UpdateHasNextFormElement(Element* element) {
     return false;
 
   spatial_navigation_state_->has_next_form_element = has_next_form_element;
+  return true;
+}
+
+bool SpatialNavigationController::UpdateIsFormFocused(Element* element) {
+  bool is_form_focused = IsFocused(element) && element->IsFormControlElement();
+
+  if (is_form_focused == spatial_navigation_state_->is_form_focused)
+    return false;
+  spatial_navigation_state_->is_form_focused = is_form_focused;
   return true;
 }
 

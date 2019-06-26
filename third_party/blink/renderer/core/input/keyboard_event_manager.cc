@@ -339,6 +339,9 @@ void KeyboardEventManager::DefaultKeyboardEventHandler(
       DefaultEscapeEventHandler(event);
     } else if (event->key() == "Enter") {
       DefaultEnterEventHandler(event);
+    } else if (static_cast<int>(event->KeyEvent()->dom_key) == 0x00200310) {
+      // TODO(bokan): Cleanup magic numbers once https://crbug.com/949766 lands.
+      DefaultImeSubmitHandler(event);
     } else {
       // TODO(bokan): Seems odd to call the default _arrow_ event handler on
       // events that aren't necessarily arrow keys.
@@ -348,16 +351,19 @@ void KeyboardEventManager::DefaultKeyboardEventHandler(
     frame_->GetEditor().HandleKeyboardEvent(event);
     if (event->DefaultHandled())
       return;
-    if (event->charCode() == ' ')
-      DefaultSpaceEventHandler(event, possible_focused_node);
-  } else if (event->type() == event_type_names::kKeyup) {
     if (event->key() == "Enter") {
       DefaultEnterEventHandler(event);
-      return;
+    } else if (event->charCode() == ' ') {
+      DefaultSpaceEventHandler(event, possible_focused_node);
     }
-
-    if (event->keyCode() == kVKeySpatNavBack)
+  } else if (event->type() == event_type_names::kKeyup) {
+    if (event->DefaultHandled())
+      return;
+    if (event->key() == "Enter") {
+      DefaultEnterEventHandler(event);
+    } else if (event->keyCode() == kVKeySpatNavBack) {
       DefaultSpatNavBackEventHandler(event);
+    }
   }
 }
 
@@ -506,6 +512,17 @@ void KeyboardEventManager::DefaultEnterEventHandler(KeyboardEvent* event) {
   if (IsSpatialNavigationEnabled(frame_) &&
       !frame_->GetDocument()->InDesignMode()) {
     page->GetSpatialNavigationController().HandleEnterKeyboardEvent(event);
+  }
+}
+
+void KeyboardEventManager::DefaultImeSubmitHandler(KeyboardEvent* event) {
+  Page* page = frame_->GetPage();
+  if (!page)
+    return;
+
+  if (IsSpatialNavigationEnabled(frame_) &&
+      !frame_->GetDocument()->InDesignMode()) {
+    page->GetSpatialNavigationController().HandleImeSubmitKeyboardEvent(event);
   }
 }
 
