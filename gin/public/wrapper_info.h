@@ -19,6 +19,7 @@ namespace gin {
 enum InternalFields {
   kWrapperInfoIndex,
   kEncodedValueIndex,
+  kNodeIndex,
   kNumberOfInternalFields,
 };
 
