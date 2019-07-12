@@ -290,6 +290,9 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   session->AddHandler(std::make_unique<protocol::InspectorHandler>());
   session->AddHandler(std::make_unique<protocol::IOHandler>(GetIOContext()));
   session->AddHandler(std::make_unique<protocol::MemoryHandler>());
+  RenderWidgetHostViewBase* view =
+    static_cast<RenderWidgetHostViewBase*>(web_contents()->GetMainFrame()->GetView());
+  if (!view->IsRenderWidgetHostViewChildFrame())
   if (!frame_tree_node_ || !frame_tree_node_->parent())
     session->AddHandler(std::make_unique<protocol::OverlayHandler>());
   session->AddHandler(std::make_unique<protocol::NetworkHandler>(
