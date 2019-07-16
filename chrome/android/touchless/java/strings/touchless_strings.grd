@@ -116,12 +116,6 @@
   </translations>
   <release seq="1">
     <messages fallback_to_english="true">
-      <message name="IDS_OPEN_LAST_TAB_PLACEHOLDER_FIRST_LAUNCH" desc="Message when user is first launching Chrome. [CHAR_LIMIT=NONE]">
-        Welcome to Chrome
-      </message>
-      <message name="IDS_OPEN_LAST_TAB_PLACEHOLDER" desc="Message after user has cleared history. [CHAR_LIMIT=NONE]">
-        Chrome
-      </message>
       <message name="IDS_OPEN_LAST_TAB_JUST_NOW" desc="The present time or moment (noun). Used instead of a timestamp when the site was visited less than a minute ago. [CHAR_LIMIT=12]">
         Now
       </message>
@@ -134,6 +128,9 @@
       <!-- TODO(crbug.com/957789): Remove this from downstream. -->
       <message name="IDS_MENU_ADD_TO_APPS" desc="Text to accompany icon that will navigate to a page showing a categorized view of different applications or sites">
         Add to My apps
+      </message>
+      <message name="IDS_DINO_GAME_TITLE" desc="Title for the offline dino game that will appear as an icon in the launcher" translateable="false">
+        Chrome Fun
       </message>
     </messages>
   </release>

@@ -1578,7 +1578,7 @@ Hvis de to politikker har forskellige værdier, kan der ske forsinkelser ved ops
 
       Hvis "Aktivér browserlogin" er angivet for politikken, har brugeren tilladelse til at logge ind i browseren, og brugeren logges automatisk ind i browseren, når vedkommende er logget ind i Google-webtjenester såsom Gmail. Når brugeren er logget ind i browseren, gemmes vedkommendes kontooplysninger i browseren. Det betyder dog ikke, at Chrome-synkronisering som standard aktiveres. Brugeren skal selv tilvælge denne funktion. Aktivering af denne politik forhindrer brugeren i at deaktivere den indstilling, der tillader browserlogin. Brug politikken "SyncDisabled" til at styre tilgængeligheden af Chrome-synkronisering.
 
-      Hvis "Kræv browserlogin" er angivet for politikken, får brugeren vist en dialogboks til kontovalg, hvor vedkommende skal vælge og logge ind på en konto for at benytte browseren. Dette sikrer, at politikker, der er knyttet til administrerede konti, anvendes og håndhæves. Denne indstilling aktiverer som standard Chrome-synkronisering for kontoen, undtagen i tilfælde, hvor synkronisering er deaktiveret af domæneadministratoren eller via politikken "SyncDisabled". Standardværdien for BrowserGuestModeEnabled angives som Falsk. Bemærk! Eksisterende profiler, hvor der ikke er logget ind, låses og kan ikke længere anvendes efter aktivering af denne politik. Du kan få flere oplysninger i artiklen i Hjælp: https://support.google.com/chrome/a/answer/7572556.
+      Hvis "Kræv browserlogin" er angivet for politikken, får brugeren vist en dialogboks til kontovalg, hvor vedkommende skal vælge og logge ind på en konto for at benytte browseren. Dette sikrer, at politikker, der er knyttet til mangerstyrede konti, anvendes og håndhæves. Denne indstilling aktiverer som standard Chrome-synkronisering for kontoen, undtagen i tilfælde, hvor synkronisering er deaktiveret af domæneadministratoren eller via politikken "SyncDisabled". Standardværdien for BrowserGuestModeEnabled angives som Falsk. Bemærk! Eksisterende profiler, hvor der ikke er logget ind, låses og kan ikke længere anvendes efter aktivering af denne politik. Du kan få flere oplysninger i artiklen i Hjælp: https://support.google.com/chrome/a/answer/7572556.
 
       Hvis politikken ikke konfigureres, kan brugeren selv bestemme, om muligheden for browserlogin skal aktiveres, og anvende den efter eget behov.</translation>
 <translation id="3911737181201537215">Denne politik påvirker ikke logføring udført af Android.</translation>
@@ -2511,7 +2511,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="5770738360657678870">Udviklerkanal (kan være ustabil)</translation>
 <translation id="5774856474228476867">Søgewebadresse for standardsøgemaskinen</translation>
 <translation id="5775235485119094648">Oplad batteriet, når niveauet er inden for et bestemt område.</translation>
-<translation id="5776485039795852974">Spørg hver gang et website vil vise skrivebordsunderretninger</translation>
+<translation id="5776485039795852974">Spørg hver gang et website vil vise skrivebordsnotifikationer</translation>
 <translation id="5781412041848781654">Angiver, hvilket GSSAPI-bibliotek der skal anvendes til HTTP-godkendelse. Du kan enten angive et biblioteksnavn eller en hel sti.
 
           Hvis der ikke angives en indstilling, går <ph name="PRODUCT_NAME" /> tilbage til at bruge et standardbiblioteksnavn.</translation>
@@ -2682,7 +2682,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="6036523166753287175">Aktiver gennemgang af firewall fra vært for fjernadgang</translation>
 <translation id="605475635122964053">Begrænser tilstanden for udskrivning med pinkode. En politik uden konfiguration behandles som ingen begrænsning. Hvis tilstanden ikke er tilgængelig, ignoreres politikken. Bemærk! Funktionen til udskrivning med pinkode er kun aktiveret for printere, som anvender en af protokollerne IPPS, USB eller IPP-over-USB </translation>
 <translation id="6070667616071269965">Tastaturlayouts for loginskærme på enheder</translation>
-<translation id="6074963268421707432">Tillad ikke, at websites viser skrivebordsunderretninger</translation>
+<translation id="6074963268421707432">Tillad ikke, at websites viser skrivebordsnotifikationer</translation>
 <translation id="6074964551275531965">Angiv tidsrummet for notifikationer om opdateringer</translation>
 <translation id="6076099373507468537">Definerer listen over USB-enheder, der gerne må frigøres fra deres kernedriver, så de kan bruges via chrome.usb API direkte i en webapp. Poster er par bestående af et USB-leverandør-id og et produkt-id til identifikation af en bestemt hardware.
 
@@ -2774,7 +2774,7 @@ Hvis denne politik slås fra eller indstilles til False (falsk), er udviklertils
 <translation id="6190367314942602985">Rapportér oplysninger om brugeridentifikation</translation>
 <translation id="6197453924249895891">Giver virksomhedsnøgler adgang til udvidelser.
 
-Nøgler er beregnet til virksomhedsbrug, hvis de er genereret ved hjælp af chrome.enterprise.platformKeys API på en administreret konto. Nøgler, der er importeret eller genereret på en anden måde, er ikke beregnet til virksomhedsbrug.
+Nøgler er beregnet til virksomhedsbrug, hvis de er genereret ved hjælp af chrome.enterprise.platformKeys API på en mangerstyret konto. Nøgler, der er importeret eller genereret på en anden måde, er ikke beregnet til virksomhedsbrug.
 
 Adgang til nøgler, der er beregnet til virksomhedsbrug, kontrolleres alene af denne politik. Brugeren kan hverken give udvidelser adgang til virksomhedsnøgler eller fjerne deres adgang.
 
@@ -3185,7 +3185,7 @@ Hvis denne politik er angivet som sand eller ikke angives, aktiveres den smarte 
 
       Google kan ved hjælp af et sessions-id knytte disse logfiler til andre logfiler, der er indsamlet af selve Google-tjenesten. Dette kan gøre fejlretningen nemmere.
       </translation>
-<translation id="706669471845501145">Tillad, at websites viser skrivebordsunderretninger</translation>
+<translation id="706669471845501145">Tillad, at websites viser skrivebordsnotifikationer</translation>
 <translation id="7070525176564511548">Adgangskoden skal angives en gang om ugen (168 timer)</translation>
 <translation id="7072208053150563108">Hvor ofte computeradgangskoden skiftes</translation>
 <translation id="7079519252486108041">Bloker pop op-vinduer på disse websites</translation>
@@ -3771,7 +3771,7 @@ Hvis du aktiverer denne indstilling eller ikke konfigurerer en værdi, forbliver
           Hvis du angiver denne politik, kan brugerne ikke ændre eller tilsidesætte den.
 
           Hvis denne politik ikke angives, vil høj kontrast være deaktiveret, men brugeren kan når som helst slå funktionen til.</translation>
-<translation id="815061180603915310">Hvis denne politik er aktiveret, tvinger den profilen til at skifte til engangsbruger. Hvis denne politik er angivet som en OS-politik (f.eks. GPO i Windows), vil den være gældende for alle profiler i systemet. Hvis politikken er angivet som en cloudpolitik, vil den kun være gældende for en profil, der er logget ind med en administreret konto.
+<translation id="815061180603915310">Hvis denne politik er aktiveret, tvinger den profilen til at skifte til engangsbruger. Hvis denne politik er angivet som en OS-politik (f.eks. GPO i Windows), vil den være gældende for alle profiler i systemet. Hvis politikken er angivet som en cloudpolitik, vil den kun være gældende for en profil, der er logget ind med en mangerstyret konto.
 
       I denne tilstand gemmes profildataene kun på harddisken, så længe brugersessionen varer. Funktioner som f.eks. browserhistorik, udvidelser og hertil knyttede webdata som f.eks. cookies og webdatabaser gemmes ikke, når browseren lukkes. Men dette forhindrer ikke brugeren i at downloade eventuelle data til harddisken manuelt, gemme sider eller udskrive dem.
 
@@ -3970,7 +3970,7 @@ Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via G
       (uden citationstegn) til listen over domæner).
 
       Denne indstilling forhindrer brugeren i at logge ind og tilføjer en sekundær
-      konto på en administreret konto, der kræver Google-godkendelse, hvis denne
+      konto på en mangerstyret konto, der kræver Google-godkendelse, hvis denne
       konto ikke tilhører den tidligere nævnte liste over tilladte domæner.
 
       Hvis du undlader at markere/konfigurere denne indstilling, kan brugerne

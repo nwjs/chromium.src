@@ -131,11 +131,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '9b7e06a7fbe5111de40cdc51fc94b484622d41fe',
+  'skia_revision': 'e5b2375e28d85a6c8db771495b963670be28defd',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'd1ee844177357459a2eca3aeda7904b2a169f334',
+  'v8_revision': 'baf5b819112117d4f9cc62a90abe98813734d35f',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -870,7 +870,7 @@ deps = {
   },
 
   'src/third_party/ffmpeg':
-    Var('chromium_git') + '/chromium/third_party/ffmpeg.git' + '@' + 'e02fc00c5da42ea5cdf2bf5b9bab93c323a1e698',
+    Var('chromium_git') + '/chromium/third_party/ffmpeg.git' + '@' + '2c86ba060a3835d42d5f14d860c20c96ca7dc841',
 
   'src/third_party/flac':
     Var('chromium_git') + '/chromium/deps/flac.git' + '@' + 'af862024c8c8fa0ae07ced05e89013d881b00596',
@@ -1400,7 +1400,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@8994a053bd1f265976fe3b3a22bb8ad7db56f83e',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@98d4a682815dc80dbb2bd76b997ada4fa2485f1d',
     'condition': 'checkout_src_internal',
   },
 

@@ -33,6 +33,8 @@
 #include "third_party/blink/renderer/core/testing/sim/sim_test.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "ui/events/keycodes/dom/dom_code.h"
+#include "ui/events/keycodes/dom/dom_key.h"
 
 namespace blink {
 
@@ -590,6 +592,22 @@ TEST_F(EventHandlerTest, EditableAnchorTextCanStartSelection) {
                 .GetCursor()
                 .GetType(),
             Cursor::Type::kIBeam);  // An I-beam signals editability.
+}
+
+TEST_F(EventHandlerTest, implicitSend) {
+  SetHtmlInnerHTML("<button>abc</button>");
+  GetDocument().GetSettings()->SetSpatialNavigationEnabled(true);
+
+  WebKeyboardEvent e{WebInputEvent::kRawKeyDown, WebInputEvent::kNoModifiers,
+                     WebInputEvent::GetStaticTimeStampForTests()};
+  e.dom_code = static_cast<int>(ui::DomCode::ARROW_DOWN);
+  e.dom_key = ui::DomKey::ARROW_DOWN;
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+
+  // TODO(crbug.com/949766) Should cleanup these magic numbers.
+  e.dom_code = 0;
+  e.dom_key = 0x00200310;
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
 }
 
 // Regression test for http://crbug.com/641403 to verify we use up-to-date
@@ -1556,6 +1574,77 @@ TEST_F(EventHandlerSimTest, SmallCustomCursorIntersectsViewport) {
         GetDocument().GetFrame()->GetChromeClient().LastSetCursorForTesting();
     EXPECT_EQ(Cursor::Type::kCustom, cursor.GetType());
   }
+}
+
+TEST_F(EventHandlerSimTest, NeverExposeKeyboardEvent) {
+  WebView().MainFrameWidget()->Resize(WebSize(800, 600));
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  GetDocument().GetSettings()->SetDontSendKeyEventsToJavascript(true);
+  GetDocument().GetSettings()->SetScrollAnimatorEnabled(false);
+  GetDocument().GetSettings()->SetWebAppScope(GetDocument().Url());
+  GetDocument().View()->SetDisplayMode(kWebDisplayModeFullscreen);
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+    body {
+      height: 10000px;
+    }
+    </style>
+    Last event: <br>
+    <p id='log'>no event</p>
+    <input id="input1" type="text">
+
+    <script>
+      document.addEventListener('keydown', (e) => {
+        let log = document.getElementById('log');
+        log.innerText = 'keydown cancelable=' + e.cancelable;
+      });
+      document.addEventListener('keyup', (e) => {
+        let log = document.getElementById('log');
+        log.innerText = 'keyup cancelable=' + e.cancelable;
+      });
+    </script>
+  )HTML");
+  Compositor().BeginFrame();
+
+  WebElement element = GetDocument().getElementById("log");
+  WebKeyboardEvent e{WebInputEvent::kRawKeyDown, WebInputEvent::kNoModifiers,
+                     WebInputEvent::GetStaticTimeStampForTests()};
+  e.windows_key_code = VKEY_DOWN;
+  // TODO(crbug.com/949766) Should cleanup these magic number.
+  e.dom_key = 0x00200309;
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_EQ("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyUp);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_EQ("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyDown);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_EQ("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyUp);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_EQ("no event", element.InnerHTML().Utf8());
+
+  // TODO(crbug.com/949766) Should cleanup these magic number.
+  e.dom_key = 0x00200310;
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_NE("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyUp);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_NE("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyDown);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_NE("no event", element.InnerHTML().Utf8());
+
+  e.SetType(WebInputEvent::kKeyUp);
+  GetDocument().GetFrame()->GetEventHandler().KeyEvent(e);
+  EXPECT_NE("no event", element.InnerHTML().Utf8());
 }
 
 TEST_F(EventHandlerSimTest, NotExposeKeyboardEvent) {

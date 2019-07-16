@@ -5,8 +5,6 @@
 package org.chromium.chrome.browser.touchless.dialog;
 
 import android.app.Dialog;
-import android.graphics.PorterDuff;
-import android.graphics.PorterDuffColorFilter;
 import android.graphics.drawable.Drawable;
 import android.support.v4.view.ViewCompat;
 import android.util.Pair;
@@ -158,14 +156,17 @@ public class TouchlessDialogPresenter extends Presenter {
             customGroup.addView(model.get(ModalDialogProperties.CUSTOM_VIEW));
             customGroup.setVisibility(View.VISIBLE);
         } else if (TouchlessDialogProperties.LIST_MODELS == propertyKey) {
-            ListView listView = dialogView.findViewById(R.id.touchless_dialog_option_list);
             PropertyModel[] models = model.get(TouchlessDialogProperties.LIST_MODELS);
             ArrayList<Pair<Integer, PropertyModel>> modelPairs = new ArrayList<>();
             for (int i = 0; i < models.length; i++) {
-                models[i].set(DialogListItemProperties.FOCUS_LISTENER_SET, true);
                 modelPairs.add(Pair.create(0, models[i]));
             }
             optionsAdapter.updateModels(modelPairs);
+        } else if (TouchlessDialogProperties.FORCE_SINGLE_LINE_TITLE == propertyKey) {
+            TextView textView = dialogView.findViewById(R.id.touchless_dialog_title);
+            textView.setMaxLines(model.get(TouchlessDialogProperties.FORCE_SINGLE_LINE_TITLE)
+                            ? 1
+                            : Integer.MAX_VALUE);
         }
     }
 
@@ -179,10 +180,14 @@ public class TouchlessDialogPresenter extends Presenter {
         ChromeImageView imageView = view.findViewById(R.id.dialog_item_icon);
         TextView textView = view.findViewById(R.id.dialog_item_text);
         if (DialogListItemProperties.ICON == propertyKey) {
-            imageView.setVisibility(View.VISIBLE);
-            Drawable icon = model.get(DialogListItemProperties.ICON).mutate();
-            icon.clearColorFilter();
-            imageView.setImageDrawable(icon);
+            if (model.get(DialogListItemProperties.ICON) == null) {
+                imageView.setImageDrawable(null);
+            } else {
+                imageView.setVisibility(View.VISIBLE);
+                Drawable icon = model.get(DialogListItemProperties.ICON).mutate();
+                icon.clearColorFilter();
+                imageView.setImageDrawable(icon);
+            }
         } else if (DialogListItemProperties.TEXT == propertyKey) {
             textView.setText(model.get(DialogListItemProperties.TEXT));
         } else if (DialogListItemProperties.CLICK_LISTENER == propertyKey) {
@@ -199,23 +204,6 @@ public class TouchlessDialogPresenter extends Presenter {
             if (listener instanceof ClickThrottlingListener) {
                 ((ClickThrottlingListener) listener)
                         .setIsMultiClickable(model.get(DialogListItemProperties.MULTI_CLICKABLE));
-            }
-        } else if (DialogListItemProperties.FOCUS_LISTENER_SET == propertyKey) {
-            if (model.get(DialogListItemProperties.FOCUS_LISTENER_SET)) {
-                view.setOnFocusChangeListener((v, hasFocus) -> {
-                    textView.setTextColor(hasFocus
-                            ? view.getResources().getColor(R.color.modern_blue_800)
-                            : view.getResources().getColor(android.R.color.black));
-                    if (imageView.getDrawable() != null) {
-                        if (hasFocus) {
-                            imageView.getDrawable().setColorFilter(new PorterDuffColorFilter(
-                                    view.getResources().getColor(R.color.modern_blue_800),
-                                    PorterDuff.Mode.SRC_ATOP));
-                        } else {
-                            imageView.getDrawable().clearColorFilter();
-                        }
-                    }
-                });
             }
         }
     }

@@ -359,8 +359,7 @@ by a child template that "extends" this file.
         <activity android:name="org.chromium.chrome.browser.touchless.DinoActivity"
           android:theme="@style/Theme.Chromium.Activity"
             android:icon="@mipmap/dino"
-            ## Proposed brand name, not to be localized.
-            android:label="Dino Run"
+            android:label="@string/dino_game_title"
             android:exported="false"
             android:persistableMode="persistNever"
             android:launchMode="singleTask"
@@ -524,8 +523,13 @@ by a child template that "extends" this file.
             {# We can only use blocks once in Jinja, for future substitutions we use
             self.supports_video_persistence(). #}
             {% block supports_video_persistence %}
+            {% if notouch_build == "true" %}
+            android:supportsPictureInPicture="false"
+            android:resizeableActivity="false"
+            {% else %}
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
+            {% endif %}
             {% endblock %}
             {% block chrome_activity_common %}
             android:windowSoftInputMode="adjustResize"
@@ -710,6 +714,15 @@ by a child template that "extends" this file.
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
         </activity>
 
+        {% if notouch_build == "true" %}
+        <activity android:name="org.chromium.chrome.browser.download.TouchlessDownloadActivity"
+            android:theme="@style/Theme.Chromium.Activity.Fullscreen"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
+            android:exported="false"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|mcc|mnc|screenLayout|smallestScreenSize">
+        </activity>
+        {% endif %}
+
         <!-- Activities for history. -->
         <activity android:name="org.chromium.chrome.browser.history.HistoryActivity"
             android:theme="@style/Theme.Chromium.Activity.Fullscreen"
@@ -737,6 +750,16 @@ by a child template that "extends" this file.
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <!-- Non-exported alias that only Chrome can launch to verify shortcut intent comes from
+             Chrome (ShortcutManager on O+ launches under the shortcut creator's uid). -->
+        <activity-alias android:name="org.chromium.chrome.browser.webapps.SecureWebAppLauncher"
+            android:targetActivity="org.chromium.chrome.browser.webapps.WebappLauncherActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.chromium.chrome.browser.webapps.WebappManager.ACTION_START_SECURE_WEBAPP" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
         <activity-alias android:name="com.google.android.apps.chrome.webapps.WebappManager"
             android:targetActivity="org.chromium.chrome.browser.webapps.WebappLauncherActivity">
         </activity-alias>

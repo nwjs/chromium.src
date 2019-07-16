@@ -15,6 +15,7 @@ namespace blink {
 struct FocusCandidate;
 class KeyboardEvent;
 class LayoutRect;
+class LocalFrameView;
 class Node;
 class Page;
 
@@ -40,10 +41,11 @@ class CORE_EXPORT SpatialNavigationController
   // currently indicated to the user.
   Element* GetInterestedElement() const;
 
-  void DidDetachFrameView();
+  void DidDetachFrameView(const LocalFrameView&);
 
   void OnSpatialNavigationSettingChanged();
   void FocusedNodeChanged(Document*);
+  void FullscreenStateChanged(Element* element);
 
   void Trace(blink::Visitor*);
 
