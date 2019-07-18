@@ -54,6 +54,10 @@ class VIEWS_EXPORT WidgetDelegate {
   // ClientView.
   virtual bool OnCloseRequested(Widget::ClosedReason close_reason);
 
+  // Called when the widget transitions from a state in which it should render
+  // as active to one in which it should render as inactive or vice-versa.
+  virtual void OnPaintAsActiveChanged(bool paint_as_active);
+
   // Returns the view that should have the focus when the widget is shown.  If
   // NULL no view is focused.
   virtual View* GetInitiallyFocusedView();
@@ -69,9 +73,6 @@ class VIEWS_EXPORT WidgetDelegate {
 
   // Returns true if the window can be minimized.
   virtual bool CanMinimize() const;
-
-  // Returns a bitmask of ws::mojom::kResizeBehavior values.
-  virtual int32_t GetResizeBehavior() const;
 
   // Returns true if the window can be activated.
   virtual bool CanActivate() const;

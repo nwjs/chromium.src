@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_UI_VIEWS_SAFE_BROWSING_PASSWORD_REUSE_MODAL_WARNING_DIALOG_H_
 
 #include "base/callback.h"
-#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+//#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/views/window/dialog_delegate.h"
 

@@ -15,7 +15,7 @@
 
 namespace blink {
 
-class FallbackCursorChromeClient : public EmptyChromeClient {
+class FallbackCursorChromeClient : public RenderingTestChromeClient {
  public:
   FallbackCursorChromeClient() {}
 
@@ -52,7 +52,9 @@ class FallbackCursorEventManagerTest : public RenderingTest {
 
   ~FallbackCursorEventManagerTest() override {}
 
-  ChromeClient& GetChromeClient() const override { return *chrome_client_; }
+  RenderingTestChromeClient& GetChromeClient() const override {
+    return *chrome_client_;
+  }
 
   FallbackCursorChromeClient& GetFallbackCursorChromeClient() const {
     return *chrome_client_;

@@ -596,7 +596,8 @@ config("compiler") {
       if (use_lld) {
         ldflags += [ "-Wl,--thinlto-jobs=8" ]
 
-        # Disable caching on Chrome OS temporarily (crbug.com/889967)
+        # Caching on Chrome OS materially slows the PFQ down; disable it until
+        # we can figure out why. (crbug.com/964328)
         if (!is_chromeos) {
           # Limit the size of the ThinLTO cache to the lesser of 10% of
           # available disk space, 10GB and 100000 files.
@@ -1090,7 +1091,8 @@ config("compiler_deterministic") {
   }
 
   # Makes builds independent of absolute file path.
-  if (symbol_level != 0 && is_clang && strip_absolute_paths_from_debug_symbols) {
+  if (symbol_level != 0 && is_clang &&
+      strip_absolute_paths_from_debug_symbols) {
     # If debug option is given, clang includes $cwd in debug info by default.
     # For such build, this flag generates reproducible obj files even we use
     # different build directory like "out/feature_a" and "out/feature_b" if
@@ -1102,6 +1104,10 @@ config("compiler_deterministic") {
       "-Xclang",
       ".",
     ]
+    if (!is_win) {
+      # We don't use clang -cc1as on Windows (yet? https://crbug.com/762167)
+      asmflags = [ "-Wa,-fdebug-compilation-dir,." ]
+    }
 
     if (is_win && use_lld) {
       if (symbol_level == 2 || (is_clang && using_sanitizer)) {
@@ -1153,6 +1159,9 @@ config("clang_revision") {
 config("compiler_arm_fpu") {
   if (current_cpu == "arm" && !is_ios && !is_nacl) {
     cflags = [ "-mfpu=$arm_fpu" ]
+    if (!arm_use_thumb) {
+      cflags += [ "-marm" ]
+    }
     asmflags = cflags
   }
 }
@@ -1169,17 +1178,6 @@ config("compiler_arm") {
     # arm is normally the default mode for clang, but on chromeos a wrapper
     # is used to pass -mthumb, and therefor change the default.
     cflags = [ "-marm" ]
-  }
-}
-
-config("assembler_debug_dir") {
-  # TODO(thakis): Once openmax_dl no longer uses -fno-integrated-as, move
-  # this behind the -fdebug-compilation-dir cflags in the "compiler" config.
-  if (symbol_level != 0 && is_clang && strip_absolute_paths_from_debug_symbols) {
-    if (!is_win) {
-      # We don't use clang -cc1as on Windows (yet? https://crbug.com/762167)
-      asmflags = [ "-Wa,-fdebug-compilation-dir,." ]
-    }
   }
 }
 
@@ -1245,7 +1243,7 @@ config("default_warnings") {
       cflags += [ "/WX" ]
     }
     if (fatal_linker_warnings) {
-      ldflags += [ "/WX" ]
+      ldflags = [ "/WX" ]
     }
 
     cflags += [
@@ -1450,6 +1448,10 @@ config("default_warnings") {
       # comments
       # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61638
       cflags += [ "-Wno-comments" ]
+
+      # -Wpacked-not-aligned complains all generated mojom-shared-internal.h
+      # files.
+      cflags += [ "-Wno-packed-not-aligned" ]
     }
   }
 

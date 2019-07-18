@@ -84,6 +84,8 @@ std::string GetDisplayName(Manifest::Type type) {
       return "user script";
     case Manifest::TYPE_SHARED_MODULE:
       return "shared module";
+    case Manifest::TYPE_LOGIN_SCREEN_EXTENSION:
+      return "login screen extension";
     case Manifest::TYPE_NWJS_APP:
       return "NW.js app";
     case Manifest::NUM_LOAD_TYPES:

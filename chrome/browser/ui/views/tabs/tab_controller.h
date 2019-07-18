@@ -12,6 +12,8 @@
 
 class SkPath;
 class Tab;
+class TabGroupData;
+class TabGroupId;
 
 namespace gfx {
 class Point;
@@ -73,6 +75,9 @@ class TabController {
   // Returns whether |tab| is the first or last one visible.
   virtual bool IsFirstVisibleTab(const Tab* tab) const = 0;
   virtual bool IsLastVisibleTab(const Tab* tab) const = 0;
+
+  // Returns true if any tab or one of its children has focus.
+  virtual bool IsFocusInTabs() const = 0;
 
   // Potentially starts a drag for the specified Tab.
   virtual void MaybeStartDrag(
@@ -168,6 +173,9 @@ class TabController {
 
   // Returns opacity for use on tab hover radial highlight.
   virtual float GetHoverOpacityForRadialHighlight() const = 0;
+
+  // Returns the TabGroupData instance for the given |group|.
+  virtual const TabGroupData* GetDataForGroup(TabGroupId group) const = 0;
 
  protected:
   virtual ~TabController() {}

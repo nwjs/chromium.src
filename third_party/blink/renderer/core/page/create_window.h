@@ -37,7 +37,9 @@ class LocalFrame;
 class WebString;
 struct FrameLoadRequest;
 
-Frame* CreateNewWindow(LocalFrame& opener_frame, FrameLoadRequest&, WebString* manifest);
+Frame* CreateNewWindow(LocalFrame& opener_frame,
+                       FrameLoadRequest&,
+                       const AtomicString& name, WebString* manifes);
 
 CORE_EXPORT WebWindowFeatures GetWindowFeaturesFromString(const String&);
 

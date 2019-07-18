@@ -47,7 +47,6 @@
 #include "content/public/common/resource_type.h"
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
-#include "extensions/browser/component_extension_resource_manager.h"
 #include "extensions/browser/content_verifier.h"
 #include "extensions/browser/content_verify_job.h"
 #include "extensions/browser/extension_navigation_ui_data.h"
@@ -129,14 +128,6 @@ class GeneratedBackgroundPageJob : public net::URLRequestSimpleJob {
               net::CompletionOnceCallback callback) const override {
     GenerateBackgroundPageContents(extension_.get(), mime_type, charset, data);
     return net::OK;
-  }
-
-  // base::PowerObserver override:
-  void OnSuspend() override {
-    // Unlike URLRequestJob, don't suspend active requests here. Requests for
-    // generated background pages need not be suspended when the system
-    // suspends. This is not needed for URLRequestExtensionJob since it inherits
-    // from URLRequestFileJob, which has the same behavior.
   }
 
   void GetResponseInfo(net::HttpResponseInfo* info) override {
@@ -288,8 +279,9 @@ class URLRequestExtensionJob : public net::URLRequestFileJob {
     seek_position_ = result;
     // TODO(asargent) - we'll need to add proper support for range headers.
     // crbug.com/369895.
-    if (result > 0 && verify_job_.get())
-      verify_job_ = NULL;
+    const bool is_seek_contiguous = result == bytes_read_;
+    if (result > 0 && verify_job_.get() && !is_seek_contiguous)
+      verify_job_ = nullptr;
   }
 
   void OnReadComplete(net::IOBuffer* buffer, int result) override {
@@ -410,7 +402,7 @@ bool ExtensionCanLoadInIncognito(bool is_main_frame,
                                  bool extension_enabled_in_incognito) {
   if (!extension || !extension_enabled_in_incognito)
     return false;
-  if (!is_main_frame)
+  if (!is_main_frame || extension->is_login_screen_extension())
     return true;
 
   // Only allow incognito toplevel navigations to extension resources in
@@ -557,8 +549,9 @@ void GetSecurityPolicyForURL(const GURL& url,
 }
 
 bool IsBackgroundPageURL(const GURL& url) {
-  std::string path = url.path();
-  return path.size() > 1 && path.substr(1) == kGeneratedBackgroundPageFilename;
+  base::StringPiece path_piece = url.path_piece();
+  return path_piece.size() > 1 &&
+         path_piece.substr(1) == kGeneratedBackgroundPageFilename;
 }
 
 class ExtensionProtocolHandler
@@ -748,7 +741,8 @@ class FileLoaderObserver : public content::FileURLLoaderObserver {
     seek_position_ = result;
     // TODO(asargent) - we'll need to add proper support for range headers.
     // crbug.com/369895.
-    if (result > 0 && verify_job_.get())
+    const bool is_seek_contiguous = result == bytes_read_;
+    if (result > 0 && verify_job_.get() && !is_seek_contiguous)
       verify_job_ = nullptr;
   }
 
@@ -907,13 +901,13 @@ class ExtensionURLLoaderFactory : public network::mojom::URLLoaderFactory {
 
     // Component extension resources may be part of the embedder's resource
     // files, for example component_extension_resources.pak in Chrome.
-    ComponentExtensionResourceInfo resource_info;
+    int resource_id = 0;
     const base::FilePath bundle_resource_path =
         ExtensionsBrowserClient::Get()->GetBundleResourcePath(
-            request, directory_path, &resource_info);
+            request, directory_path, &resource_id);
     if (!bundle_resource_path.empty()) {
       ExtensionsBrowserClient::Get()->LoadResourceFromResourceBundle(
-          request, std::move(loader), bundle_resource_path, resource_info,
+          request, std::move(loader), bundle_resource_path, resource_id,
           content_security_policy, std::move(client), send_cors_header);
       return;
     }

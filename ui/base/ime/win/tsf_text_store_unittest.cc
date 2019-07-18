@@ -67,7 +67,7 @@ class MockTextInputClient : public TextInputClient {
   MOCK_METHOD1(SetTextEditCommandForNextKeyEvent, void(TextEditCommand));
   MOCK_CONST_METHOD0(GetClientSourceForMetrics, ukm::SourceId());
   MOCK_METHOD2(SetCompositionFromExistingText,
-               void(const gfx::Range&, const std::vector<ui::ImeTextSpan>&));
+               bool(const gfx::Range&, const std::vector<ui::ImeTextSpan>&));
   MOCK_METHOD3(SetActiveCompositionForAccessibility,
                void(const gfx::Range&, const base::string16&, bool));
 };
@@ -1344,8 +1344,10 @@ class GetTextExtTestCallback : public TSFTextStoreTestCallback {
     // GetCompositionCharacterBounds.
     SetInternalState(L"a", 0, 0, 1);
     layout_prepared_character_num_ = 0;
-    has_composition_text_ = false;
     GetTextExtTest(view_cookie, 0, 1, 1, 2, 4, 6);
+    SetInternalState(L"abc", 0, 0, 3);
+    GetTextExtNoLayoutTest(view_cookie, 2, 3);
+
     return S_OK;
   }
 

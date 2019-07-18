@@ -9,15 +9,15 @@
 #include "base/memory/ref_counted_memory.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/test/test_utils.h"
-#include "device/usb/public/cpp/fake_usb_device_info.h"
-#include "device/usb/public/cpp/fake_usb_device_manager.h"
-#include "device/usb/public/cpp/mock_usb_mojo_device.h"
-#include "device/usb/public/mojom/device.mojom.h"
 #include "extensions/browser/api/device_permissions_prompt.h"
 #include "extensions/browser/api/usb/usb_api.h"
 #include "extensions/shell/browser/shell_extensions_api_client.h"
 #include "extensions/shell/test/shell_apitest.h"
 #include "extensions/test/extension_test_message_listener.h"
+#include "services/device/public/cpp/test/fake_usb_device_info.h"
+#include "services/device/public/cpp/test/fake_usb_device_manager.h"
+#include "services/device/public/cpp/test/mock_usb_mojo_device.h"
+#include "services/device/public/mojom/usb_device.mojom.h"
 
 using device::mojom::UsbControlTransferParams;
 using device::mojom::UsbControlTransferRecipient;
@@ -288,21 +288,6 @@ IN_PROC_BROWSER_TEST_F(UsbApiTest, InvalidTimeout) {
       .Times(AnyNumber())
       .WillRepeatedly(InvokeClosureCallback());
   ASSERT_TRUE(RunAppTest("api_test/usb/invalid_timeout"));
-}
-
-IN_PROC_BROWSER_TEST_F(UsbApiTest, CallsAfterDisconnect) {
-  ExtensionTestMessageListener ready_listener("ready", false);
-  ExtensionTestMessageListener result_listener("success", false);
-  result_listener.set_failure_message("failure");
-
-  EXPECT_CALL(mock_device_, OpenInternal(_))
-      .WillOnce(InvokeCallback<0>(UsbOpenDeviceError::OK));
-
-  ASSERT_TRUE(LoadApp("api_test/usb/calls_after_disconnect"));
-  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
-
-  fake_usb_manager_.RemoveDevice(fake_device_);
-  ASSERT_TRUE(result_listener.WaitUntilSatisfied());
 }
 
 IN_PROC_BROWSER_TEST_F(UsbApiTest, OnDeviceAdded) {

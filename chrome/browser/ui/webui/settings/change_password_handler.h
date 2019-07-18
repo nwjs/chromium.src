@@ -37,7 +37,7 @@ class ChangePasswordHandler : public SettingsPageUIHandler {
 
   void UpdateChangePasswordCardVisibility();
 
-  Profile* profile_;
+  //Profile* profile_;
 
   PrefChangeRegistrar pref_registrar_;
 

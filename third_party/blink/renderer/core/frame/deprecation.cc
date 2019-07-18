@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/frame/deprecation.h"
 
+#include <bitset>
 #include "services/service_manager/public/cpp/connector.h"
 #include "third_party/blink/public/mojom/feature_policy/feature_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/reporting/reporting.mojom-blink.h"
@@ -18,7 +19,6 @@
 #include "third_party/blink/renderer/core/frame/reporting_context.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
-#include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/workers/worker_or_worklet_global_scope.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -60,6 +60,7 @@ enum Milestone {
   kM74,
   kM75,
   kM76,
+  kM77,
 };
 
 // Returns estimated milestone dates as human-readable strings.
@@ -104,6 +105,8 @@ const char* MilestoneString(Milestone milestone) {
       return "M75, around June 2019";
     case kM76:
       return "M76, around July 2019";
+    case kM77:
+      return "M77, around September 2019";
   }
 
   NOTREACHED();
@@ -153,28 +156,12 @@ double MilestoneDate(Milestone milestone) {
       return 1559620800000;  // June 4, 2019.
     case kM76:
       return 1564459200000;  // Jul 30, 2019.
+    case kM77:
+      return 1568088000000;  // Sep 10, 2019.
   }
 
   NOTREACHED();
   return 0;
-}
-
-String GetDeviceSensorDeprecationMessage(const char* event_name,
-                                         const char* status_url) {
-  static constexpr char kConcreteMessage[] =
-      "The `%s` event is deprecated on insecure origins and will be removed in "
-      "%s. Event handlers can still be registered but are no longer invoked "
-      "since %s. See %s for more details.";
-  static constexpr char kGenericMessage[] =
-      "The `%s` event is deprecated on insecure origins and will be removed. "
-      "See %s for more details.";
-
-  if (blink::RuntimeEnabledFeatures::
-          RestrictDeviceSensorEventsToSecureContextsEnabled()) {
-    return String::Format(kConcreteMessage, event_name, MilestoneString(kM76),
-                          MilestoneString(kM74), status_url);
-  }
-  return String::Format(kGenericMessage, event_name, status_url);
 }
 
 struct DeprecationInfo {
@@ -304,24 +291,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   "https://www.chromestatus.com/feature/6170540112871424")};
 
     // Powerful features on insecure origins (https://goo.gl/rStTGz)
-    case WebFeature::kDeviceMotionInsecureOrigin:
-      return {"DeviceMotionInsecureOrigin", kM76,
-              GetDeviceSensorDeprecationMessage(
-                  "devicemotion",
-                  "https://www.chromestatus.com/feature/5688035094036480")};
-
-    case WebFeature::kDeviceOrientationInsecureOrigin:
-      return {"DeviceOrientationInsecureOrigin", kM76,
-              GetDeviceSensorDeprecationMessage(
-                  "deviceorientation",
-                  "https://www.chromestatus.com/feature/5468407470227456")};
-
-    case WebFeature::kDeviceOrientationAbsoluteInsecureOrigin:
-      return {"DeviceOrientationAbsoluteInsecureOrigin", kM76,
-              GetDeviceSensorDeprecationMessage(
-                  "deviceorientationabsolute",
-                  "https://www.chromestatus.com/feature/5468407470227456")};
-
     case WebFeature::kGeolocationInsecureOrigin:
     case WebFeature::kGeolocationInsecureOriginIframe:
       return {"GeolocationInsecureOrigin", kUnknown,
@@ -458,18 +427,6 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
           "https://www.chromestatus.com/feature/5735596811091968 for more "
           "details."};
 
-    case WebFeature::kPaymentRequestNetworkNameInSupportedMethods:
-      return {
-          "PaymentRequestNetworkNameInSupportedMethods", kM64,
-          ReplacedWillBeRemoved(
-              "Card issuer network (\"amex\", \"diners\", \"discover\", "
-              "\"jcb\", "
-              "\"mastercard\", \"mir\", \"unionpay\", \"visa\") as payment "
-              "method",
-              "payment method name \"basic-card\" with issuer network in the "
-              "\"supportedNetworks\" field",
-              kM64, "5725727580225536")};
-
     case WebFeature::kHTMLImports:
       return {"DeprecatedHTMLImports", kM73,
               ReplacedWillBeRemoved("HTML Imports", "ES modules", kM73,
@@ -586,23 +543,23 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
                   MilestoneString(kM72))};
 
     case WebFeature::kNoSysexWebMIDIWithoutPermission:
-      return {"NoSysexWebMIDIWithoutPermission", kM75,
+      return {"NoSysexWebMIDIWithoutPermission", kM77,
               String::Format(
                   "Web MIDI will ask a permission to use even if the sysex is "
                   "not specified in the MIDIOptions since %s. See "
                   "https://www.chromestatus.com/feature/5138066234671104 for "
                   "more details.",
-                  MilestoneString(kM75))};
+                  MilestoneString(kM77))};
 
     case WebFeature::kNoSysexWebMIDIOnInsecureOrigin:
-      return {"NoSysexWebMIDIOnInsecureOrigin", kM75,
+      return {"NoSysexWebMIDIOnInsecureOrigin", kM77,
               String::Format(
                   "Web MIDI will be deprecated on insecure origins since %s. "
                   "You should consider switching your application to a secure "
                   "origin, such as HTTPS. See "
                   "https://www.chromestatus.com/feature/5138066234671104 for "
                   "more details.",
-                  MilestoneString(kM75))};
+                  MilestoneString(kM77))};
 
     case WebFeature::kCustomCursorIntersectsViewport:
       return {
@@ -628,16 +585,13 @@ DeprecationInfo GetDeprecationInfo(WebFeature feature) {
 namespace blink {
 
 Deprecation::Deprecation() : mute_count_(0) {
-  css_property_deprecation_bits_.EnsureSize(numCSSPropertyIDs);
-  features_deprecation_bits_.EnsureSize(
-      static_cast<int>(WebFeature::kNumberOfFeatures));
 }
 
 Deprecation::~Deprecation() = default;
 
 void Deprecation::ClearSuppression() {
-  css_property_deprecation_bits_.ClearAll();
-  features_deprecation_bits_.ClearAll();
+  css_property_deprecation_bits_.reset();
+  features_deprecation_bits_.reset();
 }
 
 void Deprecation::MuteForInspector() {
@@ -650,22 +604,21 @@ void Deprecation::UnmuteForInspector() {
 
 void Deprecation::Suppress(CSSPropertyID unresolved_property) {
   DCHECK(isCSSPropertyIDWithName(unresolved_property));
-  css_property_deprecation_bits_.QuickSet(
-      static_cast<int>(unresolved_property));
+  css_property_deprecation_bits_.set(static_cast<size_t>(unresolved_property));
 }
 
 bool Deprecation::IsSuppressed(CSSPropertyID unresolved_property) {
   DCHECK(isCSSPropertyIDWithName(unresolved_property));
-  return css_property_deprecation_bits_.QuickGet(
-      static_cast<int>(unresolved_property));
+  return css_property_deprecation_bits_[static_cast<size_t>(
+      unresolved_property)];
 }
 
 void Deprecation::SetReported(WebFeature feature) {
-  features_deprecation_bits_.QuickSet(static_cast<int>(feature));
+  features_deprecation_bits_.set(static_cast<size_t>(feature));
 }
 
 bool Deprecation::GetReported(WebFeature feature) const {
-  return features_deprecation_bits_.QuickGet(static_cast<int>(feature));
+  return features_deprecation_bits_[static_cast<size_t>(feature)];
 }
 
 void Deprecation::WarnOnDeprecatedProperties(
@@ -698,37 +651,7 @@ void Deprecation::CountDeprecation(ExecutionContext* context,
   if (!context)
     return;
 
-  // TODO(yoichio): We should remove these counters when v0 APIs are removed.
-  // crbug.com/946875.
-  if (const OriginTrialContext* origin_trial_context =
-          OriginTrialContext::FromOrCreate(context)) {
-    if (feature == WebFeature::kHTMLImports &&
-        origin_trial_context->IsFeatureEnabled(
-            OriginTrialFeature::kHTMLImports) &&
-        !RuntimeEnabledFeatures::HTMLImportsEnabledByRuntimeFlag()) {
-      UseCounter::Count(context, WebFeature::kHTMLImportsOnReverseOriginTrials);
-    } else if (feature == WebFeature::kElementCreateShadowRoot &&
-               origin_trial_context->IsFeatureEnabled(
-                   OriginTrialFeature::kShadowDOMV0) &&
-               !RuntimeEnabledFeatures::ShadowDOMV0EnabledByRuntimeFlag()) {
-      UseCounter::Count(
-          context, WebFeature::kElementCreateShadowRootOnReverseOriginTrials);
-    } else if (feature == WebFeature::kDocumentRegisterElement &&
-               origin_trial_context->IsFeatureEnabled(
-                   OriginTrialFeature::kCustomElementsV0) &&
-               !RuntimeEnabledFeatures::
-                   CustomElementsV0EnabledByRuntimeFlag()) {
-      UseCounter::Count(
-          context, WebFeature::kDocumentRegisterElementOnReverseOriginTrials);
-    }
-  }
-  // TODO(dcheng): Maybe this should be a virtual on ExecutionContext?
-  if (auto* document = DynamicTo<Document>(context)) {
-    Deprecation::CountDeprecation(*document, feature);
-    return;
-  }
-  if (auto* scope = DynamicTo<WorkerOrWorkletGlobalScope>(context))
-    scope->CountDeprecation(feature);
+  context->CountDeprecation(feature);
 }
 
 void Deprecation::CountDeprecation(const Document& document,

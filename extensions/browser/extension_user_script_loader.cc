@@ -16,6 +16,7 @@
 #include "base/bind_helpers.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/memory/read_only_shared_memory_region.h"
 #include "base/one_shot_event.h"
 #include "base/strings/string_util.h"
 #include "base/task/post_task.h"
@@ -94,15 +95,15 @@ bool LoadScriptContent(const HostID& host_id,
       script_file->extension_root(), script_file->relative_path(),
       ExtensionResource::SYMLINKS_MUST_RESOLVE_WITHIN_ROOT);
   if (path.empty()) {
-    ComponentExtensionResourceInfo resource_info;
+    int resource_id = 0;
     if (ExtensionsBrowserClient::Get()
             ->GetComponentExtensionResourceManager()
             ->IsComponentExtensionResource(script_file->extension_root(),
                                            script_file->relative_path(),
-                                           &resource_info)) {
-      DCHECK(!resource_info.gzipped);
+                                           &resource_id)) {
       const ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-      content = rb.GetRawDataResource(resource_info.resource_id).as_string();
+      DCHECK(!rb.IsGzipped(resource_id));
+      content = rb.GetRawDataResource(resource_id).as_string();
     } else {
       LOG(WARNING) << "Failed to get file path to "
                    << script_file->relative_path().value() << " from "
@@ -193,7 +194,7 @@ void LoadScriptsOnFileTaskRunner(
   DCHECK(GetExtensionFileTaskRunner()->RunsTasksInCurrentSequence());
   DCHECK(user_scripts.get());
   LoadUserScripts(user_scripts.get(), hosts_info, added_script_ids, verifier);
-  std::unique_ptr<base::SharedMemory> memory =
+  base::ReadOnlySharedMemoryRegion memory =
       UserScriptLoader::Serialize(*user_scripts);
   base::PostTaskWithTraits(
       FROM_HERE, {content::BrowserThread::UI},

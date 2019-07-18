@@ -199,7 +199,7 @@ bool AutoplayPolicy::IsEligibleForAutoplayMuted() const {
     return false;
   }
 
-  return element_->muted() &&
+  return !element_->EffectiveMediaVolume() &&
          DocumentShouldAutoplayMutedVideos(element_->GetDocument());
 }
 
@@ -226,7 +226,7 @@ void AutoplayPolicy::StopAutoplayMutedWhenVisible() {
 }
 
 bool AutoplayPolicy::RequestAutoplayUnmute() {
-  DCHECK(!element_->muted());
+  DCHECK_NE(0, element_->EffectiveMediaVolume());
   bool was_autoplaying_muted = IsAutoplayingMutedInternal(true);
 
   TryUnlockingUserGesture();
@@ -292,7 +292,7 @@ bool AutoplayPolicy::IsAutoplayingMutedInternal(bool muted) const {
 }
 
 bool AutoplayPolicy::IsOrWillBeAutoplayingMuted() const {
-  return IsOrWillBeAutoplayingMutedInternal(element_->muted());
+  return IsOrWillBeAutoplayingMutedInternal(!element_->EffectiveMediaVolume());
 }
 
 bool AutoplayPolicy::IsOrWillBeAutoplayingMutedInternal(bool muted) const {

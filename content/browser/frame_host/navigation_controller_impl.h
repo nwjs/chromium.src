@@ -14,6 +14,7 @@
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
+#include "base/optional.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "content/browser/frame_host/back_forward_cache.h"
@@ -100,7 +101,8 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   // navigation to |default_url| should be done instead.
   bool StartHistoryNavigationInNewSubframe(
       RenderFrameHostImpl* render_frame_host,
-      const GURL& default_url);
+      const GURL& default_url,
+      mojom::NavigationClientAssociatedPtrInfo* navigation_client);
 
   // Navigates to a specified offset from the "current entry". Currently records
   // a histogram indicating whether the session history navigation would only
@@ -113,7 +115,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   void NavigateFromFrameProxy(
       RenderFrameHostImpl* render_frame_host,
       const GURL& url,
-      const url::Origin& initiator_origin,
+      const base::Optional<url::Origin>& initiator_origin,
       bool is_renderer_initiated,
       SiteInstance* source_site_instance,
       const Referrer& referrer,
@@ -147,6 +149,21 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   NavigationControllerDelegate* delegate() const {
     return delegate_;
   }
+
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class NeedsReloadType {
+    kRequestedByClient = 0,
+    kRestoreSession = 1,
+    kCopyStateFrom = 2,
+    kCrashedSubframe = 3,
+    kMaxValue = kCrashedSubframe
+  };
+
+  // Request a reload to happen when activated.  Same as the public
+  // SetNeedsReload(), but takes in a |type| which specifies why the reload is
+  // being requested.
+  void SetNeedsReload(NeedsReloadType type);
 
   // For use by WebContentsImpl ------------------------------------------------
 
@@ -258,15 +275,6 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
   FRIEND_TEST_ALL_PREFIXES(TimeSmoother, ManyDuplicates);
   FRIEND_TEST_ALL_PREFIXES(TimeSmoother, ClockBackwardsJump);
 
-  // These values are persisted to logs. Entries should not be renumbered and
-  // numeric values should never be reused.
-  enum class NeedsReloadType {
-    kRequestedByClient = 0,
-    kRestoreSession = 1,
-    kCopyStateFrom = 2,
-    kMaxValue = kCopyStateFrom
-  };
-
   // Helper class to smooth out runs of duplicate timestamps while still
   // allowing time to jump backwards.
   class CONTENT_EXPORT TimeSmoother {
@@ -355,7 +363,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
       FrameNavigationEntry* frame_entry,
       ReloadType reload_type,
       bool is_same_document_history_load,
-      bool is_history_navigation_in_new_child);
+      bool is_history_navigation_in_new_child_frame);
 
   // Returns whether there is a pending NavigationEntry whose unique ID matches
   // the given NavigationHandle's pending_nav_entry_id.

@@ -152,13 +152,13 @@ v8::Local<v8::Object> GetOrCreateChrome(v8::Local<v8::Context> context, const ch
       script_context->module_system()->SetPrivate(global, "privates", privates);
     }
     v8::Local<v8::Object> priv_obj = v8::Local<v8::Object>::Cast(privates);
-    v8::Local<v8::Value> chrome(priv_obj->Get(chrome_string));
+    v8::Local<v8::Value> chrome(priv_obj->Get(context, chrome_string).ToLocalChecked());
     if (chrome->IsUndefined()) {
       chrome = v8::Object::New(context->GetIsolate());
       v8::Local<v8::String> hidden_key(
                                        v8::String::NewFromUtf8(context->GetIsolate(), "__nw_is_hidden", v8::NewStringType::kNormal).ToLocalChecked());
-      chrome->ToObject(context).ToLocalChecked()->Set(hidden_key, v8::Boolean::New(context->GetIsolate(), true));
-      priv_obj->Set(chrome_string, chrome);
+      ignore_result(chrome->ToObject(context).ToLocalChecked()->Set(context, hidden_key, v8::Boolean::New(context->GetIsolate(), true)));
+      ignore_result(priv_obj->Set(context, chrome_string, chrome));
     }
     return chrome->IsObject() ? chrome.As<v8::Object>() : v8::Local<v8::Object>();
   } //hidden

@@ -13,9 +13,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/pending_task.h"
 #include "base/run_loop.h"
-#include "base/sampling_heap_profiler/sampling_heap_profiler.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "base/task/sequence_manager/sequence_manager.h"
 #include "base/threading/platform_thread.h"
@@ -111,8 +109,7 @@ std::unique_ptr<base::MessagePump> CreateMainThreadMessagePump(bool nwjs) {
     std::unique_ptr<base::MessagePump> pump(p);
     return pump;
   } else
-  return base::MessageLoop::CreateMessagePumpForType(
-      base::MessageLoop::TYPE_DEFAULT);
+    return base::MessagePump::Create(base::MessagePump::Type::DEFAULT);
 #endif
 }
 
@@ -129,19 +126,6 @@ int RendererMain(const MainFunctionParams& parameters) {
       kTraceEventRendererProcessSortIndex);
 
   const base::CommandLine& command_line = parameters.command_line;
-
-  base::SamplingHeapProfiler::Init();
-  if (command_line.HasSwitch(switches::kSamplingHeapProfiler)) {
-    base::SamplingHeapProfiler* profiler = base::SamplingHeapProfiler::Get();
-    unsigned sampling_interval = 0;
-    bool parsed = base::StringToUint(
-        command_line.GetSwitchValueASCII(switches::kSamplingHeapProfiler),
-        &sampling_interval);
-    if (parsed && sampling_interval > 0)
-      profiler->SetSamplingInterval(sampling_interval * 1024);
-    profiler->Start();
-  }
-
 
   bool nwjs = command_line.HasSwitch(switches::kNWJS);
 

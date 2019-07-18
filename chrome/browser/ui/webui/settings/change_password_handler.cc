@@ -6,7 +6,7 @@
 
 #include "base/bind.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
+//#include "chrome/browser/safe_browsing/chrome_password_protection_service.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -18,7 +18,7 @@ using safe_browsing::ChromePasswordProtectionService;
 ChangePasswordHandler::ChangePasswordHandler(
     Profile* profile,
     safe_browsing::ChromePasswordProtectionService* service)
-    : profile_(profile), service_(service) {
+    : service_(service) {
   DCHECK(service_);
 }
 
@@ -36,11 +36,13 @@ void ChangePasswordHandler::RegisterMessages() {
 }
 
 void ChangePasswordHandler::OnJavascriptAllowed() {
+#if 0
   pref_registrar_.Init(profile_->GetPrefs());
   pref_registrar_.Add(
       prefs::kSafeBrowsingUnhandledSyncPasswordReuses,
       base::Bind(&ChangePasswordHandler::UpdateChangePasswordCardVisibility,
                  base::Unretained(this)));
+#endif
 }
 
 void ChangePasswordHandler::OnJavascriptDisallowed() {

@@ -15,13 +15,13 @@
 #include "base/debug/stack_trace.h"
 #include "base/i18n/icu_util.h"
 #include "base/logging.h"
-#include "base/message_loop/message_loop.h"
 #include "base/optional.h"
 #include "base/process/launch.h"
 #include "base/process/memory.h"
 #include "base/process/process.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/task/single_thread_task_executor.h"
 #include "base/task/thread_pool/thread_pool.h"
 #include "base/threading/thread.h"
 #include "base/trace_event/trace_config.h"
@@ -48,6 +48,7 @@
 #include <windows.h>
 
 #include "base/win/process_startup_helper.h"
+#include "base/win/win_util.h"
 #include "ui/base/win/atl_module.h"
 #endif
 
@@ -134,9 +135,11 @@ void CommonSubprocessInit() {
   // HACK: Let Windows know that we have started.  This is needed to suppress
   // the IDC_APPSTARTING cursor from being displayed for a prolonged period
   // while a subprocess is starting.
-  PostThreadMessage(GetCurrentThreadId(), WM_NULL, 0, 0);
-  MSG msg;
-  PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+  if (base::win::IsUser32AndGdi32Available()) {
+    PostThreadMessage(GetCurrentThreadId(), WM_NULL, 0, 0);
+    MSG msg;
+    PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+  }
 #endif
 
 #if 0
@@ -147,7 +150,8 @@ void CommonSubprocessInit() {
 
 void NonEmbedderProcessInit() {
   logging::LoggingSettings settings;
-  settings.logging_dest = logging::LOG_TO_SYSTEM_DEBUG_LOG;
+  settings.logging_dest =
+      logging::LOG_TO_SYSTEM_DEBUG_LOG | logging::LOG_TO_STDERR;
   logging::InitLogging(settings);
   // To view log output with IDs and timestamps use "adb logcat -v threadtime".
   logging::SetLogItems(true,   // Process ID
@@ -166,17 +170,19 @@ void NonEmbedderProcessInit() {
   }
 #endif
 
-  base::ThreadPool::CreateAndStartWithDefaultParams("ServiceManagerProcess");
+  base::ThreadPoolInstance::CreateAndStartWithDefaultParams(
+      "ServiceManagerProcess");
 }
 
 int RunServiceManager(MainDelegate* delegate) {
   NonEmbedderProcessInit();
 
-  base::MessageLoop message_loop(base::MessageLoop::TYPE_UI);
+  base::SingleThreadTaskExecutor main_thread_task_executor(
+      base::MessagePump::Type::UI);
 
   base::Thread ipc_thread("IPC thread");
   ipc_thread.StartWithOptions(
-      base::Thread::Options(base::MessageLoop::TYPE_IO, 0));
+      base::Thread::Options(base::MessagePump::Type::IO, 0));
   mojo::core::ScopedIPCSupport ipc_support(
       ipc_thread.task_runner(),
       mojo::core::ScopedIPCSupport::ShutdownPolicy::FAST);
@@ -190,7 +196,7 @@ int RunServiceManager(MainDelegate* delegate) {
   run_loop.Run();
 
   ipc_thread.Stop();
-  base::ThreadPool::GetInstance()->Shutdown();
+  base::ThreadPoolInstance::Get()->Shutdown();
 
   return 0;
 }
@@ -212,7 +218,8 @@ int RunService(MainDelegate* delegate) {
 
   service_manager::ServiceExecutableEnvironment environment;
 
-  base::MessageLoop message_loop(base::MessageLoop::TYPE_UI);
+  base::SingleThreadTaskExecutor main_thread_task_executor(
+      base::MessagePump::Type::UI);
   base::RunLoop run_loop;
 
   std::string service_name =

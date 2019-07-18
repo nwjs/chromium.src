@@ -32,20 +32,21 @@ void V8ContextNativeHandler::GetAvailability(
   v8::Isolate* isolate = args.GetIsolate();
   std::string api_name = *v8::String::Utf8Value(isolate, args[0]);
   Feature::Availability availability = context_->GetAvailability(api_name);
+  v8::Local<v8::Context> context = context_->v8_context();
+
   if (api_name == "app.window" || api_name == "nw.Window" ||
       api_name == "runtime") {
   v8::Local<v8::Object> ret = v8::Object::New(isolate);
-  ret->Set(v8::String::NewFromUtf8(isolate, "is_available", v8::NewStringType::kNormal).ToLocalChecked(),
-           v8::Boolean::New(isolate, true));
-  ret->Set(v8::String::NewFromUtf8(isolate, "message", v8::NewStringType::kNormal).ToLocalChecked(),
-           v8::String::NewFromUtf8(isolate, "", v8::NewStringType::kNormal).ToLocalChecked());
-  ret->Set(v8::String::NewFromUtf8(isolate, "result", v8::NewStringType::kNormal).ToLocalChecked(),
-           v8::Integer::New(isolate, Feature::IS_AVAILABLE));
+  ret->Set(context, v8::String::NewFromUtf8(isolate, "is_available", v8::NewStringType::kNormal).ToLocalChecked(),
+           v8::Boolean::New(isolate, true)).ToChecked();
+  ret->Set(context, v8::String::NewFromUtf8(isolate, "message", v8::NewStringType::kNormal).ToLocalChecked(),
+           v8::String::NewFromUtf8(isolate, "", v8::NewStringType::kNormal).ToLocalChecked()).ToChecked();
+  ret->Set(context, v8::String::NewFromUtf8(isolate, "result", v8::NewStringType::kNormal).ToLocalChecked(),
+           v8::Integer::New(isolate, Feature::IS_AVAILABLE)).ToChecked();
   args.GetReturnValue().Set(ret);
   return;
   }
 
-  v8::Local<v8::Context> context = context_->v8_context();
   v8::Local<v8::Object> ret = v8::Object::New(isolate);
   v8::Maybe<bool> maybe = ret->SetPrototype(context, v8::Null(isolate));
   CHECK(maybe.IsJust() && maybe.FromJust());

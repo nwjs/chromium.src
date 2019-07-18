@@ -49,6 +49,10 @@ extern const char kEnableReachedCodeProfiler[];
 extern const char kOrderfileMemoryOptimization[];
 #endif
 
+#if defined(OS_LINUX)
+extern const char kEnableThreadInstructionCount[];
+#endif
+
 extern const char kNWJS[];
 }  // namespace switches
 

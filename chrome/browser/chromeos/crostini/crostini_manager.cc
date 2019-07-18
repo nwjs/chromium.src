@@ -52,11 +52,11 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/common/service_manager_connection.h"
 #include "dbus/message.h"
-#include "device/usb/public/mojom/device.mojom.h"
-#include "device/usb/public/mojom/device_enumeration_options.mojom.h"
 #include "extensions/browser/extension_registry.h"
 #include "net/base/escape.h"
 #include "services/device/public/mojom/constants.mojom.h"
+#include "services/device/public/mojom/usb_device.mojom.h"
+#include "services/device/public/mojom/usb_enumeration_options.mojom.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
 #include "services/service_manager/public/cpp/connector.h"
 #include "storage/browser/fileapi/external_mount_points.h"
@@ -65,8 +65,6 @@
 namespace crostini {
 
 namespace {
-constexpr base::FilePath::CharType kHomeDirectory[] =
-    FILE_PATH_LITERAL("/home");
 const char kSeparator[] = "--";
 
 chromeos::CiceroneClient* GetCiceroneClient() {
@@ -227,31 +225,15 @@ class CrostiniManager::CrostiniRestarter
       return;
     }
 
-    crostini_manager_->ListVmDisks(
-        base::BindOnce(&CrostiniRestarter::ListVmDisksFinished, this));
-  }
-
-  void ListVmDisksFinished(CrostiniResult result, int64_t disk_space_taken) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-    if (is_aborted_) {
-      std::move(abort_callback_).Run();
-      return;
-    }
-    if (result != CrostiniResult::SUCCESS) {
-      LOG(ERROR) << "Failed to list disk images.";
-      FinishRestart(result);
-      return;
-    }
     base::PostTaskWithTraitsAndReplyWithResult(
         FROM_HERE, {base::MayBlock()},
         base::BindOnce(&base::SysInfo::AmountOfFreeDiskSpace,
                        base::FilePath(kHomeDirectory)),
-        base::BindOnce(&CrostiniRestarter::CreateDiskImageAfterSizeCheck, this,
-                       disk_space_taken));
+        base::BindOnce(&CrostiniRestarter::CreateDiskImageAfterSizeCheck,
+                       this));
   }
 
-  void CreateDiskImageAfterSizeCheck(int64_t disk_space_taken,
-                                     int64_t free_disk_bytes) {
+  void CreateDiskImageAfterSizeCheck(int64_t free_disk_bytes) {
     // Unlike other functions, this isn't called from a crostini_manager_
     // function, so crostini_manager_ could have been deleted.
     if (!crostini_manager_) {
@@ -590,12 +572,12 @@ CrostiniManager::CrostiniManager(Profile* profile)
       weak_ptr_factory_(this) {
   DCHECK(!profile_->IsOffTheRecord());
   GetCiceroneClient()->AddObserver(this);
-  GetConciergeClient()->AddObserver(this);
+  GetConciergeClient()->AddContainerObserver(this);
 }
 
 CrostiniManager::~CrostiniManager() {
   GetCiceroneClient()->RemoveObserver(this);
-  GetConciergeClient()->RemoveObserver(this);
+  GetConciergeClient()->RemoveContainerObserver(this);
 }
 
 // static
@@ -829,8 +811,7 @@ void CrostiniManager::CreateDiskImage(
   // The type of disk image to be created.
   request.set_image_type(vm_tools::concierge::DISK_IMAGE_AUTO);
 
-  if (storage_location != vm_tools::concierge::STORAGE_CRYPTOHOME_ROOT &&
-      storage_location != vm_tools::concierge::STORAGE_CRYPTOHOME_DOWNLOADS) {
+  if (storage_location != vm_tools::concierge::STORAGE_CRYPTOHOME_ROOT) {
     LOG(ERROR) << "'" << storage_location
                << "' is not a valid storage location";
     std::move(callback).Run(
@@ -851,7 +832,6 @@ void CrostiniManager::CreateDiskImage(
 
 void CrostiniManager::DestroyDiskImage(
     const base::FilePath& disk_path,
-    vm_tools::concierge::StorageLocation storage_location,
     DestroyDiskImageCallback callback) {
   std::string disk_path_string = disk_path.AsUTF8Unsafe();
   if (disk_path_string.empty()) {
@@ -863,15 +843,6 @@ void CrostiniManager::DestroyDiskImage(
   vm_tools::concierge::DestroyDiskImageRequest request;
   request.set_cryptohome_id(CryptohomeIdForProfile(profile_));
   request.set_disk_path(std::move(disk_path_string));
-
-  if (storage_location != vm_tools::concierge::STORAGE_CRYPTOHOME_ROOT &&
-      storage_location != vm_tools::concierge::STORAGE_CRYPTOHOME_DOWNLOADS) {
-    LOG(ERROR) << "'" << storage_location
-               << "' is not a valid storage location";
-    std::move(callback).Run(CrostiniResult::CLIENT_ERROR);
-    return;
-  }
-  request.set_storage_location(storage_location);
 
   GetConciergeClient()->DestroyDiskImage(
       std::move(request),
@@ -910,6 +881,8 @@ void CrostiniManager::StartTerminaVm(std::string name,
   request.set_name(std::move(name));
   request.set_start_termina(true);
   request.set_owner_id(owner_id_);
+  if (base::FeatureList::IsEnabled(chromeos::features::kCrostiniGpuSupport))
+    request.set_enable_gpu(true);
 
   vm_tools::concierge::DiskImage* disk_image = request.add_disks();
   disk_image->set_path(std::move(disk_path_string));
@@ -1704,6 +1677,16 @@ void CrostiniManager::AddLinuxPackageOperationProgressObserver(
 void CrostiniManager::RemoveLinuxPackageOperationProgressObserver(
     LinuxPackageOperationProgressObserver* observer) {
   linux_package_operation_progress_observers_.RemoveObserver(observer);
+}
+
+void CrostiniManager::AddPendingAppListUpdatesObserver(
+    PendingAppListUpdatesObserver* observer) {
+  pending_app_list_updates_observers_.AddObserver(observer);
+}
+
+void CrostiniManager::RemovePendingAppListUpdatesObserver(
+    PendingAppListUpdatesObserver* observer) {
+  pending_app_list_updates_observers_.RemoveObserver(observer);
 }
 
 void CrostiniManager::AddExportContainerProgressObserver(
@@ -2650,6 +2633,14 @@ void CrostiniManager::OnImportLxdContainerProgress(
     }
     std::move(it->second).Run(result);
     import_lxd_container_callbacks_.erase(it);
+  }
+}
+
+void CrostiniManager::OnPendingAppListUpdates(
+    const vm_tools::cicerone::PendingAppListUpdatesSignal& signal) {
+  for (auto& observer : pending_app_list_updates_observers_) {
+    observer.OnPendingAppListUpdates(signal.vm_name(), signal.container_name(),
+                                     signal.count());
   }
 }
 

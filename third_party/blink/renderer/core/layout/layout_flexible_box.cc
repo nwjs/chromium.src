@@ -73,6 +73,12 @@ void LayoutFlexibleBox::ComputeIntrinsicLogicalWidths(
     min_logical_width = scrollbar_width;
     return;
   }
+  if (DisplayLockInducesSizeContainment()) {
+    min_logical_width = max_logical_width =
+        scrollbar_width +
+        GetDisplayLockContext()->GetLockedContentLogicalWidth();
+    return;
+  }
 
   // FIXME: We're ignoring flex-basis here and we shouldn't. We can't start
   // honoring it though until the flex shorthand stops setting it to 0. See
@@ -238,17 +244,15 @@ bool LayoutFlexibleBox::HasTopOverflow() const {
   EFlexDirection flex_direction = StyleRef().FlexDirection();
   if (IsHorizontalWritingMode())
     return flex_direction == EFlexDirection::kColumnReverse;
-  return flex_direction == (StyleRef().IsLeftToRightDirection()
-                                ? EFlexDirection::kRowReverse
-                                : EFlexDirection::kRow);
+  return !StyleRef().IsLeftToRightDirection() ^
+         (flex_direction == EFlexDirection::kRowReverse);
 }
 
 bool LayoutFlexibleBox::HasLeftOverflow() const {
   EFlexDirection flex_direction = StyleRef().FlexDirection();
   if (IsHorizontalWritingMode()) {
-    return flex_direction == (StyleRef().IsLeftToRightDirection()
-                                  ? EFlexDirection::kRowReverse
-                                  : EFlexDirection::kRow);
+    return !StyleRef().IsLeftToRightDirection() ^
+           (flex_direction == EFlexDirection::kRowReverse);
   }
   return flex_direction == EFlexDirection::kColumnReverse;
 }
@@ -301,7 +305,7 @@ bool LayoutFlexibleBox::HitTestChildren(
         child->HitTestAllPhases(result, location_in_container, child_point);
     if (child_hit) {
       UpdateHitTestResult(
-          result, FlipForWritingMode(ToLayoutPoint(
+          result, DeprecatedFlipForWritingMode(ToLayoutPoint(
                       location_in_container.Point() - accumulated_offset)));
       return true;
     }
@@ -398,7 +402,7 @@ void LayoutFlexibleBox::UpdateBlockLayout(bool relayout_children) {
 }
 
 void LayoutFlexibleBox::PaintChildren(const PaintInfo& paint_info,
-                                      const LayoutPoint&) const {
+                                      const PhysicalOffset&) const {
   BlockPainter(*this).PaintChildrenAtomically(this->GetOrderIterator(),
                                               paint_info);
 }
@@ -499,9 +503,15 @@ LayoutUnit LayoutFlexibleBox::ChildUnstretchedLogicalHeight(
   if (NeedToStretchChildLogicalHeight(child)) {
     LayoutUnit child_intrinsic_content_logical_height;
     if (!child.ShouldApplySizeContainment()) {
-      child_intrinsic_content_logical_height =
-          child.IntrinsicContentLogicalHeight();
+      if (child.DisplayLockInducesSizeContainment()) {
+        child_intrinsic_content_logical_height =
+            child.GetDisplayLockContext()->GetLockedContentLogicalHeight();
+      } else {
+        child_intrinsic_content_logical_height =
+            child.IntrinsicContentLogicalHeight();
+      }
     }
+
     LayoutUnit child_intrinsic_logical_height =
         child_intrinsic_content_logical_height +
         child.ScrollbarLogicalHeight() + child.BorderAndPaddingLogicalHeight();
@@ -525,11 +535,7 @@ LayoutUnit LayoutFlexibleBox::ChildUnstretchedLogicalWidth(
   // and can just return the already-set logical width.
   if (!CrossAxisLengthIsDefinite(child, child.StyleRef().LogicalWidth())) {
     LogicalExtentComputedValues values;
-    // ComputeLogicalWidth has the side-effect of setting LogicalWidth to 0;
-    // so we store and re-set it.
-    LayoutUnit w = child.LogicalWidth();
     child.ComputeLogicalWidth(values);
-    const_cast<LayoutBox&>(child).SetLogicalWidth(w);
     return values.extent_;
   }
 
@@ -726,6 +732,8 @@ bool LayoutFlexibleBox::MainAxisLengthIsDefinite(const LayoutBox& child,
                                                  bool add_to_cb) const {
   if (flex_basis.IsAuto())
     return false;
+  if (IsColumnFlow() && flex_basis.IsIntrinsic())
+    return false;
   if (flex_basis.IsPercentOrCalc()) {
     if (!IsColumnFlow() || has_definite_height_ == SizeDefiniteness::kDefinite)
       return true;
@@ -769,7 +777,9 @@ bool LayoutFlexibleBox::CrossAxisLengthIsDefinite(const LayoutBox& child,
 }
 
 void LayoutFlexibleBox::CacheChildMainSize(const LayoutBox& child) {
-  DCHECK(!child.NeedsLayout());
+  DCHECK(!child.SelfNeedsLayout());
+  DCHECK(!child.NeedsLayout() ||
+         child.LayoutBlockedByDisplayLock(DisplayLockContext::kChildren));
   LayoutUnit main_size;
   if (MainAxisIsInlineAxis(child)) {
     main_size = child.MaxPreferredLogicalWidth();
@@ -839,8 +849,10 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
     const Length& cross_size_length = IsHorizontalFlow()
                                           ? child.StyleRef().Height()
                                           : child.StyleRef().Width();
-    return ComputeMainSizeFromAspectRatioUsing(child, cross_size_length) -
-           main_axis_border_scrollbar_padding;
+    LayoutUnit result =
+        ComputeMainSizeFromAspectRatioUsing(child, cross_size_length);
+    result = AdjustChildSizeForAspectRatioCrossAxisMinAndMax(child, result);
+    return result - main_axis_border_scrollbar_padding;
   }
 
   // The flex basis is indefinite (=auto), so we need to compute the actual
@@ -854,6 +866,11 @@ LayoutUnit LayoutFlexibleBox::ComputeInnerFlexBaseSizeForChild(
   } else {
     if (child.ShouldApplySizeContainment())
       return LayoutUnit();
+    // The needed value here is the logical height. This value does not include
+    // the border/scrollbar/padding size, so we can just return the locked value
+    // directly.
+    if (child.DisplayLockInducesSizeContainment())
+      return child.GetDisplayLockContext()->GetLockedContentLogicalHeight();
 
     if (child_layout_type == kNeverLayout)
       return LayoutUnit();
@@ -1394,7 +1411,8 @@ bool LayoutFlexibleBox::ChildHasIntrinsicMainAxisSize(
     const LayoutBox& child) const {
   bool result = false;
   bool main_axis_is_inline = MainAxisIsInlineAxis(child);
-  if (!main_axis_is_inline && !child.ShouldApplySizeContainment()) {
+  if (!main_axis_is_inline && !child.ShouldApplySizeContainment() &&
+      !child.DisplayLockInducesSizeContainment()) {
     Length child_flex_basis = FlexBasisForChild(child);
     const Length& child_min_size = IsHorizontalFlow()
                                        ? child.StyleRef().MinWidth()
@@ -1657,11 +1675,8 @@ void LayoutFlexibleBox::ApplyStretchAlignmentToChild(FlexItem& flex_item) {
     }
     if (child_needs_relayout || !child.HasOverrideLogicalHeight())
       child.SetOverrideLogicalHeight(flex_item.cross_axis_size);
-    if (child_needs_relayout) {
-      // TODO(cbiesinger): Why is this necessary?
-      child.SetLogicalHeight(LayoutUnit());
+    if (child_needs_relayout)
       child.ForceLayout();
-    }
   } else if (!flex_item.MainAxisIsInlineAxis() &&
              child.StyleRef().LogicalWidth().IsAuto()) {
     if (flex_item.cross_axis_size != child.LogicalWidth()) {

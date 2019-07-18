@@ -241,16 +241,17 @@ const AXPosition AXPosition::FromPosition(
     } else {
       const AXObject* ax_child =
           ax_object_cache_impl->GetOrCreate(node_after_position);
-      DCHECK(ax_child);
-
-      if (ax_child->AccessibilityIsIgnored()) {
-        // Find the closest DOM sibling that is unignored in the accessibility
-        // tree.
+      // |ax_child| might be nullptr because not all DOM nodes can have AX
+      // objects. For example, the "head" element has no corresponding AX
+      // object.
+      if (!ax_child || ax_child->AccessibilityIsIgnored()) {
+        // Find the closest DOM sibling that is present and unignored in the
+        // accessibility tree.
         switch (adjustment_behavior) {
           case AXPositionAdjustmentBehavior::kMoveRight: {
             const AXObject* next_child = FindNeighboringUnignoredObject(
                 *document, *node_after_position,
-                ToContainerNodeOrNull(container_node), adjustment_behavior);
+                DynamicTo<ContainerNode>(container_node), adjustment_behavior);
             if (next_child) {
               return CreatePositionBeforeObject(*next_child,
                                                 adjustment_behavior);
@@ -262,7 +263,7 @@ const AXPosition AXPosition::FromPosition(
           case AXPositionAdjustmentBehavior::kMoveLeft: {
             const AXObject* previous_child = FindNeighboringUnignoredObject(
                 *document, *node_after_position,
-                ToContainerNodeOrNull(container_node), adjustment_behavior);
+                DynamicTo<ContainerNode>(container_node), adjustment_behavior);
             if (previous_child) {
               // |CreatePositionAfterObject| cannot be used here because it will
               // try to create a position before the object that comes after

@@ -120,6 +120,15 @@ void AXSelection::ClearCurrentSelection(Document& document) {
 AXSelection AXSelection::FromCurrentSelection(
     const Document& document,
     const AXSelectionBehavior selection_behavior) {
+  // Previously, retrieving the selection would cause the layout to become
+  // clean, because we were using a deprecated function for retrieving the
+  // selection from the DOM tree,
+  // FrameSelection::ComputeVisibleSelectionInDOMTreeDeprecated. The layout
+  // should not be dirty in the first place, but somehow it is. While we are
+  // investigating the reasons behind this, the workaround is to restore the
+  // previous behavior by forcing the layout to  clean.
+  // TODO(nektar): Remove the following line at the earliest opportunity.
+  const_cast<Document&>(document).UpdateStyleAndLayout();
   const LocalFrame* frame = document.GetFrame();
   if (!frame)
     return {};
@@ -179,25 +188,34 @@ AXSelection AXSelection::FromSelection(
       AXPositionAdjustmentBehavior::kMoveRight;
   AXPositionAdjustmentBehavior extent_adjustment =
       AXPositionAdjustmentBehavior::kMoveRight;
-  switch (selection_behavior) {
-    case AXSelectionBehavior::kShrinkToValidDOMRange:
-      if (selection.IsBaseFirst()) {
-        base_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
-        extent_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
-      } else {
-        base_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
-        extent_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
-      }
-      break;
-    case AXSelectionBehavior::kExtendToValidDOMRange:
-      if (selection.IsBaseFirst()) {
-        base_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
-        extent_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
-      } else {
-        base_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
-        extent_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
-      }
-      break;
+  // If the selection is not collapsed, extend or shrink the DOM selection if
+  // there is no equivalent selection in the accessibility tree, i.e. if the
+  // corresponding endpoints are either ignored or unavailable in the
+  // accessibility tree. If the selection is collapsed, move both endpoints to
+  // the next valid position in the accessibility tree but do not extend or
+  // shrink the selection, because this will result in a non-collapsed selection
+  // in the accessibility tree.
+  if (!selection.IsCaret()) {
+    switch (selection_behavior) {
+      case AXSelectionBehavior::kShrinkToValidDOMRange:
+        if (selection.IsBaseFirst()) {
+          base_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
+          extent_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
+        } else {
+          base_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
+          extent_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
+        }
+        break;
+      case AXSelectionBehavior::kExtendToValidDOMRange:
+        if (selection.IsBaseFirst()) {
+          base_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
+          extent_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
+        } else {
+          base_adjustment = AXPositionAdjustmentBehavior::kMoveRight;
+          extent_adjustment = AXPositionAdjustmentBehavior::kMoveLeft;
+        }
+        break;
+    }
   }
 
   const auto ax_base =

@@ -26,6 +26,7 @@
 #include "third_party/blink/renderer/core/html/media/html_video_element.h"
 
 #include <memory>
+
 #include "base/bind_helpers.h"
 #include "cc/paint/paint_canvas.h"
 #include "third_party/blink/public/platform/web_fullscreen_video_status.h"
@@ -78,7 +79,7 @@ enum VideoPersistenceControlsType {
 
 }  // anonymous namespace
 
-inline HTMLVideoElement::HTMLVideoElement(Document& document)
+HTMLVideoElement::HTMLVideoElement(Document& document)
     : HTMLMediaElement(kVideoTag, document),
       remoting_interstitial_(nullptr),
       picture_in_picture_interstitial_(nullptr),
@@ -101,13 +102,9 @@ inline HTMLVideoElement::HTMLVideoElement(Document& document)
   }
 
   wake_lock_ = MakeGarbageCollected<VideoWakeLock>(*this);
-}
 
-HTMLVideoElement* HTMLVideoElement::Create(Document& document) {
-  HTMLVideoElement* video = MakeGarbageCollected<HTMLVideoElement>(document);
-  video->EnsureUserAgentShadowRoot();
-  video->UpdateStateIfNeeded();
-  return video;
+  EnsureUserAgentShadowRoot();
+  UpdateStateIfNeeded();
 }
 
 void HTMLVideoElement::Trace(Visitor* visitor) {
@@ -522,9 +519,10 @@ bool HTMLVideoElement::HasAvailableVideoFrame() const {
   if (!GetWebMediaPlayer())
     return false;
 
+  // The ready state maximum is used here instead of the current ready state
+  // since a frame is still available during a seek.
   return GetWebMediaPlayer()->HasVideo() &&
-         GetWebMediaPlayer()->GetReadyState() >=
-             WebMediaPlayer::kReadyStateHaveCurrentData;
+         ready_state_maximum_ >= kHaveCurrentData;
 }
 
 void HTMLVideoElement::webkitEnterFullscreen() {
@@ -689,14 +687,14 @@ ScriptPromise HTMLVideoElement::CreateImageBitmap(
   DCHECK(event_target.ToLocalDOMWindow());
   if (getNetworkState() == HTMLMediaElement::kNetworkEmpty) {
     return ScriptPromise::RejectWithDOMException(
-        script_state,
-        DOMException::Create(DOMExceptionCode::kInvalidStateError,
-                             "The provided element has not retrieved data."));
+        script_state, MakeGarbageCollected<DOMException>(
+                          DOMExceptionCode::kInvalidStateError,
+                          "The provided element has not retrieved data."));
   }
   if (getReadyState() <= HTMLMediaElement::kHaveMetadata) {
     return ScriptPromise::RejectWithDOMException(
         script_state,
-        DOMException::Create(
+        MakeGarbageCollected<DOMException>(
             DOMExceptionCode::kInvalidStateError,
             "The provided element's player has no current data."));
   }
@@ -729,11 +727,6 @@ bool HTMLVideoElement::SupportsPictureInPicture() const {
   return PictureInPictureController::From(GetDocument())
              .IsElementAllowed(*this) ==
          PictureInPictureController::Status::kEnabled;
-}
-
-void HTMLVideoElement::PictureInPictureStopped() {
-  PictureInPictureController::From(GetDocument())
-      .OnExitedPictureInPicture(nullptr);
 }
 
 WebMediaPlayer::DisplayType HTMLVideoElement::DisplayType() const {
@@ -773,7 +766,8 @@ void HTMLVideoElement::OnEnteredPictureInPicture() {
   }
   picture_in_picture_interstitial_->Show();
 
-  PictureInPicturePseudoStateChanged();
+  if (RuntimeEnabledFeatures::CSSPictureInPictureEnabled())
+    PseudoStateChanged(CSSSelector::kPseudoPictureInPicture);
 
   DCHECK(GetWebMediaPlayer());
   GetWebMediaPlayer()->OnDisplayTypeChanged(DisplayType());
@@ -783,7 +777,8 @@ void HTMLVideoElement::OnExitedPictureInPicture() {
   if (picture_in_picture_interstitial_)
     picture_in_picture_interstitial_->Hide();
 
-  PictureInPicturePseudoStateChanged();
+  if (RuntimeEnabledFeatures::CSSPictureInPictureEnabled())
+    PseudoStateChanged(CSSSelector::kPseudoPictureInPicture);
 
   if (GetWebMediaPlayer())
     GetWebMediaPlayer()->OnDisplayTypeChanged(DisplayType());

@@ -95,7 +95,6 @@
       <include name="IDR_ACCESSIBILITY_HTML" file="resources\accessibility\accessibility.html" flattenhtml="true" allowexternalscript="true" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_CSS" file="resources\accessibility\accessibility.css" compress="gzip" type="BINDATA" />
       <include name="IDR_ACCESSIBILITY_JS" file="resources\accessibility\accessibility.js" flattenhtml="true" compress="gzip" type="BINDATA" />
-      <include name="IDR_AUTOFILL_INTERNALS_HTML" file="resources\autofill_internals\autofill_internals.html" compress="gzip" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_ABOUT_VERSION_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_ABOUT_VOICESEARCH_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -158,7 +157,6 @@
       <if expr="not is_android">
         <if expr="optimize_webui">
           <then>
-            <include name="IDR_MD_DOWNLOADS_VULCANIZED_HTML" file="${root_gen_dir}\chrome\browser\resources\downloads\vulcanized.html" use_base_dir="false" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
             <include name="IDR_MD_DOWNLOADS_VULCANIZED_P2_HTML" file="${root_gen_dir}\chrome\browser\resources\downloads\vulcanized.p2.html" use_base_dir="false" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
             <include name="IDR_MD_DOWNLOADS_CRISPER_JS" file="${root_gen_dir}\chrome\browser\resources\downloads\crisper.js" use_base_dir="false" flattenhtml="true" type="BINDATA" compress="gzip" />
           </then>
@@ -211,7 +209,6 @@
         <include name="IDR_DOWNLOADS_MOJO_LITE_JS" file="${root_gen_dir}\chrome\browser\ui\webui\downloads\downloads.mojom-lite.js" use_base_dir="false" type="BINDATA" />
         <if expr="optimize_webui">
           <then>
-            <include name="IDR_DOWNLOADS_VULCANIZED_HTML" file="${root_gen_dir}\chrome\browser\resources\downloads\vulcanized.html" use_base_dir="false" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
             <include name="IDR_DOWNLOADS_VULCANIZED_P2_HTML" file="${root_gen_dir}\chrome\browser\resources\downloads\vulcanized.p2.html" use_base_dir="false" flattenhtml="true" allowexternalscript="true" type="BINDATA" compress="gzip" />
             <include name="IDR_DOWNLOADS_CRISPER_JS" file="${root_gen_dir}\chrome\browser\resources\downloads\crisper.js" use_base_dir="false" flattenhtml="true" type="BINDATA" compress="gzip" />
           </then>

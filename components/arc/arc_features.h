@@ -23,8 +23,10 @@ extern const base::Feature kEnableUnifiedAudioFocusFeature;
 extern const base::Feature kFilePickerExperimentFeature;
 extern const base::Feature kGraphicBuffersVisualizationTool;
 extern const base::Feature kNativeBridgeExperimentFeature;
+extern const base::Feature kPrintSpoolerExperimentFeature;
 extern const base::Feature kSmartTextSelectionFeature;
 extern const base::Feature kUsbHostFeature;
+extern const base::Feature kUsbStorageUIFeature;
 extern const base::Feature kVpnFeature;
 
 }  // namespace arc

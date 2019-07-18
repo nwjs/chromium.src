@@ -63,8 +63,8 @@ WebViewActionRequest.prototype.defaultAction = function() {
   }
 
   this.actionTaken = true;
-  //CrashIfInvalidInstanceId(
-  //    this.guestInstanceId, 'WebViewActionRequest.defaultAction');
+  CrashIfInvalidInstanceId(
+      this.guestInstanceId, 'WebViewActionRequest.defaultAction');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'default',
                                 '', $Function.bind(function(allowed) {
     if (allowed) {
@@ -210,7 +210,7 @@ NewWindow.prototype.getInterfaceObject = function() {
       // then we will fail and it will be treated as if the new window
       // was rejected. The permission API plumbing is used here to clean
       // up the state created for the new window if attaching fails.
-      //CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow attach');
+      CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow attach');
       WebViewInternal.setPermission(this.guestInstanceId, this.requestId,
                                     attached ? 'allow' : 'deny');
     }, this),
@@ -221,7 +221,7 @@ NewWindow.prototype.getInterfaceObject = function() {
         // guestInstanceId.
         return;
       }
-      //CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow discard');
+      CrashIfInvalidInstanceId(this.guestInstanceId, 'NewWindow discard');
       WebViewInternal.setPermission(
           this.guestInstanceId, this.requestId, 'deny');
     }, this)
@@ -252,13 +252,13 @@ PermissionRequest.prototype.__proto__ = WebViewActionRequest.prototype;
 
 PermissionRequest.prototype.allow = function() {
   this.validateCall();
-  //CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.allow');
+  CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.allow');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'allow');
 };
 
 PermissionRequest.prototype.deny = function() {
   this.validateCall();
-  //CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.deny');
+  CrashIfInvalidInstanceId(this.guestInstanceId, 'PermissionRequest.deny');
   WebViewInternal.setPermission(this.guestInstanceId, this.requestId, 'deny');
 };
 

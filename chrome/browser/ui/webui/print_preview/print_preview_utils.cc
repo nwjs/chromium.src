@@ -51,11 +51,9 @@ void PrintersToValues(const printing::PrinterList& printer_list,
     auto printer_info = std::make_unique<base::DictionaryValue>();
     printer_info->SetString(printing::kSettingDeviceName, printer.printer_name);
 
-    const auto printer_name_description = GetPrinterNameAndDescription(printer);
-    const std::string& printer_name = printer_name_description.first;
-    const std::string& printer_description = printer_name_description.second;
-    printer_info->SetString(printing::kSettingPrinterName, printer_name);
-    printer_info->SetString(printing::kSettingPrinterDescription, printer_description);
+    printer_info->SetString(printing::kSettingPrinterName, printer.display_name);
+    printer_info->SetString(printing::kSettingPrinterDescription,
+                            printer.printer_description);
 
     auto options = std::make_unique<base::DictionaryValue>();
     for (const auto opt_it : printer.options)
@@ -70,7 +68,7 @@ void PrintersToValues(const printing::PrinterList& printer_list,
 
     printers->Append(std::move(printer_info));
 
-    VLOG(1) << "Found printer " << printer_name << " with device name "
+    VLOG(1) << "Found printer " << printer.display_name << " with device name "
             << printer.printer_name;
   }
 }

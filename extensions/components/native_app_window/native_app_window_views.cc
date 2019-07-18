@@ -477,7 +477,7 @@ void NativeAppWindowViews::SetShowInTaskbar(bool show) {
 #if defined(OS_WIN)
   views::Widget* widget = widget_->GetTopLevelWidget();
 
-  if (show == false && base::win::GetVersion() < base::win::VERSION_VISTA) {
+  if (show == false && base::win::GetVersion() < base::win::Version::VISTA) {
     // Change the owner of native window. Only needed on Windows XP.
     ::SetParent(views::HWNDForWidget(widget),
                 ui::GetHiddenWindow());

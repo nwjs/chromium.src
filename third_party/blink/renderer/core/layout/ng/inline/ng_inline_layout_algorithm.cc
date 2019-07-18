@@ -96,8 +96,10 @@ NGInlineBoxState* NGInlineLayoutAlgorithm::HandleCloseTag(
     box->EnsureTextMetrics(*item.Style(), baseline_type_);
   box = box_states_->OnCloseTag(&line_box_, box, baseline_type_,
                                 item.HasEndEdge());
-  item.GetLayoutObject()->SetShouldDoFullPaintInvalidation();
-  ClearNeedsLayoutIfNeeded(item.GetLayoutObject());
+  // Just clear |NeedsLayout| flags. Culled inline boxes do not need paint
+  // invalidations. If this object produces box fragments,
+  // |NGInlineBoxStateStack| takes care of invalidations.
+  item.GetLayoutObject()->ClearNeedsLayoutWithoutPaintInvalidation();
   return box;
 }
 
@@ -239,7 +241,8 @@ void NGInlineLayoutAlgorithm::CreateLine(
       }
       line_box_.AddChild(text_builder.ToTextFragment(), box->text_top,
                          item_result.inline_size, item.BidiLevel());
-      ClearNeedsLayoutIfNeeded(item.GetLayoutObject());
+      // Text boxes always need full paint invalidations.
+      item.GetLayoutObject()->ClearNeedsLayoutWithFullPaintInvalidation();
     } else if (item.Type() == NGInlineItem::kControl) {
       PlaceControlItem(item, *line_info, &item_result, box);
     } else if (item.Type() == NGInlineItem::kOpenTag) {
@@ -290,6 +293,14 @@ void NGInlineLayoutAlgorithm::CreateLine(
     box_states_->UpdateAfterReorder(&line_box_);
   }
   LayoutUnit inline_size = box_states_->ComputeInlinePositions(&line_box_);
+  if (LayoutUnit hang_width = line_info->HangWidth()) {
+    inline_size -= hang_width;
+    container_builder_.SetHangInlineSize(hang_width);
+
+    if (IsRtl(line_info->BaseDirection())) {
+      line_box_.MoveInInlineDirection(-hang_width);
+    }
+  }
 
   // Truncate the line if 'text-overflow: ellipsis' is set.
   if (UNLIKELY(inline_size > line_info->AvailableWidth() &&
@@ -346,6 +357,7 @@ void NGInlineLayoutAlgorithm::CreateLine(
   // Even if we have something in-flow, it may just be empty items that
   // shouldn't trigger creation of a line. Exit now if that's the case.
   if (line_info->IsEmptyLine()) {
+    container_builder_.SetIsSelfCollapsing();
     container_builder_.SetIsEmptyLineBox();
     container_builder_.SetBaseDirection(line_info->BaseDirection());
     container_builder_.AddChildren(line_box_);
@@ -413,7 +425,7 @@ void NGInlineLayoutAlgorithm::PlaceControlItem(const NGInlineItem& item,
 // Place a generated content that does not exist in DOM nor in LayoutObject
 // tree.
 void NGInlineLayoutAlgorithm::PlaceGeneratedContent(
-    scoped_refptr<const NGPhysicalFragment> fragment,
+    scoped_refptr<const NGPhysicalTextFragment> fragment,
     UBiDiLevel bidi_level,
     NGInlineBoxState* box) {
   LayoutUnit inline_size = IsHorizontalWritingMode() ? fragment->Size().width
@@ -466,7 +478,7 @@ void NGInlineLayoutAlgorithm::PlaceLayoutResult(NGInlineItemResult* item_result,
   NGBoxFragment fragment(ConstraintSpace().GetWritingMode(),
                          ConstraintSpace().Direction(),
                          To<NGPhysicalBoxFragment>(
-                             *item_result->layout_result->PhysicalFragment()));
+                             item_result->layout_result->PhysicalFragment()));
   NGLineHeightMetrics metrics = fragment.BaselineMetrics(
       {NGBaselineAlgorithmType::kAtomicInline, baseline_type_},
       ConstraintSpace());
@@ -475,7 +487,7 @@ void NGInlineLayoutAlgorithm::PlaceLayoutResult(NGInlineItemResult* item_result,
 
   LayoutUnit line_top = item_result->margins.line_over - metrics.ascent;
   line_box_.AddChild(std::move(item_result->layout_result),
-                     NGLogicalOffset{inline_offset, line_top},
+                     LogicalOffset{inline_offset, line_top},
                      item_result->inline_size, item.BidiLevel());
 }
 
@@ -525,7 +537,7 @@ void NGInlineLayoutAlgorithm::PlaceOutOfFlowObjects(
     if (!box)
       continue;
 
-    NGLogicalOffset static_offset(LayoutUnit(), baseline_adjustment);
+    LogicalOffset static_offset(LayoutUnit(), baseline_adjustment);
     if (box->StyleRef().IsOriginalDisplayInlineType()) {
       // An inline-level OOF element positions itself within the line, at the
       // position it would have been if it was in-flow.
@@ -566,9 +578,8 @@ void NGInlineLayoutAlgorithm::PlaceFloatingObjects(
   bool is_empty_inline = Node().IsEmptyInline();
 
   LayoutUnit bfc_block_offset = line_info.BfcOffset().block_offset;
-  if (is_empty_inline && ConstraintSpace().FloatsBfcBlockOffset()) {
-    bfc_block_offset = *ConstraintSpace().FloatsBfcBlockOffset();
-  }
+  if (is_empty_inline && ConstraintSpace().ForcedBfcBlockOffset())
+    bfc_block_offset = *ConstraintSpace().ForcedBfcBlockOffset();
 
   LayoutUnit bfc_line_offset = container_builder_.BfcLineOffset();
 
@@ -587,7 +598,7 @@ void NGInlineLayoutAlgorithm::PlaceFloatingObjects(
 
     // Skip any children which aren't positioned floats.
     if (!child.layout_result ||
-        !child.layout_result->PhysicalFragment()->IsFloating())
+        !child.layout_result->PhysicalFragment().IsFloating())
       continue;
 
     LayoutUnit block_offset =
@@ -595,9 +606,8 @@ void NGInlineLayoutAlgorithm::PlaceFloatingObjects(
 
     // We need to manually account for the flipped-lines writing mode here :(.
     if (IsFlippedLinesWritingMode(ConstraintSpace().GetWritingMode())) {
-      NGFragment fragment(
-          ConstraintSpace().GetWritingMode(),
-          To<NGPhysicalBoxFragment>(*child.layout_result->PhysicalFragment()));
+      NGFragment fragment(ConstraintSpace().GetWritingMode(),
+                          child.layout_result->PhysicalFragment());
 
       block_offset = -fragment.BlockSize() - block_offset;
     }
@@ -629,10 +639,7 @@ bool NGInlineLayoutAlgorithm::ApplyJustify(LayoutUnit space,
     return false;
 
   // Justify the end of visible text, ignoring preserved trailing spaces.
-  unsigned end_offset;
-  LayoutUnit trailing_spaces_width =
-      line_info->ComputeTrailingSpaceWidth(&end_offset);
-  space += trailing_spaces_width;
+  unsigned end_offset = line_info->EndOffsetForJustify();
 
   // If this line overflows, fallback to 'text-align: start'.
   if (space <= 0)
@@ -700,8 +707,7 @@ LayoutUnit NGInlineLayoutAlgorithm::ApplyTextAlign(NGLineInfo* line_info) {
   LayoutUnit space =
       line_info->AvailableWidth() - line_info->WidthForAlignment();
 
-  const ComputedStyle& line_style = line_info->LineStyle();
-  ETextAlign text_align = line_style.GetTextAlign(line_info->IsLastLine());
+  ETextAlign text_align = line_info->TextAlign();
   if (text_align == ETextAlign::kJustify) {
     // If justification succeeds, no offset is needed. Expansions are set to
     // each |NGInlineItemResult| in |line_info|.
@@ -791,6 +797,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
   NGExclusionSpace exclusion_space;
   const NGInlineBreakToken* break_token = BreakToken();
 
+  bool is_line_created = false;
   LayoutUnit line_block_size;
   LayoutUnit block_delta;
   const auto* opportunities_it = opportunities.begin();
@@ -818,6 +825,7 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
     // Reset any state that may have been modified in a previous pass.
     container_builder_.Reset();
     exclusion_space = initial_exclusion_space;
+    is_line_created = false;
 
     NGLineLayoutOpportunity line_opportunity =
         opportunity.ComputeLineLayoutOpportunity(ConstraintSpace(),
@@ -834,8 +842,8 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
     // *and* the opportunity is smaller than the available inline-size, and the
     // container autowraps, continue to the next opportunity.
     if (line_info.HasOverflow() &&
-        ConstraintSpace().AvailableSize().inline_size !=
-            line_opportunity.AvailableFloatInlineSize() &&
+        !line_opportunity.IsEqualToAvailableFloatInlineSize(
+            ConstraintSpace().AvailableSize().inline_size) &&
         Node().Style().AutoWrap()) {
       // Shapes are *special*. We need to potentially increment the block-delta
       // by 1px each loop to properly test each potential position of the line.
@@ -851,11 +859,15 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
         line_block_size = LayoutUnit();
         ++opportunities_it;
       }
+      // There must be at least one more opportunity, or we fail to call
+      // |CreateLine()|.
+      DCHECK_NE(opportunities_it, opportunities.end());
       continue;
     }
 
     PrepareBoxStates(line_info, break_token);
     CreateLine(line_opportunity, &line_info, &exclusion_space);
+    is_line_created = true;
 
     // We now can check the block-size of the fragment, and it fits within the
     // opportunity.
@@ -909,10 +921,16 @@ scoped_refptr<const NGLayoutResult> NGInlineLayoutAlgorithm::Layout() {
       // TODO(ikilpatrick): Move this into ng_block_layout_algorithm.
       container_builder_.SetBlockSize(
           ComputeContentSize(line_info, exclusion_space, line_height));
+
+      // As we aren't an empty inline we should have correctly placed all
+      // our adjoining floats, and shouldn't propagate this information
+      // to siblings.
+      container_builder_.ResetAdjoiningFloatTypes();
     }
     break;
   }
 
+  CHECK(is_line_created);
   container_builder_.SetExclusionSpace(std::move(exclusion_space));
   container_builder_.MoveOutOfFlowDescendantCandidatesToDescendants();
   return container_builder_.ToLineBoxFragment();
@@ -948,13 +966,13 @@ unsigned NGInlineLayoutAlgorithm::PositionLeadingFloats(
             ? kFloatTypeLeft
             : kFloatTypeRight);
 
-    // If we are an empty inline, and don't have the special floats BFC
+    // If we are an empty inline, and don't have the special forced BFC
     // block-offset yet, there is no way to position any floats.
-    if (is_empty_inline && !ConstraintSpace().FloatsBfcBlockOffset())
+    if (is_empty_inline && !ConstraintSpace().ForcedBfcBlockOffset())
       continue;
 
     LayoutUnit origin_bfc_block_offset =
-        is_empty_inline ? *ConstraintSpace().FloatsBfcBlockOffset()
+        is_empty_inline ? *ConstraintSpace().ForcedBfcBlockOffset()
                         : ConstraintSpace().BfcOffset().block_offset;
 
     NGPositionedFloat positioned_float = PositionFloat(

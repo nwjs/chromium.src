@@ -11,9 +11,9 @@
 #include "base/memory/ref_counted.h"
 #include "base/synchronization/lock.h"
 #include "content/public/browser/browser_thread.h"
-#include "device/usb/public/mojom/device.mojom.h"
 #include "extensions/browser/api/api_resource.h"
 #include "extensions/browser/api/api_resource_manager.h"
+#include "services/device/public/mojom/usb_device.mojom.h"
 
 namespace extensions {
 
@@ -37,8 +37,6 @@ class UsbDeviceResource : public ApiResource {
  private:
   friend class ApiResourceManager<UsbDeviceResource>;
   static const char* service_name() { return "UsbDeviceResourceManager"; }
-
-  void OnConnectionError();
 
   const std::string guid_;
   device::mojom::UsbDevicePtr device_;

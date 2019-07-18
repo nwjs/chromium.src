@@ -33,7 +33,6 @@
 
 namespace blink {
 class WebApplicationCacheHost;
-class WebApplicationCacheHostClient;
 class WebSharedWorker;
 }  // namespace blink
 
@@ -45,7 +44,6 @@ class URLLoaderFactoryBundleInfo;
 namespace content {
 
 class ChildURLLoaderFactoryBundle;
-class WebApplicationCacheHostImpl;
 struct NavigationResponseOverrideParameters;
 
 // A stub class to receive IPC from browser process and talk to
@@ -66,9 +64,8 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
       blink::mojom::WorkerContentSettingsProxyPtr content_settings,
       blink::mojom::ServiceWorkerProviderInfoForWorkerPtr
           service_worker_provider_info,
-      int appcache_host_id,
-      network::mojom::URLLoaderFactoryAssociatedPtrInfo
-          main_script_loader_factory,
+      const base::UnguessableToken& appcache_host_id,
+      network::mojom::URLLoaderFactoryPtr main_script_loader_factory,
       blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
       std::unique_ptr<blink::URLLoaderFactoryBundleInfo>
           subresource_loader_factory_bundle_info,
@@ -86,7 +83,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
   void WorkerScriptLoaded() override;
   void WorkerScriptLoadFailed() override;
   void WorkerScriptEvaluated(bool success) override;
-  void SelectAppCacheID(int64_t) override;
+  void SelectAppCacheID(int64_t, base::OnceClosure) override;
   std::unique_ptr<blink::WebApplicationCacheHost> CreateApplicationCacheHost(
       blink::WebApplicationCacheHostClient*) override;
   std::unique_ptr<blink::WebServiceWorkerNetworkProvider>
@@ -125,11 +122,11 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
       std::pair<int /* connection_request_id */, blink::MessagePortChannel>;
   std::vector<PendingChannel> pending_channels_;
 
-  const int appcache_host_id_;
+  const base::UnguessableToken appcache_host_id_;
+  blink::WebApplicationCacheHost* app_cache_host_ = nullptr;  // Not owned.
   bool nodejs_ = false;
   base::FilePath root_path_;
 
-  WebApplicationCacheHostImpl* app_cache_host_ = nullptr;  // Not owned.
 
   // The info needed to connect to the ServiceWorkerProviderHost on the browser.
   blink::mojom::ServiceWorkerProviderInfoForWorkerPtr
@@ -137,7 +134,7 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
 
   // NetworkService: The URLLoaderFactory used for loading the shared worker
   // main script.
-  network::mojom::URLLoaderFactoryAssociatedPtrInfo main_script_loader_factory_;
+  network::mojom::URLLoaderFactoryPtr main_script_loader_factory_;
 
   // NetworkService:
   blink::mojom::ControllerServiceWorkerInfoPtr controller_info_;

@@ -28,6 +28,7 @@
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_view.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
+#include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/create_window.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
@@ -178,40 +179,67 @@ unsigned FrameTree::ChildCount() const {
   return count;
 }
 
-FrameTree::FindResult FrameTree::FindFrameForNavigation(
-    FrameLoadRequest& request) const {
+Frame* FrameTree::FindFrameByName(const AtomicString& name) const {
   // Named frame lookup should always be relative to a local frame.
   DCHECK(IsA<LocalFrame>(this_frame_.Get()));
 
-  Frame* frame = FindFrameForNavigationInternal(request);
+  Frame* frame = FindFrameForNavigationInternal(name, KURL());
   if (frame && !To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame))
     frame = nullptr;
-  return FindResult(frame, false);
+  return frame;
 }
 
 FrameTree::FindResult FrameTree::FindOrCreateFrameForNavigation(
-    FrameLoadRequest& request) const {
+    FrameLoadRequest& request,
+    const AtomicString& name) const {
   // Named frame lookup should always be relative to a local frame.
   DCHECK(IsA<LocalFrame>(this_frame_.Get()));
   LocalFrame* current_frame = To<LocalFrame>(this_frame_.Get());
 
-  Frame* frame = FindFrameForNavigationInternal(request);
+  NavigationPolicy policy = request.GetNavigationPolicy();
+  if (name == "_blank")
+    policy = kNavigationPolicyNewWindow;
+
+  const KURL& url = request.GetResourceRequest().Url();
+  Frame* frame = FindFrameForNavigationInternal(name, url);
+
+  if (!frame || policy != kNavigationPolicyCurrentTab) {
+    WebString manifest;
+    current_frame->Client()->willHandleNavigationPolicy(request.GetResourceRequest(), &policy, &manifest);
+    if (policy == kNavigationPolicyIgnore)
+      return FindResult(nullptr, false);
+    request.SetManifest(manifest);
+  }
+  // A GetNavigationPolicy() value other than kNavigationPolicyCurrentTab at
+  // this point indicates that a user event modified the navigation policy
+  // (e.g., a ctrl-click). Let the user's action override any target attribute.
+  if (request.GetNavigationPolicy() != kNavigationPolicyCurrentTab)
+    return FindResult(current_frame, false);
+
   bool new_window = false;
   if (!frame) {
     WebString manifest = request.GetManifest();
-    frame = CreateNewWindow(*current_frame, request, &manifest);
+    frame = CreateNewWindow(*current_frame, request, name, &manifest);
     new_window = true;
-  } else if (!current_frame->CanNavigate(*frame)) {
+    // CreateNewWindow() might have modified NavigationPolicy.
+    // Set it back now that the new window is known to be the right one.
+    request.SetNavigationPolicy(kNavigationPolicyCurrentTab);
+  } else if (!current_frame->CanNavigate(*frame, url)) {
     frame = nullptr;
   }
 
+  if (frame && !new_window) {
+    if (frame->GetPage() != current_frame->GetPage())
+      frame->GetPage()->GetChromeClient().Focus(current_frame);
+    // Focusing can fire onblur, so check for detach.
+    if (!frame->GetPage())
+      frame = nullptr;
+  }
   return FindResult(frame, new_window);
 }
 
-Frame* FrameTree::FindFrameForNavigationInternal(
-    FrameLoadRequest& request) const {
-  const AtomicString& name = request.FrameName();
-
+Frame* FrameTree::FindFrameForNavigationInternal(const AtomicString& name,
+                                                 const KURL& url) const {
   if (EqualIgnoringASCIICase(name, "_current")) {
     UseCounter::Count(
         blink::DynamicTo<blink::LocalFrame>(this_frame_.Get())->GetDocument(),
@@ -236,19 +264,18 @@ Frame* FrameTree::FindFrameForNavigationInternal(
     return Parent() ? Parent() : this_frame_.Get();
   }
 
-  // Since "_blank" should never be any frame's name, the following just amounts
-  // to an optimization.
-  if (EqualIgnoringASCIICase(name, "_blank"))
-    return nullptr;
+  if (EqualIgnoringASCIICase(name, "_blank")) {
+    if (RuntimeEnabledFeatures::RedirectBlankNavigationToTopEnabled()) {
+      // TODO(mthiesse): Only apply this behavior to navigations without
+      // rel=opener once
+      // https://html.spec.whatwg.org/multipage/links.html#link-type-opener is
+      // implemented.
+      return &Top();
+    } else {
+      return nullptr;
+    }
+  }
 
-  // TODO(japhet): window-open-noopener.html?indexed asserts that the noopener
-  // feature prevents named-window reuse, but the spec doesn't mention this.
-  // There is ongoing discussion at https://github.com/whatwg/html/issues/1826,
-  // and this will probably need to be updated once that discussion is resolved.
-  if (request.IsWindowOpen() && request.GetWindowFeatures().noopener)
-    return nullptr;
-
-  const KURL& url = request.GetResourceRequest().Url();
   // Search subtree starting with this frame first.
   for (Frame* frame = this_frame_; frame;
        frame = frame->Tree().TraverseNext(this_frame_)) {
@@ -267,7 +294,11 @@ Frame* FrameTree::FindFrameForNavigationInternal(
 
   for (Frame* frame = page->MainFrame(); frame;
        frame = frame->Tree().TraverseNext()) {
+    // Skip descendants of this frame that were searched above to avoid
+    // showing duplicate console messages if a frame is found by name
+    // but access is blocked.
     if (frame->Tree().GetName() == name &&
+        !frame->Tree().IsDescendantOf(this_frame_.Get()) &&
         To<LocalFrame>(this_frame_.Get())->CanNavigate(*frame, url)) {
       return frame;
     }
@@ -344,7 +375,7 @@ void FrameTree::Trace(blink::Visitor* visitor) {
 
 }  // namespace blink
 
-#ifndef NDEBUG
+#if DCHECK_IS_ON()
 
 static void printIndent(int indent) {
   for (int i = 0; i < indent; ++i)
@@ -391,4 +422,4 @@ void showFrameTree(const blink::Frame* frame) {
   printFrames(&frame->Tree().Top(), frame, 0);
 }
 
-#endif
+#endif  // DCHECK_IS_ON()

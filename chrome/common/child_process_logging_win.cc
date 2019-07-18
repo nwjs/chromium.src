@@ -3,15 +3,15 @@
 // found in the LICENSE file.
 
 #include "chrome/common/child_process_logging.h"
-#include "chrome_elf/chrome_elf_main.h"
+#include "chrome/chrome_elf/chrome_elf_main.h"
 
 #include <windows.h>
 
 #include <memory>
 
+#include "chrome/chrome_elf/chrome_elf_main.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/installer/util/google_update_settings.h"
-#include "chrome_elf/chrome_elf_main.h"
 #include "components/metrics/client_info.h"
 
 namespace child_process_logging {

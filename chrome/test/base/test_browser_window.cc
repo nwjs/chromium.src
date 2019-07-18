@@ -115,6 +115,8 @@ gfx::Size TestBrowserWindow::GetContentsSize() const {
   return gfx::Size();
 }
 
+void TestBrowserWindow::SetContentsSize(const gfx::Size& size) {}
+
 bool TestBrowserWindow::IsMaximized() const {
   return false;
 }
@@ -210,6 +212,14 @@ TestBrowserWindow::ShowLocalCardMigrationBubble(
     content::WebContents* contents,
     autofill::LocalCardMigrationBubbleController* controller,
     bool user_gesture) {
+  return nullptr;
+}
+
+send_tab_to_self::SendTabToSelfBubbleView*
+TestBrowserWindow::ShowSendTabToSelfBubble(
+    content::WebContents* contents,
+    send_tab_to_self::SendTabToSelfBubbleController* controller,
+    bool is_user_gesture) {
   return nullptr;
 }
 

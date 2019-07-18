@@ -27,7 +27,7 @@ SkBitmap* ContentRendererClient::GetSadWebViewBitmap() {
   return nullptr;
 }
 
-bool ContentRendererClient::MaybeCreateMimeHandlerView(
+bool ContentRendererClient::IsPluginHandledExternally(
     RenderFrame* embedder_frame,
     const blink::WebElement& owner_element,
     const GURL& original_url,
@@ -240,11 +240,6 @@ GURL ContentRendererClient::OverrideFlashEmbedWithHTML(const GURL& url) {
   return GURL();
 }
 
-std::unique_ptr<base::ThreadPool::InitParams>
-ContentRendererClient::GetThreadPoolInitParams() {
-  return nullptr;
-}
-
 bool ContentRendererClient::IsIdleMediaSuspendEnabled() {
   return true;
 }
@@ -270,5 +265,15 @@ bool ContentRendererClient::IsSafeRedirectTarget(const GURL& url) {
 }
 
 void ContentRendererClient::DidSetUserAgent(const std::string& user_agent) {}
+
+bool ContentRendererClient::RequiresHtmlImports(const GURL& url) {
+  return false;
+}
+
+base::Optional<::media::AudioRendererAlgorithmParameters>
+ContentRendererClient::GetAudioRendererAlgorithmParameters(
+    media::AudioParameters audio_parameters) {
+  return base::nullopt;
+}
 
 }  // namespace content

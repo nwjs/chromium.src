@@ -61,6 +61,7 @@
 #include "net/cert/cert_verify_proc.h"
 #include "net/cert/ct_log_verifier.h"
 #include "net/cert/multi_threaded_cert_verifier.h"
+#include "net/cert_net/cert_net_fetcher_impl.h"
 #include "net/http/http_network_session.h"
 #include "net/http/http_server_properties_impl.h"
 #include "net/http/http_transaction_factory.h"
@@ -284,6 +285,9 @@ void IOThread::CleanUp() {
 
   system_url_request_context_getter_ = nullptr;
 
+  if (globals_->cert_net_fetcher)
+    globals_->cert_net_fetcher->Shutdown();
+
   if (globals_->system_request_context)
     globals_->system_request_context->proxy_resolution_service()->OnShutdown();
 
@@ -349,8 +353,19 @@ void IOThread::ConstructSystemRequestContext() {
           std::make_unique<net::MultiThreadedCertVerifier>(
               base::MakeRefCounted<network::CertVerifyProcChromeOS>()));
 #else
+
+#if 0
+#if defined(OS_ANDROID) || defined(OS_FUCHSIA) || \
+    BUILDFLAG(TRIAL_COMPARISON_CERT_VERIFIER_SUPPORTED)
+      globals_->cert_net_fetcher =
+          base::MakeRefCounted<net::CertNetFetcherImpl>();
+#endif
+      cert_verifier = std::make_unique<net::CachingCertVerifier>(
+          std::make_unique<net::MultiThreadedCertVerifier>(
+              net::CertVerifyProc::CreateDefault(globals_->cert_net_fetcher)));
+#endif
   cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
-  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
+  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault(globals_->cert_net_fetcher));
 #endif
   //}
     const base::CommandLine& command_line =
@@ -380,6 +395,11 @@ void IOThread::ConstructSystemRequestContext() {
             std::move(network_context_request_),
             std::move(network_context_params_), std::move(builder),
             &globals_->system_request_context);
+
+    if (globals_->cert_net_fetcher) {
+      globals_->cert_net_fetcher->SetURLRequestContext(
+          globals_->system_request_context);
+    }
 
     // This must be done after the system NetworkContext is created.
     network_service->ConfigureStubHostResolver(

@@ -82,10 +82,8 @@ GrpcChannelSharedPtr FtlGrpcContext::CreateChannel() {
 }
 
 // static
-std::unique_ptr<grpc::ClientContext> FtlGrpcContext::CreateClientContext() {
-  auto context = std::make_unique<grpc::ClientContext>();
-  context->AddMetadata("x-goog-api-key", google_apis::GetRemotingFtlAPIKey());
-  return context;
+void FtlGrpcContext::FillClientContext(grpc::ClientContext* context) {
+  context->AddMetadata("x-goog-api-key", google_apis::GetRemotingAPIKey());
 }
 
 // static

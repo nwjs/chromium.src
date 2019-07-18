@@ -9,7 +9,6 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.native_page.NativePageFactory;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.util.UrlUtilities;
-import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.UiThreadTaskTraits;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -55,15 +54,7 @@ public class ProgressBarMediator {
         mModel.set(ProgressBarProperties.IS_VISIBLE, false);
     }
 
-    private void startLoadProgress() {
-        mWasDisplayedForMinimumDuration = false;
-        mCanHideProgressBar = false;
-
-        mModel.set(ProgressBarProperties.PROGRESS_FRACTION, 0f);
-        show();
-    }
-
-    private void stopLoadProgress() {
+    private void onLoadingStopped() {
         mCanHideProgressBar = true;
         hide();
     }
@@ -73,42 +64,22 @@ public class ProgressBarMediator {
         mProgressBarTabObserver.destroy();
     }
 
-    // This class follows the same logic used in ToolbarManager#mTabObserver for updating the shown
-    // URL as well as updating the progress bar.
     private class ProgressBarTabObserver extends ActivityTabProvider.ActivityTabTabObserver {
         ProgressBarTabObserver(ActivityTabProvider tabProvider) {
             super(tabProvider);
         }
 
         @Override
-        public void onDidStartNavigation(Tab tab, NavigationHandle navigation) {
-            if (!navigation.isInMainFrame()) return;
-
-            if (NativePageFactory.isNativePageUrl(navigation.getUrl(), tab.isIncognito())) {
+        public void onPageLoadStarted(Tab tab, String url) {
+            if (NativePageFactory.isNativePageUrl(url, tab.isIncognito())) {
                 mModel.set(ProgressBarProperties.IS_ENABLED, false);
-                stopLoadProgress();
-                return;
+            } else {
+                mModel.set(ProgressBarProperties.IS_ENABLED, true);
+                mWasDisplayedForMinimumDuration = false;
+                mCanHideProgressBar = false;
+                show();
+                mModel.set(ProgressBarProperties.PROGRESS_FRACTION, 0f);
             }
-
-            mModel.set(ProgressBarProperties.IS_ENABLED, true);
-            updateUrl(tab);
-            startLoadProgress();
-        }
-
-        @Override
-        public void onUrlUpdated(Tab tab) {
-            updateUrl(tab);
-        }
-
-        @Override
-        public void onLoadStarted(Tab tab, boolean toDifferentDocument) {
-            updateUrl(tab);
-        }
-
-        @Override
-        public void onLoadStopped(Tab tab, boolean toDifferentDocument) {
-            updateUrl(tab);
-            stopLoadProgress();
         }
 
         @Override
@@ -116,24 +87,23 @@ public class ProgressBarMediator {
             if (NativePageFactory.isNativePageUrl(tab.getUrl(), tab.isIncognito())) return;
 
             mModel.set(ProgressBarProperties.PROGRESS_FRACTION, progress / 100f);
-        }
-
-        @Override
-        public void onWebContentsSwapped(Tab tab, boolean didStartLoad, boolean didFinishLoad) {
-            if (!didStartLoad) return;
-
-            updateUrl(tab);
-            if (didFinishLoad) stopLoadProgress();
+            mModel.set(ProgressBarProperties.URL,
+                    UrlUtilities.getDomainAndRegistry(tab.getUrl(), false));
         }
 
         @Override
         public void onCrash(Tab tab) {
-            stopLoadProgress();
+            onLoadingStopped();
         }
 
-        private void updateUrl(Tab tab) {
-            mModel.set(ProgressBarProperties.URL,
-                    UrlUtilities.getDomainAndRegistry(tab.getUrl(), false));
+        @Override
+        public void onPageLoadFailed(Tab tab, int errorCode) {
+            onLoadingStopped();
+        }
+
+        @Override
+        public void onPageLoadFinished(Tab tab, String url) {
+            onLoadingStopped();
         }
     }
 }

@@ -27,7 +27,6 @@
 #include "chrome/browser/permissions/permission_uma_util.h"
 #include "chrome/browser/permissions/permission_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ssl/origin_util.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -40,6 +39,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/origin_util.h"
 #include "extensions/common/constants.h"
 #include "url/gurl.h"
 
@@ -118,7 +118,7 @@ void PermissionContextBase::RequestPermission(
     const PermissionRequestID& id,
     const GURL& requesting_frame,
     bool user_gesture,
-    const BrowserPermissionCallback& callback) {
+    BrowserPermissionCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   GURL requesting_origin = requesting_frame.GetOrigin();
@@ -132,8 +132,9 @@ void PermissionContextBase::RequestPermission(
              << " from an invalid URL: " << requesting_origin << ","
              << embedding_origin << " (" << type_name
              << " is not supported in popups)";
-    NotifyPermissionSet(id, requesting_origin, embedding_origin, callback,
-                        false /* persist */, CONTENT_SETTING_BLOCK);
+    NotifyPermissionSet(id, requesting_origin, embedding_origin,
+                        std::move(callback), false /* persist */,
+                        CONTENT_SETTING_BLOCK);
     return;
   }
 
@@ -160,7 +161,7 @@ void PermissionContextBase::RequestPermission(
         LogPermissionBlockedMessage(web_contents,
                                     kPermissionBlockedKillSwitchMessage,
                                     content_settings_type_);
-        callback.Run(CONTENT_SETTING_BLOCK);
+        std::move(callback).Run(CONTENT_SETTING_BLOCK);
         return;
       case PermissionStatusSource::MULTIPLE_DISMISSALS:
         LogPermissionBlockedMessage(web_contents,
@@ -186,8 +187,9 @@ void PermissionContextBase::RequestPermission(
     // If we are under embargo, record the embargo reason for which we have
     // suppressed the prompt.
     PermissionUmaUtil::RecordEmbargoPromptSuppressionFromSource(result.source);
-    NotifyPermissionSet(id, requesting_origin, embedding_origin, callback,
-                        false /* persist */, result.content_setting);
+    NotifyPermissionSet(id, requesting_origin, embedding_origin,
+                        std::move(callback), false /* persist */,
+                        result.content_setting);
     return;
   }
 
@@ -198,7 +200,7 @@ void PermissionContextBase::RequestPermission(
       PermissionEmbargoStatus::NOT_EMBARGOED);
 
   DecidePermission(web_contents, id, requesting_origin, embedding_origin,
-                   user_gesture, callback);
+                   user_gesture, std::move(callback));
 }
 
 void PermissionContextBase::UserMadePermissionDecision(
@@ -218,7 +220,7 @@ PermissionResult PermissionContextBase::GetPermissionStatus(
   }
 
   if (IsRestrictedToSecureOrigins()) {
-    if (!IsOriginSecure(requesting_origin, profile()->GetPrefs())) {
+    if (!content::IsOriginSecure(requesting_origin)) {
       return PermissionResult(CONTENT_SETTING_BLOCK,
                               PermissionStatusSource::INSECURE_ORIGIN);
     }
@@ -229,7 +231,7 @@ PermissionResult PermissionContextBase::GetPermissionStatus(
     // the top level and requesting origins. Note: chrome-extension:// origins
     // are currently exempt from checking the embedder chain. crbug.com/530507.
     if (!requesting_origin.SchemeIs(extensions::kExtensionScheme) &&
-        !IsOriginSecure(embedding_origin, profile()->GetPrefs())) {
+        !content::IsOriginSecure(embedding_origin)) {
       return PermissionResult(CONTENT_SETTING_BLOCK,
                               PermissionStatusSource::INSECURE_ORIGIN);
     }
@@ -324,7 +326,7 @@ void PermissionContextBase::DecidePermission(
     const GURL& requesting_origin,
     const GURL& embedding_origin,
     bool user_gesture,
-    const BrowserPermissionCallback& callback) {
+    BrowserPermissionCallback callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Under permission delegation, when we display a permission prompt, the
@@ -348,11 +350,11 @@ void PermissionContextBase::DecidePermission(
   std::unique_ptr<PermissionRequest> request_ptr =
       std::make_unique<PermissionRequestImpl>(
           requesting_origin, content_settings_type_, user_gesture,
-          base::Bind(&PermissionContextBase::PermissionDecided,
-                     weak_factory_.GetWeakPtr(), id, requesting_origin,
-                     embedding_origin, callback),
-          base::Bind(&PermissionContextBase::CleanUpRequest,
-                     weak_factory_.GetWeakPtr(), id));
+          base::BindOnce(&PermissionContextBase::PermissionDecided,
+                         weak_factory_.GetWeakPtr(), id, requesting_origin,
+                         embedding_origin, std::move(callback)),
+          base::BindOnce(&PermissionContextBase::CleanUpRequest,
+                         weak_factory_.GetWeakPtr(), id));
   PermissionRequest* request = request_ptr.get();
 
   bool inserted =
@@ -367,7 +369,7 @@ void PermissionContextBase::PermissionDecided(
     const PermissionRequestID& id,
     const GURL& requesting_origin,
     const GURL& embedding_origin,
-    const BrowserPermissionCallback& callback,
+    BrowserPermissionCallback callback,
     ContentSetting content_setting) {
   DCHECK(content_setting == CONTENT_SETTING_ALLOW ||
          content_setting == CONTENT_SETTING_BLOCK ||
@@ -376,8 +378,8 @@ void PermissionContextBase::PermissionDecided(
                              content_setting);
 
   bool persist = content_setting != CONTENT_SETTING_DEFAULT;
-  NotifyPermissionSet(id, requesting_origin, embedding_origin, callback,
-                      persist, content_setting);
+  NotifyPermissionSet(id, requesting_origin, embedding_origin,
+                      std::move(callback), persist, content_setting);
 }
 
 Profile* PermissionContextBase::profile() const {
@@ -388,7 +390,7 @@ void PermissionContextBase::NotifyPermissionSet(
     const PermissionRequestID& id,
     const GURL& requesting_origin,
     const GURL& embedding_origin,
-    const BrowserPermissionCallback& callback,
+    BrowserPermissionCallback callback,
     bool persist,
     ContentSetting content_setting) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
@@ -402,7 +404,7 @@ void PermissionContextBase::NotifyPermissionSet(
   if (content_setting == CONTENT_SETTING_DEFAULT)
     content_setting = CONTENT_SETTING_ASK;
 
-  callback.Run(content_setting);
+  std::move(callback).Run(content_setting);
 }
 
 void PermissionContextBase::CleanUpRequest(const PermissionRequestID& id) {

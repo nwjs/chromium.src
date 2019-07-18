@@ -28,6 +28,7 @@
 #include "chrome/browser/chromeos/arc/tracing/arc_tracing_graphics_model.h"
 #include "chrome/browser/chromeos/arc/tracing/arc_tracing_model.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/launcher/arc_app_window_launcher_controller.h"
 #include "components/arc/arc_prefs.h"
@@ -41,8 +42,8 @@
 #include "content/public/browser/web_ui.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/events/event.h"
 #include "ui/gfx/codec/png_codec.h"
-#include "ui/views/widget/widget.h"
 
 namespace chromeos {
 
@@ -364,13 +365,7 @@ void ArcGraphicsTracingHandler::Activate() {
     return;
   }
 
-  views::Widget* const widget = views::Widget::GetWidgetForNativeWindow(window);
-  if (!widget) {
-    LOG(ERROR) << "Failed to activate, no widget for top level window.";
-    return;
-  }
-
-  widget->Activate();
+  platform_util::ActivateWindow(window);
 }
 
 void ArcGraphicsTracingHandler::StartTracing() {

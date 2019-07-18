@@ -487,7 +487,7 @@ RenderViewHostDelegateView* InterstitialPageImpl::GetDelegateView() {
   return rvh_delegate_view_.get();
 }
 
-WebContents* InterstitialPageImpl::GetWebContents() const {
+WebContents* InterstitialPageImpl::GetWebContents() {
   return web_contents();
 }
 
@@ -765,7 +765,7 @@ RenderWidgetHostView* InterstitialPageImpl::GetView() {
   return render_view_host_->GetWidget()->GetView();
 }
 
-RenderFrameHost* InterstitialPageImpl::GetMainFrame() const {
+RenderFrameHost* InterstitialPageImpl::GetMainFrame() {
   if (!render_view_host_)
     return nullptr;
   return render_view_host_->GetMainFrame();
