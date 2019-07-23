@@ -254,7 +254,7 @@
 using base::Time;
 using base::TimeDelta;
 
-#include "content/nw/src/nw_content.h"
+#include "content/nw/src/common/nw_content_common_hooks.h"
 
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
