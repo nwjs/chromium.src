@@ -80,7 +80,7 @@ const base::Feature kFastBorderRadius{"FastBorderRadius",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable LayoutNG.
-const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::Feature kLayoutNG{"LayoutNG", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kMixedContentAutoupgrade{"AutoupgradeMixedContent",
                                              base::FEATURE_DISABLED_BY_DEFAULT};
@@ -306,6 +306,13 @@ bool IsPlzDedicatedWorkerEnabled() {
          base::FeatureList::IsEnabled(network::features::kNetworkService) &&
          base::FeatureList::IsEnabled(features::kPlzDedicatedWorker);
 }
+
+// Enables a delay before BufferingBytesConsumer begins reading from its
+// underlying consumer when instantiated with CreateWithDelay().
+const base::Feature kBufferingBytesConsumerDelay{
+    "BufferingBytesConsumerDelay", base::FEATURE_DISABLED_BY_DEFAULT};
+const base::FeatureParam<int> kBufferingBytesConsumerDelayMilliseconds{
+    &kBufferingBytesConsumerDelay, "milliseconds", 50};
 
 }  // namespace features
 }  // namespace blink

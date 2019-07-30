@@ -551,7 +551,7 @@ void ContentVerifier::BytesRead(const base::FilePath& extension_root,
   if (job->len_ <= 0) {
     job->DoneReading();
   } else {
-    job->BytesRead(job->len_, job->buf_);
+    job->BytesRead(job->buf_, job->len_, base::File::FILE_OK);
     base::PostTaskWithTraitsAndReply(
                                      FROM_HERE, {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::Bind(&ContentVerifier::ReadFile, this, extension_root, relative_path, job),

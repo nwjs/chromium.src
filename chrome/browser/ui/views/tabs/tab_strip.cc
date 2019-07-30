@@ -1599,6 +1599,14 @@ void TabStrip::UpdateHoverCard(Tab* tab, bool should_show) {
     hover_card_->FadeOutToHide();
 }
 
+bool TabStrip::HoverCardIsShowingForTab(Tab* tab) {
+  if (!base::FeatureList::IsEnabled(features::kTabHoverCards))
+    return false;
+
+  return hover_card_ && hover_card_->GetWidget()->IsVisible() &&
+         !hover_card_->IsFadingOut() && hover_card_->GetAnchorView() == tab;
+}
+
 bool TabStrip::ShouldPaintTab(const Tab* tab, float scale, SkPath* clip) {
   if (!MaySetClip())
     return true;
@@ -2108,6 +2116,7 @@ void TabStrip::StartMoveTabAnimation() {
 }
 
 void TabStrip::AnimateToIdealBounds() {
+  UpdateHoverCard(nullptr, /* should_show */ false);
   for (int i = 0; i < tab_count(); ++i) {
     // If the tab is being dragged manually, skip it.
     Tab* tab = tab_at(i);
@@ -2799,14 +2808,6 @@ void TabStrip::UpdateNewTabButtonBorder() {
       extra_vertical_space / 2, kHorizontalInset, 0, kHorizontalInset)));
 }
 
-bool TabStrip::HoverCardIsShowingForTab(Tab* tab) {
-  if (!base::FeatureList::IsEnabled(features::kTabHoverCards))
-    return false;
-
-  return hover_card_ && hover_card_->GetWidget()->IsVisible() &&
-         !hover_card_->IsFadingOut() && hover_card_->GetAnchorView() == tab;
-}
-
 void TabStrip::ButtonPressed(views::Button* sender, const ui::Event& event) {
   if (sender == new_tab_button_) {
     base::RecordAction(base::UserMetricsAction("NewTab_Button"));
@@ -2878,6 +2879,8 @@ void TabStrip::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void TabStrip::OnMouseExited(const ui::MouseEvent& event) {
+  if (base::FeatureList::IsEnabled(features::kTabHoverCards) && hover_card_)
+    hover_card_->set_last_mouse_exit_timestamp(base::TimeTicks::Now());
   UpdateHoverCard(nullptr, /* should_show */ false);
 }
 

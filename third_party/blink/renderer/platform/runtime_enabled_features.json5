@@ -810,6 +810,10 @@
       name: "LazyImageLoading",
     },
     {
+      name: "LazyImageLoadingMetadataFetch",
+      depends_on: ["LazyImageLoading"],
+    },
+    {
       name: "LazyImageVisibleLoadTimeMetrics",
     },
     {
@@ -1223,9 +1227,6 @@
     {
       name: "RasterInducingScroll",
       status: "experimental",
-    },
-    {
-      name: "RedirectBlankNavigationToTop",
     },
     {
       name: "ReducedReferrerGranularity",

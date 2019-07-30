@@ -73,11 +73,12 @@
 
 #pragma mark - InfobarCoordinatorImplementation
 
-- (void)configureModalViewController {
+- (BOOL)configureModalViewController {
   self.modalViewController =
       [[InfobarModalViewController alloc] initWithModalDelegate:self];
   self.modalViewController.title =
       base::SysUTF16ToNSString(self.confirmInfobarDelegate->GetMessageText());
+  return YES;
 }
 
 - (void)infobarBannerWasPresented {
@@ -102,7 +103,7 @@
   self.modalViewController = nil;
 }
 
-- (CGFloat)infobarModalHeight {
+- (CGFloat)infobarModalHeightForWidth:(CGFloat)width {
   // TODO(crbug.com/911864): Implement, this is a temporary value. If
   // InfobarConfirmCoordinator ends up having no Modal this should DCHECK or
   // NOTREACHED.

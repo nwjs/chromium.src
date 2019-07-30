@@ -543,6 +543,7 @@ crbug.com/377847 external/wpt/css/css-tables/subpixel-table-cell-width-002.html 
 crbug.com/377847 external/wpt/css/css-tables/subpixel-table-width-001.html [ Failure ]
 crbug.com/764031 external/wpt/css/css-tables/toggle-row-display-property-001.html [ Failure ]
 crbug.com/613753 external/wpt/css/css-tables/border-spacing-included-in-sizes-001.html [ Failure ]
+crbug.com/353580 external/wpt/css/css-tables/height-distribution/percentage-sizing-of-table-cell-children-005.html [ Failure ]
 
 # [css-contain]
 
@@ -673,6 +674,9 @@ crbug.com/885175 external/wpt/css/vendor-imports/mozilla/mozilla-central-reftest
 # [css-ui]
 # Layout team disagrees with the spec for this particular test.
 crbug.com/591099 external/wpt/css/css-ui/text-overflow-015.html [ Failure ]
+
+# Fails only on Linux bots. Pass on all other bots and on local Linux.
+crbug.com/985620 [ Linux ] fast/text/zwnj-disables-kerning.html [ Failure ]
 
 # ====== Layout team owned tests to here ======
 
@@ -1470,6 +1474,7 @@ crbug.com/249112 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/fle
 crbug.com/467127 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-height-flex-items-008.xht [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-height-flex-items-012.html [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-height-flex-items-014.html [ Failure ]
+crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-height-flex-items-015.html [ Failure ]
 crbug.com/249112 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-width-flex-items-005.xht [ Failure ]
 crbug.com/249112 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-minimum-width-flex-items-007.xht [ Failure ]
 crbug.com/591099 virtual/layout_ng_experimental/external/wpt/css/css-flexbox/flex-order.html [ Failure ]
@@ -2332,6 +2337,8 @@ crbug.com/467127 external/wpt/css/css-flexbox/getcomputedstyle/flexbox_computeds
 crbug.com/467127 external/wpt/css/css-flexbox/getcomputedstyle/flexbox_computedstyle_flex-shorthand-number.html [ Failure ]
 crbug.com/467127 [ Mac ] external/wpt/css/css-flexbox/ttwf-reftest-flex-wrap-reverse.html [ Failure ]
 crbug.com/467127 [ Mac ] external/wpt/css/css-flexbox/ttwf-reftest-flex-wrap.html [ Failure ]
+
+crbug.com/972227 external/wpt/css/css-flexbox/overflow-auto-001.html [ Failure ]
 
 crbug.com/467127 external/wpt/css/css-flexbox/negative-margins-001.html [ Failure ]
 crbug.com/467127 external/wpt/css/vendor-imports/mozilla/mozilla-central-reftests/flexbox/flexbox-align-content-horiz-001a.xhtml [ Failure ]

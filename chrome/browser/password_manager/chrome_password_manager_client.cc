@@ -476,7 +476,8 @@ void ChromePasswordManagerClient::CheckSafeBrowsingReputation(
       GetPasswordProtectionService();
   if (pps) {
     pps->MaybeStartPasswordFieldOnFocusRequest(
-        web_contents(), GetMainFrameURL(), form_action, frame_url);
+        web_contents(), web_contents()->GetLastCommittedURL(), form_action,
+        frame_url);
   }
 #endif
 }
@@ -498,7 +499,7 @@ void ChromePasswordManagerClient::CheckProtectedPasswordEntry(
   if (!pps)
     return;
   pps->MaybeStartProtectedPasswordEntryRequest(
-      web_contents(), GetMainFrameURL(), username,
+      web_contents(), web_contents()->GetLastCommittedURL(), username,
       safe_browsing::PasswordProtectionService::
           GetPasswordProtectionReusedPasswordType(reused_password_type),
       matching_domains, password_field_exists);
@@ -947,6 +948,10 @@ void ChromePasswordManagerClient::NavigateToManagePasswordsPage(
   ::NavigateToManagePasswordsPage(
       chrome::FindBrowserWithWebContents(web_contents()), referrer);
 #endif
+}
+
+bool ChromePasswordManagerClient::IsNewTabPage() const {
+  return GetMainFrameURL() == chrome::kChromeSearchLocalNtpUrl;
 }
 
 // static

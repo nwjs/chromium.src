@@ -363,8 +363,8 @@ void SetIndividualRuntimeFeatures(
   if (base::FeatureList::IsEnabled(features::kBuiltInModuleKvStorage))
     WebRuntimeFeatures::EnableBuiltInModuleKvStorage(true);
 
-  if (base::FeatureList::IsEnabled(blink::features::kLayoutNG))
-    WebRuntimeFeatures::EnableLayoutNG(true);
+  WebRuntimeFeatures::EnableFeatureFromString(
+      "LayoutNG", base::FeatureList::IsEnabled(blink::features::kLayoutNG));
 
   WebRuntimeFeatures::EnableLazyInitializeMediaControls(
       base::FeatureList::IsEnabled(features::kLazyInitializeMediaControls));
@@ -411,6 +411,10 @@ void SetIndividualRuntimeFeatures(
       base::GetFieldTrialParamByFeatureAsBool(
           features::kLazyImageLoading,
           "restrict-lazy-load-images-to-data-saver-only", false));
+  WebRuntimeFeatures::EnableLazyImageLoadingMetadataFetch(
+      base::GetFieldTrialParamByFeatureAsBool(
+          features::kLazyImageLoading, "enable-lazy-load-images-metadata-fetch",
+          true));
 
   WebRuntimeFeatures::EnablePictureInPicture(
       base::FeatureList::IsEnabled(media::kPictureInPicture));

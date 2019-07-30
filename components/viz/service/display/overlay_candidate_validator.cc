@@ -5,6 +5,7 @@
 #include "components/viz/service/display/overlay_candidate_validator.h"
 
 #include "base/metrics/histogram_macros.h"
+#include "ui/gfx/geometry/rect_conversions.h"
 
 namespace viz {
 
@@ -30,6 +31,11 @@ bool OverlayCandidateValidator::AttemptWithStrategies(
   UMA_HISTOGRAM_ENUMERATION("Viz.DisplayCompositor.OverlayStrategy",
                             OverlayStrategy::kNoStrategyUsed);
   return false;
+}
+
+gfx::Rect OverlayCandidateValidator::GetOverlayDamageRectForOutputSurface(
+    const OverlayCandidate& candidate) const {
+  return gfx::ToEnclosedRect(candidate.display_rect);
 }
 
 }  // namespace viz
