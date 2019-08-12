@@ -12,9 +12,8 @@
 #include "base/containers/circular_deque.h"
 #include "base/containers/flat_map.h"
 #include "base/macros.h"
+#include "build/build_config.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
-#include "components/viz/service/display/ca_layer_overlay.h"
-#include "components/viz/service/display/dc_layer_overlay.h"
 #include "components/viz/service/display/display_resource_provider.h"
 #include "components/viz/service/display/overlay_processor.h"
 #include "components/viz/service/viz_service_export.h"
@@ -61,9 +60,11 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   void SetVisible(bool visible);
   void DecideRenderPassAllocationsForFrame(
       const RenderPassList& render_passes_in_draw_order);
-  void DrawFrame(RenderPassList* render_passes_in_draw_order,
-                 float device_scale_factor,
-                 const gfx::Size& device_viewport_size);
+  void DrawFrame(
+      RenderPassList* render_passes_in_draw_order,
+      float device_scale_factor,
+      const gfx::Size& device_viewport_size,
+      float sdr_white_level = gfx::ColorSpace::kDefaultSDRWhiteLevel);
 
   // Public interface implemented by subclasses.
   virtual void SwapBuffers(std::vector<ui::LatencyInfo> latency_info) = 0;
@@ -83,13 +84,17 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
     gfx::Rect root_damage_rect;
     std::vector<gfx::Rect> root_content_bounds;
     gfx::Size device_viewport_size;
+    float sdr_white_level = gfx::ColorSpace::kDefaultSDRWhiteLevel;
 
     gfx::Transform projection_matrix;
     gfx::Transform window_matrix;
 
-    OverlayCandidateList overlay_list;
-    CALayerOverlayList ca_layer_overlay_list;
-    DCLayerOverlayList dc_layer_overlay_list;
+    OverlayProcessor::CandidateList overlay_list;
+    // When we have buffer queue, the output surface could be treated as an
+    // overlay plane, and the struct to store that information is in
+    // |output_surface_plane|.
+    base::Optional<OverlayProcessor::OutputSurfaceOverlayPlane>
+        output_surface_plane;
   };
 
   void SetCurrentFrameForTesting(const DrawingFrame& frame);
@@ -230,6 +235,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   bool use_partial_swap_ = false;
   // Whether overdraw feedback is enabled and can be used.
   bool overdraw_feedback_ = false;
+#if defined(OS_WIN)
   // Whether the SetDrawRectangle and EnableDCLayers commands are in
   // use.
   bool supports_dc_layers_ = false;
@@ -238,6 +244,7 @@ class VIZ_SERVICE_EXPORT DirectRenderer {
   // This counts the number of draws since the last time
   // DirectComposition layers needed to be used.
   int frames_since_using_dc_layers_ = 0;
+#endif
 
   // A map from RenderPass id to the single quad present in and replacing the
   // RenderPass.

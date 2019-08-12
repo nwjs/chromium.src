@@ -21,14 +21,6 @@ class LayerTreeHostFiltersPixelTest
     : public LayerTreePixelTest,
       public ::testing::WithParamInterface<LayerTreeTest::RendererType> {
  protected:
-  void InitializeSettings(LayerTreeSettings* settings) override {
-    LayerTreePixelTest::InitializeSettings(settings);
-    // Required so that device scale is inherited by content scale. True for
-    // most tests, but can be overwritten before RunPixelTest() is called.
-    settings->layer_transforms_should_scale_layer_contents =
-        layer_transforms_should_scale_layer_contents_;
-  }
-
   RendererType renderer_type() { return GetParam(); }
 
   // Text string for graphics backend of the RendererType. Suitable for
@@ -38,7 +30,9 @@ class LayerTreeHostFiltersPixelTest
       case RENDERER_GL:
         return "gl";
       case RENDERER_SKIA_GL:
-        return "skia";
+        return "skia_gl";
+      case RENDERER_SKIA_VK:
+        return "skia_vk";
       case RENDERER_SOFTWARE:
         return "sw";
     }
@@ -71,23 +65,20 @@ class LayerTreeHostFiltersPixelTest
 
     return background;
   }
+};
 
-  bool layer_transforms_should_scale_layer_contents_ = true;
+LayerTreeTest::RendererType const kRendererTypes[] = {
+    LayerTreeTest::RENDERER_GL,
+    LayerTreeTest::RENDERER_SKIA_GL,
+    LayerTreeTest::RENDERER_SOFTWARE,
+#if defined(ENABLE_CC_VULKAN_TESTS)
+    LayerTreeTest::RENDERER_SKIA_VK,
+#endif
 };
 
 INSTANTIATE_TEST_SUITE_P(,
                          LayerTreeHostFiltersPixelTest,
-                         ::testing::Values(LayerTreeTest::RENDERER_GL,
-                                           LayerTreeTest::RENDERER_SKIA_GL,
-                                           LayerTreeTest::RENDERER_SOFTWARE));
-
-using LayerTreeHostFiltersPixelTestNonSkia = LayerTreeHostFiltersPixelTest;
-
-// TODO(crbug.com/948128): Enable these tests for Skia.
-INSTANTIATE_TEST_SUITE_P(,
-                         LayerTreeHostFiltersPixelTestNonSkia,
-                         ::testing::Values(LayerTreeTest::RENDERER_GL,
-                                           LayerTreeTest::RENDERER_SOFTWARE));
+                         ::testing::ValuesIn(kRendererTypes));
 
 using LayerTreeHostFiltersPixelTestGL = LayerTreeHostFiltersPixelTest;
 
@@ -98,10 +89,17 @@ INSTANTIATE_TEST_SUITE_P(,
 
 using LayerTreeHostFiltersPixelTestGPU = LayerTreeHostFiltersPixelTest;
 
+LayerTreeTest::RendererType const kRendererTypesGpu[] = {
+    LayerTreeTest::RENDERER_GL,
+    LayerTreeTest::RENDERER_SKIA_GL,
+#if defined(ENABLE_CC_VULKAN_TESTS)
+    LayerTreeTest::RENDERER_SKIA_VK,
+#endif
+};
+
 INSTANTIATE_TEST_SUITE_P(,
                          LayerTreeHostFiltersPixelTestGPU,
-                         ::testing::Values(LayerTreeTest::RENDERER_GL,
-                                           LayerTreeTest::RENDERER_SKIA_GL));
+                         ::testing::ValuesIn(kRendererTypesGpu));
 
 TEST_P(LayerTreeHostFiltersPixelTestGPU, BackdropFilterBlurRect) {
   scoped_refptr<SolidColorLayer> background = CreateSolidColorLayer(
@@ -186,11 +184,8 @@ TEST_P(LayerTreeHostFiltersPixelTestGPU, BackdropFilterBlurRounded) {
 }
 
 TEST_P(LayerTreeHostFiltersPixelTestGPU, BackdropFilterBlurOutsets) {
-  if (renderer_type() == RENDERER_SKIA_GL
-#if defined(ENABLE_CC_VULKAN_TESTS)
-      || renderer_type() == RENDERER_SKIA_VK
-#endif
-  ) {
+  if (renderer_type() == RENDERER_SKIA_GL ||
+      renderer_type() == RENDERER_SKIA_VK) {
     // TODO(973696): Implement bounds clipping in skia_renderer.
     return;
   }
@@ -233,6 +228,9 @@ TEST_P(LayerTreeHostFiltersPixelTestGPU, BackdropFilterBlurOutsets) {
       average_error_allowed_in_bad_pixels,
       large_error_allowed,
       small_error_allowed));
+#else
+  if (renderer_type() == RENDERER_SKIA_VK)
+    pixel_comparator_ = std::make_unique<FuzzyPixelOffByOneComparator>(true);
 #endif
 
   RunPixelTest(
@@ -380,9 +378,7 @@ class LayerTreeHostFiltersScaledPixelTest
 
 INSTANTIATE_TEST_SUITE_P(,
                          LayerTreeHostFiltersScaledPixelTest,
-                         ::testing::Values(LayerTreeTest::RENDERER_GL,
-                                           LayerTreeTest::RENDERER_SKIA_GL,
-                                           LayerTreeTest::RENDERER_SOFTWARE));
+                         ::testing::ValuesIn(kRendererTypes));
 
 TEST_P(LayerTreeHostFiltersScaledPixelTest, StandardDpi) {
   RunPixelTestType(100, 1.f);
@@ -393,8 +389,6 @@ TEST_P(LayerTreeHostFiltersScaledPixelTest, HiDpi) {
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, NullFilter) {
-  layer_transforms_should_scale_layer_contents_ = false;
-
   scoped_refptr<SolidColorLayer> foreground =
       CreateSolidColorLayer(gfx::Rect(0, 0, 200, 200), SK_ColorGREEN);
 
@@ -407,8 +401,6 @@ TEST_P(LayerTreeHostFiltersPixelTest, NullFilter) {
 }
 
 TEST_P(LayerTreeHostFiltersPixelTest, CroppedFilter) {
-  layer_transforms_should_scale_layer_contents_ = false;
-
   scoped_refptr<SolidColorLayer> foreground =
       CreateSolidColorLayer(gfx::Rect(0, 0, 200, 200), SK_ColorGREEN);
 
@@ -668,7 +660,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, ImageRenderSurfaceScaled) {
           .InsertBeforeExtensionASCII(GetRendererSuffix()));
 }
 
-TEST_P(LayerTreeHostFiltersPixelTestNonSkia, ZoomFilter) {
+TEST_P(LayerTreeHostFiltersPixelTest, ZoomFilter) {
   scoped_refptr<SolidColorLayer> root =
       CreateSolidColorLayer(gfx::Rect(300, 300), SK_ColorWHITE);
 
@@ -945,8 +937,7 @@ TEST_P(LayerTreeHostFiltersPixelTest, EnlargedTextureWithCropOffsetFilter) {
       base::FilePath(FILE_PATH_LITERAL("enlarged_texture_on_crop_offset.png")));
 }
 
-// TODO(crbug.com/948128): Enable this test for SkiaRenderer.
-TEST_P(LayerTreeHostFiltersPixelTestNonSkia, BlurFilterWithClip) {
+TEST_P(LayerTreeHostFiltersPixelTest, BlurFilterWithClip) {
   scoped_refptr<SolidColorLayer> child1 =
       CreateSolidColorLayer(gfx::Rect(200, 200), SK_ColorBLUE);
   scoped_refptr<SolidColorLayer> child2 =
@@ -1053,8 +1044,7 @@ class BackdropFilterWithDeviceScaleFactorTest
 // when fixed.
 INSTANTIATE_TEST_SUITE_P(,
                          BackdropFilterWithDeviceScaleFactorTest,
-                         ::testing::Values(LayerTreeTest::RENDERER_GL,
-                                           LayerTreeTest::RENDERER_SKIA_GL));
+                         ::testing::ValuesIn(kRendererTypesGpu));
 
 TEST_P(BackdropFilterWithDeviceScaleFactorTest, StandardDpi) {
   RunPixelTestType(

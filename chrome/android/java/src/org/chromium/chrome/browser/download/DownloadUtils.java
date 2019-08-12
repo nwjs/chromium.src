@@ -10,9 +10,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.os.StrictMode;
 import android.support.annotation.IntDef;
+import android.support.annotation.MainThread;
 import android.support.annotation.Nullable;
 import android.support.v7.content.res.AppCompatResources;
 import android.text.TextUtils;
@@ -36,7 +38,6 @@ import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.FileProviderHelper;
 import org.chromium.chrome.browser.IntentHandler;
-import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.download.home.metrics.FileExtensions;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
 import org.chromium.chrome.browser.download.ui.DownloadFilter;
@@ -57,6 +58,7 @@ import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
 import org.chromium.chrome.browser.util.ConversionUtils;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.IntentUtils;
+import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.components.download.DownloadState;
 import org.chromium.components.download.ResumeMode;
 import org.chromium.components.feature_engagement.EventConstants;
@@ -207,7 +209,7 @@ public class DownloadUtils {
         }
 
         if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()) {
+                        .isFullBrowserStarted()) {
             Profile profile = (tab == null ? Profile.getLastUsedProfile() : tab.getProfile());
             Tracker tracker = TrackerFactory.getTrackerForProfile(profile);
             tracker.notifyEvent(EventConstants.DOWNLOAD_HOME_OPENED);
@@ -257,6 +259,10 @@ public class DownloadUtils {
      * @param isOffTheRecord  Whether to check downloads for the off the record profile.
      */
     public static void checkForExternallyRemovedDownloads(boolean isOffTheRecord) {
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.DOWNLOAD_OFFLINE_CONTENT_PROVIDER)) {
+            return;
+        }
+
         if (isOffTheRecord) {
             DownloadManagerService.getDownloadManagerService().checkForExternallyRemovedDownloads(
                     true);
@@ -569,21 +575,41 @@ public class DownloadUtils {
      * @param filePath File path to get a URI for.
      * @return URI that points at that file, either as a content:// URI or a file:// URI.
      */
+    @MainThread
     public static Uri getUriForItem(String filePath) {
         if (ContentUriUtils.isContentUri(filePath)) return Uri.parse(filePath);
 
+        // It's ok to use blocking calls on main thread here, since the user is waiting to open or
+        // share the file to other apps.
+        StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskReads();
         Uri uri = null;
 
-        // FileUtils.getUriForFile() causes a disk read when it calls into
-        // FileProvider#getUriForFile. Obtaining a content URI is on the critical path for creating
-        // a share intent after the user taps on the share button, so even if we were to run this
-        // method on a background thread we would have to wait. As it depends on user-selected
-        // items, we cannot know/preload which URIs we need until the user presses share.
-        StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskReads();
-        uri = FileUtils.getUriForFile(new File(filePath));
-        StrictMode.setThreadPolicy(oldPolicy);
-
+        try {
+            boolean isOnSDCard = DownloadDirectoryProvider.isDownloadOnSDCard(filePath);
+            if (ChromeFeatureList.isEnabled(ChromeFeatureList.DOWNLOAD_FILE_PROVIDER)
+                    && isOnSDCard) {
+                // Use custom file provider to generate content URI for download on SD card.
+                uri = DownloadFileProvider.createContentUri(filePath);
+            } else {
+                // Use FileProvider to generate content URI or file URI.
+                uri = FileUtils.getUriForFile(new File(filePath));
+            }
+        } finally {
+            StrictMode.setThreadPolicy(oldPolicy);
+        }
         return uri;
+    }
+
+    /**
+     * Get the URI when shared or opened by other apps.
+     *
+     * @param filePath Downloaded file path.
+     * @return URI for other apps to use the file via {@link android.content.ContentResolver}.
+     */
+    public static Uri getUriForOtherApps(String filePath) {
+        // Some old Samsung devices with Android M- must use file URI. See https://crbug.com/705748.
+        return Build.VERSION.SDK_INT > Build.VERSION_CODES.M ? getUriForItem(filePath)
+                                                             : Uri.fromFile(new File(filePath));
     }
 
     @CalledByNative
@@ -618,8 +644,7 @@ public class DownloadUtils {
     public static void openItem(ContentId contentId, boolean isOffTheRecord,
             @DownloadMetrics.DownloadOpenSource int source) {
         if (LegacyHelpers.isLegacyOfflinePage(contentId)) {
-            OfflineContentAggregatorFactory.forProfile(Profile.getLastUsedProfile())
-                    .openItem(LaunchLocation.PROGRESS_BAR, contentId);
+            OfflineContentAggregatorFactory.get().openItem(LaunchLocation.PROGRESS_BAR, contentId);
         } else {
             DownloadManagerService.getDownloadManagerService().openDownload(
                     contentId, isOffTheRecord, source);
@@ -643,12 +668,12 @@ public class DownloadUtils {
         DownloadMetrics.recordDownloadOpen(source, mimeType);
         Context context = ContextUtils.getApplicationContext();
         DownloadManagerService service = DownloadManagerService.getDownloadManagerService();
-        Uri contentUri = getUriForItem(filePath);
 
         // Check if Chrome should open the file itself.
         if (service.isDownloadOpenableInBrowser(isOffTheRecord, mimeType)) {
             // Share URIs use the content:// scheme when able, which looks bad when displayed
             // in the URL bar.
+            Uri contentUri = getUriForItem(filePath);
             Uri fileUri = contentUri;
             if (!ContentUriUtils.isContentUri(filePath)) {
                 File file = new File(filePath);
@@ -656,8 +681,9 @@ public class DownloadUtils {
             }
             String normalizedMimeType = Intent.normalizeMimeType(mimeType);
 
-            Intent intent = MediaViewerUtils.getMediaViewerIntent(
-                    fileUri, contentUri, normalizedMimeType, true /* allowExternalAppHandlers */);
+            Intent intent = MediaViewerUtils.getMediaViewerIntent(fileUri /*displayUri*/,
+                    contentUri /*contentUri*/, normalizedMimeType,
+                    true /* allowExternalAppHandlers */);
             IntentHandler.startActivityForTrustedIntent(intent);
             service.updateLastAccessTime(downloadGuid, isOffTheRecord);
             return true;
@@ -667,9 +693,8 @@ public class DownloadUtils {
         try {
             // TODO(qinmin): Move this to an AsyncTask so we don't need to temper with strict mode.
             StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskReads();
-            Uri uri = ContentUriUtils.isContentUri(filePath)
-                    ? contentUri
-                    : ApiCompatibilityUtils.getUriForDownloadedFile(new File(filePath));
+            Uri uri = ContentUriUtils.isContentUri(filePath) ? Uri.parse(filePath)
+                                                             : getUriForOtherApps(filePath);
             StrictMode.setThreadPolicy(oldPolicy);
             Intent viewIntent =
                     MediaViewerUtils.createViewIntentForUri(uri, mimeType, originalUrl, referrer);
@@ -940,7 +965,7 @@ public class DownloadUtils {
      */
     public static String getFailStatusString(@FailState int failState) {
         if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()) {
+                        .isFullBrowserStarted()) {
             return nativeGetFailStateMessage(failState);
         }
         Context context = ContextUtils.getApplicationContext();
@@ -957,10 +982,9 @@ public class DownloadUtils {
         Context context = ContextUtils.getApplicationContext();
         // When foreground service restarts and there is no connection to native, use the default
         // pending status. The status will be replaced when connected to native.
-        if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()
+        if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER).isFullBrowserStarted()
                 && ChromeFeatureList.isEnabled(
-                           ChromeFeatureList.OFFLINE_PAGES_DESCRIPTIVE_PENDING_STATUS)) {
+                        ChromeFeatureList.OFFLINE_PAGES_DESCRIPTIVE_PENDING_STATUS)) {
             switch (pendingState) {
                 case PendingState.PENDING_NETWORK:
                     return context.getString(R.string.download_notification_pending_network);
@@ -1210,33 +1234,12 @@ public class DownloadUtils {
 
         // Check if the file path contains the external public directory.
         File primaryDir = null;
-        try (StrictModeContext unused = StrictModeContext.allowDiskReads()) {
+        try (StrictModeContext ignored = StrictModeContext.allowDiskReads()) {
             primaryDir = Environment.getExternalStorageDirectory();
         }
         if (primaryDir == null || path == null) return false;
         String primaryPath = primaryDir.getAbsolutePath();
         return primaryPath == null ? false : path.contains(primaryPath);
-    }
-
-    /**
-     * Get the primary download directory in public external storage. The directory will be created
-     * if it doesn't exist.
-     * @return The download directory. Can be an invalid directory if failed to create the
-     *         directory.
-     */
-    public static File getPrimaryDownloadDirectory() {
-        File downloadDir =
-                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-
-        // Create the directory if needed.
-        if (!downloadDir.exists()) {
-            try {
-                downloadDir.mkdirs();
-            } catch (SecurityException e) {
-                Log.e(TAG, "Exception when creating download directory.", e);
-            }
-        }
-        return downloadDir;
     }
 
     /**

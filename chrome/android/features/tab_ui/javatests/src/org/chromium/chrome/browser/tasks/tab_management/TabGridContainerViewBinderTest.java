@@ -227,14 +227,14 @@ public class TabGridContainerViewBinderTest extends DummyUiActivityTestCase {
         mContainerModel.set(TabListContainerProperties.IS_INCOGNITO, true);
         assertThat(mRecyclerView.getBackground(), instanceOf(ColorDrawable.class));
         assertThat(((ColorDrawable) mRecyclerView.getBackground()).getColor(),
-                equalTo(ApiCompatibilityUtils.getColor(mRecyclerView.getResources(),
-                        org.chromium.chrome.R.color.incognito_modern_primary_color)));
+                equalTo(ApiCompatibilityUtils.getColor(
+                        mRecyclerView.getResources(), R.color.incognito_modern_primary_color)));
 
         mContainerModel.set(TabListContainerProperties.IS_INCOGNITO, false);
         assertThat(mRecyclerView.getBackground(), instanceOf(ColorDrawable.class));
         assertThat(((ColorDrawable) mRecyclerView.getBackground()).getColor(),
-                equalTo(ApiCompatibilityUtils.getColor(mRecyclerView.getResources(),
-                        org.chromium.chrome.R.color.modern_primary_color)));
+                equalTo(ApiCompatibilityUtils.getColor(
+                        mRecyclerView.getResources(), R.color.modern_primary_color)));
     }
 
     @Test
@@ -272,7 +272,7 @@ public class TabGridContainerViewBinderTest extends DummyUiActivityTestCase {
     /**
      * Should be the same as {@link ValueAnimator#areAnimatorsEnabled}, which requires API level 26.
      */
-    public static boolean areAnimatorsEnabled() {
+    private static boolean areAnimatorsEnabled() {
         // We default to assuming that animations are enabled in case ANIMATOR_DURATION_SCALE is not
         // defined.
         final float defaultScale = 1f;

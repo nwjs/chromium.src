@@ -15,7 +15,7 @@
 #include "base/stl_util.h"
 #include "base/strings/stringprintf.h"
 #include "ui/accessibility/accessibility_switches.h"
-#include "ui/accessibility/ax_language_info.h"
+#include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_table_info.h"
@@ -120,8 +120,7 @@ struct AXTreeUpdateState {
 
   // If this node is removed, it should be considered reparented.
   bool IsPotentiallyReparentedNode(const AXNode* node) const {
-    return potentially_reparented_ids.find(node->id()) !=
-           potentially_reparented_ids.end();
+    return base::Contains(potentially_reparented_ids, node->id());
   }
 
   // Returns whether this update reparents |node|.
@@ -141,10 +140,16 @@ struct AXTreeUpdateState {
   // decisions about when to notify observers of removals or reparenting.
   std::set<int> changed_node_ids;
 
+  // keeps track of nodes whose cached unignored child count, or unignored
+  // index in parent may have changed, and must be updated.
+  std::unordered_set<int> invalidate_unignored_cached_values_ids;
+
   // Potentially reparented node ids include any child node ids touched by the
   // update, as well as any new root node id. Nodes are considered
   // reparented if they are in this list and removed from somewhere else.
   std::set<int> potentially_reparented_ids;
+
+  std::unordered_set<int> node_data_changed_ids;
 
   // Keeps track of new nodes created during this update.
   std::set<const AXNode*> new_nodes;
@@ -168,10 +173,17 @@ AXTree::AXTree() {
   initial_state.root_id = -1;
   initial_state.nodes.push_back(root);
   CHECK(Unserialize(initial_state)) << error();
+  // TODO(chrishall): should language_detection_manager be a member or pointer?
+  // TODO(chrishall): do we want to initialize all the time, on demand, or only
+  //                  when feature flag is set?
+  DCHECK(!language_detection_manager);
+  language_detection_manager.reset(new AXLanguageDetectionManager());
 }
 
 AXTree::AXTree(const AXTreeUpdate& initial_state) {
   CHECK(Unserialize(initial_state)) << error();
+  DCHECK(!language_detection_manager);
+  language_detection_manager.reset(new AXLanguageDetectionManager());
 }
 
 AXTree::~AXTree() {
@@ -521,6 +533,23 @@ bool AXTree::Unserialize(const AXTreeUpdate& update) {
     changes.push_back(AXTreeObserver::Change(node, change));
   }
 
+  // Update the unignored cached values as necessary.
+  for (int parent_id : update_state.invalidate_unignored_cached_values_ids) {
+    AXNode* parent = GetFromId(parent_id);
+    if (parent)
+      parent->UpdateUnignoredCachedValues();
+  }
+
+  // Now that the unignored cached values are up to date, update observers to
+  // node changes.
+  for (int node_data_changed_id : update_state.node_data_changed_ids) {
+    AXNode* node = GetFromId(node_data_changed_id);
+    if (node) {
+      for (AXTreeObserver& observer : observers_)
+        observer.OnNodeChanged(this, node);
+    }
+  }
+
   // Tree is no longer updating.
   SetTreeUpdateInProgressState(false);
 
@@ -580,13 +609,21 @@ AXNode* AXTree::CreateNode(AXNode* parent,
                            int32_t id,
                            size_t index_in_parent,
                            AXTreeUpdateState* update_state) {
-  AXNode* new_node = new AXNode(this, parent, id, index_in_parent);
+  // If this node is the root, use the given index_in_parent as the unignored
+  // index in parent to provide consistency with index_in_parent.
+  AXNode* new_node = new AXNode(this, parent, id, index_in_parent,
+                                parent ? 0 : index_in_parent);
   id_map_[new_node->id()] = new_node;
   for (AXTreeObserver& observer : observers_) {
     if (update_state->IsReparentedNode(new_node))
       observer.OnNodeReparented(this, new_node);
     else
       observer.OnNodeCreated(this, new_node);
+  }
+  AXNode* unignored_parent = new_node->GetUnignoredParent();
+  if (unignored_parent) {
+    update_state->invalidate_unignored_cached_values_ids.insert(
+        unignored_parent->id());
   }
   return new_node;
 }
@@ -611,10 +648,41 @@ bool AXTree::UpdateNode(const AXNodeData& src,
     if (!update_state->IsNewNode(node) ||
         update_state->IsReparentedNode(node)) {
       auto it = update_state->reparented_node_id_to_data.find(node->id());
-      if (it != update_state->reparented_node_id_to_data.end())
-        CallNodeChangeCallbacks(node, it->second, src);
-      else
-        CallNodeChangeCallbacks(node, node->data(), src);
+      const AXNodeData& old_data =
+          it != update_state->reparented_node_id_to_data.end() ? it->second
+                                                               : node->data();
+      CallNodeChangeCallbacks(node, old_data, src);
+      if (old_data.HasState(ax::mojom::State::kIgnored) !=
+          src.HasState(ax::mojom::State::kIgnored)) {
+        AXNode* unignored_parent = node->GetUnignoredParent();
+        if (unignored_parent) {
+          update_state->invalidate_unignored_cached_values_ids.insert(
+              unignored_parent->id());
+        }
+
+        // We must invalidate the node if it's no longer State::kIgnored.
+        // Since nodes updated in no particular order, this node may
+        // not be added to the set later or update its cached values.
+        //
+        // For example, given the following tree, :
+        // A unignored
+        // |
+        // B ignored
+        // |
+        // C unignored
+        //
+        // ... and the following updates :
+        // Update C unignored => ignored
+        // Update B ignored => unignored
+        //
+        // Both updates would add A to the set of nodes which have invalid
+        // cached values, but B would never be added because ignored nodes
+        // are skipped over.
+        if (!src.HasState(ax::mojom::State::kIgnored)) {
+          update_state->invalidate_unignored_cached_values_ids.insert(
+              node->id());
+        }
+      }
     }
     UpdateReverseRelations(node, src);
     node->SetData(src);
@@ -632,8 +700,7 @@ bool AXTree::UpdateNode(const AXNodeData& src,
     node->SetData(src);
   }
 
-  for (AXTreeObserver& observer : observers_)
-    observer.OnNodeChanged(this, node);
+  update_state->node_data_changed_ids.insert(node->id());
 
   // First, delete nodes that used to be children of this node but aren't
   // anymore.
@@ -873,6 +940,11 @@ void AXTree::DestroyNodeAndSubtree(AXNode* node,
   for (auto* child : node->children())
     DestroyNodeAndSubtree(child, update_state);
   if (update_state) {
+    AXNode* unignored_parent = node->GetUnignoredParent();
+    if (unignored_parent) {
+      update_state->invalidate_unignored_cached_values_ids.insert(
+          unignored_parent->id());
+    }
     update_state->pending_nodes.erase(node);
     update_state->removed_node_ids.insert(node->id());
   }
@@ -964,6 +1036,10 @@ void AXTree::PopulateOrderedSetItems(const AXNode* ordered_set,
                                      const AXNode* local_parent,
                                      std::vector<const AXNode*>& items,
                                      const AXNode& original_node) const {
+  // ignored nodes are not a part of ordered sets.
+  if (original_node.data().HasState(ax::mojom::State::kIgnored))
+    return;
+
   // Stop searching current path if roles of local_parent and ordered set match.
   // Don't compare the container to itself.
   if (!(ordered_set == local_parent)) {
@@ -979,10 +1055,11 @@ void AXTree::PopulateOrderedSetItems(const AXNode* ordered_set,
   // If original node is ordered set, then set its hierarchical level equal to
   // its first child that sets a hierarchical level, if any.
   if (ordered_set == &original_node) {
-    for (size_t i = 0; i < original_node.GetUnignoredChildCount(); ++i) {
-      int32_t level =
-          original_node.GetUnignoredChildAtIndex(i)->GetIntAttribute(
-              ax::mojom::IntAttribute::kHierarchicalLevel);
+    for (auto unignored_iterator = original_node.UnignoredChildrenBegin();
+         unignored_iterator != original_node.UnignoredChildrenEnd();
+         ++unignored_iterator) {
+      int32_t level = unignored_iterator->GetIntAttribute(
+          ax::mojom::IntAttribute::kHierarchicalLevel);
       if (level)
         original_level =
             original_level ? std::min(level, original_level) : level;
@@ -992,8 +1069,11 @@ void AXTree::PopulateOrderedSetItems(const AXNode* ordered_set,
   bool node_is_radio_button =
       (original_node.data().role == ax::mojom::Role::kRadioButton);
 
-  for (size_t i = 0; i < local_parent->children().size(); ++i) {
-    const AXNode* child = local_parent->children()[i];
+  size_t i = 0;
+  for (AXNode::UnignoredChildIterator it =
+           local_parent->UnignoredChildrenBegin();
+       it != local_parent->UnignoredChildrenEnd(); ++it, ++i) {
+    const AXNode* child = it.get();
 
     // Invisible children should not be counted.
     // However, in the collapsed container case (e.g. a combobox), items can
@@ -1052,6 +1132,22 @@ void AXTree::ComputeSetSizePosInSetAndCache(const AXNode& node,
   std::vector<const AXNode*> items;
   // Find all items within ordered_set and add to vector.
   PopulateOrderedSetItems(ordered_set, ordered_set, items, node);
+
+  // If ordered_set role is kPopUpButton and it wraps a kMenuListPopUp, then we
+  // would like it to inherit the SetSize from the kMenuListPopUp it wraps. To
+  // do this, we treat the kMenuListPopUp as the ordered_set and eventually
+  // assign its SetSize value to the kPopUpButton.
+  if ((node.data().role == ax::mojom::Role::kPopUpButton) &&
+      (items.size() != 0)) {
+    // kPopUpButtons are only allowed to contain one kMenuListPopUp.
+    // The single element is guaranteed to be a kMenuListPopUp because that is
+    // the only item role that matches the ordered set role of kPopUpButton.
+    // Please see AXNode::SetRoleMatchesItemRole for more details.
+    DCHECK(items.size() == 1);
+    const AXNode* menu_list_popup = items[0];
+    items.clear();
+    PopulateOrderedSetItems(menu_list_popup, menu_list_popup, items, node);
+  }
 
   // Keep track of the number of elements ordered_set has.
   int32_t num_elements = 0;

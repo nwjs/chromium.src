@@ -34,13 +34,14 @@
 #include "services/service_manager/public/mojom/service.mojom.h"
 
 class GoogleServiceAuthError;
+class PrefChangeRegistrar;
+class PrefService;
 
 namespace base {
 class OneShotTimer;
 }  // namespace base
 
 namespace network {
-class NetworkConnectionTracker;
 class SharedURLLoaderFactoryInfo;
 }  // namespace network
 
@@ -61,7 +62,6 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
       public ash::DefaultVoiceInteractionObserver {
  public:
   Service(service_manager::mojom::ServiceRequest request,
-          network::NetworkConnectionTracker* network_connection_tracker,
           std::unique_ptr<network::SharedURLLoaderFactoryInfo>
               url_loader_factory_info);
   ~Service() override;
@@ -130,10 +130,12 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
   void OnSessionActivated(bool activated) override;
   void OnLockStateChanged(bool locked) override;
 
+  // Called when the hotword always on status is changed from the pref service.
+  void OnAssistantHotwordAlwaysOn();
+
   // ash::mojom::VoiceInteractionObserver:
   void OnVoiceInteractionSettingsEnabled(bool enabled) override;
   void OnVoiceInteractionHotwordEnabled(bool enabled) override;
-  void OnVoiceInteractionHotwordAlwaysOn(bool always_on) override;
   void OnLocaleChanged(const std::string& locale) override;
   void OnArcPlayStoreEnabledChanged(bool enabled) override;
   void OnLockedFullScreenStateChanged(bool enabled) override;
@@ -144,12 +146,17 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
 
   // mojom::AssistantPlatform overrides:
   void Init(mojom::ClientPtr client,
-            mojom::DeviceActionsPtr device_actions) override;
+            mojom::DeviceActionsPtr device_actions,
+            bool is_test) override;
+
+  void OnPrefServiceConnected(std::unique_ptr<::PrefService> pref_service);
 
   identity::mojom::IdentityAccessor* GetIdentityAccessor();
 
   void GetPrimaryAccountInfoCallback(
-      const base::Optional<CoreAccountInfo>& account_info,
+      const base::Optional<CoreAccountId>& account_id,
+      const base::Optional<std::string>& gaia,
+      const base::Optional<std::string>& email,
       const identity::AccountState& account_state);
 
   void GetAccessTokenCallback(const base::Optional<std::string>& token,
@@ -187,6 +194,8 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
                  chromeos::PowerManagerClient::Observer>
       power_manager_observer_;
 
+  // Whether running inside a test environment.
+  bool is_test_ = false;
   // Whether the current user session is active.
   bool session_active_ = false;
   // Whether the lock screen is on.
@@ -208,9 +217,13 @@ class COMPONENT_EXPORT(ASSISTANT_SERVICE) Service
       assistant_screen_context_controller_;
   ash::AssistantStateProxy assistant_state_;
 
-  network::NetworkConnectionTracker* network_connection_tracker_;
   // non-null until |assistant_manager_service_| is created.
   std::unique_ptr<network::SharedURLLoaderFactoryInfo> url_loader_factory_info_;
+
+  std::unique_ptr<PrefService> pref_service_;
+
+  // Observes user profile prefs for the Assistant.
+  std::unique_ptr<PrefChangeRegistrar> pref_change_registrar_;
 
   base::WeakPtrFactory<Service> weak_ptr_factory_;
 

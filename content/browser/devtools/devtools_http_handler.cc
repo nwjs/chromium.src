@@ -795,7 +795,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
     std::unique_ptr<DevToolsSocketFactory> socket_factory,
     const base::FilePath& output_directory,
     const base::FilePath& debug_frontend_dir)
-    : delegate_(delegate), weak_factory_(this) {
+    : delegate_(delegate) {
 #if defined(NWJS_SDK)
   browser_guid_ = delegate_->IsBrowserTargetDiscoverable()
                       ? kBrowserUrlPrefix

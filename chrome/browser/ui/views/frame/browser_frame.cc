@@ -86,7 +86,7 @@ void BrowserFrame::InitBrowserFrame() {
   if (browser_view_->browser()->is_transparent())
     params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
   if (browser_view_->browser()->initial_ontop())
-    params.keep_on_top = true;
+    params.z_order = ui::ZOrderLevel::kFloatingWindow;
   if (browser_view_->browser()->initial_allvisible())
     params.visible_on_all_workspaces = true;
   params.delegate = browser_view_;

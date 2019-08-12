@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Пошук</translation>
 <translation id="1398853756734560583">Збільшити</translation>
 <translation id="1409544243779336081">Рекомендовані додатки</translation>
+<translation id="1498028757988366001">Ви раніше це шукали. Якщо видалити запит "<ph name="QUERY" />" з історії, він назавжди зникне з вашого облікового запису на всіх пристроях.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 хвилина та }one{# хвилина та }few{# хвилини та }many{# хвилин і }other{# хвилини та }}</translation>
 <translation id="1643823602425662293">Сповіщення</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Калібрування завершено</translation>
 <translation id="252373100621549798">Невідомий дисплей</translation>
+<translation id="2545651323591713692">Відкласти</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{через 1 год}one{через # год}few{через # год}many{через # год}other{через # год}}</translation>
 <translation id="2583543531130364912">Відкалібруйте сенсорний екран</translation>
 <translation id="2666092431469916601">Верх</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Прокрутка до цього місця</translation>
 <translation id="3234408098842461169">Курсор униз</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 день}one{# день}few{# дні}many{# днів}other{# дня}}</translation>
+<translation id="3295886253693811851">Зателефонувати через</translation>
 <translation id="335581015389089642">Speech</translation>
 <translation id="3443810440409579745">Вкладку отримано.</translation>
 <translation id="3479552764303398839">Не зараз</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 хв тому}one{# хв тому}few{# хв тому}many{# хв тому}other{# хв тому}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Залишилась 1 хвилина}one{Залишилася # хвилина}few{Залишилося # хвилини}many{Залишилося # хвилин}other{Залишилося # хвилини}}</translation>
+<translation id="7430878839542012341">Видалити цей пошуковий запит з історії?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> ТБ</translation>
 <translation id="7507604095951736240">Смайли</translation>
 <translation id="7658239707568436148">Скасувати</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Ваші пошукові запити виконуються за технологією Google Асистента. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />: автозавершення</translation>
 <translation id="815598010540052116">Прокрутка вниз</translation>
-<translation id="8170087467028567933">Якщо видалити цю пропозицію, вона не з’являтиметься в обліковому записі на всіх ваших пристроях.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Сторінка вниз</translation>
 <translation id="8245914219290430011">Tab</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">установити прапорець</translation>
 <translation id="8393700583063109961">Надіслати повідомлення</translation>
 <translation id="8394908167088220973">Відтворити чи призупинити</translation>
-<translation id="8420205633584771378">Видалити цю пропозицію?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 р.}one{# р.}few{# р.}many{# р.}other{# р.}}</translation>
 <translation id="8602707065186045623">файл <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Полицю завжди видно</translation>

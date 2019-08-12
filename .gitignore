@@ -100,7 +100,6 @@ vs-chromium-project.txt
 /chrome/browser/media/engagement_internal
 /chrome/browser/performance_monitor/performance_monitor.xml
 /chrome/browser/protector/internal
-/chrome/browser/resources/chromeos/kiosk_next_home/internal
 /chrome/browser/resources/chromeos/quickoffice
 /chrome/browser/resources/pdf/html_office
 /chrome/browser/resources/media_router/extension/src/
@@ -164,6 +163,8 @@ vs-chromium-project.txt
 /chrome/web_ui_mojo_bindings.xml
 /chromecast/internal
 /chromeos/assistant/internal
+/chromeos/profiles/chromeos.orderfile.txt
+/chromeos/profiles/orderfile.local.txt
 /cipd_cache/
 /clank
 /cloud_print/cloud_print_version_resources.xml

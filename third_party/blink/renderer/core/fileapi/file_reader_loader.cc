@@ -47,7 +47,7 @@
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/platform/blob/blob_registry.h"
 #include "third_party/blink/renderer/platform/blob/blob_url.h"
-#include "third_party/blink/renderer/platform/histogram.h"
+#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_error.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_loader_options.h"
@@ -76,11 +76,10 @@ FileReaderLoader::FileReaderLoader(
           mojo::SimpleWatcher::ArmingPolicy::AUTOMATIC,
           task_runner ? task_runner : base::SequencedTaskRunnerHandle::Get()),
       binding_(this),
-      task_runner_(std::move(task_runner)),
-      weak_factory_(this) {
+      task_runner_(std::move(task_runner)) {
   // TODO(https://crbug.com/957651): Change this into a DCHECK once we figured
   // out where code is passing in a null task runner,
-  DCHECK(task_runner_);
+  CHECK(task_runner_);
 }
 
 FileReaderLoader::~FileReaderLoader() {
@@ -463,10 +462,10 @@ String FileReaderLoader::ConvertToDataURL() {
   builder.Append(";base64,");
 
   Vector<char> out;
-  Base64Encode(static_cast<const char*>(raw_data_->Data()),
-               static_cast<unsigned>(bytes_loaded_), out);
-  out.push_back('\0');
-  builder.Append(out.data());
+  Base64Encode(base::make_span(static_cast<const uint8_t*>(raw_data_->Data()),
+                               SafeCast<unsigned>(bytes_loaded_)),
+               out);
+  builder.Append(out.data(), out.size());
 
   return builder.ToString();
 }

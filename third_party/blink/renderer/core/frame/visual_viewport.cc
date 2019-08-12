@@ -45,7 +45,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
-#include "third_party/blink/renderer/core/layout/text_autosizer.h"
+#include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/compositing/paint_layer_compositor.h"
@@ -62,8 +62,9 @@
 #include "third_party/blink/renderer/platform/graphics/paint/clip_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
 #include "third_party/blink/renderer/platform/graphics/paint/transform_paint_property_node.h"
-#include "third_party/blink/renderer/platform/histogram.h"
+#include "third_party/blink/renderer/platform/instrumentation/histogram.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 
 namespace blink {
 
@@ -364,9 +365,11 @@ void VisualViewport::SetSize(const IntSize& size) {
 
   TRACE_EVENT2("blink", "VisualViewport::setSize", "width", size.Width(),
                "height", size.Height());
-  bool width_did_change = size.Width() != size_.Width();
   size_ = size;
   needs_paint_property_update_ = true;
+
+  TRACE_EVENT_INSTANT1("loading", "viewport", TRACE_EVENT_SCOPE_THREAD, "data",
+                       ViewportToTracedValue());
 
   if (inner_viewport_container_layer_) {
     inner_viewport_container_layer_->SetSize(gfx::Size(size_));
@@ -385,18 +388,6 @@ void VisualViewport::SetSize(const IntSize& size) {
     return;
 
   EnqueueResizeEvent();
-
-  bool autosizer_needs_updating =
-      width_did_change && MainFrame()->GetSettings() &&
-      MainFrame()->GetSettings()->TextAutosizingEnabled();
-
-  if (autosizer_needs_updating) {
-    // This needs to happen after setting the m_size member since it'll be read
-    // in the update call.
-    if (TextAutosizer* text_autosizer =
-            MainFrame()->GetDocument()->GetTextAutosizer())
-      text_autosizer->UpdatePageInfoInAllFrames();
-  }
 }
 
 void VisualViewport::Reset() {
@@ -583,7 +574,10 @@ bool VisualViewport::DidSetScaleOrLocation(float scale,
   ClampToBoundaries();
 
   needs_paint_property_update_ = true;
-
+  if (notify_page_scale_factor_changed) {
+    TRACE_EVENT_INSTANT1("loading", "viewport", TRACE_EVENT_SCOPE_THREAD,
+                         "data", ViewportToTracedValue());
+  }
   return true;
 }
 
@@ -1199,6 +1193,39 @@ const ScrollableArea* VisualViewport::GetScrollableAreaForTesting(
   if (layer == inner_viewport_scroll_layer_.get())
     return this;
   return nullptr;
+}
+
+std::unique_ptr<TracedValue> VisualViewport::ViewportToTracedValue() const {
+  auto value = std::make_unique<TracedValue>();
+  IntRect viewport = VisibleContentRect();
+  value->SetInteger("x", clampTo<int>(roundf(viewport.X())));
+  value->SetInteger("y", clampTo<int>(roundf(viewport.Y())));
+  value->SetInteger("width", clampTo<int>(roundf(viewport.Width())));
+  value->SetInteger("height", clampTo<int>(roundf(viewport.Height())));
+  value->SetString("frameID",
+                   IdentifiersFactory::FrameId(GetPage().MainFrame()));
+  return value;
+}
+
+void VisualViewport::DisposeImpl() {
+  root_transform_layer_.reset();
+  inner_viewport_container_layer_.reset();
+  overscroll_elasticity_layer_.reset();
+  page_scale_layer_.reset();
+  inner_viewport_scroll_layer_.reset();
+  // scrollbar_layer_group_* are referenced from overlay_scrollbar_*, thus
+  // overlay_scrollbar_* must be destroyed before scrollbar_layer_group_*.
+  overlay_scrollbar_horizontal_.reset();
+  overlay_scrollbar_vertical_.reset();
+  scrollbar_layer_group_horizontal_.reset();
+  scrollbar_layer_group_vertical_.reset();
+  device_emulation_transform_node_.reset();
+  overscroll_elasticity_transform_node_.reset();
+  scale_transform_node_.reset();
+  translation_transform_node_.reset();
+  scroll_node_.reset();
+  horizontal_scrollbar_effect_node_.reset();
+  vertical_scrollbar_effect_node_.reset();
 }
 
 }  // namespace blink

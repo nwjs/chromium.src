@@ -52,7 +52,6 @@
 #include "components/gwp_asan/buildflags/buildflags.h"
 #include "components/nacl/common/buildflags.h"
 #include "components/services/heap_profiling/public/cpp/profiling_client.h"
-#include "components/tracing/common/tracing_sampler_profiler.h"
 #include "components/version_info/version_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_paths.h"
@@ -65,6 +64,7 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/embedder/switches.h"
+#include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_switches.h"
@@ -169,8 +169,7 @@
 #include "chrome/child/pdf_child_init.h"
 #endif
 
-#if BUILDFLAG(ENABLE_GWP_ASAN_MALLOC) || \
-    BUILDFLAG(ENABLE_GWP_ASAN_PARTITIONALLOC)
+#if BUILDFLAG(ENABLE_GWP_ASAN)
 #include "components/gwp_asan/client/gwp_asan.h"  // nogncheck
 #endif
 
@@ -691,8 +690,7 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
 
 
   // Setup tracing sampler profiler as early as possible at startup if needed.
-  tracing_sampler_profiler_ =
-      tracing::TracingSamplerProfiler::CreateOnMainThread();
+  tracing::TracingSamplerProfiler::CreateForCurrentThread();
 
 #if defined(OS_WIN) && !defined(CHROME_MULTIPLE_DLL_BROWSER)
   v8_crashpad_support::SetUp();
@@ -1208,11 +1206,6 @@ bool ChromeMainDelegate::ProcessRegistersWithSystemProcess(
 #else
   return process_type == switches::kNaClLoaderProcess;
 #endif
-}
-
-bool ChromeMainDelegate::ShouldSendMachPort(const std::string& process_type) {
-  return process_type != switches::kRelauncherProcess &&
-         process_type != switches::kCloudPrintServiceProcess;
 }
 
 bool ChromeMainDelegate::DelaySandboxInitialization(

@@ -30,6 +30,7 @@
 #include "cc/animation/keyframe_effect.h"
 #include "cc/animation/single_keyframe_effect_animation.h"
 #include "cc/layers/layer.h"
+#include "cc/layers/mirror_layer.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
@@ -1278,6 +1279,15 @@ TEST_F(LayerWithNullDelegateTest, MirroringVisibility) {
   EXPECT_FALSE(l1->cc_layer_for_testing()->hide_layer_and_subtree());
   EXPECT_FALSE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
   EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
+
+  // Disable visibility sync on the mirrored layer. Changes in |l2|'s visibility
+  // shouldn't affect the visibility of |l2_mirror|.
+  l2_mirror->set_sync_visibility_with_source(false);
+  l2->SetVisible(false);
+  EXPECT_FALSE(l2->IsDrawn());
+  EXPECT_TRUE(l2->cc_layer_for_testing()->hide_layer_and_subtree());
+  EXPECT_TRUE(l2_mirror->IsDrawn());
+  EXPECT_FALSE(l2_mirror->cc_layer_for_testing()->hide_layer_and_subtree());
 }
 
 TEST_F(LayerWithDelegateTest, RoundedCorner) {
@@ -1509,6 +1519,74 @@ TEST_F(LayerWithNullDelegateTest, AlwaysSendsMaskDamagedRects) {
   EXPECT_EQ(mask->damaged_region_for_testing().bounds(), invalid_rect);
   root->SendDamagedRects();
   EXPECT_EQ(mask->damaged_region_for_testing().bounds(), gfx::Rect());
+}
+
+// Verifies that when a layer is reflecting other layers, mirror counts of
+// reflected layers are updated properly.
+TEST_F(LayerWithNullDelegateTest, SetShowReflectedLayerSubtree) {
+  std::unique_ptr<Layer> reflected_layer_1(CreateLayer(LAYER_SOLID_COLOR));
+  auto* reflected_layer_1_cc = reflected_layer_1->cc_layer_for_testing();
+
+  std::unique_ptr<Layer> reflected_layer_2(CreateLayer(LAYER_SOLID_COLOR));
+  auto* reflected_layer_2_cc = reflected_layer_2->cc_layer_for_testing();
+
+  std::unique_ptr<Layer> reflecting_layer(CreateLayer(LAYER_SOLID_COLOR));
+
+  // Originally, mirror counts should be zero.
+  auto* reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  EXPECT_EQ(nullptr, reflecting_layer_cc);
+  EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
+  EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
+
+  // Mirror the first layer. Its mirror count should be increased.
+  reflecting_layer->SetShowReflectedLayerSubtree(reflected_layer_1.get());
+  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  ASSERT_NE(nullptr, reflecting_layer_cc);
+  EXPECT_EQ(reflecting_layer->cc_layer_for_testing(), reflecting_layer_cc);
+  EXPECT_EQ(reflected_layer_1_cc, reflecting_layer_cc->mirrored_layer());
+  EXPECT_EQ(1, reflected_layer_1_cc->mirror_count());
+  EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
+
+  // Mirror the second layer. Its mirror count should be increased, but mirror
+  // count for the first mirrored layer should be set back to zero.
+  reflecting_layer->SetShowReflectedLayerSubtree(reflected_layer_2.get());
+  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  ASSERT_NE(nullptr, reflecting_layer_cc);
+  EXPECT_EQ(reflecting_layer->cc_layer_for_testing(), reflecting_layer_cc);
+  EXPECT_EQ(reflected_layer_2_cc, reflecting_layer_cc->mirrored_layer());
+  EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
+  EXPECT_EQ(1, reflected_layer_2_cc->mirror_count());
+
+  // Un-mirror the layer. All mirror counts should be set to zero.
+  reflecting_layer->SetShowSolidColorContent();
+  reflecting_layer_cc = reflecting_layer->mirror_layer_for_testing();
+  EXPECT_EQ(nullptr, reflecting_layer_cc);
+  EXPECT_EQ(0, reflected_layer_1_cc->mirror_count());
+  EXPECT_EQ(0, reflected_layer_2_cc->mirror_count());
+}
+
+// Verifies that when a layer is reflecting another layer, its size matches the
+// size of the reflected layer.
+TEST_F(LayerWithNullDelegateTest, SetShowReflectedLayerSubtreeBounds) {
+  const gfx::Rect reflected_bounds(0, 0, 50, 50);
+  const gfx::Rect reflecting_bounds(0, 50, 10, 10);
+
+  std::unique_ptr<Layer> reflected_layer(CreateLayer(LAYER_SOLID_COLOR));
+  reflected_layer->SetBounds(reflected_bounds);
+
+  std::unique_ptr<Layer> reflecting_layer(CreateLayer(LAYER_SOLID_COLOR));
+  reflecting_layer->SetBounds(reflecting_bounds);
+
+  EXPECT_EQ(reflecting_bounds, reflecting_layer->bounds());
+
+  reflecting_layer->SetShowReflectedLayerSubtree(reflected_layer.get());
+  EXPECT_EQ(reflecting_bounds.origin(), reflecting_layer->bounds().origin());
+  EXPECT_EQ(reflected_bounds.size(), reflecting_layer->bounds().size());
+
+  const gfx::Rect new_reflected_bounds(10, 10, 30, 30);
+  reflected_layer->SetBounds(new_reflected_bounds);
+  EXPECT_EQ(reflecting_bounds.origin(), reflecting_layer->bounds().origin());
+  EXPECT_EQ(new_reflected_bounds.size(), reflecting_layer->bounds().size());
 }
 
 void ExpectRgba(int x, int y, SkColor expected_color, SkColor actual_color) {
@@ -2681,76 +2759,22 @@ TEST_F(LayerWithRealCompositorTest, SnapLayerToPixels) {
   root->SetBounds(gfx::Rect(0, 0, 100, 100));
   c1->SetBounds(gfx::Rect(1, 1, 10, 10));
   c11->SetBounds(gfx::Rect(1, 1, 10, 10));
-  SnapLayerToPhysicalPixelBoundary(root.get(), c11.get());
-  // 0.5 at 1.25 scale : (1 - 0.25 + 0.25) / 1.25 = 0.4
-  EXPECT_EQ("0.40 0.40",
-            Vector2dFTo100thPrecisionString(c11->subpixel_position_offset()));
+  // 1 at 1.25 scale = 1.25 : (-0.25) / 1.25 = -0.20
+  EXPECT_EQ("-0.20 -0.20",
+            Vector2dFTo100thPrecisionString(c11->GetSubpixelOffset()));
 
   allocator.GenerateId();
   GetCompositor()->SetScaleAndSize(
       1.5f, gfx::Size(100, 100),
       allocator.GetCurrentLocalSurfaceIdAllocation());
-  SnapLayerToPhysicalPixelBoundary(root.get(), c11.get());
-  // c11 must already be aligned at 1.5 scale.
-  EXPECT_EQ("0.00 0.00",
-            Vector2dFTo100thPrecisionString(c11->subpixel_position_offset()));
+  // 1 at 1.5 scale = 1.5 : (round(1.5) - 1.5) / 1.5 = 0.33
+  EXPECT_EQ("0.33 0.33",
+            Vector2dFTo100thPrecisionString(c11->GetSubpixelOffset()));
 
   c11->SetBounds(gfx::Rect(2, 2, 10, 10));
-  SnapLayerToPhysicalPixelBoundary(root.get(), c11.get());
-  // c11 is now off the pixel.
-  // 0.5 / 1.5 = 0.333...
-  EXPECT_EQ("0.33 0.33",
-            Vector2dFTo100thPrecisionString(c11->subpixel_position_offset()));
-}
-
-TEST_F(LayerWithRealCompositorTest, SnapLayerToPixelsWithScaleTransform) {
-  std::unique_ptr<Layer> root(CreateLayer(LAYER_TEXTURED));
-  std::unique_ptr<Layer> c1(CreateLayer(LAYER_TEXTURED));
-  std::unique_ptr<Layer> c11(CreateLayer(LAYER_TEXTURED));
-  std::unique_ptr<Layer> c111(CreateLayer(LAYER_TEXTURED));
-
-  viz::ParentLocalSurfaceIdAllocator allocator;
-  allocator.GenerateId();
-  GetCompositor()->SetScaleAndSize(
-      1.0f, gfx::Size(100, 100),
-      allocator.GetCurrentLocalSurfaceIdAllocation());
-  GetCompositor()->SetRootLayer(root.get());
-  root->Add(c1.get());
-  c1->Add(c11.get());
-  c11->Add(c111.get());
-
-  root->SetBounds(gfx::Rect(0, 0, 100, 100));
-  c1->SetBounds(gfx::Rect(0, 0, 10, 10));
-  c11->SetBounds(gfx::Rect(0, 0, 10, 10));
-  c111->SetBounds(gfx::Rect(2, 2, 5, 5));
-
-  gfx::Transform transform;
-  transform.Scale(1.25f, 1.25f);
-
-  c1->SetTransform(transform);
-  SnapLayerToPhysicalPixelBoundary(root.get(), c111.get());
-
-  // c111 ends up at 2.5, and is supposed to be snapped to 3.0. So subpixel
-  // offset is expected to be:
-  // 0.5 / 1.25 = 0.40
-  EXPECT_EQ("0.40 0.40",
-            Vector2dFTo100thPrecisionString(c111->subpixel_position_offset()));
-
-  c11->SetTransform(transform);
-  SnapLayerToPhysicalPixelBoundary(root.get(), c111.get());
-
-  // c111 ends up at 3.125, and is supposed to be snapped to 3.0. So subpixel
-  // offset is expected to be:
-  // -0.125 / (1.25 * 1.25) = -0.08
-  EXPECT_EQ("-0.08 -0.08",
-            Vector2dFTo100thPrecisionString(c111->subpixel_position_offset()));
-
-  // A transform on c111 should not affect the subpixel offset so expect it to
-  // be the same as before.
-  c111->SetTransform(transform);
-  SnapLayerToPhysicalPixelBoundary(root.get(), c111.get());
-  EXPECT_EQ("-0.08 -0.08",
-            Vector2dFTo100thPrecisionString(c111->subpixel_position_offset()));
+  // 2 at 1.5 scale = 3 : (round(3) - 3) / 1.5 = 0
+  EXPECT_EQ("0.00 0.00",
+            Vector2dFTo100thPrecisionString(c11->GetSubpixelOffset()));
 }
 
 // Verify that LayerDelegate::OnLayerBoundsChanged() is called when the bounds

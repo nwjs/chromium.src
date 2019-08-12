@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Flaş</translation>
 <translation id="2958718410589002129">Şifreler</translation>
 <translation id="2969979262385602596">Oturum açılamadı. Daha sonra tekrar deneyin.</translation>
+<translation id="298306318844797842">Ödeme Yöntemi Ekle...</translation>
 <translation id="2989805286512600854">Yeni Sekmede Aç</translation>
 <translation id="3037605927509011580">Hay aksi!</translation>
 <translation id="3112556859945124369">İşaretle…</translation>
@@ -477,6 +478,7 @@ Verileriniz <ph name="TIME" /> tarihinde senkronizasyon parolanızla şifrelendi
 <translation id="7961015016161918242">Hiçbir Zaman</translation>
 <translation id="7971521879845308059">Pop-up'ları Engelle</translation>
 <translation id="7982789257301363584">Ağ</translation>
+<translation id="8007420562015504427">Gizli Arama</translation>
 <translation id="8019783059653722575">Böylece, fotoğrafları kaydedebilir ve yükleyebilirsiniz.</translation>
 <translation id="802154636333426148">İndirilemedi</translation>
 <translation id="8023878949384262191">Seçimi genişletir.</translation>
@@ -491,6 +493,7 @@ Verileriniz <ph name="TIME" /> tarihinde senkronizasyon parolanızla şifrelendi
 <translation id="8225985093977202398">Önbelleğe Alınan Resimler ve Dosyalar</translation>
 <translation id="8261506727792406068">Sil</translation>
 <translation id="8281781826761538115">Varsayılan - <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Yeni Arama</translation>
 <translation id="8328777765163860529">Tümünü Kapat</translation>
 <translation id="8381750437846184350">Google'ın Arama, reklamlar ve diğer Google hizmetlerini kişiselleştirmek için tarama geçmişinizi nasıl kullanacağını kontrol edin</translation>
 <translation id="8407669440184693619">Bu site için şifre bulunamadı</translation>
@@ -507,7 +510,6 @@ Verileriniz <ph name="TIME" /> tarihinde senkronizasyon parolanızla şifrelendi
 <translation id="8532105204136943229">Son Kullanım Yılı</translation>
 <translation id="8534481786647257214">Google+ yayını tamamlandı.</translation>
 <translation id="8548878600947630424">Sayfada bul...</translation>
-<translation id="8583866649835978847"><ph name="TITLE" /> sayfasını cihazlarınızdan birine gönderin.</translation>
 <translation id="8605219856220328675">Sekmeyi kapat.</translation>
 <translation id="8620640915598389714">Düzenle</translation>
 <translation id="8636825310635137004">Diğer cihazlarınızdaki sekmelerinize ulaşmak için senkronizasyonu etkinleştirin.</translation>

@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Caută</translation>
 <translation id="1398853756734560583">Maximizează</translation>
 <translation id="1409544243779336081">Recomandarea aplicației</translation>
+<translation id="1498028757988366001">Ai mai căutat asta. Dacă ștergi „<ph name="QUERY" />” din istoric, se va elimina definitiv din contul tău, de pe toate dispozitivele.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{Un minut și  }few{# minute și  }other{# de minute și  }}</translation>
 <translation id="1643823602425662293">Notificare</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Calibrarea este finalizată</translation>
 <translation id="252373100621549798">Afișaj necunoscut</translation>
+<translation id="2545651323591713692">Amână</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{în 1 h}few{în # h}other{în # h}}</translation>
 <translation id="2583543531130364912">Calibrează ecranul tactil</translation>
 <translation id="2666092431469916601">Sus</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Derulează până aici</translation>
 <translation id="3234408098842461169">Săgeată în jos</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{O zi}few{# zile}other{# de zile}}</translation>
+<translation id="3295886253693811851">Apelează de pe</translation>
 <translation id="335581015389089642">Voce</translation>
 <translation id="3443810440409579745">Fila a fost primită.</translation>
 <translation id="3479552764303398839">Nu acum</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{Acum un min.}few{Acum # min.}other{Acum # min.}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Un minut rămas}few{# minute rămase}other{# de minute rămase}}</translation>
+<translation id="7430878839542012341">Ștergi această căutare din istoric?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Emoji</translation>
 <translation id="7658239707568436148">Anulează</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Căutările tale funcționează cu Asistentul Google. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, completare automată</translation>
 <translation id="815598010540052116">Derulează în jos</translation>
-<translation id="8170087467028567933">Dacă elimini sugestia, nu se va mai afișa în cont pe niciun dispozitiv.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">O pagină mai jos</translation>
 <translation id="8245914219290430011">Tab</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">bifează</translation>
 <translation id="8393700583063109961">Trimite un mesaj</translation>
 <translation id="8394908167088220973">Redați/întrerupeți conținutul media</translation>
-<translation id="8420205633584771378">Eliminați această sugestie?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 an}few{# ani}other{# ani}}</translation>
 <translation id="8602707065186045623">Fișier <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Raftul este afișat mereu</translation>

@@ -29,11 +29,9 @@ void OnNewBufferAcknowleged(
 namespace video_capture {
 
 SharedMemoryVirtualDeviceMojoAdapter::SharedMemoryVirtualDeviceMojoAdapter(
-    std::unique_ptr<service_manager::ServiceContextRef> service_ref,
     mojom::ProducerPtr producer,
     bool send_buffer_handles_to_producer_as_raw_file_descriptors)
-    : service_ref_(std::move(service_ref)),
-      producer_(std::move(producer)),
+    : producer_(std::move(producer)),
       send_buffer_handles_to_producer_as_raw_file_descriptors_(
           send_buffer_handles_to_producer_as_raw_file_descriptors),
       buffer_pool_(new media::VideoCaptureBufferPoolImpl(
@@ -85,7 +83,7 @@ void SharedMemoryVirtualDeviceMojoAdapter::RequestFrameBuffer(
     return;
   }
 
-  if (!base::ContainsValue(known_buffer_ids_, buffer_id)) {
+  if (!base::Contains(known_buffer_ids_, buffer_id)) {
     if (receiver_.is_bound()) {
       media::mojom::VideoBufferHandlePtr buffer_handle =
           media::mojom::VideoBufferHandle::New();
@@ -126,7 +124,7 @@ void SharedMemoryVirtualDeviceMojoAdapter::OnFrameReadyInBuffer(
     ::media::mojom::VideoFrameInfoPtr frame_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // Unknown buffer ID.
-  if (!base::ContainsValue(known_buffer_ids_, buffer_id)) {
+  if (!base::Contains(known_buffer_ids_, buffer_id)) {
     return;
   }
 

@@ -69,18 +69,17 @@ class SearchBoxViewTest : public views::test::WidgetTest,
     views::test::WidgetTest::SetUp();
 
     app_list_view_ = new AppListView(&view_delegate_);
-    AppListView::InitParams params;
-    params.parent = GetContext();
-    app_list_view_->Initialize(params);
+    app_list_view_->InitView(false /*is_tablet_mode*/, GetContext());
 
     widget_ = CreateTopLevelPlatformWidget();
     view_ =
         std::make_unique<SearchBoxView>(this, &view_delegate_, app_list_view());
-    view_->Init();
+    view_->Init(false /*is_tablet_mode*/);
     widget_->SetBounds(gfx::Rect(0, 0, 300, 200));
     counter_view_ = new KeyPressCounterView(app_list_view_);
     widget_->GetContentsView()->AddChildView(view());
     widget_->GetContentsView()->AddChildView(counter_view_);
+    counter_view_->Init(view_delegate_.GetModel());
     view()->set_contents_view(counter_view_);
   }
 
@@ -599,12 +598,8 @@ TEST_F(SearchBoxViewAutocompleteTest, SearchBoxAutocompletesAcceptsNextChar) {
 }
 
 // Tests that autocomplete suggestion is accepted and displayed in SearchModel
-// after pressing the tab key, clicking on the search box, or gesture tapping on
-// the search box.
-TEST_F(SearchBoxViewAutocompleteTest,
-       SearchBoxAcceptsAutocompleteForTabClickTap) {
-  TestKeyEvent(ui::KeyEvent(ui::ET_KEY_PRESSED, ui::VKEY_TAB, ui::EF_NONE),
-               true);
+// after clicking or tapping on the search box.
+TEST_F(SearchBoxViewAutocompleteTest, SearchBoxAcceptsAutocompleteForClickTap) {
   TestMouseEvent(ui::MouseEvent(ui::ET_MOUSE_PRESSED, gfx::Point(),
                                 gfx::Point(), ui::EventTimeForNow(), 0, 0),
                  true);

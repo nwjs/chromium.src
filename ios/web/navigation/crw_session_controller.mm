@@ -22,8 +22,8 @@
 #import "ios/web/navigation/navigation_manager_impl.h"
 #include "ios/web/navigation/time_smoother.h"
 #include "ios/web/public/browser_state.h"
-#include "ios/web/public/browser_url_rewriter.h"
-#include "ios/web/public/referrer.h"
+#include "ios/web/public/navigation/browser_url_rewriter.h"
+#include "ios/web/public/navigation/referrer.h"
 #include "ios/web/public/security/ssl_status.h"
 #import "ios/web/public/web_client.h"
 
@@ -174,7 +174,7 @@ initiationType:(web::NavigationInitiationType)initiationType;
 
 - (web::NavigationItemImpl*)pendingItem {
   if (self.pendingItemIndex == -1) {
-    if (web::features::StorePendingItemInContext() && !_pendingItem) {
+    if (!_pendingItem) {
       return [self.delegate pendingItemForSessionController:self];
     }
     return _pendingItem.get();
@@ -379,7 +379,6 @@ initiationType:(web::NavigationInitiationType)initiationType;
 }
 
 - (void)clearForwardItems {
-  DCHECK_EQ(self.pendingItemIndex, -1);
   [self discardTransientItem];
 
   NSInteger forwardItemStartIndex = _lastCommittedItemIndex + 1;
@@ -419,20 +418,18 @@ initiationType:(web::NavigationInitiationType)initiationType;
     DCHECK(!_pendingItem);
   }
 
-  web::NavigationItem* item = web::features::StorePendingItemInContext()
-                                  ? self.lastCommittedItem
-                                  : self.currentItem;
   // Update the navigation timestamp now that it's actually happened.
-  if (item)
+  web::NavigationItem* item = self.lastCommittedItem;
+  if (item) {
     item->SetTimestamp(_timeSmoother.GetSmoothedTime(base::Time::Now()));
+    if (_navigationManager)
+      _navigationManager->OnNavigationItemCommitted();
+  }
 
-  if (_navigationManager && item)
-    _navigationManager->OnNavigationItemCommitted();
   DCHECK_EQ(self.pendingItemIndex, -1);
 }
 
 - (void)commitPendingItem:(std::unique_ptr<web::NavigationItemImpl>)item {
-  DCHECK(web::features::StorePendingItemInContext());
   if (!item)
     return;
 
@@ -445,7 +442,6 @@ initiationType:(web::NavigationInitiationType)initiationType;
   _items.push_back(std::move(item));
   _previousItemIndex = _lastCommittedItemIndex;
   self.lastCommittedItemIndex = self.items.size() - 1;
-  self.pendingItemIndex = -1;
 }
 
 - (void)addTransientItemWithURL:(const GURL&)URL {

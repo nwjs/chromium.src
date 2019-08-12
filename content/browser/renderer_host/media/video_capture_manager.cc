@@ -285,7 +285,8 @@ void VideoCaptureManager::ProcessDeviceStartRequestQueue() {
   // TODO(chfremer): Check if any production code actually depends on this
   // requirement. If not, relax the requirement in the test and remove the below
   // if block. See crbug.com/708251
-  if (controller->stream_type() == blink::MEDIA_DEVICE_VIDEO_CAPTURE) {
+  if (controller->stream_type() ==
+      blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE) {
     const media::VideoCaptureDeviceInfo* device_info =
         GetDeviceInfoById(controller->device_id());
     if (!device_info) {
@@ -324,7 +325,7 @@ void VideoCaptureManager::OnDeviceLaunched(VideoCaptureController* controller) {
   DCHECK_EQ(controller, device_start_request_queue_.begin()->controller());
   DCHECK(controller);
 
-  if (controller->stream_type() == blink::MEDIA_GUM_DESKTOP_VIDEO_CAPTURE) {
+  if (blink::IsVideoDesktopCaptureMediaType(controller->stream_type())) {
     const media::VideoCaptureSessionId session_id =
         device_start_request_queue_.front().session_id();
     DCHECK(session_id != kFakeSessionId);
@@ -436,7 +437,8 @@ void VideoCaptureManager::DisconnectClient(
   if (error == media::VideoCaptureError::kNone) {
     if (controller->has_received_frames()) {
       LogVideoCaptureEvent(VIDEO_CAPTURE_STOP_CAPTURE_OK);
-    } else if (controller->stream_type() == blink::MEDIA_DEVICE_VIDEO_CAPTURE) {
+    } else if (controller->stream_type() ==
+               blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE) {
       LogVideoCaptureEvent(
           VIDEO_CAPTURE_STOP_CAPTURE_OK_NO_FRAMES_PRODUCED_BY_DEVICE);
     } else {
@@ -577,8 +579,9 @@ bool VideoCaptureManager::GetDeviceFormatsInUse(
 }
 
 base::Optional<media::VideoCaptureFormat>
-VideoCaptureManager::GetDeviceFormatInUse(blink::MediaStreamType stream_type,
-                                          const std::string& device_id) {
+VideoCaptureManager::GetDeviceFormatInUse(
+    blink::mojom::MediaStreamType stream_type,
+    const std::string& device_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   // Return the currently in-use format of the device, if it's started.
   VideoCaptureController* device_in_use =
@@ -615,8 +618,7 @@ void VideoCaptureManager::MaybePostDesktopCaptureWindowId(
     return;
   }
 
-  DCHECK_EQ(blink::MEDIA_GUM_DESKTOP_VIDEO_CAPTURE,
-            existing_device->stream_type());
+  DCHECK(blink::IsVideoDesktopCaptureMediaType(existing_device->stream_type()));
   DesktopMediaID id = DesktopMediaID::Parse(existing_device->device_id());
   if (id.is_null())
     return;
@@ -700,7 +702,7 @@ void VideoCaptureManager::TakePhoto(
 }
 
 void VideoCaptureManager::OnOpened(
-    blink::MediaStreamType stream_type,
+    blink::mojom::MediaStreamType stream_type,
     media::VideoCaptureSessionId capture_session_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   for (auto& listener : listeners_)
@@ -708,7 +710,7 @@ void VideoCaptureManager::OnOpened(
 }
 
 void VideoCaptureManager::OnClosed(
-    blink::MediaStreamType stream_type,
+    blink::mojom::MediaStreamType stream_type,
     media::VideoCaptureSessionId capture_session_id) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
   for (auto& listener : listeners_)
@@ -796,7 +798,7 @@ VideoCaptureController* VideoCaptureManager::LookupControllerBySessionId(
 
 VideoCaptureController*
 VideoCaptureManager::LookupControllerByMediaTypeAndDeviceId(
-    blink::MediaStreamType type,
+    blink::mojom::MediaStreamType type,
     const std::string& device_id) const {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
@@ -810,7 +812,7 @@ VideoCaptureManager::LookupControllerByMediaTypeAndDeviceId(
 bool VideoCaptureManager::IsControllerPointerValid(
     const VideoCaptureController* controller) const {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  return base::ContainsValue(controllers_, controller);
+  return base::Contains(controllers_, controller);
 }
 
 scoped_refptr<VideoCaptureController>
@@ -882,7 +884,8 @@ void VideoCaptureManager::ReleaseDevices() {
 
   for (auto& controller : controllers_) {
     // Do not stop Content Video Capture devices, e.g. Tab or Screen capture.
-    if (controller->stream_type() != blink::MEDIA_DEVICE_VIDEO_CAPTURE)
+    if (controller->stream_type() !=
+        blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE)
       continue;
 
     DoStopDevice(controller.get());
@@ -895,7 +898,8 @@ void VideoCaptureManager::ResumeDevices() {
   for (auto& controller : controllers_) {
     // Do not resume Content Video Capture devices, e.g. Tab or Screen capture.
     // Do not try to restart already running devices.
-    if (controller->stream_type() != blink::MEDIA_DEVICE_VIDEO_CAPTURE ||
+    if (controller->stream_type() !=
+            blink::mojom::MediaStreamType::DEVICE_VIDEO_CAPTURE ||
         controller->IsDeviceAlive())
       continue;
 
@@ -926,7 +930,7 @@ void VideoCaptureManager::OnScreenLocked() {
 
   std::vector<media::VideoCaptureSessionId> desktopcapture_session_ids;
   for (auto it : sessions_) {
-    if (IsDesktopCaptureMediaType(it.second.type))
+    if (blink::IsDesktopCaptureMediaType(it.second.type))
       desktopcapture_session_ids.push_back(it.first);
   }
 

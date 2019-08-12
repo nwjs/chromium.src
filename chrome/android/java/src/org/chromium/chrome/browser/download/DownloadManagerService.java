@@ -21,7 +21,6 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Pair;
 
-import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
@@ -180,6 +179,9 @@ public class DownloadManagerService
 
     // Whether any ChromeActivity is launched.
     private boolean mActivityLaunched;
+
+    // Disabling call to DownloadManager.addCompletedDownload() for test.
+    private boolean mDisableAddCompletedDownloadForTesting;
 
     /**
      * Interface to intercept download request to Android DownloadManager. This is implemented by
@@ -539,8 +541,8 @@ public class DownloadManagerService
         AsyncTask<Pair<Boolean, Boolean>> task = new AsyncTask<Pair<Boolean, Boolean>>() {
             @Override
             public Pair<Boolean, Boolean> doInBackground() {
-                boolean success =
-                        ContentUriUtils.isContentUri(item.getDownloadInfo().getFilePath());
+                boolean success = mDisableAddCompletedDownloadForTesting
+                        || ContentUriUtils.isContentUri(item.getDownloadInfo().getFilePath());
                 if (!success
                         && !ChromeFeatureList.isEnabled(
                                 ChromeFeatureList.DOWNLOAD_OFFLINE_CONTENT_PROVIDER)) {
@@ -814,10 +816,9 @@ public class DownloadManagerService
                 DownloadManagerBridge.queryDownloadResult(downloadId);
         if (mimeType == null) mimeType = queryResult.mimeType;
 
-        Uri contentUri = filePath == null
-                ? queryResult.contentUri
-                : ApiCompatibilityUtils.getUriForDownloadedFile(new File(filePath));
-        if (contentUri == null) return null;
+        Uri contentUri = filePath == null ? queryResult.contentUri
+                                          : DownloadUtils.getUriForOtherApps(filePath);
+        if (contentUri == null || Uri.EMPTY.equals(contentUri)) return null;
 
         Uri fileUri = filePath == null ? contentUri : Uri.fromFile(new File(filePath));
         return createLaunchIntent(
@@ -1181,7 +1182,7 @@ public class DownloadManagerService
         if (mNativeDownloadManagerService == 0) {
             boolean startupCompleted =
                     BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                            .isStartupSuccessfullyCompleted();
+                            .isFullBrowserStarted();
             mNativeDownloadManagerService = nativeInit(startupCompleted);
             if (!startupCompleted) {
                 BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
@@ -1194,7 +1195,7 @@ public class DownloadManagerService
     @Override
     public void onSuccess() {
         if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()) {
+                        .isFullBrowserStarted()) {
             nativeOnFullBrowserStarted(mNativeDownloadManagerService);
         }
     }
@@ -1245,7 +1246,7 @@ public class DownloadManagerService
         }
 
         if (BrowserStartupController.get(LibraryProcessType.PROCESS_BROWSER)
-                        .isStartupSuccessfullyCompleted()) {
+                        .isFullBrowserStarted()) {
             Profile profile = info.isOffTheRecord()
                     ? Profile.getLastUsedProfile().getOffTheRecordProfile()
                     : Profile.getLastUsedProfile().getOriginalProfile();
@@ -2022,6 +2023,10 @@ public class DownloadManagerService
     void createInterruptedDownloadForTest(String url, String guid, String targetPath) {
         nativeCreateInterruptedDownloadForTest(
                 getNativeDownloadManagerService(), url, guid, targetPath);
+    }
+
+    void disableAddCompletedDownloadToDownloadManager() {
+        mDisableAddCompletedDownloadForTesting = true;
     }
 
     /**

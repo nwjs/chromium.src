@@ -70,7 +70,8 @@ void SetupSearchIllustrationView(views::View* illustration_view,
   constexpr int kTopPadding = 98;
   views::BoxLayout* layout =
       illustration_view->SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::kVertical, gfx::Insets(kTopPadding, 0, 0, 0)));
+          views::BoxLayout::Orientation::kVertical,
+          gfx::Insets(kTopPadding, 0, 0, 0)));
   layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kStart);
   views::ImageView* image_view = new views::ImageView();
   image_view->SetImage(
@@ -110,10 +111,10 @@ class ShortcutsListScrollView : public views::ScrollView {
   DISALLOW_COPY_AND_ASSIGN(ShortcutsListScrollView);
 };
 
-ShortcutsListScrollView* CreateScrollView(
+std::unique_ptr<ShortcutsListScrollView> CreateScrollView(
     std::unique_ptr<views::View> content_view) {
-  ShortcutsListScrollView* const scroller = new ShortcutsListScrollView();
-  scroller->set_draw_overflow_indicator(false);
+  auto scroller = std::make_unique<ShortcutsListScrollView>();
+  scroller->SetDrawOverflowIndicator(false);
   scroller->ClipHeightTo(0, 0);
   scroller->SetContents(std::move(content_view));
   scroller->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
@@ -205,6 +206,14 @@ views::Widget* KeyboardShortcutView::Toggle(aura::Window* context) {
 
 const char* KeyboardShortcutView::GetClassName() const {
   return "KeyboardShortcutView";
+}
+
+ax::mojom::Role KeyboardShortcutView::GetAccessibleWindowRole() {
+  return ax::mojom::Role::kWindow;
+}
+
+base::string16 KeyboardShortcutView::GetAccessibleWindowTitle() const {
+  return l10n_util::GetStringUTF16(IDS_KSV_TITLE);
 }
 
 bool KeyboardShortcutView::AcceleratorPressed(
@@ -354,8 +363,8 @@ void KeyboardShortcutView::InitViews() {
             [](const auto& lhs, const auto& rhs) {
               if (lhs->category() != rhs->category())
                 return lhs->category() < rhs->category();
-              return lhs->description_label_view()->text() <
-                     rhs->description_label_view()->text();
+              return lhs->description_label_view()->GetText() <
+                     rhs->description_label_view()->GetText();
             });
 
   // Init views of |categories_tabbed_pane_| and KeyboardShortcutItemListViews.
@@ -475,7 +484,6 @@ void KeyboardShortcutView::UpdateViewsLayout(bool is_search_box_active) {
 
 void KeyboardShortcutView::ShowSearchResults(
     const base::string16& search_query) {
-  const base::TimeTicks start_time = base::TimeTicks::Now();
   search_results_container_->RemoveAllChildViews(true);
   auto* search_container_content_view = search_no_result_view_.get();
   auto found_items_list_view = std::make_unique<KeyboardShortcutItemListView>();
@@ -486,8 +494,8 @@ void KeyboardShortcutView::ShowSearchResults(
   std::vector<KeyboardShortcutItemView*> shortcut_items;
   for (const auto& item_view : shortcut_views_) {
     base::string16 description_text =
-        item_view->description_label_view()->text();
-    base::string16 shortcut_text = item_view->shortcut_label_view()->text();
+        item_view->description_label_view()->GetText();
+    base::string16 shortcut_text = item_view->shortcut_label_view()->GetText();
     size_t match_index = -1;
     size_t match_length = 0;
     // Only highlight |description_label_view_| in KeyboardShortcutItemView.
@@ -541,7 +549,7 @@ void KeyboardShortcutView::ShowSearchResults(
     found_items_list_view->SetBorder(views::CreateEmptyBorder(
         gfx::Insets(kTopPadding, kHorizontalPadding, 0, kHorizontalPadding)));
     search_container_content_view =
-        CreateScrollView(std::move(found_items_list_view));
+        CreateScrollView(std::move(found_items_list_view)).release();
   }
   replacement_strings.emplace_back(search_query);
   search_box_view_->SetAccessibleValue(l10n_util::GetStringFUTF16(
@@ -552,21 +560,6 @@ void KeyboardShortcutView::ShowSearchResults(
   search_results_container_->AddChildView(search_container_content_view);
   Layout();
   SchedulePaint();
-  constexpr int kBucketCount = 100;
-  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
-      "Keyboard.ShortcutViewer.SearchUpdateTime",
-      base::TimeTicks::Now() - start_time,
-      base::TimeDelta::FromMicroseconds(50), base::TimeDelta::FromSeconds(1),
-      kBucketCount);
-  GetWidget()->GetCompositor()->RequestPresentationTimeForNextFrame(
-      base::BindOnce(
-          [](base::TimeTicks start_time,
-             const gfx::PresentationFeedback& feedback) {
-            UMA_HISTOGRAM_TIMES(
-                "Keyboard.ShortcutViewer.SearchUpdateTimeVisual",
-                feedback.timestamp - start_time);
-          },
-          start_time));
 }
 
 bool KeyboardShortcutView::CanMaximize() const {

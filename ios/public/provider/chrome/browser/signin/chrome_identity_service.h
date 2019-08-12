@@ -25,6 +25,7 @@
 @class UIApplication;
 @class UIImage;
 @class UINavigationController;
+@class UIViewController;
 
 namespace ios {
 
@@ -51,6 +52,10 @@ typedef void (^GetHostedDomainCallback)(NSString* hosted_domain,
 // Callback passed to method |HandleMDMNotification()|. |is_blocked| is true if
 // the device is blocked.
 typedef void (^MDMStatusCallback)(bool is_blocked);
+
+// Callback to dismiss ASM view. No-op, if this block is more than once.
+// |animated| the view will be dismissed with animation if the value is YES.
+typedef void (^DismissASMViewControllerBlock)(BOOL animated);
 
 // Opaque type representing the MDM (Mobile Device Management) status of the
 // device. Checking for equality is guaranteed to be valid.
@@ -99,16 +104,27 @@ class ChromeIdentityService {
   // Dismisses all the dialogs created by the abstracted flows.
   virtual void DismissDialogs();
 
-  // Returns a new account details controller to present. A cancel button is
-  // present as leading navigation item.
-  virtual UINavigationController* CreateAccountDetailsController(
+  // Presents a new Account Details view.
+  // |identity| the identity used to present the view.
+  // |view_controller| the view to present the details view.
+  // |animated| the view is presented with animation if YES.
+  // Returns a block to dismiss the presented view. This block can be ignored if
+  // not needed.
+  virtual ios::DismissASMViewControllerBlock PresentAccountDetailsController(
       ChromeIdentity* identity,
-      id<ChromeIdentityBrowserOpener> browser_opener);
+      UIViewController* view_controller,
+      BOOL animated);
 
-  // Returns a new Web and App Setting Details controller to present.
-  virtual UINavigationController* CreateWebAndAppSettingDetailsController(
-      ChromeIdentity* identity,
-      id<ChromeIdentityBrowserOpener> browser_opener);
+  // Presents a new Web and App Setting Details view.
+  // |identity| the identity used to present the view.
+  // |view_controller| the view to present the setting details.
+  // |animated| the view is presented with animation if YES.
+  // Returns a block to dismiss the presented view. This block can be ignored if
+  // not needed.
+  virtual DismissASMViewControllerBlock
+  PresentWebAndAppSettingDetailsController(ChromeIdentity* identity,
+                                           UIViewController* view_controller,
+                                           BOOL animated);
 
   // Returns a new ChromeIdentityInteractionManager with |delegate| as its
   // delegate.

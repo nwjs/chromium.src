@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Svítilna</translation>
 <translation id="2958718410589002129">Hesla</translation>
 <translation id="2969979262385602596">Přihlášení se nezdařilo. Zkuste to znovu později.</translation>
+<translation id="298306318844797842">Přidat platební metodu...</translation>
 <translation id="2989805286512600854">Otevřít v nové kartě</translation>
 <translation id="3037605927509011580">Aj, chyba!</translation>
 <translation id="3112556859945124369">Označit…</translation>
@@ -477,6 +478,7 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="7961015016161918242">Nikdy</translation>
 <translation id="7971521879845308059">Blokování oken</translation>
 <translation id="7982789257301363584">Síť</translation>
+<translation id="8007420562015504427">Anonymní vyhledávání</translation>
 <translation id="8019783059653722575">Toto umožňuje ukládat a nahrávat fotky.</translation>
 <translation id="802154636333426148">Stažení se nezdařilo</translation>
 <translation id="8023878949384262191">Rozbalí sekci.</translation>
@@ -491,6 +493,7 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="8225985093977202398">Obrázky a soubory v mezipaměti</translation>
 <translation id="8261506727792406068">Smazat</translation>
 <translation id="8281781826761538115">Výchozí – <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Nové vyhledávání</translation>
 <translation id="8328777765163860529">Zavřít vše</translation>
 <translation id="8381750437846184350">Nastavte, jak má Google využívat vaši historii procházení k personalizaci Vyhledávání, reklam a dalších služeb Google</translation>
 <translation id="8407669440184693619">Pro tento web nebyla nalezena žádná hesla</translation>
@@ -507,7 +510,6 @@ Vaše data byla <ph name="TIME" /> zašifrována pomocí heslové fráze pro syn
 <translation id="8532105204136943229">Rok vypršení platnosti</translation>
 <translation id="8534481786647257214">Příspěvek na Google+ byl odeslán.</translation>
 <translation id="8548878600947630424">Hledat na stránce...</translation>
-<translation id="8583866649835978847">Odeslat kartu <ph name="TITLE" /> do jednoho z vašich zařízení.</translation>
 <translation id="8605219856220328675">Zavřít kartu</translation>
 <translation id="8620640915598389714">Upravit</translation>
 <translation id="8636825310635137004">Chcete-li získat přístup ke kartám ze svých ostatních zařízení, zapněte synchronizaci.</translation>

@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">தேடல்</translation>
 <translation id="1398853756734560583">பெரிதாக்கு</translation>
 <translation id="1409544243779336081">ஆப்ஸ் பரிந்துரை</translation>
+<translation id="1498028757988366001">இதை முன்பே தேடியிருக்கிறீர்கள். "<ph name="QUERY" />"யைத் தேடல் வரலாற்றிலிருந்து நீக்கினால் உங்கள் கணக்கு பயன்படுத்தப்படும் அனைத்து சாதனங்களில் இருந்தும் நிரந்தரமாக அகற்றப்படும்.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 நிமிடம், }other{# நிமிடங்கள், }}</translation>
 <translation id="1643823602425662293">அறிவிப்பு</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">அளவுத்திருத்தம் முடிந்தது</translation>
 <translation id="252373100621549798">அறியாதது</translation>
+<translation id="2545651323591713692">ஒத்திவை</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{இன்னும் 1ம}other{இன்னும் #ம}}</translation>
 <translation id="2583543531130364912">டச்ஸ்கிரீனை அளவுத்திருத்தம் செய்யவும்</translation>
 <translation id="2666092431469916601">மேலே</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">இங்கே உருட்டு</translation>
 <translation id="3234408098842461169">கீழ்நோக்கிய அம்பு</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 நாள்}other{# நாட்கள்}}</translation>
+<translation id="3295886253693811851">இந்த ஆப்ஸ் மூலம் அழை:</translation>
 <translation id="335581015389089642">பேச்சு</translation>
 <translation id="3443810440409579745">தாவல் பகிரப்பட்டுள்ளது.</translation>
 <translation id="3479552764303398839">இப்பொழுது இல்லை</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 நிமிடம் முன்பு}other{# நிமிடங்கள் முன்பு}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 நிமிடம் மீதமுள்ளது}other{# நிமிடங்கள் மீதமுள்ளன}}</translation>
+<translation id="7430878839542012341">இதுவரை தேடியவற்றிலிருந்து இந்தத் தேடலை நீக்கவா?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> டெ.பை</translation>
 <translation id="7507604095951736240">ஈமோஜி</translation>
 <translation id="7658239707568436148">ரத்து செய்</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">உங்கள் தேடல்கள் Google அசிஸ்டண்ட்டைப் பயன்படுத்தி தேடப்படுகின்றன. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, தானே நிரப்பியது</translation>
 <translation id="815598010540052116">கீழே உருட்டு</translation>
-<translation id="8170087467028567933">இந்தப் பரிந்துரையை அகற்றினால், உங்கள் எல்லாச் சாதனங்களிலும் உள்ள உங்கள் கணக்கிலிருந்து இது மறைக்கப்படும்.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">பக்கத்தின் கீழே</translation>
 <translation id="8245914219290430011">தாவல்</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">சரிபார்</translation>
 <translation id="8393700583063109961">செய்தி அனுப்பு</translation>
 <translation id="8394908167088220973">ஊடகத்தை இயக்கு/இடைநிறுத்து</translation>
-<translation id="8420205633584771378">இந்தப் பரிந்துரையை அகற்றவா?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1ஆ}other{#ஆ}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" />கோப்பு(.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">ஷெல்ஃப் எப்போதும் காட்டப்படும்</translation>

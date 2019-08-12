@@ -25,6 +25,7 @@ import android.widget.FrameLayout;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ObserverList;
+import org.chromium.base.Supplier;
 import org.chromium.base.SysUtils;
 import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.R;
@@ -36,10 +37,6 @@ import org.chromium.chrome.browser.gesturenav.HistoryNavigationDelegate;
 import org.chromium.chrome.browser.native_page.NativePageHost;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBrowserControlsState;
-import org.chromium.chrome.browser.tabmodel.TabLaunchType;
-import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.toolbar.top.ActionModeController.ActionBarDelegate;
-import org.chromium.chrome.browser.toolbar.top.ViewShiftingActionBarDelegate;
 import org.chromium.chrome.browser.util.AccessibilityUtil;
 import org.chromium.chrome.browser.util.MathUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -131,15 +128,6 @@ public class BottomSheet
     /** The height ratio for the sheet in the SheetState.HALF state. */
     private static final float HALF_HEIGHT_RATIO = 0.75f;
 
-    /** The fraction of the width of the screen that, when swiped, will cause the sheet to move. */
-    private static final float SWIPE_ALLOWED_FRACTION = 0.2f;
-
-    /**
-     * The minimum swipe velocity (dp/ms) that should be considered as a user opening the bottom
-     * sheet intentionally. This is specifically for the 'velocity' swipe logic.
-     */
-    private static final float SHEET_SWIPE_MIN_DP_PER_MS = 0.2f;
-
     /** The desired height of a content that has just been shown or whose height was invalidated. */
     private static final float HEIGHT_UNSPECIFIED = -1.0f;
 
@@ -160,6 +148,9 @@ public class BottomSheet
 
     /** The height of the shadow that sits above the toolbar. */
     private final int mToolbarShadowHeight;
+
+    /** The radius of the rounded corner at the top of the sheet. */
+    private final int mRoundedCornerRadius;
 
     /** The {@link BottomSheetMetrics} used to record user actions and histograms. */
     private final BottomSheetMetrics mMetrics;
@@ -201,7 +192,7 @@ public class BottomSheet
     private int mTargetState = SheetState.NONE;
 
     /** Used for getting the current tab. */
-    protected TabModelSelector mTabModelSelector;
+    protected Supplier<Tab> mTabSupplier;
 
     /** The fullscreen manager for information about toolbar offsets. */
     private ChromeFullscreenManager mFullscreenManager;
@@ -245,9 +236,6 @@ public class BottomSheet
 
     /** The activity displaying the bottom sheet. */
     protected ChromeActivity mActivity;
-
-    /** A delegate for when the action bar starts showing. */
-    private ViewShiftingActionBarDelegate mActionBarDelegate;
 
     /** Whether {@link #destroy()} has been called. **/
     private boolean mIsDestroyed;
@@ -435,7 +423,8 @@ public class BottomSheet
                 getResources().getDimensionPixelSize(R.dimen.bottom_sheet_min_full_half_distance);
         mToolbarShadowHeight =
                 getResources().getDimensionPixelOffset(R.dimen.toolbar_shadow_height);
-
+        mRoundedCornerRadius =
+                getResources().getDimensionPixelOffset(R.dimen.bottom_sheet_corner_radius);
         mMetrics = new BottomSheetMetrics();
         addObserver(mMetrics);
 
@@ -490,14 +479,6 @@ public class BottomSheet
         if (mContentSwapAnimatorSet == null || !mContentSwapAnimatorSet.isRunning()) return;
         mContentSwapAnimatorSet.end();
         mContentSwapAnimatorSet = null;
-    }
-
-    /**
-     * @return An action bar delegate that appropriately moves the sheet when the action bar is
-     *         shown.
-     */
-    public ActionBarDelegate getActionBarDelegate() {
-        return mActionBarDelegate;
     }
 
     /**
@@ -559,15 +540,16 @@ public class BottomSheet
      * @param activity The activity displaying the bottom sheet.
      */
     public void init(View root, ChromeActivity activity) {
-        mTabModelSelector = activity.getTabModelSelector();
+        mTabSupplier = activity.getActivityTabProvider();
         mFullscreenManager = activity.getFullscreenManager();
 
+        int colorId = R.color.sheet_bg_color;
         mToolbarHolder =
                 (TouchRestrictingFrameLayout) findViewById(R.id.bottom_sheet_toolbar_container);
+        mToolbarHolder.setBackgroundColor(ApiCompatibilityUtils.getColor(getResources(), colorId));
         mDefaultToolbarView = mToolbarHolder.findViewById(R.id.bottom_sheet_toolbar);
 
         mActivity = activity;
-        mActionBarDelegate = new ViewShiftingActionBarDelegate(mActivity, this);
 
         getLayoutParams().height = ViewGroup.LayoutParams.MATCH_PARENT;
 
@@ -575,7 +557,7 @@ public class BottomSheet
                 (TouchRestrictingFrameLayout) findViewById(R.id.bottom_sheet_content);
         mBottomSheetContentContainer.setBottomSheet(this);
         mBottomSheetContentContainer.setBackgroundColor(
-                ApiCompatibilityUtils.getColor(getResources(), R.color.sheet_bg_color));
+                ApiCompatibilityUtils.getColor(getResources(), colorId));
 
         mDpToPx = mActivity.getResources().getDisplayMetrics().density;
 
@@ -721,17 +703,9 @@ public class BottomSheet
     public int loadUrl(LoadUrlParams params, boolean incognito) {
         for (BottomSheetObserver o : mObservers) o.onLoadUrl(params.getUrl());
 
-        assert mTabModelSelector != null;
-
         int tabLoadStatus = TabLoadStatus.DEFAULT_PAGE_LOAD;
 
-        if (getActiveTab() != null && getActiveTab().isIncognito() == incognito) {
-            tabLoadStatus = getActiveTab().loadUrl(params);
-        } else {
-            // If no compatible tab is active behind the sheet, open a new one.
-            mTabModelSelector.openNewTab(
-                    params, TabLaunchType.FROM_CHROME_UI, getActiveTab(), incognito);
-        }
+        if (getActiveTab() != null) tabLoadStatus = getActiveTab().loadUrl(params);
 
         return tabLoadStatus;
     }
@@ -749,7 +723,7 @@ public class BottomSheet
 
     @Override
     public Tab getActiveTab() {
-        return mTabModelSelector != null ? mTabModelSelector.getCurrentTab() : null;
+        return mTabSupplier != null ? mTabSupplier.get() : null;
     }
 
     @Override
@@ -996,8 +970,6 @@ public class BottomSheet
             TabBrowserControlsState.update(getActiveTab(), BrowserControlsState.SHOWN, false);
         }
 
-        mBottomSheetContentContainer.setVisibility(View.VISIBLE);
-
         // Browser controls should stay visible until the sheet is closed.
         mPersistentControlsToken =
                 mFullscreenManager.getBrowserVisibilityDelegate().showControlsPersistent();
@@ -1013,7 +985,6 @@ public class BottomSheet
      */
     private void onSheetClosed(@StateChangeReason int reason) {
         if (!mIsSheetOpen) return;
-        mBottomSheetContentContainer.setVisibility(View.INVISIBLE);
         mIsSheetOpen = false;
 
         // Update the browser controls since they are permanently shown while the sheet is open.
@@ -1214,7 +1185,7 @@ public class BottomSheet
     @VisibleForTesting
     float getFullRatio() {
         if (mContainerHeight <= 0) return 0;
-        return (mContainerHeight + mToolbarShadowHeight) / mContainerHeight;
+        return (mContainerHeight + mToolbarShadowHeight - mRoundedCornerRadius) / mContainerHeight;
     }
 
     /**
@@ -1367,12 +1338,15 @@ public class BottomSheet
             // content description until after announcing full/half height.
             setFocusable(true);
             setFocusableInTouchMode(true);
-            String swipeToClose = ". "
-                    + getResources().getString(R.string.bottom_sheet_accessibility_description);
-            setContentDescription(
-                    getResources().getString(
-                            getCurrentSheetContent().getSheetContentDescriptionStringId())
-                    + swipeToClose);
+            String contentDescription = getResources().getString(
+                    getCurrentSheetContent().getSheetContentDescriptionStringId());
+
+            if (getCurrentSheetContent().swipeToDismissEnabled()) {
+                contentDescription += ". "
+                        + getResources().getString(R.string.bottom_sheet_accessibility_description);
+            }
+
+            setContentDescription(contentDescription);
             if (getFocusedChild() == null) requestFocus();
         }
 
@@ -1405,13 +1379,6 @@ public class BottomSheet
     }
 
     /**
-     * @return The {@link BottomSheetMetrics} used to record user actions and histograms.
-     */
-    public BottomSheetMetrics getBottomSheetMetrics() {
-        return mMetrics;
-    }
-
-    /**
      * Gets the height of the bottom sheet based on a provided state.
      * @param state The state to get the height from.
      * @return The height of the sheet at the provided state.
@@ -1434,7 +1401,8 @@ public class BottomSheet
         mSheetContent.getContentView().measure(
                 MeasureSpec.makeMeasureSpec((int) mContainerWidth, MeasureSpec.EXACTLY),
                 MeasureSpec.makeMeasureSpec((int) mContainerHeight, MeasureSpec.AT_MOST));
-        mContentDesiredHeight = mSheetContent.getContentView().getMeasuredHeight();
+        mContentDesiredHeight =
+                mSheetContent.getContentView().getMeasuredHeight() - mRoundedCornerRadius;
     }
 
     private float getRatioForState(int state) {
@@ -1631,5 +1599,10 @@ public class BottomSheet
 
     private void invalidateContentDesiredHeight() {
         mContentDesiredHeight = HEIGHT_UNSPECIFIED;
+    }
+
+    @VisibleForTesting
+    int getRoundedCornerRadius() {
+        return mRoundedCornerRadius;
     }
 }

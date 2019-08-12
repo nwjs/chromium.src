@@ -8,8 +8,7 @@
 #include <map>
 #include <memory>
 #include <random>
-#include <set>
-#include <string>
+#include <stack>
 
 #include "base/atomicops.h"
 #include "base/gtest_prod_util.h"
@@ -31,6 +30,7 @@
 #include "third_party/blink/renderer/platform/scheduler/common/thread_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/common/tracing_helper.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/auto_advancing_virtual_time_domain.h"
+#include "third_party/blink/renderer/platform/scheduler/main_thread/compositor_priority_experiments.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/deadline_task_runner.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/idle_time_estimator.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_metrics_helper.h"
@@ -46,7 +46,8 @@
 #include "third_party/blink/renderer/platform/scheduler/main_thread/user_model.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/rail_mode_observer.h"
-#include "third_party/blink/renderer/platform/wtf/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace base {
@@ -120,10 +121,6 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     // (crbug.com/860545).
     bool use_resource_fetch_priority;
     bool use_resource_priorities_only_during_loading;
-
-    // Compositor priority experiment (crbug.com/966177).
-    bool compositor_very_high_priority_always;
-    bool compositor_very_high_priority_when_fast;
 
     // Contains a mapping from net::RequestPriority to TaskQueue::QueuePriority
     // when use_resource_fetch_priority is enabled.
@@ -216,6 +213,9 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   void PostIdleTask(const base::Location&, Thread::IdleTask) override;
   void PostNonNestableIdleTask(const base::Location&,
                                Thread::IdleTask) override;
+  void PostDelayedIdleTask(const base::Location&,
+                           base::TimeDelta delay,
+                           Thread::IdleTask) override;
   scoped_refptr<base::SingleThreadTaskRunner> V8TaskRunner() override;
   scoped_refptr<base::SingleThreadTaskRunner> CompositorTaskRunner() override;
   // IPCTaskRunner() is implemented above in the WebThreadScheduler section.
@@ -292,7 +292,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   base::TimeTicks EnableVirtualTime();
 
   // Tells the scheduler that all TaskQueues should use virtual time. Returns
-  // the TimeTicks that virtual time offsets will be relative to.
+  // the base::TimeTicks that virtual time offsets will be relative to.
   base::TimeTicks EnableVirtualTime(BaseTimeOverridePolicy policy);
   bool IsVirtualTimeEnabled() const;
 
@@ -390,6 +390,8 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   void SetShouldPrioritizeCompositing(bool should_prioritize_compositing);
 
+  void OnCompositorPriorityExperimentUpdateCompositorPriority();
+
   // Allow places in the scheduler to do some work after the current task.
   // The primary use case here is batching – to allow updates to be processed
   // only once per task.
@@ -425,6 +427,8 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   friend class main_thread_scheduler_impl_unittest::
       MainThreadSchedulerImplForTest;
   friend class main_thread_scheduler_impl_unittest::MainThreadSchedulerImplTest;
+
+  friend class CompositorPriorityExperiments;
 
   FRIEND_TEST_ALL_PREFIXES(
       main_thread_scheduler_impl_unittest::MainThreadSchedulerImplTest,
@@ -584,7 +588,8 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   void OnIdlePeriodStarted() override;
   void OnIdlePeriodEnded() override;
   void OnPendingTasksChanged(bool has_tasks) override;
-  void SetHasSafepoint() override;
+  void OnSafepointEntered() override;
+  void OnSafepointExited() override;
 
   void DispatchRequestBeginMainFrameNotExpected(bool has_tasks);
 
@@ -666,7 +671,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
   base::TimeDelta EstimateLongestJankFreeTaskDuration() const;
 
   // Report an intervention to all WebViews in this process.
-  void BroadcastIntervention(const std::string& message);
+  void BroadcastIntervention(const String& message);
 
   void ApplyTaskQueuePolicy(
       MainThreadTaskQueue* task_queue,
@@ -838,7 +843,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     std::unique_ptr<base::SingleSampleMetric> max_queueing_time_metric;
     base::TimeDelta max_queueing_time;
     base::TimeTicks background_status_changed_at;
-    std::set<PageSchedulerImpl*> page_schedulers;                 // Not owned.
+    HashSet<PageSchedulerImpl*> page_schedulers;  // Not owned.
     base::ObserverList<RAILModeObserver>::Unchecked
         rail_mode_observers;                                      // Not owned.
     WakeUpBudgetPool* wake_up_budget_pool;                        // Not owned.
@@ -885,11 +890,11 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
     PrioritizeCompositingAfterInputExperiment compositing_experiment;
     bool should_prioritize_compositing;
 
-    // True if a task has a safepoint.
-    bool has_safepoint;
-
     // List of callbacks to execute after the current task.
     WTF::Vector<base::OnceClosure> on_task_completion_callbacks;
+
+    // Compositing priority experiments (crbug.com/966177).
+    CompositorPriorityExperiments compositor_priority_experiments;
   };
 
   struct AnyThread {
@@ -966,7 +971,7 @@ class PLATFORM_EXPORT MainThreadSchedulerImpl
 
   PollableThreadSafeFlag policy_may_need_update_;
 
-  base::WeakPtrFactory<MainThreadSchedulerImpl> weak_factory_;
+  base::WeakPtrFactory<MainThreadSchedulerImpl> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(MainThreadSchedulerImpl);
 };

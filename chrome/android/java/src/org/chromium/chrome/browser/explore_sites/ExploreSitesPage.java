@@ -16,11 +16,9 @@ import android.util.Base64;
 import android.view.View;
 
 import org.chromium.base.ApiCompatibilityUtils;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeActivity;
-import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.gesturenav.HistoryNavigationLayout;
 import org.chromium.chrome.browser.native_page.BasicNativePage;
 import org.chromium.chrome.browser.native_page.ContextMenuManager;
@@ -32,6 +30,7 @@ import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.RoundedIconGenerator;
 import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationEntry;
@@ -54,6 +53,14 @@ public class ExploreSitesPage extends BasicNativePage {
     private static final int INITIAL_SCROLL_POSITION_PERSONALIZED = 0;
     private static final String NAVIGATION_ENTRY_SCROLL_POSITION_KEY =
             "ExploreSitesPageScrollPosition";
+    // Constants that dictate sizes of rows and columns
+    private static final int MAX_COLUMNS_DENSE_TITLE_BOTTOM = 5;
+    private static final int MAX_COLUMNS_DENSE_TITLE_RIGHT = 3;
+    private static final int MAX_COLUMNS_ORIGINAL = 4;
+
+    private static final int MAX_ROWS_DENSE_TITLE_BOTTOM = 2;
+    private static final int MAX_ROWS_DENSE_TITLE_RIGHT = 3;
+    private static final int MAX_ROWS_ORIGINAL = 2;
 
     static final PropertyModel.WritableIntPropertyKey STATUS_KEY =
             new PropertyModel.WritableIntPropertyKey();
@@ -62,6 +69,12 @@ public class ExploreSitesPage extends BasicNativePage {
     static final PropertyModel
             .ReadableObjectPropertyKey<ListModel<ExploreSitesCategory>> CATEGORY_LIST_KEY =
             new PropertyModel.ReadableObjectPropertyKey<>();
+    static final PropertyModel.ReadableIntPropertyKey DENSE_VARIATION_KEY =
+            new PropertyModel.ReadableIntPropertyKey();
+    static final PropertyModel.ReadableIntPropertyKey MAX_COLUMNS_KEY =
+            new PropertyModel.ReadableIntPropertyKey();
+    static final PropertyModel.ReadableIntPropertyKey MAX_ROWS_KEY =
+            new PropertyModel.ReadableIntPropertyKey();
     private static final int UNKNOWN_NAV_CATEGORY = -1;
 
     @IntDef({CatalogLoadingState.LOADING, CatalogLoadingState.SUCCESS, CatalogLoadingState.ERROR})
@@ -84,11 +97,12 @@ public class ExploreSitesPage extends BasicNativePage {
     private PropertyModel mModel;
     private ContextMenuManager mContextMenuManager;
     private int mNavigateToCategory;
-    private boolean mHasFetchedNetworkCatalog;
     private boolean mIsLoaded;
     private int mInitialScrollPosition;
     private boolean mScrollUserActionReported;
-
+    @DenseVariation
+    private int mDenseVariation;
+    private int mMaxColumns;
     /**
      * Create a new instance of the explore sites page.
      */
@@ -129,21 +143,57 @@ public class ExploreSitesPage extends BasicNativePage {
         mView = (HistoryNavigationLayout) activity.getLayoutInflater().inflate(
                 R.layout.explore_sites_page_layout, null);
         mProfile = mHost.getActiveTab().getProfile();
-        mHasFetchedNetworkCatalog = false;
 
-        mModel = new PropertyModel.Builder(STATUS_KEY, SCROLL_TO_CATEGORY_KEY, CATEGORY_LIST_KEY)
+        mDenseVariation = ExploreSitesBridge.getDenseVariation();
+        int maxRows;
+        switch (mDenseVariation) {
+            case DenseVariation.DENSE_TITLE_BOTTOM:
+                maxRows = MAX_ROWS_DENSE_TITLE_BOTTOM;
+                mMaxColumns = MAX_COLUMNS_DENSE_TITLE_BOTTOM;
+                break;
+            case DenseVariation.DENSE_TITLE_RIGHT:
+                maxRows = MAX_ROWS_DENSE_TITLE_RIGHT;
+                mMaxColumns = MAX_COLUMNS_DENSE_TITLE_RIGHT;
+                break;
+            default:
+                maxRows = MAX_ROWS_ORIGINAL;
+                mMaxColumns = MAX_COLUMNS_ORIGINAL;
+        }
+        mModel = new PropertyModel
+                         .Builder(STATUS_KEY, SCROLL_TO_CATEGORY_KEY, CATEGORY_LIST_KEY,
+                                 MAX_COLUMNS_KEY, MAX_ROWS_KEY, DENSE_VARIATION_KEY)
                          .with(CATEGORY_LIST_KEY, new ListModel<>())
                          .with(STATUS_KEY, CatalogLoadingState.LOADING)
+                         .with(MAX_COLUMNS_KEY, mMaxColumns)
+                         .with(MAX_ROWS_KEY, maxRows)
+                         .with(DENSE_VARIATION_KEY, mDenseVariation)
                          .build();
 
         Context context = mView.getContext();
         mLayoutManager = new StableScrollLayoutManager(context);
-        int iconSizePx = context.getResources().getDimensionPixelSize(R.dimen.tile_view_icon_size);
-        RoundedIconGenerator iconGenerator = new RoundedIconGenerator(iconSizePx, iconSizePx,
-                iconSizePx / 2,
-                ApiCompatibilityUtils.getColor(
-                        context.getResources(), R.color.default_favicon_background_color),
-                context.getResources().getDimensionPixelSize(R.dimen.tile_view_icon_text_size));
+
+        // Set dimensions for iconGenerator
+        int iconSizePx;
+        int textSizeDimensionResource;
+        int iconRadius;
+        boolean isDense = ExploreSitesBridge.isDense(mDenseVariation);
+        if (isDense) {
+            iconSizePx = context.getResources().getDimensionPixelSize(
+                    R.dimen.explore_sites_dense_icon_size);
+            iconRadius = context.getResources().getDimensionPixelSize(
+                    R.dimen.explore_sites_dense_icon_corner_radius);
+            textSizeDimensionResource = R.dimen.explore_sites_dense_icon_text_size;
+        } else {
+            iconSizePx = context.getResources().getDimensionPixelSize(R.dimen.tile_view_icon_size);
+            textSizeDimensionResource = R.dimen.tile_view_icon_text_size;
+            iconRadius = iconSizePx / 2;
+        }
+
+        RoundedIconGenerator iconGenerator =
+                new RoundedIconGenerator(iconSizePx, iconSizePx, iconRadius,
+                        ApiCompatibilityUtils.getColor(
+                                context.getResources(), R.color.default_favicon_background_color),
+                        context.getResources().getDimensionPixelSize(textSizeDimensionResource));
 
         NativePageNavigationDelegateImpl navDelegate = new NativePageNavigationDelegateImpl(
                 activity, mProfile, host, activity.getTabModelSelector());
@@ -192,7 +242,9 @@ public class ExploreSitesPage extends BasicNativePage {
                 ? INITIAL_SCROLL_POSITION_PERSONALIZED
                 : INITIAL_SCROLL_POSITION;
 
-        ExploreSitesBridge.getEspCatalog(mProfile, this::translateToModel);
+        ExploreSitesBridge.getCatalog(mProfile,
+                ExploreSitesCatalogUpdateRequestSource.EXPLORE_SITES_PAGE, this::translateToModel);
+
         RecordUserAction.record("Android.ExploreSitesPage.Open");
     }
 
@@ -204,19 +256,9 @@ public class ExploreSitesPage extends BasicNativePage {
 
     private void translateToModel(@Nullable List<ExploreSitesCategory> categoryList) {
         // If list is null or we received an empty catalog from network, show error.
-        if (categoryList == null || (categoryList.isEmpty() && mHasFetchedNetworkCatalog)) {
-            onUpdatedCatalog(false);
-            return;
-        }
-        // If list is empty and we never fetched from network before, fetch from network.
-        if (categoryList.isEmpty()) {
-            mModel.set(STATUS_KEY, CatalogLoadingState.LOADING_NET);
-            mHasFetchedNetworkCatalog = true;
-            ExploreSitesBridge.updateCatalogFromNetwork(
-                    mProfile, /* isImmediateFetch =*/true, this::onUpdatedCatalog);
-            RecordHistogram.recordEnumeratedHistogram("ExploreSites.CatalogUpdateRequestSource",
-                    ExploreSitesEnums.CatalogUpdateRequestSource.EXPLORE_SITES_PAGE,
-                    ExploreSitesEnums.CatalogUpdateRequestSource.NUM_ENTRIES);
+        if (!ExploreSitesBridge.isValidCatalog(categoryList)) {
+            mModel.set(STATUS_KEY, CatalogLoadingState.ERROR);
+            mIsLoaded = true;
             return;
         }
         mModel.set(STATUS_KEY, CatalogLoadingState.SUCCESS);
@@ -225,7 +267,7 @@ public class ExploreSitesPage extends BasicNativePage {
 
         // Filter empty categories and categories with fewer sites originally than would fill a row.
         for (ExploreSitesCategory category : categoryList) {
-            if ((category.getNumDisplayed() > 0) && (category.getMaxRows() > 0)) {
+            if ((category.getNumDisplayed() > 0) && (category.getMaxRows(mMaxColumns) > 0)) {
                 categoryListModel.add(category);
             }
         }
@@ -271,15 +313,6 @@ public class ExploreSitesPage extends BasicNativePage {
             }
 
             mModel.set(SCROLL_TO_CATEGORY_KEY, scrollPosition);
-        }
-    }
-
-    private void onUpdatedCatalog(Boolean hasFetchedCatalog) {
-        if (hasFetchedCatalog) {
-            ExploreSitesBridge.getEspCatalog(mProfile, this::translateToModel);
-        } else {
-            mModel.set(STATUS_KEY, CatalogLoadingState.ERROR);
-            mIsLoaded = true;
         }
     }
 
@@ -392,6 +425,13 @@ public class ExploreSitesPage extends BasicNativePage {
     }
 
     protected CategoryCardViewHolderFactory createCategoryCardViewHolderFactory() {
-        return new CategoryCardViewHolderFactory();
+        switch (mDenseVariation) {
+            case DenseVariation.DENSE_TITLE_BOTTOM:
+                return new CategoryCardViewHolderFactoryDenseTitleBottom();
+            case DenseVariation.DENSE_TITLE_RIGHT:
+                return new CategoryCardViewHolderFactoryDenseTitleRight();
+            default:
+                return new CategoryCardViewHolderFactory();
+        }
     }
 }

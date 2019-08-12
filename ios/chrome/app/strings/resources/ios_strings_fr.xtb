@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Lampe torche</translation>
 <translation id="2958718410589002129">Mots de passe</translation>
 <translation id="2969979262385602596">Échec de la connexion. Veuillez réessayer plus tard.</translation>
+<translation id="298306318844797842">Ajouter un mode de paiement</translation>
 <translation id="2989805286512600854">Ouvrir dans un nouvel onglet</translation>
 <translation id="3037605927509011580">Aïe aïe aïe</translation>
 <translation id="3112556859945124369">Marquer…</translation>
@@ -477,6 +478,7 @@ Vos données ont été chiffrées avec votre phrase secrète de synchronisation 
 <translation id="7961015016161918242">Jamais</translation>
 <translation id="7971521879845308059">Bloquer les pop-ups</translation>
 <translation id="7982789257301363584">Réseau</translation>
+<translation id="8007420562015504427">Recherche en mode Navigation privée</translation>
 <translation id="8019783059653722575">Cela vous permet d'enregistrer et d'importer des photos.</translation>
 <translation id="802154636333426148">Échec du téléchargement</translation>
 <translation id="8023878949384262191">Développe la section.</translation>
@@ -491,6 +493,7 @@ Vos données ont été chiffrées avec votre phrase secrète de synchronisation 
 <translation id="8225985093977202398">Img/fich. en cache</translation>
 <translation id="8261506727792406068">Supprimer</translation>
 <translation id="8281781826761538115">Par défaut : <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Nouvelle recherche</translation>
 <translation id="8328777765163860529">Tout fermer</translation>
 <translation id="8381750437846184350">Contrôlez la façon dont Google utilise votre historique de navigation pour personnaliser la recherche, les annonces et d'autres services Google.</translation>
 <translation id="8407669440184693619">Aucun mot de passe trouvé pour ce site</translation>
@@ -507,7 +510,6 @@ Vos données ont été chiffrées avec votre phrase secrète de synchronisation 
 <translation id="8532105204136943229">Année d'expiration</translation>
 <translation id="8534481786647257214">Post Google+ publié.</translation>
 <translation id="8548878600947630424">Rechercher sur la page…</translation>
-<translation id="8583866649835978847">Envoyez l'onglet <ph name="TITLE" /> sur un de vos appareils.</translation>
 <translation id="8605219856220328675">Fermer l'onglet</translation>
 <translation id="8620640915598389714">Modifier</translation>
 <translation id="8636825310635137004">Activez la synchronisation pour accéder à vos onglets sur vos autres appareils.</translation>

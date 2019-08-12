@@ -113,8 +113,9 @@ void CreateDownloadHandlerForNavigation(
     const GURL& tab_url,
     const GURL& tab_referrer_url,
     std::vector<GURL> url_chain,
-    scoped_refptr<network::ResourceResponse> response,
     net::CertStatus cert_status,
+    scoped_refptr<network::ResourceResponse> response_head,
+    mojo::ScopedDataPipeConsumerHandle response_body,
     network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
     scoped_refptr<DownloadURLLoaderFactoryGetter> url_loader_factory_getter,
     const URLSecurityPolicy& url_security_policy,
@@ -125,7 +126,8 @@ void CreateDownloadHandlerForNavigation(
       ResourceDownloader::InterceptNavigationResponse(
           download_manager, std::move(resource_request), render_process_id,
           render_frame_id, site_url, tab_url, tab_referrer_url,
-          std::move(url_chain), std::move(response), std::move(cert_status),
+          std::move(url_chain), std::move(cert_status),
+          std::move(response_head), std::move(response_body),
           std::move(url_loader_client_endpoints),
           std::move(url_loader_factory_getter), url_security_policy,
           std::move(connector), main_task_runner)
@@ -176,8 +178,7 @@ InProgressDownloadManager::InProgressDownloadManager(
       is_origin_secure_cb_(is_origin_secure_cb),
       url_security_policy_(url_security_policy),
       use_empty_db_(in_progress_db_dir.empty()),
-      connector_(connector),
-      weak_factory_(this) {
+      connector_(connector) {
   Initialize(in_progress_db_dir);
 }
 
@@ -279,21 +280,22 @@ void InProgressDownloadManager::InterceptDownloadFromNavigation(
     const GURL& tab_url,
     const GURL& tab_referrer_url,
     std::vector<GURL> url_chain,
-    scoped_refptr<network::ResourceResponse> response,
     net::CertStatus cert_status,
+    scoped_refptr<network::ResourceResponse> response_head,
+    mojo::ScopedDataPipeConsumerHandle response_body,
     network::mojom::URLLoaderClientEndpointsPtr url_loader_client_endpoints,
     scoped_refptr<DownloadURLLoaderFactoryGetter> url_loader_factory_getter) {
   GetIOTaskRunner()->PostTask(
       FROM_HERE,
-      base::BindOnce(&CreateDownloadHandlerForNavigation,
-                     weak_factory_.GetWeakPtr(), std::move(resource_request),
-                     render_process_id, render_frame_id, site_url, tab_url,
-                     tab_referrer_url, std::move(url_chain),
-                     std::move(response), std::move(cert_status),
-                     std::move(url_loader_client_endpoints),
-                     std::move(url_loader_factory_getter), url_security_policy_,
-                     connector_ ? connector_->Clone() : nullptr,
-                     base::ThreadTaskRunnerHandle::Get()));
+      base::BindOnce(
+          &CreateDownloadHandlerForNavigation, weak_factory_.GetWeakPtr(),
+          std::move(resource_request), render_process_id, render_frame_id,
+          site_url, tab_url, tab_referrer_url, std::move(url_chain),
+          std::move(cert_status), std::move(response_head),
+          std::move(response_body), std::move(url_loader_client_endpoints),
+          std::move(url_loader_factory_getter), url_security_policy_,
+          connector_ ? connector_->Clone() : nullptr,
+          base::ThreadTaskRunnerHandle::Get()));
 }
 
 void InProgressDownloadManager::Initialize(
@@ -357,7 +359,7 @@ base::Optional<DownloadEntry> InProgressDownloadManager::GetInProgressEntry(
     DownloadItemImpl* download) {
   if (!download)
     return base::Optional<DownloadEntry>();
-  if (base::ContainsKey(download_entries_, download->GetGuid()))
+  if (base::Contains(download_entries_, download->GetGuid()))
     return download_entries_[download->GetGuid()];
 
   return base::Optional<DownloadEntry>();
@@ -454,7 +456,7 @@ void InProgressDownloadManager::StartDownloadWithItem(
   if (info->is_new_download && !should_persist_new_download)
     non_persistent_download_guids_.insert(download->GetGuid());
   // If the download is not persisted, don't notify |download_db_cache_|.
-  if (!base::ContainsKey(non_persistent_download_guids_, download->GetGuid())) {
+  if (!base::Contains(non_persistent_download_guids_, download->GetGuid())) {
     download_db_cache_->AddOrReplaceEntry(
         CreateDownloadDBEntryFromItem(*download));
     download->RemoveObserver(download_db_cache_.get());
@@ -526,7 +528,7 @@ void InProgressDownloadManager::OnDownloadNamesRetrieved(
       uint32_t download_id = item->GetId();
       // Remove entries with duplicate ids.
       if (download_id != DownloadItem::kInvalidId &&
-          base::ContainsKey(download_ids, download_id)) {
+          base::Contains(download_ids, download_id)) {
         RemoveInProgressDownload(item->GetGuid());
         num_duplicates++;
         continue;

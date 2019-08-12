@@ -8,6 +8,8 @@
 
 #include "base/bind.h"
 #include "base/guid.h"
+#include "base/strings/string_util.h"
+#include "base/test/gmock_callback_support.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
@@ -15,7 +17,6 @@
 #include "components/autofill_assistant/browser/actions/mock_action_delegate.h"
 #include "components/autofill_assistant/browser/client_memory.h"
 #include "components/autofill_assistant/browser/client_status.h"
-#include "components/autofill_assistant/browser/mock_run_once_callback.h"
 #include "components/autofill_assistant/browser/mock_web_controller.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -23,6 +24,7 @@
 namespace autofill_assistant {
 namespace {
 
+using ::base::test::RunOnceCallback;
 using ::testing::_;
 using ::testing::Eq;
 using ::testing::InSequence;
@@ -155,11 +157,11 @@ class AutofillActionTest : public testing::Test {
   }
 
   ProcessedActionStatusProto ProcessAction(const ActionProto& action_proto) {
-    AutofillAction action(action_proto);
+    AutofillAction action(&mock_action_delegate_, action_proto);
     // We can use DirectCallback given that methods in ActionDelegate are mocked
     // and return directly.
     DirectCallback callback;
-    action.ProcessAction(&mock_action_delegate_, callback.Get());
+    action.ProcessAction(callback.Get());
     return callback.GetResultOrDie()->status();
   }
 
@@ -196,6 +198,50 @@ TEST_F(AutofillActionTest, NoSelectedAddress) {
             ProcessAction(action_proto));
 }
 
+TEST_F(AutofillActionTest, PreconditionFailedPopulatesUnexpectedErrorInfo) {
+  InSequence seq;
+
+  ActionProto action_proto = CreateUseAddressAction();
+  action_proto.mutable_use_address()->set_prompt(kSelectionPrompt);
+  client_memory_.set_selected_address(kAddressName, nullptr);
+  client_memory_.set_selected_address("one_more", nullptr);
+
+  AutofillAction action(&mock_action_delegate_, action_proto);
+
+  // We can use DirectCallback given that methods in ActionDelegate are mocked
+  // and return directly.
+  DirectCallback callback;
+  action.ProcessAction(callback.Get());
+
+  auto* processed_action = callback.GetResultOrDie();
+  EXPECT_EQ(ProcessedActionStatusProto::PRECONDITION_FAILED,
+            processed_action->status());
+  const auto& error_info =
+      processed_action->status_details().autofill_error_info();
+  EXPECT_EQ(base::JoinString({kAddressName, "one_more"}, ","),
+            error_info.client_memory_address_key_names());
+  EXPECT_EQ(kAddressName, error_info.address_key_requested());
+}
+
+TEST_F(AutofillActionTest, ShortWaitForElementVisible) {
+  EXPECT_CALL(
+      mock_action_delegate_,
+      OnShortWaitForElement(Selector({kFakeSelector}).MustBeVisible(), _))
+      .WillOnce(RunOnceCallback<1>(true));
+
+  ActionProto action_proto = CreateUseAddressAction();
+  // Autofill succeeds.
+  EXPECT_CALL(mock_action_delegate_, OnFillAddressForm(NotNull(), _, _))
+      .WillOnce(RunOnceCallback<2>(OkClientStatus()));
+
+  // Validation succeeds.
+  ON_CALL(mock_web_controller_, OnGetFieldValue(_, _))
+      .WillByDefault(RunOnceCallback<1>(true, "not empty"));
+
+  EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED,
+            ProcessAction(action_proto));
+}
+
 TEST_F(AutofillActionTest, ValidationSucceeds) {
   InSequence seq;
 
@@ -209,7 +255,8 @@ TEST_F(AutofillActionTest, ValidationSucceeds) {
 
   // Autofill succeeds.
   EXPECT_CALL(mock_action_delegate_,
-              OnFillAddressForm(NotNull(), Eq(Selector({kFakeSelector})), _))
+              OnFillAddressForm(
+                  NotNull(), Eq(Selector({kFakeSelector}).MustBeVisible()), _))
       .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
   // Validation succeeds.
@@ -233,7 +280,8 @@ TEST_F(AutofillActionTest, FallbackFails) {
 
   // Autofill succeeds.
   EXPECT_CALL(mock_action_delegate_,
-              OnFillAddressForm(NotNull(), Eq(Selector({kFakeSelector})), _))
+              OnFillAddressForm(
+                  NotNull(), Eq(Selector({kFakeSelector}).MustBeVisible()), _))
       .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
   // Validation fails when getting FIRST_NAME.
@@ -269,7 +317,8 @@ TEST_F(AutofillActionTest, FallbackSucceeds) {
 
   // Autofill succeeds.
   EXPECT_CALL(mock_action_delegate_,
-              OnFillAddressForm(NotNull(), Eq(Selector({kFakeSelector})), _))
+              OnFillAddressForm(
+                  NotNull(), Eq(Selector({kFakeSelector}).MustBeVisible()), _))
       .WillOnce(RunOnceCallback<2>(OkClientStatus()));
 
   {
@@ -298,5 +347,6 @@ TEST_F(AutofillActionTest, FallbackSucceeds) {
   EXPECT_EQ(ProcessedActionStatusProto::ACTION_APPLIED,
             ProcessAction(action_proto));
 }
+
 }  // namespace
 }  // namespace autofill_assistant

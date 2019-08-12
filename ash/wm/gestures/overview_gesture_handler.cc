@@ -19,7 +19,7 @@ const float OverviewGestureHandler::vertical_threshold_pixels_ = 300;
 // three-finger scroll.
 const float OverviewGestureHandler::horizontal_threshold_pixels_ = 330;
 
-OverviewGestureHandler::OverviewGestureHandler() : scroll_x_(0), scroll_y_(0) {}
+OverviewGestureHandler::OverviewGestureHandler() = default;
 
 OverviewGestureHandler::~OverviewGestureHandler() = default;
 
@@ -66,11 +66,13 @@ bool OverviewGestureHandler::ProcessScrollEvent(const ui::ScrollEvent& event) {
   // Reset scroll amount on toggling.
   scroll_x_ = scroll_y_ = 0;
   base::RecordAction(base::UserMetricsAction("Touchpad_Gesture_Overview"));
-  if (overview_controller->InOverviewSession() &&
-      overview_controller->AcceptSelection()) {
-    return true;
+  if (overview_controller->InOverviewSession()) {
+    if (overview_controller->AcceptSelection())
+      return true;
+    overview_controller->EndOverview();
+  } else {
+    overview_controller->StartOverview();
   }
-  overview_controller->ToggleOverview();
   return true;
 }
 

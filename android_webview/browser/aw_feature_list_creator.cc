@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "android_webview/browser/aw_browser_context.h"
-#include "android_webview/browser/aw_browser_policy_connector.h"
+#include "android_webview/browser/aw_browser_process.h"
 #include "android_webview/browser/aw_metrics_service_client.h"
 #include "android_webview/browser/aw_variations_seed_bridge.h"
 #include "android_webview/browser/net/aw_url_request_context_getter.h"
@@ -25,10 +25,9 @@
 #include "base/time/time.h"
 #include "cc/base/switches.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/cdm/browser/media_drm_storage_impl.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/metrics/metrics_service.h"
-#include "components/policy/core/browser/configuration_policy_pref_store.h"
-#include "components/policy/core/browser/url_blacklist_manager.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/in_memory_pref_store.h"
 #include "components/prefs/json_pref_store.h"
@@ -39,6 +38,7 @@
 #include "components/variations/pref_names.h"
 #include "components/variations/service/safe_seed_manager.h"
 #include "components/variations/service/variations_service.h"
+#include "media/mojo/buildflags.h"
 #include "services/preferences/tracked/segregated_pref_store.h"
 
 namespace android_webview {
@@ -48,11 +48,17 @@ namespace {
 // These prefs go in the JsonPrefStore, and will persist across runs. Other
 // prefs go in the InMemoryPrefStore, and will be lost when the process ends.
 const char* const kPersistentPrefsWhitelist[] = {
+    // Persisted to avoid having to provision MediaDrm every time the
+    // application tries to play protected content after restart.
+    cdm::prefs::kMediaDrmStorage,
     // Randomly-generated GUID which pseudonymously identifies uploaded metrics.
     metrics::prefs::kMetricsClientID,
-    // Random seed values for variation's entropy providers, used to assign
+    // Random seed value for variation's entropy providers. Used to assign
     // experiment groups.
     metrics::prefs::kMetricsLowEntropySource,
+    // Current and past country codes, to filter variations studies by country.
+    variations::prefs::kVariationsCountry,
+    variations::prefs::kVariationsPermanentConsistencyCountry,
 };
 
 // Shows notifications which correspond to PersistentPrefStore's reading errors.
@@ -65,35 +71,16 @@ base::FilePath GetPrefStorePath() {
   return path;
 }
 
-std::unique_ptr<PrefService> CreatePrefService(
-    policy::BrowserPolicyConnectorBase* browser_policy_connector) {
+std::unique_ptr<PrefService> CreatePrefService() {
   auto pref_registry = base::MakeRefCounted<user_prefs::PrefRegistrySyncable>();
-  // We only use the autocomplete feature of Autofill, which is controlled via
-  // the manager_delegate. We don't use the rest of Autofill, which is why it is
-  // hardcoded as disabled here.
-  // TODO(crbug.com/873740): The following also disables autocomplete.
-  // Investigate what the intended behavior is.
-  pref_registry->RegisterBooleanPref(autofill::prefs::kAutofillProfileEnabled,
-                                     false);
-  pref_registry->RegisterBooleanPref(
-      autofill::prefs::kAutofillCreditCardEnabled, false);
-  policy::URLBlacklistManager::RegisterProfilePrefs(pref_registry.get());
-
-  pref_registry->RegisterStringPref(
-      android_webview::prefs::kWebRestrictionsAuthority, std::string());
-
-  // Register the Autocomplete Data Retention Policy pref.
-  // The default value '0' represents the latest Chrome major version on which
-  // the retention policy ran. By setting it to a low default value, we're
-  // making sure it runs now (as it only runs once per major version).
-  pref_registry->RegisterIntegerPref(
-      autofill::prefs::kAutocompleteLastVersionRetentionPolicy, 0);
-
-  AwBrowserContext::RegisterPrefs(pref_registry.get());
 
   metrics::MetricsService::RegisterPrefs(pref_registry.get());
   variations::VariationsService::RegisterPrefs(pref_registry.get());
-  safe_browsing::RegisterProfilePrefs(pref_registry.get());
+
+#if BUILDFLAG(ENABLE_MOJO_CDM)
+  cdm::MediaDrmStorageImpl::RegisterProfilePrefs(pref_registry.get());
+#endif
+  AwBrowserProcess::RegisterNetworkContextLocalStatePrefs(pref_registry.get());
 
   PrefServiceFactory pref_service_factory;
 
@@ -108,12 +95,7 @@ std::unique_ptr<PrefService> CreatePrefService(
       base::MakeRefCounted<InMemoryPrefStore>(),
       base::MakeRefCounted<JsonPrefStore>(GetPrefStorePath()), persistent_prefs,
       /*validation_delegate=*/nullptr));
-  pref_service_factory.set_managed_prefs(
-      base::MakeRefCounted<policy::ConfigurationPolicyPrefStore>(
-          browser_policy_connector,
-          browser_policy_connector->GetPolicyService(),
-          browser_policy_connector->GetHandlerList(),
-          policy::POLICY_LEVEL_MANDATORY));
+
   pref_service_factory.set_read_error_callback(
       base::BindRepeating(&HandleReadError));
 
@@ -177,8 +159,7 @@ void AwFeatureListCreator::SetUpFieldTrials() {
 }
 
 void AwFeatureListCreator::CreateFeatureListAndFieldTrials() {
-  browser_policy_connector_ = std::make_unique<AwBrowserPolicyConnector>();
-  local_state_ = CreatePrefService(browser_policy_connector_.get());
+  local_state_ = CreatePrefService();
   AwMetricsServiceClient::GetInstance()->Initialize(local_state_.get());
   SetUpFieldTrials();
 }

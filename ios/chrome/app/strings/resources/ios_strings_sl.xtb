@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Svetilka</translation>
 <translation id="2958718410589002129">Gesla</translation>
 <translation id="2969979262385602596">Failed to sign in. Please try again later.</translation>
+<translation id="298306318844797842">Dodajanje plačilnega sredstva …</translation>
 <translation id="2989805286512600854">Odpri v novem zavihku</translation>
 <translation id="3037605927509011580">Ti šment!</translation>
 <translation id="3112556859945124369">Označi …</translation>
@@ -477,6 +478,7 @@ Podatki so bili šifrirani z vašim geslom za sinhronizacijo <ph name="TIME" />.
 <translation id="7961015016161918242">Nikoli</translation>
 <translation id="7971521879845308059">Blokiraj pojavna okna</translation>
 <translation id="7982789257301363584">Omrežje</translation>
+<translation id="8007420562015504427">Iskanje brez beleženja zgodovine</translation>
 <translation id="8019783059653722575">S tem je mogoče shranjevati in nalagati fotografije.</translation>
 <translation id="802154636333426148">Prenos ni uspel</translation>
 <translation id="8023878949384262191">Razširi razdelek.</translation>
@@ -491,6 +493,7 @@ Podatki so bili šifrirani z vašim geslom za sinhronizacijo <ph name="TIME" />.
 <translation id="8225985093977202398">Cached Images and Files</translation>
 <translation id="8261506727792406068">Izbriši</translation>
 <translation id="8281781826761538115">Privzeto - <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Novo iskanje</translation>
 <translation id="8328777765163860529">Zapri vse</translation>
 <translation id="8381750437846184350">Nadzirajte, kako Google na podlagi vaše zgodovine brskanja prilagaja Iskanje Google, oglase in druge Googlove storitve.</translation>
 <translation id="8407669440184693619">Za to spletno mesto ni najdenih gesel</translation>
@@ -507,7 +510,6 @@ Podatki so bili šifrirani z vašim geslom za sinhronizacijo <ph name="TIME" />.
 <translation id="8532105204136943229">Expiration Year</translation>
 <translation id="8534481786647257214">Objava v Googlu+ je dokončana.</translation>
 <translation id="8548878600947630424">Najdi na strani ...</translation>
-<translation id="8583866649835978847">Pošlji <ph name="TITLE" /> v eno od naprav.</translation>
 <translation id="8605219856220328675">Close tab.</translation>
 <translation id="8620640915598389714">Uredi</translation>
 <translation id="8636825310635137004">Če želite dostopati do zavihkov iz drugih naprav, vklopite sinhronizacijo.</translation>

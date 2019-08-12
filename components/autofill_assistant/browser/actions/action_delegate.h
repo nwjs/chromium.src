@@ -16,7 +16,6 @@
 #include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/selector.h"
 #include "components/autofill_assistant/browser/top_padding.h"
-#include "components/autofill_assistant/browser/ui_controller.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
 #include "third_party/icu/source/common/unicode/umachine.h"
 
@@ -36,6 +35,8 @@ namespace autofill_assistant {
 class ClientMemory;
 class ClientStatus;
 struct ClientSettings;
+struct PaymentRequestOptions;
+class UserAction;
 
 // Action delegate called when processing actions.
 class ActionDelegate {
@@ -48,6 +49,14 @@ class ActionDelegate {
   // Returns the current status message. Usually used to restore a message after
   // the action.
   virtual std::string GetStatusMessage() = 0;
+
+  // Show a bubble / tooltip on the bottom bar. Dismisses the bubble if
+  // |message| is empty.
+  virtual void SetBubbleMessage(const std::string& message) = 0;
+
+  // Returns the current bubble / status message. Usually used to restore a
+  // message after the action.
+  virtual std::string GetBubbleMessage() = 0;
 
   // Checks one or more elements.
   virtual void RunElementChecks(BatchElementChecker* checker) = 0;
@@ -84,15 +93,16 @@ class ActionDelegate {
       ClickAction::ClickType click_type,
       base::OnceCallback<void(const ClientStatus&)> callback) = 0;
 
-  // Ask user to select one of the given suggestions.
+  // Have the UI enter the prompt mode and make the given actions available.
   //
   // While a prompt is in progress, the UI looks the same as it does between
   // scripts, even though we're in the middle of a script. This includes
   // allowing access to the touchable elements set previously, in the same
   // script.
-  virtual void Prompt(std::unique_ptr<std::vector<Chip>> chips) = 0;
+  virtual void Prompt(
+      std::unique_ptr<std::vector<UserAction>> user_actions) = 0;
 
-  // Remove all chips from the UI.
+  // Have the UI leave the prompt state and go back to its previous state.
   virtual void CancelPrompt() = 0;
 
   // Asks the user to provide the data used by UseAddressAction and
@@ -139,7 +149,7 @@ class ActionDelegate {
 
   // Sets selector of areas that can be manipulated:
   // - after the end of the script and before the beginning of the next script.
-  // - during the next call to SetChips()
+  // - during the next call to SetUserActions()
   // whichever comes first.
   virtual void SetTouchableElementArea(
       const ElementAreaProto& touchable_element_area) = 0;
@@ -273,6 +283,11 @@ class ActionDelegate {
   virtual bool SetForm(
       std::unique_ptr<FormProto> form,
       base::RepeatingCallback<void(const FormProto::Result*)> callback) = 0;
+
+  // Force showing the UI if no UI is shown. This is useful when executing a
+  // direct action which realizes it needs to interact with the user. Once
+  // shown, the UI stays up until the end of the flow.
+  virtual void RequireUI() = 0;
 
  protected:
   ActionDelegate() = default;

@@ -60,6 +60,8 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 // Property defined in InfobarUIDelegate.
 @synthesize delegate = _delegate;
 // Property defined in InfobarUIDelegate.
+@synthesize hasBadge = _hasBadge;
+// Property defined in InfobarUIDelegate.
 @synthesize infobarType = _infobarType;
 // Property defined in InfobarUIDelegate.
 @synthesize presented = _presented;
@@ -71,12 +73,18 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
   if (self) {
     _infobarDelegate = infoBarDelegate;
     _presented = YES;
+    _hasBadge = YES;
     _infobarType = infobarType;
   }
   return self;
 }
 
 #pragma mark - Public Methods.
+
+- (void)stop {
+  animatedFullscreenDisabler_ = nullptr;
+  _infobarDelegate = nil;
+}
 
 - (void)presentInfobarBannerAnimated:(BOOL)animated
                           completion:(ProceduralBlock)completion {
@@ -184,7 +192,7 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 
 - (void)bannerInfobarButtonWasPressed:(id)sender {
   [self performInfobarAction];
-  [self.badgeDelegate infobarWasAccepted];
+  [self.badgeDelegate infobarWasAccepted:self.infobarType];
   [self dismissInfobarBanner:sender animated:YES completion:nil];
 }
 
@@ -265,7 +273,7 @@ const CGFloat kiPadBannerOverlapWithOmnibox = 10.0;
 
 - (void)modalInfobarButtonWasAccepted:(id)sender {
   [self performInfobarAction];
-  [self.badgeDelegate infobarWasAccepted];
+  [self.badgeDelegate infobarWasAccepted:self.infobarType];
   [self dismissInfobarModal:sender animated:YES completion:nil];
 }
 

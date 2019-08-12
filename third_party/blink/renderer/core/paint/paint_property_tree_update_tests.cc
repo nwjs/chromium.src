@@ -270,8 +270,6 @@ TEST_P(PaintPropertyTreeUpdateTest,
   )HTML");
   Element* overflow_a = GetDocument().getElementById("overflowA");
   Element* overflow_b = GetDocument().getElementById("overflowB");
-  VisualViewport& visual_viewport =
-      GetDocument().GetPage()->GetVisualViewport();
 
   // This should be false. We are not as strict about main thread scrolling
   // reasons as we could be.
@@ -281,18 +279,21 @@ TEST_P(PaintPropertyTreeUpdateTest,
                   ->ScrollTranslation()
                   ->ScrollNode()
                   ->HasBackgroundAttachmentFixedDescendants());
-  EXPECT_FALSE(overflow_b->GetLayoutObject()
-                   ->FirstFragment()
-                   .PaintProperties()
-                   ->ScrollTranslation()
-                   ->ScrollNode()
-                   ->HasBackgroundAttachmentFixedDescendants());
-  EXPECT_EQ(visual_viewport.GetScrollNode(), overflow_b->GetLayoutObject()
-                                                 ->FirstFragment()
-                                                 .PaintProperties()
-                                                 ->ScrollTranslation()
-                                                 ->ScrollNode()
-                                                 ->Parent());
+  // This could be false since it's fixed with respect to the layout viewport.
+  // However, it would be simpler to avoid the main thread by doing this check
+  // on the compositor thread. https://crbug.com/985127.
+  EXPECT_TRUE(overflow_b->GetLayoutObject()
+                  ->FirstFragment()
+                  .PaintProperties()
+                  ->ScrollTranslation()
+                  ->ScrollNode()
+                  ->HasBackgroundAttachmentFixedDescendants());
+  EXPECT_EQ(DocScroll(), overflow_b->GetLayoutObject()
+                             ->FirstFragment()
+                             .PaintProperties()
+                             ->ScrollTranslation()
+                             ->ScrollNode()
+                             ->Parent());
 
   // Removing a main thread scrolling reason should update the entire tree.
   overflow_b->removeAttribute("class");
@@ -1068,14 +1069,14 @@ TEST_P(PaintPropertyTreeUpdateTest, WillTransformChangeAboveFixed) {
   EXPECT_EQ(container->FirstFragment().PaintProperties()->Transform(),
             &fixed->FirstFragment().LocalBorderBoxProperties().Transform());
 
-  ToElement(container->GetNode())
+  To<Element>(container->GetNode())
       ->setAttribute(html_names::kStyleAttr, "will-change: top");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(
       &GetLayoutView().FirstFragment().LocalBorderBoxProperties().Transform(),
       &fixed->FirstFragment().LocalBorderBoxProperties().Transform());
 
-  ToElement(container->GetNode())
+  To<Element>(container->GetNode())
       ->setAttribute(html_names::kStyleAttr, "will-change: transform");
   UpdateAllLifecyclePhasesForTest();
   EXPECT_EQ(container->FirstFragment().PaintProperties()->Transform(),
@@ -1621,7 +1622,23 @@ TEST_P(PaintPropertyTreeUpdateTest, ChangeDuringAnimation) {
       !RuntimeEnabledFeatures::BlinkGenPropertyTreesEnabled())
     return;
 
-  SetBodyInnerHTML("<div id='target' style='width: 100px; height: 100px'>");
+  SetBodyInnerHTML(R"HTML(
+      <!DOCTYPE html>
+      <style>
+        @keyframes animation {
+          0% { opacity: 0.3; }
+          100% { opacity: 0.4; }
+        }
+        #target {
+          animation-name: animation;
+          animation-duration: 1s;
+          width: 100px;
+          height: 100px;
+        }
+      </style>
+      <div id='target'></div>
+  )HTML");
+
   auto* target = GetLayoutObjectByElementId("target");
   auto style = ComputedStyle::Clone(target->StyleRef());
   GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInStyleRecalc);
@@ -1699,6 +1716,51 @@ TEST_P(PaintPropertyTreeUpdateTest, BackfaceVisibilityInvalidatesProperties) {
   span->setAttribute(html_names::kStyleAttr, "backface-visibility: hidden;");
   GetDocument().View()->UpdateLifecycleToLayoutClean();
   EXPECT_TRUE(span->GetLayoutObject()->NeedsPaintPropertyUpdate());
+}
+
+TEST_P(PaintPropertyTreeUpdateTest, FixedPositionCompositing) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="space" style="height: 200px"></div>
+    <div id="fixed" style="position: fixed; top: 50px; left: 60px">Fixed</div>
+  )HTML");
+
+  EXPECT_FALSE(PaintPropertiesForElement("fixed"));
+
+  auto* space = GetDocument().getElementById("space");
+  space->setAttribute(html_names::kStyleAttr, "height: 2000px");
+  UpdateAllLifecyclePhasesForTest();
+  auto* properties = PaintPropertiesForElement("fixed");
+  ASSERT_TRUE(properties);
+  auto* paint_offset_translation = properties->PaintOffsetTranslation();
+  ASSERT_TRUE(paint_offset_translation);
+  EXPECT_EQ(FloatSize(60, 50), paint_offset_translation->Translation2D());
+  EXPECT_TRUE(paint_offset_translation->HasDirectCompositingReasons());
+  EXPECT_FALSE(properties->Transform());
+
+  space->setAttribute(html_names::kStyleAttr, "height: 100px");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(PaintPropertiesForElement("fixed"));
+}
+
+TEST_P(PaintPropertyTreeUpdateTest, InlineFilterReferenceBoxChange) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="spacer" style="display: inline-block; height: 20px"></div>
+    <br>
+    <span id="span" style="filter: blur(1px); font-size: 20px">SPAN</span>
+  )HTML");
+
+  const auto* properties = PaintPropertiesForElement("span");
+  ASSERT_TRUE(properties);
+  ASSERT_TRUE(properties->Filter());
+  EXPECT_EQ(FloatPoint(0, 20),
+            properties->Filter()->Filter().ReferenceBox().Location());
+
+  GetDocument().getElementById("spacer")->setAttribute(
+      html_names::kStyleAttr, "display: inline-block; height: 100px");
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_EQ(properties, PaintPropertiesForElement("span"));
+  EXPECT_EQ(FloatPoint(0, 100),
+            properties->Filter()->Filter().ReferenceBox().Location());
 }
 
 }  // namespace blink

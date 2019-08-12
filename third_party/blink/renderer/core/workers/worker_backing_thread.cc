@@ -28,9 +28,8 @@
 #include "third_party/blink/renderer/core/inspector/worker_thread_debugger.h"
 #include "third_party/blink/renderer/core/workers/worker_backing_thread_startup_data.h"
 #include "third_party/blink/renderer/platform/bindings/v8_per_isolate_data.h"
-#include "third_party/blink/renderer/platform/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/blink/renderer/platform/web_thread_supporting_gc.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
 void set_web_worker_hooks(void* fn_start) {
@@ -71,17 +70,17 @@ void MemoryPressureNotificationToWorkerThreadIsolates(
 }
 
 WorkerBackingThread::WorkerBackingThread(const ThreadCreationParams& params)
-    : backing_thread_(std::make_unique<WebThreadSupportingGC>(params)) {}
+    : backing_thread_(blink::Thread::CreateThread(
+          ThreadCreationParams(params).SetSupportsGC(true))) {}
 
 WorkerBackingThread::~WorkerBackingThread() = default;
 
 void WorkerBackingThread::InitializeOnBackingThread(
     const WorkerBackingThreadStartupData& startup_data) {
   DCHECK(backing_thread_->IsCurrentThread());
-  backing_thread_->InitializeOnThread();
 
   DCHECK(!isolate_);
-  ThreadScheduler* scheduler = BackingThread().PlatformThread().Scheduler();
+  ThreadScheduler* scheduler = BackingThread().Scheduler();
   isolate_ = V8PerIsolateData::Initialize(
       scheduler->V8TaskRunner(),
       V8PerIsolateData::V8ContextSnapshotMode::kDontUseSnapshot);
@@ -112,7 +111,7 @@ void WorkerBackingThread::InitializeOnBackingThread(
 
 void WorkerBackingThread::ShutdownOnBackingThread() {
   DCHECK(backing_thread_->IsCurrentThread());
-  BackingThread().PlatformThread().Scheduler()->SetV8Isolate(nullptr);
+  BackingThread().Scheduler()->SetV8Isolate(nullptr);
   Platform::Current()->WillStopWorkerThread();
 
   V8PerIsolateData::WillBeDestroyed(isolate_);

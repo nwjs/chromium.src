@@ -6,9 +6,9 @@
 
 #include <memory>
 
-#include "ash/keyboard/ash_keyboard_controller.h"
-#include "ash/keyboard/ui/keyboard_controller.h"
+#include "ash/keyboard/keyboard_controller_impl.h"
 #include "ash/keyboard/ui/keyboard_ui.h"
+#include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/keyboard/ui/test/keyboard_test_util.h"
 #include "ash/public/cpp/keyboard/keyboard_switches.h"
 #include "ash/public/cpp/shell_window_ids.h"
@@ -46,7 +46,7 @@ aura::Window* GetModalContainer() {
 
 bool AllRootWindowsHaveModalBackgroundsForContainer(int container_id) {
   aura::Window::Windows containers =
-      wm::GetContainersFromAllRootWindows(container_id);
+      GetContainersForAllRootWindows(container_id);
   bool has_modal_screen = !containers.empty();
   for (aura::Window* container : containers) {
     has_modal_screen &= static_cast<SystemModalContainerLayoutManager*>(
@@ -169,7 +169,7 @@ class SystemModalContainerLayoutManagerTest : public AshTestBase {
 
   // Show or hide the keyboard.
   void ShowKeyboard(bool show) {
-    auto* keyboard = keyboard::KeyboardController::Get();
+    auto* keyboard = keyboard::KeyboardUIController::Get();
     ASSERT_TRUE(keyboard->IsEnabled());
     if (show == keyboard->IsKeyboardVisible())
       return;

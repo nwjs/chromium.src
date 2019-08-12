@@ -145,9 +145,7 @@ std::string ComputeServerDefinedUniqueTagForDebugging(
 
 BookmarkModelTypeProcessor::BookmarkModelTypeProcessor(
     BookmarkUndoService* bookmark_undo_service)
-    : bookmark_undo_service_(bookmark_undo_service),
-      weak_ptr_factory_for_controller_(this),
-      weak_ptr_factory_for_worker_(this) {}
+    : bookmark_undo_service_(bookmark_undo_service) {}
 
 BookmarkModelTypeProcessor::~BookmarkModelTypeProcessor() {
   if (bookmark_model_ && bookmark_model_observer_) {
@@ -535,11 +533,9 @@ void BookmarkModelTypeProcessor::GetAllNodesForDebugging(
   all_nodes->Append(std::move(root_node));
 
   const bookmarks::BookmarkNode* model_root_node = bookmark_model_->root_node();
-  for (int i = 0; i < model_root_node->child_count(); ++i) {
-    const bookmarks::BookmarkNode* model_permanent_node =
-        model_root_node->GetChild(i);
-    AppendNodeAndChildrenForDebugging(model_permanent_node, i, all_nodes.get());
-  }
+  int i = 0;
+  for (const auto& child : model_root_node->children())
+    AppendNodeAndChildrenForDebugging(child.get(), i++, all_nodes.get());
 
   std::move(callback).Run(syncer::BOOKMARKS, std::move(all_nodes));
 }
@@ -564,7 +560,7 @@ void BookmarkModelTypeProcessor::AppendNodeAndChildrenForDebugging(
   data.creation_time = node->date_added();
   data.modification_time =
       syncer::ProtoTimeToTime(metadata->modification_time());
-  data.non_unique_name = base::UTF16ToUTF8(node->GetTitle());
+  data.name = base::UTF16ToUTF8(node->GetTitle());
   data.is_folder = node->is_folder();
   data.unique_position = metadata->unique_position();
   data.specifics = CreateSpecificsFromBookmarkNode(
@@ -605,9 +601,9 @@ void BookmarkModelTypeProcessor::AppendNodeAndChildrenForDebugging(
   data_dictionary->SetString("modelType", "Bookmarks");
   all_nodes->Append(std::move(data_dictionary));
 
-  for (int i = 0; i < node->child_count(); ++i) {
-    AppendNodeAndChildrenForDebugging(node->GetChild(i), i, all_nodes);
-  }
+  int i = 0;
+  for (const auto& child : node->children())
+    AppendNodeAndChildrenForDebugging(child.get(), i++, all_nodes);
 }
 
 void BookmarkModelTypeProcessor::GetStatusCountersForDebugging(

@@ -477,6 +477,7 @@
 <translation id="7961015016161918242">一律不要</translation>
 <translation id="7971521879845308059">封鎖彈出式視窗</translation>
 <translation id="7982789257301363584">網路</translation>
+<translation id="8007420562015504427">無痕搜尋</translation>
 <translation id="8019783059653722575">可讓你儲存並上傳相片。</translation>
 <translation id="802154636333426148">下載失敗</translation>
 <translation id="8023878949384262191">展開這個專區。</translation>
@@ -491,6 +492,7 @@
 <translation id="8225985093977202398">快取圖片和檔案</translation>
 <translation id="8261506727792406068">刪除</translation>
 <translation id="8281781826761538115">預設 - <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">新搜尋</translation>
 <translation id="8328777765163860529">關閉全部</translation>
 <translation id="8381750437846184350">控管 Google 使用您瀏覽記錄的方式，針對 Google 所提供的個人化搜尋服務、廣告內容和其他各項 Google 服務調整相關設定</translation>
 <translation id="8407669440184693619">找不到這個網站的密碼</translation>
@@ -507,7 +509,6 @@
 <translation id="8532105204136943229">到期年份</translation>
 <translation id="8534481786647257214">已順利發佈到 Google+。</translation>
 <translation id="8548878600947630424">在網頁中尋找...</translation>
-<translation id="8583866649835978847">將「<ph name="TITLE" />」傳送到你的其中一部裝置。</translation>
 <translation id="8605219856220328675">關閉分頁。</translation>
 <translation id="8620640915598389714">編輯</translation>
 <translation id="8636825310635137004">如要存取您在其他裝置上開啟的分頁，請開啟同步處理功能。</translation>

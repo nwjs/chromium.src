@@ -54,16 +54,13 @@
 #include "components/bookmarks/common/bookmark_pref_names.h"
 #include "components/dom_distiller/core/dom_distiller_switches.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/core/browser/signin_metrics.h"
+#include "components/signin/public/base/signin_metrics.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/zoom/zoom_controller.h"
 #include "components/zoom/zoom_event_manager.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/notification_service.h"
-#include "content/public/browser/notification_source.h"
-#include "content/public/browser/notification_types.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/profiling.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -77,12 +74,13 @@
 #include "ui/gfx/text_elider.h"
 #include "ui/native_theme/native_theme.h"
 
-#if defined(GOOGLE_CHROME_BUILD)
+#if defined(GOOGLE_CHROME_BUILD) || defined(OS_CHROMEOS)
 #include "base/feature_list.h"
 #endif
 
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/ui/ash/tablet_mode_client.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/constants/chromeos_switches.h"
 #endif
 
@@ -133,6 +131,13 @@ base::Optional<base::string16> GetInstallPWAAppMenuItemName(Browser* browser) {
 }  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
+// LogWrenchMenuAction
+void LogWrenchMenuAction(AppMenuAction action_id) {
+  UMA_HISTOGRAM_ENUMERATION("WrenchMenu.MenuAction", action_id,
+                            LIMIT_MENU_ACTION);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ZoomMenuModel
 
 ZoomMenuModel::ZoomMenuModel(ui::SimpleMenuModel::Delegate* delegate)
@@ -172,7 +177,14 @@ class AppMenuModel::HelpMenuModel : public ui::SimpleMenuModel {
 #else
     int help_string_id = IDS_HELP_PAGE;
 #endif
+#if defined(OS_CHROMEOS)
+    if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))
+      AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
+    else
+      AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT_OS));
+#else
     AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
+#endif
     AddItemWithStringId(IDC_HELP_PAGE_VIA_MENU, help_string_id);
     if (base::FeatureList::IsEnabled(kIncludeBetaForumMenuItem))
       AddItem(IDC_SHOW_BETA_FORUM, l10n_util::GetStringUTF16(IDS_BETA_FORUM));
@@ -181,7 +193,8 @@ class AppMenuModel::HelpMenuModel : public ui::SimpleMenuModel {
       SetIcon(GetIndexOfCommandId(IDC_HELP_PAGE_VIA_MENU),
               rb.GetNativeImageNamed(IDR_HELP_MENU));
     }
-    AddItemWithStringId(IDC_FEEDBACK, IDS_FEEDBACK);
+    if (browser->profile()->GetPrefs()->GetBoolean(prefs::kUserFeedbackAllowed))
+      AddItemWithStringId(IDC_FEEDBACK, IDS_FEEDBACK);
   }
 
   DISALLOW_COPY_AND_ASSIGN(HelpMenuModel);
@@ -251,17 +264,16 @@ AppMenuModel::~AppMenuModel() {
 
 void AppMenuModel::Init() {
   Build();
-  UpdateZoomControls();
 
   browser_zoom_subscription_ =
       zoom::ZoomEventManager::GetForBrowserContext(browser_->profile())
           ->AddZoomLevelChangedCallback(base::Bind(
               &AppMenuModel::OnZoomLevelChanged, base::Unretained(this)));
 
-  browser_->tab_strip_model()->AddObserver(this);
-
-  registrar_.Add(this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
-                 content::NotificationService::AllSources());
+  TabStripModel* tab_strip_model = browser_->tab_strip_model();
+  tab_strip_model->AddObserver(this);
+  Observe(tab_strip_model->GetActiveWebContents());
+  UpdateZoomControls();
 }
 
 bool AppMenuModel::DoesCommandIdDismissMenu(int command_id) const {
@@ -698,20 +710,18 @@ void AppMenuModel::OnTabStripModelChanged(
   if (selection.active_tab_changed()) {
     // The user has switched between tabs and the new tab may have a different
     // zoom setting. Or web contents for a tab has been replaced.
+    Observe(selection.new_contents);
     UpdateZoomControls();
   }
 }
 
-void AppMenuModel::Observe(int type,
-                           const content::NotificationSource& source,
-                           const content::NotificationDetails& details) {
-  DCHECK_EQ(content::NOTIFICATION_NAV_ENTRY_COMMITTED, type);
+void AppMenuModel::NavigationEntryCommitted(
+    const content::LoadCommittedDetails& load_details) {
   UpdateZoomControls();
 }
 
 void AppMenuModel::LogMenuAction(AppMenuAction action_id) {
-  UMA_HISTOGRAM_ENUMERATION("WrenchMenu.MenuAction", action_id,
-                            LIMIT_MENU_ACTION);
+  LogWrenchMenuAction(action_id);
 }
 
 // Note: When adding new menu items please place under an appropriate section.
@@ -812,7 +822,14 @@ void AppMenuModel::Build() {
   AddSubMenuWithStringId(IDC_HELP_MENU, IDS_HELP_MENU,
                          help_menu_model_.get());
 #else
+#if defined(OS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(chromeos::features::kSplitSettings))
+    AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
+  else
+    AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT_OS));
+#else
   AddItem(IDC_ABOUT, l10n_util::GetStringUTF16(IDS_ABOUT));
+#endif
 #endif
 
   if (browser_defaults::kShowExitMenuItem) {
@@ -850,14 +867,6 @@ bool AppMenuModel::CreateActionToolbarOverflowMenu() {
   // GetToolbarActionsBar() can be null in testing.
   if (browser_->window() && browser_->window()->GetToolbarActionsBar() &&
       browser_->window()->GetToolbarActionsBar()->NeedsOverflow()) {
-#if defined(OS_MACOSX)
-    // There's a bug in AppKit menus, where if a menu item with a custom view
-    // (like the extensions overflow menu) is the first menu item, it is not
-    // highlightable or keyboard-selectable.
-    // Adding any menu item before it (even one which is never visible) prevents
-    // it, so add a bogus item here that will always be hidden.
-    AddItem(kEmptyMenuItemCommand, base::string16());
-#endif
     AddItem(IDC_EXTENSIONS_OVERFLOW_MENU, base::string16());
     return true;
   }
@@ -891,11 +900,12 @@ void AppMenuModel::CreateZoomMenu() {
 }
 
 void AppMenuModel::UpdateZoomControls() {
-  WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
-  zoom_label_ = base::FormatPercent(
-      contents
-          ? zoom::ZoomController::FromWebContents(contents)->GetZoomPercent()
-          : 100);
+  int zoom_percent = 100;  // Defaults to 100% zoom.
+  if (web_contents()) {
+    zoom_percent =
+        zoom::ZoomController::FromWebContents(web_contents())->GetZoomPercent();
+  }
+  zoom_label_ = base::FormatPercent(zoom_percent);
 }
 
 bool AppMenuModel::ShouldShowNewIncognitoWindowMenuItem() {

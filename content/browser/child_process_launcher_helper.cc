@@ -224,16 +224,16 @@ base::SingleThreadTaskRunner* GetProcessLauncherTaskRunner() {
   // use-after-free if anything tries to access objects deleted by
   // AtExitManager, such as non-leaky LazyInstance.
   static base::NoDestructor<scoped_refptr<base::SingleThreadTaskRunner>>
-      launcher_task_runner(
-          android::LauncherThread::GetMessageLoop()->task_runner());
+      launcher_task_runner(android::LauncherThread::GetTaskRunner());
   return (*launcher_task_runner).get();
 #else   // defined(OS_ANDROID)
   // TODO(http://crbug.com/820200): Investigate whether we could use
   // SequencedTaskRunner on platforms other than Windows.
   static base::LazySingleThreadTaskRunner launcher_task_runner =
       LAZY_SINGLE_THREAD_TASK_RUNNER_INITIALIZER(
-          base::TaskTraits({base::MayBlock(), base::TaskPriority::USER_BLOCKING,
-                            base::TaskShutdownBehavior::BLOCK_SHUTDOWN}),
+          base::TaskTraits(base::ThreadPool(), base::MayBlock(),
+                           base::TaskPriority::USER_BLOCKING,
+                           base::TaskShutdownBehavior::BLOCK_SHUTDOWN),
           base::SingleThreadTaskRunnerThreadMode::DEDICATED);
   return launcher_task_runner.Get().get();
 #endif  // defined(OS_ANDROID)

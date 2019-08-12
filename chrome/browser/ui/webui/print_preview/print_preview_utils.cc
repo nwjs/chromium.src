@@ -61,7 +61,7 @@ void PrintersToValues(const printing::PrinterList& printer_list,
 
     printer_info->SetBoolean(
         kCUPSEnterprisePrinter,
-        base::ContainsKey(printer.options, kCUPSEnterprisePrinter) &&
+        base::Contains(printer.options, kCUPSEnterprisePrinter) &&
             printer.options.at(kCUPSEnterprisePrinter) == kValueTrue);
 
     printer_info->Set(printing::kSettingPrinterOptions, std::move(options));
@@ -170,7 +170,7 @@ base::Value ValidateCddForPrintPreview(base::Value cdd) {
 }
 
 void ConvertPrinterListForCallback(
-    const PrinterHandler::AddedPrintersCallback& callback,
+    PrinterHandler::AddedPrintersCallback callback,
     PrinterHandler::GetPrintersDoneCallback done_callback,
     const PrinterList& printer_list) {
   base::ListValue printers;

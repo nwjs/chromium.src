@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Lanterna</translation>
 <translation id="2958718410589002129">Senhas</translation>
 <translation id="2969979262385602596">Falha durante o login. Tente novamente mais tarde.</translation>
+<translation id="298306318844797842">Adicionar forma de pagamento…</translation>
 <translation id="2989805286512600854">Abrir em uma nova guia</translation>
 <translation id="3037605927509011580">Ah, não!</translation>
 <translation id="3112556859945124369">Marcar...</translation>
@@ -477,6 +478,7 @@ Seus dados foram criptografados com sua senha longa de sincronização no dia <p
 <translation id="7961015016161918242">Nunca</translation>
 <translation id="7971521879845308059">Bloquear pop-ups</translation>
 <translation id="7982789257301363584">Rede</translation>
+<translation id="8007420562015504427">Pesquisa anônima</translation>
 <translation id="8019783059653722575">Isso permite que você salve fotos e faça upload delas.</translation>
 <translation id="802154636333426148">Falha no download</translation>
 <translation id="8023878949384262191">Expande a seção.</translation>
@@ -491,6 +493,7 @@ Seus dados foram criptografados com sua senha longa de sincronização no dia <p
 <translation id="8225985093977202398">Imagens e arquivos armazenados em cache</translation>
 <translation id="8261506727792406068">Excluir</translation>
 <translation id="8281781826761538115">Padrão: <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Nova pesquisa</translation>
 <translation id="8328777765163860529">Fechar todos</translation>
 <translation id="8381750437846184350">Controlar a maneira como o Google usa seu histórico de navegação para personalizar a Pesquisa Google, os anúncios e outros serviços nossos</translation>
 <translation id="8407669440184693619">Nenhuma senha encontrada para este site</translation>
@@ -507,7 +510,6 @@ Seus dados foram criptografados com sua senha longa de sincronização no dia <p
 <translation id="8532105204136943229">Ano de vencimento</translation>
 <translation id="8534481786647257214">A postagem no Google+ foi concluída.</translation>
 <translation id="8548878600947630424">Encontrar na página...</translation>
-<translation id="8583866649835978847">Enviar <ph name="TITLE" /> para um dos seus dispositivos.</translation>
 <translation id="8605219856220328675">Fechar guia.</translation>
 <translation id="8620640915598389714">Editar</translation>
 <translation id="8636825310635137004">Para ver suas guias abertas em outros dispositivos, ative a sincronização.</translation>

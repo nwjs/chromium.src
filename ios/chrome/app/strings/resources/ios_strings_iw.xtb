@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">פנס</translation>
 <translation id="2958718410589002129">סיסמאות</translation>
 <translation id="2969979262385602596">הכניסה נכשלה. נסה שוב מאוחר יותר.</translation>
+<translation id="298306318844797842">הוספת אמצעי תשלום...</translation>
 <translation id="2989805286512600854">פתיחה בכרטיסייה חדשה</translation>
 <translation id="3037605927509011580">אוי, לא!</translation>
 <translation id="3112556859945124369">סמן…</translation>
@@ -477,6 +478,7 @@
 <translation id="7961015016161918242">אף פעם</translation>
 <translation id="7971521879845308059">חסום חלונות קופצים</translation>
 <translation id="7982789257301363584">רשת</translation>
+<translation id="8007420562015504427">חיפוש במצב גלישה בסתר</translation>
 <translation id="8019783059653722575">אישור זה מאפשר לך לשמור ולהעלות תמונות.</translation>
 <translation id="802154636333426148">ההורדה נכשלה</translation>
 <translation id="8023878949384262191">מרחיב את הקטע.</translation>
@@ -491,6 +493,7 @@
 <translation id="8225985093977202398">תמונות וקבצים במטמון</translation>
 <translation id="8261506727792406068">מחיקה</translation>
 <translation id="8281781826761538115">ברירת מחדל - <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">חיפוש חדש</translation>
 <translation id="8328777765163860529">סגור הכל</translation>
 <translation id="8381750437846184350">‏בידיך השליטה איך Google משתמשת בהיסטוריית הגלישה שלך לצורך התאמה אישית של חיפוש Google, מודעות Google ושירותי Google אחרים</translation>
 <translation id="8407669440184693619">לא נמצאו סיסמאות בשביל האתר הזה</translation>
@@ -507,7 +510,6 @@
 <translation id="8532105204136943229">שנת פקיעת התוקף</translation>
 <translation id="8534481786647257214">‏הפרסום ב-‏Google+‎ בוצע.</translation>
 <translation id="8548878600947630424">חיפוש בדף...</translation>
-<translation id="8583866649835978847">שליחת <ph name="TITLE" /> אל אחד מהמכשירים שלך.</translation>
 <translation id="8605219856220328675">סגור כרטיסייה.</translation>
 <translation id="8620640915598389714">עריכה</translation>
 <translation id="8636825310635137004">כדי לקבל את הכרטיסיות מהמכשירים האחרים שלך, הפעל את הסנכרון.</translation>

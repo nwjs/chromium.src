@@ -226,6 +226,15 @@ void AXPlatformNodeWinTest::TearDown() {
   ASSERT_EQ(0U, AXPlatformNodeBase::GetInstanceCountForTesting());
 }
 
+AXPlatformNode* AXPlatformNodeWinTest::AXPlatformNodeFromNode(AXNode* node) {
+  const TestAXNodeWrapper* wrapper =
+      TestAXNodeWrapper::GetOrCreate(tree_.get(), node);
+  if (!wrapper)
+    return nullptr;
+
+  return wrapper->ax_platform_node();
+}
+
 template <typename T>
 ComPtr<T> AXPlatformNodeWinTest::QueryInterfaceFromNodeId(int32_t id) {
   const TestAXNodeWrapper* wrapper =
@@ -243,12 +252,9 @@ ComPtr<T> AXPlatformNodeWinTest::QueryInterfaceFromNodeId(int32_t id) {
 
 template <typename T>
 ComPtr<T> AXPlatformNodeWinTest::QueryInterfaceFromNode(AXNode* node) {
-  const TestAXNodeWrapper* wrapper =
-      TestAXNodeWrapper::GetOrCreate(tree_.get(), node);
-  if (!wrapper)
+  AXPlatformNode* ax_platform_node = AXPlatformNodeFromNode(node);
+  if (!ax_platform_node)
     return ComPtr<T>();
-
-  AXPlatformNode* ax_platform_node = wrapper->ax_platform_node();
   ComPtr<T> result;
   EXPECT_HRESULT_SUCCEEDED(
       ax_platform_node->GetNativeViewAccessible()->QueryInterface(__uuidof(T),
@@ -359,12 +365,12 @@ ComPtr<IAccessibleTableCell> AXPlatformNodeWinTest::GetCellInTable() {
 }
 
 void AXPlatformNodeWinTest::InitFragmentRoot() {
-  TestAXNodeWrapper* wrapper =
-      TestAXNodeWrapper::GetOrCreate(tree_.get(), GetRootNode());
+  test_fragment_root_delegate_ = std::make_unique<TestFragmentRootDelegate>();
+  test_fragment_root_delegate_->child_ =
+      AXPlatformNodeFromNode(GetRootNode())->GetNativeViewAccessible();
 
   ax_fragment_root_ = std::make_unique<ui::AXFragmentRootWin>(
-      gfx::kMockAcceleratedWidget,
-      static_cast<ui::AXPlatformNodeWin*>(wrapper->ax_platform_node()));
+      gfx::kMockAcceleratedWidget, test_fragment_root_delegate_.get());
 }
 
 ComPtr<IRawElementProviderFragmentRoot>
@@ -400,6 +406,19 @@ AXPlatformNodeWinTest::GetSupportedPatternsFromNodeId(int32_t id) {
     }
   }
   return supported_patterns;
+}
+
+TestFragmentRootDelegate::TestFragmentRootDelegate() = default;
+
+TestFragmentRootDelegate::~TestFragmentRootDelegate() = default;
+
+gfx::NativeViewAccessible TestFragmentRootDelegate::GetChildOfAXFragmentRoot() {
+  return child_;
+}
+
+gfx::NativeViewAccessible
+TestFragmentRootDelegate::GetParentOfAXFragmentRoot() {
+  return parent_;
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleDetachedObject) {
@@ -521,6 +540,101 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleShortcut) {
   ScopedBstr k2;
   EXPECT_EQ(E_INVALIDARG,
             root_obj->get_accKeyboardShortcut(bad_id, k2.Receive()));
+}
+
+TEST_F(AXPlatformNodeWinTest, TestIAccessibleHelpText) {
+  AXNodeData root;
+  root.id = 0;
+
+  // Test Placeholder StringAttribute is exposed.
+  AXNodeData node1;
+  node1.id = 1;
+  node1.SetName("name-from-title");
+  node1.AddIntAttribute(ax::mojom::IntAttribute::kNameFrom,
+                        static_cast<int>(ax::mojom::NameFrom::kTitle));
+  node1.AddStringAttribute(ax::mojom::StringAttribute::kPlaceholder,
+                           "placeholder");
+  root.child_ids.push_back(node1.id);
+
+  // Test NameFrom Title is exposed.
+  AXNodeData node2;
+  node2.id = 2;
+  node2.SetName("name-from-title");
+  node2.AddIntAttribute(ax::mojom::IntAttribute::kNameFrom,
+                        static_cast<int>(ax::mojom::NameFrom::kTitle));
+  root.child_ids.push_back(node2.id);
+
+  // Test NameFrom Placeholder is exposed.
+  AXNodeData node3;
+  node3.id = 3;
+  node3.SetName("name-from-placeholder");
+  node3.AddIntAttribute(ax::mojom::IntAttribute::kNameFrom,
+                        static_cast<int>(ax::mojom::NameFrom::kPlaceholder));
+  root.child_ids.push_back(node3.id);
+
+  // Test Tooltip StringAttribute is exposed.
+  AXNodeData node4;
+  node4.id = 4;
+  node4.SetName("name-from-attribute");
+  node4.AddIntAttribute(ax::mojom::IntAttribute::kNameFrom,
+                        static_cast<int>(ax::mojom::NameFrom::kAttribute));
+  node4.AddStringAttribute(ax::mojom::StringAttribute::kTooltip, "tooltip");
+  root.child_ids.push_back(node4.id);
+
+  // Test StringAttribute is not exposed without explicit
+  // Placeholder / Title / Tooltip.
+  AXNodeData node5;
+  node5.id = 5;
+  node5.SetName("name-from-attribute");
+  node5.AddIntAttribute(ax::mojom::IntAttribute::kNameFrom,
+                        static_cast<int>(ax::mojom::NameFrom::kAttribute));
+  root.child_ids.push_back(node5.id);
+
+  Init(root, node1, node2, node3, node4, node5);
+
+  auto* root_node = GetRootNode();
+
+  ScopedBstr helpText1;
+  ComPtr<IAccessible> child_node1(
+      IAccessibleFromNode(root_node->children()[0]));
+  EXPECT_EQ(S_OK, child_node1->get_accHelp(SELF, helpText1.Receive()));
+  EXPECT_STREQ(L"placeholder", helpText1);
+
+  ScopedBstr helpText2;
+  ComPtr<IAccessible> child_node2(
+      IAccessibleFromNode(root_node->children()[1]));
+  EXPECT_EQ(S_OK, child_node2->get_accHelp(SELF, helpText2.Receive()));
+  EXPECT_STREQ(L"name-from-title", helpText2);
+
+  ScopedBstr helpText3;
+  ComPtr<IAccessible> child_node3(
+      IAccessibleFromNode(root_node->children()[2]));
+  EXPECT_EQ(S_OK, child_node3->get_accHelp(SELF, helpText3.Receive()));
+  EXPECT_STREQ(L"name-from-placeholder", helpText3);
+
+  ScopedBstr helpText4;
+  ComPtr<IAccessible> child_node4(
+      IAccessibleFromNode(root_node->children()[3]));
+  EXPECT_EQ(S_OK, child_node4->get_accHelp(SELF, helpText4.Receive()));
+  EXPECT_STREQ(L"tooltip", helpText4);
+
+  ScopedBstr helpText5;
+  ComPtr<IAccessible> child_node5(
+      IAccessibleFromNode(root_node->children()[4]));
+  EXPECT_EQ(S_FALSE, child_node5->get_accHelp(SELF, helpText5.Receive()));
+
+  ScopedBstr helpText6;
+  ScopedVariant root_id(0);
+  EXPECT_EQ(S_OK, child_node4->get_accHelp(root_id, helpText6.Receive()));
+  EXPECT_STREQ(L"tooltip", helpText6);
+
+  EXPECT_EQ(E_INVALIDARG, child_node5->get_accHelp(SELF, nullptr));
+  ScopedVariant var_id(5);
+  EXPECT_EQ(E_INVALIDARG,
+            child_node5->get_accHelp(var_id, helpText5.Receive()));
+  ScopedVariant bad_id(999);
+  EXPECT_EQ(E_INVALIDARG,
+            child_node5->get_accHelp(bad_id, helpText5.Receive()));
 }
 
 TEST_F(AXPlatformNodeWinTest,
@@ -1535,6 +1649,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableGetRowDescription) {
     ScopedBstr name;
     EXPECT_EQ(S_FALSE, result->get_rowDescription(0, name.Receive()));
   }
+
   {
     ScopedBstr name;
     EXPECT_EQ(S_OK, result->get_rowDescription(1, name.Receive()));
@@ -1561,7 +1676,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableGetRowExtentAt) {
 
   LONG rows_spanned;
   EXPECT_EQ(S_OK, result->get_rowExtentAt(0, 1, &rows_spanned));
-  EXPECT_EQ(rows_spanned, 0);
+  EXPECT_EQ(1, rows_spanned);
 
   EXPECT_EQ(E_INVALIDARG, result->get_columnExtentAt(-1, -1, &rows_spanned));
 }
@@ -1577,9 +1692,9 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableGetRowIndex) {
 
   LONG index;
   EXPECT_EQ(S_OK, result->get_rowIndex(2, &index));
-  EXPECT_EQ(index, 0);
+  EXPECT_EQ(0, index);
   EXPECT_EQ(S_OK, result->get_rowIndex(3, &index));
-  EXPECT_EQ(index, 1);
+  EXPECT_EQ(1, index);
 
   EXPECT_EQ(E_INVALIDARG, result->get_rowIndex(-1, &index));
 }
@@ -1594,15 +1709,16 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableGetRowColumnExtentsAtIndex) {
   ASSERT_NE(nullptr, result.Get());
 
   LONG row, column, row_extents, column_extents;
-  boolean is_selected;
+  BOOLEAN is_selected = false;
   EXPECT_EQ(S_OK,
             result->get_rowColumnExtentsAtIndex(0, &row, &column, &row_extents,
                                                 &column_extents, &is_selected));
 
-  EXPECT_EQ(row, 0);
-  EXPECT_EQ(column, 0);
-  EXPECT_EQ(row_extents, 0);
-  EXPECT_EQ(column_extents, 0);
+  EXPECT_EQ(0, row);
+  EXPECT_EQ(0, column);
+  EXPECT_EQ(1, row_extents);
+  EXPECT_EQ(1, column_extents);
+  EXPECT_FALSE(is_selected);
 
   EXPECT_EQ(E_INVALIDARG,
             result->get_rowColumnExtentsAtIndex(-1, &row, &column, &row_extents,
@@ -1638,7 +1754,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetColumnExtent) {
 
   LONG column_spanned;
   EXPECT_EQ(S_OK, cell->get_columnExtent(&column_spanned));
-  EXPECT_EQ(column_spanned, 1);
+  EXPECT_EQ(1, column_spanned);
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetColumnHeaderCells) {
@@ -1652,7 +1768,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetColumnHeaderCells) {
   LONG number_cells;
   EXPECT_EQ(S_OK,
             cell->get_columnHeaderCells(&cell_accessibles, &number_cells));
-  EXPECT_EQ(number_cells, 1);
+  EXPECT_EQ(1, number_cells);
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetColumnIndex) {
@@ -1708,13 +1824,14 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetRowColumnExtent) {
   ASSERT_NE(nullptr, cell.Get());
 
   LONG row, column, row_extents, column_extents;
-  boolean is_selected;
+  BOOLEAN is_selected = false;
   EXPECT_EQ(S_OK, cell->get_rowColumnExtents(&row, &column, &row_extents,
                                              &column_extents, &is_selected));
-  EXPECT_EQ(row, 1);
-  EXPECT_EQ(column, 1);
-  EXPECT_EQ(row_extents, 1);
-  EXPECT_EQ(column_extents, 1);
+  EXPECT_EQ(1, row);
+  EXPECT_EQ(1, column);
+  EXPECT_EQ(1, row_extents);
+  EXPECT_EQ(1, column_extents);
+  EXPECT_FALSE(is_selected);
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableCellGetTable) {
@@ -2424,7 +2541,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsColumnSelected) {
   table.CopyTo(result.GetAddressOf());
   ASSERT_NE(nullptr, result.Get());
 
-  boolean selected;
+  BOOLEAN selected = false;
   EXPECT_EQ(S_OK, result->get_isColumnSelected(0, &selected));
   EXPECT_FALSE(selected);
 
@@ -2434,8 +2551,8 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsColumnSelected) {
   EXPECT_EQ(S_OK, result->get_isColumnSelected(2, &selected));
   EXPECT_FALSE(selected);
 
-  EXPECT_EQ(S_FALSE, result->get_isColumnSelected(3, &selected));
-  EXPECT_EQ(S_FALSE, result->get_isColumnSelected(-3, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isColumnSelected(3, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isColumnSelected(-3, &selected));
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsRowSelected) {
@@ -2460,7 +2577,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsRowSelected) {
   table.CopyTo(result.GetAddressOf());
   ASSERT_NE(nullptr, result.Get());
 
-  boolean selected;
+  BOOLEAN selected;
   EXPECT_EQ(S_OK, result->get_isRowSelected(0, &selected));
   EXPECT_FALSE(selected);
 
@@ -2470,8 +2587,8 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsRowSelected) {
   EXPECT_EQ(S_OK, result->get_isRowSelected(2, &selected));
   EXPECT_FALSE(selected);
 
-  EXPECT_EQ(S_FALSE, result->get_isRowSelected(3, &selected));
-  EXPECT_EQ(S_FALSE, result->get_isRowSelected(-3, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isRowSelected(3, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isRowSelected(-3, &selected));
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsSelected) {
@@ -2496,8 +2613,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsSelected) {
   table.CopyTo(result.GetAddressOf());
   ASSERT_NE(nullptr, result.Get());
 
-  boolean selected;
-
+  BOOLEAN selected = false;
   EXPECT_EQ(S_OK, result->get_isSelected(0, 0, &selected));
   EXPECT_FALSE(selected);
 
@@ -2507,7 +2623,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsSelected) {
   EXPECT_EQ(S_OK, result->get_isSelected(0, 2, &selected));
   EXPECT_FALSE(selected);
 
-  EXPECT_EQ(S_FALSE, result->get_isSelected(0, 4, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isSelected(0, 4, &selected));
 
   EXPECT_EQ(S_OK, result->get_isSelected(1, 0, &selected));
   EXPECT_TRUE(selected);
@@ -2518,7 +2634,7 @@ TEST_F(AXPlatformNodeWinTest, TestIAccessibleTableIsSelected) {
   EXPECT_EQ(S_OK, result->get_isSelected(1, 2, &selected));
   EXPECT_TRUE(selected);
 
-  EXPECT_EQ(S_FALSE, result->get_isSelected(1, 4, &selected));
+  EXPECT_EQ(E_INVALIDARG, result->get_isSelected(1, 4, &selected));
 }
 
 TEST_F(AXPlatformNodeWinTest, TestIAccessibleTable2GetSelectedChildrenZero) {
@@ -2673,8 +2789,8 @@ TEST_F(AXPlatformNodeWinTest, TestUnlabeledImageAttributes) {
 
     std::vector<base::string16> attribute_vector = base::SplitString(
         attributes, L";", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-    EXPECT_TRUE(base::ContainsValue(attribute_vector,
-                                    L"roledescription:Unlabeled image"));
+    EXPECT_TRUE(
+        base::Contains(attribute_vector, L"roledescription:Unlabeled image"));
   }
 }
 

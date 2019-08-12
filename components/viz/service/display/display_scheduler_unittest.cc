@@ -43,7 +43,7 @@ class FakeDisplaySchedulerClient : public DisplaySchedulerClient {
   }
 
   bool SurfaceHasUnackedFrame(const SurfaceId& surface_id) const override {
-    return base::ContainsKey(undrawn_surfaces_, surface_id);
+    return base::Contains(undrawn_surfaces_, surface_id);
   }
 
   bool SurfaceDamaged(const SurfaceId& surface_id,
@@ -796,8 +796,6 @@ TEST_F(DisplaySchedulerTest, SetNeedsOneBeginFrame) {
 }
 
 TEST_F(DisplaySchedulerTest, GpuBusyNotifications) {
-  fake_begin_frame_source_.AllowOneBeginFrameAfterGpuBusy();
-
   SurfaceId root_surface_id(
       kArbitraryFrameSinkId,
       LocalSurfaceId(1, base::UnguessableToken::Create()));

@@ -31,8 +31,8 @@
 #import "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui_util/constraints_ui_util.h"
 #include "ios/chrome/grit/ios_strings.h"
-#include "ios/web/public/web_task_traits.h"
-#include "ios/web/public/web_thread.h"
+#include "ios/web/public/thread/web_task_traits.h"
+#include "ios/web/public/thread/web_thread.h"
 #include "ui/base/l10n/l10n_util.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -99,8 +99,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 }
 }  // namespace
 
-@interface TabGridViewController ()<GridViewControllerDelegate,
-                                    UIScrollViewAccessibilityDelegate>
+@interface TabGridViewController () <GridViewControllerDelegate,
+                                     UIScrollViewAccessibilityDelegate>
 // It is programmer error to broadcast incognito content visibility when the
 // view is not visible. Bookkeeping is based on |-viewWillAppear:| and
 // |-viewWillDisappear methods. Note that the |Did| methods are not reliably
@@ -654,13 +654,11 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // TODO(crbug.com/804589) : Dark style on remote tabs.
   // The styler must be set before the view controller is loaded.
   ChromeTableViewStyler* styler = [[ChromeTableViewStyler alloc] init];
-  styler.tableViewSectionHeaderBlurEffect = nil;
   styler.tableViewBackgroundColor = UIColorFromRGB(kGridBackgroundColor);
-  styler.cellTitleColor = UIColorFromRGB(kGridDarkThemeCellTitleColor);
-  styler.headerFooterTitleColor = UIColorFromRGB(kGridDarkThemeCellTitleColor);
   styler.cellHighlightColor =
       [UIColor colorWithWhite:0 alpha:kGridDarkThemeCellHighlightColorAlpha];
-  styler.cellSeparatorColor = UIColorFromRGB(kGridDarkThemeCellSeparatorColor);
+  // To make using the compile guards easier, use a separate method.
+  [self setupRemoteTabsViewControllerForDarkModeWithStyler:styler];
   self.remoteTabsViewController.styler = styler;
 
   UIView* contentView = self.scrollContentView;
@@ -683,6 +681,32 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
         constraintEqualToAnchor:self.view.widthAnchor],
   ];
   [NSLayoutConstraint activateConstraints:constraints];
+}
+
+// The iOS 13 compile guards are much easier to use in a separate function that
+// can be returned from.
+- (void)setupRemoteTabsViewControllerForDarkModeWithStyler:
+    (ChromeTableViewStyler*)styler {
+  // For iOS 13, setting the overrideUserInterfaceStyle to dark forces the use
+  // of dark mode colors for all the colors in this view. However, this
+  // override is not available on pre-iOS 13 devices, so the dark mode colors
+  // must be provided manually.
+#if defined(__IPHONE_13_0) && (__IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_13_0)
+  if (@available(iOS 13, *)) {
+    self.remoteTabsViewController.overrideUserInterfaceStyle =
+        UIUserInterfaceStyleDark;
+    return;
+  }
+#endif
+  styler.cellTitleColor = UIColorFromRGB(kGridDarkThemeCellTitleColor);
+  styler.headerFooterTitleColor = UIColorFromRGB(kGridDarkThemeCellTitleColor);
+  styler.cellDetailColor = UIColorFromRGB(kGridDarkThemeCellDetailColor,
+                                          kGridDarkThemeCellDetailAlpha);
+  styler.headerFooterDetailColor = UIColorFromRGB(
+      kGridDarkThemeCellDetailColor, kGridDarkThemeCellDetailAlpha);
+  styler.tintColor = UIColorFromRGB(kGridDarkThemeCellTintColor);
+  styler.solidButtonTextColor =
+      UIColorFromRGB(kGridDarkThemeCellSolidButtonTextColor);
 }
 
 // Adds the top toolbar and sets constraints.
@@ -720,9 +744,16 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 // Adds the bottom toolbar and sets constraints.
 - (void)setupBottomToolbar {
   TabGridBottomToolbar* bottomToolbar = [[TabGridBottomToolbar alloc] init];
+  self.bottomToolbar = bottomToolbar;
   bottomToolbar.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view addSubview:bottomToolbar];
-  self.bottomToolbar = bottomToolbar;
+  [NSLayoutConstraint activateConstraints:@[
+    [bottomToolbar.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+    [bottomToolbar.leadingAnchor
+        constraintEqualToAnchor:self.view.leadingAnchor],
+    [bottomToolbar.trailingAnchor
+        constraintEqualToAnchor:self.view.trailingAnchor],
+  ]];
 
   bottomToolbar.leadingButton.target = self;
   bottomToolbar.leadingButton.action = @selector(closeAllButtonTapped:);
@@ -733,18 +764,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   bottomToolbar.trailingButton.target = self;
   bottomToolbar.trailingButton.action = @selector(doneButtonTapped:);
 
-  [bottomToolbar.newTabButton.button addTarget:self
-                                        action:@selector(newTabButtonTapped:)
-                              forControlEvents:UIControlEventTouchUpInside];
-
-  [NSLayoutConstraint activateConstraints:@[
-    [bottomToolbar.bottomAnchor
-        constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
-    [bottomToolbar.leadingAnchor
-        constraintEqualToAnchor:self.view.leadingAnchor],
-    [bottomToolbar.trailingAnchor
-        constraintEqualToAnchor:self.view.trailingAnchor],
-  ]];
+  [bottomToolbar setNewTabButtonTarget:self
+                                action:@selector(newTabButtonTapped:)];
 }
 
 - (void)configureViewControllerForCurrentSizeClassesAndPage {

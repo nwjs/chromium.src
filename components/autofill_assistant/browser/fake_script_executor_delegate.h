@@ -29,7 +29,6 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   const GURL& GetCurrentURL() override;
   const GURL& GetDeeplinkURL() override;
   Service* GetService() override;
-  UiController* GetUiController() override;
   WebController* GetWebController() override;
   ClientMemory* GetClientMemory() override;
   TriggerContext* GetTriggerContext() override;
@@ -39,12 +38,15 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   void SetTouchableElementArea(const ElementAreaProto& element) override;
   void SetStatusMessage(const std::string& message) override;
   std::string GetStatusMessage() const override;
+  void SetBubbleMessage(const std::string& message) override;
+  std::string GetBubbleMessage() const override;
   void SetDetails(std::unique_ptr<Details> details) override;
   void SetInfoBox(const InfoBox& info_box) override;
   void ClearInfoBox() override;
   void SetProgress(int progress) override;
   void SetProgressVisible(bool visible) override;
-  void SetChips(std::unique_ptr<std::vector<Chip>> chips) override;
+  void SetUserActions(
+      std::unique_ptr<std::vector<UserAction>> user_actions) override;
   void SetPaymentRequestOptions(
       std::unique_ptr<PaymentRequestOptions> options) override;
   void SetResizeViewport(bool resize_viewport) override;
@@ -56,6 +58,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
       override;
   bool HasNavigationError() override;
   bool IsNavigatingToNewDocument() override;
+  void RequireUI() override;
   void AddListener(Listener* listener) override;
   void RemoveListener(Listener* listener) override;
 
@@ -65,16 +68,12 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
 
   void SetService(Service* service) { service_ = service; }
 
-  void SetUiController(UiController* ui_controller) {
-    ui_controller_ = ui_controller;
-  }
-
   void SetWebController(WebController* web_controller) {
     web_controller_ = web_controller;
   }
 
-  std::map<std::string, std::string>* GetMutableParameters() {
-    return &trigger_context_.script_parameters;
+  void SetTriggerContext(std::unique_ptr<TriggerContext> trigger_context) {
+    trigger_context_ = std::move(trigger_context);
   }
 
   AutofillAssistantState GetState() { return state_; }
@@ -83,7 +82,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
 
   InfoBox* GetInfoBox() { return info_box_.get(); }
 
-  std::vector<Chip>* GetChips() { return chips_.get(); }
+  std::vector<UserAction>* GetUserActions() { return user_actions_.get(); }
 
   PaymentRequestOptions* GetOptions() { return payment_request_options_.get(); }
 
@@ -98,19 +97,20 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
 
   bool HasListeners() { return !listeners_.empty(); }
 
+  bool IsUIRequired() { return require_ui_; }
+
  private:
   ClientSettings client_settings_;
   GURL current_url_;
   Service* service_ = nullptr;
-  UiController* ui_controller_ = nullptr;
   WebController* web_controller_ = nullptr;
   ClientMemory memory_;
-  TriggerContext trigger_context_;
+  std::unique_ptr<TriggerContext> trigger_context_;
   AutofillAssistantState state_ = AutofillAssistantState::INACTIVE;
   std::string status_message_;
   std::unique_ptr<Details> details_;
   std::unique_ptr<InfoBox> info_box_;
-  std::unique_ptr<std::vector<Chip>> chips_;
+  std::unique_ptr<std::vector<UserAction>> user_actions_;
   std::unique_ptr<PaymentRequestOptions> payment_request_options_;
   bool navigating_to_new_document_ = false;
   bool navigation_error_ = false;
@@ -118,6 +118,7 @@ class FakeScriptExecutorDelegate : public ScriptExecutorDelegate {
   bool resize_viewport_ = false;
   ConfigureBottomSheetProto::PeekMode peek_mode_ =
       ConfigureBottomSheetProto::HANDLE;
+  bool require_ui_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(FakeScriptExecutorDelegate);
 };

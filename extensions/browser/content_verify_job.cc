@@ -42,11 +42,11 @@ class ScopedElapsedTimer {
   base::ElapsedTimer timer;
 };
 
-bool IsIgnorableReadError(base::File::Error read_result) {
-  // Extension reload, for example, can cause benign
-  // FILE_ERROR_ABORT error. Do not incorrectly fail content verification in
-  // that case. See https://crbug.com/977805 for details.
-  return read_result == base::File::FILE_ERROR_ABORT;
+bool IsIgnorableReadError(MojoResult read_result) {
+  // Extension reload, for example, can cause benign MOJO_RESULT_ABORTED error.
+  // Do not incorrectly fail content verification in that case.
+  // See https://crbug.com/977805 for details.
+  return read_result == MOJO_RESULT_ABORTED;
 }
 
 }  // namespace
@@ -120,15 +120,15 @@ void ContentVerifyJob::DidGetContentHashOnIO(
       base::BindOnce(&ContentVerifyJob::OnHashesReady, this));
 }
 
-void ContentVerifyJob::BytesRead(const char* data,
-                                 int count,
-                                 base::File::Error read_result) {
+void ContentVerifyJob::Read(const char* data,
+                            int count,
+                            MojoResult read_result) {
   base::AutoLock auto_lock(lock_);
   DCHECK(!done_reading_);
-  BytesReadImpl(data, count, read_result);
+  ReadImpl(data, count, read_result);
 }
 
-void ContentVerifyJob::DoneReading() {
+void ContentVerifyJob::Done() {
   base::AutoLock auto_lock(lock_);
   ScopedElapsedTimer timer(&time_spent_);
   if (failed_)
@@ -152,9 +152,9 @@ void ContentVerifyJob::DoneReading() {
   }
 }
 
-void ContentVerifyJob::BytesReadImpl(const char* data,
-                                     int count,
-                                     base::File::Error read_result) {
+void ContentVerifyJob::ReadImpl(const char* data,
+                                int count,
+                                MojoResult read_result) {
   ScopedElapsedTimer timer(&time_spent_);
   if (failed_)
     return;
@@ -266,7 +266,7 @@ void ContentVerifyJob::OnHashesReady(
   if (!queue_.empty()) {
     std::string tmp;
     queue_.swap(tmp);
-    BytesReadImpl(base::data(tmp), tmp.size(), base::File::FILE_OK);
+    ReadImpl(base::data(tmp), tmp.size(), MOJO_RESULT_OK);
     if (failed_)
       return;
   }

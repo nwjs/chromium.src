@@ -33,6 +33,7 @@ class DummyFrameScheduler : public FrameScheduler {
   bool IsFrameVisible() const override { return true; }
   bool IsPageVisible() const override { return true; }
   void SetPaused(bool) override {}
+  void SetShouldReportPostedTasksWhenDisabled(bool) override {}
   void SetCrossOrigin(bool) override {}
   bool IsCrossOrigin() const override { return false; }
   void SetIsAdFrame() override {}
@@ -167,6 +168,9 @@ class DummyThreadScheduler : public ThreadScheduler {
   bool ShouldYieldForHighPriorityWork() override { return false; }
   bool CanExceedIdleDeadlineIfRequired() const override { return false; }
   void PostIdleTask(const base::Location&, Thread::IdleTask) override {}
+  void PostDelayedIdleTask(const base::Location&,
+                           base::TimeDelta delay,
+                           Thread::IdleTask) override {}
   void PostNonNestableIdleTask(const base::Location&,
                                Thread::IdleTask) override {}
   void AddRAILModeObserver(RAILModeObserver*) override {}

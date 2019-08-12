@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">ಹುಡುಕಾಟ</translation>
 <translation id="1398853756734560583">ಗರಿಷ್ಠಗೊಳಿಸು</translation>
 <translation id="1409544243779336081">ಆ್ಯಪ್ ಶಿಫಾರಸು</translation>
+<translation id="1498028757988366001">ನೀವು ಈ ಮೊದಲೇ ಇದಕ್ಕಾಗಿ ಹುಡುಕಿದ್ದೀರಿ. ನಿಮ್ಮ ಇತಿಹಾಸದಿಂದ "<ph name="QUERY" />" ಅನ್ನು ಅಳಿಸುವುದರಿಂದ, ಅದನ್ನು ನಿಮ್ಮ ಎಲ್ಲಾ ಸಾಧನಗಳಾದ್ಯಂತ ಇರುವ ನಿಮ್ಮ ಖಾತೆಯಿಂದ ಶಾಶ್ವತವಾಗಿ ತೆಗೆದುಹಾಕಲಾಗುತ್ತದೆ.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 ನಿಮಿಷ ಮತ್ತು }one{# ನಿಮಿಷಗಳು ಮತ್ತು }other{# ನಿಮಿಷಗಳು ಮತ್ತು }}</translation>
 <translation id="1643823602425662293">ಅಧಿಸೂಚನೆ</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">ಮಾಪನಾಂಕವು ಪೂರ್ಣಗೊಂಡಿದೆ</translation>
 <translation id="252373100621549798">ಅಪರಿಚಿತ ಪ್ರದರ್ಶನ</translation>
+<translation id="2545651323591713692">ಸ್ನೂಜ್ ಮಾಡಿ</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{1ಗಂ. ಯಲ್ಲಿ}one{#ಗಂ. ಗಳಲ್ಲಿ}other{#ಗಂ. ಗಳಲ್ಲಿ}}</translation>
 <translation id="2583543531130364912">ನಿಮ್ಮ ಟಚ್‌ಸ್ಕ್ರೀನ್ ಕ್ಯಾಲಿಬ್ರೇಟ್ ಮಾಡಿ</translation>
 <translation id="2666092431469916601">ಮೇಲೆ</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">ಇಲ್ಲಿಗೆ ಸ್ಕ್ರೋಲ್ ಮಾಡಿ</translation>
 <translation id="3234408098842461169">ಕೆಳಗಿನ ಬಾಣದ ಗುರುತು</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 ದಿನ}one{# ದಿನಗಳು}other{# ದಿನಗಳು}}</translation>
+<translation id="3295886253693811851">ಈ ಸಾಧನದಿಂದ ಕರೆ ಮಾಡಿ</translation>
 <translation id="335581015389089642">ಧ್ವನಿ</translation>
 <translation id="3443810440409579745">ಟ್ಯಾಬ್ ಅನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ.</translation>
 <translation id="3479552764303398839">ಈಗ ಬೇಡ</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 ನಿಮಿ ಹಿಂದೆ}one{# ನಿಮಿಷಗಳ ಹಿಂದೆ}other{# ನಿಮಿಷಗಳ ಹಿಂದೆ}}</translation>
 <translation id="7389409599945284130"><ph name="MESSAGE" /> -</translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 ನಿಮಿಷ ಉಳಿದಿದೆ}one{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}other{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}}</translation>
+<translation id="7430878839542012341">ನಿಮ್ಮ ಇತಿಹಾಸದಿಂದ ಈ ಹುಡುಕಾಟವನ್ನು ಅಳಿಸುವುದೇ?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">ಎಮೋಜಿ</translation>
 <translation id="7658239707568436148">ರದ್ದುಮಾಡಿ</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">ನಿಮ್ಮ ಹುಡುಕಾಟಗಳು Google ಅಸಿಸ್ಟೆಂಟ್‌ನಿಂದ ಪ್ರಾಯೋಜಿತವಾಗಿವೆ. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, ಸ್ವಯಂಪೂರ್ಣಗೊಳಿಸುವಿಕೆ</translation>
 <translation id="815598010540052116">ಕೆಳಗೆ ಸ್ಕ್ರೋಲ್ ಮಾಡು</translation>
-<translation id="8170087467028567933">ಈ ಸಲಹೆಯನ್ನು ತೆಗೆದುಹಾಕಿದರೆ, ಅದನ್ನು ನಿಮ್ಮ ಎಲ್ಲಾ ಸಾಧನಗಳಾದ್ಯಂತ ನಿಮ್ಮ ಖಾತೆಯಿಂದ ಮರೆಮಾಡಲಾಗುತ್ತದೆ.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">ಪುಟ ಕೆಳಗೆ</translation>
 <translation id="8245914219290430011">ಟ್ಯಾಬ್</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">ಪರಿಶೀಲಿಸಿ</translation>
 <translation id="8393700583063109961">ಸಂದೇಶ ಕಳುಹಿಸು</translation>
 <translation id="8394908167088220973">ಮೀಡಿಯಾ ಪ್ಲೇ/ವಿರಾಮ</translation>
-<translation id="8420205633584771378">ಈ ಸಲಹೆಯನ್ನು ತೆಗೆದುಹಾಕುವುದೇ?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1ವ}one{#ವ}other{#ವ}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ಫೈಲ್ (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">ಶೆಲ್ಪ್ ಯಾವಾಗಲೂ ತೋರಿಸಲಾಗಿದೆ</translation>

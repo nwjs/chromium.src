@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Søk</translation>
 <translation id="1398853756734560583">Maksimer</translation>
 <translation id="1409544243779336081">Appanbefaling</translation>
+<translation id="1498028757988366001">Du har søkt etter dette før. Hvis du sletter «<ph name="QUERY" />» fra loggen, blir det fjernet permanent fra kontoen din på alle enhetene dine.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minutt og }other{# minutter og }}</translation>
 <translation id="1643823602425662293">Varsel</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Kalibreringen er ferdig</translation>
 <translation id="252373100621549798">Ukjent skjerm</translation>
+<translation id="2545651323591713692">Utsett</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{om 1 t}other{om # t}}</translation>
 <translation id="2583543531130364912">Kalibrer berøringsskjermen din</translation>
 <translation id="2666092431469916601">Topp</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Rull hit</translation>
 <translation id="3234408098842461169">Pil ned</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 dag}other{# dager}}</translation>
+<translation id="3295886253693811851">Ring fra</translation>
 <translation id="335581015389089642">Tale</translation>
 <translation id="3443810440409579745">Fane er mottatt.</translation>
 <translation id="3479552764303398839">Ikke nå</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{For 1 min siden}other{For # min siden}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 minutt igjen}other{# minutter igjen}}</translation>
+<translation id="7430878839542012341">Vil du slette dette søket fra loggen?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Emoji</translation>
 <translation id="7658239707568436148">Avbryt</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Søkene er drevet av Google-assistenten. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, autofullføring</translation>
 <translation id="815598010540052116">Rull ned</translation>
-<translation id="8170087467028567933">Hvis du fjerner dette forslaget, skjules det for kontoen din på alle enhetene dine.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Ned 1 s.</translation>
 <translation id="8245914219290430011">Fane</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">merk av</translation>
 <translation id="8393700583063109961">Send melding</translation>
 <translation id="8394908167088220973">Media – spill av / pause</translation>
-<translation id="8420205633584771378">Vil du fjerne dette forslaget?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 år}other{# år}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> Fil (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Hyllen vises alltid</translation>

@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string16.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
@@ -19,6 +20,7 @@ struct PasswordForm;
 namespace password_manager {
 
 class FormFetcher;
+struct InteractionsStats;
 class PasswordFormMetricsRecorder;
 
 // Interface that contains all methods from PasswordFormManager that are used in
@@ -27,16 +29,18 @@ class PasswordFormManagerForUI {
  public:
   virtual ~PasswordFormManagerForUI() = default;
 
-  // Returns the form fetcher which is responsible for fetching saved matches
-  // from the store for the observed from.
-  virtual FormFetcher* GetFormFetcher() = 0;
-
   // Returns origin of the initially observed form.
   virtual const GURL& GetOrigin() const = 0;
 
   // Returns the best saved matches for the observed form.
+  // TODO(crbug.com/831123): it should return a vector.
   virtual const std::map<base::string16, const autofill::PasswordForm*>&
   GetBestMatches() const = 0;
+
+  // Returns the federated saved matches for the observed form.
+  // TODO(crbug.com/831123): merge with GetBestMatches.
+  virtual std::vector<const autofill::PasswordForm*> GetFederatedMatches()
+      const = 0;
 
   // Returns credentials that are ready to be written (saved or updated) to a
   // password store.
@@ -52,16 +56,14 @@ class PasswordFormManagerForUI {
   virtual PasswordFormMetricsRecorder* GetMetricsRecorder() = 0;
 
   // Returns the blacklisted matches for the current page.
-  virtual const std::vector<const autofill::PasswordForm*>&
+  virtual base::span<const autofill::PasswordForm* const>
   GetBlacklistedMatches() const = 0;
+
+  // Statistics for recent password bubble usage.
+  virtual base::span<const InteractionsStats> GetInteractionsStats() const = 0;
 
   // Determines if the user opted to 'never remember' passwords for this form.
   virtual bool IsBlacklisted() const = 0;
-
-  // Returns whether filled password was overriden by the user.
-  // TODO(https://crbug.com/845826): Remove once mobile username
-  // editing is implemented.
-  virtual bool IsPasswordOverridden() const = 0;
 
   // Handles save-as-new or update of the form managed by this manager.
   virtual void Save() = 0;
@@ -111,10 +113,15 @@ class PasswordFormManagerInterface : public PasswordFormManagerForUI {
   // Returns whether it is a new (i.e. not saved yet) credentials.
   virtual bool IsNewLogin() const = 0;
 
+  // Returns the form fetcher which is responsible for fetching saved matches
+  // from the store for the observed from.
+  virtual FormFetcher* GetFormFetcher() = 0;
+
   // Returns true if the current pending credentials were found using
   // origin matching of the public suffix, instead of the signon realm of the
   // form.
   virtual bool IsPendingCredentialsPublicSuffixMatch() const = 0;
+  virtual bool IsPendingCredentialsOriginExtension() const = 0;
 
   // Called when generated password is accepted or changed by user.
   virtual void PresaveGeneratedPassword(const autofill::PasswordForm& form) = 0;

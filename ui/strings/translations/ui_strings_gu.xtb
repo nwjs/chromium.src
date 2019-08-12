@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">શોધો</translation>
 <translation id="1398853756734560583">મોટું કરો</translation>
 <translation id="1409544243779336081">ઍપ માટે સુઝાવ</translation>
+<translation id="1498028757988366001">તમે આ અગાઉ શોધ્યું હતું. "<ph name="QUERY" />"ને તમારા સ્થાન ઇતિહાસમાંથી ડિલીટ કરવાથી તેને તમારા બધા ડિવાઇસ પરના તમારા એકાઉન્ટમાંથી કાઢી નાખવામાં આવશે.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 મિનિટ અને }one{# મિનિટ અને }other{# મિનિટ અને }}</translation>
 <translation id="1643823602425662293">સૂચના</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">કૅલિબ્રેશન પૂર્ણ થયું</translation>
 <translation id="252373100621549798">અજાણ્યું ડિસ્પ્લે</translation>
+<translation id="2545651323591713692">સ્નૂઝ કરો</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{1ક. માં}one{#ક. માં}other{#ક. માં}}</translation>
 <translation id="2583543531130364912">તમારી ટચસ્ક્રીનને કેલિબ્રેટ કરો</translation>
 <translation id="2666092431469916601">ઉપર</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">અહીં સુધી સ્ક્રોલ કરો</translation>
 <translation id="3234408098842461169">નીચલો એરો</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 દિવસ}one{# દિવસ}other{# દિવસ}}</translation>
+<translation id="3295886253693811851">આ ડિવાઇસ વડે કૉલ કરો</translation>
 <translation id="335581015389089642">ભાષા</translation>
 <translation id="3443810440409579745">ટૅબ પ્રાપ્ત થયું.</translation>
 <translation id="3479552764303398839">હમણાં નહીં</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 મિ પહેલાં}one{# મિ પહેલાં}other{# મિ પહેલાં}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 મિનિટ બાકી}one{# મિનિટ બાકી}other{# મિનિટ બાકી}}</translation>
+<translation id="7430878839542012341">તમારા ઇતિહાસમાંથી આ શોધ ડિલીટ કરીએ?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">ઇમોજી</translation>
 <translation id="7658239707568436148">રદ કરો</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">તમારી શોધ Google આસિસ્ટંટ દ્વારા પૂરી પાડવામાં આવે છે. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, ઑટોમેટિક રીતે પૂર્ણ</translation>
 <translation id="815598010540052116">નીચે સ્ક્રોલ કરો</translation>
-<translation id="8170087467028567933">આ સૂચનને કાઢી નાખવાથી તેને તમારા બધા ડિવાઇસના તમારા એકાઉન્ટમાં બતાવવામાં આવશે નહીં.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">પૃષ્ઠ નીચે</translation>
 <translation id="8245914219290430011">ટૅબ</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">તપાસો</translation>
 <translation id="8393700583063109961">સંદેશ મોકલો</translation>
 <translation id="8394908167088220973">મીડિયા ચલાવો/થોભાવો</translation>
-<translation id="8420205633584771378">આ સૂચન કાઢી નાખીએ?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 વ}one{# વ}other{# વ}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ફાઇલ (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">શેલ્ફ હંમેશાં બતાવવામાં આવે છે</translation>

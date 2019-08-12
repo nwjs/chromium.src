@@ -87,8 +87,8 @@ class NativeAppWindowViews : public extensions::NativeAppWindow,
   void Restore() override;
   void SetBounds(const gfx::Rect& bounds) override;
   void FlashFrame(bool flash) override;
-  bool IsAlwaysOnTop() const override;
-  void SetAlwaysOnTop(bool always_on_top) override;
+  ui::ZOrderLevel GetZOrderLevel() const override;
+  void SetZOrderLevel(ui::ZOrderLevel order) override;
 
   // WidgetDelegate implementation.
   bool ExecuteAppCommand(int command_id) override;

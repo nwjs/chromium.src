@@ -92,11 +92,6 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   void SetBounds(const gfx::RectF& target_bounds,
                  OverviewAnimationType animation_type);
 
-  // Activates or deactivates selection depending on |selected|.
-  // In selected state the item's caption is shown transparent and blends with
-  // the selection widget.
-  void set_selected(bool selected) { selected_ = selected; }
-
   // Sends an accessibility event indicating that this window became selected
   // so that it is highlighted and announced.
   void SendAccessibleSelectionEvent();
@@ -164,8 +159,13 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   void OnDragAnimationCompleted();
 
   // Updates |phantoms_for_dragging_|. If |phantoms_for_dragging_| is null, then
-  // a new object is created for it.
-  void UpdatePhantomsForDragging(const gfx::PointF& location_in_screen);
+  // a new object is created for it. If |allow_original_window_opacity_change|
+  // is true, then it's allowed to change the opacity of the dragged window to
+  // be transparent when the drag point exits the original display's boundaries.
+  // This is so it won't interfere with opacity changes done when the window is
+  // on the Desks bar.
+  void UpdatePhantomsForDragging(const gfx::PointF& location_in_screen,
+                                 bool allow_original_window_opacity_change);
 
   void DestroyPhantomsForDragging();
 
@@ -173,12 +173,15 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // the shadow is hidden.
   void SetShadowBounds(base::Optional<gfx::Rect> bounds_in_screen);
 
-  // Updates the mask and shadow on this overview window item.
-  void UpdateMaskAndShadow();
+  // Updates the rounded corners and shadow on this overview window item.
+  void UpdateRoundedCornersAndShadow();
 
   // Called when the starting animation is completed, or called immediately
   // if there was no starting animation.
   void OnStartingAnimationComplete();
+
+  // Stops the current animation of |item_widget_|.
+  void StopWidgetAnimation();
 
   // Changes the opacity of all the windows the item owns.
   void SetOpacity(float opacity);
@@ -188,7 +191,8 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   OverviewAnimationType GetExitTransformAnimationType();
 
   // CaptionContainerView::EventDelegate:
-  void HandlePressEvent(const gfx::PointF& location_in_screen) override;
+  void HandlePressEvent(const gfx::PointF& location_in_screen,
+                        bool from_touch_gesture) override;
   void HandleReleaseEvent(const gfx::PointF& location_in_screen) override;
   void HandleDragEvent(const gfx::PointF& location_in_screen) override;
   void HandleLongPressEvent(const gfx::PointF& location_in_screen) override;
@@ -216,6 +220,10 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   const gfx::RectF& target_bounds() const { return target_bounds_; }
 
   views::Widget* item_widget() { return item_widget_.get(); }
+
+  CaptionContainerView* caption_container_view() {
+    return caption_container_view_;
+  }
 
   OverviewGrid* overview_grid() { return overview_grid_; }
 
@@ -257,7 +265,6 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   friend class OverviewSessionRoundedCornerTest;
   friend class OverviewSessionTest;
   class OverviewCloseButton;
-  class WindowSurfaceCacheObserver;
   FRIEND_TEST_ALL_PREFIXES(SplitViewOverviewSessionTest,
                            OverviewUnsnappableIndicatorVisibility);
 
@@ -302,10 +309,6 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // the bounds update when calling ::wm::RecreateWindowLayers to copy
   // a window layer for display on another monitor.
   bool in_bounds_update_ = false;
-
-  // True when |this| item is visually selected. Item header is made transparent
-  // when the item is selected.
-  bool selected_ = false;
 
   // A widget stacked under the |transform_window_|. The widget has
   // |caption_container_view_| as its contents view. The widget is backed by a
@@ -364,9 +367,6 @@ class ASH_EXPORT OverviewItem : public CaptionContainerView::EventDelegate,
   // |item_widget_|. Done here instead of on the original window because of the
   // rounded edges mask applied on entering overview window.
   std::unique_ptr<ui::Shadow> shadow_;
-
-  // The observer to observe the window that has cached its render surface.
-  std::unique_ptr<WindowSurfaceCacheObserver> window_surface_cache_observers_;
 
   DISALLOW_COPY_AND_ASSIGN(OverviewItem);
 };

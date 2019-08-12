@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_IMAGE_ELEMENT_TIMING_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_IMAGE_ELEMENT_TIMING_H_
 
+#include <utility>
+
 #include "third_party/blink/public/web/web_widget_client.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/platform/supplementable.h"
@@ -16,7 +18,6 @@
 namespace blink {
 
 class ImageResourceContent;
-class LayoutImage;
 class PropertyTreeState;
 class StyleImage;
 
@@ -30,10 +31,16 @@ class CORE_EXPORT ImageElementTiming final
  public:
   static const char kSupplementName[];
 
+  // The maximum amount of characters included in Element Timing and Largest
+  // Contentful Paint for inline images.
+  static constexpr const unsigned kInlineImageMaxChars = 100;
+
   explicit ImageElementTiming(LocalDOMWindow&);
   virtual ~ImageElementTiming() = default;
 
   static ImageElementTiming& From(LocalDOMWindow&);
+
+  void NotifyImageFinished(const LayoutObject&, const ImageResourceContent*);
 
   // Called when the LayoutObject has been painted. This method might queue a
   // swap promise to compute and report paint timestamps.
@@ -47,11 +54,8 @@ class CORE_EXPORT ImageElementTiming final
       const StyleImage* background_image,
       const PropertyTreeState& current_paint_chunk_properties);
 
-  // Called when the LayoutImage will be destroyed.
-  void NotifyWillBeDestroyed(const LayoutObject*);
-
-  void NotifyBackgroundImageRemoved(const LayoutObject*,
-                                    const ImageResourceContent* image);
+  void NotifyImageRemoved(const LayoutObject*,
+                          const ImageResourceContent* image);
 
   void Trace(blink::Visitor*) override;
 
@@ -62,17 +66,8 @@ class CORE_EXPORT ImageElementTiming final
       Node*,
       const LayoutObject&,
       const ImageResourceContent& cached_image,
-      const PropertyTreeState& current_paint_chunk_properties);
-
-  // Computes the intersection rect.
-  FloatRect ComputeIntersectionRect(const LocalFrame*,
-                                    const LayoutObject&,
-                                    const PropertyTreeState&);
-  // Checks if the element must be reported, given its elementtiming attribute
-  // and its intersection rect.
-  bool ShouldReportElement(const LocalFrame*,
-                           const AtomicString& element_timing,
-                           const FloatRect&) const;
+      const PropertyTreeState& current_paint_chunk_properties,
+      base::TimeTicks load_time);
 
   // Callback for the swap promise. Reports paint timestamps.
   void ReportImagePaintSwapTime(WebWidgetClient::SwapResult,
@@ -82,14 +77,14 @@ class CORE_EXPORT ImageElementTiming final
   class ElementTimingInfo
       : public GarbageCollectedFinalized<ElementTimingInfo> {
    public:
-    ElementTimingInfo(const AtomicString& name,
+    ElementTimingInfo(const String& url,
                       const FloatRect& rect,
-                      const TimeTicks& response_end,
+                      const base::TimeTicks& response_end,
                       const AtomicString& identifier,
                       const IntSize& intrinsic_size,
                       const AtomicString& id,
                       Element* element)
-        : name(name),
+        : url(url),
           rect(rect),
           response_end(response_end),
           identifier(identifier),
@@ -100,9 +95,9 @@ class CORE_EXPORT ImageElementTiming final
 
     void Trace(blink::Visitor* visitor) { visitor->Trace(element); }
 
-    AtomicString name;
+    String url;
     FloatRect rect;
-    TimeTicks response_end;
+    base::TimeTicks response_end;
     AtomicString identifier;
     IntSize intrinsic_size;
     AtomicString id;
@@ -115,12 +110,20 @@ class CORE_EXPORT ImageElementTiming final
   // Vector containing the element timing infos that will be reported during the
   // next swap promise callback.
   HeapVector<Member<ElementTimingInfo>> element_timings_;
-  // Hashmap of LayoutObjects for which paint has already been notified.
-  WTF::HashSet<const LayoutObject*> images_notified_;
-  // Hashmap of pairs of elements, background images whose paint has been
-  // observed.
-  WTF::HashSet<std::pair<const LayoutObject*, const ImageResourceContent*>>
-      background_images_notified_;
+  struct ImageInfo {
+    // HashMap values require default constructor so we set default value for
+    // |load_time|.
+    ImageInfo(base::TimeTicks load_time = base::TimeTicks())
+        : load_time_(load_time), is_painted_(false) {}
+
+    base::TimeTicks load_time_;
+    bool is_painted_;
+  };
+  typedef std::pair<const LayoutObject*, const ImageResourceContent*> RecordId;
+  // Hashmap of pairs of elements, LayoutObjects (for the elements) and
+  // ImageResourceContent (for the src) which correspond to either images or
+  // background images whose paint has been observed.
+  WTF::HashMap<RecordId, ImageInfo> images_notified_;
 
   DISALLOW_COPY_AND_ASSIGN(ImageElementTiming);
 };

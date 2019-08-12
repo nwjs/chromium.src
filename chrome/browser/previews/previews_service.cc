@@ -12,6 +12,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/previews/previews_lite_page_decider.h"
 #include "chrome/browser/previews/previews_offline_helper.h"
+#include "chrome/browser/previews/previews_top_host_provider.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
 #include "components/blacklist/opt_out_blacklist/opt_out_store.h"
@@ -38,8 +39,8 @@ bool IsPreviewsTypeEnabled(previews::PreviewsType type) {
   switch (type) {
     case previews::PreviewsType::OFFLINE:
       return previews::params::IsOfflinePreviewsEnabled();
-    case previews::PreviewsType::LOFI:
-      return server_previews_enabled || previews::params::IsClientLoFiEnabled();
+    case previews::PreviewsType::DEPRECATED_LOFI:
+      return false;
     case previews::PreviewsType::LITE_PAGE_REDIRECT:
       return previews::params::IsLitePageServerPreviewsEnabled();
     case previews::PreviewsType::LITE_PAGE:
@@ -69,8 +70,6 @@ int GetPreviewsTypeVersion(previews::PreviewsType type) {
   switch (type) {
     case previews::PreviewsType::OFFLINE:
       return previews::params::OfflinePreviewsVersion();
-    case previews::PreviewsType::LOFI:
-      return previews::params::ClientLoFiVersion();
     case previews::PreviewsType::LITE_PAGE:
       return data_reduction_proxy::params::LitePageVersion();
     case previews::PreviewsType::LITE_PAGE_REDIRECT:
@@ -85,6 +84,7 @@ int GetPreviewsTypeVersion(previews::PreviewsType type) {
     case previews::PreviewsType::UNSPECIFIED:
     case previews::PreviewsType::LAST:
     case previews::PreviewsType::DEPRECATED_AMP_REDIRECTION:
+    case previews::PreviewsType::DEPRECATED_LOFI:
       break;
   }
   NOTREACHED();
@@ -109,15 +109,14 @@ PreviewsService::GetAllowedPreviews() {
 }
 
 PreviewsService::PreviewsService(content::BrowserContext* browser_context)
-    : previews_top_host_provider_(
-          std::make_unique<previews::PreviewsTopHostProviderImpl>(
-              browser_context)),
+    : top_host_provider_(
+          std::make_unique<PreviewsTopHostProvider>(browser_context)),
       previews_lite_page_decider_(
           std::make_unique<PreviewsLitePageDecider>(browser_context)),
       previews_offline_helper_(
           std::make_unique<PreviewsOfflineHelper>(browser_context)),
       browser_context_(browser_context),
-      previews_url_loader_factory_(
+      optimization_guide_url_loader_factory_(
           content::BrowserContext::GetDefaultStoragePartition(
               Profile::FromBrowserContext(browser_context))
               ->GetURLLoaderFactoryForBrowserProcess()) {
@@ -154,8 +153,8 @@ void PreviewsService::Initialize(
                 optimization_guide_service, ui_task_runner,
                 background_task_runner, profile_path,
                 Profile::FromBrowserContext(browser_context_)->GetPrefs(),
-                database_provider, previews_top_host_provider_.get(),
-                previews_url_loader_factory_)
+                database_provider, top_host_provider_.get(),
+                optimization_guide_url_loader_factory_)
           : nullptr,
       base::Bind(&IsPreviewsTypeEnabled),
       std::make_unique<previews::PreviewsLogger>(), GetAllowedPreviews(),

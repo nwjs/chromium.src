@@ -18,7 +18,6 @@ import org.chromium.base.ContentUriUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.LocaleUtils;
 import org.chromium.base.Log;
-import org.chromium.base.PathUtils;
 import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
@@ -40,6 +39,7 @@ import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.services.GoogleServicesManager;
 import org.chromium.chrome.browser.webapps.ActivityAssigner;
 import org.chromium.chrome.browser.webapps.ChromeWebApkHost;
+import org.chromium.components.background_task_scheduler.BackgroundTaskSchedulerExternalUma;
 import org.chromium.components.crash.browser.ChildProcessCrashObserver;
 import org.chromium.components.minidump_uploader.CrashFileManager;
 import org.chromium.content_public.browser.BrowserStartupController;
@@ -71,9 +71,6 @@ public class ChromeBrowserInitializer {
     private boolean mPostInflationStartupComplete;
     private boolean mNativeInitializationComplete;
     private boolean mNetworkChangeNotifierInitializationComplete;
-
-    // Public to allow use in ChromeBackupAgent
-    public static final String PRIVATE_DATA_DIRECTORY_SUFFIX = "chrome";
 
     /**
      * A callback to be executed when there is a new version available in Play Store.
@@ -224,7 +221,6 @@ public class ChromeBrowserInitializer {
     private void preInflationStartup() {
         ThreadUtils.assertOnUiThread();
         if (mPreInflationStartupComplete) return;
-        PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX);
 
         // Ensure critical files are available, so they aren't blocked on the file-system
         // behind long-running accesses in next phase.
@@ -279,14 +275,15 @@ public class ChromeBrowserInitializer {
         // launch its required components.
         if (!delegate.startServiceManagerOnly()
                 && !ProcessInitializationHandler.getInstance().postNativeInitializationComplete()) {
-            tasks.add(() -> ProcessInitializationHandler.getInstance().initializePostNative());
+            tasks.add(UiThreadTaskTraits.BOOTSTRAP,
+                    () -> ProcessInitializationHandler.getInstance().initializePostNative());
         }
 
         if (!mNetworkChangeNotifierInitializationComplete) {
-            tasks.add(this::initNetworkChangeNotifier);
+            tasks.add(UiThreadTaskTraits.BOOTSTRAP, this::initNetworkChangeNotifier);
         }
 
-        tasks.add(() -> {
+        tasks.add(UiThreadTaskTraits.BOOTSTRAP, () -> {
             // This is not broken down as a separate task, since this:
             // 1. Should happen as early as possible
             // 2. Only submits asynchronous work
@@ -299,22 +296,30 @@ public class ChromeBrowserInitializer {
             onStartNativeInitialization();
         });
 
-        tasks.add(() -> {
+        tasks.add(UiThreadTaskTraits.BOOTSTRAP, () -> {
             if (delegate.isActivityFinishingOrDestroyed()) return;
             delegate.initializeCompositor();
         });
 
-        tasks.add(() -> {
+        tasks.add(UiThreadTaskTraits.BOOTSTRAP, () -> {
             if (delegate.isActivityFinishingOrDestroyed()) return;
             delegate.initializeState();
         });
 
-        if (!mNativeInitializationComplete) tasks.add(this::onFinishNativeInitialization);
-
-        tasks.add(() -> {
+        tasks.add(UiThreadTaskTraits.BOOTSTRAP, () -> {
             if (delegate.isActivityFinishingOrDestroyed()) return;
+            // Some tasks posted by this are on the critical path.
             delegate.startNativeInitialization();
         });
+
+        if (!mNativeInitializationComplete) {
+            tasks.add(UiThreadTaskTraits.DEFAULT, this::onFinishNativeInitialization);
+        }
+
+        int startupMode =
+                getBrowserStartupController().getStartupMode(delegate.startServiceManagerOnly());
+        tasks.add(UiThreadTaskTraits.BEST_EFFORT,
+                () -> { BackgroundTaskSchedulerExternalUma.reportStartupMode(startupMode); });
 
         if (isAsync) {
             // We want to start this queue once the C++ startup tasks have run; allow the

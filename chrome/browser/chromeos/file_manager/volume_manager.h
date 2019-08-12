@@ -127,7 +127,8 @@ class Volume : public base::SupportsWeakPtr<Volume> {
       chromeos::DeviceType device_type,
       bool read_only,
       const base::FilePath& device_path,
-      const std::string& drive_label);
+      const std::string& drive_label,
+      const std::string& file_system_type = "");
   static std::unique_ptr<Volume> CreateForTesting(
       const base::FilePath& device_path,
       const base::FilePath& mount_path);
@@ -279,9 +280,6 @@ class VolumeManager : public KeyedService,
       const std::string&,
       device::mojom::MtpManager::GetStorageInfoCallback)>;
 
-  // Callback for |RemoveSshfsCrostiniVolume|.
-  using RemoveSshfsCrostiniVolumeCallback = base::OnceCallback<void(bool)>;
-
   VolumeManager(
       Profile* profile,
       drive::DriveIntegrationService* drive_integration_service,
@@ -318,11 +316,8 @@ class VolumeManager : public KeyedService,
   // Add sshfs crostini volume mounted at specified path.
   void AddSshfsCrostiniVolume(const base::FilePath& sshfs_mount_path);
 
-  // Removes specified sshfs crostini mount. Runs |callback| with true if the
-  // mount was removed successfully or wasn't mounted to begin with. Runs
-  // |callback| with false in all other cases.
-  void RemoveSshfsCrostiniVolume(const base::FilePath& sshfs_mount_path,
-                                 RemoveSshfsCrostiniVolumeCallback callback);
+  // Removes specified sshfs crostini mount.
+  void RemoveSshfsCrostiniVolume(const base::FilePath& sshfs_mount_path);
 
   // Removes Downloads volume used for testing.
   void RemoveDownloadsDirectoryForTesting();
@@ -354,7 +349,8 @@ class VolumeManager : public KeyedService,
                            chromeos::DeviceType device_type,
                            bool read_only,
                            const base::FilePath& device_path = base::FilePath(),
-                           const std::string& drive_label = "");
+                           const std::string& drive_label = "",
+                           const std::string& file_system_type = "");
 
   // For testing purposes, adds the volume info to the volume manager.
   void AddVolumeForTesting(std::unique_ptr<Volume> volume);
@@ -365,7 +361,8 @@ class VolumeManager : public KeyedService,
       chromeos::DeviceType device_type,
       bool read_only,
       const base::FilePath& device_path = base::FilePath(),
-      const std::string& drive_label = "");
+      const std::string& drive_label = "",
+      const std::string& file_system_type = "");
 
   // drive::DriveIntegrationServiceObserver overrides.
   void OnFileSystemMounted() override;
@@ -444,11 +441,6 @@ class VolumeManager : public KeyedService,
 
   // Returns the path of the mount point for drive.
   base::FilePath GetDriveMountPointPath() const;
-
-  void OnSshfsCrostiniUnmountCallback(
-      const base::FilePath& sshfs_mount_path,
-      RemoveSshfsCrostiniVolumeCallback callback,
-      chromeos::MountError error_code);
 
   Profile* profile_;
   drive::DriveIntegrationService* drive_integration_service_;  // Not owned.

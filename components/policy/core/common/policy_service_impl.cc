@@ -93,8 +93,7 @@ std::set<std::string> GetStringListPolicyItems(const PolicyBundle& bundle,
 
 }  // namespace
 
-PolicyServiceImpl::PolicyServiceImpl(Providers providers)
-    : update_task_ptr_factory_(this) {
+PolicyServiceImpl::PolicyServiceImpl(Providers providers) {
   providers_ = std::move(providers);
   for (int domain = 0; domain < POLICY_DOMAIN_SIZE; ++domain)
     initialization_complete_[domain] = true;
@@ -129,10 +128,8 @@ void PolicyServiceImpl::RemoveObserver(PolicyDomain domain,
                                        PolicyService::Observer* observer) {
   DCHECK(thread_checker_.CalledOnValidThread());
   auto it = observers_.find(domain);
-  if (it == observers_.end()) {
-    NOTREACHED();
+  if (it == observers_.end())
     return;
-  }
   it->second->RemoveObserver(observer);
   if (!it->second->might_have_observers()) {
     observers_.erase(it);
@@ -233,9 +230,11 @@ void PolicyServiceImpl::MergeAndTriggerUpdates() {
   PolicyListMerger policy_list_merger(std::move(policy_lists_to_merge));
   PolicyDictionaryMerger policy_dictionary_merger(
       std::move(policy_dictionaries_to_merge));
+  PolicyGroupMerger policy_group_merger;
 
   for (auto it = bundle.begin(); it != bundle.end(); ++it) {
-    it->second->MergeValues({&policy_list_merger, &policy_dictionary_merger});
+    it->second->MergeValues(
+        {&policy_list_merger, &policy_dictionary_merger, &policy_group_merger});
   }
 
   // Swap first, so that observers that call GetPolicies() see the current

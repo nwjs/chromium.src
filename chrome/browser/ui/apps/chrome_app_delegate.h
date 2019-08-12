@@ -65,7 +65,7 @@ class ChromeAppDelegate : public extensions::AppDelegate,
   bool CheckMediaAccessPermission(
       content::RenderFrameHost* render_frame_host,
       const GURL& security_origin,
-      blink::MediaStreamType type,
+      blink::mojom::MediaStreamType type,
       const extensions::Extension* extension) override;
   int PreferredIconSize() const override;
   void SetWebContentsBlocked(content::WebContents* web_contents,
@@ -75,9 +75,10 @@ class ChromeAppDelegate : public extensions::AppDelegate,
   void OnHide() override;
   void OnShow() override;
   bool TakeFocus(content::WebContents* web_contents, bool reverse) override;
-  gfx::Size EnterPictureInPicture(content::WebContents* web_contents,
-                                  const viz::SurfaceId& surface_id,
-                                  const gfx::Size& natural_size) override;
+  content::PictureInPictureResult EnterPictureInPicture(
+      content::WebContents* web_contents,
+      const viz::SurfaceId& surface_id,
+      const gfx::Size& natural_size) override;
   void ExitPictureInPicture() override;
 
   // content::NotificationObserver:
@@ -93,7 +94,7 @@ class ChromeAppDelegate : public extensions::AppDelegate,
   base::Closure terminating_callback_;
   content::NotificationRegistrar registrar_;
   content::WebContents* web_contents_;
-  base::WeakPtrFactory<ChromeAppDelegate> weak_factory_;
+  base::WeakPtrFactory<ChromeAppDelegate> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(ChromeAppDelegate);
 };

@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Ieškoti</translation>
 <translation id="1398853756734560583">Išskleisti</translation>
 <translation id="1409544243779336081">Programos rekomendacija</translation>
+<translation id="1498028757988366001">Jau anksčiau to ieškojote. Ištrynę „<ph name="QUERY" />“ iš istorijos, visam laikui ją pašalinsite iš savo paskyros visuose įrenginiuose.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minutė ir }one{# minutė ir }few{# minutės ir }many{# minutės ir }other{# minučių ir }}</translation>
 <translation id="1643823602425662293">Pranešimas</translation>
 <translation id="169515659049020177">Antrojo lygio klavišas</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Kalibravimas baigtas</translation>
 <translation id="252373100621549798">Nežinoma pateiktis</translation>
+<translation id="2545651323591713692">Atidėti</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{po 1 val.}one{po # val.}few{po # val.}many{po # val.}other{po # val.}}</translation>
 <translation id="2583543531130364912">Jutiklinio ekrano kalibravimas</translation>
 <translation id="2666092431469916601">Į viršų</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Slinkti iki čia</translation>
 <translation id="3234408098842461169">Rodyklė „Žemyn“</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 diena}one{# diena}few{# dienos}many{# dienos}other{# dienų}}</translation>
+<translation id="3295886253693811851">Skambinkite naudodami</translation>
 <translation id="335581015389089642">Kalba</translation>
 <translation id="3443810440409579745">Skirtukas gautas.</translation>
 <translation id="3479552764303398839">Ne dabar</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{Prieš 1 min.}one{Prieš # min.}few{Prieš # min.}many{Prieš # min.}other{Prieš # min.}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Liko 1 minutė}one{Liko # minutė}few{Liko # minutės}many{Liko # minutės}other{Liko # minučių}}</translation>
+<translation id="7430878839542012341">Ištrinti šią paiešką iš istorijos?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Jaustukai</translation>
 <translation id="7658239707568436148">Atšaukti</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Jūsų paieškos veikia su „Google Assistant“. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, automatinis užbaigimas</translation>
 <translation id="815598010540052116">Slinkti žemyn</translation>
-<translation id="8170087467028567933">Pašalinus šį pasiūlymą jis bus paslėptas jūsų paskyroje visuose įrenginiuose.</translation>
 <translation id="8179976553408161302">Įvesti</translation>
 <translation id="8210608804940886430">Puslapį žemyn</translation>
 <translation id="8245914219290430011">Skirtukas</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">tikrinti</translation>
 <translation id="8393700583063109961">Siųsti pranešimą</translation>
 <translation id="8394908167088220973">Leisti / pristabdyti mediją</translation>
-<translation id="8420205633584771378">Pašalinti šį siūlymą?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 m.}one{# m.}few{# m.}many{# m.}other{# m.}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> failas (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Lentyna visada rodoma</translation>

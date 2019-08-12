@@ -18,26 +18,23 @@ CONTENT_EXPORT extern const base::Feature kNWNewWin;
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 CONTENT_EXPORT extern const base::Feature kAllowActivationDelegationAttr;
-CONTENT_EXPORT extern const base::Feature kAllowStartingServiceManagerOnly;
 CONTENT_EXPORT extern const base::Feature
     kAllowContentInitiatedDataUrlNavigations;
 CONTENT_EXPORT extern const base::Feature
     kAllowSignedHTTPExchangeCertsWithoutExtension;
-CONTENT_EXPORT extern const base::Feature kAppCacheIncludePaddingInQuota;
 CONTENT_EXPORT extern const base::Feature kAudioServiceAudioStreams;
 CONTENT_EXPORT extern const base::Feature kAudioServiceLaunchOnStartup;
 CONTENT_EXPORT extern const base::Feature kAudioServiceOutOfProcess;
 CONTENT_EXPORT extern const base::Feature kBackgroundFetch;
 CONTENT_EXPORT extern const base::Feature kBackForwardCache;
-CONTENT_EXPORT extern const base::Feature kBlinkHeapIncrementalMarking;
-CONTENT_EXPORT extern const base::Feature kBlinkHeapUnifiedGCScheduling;
-CONTENT_EXPORT extern const base::Feature kBloatedRendererDetection;
 CONTENT_EXPORT extern const base::Feature kBlockCredentialedSubresources;
 CONTENT_EXPORT extern const base::Feature kBundledHTTPExchanges;
 CONTENT_EXPORT extern const base::Feature kCacheInlineScriptCode;
+CONTENT_EXPORT extern const base::Feature kCacheStorageParallelOps;
 CONTENT_EXPORT extern const base::Feature kCanvas2DImageChromium;
 CONTENT_EXPORT extern const base::Feature kCompositeOpaqueFixedPosition;
 CONTENT_EXPORT extern const base::Feature kCompositeOpaqueScrollers;
+CONTENT_EXPORT extern const base::Feature kConsolidatedMovementXY;
 CONTENT_EXPORT extern const base::Feature kCookieDeprecationMessages;
 CONTENT_EXPORT extern const base::Feature kCrashReporting;
 CONTENT_EXPORT extern const base::Feature kDataSaverHoldback;
@@ -49,7 +46,6 @@ CONTENT_EXPORT extern const base::Feature kExtendedMouseButtons;
 CONTENT_EXPORT extern const base::Feature kFeaturePolicyForSandbox;
 CONTENT_EXPORT extern const base::Feature kFontSrcLocalMatching;
 CONTENT_EXPORT extern const base::Feature kGuestViewCrossProcessFrames;
-CONTENT_EXPORT extern const base::Feature kHeapCompaction;
 CONTENT_EXPORT extern const base::Feature kHistoryManipulationIntervention;
 CONTENT_EXPORT extern const base::Feature kIdleDetection;
 CONTENT_EXPORT extern const base::Feature kInputPredictorTypeChoice;
@@ -63,12 +59,16 @@ CONTENT_EXPORT extern const base::Feature kLazyFrameVisibleLoadTimeMetrics;
 CONTENT_EXPORT extern const base::Feature kLazyImageLoading;
 CONTENT_EXPORT extern const base::Feature kLazyImageVisibleLoadTimeMetrics;
 CONTENT_EXPORT extern const base::Feature kLazyInitializeMediaControls;
+CONTENT_EXPORT extern const base::Feature kLegacyWindowsDWriteFontFallback;
 CONTENT_EXPORT extern const base::Feature kLogJsConsoleMessages;
 CONTENT_EXPORT extern const base::Feature kLowPriorityIframes;
 CONTENT_EXPORT extern const base::Feature kMediaDevicesSystemMonitorCache;
 CONTENT_EXPORT extern const base::Feature kMimeHandlerViewInCrossProcessFrame;
 CONTENT_EXPORT extern const base::Feature kMojoVideoCapture;
 CONTENT_EXPORT extern const base::Feature kMojoVideoCaptureSecondary;
+CONTENT_EXPORT extern const base::Feature kMouseSubframeNoImplicitCapture;
+CONTENT_EXPORT extern const base::Feature kNavigationLoaderOnUI;
+CONTENT_EXPORT extern const base::Feature kNavigationImmediateResponseBody;
 CONTENT_EXPORT extern const base::Feature kNetworkQualityEstimatorWebHoldback;
 CONTENT_EXPORT extern const base::Feature kNetworkServiceInProcess;
 CONTENT_EXPORT extern const base::Feature kNotificationContentImage;
@@ -87,6 +87,9 @@ CONTENT_EXPORT extern const base::Feature kPeriodicBackgroundSync;
 CONTENT_EXPORT extern const base::Feature kPerNavigationMojoInterface;
 CONTENT_EXPORT extern const base::Feature kPepper3DImageChromium;
 CONTENT_EXPORT extern const base::Feature kPrioritizeBootstrapTasks;
+CONTENT_EXPORT extern const base::Feature kProactivelySwapBrowsingInstance;
+CONTENT_EXPORT extern const base::Feature
+    kProcessSharingWithDefaultSiteInstances;
 CONTENT_EXPORT extern const base::Feature
     kProcessSharingWithStrictSiteInstances;
 CONTENT_EXPORT extern const base::Feature kRasterInducingScroll;
@@ -105,6 +108,8 @@ CONTENT_EXPORT extern const base::Feature
 CONTENT_EXPORT extern const base::Feature kServiceWorkerLongRunningMessage;
 CONTENT_EXPORT extern const base::Feature kServiceWorkerPaymentApps;
 CONTENT_EXPORT extern const base::Feature kSharedArrayBuffer;
+CONTENT_EXPORT extern const base::Feature
+    kSignedExchangePrefetchCacheForNavigations;
 CONTENT_EXPORT extern const base::Feature
     kSignedExchangeReportingForDistributors;
 CONTENT_EXPORT extern const base::Feature kSignedExchangeSubresourcePrefetch;
@@ -148,15 +153,15 @@ CONTENT_EXPORT extern const base::Feature kWebUsb;
 CONTENT_EXPORT extern const base::Feature kWebXr;
 CONTENT_EXPORT extern const base::Feature kWebXrHitTest;
 CONTENT_EXPORT extern const base::Feature kWebXrPlaneDetection;
-CONTENT_EXPORT extern const base::Feature kWipeCorruptV2IDBDatabases;
 CONTENT_EXPORT extern const base::Feature kScriptStreamingOnPreload;
+CONTENT_EXPORT extern const base::Feature kTrustedDOMTypes;
+CONTENT_EXPORT extern const base::Feature kBrowserUseDisplayThreadPriority;
 
 #if defined(OS_ANDROID)
 CONTENT_EXPORT extern const base::Feature kAndroidAutofillAccessibility;
 CONTENT_EXPORT extern const base::Feature
     kBackgroundMediaRendererHasModerateBinding;
 CONTENT_EXPORT extern const base::Feature kForce60HzRefreshRate;
-CONTENT_EXPORT extern const base::Feature kHideIncorrectlySizedFullscreenFrames;
 CONTENT_EXPORT extern const base::Feature kWarmUpNetworkProcess;
 CONTENT_EXPORT extern const base::Feature kWebNfc;
 #endif  // defined(OS_ANDROID)

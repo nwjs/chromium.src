@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">搜尋</translation>
 <translation id="1398853756734560583">放到最大</translation>
 <translation id="1409544243779336081">推薦的應用程式</translation>
+<translation id="1498028757988366001">你過去曾搜尋這個項目。如果將「<ph name="QUERY" />」從搜尋記錄中刪除，該項目將從你所有裝置上的帳戶記錄中永久移除。</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 分鐘 }other{# 分鐘 }}</translation>
 <translation id="1643823602425662293">通知</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">校正完成</translation>
 <translation id="252373100621549798">顯示器不明</translation>
+<translation id="2545651323591713692">延後</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{1 小時內}other{# 小時內}}</translation>
 <translation id="2583543531130364912">校正觸控螢幕</translation>
 <translation id="2666092431469916601">置頂</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">捲動至此</translation>
 <translation id="3234408098842461169">向下鍵</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 天}other{# 天}}</translation>
+<translation id="3295886253693811851">透過以下應用程式撥打電話：</translation>
 <translation id="335581015389089642">語音</translation>
 <translation id="3443810440409579745">已收到分頁。</translation>
 <translation id="3479552764303398839">現在不要</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 分鐘前}other{# 分鐘前}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{還剩 1 分鐘}other{還剩 # 分鐘}}</translation>
+<translation id="7430878839542012341">要將這個搜尋從你的記錄中刪除嗎？</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">表情符號</translation>
 <translation id="7658239707568436148">取消</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">你的搜尋結果由 Google 助理提供。<ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />，自動完成</translation>
 <translation id="815598010540052116">向下捲動</translation>
-<translation id="8170087467028567933">如果移除這項建議，你的帳戶會在所有裝置上隱藏該建議。</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">向下翻頁</translation>
 <translation id="8245914219290430011">Tab 鍵</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">選取</translation>
 <translation id="8393700583063109961">傳送訊息</translation>
 <translation id="8394908167088220973">媒體播放/暫停</translation>
-<translation id="8420205633584771378">要移除這項建議嗎？</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 年}other{# 年}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> 檔案 (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">一律顯示檔案櫃</translation>

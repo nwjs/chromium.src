@@ -87,6 +87,13 @@ class MockFrameHost : public mojom::FrameHost {
     }
   }
 
+  void TransferUserActivationFrom(int32_t source_routing_id) override {}
+
+  void ShowCreatedWindow(int32_t pending_widget_routing_id,
+                         WindowOpenDisposition disposition,
+                         const gfx::Rect& initial_rect,
+                         bool user_gesture, const std::string& manifest) override {}
+
  protected:
   // mojom::FrameHost:
   void SetNodeJS(bool) override {}
@@ -107,8 +114,8 @@ class MockFrameHost : public mojom::FrameHost {
     return true;
   }
 
-  void CreatePortal(blink::mojom::PortalAssociatedRequest request,
-                    blink::mojom::PortalClientAssociatedPtrInfo client,
+  void CreatePortal(mojo::PendingAssociatedReceiver<blink::mojom::Portal>,
+                    mojo::PendingAssociatedRemote<blink::mojom::PortalClient>,
                     CreatePortalCallback callback) override {
     std::move(callback).Run(MSG_ROUTING_NONE, base::UnguessableToken(),
                             base::UnguessableToken());
@@ -116,7 +123,8 @@ class MockFrameHost : public mojom::FrameHost {
 
   void AdoptPortal(const base::UnguessableToken&,
                    AdoptPortalCallback callback) override {
-    std::move(callback).Run(MSG_ROUTING_NONE, base::UnguessableToken());
+    std::move(callback).Run(MSG_ROUTING_NONE, FrameReplicationState(),
+                            base::UnguessableToken());
   }
 
   void IssueKeepAliveHandle(mojom::KeepAliveHandleRequest request) override {}
@@ -160,6 +168,9 @@ class MockFrameHost : public mojom::FrameHost {
   void FrameSizeChanged(const gfx::Size& frame_size) override {}
 
   void FullscreenStateChanged(bool is_fullscreen) override {}
+
+  void LifecycleStateChanged(blink::mojom::FrameLifecycleState state) override {
+  }
 
   void VisibilityChanged(blink::mojom::FrameVisibility visibility) override {}
 
@@ -232,24 +243,27 @@ void TestRenderFrame::Navigate(const network::ResourceResponseHead& head,
                                const CommonNavigationParams& common_params,
                                const CommitNavigationParams& commit_params) {
   if (!IsPerNavigationMojoInterfaceEnabled()) {
-    CommitNavigation(head, common_params, commit_params,
+    CommitNavigation(common_params, commit_params, head,
+                     mojo::ScopedDataPipeConsumerHandle(),
                      network::mojom::URLLoaderClientEndpointsPtr(),
                      std::make_unique<blink::URLLoaderFactoryBundleInfo>(),
                      base::nullopt,
                      blink::mojom::ControllerServiceWorkerInfoPtr(),
-                     blink::mojom::ServiceWorkerProviderInfoForWindowPtr(),
-                     network::mojom::URLLoaderFactoryPtr(),
+                     blink::mojom::ServiceWorkerProviderInfoForClientPtr(),
+                     mojo::NullRemote() /* prefetch_loader_factory */,
                      base::UnguessableToken::Create(), base::DoNothing());
   } else {
     BindNavigationClient(
         mojo::MakeRequestAssociatedWithDedicatedPipe(&mock_navigation_client_));
     CommitPerNavigationMojoInterfaceNavigation(
-        head, common_params, commit_params,
+        common_params, commit_params, head,
+        mojo::ScopedDataPipeConsumerHandle(),
         network::mojom::URLLoaderClientEndpointsPtr(),
         std::make_unique<blink::URLLoaderFactoryBundleInfo>(), base::nullopt,
         blink::mojom::ControllerServiceWorkerInfoPtr(),
-        blink::mojom::ServiceWorkerProviderInfoForWindowPtr(),
-        network::mojom::URLLoaderFactoryPtr(), base::UnguessableToken::Create(),
+        blink::mojom::ServiceWorkerProviderInfoForClientPtr(),
+        mojo::NullRemote() /* prefetch_loader_factory */,
+        base::UnguessableToken::Create(),
         base::BindOnce(&MockFrameHost::DidCommitProvisionalLoad,
                        base::Unretained(mock_frame_host_.get())));
   }
@@ -338,7 +352,7 @@ void TestRenderFrame::BeginNavigation(
     GURL url = info->url_request.Url();
     auto navigation_params = std::make_unique<blink::WebNavigationParams>();
     navigation_params->url = url;
-    if (!url.IsAboutBlank() && url != content::kAboutSrcDocURL) {
+    if (!url.IsAboutBlank() && !url.IsAboutSrcdoc()) {
       std::string mime_type, charset, data;
       if (!net::DataURL::Parse(url, &mime_type, &charset, &data)) {
         // This case is only here to allow cluster fuzz pass any url,

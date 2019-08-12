@@ -170,26 +170,6 @@ std::string GetMessageNames(
   return base::JoinString(result, " ");
 }
 
-uint64_t FrameIndexForView(RenderWidgetHostViewAura* view) {
-  return ImageTransportFactory::GetInstance()
-      ->GetContextFactoryPrivate()
-      ->GetFrameSinkManager()
-      ->surface_manager()
-      ->GetSurfaceForId(view->GetCurrentSurfaceId())
-      ->GetActiveFrameIndex();
-}
-
-const gfx::Rect& DamageRectForView(RenderWidgetHostViewAura* view) {
-  return ImageTransportFactory::GetInstance()
-      ->GetContextFactoryPrivate()
-      ->GetFrameSinkManager()
-      ->surface_manager()
-      ->GetSurfaceForId(view->GetCurrentSurfaceId())
-      ->GetActiveFrame()
-      .render_pass_list.back()
-      ->damage_rect;
-}
-
 // Simple observer that keeps track of changes to a window for tests.
 class TestWindowObserver : public aura::WindowObserver {
  public:
@@ -628,6 +608,15 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
     events.clear();
   }
 
+  // TODO(crbug.com/844469): Delete this helper once Viz launches as it will be
+  // obsolete.
+  viz::FrameSinkManagerImpl* GetFrameSinkManager() {
+    DCHECK(!features::IsVizDisplayCompositorEnabled());
+    return view_->GetDelegatedFrameHost()
+        ->GetCompositorFrameSinkSupportForTesting()
+        ->frame_sink_manager();
+  }
+
   const ui::MotionEventAura& pointer_state() { return view_->pointer_state(); }
 
  protected:
@@ -699,18 +688,6 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
 
  private:
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostViewAuraTest);
-};
-
-class RenderWidgetHostViewAuraSurfaceSynchronizationTest
-    : public RenderWidgetHostViewAuraTest {
-  void SetUp() override {
-    surface_synchronization_feature_list_.InitAndEnableFeature(
-        features::kEnableSurfaceSynchronization);
-    SetUpEnvironment();
-  }
-
- private:
-  base::test::ScopedFeatureList surface_synchronization_feature_list_;
 };
 
 void InstallDelegatedFrameHostClient(
@@ -2209,11 +2186,13 @@ TEST_F(RenderWidgetHostViewAuraTest, TouchpadFlingStartResetsWheelPhaseState) {
   view_->OnScrollEvent(&scroll2);
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_TRUE(widget_host_->FlingCancellationIsDeferred());
   events = GetAndResetDispatchedMessages();
-  EXPECT_EQ("MouseWheel", GetMessageNames(events));
+  EXPECT_EQ("MouseWheel GestureScrollEnd MouseWheel", GetMessageNames(events));
   wheel_event = static_cast<const WebMouseWheelEvent*>(
       events[0]->ToEvent()->Event()->web_event.get());
+  EXPECT_EQ(WebMouseWheelEvent::kPhaseEnded, wheel_event->momentum_phase);
+  wheel_event = static_cast<const WebMouseWheelEvent*>(
+      events[2]->ToEvent()->Event()->web_event.get());
   EXPECT_EQ(WebMouseWheelEvent::kPhaseBegan, wheel_event->phase);
 }
 
@@ -3092,12 +3071,7 @@ TEST_F(RenderWidgetHostViewAuraTest, TwoOutputSurfaces) {
   if (features::IsVizDisplayCompositorEnabled())
     return;
 
-  viz::FakeSurfaceObserver manager_observer;
-  ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
-  viz::SurfaceManager* manager = factory->GetContextFactoryPrivate()
-                                     ->GetFrameSinkManager()
-                                     ->surface_manager();
-  manager->AddObserver(&manager_observer);
+  viz::SurfaceManager* manager = GetFrameSinkManager()->surface_manager();
 
   gfx::Size view_size(100, 100);
   gfx::Rect view_rect(view_size);
@@ -3136,8 +3110,6 @@ TEST_F(RenderWidgetHostViewAuraTest, TwoOutputSurfaces) {
   surface->SendAckToClient();
   view_->renderer_compositor_frame_sink_->Flush();
   EXPECT_TRUE(view_->renderer_compositor_frame_sink_->did_receive_ack());
-
-  manager->RemoveObserver(&manager_observer);
 }
 
 // Resizing in fullscreen mode should send the up-to-date screen info.
@@ -3401,7 +3373,7 @@ TEST_F(RenderWidgetHostViewAuraTest, DISABLED_Resize) {
 }
 
 // This test verifies that the primary SurfaceId is populated on resize.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest, SurfaceChanges) {
+TEST_F(RenderWidgetHostViewAuraTest, SurfaceChanges) {
   view_->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
       view_->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
@@ -3418,8 +3390,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest, SurfaceChanges) {
 
 // This test verifies that the primary SurfaceId is updated on device scale
 // factor changes.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       DeviceScaleFactorChanges) {
+TEST_F(RenderWidgetHostViewAuraTest, DeviceScaleFactorChanges) {
   view_->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
       view_->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
@@ -3440,8 +3411,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 
 // This test verifies that changing the CompositorFrameSink (and thus evicting
 // the current surface) does not crash,
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       CompositorFrameSinkChange) {
+TEST_F(RenderWidgetHostViewAuraTest, CompositorFrameSinkChange) {
   // TODO(jonross): Delete this test once Viz launches as it will be obsolete.
   // https://crbug.com/844469
   if (features::IsVizDisplayCompositorEnabled())
@@ -3475,10 +3445,8 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 }
 
 // This test verifies that frame eviction plays well with surface
-// synchronizaton. This test is similar to
-// RenderWidgetHostViewAuraTest.DiscardDelegatedFrame.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       DiscardDelegatedFrames) {
+// synchronization.
+TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFrames) {
   // Make sure |parent_view_| is evicted to avoid interfering with the code
   // below.
   parent_view_->Hide();
@@ -3515,13 +3483,6 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
         views[i]->GetNativeView(),
         parent_view_->GetNativeView()->GetRootWindow(), gfx::Rect());
     views[i]->SetSize(view_rect.size());
-#ifdef OS_CHROMEOS
-    viz::SurfaceId surface_id(
-        views[i]->GetFrameSinkId(),
-        views[i]->GetLocalSurfaceIdAllocation().local_surface_id());
-    views[i]->delegated_frame_host_->OnFirstSurfaceActivation(
-        viz::SurfaceInfo(surface_id, 1.f, view_rect.size()));
-#endif
     EXPECT_HAS_FRAME(views[i]);
   }
 
@@ -3634,13 +3595,6 @@ TEST_F(RenderWidgetHostViewAuraTest, DiscardDelegatedFramesWithMemoryPressure) {
         gfx::Rect());
     views[i]->SetSize(view_rect.size());
     views[i]->Show();
-#ifdef OS_CHROMEOS
-    viz::SurfaceId surface_id(
-        views[i]->GetFrameSinkId(),
-        views[i]->GetLocalSurfaceIdAllocation().local_surface_id());
-    views[i]->delegated_frame_host_->OnFirstSurfaceActivation(
-        viz::SurfaceInfo(surface_id, 1.f, view_rect.size()));
-#endif
     EXPECT_HAS_FRAME(views[i]);
   }
 
@@ -3714,10 +3668,8 @@ TEST_F(RenderWidgetHostViewAuraTest, ForwardsBeginFrameAcks) {
   view_->SetSize(view_rect.size());
 
   viz::FakeSurfaceObserver observer;
-  ImageTransportFactory* factory = ImageTransportFactory::GetInstance();
-  viz::SurfaceManager* surface_manager = factory->GetContextFactoryPrivate()
-                                             ->GetFrameSinkManager()
-                                             ->surface_manager();
+  viz::SurfaceManager* surface_manager =
+      GetFrameSinkManager()->surface_manager();
   surface_manager->AddObserver(&observer);
 
   view_->SetNeedsBeginFrames(true);
@@ -5669,12 +5621,8 @@ TEST_F(RenderWidgetHostViewAuraTest, HitTestRegionListSubmitted) {
   viz::TestLatestLocalSurfaceIdLookupDelegate delegate;
   delegate.SetSurfaceIdMap(
       viz::SurfaceId(view_->GetFrameSinkId(), kArbitraryLocalSurfaceId));
-  viz::FrameSinkManagerImpl* frame_sink_manager =
-      view_->GetDelegatedFrameHost()
-          ->GetCompositorFrameSinkSupportForTesting()
-          ->frame_sink_manager();
   const viz::HitTestRegionList* active_hit_test_region_list =
-      frame_sink_manager->hit_test_manager()->GetActiveHitTestRegionList(
+      GetFrameSinkManager()->hit_test_manager()->GetActiveHitTestRegionList(
           &delegate, surface_id.frame_sink_id());
   EXPECT_EQ(active_hit_test_region_list->flags,
             viz::HitTestRegionFlags::kHitTestMine);
@@ -5683,8 +5631,7 @@ TEST_F(RenderWidgetHostViewAuraTest, HitTestRegionListSubmitted) {
 
 // Test that the rendering timeout for newly loaded content fires when enough
 // time passes without receiving a new compositor frame.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       NewContentRenderingTimeout) {
+TEST_F(RenderWidgetHostViewAuraTest, NewContentRenderingTimeout) {
   constexpr base::TimeDelta kTimeout = base::TimeDelta::FromMicroseconds(10);
 
   view_->InitAsChild(nullptr);
@@ -5703,7 +5650,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
   view_->Show();
   // No new LocalSurfaceId should be allocated for the first navigation and the
   // timer should not fire.
-  widget_host_->DidNavigate(1);
+  widget_host_->DidNavigate();
   viz::LocalSurfaceId id1 =
       view_->GetLocalSurfaceIdAllocation().local_surface_id();
   EXPECT_EQ(id0, id1);
@@ -5718,7 +5665,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
   widget_host_->reset_new_content_rendering_timeout_fired();
 
   // Start the timer. Verify that a new LocalSurfaceId is allocated.
-  widget_host_->DidNavigate(5);
+  widget_host_->DidNavigate();
   viz::LocalSurfaceId id2 =
       view_->GetLocalSurfaceIdAllocation().local_surface_id();
   EXPECT_TRUE(id2.is_valid());
@@ -5737,8 +5684,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 }
 
 // If a tab is evicted, allocate a new LocalSurfaceId next time it's shown.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       AllocateLocalSurfaceIdOnEviction) {
+TEST_F(RenderWidgetHostViewAuraTest, AllocateLocalSurfaceIdOnEviction) {
   view_->InitAsChild(nullptr);
   // View has to not be empty in order for frame eviction to be invoked.
   view_->SetSize(gfx::Size(54, 32));
@@ -5749,13 +5695,6 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
   viz::LocalSurfaceId id1 =
       view_->GetLocalSurfaceIdAllocation().local_surface_id();
   view_->Hide();
-#ifdef OS_CHROMEOS
-  viz::SurfaceId surface_id(
-      view_->GetFrameSinkId(),
-      view_->GetLocalSurfaceIdAllocation().local_surface_id());
-  view_->delegated_frame_host_->OnFirstSurfaceActivation(
-      viz::SurfaceInfo(surface_id, 1.f, gfx::Size(10, 10)));
-#endif
   static_cast<viz::FrameEvictorClient*>(view_->delegated_frame_host_.get())
       ->EvictDelegatedFrame();
   view_->Show();
@@ -5766,8 +5705,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 
 // If a tab was resized while it's hidden, drop the fallback so next time it's
 // visible we show blank.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       DropFallbackIfResizedWhileHidden) {
+TEST_F(RenderWidgetHostViewAuraTest, DropFallbackIfResizedWhileHidden) {
   view_->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
       view_->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
@@ -5783,8 +5721,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 
 // If a tab is hidden and shown without being resized in the meantime, the
 // fallback SurfaceId has to be preserved.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       DontDropFallbackIfNotResizedWhileHidden) {
+TEST_F(RenderWidgetHostViewAuraTest, DontDropFallbackIfNotResizedWhileHidden) {
   view_->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
       view_->GetNativeView(), parent_view_->GetNativeView()->GetRootWindow(),
@@ -5806,8 +5743,7 @@ TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
 
 // Check that TakeFallbackContentFrom() copies the fallback SurfaceId and
 // background color from the previous view to the new view.
-TEST_F(RenderWidgetHostViewAuraSurfaceSynchronizationTest,
-       TakeFallbackContent) {
+TEST_F(RenderWidgetHostViewAuraTest, TakeFallbackContent) {
   // Initialize the first view.
   view_->InitAsChild(nullptr);
   aura::client::ParentWindowWithContext(
@@ -6417,7 +6353,7 @@ TEST_F(InputMethodStateAuraTest, SelectedTextCopiedToClipboard) {
   EXPECT_TRUE(!!clipboard);
   std::vector<std::string> texts = {"text0", "text1", "text2", "text3"};
   for (auto index : active_view_sequence_) {
-    clipboard->Clear(ui::CLIPBOARD_TYPE_SELECTION);
+    clipboard->Clear(ui::ClipboardType::kSelection);
 
     // Focus the corresponding widget.
     render_widget_host_delegate()->set_focused_widget(
@@ -6430,7 +6366,7 @@ TEST_F(InputMethodStateAuraTest, SelectedTextCopiedToClipboard) {
 
     // Retrieve the selected text from clipboard and verify it is as expected.
     base::string16 result_text;
-    clipboard->ReadText(ui::CLIPBOARD_TYPE_SELECTION, &result_text);
+    clipboard->ReadText(ui::ClipboardType::kSelection, &result_text);
     EXPECT_EQ(expected_text, result_text);
   }
 }

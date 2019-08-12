@@ -65,7 +65,9 @@ class BLINK_EXPORT WebSharedWorker {
 
   // Instantiate a WebSharedWorker that interacts with the shared worker.
   // WebSharedWorkerClient given here should own this instance.
-  static std::unique_ptr<WebSharedWorker> Create(WebSharedWorkerClient*);
+  static std::unique_ptr<WebSharedWorker> Create(
+      WebSharedWorkerClient*,
+      const base::UnguessableToken& appcache_host_id);
 
   virtual void StartWorkerContext(
                                   bool nodejs, const base::FilePath& root_path,

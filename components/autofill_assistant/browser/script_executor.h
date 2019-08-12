@@ -54,6 +54,7 @@ class ScriptExecutor : public ActionDelegate,
   // |delegate|, |listener|, |script_state| and |ordered_interrupts| should
   // outlive this object and should not be nullptr.
   ScriptExecutor(const std::string& script_path,
+                 std::unique_ptr<TriggerContext> additional_context,
                  const std::string& global_payload,
                  const std::string& script_payload,
                  ScriptExecutor::Listener* listener,
@@ -111,6 +112,8 @@ class ScriptExecutor : public ActionDelegate,
       base::OnceCallback<void(ProcessedActionStatusProto)> callback) override;
   void SetStatusMessage(const std::string& message) override;
   std::string GetStatusMessage() override;
+  void SetBubbleMessage(const std::string& message) override;
+  std::string GetBubbleMessage() override;
   void ClickOrTapElement(
       const Selector& selector,
       ClickAction::ClickType click_type,
@@ -118,7 +121,7 @@ class ScriptExecutor : public ActionDelegate,
   void GetPaymentInformation(
       std::unique_ptr<PaymentRequestOptions> options) override;
   void GetFullCard(GetFullCardCallback callback) override;
-  void Prompt(std::unique_ptr<std::vector<Chip>> chips) override;
+  void Prompt(std::unique_ptr<std::vector<UserAction>> user_actions) override;
   void CancelPrompt() override;
   void FillAddressForm(
       const autofill::AutofillProfile* profile,
@@ -190,6 +193,7 @@ class ScriptExecutor : public ActionDelegate,
   bool SetForm(std::unique_ptr<FormProto> form,
                base::RepeatingCallback<void(const FormProto::Result*)> callback)
       override;
+  void RequireUI() override;
 
  private:
   // Helper for WaitForElementVisible that keeps track of the state required to
@@ -323,13 +327,19 @@ class ScriptExecutor : public ActionDelegate,
   void OnGetPaymentInformation(
       base::OnceCallback<void(std::unique_ptr<PaymentInformation>)> callback,
       std::unique_ptr<PaymentInformation> result);
+  void OnAdditionalActionTriggered(base::OnceCallback<void(int)> callback,
+                                   int index);
+  void OnTermsAndConditionsLinkClicked(base::OnceCallback<void(int)> callback,
+                                       int link);
   void OnGetFullCard(GetFullCardCallback callback,
                      std::unique_ptr<autofill::CreditCard> card,
                      const base::string16& cvc);
   void CleanUpAfterPrompt();
-  void OnChosen(base::OnceClosure callback);
+  void OnChosen(UserAction::Callback callback,
+                std::unique_ptr<TriggerContext> context);
 
   std::string script_path_;
+  std::unique_ptr<TriggerContext> additional_context_;
   std::string last_global_payload_;
   const std::string initial_script_payload_;
   std::string last_script_payload_;

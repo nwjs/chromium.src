@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include "base/single_thread_task_runner.h"
 #include "services/network/public/mojom/websocket.mojom-blink.h"
+#include "third_party/blink/public/mojom/websockets/websocket_connector.mojom-blink.h"
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
@@ -41,14 +42,13 @@
 namespace blink {
 
 class KURL;
-class WebSocketHandleClient;
-
+class WebSocketChannelImpl;
 // WebSocketHandle is an interface class designed to be a handle of WebSocket
 // connection.  WebSocketHandle will be used together with
-// WebSocketHandleClient.
+// WebSocketChannelImpl.
 //
 // Once a WebSocketHandle is deleted there will be no notification to the
-// corresponding WebSocketHandleClient.  Once a WebSocketHandleClient receives
+// corresponding WebSocketChannelImpl.  Once a WebSocketChannelImpl receives
 // didClose, any method of the corresponding WebSocketHandle can't be called.
 
 class WebSocketHandle {
@@ -61,12 +61,12 @@ class WebSocketHandle {
 
   virtual ~WebSocketHandle() = default;
 
-  virtual void Connect(network::mojom::blink::WebSocketPtr,
+  virtual void Connect(mojom::blink::WebSocketConnectorPtr,
                        const KURL&,
                        const Vector<String>& protocols,
                        const KURL& site_for_cookies,
                        const String& user_agent_override,
-                       WebSocketHandleClient*,
+                       WebSocketChannelImpl*,
                        base::SingleThreadTaskRunner*) = 0;
   virtual void Send(bool fin, MessageType, const char* data, wtf_size_t) = 0;
   virtual void AddReceiveFlowControlQuota(int64_t quota) = 0;

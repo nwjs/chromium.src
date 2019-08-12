@@ -19,7 +19,7 @@
 #import "ios/web/navigation/navigation_manager_delegate.h"
 #import "ios/web/navigation/wk_based_navigation_manager_impl.h"
 #import "ios/web/navigation/wk_navigation_util.h"
-#include "ios/web/public/navigation_item.h"
+#include "ios/web/public/navigation/navigation_item.h"
 #include "ios/web/public/test/fakes/test_browser_state.h"
 #import "ios/web/public/test/fakes/test_navigation_manager.h"
 #import "ios/web/public/web_client.h"
@@ -297,10 +297,6 @@ TEST_P(NavigationManagerTest, GetPendingItemIndexWithIndexedPendingEntry) {
 // Tests that NavigationManagerImpl::GetPendingItem() returns item provided by
 // the delegate.
 TEST_P(NavigationManagerTest, GetPendingItemFromDelegate) {
-  if (!web::features::StorePendingItemInContext()) {
-    return;
-  }
-
   ASSERT_FALSE(navigation_manager()->GetPendingItem());
   auto item = std::make_unique<web::NavigationItemImpl>();
   SimulateReturningPendingItemFromDelegate(item.get());
@@ -310,10 +306,6 @@ TEST_P(NavigationManagerTest, GetPendingItemFromDelegate) {
 // Tests that NavigationManagerImpl::GetPendingItem() ignores item provided by
 // the delegate if navigation manager has own pending item.
 TEST_P(NavigationManagerTest, GetPendingItemIgnoringDelegate) {
-  if (!web::features::StorePendingItemInContext()) {
-    return;
-  }
-
   ASSERT_FALSE(navigation_manager()->GetPendingItem());
   auto item = std::make_unique<web::NavigationItemImpl>();
   SimulateReturningPendingItemFromDelegate(item.get());
@@ -331,10 +323,6 @@ TEST_P(NavigationManagerTest, GetPendingItemIgnoringDelegate) {
 
 // Tests that GetPendingItem() returns indexed pending item.
 TEST_P(NavigationManagerTest, GetPendingItemWithIndexedPendingEntry) {
-  if (!web::features::StorePendingItemInContext()) {
-    return;
-  }
-
   GURL url("http://www.url.test");
   navigation_manager()->AddPendingItem(
       url, Referrer(), ui::PAGE_TRANSITION_TYPED,
@@ -2622,20 +2610,25 @@ TEST_P(NavigationManagerTest, GoToIndexDifferentUserAgentType) {
 // Tests that NavigationManagerImpl::CommitPendingItem() is no-op when called
 // with null.
 TEST_P(NavigationManagerTest, CommitNilPendingItem) {
-  if (!web::features::StorePendingItemInContext()) {
-    return;
-  }
   ASSERT_EQ(0, navigation_manager()->GetItemCount());
+  navigation_manager()->AddPendingItem(
+      GURL("http://www.url.com/0"), Referrer(), ui::PAGE_TRANSITION_TYPED,
+      web::NavigationInitiationType::BROWSER_INITIATED,
+      web::NavigationManager::UserAgentOverrideOption::INHERIT);
+
+  [mock_wk_list_ setCurrentURL:@"http://www.url.com/1"
+                  backListURLs:nil
+               forwardListURLs:nil];
   navigation_manager()->CommitPendingItem(nullptr);
-  ASSERT_EQ(0, navigation_manager()->GetItemCount());
+
+  EXPECT_EQ(1, navigation_manager()->GetItemCount());
+  ASSERT_TRUE(navigation_manager()->GetLastCommittedItem());
+  EXPECT_EQ("http://www.url.com/0",
+            navigation_manager()->GetLastCommittedItem()->GetURL());
 }
 
 // Tests NavigationManagerImpl::CommitPendingItem() with a valid pending item.
 TEST_P(NavigationManagerTest, CommitNonNilPendingItem) {
-  if (!web::features::StorePendingItemInContext()) {
-    return;
-  }
-
   // Create navigation manager with a single forward item and no back items.
   [mock_wk_list_ setCurrentURL:@"http://www.url.test"
                   backListURLs:@[
@@ -2665,6 +2658,10 @@ TEST_P(NavigationManagerTest, CommitNonNilPendingItem) {
 
   ASSERT_EQ(2, navigation_manager()->GetItemCount());
 
+  // Emulate 2 simultanious navigations to verify that pending item index does
+  // not prevent passed item commit.
+  navigation_manager()->SetPendingItemIndex(0);
+
   // Call CommitPendingItem() with a valid pending item.
   auto item = std::make_unique<web::NavigationItemImpl>();
   item->SetURL(GURL("http://www.url.com/new"));
@@ -2679,7 +2676,7 @@ TEST_P(NavigationManagerTest, CommitNonNilPendingItem) {
     EXPECT_EQ(0, navigation_manager()->GetPreviousItemIndex());
   }
   EXPECT_EQ(1, navigation_manager()->GetLastCommittedItemIndex());
-  EXPECT_EQ(-1, navigation_manager()->GetPendingItemIndex());
+  EXPECT_EQ(0, navigation_manager()->GetPendingItemIndex());
   ASSERT_TRUE(navigation_manager()->GetLastCommittedItem());
   EXPECT_FALSE(
       navigation_manager()->GetLastCommittedItem()->GetTimestamp().is_null());

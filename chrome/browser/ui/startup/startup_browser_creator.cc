@@ -44,13 +44,17 @@
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/browser_list.h"
+#include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_constants.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -81,16 +85,14 @@
 #include "chrome/browser/ui/extensions/application_launch.h"
 
 #if defined(OS_CHROMEOS)
-#include "ash/public/cpp/ash_features.h"
-#include "ash/public/cpp/ash_pref_names.h"
 #include "chrome/browser/chromeos/app_mode/app_launch_utils.h"
 #include "chrome/browser/chromeos/login/demo_mode/demo_app_launcher.h"
-#include "chrome/browser/chromeos/profiles/profile_helper.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chromeos/constants/chromeos_switches.h"
 #include "chromeos/cryptohome/cryptohome_parameters.h"
 #include "components/user_manager/user_manager.h"
 #else
+#include "chrome/browser/extensions/api/messaging/native_messaging_launch_from_native.h"
 #include "chrome/browser/ui/user_manager.h"
 #endif
 
@@ -120,43 +122,36 @@ using content::ChildProcessSecurityPolicy;
 namespace {
 
 // Keeps track on which profiles have been launched.
-class ProfileLaunchObserver : public content::NotificationObserver {
+class ProfileLaunchObserver : public content::NotificationObserver,
+                              public BrowserListObserver {
  public:
-  ProfileLaunchObserver()
-      : profile_to_activate_(NULL),
-        activated_profile_(false) {
+  ProfileLaunchObserver() {
     registrar_.Add(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
                    content::NotificationService::AllSources());
-    registrar_.Add(this, chrome::NOTIFICATION_BROWSER_OPENED,
-                   content::NotificationService::AllSources());
+    BrowserList::AddObserver(this);
   }
-  ~ProfileLaunchObserver() override {}
 
+  ~ProfileLaunchObserver() override { BrowserList::RemoveObserver(this); }
+
+  // BrowserListObserver:
+  void OnBrowserAdded(Browser* browser) override {
+    opened_profiles_.insert(browser->profile());
+    MaybeActivateProfile();
+  }
+
+  // content::NotificationObserver:
   void Observe(int type,
                const content::NotificationSource& source,
                const content::NotificationDetails& details) override {
-    switch (type) {
-      case chrome::NOTIFICATION_PROFILE_DESTROYED: {
-        Profile* profile = content::Source<Profile>(source).ptr();
-        launched_profiles_.erase(profile);
-        opened_profiles_.erase(profile);
-        if (profile == profile_to_activate_)
-          profile_to_activate_ = NULL;
-        // If this profile was the last launched one without an opened window,
-        // then we may be ready to activate |profile_to_activate_|.
-        MaybeActivateProfile();
-        break;
-      }
-      case chrome::NOTIFICATION_BROWSER_OPENED: {
-        Browser* browser = content::Source<Browser>(source).ptr();
-        DCHECK(browser);
-        opened_profiles_.insert(browser->profile());
-        MaybeActivateProfile();
-        break;
-      }
-      default:
-        NOTREACHED();
-    }
+    DCHECK_EQ(type, chrome::NOTIFICATION_PROFILE_DESTROYED);
+    Profile* profile = content::Source<Profile>(source).ptr();
+    launched_profiles_.erase(profile);
+    opened_profiles_.erase(profile);
+    if (profile == profile_to_activate_)
+      profile_to_activate_ = nullptr;
+    // If this profile was the last launched one without an opened window,
+    // then we may be ready to activate |profile_to_activate_|.
+    MaybeActivateProfile();
   }
 
   bool HasBeenLaunched(const Profile* profile) const {
@@ -167,7 +162,7 @@ class ProfileLaunchObserver : public content::NotificationObserver {
     launched_profiles_.insert(profile);
     if (chrome::FindBrowserWithProfile(profile)) {
       // A browser may get opened before we get initialized (e.g., in tests),
-      // so we never see the NOTIFICATION_BROWSER_OPENED for it.
+      // so we never see the OnBrowserAdded() for it.
       opened_profiles_.insert(profile);
     }
   }
@@ -203,10 +198,8 @@ class ProfileLaunchObserver : public content::NotificationObserver {
         base::BindOnce(&ProfileLaunchObserver::ActivateProfile,
                        base::Unretained(this)));
     // Avoid posting more than once before ActivateProfile gets called.
-    registrar_.Remove(this, chrome::NOTIFICATION_BROWSER_OPENED,
-                      content::NotificationService::AllSources());
-    registrar_.Remove(this, chrome::NOTIFICATION_PROFILE_DESTROYED,
-                      content::NotificationService::AllSources());
+    registrar_.RemoveAll();
+    BrowserList::RemoveObserver(this);
   }
 
   void ActivateProfile() {
@@ -219,7 +212,7 @@ class ProfileLaunchObserver : public content::NotificationObserver {
       if (browser)
         browser->window()->Activate();
       // No need try to activate this profile again.
-      profile_to_activate_ = NULL;
+      profile_to_activate_ = nullptr;
     }
     // Assign true here, even if no browser was actually activated, so that
     // the test can stop waiting, and fail gracefully when needed.
@@ -235,12 +228,12 @@ class ProfileLaunchObserver : public content::NotificationObserver {
   // be activated on top of it.
   std::set<const Profile*> opened_profiles_;
   content::NotificationRegistrar registrar_;
-  // This is NULL until the profile to activate has been chosen. This value,
+  // This is null until the profile to activate has been chosen. This value
   // should only be set once all profiles have been launched, otherwise,
   // activation may not happen after the launch of newer profiles.
-  Profile* profile_to_activate_;
+  Profile* profile_to_activate_ = nullptr;
   // Set once we attempted to activate a profile. We only get one shot at this.
-  bool activated_profile_;
+  bool activated_profile_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(ProfileLaunchObserver);
 };
@@ -299,18 +292,6 @@ bool IsSilentLaunchEnabled(const base::CommandLine& command_line,
   // calls this function directly (see comments there) so it has to be checked
   // again.
 
-#if defined(KIOSK_NEXT)
-  // FeatureList::IsEnabled has side effects so we call it first before doing
-  // an early return if possible
-  DCHECK(!chromeos::ProfileHelper::IsSigninProfile(profile));
-  if (base::FeatureList::IsEnabled(ash::features::kKioskNextShell)) {
-    const PrefService* prefs = profile->GetPrefs();
-    if (prefs->GetBoolean(ash::prefs::kKioskNextShellEnabled)) {
-      return true;
-    }
-  }
-#endif  // defined(KIOSK_NEXT)
-
   if (command_line.HasSwitch(switches::kSilentLaunch))
     return true;
 
@@ -319,6 +300,29 @@ bool IsSilentLaunchEnabled(const base::CommandLine& command_line,
       prefs::kStartupBrowserWindowLaunchSuppressed);
 #endif  // defined(OS_CHROMEOS)
 
+  return false;
+}
+
+// Returns true if starting in guest mode is enforced. If |show_warning| is
+// true, send a warning if guest mode is requested but not allowed by policy.
+bool IsGuestModeEnforced(const base::CommandLine& command_line,
+                         bool show_warning) {
+#if defined(OS_LINUX) || defined(OS_WIN) || defined(OS_MACOSX)
+  PrefService* service = g_browser_process->local_state();
+  DCHECK(service);
+
+  // Check if guest mode enforcement commandline switch or policy are provided.
+  if (command_line.HasSwitch(switches::kGuest) ||
+      service->GetBoolean(prefs::kBrowserGuestModeEnforced)) {
+    // Check if guest mode is allowed by policy.
+    if (service->GetBoolean(prefs::kBrowserGuestModeEnabled))
+      return true;
+    if (show_warning) {
+      LOG(WARNING) << "Guest mode disabled by policy, launching a normal "
+                   << "browser session.";
+    }
+  }
+#endif
   return false;
 }
 
@@ -373,6 +377,12 @@ bool StartupBrowserCreator::LaunchBrowser(
   } else if (command_line.HasSwitch(switches::kIncognito)) {
     LOG(WARNING) << "Incognito mode disabled by policy, launching a normal "
                  << "browser session.";
+  }
+
+  if (IsGuestModeEnforced(command_line, /* show_warning= */ true)) {
+    profile = g_browser_process->profile_manager()
+                  ->GetProfile(ProfileManager::GetGuestProfilePath())
+                  ->GetOffTheRecordProfile();
   }
 
 #if defined(OS_WIN)
@@ -491,10 +501,6 @@ void StartupBrowserCreator::ClearLaunchedProfilesForTesting() {
 // static
 void StartupBrowserCreator::RegisterLocalStatePrefs(
     PrefRegistrySimple* registry) {
-#if defined(OS_WIN)
-  registry->RegisterBooleanPref(prefs::kWelcomePageOnOSUpgradeEnabled, true);
-  registry->RegisterBooleanPref(prefs::kHasSeenWin10PromoPage, false);
-#endif
 #if !defined(OS_CHROMEOS)
   registry->RegisterBooleanPref(prefs::kPromotionalTabsEnabled, true);
   registry->RegisterBooleanPref(prefs::kCommandLineFlagSecurityWarningsEnabled,
@@ -700,6 +706,20 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
     silent_launch = true;
   }
 
+#if !defined(OS_CHROMEOS)
+  if (!process_startup &&
+      base::FeatureList::IsEnabled(features::kOnConnectNative) &&
+      command_line.HasSwitch(switches::kNativeMessagingConnectHost) &&
+      command_line.HasSwitch(switches::kNativeMessagingConnectExtension)) {
+    silent_launch = true;
+    extensions::LaunchNativeMessageHostFromNativeApp(
+        command_line.GetSwitchValueASCII(
+            switches::kNativeMessagingConnectExtension),
+        command_line.GetSwitchValueASCII(switches::kNativeMessagingConnectHost),
+        last_used_profile);
+  }
+#endif
+
   // If --no-startup-window is specified and Chrome is already running then do
   // not open a new window.
   if (!process_startup && command_line.HasSwitch(switches::kNoStartupWindow))
@@ -786,8 +806,8 @@ bool StartupBrowserCreator::ProcessCmdLineImpl(
         return false;
       }
       OpenApplication(
-                      AppLaunchParams(last_used_profile, extension, extensions::LAUNCH_CONTAINER_WINDOW,
-                                      WindowOpenDisposition::NEW_WINDOW, extensions::SOURCE_CHROME_INTERNAL));
+                      AppLaunchParams(last_used_profile, extension->id(), extensions::LaunchContainer::kLaunchContainerWindow,
+                                      WindowOpenDisposition::NEW_WINDOW, extensions::AppLaunchSource::kSourceChromeInternal));
       return true;
     }
   }
@@ -1056,6 +1076,11 @@ base::FilePath GetStartupProfilePath(const base::FilePath& user_data_dir,
     }
   }
 #endif  // defined(OS_WIN)
+
+  // If opening in Guest mode is requested, load the default profile so
+  // that last opened profile would not trigger a user management dialog.
+  if (IsGuestModeEnforced(command_line, /* show_warning= */ false))
+    return profiles::GetDefaultProfileDir(user_data_dir);
 
   if (command_line.HasSwitch(switches::kProfileDirectory)) {
     return user_data_dir.Append(

@@ -113,7 +113,8 @@ void AppLoadService::Observe(int type,
 
   switch (it->second.action_type) {
     case LAUNCH_FOR_RELOAD:
-      LaunchPlatformApp(context_, extension, extensions::SOURCE_RELOAD);
+      LaunchPlatformApp(context_, extension,
+                        extensions::AppLaunchSource::kSourceReload);
       break;
     case RESTART:
       RestartPlatformApp(context_, extension);
@@ -121,7 +122,7 @@ void AppLoadService::Observe(int type,
     case LAUNCH_FOR_LOAD_AND_LAUNCH:
       LaunchPlatformAppWithCommandLine(
           context_, extension, it->second.command_line, it->second.current_dir,
-          extensions::SOURCE_LOAD_AND_LAUNCH);
+          extensions::AppLaunchSource::kSourceLoadAndLaunch);
       break;
     default:
       NOTREACHED();

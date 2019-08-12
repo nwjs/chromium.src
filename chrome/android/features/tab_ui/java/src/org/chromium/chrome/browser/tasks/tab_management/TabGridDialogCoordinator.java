@@ -12,7 +12,6 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
@@ -22,7 +21,7 @@ import java.util.List;
  * {@link TabListCoordinator} as well as the life-cycle of shared component
  * objects.
  */
-public class TabGridDialogCoordinator {
+public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHandler {
     final static String COMPONENT_NAME = "TabGridDialog";
     private final Context mContext;
     private final TabListCoordinator mTabListCoordinator;
@@ -35,19 +34,19 @@ public class TabGridDialogCoordinator {
             TabContentManager tabContentManager, TabCreatorManager tabCreatorManager,
             CompositorViewHolder compositorViewHolder,
             GridTabSwitcherMediator.ResetHandler resetHandler,
+            TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             TabGridDialogMediator.AnimationOriginProvider animationOriginProvider) {
         mContext = context;
 
         mToolbarPropertyModel = new PropertyModel(TabGridSheetProperties.ALL_KEYS);
 
-        mMediator =
-                new TabGridDialogMediator(context, this::resetWithListOfTabs, mToolbarPropertyModel,
-                        tabModelSelector, tabCreatorManager, resetHandler, animationOriginProvider);
+        mMediator = new TabGridDialogMediator(context, this, mToolbarPropertyModel,
+                tabModelSelector, tabCreatorManager, resetHandler, animationOriginProvider);
 
         mTabListCoordinator = new TabListCoordinator(TabListCoordinator.TabListMode.GRID, context,
                 tabModelSelector, tabContentManager::getTabThumbnailWithCallback, null, false, null,
-                null, mMediator.getTabGridDialogHandler(), null, null, compositorViewHolder, null,
-                false, R.layout.tab_list_recycler_view_layout, COMPONENT_NAME);
+                gridCardOnClickListenerProvider, mMediator.getTabGridDialogHandler(), null, null,
+                compositorViewHolder, null, false, COMPONENT_NAME);
 
         mParentLayout = new TabGridDialogParent(context, compositorViewHolder);
     }
@@ -76,11 +75,17 @@ public class TabGridDialogCoordinator {
     }
 
     TabGridDialogMediator.ResetHandler getResetHandler() {
-        return this::resetWithListOfTabs;
+        return this;
     }
 
+    @Override
     public void resetWithListOfTabs(@Nullable List<Tab> tabs) {
         mTabListCoordinator.resetWithListOfTabs(tabs);
         updateDialogContent(tabs);
+    }
+
+    @Override
+    public void hideDialog(boolean showAnimation) {
+        mMediator.hideDialog(showAnimation);
     }
 }

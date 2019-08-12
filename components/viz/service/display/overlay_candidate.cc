@@ -20,7 +20,7 @@
 #include "components/viz/service/display/display_resource_provider.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/vector3d_f.h"
-#include "ui/gl/dc_renderer_layer_params.h"
+#include "ui/gfx/video_types.h"
 
 namespace viz {
 
@@ -87,7 +87,6 @@ OverlayCandidate::OverlayCandidate()
       uv_rect(0.f, 0.f, 1.f, 1.f),
       is_clipped(false),
       is_opaque(false),
-      use_output_surface_for_resource(false),
       no_occluding_damage(false),
       resource_id(0),
 #if defined(OS_ANDROID)
@@ -181,12 +180,12 @@ bool OverlayCandidate::RequiresOverlay(const DrawQuad* quad) {
   switch (quad->material) {
     case DrawQuad::Material::kTextureContent:
       return TextureDrawQuad::MaterialCast(quad)->protected_video_type ==
-             ui::ProtectedVideoType::kHardwareProtected;
+             gfx::ProtectedVideoType::kHardwareProtected;
     case DrawQuad::Material::kVideoHole:
       return true;
     case DrawQuad::Material::kYuvVideoContent:
       return YUVVideoDrawQuad::MaterialCast(quad)->protected_video_type ==
-             ui::ProtectedVideoType::kHardwareProtected;
+             gfx::ProtectedVideoType::kHardwareProtected;
     default:
       return false;
   }
@@ -229,7 +228,7 @@ bool OverlayCandidate::FromDrawQuadResource(
 
   candidate->format = resource_provider->GetBufferFormat(resource_id);
   candidate->color_space = resource_provider->GetColorSpace(resource_id);
-  if (!base::ContainsValue(kOverlayFormats, candidate->format))
+  if (!base::Contains(kOverlayFormats, candidate->format))
     return false;
 
   gfx::OverlayTransform overlay_transform = GetOverlayTransform(

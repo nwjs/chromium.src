@@ -34,7 +34,6 @@
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_custom_extension_provider.h"
 #include "chrome/browser/extensions/api/content_settings/content_settings_service.h"
@@ -74,6 +73,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/crx_file/id_util.h"
+#include "components/favicon_base/favicon_url_parser.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/notification_service.h"
@@ -347,8 +347,7 @@ ExtensionService::ExtensionService(Profile* profile,
   }
 
 #endif
-  component_loader_.reset(new ComponentLoader(
-      this, profile->GetPrefs(), g_browser_process->local_state(), profile));
+  component_loader_ = std::make_unique<ComponentLoader>(this, profile);
 
 #if 0
   if (extensions_enabled_) {
@@ -808,7 +807,7 @@ void ExtensionService::DisableUserExtensionsExcept(
             ManifestURL::GetUpdateURL(extension.get())))
       continue;
     const std::string& id = extension->id();
-    if (!base::ContainsValue(except_ids, id))
+    if (!base::Contains(except_ids, id))
       DisableExtension(id, disable_reason::DISABLE_USER_ACTION);
   }
 }
@@ -902,7 +901,7 @@ void ExtensionService::PostActivateExtension(
   // TODO(kalman): Convert ExtensionSpecialStoragePolicy to a
   // BrowserContextKeyedService and use ExtensionRegistryObserver.
   profile_->GetExtensionSpecialStoragePolicy()->GrantRightsForExtension(
-      extension.get(), profile_);
+      extension.get());
 
   // TODO(kalman): This is broken. The crash reporter is process-wide so doesn't
   // work properly multi-profile. Besides which, it should be using
@@ -915,8 +914,9 @@ void ExtensionService::PostActivateExtension(
   // to make sure that the FaviconSource is registered with the
   // ChromeURLDataManager.
   if (permissions_data->HasHostPermission(GURL(chrome::kChromeUIFaviconURL))) {
-    content::URLDataSource::Add(profile_,
-                                std::make_unique<FaviconSource>(profile_));
+    content::URLDataSource::Add(
+        profile_, std::make_unique<FaviconSource>(
+                      profile_, chrome::FaviconUrlFormat::kFaviconLegacy));
   }
 
   // Same for chrome://theme/ resources.

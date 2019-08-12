@@ -4,17 +4,20 @@
 
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_bridge.h"
 
+#include <memory>
 #include <utility>
 
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/logging.h"
-#include "base/memory/shared_memory.h"
+#include "base/memory/shared_memory_mapping.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string_piece.h"
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/mojo_utils.h"
 #include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_messaging.h"
+#include "chrome/browser/chromeos/wilco_dtc_supportd/wilco_dtc_supportd_notification_controller.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/dbus/dbus_thread_manager.h"
 #include "chromeos/dbus/wilco_dtc_supportd_client.h"
 #include "mojo/public/cpp/bindings/interface_ptr_info.h"
@@ -29,6 +32,8 @@
 namespace chromeos {
 
 namespace {
+
+using wilco_dtc_supportd::mojom::WilcoDtcSupportdEvent;
 
 // Interval used between successive connection attempts to the
 // wilco_dtc_supportd. This is a safety measure for avoiding busy loops when the
@@ -110,14 +115,19 @@ WilcoDtcSupportdBridge::WilcoDtcSupportdBridge(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
     : WilcoDtcSupportdBridge(
           std::make_unique<WilcoDtcSupportdBridgeDelegateImpl>(),
-          std::move(url_loader_factory)) {}
+          std::move(url_loader_factory),
+          std::make_unique<WilcoDtcSupportdNotificationController>()) {}
 
 WilcoDtcSupportdBridge::WilcoDtcSupportdBridge(
     std::unique_ptr<Delegate> delegate,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+    std::unique_ptr<WilcoDtcSupportdNotificationController>
+        notification_controller)
     : delegate_(std::move(delegate)),
-      web_request_service_(std::move(url_loader_factory)) {
+      web_request_service_(std::move(url_loader_factory)),
+      notification_controller_(std::move(notification_controller)) {
   DCHECK(delegate_);
+  DCHECK(notification_controller_);
   DCHECK(!g_wilco_dtc_supportd_bridge_instance);
   g_wilco_dtc_supportd_bridge_instance = this;
   WaitForDBusService();
@@ -251,9 +261,9 @@ void WilcoDtcSupportdBridge::PerformWebRequest(
   // Extract a GURL value from a ScopedHandle.
   GURL gurl;
   if (url.is_valid()) {
-    std::unique_ptr<base::SharedMemory> shared_memory;
+    base::ReadOnlySharedMemoryMapping shared_memory;
     gurl = GURL(GetStringPieceFromMojoHandle(std::move(url), &shared_memory));
-    if (!shared_memory) {
+    if (!shared_memory.IsValid()) {
       LOG(ERROR) << "Failed to read data from mojo handle";
       std::move(callback).Run(
           wilco_dtc_supportd::mojom::WilcoDtcSupportdWebRequestStatus::
@@ -265,16 +275,16 @@ void WilcoDtcSupportdBridge::PerformWebRequest(
 
   // Extract headers from ScopedHandle's.
   std::vector<base::StringPiece> header_contents;
-  std::vector<std::unique_ptr<base::SharedMemory>> shared_memories;
+  std::vector<base::ReadOnlySharedMemoryMapping> shared_memories;
   for (auto& header : headers) {
     if (!header.is_valid()) {
       header_contents.push_back("");
       continue;
     }
-    shared_memories.push_back(nullptr);
+    shared_memories.emplace_back();
     header_contents.push_back(GetStringPieceFromMojoHandle(
         std::move(header), &shared_memories.back()));
-    if (!shared_memories.back()) {
+    if (!shared_memories.back().IsValid()) {
       LOG(ERROR) << "Failed to read data from mojo handle";
       std::move(callback).Run(
           wilco_dtc_supportd::mojom::WilcoDtcSupportdWebRequestStatus::
@@ -287,10 +297,10 @@ void WilcoDtcSupportdBridge::PerformWebRequest(
   // Extract a string value from a ScopedHandle.
   std::string request_body_content;
   if (request_body.is_valid()) {
-    std::unique_ptr<base::SharedMemory> shared_memory;
+    base::ReadOnlySharedMemoryMapping shared_memory;
     request_body_content = std::string(
         GetStringPieceFromMojoHandle(std::move(request_body), &shared_memory));
-    if (!shared_memory) {
+    if (!shared_memory.IsValid()) {
       LOG(ERROR) << "Failed to read data from mojo handle";
       std::move(callback).Run(
           wilco_dtc_supportd::mojom::WilcoDtcSupportdWebRequestStatus::
@@ -311,12 +321,36 @@ void WilcoDtcSupportdBridge::GetConfigurationData(
                                               : std::string());
 }
 
+void WilcoDtcSupportdBridge::HandleEvent(WilcoDtcSupportdEvent event) {
+  switch (event) {
+    case WilcoDtcSupportdEvent::kBatteryAuth:
+      notification_controller_->ShowBatteryAuthNotification();
+      return;
+    case WilcoDtcSupportdEvent::kNonWilcoCharger:
+      notification_controller_->ShowNonWilcoChargerNotification();
+      return;
+    case WilcoDtcSupportdEvent::kIncompatibleDock:
+      notification_controller_->ShowIncompatibleDockNotification();
+      return;
+    case WilcoDtcSupportdEvent::kDockError:
+      notification_controller_->ShowDockErrorNotification();
+      return;
+    case WilcoDtcSupportdEvent::kDockDisplay:
+      notification_controller_->ShowDockDisplayNotification();
+      return;
+    case WilcoDtcSupportdEvent::kDockThunderbolt:
+      notification_controller_->ShowDockThunderboltNotification();
+      return;
+  }
+  LOG(ERROR) << "Unrecognized event " << event << " event";
+}
+
 void WilcoDtcSupportdBridge::SendWilcoDtcMessageToUi(
     mojo::ScopedHandle json_message,
     SendWilcoDtcMessageToUiCallback callback) {
   // Extract the string value of the received message.
   DCHECK(json_message);
-  std::unique_ptr<base::SharedMemory> json_message_shared_memory;
+  base::ReadOnlySharedMemoryMapping json_message_shared_memory;
   base::StringPiece json_message_string = GetStringPieceFromMojoHandle(
       std::move(json_message), &json_message_shared_memory);
   if (json_message_string.empty()) {

@@ -106,7 +106,6 @@ static void UpdateCcTransformLocalMatrix(
                                                      origin.Z());
   }
   compositor_node.needs_local_transform_update = true;
-  compositor_node.transform_changed = true;
 }
 
 static void AdjustPageScaleToUsePostLocal(cc::TransformNode& page_scale) {
@@ -118,7 +117,6 @@ static void AdjustPageScaleToUsePostLocal(cc::TransformNode& page_scale) {
   page_scale.post_local.matrix() = page_scale.local.matrix();
   page_scale.pre_local.matrix().setIdentity();
   page_scale.local.matrix().setIdentity();
-  page_scale.transform_changed = true;
 }
 
 static void SetTransformTreePageScaleFactor(
@@ -178,6 +176,7 @@ bool PropertyTreeManager::DirectlyUpdateScrollOffsetTransform(
   property_trees->scroll_tree.SetScrollOffset(
       scroll_node->GetCompositorElementId(), cc_transform->scroll_offset);
 
+  cc_transform->transform_changed = true;
   property_trees->transform_tree.set_needs_update(true);
   property_trees->scroll_tree.set_needs_update(true);
   return true;
@@ -202,6 +201,7 @@ bool PropertyTreeManager::DirectlyUpdateTransform(
   // flag, we should clear it to let the compositor respect the new value.
   cc_transform->is_currently_animating = false;
 
+  cc_transform->transform_changed = true;
   property_trees->transform_tree.set_needs_update(true);
   return true;
 }
@@ -221,6 +221,7 @@ bool PropertyTreeManager::DirectlyUpdatePageScaleTransform(
 
   SetTransformTreePageScaleFactor(&property_trees->transform_tree,
                                   cc_transform);
+  cc_transform->transform_changed = true;
   property_trees->transform_tree.set_needs_update(true);
   return true;
 }
@@ -332,14 +333,16 @@ void PropertyTreeManager::SetupRootScrollNode() {
   root_layer_.SetScrollTreeIndex(scroll_node.id);
 }
 
-static bool TransformsToAncestorHaveActiveAnimation(
+static bool TransformsToAncestorHaveNonAxisAlignedActiveAnimation(
     const TransformPaintPropertyNode& descendant,
     const TransformPaintPropertyNode& ancestor) {
   if (&descendant == &ancestor)
     return false;
   for (const auto* n = &descendant; n != &ancestor; n = n->Parent()) {
-    if (n->HasActiveTransformAnimation())
+    if (n->HasActiveTransformAnimation() &&
+        !n->TransformAnimationIsAxisAligned()) {
       return true;
+    }
   }
   return false;
 }
@@ -353,10 +356,9 @@ bool TransformsMayBe2dAxisMisaligned(const TransformPaintPropertyNode& a,
   if (!translation_2d_or_matrix.IsIdentityOr2DTranslation() &&
       !translation_2d_or_matrix.Matrix().Preserves2dAxisAlignment())
     return true;
-  // Assume any animation can cause 2d axis misalignment.
   const auto& lca = LowestCommonAncestor(a, b);
-  if (TransformsToAncestorHaveActiveAnimation(a, lca) ||
-      TransformsToAncestorHaveActiveAnimation(b, lca))
+  if (TransformsToAncestorHaveNonAxisAlignedActiveAnimation(a, lca) ||
+      TransformsToAncestorHaveNonAxisAlignedActiveAnimation(b, lca))
     return true;
   return false;
 }
@@ -416,6 +418,9 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
   compositor_node.source_node_id = parent_id;
 
   UpdateCcTransformLocalMatrix(compositor_node, transform_node);
+  compositor_node.transform_changed =
+      transform_node.NodeChanged() >=
+      PaintPropertyChangeType::kChangedOnlySimpleValues;
   compositor_node.flattens_inherited_transform =
       transform_node.FlattensInheritedTransform();
   compositor_node.sorting_context_id = transform_node.RenderingContextId();
@@ -642,12 +647,12 @@ void PropertyTreeManager::CloseCcEffect() {
   DCHECK(effect_stack_.size());
   const auto& previous_state = effect_stack_.back();
 
-  // An effect with exotic blending that is masked by a synthesized clip must
-  // have its blending to the outermost synthesized clip. It is because
-  // blending needs access to the backdrop of the enclosing effect. With
+  // An effect with exotic blending or backdrop-filter that is masked by a
+  // synthesized clip must have its blending to the outermost synthesized clip.
+  // These operations need access to the backdrop of the enclosing effect. With
   // the isolation for a synthesized clip, a blank backdrop will be seen.
-  // Therefore the blending is delegated to the outermost synthesized clip,
-  // thus the clip can't be shared with sibling layers, and must be closed now.
+  // Therefore the blending is delegated to the outermost synthesized clip, thus
+  // the clip can't be shared with sibling layers, and must be closed now.
   bool clear_synthetic_effects =
       !IsCurrentCcEffectSynthetic() &&
       current_.effect->BlendMode() != SkBlendMode::kSrcOver;
@@ -804,7 +809,7 @@ void PropertyTreeManager::ForceRenderSurfaceIfSyntheticRoundedCornerClip(
 }
 
 bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
-    const FloatRoundedRect& rect,
+    const ClipPaintPropertyNode& clip,
     PropertyTreeManager::CcEffectType type) {
   if (!RuntimeEnabledFeatures::FastBorderRadiusEnabled())
     return false;
@@ -812,24 +817,20 @@ bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
   if (type & CcEffectType::kSyntheticFor2dAxisAlignment)
     return false;
 
+  if (clip.ClipPath())
+    return false;
+
   auto WidthAndHeightAreTheSame = [](const FloatSize& size) {
     return size.Width() == size.Height();
   };
 
-  const FloatRoundedRect::Radii& radii = rect.GetRadii();
+  const FloatRoundedRect::Radii& radii = clip.ClipRect().GetRadii();
   if (!WidthAndHeightAreTheSame(radii.TopLeft()) ||
       !WidthAndHeightAreTheSame(radii.TopRight()) ||
       !WidthAndHeightAreTheSame(radii.BottomRight()) ||
       !WidthAndHeightAreTheSame(radii.BottomLeft())) {
     return false;
   }
-  float min_dimension =
-      std::min(rect.Rect().Width(), rect.Rect().Height()) / 2.0f;
-  if (radii.TopLeft().Width() > min_dimension ||
-      radii.TopRight().Width() > min_dimension ||
-      radii.BottomRight().Width() > min_dimension ||
-      radii.BottomLeft().Width() > min_dimension)
-    return false;
 
   return true;
 }
@@ -920,7 +921,7 @@ SkBlendMode PropertyTreeManager::SynthesizeCcEffectsForClipsIfNeeded(
     synthetic_effect.transform_id = EnsureCompositorTransformNode(transform);
     synthetic_effect.double_sided = !transform.IsBackfaceHidden();
     if (pending_clip.type & CcEffectType::kSyntheticForNonTrivialClip) {
-      if (SupportsShaderBasedRoundedCorner(pending_clip.clip->ClipRect(),
+      if (SupportsShaderBasedRoundedCorner(*pending_clip.clip,
                                            pending_clip.type)) {
         synthetic_effect.rounded_corner_bounds =
             gfx::RRectF(pending_clip.clip->ClipRect());
@@ -1089,12 +1090,15 @@ void PropertyTreeManager::PopulateCcEffectNode(
     effect_node.backdrop_filters =
         effect.BackdropFilter().AsCcFilterOperations();
     effect_node.backdrop_filter_bounds = effect.BackdropFilterBounds();
+    effect_node.backdrop_mask_element_id = effect.BackdropMaskElementId();
     effect_node.filters_origin = effect.FiltersOrigin();
     effect_node.transform_id =
         EnsureCompositorTransformNode(effect.LocalTransformSpace());
   }
   effect_node.blend_mode = blend_mode;
   effect_node.double_sided = !effect.LocalTransformSpace().IsBackfaceHidden();
+  effect_node.effect_changed =
+      effect.NodeChanged() >= PaintPropertyChangeType::kChangedOnlySimpleValues;
 }
 
 }  // namespace blink

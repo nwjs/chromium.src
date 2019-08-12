@@ -63,8 +63,8 @@ class TestBrowserWindow : public BrowserWindow {
   void Deactivate() override {}
   bool IsActive() const override;
   void FlashFrame(bool flash) override {}
-  bool IsAlwaysOnTop() const override;
-  void SetAlwaysOnTop(bool always_on_top) override {}
+  ui::ZOrderLevel GetZOrderLevel() const override;
+  void SetZOrderLevel(ui::ZOrderLevel order) override {}
   gfx::NativeWindow GetNativeWindow() const override;
   void SetTopControlsShownRatio(content::WebContents* web_contents,
                                 float ratio) override;
@@ -112,6 +112,7 @@ class TestBrowserWindow : public BrowserWindow {
   void ResetToolbarTabState(content::WebContents* contents) override {}
   void FocusToolbar() override {}
   ToolbarActionsBar* GetToolbarActionsBar() override;
+  ExtensionsContainer* GetExtensionsContainer() override;
   void ToolbarSizeChanged(bool is_animating) override {}
   void TabDraggingStatusChanged(bool is_dragging) override {}
   void FocusAppMenu() override {}
@@ -128,12 +129,15 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsTabStripEditable() const override;
   bool IsToolbarVisible() const override;
   bool IsToolbarShowing() const override;
+  ClickToCallDialog* ShowClickToCallDialog(
+      content::WebContents* contents,
+      ClickToCallSharingDialogController* controller) override;
   void ShowUpdateChromeDialog() override {}
   void ShowBookmarkBubble(const GURL& url, bool already_bookmarked) override {}
 #if !defined(OS_ANDROID)
   void ShowIntentPickerBubble(std::vector<apps::IntentPickerAppInfo> app_info,
-                              bool show_stay_in_chrome,
-                              bool show_remember_selection,
+                              bool enable_stay_in_chrome,
+                              bool show_persistence_options,
                               IntentPickerResponse callback) override {}
 #endif  //  !define(OS_ANDROID)
   autofill::SaveCardBubbleView* ShowSaveCreditCardBubble(
@@ -169,7 +173,7 @@ class TestBrowserWindow : public BrowserWindow {
       const base::Callback<void(bool)>& callback) override {}
   void UserChangedTheme(BrowserThemeChangeType theme_change_type) override {}
   void CutCopyPaste(int command_id) override {}
-  FindBar* CreateFindBar() override;
+  std::unique_ptr<FindBar> CreateFindBar() override;
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost()
       override;
   void ShowAvatarBubbleFromAvatarButton(
@@ -194,9 +198,7 @@ class TestBrowserWindow : public BrowserWindow {
   bool IsVisibleOnAllWorkspaces() const override;
   void ShowEmojiPanel() override {}
 
-#if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
   void ShowInProductHelpPromo(InProductHelpFeature iph_feature) override {}
-#endif
 
  protected:
   void DestroyBrowser() override {}

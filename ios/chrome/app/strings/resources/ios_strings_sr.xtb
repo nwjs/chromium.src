@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Блиц</translation>
 <translation id="2958718410589002129">Лозинке</translation>
 <translation id="2969979262385602596">Пријављивање није успело. Пробајте поново касније.</translation>
+<translation id="298306318844797842">Додајте начин плаћања...</translation>
 <translation id="2989805286512600854">Отвори на новој картици</translation>
 <translation id="3037605927509011580">О, не!</translation>
 <translation id="3112556859945124369">Означи…</translation>
@@ -477,6 +478,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="7961015016161918242">Никад</translation>
 <translation id="7971521879845308059">Блокирај искачуће прозоре</translation>
 <translation id="7982789257301363584">Мрежа</translation>
+<translation id="8007420562015504427">Претрага без архивирања</translation>
 <translation id="8019783059653722575">Ово вам омогућава да чувате и отпремате слике.</translation>
 <translation id="802154636333426148">Преузимање није успело</translation>
 <translation id="8023878949384262191">Проширује одељак.</translation>
@@ -491,6 +493,7 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="8225985093977202398">Кеширане слике и датотеке</translation>
 <translation id="8261506727792406068">Избриши</translation>
 <translation id="8281781826761538115">Подразумевано – <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Нова претрага</translation>
 <translation id="8328777765163860529">Затвори све</translation>
 <translation id="8381750437846184350">Контролишите како Google користи историју прегледања за персонализацију Претраге, огласа и других Google услуга</translation>
 <translation id="8407669440184693619">Није пронађена ниједна лозинка за овај сајт</translation>
@@ -507,7 +510,6 @@ Handoff треба да се омогући у одељку General (Опште)
 <translation id="8532105204136943229">Година истека</translation>
 <translation id="8534481786647257214">Google+ пост је довршен.</translation>
 <translation id="8548878600947630424">Пронађи на страници...</translation>
-<translation id="8583866649835978847">Пошаљите веб-страницу <ph name="TITLE" /> на неки од уређаја.</translation>
 <translation id="8605219856220328675">Затвори картицу.</translation>
 <translation id="8620640915598389714">Измени</translation>
 <translation id="8636825310635137004">Да би вам картице биле доступне на другим уређајима, укључите синхронизацију.</translation>

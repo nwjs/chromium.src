@@ -28,10 +28,8 @@
 #include "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #include "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
-#import "ios/chrome/browser/tabs/tab.h"
 #import "ios/chrome/browser/tabs/tab_helper_util.h"
 #import "ios/chrome/browser/tabs/tab_model.h"
-#import "ios/chrome/browser/tabs/tab_model_observer.h"
 #import "ios/chrome/browser/ui/activity_services/share_protocol.h"
 #import "ios/chrome/browser/ui/activity_services/share_to_data.h"
 #import "ios/chrome/browser/ui/alert_coordinator/alert_coordinator.h"
@@ -60,7 +58,7 @@
 #import "ios/testing/ocmock_complex_type_helper.h"
 #import "ios/web/public/deprecated/crw_js_injection_receiver.h"
 #import "ios/web/public/deprecated/crw_native_content_provider.h"
-#include "ios/web/public/referrer.h"
+#include "ios/web/public/navigation/referrer.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
 #import "ios/web/public/test/fakes/test_navigation_manager.h"
 #import "ios/web/public/test/fakes/test_web_state.h"
@@ -88,8 +86,7 @@ using web::WebStateImpl;
 @class ToolbarButtonUpdater;
 
 // Private methods in BrowserViewController to test.
-@interface BrowserViewController (Testing) <CRWNativeContentProvider,
-                                            TabModelObserver>
+@interface BrowserViewController (Testing) <CRWNativeContentProvider>
 - (void)pageLoadStarted:(NSNotification*)notification;
 - (void)pageLoadComplete:(NSNotification*)notification;
 - (void)webStateSelected:(web::WebState*)webState
@@ -208,28 +205,19 @@ class BrowserViewControllerTest : public BlockCleanupTest {
                                       forProtocol:@protocol(PageInfoCommands)];
     id mockApplicationCommandHandler =
         OCMProtocolMock(@protocol(ApplicationCommands));
-
     // Stub methods for TabModel.
     NSUInteger tabCount = 1;
     [[[tabModel stub] andReturnValue:OCMOCK_VALUE(tabCount)] count];
-    id currentTab = [[BVCTestTabMock alloc]
-        initWithRepresentedObject:[OCMockObject niceMockForClass:[Tab class]]];
-    [[[tabModel stub] andReturn:currentTab] currentTab];
-    [[[tabModel stub] andReturn:currentTab] tabAtIndex:0];
-    [[tabModel stub] addObserver:[OCMArg any]];
-    [[tabModel stub] removeObserver:[OCMArg any]];
     [[tabModel stub] saveSessionImmediately:NO];
-    [[tabModel stub] setCurrentTab:[OCMArg any]];
     [[tabModel stub] closeAllTabs];
-    tab_ = currentTab;
 
     web::WebState::CreateParams params(chrome_browser_state_.get());
     std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
     webStateImpl_ = static_cast<web::WebStateImpl*>(webState.get());
     AttachTabHelpers(webStateImpl_, NO);
-    [currentTab setWebState:webStateImpl_];
     tabModel_.webStateList->InsertWebState(0, std::move(webState), 0,
                                            WebStateOpener());
+    tabModel_.webStateList->ActivateWebStateAt(0);
 
     // Load TemplateURLService.
     TemplateURLService* template_url_service =
@@ -283,7 +271,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   IOSChromeScopedTestingLocalState local_state_;
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
   WebStateImpl* webStateImpl_;
-  Tab* tab_;
   TabModel* tabModel_;
   BrowserViewControllerHelper* bvcHelper_;
   PKAddPassesViewController* passKitViewController_;
@@ -294,19 +281,8 @@ class BrowserViewControllerTest : public BlockCleanupTest {
 };
 
 TEST_F(BrowserViewControllerTest, TestWebStateSelected) {
-  [bvc_ webStateSelected:tab_.webState notifyToolbar:YES];
-  EXPECT_EQ([tab_.webState->GetView() superview], [bvc_ contentArea]);
-  EXPECT_TRUE(webStateImpl_->IsVisible());
-}
-
-TEST_F(BrowserViewControllerTest, TestWebStateSelectedIsNewWebState) {
-  id block = [^{
-    return GURL(kChromeUINewTabURL);
-  } copy];
-  id tabMock = (id)tab_;
-  [tabMock onSelector:@selector(url) callBlockExpectation:block];
-  [bvc_ webStateSelected:tab_.webState notifyToolbar:YES];
-  EXPECT_EQ([tab_.webState->GetView() superview], [bvc_ contentArea]);
+  [bvc_ webStateSelected:webStateImpl_ notifyToolbar:YES];
+  EXPECT_EQ([webStateImpl_->GetView() superview], [bvc_ contentArea]);
   EXPECT_TRUE(webStateImpl_->IsVisible());
 }
 
@@ -325,8 +301,6 @@ TEST_F(BrowserViewControllerTest, DISABLED_TestShieldWasTapped) {
 // load on a handset, but not stop the load on a tablet.
 TEST_F(BrowserViewControllerTest,
        TestLocationBarBeganEdit_whenPageLoadIsInProgress) {
-  OCMockObject* tabMock = static_cast<OCMockObject*>(tab_);
-
   // Have the TestLocationBarModel indicate that a page load is in progress.
   id partialMock = OCMPartialMock(bvcHelper_);
   OCMExpect([partialMock isToolbarLoading:static_cast<web::WebState*>(
@@ -337,8 +311,6 @@ TEST_F(BrowserViewControllerTest,
   [bvc_ locationBarBeganEdit];
   if (!IsIPadIdiom())
     EXPECT_FALSE(webStateImpl_->IsLoading());
-
-  EXPECT_OCMOCK_VERIFY(tabMock);
 }
 
 TEST_F(BrowserViewControllerTest, TestClearPresentedState) {

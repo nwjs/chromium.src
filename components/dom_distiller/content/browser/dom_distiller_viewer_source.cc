@@ -21,7 +21,7 @@
 #include "components/dom_distiller/content/browser/distiller_javascript_service_impl.h"
 #include "components/dom_distiller/content/browser/distiller_javascript_utils.h"
 #include "components/dom_distiller/content/browser/distiller_ui_handle.h"
-#include "components/dom_distiller/content/common/distiller_page_notifier_service.mojom.h"
+#include "components/dom_distiller/content/common/mojom/distiller_page_notifier_service.mojom.h"
 #include "components/dom_distiller/core/distilled_page_prefs.h"
 #include "components/dom_distiller/core/dom_distiller_request_view_base.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
@@ -230,7 +230,7 @@ DomDistillerViewerSource::DomDistillerViewerSource(
 
 DomDistillerViewerSource::~DomDistillerViewerSource() {}
 
-std::string DomDistillerViewerSource::GetSource() const {
+std::string DomDistillerViewerSource::GetSource() {
   return scheme_ + "://";
 }
 
@@ -292,8 +292,7 @@ void DomDistillerViewerSource::StartDataRequest(
   callback.Run(base::RefCountedString::TakeString(&unsafe_page_html));
 }
 
-std::string DomDistillerViewerSource::GetMimeType(
-    const std::string& path) const {
+std::string DomDistillerViewerSource::GetMimeType(const std::string& path) {
   if (kViewerCssPath == path)
     return "text/css";
   if (kViewerLoadingImagePath == path)
@@ -304,15 +303,15 @@ std::string DomDistillerViewerSource::GetMimeType(
 bool DomDistillerViewerSource::ShouldServiceRequest(
     const GURL& url,
     content::ResourceContext* resource_context,
-    int render_process_id) const {
+    int render_process_id) {
   return url.SchemeIs(scheme_);
 }
 
-std::string DomDistillerViewerSource::GetContentSecurityPolicyStyleSrc() const {
+std::string DomDistillerViewerSource::GetContentSecurityPolicyStyleSrc() {
   return "style-src 'self' https://fonts.googleapis.com;";
 }
 
-std::string DomDistillerViewerSource::GetContentSecurityPolicyChildSrc() const {
+std::string DomDistillerViewerSource::GetContentSecurityPolicyChildSrc() {
   return "child-src *;";
 }
 

@@ -26,6 +26,7 @@ import org.chromium.components.offline_items_collection.ContentId;
 import org.chromium.components.offline_items_collection.OfflineContentProvider;
 import org.chromium.components.offline_items_collection.OfflineItem;
 import org.chromium.components.offline_items_collection.OfflineItemState;
+import org.chromium.components.offline_items_collection.UpdateDelta;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.File;
@@ -208,7 +209,7 @@ public class DownloadTestRule extends ChromeActivityTestRule<ChromeActivity> {
         public void onItemRemoved(ContentId id) {}
 
         @Override
-        public void onItemUpdated(OfflineItem item) {
+        public void onItemUpdated(OfflineItem item, UpdateDelta updateDelta) {
             if (item.state == OfflineItemState.COMPLETE) {
                 mLastDownloadFilePath = item.filePath;
                 mHttpDownloadFinished.notifyCalled();
@@ -229,6 +230,13 @@ public class DownloadTestRule extends ChromeActivityTestRule<ChromeActivity> {
     }
 
     private void setUp() throws Exception {
+        TestThreadUtils.runOnUiThreadBlocking(() -> {
+            DownloadController.enableNewDownloadBackendForTesting(true);
+            mSavedDownloadManagerService =
+                    DownloadManagerService.setDownloadManagerService(new TestDownloadManagerService(
+                            new SystemDownloadNotifier(), new Handler(), UPDATE_DELAY_MILLIS));
+        });
+
         mActivityStart.customMainActivityStart();
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
@@ -239,13 +247,9 @@ public class DownloadTestRule extends ChromeActivityTestRule<ChromeActivity> {
         cleanUpAllDownloads();
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            mSavedDownloadManagerService =
-                    DownloadManagerService.setDownloadManagerService(new TestDownloadManagerService(
-                            new SystemDownloadNotifier(), new Handler(), UPDATE_DELAY_MILLIS));
             DownloadController.setDownloadNotificationService(
                     DownloadManagerService.getDownloadManagerService());
-            OfflineContentAggregatorFactory.forProfile(null).addObserver(
-                    new TestDownloadBackendObserver());
+            OfflineContentAggregatorFactory.get().addObserver(new TestDownloadBackendObserver());
         });
     }
 

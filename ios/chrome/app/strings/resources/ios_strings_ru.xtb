@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Вспышка</translation>
 <translation id="2958718410589002129">Пароли</translation>
 <translation id="2969979262385602596">Не удалось войти в аккаунт. Повторите попытку.</translation>
+<translation id="298306318844797842">Добавить способ оплаты</translation>
 <translation id="2989805286512600854">Открыть в новой вкладке</translation>
 <translation id="3037605927509011580">Опаньки...</translation>
 <translation id="3112556859945124369">Отметить…</translation>
@@ -477,6 +478,7 @@
 <translation id="7961015016161918242">Нет</translation>
 <translation id="7971521879845308059">Блок. вспл. окна</translation>
 <translation id="7982789257301363584">Сеть</translation>
+<translation id="8007420562015504427">Поиск в режиме инкогнито</translation>
 <translation id="8019783059653722575">Это нужно, чтобы сохранять и загружать фотографии</translation>
 <translation id="802154636333426148">Ошибка скачивания</translation>
 <translation id="8023878949384262191">Разворачивает раздел.</translation>
@@ -491,6 +493,7 @@
 <translation id="8225985093977202398">Файлы, сохраненные в кеше</translation>
 <translation id="8261506727792406068">Удалить</translation>
 <translation id="8281781826761538115">Язык по умолчанию: <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Новый поиск</translation>
 <translation id="8328777765163860529">Закрыть все</translation>
 <translation id="8381750437846184350">Укажите, как Google может использовать историю браузера для персонализации Поиска, Рекламы и других сервисов.</translation>
 <translation id="8407669440184693619">Паролей для этого сайта не найдено</translation>
@@ -507,7 +510,6 @@
 <translation id="8532105204136943229">Год</translation>
 <translation id="8534481786647257214">Опубликовано в Google+.</translation>
 <translation id="8548878600947630424">Найти на странице…</translation>
-<translation id="8583866649835978847">Отправьте вкладку "<ph name="TITLE" />" на одно из своих устройств.</translation>
 <translation id="8605219856220328675">Закрыть вкладку.</translation>
 <translation id="8620640915598389714">Изменить</translation>
 <translation id="8636825310635137004">Чтобы получить доступ к вкладкам на всех ваших устройствах, включите синхронизацию.</translation>

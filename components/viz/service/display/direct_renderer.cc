@@ -25,6 +25,7 @@
 #include "components/viz/service/display/bsp_tree.h"
 #include "components/viz/service/display/bsp_walk_action.h"
 #include "components/viz/service/display/output_surface.h"
+#include "components/viz/service/display/overlay_candidate_validator.h"
 #include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/transform.h"
@@ -68,10 +69,12 @@ static gfx::Transform window_matrix(int x, int y, int width, int height) {
   return canvas;
 }
 
+#if defined(OS_WIN)
 // Switching between enabling DC layers and not is expensive, so only
 // switch away after a large number of frames not needing DC layers have
 // been produced.
 constexpr int kNumberOfFramesBeforeDisablingDCLayers = 60;
+#endif  // defined(OS_WIN)
 
 // Returns the bounding box that contains the specified rounded corner.
 gfx::RectF ComputeRoundedCornerBoundingBox(const gfx::RRectF& rrect,
@@ -108,15 +111,17 @@ DirectRenderer::DirectRenderer(const RendererSettings* settings,
                                DisplayResourceProvider* resource_provider)
     : settings_(settings),
       output_surface_(output_surface),
-      resource_provider_(resource_provider),
-      overlay_processor_(std::make_unique<OverlayProcessor>(
-          output_surface->context_provider())) {}
+      resource_provider_(resource_provider) {}
 
 DirectRenderer::~DirectRenderer() = default;
 
 void DirectRenderer::Initialize() {
-  overlay_processor_->SetOverlayCandidateValidator(
-      output_surface_->TakeOverlayCandidateValidator());
+  // Create overlay validator based on the platform and set it on the newly
+  // created processor. This would initialize the strategies on the validator as
+  // well.
+  gpu::SurfaceHandle surface_handle = output_surface_->GetSurfaceHandle();
+  overlay_processor_ = OverlayProcessor::CreateOverlayProcessor(
+      output_surface_->context_provider(), surface_handle, *settings_);
 
   auto* context_provider = output_surface_->context_provider();
 
@@ -125,8 +130,10 @@ void DirectRenderer::Initialize() {
   if (context_provider) {
     if (context_provider->ContextCapabilities().commit_overlay_planes)
       allow_empty_swap_ = true;
+#if defined(OS_WIN)
     if (context_provider->ContextCapabilities().dc_layers)
       supports_dc_layers_ = true;
+#endif
     if (context_provider->ContextCapabilities()
             .disable_non_empty_post_sub_buffers) {
       use_partial_swap_ = false;
@@ -284,7 +291,8 @@ void DirectRenderer::DecideRenderPassAllocationsForFrame(
 
 void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
                                float device_scale_factor,
-                               const gfx::Size& device_viewport_size) {
+                               const gfx::Size& device_viewport_size,
+                               float sdr_white_level) {
   DCHECK(visible_);
   TRACE_EVENT0("viz,benchmark", "DirectRenderer::DrawFrame");
   UMA_HISTOGRAM_COUNTS_1M(
@@ -319,6 +327,7 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
       overlay_processor_->GetAndResetOverlayDamage());
   current_frame()->root_damage_rect.Intersect(gfx::Rect(device_viewport_size));
   current_frame()->device_viewport_size = device_viewport_size;
+  current_frame()->sdr_white_level = sdr_white_level;
 
   // Only reshape when we know we are going to draw. Otherwise, the reshape
   // can leave the window at the wrong size if we never draw and the proper
@@ -364,20 +373,10 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   overlay_processor_->SetDisplayTransformHint(
       output_surface_->GetDisplayTransform());
 
-  // Create the overlay candidate for the output surface, and mark it as
-  // always handled.
-  if (output_surface_->IsDisplayedAsOverlayPlane()) {
-    OverlayCandidate output_surface_plane;
-    output_surface_plane.display_rect =
-        gfx::RectF(device_viewport_size.width(), device_viewport_size.height());
-    output_surface_plane.resource_size_in_pixels = device_viewport_size;
-    output_surface_plane.format = output_surface_->GetOverlayBufferFormat();
-    output_surface_plane.color_space = reshape_device_color_space_;
-    output_surface_plane.use_output_surface_for_resource = true;
-    output_surface_plane.overlay_handled = true;
-    output_surface_plane.is_opaque = true;
-    current_frame()->overlay_list.push_back(output_surface_plane);
-  }
+  // Only used for pre-OOP-D code path.
+  // TODO(weiliangc): Remove once reflector code is removed.
+  overlay_processor_->SetSoftwareMirrorMode(
+      output_surface_->IsSoftwareMirrorMode());
 
   // Attempt to replace some or all of the quads of the root render pass with
   // overlays.
@@ -385,10 +384,30 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
       resource_provider_, render_passes_in_draw_order,
       output_surface_->color_matrix(), render_pass_filters_,
       render_pass_backdrop_filters_, &current_frame()->overlay_list,
-      &current_frame()->ca_layer_overlay_list,
-      &current_frame()->dc_layer_overlay_list,
       &current_frame()->root_damage_rect,
       &current_frame()->root_content_bounds);
+
+  if (output_surface_->IsDisplayedAsOverlayPlane()) {
+    current_frame()->output_surface_plane =
+        overlay_processor_->ProcessOutputSurfaceAsOverlay(
+            device_viewport_size, output_surface_->GetOverlayBufferFormat(),
+            reshape_device_color_space_);
+  }
+
+#if defined(OS_WIN)
+  bool was_using_dc_layers = using_dc_layers_;
+  if (!current_frame()->overlay_list.empty()) {
+    DCHECK(supports_dc_layers_);
+    using_dc_layers_ = true;
+    frames_since_using_dc_layers_ = 0;
+  } else if (++frames_since_using_dc_layers_ >=
+             kNumberOfFramesBeforeDisablingDCLayers) {
+    using_dc_layers_ = false;
+  }
+
+  if (supports_dc_layers_ && (was_using_dc_layers != using_dc_layers_))
+    SetEnableDCLayers(using_dc_layers_);
+#endif
 
   // Draw all non-root render passes except for the root render pass.
   for (const auto& pass : *render_passes_in_draw_order) {
@@ -397,15 +416,7 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     DrawRenderPassAndExecuteCopyRequests(pass.get());
   }
 
-  bool was_using_dc_layers = using_dc_layers_;
-  if (!current_frame()->dc_layer_overlay_list.empty()) {
-    DCHECK(supports_dc_layers_);
-    using_dc_layers_ = true;
-    frames_since_using_dc_layers_ = 0;
-  } else if (++frames_since_using_dc_layers_ >=
-             kNumberOfFramesBeforeDisablingDCLayers) {
-    using_dc_layers_ = false;
-  }
+#if defined(OS_WIN)
   if (supports_dc_layers_ &&
       (did_reshape || (was_using_dc_layers != using_dc_layers_))) {
     // The entire surface has to be redrawn if it was reshaped or if switching
@@ -413,6 +424,7 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
     // discarded and some contents would otherwise be undefined.
     current_frame()->root_damage_rect = gfx::Rect(device_viewport_size);
   }
+#endif
 
   // We can skip all drawing if the damage rect is now empty.
   bool skip_drawing_root_render_pass =
@@ -432,12 +444,9 @@ void DirectRenderer::DrawFrame(RenderPassList* render_passes_in_draw_order,
   // through other means on the service side.
   // TODO(afrantzis): Consider using per-overlay fences instead of the one
   // associated with the output surface when possible.
-  if (!current_frame()->overlay_list.empty()) {
-    for (auto& overlay : current_frame()->overlay_list) {
-      if (overlay.use_output_surface_for_resource)
-        overlay.gpu_fence_id = output_surface_->UpdateGpuFence();
-    }
-  }
+  if (current_frame()->output_surface_plane)
+    current_frame()->output_surface_plane->gpu_fence_id =
+        output_surface_->UpdateGpuFence();
 
   FinishDrawingFrame();
   render_passes_in_draw_order->clear();
@@ -643,8 +652,10 @@ void DirectRenderer::DrawRenderPass(const RenderPass* render_pass) {
   // set on the root framebuffer or else the rendering may modify something
   // outside the damage rectangle, even if the damage rectangle is the size of
   // the full backbuffer.
-  bool render_pass_requires_scissor =
-      (supports_dc_layers_ && is_root_render_pass) || render_pass_is_clipped;
+  bool render_pass_requires_scissor = render_pass_is_clipped;
+#if defined(OS_WIN)
+  render_pass_requires_scissor |= (supports_dc_layers_ && is_root_render_pass);
+#endif
   bool has_external_stencil_test =
       is_root_render_pass && output_surface_->HasExternalStencilTest();
   bool should_clear_surface =
@@ -750,8 +761,6 @@ void DirectRenderer::UseRenderPass(const RenderPass* render_pass) {
   if (render_pass == current_frame()->root_render_pass) {
     BindFramebufferToOutputSurface();
 
-    if (supports_dc_layers_)
-      SetEnableDCLayers(using_dc_layers_);
     output_surface_->SetDrawRectangle(current_frame()->root_damage_rect);
     InitializeViewport(current_frame(), render_pass->output_rect,
                        gfx::Rect(current_frame()->device_viewport_size),
@@ -782,10 +791,12 @@ void DirectRenderer::UseRenderPass(const RenderPass* render_pass) {
 gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
     const RenderPass* render_pass) const {
   const RenderPass* root_render_pass = current_frame()->root_render_pass;
-  const gfx::Rect root_damage_rect = current_frame()->root_damage_rect;
+  gfx::Rect root_damage_rect = current_frame()->root_damage_rect;
 
-  if (render_pass == root_render_pass)
+  if (render_pass == root_render_pass) {
+    root_damage_rect.Union(output_surface_->GetCurrentFramebufferDamage());
     return root_damage_rect;
+  }
 
   // If the root damage rect has been expanded due to overlays, all the other
   // damage rect calculations are incorrect.

@@ -36,6 +36,7 @@
 #include "chrome/browser/search_engines/ui_thread_search_terms_data.h"
 #include "chrome/browser/storage/durable_storage_permission_context.h"
 #include "chrome/browser/tab_contents/tab_util.h"
+#include "chrome/browser/wake_lock/wake_lock_permission_context.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/url_constants.h"
@@ -133,6 +134,10 @@ ContentSettingsType PermissionTypeToContentSetting(PermissionType permission) {
       return CONTENT_SETTINGS_TYPE_IDLE_DETECTION;
     case PermissionType::PERIODIC_BACKGROUND_SYNC:
       return CONTENT_SETTINGS_TYPE_PERIODIC_BACKGROUND_SYNC;
+    case PermissionType::WAKE_LOCK_SCREEN:
+      return CONTENT_SETTINGS_TYPE_WAKE_LOCK_SCREEN;
+    case PermissionType::WAKE_LOCK_SYSTEM:
+      return CONTENT_SETTINGS_TYPE_WAKE_LOCK_SYSTEM;
     case PermissionType::NUM:
       // This will hit the NOTREACHED below.
       break;
@@ -322,6 +327,12 @@ PermissionManager::PermissionManager(Profile* profile) : profile_(profile) {
       std::make_unique<IdleDetectionPermissionContext>(profile);
   permission_contexts_[CONTENT_SETTINGS_TYPE_PERIODIC_BACKGROUND_SYNC] =
       std::make_unique<PeriodicBackgroundSyncPermissionContext>(profile);
+  permission_contexts_[CONTENT_SETTINGS_TYPE_WAKE_LOCK_SCREEN] =
+      std::make_unique<WakeLockPermissionContext>(
+          profile, CONTENT_SETTINGS_TYPE_WAKE_LOCK_SCREEN);
+  permission_contexts_[CONTENT_SETTINGS_TYPE_WAKE_LOCK_SYSTEM] =
+      std::make_unique<WakeLockPermissionContext>(
+          profile, CONTENT_SETTINGS_TYPE_WAKE_LOCK_SYSTEM);
 }
 
 PermissionManager::~PermissionManager() {

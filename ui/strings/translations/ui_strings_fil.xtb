@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Hanapin</translation>
 <translation id="1398853756734560583">Maximize</translation>
 <translation id="1409544243779336081">Rekomendasyon sa app</translation>
+<translation id="1498028757988366001">Hinanap mo ito dati. Kapag na-delete ang "<ph name="QUERY" />" sa iyong history, permanente itong aalisin sa account mo sa lahat ng iyong device.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuto at }one{# minuto at }other{# na minuto at }}</translation>
 <translation id="1643823602425662293">Notification</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Nakumpleto na ang pag-calibrate</translation>
 <translation id="252373100621549798">Hindi Kilalang Display</translation>
+<translation id="2545651323591713692">I-snooze</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{sa loob ng 1 oras}one{sa loob ng # oras}other{sa loob ng # na oras}}</translation>
 <translation id="2583543531130364912">I-calibrate ang iyong touchscreen</translation>
 <translation id="2666092431469916601">Tuktok</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Mag-scroll dito</translation>
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 araw}one{# araw}other{# na araw}}</translation>
+<translation id="3295886253693811851">Tumawag mula sa</translation>
 <translation id="335581015389089642">Pananalita</translation>
 <translation id="3443810440409579745">Natanggap ang tab.</translation>
 <translation id="3479552764303398839">Hindi ngayon</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 minuto ang nakalipas}one{# minuto ang nakalipas}other{# na minuto ang nakalipas}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 minuto na lang ang natitira}one{# minuto na lang ang natitira}other{# na minuto na lang ang natitira}}</translation>
+<translation id="7430878839542012341">I-delete ang paghahanap na ito mula sa iyong history?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> (na) TB</translation>
 <translation id="7507604095951736240">Emoji</translation>
 <translation id="7658239707568436148">Kanselahin</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Pinapatakbo ng Google Assistant ang iyong mga paghahanap. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, Autocomplete</translation>
 <translation id="815598010540052116">Mag-scroll Pababa</translation>
-<translation id="8170087467028567933">Kapag inalis ang suhestyong ito, itatago ito sa iyong account sa lahat ng device mo.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
 <translation id="8245914219290430011">Tab</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">I-tsek</translation>
 <translation id="8393700583063109961">Ipadala ang mensahe</translation>
 <translation id="8394908167088220973">I-Play/I-Pause ang Media</translation>
-<translation id="8420205633584771378">Alisin ang suhestyong ito?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 taon}one{# taon}other{# na taon}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> File (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Palaging ipinapakita ang shelf</translation>

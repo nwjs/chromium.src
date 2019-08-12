@@ -12,10 +12,10 @@
 <translation id="1104621072296271835">साथ मिलकर आपके डिवाइस और बेहतर काम करते हैं</translation>
 <translation id="112308213915226829">अलमारी कोअपने-आपछिपाएं</translation>
 <translation id="1153356358378277386">युग्‍मित डिवाइस</translation>
+<translation id="1175572348579024023">स्क्रोल करें</translation>
 <translation id="1178581264944972037">रोकें</translation>
 <translation id="1195412055398077112">ओवरस्कैन</translation>
 <translation id="119944043368869598">सारा डेटा साफ़ करें</translation>
-<translation id="123828989343052515">नई डेस्क</translation>
 <translation id="1247372569136754018">माइक्रोफ़ोन (आंतरिक)</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> से चार्ज हो रहा है</translation>
 <translation id="1255033239764210633">मौसम कैसा है?</translation>
@@ -56,7 +56,9 @@
 <translation id="1746730358044914197">इनपुट विधियों को आपका व्यवस्थापक कॉन्फ़िगर करता है.</translation>
 <translation id="1747827819627189109">ऑन-स्‍क्रीन कीबोर्ड सक्षम है</translation>
 <translation id="1761222317188459878">नेटवर्क कनेक्शन टॉगल करें. <ph name="STATE_TEXT" /></translation>
+<translation id="1771761307086386028">दाईं तरफ़ स्क्रोल करें</translation>
 <translation id="1812997170047690955">मेरी स्क्रीन पर क्या है?</translation>
+<translation id="1820355135508821526">इस डिवाइस पर लागू की गई किसी नीति ने <ph name="FEATURE_NAME" /> की सुविधा बंद कर दी है. कृपया अपने एडमिन से बात करके बदलावों का अनुरोध करें.</translation>
 <translation id="1823873187264960516">ईथरनेट: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">Assistant (सेवा लोड हो रही है...)</translation>
 <translation id="1850504506766569011">वाई-फ़ाई  बंद है.</translation>
@@ -70,6 +72,7 @@
 <translation id="1957803754585243749">0°</translation>
 <translation id="1957958912175573503">अपनी भाषा सेट करें</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="1978498689038657292">टेक्स्ट इनपुट</translation>
 <translation id="1993072747612765854"><ph name="SYSTEM_APP_NAME" /> के नए अपडेट के बारे में ज़्यादा जानें</translation>
 <translation id="1995660704900986789">पावर बंद करें</translation>
 <translation id="2012624427112548395">Ctrl+Search+H</translation>
@@ -109,8 +112,8 @@
 <translation id="255671100581129685">सार्वजनिक सत्र में Google Assistant उपलब्ध नहीं है.</translation>
 <translation id="2575685495496069081">एक से ज़्यादा 'साइन इन' को बंद कर दिया गया है</translation>
 <translation id="2582112259361606227">अपडेट करने के लिए रीस्टार्ट करें</translation>
-<translation id="2597972630681408282">नाइट लाइट: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2617342710774726426">सिम कार्ड लॉक है</translation>
+<translation id="2651765386227849097">इस डिवाइस पर Google Assistant की सुविधा बंद है.</translation>
 <translation id="2653659639078652383">सबमिट करें</translation>
 <translation id="2658778018866295321">क्लिक करके खींचें और छोड़ें</translation>
 <translation id="2700493154570097719">अपना कीबोर्ड सेट करें</translation>
@@ -204,6 +207,7 @@
 <translation id="3977512764614765090">बैटरी <ph name="PERCENTAGE" />% बाकी है और चार्ज हो रही है.</translation>
 <translation id="3995138139523574647">USB-C डिवाइस (दायां पिछला पोर्ट)</translation>
 <translation id="4017989525502048489">लेज़र पॉइंटर</translation>
+<translation id="4021716437419160885">नीचे स्क्रोल करें</translation>
 <translation id="4042660782729322247">आप अपनी स्क्रीन शेयर कर रहे हैं</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{एक ऐप्लिकेशन के लिए बंद है}one{# ऐप्लिकेशन के लिए बंद है}other{# ऐप्लिकेशन के लिए बंद है}}</translation>
 <translation id="4072264167173457037">मध्यम सिग्नल</translation>
@@ -259,9 +263,11 @@
 <translation id="4895488851634969361">बैटरी भरी हुई है.</translation>
 <translation id="490375751687810070">लम्बवत</translation>
 <translation id="4905614135390995787">उच्च कंट्रास्ट मोड को टॉगल करने का शॉर्टकट बदल गया है. कृपया<ph name="OLD_SHORTCUT" /> के बजाय <ph name="NEW_SHORTCUT" /> का उपयोग करें.</translation>
+<translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% बैटरी</translation>
 <translation id="4917385247580444890">सशक्त</translation>
 <translation id="4918086044614829423">स्वीकार करें</translation>
 <translation id="4924411785043111640">रीस्टार्ट करें और रीसेट करें</translation>
+<translation id="495046168593986294">ऊपर स्क्रोल करें</translation>
 <translation id="4961318399572185831">स्‍क्रीन कास्‍ट करें</translation>
 <translation id="5030687792513154421">समय पूरा हो गया</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" /> एक नए फ़ोन से कनेक्ट हो गया है</translation>
@@ -295,6 +301,7 @@
 <translation id="5648021990716966815">माइक जैक</translation>
 <translation id="5669267381087807207">सक्रिय कर रहा है</translation>
 <translation id="5673434351075758678">अपनी सेटिंग सिंक करने के बाद "<ph name="FROM_LOCALE" />" से "<ph name="TO_LOCALE" />".</translation>
+<translation id="5682642926269496722">मौजूदा उपयोगकर्ता खाते के लिए Google Assistant की सुविधा उपलब्ध नहीं है.</translation>
 <translation id="5691772641933328258">फ़िंगरप्रिंट नहीं पहचाना गया</translation>
 <translation id="5710450975648804523">'परेशान न करें' मोड चालू है</translation>
 <translation id="574392208103952083">मध्यम</translation>
@@ -319,6 +326,8 @@
 <translation id="598882571027504733">अपडेट पाने के लिए, अटैच किए गए कीबोर्ड से अपने Chromebook को रीस्टार्ट करें.</translation>
 <translation id="5992218262414051481">हाई कंट्रास्ट मोड चालू है. उसे टॉगल करने के लिए फिर से Ctrl+Search+H दबाएं.</translation>
 <translation id="6018164090099858612">मिरर मोड से बाहर निकाला जा रहा है</translation>
+<translation id="602001110135236999">बाईं ओर स्क्रोल करें</translation>
+<translation id="6040143037577758943">बंद करें</translation>
 <translation id="6043212731627905357">यह मॉनीटर आपके <ph name="DEVICE_TYPE" /> के साथ काम नहीं कर रहा है (मॉनीटर समर्थित नहीं है).</translation>
 <translation id="6043994281159824495">अब प्रस्थान करें</translation>
 <translation id="6047696787498798094">किसी दूसरे उपयोगकर्ता पर स्‍विच करने से स्‍क्रीन शेयर होना बंद हो जाएगा. क्या आप शेयर करना जारी रखना चाहते हैं?</translation>
@@ -326,6 +335,7 @@
 <translation id="6064337552080329342">माफ़ करें, आपके पासवर्ड की पुष्टि नहीं की जा सकी. कृपया फिर से कोशिश करें.</translation>
 <translation id="607652042414456612">आपका कंप्यूर आस-पास के ब्लूटूथ डिवाइस के लिए खोजे जाने योग्य है और वह "<ph name="NAME" />" के रूप में <ph name="ADDRESS" /> पते के साथ दिखाई देगा</translation>
 <translation id="6106745654298855237"><ph name="POWER_SOURCE" /> चार्ज हो रहा है</translation>
+<translation id="612734058257491180">Google Assistant की सुविधा मेहमान के तौर पर ब्राउज़ करने के सेशन में उपलब्ध नहीं है.</translation>
 <translation id="615957422585914272">ऑन-स्क्रीन कीबोर्ड दिखाएं</translation>
 <translation id="6164005077879661055">'निगरानी में रखे गए इस उपयोगकर्ता' को हटाने के बाद, निगरानी में रखे गए उपयोगकर्ता से जुड़ीं सभी फ़ाइलें और 'स्थानीय डेटा' हमेशा के लिए मिट जाएंगे. 'निगरानी में रखे गए इस उपयोगकर्ता' की देखी गईं वेबसाइटें और सेटिंग <ph name="MANAGEMENT_URL" /> पर प्रबंधक को अब भी दिखेंगी.</translation>
 <translation id="6165508094623778733">ज़्यादा जानें</translation>
@@ -367,6 +377,7 @@
 <translation id="6713285437468012787">ब्लूटूथ डिवाइस "<ph name="DEVICE_NAME" />" यु्ग्मित हो गया है और अब वह सभी उपयोगकर्ताओं के लिए उपलब्ध है. आप सेटिंग का उपयोग करके इस युग्मन को निकाल सकते हैं.</translation>
 <translation id="6715542151869432661">कोई मोबाइल डिवाइस नहीं मिला.</translation>
 <translation id="6723839937902243910">पावर</translation>
+<translation id="6727969043791803658">कनेक्ट किया गया, <ph name="BATTERY_PERCENTAGE" /> % बैटरी बची है</translation>
 <translation id="6751826523481687655">'परफ़ॉर्मेंस ट्रेसिंग' चालू कर दी गई है</translation>
 <translation id="6790428901817661496">चलाएं</translation>
 <translation id="6803622936009808957">प्रदर्शनों को मिरर नहीं किया जा सका क्योंकि कोई समर्थित रिज़ॉल्यूशन नहीं मिला. इसके बजाय विस्तारित डेस्कटॉप में चला गया है.</translation>
@@ -425,6 +436,7 @@
 <translation id="7692480393933218409">कनेक्ट किए गए USB-C डिवाइस चार्ज कर रहा है</translation>
 <translation id="7705524343798198388">वीपीएन</translation>
 <translation id="7723389094756330927">{NUM_NOTIFICATIONS,plural, =1{एक सूचना}one{# सूचनाएं}other{# सूचनाएं}}</translation>
+<translation id="7749443890790263709">ज़्यादा से ज़्यादा इतने ही डेस्क जोड़े जा सकते हैं.</translation>
 <translation id="776344839111254542">अपडेट के विवरण देखने के लिए क्लिक करें</translation>
 <translation id="7780159184141939021">स्क्रीन घुमाएं</translation>
 <translation id="7796353162336583443">नोट लेने, स्क्रीनशॉट लेने और Google Assistant, लेज़र पॉइंटर या आवर्धक ग्लास का इस्तेमाल करने के लिए अलमारी में मौजूद स्टाइलस बटन पर टैप करें.</translation>
@@ -468,6 +480,7 @@
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
 <translation id="8351131234907093545">नोट बनाएं</translation>
 <translation id="8375916635258623388">यह <ph name="DEVICE_NAME" /> और आपका फ़ोन, अपने आप कनेक्ट हो जाएंगे</translation>
+<translation id="8388750414311082622">आखिरी डेस्क को हटाया नहीं जा सकता.</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> के लिए विकल्प मेन्यू</translation>
 <translation id="8394567579869570560">आपके अभिभावक ने यह डिवाइस लॉक कर दिया है</translation>
 <translation id="8406981827175133772">फ़ुलस्क्रीन पर सामग्री को बड़ा दिखाने की सुविधा</translation>

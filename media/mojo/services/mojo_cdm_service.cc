@@ -16,7 +16,6 @@
 #include "media/base/cdm_factory.h"
 #include "media/base/cdm_key_information.h"
 #include "media/base/key_systems.h"
-#include "media/cdm/cdm_manager.h"
 #include "media/mojo/common/media_type_converters.h"
 #include "media/mojo/services/mojo_cdm_service_context.h"
 #include "url/origin.h"
@@ -36,8 +35,7 @@ MojoCdmService::MojoCdmService(CdmFactory* cdm_factory,
                                MojoCdmServiceContext* context)
     : cdm_factory_(cdm_factory),
       context_(context),
-      cdm_id_(CdmContext::kInvalidCdmId),
-      weak_factory_(this) {
+      cdm_id_(CdmContext::kInvalidCdmId) {
   DVLOG(1) << __func__;
   DCHECK(cdm_factory_);
   // |context_| can be null.
@@ -49,7 +47,6 @@ MojoCdmService::~MojoCdmService() {
   if (!context_ || cdm_id_ == CdmContext::kInvalidCdmId)
     return;
 
-  CdmManager::GetInstance()->UnregisterCdm(cdm_id_);
   context_->UnregisterCdm(cdm_id_);
 }
 
@@ -161,7 +158,6 @@ void MojoCdmService::OnCdmCreated(
 
   if (context_) {
     cdm_id_ = context_->RegisterCdm(this);
-    CdmManager::GetInstance()->RegisterCdm(cdm_id_, cdm);
     DVLOG(1) << __func__ << ": CDM successfully registered with ID " << cdm_id_;
   }
 

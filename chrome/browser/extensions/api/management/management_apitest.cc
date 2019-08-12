@@ -68,8 +68,8 @@ class ExtensionManagementApiTest : public extensions::ExtensionApiTest {
     DisableExtension(extension_ids_["disabled_app"]);
   }
 
-  // Load an app, and wait for a message from app "management/launch_on_install"
-  // indicating that the new app has been launched.
+  // Load an app, and wait for a message that it has been launched. This should
+  // be sent by the launched app, to ensure the page is fully loaded.
   void LoadAndWaitForLaunch(const std::string& app_path,
                             std::string* out_app_id) {
     ExtensionTestMessageListener launched_app("launched app", false);
@@ -434,12 +434,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, LaunchPanelApp) {
   ASSERT_TRUE(app_browser->is_app());
 }
 
-// Disabled: crbug.com/230165, crbug.com/915339
-#if defined(OS_WIN) || defined(OS_MACOSX)
+// Disabled: crbug.com/230165, crbug.com/915339, crbug.com/979399
+#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX) || \
+    defined(OS_CHROMEOS)
 #define MAYBE_LaunchTabApp DISABLED_LaunchTabApp
 #else
 #define MAYBE_LaunchTabApp LaunchTabApp
 #endif
+
 IN_PROC_BROWSER_TEST_F(ExtensionManagementApiTest, MAYBE_LaunchTabApp) {
   extensions::ExtensionService* service =
       extensions::ExtensionSystem::Get(browser()->profile())

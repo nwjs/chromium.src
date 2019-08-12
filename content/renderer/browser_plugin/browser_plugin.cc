@@ -91,8 +91,7 @@ BrowserPlugin::BrowserPlugin(
       browser_plugin_instance_id_(browser_plugin::kInstanceIDNone),
       delegate_(delegate),
       task_runner_(
-          render_frame->GetTaskRunner(blink::TaskType::kInternalDefault)),
-      weak_ptr_factory_(this) {
+          render_frame->GetTaskRunner(blink::TaskType::kInternalDefault)) {
   browser_plugin_instance_id_ =
       BrowserPluginManager::Get()->GetNextInstanceID();
 
@@ -587,6 +586,8 @@ blink::WebInputEventResult BrowserPlugin::HandleInputEvent(
   if (blink::WebInputEvent::IsGestureEventType(event.GetType())) {
     auto gesture_event = static_cast<const blink::WebGestureEvent&>(event);
     DCHECK(blink::WebInputEvent::kGestureTapDown == event.GetType() ||
+           blink::WebInputEvent::kGestureScrollBegin == event.GetType() ||
+           blink::WebInputEvent::kGestureScrollEnd == event.GetType() ||
            gesture_event.resending_plugin_id == browser_plugin_instance_id_);
 
     // We shouldn't be forwarding GestureEvents to the Guest anymore. Indicate

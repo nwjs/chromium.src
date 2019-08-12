@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Ficklampa</translation>
 <translation id="2958718410589002129">Lösenord</translation>
 <translation id="2969979262385602596">Det gick inte att logga in. Försök igen senare.</translation>
+<translation id="298306318844797842">Lägg till betalningsmetod …</translation>
 <translation id="2989805286512600854">Öppna i ny flik</translation>
 <translation id="3037605927509011580">Oj, ett fel har uppstått!</translation>
 <translation id="3112556859945124369">Markera …</translation>
@@ -477,6 +478,7 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
 <translation id="7961015016161918242">Aldrig</translation>
 <translation id="7971521879845308059">Blockera popup-fönster</translation>
 <translation id="7982789257301363584">Nätverk</translation>
+<translation id="8007420562015504427">Inkognitosökning</translation>
 <translation id="8019783059653722575">Det här gör att du kan spara foton och ladda upp dem.</translation>
 <translation id="802154636333426148">Nedladdningen misslyckades</translation>
 <translation id="8023878949384262191">Expanderar avsnittet.</translation>
@@ -491,6 +493,7 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
 <translation id="8225985093977202398">Cachelagrade bilder och filer</translation>
 <translation id="8261506727792406068">Radera</translation>
 <translation id="8281781826761538115">Standard – <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Ny sökning</translation>
 <translation id="8328777765163860529">Stäng alla</translation>
 <translation id="8381750437846184350">Styr hur Google anpassar Sök, annonser och andra Google-tjänster utifrån webbhistoriken</translation>
 <translation id="8407669440184693619">Inga lösenord hittades för webbplatsen</translation>
@@ -507,7 +510,6 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
 <translation id="8532105204136943229">Sista giltighetsår</translation>
 <translation id="8534481786647257214">Inlägg på Google+ klart.</translation>
 <translation id="8548878600947630424">Hitta på sidan ...</translation>
-<translation id="8583866649835978847">Skicka <ph name="TITLE" /> till en av dina enheter.</translation>
 <translation id="8605219856220328675">Stäng fliken.</translation>
 <translation id="8620640915598389714">Redigera</translation>
 <translation id="8636825310635137004">Aktivera synkronisering om du vill ha samma flikar tillgängliga på alla enheter.</translation>

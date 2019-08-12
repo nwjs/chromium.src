@@ -25,6 +25,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.interpolators.BakedBezierInterpolator;
@@ -51,14 +52,18 @@ public class TabGridDialogParent {
     private final ComponentCallbacks mComponentCallbacks;
     private final FrameLayout.LayoutParams mContainerParams;
     private final ViewGroup mParent;
-    private final int mStatusBarHeight;
     private final int mToolbarHeight;
+    private final int mScreenHeight;
+    private final int mScreenWidth;
     private final float mTabGridCardPadding;
     private PopupWindow mPopupWindow;
+    private FrameLayout mTabGridDialogParentView;
     private RelativeLayout mDialogContainerView;
     private ScrimView mScrimView;
     private ScrimView.ScrimParams mScrimParams;
     private View mBlockView;
+    private View mContentView;
+    private TextView mUngroupBar;
     private Animator mCurrentAnimator;
     private ObjectAnimator mBasicFadeIn;
     private ObjectAnimator mBasicFadeOut;
@@ -66,25 +71,28 @@ public class TabGridDialogParent {
     private AnimatorSet mHideDialogAnimation;
     private AnimatorListenerAdapter mShowDialogAnimationListener;
     private AnimatorListenerAdapter mHideDialogAnimationListener;
-    private int mDialogWidth;
-    private int mDialogHeight;
     private int mSideMargin;
     private int mTopMargin;
-    private View mContentView;
-    private TextView mUngroupBar;
+    private int mCurrentScreenHeight;
+    private int mCurrentScreenWidth;
 
     TabGridDialogParent(Context context, ViewGroup parent) {
         mParent = parent;
         mShowDialogAnimation = new AnimatorSet();
         mHideDialogAnimation = new AnimatorSet();
-        int statusBarHeightResourceId =
-                context.getResources().getIdentifier("status_bar_height", "dimen", "android");
-        mStatusBarHeight = context.getResources().getDimensionPixelSize(statusBarHeightResourceId);
         mTabGridCardPadding = context.getResources().getDimension(R.dimen.tab_list_card_padding);
         mToolbarHeight =
-                (int) context.getResources().getDimension(R.dimen.bottom_sheet_peek_height);
+                (int) context.getResources().getDimension(R.dimen.tab_group_toolbar_height);
         mContainerParams = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE))
+                .getDefaultDisplay()
+                .getMetrics(displayMetrics);
+        // Screen height and width when in portrait mode.
+        mScreenHeight = Math.max(displayMetrics.heightPixels, displayMetrics.widthPixels);
+        mScreenWidth = Math.min(displayMetrics.heightPixels, displayMetrics.widthPixels);
+
         mComponentCallbacks = new ComponentCallbacks() {
             @Override
             public void onConfigurationChanged(Configuration newConfig) {
@@ -95,22 +103,21 @@ public class TabGridDialogParent {
             public void onLowMemory() {}
         };
         ContextUtils.getApplicationContext().registerComponentCallbacks(mComponentCallbacks);
-        setupDialogContent(context, parent);
+        setupDialogContent(context);
         prepareAnimation();
     }
 
-    private void setupDialogContent(Context context, ViewGroup parent) {
-        FrameLayout backgroundView = new FrameLayout(context);
-        mDialogContainerView = (RelativeLayout) LayoutInflater.from(context).inflate(
-                R.layout.tab_grid_dialog_layout, parent, false);
+    private void setupDialogContent(Context context) {
+        mTabGridDialogParentView = (FrameLayout) LayoutInflater.from(context).inflate(
+                R.layout.tab_grid_dialog_layout, mParent, false);
+        mDialogContainerView = mTabGridDialogParentView.findViewById(R.id.dialog_container_view);
         mDialogContainerView.setLayoutParams(mContainerParams);
-        mUngroupBar = mDialogContainerView.findViewById(R.id.dialog_ungroup_bar);
-        backgroundView.addView(mDialogContainerView);
+        mUngroupBar = mTabGridDialogParentView.findViewById(R.id.dialog_ungroup_bar);
+        mBlockView = mTabGridDialogParentView.findViewById(R.id.dialog_block_view);
 
-        mScrimView = new ScrimView(context, null, backgroundView);
-        mPopupWindow = new PopupWindow(backgroundView, 0, 0);
-        mBlockView = new View(context);
-        mBlockView.setOnClickListener(null);
+        mScrimView = new ScrimView(context, null, mTabGridDialogParentView);
+        mPopupWindow = new PopupWindow(mTabGridDialogParentView,
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
         updateDialogWithOrientation(context, context.getResources().getConfiguration().orientation);
     }
 
@@ -126,16 +133,17 @@ public class TabGridDialogParent {
         mShowDialogAnimationListener = new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
+                mBlockView.setClickable(false);
                 mCurrentAnimator = null;
             }
         };
         mHideDialogAnimationListener = new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation) {
+                mBlockView.setClickable(false);
                 mPopupWindow.dismiss();
                 mCurrentAnimator = null;
                 mDialogContainerView.setAlpha(1f);
-                mDialogContainerView.removeView(mBlockView);
             }
         };
     }
@@ -157,15 +165,19 @@ public class TabGridDialogParent {
             return;
         }
 
+        int statusBarHeight = mCurrentScreenHeight - mParent.getHeight();
+        int dialogHeight = mCurrentScreenHeight - 2 * mTopMargin - statusBarHeight;
+        int dialogWidth = mCurrentScreenWidth - 2 * mSideMargin;
+
         float sourceLeft = rect.left + mTabGridCardPadding;
-        float sourceTop = rect.top - mStatusBarHeight + mTabGridCardPadding;
+        float sourceTop = rect.top + mToolbarHeight + mTabGridCardPadding;
         float sourceHeight = rect.height() - 2 * mTabGridCardPadding;
         float sourceWidth = rect.width() - 2 * mTabGridCardPadding;
 
-        float initYPosition = -(mDialogHeight / 2 + mTopMargin - sourceHeight / 2 - sourceTop);
-        float initXPosition = -(mDialogWidth / 2 + mSideMargin - sourceWidth / 2 - sourceLeft);
-        float initYScale = sourceHeight / mDialogHeight;
-        float initXScale = sourceWidth / mDialogWidth;
+        float initYPosition = -(dialogHeight / 2 + mTopMargin - sourceHeight / 2 - sourceTop);
+        float initXPosition = -(dialogWidth / 2 + mSideMargin - sourceWidth / 2 - sourceLeft);
+        float initYScale = sourceHeight / dialogHeight;
+        float initXScale = sourceWidth / dialogWidth;
         float scaleOffset = 0.02f;
 
         final ObjectAnimator showMoveYAnimator =
@@ -215,35 +227,24 @@ public class TabGridDialogParent {
         mHideDialogAnimation.addListener(mHideDialogAnimationListener);
     }
 
-    private void updateDialogWithOrientation(Context context, int orientation) {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        ((WindowManager) context.getSystemService(Context.WINDOW_SERVICE))
-                .getDefaultDisplay()
-                .getMetrics(displayMetrics);
-        int screenHeight = displayMetrics.heightPixels;
-        int screenWidth = displayMetrics.widthPixels;
-        mPopupWindow.setHeight(screenHeight);
-        mPopupWindow.setWidth(screenWidth);
-        if (mPopupWindow != null && mPopupWindow.isShowing()) {
-            mPopupWindow.dismiss();
-            mPopupWindow.showAtLocation(mParent, Gravity.CENTER, 0, 0);
-        }
+    @VisibleForTesting
+    void updateDialogWithOrientation(Context context, int orientation) {
         if (orientation == Configuration.ORIENTATION_PORTRAIT) {
             mSideMargin =
                     (int) context.getResources().getDimension(R.dimen.tab_grid_dialog_side_margin);
             mTopMargin =
                     (int) context.getResources().getDimension(R.dimen.tab_grid_dialog_top_margin);
-
+            mCurrentScreenHeight = mScreenHeight;
+            mCurrentScreenWidth = mScreenWidth;
         } else {
             mSideMargin =
                     (int) context.getResources().getDimension(R.dimen.tab_grid_dialog_top_margin);
             mTopMargin =
                     (int) context.getResources().getDimension(R.dimen.tab_grid_dialog_side_margin);
+            mCurrentScreenWidth = mScreenHeight;
+            mCurrentScreenHeight = mScreenWidth;
         }
-        mContainerParams.setMargins(
-                mSideMargin, mTopMargin, mSideMargin, mTopMargin + mStatusBarHeight);
-        mDialogHeight = screenHeight - 2 * mTopMargin - mStatusBarHeight;
-        mDialogWidth = screenWidth - 2 * mSideMargin;
+        mContainerParams.setMargins(mSideMargin, mTopMargin, mSideMargin, mTopMargin);
     }
 
     /**
@@ -282,8 +283,11 @@ public class TabGridDialogParent {
             mCurrentAnimator.end();
         }
         mCurrentAnimator = mShowDialogAnimation;
-        mScrimView.showScrim(mScrimParams);
+        if (mScrimParams != null) {
+            mScrimView.showScrim(mScrimParams);
+        }
         mPopupWindow.showAtLocation(mParent, Gravity.CENTER, 0, 0);
+        mBlockView.setClickable(true);
         mShowDialogAnimation.start();
     }
 
@@ -296,12 +300,7 @@ public class TabGridDialogParent {
         }
         mCurrentAnimator = mHideDialogAnimation;
         mScrimView.hideScrim(true);
-        // Use mBlockView to disable all click behaviors on dialog when the hide animation is
-        // playing.
-        if (mBlockView.getParent() == null) {
-            mDialogContainerView.addView(mBlockView);
-        }
-        mDialogContainerView.bringChildToFront(mBlockView);
+        mBlockView.setClickable(true);
         mHideDialogAnimation.start();
     }
 
@@ -329,5 +328,20 @@ public class TabGridDialogParent {
             mUngroupBar.setAlpha(0.7f);
             mContentView.bringToFront();
         }
+    }
+
+    @VisibleForTesting
+    PopupWindow getPopupWindowForTesting() {
+        return mPopupWindow;
+    }
+
+    @VisibleForTesting
+    FrameLayout getTabGridDialogParentViewForTesting() {
+        return mTabGridDialogParentView;
+    }
+
+    @VisibleForTesting
+    Animator getCurrentAnimatorForTesting() {
+        return mCurrentAnimator;
     }
 }

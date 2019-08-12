@@ -378,33 +378,30 @@ class WebControllerBrowserTest : public content::ContentBrowserTest,
     std::move(done_callback).Run();
   }
 
-  bool HasCookie() {
-    base::RunLoop run_loop;
-    bool result;
-    web_controller_->HasCookie(base::BindOnce(
-        &WebControllerBrowserTest::OnCookieResult, base::Unretained(this),
-        run_loop.QuitClosure(), &result));
-    run_loop.Run();
-    return result;
+  // Make sure scrolling is necessary for #scroll_container , no matter the
+  // screen height
+  void SetupScrollContainerHeights() {
+    EXPECT_TRUE(content::ExecJs(shell(),
+                                R"(
+           let before = document.querySelector("#before_scroll_container");
+           before.style.height = window.innerHeight + "px";
+           let after = document.querySelector("#after_scroll_container");
+           after.style.height = window.innerHeight + "px";)"));
   }
 
-  bool SetCookie() {
-    base::RunLoop run_loop;
-    bool result;
-    web_controller_->SetCookie(
-        "http://example.com",
-        base::BindOnce(&WebControllerBrowserTest::OnCookieResult,
-                       base::Unretained(this), run_loop.QuitClosure(),
-                       &result));
-    run_loop.Run();
-    return result;
+  // Scrolls #scroll_container to the given y position.
+  void ScrollContainerTo(int y) {
+    EXPECT_TRUE(content::ExecJs(shell(), base::StringPrintf(
+                                             R"(
+           let container = document.querySelector("#scroll_container");
+           container.scrollTo(0, %d);)",
+                                             y)));
   }
 
-  void OnCookieResult(const base::Closure& done_callback,
-                      bool* result_output,
-                      bool result) {
-    *result_output = result;
-    std::move(done_callback).Run();
+  // Scrolls the window to the given y position.
+  void ScrollWindowTo(int y) {
+    EXPECT_TRUE(content::ExecJs(
+        shell(), base::StringPrintf("window.scrollTo(0, %d);", y)));
   }
 
   // Scroll an element into view that's within a container element. This
@@ -412,15 +409,12 @@ class WebControllerBrowserTest : public content::ContentBrowserTest,
   // the desired y position.
   void TestScrollIntoView(int initial_window_scroll_y,
                           int initial_container_scroll_y) {
-    EXPECT_TRUE(content::ExecJs(
-        shell(), base::StringPrintf(
-                     R"(window.scrollTo(0, %d);
-           let container = document.querySelector("#scroll_container");
-           container.scrollTo(0, %d);)",
-                     initial_window_scroll_y, initial_container_scroll_y)));
-
     Selector selector;
     selector.selectors.emplace_back("#scroll_item_5");
+
+    SetupScrollContainerHeights();
+    ScrollWindowTo(initial_window_scroll_y);
+    ScrollContainerTo(initial_window_scroll_y);
 
     TopPadding top_padding{0.25, TopPadding::Unit::RATIO};
     FocusElement(selector, top_padding);
@@ -679,6 +673,32 @@ IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest,
   selector.selectors.emplace_back("#iframe");
   selector.selectors.emplace_back("#button");
   WaitForElementRemove(selector);
+}
+
+IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest,
+                       ClickElementInScrollContainer) {
+  // Make sure #scroll_item_3 is not visible, no matter the screen height. It
+  // also makes sure that there's enough room on the visual viewport to scroll
+  // everything to the center.
+  SetupScrollContainerHeights();
+  ScrollWindowTo(0);
+  ScrollContainerTo(0);
+
+  EXPECT_TRUE(content::ExecJs(shell(),
+                              R"(var scrollItem3WasClicked = false;
+           let item = document.querySelector("#scroll_item_3");
+           item.addEventListener("click", function() {
+             scrollItem3WasClicked = true;
+           });)"));
+
+  Selector selector;
+  selector.selectors.emplace_back("#scroll_item_3");
+  ClickOrTapElement(selector, ClickAction::CLICK);
+
+  EXPECT_TRUE(content::EvalJs(shell(), "scrollItem3WasClicked").ExtractBool());
+
+  // TODO(b/135909926): Find a reliable way of verifying that the button was
+  // mover roughly to the center.
 }
 
 IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, TapElement) {
@@ -1141,11 +1161,6 @@ IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, HighlightElement) {
   // We only make sure that the element has a non-empty boxShadow style without
   // requiring an exact string match.
   EXPECT_NE("", content::EvalJs(shell(), javascript));
-}
-
-IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, GetAndSetCookie) {
-  EXPECT_FALSE(HasCookie());
-  EXPECT_TRUE(SetCookie());
 }
 
 IN_PROC_BROWSER_TEST_F(WebControllerBrowserTest, WaitForHeightChange) {

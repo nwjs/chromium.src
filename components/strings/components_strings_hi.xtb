@@ -40,6 +40,7 @@
 <translation id="1161325031994447685">वाई-फ़ाई से फिर से कनेक्ट करें</translation>
 <translation id="1165039591588034296">गड़बड़ी</translation>
 <translation id="1175364870820465910">&amp;प्रिंट करें...</translation>
+<translation id="1178581264944972037">रोकें</translation>
 <translation id="1181037720776840403">हटाएं</translation>
 <translation id="1197088940767939838">नारंगी</translation>
 <translation id="1201402288615127009">अगला</translation>
@@ -98,7 +99,6 @@
 <translation id="1405567553485452995">हल्का हरा</translation>
 <translation id="1407135791313364759">सभी बुकमार्क खोलें</translation>
 <translation id="1413809658975081374">निजता गड़बड़ी</translation>
-<translation id="14171126816530869"><ph name="ORGANIZATION" /> की पहचान <ph name="LOCALITY" /> में <ph name="ISSUER" /> द्वारा सत्यापित की गई है.</translation>
 <translation id="1426410128494586442">हां</translation>
 <translation id="1430915738399379752">प्रिंट करें</translation>
 <translation id="1455413310270022028">इरेज़र</translation>
@@ -218,7 +218,7 @@
 <translation id="2064691555167957331">{COUNT,plural, =1{1 सुझाव}one{# सुझाव}other{# सुझाव}}</translation>
 <translation id="2068663545051464999">अपलोड की गई खराबी रिपोर्ट आईडी <ph name="CRASH_ID" /> (स्थानीय संदर्भ : <ph name="CRASH_LOCAL_ID" />)</translation>
 <translation id="2079545284768500474">वापस लाएं</translation>
-<translation id="20817612488360358">सिस्‍टम प्रॉक्‍सी सेटिंग उपयोग किए जाने के लिए सेट हैं लेकिन कोई स्पष्‍ट प्रॉक्‍सी कॉन्फ़िगरेशन भी निर्दिष्ट है.</translation>
+<translation id="20817612488360358">सिस्‍टम प्रॉक्‍सी सेटिंग उपयोग किए जाने के लिए सेट हैं लेकिन कोई स्पष्‍ट प्रॉक्‍सी कॉन्फ़िगरेशन भी मौजूद है.</translation>
 <translation id="2082238445998314030"><ph name="TOTAL_RESULTS" /> में से <ph name="RESULT_NUMBER" /> परिणाम</translation>
 <translation id="2091887806945687916">आवाज़</translation>
 <translation id="2094505752054353250">डोमेन का गलत-मिलान</translation>
@@ -228,6 +228,7 @@
 <translation id="2111256659903765347">सुपर-ए</translation>
 <translation id="2113977810652731515">कार्ड</translation>
 <translation id="2114841414352855701">ध्यान नहीं दिया गया क्योंकि यह <ph name="POLICY_NAME" /> द्वारा ओवरराइड की गई थी.</translation>
+<translation id="2119505898009119320">इसको जारी: <ph name="ORGANIZATION" /> [<ph name="JURISDICTION" />]</translation>
 <translation id="2129079103035905234">हलचल पकड़ने वाले सेंसर</translation>
 <translation id="213826338245044447">मोबाइल बुकमार्क</translation>
 <translation id="214556005048008348">भुगतान न करें</translation>
@@ -254,6 +255,7 @@
 <translation id="2262243747453050782">HTTP गड़बड़ी</translation>
 <translation id="2263079731045660823">Chrome सेटिंग में जाकर क्रेडिट कार्ड जानकारी अपने आप भरने की सुविधा अपडेट करें</translation>
 <translation id="2270484714375784793">फ़ोन नंबर</translation>
+<translation id="2277103315734023688">आगे बढ़ाएं</translation>
 <translation id="2283340219607151381">पतों की जानकारी सेव करें और फ़ॉर्म में भरें</translation>
 <translation id="2292556288342944218">आपका इंटरनेट कनेक्शन ब्लॉक कर दिया गया है</translation>
 <translation id="2297722699537546652">बी5 (एन्वेलप)</translation>
@@ -273,7 +275,6 @@
 <translation id="2360873523816792727">सभी डिवाइस पर अपने कार्ड का इस्तेमाल करने के लिए, 'सिंक करें' चालू करें.</translation>
 <translation id="2365563543831475020"><ph name="CRASH_TIME" /> पर कैप्चर की गई खराबी रिपोर्ट अपलोड नहीं की गई</translation>
 <translation id="2367567093518048410">स्तर</translation>
-<translation id="2378238891085281592">आप ’निजी’ मोड में चले गए हैं</translation>
 <translation id="2380886658946992094">कानूनी</translation>
 <translation id="2384307209577226199">एंटरप्राइज़ डिफ़ॉल्ट</translation>
 <translation id="2386255080630008482">सर्वर का प्रमाणपत्र निरस्त कर दिया गया है.</translation>
@@ -309,6 +310,7 @@
 <translation id="2515629240566999685">अपने इलाके में सिग्नल की जाँच करें</translation>
 <translation id="2523886232349826891">सिर्फ़ इस डिवाइस पर सेव किया गया</translation>
 <translation id="2524461107774643265">ज़्यादा जानकारी जोड़ें</translation>
+<translation id="2535659140340599600">{COUNT,plural, =1{और 1 और व्यक्ति}one{और # और लोग}other{और # और लोग}}</translation>
 <translation id="2536110899380797252">पता जोड़ें</translation>
 <translation id="2539524384386349900">पता लगाएं</translation>
 <translation id="254947805923345898">नीति का मान मान्य नहीं है.</translation>
@@ -401,7 +403,6 @@
 <translation id="3060227939791841287">सी9 (एन्वेलप)</translation>
 <translation id="3061707000357573562">पैच सेवा</translation>
 <translation id="3064966200440839136">किसी बाहरी ऐप्लिकेशन के ज़रिए भुगतान करने के लिए गुप्त मोड छोड़ रहे हैं. जारी रखना चाहते हैं?</translation>
-<translation id="3083099961703215236">{COUNT,plural, =0{कुछ नहीं}=1{1 पासवर्ड}one{# पासवर्ड}other{# पासवर्ड}}</translation>
 <translation id="3095940652251934233">जानकारी</translation>
 <translation id="3096100844101284527">पिकअप का पता जोड़ें</translation>
 <translation id="3105172416063519923">एसेट आईडी:</translation>
@@ -554,7 +555,9 @@
 <translation id="3946209740501886391">इस साइट पर हमेशा पूछें</translation>
 <translation id="3949571496842715403">यह सर्वर प्रमाणित नहीं कर सका कि यह <ph name="DOMAIN" /> है; इसके सुरक्षा प्रमाणपत्र में विषय के वैकल्पिक नाम नहीं बताए गए हैं. ऐसा गलत कॉन्फ़िगरेशन के कारण या किसी आक्रमणकर्ता की ओर से आपके कनेक्शन में अवरोध डालने के कारण हो सकता है.</translation>
 <translation id="3949601375789751990">आपका ब्राउज़िंग इतिहास यहां दिखाई देता है</translation>
+<translation id="3949870428812919180">भुगतान का कोई तरीका सेव नहीं किया गया</translation>
 <translation id="3950820424414687140">साइन इन करें</translation>
+<translation id="3962859241508114581">पिछला ट्रैक</translation>
 <translation id="3963837677003247395">क्या आप मैन्युअल तरीके से जारी रखना चाहते हैं?</translation>
 <translation id="3964661563329879394">{COUNT,plural, =0{कुछ नहीं}=1{1 साइट से }one{# साइटों से }other{# साइटों से }}</translation>
 <translation id="397105322502079400">गणना की जा रही है...</translation>
@@ -577,6 +580,7 @@
 <translation id="410351446219883937">अपने आप चलाएं</translation>
 <translation id="4103763322291513355">प्रतिबंधित किए गए यूआरएल और आपके सिस्टम ए़़डमिन ने जिन अन्य नीतियों को लागू किया है, उन्हें देखने के लिए &lt;strong&gt;chrome://policy&lt;/strong&gt; पर जाएं.</translation>
 <translation id="4110652170750985508">अपना भुगतान देखें</translation>
+<translation id="4112140312785995938">पीछे जाएं</translation>
 <translation id="4116663294526079822">इस साइट पर हमेशा अनुमति दें</translation>
 <translation id="4117700440116928470">नीति क्षेत्र समर्थित नहीं है.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 अन्य}one{# अन्‍य}other{# अन्‍य}}</translation>
@@ -652,9 +656,10 @@
 <translation id="4432688616882109544"><ph name="HOST_NAME" /> ने आपका लॉगिन प्रमाणपत्र स्वीकार नहीं किया है या हो सकता है कि प्रमाणपत्र उपलब्ध नहीं कराया गया हो.</translation>
 <translation id="4434045419905280838">पॉप-अप और रीडायरेक्ट</translation>
 <translation id="4435702339979719576">पोस्टकार्ड)</translation>
-<translation id="443673843213245140">प्रॉक्‍सी का उपयोग अक्षम है लेकिन कोई स्‍पष्ट प्रॉक्‍सी कॉन्फ़िगरेशन निर्दिष्ट किया गया है.</translation>
+<translation id="443673843213245140">प्रॉक्‍सी का उपयोग अक्षम है लेकिन कोई स्‍पष्ट प्रॉक्‍सी कॉन्फ़िगरेशन दर्ज किया गया है.</translation>
 <translation id="445100540951337728">स्वीकृत डेबिट कार्ड</translation>
 <translation id="4466881336512663640">फ़ॉर्म में किए गए बदलाव हटा दिए जाएँगे. क्या आप वाकई जारी रखना चाहते हैं?</translation>
+<translation id="4477350412780666475">अगला ट्रैक</translation>
 <translation id="4482953324121162758">इस साइट का अनुवाद नहीं किया जाएगा.</translation>
 <translation id="4490717597759821841">ए7</translation>
 <translation id="4493480324863638523">यूआरएल गलत है. यूआरएल में सामान्य स्कीम, जैसे कि, http://example.com या https://example.com.ज़रूर होनी चाहिए.</translation>
@@ -717,6 +722,7 @@
 <translation id="4858792381671956233">आपने अपने अभिभावकों से पूछा है कि इस साइट पर जाना ठीक है या नहीं</translation>
 <translation id="4876188919622883022">सरल बनाया गया व्यू</translation>
 <translation id="4876305945144899064">कोई उपयोगकर्ता नाम नहीं</translation>
+<translation id="4877083676943085827">{COUNT,plural, =0{कोई नहीं}=1{<ph name="EXAMPLE_DOMAIN_1" />}=2{<ph name="EXAMPLE_DOMAIN_1" />, <ph name="EXAMPLE_DOMAIN_2" />}one{<ph name="EXAMPLE_DOMAIN_1" />, <ph name="EXAMPLE_DOMAIN_2" />, <ph name="AND_MORE" />}other{<ph name="EXAMPLE_DOMAIN_1" />, <ph name="EXAMPLE_DOMAIN_2" />, <ph name="AND_MORE" />}}</translation>
 <translation id="4877422487531841831"><ph name="TEXT" /> खोज</translation>
 <translation id="4879491255372875719">अपने आप (डिफ़ॉल्ट)</translation>
 <translation id="4880827082731008257">खोज इतिहास</translation>
@@ -725,7 +731,7 @@
 <translation id="4914479371620770914">{URL_count,plural, =1{1 और वेब पेज}one{# और वेब पेज}other{# और वेब पेज}}</translation>
 <translation id="4923417429809017348">इस पेज का एक अज्ञात भाषा से <ph name="LANGUAGE_LANGUAGE" /> में अनुवाद किया गया है</translation>
 <translation id="4923459931733593730">भुगतान</translation>
-<translation id="4926049483395192435">निर्दिष्ट किया जाना चाहिए.</translation>
+<translation id="4926049483395192435">बताया जाना चाहिए.</translation>
 <translation id="4926159001844873046"><ph name="SITE" /> का कहना है कि</translation>
 <translation id="4926340098269537727"><ph name="ACTIVE_MATCH" />/<ph name="TOTAL_MATCHCOUNT" /></translation>
 <translation id="4943872375798546930">कोई परिणाम नहीं</translation>
@@ -946,7 +952,6 @@
 <translation id="6094273045989040137">एनोटेट करें</translation>
 <translation id="610911394827799129">आपके Google खाते में <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> पर दूसरी तरह के ब्राउज़िंग इतिहास हो सकते हैं</translation>
 <translation id="6132597952260690497">इंस्टॉल किए गए एक्सटेंशन और प्लग इन के बारे में जानकारी</translation>
-<translation id="6144381551823904650">{COUNT,plural, =0{कुछ नहीं}=1{1 पासवर्ड (सिंक किया हुआ)}one{# पासवर्ड (सिंक किए हुए)}other{# पासवर्ड (सिंक किए हुए)}}</translation>
 <translation id="6146055958333702838">सभी केबल जांचें और आपके उपयोग किए जा रहे सभी राउटर, मॉडेम या अन्य नेटवर्क
     डिवाइस को 'फिर चालू करें'.</translation>
 <translation id="614940544461990577">यह आज़माकर देखें:</translation>
@@ -1012,6 +1017,7 @@
 <translation id="650855688985305916">हां, सेव करें</translation>
 <translation id="6508722015517270189">Chrome को फिर से शुरू करें</translation>
 <translation id="6517596291481585650">चेतावनी: इस नीति को सूची के तौर पर नीति के बताए अनुसार नहीं मिलाया जा सकता, क्योंकि यह सूची नहीं है.</translation>
+<translation id="6521745193039995384">चालू नहीं</translation>
 <translation id="6529602333819889595">मिटाना &amp;फिर से करें</translation>
 <translation id="6534179046333460208">जीता-जागता वेब के सुझाव</translation>
 <translation id="6545864417968258051">ब्लूटूथ स्कैन करना</translation>
@@ -1053,6 +1059,7 @@
 <translation id="6778737459546443941">आपके अभिभावक ने अभी तक इसकी अनुमति नहीं दी है</translation>
 <translation id="67862343314499040">बैंगनी</translation>
 <translation id="6786747875388722282">एक्‍सटेंशन</translation>
+<translation id="6790428901817661496">चलाएं</translation>
 <translation id="679355240208270552">अनदेखा किया गया क्योंकि नीति ने डिफ़ॉल्ट सर्च चालू नहीं किया है.</translation>
 <translation id="681021252041861472">ज़रूरी फ़ील्ड</translation>
 <translation id="6810899417690483278">कस्टमाइज़ेशन आईडी</translation>
@@ -1077,7 +1084,6 @@
 <translation id="6948701128805548767">पिकअप के तरीके और ज़रूरतें देखने के लिए, कोई पता चुनें</translation>
 <translation id="6949872517221025916">पासवर्ड रीसेट करें</translation>
 <translation id="6950684638814147129">JSON मान पार्स करते समय गड़बड़ी हुई: <ph name="ERROR" /></translation>
-<translation id="6957624206566198865">पेज को नए 'निजी टैब' में खोलें</translation>
 <translation id="6957887021205513506">सर्वर का प्रमाणपत्र फर्जी दिखाई देता है.</translation>
 <translation id="6964255747740675745">नेटवर्क कॉन्फ़िगरेशन पार्स नहीं किया जा सका (गलत JSON).</translation>
 <translation id="6965382102122355670">ठीक है</translation>
@@ -1087,7 +1093,6 @@
 <translation id="6973932557599545801">माफ़ करें, मैं आपकी मदद नहीं कर सकती. कृपया खुद करने की कोशिश करें.</translation>
 <translation id="6979158407327259162">Google डिस्क</translation>
 <translation id="6979440798594660689">म्यूट करें (डिफ़ॉल्ट)</translation>
-<translation id="6984479912851154518">किसी बाहरी ऐप्लिकेशन के ज़रिए भुगतान करने के लिए 'निजी' मोड छोड़ रहे हैं. जारी रखना चाहते हैं?</translation>
 <translation id="6989763994942163495">अतिरिक्त सेटिंग दिखाएं...</translation>
 <translation id="6993898126790112050">6x9 (एन्वेलप)</translation>
 <translation id="6996312675313362352"><ph name="ORIGINAL_LANGUAGE" /> का हमेशा अनुवाद करें</translation>
@@ -1099,6 +1104,7 @@
 <translation id="7053983685419859001">ब्लॉक करें</translation>
 <translation id="7062635574500127092">हरा-नीला</translation>
 <translation id="7064851114919012435">संपर्क जानकारी</translation>
+<translation id="7075452647191940183">अनुरोध में बहुत ज़्यादा डेटा भेजा गया है</translation>
 <translation id="7079718277001814089">इस साइट में मैलवेयर है</translation>
 <translation id="7087282848513945231">काउंटी</translation>
 <translation id="7090678807593890770"><ph name="LINK" /> के लिए Google में खोज करें</translation>
@@ -1154,10 +1160,12 @@
 <translation id="7334320624316649418">&amp;पुन: क्रमित करना फिर से करें</translation>
 <translation id="733923710415886693">प्रमाणपत्र पारदर्शिता के माध्यम से सर्वर के प्रमाणपत्र को प्रकट नहीं किया गया.</translation>
 <translation id="734600844861828519">11x15</translation>
+<translation id="7346048084945669753">जुड़ा हुआ है या नहीं:</translation>
 <translation id="7349430561505560861">ए4-एक्स्ट्रा</translation>
 <translation id="7353601530677266744">कमांड लाइन</translation>
 <translation id="7372973238305370288">खोज नतीजे</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
+<translation id="7378594059915113390">मीडिया नियंत्रण</translation>
 <translation id="7378627244592794276">नहीं</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">कार्ड की पुष्टि करें</translation>
@@ -1393,7 +1401,7 @@
 <translation id="8571890674111243710">पेज का अनुवाद <ph name="LANGUAGE" /> में कर रहा है...</translation>
 <translation id="858637041960032120">फ़ोन नंबर जोड़ें
 </translation>
-<translation id="859285277496340001">प्रमाणपत्र यह जांचने के लिए कोई तरीका निर्दिष्‍ट नहीं करता कि इसे रद्द कर दिया गया है या नहीं.</translation>
+<translation id="859285277496340001">प्रमाणपत्र यह जांचने के लिए कोई तरीका नहीं बताता कि इसे रद्द कर दिया गया है या नहीं.</translation>
 <translation id="860043288473659153">कार्डधारक का नाम</translation>
 <translation id="861775596732816396">आकार 4</translation>
 <translation id="8620436878122366504">आपके अभिभावकों ने अभी तक इसकी अनुमति नहीं दी है</translation>
@@ -1473,6 +1481,7 @@
 <translation id="9076630408993835509">यह ब्राउज़र कोई कंपनी या दूसरा संगठन प्रबंधित नहीं करता. शायद इस डिवाइस की गतिविधि को Chrome से बाहर प्रबंधित किया जाए. <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="9078964945751709336">ज़्यादा जानकारी की आवश्यकता है</translation>
 <translation id="9080712759204168376">ऑर्डर की जानकारी</translation>
+<translation id="9089260154716455634">बंद रहने के समय के लिए नीति:</translation>
 <translation id="9095388113577226029">और भाषाएं...</translation>
 <translation id="9103872766612412690"><ph name="SITE" /> आपकी जानकारी की सुरक्षा करने के लिए आमतौर पर एन्क्रिप्शन का इस्तेमाल करती है. जब क्रोमियम ने इस बार <ph name="SITE" /> से कनेक्ट करने की कोशिश की, तो वेबसाइट ने असामान्य और गलत क्रेडेंशियल वापस भेजे. ऐसा तब हो सकता है जब कोई हमलावर <ph name="SITE" /> होने का दावा करने का प्रयास कर रहा हो या किसी वाई-फ़ाई साइन इन स्क्रीन ने कनेक्शन को रोक दिया हो. आपकी जानकारी अब भी सुरक्षित है क्योंकि किसी भी डेटा के आदान-प्रदान से पहले ही क्रोमियम ने कनेक्शन को रोक दिया था.</translation>
 <translation id="9106062320799175032">बिलिंग पता जोड़ें</translation>

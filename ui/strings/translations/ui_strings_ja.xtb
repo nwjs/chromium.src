@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">検索</translation>
 <translation id="1398853756734560583">最大化</translation>
 <translation id="1409544243779336081">おすすめのアプリ</translation>
+<translation id="1498028757988366001">このキーワードは以前に検索したことがあります。「<ph name="QUERY" />」を履歴から削除すると、アカウントから完全に（つまりすべてのデバイスから）削除されます。</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 分 }other{# 分 }}</translation>
 <translation id="1643823602425662293">通知</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">キャリブレーションが完了しました</translation>
 <translation id="252373100621549798">不明なディスプレイ</translation>
+<translation id="2545651323591713692">スヌーズ</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{1時間}other{#時間}}</translation>
 <translation id="2583543531130364912">タッチスクリーンのキャリブレーション</translation>
 <translation id="2666092431469916601">一番上</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">ここまでスクロール</translation>
 <translation id="3234408098842461169">下矢印キー</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 日}other{# 日}}</translation>
+<translation id="3295886253693811851">次を使って電話</translation>
 <translation id="335581015389089642">スピーチ</translation>
 <translation id="3443810440409579745">タブが共有されました。</translation>
 <translation id="3479552764303398839">後で</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 分前}other{# 分前}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{残り 1 分}other{残り # 分}}</translation>
+<translation id="7430878839542012341">この検索キーワードを履歴から削除しますか？</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">絵文字</translation>
 <translation id="7658239707568436148">キャンセル</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">検索は Google アシスタントによって行われます。<ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />、オートコンプリート</translation>
 <translation id="815598010540052116">下にスクロール</translation>
-<translation id="8170087467028567933">この候補を削除すると、お使いのすべてのデバイスでアカウントに表示されなくなります。</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">次のページへ</translation>
 <translation id="8245914219290430011">タブ</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">チェックを付ける</translation>
 <translation id="8393700583063109961">メッセージを送信</translation>
 <translation id="8394908167088220973">メディアの再生/一時停止</translation>
-<translation id="8420205633584771378">この候補を削除しますか？</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1年}other{#年}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ファイル (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">シェルフは常に表示されます</translation>

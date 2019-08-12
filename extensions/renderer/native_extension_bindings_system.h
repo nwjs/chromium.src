@@ -85,7 +85,7 @@ class NativeExtensionBindingsSystem {
   // Returns the API with the given |name| for the given |context|. Used for
   // testing purposes.
   v8::Local<v8::Object> GetAPIObjectForTesting(ScriptContext* context,
-                                               const std::string& api_name, bool hidden = false);
+                                               const std::string& api_name);
 
  private:
   // Handles sending a given |request|, forwarding it on to the send_ipc_ after
@@ -141,7 +141,7 @@ class NativeExtensionBindingsSystem {
   // A function to acquire an internal API.
   v8::Eternal<v8::FunctionTemplate> get_internal_api_;
 
-  base::WeakPtrFactory<NativeExtensionBindingsSystem> weak_factory_;
+  base::WeakPtrFactory<NativeExtensionBindingsSystem> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(NativeExtensionBindingsSystem);
 };

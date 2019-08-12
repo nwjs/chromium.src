@@ -11,7 +11,6 @@
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_task_environment.h"
 #include "components/autofill_assistant/browser/actions/mock_action_delegate.h"
-#include "components/autofill_assistant/browser/mock_run_once_callback.h"
 #include "components/autofill_assistant/browser/mock_web_controller.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
@@ -30,8 +29,7 @@ using ::testing::SizeIs;
 class ConfigureBottomSheetActionTest : public testing::Test {
  public:
   ConfigureBottomSheetActionTest()
-      : task_env_(
-            base::test::ScopedTaskEnvironment::MainThreadType::MOCK_TIME) {}
+      : task_env_(base::test::ScopedTaskEnvironment::TimeSource::MOCK_TIME) {}
 
   void SetUp() override {
     ON_CALL(mock_action_delegate_, GetResizeViewport())
@@ -62,9 +60,9 @@ class ConfigureBottomSheetActionTest : public testing::Test {
   void Run() {
     ActionProto action_proto;
     *action_proto.mutable_configure_bottom_sheet() = proto_;
-    action_ = std::make_unique<ConfigureBottomSheetAction>(action_proto);
+    action_ = std::make_unique<ConfigureBottomSheetAction>(
+        &mock_action_delegate_, action_proto);
     action_->ProcessAction(
-        &mock_action_delegate_,
         base::BindOnce(base::BindLambdaForTesting(
             [&](std::unique_ptr<ProcessedActionProto> result) {
               processed_action_ = *result;

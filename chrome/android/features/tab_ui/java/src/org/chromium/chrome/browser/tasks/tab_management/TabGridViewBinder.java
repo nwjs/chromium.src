@@ -45,13 +45,11 @@ class TabGridViewBinder {
             Resources res = holder.itemView.getResources();
             Resources.Theme theme = holder.itemView.getContext().getTheme();
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
-                Drawable selectedDrawable = new InsetDrawable(
-                        ResourcesCompat.getDrawable(res, R.drawable.selected_tab_background, theme),
-                        (int) res.getDimension(R.dimen.tab_list_selected_inset_kitkat));
-                Drawable elevationDrawable =
-                        ResourcesCompat.getDrawable(res, R.drawable.popup_bg, theme);
-                holder.backgroundView.setBackground(
-                        item.get(TabProperties.IS_SELECTED) ? selectedDrawable : elevationDrawable);
+                if (item.get(TabProperties.IS_SELECTED)) {
+                    holder.selectedViewBelowLollipop.setVisibility(View.VISIBLE);
+                } else {
+                    holder.selectedViewBelowLollipop.setVisibility(View.GONE);
+                }
             } else {
                 Drawable drawable = new InsetDrawable(
                         ResourcesCompat.getDrawable(res, R.drawable.selected_tab_background, theme),
@@ -106,13 +104,15 @@ class TabGridViewBinder {
         } else if (TabProperties.TITLE == propertyKey) {
             String title = item.get(TabProperties.TITLE);
             holder.actionButton.setContentDescription(holder.itemView.getResources().getString(
-                    org.chromium.chrome.R.string.accessibility_tabstrip_btn_close_tab, title));
+                    R.string.accessibility_tabstrip_btn_close_tab, title));
         } else if (TabProperties.IPH_PROVIDER == propertyKey) {
             TabListMediator.IphProvider provider = item.get(TabProperties.IPH_PROVIDER);
             if (provider != null) provider.showIPH(holder.thumbnail);
         } else if (TabProperties.CARD_ANIMATION_STATUS == propertyKey) {
-            TabListRecyclerView.scaleTabGridCardView(
-                    holder.itemView, item.get(TabProperties.CARD_ANIMATION_STATUS));
+            boolean isSelected = item.get(TabProperties.IS_SELECTED);
+            ((ClosableTabGridViewHolder) holder)
+                    .scaleTabGridCardView(
+                            item.get(TabProperties.CARD_ANIMATION_STATUS), isSelected);
         }
     }
 
@@ -139,8 +139,7 @@ class TabGridViewBinder {
             String title = item.get(TabProperties.TITLE);
             selectionHolder.actionButton.setContentDescription(
                     holder.itemView.getResources().getString(
-                            org.chromium.chrome.R.string.accessibility_tabstrip_btn_close_tab,
-                            title));
+                            R.string.accessibility_tabstrip_btn_close_tab, title));
         } else if (TabProperties.TAB_SELECTION_DELEGATE == propertyKey) {
             assert item.get(TabProperties.TAB_SELECTION_DELEGATE) != null;
 

@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Pesquisar</translation>
 <translation id="1398853756734560583">Maximizar</translation>
 <translation id="1409544243779336081">Recomendação de aplicações</translation>
+<translation id="1498028757988366001">Já efetuou esta pesquisa anteriormente. A eliminação de "<ph name="QUERY" />" do histórico remove permanentemente esta consulta da sua conta em todos os dispositivos.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 minuto e  }other{# minutos e  }}</translation>
 <translation id="1643823602425662293">Notificação</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">A calibração foi concluída</translation>
 <translation id="252373100621549798">Apresentação Desconhecida</translation>
+<translation id="2545651323591713692">Suspender</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{em 1 h}other{em # h}}</translation>
 <translation id="2583543531130364912">Calibrar o ecrã tátil</translation>
 <translation id="2666092431469916601">Parte superior</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Deslocar-se para aqui</translation>
 <translation id="3234408098842461169">Seta para baixo</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 dia}other{# dias}}</translation>
+<translation id="3295886253693811851">Efetue uma chamada a partir de</translation>
 <translation id="335581015389089642">Voz</translation>
 <translation id="3443810440409579745">Separador recebido.</translation>
 <translation id="3479552764303398839">Agora não</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{Há 1 min}other{Há # min}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Falta 1 minuto}other{Faltam # minutos}}</translation>
+<translation id="7430878839542012341">Pretende eliminar esta pesquisa do seu histórico?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Emoji</translation>
 <translation id="7658239707568436148">Cancelar</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">As suas pesquisas são ativadas pelo Assistente Google. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, preenchimento automático</translation>
 <translation id="815598010540052116">Deslocar-se para baixo</translation>
-<translation id="8170087467028567933">Ao remover a sugestão, esta deixará de ser apresentada na sua conta em todos os dispositivos.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Página para baixo</translation>
 <translation id="8245914219290430011">Tabulação</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">verificar</translation>
 <translation id="8393700583063109961">Enviar mensagem</translation>
 <translation id="8394908167088220973">Reproduzir/interromper multimédia</translation>
-<translation id="8420205633584771378">Pretende remover esta sugestão?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 a}other{# a}}</translation>
 <translation id="8602707065186045623">Ficheiro <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Prateleira apresentada sempre</translation>

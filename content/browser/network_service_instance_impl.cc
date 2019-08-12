@@ -25,8 +25,8 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/system_connector.h"
 #include "content/public/common/network_service_util.h"
-#include "content/public/common/service_manager_connection.h"
 #include "content/public/common/service_names.mojom.h"
 #include "net/log/net_log_util.h"
 #include "services/network/network_service.h"
@@ -96,8 +96,8 @@ void CreateNetworkServiceOnIO(network::mojom::NetworkServiceRequest request) {
     return;
   }
 
-  GetLocalNetworkService() = std::make_unique<network::NetworkService>(
-      nullptr, std::move(request), GetContentClient()->browser()->GetNetLog());
+  GetLocalNetworkService() =
+      std::make_unique<network::NetworkService>(nullptr, std::move(request));
 }
 
 void BindNetworkChangeManagerRequest(
@@ -118,14 +118,48 @@ void OnNetworkServiceCrash() {
   GetCrashHandlersList().Notify();
 }
 
+// Parses the desired granularity of NetLog capturing specified by the command
+// line.
+net::NetLogCaptureMode GetNetCaptureModeFromCommandLine(
+    const base::CommandLine& command_line) {
+  base::StringPiece switch_name = network::switches::kNetLogCaptureMode;
+
+  if (command_line.HasSwitch(switch_name)) {
+    std::string value = command_line.GetSwitchValueASCII(switch_name);
+
+    if (value == "Default")
+      return net::NetLogCaptureMode::kDefault;
+    if (value == "IncludeSensitive")
+      return net::NetLogCaptureMode::kIncludeSensitive;
+    if (value == "Everything")
+      return net::NetLogCaptureMode::kEverything;
+
+    // Warn when using the old command line switches.
+    if (value == "IncludeCookiesAndCredentials") {
+      LOG(ERROR) << "Deprecated value for --" << switch_name
+                 << ". Use IncludeSensitive instead";
+      return net::NetLogCaptureMode::kIncludeSensitive;
+    }
+    if (value == "IncludeSocketBytes") {
+      LOG(ERROR) << "Deprecated value for --" << switch_name
+                 << ". Use Everything instead";
+      return net::NetLogCaptureMode::kEverything;
+    }
+
+    LOG(ERROR) << "Unrecognized value for --" << switch_name;
+  }
+
+  return net::NetLogCaptureMode::kDefault;
+}
+
 }  // namespace
 
 network::mojom::NetworkService* GetNetworkService() {
   service_manager::Connector* connector = nullptr;
   if (base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-      ServiceManagerConnection::GetForProcess() &&  // null in unit tests.
+      GetSystemConnector() &&  // null in unit tests.
       !g_force_create_network_service_directly) {
-    connector = ServiceManagerConnection::GetForProcess()->GetConnector();
+    connector = GetSystemConnector();
   }
   return GetNetworkServiceFromConnector(connector);
 }
@@ -191,14 +225,11 @@ CONTENT_EXPORT network::mojom::NetworkService* GetNetworkServiceFromConnector(
           base::File file(log_path, base::File::FLAG_CREATE_ALWAYS |
                                         base::File::FLAG_WRITE);
           if (!file.IsValid()) {
-            LOG(ERROR) << "Failed opening: " << log_path.value();
+            LOG(ERROR) << "Failed opening NetLog: " << log_path.value();
           } else {
-            net::NetLogCaptureMode capture_mode =
-                net::GetNetCaptureModeFromCommandLine(
-                    *command_line, network::switches::kNetLogCaptureMode);
-
             (*g_network_service_ptr)
-                ->StartNetLog(std::move(file), capture_mode,
+                ->StartNetLog(std::move(file),
+                              GetNetCaptureModeFromCommandLine(*command_line),
                               std::move(client_constants));
           }
         }
@@ -248,8 +279,8 @@ network::NetworkService* GetNetworkServiceImpl() {
   DCHECK(BrowserThread::CurrentlyOn(BrowserThread::IO));
   DCHECK(!base::FeatureList::IsEnabled(network::features::kNetworkService));
   if (!GetLocalNetworkService()) {
-    GetLocalNetworkService() = std::make_unique<network::NetworkService>(
-        nullptr, nullptr, GetContentClient()->browser()->GetNetLog());
+    GetLocalNetworkService() =
+        std::make_unique<network::NetworkService>(nullptr, nullptr);
   }
 
   return GetLocalNetworkService().get();

@@ -13,8 +13,10 @@
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill_assistant/browser/actions/action_delegate.h"
 #include "components/autofill_assistant/browser/client_settings.h"
+#include "components/autofill_assistant/browser/payment_request.h"
 #include "components/autofill_assistant/browser/service.pb.h"
 #include "components/autofill_assistant/browser/top_padding.h"
+#include "components/autofill_assistant/browser/user_action.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace autofill_assistant {
@@ -54,12 +56,15 @@ class MockActionDelegate : public ActionDelegate {
 
   MOCK_METHOD1(SetStatusMessage, void(const std::string& message));
   MOCK_METHOD0(GetStatusMessage, std::string());
+  MOCK_METHOD1(SetBubbleMessage, void(const std::string& message));
+  MOCK_METHOD0(GetBubbleMessage, std::string());
   MOCK_METHOD3(ClickOrTapElement,
                void(const Selector& selector,
                     ClickAction::ClickType click_type,
                     base::OnceCallback<void(const ClientStatus&)> callback));
 
-  MOCK_METHOD1(Prompt, void(std::unique_ptr<std::vector<Chip>> chips));
+  MOCK_METHOD1(Prompt,
+               void(std::unique_ptr<std::vector<UserAction>> user_actions));
   MOCK_METHOD0(CancelPrompt, void());
 
   void FillAddressForm(
@@ -161,7 +166,8 @@ class MockActionDelegate : public ActionDelegate {
   MOCK_METHOD0(ClearInfoBox, void());
   MOCK_METHOD1(SetProgress, void(int progress));
   MOCK_METHOD1(SetProgressVisible, void(bool visible));
-  MOCK_METHOD1(SetChips, void(std::unique_ptr<std::vector<Chip>> chips));
+  MOCK_METHOD1(SetUserActions,
+               void(std::unique_ptr<std::vector<UserAction>> user_action));
   MOCK_METHOD1(SetResizeViewport, void(bool resize_viewport));
   MOCK_METHOD0(GetResizeViewport, bool());
   MOCK_METHOD1(SetPeekMode,
@@ -179,6 +185,8 @@ class MockActionDelegate : public ActionDelegate {
 
   MOCK_METHOD1(OnWaitForWindowHeightChange,
                void(base::OnceCallback<void(const ClientStatus&)>& callback));
+
+  MOCK_METHOD0(RequireUI, void());
 
   const ClientSettings& GetSettings() override { return client_settings_; }
 

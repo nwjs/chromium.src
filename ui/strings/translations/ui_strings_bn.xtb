@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">সার্চ করুন</translation>
 <translation id="1398853756734560583">বড় করুন</translation>
 <translation id="1409544243779336081">অ্যাপের সাজেশন</translation>
+<translation id="1498028757988366001">আপনি এটি আগেও সার্চ করেছেন। ইতিহাস থেকে "<ph name="QUERY" />" সরিয়ে দিলে, আপনার সব ডিভাইসের অ্যাকাউন্ট থেকে সেটি স্থায়ীভাবে মুছে যাবে।</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{১ মিনিট এবং }one{# মিনিট এবং }other{# মিনিট এবং }}</translation>
 <translation id="1643823602425662293">বিজ্ঞপ্তি</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">ক্রমাঙ্কন সম্পূর্ণ হয়েছে</translation>
 <translation id="252373100621549798">অজানা প্রদর্শন</translation>
+<translation id="2545651323591713692">স্নুজ করুন</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{১ ঘণ্টার মধ্যে}one{# ঘণ্টার মধ্যে}other{# ঘণ্টার মধ্যে}}</translation>
 <translation id="2583543531130364912">আপনার টাচস্ক্রীন ক্যালিব্রেট করুন</translation>
 <translation id="2666092431469916601">শীর্ষ</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">এই পর্যন্ত স্ক্রল করুন</translation>
 <translation id="3234408098842461169">Down Arrow</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{১ দিন}one{# দিন}other{# দিন}}</translation>
+<translation id="3295886253693811851">এগুলি দিয়ে কল করুন</translation>
 <translation id="335581015389089642">স্পিচ</translation>
 <translation id="3443810440409579745">ট্যাব পাওয়া গেছে।</translation>
 <translation id="3479552764303398839">এখনই নয়</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{১ মিনিট পূর্বে}one{# মিনিট পূর্বে}other{# মিনিট পূর্বে}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{১ মিনিট বাকি}one{# মিনিট বাকি}other{# মিনিট বাকি}}</translation>
+<translation id="7430878839542012341">এই সার্চ কি ইতিহাস থেকে মুছে দিতে চান?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">ইমোজি</translation>
 <translation id="7658239707568436148">বাতিল</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Google অ্যাসিস্ট্যান্ট আপনার সার্চ পরিচালনা করে। <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, নিজে থেকে সম্পূর্ন করা</translation>
 <translation id="815598010540052116">নিচে স্ক্রল করুন</translation>
-<translation id="8170087467028567933">এই সাজেশন সরিয়ে দেওয়া হলে, আপনার সব ডিভাইসে অ্যাকাউন্ট থেকে এটি লুকিয়ে রাখা হবে।</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">পৃষ্ঠা উপরে</translation>
 <translation id="8245914219290430011">ট্যাব</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">চেক করুন</translation>
 <translation id="8393700583063109961">বার্তা পাঠান</translation>
 <translation id="8394908167088220973">মিডিয়া প্লে করুন/বিরতি</translation>
-<translation id="8420205633584771378">সাজেশনটি সরাতে চান?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{১ বছর}one{# বছর}other{# বছর}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> ফাইল (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">শেল্ফ সবসময় দেখানো হয়</translation>

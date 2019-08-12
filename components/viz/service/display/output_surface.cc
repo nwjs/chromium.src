@@ -16,6 +16,7 @@
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/gles2_interface.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/swap_result.h"
 
 namespace viz {
@@ -35,8 +36,16 @@ OutputSurface::OutputSurface(
 
 OutputSurface::~OutputSurface() = default;
 
+gfx::Rect OutputSurface::GetCurrentFramebufferDamage() const {
+  return gfx::Rect();
+}
+
 SkiaOutputSurface* OutputSurface::AsSkiaOutputSurface() {
   return nullptr;
+}
+
+gpu::SurfaceHandle OutputSurface::GetSurfaceHandle() const {
+  return gpu::kNullSurfaceHandle;
 }
 
 void OutputSurface::UpdateLatencyInfoOnSwap(
@@ -44,9 +53,10 @@ void OutputSurface::UpdateLatencyInfoOnSwap(
     std::vector<ui::LatencyInfo>* latency_info) {
   for (auto& latency : *latency_info) {
     latency.AddLatencyNumberWithTimestamp(
-        ui::INPUT_EVENT_GPU_SWAP_BUFFER_COMPONENT, response.swap_start, 1);
+        ui::INPUT_EVENT_GPU_SWAP_BUFFER_COMPONENT, response.timings.swap_start);
     latency.AddLatencyNumberWithTimestamp(
-        ui::INPUT_EVENT_LATENCY_FRAME_SWAP_COMPONENT, response.swap_end, 1);
+        ui::INPUT_EVENT_LATENCY_FRAME_SWAP_COMPONENT,
+        response.timings.swap_end);
   }
 }
 
@@ -67,4 +77,8 @@ void OutputSurface::SetGpuVSyncEnabled(bool enabled) {
   NOTREACHED();
 }
 
+// Only needs implementation for BrowserCompositorOutputSurface.
+bool OutputSurface::IsSoftwareMirrorMode() const {
+  return false;
+}
 }  // namespace viz

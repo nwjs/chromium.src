@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Išči</translation>
 <translation id="1398853756734560583">Povečaj</translation>
 <translation id="1409544243779336081">Priporočilo aplikacije</translation>
+<translation id="1498028757988366001">To ste v preteklosti že iskali. Če izbrišete poizvedbo »<ph name="QUERY" />« iz zgodovine, bo trajno odstranjena iz računa v vseh napravah.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 min in }one{# min in }two{# min in }few{# min in }other{# min in }}</translation>
 <translation id="1643823602425662293">Obvestilo</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Umerjanje je končano</translation>
 <translation id="252373100621549798">Neznan prikaz</translation>
+<translation id="2545651323591713692">Preloži</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{čez 1 h}one{čez # h}two{čez # h}few{čez # h}other{čez # h}}</translation>
 <translation id="2583543531130364912">Umerjanje zaslona na dotik</translation>
 <translation id="2666092431469916601">Na vrh</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Pomik do sem</translation>
 <translation id="3234408098842461169">Puščica dol</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 dan}one{# dan}two{# dneva}few{# dni}other{# dni}}</translation>
+<translation id="3295886253693811851">Klic iz naprave</translation>
 <translation id="335581015389089642">Speech</translation>
 <translation id="3443810440409579745">Prejet zavihek.</translation>
 <translation id="3479552764303398839">Ne zdaj</translation>
@@ -168,6 +171,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{Pred 1 min}one{Pred # min}two{Pred # min}few{Pred # min}other{Pred # min}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Še 1 min}one{Še # min}two{Še # min}few{Še # min}other{Še # min}}</translation>
+<translation id="7430878839542012341">Želite izbrisati to iskanje iz zgodovine?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Emoji</translation>
 <translation id="7658239707568436148">Prekliči</translation>
@@ -185,7 +189,6 @@
 <translation id="8144660977431427332">Pri iskanju se uporablja tehnologija Pomočnika Google. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, samodokončanje</translation>
 <translation id="815598010540052116">Pomik dol</translation>
-<translation id="8170087467028567933">Če odstranite ta predlog, ne bo več prikazan v vašem računu v vseh vaših napravah.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Stran dol</translation>
 <translation id="8245914219290430011">Zavihek</translation>
@@ -196,7 +199,6 @@
 <translation id="838869780401515933">potrdi</translation>
 <translation id="8393700583063109961">Pošlji sporočilo</translation>
 <translation id="8394908167088220973">Ustavitev/začasna ustavitev</translation>
-<translation id="8420205633584771378">Želite odstraniti ta predlog?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 l}one{# l}two{# l}few{# l}other{# l}}</translation>
 <translation id="8602707065186045623">Datoteka <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Polica je vedno prikazana</translation>

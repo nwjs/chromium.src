@@ -49,7 +49,9 @@ class ErrorLogger;
 // In the case of a web app manifest download, can also also fail when:
 //  - There's a redirect.
 using PaymentManifestDownloadCallback =
-    base::OnceCallback<void(const GURL& url, const std::string& contents)>;
+    base::OnceCallback<void(const GURL& url,
+                            const std::string& contents,
+                            const std::string& error_message)>;
 
 // Downloader of the payment method manifest and web-app manifest based on the
 // payment method name that is a URL with HTTPS scheme, e.g.,
@@ -100,6 +102,10 @@ class PaymentManifestDownloader {
   // |url| should be a valid URL with HTTPS scheme.
   void DownloadWebAppManifest(const GURL& url,
                               PaymentManifestDownloadCallback callback);
+
+  // Overridden in TestDownloader to convert |url| to a test server URL. The
+  // default implementation here simply returns |url|.
+  virtual GURL FindTestServerURL(const GURL& url) const;
 
  private:
   friend class PaymentMethodManifestDownloaderTest;

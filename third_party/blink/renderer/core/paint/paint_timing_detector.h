@@ -16,10 +16,12 @@ namespace blink {
 class Image;
 class ImagePaintTimingDetector;
 class ImageResourceContent;
+class LargestContentfulPaintCalculator;
 class LayoutObject;
 class LocalFrameView;
 class PropertyTreeState;
 class TextPaintTimingDetector;
+struct WebFloatRect;
 
 // PaintTimingDetector contains some of paint metric detectors,
 // providing common infrastructure for these detectors.
@@ -48,9 +50,9 @@ class CORE_EXPORT PaintTimingDetector
       const PropertyTreeState& current_paint_chunk_properties);
   inline static void NotifyTextPaint(const IntRect& text_visual_rect);
 
-  void NotifyNodeRemoved(const LayoutObject&);
-  void NotifyBackgroundImageRemoved(const LayoutObject&,
-                                    const ImageResourceContent*);
+  void NotifyImageFinished(const LayoutObject&, const ImageResourceContent*);
+  void LayoutObjectWillBeDestroyed(const LayoutObject&);
+  void NotifyImageRemoved(const LayoutObject&, const ImageResourceContent*);
   void NotifyPaintFinished();
   void NotifyInputEvent(WebInputEvent::Type);
   bool NeedToNotifyInputOrScroll() const;
@@ -61,6 +63,13 @@ class CORE_EXPORT PaintTimingDetector
 
   void DidChangePerformanceTiming();
 
+  inline static bool IsTracing() {
+    bool tracing_enabled;
+    TRACE_EVENT_CATEGORY_GROUP_ENABLED("loading", &tracing_enabled);
+    return tracing_enabled;
+  }
+
+  void ConvertViewportToWindow(WebFloatRect* float_rect) const;
   FloatRect CalculateVisualRect(const IntRect& visual_rect,
                                 const PropertyTreeState&) const;
 
@@ -70,6 +79,9 @@ class CORE_EXPORT PaintTimingDetector
   ImagePaintTimingDetector* GetImagePaintTimingDetector() const {
     return image_paint_timing_detector_;
   }
+
+  LargestContentfulPaintCalculator* GetLargestContentfulPaintCalculator();
+
   base::TimeTicks LargestImagePaint() const {
     return largest_image_paint_time_;
   }
@@ -79,6 +91,7 @@ class CORE_EXPORT PaintTimingDetector
   void Trace(Visitor* visitor);
 
  private:
+  void StopRecordingIfNeeded();
   bool HasLargestImagePaintChanged(base::TimeTicks, uint64_t size) const;
   bool HasLargestTextPaintChanged(base::TimeTicks, uint64_t size) const;
   Member<LocalFrameView> frame_view_;
@@ -88,6 +101,8 @@ class CORE_EXPORT PaintTimingDetector
   // This member lives until the end of the paint phase after the largest
   // image paint is found.
   Member<ImagePaintTimingDetector> image_paint_timing_detector_;
+
+  Member<LargestContentfulPaintCalculator> largest_contentful_paint_calculator_;
 
   // Largest image information.
   base::TimeTicks largest_image_paint_time_;

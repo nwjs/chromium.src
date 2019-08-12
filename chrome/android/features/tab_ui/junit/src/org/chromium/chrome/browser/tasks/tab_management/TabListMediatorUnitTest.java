@@ -59,7 +59,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelFilter;
 import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorImpl;
-import org.chromium.chrome.browser.tasks.tabgroup.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.testing.local.LocalRobolectricTestRunner;
@@ -112,6 +112,8 @@ public class TabListMediatorUnitTest {
     TabListMediator.TabGridDialogHandler mTabGridDialogHandler;
     @Mock
     TabListMediator.CreateGroupButtonProvider mCreateGroupButtonProvider;
+    @Mock
+    TabListMediator.GridCardOnClickListenerProvider mGridCardOnClickListenerProvider;
     @Captor
     ArgumentCaptor<TabModelObserver> mTabModelObserverCaptor;
     @Captor
@@ -129,6 +131,10 @@ public class TabListMediatorUnitTest {
     private TabListModel mModel;
     private TabGridViewHolder mViewHolder1;
     private TabGridViewHolder mViewHolder2;
+    private RecyclerView.ViewHolder mDummyViewHolder1;
+    private RecyclerView.ViewHolder mDummyViewHolder2;
+    private View mItemView1 = mock(View.class);
+    private View mItemView2 = mock(View.class);
 
     @Before
     public void setUp() {
@@ -141,6 +147,8 @@ public class TabListMediatorUnitTest {
         mTab2 = prepareTab(TAB2_ID, TAB2_TITLE);
         mViewHolder1 = prepareViewHolder(TAB1_ID, POSITION1);
         mViewHolder2 = prepareViewHolder(TAB2_ID, POSITION2);
+        mDummyViewHolder1 = prepareDummyViewHolder(mItemView1, POSITION1);
+        mDummyViewHolder2 = prepareDummyViewHolder(mItemView2, POSITION2);
         List<Tab> tabs1 = new ArrayList<>(Arrays.asList(mTab1));
         List<Tab> tabs2 = new ArrayList<>(Arrays.asList(mTab2));
 
@@ -181,7 +189,8 @@ public class TabListMediatorUnitTest {
         mModel = new TabListModel();
         mMediator = new TabListMediator(mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, null, mTabListFaviconProvider,
-                false, null, null, null, null, getClass().getSimpleName());
+                false, null, null, mGridCardOnClickListenerProvider, null,
+                getClass().getSimpleName());
     }
 
     @After
@@ -226,7 +235,8 @@ public class TabListMediatorUnitTest {
                 .get(TabProperties.TAB_SELECTED_LISTENER)
                 .run(mModel.get(1).get(TabProperties.TAB_ID));
 
-        verify(mTabModel).setIndex(eq(1), anyInt());
+        verify(mGridCardOnClickListenerProvider)
+                .onTabSelecting(mModel.get(1).get(TabProperties.TAB_ID));
     }
 
     @Test
@@ -296,15 +306,17 @@ public class TabListMediatorUnitTest {
         itemTouchHelperCallback.setActionsOnAllRelatedTabsForTest(true);
         itemTouchHelperCallback.setHoveredTabIndexForTest(POSITION1);
         itemTouchHelperCallback.setSelectedTabIndexForTest(POSITION2);
-        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mViewHolder1);
+        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mDummyViewHolder1);
 
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
         doReturn(mAdapter).when(mRecyclerView).getAdapter();
 
         // Simulate the drop action.
-        itemTouchHelperCallback.onSelectedChanged(mViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+        itemTouchHelperCallback.onSelectedChanged(
+                mDummyViewHolder2, ItemTouchHelper.ACTION_STATE_IDLE);
 
         verify(mTabGroupModelFilter).mergeTabsToGroup(eq(TAB2_ID), eq(TAB1_ID));
+        verify(mRecyclerView).removeView(mItemView2);
     }
 
     @Test
@@ -317,15 +329,17 @@ public class TabListMediatorUnitTest {
         itemTouchHelperCallback.setActionsOnAllRelatedTabsForTest(true);
         itemTouchHelperCallback.setHoveredTabIndexForTest(POSITION1);
         itemTouchHelperCallback.setSelectedTabIndexForTest(POSITION2);
-        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mViewHolder1);
+        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mDummyViewHolder1);
 
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
         doReturn(mAdapter).when(mRecyclerView).getAdapter();
 
         // Simulate the drop action.
-        itemTouchHelperCallback.onSelectedChanged(mViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+        itemTouchHelperCallback.onSelectedChanged(
+                mDummyViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
 
         verify(mTabGroupModelFilter, never()).mergeTabsToGroup(anyInt(), anyInt());
+        verify(mRecyclerView, never()).removeView(any(View.class));
     }
 
     @Test
@@ -339,15 +353,17 @@ public class TabListMediatorUnitTest {
         itemTouchHelperCallback.setActionsOnAllRelatedTabsForTest(true);
         itemTouchHelperCallback.setHoveredTabIndexForTest(POSITION1);
         itemTouchHelperCallback.setSelectedTabIndexForTest(POSITION2);
-        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mViewHolder1);
+        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mDummyViewHolder1);
 
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
         doReturn(mAdapter).when(mRecyclerView).getAdapter();
 
         // Simulate the drop action.
-        itemTouchHelperCallback.onSelectedChanged(mViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+        itemTouchHelperCallback.onSelectedChanged(
+                mDummyViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
 
         verify(mTabGroupModelFilter, never()).mergeTabsToGroup(anyInt(), anyInt());
+        verify(mRecyclerView, never()).removeView(any(View.class));
     }
 
     @Test
@@ -362,15 +378,17 @@ public class TabListMediatorUnitTest {
         TabGridItemTouchHelperCallback itemTouchHelperCallback = getItemTouchHelperCallback();
         itemTouchHelperCallback.setActionsOnAllRelatedTabsForTest(false);
         itemTouchHelperCallback.setUnGroupTabIndexForTest(POSITION1);
-        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mViewHolder1);
+        itemTouchHelperCallback.getMovementFlags(mRecyclerView, mDummyViewHolder1);
 
         doReturn(mTabGroupModelFilter).when(mTabModelFilterProvider).getCurrentTabModelFilter();
         doReturn(mAdapter).when(mRecyclerView).getAdapter();
 
         // Simulate the ungroup action.
-        itemTouchHelperCallback.onSelectedChanged(mViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
+        itemTouchHelperCallback.onSelectedChanged(
+                mDummyViewHolder1, ItemTouchHelper.ACTION_STATE_IDLE);
 
         verify(mTabGroupModelFilter).moveTabOutOfGroup(eq(TAB1_ID));
+        verify(mRecyclerView).removeView(mItemView1);
     }
 
     @Test
@@ -456,14 +474,14 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    public void tabAdditionEnd() {
+    public void tabAddition_Dialog_End() {
         initAndAssertAllProperties();
 
         Tab newTab = prepareTab(TAB3_ID, TAB3_TITLE);
         doReturn(3).when(mTabModel).getCount();
         doReturn(Arrays.asList(mTab1, mTab2, newTab))
                 .when(mTabModelFilter)
-                .getRelatedTabList(eq(TAB3_ID));
+                .getRelatedTabList(eq(TAB1_ID));
 
         mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
 
@@ -473,20 +491,33 @@ public class TabListMediatorUnitTest {
     }
 
     @Test
-    public void tabAdditionMiddle() {
+    public void tabAddition_Dialog_Middle() {
         initAndAssertAllProperties();
 
         Tab newTab = prepareTab(TAB3_ID, TAB3_TITLE);
         doReturn(3).when(mTabModel).getCount();
         doReturn(Arrays.asList(mTab1, newTab, mTab2))
                 .when(mTabModelFilter)
-                .getRelatedTabList(eq(TAB3_ID));
+                .getRelatedTabList(eq(TAB1_ID));
 
         mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
 
         assertThat(mModel.size(), equalTo(3));
         assertThat(mModel.get(1).get(TabProperties.TAB_ID), equalTo(TAB3_ID));
         assertThat(mModel.get(1).get(TabProperties.TITLE), equalTo(TAB3_TITLE));
+    }
+
+    @Test
+    public void tabAddition_Dialog_Skip() {
+        initAndAssertAllProperties();
+
+        Tab newTab = prepareTab(TAB3_ID, TAB3_TITLE);
+        // newTab is of another group.
+        doReturn(Arrays.asList(mTab1, mTab2)).when(mTabModelFilter).getRelatedTabList(eq(TAB1_ID));
+
+        mTabModelObserverCaptor.getValue().didAddTab(newTab, TabLaunchType.FROM_CHROME_UI);
+
+        assertThat(mModel.size(), equalTo(2));
     }
 
     @Test
@@ -509,7 +540,7 @@ public class TabListMediatorUnitTest {
         doReturn(3).when(mTabModel).getCount();
         doReturn(Arrays.asList(mTab1, mTab2, newTab))
                 .when(mTabModelFilter)
-                .getRelatedTabList(eq(TAB3_ID));
+                .getRelatedTabList(eq(TAB1_ID));
 
         mTabModelObserverCaptor.getValue().tabClosureUndone(newTab);
 
@@ -569,6 +600,7 @@ public class TabListMediatorUnitTest {
         // Assume that TabGroupModelFilter is already updated.
         doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION1);
         doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(2).when(mTabGroupModelFilter).getCount();
 
         mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(mTab1, POSITION1);
 
@@ -600,6 +632,7 @@ public class TabListMediatorUnitTest {
         // Assume that TabGroupModelFilter is already updated.
         doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
         doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(2).when(mTabGroupModelFilter).getCount();
 
         mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(mTab2, POSITION1);
 
@@ -619,7 +652,9 @@ public class TabListMediatorUnitTest {
         // Setup the mediator with a DialogHandler.
         mMediator = new TabListMediator(mModel, mTabModelSelector,
                 mTabContentManager::getTabThumbnailWithCallback, null, mTabListFaviconProvider,
-                true, null, null, null, mTabGridDialogHandler, getClass().getSimpleName());
+                false, null, null, null, mTabGridDialogHandler, getClass().getSimpleName());
+        // Assume that filter is already updated.
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION1);
 
         assertThat(mModel.size(), equalTo(2));
         assertThat(mModel.get(0).get(TabProperties.TAB_ID), equalTo(TAB1_ID));
@@ -632,6 +667,31 @@ public class TabListMediatorUnitTest {
         assertThat(mModel.size(), equalTo(1));
         assertThat(mModel.get(0).get(TabProperties.TAB_ID), equalTo(TAB2_ID));
         assertThat(mModel.get(0).get(TabProperties.TITLE), equalTo(TAB2_TITLE));
+        verify(mTabGridDialogHandler).updateDialogContent(TAB2_ID);
+    }
+
+    @Test
+    public void tabMoveOutOfGroup_Strip() {
+        setUpForTabGroupOperation();
+
+        mMediator = new TabListMediator(mModel, mTabModelSelector,
+                mTabContentManager::getTabThumbnailWithCallback, null, mTabListFaviconProvider,
+                false, null, null, null, null, getClass().getSimpleName());
+        // Assume that filter is already updated.
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION1);
+
+        assertThat(mModel.size(), equalTo(2));
+        assertThat(mModel.get(0).get(TabProperties.TAB_ID), equalTo(TAB1_ID));
+        assertThat(mModel.get(0).get(TabProperties.TITLE), equalTo(TAB1_TITLE));
+        assertThat(mModel.get(1).get(TabProperties.TAB_ID), equalTo(TAB2_ID));
+        assertThat(mModel.get(1).get(TabProperties.TITLE), equalTo(TAB2_TITLE));
+
+        mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(mTab1, POSITION1);
+
+        assertThat(mModel.size(), equalTo(1));
+        assertThat(mModel.get(0).get(TabProperties.TAB_ID), equalTo(TAB2_ID));
+        assertThat(mModel.get(0).get(TabProperties.TITLE), equalTo(TAB2_TITLE));
+        verify(mTabGridDialogHandler, never()).updateDialogContent(anyInt());
     }
 
     @Test
@@ -754,6 +814,78 @@ public class TabListMediatorUnitTest {
         assertThat(mModel.get(0).get(TabProperties.TITLE), equalTo(TAB2_TITLE));
     }
 
+    @Test
+    public void undoGrouped_One_Adjacent_Tab() {
+        setUpForTabGroupOperation();
+
+        // Assume there are 3 tabs in TabModel, mTab2 just grouped with mTab1;
+        Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE);
+        List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, tab3));
+        mMediator.resetWithListOfTabs(tabs, false);
+        assertThat(mModel.size(), equalTo(2));
+
+        // Assume undo grouping mTab2 with mTab1.
+        doReturn(3).when(mTabGroupModelFilter).getCount();
+        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(tab3).when(mTabGroupModelFilter).getTabAt(2);
+
+        mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(mTab2, POSITION1);
+
+        assertThat(mModel.size(), equalTo(3));
+        assertThat(mModel.indexFromId(TAB1_ID), equalTo(0));
+        assertThat(mModel.indexFromId(TAB2_ID), equalTo(1));
+        assertThat(mModel.indexFromId(TAB3_ID), equalTo(2));
+    }
+
+    @Test
+    public void undoForwardGrouped_One_Tab() {
+        setUpForTabGroupOperation();
+
+        // Assume there are 3 tabs in TabModel, tab3 just grouped with mTab1;
+        Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE);
+        List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab1, mTab2));
+        mMediator.resetWithListOfTabs(tabs, false);
+        assertThat(mModel.size(), equalTo(2));
+
+        // Assume undo grouping tab3 with mTab1.
+        doReturn(3).when(mTabGroupModelFilter).getCount();
+        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(tab3).when(mTabGroupModelFilter).getTabAt(2);
+
+        mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(tab3, POSITION1);
+
+        assertThat(mModel.size(), equalTo(3));
+        assertThat(mModel.indexFromId(TAB1_ID), equalTo(0));
+        assertThat(mModel.indexFromId(TAB2_ID), equalTo(1));
+        assertThat(mModel.indexFromId(TAB3_ID), equalTo(2));
+    }
+
+    @Test
+    public void undoBackwardGrouped_One_Tab() {
+        setUpForTabGroupOperation();
+
+        // Assume there are 3 tabs in TabModel, mTab1 just grouped with mTab2;
+        Tab tab3 = prepareTab(TAB3_ID, TAB3_TITLE);
+        List<Tab> tabs = new ArrayList<>(Arrays.asList(mTab2, tab3));
+        mMediator.resetWithListOfTabs(tabs, false);
+        assertThat(mModel.size(), equalTo(2));
+
+        // Assume undo grouping tab3 with mTab1.
+        doReturn(3).when(mTabGroupModelFilter).getCount();
+        doReturn(mTab1).when(mTabGroupModelFilter).getTabAt(POSITION1);
+        doReturn(mTab2).when(mTabGroupModelFilter).getTabAt(POSITION2);
+        doReturn(tab3).when(mTabGroupModelFilter).getTabAt(2);
+
+        mTabGroupModelFilterObserverCaptor.getValue().didMoveTabOutOfGroup(mTab1, POSITION2);
+
+        assertThat(mModel.size(), equalTo(3));
+        assertThat(mModel.indexFromId(TAB1_ID), equalTo(0));
+        assertThat(mModel.indexFromId(TAB2_ID), equalTo(1));
+        assertThat(mModel.indexFromId(TAB3_ID), equalTo(2));
+    }
+
     private void initAndAssertAllProperties() {
         List<Tab> tabs = new ArrayList<>();
         for (int i = 0; i < mTabModel.getCount(); i++) {
@@ -809,6 +941,12 @@ public class TabListMediatorUnitTest {
         TabGridViewHolder viewHolder = mock(TabGridViewHolder.class);
         doReturn(id).when(viewHolder).getTabId();
         doReturn(position).when(viewHolder).getAdapterPosition();
+        return viewHolder;
+    }
+
+    private RecyclerView.ViewHolder prepareDummyViewHolder(View itemView, int index) {
+        RecyclerView.ViewHolder viewHolder = new RecyclerView.ViewHolder(itemView) {};
+        when(mRecyclerView.findViewHolderForAdapterPosition(index)).thenReturn(viewHolder);
         return viewHolder;
     }
 

@@ -6,6 +6,7 @@
 #define COMPONENTS_VIZ_SERVICE_DISPLAY_OUTPUT_SURFACE_H_
 
 #include <memory>
+#include <vector>
 
 #include "base/callback_helpers.h"
 #include "base/containers/circular_deque.h"
@@ -20,11 +21,13 @@
 #include "components/viz/service/display/software_output_device.h"
 #include "components/viz/service/viz_service_export.h"
 #include "gpu/command_buffer/common/texture_in_use_response.h"
+#include "gpu/ipc/common/surface_handle.h"
 #include "ui/gfx/color_space.h"
 #include "ui/latency/latency_info.h"
 
 namespace gfx {
 class ColorSpace;
+class Rect;
 class Size;
 struct SwapResponse;
 }  // namespace gfx
@@ -56,6 +59,16 @@ class VIZ_SERVICE_EXPORT OutputSurface {
     bool supports_post_sub_buffer = false;
     // Whether this OutputSurface supports gpu vsync callbacks.
     bool supports_gpu_vsync = false;
+    // Whether this OutputSurface supports pre transform. If it is supported,
+    // the chrome will set the output surface size in hardware natural
+    // orientation, and will render transformed content on back buffers based
+    // on the current system transform. So the OS presentation engine can
+    // present buffers onto the screen directly.
+    bool supports_pre_transform = false;
+    // Whether this OutputSurface should skip DrawAndSwap(). This is true for
+    // the unified display on Chrome OS. All drawing is handled by the physical
+    // displays so the unified display should skip that work.
+    bool skips_draw = false;
   };
 
   // Constructor for skia-based compositing.
@@ -86,6 +99,9 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   }
   const SkMatrix44& color_matrix() const { return color_matrix_; }
 
+  // Only useful for GPU backend.
+  virtual gpu::SurfaceHandle GetSurfaceHandle() const;
+
   virtual void BindToClient(OutputSurfaceClient* client) = 0;
 
   virtual void EnsureBackbuffer() = 0;
@@ -98,10 +114,6 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   // Marks that the given rectangle will be drawn to on the default, bound
   // framebuffer.
   virtual void SetDrawRectangle(const gfx::Rect& rect) = 0;
-
-  // Get the class capable of informing cc of hardware overlay capability.
-  virtual std::unique_ptr<OverlayCandidateValidator>
-  TakeOverlayCandidateValidator() = 0;
 
   // Returns true if a main image overlay plane should be scheduled.
   virtual bool IsDisplayedAsOverlayPlane() const = 0;
@@ -129,6 +141,12 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   // implementation must call OutputSurfaceClient::DidReceiveSwapBuffersAck()
   // after returning from this method in order to unblock the next frame.
   virtual void SwapBuffers(OutputSurfaceFrame frame) = 0;
+
+  // Returns a rectangle whose contents may have changed since the current
+  // buffer was last submitted and they need to be redrawn. For partial swap,
+  // the contents outside this rectangle can be considered valid and do not need
+  // to be redrawn.
+  virtual gfx::Rect GetCurrentFramebufferDamage() const;
 
   // Updates the GpuFence associated with this surface. The id of a newly
   // created GpuFence is returned, or if an error occurs, or fences are not
@@ -169,6 +187,10 @@ class VIZ_SERVICE_EXPORT OutputSurface {
   virtual gfx::OverlayTransform GetDisplayTransform() = 0;
 
   virtual base::ScopedClosureRunner GetCacheBackBufferCb();
+
+  // Only used for pre-OOP-D code path of BrowserCompositorOutputSurface.
+  // TODO(weiliangc): Remove it when reflector code is removed.
+  virtual bool IsSoftwareMirrorMode() const;
 
   // If set to true, the OutputSurface must deliver
   // OutputSurfaceclient::DidSwapWithSize notifications to its client.

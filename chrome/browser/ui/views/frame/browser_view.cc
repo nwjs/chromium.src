@@ -76,6 +76,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/browser_window_state.h"
+#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
+#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/sad_tab_helper.h"
@@ -84,6 +86,7 @@
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_utils.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/accelerator_table.h"
 #include "chrome/browser/ui/views/accessibility/invert_bubble_view.h"
@@ -101,6 +104,7 @@
 #include "chrome/browser/ui/views/download/download_shelf_view.h"
 #include "chrome/browser/ui/views/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/views/extensions/extension_keybinding_registry_views.h"
+#include "chrome/browser/ui/views/extensions/extensions_toolbar_container.h"
 #include "chrome/browser/ui/views/find_bar_host.h"
 #include "chrome/browser/ui/views/frame/app_menu_button.h"
 #include "chrome/browser/ui/views/frame/browser_view_layout.h"
@@ -122,6 +126,7 @@
 #include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_view_impl.h"
+#include "chrome/browser/ui/views/sharing/click_to_call/click_to_call_dialog_view.h"
 #include "chrome/browser/ui/views/status_bubble_views.h"
 #include "chrome/browser/ui/views/tab_contents/chrome_web_contents_view_focus_helper.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
@@ -155,7 +160,6 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/password_protection/metrics_util.h"
 #include "components/sessions/core/tab_restore_service.h"
-#include "components/signin/core/browser/account_consistency_method.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/version_info/channel.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -226,11 +230,6 @@
 #include "ui/native_theme/native_theme_win.h"
 #include "ui/views/win/scoped_fullscreen_visibility.h"
 #endif
-
-#if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
-#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help.h"
-#include "chrome/browser/ui/in_product_help/reopen_tab_in_product_help_factory.h"
-#endif  // BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
 
 #if BUILDFLAG(ENABLE_ONE_CLICK_SIGNIN)
 #include "chrome/browser/ui/sync/one_click_signin_links_delegate_impl.h"
@@ -835,13 +834,20 @@ void BrowserView::FlashFrame(bool flash) {
   frame_->FlashFrame(flash);
 }
 
-bool BrowserView::IsAlwaysOnTop() const {
-  return false;
+ui::ZOrderLevel BrowserView::GetZOrderLevel() const {
+  return ui::ZOrderLevel::kNormal;
 }
 
+void BrowserView::SetZOrderLevel(ui::ZOrderLevel level) {
+  // Not implemented for browser windows.
+  NOTIMPLEMENTED();
+}
+
+#if 0
 void BrowserView::SetAlwaysOnTop(bool always_on_top) {
   frame_->SetAlwaysOnTop(always_on_top);
 }
+#endif
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {
   // While the browser destruction is going on, the widget can already be gone,
@@ -1055,9 +1061,7 @@ void BrowserView::OnTabDetached(content::WebContents* contents,
 }
 
 void BrowserView::OnTabRestored(int command_id) {
-#if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
   reopen_tab_promo_controller_.OnTabReopened(command_id);
-#endif
 }
 
 void BrowserView::ZoomChangedForActiveTab(bool can_show_bubble) {
@@ -1292,9 +1296,17 @@ void BrowserView::FocusToolbar() {
 }
 
 ToolbarActionsBar* BrowserView::GetToolbarActionsBar() {
+  CHECK(!base::FeatureList::IsEnabled(features::kExtensionsToolbarMenu));
+
   BrowserActionsContainer* container =
       toolbar_button_provider_->GetBrowserActionsContainer();
   return container ? container->toolbar_actions_bar() : nullptr;
+}
+
+ExtensionsContainer* BrowserView::GetExtensionsContainer() {
+  if (toolbar_ && toolbar_->extensions_container())
+    return toolbar_->extensions_container();
+  return GetToolbarActionsBar();
 }
 
 void BrowserView::ToolbarSizeChanged(bool is_animating) {
@@ -1447,11 +1459,11 @@ void BrowserView::ShowUpdateChromeDialog() {
 
 void BrowserView::ShowIntentPickerBubble(
     std::vector<IntentPickerBubbleView::AppInfo> app_info,
-    bool show_stay_in_chrome,
-    bool show_remember_selection,
+    bool enable_stay_in_chrome,
+    bool show_persistence_options,
     IntentPickerResponse callback) {
-  toolbar_->ShowIntentPickerBubble(std::move(app_info), show_stay_in_chrome,
-                                   show_remember_selection,
+  toolbar_->ShowIntentPickerBubble(std::move(app_info), enable_stay_in_chrome,
+                                   show_persistence_options,
                                    std::move(callback));
 }
 
@@ -1518,6 +1530,17 @@ autofill::SaveCardBubbleView* BrowserView::ShowSaveCreditCardBubble(
   bubble->Show(user_gesture ? autofill::SaveCardBubbleViews::USER_GESTURE
                             : autofill::SaveCardBubbleViews::AUTOMATIC);
   return bubble;
+}
+
+ClickToCallDialog* BrowserView::ShowClickToCallDialog(
+    content::WebContents* web_contents,
+    ClickToCallSharingDialogController* controller) {
+  auto* dialog_view = new ClickToCallDialogView(
+      toolbar_button_provider()->GetAnchorView(), web_contents, controller);
+
+  views::BubbleDialogDelegateView::CreateBubble(dialog_view)->Show();
+
+  return dialog_view;
 }
 
 send_tab_to_self::SendTabToSelfBubbleView* BrowserView::ShowSendTabToSelfBubble(
@@ -1869,8 +1892,8 @@ void BrowserView::CutCopyPaste(int command_id) {
 #endif  // defined(OS_MACOSX)
 }
 
-FindBar* BrowserView::CreateFindBar() {
-  return new FindBarHost(this);
+std::unique_ptr<FindBar> BrowserView::CreateFindBar() {
+  return std::make_unique<FindBarHost>(this);
 }
 
 WebContentsModalDialogHost* BrowserView::GetWebContentsModalDialogHost() {
@@ -2244,8 +2267,6 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
     if (devtools_window) {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
-      if (!inspected_contents)
-        return gfx::ImageSkia();
       Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return *browser->icon_override().ToImageSkia();
@@ -2824,11 +2845,11 @@ void BrowserView::InitViews() {
   immersive_mode_controller_->Init(this);
   immersive_mode_controller_->AddObserver(this);
 
-  auto browser_view_layout = std::make_unique<BrowserViewLayout>();
-  browser_view_layout->Init(
-      new BrowserViewLayoutDelegateImpl(this), browser(), this, top_container_,
-      tab_strip_region_view_, tabstrip_, toolbar_, infobar_container_,
-      contents_container_, immersive_mode_controller_.get());
+  auto browser_view_layout = std::make_unique<BrowserViewLayout>(
+      std::make_unique<BrowserViewLayoutDelegateImpl>(this), browser(), this,
+      top_container_, tab_strip_region_view_, tabstrip_, toolbar_,
+      infobar_container_, contents_container_,
+      immersive_mode_controller_.get());
   SetLayoutManager(std::move(browser_view_layout));
 
   EnsureFocusOrder();
@@ -3186,29 +3207,6 @@ void BrowserView::UpdateAcceleratorMetrics(const ui::Accelerator& accelerator,
 #endif
 }
 
-#if !defined(OS_ANDROID)
-void BrowserView::ShowHatsBubbleFromAppMenuButton() {
-  // Never show any HaTS bubble in Incognito.
-  if (!IsRegularOrGuestSession())
-    return;
-
-  AppMenuButton* app_menu_button =
-      toolbar_button_provider()->GetAppMenuButton();
-
-  // Do not show Hatsbubble if there is no avatar menu button to anchor from
-  if (!app_menu_button)
-    return;
-
-  DCHECK(app_menu_button->GetWidget());
-  views::BubbleDialogDelegateView* bubble = HatsBubbleView::CreateHatsBubble(
-      app_menu_button, browser(),
-      app_menu_button->GetWidget()->GetNativeView());
-
-  bubble->SetHighlightedButton(app_menu_button);
-  bubble->GetWidget()->Show();
-}
-#endif
-
 void BrowserView::ShowAvatarBubbleFromAvatarButton(
     AvatarBubbleMode mode,
     const signin::ManageAccountsParams& manage_accounts_params,
@@ -3233,6 +3231,21 @@ void BrowserView::ShowAvatarBubbleFromAvatarButton(
                                   access_point, avatar_button, browser(),
                                   focus_first_profile_button);
   ProfileMetrics::LogProfileOpenMethod(ProfileMetrics::ICON_AVATAR_BUBBLE);
+}
+
+void BrowserView::ShowHatsBubbleFromAppMenuButton() {
+  // Never show any HaTS bubble in Incognito.
+  if (!IsRegularOrGuestSession())
+    return;
+
+  AppMenuButton* app_menu_button =
+      toolbar_button_provider()->GetAppMenuButton();
+
+  // Do not show HaTS bubble if there is no avatar menu button to anchor to.
+  if (!app_menu_button)
+    return;
+
+  HatsBubbleView::Show(app_menu_button, browser());
 }
 
 void BrowserView::ExecuteExtensionCommand(
@@ -3265,12 +3278,10 @@ void BrowserView::ShowEmojiPanel() {
   GetWidget()->ShowEmojiPanel();
 }
 
-#if BUILDFLAG(ENABLE_DESKTOP_IN_PRODUCT_HELP)
 void BrowserView::ShowInProductHelpPromo(InProductHelpFeature iph_feature) {
   if (iph_feature == InProductHelpFeature::kReopenTab)
     reopen_tab_promo_controller_.ShowPromo();
 }
-#endif
 
 bool BrowserView::DoCutCopyPasteForWebContents(
     WebContents* contents,

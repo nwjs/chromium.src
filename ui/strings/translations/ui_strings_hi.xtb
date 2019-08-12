@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">खोजें</translation>
 <translation id="1398853756734560583">बड़ा करें</translation>
 <translation id="1409544243779336081">ऐप्लिकेशन का सुझाव</translation>
+<translation id="1498028757988366001">आपने पहले इसे खोजा है. अगर आप "<ph name="QUERY" />" को अपने इतिहास से मिटा देते हैं, तो यह सभी डिवाइस पर मौजूद आपके खाते से हटा दिया जाएगा.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 मिनट और }one{# मिनट और }other{# मिनट और }}</translation>
 <translation id="1643823602425662293">सूचना</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">कैलिब्रेशन पूरा हो गया</translation>
 <translation id="252373100621549798">अनजान डिस्प्ले</translation>
+<translation id="2545651323591713692">स्नूज़ करें</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{1 घंटे में}one{#घंटे में}other{#घंटे में}}</translation>
 <translation id="2583543531130364912">अपनी टचस्क्रीन कैलिब्रेट करें</translation>
 <translation id="2666092431469916601">शीर्ष</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">यहां तक स्क्रोल करें</translation>
 <translation id="3234408098842461169">नीचे तीर</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 दिन}one{# दिन}other{# दिन}}</translation>
+<translation id="3295886253693811851">कॉल करने के लिए एक विकल्प चुनें</translation>
 <translation id="335581015389089642">बोली</translation>
 <translation id="3443810440409579745">टैब मिला.</translation>
 <translation id="3479552764303398839">अभी नहीं</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 मिनट पहले}one{# मिनट पहले}other{# मिनट पहले}}</translation>
 <translation id="7389409599945284130">- <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 मिनट शेष}one{# मिनट शेष}other{# मिनट शेष}}</translation>
+<translation id="7430878839542012341">अपने इतिहास से यह खोज मिटाना चाहते हैं?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">इमोजी</translation>
 <translation id="7658239707568436148">अभी नहीं</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">आप जो चीज़ें खोजते हैं उनमें Google Assistant की मदद ली जाती है.<ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, अपने आप पूरा</translation>
 <translation id="815598010540052116">नीचे स्क्रोल करें</translation>
-<translation id="8170087467028567933">अगर आप यह सुझाव हटाते हैं, तो यह उन सभी डिवाइस पर फिर से दिखाई नहीं देगा जिन पर आप यह खाता इस्तेमाल करते हैं.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Page Down</translation>
 <translation id="8245914219290430011">टैब</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">सही का निशान लगाकर चुनें</translation>
 <translation id="8393700583063109961">संदेश भेजें</translation>
 <translation id="8394908167088220973">मीडिया चलाएं/रोकें</translation>
-<translation id="8420205633584771378">यह सुझाव हटा दें?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1y}one{#y}other{#y}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" /> फ़ाइल (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">अब शेल्फ़ हर समय उपलब्ध है</translation>

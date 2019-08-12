@@ -5,7 +5,7 @@
 #include "base/no_destructor.h"
 #include "extensions/common/extension_messages.h"
 #include "extensions/renderer/api/automation/automation_internal_custom_bindings.h"
-#include "ui/accessibility/ax_language_info.h"
+#include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_node.h"
 
 namespace extensions {
@@ -33,6 +33,8 @@ api::automation::EventType ToAutomationEvent(ax::mojom::Event event_type) {
       return api::automation::EVENT_TYPE_CHILDRENCHANGED;
     case ax::mojom::Event::kClicked:
       return api::automation::EVENT_TYPE_CLICKED;
+    case ax::mojom::Event::kControlsChanged:
+      return api::automation::EVENT_TYPE_CONTROLSCHANGED;
     case ax::mojom::Event::kDocumentSelectionChanged:
       return api::automation::EVENT_TYPE_DOCUMENTSELECTIONCHANGED;
     case ax::mojom::Event::kDocumentTitleChanged:
@@ -124,6 +126,8 @@ api::automation::EventType ToAutomationEvent(ax::mojom::Event event_type) {
       return api::automation::EVENT_TYPE_WINDOWACTIVATED;
     case ax::mojom::Event::kWindowDeactivated:
       return api::automation::EVENT_TYPE_WINDOWDEACTIVATED;
+    case ax::mojom::Event::kWindowVisibilityChanged:
+      return api::automation::EVENT_TYPE_WINDOWVISIBILITYCHANGED;
     case ax::mojom::Event::kTreeChanged:
       return api::automation::EVENT_TYPE_TREECHANGED;
     case ax::mojom::Event::kValueChanged:
@@ -196,11 +200,13 @@ api::automation::EventType ToAutomationEvent(
     case ui::AXEventGenerator::Event::DESCRIPTION_CHANGED:
     case ui::AXEventGenerator::Event::DROPEFFECT_CHANGED:
     case ui::AXEventGenerator::Event::ENABLED_CHANGED:
+    case ui::AXEventGenerator::Event::FOCUS_CHANGED:
     case ui::AXEventGenerator::Event::FLOW_FROM_CHANGED:
     case ui::AXEventGenerator::Event::FLOW_TO_CHANGED:
     case ui::AXEventGenerator::Event::GRABBED_CHANGED:
     case ui::AXEventGenerator::Event::HASPOPUP_CHANGED:
     case ui::AXEventGenerator::Event::HIERARCHICAL_LEVEL_CHANGED:
+    case ui::AXEventGenerator::Event::IGNORED_CHANGED:
     case ui::AXEventGenerator::Event::KEY_SHORTCUTS_CHANGED:
     case ui::AXEventGenerator::Event::LABELED_BY_CHANGED:
     case ui::AXEventGenerator::Event::LANGUAGE_CHANGED:
@@ -295,7 +301,7 @@ bool AutomationAXTreeWrapper::OnAccessibilityEvents(
 
   // Refresh child tree id  mappings.
   for (const ui::AXTreeID& tree_id : tree_.GetAllChildTreeIds()) {
-    DCHECK(!base::ContainsKey(child_tree_id_reverse_map, tree_id));
+    DCHECK(!base::Contains(child_tree_id_reverse_map, tree_id));
     child_tree_id_reverse_map.insert(std::make_pair(tree_id, this));
   }
 
@@ -316,10 +322,8 @@ bool AutomationAXTreeWrapper::OnAccessibilityEvents(
   for (const auto& targeted_event : event_generator_) {
     if (targeted_event.event_params.event ==
         ui::AXEventGenerator::Event::LOAD_COMPLETE) {
-      DetectLanguageForSubtree(tree_.root(), &tree_);
-      if (!LabelLanguageForSubtree(tree_.root(), &tree_))
-        LOG(FATAL) << "Language detection failed at step: Label";
-
+      tree_.language_detection_manager->DetectLanguageForSubtree(tree_.root());
+      tree_.language_detection_manager->LabelLanguageForSubtree(tree_.root());
       break;
     }
   }
@@ -525,11 +529,13 @@ bool AutomationAXTreeWrapper::IsEventTypeHandledByAXEventGenerator(
     case api::automation::EVENT_TYPE_SCROLLEDTOANCHOR:
     case api::automation::EVENT_TYPE_WINDOWACTIVATED:
     case api::automation::EVENT_TYPE_WINDOWDEACTIVATED:
+    case api::automation::EVENT_TYPE_WINDOWVISIBILITYCHANGED:
       return false;
 
     // These events might need to be migrated to AXEventGenerator.
     case api::automation::EVENT_TYPE_ALERT:
     case api::automation::EVENT_TYPE_BLUR:
+    case api::automation::EVENT_TYPE_CONTROLSCHANGED:
     case api::automation::EVENT_TYPE_FOCUS:
     case api::automation::EVENT_TYPE_IMAGEFRAMEUPDATED:
     case api::automation::EVENT_TYPE_LOCATIONCHANGED:

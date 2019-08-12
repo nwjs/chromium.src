@@ -17,10 +17,11 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/common/buildflags.h"
+#include "components/prefs/pref_service.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "printing/backend/print_backend.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/identity/public/cpp/identity_manager.h"
 
 namespace base {
 class DictionaryValue;
@@ -61,7 +62,7 @@ enum PrinterType {
 
 // The handler for Javascript messages related to the print preview dialog.
 class PrintPreviewHandler : public content::WebUIMessageHandler,
-                            public identity::IdentityManager::Observer {
+                            public signin::IdentityManager::Observer {
  public:
   PrintPreviewHandler();
   ~PrintPreviewHandler() override;
@@ -73,7 +74,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
 
   // IdentityManager::Observer implementation.
   void OnAccountsInCookieUpdated(
-      const identity::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+      const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
       const GoogleServiceAuthError& error) override;
 
   // Called when print preview failed. |request_id| identifies the request that
@@ -125,7 +126,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
                               void* params);
 
   // Sets |pdf_file_saved_closure_| to |closure|.
-  void SetPdfSavedClosureForTesting(const base::Closure& closure);
+  void SetPdfSavedClosureForTesting(base::OnceClosure closure);
 
   // Fires the 'enable-manipulate-settings-for-test' WebUI event.
   void SendEnableManipulateSettingsForTest();
@@ -290,7 +291,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   void ClearInitiatorDetails();
 
   // Populates |settings| according to the current locale.
-  void GetNumberFormatAndMeasurementSystem(base::Value* settings);
+  void GetLocaleInformation(base::Value* settings);
 
   // Populates |settings| with the list of logged in accounts.
   void GetUserAccountList(base::Value* settings);
@@ -348,7 +349,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
 
   // Pointer to the identity manager service so that print preview can listen
   // for GAIA cookie changes.
-  identity::IdentityManager* identity_manager_;
+  signin::IdentityManager* identity_manager_;
 
   // Handles requests for cloud printers. Created lazily by calling
   // GetPrinterHandler().
@@ -376,7 +377,7 @@ class PrintPreviewHandler : public content::WebUIMessageHandler,
   // Set of preview request ids for failed previews.
   std::set<int> preview_failures_;
 
-  base::WeakPtrFactory<PrintPreviewHandler> weak_factory_;
+  base::WeakPtrFactory<PrintPreviewHandler> weak_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(PrintPreviewHandler);
 };

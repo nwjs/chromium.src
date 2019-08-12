@@ -447,7 +447,6 @@
       "os": {
         "type": "linux"
       },
-      "gl_type": "gl",
       "gl_renderer": ".*Mesa.*",
       "features": [
         "disable_post_sub_buffers_for_onscreen_surfaces"
@@ -805,19 +804,6 @@
       "multi_gpu_style": "amd_switchable",
       "features": [
         "disable_d3d11"
-      ]
-    },
-    {
-      "id": 101,
-      "description": "The Mali-Txxx driver hangs when reading from currently displayed buffer",
-      "cr_bugs": [457511],
-      "os": {
-        "type": "chromeos"
-      },
-      "gl_vendor": "ARM.*",
-      "gl_renderer": "Mali-T.*",
-      "features": [
-        "disable_non_empty_post_sub_buffers_for_onscreen_surfaces"
       ]
     },
     {
@@ -1863,7 +1849,6 @@
       "os": {
         "type": "linux"
       },
-      "gl_type": "gl",
       "gl_version_string": ".*Mesa.*",
       "features": [
         "disable_post_sub_buffers_for_onscreen_surfaces"
@@ -3282,6 +3267,18 @@
       "gl_renderer": "Mali.*",
       "features": [
         "disable_program_caching_for_transform_feedback"
+      ]
+    },
+    {
+      "id": 307,
+      "cr_bugs": [833975],
+      "description": "Workaround for broken EGL_IMAGE_EXTERNAL_FLUSH_EXT implementation on NVIDIA",
+      "os": {
+        "type": "chromeos"
+      },
+      "gl_vendor": "NVIDIA.*",
+      "features": [
+        "force_gl_flush_on_swap_buffers"
       ]
     }
   ]

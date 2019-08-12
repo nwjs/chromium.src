@@ -19,13 +19,15 @@ import android.os.Handler;
 import android.support.annotation.Nullable;
 
 import org.chromium.base.ContextUtils;
+import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
-import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeFeatureList;
-import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
+import org.chromium.chrome.browser.compositor.layouts.Layout;
+import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.tab.Tab;
@@ -41,8 +43,10 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.ReturnToChromeExperimentsUtil;
-import org.chromium.chrome.browser.tasks.tabgroup.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.browser.util.UrlConstants;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -52,13 +56,20 @@ import java.util.List;
  * The Mediator that is responsible for resetting the tab grid based on visibility and model
  * changes.
  */
-class GridTabSwitcherMediator
-        implements GridTabSwitcher.GridController, TabListRecyclerView.VisibilityListener {
+class GridTabSwitcherMediator implements GridTabSwitcher.GridController,
+                                         TabListRecyclerView.VisibilityListener,
+                                         TabListMediator.GridCardOnClickListenerProvider {
+    private static final String TAG = "GTSMediator";
+
     // This should be the same as TabListCoordinator.GRID_LAYOUT_SPAN_COUNT for the selected tab
     // to be on the 2nd row.
     static final int INITIAL_SCROLL_INDEX_OFFSET = 2;
 
     private static final int DEFAULT_TOP_PADDING = 0;
+
+    // Count histograms for tab counts when showing switcher.
+    static final String TAB_COUNT_HISTOGRAM = "Tabs.TabCountInSwitcher";
+    static final String TAB_ENTRIES_HISTOGRAM = "Tabs.IndependentTabCountInSwitcher";
 
     /** Field trial parameter for the {@link TabListRecyclerView} cleanup delay. */
     private static final String SOFT_CLEANUP_DELAY_PARAM = "soft-cleanup-delay";
@@ -76,9 +87,10 @@ class GridTabSwitcherMediator
     private final TabModelSelector mTabModelSelector;
     private final TabModelObserver mTabModelObserver;
     private final TabModelSelectorObserver mTabModelSelectorObserver;
-    private final ObserverList<OverviewModeObserver> mObservers = new ObserverList<>();
+    private final ObserverList<GridTabSwitcher.GridOverviewModeObserver> mObservers =
+            new ObserverList<>();
     private final ChromeFullscreenManager mFullscreenManager;
-    private final TabGridDialogMediator.ResetHandler mTabGridDialogResetHandler;
+    private TabGridDialogMediator.ResetHandler mTabGridDialogResetHandler;
     private final ChromeFullscreenManager.FullscreenListener mFullscreenListener =
             new ChromeFullscreenManager.FullscreenListener() {
                 @Override
@@ -98,6 +110,8 @@ class GridTabSwitcherMediator
             };
 
     private final CompositorViewHolder mCompositorViewHolder;
+    private Layout mLayout;
+    private GridTabSwitcher.OnTabSelectingListener mOnTabSelectingListener;
     private final TabSelectionEditorCoordinator
             .TabSelectionEditorController mTabSelectionEditorController;
 
@@ -143,7 +157,6 @@ class GridTabSwitcherMediator
     GridTabSwitcherMediator(ResetHandler resetHandler, PropertyModel containerViewModel,
             TabModelSelector tabModelSelector, ChromeFullscreenManager fullscreenManager,
             CompositorViewHolder compositorViewHolder,
-            TabGridDialogMediator.ResetHandler tabGridDialogResetHandler,
             TabSelectionEditorCoordinator
                     .TabSelectionEditorController tabSelectionEditorController) {
         mResetHandler = resetHandler;
@@ -187,8 +200,7 @@ class GridTabSwitcherMediator
                     // Use TabSelectionType.From_USER to filter the new tab creation case.
                     if (type == TabSelectionType.FROM_USER) recordUserSwitchedTab(tab, lastId);
 
-                    hideOverview(
-                            !ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_TO_GTS_ANIMATION));
+                    onTabSelecting(tab.getId());
                 }
             }
         };
@@ -219,12 +231,29 @@ class GridTabSwitcherMediator
         mContainerViewModel.set(SHADOW_TOP_MARGIN, shadowTopMargin);
 
         mCompositorViewHolder = compositorViewHolder;
-        mTabGridDialogResetHandler = tabGridDialogResetHandler;
 
         mSoftClearTabListRunnable = mResetHandler::softCleanup;
         mClearTabListRunnable = () -> mResetHandler.resetWithTabList(null, false);
         mHandler = new Handler();
         mTabSelectionEditorController = tabSelectionEditorController;
+    }
+
+    void setBottomControlsHeight(int bottomControlsHeight) {
+        mContainerViewModel.set(BOTTOM_CONTROLS_HEIGHT, bottomControlsHeight);
+    }
+
+    /**
+     * Set the handler of the Grid Dialog so that it can be directly controlled.
+     * @param tabGridDialogResetHandler The handler of the Grid Dialog
+     */
+    void setTabGridDialogResetHandler(
+            TabGridDialogMediator.ResetHandler tabGridDialogResetHandler) {
+        mTabGridDialogResetHandler = tabGridDialogResetHandler;
+    }
+
+    @VisibleForTesting
+    int getSoftCleanupDelayForTesting() {
+        return getSoftCleanupDelay();
     }
 
     private int getSoftCleanupDelay() {
@@ -237,6 +266,11 @@ class GridTabSwitcherMediator
         } catch (NumberFormatException e) {
             return DEFAULT_SOFT_CLEANUP_DELAY_MS;
         }
+    }
+
+    @VisibleForTesting
+    int getCleanupDelayForTesting() {
+        return getCleanupDelay();
     }
 
     private int getCleanupDelay() {
@@ -318,12 +352,12 @@ class GridTabSwitcherMediator
     }
 
     @Override
-    public void addOverviewModeObserver(OverviewModeObserver observer) {
+    public void addOverviewModeObserver(GridTabSwitcher.GridOverviewModeObserver observer) {
         mObservers.addObserver(observer);
     }
 
     @Override
-    public void removeOverviewModeObserver(OverviewModeObserver observer) {
+    public void removeOverviewModeObserver(GridTabSwitcher.GridOverviewModeObserver observer) {
         mObservers.removeObserver(observer);
     }
 
@@ -332,13 +366,19 @@ class GridTabSwitcherMediator
         if (!animate) mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, false);
         setVisibility(false);
         mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, true);
+
+        if (mTabGridDialogResetHandler != null) {
+            // Don't wait until didSelectTab(), which is after the GTS animation.
+            // We need to hide the dialog immediately.
+            mTabGridDialogResetHandler.hideDialog(false);
+        }
     }
 
     boolean prepareOverview() {
         mHandler.removeCallbacks(mSoftClearTabListRunnable);
         mHandler.removeCallbacks(mClearTabListRunnable);
         boolean quick = false;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_TO_GTS_ANIMATION)) {
+        if (FeatureUtilities.isTabToGtsAnimationEnabled()) {
             quick = mResetHandler.resetWithTabList(
                     mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
                     false);
@@ -355,25 +395,27 @@ class GridTabSwitcherMediator
     public void showOverview(boolean animate) {
         mResetHandler.resetWithTabList(
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(),
-                ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_TO_GTS_ANIMATION));
+                FeatureUtilities.isTabToGtsAnimationEnabled());
         if (!animate) mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, false);
         setVisibility(true);
         mModelIndexWhenShown = mTabModelSelector.getCurrentModelIndex();
         mTabIdwhenShown = mTabModelSelector.getCurrentTabId();
         mContainerViewModel.set(ANIMATE_VISIBILITY_CHANGES, true);
+
+        recordTabCounts();
     }
 
     @Override
     public void startedShowing(boolean isAnimating) {
-        for (OverviewModeObserver observer : mObservers) {
-            observer.onOverviewModeStartedShowing(true);
+        for (GridTabSwitcher.GridOverviewModeObserver observer : mObservers) {
+            observer.startedShowing();
         }
     }
 
     @Override
     public void finishedShowing() {
-        for (OverviewModeObserver observer : mObservers) {
-            observer.onOverviewModeFinishedShowing();
+        for (GridTabSwitcher.GridOverviewModeObserver observer : mObservers) {
+            observer.finishedShowing();
         }
         setContentOverlayVisibility(false);
     }
@@ -381,15 +423,15 @@ class GridTabSwitcherMediator
     @Override
     public void startedHiding(boolean isAnimating) {
         setContentOverlayVisibility(true);
-        for (OverviewModeObserver observer : mObservers) {
-            observer.onOverviewModeStartedHiding(true, false);
+        for (GridTabSwitcher.GridOverviewModeObserver observer : mObservers) {
+            observer.startedHiding();
         }
     }
 
     @Override
     public void finishedHiding() {
-        for (OverviewModeObserver observer : mObservers) {
-            observer.onOverviewModeFinishedHiding();
+        for (GridTabSwitcher.GridOverviewModeObserver observer : mObservers) {
+            observer.finishedHiding();
         }
     }
 
@@ -400,7 +442,7 @@ class GridTabSwitcherMediator
 
         recordUserSwitchedTab(
                 mTabModelSelector.getCurrentTab(), mTabModelSelector.getCurrentTabId());
-        hideOverview(!ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_TO_GTS_ANIMATION));
+        onTabSelecting(mTabModelSelector.getCurrentTabId());
         return true;
     }
 
@@ -409,7 +451,9 @@ class GridTabSwitcherMediator
      * @see GridTabSwitcher#postHiding
      */
     void postHiding() {
+        Log.d(TAG, "SoftCleanupDelay = " + getSoftCleanupDelay());
         mHandler.postDelayed(mSoftClearTabListRunnable, getSoftCleanupDelay());
+        Log.d(TAG, "CleanupDelay = " + getCleanupDelay());
         mHandler.postDelayed(mClearTabListRunnable, getCleanupDelay());
     }
 
@@ -437,12 +481,24 @@ class GridTabSwitcherMediator
                 mTabModelObserver);
     }
 
+    void setOnTabSelectingListener(GridTabSwitcher.OnTabSelectingListener listener) {
+        mOnTabSelectingListener = listener;
+    }
+
+    @Override
     @Nullable
-    TabListMediator.TabActionListener getGridCardOnClickListener(Tab tab) {
+    public TabListMediator.TabActionListener openTabGridDialog(Tab tab) {
+        if (!FeatureUtilities.isTabGroupsAndroidUiImprovementsEnabled()) return null;
         if (!ableToOpenDialog(tab)) return null;
+        assert getRelatedTabs(tab.getId()).size() != 1;
         return tabId -> {
             mTabGridDialogResetHandler.resetWithListOfTabs(getRelatedTabs(tabId));
         };
+    }
+
+    @Override
+    public void onTabSelecting(int tabId) {
+        mOnTabSelectingListener.onTabSelecting(LayoutManager.time(), tabId);
     }
 
     @Nullable
@@ -476,5 +532,16 @@ class GridTabSwitcherMediator
         return mTabModelSelector.getTabModelFilterProvider()
                 .getCurrentTabModelFilter()
                 .getRelatedTabList(tabId);
+    }
+
+    private void recordTabCounts() {
+        final TabModel model = mTabModelSelector.getCurrentModel();
+        if (model == null) return;
+        RecordHistogram.recordCountHistogram(TAB_COUNT_HISTOGRAM, model.getCount());
+
+        final TabModelFilter filter =
+                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter();
+        if (filter == null) return;
+        RecordHistogram.recordCountHistogram(TAB_ENTRIES_HISTOGRAM, filter.getCount());
     }
 }

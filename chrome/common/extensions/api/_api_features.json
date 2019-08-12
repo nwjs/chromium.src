@@ -154,7 +154,8 @@
   },
   "browserAction": {
     "dependencies": ["manifest:browser_action"],
-    "contexts": ["blessed_extension"]
+    "contexts": ["blessed_extension"],
+    "disallow_for_service_workers": false
   },
   // This API is whitelisted on stable and should not be enabled for a wider
   // audience without resolving security issues raised in API proposal and
@@ -233,7 +234,6 @@
       "chrome://chrome-signin/*",
       "chrome://discards/*",
       "chrome://hats/*",
-      "chrome://media-router/*",
       "chrome://mobilesetup/*",
       "chrome://oobe/*",
       "chrome://password-change/*",
@@ -259,7 +259,8 @@
   },
   "contextMenus": {
     "dependencies": ["permission:contextMenus"],
-    "contexts": ["blessed_extension", "extension_service_worker"]
+    "contexts": ["blessed_extension"],
+    "disallow_for_service_workers": false
   },
   "contextMenusInternal": {
     "internal": true,
@@ -390,7 +391,8 @@
     "contexts": ["blessed_extension"]
   },
   "extension.getURL": {
-    "contexts": ["blessed_extension", "unblessed_extension", "content_script", "extension_service_worker"]
+    "contexts": ["blessed_extension", "unblessed_extension", "content_script"],
+    "disallow_for_service_workers": false
   },
   "extension.getViews": [
     {
@@ -535,6 +537,10 @@
   }],
   "launcherSearchProvider": {
     "dependencies": ["permission:launcherSearchProvider"],
+    "contexts": ["blessed_extension"]
+  },
+  "login": {
+    "dependencies": ["permission:login"],
     "contexts": ["blessed_extension"]
   },
   "loginScreenUi": {
@@ -701,18 +707,28 @@
   "tabs": [{
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app"],
-    "contexts": ["blessed_extension", "extension_service_worker"]
+    "contexts": ["blessed_extension"],
+    "disallow_for_service_workers": false
   }, {
     "channel": "stable",
     "contexts": ["webui"],
     "matches": [
-      "chrome://bookmarks/*"
+      "chrome://bookmarks/*",
+      "chrome://terminal/*"
     ]
   }],
-  "terminalPrivate": {
+  "terminalPrivate": [{
     "dependencies": ["permission:terminalPrivate"],
-    "contexts": ["blessed_extension"]
-  },
+    "contexts": ["blessed_extension"],
+    "platforms": ["chromeos"]
+  }, {
+    "channel": "dev",
+    "contexts": ["webui"],
+    "matches": [
+      "chrome://terminal/*"
+    ],
+    "platforms": ["chromeos"]
+  }],
   "topSites": {
     "dependencies": ["permission:topSites"],
     "contexts": ["blessed_extension"]
@@ -755,7 +771,8 @@
   },
   "webNavigation": {
     "dependencies": ["permission:webNavigation"],
-    "contexts": ["blessed_extension", "extension_service_worker"]
+    "contexts": ["blessed_extension"],
+    "disallow_for_service_workers": false
   },
   "webrtcAudioPrivate": {
     "dependencies": ["permission:webrtcAudioPrivate"],
@@ -800,7 +817,8 @@
     "channel": "stable",
     "contexts": ["webui"],
     "matches": [
-      "chrome://bookmarks/*"
+      "chrome://bookmarks/*",
+      "chrome://terminal/*"
     ]
   }]
 }

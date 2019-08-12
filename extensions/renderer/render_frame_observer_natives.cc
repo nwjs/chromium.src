@@ -100,7 +100,7 @@ class CloseWatcher : public content::RenderFrameObserver {
 }  // namespace
 
 RenderFrameObserverNatives::RenderFrameObserverNatives(ScriptContext* context)
-    : ObjectBackedNativeHandler(context), weak_ptr_factory_(this) {}
+    : ObjectBackedNativeHandler(context) {}
 
 RenderFrameObserverNatives::~RenderFrameObserverNatives() {}
 

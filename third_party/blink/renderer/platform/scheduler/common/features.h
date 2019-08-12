@@ -62,6 +62,13 @@ const base::Feature kVeryHighPriorityForCompositingWhenFast{
     "BlinkSchedulerVeryHighPriorityForCompositingWhenFast",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// If enabled, compositor priority will be set to kVeryHighPriority if the last
+// task completed was not a compositor task, and kNormalPriority if the last
+// task completed was a compositor task.
+const base::Feature kVeryHighPriorityForCompositingAlternating{
+    "BlinkSchedulerVeryHighPriorityForCompositingAlternating",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // LOAD PRIORITY EXPERIMENT CONTROLS
 
 // Enables setting the priority of background (with no audio) pages'
@@ -154,6 +161,22 @@ const base::Feature kThrottleAndFreezeTaskTypes{
 // Parameters for |kThrottleAndFreezeTaskTypes|.
 extern const char PLATFORM_EXPORT kThrottleableTaskTypesListParam[];
 extern const char PLATFORM_EXPORT kFreezableTaskTypesListParam[];
+
+// If enabled, the scheduler will bypass the priority-based anti-starvation
+// logic that prevents indefinite starvation of lower priority tasks in the
+// presence of higher priority tasks by occasionally selecting lower
+// priority task queues over higher priority task queues.
+//
+// Note: this does not affect the anti-starvation logic that is in place for
+// preventing delayed tasks from starving immediate tasks, which is always
+// enabled.
+const base::Feature kBlinkSchedulerDisableAntiStarvationForPriorities{
+    "BlinkSchedulerDisableAntiStarvationForPriorities",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
+// Enable setting high priority database task type from field trial parameters.
+const base::Feature kHighPriorityDatabaseTaskType{
+    "HighPriorityDatabaseTaskType", base::FEATURE_DISABLED_BY_DEFAULT};
 
 }  // namespace scheduler
 }  // namespace blink

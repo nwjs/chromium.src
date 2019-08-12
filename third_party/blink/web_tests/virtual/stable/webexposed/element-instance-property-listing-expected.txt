@@ -30,6 +30,7 @@ namespace http://www.w3.org/1999/xhtml
     property append
     property appendChild
     property assignedSlot
+    property attachInternals
     property attachShadow
     property attributeStyleMap
     property attributes
@@ -58,6 +59,8 @@ namespace http://www.w3.org/1999/xhtml
     property dir
     property dispatchEvent
     property draggable
+    property elementTiming
+    property enterKeyHint
     property firstChild
     property firstElementChild
     property focus
@@ -141,6 +144,7 @@ namespace http://www.w3.org/1999/xhtml
     property onended
     property onerror
     property onfocus
+    property onformdata
     property onfullscreenchange
     property onfullscreenerror
     property ongotpointercapture
@@ -173,6 +177,7 @@ namespace http://www.w3.org/1999/xhtml
     property onpointermove
     property onpointerout
     property onpointerover
+    property onpointerrawupdate
     property onpointerup
     property onprogress
     property onratechange
@@ -1161,6 +1166,7 @@ namespace http://www.w3.org/2000/svg
     property createShadowRoot
     property dataset
     property dispatchEvent
+    property elementTiming
     property firstChild
     property firstElementChild
     property focus
@@ -1234,6 +1240,7 @@ namespace http://www.w3.org/2000/svg
     property onended
     property onerror
     property onfocus
+    property onformdata
     property onfullscreenchange
     property onfullscreenerror
     property ongotpointercapture
@@ -1266,6 +1273,7 @@ namespace http://www.w3.org/2000/svg
     property onpointermove
     property onpointerout
     property onpointerover
+    property onpointerrawupdate
     property onpointerup
     property onprogress
     property onratechange

@@ -130,7 +130,9 @@ std::string GaiaSourceToString(gaia::GaiaSource source) {
     case gaia::GaiaSource::kOAuth2LoginVerifier:
       source_string = "ChromiumOAuth2LoginVerifier";
       break;
-    case gaia::GaiaSource::kSigninManager:
+    case gaia::GaiaSource::kPrimaryAccountManager:
+      // Even though this string refers to an old name from the Chromium POV, it
+      // should not be changed as it is passed server-side.
       source_string = "ChromiumSigninManager";
       break;
   }
@@ -179,24 +181,9 @@ const char GaiaAuthFetcher::kUberAuthTokenURLFormat[] =
 const char GaiaAuthFetcher::kOAuthLoginFormat[] = "service=%s&source=%s";
 
 // static
-const char GaiaAuthFetcher::kAccountDeletedError[] = "AccountDeleted";
-// static
-const char GaiaAuthFetcher::kAccountDisabledError[] = "AccountDisabled";
-// static
-const char GaiaAuthFetcher::kCaptchaError[] = "CaptchaRequired";
-// static
 const char GaiaAuthFetcher::kErrorParam[] = "Error";
 // static
 const char GaiaAuthFetcher::kErrorUrlParam[] = "Url";
-// static
-const char GaiaAuthFetcher::kCaptchaUrlParam[] = "CaptchaUrl";
-// static
-const char GaiaAuthFetcher::kCaptchaTokenParam[] = "CaptchaToken";
-
-// static
-const char GaiaAuthFetcher::kSecondFactor[] = "Info=InvalidSecondFactor";
-// static
-const char GaiaAuthFetcher::kWebLoginRequired[] = "Info=WebLoginRequired";
 
 // static
 const char GaiaAuthFetcher::kAuthHeaderFormat[] =
@@ -228,8 +215,6 @@ GaiaAuthFetcher::GaiaAuthFetcher(
       list_accounts_gurl_(
           GaiaUrls::GetInstance()->ListAccountsURLWithSource(source_)),
       logout_gurl_(GaiaUrls::GetInstance()->LogOutURLWithSource(source_)),
-      logout_with_continue_gurl_(
-          GaiaUrls::GetInstance()->LogOutURLWithSourceAndContinueURL(source_)),
       get_check_connection_info_url_(
           GaiaUrls::GetInstance()->GetCheckConnectionInfoURLWithSource(
               source_)) {}
@@ -443,9 +428,7 @@ std::string GaiaAuthFetcher::MakeOAuthLoginBody(const std::string& service,
 // static
 void GaiaAuthFetcher::ParseClientLoginFailure(const std::string& data,
                                               std::string* error,
-                                              std::string* error_url,
-                                              std::string* captcha_url,
-                                              std::string* captcha_token) {
+                                              std::string* error_url) {
   using std::vector;
   using std::pair;
   using std::string;
@@ -458,10 +441,6 @@ void GaiaAuthFetcher::ParseClientLoginFailure(const std::string& data,
       error->assign(i->second);
     } else if (i->first == kErrorUrlParam) {
       error_url->assign(i->second);
-    } else if (i->first == kCaptchaUrlParam) {
-      captcha_url->assign(i->second);
-    } else if (i->first == kCaptchaTokenParam) {
-      captcha_token->assign(i->second);
     }
   }
 }
@@ -811,14 +790,6 @@ void GaiaAuthFetcher::StartOAuthMultilogin(
 }
 
 void GaiaAuthFetcher::StartLogOut() {
-  StartLogOutInternal(logout_gurl_);
-}
-
-void GaiaAuthFetcher::StartLogOutWithBlankContinueURL() {
-  StartLogOutInternal(logout_with_continue_gurl_);
-}
-
-void GaiaAuthFetcher::StartLogOutInternal(const GURL& logout_gurl) {
   DCHECK(!fetch_pending_) << "Tried to fetch two things at once!";
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
@@ -848,7 +819,7 @@ void GaiaAuthFetcher::StartLogOutInternal(const GURL& logout_gurl) {
             }
           }
         })");
-  CreateAndStartGaiaFetcher(std::string(), std::string(), logout_gurl,
+  CreateAndStartGaiaFetcher(std::string(), std::string(), logout_gurl_,
                             net::LOAD_NORMAL, traffic_annotation);
 }
 
@@ -898,29 +869,11 @@ GoogleServiceAuthError GaiaAuthFetcher::GenerateAuthError(
     return GoogleServiceAuthError::FromConnectionError(net_error);
   }
 
-  if (IsSecondFactorSuccess(data))
-    return GoogleServiceAuthError(GoogleServiceAuthError::TWO_FACTOR);
-
-  if (IsWebLoginRequiredSuccess(data))
-    return GoogleServiceAuthError(GoogleServiceAuthError::WEB_LOGIN_REQUIRED);
-
   std::string error;
   std::string url;
-  std::string captcha_url;
-  std::string captcha_token;
-  ParseClientLoginFailure(data, &error, &url, &captcha_url, &captcha_token);
+  ParseClientLoginFailure(data, &error, &url);
   DLOG(WARNING) << "ClientLogin failed with " << error;
 
-  if (error == kCaptchaError) {
-    return GoogleServiceAuthError::FromClientLoginCaptchaChallenge(
-        captcha_token,
-        GURL(GaiaUrls::GetInstance()->captcha_base_url().Resolve(captcha_url)),
-        GURL(url));
-  }
-  if (error == kAccountDeletedError)
-    return GoogleServiceAuthError(GoogleServiceAuthError::ACCOUNT_DELETED);
-  if (error == kAccountDisabledError)
-    return GoogleServiceAuthError(GoogleServiceAuthError::ACCOUNT_DISABLED);
   if (error == kBadAuthenticationShortError ||
       error == kBadAuthenticationError) {
     return GoogleServiceAuthError(
@@ -1147,25 +1100,11 @@ void GaiaAuthFetcher::DispatchFetchedRequest(
     OnOAuth2RevokeTokenFetched(data, net_error, response_code);
   } else if (url == list_accounts_gurl_) {
     OnListAccountsFetched(data, net_error, response_code);
-  } else if (url == logout_gurl_ || url == logout_with_continue_gurl_) {
+  } else if (url == logout_gurl_) {
     OnLogOutFetched(data, net_error, response_code);
   } else if (url == get_check_connection_info_url_) {
     OnGetCheckConnectionInfoFetched(data, net_error, response_code);
   } else {
     NOTREACHED() << "Unknown url: '" << url << "'";
   }
-}
-
-// static
-bool GaiaAuthFetcher::IsSecondFactorSuccess(
-    const std::string& alleged_error) {
-  return alleged_error.find(kSecondFactor) !=
-      std::string::npos;
-}
-
-// static
-bool GaiaAuthFetcher::IsWebLoginRequiredSuccess(
-    const std::string& alleged_error) {
-  return alleged_error.find(kWebLoginRequired) !=
-      std::string::npos;
 }

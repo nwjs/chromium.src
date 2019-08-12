@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.support.annotation.IntDef;
-import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.widget.GridLayoutManager;
@@ -38,20 +37,27 @@ import java.util.List;
  * Coordinator for showing UI for a list of tabs. Can be used in GRID or STRIP modes.
  */
 public class TabListCoordinator implements Destroyable {
-    /** Modes of showing the list of tabs */
-    @IntDef({TabListMode.GRID, TabListMode.STRIP})
+    /**
+     * Modes of showing the list of tabs.
+     *
+     * NOTE: CAROUSEL mode currently uses a fixed height and card width set in dimens.xml with names
+     *  tab_carousel_height and tab_carousel_card_width.
+     *
+     *  STRIP and GRID modes will have height equal to that of the container view.
+     * */
+    @IntDef({TabListMode.GRID, TabListMode.STRIP, TabListMode.CAROUSEL})
     @Retention(RetentionPolicy.SOURCE)
     public @interface TabListMode {
         int GRID = 0;
         int STRIP = 1;
-        int NUM_ENTRIES = 2;
+        int CAROUSEL = 2;
+        int NUM_ENTRIES = 3;
     }
 
     static final int GRID_LAYOUT_SPAN_COUNT_PORTRAIT = 2;
     static final int GRID_LAYOUT_SPAN_COUNT_LANDSCAPE = 3;
     private final SimpleRecyclerViewMcpBase mModelChangeProcessor;
     private final TabListMediator mMediator;
-    private final TabModelSelector mTabModelSelector;
     private final TabListRecyclerView mRecyclerView;
     private final @TabListMode int mMode;
     private final Rect mThumbnailLocationOfCurrentTab = new Rect();
@@ -80,7 +86,6 @@ public class TabListCoordinator implements Destroyable {
      * @param dynamicResourceLoader The {@link DynamicResourceLoader} to register dynamic UI
      *                              resource for compositor layer animation.
      * @param attachToParent Whether the UI should attach to root view.
-     * @param layoutId ID of the layout resource.
      * @param componentName A unique string uses to identify different components for UMA recording.
      *                      Recommended to use the class name or make sure the string is unique
      *                      through actions.xml file.
@@ -95,13 +100,12 @@ public class TabListCoordinator implements Destroyable {
             SimpleRecyclerViewMcpBase.ItemViewTypeCallback<PropertyModel> itemViewTypeCallback,
             TabListMediator.SelectionDelegateProvider selectionDelegateProvider,
             @NonNull ViewGroup parentView, @Nullable DynamicResourceLoader dynamicResourceLoader,
-            boolean attachToParent, @LayoutRes int layoutId, String componentName) {
+            boolean attachToParent, String componentName) {
         TabListModel tabListModel = new TabListModel();
         mMode = mode;
-        mTabModelSelector = tabModelSelector;
 
         RecyclerViewAdapter adapter;
-        if (mMode == TabListMode.GRID) {
+        if (mMode == TabListMode.GRID || mMode == TabListMode.CAROUSEL) {
             if (itemViewTypeCallback == null) {
                 itemViewTypeCallback = mGridDefaultItemViewTypeCallback;
             }
@@ -115,7 +119,11 @@ public class TabListCoordinator implements Destroyable {
                             viewHolder.resetThumbnail();
                         }
                     };
-            adapter = new RecyclerViewAdapter<>(mcp, TabGridViewHolder::create);
+            if (mode == TabListMode.CAROUSEL) {
+                adapter = new RecyclerViewAdapter<>(mcp, TabCarouselViewHolder::create);
+            } else {
+                adapter = new RecyclerViewAdapter<>(mcp, TabGridViewHolder::create);
+            }
             mModelChangeProcessor = mcp;
         } else if (mMode == TabListMode.STRIP) {
             SimpleRecyclerViewMcpBase<PropertyModel, TabStripViewHolder, PropertyKey> mcp =
@@ -127,12 +135,22 @@ public class TabListCoordinator implements Destroyable {
             throw new IllegalArgumentException(
                     "Attempting to create a tab list UI with invalid mode");
         }
+
         if (!attachToParent) {
             mRecyclerView = (TabListRecyclerView) LayoutInflater.from(context).inflate(
-                    layoutId, parentView, false);
+                    R.layout.tab_list_recycler_view_layout, parentView, false);
         } else {
-            LayoutInflater.from(context).inflate(layoutId, parentView, true);
+            LayoutInflater.from(context).inflate(
+                    R.layout.tab_list_recycler_view_layout, parentView, true);
             mRecyclerView = parentView.findViewById(R.id.tab_list_view);
+        }
+
+        if (mode == TabListMode.CAROUSEL) {
+            // TODO(mattsimmons): Remove this height and let the parent determine the correct
+            //  height. This can be done once the width is dynamic as well in
+            //  TabCarouselViewHolder.
+            mRecyclerView.getLayoutParams().height =
+                    context.getResources().getDimensionPixelSize(R.dimen.tab_carousel_height);
         }
 
         mRecyclerView.setAdapter(adapter);
@@ -143,7 +161,7 @@ public class TabListCoordinator implements Destroyable {
                                     == Configuration.ORIENTATION_PORTRAIT
                             ? GRID_LAYOUT_SPAN_COUNT_PORTRAIT
                             : GRID_LAYOUT_SPAN_COUNT_LANDSCAPE));
-        } else if (mMode == TabListMode.STRIP) {
+        } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL) {
             mRecyclerView.setLayoutManager(
                     new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
         }
@@ -170,9 +188,6 @@ public class TabListCoordinator implements Destroyable {
             touchHelper.attachToRecyclerView(mRecyclerView);
             mMediator.registerOrientationListener(
                     (GridLayoutManager) mRecyclerView.getLayoutManager());
-            touchHelper.attachToRecyclerView(mRecyclerView);
-            mMediator.registerOrientationListener(
-                    (GridLayoutManager) mRecyclerView.getLayoutManager());
         }
 
         if (actionOnRelatedTabs) {
@@ -190,8 +205,7 @@ public class TabListCoordinator implements Destroyable {
     }
 
     void updateThumbnailLocation() {
-        Rect rect = mRecyclerView.getRectOfCurrentThumbnail(
-                mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter().index());
+        Rect rect = mRecyclerView.getRectOfCurrentThumbnail(mMediator.indexOfSelected());
         if (rect == null) return;
         mThumbnailLocationOfCurrentTab.set(rect);
     }
@@ -230,6 +244,7 @@ public class TabListCoordinator implements Destroyable {
 
     void postHiding() {
         mRecyclerView.postHiding();
+        mMediator.postHiding();
     }
 
     /**

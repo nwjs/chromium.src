@@ -507,8 +507,8 @@ int FeedSchedulerHost::GetLastFetchStatusForDebugging() const {
   return last_fetch_status_;
 }
 
-TriggerType FeedSchedulerHost::GetLastFetchTriggerTypeForDebugging() const {
-  return last_fetch_trigger_type_;
+TriggerType* FeedSchedulerHost::GetLastFetchTriggerTypeForDebugging() const {
+  return last_fetch_trigger_type_.get();
 }
 
 void FeedSchedulerHost::OnEulaAccepted() {
@@ -523,7 +523,7 @@ FeedSchedulerHost::ShouldRefreshResult FeedSchedulerHost::ShouldRefresh(
     return kDontRefreshOutstandingRequest;
   }
 
-  if (base::ContainsKey(disabled_triggers_, trigger)) {
+  if (base::Contains(disabled_triggers_, trigger)) {
     DVLOG(2) << "Disabled trigger stopped refresh from trigger "
              << static_cast<int>(trigger);
     return kDontRefreshTriggerDisabled;
@@ -602,7 +602,7 @@ FeedSchedulerHost::ShouldRefreshResult FeedSchedulerHost::ShouldRefresh(
       clock_->Now() +
       base::TimeDelta::FromSeconds(kTimeoutDurationSeconds.Get());
 
-  last_fetch_trigger_type_ = trigger;
+  last_fetch_trigger_type_ = std::make_unique<TriggerType>(trigger);
 
   return kShouldRefresh;
 }

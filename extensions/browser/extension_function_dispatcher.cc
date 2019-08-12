@@ -80,8 +80,8 @@ base::LazyInstance<Static>::DestructorAtExit g_global_io_data =
 void DummyCallback(
                    ExtensionFunction::ResponseType type,
                    const base::ListValue& results,
-                   const std::string& error,
-                   functions::HistogramValue histogram_value) {
+                   const std::string& error
+                   ) {
 }
 
 void CommonResponseCallback(IPC::Sender* ipc_sender,
@@ -118,8 +118,7 @@ void IOThreadResponseCallback(
     int request_id,
     ExtensionFunction::ResponseType type,
     const base::ListValue& results,
-    const std::string& error,
-    functions::HistogramValue histogram_value) {
+    const std::string& error) {
   if (!ipc_sender.get())
     return;
 
@@ -138,9 +137,7 @@ class ExtensionFunctionDispatcher::UIThreadResponseCallbackWrapper
       : content::WebContentsObserver(
             content::WebContents::FromRenderFrameHost(render_frame_host)),
         dispatcher_(dispatcher),
-        render_frame_host_(render_frame_host),
-        weak_ptr_factory_(this) {
-  }
+        render_frame_host_(render_frame_host) {}
 
   ~UIThreadResponseCallbackWrapper() override {}
 
@@ -168,8 +165,7 @@ class ExtensionFunctionDispatcher::UIThreadResponseCallbackWrapper
   void OnExtensionFunctionCompleted(int request_id,
                                     ExtensionFunction::ResponseType type,
                                     const base::ListValue& results,
-                                    const std::string& error,
-                                    functions::HistogramValue histogram_value) {
+                                    const std::string& error) {
     CommonResponseCallback(render_frame_host_,
                            render_frame_host_->GetRoutingID(), kMainThreadId,
                            request_id, type, results, error);
@@ -177,7 +173,7 @@ class ExtensionFunctionDispatcher::UIThreadResponseCallbackWrapper
 
   base::WeakPtr<ExtensionFunctionDispatcher> dispatcher_;
   content::RenderFrameHost* render_frame_host_;
-  base::WeakPtrFactory<UIThreadResponseCallbackWrapper> weak_ptr_factory_;
+  base::WeakPtrFactory<UIThreadResponseCallbackWrapper> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(UIThreadResponseCallbackWrapper);
 };
@@ -192,8 +188,7 @@ class ExtensionFunctionDispatcher::UIThreadWorkerResponseCallbackWrapper
       : dispatcher_(dispatcher),
         observer_(this),
         render_process_host_(render_process_host),
-        worker_thread_id_(worker_thread_id),
-        weak_ptr_factory_(this) {
+        worker_thread_id_(worker_thread_id) {
     observer_.Add(render_process_host_);
 
     DCHECK(ExtensionsClient::Get()
@@ -233,8 +228,7 @@ class ExtensionFunctionDispatcher::UIThreadWorkerResponseCallbackWrapper
   void OnExtensionFunctionCompleted(int request_id,
                                     ExtensionFunction::ResponseType type,
                                     const base::ListValue& results,
-                                    const std::string& error,
-                                    functions::HistogramValue histogram_value) {
+                                    const std::string& error) {
     if (type == ExtensionFunction::BAD_MESSAGE) {
       // The renderer will be shut down from ExtensionFunction::SetBadMessage().
       return;
@@ -250,7 +244,8 @@ class ExtensionFunctionDispatcher::UIThreadWorkerResponseCallbackWrapper
       observer_;
   content::RenderProcessHost* const render_process_host_;
   const int worker_thread_id_;
-  base::WeakPtrFactory<UIThreadWorkerResponseCallbackWrapper> weak_ptr_factory_;
+  base::WeakPtrFactory<UIThreadWorkerResponseCallbackWrapper> weak_ptr_factory_{
+      this};
 
   DISALLOW_COPY_AND_ASSIGN(UIThreadWorkerResponseCallbackWrapper);
 };
@@ -402,7 +397,7 @@ void ExtensionFunctionDispatcher::DispatchSync(
                     std::string* error,
                     content::RenderFrameHost* render_frame_host,
                     int render_process_id) {
-  base::Callback<decltype(DummyCallback)> dummy;
+  base::RepeatingCallback<decltype(DummyCallback)> dummy;
   DispatchWithCallbackInternal(
                                params, render_frame_host, render_process_id, dummy, true,
                                success, response, error);
@@ -505,6 +500,7 @@ void ExtensionFunctionDispatcher::DispatchWithCallbackInternal(
     NOTREACHED();
     return;
   }
+  function_ui->set_worker_thread_id(params.worker_thread_id);
   if (IsRequestFromServiceWorker(params)) {
     function_ui->set_service_worker_version_id(
         params.service_worker_version_id);
@@ -654,7 +650,7 @@ bool ExtensionFunctionDispatcher::CheckPermissions(
     const ExtensionFunction::ResponseCallback& callback) {
   if (!function->HasPermission()) {
     LOG(ERROR) << "Permission denied for " << params.name;
-    SendAccessDenied(callback, function->histogram_value());
+    SendAccessDenied(callback);
     return false;
   }
   return true;
@@ -673,7 +669,7 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
       ExtensionFunctionRegistry::GetInstance().NewFunction(params.name);
   if (!function) {
     LOG(ERROR) << "Unknown Extension API - " << params.name;
-    SendAccessDenied(callback, extensions::functions::UNKNOWN);
+    SendAccessDenied(callback);
     return NULL;
   }
 
@@ -694,11 +690,10 @@ ExtensionFunction* ExtensionFunctionDispatcher::CreateExtensionFunction(
 
 // static
 void ExtensionFunctionDispatcher::SendAccessDenied(
-    const ExtensionFunction::ResponseCallback& callback,
-    functions::HistogramValue histogram_value) {
+    const ExtensionFunction::ResponseCallback& callback) {
   base::ListValue empty_list;
   callback.Run(ExtensionFunction::FAILED, empty_list,
-               "Access to extension API denied.", histogram_value);
+               "Access to extension API denied.");
 }
 
 }  // namespace extensions

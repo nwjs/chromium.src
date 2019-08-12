@@ -12,10 +12,10 @@
 <translation id="1104621072296271835">Seus dispositivos funcionam ainda melhor juntos</translation>
 <translation id="112308213915226829">Ocultar estante automaticamente</translation>
 <translation id="1153356358378277386">Dispositivos pareados</translation>
+<translation id="1175572348579024023">Rolar</translation>
 <translation id="1178581264944972037">Pausar</translation>
 <translation id="1195412055398077112">overscan</translation>
 <translation id="119944043368869598">Limpar tudo</translation>
-<translation id="123828989343052515">Nova área</translation>
 <translation id="1247372569136754018">Microfone (interno)</translation>
 <translation id="1252999807265626933">Carregando a partir de <ph name="POWER_SOURCE" /></translation>
 <translation id="1255033239764210633">Como está o tempo?</translation>
@@ -56,7 +56,9 @@
 <translation id="1746730358044914197">Os métodos de entrada são configurados pelo administrador.</translation>
 <translation id="1747827819627189109">Teclado na tela ativado</translation>
 <translation id="1761222317188459878">Alternar conexão de rede. <ph name="STATE_TEXT" /></translation>
+<translation id="1771761307086386028">Rolar para a direita</translation>
 <translation id="1812997170047690955">O que está na minha tela?</translation>
+<translation id="1820355135508821526">O recurso <ph name="FEATURE_NAME" /> foi desativado por uma política aplicada a este dispositivo. Entre em contato com seu administrador para solicitar alterações.</translation>
 <translation id="1823873187264960516">Ethernet: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">Assistente (carregando…)</translation>
 <translation id="1850504506766569011">O Wi-Fi está desligado.</translation>
@@ -70,6 +72,7 @@
 <translation id="1957803754585243749">0°</translation>
 <translation id="1957958912175573503">Configurar idioma</translation>
 <translation id="1969011864782743497"><ph name="DEVICE_NAME" /> (USB)</translation>
+<translation id="1978498689038657292">Entrada de texto</translation>
 <translation id="1993072747612765854">Saiba mais sobre a última atualização do <ph name="SYSTEM_APP_NAME" /></translation>
 <translation id="1995660704900986789">Desligar</translation>
 <translation id="2012624427112548395">Ctrl+Pesquisa+H</translation>
@@ -77,6 +80,7 @@
 <translation id="2050339315714019657">Retrato</translation>
 <translation id="2067602449040652523">Brilho do teclado</translation>
 <translation id="209965399369889474">Sem conexão com a rede</translation>
+<translation id="2126242104232412123">Nova área</translation>
 <translation id="2127372758936585790">Carregador de baixa potência</translation>
 <translation id="2135456203358955318">Lupa ancorada</translation>
 <translation id="2144487987174258011">Reinicie para atualizar o Adobe Flash Player</translation>
@@ -109,8 +113,8 @@
 <translation id="255671100581129685">O Google Assistente não está disponível para uma sessão pública.</translation>
 <translation id="2575685495496069081">A opção de login múltiplo foi desativada</translation>
 <translation id="2582112259361606227">Reiniciar para atualizar</translation>
-<translation id="2597972630681408282">Modo noturno: <ph name="NIGHT_LIGHT_STATUS" /></translation>
 <translation id="2617342710774726426">O chip está bloqueado</translation>
+<translation id="2651765386227849097">O Google Assistente está desativado neste dispositivo.</translation>
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="2658778018866295321">Clicar e arrastar</translation>
 <translation id="2700493154570097719">Configurar teclado</translation>
@@ -203,6 +207,7 @@
 <translation id="3977512764614765090">Bateria em <ph name="PERCENTAGE" />% e carregando.</translation>
 <translation id="3995138139523574647">Dispositivo USB-C (porta traseira da direita)</translation>
 <translation id="4017989525502048489">Apontador laser</translation>
+<translation id="4021716437419160885">Rolar para baixo</translation>
 <translation id="4042660782729322247">Você está compartilhando sua tela</translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Desativadas para um app}one{Desativadas para # app}other{Desativadas para # apps}}</translation>
 <translation id="4072264167173457037">Sinal médio</translation>
@@ -259,9 +264,11 @@
 <translation id="4895488851634969361">A bateria está carregada.</translation>
 <translation id="490375751687810070">Vertical</translation>
 <translation id="4905614135390995787">O atalho para alternar o modo de alto contraste foi alterado. Use <ph name="NEW_SHORTCUT" /> em vez de <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="490788395437447240"><ph name="BATTERY_PERCENTAGE" />% de bateria</translation>
 <translation id="4917385247580444890">Forte</translation>
 <translation id="4918086044614829423">Aceitar</translation>
 <translation id="4924411785043111640">Reiniciar e redefinir</translation>
+<translation id="495046168593986294">Rolar para cima</translation>
 <translation id="4961318399572185831">Transmitir tela</translation>
 <translation id="5030687792513154421">Tempo esgotado</translation>
 <translation id="5035236842988137213"><ph name="DEVICE_NAME" /> conectado a um novo smartphone</translation>
@@ -295,6 +302,7 @@
 <translation id="5648021990716966815">Entrada para microfone</translation>
 <translation id="5669267381087807207">Ativando</translation>
 <translation id="5673434351075758678">De "<ph name="FROM_LOCALE" />" para "<ph name="TO_LOCALE" />" após a sincronização das suas configurações.</translation>
+<translation id="5682642926269496722">O Google Assistente não está disponível para a conta de usuário atual.</translation>
 <translation id="5691772641933328258">Impressão digital não reconhecida</translation>
 <translation id="5710450975648804523">O "Não perturbe" está ativado</translation>
 <translation id="574392208103952083">Médio</translation>
@@ -319,6 +327,8 @@
 <translation id="598882571027504733">Para receber a atualização, reinicie seu Chromebook com o teclado conectado.</translation>
 <translation id="5992218262414051481">Modo de alto contraste ativado. Pressione Ctrl+Pesquisa+H novamente para desativá-lo.</translation>
 <translation id="6018164090099858612">Saindo do modo espelhado</translation>
+<translation id="602001110135236999">Rolar para a esquerda</translation>
+<translation id="6040143037577758943">Fechar</translation>
 <translation id="6043212731627905357">Este monitor não está funcionando bem com seu <ph name="DEVICE_TYPE" /> (o monitor não é compatível).</translation>
 <translation id="6043994281159824495">Sair agora</translation>
 <translation id="6047696787498798094">O compartilhamento de tela será interrompido quando você alternar para outro usuário. Quer continuar?</translation>
@@ -326,6 +336,7 @@
 <translation id="6064337552080329342">Não foi possível verificar sua senha. Tente novamente.</translation>
 <translation id="607652042414456612">Seu computador pode ser detectado por dispositivos Bluetooth próximos e aparecerá como "<ph name="NAME" />", com o endereço <ph name="ADDRESS" /></translation>
 <translation id="6106745654298855237">Carregando <ph name="POWER_SOURCE" /></translation>
+<translation id="612734058257491180">O Google Assistente não está disponível em uma sessão de visitante.</translation>
 <translation id="615957422585914272">Mostrar teclado na tela</translation>
 <translation id="6164005077879661055">Todos os arquivos e dados locais associados ao usuário supervisionado serão
 permanentemente excluídos assim que esse usuário for removido. Os websites visitados por esse usuário supervisionado e suas configurações ainda poderão ser vistos pelo administrador em <ph name="MANAGEMENT_URL" />.</translation>
@@ -368,6 +379,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6713285437468012787">O dispositivo Bluetooth "<ph name="DEVICE_NAME" />" está pareado e disponível para todos os usuários. Para cancelar o pareamento, vá para "Configurações".</translation>
 <translation id="6715542151869432661">Nenhum dispositivo móvel encontrado.</translation>
 <translation id="6723839937902243910">Energia</translation>
+<translation id="6727969043791803658">Conectado, <ph name="BATTERY_PERCENTAGE" />% de bateria</translation>
 <translation id="6751826523481687655">O acompanhamento de desempenho está ativado</translation>
 <translation id="6790428901817661496">Reproduzir</translation>
 <translation id="6803622936009808957">Não foi possível espelhar os displays porque não foram encontradas resoluções suportadas. Em vez disso, foi ativada a área de trabalho estendida.</translation>
@@ -426,6 +438,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7692480393933218409">Carregando dispositivos USB-C conectados</translation>
 <translation id="7705524343798198388">VPN</translation>
 <translation id="7723389094756330927">{NUM_NOTIFICATIONS,plural, =1{1 notificação}one{# notificação}other{# notificações}}</translation>
+<translation id="7749443890790263709">O número máximo de áreas de trabalho foi atingido.</translation>
 <translation id="776344839111254542">Clique para ver detalhes da atualização</translation>
 <translation id="7780159184141939021">Girar tela</translation>
 <translation id="7796353162336583443">Toque no botão da stylus na estante para criar uma nota, uma captura de tela, usar o Google Assistente, o apontador laser ou a lupa.</translation>
@@ -469,6 +482,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="8341451174107936385"><ph name="UNLOCK_MORE_FEATURES" />  <ph name="GET_STARTED" /></translation>
 <translation id="8351131234907093545">Criar nota</translation>
 <translation id="8375916635258623388">Este <ph name="DEVICE_NAME" /> e seu smartphone serão conectados automaticamente</translation>
+<translation id="8388750414311082622">Não é possível remover a última área de trabalho.</translation>
 <translation id="8392451568018454956">Menu de opções para <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8394567579869570560">Seu pai/mãe bloqueou o dispositivo</translation>
 <translation id="8406981827175133772">Lupa de tela cheia</translation>

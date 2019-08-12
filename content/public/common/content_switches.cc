@@ -348,6 +348,11 @@ const char kEnablePreferCompositingToLCDText[] =
 // features.
 const char kEnableBlinkFeatures[]           = "enable-blink-features";
 
+// Enable native caret browsing, in which a moveable cursor is placed on a web
+// page, allowing a user to select and navigate through non-editable text using
+// just a keyboard. See https://crbug.com/977390 for links to i2i.
+const char kEnableCaretBrowsing[] = "enable-caret-browsing";
+
 // Enables Web Platform features that are in development.
 const char kEnableExperimentalWebPlatformFeatures[] =
     "enable-experimental-web-platform-features";
@@ -423,6 +428,10 @@ const char kEnableStrictMixedContentChecking[] =
 // for example) that we haven't yet deprecated for the web at large.
 const char kEnableStrictPowerfulFeatureRestrictions[] =
     "enable-strict-powerful-feature-restrictions";
+
+// Feature flag to enable HTTPS subresource internal redirects to compressed
+// versions.
+const char kEnableSubresourceRedirect[] = "enable-subresource-redirect";
 
 // Enabled threaded compositing for web tests.
 const char kEnableThreadedCompositing[]     = "enable-threaded-compositing";
@@ -557,6 +566,10 @@ const char kJavaScriptHarmony[]             = "javascript-harmony";
 
 // Specifies the flags passed to JS engine
 const char kJavaScriptFlags[]               = "js-flags";
+
+// Overrides the Lite Page Subresource host.
+const char kLitePagesServerSubresourceHost[] =
+    "litepage-server-subresource-host";
 
 // Logs GPU control list decisions when enforcing blacklist rules.
 const char kLogGpuControlListDecisions[]    = "log-gpu-control-list-decisions";
@@ -802,6 +815,11 @@ const char kTouchEventFeatureDetectionDisabled[] = "disabled";
 // the platform default is used.
 const char kTouchTextSelectionStrategy[]    = "touch-selection-strategy";
 
+// Accepts specified file as a trustable BundledExchanges file. This flag should
+// be used only for testing purpose.
+const char kTrustableBundledExchangesFile[] =
+    "trustable-bundled-exchanges-file";
+
 // Replaces the existing codecs supported in peer connection with a single fake
 // codec entry that create a fake video encoder and decoder.
 const char kUseFakeCodecForPeerConnection[] =
@@ -952,16 +970,19 @@ const char kEnableAggressiveDOMStorageFlushing[] =
 // Enable indication that browser is controlled by automation.
 const char kEnableAutomation[] = "enable-automation";
 
-#if defined(OS_CHROMEOS)
-// Disables panel fitting (used for mirror mode).
-const char kDisablePanelFitting[]           = "disable-panel-fitting";
-#endif
-
 #if defined(OS_LINUX) && !defined(OS_CHROMEOS)
 // Allows sending text-to-speech requests to speech-dispatcher, a common
 // Linux speech service. Because it's buggy, the user must explicitly
 // enable it so that visiting a random webpage can't cause instability.
 const char kEnableSpeechDispatcher[] = "enable-speech-dispatcher";
+#endif
+
+#if defined(OS_CHROMEOS)
+// A time_t. Passed by session_manager into the Chrome user session, indicating
+// that if Chrome crashes before the indicated time, session_manager will
+// consider this to be a crash-loop situation and log the user out. Chrome
+// mostly just passes this to crash_reporter if it crashes.
+const char kCrashLoopBefore[] = "crash-loop-before";
 #endif
 
 #if defined(OS_WIN)
@@ -1011,6 +1032,10 @@ const char kPpapiAntialiasedTextEnabled[] = "ppapi-antialiased-text-enabled";
 // processes.
 const char kPpapiSubpixelRenderingSetting[] =
     "ppapi-subpixel-rendering-setting";
+
+// Causes the second GPU process used for gpu info collection to display a
+// dialog on launch.
+const char kGpu2StartupDialog[] = "gpu2-startup-dialog";
 #endif
 
 #if defined(ENABLE_IPC_FUZZER)

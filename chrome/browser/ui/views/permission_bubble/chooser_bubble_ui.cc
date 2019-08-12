@@ -54,7 +54,7 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
   base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   bool IsDialogButtonEnabled(ui::DialogButton button) const override;
   views::View* GetInitiallyFocusedView() override;
-  views::View* CreateExtraView() override;
+  std::unique_ptr<views::View> CreateExtraView() override;
   bool Accept() override;
   bool Cancel() override;
   bool Close() override;
@@ -127,10 +127,9 @@ bool ChooserBubbleUiViewDelegate::IsDialogButtonEnabled(
   return device_chooser_content_view_->IsDialogButtonEnabled(button);
 }
 
-views::View* ChooserBubbleUiViewDelegate::CreateExtraView() {
-  std::unique_ptr<views::View> extra_view =
-      device_chooser_content_view_->CreateExtraView();
-  return extra_view ? extra_view.release() : nullptr;
+std::unique_ptr<views::View> ChooserBubbleUiViewDelegate::CreateExtraView() {
+  auto extra_view = device_chooser_content_view_->CreateExtraView();
+  return extra_view;
 }
 
 bool ChooserBubbleUiViewDelegate::Accept() {

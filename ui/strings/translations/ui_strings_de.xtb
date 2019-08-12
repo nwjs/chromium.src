@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Suchen</translation>
 <translation id="1398853756734560583">Vergrößern</translation>
 <translation id="1409544243779336081">App-Empfehlung</translation>
+<translation id="1498028757988366001">Danach haben Sie schon einmal gesucht. Wenn Sie "<ph name="QUERY" />" aus Ihrem Verlauf löschen, wird diese Suchanfrage dauerhaft von allen Geräten in Ihrem Konto entfernt.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 Minute und  }other{# Minuten und  }}</translation>
 <translation id="1643823602425662293">Benachrichtigung</translation>
 <translation id="169515659049020177">Umschalttaste</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Die Kalibrierung ist abgeschlossen</translation>
 <translation id="252373100621549798">Display unbekannt</translation>
+<translation id="2545651323591713692">Erneut erinnern</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{in 1 h}other{in # h}}</translation>
 <translation id="2583543531130364912">Touchscreen kalibrieren</translation>
 <translation id="2666092431469916601">Oben</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Hierher blättern</translation>
 <translation id="3234408098842461169">Abwärtspfeil</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 Tag}other{# Tage}}</translation>
+<translation id="3295886253693811851">Anruf starten mit</translation>
 <translation id="335581015389089642">Sprachausgabe</translation>
 <translation id="3443810440409579745">Tab erhalten.</translation>
 <translation id="3479552764303398839">Jetzt nicht</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{vor 1 Min.}other{vor # Min.}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 Minute übrig}other{# Minuten übrig}}</translation>
+<translation id="7430878839542012341">Diese Suchanfrage aus dem Verlauf löschen?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>
 <translation id="7507604095951736240">Emojis</translation>
 <translation id="7658239707568436148">Abbrechen</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Ihre Suchanfragen werden mit Google Assistant durchgeführt. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, automatische Vervollständigung</translation>
 <translation id="815598010540052116">Nach unten blättern</translation>
-<translation id="8170087467028567933">Wenn Sie diesen Vorschlag entfernen, wird er für Ihr Konto nicht mehr eingeblendet, unabhängig vom Gerät.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8210608804940886430">Nach unten</translation>
 <translation id="8245914219290430011">Tabulatortaste</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">auswählen</translation>
 <translation id="8393700583063109961">Nachricht senden</translation>
 <translation id="8394908167088220973">Medien – Wiedergabe/Pause</translation>
-<translation id="8420205633584771378">Diesen Vorschlag entfernen?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 Jahr}other{# Jahre}}</translation>
 <translation id="8602707065186045623"><ph name="SAVEAS_EXTENSION_TYPE" />-Datei (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Ablage immer eingeblendet</translation>

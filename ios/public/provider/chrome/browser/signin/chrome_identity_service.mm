@@ -27,16 +27,19 @@ bool ChromeIdentityService::HandleApplicationOpenURL(UIApplication* application,
   return false;
 }
 
-UINavigationController* ChromeIdentityService::CreateAccountDetailsController(
+DismissASMViewControllerBlock
+ChromeIdentityService::PresentAccountDetailsController(
     ChromeIdentity* identity,
-    id<ChromeIdentityBrowserOpener> browser_opener) {
+    UIViewController* view_controller,
+    BOOL animated) {
   return nil;
 }
 
-UINavigationController*
-ChromeIdentityService::CreateWebAndAppSettingDetailsController(
+DismissASMViewControllerBlock
+ChromeIdentityService::PresentWebAndAppSettingDetailsController(
     ChromeIdentity* identity,
-    id<ChromeIdentityBrowserOpener> browser_opener) {
+    UIViewController* view_controller,
+    BOOL animated) {
   return nil;
 }
 

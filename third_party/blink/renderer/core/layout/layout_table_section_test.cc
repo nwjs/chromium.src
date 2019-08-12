@@ -314,7 +314,7 @@ TEST_F(LayoutTableSectionTest, VisualOverflowWithCollapsedBorders) {
 
 static void SetCellsOverflowInRow(LayoutTableRow* row) {
   for (auto* cell = row->FirstCell(); cell; cell = cell->NextCell()) {
-    ToElement(cell->GetNode())
+    To<Element>(cell->GetNode())
         ->setAttribute(html_names::kClassAttr, "overflow");
   }
 }
@@ -395,6 +395,20 @@ TEST_F(LayoutTableSectionTest, RowCollapseNegativeHeightCrash) {
         </td>
       </tr>
     </table>
+  )HTML");
+}
+
+TEST_F(LayoutTableSectionTest, RowCollapseSaturation) {
+  // When a collapsed row's height saturates LayoutUnit, we'd set the height to
+  // -1/64, triggering a downstream DCHECK(height >= 0). After a little trial
+  // and error, a huge line-height was the only way I could reproduce this.
+  SetBodyInnerHTML(R"HTML(
+    <div style="display:table-row; visibility:collapse; line-height:279999999%">
+      <div style="display:table-cell;">
+        <div style="position:fixed"></div>
+        No crash = pass.
+      </div>
+    </div>
   )HTML");
 }
 

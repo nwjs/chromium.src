@@ -40,6 +40,7 @@
 #include "chrome/browser/sync/user_event_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/undo/bookmark_undo_service_factory.h"
+#include "chrome/browser/web_applications/web_app_provider_factory.h"
 #include "chrome/browser/web_data_service_factory.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/channel_info.h"
@@ -161,6 +162,7 @@ ProfileSyncServiceFactory::ProfileSyncServiceFactory()
   DependsOn(
       extensions::ExtensionsBrowserClient::Get()->GetExtensionSystemFactory());
   DependsOn(extensions::StorageFrontend::GetFactoryInstance());
+  DependsOn(web_app::WebAppProviderFactory::GetInstance());
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 #if defined(OS_CHROMEOS)
   DependsOn(chromeos::SyncedPrintersManagerFactory::GetInstance());
@@ -263,6 +265,7 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
                                      : syncer::ProfileSyncService::MANUAL_START;
   }
 
+#if 0
   auto pss =
       std::make_unique<syncer::ProfileSyncService>(std::move(init_params));
   pss->Initialize();
@@ -271,8 +274,9 @@ KeyedService* ProfileSyncServiceFactory::BuildServiceInstanceFor(
   autofill::PersonalDataManager* pdm =
       autofill::PersonalDataManagerFactory::GetForProfile(profile);
   pdm->OnSyncServiceInitialized(pss.get());
+#endif
 
-  return pss.release();
+  return nullptr; //pss.release();
 }
 
 // static

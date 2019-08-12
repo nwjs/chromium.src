@@ -42,7 +42,6 @@ gin::ObjectTemplateBuilder EventEmitter::GetObjectTemplateBuilder(
       .SetMethod("removeListener", &EventEmitter::RemoveListener)
       .SetMethod("hasListener", &EventEmitter::HasListener)
       .SetMethod("hasListeners", &EventEmitter::HasListeners)
-      .SetMethod("getListeners", &EventEmitter::GetListeners)
       // The following methods aren't part of the public API, but are used
       // by our custom bindings and exposed on the public event object. :(
       // TODO(devlin): Once we convert all custom bindings that use these,
@@ -73,15 +72,6 @@ v8::Local<v8::Value> EventEmitter::FireSync(
 void EventEmitter::Invalidate(v8::Local<v8::Context> context) {
   valid_ = false;
   listeners_->Invalidate(context);
-}
-
-void EventEmitter::GetListeners(gin::Arguments* arguments) {
-  v8::Local<v8::Context> context = arguments->GetHolderCreationContext();
-  std::vector<v8::Local<v8::Function>> listeners =
-      listeners_->GetListeners(nullptr, context);
-  v8::Isolate* isolate = context->GetIsolate();
-  v8::Local<v8::Value> results = gin::ConvertToV8(isolate, listeners);
-  arguments->Return(results);
 }
 
 size_t EventEmitter::GetNumListeners() const {

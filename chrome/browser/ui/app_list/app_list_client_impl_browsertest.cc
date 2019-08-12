@@ -54,6 +54,7 @@
 #include "extensions/common/constants.h"
 #include "ui/aura/window.h"
 #include "ui/base/models/simple_menu_model.h"
+#include "ui/wm/core/window_util.h"
 
 // Browser Test for AppListClientImpl.
 using AppListClientImplBrowserTest = extensions::PlatformAppBrowserTest;
@@ -71,9 +72,11 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, IsExtensionAppOpen) {
     content::WindowedNotificationObserver app_loaded_observer(
         content::NOTIFICATION_LOAD_COMPLETED_MAIN_FRAME,
         content::NotificationService::AllSources());
-    OpenApplication(AppLaunchParams(
-        profile(), extension_app, extensions::LAUNCH_CONTAINER_WINDOW,
-        WindowOpenDisposition::NEW_WINDOW, extensions::SOURCE_TEST));
+    OpenApplication(
+        AppLaunchParams(profile(), extension_app->id(),
+                        extensions::LaunchContainer::kLaunchContainerWindow,
+                        WindowOpenDisposition::NEW_WINDOW,
+                        extensions::AppLaunchSource::kSourceTest));
     app_loaded_observer.Wait();
   }
   EXPECT_TRUE(delegate->IsAppOpen(extension_app->id()));
@@ -94,6 +97,29 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, IsPlatformAppOpen) {
     app_loaded_observer.Wait();
   }
   EXPECT_TRUE(delegate->IsAppOpen(app->id()));
+}
+
+// Test UninstallApp for platform apps.
+IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, UninstallApp) {
+  AppListClientImpl* client = AppListClientImpl::GetInstance();
+  const extensions::Extension* app = InstallPlatformApp("minimal");
+
+  // Bring up the app list.
+  EXPECT_FALSE(client->GetAppListWindow());
+  client->ShowAppList();
+  EXPECT_TRUE(client->GetAppListWindow());
+
+  EXPECT_TRUE(wm::GetTransientChildren(client->GetAppListWindow()).empty());
+
+  // Open the uninstall dialog.
+  base::RunLoop run_loop;
+  client->UninstallApp(profile(), app->id());
+  run_loop.RunUntilIdle();
+  EXPECT_FALSE(wm::GetTransientChildren(client->GetAppListWindow()).empty());
+
+  // The app list should not be dismissed when the dialog is shown.
+  EXPECT_TRUE(client->app_list_visible());
+  EXPECT_TRUE(client->GetAppListWindow());
 }
 
 // Test the CreateNewWindow function of the controller delegate.
@@ -152,7 +178,7 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, ShowContextMenu) {
 }
 
 // Test that OpenSearchResult that dismisses app list runs fine without
-// user-after-free.
+// use-after-free.
 IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, OpenSearchResult) {
   AppListClientImpl* client = AppListClientImpl::GetInstance();
   ASSERT_TRUE(client);
@@ -170,7 +196,12 @@ IN_PROC_BROWSER_TEST_F(AppListClientImplBrowserTest, OpenSearchResult) {
 
   // Any app that opens a window to dismiss app list is good enough for this
   // test.
+#if defined(GOOGLE_CHROME_BUILD)
+  const std::string app_title = "chrome";
+#else
   const std::string app_title = "chromium";
+#endif  // !defined(GOOGLE_CHROME_BUILD)
+
   const std::string app_result_id =
       "chrome-extension://mgndgikekgjfcpckkfioiadnlibdjbkf/";
 
@@ -301,6 +332,9 @@ IN_PROC_BROWSER_TEST_F(AppListClientSearchResultsBrowserTest,
 
   // Uninstall the extension.
   UninstallExtension(extension->id());
+
+  // Allow async callbacks to run.
+  base::RunLoop().RunUntilIdle();
 
   // We cannot find the extension any more.
   EXPECT_FALSE(search_controller->GetResultByTitleForTest(title));

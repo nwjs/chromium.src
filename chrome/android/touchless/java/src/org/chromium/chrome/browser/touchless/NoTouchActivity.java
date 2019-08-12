@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.touchless;
 
-import static org.chromium.chrome.browser.UrlConstants.NTP_URL;
+import static org.chromium.chrome.browser.util.UrlConstants.NTP_URL;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -22,14 +22,15 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.IntentHandler.IntentHandlerDelegate;
 import org.chromium.chrome.browser.IntentHandler.TabOpenType;
 import org.chromium.chrome.browser.SingleTabActivity;
-import org.chromium.chrome.browser.UrlConstants;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.preferences.ChromePreferenceManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabDelegateFactory;
 import org.chromium.chrome.browser.tab.TabRedirectHandler;
 import org.chromium.chrome.browser.tab.TabState;
 import org.chromium.chrome.browser.tabmodel.document.TabDelegate;
+import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.common.Referrer;
 import org.chromium.ui.base.PageTransition;
@@ -211,9 +212,23 @@ public class NoTouchActivity extends SingleTabActivity {
     @Override
     protected void initializeToolbar() {}
 
+    /**
+     * @return  Whether this activity supports the find in page page
+     */
+    @Override
+    public boolean supportsFindInPage() {
+        return false;
+    }
+
     @Override
     protected ChromeFullscreenManager createFullscreenManager() {
         return new ChromeFullscreenManager(this, ChromeFullscreenManager.ControlsPosition.NONE);
+    }
+
+    @Override
+    protected TabDelegateFactory createTabDelegateFactory() {
+        return new NoTouchTabDelegateFactory(
+                this, getFullscreenManager().getBrowserVisibilityDelegate());
     }
 
     @Override

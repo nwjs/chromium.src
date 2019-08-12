@@ -204,10 +204,7 @@ void Location::setHash(v8::Isolate* isolate,
   if (hash[0] == '#')
     new_fragment_identifier = hash.Substring(1);
   url.SetFragmentIdentifier(new_fragment_identifier);
-  // Note that by parsing the URL and *then* comparing fragments, we are
-  // comparing fragments post-canonicalization, and so this handles the
-  // cases where fragment identifiers are ignored or invalid.
-  if (EqualIgnoringNullity(old_fragment_identifier, url.FragmentIdentifier()))
+  if (old_fragment_identifier == url.FragmentIdentifier())
     return;
   SetLocation(url.GetString(), IncumbentDOMWindow(isolate),
               EnteredDOMWindow(isolate), &exception_state);
@@ -295,11 +292,10 @@ void Location::SetLocation(const String& url,
   // execution, there are concerns about the correctness of that statement,
   // see http://github.com/whatwg/html/issues/2591.
   Document* current_document = current_window->document();
-  if (current_document && completed_url.ProtocolIsJavaScript() &&
-      !ContentSecurityPolicy::ShouldBypassMainWorld(current_document)) {
+  if (current_document && completed_url.ProtocolIsJavaScript()) {
     String script_source = DecodeURLEscapeSequences(
         completed_url.GetString(), DecodeURLMode::kUTF8OrIsomorphic);
-    if (!current_document->GetContentSecurityPolicy()->AllowInline(
+    if (!current_document->GetContentSecurityPolicyForWorld()->AllowInline(
             ContentSecurityPolicy::InlineType::kNavigation,
             nullptr /* element */, script_source, String() /* nonce */,
             current_document->Url(), OrdinalNumber())) {

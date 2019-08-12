@@ -186,11 +186,11 @@ class SearchResultAnswerCardView::AnswerCardResultView
   // views::Button overrides:
   const char* GetClassName() const override { return "AnswerCardResultView"; }
 
-  void OnBlur() override { SetBackgroundHighlighted(false); }
+  void OnBlur() override { SetSelected(false, base::nullopt); }
 
   void OnFocus() override {
     ScrollRectToVisible(GetLocalBounds());
-    SetBackgroundHighlighted(true);
+    SetSelected(true, base::nullopt);
   }
 
   bool OnKeyPressed(const ui::KeyEvent& event) override {
@@ -210,7 +210,7 @@ class SearchResultAnswerCardView::AnswerCardResultView
   }
 
   void PaintButtonContents(gfx::Canvas* canvas) override {
-    if (background_highlighted())
+    if (selected())
       canvas->FillRect(GetContentsBounds(), kAnswerCardSelectedColor);
   }
 
@@ -262,6 +262,10 @@ class SearchResultAnswerCardView::AnswerCardResultView
     OnVisibilityChanged(true /* is_visible */);
     views::View* content_view = contents_->GetView()->view();
     if (children().empty()) {
+      // Focusability is handled on SearchResultAnswerCardView so we explicitly
+      // disable it on the embedded view (for which it is enabled by default).
+      content_view->SetFocusBehavior(FocusBehavior::NEVER);
+
       AddChildView(content_view);
       ExcludeCardFromEventHandling(contents_->GetView()->native_view());
 

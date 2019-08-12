@@ -85,9 +85,6 @@ void AppListMainView::AddContentsViews() {
   AddChildView(contents_view_);
 
   search_box_view_->set_contents_view(contents_view_);
-
-  // Clear the old query and start search.
-  search_box_view_->ClearSearch();
 }
 
 void AppListMainView::ShowAppListWhenReady() {
@@ -101,18 +98,6 @@ void AppListMainView::ShowAppListWhenReady() {
     GetWidget()->ShowInactive();
   else
     GetWidget()->Show();
-}
-
-void AppListMainView::ResetForShow() {
-  contents_view_->SetActiveState(ash::AppListState::kStateApps);
-  contents_view_->GetAppsContainerView()->ResetForShowApps();
-  // We clear the search when hiding so when app list appears it is not showing
-  // search results.
-  search_box_view_->ClearSearch();
-}
-
-void AppListMainView::Close() {
-  contents_view_->CancelDrag();
 }
 
 void AppListMainView::ModelChanged() {
@@ -198,6 +183,9 @@ void AppListMainView::QueryChanged(search_box::SearchBoxViewBase* sender) {
 void AppListMainView::ActiveChanged(search_box::SearchBoxViewBase* sender) {
   if (!app_list_features::IsZeroStateSuggestionsEnabled())
     return;
+  // Do not update views on closing.
+  if (app_list_view_->app_list_state() == ash::AppListViewState::kClosed)
+    return;
 
   if (search_box_view_->is_search_box_active()) {
     // Show zero state suggestions when search box is activated with an empty
@@ -223,10 +211,9 @@ void AppListMainView::SearchBoxFocusChanged(
 
   SearchResultBaseView* first_result_view =
       contents_view_->search_results_page_view()->first_result_view();
-  if (!first_result_view || !first_result_view->background_highlighted())
+  if (!first_result_view || !first_result_view->selected())
     return;
-
-  first_result_view->SetBackgroundHighlighted(false);
+  first_result_view->SetSelected(false, base::nullopt);
 }
 
 void AppListMainView::AssistantButtonPressed() {

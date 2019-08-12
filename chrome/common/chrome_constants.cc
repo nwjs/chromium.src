@@ -4,6 +4,7 @@
 
 #include "chrome/common/chrome_constants.h"
 
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/common/chrome_version.h"
 
@@ -13,7 +14,7 @@
 #define CHROMIUM_PRODUCT_STRING "nwjs"
 #if defined(GOOGLE_CHROME_BUILD)
 #define PRODUCT_STRING "Google Chrome"
-#elif defined(CHROMIUM_BUILD)
+#elif BUILDFLAG(CHROMIUM_BRANDING)
 #define PRODUCT_STRING "nwjs"
 #else
 #error Unknown branding
@@ -133,7 +134,6 @@ const base::FilePath::CharType kSystemProfileDir[] = FPL("System Profile");
 
 // filenames
 const base::FilePath::CharType kCacheDirname[] = FPL("Cache");
-const base::FilePath::CharType kChannelIDFilename[] = FPL("Origin Bound Certs");
 const base::FilePath::CharType kCookieFilename[] = FPL("Cookies");
 const base::FilePath::CharType kCRLSetFilename[] =
     FPL("Certificate Revocation Lists");

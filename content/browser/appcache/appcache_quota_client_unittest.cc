@@ -9,9 +9,9 @@
 
 #include "base/bind.h"
 #include "base/run_loop.h"
-#include "base/test/scoped_task_environment.h"
 #include "content/browser/appcache/appcache_quota_client.h"
 #include "content/browser/appcache/mock_appcache_service.h"
+#include "content/public/test/test_browser_thread_bundle.h"
 #include "net/base/net_errors.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -38,8 +38,7 @@ class AppCacheQuotaClientTest : public testing::Test {
         delete_status_(blink::mojom::QuotaStatusCode::kUnknown),
         num_get_origin_usage_completions_(0),
         num_get_origins_completions_(0),
-        num_delete_origins_completions_(0),
-        weak_factory_(this) {}
+        num_delete_origins_completions_(0) {}
 
   int64_t GetOriginUsage(storage::QuotaClient* client,
                          const url::Origin& origin,
@@ -114,7 +113,9 @@ class AppCacheQuotaClientTest : public testing::Test {
   }
 
   AppCacheQuotaClient* CreateClient() {
-    return new AppCacheQuotaClient(&mock_service_);
+    // The bare operator new is used here because AppCacheQuotaClient deletes
+    // itself when the QuotaManager goes out of scope.
+    return new AppCacheQuotaClient(mock_service_.AsWeakPtr());
   }
 
   void Call_NotifyAppCacheReady(AppCacheQuotaClient* client) {
@@ -145,7 +146,7 @@ class AppCacheQuotaClientTest : public testing::Test {
     delete_status_ = status;
   }
 
-  base::test::ScopedTaskEnvironment scoped_task_environment_;
+  TestBrowserThreadBundle thread_bundle_;
   int64_t usage_;
   std::set<url::Origin> origins_;
   blink::mojom::QuotaStatusCode delete_status_;
@@ -153,7 +154,7 @@ class AppCacheQuotaClientTest : public testing::Test {
   int num_get_origins_completions_;
   int num_delete_origins_completions_;
   MockAppCacheService mock_service_;
-  base::WeakPtrFactory<AppCacheQuotaClientTest> weak_factory_;
+  base::WeakPtrFactory<AppCacheQuotaClientTest> weak_factory_{this};
 };
 
 
@@ -318,11 +319,10 @@ TEST_F(AppCacheQuotaClientTest, PendingRequests) {
 
   // Pending requests should get serviced when the appcache is ready.
   Call_NotifyAppCacheReady(client);
+  base::RunLoop().RunUntilIdle();
   EXPECT_EQ(2, num_get_origin_usage_completions_);
   EXPECT_EQ(4, num_get_origins_completions_);
-  EXPECT_EQ(0, num_delete_origins_completions_);
-  base::RunLoop().RunUntilIdle();
-  EXPECT_EQ(3, num_delete_origins_completions_);  // deletes are really async
+  EXPECT_EQ(3, num_delete_origins_completions_);
 
   // They should be serviced in order requested.
   EXPECT_EQ(10, usage_);

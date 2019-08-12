@@ -13,8 +13,8 @@
 
 namespace content {
 
-// Implementation of VideoCaptureDeviceLauncher that uses the "video_capture"
-// service.
+// Implementation of VideoCaptureDeviceLauncher that uses uses
+// video_capture::mojom::VideoCaptureService.
 class CONTENT_EXPORT ServiceVideoCaptureDeviceLauncher
     : public VideoCaptureDeviceLauncher {
  public:
@@ -28,7 +28,7 @@ class CONTENT_EXPORT ServiceVideoCaptureDeviceLauncher
 
   // VideoCaptureDeviceLauncher implementation.
   void LaunchDeviceAsync(const std::string& device_id,
-                         blink::MediaStreamType stream_type,
+                         blink::mojom::MediaStreamType stream_type,
                          const media::VideoCaptureParams& params,
                          base::WeakPtr<media::VideoFrameReceiver> receiver,
                          base::OnceClosure connection_lost_cb,

@@ -9,16 +9,18 @@ import android.graphics.Rect;
 import android.support.annotation.Nullable;
 import android.view.View;
 
-import org.chromium.chrome.browser.UrlConstants;
+import org.chromium.base.VisibleForTesting;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
-import org.chromium.chrome.browser.tasks.tabgroup.TabGroupModelFilter;
+import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -42,6 +44,12 @@ public class TabGridDialogMediator {
          * @param tabs List of Tabs to reset.
          */
         void resetWithListOfTabs(@Nullable List<Tab> tabs);
+
+        /**
+         * Hide the TabGridDialog
+         * @param showAnimation Whether to show an animation when hiding the dialog.
+         */
+        void hideDialog(boolean showAnimation);
     }
 
     /**
@@ -64,15 +72,14 @@ public class TabGridDialogMediator {
     private final TabModelSelector mTabModelSelector;
     private final TabModelObserver mTabModelObserver;
     private final TabCreatorManager mTabCreatorManager;
-    private final TabGridDialogMediator.ResetHandler mDialogResetHandler;
+    private final ResetHandler mDialogResetHandler;
     private final GridTabSwitcherMediator.ResetHandler mGridTabSwitcherResetHandler;
     private final AnimationOriginProvider mAnimationOriginProvider;
     private final DialogHandler mTabGridDialogHandler;
     private int mCurrentTabId = Tab.INVALID_TAB_ID;
 
-    TabGridDialogMediator(Context context, TabGridDialogMediator.ResetHandler dialogResetHandler,
-            PropertyModel model, TabModelSelector tabModelSelector,
-            TabCreatorManager tabCreatorManager,
+    TabGridDialogMediator(Context context, ResetHandler dialogResetHandler, PropertyModel model,
+            TabModelSelector tabModelSelector, TabCreatorManager tabCreatorManager,
             GridTabSwitcherMediator.ResetHandler gridTabSwitcherResetHandler,
             AnimationOriginProvider animationOriginProvider) {
         mContext = context;
@@ -88,8 +95,7 @@ public class TabGridDialogMediator {
         mTabModelObserver = new EmptyTabModelObserver() {
             @Override
             public void didAddTab(Tab tab, @TabLaunchType int type) {
-                mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, null);
-                mDialogResetHandler.resetWithListOfTabs(null);
+                hideDialog(false);
             }
 
             @Override
@@ -102,17 +108,21 @@ public class TabGridDialogMediator {
             public void didSelectTab(Tab tab, int type, int lastId) {
                 if (type == TabSelectionType.FROM_USER) {
                     // Cancel the zooming into tab grid card animation.
-                    mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, null);
-                    mDialogResetHandler.resetWithListOfTabs(null);
+                    hideDialog(false);
                 }
             }
 
             @Override
             public void willCloseTab(Tab tab, boolean animate) {
                 List<Tab> relatedTabs = getRelatedTabs(tab.getId());
+                // If the group is empty, update the animation and hide the dialog.
+                if (relatedTabs.size() == 0) {
+                    mCurrentTabId = Tab.INVALID_TAB_ID;
+                    hideDialog(false);
+                    return;
+                }
                 // If current tab is closed and tab group is not empty, hand over ID of the next
                 // tab in the group to mCurrentTabId.
-                if (relatedTabs.size() == 0) return;
                 if (tab.getId() == mCurrentTabId) {
                     mCurrentTabId = relatedTabs.get(0).getId();
                 }
@@ -129,12 +139,17 @@ public class TabGridDialogMediator {
         setupScrimViewObserver();
     }
 
+    void hideDialog(boolean showAnimation) {
+        if (!showAnimation) mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, null);
+        mDialogResetHandler.resetWithListOfTabs(null);
+    }
+
     void onReset(Integer tabId) {
+        TabGroupModelFilter filter =
+                (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
+                        .getCurrentTabModelFilter();
         if (tabId != null) {
             mCurrentTabId = tabId;
-            TabGroupModelFilter filter =
-                    (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
-                            .getCurrentTabModelFilter();
             int index = filter.indexOf(
                     TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), tabId));
             if (mAnimationOriginProvider != null) {
@@ -144,6 +159,12 @@ public class TabGridDialogMediator {
             updateDialog();
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, true);
         } else {
+            int index = filter.indexOf(
+                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), mCurrentTabId));
+            if (mAnimationOriginProvider != null && index != TabModel.INVALID_TAB_INDEX) {
+                Rect rect = mAnimationOriginProvider.getAnimationOriginRect(index);
+                mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, rect);
+            }
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, false);
         }
     }
@@ -171,7 +192,7 @@ public class TabGridDialogMediator {
         List<Tab> relatedTabs = getRelatedTabs(mCurrentTabId);
         int tabsCount = relatedTabs.size();
         if (tabsCount == 0) {
-            mDialogResetHandler.resetWithListOfTabs(null);
+            hideDialog(true);
             return;
         }
         mModel.set(TabGridSheetProperties.HEADER_TITLE,
@@ -190,7 +211,7 @@ public class TabGridDialogMediator {
         ScrimView.ScrimObserver scrimObserver = new ScrimView.ScrimObserver() {
             @Override
             public void onScrimClick() {
-                mDialogResetHandler.resetWithListOfTabs(null);
+                hideDialog(true);
             }
             @Override
             public void onScrimVisibilityChanged(boolean visible) {}
@@ -200,14 +221,13 @@ public class TabGridDialogMediator {
 
     private View.OnClickListener getCollapseButtonClickListener() {
         return view -> {
-            mDialogResetHandler.resetWithListOfTabs(null);
+            hideDialog(true);
         };
     }
 
     private View.OnClickListener getAddButtonClickListener() {
         return view -> {
-            mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, null);
-            mDialogResetHandler.resetWithListOfTabs(null);
+            hideDialog(false);
             Tab currentTab = mTabModelSelector.getTabById(mCurrentTabId);
             List<Tab> relatedTabs = getRelatedTabs(currentTab.getId());
 
@@ -245,5 +265,15 @@ public class TabGridDialogMediator {
             mCurrentTabId = tabId;
             updateDialog();
         }
+    }
+
+    @VisibleForTesting
+    int getCurrentTabIdForTest() {
+        return mCurrentTabId;
+    }
+
+    @VisibleForTesting
+    void setCurrentTabIdForTest(int tabId) {
+        mCurrentTabId = tabId;
     }
 }

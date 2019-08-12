@@ -23,11 +23,19 @@
 #include "chromeos/dbus/power_manager/power_supply_properties.pb.h"
 #include "chromeos/services/assistant/assistant_manager_service.h"
 #include "chromeos/services/assistant/assistant_settings_manager.h"
+#include "chromeos/services/assistant/fake_assistant_manager_service_impl.h"
+#include "chromeos/services/assistant/fake_assistant_settings_manager_impl.h"
+#include "chromeos/services/assistant/public/cpp/assistant_prefs.h"
 #include "chromeos/services/assistant/public/features.h"
+#include "components/prefs/pref_change_registrar.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
+#include "components/user_manager/known_user.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/identity/public/cpp/scope_set.h"
 #include "services/identity/public/mojom/constants.mojom.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/preferences/public/cpp/pref_service_factory.h"
 #include "services/service_manager/public/cpp/connector.h"
 
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
@@ -37,9 +45,6 @@
 #include "chromeos/services/assistant/utils.h"
 #include "services/device/public/mojom/battery_monitor.mojom.h"
 #include "services/device/public/mojom/constants.mojom.h"
-#else
-#include "chromeos/services/assistant/fake_assistant_manager_service_impl.h"
-#include "chromeos/services/assistant/fake_assistant_settings_manager_impl.h"
 #endif
 
 namespace chromeos {
@@ -60,7 +65,6 @@ constexpr base::TimeDelta kMaxTokenRefreshDelay =
 }  // namespace
 
 Service::Service(service_manager::mojom::ServiceRequest request,
-                 network::NetworkConnectionTracker* network_connection_tracker,
                  std::unique_ptr<network::SharedURLLoaderFactoryInfo>
                      url_loader_factory_info)
     : service_binding_(this, std::move(request)),
@@ -68,7 +72,6 @@ Service::Service(service_manager::mojom::ServiceRequest request,
       token_refresh_timer_(std::make_unique<base::OneShotTimer>()),
       main_task_runner_(base::SequencedTaskRunnerHandle::Get()),
       power_manager_observer_(this),
-      network_connection_tracker_(network_connection_tracker),
       url_loader_factory_info_(std::move(url_loader_factory_info)),
       weak_ptr_factory_(this) {
   registry_.AddInterface<mojom::AssistantPlatform>(base::BindRepeating(
@@ -101,18 +104,12 @@ void Service::RequestAccessToken() {
 }
 
 bool Service::ShouldEnableHotword() {
-  bool dsp_available = false;
-  chromeos::AudioDeviceList devices;
-  chromeos::CrasAudioHandler::Get()->GetAudioDevices(&devices);
-  for (const chromeos::AudioDevice& device : devices) {
-    if (device.type == chromeos::AUDIO_TYPE_HOTWORD) {
-      dsp_available = true;
-    }
-  }
+  bool dsp_available = chromeos::CrasAudioHandler::Get()->HasHotwordDevice();
 
   // Disable hotword if hotword is not set to always on and power source is not
   // connected.
-  if (!dsp_available && !assistant_state_.hotword_always_on().value() &&
+  if (!dsp_available &&
+      !pref_service_->GetBoolean(prefs::kAssistantHotwordAlwaysOn) &&
       !power_source_connected_) {
     return false;
   }
@@ -134,7 +131,16 @@ void Service::SetTimerForTesting(std::unique_ptr<base::OneShotTimer> timer) {
   token_refresh_timer_ = std::move(timer);
 }
 
-void Service::OnStart() {}
+void Service::OnStart() {
+  auto pref_registry = base::MakeRefCounted<PrefRegistrySimple>();
+  prefs::RegisterProfilePrefsForeign(pref_registry.get());
+  ::prefs::mojom::PrefStoreConnectorPtr pref_store_connector;
+
+  ::prefs::ConnectToPrefService(
+      service_binding_.GetConnector(), std::move(pref_registry),
+      base::Bind(&Service::OnPrefServiceConnected, base::Unretained(this)),
+      ::prefs::mojom::kServiceName);
+}
 
 void Service::OnBindInterface(
     const service_manager::BindSourceInfo& source_info,
@@ -190,6 +196,14 @@ void Service::OnLockStateChanged(bool locked) {
   UpdateListeningState();
 }
 
+void Service::OnAssistantHotwordAlwaysOn() {
+  // No need to update hotword status if power source is connected.
+  if (power_source_connected_)
+    return;
+
+  UpdateAssistantManagerState();
+}
+
 void Service::OnVoiceInteractionSettingsEnabled(bool enabled) {
   UpdateAssistantManagerState();
 }
@@ -210,18 +224,11 @@ void Service::OnLockedFullScreenStateChanged(bool enabled) {
   UpdateListeningState();
 }
 
-void Service::OnVoiceInteractionHotwordAlwaysOn(bool always_on) {
-  // No need to update hotword status if power source is connected.
-  if (power_source_connected_)
-    return;
-
-  UpdateAssistantManagerState();
-}
-
 void Service::UpdateAssistantManagerState() {
+  if (!pref_service_)
+    return;
   if (!assistant_state_.hotword_enabled().has_value() ||
       !assistant_state_.settings_enabled().has_value() ||
-      !assistant_state_.hotword_always_on().has_value() ||
       !assistant_state_.locale().has_value() ||
       (!access_token_.has_value() && !is_signed_out_mode_) ||
       !assistant_state_.arc_play_store_enabled().has_value()) {
@@ -272,7 +279,9 @@ void Service::BindAssistantSettingsManager(
 }
 
 void Service::Init(mojom::ClientPtr client,
-                   mojom::DeviceActionsPtr device_actions) {
+                   mojom::DeviceActionsPtr device_actions,
+                   bool is_test) {
+  is_test_ = is_test;
   client_ = std::move(client);
   device_actions_ = std::move(device_actions);
   assistant_state_.Init(service_binding_.GetConnector());
@@ -288,6 +297,23 @@ void Service::Init(mojom::ClientPtr client,
   RequestAccessToken();
 }
 
+void Service::OnPrefServiceConnected(
+    std::unique_ptr<::PrefService> pref_service) {
+  // TODO(b/110211045): Add testing support for Assistant prefs.
+  if (!pref_service)
+    return;
+
+  pref_service_ = std::move(pref_service);
+
+  pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
+  pref_change_registrar_->Init(pref_service_.get());
+
+  pref_change_registrar_->Add(
+      chromeos::assistant::prefs::kAssistantHotwordAlwaysOn,
+      base::BindRepeating(&Service::OnAssistantHotwordAlwaysOn,
+                          base::Unretained(this)));
+}
+
 identity::mojom::IdentityAccessor* Service::GetIdentityAccessor() {
   if (!identity_accessor_) {
     service_binding_.GetConnector()->BindInterface(
@@ -297,23 +323,30 @@ identity::mojom::IdentityAccessor* Service::GetIdentityAccessor() {
 }
 
 void Service::GetPrimaryAccountInfoCallback(
-    const base::Optional<CoreAccountInfo>& account_info,
+    const base::Optional<CoreAccountId>& account_id,
+    const base::Optional<std::string>& gaia,
+    const base::Optional<std::string>& email,
     const identity::AccountState& account_state) {
-  if (!account_info.has_value() || !account_state.has_refresh_token ||
-      account_info.value().gaia.empty()) {
+  // Validate the remotely-supplied parameters before using them below: if
+  // |account_id| is non-null, the other two should be non-null as well per
+  // the stated contract of IdentityAccessor::GetPrimaryAccountInfo().
+  CHECK((!account_id.has_value() || (gaia.has_value() && email.has_value())));
+
+  if (!account_id.has_value() || !account_state.has_refresh_token ||
+      gaia->empty()) {
     LOG(ERROR) << "Failed to retrieve primary account info.";
     RetryRefreshToken();
     return;
   }
-  account_id_ = AccountId::FromUserEmailGaiaId(account_info.value().email,
-                                               account_info.value().gaia);
+  account_id_ = user_manager::known_user::GetAccountId(*email, *gaia,
+                                                       AccountType::GOOGLE);
   identity::ScopeSet scopes;
   scopes.insert(kScopeAssistant);
   scopes.insert(kScopeAuthGcm);
   if (features::IsClearCutLogEnabled())
     scopes.insert(kScopeClearCutLog);
   identity_accessor_->GetAccessToken(
-      account_info.value().account_id, scopes, "cros_assistant",
+      *account_id, scopes, "cros_assistant",
       base::BindOnce(&Service::GetAccessTokenCallback, base::Unretained(this)));
 }
 
@@ -346,6 +379,13 @@ void Service::RetryRefreshToken() {
 
 void Service::CreateAssistantManagerService() {
 #if BUILDFLAG(ENABLE_CROS_LIBASSISTANT)
+  if (is_test_) {
+    // Use fake service in browser tests.
+    assistant_manager_service_ =
+        std::make_unique<FakeAssistantManagerServiceImpl>();
+    return;
+  }
+
   device::mojom::BatteryMonitorPtr battery_monitor;
   service_binding_.GetConnector()->BindInterface(
       device::mojom::kServiceName, mojo::MakeRequest(&battery_monitor));
@@ -354,7 +394,7 @@ void Service::CreateAssistantManagerService() {
   DCHECK(url_loader_factory_info_);
   assistant_manager_service_ = std::make_unique<AssistantManagerServiceImpl>(
       service_binding_.GetConnector(), std::move(battery_monitor), this,
-      network_connection_tracker_, std::move(url_loader_factory_info_));
+      std::move(url_loader_factory_info_));
 #else
   assistant_manager_service_ =
       std::make_unique<FakeAssistantManagerServiceImpl>();

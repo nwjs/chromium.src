@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/android/rules.gni")
+import("//chrome/android/features/tab_ui/buildflags.gni")
 import("//chrome/common/features.gni")
 
 android_resources("java_resources") {
@@ -14,15 +15,19 @@ android_resources("java_resources") {
 }
 
 android_library("java") {
+  # Add this flag to prevent build hooks to be included in this module
+  # as it's already included in the base module
+  no_build_hooks = true
+
   java_files = [
     "java/src/org/chromium/chrome/browser/tasks/tab_groups/TabGroupUtils.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/ClosableTabGridViewHolder.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/GridTabSwitcherCoordinator.java",
-    "java/src/org/chromium/chrome/browser/tasks/tab_management/GridTabSwitcherLayout.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/GridTabSwitcherMediator.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/MultiThumbnailCardProvider.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/SelectableTabGridView.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/SelectableTabGridViewHolder.java",
+    "java/src/org/chromium/chrome/browser/tasks/tab_management/TabCarouselViewHolder.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabGridContainerViewBinder.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabGridDialogCoordinator.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabGridDialogMediator.java",
@@ -58,30 +63,33 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabStripToolbarViewProperties.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabStripViewBinder.java",
     "java/src/org/chromium/chrome/browser/tasks/tab_management/TabStripViewHolder.java",
+    "java/src/org/chromium/chrome/browser/tasks/tab_management/UndoGroupSnackbarController.java",
   ]
 
   deps = [
     ":java_resources",
-  ]
-
-  classpath_deps = [
     "//base:base_java",
     "//chrome/android:chrome_java",
     "//chrome/android:chrome_strings_grd",
     "//chrome/android:ui_locale_string_resources",
+    "//chrome/android/features/start_surface/internal:java",
     "//chrome/app:java_strings_grd",
     "//components/embedder_support/android:web_contents_delegate_java",
     "//components/feature_engagement:feature_engagement_java",
     "//components/policy/android:policy_java",
-    "//content/public/android:content_java_resources",
     "//content/public/android:content_java",
+    "//content/public/android:content_java_resources",
     "//third_party/android_deps:android_arch_lifecycle_common_java",
     "//third_party/android_deps:android_arch_lifecycle_runtime_java",
+    "//third_party/android_deps:android_support_v7_appcompat_java",
+    "//third_party/android_deps:com_android_support_recyclerview_v7_java",
     "//third_party/android_deps:com_android_support_support_annotations_java",
     "//third_party/android_deps:com_android_support_support_compat_java",
     "//third_party/android_deps:com_android_support_support_v13_java",
-    "//third_party/android_deps:android_support_v7_appcompat_java",
-    "//third_party/android_deps:com_android_support_recyclerview_v7_java",
     "//ui/android:ui_java",
   ]
+
+  if (async_tab_ui) {
+    proguard_configs = [ "//base/android/proguard/chromium_code.flags" ]
+  }
 }

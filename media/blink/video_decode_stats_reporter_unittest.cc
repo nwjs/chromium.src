@@ -11,6 +11,7 @@
 #include "base/optional.h"
 #include "base/single_thread_task_runner.h"
 #include "base/test/test_mock_time_task_runner.h"
+#include "base/threading/thread_task_runner_handle.h"
 #include "base/time/time.h"
 #include "media/base/cdm_config.h"
 #include "media/base/media_util.h"
@@ -47,10 +48,10 @@ VideoDecoderConfig MakeVideoConfig(VideoCodec codec,
                                    gfx::Size natural_size) {
   gfx::Size coded_size = natural_size;
   gfx::Rect visible_rect(coded_size.width(), coded_size.height());
-  return VideoDecoderConfig(codec, profile, PIXEL_FORMAT_I420,
-                            VideoColorSpace::JPEG(), kNoTransformation,
-                            coded_size, visible_rect, natural_size,
-                            EmptyExtraData(), Unencrypted());
+  return VideoDecoderConfig(
+      codec, profile, VideoDecoderConfig::AlphaMode::kIsOpaque,
+      VideoColorSpace::JPEG(), kNoTransformation, coded_size, visible_rect,
+      natural_size, EmptyExtraData(), Unencrypted());
 }
 
 PipelineStatistics MakeStats(int frames_decoded,
@@ -108,7 +109,7 @@ class VideoDecodeStatsReporterTest : public ::testing::Test {
   void SetUp() override {
     // Do this first. Lots of pieces depend on the task runner.
     auto message_loop = base::MessageLoopCurrent::Get();
-    original_task_runner_ = message_loop.task_runner();
+    original_task_runner_ = base::ThreadTaskRunnerHandle::Get();
     task_runner_ = new base::TestMockTimeTaskRunner();
     message_loop.SetTaskRunner(task_runner_);
 

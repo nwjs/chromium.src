@@ -16,6 +16,7 @@
 #include "base/i18n/break_iterator.h"
 #include "base/i18n/case_conversion.h"
 #include "base/json/json_string_value_serializer.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/rand_util.h"
@@ -94,6 +95,14 @@ bool HasMultipleWords(const base::string16& text) {
     }
   }
   return false;
+}
+
+bool IsSearchEngineGoogle(const TemplateURL* template_url,
+                          const AutocompleteProviderClient* client) {
+  return template_url && client &&
+         template_url->GetEngineType(
+             client->GetTemplateURLService()->search_terms_data()) ==
+             SEARCH_ENGINE_GOOGLE;
 }
 
 }  // namespace
@@ -232,7 +241,7 @@ void SearchProvider::Start(const AutocompleteInput& input,
   // do anything useful for on-focus inputs or empty inputs.  Exit early.
   if (!base::FeatureList::IsEnabled(omnibox::kSearchProviderWarmUpOnFocus) &&
       (input.from_omnibox_focus() ||
-       input.type() == metrics::OmniboxInputType::INVALID)) {
+       input.type() == metrics::OmniboxInputType::EMPTY)) {
     Stop(true, false);
     return;
   }
@@ -502,11 +511,8 @@ void SearchProvider::LogLoadComplete(bool success, bool is_keyword) {
   // Record response time for suggest requests sent to Google.  We care
   // only about the common case: the Google default provider used in
   // non-keyword mode.
-  const TemplateURL* default_url = providers_.GetDefaultProviderURL();
-  if (!is_keyword && default_url &&
-      (default_url->GetEngineType(
-          client()->GetTemplateURLService()->search_terms_data()) ==
-       SEARCH_ENGINE_GOOGLE)) {
+  if (!is_keyword &&
+      IsSearchEngineGoogle(providers_.GetDefaultProviderURL(), client())) {
     const base::TimeDelta elapsed_time =
         base::TimeTicks::Now() - time_suggest_request_sent_;
     if (success) {
@@ -615,11 +621,21 @@ void SearchProvider::Run(bool query_is_private) {
   time_suggest_request_sent_ = base::TimeTicks::Now();
 
   if (!query_is_private) {
-    default_loader_ =
-        CreateSuggestLoader(providers_.GetDefaultProviderURL(), input_);
+    int timeout_ms = 0;
+    // Consider explicitly setting a timeout for requests sent to Google when
+    // On Device Head provider is enabled.
+    if (IsSearchEngineGoogle(providers_.GetDefaultProviderURL(), client())) {
+      timeout_ms = base::GetFieldTrialParamByFeatureAsInt(
+          omnibox::kOnDeviceHeadProvider,
+          "SearchProviderDefaultLoaderTimeoutMs", 0);
+    }
+    default_loader_ = CreateSuggestLoader(
+        providers_.GetDefaultProviderURL(), input_,
+        timeout_ms > 0 ? base::TimeDelta::FromMilliseconds(timeout_ms)
+                       : base::TimeDelta());
   }
-  keyword_loader_ =
-      CreateSuggestLoader(providers_.GetKeywordProviderURL(), keyword_input_);
+  keyword_loader_ = CreateSuggestLoader(providers_.GetKeywordProviderURL(),
+                                        keyword_input_, base::TimeDelta());
 
   // Both the above can fail if the providers have been modified or deleted
   // since the query began.
@@ -865,7 +881,8 @@ void SearchProvider::ApplyCalculatedNavigationRelevance(
 
 std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
     const TemplateURL* template_url,
-    const AutocompleteInput& input) {
+    const AutocompleteInput& input,
+    const base::TimeDelta& timeout) {
   if (true || !template_url || template_url->suggestions_url().empty())
     return nullptr;
 
@@ -905,7 +922,7 @@ std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
   // If the request is from omnibox focus, send empty search term args. The
   // purpose of such a request is to signal the server to warm up; no info
   // is required.
-  TemplateURLRef::SearchTermsArgs empty_search_term_args((base::string16()));
+  TemplateURLRef::SearchTermsArgs empty_search_term_args;
   BaseSearchProvider::AppendSuggestClientToAdditionalQueryParams(
       template_url, search_terms_data, input.current_page_classification(),
       &empty_search_term_args);
@@ -919,7 +936,7 @@ std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
   TemplateURLService* template_url_service = client()->GetTemplateURLService();
   if (CanSendURL(input.current_url(), suggest_url, template_url,
                  input.current_page_classification(),
-                 template_url_service->search_terms_data(), client())) {
+                 template_url_service->search_terms_data(), client(), true)) {
     search_term_args.current_page_url = input.current_url().spec();
     // Create the suggest URL again with the current page URL.
     suggest_url = GURL(template_url->suggestions_url_ref().ReplaceSearchTerms(
@@ -968,6 +985,8 @@ std::unique_ptr<network::SimpleURLLoader> SearchProvider::CreateSuggestLoader(
 
   std::unique_ptr<network::SimpleURLLoader> loader =
       network::SimpleURLLoader::Create(std::move(request), traffic_annotation);
+  if (timeout > base::TimeDelta())
+    loader->SetTimeoutDuration(timeout);
   loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
       client()->GetURLLoaderFactory().get(),
       base::BindOnce(&SearchProvider::OnURLLoadComplete, base::Unretained(this),
@@ -1110,10 +1129,18 @@ void SearchProvider::ConvertResultsToAutocompleteMatches() {
     // suggestion of some sort".
     if ((i->type != AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED) &&
         (i->type != AutocompleteMatchType::SEARCH_OTHER_ENGINE)) {
+      // IsInstantExtendedAPIEnabled is a legacy function that we no longer want
+      // to affect the number of search suggestions we provide, but we want to
+      // understand the effect of removing this check, so its impotence is
+      // controlled experimentally.
+      bool instant_check_disabled = base::FeatureList::IsEnabled(
+          omnibox::kOmniboxDisableInstantExtendedLimit);
+      bool skip_suggestion_for_instant_disabled =
+          !(instant_check_disabled || search::IsInstantExtendedAPIEnabled());
       // If we've already hit the limit on non-server-scored suggestions, and
       // this isn't a server-scored suggestion we can add, skip it.
       if ((num_suggestions >= provider_max_matches_) &&
-          (!search::IsInstantExtendedAPIEnabled() ||
+          (skip_suggestion_for_instant_disabled ||
            (i->GetAdditionalInfo(kRelevanceFromServerKey) != kTrue))) {
         continue;
       }
@@ -1164,16 +1191,12 @@ void SearchProvider::AddNavigationResultsToMatches(
 void SearchProvider::AddRawHistoryResultsToMap(bool is_keyword,
                                                int did_not_accept_suggestion,
                                                MatchMap* map) {
-  base::TimeTicks start_time(base::TimeTicks::Now());
-
   const SearchSuggestionParser::SuggestResults* transformed_results =
       is_keyword ? &transformed_keyword_history_results_
                  : &transformed_default_history_results_;
   DCHECK(transformed_results);
   AddTransformedHistoryResultsToMap(
       *transformed_results, did_not_accept_suggestion, map);
-  UMA_HISTOGRAM_TIMES("Omnibox.SearchProvider.AddHistoryResultsTime",
-                      base::TimeTicks::Now() - start_time);
 }
 
 void SearchProvider::AddTransformedHistoryResultsToMap(

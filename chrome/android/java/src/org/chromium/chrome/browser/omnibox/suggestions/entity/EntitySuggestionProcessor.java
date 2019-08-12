@@ -14,7 +14,7 @@ import org.chromium.base.Log;
 import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.ChromeApplication;
+import org.chromium.chrome.browser.GlobalDiscardableReferencePool;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcher;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcherConfig;
 import org.chromium.chrome.browser.image_fetcher.ImageFetcherFactory;
@@ -78,8 +78,8 @@ public class EntitySuggestionProcessor implements SuggestionProcessor {
 
     @Override
     public void onNativeInitialized() {
-        mImageFetcher = ImageFetcherFactory.createImageFetcher(
-                ImageFetcherConfig.IN_MEMORY_ONLY, ChromeApplication.getReferencePool());
+        mImageFetcher = ImageFetcherFactory.createImageFetcher(ImageFetcherConfig.IN_MEMORY_ONLY,
+                GlobalDiscardableReferencePool.getReferencePool());
     }
 
     @Override
@@ -114,8 +114,8 @@ public class EntitySuggestionProcessor implements SuggestionProcessor {
         models.add(model);
         mPendingImageRequests.put(url, models);
 
-        mImageFetcher.fetchImage(url, "EntitySuggestionProcessor", mEntityImageSizePx,
-                mEntityImageSizePx, (Bitmap bitmap) -> {
+        mImageFetcher.fetchImage(url, ImageFetcher.ENTITY_SUGGESTIONS_UMA_CLIENT_NAME,
+                mEntityImageSizePx, mEntityImageSizePx, (Bitmap bitmap) -> {
                     ThreadUtils.assertOnUiThread();
 
                     final List<PropertyModel> pendingModels = mPendingImageRequests.remove(url);

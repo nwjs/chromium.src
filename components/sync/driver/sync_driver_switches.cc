@@ -65,19 +65,19 @@ const base::Feature kSyncSupportSecondaryAccount{
 
 // Enable USS implementation of Bookmarks datatype.
 const base::Feature kSyncUSSBookmarks{"SyncUSSBookmarks",
-                                      base::FEATURE_DISABLED_BY_DEFAULT};
+                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable USS implementation of Passwords datatype.
 const base::Feature kSyncUSSPasswords{"SyncUSSPasswords",
                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enable USS implementation of autofill profile datatype.
-const base::Feature kSyncUSSAutofillProfile{"SyncUSSAutofillProfile",
-                                            base::FEATURE_ENABLED_BY_DEFAULT};
-
 // Enable USS implementation of autofill wallet metadata datatype.
 const base::Feature kSyncUSSAutofillWalletMetadata{
-    "SyncUSSAutofillWalletMetadata", base::FEATURE_DISABLED_BY_DEFAULT};
+    "SyncUSSAutofillWalletMetadata", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Enable USS implementation of Nigori datatype.
+const base::Feature kSyncUSSNigori{"SyncUSSNigori",
+                                   base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether to enable syncing of Wi-Fi configurations.
 const base::Feature kSyncWifiConfigurations{"SyncWifiConfigurations",

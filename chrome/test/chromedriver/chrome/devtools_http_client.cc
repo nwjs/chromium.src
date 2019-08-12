@@ -155,7 +155,7 @@ const DeviceMetrics* DevToolsHttpClient::device_metrics() {
 }
 
 bool DevToolsHttpClient::IsBrowserWindow(const WebViewInfo& view) const {
-  return base::ContainsKey(*window_types_, view.type) ||
+  return base::Contains(*window_types_, view.type) ||
          (view.type == WebViewInfo::kOther &&
           (view.url == "chrome://print/" ||
            view.url == "" || view.url == "about:blank" ||
@@ -166,8 +166,7 @@ bool DevToolsHttpClient::IsBrowserWindow(const WebViewInfo& view) const {
            base::StartsWith(view.url, "http://",
                             base::CompareCase::SENSITIVE) ||
            base::StartsWith(view.url, "https://",
-                            base::CompareCase::SENSITIVE) ||
-           view.url == "chrome://media-router/"));
+                            base::CompareCase::SENSITIVE)));
 }
 
 Status DevToolsHttpClient::CloseFrontends(const std::string& for_client_id) {

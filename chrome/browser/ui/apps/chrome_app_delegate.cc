@@ -22,7 +22,6 @@
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/apps/platform_apps/audio_focus_web_contents_observer.h"
 #include "chrome/browser/chrome_notification_types.h"
-#include "chrome/browser/data_use_measurement/data_use_web_contents_observer.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/file_select_helper.h"
@@ -55,7 +54,7 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_messages.h"
-#include "extensions/common/mojo/app_window.mojom.h"
+#include "extensions/common/mojom/app_window.mojom.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 
@@ -200,8 +199,7 @@ ChromeAppDelegate::ChromeAppDelegate(bool keep_alive)
       is_hidden_(true),
       for_lock_screen_app_(false),
       new_window_contents_delegate_(new NewWindowContentsDelegate()),
-      web_contents_(nullptr),
-      weak_factory_(this) {
+      web_contents_(nullptr) {
   if (keep_alive) {
     keep_alive_.reset(new ScopedKeepAlive(KeepAliveOrigin::CHROME_APP_DELEGATE,
                                           KeepAliveRestartOption::DISABLED));
@@ -221,8 +219,6 @@ void ChromeAppDelegate::DisableExternalOpenForTesting() {
 }
 
 void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
-  data_use_measurement::DataUseWebContentsObserver::CreateForWebContents(
-      web_contents);
   web_contents_ = web_contents;
 
   favicon::CreateContentFaviconDriverForWebContents(web_contents);
@@ -344,7 +340,7 @@ void ChromeAppDelegate::RequestMediaAccessPermission(
 bool ChromeAppDelegate::CheckMediaAccessPermission(
     content::RenderFrameHost* render_frame_host,
     const GURL& security_origin,
-    blink::MediaStreamType type,
+    blink::mojom::MediaStreamType type,
     const extensions::Extension* extension) {
   return MediaCaptureDevicesDispatcher::GetInstance()
       ->CheckMediaAccessPermission(render_frame_host, security_origin, type,
@@ -422,7 +418,7 @@ bool ChromeAppDelegate::TakeFocus(content::WebContents* web_contents,
 #endif
 }
 
-gfx::Size ChromeAppDelegate::EnterPictureInPicture(
+content::PictureInPictureResult ChromeAppDelegate::EnterPictureInPicture(
     content::WebContents* web_contents,
     const viz::SurfaceId& surface_id,
     const gfx::Size& natural_size) {

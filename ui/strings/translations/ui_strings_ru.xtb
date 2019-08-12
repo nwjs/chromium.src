@@ -16,6 +16,7 @@
 <translation id="1383876407941801731">Поиск</translation>
 <translation id="1398853756734560583">Развернуть</translation>
 <translation id="1409544243779336081">Рекомендуемое приложение</translation>
+<translation id="1498028757988366001">Вы уже искали эту информацию. Если вы удалите запрос "<ph name="QUERY" />" из истории, он будет навсегда скрыт на всех ваших устройствах, где выполнен вход в аккаунт.</translation>
 <translation id="1591184457164800433">{MINUTES,plural, =1{1 минута }one{# минута }few{# минуты }many{# минут }other{# минуты }}</translation>
 <translation id="1643823602425662293">Уведомление</translation>
 <translation id="169515659049020177">Shift</translation>
@@ -52,6 +53,7 @@
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2522350507219695259">Калибровка завершена</translation>
 <translation id="252373100621549798">Неизвестный дисплей</translation>
+<translation id="2545651323591713692">Отложить</translation>
 <translation id="2573731672208488250">{HOURS,plural, =1{через 1 ч.}one{через # ч.}few{через # ч.}many{через # ч.}other{через # ч.}}</translation>
 <translation id="2583543531130364912">Откалибруйте сенсорный экран</translation>
 <translation id="2666092431469916601">Наверх</translation>
@@ -70,6 +72,7 @@
 <translation id="3183922693828471536">Прокрутить до этого места</translation>
 <translation id="3234408098842461169">Стрелка вниз</translation>
 <translation id="3291688615589870984">{DAYS,plural, =1{1 день}one{# день}few{# дня}many{# дней}other{# дня}}</translation>
+<translation id="3295886253693811851">Позвонить:</translation>
 <translation id="335581015389089642">Озвучить</translation>
 <translation id="3443810440409579745">Вкладка получена.</translation>
 <translation id="3479552764303398839">Не сейчас</translation>
@@ -169,6 +172,7 @@
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 мин. назад}one{# мин. назад}few{# мин. назад}many{# мин. назад}other{# мин. назад}}</translation>
 <translation id="7389409599945284130">– <ph name="MESSAGE" /></translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{Осталась 1 минута}one{Осталась # минута}few{Осталось # минуты}many{Осталось # минут}other{Осталось # минуты}}</translation>
+<translation id="7430878839542012341">Удалить этот запрос из истории поиска?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> ТБ</translation>
 <translation id="7507604095951736240">Эмодзи</translation>
 <translation id="7658239707568436148">Отмена</translation>
@@ -186,7 +190,6 @@
 <translation id="8144660977431427332">Ваши поисковые запросы обрабатывает Google Ассистент. <ph name="LEARN_MORE" /></translation>
 <translation id="8152264887680882389"><ph name="TEXT" />, автозаполнение</translation>
 <translation id="815598010540052116">Прокрутка вниз</translation>
-<translation id="8170087467028567933">Если вы удалите эту подсказку, она будет скрыта на всех ваших устройствах, где выполнен вход в аккаунт.</translation>
 <translation id="8179976553408161302">ВВОД</translation>
 <translation id="8210608804940886430">Прокрутка вниз</translation>
 <translation id="8245914219290430011">Tab</translation>
@@ -197,7 +200,6 @@
 <translation id="838869780401515933">поставить галочку</translation>
 <translation id="8393700583063109961">Отправить сообщение</translation>
 <translation id="8394908167088220973">Воспроизведение/пауза</translation>
-<translation id="8420205633584771378">Удалить эту подсказку?</translation>
 <translation id="8458811141851741261">{YEARS,plural, =1{1 г.}one{# г.}few{# г.}many{# л.}other{# г.}}</translation>
 <translation id="8602707065186045623">Файл <ph name="SAVEAS_EXTENSION_TYPE" /> (.<ph name="SAVEAS_EXTENSION_NAME" />)</translation>
 <translation id="8649597172973390955">Временное хранилище будет всегда отображаться</translation>

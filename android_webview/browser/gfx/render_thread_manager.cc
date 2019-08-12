@@ -10,6 +10,7 @@
 #include "android_webview/browser/gfx/compositor_id.h"
 #include "android_webview/browser/gfx/deferred_gpu_command_service.h"
 #include "android_webview/browser/gfx/scoped_app_gl_state_restore.h"
+#include "android_webview/browser/gfx/task_queue_web_view.h"
 #include "android_webview/public/browser/draw_gl.h"
 #include "base/bind.h"
 #include "base/lazy_instance.h"
@@ -109,15 +110,15 @@ ChildFrameQueue RenderThreadManager::PassUncommittedFrameOnUI() {
 void RenderThreadManager::PostParentDrawDataToChildCompositorOnRT(
     const ParentCompositorDrawConstraints& parent_draw_constraints,
     const CompositorID& compositor_id,
-    viz::PresentationFeedbackMap presentation_feedbacks,
+    viz::FrameTimingDetailsMap timing_details,
     uint32_t frame_token) {
   {
     base::AutoLock lock(lock_);
     parent_draw_constraints_ = parent_draw_constraints;
-    // Presentation feedbacks are a sequence and it's ok to drop something in
-    // the middle of the sequence. This also means its ok to drop the feedbacks
+    // FrameTimingDetails are a sequence and it's ok to drop something in
+    // the middle of the sequence. This also means its ok to drop the details
     // from early returned frames from WaitAndPruneFrameQueue as well.
-    presentation_feedbacks_ = std::move(presentation_feedbacks);
+    timing_details_ = std::move(timing_details);
     presented_frame_token_ = frame_token;
     compositor_id_for_presentation_feedbacks_ = compositor_id;
   }
@@ -132,15 +133,15 @@ void RenderThreadManager::PostParentDrawDataToChildCompositorOnRT(
 void RenderThreadManager::TakeParentDrawDataOnUI(
     ParentCompositorDrawConstraints* constraints,
     CompositorID* compositor_id,
-    viz::PresentationFeedbackMap* presentation_feedbacks,
+    viz::FrameTimingDetailsMap* timing_details,
     uint32_t* frame_token) {
   DCHECK(ui_loop_->BelongsToCurrentThread());
-  DCHECK(presentation_feedbacks->empty());
+  DCHECK(timing_details->empty());
   CheckUiCallsAllowed();
   base::AutoLock lock(lock_);
   *constraints = parent_draw_constraints_;
   *compositor_id = compositor_id_for_presentation_feedbacks_;
-  presentation_feedbacks_.swap(*presentation_feedbacks);
+  timing_details_.swap(*timing_details);
   *frame_token = presented_frame_token_;
 }
 
@@ -185,6 +186,7 @@ void RenderThreadManager::UpdateViewTreeForceDarkStateOnRT(
 void RenderThreadManager::DrawOnRT(bool save_restore,
                                    HardwareRendererDrawParams* params) {
   // Force GL binding init if it's not yet initialized.
+  // TODO(crbug.com/987265): Clean up usage of DeferredGpuCommandService.
   DeferredGpuCommandService::GetInstance();
   ScopedAppGLStateRestore state_restore(ScopedAppGLStateRestore::MODE_DRAW,
                                         save_restore);

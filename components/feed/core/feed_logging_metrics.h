@@ -93,6 +93,14 @@ class FeedLoggingMetrics {
 
   void OnPietFrameRenderingEvent(std::vector<int> piet_error_codes);
 
+  void OnVisualElementClicked(int element_type,
+                              int position,
+                              base::Time fetch_date);
+
+  void OnVisualElementViewed(int element_type,
+                             int position,
+                             base::Time fetch_date);
+
   void OnInternalError(int internal_error);
 
   void OnTokenCompleted(bool was_synthetic, int content_count, int token_count);
@@ -115,7 +123,7 @@ class FeedLoggingMetrics {
   // Used to access current time, injected for testing.
   base::Clock* clock_;
 
-  base::WeakPtrFactory<FeedLoggingMetrics> weak_ptr_factory_;
+  base::WeakPtrFactory<FeedLoggingMetrics> weak_ptr_factory_{this};
 
   DISALLOW_COPY_AND_ASSIGN(FeedLoggingMetrics);
 };

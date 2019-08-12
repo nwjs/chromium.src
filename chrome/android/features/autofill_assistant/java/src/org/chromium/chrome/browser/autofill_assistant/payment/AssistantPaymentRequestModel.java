@@ -26,7 +26,7 @@ public class AssistantPaymentRequestModel extends PropertyModel {
     // TODO(crbug.com/806868): add |setAvailableProfiles| and |setAvailablePaymentMethods| from
     // native. Implement |setShippingAddress|, |setContactDetails| and |setPaymentMethod|.
 
-    static final WritableObjectPropertyKey<AssistantPaymentRequestDelegate> DELEGATE =
+    public static final WritableObjectPropertyKey<AssistantPaymentRequestDelegate> DELEGATE =
             new WritableObjectPropertyKey<>();
 
     /** The web contents the payment request is associated with. */
@@ -57,7 +57,9 @@ public class AssistantPaymentRequestModel extends PropertyModel {
             new WritableBooleanPropertyKey();
     public static final WritableBooleanPropertyKey REQUEST_PAYMENT =
             new WritableBooleanPropertyKey();
-    public static final WritableBooleanPropertyKey REQUEST_TERMS_AND_CONDITIONS =
+    public static final WritableObjectPropertyKey<String> ACCEPT_TERMS_AND_CONDITIONS_TEXT =
+            new WritableObjectPropertyKey<>();
+    public static final WritableBooleanPropertyKey SHOW_TERMS_AS_CHECKBOX =
             new WritableBooleanPropertyKey();
 
     public static final WritableObjectPropertyKey<List<PersonalDataManager.AutofillProfile>>
@@ -80,9 +82,21 @@ public class AssistantPaymentRequestModel extends PropertyModel {
     public AssistantPaymentRequestModel() {
         super(DELEGATE, WEB_CONTENTS, VISIBLE, SHIPPING_ADDRESS, PAYMENT_METHOD, CONTACT_DETAILS,
                 TERMS_STATUS, REQUEST_NAME, REQUEST_EMAIL, REQUEST_PHONE, REQUEST_SHIPPING_ADDRESS,
-                REQUEST_PAYMENT, REQUEST_TERMS_AND_CONDITIONS, AVAILABLE_PROFILES,
-                AVAILABLE_AUTOFILL_PAYMENT_METHODS, SUPPORTED_BASIC_CARD_NETWORKS,
-                SUPPORTED_PAYMENT_METHODS, EXPANDED_SECTION);
+                REQUEST_PAYMENT, ACCEPT_TERMS_AND_CONDITIONS_TEXT, SHOW_TERMS_AS_CHECKBOX,
+                AVAILABLE_PROFILES, AVAILABLE_AUTOFILL_PAYMENT_METHODS,
+                SUPPORTED_BASIC_CARD_NETWORKS, SUPPORTED_PAYMENT_METHODS, EXPANDED_SECTION);
+
+        /**
+         * Set initial state for basic type properties (others are implicitly null).
+         * This is necessary to ensure that the initial UI state is consistent with the model.
+         */
+        set(VISIBLE, false);
+        set(TERMS_STATUS, AssistantTermsAndConditionsState.NOT_SELECTED);
+        set(REQUEST_NAME, false);
+        set(REQUEST_EMAIL, false);
+        set(REQUEST_PHONE, false);
+        set(REQUEST_PAYMENT, false);
+        set(REQUEST_SHIPPING_ADDRESS, false);
     }
 
     @CalledByNative
@@ -111,8 +125,13 @@ public class AssistantPaymentRequestModel extends PropertyModel {
     }
 
     @CalledByNative
-    private void setRequestTermsAndConditions(boolean requestTermsAndConditions) {
-        set(REQUEST_TERMS_AND_CONDITIONS, requestTermsAndConditions);
+    private void setAcceptTermsAndConditionsText(String text) {
+        set(ACCEPT_TERMS_AND_CONDITIONS_TEXT, text);
+    }
+
+    @CalledByNative
+    private void setShowTermsAsCheckbox(boolean showTermsAsCheckbox) {
+        set(SHOW_TERMS_AS_CHECKBOX, showTermsAsCheckbox);
     }
 
     @CalledByNative

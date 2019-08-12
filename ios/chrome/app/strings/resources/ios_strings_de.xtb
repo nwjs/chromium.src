@@ -150,6 +150,7 @@
 <translation id="2933759065870693102">Taschenlampe</translation>
 <translation id="2958718410589002129">Passwörter</translation>
 <translation id="2969979262385602596">Anmeldefehler, bitte später erneut versuchen</translation>
+<translation id="298306318844797842">Zahlungsmethode hinzufügen…</translation>
 <translation id="2989805286512600854">In neuem Tab öffnen</translation>
 <translation id="3037605927509011580">Oh nein!</translation>
 <translation id="3112556859945124369">Markieren…</translation>
@@ -477,6 +478,7 @@ Ihre Daten wurden am <ph name="TIME" /> mit Ihrer Synchronisierungspassphrase ve
 <translation id="7961015016161918242">Nie</translation>
 <translation id="7971521879845308059">Pop-ups blockieren</translation>
 <translation id="7982789257301363584">Netzwerk</translation>
+<translation id="8007420562015504427">Inkognitosuche</translation>
 <translation id="8019783059653722575">Dadurch können Sie Fotos speichern und hochladen.</translation>
 <translation id="802154636333426148">Downloadfehler</translation>
 <translation id="8023878949384262191">Maximiert den Abschnitt</translation>
@@ -491,6 +493,7 @@ Ihre Daten wurden am <ph name="TIME" /> mit Ihrer Synchronisierungspassphrase ve
 <translation id="8225985093977202398">Bilder &amp; Dateien im Cache</translation>
 <translation id="8261506727792406068">Löschen</translation>
 <translation id="8281781826761538115">Standard: <ph name="DEFAULT_LOCALE" /></translation>
+<translation id="8319076807703933069">Neue Suche</translation>
 <translation id="8328777765163860529">Alle schließen</translation>
 <translation id="8381750437846184350">Festlegen, wie Google Ihren Browserverlauf nutzt, um die Suche, Werbung und andere Google-Dienste zu personalisieren</translation>
 <translation id="8407669440184693619">Keine Passwörter für diese Website gefunden</translation>
@@ -507,7 +510,6 @@ Ihre Daten wurden am <ph name="TIME" /> mit Ihrer Synchronisierungspassphrase ve
 <translation id="8532105204136943229">Ablaufjahr</translation>
 <translation id="8534481786647257214">Google+ Beitrag gepostet</translation>
 <translation id="8548878600947630424">Auf Seite suchen...</translation>
-<translation id="8583866649835978847"><ph name="TITLE" /> an eines Ihrer Geräte senden.</translation>
 <translation id="8605219856220328675">Tab schließen.</translation>
 <translation id="8620640915598389714">Bearbeiten</translation>
 <translation id="8636825310635137004">Aktivieren Sie die Synchronisierung, um Tabs von Ihren anderen Geräten abzurufen.</translation>

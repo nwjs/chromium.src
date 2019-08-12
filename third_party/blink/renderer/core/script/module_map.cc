@@ -25,7 +25,7 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   explicit Entry(ModuleMap*);
   ~Entry() override {}
 
-  void Trace(blink::Visitor*) override;
+  void Trace(Visitor*) override;
   const char* NameInHeapSnapshot() const override { return "ModuleMap::Entry"; }
 
   // Notify fetched |m_moduleScript| to the client asynchronously.
@@ -63,7 +63,7 @@ void ModuleMap::AddToMap(const KURL& url, ModuleScript* script) {
   entry->is_fetching_ = false;
 }
 
-void ModuleMap::Entry::Trace(blink::Visitor* visitor) {
+void ModuleMap::Entry::Trace(Visitor* visitor) {
   visitor->Trace(module_script_);
   visitor->Trace(map_);
   visitor->Trace(clients_);
@@ -110,7 +110,7 @@ ModuleMap::ModuleMap(Modulator* modulator)
   DCHECK(modulator);
 }
 
-void ModuleMap::Trace(blink::Visitor* visitor) {
+void ModuleMap::Trace(Visitor* visitor) {
   visitor->Trace(map_);
   visitor->Trace(modulator_);
   visitor->Trace(loader_registry_);
@@ -147,7 +147,7 @@ void ModuleMap::FetchSingleModuleScript(
   // <spec step="3">If moduleMap[url] exists, asynchronously complete this
   // algorithm with moduleMap[url], and abort these steps.</spec>
   //
-  // <spec step="12">Set moduleMap[url] to module script, and asynchronously
+  // <spec step="14">Set moduleMap[url] to module script, and asynchronously
   // complete this algorithm with module script.</spec>
   if (client)
     entry->AddClient(client);

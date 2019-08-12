@@ -6,17 +6,25 @@
 
 #include <utility>
 
+#include "ash/accessibility/accessibility_controller_impl.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/desks/root_window_desk_switch_animator.h"
 #include "ash/wm/mru_window_tracker.h"
 #include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/overview/overview_item.h"
+#include "ash/wm/splitview/split_view_controller.h"
+#include "ash/wm/splitview/split_view_utils.h"
 #include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_macros.h"
+#include "base/stl_util.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/compositor.h"
 #include "ui/wm/public/activation_client.h"
 
@@ -24,11 +32,26 @@ namespace ash {
 
 namespace {
 
+constexpr char kNewDeskHistogramName[] = "Ash.Desks.NewDesk";
+constexpr char kDesksCountHistogramName[] = "Ash.Desks.DesksCount";
+constexpr char kRemoveDeskHistogramName[] = "Ash.Desks.RemoveDesk";
+constexpr char kDeskSwitchHistogramName[] = "Ash.Desks.DesksSwitch";
+constexpr char kMoveWindowFromActiveDeskHistogramName[] =
+    "Ash.Desks.MoveWindowFromActiveDesk";
+constexpr char kNumberOfWindowsOnDesk_1_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_1";
+constexpr char kNumberOfWindowsOnDesk_2_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_2";
+constexpr char kNumberOfWindowsOnDesk_3_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_3";
+constexpr char kNumberOfWindowsOnDesk_4_HistogramName[] =
+    "Ash.Desks.NumberOfWindowsOnDesk_4";
+
 // Appends the given |windows| to the end of the currently active overview mode
 // session such that the most-recently used window is added first. If
 // |should_animate| is true, the windows will animate to their positions in the
 // overview grid.
-void AppendWindowsToOverview(const base::flat_set<aura::Window*>& windows,
+void AppendWindowsToOverview(const std::vector<aura::Window*>& windows,
                              bool should_animate) {
   DCHECK(Shell::Get()->overview_controller()->InOverviewSession());
 
@@ -36,8 +59,10 @@ void AppendWindowsToOverview(const base::flat_set<aura::Window*>& windows,
       Shell::Get()->overview_controller()->overview_session();
   for (auto* window :
        Shell::Get()->mru_window_tracker()->BuildMruWindowList(kActiveDesk)) {
-    if (!windows.contains(window) || wm::ShouldExcludeForOverview(window))
+    if (!base::Contains(windows, window) ||
+        window_util::ShouldExcludeForOverview(window)) {
       continue;
+    }
 
     overview_session->AppendItem(window, /*reposition=*/true, should_animate);
   }
@@ -65,7 +90,7 @@ DesksController::DesksController() {
     available_container_ids_.push(id);
 
   // There's always one default desk.
-  NewDesk();
+  NewDesk(DesksCreationRemovalSource::kButton);
   active_desk_ = desks_.back().get();
   active_desk_->Activate(/*update_window_activation=*/true);
 }
@@ -92,15 +117,28 @@ bool DesksController::AreDesksBeingModified() const {
 }
 
 bool DesksController::CanCreateDesks() const {
-  // TODO(afakhry): Disable creating new desks in tablet mode.
   return desks_.size() < desks_util::kMaxNumberOfDesks;
+}
+
+Desk* DesksController::GetNextDesk() const {
+  int next_index = GetDeskIndex(active_desk_);
+  if (++next_index >= static_cast<int>(desks_.size()))
+    return nullptr;
+  return desks_[next_index].get();
+}
+
+Desk* DesksController::GetPreviousDesk() const {
+  int previous_index = GetDeskIndex(active_desk_);
+  if (--previous_index < 0)
+    return nullptr;
+  return desks_[previous_index].get();
 }
 
 bool DesksController::CanRemoveDesks() const {
   return desks_.size() > 1;
 }
 
-void DesksController::NewDesk() {
+void DesksController::NewDesk(DesksCreationRemovalSource source) {
   DCHECK(CanCreateDesks());
   DCHECK(!available_container_ids_.empty());
 
@@ -109,11 +147,20 @@ void DesksController::NewDesk() {
   desks_.emplace_back(std::make_unique<Desk>(available_container_ids_.front()));
   available_container_ids_.pop();
 
+  UMA_HISTOGRAM_ENUMERATION(kNewDeskHistogramName, source);
+  ReportDesksCountHistogram();
+  Shell::Get()
+      ->accessibility_controller()
+      ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
+          IDS_ASH_VIRTUAL_DESKS_ALERT_NEW_DESK_CREATED,
+          base::NumberToString16(desks_.size())));
+
   for (auto& observer : observers_)
     observer.OnDeskAdded(desks_.back().get());
 }
 
-void DesksController::RemoveDesk(const Desk* desk) {
+void DesksController::RemoveDesk(const Desk* desk,
+                                 DesksCreationRemovalSource source) {
   DCHECK(CanRemoveDesks());
 
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
@@ -123,6 +170,9 @@ void DesksController::RemoveDesk(const Desk* desk) {
       [desk](const std::unique_ptr<Desk>& d) { return d.get() == desk; });
   DCHECK(iter != desks_.end());
 
+  // Used by accessibility to indicate the desk that has been removed.
+  const int removed_desk_number = std::distance(desks_.begin(), iter) + 1;
+
   // Keep the removed desk alive until the end of this function.
   std::unique_ptr<Desk> removed_desk = std::move(*iter);
   DCHECK_EQ(removed_desk.get(), desk);
@@ -130,9 +180,9 @@ void DesksController::RemoveDesk(const Desk* desk) {
 
   DCHECK(!desks_.empty());
 
-  const bool in_overview =
-      Shell::Get()->overview_controller()->InOverviewSession();
-  const base::flat_set<aura::Window*> removed_desk_windows =
+  auto* overview_controller = Shell::Get()->overview_controller();
+  const bool in_overview = overview_controller->InOverviewSession();
+  const std::vector<aura::Window*> removed_desk_windows =
       removed_desk->windows();
 
   // No need to spend time refreshing the mini_views of the removed desk.
@@ -142,7 +192,8 @@ void DesksController::RemoveDesk(const Desk* desk) {
   // - Move windows in removed desk (if any) to the currently active desk.
   // - If the active desk is the one being removed, activate the desk to its
   //   left, if no desk to the left, activate one on the right.
-  if (removed_desk.get() != active_desk_) {
+  const bool will_switch_desks = (removed_desk.get() == active_desk_);
+  if (!will_switch_desks) {
     // We will refresh the mini_views of the active desk only once at the end.
     auto active_desk_mini_view_pauser =
         active_desk_->GetScopedNotifyContentChangedDisabler();
@@ -172,6 +223,13 @@ void DesksController::RemoveDesk(const Desk* desk) {
     auto target_desk_mini_view_pauser =
         target_desk->GetScopedNotifyContentChangedDisabler();
 
+    // Exit split view if active, before activating the new desk. We will
+    // restore the split view state of the newly activated desk at the end.
+    SplitViewController* split_view_controller =
+        Shell::Get()->split_view_controller();
+    split_view_controller->EndSplitView(
+        SplitViewController::EndReason::kDesksChange);
+
     // The removed desk is the active desk, so temporarily remove its windows
     // from the overview grid which will result in removing the
     // "OverviewModeLabel" widgets created by overview mode for these windows.
@@ -184,8 +242,10 @@ void DesksController::RemoveDesk(const Desk* desk) {
     // window activation. Activation should remain on the dummy
     // "OverviewModeFocusedWidget" while overview mode is active.
     removed_desk->MoveWindowsToDesk(target_desk);
-    ActivateDeskInternal(target_desk,
-                         /*update_window_activation=*/!in_overview);
+    ActivateDesk(target_desk, DesksSwitchSource::kDeskRemoved);
+
+    // Desk activation should not change overview mode state.
+    DCHECK_EQ(in_overview, overview_controller->InOverviewSession());
 
     // Now that the windows from the removed and target desks merged, add them
     // all without animation to the grid in the order of their MRU.
@@ -211,22 +271,54 @@ void DesksController::RemoveDesk(const Desk* desk) {
   if (in_overview)
     removed_desk->UpdateDeskBackdrops();
 
+  // Restoring split view may start or end overview mode, therefore do this at
+  // the end to avoid getting into a bad state.
+  if (will_switch_desks)
+    MaybeRestoreSplitView(/*refresh_snapped_windows=*/true);
+
+  UMA_HISTOGRAM_ENUMERATION(kRemoveDeskHistogramName, source);
+  ReportDesksCountHistogram();
+  ReportNumberOfWindowsPerDeskHistogram();
+
+  int active_desk_number = GetDeskIndex(active_desk_) + 1;
+  if (active_desk_number == removed_desk_number)
+    active_desk_number++;
+  Shell::Get()
+      ->accessibility_controller()
+      ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
+          IDS_ASH_VIRTUAL_DESKS_ALERT_DESK_REMOVED,
+          base::NumberToString16(removed_desk_number),
+          base::NumberToString16(active_desk_number)));
+
   DCHECK_LE(available_container_ids_.size(), desks_util::kMaxNumberOfDesks);
 }
 
-void DesksController::ActivateDesk(const Desk* desk) {
+void DesksController::ActivateDesk(const Desk* desk, DesksSwitchSource source) {
   DCHECK(HasDesk(desk));
 
+  UMA_HISTOGRAM_ENUMERATION(kDeskSwitchHistogramName, source);
+
+  OverviewController* overview_controller = Shell::Get()->overview_controller();
+  const bool in_overview = overview_controller->InOverviewSession();
   if (desk == active_desk_) {
-    OverviewController* overview_controller =
-        Shell::Get()->overview_controller();
-    if (overview_controller->InOverviewSession()) {
+    if (in_overview) {
       // Selecting the active desk's mini_view in overview mode is allowed and
       // should just exit overview mode normally.
-      overview_controller->ToggleOverview();
+      overview_controller->EndOverview();
     }
     return;
   }
+
+  if (source == DesksSwitchSource::kDeskRemoved) {
+    ActivateDeskInternal(desk, /*update_window_activation=*/!in_overview);
+    return;
+  }
+
+  Shell::Get()
+      ->accessibility_controller()
+      ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
+          IDS_ASH_VIRTUAL_DESKS_ALERT_DESK_ACTIVATED,
+          base::NumberToString16(GetDeskIndex(desk) + 1)));
 
   // New desks are always added at the end of the list to the right of existing
   // desks. Therefore, desks at lower indices are located on the left of desks
@@ -246,13 +338,48 @@ void DesksController::ActivateDesk(const Desk* desk) {
     animator->TakeStartingDeskScreenshot();
 }
 
-void DesksController::MoveWindowFromActiveDeskTo(aura::Window* window,
-                                                 Desk* target_desk) {
-  DCHECK(active_desk_->windows().contains(window));
+void DesksController::MoveWindowFromActiveDeskTo(
+    aura::Window* window,
+    Desk* target_desk,
+    DesksMoveWindowFromActiveDeskSource source) {
   DCHECK_NE(active_desk_, target_desk);
 
   base::AutoReset<bool> in_progress(&are_desks_being_modified_, true);
+
+  auto* overview_controller = Shell::Get()->overview_controller();
+  const bool in_overview = overview_controller->InOverviewSession();
+
   active_desk_->MoveWindowToDesk(window, target_desk);
+
+  Shell::Get()
+      ->accessibility_controller()
+      ->TriggerAccessibilityAlertWithMessage(l10n_util::GetStringFUTF8(
+          IDS_ASH_VIRTUAL_DESKS_ALERT_WINDOW_MOVED_FROM_ACTIVE_DESK,
+          window->GetTitle(),
+          base::NumberToString16(GetDeskIndex(active_desk_) + 1),
+          base::NumberToString16(GetDeskIndex(target_desk) + 1)));
+
+  if (in_overview) {
+    DCHECK(overview_controller->InOverviewSession());
+    auto* overview_session = overview_controller->overview_session();
+    auto* item = overview_session->GetOverviewItemForWindow(window);
+    DCHECK(item);
+    // Restore the dragged item window, so that its transform is reset to
+    // identity.
+    item->RestoreWindow(/*reset_transform=*/true);
+    // The item no longer needs to be in the overview grid.
+    overview_session->RemoveItem(item);
+    // When in overview, we should return immediately and not change the window
+    // activation as we do below, since the dummy "OverviewModeFocusedWidget"
+    // should remain active while overview mode is active..
+    return;
+  }
+
+  UMA_HISTOGRAM_ENUMERATION(kMoveWindowFromActiveDeskHistogramName, source);
+  ReportNumberOfWindowsPerDeskHistogram();
+
+  // A window moving out of the active desk cannot be active.
+  wm::DeactivateWindow(window);
 }
 
 void DesksController::OnRootWindowAdded(aura::Window* root_window) {
@@ -281,22 +408,30 @@ void DesksController::OnStartingDeskScreenshotTaken(const Desk* ending_desk) {
   for (auto* root : roots)
     root->GetHost()->compositor()->SetAllowLocksToExtendTimeout(true);
 
+  // The order here matters. Overview must end before ending split view before
+  // switching desks. That's because we don't want TabletModeWindowManager
+  // maximizing all windows because we cleared the snapped ones in
+  // split_view_controller first. See:
+  // `TabletModeWindowManager::OnOverviewModeEndingAnimationComplete()`.
+  // See also test coverage for this case in:
+  // `TabletModeDesksTest.SnappedStateRetainedOnSwitchingDesksFromOverview`.
   const bool in_overview =
       Shell::Get()->overview_controller()->InOverviewSession();
-
-  ActivateDeskInternal(ending_desk, /*update_window_activation=*/true);
-
-  // Activating a desk should not change the overview mode state.
-  DCHECK_EQ(in_overview,
-            Shell::Get()->overview_controller()->InOverviewSession());
-
   if (in_overview) {
     // Exit overview mode immediately without any animations before taking the
     // ending desk screenshot. This makes sure that the ending desk
     // screenshot will only show the windows in that desk, not overview stuff.
-    Shell::Get()->overview_controller()->ToggleOverview(
+    Shell::Get()->overview_controller()->EndOverview(
         OverviewSession::EnterExitOverviewType::kImmediateExit);
   }
+  SplitViewController* split_view_controller =
+      Shell::Get()->split_view_controller();
+  split_view_controller->EndSplitView(
+      SplitViewController::EndReason::kDesksChange);
+
+  ActivateDeskInternal(ending_desk, /*update_window_activation=*/true);
+
+  MaybeRestoreSplitView(/*refresh_snapped_windows=*/true);
 
   for (auto* root : roots)
     root->GetHost()->compositor()->SetAllowLocksToExtendTimeout(false);
@@ -350,7 +485,7 @@ void DesksController::OnWindowActivating(ActivationReason reason,
   if (!window_desk || window_desk == active_desk_)
     return;
 
-  ActivateDesk(window_desk);
+  ActivateDesk(window_desk, DesksSwitchSource::kWindowActivated);
 }
 
 void DesksController::OnWindowActivated(ActivationReason reason,
@@ -385,7 +520,7 @@ void DesksController::ActivateDeskInternal(const Desk* desk,
 
   // Mark the new desk as active first, so that deactivating windows on the
   // `old_active` desk do not activate other windows on the same desk. See
-  // `ash::IsWindowConsideredVisibleForActivation()`.
+  // `ash::AshFocusRules::GetNextActivatableWindow()`.
   Desk* old_active = active_desk_;
   active_desk_ = const_cast<Desk*>(desk);
 
@@ -402,11 +537,48 @@ const Desk* DesksController::FindDeskOfWindow(aura::Window* window) const {
   DCHECK(window);
 
   for (const auto& desk : desks_) {
-    if (desk->windows().contains(window))
+    if (base::Contains(desk->windows(), window))
       return desk.get();
   }
 
   return nullptr;
+}
+
+void DesksController::ReportNumberOfWindowsPerDeskHistogram() const {
+  for (size_t i = 0; i < desks_.size(); ++i) {
+    const size_t windows_count = desks_[i]->windows().size();
+    switch (i) {
+      case 0:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_1_HistogramName,
+                                 windows_count);
+        break;
+
+      case 1:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_2_HistogramName,
+                                 windows_count);
+        break;
+
+      case 2:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_3_HistogramName,
+                                 windows_count);
+        break;
+
+      case 3:
+        UMA_HISTOGRAM_COUNTS_100(kNumberOfWindowsOnDesk_4_HistogramName,
+                                 windows_count);
+        break;
+
+      default:
+        NOTREACHED();
+        break;
+    }
+  }
+}
+
+void DesksController::ReportDesksCountHistogram() const {
+  DCHECK_LE(desks_.size(), desks_util::kMaxNumberOfDesks);
+  UMA_HISTOGRAM_EXACT_LINEAR(kDesksCountHistogramName, desks_.size(),
+                             desks_util::kMaxNumberOfDesks);
 }
 
 }  // namespace ash

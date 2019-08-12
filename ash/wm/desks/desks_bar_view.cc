@@ -15,6 +15,8 @@
 #include "ash/wm/desks/desk_mini_view_animations.h"
 #include "ash/wm/desks/new_desk_button.h"
 #include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/overview/overview_highlight_controller.h"
+#include "ash/wm/overview/overview_session.h"
 #include "base/stl_util.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/aura/window.h"
@@ -42,6 +44,11 @@ base::string16 GetMiniViewTitle(int mini_view_index) {
   return l10n_util::GetStringUTF16(kStringIds[mini_view_index]);
 }
 
+gfx::Rect GetGestureEventScreenRect(const ui::Event& event) {
+  DCHECK(event.IsGestureEvent());
+  return event.AsGestureEvent()->details().bounding_box();
+}
+
 }  // namespace
 
 // -----------------------------------------------------------------------------
@@ -55,7 +62,9 @@ class DeskBarHoverObserver : public ui::EventObserver {
             this,
             widget_window,
             {ui::ET_MOUSE_PRESSED, ui::ET_MOUSE_DRAGGED, ui::ET_MOUSE_RELEASED,
-             ui::ET_MOUSE_MOVED, ui::ET_MOUSE_ENTERED, ui::ET_MOUSE_EXITED})) {}
+             ui::ET_MOUSE_MOVED, ui::ET_MOUSE_ENTERED, ui::ET_MOUSE_EXITED,
+             ui::ET_GESTURE_LONG_PRESS, ui::ET_GESTURE_LONG_TAP,
+             ui::ET_GESTURE_TAP, ui::ET_GESTURE_TAP_DOWN})) {}
 
   ~DeskBarHoverObserver() override = default;
 
@@ -69,6 +78,18 @@ class DeskBarHoverObserver : public ui::EventObserver {
       case ui::ET_MOUSE_ENTERED:
       case ui::ET_MOUSE_EXITED:
         owner_->OnHoverStateMayHaveChanged();
+        break;
+
+      case ui::ET_GESTURE_LONG_PRESS:
+      case ui::ET_GESTURE_LONG_TAP:
+        owner_->OnGestureTap(GetGestureEventScreenRect(event),
+                             /*is_long_gesture=*/true);
+        break;
+
+      case ui::ET_GESTURE_TAP:
+      case ui::ET_GESTURE_TAP_DOWN:
+        owner_->OnGestureTap(GetGestureEventScreenRect(event),
+                             /*is_long_gesture=*/false);
         break;
 
       default:
@@ -89,16 +110,16 @@ class DeskBarHoverObserver : public ui::EventObserver {
 // DesksBarView:
 
 DesksBarView::DesksBarView()
-    : backgroud_view_(new views::View),
+    : background_view_(new views::View),
       new_desk_button_(new NewDeskButton(this)) {
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
 
-  backgroud_view_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
-  backgroud_view_->layer()->SetFillsBoundsOpaquely(false);
-  backgroud_view_->layer()->SetColor(SkColorSetARGB(60, 0, 0, 0));
+  background_view_->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
+  background_view_->layer()->SetFillsBoundsOpaquely(false);
+  background_view_->layer()->SetColor(SkColorSetARGB(60, 0, 0, 0));
 
-  AddChildView(backgroud_view_);
+  AddChildView(background_view_);
   AddChildView(new_desk_button_);
   UpdateNewDeskButtonState();
   DesksController::Get()->AddObserver(this);
@@ -150,6 +171,12 @@ void DesksBarView::OnHoverStateMayHaveChanged() {
     mini_view->OnHoverStateMayHaveChanged();
 }
 
+void DesksBarView::OnGestureTap(const gfx::Rect& screen_rect,
+                                bool is_long_gesture) {
+  for (auto& mini_view : mini_views_)
+    mini_view->OnWidgetGestureTap(screen_rect, is_long_gesture);
+}
+
 void DesksBarView::SetDragDetails(const gfx::Point& screen_location,
                                   bool dragged_item_over_bar) {
   last_dragged_item_screen_location_ = screen_location;
@@ -168,7 +195,7 @@ const char* DesksBarView::GetClassName() const {
 }
 
 void DesksBarView::Layout() {
-  backgroud_view_->SetBoundsRect(bounds());
+  background_view_->SetBoundsRect(bounds());
 
   constexpr int kButtonRightMargin = 36;
   constexpr int kIconAndTextHorizontalPadding = 16;
@@ -209,7 +236,7 @@ void DesksBarView::ButtonPressed(views::Button* sender,
   auto* controller = DesksController::Get();
   if (sender == new_desk_button_) {
     if (controller->CanCreateDesks()) {
-      controller->NewDesk();
+      controller->NewDesk(DesksCreationRemovalSource::kButton);
       UpdateNewDeskButtonState();
     }
     return;
@@ -217,7 +244,8 @@ void DesksBarView::ButtonPressed(views::Button* sender,
 
   for (auto& mini_view : mini_views_) {
     if (mini_view.get() == sender) {
-      controller->ActivateDesk(mini_view->desk());
+      controller->ActivateDesk(mini_view->desk(),
+                               DesksSwitchSource::kMiniViewButton);
       return;
     }
   }
@@ -243,6 +271,12 @@ void DesksBarView::OnDeskRemoved(const Desk* desk) {
   Layout();
   UpdateMiniViewsLabels();
   UpdateNewDeskButtonState();
+  DCHECK(Shell::Get()->overview_controller()->InOverviewSession());
+  auto* highlight_controller = Shell::Get()
+                                   ->overview_controller()
+                                   ->overview_session()
+                                   ->highlight_controller();
+  highlight_controller->OnViewDestroying(removed_mini_view.get());
 
   std::vector<DeskMiniView*> mini_views_before;
   std::vector<DeskMiniView*> mini_views_after;
@@ -256,9 +290,15 @@ void DesksBarView::OnDeskRemoved(const Desk* desk) {
   std::transform(partition_iter, mini_views_.end(),
                  std::back_inserter(mini_views_after), transform_lambda);
 
+  aura::Window* root_window = removed_mini_view->root_window();
   PerformRemoveDeskMiniViewAnimation(std::move(removed_mini_view),
                                      mini_views_before, mini_views_after,
                                      begin_x - GetFirstMiniViewXOffset());
+
+  // Once the remaining mini views have their bounds updated, notify the
+  // overview highlight controller so that it can update the focus highlight, if
+  // needed.
+  highlight_controller->OnWindowsRepositioned(root_window);
 }
 
 void DesksBarView::OnDeskActivationChanged(const Desk* activated,
@@ -285,8 +325,8 @@ void DesksBarView::UpdateNewMiniViews(bool animate) {
     // The bar background is initially translated off the screen.
     gfx::Transform translate;
     translate.Translate(0, -kBarHeight);
-    backgroud_view_->layer()->SetTransform(translate);
-    backgroud_view_->layer()->SetOpacity(0);
+    background_view_->layer()->SetTransform(translate);
+    background_view_->layer()->SetOpacity(0);
 
     return;
   }
