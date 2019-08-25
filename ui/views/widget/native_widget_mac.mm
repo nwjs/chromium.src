@@ -546,7 +546,7 @@ bool NativeWidgetMac::IsVisibleOnAllWorkspaces() const {
 void NativeWidgetMac::Maximize() {
   if (IsFullscreen())
     return;
-  bridge()->SetMaximized(true);
+  GetNSWindowMojo()->SetMaximized(true);
 }
 
 void NativeWidgetMac::Minimize() {
@@ -556,9 +556,9 @@ void NativeWidgetMac::Minimize() {
 }
 
 bool NativeWidgetMac::IsMaximized() const {
-  if (!bridge_host_)
+  if (!ns_window_host_)
     return false;
-  return bridge_host_->IsMaximized();
+  return ns_window_host_->IsMaximized();
 }
 
 bool NativeWidgetMac::IsMinimized() const {

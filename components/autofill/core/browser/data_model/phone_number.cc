@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/data_model/phone_number.h"
 
 #include <algorithm>
+#include <cctype>
 
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"

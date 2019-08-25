@@ -16,10 +16,12 @@
 #include "ui/events/keycodes/dom/dom_code.h"
 #include "ui/gfx/mac/coordinate_conversion.h"
 
-namespace remote_cocoa {
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
-extern bool g_support_transparency;
-extern bool g_force_cpu_draw;
+namespace remote_cocoa {
 
 RenderWidgetHostNSViewBridge::RenderWidgetHostNSViewBridge(
     mojom::RenderWidgetHostNSViewHost* host,
@@ -43,7 +45,7 @@ RenderWidgetHostNSViewBridge::RenderWidgetHostNSViewBridge(
   }
 
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:!g_force_cpu_draw];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 }
 
 RenderWidgetHostNSViewBridge::~RenderWidgetHostNSViewBridge() {
@@ -230,7 +232,7 @@ void RenderWidgetHostNSViewBridge::OnDisplayMetricsChanged(
   [cocoa_view_ updateScreenProperties];
 }
 
-CALayer* RenderWidgetHostNSViewBridgeLocal::GetBackgroundLayer() {
+CALayer* RenderWidgetHostNSViewBridge::GetBackgroundLayer() {
   assert(content::g_force_cpu_draw);
   return background_layer_;
 }

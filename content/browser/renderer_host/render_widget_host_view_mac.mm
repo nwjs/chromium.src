@@ -319,8 +319,8 @@ RenderWidgetHostViewCocoa* RenderWidgetHostViewMac::GetInProcessNSView() const {
 
 CALayer* RenderWidgetHostViewMac::background_layer() const {
   assert(content::g_force_cpu_draw);
-  if (ns_view_bridge_local_)
-    return ns_view_bridge_local_->GetBackgroundLayer();
+  if (in_process_ns_view_bridge_)
+    return in_process_ns_view_bridge_->GetBackgroundLayer();
   return nil;
 }
 

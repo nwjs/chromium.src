@@ -23,6 +23,7 @@ class LatencyInfo;
 namespace content {
 struct EditCommand;
 struct NativeWebKeyboardEvent;
+class RenderWidgetHostViewMac;
 }  // namespace content
 
 namespace remote_cocoa {
@@ -31,7 +32,6 @@ namespace mojom {
 class RenderWidgetHostNSViewHost;
 }  // namespace mojom
 
-class RenderWidgetHostViewMac;
 
 // An interface through which the NSView for a RenderWidgetHostViewMac is to
 // communicate with the RenderWidgetHostViewMac (potentially in another
@@ -50,7 +50,7 @@ class RenderWidgetHostNSViewHostHelper {
 
   // Return the currently focused accessibility element.
   virtual id GetFocusedBrowserAccessibilityElement() = 0;
-  virtual RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() = 0;
+  virtual content::RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() = 0;
 
 
   // Set the NSWindow that will be the accessibility parent of the NSView.
