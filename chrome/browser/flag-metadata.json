@@ -441,6 +441,11 @@
     "expiry_milestone": 78
   },
   {
+    "name": "chrome-colors-custom-color-picker",
+    "owners": ["gayane"],
+    "expiry_milestone": 79
+  },
+  {
     "name": "clear-old-browsing-data",
     "owners": [ "dullweber" ],
     "expiry_milestone": 78
@@ -1016,7 +1021,7 @@
   {
     "name": "enable-chromeos-account-manager",
     "owners": [ "sinhak@chromium.org" ],
-    "expiry_milestone": 76
+    "expiry_milestone": 79
   },
   {
     "name": "enable-cloud-print-xps",
@@ -2515,6 +2520,11 @@
     "expiry_milestone": 80
   },
   {
+    "name": "omnibox-disable-instant-extended-limit",
+    "owners": [ "pnoland", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 80
+  },
+  {
     "name": "omnibox-display-title-for-current-url",
     "owners": [ "chrome-omnibox-team@google.com" ],
     "expiry_milestone": 76
@@ -2769,6 +2779,11 @@
   {
     "name": "periodic-background-sync",
     "owners": [ "nator" ],
+    "expiry_milestone": 80
+  },
+  {
+    "name": "policy-atomic-group-enabled",
+    "owners": [ "ydago" ],
     "expiry_milestone": 80
   },
   {
@@ -3121,6 +3136,11 @@
      // This is required by test teams to verify functionality on devices which
     // have no access to commandline flags.
     "expiry_milestone": -1
+  },
+  {
+    "name": "usage-stats",
+    "owners": [ "pnoland", "chromeshine@google.com" ],
+    "expiry_milestone": 80
   },
   {
     "name": "use-angle",

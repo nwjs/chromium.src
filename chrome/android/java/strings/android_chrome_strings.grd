@@ -3522,11 +3522,14 @@ To change this setting, <ph name="BEGIN_LINK">&lt;resetlink&gt;</ph>reset sync<p
       <message name="IDS_CONTACTS_PICKER_NO_CONTACTS_FOUND" desc="The label shown when no contacts are found (e.g. none exist on the device).">
         No contacts found
       </message>
+      <message name="IDS_TOP_VIEW_NAMES_FILTER_LABEL" desc="The label shown for the names filter toggle button (allowing the user to exclude names).">
+        Names
+      </message>
       <message name="IDS_TOP_VIEW_EMAIL_FILTER_LABEL" desc="The label shown for the email filter toggle button (allowing the user to exclude emails).">
-        Emails
+        Email addresses
       </message>
       <message name="IDS_TOP_VIEW_TELEPHONE_FILTER_LABEL" desc="The label shown for the telephone filter toggle button (allowing the user to exclude emails).">
-        Telephones
+        Phone numbers
       </message>
       <message name="IDS_CONTACTS_PICKER_MORE_DETAILS" desc="Label describing that the user has one or more telephone/emails (used for either). The leading space is a word separator, for those languages that use space as a separator.">
         {DETAIL_COUNT, plural,
@@ -3759,10 +3762,10 @@ The site does NOT gain access to the camera. The camera images are only visible 
         See how much data you've saved from the More Options button
       </message>
       <message name="IDS_IPH_IDENTITY_DISC_TEXT" desc="The in-product-help text prompting the user that tapping identity disc will navigate to 'Sync and Google services' settings page.">
-        Tap here to manage your accounts
+        Manage your account
       </message>
       <message name="IDS_IPH_IDENTITY_DISC_ACCESSIBILITY_TEXT" desc="The in-product-help accessibility text prompting the user that tapping identity disc will navigate to 'Sync and Google services' settings page.">
-        Tap the "Manage account" button to manage your accounts
+        To manage your Google account, tap the "Manage account" button
       </message>
       <message name="IDS_IPH_PREVIEWS_OMNIBOX_UI_TEXT" desc="The in-product-help text informing the user that the displayed page was modified to make it load faster or use less data. Prompts the user to tap the message and load the original, unaltered, page if they would like. The 'Lite page provided by Google.' sentence should match TC ID 373879247902731825">
         Lite page provided by Google. Tap to load the original.

@@ -14,6 +14,7 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.os.SystemClock;
 import android.support.annotation.Nullable;
@@ -22,6 +23,7 @@ import android.support.v7.widget.RecyclerView;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -29,6 +31,7 @@ import android.widget.ImageView;
 import org.chromium.base.Log;
 import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.util.FeatureUtilities;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.ui.interpolators.BakedBezierInterpolator;
 import org.chromium.ui.resources.dynamics.DynamicResourceLoader;
 import org.chromium.ui.resources.dynamics.ViewResourceAdapter;
@@ -105,6 +108,7 @@ class TabListRecyclerView extends RecyclerView {
     private ImageView mShadowImageView;
     private int mShadowTopMargin;
     private TabListOnScrollListener mScrollListener;
+    private View mRecyclerViewFooter;
 
     /**
      * Basic constructor to use during inflation from xml.
@@ -159,6 +163,9 @@ class TabListRecyclerView extends RecyclerView {
                 if (mDynamicView != null) {
                     mDynamicView.dropCachedBitmap();
                     unregisterDynamicView();
+                }
+                if (mRecyclerViewFooter != null) {
+                    mRecyclerViewFooter.setVisibility(VISIBLE);
                 }
             }
         });
@@ -332,6 +339,23 @@ class TabListRecyclerView extends RecyclerView {
         }
     }
 
+    @Override
+    public void onDraw(Canvas c) {
+        super.onDraw(c);
+        if (mRecyclerViewFooter == null || getVisibility() != View.VISIBLE) return;
+        // Always put the recyclerView footer below the recyclerView if there is one.
+        ViewHolder viewHolder = findViewHolderForAdapterPosition(getAdapter().getItemCount() - 1);
+        if (viewHolder == null) {
+            mRecyclerViewFooter.setVisibility(INVISIBLE);
+        } else {
+            if (mRecyclerViewFooter.getVisibility() != VISIBLE) {
+                mRecyclerViewFooter.setVisibility(VISIBLE);
+            }
+            mRecyclerViewFooter.setY(
+                    viewHolder.itemView.getBottom() + mRecyclerViewFooter.getHeight());
+        }
+    }
+
     /**
      * Start hiding the tab list.
      * @param animate Whether the visibility change should be animated.
@@ -351,6 +375,9 @@ class TabListRecyclerView extends RecyclerView {
                 mFadeOutAnimator = null;
                 setVisibility(View.INVISIBLE);
                 mListener.finishedHiding();
+                if (mRecyclerViewFooter != null) {
+                    mRecyclerViewFooter.setVisibility(INVISIBLE);
+                }
             }
         });
         setShadowVisibility(false);
@@ -375,15 +402,17 @@ class TabListRecyclerView extends RecyclerView {
     }
 
     /**
-     * @param currentTabIndex The the current tab's index in the model.
+     * @param selectedTabIndex The index in the RecyclerView of the selected tab.
+     * @param selectedTabId The tab ID of the selected tab.
      * @return The {@link Rect} of the thumbnail of the current tab, relative to the
      *         {@link TabListRecyclerView} coordinates.
      */
     @Nullable
-    Rect getRectOfCurrentThumbnail(int currentTabIndex) {
+    Rect getRectOfCurrentThumbnail(int selectedTabIndex, int selectedTabId) {
         TabGridViewHolder holder =
-                (TabGridViewHolder) findViewHolderForAdapterPosition(currentTabIndex);
+                (TabGridViewHolder) findViewHolderForAdapterPosition(selectedTabIndex);
         if (holder == null) return null;
+        assert holder.getTabId() == selectedTabId;
         return getRectOfComponent(holder.thumbnail);
     }
 
@@ -440,5 +469,31 @@ class TabListRecyclerView extends RecyclerView {
     private static boolean isOverlap(
             float left1, float top1, float left2, float top2, float threshold) {
         return Math.abs(left1 - left2) < threshold && Math.abs(top1 - top2) < threshold;
+    }
+
+    /**
+     * This method setup the footer of {@code recyclerView}.
+     * @param footer  The {@link View} of the footer.
+     */
+    void setupRecyclerViewFooter(View footer) {
+        if (mRecyclerViewFooter != null) return;
+        mRecyclerViewFooter = footer;
+        setScrollBarStyle(SCROLLBARS_OUTSIDE_OVERLAY);
+        final int height = (int) getResources().getDimension(R.dimen.tab_grid_iph_card_height);
+        final int padding = (int) getResources().getDimension(R.dimen.tab_grid_iph_card_margin);
+        setPadding(0, 0, 0, height + padding);
+        mRecyclerViewFooter.setVisibility(INVISIBLE);
+    }
+
+    /**
+     * This method removes the footer of {@code recyclerView} if there is one.
+     */
+    void removeRecyclerViewFooter() {
+        if (mRecyclerViewFooter == null) return;
+        ((ViewGroup) mRecyclerViewFooter.getParent()).removeView(mRecyclerViewFooter);
+        mRecyclerViewFooter = null;
+        // Restore the recyclerView to its original state.
+        setPadding(0, 0, 0, 0);
+        setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
     }
 }

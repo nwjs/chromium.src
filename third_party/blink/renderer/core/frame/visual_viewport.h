@@ -186,10 +186,13 @@ class CORE_EXPORT VisualViewport final
 
   // ScrollableArea implementation
   ChromeClient* GetChromeClient() const override;
+  SmoothScrollSequencer* GetSmoothScrollSequencer() const override;
   void SetScrollOffset(const ScrollOffset&,
                        ScrollType,
                        ScrollBehavior,
                        ScrollCallback on_finish) override;
+  PhysicalRect ScrollIntoView(const PhysicalRect&,
+                              const WebScrollIntoViewParams&) override;
   bool IsThrottled() const override {
     // VisualViewport is always in the main frame, so the frame does not get
     // throttled.

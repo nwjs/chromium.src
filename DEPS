@@ -39,7 +39,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "linux64, mac64, win, win64, android, ios, chromeos",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -147,11 +147,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '59192a0d66a746e472802fed50c139b880ef11c4',
+  'skia_revision': '289bca57b199f753fae9748d534b021cb75c54ce',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '4035531228d69a8e3ec475ef75b51db302e70473',
+  'v8_revision': '2f1c9043cc957207057593095a3e2c792e17d57b',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -226,7 +226,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
-  'feed_revision': '24f0eac37fc3d70ff410b0391f7a0cadc018df9a',
+  'feed_revision': '5cce9817d0047083b74088dd72e22e5455352bac',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling android_sdk_build-tools_version
   # and whatever else without interference from each other.
@@ -1380,7 +1380,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + 'abaae129d9a0c6e1e092067e0b105475df43352e',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '2bac7da1349c75e5cf89612ab9619a1920d5d974',
+    Var('webrtc_git') + '/src.git' + '@' + '6e1055bdc05cb1f86b7c19c9091865bef873c1ae',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1421,7 +1421,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@0559fe20f85630dfa97702eab0220d20f592a5a6',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@84114dbb7540e2a58c673e7ddf95458fc162470c',
     'condition': 'checkout_src_internal',
   },
 
@@ -2776,13 +2776,7 @@ hooks = [
     'name': 'Fetch Android AFDO profile',
     'pattern': '.',
     'condition': 'checkout_android or checkout_linux',
-    'action': [ 'vpython',
-                'src/tools/download_cros_provided_profile.py',
-                '--newest_state=src/chrome/android/profiles/newest.txt',
-                '--local_state=src/chrome/android/profiles/local.txt',
-                '--output_name=src/chrome/android/profiles/afdo.prof',
-                '--gs_url_base=chromeos-prebuilt/afdo-job/llvm',
-    ],
+    'action': ['vpython', 'src/chrome/android/profiles/update_afdo_profile.py'],
   },
   {
     'name': 'gvr_static_shim_android_arm_1',
@@ -2916,18 +2910,6 @@ hooks = [
                 '--num_threads=4',
                 '--bucket', 'chromium-ink',
                 '-d', 'src/third_party/ink/build/wasm-threads',
-    ],
-  },
-  {
-    'name': 'Fetch ChromeOS-specific orderfile for Chrome',
-    'pattern': '.',
-    'condition': 'checkout_chromeos or checkout_simplechrome',
-    'action': [ 'vpython',
-                'src/tools/download_cros_provided_profile.py',
-                '--newest_state=src/chromeos/profiles/orderfile.newest.txt',
-                '--local_state=src/chromeos/profiles/orderfile.local.txt',
-                '--output_name=src/chromeos/profiles/chromeos.orderfile.txt',
-                '--gs_url_base=chromeos-prebuilt/afdo-job/orderfiles/vetted',
     ],
   },
   {

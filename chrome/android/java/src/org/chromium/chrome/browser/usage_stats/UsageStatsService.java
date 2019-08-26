@@ -68,12 +68,12 @@ public class UsageStatsService {
         mSuspensionTracker = new SuspensionTracker(mBridge, mNotificationSuspender);
         mTokenTracker = new TokenTracker(mBridge);
         mPageViewObservers = new ArrayList<>();
+        mClient = AppHooks.get().createDigitalWellbeingClient();
 
         mSuspensionTracker.getAllSuspendedWebsites().then(
                 (suspendedSites) -> { notifyObserversOfSuspensions(suspendedSites, true); });
 
         mOptInState = getOptInState();
-        mClient = AppHooks.get().createDigitalWellbeingClient();
     }
 
     /* package */ NotificationSuspender getNotificationSuspender() {
@@ -205,6 +205,18 @@ public class UsageStatsService {
             // Retry once; if the subsequent attempt fails, log the failure and move on.
             mEventTracker.clearRange(startTimeMs, endTimeMs).except((exceptionInner) -> {
                 Log.e(TAG, "Failed to clear range of events for history deletion");
+            });
+        });
+    }
+
+    public void onHistoryDeletedForDomains(List<String> fqdns) {
+        ThreadUtils.assertOnUiThread();
+        UsageStatsMetricsReporter.reportMetricsEvent(UsageStatsMetricsEvent.CLEAR_HISTORY_DOMAIN);
+        mClient.notifyHistoryDeletion(fqdns);
+        mEventTracker.clearDomains(fqdns).except((exception) -> {
+            // Retry once; if the subsequent attempt fails, log the failure and move on.
+            mEventTracker.clearDomains(fqdns).except((exceptionInner) -> {
+                Log.e(TAG, "Failed to clear domain events for history deletion");
             });
         });
     }

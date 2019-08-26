@@ -162,12 +162,6 @@ extern const char kBypassAppBannerEngagementChecksDescription[];
 extern const char kCaptionSettingsName[];
 extern const char kCaptionSettingsDescription[];
 
-extern const char kClickToCallReceiverName[];
-extern const char kClickToCallReceiverDescription[];
-
-extern const char kClickToCallUIName[];
-extern const char kClickToCallUIDescription[];
-
 extern const char kClickToOpenPDFName[];
 extern const char kClickToOpenPDFDescription[];
 
@@ -806,6 +800,9 @@ extern const char kOfferStoreUnmaskedWalletCardsDescription[];
 extern const char kOmniboxAlternateMatchDescriptionSeparatorName[];
 extern const char kOmniboxAlternateMatchDescriptionSeparatorDescription[];
 
+extern const char kOmniboxDisableInstantExtendedLimitName[];
+extern const char kOmniboxDisableInstantExtendedLimitDescription[];
+
 extern const char kOmniboxDisplayTitleForCurrentUrlName[];
 extern const char kOmniboxDisplayTitleForCurrentUrlDescription[];
 
@@ -938,6 +935,9 @@ extern const char kPeriodicBackgroundSyncDescription[];
 
 extern const char kPerMethodCanMakePaymentQuotaName[];
 extern const char kPerMethodCanMakePaymentQuotaDescription[];
+
+extern const char kPolicyAtomicGroupsEnabledName[];
+extern const char kPolicyAtomicGroupsEnabledDescription[];
 
 extern const char kPreviewsAllowedName[];
 extern const char kPreviewsAllowedDescription[];
@@ -1330,6 +1330,9 @@ extern const char kChromeDuetLabelsDescription[];
 extern const char kClearOldBrowsingDataName[];
 extern const char kClearOldBrowsingDataDescription[];
 
+extern const char kClickToCallReceiverName[];
+extern const char kClickToCallReceiverDescription[];
+
 extern const char kContextualSearchDefinitionsName[];
 extern const char kContextualSearchDefinitionsDescription[];
 
@@ -1545,6 +1548,9 @@ extern const char kUpdateMenuTypeInlineUpdateDownloadFailed[];
 extern const char kUpdateMenuTypeInlineUpdateDownloadCanceled[];
 extern const char kUpdateMenuTypeInlineUpdateInstallFailed[];
 
+extern const char kUsageStatsDescription[];
+extern const char kUsageStatsName[];
+
 extern const char kInlineUpdateFlowName[];
 extern const char kInlineUpdateFlowDescription[];
 
@@ -1578,6 +1584,9 @@ extern const char kCastMediaRouteProviderDescription[];
 
 extern const char kChromeColorsName[];
 extern const char kChromeColorsDescription[];
+
+extern const char kChromeColorsCustomColorPickerName[];
+extern const char kChromeColorsCustomColorPickerDescription[];
 
 extern const char kDialMediaRouteProviderName[];
 extern const char kDialMediaRouteProviderDescription[];
@@ -2101,6 +2110,9 @@ extern const char kDirectManipulationStylusDescription[];
 
 extern const char kAnimatedAvatarButtonName[];
 extern const char kAnimatedAvatarButtonDescription[];
+
+extern const char kClickToCallUIName[];
+extern const char kClickToCallUIDescription[];
 
 #endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 

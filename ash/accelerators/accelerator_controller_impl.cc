@@ -253,36 +253,22 @@ void HandleCycleForwardMRU(const ui::Accelerator& accelerator) {
 void HandleActivateDesk(const ui::Accelerator& accelerator) {
   DCHECK(features::IsVirtualDesksEnabled());
   auto* desks_controller = DesksController::Get();
-
-  // An on-going desk switch animation might be in progress. For now skip this
-  // accelerator. Later we might want to consider queueing these animations, or
-  // cancelling the on-going ones and start over.
-  // TODO(afakhry): Discuss with UX.
-  if (desks_controller->AreDesksBeingModified())
+  const bool success = desks_controller->ActivateAdjacentDesk(
+      /*going_left=*/accelerator.key_code() == ui::VKEY_OEM_4,
+      DesksSwitchSource::kDeskSwitchShortcut);
+  if (!success)
     return;
 
-  const Desk* desk_to_activate = nullptr;
   switch (accelerator.key_code()) {
     case ui::VKEY_OEM_4:
-      desk_to_activate = desks_controller->GetPreviousDesk();
       base::RecordAction(base::UserMetricsAction("Accel_Desks_ActivateLeft"));
       break;
     case ui::VKEY_OEM_6:
-      desk_to_activate = desks_controller->GetNextDesk();
       base::RecordAction(base::UserMetricsAction("Accel_Desks_ActivateRight"));
       break;
 
     default:
       NOTREACHED();
-  }
-
-  if (desk_to_activate) {
-    desks_controller->ActivateDesk(desk_to_activate,
-                                   DesksSwitchSource::kDeskSwitchShortcut);
-  } else {
-    const bool going_left = accelerator.key_code() == ui::VKEY_OEM_4;
-    for (auto* root : Shell::GetAllRootWindows())
-      desks_animations::PerformHitTheWallAnimation(root, going_left);
   }
 }
 
@@ -330,9 +316,11 @@ void HandleMoveActiveItem(const ui::Accelerator& accelerator) {
         /*going_left=*/accelerator.key_code() == ui::VKEY_OEM_4);
   }
 
-  desks_controller->MoveWindowFromActiveDeskTo(
-      window_to_move, target_desk,
-      DesksMoveWindowFromActiveDeskSource::kShortcut);
+  if (!desks_controller->MoveWindowFromActiveDeskTo(
+          window_to_move, target_desk,
+          DesksMoveWindowFromActiveDeskSource::kShortcut)) {
+    return;
+  }
 
   if (in_overview) {
     // We should not exit overview as a result of this shortcut.

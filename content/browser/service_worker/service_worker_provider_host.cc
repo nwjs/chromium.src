@@ -147,15 +147,13 @@ ServiceWorkerProviderHost::PreCreateNavigationHost(
     base::WeakPtr<ServiceWorkerContextCore> context,
     bool are_ancestors_secure,
     int frame_tree_node_id,
-    blink::mojom::ServiceWorkerProviderInfoForClientPtr* out_provider_info) {
+    blink::mojom::ServiceWorkerContainerHostAssociatedRequest host_request,
+    blink::mojom::ServiceWorkerContainerAssociatedPtrInfo client_ptr_info) {
   DCHECK(context);
-  blink::mojom::ServiceWorkerContainerAssociatedPtrInfo client_ptr_info;
-  (*out_provider_info)->client_request = mojo::MakeRequest(&client_ptr_info);
   auto host = base::WrapUnique(new ServiceWorkerProviderHost(
       blink::mojom::ServiceWorkerProviderType::kForWindow, are_ancestors_secure,
-      frame_tree_node_id,
-      mojo::MakeRequest(&((*out_provider_info)->host_ptr_info)),
-      std::move(client_ptr_info), context));
+      frame_tree_node_id, std::move(host_request), std::move(client_ptr_info),
+      context));
   auto weak_ptr = host->AsWeakPtr();
   RegisterToContextCore(context, std::move(host));
   return weak_ptr;
@@ -186,17 +184,15 @@ ServiceWorkerProviderHost::PreCreateForWebWorker(
     base::WeakPtr<ServiceWorkerContextCore> context,
     int process_id,
     blink::mojom::ServiceWorkerProviderType provider_type,
-    blink::mojom::ServiceWorkerProviderInfoForClientPtr* out_provider_info) {
+    blink::mojom::ServiceWorkerContainerHostAssociatedRequest host_request,
+    blink::mojom::ServiceWorkerContainerAssociatedPtrInfo client_ptr_info) {
   using ServiceWorkerProviderType = blink::mojom::ServiceWorkerProviderType;
   DCHECK((blink::features::IsPlzDedicatedWorkerEnabled() &&
           provider_type == ServiceWorkerProviderType::kForDedicatedWorker) ||
          provider_type == ServiceWorkerProviderType::kForSharedWorker);
-  blink::mojom::ServiceWorkerContainerAssociatedPtrInfo client_ptr_info;
-  (*out_provider_info)->client_request = mojo::MakeRequest(&client_ptr_info);
   auto host = base::WrapUnique(new ServiceWorkerProviderHost(
       provider_type, true /* is_parent_frame_secure */,
-      FrameTreeNode::kFrameTreeNodeInvalidId,
-      mojo::MakeRequest(&((*out_provider_info)->host_ptr_info)),
+      FrameTreeNode::kFrameTreeNodeInvalidId, std::move(host_request),
       std::move(client_ptr_info), context));
   host->SetRenderProcessId(process_id);
 
@@ -417,10 +413,13 @@ void ServiceWorkerProviderHost::UpdateUrls(const GURL& url,
     // updating UUID since ServiceWorkerVersion has a map from uuid to provider
     // hosts.
     SetControllerRegistration(nullptr, false /* notify_controllerchange */);
+
     // Set UUID to the new one.
-    context_->UnregisterProviderHostByClientID(client_uuid_);
+    if (context_)
+      context_->UnregisterProviderHostByClientID(client_uuid_);
     client_uuid_ = base::GenerateGUID();
-    context_->RegisterProviderHostByClientID(client_uuid_, this);
+    if (context_)
+      context_->RegisterProviderHostByClientID(client_uuid_, this);
   }
 
   SyncMatchingRegistrations();
@@ -689,10 +688,11 @@ void ServiceWorkerProviderHost::CompleteWebWorkerPreparation() {
 }
 
 void ServiceWorkerProviderHost::SyncMatchingRegistrations() {
-  DCHECK(context_);
   DCHECK(!controller_registration());
 
   RemoveAllMatchingRegistrations();
+  if (!context_)
+    return;
   const auto& registrations = context_->GetLiveRegistrations();
   for (const auto& key_registration : registrations) {
     ServiceWorkerRegistration* registration = key_registration.second;

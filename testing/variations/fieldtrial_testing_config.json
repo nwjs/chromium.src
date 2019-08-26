@@ -3987,6 +3987,24 @@
             ]
         }
     ],
+    "PolicyAtomicGroup": [
+        {
+            "platforms": [
+                "windows",
+                "chromeos",
+                "mac",
+                "linux"
+            ],
+            "experiments": [
+                {
+                    "name": "Enabled",
+                    "enable_features": [
+                        "PolicyAtomicGroup"
+                    ]
+                }
+            ]
+        }
+    ],
     "Precache": [
         {
             "platforms": [
@@ -4951,29 +4969,6 @@
                     ],
                     "disable_features": [
                         "HttpCacheForceBackend"
-                    ]
-                }
-            ]
-        }
-    ],
-    "SkipPassthroughTouchEventQueueFilter": [
-        {
-            "platforms": [
-                "linux",
-                "windows",
-                "mac",
-                "android",
-                "chromeos"
-            ],
-            "experiments": [
-                {
-                    "name": "EnabledDiscreteEventsRendererProcess_20190507",
-                    "params": {
-                        "skip_filtering_process": "browser_and_renderer",
-                        "type": "discrete"
-                    },
-                    "enable_features": [
-                        "SkipTouchEventFilter"
                     ]
                 }
             ]

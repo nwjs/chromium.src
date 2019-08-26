@@ -58,7 +58,12 @@ class TabGridViewBinder {
                         item.get(TabProperties.IS_SELECTED) ? drawable : null);
             }
         } else if (TabProperties.FAVICON == propertyKey) {
-            holder.favicon.setImageDrawable(item.get(TabProperties.FAVICON));
+            Drawable favicon = item.get(TabProperties.FAVICON);
+            holder.favicon.setImageDrawable(favicon);
+            int padding = favicon == null ? 0
+                                          : (int) holder.itemView.getResources().getDimension(
+                                                  R.dimen.tab_list_card_padding);
+            holder.favicon.setPadding(padding, padding, padding, padding);
         } else if (TabProperties.THUMBNAIL_FETCHER == propertyKey) {
             updateThumbnail(holder, item);
         } else if (TabProperties.TAB_ID == propertyKey) {
@@ -134,6 +139,10 @@ class TabGridViewBinder {
             selectionHolder.itemView.setOnClickListener(view -> {
                 item.get(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER).run(holder.getTabId());
                 selectionHolder.selectableTabGridView.onClick();
+            });
+            selectionHolder.itemView.setOnLongClickListener(view -> {
+                item.get(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER).run(holder.getTabId());
+                return selectionHolder.selectableTabGridView.onLongClick(view);
             });
         } else if (TabProperties.TITLE == propertyKey) {
             String title = item.get(TabProperties.TITLE);

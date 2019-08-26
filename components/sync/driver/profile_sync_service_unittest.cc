@@ -11,7 +11,6 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/command_line.h"
-#include "base/optional.h"
 #include "base/run_loop.h"
 #include "base/test/bind_test_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -1288,12 +1287,12 @@ TEST_F(ProfileSyncServiceTest, GetUserDemographics_SyncEnabled) {
   prefs()->SetInteger(prefs::kSyncDemographicsBirthYearOffset,
                       birth_year_offset);
 
-  base::Optional<UserDemographics> user_demographics =
+  UserDemographicsResult user_demographics_result =
       service()->GetUserDemographics(GetNowTime());
-  ASSERT_TRUE(user_demographics.has_value());
+  ASSERT_TRUE(user_demographics_result.IsSuccess());
   EXPECT_EQ(user_demographics_birth_year + birth_year_offset,
-            user_demographics->birth_year);
-  EXPECT_EQ(user_demographics_gender, user_demographics->gender);
+            user_demographics_result.value().birth_year);
+  EXPECT_EQ(user_demographics_gender, user_demographics_result.value().gender);
 }
 
 // Test whether sync service does not provide user demographics when sync is
@@ -1317,7 +1316,7 @@ TEST_F(ProfileSyncServiceTest, GetUserDemographics_SyncTurnedOff) {
   ASSERT_TRUE(HasGenderDemographic(prefs()));
 
   // Verify that we don't get demographics when sync is off.
-  EXPECT_FALSE(service()->GetUserDemographics(GetNowTime()).has_value());
+  EXPECT_FALSE(service()->GetUserDemographics(GetNowTime()).IsSuccess());
 }
 
 // Test whether sync service does not provide user demographics and does not
@@ -1357,9 +1356,103 @@ TEST_F(ProfileSyncServiceTest, GetUserDemographics_SyncTemporarilyDisabled) {
 
   // Verify that sync service does not provide demographics when it is
   // temporarily disabled.
-  base::Optional<UserDemographics> user_demographics =
+  UserDemographicsResult user_demographics_result =
       service()->GetUserDemographics(GetNowTime());
-  EXPECT_FALSE(user_demographics.has_value());
+  EXPECT_FALSE(user_demographics_result.IsSuccess());
+
+  // Verify that demographic prefs are not cleared.
+  EXPECT_TRUE(HasBirthYearDemographic(prefs()));
+  EXPECT_TRUE(HasGenderDemographic(prefs()));
+  EXPECT_TRUE(HasBirthYearOffset(prefs()));
+}
+
+// Test whether sync service does not provide user demographics and does not
+// clear demographic prefs when sync is paused and enabled, which represents the
+// case where the kStopSyncInPausedState feature is disabled.
+TEST_F(ProfileSyncServiceTest,
+       GetUserDemographics_SyncPausedAndFeatureDisabled) {
+  base::test::ScopedFeatureList feature;
+  // Disable the feature that stops the sync engine (disables sync) when sync is
+  // paused.
+  feature.InitAndDisableFeature(switches::kStopSyncInPausedState);
+
+  // Initialize service with sync enabled at start.
+  SignIn();
+  CreateService(ProfileSyncService::AUTO_START);
+  InitializeForNthSync();
+  ASSERT_EQ(SyncService::TransportState::ACTIVE,
+            service()->GetTransportState());
+
+  // Set demographic prefs that are normally fetched from server when syncing.
+  SetDemographics(kOldEnoughForDemographicsUserBirthYear,
+                  metrics::UserDemographicsProto_Gender_GENDER_FEMALE);
+
+  // Set birth year noise offset that is usually set when calling
+  // SyncPrefs::GetUserDemographics.
+  prefs()->SetInteger(prefs::kSyncDemographicsBirthYearOffset, 2);
+
+  // Verify that demographic prefs exist (i.e., the test is set up).
+  ASSERT_TRUE(HasBirthYearDemographic(prefs()));
+  ASSERT_TRUE(HasGenderDemographic(prefs()));
+  ASSERT_TRUE(HasBirthYearOffset(prefs()));
+
+  // Simulate sign out using an invalid auth error.
+  identity_test_env()->SetInvalidRefreshTokenForPrimaryAccount();
+  ASSERT_EQ(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS,
+            service()->GetAuthError().state());
+  ASSERT_EQ(SyncService::DISABLE_REASON_NONE, service()->GetDisableReasons());
+
+  // Verify that sync service does not provide demographics when sync is paused.
+  UserDemographicsResult user_demographics_result =
+      service()->GetUserDemographics(GetNowTime());
+  EXPECT_FALSE(user_demographics_result.IsSuccess());
+
+  // Verify that demographic prefs are not cleared.
+  EXPECT_TRUE(HasBirthYearDemographic(prefs()));
+  EXPECT_TRUE(HasGenderDemographic(prefs()));
+  EXPECT_TRUE(HasBirthYearOffset(prefs()));
+}
+
+// Test whether sync service does not provide user demographics and does not
+// clear demographic prefs when sync is paused and disabled, which represents
+// the case where the kStopSyncInPausedState feature is enabled.
+TEST_F(ProfileSyncServiceTest,
+       GetUserDemographics_SyncPausedAndFeatureEnabled) {
+  base::test::ScopedFeatureList feature;
+  // Enable the feature that stops the sync engine (disables sync) when sync is
+  // paused.
+  feature.InitAndEnableFeature(switches::kStopSyncInPausedState);
+
+  // Initialize service with sync enabled at start.
+  SignIn();
+  CreateService(ProfileSyncService::AUTO_START);
+  InitializeForNthSync();
+  ASSERT_EQ(SyncService::TransportState::ACTIVE,
+            service()->GetTransportState());
+
+  // Set demographic prefs that are normally fetched from server when syncing.
+  SetDemographics(kOldEnoughForDemographicsUserBirthYear,
+                  metrics::UserDemographicsProto_Gender_GENDER_FEMALE);
+
+  // Set birth year noise offset that is usually set when calling
+  // SyncPrefs::GetUserDemographics.
+  prefs()->SetInteger(prefs::kSyncDemographicsBirthYearOffset, 2);
+
+  // Verify that demographic prefs exist (i.e., the test is set up).
+  ASSERT_TRUE(HasBirthYearDemographic(prefs()));
+  ASSERT_TRUE(HasGenderDemographic(prefs()));
+  ASSERT_TRUE(HasBirthYearOffset(prefs()));
+
+  // Simulate sign out using an invalid auth error.
+  identity_test_env()->SetInvalidRefreshTokenForPrimaryAccount();
+  ASSERT_EQ(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS,
+            service()->GetAuthError().state());
+  ASSERT_EQ(SyncService::DISABLE_REASON_PAUSED, service()->GetDisableReasons());
+
+  // Verify that sync service does not provide demographics when sync is paused.
+  UserDemographicsResult user_demographics_result =
+      service()->GetUserDemographics(GetNowTime());
+  EXPECT_FALSE(user_demographics_result.IsSuccess());
 
   // Verify that demographic prefs are not cleared.
   EXPECT_TRUE(HasBirthYearDemographic(prefs()));

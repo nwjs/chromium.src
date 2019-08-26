@@ -46,8 +46,10 @@
 <translation id="2289052229480071835">ನಿಮ್ಮ ಪರದೆಯಲ್ಲಿ ಸ್ಪರ್ಶ ಟಾರ್ಗೆಟ್‌ಗಳನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ.</translation>
 <translation id="2295140143284145483">ಸಮೀಕ್ಷೆ</translation>
 <translation id="2297836609126180313"><ph name="QUANTITY" /> TB/s</translation>
+<translation id="2388990488038464401">ನಿಮ್ಮ ಫೋನ್‌ನಿಂದ ಈ ಸಂಖ್ಯೆಗೆ ಕರೆ ಮಾಡಬೇಕೇ?</translation>
 <translation id="24452542372838207">ವಿಸ್ತರಿಸುವ ಅಧಿಸೂಚನೆ</translation>
 <translation id="2445449901874883781">ಅಧಿಕ ಸಾಂದ್ರತೆಯನ್ನು ಬಳಸಿ</translation>
+<translation id="2451871130406122810">ಸಾಧನಕ್ಕೆ ಕಳುಹಿಸಲಾಗಿದೆ</translation>
 <translation id="2482878487686419369">ಸೂಚನೆಗಳು</translation>
 <translation id="2497284189126895209">ಎಲ್ಲ ಫೈಲ್‌ಗಳು</translation>
 <translation id="2515586267016047495">Alt</translation>
@@ -98,6 +100,7 @@
 <translation id="4266252015790371705">{MONTHS,plural, =1{1 ತಿಂಗಳ ಹಿಂದೆ}one{# ತಿಂಗಳುಗಳ ಹಿಂದೆ}other{# ತಿಂಗಳುಗಳ ಹಿಂದೆ}}</translation>
 <translation id="4289300219472526559">ಮಾತನಾಡುವುದನ್ನು ಪ್ರಾರಂಭಿಸಿ</translation>
 <translation id="4316910396681052118">ಎಲ್ಲಾ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು</translation>
+<translation id="4467014365953759647">ಸಂಖ್ಯೆಯನ್ನು ಕಳುಹಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ</translation>
 <translation id="4588090240171750605">ಬಲಕ್ಕೆ ಸ್ಕ್ರೋಲ್ ಮಾಡಿ</translation>
 <translation id="4690510401873698237">ಪರದೆಯ ಕೆಳಭಾಗದಲ್ಲಿ ಶೆಲ್ಫ್ ಇದೆ</translation>
 <translation id="4724120544754982507">ಅಧಿಸೂಚನೆ ಕೇಂದ್ರ, <ph name="UNREAD_NOTIFICATION_COUNT" /> ಓದದಿರುವ ಅಧಿಸೂಚನೆಗಳು</translation>
@@ -114,6 +117,7 @@
 <translation id="5266161281976477809">ತ್ರಿಕೋನ ಪ್ರಕಟಣೆ</translation>
 <translation id="5278860589123563674">ಕಳುಹಿಸಲು ವಿಫಲವಾಗಿದೆ</translation>
 <translation id="528468243742722775">ಅಂತ್ಯ</translation>
+<translation id="5327567770033251652">ಸಿಂಕ್‌ ಆನ್‌ ಮಾಡಿ</translation>
 <translation id="5329858601952122676">&amp;ಅಳಿಸು</translation>
 <translation id="5395308026110844773"><ph name="IN_PLACE_APP" /> ನ ಮೇಲ್ಭಾಗದಲ್ಲಿ <ph name="DRAGGED_APP_NAME" />, ಫೋಲ್ಡರ್ ರಚಿಸಲು ಬಿಡುಗಡೆ ಮಾಡಿ.</translation>
 <translation id="5463830097259460683">ಎಮೋಜಿ ಮತ್ತು ಸಂಕೇತಗಳು</translation>
@@ -153,6 +157,7 @@
 <translation id="6620110761915583480">ಫೈಲ್ ಉಳಿಸು</translation>
 <translation id="6699343763173986273">ಮೀಡಿಯಾದ ಮುಂದಿನ ಟ್ರ್ಯಾಕ್</translation>
 <translation id="673773751041746814">ಅಳಿಸುವಿಕೆ</translation>
+<translation id="6779314412797872738">ಇಲ್ಲಿಂದ ನಿಮ್ಮ Android ಫೋನ್‌ಗೆ ಒಂದು ಸಂಖ್ಯೆಯನ್ನು ಕಳುಹಿಸಲು, ಎರಡೂ ಸಾಧನಗಳಿಗಾಗಿ, ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ <ph name="TROUBLESHOOT_LINK" />.</translation>
 <translation id="6786750046913594791">ಫೋಲ್ಡರ್ ಮುಚ್ಚಿರಿ</translation>
 <translation id="6808150112686056157">ಮೀಡಿಯಾ ನಿಲುಗಡೆ</translation>
 <translation id="6845383723252244143">ಫೋಲ್ಡರ್ ಆಯ್ಕೆಮಾಡಿ</translation>
@@ -171,6 +176,7 @@
 <translation id="7319740667687257810">ಲಾಂಚರ್, ಭಾಗಶಃ ವೀಕ್ಷಣೆ</translation>
 <translation id="7365057348334984696">{MINUTES,plural, =1{1 ನಿಮಿ ಹಿಂದೆ}one{# ನಿಮಿಷಗಳ ಹಿಂದೆ}other{# ನಿಮಿಷಗಳ ಹಿಂದೆ}}</translation>
 <translation id="7389409599945284130"><ph name="MESSAGE" /> -</translation>
+<translation id="7399254631220132461">ನಿಮ್ಮ ಫೋನ್‌ನ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ, ಪುನಃ ಪ್ರಯತ್ನಿಸಿ</translation>
 <translation id="7410957453383678442">{MINUTES,plural, =1{1 ನಿಮಿಷ ಉಳಿದಿದೆ}one{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}other{# ನಿಮಿಷಗಳು ಉಳಿದಿವೆ}}</translation>
 <translation id="7430878839542012341">ನಿಮ್ಮ ಇತಿಹಾಸದಿಂದ ಈ ಹುಡುಕಾಟವನ್ನು ಅಳಿಸುವುದೇ?</translation>
 <translation id="7460907917090416791"><ph name="QUANTITY" /> TB</translation>

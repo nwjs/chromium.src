@@ -218,16 +218,27 @@ class MediaCodecUtil {
                 try {
                     CodecCapabilities caps = info.getCapabilitiesForType(mime);
                     if (caps != null) {
+                        // There may be multiple entries in the list for the same family
+                        // (e.g. OMX.qcom.video.decoder.avc and OMX.qcom.video.decoder.avc.secure),
+                        // so return early if this one matches what we're looking for.
+
                         // If a secure decoder is required, then FEATURE_SecurePlayback must be
                         // supported.
-                        if (isSecure) {
-                            return caps.isFeatureSupported(
-                                    CodecCapabilities.FEATURE_SecurePlayback);
+                        if (isSecure
+                                && caps.isFeatureSupported(
+                                        CodecCapabilities.FEATURE_SecurePlayback)) {
+                            return true;
                         }
 
                         // If a secure decoder is not required, then make sure that
-                        // FEATURE_SecurePlayback is not required.
-                        return !caps.isFeatureRequired(CodecCapabilities.FEATURE_SecurePlayback);
+                        // FEATURE_SecurePlayback is not required. It may work for unsecure
+                        // content, but keep scanning for another codec that supports
+                        // unsecure content directly.
+                        if (!isSecure
+                                && !caps.isFeatureRequired(
+                                        CodecCapabilities.FEATURE_SecurePlayback)) {
+                            return true;
+                        }
                     }
                 } catch (IllegalArgumentException e) {
                     // Type is not supported.

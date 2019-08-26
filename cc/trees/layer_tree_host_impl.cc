@@ -1298,6 +1298,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
     }
     frame->use_default_lower_bound_deadline |=
         append_quads_data.use_default_lower_bound_deadline;
+    frame->mirror_rect.Union(append_quads_data.mirror_rect);
   }
 
   // If CommitToActiveTree() is true, then we wait to draw until
@@ -2381,6 +2382,8 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
             frame->begin_frame_ack.sequence_number);
   metadata.begin_frame_ack = frame->begin_frame_ack;
 
+  metadata.mirror_rect = frame->mirror_rect;
+
   viz::CompositorFrame compositor_frame;
   compositor_frame.metadata = std::move(metadata);
   resource_provider_.PrepareSendToParent(
@@ -2473,13 +2476,16 @@ void LayerTreeHostImpl::GetGpuRasterizationCapabilities(
   if (!*gpu_rasterization_enabled && !settings_.gpu_rasterization_forced)
     return;
 
+  bool use_msaa = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
+
   if (use_oop_rasterization_) {
     *gpu_rasterization_supported = true;
     *supports_disable_msaa = caps.multisample_compatibility;
     // For OOP raster, the gpu service side will disable msaa if the
     // requested samples are not enough.  GPU raster does this same
     // logic below client side.
-    *max_msaa_samples = RequestedMSAASampleCount();
+    if (use_msaa)
+      *max_msaa_samples = RequestedMSAASampleCount();
     return;
   }
 
@@ -2494,7 +2500,7 @@ void LayerTreeHostImpl::GetGpuRasterizationCapabilities(
     return;
 
   *supports_disable_msaa = caps.multisample_compatibility;
-  if (!caps.msaa_is_slow && !caps.avoid_stencil_buffers) {
+  if (use_msaa) {
     // Skia may blacklist MSAA independently of Chrome. Query Skia for its max
     // supported sample count. Assume gpu compositing + gpu raster for this, as
     // that is what we are hoping to use.

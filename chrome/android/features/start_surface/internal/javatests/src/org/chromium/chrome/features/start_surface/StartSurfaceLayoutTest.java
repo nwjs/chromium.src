@@ -5,6 +5,7 @@
 package org.chromium.chrome.features.start_surface;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.test.util.CallbackHelper.WAIT_TIMEOUT_SECONDS;
@@ -42,7 +43,8 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tasks.tab_management.GridTabSwitcher;
+import org.chromium.chrome.browser.tabmodel.TabSelectionType;
+import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -100,8 +102,8 @@ public class StartSurfaceLayoutTest {
         mUrl = testServer.getURL("/chrome/test/data/android/navigate/simple.html");
         mRepeat = 3;
 
-        GridTabSwitcher.TabGridDelegate delegate =
-                mStartSurfaceLayout.getStartSurfaceForTesting().getTabGridDelegate();
+        TabSwitcher.TabListDelegate delegate =
+                mStartSurfaceLayout.getStartSurfaceForTesting().getTabListDelegate();
         delegate.setBitmapCallbackForTesting(mBitmapListener);
         Assert.assertEquals(0, delegate.getBitmapFetchCountForTesting());
 
@@ -113,8 +115,8 @@ public class StartSurfaceLayoutTest {
     @MediumTest
     @CommandLineFlags.Add({BASE_PARAMS})
     public void testTabToGridFromLiveTab() throws InterruptedException {
-        GridTabSwitcher.TabGridDelegate delegate =
-                mStartSurfaceLayout.getStartSurfaceForTesting().getTabGridDelegate();
+        TabSwitcher.TabListDelegate delegate =
+                mStartSurfaceLayout.getStartSurfaceForTesting().getTabListDelegate();
         assertEquals(0, delegate.getSoftCleanupDelayForTesting());
         assertEquals(0, delegate.getCleanupDelayForTesting());
 
@@ -141,8 +143,8 @@ public class StartSurfaceLayoutTest {
     @MediumTest
     @CommandLineFlags.Add({BASE_PARAMS + "/soft-cleanup-delay/10000/cleanup-delay/10000"})
     public void testTabToGridFromLiveTabWarm() throws InterruptedException {
-        GridTabSwitcher.TabGridDelegate delegate =
-                mStartSurfaceLayout.getStartSurfaceForTesting().getTabGridDelegate();
+        TabSwitcher.TabListDelegate delegate =
+                mStartSurfaceLayout.getStartSurfaceForTesting().getTabListDelegate();
         assertEquals(10000, delegate.getSoftCleanupDelayForTesting());
         assertEquals(10000, delegate.getCleanupDelayForTesting());
 
@@ -191,10 +193,21 @@ public class StartSurfaceLayoutTest {
 
     /**
      * Make Chrome have {@code numTabs} or Tabs with {@code url} loaded.
-     * @param url The URL to load. Skip loading when null, but the thumbnail for the NTP might not
-     *            be saved.
+     * @see #prepareTabs(int, String, boolean)
      */
     private void prepareTabs(int numTabs, @Nullable String url) throws InterruptedException {
+        prepareTabs(numTabs, url, true);
+    }
+
+    /**
+     * Make Chrome have {@code numTabs} or Tabs with {@code url} loaded.
+     * @param numTabs The number of tabs we expect after finishing
+     * @param url The URL to load. Skip loading when null, but the thumbnail for the NTP might not
+     *            be saved.
+     * @param waitForLoading Whether wait for URL loading.
+     */
+    private void prepareTabs(int numTabs, @Nullable String url, boolean waitForLoading)
+            throws InterruptedException {
         assertTrue(numTabs >= 1);
         assertEquals(1, mActivityTestRule.getActivity().getTabModelSelector().getTotalTabCount());
 
@@ -203,20 +216,54 @@ public class StartSurfaceLayoutTest {
             MenuUtils.invokeCustomMenuActionSync(InstrumentationRegistry.getInstrumentation(),
                     mActivityTestRule.getActivity(), org.chromium.chrome.R.id.new_tab_menu_id);
             if (url != null) mActivityTestRule.loadUrl(url);
+            if (!waitForLoading) continue;
 
             Tab previousTab = mActivityTestRule.getActivity()
                                       .getTabModelSelector()
                                       .getCurrentModel()
                                       .getTabAt(i);
 
-            // TODO(wychen): missing thumbnail should not happen in web tabs, either, but checking
-            //               it makes the tests too flaky.
-            if (previousTab.isNativePage()) checkThumbnailsExist(previousTab);
+            boolean fixPendingReadbacks = mActivityTestRule.getActivity()
+                                                  .getTabContentManager()
+                                                  .getPendingReadbacksForTesting()
+                    != 0;
+
+            // When there are pending readbacks due to detached Tabs, try to fix it by switching
+            // back to that tab.
+            if (fixPendingReadbacks) {
+                int lastIndex = i;
+                // clang-format off
+                TestThreadUtils.runOnUiThreadBlocking(() ->
+                    mActivityTestRule.getActivity().getCurrentTabModel().setIndex(
+                            lastIndex, TabSelectionType.FROM_USER)
+                );
+                // clang-format on
+            }
+            checkThumbnailsExist(previousTab);
+            if (fixPendingReadbacks) {
+                int currentIndex = i + 1;
+                // clang-format off
+                TestThreadUtils.runOnUiThreadBlocking(() ->
+                    mActivityTestRule.getActivity().getCurrentTabModel().setIndex(
+                            currentIndex, TabSelectionType.FROM_USER)
+                );
+                // clang-format on
+            }
         }
         ChromeTabUtils.waitForTabPageLoaded(mActivityTestRule.getActivity().getActivityTab(), null,
                 null, WAIT_TIMEOUT_SECONDS * 10);
         assertEquals(
                 numTabs, mActivityTestRule.getActivity().getTabModelSelector().getTotalTabCount());
+
+        if (waitForLoading) {
+            // clang-format off
+            CriteriaHelper.pollUiThread(Criteria.equals(0, () ->
+                mActivityTestRule.getActivity()
+                        .getTabContentManager()
+                        .getPendingReadbacksForTesting()
+            ));
+            // clang-format on
+        }
     }
 
     private void testTabToGrid(String fromUrl) throws InterruptedException {
@@ -258,6 +305,39 @@ public class StartSurfaceLayoutTest {
     @MediumTest
     public void testGridToTabToCurrentLive() throws InterruptedException {
         prepareTabs(1, mUrl);
+        testGridToTab(false, false);
+    }
+
+    @Test
+    @MediumTest
+    @DisabledTest(message = "crbug.com/986047. This works on emulators but not on real devices.")
+    public void testGridToTabToCurrentLiveDetached() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            // Quickly create some tabs, navigate to web pages, and don't wait for thumbnail
+            // capturing.
+            prepareTabs(2, mUrl, false);
+            // Hopefully we are in a state where some pending readbacks are stuck because their tab
+            // is not attached to the view.
+            if (mActivityTestRule.getActivity()
+                            .getTabContentManager()
+                            .getPendingReadbacksForTesting()
+                    > 0)
+                break;
+
+            // Restart Chrome.
+            // Although we're destroying the activity, the Application will still live on since its
+            // in the same process as this test.
+            TestThreadUtils.runOnUiThreadBlocking(
+                    () -> mActivityTestRule.getActivity().getTabModelSelector().closeAllTabs());
+            ApplicationTestUtils.finishActivity(mActivityTestRule.getActivity());
+            mActivityTestRule.startMainActivityOnBlankPage();
+            Assert.assertEquals(1, mActivityTestRule.tabsCount(false));
+        }
+        assertNotEquals(0,
+                mActivityTestRule.getActivity()
+                        .getTabContentManager()
+                        .getPendingReadbacksForTesting());
+        // The last tab should still get thumbnail even though readbacks for other tabs are stuck.
         testGridToTab(false, false);
     }
 
@@ -347,8 +427,8 @@ public class StartSurfaceLayoutTest {
     @CommandLineFlags.Add({BASE_PARAMS})
     public void testRestoredTabsDontFetch() throws Exception {
         prepareTabs(2, mUrl);
-        GridTabSwitcher.TabGridDelegate delegate =
-                mStartSurfaceLayout.getStartSurfaceForTesting().getTabGridDelegate();
+        TabSwitcher.TabListDelegate delegate =
+                mStartSurfaceLayout.getStartSurfaceForTesting().getTabListDelegate();
         int oldCount = delegate.getBitmapFetchCountForTesting();
 
         // Restart Chrome.
@@ -528,7 +608,7 @@ public class StartSurfaceLayoutTest {
     /**
      * Should be the same as {@link ValueAnimator#areAnimatorsEnabled}, which requires API level 26.
      * TODO(crbug.com/982018): put this interface in a place to share with
-     * TabGridContainerViewBinderTest.areAnimatorsEnabled.
+     * TabListContainerViewBinderTest.areAnimatorsEnabled.
      */
     private static boolean areAnimatorsEnabled() {
         // We default to assuming that animations are enabled in case ANIMATOR_DURATION_SCALE is not

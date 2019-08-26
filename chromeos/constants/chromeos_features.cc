@@ -29,7 +29,7 @@ const base::Feature kCameraSystemWebApp{"CameraSystemWebApp",
 
 // Enables or disables Crostini Backup.
 const base::Feature kCrostiniBackup{"CrostiniBackup",
-                                    base::FEATURE_ENABLED_BY_DEFAULT};
+                                    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Crostini GPU support.
 const base::Feature kCrostiniGpuSupport{"CrostiniGpuSupport",
@@ -125,9 +125,8 @@ const base::Feature kShowBluetoothDeviceBattery{
     "ShowBluetoothDeviceBattery", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables or disables Release Notes on Chrome OS.
-// TODO(yulunwu): http://crbug.com/978201
 const base::Feature kReleaseNotes{"ReleaseNotes",
-                                  base::FEATURE_DISABLED_BY_DEFAULT};
+                                  base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Uses the V3 (~2019-05 era) Smart Dim model instead of the default V2
 // (~2018-11) model.

@@ -119,7 +119,7 @@ void SearchBoxView::ResetForShow() {
   if (!is_search_box_active() && is_tablet_mode())
     return;
 
-  ClearSearch();
+  ClearSearchAndDeactivateSearchBox();
   SetSearchBoxBackgroundCornerRadius(
       GetSearchBoxBorderCornerRadiusForState(contents_view_->GetActiveState()));
 }
@@ -220,6 +220,13 @@ void SearchBoxView::OnPaintBackground(gfx::Canvas* canvas) {
 
 const char* SearchBoxView::GetClassName() const {
   return "SearchBoxView";
+}
+
+bool SearchBoxView::CanProcessEventsWithinSubtree() const {
+  if (!view_delegate_->CanProcessEventsOnApplistViews())
+    return false;
+
+  return views::View::CanProcessEventsWithinSubtree();
 }
 
 // static
@@ -576,8 +583,9 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
       if (is_search_box_active()) {
         // Hitting Enter when focus is on search box opens the selected result.
         ui::KeyEvent event(key_event);
-        views::View* selected_result = selection_controller->selected_result();
-        if (selected_result)
+        SearchResultBaseView* selected_result =
+            selection_controller->selected_result();
+        if (selected_result && selected_result->result())
           selected_result->OnKeyEvent(&event);
       } else {
         SetSearchBoxActive(true, key_event.type());
@@ -617,8 +625,9 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
         ((key_event.key_code() == ui::VKEY_BROWSER_BACK) ||
          (key_event.key_code() == ui::VKEY_DELETE))) {
       ui::KeyEvent event(key_event);
-      views::View* selected_result = selection_controller->selected_result();
-      if (selected_result)
+      SearchResultBaseView* selected_result =
+          selection_controller->selected_result();
+      if (selected_result && selected_result->result())
         selected_result->OnKeyEvent(&event);
       selection_controller->ResetSelection();
       search_box()->SetText(base::string16());

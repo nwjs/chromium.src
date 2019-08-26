@@ -1,4 +1,4 @@
-// Copyright 2018 The Chromium Authors. All rights reserved.
+// Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -6,10 +6,13 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_PAINT_PAINT_TIMING_DETECTOR_H_
 
 #include "third_party/blink/public/platform/web_input_event.h"
+#include "third_party/blink/public/web/web_widget_client.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/layout_box_model_object.h"
+#include "third_party/blink/renderer/core/paint/paint_timing_visualizer.h"
 #include "third_party/blink/renderer/core/scroll/scroll_types.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
+#include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
 
@@ -20,8 +23,87 @@ class LargestContentfulPaintCalculator;
 class LayoutObject;
 class LocalFrameView;
 class PropertyTreeState;
+class StyleFetchedImage;
 class TextPaintTimingDetector;
 struct WebFloatRect;
+
+// |PaintTimingCallbackManager| is an interface between
+// |ImagePaintTimingDetector|/|TextPaintTimingDetector| and |ChromeClient|.
+// As |ChromeClient| is shared among the paint-timing-detecters, it
+// makes it hard to test each detector without being affected other detectors.
+// The interface, however, allows unit tests to mock |ChromeClient| for each
+// detector. With the mock, |ImagePaintTimingDetector|'s callback does not need
+// to store in the same queue as |TextPaintTimingDetector|'s. The separate
+// queue makes it possible to pop an |ImagePaintTimingDetector|'s callback
+// without having to popping the |TextPaintTimingDetector|'s.
+class PaintTimingCallbackManager : public GarbageCollectedMixin {
+ public:
+  using LocalThreadCallback = base::OnceCallback<void(base::TimeTicks)>;
+  using CallbackQueue = std::queue<LocalThreadCallback>;
+
+  virtual void RegisterCallback(
+      PaintTimingCallbackManager::LocalThreadCallback) = 0;
+};
+
+// This class is responsible for managing the swap-time callback for Largest
+// Image Paint and Largest Text Paint. In frames where both text and image are
+// painted, Largest Image Paint and Largest Text Paint need to assign the same
+// paint-time for their records. In this case, |PaintTimeCallbackManager|
+// requests a swap-time callback and share the swap-time with LIP and LTP.
+// Otherwise LIP and LTP would have to request their own swap-time callbacks.
+// An extra benefit of this design is that |LargestContentfulPaintCalculator|
+// can thus hook to the end of the LIP and LTP's record assignments.
+//
+// |GarbageCollectedFinalized| inheritance is required by the swap-time callback
+// registration.
+class PaintTimingCallbackManagerImpl final
+    : public GarbageCollectedFinalized<PaintTimingCallbackManagerImpl>,
+      public PaintTimingCallbackManager {
+  USING_GARBAGE_COLLECTED_MIXIN(PaintTimingCallbackManagerImpl);
+
+ public:
+  PaintTimingCallbackManagerImpl(LocalFrameView* frame_view)
+      : frame_view_(frame_view),
+        frame_callbacks_(
+            std::make_unique<std::queue<
+                PaintTimingCallbackManager::LocalThreadCallback>>()) {}
+  ~PaintTimingCallbackManagerImpl() { frame_callbacks_.reset(); }
+
+  // Instead of registering the callback right away, this impl of the interface
+  // combine the callback into |frame_callbacks_| before registering a separate
+  // swap-time callback for the combined callbacks. When the swap-time callback
+  // is invoked, the swap-time is then assigned to each callback of
+  // |frame_callbacks_|.
+  void RegisterCallback(
+      PaintTimingCallbackManager::LocalThreadCallback callback) override {
+    frame_callbacks_->push(std::move(callback));
+  }
+
+  void RegisterPaintTimeCallbackForCombinedCallbacks();
+
+  inline size_t CountCallbacks() { return frame_callbacks_->size(); }
+
+  void ReportPaintTime(
+      std::unique_ptr<std::queue<
+          PaintTimingCallbackManager::LocalThreadCallback>> frame_callbacks,
+      WebWidgetClient::SwapResult,
+      base::TimeTicks paint_time);
+
+  void Trace(Visitor* visitor) override;
+
+ private:
+  Member<LocalFrameView> frame_view_;
+  // |frame_callbacks_| stores the callbacks of |TextPaintTimingDetector| and
+  // |ImagePaintTimingDetector| in an (animated) frame. It is passed as an
+  // argument of a swap-time callback which once is invoked, invokes every
+  // callback in |frame_callbacks_|. This hierarchical callback design is to
+  // reduce the need of calling ChromeClient to register swap-time callbacks for
+  // both detectos.
+  // Although |frame_callbacks_| intends to store callbacks
+  // of a frame, it occasionally has to do that for more than one frame, when it
+  // fails to register a swap-time callback.
+  std::unique_ptr<PaintTimingCallbackManager::CallbackQueue> frame_callbacks_;
+};
 
 // PaintTimingDetector contains some of paint metric detectors,
 // providing common infrastructure for these detectors.
@@ -41,7 +123,7 @@ class CORE_EXPORT PaintTimingDetector
   static void NotifyBackgroundImagePaint(
       const Node*,
       const Image*,
-      const ImageResourceContent* cached_image,
+      const StyleFetchedImage*,
       const PropertyTreeState& current_paint_chunk_properties);
   static void NotifyImagePaint(
       const LayoutObject&,
@@ -88,6 +170,10 @@ class CORE_EXPORT PaintTimingDetector
   uint64_t LargestImagePaintSize() const { return largest_image_paint_size_; }
   base::TimeTicks LargestTextPaint() const { return largest_text_paint_time_; }
   uint64_t LargestTextPaintSize() const { return largest_text_paint_size_; }
+
+  void UpdateLargestContentfulPaintCandidate();
+
+  base::Optional<PaintTimingVisualizer>& Visualizer() { return visualizer_; }
   void Trace(Visitor* visitor);
 
  private:
@@ -103,6 +189,10 @@ class CORE_EXPORT PaintTimingDetector
   Member<ImagePaintTimingDetector> image_paint_timing_detector_;
 
   Member<LargestContentfulPaintCalculator> largest_contentful_paint_calculator_;
+
+  Member<PaintTimingCallbackManagerImpl> callback_manager_;
+
+  base::Optional<PaintTimingVisualizer> visualizer_;
 
   // Largest image information.
   base::TimeTicks largest_image_paint_time_;

@@ -65,10 +65,12 @@
 <translation id="1062407476771304334">Sostituisci</translation>
 <translation id="1079801999187584280">Non consentire l'utilizzo degli Strumenti per sviluppatori</translation>
 <translation id="1087437665304381368">Questa norma consente di controllare esclusivamente la modalità sviluppatore di <ph name="PRODUCT_OS_NAME" />. Se vuoi impedire l'accesso alle Opzioni sviluppatore Android, devi impostare la norma <ph name="DEVELOPER_TOOLS_DISABLED_POLICY_NAME" />.</translation>
+<translation id="1087707496788636333">L'elenco dei criteri di Chrome Enterprise è in fase di trasferimento. Aggiorna i tuoi preferiti con l'URL <ph name="POLICY_DOCUMENTATION_URL" />.</translation>
 <translation id="1093082332347834239">Se l'impostazione viene attivata, l'host per l'assistenza remota viene eseguito in un processo con le autorizzazioni <ph name="UIACCESS_PERMISSION_NAME" />. In questo modo gli utenti remoti possono interagire con finestre con privilegi più elevati sul desktop dell'utente locale.
 
           Se l'impostazione viene disattivata o non configurata, l'host dell'assistenza remota viene eseguito nel contesto dell'utente e gli utenti remoti non possono interagire con finestre con privilegi più elevati sul desktop.</translation>
 <translation id="1096105751829466145">Provider di ricerca predefinito</translation>
+<translation id="1099024407376270611">Controlla la reputazione degli URL visitati in tempo reale con Navigazione sicura</translation>
 <translation id="1099282607296956954">Attiva isolamento sito per ogni sito</translation>
 <translation id="1100570158310952027">
       Questa norma consente di specificare un elenco di origini (URL) o di schemi di nomi host (ad esempio "*.example.com") a cui non vengono applicate limitazioni di sicurezza previste per le origini non sicure.
@@ -680,6 +682,11 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       Se questa impostazione viene configurata, gli utenti che usano lo sblocco rapido devono inserire le proprie password nella schermata di blocco in base a questa impostazione.
 
       Se questa impostazione non viene configurata, gli utenti che usano lo sblocco rapido devono inserire ogni giorno la propria password nella schermata di blocco.</translation>
+<translation id="219297066914002620">Indica a <ph name="PRODUCT_OS_NAME" /> di attivare o disattivare gli strumenti della console di gestione delle macchine virtuali.
+
+      Se il criterio viene impostato su true o non viene impostato, l'utente potrà usare l'interfaccia a riga di comando di gestione delle macchine virtuali.
+      In caso contrario, l'intera interfaccia a riga di comando di gestione delle macchine virtuali viene disattivata e nascosta.
+      </translation>
 <translation id="2194470398825717446">Questa norma è stata ritirata in M61. Usa la norma EcryptfsMigrationStrategy.
 
       Consente di specificare come deve comportarsi un dispositivo con ecryptfs e come deve passare alla crittografia ext4.
@@ -708,6 +715,10 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="2231817271680715693">Importa cronologia di navigazione dal browser predefinito alla prima esecuzione</translation>
 <translation id="2236488539271255289">Non consentire ai siti di impostare i dati locali</translation>
 <translation id="2240879329269430151">Permette di stabilire se consentire o meno la visualizzazione dei popup nei siti web. La visualizzazione dei popup può essere consentita o negata per tutti i siti web. Se questa norma non viene impostata, verrà utilizzato il valore "BlockPopups", che potrà essere modificato dagli utenti.</translation>
+<translation id="2241498944622759244">Questa funzionalità non è mai stata lanciata, pertanto il criterio è obsoleto. Se è impostato su true o non è impostato, <ph name="PRODUCT_NAME" /> suggerisce pagine correlate alla pagina corrente.
+      Questi suggerimenti vengono recuperati da remoto dai server di Google.
+
+      Se l'impostazione è impostata su false, i suggerimenti non vengono recuperati o mostrati.</translation>
 <translation id="2255326053989409609">L'attivazione di questa impostazione impedisce alle pagine web di accedere alla GPU (Graphics Processing Unit). Nello specifico, le pagine web non possono avere accesso all'API WebGL e i plug-in non possono usare l'API Pepper 3D.
 
       Se questa impostazione viene disattivata o non viene impostata, le pagine web potranno utilizzare l'API WebGL e i plug-in potranno utilizzare l'API Pepper 3D. Le impostazioni predefinite del browser possono comunque richiedere la convalida di argomenti della riga di comando per utilizzare queste API.
@@ -948,6 +959,20 @@ Se questa norma non viene impostata, l'utente potrà scegliere se utilizzare o m
       Il formato del valore segue quello dei nomi dei fusi orari dello "IANA Time Zone Database" (visita la pagina "https://en.wikipedia.org/wiki/Tz_database"). In particolare, gran parte dei fusi orari può essere indicata come "continent/large_city" o "ocean/large_city".
 
       Se questa norma viene impostata, la scelta automatica del fuso orario in base alla posizione del dispositivo viene completamente disattivata. Sostituisce anche la norma SystemTimezoneAutomaticDetection.</translation>
+<translation id="2758218632193192525">Consente di specificare le configurazioni dei server di stampa disponibili.
+
+      Questo criterio consente di specificare le configurazioni dei server di stampa esterni sui dispositivi <ph name="PRODUCT_OS_NAME" /> come file JSON.
+
+      Le dimensioni del file non devono superare 1 MB e devono contenere un array di registri (oggetti JSON). Ogni record deve contenere i campi "url" e "display_name".
+
+      Il file viene scaricato e memorizzato nella cache. L'hash di crittografia viene utilizzato per verificare l'integrità del download. Il file viene scaricato nuovamente ogni volta che l'URL o l'hash cambiano.
+
+      Se il criterio è impostato su un valore corretto, i dispositivi provano a inviare query ai server di stampa specificati per le stampanti disponibili che utilizzano il protocollo IPP.
+
+      Se questo criterio non viene impostato o viene impostato un valore sbagliato, agli utenti non sarà visibile nessun server di stampa.
+
+      Attualmente, il numero di server di stampa è limitato a 16. Solo ai primi 16 server di stampa dell'elenco vengono inviate query.
+      </translation>
 <translation id="2759224876420453487">Controlla il comportamento dell'utente in una sessione profilo multiplo</translation>
 <translation id="2761483219396643566">Ritardo avviso inattività in caso di utilizzo della batteria</translation>
 <translation id="2762164719979766599">Specifica l'elenco di account del dispositivo da visualizzare nella schermata di accesso.
@@ -1843,6 +1868,15 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 
           Questa funzione è attualmente disattivata lato server.</translation>
 <translation id="4363057787588706121">Consenti l'unione dei criteri nell'elenco provenienti da origini diverse</translation>
+<translation id="4363136876356691536">Se questo criterio è impostato su true, le opzioni di accessibilità vengono visualizzate sempre nel menu della barra delle applicazioni.
+
+          Se questo criterio è impostato su false, le opzioni di accessibilità non vengono mai visualizzate nel menu della barra delle applicazioni.
+
+          Se imposti questa norma, gli utenti non potranno modificarla o sostituirla.
+
+          Se questo criterio non viene impostato, le opzioni di accessibilità non vengono visualizzate nel menu della barra delle applicazioni, ma l'utente può attivarne la visualizzazione tramite la pagina Impostazioni.
+
+          Quando le funzioni di accessibilità vengono attivate in altri modi (ad esempio con una combinazione di tasti), le opzioni di accessibilità vengono sempre mostrate nel menu della barra delle applicazioni.</translation>
 <translation id="436581050240847513">Riporta interfacce di rete del dispositivo</translation>
 <translation id="4372704773119750918">Non permettere all'utente aziendale di far parte del profilo multiplo (principale o secondario)</translation>
 <translation id="4377599627073874279">Consenti la visualizzazione di tutte le immagini in tutti i siti</translation>
@@ -1897,6 +1931,7 @@ Se questa norma non viene impostata, verranno utilizzate le dimensioni predefini
 <translation id="4508686775017063528">Se questa norma viene impostata su true o non viene impostata, <ph name="PRODUCT_NAME" /> sarà attivato e gli utenti potranno avviarlo dal menu dell'app, dai menu contestuali nelle pagine, dai controlli multimediali nei siti web compatibili con Google Cast e (se presente) dall'icona Cast della barra degli strumenti.
 
           Se questa norma viene impostata su false, <ph name="PRODUCT_NAME" /> sarà disattivato.</translation>
+<translation id="4510923771103268849">L'utente può avere accesso root ai contenitori Crostini</translation>
 <translation id="4515404363392014383">Attiva Navigazione sicura per le origini attendibili</translation>
 <translation id="4518251772179446575">Chiedi ogni volta che un sito desidera monitorare la posizione fisica degli utenti</translation>
 <translation id="4519046672992331730">Consente di attivare i suggerimenti di ricerca nella omnibox di <ph name="PRODUCT_NAME" /> e di impedire agli utenti di modificare l'impostazione.
@@ -1927,20 +1962,6 @@ Se questa norma non viene impostata, l'impostazione verrà attivata ma gli utent
 <translation id="4604931264910482931">Configura lista nera di messaggi nativi</translation>
 <translation id="4617338332148204752">Salta il controllo dei metatag in <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Configura la whitelist per l'installazione delle estensioni</translation>
-<translation id="4627884124191169977">Consente di specificare le configurazioni dei server di stampa disponibili.
-
-      Questo criterio consente di specificare le configurazioni dei server di stampa esterni sui dispositivi <ph name="PRODUCT_OS_NAME" /> come file JSON.
-
-      Le dimensioni del file non devono superare 1 MB e il file deve contenere un array di record (oggetti JSON). Ogni record deve contenere i campi "url" e "display_name".
-
-      Il file viene scaricato e memorizzato nella cache. L'hash di crittografia viene utilizzato per verificare l'integrità del download. Il file verrà scaricato nuovamente ogni volta che l'URL o l'hash cambiano.
-
-      Se viene impostato un valore corretto per questo criterio, i dispositivi proveranno a inviare query ai server di stampa specificati per le stampanti disponibili che utilizzano il protocollo IPP.
-
-      Se questo criterio non viene impostato o viene impostato un valore sbagliato, agli utenti non sarà visibile nessun server di stampa.
-
-      Attualmente, il numero di server di stampa è limitato a 16. Solo ai primi 16 server di stampa dell'elenco verranno inviate query.
-      </translation>
 <translation id="4632343302005518762">Consenti a <ph name="PRODUCT_FRAME_NAME" /> di gestire i tipi di contenuti elencati</translation>
 <translation id="4632566332417930481">Non consentire l'utilizzo degli Strumenti per sviluppatori per le estensioni installate in base a norme aziendali; consenti l'utilizzo degli Strumenti per sviluppatori in altri contesti</translation>
 <translation id="4633786464238689684">Consente di modificare il comportamento predefinito dei tasti della fila superiore in tasti funzione.
@@ -1992,6 +2013,10 @@ Se questa norma non viene impostata, l'impostazione verrà attivata ma gli utent
 
           Se questa norma non è impostata, <ph name="PRODUCT_NAME" /> non delegherà le credenziali utente, anche se viene rilevato un server sulla Intranet.</translation>
 <translation id="4752880493649142945">Certificato client per la connessione a RemoteAccessHostTokenValidationUrl</translation>
+<translation id="4756984056524699088">Consente all'utente l'accesso root ai contenitori Crostini.
+
+      Se il criterio viene impostato su true o non viene impostato, all'utente viene concesso l'accesso root ai contenitori Crostini.
+      Se il criterio viene impostato su false, all'utente non viene concesso l'accesso root ai contenitori Crostini nuovi ed esistenti.</translation>
 <translation id="4759650396863318477">Consente di stabilire per quanto tempo, in millisecondi, gli utenti riceveranno notifiche relative alla necessità di riavviare <ph name="PRODUCT_NAME" /> o un dispositivo <ph name="PRODUCT_OS_NAME" /> per applicare un aggiornamento in sospeso.
 
       Durante questo periodo di tempo l'utente verrà informato più volte della necessità di un aggiornamento. Per quanto riguarda i dispositivi <ph name="PRODUCT_OS_NAME" />, nella barra delle applicazioni viene mostrata una notifica relativa al riavvio in base al criterio <ph name="RELAUNCH_HEADS_UP_PERIOD_POLICY_NAME" />. Per quanto riguarda i browser <ph name="PRODUCT_NAME" />, il menu delle app cambia per indicare che è necessario il riavvio una volta trascorso un terzo del periodo di notifica. Questa notifica cambia colore una volta trascorsi due terzi del periodo di notifica e lo cambia di nuovo al termine dell'intero periodo di notifica. Le notifiche aggiuntive attivate in base al criterio <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> seguono questa stessa pianificazione.
@@ -2146,6 +2171,9 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       Se disattivi questa impostazione o non la imposti, vengono recuperate soltanto le voci dell'elenco dell'origine con la massima priorità e tutte le altre origini risultano in conflitto, ma vengono ignorate.</translation>
 <translation id="5141670636904227950">Impostazione tipo di ingrandimento dello schermo predefinito attivato nella schermata di accesso</translation>
 <translation id="5142301680741828703">Visualizza sempre i seguenti schemi di URL in <ph name="PRODUCT_FRAME_NAME" /></translation>
+<translation id="5146261336206349846">Se questo criterio viene attivato, tutti gli URL visitati verranno controllati in tempo reale con Navigazione sicura.
+
+      Se questo criterio viene disattivato o non viene impostato, verranno applicati i controlli predefiniti di Navigazione sicura.</translation>
 <translation id="5148753489738115745">Consente di specificare dei parametri aggiuntivi da utilizzare quando <ph name="PRODUCT_FRAME_NAME" /> avvia <ph name="PRODUCT_NAME" />.
 
 Se questa norma non viene impostata viene utilizzata la riga di comando predefinita.</translation>
@@ -2196,6 +2224,7 @@ Se questa norma non viene impostata viene utilizzata la riga di comando predefin
 
           Questa norma è disponibile esclusivamente per le istanze di Windows che fanno parte di un dominio <ph name="MS_AD_NAME" /> così come per le istanze di Windows 10 Pro o Enterprise registrate per la gestione dei dispositivi.</translation>
 <translation id="5208240613060747912">Consente di impostare un elenco di pattern URL che specificano i siti non autorizzati a visualizzare notifiche. Se questa norma non viene impostata, per tutti i siti verrà utilizzato il valore predefinito globale della norma "DefaultNotificationsSetting", se è impostata, oppure verrà utilizzata la configurazione personale dell'utente.</translation>
+<translation id="5212810195096589189">Specifica l'autorizzazione per l'interfaccia a riga di comando delle macchine virtuali</translation>
 <translation id="5213038356678567351">Siti web che non devono mai attivare il cambio di browser.</translation>
 <translation id="5219844027738217407">Nell'ambito delle app Android, la norma influisce solo sul microfono. Se la norma viene impostata su true, il microfono viene disattivato per tutte le app Android, senza alcuna eccezione.</translation>
 <translation id="5221394278852982313">Consente di impostare un elenco di URL che specifica a quali siti verrà concessa automaticamente l'autorizzazione per accedere a un dispositivo USB con gli ID prodotto e vendor definiti. Perché il criterio sia valido, ogni elemento dell'elenco deve contenere sia dispositivi sia URL. Ogni elemento nei dispositivi può contenere un campo ID vendor e un campo ID prodotto. Gli eventuali ID omessi verranno considerati caratteri jolly con l'eccezione che non è possibile specificare un ID prodotto senza aver specificato un ID vendor. In caso contrario, il criterio non sarà valido e verrà ignorato.
@@ -2396,7 +2425,7 @@ Se questa impostazione viene disattivata o non viene impostata, sia gli utenti l
       Se questa norma non viene impostata, qualsiasi plug-in corrispondente ai pattern in "DisabledPlugins" verrà disattivato e bloccato e l'utente non potrà attivarlo.</translation>
 <translation id="5498045818698736356">Consente di specificare un elenco di siti web che vengono installati automaticamente, senza l'interazione dell'utente, e che non possono essere disinstallati o disattivati dall'utente.
 
-      Ogni voce dell'elenco del criterio è un oggetto con un componente obbligatorio "url" e due componenti facoltativi: "default_launch_container" e "create_desktop_shortcut". "url" deve essere l'URL dell'applicazione web da installare, "launch_container" deve essere "finestra" o "scheda" per indicare in che modo l'applicazione web verrà aperta una volta installata e "create_desktop_shortcut" deve essere "true" se è necessario creare un collegamento sul desktop su Linux e Windows. Se "default_launch_container" viene omesso, l'applicazione si aprirà in una scheda per impostazione predefinita. A prescindere dal valore di "default_launch_container", gli utenti possono modificare il contenitore in cui si aprirà l'applicazione. Se "create_desktop_shortcuts" viene omesso, non verranno creati collegamenti sul desktop. Vedi il criterio <ph name="PINNED_LAUNCHER_APPS_POLICY_NAME" /> per bloccare app sulla shelf di Chrome OS.</translation>
+      Ogni voce dell'elenco del criterio è un oggetto con un componente obbligatorio "url" e due componenti facoltativi: "default_launch_container" e "create_desktop_shortcut". "url" deve essere l'URL dell'applicazione web da installare, "launch_container" deve essere "window" o "tab" per indicare in che modo l'applicazione web verrà aperta una volta installata e "create_desktop_shortcut" deve essere "true" se è necessario creare un collegamento sul desktop su Linux e Windows. Se "default_launch_container" viene omesso, l'applicazione si aprirà in una scheda per impostazione predefinita. A prescindere dal valore di "default_launch_container", gli utenti possono modificare il contenitore in cui si aprirà l'applicazione. Se "create_desktop_shortcuts" viene omesso, non verranno creati collegamenti sul desktop. Vedi il criterio <ph name="PINNED_LAUNCHER_APPS_POLICY_NAME" /> per bloccare app sulla shelf di Chrome OS.</translation>
 <translation id="5499375345075963939">Questa norma è attiva soltanto in modalità retail.
 
       Quando il valore di questa norma è impostato e non è 0, l'utente Demo correntemente connesso verrà disconnesso automaticamente dopo che sarà trascorso il tempo di inattività della durata specificata.
@@ -2773,6 +2802,7 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
           Se questa norma non viene impostata, per tutti i siti verrà utilizzato il valore predefinito globale della norma "DefaultPluginsSetting", se impostata, oppure la configurazione personale dell'utente.</translation>
 <translation id="6190022522129724693">Impostazione popup predefiniti</translation>
 <translation id="6190367314942602985">Segnala informazioni di identificazione degli utenti</translation>
+<translation id="6195802366906945965">Consente di stabilire se verrà utilizzato lo strumento di verifica dei certificati integrato per verificare i certificati dei server</translation>
 <translation id="6197453924249895891">Consente di concedere alle estensioni l'accesso alle chiavi aziendali.
 
       Le chiavi sono destinate all'utilizzo aziendale se generate tramite l'API chrome.enterprise.platformKeys su un account gestito. Le chiavi importate o generate in altro modo non sono destinate all'utilizzo aziendale.
@@ -3148,6 +3178,12 @@ Se questa norma è impostata su True o non è impostata, il modello di oscuramen
       Vai alla pagina https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables per consultare un elenco delle variabili che possono essere utilizzate.
 
       Se la norma non viene impostata, viene utilizzato il percorso profilo predefinito e l'utente può ignorarla con il flag della riga di comando "--user-data-dir".</translation>
+<translation id="7011669683779011760">Quando questa impostazione è attiva, <ph name="PRODUCT_OS_NAME" /> verifica i certificati dei server mediante lo strumento di verifica dei certificati integrato.
+      Quando questa impostazione non è attiva, <ph name="PRODUCT_OS_NAME" /> verifica i certificati dei server mediante il precedente strumento di verifica dei certificati, fornito dalla piattaforma.
+      Quando questa impostazione non è impostata, <ph name="PRODUCT_OS_NAME" /> può utilizzare lo strumento di verifica dei certificati integrato o quello precedente.
+
+      La rimozione di questo criterio è prevista nella versione 81 di <ph name="PRODUCT_OS_NAME" /> ovvero quando è prevista la rimozione del precedente strumento di verifica dei certificati da <ph name="PRODUCT_OS_NAME" />.
+      </translation>
 <translation id="7027785306666625591">Configura la gestione dell'alimentazione in <ph name="PRODUCT_OS_NAME" />.
 
       Queste norme consentono di configurare il comportamento di <ph name="PRODUCT_OS_NAME" /> quando l'utente rimane inattivo per un determinato periodo di tempo.</translation>

@@ -32,7 +32,6 @@
 #include "ios/chrome/app/tests_hook.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #include "ios/chrome/browser/chrome_url_constants.h"
-#include "ios/chrome/browser/crash_report/breakpad_helper.h"
 #import "ios/chrome/browser/download/download_manager_tab_helper.h"
 #include "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #include "ios/chrome/browser/feature_engagement/tracker_util.h"
@@ -1855,30 +1854,6 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 
   if ([self.sideSwipeController inSwipe]) {
     [self.sideSwipeController resetContentView];
-  }
-
-  // TODO(crbug.com/959774): The logging below is to better understand a
-  // NSInvalidArgumentException crash with the note "Application tried to
-  // present modally an active controller <BrowserViewController: 0x13e88d000>".
-  // Code experiments showed that the referenced BrowserViewController is the
-  // presenter, not the presentee.
-  if (viewControllerToPresent.view.window) {
-    NSString* activeViewController =
-        NSStringFromClass([viewControllerToPresent class]);
-    NSString* presentingViewController = NSStringFromClass(
-        [viewControllerToPresent.presentingViewController class]);
-    NSString* parentViewController =
-        NSStringFromClass([viewControllerToPresent.parentViewController class]);
-    breakpad_helper::SetBVCPresentingActiveViewController(
-        activeViewController, presentingViewController, parentViewController);
-
-    ProceduralBlock finalCompletionHandlerCopy = [finalCompletionHandler copy];
-    finalCompletionHandler = ^{
-      if (finalCompletionHandlerCopy)
-        finalCompletionHandlerCopy();
-      // Remove the crash log since the presentation completed without a crash.
-      breakpad_helper::RemoveBVCPresentingActiveViewController();
-    };
   }
 
   // TODO(crbug.com/965688): An Infobar message is currently the only presented
@@ -4056,7 +4031,13 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 
 - (void)focusNextTab {
   int activeIndex = self.tabModel.webStateList->active_index();
-  if (activeIndex < self.tabModel.webStateList->count()) {
+  if (activeIndex == WebStateList::kInvalidIndex)
+    return;
+
+  // If the active index isn't the last index, activate the next index.
+  // (the last index is always |count() - 1|).
+  // Otherwise activate the first index.
+  if (activeIndex < (self.tabModel.webStateList->count() - 1)) {
     self.tabModel.webStateList->ActivateWebStateAt(activeIndex + 1);
   } else {
     self.tabModel.webStateList->ActivateWebStateAt(0);
@@ -4065,7 +4046,11 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 
 - (void)focusPreviousTab {
   int activeIndex = self.tabModel.webStateList->active_index();
+  if (activeIndex == WebStateList::kInvalidIndex)
+    return;
 
+  // If the active index isn't the first index, activate the prior index.
+  // Otherwise index the last index (|count() - 1|).
   if (activeIndex > 0) {
     self.tabModel.webStateList->ActivateWebStateAt(activeIndex - 1);
   } else {

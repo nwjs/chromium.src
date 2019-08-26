@@ -20,6 +20,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
+import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
 import org.chromium.content_public.browser.LoadUrlParams;
@@ -73,21 +74,21 @@ public class TabGridDialogMediator {
     private final TabModelObserver mTabModelObserver;
     private final TabCreatorManager mTabCreatorManager;
     private final ResetHandler mDialogResetHandler;
-    private final GridTabSwitcherMediator.ResetHandler mGridTabSwitcherResetHandler;
+    private final TabSwitcherMediator.ResetHandler mTabSwitcherResetHandler;
     private final AnimationOriginProvider mAnimationOriginProvider;
     private final DialogHandler mTabGridDialogHandler;
     private int mCurrentTabId = Tab.INVALID_TAB_ID;
 
     TabGridDialogMediator(Context context, ResetHandler dialogResetHandler, PropertyModel model,
             TabModelSelector tabModelSelector, TabCreatorManager tabCreatorManager,
-            GridTabSwitcherMediator.ResetHandler gridTabSwitcherResetHandler,
+            TabSwitcherMediator.ResetHandler tabSwitcherResetHandler,
             AnimationOriginProvider animationOriginProvider) {
         mContext = context;
         mModel = model;
         mTabModelSelector = tabModelSelector;
         mTabCreatorManager = tabCreatorManager;
         mDialogResetHandler = dialogResetHandler;
-        mGridTabSwitcherResetHandler = gridTabSwitcherResetHandler;
+        mTabSwitcherResetHandler = tabSwitcherResetHandler;
         mAnimationOriginProvider = animationOriginProvider;
         mTabGridDialogHandler = new DialogHandler();
 
@@ -159,11 +160,13 @@ public class TabGridDialogMediator {
             updateDialog();
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, true);
         } else {
-            int index = filter.indexOf(
-                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), mCurrentTabId));
-            if (mAnimationOriginProvider != null && index != TabModel.INVALID_TAB_INDEX) {
-                Rect rect = mAnimationOriginProvider.getAnimationOriginRect(index);
-                mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, rect);
+            if (!FeatureUtilities.isTabToGtsAnimationEnabled()) {
+                int index = filter.indexOf(TabModelUtils.getTabById(
+                        mTabModelSelector.getCurrentModel(), mCurrentTabId));
+                if (mAnimationOriginProvider != null && index != TabModel.INVALID_TAB_INDEX) {
+                    Rect rect = mAnimationOriginProvider.getAnimationOriginRect(index);
+                    mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, rect);
+                }
             }
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, false);
         }
@@ -179,11 +182,13 @@ public class TabGridDialogMediator {
         }
     }
 
+    boolean isVisible() {
+        return mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE);
+    }
+
     private void updateGridTabSwitcher() {
-        if (!mModel.get(TabGridSheetProperties.IS_DIALOG_VISIBLE)
-                || mGridTabSwitcherResetHandler == null)
-            return;
-        mGridTabSwitcherResetHandler.resetWithTabList(
+        if (!isVisible() || mTabSwitcherResetHandler == null) return;
+        mTabSwitcherResetHandler.resetWithTabList(
                 mTabModelSelector.getTabModelFilterProvider().getCurrentTabModelFilter(), false);
     }
 
@@ -229,6 +234,11 @@ public class TabGridDialogMediator {
         return view -> {
             hideDialog(false);
             Tab currentTab = mTabModelSelector.getTabById(mCurrentTabId);
+            if (currentTab == null) {
+                mTabCreatorManager.getTabCreator(mTabModelSelector.isIncognitoSelected())
+                        .launchNTP();
+                return;
+            }
             List<Tab> relatedTabs = getRelatedTabs(currentTab.getId());
 
             assert relatedTabs.size() > 0;

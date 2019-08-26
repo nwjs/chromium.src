@@ -46,6 +46,12 @@ typedef void (^ForgetIdentityCallback)(NSError* error);
 typedef void (^GetAvatarCallback)(UIImage* avatar);
 
 // Callback passed to method |GetHostedDomainForIdentity()|.
+// |hosted_domain|:
+//   + nil, if error.
+//   + an empty string, if this is a consumer account (e.g. foo@gmail.com).
+//   + non-empty string, if the hosted domain was fetched and this account
+//     has a hosted domain.
+// |error|: Error if failed to fetch the identity profile.
 typedef void (^GetHostedDomainCallback)(NSString* hosted_domain,
                                         NSError* error);
 
@@ -195,6 +201,14 @@ class ChromeIdentityService {
   // back on the main thread.
   virtual void GetHostedDomainForIdentity(ChromeIdentity* identity,
                                           GetHostedDomainCallback callback);
+
+  // Returns the identity hosted domain, for the cache only. This method
+  // returns:
+  //   + nil, if the hosted domain value was yet not fetched from the server.
+  //   + an empty string, if this is a consumer account (e.g. foo@gmail.com).
+  //   + non-empty string, if the hosted domain was fetched and this account
+  //     has a hosted domain.
+  virtual NSString* GetCachedHostedDomainForIdentity(ChromeIdentity* identity);
 
   // Retuns the MDM device status associated with |user_info|.
   virtual MDMDeviceStatus GetMDMDeviceStatus(NSDictionary* user_info);

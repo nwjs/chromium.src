@@ -182,7 +182,7 @@ const base::Feature kCrostini{"Crostini", base::FEATURE_DISABLED_BY_DEFAULT};
 // Enable additional Crostini session status reporting for
 // managed devices only, i.e. reports of installed apps and kernel version.
 const base::Feature kCrostiniAdditionalEnterpriseReporting{
-    "CrostiniAdditionalEnterpriseReporting", base::FEATURE_DISABLED_BY_DEFAULT};
+    "CrostiniAdditionalEnterpriseReporting", base::FEATURE_ENABLED_BY_DEFAULT};
 
 // Enable advanced access controls for Crostini-related features
 // (e.g. restricting VM CLI tools access, restricting Crostini root access).
@@ -381,7 +381,7 @@ const base::Feature kHappinessTrackingSurveysForDesktop{
 // Enables committed error pages instead of transient navigation entries for
 // HTTP auth interstitial pages (i.e. HTTP auth prompts initiated cross-origin).
 const base::Feature kHTTPAuthCommittedInterstitials{
-    "HTTPAuthCommittedInterstitials", base::FEATURE_ENABLED_BY_DEFAULT};
+    "HTTPAuthCommittedInterstitials", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enables navigation suggestions UI for lookalike URLs (e.g. internationalized
 // domain names that are visually similar to popular domains or to domains with
@@ -527,7 +527,7 @@ const base::Feature kParentAccessCode{"ParentAccessCode",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kParentAccessCodeForTimeChange{
-    "ParentAccessCodeForTimeChange", base::FEATURE_ENABLED_BY_DEFAULT};
+    "ParentAccessCodeForTimeChange", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 // Delegate permissions to cross-origin iframes when the feature has been

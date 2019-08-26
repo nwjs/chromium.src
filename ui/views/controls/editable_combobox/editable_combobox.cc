@@ -450,11 +450,11 @@ void EditableCombobox::OnViewBlurred(View* observed_view) {
 // EditableCombobox, ButtonListener overrides:
 
 void EditableCombobox::ButtonPressed(Button* sender, const ui::Event& event) {
+  textfield_->RequestFocus();
   if (menu_runner_ && menu_runner_->IsRunning()) {
     CloseMenu();
     return;
   }
-  textfield_->RequestFocus();
   ui::MenuSourceType source_type = ui::MENU_SOURCE_MOUSE;
   if (event.IsKeyEvent())
     source_type = ui::MENU_SOURCE_KEYBOARD;
@@ -510,6 +510,8 @@ void EditableCombobox::ShowDropDownMenu(ui::MenuSourceType source_type) {
     return;
   }
   if (menu_runner_ && menu_runner_->IsRunning())
+    return;
+  if (!GetWidget())
     return;
 
   // Since we don't capture the mouse, we want to see the events that happen in

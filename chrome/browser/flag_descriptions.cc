@@ -252,18 +252,6 @@ const char kCaptionSettingsName[] = "Caption Settings";
 const char kCaptionSettingsDescription[] =
     "Enable the ability to customize captions.";
 
-const char kClickToCallReceiverName[] =
-    "Enable receiver device to handle click to call feature";
-const char kClickToCallReceiverDescription[] =
-    "Enables receiver device to handle click to call feature by showing a "
-    "notification to call the phone number clicked on the desktop.";
-
-const char kClickToCallUIName[] =
-    "Enable click to call feature signals to be handled on desktop";
-const char kClickToCallUIDescription[] =
-    "Enables click to call feature signals to be handled on desktop by showing "
-    "a list of user's available devices with telephony functionality.";
-
 const char kClickToOpenPDFName[] = "Click to open embedded PDFs";
 const char kClickToOpenPDFDescription[] =
     "When the PDF plugin is unavailable, show a click-to-open placeholder for "
@@ -1336,6 +1324,11 @@ const char kOmniboxDisplayTitleForCurrentUrlDescription[] =
     "the current page is provided as the first suggestion without a title. "
     "Enabling this flag causes the title to be displayed.";
 
+const char kOmniboxDisableInstantExtendedLimitName[] =
+    "Disable the 'instant extended' limit on search suggestions";
+const char kOmniboxDisableInstantExtendedLimitDescription[] =
+    "Effectively doubles the max number of Google-provided search suggestions "
+    "on Android by disabling the 'Instant Extended' check.";
 const char kOmniboxGroupSuggestionsBySearchVsUrlName[] =
     "Omnibox Group Suggestions By Search vs URL";
 const char kOmniboxGroupSuggestionsBySearchVsUrlDescription[] =
@@ -1570,6 +1563,12 @@ const char kPerMethodCanMakePaymentQuotaName[] =
 const char kPerMethodCanMakePaymentQuotaDescription[] =
     "Allow calling canMakePayment() for different payment methods, as long as "
     "method-specific parameters remain unchanged.";
+
+const char kPolicyAtomicGroupsEnabledName[] = "Policy Atomic Groups Enabled";
+const char kPolicyAtomicGroupsEnabledDescription[] =
+    "Enables the concept of policy atomic groups that makes policies of an "
+    "atomic group that do not share the highest priority source from that group"
+    "ignored.";
 
 const char kPreviewsAllowedName[] = "Previews Allowed";
 const char kPreviewsAllowedDescription[] =
@@ -2243,6 +2242,12 @@ const char kClearOldBrowsingDataDescription[] =
     "Enables clearing of browsing data which is older than a given time "
     "period.";
 
+const char kClickToCallReceiverName[] =
+    "Enable receiver device to handle click to call feature";
+const char kClickToCallReceiverDescription[] =
+    "Enables receiver device to handle click to call feature by showing a "
+    "notification to call the phone number clicked on the desktop.";
+
 const char kContextualSearchDefinitionsName[] = "Contextual Search definitions";
 const char kContextualSearchDefinitionsDescription[] =
     "Enables tap-activated contextual definitions of words on a page to be "
@@ -2630,6 +2635,12 @@ const char kUpdateMenuTypeInlineUpdateDownloadCanceled[] =
 const char kUpdateMenuTypeInlineUpdateInstallFailed[] =
     "Inline Update Error: Install Failed";
 
+const char kUsageStatsDescription[] =
+    "When set, enables sharing of per-domain usage stats with the Digital "
+    "Wellbeing app on Android, and allows Digital Wellbeing to suspend access "
+    "to websites in order to enforce user-defined time limits.";
+const char kUsageStatsName[] = "Share Usage Stats with Digital Wellbeing";
+
 const char kInlineUpdateFlowName[] = "Enable Google Play inline update flow";
 const char kInlineUpdateFlowDescription[] =
     "When this flag is set, instead of taking the user to the Google Play "
@@ -2675,6 +2686,11 @@ const char kCastMediaRouteProviderDescription[] =
 const char kChromeColorsName[] = "Chrome Colors menu";
 const char kChromeColorsDescription[] =
     "Show Chrome Colors menu in the NTP customization menu.";
+
+const char kChromeColorsCustomColorPickerName[] =
+    "Custom color picker for Chrome Colors menu";
+const char kChromeColorsCustomColorPickerDescription[] =
+    "Show custom color picker in Chrome Colors menu.";
 
 const char kDialMediaRouteProviderName[] = "DIAL Media Route Provider";
 const char kDialMediaRouteProviderDescription[] =
@@ -3490,6 +3506,12 @@ const char kAnimatedAvatarButtonName[] = "Animated avatar button";
 const char kAnimatedAvatarButtonDescription[] =
     "If enabled, Chrome will animate a pill with identity information around "
     "the avatar button on start-up and on sign-in.";
+
+const char kClickToCallUIName[] =
+    "Enable click to call feature signals to be handled on desktop";
+const char kClickToCallUIDescription[] =
+    "Enables click to call feature signals to be handled on desktop by showing "
+    "a list of user's available devices with telephony functionality.";
 
 #endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 

@@ -84,6 +84,7 @@ public class FeatureUtilities {
     private static Boolean sShouldPrioritizeBootstrapTasks;
     private static Boolean sIsGridTabSwitcherEnabled;
     private static Boolean sIsTabGroupsAndroidEnabled;
+    private static Boolean sIsTabToGtsAnimationEnabled;
     private static Boolean sFeedEnabled;
     private static Boolean sServiceManagerForBackgroundPrefetch;
     private static Boolean sIsNetworkServiceEnabled;
@@ -187,8 +188,6 @@ public class FeatureUtilities {
         cachePrioritizeBootstrapTasks();
         cacheFeedEnabled();
         cacheNetworkService();
-        cacheServiceManagerForDownloadResumption();
-        cacheServiceManagerForBackgroundPrefetch();
         cacheNetworkServiceWarmUpEnabled();
         cacheImmersiveUiModeEnabled();
         cacheSwapPixelFormatToFixConvertFromTranslucentEnabled();
@@ -201,6 +200,18 @@ public class FeatureUtilities {
         // LibraryLoader itself because it lives in //base and can't depend on ChromeFeatureList.
         LibraryLoader.setReachedCodeProfilerEnabledOnNextRuns(
                 ChromeFeatureList.isEnabled(ChromeFeatureList.REACHED_CODE_PROFILER));
+    }
+
+    /**
+     * Caches flags that are enabled in ServiceManager only mode and must take effect on startup but
+     * are set via native code. This function needs to be called in ServiceManager only mode to mark
+     * these field trials as active, otherwise histogram data recorded in ServiceManager only mode
+     * won't be tagged with their corresponding field trial experiments.
+     */
+    public static void cacheNativeFlagsForServiceManagerOnlyMode() {
+        // TODO(crbug.com/995355): Move other related flags from {@link cacheNativeFlags} to here.
+        cacheServiceManagerForDownloadResumption();
+        cacheServiceManagerForBackgroundPrefetch();
     }
 
     /**
@@ -284,7 +295,7 @@ public class FeatureUtilities {
         return sServiceManagerForDownloadResumption && isNetworkServiceEnabled();
     }
 
-    private static void cacheServiceManagerForBackgroundPrefetch() {
+    public static void cacheServiceManagerForBackgroundPrefetch() {
         boolean backgroundPrefetchInReducedMode = ChromeFeatureList.isEnabled(
                 ChromeFeatureList.SERVICE_MANAGER_FOR_BACKGROUND_PREFETCH);
 
@@ -644,9 +655,22 @@ public class FeatureUtilities {
     }
 
     /**
+     * Toggles whether the Tab-to-GTS animation is enabled for testing. Should be reset back to
+     * null after the test has finished.
+     */
+    @VisibleForTesting
+    public static void setIsTabToGtsAnimationEnabledForTesting(@Nullable Boolean enabled) {
+        sIsTabToGtsAnimationEnabled = enabled;
+    }
+
+    /**
      * @return Whether the Tab-to-Grid (and Grid-to-Tab) transition animation is enabled.
      */
     public static boolean isTabToGtsAnimationEnabled() {
+        if (sIsTabToGtsAnimationEnabled != null) {
+            Log.d(TAG, "IsTabToGtsAnimationEnabled forced to " + sIsTabToGtsAnimationEnabled);
+            return sIsTabToGtsAnimationEnabled;
+        }
         Log.d(TAG, "GTS.MinSdkVersion = " + GridTabSwitcherUtil.getMinSdkVersion());
         Log.d(TAG, "GTS.MinMemoryMB = " + GridTabSwitcherUtil.getMinMemoryMB());
         return ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_TO_GTS_ANIMATION)

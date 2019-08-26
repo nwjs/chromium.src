@@ -5,6 +5,8 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.content.Context;
+import android.graphics.Rect;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -33,7 +35,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
     TabGridDialogCoordinator(Context context, TabModelSelector tabModelSelector,
             TabContentManager tabContentManager, TabCreatorManager tabCreatorManager,
             CompositorViewHolder compositorViewHolder,
-            GridTabSwitcherMediator.ResetHandler resetHandler,
+            TabSwitcherMediator.ResetHandler resetHandler,
             TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             TabGridDialogMediator.AnimationOriginProvider animationOriginProvider) {
         mContext = context;
@@ -72,6 +74,19 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
                 mToolbarCoordinator.destroy();
             }
         }
+    }
+
+    boolean isVisible() {
+        return mMediator.isVisible();
+    }
+
+    @NonNull
+    Rect getGlobalLocationOfCurrentThumbnail() {
+        mTabListCoordinator.updateThumbnailLocation();
+        Rect thumbnail = mTabListCoordinator.getThumbnailLocationOfCurrentTab();
+        Rect recyclerViewLocation = mTabListCoordinator.getRecyclerViewLocation();
+        thumbnail.offset(recyclerViewLocation.left, recyclerViewLocation.top);
+        return thumbnail;
     }
 
     TabGridDialogMediator.ResetHandler getResetHandler() {

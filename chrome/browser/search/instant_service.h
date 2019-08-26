@@ -17,6 +17,7 @@
 #include "base/observer_list.h"
 #include "base/optional.h"
 #include "build/build_config.h"
+#include "chrome/browser/search/background/ntp_background_service_observer.h"
 #include "chrome/browser/search/search_provider_observer.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/image_fetcher/core/image_fetcher_impl.h"
@@ -39,6 +40,7 @@ class InstantIOContext;
 class InstantServiceObserver;
 class NtpBackgroundService;
 class Profile;
+struct CollectionImage;
 struct InstantMostVisitedInfo;
 struct ThemeBackgroundInfo;
 
@@ -53,6 +55,7 @@ extern const char kNtpCustomBackgroundMainColor[];
 // necessary information (most visited tiles and theme info) updated in those
 // renderer processes.
 class InstantService : public KeyedService,
+                       public NtpBackgroundServiceObserver,
                        public content::NotificationObserver,
                        public ntp_tiles::MostVisitedSites::Observer,
                        public ui::NativeThemeObserver {
@@ -135,12 +138,12 @@ class InstantService : public KeyedService,
   // Invoked when a custom background is selected on the NTP.
   void SetCustomBackgroundURL(const GURL& url);
 
-  // Invoked when a custom background with attributions is selected on the NTP.
-  void SetCustomBackgroundURLWithAttributions(
-      const GURL& background_url,
-      const std::string& attribution_line_1,
-      const std::string& attribution_line_2,
-      const GURL& action_url);
+  // Invoked when a custom background is configured on the NTP.
+  void SetCustomBackgroundInfo(const GURL& background_url,
+                               const std::string& attribution_line_1,
+                               const std::string& attribution_line_2,
+                               const GURL& action_url,
+                               const std::string& collection_id);
 
   // Invoked when a user selected the "Upload an image" option on the NTP.
   void SelectLocalBackgroundImage(const base::FilePath& path);
@@ -153,6 +156,13 @@ class InstantService : public KeyedService,
 
   // Used for testing.
   void AddValidBackdropUrlForTesting(const GURL& url) const;
+
+  // Used for testing.
+  void AddValidBackdropCollectionForTesting(
+      const std::string& collection_id) const;
+
+  // Used for testing.
+  void SetNextCollectionImageForTesting(const CollectionImage& image) const;
 
   // Check if a custom background has been set by the user.
   bool IsCustomBackgroundSet();
@@ -196,9 +206,16 @@ class InstantService : public KeyedService,
   FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, TestUpdateCustomBackgroundColor);
   FRIEND_TEST_ALL_PREFIXES(InstantServiceTest,
                            LocalImageDoesNotUpdateCustomBackgroundColor);
+  FRIEND_TEST_ALL_PREFIXES(InstantServiceTest, RefreshesBackgroundAfter24Hours);
 
   // KeyedService:
   void Shutdown() override;
+
+  // NtpBackgroundServiceObserver:
+  void OnCollectionInfoAvailable() override {}
+  void OnCollectionImagesAvailable() override {}
+  void OnNextCollectionImageAvailable() override;
+  void OnNtpBackgroundServiceShuttingDown() override;
 
   // content::NotificationObserver:
   void Observe(int type,
@@ -256,9 +273,14 @@ class InstantService : public KeyedService,
 
   void SetImageFetcherForTesting(image_fetcher::ImageFetcher* image_fetcher);
 
+  void SetClockForTesting(base::Clock* clock);
+
   base::TimeTicks GetBackgroundUpdatedTimestampForTesting() {
     return background_updated_timestamp_;
   }
+
+  // Requests a new background image if it hasn't been updated in >24 hours.
+  void RefreshBackgroundIfNeeded();
 
   Profile* const profile_;
 
@@ -290,6 +312,9 @@ class InstantService : public KeyedService,
 
   ScopedObserver<ui::NativeTheme, InstantService> theme_observer_;
 
+  ScopedObserver<NtpBackgroundService, NtpBackgroundServiceObserver>
+      background_service_observer_;
+
   ui::NativeTheme* native_theme_;
 
   NtpBackgroundService* background_service_;
@@ -297,6 +322,8 @@ class InstantService : public KeyedService,
   std::unique_ptr<image_fetcher::ImageFetcher> image_fetcher_;
 
   base::TimeTicks background_updated_timestamp_;
+
+  base::Clock* clock_;
 
   base::WeakPtrFactory<InstantService> weak_ptr_factory_{this};
 

@@ -2484,6 +2484,57 @@ Unknown properties are collapsed to zero. -->
   <int value="6" label="Not allowed"/>
 </enum>
 
+<enum name="ArcExternalProtocolAction">
+  <int value="0" label="other App accepted and persisted"/>
+  <int value="1" label="other App accepted and not persisted"/>
+  <int value="2" label="other App rejected"/>
+  <int value="3" label="bitcoin:// App accepted and persisted"/>
+  <int value="4" label="bitcoin:// App accepted and not persisted"/>
+  <int value="5" label="bitcoin:// App rejected"/>
+  <int value="6" label="geo:// App accepted and persisted"/>
+  <int value="7" label="geo:// App accepted and not persisted"/>
+  <int value="8" label="geo:// App rejected"/>
+  <int value="9" label="im:// App accepted and persisted"/>
+  <int value="10" label="im:// App accepted and not persisted"/>
+  <int value="11" label="im:// App rejected"/>
+  <int value="12" label="irc:// App accepted and persisted"/>
+  <int value="13" label="irc:// App accepted and not persisted"/>
+  <int value="14" label="irc:// App rejected"/>
+  <int value="15" label="magnet:// App accepted and persisted"/>
+  <int value="16" label="magnet:// App accepted and not persisted"/>
+  <int value="17" label="magnet:// App rejected"/>
+  <int value="18" label="mailto:// App accepted and persisted"/>
+  <int value="19" label="mailto:// App accepted and not persisted"/>
+  <int value="20" label="mailto:// App rejected"/>
+  <int value="21" label="mms:// App accepted and persisted"/>
+  <int value="22" label="mms:// App accepted and not persisted"/>
+  <int value="23" label="mms:// App rejected"/>
+  <int value="24" label="sip:// App accepted and persisted"/>
+  <int value="25" label="sip:// App accepted and not persisted"/>
+  <int value="26" label="sip:// App rejected"/>
+  <int value="27" label="skype:// App accepted and persisted"/>
+  <int value="28" label="skype:// App accepted and not persisted"/>
+  <int value="29" label="skype:// App rejected"/>
+  <int value="30" label="sms:// App accepted and persisted"/>
+  <int value="31" label="sms:// App accepted and not persisted"/>
+  <int value="32" label="sms:// App rejected"/>
+  <int value="33" label="spotify:// App accepted and persisted"/>
+  <int value="34" label="spotify:// App accepted and not persisted"/>
+  <int value="35" label="spotify:// App rejected"/>
+  <int value="36" label="ssh:// App accepted and persisted"/>
+  <int value="37" label="ssh:// App accepted and not persisted"/>
+  <int value="38" label="ssh:// App rejected"/>
+  <int value="39" label="tel:// App accepted and persisted"/>
+  <int value="40" label="tel:// App accepted and not persisted"/>
+  <int value="41" label="tel:// App rejected"/>
+  <int value="42" label="telnet:// App accepted and persisted"/>
+  <int value="43" label="telnet:// App accepted and not persisted"/>
+  <int value="44" label="telnet:// App rejected"/>
+  <int value="45" label="webcal:// App accepted and persisted"/>
+  <int value="46" label="webcal:// App accepted and not persisted"/>
+  <int value="47" label="webcal:// App rejected"/>
+</enum>
+
 <enum name="ArcIntentHandlerAction">
   <summary>Defines Arc intent handler actions</summary>
   <int value="0" label="Error after showing picker"/>
@@ -4497,6 +4548,7 @@ Unknown properties are collapsed to zero. -->
   <int value="2" label="ImmediateDarkeningThresholdExceeded"/>
   <int value="3" label="BrightneningThresholdExceeded"/>
   <int value="4" label="DarkeningThresholdExceeded"/>
+  <int value="5" label="UpdateAfterLidReopen"/>
 </enum>
 
 <enum name="AutoScreenBrightnessBrightnessMonitorStatus">
@@ -4530,6 +4582,7 @@ Unknown properties are collapsed to zero. -->
   <int value="7" label="MinimalAlsChange"/>
   <int value="8" label="MissingPersonalCurve"/>
   <int value="9" label="WaitingForTrainedPersonalCurve"/>
+  <int value="10" label="WaitingForReopenAls"/>
 </enum>
 
 <enum name="AutoScreenBrightnessParameterError">
@@ -6479,6 +6532,11 @@ Unknown properties are collapsed to zero. -->
   <int value="1" label="Raced"/>
 </enum>
 
+<enum name="BooleanReady">
+  <int value="0" label="Not Ready"/>
+  <int value="1" label="Ready"/>
+</enum>
+
 <enum name="BooleanRebooted">
   <int value="0" label="Has not rebooted"/>
   <int value="1" label="Rebooted"/>
@@ -7495,25 +7553,28 @@ histogram as enum -->
 
 <enum name="ChromeColorsInfo">
   <int value="0" label="OTHER"/>
-  <int value="1" label="PISTACHIO"/>
-  <int value="2" label="SEAFOAM"/>
-  <int value="3" label="MIST"/>
-  <int value="4" label="FLAMINGO"/>
-  <int value="5" label="WINE"/>
-  <int value="6" label="LAVENDER"/>
-  <int value="7" label="ELEPHANT"/>
-  <int value="8" label="SUNSET"/>
-  <int value="9" label="BANANA"/>
-  <int value="10" label="KIWI"/>
-  <int value="11" label="ROBINS EGG"/>
-  <int value="12" label="BLUE"/>
-  <int value="13" label="PINE"/>
-  <int value="14" label="OCEANIC"/>
-  <int value="15" label="BORDEAUX"/>
-  <int value="16" label="EGGPLANT"/>
-  <int value="17" label="NAVY"/>
-  <int value="18" label="MIDNIGHT"/>
-  <int value="19" label="RASPBERRY"/>
+  <int value="1" label="Elephant"/>
+  <int value="2" label="Light grey"/>
+  <int value="3" label="Midnight"/>
+  <int value="4" label="Black"/>
+  <int value="5" label="Beige/White"/>
+  <int value="6" label="Yellow/White"/>
+  <int value="7" label="Green/White"/>
+  <int value="8" label="Light Teal/White"/>
+  <int value="9" label="Light Purple/White"/>
+  <int value="10" label="Pink/White"/>
+  <int value="11" label="Beige"/>
+  <int value="12" label="Orange"/>
+  <int value="13" label="Light Green"/>
+  <int value="14" label="Light Teal"/>
+  <int value="15" label="Light Blue"/>
+  <int value="16" label="Pink"/>
+  <int value="17" label="Dark Pink/Red"/>
+  <int value="18" label="Dark Red/Orange"/>
+  <int value="19" label="Dark Green"/>
+  <int value="20" label="Dark Teal"/>
+  <int value="21" label="Dark Blue"/>
+  <int value="22" label="Dark Purple"/>
 </enum>
 
 <enum name="ChromeColorsRevertReason">
@@ -11496,6 +11557,7 @@ Called by update_net_error_codes.py.-->
   <int value="3" label="TPM owner delegate not allowed to reset"/>
   <int value="4" label="TPM owner delegate does not exist"/>
   <int value="5" label="Failed to query dictionary attack counter"/>
+  <int value="6" label="PCR0 in wrong state"/>
 </enum>
 
 <enum name="CrosUsbNotificationClosed">
@@ -12945,6 +13007,7 @@ Called by update_net_error_codes.py.-->
   <int value="2" label="Desk-switch keyboard shortcut"/>
   <int value="3" label="Mini_view button press"/>
   <int value="4" label="Window on desk activated"/>
+  <int value="5" label="Desk-switch 4-finger touchpad swipe"/>
 </enum>
 
 <enum name="DesktopCaptureCounters">
@@ -13375,6 +13438,22 @@ Called by update_net_error_codes.py.-->
 <enum name="DircryptoMigrationStartStatus">
   <int value="1" label="Migration started"/>
   <int value="2" label="Migration resumed"/>
+</enum>
+
+<enum name="DirectActionId">
+  <int value="0" label="Unknown action"/>
+  <int value="1" label="A direct action not on this enum"/>
+  <int value="2" label="go_back"/>
+  <int value="3" label="reload"/>
+  <int value="4" label="go_forward"/>
+  <int value="5" label="bookmark_this_page"/>
+  <int value="6" label="downloads"/>
+  <int value="7" label="preferences"/>
+  <int value="8" label="open_history"/>
+  <int value="9" label="help"/>
+  <int value="10" label="new_tab"/>
+  <int value="11" label="close_tab"/>
+  <int value="12" label="close_all_tabs"/>
 </enum>
 
 <enum name="DirectCompositionVideoPresentationMode">
@@ -24141,6 +24220,9 @@ Called by update_net_error_codes.py.-->
   <int value="2974" label="DownloadInAdFrame"/>
   <int value="2975" label="DownloadInSandbox"/>
   <int value="2976" label="DownloadWithoutUserGesture"/>
+  <int value="2977" label="AutoplayDynamicDelegation"/>
+  <int value="2979" label="FragmentDoubleHash"/>
+  <int value="2993" label="ContactsManagerSelect"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">
@@ -34455,6 +34537,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
       label="AutofillEnforceMinRequiredFieldsForQuery:disabled"/>
   <int value="-1408370474" label="AssistantRoutines:enabled"/>
   <int value="-1408288176" label="enable-account-consistency"/>
+  <int value="-1407769602" label="UsageStats:disabled"/>
   <int value="-1405349891" label="PictureInPictureAPI:enabled"/>
   <int value="-1405048637" label="OfflinePagesResourceBasedSnapshot:enabled"/>
   <int value="-1399753480" label="disable-harfbuzz-rendertext"/>
@@ -34752,6 +34835,7 @@ from previous Chrome versions.
   <int value="-1027124889" label="NtlmV2Enabled:enabled"/>
   <int value="-1022971520" label="enable-search-button-in-omnibox-for-str"/>
   <int value="-1022165708" label="BreakingNewsPush:disabled"/>
+  <int value="-1021097344" label="PolicyAtomicGroup:disabled"/>
   <int value="-1020450980" label="gesture-deletion"/>
   <int value="-1019967332" label="VrBrowsing:enabled"/>
   <int value="-1019492310"
@@ -34803,6 +34887,7 @@ from previous Chrome versions.
   <int value="-956696029" label="scheduler-configuration"/>
   <int value="-951394314" label="top-chrome-md"/>
   <int value="-950793721" label="TranslateUI2016Q2:disabled"/>
+  <int value="-950384924" label="OmniboxDisableInstantExtendedLimit:enabled"/>
   <int value="-949178861" label="enable-new-avatar-menu"/>
   <int value="-945806012" label="DownloadsUi:enabled"/>
   <int value="-938178614" label="enable-suggestions-with-substring-match"/>
@@ -35382,6 +35467,7 @@ from previous Chrome versions.
   <int value="-110726049" label="KeyboardLockAPI:disabled"/>
   <int value="-110465424" label="PictureInPicture:enabled"/>
   <int value="-108881882" label="NTPCondensedTileLayout:enabled"/>
+  <int value="-108468535" label="ChromeColorsCustomColorPicker:disabled"/>
   <int value="-102537270" label="extension-content-verification"/>
   <int value="-102227288" label="PasswordExport:disabled"/>
   <int value="-100148609" label="EvDetailsInPageInfo:disabled"/>
@@ -35390,6 +35476,7 @@ from previous Chrome versions.
   <int value="-92116820" label="InlineUpdateFlow:enabled"/>
   <int value="-90032223" label="BuiltInModuleInfra:disabled"/>
   <int value="-89690053" label="MaterialDesignUserManager:enabled"/>
+  <int value="-89567017" label="ChromeColorsCustomColorPicker:enabled"/>
   <int value="-88822940" label="ssl-version-min"/>
   <int value="-88273414" label="ContentSuggestionsShowSummary:enabled"/>
   <int value="-86788587" label="allow-autofill-sync-credential"/>
@@ -35740,6 +35827,7 @@ from previous Chrome versions.
   <int value="403741682" label="CrostiniBackup:enabled"/>
   <int value="405329388"
       label="FramebustingNeedsSameOriginOrUserGesture:enabled"/>
+  <int value="408190863" label="OmniboxDisableInstantExtendedLimit:disabled"/>
   <int value="411250226" label="AutoplayMutedVideos:disabled"/>
   <int value="412957264" label="tab-close-buttons-hidden-with-touch"/>
   <int value="413081240" label="enable-new-md-input-view"/>
@@ -36352,6 +36440,7 @@ from previous Chrome versions.
   <int value="1300753556" label="ManualPasswordGenerationAndroid:disabled"/>
   <int value="1301902557" label="AutofillCreditCardAuthentication:disabled"/>
   <int value="1302421166" label="NativeNotifications:disabled"/>
+  <int value="1303260487" label="UsageStats:enabled"/>
   <int value="1304636193" label="ArcEnableUnifiedAudioFocus:enabled"/>
   <int value="1307003774" label="AutofillEnableCompanyName:disabled"/>
   <int value="1308537004" label="force-pnacl-subzero"/>
@@ -36418,6 +36507,7 @@ from previous Chrome versions.
   <int value="1384614036" label="disable-unified-media-pipeline"/>
   <int value="1386300777"
       label="OmniboxUIExperimentHideSuggestionUrlTrivialSubdomains:disabled"/>
+  <int value="1387356699" label="PolicyAtomicGroup:enabled"/>
   <int value="1389729816" label="data-reduction-proxy-lo-fi"/>
   <int value="1392935139" label="KidsManagementUrlClassification:enabled"/>
   <int value="1393500952" label="EnableVirtualKeyboardUkm:disabled"/>
@@ -39633,6 +39723,12 @@ Called by update_use_counter_css.py.-->
   <int value="4" label="Interrupted"/>
 </enum>
 
+<enum name="MobileDownloadBackgroundTargetDeterminationResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Target path missing"/>
+  <int value="2" label="Path reservation failed"/>
+</enum>
+
 <enum name="MobileDownloadCancelReason">
   <int value="0" label="Not canceled"/>
   <int value="1" label="Click on the cancel button"/>
@@ -40480,6 +40576,20 @@ Called by update_use_counter_css.py.-->
   <int value="6"
       label="A navigation suggestion is found using edit distance against an
              engaged site"/>
+</enum>
+
+<enum name="NavigationURLScheme">
+  <int value="0" label="(Unknown)"/>
+  <int value="1" label="about"/>
+  <int value="2" label="blob"/>
+  <int value="3" label="content"/>
+  <int value="4" label="cid"/>
+  <int value="5" label="data"/>
+  <int value="6" label="file"/>
+  <int value="7" label="filesystem"/>
+  <int value="8" label="ftp"/>
+  <int value="9" label="http"/>
+  <int value="10" label="https"/>
 </enum>
 
 <enum name="NavigationWasServedFromCache">
@@ -42547,6 +42657,14 @@ Called by update_net_trust_anchors.py.-->
   <int value="4" label="802.11i/RSN"/>
   <int value="5" label="802.1x"/>
   <int value="6" label="PSK"/>
+</enum>
+
+<enum name="NetworkServiceAvailability">
+  <int value="0" label="Available"/>
+  <int value="1" label="Not created"/>
+  <int value="2" label="Not bound"/>
+  <int value="3" label="Encountered Error"/>
+  <int value="4" label="Not responding"/>
 </enum>
 
 <enum name="NetworkServiceConcerningRequestHeaders">
@@ -53814,6 +53932,7 @@ Called by update_net_trust_anchors.py.-->
   <int value="0" label="Enabled"/>
   <int value="1" label="Disabled, ready for migration"/>
   <int value="2" label="Disabled, not ready for migration"/>
+  <int value="3" label="Disabled, not to be migrated"/>
 </enum>
 
 <enum name="SigninDiceResponseHeader">
@@ -56597,6 +56716,13 @@ would be helpful to identify which type is being sent.
   <int value="10" label="Currency"/>
   <int value="11" label="Local time"/>
   <int value="12" label="Play install"/>
+</enum>
+
+<enum name="SuggestionEntityDecorationType">
+  <summary>Type of decoration beside entity suggestion.</summary>
+  <int value="0" label="Fallback Icon"/>
+  <int value="1" label="Color Tile"/>
+  <int value="2" label="Image"/>
 </enum>
 
 <enum name="SuggestionIconOrFaviconType">
@@ -59683,6 +59809,18 @@ Full version information for the fingerprint enum values:
   <int value="3" label="Stable"/>
 </enum>
 
+<enum name="UserDemographicsStatus">
+  <int value="0" label="Success - user demographics are available for report"/>
+  <int value="1" label="Sync is not enabled"/>
+  <int value="2" label="User demographics data is ineligible"/>
+  <int value="3"
+      label="Cannot get the current time that is needed to compute user's age"/>
+  <int value="4"
+      label="There is more than one profile in the user data directory of the
+             browser"/>
+  <int value="5" label="There is no sync service available"/>
+</enum>
+
 <enum name="UserGestureRequirement">
   <int value="0" label="Required and available"/>
   <int value="1" label="Required and not available"/>
@@ -62449,6 +62587,34 @@ Full version information for the fingerprint enum values:
   <int value="75" label="setWebviewClient"/>
   <int value="76" label="showFindDialog"/>
   <int value="77" label="stopLoading"/>
+</enum>
+
+<enum name="WebViewAppProvidedMimeType">
+  <int value="0"
+      label="Null MIME type for content supplied by an app ContentProvider."/>
+  <int value="1"
+      label="Nonnull MIME type for content supplied by an app
+             ContentProvider."/>
+  <int value="2"
+      label="Could not guess MIME type for Android asset from file extension."/>
+  <int value="3"
+      label="Successfully guessed MIME type for Android asset from file
+             extension."/>
+  <int value="4" label="Could not guess MIME type due to generic Exception."/>
+  <int value="5"
+      label="Could not guess MIME type for Android asset from InputStream
+             content. This is not ideal, but we have a fallback to try to
+             guess by sniffing the InputStream."/>
+  <int value="6"
+      label="Successfully guessed MIME type for Android asset from
+             InputStream content. Although this means we've guessed a MIME
+             type, this is not ideal because we would prefer to guess from
+             the file extension only."/>
+  <int value="7" label="Could not guess MIME type due to IOException."/>
+  <int value="8"
+      label="Null MIME type from shouldInterceptRequest return value."/>
+  <int value="9"
+      label="Nonnull MIME type from shouldInterceptRequest return value."/>
 </enum>
 
 <enum name="WebViewCallbackType">

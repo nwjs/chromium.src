@@ -119,8 +119,7 @@ public final class ServicificationBackgroundServiceTest {
     @Test
     @LargeTest
     @Feature({"ServicificationStartup"})
-    @CommandLineFlags.
-    Add({"enable-features=NetworkService,WriteBasicSystemProfileToPersistentHistogramsFile"})
+    @CommandLineFlags.Add("force-fieldtrials=*Foo/Bar")
     public void testHistogramsPersistedWithServiceManagerOnlyStart() {
         createBrowserMetricsSpareFile();
         Assert.assertTrue(mSpareFile.exists());

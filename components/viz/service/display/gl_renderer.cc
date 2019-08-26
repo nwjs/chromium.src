@@ -594,28 +594,32 @@ static SkColorType GlFormatToSkFormat(GrGLenum format) {
   }
 }
 
+static GrGLenum SkFormatToGlFormat(SkColorType format) {
+  switch (format) {
+    case kRGB_888x_SkColorType:
+      return GL_RGB8_OES;
+      break;
+    case kRGBA_8888_SkColorType:
+      return GL_RGBA8_OES;
+      break;
+    case kBGRA_8888_SkColorType:
+      return GL_BGRA8_EXT;
+      break;
+    default:
+      NOTREACHED();
+      return GL_RGBA8_OES;
+  }
+}
+
 // Wrap a given texture in a Ganesh backend texture.
 static sk_sp<SkImage> WrapTexture(uint32_t texture_id,
                                   uint32_t target,
                                   const gfx::Size& size,
                                   GrContext* context,
                                   bool flip_texture,
-                                  SkColorType format) {
-  GrGLenum texture_format(GL_RGBA8_OES);
-  switch (format) {
-    case kRGB_888x_SkColorType:
-      texture_format = GL_RGB8_OES;
-      break;
-    case kRGBA_8888_SkColorType:
-      texture_format = GL_RGBA8_OES;
-      break;
-    case kBGRA_8888_SkColorType:
-      texture_format = GL_BGRA8_EXT;
-      break;
-    default:
-      NOTREACHED();
-  }
-
+                                  SkColorType format,
+                                  bool adopt_texture) {
+  GrGLenum texture_format = SkFormatToGlFormat(format);
   GrGLTextureInfo texture_info;
   texture_info.fTarget = target;
   texture_info.fID = texture_id;
@@ -624,8 +628,13 @@ static sk_sp<SkImage> WrapTexture(uint32_t texture_id,
                                    GrMipMapped::kNo, texture_info);
   GrSurfaceOrigin origin =
       flip_texture ? kBottomLeft_GrSurfaceOrigin : kTopLeft_GrSurfaceOrigin;
-  return SkImage::MakeFromTexture(context, backend_texture, origin, format,
-                                  kPremul_SkAlphaType, nullptr);
+  if (adopt_texture) {
+    return SkImage::MakeFromAdoptedTexture(
+        context, backend_texture, origin, format, kPremul_SkAlphaType, nullptr);
+  } else {
+    return SkImage::MakeFromTexture(context, backend_texture, origin, format,
+                                    kPremul_SkAlphaType, nullptr);
+  }
 }
 
 static gfx::RectF CenteredRect(const gfx::Rect& tile_rect) {
@@ -887,12 +896,11 @@ sk_sp<SkImage> GLRenderer::ApplyBackdropFilters(
     return nullptr;
 
   auto filter = paint_filter->cached_sk_filter_;
-  bool flip_texture = true;
-
   sk_sp<SkImage> src_image = WrapTexture(
       params->background_texture, GL_TEXTURE_2D, params->background_rect.size(),
-      use_gr_context->context(), flip_texture,
-      GlFormatToSkFormat(params->background_texture_format));
+      use_gr_context->context(), /*flip_texture=*/true,
+      GlFormatToSkFormat(params->background_texture_format),
+      /*adopt_texture=*/false);
   if (!src_image) {
     TRACE_EVENT_INSTANT0("cc",
                          "ApplyBackdropFilters wrap background texture failed",
@@ -976,14 +984,48 @@ sk_sp<SkImage> GLRenderer::ApplyBackdropFilters(
   //   2. Render the parent render pass (containing the "backdrop image" to be
   //      filtered).
   //   3. Run this code, to filter, and possibly mask, the backdrop image.
-  const SkImage* mask_image = nullptr;
+  sk_sp<const SkImage> mask_image = nullptr;
   base::Optional<DisplayResourceProvider::ScopedReadLockSkImage>
-      backdrop_image_lock;
+      backdrop_image_lock_sk;
+  base::Optional<DisplayResourceProvider::ScopedSamplerGL>
+      backdrop_image_lock_gl;
   if (quad->mask_applies_to_backdrop && quad->mask_resource_id()) {
-    backdrop_image_lock.emplace(resource_provider_, quad->mask_resource_id(),
-                                kPremul_SkAlphaType, kTopLeft_GrSurfaceOrigin);
-    // TODO(984766): This will be null on Mac, so masks will not be applied.
-    mask_image = backdrop_image_lock->sk_image();
+    if (resource_provider_->GetResourceTextureTarget(
+            quad->mask_resource_id()) == GL_TEXTURE_RECTANGLE_ARB) {
+      // On some platforms, Skia doesn't know that the hardware supports
+      // GL_TEXTURE_RECTANGLE. So for texture rectangles, fall back to using
+      // CopyTextureCHROMIUM to copy from the mask resource to a newly-created
+      // texture, and then wrap that texture with an SkImage.
+      backdrop_image_lock_gl.emplace(resource_provider_,
+                                     quad->mask_resource_id(), GL_LINEAR);
+      GLenum source_id = backdrop_image_lock_gl->texture_id();
+      GLint internalformat = GLInternalFormat(
+          resource_provider_->GetResourceFormat(quad->mask_resource_id()));
+      GLuint dest_id;
+      gl_->GenTextures(1, &dest_id);
+      gl_->BindTexture(GL_TEXTURE_2D, dest_id);
+      // Format is the same as internalformat for the formats being considered.
+      GLint format = internalformat;
+      gl_->TexImage2D(GL_TEXTURE_2D, 0, internalformat,
+                      quad->mask_texture_size.width(),
+                      quad->mask_texture_size.height(), 0, format,
+                      GL_UNSIGNED_BYTE, nullptr);
+      gl_->CopyTextureCHROMIUM(source_id, 0, GL_TEXTURE_2D, dest_id, 0,
+                               internalformat, GL_UNSIGNED_BYTE,
+                               /*unpack_flip_y=*/false,
+                               /*unpack_premultiply_alpha=*/false,
+                               /*unpack_unmultiply_alpha=*/false);
+      mask_image = WrapTexture(dest_id, GL_TEXTURE_2D, quad->mask_texture_size,
+                               use_gr_context->context(), false,
+                               GlFormatToSkFormat(internalformat),
+                               /*adopt_texture=*/true);
+    } else {
+      backdrop_image_lock_sk.emplace(
+          resource_provider_, quad->mask_resource_id(), kPremul_SkAlphaType,
+          kTopLeft_GrSurfaceOrigin);
+      mask_image = backdrop_image_lock_sk->TakeSkImage();
+    }
+    DCHECK(mask_image);
   }
   if (mask_image) {
     // Scale normalized uv rect into absolute texel coordinates.
@@ -1289,7 +1331,7 @@ bool GLRenderer::UpdateRPDQWithSkiaFilters(
           sk_sp<SkImage> src_image = WrapTexture(
               params->contents_texture->id(), GL_TEXTURE_2D,
               params->contents_texture->size(), use_gr_context->context(),
-              params->flip_texture, kN32_SkColorType);
+              params->flip_texture, kN32_SkColorType, /*adopt_texture=*/false);
           params->filter_image = SkiaHelper::ApplyImageFilter(
               use_gr_context->context(), src_image, src_rect, params->dst_rect,
               quad->filters_scale, std::move(filter), &offset, &subset,
@@ -1305,7 +1347,7 @@ bool GLRenderer::UpdateRPDQWithSkiaFilters(
                           prefilter_bypass_quad_texture_lock.target(),
                           prefilter_bypass_quad_texture_lock.size(),
                           use_gr_context->context(), params->flip_texture,
-                          kN32_SkColorType);
+                          kN32_SkColorType, /*adopt_texture=*/false);
           params->filter_image = SkiaHelper::ApplyImageFilter(
               use_gr_context->context(), src_image, src_rect, params->dst_rect,
               quad->filters_scale, std::move(filter), &offset, &subset,
@@ -2235,8 +2277,6 @@ void GLRenderer::DrawYUVVideoQuad(const YUVVideoDrawQuad* quad,
 
   gfx::ColorSpace dst_color_space =
       current_frame()->current_render_pass->color_space;
-
-#if defined(OS_WIN)
   // Force sRGB output on Windows for overlay candidate video quads to match
   // DirectComposition behavior in case these switch between overlays and
   // compositing. See https://crbug.com/811118 for details.
@@ -2245,7 +2285,6 @@ void GLRenderer::DrawYUVVideoQuad(const YUVVideoDrawQuad* quad,
     DCHECK(resource_provider_->IsOverlayCandidate(quad->u_plane_resource_id()));
     dst_color_space = gfx::ColorSpace::CreateSRGB();
   }
-#endif
 
   // TODO(jbauman): Use base::Optional when available.
   std::unique_ptr<DisplayResourceProvider::ScopedSamplerGL> v_plane_lock;
@@ -2666,17 +2705,9 @@ void GLRenderer::FinishDrawingFrame() {
   gl_->Disable(GL_BLEND);
   blend_shadow_ = false;
 
-  // Schedule output surface as overlay first to preserve existing ordering
-  // semantics during overlay refactoring.
-  ScheduleOutputSurfaceAsOverlay();
-
-#if defined(OS_ANDROID) || defined(USE_OZONE)
-  ScheduleOverlays();
-#elif defined(OS_MACOSX)
   ScheduleCALayers();
-#elif defined(OS_WIN)
   ScheduleDCLayers();
-#endif
+  ScheduleOverlays();
 
   TRACE_COUNTER1(TRACE_DISABLED_BY_DEFAULT("viz.triangles"), "Triangles Drawn",
                  num_triangles_drawn_);
@@ -3305,7 +3336,6 @@ bool GLRenderer::IsContextLost() {
   return gl_->GetGraphicsResetStatusKHR() != GL_NO_ERROR;
 }
 
-#if defined(OS_MACOSX)
 void GLRenderer::ScheduleCALayers() {
   // The use of OverlayTextures for RenderPasses is only supported on the code
   // paths for |release_overlay_resources_after_gpu_query| at the moment. See
@@ -3318,7 +3348,8 @@ void GLRenderer::ScheduleCALayers() {
   scoped_refptr<CALayerOverlaySharedState> shared_state;
   size_t copied_render_pass_count = 0;
 
-  for (const CALayerOverlay& ca_layer_overlay : current_frame()->overlay_list) {
+  for (const CALayerOverlay& ca_layer_overlay :
+       current_frame()->ca_layer_overlay_list) {
     if (ca_layer_overlay.rpdq) {
       std::unique_ptr<OverlayTexture> overlay_texture =
           ScheduleRenderPassDrawQuad(&ca_layer_overlay);
@@ -3378,11 +3409,10 @@ void GLRenderer::ScheduleCALayers() {
 
   ReduceAvailableOverlayTextures();
 }
-#endif  // defined(OS_MACOSX)
 
-#if defined(OS_WIN)
 void GLRenderer::ScheduleDCLayers() {
-  for (DCLayerOverlay& dc_layer_overlay : current_frame()->overlay_list) {
+  for (DCLayerOverlay& dc_layer_overlay :
+       current_frame()->dc_layer_overlay_list) {
     ResourceId resource_ids[] = {dc_layer_overlay.y_resource_id,
                                  dc_layer_overlay.uv_resource_id};
     GLuint texture_ids[2] = {};
@@ -3423,19 +3453,23 @@ void GLRenderer::ScheduleDCLayers() {
         clip_rect.height(), protected_video_type);
   }
 }
-#endif  // defined (OS_WIN)
 
-#if defined(OS_ANDROID) || defined(USE_OZONE)
 void GLRenderer::ScheduleOverlays() {
   if (current_frame()->overlay_list.empty())
     return;
 
   OverlayCandidateList& overlays = current_frame()->overlay_list;
   for (const auto& overlay_candidate : overlays) {
-    pending_overlay_resources_.push_back(
-        std::make_unique<DisplayResourceProvider::ScopedReadLockGL>(
-            resource_provider_, overlay_candidate.resource_id));
-    unsigned texture_id = pending_overlay_resources_.back()->texture_id();
+    unsigned texture_id = 0;
+    if (overlay_candidate.use_output_surface_for_resource) {
+      texture_id = output_surface_->GetOverlayTextureId();
+      DCHECK(texture_id || IsContextLost());
+    } else {
+      pending_overlay_resources_.push_back(
+          std::make_unique<DisplayResourceProvider::ScopedReadLockGL>(
+              resource_provider_, overlay_candidate.resource_id));
+      texture_id = pending_overlay_resources_.back()->texture_id();
+    }
 
     context_support_->ScheduleOverlayPlane(
         overlay_candidate.plane_z_order, overlay_candidate.transform,
@@ -3444,28 +3478,7 @@ void GLRenderer::ScheduleOverlays() {
         overlay_candidate.gpu_fence_id);
   }
 }
-#endif  // defined(OS_ANDROID) || defined(USE_OZONE)
 
-void GLRenderer::ScheduleOutputSurfaceAsOverlay() {
-  if (!current_frame()->output_surface_plane)
-    return;
-
-  // Initialize correct values to use output surface as overlay candidate.
-  auto& overlay_candidate = *(current_frame()->output_surface_plane);
-  unsigned texture_id = output_surface_->GetOverlayTextureId();
-  DCHECK(texture_id || IsContextLost());
-  // Output surface is also z-order 0.
-  int plane_z_order = 0;
-  // Output surface always uses the full texture.
-  gfx::RectF uv_rect(0.f, 0.f, 1.f, 1.f);
-
-  context_support_->ScheduleOverlayPlane(
-      plane_z_order, overlay_candidate.transform, texture_id,
-      ToNearestRect(overlay_candidate.display_rect), uv_rect,
-      overlay_candidate.enable_blending, overlay_candidate.gpu_fence_id);
-}
-
-#if defined(OS_MACOSX)
 // This function draws the RenderPassDrawQuad into a temporary
 // texture/framebuffer, and then copies the result into an IOSurface. The
 // inefficient (but simple) way to do this would be to:
@@ -3739,7 +3752,6 @@ GLRenderer::ScheduleRenderPassDrawQuad(const CALayerOverlay* ca_layer_overlay) {
                                filter);
   return overlay_texture;
 }
-#endif  // defined(OS_MACOSX)
 
 void GLRenderer::SetupOverdrawFeedback() {
   gl_->StencilFunc(GL_ALWAYS, 1, 0xffffffff);

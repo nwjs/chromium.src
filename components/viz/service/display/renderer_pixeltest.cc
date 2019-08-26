@@ -2980,21 +2980,14 @@ TYPED_TEST(RendererPixelTestWithBackdropFilter, InvertFilter) {
 }
 
 TYPED_TEST(RendererPixelTestWithBackdropFilter, InvertFilterWithMask) {
-  // TODO(981207): Need to complete the masking feature on software and
-  // skia renderers. For now, it only works on gl_renderer.
   const bool is_gl_renderer =
       std::is_same<TypeParam, GLRenderer>() ||
       std::is_same<TypeParam, cc::GLRendererWithExpandedViewport>();
-  if (!is_gl_renderer)
+  // TODO(989312): The mask on gl_renderer and software_renderer appears to be
+  // offset from the correct location.
+  const bool is_software_renderer = std::is_same<TypeParam, SoftwareRenderer>();
+  if (is_gl_renderer || is_software_renderer)
     return;
-  // TODO(984766): If the texture_rectangle feature is not available, then
-  // (currently) mask image readback will break.
-  if (!this->output_surface_->context_provider()
-           ->ContextCapabilities()
-           .texture_rectangle) {
-    return;
-  }
-
   this->backdrop_filters_.Append(cc::FilterOperation::CreateInvertFilter(1.f));
   this->filter_pass_layer_rect_ = gfx::Rect(this->device_viewport_size_);
   this->filter_pass_layer_rect_.Inset(12, 14, 16, 18);

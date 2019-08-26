@@ -523,7 +523,7 @@ void OverviewGrid::RemoveItem(OverviewItem* overview_item) {
   window_state_observer_.Remove(WindowState::Get(window));
 
   if (overview_session_) {
-    overview_session_->highlight_controller()->OnViewDestroying(
+    overview_session_->highlight_controller()->OnViewDestroyingOrDisabling(
         (*iter)->caption_container_view());
   }
 
@@ -677,7 +677,7 @@ void OverviewGrid::OnWindowDragContinued(aura::Window* dragged_window,
 
     overview_session_->highlight_controller()->UpdateTabDragHighlight(
         target_window->GetRootWindow(),
-        item->caption_container_view()->bounds());
+        item->caption_container_view()->GetBoundsInScreen());
     return;
   }
 
@@ -746,7 +746,7 @@ void OverviewGrid::OnWindowDestroying(aura::Window* window) {
   auto iter = GetOverviewItemIterContainingWindow(window);
   DCHECK(iter != window_list_.end());
   if (overview_session_) {
-    overview_session_->highlight_controller()->OnViewDestroying(
+    overview_session_->highlight_controller()->OnViewDestroyingOrDisabling(
         (*iter)->caption_container_view());
   }
 
@@ -1230,10 +1230,9 @@ bool OverviewGrid::MaybeDropItemOnDeskMiniView(
     if (target_desk == desks_controller->active_desk())
       return false;
 
-    desks_controller->MoveWindowFromActiveDeskTo(
+    return desks_controller->MoveWindowFromActiveDeskTo(
         dragged_window, target_desk,
         DesksMoveWindowFromActiveDeskSource::kDragAndDrop);
-    return true;
   }
 
   return false;

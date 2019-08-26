@@ -295,6 +295,10 @@ std::unique_ptr<base::DictionaryValue> GetTranslatedStrings(bool is_google) {
               IDS_NEW_TAB_VOICE_OTHER_ERROR);
     AddString(translated_strings.get(), "voiceCloseTooltip",
               IDS_NEW_TAB_VOICE_CLOSE_TOOLTIP);
+
+    // Colors menu
+    AddString(translated_strings.get(), "colorLabelPrefix",
+              IDS_NTP_CUSTOMIZE_COLOR_LABEL_PREFIX);
   }
 
   return translated_strings;
@@ -616,6 +620,9 @@ class LocalNtpSource::SearchConfigurationProvider
           base::FeatureList::IsEnabled(features::kNtpCustomizationMenuV2));
       config_data.SetBoolean("chromeColors", base::FeatureList::IsEnabled(
                                                  features::kChromeColors));
+      config_data.SetBoolean("chromeColorsCustomColorPicker",
+                             base::FeatureList::IsEnabled(
+                                 features::kChromeColorsCustomColorPicker));
     }
 
     // Serialize the dictionary.
@@ -1010,6 +1017,10 @@ void LocalNtpSource::StartDataRequest(
         l10n_util::GetStringUTF8(IDS_NTP_CUSTOM_BG_BACK_LABEL);
     replacements["refreshDaily"] =
         l10n_util::GetStringUTF8(IDS_NTP_CUSTOM_BG_DAILY_REFRESH);
+    replacements["colorPickerLabel"] =
+        l10n_util::GetStringUTF8(IDS_NTP_CUSTOMIZE_COLOR_PICKER_LABEL);
+    replacements["defaultThemeLabel"] =
+        l10n_util::GetStringUTF8(IDS_NTP_CUSTOMIZE_DEFAULT_LABEL);
 
     replacements["bgPreloader"] = "";
     GURL custom_background_url = GetCustomBackgroundURL(profile_->GetPrefs());

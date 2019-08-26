@@ -8,6 +8,7 @@
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/paint/paint_timing_detector.h"
+#include "third_party/blink/renderer/core/paint/paint_timing_test_helper.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -17,11 +18,35 @@ namespace blink {
 
 class LargestContentfulPaintCalculatorTest : public RenderingTest {
  public:
+  using LargestContentType =
+      LargestContentfulPaintCalculator::LargestContentType;
   void SetUp() override {
     // Advance the clock so we do not assign null TimeTicks.
     simulated_clock_.Advance(base::TimeDelta::FromMilliseconds(100));
     EnableCompositing();
     RenderingTest::SetUp();
+
+    mock_text_callback_manager_ =
+        MakeGarbageCollected<MockPaintTimingCallbackManager>();
+    GetTextPaintTimingDetector()->ResetCallbackManager(
+        mock_text_callback_manager_);
+    mock_image_callback_manager_ =
+        MakeGarbageCollected<MockPaintTimingCallbackManager>();
+    GetImagePaintTimingDetector()->ResetCallbackManager(
+        mock_image_callback_manager_);
+  }
+
+  ImagePaintTimingDetector* GetImagePaintTimingDetector() {
+    return GetFrame()
+        .View()
+        ->GetPaintTimingDetector()
+        .GetImagePaintTimingDetector();
+  }
+  TextPaintTimingDetector* GetTextPaintTimingDetector() {
+    return GetFrame()
+        .View()
+        ->GetPaintTimingDetector()
+        .GetTextPaintTimingDetector();
   }
 
   void SetImage(const char* id, int width, int height) {
@@ -41,14 +66,8 @@ class LargestContentfulPaintCalculatorTest : public RenderingTest {
     return original_image_resource;
   }
 
-  bool IsLastReportedImage() {
-    return GetLargestContentfulPaintCalculator()->last_type_ ==
-           LargestContentfulPaintCalculator::LargestContentType::kImage;
-  }
-
-  bool IsLastReportedText() {
-    return GetLargestContentfulPaintCalculator()->last_type_ ==
-           LargestContentfulPaintCalculator::LargestContentType::kText;
+  LargestContentType LastReportedType() {
+    return GetLargestContentfulPaintCalculator()->last_type_;
   }
 
   uint64_t LargestImageSize() {
@@ -59,23 +78,41 @@ class LargestContentfulPaintCalculatorTest : public RenderingTest {
     return GetLargestContentfulPaintCalculator()->LargestTextSize();
   }
 
-  void SimulateImageSwapPromise() {
-    auto* image_detector = GetFrame()
-                               .View()
-                               ->GetPaintTimingDetector()
-                               .GetImagePaintTimingDetector();
-    image_detector->ReportSwapTime(image_detector->last_registered_frame_index_,
-                                   WebWidgetClient::SwapResult::kDidSwap,
-                                   simulated_clock_.NowTicks());
+  void UpdateLargestContentfulPaintCandidate() {
+    GetFrame()
+        .View()
+        ->GetPaintTimingDetector()
+        .UpdateLargestContentfulPaintCandidate();
   }
 
+  void SimulateContentSwapPromise() {
+    mock_text_callback_manager_->InvokeSwapTimeCallback(
+        simulated_clock_.NowTicks());
+    mock_image_callback_manager_->InvokeSwapTimeCallback(
+        simulated_clock_.NowTicks());
+    // Outside the tests, this is invoked by
+    // |PaintTimingCallbackManagerImpl::ReportPaintTime|.
+    UpdateLargestContentfulPaintCandidate();
+  }
+
+  // Outside the tests, the text callback and the image callback are run
+  // together, as in |SimulateContentSwapPromise|.
+  void SimulateImageSwapPromise() {
+    mock_image_callback_manager_->InvokeSwapTimeCallback(
+        simulated_clock_.NowTicks());
+    // Outside the tests, this is invoked by
+    // |PaintTimingCallbackManagerImpl::ReportPaintTime|.
+    UpdateLargestContentfulPaintCandidate();
+  }
+
+  // Outside the tests, the text callback and the image callback are run
+  // together, as in |SimulateContentSwapPromise|.
   void SimulateTextSwapPromise() {
-    auto* text_detector = GetFrame()
-                              .View()
-                              ->GetPaintTimingDetector()
-                              .GetTextPaintTimingDetector();
-    text_detector->ReportSwapTime(WebWidgetClient::SwapResult::kDidSwap,
-                                  simulated_clock_.NowTicks());
+    mock_text_callback_manager_->InvokeSwapTimeCallback(
+        simulated_clock_.NowTicks());
+    // Outside the tests, this is invoked by
+    // |PaintTimingCallbackManagerImpl::ReportPaintTime|.
+    UpdateLargestContentfulPaintCandidate();
   }
 
  private:
@@ -87,6 +124,8 @@ class LargestContentfulPaintCalculatorTest : public RenderingTest {
   }
 
   base::SimpleTestTickClock simulated_clock_;
+  Persistent<MockPaintTimingCallbackManager> mock_text_callback_manager_;
+  Persistent<MockPaintTimingCallbackManager> mock_image_callback_manager_;
 };
 
 TEST_F(LargestContentfulPaintCalculatorTest, SingleImage) {
@@ -98,7 +137,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, SingleImage) {
   UpdateAllLifecyclePhasesForTest();
   SimulateImageSwapPromise();
 
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   EXPECT_EQ(LargestImageSize(), 15000u);
   EXPECT_EQ(LargestTextSize(), 0u);
 }
@@ -110,7 +149,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, SingleText) {
   )HTML");
   UpdateAllLifecyclePhasesForTest();
   SimulateTextSwapPromise();
-  EXPECT_TRUE(IsLastReportedText());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kText);
 }
 
 TEST_F(LargestContentfulPaintCalculatorTest, ImageLargerText) {
@@ -122,10 +161,10 @@ TEST_F(LargestContentfulPaintCalculatorTest, ImageLargerText) {
   SetImage("target", 3, 3);
   UpdateAllLifecyclePhasesForTest();
   SimulateImageSwapPromise();
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   SimulateTextSwapPromise();
 
-  EXPECT_TRUE(IsLastReportedText());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kText);
   EXPECT_EQ(LargestImageSize(), 9u);
   EXPECT_GT(LargestTextSize(), 9u);
 }
@@ -139,11 +178,11 @@ TEST_F(LargestContentfulPaintCalculatorTest, ImageSmallerText) {
   SetImage("target", 100, 200);
   UpdateAllLifecyclePhasesForTest();
   SimulateImageSwapPromise();
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   SimulateTextSwapPromise();
 
   // Text should not be reported, since it is smaller than the image.
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   EXPECT_EQ(LargestImageSize(), 20000u);
   EXPECT_GT(LargestTextSize(), 0u);
 }
@@ -156,11 +195,9 @@ TEST_F(LargestContentfulPaintCalculatorTest, TextLargerImage) {
   )HTML");
   SetImage("target", 100, 200);
   UpdateAllLifecyclePhasesForTest();
-  SimulateTextSwapPromise();
-  EXPECT_TRUE(IsLastReportedText());
-  SimulateImageSwapPromise();
+  SimulateContentSwapPromise();
 
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   EXPECT_EQ(LargestImageSize(), 20000u);
   EXPECT_GT(LargestTextSize(), 0u);
 }
@@ -173,12 +210,10 @@ TEST_F(LargestContentfulPaintCalculatorTest, TextSmallerImage) {
   )HTML");
   SetImage("target", 3, 3);
   UpdateAllLifecyclePhasesForTest();
-  SimulateTextSwapPromise();
-  EXPECT_TRUE(IsLastReportedText());
-  SimulateImageSwapPromise();
+  SimulateContentSwapPromise();
 
   // Image should not be reported, since it is smaller than the text.
-  EXPECT_TRUE(IsLastReportedText());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kText);
   EXPECT_EQ(LargestImageSize(), 9u);
   EXPECT_GT(LargestTextSize(), 9u);
 }
@@ -196,7 +231,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestImageRemoved) {
   SimulateImageSwapPromise();
   SimulateTextSwapPromise();
   // Image is larger than the text.
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   EXPECT_EQ(LargestImageSize(), 20000u);
   EXPECT_GT(LargestTextSize(), 9u);
 
@@ -204,7 +239,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestImageRemoved) {
   UpdateAllLifecyclePhasesForTest();
   // The LCP should now be the text because it is larger than the remaining
   // image.
-  EXPECT_TRUE(IsLastReportedText());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kText);
   EXPECT_EQ(LargestImageSize(), 9u);
   EXPECT_GT(LargestTextSize(), 9u);
 }
@@ -225,7 +260,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestTextRemoved) {
   SimulateImageSwapPromise();
   SimulateTextSwapPromise();
   // Test is larger than the image.
-  EXPECT_TRUE(IsLastReportedText());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kText);
   EXPECT_EQ(LargestImageSize(), 50u);
   EXPECT_GT(LargestTextSize(), 50u);
 
@@ -233,7 +268,7 @@ TEST_F(LargestContentfulPaintCalculatorTest, LargestTextRemoved) {
   UpdateAllLifecyclePhasesForTest();
   // The LCP should now be the image because it is larger than the remaining
   // text.
-  EXPECT_TRUE(IsLastReportedImage());
+  EXPECT_EQ(LastReportedType(), LargestContentType::kImage);
   EXPECT_EQ(LargestImageSize(), 50u);
   EXPECT_LT(LargestTextSize(), 50u);
 }

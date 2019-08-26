@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.content.Context;
-import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
@@ -82,6 +81,7 @@ public class TabListCoordinator implements Destroyable {
      * @param dialogHandler A handler to handle requests about updating TabGridDialog.
      * @param itemViewTypeCallback Callback that returns the view type for each item in the list.
      * @param selectionDelegateProvider Provider to provide selected Tabs for a selectable tab list.
+     *                                  It's NULL when selection is not possible.
      * @param parentView {@link ViewGroup} The root view of the UI.
      * @param dynamicResourceLoader The {@link DynamicResourceLoader} to register dynamic UI
      *                              resource for compositor layer animation.
@@ -98,7 +98,7 @@ public class TabListCoordinator implements Destroyable {
                     .GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
             @Nullable TabListMediator.TabGridDialogHandler dialogHandler,
             SimpleRecyclerViewMcpBase.ItemViewTypeCallback<PropertyModel> itemViewTypeCallback,
-            TabListMediator.SelectionDelegateProvider selectionDelegateProvider,
+            @Nullable TabListMediator.SelectionDelegateProvider selectionDelegateProvider,
             @NonNull ViewGroup parentView, @Nullable DynamicResourceLoader dynamicResourceLoader,
             boolean attachToParent, String componentName) {
         TabListModel tabListModel = new TabListModel();
@@ -154,18 +154,6 @@ public class TabListCoordinator implements Destroyable {
         }
 
         mRecyclerView.setAdapter(adapter);
-
-        if (mMode == TabListMode.GRID) {
-            mRecyclerView.setLayoutManager(new GridLayoutManager(context,
-                    context.getResources().getConfiguration().orientation
-                                    == Configuration.ORIENTATION_PORTRAIT
-                            ? GRID_LAYOUT_SPAN_COUNT_PORTRAIT
-                            : GRID_LAYOUT_SPAN_COUNT_LANDSCAPE));
-        } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL) {
-            mRecyclerView.setLayoutManager(
-                    new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
-        }
-
         mRecyclerView.setHasFixedSize(true);
 
         if (dynamicResourceLoader != null) {
@@ -175,23 +163,32 @@ public class TabListCoordinator implements Destroyable {
         TabListFaviconProvider tabListFaviconProvider =
                 new TabListFaviconProvider(context, Profile.getLastUsedProfile());
 
-        mMediator = new TabListMediator(tabListModel, tabModelSelector, thumbnailProvider,
+        mMediator = new TabListMediator(context, tabListModel, tabModelSelector, thumbnailProvider,
                 titleProvider, tabListFaviconProvider, actionOnRelatedTabs,
                 createGroupButtonProvider, selectionDelegateProvider,
                 gridCardOnClickListenerProvider, dialogHandler, componentName);
 
         if (mMode == TabListMode.GRID) {
+            mRecyclerView.setLayoutManager(
+                    new GridLayoutManager(context, GRID_LAYOUT_SPAN_COUNT_PORTRAIT));
+            mMediator.updateSpanCountForOrientation(
+                    (GridLayoutManager) mRecyclerView.getLayoutManager(),
+                    context.getResources().getConfiguration().orientation);
+        } else if (mMode == TabListMode.STRIP || mMode == TabListMode.CAROUSEL) {
+            mRecyclerView.setLayoutManager(
+                    new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+        }
+
+        if (mMode == TabListMode.GRID && selectionDelegateProvider == null) {
             ItemTouchHelper touchHelper = new ItemTouchHelper(mMediator.getItemTouchHelperCallback(
                     context.getResources().getDimension(R.dimen.swipe_to_dismiss_threshold),
                     context.getResources().getDimension(R.dimen.tab_grid_merge_threshold),
-                    context.getResources().getDimension(R.dimen.bottom_sheet_peek_height)));
+                    context.getResources().getDimension(R.dimen.bottom_sheet_peek_height),
+                    tabModelSelector.getCurrentModel().getProfile()));
             touchHelper.attachToRecyclerView(mRecyclerView);
             mMediator.registerOrientationListener(
                     (GridLayoutManager) mRecyclerView.getLayoutManager());
-        }
 
-        if (actionOnRelatedTabs) {
-            // Only do this for Grid Tab Switcher.
             // TODO(crbug.com/964406): unregister the listener when we don't need it.
             mRecyclerView.getViewTreeObserver().addOnGlobalLayoutListener(
                     this::updateThumbnailLocation);
@@ -204,10 +201,23 @@ public class TabListCoordinator implements Destroyable {
         return mThumbnailLocationOfCurrentTab;
     }
 
-    void updateThumbnailLocation() {
-        Rect rect = mRecyclerView.getRectOfCurrentThumbnail(mMediator.indexOfSelected());
-        if (rect == null) return;
+    @NonNull
+    Rect getRecyclerViewLocation() {
+        Rect recyclerViewRect = new Rect();
+        mRecyclerView.getGlobalVisibleRect(recyclerViewRect);
+        return recyclerViewRect;
+    }
+
+    /**
+     * Update the location of the selected thumbnail.
+     * @return Whether a valid {@link Rect} is obtained.
+     */
+    boolean updateThumbnailLocation() {
+        Rect rect = mRecyclerView.getRectOfCurrentThumbnail(
+                mMediator.indexOfSelected(), mMediator.selectedTabId());
+        if (rect == null) return false;
         mThumbnailLocationOfCurrentTab.set(rect);
+        return true;
     }
 
     /**

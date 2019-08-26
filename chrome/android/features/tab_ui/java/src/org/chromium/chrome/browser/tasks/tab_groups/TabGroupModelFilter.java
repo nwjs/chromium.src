@@ -169,6 +169,7 @@ public class TabGroupModelFilter extends TabModelFilter {
     private Tab mAbsentSelectedTab;
     private boolean mShouldRecordUma = true;
     private boolean mTabRestoreCompleted;
+    private boolean mIsResetting;
 
     public TabGroupModelFilter(TabModel tabModel) {
         super(tabModel);
@@ -448,6 +449,13 @@ public class TabGroupModelFilter extends TabModelFilter {
         return getRelatedTabList(group.getTabIdList());
     }
 
+    @Override
+    public boolean hasOtherRelatedTabs(Tab tab) {
+        int groupId = tab.getRootId();
+        TabGroup group = mGroupIdToGroupMap.get(groupId);
+        return group != null && group.size() > 1;
+    }
+
     private List<Tab> getRelatedTabList(List<Integer> ids) {
         List<Tab> tabs = new ArrayList<>();
         for (Integer id : ids) {
@@ -462,7 +470,7 @@ public class TabGroupModelFilter extends TabModelFilter {
             throw new IllegalStateException("Attempting to open tab in the wrong model");
         }
 
-        if (tab.getLaunchType() != TabLaunchType.FROM_RESTORE) {
+        if (tab.getLaunchType() != TabLaunchType.FROM_RESTORE && !mIsResetting) {
             Tab parentTab = TabModelUtils.getTabById(getTabModel(), tab.getParentId());
             if (parentTab != null) {
                 tab.setRootId(parentTab.getRootId());
@@ -582,13 +590,20 @@ public class TabGroupModelFilter extends TabModelFilter {
     }
 
     @Override
+    protected void removeTab(Tab tab) {
+        closeTab(tab);
+    }
+
+    @Override
     protected void resetFilterState() {
         mShouldRecordUma = false;
+        mIsResetting = true;
         super.resetFilterState();
 
         TabModel tabModel = getTabModel();
         selectTab(tabModel.getTabAt(tabModel.index()));
         mShouldRecordUma = true;
+        mIsResetting = false;
     }
 
     @Override

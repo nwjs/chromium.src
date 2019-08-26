@@ -3528,12 +3528,17 @@ void Document::open(Document* entered_document,
   if (entered_document && this != entered_document) {
     auto* csp = MakeGarbageCollected<ContentSecurityPolicy>();
     csp->CopyStateFrom(entered_document->GetContentSecurityPolicy());
+    // We inherit the sandbox flags of the entered document, so mask on
+    // the ones contained in the CSP.
+    sandbox_flags_ |= csp->GetSandboxMask();
     InitContentSecurityPolicy(csp);
     // Clear the hash fragment from the inherited URL to prevent a
     // scroll-into-view for any document.open()'d frame.
     KURL new_url = entered_document->Url();
     new_url.SetFragmentIdentifier(String());
     SetURL(new_url);
+    if (Loader())
+      Loader()->UpdateUrlForDocumentOpen(new_url);
 
     SetSecurityOrigin(entered_document->GetMutableSecurityOrigin());
     SetReferrerPolicy(entered_document->GetReferrerPolicy());
@@ -5750,6 +5755,10 @@ void Document::setCookie(const String& value, ExceptionState& exception_state) {
 }
 
 bool Document::CookiesEnabled() const {
+  // Compatible behavior in contexts that don't have cookie access.
+  if (!GetSecurityOrigin()->CanAccessCookies())
+    return true;
+
   if (!cookie_jar_)
     return false;
 
@@ -7350,6 +7359,8 @@ DocumentLoader* Document::Loader() const {
   if (!frame_)
     return nullptr;
 
+  // TODO(dcheng): remove this check. frame_ is guaranteed to be non-null only
+  // if frame_->GetDocument() == this.
   if (frame_->GetDocument() != this)
     return nullptr;
 
@@ -8380,19 +8391,15 @@ void Document::CountDeprecation(mojom::WebFeature feature) {
           GetOriginTrialContext()) {
     if (feature == WebFeature::kHTMLImports &&
         origin_trial_context->IsFeatureEnabled(
-            OriginTrialFeature::kHTMLImports) &&
-        !RuntimeEnabledFeatures::HTMLImportsEnabledByRuntimeFlag()) {
+            OriginTrialFeature::kHTMLImports)) {
       CountUse(WebFeature::kHTMLImportsOnReverseOriginTrials);
     } else if (feature == WebFeature::kElementCreateShadowRoot &&
                origin_trial_context->IsFeatureEnabled(
-                   OriginTrialFeature::kShadowDOMV0) &&
-               !RuntimeEnabledFeatures::ShadowDOMV0EnabledByRuntimeFlag()) {
+                   OriginTrialFeature::kShadowDOMV0)) {
       CountUse(WebFeature::kElementCreateShadowRootOnReverseOriginTrials);
     } else if (feature == WebFeature::kDocumentRegisterElement &&
                origin_trial_context->IsFeatureEnabled(
-                   OriginTrialFeature::kCustomElementsV0) &&
-               !RuntimeEnabledFeatures::
-                   CustomElementsV0EnabledByRuntimeFlag()) {
+                   OriginTrialFeature::kCustomElementsV0)) {
       CountUse(WebFeature::kDocumentRegisterElementOnReverseOriginTrials);
     }
   }

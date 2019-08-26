@@ -83,6 +83,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/payments/core/features.h"
+#include "components/policy/core/common/features.h"
 #include "components/previews/core/previews_features.h"
 #include "components/previews/core/previews_switches.h"
 #include "components/printing/browser/features.h"
@@ -780,8 +781,12 @@ const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches5[] = {
     {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "5"}};
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches6[] = {
     {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "6"}};
+const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches7[] = {
+    {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "7"}};
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches8[] = {
     {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "8"}};
+const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches9[] = {
+    {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "9"}};
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches10[] = {
     {OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam, "10"}};
 const FeatureEntry::FeatureParam kOmniboxUIMaxAutocompleteMatches12[] = {
@@ -797,8 +802,12 @@ const FeatureEntry::FeatureVariation
          base::size(kOmniboxUIMaxAutocompleteMatches5), nullptr},
         {"6 matches", kOmniboxUIMaxAutocompleteMatches6,
          base::size(kOmniboxUIMaxAutocompleteMatches6), nullptr},
+        {"7 matches", kOmniboxUIMaxAutocompleteMatches7,
+         base::size(kOmniboxUIMaxAutocompleteMatches7), nullptr},
         {"8 matches", kOmniboxUIMaxAutocompleteMatches8,
          base::size(kOmniboxUIMaxAutocompleteMatches8), nullptr},
+        {"9 matches", kOmniboxUIMaxAutocompleteMatches9,
+         base::size(kOmniboxUIMaxAutocompleteMatches9), nullptr},
         {"10 matches", kOmniboxUIMaxAutocompleteMatches10,
          base::size(kOmniboxUIMaxAutocompleteMatches10), nullptr},
         {"12 matches", kOmniboxUIMaxAutocompleteMatches12,
@@ -1125,6 +1134,7 @@ const FeatureEntry::FeatureVariation
 
 const FeatureEntry::FeatureParam kLazyFrameLoadingAutomatic[] = {
     {"automatic-lazy-load-frames-enabled", "true"},
+    {"restrict-lazy-load-frames-to-data-saver-only", "false"},
 };
 
 const FeatureEntry::FeatureVariation kLazyFrameLoadingVariations[] = {
@@ -1135,6 +1145,7 @@ const FeatureEntry::FeatureVariation kLazyFrameLoadingVariations[] = {
 
 const FeatureEntry::FeatureParam kLazyImageLoadingAutomatic[] = {
     {"automatic-lazy-load-images-enabled", "true"},
+    {"restrict-lazy-load-images-to-data-saver-only", "false"},
 };
 
 const FeatureEntry::FeatureVariation kLazyImageLoadingVariations[] = {
@@ -2741,7 +2752,7 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_WITH_PARAMS_VALUE_TYPE(
          omnibox::kUIExperimentMaxAutocompleteMatches,
          kOmniboxUIMaxAutocompleteMatchesVariations,
-         "OmniboxUIMaxAutocompleteVariations")},
+         "OmniboxBundledExperimentV1")},
 
     {"omnibox-max-url-matches", flag_descriptions::kOmniboxMaxURLMatchesName,
      flag_descriptions::kOmniboxMaxURLMatchesDescription, kOsAll,
@@ -2786,6 +2797,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kOmniboxMaterialDesignWeatherIconsDescription,
      kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kOmniboxMaterialDesignWeatherIcons)},
+
+    {"omnibox-disable-instant-extended-limit",
+     flag_descriptions::kOmniboxDisableInstantExtendedLimitName,
+     flag_descriptions::kOmniboxDisableInstantExtendedLimitDescription, kOsAll,
+     FEATURE_VALUE_TYPE(omnibox::kOmniboxDisableInstantExtendedLimit)},
 
     {"use-new-accept-language-header",
      flag_descriptions::kUseNewAcceptLanguageHeaderName,
@@ -2864,6 +2880,11 @@ const FeatureEntry kFeatureEntries[] = {
     {"chrome-colors", flag_descriptions::kChromeColorsName,
      flag_descriptions::kChromeColorsDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(features::kChromeColors)},
+
+    {"chrome-colors-custom-color-picker",
+     flag_descriptions::kChromeColorsCustomColorPickerName,
+     flag_descriptions::kChromeColorsCustomColorPickerDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(features::kChromeColorsCustomColorPicker)},
 
     {"grid-layout-for-ntp-shortcuts",
      flag_descriptions::kGridLayoutForNtpShortcutsName,
@@ -3552,15 +3573,17 @@ const FeatureEntry kFeatureEntries[] = {
          chromeos::assistant::features::kEnableMediaSessionIntegration)},
 #endif  // defined(OS_CHROMEOS)
 
-#if !defined(OS_CHROMEOS)
+#if defined(OS_ANDROID)
     {"click-to-call-receiver", flag_descriptions::kClickToCallReceiverName,
-     flag_descriptions::kClickToCallReceiverDescription, kOsAll,
+     flag_descriptions::kClickToCallReceiverDescription, kOsAndroid,
      FEATURE_VALUE_TYPE(kClickToCallReceiver)},
+#endif  // defined(OS_ANDROID)
 
+#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
     {"click-to-call-ui", flag_descriptions::kClickToCallUIName,
-     flag_descriptions::kClickToCallUIDescription, kOsAll,
+     flag_descriptions::kClickToCallUIDescription, kOsWin | kOsMac | kOsLinux,
      FEATURE_VALUE_TYPE(kClickToCallUI)},
-#endif  // !defined(OS_CHROMEOS)
+#endif  // defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
 
     {"enable-ambient-authentication-in-incognito",
      flag_descriptions::kEnableAmbientAuthenticationInIncognitoName,
@@ -4211,6 +4234,17 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kUpdateHoverAtBeginFrameName,
      flag_descriptions::kUpdateHoverAtBeginFrameDescription, kOsAll,
      FEATURE_VALUE_TYPE(features::kUpdateHoverAtBeginFrame)},
+
+#if defined(OS_ANDROID)
+    {"usage-stats", flag_descriptions::kUsageStatsName,
+     flag_descriptions::kUsageStatsDescription, kOsAndroid,
+     FEATURE_VALUE_TYPE(chrome::android::kUsageStatsFeature)},
+#endif  // defined(OS_ANDROID)
+
+    {"policy-atomic-group-enabled",
+     flag_descriptions::kPolicyAtomicGroupsEnabledName,
+     flag_descriptions::kPolicyAtomicGroupsEnabledDescription, kOsAll,
+     FEATURE_VALUE_TYPE(policy::features::kPolicyAtomicGroup)},
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag

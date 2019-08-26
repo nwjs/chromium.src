@@ -1078,10 +1078,28 @@ void NGLineBreaker::HandleControlItem(const NGInlineItem& item,
       NGInlineItemResult* item_result = AddItem(item, line_info);
       item_result->should_create_line_box = true;
       item_result->has_only_trailing_spaces = true;
+      MoveToNextOf(item);
+
+      // Include following close tags. The difference is visible when they have
+      // margin/border/padding.
+      //
+      // This is not a defined behavior, but legacy/WebKit do this for preserved
+      // newlines and <br>s. Gecko does this only for preserved newlines (but
+      // not for <br>s).
+      const Vector<NGInlineItem>& items = Items();
+      while (item_index_ < items.size()) {
+        const NGInlineItem& next_item = items[item_index_];
+        if (next_item.Type() == NGInlineItem::kCloseTag) {
+          HandleCloseTag(next_item, line_info);
+          continue;
+        }
+        break;
+      }
+
       is_after_forced_break_ = true;
       line_info->SetIsLastLine(true);
       state_ = LineBreakState::kDone;
-      break;
+      return;
     }
     case kTabulationCharacter: {
       DCHECK(item.Style());
@@ -1134,8 +1152,16 @@ void NGLineBreaker::HandleBidiControlItem(const NGInlineItem& item,
     if (!item_results->IsEmpty()) {
       NGInlineItemResult* item_result = AddItem(item, line_info);
       NGInlineItemResult* last = &(*item_results)[item_results->size() - 2];
-      item_result->can_break_after = last->can_break_after;
-      last->can_break_after = false;
+      // Honor the last |can_break_after| if it's true, in case it was
+      // artificially set to true for break-after-space.
+      if (last->can_break_after) {
+        item_result->can_break_after = last->can_break_after;
+        last->can_break_after = false;
+      } else {
+        // Otherwise compute from the text. |LazyLineBreakIterator| knows how to
+        // break around bidi control characters.
+        ComputeCanBreakAfter(item_result, auto_wrap_, break_iterator_);
+      }
     } else {
       AddItem(item, line_info);
     }
@@ -1781,6 +1807,14 @@ void NGLineBreaker::SetCurrentStyle(const ComputedStyle& style) {
 void NGLineBreaker::MoveToNextOf(const NGInlineItem& item) {
   offset_ = item.EndOffset();
   item_index_++;
+#if DCHECK_IS_ON()
+  const Vector<NGInlineItem>& items = Items();
+  if (item_index_ < items.size()) {
+    items[item_index_].AssertOffset(offset_);
+  } else {
+    DCHECK_EQ(offset_, Text().length());
+  }
+#endif
 }
 
 void NGLineBreaker::MoveToNextOf(const NGInlineItemResult& item_result) {

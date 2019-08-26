@@ -437,10 +437,21 @@ TEST_F(FeedSchedulerHostTest, OnReceiveNewContentVerifyPref) {
 }
 
 TEST_F(FeedSchedulerHostTest, OnRequestErrorVerifyPref) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kInterestFeedContentSuggestions,
+      {{"only_set_last_refresh_attempt_on_success", "false"}});
+
   EXPECT_EQ(Time(), profile_prefs()->GetTime(prefs::kLastFetchAttemptTime));
   scheduler()->OnRequestError(0);
   EXPECT_EQ(test_clock()->Now(),
             profile_prefs()->GetTime(prefs::kLastFetchAttemptTime));
+}
+
+TEST_F(FeedSchedulerHostTest, OnRequestErrorVerifyRefreshTimeNotUpdated) {
+  EXPECT_EQ(Time(), profile_prefs()->GetTime(prefs::kLastFetchAttemptTime));
+  scheduler()->OnRequestError(0);
+  EXPECT_EQ(Time(), profile_prefs()->GetTime(prefs::kLastFetchAttemptTime));
 }
 
 TEST_F(FeedSchedulerHostTest, OnForegroundedActiveNtpUser) {
@@ -652,6 +663,22 @@ TEST_F(FeedSchedulerHostTest, OnFixedTimerActiveSuggestionsConsumer) {
   test_clock()->Advance(TimeDelta::FromHours(1));
   scheduler()->OnFixedTimer(base::OnceClosure());
   EXPECT_EQ(3, refresh_call_count());
+}
+
+TEST_F(FeedSchedulerHostTest, OnFixedTimerThrottlingDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kInterestFeedContentSuggestions,
+      {{kThrottleBackgroundFetches.name, "false"}});
+
+  // Every call to OnFixedTimer() should cause a fetch.
+  scheduler()->OnFixedTimer(base::OnceClosure());
+  EXPECT_EQ(1, refresh_call_count());
+  scheduler()->OnReceiveNewContent(test_clock()->Now());
+
+  scheduler()->OnFixedTimer(base::OnceClosure());
+  EXPECT_EQ(2, refresh_call_count());
+  scheduler()->OnReceiveNewContent(test_clock()->Now());
 }
 
 TEST_F(FeedSchedulerHostTest, ScheduleFixedTimerWakeUpOnSuccess) {

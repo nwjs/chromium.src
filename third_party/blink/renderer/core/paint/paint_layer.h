@@ -296,15 +296,13 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
   }
 
   // The physical offset from this PaintLayer to its ContainingLayer.
-  // Does not include any scroll offset of the ContainingLayer.
-  PhysicalOffset Location() const {
+  // Does not include any scroll offset of the ContainingLayer. Also does not
+  // include offsets for positioned elements.
+  const PhysicalOffset& Location() const {
 #if DCHECK_IS_ON()
     DCHECK(!needs_position_update_);
 #endif
-    PhysicalOffset location = location_;
-    if (GetLayoutObject().IsInFlowPositioned())
-      location += GetLayoutObject().OffsetForInFlowPosition();
-    return location;
+    return location_;
   }
 
   LayoutSize ScrolledContentOffset() const;
@@ -1116,6 +1114,11 @@ class CORE_EXPORT PaintLayer : public DisplayItemClient {
 
   bool NeedsVisualOverflowRecalcForTesting() const {
     return needs_visual_overflow_recalc_;
+  }
+
+  PhysicalOffset OffsetForInFlowRelPosition() const {
+    return rare_data_ ? rare_data_->offset_for_in_flow_rel_position
+                      : PhysicalOffset();
   }
 
  private:

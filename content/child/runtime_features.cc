@@ -335,8 +335,16 @@ void SetIndividualRuntimeFeatures(
     WebRuntimeFeatures::EnableWebNfc(true);
 #endif
 
+#if defined(OS_ANDROID)
+  // APIs for Web Authentication are not available prior to N.
+  WebRuntimeFeatures::EnableWebAuth(
+      base::FeatureList::IsEnabled(features::kWebAuth) &&
+      base::android::BuildInfo::GetInstance()->sdk_int() >=
+          base::android::SDK_VERSION_NOUGAT);
+#else
   WebRuntimeFeatures::EnableWebAuth(
       base::FeatureList::IsEnabled(features::kWebAuth));
+#endif
 
   WebRuntimeFeatures::EnableClientPlaceholdersForServerLoFi(
       base::GetFieldTrialParamValue("PreviewsClientLoFi",
@@ -376,14 +384,14 @@ void SetIndividualRuntimeFeatures(
   WebRuntimeFeatures::EnableMergeBlockingNonBlockingPools(
       base::FeatureList::IsEnabled(base::kMergeBlockingNonBlockingPools));
 
-  if (base::FeatureList::IsEnabled(features::kLazyFrameLoading))
-    WebRuntimeFeatures::EnableLazyFrameLoading(true);
-  if (base::FeatureList::IsEnabled(features::kLazyFrameVisibleLoadTimeMetrics))
-    WebRuntimeFeatures::EnableLazyFrameVisibleLoadTimeMetrics(true);
-  if (base::FeatureList::IsEnabled(features::kLazyImageLoading))
-    WebRuntimeFeatures::EnableLazyImageLoading(true);
-  if (base::FeatureList::IsEnabled(features::kLazyImageVisibleLoadTimeMetrics))
-    WebRuntimeFeatures::EnableLazyImageVisibleLoadTimeMetrics(true);
+  WebRuntimeFeatures::EnableLazyFrameLoading(
+      base::FeatureList::IsEnabled(features::kLazyFrameLoading));
+  WebRuntimeFeatures::EnableLazyFrameVisibleLoadTimeMetrics(
+      base::FeatureList::IsEnabled(features::kLazyFrameVisibleLoadTimeMetrics));
+  WebRuntimeFeatures::EnableLazyImageLoading(
+      base::FeatureList::IsEnabled(features::kLazyImageLoading));
+  WebRuntimeFeatures::EnableLazyImageVisibleLoadTimeMetrics(
+      base::FeatureList::IsEnabled(features::kLazyImageVisibleLoadTimeMetrics));
 
   WebRuntimeFeatures::EnableAutomaticLazyFrameLoading(
       base::GetFieldTrialParamByFeatureAsBool(
@@ -392,7 +400,7 @@ void SetIndividualRuntimeFeatures(
   WebRuntimeFeatures::EnableRestrictAutomaticLazyFrameLoadingToDataSaver(
       base::GetFieldTrialParamByFeatureAsBool(
           features::kLazyFrameLoading,
-          "restrict-lazy-load-frames-to-data-saver-only", false));
+          "restrict-lazy-load-frames-to-data-saver-only", true));
 
   WebRuntimeFeatures::EnableAutomaticLazyImageLoading(
       base::GetFieldTrialParamByFeatureAsBool(
@@ -401,7 +409,7 @@ void SetIndividualRuntimeFeatures(
   WebRuntimeFeatures::EnableRestrictAutomaticLazyImageLoadingToDataSaver(
       base::GetFieldTrialParamByFeatureAsBool(
           features::kLazyImageLoading,
-          "restrict-lazy-load-images-to-data-saver-only", false));
+          "restrict-lazy-load-images-to-data-saver-only", true));
   WebRuntimeFeatures::EnableLazyImageLoadingMetadataFetch(
       base::GetFieldTrialParamByFeatureAsBool(
           features::kLazyImageLoading, "enable-lazy-load-images-metadata-fetch",

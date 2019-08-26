@@ -37,6 +37,13 @@ message ClientContextProto {
 
   // Experiment ids string provided by the 'caller'.
   optional string experiment_ids = 7;
+
+  // True if the script is called from a Chrome Custom Tab created for Autofill
+  // Assistant.
+  optional bool is_cct = 8;
+
+  // True if the script was triggered by a direct action.
+  optional bool is_direct_action = 9;
 }
 
 // Get the list of scripts that can potentially be run on a url.
@@ -149,11 +156,11 @@ message SupportedScriptProto {
 
     // Message to show once the script has been started. This is shown while
     // loading the actions.
-    optional string start_message = 10;
+    optional string start_message = 14;
 
     // Show the UI if it's not shown yet. Setting this to false is useful for
     // scripts started by direct actions.
-    optional bool needs_ui = 11 [default = true];
+    optional bool needs_ui = 15 [default = true];
   }
   optional PresentationProto presentation = 2;
 }
@@ -403,6 +410,7 @@ message ActionProto {
     ConfigureBottomSheetProto configure_bottom_sheet = 42;
     ShowFormProto show_form = 43;
     PopupMessageProto popup_message = 44;
+    WaitForDocumentProto wait_for_document = 45;
   }
 
   // Set to true to make the client remove any contextual information if the
@@ -446,6 +454,8 @@ message ProcessedActionProto {
     WaitForDomProto.Result wait_for_dom_result = 22;
     // Should be set as a result of FormAction.
     FormProto.Result form_result = 21;
+
+    WaitForDocumentProto.Result wait_for_document_result = 25;
   }
 
   // Reports information about navigation that happened while
@@ -455,6 +465,11 @@ message ProcessedActionProto {
   // Reports how long it took for the client to run the action. This does not
   // include the delay specified in action.delay_ms.
   optional int64 run_time_ms = 23;
+
+  // If true, the user triggered, during the client action, at least one user
+  // action, such as a prompt choice, through a direct action instead of
+  // selecting a chip on the UI. This is meant for monitoring and debugging.
+  optional bool direct_action = 24;
 }
 
 // Extended information about the action status, which provides more details
@@ -818,6 +833,11 @@ message UseAddressProto {
 
     // Delay between two key presses when simlulating.
     optional int32 delay_in_millisecond = 4 [default = 20];
+
+    // Fill in the fill even if it's non-empty. This is useful to work around
+    // cases where the way autofill sets the field doesn't work on the website.
+    // Usually used together with simulate_key_presses.
+    optional bool forced = 5;
   }
 
   // An optional name to allow to handle multiple addresses selection (for
@@ -837,12 +857,42 @@ message UseAddressProto {
 
 // Fill a form with a credit card if there is, otherwise fail this action.
 message UseCreditCardProto {
+  // Message used to indicate what form fields should be filled with what
+  // information.
+  message RequiredField {
+    enum CardField {
+      UNDEFINED = 0;
+      CREDIT_CARD_VERIFICATION_CODE = 1;
+      CREDIT_CARD_EXP_MONTH = 2;
+      CREDIT_CARD_EXP_2_DIGIT_YEAR = 3;
+      CREDIT_CARD_EXP_4_DIGIT_YEAR = 4;
+    }
+
+    optional CardField card_field = 1;
+
+    optional ElementReferenceProto element = 2;
+
+    // Whether we should simulate actual key presses when filling |element| with
+    // its corresponding value.
+    optional bool simulate_key_presses = 3;
+
+    // Delay between two key presses when simlulating.
+    optional int32 delay_in_millisecond = 4 [default = 20];
+
+    // Fill in the fill even if it's non-empty. This is useful to work around
+    // cases where the way autofill sets the field doesn't work on the website.
+    // Usually used together with simulate_key_presses.
+    optional bool forced = 5;
+  }
+
   // An optional message to show to the user when asking to select a card.
   // TODO(crbug.com/806868): Make the prompt a required field.
   optional string prompt = 1;
 
   // A reference to the card number field in the form that should be filled.
   optional ElementReferenceProto form_field_element = 3;
+
+  repeated RequiredField required_fields = 7;
 }
 
 // Ask Chrome to wait for an element in the DOM. This can be used to only
@@ -932,9 +982,18 @@ message HighlightElementProto {
   optional ElementReferenceProto element = 1;
 }
 
-// Load the given URL in the current tab.
+// Controls the browser navigation.
 message NavigateProto {
-  optional string url = 1;
+  oneof value {
+    // Navigate to the given URL.
+    string url = 1;
+    // Navigate backward in the history. Action will return PRECONDITION_FAILED
+    // if it is not possible.
+    bool go_backward = 2;
+    // Navigate forward in the history. Action will return PRECONDITION_FAILED
+    // if it is not possible.
+    bool go_forward = 3;
+  }
 }
 
 // Specify from which point in the script navigation is expected for the next
@@ -960,6 +1019,55 @@ message WaitForNavigationProto {
   // This is usually used to track cases where expected navigation doesn't
   // happen, because, for example, a click wasn't registered.
   optional int32 timeout_ms = 1;
+}
+
+// Chrome document.readyState values.
+//
+// Number is significant, as the document goes through these state in order,
+// from initialized to complete.
+enum DocumentReadyState {
+  option allow_alias = true;
+
+  DOCUMENT_UNKNOWN_READY_STATE = 0;
+  DOCUMENT_UNINITIALIZED = 1;
+  DOCUMENT_LOADING = 2;
+  DOCUMENT_LOADED = 3;
+  DOCUMENT_INTERACTIVE = 4;
+  DOCUMENT_COMPLETE = 5;
+
+  // Maximum value above.
+  DOCUMENT_MAX_READY_STATE = 5;
+}
+
+// Wait for the document to be ready before proceeding.
+//
+// Client errors:
+//   TIMED_OUT if timed out waiting for an acceptable state.
+//   ELEMENT_RESOLUTION_FAILED if the specified frame selector could not be
+//   found.
+message WaitForDocumentProto {
+  // Maximum amount of time to wait for the state to change. Set it to 0 to
+  // check once and report the result immediately, without waiting.
+  optional int32 timeout_ms = 1 [default = 5000];
+
+  // If specified, check the document in the given frame, instead
+  // of the main document.
+  optional ElementReferenceProto frame = 2;
+
+  // The minimum ready state needed to satisfy the requirement.
+  optional DocumentReadyState min_ready_state = 3
+      [default = DOCUMENT_INTERACTIVE];
+
+  message Result {
+    // The ready state found when the action started.
+    optional DocumentReadyState start_ready_state = 1;
+
+    // The ready state found when the action ended.
+    //
+    // This is filled even when the action fails, so it is not guaranteed to
+    // match min_ready_state.
+    optional DocumentReadyState end_ready_state = 2;
+  }
 }
 
 // Allow choosing one or more possibility. If FocusElement was called just
@@ -1066,6 +1174,12 @@ message GetPaymentInformationProto {
   // display a "Show terms" button that will navigate the user to the terms and
   // conditions page when clicked.
   repeated UserActionProto additional_actions = 11;
+  // Optionally requests a payment method with a billing address that has a
+  // postcode value.
+  optional bool require_billing_postal_code = 14;
+  // The error message to display when the billing address is missing the
+  // postal code. This field is mandatory if |require_postal_code| is true.
+  optional string billing_postal_code_missing_text = 15;
 }
 
 // Resets Autofill Assistant: clears any state and server payload.
@@ -1260,13 +1374,17 @@ message ConfigureBottomSheetProto {
     // Don't change resizing configuration.
     NO_CHANGE = 0;
 
-    // Resize the viewport such that it is completely visible when the sheet is
-    // in the peek state.
-    RESIZE = 1;
+    // Resize the layout viewport such that it is completely visible when the
+    // sheet is in the peek state.
+    RESIZE_LAYOUT_VIEWPORT = 1;
 
     // Don't resize the viewport such that it is overlaid by the sheet, even in
     // the peek state.
     NO_RESIZE = 2;
+
+    // Dynamically resize the visual viewport by the height of the sheet. This
+    // allows to fully scroll the page above the sheet at any time.
+    RESIZE_VISUAL_VIEWPORT = 3;
   }
 
   // The peek mode allows to set what components are visible when the sheet is
@@ -1291,8 +1409,9 @@ message ConfigureBottomSheetProto {
   optional ViewportResizing viewport_resizing = 1;
 
   // Set the peek mode. This will change the peek height of the sheet. If
-  // resize_viewport is true or was set to true by a previous actions, the
-  // viewport will be resized to match the new peek height.
+  // viewport_resizing is set to RESIZE_LAYOUT_VIEWPORT or was set by a previous
+  // ConfigureBottomSheet action, the viewport will be resized to match the new
+  // peek height.
   optional PeekMode peek_mode = 2;
 
   // Maximum time to wait for the window to resize before continuing with the

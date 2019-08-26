@@ -289,7 +289,8 @@
     {
       name: "ContactsManager",
       origin_trial_feature_name: "ContactsManager",
-      status: "experimental",
+      origin_trial_os: ["android"],
+      status: {"Android": "experimental", "default": "test"},
     },
     {
       name: "ContentIndex",
@@ -803,7 +804,7 @@
     },
     {
       name: "LargestContentfulPaint",
-      status: "experimental",
+      status: "stable",
     },
     {
       // Exposes layout shift scores to Javascript. See explainer:
@@ -841,14 +842,14 @@
     },
     {
       name: "LazyFrameLoading",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "LazyFrameVisibleLoadTimeMetrics",
     },
     {
       name: "LazyImageLoading",
-      status: "experimental",
+      status: "stable",
     },
     {
       name: "LazyImageLoadingMetadataFetch",

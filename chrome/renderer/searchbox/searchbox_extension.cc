@@ -114,8 +114,11 @@ SkColor GetLogoColor(const ThemeBackgroundInfo& theme_info) {
   bool has_background_image = theme_info.has_theme_image ||
                               !theme_info.custom_background_url.is_empty();
   if (theme_info.logo_alternate && !has_background_image) {
-    logo_color = GetContrastingColorForBackground(theme_info.background_color,
-                                                  /*luminosity_change=*/0.3f);
+    if (color_utils::IsDark(theme_info.background_color))
+      logo_color = SK_ColorWHITE;
+    else
+      logo_color = GetContrastingColorForBackground(theme_info.background_color,
+                                                    /*luminosity_change=*/0.3f);
   }
 
   return logo_color;
@@ -418,6 +421,7 @@ v8::Local<v8::Object> GenerateThemeBackgroundInfo(
                 theme_info.custom_background_attribution_line_1);
     builder.Set("attribution2",
                 theme_info.custom_background_attribution_line_2);
+    builder.Set("collectionId", theme_info.collection_id);
     // Clear the theme attribution url, as it shouldn't be shown when
     // a custom background is set.
     builder.Set("attributionUrl", std::string());
@@ -437,6 +441,15 @@ v8::Local<v8::Object> GenerateThemeBackgroundInfo(
 
   builder.Set("logoColor",
               SkColorToArray(isolate, internal::GetLogoColor(theme_info)));
+
+  builder.Set("colorId", theme_info.color_id);
+  if (theme_info.color_id != -1) {
+    builder.Set("colorDark", SkColorToArray(isolate, theme_info.color_dark));
+    builder.Set("colorLight", SkColorToArray(isolate, theme_info.color_light));
+    builder.Set("colorPicked",
+                SkColorToArray(isolate, theme_info.color_picked));
+  }
+
   return builder.Build();
 }
 
@@ -720,11 +733,11 @@ class NewTabPageBindings : public gin::Wrappable<NewTabPageBindings> {
       int tile_type,
       v8::Local<v8::Value> data_generation_time);
   static void SetCustomBackgroundURL(const std::string& background_url);
-  static void SetCustomBackgroundURLWithAttributions(
-      const std::string& background_url,
-      const std::string& attribution_line_1,
-      const std::string& attribution_line_2,
-      const std::string& attributionActionUrl);
+  static void SetCustomBackgroundInfo(const std::string& background_url,
+                                      const std::string& attribution_line_1,
+                                      const std::string& attribution_line_2,
+                                      const std::string& attributionActionUrl,
+                                      const std::string& collection_id);
   static void SelectLocalBackgroundImage();
   static void BlocklistSearchSuggestion(int task_version, int task_id);
   static void BlocklistSearchSuggestionWithHash(int task_version,
@@ -794,8 +807,8 @@ gin::ObjectTemplateBuilder NewTabPageBindings::GetObjectTemplateBuilder(
                  &NewTabPageBindings::LogMostVisitedNavigation)
       .SetMethod("setBackgroundURL",
                  &NewTabPageBindings::SetCustomBackgroundURL)
-      .SetMethod("setBackgroundURLWithAttributions",
-                 &NewTabPageBindings::SetCustomBackgroundURLWithAttributions)
+      .SetMethod("setBackgroundInfo",
+                 &NewTabPageBindings::SetCustomBackgroundInfo)
       .SetMethod("selectLocalBackgroundImage",
                  &NewTabPageBindings::SelectLocalBackgroundImage)
       .SetMethod("blacklistSearchSuggestion",
@@ -1138,22 +1151,27 @@ void NewTabPageBindings::LogMostVisitedNavigation(
 // static
 void NewTabPageBindings::SetCustomBackgroundURL(
     const std::string& background_url) {
-  SetCustomBackgroundURLWithAttributions(background_url, std::string(),
-                                         std::string(), std::string());
+  SetCustomBackgroundInfo(background_url, std::string(), std::string(),
+                          std::string(), std::string());
 }
 
 // static
-void NewTabPageBindings::SetCustomBackgroundURLWithAttributions(
+void NewTabPageBindings::SetCustomBackgroundInfo(
     const std::string& background_url,
     const std::string& attribution_line_1,
     const std::string& attribution_line_2,
-    const std::string& attribution_action_url) {
+    const std::string& attribution_action_url,
+    const std::string& collection_id) {
   SearchBox* search_box = GetSearchBoxForCurrentContext();
-  search_box->SetCustomBackgroundURLWithAttributions(
+  search_box->SetCustomBackgroundInfo(
       GURL(background_url), attribution_line_1, attribution_line_2,
-      GURL(attribution_action_url));
-  // Captures saving the background by double-clicking, or clicking 'Done'.
-  if (background_url.empty()) {
+      GURL(attribution_action_url), collection_id);
+  // Captures different events that occur when a background selection is made
+  // and 'Done' is clicked on the dialog.
+  if (!collection_id.empty()) {
+    search_box->LogEvent(
+        NTPLoggingEventType::NTP_BACKGROUND_DAILY_REFRESH_ENABLED);
+  } else if (background_url.empty()) {
     search_box->LogEvent(
         NTPLoggingEventType::NTP_CUSTOMIZE_RESTORE_BACKGROUND_CLICKED);
     search_box->LogEvent(NTPLoggingEventType::NTP_BACKGROUND_IMAGE_RESET);

@@ -84,10 +84,7 @@ class DisplayPanel extends HTMLElement {
               /* Limit to 3 visible progress panels before scroll. */
               #panels {
                   max-height: calc(192px + 28px);
-              }
-              /* Show only the first of any non-progress panels. */
-              xf-panel-item:not([panel-type='0']):not(:first-child) {
-                display: none;
+                  overflow-y: auto;
               }
               xf-panel-item:not(:only-child) {
                 --progress-height: 64px;
@@ -109,12 +106,12 @@ class DisplayPanel extends HTMLElement {
                 }
                 75% {
                   max-height: calc(192px + 28px);
-                  max-width: 400px;
+                  width: 400px;
                   opacity: 0;
                 }
                 100% {
                   max-height: calc(192px + 28px);
-                  max-width: 400px;
+                  width: 400px;
                   opacity: 1;
                 }
               }
@@ -138,6 +135,7 @@ class DisplayPanel extends HTMLElement {
               }
               .expanded {
                 animation: setcollapse 200ms forwards;
+                width: 400px;
               }
               .collapsed {
                 animation: setexpand 200ms forwards;
@@ -189,9 +187,14 @@ class DisplayPanel extends HTMLElement {
     const summaryPanel = panel.summary_.querySelector('xf-panel-item');
     const expandButton =
         summaryPanel.shadowRoot.querySelector('#primary-action');
+    // TODO(crbug.com/989322) i18n for this string.
+    const fbWindow = ' Files feedback panels';
     if (panel.collapsed_) {
       panel.collapsed_ = false;
       expandButton.setAttribute('data-category', 'collapse');
+      // TODO(crbug.com/989322) create a i18n{COLLAPSE_LABEL} to replace this..
+      expandButton.setAttribute('aria-label', '$i18n{CLOSE_LABEL}' + fbWindow);
+      expandButton.setAttribute('aria-expanded', 'true');
       panel.panels_.hidden = false;
       panel.separator_.hidden = false;
       panel.panels_.listener_ = panel.panelExpandFinished;
@@ -200,6 +203,8 @@ class DisplayPanel extends HTMLElement {
     } else {
       panel.collapsed_ = true;
       expandButton.setAttribute('data-category', 'expand');
+      expandButton.setAttribute('aria-label', '$i18n{EXPAND_LABEL}' + fbWindow);
+      expandButton.setAttribute('aria-expanded', 'false');
       panel.separator_.hidden = true;
       panel.panels_.listener_ = panel.panelCollapseFinished;
       panel.panels_.addEventListener(
@@ -238,8 +243,15 @@ class DisplayPanel extends HTMLElement {
     let summaryHost = this.shadowRoot.querySelector('#summary');
     let summaryPanel = summaryHost.querySelector('#summary-panel');
 
-    // If there's only one panel item active, no need for summary.
-    if (this.items_.length <= 1 && summaryPanel) {
+    // Work out how many progress panels are being shown.
+    let count = 0;
+    for (let i = 0; i < this.items_.length; ++i) {
+      if (this.items_[i].panelType == this.items_[i].panelTypeProgress) {
+        count++;
+      }
+    }
+    // If there's only one progress panel item active, no need for summary.
+    if (count <= 1 && summaryPanel) {
       const button = summaryPanel.primaryButton;
       if (button) {
         button.removeEventListener('click', this.toggleSummary);
@@ -251,12 +263,6 @@ class DisplayPanel extends HTMLElement {
       return;
     }
     // Show summary panel if there are more than 1 progress panels.
-    let count = 0;
-    for (let i = 0; i < this.items_.length; ++i) {
-      if (this.items_[i].panelType == this.items_[i].panelTypeProgress) {
-        count++;
-      }
-    }
     if (count > 1 && !summaryPanel) {
       summaryPanel = document.createElement('xf-panel-item');
       summaryPanel.setAttribute('panel-type', 1);

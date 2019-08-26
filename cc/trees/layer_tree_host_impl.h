@@ -211,6 +211,10 @@ class CC_EXPORT LayerTreeHostImpl : public InputHandler,
     // The original BeginFrameArgs that triggered the latest update from the
     // main thread.
     viz::BeginFrameArgs origin_begin_main_frame_args;
+
+    // Union of visible rects of MirrorLayers in the frame, used to force damage
+    // on the surface.
+    gfx::Rect mirror_rect;
   };
 
   // A struct of data for a single UIResource, including the backing
@@ -522,6 +526,7 @@ class CC_EXPORT LayerTreeHostImpl : public InputHandler,
                                        int* max_msaa_samples,
                                        bool* supports_disable_msaa);
   bool use_gpu_rasterization() const { return use_gpu_rasterization_; }
+  bool use_oop_rasterization() const { return use_oop_rasterization_; }
   bool use_msaa() const { return use_msaa_; }
 
   GpuRasterizationStatus gpu_rasterization_status() const {

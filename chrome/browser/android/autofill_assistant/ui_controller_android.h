@@ -23,6 +23,7 @@
 #include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/overlay_state.h"
+#include "components/autofill_assistant/browser/trigger_context.h"
 #include "components/autofill_assistant/browser/user_action.h"
 
 namespace autofill_assistant {
@@ -40,7 +41,7 @@ class UiControllerAndroid : public ControllerObserver {
  public:
   static std::unique_ptr<UiControllerAndroid> CreateFromWebContents(
       content::WebContents* web_contents,
-      const base::android::JavaParamRef<jobject>& joverlay_coordinator);
+      const base::android::JavaParamRef<jobject>& jonboarding_coordinator);
 
   // pointers to |web_contents|, |client| must remain valid for the lifetime of
   // this instance.
@@ -50,7 +51,7 @@ class UiControllerAndroid : public ControllerObserver {
   UiControllerAndroid(
       JNIEnv* env,
       const base::android::JavaRef<jobject>& jactivity,
-      const base::android::JavaParamRef<jobject>& joverlay_coordinator);
+      const base::android::JavaParamRef<jobject>& jonboarding_coordinator);
   ~UiControllerAndroid() override;
 
   // Attaches the UI to the given client, its web contents and delegate.
@@ -75,7 +76,8 @@ class UiControllerAndroid : public ControllerObserver {
   //
   // If action_index != -1, execute that action as close/cancel. Otherwise
   // execute the default close or cancel action.
-  void CloseOrCancel(int action_index);
+  void CloseOrCancel(int action_index,
+                     std::unique_ptr<TriggerContext> trigger_context);
 
   // Overrides UiController:
   void OnStateChanged(AutofillAssistantState new_state) override;
@@ -95,7 +97,7 @@ class UiControllerAndroid : public ControllerObserver {
       const RectF& visual_viewport,
       const std::vector<RectF>& touchable_areas,
       const std::vector<RectF>& restricted_areas) override;
-  void OnResizeViewportChanged(bool resize_viewport) override;
+  void OnViewportModeChanged(ViewportMode mode) override;
   void OnPeekModeChanged(
       ConfigureBottomSheetProto::PeekMode peek_mode) override;
   void OnOverlayColorsChanged(const UiDelegate::OverlayColors& colors) override;
@@ -192,7 +194,7 @@ class UiControllerAndroid : public ControllerObserver {
   void ShowSnackbar(const std::string& message,
                     base::OnceCallback<void()> action);
 
-  void OnCancel(int action_index);
+  void OnCancel(int action_index, std::unique_ptr<TriggerContext> context);
 
   // Updates the state of the UI to reflect the UIDelegate's state.
   void SetupForState();

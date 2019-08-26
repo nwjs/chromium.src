@@ -474,6 +474,11 @@ class BackgroundSyncManagerTest
     return false;
   }
 
+  url::Origin GetOriginForPeriodicSyncRegistration() {
+    DCHECK(callback_periodic_sync_registration_);
+    return callback_periodic_sync_registration_->origin();
+  }
+
   bool GetOneShotSyncRegistrations() {
     bool was_called = false;
     test_background_sync_manager()->GetOneShotSyncRegistrations(
@@ -1005,6 +1010,19 @@ TEST_F(BackgroundSyncManagerTest, RebootRecovery) {
   EXPECT_FALSE(GetRegistration(sync_options_2_));
 }
 
+TEST_F(BackgroundSyncManagerTest, RebootRecoveryPeriodicSync) {
+  sync_options_1_.min_interval = 1000;
+  EXPECT_TRUE(Register(sync_options_1_));
+  EXPECT_TRUE(GetRegistration(sync_options_1_));
+
+  // Restart the manager.
+  SetupBackgroundSyncManager();
+
+  EXPECT_TRUE(GetRegistration(sync_options_1_));
+  EXPECT_EQ(GetOriginForPeriodicSyncRegistration(),
+            url::Origin::Create(GURL(kScope1).GetOrigin()));
+}
+
 TEST_F(BackgroundSyncManagerTest, RebootRecoveryTwoServiceWorkers) {
   EXPECT_TRUE(
       RegisterWithServiceWorkerId(sw_registration_id_1_, sync_options_1_));
@@ -1221,19 +1239,27 @@ TEST_F(BackgroundSyncManagerTest, FiresOnRegistration) {
 
 TEST_F(BackgroundSyncManagerTest, PeriodicSyncFiresWhenExpected) {
   InitPeriodicSyncEventTest();
-  int thirteen_hours_ms = 13 * 60 * 60 * 1000;
-  sync_options_2_.min_interval = thirteen_hours_ms;
+  base::TimeDelta thirteen_hours = base::TimeDelta::FromHours(13);
+  sync_options_2_.min_interval = thirteen_hours.InMilliseconds();
 
   EXPECT_TRUE(Register(sync_options_2_));
   EXPECT_EQ(0, periodic_sync_events_called_);
   EXPECT_TRUE(GetRegistration(sync_options_2_));
 
   // Advance clock.
-  test_clock_.Advance(base::TimeDelta::FromMilliseconds(thirteen_hours_ms));
+  test_clock_.Advance(thirteen_hours);
   FireReadyEvents();
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(1, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
+
+  // Advance clock again.
+  test_clock_.Advance(thirteen_hours);
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(2, periodic_sync_events_called_);
   EXPECT_TRUE(GetRegistration(sync_options_2_));
 }
 
@@ -1272,6 +1298,38 @@ TEST_F(BackgroundSyncManagerTest, TestSupensionAndRevival) {
   EXPECT_TRUE(GetRegistration(sync_options_2_));
   Unregister(sync_options_1_);
   Unregister(sync_options_2_);
+}
+
+TEST_F(BackgroundSyncManagerTest, CrossRegistrationLimitsForOrigin) {
+  InitPeriodicSyncEventTest();
+  base::TimeDelta thirteen_hours = base::TimeDelta::FromHours(13);
+  sync_options_1_.min_interval = thirteen_hours.InMilliseconds();
+  EXPECT_TRUE(Register(sync_options_1_));
+
+  EXPECT_EQ(0, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_1_));
+
+  // Register another periodic sync with the same origin, but a smaller
+  // minInterval. Expect the delay to be set to the larger minInterval from the
+  // already registered periodic sync.
+  base::TimeDelta twelve_hours = base::TimeDelta::FromHours(12);
+  sync_options_2_.min_interval = twelve_hours.InMilliseconds();
+  EXPECT_TRUE(Register(sync_options_2_));
+
+  EXPECT_EQ(0, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
+
+  // Advance clock.
+  test_clock_.Advance(twelve_hours);
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(0, periodic_sync_events_called_);
+
+  test_clock_.Advance(base::TimeDelta::FromHours(1));
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(2, periodic_sync_events_called_);
 }
 
 TEST_F(BackgroundSyncManagerTest, ReregisterMidSyncFirstAttemptFails) {
@@ -1821,6 +1879,53 @@ TEST_F(BackgroundSyncManagerTest, OneAttempt) {
   // It should permanently fail after failing once.
   EXPECT_TRUE(Register(sync_options_1_));
   EXPECT_FALSE(GetRegistration(sync_options_1_));
+}
+
+TEST_F(BackgroundSyncManagerTest, TwoFailedAttemptsForPeriodicSync) {
+  SetMaxSyncAttemptsAndRestartManager(2);
+  InitFailedPeriodicSyncEventTest();
+
+  base::TimeDelta thirteen_hours = base::TimeDelta::FromHours(13);
+  sync_options_2_.min_interval = thirteen_hours.InMilliseconds();
+
+  EXPECT_TRUE(Register(sync_options_2_));
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
+  EXPECT_EQ(0, periodic_sync_events_called_);
+
+  // Advance clock.
+  test_clock_.Advance(thirteen_hours);
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(1, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
+
+  // Since this one failed, a wakeup/delayed task will be scheduled for retries
+  // after five minutes.
+  EXPECT_EQ(base::TimeDelta::FromMinutes(5),
+            test_background_sync_manager()->delayed_periodic_sync_task_delta());
+  test_clock_.Advance(base::TimeDelta::FromMinutes(5));
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(2, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
+
+  // Second attempt would also fail, resetting to next thirteen_hours.
+  // Expect nothing after just another hour.
+  test_clock_.Advance(base::TimeDelta::FromHours(1));
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(2, periodic_sync_events_called_);
+
+  // Expect the next event after another twelve hours.
+  test_clock_.Advance(base::TimeDelta::FromHours(12));
+  FireReadyEvents();
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_EQ(3, periodic_sync_events_called_);
+  EXPECT_TRUE(GetRegistration(sync_options_2_));
 }
 
 TEST_F(BackgroundSyncManagerTest, TwoAttempts) {

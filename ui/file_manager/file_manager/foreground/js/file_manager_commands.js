@@ -61,6 +61,15 @@ CommandUtil.getCommandEntries = (fileManager, element) => {
     return [element.selectedItem.entry];
   }
 
+  // The event target could still be a descendant of a DirectoryItem element
+  // (e.g. the eject button).
+  if (fileManager.ui.directoryTree.contains(/** @type {Node} */ (element))) {
+    const treeItem = element.closest('.tree-item');
+    if (treeItem && treeItem.entry) {
+      return [treeItem.entry];
+    }
+  }
+
   // File list (cr.ui.List).
   if (element.selectedItems && element.selectedItems.length) {
     const entries = element.selectedItems;
@@ -632,8 +641,8 @@ CommandHandler.COMMANDS_['format'] = new class extends Command {
   execute(event, fileManager) {
     const directoryModel = fileManager.directoryModel;
     let root;
-    if (event.target instanceof DirectoryItem ||
-        event.target instanceof DirectoryTree) {
+    if (fileManager.ui.directoryTree.contains(
+            /** @type {Node} */ (event.target))) {
       // The command is executed from the directory tree context menu.
       root = CommandUtil.getCommandEntry(fileManager, event.target);
     } else {
@@ -667,14 +676,15 @@ CommandHandler.COMMANDS_['format'] = new class extends Command {
   canExecute(event, fileManager) {
     const directoryModel = fileManager.directoryModel;
     let root;
-    if (event.target instanceof DirectoryItem ||
-        event.target instanceof DirectoryTree) {
+    if (fileManager.ui.directoryTree.contains(
+            /** @type {Node} */ (event.target))) {
       // The command is executed from the directory tree context menu.
       root = CommandUtil.getCommandEntry(fileManager, event.target);
     } else {
       // The command is executed from the gear menu.
       root = directoryModel.getCurrentDirEntry();
     }
+
     // |root| is null for unrecognized volumes. Enable format command for such
     // volumes.
     const isUnrecognizedVolume = (root == null);
@@ -685,6 +695,8 @@ CommandHandler.COMMANDS_['format'] = new class extends Command {
     const location = root && fileManager.volumeManager.getLocationInfo(root);
     const writable = location && !location.isReadOnly;
     const isRoot = location && location.isRootEntry;
+
+    // Enable the command if this is a removable device (e.g. a USB drive).
     const removableRoot = location && isRoot &&
         location.rootType === VolumeManagerCommon.RootType.REMOVABLE;
     event.canExecute = removableRoot && (isUnrecognizedVolume || writable);

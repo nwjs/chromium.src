@@ -699,6 +699,7 @@ html[dir=rtl] #error-notice.has-link #error-notice-msg {
   box-shadow: 0 1px 3px 0 rgba(var(--GG800-rgb), .3),
               0 4px 8px 3px rgba(var(--GG800-rgb), .15);
   color: rgb(var(--GG700-rgb));
+  font-size: 0;  /* Remove extra spacing between inline-block elements. */
   height: 528px;
   min-width: 800px;
   padding: 0;
@@ -713,10 +714,15 @@ html[dir=rtl] #error-notice.has-link #error-notice-msg {
   }
 }
 
+#customization-menu > div {
+  font-size: 13px;
+}
+
 #menu-nav-panel {
   display: inline-block;
   height: 384px;
   left: 0;
+  margin-top: 80px;
   vertical-align: top;
   width: 192px;
 }
@@ -835,13 +841,8 @@ html[dir=rtl] .menu-option {
 #menu-header {
   display: flex;
   height: 80px;
-}
-
-#menu-title-wrapper {
-  display: block;
-  height: 80px;
   line-height: 80px;
-  margin-inline-start: -12px;
+  padding-inline-end: 24px;
 }
 
 #menu-title {
@@ -850,15 +851,14 @@ html[dir=rtl] .menu-option {
   width: fit-content;
 }
 
-.on-img-menu #menu-title {
-  margin-inline-start: 16px;
-}
-
 #menu-footer {
   border-top: 1px solid rgb(var(--GG200-rgb));
   bottom: 0;
+  box-sizing: border-box;
   color: rgb(var(--GG800-rgb));
+  display: flex;
   height: 64px;
+  justify-content: flex-end;
   left: 0;
   padding-inline-start: 0;
   position: absolute;
@@ -873,32 +873,39 @@ html[dir=rtl] .menu-option {
   }
 }
 
-#menu-done {
+#menu-footer > button {
   height: 32px;
   line-height: 32px;
+}
+
+#menu-done {
   margin-inline-end: 16px;
 }
 
 #menu-cancel {
-  height: 32px;
-  line-height: 32px;
   margin-inline-end: 8px;
 }
 
 #menu-contents {
   display: inline-block;
-  height: 384px;
-  margin-inline-start: 37px;
+  height: 464px;
+  margin-inline-start: 40px;
   position: relative;
-  width: 584px;
+  width: 568px;
 }
 
 .menu-panel {
-  height: 100%;
+  height: 384px;
   left: 0;
-  overflow-y: scroll;
+  /* Pad the content by 5px top/left. This will prevent the focus outline on
+   * tiles from being cut off by overflow-y. */
+  margin-inline-start: -5px;
+  margin-top: -5px;
+  overflow-y: auto;
+  padding-inline-start: 5px;
+  padding-top: 5px;
   position: absolute;
-  top: 0;
+  top: 80px;
   visibility: hidden;
   width: 100%;
 }
@@ -916,6 +923,12 @@ html[dir=rtl] .menu-option {
   margin-inline-start: 0;
   margin-top: 0;
   width: 176px;
+}
+
+/* Remove left/right spacing from the last tile in each row. */
+#backgrounds-menu .bg-sel-tile-bg:nth-of-type(3n),
+#backgrounds-image-menu .bg-sel-tile-bg:nth-of-type(3n) {
+  margin-inline-end: 0;
 }
 
 #backgrounds-image-menu .bg-sel-tile-bg {
@@ -936,11 +949,6 @@ html[dir=rtl] .menu-option {
   #backgrounds-image-menu .bg-sel-tile-bg.selected .bg-sel-tile {
     box-shadow: var(--dark-mode-shadow);
   }
-}
-
-#backgrounds-menu .bg-sel-tile-bg.selected .bg-sel-tile:focus,
-#backgrounds-image-menu .bg-sel-tile-bg.selected .bg-sel-tile:focus {
-  outline: none;
 }
 
 .using-mouse-nav .bg-sel-tile:focus {
@@ -1005,12 +1013,6 @@ html[dir=rtl] .menu-option {
   vertical-align: top;
 }
 
-#menu-back-wrapper {
-  display: block;
-  height: 80px;
-  vertical-align: top;
-}
-
 #menu-back {
   -webkit-mask-image: url(../../../../ui/webui/resources/images/icon_arrow_back.svg);
   -webkit-mask-repeat: no-repeat;
@@ -1032,25 +1034,17 @@ html[dir=rtl] .menu-option {
 
 #menu-back-circle {
   border-radius: 50%;
-  display: inline-block;
+  display: none;
   height: 36px;
-  margin-inline-start: 209px;
+  margin-inline-end: 4px;
+  margin-inline-start: -12px;
   margin-top: 22px;
   outline: none;
-  visibility: hidden;
   width: 36px;
 }
 
-@media (prefers-color-scheme: dark) {
-  #menu-back-circle:active,
-  #menu-back-circle:focus {
-    background: rgb(var(--GG800-rgb));
-  }
-}
-
 .on-img-menu #menu-back-circle {
-  margin-inline-start: 229px;
-  visibility: visible;
+  display: inline-block;
 }
 
 #menu-back-circle:active,
@@ -1061,6 +1055,11 @@ html[dir=rtl] .menu-option {
 }
 
 @media (prefers-color-scheme: dark) {
+  #menu-back-circle:active,
+  #menu-back-circle:focus {
+    background: rgb(var(--GG800-rgb));
+  }
+
   #menu-back {
     background-color: rgb(var(--GG200-rgb));
   }
@@ -1070,32 +1069,35 @@ html[dir=rtl] #menu-back {
   transform: scaleX(-1);
 }
 
-#backgrounds-upload-wrapper {
+#backgrounds-upload-icon {
+  background: white;
   border: 1px solid rgb(var(--GG300-rgb));
   box-sizing: border-box;
   display: inline-block;
   left: 0;
   opacity: 1;
-  position: relative;
   top: 0;
 }
 
 @media (prefers-color-scheme: dark) {
-  #backgrounds-upload-wrapper {
+  #backgrounds-upload-icon {
+    background-color: rgb(var(--dark-mode-bg-rgb));
     border-color: rgb(var(--GG700-rgb));
   }
 }
 
-#backgrounds-upload-icon {
+#backgrounds-upload-arrow {
   -webkit-mask-image: url(icons/upload.svg);
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 100%;
   background: 32px 32px rgb(var(--GG700-rgb));
   height: 32px;
-  margin-bottom: 8px;
-  margin-inline-start: 72px;
-  margin-top: 61px;
+  margin: 61px auto 8px;
   width: 32px;
+}
+
+.selected #backgrounds-upload-arrow {
+  margin-top: 45px;
 }
 
 #backgrounds-upload-text {
@@ -1201,11 +1203,6 @@ html[dir=rtl] #customization-menu .bg-sel-tile .selected-check {
   width: 116px;
 }
 
-#backgrounds-default.selected #backgrounds-default-icon {
-  box-shadow: 0 1px 3px 0 rgba(var(--GG800-rgb), .3),
-      0 4px 8px 3px rgba(var(--GG800-rgb), .15);
-}
-
 #backgrounds-default:not(.selected) .mini-page {
   padding-top: 32px;
 }
@@ -1225,8 +1222,6 @@ html[dir=rtl] #customization-menu .bg-sel-tile .selected-check {
 
 #shortcuts-menu {
   line-height: 20px;
-  overflow-y: unset;
-  width: calc(100% - 24px);
 }
 
 #sh-options {
@@ -1568,15 +1563,18 @@ input:checked + .toggle .highlight {
 
 #colors-menu {
   --check-mark-size: 20px;
-  --check-mark-top: 2px;
+  --custom-color-border: rgb(var(--GG300-rgb));
+  --custom-color-dark: rgb(var(--GG100-rgb));
+  --custom-color-light: white;
   --tile-size: 64px;
   --tile-margin: 25px;
 }
 
 #colors-menu .bg-sel-tile-bg {
   background-color: unset;
-  border-radius: calc(var(--tile-size)/2);
+  border-radius: 50%;
   box-sizing: border-box;
+  cursor: pointer;
   height: var(--tile-size);
   margin-bottom: var(--tile-margin);
   margin-inline-end: var(--tile-margin);
@@ -1586,12 +1584,12 @@ input:checked + .toggle .highlight {
 }
 
 #colors-menu .bg-sel-tile-bg.selected {
-  border: 4px solid rgba(var(--GB600-rgb), 0.4);
+  box-shadow: 0 0 0 4px rgba(var(--GB600-rgb), .4);
 }
 
 @media (prefers-color-scheme: dark) {
   #colors-menu .bg-sel-tile-bg.selected {
-    border: 4px solid rgb(var(--GB200-rgb));
+    box-shadow: 0 0 0 4px rgba(var(--GB600-rgb), .4);
   }
 }
 
@@ -1602,7 +1600,7 @@ input:checked + .toggle .highlight {
 #colors-menu .bg-sel-tile .selected-circle {
   height: calc(var(--check-mark-size) - 2px);
   right: 0;
-  top: calc(var(--check-mark-top) + 1px);
+  top: 1px;
   width: calc(var(--check-mark-size) - 2px);
 }
 
@@ -1615,7 +1613,7 @@ html[dir=rtl] #colors-menu .bg-sel-tile .selected-circle {
   background-size: var(--check-mark-size) var(--check-mark-size);
   height: var(--check-mark-size);
   right: 0;
-  top: var(--check-mark-top);
+  top: 0;
   width: var(--check-mark-size);
 }
 
@@ -1718,29 +1716,73 @@ html[dir=rtl] #colors-menu .bg-sel-tile .selected-check {
   margin-inline-end: 16px;
 }
 
-#refresh-daily-wrapper {
-  height: 80px;
-  line-height: 80px;
-  margin-inline-end: 24px;
-  margin-inline-start: auto;
-  position: relative;
+#color-picker-container.visible {
+  display: inline-block;
+}
+
+#color-picker-container {
+  display: none;
   vertical-align: top;
 }
 
-#refresh-toggle-wrapper {
+#color-picker-tile {
+  background-color: var(--custom-color-dark);
+  border: 1px solid var(--custom-color-border);
+  border-radius: 50%;
+  box-sizing: border-box;
+  opacity: 1;
+}
+
+#color-picker-icon {
+  -webkit-mask-image: url(icons/colorize.svg);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100%;
+  background-color: rgb(var(--GG700-rgb));
   display: inline-block;
+  height: 20px;
+  /* Position the icon in the middle with offset of half its size. */
+  left: calc(50% - 10px);
+  position: absolute;
+  /* Position the icon in the middle with offset of half its size. */
+  top: calc(50% - 10px);
+  width: 20px;
+}
+
+#color-picker-icon.white {
+  background-color: white;
+}
+
+#left-semicircle {
+  background-color: var(--custom-color-light);
+  border-bottom-left-radius: var(--tile-size);
+  border-top-left-radius: var(--tile-size);
+  display: inline-block;
+  height: 100%;
+  width: 50%;
+}
+
+html[dir=rtl] #left-semicircle {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: var(--tile-size);
+  border-top-left-radius: 0;
+  border-top-right-radius: var(--tile-size);
+}
+
+#refresh-daily-wrapper {
+  display: none;
+  margin-inline-start: auto;
+}
+
+.on-img-menu #refresh-daily-wrapper {
+  display: flex;
+}
+
+#refresh-toggle-wrapper {
   height: 16px;
   margin-inline-end: 12px;
   margin-top: 31px;
   position: relative;
   width: 34px;
-}
-
-#refresh-text-wrapper {
-  display: inline-block;
-  height: 80px;
-  line-height: 80px;
-  vertical-align: top;
 }
 
 #refresh-text {

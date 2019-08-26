@@ -38,6 +38,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/window_parenting_client.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/chromeos/events/event_rewriter_chromeos.h"
 #include "ui/compositor_extra/shadow.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
@@ -52,10 +53,6 @@ namespace {
 
 void NewDesk() {
   DesksController::Get()->NewDesk(DesksCreationRemovalSource::kButton);
-}
-
-void RemoveDesk(const Desk* desk) {
-  DesksController::Get()->RemoveDesk(desk, DesksCreationRemovalSource::kButton);
 }
 
 std::unique_ptr<aura::Window> CreateTransientWindow(
@@ -2023,7 +2020,9 @@ TEST_F(DesksAcceleratorsTest, RemoveDesk) {
   Desk* desk_3 = controller->desks()[2].get();
   EXPECT_TRUE(desk_1->is_active());
   const int flags = ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN;
+  DeskSwitchAnimationWaiter waiter;
   SendAccelerator(ui::VKEY_OEM_MINUS, flags);
+  waiter.Wait();
   ASSERT_EQ(2u, controller->desks().size());
   EXPECT_TRUE(desk_2->is_active());
 
@@ -2035,6 +2034,35 @@ TEST_F(DesksAcceleratorsTest, RemoveDesk) {
   ASSERT_EQ(1u, controller->desks().size());
   EXPECT_TRUE(desk_3->is_active());
   EXPECT_TRUE(overview_controller->InOverviewSession());
+}
+
+TEST_F(DesksAcceleratorsTest, RemoveRightmostDesk) {
+  auto* controller = DesksController::Get();
+  // Create a few desks and remove them outside and inside overview using the
+  // shortcut.
+  NewDesk();
+  NewDesk();
+  ASSERT_EQ(3u, controller->desks().size());
+  Desk* desk_1 = controller->desks()[0].get();
+  Desk* desk_2 = controller->desks()[1].get();
+  Desk* desk_3 = controller->desks()[2].get();
+  ActivateDesk(desk_3);
+  EXPECT_TRUE(desk_3->is_active());
+  const int flags = ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN;
+  {
+    DeskSwitchAnimationWaiter waiter;
+    SendAccelerator(ui::VKEY_OEM_MINUS, flags);
+    waiter.Wait();
+  }
+  ASSERT_EQ(2u, controller->desks().size());
+  EXPECT_TRUE(desk_2->is_active());
+  {
+    DeskSwitchAnimationWaiter waiter;
+    SendAccelerator(ui::VKEY_OEM_MINUS, flags);
+    waiter.Wait();
+  }
+  ASSERT_EQ(1u, controller->desks().size());
+  EXPECT_TRUE(desk_1->is_active());
 }
 
 TEST_F(DesksAcceleratorsTest, LeftRightDeskActivation) {
@@ -2160,6 +2188,34 @@ TEST_F(DesksAcceleratorsTest, MoveWindowLeftRightDeskOverview) {
 
   // No more highlighted windows.
   EXPECT_FALSE(overview_session->GetHighlightedWindow());
+}
+
+TEST_F(DesksAcceleratorsTest, CannotMoveAlwaysOnTopWindows) {
+  auto* controller = DesksController::Get();
+  NewDesk();
+  ASSERT_EQ(2u, controller->desks().size());
+  Desk* desk_1 = controller->desks()[0].get();
+  Desk* desk_2 = controller->desks()[1].get();
+  EXPECT_TRUE(desk_1->is_active());
+
+  // An always-on-top window does not belong to any desk and hence cannot be
+  // removed.
+  auto win0 = CreateTestWindow(gfx::Rect(0, 0, 250, 100));
+  win0->SetProperty(aura::client::kZOrderingKey,
+                    ui::ZOrderLevel::kFloatingWindow);
+  wm::ActivateWindow(win0.get());
+  EXPECT_EQ(win0.get(), window_util::GetActiveWindow());
+  EXPECT_FALSE(DoesActiveDeskContainWindow(win0.get()));
+  EXPECT_FALSE(controller->MoveWindowFromActiveDeskTo(
+      win0.get(), desk_2, DesksMoveWindowFromActiveDeskSource::kDragAndDrop));
+  const int flags = ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN;
+  SendAccelerator(ui::VKEY_OEM_4, flags);
+  EXPECT_EQ(win0.get(), window_util::GetActiveWindow());
+  EXPECT_TRUE(win0->IsVisible());
+
+  // It remains visible even after switching desks.
+  ActivateDesk(desk_2);
+  EXPECT_TRUE(win0->IsVisible());
 }
 
 // TODO(afakhry): Add more tests:

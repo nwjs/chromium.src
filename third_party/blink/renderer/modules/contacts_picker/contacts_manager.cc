@@ -99,6 +99,13 @@ ScriptPromise ContactsManager::select(ScriptState* script_state,
                                      "At least one property must be provided"));
   }
 
+  if (contact_picker_in_use_) {
+    return ScriptPromise::RejectWithDOMException(
+        script_state, MakeGarbageCollected<DOMException>(
+                          DOMExceptionCode::kInvalidStateError,
+                          "Contacts Picker is already in use."));
+  }
+
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
 
@@ -115,6 +122,7 @@ ScriptPromise ContactsManager::select(ScriptState* script_state,
       include_tel = true;
   }
 
+  contact_picker_in_use_ = true;
   GetContactsManager(script_state)
       ->Select(options->multiple(), include_names, include_emails, include_tel,
                WTF::Bind(&ContactsManager::OnContactsSelected,
@@ -127,7 +135,16 @@ void ContactsManager::OnContactsSelected(
     ScriptPromiseResolver* resolver,
     base::Optional<Vector<mojom::blink::ContactInfoPtr>> contacts) {
   ScriptState* script_state = resolver->GetScriptState();
+
+  if (!script_state->ContextIsValid()) {
+    // This can happen if the page is programmatically redirected while
+    // contacts are still being chosen.
+    return;
+  }
+
   ScriptState::Scope scope(script_state);
+
+  contact_picker_in_use_ = false;
 
   if (!contacts.has_value()) {
     resolver->Reject(V8ThrowException::CreateTypeError(

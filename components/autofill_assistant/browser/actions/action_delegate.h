@@ -16,6 +16,7 @@
 #include "components/autofill_assistant/browser/info_box.h"
 #include "components/autofill_assistant/browser/selector.h"
 #include "components/autofill_assistant/browser/top_padding.h"
+#include "components/autofill_assistant/browser/viewport_mode.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
 #include "third_party/icu/source/common/unicode/umachine.h"
 
@@ -217,6 +218,22 @@ class ActionDelegate {
   virtual bool WaitForNavigation(
       base::OnceCallback<void(bool)> on_navigation_done) = 0;
 
+  // Waits for the value of Document.readyState to reach at least
+  // |min_ready_state| in |optional_frame| or, if it is empty, in the main
+  // document.
+  virtual void WaitForDocumentReadyState(
+      const Selector& optional_frame,
+      DocumentReadyState min_ready_state,
+      base::OnceCallback<void(const ClientStatus&, DocumentReadyState)>
+          callback) = 0;
+
+  // Gets the value of Document.readyState in |optional_frame| or, if it is
+  // empty, in the main document.
+  virtual void GetDocumentReadyState(
+      const Selector& optional_frame,
+      base::OnceCallback<void(const ClientStatus&, DocumentReadyState)>
+          callback) = 0;
+
   // Load |url| in the current tab. Returns immediately, before the new page has
   // been loaded.
   virtual void LoadURL(const GURL& url) = 0;
@@ -256,11 +273,11 @@ class ActionDelegate {
   // Shows the progress bar when |visible| is true. Hides it when false.
   virtual void SetProgressVisible(bool visible) = 0;
 
-  // Set whether the viewport should be resized.
-  virtual void SetResizeViewport(bool resize_viewport) = 0;
+  // Set the viewport mode.
+  virtual void SetViewportMode(ViewportMode mode) = 0;
 
-  // Checks whether the viewport should be resized.
-  virtual bool GetResizeViewport() = 0;
+  // Get the current viewport mode.
+  virtual ViewportMode GetViewportMode() = 0;
 
   // Set the peek mode.
   virtual void SetPeekMode(ConfigureBottomSheetProto::PeekMode peek_mode) = 0;

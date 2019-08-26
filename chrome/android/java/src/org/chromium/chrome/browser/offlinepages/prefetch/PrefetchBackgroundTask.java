@@ -29,6 +29,7 @@ public class PrefetchBackgroundTask extends NativeBackgroundTask {
 
     private static boolean sSkipConditionCheckingForTesting;
     private static boolean sAlwaysSupportServiceManagerOnlyForTesting;
+    private static boolean sSkipCachingFlagForTesting;
 
     private long mNativeTask;
     private TaskFinishedCallback mTaskFinishedCallback;

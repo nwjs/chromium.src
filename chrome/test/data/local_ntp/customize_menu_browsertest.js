@@ -20,15 +20,17 @@ test.customizeMenu.IDS = {
   BACKGROUNDS_BUTTON: 'backgrounds-button',
   BACKGROUNDS_IMAGE_MENU: 'backgrounds-image-menu',
   BACKGROUNDS_MENU: 'backgrounds-menu',
+  COLOR_PICKER_CONTAINER: 'color-picker-container',
+  COLOR_PICKER_TILE: 'color-picker-tile',
   COLORS_BUTTON: 'colors-button',
   COLORS_DEFAULT: 'colors-default',
+  COLORS_DEFAULT_ICON: 'colors-default-icon',
   COLORS_MENU: 'colors-menu',
   COLORS_THEME: 'colors-theme',
   COLORS_THEME_UNINSTALL: 'colors-theme-uninstall',
   CUSTOMIZATION_MENU: 'customization-menu',
   CUSTOM_BG: 'custom-bg',
   CUSTOM_BG_PREVIEW: 'custom-bg-preview',
-  DONE: 'menu-done',
   EDIT_BG: 'edit-bg',
   MENU_BACK: 'menu-back',
   MENU_CANCEL: 'menu-cancel',
@@ -136,6 +138,7 @@ test.customizeMenu.setUp = function() {
   // populate using base::test::ScopedFeatureList.
   configData.richerPicker = true;
   configData.chromeColors = true;
+  configData.chromeColorsCustomColorPicker = false;
   customize.colorsMenuLoaded = false;
   customize.builtTiles = false;
 
@@ -292,7 +295,8 @@ test.customizeMenu.testMenu_ApplyUserSelections = function() {
   const colorOptions =
       $(test.customizeMenu.IDS.COLORS_MENU)
           .getElementsByClassName(test.customizeMenu.CLASSES.COLLECTION_TILE);
-  colorOptions[1].click();  // Skip the default theme option.
+  // Skip the color picker and the default theme option.
+  colorOptions[2].click();
 
   // Click done and check that all selections have applied.
   $(test.customizeMenu.IDS.MENU_DONE).click();
@@ -367,7 +371,8 @@ test.customizeMenu.testMenu_CancelUserSelections = function() {
   const colorOptions =
       $(test.customizeMenu.IDS.COLORS_MENU)
           .getElementsByClassName(test.customizeMenu.CLASSES.COLLECTION_TILE);
-  const color = colorOptions[1];  // Skip the default theme option.
+  // Skip the color picker and the default theme option.
+  const color = colorOptions[2];
   color.click();
 
   // Click cancel and check that all changes have been reverted.
@@ -402,7 +407,8 @@ test.customizeMenu.testMenu_CancelUserSelectionsKeyboard = function() {
   const colorOptions =
       $(test.customizeMenu.IDS.COLORS_MENU)
           .getElementsByClassName(test.customizeMenu.CLASSES.COLLECTION_TILE);
-  const color = colorOptions[1];  // Skip the default theme option.
+  // Skip the color picker and the default theme option.
+  const color = colorOptions[2];
   color.click();
 
   // Click cancel and check that all changes have been reverted.
@@ -692,6 +698,104 @@ test.customizeMenu.testColors_ThemeInfo_Uninstall = function() {
   assertEquals(1, test.customizeMenu.useDefaultThemeCount);
 };
 
+/**
+ * Test preselect default tile.
+ */
+test.customizeMenu.testColors_PreselectDefault = function() {
+  test.customizeMenu.mockThemeBackgroundInfo = {usingDefaultTheme: true};
+  init();
+  $(test.customizeMenu.IDS.EDIT_BG).click();
+  $(test.customizeMenu.IDS.COLORS_BUTTON).click();
+
+  assertTrue(
+      $(test.customizeMenu.IDS.COLORS_MENU)
+          .getElementsByClassName('selected')
+          .length === 1);
+  assertTrue($(test.customizeMenu.IDS.COLORS_DEFAULT)
+                 .classList.contains(test.customizeMenu.CLASSES.SELECTED));
+};
+
+/**
+ * Test preselect color tile.
+ */
+test.customizeMenu.testColors_PreselectColor = function() {
+  test.customizeMenu.mockThemeBackgroundInfo = {
+    usingDefaultTheme: false,
+    colorId: 1
+  };
+  init();
+  $(test.customizeMenu.IDS.EDIT_BG).click();
+  $(test.customizeMenu.IDS.COLORS_BUTTON).click();
+
+  assertTrue(
+      $(test.customizeMenu.IDS.COLORS_MENU)
+          .getElementsByClassName('selected')
+          .length === 1);
+  const tile = $(test.customizeMenu.IDS.COLORS_MENU)
+                   .getElementsByClassName('selected')[0]
+                   .firstChild;
+  assertTrue(
+      parseInt(tile.dataset.id) ===
+      test.customizeMenu.mockThemeBackgroundInfo.colorId);
+};
+
+/**
+ * Test no preselect when color id is invalid.
+ */
+test.customizeMenu.testColors_NoPreselectInvalidColorId = function() {
+  test.customizeMenu.mockThemeBackgroundInfo = {
+    usingDefaultTheme: false,
+    colorId: -1
+  };
+  init();
+  $(test.customizeMenu.IDS.EDIT_BG).click();
+  $(test.customizeMenu.IDS.COLORS_BUTTON).click();
+
+  assertTrue(
+      $(test.customizeMenu.IDS.COLORS_MENU)
+          .getElementsByClassName('selected')
+          .length === 0);
+};
+
+/**
+ * Test no preselect when color id not specified.
+ */
+test.customizeMenu.testColors_NoPreselectNoColorId = function() {
+  test.customizeMenu.mockThemeBackgroundInfo = {usingDefaultTheme: false};
+  init();
+  $(test.customizeMenu.IDS.EDIT_BG).click();
+  $(test.customizeMenu.IDS.COLORS_BUTTON).click();
+
+  assertTrue(
+      $(test.customizeMenu.IDS.COLORS_MENU)
+          .getElementsByClassName('selected')
+          .length === 0);
+};
+
+/**
+ * Test preselect when custom color is used.
+ */
+test.customizeMenu.testColors_PreselectColorPicker = function() {
+  configData.chromeColorsCustomColorPicker = true;
+  test.customizeMenu.mockThemeBackgroundInfo = {
+    usingDefaultTheme: false,
+    colorId: 0,
+    colorDark: [100, 100, 100],
+    colorLight: [200, 200, 200],
+    colorPicked: [90, 90, 90],
+  };
+  init();
+  $(test.customizeMenu.IDS.EDIT_BG).click();
+  $(test.customizeMenu.IDS.COLORS_BUTTON).click();
+
+  assertTrue(
+      $(test.customizeMenu.IDS.COLORS_MENU)
+          .getElementsByClassName('selected')
+          .length === 1);
+  assertTrue($(test.customizeMenu.IDS.COLOR_PICKER_CONTAINER)
+                 .classList.contains(test.customizeMenu.CLASSES.SELECTED));
+};
+
 //// BACKGROUND SUBMENU TESTS ////
 
 /*
@@ -828,21 +932,14 @@ test.customizeMenu.testBackgrounds_BackArrowCustomBackground = function() {
 
   assertImageSubmenuOpenWithFirstTileSelected();
 
-  // Clicking the image again should deselect it.
-  $('coll_0_img_tile_0').click();
-  assertTrue(
-      $(test.customizeMenu.IDS.BACKGROUNDS_IMAGE_MENU)
-          .getElementsByClassName('selected')
-          .length === 0);
-
-  // Close and reopen the submenu and ensure nothing is selected.
+  // Close and reopen the submenu and ensure the first tile is still selected.
   $(test.customizeMenu.IDS.MENU_BACK).click();
   assertTrue(elementIsVisible(backgroundSubmenu));
   assertFalse(elementIsVisible(backgroundImageSubmenu));
   assertEquals(0, test.customizeMenu.timesCustomBackgroundWasSet);
   $('coll_tile_0').click();
 
-  assertImageSubmenuOpenWithNoTileSelected();
+  assertImageSubmenuOpenWithFirstTileSelected();
 };
 
 /**
@@ -894,21 +991,14 @@ test.customizeMenu.testBackgrounds_BackspaceCustomBackground = function() {
 
   assertImageSubmenuOpenWithFirstTileSelected();
 
-  // Clicking the image again should deselect it.
-  $('coll_0_img_tile_0').click();
-  assertTrue(
-      $(test.customizeMenu.IDS.BACKGROUNDS_IMAGE_MENU)
-          .getElementsByClassName('selected')
-          .length === 0);
-
-  // Close and reopen the submenu and ensure nothing is selected.
+  // Close and reopen the submenu and ensure the tile is still selected.
   $(test.customizeMenu.IDS.MENU_BACK).click();
   assertTrue(elementIsVisible(backgroundSubmenu));
   assertFalse(elementIsVisible(backgroundImageSubmenu));
   assertEquals(0, test.customizeMenu.timesCustomBackgroundWasSet);
   $('coll_tile_0').click();
 
-  assertImageSubmenuOpenWithNoTileSelected();
+  assertImageSubmenuOpenWithFirstTileSelected();
 };
 
 // ******************************* HELPERS *******************************
@@ -953,6 +1043,7 @@ init = function() {
 
   test.customizeMenu.stubs.replace(chrome.embeddedSearch, 'newTabPage', {
     applyAutogeneratedTheme: applyAutogeneratedTheme,
+    applyDefaultTheme: () => {},
     areShortcutsVisible: test.customizeMenu.areShortcutsVisible,
     confirmThemeChanges: confirmThemeChanges,
     getColorsInfo: getColorsInfo,
@@ -962,7 +1053,7 @@ init = function() {
     revertThemeChanges: revertThemeChanges,
     selectLocalBackgroundImage: () => {},
     setBackgroundURL: timesCustomBackgroundWasSet,
-    setBackgroundURLWithAttributions: timesCustomBackgroundWasSet,
+    setBackgroundInfo: timesCustomBackgroundWasSet,
     themeBackgroundInfo: themeBackgroundInfo,
     toggleMostVisitedOrCustomLinks: toggleMostVisitedOrCustomLinks,
     toggleShortcutsVisibility: toggleShortcutsVisibility,

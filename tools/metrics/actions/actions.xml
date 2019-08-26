@@ -1671,6 +1671,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.DirectAction.List">
+  <owner>szermatt@chromium.org</owner>
+  <owner>autofill_assistant@google.com</owner>
+  <description>
+    Call to Activity.onListDirectActions made by the system on behalf of the
+    assist app. Available starting with Android Q.
+  </description>
+</action>
+
 <action name="Android.Download.InfoBar.Accelerated">
   <owner>shaktisahu@chromium.org</owner>
   <description>
@@ -13981,6 +13990,14 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="NTPRicherPicker.Backgrounds.DailyRefreshEnabled">
+  <owner>yyushkina@chromium.org</owner>
+  <owner>dbeam@chromium.org</owner>
+  <description>
+    Daily refresh was enabled by clicking 'Done' in the richer picker
+  </description>
+</action>
+
 <action name="NTPRicherPicker.Backgrounds.DefaultDeselected">
   <owner>yyushkina@chromium.org</owner>
   <owner>dbeam@chromium.org</owner>
@@ -13993,6 +14010,14 @@ should be able to be added at any place in this file.
   <owner>yyushkina@chromium.org</owner>
   <owner>dbeam@chromium.org</owner>
   <description>'No background' was selected in the richer picker.</description>
+</action>
+
+<action name="NTPRicherPicker.Backgrounds.RefreshToggleClicked">
+  <owner>yyushkina@chromium.org</owner>
+  <owner>dbeam@chromium.org</owner>
+  <description>
+    'Refresh daily' toggle was clicked in the richer picker.
+  </description>
 </action>
 
 <action name="NTPRicherPicker.Backgrounds.UploadCanceled">
@@ -21479,6 +21504,11 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="Test_Action">
+  <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
+  <description>Please enter the description of the metric.</description>
+</action>
+
 <action name="TextToSpeech.Pause">
   <owner>dmazzoni@chromium.org</owner>
   <description>Synthesized speech is paused.</description>
@@ -22735,6 +22765,7 @@ should be able to be added at any place in this file.
   <suffix name="PreviewsOmniboxUI"
       label="For the Previews UI in the Android Omnibox feature."/>
   <suffix name="ReopenTab" label="For ReopenTab feature."/>
+  <suffix name="TabGroupsDragAndDrop" label="For drop-to-merge in tab group."/>
   <suffix name="TabGroupsQuicklyComparePages"
       label="For long press links to create tab groups."/>
   <suffix name="TabGroupsTapToSeeAnotherTab" label="For tab strip."/>

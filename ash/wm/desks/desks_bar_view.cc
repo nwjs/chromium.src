@@ -49,6 +49,12 @@ gfx::Rect GetGestureEventScreenRect(const ui::Event& event) {
   return event.AsGestureEvent()->details().bounding_box();
 }
 
+OverviewHighlightController* GetHighlightController() {
+  auto* overview_controller = Shell::Get()->overview_controller();
+  DCHECK(overview_controller->InOverviewSession());
+  return overview_controller->overview_session()->highlight_controller();
+}
+
 }  // namespace
 
 // -----------------------------------------------------------------------------
@@ -121,7 +127,7 @@ DesksBarView::DesksBarView()
 
   AddChildView(background_view_);
   AddChildView(new_desk_button_);
-  UpdateNewDeskButtonState();
+
   DesksController::Get()->AddObserver(this);
 }
 
@@ -235,10 +241,7 @@ void DesksBarView::ButtonPressed(views::Button* sender,
                                  const ui::Event& event) {
   auto* controller = DesksController::Get();
   if (sender == new_desk_button_) {
-    if (controller->CanCreateDesks()) {
-      controller->NewDesk(DesksCreationRemovalSource::kButton);
-      UpdateNewDeskButtonState();
-    }
+    new_desk_button_->OnButtonPressed();
     return;
   }
 
@@ -264,19 +267,24 @@ void DesksBarView::OnDeskRemoved(const Desk* desk) {
 
   DCHECK(iter != mini_views_.end());
 
+  // Let the highlight controller know the view is destroying before it is
+  // removed from the collection because it needs to know the index of the mini
+  // view relative to other traversable views.
+  auto* highlight_controller = GetHighlightController();
+  highlight_controller->OnViewDestroyingOrDisabling(iter->get());
+
   const int begin_x = GetFirstMiniViewXOffset();
   std::unique_ptr<DeskMiniView> removed_mini_view = std::move(*iter);
   auto partition_iter = mini_views_.erase(iter);
 
   Layout();
   UpdateMiniViewsLabels();
-  UpdateNewDeskButtonState();
-  DCHECK(Shell::Get()->overview_controller()->InOverviewSession());
-  auto* highlight_controller = Shell::Get()
-                                   ->overview_controller()
-                                   ->overview_session()
-                                   ->highlight_controller();
-  highlight_controller->OnViewDestroying(removed_mini_view.get());
+  new_desk_button_->UpdateButtonState();
+
+  // Once the remaining mini views have their bounds updated, notify the
+  // overview highlight controller so that it can update the focus highlight, if
+  // needed.
+  highlight_controller->OnWindowsRepositioned(removed_mini_view->root_window());
 
   std::vector<DeskMiniView*> mini_views_before;
   std::vector<DeskMiniView*> mini_views_after;
@@ -290,15 +298,9 @@ void DesksBarView::OnDeskRemoved(const Desk* desk) {
   std::transform(partition_iter, mini_views_.end(),
                  std::back_inserter(mini_views_after), transform_lambda);
 
-  aura::Window* root_window = removed_mini_view->root_window();
   PerformRemoveDeskMiniViewAnimation(std::move(removed_mini_view),
                                      mini_views_before, mini_views_after,
                                      begin_x - GetFirstMiniViewXOffset());
-
-  // Once the remaining mini views have their bounds updated, notify the
-  // overview highlight controller so that it can update the focus highlight, if
-  // needed.
-  highlight_controller->OnWindowsRepositioned(root_window);
 }
 
 void DesksBarView::OnDeskActivationChanged(const Desk* activated,
@@ -311,10 +313,6 @@ void DesksBarView::OnDeskActivationChanged(const Desk* activated,
 }
 
 void DesksBarView::OnDeskSwitchAnimationFinished() {}
-
-void DesksBarView::UpdateNewDeskButtonState() {
-  new_desk_button_->SetEnabled(DesksController::Get()->CanCreateDesks());
-}
 
 void DesksBarView::UpdateNewMiniViews(bool animate) {
   const auto& desks = DesksController::Get()->desks();
@@ -352,6 +350,10 @@ void DesksBarView::UpdateNewMiniViews(bool animate) {
   }
 
   Layout();
+
+  // Update the overview highlight if needed since adding a desk will shift the
+  // mini views from their current positions.
+  GetHighlightController()->OnWindowsRepositioned(root_window);
 
   if (!animate)
     return;

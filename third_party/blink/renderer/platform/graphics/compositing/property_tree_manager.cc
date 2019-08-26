@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/platform/graphics/compositing/property_tree_manager.h"
 
+#include "build/build_config.h"
 #include "cc/input/overscroll_behavior.h"
 #include "cc/layers/layer.h"
 #include "cc/trees/clip_node.h"
@@ -418,9 +419,7 @@ int PropertyTreeManager::EnsureCompositorTransformNode(
   compositor_node.source_node_id = parent_id;
 
   UpdateCcTransformLocalMatrix(compositor_node, transform_node);
-  compositor_node.transform_changed =
-      transform_node.NodeChanged() >=
-      PaintPropertyChangeType::kChangedOnlySimpleValues;
+  compositor_node.transform_changed = transform_node.NodeChangeAffectsRaster();
   compositor_node.flattens_inherited_transform =
       transform_node.FlattensInheritedTransform();
   compositor_node.sorting_context_id = transform_node.RenderingContextId();
@@ -832,6 +831,19 @@ bool PropertyTreeManager::SupportsShaderBasedRoundedCorner(
     return false;
   }
 
+  // Rounded corners that differ are not supported by the
+  // CALayerOverlay system on Mac. Instead of letting it fall back
+  // to the (worse for memory and battery) non-CALayerOverlay system
+  // for such cases, fall back to a non-fast border-radius mask for
+  // the effect node.
+#if defined(OS_MACOSX)
+  if (radii.TopLeft() != radii.TopRight() ||
+      radii.TopLeft() != radii.BottomRight() ||
+      radii.TopLeft() != radii.BottomLeft()) {
+    return false;
+  }
+#endif
+
   return true;
 }
 
@@ -1097,8 +1109,7 @@ void PropertyTreeManager::PopulateCcEffectNode(
   }
   effect_node.blend_mode = blend_mode;
   effect_node.double_sided = !effect.LocalTransformSpace().IsBackfaceHidden();
-  effect_node.effect_changed =
-      effect.NodeChanged() >= PaintPropertyChangeType::kChangedOnlySimpleValues;
+  effect_node.effect_changed = effect.NodeChangeAffectsRaster();
 }
 
 }  // namespace blink
