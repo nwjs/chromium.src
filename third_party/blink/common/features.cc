@@ -113,7 +113,7 @@ const base::Feature kOffMainThreadServiceWorkerScriptFetch{
 // Enable off-the-main-thread shared worker script fetch.
 // (https://crbug.com/924041)
 const base::Feature kOffMainThreadSharedWorkerScriptFetch{
-    "OffMainThreadSharedWorkerScriptFetch", base::FEATURE_ENABLED_BY_DEFAULT};
+    "OffMainThreadSharedWorkerScriptFetch", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Enable browser-initiated dedicated worker script loading
 // (PlzDedicatedWorker). https://crbug.com/906991

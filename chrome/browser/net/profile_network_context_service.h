@@ -65,6 +65,7 @@ class ProfileNetworkContextService
 
   // Flushes all pending proxy configuration changes.
   void FlushProxyConfigMonitorForTesting();
+  void UpdateProxyConfig(const net::ProxyConfigWithAnnotation& proxy_config);
 
   static void SetDiscardDomainReliabilityUploadsForTesting(bool value);
 

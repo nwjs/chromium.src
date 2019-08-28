@@ -103,6 +103,10 @@ void ProxyConfigMonitor::FlushForTesting() {
   proxy_config_client_set_.FlushForTesting();
 }
 
+void ProxyConfigMonitor::UpdateProxyConfig(const net::ProxyConfigWithAnnotation& proxy_config) {
+  OnProxyConfigChanged(proxy_config, net::ProxyConfigService::CONFIG_VALID);
+}
+
 void ProxyConfigMonitor::OnProxyConfigChanged(
     const net::ProxyConfigWithAnnotation& config,
     net::ProxyConfigService::ConfigAvailability availability) {

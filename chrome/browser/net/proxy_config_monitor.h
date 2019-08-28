@@ -63,6 +63,7 @@ class ProxyConfigMonitor : public net::ProxyConfigService::Observer,
   // they're received, to allow tests to wait until all pending proxy
   // configuration changes have been applied.
   void FlushForTesting();
+  void UpdateProxyConfig(const net::ProxyConfigWithAnnotation& proxy_config);
 
  private:
   // net::ProxyConfigService::Observer implementation:
