@@ -2010,6 +2010,21 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityIgnoredSelectionNoUnignored) {
+  RunHtmlTest(FILE_PATH_LITERAL("ignored-selection-no-unignored.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityIgnoredSelectionBetweenText) {
+  RunHtmlTest(FILE_PATH_LITERAL("ignored-selection-between-text.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityIgnoredSelection) {
+  RunHtmlTest(FILE_PATH_LITERAL("ignored-selection.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityLabelWithSelectedOption) {
   RunHtmlTest(FILE_PATH_LITERAL("label-with-selected-option.html"));
 }
@@ -2026,6 +2041,10 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityNestedList) {
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityButtonWithListboxPopup) {
   RunHtmlTest(FILE_PATH_LITERAL("button-with-listbox-popup.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, DeleteSelectionCrash) {
+  RunHtmlTest(FILE_PATH_LITERAL("delete-selection-crash.html"));
 }
 
 //

@@ -50,6 +50,38 @@ class AXPositionTest : public testing::Test {
   void SetUp() override;
   void TearDown() override;
 
+  void AssertTextLengthEquals(const AXTree* tree,
+                              int32_t node_id,
+                              int expected_text_length) {
+    TestPositionType text_position = AXNodePosition::CreateTextPosition(
+        tree->data().tree_id, node_id, 0 /* text_offset */,
+        ax::mojom::TextAffinity::kUpstream);
+    ASSERT_NE(nullptr, text_position);
+    ASSERT_TRUE(text_position->IsTextPosition());
+    ASSERT_EQ(expected_text_length, text_position->MaxTextOffset());
+    ASSERT_EQ(expected_text_length,
+              static_cast<int>(text_position->GetText().length()));
+  }
+
+  // Creates a new AXTree from a vector of nodes.
+  // Assumes the first node in the vector is the root.
+  std::unique_ptr<AXTree> CreateAXTree(
+      const std::vector<ui::AXNodeData>& nodes) {
+    ui::AXTreeUpdate update;
+    ui::AXTreeData tree_data;
+    tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
+    update.tree_data = tree_data;
+    update.has_tree_data = true;
+    update.root_id = nodes[0].id;
+    update.nodes = nodes;
+
+    tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
+    update.tree_data = tree_data;
+    std::unique_ptr<AXTree> tree = std::make_unique<AXTree>(update);
+    AXNodePosition::SetTree(tree.get());
+    return tree;
+  }
+
   AXNodeData root_;
   AXNodeData button_;
   AXNodeData check_box_;
@@ -214,11 +246,11 @@ void AXPositionTest::SetUp() {
   AXTreeUpdate update;
   serializer.SerializeChanges(src_tree.root(), &update);
   ASSERT_TRUE(tree_.Unserialize(update));
-  AXNodePosition::SetTreeForTesting(&tree_);
+  AXNodePosition::SetTree(&tree_);
 }
 
 void AXPositionTest::TearDown() {
-  AXNodePosition::SetTreeForTesting(nullptr);
+  AXNodePosition::SetTree(nullptr);
 }
 
 }  // namespace
@@ -268,6 +300,60 @@ TEST_F(AXPositionTest, Clone) {
   ASSERT_NE(nullptr, text_position);
   ASSERT_TRUE(text_position->IsTextPosition());
   copy_position = text_position->Clone();
+  ASSERT_NE(nullptr, copy_position);
+  EXPECT_TRUE(copy_position->IsTextPosition());
+  EXPECT_EQ(text_field_.id, copy_position->anchor_id());
+  EXPECT_EQ(0, copy_position->text_offset());
+  EXPECT_EQ(ax::mojom::TextAffinity::kDownstream, copy_position->affinity());
+  EXPECT_EQ(AXNodePosition::INVALID_INDEX, copy_position->child_index());
+}
+
+TEST_F(AXPositionTest, Serialize) {
+  TestPositionType null_position = AXNodePosition::CreateNullPosition();
+  ASSERT_NE(nullptr, null_position);
+  TestPositionType copy_position =
+      AXNodePosition::Unserialize(null_position->Serialize());
+  ASSERT_NE(nullptr, copy_position);
+  EXPECT_TRUE(copy_position->IsNullPosition());
+
+  TestPositionType tree_position = AXNodePosition::CreateTreePosition(
+      tree_.data().tree_id, root_.id, 1 /* child_index */);
+  ASSERT_NE(nullptr, tree_position);
+  copy_position = AXNodePosition::Unserialize(tree_position->Serialize());
+  ASSERT_NE(nullptr, copy_position);
+  EXPECT_TRUE(copy_position->IsTreePosition());
+  EXPECT_EQ(root_.id, copy_position->anchor_id());
+  EXPECT_EQ(1, copy_position->child_index());
+  EXPECT_EQ(AXNodePosition::INVALID_OFFSET, copy_position->text_offset());
+
+  tree_position = AXNodePosition::CreateTreePosition(
+      tree_.data().tree_id, root_.id, AXNodePosition::BEFORE_TEXT);
+  ASSERT_NE(nullptr, tree_position);
+  copy_position = AXNodePosition::Unserialize(tree_position->Serialize());
+  ASSERT_NE(nullptr, copy_position);
+  EXPECT_TRUE(copy_position->IsTreePosition());
+  EXPECT_EQ(root_.id, copy_position->anchor_id());
+  EXPECT_EQ(AXNodePosition::BEFORE_TEXT, copy_position->child_index());
+  EXPECT_EQ(AXNodePosition::INVALID_OFFSET, copy_position->text_offset());
+
+  TestPositionType text_position = AXNodePosition::CreateTextPosition(
+      tree_.data().tree_id, text_field_.id, 0 /* text_offset */,
+      ax::mojom::TextAffinity::kUpstream);
+  ASSERT_NE(nullptr, text_position);
+  ASSERT_TRUE(text_position->IsTextPosition());
+  copy_position = AXNodePosition::Unserialize(text_position->Serialize());
+  ASSERT_NE(nullptr, copy_position);
+  EXPECT_TRUE(copy_position->IsTextPosition());
+  EXPECT_EQ(text_field_.id, copy_position->anchor_id());
+  EXPECT_EQ(0, copy_position->text_offset());
+  EXPECT_EQ(ax::mojom::TextAffinity::kUpstream, copy_position->affinity());
+
+  text_position = AXNodePosition::CreateTextPosition(
+      tree_.data().tree_id, text_field_.id, 0 /* text_offset */,
+      ax::mojom::TextAffinity::kDownstream);
+  ASSERT_NE(nullptr, text_position);
+  ASSERT_TRUE(text_position->IsTextPosition());
+  copy_position = AXNodePosition::Unserialize(text_position->Serialize());
   ASSERT_NE(nullptr, copy_position);
   EXPECT_TRUE(copy_position->IsTextPosition());
   EXPECT_EQ(text_field_.id, copy_position->anchor_id());
@@ -414,6 +500,49 @@ TEST_F(AXPositionTest, GetMaxTextOffsetFromLineBreak) {
   ASSERT_NE(nullptr, text_position);
   ASSERT_TRUE(text_position->IsTextPosition());
   ASSERT_EQ(1, text_position->MaxTextOffset());
+}
+
+TEST_F(AXPositionTest, GetMaxTextOffsetUpdate) {
+  AXNodePosition::SetTree(nullptr);
+
+  ui::AXNodeData root_data;
+  root_data.id = 1;
+  root_data.role = ax::mojom::Role::kRootWebArea;
+
+  ui::AXNodeData text_data;
+  text_data.id = 2;
+  text_data.role = ax::mojom::Role::kStaticText;
+  text_data.SetName("some text");
+
+  ui::AXNodeData more_text_data;
+  more_text_data.id = 3;
+  more_text_data.role = ax::mojom::Role::kStaticText;
+  more_text_data.SetName("more text");
+
+  root_data.child_ids = {2, 3};
+
+  std::unique_ptr<AXTree> new_tree =
+      CreateAXTree({root_data, text_data, more_text_data});
+
+  AssertTextLengthEquals(new_tree.get(), text_data.id, 9);
+  AssertTextLengthEquals(new_tree.get(), root_data.id, 18);
+
+  text_data.SetName("Adjusted line 1");
+  new_tree = CreateAXTree({root_data, text_data, more_text_data});
+  AssertTextLengthEquals(new_tree.get(), text_data.id, 15);
+  AssertTextLengthEquals(new_tree.get(), root_data.id, 24);
+
+  // Value should override name
+  text_data.SetValue("Value should override name");
+  new_tree = CreateAXTree({root_data, text_data, more_text_data});
+  AssertTextLengthEquals(new_tree.get(), text_data.id, 26);
+  AssertTextLengthEquals(new_tree.get(), root_data.id, 35);
+
+  // An empty value should fall back to name
+  text_data.SetValue("");
+  new_tree = CreateAXTree({root_data, text_data, more_text_data});
+  AssertTextLengthEquals(new_tree.get(), text_data.id, 15);
+  AssertTextLengthEquals(new_tree.get(), root_data.id, 24);
 }
 
 TEST_F(AXPositionTest, AtStartOfAnchorWithNullPosition) {
@@ -1484,23 +1613,23 @@ TEST_F(AXPositionTest, CreatePositionAtFormatBoundaryWithTextPosition) {
   // This test updates the tree structure to test a specific edge case -
   // CreatePositionAtFormatBoundary when text lies at the beginning and end
   // of the AX tree.
-  AXNodePosition::SetTreeForTesting(nullptr);
+  AXNodePosition::SetTree(nullptr);
 
   AXNodeData root_data;
-  root_data.id = 0;
+  root_data.id = 1;
   root_data.role = ax::mojom::Role::kRootWebArea;
 
   AXNodeData text_data;
-  text_data.id = 1;
+  text_data.id = 2;
   text_data.role = ax::mojom::Role::kStaticText;
   text_data.SetName("some text");
 
   AXNodeData more_text_data;
-  more_text_data.id = 2;
+  more_text_data.id = 3;
   more_text_data.role = ax::mojom::Role::kStaticText;
   more_text_data.SetName("more text");
 
-  root_data.child_ids = {1, 2};
+  root_data.child_ids = {text_data.id, more_text_data.id};
 
   AXTreeUpdate update;
   AXTreeData tree_data;
@@ -1512,7 +1641,7 @@ TEST_F(AXPositionTest, CreatePositionAtFormatBoundaryWithTextPosition) {
 
   std::unique_ptr<AXTree> new_tree;
   new_tree.reset(new AXTree(update));
-  AXNodePosition::SetTreeForTesting(new_tree.get());
+  AXNodePosition::SetTree(new_tree.get());
 
   // Test CreatePreviousFormatStartPosition at the start of the document.
   TestPositionType text_position = AXNodePosition::CreateTextPosition(
@@ -1539,7 +1668,7 @@ TEST_F(AXPositionTest, CreatePositionAtFormatBoundaryWithTextPosition) {
   EXPECT_EQ(more_text_data.id, test_position->anchor_id());
   EXPECT_EQ(9, test_position->text_offset());
 
-  AXNodePosition::SetTreeForTesting(&tree_);
+  AXNodePosition::SetTree(&tree_);
 }
 
 TEST_F(AXPositionTest, CreatePositionAtStartOfDocumentWithNullPosition) {
@@ -2790,33 +2919,33 @@ TEST_F(AXPositionTest, OperatorsLessThanAndGreaterThan) {
 TEST_F(AXPositionTest, CreateNextAnchorPosition) {
   // This test updates the tree structure to test a specific edge case -
   // CreateNextAnchorPosition on an empty text field.
-  AXNodePosition::SetTreeForTesting(nullptr);
+  AXNodePosition::SetTree(nullptr);
 
   AXNodeData root_data;
-  root_data.id = 0;
+  root_data.id = 1;
   root_data.role = ax::mojom::Role::kRootWebArea;
 
   AXNodeData text_data;
-  text_data.id = 1;
+  text_data.id = 2;
   text_data.role = ax::mojom::Role::kStaticText;
   text_data.SetName("some text");
 
   AXNodeData text_field_data;
-  text_field_data.id = 2;
+  text_field_data.id = 3;
   text_field_data.role = ax::mojom::Role::kTextField;
 
   AXNodeData empty_text_data;
-  empty_text_data.id = 3;
+  empty_text_data.id = 4;
   empty_text_data.role = ax::mojom::Role::kStaticText;
   empty_text_data.SetName("");
 
   AXNodeData more_text_data;
-  more_text_data.id = 4;
+  more_text_data.id = 5;
   more_text_data.role = ax::mojom::Role::kStaticText;
   more_text_data.SetName("more text");
 
-  root_data.child_ids = {1, 2, 4};
-  text_field_data.child_ids = {3};
+  root_data.child_ids = {text_data.id, text_field_data.id, more_text_data.id};
+  text_field_data.child_ids = {empty_text_data.id};
 
   AXTreeUpdate update;
   AXTreeData tree_data;
@@ -2829,7 +2958,7 @@ TEST_F(AXPositionTest, CreateNextAnchorPosition) {
 
   std::unique_ptr<AXTree> new_tree;
   new_tree.reset(new AXTree(update));
-  AXNodePosition::SetTreeForTesting(new_tree.get());
+  AXNodePosition::SetTree(new_tree.get());
 
   // Test that CreateNextAnchorPosition will successfully navigate past the
   // empty text field.
@@ -2841,7 +2970,7 @@ TEST_F(AXPositionTest, CreateNextAnchorPosition) {
                    ->CreateNextAnchorPosition()
                    ->IsNullPosition());
 
-  AXNodePosition::SetTreeForTesting(&tree_);
+  AXNodePosition::SetTree(&tree_);
 }
 
 //

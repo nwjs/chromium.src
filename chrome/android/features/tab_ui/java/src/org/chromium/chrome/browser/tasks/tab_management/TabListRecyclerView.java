@@ -27,6 +27,7 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import org.chromium.base.Log;
 import org.chromium.chrome.browser.ChromeFeatureList;
@@ -109,6 +110,7 @@ class TabListRecyclerView extends RecyclerView {
     private int mShadowTopMargin;
     private TabListOnScrollListener mScrollListener;
     private View mRecyclerViewFooter;
+    private Rect mOriginalPadding;
 
     /**
      * Basic constructor to use during inflation from xml.
@@ -173,23 +175,37 @@ class TabListRecyclerView extends RecyclerView {
     }
 
     void setShadowVisibility(boolean shouldShowShadow) {
-        if (!(getParent() instanceof FrameLayout)) return;
-
         if (mShadowImageView == null) {
             Context context = getContext();
             mShadowImageView = new ImageView(context);
             mShadowImageView.setImageDrawable(AppCompatResources.getDrawable(
                     context, org.chromium.chrome.R.drawable.modern_toolbar_shadow));
-            Resources res = context.getResources();
-            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                    LayoutParams.MATCH_PARENT,
-                    res.getDimensionPixelSize(org.chromium.chrome.R.dimen.toolbar_shadow_height),
-                    Gravity.TOP);
-            params.topMargin = mShadowTopMargin;
             mShadowImageView.setScaleType(ImageView.ScaleType.FIT_XY);
-            mShadowImageView.setLayoutParams(params);
-            FrameLayout parent = (FrameLayout) getParent();
-            parent.addView(mShadowImageView);
+            Resources res = context.getResources();
+            if (getParent() instanceof FrameLayout) {
+                // Add shadow for grid tab switcher.
+                FrameLayout.LayoutParams params =
+                        new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,
+                                res.getDimensionPixelSize(
+                                        org.chromium.chrome.R.dimen.toolbar_shadow_height),
+                                Gravity.TOP);
+                params.topMargin = mShadowTopMargin;
+                mShadowImageView.setLayoutParams(params);
+                FrameLayout parent = (FrameLayout) getParent();
+                parent.addView(mShadowImageView);
+            } else if (getParent() instanceof RelativeLayout) {
+                // Add shadow for tab grid dialog.
+                RelativeLayout parent = (RelativeLayout) getParent();
+                View toolbar = parent.getChildAt(0);
+                if (!(toolbar instanceof TabGroupUiToolbarView)) return;
+
+                RelativeLayout.LayoutParams params =
+                        new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                                res.getDimensionPixelSize(
+                                        org.chromium.chrome.R.dimen.toolbar_shadow_height));
+                params.addRule(RelativeLayout.BELOW, toolbar.getId());
+                parent.addView(mShadowImageView, params);
+            }
         }
 
         if (shouldShowShadow && mShadowImageView.getVisibility() != VISIBLE) {
@@ -474,6 +490,8 @@ class TabListRecyclerView extends RecyclerView {
     /**
      * This method setup the footer of {@code recyclerView}.
      * @param footer  The {@link View} of the footer.
+     * TODO(yuezhanggg): Refactor the footer as a item in the recyclerView instead of a separate
+     * view. (crbug: 987043)
      */
     void setupRecyclerViewFooter(View footer) {
         if (mRecyclerViewFooter != null) return;
@@ -481,7 +499,10 @@ class TabListRecyclerView extends RecyclerView {
         setScrollBarStyle(SCROLLBARS_OUTSIDE_OVERLAY);
         final int height = (int) getResources().getDimension(R.dimen.tab_grid_iph_card_height);
         final int padding = (int) getResources().getDimension(R.dimen.tab_grid_iph_card_margin);
-        setPadding(0, 0, 0, height + padding);
+        mOriginalPadding =
+                new Rect(getPaddingLeft(), getPaddingTop(), getPaddingRight(), getPaddingBottom());
+        setPadding(mOriginalPadding.left, mOriginalPadding.top, mOriginalPadding.right,
+                mOriginalPadding.bottom + height + padding);
         mRecyclerViewFooter.setVisibility(INVISIBLE);
     }
 
@@ -493,7 +514,9 @@ class TabListRecyclerView extends RecyclerView {
         ((ViewGroup) mRecyclerViewFooter.getParent()).removeView(mRecyclerViewFooter);
         mRecyclerViewFooter = null;
         // Restore the recyclerView to its original state.
-        setPadding(0, 0, 0, 0);
+        assert mOriginalPadding != null;
+        setPadding(mOriginalPadding.left, mOriginalPadding.top, mOriginalPadding.right,
+                mOriginalPadding.bottom);
         setScrollBarStyle(SCROLLBARS_INSIDE_OVERLAY);
     }
 }

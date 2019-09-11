@@ -7,6 +7,7 @@
 #include "extensions/renderer/api/automation/automation_internal_custom_bindings.h"
 #include "ui/accessibility/ax_language_detection.h"
 #include "ui/accessibility/ax_node.h"
+#include "ui/accessibility/ax_node_position.h"
 
 namespace extensions {
 
@@ -410,6 +411,14 @@ bool AutomationAXTreeWrapper::IsInFocusChain(int32_t node_id) {
   return true;
 }
 
+ui::AXTree::Selection AutomationAXTreeWrapper::GetUnignoredSelection() {
+  // As there is no Tree Manager, this is necessary for AXPositions to work.
+  ui::AXNodePosition::SetTree(tree());
+  ui::AXTree::Selection unignored_selection = tree()->GetUnignoredSelection();
+  ui::AXNodePosition::SetTree(nullptr);
+  return unignored_selection;
+}
+
 // static
 std::map<ui::AXTreeID, AutomationAXTreeWrapper*>&
 AutomationAXTreeWrapper::GetChildTreeIDReverseMap() {
@@ -418,7 +427,7 @@ AutomationAXTreeWrapper::GetChildTreeIDReverseMap() {
   return *child_tree_id_reverse_map;
 }
 
-void AutomationAXTreeWrapper::OnNodeDataWillChange(
+void AutomationAXTreeWrapper::OnNodeDataChanged(
     ui::AXTree* tree,
     const ui::AXNodeData& old_node_data,
     const ui::AXNodeData& new_node_data) {

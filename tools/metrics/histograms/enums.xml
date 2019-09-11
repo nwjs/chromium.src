@@ -18970,7 +18970,7 @@ Called by update_net_error_codes.py.-->
       label="DELETED_EXPERIMENTAL_MEDIAGALLERIES_ASSEMBLEMEDIAFILE"/>
   <int value="150" label="BOOKMARKMANAGERPRIVATE_STARTDRAG"/>
   <int value="151" label="BROWSINGDATA_REMOVEPASSWORDS"/>
-  <int value="152" label="DOWNLOADS_DRAG"/>
+  <int value="152" label="DELETED_DOWNLOADS_DRAG"/>
   <int value="153" label="INPUT_IME_SETCOMPOSITION"/>
   <int value="154" label="METRICSPRIVATE_RECORDUSERACTION"/>
   <int value="155" label="USB_RELEASEINTERFACE"/>
@@ -24223,6 +24223,7 @@ Called by update_net_error_codes.py.-->
   <int value="2977" label="AutoplayDynamicDelegation"/>
   <int value="2979" label="FragmentDoubleHash"/>
   <int value="2993" label="ContactsManagerSelect"/>
+  <int value="3004" label="PerformanceObserverBufferedFlag"/>
 </enum>
 
 <enum name="FeaturePolicyAllowlistType">
@@ -31810,6 +31811,20 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="1" label="Single App URL, handled"/>
   <int value="2" label="App Bundle URL, handled"/>
   <int value="3" label="App Bundle URL, not handled"/>
+</enum>
+
+<enum name="IOSJavaScriptDialogDismissalCause">
+  <int value="0" label="Tab closed">The tab owning the dialog was closed</int>
+  <int value="1" label="Closed by user">
+    The user tapped on the OK or Cancel button.
+  </int>
+  <int value="2" label="Blocked by user">
+    Dialog was blocked because the user tapped the &quot;Suppress Dialogs&quot;
+    option.
+  </int>
+  <int value="3" label="Closed for navigation">
+    The user navigated the tab (e.g. back/forward, reload)
+  </int>
 </enum>
 
 <enum name="IosLocationAuthorizationStatus">
@@ -64097,6 +64112,26 @@ Full version information for the fingerprint enum values:
   </int>
   <int value="2" label="Generally ineligible in current context">
     No URL can be sent to the suggest server at this time.
+  </int>
+</enum>
+
+<enum name="ZeroSuggestEligibleOnFocusForRemoteNoUrlOnNTP">
+  <int value="0" label="Eligible"/>
+  <int value="1" label="Ineligible: Off the Record">
+    The user is in incognito mode.
+  </int>
+  <int value="2" label="Ineligible: Suggestions disabled">
+    Suggestion mechanism is disabled by user.
+  </int>
+  <int value="3" label="Ineligible: User not authenticated">
+    User is not signed in.
+  </int>
+  <int value="4" label="Ineligible: Unsupported suggestion server">
+    User is using an unsupported search engine.
+  </int>
+  <int value="5" label="Ineligible: Not participating">
+    User is not participating in an experiment that enables RemoteNoURL
+    suggestions on the NTP.
   </int>
 </enum>
 

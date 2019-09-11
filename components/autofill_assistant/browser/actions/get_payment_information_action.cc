@@ -56,8 +56,10 @@ void GetPaymentInformationAction::InternalProcessAction(
     std::move(callback).Run(std::move(processed_action_proto_));
     return;
   }
-
   auto get_payment_information = proto_.get_payment_information();
+  if (get_payment_information.has_prompt()) {
+    delegate_->SetStatusMessage(get_payment_information.prompt());
+  }
   payment_options->confirm_callback = base::BindOnce(
       &GetPaymentInformationAction::OnGetPaymentInformation,
       weak_ptr_factory_.GetWeakPtr(), std::move(get_payment_information));
@@ -76,9 +78,6 @@ void GetPaymentInformationAction::InternalProcessAction(
     delegate_->GetPersonalDataManager()->AddObserver(this);
   }
 
-  if (get_payment_information.has_prompt()) {
-    delegate_->SetStatusMessage(get_payment_information.prompt());
-  }
   delegate_->GetPaymentInformation(std::move(payment_options));
 }
 
@@ -121,9 +120,9 @@ void GetPaymentInformationAction::OnGetPaymentInformation(
       autofill::AutofillProfile contact_profile;
       contact_profile.SetRawInfo(
           autofill::ServerFieldType::NAME_FULL,
-          base::ASCIIToUTF16(payment_information->payer_name));
+          base::UTF8ToUTF16(payment_information->payer_name));
       autofill::data_util::NameParts parts = autofill::data_util::SplitName(
-          base::ASCIIToUTF16(payment_information->payer_name));
+          base::UTF8ToUTF16(payment_information->payer_name));
       contact_profile.SetRawInfo(autofill::ServerFieldType::NAME_FIRST,
                                  parts.given);
       contact_profile.SetRawInfo(autofill::ServerFieldType::NAME_MIDDLE,
@@ -132,10 +131,10 @@ void GetPaymentInformationAction::OnGetPaymentInformation(
                                  parts.family);
       contact_profile.SetRawInfo(
           autofill::ServerFieldType::EMAIL_ADDRESS,
-          base::ASCIIToUTF16(payment_information->payer_email));
+          base::UTF8ToUTF16(payment_information->payer_email));
       contact_profile.SetRawInfo(
           autofill::ServerFieldType::PHONE_HOME_WHOLE_NUMBER,
-          base::ASCIIToUTF16(payment_information->payer_phone));
+          base::UTF8ToUTF16(payment_information->payer_phone));
       if (!contact_details_proto.contact_details_name().empty()) {
         delegate_->GetClientMemory()->set_selected_address(
             contact_details_proto.contact_details_name(),

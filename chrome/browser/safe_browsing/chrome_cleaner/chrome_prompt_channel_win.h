@@ -147,6 +147,8 @@ class ChromePromptChannelProtobuf : public ChromePromptChannel {
     kReadVersionWinError = 2,
     kReadRequestLengthWinError = 3,
     kReadRequestWinError = 4,
+    kWriteResponseWinError = 5,
+    kWriteResponseLengthWinError = 6,
   };
 
   // Code that describes the error precisely.
@@ -155,6 +157,12 @@ class ChromePromptChannelProtobuf : public ChromePromptChannel {
     kRequestLengthShortRead = 2,
     kRequestShortRead = 3,
     kRequestInvalidSize = 4,
+    kRequestContentInvalid = 5,
+    kRequestUnknown = 6,
+    kRequestUnknownField = 7,
+    kUndisplayableFilePath = 8,
+    kUndisplayableRegistryKey = 9,
+    kUndisplayableExtension = 9,
   };
 
   static int32_t GetErrorCodeInt(ErrorCategory category,

@@ -53,6 +53,7 @@ void InitializeRegistryOverrideForTesting(
   ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(kRegMdmUrl, L""));
   ASSERT_EQ(ERROR_SUCCESS,
             SetMachineGuidForTesting(L"f418a124-4d92-469b-afa5-0f8af537b965"));
+  ASSERT_EQ(ERROR_SUCCESS, key.WriteValue(kRegMdmEscrowServiceServerUrl, L""));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -488,6 +489,10 @@ HRESULT FakeScopedLsaPolicy::RetrievePrivateData(const wchar_t* key,
     return E_FAIL;
 
   return S_OK;
+}
+
+bool FakeScopedLsaPolicy::PrivateDataExists(const wchar_t* key) {
+  return private_data().count(key) != 0;
 }
 
 HRESULT FakeScopedLsaPolicy::AddAccountRights(PSID sid, const wchar_t* right) {

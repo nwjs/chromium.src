@@ -25,14 +25,24 @@ class AX_EXPORT AXNodePosition : public AXPosition<AXNodePosition, AXNode> {
   AXNodePosition();
   ~AXNodePosition() override;
 
+  static AXPositionInstance CreatePosition(AXTreeID tree_id,
+                                           const AXNode& node,
+                                           int32_t offset,
+                                           ax::mojom::TextAffinity affinity);
+
+  static void SetTree(AXTree* tree) { tree_ = tree; }
+
   AXPositionInstance Clone() const override;
 
+  int MaxTextOffset() const override;
   bool IsInLineBreak() const override;
   bool IsInTextObject() const override;
   bool IsInWhiteSpace() const override;
   base::string16 GetText() const override;
 
-  static void SetTreeForTesting(AXTree* tree) { tree_ = tree; }
+  bool IsIgnoredPosition() const override;
+  AXPositionInstance AsUnignoredTextPosition(
+      AdjustmentBehavior adjustment_behavior) const override;
 
  protected:
   AXNodePosition(const AXNodePosition& other) = default;

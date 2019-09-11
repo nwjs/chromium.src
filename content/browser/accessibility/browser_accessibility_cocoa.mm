@@ -38,6 +38,8 @@
 
 using BrowserAccessibilityPositionInstance =
     content::BrowserAccessibilityPosition::AXPositionInstance;
+using SerializedPosition =
+    content::BrowserAccessibilityPosition::SerializedPosition;
 using AXPlatformRange =
     ui::AXRange<BrowserAccessibilityPositionInstance::element_type>;
 using AXTextMarkerRangeRef = CFTypeRef;
@@ -53,6 +55,10 @@ using content::ContentClient;
 using content::OneShotAccessibilityTreeSearch;
 using ui::AXNodeData;
 using ui::AXTreeIDRegistry;
+
+static_assert(
+    std::is_trivially_copyable<SerializedPosition>::value,
+    "SerializedPosition must be POD because it's used to back an AXTextMarker");
 
 namespace {
 
@@ -172,21 +178,24 @@ AXTextMarkerRef AXTextMarkerRangeCopyEndMarker(
 
 // AXTextMarkerCreate copies from data buffer given to it.
 id CreateTextMarker(BrowserAccessibilityPositionInstance position) {
+  SerializedPosition serialized = position->Serialize();
   AXTextMarkerRef text_marker = AXTextMarkerCreate(
-      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(position.get()),
-      sizeof(BrowserAccessibilityPosition));
+      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(&serialized),
+      sizeof(SerializedPosition));
   return [static_cast<id>(text_marker) autorelease];
 }
 
 // |range| is destructed at the end of this method. |anchor| and |focus| are
 // copied into the individual text markers.
 id CreateTextMarkerRange(const AXPlatformRange range) {
+  SerializedPosition serialized_anchor = range.anchor()->Serialize();
+  SerializedPosition serialized_focus = range.focus()->Serialize();
   base::ScopedCFTypeRef<AXTextMarkerRef> start_marker(AXTextMarkerCreate(
-      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(range.anchor()),
-      sizeof(BrowserAccessibilityPosition)));
+      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(&serialized_anchor),
+      sizeof(SerializedPosition)));
   base::ScopedCFTypeRef<AXTextMarkerRef> end_marker(AXTextMarkerCreate(
-      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(range.focus()),
-      sizeof(BrowserAccessibilityPosition)));
+      kCFAllocatorDefault, reinterpret_cast<const UInt8*>(&serialized_focus),
+      sizeof(SerializedPosition)));
   AXTextMarkerRangeRef marker_range =
       AXTextMarkerRangeCreate(kCFAllocatorDefault, start_marker, end_marker);
   return [static_cast<id>(marker_range) autorelease];
@@ -195,22 +204,15 @@ id CreateTextMarkerRange(const AXPlatformRange range) {
 BrowserAccessibilityPositionInstance CreatePositionFromTextMarker(
     AXTextMarkerRef text_marker) {
   DCHECK(text_marker);
-  if (AXTextMarkerGetLength(text_marker) !=
-      sizeof(BrowserAccessibilityPosition))
+  if (AXTextMarkerGetLength(text_marker) != sizeof(SerializedPosition))
     return BrowserAccessibilityPosition::CreateNullPosition();
+
   const UInt8* source_buffer = AXTextMarkerGetBytePtr(text_marker);
   if (!source_buffer)
     return BrowserAccessibilityPosition::CreateNullPosition();
-  UInt8* destination_buffer = new UInt8[sizeof(BrowserAccessibilityPosition)];
-  std::memcpy(destination_buffer, source_buffer,
-              sizeof(BrowserAccessibilityPosition));
-  BrowserAccessibilityPosition::AXPositionInstance position(
-      reinterpret_cast<
-          BrowserAccessibilityPosition::AXPositionInstance::pointer>(
-          destination_buffer));
-  if (!position)
-    return BrowserAccessibilityPosition::CreateNullPosition();
-  return position;
+
+  return BrowserAccessibilityPosition::Unserialize(
+      *reinterpret_cast<const SerializedPosition*>(source_buffer));
 }
 
 AXPlatformRange CreateRangeFromTextMarkerRange(
@@ -2037,12 +2039,14 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   if (!manager)
     return nil;
 
-  int32_t anchorId = manager->GetTreeData().sel_anchor_object_id;
+  ui::AXTree::Selection unignored_selection =
+      manager->ax_tree()->GetUnignoredSelection();
+  int32_t anchorId = unignored_selection.anchor_object_id;
   const BrowserAccessibility* anchorObject = manager->GetFromID(anchorId);
   if (!anchorObject)
     return nil;
 
-  int32_t focusId = manager->GetTreeData().sel_focus_object_id;
+  int32_t focusId = unignored_selection.focus_object_id;
   const BrowserAccessibility* focusObject = manager->GetFromID(focusId);
   if (!focusObject)
     return nil;
@@ -2050,15 +2054,13 @@ NSString* const NSAccessibilityRequiredAttributeChrome = @"AXRequired";
   // |anchorOffset| and / or |focusOffset| refer to a character offset if
   // |anchorObject| / |focusObject| are text-only objects. Otherwise, they
   // should be treated as child indices.
-  int anchorOffset = manager->GetTreeData().sel_anchor_offset;
-  int focusOffset = manager->GetTreeData().sel_focus_offset;
+  int anchorOffset = unignored_selection.anchor_offset;
+  int focusOffset = unignored_selection.focus_offset;
   if (anchorOffset < 0 || focusOffset < 0)
     return nil;
 
-  ax::mojom::TextAffinity anchorAffinity =
-      manager->GetTreeData().sel_anchor_affinity;
-  ax::mojom::TextAffinity focusAffinity =
-      manager->GetTreeData().sel_focus_affinity;
+  ax::mojom::TextAffinity anchorAffinity = unignored_selection.anchor_affinity;
+  ax::mojom::TextAffinity focusAffinity = unignored_selection.focus_affinity;
 
   return CreateTextMarkerRange(
       CreateAXPlatformRange(*anchorObject, anchorOffset, anchorAffinity,

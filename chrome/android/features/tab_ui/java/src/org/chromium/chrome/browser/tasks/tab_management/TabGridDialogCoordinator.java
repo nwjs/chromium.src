@@ -24,12 +24,12 @@ import java.util.List;
  * objects.
  */
 public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHandler {
-    final static String COMPONENT_NAME = "TabGridDialog";
+    private final String mComponentName;
     private final Context mContext;
     private final TabListCoordinator mTabListCoordinator;
     private final TabGridDialogMediator mMediator;
     private final PropertyModel mToolbarPropertyModel;
-    private TabGridSheetToolbarCoordinator mToolbarCoordinator;
+    private final TabGridSheetToolbarCoordinator mToolbarCoordinator;
     private TabGridDialogParent mParentLayout;
 
     TabGridDialogCoordinator(Context context, TabModelSelector tabModelSelector,
@@ -37,20 +37,28 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
             CompositorViewHolder compositorViewHolder,
             TabSwitcherMediator.ResetHandler resetHandler,
             TabListMediator.GridCardOnClickListenerProvider gridCardOnClickListenerProvider,
-            TabGridDialogMediator.AnimationOriginProvider animationOriginProvider) {
+            TabGridDialogMediator.AnimationParamsProvider animationParamsProvider) {
         mContext = context;
+
+        mComponentName = animationParamsProvider == null ? "TabGridDialogFromStrip"
+                                                         : "TabGridDialogInSwitcher";
 
         mToolbarPropertyModel = new PropertyModel(TabGridSheetProperties.ALL_KEYS);
 
-        mMediator = new TabGridDialogMediator(context, this, mToolbarPropertyModel,
-                tabModelSelector, tabCreatorManager, resetHandler, animationOriginProvider);
+        mMediator =
+                new TabGridDialogMediator(context, this, mToolbarPropertyModel, tabModelSelector,
+                        tabCreatorManager, resetHandler, animationParamsProvider, mComponentName);
 
         mTabListCoordinator = new TabListCoordinator(TabListCoordinator.TabListMode.GRID, context,
                 tabModelSelector, tabContentManager::getTabThumbnailWithCallback, null, false, null,
                 gridCardOnClickListenerProvider, mMediator.getTabGridDialogHandler(), null, null,
-                compositorViewHolder, null, false, COMPONENT_NAME);
+                compositorViewHolder, null, false, mComponentName);
 
         mParentLayout = new TabGridDialogParent(context, compositorViewHolder);
+
+        TabListRecyclerView recyclerView = mTabListCoordinator.getContainerView();
+        mToolbarCoordinator = new TabGridSheetToolbarCoordinator(
+                mContext, recyclerView, mToolbarPropertyModel, mParentLayout);
     }
 
     /**
@@ -59,20 +67,15 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.ResetHand
     public void destroy() {
         mTabListCoordinator.destroy();
         mMediator.destroy();
+        mToolbarCoordinator.destroy();
         mParentLayout.destroy();
     }
 
     private void updateDialogContent(List<Tab> tabs) {
         if (tabs != null) {
-            TabListRecyclerView recyclerView = mTabListCoordinator.getContainerView();
-            mToolbarCoordinator = new TabGridSheetToolbarCoordinator(
-                    mContext, recyclerView, mToolbarPropertyModel, mParentLayout);
             mMediator.onReset(tabs.get(0).getId());
         } else {
             mMediator.onReset(null);
-            if (mToolbarCoordinator != null) {
-                mToolbarCoordinator.destroy();
-            }
         }
     }
 

@@ -10,6 +10,7 @@
 #include <memory>
 #include <ostream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -91,6 +92,10 @@ class AXPosition {
   using AXPositionInstance =
       std::unique_ptr<AXPosition<AXPositionType, AXNodeType>>;
 
+  // When converting an unignored position, determines how to adjust the new
+  // position in order to make it valid.
+  enum class AdjustmentBehavior { kMoveLeft, kMoveRight };
+
   static const int32_t INVALID_ANCHOR_ID = -1;
   static const int BEFORE_TEXT = -1;
   static const int INVALID_INDEX = -2;
@@ -128,6 +133,55 @@ class AXPosition {
   virtual ~AXPosition() = default;
 
   virtual AXPositionInstance Clone() const = 0;
+
+  // A serialization of a position as POD. Not for sharing on disk or sharing
+  // across thread or process boundaries, just for passing a position to an
+  // API that works with positions as opaque objects.
+  struct SerializedPosition {
+    AXPositionKind kind;
+    int32_t anchor_id;
+    int child_index;
+    int text_offset;
+    ax::mojom::TextAffinity affinity;
+    char tree_id[33];
+  };
+
+  static_assert(std::is_trivially_copyable<SerializedPosition>::value,
+                "SerializedPosition must be POD");
+
+  SerializedPosition Serialize() {
+    SerializedPosition result;
+    result.kind = kind_;
+
+    // A tree ID can be serialized as a 32-byte string.
+    std::string tree_id_string = tree_id_.ToString();
+    DCHECK_LE(tree_id_string.size(), 32U);
+    strncpy(result.tree_id, tree_id_string.c_str(), 32);
+    result.tree_id[32] = 0;
+
+    result.anchor_id = anchor_id_;
+    result.child_index = child_index_;
+    result.text_offset = text_offset_;
+    result.affinity = affinity_;
+    return result;
+  }
+
+  static AXPositionInstance Unserialize(
+      const SerializedPosition& serialization) {
+    AXPositionInstance new_position(new AXPositionType());
+    new_position->Initialize(serialization.kind,
+                             ui::AXTreeID::FromString(serialization.tree_id),
+                             serialization.anchor_id, serialization.child_index,
+                             serialization.text_offset, serialization.affinity);
+    return new_position;
+  }
+
+  virtual bool IsIgnoredPosition() const { return false; }
+
+  virtual AXPositionInstance AsUnignoredTextPosition(
+      AdjustmentBehavior adjustment_behavior) const {
+    return Clone();
+  }
 
   std::string ToString() const {
     std::string str;
@@ -1019,6 +1073,7 @@ class AXPosition {
       } else {
         text_position->text_offset_ = static_cast<int>(*iterator);
         text_position->affinity_ = ax::mojom::TextAffinity::kDownstream;
+        iterator++;
       }
 
       // Continue searching for the next word start until the next logical text
@@ -1150,6 +1205,7 @@ class AXPosition {
       } else {
         text_position->text_offset_ = static_cast<int>(*iterator);
         text_position->affinity_ = ax::mojom::TextAffinity::kDownstream;
+        iterator++;
       }
 
       // Continue searching for the next word end until the next logical text
@@ -1777,7 +1833,7 @@ class AXPosition {
 
   // Returns the length of the text that is present inside the anchor node,
   // including any text found in descendant text nodes.
-  int MaxTextOffset() const {
+  virtual int MaxTextOffset() const {
     if (IsNullPosition())
       return INVALID_INDEX;
     return static_cast<int>(GetText().length());
@@ -1827,7 +1883,8 @@ class AXPosition {
          (child_index_ != BEFORE_TEXT &&
           (child_index_ < 0 || child_index_ > AnchorChildCount()))) ||
         (kind_ == AXPositionKind::TEXT_POSITION &&
-         (text_offset_ < 0 || text_offset_ > MaxTextOffset()))) {
+         (text_offset_ < 0 ||
+          (text_offset > 0 && text_offset_ > MaxTextOffset())))) {
       // Reset to the null position.
       kind_ = AXPositionKind::NULL_POSITION;
       tree_id_ = AXTreeIDUnknown();

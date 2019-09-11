@@ -153,8 +153,10 @@ HTMLCanvasElement::~HTMLCanvasElement() {
 void HTMLCanvasElement::Dispose() {
   if (PlaceholderFrame()) {
     ReleasePlaceholderFrame();
-    UnregisterPlaceholder();
   }
+  // It's possible that the placeholder frame has been disposed but its ID still
+  // exists. Make sure that it gets unregistered here
+  UnregisterPlaceholder();
 
   // We need to drop frame dispatcher, to prevent mojo calls from completing.
   frame_dispatcher_ = nullptr;
@@ -788,7 +790,12 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
         if (canvas2d_bridge_->getLastRecord()) {
           const ComputedStyle* style = GetComputedStyle();
           if (style && style->ImageRendering() != EImageRendering::kPixelated) {
+            context.Canvas()->save();
+            context.Canvas()->translate(r.X(), r.Y());
+            context.Canvas()->scale(r.Width() / Size().Width(),
+                                    r.Height() / Size().Height());
             context.Canvas()->drawPicture(canvas2d_bridge_->getLastRecord());
+            context.Canvas()->restore();
             UMA_HISTOGRAM_BOOLEAN("Blink.Canvas.2DPrintingAsVector", true);
             return;
           }

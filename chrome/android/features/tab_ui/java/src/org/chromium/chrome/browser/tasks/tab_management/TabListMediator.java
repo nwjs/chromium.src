@@ -44,6 +44,7 @@ import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupUtils;
 import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.widget.selection.SelectionDelegate;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -256,8 +257,9 @@ class TabListMediator {
         }
 
         /**
-         * Records Tabs.TabOffsetOfSwitch and MobileTabSwitched for the component only if the
-         * fromTab and toTab have the same filter index.
+         * Records MobileTabSwitched for the component. Also, records Tabs.TabOffsetOfSwitch but
+         * only when fromTab and toTab are within the same group. This method only records UMA
+         * for components other than TabSwitcher.
          *
          * @param fromTab The previous selected tab.
          * @param toTab The new selected tab.
@@ -270,6 +272,8 @@ class TabListMediator {
                                         .getCurrentTabModelFilter()
                                         .indexOf(toTab);
 
+            RecordUserAction.record("MobileTabSwitched." + mComponentName);
+
             if (fromFilterIndex != toFilterIndex) return;
 
             int fromIndex = TabModelUtils.getTabIndexById(
@@ -279,8 +283,6 @@ class TabListMediator {
 
             RecordHistogram.recordSparseHistogram(
                     "Tabs.TabOffsetOfSwitch." + mComponentName, fromIndex - toIndex);
-
-            RecordUserAction.record("MobileTabSwitched." + mComponentName);
         }
     };
 
@@ -307,7 +309,7 @@ class TabListMediator {
             if (mModel.indexFromId(tab.getId()) == TabModel.INVALID_TAB_INDEX) return;
             mModel.get(mModel.indexFromId(tab.getId()))
                     .set(TabProperties.FAVICON,
-                            mTabListFaviconProvider.getDefaultFaviconDrawable());
+                            mTabListFaviconProvider.getDefaultFaviconDrawable(tab.isIncognito()));
         }
 
         @Override
@@ -527,6 +529,12 @@ class TabListMediator {
 
                     if (!isValidMovePosition(srcIndex) || !isValidMovePosition(desIndex)) return;
                     mModel.removeAt(srcIndex);
+                    if (getRelatedTabsForId(movedTab.getId()).size() == 2) {
+                        // When users use drop-to-merge to create a group.
+                        RecordUserAction.record("TabGroup.Created.DropToMerge");
+                    } else {
+                        RecordUserAction.record("TabGrid.Drag.DropToMerge");
+                    }
 
                     desIndex = srcIndex > desIndex ? desIndex : desIndex - 1;
                     Tab newSelectedTab = mTabModelSelector.getTabModelFilterProvider()
@@ -663,7 +671,7 @@ class TabListMediator {
         sTabClosedFromMapTabClosedFromMap.put(tabId, TabClosedFrom.GRID_TAB_SWITCHER_GROUP);
     }
 
-    void setActionOnAllRelatedTabsForTest(boolean actionOnAllRelatedTabs) {
+    void setActionOnAllRelatedTabsForTesting(boolean actionOnAllRelatedTabs) {
         mActionsOnAllRelatedTabs = actionOnAllRelatedTabs;
     }
 
@@ -915,12 +923,21 @@ class TabListMediator {
             }
         }
 
+        int selectedTabBackgroundDrawableId = tab.isIncognito()
+                ? R.drawable.selected_tab_background_incognito
+                : R.drawable.selected_tab_background;
+
+        int tabstripFaviconBackgroundDrawableId = tab.isIncognito()
+                ? R.color.favicon_background_color_incognito
+                : R.color.favicon_background_color;
+
         PropertyModel tabInfo =
                 new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
                         .with(TabProperties.TAB_ID, tab.getId())
                         .with(TabProperties.TITLE, mTitleProvider.getTitle(tab))
                         .with(TabProperties.FAVICON,
-                                mTabListFaviconProvider.getDefaultFaviconDrawable())
+                                mTabListFaviconProvider.getDefaultFaviconDrawable(
+                                        tab.isIncognito()))
                         .with(TabProperties.IS_SELECTED, isSelected)
                         .with(TabProperties.IPH_PROVIDER, showIPH ? mIphProvider : null)
                         .with(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener)
@@ -933,6 +950,11 @@ class TabListMediator {
                         .with(TabProperties.SELECTABLE_TAB_CLICKED_LISTENER,
                                 mSelectableTabOnClickListener)
                         .with(TabProperties.TAB_SELECTION_DELEGATE, getTabSelectionDelegate())
+                        .with(TabProperties.IS_INCOGNITO, tab.isIncognito())
+                        .with(TabProperties.SELECTED_TAB_BACKGROUND_DRAWABLE_ID,
+                                selectedTabBackgroundDrawableId)
+                        .with(TabProperties.TABSTRIP_FAVICON_BACKGROUND_COLOR_ID,
+                                tabstripFaviconBackgroundDrawableId)
                         .build();
 
         if (index >= mModel.size()) {

@@ -27,6 +27,7 @@
 #include "base/threading/thread_task_runner_handle.h"
 #include "base/version.h"
 #include "base/win/scoped_com_initializer.h"
+#include "base/win/scoped_handle.h"
 #include "chrome/chrome_cleaner/buildflags.h"
 #include "chrome/chrome_cleaner/components/recovery_component.h"
 #include "chrome/chrome_cleaner/components/system_report_component.h"
@@ -47,8 +48,9 @@
 #include "chrome/chrome_cleaner/engines/target/engine_delegate_factory.h"
 #include "chrome/chrome_cleaner/engines/target/sandbox_setup.h"
 #include "chrome/chrome_cleaner/executables/shutdown_sequence.h"
-#include "chrome/chrome_cleaner/ipc/chrome_prompt_ipc.h"
+#include "chrome/chrome_cleaner/ipc/mojo_chrome_prompt_ipc.h"
 #include "chrome/chrome_cleaner/ipc/mojo_task_runner.h"
+#include "chrome/chrome_cleaner/ipc/proto_chrome_prompt_ipc.h"
 #include "chrome/chrome_cleaner/ipc/sandbox.h"
 #include "chrome/chrome_cleaner/logging/logging_service_api.h"
 #include "chrome/chrome_cleaner/logging/pending_logs_service.h"
@@ -437,6 +439,16 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
   const chrome_cleaner::Settings* settings =
       chrome_cleaner::Settings::GetInstance();
 
+  if (settings->execution_mode() == ExecutionMode::kNone) {
+    ::MessageBox(nullptr,
+                 L"Manually running this program is no longer supported. "
+                 L"Please visit "
+                 L"https://support.google.com/chrome/?p=chrome_cleanup_tool "
+                 L"for more information.",
+                 L"Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    return chrome_cleaner::RESULT_CODE_MANUAL_EXECUTION_BY_USER;
+  }
+
   // Process priority modification has to be done before threads are created
   // because they inherit process' priority.
   if (settings->execution_mode() == ExecutionMode::kScanning) {
@@ -575,37 +587,34 @@ int APIENTRY wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int) {
   // Only create the IPC if both the Mojo pipe token and the parent pipe handle
   // have been sent by Chrome. If either switch is not present, it will not be
   // connected to the parent process.
+  // This pointer is leaked, in order to simplify this object's lifetime.
   chrome_cleaner::ChromePromptIPC* chrome_prompt_ipc = nullptr;
+
   if (settings->execution_mode() == ExecutionMode::kScanning) {
-    // Scanning mode is only used by Chrome and all necessary mojo pipe flags
+    // Scanning mode is only used by Chrome and all necessary IPC flags
     // must have been passed on the command line.
-    if (settings->chrome_mojo_pipe_token().empty() ||
-        !settings->has_parent_pipe_handle()) {
+    if (!settings->switches_valid_for_ipc()) {
       return ReturnWithResultCode(
           chrome_cleaner::RESULT_CODE_INVALID_IPC_SWITCHES, executable_path,
           &registry_logger, rebooter.get());
     }
 
-    const std::string chrome_mojo_pipe_token =
-        settings->chrome_mojo_pipe_token();
-    // This pointer is leaked, in order to simplify this object's lifetime.
-    chrome_prompt_ipc = new chrome_cleaner::ChromePromptIPC(
-        chrome_mojo_pipe_token, shutdown_sequence.mojo_task_runner);
-  } else if (!settings->chrome_mojo_pipe_token().empty() ||
-             settings->has_parent_pipe_handle()) {
+    if (settings->prompt_using_mojo()) {
+      chrome_prompt_ipc = new chrome_cleaner::MojoChromePromptIPC(
+          settings->chrome_mojo_pipe_token(),
+          shutdown_sequence.mojo_task_runner);
+    } else {
+      // |chrome_prompt_ipc| takes ownership of the handles. The settings
+      // object will still return the handle values when queried but from this
+      // point on they may or may not be open.
+      chrome_prompt_ipc = new chrome_cleaner::ProtoChromePromptIPC(
+          base::win::ScopedHandle(settings->prompt_response_read_handle()),
+          base::win::ScopedHandle(settings->prompt_request_write_handle()));
+    }
+  } else if (settings->has_any_ipc_switch()) {
     return ReturnWithResultCode(
         chrome_cleaner::RESULT_CODE_EXPECTED_SCANNING_EXECUTION_MODE,
         executable_path, &registry_logger, rebooter.get());
-  }
-
-  if (settings->execution_mode() == ExecutionMode::kNone) {
-    ::MessageBox(NULL,
-                 L"Manually running this program is no longer supported. "
-                 L"Please visit "
-                 L"https://support.google.com/chrome/?p=chrome_cleanup_tool "
-                 L"for more information.",
-                 L"Error", MB_OK | MB_ICONERROR | MB_TOPMOST);
-    return chrome_cleaner::RESULT_CODE_MANUAL_EXECUTION_BY_USER;
   }
 
   // If immediate elevation is not required, the process will restart elevated

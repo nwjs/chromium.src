@@ -5,24 +5,28 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import android.content.Context;
-import android.graphics.Rect;
+import android.content.res.ColorStateList;
 import android.support.annotation.Nullable;
+import android.support.v7.content.res.AppCompatResources;
 import android.view.View;
 
 import org.chromium.base.VisibleForTesting;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
+import org.chromium.chrome.browser.tabmodel.EmptyTabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabSelectionType;
 import org.chromium.chrome.browser.tasks.tab_groups.TabGroupModelFilter;
-import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.UrlConstants;
 import org.chromium.chrome.browser.widget.ScrimView;
+import org.chromium.chrome.tab_ui.R;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -54,43 +58,45 @@ public class TabGridDialogMediator {
     }
 
     /**
-     * Defines an interface for a {@link TabGridDialogMediator} to get the position on the screen
-     * of the tab grid card related to TabGridDialog in order to prepare animation.
+     * Defines an interface for a {@link TabGridDialogMediator} to get the {@link
+     * TabGridDialogParent.AnimationParams} in order to prepare show/hide animation.
      */
-    interface AnimationOriginProvider {
+    interface AnimationParamsProvider {
         /**
-         * Provide position of a tab card in GridTabSwitcher as the originate position of a
-         * animation.
+         * Provide a {@link TabGridDialogParent.AnimationParams} to setup the animation.
          *
          * @param index Index in GridTabSwitcher of the tab whose position is requested.
-         * @return  A {@link Rect} that contains position information of the tab card.
+         * @return A {@link TabGridDialogParent.AnimationParams} used to setup the animation.
          */
-        Rect getAnimationOriginRect(int index);
+        TabGridDialogParent.AnimationParams getAnimationParamsForIndex(int index);
     }
 
     private final Context mContext;
     private final PropertyModel mModel;
     private final TabModelSelector mTabModelSelector;
+    private final TabModelSelectorObserver mTabModelSelectorObserver;
     private final TabModelObserver mTabModelObserver;
     private final TabCreatorManager mTabCreatorManager;
     private final ResetHandler mDialogResetHandler;
     private final TabSwitcherMediator.ResetHandler mTabSwitcherResetHandler;
-    private final AnimationOriginProvider mAnimationOriginProvider;
+    private final AnimationParamsProvider mAnimationParamsProvider;
     private final DialogHandler mTabGridDialogHandler;
+    private final String mComponentName;
     private int mCurrentTabId = Tab.INVALID_TAB_ID;
 
     TabGridDialogMediator(Context context, ResetHandler dialogResetHandler, PropertyModel model,
             TabModelSelector tabModelSelector, TabCreatorManager tabCreatorManager,
             TabSwitcherMediator.ResetHandler tabSwitcherResetHandler,
-            AnimationOriginProvider animationOriginProvider) {
+            AnimationParamsProvider animationParamsProvider, String componentName) {
         mContext = context;
         mModel = model;
         mTabModelSelector = tabModelSelector;
         mTabCreatorManager = tabCreatorManager;
         mDialogResetHandler = dialogResetHandler;
         mTabSwitcherResetHandler = tabSwitcherResetHandler;
-        mAnimationOriginProvider = animationOriginProvider;
+        mAnimationParamsProvider = animationParamsProvider;
         mTabGridDialogHandler = new DialogHandler();
+        mComponentName = componentName;
 
         // Register for tab model.
         mTabModelObserver = new EmptyTabModelObserver() {
@@ -133,6 +139,40 @@ public class TabGridDialogMediator {
         };
         mTabModelSelector.getTabModelFilterProvider().addTabModelFilterObserver(mTabModelObserver);
 
+        mTabModelSelectorObserver = new EmptyTabModelSelectorObserver() {
+            @Override
+            public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
+                boolean isIncognito = newModel.isIncognito();
+                int dialogBackgroundResource = isIncognito
+                        ? R.drawable.tab_grid_dialog_background_incognito
+                        : R.drawable.tab_grid_dialog_background;
+                ColorStateList tintList = isIncognito
+                        ? AppCompatResources.getColorStateList(mContext, R.color.tint_on_dark_bg)
+                        : AppCompatResources.getColorStateList(
+                                mContext, R.color.standard_mode_tint);
+                int ungroupBarBackgroundColorId = isIncognito
+                        ? R.color.tab_grid_dialog_background_color_incognito
+                        : R.color.tab_grid_dialog_background_color;
+                int ungroupBarHoveredBackgroundColorId = isIncognito
+                        ? R.color.tab_grid_card_selected_color_incognito
+                        : R.color.tab_grid_card_selected_color;
+                int ungroupBarTextAppearance = isIncognito
+                        ? R.style.TextAppearance_BlueTitle2Incognito
+                        : R.style.TextAppearance_BlueTitle2;
+
+                mModel.set(TabGridSheetProperties.DIALOG_BACKGROUND_RESOUCE_ID,
+                        dialogBackgroundResource);
+                mModel.set(TabGridSheetProperties.TINT, tintList);
+                mModel.set(TabGridSheetProperties.DIALOG_UNGROUP_BAR_BACKGROUND_COLOR_ID,
+                        ungroupBarBackgroundColorId);
+                mModel.set(TabGridSheetProperties.DIALOG_UNGROUP_BAR_HOVERED_BACKGROUND_COLOR_ID,
+                        ungroupBarHoveredBackgroundColorId);
+                mModel.set(TabGridSheetProperties.DIALOG_UNGROUP_BAR_TEXT_APPEARANCE,
+                        ungroupBarTextAppearance);
+            }
+        };
+        mTabModelSelector.addObserver(mTabModelSelectorObserver);
+
         // Setup toolbar property model.
         setupToolbarClickHandlers();
 
@@ -141,7 +181,19 @@ public class TabGridDialogMediator {
     }
 
     void hideDialog(boolean showAnimation) {
-        if (!showAnimation) mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, null);
+        if (!showAnimation) {
+            mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, null);
+        } else {
+            TabGroupModelFilter filter =
+                    (TabGroupModelFilter) mTabModelSelector.getTabModelFilterProvider()
+                            .getCurrentTabModelFilter();
+            int index = filter.indexOf(
+                    TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), mCurrentTabId));
+            if (mAnimationParamsProvider != null && index != TabModel.INVALID_TAB_INDEX) {
+                mModel.set(TabGridSheetProperties.ANIMATION_PARAMS,
+                        mAnimationParamsProvider.getAnimationParamsForIndex(index));
+            }
+        }
         mDialogResetHandler.resetWithListOfTabs(null);
     }
 
@@ -153,21 +205,14 @@ public class TabGridDialogMediator {
             mCurrentTabId = tabId;
             int index = filter.indexOf(
                     TabModelUtils.getTabById(mTabModelSelector.getCurrentModel(), tabId));
-            if (mAnimationOriginProvider != null) {
-                Rect rect = mAnimationOriginProvider.getAnimationOriginRect(index);
-                mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, rect);
+            if (mAnimationParamsProvider != null) {
+                TabGridDialogParent.AnimationParams params =
+                        mAnimationParamsProvider.getAnimationParamsForIndex(index);
+                mModel.set(TabGridSheetProperties.ANIMATION_PARAMS, params);
             }
             updateDialog();
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, true);
         } else {
-            if (!FeatureUtilities.isTabToGtsAnimationEnabled()) {
-                int index = filter.indexOf(TabModelUtils.getTabById(
-                        mTabModelSelector.getCurrentModel(), mCurrentTabId));
-                if (mAnimationOriginProvider != null && index != TabModel.INVALID_TAB_INDEX) {
-                    Rect rect = mAnimationOriginProvider.getAnimationOriginRect(index);
-                    mModel.set(TabGridSheetProperties.ANIMATION_SOURCE_RECT, rect);
-                }
-            }
             mModel.set(TabGridSheetProperties.IS_DIALOG_VISIBLE, false);
         }
     }
@@ -180,6 +225,7 @@ public class TabGridDialogMediator {
             mTabModelSelector.getTabModelFilterProvider().removeTabModelFilterObserver(
                     mTabModelObserver);
         }
+        mTabModelSelector.removeObserver(mTabModelSelectorObserver);
     }
 
     boolean isVisible() {
@@ -217,6 +263,7 @@ public class TabGridDialogMediator {
             @Override
             public void onScrimClick() {
                 hideDialog(true);
+                RecordUserAction.record("TabGridDialog.Exit");
             }
             @Override
             public void onScrimVisibilityChanged(boolean visible) {}
@@ -227,6 +274,7 @@ public class TabGridDialogMediator {
     private View.OnClickListener getCollapseButtonClickListener() {
         return view -> {
             hideDialog(true);
+            RecordUserAction.record("TabGridDialog.Exit");
         };
     }
 
@@ -247,6 +295,7 @@ public class TabGridDialogMediator {
             mTabCreatorManager.getTabCreator(currentTab.isIncognito())
                     .createNewTab(new LoadUrlParams(UrlConstants.NTP_URL),
                             TabLaunchType.FROM_CHROME_UI, parentTabToAttach);
+            RecordUserAction.record("MobileNewTabOpened." + mComponentName);
         };
     }
 

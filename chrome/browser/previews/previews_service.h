@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/mru_cache.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/previews/previews_lite_page_decider.h"
 #include "components/blacklist/opt_out_blacklist/opt_out_blacklist_data.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "third_party/re2/src/re2/re2.h"
 
 namespace base {
 class FilePath;
@@ -35,6 +37,7 @@ class OptimizationGuideService;
 
 namespace previews {
 class PreviewsUIService;
+typedef std::vector<std::unique_ptr<re2::RE2>> RegexpList;
 }
 
 namespace leveldb_proto {
@@ -92,6 +95,24 @@ class PreviewsService : public KeyedService {
   // Returns the enabled PreviewsTypes with their version.
   static blacklist::BlacklistData::AllowedTypesAndVersions GetAllowedPreviews();
 
+  // Called when that there is a redirect from |start_url| to |end_url|. Called
+  // only when DeferAllScript preview feature is enabled.
+  void ReportObservedRedirectWithDeferAllScriptPreview(const GURL& start_url,
+                                                       const GURL& end_url);
+
+  // Returns true if |url| is marked as eligible for defer all script preview.
+  bool IsUrlEligibleForDeferAllScriptPreview(const GURL& url) const;
+
+  // Returns true if |start_url| leads to a URL redirect cycle based on
+  // |redirect_history|.
+  static bool HasURLRedirectCycle(
+      const GURL& start_url,
+      const base::MRUCache<GURL, GURL>& redirect_history);
+
+  // Returns true if |url| patially matches any of the regular expressions for
+  // which DeferAllScript preview can't be shown.
+  bool MatchesDeferAllScriptDenyListRegexp(const GURL& url) const;
+
  private:
   // The top site provider for use with the Previews Optimization Guide's Hints
   // Fetcher.
@@ -112,6 +133,16 @@ class PreviewsService : public KeyedService {
   // URL Factory for the Previews Optimization Guide's Hints Fetcher.
   scoped_refptr<network::SharedURLLoaderFactory>
       optimization_guide_url_loader_factory_;
+
+  // Stores history of URL redirects. Key is the starting URL and value is the
+  // URL that the starting URL redirected to. Populated only when DeferAllScript
+  // preview feature is enabled.
+  base::MRUCache<GURL, GURL> redirect_history_;
+
+  // A given URL is ineligible for defer preview if it partially matches any of
+  // the regular expression in |defer_all_script_denylist_regexps_|.
+  const std::unique_ptr<previews::RegexpList>
+      defer_all_script_denylist_regexps_;
 
   DISALLOW_COPY_AND_ASSIGN(PreviewsService);
 };

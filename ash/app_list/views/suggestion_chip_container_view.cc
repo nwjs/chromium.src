@@ -4,7 +4,6 @@
 
 #include "ash/app_list/views/suggestion_chip_container_view.h"
 
-#include <algorithm>
 #include <memory>
 
 #include "ash/app_list/app_list_util.h"
@@ -29,10 +28,16 @@ namespace {
 // The spacing between chips.
 constexpr int kChipSpacing = 8;
 
-bool IsPolicySuggestionChip(const SearchResult& result) {
-  return result.display_location() ==
+// Sort suggestion chip results by |display_index| value in ascending order.
+bool IndexOrdering(const SearchResult* result1, const SearchResult* result2) {
+  return result1->display_index() < result2->display_index();
+}
+
+bool IsPolicySuggestionChip(const SearchResult* result) {
+  return result->display_location() ==
              ash::SearchResultDisplayLocation::kSuggestionChipContainer &&
-         result.display_index() != ash::SearchResultDisplayIndex::kUndefined;
+         result->display_index() !=
+             ash::SearchResultDisplayIndex::kPlacementUndefined;
 }
 
 }  // namespace
@@ -76,13 +81,10 @@ SearchResultSuggestionChipView* SuggestionChipContainerView::GetResultViewAt(
 }
 
 int SuggestionChipContainerView::DoUpdate() {
-  if (IgnoreUpdateAndLayout())
-    return num_results();
-
   // Filter out priority suggestion chips with a non-default value
   // for |display_index|.
   auto filter_indexed_policy_chips = [](const SearchResult& r) -> bool {
-    return IsPolicySuggestionChip(r);
+    return IsPolicySuggestionChip(&r);
   };
   std::vector<SearchResult*> indexed_policy_results =
       SearchModel::FilterSearchResultsByFunction(
@@ -90,9 +92,7 @@ int SuggestionChipContainerView::DoUpdate() {
           AppListConfig::instance().num_start_page_tiles());
 
   std::sort(indexed_policy_results.begin(), indexed_policy_results.end(),
-            [](const SearchResult* r1, const SearchResult* r2) -> bool {
-              return r1->display_index() < r2->display_index();
-            });
+            &IndexOrdering);
 
   // Need to filter out kArcAppShortcut since it will be confusing to users
   // if shortcuts are displayed as suggestion chips. Also filter out any
@@ -101,7 +101,7 @@ int SuggestionChipContainerView::DoUpdate() {
     return r.display_type() == ash::SearchResultDisplayType::kRecommendation &&
            r.result_type() != ash::SearchResultType::kPlayStoreReinstallApp &&
            r.result_type() != ash::SearchResultType::kArcAppShortcut &&
-           !IsPolicySuggestionChip(r);
+           !IsPolicySuggestionChip(&r);
   };
   std::vector<SearchResult*> display_results =
       SearchModel::FilterSearchResultsByFunction(
@@ -112,9 +112,11 @@ int SuggestionChipContainerView::DoUpdate() {
   // Update display results list by placing policy result chips at their
   // specified |display_index|.
   for (auto* result : indexed_policy_results) {
-    display_results.emplace(display_results.begin() + result->display_index(),
-                            result);
+    std::vector<SearchResult*>::iterator desired_index =
+        display_results.begin() + result->display_index();
+    display_results.emplace(desired_index, result);
   }
+
   // Update search results here, but wait until layout to add them as child
   // views when we know this view's bounds.
   for (size_t i = 0; i < static_cast<size_t>(
@@ -134,9 +136,6 @@ const char* SuggestionChipContainerView::GetClassName() const {
 }
 
 void SuggestionChipContainerView::Layout() {
-  if (IgnoreUpdateAndLayout())
-    return;
-
   // Only show the chips that fit in this view's contents bounds.
   int total_width = 0;
   const int max_width = GetContentsBounds().width();
@@ -194,12 +193,6 @@ void SuggestionChipContainerView::OnTabletModeChanged(bool started) {
   // Enable/Disable chips' background blur based on tablet mode.
   for (auto* chip : suggestion_chip_views_)
     chip->SetBackgroundBlurEnabled(started);
-}
-
-bool SuggestionChipContainerView::IgnoreUpdateAndLayout() const {
-  // Ignore update and layout when this view is not shown.
-  const ash::AppListState state = contents_view_->GetActiveState();
-  return state != ash::AppListState::kStateApps;
 }
 
 }  // namespace app_list

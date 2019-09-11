@@ -306,10 +306,16 @@ customize.colorsMenuLoaded = false;
 
 
 /**
+ * Default color for custom color picker in hex format.
+ * @type {string}
+ */
+customize.defaultCustomColor = '#000000';
+
+/**
  * Custom color picked in hex format.
  * @type {string}
  */
-customize.customColorPicked = '#000000';
+customize.customColorPicked = customize.defaultCustomColor;
 
 /**
  * Sets the visibility of the settings menu and individual options depending on
@@ -726,7 +732,6 @@ customize.tileOnKeyDownInteraction = function(event) {
   } else if (customize.arrowKeys.includes(event.keyCode)) {
     // Handle arrow key navigation.
     event.preventDefault();
-    event.stopPropagation();
 
     let target = null;
     if (event.keyCode === customize.KEYCODES.LEFT) {
@@ -1911,7 +1916,8 @@ customize.initCustomBackgrounds = function(showErrorNotification) {
 
   // On any arrow key event in the tiles area, focus the first tile.
   $(customize.IDS.TILES).onkeydown = function(event) {
-    if (customize.arrowKeys.includes(event.keyCode)) {
+    if (document.activeElement === $(customize.IDS.TILES) &&
+        customize.arrowKeys.includes(event.keyCode)) {
       event.preventDefault();
       if ($(customize.IDS.MENU)
               .classList.contains(customize.CLASSES.COLLECTION_DIALOG)) {
@@ -1923,13 +1929,15 @@ customize.initCustomBackgrounds = function(showErrorNotification) {
   };
 
   $(customize.IDS.BACKGROUNDS_MENU).onkeydown = function(event) {
-    if (customize.arrowKeys.includes(event.keyCode)) {
+    if (document.activeElement === $(customize.IDS.BACKGROUNDS_MENU) &&
+        customize.arrowKeys.includes(event.keyCode)) {
       $(customize.IDS.BACKGROUNDS_UPLOAD_ICON).focus();
     }
   };
 
   $(customize.IDS.BACKGROUNDS_IMAGE_MENU).onkeydown = function(event) {
-    if (customize.arrowKeys.includes(event.keyCode)) {
+    if (document.activeElement === $(customize.IDS.BACKGROUNDS_IMAGE_MENU) &&
+        customize.arrowKeys.includes(event.keyCode)) {
       document.querySelector('[id$="img_tile_0"]').focus();
     }
   };
@@ -2248,7 +2256,8 @@ customize.loadColorsMenu = function() {
 
   // On arrow keys focus the first element.
   $(customize.IDS.COLORS_MENU).onkeydown = function(event) {
-    if (customize.arrowKeys.includes(event.keyCode)) {
+    if (document.activeElement === $(customize.IDS.COLORS_MENU) &&
+        customize.arrowKeys.includes(event.keyCode)) {
       if (configData.chromeColorsCustomColorPicker) {
         $(customize.IDS.COLOR_PICKER_TILE).focus();
       } else {
@@ -2390,6 +2399,7 @@ customize.cancelColor = function() {
  * picker.
  */
 customize.resetColorsMenu = function() {
+  customize.customColorPicked = customize.defaultCustomColor;
   $(customize.IDS.COLOR_PICKER).value = null;
   $(customize.IDS.COLORS_MENU).style.setProperty('--custom-color-border', '');
   $(customize.IDS.COLORS_MENU).style.setProperty('--custom-color-dark', '');

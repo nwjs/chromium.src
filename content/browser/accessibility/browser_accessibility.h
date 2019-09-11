@@ -91,8 +91,6 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   // its data changes.
   virtual void OnDataChanged() {}
 
-  virtual void OnSubtreeWillBeDeleted() {}
-
   // Called when the location changed.
   virtual void OnLocationChanged() {}
 
@@ -433,6 +431,7 @@ class CONTENT_EXPORT BrowserAccessibility : public ui::AXPlatformNodeDelegate {
   base::string16 GetAuthorUniqueId() const override;
   const ui::AXNodeData& GetData() const override;
   const ui::AXTreeData& GetTreeData() const override;
+  const ui::AXTree::Selection GetUnignoredSelection() const override;
   ui::AXNodePosition::AXPositionInstance CreateTextPositionAt(
       int offset,
       ax::mojom::TextAffinity affinity =
