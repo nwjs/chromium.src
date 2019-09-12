@@ -725,7 +725,7 @@ void Dispatcher::InvokeModuleSystemMethod(content::RenderFrame* render_frame,
                                           const std::string& function_name,
                                           const base::ListValue& args) {
   // need extension id set to empty for remote pages
-  if (render_frame && module_name == "nw.Window")
+  if (render_frame && (module_name == "nw.Window" || module_name == "app.window"))
     script_context_set_->ForEach(
       "", render_frame,
       base::Bind(&CallModuleMethod, module_name, function_name, &args));
