@@ -1665,6 +1665,10 @@ void LocalFrame::UnpauseContext() {
 }
 
 void LocalFrame::SetLifecycleState(mojom::FrameLifecycleState state) {
+  // Don't allow lifecycle state changes for detached frames.
+  if (!IsAttached())
+    return;
+
   // If we have asked to be frozen we will only do this once the
   // load event has fired.
   if ((state == mojom::FrameLifecycleState::kFrozen ||
@@ -1692,13 +1696,21 @@ void LocalFrame::SetLifecycleState(mojom::FrameLifecycleState state) {
   lifecycle_state_ = state;
 
   if (freeze) {
-    if (lifecycle_state_ != mojom::FrameLifecycleState::kPaused)
+    if (lifecycle_state_ != mojom::FrameLifecycleState::kPaused) {
       DidFreeze();
+      // DidFreeze can dispatch JS events, causing |this| to be detached.
+      if (!IsAttached())
+        return;
+    }
     PauseContext();
   } else {
     UnpauseContext();
-    if (old_state != mojom::FrameLifecycleState::kPaused)
+    if (old_state != mojom::FrameLifecycleState::kPaused) {
       DidResume();
+      // DidResume can dispatch JS events, causing |this| to be detached.
+      if (!IsAttached())
+        return;
+    }
   }
   if (Client())
     Client()->LifecycleStateChanged(state);

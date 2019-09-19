@@ -236,16 +236,14 @@ void VideoCaptureManager::DoStopDevice(VideoCaptureController* controller) {
 
   // If start request has not yet started processing, i.e. if it is not at the
   // beginning of the queue, remove it from the queue.
-  auto request_iter = device_start_request_queue_.begin();
-  if (request_iter != device_start_request_queue_.end()) {
-    request_iter =
-        std::find_if(++request_iter, device_start_request_queue_.end(),
-                     [controller](const CaptureDeviceStartRequest& request) {
-                       return request.controller() == controller;
-                     });
-    if (request_iter != device_start_request_queue_.end()) {
-      device_start_request_queue_.erase(request_iter);
-      return;
+  if (!device_start_request_queue_.empty()) {
+    auto second_request = std::next(device_start_request_queue_.begin());
+
+    for (auto it = second_request; it != device_start_request_queue_.end();) {
+      if (it->controller() == controller)
+        it = device_start_request_queue_.erase(it);
+      else
+        ++it;
     }
   }
 
@@ -641,8 +639,7 @@ void VideoCaptureManager::GetPhotoState(
     media::VideoCaptureDevice::GetPhotoStateCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  const VideoCaptureController* controller =
-      LookupControllerBySessionId(session_id);
+  VideoCaptureController* controller = LookupControllerBySessionId(session_id);
   if (!controller)
     return;
   if (controller->IsDeviceAlive()) {
@@ -653,7 +650,7 @@ void VideoCaptureManager::GetPhotoState(
   photo_request_queue_.emplace_back(
       session_id,
       base::Bind(&VideoCaptureController::GetPhotoState,
-                 base::Unretained(controller), base::Passed(&callback)));
+                 controller->GetWeakPtrForIOThread(), base::Passed(&callback)));
 }
 
 void VideoCaptureManager::SetPhotoOptions(
@@ -672,7 +669,7 @@ void VideoCaptureManager::SetPhotoOptions(
   // Queue up a request for later.
   photo_request_queue_.emplace_back(
       session_id, base::Bind(&VideoCaptureController::SetPhotoOptions,
-                             base::Unretained(controller),
+                             controller->GetWeakPtrForIOThread(),
                              base::Passed(&settings), base::Passed(&callback)));
 }
 
@@ -698,7 +695,7 @@ void VideoCaptureManager::TakePhoto(
   photo_request_queue_.emplace_back(
       session_id,
       base::Bind(&VideoCaptureController::TakePhoto,
-                 base::Unretained(controller), base::Passed(&callback)));
+                 controller->GetWeakPtrForIOThread(), base::Passed(&callback)));
 }
 
 void VideoCaptureManager::OnOpened(
